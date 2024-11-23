@@ -1,2 +1,3 @@
 # asra
-Design Tool Framework
+
+An open-source prototype tool names Asra.
