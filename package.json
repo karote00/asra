@@ -1,0 +1,11 @@
+{
+  "name": "asra",
+  "version": "1.0.1",
+  "description": "A open-source prototype tool names Asra. ",
+  "main": "index.js",
+  "scripts": {},
+  "keywords": [],
+  "author": "Asa Tsai",
+  "license": "MIT",
+  "packageManager": "yarn@4.3.1"
+}
