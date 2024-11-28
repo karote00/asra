@@ -1,11 +1,23 @@
 {
   "name": "asra",
   "version": "1.0.1",
-  "description": "An open-source prototype tool names Asra. ",
-  "main": "index.js",
-  "scripts": {},
-  "keywords": [],
+  "description": "An open-source prototype tool names Asra.",
   "author": "Asa Tsai",
   "license": "MIT",
-  "packageManager": "yarn@4.3.1"
+  "packageManager": "yarn@4.3.1",
+  "main": "index.js",
+  "keywords": [],
+  "scripts": {
+    "start": "cd packages/ui && yarn dev",
+    "build": "cd packages/ui && yarn build:vite",
+    "preview": "cd packages/ui && yarn preview"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.1"
+  }
 }
