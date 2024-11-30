@@ -1,7 +1,7 @@
 {
   "name": "@asra/scene-tree",
   "version": "1.0.0",
-  "description": "An open-source prototype tool names Asra.",
+  "description": "SceneTree structure.",
   "author": "Asa Tsai",
   "license": "MIT",
   "packageManager": "yarn@4.3.1",
