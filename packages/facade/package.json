@@ -1,0 +1,20 @@
+{
+  "name": "@asra/facade",
+  "version": "1.0.1",
+  "description": "Provider apis to manipulate with properties components",
+  "author": "Asa Tsai",
+  "license": "MIT",
+  "packageManager": "yarn@4.3.1",
+  "keywords": [],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "typescript": "^5.7.2"
+  }
+}

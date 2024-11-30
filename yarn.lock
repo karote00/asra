@@ -51,6 +51,15 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@asra/facade@workspace:packages/facade":
+  version: 0.0.0-use.local
+  resolution: "@asra/facade@workspace:packages/facade"
+  dependencies:
+    "@types/node": "npm:^22.10.1"
+    typescript: "npm:^5.7.2"
+  languageName: unknown
+  linkType: soft
+
 "@asra/scene-tree@workspace:packages/scene-tree":
   version: 0.0.0-use.local
   resolution: "@asra/scene-tree@workspace:packages/scene-tree"
