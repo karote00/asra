@@ -8,15 +8,16 @@
   "main": "index.js",
   "keywords": [],
   "scripts": {
-    "start": "cd packages/ui && yarn dev",
-    "build": "cd packages/ui && yarn build:vite",
-    "preview": "cd packages/ui && yarn preview"
+    "start": "turbo run dev",
+    "build": "turbo run build",
+    "dev": "cd packages/ui && yarn dev"
   },
   "workspaces": [
     "packages/*"
   ],
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
+    "turbo": "^2.3.3",
     "typescript": "^5.7.2",
     "vite": "^6.0.1"
   }

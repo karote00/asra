@@ -12,4 +12,15 @@
 #!.yarn/cache
 .pnp.*
 node_modules
+
+# build outputs
 dist
+
+# Turbo Cache
+.turbo
+
+# macOS
+.DS_Store
+
+# Log files
+*.log
