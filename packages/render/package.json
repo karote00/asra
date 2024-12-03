@@ -1,0 +1,20 @@
+{
+  "name": "@asra/render",
+  "version": "1.0.1",
+  "description": "Render engine",
+  "author": "Asa Tsai",
+  "license": "MIT",
+  "packageManager": "yarn@4.3.1",
+  "keywords": [],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react'
-import { app } from './states/app'
-import { initPixiApp, destroyPixiApp } from './controllers/app'
+import { app } from '../states/app'
+import { initPixiApp, destroyPixiApp } from '../controllers/app'
 
-const PixiApp: React.FC = () => {
+const RenderApp: React.FC = () => {
   const pixiContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -21,4 +21,4 @@ const PixiApp: React.FC = () => {
   return <div ref={pixiContainerRef} />
 }
 
-export default PixiApp
+export default RenderApp

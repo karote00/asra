@@ -1,5 +1,8 @@
 import * as PIXI from 'pixi.js'
+import Render from '@asra/render'
 import { app, setPixiApp } from '../states/app'
+
+const render = new Render()
 
 export const initPixiApp = async (
   container: HTMLDivElement,
@@ -8,17 +11,8 @@ export const initPixiApp = async (
 ) => {
   let newApp
   if (container) {
-    newApp = new PIXI.Application()
-
-    await newApp.init({
-      width,
-      height,
-      backgroundColor: 0x1099bb,
-      resolution: window.devicePixelRatio || 1,
-      antialias: true,
-      autoDensity: true
-    } as any)
-
+    newApp = await render.init(width, height, 0x1099bb)
+    console.log(newApp)
     if (!container.children.length) {
       container.appendChild(newApp.canvas as HTMLCanvasElement)
       setPixiApp(newApp)

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@asra/core": "workspace:^",
+    "@asra/render": "workspace:^",
     "@preact/signals-react": "^2.2.0",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
@@ -19,7 +19,7 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "dev": "vite --config vite.config.ts",
+    "start": "vite --config vite.config.ts",
     "build": "vite build",
     "preview": "vite preview"
   },

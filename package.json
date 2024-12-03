@@ -8,9 +8,9 @@
   "main": "index.js",
   "keywords": [],
   "scripts": {
-    "start": "turbo run dev",
+    "start": "turbo run start",
     "build": "turbo run build",
-    "dev": "cd packages/ui && yarn dev"
+    "dev": "cd packages/ui && yarn start"
   },
   "workspaces": [
     "packages/*"

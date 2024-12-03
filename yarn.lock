@@ -42,7 +42,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@asra/core@workspace:^, @asra/core@workspace:packages/core":
+"@asra/core@workspace:packages/core":
   version: 0.0.0-use.local
   resolution: "@asra/core@workspace:packages/core"
   dependencies:
@@ -54,6 +54,15 @@ __metadata:
 "@asra/facade@workspace:packages/facade":
   version: 0.0.0-use.local
   resolution: "@asra/facade@workspace:packages/facade"
+  dependencies:
+    "@types/node": "npm:^22.10.1"
+    typescript: "npm:^5.7.2"
+  languageName: unknown
+  linkType: soft
+
+"@asra/render@workspace:^, @asra/render@workspace:packages/render":
+  version: 0.0.0-use.local
+  resolution: "@asra/render@workspace:packages/render"
   dependencies:
     "@types/node": "npm:^22.10.1"
     typescript: "npm:^5.7.2"
@@ -73,7 +82,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asra/ui@workspace:packages/ui"
   dependencies:
-    "@asra/core": "workspace:^"
+    "@asra/render": "workspace:^"
     "@preact/signals-react": "npm:^2.2.0"
     "@testing-library/jest-dom": "npm:^5.17.0"
     "@testing-library/react": "npm:^13.4.0"
