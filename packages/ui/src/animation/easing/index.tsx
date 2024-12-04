@@ -1,6 +1,7 @@
+import React from 'react'
 import { COLUMN_WIDTH } from '../../constants'
 
-const Easing = () => {
+const Easing: React.FC = () => {
   return <div className={`w-${COLUMN_WIDTH}`}>Easing</div>
 }
 

@@ -1,6 +1,7 @@
+import React from 'react'
 import { COLUMN_WIDTH } from '../../constants'
 
-const Tree = () => {
+const Tree: React.FC = () => {
   return <div className={`w-${COLUMN_WIDTH}`}>Tree</div>
 }
 

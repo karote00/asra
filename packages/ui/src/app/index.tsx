@@ -1,3 +1,4 @@
+import React from 'react'
 import { COLUMN_WIDTH } from '../constants'
 import ToolBar from '../toolbar'
 import Contents from '../contents'
@@ -5,7 +6,7 @@ import Properties from '../properties'
 import Animation from '../animation'
 import { realSize } from '../utils'
 
-function App() {
+const App: React.FC = () => {
   return (
     <div
       className="absolute grid h-screen w-full z-20"
