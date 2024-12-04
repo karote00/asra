@@ -1,24 +1,32 @@
 import React, { useEffect, useRef } from 'react'
-import { app } from '../states/app'
-import { initPixiApp, destroyPixiApp } from '../controllers/app'
+import { initRenderApp, destroyRenderApp } from '../controllers/app'
 
 const RenderApp: React.FC = () => {
   const pixiContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (pixiContainerRef.current) {
-      initPixiApp(pixiContainerRef.current, 800, 600)
+      initRenderApp(
+        pixiContainerRef.current,
+        window.innerWidth,
+        window.innerHeight
+      )
     }
 
     return () => {
       if (pixiContainerRef.current) {
         pixiContainerRef.current.innerHTML = ''
-        destroyPixiApp()
+        destroyRenderApp()
       }
     }
-  }, [app.value])
+  }, [])
 
-  return <div ref={pixiContainerRef} />
+  return (
+    <div
+      className="absolute top-0 left-0 bg-gray-300 z-10"
+      ref={pixiContainerRef}
+    />
+  )
 }
 
 export default RenderApp

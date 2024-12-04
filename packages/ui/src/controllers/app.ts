@@ -1,32 +1,30 @@
-import * as PIXI from 'pixi.js'
 import Render from '@asra/render'
 import { app, setPixiApp } from '../states/app'
+import { CANVAS_BACKGROUND_COLOR } from '../constants'
 
 const render = new Render()
 
-export const initPixiApp = async (
+export const initRenderApp = async (
   container: HTMLDivElement,
   width: number,
   height: number
 ) => {
-  let newApp
-  if (container) {
-    newApp = await render.init(width, height, 0x1099bb)
+  const newApp = await render.init(width, height, CANVAS_BACKGROUND_COLOR)
 
-    if (!container.children.length) {
-      container.appendChild(newApp.canvas as HTMLCanvasElement)
-      setPixiApp(newApp)
-    }
+  if (!container.children.length) {
+    container.appendChild(newApp.canvas as HTMLCanvasElement)
+    setPixiApp(newApp)
   }
 }
 
-export const destroyPixiApp = () => {
-  if (!app.value) {
+export const destroyRenderApp = () => {
+  const renderApp = app.value
+  if (!renderApp) {
     return
   }
 
   setPixiApp(null)
-  app.value.destroy(true, {
+  renderApp.destroy(true, {
     children: true,
     texture: true
   })
