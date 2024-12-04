@@ -24,3 +24,6 @@ dist
 
 # Log files
 *.log
+
+# Editor settings
+.vscode
