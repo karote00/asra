@@ -1,15 +1,30 @@
-type ElementData = {}
+import { ElementRawData, EntityTypes } from '@asra/utils'
+import Props from './props'
+import Computed from './computed'
 
-type ElementDataType = Partial<ElementData>
+type ElementDataType = Partial<ElementRawData>
 
 class Element {
-  constructor(data: ElementDataType) {
-    this._init(data)
+  id: string = ''
+  name: string = ''
+  type: EntityTypes = EntityTypes.UNDEFINED
+  props: Props = new Props()
+  computed: Computed = new Computed()
+
+  constructor() {
+    this._init()
   }
 
-  _init(data: ElementDataType) {}
-}
+  _init(): void {}
 
-interface Element extends ElementData {}
+  load(data: ElementDataType): void {
+    if (!data) {
+      return
+    }
+
+    this.type = data.type!
+    this.props.load(data.props)
+  }
+}
 
 export default Element

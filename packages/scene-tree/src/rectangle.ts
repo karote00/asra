@@ -1,19 +1,23 @@
+import Props from './props'
 import Element from './element'
+import { RectangleRawData } from '@asra/utils'
 
-type RectangleData = {}
-
-type RectangleDataType = Partial<RectangleData>
+type RectangleDataType = Partial<RectangleRawData>
 
 class Rectangle extends Element {
-  constructor(data: RectangleDataType) {
-    super(data)
+  props!: Props
 
-    this._init(data)
+  constructor() {
+    super()
+
+    this._init()
   }
 
-  _init(data: RectangleDataType) {}
-}
+  _init(): void {}
 
-interface Rectangle extends RectangleData {}
+  load(data: RectangleDataType): void {
+    super.load(data)
+  }
+}
 
 export default Rectangle

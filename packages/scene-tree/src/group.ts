@@ -1,0 +1,30 @@
+import { GroupRawData } from '@asra/utils'
+import Props from './props'
+import Element from './element'
+import { ElementInstanceTypes } from './constants'
+
+type GroupDataType = Partial<GroupRawData>
+
+class Group extends Element {
+  children: ElementInstanceTypes[] = []
+  props!: Props
+
+  constructor() {
+    super()
+
+    this._init()
+  }
+
+  _init(): void {}
+
+  load(data: GroupDataType): void {
+    super.load(data)
+  }
+
+  addElement(element: ElementInstanceTypes, index?: number): void {
+    const idx = index ?? this.children.length
+    this.children.splice(idx, 0, element)
+  }
+}
+
+export default Group

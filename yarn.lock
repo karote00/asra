@@ -42,10 +42,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@asra/core@workspace:packages/core":
+"@asra/core@workspace:^, @asra/core@workspace:packages/core":
   version: 0.0.0-use.local
   resolution: "@asra/core@workspace:packages/core"
   dependencies:
+    "@asra/scene-tree": "workspace:^"
     "@types/node": "npm:^22.10.1"
     typescript: "npm:^5.7.2"
   languageName: unknown
@@ -60,6 +61,16 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@asra/factory@workspace:^, @asra/factory@workspace:packages/factory":
+  version: 0.0.0-use.local
+  resolution: "@asra/factory@workspace:packages/factory"
+  dependencies:
+    "@types/node": "npm:^22.10.1"
+    typescript: "npm:^5.7.2"
+    yjs: "npm:^13.6.20"
+  languageName: unknown
+  linkType: soft
+
 "@asra/render@workspace:^, @asra/render@workspace:packages/render":
   version: 0.0.0-use.local
   resolution: "@asra/render@workspace:packages/render"
@@ -69,10 +80,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/scene-tree@workspace:packages/scene-tree":
+"@asra/scene-tree@workspace:^, @asra/scene-tree@workspace:packages/scene-tree":
   version: 0.0.0-use.local
   resolution: "@asra/scene-tree@workspace:packages/scene-tree"
   dependencies:
+    "@asra/factory": "workspace:^"
+    "@asra/utils": "workspace:^"
     "@types/node": "npm:^22.10.1"
     typescript: "npm:^5.7.2"
   languageName: unknown
@@ -82,6 +95,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asra/ui@workspace:packages/ui"
   dependencies:
+    "@asra/core": "workspace:^"
     "@asra/render": "workspace:^"
     "@preact/signals-react": "npm:^2.2.0"
     "@testing-library/jest-dom": "npm:^5.17.0"
@@ -100,6 +114,15 @@ __metadata:
     typescript: "npm:^4.9.5"
     vite: "npm:^6.0.1"
     web-vitals: "npm:^2.1.4"
+  languageName: unknown
+  linkType: soft
+
+"@asra/utils@workspace:^, @asra/utils@workspace:packages/utils":
+  version: 0.0.0-use.local
+  resolution: "@asra/utils@workspace:packages/utils"
+  dependencies:
+    "@types/node": "npm:^22.10.1"
+    typescript: "npm:^5.7.2"
   languageName: unknown
   linkType: soft
 
@@ -8309,6 +8332,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"isomorphic.js@npm:^0.2.4":
+  version: 0.2.5
+  resolution: "isomorphic.js@npm:0.2.5"
+  checksum: 10c0/7cd268c8e58146a8160c8cd16596291fd1fbf3e8799a325f269accda9dc1238806e371ccef0b66fe2ad957209230c55997248d8b6d02cf2d7c575ffeb759c789
+  languageName: node
+  linkType: hard
+
 "istanbul-lib-coverage@npm:^3.0.0, istanbul-lib-coverage@npm:^3.2.0":
   version: 3.2.2
   resolution: "istanbul-lib-coverage@npm:3.2.2"
@@ -9325,6 +9355,19 @@ __metadata:
     prelude-ls: "npm:~1.1.2"
     type-check: "npm:~0.3.2"
   checksum: 10c0/e440df9de4233da0b389cd55bd61f0f6aaff766400bebbccd1231b81801f6dbc1d816c676ebe8d70566394b749fa624b1ed1c68070e9c94999f0bdecc64cb676
+  languageName: node
+  linkType: hard
+
+"lib0@npm:^0.2.98":
+  version: 0.2.98
+  resolution: "lib0@npm:0.2.98"
+  dependencies:
+    isomorphic.js: "npm:^0.2.4"
+  bin:
+    0ecdsa-generate-keypair: bin/0ecdsa-generate-keypair.js
+    0gentesthtml: bin/gentesthtml.js
+    0serve: bin/0serve.js
+  checksum: 10c0/074097bcb90a002449cfddaa11552f11d088e38233f0a20a3358b08d7d1952b2f5a491fb63e63ccf66a8ec037e16d82d40a27601bbacf5ded0d2ec810bdf550e
   languageName: node
   linkType: hard
 
@@ -14597,6 +14640,15 @@ __metadata:
     y18n: "npm:^5.0.5"
     yargs-parser: "npm:^20.2.2"
   checksum: 10c0/b1dbfefa679848442454b60053a6c95d62f2d2e21dd28def92b647587f415969173c6e99a0f3bab4f1b67ee8283bf735ebe3544013f09491186ba9e8a9a2b651
+  languageName: node
+  linkType: hard
+
+"yjs@npm:^13.6.20":
+  version: 13.6.20
+  resolution: "yjs@npm:13.6.20"
+  dependencies:
+    lib0: "npm:^0.2.98"
+  checksum: 10c0/d71a3ea265e566a603f1e55aac052c1e5cc2feb863430901e4d3990e55911cfa55667be1008a82f9d95669998bacb0a470806fbbacd2337c996716ffbf45d0a0
   languageName: node
   linkType: hard
 

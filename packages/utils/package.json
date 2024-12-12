@@ -1,7 +1,7 @@
 {
-  "name": "@asra/core",
+  "name": "@asra/utils",
   "version": "1.0.1",
-  "description": "Core of Asra.",
+  "description": "Shared properties and functionalities",
   "author": "Asa Tsai",
   "license": "MIT",
   "packageManager": "yarn@4.3.1",
@@ -16,8 +16,5 @@
   "devDependencies": {
     "@types/node": "^22.10.1",
     "typescript": "^5.7.2"
-  },
-  "dependencies": {
-    "@asra/scene-tree": "workspace:^"
   }
 }
