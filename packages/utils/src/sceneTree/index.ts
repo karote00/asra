@@ -1,2 +1,2 @@
-export * from './rawDatas'
+export * from './rawDataTypes'
 export * from './enum'

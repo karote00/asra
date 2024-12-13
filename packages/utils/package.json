@@ -11,10 +11,12 @@
   "scripts": {
     "dev": "tsc --watch",
     "build": "tsc",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "vitest"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }

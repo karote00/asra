@@ -10,7 +10,8 @@
   "scripts": {
     "start": "turbo run start",
     "build": "turbo run build",
-    "dev": "cd packages/ui && yarn start"
+    "dev": "cd packages/ui && yarn start",
+    "test": "turbo run test"
   },
   "workspaces": [
     "packages/*"
