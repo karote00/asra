@@ -1,13 +1,22 @@
-import { ElementRawData, EntityTypes } from '@asra/utils'
+import {
+  ElementRawData,
+  EntityTypes,
+  ID_TYPES,
+  id,
+  NAME_TYPES,
+  name
+} from '@asra/utils'
 import Props from './props'
 import Computed from './computed'
 
 type ElementDataType = Partial<ElementRawData>
 
 class Element {
+  _idType: ID_TYPES = ID_TYPES.ELEMENT
+  _nameType: NAME_TYPES = NAME_TYPES.ELEMENT
   id: string = ''
   name: string = ''
-  type: EntityTypes = EntityTypes.UNDEFINED
+  type: EntityTypes = EntityTypes.ELEMENT
   props: Props = new Props()
   computed: Computed = new Computed()
 
@@ -15,7 +24,10 @@ class Element {
     this._init()
   }
 
-  _init(): void {}
+  _init(): void {
+    this.id = id(this._idType)
+    this.name = name(this._nameType)
+  }
 
   load(data: ElementDataType): void {
     if (!data) {

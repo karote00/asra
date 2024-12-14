@@ -7,13 +7,13 @@ const addOne = (str: string): string => (Number(str) + 1).toString()
 
 describe('idCounter:', () => {
   describe('check current max number of id', () => {
-    it('should return current default id if type is not provided', () => {
+    it('should return the current default id if type is not provided', () => {
       const currentId = idCounter.current()
 
       expect(currentId).toBe(FIRST_ID)
     })
 
-    it('should return current id with specific type', () => {
+    it('should return the current id for the specific type', () => {
       const type = ID_TYPES.ELEMENT
 
       const currentId = idCounter.current(type)
@@ -22,7 +22,7 @@ describe('idCounter:', () => {
       expect(currentId).toBe(expectResult)
     })
 
-    it('should return undefined if the type is invalid', () => {
+    it('should return undefined for an invalid type', () => {
       const type = 'UNKNOWN_TYPE'
 
       const currentId = idCounter.current(type)
@@ -32,7 +32,7 @@ describe('idCounter:', () => {
   })
 
   describe('get new id:', () => {
-    it('should return new id if type is not provided', () => {
+    it('should return a new id when type is not specified', () => {
       const currentId = idCounter.current()
 
       const newId = idCounter.increase()
@@ -41,7 +41,7 @@ describe('idCounter:', () => {
       expect(newId).toBe(expectResult)
     })
 
-    it('should return new id with specific type', () => {
+    it('should return a new id for the specific type', () => {
       const type = ID_TYPES.WORKSPACE
       const currentId = idCounter.current(type)
 
@@ -52,7 +52,7 @@ describe('idCounter:', () => {
       expect(newId).toBe(expectResult)
     })
 
-    it('should return empty string if the type is invalid', () => {
+    it('should return an empty string for an invalid type', () => {
       const type = 'UNKNOWN_TYPE'
 
       const newId = idCounter.increase(type)
@@ -62,7 +62,7 @@ describe('idCounter:', () => {
   })
 
   describe('valid id', () => {
-    it('should returns true for a numeric string id when no type is provided', () => {
+    it('should returns true for a numeric string id when type is not specified', () => {
       const testId = '5'
 
       const result = idCounter.valid(testId)
@@ -70,7 +70,7 @@ describe('idCounter:', () => {
       expect(result).toBe(true)
     })
 
-    it('should returns false when id is not a numeric string and no type is provided', () => {
+    it('should returns false for a non-numeric string id when type is not specified', () => {
       const testId = 'test'
 
       const result = idCounter.valid(testId)
@@ -86,7 +86,7 @@ describe('idCounter:', () => {
       expect(result).toBe(true)
     })
 
-    it('should return false if is invalid type', () => {
+    it('should return false for an invalid type', () => {
       const type = 'UNKNOWN'
       const testId = `${type}-8`
 
@@ -95,7 +95,7 @@ describe('idCounter:', () => {
       expect(result).toBe(false)
     })
 
-    it('should return false if the number of id is not a number', () => {
+    it('should return false if the numeric part of the id is not valid', () => {
       const testId = 'el-UNKNOWN'
 
       const result = idCounter.valid(testId, ID_TYPES.ELEMENT)
@@ -103,7 +103,7 @@ describe('idCounter:', () => {
       expect(result).toBe(false)
     })
 
-    it('should return false if the key of id is different of type', () => {
+    it('should return false if the prefix of the id does not match the specified type', () => {
       const testId = 'el-3'
 
       const result = idCounter.valid(testId, ID_TYPES.WORKSPACE)

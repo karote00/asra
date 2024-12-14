@@ -1,5 +1,11 @@
 import Factory from '@asra/factory'
-import { WorkspaceRawData, GroupEntityTypes } from '@asra/utils'
+import {
+  WorkspaceRawData,
+  GroupEntityTypes,
+  ID_TYPES,
+  NAME_TYPES,
+  EntityTypes
+} from '@asra/utils'
 import Group from './group'
 import { createElement } from './utils'
 import { ElementInstanceTypes, GroupInstanceTypes } from './constants'
@@ -7,15 +13,19 @@ import { ElementInstanceTypes, GroupInstanceTypes } from './constants'
 type WorkspaceDataType = Partial<WorkspaceRawData>
 
 class Workspace extends Group {
+  _idType: ID_TYPES = ID_TYPES.WORKSPACE
+  _nameType: NAME_TYPES = NAME_TYPES.WORKSPACE
   children: ElementInstanceTypes[] = []
 
   constructor() {
     super()
-
-    this._init()
   }
 
-  _init(): void {}
+  _init(): void {
+    this._nameType = NAME_TYPES.WORKSPACE
+    this.type = EntityTypes.WORKSPACE
+    super._init()
+  }
 
   load(data: WorkspaceDataType): void {
     if (!data) {

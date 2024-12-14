@@ -1,4 +1,4 @@
-import { GroupRawData } from '@asra/utils'
+import { GroupRawData, EntityTypes } from '@asra/utils'
 import Props from './props'
 import Element from './element'
 import { ElementInstanceTypes } from './constants'
@@ -11,11 +11,12 @@ class Group extends Element {
 
   constructor() {
     super()
-
-    this._init()
   }
 
-  _init(): void {}
+  _init(): void {
+    this.type = EntityTypes.GROUP
+    super._init()
+  }
 
   load(data: GroupDataType): void {
     super.load(data)

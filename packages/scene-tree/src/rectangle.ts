@@ -1,6 +1,6 @@
+import { RectangleRawData, EntityTypes } from '@asra/utils'
 import Props from './props'
 import Element from './element'
-import { RectangleRawData } from '@asra/utils'
 
 type RectangleDataType = Partial<RectangleRawData>
 
@@ -9,11 +9,12 @@ class Rectangle extends Element {
 
   constructor() {
     super()
-
-    this._init()
   }
 
-  _init(): void {}
+  _init(): void {
+    this.type = EntityTypes.RECTANGLE
+    super._init()
+  }
 
   load(data: RectangleDataType): void {
     super.load(data)

@@ -8,18 +8,34 @@ class IDCounter {
   counter: { [key: string]: string } = {}
 
   constructor() {
-    Object.values(ID_TYPES).forEach((type) => {
+    Object.values(ID_TYPES).forEach((type: string) => {
       this.counter[type] =
         type === ID_TYPES.DEFAULT ? FIRST_ID : `${type}${CODE_SPLIT}${FIRST_ID}`
     })
   }
 
   current(type: ID_TYPES | string = ID_TYPES.DEFAULT): string {
+    if (!type) {
+      return ''
+    }
+
     return this.counter[type]
   }
 
+  update(type: ID_TYPES | string = ID_TYPES.DEFAULT, newId: string): void {
+    if (!type) {
+      return
+    }
+
+    this.counter[type] = newId
+  }
+
   increase(type: ID_TYPES | string = ID_TYPES.DEFAULT): string {
-    const currentId = this.counter[type]
+    if (!type) {
+      return ''
+    }
+
+    const currentId = this.current(type)
     if (!currentId) {
       return ''
     }
@@ -28,12 +44,18 @@ class IDCounter {
     const count = parseInt(splits[splits.length - 1])
     const next = count + 1
 
-    return type === DEFAULT_TYPE
-      ? next.toString()
-      : `${type}${CODE_SPLIT}${next}`
+    const newId =
+      type === DEFAULT_TYPE ? next.toString() : `${type}${CODE_SPLIT}${next}`
+    this.update(type, newId)
+
+    return newId
   }
 
   valid(id: string, type: ID_TYPES | string = ID_TYPES.DEFAULT): boolean {
+    if (!type) {
+      return false
+    }
+
     if (!AvaliableIDTypes.has(type)) {
       return false
     }

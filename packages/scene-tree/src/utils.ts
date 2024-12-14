@@ -23,7 +23,7 @@ export const createElement = (elementData: ElementRawData) => {
 
   const EntityClass = entityClassMap[elementData.type]
   if (!EntityClass) {
-    throw new Error('Ivalid element type.')
+    throw new Error('Ivalid entity type.')
   }
 
   const newEntity = new EntityClass() as ElementInstanceTypes

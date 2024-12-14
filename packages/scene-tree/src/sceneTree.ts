@@ -13,14 +13,16 @@ type SceneTreeDataType = Partial<SceneTreeRawData>
 class SceneTree {
   _elements: Map<string, ElementInstanceTypes> = new Map()
   workspace: string = ''
-  workspaceList: Workspace[] = [new Workspace()]
+  workspaceList: Workspace[] = []
 
   constructor() {
     this._init()
   }
 
   _init(): void {
-    this.workspaceList = [new Workspace()]
+    const initWorkspace = new Workspace()
+    this._elements.set(initWorkspace.id, initWorkspace)
+    this.workspaceList = [initWorkspace]
     this.workspace = this.workspaceList[0].id
   }
 
@@ -51,11 +53,6 @@ class SceneTree {
   }
 
   get currentWorkspace() {
-    // FIXME: After workspace has id, should remove this condition
-    if (!this.workspace) {
-      return this.workspaceList[0]
-    }
-
     return this._elements.get(this.workspace)
   }
 
@@ -95,6 +92,7 @@ class SceneTree {
     index?: number
   ) {
     const newRectangle = createElement(elementData)
+
     if (newRectangle) {
       this.addNewElement(newRectangle, parent, index)
     }
