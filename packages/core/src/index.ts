@@ -1,10 +1,5 @@
-import SceneTree from '@asra/scene-tree'
+import sceneTree, { SceneTree } from '@asra/scene-tree'
 import { EntityTypes } from '@asra/utils'
-
-type CoreAttrs = {
-  version: string
-  sceneTree: SceneTree
-}
 
 type CoreRawData = {
   version: string
@@ -18,7 +13,7 @@ const DATA_VERSION = '1.0.0'
 
 class Core {
   version: string = DEFAULT_VERSION
-  sceneTree: SceneTree = new SceneTree()
+  sceneTree: SceneTree = sceneTree
 
   constructor() {
     this._init()
@@ -41,7 +36,5 @@ class Core {
     this.sceneTree.addRectangle({ type: EntityTypes.RECTANGLE })
   }
 }
-
-interface Core extends CoreAttrs {}
 
 export default Core

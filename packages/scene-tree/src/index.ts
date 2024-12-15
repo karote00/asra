@@ -1,1 +1,1 @@
-export { default } from './sceneTree'
+export { default, SceneTree } from './sceneTree'

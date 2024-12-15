@@ -22,9 +22,15 @@ class Group extends Element {
     super.load(data)
   }
 
-  addElement(element: ElementInstanceTypes, index?: number): void {
+  addElement(element: ElementInstanceTypes, index?: number): boolean {
+    if (!element) {
+      return false
+    }
+
     const idx = index ?? this.children.length
     this.children.splice(idx, 0, element)
+
+    return true
   }
 }
 

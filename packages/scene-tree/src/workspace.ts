@@ -1,4 +1,3 @@
-import Factory from '@asra/factory'
 import {
   WorkspaceRawData,
   GroupEntityTypes,
@@ -22,6 +21,7 @@ class Workspace extends Group {
   }
 
   _init(): void {
+    this._idType = ID_TYPES.WORKSPACE
     this._nameType = NAME_TYPES.WORKSPACE
     this.type = EntityTypes.WORKSPACE
     super._init()
@@ -50,9 +50,9 @@ class Workspace extends Group {
     element: ElementInstanceTypes,
     parent?: GroupInstanceTypes,
     index?: number
-  ): void {
+  ): boolean {
     if (!element) {
-      return
+      return false
     }
 
     let avaliableParent = parent
@@ -63,12 +63,14 @@ class Workspace extends Group {
       }
     }
 
-    if (avaliableParent) {
-      avaliableParent.addElement(element, index)
-    } else {
-      const idx = index ?? this.children.length
-      this.children.splice(idx, 0, element)
+    if (avaliableParent && avaliableParent.children) {
+      return avaliableParent.addElement(element, index)
     }
+
+    const idx = index ?? this.children.length
+    this.children.splice(idx, 0, element)
+
+    return true
   }
 }
 

@@ -1,23 +1,18 @@
 import * as Y from 'yjs'
-import { SceneTreeNode } from './types'
-
-const doc = new Y.Doc()
-
-type FactoryProps = {
-  version: string
-  sceneTreeMap: Y.Map<SceneTreeNode>
-}
+import doc from './data'
+import DataTransact from './data-transact'
+import { SceneTreeChange } from './change-types'
+import { sceneTreeChangesMap } from './registry'
 
 class Factory {
+  sceneTreeMap: Y.Array<SceneTreeChange> = sceneTreeChangesMap
+  transact: DataTransact = new DataTransact(doc)
+
   constructor() {
     this._init()
   }
 
-  _init() {
-    this.sceneTreeMap = doc.getMap<SceneTreeNode>('sceneTree')
-  }
+  _init() {}
 }
-
-interface Factory extends FactoryProps {}
 
 export default new Factory()

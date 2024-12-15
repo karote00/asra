@@ -14,8 +14,14 @@ type ElementDataType = Partial<ElementRawData>
 class Element {
   _idType: ID_TYPES = ID_TYPES.ELEMENT
   _nameType: NAME_TYPES = NAME_TYPES.ELEMENT
-  id: string = ''
-  name: string = ''
+  data: {
+    id: string
+    name: string
+    [key: string]: any
+  } = {
+    id: '',
+    name: ''
+  }
   type: EntityTypes = EntityTypes.ELEMENT
   props: Props = new Props()
   computed: Computed = new Computed()
@@ -25,8 +31,8 @@ class Element {
   }
 
   _init(): void {
-    this.id = id(this._idType)
-    this.name = name(this._nameType)
+    this.data.id = id(this._idType)
+    this.data.name = name(this._nameType)
   }
 
   load(data: ElementDataType): void {
@@ -36,6 +42,14 @@ class Element {
 
     this.type = data.type!
     this.props.load(data.props)
+  }
+
+  get(key: string) {
+    if (key in this.data) {
+      return this.data[key]
+    }
+
+    throw new Error('Not allow to get value which is not in entity data.')
   }
 }
 
