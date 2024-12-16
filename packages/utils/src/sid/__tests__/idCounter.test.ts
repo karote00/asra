@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { idCounter } from '../idCounter'
 import { CODE_SPLIT, FIRST_ID } from '../constants'
-import { ID_TYPES } from '../enum'
+import { IDTypes } from '../enum'
 
 const addOne = (str: string): string => (Number(str) + 1).toString()
 
@@ -14,7 +14,7 @@ describe('idCounter:', () => {
     })
 
     it('should return the current id for the specific type', () => {
-      const type = ID_TYPES.ELEMENT
+      const type = IDTypes.ELEMENT
 
       const currentId = idCounter.current(type)
 
@@ -42,7 +42,7 @@ describe('idCounter:', () => {
     })
 
     it('should return a new id for the specific type', () => {
-      const type = ID_TYPES.WORKSPACE
+      const type = IDTypes.WORKSPACE
       const currentId = idCounter.current(type)
 
       const newId = idCounter.increase(type)
@@ -81,7 +81,7 @@ describe('idCounter:', () => {
     it('should return true for a numberic string id when type is specified', () => {
       const testId = 'el-6'
 
-      const result = idCounter.valid(testId, ID_TYPES.ELEMENT)
+      const result = idCounter.valid(testId, IDTypes.ELEMENT)
 
       expect(result).toBe(true)
     })
@@ -98,7 +98,7 @@ describe('idCounter:', () => {
     it('should return false if the numeric part of the id is not valid', () => {
       const testId = 'el-UNKNOWN'
 
-      const result = idCounter.valid(testId, ID_TYPES.ELEMENT)
+      const result = idCounter.valid(testId, IDTypes.ELEMENT)
 
       expect(result).toBe(false)
     })
@@ -106,7 +106,7 @@ describe('idCounter:', () => {
     it('should return false if the prefix of the id does not match the specified type', () => {
       const testId = 'el-3'
 
-      const result = idCounter.valid(testId, ID_TYPES.WORKSPACE)
+      const result = idCounter.valid(testId, IDTypes.WORKSPACE)
 
       expect(result).toBe(false)
     })

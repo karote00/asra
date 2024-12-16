@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { nameCounter } from '../nameCounter'
 import { CODE_SPLIT, FIRST_NAME } from '../constants'
-import { NAME_TYPES } from '../enum'
+import { NameTypes } from '../enum'
 
 const addOne = (str: string): string => (Number(str) + 1).toString()
 
 describe('nameCounter:', () => {
   describe('check current max number of name', () => {
     it('should return the current name for the specific type', () => {
-      const type = NAME_TYPES.ELEMENT
+      const type = NameTypes.ELEMENT
 
       const currentName = nameCounter.current(type)
 
@@ -19,7 +19,7 @@ describe('nameCounter:', () => {
 
   describe('get new name:', () => {
     it('should return a new name for the specific type', () => {
-      const type = NAME_TYPES.WORKSPACE
+      const type = NameTypes.WORKSPACE
       const currentName = nameCounter.current(type)
 
       const newName = nameCounter.increase(type)
@@ -34,7 +34,7 @@ describe('nameCounter:', () => {
     it('should return true for a valid name with a number when the type is specified', () => {
       const testName = 'Element 6'
 
-      const result = nameCounter.valid(testName, NAME_TYPES.ELEMENT)
+      const result = nameCounter.valid(testName, NameTypes.ELEMENT)
 
       expect(result).toBe(true)
     })
@@ -42,7 +42,7 @@ describe('nameCounter:', () => {
     it('should return false if the numeric of the name is not valid', () => {
       const testName = 'Element UNKNOWN'
 
-      const result = nameCounter.valid(testName, NAME_TYPES.ELEMENT)
+      const result = nameCounter.valid(testName, NameTypes.ELEMENT)
 
       expect(result).toBe(false)
     })
@@ -50,7 +50,7 @@ describe('nameCounter:', () => {
     it('should return false if the prefix of name does not match the specified type', () => {
       const testName = 'Element 3'
 
-      const result = nameCounter.valid(testName, NAME_TYPES.WORKSPACE)
+      const result = nameCounter.valid(testName, NameTypes.WORKSPACE)
 
       expect(result).toBe(false)
     })

@@ -1,7 +1,7 @@
-import { NAME_TYPES } from './enum'
+import { NameTypes } from './enum'
 import { nameCounter } from './nameCounter'
 
-export const name = (type: NAME_TYPES): string => nameCounter.increase(type)
+export const name = (type: NameTypes): string => nameCounter.increase(type)
 
-export const isValidName = (name: string, type: NAME_TYPES): boolean =>
+export const isValidName = (name: string, type: NameTypes): boolean =>
   nameCounter.valid(name, type)

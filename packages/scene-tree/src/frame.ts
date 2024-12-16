@@ -1,4 +1,4 @@
-import { FrameRawData, EntityTypes } from '@asra/utils'
+import { FrameRawData, EntityTypes, NameTypes } from '@asra/utils'
 import Group from './group'
 
 type FrameDataType = Partial<FrameRawData>
@@ -9,7 +9,8 @@ class Frame extends Group {
   }
 
   _init(): void {
-    this.type = EntityTypes.FRAME
+    this._entityType = EntityTypes.FRAME
+    this._nameType = NameTypes.FRAME
     super._init()
   }
 

@@ -1,4 +1,4 @@
-export enum NAME_TYPES {
+export enum NameTypes {
   WORKSPACE = 'Workspace',
   FRAME = 'Frame',
   ELEMENT = 'Element'

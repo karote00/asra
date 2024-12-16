@@ -1,4 +1,4 @@
-export enum ID_TYPES {
+export enum IDTypes {
   DEFAULT = 'default',
   WORKSPACE = 'ws',
   FRAME = 'fr',

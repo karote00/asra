@@ -1,2 +1,3 @@
-export * from './rawDataTypes'
 export * from './enum'
+export * from './rawDataTypes'
+export * from './instanceTypes'

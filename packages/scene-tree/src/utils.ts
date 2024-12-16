@@ -1,8 +1,7 @@
-import { ElementRawData, EntityTypes } from '@asra/utils'
+import { ElementRawData, EntityTypes, ElementInstanceTypes } from '@asra/utils'
 import Frame from './frame'
 import Group from './group'
 import Rectangle from './rectangle'
-import { ElementInstanceTypes } from './constants'
 
 const defaultClass = class Default {}
 const entityClassMap = {

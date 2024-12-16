@@ -1,12 +1,19 @@
-import { GroupRawData, EntityTypes } from '@asra/utils'
+import {
+  GroupRawData,
+  EntityTypes,
+  GroupAttrs,
+  ElementInstanceTypes
+} from '@asra/utils'
 import Props from './props'
 import Element from './element'
-import { ElementInstanceTypes } from './constants'
 
 type GroupDataType = Partial<GroupRawData>
 
-class Group extends Element {
-  children: ElementInstanceTypes[] = []
+class Group extends Element<GroupAttrs> {
+  data: GroupAttrs = {
+    ...this.data,
+    children: []
+  }
   props!: Props
 
   constructor() {
@@ -14,7 +21,7 @@ class Group extends Element {
   }
 
   _init(): void {
-    this.type = EntityTypes.GROUP
+    this._entityType = EntityTypes.GROUP
     super._init()
   }
 
@@ -22,13 +29,21 @@ class Group extends Element {
     super.load(data)
   }
 
+  save(): GroupRawData {
+    const data = super.save() as GroupRawData
+    data.children = this.data.children.map((child) => child.save())
+    return data
+  }
+
   addElement(element: ElementInstanceTypes, index?: number): boolean {
     if (!element) {
       return false
     }
 
-    const idx = index ?? this.children.length
-    this.children.splice(idx, 0, element)
+    const children = this.get('children') as ElementInstanceTypes[]
+
+    const idx = index ?? children.length
+    children.splice(idx, 0, element)
 
     return true
   }

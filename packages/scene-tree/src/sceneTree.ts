@@ -3,11 +3,13 @@ import {
   SceneTreeRawData,
   WorkspaceRawData,
   ElementRawData,
-  EntityTypes
+  EntityTypes,
+  ElementInstanceTypes,
+  GroupInstanceTypes,
+  IElement
 } from '@asra/utils'
 import Workspace from './workspace'
 import { createElement } from './utils'
-import { ElementInstanceTypes, GroupInstanceTypes } from './constants'
 import { ACTIONS, CHANGES } from '@asra/factory'
 
 type SceneTreeDataType = Partial<SceneTreeRawData>
@@ -52,11 +54,12 @@ class SceneTree {
   }
 
   addToMap(node: ElementInstanceTypes) {
-    if (!node || !node.get('id')) {
+    const el = node as IElement
+    if (!el || !el.get('id')) {
       return
     }
 
-    this._elements.set(node.get('id'), node)
+    this._elements.set(el.get('id'), node)
   }
 
   get currentWorkspace() {
@@ -95,9 +98,9 @@ class SceneTree {
     if (success) {
       this.addToMap(element)
       this.emit({
-        action: ACTIONS.ADD,
+        action: ACTIONS.ADD_ELEMENT,
         parentId: parent ? parent.get('id') : '',
-        data: element
+        data: element.save()
       })
     }
     Factory.transact.end()

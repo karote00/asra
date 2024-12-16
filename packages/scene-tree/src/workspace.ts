@@ -1,29 +1,31 @@
 import {
   WorkspaceRawData,
   GroupEntityTypes,
-  ID_TYPES,
-  NAME_TYPES,
-  EntityTypes
+  IDTypes,
+  NameTypes,
+  EntityTypes,
+  ElementInstanceTypes,
+  GroupInstanceTypes,
+  GroupAttrs
 } from '@asra/utils'
 import Group from './group'
 import { createElement } from './utils'
-import { ElementInstanceTypes, GroupInstanceTypes } from './constants'
 
 type WorkspaceDataType = Partial<WorkspaceRawData>
+const GroupTypes = new Set(Object.values(GroupEntityTypes))
 
 class Workspace extends Group {
-  _idType: ID_TYPES = ID_TYPES.WORKSPACE
-  _nameType: NAME_TYPES = NAME_TYPES.WORKSPACE
-  children: ElementInstanceTypes[] = []
+  _idType: IDTypes = IDTypes.WORKSPACE
+  _nameType: NameTypes = NameTypes.WORKSPACE
+  _entityType: EntityTypes = EntityTypes.WORKSPACE
 
   constructor() {
     super()
   }
 
   _init(): void {
-    this._idType = ID_TYPES.WORKSPACE
-    this._nameType = NAME_TYPES.WORKSPACE
-    this.type = EntityTypes.WORKSPACE
+    this._idType = IDTypes.WORKSPACE
+    this._nameType = NameTypes.WORKSPACE
     super._init()
   }
 
@@ -40,9 +42,10 @@ class Workspace extends Group {
   }
 
   get firstFrame(): ElementInstanceTypes | undefined {
-    return this.children.find(
-      (child: ElementInstanceTypes) =>
-        child.type in GroupEntityTypes && (child as GroupInstanceTypes).children
+    return this.get('children').find(
+      (child) =>
+        GroupTypes.has(child.get('type')) &&
+        (child as GroupInstanceTypes).get('children')
     )
   }
 
@@ -63,12 +66,14 @@ class Workspace extends Group {
       }
     }
 
-    if (avaliableParent && avaliableParent.children) {
+    // Add new element to Group type instance
+    if (avaliableParent && avaliableParent.get('children')) {
       return avaliableParent.addElement(element, index)
     }
 
-    const idx = index ?? this.children.length
-    this.children.splice(idx, 0, element)
+    // Add new element to Workspace
+    const idx = index ?? this.get('children').length
+    this.get('children').splice(idx, 0, element)
 
     return true
   }

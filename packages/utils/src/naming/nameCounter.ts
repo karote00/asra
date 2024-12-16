@@ -1,29 +1,27 @@
-import { NAME_TYPES } from './enum'
+import { NameTypes } from './enum'
 import { FIRST_NAME, CODE_SPLIT } from './constants'
 import { isNumber } from '../common'
 
-const AvaliableNameTypes = new Set<NAME_TYPES | string>(
-  Object.values(NAME_TYPES)
-)
+const AvaliableNameTypes = new Set<NameTypes | string>(Object.values(NameTypes))
 
 class NameCounter {
   counter: { [key: string]: string } = {}
 
   constructor() {
-    Object.values(NAME_TYPES).forEach((type) => {
+    Object.values(NameTypes).forEach((type) => {
       this.counter[type] = `${type}${CODE_SPLIT}${FIRST_NAME}`
     })
   }
 
-  current(type: NAME_TYPES): string {
+  current(type: NameTypes): string {
     return this.counter[type]
   }
 
-  update(type: NAME_TYPES, newName: string): void {
+  update(type: NameTypes, newName: string): void {
     this.counter[type] = newName
   }
 
-  increase(type: NAME_TYPES): string {
+  increase(type: NameTypes): string {
     const currentName = this.current(type)
     if (!currentName) {
       return ''
@@ -39,7 +37,7 @@ class NameCounter {
     return newName
   }
 
-  valid(name: string, type: NAME_TYPES): boolean {
+  valid(name: string, type: NameTypes): boolean {
     if (!AvaliableNameTypes.has(type)) {
       return false
     }

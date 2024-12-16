@@ -12,7 +12,7 @@ class Rectangle extends Element {
   }
 
   _init(): void {
-    this.type = EntityTypes.RECTANGLE
+    this._entityType = EntityTypes.RECTANGLE
     super._init()
   }
 

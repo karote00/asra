@@ -16,10 +16,12 @@ export type ElementRawData = BaseRawData & {
 
 export type RectangleRawData = ElementRawData & {}
 
-export type GroupRawData = ElementRawData & {}
+export type GroupRawData = ElementRawData & {
+  children: (GroupRawData | ElementRawData)[]
+}
 
-export type FrameRawData = ElementRawData & {}
-export type WorkspaceRawData = BaseRawData & {
+export type FrameRawData = GroupRawData & {}
+export type WorkspaceRawData = GroupRawData & {
   children: ElementRawData[]
 }
 

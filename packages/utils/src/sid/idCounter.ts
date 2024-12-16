@@ -1,20 +1,20 @@
-import { ID_TYPES } from './enum'
+import { IDTypes } from './enum'
 import { DEFAULT_TYPE, FIRST_ID, CODE_SPLIT } from './constants'
 import { isNumber } from '../common'
 
-const AvaliableIDTypes = new Set<ID_TYPES | string>(Object.values(ID_TYPES))
+const AvaliableIDTypes = new Set<IDTypes | string>(Object.values(IDTypes))
 
 class IDCounter {
   counter: { [key: string]: string } = {}
 
   constructor() {
-    Object.values(ID_TYPES).forEach((type: string) => {
+    Object.values(IDTypes).forEach((type: string) => {
       this.counter[type] =
-        type === ID_TYPES.DEFAULT ? FIRST_ID : `${type}${CODE_SPLIT}${FIRST_ID}`
+        type === IDTypes.DEFAULT ? FIRST_ID : `${type}${CODE_SPLIT}${FIRST_ID}`
     })
   }
 
-  current(type: ID_TYPES | string = ID_TYPES.DEFAULT): string {
+  current(type: IDTypes | string = IDTypes.DEFAULT): string {
     if (!type) {
       return ''
     }
@@ -22,7 +22,7 @@ class IDCounter {
     return this.counter[type]
   }
 
-  update(type: ID_TYPES | string = ID_TYPES.DEFAULT, newId: string): void {
+  update(type: IDTypes | string = IDTypes.DEFAULT, newId: string): void {
     if (!type) {
       return
     }
@@ -30,7 +30,7 @@ class IDCounter {
     this.counter[type] = newId
   }
 
-  increase(type: ID_TYPES | string = ID_TYPES.DEFAULT): string {
+  increase(type: IDTypes | string = IDTypes.DEFAULT): string {
     if (!type) {
       return ''
     }
@@ -51,7 +51,7 @@ class IDCounter {
     return newId
   }
 
-  valid(id: string, type: ID_TYPES | string = ID_TYPES.DEFAULT): boolean {
+  valid(id: string, type: IDTypes | string = IDTypes.DEFAULT): boolean {
     if (!type) {
       return false
     }
@@ -60,7 +60,7 @@ class IDCounter {
       return false
     }
 
-    if (type === ID_TYPES.DEFAULT) {
+    if (type === IDTypes.DEFAULT) {
       return isNumber(id)
     }
 

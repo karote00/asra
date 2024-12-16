@@ -1,9 +1,11 @@
 import {
   ElementRawData,
+  ElementAttrs,
+  IElement,
+  IDTypes,
+  NameTypes,
   EntityTypes,
-  ID_TYPES,
   id,
-  NAME_TYPES,
   name
 } from '@asra/utils'
 import Props from './props'
@@ -11,18 +13,15 @@ import Computed from './computed'
 
 type ElementDataType = Partial<ElementRawData>
 
-class Element {
-  _idType: ID_TYPES = ID_TYPES.ELEMENT
-  _nameType: NAME_TYPES = NAME_TYPES.ELEMENT
-  data: {
-    id: string
-    name: string
-    [key: string]: any
-  } = {
+class Element<T extends ElementAttrs = ElementAttrs> implements IElement<T> {
+  _idType: IDTypes = IDTypes.ELEMENT
+  _nameType: NameTypes = NameTypes.ELEMENT
+  _entityType: EntityTypes = EntityTypes.ELEMENT
+  data: T = {
     id: '',
+    type: EntityTypes.UNDEFINED,
     name: ''
-  }
-  type: EntityTypes = EntityTypes.ELEMENT
+  } as T
   props: Props = new Props()
   computed: Computed = new Computed()
 
@@ -32,7 +31,15 @@ class Element {
 
   _init(): void {
     this.data.id = id(this._idType)
+    this.data.type = this._entityType
     this.data.name = name(this._nameType)
+  }
+
+  get<K extends keyof T>(key: K): T[K] {
+    if (key in this.data) {
+      return this.data[key]
+    }
+    throw new Error('Not allow to get value which is not in entity data.')
   }
 
   load(data: ElementDataType): void {
@@ -40,16 +47,16 @@ class Element {
       return
     }
 
-    this.type = data.type!
+    this.data.type = data.type!
     this.props.load(data.props)
   }
 
-  get(key: string) {
-    if (key in this.data) {
-      return this.data[key]
-    }
-
-    throw new Error('Not allow to get value which is not in entity data.')
+  save(): ElementRawData {
+    const data = {} as ElementRawData
+    data.id = this.get('id')
+    data.type = this.get('type')
+    data.name = this.get('name')
+    return data
   }
 }
 
