@@ -6,6 +6,7 @@ const ToolBar = () => {
   const handleAddNewElement = useCallback(() => {
     Core.addRectangle()
   }, [Core])
+
   return (
     <div
       className={`bg-blue-500 h-${ROW_HEIGHT}`}

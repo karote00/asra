@@ -86,7 +86,7 @@ class SceneTree {
   addNewElement(
     element: ElementInstanceTypes,
     parent?: GroupInstanceTypes,
-    index?: number
+    index: number = -1
   ) {
     const workspace = this.currentWorkspace as Workspace
     if (!workspace) {
@@ -100,6 +100,7 @@ class SceneTree {
       this.emit({
         action: ACTIONS.ADD_ELEMENT,
         parentId: parent ? parent.get('id') : '',
+        index,
         data: element.save()
       })
     }
@@ -109,7 +110,7 @@ class SceneTree {
   addRectangle(
     elementData: ElementRawData,
     parent?: GroupInstanceTypes,
-    index?: number
+    index: number = -1
   ) {
     const newRectangle = createElement(elementData)
     if (newRectangle) {

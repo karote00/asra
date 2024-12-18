@@ -5,8 +5,7 @@ import {
   NameTypes,
   EntityTypes,
   ElementInstanceTypes,
-  GroupInstanceTypes,
-  GroupAttrs
+  GroupInstanceTypes
 } from '@asra/utils'
 import Group from './group'
 import { createElement } from './utils'
@@ -52,7 +51,7 @@ class Workspace extends Group {
   addNewElement(
     element: ElementInstanceTypes,
     parent?: GroupInstanceTypes,
-    index?: number
+    index: number = -1
   ): boolean {
     if (!element) {
       return false
@@ -72,7 +71,7 @@ class Workspace extends Group {
     }
 
     // Add new element to Workspace
-    const idx = index ?? this.get('children').length
+    const idx = index > -1 ? index : this.get('children').length
     this.get('children').splice(idx, 0, element)
 
     return true
