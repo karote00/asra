@@ -1,0 +1,67 @@
+{
+  "name": "@asra/ds",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/ds.es.js",
+      "require": "./dist/ds.umd.js"
+    },
+    "./styles.css": {
+      "require": "./dist/styles.css",
+      "default": "./dist/styles.css"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build:dep": "yarn clean && tsc -b && vite build && yarn build:css",
+    "build:css": "tailwindcss -m -i ./src/tailwind-entry.css -o ./dist/styles.css",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "storybook": "yarn clean && concurrently 'yarn storybook:css' 'storybook dev -p 6006'",
+    "storybook:css": "tailwindcss -w -i ./src/tailwind-entry.css -o ./src/index.css",
+    "build-storybook": "yarn clean && concurrently 'yarn build-storybook:css' 'storybook build'",
+    "build-storybook:css": "tailwindcss -m -i ./src/tailwind-entry.css -o ./src/index.css",
+    "prepublishOnly": "yarn build"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@chromatic-com/storybook": "^3.2.3",
+    "@eslint/js": "^9.17.0",
+    "@storybook/addon-essentials": "^8.4.7",
+    "@storybook/addon-interactions": "^8.4.7",
+    "@storybook/addon-onboarding": "^8.4.7",
+    "@storybook/blocks": "^8.4.7",
+    "@storybook/react": "^8.4.7",
+    "@storybook/react-vite": "^8.4.7",
+    "@storybook/test": "^8.4.7",
+    "@types/react": "^18.3.17",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.0",
+    "eslint": "^9.17.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.16",
+    "eslint-plugin-storybook": "^0.11.1",
+    "globals": "^15.13.0",
+    "storybook": "^8.4.7",
+    "tailwindcss": "^3.4.17",
+    "typescript": "~5.6.2",
+    "typescript-eslint": "^8.18.1",
+    "vite": "^6.0.3",
+    "vite-plugin-dts": "^4.4.0"
+  },
+  "eslintConfig": {
+    "extends": [
+      "plugin:storybook/recommended"
+    ]
+  }
+}

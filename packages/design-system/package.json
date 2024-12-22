@@ -1,0 +1,51 @@
+{
+  "name": "@asra/design-system",
+  "version": "1.0.0",
+  "packageManager": "yarn@4.3.1",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/design-system.es.js",
+      "require": "./dist/design-system.umd.js"
+    },
+    "./index.css": "./dist/index.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build",
+    "prebuild": "tailwindcss -i ./src/index.css -o ./dist/index.css",
+    "build:css": "tailwindcss -i ./src/index.css -o ./dist/index.css --watch",
+    "dev": "concurrently 'tsc --watch' 'vite build --watch' 'yarn build:css'",
+    "preview": "vite preview"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@asra/utils": "workspace:^",
+    "@chromatic-com/storybook": "^3.2.3",
+    "@storybook/addon-essentials": "^8.4.7",
+    "@storybook/addon-interactions": "^8.4.7",
+    "@storybook/addon-onboarding": "^8.4.7",
+    "@storybook/blocks": "^8.4.7",
+    "@storybook/react": "^8.4.7",
+    "@storybook/react-vite": "^8.4.7",
+    "@storybook/test": "^8.4.7",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
+    "postcss": "^8.4.49",
+    "postcss-cli": "^11.0.0",
+    "storybook": "^8.4.7",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.4"
+  }
+}

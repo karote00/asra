@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "jsx": "react-jsx"
+  },
+  "include": ["src", "src/components"],
+  "exclude": ["node_modules", "dist", "src/stories/**", ".storybook"]
+}

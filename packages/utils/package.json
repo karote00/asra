@@ -1,6 +1,6 @@
 {
   "name": "@asra/utils",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "description": "Shared properties and functionalities",
   "author": "Asa Tsai",
   "license": "MIT",
@@ -9,7 +9,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "dev": "tsc --watch",
+    "prebuild": "tsc --watch",
     "build": "tsc",
     "clean": "rm -rf dist",
     "test": "vitest"

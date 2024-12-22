@@ -1,6 +1,11 @@
 {
   "tasks": {
+    "prebuild": {
+      "outputs": ["dist/**"]
+    },
     "dev": {
+      "cache": false,
+      "dependsOn": ["prebuild"],
       "outputs": ["dist/**"]
     },
     "start": {

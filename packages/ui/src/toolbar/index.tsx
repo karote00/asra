@@ -1,4 +1,6 @@
 import { useCallback } from 'react'
+import { Button } from '@asra/design-system'
+
 import Core from '../core'
 import { ROW_HEIGHT } from '../constants'
 
@@ -9,16 +11,10 @@ const ToolBar = () => {
 
   return (
     <div
-      className={`bg-blue-500 h-${ROW_HEIGHT}`}
+      className={`bg-secondary-10 h-${ROW_HEIGHT}`}
       style={{ gridArea: 'header' }}
     >
-      ToolBar
-      <button
-        className="bg-neutral-700 text-white"
-        onClick={handleAddNewElement}
-      >
-        Add Element
-      </button>
+      <Button onClick={handleAddNewElement} label="Add Element" />
     </div>
   )
 }

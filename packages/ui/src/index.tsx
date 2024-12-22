@@ -1,6 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import './index.css'
+import '@asra/design-system/index.css'
+
 import RenderApp from './render-app'
 import App from './app'
 import reportWebVitals from './reportWebVitals'

@@ -27,3 +27,4 @@ dist
 
 # Editor settings
 .vscode
+*storybook.log
