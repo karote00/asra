@@ -23,7 +23,7 @@ const Button: React.FC<ButtonProps> = ({
 }: ButtonProps) => {
   return (
     <div
-      className="bg-primary-20 bg-secondary-20 h-8 py-12"
+      className="bg-primary-20 bg-secondary-20 h-8"
       style={{ backgroundColor }}
       {...props}
     >

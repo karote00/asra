@@ -155,9 +155,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/ui@workspace:packages/ui":
+"@asra/ui@workspace:apps/ui":
   version: 0.0.0-use.local
-  resolution: "@asra/ui@workspace:packages/ui"
+  resolution: "@asra/ui@workspace:apps/ui"
   dependencies:
     "@asra/core": "workspace:*"
     "@asra/design-system": "workspace:*"

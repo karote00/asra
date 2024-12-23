@@ -15,6 +15,7 @@
     "test": "turbo run test"
   },
   "workspaces": [
+    "apps/*",
     "packages/*"
   ],
   "devDependencies": {
