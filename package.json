@@ -17,10 +17,6 @@
     "apps/*",
     "packages/*"
   ],
-  "engines": {
-    "node": ">=20",
-    "yarn": ">=4.3.1"
-  },
   "installConfig": {
     "hoistingLimits": "workspaces",
     "preferInteractive": true
