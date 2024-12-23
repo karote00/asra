@@ -7,8 +7,5 @@
     "env": {
       "NODE_ENV": "production"
     }
-  },
-  "scripts": {
-    "build": "turbo run build"
   }
 }
