@@ -11,13 +11,16 @@
   "scripts": {
     "start": "turbo run start",
     "build": "turbo run build",
-    "dev": "cd packages/ui && yarn start",
     "test": "turbo run test"
   },
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
+  "installConfig": {
+    "hoistingLimits": "workspaces",
+    "preferInteractive": true
+  },
   "devDependencies": {
     "@storybook/addon-actions": "^8.4.7",
     "@storybook/addon-essentials": "^8.4.7",
