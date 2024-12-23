@@ -4,6 +4,7 @@
   "description": "An open-source prototype tool names Asra.",
   "author": "Asa Tsai",
   "license": "MIT",
+  "private": true,
   "packageManager": "yarn@4.3.1",
   "main": "index.js",
   "keywords": [],
