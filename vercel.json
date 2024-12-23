@@ -2,7 +2,7 @@
   "version": 2,
   "buildCommand": "yarn build",
   "outputDirectory": "dist",
-  "installCommand": "yarn install focus --all --immutable",
+  "installCommand": "yarn install --focus --all --immutable",
   "builds": [
     {
       "src": "package.json",
