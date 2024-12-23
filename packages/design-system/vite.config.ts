@@ -9,7 +9,7 @@ export default defineConfig({
       plugins: [tailwindcss()]
     }
   },
-  plugins: [react()],
+  plugins: [react()] as any,
   build: {
     lib: {
       entry: './src/index.tsx',

@@ -19,6 +19,7 @@
     "build-storybook": "storybook build",
     "prebuild": "tailwindcss -i ./src/index.css -o ./dist/index.css",
     "build:css": "tailwindcss -i ./src/index.css -o ./dist/index.css --watch",
+    "build": "tsc && vite build && yarn prebuild",
     "dev": "concurrently 'tsc --watch' 'vite build --watch' 'yarn build:css'",
     "preview": "vite preview"
   },
