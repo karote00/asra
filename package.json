@@ -11,6 +11,7 @@
   "scripts": {
     "start": "turbo run start",
     "build": "turbo run build",
+    "vercel-install": "yarn install --frozen-lockfile",
     "dev": "cd packages/ui && yarn start",
     "test": "turbo run test"
   },
