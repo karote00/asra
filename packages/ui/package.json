@@ -3,9 +3,9 @@
   "version": "1.0.1",
   "private": true,
   "dependencies": {
-    "@asra/core": "workspace:^",
-    "@asra/design-system": "workspace:^",
-    "@asra/render": "workspace:^",
+    "@asra/core": "workspace:*",
+    "@asra/design-system": "workspace:*",
+    "@asra/render": "workspace:*",
     "@preact/signals-react": "^2.2.0",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",

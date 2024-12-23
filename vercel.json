@@ -2,7 +2,7 @@
   "version": 2,
   "buildCommand": "yarn build",
   "outputDirectory": "dist",
-  "installCommand": "vercel-install",
+  "installCommand": "yarn install",
   "builds": [
     {
       "src": "package.json",

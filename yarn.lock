@@ -42,21 +42,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@asra/core@workspace:^, @asra/core@workspace:packages/core":
+"@asra/core@workspace:*, @asra/core@workspace:packages/core":
   version: 0.0.0-use.local
   resolution: "@asra/core@workspace:packages/core"
   dependencies:
-    "@asra/scene-tree": "workspace:^"
+    "@asra/scene-tree": "workspace:*"
     "@types/node": "npm:^22.10.1"
     typescript: "npm:^5.7.2"
   languageName: unknown
   linkType: soft
 
-"@asra/design-system@workspace:^, @asra/design-system@workspace:packages/design-system":
+"@asra/design-system@workspace:*, @asra/design-system@workspace:packages/design-system":
   version: 0.0.0-use.local
   resolution: "@asra/design-system@workspace:packages/design-system"
   dependencies:
-    "@asra/utils": "workspace:^"
+    "@asra/utils": "workspace:*"
     "@chromatic-com/storybook": "npm:^3.2.3"
     "@storybook/addon-essentials": "npm:^8.4.7"
     "@storybook/addon-interactions": "npm:^8.4.7"
@@ -125,7 +125,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/factory@workspace:^, @asra/factory@workspace:packages/factory":
+"@asra/factory@workspace:*, @asra/factory@workspace:packages/factory":
   version: 0.0.0-use.local
   resolution: "@asra/factory@workspace:packages/factory"
   dependencies:
@@ -135,7 +135,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/render@workspace:^, @asra/render@workspace:packages/render":
+"@asra/render@workspace:*, @asra/render@workspace:packages/render":
   version: 0.0.0-use.local
   resolution: "@asra/render@workspace:packages/render"
   dependencies:
@@ -144,12 +144,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/scene-tree@workspace:^, @asra/scene-tree@workspace:packages/scene-tree":
+"@asra/scene-tree@workspace:*, @asra/scene-tree@workspace:packages/scene-tree":
   version: 0.0.0-use.local
   resolution: "@asra/scene-tree@workspace:packages/scene-tree"
   dependencies:
-    "@asra/factory": "workspace:^"
-    "@asra/utils": "workspace:^"
+    "@asra/factory": "workspace:*"
+    "@asra/utils": "workspace:*"
     "@types/node": "npm:^22.10.1"
     typescript: "npm:^5.7.2"
   languageName: unknown
@@ -159,9 +159,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asra/ui@workspace:packages/ui"
   dependencies:
-    "@asra/core": "workspace:^"
-    "@asra/design-system": "workspace:^"
-    "@asra/render": "workspace:^"
+    "@asra/core": "workspace:*"
+    "@asra/design-system": "workspace:*"
+    "@asra/render": "workspace:*"
     "@preact/signals-react": "npm:^2.2.0"
     "@testing-library/jest-dom": "npm:^5.17.0"
     "@testing-library/react": "npm:^13.4.0"
@@ -185,7 +185,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/utils@workspace:^, @asra/utils@workspace:packages/utils":
+"@asra/utils@workspace:*, @asra/utils@workspace:packages/utils":
   version: 0.0.0-use.local
   resolution: "@asra/utils@workspace:packages/utils"
   dependencies:

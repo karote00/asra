@@ -27,7 +27,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@asra/utils": "workspace:^",
+    "@asra/utils": "workspace:*",
     "@chromatic-com/storybook": "^3.2.3",
     "@storybook/addon-essentials": "^8.4.7",
     "@storybook/addon-interactions": "^8.4.7",
