@@ -3,6 +3,12 @@
   "buildCommand": "yarn build",
   "outputDirectory": "dist",
   "installCommand": "yarn install",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/node"
+    }
+  ],
   "env": {
     "YARN_ENABLE_IMMUTABLE_INSTALLS": "false"
   }
