@@ -1,0 +1,6 @@
+{
+  "version": 2,
+  "buildCommand": "yarn build",
+  "outputDirectory": "packages/ui/dist",
+  "installCommand": "yarn install"
+}

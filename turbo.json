@@ -13,6 +13,13 @@
       "dependsOn": ["dev"],
       "persistent": true
     },
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "clean": {
+      "cache": false
+    },
     "test": {}
   }
 }
