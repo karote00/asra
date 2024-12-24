@@ -15,7 +15,7 @@ export default defineConfig({
       entry: './src/index.tsx',
       name: 'DesignSystem',
       fileName: (format) => `design-system.${format}.js`,
-      formats: ['es', 'cjs', 'umd']
+      formats: ['es', 'umd']
     },
     rollupOptions: {
       external: [...Object.keys(peerDependencies), /\.css$/],
