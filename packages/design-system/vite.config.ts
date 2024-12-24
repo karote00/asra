@@ -13,14 +13,13 @@ export default defineConfig({
   build: {
     lib: {
       entry: './src/index.tsx',
-      name: 'index',
+      name: 'DesignSystem',
       fileName: (format) => `design-system.${format}.js`,
       formats: ['es', 'cjs', 'umd']
     },
     rollupOptions: {
-      external: Object.keys(peerDependencies)
+      external: [...Object.keys(peerDependencies), /\.css$/]
     },
-    outDir: 'dist',
     emptyOutDir: false
   }
 })
