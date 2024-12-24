@@ -32,6 +32,7 @@
   "scripts": {
     "start": "vite --config vite.config.ts",
     "react:build": "vite build",
+    "build": "",
     "preview": "vite preview"
   },
   "eslintConfig": {
