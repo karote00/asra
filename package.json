@@ -10,6 +10,7 @@
   "keywords": [],
   "scripts": {
     "start": "turbo run start",
+    "react:build": "turbo run react:build",
     "build": "turbo run build",
     "test": "turbo run test"
   },

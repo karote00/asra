@@ -17,6 +17,10 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
+    "react:build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
     "clean": {
       "cache": false
     },
