@@ -18,7 +18,15 @@ export default defineConfig({
       formats: ['es', 'cjs', 'umd']
     },
     rollupOptions: {
-      external: [...Object.keys(peerDependencies), /\.css$/]
+      external: [...Object.keys(peerDependencies), /\.css$/],
+      output: {
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name?.endsWith('.css')) {
+            return 'index.css'
+          }
+          return assetInfo.name || 'assets/[name]-[hash][extname]'
+        }
+      }
     },
     emptyOutDir: false
   }
