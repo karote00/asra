@@ -2,6 +2,7 @@
   "name": "@asra/ui",
   "version": "1.0.1",
   "private": true,
+  "type": "module",
   "dependencies": {
     "@asra/core": "workspace:*",
     "@asra/design-system": "workspace:*",
@@ -27,12 +28,12 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
-    "vite": "^6.0.4"
+    "vite": "^6.0.4",
+    "vite-plugin-vercel": "^9.0.3"
   },
   "scripts": {
     "start": "vite --config vite.config.ts",
     "react:build": "vite build",
-    "build": "",
     "preview": "vite preview"
   },
   "eslintConfig": {

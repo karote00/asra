@@ -1,6 +1,6 @@
-const TailwindConfig = require('@asra/utils').TailwindConfig
+import { TailwindConfig } from '@asra/utils'
 
-module.exports = {
+export default {
   ...TailwindConfig,
   content: ['./src/**/*.{ts,tsx}']
 }

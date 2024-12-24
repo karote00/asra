@@ -7,12 +7,14 @@
   "private": true,
   "packageManager": "yarn@4.3.1",
   "main": "index.js",
+  "type": "module",
   "keywords": [],
   "scripts": {
     "start": "turbo run start",
     "react:build": "turbo run react:build",
     "build": "turbo run build",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "lint": "eslint . --ext .ts,.tsx"
   },
   "workspaces": [
     "apps/*",
@@ -27,6 +29,13 @@
     "preferInteractive": true
   },
   "devDependencies": {
+    "@eslint/compat": "^1.2.4",
+    "@eslint/js": "^9.17.0",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "eslint-plugin-react": "^7.37.3",
+    "prettier": "^3.4.2",
     "turbo": "^2.3.3"
   }
 }

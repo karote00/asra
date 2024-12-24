@@ -28,3 +28,4 @@ dist
 # Editor settings
 .vscode
 *storybook.log
+.vercel
