@@ -12,7 +12,8 @@
     "prebuild": "tsc --watch",
     "build": "tsc",
     "clean": "rm -rf dist",
-    "test": "vitest"
+    "test": "vitest",
+    "test:ci": "vitest run --coverage --reporter=default --reporter=junit"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",

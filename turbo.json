@@ -24,6 +24,7 @@
     "clean": {
       "cache": false
     },
-    "test": {}
+    "test": {},
+    "test:ci": {}
   }
 }

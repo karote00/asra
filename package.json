@@ -14,7 +14,9 @@
     "react:build": "turbo run react:build",
     "build": "turbo run build",
     "test": "turbo run test",
-    "lint": "eslint ."
+    "test:ci": "turbo run test:ci",
+    "lint": "eslint .",
+    "lint:ci": "eslint ."
   },
   "workspaces": [
     "apps/*",
@@ -37,7 +39,6 @@
     "eslint-plugin-react": "^7.37.3",
     "prettier": "^3.4.2",
     "turbo": "^2.3.3",
-    "typescript": "^5.7.2",
     "typescript-eslint": "^8.18.2"
   }
 }
