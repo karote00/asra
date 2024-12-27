@@ -18,17 +18,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Yarn
+        run: corepack enable && yarn set version 4.3.1
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20.17.0
           cache: 'yarn'
-
-      - name: Setup Yarn
-        run: |
-          corepack enable
-          corepack prepare yarn@4.3.1 --activate
-          yarn set version 4.3.1
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile
