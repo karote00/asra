@@ -48,7 +48,7 @@ class NameCounter {
       return isNumber(splits[1])
     }
 
-    return false
+    return true
   }
 }
 
