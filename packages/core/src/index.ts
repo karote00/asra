@@ -1,12 +1,9 @@
 import sceneTree, { SceneTree } from '@asra/scene-tree'
-import { EntityTypes } from '@asra/utils'
 
-type CoreRawData = {
+interface CoreRawData {
   version: string
-  sceneTree: { [key: string]: any }
+  sceneTree: Record<string, string | number>
 }
-
-type CoreDataType = Partial<CoreRawData>
 
 const DEFAULT_VERSION = '1.0.0'
 const DATA_VERSION = '1.0.0'
@@ -19,9 +16,11 @@ class Core {
     this._init()
   }
 
-  _init(): void {}
+  _init(): void {
+    // init
+  }
 
-  load(data: CoreDataType): void {
+  load(data: CoreRawData): void {
     if (!data) {
       return
     }
@@ -33,7 +32,7 @@ class Core {
   }
 
   addRectangle(): void {
-    this.sceneTree.addRectangle({ type: EntityTypes.RECTANGLE })
+    this.sceneTree.addRectangle()
   }
 }
 

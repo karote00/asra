@@ -13,7 +13,7 @@ const root = signal({
   children: [],
   type: EntityTypes.WORKSPACE
 })
-export const elements = signal<{ [key: string]: Signal<UIElementData> }>({
+export const elements = signal<Record<string, Signal<UIElementData>>>({
   [rootId.value]: root
 })
 export const flattenedElementIds = signal<string[]>([])
@@ -33,7 +33,9 @@ export const collectChildrenIds = (elementId: string, ids: string[]): void => {
   if (!elementS) return
 
   const element = elementS.value
-  ids.push(element.id!)
+  if (element.id) {
+    ids.push(element.id)
+  }
   if (isGroup(element)) {
     ;(element as UIGroupElementData).children.forEach((childId: string) => {
       const child = getElement(childId)?.value
@@ -61,13 +63,13 @@ effect(() => {
 
 export const addElement = (
   parentId: string,
-  data: any,
-  index: number = -1
+  data: Partial<ElementRawData | GroupRawData>,
+  index = -1
 ): void => {
-  const parent = getElement(parentId) as Signal<GroupRawData>
+  const parent = getElement(parentId) as Signal<UIGroupElementData>
   const avaliableParent =
-    parent ?? (getElement(rootId.value) as Signal<GroupRawData>)
-  if (avaliableParent) {
+    parent ?? (getElement(rootId.value) as Signal<UIGroupElementData>)
+  if (avaliableParent && data.id) {
     const idx = index > -1 ? index : avaliableParent.value.children.length
     const children = avaliableParent.value.children
     children.splice(idx, 0, data.id)
@@ -85,4 +87,6 @@ export const addElement = (
   }
 }
 
-export const removeElement = (parentId: string, data: any): void => {}
+export const removeElement = (parentId: string, elementId: string): void => {
+  // remove element
+}

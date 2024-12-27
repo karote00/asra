@@ -1,17 +1,13 @@
 import * as PIXI from 'pixi.js'
 
-type RenderProps = {
-  version: string
-}
-
-type RenderDataType = Partial<RenderProps> | undefined
-
 class Render {
-  constructor(data?: RenderDataType) {
-    this._init(data)
+  constructor() {
+    this._init()
   }
 
-  _init(data: RenderDataType) {}
+  _init() {
+    // init
+  }
 
   async init(width: number, height: number, backgroundColor: number) {
     const app = new PIXI.Application()
@@ -23,12 +19,10 @@ class Render {
       resolution: window.devicePixelRatio || 1,
       antialias: true,
       autoDensity: true
-    } as any)
+    })
 
     return app
   }
 }
-
-interface Render extends RenderProps {}
 
 export default Render

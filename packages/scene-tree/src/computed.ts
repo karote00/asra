@@ -8,9 +8,13 @@ class Computed {
     this.load(data)
   }
 
-  _init(): void {}
+  _init(): void {
+    // init
+  }
 
-  load(data: ComputedDataType): void {}
+  load(data: ComputedDataType): void {
+    // load
+  }
 }
 
 export default Computed

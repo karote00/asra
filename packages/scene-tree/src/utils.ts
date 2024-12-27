@@ -3,15 +3,15 @@ import Frame from './frame'
 import Group from './group'
 import Rectangle from './rectangle'
 
-const defaultClass = class Default {}
 const entityClassMap = {
+  [EntityTypes.UNDEFINED]: undefined,
   [EntityTypes.FRAME]: Frame,
   [EntityTypes.GROUP]: Group,
   [EntityTypes.RECTANGLE]: Rectangle,
-  [EntityTypes.OVAL]: defaultClass
+  [EntityTypes.OVAL]: Rectangle
 } as const
 
-export const createElement = (elementData: ElementRawData) => {
+export const createElement = (elementData: Partial<ElementRawData>) => {
   if (
     elementData.type === EntityTypes.WORKSPACE ||
     elementData.type === EntityTypes.ELEMENT ||
@@ -20,7 +20,8 @@ export const createElement = (elementData: ElementRawData) => {
     return null
   }
 
-  const EntityClass = entityClassMap[elementData.type]
+  const elementType = elementData.type ?? EntityTypes.UNDEFINED
+  const EntityClass = entityClassMap[elementType]
   if (!EntityClass) {
     throw new Error('Ivalid entity type.')
   }

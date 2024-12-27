@@ -1,25 +1,60 @@
 import { includeIgnoreFile } from '@eslint/compat'
+import tseslint from 'typescript-eslint'
 import js from '@eslint/js'
 import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended'
-// import eslintPluginReactRecommended from 'eslint-plugin-react'
+import react from 'eslint-plugin-react'
 import { fileURLToPath } from 'url'
 import path from 'path'
-
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const gitignorePath = path.resolve(__dirname, '.gitignore')
 
-export default [
+export default tseslint.config(
   js.configs.recommended,
-  eslintPluginPrettierRecommended,
   includeIgnoreFile(gitignorePath),
+  tseslint.configs.recommended,
+  tseslint.configs.strict,
+  tseslint.configs.stylistic,
+  eslintPluginPrettierRecommended,
   {
+    files: ['**/*.{ts,tsx}'],
+    plugins: {
+      react
+    },
     rules: {
-      indent: ['error', 2],
+      indent: ['error', 2, { SwitchCase: 1 }],
       quotes: ['error', 'single'],
       'no-console': 'warn',
-      'no-unused-vars': 'error'
+      'react/jsx-uses-react': 'error',
+      'react/jsx-uses-vars': 'error',
+      '@typescript-eslint/no-empty-object-type': 'off',
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-useless-constructor': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          vars: 'all',
+          args: 'none',
+          varsIgnorePattern: '^_',
+          argsIgnorePattern: '^_',
+          ignoreRestSiblings: true,
+          caughtErrors: 'none'
+        }
+      ],
+      '@typescript-eslint/consistent-generic-constructors': 'off',
+      '@typescript-eslint/no-inferrable-types': [
+        'error',
+        {
+          ignoreProperties: true
+        }
+      ]
+    }
+  },
+  {
+    files: ['**/enum.ts'],
+    rules: {
+      'no-unused-vars': 'off'
     }
   }
-]
+)

@@ -5,7 +5,7 @@ import { isNumber } from '../common'
 const AvaliableNameTypes = new Set<NameTypes | string>(Object.values(NameTypes))
 
 class NameCounter {
-  counter: { [key: string]: string } = {}
+  counter: Record<string, string> = {}
 
   constructor() {
     Object.values(NameTypes).forEach((type) => {

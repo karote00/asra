@@ -1,11 +1,12 @@
 import { defineConfig } from 'vite'
 import vercel from 'vite-plugin-vercel'
 import react from '@vitejs/plugin-react'
+import eslint from 'vite-plugin-eslint'
 
 export default defineConfig({
-  plugins: [vercel(), react()] as any,
+  plugins: [vercel(), react(), eslint()],
   server: {
-    port: process.env.PORT as unknown as number,
+    port: (process.env.PORT || 3000) as unknown as number,
     open: true
   },
   define: {
@@ -23,7 +24,7 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
-        additionalData: `@import "@asra/design-system/index.css";`
+        additionalData: '@import "@asra/design-system/index.css";'
       }
     }
   }

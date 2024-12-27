@@ -1,17 +1,13 @@
-import {
+import type {
   WorkspaceRawData,
-  GroupEntityTypes,
-  IDTypes,
-  NameTypes,
-  EntityTypes,
   ElementInstanceTypes,
   GroupInstanceTypes
 } from '@asra/utils'
+import { isGroupEntity, IDTypes, NameTypes, EntityTypes } from '@asra/utils'
 import Group from './group'
 import { createElement } from './utils'
 
 type WorkspaceDataType = Partial<WorkspaceRawData>
-const GroupTypes = new Set(Object.values(GroupEntityTypes))
 
 class Workspace extends Group {
   _idType: IDTypes = IDTypes.WORKSPACE
@@ -42,8 +38,8 @@ class Workspace extends Group {
 
   get firstFrame(): ElementInstanceTypes | undefined {
     return this.get('children').find(
-      (child) =>
-        GroupTypes.has(child.get('type')) &&
+      (child: ElementInstanceTypes) =>
+        isGroupEntity(child.get('type')) &&
         (child as GroupInstanceTypes).get('children')
     )
   }
@@ -51,7 +47,7 @@ class Workspace extends Group {
   addNewElement(
     element: ElementInstanceTypes,
     parent?: GroupInstanceTypes,
-    index: number = -1
+    index = -1
   ): boolean {
     if (!element) {
       return false

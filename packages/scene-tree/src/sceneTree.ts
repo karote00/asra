@@ -1,13 +1,13 @@
 import Factory, { SceneTreeChange } from '@asra/factory'
-import {
+import type {
   SceneTreeRawData,
   WorkspaceRawData,
   ElementRawData,
-  EntityTypes,
   ElementInstanceTypes,
   GroupInstanceTypes,
   IElement
 } from '@asra/utils'
+import { EntityTypes } from '@asra/utils'
 import Workspace from './workspace'
 import { createElement } from './utils'
 import { ACTIONS, CHANGES } from '@asra/factory'
@@ -18,7 +18,6 @@ class SceneTree {
   _elements: Map<string, ElementInstanceTypes> = new Map()
   workspace: string = ''
   workspaceList: Workspace[] = []
-  private listeners: ((change: SceneTreeChange) => void)[] = []
 
   constructor() {
     this._init()
@@ -40,7 +39,9 @@ class SceneTree {
       return
     }
 
-    this.workspace = data.workspace!
+    if (data.workspace) {
+      this.workspace = data.workspace
+    }
 
     if (data.workspaceList) {
       this.workspaceList = data.workspaceList.map(
@@ -86,7 +87,7 @@ class SceneTree {
   addNewElement(
     element: ElementInstanceTypes,
     parent?: GroupInstanceTypes,
-    index: number = -1
+    index = -1
   ) {
     const workspace = this.currentWorkspace as Workspace
     if (!workspace) {
@@ -108,18 +109,15 @@ class SceneTree {
   }
 
   addRectangle(
-    elementData: ElementRawData,
+    elementData?: ElementRawData,
     parent?: GroupInstanceTypes,
-    index: number = -1
+    index = -1
   ) {
-    const newRectangle = createElement(elementData)
+    const elData = elementData ?? { type: EntityTypes.RECTANGLE }
+    const newRectangle = createElement(elData)
     if (newRectangle) {
       this.addNewElement(newRectangle, parent, index)
     }
-  }
-
-  onChange(listener: (change: SceneTreeChange) => void) {
-    this.listeners.push(listener)
   }
 }
 

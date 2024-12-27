@@ -1,13 +1,5 @@
-import {
-  ElementRawData,
-  ElementAttrs,
-  IElement,
-  IDTypes,
-  NameTypes,
-  EntityTypes,
-  id,
-  name
-} from '@asra/utils'
+import type { ElementRawData, ElementAttrs, IElement } from '@asra/utils'
+import { IDTypes, NameTypes, EntityTypes, id, name } from '@asra/utils'
 import Props from './props'
 import Computed from './computed'
 
@@ -47,7 +39,9 @@ class Element<T extends ElementAttrs = ElementAttrs> implements IElement<T> {
       return
     }
 
-    this.data.type = data.type!
+    if (data.type) {
+      this.data.type = data.type
+    }
     this.props.load(data.props)
   }
 

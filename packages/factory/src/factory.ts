@@ -1,7 +1,7 @@
 import * as Y from 'yjs'
 import doc from './data'
 import DataTransact from './data-transact'
-import { SceneTreeChange } from './change-types'
+import type { SceneTreeChange } from './change-types'
 import { sceneTreeChangesMap } from './registry'
 
 class Factory {
@@ -12,7 +12,9 @@ class Factory {
     this._init()
   }
 
-  _init() {}
+  _init() {
+    // init
+  }
 }
 
 export default new Factory()

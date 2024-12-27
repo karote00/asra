@@ -35,7 +35,7 @@ class Group extends Element<GroupAttrs> {
     return data
   }
 
-  addElement(element: ElementInstanceTypes, index?: number): boolean {
+  addElement(element: ElementInstanceTypes, index = -1): boolean {
     if (!element) {
       return false
     }

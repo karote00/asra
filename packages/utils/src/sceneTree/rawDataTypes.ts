@@ -1,31 +1,40 @@
 import { EntityTypes } from './enum'
 
-export type BaseRawData = {
-  id?: string
-  name?: string
+export interface BaseRawData {
+  id: string
+  name: string
 }
 
-export type PropsRawData = {}
+export interface PropsRawData {
+  width: string
+}
 
-export type ComputedRawData = {}
+export interface ComputedRawData {
+  width: number
+}
 
-export type ElementRawData = BaseRawData & {
+export interface ElementRawData extends BaseRawData {
   type: EntityTypes
   props?: PropsRawData
 }
 
-export type RectangleRawData = ElementRawData & {}
+export interface RectangleRawData extends ElementRawData {
+  row?: number
+}
 
-export type GroupRawData = ElementRawData & {
+export interface GroupRawData extends ElementRawData {
   children: (GroupRawData | ElementRawData)[]
 }
 
-export type FrameRawData = GroupRawData & {}
-export type WorkspaceRawData = GroupRawData & {
+export interface FrameRawData extends GroupRawData {
+  aotuLayout?: boolean
+}
+
+export interface WorkspaceRawData extends GroupRawData {
   children: ElementRawData[]
 }
 
-export type SceneTreeRawData = {
+export interface SceneTreeRawData {
   workspace: string
   workspaceList: WorkspaceRawData[]
 }

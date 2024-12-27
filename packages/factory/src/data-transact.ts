@@ -3,9 +3,20 @@ import { CHANGES } from './enum'
 import { SceneTreeChange } from './change-types'
 import { sceneTreeChangesMap } from './registry'
 
-type Change = { data: SceneTreeChange }
+type ObjectDataType = Record<string, string | number>
+type ChangeDataType = SceneTreeChange | ObjectDataType
 
-const ChangesMaps = {
+interface Change {
+  data: ChangeDataType
+}
+
+type YMapOrArray<T = unknown> = Y.Array<T> | Y.Map<T>
+
+interface ChangesTypeMap {
+  [CHANGES.SCENE_TREE]: YMapOrArray<SceneTreeChange>
+}
+
+const ChangesMaps: ChangesTypeMap = {
   [CHANGES.SCENE_TREE]: sceneTreeChangesMap
 }
 
@@ -27,7 +38,7 @@ class DataTransact {
     this.changes = {}
   }
 
-  update(type: CHANGES, change: any) {
+  update(type: CHANGES, change: ChangeDataType) {
     if (!this.isTransacting) {
       throw new Error('Transaction not started. Call start first.')
     }
@@ -46,7 +57,9 @@ class DataTransact {
       Object.keys(this.changes).forEach((changeType) => {
         const map = ChangesMaps[changeType as CHANGES]
         this.changes[changeType].forEach(({ data }) => {
-          map.push([data])
+          if (map instanceof Y.Array) {
+            map.push([data as SceneTreeChange])
+          }
         })
       })
     })

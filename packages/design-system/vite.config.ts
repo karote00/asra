@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import eslint from 'vite-plugin-eslint'
 import tailwindcss from 'tailwindcss'
 import peerDependencies from './package.json'
 
@@ -9,7 +10,7 @@ export default defineConfig({
       plugins: [tailwindcss()]
     }
   },
-  plugins: [react()] as any,
+  plugins: [react(), eslint()],
   build: {
     lib: {
       entry: './src/index.tsx',

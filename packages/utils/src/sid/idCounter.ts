@@ -5,7 +5,7 @@ import { isNumber } from '../common'
 const AvaliableIDTypes = new Set<IDTypes | string>(Object.values(IDTypes))
 
 class IDCounter {
-  counter: { [key: string]: string } = {}
+  counter: Record<string, string> = {}
 
   constructor() {
     Object.values(IDTypes).forEach((type: string) => {

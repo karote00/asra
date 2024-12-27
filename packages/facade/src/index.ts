@@ -1,17 +1,11 @@
-type FacadeProps = {
-  version: string
-}
-
-type FacadeDataType = Partial<FacadeProps>
-
 class Facade {
-  constructor(data: FacadeDataType) {
-    this._init(data)
+  constructor() {
+    this._init()
   }
 
-  _init(data: FacadeDataType) {}
+  _init() {
+    // init
+  }
 }
-
-interface Facade extends FacadeProps {}
 
 export default Facade

@@ -8,9 +8,13 @@ class Props {
     this.load(data)
   }
 
-  _init(): void {}
+  _init(): void {
+    // init
+  }
 
-  load(data: PropsDataType): void {}
+  load(data: PropsDataType): void {
+    // load data
+  }
 }
 
 export default Props
