@@ -5983,7 +5983,6 @@ __metadata:
     eslint-plugin-react: "npm:^7.37.3"
     prettier: "npm:^3.4.2"
     turbo: "npm:^2.3.3"
-    typescript: "npm:^5.7.2"
     typescript-eslint: "npm:^8.18.2"
   languageName: unknown
   linkType: soft
