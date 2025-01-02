@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [ '**' ]
+    branches: ['**']
     paths:
       - '**.ts'
       - '**.tsx'
@@ -14,22 +14,25 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 20.17.0
-        cache: 'yarn'
-    
-    - name: Install dependencies
-      run: yarn install --frozen-lockfile
-    
-    - name: Lint
-      run: yarn lint:ci
-      
-    - name: Test
-      if: success()
-      run: yarn test:ci
+      - uses: actions/checkout@v4
+
+      - name: Setup Yarn
+        run: corepack enable && yarn set version 4.3.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.17.0
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Lint
+        run: yarn lint:ci
+
+      - name: Test
+        if: success()
+        run: yarn test:ci
