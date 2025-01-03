@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { Button } from '@asra/design-system'
 
 import Core from '../core'
+import ThemeToggle from './theme-toggle'
 import { ROW_HEIGHT } from '../constants'
 
 const ToolBar = () => {
@@ -11,10 +12,15 @@ const ToolBar = () => {
 
   return (
     <div
-      className={`bg-secondary-10 h-${ROW_HEIGHT}`}
+      className={`h-12 dark:bg-panel-darker dark:border-b dark:border-border-dark flex items-center px-4 justify-between h-${ROW_HEIGHT} px-4`}
       style={{ gridArea: 'header' }}
     >
-      <Button onClick={handleAddNewElement} label="Add Element" />
+      <Button
+        onClick={handleAddNewElement}
+        variant="secondary"
+        label="Add new Element"
+      />
+      <ThemeToggle />
     </div>
   )
 }

@@ -1,34 +1,55 @@
 import React from 'react'
 
+// Button Variants and Sizes
+type Variant = 'primary' | 'secondary' | 'accent' | 'warning'
+type Size = 'sm' | 'md' | 'lg'
+
+// ButtonProps Interface
 export interface ButtonProps {
-  /** Is this the principal call to action on the page? */
-  primary?: boolean
-  /** What background color to use */
-  backgroundColor?: string
-  /** How large should the button be? */
-  size?: 'small' | 'medium' | 'large'
-  /** Button contents */
+  /** The variant of the button */
+  variant?: Variant
+  /** The size of the button */
+  size?: Size
+  /** Whether the button is disabled */
+  disabled?: boolean
+  /** Content inside the button */
   label: string
-  /** Optional click handler */
+  /** Click event handler */
   onClick?: () => void
 }
 
-/** Primary UI component for user interaction */
+// Variant and Size Classes
+const variantClasses: Record<Variant, string> = {
+  primary: 'bg-primary text-white hover:bg-primary-70',
+  secondary: 'bg-secondary text-white hover:bg-secondary-70',
+  accent: 'bg-accent text-white hover:bg-accent-70',
+  warning: 'bg-warning text-white hover:bg-warning-70'
+}
+
+const sizeClasses: Record<Size, string> = {
+  sm: 'px-2 py-1 text-sm',
+  md: 'px-4 py-2 text-md',
+  lg: 'px-6 py-3 text-lg'
+}
+
+// Button Component
 const Button: React.FC<ButtonProps> = ({
-  primary = false,
-  size = 'medium',
-  backgroundColor,
+  variant = 'primary',
+  size = 'md',
+  disabled = false,
   label,
-  ...props
-}: ButtonProps) => {
+  onClick
+}) => {
   return (
-    <div
-      className="bg-primary-20 bg-secondary-20 h-8"
-      style={{ backgroundColor }}
-      {...props}
+    <button
+      className={`font-sans rounded-md shadow-subtle transition-colors duration-200
+        ${variantClasses[variant]} ${sizeClasses[size]}
+        ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md'}`}
+      onClick={onClick}
+      disabled={disabled}
     >
       {label}
-    </div>
+    </button>
   )
 }
 

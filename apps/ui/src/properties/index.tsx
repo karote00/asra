@@ -2,9 +2,10 @@ import React from 'react'
 
 const Properties: React.FC = () => {
   return (
-    <div className="bg-yellow-500" style={{ gridArea: 'right-sidebar' }}>
-      Properties
-    </div>
+    <div
+      className="w-72 dark:bg-panel-darker dark:border-l dark:border-border-dark overflow-y-auto"
+      style={{ gridArea: 'right-sidebar' }}
+    ></div>
   )
 }
 

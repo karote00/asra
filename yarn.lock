@@ -62,9 +62,10 @@ __metadata:
     "@storybook/addon-interactions": "npm:^8.4.7"
     "@storybook/addon-onboarding": "npm:^8.4.7"
     "@storybook/blocks": "npm:^8.4.7"
-    "@storybook/react": "npm:^8.4.7"
-    "@storybook/react-vite": "npm:^8.4.7"
-    "@storybook/test": "npm:^8.4.7"
+    "@storybook/react": "npm:8.4.7"
+    "@storybook/react-vite": "npm:8.4.7"
+    "@storybook/test": "npm:8.4.7"
+    "@storybook/types": "npm:^8.4.7"
     "@types/react": "npm:^19.0.0"
     "@types/react-dom": "npm:^19.0.0"
     "@vitejs/plugin-react": "npm:^4.3.4"
@@ -3885,7 +3886,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@storybook/react-vite@npm:^8.4.7":
+"@storybook/react-vite@npm:8.4.7, @storybook/react-vite@npm:^8.4.7":
   version: 8.4.7
   resolution: "@storybook/react-vite@npm:8.4.7"
   dependencies:
@@ -3956,6 +3957,15 @@ __metadata:
   peerDependencies:
     storybook: ^8.2.0 || ^8.3.0-0 || ^8.4.0-0 || ^8.5.0-0 || ^8.6.0-0
   checksum: 10c0/20a4975478063cea616ce6ab6b1e9ec181af1424280678ed74dc5afc15b828c043e843696a1643601331c4fd266169ec4bcc5bb43fd2f1f3c01c0e21443a658a
+  languageName: node
+  linkType: hard
+
+"@storybook/types@npm:^8.4.7":
+  version: 8.4.7
+  resolution: "@storybook/types@npm:8.4.7"
+  peerDependencies:
+    storybook: ^8.2.0 || ^8.3.0-0 || ^8.4.0-0 || ^8.5.0-0 || ^8.6.0-0
+  checksum: 10c0/c7cb2622a32a94accaf3859ee54e54b1755c1c052406b6ff5980773ff1cee786aca0ee084bf338593a6fcbcadd9dc6f512aa5403cc7e60933bc9b3162d56022b
   languageName: node
   linkType: hard
 

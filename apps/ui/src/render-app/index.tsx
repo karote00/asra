@@ -21,12 +21,7 @@ const RenderApp: React.FC = () => {
     }
   }, [])
 
-  return (
-    <div
-      className="absolute top-0 left-0 bg-gray-300 z-10"
-      ref={pixiContainerRef}
-    />
-  )
+  return <div className="absolute top-0 left-0 z-10" ref={pixiContainerRef} />
 }
 
 export default RenderApp

@@ -16,6 +16,8 @@ export interface ComputedRawData {
 export interface ElementRawData extends BaseRawData {
   type: EntityTypes
   props?: PropsRawData
+  isLocked: boolean
+  isVisible: boolean
 }
 
 export interface RectangleRawData extends ElementRawData {

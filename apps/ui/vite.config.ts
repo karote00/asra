@@ -1,9 +1,15 @@
 import { defineConfig } from 'vite'
-import vercel from 'vite-plugin-vercel'
 import react from '@vitejs/plugin-react'
+import vercel from 'vite-plugin-vercel'
 import eslint from 'vite-plugin-eslint'
+import tailwindcss from 'tailwindcss'
 
 export default defineConfig({
+  css: {
+    postcss: {
+      plugins: [tailwindcss()]
+    }
+  },
   plugins: [vercel(), react(), eslint()],
   server: {
     port: (process.env.PORT || 3000) as unknown as number,
@@ -20,12 +26,5 @@ export default defineConfig({
     outDir: '../../dist',
     assetsDir: 'assets',
     emptyOutDir: true
-  },
-  css: {
-    preprocessorOptions: {
-      scss: {
-        additionalData: '@import "@asra/design-system/index.css";'
-      }
-    }
   }
 })
