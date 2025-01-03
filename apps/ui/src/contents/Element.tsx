@@ -1,4 +1,5 @@
 import { useSignals } from '@preact/signals-react/runtime'
+import { Icon } from '@asra/design-system'
 import { getElement } from '../states/scene-tree'
 
 const Element = ({ elementId }: { elementId: string }) => {
@@ -10,17 +11,13 @@ const Element = ({ elementId }: { elementId: string }) => {
   return (
     <div className="flex items-center justify-between p-2 hover:bg-panel-light cursor-pointer text-gray-200">
       <div className="flex items-center space-x-2">
-        <span className="material-icons">folder</span>
-        <span>{name}</span>
+        <Icon name="Group" />
+        {name}
       </div>
 
       <div className="flex items-center space-x-2">
-        <span className="material-icons">
-          {isLocked ? 'lock' : 'lock_open'}
-        </span>
-        <span className="material-icons">
-          {isVisible ? 'visibility' : 'visibility_off'}
-        </span>
+        <Icon name={isLocked ? 'Lock' : 'Unlock'} />
+        <Icon name={isVisible ? 'Visible' : 'Invisible'} />
       </div>
     </div>
   )
