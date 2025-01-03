@@ -1,9 +1,9 @@
 export enum EntityTypes {
   UNDEFINED = 'undefined',
-  WORKSPACE = 'workspace',
-  FRAME = 'frame',
-  GROUP = 'group',
-  ELEMENT = 'element',
-  RECTANGLE = 'rectangle',
-  OVAL = 'oval'
+  WORKSPACE = 'Workspace',
+  FRAME = 'Frame',
+  GROUP = 'Group',
+  ELEMENT = 'Element',
+  RECTANGLE = 'Rectangle',
+  OVAL = 'Oval'
 }

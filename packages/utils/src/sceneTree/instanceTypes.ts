@@ -5,6 +5,8 @@ export interface ElementAttrs {
   id: string
   type: EntityTypes
   name: string
+  visible: boolean
+  lock: boolean
 }
 
 export interface GroupAttrs<

@@ -1,4 +1,4 @@
-import { RectangleRawData, EntityTypes } from '@asra/utils'
+import { RectangleRawData, EntityTypes, NameTypes } from '@asra/utils'
 import Props from './props'
 import Element from './element'
 
@@ -13,6 +13,7 @@ class Rectangle extends Element {
 
   _init(): void {
     this._entityType = EntityTypes.RECTANGLE
+    this._nameType = NameTypes.RECTANGLE
     super._init()
   }
 

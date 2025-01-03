@@ -5,6 +5,13 @@ import Computed from './computed'
 
 type ElementDataType = Partial<ElementRawData>
 
+const ElementProps: Array<keyof ElementAttrs> = [
+  'id',
+  'name',
+  'visible',
+  'lock'
+]
+
 class Element<T extends ElementAttrs = ElementAttrs> implements IElement<T> {
   _idType: IDTypes = IDTypes.ELEMENT
   _nameType: NameTypes = NameTypes.ELEMENT
@@ -12,7 +19,9 @@ class Element<T extends ElementAttrs = ElementAttrs> implements IElement<T> {
   data: T = {
     id: '',
     type: EntityTypes.UNDEFINED,
-    name: ''
+    name: '',
+    visible: true,
+    lock: false
   } as T
   props: Props = new Props()
   computed: Computed = new Computed()
@@ -25,6 +34,8 @@ class Element<T extends ElementAttrs = ElementAttrs> implements IElement<T> {
     this.data.id = id(this._idType)
     this.data.type = this._entityType
     this.data.name = name(this._nameType)
+    this.data.visible = true
+    this.data.lock = false
   }
 
   get<K extends keyof T>(key: K): T[K] {
@@ -39,9 +50,13 @@ class Element<T extends ElementAttrs = ElementAttrs> implements IElement<T> {
       return
     }
 
-    if (data.type) {
-      this.data.type = data.type
-    }
+    ElementProps.forEach((propName) => {
+      const key = propName as keyof ElementAttrs
+      const newValue = data[key] as T[keyof T]
+      if (newValue !== undefined) {
+        this.data[propName as keyof T] = newValue
+      }
+    })
     this.props.load(data.props)
   }
 
@@ -50,6 +65,8 @@ class Element<T extends ElementAttrs = ElementAttrs> implements IElement<T> {
     data.id = this.get('id')
     data.type = this.get('type')
     data.name = this.get('name')
+    data.visible = this.get('visible')
+    data.lock = this.get('lock')
     return data
   }
 }

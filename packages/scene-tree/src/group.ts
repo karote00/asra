@@ -1,6 +1,7 @@
 import {
   GroupRawData,
   EntityTypes,
+  NameTypes,
   GroupAttrs,
   ElementInstanceTypes
 } from '@asra/utils'
@@ -22,6 +23,7 @@ class Group extends Element<GroupAttrs> {
 
   _init(): void {
     this._entityType = EntityTypes.GROUP
+    this._nameType = NameTypes.GROUP
     super._init()
   }
 
