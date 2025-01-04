@@ -119,6 +119,14 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@asra/event-emitter@workspace:*, @asra/event-emitter@workspace:packages/event-emitter":
+  version: 0.0.0-use.local
+  resolution: "@asra/event-emitter@workspace:packages/event-emitter"
+  dependencies:
+    typescript: "npm:^5.7.2"
+  languageName: unknown
+  linkType: soft
+
 "@asra/facade@workspace:packages/facade":
   version: 0.0.0-use.local
   resolution: "@asra/facade@workspace:packages/facade"
@@ -142,6 +150,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asra/input-system@workspace:packages/input-system"
   dependencies:
+    "@asra/event-emitter": "workspace:*"
     typescript: "npm:^5.7.2"
   languageName: unknown
   linkType: soft

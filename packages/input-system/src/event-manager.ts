@@ -1,3 +1,5 @@
+import EventEmitter from '@asra/event-emitter'
+
 type EventType = 'keydown' | 'keyup' | 'mousedown' | 'mouseup' | 'mousemove'
 
 type EventCombination = {
@@ -8,7 +10,7 @@ type EventCombination = {
 
 type CombinationConfig = Record<string, EventCombination>
 
-class EventManager {
+class EventManager extends EventEmitter {
   private activeKeys: Set<string> = new Set()
   private mouseEvent: string | null = null
   private combinations: CombinationConfig = {}
@@ -16,6 +18,7 @@ class EventManager {
   private dragStartPosition: { x: number; y: number } | null = null
 
   constructor(combinations: CombinationConfig) {
+    super()
     this.combinations = combinations
     this.initEventListeners()
   }
@@ -84,10 +87,3 @@ class EventManager {
 }
 
 export default EventManager
-
-// // Load combinations from JSON
-// fetch('/path/to/combinations.json')
-//   .then((response) => response.json())
-//   .then((combinations: CombinationConfig) => {
-//     const plugin = new KeyboardMousePlugin(combinations)
-//   })
