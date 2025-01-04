@@ -10,9 +10,9 @@ const Element = ({ elementId }: { elementId: string }) => {
 
   const { name, type, lock, visible } = elementInstance.value
   return (
-    <div className="flex items-center justify-between p-2 hover:bg-panel-light cursor-pointer text-gray-200">
+    <div className="flex items-center justify-between p-2 hover:bg-panel-light text-gray-200">
       <div className="flex items-center space-x-1 gap-1">
-        <Icon name={type as EntityTypes} />
+        <Icon showCursor={false} name={type as EntityTypes} />
         {name}
       </div>
 
