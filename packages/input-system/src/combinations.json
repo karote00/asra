@@ -1,0 +1,69 @@
+{
+  "UNDO": {
+    "keys": ["Control", "z"]
+  },
+  "REDO": {
+    "keys": ["Control", "Shift", "z"]
+  },
+  "COPY": {
+    "keys": ["Control", "c"]
+  },
+  "PASTE": {
+    "keys": ["Control", "v"]
+  },
+  "CUT": {
+    "keys": ["Control", "x"]
+  },
+  "SELECT_ALL": {
+    "keys": ["Control", "a"]
+  },
+  "DELETE": {
+    "keys": ["Delete"]
+  },
+  "CANCEL": {
+    "keys": ["Escape"]
+  },
+  "SAVE": {
+    "keys": ["Control", "s"]
+  },
+  "SAVE_AS": {
+    "keys": ["Control", "Shift", "s"]
+  },
+  "SWITCH_WINDOW": {
+    "keys": ["Alt", "Tab"]
+  },
+  "MULTI_SELECT": {
+    "keys": ["Control"],
+    "mouse": "left"
+  },
+  "RANGE_SELECT": {
+    "keys": ["Shift"],
+    "mouse": "left"
+  },
+  "PRECISE_DRAG": {
+    "keys": ["Alt"],
+    "mouse": "left"
+  },
+  "CONTEXT_MENU": {
+    "keys": ["Control"],
+    "mouse": "right"
+  },
+  "MOVE_UP_FAST": {
+    "keys": ["Shift", "ArrowUp"]
+  },
+  "MOVE_DOWN_FAST": {
+    "keys": ["Shift", "ArrowDown"]
+  },
+  "MOVE_LEFT_FAST": {
+    "keys": ["Shift", "ArrowLeft"]
+  },
+  "MOVE_RIGHT_FAST": {
+    "keys": ["Shift", "ArrowRight"]
+  },
+  "ZOOM_IN": {
+    "keys": ["Control", "MouseWheelUp"]
+  },
+  "ZOOM_OUT": {
+    "keys": ["Control", "MouseWheelDown"]
+  }
+}

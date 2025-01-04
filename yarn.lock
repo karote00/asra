@@ -138,6 +138,14 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@asra/input-system@workspace:packages/input-system":
+  version: 0.0.0-use.local
+  resolution: "@asra/input-system@workspace:packages/input-system"
+  dependencies:
+    typescript: "npm:^5.7.2"
+  languageName: unknown
+  linkType: soft
+
 "@asra/render@workspace:*, @asra/render@workspace:packages/render":
   version: 0.0.0-use.local
   resolution: "@asra/render@workspace:packages/render"
