@@ -46,6 +46,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asra/core@workspace:packages/core"
   dependencies:
+    "@asra/input-system": "workspace:^"
     "@asra/scene-tree": "workspace:*"
     "@types/node": "npm:^22.10.1"
     typescript: "npm:^5.7.2"
@@ -142,11 +143,11 @@ __metadata:
   dependencies:
     "@types/node": "npm:^22.10.1"
     typescript: "npm:^5.7.2"
-    yjs: "npm:^13.6.20"
+    yjs: "npm:13.6.20"
   languageName: unknown
   linkType: soft
 
-"@asra/input-system@workspace:packages/input-system":
+"@asra/input-system@workspace:^, @asra/input-system@workspace:packages/input-system":
   version: 0.0.0-use.local
   resolution: "@asra/input-system@workspace:packages/input-system"
   dependencies:
@@ -160,6 +161,7 @@ __metadata:
   resolution: "@asra/render@workspace:packages/render"
   dependencies:
     "@types/node": "npm:^22.10.1"
+    pixi.js: "npm:^8.6.3"
     typescript: "npm:^5.7.2"
   languageName: unknown
   linkType: soft
@@ -193,7 +195,6 @@ __metadata:
     "@types/react-dom": "npm:^19.0.0"
     "@vitejs/plugin-react": "npm:^4.3.4"
     autoprefixer: "npm:^10.4.20"
-    pixi.js: "npm:^8.6.3"
     postcss: "npm:^8.4.49"
     react: "npm:^19.0.0"
     react-dom: "npm:^19.0.0"
@@ -18138,12 +18139,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"yjs@npm:^13.6.20":
-  version: 13.6.21
-  resolution: "yjs@npm:13.6.21"
+"yjs@npm:13.6.20":
+  version: 13.6.20
+  resolution: "yjs@npm:13.6.20"
   dependencies:
     lib0: "npm:^0.2.98"
-  checksum: 10c0/b87916eb59738754a9b28decad4d849c52802cc3146183758782d5a5caeea544e8e61dfaf87a36ab2230072116d4b4612fede7f0d8dbf9fdd9643e25e8d7a983
+  checksum: 10c0/d71a3ea265e566a603f1e55aac052c1e5cc2feb863430901e4d3990e55911cfa55667be1008a82f9d95669998bacb0a470806fbbacd2337c996716ffbf45d0a0
   languageName: node
   linkType: hard
 
