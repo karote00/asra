@@ -1,4 +1,5 @@
 import Factory from '@asra/factory'
+import { ElementRawData } from '@asra/utils'
 import { ACTIONS, ChangeDataType } from '@asra/factory'
 import {
   addElement,
@@ -11,16 +12,26 @@ enum ORIGIN {
   REDO = 'REDO'
 }
 
-const Handlers = {
+interface HandlerType {
+  [origin: string]: {
+    [action: string]: (
+      parentId: string,
+      data: ElementRawData,
+      number: number
+    ) => void
+  }
+}
+
+const Handlers: HandlerType = {
   [ORIGIN.REDO]: {
     [ACTIONS.ADD_ELEMENT]: addElement,
     [ACTIONS.REMOVE_ELEMENT]: removeElement,
-    [ACTIONS.UPDATE_ELEMENT]: null
+    [ACTIONS.UPDATE_ELEMENT]: () => {}
   },
   [ORIGIN.UNDO]: {
     [ACTIONS.ADD_ELEMENT]: removeElement,
     [ACTIONS.REMOVE_ELEMENT]: addElement,
-    [ACTIONS.UPDATE_ELEMENT]: null
+    [ACTIONS.UPDATE_ELEMENT]: () => {}
   }
 }
 

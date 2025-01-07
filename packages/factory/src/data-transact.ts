@@ -3,8 +3,7 @@ import { CHANGES } from './enum'
 import { SceneTreeChange } from './change-types'
 import { sceneTreeChange, sceneTreeChangesManager } from './registry'
 
-type ObjectDataType = Record<string, string | number>
-export type ChangeDataType = SceneTreeChange | ObjectDataType
+export type ChangeDataType = SceneTreeChange
 
 interface Change {
   type?: CHANGES
