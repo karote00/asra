@@ -1,12 +1,12 @@
 import * as Y from 'yjs'
-import { CHANGES } from './enum'
 import { SceneTreeChange } from './change-types'
 import { sceneTreeChange, sceneTreeChangesManager } from './registry'
+import { OWNER } from '@asra/utils'
 
 export type ChangeDataType = SceneTreeChange
 
 interface Change {
-  type?: CHANGES
+  owner?: OWNER
   data: ChangeDataType
 }
 
@@ -15,15 +15,15 @@ type ChangesData = Record<string, Change[]>
 type YMapOrArray<T = unknown> = Y.Array<T> | Y.Map<T>
 
 interface ChangesTypeMap {
-  [CHANGES.SCENE_TREE]: YMapOrArray<SceneTreeChange>
+  [OWNER.SCENE_TREE]: YMapOrArray<SceneTreeChange>
 }
 
 const ChangesMaps: ChangesTypeMap = {
-  [CHANGES.SCENE_TREE]: sceneTreeChange
+  [OWNER.SCENE_TREE]: sceneTreeChange
 }
 
 const UndoManagers = {
-  [CHANGES.SCENE_TREE]: sceneTreeChangesManager
+  [OWNER.SCENE_TREE]: sceneTreeChangesManager
 }
 
 class DataTransact {
@@ -45,15 +45,15 @@ class DataTransact {
     this.changes = { all: [] }
   }
 
-  update(type: CHANGES, change: ChangeDataType) {
+  update(owner: OWNER, change: ChangeDataType) {
     if (!this.isTransacting) {
       throw new Error('Transaction not started. Call start first.')
     }
-    if (!this.changes[type]) {
-      this.changes[type] = []
+    if (!this.changes[owner]) {
+      this.changes[owner] = []
     }
-    this.changes.all.push({ type: type, data: change })
-    this.changes[type].push({ data: change })
+    this.changes.all.push({ owner: owner, data: change })
+    this.changes[owner].push({ data: change })
   }
 
   end() {
@@ -63,9 +63,9 @@ class DataTransact {
 
     this.isTransacting = false
     this.doc.transact(() => {
-      Object.keys(this.changes).forEach((changeType) => {
-        const map = ChangesMaps[changeType as CHANGES]
-        this.changes[changeType].forEach(({ data }) => {
+      Object.keys(this.changes).forEach((ownerType) => {
+        const map = ChangesMaps[ownerType as OWNER]
+        this.changes[ownerType].forEach(({ data }) => {
           if (map instanceof Y.Array) {
             map.push([data as SceneTreeChange])
           }
@@ -88,8 +88,9 @@ class DataTransact {
 
     const lastChanges = this.undoStack.pop() as ChangesData[]
     this.doc.transact(() => {
-      lastChanges.forEach(({ type }: Partial<Change>) => {
-        const undoManager = UndoManagers[type as CHANGES]
+      lastChanges.forEach(({ owner, data }: Partial<Change>) => {
+        console.log(owner, data)
+        const undoManager = UndoManagers[owner as OWNER]
         undoManager.undo()
       })
     })

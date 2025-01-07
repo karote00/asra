@@ -75,7 +75,10 @@ class InputSystem extends EventEmitter {
       return
     }
     if (this.keyTimeoutIds.has(key)) {
-      clearTimeout(this.keyTimeoutIds.get(key)!)
+      const timerId = this.keyTimeoutIds.get(key)
+      if (timerId) {
+        clearTimeout(timerId)
+      }
     }
 
     const timeoutId = window.setTimeout(() => {
@@ -89,7 +92,10 @@ class InputSystem extends EventEmitter {
     const standardKey = KeyMap[key as keyof typeof KeyMap] || key
 
     if (this.keyTimeoutIds.has(key)) {
-      clearTimeout(this.keyTimeoutIds.get(key)!)
+      const timerId = this.keyTimeoutIds.get(key)
+      if (timerId) {
+        clearTimeout(timerId)
+      }
       this.keyTimeoutIds.delete(key)
     }
 

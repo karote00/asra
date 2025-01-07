@@ -3,3 +3,7 @@ export enum Size {
   MD = 'md',
   SM = 'sm'
 }
+
+export enum OWNER {
+  SCENE_TREE = 'SCENE_TREE'
+}

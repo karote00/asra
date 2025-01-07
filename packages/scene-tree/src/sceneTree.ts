@@ -7,10 +7,10 @@ import type {
   GroupInstanceTypes,
   IElement
 } from '@asra/utils'
-import { EntityTypes } from '@asra/utils'
+import { EntityTypes, OWNER } from '@asra/utils'
 import Workspace from './workspace'
 import { createElement } from './utils'
-import { ACTIONS, CHANGES } from '@asra/factory'
+import { ACTIONS } from '@asra/factory'
 
 type SceneTreeDataType = Partial<SceneTreeRawData>
 
@@ -31,7 +31,7 @@ class SceneTree {
   }
 
   commit(change: SceneTreeChange) {
-    Factory.transact.update(CHANGES.SCENE_TREE, change)
+    Factory.transact.update(OWNER.SCENE_TREE, change)
   }
 
   load(data: SceneTreeDataType) {
@@ -99,6 +99,7 @@ class SceneTree {
     if (success) {
       this.addToMap(element)
       this.commit({
+        owner: OWNER.SCENE_TREE,
         action: ACTIONS.ADD_ELEMENT,
         parentId: parent ? parent.get('id') : '',
         index,
@@ -118,6 +119,14 @@ class SceneTree {
     if (newRectangle) {
       this.addNewElement(newRectangle, parent, index)
     }
+  }
+
+  undo() {
+    console.log('SceneTree UNDO')
+  }
+
+  redo() {
+    console.log('SceneTree REDO')
   }
 }
 
