@@ -82,11 +82,33 @@ export const addElement = (
       ...elements.value,
       [data.id]: signal(data)
     }
-
-    flattenedElementIds.value = getFlattenedElementIds()
   }
 }
 
-export const removeElement = (parentId: string, elementId: string): void => {
-  // remove element
+export const removeElement = (
+  parentId: string,
+  data: Partial<ElementRawData | GroupRawData>,
+  index = -1
+): void => {
+  const parent = getElement(parentId) as Signal<UIGroupElementData>
+  const avaliableParent =
+    parent ?? (getElement(rootId.value) as Signal<UIGroupElementData>)
+  if (avaliableParent && data.id) {
+    const idx =
+      index > -1 ? index : avaliableParent.value.children.indexOf(data.id)
+    const children = avaliableParent.value.children
+    children.splice(idx, 1)
+    avaliableParent.value = {
+      ...avaliableParent.value,
+      children
+    }
+
+    elements.value = {
+      ...elements.value
+    }
+  }
+}
+
+export const updateFlattenedElementIds = () => {
+  flattenedElementIds.value = getFlattenedElementIds()
 }

@@ -1,6 +1,10 @@
 import Factory from '@asra/factory'
 import { ACTIONS, ChangeDataType } from '@asra/factory'
-import { addElement, removeElement } from '../states/scene-tree'
+import {
+  addElement,
+  removeElement,
+  updateFlattenedElementIds
+} from '../states/scene-tree'
 
 enum ORIGIN {
   UNDO = 'UNDO',
@@ -28,18 +32,32 @@ const updateUISceneTree = (change: ChangeDataType, origin: ORIGIN) => {
   }
 }
 
-Factory.sceneTreeMap.observe((event) => {
-  event.changes.added.forEach((item) => {
-    const changes = item.content.getContent()
-    changes.forEach((change) => {
-      updateUISceneTree(change, ORIGIN.REDO)
-    })
-  })
+const checkIfNeedUpdateFlattenedElementIds = (action: ACTIONS) =>
+  action === ACTIONS.ADD_ELEMENT || action === ACTIONS.REMOVE_ELEMENT
 
-  event.changes.deleted.forEach((item) => {
-    const changes = item.content.getContent()
-    changes.forEach((change) => {
-      updateUISceneTree(change, ORIGIN.UNDO)
+Factory.sceneTreeMap.observe((event) => {
+  let shouldUpdateFlattenedElementIds = false
+
+  const processChanges = (
+    items: typeof event.changes.added,
+    origin: ORIGIN
+  ) => {
+    items.forEach((item) => {
+      item.content.getContent().forEach((change) => {
+        if (!shouldUpdateFlattenedElementIds) {
+          shouldUpdateFlattenedElementIds =
+            checkIfNeedUpdateFlattenedElementIds(change.action)
+        }
+        updateUISceneTree(change, origin)
+      })
     })
-  })
+  }
+
+  processChanges(event.changes.added, ORIGIN.REDO)
+  processChanges(event.changes.deleted, ORIGIN.UNDO)
+
+  // Only update flattened element ids once
+  if (shouldUpdateFlattenedElementIds) {
+    updateFlattenedElementIds()
+  }
 })
