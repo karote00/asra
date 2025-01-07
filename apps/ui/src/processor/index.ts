@@ -12,26 +12,22 @@ enum ORIGIN {
   REDO = 'REDO'
 }
 
-interface HandlerType {
-  [origin: string]: {
-    [action: string]: (
-      parentId: string,
-      data: ElementRawData,
-      number: number
-    ) => void
-  }
-}
+type HandlerType = Record<
+  string,
+  Record<
+    string,
+    (parentId: string, data: ElementRawData, number: number) => void
+  >
+>
 
 const Handlers: HandlerType = {
   [ORIGIN.REDO]: {
     [ACTIONS.ADD_ELEMENT]: addElement,
-    [ACTIONS.REMOVE_ELEMENT]: removeElement,
-    [ACTIONS.UPDATE_ELEMENT]: () => {}
+    [ACTIONS.REMOVE_ELEMENT]: removeElement
   },
   [ORIGIN.UNDO]: {
     [ACTIONS.ADD_ELEMENT]: removeElement,
-    [ACTIONS.REMOVE_ELEMENT]: addElement,
-    [ACTIONS.UPDATE_ELEMENT]: () => {}
+    [ACTIONS.REMOVE_ELEMENT]: addElement
   }
 }
 
