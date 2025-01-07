@@ -7,6 +7,7 @@ interface EventCombination {
 }
 
 type CombinationConfig = Record<string, EventCombination>
+
 interface MousePosition {
   x: number
   y: number
@@ -31,9 +32,16 @@ const normalizeKey = (eventKey: string): string => {
   return eventKey.length === 1 ? eventKey.toUpperCase() : eventKey
 }
 
+const getPosition = (target: MousePosition) => ({
+  x: target?.x ?? 0,
+  y: target?.y ?? 0
+})
+
 class InputSystem extends EventEmitter {
   private activeKeys: Set<string> = new Set()
   private activeMouse: string | null = null
+  private keyTimeoutIds: Map<string, number> = new Map()
+  private timeoutDuration: number = 100
   private dragStartPosition: MousePosition | null = null
   private mousePosition: MousePosition | null = null
   private deltaPosition: MousePosition | null = null
@@ -48,31 +56,67 @@ class InputSystem extends EventEmitter {
   }
 
   private initEventListeners() {
-    window.addEventListener('keydown', (e) => this.onKeyDown(e))
-    window.addEventListener('keyup', (e) => this.onKeyUp(e))
-    window.addEventListener('mousedown', (e) => this.onMouseDown(e))
-    window.addEventListener('mousemove', (e) => this.onMouseMove(e))
-    window.addEventListener('mouseup', () => this.onMouseUp())
+    document.addEventListener('keydown', (e) => this.onKeyDown(e))
+    document.addEventListener('keyup', (e) => this.onKeyUp(e), true)
+    document.addEventListener('mousedown', (e) => this.onMouseDown(e))
+    document.addEventListener('mousemove', (e) => this.onMouseMove(e))
+    document.addEventListener('mouseup', () => this.onMouseUp())
   }
 
   private onKeyDown(event: KeyboardEvent) {
     const key = normalizeKey(event.key)
     const standardKey = KeyMap[key as keyof typeof KeyMap] || key
-    if (MODIFIER_KEYS.has(standardKey)) {
-      this.modifiers[standardKey as keyof ModifierKeys] = true
-    }
+
     this.activeKeys.add(standardKey)
+    this.updateModifiers(key, true)
+
     this.checkCombinations()
+    if (MODIFIER_KEYS.has(standardKey)) {
+      return
+    }
+    if (this.keyTimeoutIds.has(key)) {
+      clearTimeout(this.keyTimeoutIds.get(key)!)
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      this.handleKeyTimeout(key)
+    }, this.timeoutDuration)
+    this.keyTimeoutIds.set(key, timeoutId)
   }
 
   private onKeyUp(event: KeyboardEvent) {
     const key = normalizeKey(event.key)
     const standardKey = KeyMap[key as keyof typeof KeyMap] || key
-    if (MODIFIER_KEYS.has(standardKey)) {
-      this.modifiers[standardKey as keyof ModifierKeys] = false
+
+    if (this.keyTimeoutIds.has(key)) {
+      clearTimeout(this.keyTimeoutIds.get(key)!)
+      this.keyTimeoutIds.delete(key)
     }
+
     this.activeKeys.delete(standardKey)
+    this.updateModifiers(key, false)
     this.checkCombinations()
+  }
+
+  private handleKeyTimeout(key: string) {
+    if (this.activeKeys.has(key)) {
+      this.activeKeys.delete(key)
+      this.keyTimeoutIds.delete(key)
+      this.updateModifiers(key, false)
+      this.checkCombinations()
+    }
+  }
+
+  private updateModifiers(key: string, isDown: boolean) {
+    if (['ControlLeft', 'ControlRight'].includes(key)) {
+      this.modifiers.Ctrl = isDown
+    } else if (['MetaLeft', 'MetaRight'].includes(key)) {
+      this.modifiers.Meta = isDown
+    } else if (['ShiftLeft', 'ShiftRight'].includes(key)) {
+      this.modifiers.Shift = isDown
+    } else if (['AltLeft', 'AltRight'].includes(key)) {
+      this.modifiers.Alt = isDown
+    }
   }
 
   private updateMousePosition(event: MouseEvent) {
@@ -123,14 +167,8 @@ class InputSystem extends EventEmitter {
       const mouseMatch = combo.mouse ? combo.mouse === this.activeMouse : true
       if (keysMatch && mouseMatch) {
         this.triggerCommand(command, {
-          mousePos: {
-            x: this.mousePosition?.x ?? 0,
-            y: this.mousePosition?.y ?? 0
-          },
-          dragStart: {
-            x: this.dragStartPosition?.x ?? 0,
-            y: this.dragStartPosition?.y ?? 0
-          },
+          mousePos: getPosition(this.mousePosition as MousePosition),
+          dragStart: getPosition(this.dragStartPosition as MousePosition),
           modifiers: { ...this.modifiers }
         })
       }
