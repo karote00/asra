@@ -5,12 +5,7 @@ import Computed from './computed'
 
 type ElementDataType = Partial<ElementRawData>
 
-const ElementProps: Array<keyof ElementAttrs> = [
-  'id',
-  'name',
-  'visible',
-  'lock'
-]
+const ElementProps: (keyof ElementAttrs)[] = ['id', 'name', 'visible', 'lock']
 
 class Element<T extends ElementAttrs = ElementAttrs> implements IElement<T> {
   _idType: IDTypes = IDTypes.ELEMENT

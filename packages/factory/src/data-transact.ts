@@ -3,7 +3,7 @@ import { CHANGES } from './enum'
 import { SceneTreeChange } from './change-types'
 import { sceneTreeChange, sceneTreeChangesManager } from './registry'
 
-type ObjectDataType = Record<string, any>
+type ObjectDataType = Record<string, string | number>
 export type ChangeDataType = SceneTreeChange | ObjectDataType
 
 interface Change {
@@ -84,7 +84,6 @@ class DataTransact {
 
   undo() {
     if (!this.undoStack.length) {
-      console.log('No changes to undo.')
       return
     }
 

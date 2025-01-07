@@ -1,21 +1,30 @@
 import EventEmitter from '@asra/event-emitter'
 import { KeyMap } from './keymap'
 
-type EventCombination = {
+interface EventCombination {
   keys: string[]
   mouse?: string
 }
 
 type CombinationConfig = Record<string, EventCombination>
-type MousePosition = { x: number; y: number }
+interface MousePosition {
+  x: number
+  y: number
+}
 
 const MODIFIER_KEYS: Set<string> = new Set(['Control', 'Meta', 'Shift', 'Alt'])
 
-type ModifierKeys = {
+interface ModifierKeys {
   Ctrl?: boolean
   Meta?: boolean
   Shift?: boolean
   Alt?: boolean
+}
+
+interface EmitContext {
+  mousePos: MousePosition
+  dragStart: MousePosition
+  modifiers: ModifierKeys
 }
 
 const normalizeKey = (eventKey: string): string => {
@@ -114,15 +123,21 @@ class InputSystem extends EventEmitter {
       const mouseMatch = combo.mouse ? combo.mouse === this.activeMouse : true
       if (keysMatch && mouseMatch) {
         this.triggerCommand(command, {
-          mousePos: { ...this.mousePosition },
-          dragStart: { ...this.dragStartPosition },
+          mousePos: {
+            x: this.mousePosition?.x ?? 0,
+            y: this.mousePosition?.y ?? 0
+          },
+          dragStart: {
+            x: this.dragStartPosition?.x ?? 0,
+            y: this.dragStartPosition?.y ?? 0
+          },
           modifiers: { ...this.modifiers }
         })
       }
     }
   }
 
-  private triggerCommand(command: string, context: any) {
+  private triggerCommand(command: string, context: EmitContext) {
     this.emit(command, context)
   }
 }

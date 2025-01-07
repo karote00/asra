@@ -89,5 +89,4 @@ export const addElement = (
 
 export const removeElement = (parentId: string, elementId: string): void => {
   // remove element
-  console.log('removeElement')
 }
