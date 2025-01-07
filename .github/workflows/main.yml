@@ -1,8 +1,17 @@
 name: CI
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**.ts'
+      - '**.tsx'
+      - '**.js'
+      - '**.jsx'
+      - 'package.json'
+      - 'yarn.lock'
   pull_request:
-    branches: ['**']
     paths:
       - '**.ts'
       - '**.tsx'
@@ -36,3 +45,30 @@ jobs:
       - name: Test
         if: success()
         run: yarn test:ci
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Yarn
+        run: corepack enable && yarn set version 4.3.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.17.0
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build
+        run: yarn build
+
+      - name: Deploy to Vercel
+        run: |
+          npx vercel --token=${{ secrets.VERCEL_TOKEN }} --prod

@@ -30,7 +30,7 @@ class SceneTree {
     this.workspace = this.workspaceList[0].get('id')
   }
 
-  emit(change: SceneTreeChange) {
+  commit(change: SceneTreeChange) {
     Factory.transact.update(CHANGES.SCENE_TREE, change)
   }
 
@@ -98,7 +98,7 @@ class SceneTree {
     const success = workspace.addNewElement(element, parent, index)
     if (success) {
       this.addToMap(element)
-      this.emit({
+      this.commit({
         action: ACTIONS.ADD_ELEMENT,
         parentId: parent ? parent.get('id') : '',
         index,

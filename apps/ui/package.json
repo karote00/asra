@@ -14,7 +14,6 @@
     "@types/jest": "^27.5.2",
     "@types/node": "^16.18.121",
     "@types/pixi.js": "^5.0.0",
-    "pixi.js": "^8.6.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-scripts": "5.0.1",

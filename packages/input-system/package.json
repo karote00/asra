@@ -1,11 +1,10 @@
 {
-  "name": "@asra/core",
+  "name": "@asra/input-system",
   "version": "1.0.1",
-  "description": "Core of Asra.",
+  "description": "Keyboard and Mouse event listener plugin",
   "author": "Asa Tsai",
   "license": "MIT",
   "packageManager": "yarn@4.3.1",
-  "keywords": [],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -14,11 +13,9 @@
     "clean": "rm -rf dist"
   },
   "devDependencies": {
-    "@types/node": "^22.10.1",
     "typescript": "^5.7.2"
   },
   "dependencies": {
-    "@asra/input-system": "workspace:^",
-    "@asra/scene-tree": "workspace:*"
+    "@asra/event-emitter": "workspace:*"
   }
 }
