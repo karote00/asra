@@ -5,7 +5,7 @@ import type {
 } from '@asra/utils'
 import { isGroupEntity, IDTypes, NameTypes, EntityTypes } from '@asra/utils'
 import Group from './group'
-import { createElement } from './utils'
+import { createElement } from '../utils'
 
 type WorkspaceDataType = Partial<WorkspaceRawData>
 

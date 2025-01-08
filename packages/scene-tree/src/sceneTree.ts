@@ -8,7 +8,7 @@ import type {
   IElement
 } from '@asra/utils'
 import { EntityTypes, OWNER } from '@asra/utils'
-import Workspace from './workspace'
+import Workspace from './components/workspace'
 import { createElement } from './utils'
 import { ACTIONS } from '@asra/factory'
 
