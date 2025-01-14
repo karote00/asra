@@ -2,7 +2,7 @@ import * as Y from 'yjs'
 import { OWNER } from '@asra/utils'
 import type { SceneTreeYjsChange } from '@asra/utils'
 import type { AllEvent, UpdateTransactionEvent } from '@asra/reactive-events'
-import { sceneTreeChange, sceneTreeChangesManager } from './registry'
+import { sceneTreeChange } from './registry'
 
 export type ChangeDataType = SceneTreeYjsChange
 
@@ -16,16 +16,14 @@ const ChangesMaps: ChangesTypeMap = {
   [OWNER.SCENE_TREE]: sceneTreeChange
 }
 
-const UndoManagers = {
-  [OWNER.SCENE_TREE]: sceneTreeChangesManager
-}
+// const UndoManagers = {
+//   [OWNER.SCENE_TREE]: sceneTreeChangesManager
+// }
 
 class DataTransact {
   private changes: AllEvent[] = []
   private undoStack: AllEvent[][] = []
   private isTransacting = false
-
-  constructor() {}
 
   start() {
     if (this.isTransacting) {

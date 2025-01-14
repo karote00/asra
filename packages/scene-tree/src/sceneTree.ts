@@ -95,14 +95,6 @@ class SceneTree {
 
     return success
   }
-
-  undo() {
-    console.log('SceneTree UNDO')
-  }
-
-  redo() {
-    console.log('SceneTree REDO')
-  }
 }
 
 const sceneTree = new SceneTree()
