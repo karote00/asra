@@ -1,5 +1,6 @@
 import { Signal, signal, effect } from '@preact/signals-react'
-import { ElementRawData, EntityTypes, GroupRawData } from '@asra/utils'
+import { EntityTypes } from '@asra/utils'
+import type { ElementRawData, GroupRawData } from '@asra/utils'
 
 type UINormalElementData = ElementRawData
 type UIGroupElementData = GroupRawData & { children: string[] }

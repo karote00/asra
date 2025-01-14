@@ -1,7 +1,7 @@
 {
-  "name": "@asra/factory",
+  "name": "@asra/reactive-events",
   "version": "1.0.1",
-  "description": "Manipulate with data changes",
+  "description": "Event middleware",
   "author": "Asa Tsai",
   "license": "MIT",
   "packageManager": "yarn@4.3.1",
@@ -18,9 +18,7 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
-    "@asra/reactive-events": "workspace:*",
     "@asra/utils": "workspace:*",
-    "rxjs": "^7.8.1",
-    "yjs": "13.6.20"
+    "rxjs": "^7.8.1"
   }
 }

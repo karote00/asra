@@ -1,4 +1,3 @@
-import Factory, { SceneTreeChange } from '@asra/factory'
 import type {
   SceneTreeRawData,
   WorkspaceRawData,
@@ -7,10 +6,9 @@ import type {
   GroupInstanceTypes,
   IElement
 } from '@asra/utils'
-import { EntityTypes, OWNER } from '@asra/utils'
+import { EntityTypes } from '@asra/utils'
 import Workspace from './components/workspace'
 import { createElement } from './utils'
-import { ACTIONS } from '@asra/factory'
 
 type SceneTreeDataType = Partial<SceneTreeRawData>
 
@@ -28,10 +26,6 @@ class SceneTree {
     this._elements.set(initWorkspace.get('id'), initWorkspace)
     this.workspaceList = [initWorkspace]
     this.workspace = this.workspaceList[0].get('id')
-  }
-
-  commit(change: SceneTreeChange) {
-    Factory.transact.update(OWNER.SCENE_TREE, change)
   }
 
   load(data: SceneTreeDataType) {
@@ -88,37 +82,18 @@ class SceneTree {
     element: ElementInstanceTypes,
     parent?: GroupInstanceTypes,
     index = -1
-  ) {
+  ): boolean {
     const workspace = this.currentWorkspace as Workspace
     if (!workspace) {
-      return
+      return false
     }
 
-    Factory.transact.start()
     const success = workspace.addNewElement(element, parent, index)
     if (success) {
       this.addToMap(element)
-      this.commit({
-        owner: OWNER.SCENE_TREE,
-        action: ACTIONS.ADD_ELEMENT,
-        parentId: parent ? parent.get('id') : '',
-        index,
-        data: element.save()
-      })
     }
-    Factory.transact.end()
-  }
 
-  addRectangle(
-    elementData?: ElementRawData,
-    parent?: GroupInstanceTypes,
-    index = -1
-  ) {
-    const elData = elementData ?? { type: EntityTypes.RECTANGLE }
-    const newRectangle = createElement(elData)
-    if (newRectangle) {
-      this.addNewElement(newRectangle, parent, index)
-    }
+    return success
   }
 
   undo() {

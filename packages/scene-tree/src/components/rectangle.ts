@@ -1,4 +1,5 @@
-import { RectangleRawData, EntityTypes, NameTypes } from '@asra/utils'
+import type { RectangleRawData } from '@asra/utils'
+import { EntityTypes, NameTypes } from '@asra/utils'
 import Props from './props'
 import Element from './element'
 

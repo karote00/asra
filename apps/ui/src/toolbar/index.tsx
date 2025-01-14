@@ -1,14 +1,14 @@
 import { useCallback } from 'react'
 import { Button } from '@asra/design-system'
 
-import Core from '../core'
 import ThemeToggle from './theme-toggle'
 import { ROW_HEIGHT } from '../constants'
+import { sceneTreeManager } from '../states/data-context'
 
 const ToolBar = () => {
   const handleAddNewElement = useCallback(() => {
-    Core.addRectangle()
-  }, [Core])
+    sceneTreeManager.addRectangle()
+  }, [sceneTreeManager])
 
   return (
     <div

@@ -1,10 +1,10 @@
 import React from 'react'
-import { COLUMN_WIDTH } from '../constants'
 import ToolBar from '../toolbar'
 import Contents from '../contents'
 import Properties from '../properties'
 import Animation from '../animation'
 import { realSize } from '../utils'
+import { COLUMN_WIDTH } from '../constants'
 
 const App: React.FC = () => {
   return (

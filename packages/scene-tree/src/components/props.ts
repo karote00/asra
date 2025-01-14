@@ -1,11 +1,10 @@
-import { PropsRawData } from '@asra/utils'
+import type { PropsRawData } from '@asra/utils'
 
 type PropsDataType = Partial<PropsRawData> | undefined
 
 class Props {
-  constructor(data?: PropsDataType) {
+  constructor() {
     this._init()
-    this.load(data)
   }
 
   _init(): void {

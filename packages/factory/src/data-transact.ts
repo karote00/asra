@@ -1,21 +1,15 @@
 import * as Y from 'yjs'
-import { SceneTreeChange } from './change-types'
-import { sceneTreeChange, sceneTreeChangesManager } from './registry'
 import { OWNER } from '@asra/utils'
+import type { SceneTreeYjsChange } from '@asra/utils'
+import type { AllEvent, UpdateTransactionEvent } from '@asra/reactive-events'
+import { sceneTreeChange, sceneTreeChangesManager } from './registry'
 
-export type ChangeDataType = SceneTreeChange
-
-interface Change {
-  owner?: OWNER
-  data: ChangeDataType
-}
-
-type ChangesData = Record<string, Change[]>
+export type ChangeDataType = SceneTreeYjsChange
 
 type YMapOrArray<T = unknown> = Y.Array<T> | Y.Map<T>
 
 interface ChangesTypeMap {
-  [OWNER.SCENE_TREE]: YMapOrArray<SceneTreeChange>
+  [OWNER.SCENE_TREE]: YMapOrArray<SceneTreeYjsChange>
 }
 
 const ChangesMaps: ChangesTypeMap = {
@@ -27,14 +21,11 @@ const UndoManagers = {
 }
 
 class DataTransact {
-  private doc: Y.Doc
-  private changes: ChangesData = {}
-  private undoStack: ChangesData[][] = []
+  private changes: AllEvent[] = []
+  private undoStack: AllEvent[][] = []
   private isTransacting = false
 
-  constructor(doc: Y.Doc) {
-    this.doc = doc
-  }
+  constructor() {}
 
   start() {
     if (this.isTransacting) {
@@ -42,18 +33,27 @@ class DataTransact {
     }
 
     this.isTransacting = true
-    this.changes = { all: [] }
+    this.changes = []
   }
 
-  update(owner: OWNER, change: ChangeDataType) {
+  update(event: UpdateTransactionEvent) {
     if (!this.isTransacting) {
       throw new Error('Transaction not started. Call start first.')
     }
-    if (!this.changes[owner]) {
-      this.changes[owner] = []
+
+    const newType = event.eventName as AllEvent['type']
+    const newPayload = JSON.parse(JSON.stringify(event.payload))
+    // @ts-expect-error: Should accept any type of payload
+    const newEvent: AllEvent = {
+      type: newType,
+      payload: newPayload
     }
-    this.changes.all.push({ owner: owner, data: change })
-    this.changes[owner].push({ data: change })
+    this.changes.push(newEvent)
+
+    const map = ChangesMaps[event.payload.owner as OWNER]
+    if (map instanceof Y.Array) {
+      map.push([event.payload])
+    }
   }
 
   end() {
@@ -62,23 +62,12 @@ class DataTransact {
     }
 
     this.isTransacting = false
-    this.doc.transact(() => {
-      Object.keys(this.changes).forEach((ownerType) => {
-        const map = ChangesMaps[ownerType as OWNER]
-        this.changes[ownerType].forEach(({ data }) => {
-          if (map instanceof Y.Array) {
-            map.push([data as SceneTreeChange])
-          }
-        })
-      })
-    })
-
     this.commitUndo()
-    this.changes = {}
+    this.changes = []
   }
 
   commitUndo() {
-    this.undoStack.push(JSON.parse(JSON.stringify(this.changes.all)))
+    this.undoStack.push(JSON.parse(JSON.stringify(this.changes)))
   }
 
   undo() {
@@ -86,16 +75,16 @@ class DataTransact {
       return
     }
 
-    const lastChanges = this.undoStack.pop() as ChangesData[]
-    this.doc.transact(() => {
-      lastChanges.forEach(({ owner, data }: Partial<Change>) => {
-        console.log(owner, data)
-        const undoManager = UndoManagers[owner as OWNER]
-        undoManager.undo()
-      })
-    })
+    // const lastChanges = this.undoStack.pop() as AllEvent[]
+    // this.doc.transact(() => {
+    //   lastChanges.forEach((event: AllEvent) => {
+    //     // console.log(owner, data)
+    //     // const undoManager = UndoManagers[owner as OWNER]
+    //     // undoManager.undo()
+    //   })
+    // })
 
-    this.changes = {}
+    this.changes = []
   }
 
   redo() {
@@ -104,3 +93,4 @@ class DataTransact {
 }
 
 export default DataTransact
+export const dataTransact = new DataTransact()

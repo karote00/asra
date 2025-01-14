@@ -6,6 +6,8 @@
   "dependencies": {
     "@asra/core": "workspace:*",
     "@asra/design-system": "workspace:*",
+    "@asra/factory": "workspace:*",
+    "@asra/reactive-events": "workspace:*",
     "@asra/render": "workspace:*",
     "@preact/signals-react": "^2.2.0",
     "@testing-library/jest-dom": "^5.17.0",

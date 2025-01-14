@@ -1,10 +1,9 @@
-import {
+import type {
   GroupRawData,
-  EntityTypes,
-  NameTypes,
   GroupAttrs,
   ElementInstanceTypes
 } from '@asra/utils'
+import { EntityTypes, NameTypes } from '@asra/utils'
 import Props from './props'
 import Element from './element'
 

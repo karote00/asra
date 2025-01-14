@@ -1,4 +1,5 @@
-import { FrameRawData, EntityTypes, NameTypes } from '@asra/utils'
+import type { FrameRawData } from '@asra/utils'
+import { EntityTypes, NameTypes } from '@asra/utils'
 import Group from './group'
 
 type FrameDataType = Partial<FrameRawData>
