@@ -1,5 +1,4 @@
 export * from './types'
 export * from './app'
 export * from './event-bus'
-export * from './input-system'
 export * from './scene-tree'

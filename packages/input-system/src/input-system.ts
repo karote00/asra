@@ -3,7 +3,8 @@ import { KeyMap } from './keymap'
 
 interface EventCombination {
   keys: string[]
-  mouse?: string
+  modifiers: string[]
+  mouse?: string[]
 }
 
 type CombinationConfig = Record<string, EventCombination>
@@ -16,10 +17,10 @@ interface MousePosition {
 const MODIFIER_KEYS: Set<string> = new Set(['Control', 'Meta', 'Shift', 'Alt'])
 
 interface ModifierKeys {
-  Ctrl?: boolean
-  Meta?: boolean
-  Shift?: boolean
-  Alt?: boolean
+  Ctrl: boolean
+  Meta: boolean
+  Shift: boolean
+  Alt: boolean
 }
 
 interface EmitContext {
@@ -39,15 +40,20 @@ const getPosition = (target: MousePosition) => ({
 
 class InputSystem extends EventEmitter {
   private activeKeys: Set<string> = new Set()
+  private activeModifiers: Set<string> = new Set()
   private activeMouse: string | null = null
-  private keyTimeoutIds: Map<string, number> = new Map()
-  private timeoutDuration: number = 100
   private dragStartPosition: MousePosition | null = null
   private mousePosition: MousePosition | null = null
-  private deltaPosition: MousePosition | null = null
-  private modifiers: ModifierKeys = {}
+  private modifiers: ModifierKeys = {
+    Ctrl: false,
+    Meta: false,
+    Shift: false,
+    Alt: false
+  }
   private canDrag: boolean = false
   private combinations: CombinationConfig = {}
+  private keyTimeouts: Record<string, number> = {}
+  private resetDelay: number = 100
 
   constructor(combinations: CombinationConfig) {
     super()
@@ -57,72 +63,76 @@ class InputSystem extends EventEmitter {
 
   private initEventListeners() {
     document.addEventListener('keydown', (e) => this.onKeyDown(e))
-    document.addEventListener('keyup', (e) => this.onKeyUp(e), true)
+    document.addEventListener('keyup', (e) => this.onKeyUp(e))
     document.addEventListener('mousedown', (e) => this.onMouseDown(e))
     document.addEventListener('mousemove', (e) => this.onMouseMove(e))
     document.addEventListener('mouseup', () => this.onMouseUp())
+    document.addEventListener('wheel', (e) => this.onMouseWheel(e))
+    document.addEventListener('dblclick', (e) => this.onMouseDoubleClick(e))
   }
 
   private onKeyDown(event: KeyboardEvent) {
+    event.preventDefault()
+    event.stopPropagation()
+
     const key = normalizeKey(event.key)
-    const standardKey = KeyMap[key as keyof typeof KeyMap] || key
+    const standardKey = KeyMap[key] || key
 
-    this.activeKeys.add(standardKey)
-    this.updateModifiers(key, true)
+    if (this.keyTimeouts[standardKey]) {
+      clearTimeout(this.keyTimeouts[standardKey])
+    }
 
-    this.checkCombinations()
     if (MODIFIER_KEYS.has(standardKey)) {
-      return
+      this.activeModifiers.add(standardKey)
+      this.updateModifiers()
+    } else {
+      this.activeKeys.add(standardKey)
+      this.keyTimeouts[standardKey] = window.setTimeout(() => {
+        this.activeKeys.delete(standardKey)
+        this.activeModifiers.delete(standardKey)
+        delete this.keyTimeouts[standardKey]
+        this.updateModifiers()
+        this.checkCombinations()
+      }, this.resetDelay)
     }
-    if (this.keyTimeoutIds.has(key)) {
-      const timerId = this.keyTimeoutIds.get(key)
-      if (timerId) {
-        clearTimeout(timerId)
-      }
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      this.handleKeyTimeout(key)
-    }, this.timeoutDuration)
-    this.keyTimeoutIds.set(key, timeoutId)
+    this.checkCombinations()
   }
 
   private onKeyUp(event: KeyboardEvent) {
-    const key = normalizeKey(event.key)
-    const standardKey = KeyMap[key as keyof typeof KeyMap] || key
+    event.preventDefault()
+    event.stopPropagation()
 
-    if (this.keyTimeoutIds.has(key)) {
-      const timerId = this.keyTimeoutIds.get(key)
-      if (timerId) {
-        clearTimeout(timerId)
-      }
-      this.keyTimeoutIds.delete(key)
+    const key = normalizeKey(event.key)
+    const standardKey = KeyMap[key] || key
+
+    if (this.keyTimeouts[standardKey]) {
+      clearTimeout(this.keyTimeouts[standardKey])
+      delete this.keyTimeouts[standardKey]
     }
 
     this.activeKeys.delete(standardKey)
-    this.updateModifiers(key, false)
+    this.activeModifiers.delete(standardKey)
+    this.updateModifiers()
     this.checkCombinations()
   }
 
-  private handleKeyTimeout(key: string) {
-    if (this.activeKeys.has(key)) {
-      this.activeKeys.delete(key)
-      this.keyTimeoutIds.delete(key)
-      this.updateModifiers(key, false)
-      this.checkCombinations()
+  private updateModifiers() {
+    this.modifiers = {
+      Ctrl: this.activeModifiers.has('Control'),
+      Meta: this.activeModifiers.has('Meta'),
+      Shift: this.activeModifiers.has('Shift'),
+      Alt: this.activeModifiers.has('Alt')
     }
   }
 
-  private updateModifiers(key: string, isDown: boolean) {
-    if (['ControlLeft', 'ControlRight'].includes(key)) {
-      this.modifiers.Ctrl = isDown
-    } else if (['MetaLeft', 'MetaRight'].includes(key)) {
-      this.modifiers.Meta = isDown
-    } else if (['ShiftLeft', 'ShiftRight'].includes(key)) {
-      this.modifiers.Shift = isDown
-    } else if (['AltLeft', 'AltRight'].includes(key)) {
-      this.modifiers.Alt = isDown
-    }
+  private onMouseWheel(event: WheelEvent) {
+    this.activeMouse = event.deltaY > 0 ? 'MouseWheelDown' : 'MouseWheelUp'
+    this.checkCombinations()
+  }
+
+  private onMouseDoubleClick(event: MouseEvent) {
+    this.activeMouse = 'MouseDoubleClick'
+    this.checkCombinations()
   }
 
   private updateMousePosition(event: MouseEvent) {
@@ -132,11 +142,11 @@ class InputSystem extends EventEmitter {
   private onMouseDown(event: MouseEvent) {
     this.activeMouse =
       event.button === 0
-        ? KeyMap.MouseLeft
+        ? 'MouseLeft'
         : event.button === 2
-          ? KeyMap.MouseRight
-          : KeyMap.MouseMiddle
-    this.activeKeys.add(KeyMap.MouseDown)
+          ? 'MouseRight'
+          : 'MouseMiddle'
+    this.activeKeys.add('MouseDown')
     this.canDrag = true
     this.dragStartPosition = { x: event.clientX, y: event.clientY }
     this.updateMousePosition(event)
@@ -146,8 +156,8 @@ class InputSystem extends EventEmitter {
   private onMouseMove(event: MouseEvent) {
     this.updateMousePosition(event)
     if (
-      this.activeKeys.has(KeyMap.MouseDown) &&
-      this.activeMouse === KeyMap.MouseLeft &&
+      this.activeKeys.has('MouseDown') &&
+      this.activeMouse === 'MouseLeft' &&
       this.dragStartPosition
     ) {
       const dx = event.clientX - this.dragStartPosition.x
@@ -158,20 +168,43 @@ class InputSystem extends EventEmitter {
   }
 
   private onMouseUp() {
-    this.activeKeys.delete(KeyMap.MouseDown)
-    this.activeKeys.delete(KeyMap.MouseMove)
+    this.activeKeys.delete('MouseDown')
     this.activeMouse = null
     this.canDrag = false
     this.dragStartPosition = null
     this.mousePosition = null
     this.checkCombinations()
+
+    if (this.keyTimeouts['MouseDown']) {
+      clearTimeout(this.keyTimeouts['MouseDown'])
+      delete this.keyTimeouts['MouseDown']
+    }
+    this.keyTimeouts['MouseDown'] = window.setTimeout(() => {
+      this.activeKeys.delete('MouseDown')
+      delete this.keyTimeouts['MouseDown']
+      this.checkCombinations()
+    }, this.resetDelay)
   }
 
   private checkCombinations() {
     for (const [command, combo] of Object.entries(this.combinations)) {
-      const keysMatch = combo.keys.every((key) => this.activeKeys.has(key))
-      const mouseMatch = combo.mouse ? combo.mouse === this.activeMouse : true
-      if (keysMatch && mouseMatch) {
+      const keysMatch =
+        combo.keys.length === 0 ||
+        (this.activeKeys.size === combo.keys.length &&
+          combo.keys.every((key) => this.activeKeys.has(key)))
+
+      const modifiersMatch =
+        combo.modifiers.length === 0 ||
+        (this.activeModifiers.size === combo.modifiers.length &&
+          combo.modifiers.every((modifier) =>
+            this.activeModifiers.has(modifier)
+          ))
+
+      const mouseMatch = combo.mouse
+        ? combo.mouse.some((m) => m === this.activeMouse)
+        : true
+
+      if (keysMatch && modifiersMatch && mouseMatch) {
         this.triggerCommand(command, {
           mousePos: getPosition(this.mousePosition as MousePosition),
           dragStart: getPosition(this.dragStartPosition as MousePosition),

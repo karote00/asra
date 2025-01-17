@@ -1,87 +1,116 @@
 {
+  "TEST": {
+    "keys": ["A", "G"],
+    "modifiers": ["Meta"]
+  },
   "UNDO": {
-    "keys": ["Meta", "Z"]
+    "keys": ["Z"],
+    "modifiers": ["Meta"]
   },
   "REDO": {
-    "keys": ["Meta", "Shift", "Z"]
+    "keys": ["Z"],
+    "modifiers": ["Meta", "Shift"]
   },
   "COPY": {
-    "keys": ["Meta", "C"]
+    "keys": ["C"],
+    "modifiers": ["Meta"]
   },
   "PASTE": {
-    "keys": ["Meta", "V"]
+    "keys": ["V"],
+    "modifiers": ["Meta"]
   },
   "CUT": {
-    "keys": ["Meta", "X"]
+    "keys": ["X"],
+    "modifiers": ["Meta"]
   },
   "SELECT_ALL": {
-    "keys": ["Meta", "A"]
+    "keys": ["A"],
+    "modifiers": ["Meta"]
   },
   "DELETE": {
-    "keys": ["Delete"]
+    "keys": ["Delete"],
+    "modifiers": []
   },
   "CANCEL": {
-    "keys": ["Escape"]
+    "keys": ["Escape"],
+    "modifiers": []
   },
   "SAVE": {
-    "keys": ["Meta", "S"]
+    "keys": ["S"],
+    "modifiers": ["Meta"]
   },
   "SAVE_AS": {
-    "keys": ["Meta", "Shift", "S"]
+    "keys": ["S"],
+    "modifiers": ["Meta", "Shift"]
   },
   "SWITCH_WINDOW": {
-    "keys": ["Alt", "Tab"]
+    "keys": ["Tab"],
+    "modifiers": ["Alt"]
   },
   "MULTI_SELECT": {
-    "keys": ["Meta"],
-    "mouse": "MouseLeft"
+    "keys": [],
+    "modifiers": ["Meta"],
+    "mouse": ["MouseLeft"]
   },
   "RANGE_SELECT": {
-    "keys": ["Shift"],
-    "mouse": "MouseLeft"
+    "keys": [],
+    "modifiers": ["Shift"],
+    "mouse": ["MouseLeft"]
   },
   "PRECISE_DRAG": {
-    "keys": ["Alt"],
-    "mouse": "MouseLeft"
+    "keys": [],
+    "modifiers": ["Alt"],
+    "mouse": ["MouseLeft"]
   },
   "CONTEXT_MENU": {
-    "keys": ["Meta"],
-    "mouse": "MouseRight"
+    "keys": [],
+    "modifiers": ["Meta"],
+    "mouse": ["MouseRight"]
   },
   "MOVE_UP_FAST": {
-    "keys": ["Shift", "ArrowUp"]
+    "keys": ["ArrowUp"],
+    "modifiers": ["Shift"]
   },
   "MOVE_DOWN_FAST": {
-    "keys": ["Shift", "ArrowDown"]
+    "keys": ["ArrowDown"],
+    "modifiers": ["Shift"]
   },
   "MOVE_LEFT_FAST": {
-    "keys": ["Shift", "ArrowLeft"]
+    "keys": ["ArrowLeft"],
+    "modifiers": ["Shift"]
   },
   "MOVE_RIGHT_FAST": {
-    "keys": ["Shift", "ArrowRight"]
+    "keys": ["ArrowRight"],
+    "modifiers": ["Shift"]
   },
   "ZOOM_IN": {
-    "keys": ["Meta"],
-    "mouse": "MouseWheelUp"
+    "keys": [],
+    "modifiers": ["Meta"],
+    "mouse": ["MouseWheelUp"]
   },
   "ZOOM_OUT": {
-    "keys": ["Meta"],
-    "mouse": "MouseWheelDown"
+    "keys": [],
+    "modifiers": ["Meta"],
+    "mouse": ["MouseWheelDown"]
   },
   "DRAG": {
     "keys": ["MouseDown", "MouseMove"],
-    "mouse": "MouseLeft"
+    "modifiers": [],
+    "mouse": ["MouseLeft"]
   },
   "CLICK": {
     "keys": ["MouseDown"],
-    "mouse": "MouseLeft"
+    "modifiers": [],
+    "mouse": ["MouseLeft"]
   },
   "RIGHT_CLICK": {
     "keys": ["MouseDown"],
-    "mouse": "MouseRight"
+    "modifiers": [],
+    "mouse": ["MouseRight"]
   },
   "DOUBLE_CLICK": {
     "keys": ["MouseDoubleClick"],
-    "mouse": "MouseLeft"
+    "modifiers": [],
+    "mouse": ["MouseLeft"]
   }
 }
