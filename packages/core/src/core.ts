@@ -5,7 +5,7 @@ import InputSystem from '@asra/input-system'
 import SystemEventManager from './system-event-manager'
 import RenderEventManager from './render-event-manager'
 import SceneTreeManager from './scene-tree-manager'
-import combinations from './combinations.json'
+import combinations from './combinations'
 
 const inputSystem = new InputSystem(combinations)
 const systemEventManager = new SystemEventManager(inputSystem)
