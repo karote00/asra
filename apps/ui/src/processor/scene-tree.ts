@@ -28,6 +28,7 @@ const Handlers: HandlerType = {
 
 const updateUISceneTree = (change: ChangeDataType['payload'], origin: UNDO) => {
   const { action, parentId, data, index } = change
+
   const handler = Handlers[origin][action as SCENE_TREE_ACTIONS]
   if (handler) {
     handler(parentId, data, index)

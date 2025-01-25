@@ -48,6 +48,18 @@ class Group extends Element<GroupAttrs> {
 
     return true
   }
+
+  removeElement(element: ElementInstanceTypes, index: number): boolean {
+    if (!element) {
+      return false
+    }
+
+    const children = this.get('children') as ElementInstanceTypes[]
+
+    children.splice(index, 1, element)
+
+    return true
+  }
 }
 
 export default Group

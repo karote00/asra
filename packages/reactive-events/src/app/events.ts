@@ -1,3 +1,4 @@
+import { UNDO } from '@asra/utils'
 import { EventTypes } from '../types'
 
 export interface StartTransactionEvent {
@@ -8,7 +9,7 @@ export interface UpdateTransactionEvent {
   type: EventTypes.UPDATE_TRANSACTION
   eventName: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  payload: any
+  payload: any & { undoable: UNDO }
 }
 
 export interface EndTransactionEvent {

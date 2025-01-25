@@ -1,7 +1,8 @@
 import type {
   WorkspaceRawData,
   ElementInstanceTypes,
-  GroupInstanceTypes
+  GroupInstanceTypes,
+  IElement
 } from '@asra/utils'
 import { isGroupEntity, IDTypes, NameTypes, EntityTypes } from '@asra/utils'
 import Group from './group'
@@ -69,6 +70,34 @@ class Workspace extends Group {
     // Add new element to Workspace
     const idx = index > -1 ? index : this.get('children').length
     this.get('children').splice(idx, 0, element)
+
+    return true
+  }
+
+  removeElement(
+    element: IElement,
+    index: number,
+    parent?: GroupInstanceTypes
+  ): boolean {
+    if (!element) {
+      return false
+    }
+
+    let avaliableParent = parent
+    if (!avaliableParent) {
+      const firstFrame = this.firstFrame
+      if (firstFrame) {
+        avaliableParent = this.firstFrame as GroupInstanceTypes
+      }
+    }
+
+    // Remove element from Group type instance
+    if (avaliableParent && avaliableParent.get('children')) {
+      return avaliableParent.removeElement(element, index)
+    }
+
+    // Remove element from Workspace
+    this.get('children').splice(index, 1, element)
 
     return true
   }

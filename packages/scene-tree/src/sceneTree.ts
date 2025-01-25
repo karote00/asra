@@ -14,6 +14,7 @@ type SceneTreeDataType = Partial<SceneTreeRawData>
 
 class SceneTree {
   _elements: Map<string, ElementInstanceTypes> = new Map()
+  _deletedMap: Map<string, ElementInstanceTypes> = new Map()
   workspace: string = ''
   workspaceList: Workspace[] = []
 
@@ -23,7 +24,7 @@ class SceneTree {
 
   _init(): void {
     const initWorkspace = new Workspace()
-    this._elements.set(initWorkspace.get('id'), initWorkspace)
+    this.addToMap(initWorkspace)
     this.workspaceList = [initWorkspace]
     this.workspace = this.workspaceList[0].get('id')
   }
@@ -48,34 +49,43 @@ class SceneTree {
     }
   }
 
+  getElementById(elementId: string): IElement {
+    return this._elements.get(elementId) as IElement
+  }
+
   addToMap(node: ElementInstanceTypes) {
     const el = node as IElement
-    if (!el || !el.get('id')) {
+    const elId = el.get('id')
+    if (!el || !elId) {
       return
     }
 
-    this._elements.set(el.get('id'), node)
+    this._elements.set(elId, node)
+  }
+
+  removeFromMap(elementId: string) {
+    const el = this.getElementById(elementId) as IElement
+    const elId = el.get('id')
+    if (!el || !elId) {
+      return
+    }
+
+    this._deletedMap.set(elId, el)
+    this._elements.delete(elId)
   }
 
   get currentWorkspace() {
-    return this._elements.get(this.workspace)
+    return this.getElementById(this.workspace)
   }
 
   createElement(
-    parent: GroupInstanceTypes,
-    elementData: ElementRawData,
-    index?: number
-  ) {
+    elementData: Partial<ElementRawData>
+  ): ElementInstanceTypes | null {
     if (elementData.type === EntityTypes.WORKSPACE) {
       return null
     }
 
-    const newElement = createElement(elementData) as ElementInstanceTypes
-    if (newElement) {
-      this.addNewElement(newElement, parent, index)
-    }
-
-    return newElement
+    return createElement(elementData)
   }
 
   addNewElement(
@@ -94,6 +104,26 @@ class SceneTree {
     }
 
     return success
+  }
+
+  removeElement(
+    data: Partial<ElementRawData>,
+    index: number,
+    parent?: GroupInstanceTypes
+  ): ElementInstanceTypes | null {
+    const workspace = this.currentWorkspace as Workspace
+    if (!workspace) {
+      return null
+    }
+
+    const elementId = data.id as string
+    const element = this.getElementById(elementId)
+    const success = workspace.removeElement(element, index, parent)
+    if (success) {
+      this.removeFromMap(elementId)
+    }
+
+    return element
   }
 }
 

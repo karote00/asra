@@ -1,7 +1,8 @@
 import * as Y from 'yjs'
-import { OWNER } from '@asra/utils'
+import { OWNER, UNDO } from '@asra/utils'
 import type { SceneTreeYjsChange } from '@asra/utils'
 import type { AllEvent, UpdateTransactionEvent } from '@asra/reactive-events'
+import { publishEvent } from '@asra/reactive-events'
 import { sceneTreeChange } from './registry'
 
 export type ChangeDataType = SceneTreeYjsChange
@@ -15,10 +16,6 @@ interface ChangesTypeMap {
 const ChangesMaps: ChangesTypeMap = {
   [OWNER.SCENE_TREE]: sceneTreeChange
 }
-
-// const UndoManagers = {
-//   [OWNER.SCENE_TREE]: sceneTreeChangesManager
-// }
 
 class DataTransact {
   private changes: AllEvent[] = []
@@ -73,14 +70,15 @@ class DataTransact {
       return
     }
 
-    // const lastChanges = this.undoStack.pop() as AllEvent[]
-    // this.doc.transact(() => {
-    //   lastChanges.forEach((event: AllEvent) => {
-    //     // console.log(owner, data)
-    //     // const undoManager = UndoManagers[owner as OWNER]
-    //     // undoManager.undo()
-    //   })
-    // })
+    const lastChanges = this.undoStack.pop() as AllEvent[]
+
+    for (let i = lastChanges.length - 1; i >= 0; i--) {
+      const event = lastChanges[i]
+      const undoEvent = JSON.parse(JSON.stringify(event))
+      undoEvent.payload.undoredo = UNDO.UNDO
+      undoEvent.type = undoEvent.payload.undoAction
+      publishEvent(undoEvent)
+    }
 
     this.changes = []
   }
