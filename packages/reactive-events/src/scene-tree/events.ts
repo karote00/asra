@@ -1,13 +1,12 @@
 import type { ElementRawData, GroupInstanceTypes, UNDO } from '@asra/utils'
 import { EventTypes } from '../types'
 
-export interface AddRectangleEvent {
+export interface AddElementEvent {
   type: EventTypes.ADD_ELEMENT
   payload: {
     data: Partial<ElementRawData>
     parent?: GroupInstanceTypes
     index?: number
-    undoredo: UNDO
   }
 }
 
@@ -17,8 +16,7 @@ export interface RemoveElementEvent {
     data: Partial<ElementRawData>
     parent?: GroupInstanceTypes
     index: number
-    undoredo: UNDO
   }
 }
 
-export type SceneTreeEvents = AddRectangleEvent | RemoveElementEvent
+export type SceneTreeEvents = AddElementEvent | RemoveElementEvent

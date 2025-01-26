@@ -1,3 +1,4 @@
+import { UNDO } from '@asra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
 
@@ -18,5 +19,12 @@ export const updateTransaction = (eventName: string, payload: unknown) => {
 export const endTransaction = () => {
   publishEvent({
     type: EventTypes.END_TRANSACTION
+  })
+}
+
+export const updateUndoRedoStatus = (status: UNDO) => {
+  publishEvent({
+    type: EventTypes.UNDOREDO_STATUS,
+    status
   })
 }

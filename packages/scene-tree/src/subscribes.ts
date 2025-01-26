@@ -1,6 +1,7 @@
 import {
   EventTypes,
-  subscribeToAddRectangle,
+  subscribeUndoRedoStatus,
+  subscribeToAddElement,
   subscribeToRemoveElement,
   startTransaction,
   updateTransaction,
@@ -13,12 +14,22 @@ import {
   UNDO
 } from '@asra/utils'
 import sceneTree from './sceneTree'
-import { access } from 'fs'
 
 export const initSceneTreeSubscribes = () => {
-  subscribeToAddRectangle(({ payload }) => {
-    const { data, parent, index, undoredo } = payload
-    const newRectangle = sceneTree.createElement(data)
+  let inUndoRedo = false
+  subscribeUndoRedoStatus(({ status }) => {
+    inUndoRedo = status !== UNDO.NONE
+  })
+
+  subscribeToAddElement(({ payload }) => {
+    const { data, parent, index } = payload
+
+    let newRectangle
+    if (inUndoRedo) {
+      newRectangle = sceneTree.getRestoreElementById(data.id as string)
+    } else {
+      newRectangle = sceneTree.createElement(data)
+    }
 
     startTransaction()
 
@@ -35,9 +46,7 @@ export const initSceneTreeSubscribes = () => {
         owner: OWNER.SCENE_TREE,
         parentId: parent?.get('id'),
         index,
-        undoEvent: EventTypes.REMOVE_ELEMENT,
-        undoAction: 'removeElement',
-        undoredo: undoredo ?? UNDO.REDO
+        undoAction: 'removeElement'
       })
     }
 
@@ -45,27 +54,19 @@ export const initSceneTreeSubscribes = () => {
   })
 
   subscribeToRemoveElement(({ payload }) => {
-    const { data, parent, index, undoredo } = payload
+    const { data, parent, index } = payload
     const removedElement = sceneTree.removeElement(data, index, parent)
 
     startTransaction()
 
-    const successRemoveElement = sceneTree.addNewElement(
-      removedElement as ElementInstanceTypes,
-      parent,
-      index
-    )
-
-    if (removedElement && successRemoveElement) {
+    if (removedElement) {
       updateTransaction(EventTypes.REMOVE_ELEMENT, {
         data: removedElement.save(),
         action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
         owner: OWNER.SCENE_TREE,
         parentId: parent?.get('id'),
         index,
-        undoEvent: EventTypes.ADD_ELEMENT,
-        undoAction: 'addElement',
-        undoredo: undoredo ?? UNDO.REDO
+        undoAction: 'addElement'
       })
     }
 

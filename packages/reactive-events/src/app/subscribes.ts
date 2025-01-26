@@ -3,7 +3,8 @@ import { filter } from 'rxjs/operators'
 import type {
   StartTransactionEvent,
   UpdateTransactionEvent,
-  EndTransactionEvent
+  EndTransactionEvent,
+  UndoRedoStatusEvent
 } from './events'
 import { getEventBusObserve } from '../event-bus'
 import { EventTypes } from '../types'
@@ -42,6 +43,19 @@ export const subscribeToEndTransaction = (
       filter(
         (event): event is EndTransactionEvent =>
           event.type === EventTypes.END_TRANSACTION
+      )
+    )
+    .subscribe(subscriber)
+}
+
+export const subscribeUndoRedoStatus = (
+  subscriber: (event: UndoRedoStatusEvent) => void
+): Subscription => {
+  return getEventBusObserve()
+    .pipe(
+      filter(
+        (event): event is UndoRedoStatusEvent =>
+          event.type === EventTypes.UNDOREDO_STATUS
       )
     )
     .subscribe(subscriber)

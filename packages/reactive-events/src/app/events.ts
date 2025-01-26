@@ -16,7 +16,13 @@ export interface EndTransactionEvent {
   type: EventTypes.END_TRANSACTION
 }
 
+export interface UndoRedoStatusEvent {
+  type: EventTypes.UNDOREDO_STATUS
+  status: UNDO
+}
+
 export type AppEvent =
   | StartTransactionEvent
   | UpdateTransactionEvent
   | EndTransactionEvent
+  | UndoRedoStatusEvent

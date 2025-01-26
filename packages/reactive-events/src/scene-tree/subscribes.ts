@@ -1,16 +1,16 @@
 import { Subscription } from 'rxjs'
 import { filter } from 'rxjs/operators'
-import type { AddRectangleEvent, RemoveElementEvent } from './events'
+import type { AddElementEvent, RemoveElementEvent } from './events'
 import { getEventBusObserve } from '../event-bus'
 import { EventTypes } from '../types'
 
-export const subscribeToAddRectangle = (
-  subscriber: (event: AddRectangleEvent) => void
+export const subscribeToAddElement = (
+  subscriber: (event: AddElementEvent) => void
 ): Subscription => {
   return getEventBusObserve()
     .pipe(
       filter(
-        (event): event is AddRectangleEvent =>
+        (event): event is AddElementEvent =>
           event.type === EventTypes.ADD_ELEMENT
       )
     )

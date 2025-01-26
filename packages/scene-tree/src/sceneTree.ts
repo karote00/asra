@@ -49,29 +49,40 @@ class SceneTree {
     }
   }
 
-  getElementById(elementId: string): IElement {
-    return this._elements.get(elementId) as IElement
+  getElementById(elementId: string): ElementInstanceTypes {
+    return this._elements.get(elementId) as ElementInstanceTypes
   }
 
-  addToMap(node: ElementInstanceTypes) {
-    const el = node as IElement
-    const elId = el.get('id')
-    if (!el || !elId) {
+  private addToMap(element: ElementInstanceTypes) {
+    const elId = element.get('id')
+    if (!element || !elId) {
       return
     }
 
-    this._elements.set(elId, node)
+    this.removeFromDeleteMap(element)
+    this._elements.set(elId, element)
   }
 
-  removeFromMap(elementId: string) {
-    const el = this.getElementById(elementId) as IElement
-    const elId = el.get('id')
-    if (!el || !elId) {
+  private removeFromMap(element: ElementInstanceTypes) {
+    const elId = element.get('id')
+    if (!element || !elId) {
       return
     }
 
-    this._deletedMap.set(elId, el)
+    this.addToDeleteMap(element)
     this._elements.delete(elId)
+  }
+
+  getRestoreElementById(elementId: string): ElementInstanceTypes {
+    return this._deletedMap.get(elementId) as ElementInstanceTypes
+  }
+
+  private addToDeleteMap(element: ElementInstanceTypes) {
+    this._deletedMap.set(element.get('id'), element)
+  }
+
+  private removeFromDeleteMap(element: ElementInstanceTypes) {
+    this._deletedMap.delete(element.get('id'))
   }
 
   get currentWorkspace() {
@@ -119,8 +130,9 @@ class SceneTree {
     const elementId = data.id as string
     const element = this.getElementById(elementId)
     const success = workspace.removeElement(element, index, parent)
+
     if (success) {
-      this.removeFromMap(elementId)
+      this.removeFromMap(element)
     }
 
     return element

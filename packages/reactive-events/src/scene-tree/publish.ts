@@ -7,7 +7,6 @@ export const addRectangle = (elementData?: ElementRawData) => {
   publishEvent({
     type: EventTypes.ADD_ELEMENT,
     payload: {
-      undoredo: UNDO.REDO,
       data: elementData ?? { type: EntityTypes.RECTANGLE }
     }
   })
@@ -21,7 +20,6 @@ export const removeElement = (
   publishEvent({
     type: EventTypes.REMOVE_ELEMENT,
     payload: {
-      undoredo: UNDO.REDO,
       data: elementData,
       parent,
       index

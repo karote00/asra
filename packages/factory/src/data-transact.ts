@@ -1,8 +1,8 @@
 import * as Y from 'yjs'
-import { OWNER, UNDO } from '@asra/utils'
 import type { SceneTreeYjsChange } from '@asra/utils'
 import type { AllEvent, UpdateTransactionEvent } from '@asra/reactive-events'
-import { publishEvent } from '@asra/reactive-events'
+import { publishEvent, updateUndoRedoStatus } from '@asra/reactive-events'
+import { OWNER, UNDO } from '@asra/utils'
 import { sceneTreeChange } from './registry'
 
 export type ChangeDataType = SceneTreeYjsChange
@@ -46,6 +46,7 @@ class DataTransact {
       type: newType,
       payload: newPayload
     }
+
     this.changes.push(newEvent)
 
     const map = ChangesMaps[event.payload.owner as OWNER]
@@ -79,12 +80,12 @@ class DataTransact {
     }
 
     this.inUndo = true
+    updateUndoRedoStatus(UNDO.UNDO)
     const lastChanges = this.undoStack.pop() as AllEvent[]
 
     for (let i = lastChanges.length - 1; i >= 0; i--) {
       const event = lastChanges[i]
       const undoEvent = JSON.parse(JSON.stringify(event))
-      undoEvent.payload.undoredo = UNDO.UNDO
       undoEvent.type = undoEvent.payload.undoAction
       publishEvent(undoEvent)
     }
@@ -92,6 +93,7 @@ class DataTransact {
     this.redoStack.push(lastChanges)
     this.changes = []
     this.inUndo = false
+    updateUndoRedoStatus(UNDO.NONE)
   }
 
   redo() {
@@ -100,6 +102,7 @@ class DataTransact {
     }
 
     this.inRedo = true
+    updateUndoRedoStatus(UNDO.REDO)
     const lastChanges = this.redoStack.pop() as AllEvent[]
 
     for (let i = 0; i < lastChanges.length; i++) {
@@ -111,6 +114,7 @@ class DataTransact {
     this.undoStack.push(lastChanges)
     this.changes = []
     this.inRedo = false
+    updateUndoRedoStatus(UNDO.NONE)
   }
 
   isInUndo() {
