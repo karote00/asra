@@ -20,7 +20,10 @@ const ChangesMaps: ChangesTypeMap = {
 class DataTransact {
   private changes: AllEvent[] = []
   private undoStack: AllEvent[][] = []
+  private redoStack: AllEvent[][] = []
   private isTransacting = false
+  private inUndo = false
+  private inRedo = false
 
   start() {
     if (this.isTransacting) {
@@ -33,7 +36,7 @@ class DataTransact {
 
   update(event: UpdateTransactionEvent) {
     if (!this.isTransacting) {
-      throw new Error('Transaction not started. Call start first.')
+      return
     }
 
     const newType = event.eventName as AllEvent['type']
@@ -62,7 +65,12 @@ class DataTransact {
   }
 
   commitUndo() {
-    this.undoStack.push(JSON.parse(JSON.stringify(this.changes)))
+    // If changes are coming from Undo or Redo events, they should not push back to list again
+    if (!this.isInUndo() && !this.isInRedo()) {
+      this.undoStack.push(this.changes)
+      this.changes = []
+      this.redoStack = []
+    }
   }
 
   undo() {
@@ -70,6 +78,7 @@ class DataTransact {
       return
     }
 
+    this.inUndo = true
     const lastChanges = this.undoStack.pop() as AllEvent[]
 
     for (let i = lastChanges.length - 1; i >= 0; i--) {
@@ -80,13 +89,37 @@ class DataTransact {
       publishEvent(undoEvent)
     }
 
+    this.redoStack.push(lastChanges)
     this.changes = []
+    this.inUndo = false
   }
 
   redo() {
-    // TODO: Redo
+    if (!this.redoStack.length) {
+      return
+    }
+
+    this.inRedo = true
+    const lastChanges = this.redoStack.pop() as AllEvent[]
+
+    for (let i = 0; i < lastChanges.length; i++) {
+      const event = lastChanges[i]
+      const redoEvent = JSON.parse(JSON.stringify(event))
+      publishEvent(redoEvent)
+    }
+
+    this.undoStack.push(lastChanges)
+    this.changes = []
+    this.inRedo = false
+  }
+
+  isInUndo() {
+    return this.inUndo
+  }
+
+  isInRedo() {
+    return this.inRedo
   }
 }
 
 export default DataTransact
-export const dataTransact = new DataTransact()

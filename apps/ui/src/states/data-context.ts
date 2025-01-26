@@ -1,5 +1,5 @@
 import Core from '@asra/core'
-import Factory, { dataTransact } from '@asra/factory'
+import Factory from '@asra/factory'
 
 export const core = new Core()
 
@@ -10,5 +10,4 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 export const sceneTreeManager = core.sceneTreeManager
-
-export { dataTransact }
+export const dataTransact = Factory.transact
