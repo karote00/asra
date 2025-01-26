@@ -3,8 +3,7 @@ import type {
   WorkspaceRawData,
   ElementRawData,
   ElementInstanceTypes,
-  GroupInstanceTypes,
-  IElement
+  GroupInstanceTypes
 } from '@asra/utils'
 import { EntityTypes } from '@asra/utils'
 import Workspace from './components/workspace'

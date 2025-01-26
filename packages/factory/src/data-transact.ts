@@ -105,8 +105,7 @@ class DataTransact {
     updateUndoRedoStatus(UNDO.REDO)
     const lastChanges = this.redoStack.pop() as AllEvent[]
 
-    for (let i = 0; i < lastChanges.length; i++) {
-      const event = lastChanges[i]
+    for (const event of lastChanges) {
       const redoEvent = JSON.parse(JSON.stringify(event))
       publishEvent(redoEvent)
     }

@@ -1,4 +1,4 @@
-import type { ElementRawData, GroupInstanceTypes, UNDO } from '@asra/utils'
+import type { ElementRawData, GroupInstanceTypes } from '@asra/utils'
 import { EventTypes } from '../types'
 
 export interface AddElementEvent {
