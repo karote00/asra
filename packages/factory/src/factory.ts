@@ -1,12 +1,12 @@
 import * as Y from 'yjs'
-import doc from './data'
+import type { SceneTreeYjsChange } from '@asra/utils'
+import type { UpdateTransactionEvent } from '@asra/reactive-events'
 import DataTransact from './data-transact'
-import type { SceneTreeChange } from './change-types'
 import { sceneTreeChange } from './registry'
 
 class Factory {
-  sceneTreeMap: Y.Array<SceneTreeChange> = sceneTreeChange
-  transact: DataTransact = new DataTransact(doc)
+  sceneTreeMap: Y.Array<SceneTreeYjsChange> = sceneTreeChange
+  transact: DataTransact = new DataTransact()
 
   constructor() {
     this._init()
@@ -14,6 +14,18 @@ class Factory {
 
   _init() {
     // init
+  }
+
+  startTransaction() {
+    this.transact.start()
+  }
+
+  updateTransaction(event: UpdateTransactionEvent) {
+    this.transact.update(event)
+  }
+
+  endTransaction() {
+    this.transact.end()
   }
 }
 

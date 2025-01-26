@@ -1,144 +1,160 @@
-import EventEmitter from '@asra/event-emitter'
-import { KeyMap } from './keymap'
+import KeyMap from './keymap'
 
-interface EventCombination {
-  keys: string[]
-  mouse?: string
-}
+type Callback = (action: string) => void
 
-type CombinationConfig = Record<string, EventCombination>
-interface MousePosition {
-  x: number
-  y: number
-}
+const CLEAR_KEY_TIME = 100
 
-const MODIFIER_KEYS: Set<string> = new Set(['Control', 'Meta', 'Shift', 'Alt'])
+class InputSystem {
+  private combinations: Record<string, string[]>
+  private keyMap: KeyMap
+  private activeKeys: Set<string>
+  private listeners: Map<string, Callback[]>
+  private timers: Map<string, NodeJS.Timeout>
 
-interface ModifierKeys {
-  Ctrl?: boolean
-  Meta?: boolean
-  Shift?: boolean
-  Alt?: boolean
-}
-
-interface EmitContext {
-  mousePos: MousePosition
-  dragStart: MousePosition
-  modifiers: ModifierKeys
-}
-
-const normalizeKey = (eventKey: string): string => {
-  return eventKey.length === 1 ? eventKey.toUpperCase() : eventKey
-}
-
-class InputSystem extends EventEmitter {
-  private activeKeys: Set<string> = new Set()
-  private activeMouse: string | null = null
-  private dragStartPosition: MousePosition | null = null
-  private mousePosition: MousePosition | null = null
-  private deltaPosition: MousePosition | null = null
-  private modifiers: ModifierKeys = {}
-  private canDrag: boolean = false
-  private combinations: CombinationConfig = {}
-
-  constructor(combinations: CombinationConfig) {
-    super()
+  constructor(combinations: Record<string, string[]>) {
     this.combinations = combinations
-    this.initEventListeners()
+    this.keyMap = new KeyMap()
+    this.activeKeys = new Set()
+    this.listeners = new Map()
+    this.timers = new Map()
+
+    this.setupListeners()
   }
 
-  private initEventListeners() {
-    window.addEventListener('keydown', (e) => this.onKeyDown(e))
-    window.addEventListener('keyup', (e) => this.onKeyUp(e))
-    window.addEventListener('mousedown', (e) => this.onMouseDown(e))
-    window.addEventListener('mousemove', (e) => this.onMouseMove(e))
-    window.addEventListener('mouseup', () => this.onMouseUp())
+  private setupListeners() {
+    window.addEventListener('keydown', (e) => this.handleKeyDown(e))
+    window.addEventListener('keyup', (e) => this.handleKeyUp(e))
+    window.addEventListener('mousedown', (e) => this.handleMouseDown(e))
+    window.addEventListener('mouseup', (e) => this.handleMouseUp(e))
+    window.addEventListener('mousemove', (e) => this.handleMouseMove(e))
   }
 
-  private onKeyDown(event: KeyboardEvent) {
-    const key = normalizeKey(event.key)
-    const standardKey = KeyMap[key as keyof typeof KeyMap] || key
-    if (MODIFIER_KEYS.has(standardKey)) {
-      this.modifiers[standardKey as keyof ModifierKeys] = true
+  on(action: string, callback: Callback): this {
+    if (!this.listeners.has(action)) {
+      this.listeners.set(action, [])
     }
-    this.activeKeys.add(standardKey)
-    this.checkCombinations()
+    this.listeners.get(action)?.push(callback)
+    return this
   }
 
-  private onKeyUp(event: KeyboardEvent) {
-    const key = normalizeKey(event.key)
-    const standardKey = KeyMap[key as keyof typeof KeyMap] || key
-    if (MODIFIER_KEYS.has(standardKey)) {
-      this.modifiers[standardKey as keyof ModifierKeys] = false
+  private startTimer(key: string) {
+    if (this.timers.has(key)) {
+      const currentTimer = this.timers.get(key)
+      if (currentTimer) {
+        clearTimeout(currentTimer)
+      }
     }
-    this.activeKeys.delete(standardKey)
-    this.checkCombinations()
+    const timer = setTimeout(() => {
+      this.activeKeys.delete(key)
+      this.timers.delete(key)
+    }, CLEAR_KEY_TIME)
+    this.timers.set(key, timer)
   }
 
-  private updateMousePosition(event: MouseEvent) {
-    this.mousePosition = { x: event.clientX, y: event.clientY }
+  private clearTimer(key: string) {
+    if (this.timers.has(key)) {
+      const currentTimer = this.timers.get(key)
+      if (currentTimer) {
+        clearTimeout(currentTimer)
+      }
+      this.timers.delete(key)
+    }
   }
 
-  private onMouseDown(event: MouseEvent) {
-    this.activeMouse =
-      event.button === 0
-        ? KeyMap.MouseLeft
-        : event.button === 2
-          ? KeyMap.MouseRight
-          : KeyMap.MouseMiddle
-    this.activeKeys.add(KeyMap.MouseDown)
-    this.canDrag = true
-    this.dragStartPosition = { x: event.clientX, y: event.clientY }
-    this.updateMousePosition(event)
-    this.checkCombinations()
-  }
+  private handleKeyDown(event: KeyboardEvent) {
+    const key = this.keyMap.mapKey(event.code)
 
-  private onMouseMove(event: MouseEvent) {
-    this.updateMousePosition(event)
-    if (
-      this.activeKeys.has(KeyMap.MouseDown) &&
-      this.activeMouse === KeyMap.MouseLeft &&
-      this.dragStartPosition
-    ) {
-      const dx = event.clientX - this.dragStartPosition.x
-      const dy = event.clientY - this.dragStartPosition.y
-      this.deltaPosition = { x: dx, y: dy }
+    if (key) {
+      this.activeKeys.add(key)
+      if (!this.keyMap.isModifiers(key)) {
+        this.startTimer(key)
+      }
       this.checkCombinations()
     }
   }
 
-  private onMouseUp() {
-    this.activeKeys.delete(KeyMap.MouseDown)
-    this.activeKeys.delete(KeyMap.MouseMove)
-    this.activeMouse = null
-    this.canDrag = false
-    this.dragStartPosition = null
-    this.mousePosition = null
-    this.checkCombinations()
+  private handleKeyUp(event: KeyboardEvent) {
+    const key = this.keyMap.mapKey(event.code)
+
+    if (key) {
+      this.activeKeys.delete(key)
+      this.clearTimer(key)
+      this.checkCombinations()
+    }
+  }
+
+  private handleMouseDown(event: MouseEvent) {
+    const key = this.getMouseEventKey(event, 'Down')
+
+    if (key) {
+      this.activeKeys.add(key)
+      this.checkCombinations()
+    }
+  }
+
+  private handleMouseUp(event: MouseEvent) {
+    const key = this.getMouseEventKey(event, 'Up')
+
+    if (key) {
+      this.activeKeys.add(key)
+      this.activeKeys.delete(key.replace('Up', 'Down'))
+      this.checkCombinations()
+
+      // No need to keep mouse up key after trigger action
+      this.activeKeys.delete(key)
+    }
+  }
+
+  private handleMouseMove(event: MouseEvent) {
+    const key = this.getMouseEventKey(event, 'Move')
+
+    if (key) {
+      this.activeKeys.add(key)
+      this.checkCombinations()
+
+      // No need to keep mouse up key after trigger action
+      this.activeKeys.delete(key)
+    }
+  }
+
+  private getMouseEventKey(
+    event: MouseEvent,
+    state: string
+  ): string | undefined {
+    switch (event.button) {
+      case 0:
+        return `LeftMouse${state}`
+      case 1:
+        return `MiddleMouse${state}`
+      case 2:
+        return `RightMouse${state}`
+      default:
+        return undefined
+    }
   }
 
   private checkCombinations() {
-    for (const [command, combo] of Object.entries(this.combinations)) {
-      const keysMatch = combo.keys.every((key) => this.activeKeys.has(key))
-      const mouseMatch = combo.mouse ? combo.mouse === this.activeMouse : true
-      if (keysMatch && mouseMatch) {
-        this.triggerCommand(command, {
-          mousePos: {
-            x: this.mousePosition?.x ?? 0,
-            y: this.mousePosition?.y ?? 0
-          },
-          dragStart: {
-            x: this.dragStartPosition?.x ?? 0,
-            y: this.dragStartPosition?.y ?? 0
-          },
-          modifiers: { ...this.modifiers }
-        })
+    const currentKeys = Array.from(this.activeKeys)
+
+    for (const [action, requiredKeys] of Object.entries(this.combinations)) {
+      if (this.isExactMatch(currentKeys, requiredKeys)) {
+        this.triggerAction(action)
       }
     }
   }
 
-  private triggerCommand(command: string, context: EmitContext) {
-    this.emit(command, context)
+  private isExactMatch(currentKeys: string[], requiredKeys: string[]): boolean {
+    return (
+      currentKeys.length === requiredKeys.length &&
+      requiredKeys.every((key) => currentKeys.includes(key))
+    )
+  }
+
+  private triggerAction(action: string) {
+    const callbacks = this.listeners.get(action)
+    if (callbacks) {
+      callbacks.forEach((cb) => cb(action))
+    }
   }
 }
 

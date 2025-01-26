@@ -1,41 +1,29 @@
 import * as Y from 'yjs'
-import { CHANGES } from './enum'
-import { SceneTreeChange } from './change-types'
-import { sceneTreeChange, sceneTreeChangesManager } from './registry'
+import type { SceneTreeYjsChange } from '@asra/utils'
+import type { AllEvent, UpdateTransactionEvent } from '@asra/reactive-events'
+import { publishEvent, updateUndoRedoStatus } from '@asra/reactive-events'
+import { OWNER, UNDO } from '@asra/utils'
+import { sceneTreeChange } from './registry'
 
-type ObjectDataType = Record<string, string | number>
-export type ChangeDataType = SceneTreeChange | ObjectDataType
-
-interface Change {
-  type?: CHANGES
-  data: ChangeDataType
-}
-
-type ChangesData = Record<string, Change[]>
+export type ChangeDataType = SceneTreeYjsChange
 
 type YMapOrArray<T = unknown> = Y.Array<T> | Y.Map<T>
 
 interface ChangesTypeMap {
-  [CHANGES.SCENE_TREE]: YMapOrArray<SceneTreeChange>
+  [OWNER.SCENE_TREE]: YMapOrArray<SceneTreeYjsChange>
 }
 
 const ChangesMaps: ChangesTypeMap = {
-  [CHANGES.SCENE_TREE]: sceneTreeChange
-}
-
-const UndoManagers = {
-  [CHANGES.SCENE_TREE]: sceneTreeChangesManager
+  [OWNER.SCENE_TREE]: sceneTreeChange
 }
 
 class DataTransact {
-  private doc: Y.Doc
-  private changes: ChangesData = {}
-  private undoStack: ChangesData[][] = []
+  private changes: AllEvent[] = []
+  private undoStack: AllEvent[][] = []
+  private redoStack: AllEvent[][] = []
   private isTransacting = false
-
-  constructor(doc: Y.Doc) {
-    this.doc = doc
-  }
+  private inUndo = false
+  private inRedo = false
 
   start() {
     if (this.isTransacting) {
@@ -43,18 +31,28 @@ class DataTransact {
     }
 
     this.isTransacting = true
-    this.changes = { all: [] }
+    this.changes = []
   }
 
-  update(type: CHANGES, change: ChangeDataType) {
+  update(event: UpdateTransactionEvent) {
     if (!this.isTransacting) {
-      throw new Error('Transaction not started. Call start first.')
+      return
     }
-    if (!this.changes[type]) {
-      this.changes[type] = []
+
+    const newType = event.eventName as AllEvent['type']
+    const newPayload = JSON.parse(JSON.stringify(event.payload))
+    // @ts-expect-error: Should accept any type of payload
+    const newEvent: AllEvent = {
+      type: newType,
+      payload: newPayload
     }
-    this.changes.all.push({ type: type, data: change })
-    this.changes[type].push({ data: change })
+
+    this.changes.push(newEvent)
+
+    const map = ChangesMaps[event.payload.owner as OWNER]
+    if (map instanceof Y.Array) {
+      map.push([event.payload])
+    }
   }
 
   end() {
@@ -63,23 +61,17 @@ class DataTransact {
     }
 
     this.isTransacting = false
-    this.doc.transact(() => {
-      Object.keys(this.changes).forEach((changeType) => {
-        const map = ChangesMaps[changeType as CHANGES]
-        this.changes[changeType].forEach(({ data }) => {
-          if (map instanceof Y.Array) {
-            map.push([data as SceneTreeChange])
-          }
-        })
-      })
-    })
-
     this.commitUndo()
-    this.changes = {}
+    this.changes = []
   }
 
   commitUndo() {
-    this.undoStack.push(JSON.parse(JSON.stringify(this.changes.all)))
+    // If changes are coming from Undo or Redo events, they should not push back to list again
+    if (!this.isInUndo() && !this.isInRedo()) {
+      this.undoStack.push(this.changes)
+      this.changes = []
+      this.redoStack = []
+    }
   }
 
   undo() {
@@ -87,19 +79,49 @@ class DataTransact {
       return
     }
 
-    const lastChanges = this.undoStack.pop() as ChangesData[]
-    this.doc.transact(() => {
-      lastChanges.forEach(({ type }: Partial<Change>) => {
-        const undoManager = UndoManagers[type as CHANGES]
-        undoManager.undo()
-      })
-    })
+    this.inUndo = true
+    updateUndoRedoStatus(UNDO.UNDO)
+    const lastChanges = this.undoStack.pop() as AllEvent[]
 
-    this.changes = {}
+    for (let i = lastChanges.length - 1; i >= 0; i--) {
+      const event = lastChanges[i]
+      const undoEvent = JSON.parse(JSON.stringify(event))
+      undoEvent.type = undoEvent.payload.undoAction
+      publishEvent(undoEvent)
+    }
+
+    this.redoStack.push(lastChanges)
+    this.changes = []
+    this.inUndo = false
+    updateUndoRedoStatus(UNDO.NONE)
   }
 
   redo() {
-    // TODO: Redo
+    if (!this.redoStack.length) {
+      return
+    }
+
+    this.inRedo = true
+    updateUndoRedoStatus(UNDO.REDO)
+    const lastChanges = this.redoStack.pop() as AllEvent[]
+
+    for (const event of lastChanges) {
+      const redoEvent = JSON.parse(JSON.stringify(event))
+      publishEvent(redoEvent)
+    }
+
+    this.undoStack.push(lastChanges)
+    this.changes = []
+    this.inRedo = false
+    updateUndoRedoStatus(UNDO.NONE)
+  }
+
+  isInUndo() {
+    return this.inUndo
+  }
+
+  isInRedo() {
+    return this.inRedo
   }
 }
 

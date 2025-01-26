@@ -1,13 +1,16 @@
+import Factory, { DataTransact } from '@asra/factory'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
 import InputSystem from '@asra/input-system'
+
 import SystemEventManager from './system-event-manager'
 import RenderEventManager from './render-event-manager'
-import combinations from './combinations.json'
+import SceneTreeManager from './scene-tree-manager'
+import combinations from './combinations'
 
 const inputSystem = new InputSystem(combinations)
-
 const systemEventManager = new SystemEventManager(inputSystem)
 const renderEventManager = new RenderEventManager(inputSystem)
+const sceneTreeManager = new SceneTreeManager()
 
 interface CoreRawData {
   version: string
@@ -19,9 +22,11 @@ const DATA_VERSION = '1.0.0'
 
 class Core {
   version: string = DEFAULT_VERSION
+  dataTransact: DataTransact = Factory.transact
   sceneTree: SceneTree = sceneTree
   systemEventManager: SystemEventManager = systemEventManager
   renderEventManager: RenderEventManager = renderEventManager
+  sceneTreeManager: SceneTreeManager = sceneTreeManager
 
   constructor() {
     this._init()
@@ -40,10 +45,6 @@ class Core {
     if (data.sceneTree) {
       this.sceneTree.load(data.sceneTree)
     }
-  }
-
-  addRectangle(): void {
-    this.sceneTree.addRectangle()
   }
 }
 

@@ -24,6 +24,7 @@ export interface IElement<T extends ElementAttrs = ElementAttrs> {
 export interface IGroupElement
   extends IElement<GroupAttrs<ElementInstanceTypes>> {
   addElement(element: ElementInstanceTypes, index?: number): boolean
+  removeElement(element: ElementInstanceTypes, index: number): boolean
 }
 
 export interface ElementInstanceTypes extends IElement<ElementAttrs> {}

@@ -1,7 +1,7 @@
 import { ElementRawData, EntityTypes, ElementInstanceTypes } from '@asra/utils'
-import Frame from './frame'
-import Group from './group'
-import Rectangle from './rectangle'
+import Frame from './components/frame'
+import Group from './components/group'
+import Rectangle from './components/rectangle'
 
 const entityClassMap = {
   [EntityTypes.UNDEFINED]: undefined,

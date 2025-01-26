@@ -1,6 +1,10 @@
 {
   "tasks": {
+    "prebuild:utils": {
+      "outputs": ["dist/**"]
+    },
     "prebuild": {
+      "dependsOn": ["prebuild:utils"],
       "outputs": ["dist/**"]
     },
     "dev": {
