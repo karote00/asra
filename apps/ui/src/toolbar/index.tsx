@@ -3,7 +3,7 @@ import { Button } from '@asra/design-system'
 
 import ThemeToggle from './theme-toggle'
 import { ROW_HEIGHT } from '../constants'
-import { sceneTreeManager } from '../states/data-context'
+import { sceneTreeManager } from '../contexts'
 
 const ToolBar = () => {
   const handleAddNewElement = useCallback(() => {

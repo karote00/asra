@@ -1,5 +1,6 @@
 import Core from '@asra/core'
 import Factory from '@asra/factory'
+import { initSceneTreeDataContext } from './scene-tree'
 
 export const core = new Core()
 
@@ -11,3 +12,10 @@ if (process.env.NODE_ENV === 'development') {
 
 export const sceneTreeManager = core.sceneTreeManager
 export const dataTransact = Factory.transact
+export { Factory }
+
+export const InitDataContexts = () => {
+  initSceneTreeDataContext()
+
+  return null
+}

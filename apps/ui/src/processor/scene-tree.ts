@@ -1,4 +1,4 @@
-import { UNDO, SCENE_TREE_ACTIONS } from '@asra/utils'
+import { SCENE_TREE_ACTIONS } from '@asra/utils'
 import type { ElementRawData, SceneTreeYjsChange } from '@asra/utils'
 import type { ChangeDataType } from '@asra/factory'
 import {
@@ -9,27 +9,18 @@ import {
 
 type HandlerType = Record<
   string,
-  Record<
-    string,
-    (parentId: string, data: ElementRawData, number: number) => void
-  >
+  (parentId: string, data: ElementRawData, number: number) => void
 >
 
 const Handlers: HandlerType = {
-  [UNDO.REDO]: {
-    [SCENE_TREE_ACTIONS.ADD_ELEMENT]: addElement,
-    [SCENE_TREE_ACTIONS.REMOVE_ELEMENT]: removeElement
-  },
-  [UNDO.UNDO]: {
-    [SCENE_TREE_ACTIONS.ADD_ELEMENT]: removeElement,
-    [SCENE_TREE_ACTIONS.REMOVE_ELEMENT]: addElement
-  }
+  [SCENE_TREE_ACTIONS.ADD_ELEMENT]: addElement,
+  [SCENE_TREE_ACTIONS.REMOVE_ELEMENT]: removeElement
 }
 
-const updateUISceneTree = (change: ChangeDataType['payload'], origin: UNDO) => {
+const updateUISceneTree = (change: ChangeDataType['payload']) => {
   const { action, parentId, data, index } = change
 
-  const handler = Handlers[origin][action as SCENE_TREE_ACTIONS]
+  const handler = Handlers[action as SCENE_TREE_ACTIONS]
   if (handler) {
     handler(parentId, data, index)
   }
@@ -45,8 +36,7 @@ export const collectSceneTreeChange = (event) => {
   const changes: SceneTreeYjsChange[] = []
 
   const processChanges = (
-    items: typeof event.changes.added | typeof event.changes.deleted,
-    origin: UNDO
+    items: typeof event.changes.added | typeof event.changes.deleted
   ) => {
     // @ts-expect-error: It's YJS event
     items.forEach((item) => {
@@ -57,13 +47,13 @@ export const collectSceneTreeChange = (event) => {
             checkIfNeedUpdateFlattenedElementIds(change.action)
         }
         changes.push(change)
-        updateUISceneTree(change, origin)
+        updateUISceneTree(change)
       })
     })
   }
 
-  processChanges(event.changes.added, UNDO.REDO)
-  processChanges(event.changes.deleted, UNDO.UNDO)
+  processChanges(event.changes.added)
+  processChanges(event.changes.deleted)
 }
 
 export const completeSceneTreeChange = () => {

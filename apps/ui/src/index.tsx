@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import './index.css'
 import '@asra/design-system/index.css'
+import { InitDataContexts } from './contexts'
 
 import RenderApp from './render-app'
 import App from './app'
@@ -10,6 +11,7 @@ import reportWebVitals from './reportWebVitals'
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement)
 root.render(
   <React.StrictMode>
+    <InitDataContexts />
     <RenderApp />
     <App />
   </React.StrictMode>
