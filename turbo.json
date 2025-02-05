@@ -1,28 +1,40 @@
 {
   "tasks": {
-    "prebuild:utils": {
-      "outputs": ["dist/**"]
-    },
-    "prebuild": {
-      "dependsOn": ["prebuild:utils"],
+    "prebuild:design-system": {
       "outputs": ["dist/**"]
     },
     "dev": {
       "cache": false,
-      "dependsOn": ["prebuild"],
+      "dependsOn": ["prebuild:design-system"],
       "outputs": ["dist/**"]
     },
-    "start": {
+    "react:start": {
       "cache": false,
       "dependsOn": ["dev"],
       "persistent": true
     },
-    "build": {
-      "dependsOn": ["^build"],
+    "build:base": {
+      "cache": false,
+      "outputs": ["dist/**"]
+    },
+    "build:module-base": {
+      "cache": false,
+      "dependsOn": ["build:base"],
+      "outputs": ["dist/**"]
+    },
+    "build:module": {
+      "cache": false,
+      "dependsOn": ["build:module-base"],
+      "outputs": ["dist/**"]
+    },
+    "build:core": {
+      "cache": false,
+      "dependsOn": ["build:module"],
       "outputs": ["dist/**"]
     },
     "react:build": {
-      "dependsOn": ["^build"],
+      "cache": false,
+      "dependsOn": ["build:core"],
       "outputs": ["dist/**"]
     },
     "clean": {
