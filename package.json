@@ -12,12 +12,12 @@
   "scripts": {
     "react:start": "turbo run react:start",
     "react:build": "turbo run react:build",
-    "build": "turbo run build",
     "test": "turbo run test",
     "test:ci": "turbo run test:ci",
     "lint": "eslint .",
     "lint:ci": "eslint .",
-    "clean": "turbo run clean"
+    "clean": "turbo run clean",
+    "vercel-build": "turbo run react:build"
   },
   "workspaces": [
     "apps/*",

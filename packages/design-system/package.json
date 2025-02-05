@@ -2,14 +2,14 @@
   "name": "@asra/design-system",
   "version": "1.0.1",
   "packageManager": "yarn@4.3.1",
-  "type": "module",
   "main": "./dist/design-system.umd.js",
   "module": "./dist/design-system.es.js",
-  "types": "./dist/index.d.ts",
-  "style": "./dist/index.css",
+  "types": "dist/index.d.ts",
   "exports": {
-    ".": "./dist/design-system.es.js",
-    "./dist/*": "./dist/*",
+    ".": {
+      "import": "./dist/design-system.es.js",
+      "require": "./dist/design-system.umd.js"
+    },
     "./index.css": "./dist/index.css"
   },
   "files": [
