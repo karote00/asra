@@ -2,14 +2,14 @@
   "name": "@asra/design-system",
   "version": "1.0.1",
   "packageManager": "yarn@4.3.1",
+  "type": "module",
   "main": "./dist/design-system.umd.js",
   "module": "./dist/design-system.es.js",
-  "types": "dist/index.d.ts",
+  "types": "./dist/index.d.ts",
+  "style": "./dist/index.css",
   "exports": {
-    ".": {
-      "import": "./dist/design-system.es.js",
-      "require": "./dist/design-system.umd.js"
-    },
+    ".": "./dist/design-system.es.js",
+    "./dist/*": "./dist/*",
     "./index.css": "./dist/index.css"
   },
   "files": [
@@ -19,10 +19,10 @@
     "clean": "rm -rf dist",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "prebuild": "tailwindcss -i ./src/index.css -o ./dist/index.css",
-    "build:css": "tailwindcss -i ./src/index.css -o ./dist/index.css --watch",
-    "build": "tsc && vite build && yarn prebuild",
-    "dev": "concurrently 'tsc --watch' 'vite build --watch' 'yarn build:css'",
+    "build:module-base": "vite build && tsc && yarn prebuild:design-system",
+    "build:watch-css": "yarn prebuild:design-system --watch",
+    "dev": "concurrently 'tsc --watch' 'vite build --watch' 'yarn build:watch-css'",
+    "prebuild:design-system": "tailwindcss -i ./src/index.css -o ./dist/index.css",
     "preview": "vite preview"
   },
   "peerDependencies": {
