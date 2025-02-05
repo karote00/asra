@@ -1,8 +1,9 @@
 {
   "version": 2,
   "installCommand": "corepack enable && corepack prepare yarn@4.3.1 --activate && yarn set version 4.3.1 && yarn install --immutable",
-  "buildCommand": "turbo run react:build",
+  "buildCommand": "yarn vercel-build",
   "outputDirectory": "dist",
+  "framework": "vite",
   "git": {
     "deploymentEnabled": {
       "main": true,
