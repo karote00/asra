@@ -37,6 +37,11 @@
       "dependsOn": ["build:core"],
       "outputs": ["dist/**"]
     },
+    "build": {
+      "cache": false,
+      "dependsOn": ["react:build"],
+      "outputs": ["dist/**"]
+    },
     "clean": {
       "cache": false
     },
