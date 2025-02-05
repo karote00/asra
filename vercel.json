@@ -4,7 +4,6 @@
   "buildCommand": "yarn vercel-build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "overrideFramework": true,
   "git": {
     "deploymentEnabled": {
       "main": true,
