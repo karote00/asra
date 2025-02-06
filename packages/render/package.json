@@ -17,7 +17,6 @@
     "pixi.js": "^8.6.3"
   },
   "devDependencies": {
-    "@types/node": "^22.10.1",
     "typescript": "^5.7.2"
   }
 }

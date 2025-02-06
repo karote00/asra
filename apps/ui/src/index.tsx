@@ -8,6 +8,8 @@ import RenderApp from './render-app'
 import App from './app'
 import reportWebVitals from './reportWebVitals'
 
+// DELETE: test vercel deploy in PR
+
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement)
 root.render(
   <React.StrictMode>

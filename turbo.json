@@ -19,27 +19,22 @@
     },
     "build:module-base": {
       "cache": false,
-      "dependsOn": ["build:base"],
+      "dependsOn": ["^build:base"],
       "outputs": ["dist/**"]
     },
     "build:module": {
       "cache": false,
-      "dependsOn": ["build:module-base"],
+      "dependsOn": ["^build:module-base", "^build:base"],
       "outputs": ["dist/**"]
     },
     "build:core": {
       "cache": false,
-      "dependsOn": ["build:module"],
-      "outputs": ["dist/**"]
-    },
-    "react:build": {
-      "cache": false,
-      "dependsOn": ["build:core"],
+      "dependsOn": ["^build:module", "^build:module-base", "^build:base"],
       "outputs": ["dist/**"]
     },
     "build": {
       "cache": false,
-      "dependsOn": ["react:build"],
+      "dependsOn": ["^build:core", "^build:module-base", "^build:base"],
       "outputs": ["dist/**"]
     },
     "clean": {
