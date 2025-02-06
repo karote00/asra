@@ -32,14 +32,9 @@
       "dependsOn": ["^build:module"],
       "outputs": ["dist/**"]
     },
-    "react:build": {
-      "cache": false,
-      "dependsOn": ["^build:core", "^build:module-base", "^build:base"],
-      "outputs": ["dist/**"]
-    },
     "build": {
       "cache": false,
-      "dependsOn": ["react:build"],
+      "dependsOn": ["^build:core", "^build:module-base", "^build:base"],
       "outputs": ["dist/**"]
     },
     "clean": {
