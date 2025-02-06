@@ -24,12 +24,12 @@
     },
     "build:module": {
       "cache": false,
-      "dependsOn": ["^build:module-base"],
+      "dependsOn": ["^build:module-base", "^build:base"],
       "outputs": ["dist/**"]
     },
     "build:core": {
       "cache": false,
-      "dependsOn": ["^build:module"],
+      "dependsOn": ["^build:module", "^build:module-base", "^build:base"],
       "outputs": ["dist/**"]
     },
     "build": {
