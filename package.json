@@ -23,7 +23,8 @@
     "packages/*"
   ],
   "engines": {
-    "node": "20.x"
+    "node": "20.x",
+    "yarn": ">=4.3.1"
   },
   "resolutions": {
     "react": "^19.0.0",
