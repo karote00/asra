@@ -1,15 +1,16 @@
 {
   "tasks": {
-    "prebuild:design-system": {
-      "outputs": ["dist/**"]
+    "watch:design-system": {
+      "cache": false,
+      "persistent": true
     },
     "dev": {
       "cache": false,
-      "dependsOn": ["prebuild:design-system"],
       "outputs": ["dist/**"]
     },
     "react:start": {
       "cache": false,
+      "outputs": ["dist/**"],
       "dependsOn": ["dev"],
       "persistent": true
     },

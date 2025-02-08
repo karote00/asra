@@ -2,15 +2,15 @@
   "name": "@asra/design-system",
   "version": "1.0.1",
   "packageManager": "yarn@4.3.1",
-  "main": "./dist/design-system.umd.js",
-  "module": "./dist/design-system.es.js",
-  "types": "dist/index.d.ts",
+  "main": "./dist/index.umd.js",
+  "module": "./dist/index.es.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/design-system.es.js",
-      "require": "./dist/design-system.umd.js"
+      "import": "./dist/index.es.js",
+      "require": "./dist/index.umd.js"
     },
-    "./index.css": "./dist/index.css"
+    "./index.css": "./dist/design-system.css"
   },
   "files": [
     "dist"
@@ -19,9 +19,9 @@
     "clean": "rm -rf dist",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "build:module-base": "vite build && tsc && yarn prebuild:design-system",
-    "build:watch-css": "yarn prebuild:design-system --watch",
-    "dev": "concurrently 'tsc --watch' 'vite build --watch' 'yarn build:watch-css'",
+    "build:module-base": "vite build && tsc",
+    "dev": "tsc --watch",
+    "watch:design-system": "vite build --watch",
     "prebuild:design-system": "tailwindcss -i ./src/index.css -o ./dist/index.css",
     "preview": "vite preview"
   },
@@ -51,6 +51,7 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",
     "vite": "^6.0.4",
+    "vite-plugin-dts": "^4.5.0",
     "vite-plugin-eslint": "^1.8.1",
     "vite-plugin-svgr": "^4.3.0"
   }

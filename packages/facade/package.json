@@ -9,7 +9,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "dev": "tsc --watch",
+    "dev:facade": "tsc --watch",
     "build:facade": "tsc",
     "clean": "rm -rf dist"
   },

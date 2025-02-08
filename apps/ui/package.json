@@ -34,7 +34,7 @@
     "vite-plugin-vercel": "^9.0.3"
   },
   "scripts": {
-    "react:start": "vite --config vite.config.ts",
+    "react:start": "vite dev",
     "react:build": "vite build --config vite.config.ts",
     "preview": "vite preview"
   },
