@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react'
-import { effect } from '@preact/signals-react'
 import { subscribeToEndTransaction } from '@asra/reactive-events'
+import { sceneTreeStore } from '@asra/ui-context'
 import { sceneTreeManager } from '../contexts'
-import { flattenedElementIds } from '../states/scene-tree'
-import { completeSceneTreeChange } from '../processor/scene-tree'
 
 export const useFlattenedIdsData = (): string[] => {
   const [flattenedIds, setFlattenedIds] = useState<string[]>([])
@@ -14,11 +12,8 @@ export const useFlattenedIdsData = (): string[] => {
     }
 
     const transactSubscription = subscribeToEndTransaction(() => {
-      completeSceneTreeChange()
-    })
-
-    effect(() => {
-      setFlattenedIds(flattenedElementIds.value)
+      sceneTreeStore.updateFlattenedElementIds()
+      setFlattenedIds(sceneTreeStore.flattenedElementIds)
     })
 
     return () => {
@@ -27,4 +22,16 @@ export const useFlattenedIdsData = (): string[] => {
   }, [])
 
   return flattenedIds
+}
+
+export const useElementData = (elementId: string) => {
+  const subject = sceneTreeStore.getElement(elementId)
+  const [data, setData] = useState(subject?.getValue())
+
+  useEffect(() => {
+    const subscription = subject?.subscribe(setData)
+    return () => subscription?.unsubscribe()
+  }, [subject])
+
+  return data
 }

@@ -1,14 +1,12 @@
-import { useSignals } from '@preact/signals-react/runtime'
 import { EntityTypes } from '@asra/utils'
 import { Icon } from '@asra/design-system'
-import { getElement } from '../states/scene-tree'
+import { useElementData } from '../providers/scene-tree'
 
 const Element = ({ elementId }: { elementId: string }) => {
-  useSignals()
-  const elementInstance = getElement(elementId)
-  if (!elementInstance) return null
+  const elementData = useElementData(elementId)
+  if (!elementData) return null
 
-  const { name, type, lock, visible } = elementInstance.value
+  const { name, type, lock, visible } = elementData
   return (
     <div className="flex items-center justify-between p-2 hover:bg-panel-light text-gray-200">
       <div className="flex items-center space-x-1 gap-1">

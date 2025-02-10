@@ -1,11 +1,9 @@
 import React from 'react'
-import { useSignals } from '@preact/signals-react/runtime'
 import Element from './Element'
 import { useFlattenedIdsData } from '../providers/scene-tree'
 import { COLUMN_WIDTH } from '../constants'
 
 const Contents: React.FC = () => {
-  useSignals()
   const flattenedIds = useFlattenedIdsData()
 
   return (
