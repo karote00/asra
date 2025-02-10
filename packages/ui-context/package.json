@@ -1,0 +1,26 @@
+{
+  "name": "@asra/ui-context",
+  "version": "1.0.1",
+  "description": "Manages and optimizes data from data contexts for UI consumption, ensuring efficient rendering and framework flexibility.",
+  "author": "Asa Tsai",
+  "license": "MIT",
+  "packageManager": "yarn@4.3.1",
+  "keywords": [],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "tsc --watch",
+    "build:module": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@asra/factory": "workspace:*",
+    "@asra/scene-tree": "workspace:^",
+    "@asra/utils": "workspace:*",
+    "rxjs": "^7.8.1",
+    "yjs": "13.6.20"
+  }
+}

@@ -143,13 +143,26 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/scene-tree@workspace:*, @asra/scene-tree@workspace:packages/scene-tree":
+"@asra/scene-tree@workspace:*, @asra/scene-tree@workspace:^, @asra/scene-tree@workspace:packages/scene-tree":
   version: 0.0.0-use.local
   resolution: "@asra/scene-tree@workspace:packages/scene-tree"
   dependencies:
     "@asra/reactive-events": "workspace:*"
     "@asra/utils": "workspace:*"
     typescript: "npm:^5.7.2"
+  languageName: unknown
+  linkType: soft
+
+"@asra/ui-context@workspace:*, @asra/ui-context@workspace:packages/ui-context":
+  version: 0.0.0-use.local
+  resolution: "@asra/ui-context@workspace:packages/ui-context"
+  dependencies:
+    "@asra/factory": "workspace:*"
+    "@asra/scene-tree": "workspace:^"
+    "@asra/utils": "workspace:*"
+    rxjs: "npm:^7.8.1"
+    typescript: "npm:^5.7.2"
+    yjs: "npm:13.6.20"
   languageName: unknown
   linkType: soft
 
@@ -162,6 +175,7 @@ __metadata:
     "@asra/factory": "workspace:*"
     "@asra/reactive-events": "workspace:*"
     "@asra/render": "workspace:*"
+    "@asra/ui-context": "workspace:*"
     "@preact/signals-react": "npm:^2.2.0"
     "@testing-library/jest-dom": "npm:^5.17.0"
     "@testing-library/react": "npm:^13.4.0"

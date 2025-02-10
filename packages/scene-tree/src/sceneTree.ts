@@ -22,10 +22,12 @@ class SceneTree {
   }
 
   _init(): void {
-    const initWorkspace = new Workspace()
-    this.addToMap(initWorkspace)
-    this.workspaceList = [initWorkspace]
-    this.workspace = this.workspaceList[0].get('id')
+    if (!this.workspace && !this.workspaceList.length) {
+      const initWorkspace = new Workspace()
+      this.addToMap(initWorkspace)
+      this.workspaceList = [initWorkspace]
+      this.workspace = this.workspaceList[0].get('id')
+    }
   }
 
   load(data: SceneTreeDataType) {
@@ -46,6 +48,10 @@ class SceneTree {
         }
       )
     }
+  }
+
+  getAllElements() {
+    return this._elements
   }
 
   getElementById(elementId: string): ElementInstanceTypes {

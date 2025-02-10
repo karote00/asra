@@ -1,11 +1,11 @@
-import { SCENE_TREE_ACTIONS } from '@asra/utils'
-import type { ElementRawData, SceneTreeYjsChange } from '@asra/utils'
+import type { ElementRawData } from '@asra/utils'
 import type { ChangeDataType } from '@asra/factory'
-import {
-  addElement,
-  removeElement,
-  updateFlattenedElementIds
-} from '../states/scene-tree'
+import { SCENE_TREE_ACTIONS } from '@asra/utils'
+import Factory from '@asra/factory'
+import sceneTree from '@asra/scene-tree'
+import SceneTreeStore from '../stores/scene-tree'
+
+export const sceneTreeStore = new SceneTreeStore(sceneTree)
 
 type HandlerType = Record<
   string,
@@ -13,8 +13,10 @@ type HandlerType = Record<
 >
 
 const Handlers: HandlerType = {
-  [SCENE_TREE_ACTIONS.ADD_ELEMENT]: addElement,
-  [SCENE_TREE_ACTIONS.REMOVE_ELEMENT]: removeElement
+  [SCENE_TREE_ACTIONS.ADD_ELEMENT]:
+    sceneTreeStore.addElement.bind(sceneTreeStore),
+  [SCENE_TREE_ACTIONS.REMOVE_ELEMENT]:
+    sceneTreeStore.removeElement.bind(sceneTreeStore)
 }
 
 const updateUISceneTree = (change: ChangeDataType['payload']) => {
@@ -33,7 +35,6 @@ const checkIfNeedUpdateFlattenedElementIds = (action: SCENE_TREE_ACTIONS) =>
 // @ts-expect-error: It's YJS event
 export const collectSceneTreeChange = (event) => {
   let shouldUpdateFlattenedElementIds = false
-  const changes: SceneTreeYjsChange[] = []
 
   const processChanges = (
     items: typeof event.changes.added | typeof event.changes.deleted
@@ -46,7 +47,7 @@ export const collectSceneTreeChange = (event) => {
           shouldUpdateFlattenedElementIds =
             checkIfNeedUpdateFlattenedElementIds(change.action)
         }
-        changes.push(change)
+
         updateUISceneTree(change)
       })
     })
@@ -57,5 +58,18 @@ export const collectSceneTreeChange = (event) => {
 }
 
 export const completeSceneTreeChange = () => {
-  updateFlattenedElementIds()
+  sceneTreeStore.updateFlattenedElementIds()
+}
+
+let hasInit = false
+
+export const initSceneTreeDataContext = () => {
+  if (hasInit) {
+    return
+  }
+
+  const sceneTreeArray = Factory.sceneTreeMap
+  sceneTreeArray.observe(collectSceneTreeChange)
+
+  hasInit = true
 }
