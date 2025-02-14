@@ -6,15 +6,11 @@ import type {
 } from '@asra/utils'
 import { isGroupEntity, IDTypes, NameTypes, EntityTypes } from '@asra/utils'
 import Group from './group'
-import { createElement } from '../utils'
+import sceneTree from '../sceneTree'
 
 type WorkspaceDataType = Partial<WorkspaceRawData>
 
 class Workspace extends Group {
-  _idType: IDTypes = IDTypes.WORKSPACE
-  _nameType: NameTypes = NameTypes.WORKSPACE
-  _entityType: EntityTypes = EntityTypes.WORKSPACE
-
   constructor() {
     super()
   }
@@ -23,26 +19,29 @@ class Workspace extends Group {
     this._idType = IDTypes.WORKSPACE
     this._nameType = NameTypes.WORKSPACE
     super._init()
+    this.data.type = EntityTypes.WORKSPACE
   }
 
   load(data: WorkspaceDataType): void {
-    if (!data) {
-      return
-    }
-
-    if (data.children) {
-      data.children.forEach((childData) => {
-        createElement(childData)
-      })
-    }
+    super.load(data)
   }
 
-  get firstFrame(): ElementInstanceTypes | undefined {
-    return this.get('children').find(
-      (child: ElementInstanceTypes) =>
+  get firstFrame(): ElementInstanceTypes | null {
+    let result = null
+
+    const children = this.get('children')
+    for (let i = 0, childId = children[i]; i < children.length; i++) {
+      const child = sceneTree.getElementById(childId)
+      if (
         isGroupEntity(child.get('type')) &&
         (child as GroupInstanceTypes).get('children')
-    )
+      ) {
+        result = child
+        break
+      }
+    }
+
+    return result
   }
 
   addNewElement(
@@ -69,7 +68,7 @@ class Workspace extends Group {
 
     // Add new element to Workspace
     const idx = index > -1 ? index : this.get('children').length
-    this.get('children').splice(idx, 0, element)
+    this.get('children').splice(idx, 0, element.get('id'))
 
     return true
   }
@@ -91,13 +90,18 @@ class Workspace extends Group {
       }
     }
 
+    const elementId = element.get('id')
+    let idx = index ?? avaliableParent?.get('children').indexOf(elementId)
+
     // Remove element from Group type instance
     if (avaliableParent && avaliableParent.get('children')) {
-      return avaliableParent.removeElement(element, index)
+      return avaliableParent.removeElement(element, idx)
     }
 
+    idx = index ?? this.get('children').indexOf(elementId)
+
     // Remove element from Workspace
-    this.get('children').splice(index, 1, element)
+    this.get('children').splice(idx, 1)
 
     return true
   }

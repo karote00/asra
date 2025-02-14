@@ -25,7 +25,7 @@ export interface RectangleRawData extends ElementRawData {
 }
 
 export interface GroupRawData extends ElementRawData {
-  children: (GroupRawData | ElementRawData)[]
+  children: string[]
 }
 
 export interface FrameRawData extends GroupRawData {
@@ -33,10 +33,11 @@ export interface FrameRawData extends GroupRawData {
 }
 
 export interface WorkspaceRawData extends GroupRawData {
-  children: ElementRawData[]
+  children: string[]
 }
 
 export interface SceneTreeRawData {
   workspace: string
-  workspaceList: WorkspaceRawData[]
+  workspaceList: string[]
+  elements: { [key: string]: ElementRawData | GroupRawData }
 }

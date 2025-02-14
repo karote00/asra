@@ -10,9 +10,9 @@ class Frame extends Group {
   }
 
   _init(): void {
-    this._entityType = EntityTypes.FRAME
     this._nameType = NameTypes.FRAME
     super._init()
+    this.data.type = EntityTypes.FRAME
   }
 
   load(data: FrameDataType): void {

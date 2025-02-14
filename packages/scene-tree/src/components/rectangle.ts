@@ -13,9 +13,9 @@ class Rectangle extends Element {
   }
 
   _init(): void {
-    this._entityType = EntityTypes.RECTANGLE
     this._nameType = NameTypes.RECTANGLE
     super._init()
+    this.data.type = EntityTypes.RECTANGLE
   }
 
   load(data: RectangleDataType): void {

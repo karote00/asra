@@ -1,7 +1,13 @@
-import { ElementRawData, EntityTypes, ElementInstanceTypes } from '@asra/utils'
+import {
+  ElementRawData,
+  EntityTypes,
+  ElementInstanceTypes,
+  WorkspaceRawData
+} from '@asra/utils'
 import Frame from './components/frame'
 import Group from './components/group'
 import Rectangle from './components/rectangle'
+import Workspace from './components/workspace'
 
 const entityClassMap = {
   [EntityTypes.UNDEFINED]: undefined,
@@ -10,6 +16,10 @@ const entityClassMap = {
   [EntityTypes.RECTANGLE]: Rectangle,
   [EntityTypes.OVAL]: Rectangle
 } as const
+
+const initWorkspaceData = {
+  type: EntityTypes.WORKSPACE
+}
 
 export const createElement = (elementData: Partial<ElementRawData>) => {
   if (
@@ -29,4 +39,14 @@ export const createElement = (elementData: Partial<ElementRawData>) => {
   const newEntity = new EntityClass() as ElementInstanceTypes
   newEntity.load(elementData)
   return newEntity
+}
+
+export const createWorkspace = (workspaceData = initWorkspaceData) => {
+  if (workspaceData.type !== EntityTypes.WORKSPACE) {
+    return null
+  }
+
+  const newWorkspace = new Workspace()
+  newWorkspace.load(workspaceData)
+  return newWorkspace
 }

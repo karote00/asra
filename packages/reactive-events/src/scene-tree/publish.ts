@@ -3,6 +3,12 @@ import { EntityTypes } from '@asra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
 
+export const sceneTreeLoadComplete = () => {
+  publishEvent({
+    type: EventTypes.SCENE_TREE_LOAD_COMPLETE
+  })
+}
+
 export const addRectangle = (elementData?: ElementRawData) => {
   publishEvent({
     type: EventTypes.ADD_ELEMENT,

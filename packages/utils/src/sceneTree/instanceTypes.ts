@@ -9,10 +9,8 @@ export interface ElementAttrs {
   lock: boolean
 }
 
-export interface GroupAttrs<
-  T extends ElementInstanceTypes = ElementInstanceTypes
-> extends ElementAttrs {
-  children: T[]
+export interface GroupAttrs extends ElementAttrs {
+  children: string[]
 }
 
 export interface IElement<T extends ElementAttrs = ElementAttrs> {
@@ -21,8 +19,7 @@ export interface IElement<T extends ElementAttrs = ElementAttrs> {
   get<K extends keyof T>(key: K): T[K]
 }
 
-export interface IGroupElement
-  extends IElement<GroupAttrs<ElementInstanceTypes>> {
+export interface IGroupElement extends IElement<GroupAttrs> {
   addElement(element: ElementInstanceTypes, index?: number): boolean
   removeElement(element: ElementInstanceTypes, index: number): boolean
 }

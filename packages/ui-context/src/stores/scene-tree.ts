@@ -6,7 +6,7 @@ import type {
   GroupRawData,
   WorkspaceRawData
 } from '@asra/utils'
-import { SceneTree, Workspace } from '@asra/scene-tree'
+import type { SceneTree, Workspace } from '@asra/scene-tree'
 
 interface UIChildren {
   children: string[]
@@ -25,12 +25,14 @@ type UIAllElementData = UINormalElementData | UIGroupElementData
 type UIElementData = Partial<UIAllElementData>
 
 export default class SceneTreeStore {
+  private sceneTree: SceneTree
   private workspaceId: string
   private workspace: BehaviorSubject<UIWorkspaceData>
   private elements: Map<string, BehaviorSubject<UIElementData>>
   flattenedElementIds: string[]
 
   constructor(sceneTree: SceneTree) {
+    this.sceneTree = sceneTree
     this.workspaceId = ''
     this.workspace = new BehaviorSubject<UIWorkspaceData>({
       id: this.workspaceId,
@@ -40,29 +42,24 @@ export default class SceneTreeStore {
     })
     this.elements = new Map()
     this.flattenedElementIds = []
-
-    this.load(sceneTree)
   }
 
-  load(sceneTree: SceneTree) {
-    this.workspaceId = sceneTree.workspace
+  reload() {
+    this.workspaceId = this.sceneTree.workspace
     if (
       this.workspaceId &&
-      sceneTree.currentWorkspace.get('id') === this.workspaceId
+      this.sceneTree.currentWorkspace.get('id') === this.workspaceId
     ) {
-      const ws = sceneTree.currentWorkspace
+      const ws = this.sceneTree.currentWorkspace
       this.workspace = new BehaviorSubject<UIWorkspaceData>({
         id: ws.get('id'),
         name: ws.get('name'),
         type: ws.get('type'),
-        children:
-          (ws as Workspace)
-            .get('children')
-            ?.map((el: IElement) => el.get('id')) || []
+        children: [...(ws as Workspace).get('children')] || []
       })
     }
 
-    sceneTree.getAllElements().forEach((element, id) => {
+    this.sceneTree.getAllElements().forEach((element, id) => {
       if (element.get('type') !== EntityTypes.WORKSPACE) {
         this.elements.set(
           id,
@@ -70,6 +67,8 @@ export default class SceneTreeStore {
         )
       }
     })
+
+    this.updateFlattenedElementIds()
   }
 
   getElement(elementId: string): BehaviorSubject<UIElementData> | undefined {
@@ -121,7 +120,6 @@ export default class SceneTreeStore {
       const parentData = avaliableParent.getValue() as UIGroupElementData
       const idx = index > -1 ? index : parentData.children.length
       const newChildren = [...parentData.children]
-
       newChildren.splice(idx, 0, data.id)
 
       avaliableParent.next({

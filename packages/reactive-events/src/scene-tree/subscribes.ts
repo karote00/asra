@@ -1,8 +1,25 @@
 import { Subscription } from 'rxjs'
 import { filter } from 'rxjs/operators'
-import type { AddElementEvent, RemoveElementEvent } from './events'
+import type {
+  AddElementEvent,
+  RemoveElementEvent,
+  SceneTreeLoadCompleteEvent
+} from './events'
 import { getEventBusObserve } from '../event-bus'
 import { EventTypes } from '../types'
+
+export const subscribeToSceneTreeLoadComplete = (
+  subscriber: (event: SceneTreeLoadCompleteEvent) => void
+): Subscription => {
+  return getEventBusObserve()
+    .pipe(
+      filter(
+        (event): event is SceneTreeLoadCompleteEvent =>
+          event.type === EventTypes.SCENE_TREE_LOAD_COMPLETE
+      )
+    )
+    .subscribe(subscriber)
+}
 
 export const subscribeToAddElement = (
   subscriber: (event: AddElementEvent) => void

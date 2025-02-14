@@ -21,7 +21,12 @@ export interface UndoRedoStatusEvent {
   status: UNDO
 }
 
+export interface FileLoadCompleteEvent {
+  type: EventTypes.FILE_LOAD_COMPLETE
+}
+
 export type AppEvent =
+  | FileLoadCompleteEvent
   | StartTransactionEvent
   | UpdateTransactionEvent
   | EndTransactionEvent

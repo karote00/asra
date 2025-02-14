@@ -10,10 +10,13 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "dev": "tsc --watch",
-    "build:base": "tsc",
+    "build:module": "tsc",
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@asra/factory": "workspace:*",
+    "@asra/scene-tree": "workspace:*",
+    "@asra/utils": "workspace:*",
     "pixi.js": "^8.6.3"
   },
   "devDependencies": {

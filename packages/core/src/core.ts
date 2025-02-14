@@ -1,6 +1,7 @@
 import Factory, { DataTransact } from '@asra/factory'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
 import InputSystem from '@asra/input-system'
+import type { SceneTreeRawData } from '@asra/utils'
 
 import SystemEventManager from './system-event-manager'
 import RenderEventManager from './render-event-manager'
@@ -14,7 +15,7 @@ const sceneTreeManager = new SceneTreeManager()
 
 interface CoreRawData {
   version: string
-  sceneTree: Record<string, string | number>
+  sceneTree: SceneTreeRawData
 }
 
 const DEFAULT_VERSION = '1.0.0'
@@ -28,13 +29,7 @@ class Core {
   renderEventManager: RenderEventManager = renderEventManager
   sceneTreeManager: SceneTreeManager = sceneTreeManager
 
-  constructor() {
-    this._init()
-  }
-
-  _init(): void {
-    // init
-  }
+  constructor() {}
 
   load(data: CoreRawData): void {
     if (!data) {
@@ -43,8 +38,17 @@ class Core {
 
     this.version = data.version ?? DATA_VERSION
     if (data.sceneTree) {
-      this.sceneTree.load(data.sceneTree)
+      this.sceneTreeManager.load(data.sceneTree)
     }
+  }
+
+  save() {
+    const data = {
+      version: this.version,
+      sceneTree: this.sceneTreeManager.save()
+    }
+
+    return data
   }
 }
 

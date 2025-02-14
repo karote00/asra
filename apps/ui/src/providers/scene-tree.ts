@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
-import { subscribeToEndTransaction } from '@asra/reactive-events'
+import {
+  subscribeToEndTransaction,
+  subscribeToSceneTreeLoadComplete
+} from '@asra/reactive-events'
 import { sceneTreeStore } from '@asra/ui-context'
 import { sceneTreeManager } from '../contexts'
 
@@ -11,6 +14,13 @@ export const useFlattenedIdsData = (): string[] => {
       return
     }
 
+    const sceneTreeLoadCompleteSubscription = subscribeToSceneTreeLoadComplete(
+      () => {
+        sceneTreeStore.reload()
+        setFlattenedIds(sceneTreeStore.flattenedElementIds)
+      }
+    )
+
     const transactSubscription = subscribeToEndTransaction(() => {
       sceneTreeStore.updateFlattenedElementIds()
       setFlattenedIds(sceneTreeStore.flattenedElementIds)
@@ -18,6 +28,7 @@ export const useFlattenedIdsData = (): string[] => {
 
     return () => {
       transactSubscription.unsubscribe()
+      sceneTreeLoadCompleteSubscription.unsubscribe()
     }
   }, [])
 

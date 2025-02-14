@@ -50,6 +50,7 @@ __metadata:
     "@asra/input-system": "workspace:*"
     "@asra/reactive-events": "workspace:*"
     "@asra/scene-tree": "workspace:*"
+    "@asra/utils": "workspace:*"
     typescript: "npm:^5.7.2"
   languageName: unknown
   linkType: soft
@@ -124,7 +125,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/reactive-events@workspace:*, @asra/reactive-events@workspace:packages/reactive-events":
+"@asra/reactive-events@workspace:*, @asra/reactive-events@workspace:^, @asra/reactive-events@workspace:packages/reactive-events":
   version: 0.0.0-use.local
   resolution: "@asra/reactive-events@workspace:packages/reactive-events"
   dependencies:
@@ -138,6 +139,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asra/render@workspace:packages/render"
   dependencies:
+    "@asra/factory": "workspace:*"
+    "@asra/scene-tree": "workspace:*"
+    "@asra/utils": "workspace:*"
     pixi.js: "npm:^8.6.3"
     typescript: "npm:^5.7.2"
   languageName: unknown
@@ -158,6 +162,7 @@ __metadata:
   resolution: "@asra/ui-context@workspace:packages/ui-context"
   dependencies:
     "@asra/factory": "workspace:*"
+    "@asra/reactive-events": "workspace:^"
     "@asra/scene-tree": "workspace:^"
     "@asra/utils": "workspace:*"
     rxjs: "npm:^7.8.1"

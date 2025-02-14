@@ -1,4 +1,6 @@
 export enum EventTypes {
+  FILE_LOAD_COMPLETE = 'fileLoadComplete',
+  SCENE_TREE_LOAD_COMPLETE = 'sceneTreeLoadComplete',
   ADD_ELEMENT = 'addElement',
   REMOVE_ELEMENT = 'removeElement',
   UNDOREDO_STATUS = 'UNDOREDO_STATUS',

@@ -10,10 +10,7 @@ import Element from './element'
 type GroupDataType = Partial<GroupRawData>
 
 class Group extends Element<GroupAttrs> {
-  data: GroupAttrs = {
-    ...this.data,
-    children: []
-  }
+  data: GroupAttrs = { ...this.data, children: [] }
   props!: Props
 
   constructor() {
@@ -21,18 +18,19 @@ class Group extends Element<GroupAttrs> {
   }
 
   _init(): void {
-    this._entityType = EntityTypes.GROUP
-    this._nameType = NameTypes.GROUP
+    this._nameType ??= NameTypes.GROUP
     super._init()
+    this.data.type = EntityTypes.GROUP
   }
 
   load(data: GroupDataType): void {
     super.load(data)
+    this.data.children = (data.children as string[]) || []
   }
 
   save(): GroupRawData {
     const data = super.save() as GroupRawData
-    data.children = this.data.children.map((child) => child.save())
+    data.children = this.data.children
     return data
   }
 
@@ -41,10 +39,10 @@ class Group extends Element<GroupAttrs> {
       return false
     }
 
-    const children = this.get('children') as ElementInstanceTypes[]
+    const children = this.get('children')
 
     const idx = index ?? children.length
-    children.splice(idx, 0, element)
+    children.splice(idx, 0, element.get('id'))
 
     return true
   }
@@ -54,9 +52,12 @@ class Group extends Element<GroupAttrs> {
       return false
     }
 
-    const children = this.get('children') as ElementInstanceTypes[]
+    const children = this.get('children')
+    if (children.indexOf(element.get('id')) !== index) {
+      return false
+    }
 
-    children.splice(index, 1, element)
+    children.splice(index, 1)
 
     return true
   }

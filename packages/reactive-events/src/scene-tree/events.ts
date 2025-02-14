@@ -1,6 +1,10 @@
 import type { ElementRawData, GroupInstanceTypes } from '@asra/utils'
 import { EventTypes } from '../types'
 
+export interface SceneTreeLoadCompleteEvent {
+  type: EventTypes.SCENE_TREE_LOAD_COMPLETE
+}
+
 export interface AddElementEvent {
   type: EventTypes.ADD_ELEMENT
   payload: {
@@ -19,4 +23,7 @@ export interface RemoveElementEvent {
   }
 }
 
-export type SceneTreeEvents = AddElementEvent | RemoveElementEvent
+export type SceneTreeEvents =
+  | SceneTreeLoadCompleteEvent
+  | AddElementEvent
+  | RemoveElementEvent

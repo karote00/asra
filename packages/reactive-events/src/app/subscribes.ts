@@ -1,6 +1,7 @@
 import { Subscription } from 'rxjs'
 import { filter } from 'rxjs/operators'
 import type {
+  FileLoadCompleteEvent,
   StartTransactionEvent,
   UpdateTransactionEvent,
   EndTransactionEvent,
@@ -8,6 +9,19 @@ import type {
 } from './events'
 import { getEventBusObserve } from '../event-bus'
 import { EventTypes } from '../types'
+
+export const subscribeToFileLoadComplete = (
+  subscriber: (event: FileLoadCompleteEvent) => void
+): Subscription => {
+  return getEventBusObserve()
+    .pipe(
+      filter(
+        (event): event is FileLoadCompleteEvent =>
+          event.type === EventTypes.FILE_LOAD_COMPLETE
+      )
+    )
+    .subscribe(subscriber)
+}
 
 export const subscribeToStartTransaction = (
   subscriber: (event: StartTransactionEvent) => void

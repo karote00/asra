@@ -3,19 +3,21 @@ import type {
   WorkspaceRawData,
   ElementRawData,
   ElementInstanceTypes,
-  GroupInstanceTypes
+  GroupInstanceTypes,
+  GroupRawData
 } from '@asra/utils'
 import { EntityTypes } from '@asra/utils'
-import Workspace from './components/workspace'
-import { createElement } from './utils'
+import { createElement, createWorkspace } from './utils'
+import type Workspace from './components/workspace'
 
-type SceneTreeDataType = Partial<SceneTreeRawData>
+type InstanceRawData = ElementRawData | GroupRawData | WorkspaceRawData
+type SceneTreeDataType = SceneTreeRawData
 
 class SceneTree {
   _elements: Map<string, ElementInstanceTypes> = new Map()
   _deletedMap: Map<string, ElementInstanceTypes> = new Map()
   workspace: string = ''
-  workspaceList: Workspace[] = []
+  workspaceList: string[] = []
 
   constructor() {
     this._init()
@@ -23,16 +25,26 @@ class SceneTree {
 
   _init(): void {
     if (!this.workspace && !this.workspaceList.length) {
-      const initWorkspace = new Workspace()
-      this.addToMap(initWorkspace)
-      this.workspaceList = [initWorkspace]
-      this.workspace = this.workspaceList[0].get('id')
+      const initWorkspace = createWorkspace()
+      if (initWorkspace) {
+        this.addToMap(initWorkspace)
+        this.workspaceList = [initWorkspace.get('id')]
+        this.workspace = this.workspaceList[0]
+      }
     }
   }
 
   load(data: SceneTreeDataType) {
-    if (!data) {
-      return
+    if (!data) return
+
+    if (data.elements) {
+      Object.values(data.elements).forEach((elementData: InstanceRawData) => {
+        const element =
+          elementData.type === EntityTypes.WORKSPACE
+            ? createWorkspace(elementData as WorkspaceRawData)
+            : createElement(elementData)
+        this.addToMap(element as ElementInstanceTypes)
+      })
     }
 
     if (data.workspace) {
@@ -40,14 +52,22 @@ class SceneTree {
     }
 
     if (data.workspaceList) {
-      this.workspaceList = data.workspaceList.map(
-        (workspaceData: WorkspaceRawData) => {
-          const newWorkspace = new Workspace()
-          newWorkspace.load(workspaceData)
-          return newWorkspace
-        }
-      )
+      this.workspaceList = data.workspaceList
     }
+  }
+
+  save() {
+    const data: SceneTreeRawData = {
+      workspace: this.workspace,
+      workspaceList: this.workspaceList,
+      elements: {}
+    }
+
+    this._elements.forEach((element, id) => {
+      data.elements[id] = element.save()
+    })
+
+    return data
   }
 
   getAllElements() {

@@ -1,8 +1,6 @@
-import Render from '@asra/render'
+import { render } from '@asra/render'
 import { app, setPixiApp } from '../states/app'
 import { CANVAS_BACKGROUND_COLOR } from '../constants'
-
-const render = new Render()
 
 export const initRenderApp = async (
   container: HTMLDivElement,
