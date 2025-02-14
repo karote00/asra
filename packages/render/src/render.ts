@@ -7,8 +7,6 @@ initDataContexts()
 class Render {
   app: PIXI.Application | null = null
 
-  constructor() {}
-
   async init(
     width: number,
     height: number,

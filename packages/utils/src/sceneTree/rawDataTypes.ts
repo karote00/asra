@@ -39,5 +39,5 @@ export interface WorkspaceRawData extends GroupRawData {
 export interface SceneTreeRawData {
   workspace: string
   workspaceList: string[]
-  elements: { [key: string]: ElementRawData | GroupRawData }
+  elements: Record<string, ElementRawData | GroupRawData>
 }

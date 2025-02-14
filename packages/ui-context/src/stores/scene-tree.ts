@@ -1,7 +1,6 @@
 import { BehaviorSubject } from 'rxjs'
 import { EntityTypes } from '@asra/utils'
 import type {
-  IElement,
   ElementRawData,
   GroupRawData,
   WorkspaceRawData
@@ -55,7 +54,7 @@ export default class SceneTreeStore {
         id: ws.get('id'),
         name: ws.get('name'),
         type: ws.get('type'),
-        children: [...(ws as Workspace).get('children')] || []
+        children: [...((ws as Workspace).get('children') || [])]
       })
     }
 

@@ -1,9 +1,4 @@
-import {
-  ElementRawData,
-  EntityTypes,
-  ElementInstanceTypes,
-  WorkspaceRawData
-} from '@asra/utils'
+import { ElementRawData, EntityTypes, ElementInstanceTypes } from '@asra/utils'
 import Frame from './components/frame'
 import Group from './components/group'
 import Rectangle from './components/rectangle'

@@ -29,8 +29,6 @@ class Core {
   renderEventManager: RenderEventManager = renderEventManager
   sceneTreeManager: SceneTreeManager = sceneTreeManager
 
-  constructor() {}
-
   load(data: CoreRawData): void {
     if (!data) {
       return
