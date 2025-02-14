@@ -9,17 +9,28 @@ class Render {
 
   constructor() {}
 
-  async init(width: number, height: number, backgroundColor: number) {
-    this.app = new PIXI.Application()
+  async init(
+    width: number,
+    height: number,
+    backgroundColor: number,
+    cb: (app: PIXI.Application) => void
+  ) {
+    const app = new PIXI.Application()
 
-    await this.app.init({
-      width,
-      height,
-      backgroundColor,
-      resolution: window.devicePixelRatio || 1,
-      antialias: true,
-      autoDensity: true
-    })
+    await app
+      .init({
+        width,
+        height,
+        backgroundColor,
+        resolution: window.devicePixelRatio || 1,
+        antialias: true,
+        autoDensity: true
+      })
+      .then(() => {
+        cb(app)
+      })
+
+    this.app = app
 
     return this.app
   }

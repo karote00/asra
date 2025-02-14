@@ -7,12 +7,15 @@ export const initRenderApp = async (
   width: number,
   height: number
 ) => {
-  const newApp = await render.init(width, height, CANVAS_BACKGROUND_COLOR)
-
-  if (!container.children.length) {
-    container.appendChild(newApp.canvas as HTMLCanvasElement)
-    setPixiApp(newApp)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const setupPixiApp = (newApp: any) => {
+    if (newApp && newApp.canvas && !container.children.length) {
+      container.appendChild(newApp.canvas)
+      setPixiApp(newApp)
+    }
   }
+
+  await render.init(width, height, CANVAS_BACKGROUND_COLOR, setupPixiApp)
 }
 
 export const destroyRenderApp = () => {

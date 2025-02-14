@@ -5,13 +5,17 @@ const RenderApp: React.FC = () => {
   const pixiContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (pixiContainerRef.current) {
-      initRenderApp(
-        pixiContainerRef.current,
-        window.innerWidth,
-        window.innerHeight
-      )
+    const initApp = async () => {
+      if (pixiContainerRef.current) {
+        await initRenderApp(
+          pixiContainerRef.current,
+          window.innerWidth,
+          window.innerHeight
+        )
+      }
     }
+
+    initApp()
 
     return () => {
       if (pixiContainerRef.current) {
