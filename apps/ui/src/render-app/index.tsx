@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react'
+import { renderIsReady } from '@asra/reactive-events'
 import { initRenderApp, destroyRenderApp } from '../controllers/app'
 
 const RenderApp: React.FC = () => {
@@ -12,6 +13,7 @@ const RenderApp: React.FC = () => {
           window.innerWidth,
           window.innerHeight
         )
+        renderIsReady()
       }
     }
 

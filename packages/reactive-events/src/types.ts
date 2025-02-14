@@ -1,4 +1,5 @@
 export enum EventTypes {
+  RENDER_IS_READY = 'renderIsReady',
   FILE_LOAD_COMPLETE = 'fileLoadComplete',
   SCENE_TREE_LOAD_COMPLETE = 'sceneTreeLoadComplete',
   ADD_ELEMENT = 'addElement',

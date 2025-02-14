@@ -2,6 +2,12 @@ import { UNDO } from '@asra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
 
+export const renderIsReady = () => {
+  publishEvent({
+    type: EventTypes.RENDER_IS_READY
+  })
+}
+
 export const fileLoadComplete = () => {
   publishEvent({
     type: EventTypes.FILE_LOAD_COMPLETE

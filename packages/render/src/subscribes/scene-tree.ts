@@ -1,18 +1,28 @@
 import type { ChangeDataType } from '@asra/factory'
 import Factory from '@asra/factory'
-import { SCENE_TREE_ACTIONS } from '@asra/utils'
+import { ElementRawData, SCENE_TREE_ACTIONS } from '@asra/utils'
+import { subscribeToSceneTreeLoadComplete } from '@asra/reactive-events'
+import { renderSceneTree } from '../stores/scene-tree'
 
-let hasInit = false
+type HandlerType = Record<
+  string,
+  (parentId: string, data: ElementRawData, number: number) => void
+>
 
-export const initSceneTreeDataContext = () => {
-  if (hasInit) {
-    return
+const Handlers: HandlerType = {
+  [SCENE_TREE_ACTIONS.ADD_ELEMENT]:
+    renderSceneTree.addElement.bind(renderSceneTree),
+  [SCENE_TREE_ACTIONS.REMOVE_ELEMENT]:
+    renderSceneTree.removeElement.bind(renderSceneTree)
+}
+
+const updateRenderSceneTree = (change: ChangeDataType['payload']) => {
+  const { action, parentId, data, index } = change
+
+  const handler = Handlers[action as SCENE_TREE_ACTIONS]
+  if (handler) {
+    handler(parentId, data, index)
   }
-
-  const sceneTreeArray = Factory.sceneTreeMap
-  sceneTreeArray.observe(handleSceneTreeChange)
-
-  hasInit = true
 }
 
 // @ts-expect-error: It's YJS event
@@ -33,15 +43,28 @@ export const handleSceneTreeChange = (event) => {
   processChanges(event.changes.deleted)
 }
 
-const updateRenderSceneTree = (change: ChangeDataType['payload']) => {
-  const { action, parentId, data, index } = change
+let hasInit = false
 
-  switch (action) {
-    case SCENE_TREE_ACTIONS.ADD_ELEMENT: {
-      break
-    }
-    case SCENE_TREE_ACTIONS.REMOVE_ELEMENT: {
-      break
-    }
+let sceneTreeLoadCompleteSubscription = {
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  unsubscribe: () => {}
+}
+
+export const initSceneTreeDataContext = () => {
+  if (hasInit) {
+    return
   }
+
+  sceneTreeLoadCompleteSubscription = subscribeToSceneTreeLoadComplete(() => {
+    renderSceneTree.reload()
+  })
+
+  const sceneTreeArray = Factory.sceneTreeMap
+  sceneTreeArray.observe(handleSceneTreeChange)
+
+  hasInit = true
+}
+
+export const renderSceneTreeClear = () => {
+  sceneTreeLoadCompleteSubscription.unsubscribe()
 }

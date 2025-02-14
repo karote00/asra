@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import {
   subscribeToEndTransaction,
+  subscribeToRenderIsReady,
   fileLoadComplete
 } from '@asra/reactive-events'
 import { initDataContexts } from '@asra/ui-context'
@@ -10,18 +11,21 @@ const DataContexts = () => {
   useEffect(() => {
     initDataContexts()
 
-    const fileData = localStorage.getItem('FILE')
-    if (fileData) {
-      core.load(JSON.parse(fileData))
-      fileLoadComplete()
-    }
+    const renderSubscription = subscribeToRenderIsReady(() => {
+      const fileData = localStorage.getItem('FILE')
+      if (fileData) {
+        core.load(JSON.parse(fileData))
+        fileLoadComplete()
+      }
+    })
 
-    const subscription = subscribeToEndTransaction(() => {
+    const transactSubscription = subscribeToEndTransaction(() => {
       localStorage.setItem('FILE', JSON.stringify(core.save()))
     })
 
     return () => {
-      subscription.unsubscribe()
+      renderSubscription.unsubscribe()
+      transactSubscription.unsubscribe()
     }
   }, [])
 

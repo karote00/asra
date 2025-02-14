@@ -5,10 +5,24 @@ import type {
   StartTransactionEvent,
   UpdateTransactionEvent,
   EndTransactionEvent,
-  UndoRedoStatusEvent
+  UndoRedoStatusEvent,
+  RenderIsReadyEvent
 } from './events'
 import { getEventBusObserve } from '../event-bus'
 import { EventTypes } from '../types'
+
+export const subscribeToRenderIsReady = (
+  subscriber: (event: RenderIsReadyEvent) => void
+): Subscription => {
+  return getEventBusObserve()
+    .pipe(
+      filter(
+        (event): event is RenderIsReadyEvent =>
+          event.type === EventTypes.RENDER_IS_READY
+      )
+    )
+    .subscribe(subscriber)
+}
 
 export const subscribeToFileLoadComplete = (
   subscriber: (event: FileLoadCompleteEvent) => void

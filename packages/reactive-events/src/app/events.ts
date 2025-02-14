@@ -1,6 +1,14 @@
 import { UNDO } from '@asra/utils'
 import { EventTypes } from '../types'
 
+export interface RenderIsReadyEvent {
+  type: EventTypes.RENDER_IS_READY
+}
+
+export interface FileLoadCompleteEvent {
+  type: EventTypes.FILE_LOAD_COMPLETE
+}
+
 export interface StartTransactionEvent {
   type: EventTypes.START_TRANSACTION
 }
@@ -21,11 +29,8 @@ export interface UndoRedoStatusEvent {
   status: UNDO
 }
 
-export interface FileLoadCompleteEvent {
-  type: EventTypes.FILE_LOAD_COMPLETE
-}
-
 export type AppEvent =
+  | RenderIsReadyEvent
   | FileLoadCompleteEvent
   | StartTransactionEvent
   | UpdateTransactionEvent
