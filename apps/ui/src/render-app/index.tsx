@@ -4,10 +4,12 @@ import { initRenderApp, destroyRenderApp } from '../controllers/app'
 
 const RenderApp: React.FC = () => {
   const pixiContainerRef = useRef<HTMLDivElement>(null)
+  const hasInit = useRef<boolean>(false)
 
   useEffect(() => {
     const initApp = async () => {
-      if (pixiContainerRef.current) {
+      if (pixiContainerRef.current && !hasInit.current) {
+        hasInit.current = true
         await initRenderApp(
           pixiContainerRef.current,
           window.innerWidth,
