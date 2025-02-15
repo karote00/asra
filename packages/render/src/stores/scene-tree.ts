@@ -5,10 +5,20 @@ import sceneTree from '@asra/scene-tree'
 import { render } from '../render'
 
 class RenderSceneTree {
+  private _workspace: Workspace | null
+
+  constructor() {
+    this._workspace = null
+  }
+
   reload() {
     const currentWorkspace = sceneTree.currentWorkspace as Workspace
+    this._workspace = currentWorkspace
+
     const currentWorkspaceId = currentWorkspace.get('id')
-    this.addContainer(currentWorkspaceId)
+    const root = this.addContainer(currentWorkspaceId)
+
+    render.addRoot(root)
     currentWorkspace.get('children').forEach((childId) => {
       const child = sceneTree.getElementById(childId)
       if (!child) return
@@ -22,11 +32,13 @@ class RenderSceneTree {
   }
 
   addContainer(currentWorkspaceId: string) {
-    render.addContainer({
+    const container = render.addContainer({
       id: currentWorkspaceId,
       x: 0,
       y: 0
     })
+
+    return container
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,11 +47,11 @@ class RenderSceneTree {
   }
 
   addElement(parentId: string, data: ElementRawData, index = -1) {
-    render.addRectangle(parentId, data, index)
+    render.addElement(parentId ?? this._workspace?.get('id'), data, index)
   }
 
   removeElement(parentId: string, data: ElementRawData) {
-    // console.log({ parentId, data })
+    render.removeElement(parentId, data.id)
   }
 }
 

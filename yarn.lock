@@ -147,7 +147,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/scene-tree@workspace:*, @asra/scene-tree@workspace:^, @asra/scene-tree@workspace:packages/scene-tree":
+"@asra/scene-tree@workspace:*, @asra/scene-tree@workspace:packages/scene-tree":
   version: 0.0.0-use.local
   resolution: "@asra/scene-tree@workspace:packages/scene-tree"
   dependencies:
@@ -163,7 +163,7 @@ __metadata:
   dependencies:
     "@asra/factory": "workspace:*"
     "@asra/reactive-events": "workspace:^"
-    "@asra/scene-tree": "workspace:^"
+    "@asra/scene-tree": "workspace:*"
     "@asra/utils": "workspace:*"
     rxjs: "npm:^7.8.1"
     typescript: "npm:^5.7.2"
