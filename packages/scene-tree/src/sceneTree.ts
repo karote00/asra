@@ -19,10 +19,6 @@ class SceneTree {
   workspace: string = ''
   workspaceList: string[] = []
 
-  constructor() {
-    this._init()
-  }
-
   _init(): void {
     if (!this.workspace && !this.workspaceList.length) {
       const initWorkspace = createWorkspace()
@@ -32,6 +28,10 @@ class SceneTree {
         this.workspace = this.workspaceList[0]
       }
     }
+  }
+
+  init() {
+    this._init()
   }
 
   load(data: SceneTreeDataType) {

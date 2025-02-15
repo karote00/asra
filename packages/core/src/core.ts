@@ -37,6 +37,8 @@ class Core {
     this.version = data.version ?? DATA_VERSION
     if (data.sceneTree) {
       this.sceneTreeManager.load(data.sceneTree)
+    } else {
+      this.sceneTreeManager.init()
     }
   }
 

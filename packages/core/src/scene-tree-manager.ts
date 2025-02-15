@@ -5,6 +5,11 @@ import { SceneTreeRawData } from '@asra/utils'
 export default class SceneTreeManager {
   sceneTree: SceneTree = sceneTree
 
+  init() {
+    this.sceneTree.init()
+    sceneTreeLoadComplete()
+  }
+
   load(data: SceneTreeRawData) {
     this.sceneTree.load(data)
     sceneTreeLoadComplete()
