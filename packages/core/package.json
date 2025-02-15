@@ -20,6 +20,7 @@
     "@asra/factory": "workspace:*",
     "@asra/input-system": "workspace:*",
     "@asra/reactive-events": "workspace:*",
-    "@asra/scene-tree": "workspace:*"
+    "@asra/scene-tree": "workspace:*",
+    "@asra/utils": "workspace:*"
   }
 }

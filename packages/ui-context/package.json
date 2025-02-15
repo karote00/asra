@@ -18,7 +18,8 @@
   },
   "dependencies": {
     "@asra/factory": "workspace:*",
-    "@asra/scene-tree": "workspace:^",
+    "@asra/reactive-events": "workspace:*",
+    "@asra/scene-tree": "workspace:*",
     "@asra/utils": "workspace:*",
     "rxjs": "^7.8.1",
     "yjs": "13.6.20"

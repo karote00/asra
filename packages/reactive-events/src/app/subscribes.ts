@@ -1,13 +1,41 @@
 import { Subscription } from 'rxjs'
 import { filter } from 'rxjs/operators'
 import type {
+  FileLoadCompleteEvent,
   StartTransactionEvent,
   UpdateTransactionEvent,
   EndTransactionEvent,
-  UndoRedoStatusEvent
+  UndoRedoStatusEvent,
+  RenderIsReadyEvent
 } from './events'
 import { getEventBusObserve } from '../event-bus'
 import { EventTypes } from '../types'
+
+export const subscribeToRenderIsReady = (
+  subscriber: (event: RenderIsReadyEvent) => void
+): Subscription => {
+  return getEventBusObserve()
+    .pipe(
+      filter(
+        (event): event is RenderIsReadyEvent =>
+          event.type === EventTypes.RENDER_IS_READY
+      )
+    )
+    .subscribe(subscriber)
+}
+
+export const subscribeToFileLoadComplete = (
+  subscriber: (event: FileLoadCompleteEvent) => void
+): Subscription => {
+  return getEventBusObserve()
+    .pipe(
+      filter(
+        (event): event is FileLoadCompleteEvent =>
+          event.type === EventTypes.FILE_LOAD_COMPLETE
+      )
+    )
+    .subscribe(subscriber)
+}
 
 export const subscribeToStartTransaction = (
   subscriber: (event: StartTransactionEvent) => void

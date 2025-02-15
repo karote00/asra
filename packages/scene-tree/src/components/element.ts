@@ -8,9 +8,8 @@ type ElementDataType = Partial<ElementRawData>
 const ElementProps: (keyof ElementAttrs)[] = ['id', 'name', 'visible', 'lock']
 
 class Element<T extends ElementAttrs = ElementAttrs> implements IElement<T> {
-  _idType: IDTypes = IDTypes.ELEMENT
-  _nameType: NameTypes = NameTypes.ELEMENT
-  _entityType: EntityTypes = EntityTypes.ELEMENT
+  _idType!: IDTypes
+  _nameType!: NameTypes
   data: T = {
     id: '',
     type: EntityTypes.UNDEFINED,
@@ -26,8 +25,11 @@ class Element<T extends ElementAttrs = ElementAttrs> implements IElement<T> {
   }
 
   _init(): void {
+    this._idType ??= IDTypes.ELEMENT
+    this._nameType ??= NameTypes.ELEMENT
+
     this.data.id = id(this._idType)
-    this.data.type = this._entityType
+    this.data.type = EntityTypes.ELEMENT
     this.data.name = name(this._nameType)
     this.data.visible = true
     this.data.lock = false
