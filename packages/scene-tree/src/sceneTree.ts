@@ -9,6 +9,7 @@ import type {
 import { EntityTypes } from '@asra/utils'
 import { createElement, createWorkspace } from './utils'
 import type Workspace from './components/workspace'
+import type { GroupChildreChangeType } from './types'
 
 type InstanceRawData = ElementRawData | GroupRawData | WorkspaceRawData
 type SceneTreeDataType = SceneTreeRawData
@@ -128,18 +129,18 @@ class SceneTree {
     element: ElementInstanceTypes,
     parent?: GroupInstanceTypes,
     index = -1
-  ): boolean {
+  ): GroupChildreChangeType | null {
     const workspace = this.currentWorkspace as Workspace
     if (!workspace) {
-      return false
+      return null
     }
 
-    const success = workspace.addNewElement(element, parent, index)
-    if (success) {
+    const change = workspace.addNewElement(element, parent, index)
+    if (change) {
       this.addToMap(element)
     }
 
-    return success
+    return change
   }
 
   removeElement(

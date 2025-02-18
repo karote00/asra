@@ -7,6 +7,7 @@ import type {
 import { isGroupEntity, IDTypes, NameTypes, EntityTypes } from '@asra/utils'
 import Group from './group'
 import sceneTree from '../sceneTree'
+import type { GroupChildreChangeType } from '../types'
 
 type WorkspaceDataType = Partial<WorkspaceRawData>
 
@@ -48,9 +49,9 @@ class Workspace extends Group {
     element: ElementInstanceTypes,
     parent?: GroupInstanceTypes,
     index = -1
-  ): boolean {
+  ): GroupChildreChangeType | null {
     if (!element) {
-      return false
+      return null
     }
 
     let avaliableParent = parent
@@ -63,14 +64,27 @@ class Workspace extends Group {
 
     // Add new element to Group type instance
     if (avaliableParent && avaliableParent.get('children')) {
-      return avaliableParent.addElement(element, index)
+      const originalChildrenList = [...avaliableParent.get('children')]
+      avaliableParent.addElement(element, index)
+      const newChildrenList = [...avaliableParent.get('children')]
+      return {
+        parentId: avaliableParent.get('id'),
+        before: originalChildrenList,
+        after: newChildrenList
+      }
     }
 
     // Add new element to Workspace
+    const originalChildrenList = [...this.get('children')]
     const idx = index > -1 ? index : this.get('children').length
     this.get('children').splice(idx, 0, element.get('id'))
+    const newChildrenList = [...this.get('children')]
 
-    return true
+    return {
+      parentId: this.get('id'),
+      before: originalChildrenList,
+      after: newChildrenList
+    }
   }
 
   removeElement(

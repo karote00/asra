@@ -34,32 +34,28 @@ class Group extends Element<GroupAttrs> {
     return data
   }
 
-  addElement(element: ElementInstanceTypes, index = -1): boolean {
+  addElement(element: ElementInstanceTypes, index = -1) {
     if (!element) {
-      return false
+      return
     }
 
     const children = this.get('children')
 
     const idx = index ?? children.length
     children.splice(idx, 0, element.get('id'))
-
-    return true
   }
 
-  removeElement(element: ElementInstanceTypes, index: number): boolean {
+  removeElement(element: ElementInstanceTypes, index: number) {
     if (!element) {
-      return false
+      return
     }
 
     const children = this.get('children')
     if (children.indexOf(element.get('id')) !== index) {
-      return false
+      return
     }
 
     children.splice(index, 1)
-
-    return true
   }
 }
 

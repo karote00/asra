@@ -33,18 +33,18 @@ export const initSceneTreeSubscribes = () => {
 
     startTransaction()
 
-    const successAddRectangle = sceneTree.addNewElement(
+    const change = sceneTree.addNewElement(
       newRectangle as ElementInstanceTypes,
       parent,
       index
     )
 
-    if (newRectangle && successAddRectangle) {
+    if (newRectangle && change) {
       updateTransaction(EventTypes.ADD_ELEMENT, {
         data: newRectangle.save(),
         action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
         owner: OWNER.SCENE_TREE,
-        parentId: parent?.get('id'),
+        parentId: change.parentId,
         index,
         undoAction: 'removeElement'
       })
