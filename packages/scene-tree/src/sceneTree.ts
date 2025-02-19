@@ -79,7 +79,7 @@ class SceneTree {
     return this._elements.get(elementId) as ElementInstanceTypes
   }
 
-  private addToMap(element: ElementInstanceTypes) {
+  addToMap(element: ElementInstanceTypes) {
     const elId = element.get('id')
     if (!element || !elId) {
       return
@@ -89,7 +89,7 @@ class SceneTree {
     this._elements.set(elId, element)
   }
 
-  private removeFromMap(element: ElementInstanceTypes) {
+  removeFromMap(element: ElementInstanceTypes) {
     const elId = element.get('id')
     if (!element || !elId) {
       return
@@ -103,11 +103,11 @@ class SceneTree {
     return this._deletedMap.get(elementId) as ElementInstanceTypes
   }
 
-  private addToDeleteMap(element: ElementInstanceTypes) {
+  addToDeleteMap(element: ElementInstanceTypes) {
     this._deletedMap.set(element.get('id'), element)
   }
 
-  private removeFromDeleteMap(element: ElementInstanceTypes) {
+  removeFromDeleteMap(element: ElementInstanceTypes) {
     this._deletedMap.delete(element.get('id'))
   }
 
@@ -155,11 +155,7 @@ class SceneTree {
 
     const elementId = data.id as string
     const element = this.getElementById(elementId)
-    const success = workspace.removeElement(element, index, parent)
-
-    if (success) {
-      this.removeFromMap(element)
-    }
+    workspace.removeElement(element, index, parent)
 
     return element
   }

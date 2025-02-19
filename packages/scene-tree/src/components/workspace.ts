@@ -87,13 +87,9 @@ class Workspace extends Group {
     }
   }
 
-  removeElement(
-    element: IElement,
-    index: number,
-    parent?: GroupInstanceTypes
-  ): boolean {
+  removeElement(element: IElement, index: number, parent?: GroupInstanceTypes) {
     if (!element) {
-      return false
+      return
     }
 
     let avaliableParent = parent
@@ -109,15 +105,13 @@ class Workspace extends Group {
 
     // Remove element from Group type instance
     if (avaliableParent && avaliableParent.get('children')) {
-      return avaliableParent.removeElement(element, idx)
+      avaliableParent.removeElement(element, idx)
     }
 
     idx = index ?? this.get('children').indexOf(elementId)
 
     // Remove element from Workspace
     this.get('children').splice(idx, 1)
-
-    return true
   }
 }
 

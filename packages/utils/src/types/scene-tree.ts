@@ -11,3 +11,5 @@ export interface SceneTreeChangePayload {
 }
 
 export interface SceneTreeYjsChange extends YjsChange<SceneTreeChangePayload> {}
+
+export type DataTypes = boolean | number | string | (number | string)[]
