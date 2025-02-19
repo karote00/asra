@@ -7,7 +7,6 @@ import type {
 import { isGroupEntity, IDTypes, NameTypes, EntityTypes } from '@asra/utils'
 import Group from './group'
 import sceneTree from '../sceneTree'
-import type { GroupChildreChangeType } from '../types'
 
 type WorkspaceDataType = Partial<WorkspaceRawData>
 
@@ -49,9 +48,9 @@ class Workspace extends Group {
     element: ElementInstanceTypes,
     parent?: GroupInstanceTypes,
     index = -1
-  ): GroupChildreChangeType | null {
+  ) {
     if (!element) {
-      return null
+      return
     }
 
     let avaliableParent = parent
@@ -62,29 +61,23 @@ class Workspace extends Group {
       }
     }
 
-    // Add new element to Group type instance
     if (avaliableParent && avaliableParent.get('children')) {
-      const originalChildrenList = [...avaliableParent.get('children')]
+      // Add new element to Group type instance
+      sceneTree.addChangeForAddElement(
+        avaliableParent.get('id'),
+        element,
+        index
+      )
       avaliableParent.addElement(element, index)
-      const newChildrenList = [...avaliableParent.get('children')]
-      return {
-        parentId: avaliableParent.get('id'),
-        before: originalChildrenList,
-        after: newChildrenList
-      }
+    } else {
+      // Add new element to Workspace
+      const originalChildrenList = [...this.get('children')]
+      const idx = index > -1 ? index : this.get('children').length
+      sceneTree.addChangeForAddElement(this.get('id'), element, idx)
+      originalChildrenList.splice(idx, 0, element.get('id'))
+      this.set('children', originalChildrenList)
     }
-
-    // Add new element to Workspace
-    const originalChildrenList = [...this.get('children')]
-    const idx = index > -1 ? index : this.get('children').length
-    this.get('children').splice(idx, 0, element.get('id'))
-    const newChildrenList = [...this.get('children')]
-
-    return {
-      parentId: this.get('id'),
-      before: originalChildrenList,
-      after: newChildrenList
-    }
+    sceneTree.addToMap(element)
   }
 
   removeElement(element: IElement, index: number, parent?: GroupInstanceTypes) {
@@ -103,15 +96,25 @@ class Workspace extends Group {
     const elementId = element.get('id')
     let idx = index ?? avaliableParent?.get('children').indexOf(elementId)
 
-    // Remove element from Group type instance
     if (avaliableParent && avaliableParent.get('children')) {
+      // Remove element from Group type instance
+      sceneTree.addChangeForRemoveElement(
+        avaliableParent.get('id'),
+        element,
+        idx
+      )
       avaliableParent.removeElement(element, idx)
+    } else {
+      // Add new element to Workspace
+      const originalChildrenList = [...this.get('children')]
+      const idx = index ?? this.get('children').indexOf(elementId)
+      sceneTree.addChangeForRemoveElement(this.get('id'), element, idx)
+      originalChildrenList.splice(idx, 1)
+      this.set('children', originalChildrenList)
     }
 
-    idx = index ?? this.get('children').indexOf(elementId)
-
     // Remove element from Workspace
-    this.get('children').splice(idx, 1)
+    sceneTree.removeFromMap(element)
   }
 }
 

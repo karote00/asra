@@ -6,10 +6,10 @@ import type {
   GroupInstanceTypes,
   GroupRawData
 } from '@asra/utils'
-import { EntityTypes } from '@asra/utils'
+import { EntityTypes, OWNER, SCENE_TREE_ACTIONS } from '@asra/utils'
 import { createElement, createWorkspace } from './utils'
 import type Workspace from './components/workspace'
-import type { GroupChildreChangeType } from './types'
+import { EventTypes } from '@asra/reactive-events'
 
 type InstanceRawData = ElementRawData | GroupRawData | WorkspaceRawData
 type SceneTreeDataType = SceneTreeRawData
@@ -19,6 +19,7 @@ class SceneTree {
   _deletedMap: Map<string, ElementInstanceTypes> = new Map()
   workspace: string = ''
   workspaceList: string[] = []
+  changes: any[] = []
 
   _init(): void {
     if (!this.workspace && !this.workspaceList.length) {
@@ -71,6 +72,14 @@ class SceneTree {
     return data
   }
 
+  addChange(change: any) {
+    this.changes.push(change)
+  }
+
+  cleanChanges() {
+    this.changes = []
+  }
+
   getAllElements() {
     return this._elements
   }
@@ -111,6 +120,40 @@ class SceneTree {
     this._deletedMap.delete(element.get('id'))
   }
 
+  addChangeForAddElement(
+    parentId: string,
+    element: ElementInstanceTypes,
+    index: number
+  ) {
+    this.addChange({
+      eventName: EventTypes.ADD_ELEMENT,
+      data: element.save(),
+      action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+      owner: OWNER.SCENE_TREE,
+      parentId,
+      index,
+      undoType: EventTypes.REMOVE_ELEMENT,
+      undoAction: EventTypes.REMOVE_ELEMENT
+    })
+  }
+
+  addChangeForRemoveElement(
+    parentId: string,
+    element: ElementInstanceTypes,
+    index: number
+  ) {
+    this.addChange({
+      eventName: EventTypes.REMOVE_ELEMENT,
+      data: element.save(),
+      action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
+      owner: OWNER.SCENE_TREE,
+      parentId,
+      index,
+      undoType: EventTypes.ADD_ELEMENT,
+      undoAction: EventTypes.ADD_ELEMENT
+    })
+  }
+
   get currentWorkspace() {
     return this.getElementById(this.workspace)
   }
@@ -129,35 +172,28 @@ class SceneTree {
     element: ElementInstanceTypes,
     parent?: GroupInstanceTypes,
     index = -1
-  ): GroupChildreChangeType | null {
+  ) {
     const workspace = this.currentWorkspace as Workspace
     if (!workspace) {
-      return null
+      return
     }
 
-    const change = workspace.addNewElement(element, parent, index)
-    if (change) {
-      this.addToMap(element)
-    }
-
-    return change
+    workspace.addNewElement(element, parent, index)
   }
 
   removeElement(
     data: Partial<ElementRawData>,
     index: number,
     parent?: GroupInstanceTypes
-  ): ElementInstanceTypes | null {
+  ) {
     const workspace = this.currentWorkspace as Workspace
     if (!workspace) {
-      return null
+      return
     }
 
     const elementId = data.id as string
     const element = this.getElementById(elementId)
     workspace.removeElement(element, index, parent)
-
-    return element
   }
 }
 

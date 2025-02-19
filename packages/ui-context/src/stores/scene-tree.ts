@@ -1,6 +1,7 @@
 import { BehaviorSubject } from 'rxjs'
 import { EntityTypes } from '@asra/utils'
 import type {
+  DataTypes,
   ElementRawData,
   GroupRawData,
   WorkspaceRawData
@@ -106,6 +107,10 @@ export default class SceneTreeStore {
     }
   }
 
+  updateFlattenedElementIds() {
+    this.flattenedElementIds = this.getFlattenedElementIds()
+  }
+
   addElement(
     parentId: string,
     data: Partial<ElementRawData | GroupRawData>,
@@ -154,7 +159,15 @@ export default class SceneTreeStore {
     }
   }
 
-  updateFlattenedElementIds() {
-    this.flattenedElementIds = this.getFlattenedElementIds()
+  updateElement(elementId: string, key: string, after: DataTypes) {
+    const element = this.getElement(elementId)
+    if (!element) {
+      return
+    }
+
+    element.next({
+      ...element.getValue(),
+      [key]: after
+    })
   }
 }

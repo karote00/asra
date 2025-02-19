@@ -4,6 +4,7 @@ import type { AllEvent, UpdateTransactionEvent } from '@asra/reactive-events'
 import { publishEvent, updateUndoRedoStatus } from '@asra/reactive-events'
 import { OWNER, UNDO } from '@asra/utils'
 import { sceneTreeChange } from './registry'
+import { last } from 'rxjs'
 
 export type ChangeDataType = SceneTreeYjsChange
 
@@ -81,18 +82,30 @@ class DataTransact {
 
     this.inUndo = true
     updateUndoRedoStatus(UNDO.UNDO)
+
     const lastChanges = this.undoStack.pop() as AllEvent[]
 
     for (let i = lastChanges.length - 1; i >= 0; i--) {
       const event = lastChanges[i]
       const undoEvent = JSON.parse(JSON.stringify(event))
-      undoEvent.type = undoEvent.payload.undoAction
+
+      if (undoEvent.payload.undoType !== undefined) {
+        undoEvent.type = undoEvent.payload.undoType
+      }
+      if (undoEvent.payload.undoAction !== undefined) {
+        undoEvent.payload.action = undoEvent.payload.undoAction
+      }
+      if (undoEvent.payload.after !== undefined) {
+        undoEvent.payload.after = undoEvent.payload.before
+      }
+
       publishEvent(undoEvent)
     }
 
     this.redoStack.push(lastChanges)
     this.changes = []
     this.inUndo = false
+
     updateUndoRedoStatus(UNDO.NONE)
   }
 
