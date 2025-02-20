@@ -1,5 +1,10 @@
-import type { ElementRawData } from '@asra/utils'
-import { isGroupEntity } from '@asra/utils'
+import type {
+  DataTypes,
+  ElementRawData,
+  GroupRawData,
+  WorkspaceRawData
+} from '@asra/utils'
+import { EntityTypes, isGroupEntity } from '@asra/utils'
 import type { Workspace } from '@asra/scene-tree'
 import sceneTree from '@asra/scene-tree'
 import { render } from '../render'
@@ -15,20 +20,20 @@ class RenderSceneTree {
     const currentWorkspace = sceneTree.currentWorkspace as Workspace
     this._workspace = currentWorkspace
 
+    // Create root render node
     const currentWorkspaceId = currentWorkspace.get('id')
     const root = this.addContainer(currentWorkspaceId)
 
-    render.addRoot(root)
-    currentWorkspace.get('children').forEach((childId) => {
-      const child = sceneTree.getElementById(childId)
-      if (!child) return
-
-      if (isGroupEntity(child.get('type'))) {
-        this.addGroup(child)
-      } else {
-        this.addElement(currentWorkspaceId, child.save())
+    // Create all element render node
+    sceneTree.getAllElements().forEach((element) => {
+      if (element.get('type') !== EntityTypes.WORKSPACE) {
+        this.addElement(element.save())
       }
     })
+
+    render.addRoot(root)
+
+    this.groupMapChildren(currentWorkspace.save())
   }
 
   addContainer(currentWorkspaceId: string) {
@@ -41,17 +46,35 @@ class RenderSceneTree {
     return container
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  addGroup(group: any) {
-    // console.log(group)
+  groupMapChildren(data: GroupRawData) {
+    render.groupMapChildren(data)
+
+    data.children.forEach((childId) => {
+      const child = sceneTree.getElementById(childId)
+      if (!child) return
+
+      // Map children to group
+      if (isGroupEntity(child.get('type'))) {
+        this.groupMapChildren(child.save() as GroupRawData)
+      }
+    })
   }
 
-  addElement(parentId: string, data: ElementRawData, index = -1) {
-    render.addElement(parentId ?? this._workspace?.get('id'), data, index)
+  addElement(data: ElementRawData) {
+    render.addElement(data)
   }
 
-  removeElement(parentId: string, data: ElementRawData) {
-    render.removeElement(parentId, data.id)
+  removeElement(parentId: string, data: ElementRawData, index = -1) {
+    render.removeElement(parentId, data.id, index)
+  }
+
+  updateElement(
+    elementId: string,
+    key: string,
+    before: DataTypes,
+    after: DataTypes
+  ) {
+    render.updateElement(elementId, key, before, after)
   }
 }
 

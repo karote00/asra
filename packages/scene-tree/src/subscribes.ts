@@ -31,7 +31,6 @@ export const initSceneTreeSubscribes = () => {
     sceneTree.addNewElement(newRectangle as ElementInstanceTypes, parent, index)
 
     sceneTree.changes.forEach((change) => {
-      console.log(change)
       updateTransaction(change.eventName, change)
     })
     sceneTree.cleanChanges()

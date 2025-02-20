@@ -1,5 +1,9 @@
 import type { ChangeDataType } from '@asra/factory'
-import { SCENE_TREE_ACTIONS } from '@asra/utils'
+import {
+  AddRemoveElementPayload,
+  SCENE_TREE_ACTIONS,
+  UpdateElementPayload
+} from '@asra/utils'
 import Factory from '@asra/factory'
 import sceneTree from '@asra/scene-tree'
 import SceneTreeStore from '../stores/scene-tree'
@@ -8,15 +12,21 @@ export const sceneTreeStore = new SceneTreeStore(sceneTree)
 
 const updateUISceneTree = (change: ChangeDataType['payload']) => {
   switch (change.action) {
-    case SCENE_TREE_ACTIONS.ADD_ELEMENT:
-      sceneTreeStore.addElement(change.parentId, change.data, change.index)
+    case SCENE_TREE_ACTIONS.ADD_ELEMENT: {
+      const { parentId, data, index } = change as AddRemoveElementPayload
+      sceneTreeStore.addElement(parentId, data, index)
       break
-    case SCENE_TREE_ACTIONS.REMOVE_ELEMENT:
-      sceneTreeStore.removeElement(change.parentId, change.data, change.index)
+    }
+    case SCENE_TREE_ACTIONS.REMOVE_ELEMENT: {
+      const { parentId, data, index } = change as AddRemoveElementPayload
+      sceneTreeStore.removeElement(parentId, data, index)
       break
-    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT:
-      sceneTreeStore.updateElement(change.elementId, change.key, change.after)
+    }
+    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT: {
+      const { elementId, key, after } = change as UpdateElementPayload
+      sceneTreeStore.updateElement(elementId, key, after)
       break
+    }
   }
 }
 

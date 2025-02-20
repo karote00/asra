@@ -63,17 +63,11 @@ class Workspace extends Group {
 
     if (avaliableParent && avaliableParent.get('children')) {
       // Add new element to Group type instance
-      sceneTree.addChangeForAddElement(
-        avaliableParent.get('id'),
-        element,
-        index
-      )
       avaliableParent.addElement(element, index)
     } else {
       // Add new element to Workspace
       const originalChildrenList = [...this.get('children')]
       const idx = index > -1 ? index : this.get('children').length
-      sceneTree.addChangeForAddElement(this.get('id'), element, idx)
       originalChildrenList.splice(idx, 0, element.get('id'))
       this.set('children', originalChildrenList)
     }
@@ -98,17 +92,11 @@ class Workspace extends Group {
 
     if (avaliableParent && avaliableParent.get('children')) {
       // Remove element from Group type instance
-      sceneTree.addChangeForRemoveElement(
-        avaliableParent.get('id'),
-        element,
-        idx
-      )
       avaliableParent.removeElement(element, idx)
     } else {
       // Add new element to Workspace
       const originalChildrenList = [...this.get('children')]
       const idx = index ?? this.get('children').indexOf(elementId)
-      sceneTree.addChangeForRemoveElement(this.get('id'), element, idx)
       originalChildrenList.splice(idx, 1)
       this.set('children', originalChildrenList)
     }

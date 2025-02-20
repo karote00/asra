@@ -109,7 +109,11 @@ class SceneTree {
   }
 
   getRestoreElementById(elementId: string): ElementInstanceTypes {
-    return this._deletedMap.get(elementId) as ElementInstanceTypes
+    const restoreElement = this._deletedMap.get(
+      elementId
+    ) as ElementInstanceTypes
+    this.addChangeForAddElement(restoreElement)
+    return restoreElement
   }
 
   addToDeleteMap(element: ElementInstanceTypes) {
@@ -120,35 +124,23 @@ class SceneTree {
     this._deletedMap.delete(element.get('id'))
   }
 
-  addChangeForAddElement(
-    parentId: string,
-    element: ElementInstanceTypes,
-    index: number
-  ) {
+  addChangeForAddElement(element: ElementInstanceTypes) {
     this.addChange({
       eventName: EventTypes.ADD_ELEMENT,
       data: element.save(),
       action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
       owner: OWNER.SCENE_TREE,
-      parentId,
-      index,
       undoType: EventTypes.REMOVE_ELEMENT,
       undoAction: EventTypes.REMOVE_ELEMENT
     })
   }
 
-  addChangeForRemoveElement(
-    parentId: string,
-    element: ElementInstanceTypes,
-    index: number
-  ) {
+  addChangeForRemoveElement(element: ElementInstanceTypes) {
     this.addChange({
       eventName: EventTypes.REMOVE_ELEMENT,
       data: element.save(),
       action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
       owner: OWNER.SCENE_TREE,
-      parentId,
-      index,
       undoType: EventTypes.ADD_ELEMENT,
       undoAction: EventTypes.ADD_ELEMENT
     })
@@ -165,7 +157,9 @@ class SceneTree {
       return null
     }
 
-    return createElement(elementData)
+    const newElement = createElement(elementData) as ElementInstanceTypes
+    this.addChangeForAddElement(newElement)
+    return newElement
   }
 
   addNewElement(
@@ -193,6 +187,7 @@ class SceneTree {
 
     const elementId = data.id as string
     const element = this.getElementById(elementId)
+    sceneTree.addChangeForRemoveElement(element)
     workspace.removeElement(element, index, parent)
   }
 }
