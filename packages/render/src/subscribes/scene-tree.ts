@@ -1,9 +1,9 @@
 import type { ChangeDataType } from '@asra/factory'
 import Factory from '@asra/factory'
 import {
-  AddRemoveElementPayload,
   SCENE_TREE_ACTIONS,
-  UpdateElementPayload
+  AddRemoveElementChange,
+  UpdateElementChange
 } from '@asra/utils'
 import { subscribeToSceneTreeLoadComplete } from '@asra/reactive-events'
 import { renderSceneTree } from '../stores/scene-tree'
@@ -11,16 +11,16 @@ import { renderSceneTree } from '../stores/scene-tree'
 const updateRenderSceneTree = (change: ChangeDataType['payload']) => {
   switch (change.action) {
     case SCENE_TREE_ACTIONS.ADD_ELEMENT: {
-      renderSceneTree.addElement((change as AddRemoveElementPayload).data)
+      renderSceneTree.addElement((change as AddRemoveElementChange).data)
       break
     }
     case SCENE_TREE_ACTIONS.REMOVE_ELEMENT: {
-      const { parentId, data, index } = change as AddRemoveElementPayload
-      renderSceneTree.removeElement(parentId, data, index)
+      const { parentId, data } = change as AddRemoveElementChange
+      renderSceneTree.removeElement(data, parentId)
       break
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT: {
-      const { elementId, key, before, after } = change as UpdateElementPayload
+      const { elementId, key, before, after } = change as UpdateElementChange
       renderSceneTree.updateElement(elementId, key, before, after)
       break
     }

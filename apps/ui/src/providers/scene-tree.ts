@@ -5,6 +5,14 @@ import {
 } from '@asra/reactive-events'
 import { sceneTreeStore } from '@asra/ui-context'
 import { sceneTreeManager } from '../contexts'
+import { BehaviorSubject } from 'rxjs'
+import { ElementRawData, WorkspaceRawData } from '@asra/utils'
+
+type UIElementData = ElementRawData
+type UIWorkspaceData = Pick<
+  WorkspaceRawData,
+  'id' | 'name' | 'type' | 'children'
+>
 
 export const useFlattenedIdsData = (): string[] => {
   const [flattenedIds, setFlattenedIds] = useState<string[]>([])
@@ -40,8 +48,12 @@ export const useElementData = (elementId: string) => {
   const [data, setData] = useState(subject?.getValue())
 
   useEffect(() => {
-    const subscription = subject?.subscribe(setData)
-    return () => subscription?.unsubscribe()
+    if (!subject) return
+
+    const sub = (
+      subject as BehaviorSubject<UIElementData | UIWorkspaceData>
+    ).subscribe(setData)
+    return () => sub.unsubscribe()
   }, [subject])
 
   return data

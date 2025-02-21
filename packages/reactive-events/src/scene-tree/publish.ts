@@ -1,4 +1,4 @@
-import type { DataTypes, ElementRawData, GroupInstanceTypes } from '@asra/utils'
+import type { ElementRawData, GroupInstanceTypes } from '@asra/utils'
 import { EntityTypes } from '@asra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'

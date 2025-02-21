@@ -4,7 +4,8 @@ import type {
   ElementRawData,
   ElementInstanceTypes,
   GroupInstanceTypes,
-  GroupRawData
+  GroupRawData,
+  SceneTreeChange
 } from '@asra/utils'
 import { EntityTypes, OWNER, SCENE_TREE_ACTIONS } from '@asra/utils'
 import { createElement, createWorkspace } from './utils'
@@ -19,7 +20,7 @@ class SceneTree {
   _deletedMap: Map<string, ElementInstanceTypes> = new Map()
   workspace: string = ''
   workspaceList: string[] = []
-  changes: any[] = []
+  changes: SceneTreeChange[] = []
 
   _init(): void {
     if (!this.workspace && !this.workspaceList.length) {
@@ -72,7 +73,7 @@ class SceneTree {
     return data
   }
 
-  addChange(change: any) {
+  addChange(change: SceneTreeChange) {
     this.changes.push(change)
   }
 

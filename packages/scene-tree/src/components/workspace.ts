@@ -88,10 +88,9 @@ class Workspace extends Group {
     }
 
     const elementId = element.get('id')
-    let idx = index ?? avaliableParent?.get('children').indexOf(elementId)
-
     if (avaliableParent && avaliableParent.get('children')) {
       // Remove element from Group type instance
+      const idx = index ?? avaliableParent?.get('children').indexOf(elementId)
       avaliableParent.removeElement(element, idx)
     } else {
       // Add new element to Workspace

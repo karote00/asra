@@ -1,5 +1,5 @@
 import { EntityTypes, OWNER, SCENE_TREE_ACTIONS } from '@asra/utils'
-import type { ElementAttrs, ISetter } from '@asra/utils'
+import type { DataTypes, ElementAttrs, ISetter } from '@asra/utils'
 import sceneTree from '../sceneTree'
 import { EventTypes } from '@asra/reactive-events'
 
@@ -11,8 +11,6 @@ class Setter<T extends ElementAttrs = ElementAttrs> implements ISetter<T> {
     visible: true,
     lock: false
   } as T
-
-  constructor() {}
 
   get<K extends keyof T>(key: K): T[K] {
     if (key in this.data) {
@@ -32,9 +30,9 @@ class Setter<T extends ElementAttrs = ElementAttrs> implements ISetter<T> {
         owner: OWNER.SCENE_TREE,
         eventName: EventTypes.UPDATE_ELEMENT,
         elementId: this.get('id'),
-        key,
-        before,
-        after
+        key: key as string,
+        before: before as DataTypes,
+        after: after as DataTypes
       })
     }
   }
@@ -46,11 +44,12 @@ class Setter<T extends ElementAttrs = ElementAttrs> implements ISetter<T> {
       return [...data] as T
     } else if (typeof data === 'object' && data !== null) {
       return Object.keys(data).reduce((acc, key) => {
-        ;(acc as any)[key] = this._cloneData((data as any)[key])
+        ;(acc as Record<string, unknown>)[key] = this._cloneData(
+          (data as Record<string, unknown>)[key]
+        )
         return acc
       }, {} as T)
     }
-
     return data
   }
 }

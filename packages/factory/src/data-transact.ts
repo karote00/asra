@@ -4,7 +4,6 @@ import type { AllEvent, UpdateTransactionEvent } from '@asra/reactive-events'
 import { publishEvent, updateUndoRedoStatus } from '@asra/reactive-events'
 import { OWNER, UNDO } from '@asra/utils'
 import { sceneTreeChange } from './registry'
-import { last } from 'rxjs'
 
 export type ChangeDataType = SceneTreeYjsChange
 

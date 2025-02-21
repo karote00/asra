@@ -130,9 +130,9 @@ class Render {
     return graphic
   }
 
-  removeElement(parentId: string, elementId: string, index = -1) {
-    // TODO: should update scene tree levele
-    const parent = (this.getElementById(parentId) as Container) || this._root
+  removeElement(elementId: string, parentId?: string) {
+    const parent =
+      (this.getElementById(parentId as string) as Container) || this._root
     const element = this.getElementById(elementId)
 
     if (parent && element) {

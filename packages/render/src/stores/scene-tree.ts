@@ -1,9 +1,4 @@
-import type {
-  DataTypes,
-  ElementRawData,
-  GroupRawData,
-  WorkspaceRawData
-} from '@asra/utils'
+import type { DataTypes, ElementRawData, GroupRawData } from '@asra/utils'
 import { EntityTypes, isGroupEntity } from '@asra/utils'
 import type { Workspace } from '@asra/scene-tree'
 import sceneTree from '@asra/scene-tree'
@@ -64,8 +59,8 @@ class RenderSceneTree {
     render.addElement(data)
   }
 
-  removeElement(parentId: string, data: ElementRawData, index = -1) {
-    render.removeElement(parentId, data.id, index)
+  removeElement(data: ElementRawData, parentId?: string) {
+    render.removeElement(data.id, parentId)
   }
 
   updateElement(
