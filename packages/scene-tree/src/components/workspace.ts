@@ -48,9 +48,9 @@ class Workspace extends Group {
     element: ElementInstanceTypes,
     parent?: GroupInstanceTypes,
     index = -1
-  ): boolean {
+  ) {
     if (!element) {
-      return false
+      return
     }
 
     let avaliableParent = parent
@@ -61,25 +61,22 @@ class Workspace extends Group {
       }
     }
 
-    // Add new element to Group type instance
     if (avaliableParent && avaliableParent.get('children')) {
-      return avaliableParent.addElement(element, index)
+      // Add new element to Group type instance
+      avaliableParent.addElement(element, index)
+    } else {
+      // Add new element to Workspace
+      const originalChildrenList = [...this.get('children')]
+      const idx = index > -1 ? index : this.get('children').length
+      originalChildrenList.splice(idx, 0, element.get('id'))
+      this.set('children', originalChildrenList)
     }
-
-    // Add new element to Workspace
-    const idx = index > -1 ? index : this.get('children').length
-    this.get('children').splice(idx, 0, element.get('id'))
-
-    return true
+    sceneTree.addToMap(element)
   }
 
-  removeElement(
-    element: IElement,
-    index: number,
-    parent?: GroupInstanceTypes
-  ): boolean {
+  removeElement(element: IElement, index: number, parent?: GroupInstanceTypes) {
     if (!element) {
-      return false
+      return
     }
 
     let avaliableParent = parent
@@ -91,19 +88,20 @@ class Workspace extends Group {
     }
 
     const elementId = element.get('id')
-    let idx = index ?? avaliableParent?.get('children').indexOf(elementId)
-
-    // Remove element from Group type instance
     if (avaliableParent && avaliableParent.get('children')) {
-      return avaliableParent.removeElement(element, idx)
+      // Remove element from Group type instance
+      const idx = index ?? avaliableParent?.get('children').indexOf(elementId)
+      avaliableParent.removeElement(element, idx)
+    } else {
+      // Add new element to Workspace
+      const originalChildrenList = [...this.get('children')]
+      const idx = index ?? this.get('children').indexOf(elementId)
+      originalChildrenList.splice(idx, 1)
+      this.set('children', originalChildrenList)
     }
 
-    idx = index ?? this.get('children').indexOf(elementId)
-
     // Remove element from Workspace
-    this.get('children').splice(idx, 1)
-
-    return true
+    sceneTree.removeFromMap(element)
   }
 }
 

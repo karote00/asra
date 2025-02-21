@@ -32,3 +32,20 @@ export const removeElement = (
     }
   })
 }
+
+export const updateElement = (
+  elementId: string,
+  key: string,
+  before: string[],
+  after: string[]
+) => {
+  publishEvent({
+    type: EventTypes.UPDATE_ELEMENT,
+    payload: {
+      elementId,
+      key,
+      before,
+      after
+    }
+  })
+}

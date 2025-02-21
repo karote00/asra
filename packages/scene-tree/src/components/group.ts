@@ -1,7 +1,8 @@
 import type {
   GroupRawData,
   GroupAttrs,
-  ElementInstanceTypes
+  ElementInstanceTypes,
+  IGroupElement
 } from '@asra/utils'
 import { EntityTypes, NameTypes } from '@asra/utils'
 import Props from './props'
@@ -9,8 +10,11 @@ import Element from './element'
 
 type GroupDataType = Partial<GroupRawData>
 
-class Group extends Element<GroupAttrs> {
-  data: GroupAttrs = { ...this.data, children: [] }
+class Group<T extends GroupAttrs = GroupAttrs>
+  extends Element<T>
+  implements IGroupElement<T>
+{
+  override data: T = { ...this.data, children: [] } as T
   props!: Props
 
   constructor() {
@@ -34,32 +38,29 @@ class Group extends Element<GroupAttrs> {
     return data
   }
 
-  addElement(element: ElementInstanceTypes, index = -1): boolean {
+  addElement(element: ElementInstanceTypes, index = -1) {
     if (!element) {
-      return false
+      return
     }
 
-    const children = this.get('children')
-
+    const children = [...this.get('children')]
     const idx = index ?? children.length
     children.splice(idx, 0, element.get('id'))
-
-    return true
+    this.set('children', children)
   }
 
-  removeElement(element: ElementInstanceTypes, index: number): boolean {
+  removeElement(element: ElementInstanceTypes, index: number) {
     if (!element) {
-      return false
+      return
     }
 
-    const children = this.get('children')
+    const children = [...this.get('children')]
     if (children.indexOf(element.get('id')) !== index) {
-      return false
+      return
     }
 
     children.splice(index, 1)
-
-    return true
+    this.set('children', children)
   }
 }
 

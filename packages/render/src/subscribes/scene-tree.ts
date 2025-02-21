@@ -1,27 +1,29 @@
 import type { ChangeDataType } from '@asra/factory'
 import Factory from '@asra/factory'
-import { ElementRawData, SCENE_TREE_ACTIONS } from '@asra/utils'
+import {
+  SCENE_TREE_ACTIONS,
+  AddRemoveElementChange,
+  UpdateElementChange
+} from '@asra/utils'
 import { subscribeToSceneTreeLoadComplete } from '@asra/reactive-events'
 import { renderSceneTree } from '../stores/scene-tree'
 
-type HandlerType = Record<
-  string,
-  (parentId: string, data: ElementRawData, number: number) => void
->
-
-const Handlers: HandlerType = {
-  [SCENE_TREE_ACTIONS.ADD_ELEMENT]:
-    renderSceneTree.addElement.bind(renderSceneTree),
-  [SCENE_TREE_ACTIONS.REMOVE_ELEMENT]:
-    renderSceneTree.removeElement.bind(renderSceneTree)
-}
-
 const updateRenderSceneTree = (change: ChangeDataType['payload']) => {
-  const { action, parentId, data, index } = change
-
-  const handler = Handlers[action as SCENE_TREE_ACTIONS]
-  if (handler) {
-    handler(parentId, data, index)
+  switch (change.action) {
+    case SCENE_TREE_ACTIONS.ADD_ELEMENT: {
+      renderSceneTree.addElement((change as AddRemoveElementChange).data)
+      break
+    }
+    case SCENE_TREE_ACTIONS.REMOVE_ELEMENT: {
+      const { parentId, data } = change as AddRemoveElementChange
+      renderSceneTree.removeElement(data, parentId)
+      break
+    }
+    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT: {
+      const { elementId, key, before, after } = change as UpdateElementChange
+      renderSceneTree.updateElement(elementId, key, before, after)
+      break
+    }
   }
 }
 

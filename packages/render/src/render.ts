@@ -1,6 +1,11 @@
 import { Application, Container, Graphics } from 'pixi.js'
 import { initDataContexts } from './subscribes'
-import { ElementRawData, EntityTypes } from '@asra/utils'
+import {
+  DataTypes,
+  ElementRawData,
+  EntityTypes,
+  GroupRawData
+} from '@asra/utils'
 
 initDataContexts()
 
@@ -43,6 +48,7 @@ class Render {
 
   addToMap(elementId: string, instance: PixiInstance) {
     this._elements.set(elementId, instance)
+    this.removeFromDeleteMap(elementId)
   }
 
   removeFromMap(elementId: string) {
@@ -67,6 +73,22 @@ class Render {
     return this._deleteMap.get(elementId)
   }
 
+  groupMapChildren(data: GroupRawData) {
+    const group = this.getElementById(data.id)
+    if (!group) {
+      return
+    }
+
+    data.children.forEach((childId) => {
+      const child = this.getElementById(childId)
+      if (!child) {
+        return
+      }
+
+      group.addChild(child)
+    })
+  }
+
   addRoot(root: Container) {
     this._root = root
   }
@@ -80,8 +102,15 @@ class Render {
     return container
   }
 
-  addElement(parentId: string, data: ElementRawData, index = -1) {
+  addElement(data: ElementRawData) {
+    const element = this.getRestoreElement(data.id)
+    if (element) {
+      this.addToMap(data.id, element)
+      return element
+    }
+
     const graphic = new Graphics()
+    graphic.label = data.id
 
     switch (data.type) {
       case EntityTypes.RECTANGLE:
@@ -96,19 +125,14 @@ class Render {
         break
     }
 
-    const parent = (this.getElementById(parentId) as Container) || this._root
-
-    if (parent && graphic) {
-      this.addToMap(data.id, graphic)
-      const idx = index > -1 ? index : parent.children.length
-      parent.addChildAt(graphic, idx)
-    }
+    this.addToMap(data.id, graphic)
 
     return graphic
   }
 
-  removeElement(parentId: string, elementId: string) {
-    const parent = (this.getElementById(parentId) as Container) || this._root
+  removeElement(elementId: string, parentId?: string) {
+    const parent =
+      (this.getElementById(parentId as string) as Container) || this._root
     const element = this.getElementById(elementId)
 
     if (parent && element) {
@@ -117,6 +141,64 @@ class Render {
     }
 
     return element
+  }
+
+  updateElement(
+    elementId: string,
+    key: string,
+    before: DataTypes,
+    after: DataTypes
+  ) {
+    const element = this.getElementById(elementId)
+    if (!element) {
+      return
+    }
+
+    switch (key) {
+      case 'children': {
+        const oldList = new Set(before as string[])
+        let deleteCount = 0
+        // Add element
+        ;(after as string[]).forEach((childId, index) => {
+          const child = this.getElementById(childId)
+          if (!child) {
+            return
+          }
+
+          if (oldList.has(childId)) {
+            oldList.delete(childId)
+            deleteCount++
+          } else {
+            element.addChildAt(child, index - deleteCount)
+          }
+        })
+
+        // Remove element
+        oldList.forEach((childId) => {
+          const child = this.getElementById(childId)
+          if (!child) {
+            return
+          }
+
+          element.removeChild(child)
+        })
+
+        // Move element
+        element.children.forEach((child, index) => {
+          const newIndex = (after as string[]).indexOf(child.label)
+          if (newIndex !== index) {
+            element.setChildIndex(child, newIndex)
+          }
+        })
+        break
+      }
+    }
+    // const parent = (this.getElementById(parentId) as Container) || this._root
+
+    // if (parent && graphic) {
+    //   const idx = index > -1 ? index : parent.children.length
+    //   parent.addChildAt(graphic, idx)
+    // }
   }
 }
 

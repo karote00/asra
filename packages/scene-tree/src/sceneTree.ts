@@ -4,11 +4,13 @@ import type {
   ElementRawData,
   ElementInstanceTypes,
   GroupInstanceTypes,
-  GroupRawData
+  GroupRawData,
+  SceneTreeChange
 } from '@asra/utils'
-import { EntityTypes } from '@asra/utils'
+import { EntityTypes, OWNER, SCENE_TREE_ACTIONS } from '@asra/utils'
 import { createElement, createWorkspace } from './utils'
 import type Workspace from './components/workspace'
+import { EventTypes } from '@asra/reactive-events'
 
 type InstanceRawData = ElementRawData | GroupRawData | WorkspaceRawData
 type SceneTreeDataType = SceneTreeRawData
@@ -18,6 +20,7 @@ class SceneTree {
   _deletedMap: Map<string, ElementInstanceTypes> = new Map()
   workspace: string = ''
   workspaceList: string[] = []
+  changes: SceneTreeChange[] = []
 
   _init(): void {
     if (!this.workspace && !this.workspaceList.length) {
@@ -70,6 +73,14 @@ class SceneTree {
     return data
   }
 
+  addChange(change: SceneTreeChange) {
+    this.changes.push(change)
+  }
+
+  cleanChanges() {
+    this.changes = []
+  }
+
   getAllElements() {
     return this._elements
   }
@@ -78,7 +89,7 @@ class SceneTree {
     return this._elements.get(elementId) as ElementInstanceTypes
   }
 
-  private addToMap(element: ElementInstanceTypes) {
+  addToMap(element: ElementInstanceTypes) {
     const elId = element.get('id')
     if (!element || !elId) {
       return
@@ -88,7 +99,7 @@ class SceneTree {
     this._elements.set(elId, element)
   }
 
-  private removeFromMap(element: ElementInstanceTypes) {
+  removeFromMap(element: ElementInstanceTypes) {
     const elId = element.get('id')
     if (!element || !elId) {
       return
@@ -99,15 +110,41 @@ class SceneTree {
   }
 
   getRestoreElementById(elementId: string): ElementInstanceTypes {
-    return this._deletedMap.get(elementId) as ElementInstanceTypes
+    const restoreElement = this._deletedMap.get(
+      elementId
+    ) as ElementInstanceTypes
+    this.addChangeForAddElement(restoreElement)
+    return restoreElement
   }
 
-  private addToDeleteMap(element: ElementInstanceTypes) {
+  addToDeleteMap(element: ElementInstanceTypes) {
     this._deletedMap.set(element.get('id'), element)
   }
 
-  private removeFromDeleteMap(element: ElementInstanceTypes) {
+  removeFromDeleteMap(element: ElementInstanceTypes) {
     this._deletedMap.delete(element.get('id'))
+  }
+
+  addChangeForAddElement(element: ElementInstanceTypes) {
+    this.addChange({
+      eventName: EventTypes.ADD_ELEMENT,
+      data: element.save(),
+      action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+      owner: OWNER.SCENE_TREE,
+      undoType: EventTypes.REMOVE_ELEMENT,
+      undoAction: EventTypes.REMOVE_ELEMENT
+    })
+  }
+
+  addChangeForRemoveElement(element: ElementInstanceTypes) {
+    this.addChange({
+      eventName: EventTypes.REMOVE_ELEMENT,
+      data: element.save(),
+      action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
+      owner: OWNER.SCENE_TREE,
+      undoType: EventTypes.ADD_ELEMENT,
+      undoAction: EventTypes.ADD_ELEMENT
+    })
   }
 
   get currentWorkspace() {
@@ -121,46 +158,38 @@ class SceneTree {
       return null
     }
 
-    return createElement(elementData)
+    const newElement = createElement(elementData) as ElementInstanceTypes
+    this.addChangeForAddElement(newElement)
+    return newElement
   }
 
   addNewElement(
     element: ElementInstanceTypes,
     parent?: GroupInstanceTypes,
     index = -1
-  ): boolean {
+  ) {
     const workspace = this.currentWorkspace as Workspace
     if (!workspace) {
-      return false
+      return
     }
 
-    const success = workspace.addNewElement(element, parent, index)
-    if (success) {
-      this.addToMap(element)
-    }
-
-    return success
+    workspace.addNewElement(element, parent, index)
   }
 
   removeElement(
     data: Partial<ElementRawData>,
     index: number,
     parent?: GroupInstanceTypes
-  ): ElementInstanceTypes | null {
+  ) {
     const workspace = this.currentWorkspace as Workspace
     if (!workspace) {
-      return null
+      return
     }
 
     const elementId = data.id as string
     const element = this.getElementById(elementId)
-    const success = workspace.removeElement(element, index, parent)
-
-    if (success) {
-      this.removeFromMap(element)
-    }
-
-    return element
+    sceneTree.addChangeForRemoveElement(element)
+    workspace.removeElement(element, index, parent)
   }
 }
 

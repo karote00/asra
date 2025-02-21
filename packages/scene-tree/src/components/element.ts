@@ -1,5 +1,6 @@
 import type { ElementRawData, ElementAttrs, IElement } from '@asra/utils'
 import { IDTypes, NameTypes, EntityTypes, id, name } from '@asra/utils'
+import Setter from './setter'
 import Props from './props'
 import Computed from './computed'
 
@@ -7,20 +8,18 @@ type ElementDataType = Partial<ElementRawData>
 
 const ElementProps: (keyof ElementAttrs)[] = ['id', 'name', 'visible', 'lock']
 
-class Element<T extends ElementAttrs = ElementAttrs> implements IElement<T> {
+class Element<T extends ElementAttrs = ElementAttrs>
+  extends Setter<T>
+  implements IElement<T>
+{
   _idType!: IDTypes
   _nameType!: NameTypes
-  data: T = {
-    id: '',
-    type: EntityTypes.UNDEFINED,
-    name: '',
-    visible: true,
-    lock: false
-  } as T
+
   props: Props = new Props()
   computed: Computed = new Computed()
 
   constructor() {
+    super()
     this._init()
   }
 
@@ -33,13 +32,6 @@ class Element<T extends ElementAttrs = ElementAttrs> implements IElement<T> {
     this.data.name = name(this._nameType)
     this.data.visible = true
     this.data.lock = false
-  }
-
-  get<K extends keyof T>(key: K): T[K] {
-    if (key in this.data) {
-      return this.data[key]
-    }
-    throw new Error('Not allow to get value which is not in entity data.')
   }
 
   load(data: ElementDataType): void {

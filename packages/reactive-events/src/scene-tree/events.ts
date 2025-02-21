@@ -23,7 +23,18 @@ export interface RemoveElementEvent {
   }
 }
 
+export interface UpdateElementEvent {
+  type: EventTypes.UPDATE_ELEMENT
+  payload: {
+    elementId: string
+    key: string
+    before: string[]
+    after: string[]
+  }
+}
+
 export type SceneTreeEvents =
   | SceneTreeLoadCompleteEvent
   | AddElementEvent
   | RemoveElementEvent
+  | UpdateElementEvent
