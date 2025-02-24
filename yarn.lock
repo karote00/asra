@@ -157,6 +157,16 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@asra/selection@workspace:packages/selection":
+  version: 0.0.0-use.local
+  resolution: "@asra/selection@workspace:packages/selection"
+  dependencies:
+    "@vitest/coverage-v8": "npm:^2.1.8"
+    typescript: "npm:^5.7.2"
+    vitest: "npm:^2.1.8"
+  languageName: unknown
+  linkType: soft
+
 "@asra/ui-context@workspace:*, @asra/ui-context@workspace:packages/ui-context":
   version: 0.0.0-use.local
   resolution: "@asra/ui-context@workspace:packages/ui-context"
