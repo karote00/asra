@@ -6,12 +6,12 @@
     },
     "dev": {
       "cache": false,
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**"],
+      "persistent": true
     },
     "react:start": {
       "cache": false,
       "outputs": ["dist/**"],
-      "dependsOn": ["dev"],
       "persistent": true
     },
     "build:base": {
