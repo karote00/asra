@@ -10,7 +10,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "dev": "tsc --watch",
-    "build:base": "tsc",
+    "build:module-base": "tsc",
     "clean": "rm -rf dist",
     "test": "vitest",
     "test:ci": "vitest run --coverage --reporter=default --reporter=junit"
@@ -19,5 +19,8 @@
     "@vitest/coverage-v8": "^2.1.8",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "@asra/reactive-events": "workspace:*"
   }
 }

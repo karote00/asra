@@ -1,4 +1,4 @@
-import Selection from './selection'
+import Selection from './selections/base-selection'
 
 class SelectionManager {
   private selections: Map<string, Selection> = new Map()

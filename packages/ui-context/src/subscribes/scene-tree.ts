@@ -45,10 +45,6 @@ export const collectSceneTreeChange = (event) => {
   processChanges(event.changes.deleted)
 }
 
-export const completeSceneTreeChange = () => {
-  sceneTreeStore.updateFlattenedElementIds()
-}
-
 let hasInit = false
 
 export const initSceneTreeDataContext = () => {

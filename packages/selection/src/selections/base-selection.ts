@@ -1,10 +1,10 @@
-export default class Selection {
+export default class BaseSelection {
   protected selectedIds: Set<string> = new Set()
   protected prevSelectedIds: Set<string> = new Set()
 
   select(ids: string[]): void {
     this.updatePrevSelectedIds()
-    ids.forEach((id) => this.selectedIds.add(id))
+    this.selectedIds = new Set(ids)
   }
 
   deselect(id: string): void {

@@ -21,6 +21,7 @@
     "@asra/input-system": "workspace:*",
     "@asra/reactive-events": "workspace:*",
     "@asra/scene-tree": "workspace:*",
+    "@asra/selection": "workspace:*",
     "@asra/utils": "workspace:*"
   }
 }

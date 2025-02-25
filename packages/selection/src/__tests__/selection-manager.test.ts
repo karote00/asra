@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import SelectionManager from '../selection-manager'
-import ElementSelection from '../element-selection'
+import ElementSelection from '../selections/element-selection'
 
 describe('SelectionManager', () => {
   it('SelectionManager should manage selections correctly', () => {

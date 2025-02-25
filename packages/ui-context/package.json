@@ -20,6 +20,7 @@
     "@asra/factory": "workspace:*",
     "@asra/reactive-events": "workspace:*",
     "@asra/scene-tree": "workspace:*",
+    "@asra/selection": "workspace:*",
     "@asra/utils": "workspace:*",
     "rxjs": "^7.8.1",
     "yjs": "13.6.20"

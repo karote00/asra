@@ -6,12 +6,14 @@ import type { SceneTreeRawData } from '@asra/utils'
 import SystemEventManager from './system-event-manager'
 import RenderEventManager from './render-event-manager'
 import SceneTreeManager from './scene-tree-manager'
+import ElementSelectionManager from './element-selection-manager'
 import combinations from './combinations'
 
 const inputSystem = new InputSystem(combinations)
 const systemEventManager = new SystemEventManager(inputSystem)
 const renderEventManager = new RenderEventManager(inputSystem)
 const sceneTreeManager = new SceneTreeManager()
+const elementSelectionManager = new ElementSelectionManager()
 
 interface CoreRawData {
   version: string
@@ -28,6 +30,7 @@ class Core {
   systemEventManager: SystemEventManager = systemEventManager
   renderEventManager: RenderEventManager = renderEventManager
   sceneTreeManager: SceneTreeManager = sceneTreeManager
+  elementSelectionManager: ElementSelectionManager = elementSelectionManager
 
   load(data: CoreRawData): void {
     if (!data) {
