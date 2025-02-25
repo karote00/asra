@@ -12,7 +12,8 @@
     "dev": "tsc --watch",
     "build:base": "tsc",
     "clean": "rm -rf dist",
-    "test": "vitest"
+    "test": "vitest",
+    "test:ci": "vitest run --coverage --reporter=default --reporter=junit"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^2.1.8",
