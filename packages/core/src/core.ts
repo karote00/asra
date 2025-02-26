@@ -1,4 +1,4 @@
-import Factory, { DataTransact } from '@asra/factory'
+import factory, { DataTransact } from '@asra/factory'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
 import InputSystem from '@asra/input-system'
 import type { SceneTreeRawData } from '@asra/utils'
@@ -25,7 +25,7 @@ const DATA_VERSION = '1.0.0'
 
 class Core {
   version: string = DEFAULT_VERSION
-  dataTransact: DataTransact = Factory.transact
+  dataTransact: DataTransact = factory.transact
   sceneTree: SceneTree = sceneTree
   systemEventManager: SystemEventManager = systemEventManager
   renderEventManager: RenderEventManager = renderEventManager

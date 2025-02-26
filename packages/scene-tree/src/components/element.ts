@@ -1,5 +1,13 @@
 import type { ElementRawData, ElementAttrs, IElement } from '@asra/utils'
-import { IDTypes, NameTypes, EntityTypes, id, name } from '@asra/utils'
+import {
+  IDTypes,
+  NameTypes,
+  EntityTypes,
+  id,
+  loadId,
+  name,
+  loadName
+} from '@asra/utils'
 import Setter from './setter'
 import Props from './props'
 import Computed from './computed'
@@ -40,10 +48,30 @@ class Element<T extends ElementAttrs = ElementAttrs>
     }
 
     ElementProps.forEach((propName) => {
-      const key = propName as keyof ElementAttrs
-      const newValue = data[key] as T[keyof T]
-      if (newValue !== undefined) {
-        this.data[propName as keyof T] = newValue
+      switch (propName) {
+        case 'id': {
+          const id = data.id
+          if (id) {
+            this.data.id = id
+            loadId(id, this._idType)
+          }
+          break
+        }
+        case 'name': {
+          const name = data.name
+          if (name) {
+            this.data.name = name
+            loadName(name, this._nameType)
+          }
+          break
+        }
+        default: {
+          const key = propName as keyof ElementAttrs
+          const newValue = data[key] as T[keyof T]
+          if (newValue !== undefined) {
+            this.data[propName as keyof T] = newValue
+          }
+        }
       }
     })
     this.props.load(data.props)

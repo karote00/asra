@@ -1,5 +1,5 @@
 import InputSystem from '@asra/input-system'
-import Factory from '@asra/factory'
+import factory from '@asra/factory'
 
 class SystemEventManager {
   private inputSystem: InputSystem
@@ -19,11 +19,11 @@ class SystemEventManager {
   }
 
   _handleUndo() {
-    Factory.transact.undo()
+    factory.transact.undo()
   }
 
   _handleRedo() {
-    Factory.transact.redo()
+    factory.transact.redo()
   }
 
   _handleDragStart() {

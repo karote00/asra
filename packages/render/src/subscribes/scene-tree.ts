@@ -1,14 +1,14 @@
-import type { ChangeDataType } from '@asra/factory'
-import Factory from '@asra/factory'
-import {
-  SCENE_TREE_ACTIONS,
+import type {
+  SceneTreeYjsChange,
   AddRemoveElementChange,
   UpdateElementChange
 } from '@asra/utils'
+import factory from '@asra/factory'
+import { SCENE_TREE_ACTIONS } from '@asra/utils'
 import { subscribeToSceneTreeLoadComplete } from '@asra/reactive-events'
 import { renderSceneTree } from '../stores/scene-tree'
 
-const updateRenderSceneTree = (change: ChangeDataType['payload']) => {
+const updateRenderSceneTree = (change: SceneTreeYjsChange['payload']) => {
   switch (change.action) {
     case SCENE_TREE_ACTIONS.ADD_ELEMENT: {
       renderSceneTree.addElement((change as AddRemoveElementChange).data)
@@ -61,7 +61,7 @@ export const initSceneTreeDataContext = () => {
     renderSceneTree.reload()
   })
 
-  const sceneTreeArray = Factory.sceneTreeMap
+  const sceneTreeArray = factory.sceneTreeMap
   sceneTreeArray.observe(handleSceneTreeChange)
 
   hasInit = true
