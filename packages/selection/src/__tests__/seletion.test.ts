@@ -21,7 +21,7 @@ describe('Selection', () => {
 
   it('should deselect id correctly', () => {
     selection.select(['id1', 'id2'])
-    selection.deselect('id1')
+    selection.deselect(['id1'])
 
     expect(selection.getSelectedIds()).toEqual(new Set(['id2']))
   })
@@ -45,7 +45,7 @@ describe('Selection', () => {
 
   it('should store previous selected ids when deselecting', () => {
     selection.select(['id1', 'id2'])
-    selection.deselect('id1')
+    selection.deselect(['id1'])
 
     expect(selection.getPrevSelectedIds()).toEqual(new Set(['id1', 'id2']))
   })
