@@ -1,0 +1,27 @@
+{
+  "name": "@asra/selection",
+  "version": "1.0.1",
+  "description": "A selection management library for handling element, vertex, edge, or any other selectable entities in a scene graph.",
+  "author": "Asa Tsai",
+  "license": "MIT",
+  "packageManager": "yarn@4.3.1",
+  "keywords": [],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "tsc --watch",
+    "build:module": "tsc",
+    "clean": "rm -rf dist",
+    "test": "vitest",
+    "test:ci": "vitest run --coverage --reporter=default --reporter=junit"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.8",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "@asra/reactive-events": "workspace:*",
+    "@asra/utils": "workspace:*"
+  }
+}

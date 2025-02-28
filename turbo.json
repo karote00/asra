@@ -6,12 +6,12 @@
     },
     "dev": {
       "cache": false,
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**"],
+      "persistent": true
     },
     "react:start": {
       "cache": false,
       "outputs": ["dist/**"],
-      "dependsOn": ["dev"],
       "persistent": true
     },
     "build:base": {
@@ -28,14 +28,29 @@
       "dependsOn": ["^build:module-base", "^build:base"],
       "outputs": ["dist/**"]
     },
-    "build:core": {
+    "build:core-base": {
       "cache": false,
       "dependsOn": ["^build:module", "^build:module-base", "^build:base"],
       "outputs": ["dist/**"]
     },
+    "build:core": {
+      "cache": false,
+      "dependsOn": [
+        "^build:core-base",
+        "^build:module",
+        "^build:module-base",
+        "^build:base"
+      ],
+      "outputs": ["dist/**"]
+    },
     "react:build": {
       "cache": false,
-      "dependsOn": ["^build:core", "^build:module-base", "^build:base"],
+      "dependsOn": [
+        "^build:core",
+        "^build:core-base",
+        "^build:module-base",
+        "^build:base"
+      ],
       "outputs": ["dist/**"]
     },
     "clean": {

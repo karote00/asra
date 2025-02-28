@@ -5,7 +5,7 @@ import { NameTypes } from '../enum'
 
 const addOne = (str: string): string => (Number(str) + 1).toString()
 
-describe('nameCounter:', () => {
+describe('nameCounter', () => {
   describe('check current max number of name', () => {
     it('should return the current name for the specific type', () => {
       const type = NameTypes.ELEMENT
@@ -17,7 +17,7 @@ describe('nameCounter:', () => {
     })
   })
 
-  describe('get new name:', () => {
+  describe('get new name', () => {
     it('should return a new name for the specific type', () => {
       const type = NameTypes.WORKSPACE
       const currentName = nameCounter.current(type)

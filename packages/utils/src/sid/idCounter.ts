@@ -22,6 +22,23 @@ class IDCounter {
     return this.counter[type]
   }
 
+  load(id: string, type: IDTypes) {
+    const currentId = this.current(type)
+    if (!currentId) {
+      return ''
+    }
+
+    const currentSplits = currentId.split(CODE_SPLIT)
+    const currentCount = parseInt(currentSplits[currentSplits.length - 1])
+
+    const newSplits = id.split(CODE_SPLIT)
+    const newCount = parseInt(newSplits[newSplits.length - 1])
+
+    if (newCount > currentCount) {
+      this.update(type, id)
+    }
+  }
+
   update(type: IDTypes | string = IDTypes.DEFAULT, newId: string): void {
     if (!type) {
       return
@@ -52,11 +69,7 @@ class IDCounter {
   }
 
   valid(id: string, type: IDTypes | string = IDTypes.DEFAULT): boolean {
-    if (!type) {
-      return false
-    }
-
-    if (!AvaliableIDTypes.has(type)) {
+    if (!id || !type || !AvaliableIDTypes.has(type)) {
       return false
     }
 

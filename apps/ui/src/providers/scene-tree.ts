@@ -3,9 +3,9 @@ import {
   subscribeToEndTransaction,
   subscribeToSceneTreeLoadComplete
 } from '@asra/reactive-events'
+import { BehaviorSubject } from 'rxjs'
 import { sceneTreeStore } from '@asra/ui-context'
 import { sceneTreeManager } from '../contexts'
-import { BehaviorSubject } from 'rxjs'
 import { ElementRawData, WorkspaceRawData } from '@asra/utils'
 
 type UIElementData = ElementRawData

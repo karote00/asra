@@ -21,7 +21,11 @@ export default class SceneTreeStore {
   private sceneTree: SceneTree
   private workspaceId: string
   private workspace: BehaviorSubject<UIWorkspaceData>
-  private elements: Map<
+  private _elements: Map<
+    string,
+    BehaviorSubject<UIElementData> | BehaviorSubject<UIWorkspaceData>
+  >
+  private _deletedMap: Map<
     string,
     BehaviorSubject<UIElementData> | BehaviorSubject<UIWorkspaceData>
   >
@@ -36,7 +40,8 @@ export default class SceneTreeStore {
       children: [],
       type: EntityTypes.WORKSPACE
     })
-    this.elements = new Map()
+    this._elements = new Map()
+    this._deletedMap = new Map()
     this.flattenedElementIds = []
   }
 
@@ -53,15 +58,12 @@ export default class SceneTreeStore {
         type: ws.get('type'),
         children: [...((ws as Workspace).get('children') || [])]
       })
-      this.elements.set(ws.get('id'), this.workspace)
+      this.addToMap(ws.get('id'), this.workspace)
     }
 
     this.sceneTree.getAllElements().forEach((element, id) => {
       if (element.get('type') !== EntityTypes.WORKSPACE) {
-        this.elements.set(
-          id,
-          new BehaviorSubject(element.save() as UIElementData)
-        )
+        this.addToMap(id, new BehaviorSubject(element.save() as UIElementData))
       }
     })
 
@@ -74,7 +76,7 @@ export default class SceneTreeStore {
     | BehaviorSubject<UIElementData>
     | BehaviorSubject<UIWorkspaceData>
     | undefined {
-    return this.elements.get(elementId)
+    return this._elements.get(elementId)
   }
 
   addToMap(
@@ -83,7 +85,38 @@ export default class SceneTreeStore {
       | BehaviorSubject<UIElementData>
       | BehaviorSubject<UIWorkspaceData>
   ) {
-    this.elements.set(elementId, elementSubject)
+    this.removeFromDeleteMap(elementId)
+    this._elements.set(elementId, elementSubject)
+  }
+
+  removeFromMap(elementId: string) {
+    const elementSubject = this.getElement(elementId)
+    if (elementSubject) {
+      this.addToDeleteMap(elementId, elementSubject)
+    }
+    this._elements.delete(elementId)
+  }
+
+  addToDeleteMap(
+    elementId: string,
+    elementSubject:
+      | BehaviorSubject<UIElementData>
+      | BehaviorSubject<UIWorkspaceData>
+  ) {
+    this._deletedMap.set(elementId, elementSubject)
+  }
+
+  getRestoreElementById(
+    elementId: string
+  ):
+    | BehaviorSubject<UIElementData>
+    | BehaviorSubject<UIWorkspaceData>
+    | undefined {
+    return this._deletedMap.get(elementId)
+  }
+
+  removeFromDeleteMap(elementId: string) {
+    this._deletedMap.delete(elementId)
   }
 
   isGroup(element: UIElementData) {
@@ -123,7 +156,9 @@ export default class SceneTreeStore {
   }
 
   addElement(data: Partial<ElementRawData | GroupRawData>) {
-    this.elements.set(data.id as string, new BehaviorSubject(data))
+    const elementSubject =
+      this.getRestoreElementById(data.id as string) || new BehaviorSubject(data)
+    this.addToMap(data.id as string, elementSubject)
   }
 
   removeElement(
@@ -145,7 +180,7 @@ export default class SceneTreeStore {
         children: newChildren
       })
 
-      this.elements.delete(data.id)
+      this.removeFromMap(data.id)
     }
   }
 

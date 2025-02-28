@@ -58,7 +58,8 @@ export const TailwindConfig = {
         panel: {
           dark: '#1A1A1A',
           darker: '#141414',
-          light: '#242424'
+          light: '#242424',
+          lighter: '#343434'
         },
         text: {
           primary: '#E0E0E0',

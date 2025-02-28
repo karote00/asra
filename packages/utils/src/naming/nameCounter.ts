@@ -17,6 +17,23 @@ class NameCounter {
     return this.counter[type]
   }
 
+  load(name: string, type: NameTypes) {
+    const currentName = this.current(type)
+    if (!currentName) {
+      return ''
+    }
+
+    const currentSplits = currentName.split(CODE_SPLIT)
+    const currentCount = parseInt(currentSplits[currentSplits.length - 1])
+
+    const newSplits = name.split(CODE_SPLIT)
+    const newCount = parseInt(newSplits[newSplits.length - 1])
+
+    if (newCount > currentCount) {
+      this.update(type, name)
+    }
+  }
+
   update(type: NameTypes, newName: string): void {
     this.counter[type] = newName
   }
@@ -38,7 +55,7 @@ class NameCounter {
   }
 
   valid(name: string, type: NameTypes): boolean {
-    if (!AvaliableNameTypes.has(type)) {
+    if (!name || !type || !AvaliableNameTypes.has(type)) {
       return false
     }
 

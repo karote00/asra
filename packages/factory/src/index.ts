@@ -4,4 +4,4 @@ import { initFactorySubscribe } from './subscribes'
 initFactorySubscribe()
 
 export default factory
-export { default as DataTransact, ChangeDataType } from './data-transact'
+export { default as DataTransact } from './data-transact'

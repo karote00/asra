@@ -3,12 +3,12 @@ import { Button } from '@asra/design-system'
 
 import ThemeToggle from './theme-toggle'
 import { ROW_HEIGHT } from '../constants'
-import { sceneTreeManager } from '../contexts'
+import { addRectangle } from '../controllers/scene-tree'
 
 const ToolBar = () => {
   const handleAddNewElement = useCallback(() => {
-    sceneTreeManager.addRectangle()
-  }, [sceneTreeManager])
+    addRectangle()
+  }, [addRectangle])
 
   return (
     <div

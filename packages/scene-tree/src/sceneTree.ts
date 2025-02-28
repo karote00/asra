@@ -46,6 +46,7 @@ class SceneTree {
           elementData.type === EntityTypes.WORKSPACE
             ? createWorkspace(elementData as WorkspaceRawData)
             : createElement(elementData)
+        element?.load(elementData)
         this.addToMap(element as ElementInstanceTypes)
       })
     }

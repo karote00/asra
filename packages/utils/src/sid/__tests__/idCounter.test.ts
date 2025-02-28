@@ -5,7 +5,7 @@ import { IDTypes } from '../enum'
 
 const addOne = (str: string): string => (Number(str) + 1).toString()
 
-describe('idCounter:', () => {
+describe('idCounter', () => {
   describe('check current max number of id', () => {
     it('should return the current default id if type is not provided', () => {
       const currentId = idCounter.current()
@@ -31,7 +31,7 @@ describe('idCounter:', () => {
     })
   })
 
-  describe('get new id:', () => {
+  describe('get new id', () => {
     it('should return a new id when type is not specified', () => {
       const currentId = idCounter.current()
 
