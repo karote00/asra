@@ -17,7 +17,8 @@
     "test:ci": "turbo run test:ci",
     "lint": "eslint .",
     "lint:ci": "eslint .",
-    "clean": "turbo run clean"
+    "clean": "turbo run clean",
+    "reinstall": "yarn clean && rm -rf node_modules .turbo && yarn && yarn react:build"
   },
   "workspaces": [
     "apps/*",
