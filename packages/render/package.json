@@ -10,7 +10,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "dev": "tsc --watch",
-    "build:core": "tsc",
+    "build:core-base": "tsc",
     "clean": "rm -rf dist"
   },
   "dependencies": {
