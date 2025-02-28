@@ -6,7 +6,7 @@ export enum Size {
 
 export enum OWNER {
   SCENE_TREE = 'SCENE_TREE',
-  SELECTION = 'SELECTION'
+  ELEMENT_SELECTION = 'ELEMENT_SELECTION'
 }
 
 export enum UNDO {
@@ -19,6 +19,11 @@ export enum SCENE_TREE_ACTIONS {
   ADD_ELEMENT = 'ADD_ELEMENT',
   REMOVE_ELEMENT = 'REMOVE_ELEMENT',
   UPDATE_ELEMENT = 'UPDATE_ELEMENT'
+}
+
+export enum SELECTION_TYPES {
+  ELEMENT = 'element',
+  VERTEX = 'vertex'
 }
 
 export enum SELECTION_ACTIONS {

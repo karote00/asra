@@ -4,6 +4,7 @@ import { EntityTypes } from '@asra/utils'
 import { Icon } from '@asra/design-system'
 import { useElementData } from '../providers/scene-tree'
 import { selectElements } from '../controllers/element-selection'
+import { useElementSelection } from '../providers/element-selection'
 
 const getModifiers = (e: KeyboardEvent): Modifiers => {
   return {
@@ -18,6 +19,7 @@ const Element = ({ elementId }: { elementId: string }) => {
   const elementData = useElementData(elementId)
   if (!elementData) return null
 
+  const elementSelection = useElementSelection()
   const { id, name, type, lock, visible } = elementData as ElementRawData
   const modifierKeys = useRef({
     meta: false,
@@ -46,6 +48,7 @@ const Element = ({ elementId }: { elementId: string }) => {
     }
   }, [])
 
+  const isSelected = elementSelection.has(id)
   return (
     <div
       className="flex items-center justify-between p-2 hover:bg-panel-light text-gray-200"

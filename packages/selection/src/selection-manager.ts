@@ -1,14 +1,15 @@
+import { SELECTION_TYPES } from '@asra/utils'
 import Selection from './selections/base-selection'
 
 class SelectionManager {
   private selections: Map<string, Selection> = new Map()
 
-  register(name: string, selection: Selection): void {
-    this.selections.set(name, selection)
+  register(type: SELECTION_TYPES, selection: Selection): void {
+    this.selections.set(type, selection)
   }
 
-  get(name: string): Selection | undefined {
-    return this.selections.get(name)
+  get(type: SELECTION_TYPES): Selection | undefined {
+    return this.selections.get(type)
   }
 
   clearAllSelections(): void {
