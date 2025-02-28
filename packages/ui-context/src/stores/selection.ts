@@ -20,7 +20,6 @@ export default class SelectionStore {
   }
 
   updateSelection(type: SELECTION_TYPES) {
-    console.log('update selection')
     const selection = this.selectionManager.get(type)
     if (!selection) {
       return

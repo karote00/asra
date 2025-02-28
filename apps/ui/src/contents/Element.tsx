@@ -49,9 +49,14 @@ const Element = ({ elementId }: { elementId: string }) => {
   }, [])
 
   const isSelected = elementSelection.has(id)
+  const bgColor = isSelected ? 'bg-panel-lighter' : ''
+  const hoverBgColor = isSelected
+    ? 'hover:bg-panel-lighter'
+    : 'hover:bg-panel-light'
+
   return (
     <div
-      className="flex items-center justify-between p-2 hover:bg-panel-light text-gray-200"
+      className={`flex items-center justify-between p-2 ${bgColor} ${hoverBgColor} text-gray-200`}
       onClick={handleElementClick}
     >
       <div className="flex items-center space-x-1 gap-1">
