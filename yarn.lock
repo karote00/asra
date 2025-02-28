@@ -162,7 +162,7 @@ __metadata:
   resolution: "@asra/selection@workspace:packages/selection"
   dependencies:
     "@asra/reactive-events": "workspace:*"
-    "@asra/utils": "workspace:^"
+    "@asra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
     vitest: "npm:^2.1.8"
@@ -218,7 +218,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/utils@workspace:*, @asra/utils@workspace:^, @asra/utils@workspace:packages/utils":
+"@asra/utils@workspace:*, @asra/utils@workspace:packages/utils":
   version: 0.0.0-use.local
   resolution: "@asra/utils@workspace:packages/utils"
   dependencies:
