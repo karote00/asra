@@ -4,6 +4,11 @@ export enum Size {
   SM = 'sm'
 }
 
+export enum Unit {
+  PX = 'px',
+  PERCENT = 'pct'
+}
+
 export enum OWNER {
   SCENE_TREE = 'SCENE_TREE',
   ELEMENT_SELECTION = 'ELEMENT_SELECTION'

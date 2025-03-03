@@ -23,12 +23,19 @@ class Element<T extends ElementAttrs = ElementAttrs>
   _idType!: IDTypes
   _nameType!: NameTypes
 
-  props: Props = new Props()
+  props!: Props
   computed: Computed = new Computed()
 
-  constructor() {
+  constructor(data?: ElementRawData) {
     super()
     this._init()
+
+    const elementId = this.get('id')
+    if (data && data.props) {
+      this.props = new Props(elementId, data.props)
+    } else {
+      this.props = new Props(elementId)
+    }
   }
 
   _init(): void {

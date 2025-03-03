@@ -41,7 +41,6 @@ class DataTransact {
 
     const newType = event.eventName as AllEvent['type']
     const newPayload = JSON.parse(JSON.stringify(event.payload))
-    // @ts-expect-error: Should accept any type of payload
     const newEvent: AllEvent = {
       type: newType,
       payload: newPayload

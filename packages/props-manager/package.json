@@ -1,7 +1,7 @@
 {
-  "name": "@asra/core",
+  "name": "@asra/props-manager",
   "version": "1.0.1",
-  "description": "Core of Asra.",
+  "description": "A structured property management library that provides API-based control over prop components, separate from the scene tree.",
   "author": "Asa Tsai",
   "license": "MIT",
   "packageManager": "yarn@4.3.1",
@@ -10,19 +10,14 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "dev": "tsc --watch",
-    "build:core": "tsc",
+    "build:module-base": "tsc",
     "clean": "rm -rf dist"
   },
   "devDependencies": {
     "typescript": "^5.7.2"
   },
   "dependencies": {
-    "@asra/factory": "workspace:*",
-    "@asra/input-system": "workspace:*",
-    "@asra/props-manager": "workspace:*",
     "@asra/reactive-events": "workspace:*",
-    "@asra/scene-tree": "workspace:*",
-    "@asra/selection": "workspace:*",
     "@asra/utils": "workspace:*"
   }
 }

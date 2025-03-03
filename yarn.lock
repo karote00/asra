@@ -48,6 +48,7 @@ __metadata:
   dependencies:
     "@asra/factory": "workspace:*"
     "@asra/input-system": "workspace:*"
+    "@asra/props-manager": "workspace:*"
     "@asra/reactive-events": "workspace:*"
     "@asra/scene-tree": "workspace:*"
     "@asra/selection": "workspace:*"
@@ -97,14 +98,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/facade@workspace:packages/facade":
-  version: 0.0.0-use.local
-  resolution: "@asra/facade@workspace:packages/facade"
-  dependencies:
-    typescript: "npm:^5.7.2"
-  languageName: unknown
-  linkType: soft
-
 "@asra/factory@workspace:*, @asra/factory@workspace:packages/factory":
   version: 0.0.0-use.local
   resolution: "@asra/factory@workspace:packages/factory"
@@ -120,6 +113,16 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asra/input-system@workspace:packages/input-system"
   dependencies:
+    typescript: "npm:^5.7.2"
+  languageName: unknown
+  linkType: soft
+
+"@asra/props-manager@workspace:*, @asra/props-manager@workspace:packages/props-manager":
+  version: 0.0.0-use.local
+  resolution: "@asra/props-manager@workspace:packages/props-manager"
+  dependencies:
+    "@asra/reactive-events": "workspace:*"
+    "@asra/utils": "workspace:*"
     typescript: "npm:^5.7.2"
   languageName: unknown
   linkType: soft

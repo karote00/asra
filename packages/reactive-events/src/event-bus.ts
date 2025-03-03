@@ -3,8 +3,9 @@ import { EventTypes } from './types'
 import type { AppEvent } from './app'
 import type { SceneTreeEvents } from './scene-tree'
 import type { SelectionEvent } from './selection'
+import type { PropEvent } from './propx'
 
-export type AllEvent = AppEvent | SceneTreeEvents | SelectionEvent
+export type AllEvent = AppEvent | SceneTreeEvents | SelectionEvent | PropEvent
 
 const eventBus = new ReplaySubject<AllEvent>(undefined, 5000)
 

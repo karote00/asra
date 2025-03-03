@@ -1,7 +1,7 @@
 import { EventTypes } from '../types'
 
 export interface SelectElementsEvent {
-  type: EventTypes.SELECT_ELEMENTS
+  type: EventTypes
   payload: {
     after: string[]
   }
