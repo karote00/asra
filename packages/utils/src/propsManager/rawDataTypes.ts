@@ -1,17 +1,19 @@
 import { Unit } from '../enums'
 
-export interface PositionRawData {
+export interface PositionComponentRawData {
   x: number
   y: number
   xUnit: Unit
   yUnit: Unit
 }
 
-export interface DimensionRawData {
+export interface DimensionComponentRawData {
   width: number
   height: number
-  xUnit: Unit
-  yUnit: Unit
+  widthUnit: Unit
+  heightUnit: Unit
 }
 
-export type PropDataType = PositionRawData | DimensionRawData
+export type PropComponentDataType =
+  | PositionComponentRawData
+  | DimensionComponentRawData
