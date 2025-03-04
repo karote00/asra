@@ -1,6 +1,7 @@
 import { Unit } from '../enums'
 
 export interface PositionComponentRawData {
+  id: string
   x: number
   y: number
   xUnit: Unit
@@ -8,6 +9,7 @@ export interface PositionComponentRawData {
 }
 
 export interface DimensionComponentRawData {
+  id: string
   width: number
   height: number
   widthUnit: Unit

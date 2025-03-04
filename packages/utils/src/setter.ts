@@ -1,11 +1,8 @@
 import type { DataTypes } from './types'
 import { ElementAttrs } from './sceneTree'
+import { PropComponentDataType } from './propsManager'
 
-interface PropAttrs {
-  id: string
-}
-
-type InstanceDataType = ElementAttrs | PropAttrs
+type InstanceDataType = ElementAttrs | PropComponentDataType
 
 export class Setter<T extends InstanceDataType> {
   data!: T

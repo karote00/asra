@@ -4,10 +4,7 @@ import BaseComponent from './base'
 type DimensionKeys = keyof DimensionComponentRawData
 const PROPS: DimensionKeys[] = ['width', 'height', 'widthUnit', 'heightUnit']
 
-class DimensionComponent
-  extends BaseComponent<DimensionComponentRawData>
-  implements DimensionComponentRawData
-{
+class DimensionComponent extends BaseComponent<DimensionComponentRawData> {
   width: number = 0
   height: number = 0
   widthUnit: Unit = Unit.PX

@@ -4,10 +4,7 @@ import BaseComponent from './base'
 type PositionKeys = keyof PositionComponentRawData
 const PROPS: PositionKeys[] = ['x', 'y', 'xUnit', 'yUnit']
 
-class PositionComponent
-  extends BaseComponent<PositionComponentRawData>
-  implements PositionComponentRawData
-{
+class PositionComponent extends BaseComponent<PositionComponentRawData> {
   x: number = 0
   y: number = 0
   xUnit: Unit = Unit.PX

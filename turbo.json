@@ -41,7 +41,11 @@
     },
     "build:core": {
       "cache": false,
-      "dependsOn": ["^build:core-base", "^build:module"],
+      "dependsOn": [
+        "^build:core-base",
+        "^build:module",
+        "^build:intermediate-core"
+      ],
       "outputs": ["dist/**"]
     },
     "react:build": {
