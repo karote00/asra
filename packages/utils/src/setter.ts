@@ -1,16 +1,21 @@
-import { EntityTypes, OWNER, SCENE_TREE_ACTIONS } from '@asra/utils'
-import type { DataTypes, ElementAttrs, ISetter } from '@asra/utils'
-import sceneTree from '../sceneTree'
-import { EventTypes } from '@asra/reactive-events'
+import type { DataTypes } from './types'
+import { ElementAttrs } from './sceneTree'
 
-class Setter<T extends ElementAttrs = ElementAttrs> implements ISetter<T> {
-  data: T = {
-    id: '',
-    type: EntityTypes.UNDEFINED,
-    name: '',
-    visible: true,
-    lock: false
-  } as T
+interface PropAttrs {
+  id: string
+}
+
+type InstanceDataType = ElementAttrs | PropAttrs
+
+export class Setter<T extends InstanceDataType> {
+  data!: T
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private addChangeCallback: (data: any) => void
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  constructor(addChangeCallback: (data: any) => void) {
+    this.addChangeCallback = addChangeCallback
+  }
 
   get<K extends keyof T>(key: K): T[K] {
     if (key in this.data) {
@@ -25,10 +30,7 @@ class Setter<T extends ElementAttrs = ElementAttrs> implements ISetter<T> {
       this.data[key] = value
       const after = this._cloneData(value)
 
-      sceneTree.addChange({
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT,
-        owner: OWNER.SCENE_TREE,
-        eventName: EventTypes.UPDATE_ELEMENT,
+      this.addChangeCallback({
         elementId: this.get('id'),
         key: key as string,
         before: before as DataTypes,
@@ -53,5 +55,3 @@ class Setter<T extends ElementAttrs = ElementAttrs> implements ISetter<T> {
     return data
   }
 }
-
-export default Setter

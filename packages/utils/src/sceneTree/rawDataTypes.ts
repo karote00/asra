@@ -1,10 +1,5 @@
 import { EntityTypes } from './enum'
 
-export interface PropsRawData {
-  position: string
-  dimension: string
-}
-
 export interface BaseRawData {
   id: string
   name: string

@@ -1,5 +1,6 @@
 import type { ElementRawData, ElementAttrs, IElement } from '@asra/utils'
 import {
+  Setter,
   IDTypes,
   NameTypes,
   EntityTypes,
@@ -8,9 +9,11 @@ import {
   name,
   loadName
 } from '@asra/utils'
-import Setter from './setter'
 import Props from './props'
 import Computed from './computed'
+import ElementChangeHandler from './element-change-handler'
+
+const elementChangeHandler = new ElementChangeHandler()
 
 type ElementDataType = Partial<ElementRawData>
 
@@ -27,7 +30,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
   computed: Computed = new Computed()
 
   constructor(data?: ElementRawData) {
-    super()
+    super(elementChangeHandler.addChange)
     this._init()
 
     const elementId = this.get('id')
@@ -42,11 +45,13 @@ class Element<T extends ElementAttrs = ElementAttrs>
     this._idType ??= IDTypes.ELEMENT
     this._nameType ??= NameTypes.ELEMENT
 
-    this.data.id = id(this._idType)
-    this.data.type = EntityTypes.ELEMENT
-    this.data.name = name(this._nameType)
-    this.data.visible = true
-    this.data.lock = false
+    this.data = {
+      id: id(this._idType),
+      type: EntityTypes.ELEMENT,
+      name: name(this._nameType),
+      visible: true,
+      lock: false
+    } as T
   }
 
   load(data: ElementDataType): void {

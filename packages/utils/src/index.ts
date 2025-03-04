@@ -1,4 +1,5 @@
 export * from './tailwind-config'
+export * from './setter'
 export * from './enums'
 export * from './sid'
 export * from './naming'
