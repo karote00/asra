@@ -10,13 +10,14 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "dev": "tsc --watch",
-    "build:module": "tsc",
+    "build:intermediate-core": "tsc",
     "clean": "rm -rf dist"
   },
   "devDependencies": {
     "typescript": "^5.7.2"
   },
   "dependencies": {
+    "@asra/props-manager": "workspace:^",
     "@asra/reactive-events": "workspace:*",
     "@asra/utils": "workspace:*"
   }

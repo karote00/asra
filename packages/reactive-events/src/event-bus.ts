@@ -3,7 +3,7 @@ import { EventTypes } from './types'
 import type { AppEvent } from './app'
 import type { SceneTreeEvents } from './scene-tree'
 import type { SelectionEvent } from './selection'
-import type { PropEvent } from './propx'
+import type { PropEvent } from './props-manager'
 
 export type AllEvent = AppEvent | SceneTreeEvents | SelectionEvent | PropEvent
 

@@ -117,7 +117,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/props-manager@workspace:*, @asra/props-manager@workspace:packages/props-manager":
+"@asra/props-manager@workspace:*, @asra/props-manager@workspace:^, @asra/props-manager@workspace:packages/props-manager":
   version: 0.0.0-use.local
   resolution: "@asra/props-manager@workspace:packages/props-manager"
   dependencies:
@@ -154,6 +154,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asra/scene-tree@workspace:packages/scene-tree"
   dependencies:
+    "@asra/props-manager": "workspace:^"
     "@asra/reactive-events": "workspace:*"
     "@asra/utils": "workspace:*"
     typescript: "npm:^5.7.2"
