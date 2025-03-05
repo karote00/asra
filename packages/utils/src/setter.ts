@@ -1,8 +1,16 @@
-import type { DataTypes } from './types'
-import { ElementAttrs } from './sceneTree'
-import { PropComponentDataType } from './propsManager'
+import type { DataTypes, EvnetOptions } from './types'
+import { ElementInstanceDataTypes } from './sceneTree'
+import { PropertyComponentInstanceDataTypes } from './propsManager'
 
-type InstanceDataType = ElementAttrs | PropComponentDataType
+type InstanceDataType =
+  | ElementInstanceDataTypes
+  | PropertyComponentInstanceDataTypes
+
+type GetReturnType<T> = T extends ElementInstanceDataTypes
+  ? ElementInstanceDataTypes
+  : T extends PropertyComponentInstanceDataTypes
+    ? PropertyComponentInstanceDataTypes
+    : never
 
 export class Setter<T extends InstanceDataType> {
   data!: T
@@ -14,14 +22,14 @@ export class Setter<T extends InstanceDataType> {
     this.addChangeCallback = addChangeCallback
   }
 
-  get<K extends keyof T>(key: K): T[K] {
+  get<K extends keyof GetReturnType<T>>(key: K): GetReturnType<T>[K] {
     if (key in this.data) {
-      return this.data[key]
+      return (this.data as unknown as GetReturnType<T>)[key]
     }
     throw new Error('Not allow to get value which is not in entity data.')
   }
 
-  set<K extends keyof T>(key: K, value: T[K]): void {
+  set<K extends keyof T>(key: K, value: T[K], options?: EvnetOptions): void {
     if (key in this.data) {
       const before = this._cloneData(this.data[key])
       this.data[key] = value
@@ -51,4 +59,9 @@ export class Setter<T extends InstanceDataType> {
     }
     return data
   }
+}
+
+export interface ISetter<T> {
+  get<K extends keyof GetReturnType<T>>(key: K): GetReturnType<T>[K]
+  set<K extends keyof T>(key: K, value: T[K]): void
 }

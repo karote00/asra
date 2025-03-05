@@ -1,5 +1,4 @@
 export * from './tailwind-config'
-export * from './change-handler'
 export * from './setter'
 export * from './enums'
 export * from './common'

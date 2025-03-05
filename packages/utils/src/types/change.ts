@@ -1,4 +1,4 @@
-import { DataTypes } from './types'
+import { DataTypes } from './scene-tree'
 
 export interface ChangeHandler {
   addChange(data: {
@@ -7,4 +7,8 @@ export interface ChangeHandler {
     before: DataTypes
     after: DataTypes
   }): void
+}
+
+export interface EvnetOptions {
+  undoable?: boolean
 }

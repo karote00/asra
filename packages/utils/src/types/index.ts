@@ -1,4 +1,5 @@
 export * from './yjs'
+export * from './change'
 export * from './scene-tree'
 export * from './selection'
 export * from './key'

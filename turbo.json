@@ -31,7 +31,7 @@
     },
     "build:intermediate-core": {
       "cache": false,
-      "dependsOn": ["^build:module-base"],
+      "dependsOn": ["^build:module-base", "^build:module"],
       "outputs": ["dist/**"]
     },
     "build:core-base": {

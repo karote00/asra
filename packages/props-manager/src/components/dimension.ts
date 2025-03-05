@@ -1,45 +1,36 @@
-import { isNil, DimensionComponentRawData, Unit } from '@asra/utils'
+import {
+  Unit,
+  PropertyTypes,
+  DefaultDimensionData,
+  DimensionAttrs
+} from '@asra/utils'
 import BaseComponent from './base'
 
-type DimensionKeys = keyof DimensionComponentRawData
-const PROPS: DimensionKeys[] = ['width', 'height', 'widthUnit', 'heightUnit']
+class DimensionComponent extends BaseComponent<DimensionAttrs> {
+  data: DimensionAttrs = {
+    id: '',
+    type: PropertyTypes.DIMENSION,
+    ...DefaultDimensionData
+  }
 
-class DimensionComponent extends BaseComponent<DimensionComponentRawData> {
-  width: number = 0
-  height: number = 0
-  widthUnit: Unit = Unit.PX
-  heightUnit: Unit = Unit.PX
+  constructor(data: Partial<DimensionAttrs>) {
+    super()
 
-  update(data: DimensionComponentRawData) {
-    PROPS.forEach((key) => {
-      if (isNil(data[key])) {
-        return
-      }
-
-      switch (key) {
-        case 'width':
-        case 'height':
-          this[key] = data[key] as number
-          break
-        case 'widthUnit':
-        case 'heightUnit':
-          this[key] = data[key] as Unit
-          break
-      }
-    })
+    this.data.type = PropertyTypes.DIMENSION
+    this.init(data)
   }
 
   getValue(): Record<string, number> {
     return {
-      width: this.width,
-      height: this.height
+      width: this.data.width,
+      height: this.data.height
     }
   }
 
   getUnit(): Record<string, Unit> {
     return {
-      widthUnit: this.widthUnit,
-      heightUnit: this.heightUnit
+      widthUnit: this.data.widthUnit,
+      heightUnit: this.data.heightUnit
     }
   }
 }

@@ -34,10 +34,12 @@ class Element<T extends ElementAttrs = ElementAttrs>
     this._init()
 
     const elementId = this.get('id')
-    if (data && data.props) {
-      this.props = new Props(elementId, data.props)
-    } else {
-      this.props = new Props(elementId)
+    if (this.data.type !== EntityTypes.WORKSPACE) {
+      if (data && data.props) {
+        this.props = new Props(elementId, data.props)
+      } else {
+        this.props = new Props(elementId)
+      }
     }
   }
 
@@ -59,34 +61,36 @@ class Element<T extends ElementAttrs = ElementAttrs>
       return
     }
 
-    ElementProps.forEach((propName) => {
-      switch (propName) {
-        case 'id': {
-          const id = data.id
-          if (id) {
-            this.data.id = id
-            loadId(id, this._idType)
+    if (this.data.type !== EntityTypes.WORKSPACE) {
+      ElementProps.forEach((propName) => {
+        switch (propName) {
+          case 'id': {
+            const id = data.id
+            if (id) {
+              this.data.id = id
+              loadId(id, this._idType)
+            }
+            break
           }
-          break
-        }
-        case 'name': {
-          const name = data.name
-          if (name) {
-            this.data.name = name
-            loadName(name, this._nameType)
+          case 'name': {
+            const name = data.name
+            if (name) {
+              this.data.name = name
+              loadName(name, this._nameType)
+            }
+            break
           }
-          break
-        }
-        default: {
-          const key = propName as keyof ElementAttrs
-          const newValue = data[key] as T[keyof T]
-          if (newValue !== undefined) {
-            this.data[propName as keyof T] = newValue
+          default: {
+            const key = propName as keyof ElementAttrs
+            const newValue = data[key] as T[keyof T]
+            if (newValue !== undefined) {
+              this.data[propName as keyof T] = newValue
+            }
           }
         }
-      }
-    })
-    this.props.load(data.props)
+      })
+      this.props.load(data.props)
+    }
   }
 
   save(): ElementRawData {

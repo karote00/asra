@@ -1,45 +1,35 @@
-import { isNil, PositionComponentRawData, Unit } from '@asra/utils'
+import {
+  DefaultPositionData,
+  PositionAttrs,
+  PropertyTypes,
+  Unit
+} from '@asra/utils'
 import BaseComponent from './base'
 
-type PositionKeys = keyof PositionComponentRawData
-const PROPS: PositionKeys[] = ['x', 'y', 'xUnit', 'yUnit']
+class PositionComponent extends BaseComponent<PositionAttrs> {
+  data: PositionAttrs = {
+    id: '',
+    type: PropertyTypes.POSITION,
+    ...DefaultPositionData
+  }
 
-class PositionComponent extends BaseComponent<PositionComponentRawData> {
-  x: number = 0
-  y: number = 0
-  xUnit: Unit = Unit.PX
-  yUnit: Unit = Unit.PX
+  constructor(data: Partial<PositionAttrs>) {
+    super()
 
-  update(data: PositionComponentRawData) {
-    PROPS.forEach((key) => {
-      if (isNil(data[key])) {
-        return
-      }
-
-      switch (key) {
-        case 'x':
-        case 'y':
-          this[key] = data[key] as number
-          break
-        case 'xUnit':
-        case 'yUnit':
-          this[key] = data[key] as Unit
-          break
-      }
-    })
+    this.init(data)
   }
 
   getValue(): Record<string, number> {
     return {
-      x: this.x,
-      y: this.y
+      x: this.data.x,
+      y: this.data.y
     }
   }
 
   getUnit(): Record<string, Unit> {
     return {
-      xUnit: this.xUnit,
-      yUnit: this.yUnit
+      xUnit: this.data.xUnit,
+      yUnit: this.data.yUnit
     }
   }
 }
