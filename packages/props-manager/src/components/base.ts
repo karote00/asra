@@ -1,17 +1,24 @@
-import type { PropertyComponentInstanceDataTypes } from '@asra/utils'
+import type {
+  IProperty,
+  PositionAttrs,
+  PropertyComponentInstanceDataTypes
+} from '@asra/utils'
 import { Setter, Unit, isNil } from '@asra/utils'
 
 abstract class BaseComponent<
-  T extends PropertyComponentInstanceDataTypes
-> extends Setter<T> {
+    T extends PropertyComponentInstanceDataTypes = PositionAttrs
+  >
+  extends Setter<T>
+  implements IProperty
+{
   constructor() {
     super(() => {})
   }
 
-  init(data: Partial<T>) {
+  _init(data: Partial<T>) {
     Object.keys(data).forEach((dataKey) => {
       const key = dataKey as keyof T
-      if (this.isValidKey(key) && isNil(data[key])) {
+      if (this.isValidKey(key) && !isNil(data[key])) {
         this.set(key, data[key] as T[Extract<keyof T, string>], {
           undoable: false
         })
@@ -22,7 +29,7 @@ abstract class BaseComponent<
   update(data: Partial<T>) {
     Object.keys(data).forEach((dataKey) => {
       const key = dataKey as keyof T
-      if (this.isValidKey(key) && isNil(data[key])) {
+      if (this.isValidKey(key) && !isNil(data[key])) {
         this.set(key, data[key] as T[Extract<keyof T, string>])
       }
     })
@@ -33,6 +40,12 @@ abstract class BaseComponent<
 
   protected isValidKey(key: keyof T) {
     return key in this.data
+  }
+
+  load(): void {}
+
+  save(): T {
+    return {} as T
   }
 }
 

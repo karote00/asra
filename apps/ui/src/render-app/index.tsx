@@ -15,6 +15,7 @@ const RenderApp: React.FC = () => {
           window.innerWidth,
           window.innerHeight
         )
+
         renderIsReady()
       }
     }

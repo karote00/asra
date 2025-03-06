@@ -46,7 +46,7 @@ class SceneTree {
           elementData.type === EntityTypes.WORKSPACE
             ? createWorkspace(elementData as WorkspaceRawData)
             : createElement(elementData)
-        element?.load(elementData)
+
         this.addToMap(element as ElementInstanceTypes)
       })
     }
@@ -96,7 +96,7 @@ class SceneTree {
       return
     }
 
-    this.removeFromDeleteMap(element)
+    this.removeFromDeleteMap(elId)
     this._elements.set(elId, element)
   }
 
@@ -111,19 +111,19 @@ class SceneTree {
   }
 
   getRestoreElementById(elementId: string): ElementInstanceTypes {
-    const restoreElement = this._deletedMap.get(
+    const restoredElement = this._deletedMap.get(
       elementId
     ) as ElementInstanceTypes
-    this.addChangeForAddElement(restoreElement)
-    return restoreElement
+    this.addChangeForAddElement(restoredElement)
+    return restoredElement
   }
 
   addToDeleteMap(element: ElementInstanceTypes) {
     this._deletedMap.set(element.get('id'), element)
   }
 
-  removeFromDeleteMap(element: ElementInstanceTypes) {
-    this._deletedMap.delete(element.get('id'))
+  removeFromDeleteMap(elementId: string) {
+    this._deletedMap.delete(elementId)
   }
 
   addChangeForAddElement(element: ElementInstanceTypes) {

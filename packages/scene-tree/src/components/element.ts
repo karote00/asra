@@ -29,7 +29,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
   props!: Props
   computed: Computed = new Computed()
 
-  constructor(data?: ElementRawData) {
+  constructor(data?: Partial<ElementRawData>) {
     super(elementChangeHandler.addChange)
     this._init()
 
@@ -100,6 +100,11 @@ class Element<T extends ElementAttrs = ElementAttrs>
     data.name = this.get('name')
     data.visible = this.get('visible')
     data.lock = this.get('lock')
+
+    if (this.data.type !== EntityTypes.WORKSPACE) {
+      data.props = this.props.save()
+    }
+
     return data
   }
 }

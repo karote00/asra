@@ -5,8 +5,8 @@ import Group from './group'
 type FrameDataType = Partial<FrameRawData>
 
 class Frame extends Group {
-  constructor() {
-    super()
+  constructor(data?: Partial<FrameRawData>) {
+    super(data)
   }
 
   _init(): void {

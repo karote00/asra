@@ -16,7 +16,7 @@ class PositionComponent extends BaseComponent<PositionAttrs> {
   constructor(data: Partial<PositionAttrs>) {
     super()
 
-    this.init(data)
+    this._init(data)
   }
 
   getValue(): Record<string, number> {

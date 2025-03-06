@@ -17,7 +17,7 @@ class DimensionComponent extends BaseComponent<DimensionAttrs> {
     super()
 
     this.data.type = PropertyTypes.DIMENSION
-    this.init(data)
+    this._init(data)
   }
 
   getValue(): Record<string, number> {

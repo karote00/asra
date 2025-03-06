@@ -6,12 +6,6 @@ type InstanceDataType =
   | ElementInstanceDataTypes
   | PropertyComponentInstanceDataTypes
 
-type GetReturnType<T> = T extends ElementInstanceDataTypes
-  ? ElementInstanceDataTypes
-  : T extends PropertyComponentInstanceDataTypes
-    ? PropertyComponentInstanceDataTypes
-    : never
-
 export class Setter<T extends InstanceDataType> {
   data!: T
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -22,9 +16,9 @@ export class Setter<T extends InstanceDataType> {
     this.addChangeCallback = addChangeCallback
   }
 
-  get<K extends keyof GetReturnType<T>>(key: K): GetReturnType<T>[K] {
+  get<K extends keyof T>(key: K): T[K] {
     if (key in this.data) {
-      return (this.data as unknown as GetReturnType<T>)[key]
+      return this.data[key]
     }
     throw new Error('Not allow to get value which is not in entity data.')
   }
@@ -62,6 +56,6 @@ export class Setter<T extends InstanceDataType> {
 }
 
 export interface ISetter<T> {
-  get<K extends keyof GetReturnType<T>>(key: K): GetReturnType<T>[K]
+  get<K extends keyof T>(key: K): T[K]
   set<K extends keyof T>(key: K, value: T[K]): void
 }

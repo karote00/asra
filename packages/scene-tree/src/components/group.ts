@@ -17,8 +17,8 @@ class Group<T extends GroupAttrs = GroupAttrs>
   override data: T = { ...this.data, children: [] } as T
   props!: Props
 
-  constructor() {
-    super()
+  constructor(data?: Partial<GroupRawData>) {
+    super(data)
   }
 
   _init(): void {

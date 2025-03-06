@@ -9,7 +9,7 @@ const PROP_NAMES: PropertyTypes[] = [
   PropertyTypes.DIMENSION
 ]
 
-class Props implements PropsDataType {
+class Props {
   elementId: string
   position?: PropsRawData[PropertyTypes.POSITION]
   dimension?: PropsRawData[PropertyTypes.DIMENSION]
@@ -25,11 +25,10 @@ class Props implements PropsDataType {
   }
 
   _init() {
-    console.log('props init')
-    const propIds = propsManager.addProperty(PROP_NAMES)
-    console.log('propIds', propIds)
+    const propIdMap = propsManager.addProperty(PROP_NAMES)
+
     PROP_NAMES.forEach((propName) => {
-      this[propName] = propIds[propName]
+      this[propName] = propIdMap[propName]
     })
   }
 
@@ -37,6 +36,14 @@ class Props implements PropsDataType {
     PROP_NAMES.forEach((propName) => {
       this[propName] = data[propName]
     })
+  }
+
+  save(): PropsRawData {
+    return PROP_NAMES.reduce((acc, propName) => {
+      const key = propName as keyof PropsRawData
+      acc[key] = this[key] as string
+      return acc
+    }, {} as PropsRawData)
   }
 }
 

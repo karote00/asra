@@ -8,8 +8,8 @@ type RectangleDataType = Partial<RectangleRawData>
 class Rectangle extends Element {
   props!: Props
 
-  constructor() {
-    super()
+  constructor(data?: Partial<RectangleRawData>) {
+    super(data)
   }
 
   _init(): void {

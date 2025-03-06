@@ -1,14 +1,14 @@
 import {
   PropertyTypes,
+  PropertyComponentInstanceTypes,
   DefaultPositionData,
+  DefaultDimensionData,
   id,
-  IDTypes,
-  DefaultDimensionData
+  IDTypes
 } from '@asra/utils'
 import {
   PositionComponent,
   DimensionComponent,
-  AllPropertyComponents,
   PropertyComponentType
 } from './components'
 
@@ -21,13 +21,8 @@ const DefaultDataMap: Record<PropertyTypes, object> = {
   [PropertyTypes.DIMENSION]: DefaultDimensionData
 }
 
-export const createProperty = (
-  propName: PropertyTypes
-): PositionComponent | DimensionComponent | undefined => {
-  console.warn('create componenet')
-  console.log({ propName })
+export const createProperty = (propName: PropertyTypes) => {
   const PropClass = PropClassMap[propName]
-  console.log({ PropClass })
   if (!PropClass) {
     return
   }
@@ -38,5 +33,5 @@ export const createProperty = (
   return new PropClass({
     id: comId,
     ...defaultData
-  })
+  }) as PropertyComponentInstanceTypes
 }
