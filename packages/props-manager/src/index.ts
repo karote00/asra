@@ -1,23 +1,33 @@
 import { PropAlias, PropertyTypes } from '@asra/utils'
 import type {
   PropertyComponentInstanceTypes,
-  PropertyComponentRawData
+  PropsComponentRawData
 } from '@asra/utils'
 import { initPropXSubscribes } from './subscribes'
 import { createProperty } from './utils'
 
 initPropXSubscribes()
 
-type PropRawData = Record<string, PropertyComponentRawData>
-
 class PropsManager {
   _components: Map<string, PropertyComponentInstanceTypes> = new Map()
   _deletedMap: Map<string, PropertyComponentInstanceTypes> = new Map()
 
-  constructor(data?: PropRawData) {
-    if (data) {
-      this.load(data)
-    }
+  load(data: PropsComponentRawData) {
+    Object.keys(data).forEach((componentId) => {
+      const newProperty = createProperty(
+        data[componentId]
+      ) as PropertyComponentInstanceTypes
+      this.addToMap(newProperty)
+    })
+  }
+
+  save(): PropsComponentRawData {
+    const data = {} as PropsComponentRawData
+    this._components.forEach((component, componentId) => {
+      data[componentId] = component.save()
+    })
+
+    return data
   }
 
   getComponentById(
@@ -59,13 +69,8 @@ class PropsManager {
     return restoredComponent
   }
 
-  load(data?: PropRawData) {
-    // TODO: Load and create all props components
-    console.log('props load data', data)
-  }
-
-  _createProperty(propName: PropertyTypes) {
-    return createProperty(propName)
+  _createProperty(type: PropertyTypes) {
+    return createProperty({ type })
   }
 
   addProperty(propNames: PropertyTypes[]): Record<PropertyTypes, string> {
@@ -93,6 +98,6 @@ class PropsManager {
 }
 
 const propsManager = new PropsManager()
-console.log(propsManager)
+
 export default propsManager
 export { PropsManager }

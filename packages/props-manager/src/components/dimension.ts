@@ -2,7 +2,8 @@ import {
   Unit,
   PropertyTypes,
   DefaultDimensionData,
-  DimensionAttrs
+  DimensionAttrs,
+  DimensionComponentRawData
 } from '@asra/utils'
 import BaseComponent from './base'
 
@@ -18,6 +19,16 @@ class DimensionComponent extends BaseComponent<DimensionAttrs> {
 
     this.data.type = PropertyTypes.DIMENSION
     this._init(data)
+  }
+
+  save(): DimensionComponentRawData {
+    return {
+      ...super.save(),
+      width: this.get('width'),
+      height: this.get('height'),
+      widthUnit: this.get('widthUnit'),
+      heightUnit: this.get('heightUnit')
+    }
   }
 
   getValue(): Record<string, number> {

@@ -20,6 +20,8 @@ export interface DimensionComponentRawData extends PropertyRawData {
   heightUnit: Unit
 }
 
+export type PropsComponentRawData = Record<string, PropertyComponentRawData>
+
 export type PropertyComponentRawData =
   | PositionComponentRawData
   | DimensionComponentRawData

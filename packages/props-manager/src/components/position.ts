@@ -1,6 +1,7 @@
 import {
   DefaultPositionData,
   PositionAttrs,
+  PositionComponentRawData,
   PropertyTypes,
   Unit
 } from '@asra/utils'
@@ -17,6 +18,16 @@ class PositionComponent extends BaseComponent<PositionAttrs> {
     super()
 
     this._init(data)
+  }
+
+  save(): PositionComponentRawData {
+    return {
+      ...super.save(),
+      x: this.get('x'),
+      y: this.get('y'),
+      xUnit: this.get('xUnit'),
+      yUnit: this.get('yUnit')
+    }
   }
 
   getValue(): Record<string, number> {

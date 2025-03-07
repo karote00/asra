@@ -4,7 +4,10 @@ import {
   DefaultPositionData,
   DefaultDimensionData,
   id,
-  IDTypes
+  loadId,
+  IDTypes,
+  PropertyComponentRawData,
+  isNil
 } from '@asra/utils'
 import {
   PositionComponent,
@@ -21,14 +24,20 @@ const DefaultDataMap: Record<PropertyTypes, object> = {
   [PropertyTypes.DIMENSION]: DefaultDimensionData
 }
 
-export const createProperty = (propName: PropertyTypes) => {
-  const PropClass = PropClassMap[propName]
+export const createProperty = (data: Partial<PropertyComponentRawData>) => {
+  const type = data.type as PropertyTypes
+  const PropClass = PropClassMap[type]
   if (!PropClass) {
     return
   }
 
-  const comId = id(IDTypes.PROPS)
-  const defaultData = DefaultDataMap[propName]
+  let comId = data.id
+  if (isNil(comId)) {
+    comId = id(IDTypes.PROPS)
+  } else {
+    loadId(data.id as string, IDTypes.PROPS)
+  }
+  const defaultData = DefaultDataMap[type]
 
   return new PropClass({
     id: comId,

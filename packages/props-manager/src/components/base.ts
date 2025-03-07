@@ -1,7 +1,8 @@
 import type {
   IProperty,
   PositionAttrs,
-  PropertyComponentInstanceDataTypes
+  PropertyComponentInstanceDataTypes,
+  PropertyComponentRawData
 } from '@asra/utils'
 import { Setter, Unit, isNil } from '@asra/utils'
 
@@ -11,6 +12,8 @@ abstract class BaseComponent<
   extends Setter<T>
   implements IProperty
 {
+  propNames!: string[]
+
   constructor() {
     super(() => {})
   }
@@ -44,8 +47,11 @@ abstract class BaseComponent<
 
   load(): void {}
 
-  save(): T {
-    return {} as T
+  save(): PropertyComponentRawData {
+    return {
+      id: this.get('id'),
+      type: this.get('type')
+    } as PropertyComponentRawData
   }
 }
 
