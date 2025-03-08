@@ -1,6 +1,7 @@
 import { PropertyTypes } from '@asra/utils'
 import type { PropsRawData } from '@asra/utils'
 import propsManager from '@asra/props-manager'
+import { addProperty } from '@asra/reactive-events'
 
 type PropsDataType = Partial<PropsRawData>
 
@@ -24,11 +25,14 @@ class Props {
     }
   }
 
-  _init() {
-    const propIdMap = propsManager.addProperty(PROP_NAMES)
+  async _init() {
+    const propIdsMap = await addProperty(this.elementId, PROP_NAMES)
+    if (!propIdsMap) {
+      return
+    }
 
     PROP_NAMES.forEach((propName) => {
-      this[propName] = propIdMap[propName]
+      this[propName] = propIdsMap[propName]
     })
   }
 

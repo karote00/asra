@@ -1,5 +1,7 @@
+export * from './constants'
 export * from './yjs'
 export * from './change'
+export * from './props-manager'
 export * from './scene-tree'
 export * from './selection'
 export * from './key'

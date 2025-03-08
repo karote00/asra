@@ -1,10 +1,11 @@
+import { PropertyTypes } from '@asra/utils'
 import type { EventTypes } from '../types'
 
 export interface PropChangeCompleteEvent {
   type: EventTypes
   payload: {
     elementId: string
-    propertyIds?: string[]
+    propertyIdsMap?: Record<PropertyTypes, string>
   }
 }
 
@@ -12,7 +13,7 @@ export interface AddPropertyEvent {
   type: EventTypes
   payload: {
     elementId: string
-    propNames: string[]
+    propNames: PropertyTypes[]
   }
 }
 

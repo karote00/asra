@@ -1,4 +1,4 @@
-import { DataTypes } from './scene-tree'
+import { DataTypes } from './constants'
 
 export interface ChangeHandler {
   addChange(data: {

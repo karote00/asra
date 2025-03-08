@@ -1,8 +1,7 @@
 import { OWNER, SCENE_TREE_ACTIONS } from '../enums'
 import type { ElementRawData } from '../sceneTree'
+import { DataTypes } from './constants'
 import type { YjsChange } from './yjs'
-
-export type DataTypes = boolean | number | string | (number | string)[] | symbol
 
 export interface AddRemoveElementChange {
   action: SCENE_TREE_ACTIONS

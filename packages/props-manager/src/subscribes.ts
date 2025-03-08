@@ -2,11 +2,14 @@ import {
   propChangeComplete,
   subscribeToAddProperty
 } from '@asra/reactive-events'
+import propsManager from './props-manager'
 
 export const initPropXSubscribes = () => {
   subscribeToAddProperty(({ payload }) => {
-    console.log('add property', payload)
+    const newPropertyIdsMap = propsManager.addProperty(payload.propNames)
 
-    propChangeComplete(payload.elementId, ['test'])
+    // TODO: update transaction
+
+    propChangeComplete(payload.elementId, newPropertyIdsMap)
   })
 }

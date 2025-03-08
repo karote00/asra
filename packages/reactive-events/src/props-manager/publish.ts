@@ -2,8 +2,12 @@ import { filter, firstValueFrom } from 'rxjs'
 import { publishEvent, getEventBus } from '../event-bus'
 import { EventTypes } from '../types'
 import { PropChangeCompleteEvent } from './events'
+import { PropertyTypes } from '@asra/utils'
 
-export const addProperty = async (elementId: string, propNames: string[]) => {
+export const addProperty = async (
+  elementId: string,
+  propNames: PropertyTypes[]
+) => {
   const response$ = getEventBus().pipe(
     filter(
       (event): event is PropChangeCompleteEvent =>
@@ -22,18 +26,18 @@ export const addProperty = async (elementId: string, propNames: string[]) => {
   })
 
   const response = await firstValueFrom(response$)
-  return response.payload.propertyIds
+  return response.payload.propertyIdsMap
 }
 
 export const propChangeComplete = (
   elementId: string,
-  propertyIds: string[]
+  propertyIdsMap: Record<PropertyTypes, string>
 ) => {
   publishEvent({
     type: EventTypes.PROP_CHANGE_COMPLETE,
     payload: {
       elementId,
-      propertyIds
+      propertyIdsMap
     }
   })
 }
