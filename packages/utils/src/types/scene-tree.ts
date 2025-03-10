@@ -17,7 +17,7 @@ export interface UpdateElementChange {
   action: SCENE_TREE_ACTIONS
   owner: OWNER
   eventName: string
-  elementId: string
+  id: string
   key: string
   before: DataTypes
   after: DataTypes

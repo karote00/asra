@@ -23,8 +23,8 @@ const updateUISceneTree = (change: SceneTreeYjsChange['payload']) => {
       break
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT: {
-      const { elementId, key, after } = change as UpdateElementChange
-      sceneTreeStore.updateElement(elementId, key, after)
+      const { id, key, after } = change as UpdateElementChange
+      sceneTreeStore.updateElement(id, key, after)
       break
     }
   }

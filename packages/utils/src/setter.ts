@@ -30,7 +30,7 @@ export class Setter<T extends InstanceDataType> {
       const after = this._cloneData(value)
 
       this.addChangeCallback({
-        elementId: this.get('id'),
+        id: this.get('id'),
         key: key as string,
         before: before as DataTypes,
         after: after as DataTypes
