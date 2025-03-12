@@ -21,6 +21,6 @@ export const initPropXSubscribes = () => {
     })
     propsManager.cleanChanges()
 
-    propChangeComplete(payload.elementId, newPropertyIdsMap)
+    propChangeComplete(newPropertyIdsMap)
   })
 }

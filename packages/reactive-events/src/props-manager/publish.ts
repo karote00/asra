@@ -5,22 +5,18 @@ import { PropChangeCompleteEvent } from './events'
 import { PropertyTypes, PropertyComponentRawData } from '@asra/utils'
 
 export const addProperty = async (
-  elementId: string,
   data: Partial<PropertyComponentRawData>[]
 ) => {
   const response$ = getEventBus().pipe(
     filter(
       (event): event is PropChangeCompleteEvent =>
-        event.type === EventTypes.PROP_CHANGE_COMPLETE &&
-        'payload' in event &&
-        event.payload.elementId === elementId
+        event.type === EventTypes.PROP_CHANGE_COMPLETE && 'payload' in event
     )
   )
 
   publishEvent({
     type: EventTypes.ADD_PROPERTY,
     payload: {
-      elementId,
       data
     }
   })
@@ -30,13 +26,11 @@ export const addProperty = async (
 }
 
 export const propChangeComplete = (
-  elementId: string,
   propertyIdsMap: Record<PropertyTypes, string>
 ) => {
   publishEvent({
     type: EventTypes.PROP_CHANGE_COMPLETE,
     payload: {
-      elementId,
       propertyIdsMap
     }
   })

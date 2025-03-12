@@ -26,7 +26,7 @@ class Props {
 
   async _init() {
     const propsTypeData = PROP_NAMES.map((propName) => ({ type: propName }))
-    const propIdsMap = await addProperty(this.elementId, propsTypeData)
+    const propIdsMap = await addProperty(propsTypeData)
     if (!propIdsMap) {
       return
     }

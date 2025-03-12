@@ -4,7 +4,6 @@ import type { EventTypes } from '../types'
 export interface PropChangeCompleteEvent {
   type: EventTypes
   payload: {
-    elementId: string
     propertyIdsMap?: Record<PropertyTypes, string>
   }
 }
@@ -12,7 +11,13 @@ export interface PropChangeCompleteEvent {
 export interface AddPropertyEvent {
   type: EventTypes
   payload: {
-    elementId: string
+    data: Partial<PropertyComponentRawData>[]
+  }
+}
+
+export interface RemovePropertyEvent {
+  type: EventTypes
+  payload: {
     data: Partial<PropertyComponentRawData>[]
   }
 }
