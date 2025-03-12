@@ -9,7 +9,7 @@ export interface AddRemovePropertyChange {
   undoType: string
   undoAction: string
   eventName: string
-  data: PropertyComponentRawData
+  data: PropertyComponentRawData[]
   parentId?: string
 }
 

@@ -1,20 +1,30 @@
 import * as Y from 'yjs'
-import type { SceneTreeYjsChange, SelectionYjsChange } from '@asra/utils'
+import type {
+  PropsYjsChange,
+  SceneTreeYjsChange,
+  SelectionYjsChange
+} from '@asra/utils'
 import type { AllEvent, UpdateTransactionEvent } from '@asra/reactive-events'
 import { publishEvent, updateUndoRedoStatus } from '@asra/reactive-events'
 import { OWNER, UNDO } from '@asra/utils'
-import { sceneTreeChange, elementSelectionChange } from './registry'
+import {
+  sceneTreeChanges,
+  elementSelectionChanges,
+  propsChanges
+} from './registry'
 
 type YMapOrArray<T = unknown> = Y.Array<T> | Y.Map<T>
 
 interface ChangesTypeMap {
   [OWNER.SCENE_TREE]: YMapOrArray<SceneTreeYjsChange>
   [OWNER.ELEMENT_SELECTION]: YMapOrArray<SelectionYjsChange>
+  [OWNER.PROPS]: YMapOrArray<PropsYjsChange>
 }
 
 const ChangesMaps: ChangesTypeMap = {
-  [OWNER.SCENE_TREE]: sceneTreeChange,
-  [OWNER.ELEMENT_SELECTION]: elementSelectionChange
+  [OWNER.SCENE_TREE]: sceneTreeChanges,
+  [OWNER.ELEMENT_SELECTION]: elementSelectionChanges,
+  [OWNER.PROPS]: propsChanges
 }
 
 class DataTransact {

@@ -41,6 +41,7 @@ export enum SelectionEventTypes {
 // Properties
 export enum PropsEventTypes {
   ADD_PROPERTY = 'addProperty',
+  REMOVE_PROPERTY = 'removeProperty',
   PROP_CHANGE_COMPLETE = 'propChangeComplete'
 }
 

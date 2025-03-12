@@ -11,7 +11,8 @@ export enum Unit {
 
 export enum OWNER {
   SCENE_TREE = 'SCENE_TREE',
-  ELEMENT_SELECTION = 'ELEMENT_SELECTION'
+  ELEMENT_SELECTION = 'ELEMENT_SELECTION',
+  PROPS = 'PROPS'
 }
 
 export enum UNDO {

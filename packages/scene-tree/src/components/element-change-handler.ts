@@ -5,7 +5,7 @@ import sceneTree from '../sceneTree'
 
 export default class ElementChangeHandler implements ChangeHandler {
   addChange(data: {
-    elementId: string
+    id: string
     key: string
     before: DataTypes
     after: DataTypes

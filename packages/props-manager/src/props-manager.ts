@@ -1,4 +1,4 @@
-import { PropAlias, PropertyTypes } from '@asra/utils'
+import { OWNER, PropAlias, PropertyTypes, PROPS_ACTIONS } from '@asra/utils'
 import type {
   PropertyComponentInstanceTypes,
   PropsChange,
@@ -6,6 +6,7 @@ import type {
 } from '@asra/utils'
 import { initPropXSubscribes } from './subscribes'
 import { createProperty } from './utils'
+import { EventTypes } from '@asra/reactive-events'
 
 initPropXSubscribes()
 
@@ -30,6 +31,14 @@ class PropsManager {
     })
 
     return data
+  }
+
+  addChange(change: PropsChange) {
+    this.changes.push(change)
+  }
+
+  cleanChanges() {
+    this.changes = []
   }
 
   getComponentById(
@@ -71,26 +80,46 @@ class PropsManager {
     return restoredComponent
   }
 
-  _createProperty(type: PropertyTypes) {
-    return createProperty({ type })
+  addChangeForAddProperty(property: PropertyComponentInstanceTypes) {
+    this.addChange({
+      eventName: EventTypes.ADD_PROPERTY,
+      data: [property.save()],
+      action: PROPS_ACTIONS.ADD_PROPERTY,
+      owner: OWNER.PROPS,
+      undoType: EventTypes.REMOVE_PROPERTY,
+      undoAction: EventTypes.REMOVE_PROPERTY
+    })
   }
 
-  addProperty(propNames: PropertyTypes[]): Record<PropertyTypes, string> {
-    const propComponents = propNames.map((propName) => {
-      const propKey = (PropAlias[propName] || propName) as PropertyTypes
-      const newProperty = this._createProperty(propKey)
-      if (newProperty) {
-        this.addToMap(newProperty)
-      }
-      return newProperty
+  addChangeForRemoveProperty(property: PropertyComponentInstanceTypes) {
+    this.addChange({
+      eventName: EventTypes.REMOVE_PROPERTY,
+      data: [property.save()],
+      action: PROPS_ACTIONS.REMOVE_PROPERTY,
+      owner: OWNER.PROPS,
+      undoType: EventTypes.ADD_PROPERTY,
+      undoAction: EventTypes.ADD_PROPERTY
     })
+  }
 
+  createProperty(type: PropertyTypes) {
+    const newProperty = createProperty({
+      type
+    }) as PropertyComponentInstanceTypes
+    this.addChangeForAddProperty(newProperty)
+    return newProperty
+  }
+
+  addProperty(
+    propComponents: PropertyComponentInstanceTypes[]
+  ): Record<PropertyTypes, string> {
     return propComponents.reduce(
       (acc, com) => {
         if (!com) {
           return acc
         }
 
+        this.addToMap(com)
         acc[com.get('type')] = com.get('id')
         return acc
       },

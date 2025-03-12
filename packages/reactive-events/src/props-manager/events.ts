@@ -1,4 +1,4 @@
-import { PropertyTypes } from '@asra/utils'
+import { PropertyTypes, PropertyComponentRawData } from '@asra/utils'
 import type { EventTypes } from '../types'
 
 export interface PropChangeCompleteEvent {
@@ -13,7 +13,7 @@ export interface AddPropertyEvent {
   type: EventTypes
   payload: {
     elementId: string
-    propNames: PropertyTypes[]
+    data: Partial<PropertyComponentRawData>[]
   }
 }
 
