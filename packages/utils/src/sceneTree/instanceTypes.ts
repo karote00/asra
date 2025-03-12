@@ -18,6 +18,7 @@ export interface IElement<T extends ElementAttrs = ElementAttrs>
   extends ISetter<T> {
   load(data: Partial<ElementRawData>): void
   save(): ElementRawData
+  cleanup(): void
 }
 
 export interface IGroupElement<T extends GroupAttrs = GroupAttrs>

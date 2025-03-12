@@ -107,6 +107,10 @@ class Element<T extends ElementAttrs = ElementAttrs>
 
     return data
   }
+
+  cleanup() {
+    this.props.cleanup()
+  }
 }
 
 export default Element
