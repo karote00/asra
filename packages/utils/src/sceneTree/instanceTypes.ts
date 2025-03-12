@@ -1,10 +1,6 @@
+import { ISetter } from '../setter'
 import { EntityTypes } from './enum'
 import type { ElementRawData } from './rawDataTypes'
-
-export interface ISetter<T extends ElementAttrs = ElementAttrs> {
-  get<K extends keyof T>(key: K): T[K]
-  set<K extends keyof T>(key: K, value: T[K]): void
-}
 
 export interface ElementAttrs {
   id: string
@@ -22,6 +18,7 @@ export interface IElement<T extends ElementAttrs = ElementAttrs>
   extends ISetter<T> {
   load(data: Partial<ElementRawData>): void
   save(): ElementRawData
+  cleanup(): void
 }
 
 export interface IGroupElement<T extends GroupAttrs = GroupAttrs>
@@ -32,3 +29,4 @@ export interface IGroupElement<T extends GroupAttrs = GroupAttrs>
 
 export interface ElementInstanceTypes extends IElement {}
 export interface GroupInstanceTypes extends IGroupElement {}
+export type ElementInstanceDataTypes = GroupAttrs | ElementAttrs

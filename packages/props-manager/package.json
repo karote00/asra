@@ -1,7 +1,7 @@
 {
-  "name": "@asra/scene-tree",
+  "name": "@asra/props-manager",
   "version": "1.0.1",
-  "description": "SceneTree structure.",
+  "description": "A structured property management library that provides API-based control over prop components, separate from the scene tree.",
   "author": "Asa Tsai",
   "license": "MIT",
   "packageManager": "yarn@4.3.1",
@@ -10,7 +10,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "dev": "tsc --watch",
-    "build:intermediate-core": "tsc",
+    "build:module": "tsc",
     "clean": "rm -rf dist"
   },
   "devDependencies": {

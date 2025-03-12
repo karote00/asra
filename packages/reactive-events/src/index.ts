@@ -1,5 +1,6 @@
 export * from './types'
 export * from './app'
 export * from './event-bus'
+export * from './props-manager'
 export * from './scene-tree'
 export * from './selection'

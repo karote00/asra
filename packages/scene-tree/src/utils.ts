@@ -31,9 +31,7 @@ export const createElement = (elementData: Partial<ElementRawData>) => {
     throw new Error('Ivalid entity type.')
   }
 
-  const newEntity = new EntityClass() as ElementInstanceTypes
-  newEntity.load(elementData)
-  return newEntity
+  return new EntityClass(elementData) as ElementInstanceTypes
 }
 
 export const createWorkspace = (workspaceData = initWorkspaceData) => {

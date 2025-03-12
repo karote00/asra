@@ -1,31 +1,31 @@
 import { UNDO } from '@asra/utils'
-import { EventTypes } from '../types'
+import type { EventTypes } from '../types'
 
 export interface RenderIsReadyEvent {
-  type: EventTypes.RENDER_IS_READY
+  type: EventTypes
 }
 
 export interface FileLoadCompleteEvent {
-  type: EventTypes.FILE_LOAD_COMPLETE
+  type: EventTypes
 }
 
 export interface StartTransactionEvent {
-  type: EventTypes.START_TRANSACTION
+  type: EventTypes
 }
 
 export interface UpdateTransactionEvent {
-  type: EventTypes.UPDATE_TRANSACTION
+  type: EventTypes
   eventName: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload: any & { undoable: UNDO }
 }
 
 export interface EndTransactionEvent {
-  type: EventTypes.END_TRANSACTION
+  type: EventTypes
 }
 
 export interface UndoRedoStatusEvent {
-  type: EventTypes.UNDOREDO_STATUS
+  type: EventTypes
   status: UNDO
 }
 

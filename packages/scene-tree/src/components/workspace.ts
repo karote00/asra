@@ -100,6 +100,8 @@ class Workspace extends Group {
       this.set('children', originalChildrenList)
     }
 
+    element.cleanup()
+
     // Remove element from Workspace
     sceneTree.removeFromMap(element)
   }

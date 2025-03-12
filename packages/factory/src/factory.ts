@@ -2,11 +2,11 @@ import * as Y from 'yjs'
 import type { SceneTreeYjsChange, SelectionYjsChange } from '@asra/utils'
 import type { UpdateTransactionEvent } from '@asra/reactive-events'
 import DataTransact from './data-transact'
-import { sceneTreeChange, elementSelectionChange } from './registry'
+import { sceneTreeChanges, elementSelectionChanges } from './registry'
 
 class Factory {
-  sceneTreeMap: Y.Array<SceneTreeYjsChange> = sceneTreeChange
-  elementSelectionMap: Y.Array<SelectionYjsChange> = elementSelectionChange
+  sceneTreeMap: Y.Array<SceneTreeYjsChange> = sceneTreeChanges
+  elementSelectionMap: Y.Array<SelectionYjsChange> = elementSelectionChanges
   transact: DataTransact = new DataTransact()
 
   startTransaction() {

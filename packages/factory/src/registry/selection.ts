@@ -3,10 +3,10 @@ import { SelectionYjsChange } from '@asra/utils'
 import doc from '../data'
 import { UNDO_CAPTURE_TIMEOUT } from './constants'
 
-export const elementSelectionChange =
-  doc.getArray<SelectionYjsChange>('selectionChange')
+export const elementSelectionChanges =
+  doc.getArray<SelectionYjsChange>('selectionChanges')
 export const elementSelectionChangeManager = new Y.UndoManager(
-  elementSelectionChange,
+  elementSelectionChanges,
   {
     captureTimeout: UNDO_CAPTURE_TIMEOUT
   }

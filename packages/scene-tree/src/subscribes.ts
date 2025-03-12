@@ -19,6 +19,7 @@ export const initSceneTreeSubscribes = () => {
   subscribeToAddElement(({ payload }) => {
     const { data, parent, index } = payload
 
+    startTransaction()
     let newRectangle
     if (inUndoRedo) {
       newRectangle = sceneTree.getRestoreElementById(data.id as string)
@@ -26,10 +27,7 @@ export const initSceneTreeSubscribes = () => {
       newRectangle = sceneTree.createElement(data)
     }
 
-    startTransaction()
-
     sceneTree.addNewElement(newRectangle as ElementInstanceTypes, parent, index)
-
     sceneTree.changes.forEach((change) => {
       updateTransaction(change.eventName, change)
     })

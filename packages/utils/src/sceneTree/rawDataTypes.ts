@@ -6,11 +6,13 @@ export interface BaseRawData {
 }
 
 export interface PropsRawData {
-  width: string
+  position: string
+  dimension: string
 }
 
 export interface ComputedRawData {
-  width: number
+  position: number
+  dimension: string
 }
 
 export interface ElementRawData extends BaseRawData {
