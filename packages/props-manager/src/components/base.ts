@@ -5,6 +5,9 @@ import type {
   PropertyComponentRawData
 } from '@asra/utils'
 import { Setter, Unit, isNil } from '@asra/utils'
+import PropsChangeHandler from './props-change-handler'
+
+const propsChangeHandler = new PropsChangeHandler()
 
 abstract class BaseComponent<
     T extends PropertyComponentInstanceDataTypes = PositionAttrs
@@ -15,7 +18,7 @@ abstract class BaseComponent<
   propNames!: string[]
 
   constructor() {
-    super(() => {})
+    super(propsChangeHandler.addChange)
   }
 
   _init(data: Partial<T>) {
@@ -45,7 +48,7 @@ abstract class BaseComponent<
     return key in this.data
   }
 
-  load(): void {}
+  abstract load(data: PropertyComponentRawData): void
 
   save(): PropertyComponentRawData {
     return {

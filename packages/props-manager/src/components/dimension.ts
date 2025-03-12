@@ -31,6 +31,13 @@ class DimensionComponent extends BaseComponent<DimensionAttrs> {
     }
   }
 
+  load(data: DimensionComponentRawData): void {
+    this.data.width = data.width
+    this.data.height = data.height
+    this.data.widthUnit = data.widthUnit
+    this.data.heightUnit = data.heightUnit
+  }
+
   getValue(): Record<string, number> {
     return {
       width: this.data.width,

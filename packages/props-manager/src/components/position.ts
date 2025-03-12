@@ -30,6 +30,13 @@ class PositionComponent extends BaseComponent<PositionAttrs> {
     }
   }
 
+  load(data: PositionComponentRawData): void {
+    this.data.x = data.x
+    this.data.y = data.y
+    this.data.xUnit = data.xUnit
+    this.data.yUnit = data.yUnit
+  }
+
   getValue(): Record<string, number> {
     return {
       x: this.data.x,

@@ -1,4 +1,4 @@
-import { OWNER, PropAlias, PropertyTypes, PROPS_ACTIONS } from '@asra/utils'
+import { OWNER, PropertyTypes, PROPS_ACTIONS } from '@asra/utils'
 import type {
   PropertyComponentInstanceTypes,
   PropsChange,
