@@ -1,6 +1,6 @@
 import { PropertyTypes } from '@asra/utils'
 import type { PropsRawData } from '@asra/utils'
-import { addProperty } from '@asra/reactive-events'
+import { addProperty, removeProperty } from '@asra/reactive-events'
 
 type PropsDataType = Partial<PropsRawData>
 
@@ -48,6 +48,13 @@ class Props {
       acc[key] = this[key] as string
       return acc
     }, {} as PropsRawData)
+  }
+
+  cleanup() {
+    const removedPropertyIds = PROP_NAMES.map((propName) => ({
+      id: this[propName]
+    }))
+    removeProperty(removedPropertyIds)
   }
 }
 

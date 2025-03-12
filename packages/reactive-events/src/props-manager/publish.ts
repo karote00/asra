@@ -4,6 +4,17 @@ import { EventTypes } from '../types'
 import { PropChangeCompleteEvent } from './events'
 import { PropertyTypes, PropertyComponentRawData } from '@asra/utils'
 
+export const propChangeComplete = (
+  propertyIdsMap: Record<PropertyTypes, string>
+) => {
+  publishEvent({
+    type: EventTypes.PROP_CHANGE_COMPLETE,
+    payload: {
+      propertyIdsMap
+    }
+  })
+}
+
 export const addProperty = async (
   data: Partial<PropertyComponentRawData>[]
 ) => {
@@ -25,13 +36,11 @@ export const addProperty = async (
   return response.payload.propertyIdsMap
 }
 
-export const propChangeComplete = (
-  propertyIdsMap: Record<PropertyTypes, string>
-) => {
+export const removeProperty = (data: Partial<PropertyComponentRawData>[]) => {
   publishEvent({
-    type: EventTypes.PROP_CHANGE_COMPLETE,
+    type: EventTypes.REMOVE_PROPERTY,
     payload: {
-      propertyIdsMap
+      data
     }
   })
 }

@@ -76,8 +76,7 @@ class PropsManager {
   }
 
   getRestoreComponentById(componentId: string) {
-    const restoredComponent = this._deletedMap.get(componentId)
-    return restoredComponent
+    return this._deletedMap.get(componentId)
   }
 
   addChangeForAddProperty(property: PropertyComponentInstanceTypes) {
@@ -126,9 +125,15 @@ class PropsManager {
       {} as Record<PropertyTypes, string>
     )
   }
+
+  removeProperty(propComponentIds: string[]) {
+    propComponentIds.forEach((propComponentId) => {
+      this.removeFromMap(propComponentId)
+    })
+  }
 }
 
 const propsManager = new PropsManager()
-console.log(propsManager)
+
 export default propsManager
 export { PropsManager }

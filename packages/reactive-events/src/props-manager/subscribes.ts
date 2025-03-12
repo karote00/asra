@@ -1,8 +1,25 @@
 import { Subscription } from 'rxjs'
 import { filter } from 'rxjs/operators'
-import type { AddPropertyEvent, PropChangeCompleteEvent } from './events'
+import type {
+  AddPropertyEvent,
+  PropChangeCompleteEvent,
+  RemovePropertyEvent
+} from './events'
 import { getEventBusObserve } from '../event-bus'
 import { EventTypes } from '../types'
+
+export const subscribeToPropChangeComplete = (
+  subscriber: (event: PropChangeCompleteEvent) => void
+): Subscription => {
+  return getEventBusObserve()
+    .pipe(
+      filter(
+        (event): event is PropChangeCompleteEvent =>
+          event.type === EventTypes.PROP_CHANGE_COMPLETE
+      )
+    )
+    .subscribe(subscriber)
+}
 
 export const subscribeToAddProperty = (
   subscriber: (event: AddPropertyEvent) => void
@@ -17,14 +34,14 @@ export const subscribeToAddProperty = (
     .subscribe(subscriber)
 }
 
-export const subscribeToPropChangeComplete = (
-  subscriber: (event: PropChangeCompleteEvent) => void
+export const subscribeToRemoveProperty = (
+  subscriber: (event: RemovePropertyEvent) => void
 ): Subscription => {
   return getEventBusObserve()
     .pipe(
       filter(
-        (event): event is PropChangeCompleteEvent =>
-          event.type === EventTypes.PROP_CHANGE_COMPLETE
+        (event): event is RemovePropertyEvent =>
+          event.type === EventTypes.REMOVE_PROPERTY
       )
     )
     .subscribe(subscriber)
