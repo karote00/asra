@@ -1,6 +1,6 @@
 import React from 'react'
 import Element from './Element'
-import { useFlattenedIdsData } from '../providers/scene-tree'
+import { useFlattenedIdsData } from '../providers'
 import { COLUMN_WIDTH } from '../constants'
 
 const Contents: React.FC = () => {

@@ -6,13 +6,9 @@ import {
 import { BehaviorSubject } from 'rxjs'
 import { sceneTreeStore } from '@asra/ui-context'
 import { sceneTreeManager } from '../contexts'
-import { ElementRawData, WorkspaceRawData } from '@asra/utils'
+import { ElementRawData } from '@asra/utils'
 
-type UIElementData = ElementRawData
-type UIWorkspaceData = Pick<
-  WorkspaceRawData,
-  'id' | 'name' | 'type' | 'children'
->
+import { createStore } from './utils'
 
 export const useFlattenedIdsData = (): string[] => {
   const [flattenedIds, setFlattenedIds] = useState<string[]>([])
@@ -43,18 +39,10 @@ export const useFlattenedIdsData = (): string[] => {
   return flattenedIds
 }
 
-export const useElementData = (elementId: string) => {
-  const subject = sceneTreeStore.getElement(elementId)
-  const [data, setData] = useState(subject?.getValue())
-
-  useEffect(() => {
-    if (!subject) return
-
-    const sub = (
-      subject as BehaviorSubject<UIElementData | UIWorkspaceData>
-    ).subscribe(setData)
-    return () => sub.unsubscribe()
-  }, [subject])
-
-  return data
+export const useElementData = (elementId: string): Partial<ElementRawData> => {
+  const subject = sceneTreeStore.getElement(
+    elementId
+  ) as BehaviorSubject<ElementRawData>
+  if (!subject) return {}
+  return createStore(subject)
 }

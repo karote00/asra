@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef } from 'react'
 import type { ElementRawData, Modifiers } from '@asra/utils'
 import { EntityTypes } from '@asra/utils'
 import { Icon } from '@asra/design-system'
-import { useElementData } from '../providers/scene-tree'
+import { useElementData } from '../providers'
 import { selectElements } from '../controllers/element-selection'
-import { useElementSelection } from '../providers/element-selection'
+import { useElementSelection } from '../providers'
 
 const getModifiers = (e: KeyboardEvent): Modifiers => {
   return {

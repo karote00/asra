@@ -1,4 +1,4 @@
-import { ReplaySubject, Observable, Subscription } from 'rxjs'
+import { ReplaySubject, Observable, Subscription, filter, share } from 'rxjs'
 import { EventTypes } from './types'
 import type { AppEvent } from './app'
 import type { SceneTreeEvents } from './scene-tree'
@@ -26,3 +26,9 @@ export const subscribeToEvents = (
 export const getEventBus = (): ReplaySubject<AllEvent> => eventBus
 export const getEventBusObserve = (): Observable<AllEvent> =>
   eventBus.asObservable()
+
+export const createEventStream = <T extends AllEvent>(eventType: EventTypes) =>
+  getEventBusObserve().pipe(
+    filter((event): event is T => event.type === eventType),
+    share()
+  )
