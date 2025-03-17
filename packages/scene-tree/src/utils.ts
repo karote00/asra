@@ -31,7 +31,15 @@ export const createElement = (elementData: Partial<ElementRawData>) => {
     throw new Error('Ivalid entity type.')
   }
 
-  return new EntityClass(elementData) as ElementInstanceTypes
+  // If only pass type to create a new element, it should create a new instance with empty data, not load data.
+  if (
+    Object.keys(elementData).length === 1 &&
+    typeof elementData.type !== undefined
+  ) {
+    return new EntityClass()
+  } else {
+    return new EntityClass(elementData)
+  }
 }
 
 export const createWorkspace = (workspaceData = initWorkspaceData) => {

@@ -18,6 +18,11 @@ class Rectangle extends Element {
     this.data.type = EntityTypes.RECTANGLE
   }
 
+  create(): void {
+    super.create()
+    this.data.type = EntityTypes.RECTANGLE
+  }
+
   load(data: RectangleDataType): void {
     super.load(data)
   }

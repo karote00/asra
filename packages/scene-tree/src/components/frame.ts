@@ -15,6 +15,11 @@ class Frame extends Group {
     this.data.type = EntityTypes.FRAME
   }
 
+  create(): void {
+    super.create()
+    this.data.type = EntityTypes.FRAME
+  }
+
   load(data: FrameDataType): void {
     super.load(data)
   }

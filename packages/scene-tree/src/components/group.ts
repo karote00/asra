@@ -32,6 +32,11 @@ class Group<T extends GroupAttrs = GroupAttrs>
     this.data.children = (data.children as string[]) || []
   }
 
+  create(): void {
+    super.create()
+    this.data.type = EntityTypes.GROUP
+  }
+
   save(): GroupRawData {
     const data = super.save() as GroupRawData
     data.children = this.data.children

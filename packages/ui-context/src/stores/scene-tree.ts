@@ -125,7 +125,6 @@ export default class SceneTreeStore {
 
   getFlattenedElementIds() {
     const ids: string[] = []
-
     this.workspace.getValue().children.forEach((childId: string) => {
       this.collectChildrenIds(childId, ids)
     })

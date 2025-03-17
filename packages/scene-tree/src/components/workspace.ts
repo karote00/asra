@@ -22,6 +22,11 @@ class Workspace extends Group {
     this.data.type = EntityTypes.WORKSPACE
   }
 
+  create(): void {
+    super.create()
+    this.data.type = EntityTypes.WORKSPACE
+  }
+
   load(data: WorkspaceDataType): void {
     super.load(data)
   }
@@ -65,6 +70,9 @@ class Workspace extends Group {
       // Add new element to Group type instance
       avaliableParent.addElement(element, index)
     } else {
+      // console.log('add to workspace')
+      // console.log(element)
+      // console.log(element.get('id'))
       // Add new element to Workspace
       const originalChildrenList = [...this.get('children')]
       const idx = index > -1 ? index : this.get('children').length
