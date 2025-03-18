@@ -1,6 +1,7 @@
 import { BehaviorSubject } from 'rxjs'
 import { SelectionManager } from '@asra/selection'
 import { SELECTION_TYPES } from '@asra/utils'
+import uiContext from '../ui-context'
 
 const SelectionTypes = Object.values(SELECTION_TYPES)
 type SelectionDataTye = Set<string>
@@ -26,7 +27,17 @@ export default class SelectionStore {
     }
 
     const selected = this.selections.get(type)
-    selected?.next(new Set(selection.getSelectedIds()))
+    const selectedIds = selection.getSelectedIds()
+    selected?.next(new Set(selectedIds))
+
+    switch (type) {
+      case SELECTION_TYPES.ELEMENT:
+        uiContext.elementSelection.next(selectedIds)
+        break
+      case SELECTION_TYPES.VERTEX:
+        uiContext.vertexSelection.next(selectedIds)
+        break
+    }
   }
 
   get elements() {
