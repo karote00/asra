@@ -7,6 +7,10 @@ import { SCENE_TREE_ACTIONS } from '@asra/utils'
 import factory from '@asra/factory'
 import sceneTree from '@asra/scene-tree'
 import SceneTreeStore from '../stores/scene-tree'
+import {
+  subscribeToEndTransaction,
+  subscribeToSceneTreeLoadComplete
+} from '@asra/reactive-events'
 
 export const sceneTreeStore = new SceneTreeStore(sceneTree)
 
@@ -54,6 +58,15 @@ export const initSceneTreeDataContext = () => {
 
   const sceneTreeArray = factory.sceneTreeMap
   sceneTreeArray.observe(collectSceneTreeChange)
+
+  subscribeToSceneTreeLoadComplete(() => {
+    sceneTreeStore.reload()
+    sceneTreeStore.fireChange()
+  })
+
+  subscribeToEndTransaction(() => {
+    sceneTreeStore.fireChange()
+  })
 
   hasInit = true
 }

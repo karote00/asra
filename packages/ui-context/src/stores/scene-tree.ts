@@ -7,6 +7,7 @@ import type {
   WorkspaceRawData
 } from '@asra/utils'
 import type { SceneTree, Workspace } from '@asra/scene-tree'
+import uiContext from '../ui-context'
 
 type UIWorkspaceData = Pick<
   WorkspaceRawData,
@@ -19,6 +20,7 @@ type UIElementData = Partial<UIAllElementData>
 
 export default class SceneTreeStore {
   private sceneTree: SceneTree
+  private dirty: boolean
   private workspaceId: string
   private workspace: BehaviorSubject<UIWorkspaceData>
   private _elements: Map<
@@ -29,10 +31,10 @@ export default class SceneTreeStore {
     string,
     BehaviorSubject<UIElementData> | BehaviorSubject<UIWorkspaceData>
   >
-  flattenedElementIds: string[]
 
   constructor(sceneTree: SceneTree) {
     this.sceneTree = sceneTree
+    this.dirty = false
     this.workspaceId = ''
     this.workspace = new BehaviorSubject<UIWorkspaceData>({
       id: this.workspaceId,
@@ -42,7 +44,6 @@ export default class SceneTreeStore {
     })
     this._elements = new Map()
     this._deletedMap = new Map()
-    this.flattenedElementIds = []
   }
 
   reload() {
@@ -68,6 +69,21 @@ export default class SceneTreeStore {
     })
 
     this.updateFlattenedElementIds()
+  }
+
+  markDirty() {
+    this.dirty = true
+  }
+
+  clearDirty() {
+    this.dirty = false
+  }
+
+  fireChange() {
+    if (this.dirty) {
+      this.clearDirty()
+      this.updateFlattenedElementIds()
+    }
   }
 
   getElement(
@@ -151,10 +167,11 @@ export default class SceneTreeStore {
   }
 
   updateFlattenedElementIds() {
-    this.flattenedElementIds = this.getFlattenedElementIds()
+    uiContext.flattenedElementIds.next(this.getFlattenedElementIds())
   }
 
   addElement(data: Partial<ElementRawData | GroupRawData>) {
+    this.markDirty()
     const elementSubject =
       this.getRestoreElementById(data.id as string) || new BehaviorSubject(data)
     this.addToMap(data.id as string, elementSubject)
@@ -164,6 +181,7 @@ export default class SceneTreeStore {
     data: Partial<ElementRawData | GroupRawData>,
     parentId: string
   ): void {
+    this.markDirty()
     const parent = this.getElement(parentId)
     const avaliableParent =
       parent ?? (this.workspace as BehaviorSubject<UIElementData>)
@@ -187,6 +205,7 @@ export default class SceneTreeStore {
     const element = this.getElement(elementId)
     if (!element) return
 
+    this.markDirty()
     const current = element.getValue()
     if ('children' in current) {
       ;(element as BehaviorSubject<UIWorkspaceData | GroupRawData>).next({

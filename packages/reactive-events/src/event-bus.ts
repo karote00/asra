@@ -27,8 +27,18 @@ export const getEventBus = (): ReplaySubject<AllEvent> => eventBus
 export const getEventBusObserve = (): Observable<AllEvent> =>
   eventBus.asObservable()
 
-export const createEventStream = <T extends AllEvent>(eventType: EventTypes) =>
-  getEventBusObserve().pipe(
+export const createEventStream = <T extends AllEvent>(
+  eventType: EventTypes,
+  reloadAction?: () => void
+) => {
+  const eventStream = getEventBusObserve().pipe(
     filter((event): event is T => event.type === eventType),
     share()
   )
+
+  if (reloadAction) {
+    eventStream.subscribe(() => reloadAction())
+  }
+
+  return eventStream
+}
