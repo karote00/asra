@@ -22,4 +22,15 @@ export interface RemovePropertyEvent {
   }
 }
 
-export type PropEvent = PropChangeCompleteEvent | AddPropertyEvent
+export interface UpdatePropertyEvent {
+  type: EventTypes
+  payload: {
+    data: Partial<PropertyComponentRawData>
+  }
+}
+
+export type PropEvent =
+  | PropChangeCompleteEvent
+  | AddPropertyEvent
+  | RemovePropertyEvent
+  | UpdatePropertyEvent

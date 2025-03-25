@@ -3,7 +3,8 @@ import { filter } from 'rxjs/operators'
 import type {
   AddPropertyEvent,
   PropChangeCompleteEvent,
-  RemovePropertyEvent
+  RemovePropertyEvent,
+  UpdatePropertyEvent
 } from './events'
 import { getEventBusObserve } from '../event-bus'
 import { EventTypes } from '../types'
@@ -42,6 +43,19 @@ export const subscribeToRemoveProperty = (
       filter(
         (event): event is RemovePropertyEvent =>
           event.type === EventTypes.REMOVE_PROPERTY
+      )
+    )
+    .subscribe(subscriber)
+}
+
+export const subscribeToUpdateProperty = (
+  subscriber: (event: UpdatePropertyEvent) => void
+): Subscription => {
+  return getEventBusObserve()
+    .pipe(
+      filter(
+        (event): event is UpdatePropertyEvent =>
+          event.type === EventTypes.UPDATE_PROPERTY
       )
     )
     .subscribe(subscriber)

@@ -44,3 +44,12 @@ export const removeProperty = (data: Partial<PropertyComponentRawData>[]) => {
     }
   })
 }
+
+export const updateProperty = (data: Partial<PropertyComponentRawData>) => {
+  publishEvent({
+    type: EventTypes.UPDATE_PROPERTY,
+    payload: {
+      data
+    }
+  })
+}
