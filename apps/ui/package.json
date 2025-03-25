@@ -30,9 +30,9 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
-    "vite": "^6.0.4",
+    "vite": "^6.2.3",
     "vite-plugin-eslint": "^1.8.1",
-    "vite-plugin-vercel": "^9.0.3"
+    "vite-plugin-vercel": "^9.0.5"
   },
   "scripts": {
     "react:start": "vite dev",
