@@ -2,12 +2,12 @@ import factory, { DataTransact } from '@asra/factory'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
 import InputSystem from '@asra/input-system'
 import type { PropsComponentRawData, SceneTreeRawData } from '@asra/utils'
-import propsManager, { PropsManager } from '../../props-manager/dist'
 
 import SystemEventManager from './system-event-manager'
 import RenderEventManager from './render-event-manager'
 import SceneTreeManager from './scene-tree-manager'
 import ElementSelectionManager from './element-selection-manager'
+import ElementPropsManager from './element-props-manager'
 import combinations from './combinations'
 
 const inputSystem = new InputSystem(combinations)
@@ -15,6 +15,7 @@ const systemEventManager = new SystemEventManager(inputSystem)
 const renderEventManager = new RenderEventManager(inputSystem)
 const sceneTreeManager = new SceneTreeManager()
 const elementSelectionManager = new ElementSelectionManager()
+const elementPropsManager = new ElementPropsManager()
 
 interface CoreRawData {
   version: string
@@ -29,7 +30,7 @@ class Core {
   version: string = DEFAULT_VERSION
   dataTransact: DataTransact = factory.transact
   sceneTree: SceneTree = sceneTree
-  propsManager: PropsManager = propsManager
+  elementPropsManager: ElementPropsManager = elementPropsManager
   systemEventManager: SystemEventManager = systemEventManager
   renderEventManager: RenderEventManager = renderEventManager
   sceneTreeManager: SceneTreeManager = sceneTreeManager
@@ -42,7 +43,7 @@ class Core {
 
     this.version = data.version ?? DATA_VERSION
     if (data.props) {
-      this.propsManager.load(data.props)
+      this.elementPropsManager.load(data.props)
     }
 
     if (data.sceneTree) {
@@ -56,7 +57,7 @@ class Core {
     const data = {
       version: this.version,
       sceneTree: this.sceneTreeManager.save(),
-      props: this.propsManager.save()
+      props: this.elementPropsManager.save()
     }
 
     return data
