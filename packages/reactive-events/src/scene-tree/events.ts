@@ -1,8 +1,23 @@
-import type { ElementRawData, GroupInstanceTypes } from '@asra/utils'
+import type {
+  ElementRawData,
+  GroupInstanceTypes,
+  SceneTreeRawData
+} from '@asra/utils'
 import { EventTypes } from '../types'
 
 export interface SceneTreeLoadCompleteEvent {
   type: EventTypes
+}
+
+export interface RequestSceneTreeDataEvent {
+  type: EventTypes
+}
+
+export interface FinishRequestSceneTreeDataEvent {
+  type: EventTypes
+  payload: {
+    data: SceneTreeRawData
+  }
 }
 
 export interface AddElementEvent {

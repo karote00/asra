@@ -1,34 +1,41 @@
-import type { DataTypes, ElementRawData, GroupRawData } from '@asra/utils'
+import type {
+  DataTypes,
+  ElementRawData,
+  GroupRawData,
+  SceneTreeRawData,
+  WorkspaceRawData
+} from '@asra/utils'
 import { EntityTypes, isGroupEntity } from '@asra/utils'
-import type { Workspace } from '@asra/scene-tree'
 import sceneTree from '@asra/scene-tree'
+
 import { render } from '../render'
 
 class RenderSceneTree {
-  private _workspace: Workspace | null
+  private _workspace: WorkspaceRawData | null
 
   constructor() {
     this._workspace = null
   }
 
-  reload() {
-    const currentWorkspace = sceneTree.currentWorkspace as Workspace
+  load(sceneTreeData: SceneTreeRawData) {
+    const currentWorkspace = sceneTreeData.elements[
+      sceneTreeData.workspace
+    ] as WorkspaceRawData
     this._workspace = currentWorkspace
 
     // Create root render node
-    const currentWorkspaceId = currentWorkspace.get('id')
-    const root = this.addContainer(currentWorkspaceId)
+    const root = this.addContainer(sceneTreeData.workspace)
 
     // Create all element render node
-    sceneTree.getAllElements().forEach((element) => {
-      if (element.get('type') !== EntityTypes.WORKSPACE) {
-        this.addElement(element.save())
+    Object.values(sceneTreeData.elements).forEach((elementData) => {
+      if (elementData.type !== EntityTypes.WORKSPACE) {
+        this.addElement(elementData)
       }
     })
 
     render.addRoot(root)
 
-    this.groupMapChildren(currentWorkspace.save())
+    this.groupMapChildren(currentWorkspace)
   }
 
   addContainer(currentWorkspaceId: string) {
@@ -41,7 +48,7 @@ class RenderSceneTree {
     return container
   }
 
-  groupMapChildren(data: GroupRawData) {
+  groupMapChildren(data: WorkspaceRawData | GroupRawData) {
     render.groupMapChildren(data)
 
     data.children.forEach((childId) => {

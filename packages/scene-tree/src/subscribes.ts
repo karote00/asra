@@ -4,7 +4,9 @@ import {
   subscribeToRemoveElement,
   startTransaction,
   updateTransaction,
-  endTransaction
+  endTransaction,
+  subscribeToRequestSceneTreeData,
+  finishRequestSceneTreeData
 } from '@asra/reactive-events'
 import type { ElementInstanceTypes } from '@asra/utils'
 import { UNDO } from '@asra/utils'
@@ -14,6 +16,10 @@ export const initSceneTreeSubscribes = () => {
   let inUndoRedo = false
   subscribeUndoRedoStatus(({ status }) => {
     inUndoRedo = status !== UNDO.NONE
+  })
+
+  subscribeToRequestSceneTreeData(() => {
+    finishRequestSceneTreeData(sceneTree.save())
   })
 
   subscribeToAddElement(({ payload }) => {
