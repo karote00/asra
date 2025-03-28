@@ -1,12 +1,13 @@
 import { OWNER, PropertyTypes, PROPS_ACTIONS } from '@asra/utils'
 import type {
   PropertyComponentInstanceTypes,
+  PropertyComponentRawData,
   PropsChange,
   PropsComponentRawData
 } from '@asra/utils'
 import { initPropXSubscribes } from './subscribes'
 import { createProperty } from './utils'
-import { EventTypes } from '@asra/reactive-events'
+import { EventTypes, updateTransaction } from '@asra/reactive-events'
 
 initPropXSubscribes()
 
@@ -101,10 +102,10 @@ class PropsManager {
     })
   }
 
-  createProperty(type: PropertyTypes) {
-    const newProperty = createProperty({
-      type
-    }) as PropertyComponentInstanceTypes
+  createProperty(propData: Partial<PropertyComponentRawData>) {
+    const newProperty = createProperty(
+      propData
+    ) as PropertyComponentInstanceTypes
     this.addChangeForAddProperty(newProperty)
     return newProperty
   }
@@ -130,6 +131,13 @@ class PropsManager {
     propComponentIds.forEach((propComponentId) => {
       this.removeFromMap(propComponentId)
     })
+  }
+
+  commitChanges() {
+    this.changes.forEach((change) => {
+      updateTransaction(change.eventName, change)
+    })
+    this.cleanChanges()
   }
 }
 

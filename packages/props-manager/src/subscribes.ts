@@ -3,7 +3,9 @@ import {
   subscribeUndoRedoStatus,
   subscribeToAddProperty,
   subscribeToRemoveProperty,
-  updateTransaction
+  updateTransaction,
+  subscribeToRequestPropsData,
+  finishRequestPropsData
 } from '@asra/reactive-events'
 import propsManager from './props-manager'
 import { PropAlias, PropertyTypes, UNDO } from '@asra/utils'
@@ -14,11 +16,12 @@ export const initPropXSubscribes = () => {
     inUndoRedo = status !== UNDO.NONE
   })
 
+  subscribeToRequestPropsData(() => {
+    finishRequestPropsData(propsManager.save())
+  })
+
   subscribeToAddProperty(({ payload }) => {
     const propComponents = payload.data.map((propData) => {
-      const type = propData.type as PropertyTypes
-      const propKey = (PropAlias[type] || type) as PropertyTypes
-
       let newProperty
       if (inUndoRedo) {
         newProperty = propsManager.getRestoreComponentById(
@@ -27,20 +30,19 @@ export const initPropXSubscribes = () => {
       }
 
       if (!newProperty) {
-        newProperty = propsManager.createProperty(propKey)
+        newProperty = propsManager.createProperty(propData)
       }
 
       return newProperty
     })
 
-    const newPropertyIdsMap = propsManager.addProperty(propComponents)
+    propsManager.addProperty(propComponents)
 
     propsManager.changes.forEach((change) => {
       updateTransaction(change.eventName, change)
     })
-    propsManager.cleanChanges()
 
-    propChangeComplete(newPropertyIdsMap)
+    propsManager.cleanChanges()
   })
 
   subscribeToRemoveProperty(({ payload }) => {
@@ -53,6 +55,7 @@ export const initPropXSubscribes = () => {
     propsManager.changes.forEach((change) => {
       updateTransaction(change.eventName, change)
     })
+
     propsManager.cleanChanges()
   })
 }

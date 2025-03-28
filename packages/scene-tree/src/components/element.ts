@@ -1,4 +1,9 @@
-import type { ElementRawData, ElementAttrs, IElement } from '@asra/utils'
+import type {
+  ElementRawData,
+  ElementAttrs,
+  IElement,
+  PropsRawData
+} from '@asra/utils'
 import {
   Setter,
   IDTypes,
@@ -39,14 +44,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
       this.create()
     }
 
-    const elementId = this.get('id') as string
-    if (this.data.type !== EntityTypes.WORKSPACE) {
-      if (data && data.props) {
-        this.props = new Props(elementId, data.props)
-      } else {
-        this.props = new Props(elementId)
-      }
-    }
+    this.setupProps(data?.props)
   }
 
   _init(): void {
@@ -120,6 +118,17 @@ class Element<T extends ElementAttrs = ElementAttrs>
     }
 
     return data
+  }
+
+  setupProps(propsData?: Partial<PropsRawData>) {
+    const elementId = this.get('id') as string
+    if (this.data.type !== EntityTypes.WORKSPACE) {
+      if (propsData) {
+        this.props = new Props(elementId, propsData)
+      } else {
+        this.props = new Props(elementId)
+      }
+    }
   }
 
   cleanup() {

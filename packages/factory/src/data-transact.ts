@@ -5,7 +5,12 @@ import type {
   SelectionYjsChange
 } from '@asra/utils'
 import type { AllEvent, UpdateTransactionEvent } from '@asra/reactive-events'
-import { publishEvent, updateUndoRedoStatus } from '@asra/reactive-events'
+import {
+  endTransaction,
+  publishEvent,
+  startTransaction,
+  updateUndoRedoStatus
+} from '@asra/reactive-events'
 import { OWNER, UNDO } from '@asra/utils'
 import {
   sceneTreeChanges,
@@ -88,11 +93,12 @@ class DataTransact {
       return
     }
 
+    startTransaction()
+
     this.inUndo = true
     updateUndoRedoStatus(UNDO.UNDO)
 
     const lastChanges = this.undoStack.pop() as AllEvent[]
-
     for (let i = lastChanges.length - 1; i >= 0; i--) {
       const event = lastChanges[i]
       const undoEvent = JSON.parse(JSON.stringify(event))
@@ -111,10 +117,13 @@ class DataTransact {
     }
 
     this.redoStack.push(lastChanges)
-    this.changes = []
-    this.inUndo = false
+
+    endTransaction()
 
     updateUndoRedoStatus(UNDO.NONE)
+
+    this.changes = []
+    this.inUndo = false
   }
 
   redo() {
@@ -122,19 +131,24 @@ class DataTransact {
       return
     }
 
+    startTransaction()
+
     this.inRedo = true
     updateUndoRedoStatus(UNDO.REDO)
-    const lastChanges = this.redoStack.pop() as AllEvent[]
 
+    const lastChanges = this.redoStack.pop() as AllEvent[]
     for (const event of lastChanges) {
       const redoEvent = JSON.parse(JSON.stringify(event))
       publishEvent(redoEvent)
     }
 
     this.undoStack.push(lastChanges)
+    endTransaction()
+
+    updateUndoRedoStatus(UNDO.NONE)
+
     this.changes = []
     this.inRedo = false
-    updateUndoRedoStatus(UNDO.NONE)
   }
 
   isInUndo() {

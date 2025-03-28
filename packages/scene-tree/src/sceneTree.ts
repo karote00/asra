@@ -4,7 +4,6 @@ import type {
   ElementRawData,
   ElementInstanceTypes,
   GroupInstanceTypes,
-  GroupRawData,
   SceneTreeChange
 } from '@asra/utils'
 import { EntityTypes, OWNER, SCENE_TREE_ACTIONS } from '@asra/utils'
@@ -12,7 +11,6 @@ import { createElement, createWorkspace } from './utils'
 import type Workspace from './components/workspace'
 import { EventTypes } from '@asra/reactive-events'
 
-type InstanceRawData = ElementRawData | GroupRawData | WorkspaceRawData
 type SceneTreeDataType = SceneTreeRawData
 
 class SceneTree {
@@ -41,14 +39,17 @@ class SceneTree {
     if (!data) return
 
     if (data.elements) {
-      Object.values(data.elements).forEach((elementData: InstanceRawData) => {
-        const element =
-          elementData.type === EntityTypes.WORKSPACE
-            ? createWorkspace(elementData as WorkspaceRawData)
-            : createElement(elementData)
+      for (const elementId in data.elements) {
+        const elementData = data.elements[elementId]
+        let element
+        if (elementData.type === EntityTypes.WORKSPACE) {
+          element = createWorkspace(elementData as WorkspaceRawData)
+        } else {
+          element = createElement(elementData)
+        }
 
         this.addToMap(element as ElementInstanceTypes)
-      })
+      }
     }
 
     if (data.workspace) {

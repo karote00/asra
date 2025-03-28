@@ -2,9 +2,7 @@ import {
   subscribeUndoRedoStatus,
   subscribeToAddElement,
   subscribeToRemoveElement,
-  startTransaction,
   updateTransaction,
-  endTransaction,
   subscribeToRequestSceneTreeData,
   finishRequestSceneTreeData
 } from '@asra/reactive-events'
@@ -25,8 +23,8 @@ export const initSceneTreeSubscribes = () => {
   subscribeToAddElement(({ payload }) => {
     const { data, parent, index } = payload
 
-    startTransaction()
     let newRectangle
+
     if (inUndoRedo) {
       newRectangle = sceneTree.getRestoreElementById(data.id as string)
     } else {
@@ -37,22 +35,18 @@ export const initSceneTreeSubscribes = () => {
     sceneTree.changes.forEach((change) => {
       updateTransaction(change.eventName, change)
     })
-    sceneTree.cleanChanges()
 
-    endTransaction()
+    sceneTree.cleanChanges()
   })
 
   subscribeToRemoveElement(({ payload }) => {
     const { data, parent, index } = payload
     sceneTree.removeElement(data, index, parent)
 
-    startTransaction()
-
     sceneTree.changes.forEach((change) => {
       updateTransaction(change.eventName, change)
     })
-    sceneTree.cleanChanges()
 
-    endTransaction()
+    sceneTree.cleanChanges()
   })
 }

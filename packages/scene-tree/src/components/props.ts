@@ -1,6 +1,7 @@
 import { PropertyTypes } from '@asra/utils'
 import type { PropsRawData } from '@asra/utils'
-import { addProperty, removeProperty } from '@asra/reactive-events'
+import { removeProperty } from '@asra/reactive-events'
+import propsManager from '@asra/props-manager'
 
 type PropsDataType = Partial<PropsRawData>
 
@@ -20,13 +21,16 @@ class Props {
     if (data) {
       this.load(data)
     } else {
-      this._init()
+      this.init()
     }
   }
 
-  async _init() {
-    const propsTypeData = PROP_NAMES.map((propName) => ({ type: propName }))
-    const propIdsMap = await addProperty(propsTypeData)
+  init() {
+    const propertyComponents = PROP_NAMES.map((propName) =>
+      propsManager.createProperty({ type: propName })
+    )
+    const propIdsMap = propsManager.addProperty(propertyComponents)
+    propsManager.commitChanges()
     if (!propIdsMap) {
       return
     }

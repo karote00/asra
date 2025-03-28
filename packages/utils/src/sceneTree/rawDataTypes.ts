@@ -1,3 +1,4 @@
+import { PropertyComponentRawData } from '../propsManager'
 import { EntityTypes } from './enum'
 
 export interface BaseRawData {
@@ -17,9 +18,9 @@ export interface ComputedRawData {
 
 export interface ElementRawData extends BaseRawData {
   type: EntityTypes
-  props?: PropsRawData
-  lock: boolean
   visible: boolean
+  lock: boolean
+  props?: PropsRawData
 }
 
 export interface RectangleRawData extends ElementRawData {

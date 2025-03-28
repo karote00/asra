@@ -1,4 +1,9 @@
-import { addRectangle, sceneTreeLoadComplete } from '@asra/reactive-events'
+import {
+  addRectangle,
+  endTransaction,
+  sceneTreeLoadComplete,
+  startTransaction
+} from '@asra/reactive-events'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
 import { SceneTreeRawData } from '@asra/utils'
 
@@ -20,6 +25,8 @@ export default class SceneTreeManager {
   }
 
   addRectangle() {
+    startTransaction()
     addRectangle()
+    endTransaction()
   }
 }
