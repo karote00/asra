@@ -2,6 +2,7 @@ import { PropertyTypes } from './enum'
 import type { PropertyComponentRawData } from './rawDataTypes'
 import type { ISetter } from '../setter'
 import { Unit } from '../enums'
+import { DataTypes } from '../types'
 
 export interface BasePropertyAttrs {
   id: string
@@ -26,6 +27,7 @@ export interface IProperty<T extends BasePropertyAttrs = BasePropertyAttrs>
   extends ISetter<T> {
   load(data: Partial<PropertyComponentRawData>): void
   save(): PropertyComponentRawData
+  getValue(): Record<string, DataTypes>
 }
 
 export interface Position extends IProperty {}
