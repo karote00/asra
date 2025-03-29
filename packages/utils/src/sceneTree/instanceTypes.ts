@@ -2,6 +2,16 @@ import { ISetter } from '../setter'
 import { EntityTypes } from './enum'
 import type { ElementRawData } from './rawDataTypes'
 
+export interface ComputedAttrs {
+  id: string
+  type: EntityTypes
+  name: string
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export interface ElementAttrs {
   id: string
   type: EntityTypes
@@ -13,6 +23,8 @@ export interface ElementAttrs {
 export interface GroupAttrs extends ElementAttrs {
   children: string[]
 }
+
+export interface IComputed<T extends ComputedAttrs> extends ISetter<T> {}
 
 export interface IElement<T extends ElementAttrs = ElementAttrs>
   extends ISetter<T> {
@@ -29,4 +41,4 @@ export interface IGroupElement<T extends GroupAttrs = GroupAttrs>
 
 export interface ElementInstanceTypes extends IElement {}
 export interface GroupInstanceTypes extends IGroupElement {}
-export type ElementInstanceDataTypes = GroupAttrs | ElementAttrs
+export type ElementInstanceDataTypes = ComputedAttrs | GroupAttrs | ElementAttrs

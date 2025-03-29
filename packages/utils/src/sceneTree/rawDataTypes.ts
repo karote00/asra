@@ -11,11 +11,6 @@ export interface PropsRawData {
   dimension: string
 }
 
-export interface ComputedRawData {
-  position: number
-  dimension: string
-}
-
 export interface ElementRawData extends BaseRawData {
   type: EntityTypes
   visible: boolean

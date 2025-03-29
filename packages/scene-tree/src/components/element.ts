@@ -2,7 +2,8 @@ import type {
   ElementRawData,
   ElementAttrs,
   IElement,
-  PropsRawData
+  PropsRawData,
+  ComputedAttrs
 } from '@asra/utils'
 import {
   Setter,
@@ -32,7 +33,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
   _nameType!: NameTypes
 
   props!: Props
-  computed: Computed = new Computed()
+  computed!: Computed<ComputedAttrs>
 
   constructor(data?: Partial<ElementRawData>) {
     super(elementChangeHandler.addChange)
@@ -128,6 +129,8 @@ class Element<T extends ElementAttrs = ElementAttrs>
       } else {
         this.props = new Props(elementId)
       }
+
+      this.computed = new Computed(this.props)
     }
   }
 
