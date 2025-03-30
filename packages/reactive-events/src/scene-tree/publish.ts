@@ -1,43 +1,11 @@
-import { filter, firstValueFrom } from 'rxjs'
-import type {
-  ElementRawData,
-  GroupInstanceTypes,
-  SceneTreeRawData
-} from '@asra/utils'
+import type { ElementRawData, GroupInstanceTypes } from '@asra/utils'
 import { EntityTypes } from '@asra/utils'
-import { getEventBus, publishEvent } from '../event-bus'
+import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
-import { FinishRequestSceneTreeDataEvent } from './events'
 
 export const sceneTreeLoadComplete = () => {
   publishEvent({
     type: EventTypes.SCENE_TREE_LOAD_COMPLETE
-  })
-}
-
-export const requestSceneTreeData = async () => {
-  const response$ = getEventBus().pipe(
-    filter(
-      (event): event is FinishRequestSceneTreeDataEvent =>
-        event.type === EventTypes.FINISH_REQUEST_SCENE_TREE_DATA &&
-        'payload' in event
-    )
-  )
-
-  publishEvent({
-    type: EventTypes.REQUEST_SCENE_TREE_DATA
-  })
-
-  const response = await firstValueFrom(response$)
-  return response.payload.data
-}
-
-export const finishRequestSceneTreeData = (data: SceneTreeRawData) => {
-  publishEvent({
-    type: EventTypes.FINISH_REQUEST_SCENE_TREE_DATA,
-    payload: {
-      data
-    }
   })
 }
 

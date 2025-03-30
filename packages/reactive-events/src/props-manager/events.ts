@@ -1,4 +1,5 @@
-import { PropertyTypes, PropertyComponentRawData } from '@asra/utils'
+import type { PropertyComponentRawData } from '@asra/utils'
+import { PropertyTypes } from '@asra/utils'
 import type { EventTypes } from '../types'
 
 export interface PropChangeCompleteEvent {

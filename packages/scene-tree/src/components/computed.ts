@@ -54,6 +54,16 @@ class Computed<T extends ComputedAttrs>
       })
     })
   }
+
+  save() {
+    const data = {} as T
+    data.x = this.data.x
+    data.y = this.data.y
+    data.width = this.data.width
+    data.height = this.data.height
+
+    return data
+  }
 }
 
 export default Computed

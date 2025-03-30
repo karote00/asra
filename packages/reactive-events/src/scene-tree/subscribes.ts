@@ -4,8 +4,7 @@ import type {
   SceneTreeLoadCompleteEvent,
   AddElementEvent,
   RemoveElementEvent,
-  UpdateElementEvent,
-  RequestSceneTreeDataEvent
+  UpdateElementEvent
 } from './events'
 import { getEventBusObserve } from '../event-bus'
 import { EventTypes } from '../types'
@@ -18,19 +17,6 @@ export const subscribeToSceneTreeLoadComplete = (
       filter(
         (event): event is SceneTreeLoadCompleteEvent =>
           event.type === EventTypes.SCENE_TREE_LOAD_COMPLETE
-      )
-    )
-    .subscribe(subscriber)
-}
-
-export const subscribeToRequestSceneTreeData = (
-  subscriber: (event: RequestSceneTreeDataEvent) => void
-): Subscription => {
-  return getEventBusObserve()
-    .pipe(
-      filter(
-        (event): event is RequestSceneTreeDataEvent =>
-          event.type === EventTypes.REQUEST_SCENE_TREE_DATA
       )
     )
     .subscribe(subscriber)

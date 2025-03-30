@@ -6,6 +6,7 @@ import {
   EntityTypes,
   GroupRawData
 } from '@asra/utils'
+import { RenderElementData } from './types'
 
 initDataContexts()
 
@@ -102,7 +103,7 @@ class Render {
     return container
   }
 
-  addElement(data: ElementRawData) {
+  addElement(data: RenderElementData) {
     const element = this.getRestoreElement(data.id)
     if (element) {
       this.addToMap(data.id, element)
@@ -115,12 +116,7 @@ class Render {
     switch (data.type) {
       case EntityTypes.RECTANGLE:
         graphic
-          .rect(
-            getRandomInt(200) + 300,
-            getRandomInt(200) + 300,
-            getRandomInt(100) + 100,
-            getRandomInt(100) + 100
-          )
+          .rect(data.x + 300, data.y + 300, data.width, data.height)
           .fill(randomHexColorCode())
         break
     }
@@ -202,17 +198,12 @@ class Render {
   }
 }
 
+export default Render
+
+export const render = new Render()
+
 // REMOVE: test data
 const randomHexColorCode = () => {
   const n = (Math.random() * 0xfffff * 1000000).toString(16)
   return '#' + n.slice(0, 6)
 }
-
-// REMOVE: test data
-const getRandomInt = (max: number) => {
-  return Math.floor(Math.random() * max)
-}
-
-export default Render
-
-export const render = new Render()

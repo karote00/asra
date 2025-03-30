@@ -2,11 +2,11 @@ import type {
   DataTypes,
   ElementRawData,
   GroupRawData,
-  SceneTreeRawData,
   WorkspaceRawData
 } from '@asra/utils'
 import { EntityTypes, isGroupEntity } from '@asra/utils'
 import sceneTree from '@asra/scene-tree'
+import { RenderElementData } from '../types'
 
 import { render } from '../render'
 
@@ -17,25 +17,30 @@ class RenderSceneTree {
     this._workspace = null
   }
 
-  load(sceneTreeData: SceneTreeRawData) {
-    const currentWorkspace = sceneTreeData.elements[
-      sceneTreeData.workspace
-    ] as WorkspaceRawData
-    this._workspace = currentWorkspace
+  reload() {
+    const currentWorkspaceData =
+      sceneTree.currentWorkspace.save() as WorkspaceRawData
+    this._workspace = currentWorkspaceData
 
     // Create root render node
-    const root = this.addContainer(sceneTreeData.workspace)
+    const root = this.addContainer(currentWorkspaceData.id)
 
     // Create all element render node
-    Object.values(sceneTreeData.elements).forEach((elementData) => {
-      if (elementData.type !== EntityTypes.WORKSPACE) {
+    sceneTree.getAllElements().forEach((element) => {
+      const elementComputedData = element.getAllComputedData()
+      const elementData = {
+        ...element.save(),
+        ...elementComputedData
+      } as RenderElementData
+      elementData.id = element.get('id')
+      if (element.get('type') !== EntityTypes.WORKSPACE) {
         this.addElement(elementData)
       }
     })
 
     render.addRoot(root)
 
-    this.groupMapChildren(currentWorkspace)
+    this.groupMapChildren(currentWorkspaceData)
   }
 
   addContainer(currentWorkspaceId: string) {
@@ -62,7 +67,7 @@ class RenderSceneTree {
     })
   }
 
-  addElement(data: ElementRawData) {
+  addElement(data: RenderElementData) {
     render.addElement(data)
   }
 

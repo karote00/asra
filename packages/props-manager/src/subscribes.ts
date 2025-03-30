@@ -1,23 +1,16 @@
 import {
-  propChangeComplete,
   subscribeUndoRedoStatus,
   subscribeToAddProperty,
   subscribeToRemoveProperty,
-  updateTransaction,
-  subscribeToRequestPropsData,
-  finishRequestPropsData
+  updateTransaction
 } from '@asra/reactive-events'
 import propsManager from './props-manager'
-import { PropAlias, PropertyTypes, UNDO } from '@asra/utils'
+import { UNDO } from '@asra/utils'
 
 export const initPropXSubscribes = () => {
   let inUndoRedo = false
   subscribeUndoRedoStatus(({ status }) => {
     inUndoRedo = status !== UNDO.NONE
-  })
-
-  subscribeToRequestPropsData(() => {
-    finishRequestPropsData(propsManager.save())
   })
 
   subscribeToAddProperty(({ payload }) => {

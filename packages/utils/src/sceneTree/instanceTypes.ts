@@ -31,6 +31,7 @@ export interface IElement<T extends ElementAttrs = ElementAttrs>
   load(data: Partial<ElementRawData>): void
   save(): ElementRawData
   cleanup(): void
+  getAllComputedData(): ComputedAttrs | {}
 }
 
 export interface IGroupElement<T extends GroupAttrs = GroupAttrs>

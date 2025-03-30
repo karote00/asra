@@ -134,6 +134,14 @@ class Element<T extends ElementAttrs = ElementAttrs>
     }
   }
 
+  getAllComputedData() {
+    if (this.get('type') !== EntityTypes.WORKSPACE) {
+      return this.computed.save()
+    }
+
+    return {}
+  }
+
   cleanup() {
     this.props.cleanup()
   }
