@@ -1,8 +1,9 @@
 import { Input } from '@asra/design-system'
+import { useHeight, useWidth } from '../providers/properties'
 
 const Dimension = () => {
-  const width = '100'
-  const height = '200'
+  const width = useWidth()
+  const height = useHeight()
 
   return (
     <div className="flex items-center gap-2 text-gray-200 w-full px-3 py-1">

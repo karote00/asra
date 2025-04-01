@@ -1,9 +1,9 @@
 import React from 'react'
 import { COLUMN_WIDTH } from '../constants'
+import Header from './header'
 import Position from './position'
 import Dimension from './dimension'
-import Rotation from './rotation'
-import Header from './header'
+// import Rotation from './rotation'
 
 const Properties: React.FC = () => {
   return (
@@ -14,7 +14,7 @@ const Properties: React.FC = () => {
       <Header label="Layout" />
       <Position />
       <Dimension />
-      <Rotation />
+      {/* <Rotation /> */}
     </div>
   )
 }

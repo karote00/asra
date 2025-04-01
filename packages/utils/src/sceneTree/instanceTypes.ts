@@ -1,6 +1,7 @@
-import { ISetter } from '../setter'
 import { EntityTypes } from './enum'
 import type { ElementRawData } from './rawDataTypes'
+import { ISetter } from '../setter'
+// import { FillAttrs } from '../propsManager'
 
 export interface ComputedAttrs {
   id: string
@@ -10,6 +11,8 @@ export interface ComputedAttrs {
   y: number
   width: number
   height: number
+  rotation: number
+  // fills: FillAttrs[]
 }
 
 export interface ElementAttrs {

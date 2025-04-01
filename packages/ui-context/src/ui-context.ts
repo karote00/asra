@@ -1,17 +1,96 @@
 import { BehaviorSubject } from 'rxjs'
+import { ComputedAttrs, MIXED_STRING } from '@asra/utils'
+import { ElementProperties } from './types'
+
+const generalKeysToCompare: (keyof ElementProperties)[] = [
+  'x',
+  'y',
+  'width',
+  'height',
+  'rotation'
+]
 
 class UIContext {
   flattenedElementIds: BehaviorSubject<string[]>
   elementSelection: BehaviorSubject<Set<string>>
   vertexSelection: BehaviorSubject<Set<string>>
+  x: BehaviorSubject<ElementProperties['x']>
+  y: BehaviorSubject<ElementProperties['y']>
+  width: BehaviorSubject<ElementProperties['width']>
+  height: BehaviorSubject<ElementProperties['height']>
+  rotation: BehaviorSubject<ElementProperties['rotation']>
+  //   fills: BehaviorSubject<ElementProperties['fills']>
 
   constructor() {
     this.flattenedElementIds = new BehaviorSubject<string[]>([])
     this.elementSelection = new BehaviorSubject<Set<string>>(new Set())
     this.vertexSelection = new BehaviorSubject<Set<string>>(new Set())
+    this.x = new BehaviorSubject<ElementProperties['x']>(0)
+    this.y = new BehaviorSubject<ElementProperties['y']>(0)
+    this.width = new BehaviorSubject<ElementProperties['width']>(0)
+    this.height = new BehaviorSubject<ElementProperties['height']>(0)
+    this.rotation = new BehaviorSubject<ElementProperties['rotation']>(0)
+    // this.fills = new BehaviorSubject<ElementProperties['fills']>([])
+  }
+
+  updateElementSelection(selectedIds: Set<string>) {
+    this.elementSelection.next(selectedIds)
+  }
+
+  updateVertexSelection(selectedIds: Set<string>) {
+    this.vertexSelection.next(selectedIds)
+  }
+
+  updateComputedProperties(allElementData: ComputedAttrs[]) {
+    const result = this.computeSharedProperties(allElementData)
+
+    generalKeysToCompare.forEach((key) => {
+      if (result[key] !== this[key].getValue()) {
+        this[key].next(result[key])
+      }
+    })
+  }
+
+  computeSharedProperties(allElementData: ComputedAttrs[]): ElementProperties {
+    const result = {} as ElementProperties
+
+    result.x = compareValues(allElementData, 'x') as ElementProperties['x']
+    result.y = compareValues(allElementData, 'y') as ElementProperties['y']
+    result.width = compareValues(
+      allElementData,
+      'width'
+    ) as ElementProperties['width']
+    result.height = compareValues(
+      allElementData,
+      'height'
+    ) as ElementProperties['height']
+    result.rotation = compareValues(
+      allElementData,
+      'rotation'
+    ) as ElementProperties['rotation']
+
+    return result
   }
 }
 
 const uiContext = new UIContext()
+
 export default uiContext
 export { UIContext }
+
+const compareValues = (
+  allElementData: ComputedAttrs[],
+  compareKey: keyof ComputedAttrs
+) => {
+  const firstValue = allElementData[0][compareKey]
+  let isMixed = false
+
+  for (let i = 1; i < allElementData.length; i++) {
+    if (allElementData[i][compareKey] !== firstValue) {
+      isMixed = true
+      break
+    }
+  }
+
+  return isMixed ? MIXED_STRING : firstValue
+}

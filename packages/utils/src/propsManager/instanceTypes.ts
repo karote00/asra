@@ -23,6 +23,11 @@ export interface DimensionAttrs extends BasePropertyAttrs {
   heightUnit: Unit
 }
 
+export interface FillAttrs {
+  color: number[]
+  opacity: number
+}
+
 export interface IProperty<T extends BasePropertyAttrs = BasePropertyAttrs>
   extends ISetter<T> {
   load(data: Partial<PropertyComponentRawData>): void

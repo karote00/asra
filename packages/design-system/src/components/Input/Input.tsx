@@ -1,10 +1,11 @@
-import React, { ChangeEvent, useState, useCallback } from 'react'
+import React, { ChangeEvent, useState, useCallback, useEffect } from 'react'
+import { MIXED_STRING } from '@asra/utils'
 import { Text } from '../Text'
 
 // InputProps Interface
 interface InputProps {
   /** Content inside the input */
-  value?: string
+  value?: number | string | typeof MIXED_STRING
   /** Placeholder text inside the input */
   placeholder?: string
   /** Whether the input is disabled */
@@ -37,6 +38,10 @@ const Input: React.FC<InputProps> = ({
     const newData = e.target.value
     setData(newData)
   }, [])
+
+  useEffect(() => {
+    setData(value?.toString() ?? '')
+  }, [value])
 
   return (
     <div

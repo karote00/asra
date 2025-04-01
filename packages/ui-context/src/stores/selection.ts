@@ -1,7 +1,8 @@
 import { BehaviorSubject } from 'rxjs'
 import { SelectionManager } from '@asra/selection'
-import { SELECTION_TYPES } from '@asra/utils'
+import { ComputedAttrs, SELECTION_TYPES } from '@asra/utils'
 import uiContext from '../ui-context'
+import sceneTree from '@asra/scene-tree/dist/sceneTree'
 
 const SelectionTypes = Object.values(SELECTION_TYPES)
 type SelectionDataTye = Set<string>
@@ -32,10 +33,21 @@ export default class SelectionStore {
 
     switch (type) {
       case SELECTION_TYPES.ELEMENT:
-        uiContext.elementSelection.next(selectedIds)
+        uiContext.updateElementSelection(selectedIds)
+        const allElementData = [...selectedIds].reduce((acc, elementId) => {
+          const element = sceneTree.getElementById(elementId)
+          if (!element) {
+            return acc
+          }
+
+          const elementData = element.getAllComputedData() as ComputedAttrs
+          acc.push(elementData)
+          return acc
+        }, [] as ComputedAttrs[])
+        uiContext.updateComputedProperties(allElementData)
         break
       case SELECTION_TYPES.VERTEX:
-        uiContext.vertexSelection.next(selectedIds)
+        uiContext.updateVertexSelection(selectedIds)
         break
     }
   }
