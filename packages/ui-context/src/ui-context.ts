@@ -1,5 +1,6 @@
 import { BehaviorSubject } from 'rxjs'
 import { ComputedAttrs, MIXED_STRING } from '@asra/utils'
+import { isEqual } from 'lodash'
 import { ElementProperties } from './types'
 
 const generalKeysToCompare: (keyof ElementProperties)[] = [
@@ -34,11 +35,15 @@ class UIContext {
   }
 
   updateElementSelection(selectedIds: Set<string>) {
-    this.elementSelection.next(selectedIds)
+    if (!isEqual(this.elementSelection.getValue(), selectedIds)) {
+      this.elementSelection.next(selectedIds)
+    }
   }
 
   updateVertexSelection(selectedIds: Set<string>) {
-    this.vertexSelection.next(selectedIds)
+    if (!isEqual(this.vertexSelection.getValue(), selectedIds)) {
+      this.vertexSelection.next(selectedIds)
+    }
   }
 
   updateComputedProperties(allElementData: ComputedAttrs[]) {

@@ -14,6 +14,7 @@
     "clean": "rm -rf dist"
   },
   "devDependencies": {
+    "@types/lodash": "^4",
     "typescript": "^5.7.2"
   },
   "dependencies": {
@@ -22,6 +23,7 @@
     "@asra/scene-tree": "workspace:*",
     "@asra/selection": "workspace:*",
     "@asra/utils": "workspace:*",
+    "lodash": "^4.17.21",
     "rxjs": "^7.8.1",
     "yjs": "13.6.20"
   }

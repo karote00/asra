@@ -182,6 +182,8 @@ __metadata:
     "@asra/scene-tree": "workspace:*"
     "@asra/selection": "workspace:*"
     "@asra/utils": "workspace:*"
+    "@types/lodash": "npm:^4"
+    lodash: "npm:^4.17.21"
     rxjs: "npm:^7.8.1"
     typescript: "npm:^5.7.2"
     yjs: "npm:13.6.20"
@@ -4802,6 +4804,13 @@ __metadata:
   version: 0.0.29
   resolution: "@types/json5@npm:0.0.29"
   checksum: 10c0/6bf5337bc447b706bb5b4431d37686aa2ea6d07cfd6f79cc31de80170d6ff9b1c7384a9c0ccbc45b3f512bae9e9f75c2e12109806a15331dc94e8a8db6dbb4ac
+  languageName: node
+  linkType: hard
+
+"@types/lodash@npm:^4":
+  version: 4.17.16
+  resolution: "@types/lodash@npm:4.17.16"
+  checksum: 10c0/cf017901b8ab1d7aabc86d5189d9288f4f99f19a75caf020c0e2c77b8d4cead4db0d0b842d009b029339f92399f49f34377dd7c2721053388f251778b4c23534
   languageName: node
   linkType: hard
 
