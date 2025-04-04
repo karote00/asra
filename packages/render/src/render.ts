@@ -113,10 +113,12 @@ class Render {
     const graphic = new Graphics()
     graphic.label = data.id
 
+    // REMOVE: mock data idN
+    const idN = parseInt(data.id.split('-')[1]) * 10
     switch (data.type) {
       case EntityTypes.RECTANGLE:
         graphic
-          .rect(data.x + 300, data.y + 300, data.width, data.height)
+          .rect(data.x + 300 + idN, data.y + 300 + idN, data.width, data.height)
           .fill(randomHexColorCode())
         break
     }

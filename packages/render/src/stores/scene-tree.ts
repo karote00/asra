@@ -27,14 +27,9 @@ class RenderSceneTree {
 
     // Create all element render node
     sceneTree.getAllElements().forEach((element) => {
-      const elementComputedData = element.getAllComputedData()
-      const elementData = {
-        ...element.save(),
-        ...elementComputedData
-      } as RenderElementData
-      elementData.id = element.get('id')
+      const renderElementData = this._getRenderData(element.get('id'))
       if (element.get('type') !== EntityTypes.WORKSPACE) {
-        this.addElement(elementData)
+        this.addElement(renderElementData)
       }
     })
 
@@ -65,6 +60,22 @@ class RenderSceneTree {
         this.groupMapChildren(child.save() as GroupRawData)
       }
     })
+  }
+
+  private _getRenderData(id: string) {
+    const element = sceneTree.getElementById(id)
+    const elementComputedData = element.getAllComputedData()
+    const elementData = {
+      ...element.save(),
+      ...elementComputedData
+    } as RenderElementData
+
+    return elementData
+  }
+
+  addElementById(id: string) {
+    const renderElementData = this._getRenderData(id)
+    this.addElement(renderElementData)
   }
 
   addElement(data: RenderElementData) {

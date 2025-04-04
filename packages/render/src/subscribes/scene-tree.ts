@@ -11,7 +11,7 @@ import { renderSceneTree } from '../stores/scene-tree'
 const updateRenderSceneTree = (change: SceneTreeYjsChange['payload']) => {
   switch (change.action) {
     case SCENE_TREE_ACTIONS.ADD_ELEMENT: {
-      // renderSceneTree.addElement((change as AddRemoveElementChange).data)
+      renderSceneTree.addElementById((change as AddRemoveElementChange).data.id)
       break
     }
     case SCENE_TREE_ACTIONS.REMOVE_ELEMENT: {
