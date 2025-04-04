@@ -31,7 +31,9 @@ export default class SelectionStore {
           acc.push(elementData)
           return acc
         }, [] as ComputedAttrs[])
-        uiContext.updateComputedProperties(allElementData)
+        if (selectedIds.size) {
+          uiContext.updateComputedProperties(allElementData)
+        }
         break
       case SELECTION_TYPES.VERTEX:
         uiContext.updateVertexSelection(selectedIds)
