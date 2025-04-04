@@ -2,7 +2,7 @@ import {
   subscribeUndoRedoStatus,
   subscribeToAddElement,
   subscribeToRemoveElement,
-  subscribeToChangeElementData,
+  subscribeToChangeComputedData,
   updateTransaction,
   requestElementSelection
 } from '@asra/reactive-events'
@@ -50,12 +50,12 @@ export const initSceneTreeSubscribes = () => {
     clearSceneTreeChanges()
   })
 
-  subscribeToChangeElementData(async ({ payload }) => {
+  subscribeToChangeComputedData(async ({ payload }) => {
     const { key, data } = payload
     const elementIds = await requestElementSelection()
 
     elementIds.forEach((elementId) => {
-      sceneTree.updateElementData(
+      sceneTree.updateComputedData(
         elementId,
         key as keyof ComputedAttrs,
         data as ComputedAttrs[keyof ComputedAttrs]

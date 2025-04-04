@@ -1,7 +1,7 @@
 import { Input } from '@asra/design-system'
 import { useX, useY } from '../providers/properties'
 import { useCallback } from 'react'
-import { changeElementData } from '../controllers/scene-tree'
+import { changeElementComputedData } from '../controllers/scene-tree'
 
 const Position = () => {
   const x = useX()
@@ -9,16 +9,16 @@ const Position = () => {
 
   const handleChangeX = useCallback(
     (newValue: string) => {
-      changeElementData('x', Number(newValue))
+      changeElementComputedData('x', Number(newValue))
     },
-    [changeElementData]
+    [changeElementComputedData]
   )
 
   const handleChangeY = useCallback(
     (newValue: string) => {
-      changeElementData('y', Number(newValue))
+      changeElementComputedData('y', Number(newValue))
     },
-    [changeElementData]
+    [changeElementComputedData]
   )
 
   return (

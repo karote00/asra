@@ -3,7 +3,8 @@ import type {
   ElementAttrs,
   IElement,
   PropsRawData,
-  ComputedAttrs
+  ComputedAttrs,
+  DataTypes
 } from '@asra/utils'
 import {
   Setter,
@@ -132,6 +133,13 @@ class Element<T extends ElementAttrs = ElementAttrs>
 
       this.computed = new Computed(this.props)
     }
+  }
+
+  updateComputedData<K extends keyof ComputedAttrs>(
+    key: K,
+    data: ComputedAttrs[K]
+  ) {
+    this.computed.set(key, data)
   }
 
   getAllComputedData() {

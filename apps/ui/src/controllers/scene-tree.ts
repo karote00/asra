@@ -5,6 +5,6 @@ export const addRectangle = () => {
   sceneTreeManager.addRectangle()
 }
 
-export const changeElementData = (key: string, data: DataTypes) => {
-  sceneTreeManager.changeElementData(key, data)
+export const changeElementComputedData = (key: string, data: DataTypes) => {
+  sceneTreeManager.changeComputedData(key, data)
 }

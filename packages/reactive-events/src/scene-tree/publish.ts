@@ -33,14 +33,14 @@ export const removeElement = (
   })
 }
 
-export const updateElementData = (
+export const updateComputedData = (
   elementId: string,
   key: string,
   before: DataTypes,
   after: DataTypes
 ) => {
   publishEvent({
-    type: EventTypes.UPDATE_ELEMENT_DATA,
+    type: EventTypes.UPDATE_COMPUTED_DATA,
     payload: {
       elementId,
       key,
@@ -50,9 +50,9 @@ export const updateElementData = (
   })
 }
 
-export const changeElementData = (key: string, data: DataTypes) => {
+export const changeComputedData = (key: string, data: DataTypes) => {
   publishEvent({
-    type: EventTypes.CHANGE_ELEMENT_DATA,
+    type: EventTypes.UPDATE_COMPUTED_DATA,
     payload: {
       key,
       data

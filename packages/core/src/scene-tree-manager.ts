@@ -1,6 +1,6 @@
 import {
   addRectangle,
-  changeElementData,
+  changeComputedData,
   endTransaction,
   sceneTreeLoadComplete,
   startTransaction
@@ -31,9 +31,9 @@ export default class SceneTreeManager {
     endTransaction()
   }
 
-  changeElementData(key: string, data: DataTypes) {
+  changeComputedData(key: string, data: DataTypes) {
     startTransaction()
-    changeElementData(key, data)
+    changeComputedData(key, data)
     endTransaction()
   }
 }

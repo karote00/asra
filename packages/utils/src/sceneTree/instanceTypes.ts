@@ -38,6 +38,10 @@ export interface IElement<T extends ElementAttrs = ElementAttrs>
   save(): ElementRawData
   cleanup(): void
   getAllComputedData(): ComputedAttrs | {}
+  updateComputedData<K extends keyof ComputedAttrs>(
+    key: K,
+    data: ComputedAttrs[K]
+  ): void
 }
 
 export interface IGroupElement<T extends GroupAttrs = GroupAttrs>

@@ -5,7 +5,6 @@ import type {
   ElementInstanceTypes,
   GroupInstanceTypes,
   SceneTreeChange,
-  DataTypes,
   ComputedAttrs
 } from '@asra/utils'
 import { EntityTypes, OWNER, SCENE_TREE_ACTIONS } from '@asra/utils'
@@ -196,7 +195,7 @@ class SceneTree {
     workspace.removeElement(element, index, parent)
   }
 
-  updateElementData<K extends keyof ComputedAttrs>(
+  updateComputedData<K extends keyof ComputedAttrs>(
     elementId: string,
     key: K,
     data: ComputedAttrs[K]
@@ -206,7 +205,7 @@ class SceneTree {
       return
     }
 
-    element.computed.set(key as keyof ComputedAttrs, data)
+    element.updateComputedData(key, data)
   }
 }
 

@@ -23,7 +23,7 @@ export interface RemoveElementEvent {
   }
 }
 
-export interface UpdateElementDataEvent {
+export interface UpdateComputedDataEvent {
   type: EventTypes
   payload: {
     elementId: string
@@ -33,7 +33,7 @@ export interface UpdateElementDataEvent {
   }
 }
 
-export interface ChangeElementDataEvent {
+export interface ChangeComputedDataEvent {
   type: EventTypes
   payload: {
     key: string
@@ -45,5 +45,5 @@ export type SceneTreeEvents =
   | SceneTreeLoadCompleteEvent
   | AddElementEvent
   | RemoveElementEvent
-  | UpdateElementDataEvent
-  | ChangeElementDataEvent
+  | UpdateComputedDataEvent
+  | ChangeComputedDataEvent
