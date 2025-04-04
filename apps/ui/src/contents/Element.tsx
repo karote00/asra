@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { MouseEvent, useCallback, useEffect, useRef } from 'react'
 import type { ElementRawData, Modifiers } from '@asra/utils'
 import { EntityTypes } from '@asra/utils'
 import { Icon } from '@asra/design-system'
@@ -27,9 +27,14 @@ const Element = ({ elementId }: { elementId: string }) => {
     alt: false,
     shift: false
   })
-  const handleElementClick = useCallback(() => {
-    selectElements([id])
-  }, [selectElements])
+  const handleElementClick = useCallback(
+    (e: MouseEvent<HTMLDivElement>) => {
+      e.stopPropagation()
+
+      selectElements([id])
+    },
+    [selectElements]
+  )
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
