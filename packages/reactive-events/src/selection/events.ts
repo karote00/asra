@@ -7,4 +7,4 @@ export interface SelectElementsEvent {
   }
 }
 
-export type SelectionEvent = SelectElementsEvent
+export type SelectionEvents = SelectElementsEvent

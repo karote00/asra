@@ -2,10 +2,16 @@ import { ReplaySubject, Observable, Subscription, filter, share } from 'rxjs'
 import { EventTypes } from './types'
 import type { AppEvent } from './app'
 import type { SceneTreeEvents } from './scene-tree'
-import type { SelectionEvent } from './selection'
-import type { PropEvent } from './props-manager'
+import type { SelectionEvents } from './selection'
+import type { PropEvents } from './props-manager'
+import type { UIContextEvents } from './ui-context'
 
-export type AllEvent = AppEvent | SceneTreeEvents | SelectionEvent | PropEvent
+export type AllEvent =
+  | AppEvent
+  | SceneTreeEvents
+  | SelectionEvents
+  | PropEvents
+  | UIContextEvents
 
 const eventBus = new ReplaySubject<AllEvent>(undefined, 5000)
 

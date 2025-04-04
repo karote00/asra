@@ -11,9 +11,9 @@ export default class ElementChangeHandler implements ChangeHandler {
     after: DataTypes
   }): void {
     sceneTree.addChange({
-      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT,
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA,
       owner: OWNER.SCENE_TREE,
-      eventName: EventTypes.UPDATE_ELEMENT,
+      eventName: EventTypes.UPDATE_ELEMENT_DATA,
       ...data
     })
   }

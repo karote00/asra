@@ -19,7 +19,7 @@ const updateRenderSceneTree = (change: SceneTreeYjsChange['payload']) => {
       renderSceneTree.removeElement(data, parentId)
       break
     }
-    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT: {
+    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA: {
       const { id, key, before, after } = change as UpdateElementChange
       renderSceneTree.updateElement(id, key, before, after)
       break

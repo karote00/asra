@@ -30,7 +30,7 @@ export interface UpdatePropertyEvent {
   }
 }
 
-export type PropEvent =
+export type PropEvents =
   | PropChangeCompleteEvent
   | AddPropertyEvent
   | RemovePropertyEvent

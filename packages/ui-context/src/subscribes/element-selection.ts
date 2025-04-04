@@ -3,6 +3,11 @@ import { SELECTION_ACTIONS, SELECTION_TYPES } from '@asra/utils'
 import selectionManager from '@asra/selection'
 import factory from '@asra/factory'
 import SelectionStore from '../stores/selection'
+import {
+  finishRequestElementSelection,
+  subscribeToRequestElementSelection
+} from '@asra/reactive-events'
+import uiContext from '../ui-context'
 
 export const selectionStore = new SelectionStore(selectionManager)
 
@@ -43,6 +48,10 @@ export const initElementSelectionDataContext = () => {
 
   const elementSelectionArray = factory.elementSelectionMap
   elementSelectionArray.observe(collectElementSelectionChange)
+
+  subscribeToRequestElementSelection(() => {
+    finishRequestElementSelection(uiContext.elementSelection.getValue())
+  })
 
   hasInit = true
 }

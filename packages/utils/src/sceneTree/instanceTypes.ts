@@ -27,10 +27,13 @@ export interface GroupAttrs extends ElementAttrs {
   children: string[]
 }
 
-export interface IComputed<T extends ComputedAttrs> extends ISetter<T> {}
+export interface IComputed<T extends ComputedAttrs> extends ISetter<T> {
+  set<K extends keyof T>(key: K, data: T[K]): void
+}
 
 export interface IElement<T extends ElementAttrs = ElementAttrs>
   extends ISetter<T> {
+  computed: IComputed<ComputedAttrs>
   load(data: Partial<ElementRawData>): void
   save(): ElementRawData
   cleanup(): void

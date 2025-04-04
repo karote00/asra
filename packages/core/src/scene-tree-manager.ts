@@ -1,11 +1,12 @@
 import {
   addRectangle,
+  changeElementData,
   endTransaction,
   sceneTreeLoadComplete,
   startTransaction
 } from '@asra/reactive-events'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
-import { SceneTreeRawData } from '@asra/utils'
+import { DataTypes, SceneTreeRawData } from '@asra/utils'
 
 export default class SceneTreeManager {
   sceneTree: SceneTree = sceneTree
@@ -27,6 +28,12 @@ export default class SceneTreeManager {
   addRectangle() {
     startTransaction()
     addRectangle()
+    endTransaction()
+  }
+
+  changeElementData(key: string, data: DataTypes) {
+    startTransaction()
+    changeElementData(key, data)
     endTransaction()
   }
 }

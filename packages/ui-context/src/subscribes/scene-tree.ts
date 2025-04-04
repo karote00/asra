@@ -26,7 +26,7 @@ const updateUISceneTree = (change: SceneTreeYjsChange['payload']) => {
       sceneTreeStore.removeElement(data, parentId as string)
       break
     }
-    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT: {
+    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA: {
       const { id, key, after } = change as UpdateElementChange
       sceneTreeStore.updateElement(id, key, after)
       break

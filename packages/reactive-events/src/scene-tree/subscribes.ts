@@ -4,7 +4,8 @@ import type {
   SceneTreeLoadCompleteEvent,
   AddElementEvent,
   RemoveElementEvent,
-  UpdateElementEvent
+  UpdateElementDataEvent,
+  ChangeElementDataEvent
 } from './events'
 import { getEventBusObserve } from '../event-bus'
 import { EventTypes } from '../types'
@@ -48,14 +49,27 @@ export const subscribeToRemoveElement = (
     .subscribe(subscriber)
 }
 
-export const subscribeToUpdateElement = (
-  subscriber: (event: UpdateElementEvent) => void
+export const subscribeToUpdateElementData = (
+  subscriber: (event: UpdateElementDataEvent) => void
 ): Subscription => {
   return getEventBusObserve()
     .pipe(
       filter(
-        (event): event is UpdateElementEvent =>
-          event.type === EventTypes.UPDATE_ELEMENT
+        (event): event is UpdateElementDataEvent =>
+          event.type === EventTypes.UPDATE_ELEMENT_DATA
+      )
+    )
+    .subscribe(subscriber)
+}
+
+export const subscribeToChangeElementData = (
+  subscriber: (event: ChangeElementDataEvent) => void
+): Subscription => {
+  return getEventBusObserve()
+    .pipe(
+      filter(
+        (event): event is ChangeElementDataEvent =>
+          event.type === EventTypes.CHANGE_ELEMENT_DATA
       )
     )
     .subscribe(subscriber)

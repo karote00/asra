@@ -16,6 +16,8 @@ interface InputProps {
   suffix?: string
   /** Input size: small, medium, or large */
   size?: 'small' | 'medium' | 'large'
+  /** Change event handler */
+  onChange: (newData: string) => void
 }
 
 const sizeClasses = {
@@ -30,14 +32,22 @@ const Input: React.FC<InputProps> = ({
   disabled = false,
   prefix,
   suffix,
-  size = 'medium'
+  size = 'medium',
+  onChange
 }) => {
   const [data, setData] = useState<string>(value?.toString() ?? '')
 
-  const handleInputChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    const newData = e.target.value
-    setData(newData)
-  }, [])
+  const handleChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const newData = e.target.value
+      setData(newData)
+    },
+    [setData]
+  )
+
+  const handleBlur = useCallback(() => {
+    onChange(data)
+  }, [data, onChange])
 
   useEffect(() => {
     setData(value?.toString() ?? '')
@@ -56,7 +66,8 @@ const Input: React.FC<InputProps> = ({
       <input
         type="text"
         value={data}
-        onChange={handleInputChange}
+        onChange={handleChange}
+        onBlur={handleBlur}
         placeholder={placeholder}
         disabled={disabled}
         className="bg-transparent w-full px-1 outline-none placeholder-gray-500"

@@ -1,4 +1,4 @@
-import type { ElementRawData, GroupInstanceTypes } from '@asra/utils'
+import type { DataTypes, ElementRawData, GroupInstanceTypes } from '@asra/utils'
 import { EntityTypes } from '@asra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
@@ -33,19 +33,29 @@ export const removeElement = (
   })
 }
 
-export const updateElement = (
+export const updateElementData = (
   elementId: string,
   key: string,
-  before: string[],
-  after: string[]
+  before: DataTypes,
+  after: DataTypes
 ) => {
   publishEvent({
-    type: EventTypes.UPDATE_ELEMENT,
+    type: EventTypes.UPDATE_ELEMENT_DATA,
     payload: {
       elementId,
       key,
       before,
       after
+    }
+  })
+}
+
+export const changeElementData = (key: string, data: DataTypes) => {
+  publishEvent({
+    type: EventTypes.CHANGE_ELEMENT_DATA,
+    payload: {
+      key,
+      data
     }
   })
 }

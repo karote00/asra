@@ -2,11 +2,23 @@ import {
   subscribeUndoRedoStatus,
   subscribeToAddElement,
   subscribeToRemoveElement,
-  updateTransaction
+  subscribeToChangeElementData,
+  updateTransaction,
+  requestElementSelection
 } from '@asra/reactive-events'
-import type { ElementInstanceTypes } from '@asra/utils'
+import type { ComputedAttrs, ElementInstanceTypes } from '@asra/utils'
 import { UNDO } from '@asra/utils'
 import sceneTree from './sceneTree'
+
+const updateSceneTreeTransaction = () => {
+  sceneTree.changes.forEach((change) => {
+    updateTransaction(change.eventName, change)
+  })
+}
+
+const clearSceneTreeChanges = () => {
+  sceneTree.cleanChanges()
+}
 
 export const initSceneTreeSubscribes = () => {
   let inUndoRedo = false
@@ -26,21 +38,30 @@ export const initSceneTreeSubscribes = () => {
     }
 
     sceneTree.addNewElement(newRectangle as ElementInstanceTypes, parent, index)
-    sceneTree.changes.forEach((change) => {
-      updateTransaction(change.eventName, change)
-    })
-
-    sceneTree.cleanChanges()
+    updateSceneTreeTransaction()
+    clearSceneTreeChanges()
   })
 
   subscribeToRemoveElement(({ payload }) => {
     const { data, parent, index } = payload
     sceneTree.removeElement(data, index, parent)
 
-    sceneTree.changes.forEach((change) => {
-      updateTransaction(change.eventName, change)
-    })
+    updateSceneTreeTransaction()
+    clearSceneTreeChanges()
+  })
 
-    sceneTree.cleanChanges()
+  subscribeToChangeElementData(async ({ payload }) => {
+    const { key, data } = payload
+    const elementIds = await requestElementSelection()
+
+    elementIds.forEach((elementId) => {
+      sceneTree.updateElementData(
+        elementId,
+        key as keyof ComputedAttrs,
+        data as ComputedAttrs[keyof ComputedAttrs]
+      )
+    })
+    updateSceneTreeTransaction()
+    clearSceneTreeChanges()
   })
 }

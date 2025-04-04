@@ -4,7 +4,9 @@ import type {
   ElementRawData,
   ElementInstanceTypes,
   GroupInstanceTypes,
-  SceneTreeChange
+  SceneTreeChange,
+  DataTypes,
+  ComputedAttrs
 } from '@asra/utils'
 import { EntityTypes, OWNER, SCENE_TREE_ACTIONS } from '@asra/utils'
 import { createElement, createWorkspace } from './utils'
@@ -192,6 +194,19 @@ class SceneTree {
     const element = this.getElementById(elementId)
     sceneTree.addChangeForRemoveElement(element)
     workspace.removeElement(element, index, parent)
+  }
+
+  updateElementData<K extends keyof ComputedAttrs>(
+    elementId: string,
+    key: K,
+    data: ComputedAttrs[K]
+  ) {
+    const element = this.getElementById(elementId)
+    if (!element) {
+      return
+    }
+
+    element.computed.set(key as keyof ComputedAttrs, data)
   }
 }
 

@@ -32,6 +32,7 @@ class Computed<T extends ComputedAttrs>
 
   _init() {
     this.data = {
+      id: '',
       x: 0,
       y: 0,
       width: 0,
@@ -53,6 +54,10 @@ class Computed<T extends ComputedAttrs>
         this.data[propKey as keyof T] = values[propKey] as T[keyof T]
       })
     })
+  }
+
+  set<K extends keyof T>(key: K, data: T[K]) {
+    super.set(key, data)
   }
 
   save() {
