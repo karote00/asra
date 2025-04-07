@@ -55,10 +55,11 @@ export const initSceneTreeSubscribes = () => {
     const elementIds = await requestElementSelection()
 
     elementIds.forEach((elementId) => {
+      type KEY = keyof ComputedAttrs
       sceneTree.updateComputedData(
         elementId,
-        key as keyof ComputedAttrs,
-        data as ComputedAttrs[keyof ComputedAttrs]
+        key as KEY,
+        data as ComputedAttrs[KEY]
       )
     })
     updateSceneTreeTransaction()

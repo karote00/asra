@@ -1,11 +1,11 @@
 import type {
+  ComputedAttrs,
   SceneTreeRawData,
   WorkspaceRawData,
   ElementRawData,
   ElementInstanceTypes,
   GroupInstanceTypes,
-  SceneTreeChange,
-  ComputedAttrs
+  SceneTreeChange
 } from '@asra/utils'
 import { EntityTypes, OWNER, SCENE_TREE_ACTIONS } from '@asra/utils'
 import { createElement, createWorkspace } from './utils'
@@ -23,7 +23,7 @@ class SceneTree {
 
   _init(): void {
     if (!this.workspace && !this.workspaceList.length) {
-      const initWorkspace = createWorkspace()
+      const initWorkspace = createWorkspace() as ElementInstanceTypes
       if (initWorkspace) {
         this.addToMap(initWorkspace)
         this.workspaceList = [initWorkspace.get('id')]

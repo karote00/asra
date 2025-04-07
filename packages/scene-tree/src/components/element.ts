@@ -4,7 +4,7 @@ import type {
   IElement,
   PropsRawData,
   ComputedAttrs,
-  DataTypes
+  PropertyComponentInstanceDataTypes
 } from '@asra/utils'
 import {
   Setter,
@@ -140,6 +140,13 @@ class Element<T extends ElementAttrs = ElementAttrs>
     data: ComputedAttrs[K]
   ) {
     this.computed.set(key, data)
+
+    // Convert data type from ComputedAttrs to PropertyComponentInstanceDataTypes
+    type KEY = keyof PropertyComponentInstanceDataTypes
+    this.props.updateData(
+      key as KEY,
+      data as PropertyComponentInstanceDataTypes[KEY]
+    )
   }
 
   getAllComputedData() {

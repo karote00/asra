@@ -1,15 +1,14 @@
 import { OWNER, PropertyTypes, PROPS_ACTIONS } from '@asra/utils'
 import type {
+  PropertyComponentInstanceDataTypes,
   PropertyComponentInstanceTypes,
   PropertyComponentRawData,
   PropsChange,
-  PropsComponentRawData
+  PropsComponentRawData,
+  Style
 } from '@asra/utils'
-import { initPropXSubscribes } from './subscribes'
 import { createProperty } from './utils'
 import { EventTypes, updateTransaction } from '@asra/reactive-events'
-
-initPropXSubscribes()
 
 class PropsManager {
   _components: Map<string, PropertyComponentInstanceTypes> = new Map()
@@ -103,9 +102,14 @@ class PropsManager {
   }
 
   createProperty(propData: Partial<PropertyComponentRawData>) {
-    const newProperty = createProperty(
-      propData
-    ) as PropertyComponentInstanceTypes
+    if (!propData.type) {
+      throw new Error('Type is required!')
+    }
+
+    const newProperty = createProperty({
+      ...propData,
+      type: propData.type as PropertyTypes
+    }) as PropertyComponentInstanceTypes
     this.addChangeForAddProperty(newProperty)
     return newProperty
   }
@@ -131,6 +135,19 @@ class PropsManager {
     propComponentIds.forEach((propComponentId) => {
       this.removeFromMap(propComponentId)
     })
+  }
+
+  updatePropsData<K extends keyof PropertyComponentInstanceDataTypes>(
+    componentId: string,
+    key: K,
+    data: PropertyComponentInstanceDataTypes[K]
+  ) {
+    const component = this.getComponentById(componentId)
+    if (!component) {
+      return
+    }
+
+    component.set(key, data)
   }
 
   commitChanges() {

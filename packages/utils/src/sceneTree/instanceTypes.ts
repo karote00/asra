@@ -1,16 +1,13 @@
 import { EntityTypes } from './enum'
 import type { ElementRawData } from './rawDataTypes'
 import { ISetter } from '../setter'
+import { Style } from '../types'
 // import { FillAttrs } from '../propsManager'
 
-export interface ComputedAttrs {
+export interface ComputedAttrs extends Style {
   id: string
   type: EntityTypes
   name: string
-  x: number
-  y: number
-  width: number
-  height: number
   rotation: number
   // fills: FillAttrs[]
 }

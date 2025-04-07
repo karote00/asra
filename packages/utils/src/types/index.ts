@@ -1,3 +1,4 @@
+export * from './common'
 export * from './constants'
 export * from './yjs'
 export * from './change'
