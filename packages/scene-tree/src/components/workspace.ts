@@ -22,6 +22,11 @@ class Workspace extends Group {
     this.data.type = EntityTypes.WORKSPACE
   }
 
+  create(): void {
+    super.create()
+    this.data.type = EntityTypes.WORKSPACE
+  }
+
   load(data: WorkspaceDataType): void {
     super.load(data)
   }

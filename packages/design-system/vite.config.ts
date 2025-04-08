@@ -5,7 +5,7 @@ import svgr from 'vite-plugin-svgr'
 import dts from 'vite-plugin-dts'
 import tailwindcss from 'tailwindcss'
 import { resolve } from 'path'
-import peerDependencies from './package.json'
+import packageJson from './package.json'
 
 export default defineConfig({
   css: {
@@ -30,7 +30,7 @@ export default defineConfig({
       fileName: (format) => `index.${format}.js`
     },
     rollupOptions: {
-      external: [...Object.keys(peerDependencies), 'tailwindcss'],
+      external: [...Object.keys(packageJson.peerDependencies), 'tailwindcss'],
       output: {
         globals: {
           react: 'React',

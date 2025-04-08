@@ -1,6 +1,10 @@
 import { PropertyTypes } from '@asra/utils'
-import type { PropsRawData } from '@asra/utils'
-import { addProperty, removeProperty } from '@asra/reactive-events'
+import type {
+  PropertyComponentInstanceDataTypes,
+  PropsRawData
+} from '@asra/utils'
+import { removeProperty } from '@asra/reactive-events'
+import propsManager from '@asra/props-manager'
 
 type PropsDataType = Partial<PropsRawData>
 
@@ -8,6 +12,15 @@ const PROP_NAMES: PropertyTypes[] = [
   PropertyTypes.POSITION,
   PropertyTypes.DIMENSION
 ]
+
+type AliasKeys = 'x' | 'y' | 'width' | 'height'
+
+const PROP_ALIAS: Record<AliasKeys, PropertyTypes> = {
+  x: PropertyTypes.POSITION,
+  y: PropertyTypes.POSITION,
+  width: PropertyTypes.DIMENSION,
+  height: PropertyTypes.DIMENSION
+}
 
 class Props {
   elementId: string
@@ -20,13 +33,16 @@ class Props {
     if (data) {
       this.load(data)
     } else {
-      this._init()
+      this.init()
     }
   }
 
-  async _init() {
-    const propsTypeData = PROP_NAMES.map((propName) => ({ type: propName }))
-    const propIdsMap = await addProperty(propsTypeData)
+  init() {
+    const propertyComponents = PROP_NAMES.map((propName) =>
+      propsManager.createProperty({ type: propName })
+    )
+    const propIdsMap = propsManager.addProperty(propertyComponents)
+    propsManager.commitChanges()
     if (!propIdsMap) {
       return
     }
@@ -48,6 +64,19 @@ class Props {
       acc[key] = this[key] as string
       return acc
     }, {} as PropsRawData)
+  }
+
+  updateData<K extends keyof PropertyComponentInstanceDataTypes>(
+    key: K,
+    data: PropertyComponentInstanceDataTypes[K]
+  ) {
+    const propName = (PROP_ALIAS[key] || key) as PropertyTypes
+    const propComponentId = this[propName]
+    if (!propComponentId) {
+      return
+    }
+
+    propsManager.updatePropsData(propComponentId, key, data)
   }
 
   cleanup() {

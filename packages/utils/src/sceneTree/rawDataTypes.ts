@@ -10,16 +10,11 @@ export interface PropsRawData {
   dimension: string
 }
 
-export interface ComputedRawData {
-  position: number
-  dimension: string
-}
-
 export interface ElementRawData extends BaseRawData {
   type: EntityTypes
-  props?: PropsRawData
-  lock: boolean
   visible: boolean
+  lock: boolean
+  props?: PropsRawData
 }
 
 export interface RectangleRawData extends ElementRawData {

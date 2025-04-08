@@ -1,11 +1,7 @@
 import { Application, Container, Graphics } from 'pixi.js'
 import { initDataContexts } from './subscribes'
-import {
-  DataTypes,
-  ElementRawData,
-  EntityTypes,
-  GroupRawData
-} from '@asra/utils'
+import { DataTypes, EntityTypes, GroupRawData } from '@asra/utils'
+import { RenderElementData } from './types'
 
 initDataContexts()
 
@@ -102,7 +98,7 @@ class Render {
     return container
   }
 
-  addElement(data: ElementRawData) {
+  addElement(data: RenderElementData) {
     const element = this.getRestoreElement(data.id)
     if (element) {
       this.addToMap(data.id, element)
@@ -114,14 +110,9 @@ class Render {
 
     switch (data.type) {
       case EntityTypes.RECTANGLE:
-        graphic
-          .rect(
-            getRandomInt(200) + 300,
-            getRandomInt(200) + 300,
-            getRandomInt(100) + 100,
-            getRandomInt(100) + 100
-          )
-          .fill(randomHexColorCode())
+        graphic.rect(0, 0, data.width, data.height).fill(randomHexColorCode())
+        graphic.x = data.x
+        graphic.y = data.y
         break
     }
 
@@ -192,6 +183,8 @@ class Render {
         })
         break
       }
+      default:
+        this.updateElementProperties(element, key, after)
     }
     // const parent = (this.getElementById(parentId) as Container) || this._root
 
@@ -200,19 +193,35 @@ class Render {
     //   parent.addChildAt(graphic, idx)
     // }
   }
+
+  updateElementProperties(
+    element: Container | Graphics,
+    key: string,
+    after: DataTypes
+  ) {
+    switch (key) {
+      case 'x':
+        element.x = after as number
+        break
+      case 'y':
+        element.y = after as number
+        break
+      case 'width':
+        element.width = after as number
+        break
+      case 'height':
+        element.height = after as number
+        break
+    }
+  }
 }
+
+export default Render
+
+export const render = new Render()
 
 // REMOVE: test data
 const randomHexColorCode = () => {
   const n = (Math.random() * 0xfffff * 1000000).toString(16)
   return '#' + n.slice(0, 6)
 }
-
-// REMOVE: test data
-const getRandomInt = (max: number) => {
-  return Math.floor(Math.random() * max)
-}
-
-export default Render
-
-export const render = new Render()

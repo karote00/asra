@@ -2,13 +2,19 @@ import {
   subscribeUndoRedoStatus,
   subscribeToAddElement,
   subscribeToRemoveElement,
-  startTransaction,
-  updateTransaction,
-  endTransaction
+  subscribeToChangeComputedData,
+  updateTransaction
 } from '@asra/reactive-events'
-import type { ElementInstanceTypes } from '@asra/utils'
+import type { ComputedAttrs, ElementInstanceTypes } from '@asra/utils'
 import { UNDO } from '@asra/utils'
 import sceneTree from './sceneTree'
+
+const commitSceneTreeTransaction = () => {
+  sceneTree.changes.forEach((change) => {
+    updateTransaction(change.eventName, change)
+  })
+  sceneTree.cleanChanges()
+}
 
 export const initSceneTreeSubscribes = () => {
   let inUndoRedo = false
@@ -19,8 +25,8 @@ export const initSceneTreeSubscribes = () => {
   subscribeToAddElement(({ payload }) => {
     const { data, parent, index } = payload
 
-    startTransaction()
     let newRectangle
+
     if (inUndoRedo) {
       newRectangle = sceneTree.getRestoreElementById(data.id as string)
     } else {
@@ -28,25 +34,27 @@ export const initSceneTreeSubscribes = () => {
     }
 
     sceneTree.addNewElement(newRectangle as ElementInstanceTypes, parent, index)
-    sceneTree.changes.forEach((change) => {
-      updateTransaction(change.eventName, change)
-    })
-    sceneTree.cleanChanges()
-
-    endTransaction()
+    commitSceneTreeTransaction()
   })
 
   subscribeToRemoveElement(({ payload }) => {
     const { data, parent, index } = payload
     sceneTree.removeElement(data, index, parent)
 
-    startTransaction()
+    commitSceneTreeTransaction()
+  })
 
-    sceneTree.changes.forEach((change) => {
-      updateTransaction(change.eventName, change)
+  subscribeToChangeComputedData(async ({ payload }) => {
+    const { elementIds, key, data } = payload
+
+    elementIds.forEach((elementId) => {
+      type KEY = keyof ComputedAttrs
+      sceneTree.updateComputedData(
+        elementId,
+        key as KEY,
+        data as ComputedAttrs[KEY]
+      )
     })
-    sceneTree.cleanChanges()
-
-    endTransaction()
+    commitSceneTreeTransaction()
   })
 }

@@ -1,34 +1,41 @@
-import type { DataTypes, ElementRawData, GroupRawData } from '@asra/utils'
+import type {
+  DataTypes,
+  ElementRawData,
+  GroupRawData,
+  WorkspaceRawData
+} from '@asra/utils'
 import { EntityTypes, isGroupEntity } from '@asra/utils'
-import type { Workspace } from '@asra/scene-tree'
 import sceneTree from '@asra/scene-tree'
+import { RenderElementData } from '../types'
+
 import { render } from '../render'
 
 class RenderSceneTree {
-  private _workspace: Workspace | null
+  private _workspace: WorkspaceRawData | null
 
   constructor() {
     this._workspace = null
   }
 
   reload() {
-    const currentWorkspace = sceneTree.currentWorkspace as Workspace
-    this._workspace = currentWorkspace
+    const currentWorkspaceData =
+      sceneTree.currentWorkspace.save() as WorkspaceRawData
+    this._workspace = currentWorkspaceData
 
     // Create root render node
-    const currentWorkspaceId = currentWorkspace.get('id')
-    const root = this.addContainer(currentWorkspaceId)
+    const root = this.addContainer(currentWorkspaceData.id)
 
     // Create all element render node
     sceneTree.getAllElements().forEach((element) => {
+      const renderElementData = this._getRenderData(element.get('id'))
       if (element.get('type') !== EntityTypes.WORKSPACE) {
-        this.addElement(element.save())
+        this.addElement(renderElementData)
       }
     })
 
     render.addRoot(root)
 
-    this.groupMapChildren(currentWorkspace.save())
+    this.groupMapChildren(currentWorkspaceData)
   }
 
   addContainer(currentWorkspaceId: string) {
@@ -41,7 +48,7 @@ class RenderSceneTree {
     return container
   }
 
-  groupMapChildren(data: GroupRawData) {
+  groupMapChildren(data: WorkspaceRawData | GroupRawData) {
     render.groupMapChildren(data)
 
     data.children.forEach((childId) => {
@@ -55,7 +62,23 @@ class RenderSceneTree {
     })
   }
 
-  addElement(data: ElementRawData) {
+  private _getRenderData(id: string) {
+    const element = sceneTree.getElementById(id)
+    const elementComputedData = element.getAllComputedData()
+    const elementData = {
+      ...element.save(),
+      ...elementComputedData
+    } as RenderElementData
+
+    return elementData
+  }
+
+  addElementById(id: string) {
+    const renderElementData = this._getRenderData(id)
+    this.addElement(renderElementData)
+  }
+
+  addElement(data: RenderElementData) {
     render.addElement(data)
   }
 

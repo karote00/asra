@@ -1,3 +1,5 @@
 import './index.css'
-export { Button } from './components/Button'
+export { Text } from './components/Text'
 export { Icon } from './components/Icon'
+export { Button } from './components/Button'
+export { Input } from './components/Input'

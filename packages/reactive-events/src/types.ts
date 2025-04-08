@@ -18,7 +18,8 @@ export enum SceneTreeEventTypes {
 export enum ElementEventTypes {
   ADD_ELEMENT = 'addElement',
   REMOVE_ELEMENT = 'removeElement',
-  UPDATE_ELEMENT = 'updateElement'
+  UPDATE_COMPUTED_DATA = 'updateComputedData',
+  CHANGE_COMPUTED_DATA = 'changeComputedData'
 }
 
 // Undo
@@ -46,6 +47,11 @@ export enum PropsEventTypes {
   PROP_CHANGE_COMPLETE = 'propChangeComplete'
 }
 
+export enum UIContextEventTypes {
+  REQUEST_ELEMENT_SELECTION = 'requestElementSelection',
+  FINISH_REQUEST_ELEMENT_SELECTION = 'finishRequestElementSelection'
+}
+
 export const EventTypes = {
   ...RenderEventTypes,
   ...FileEventTypes,
@@ -54,7 +60,8 @@ export const EventTypes = {
   ...UndoRedoEventTypes,
   ...TransactionEventTypes,
   ...SelectionEventTypes,
-  ...PropsEventTypes
+  ...PropsEventTypes,
+  ...UIContextEventTypes
 } as const
 
 export type EventTypes = (typeof EventTypes)[keyof typeof EventTypes]

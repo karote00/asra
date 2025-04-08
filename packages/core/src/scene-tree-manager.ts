@@ -1,6 +1,13 @@
-import { addRectangle, sceneTreeLoadComplete } from '@asra/reactive-events'
+import {
+  addRectangle,
+  changeComputedData,
+  endTransaction,
+  requestElementSelection,
+  sceneTreeLoadComplete,
+  startTransaction
+} from '@asra/reactive-events'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
-import { SceneTreeRawData } from '@asra/utils'
+import { DataTypes, SceneTreeRawData } from '@asra/utils'
 
 export default class SceneTreeManager {
   sceneTree: SceneTree = sceneTree
@@ -20,6 +27,15 @@ export default class SceneTreeManager {
   }
 
   addRectangle() {
+    startTransaction()
     addRectangle()
+    endTransaction()
+  }
+
+  async changeComputedData(key: string, data: DataTypes) {
+    startTransaction()
+    const elementIds = await requestElementSelection()
+    changeComputedData(elementIds, key, data)
+    endTransaction()
   }
 }

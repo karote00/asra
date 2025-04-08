@@ -1,10 +1,10 @@
 import type {
+  ComputedAttrs,
   SceneTreeRawData,
   WorkspaceRawData,
   ElementRawData,
   ElementInstanceTypes,
   GroupInstanceTypes,
-  GroupRawData,
   SceneTreeChange
 } from '@asra/utils'
 import { EntityTypes, OWNER, SCENE_TREE_ACTIONS } from '@asra/utils'
@@ -12,7 +12,6 @@ import { createElement, createWorkspace } from './utils'
 import type Workspace from './components/workspace'
 import { EventTypes } from '@asra/reactive-events'
 
-type InstanceRawData = ElementRawData | GroupRawData | WorkspaceRawData
 type SceneTreeDataType = SceneTreeRawData
 
 class SceneTree {
@@ -24,7 +23,7 @@ class SceneTree {
 
   _init(): void {
     if (!this.workspace && !this.workspaceList.length) {
-      const initWorkspace = createWorkspace()
+      const initWorkspace = createWorkspace() as ElementInstanceTypes
       if (initWorkspace) {
         this.addToMap(initWorkspace)
         this.workspaceList = [initWorkspace.get('id')]
@@ -41,14 +40,17 @@ class SceneTree {
     if (!data) return
 
     if (data.elements) {
-      Object.values(data.elements).forEach((elementData: InstanceRawData) => {
-        const element =
-          elementData.type === EntityTypes.WORKSPACE
-            ? createWorkspace(elementData as WorkspaceRawData)
-            : createElement(elementData)
+      for (const elementId in data.elements) {
+        const elementData = data.elements[elementId]
+        let element
+        if (elementData.type === EntityTypes.WORKSPACE) {
+          element = createWorkspace(elementData as WorkspaceRawData)
+        } else {
+          element = createElement(elementData)
+        }
 
         this.addToMap(element as ElementInstanceTypes)
-      })
+      }
     }
 
     if (data.workspace) {
@@ -192,9 +194,25 @@ class SceneTree {
     sceneTree.addChangeForRemoveElement(element)
     workspace.removeElement(element, index, parent)
   }
+
+  updateComputedData<K extends keyof ComputedAttrs>(
+    elementId: string,
+    key: K,
+    data: ComputedAttrs[K]
+  ) {
+    const element = this.getElementById(elementId)
+    if (!element) {
+      return
+    }
+
+    element.updateComputedData(key, data)
+  }
 }
 
 const sceneTree = new SceneTree()
+if (process.env.NODE_ENV === 'development') {
+  // window.__SCENE_TREE__ = sceneTree
+}
 
 export default sceneTree
 export { SceneTree }

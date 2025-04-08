@@ -7,6 +7,10 @@ import { SCENE_TREE_ACTIONS } from '@asra/utils'
 import factory from '@asra/factory'
 import sceneTree from '@asra/scene-tree'
 import SceneTreeStore from '../stores/scene-tree'
+import {
+  subscribeToEndTransaction,
+  subscribeToSceneTreeLoadComplete
+} from '@asra/reactive-events'
 
 export const sceneTreeStore = new SceneTreeStore(sceneTree)
 
@@ -22,7 +26,7 @@ const updateUISceneTree = (change: SceneTreeYjsChange['payload']) => {
       sceneTreeStore.removeElement(data, parentId as string)
       break
     }
-    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT: {
+    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA: {
       const { id, key, after } = change as UpdateElementChange
       sceneTreeStore.updateElement(id, key, after)
       break
@@ -54,6 +58,15 @@ export const initSceneTreeDataContext = () => {
 
   const sceneTreeArray = factory.sceneTreeMap
   sceneTreeArray.observe(collectSceneTreeChange)
+
+  subscribeToSceneTreeLoadComplete(() => {
+    sceneTreeStore.reload()
+    sceneTreeStore.fireChange()
+  })
+
+  subscribeToEndTransaction(() => {
+    sceneTreeStore.fireChange()
+  })
 
   hasInit = true
 }

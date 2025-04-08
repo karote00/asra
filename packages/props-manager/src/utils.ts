@@ -41,6 +41,7 @@ export const createProperty = (data: Partial<PropertyComponentRawData>) => {
 
   return new PropClass({
     id: comId,
-    ...defaultData
+    ...defaultData,
+    ...data
   }) as PropertyComponentInstanceTypes
 }

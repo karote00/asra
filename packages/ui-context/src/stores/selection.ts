@@ -1,22 +1,13 @@
-import { BehaviorSubject } from 'rxjs'
 import { SelectionManager } from '@asra/selection'
-import { SELECTION_TYPES } from '@asra/utils'
-
-const SelectionTypes = Object.values(SELECTION_TYPES)
-type SelectionDataTye = Set<string>
+import { ComputedAttrs, SELECTION_TYPES } from '@asra/utils'
+import sceneTree from '@asra/scene-tree'
+import uiContext from '../ui-context'
 
 export default class SelectionStore {
   selectionManager: SelectionManager
-  selections: Map<string, BehaviorSubject<SelectionDataTye>> = new Map()
 
   constructor(selectionManager: SelectionManager) {
     this.selectionManager = selectionManager
-    SelectionTypes.forEach((type: SELECTION_TYPES) => {
-      this.selections.set(
-        type,
-        new BehaviorSubject<SelectionDataTye>(new Set())
-      )
-    })
   }
 
   updateSelection(type: SELECTION_TYPES) {
@@ -25,15 +16,29 @@ export default class SelectionStore {
       return
     }
 
-    const selected = this.selections.get(type)
-    selected?.next(new Set(selection.getSelectedIds()))
-  }
+    const selectedIds = selection.getSelectedIds()
 
-  get elements() {
-    return this.selections.get(SELECTION_TYPES.ELEMENT)
-  }
+    switch (type) {
+      case SELECTION_TYPES.ELEMENT: {
+        uiContext.updateElementSelection(selectedIds)
+        const allElementData = [...selectedIds].reduce((acc, elementId) => {
+          const element = sceneTree.getElementById(elementId)
+          if (!element) {
+            return acc
+          }
 
-  get vertex() {
-    return this.selections.get(SELECTION_TYPES.VERTEX)
+          const elementData = element.getAllComputedData() as ComputedAttrs
+          acc.push(elementData)
+          return acc
+        }, [] as ComputedAttrs[])
+        if (selectedIds.size) {
+          uiContext.updateComputedProperties(allElementData)
+        }
+        break
+      }
+      case SELECTION_TYPES.VERTEX:
+        uiContext.updateVertexSelection(selectedIds)
+        break
+    }
   }
 }

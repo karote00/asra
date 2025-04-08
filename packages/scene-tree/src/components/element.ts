@@ -1,4 +1,11 @@
-import type { ElementRawData, ElementAttrs, IElement } from '@asra/utils'
+import type {
+  ElementRawData,
+  ElementAttrs,
+  IElement,
+  PropsRawData,
+  ComputedAttrs,
+  PropertyComponentInstanceDataTypes
+} from '@asra/utils'
 import {
   Setter,
   IDTypes,
@@ -27,26 +34,34 @@ class Element<T extends ElementAttrs = ElementAttrs>
   _nameType!: NameTypes
 
   props!: Props
-  computed: Computed = new Computed()
+  computed!: Computed<ComputedAttrs>
 
   constructor(data?: Partial<ElementRawData>) {
     super(elementChangeHandler.addChange)
     this._init()
 
-    const elementId = this.get('id')
-    if (this.data.type !== EntityTypes.WORKSPACE) {
-      if (data && data.props) {
-        this.props = new Props(elementId, data.props)
-      } else {
-        this.props = new Props(elementId)
-      }
+    if (data) {
+      this.load(data)
+    } else {
+      this.create()
     }
+
+    this.setupProps(data?.props)
   }
 
   _init(): void {
     this._idType ??= IDTypes.ELEMENT
     this._nameType ??= NameTypes.ELEMENT
+    this.data = {
+      id: '',
+      type: EntityTypes.UNDEFINED,
+      name: '',
+      visible: false,
+      lock: true
+    } as T
+  }
 
+  create(): void {
     this.data = {
       id: id(this._idType),
       type: EntityTypes.ELEMENT,
@@ -61,7 +76,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
       return
     }
 
-    if (this.data.type !== EntityTypes.WORKSPACE) {
+    if (data.type !== EntityTypes.WORKSPACE) {
       ElementProps.forEach((propName) => {
         switch (propName) {
           case 'id': {
@@ -89,7 +104,6 @@ class Element<T extends ElementAttrs = ElementAttrs>
           }
         }
       })
-      this.props.load(data.props)
     }
   }
 
@@ -106,6 +120,41 @@ class Element<T extends ElementAttrs = ElementAttrs>
     }
 
     return data
+  }
+
+  setupProps(propsData?: Partial<PropsRawData>) {
+    const elementId = this.get('id') as string
+    if (this.data.type !== EntityTypes.WORKSPACE) {
+      if (propsData) {
+        this.props = new Props(elementId, propsData)
+      } else {
+        this.props = new Props(elementId)
+      }
+
+      this.computed = new Computed(elementId, this.props)
+    }
+  }
+
+  updateComputedData<K extends keyof ComputedAttrs>(
+    key: K,
+    data: ComputedAttrs[K]
+  ) {
+    this.computed.set(key, data)
+
+    // Convert data type from ComputedAttrs to PropertyComponentInstanceDataTypes
+    type KEY = keyof PropertyComponentInstanceDataTypes
+    this.props.updateData(
+      key as KEY,
+      data as PropertyComponentInstanceDataTypes[KEY]
+    )
+  }
+
+  getAllComputedData() {
+    if (this.get('type') !== EntityTypes.WORKSPACE) {
+      return this.computed.save()
+    }
+
+    return {}
   }
 
   cleanup() {

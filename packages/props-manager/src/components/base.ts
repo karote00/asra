@@ -25,9 +25,7 @@ abstract class BaseComponent<
     Object.keys(data).forEach((dataKey) => {
       const key = dataKey as keyof T
       if (this.isValidKey(key) && !isNil(data[key])) {
-        this.set(key, data[key] as T[Extract<keyof T, string>], {
-          undoable: false
-        })
+        this.data[key] = data[key] as T[Extract<keyof T, string>]
       }
     })
   }
