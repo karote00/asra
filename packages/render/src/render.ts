@@ -1,11 +1,6 @@
 import { Application, Container, Graphics } from 'pixi.js'
 import { initDataContexts } from './subscribes'
-import {
-  DataTypes,
-  ElementRawData,
-  EntityTypes,
-  GroupRawData
-} from '@asra/utils'
+import { DataTypes, EntityTypes, GroupRawData } from '@asra/utils'
 import { RenderElementData } from './types'
 
 initDataContexts()
@@ -113,13 +108,11 @@ class Render {
     const graphic = new Graphics()
     graphic.label = data.id
 
-    // REMOVE: mock data idN
-    const idN = parseInt(data.id.split('-')[1]) * 10
     switch (data.type) {
       case EntityTypes.RECTANGLE:
-        graphic
-          .rect(data.x + 300 + idN, data.y + 300 + idN, data.width, data.height)
-          .fill(randomHexColorCode())
+        graphic.rect(0, 0, data.width, data.height).fill(randomHexColorCode())
+        graphic.x = data.x
+        graphic.y = data.y
         break
     }
 
@@ -190,6 +183,8 @@ class Render {
         })
         break
       }
+      default:
+        this.updateElementProperties(element, key, after)
     }
     // const parent = (this.getElementById(parentId) as Container) || this._root
 
@@ -197,6 +192,27 @@ class Render {
     //   const idx = index > -1 ? index : parent.children.length
     //   parent.addChildAt(graphic, idx)
     // }
+  }
+
+  updateElementProperties(
+    element: Container | Graphics,
+    key: string,
+    after: DataTypes
+  ) {
+    switch (key) {
+      case 'x':
+        element.x = after as number
+        break
+      case 'y':
+        element.y = after as number
+        break
+      case 'width':
+        element.width = after as number
+        break
+      case 'height':
+        element.height = after as number
+        break
+    }
   }
 }
 
