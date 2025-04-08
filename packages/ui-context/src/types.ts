@@ -1,4 +1,4 @@
-import { FillAttrs, MIXED_STRING } from '@asra/utils'
+import { MIXED_STRING } from '@asra/utils'
 
 type MixedType = typeof MIXED_STRING
 

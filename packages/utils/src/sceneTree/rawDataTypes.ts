@@ -1,4 +1,3 @@
-import { PropertyComponentRawData } from '../propsManager'
 import { EntityTypes } from './enum'
 
 export interface BaseRawData {

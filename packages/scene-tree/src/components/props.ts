@@ -1,9 +1,7 @@
 import { PropertyTypes } from '@asra/utils'
 import type {
-  ComputedAttrs,
   PropertyComponentInstanceDataTypes,
-  PropsRawData,
-  Style
+  PropsRawData
 } from '@asra/utils'
 import { removeProperty } from '@asra/reactive-events'
 import propsManager from '@asra/props-manager'

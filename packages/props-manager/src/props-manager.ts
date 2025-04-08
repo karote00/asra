@@ -4,8 +4,7 @@ import type {
   PropertyComponentInstanceTypes,
   PropertyComponentRawData,
   PropsChange,
-  PropsComponentRawData,
-  Style
+  PropsComponentRawData
 } from '@asra/utils'
 import { createProperty } from './utils'
 import { EventTypes, updateTransaction } from '@asra/reactive-events'

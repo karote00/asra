@@ -19,7 +19,7 @@ export default class SelectionStore {
     const selectedIds = selection.getSelectedIds()
 
     switch (type) {
-      case SELECTION_TYPES.ELEMENT:
+      case SELECTION_TYPES.ELEMENT: {
         uiContext.updateElementSelection(selectedIds)
         const allElementData = [...selectedIds].reduce((acc, elementId) => {
           const element = sceneTree.getElementById(elementId)
@@ -35,6 +35,7 @@ export default class SelectionStore {
           uiContext.updateComputedProperties(allElementData)
         }
         break
+      }
       case SELECTION_TYPES.VERTEX:
         uiContext.updateVertexSelection(selectedIds)
         break

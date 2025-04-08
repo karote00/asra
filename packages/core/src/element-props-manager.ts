@@ -4,8 +4,6 @@ import { PropsComponentRawData } from '@asra/utils'
 export default class ElementPropsManager {
   propsManager: PropsManager = propsManager
 
-  init() {}
-
   load(data: PropsComponentRawData) {
     this.propsManager.load(data)
   }

@@ -1,6 +1,4 @@
 import {
-  endTransaction,
-  startTransaction,
   subscribeToSelectElements,
   updateTransaction
 } from '@asra/reactive-events'
