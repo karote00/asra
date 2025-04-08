@@ -26,7 +26,7 @@ export interface RemoveElementEvent {
 export interface UpdateComputedDataEvent {
   type: EventTypes
   payload: {
-    elementId: string
+    id: string
     key: string
     before: DataTypes
     after: DataTypes
@@ -36,6 +36,7 @@ export interface UpdateComputedDataEvent {
 export interface ChangeComputedDataEvent {
   type: EventTypes
   payload: {
+    elementIds: string[]
     key: string
     data: DataTypes
   }

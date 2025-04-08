@@ -8,8 +8,9 @@ import {
   Setter
 } from '@asra/utils'
 import Props from './props'
+import ElementChangeHandler from './element-change-handler'
 
-const emptyChangeHandler = () => {}
+const elementChangeHandler = new ElementChangeHandler()
 
 const PROPS_MAP: Record<string, string[]> = {
   position: ['x', 'y'],
@@ -23,10 +24,11 @@ class Computed<T extends ComputedAttrs>
   _idType!: IDTypes
   _nameType!: NameTypes
 
-  constructor(props: Props) {
-    super(emptyChangeHandler)
+  constructor(elementId: string, props: Props) {
+    super(elementChangeHandler.addChange)
 
     this._init()
+    this.data.id = elementId
     this.setup(props)
   }
 

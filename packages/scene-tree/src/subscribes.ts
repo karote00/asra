@@ -3,20 +3,16 @@ import {
   subscribeToAddElement,
   subscribeToRemoveElement,
   subscribeToChangeComputedData,
-  updateTransaction,
-  requestElementSelection
+  updateTransaction
 } from '@asra/reactive-events'
 import type { ComputedAttrs, ElementInstanceTypes } from '@asra/utils'
 import { UNDO } from '@asra/utils'
 import sceneTree from './sceneTree'
 
-const updateSceneTreeTransaction = () => {
+const commitSceneTreeTransaction = () => {
   sceneTree.changes.forEach((change) => {
     updateTransaction(change.eventName, change)
   })
-}
-
-const clearSceneTreeChanges = () => {
   sceneTree.cleanChanges()
 }
 
@@ -38,21 +34,18 @@ export const initSceneTreeSubscribes = () => {
     }
 
     sceneTree.addNewElement(newRectangle as ElementInstanceTypes, parent, index)
-    updateSceneTreeTransaction()
-    clearSceneTreeChanges()
+    commitSceneTreeTransaction()
   })
 
   subscribeToRemoveElement(({ payload }) => {
     const { data, parent, index } = payload
     sceneTree.removeElement(data, index, parent)
 
-    updateSceneTreeTransaction()
-    clearSceneTreeChanges()
+    commitSceneTreeTransaction()
   })
 
   subscribeToChangeComputedData(async ({ payload }) => {
-    const { key, data } = payload
-    const elementIds = await requestElementSelection()
+    const { elementIds, key, data } = payload
 
     elementIds.forEach((elementId) => {
       type KEY = keyof ComputedAttrs
@@ -62,7 +55,6 @@ export const initSceneTreeSubscribes = () => {
         data as ComputedAttrs[KEY]
       )
     })
-    updateSceneTreeTransaction()
-    clearSceneTreeChanges()
+    commitSceneTreeTransaction()
   })
 }

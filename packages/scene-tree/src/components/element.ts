@@ -131,7 +131,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
         this.props = new Props(elementId)
       }
 
-      this.computed = new Computed(this.props)
+      this.computed = new Computed(elementId, this.props)
     }
   }
 

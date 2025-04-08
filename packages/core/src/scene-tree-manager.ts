@@ -2,6 +2,7 @@ import {
   addRectangle,
   changeComputedData,
   endTransaction,
+  requestElementSelection,
   sceneTreeLoadComplete,
   startTransaction
 } from '@asra/reactive-events'
@@ -31,9 +32,10 @@ export default class SceneTreeManager {
     endTransaction()
   }
 
-  changeComputedData(key: string, data: DataTypes) {
+  async changeComputedData(key: string, data: DataTypes) {
     startTransaction()
-    changeComputedData(key, data)
+    const elementIds = await requestElementSelection()
+    changeComputedData(elementIds, key, data)
     endTransaction()
   }
 }
