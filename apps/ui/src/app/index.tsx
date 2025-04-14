@@ -26,6 +26,11 @@ const App: React.FC = () => {
       <Contents />
       <Properties />
       <Animation />
+      <div
+        id="viewport-anchor"
+        className="absolute inset-0 pointer-events-none"
+        style={{ gridArea: 'canvas' }}
+      />
     </div>
   )
 }

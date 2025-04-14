@@ -1,4 +1,4 @@
-import Render, { render } from './render'
+import render, { Render } from './render'
 
-export default Render
-export { render }
+export default render
+export { Render }

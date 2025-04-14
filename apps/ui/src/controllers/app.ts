@@ -1,6 +1,6 @@
-import { render } from '@asra/render'
 import { app, setPixiApp } from '../states/app'
 import { CANVAS_BACKGROUND_COLOR } from '../constants'
+import { core } from '../contexts'
 
 export const initRenderApp = async (
   container: HTMLDivElement,
@@ -15,7 +15,12 @@ export const initRenderApp = async (
     }
   }
 
-  await render.init(width, height, CANVAS_BACKGROUND_COLOR, setupPixiApp)
+  await core.renderEventManager.initRender(
+    width,
+    height,
+    CANVAS_BACKGROUND_COLOR,
+    setupPixiApp
+  )
 }
 
 export const destroyRenderApp = () => {

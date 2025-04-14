@@ -1,20 +1,23 @@
 import { Application, Container, Graphics } from 'pixi.js'
 import { initDataContexts } from './subscribes'
 import { DataTypes, EntityTypes, GroupRawData } from '@asra/utils'
-import { RenderElementData } from './types'
+import { RenderElementData, RenderContainerData } from './types'
+import { Viewport, rectToBounds } from './viewport'
 
 initDataContexts()
 
 type PixiInstance = Container | Graphics
 
 class Render {
-  app: Application | null = null
-  private _root: Container
+  private currentWorkspace: Container
   private _elements: Map<string, PixiInstance> = new Map()
   private _deleteMap: Map<string, PixiInstance> = new Map()
+  app: Application | null = null
+  viewport: Viewport
 
   constructor() {
-    this._root = new Container()
+    this.currentWorkspace = new Container()
+    this.viewport = new Viewport(this.currentWorkspace)
   }
 
   async init(
@@ -86,14 +89,24 @@ class Render {
   }
 
   addRoot(root: Container) {
-    this._root = root
+    this.currentWorkspace = root
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  addContainer(containerData: any) {
+  switchWorkspace(workspaceData: RenderContainerData) {
+    if (this.currentWorkspace) {
+      this.app?.stage.removeChild(this.currentWorkspace)
+    }
+
+    const workspace = new Container(workspaceData)
+    this.app?.stage.addChild(workspace)
+    this.currentWorkspace = workspace
+    this.viewport.switchContainer(workspace)
+  }
+
+  addContainer(containerData: RenderContainerData) {
     const container = new Container(containerData)
     this._elements.set(containerData.id, container)
-    this.app?.stage.addChild(container)
+    this.currentWorkspace.addChild(container)
 
     return container
   }
@@ -116,6 +129,7 @@ class Render {
         break
     }
 
+    this.currentWorkspace.addChild(graphic)
     this.addToMap(data.id, graphic)
 
     return graphic
@@ -123,7 +137,8 @@ class Render {
 
   removeElement(elementId: string, parentId?: string) {
     const parent =
-      (this.getElementById(parentId as string) as Container) || this._root
+      (this.getElementById(parentId as string) as Container) ||
+      this.currentWorkspace
     const element = this.getElementById(elementId)
 
     if (parent && element) {
@@ -214,11 +229,39 @@ class Render {
         break
     }
   }
+
+  getAllElementsRect() {
+    const rect = { x: Infinity, y: Infinity, width: 0, height: 0 }
+    for (const [, element] of this._elements) {
+      if (element instanceof Graphics) {
+        const elementBounds = element.getLocalBounds()
+
+        rect.x = Math.min(rect.x, elementBounds.x)
+        rect.y = Math.min(rect.y, elementBounds.y)
+        rect.width = Math.max(
+          rect.width,
+          elementBounds.x + elementBounds.width - rect.x
+        )
+        rect.height = Math.max(
+          rect.height,
+          elementBounds.y + elementBounds.height - rect.y
+        )
+      }
+    }
+
+    return rect
+  }
+
+  zoomFit(uiBounds: DOMRect) {
+    const elementsRect = this.getAllElementsRect()
+    this.viewport.fitBounds(rectToBounds(elementsRect), rectToBounds(uiBounds))
+  }
 }
 
-export default Render
+const render = new Render()
 
-export const render = new Render()
+export default render
+export { Render }
 
 // REMOVE: test data
 const randomHexColorCode = () => {

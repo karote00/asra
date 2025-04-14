@@ -8,7 +8,7 @@ import { EntityTypes, isGroupEntity } from '@asra/utils'
 import sceneTree from '@asra/scene-tree'
 import { RenderElementData } from '../types'
 
-import { render } from '../render'
+import render from '../render'
 
 class RenderSceneTree {
   private _workspace: WorkspaceRawData | null
@@ -23,7 +23,11 @@ class RenderSceneTree {
     this._workspace = currentWorkspaceData
 
     // Create root render node
-    const root = this.addContainer(currentWorkspaceData.id)
+    render.switchWorkspace({
+      id: currentWorkspaceData.id,
+      x: 0,
+      y: 0
+    })
 
     // Create all element render node
     sceneTree.getAllElements().forEach((element) => {
@@ -32,8 +36,6 @@ class RenderSceneTree {
         this.addElement(renderElementData)
       }
     })
-
-    render.addRoot(root)
 
     this.groupMapChildren(currentWorkspaceData)
   }

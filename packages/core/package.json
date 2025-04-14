@@ -21,6 +21,7 @@
     "@asra/input-system": "workspace:*",
     "@asra/props-manager": "workspace:*",
     "@asra/reactive-events": "workspace:*",
+    "@asra/render": "workspace:^",
     "@asra/scene-tree": "workspace:*",
     "@asra/selection": "workspace:*",
     "@asra/utils": "workspace:*"

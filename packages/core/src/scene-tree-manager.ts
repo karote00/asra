@@ -6,11 +6,15 @@ import {
   sceneTreeLoadComplete,
   startTransaction
 } from '@asra/reactive-events'
-import sceneTree, { SceneTree } from '@asra/scene-tree'
+import type { SceneTree } from '@asra/scene-tree'
 import { DataTypes, SceneTreeRawData } from '@asra/utils'
 
 export default class SceneTreeManager {
-  sceneTree: SceneTree = sceneTree
+  sceneTree: SceneTree
+
+  constructor(sceneTree: SceneTree) {
+    this.sceneTree = sceneTree
+  }
 
   init() {
     this.sceneTree.init()

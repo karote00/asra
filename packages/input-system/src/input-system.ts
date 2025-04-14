@@ -62,6 +62,9 @@ class InputSystem {
   }
 
   private handleKeyDown(event: KeyboardEvent) {
+    event.stopPropagation()
+    event.preventDefault()
+
     const key = this.keyMap.mapKey(event.code)
 
     if (key) {
@@ -74,6 +77,9 @@ class InputSystem {
   }
 
   private handleKeyUp(event: KeyboardEvent) {
+    event.stopPropagation()
+    event.preventDefault()
+
     const key = this.keyMap.mapKey(event.code)
 
     if (key) {
