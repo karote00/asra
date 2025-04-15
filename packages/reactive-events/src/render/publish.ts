@@ -1,7 +1,7 @@
 import { filter, firstValueFrom } from 'rxjs'
 import { getEventBus, publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
-import { FinishInitRenderEvent } from './events'
+import { FinishInitRenderEvent, FinishRequestRenderZoomEvent } from './events'
 
 export const initRender = async (
   width: number,
@@ -43,6 +43,31 @@ export const zoomFit = (rect: DOMRect) => {
     type: EventTypes.ZOOM_FIT,
     payload: {
       rect
+    }
+  })
+}
+
+export const requestRenderZoom = async () => {
+  const response$ = getEventBus().pipe(
+    filter(
+      (event): event is FinishRequestRenderZoomEvent =>
+        event.type === EventTypes.FINISH_REQUEST_RENDER_ZOOM
+    )
+  )
+
+  publishEvent({
+    type: EventTypes.REQUEST_RENDER_ZOOM
+  })
+
+  const responce = await firstValueFrom(response$)
+  return responce.payload.zoom
+}
+
+export const finishRequestRenderZoom = (newZoom: number) => {
+  publishEvent({
+    type: EventTypes.FINISH_REQUEST_RENDER_ZOOM,
+    payload: {
+      zoom: newZoom
     }
   })
 }

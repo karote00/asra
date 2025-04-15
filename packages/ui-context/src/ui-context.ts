@@ -12,6 +12,7 @@ const generalKeysToCompare: (keyof ElementProperties)[] = [
 ]
 
 class UIContext {
+  zoom: BehaviorSubject<number>
   flattenedElementIds: BehaviorSubject<string[]>
   elementSelection: BehaviorSubject<Set<string>>
   vertexSelection: BehaviorSubject<Set<string>>
@@ -23,6 +24,7 @@ class UIContext {
   //   fills: BehaviorSubject<ElementProperties['fills']>
 
   constructor() {
+    this.zoom = new BehaviorSubject<number>(1)
     this.flattenedElementIds = new BehaviorSubject<string[]>([])
     this.elementSelection = new BehaviorSubject<Set<string>>(new Set())
     this.vertexSelection = new BehaviorSubject<Set<string>>(new Set())
@@ -75,6 +77,10 @@ class UIContext {
     ) as ElementProperties['rotation']
 
     return result
+  }
+
+  updateZoom(newZoom: number) {
+    this.zoom.next(newZoom)
   }
 }
 

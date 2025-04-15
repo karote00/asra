@@ -24,7 +24,20 @@ export interface ZoomFitEvent {
   }
 }
 
+export interface RequestRenderZoomEvent {
+  type: EventTypes
+}
+
+export interface FinishRequestRenderZoomEvent {
+  type: EventTypes
+  payload: {
+    zoom: number
+  }
+}
+
 export type RenderEvents =
   | InitRenderEvent
   | FinishInitRenderEvent
   | ZoomFitEvent
+  | RequestRenderZoomEvent
+  | FinishRequestRenderZoomEvent
