@@ -1,13 +1,11 @@
-import InputSystem from '@asra/input-system'
+import { initRender, zoomFit } from '@asra/reactive-events'
 import type { Render } from '@asra/render'
+import InputSystem from '@asra/input-system'
 import { Events } from './combinations'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type InitCallback = (app: any) => void
 
 class RenderEventManager {
   private inputSystem: InputSystem
-  render: Render
+  private render: Render
 
   constructor(inputSystem: InputSystem, render: Render) {
     this.inputSystem = inputSystem
@@ -24,20 +22,15 @@ class RenderEventManager {
     this.zoomFit()
   }
 
-  async initRender(
-    width: number,
-    height: number,
-    color: number,
-    cb: InitCallback
-  ) {
-    await this.render.init(width, height, color, cb)
+  async initRender(width: number, height: number, color: number) {
+    return await initRender(width, height, color)
   }
 
   zoomFit() {
     const centerDiv = document.querySelector('#viewport-anchor')
     const uiBounds = centerDiv?.getBoundingClientRect()
     if (uiBounds) {
-      this.render.zoomFit(uiBounds)
+      zoomFit(uiBounds)
     }
   }
 }

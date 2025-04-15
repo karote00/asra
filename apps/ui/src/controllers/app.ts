@@ -7,20 +7,16 @@ export const initRenderApp = async (
   width: number,
   height: number
 ) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const setupPixiApp = (newApp: any) => {
-    if (newApp && newApp.canvas && !container.children.length) {
-      container.appendChild(newApp.canvas)
-      setPixiApp(newApp)
-    }
-  }
-
-  await core.renderEventManager.initRender(
+  const newApp = await core.renderEventManager.initRender(
     width,
     height,
-    CANVAS_BACKGROUND_COLOR,
-    setupPixiApp
+    CANVAS_BACKGROUND_COLOR
   )
+
+  if (newApp && newApp.canvas && !container.children.length) {
+    container.appendChild(newApp.canvas)
+    setPixiApp(newApp)
+  }
 }
 
 export const destroyRenderApp = () => {

@@ -43,16 +43,21 @@ export class Viewport {
     const targetCenterX = (target.minX + target.maxX) / 2
     const targetCenterY = (target.minY + target.maxY) / 2
 
-    let scale = 1
     const scaleX = visibleWidth / targetWidth
     const scaleY = visibleHeight / targetHeight
+
+    // Need to move back the way we used to scale to
+    let scale = 1
     let moveBackX = 0
     let moveBackY = 0
     if (scaleX > scaleY) {
       scale = scaleY
       moveBackX = targetCenterX * 2
-    } else {
+    } else if (scaleX < scaleY) {
       scale = scaleX
+      moveBackY = targetCenterY * 2
+    } else {
+      moveBackX = targetCenterX * 2
       moveBackY = targetCenterY * 2
     }
 

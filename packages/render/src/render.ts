@@ -20,12 +20,7 @@ class Render {
     this.viewport = new Viewport(this.currentWorkspace)
   }
 
-  async init(
-    width: number,
-    height: number,
-    backgroundColor: number,
-    initCallback: (app: Application) => void
-  ) {
+  async init(width: number, height: number, backgroundColor: number) {
     const app = new Application()
 
     await app.init({
@@ -37,8 +32,6 @@ class Render {
       antialias: true,
       autoDensity: true
     })
-
-    initCallback(app)
 
     this.app = app
 
