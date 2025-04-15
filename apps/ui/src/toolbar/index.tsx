@@ -4,6 +4,7 @@ import { Button } from '@asra/design-system'
 import ThemeToggle from './theme-toggle'
 import { ROW_HEIGHT } from '../constants'
 import { addRectangle } from '../controllers/scene-tree'
+import Zoom from './zoom'
 
 const ToolBar = () => {
   const handleAddNewElement = useCallback(() => {
@@ -21,6 +22,7 @@ const ToolBar = () => {
         label="Add new Element"
       />
       <ThemeToggle />
+      <Zoom />
     </div>
   )
 }
