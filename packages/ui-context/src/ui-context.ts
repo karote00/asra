@@ -48,6 +48,21 @@ class UIContext {
     }
   }
 
+  updateComputedProperty<K extends keyof ComputedAttrs>(
+    key: K,
+    data: ComputedAttrs[K][]
+  ) {
+    const compareKey = key as keyof ElementProperties
+    if (generalKeysToCompare.includes(compareKey)) {
+      const result = this.computedSharedProperty(
+        data as ElementProperties[keyof ElementProperties][]
+      )
+      if (result !== this[compareKey].getValue()) {
+        this[compareKey].next(result)
+      }
+    }
+  }
+
   updateComputedProperties(allElementData: ComputedAttrs[]) {
     const result = this.computeSharedProperties(allElementData)
 
@@ -56,6 +71,12 @@ class UIContext {
         this[key].next(result[key])
       }
     })
+  }
+
+  computedSharedProperty<K extends keyof ElementProperties>(
+    data: ElementProperties[K][]
+  ) {
+    return compareValue(data)
   }
 
   computeSharedProperties(allElementData: ComputedAttrs[]): ElementProperties {
@@ -88,6 +109,22 @@ const uiContext = new UIContext()
 
 export default uiContext
 export { UIContext }
+
+const compareValue = <K extends keyof ElementProperties>(
+  allElementData: ElementProperties[K][]
+) => {
+  const firstValue = allElementData[0]
+  let isMixed = false
+
+  for (let i = 1; i < allElementData.length; i++) {
+    if (allElementData[i] !== firstValue) {
+      isMixed = true
+      break
+    }
+  }
+
+  return isMixed ? MIXED_STRING : firstValue
+}
 
 const compareValues = (
   allElementData: ComputedAttrs[],

@@ -3,7 +3,8 @@ import {
   subscribeToAddElement,
   subscribeToRemoveElement,
   subscribeToChangeComputedData,
-  updateTransaction
+  updateTransaction,
+  subscribeToUpdateComputedData
 } from '@asra/reactive-events'
 import type { ComputedAttrs, ElementInstanceTypes } from '@asra/utils'
 import { UNDO } from '@asra/utils'
@@ -55,6 +56,17 @@ export const initSceneTreeSubscribes = () => {
         data as ComputedAttrs[KEY]
       )
     })
+    commitSceneTreeTransaction()
+  })
+
+  subscribeToUpdateComputedData(({ payload }) => {
+    const { id, key, after } = payload
+
+    sceneTree.updateComputedData(
+      id,
+      key as keyof ComputedAttrs,
+      after as ComputedAttrs[keyof ComputedAttrs]
+    )
     commitSceneTreeTransaction()
   })
 }

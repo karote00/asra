@@ -224,6 +224,7 @@ class Render {
   }
 
   getAllElementsRect() {
+    this.app?.render()
     const rect = { x: Infinity, y: Infinity, width: 0, height: 0 }
     for (const [, element] of this._elements) {
       if (element instanceof Graphics) {
