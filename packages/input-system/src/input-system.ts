@@ -61,12 +61,27 @@ class InputSystem {
     }
   }
 
+  private _isInputActive(event: KeyboardEvent) {
+    return (
+      ['INPUT', 'TEXT', 'TEXTAREA'].includes(
+        (event.target as HTMLElement).tagName
+      ) || (event.target as HTMLElement).isContentEditable
+    )
+  }
+
+  private _hasTriggerBrowserShortcut(event: KeyboardEvent) {
+    const hasMeta = this.activeKeys.has('Meta')
+    const key = this.keyMap.mapKey(event.code)
+    const hasNumber = !isNaN(Number(key))
+    return hasMeta && hasNumber
+  }
+
   private handleKeyDown(event: KeyboardEvent) {
-    event.stopPropagation()
-    event.preventDefault()
+    if (!this._isInputActive(event) || this._hasTriggerBrowserShortcut(event)) {
+      event.preventDefault()
+    }
 
     const key = this.keyMap.mapKey(event.code)
-
     if (key) {
       this.activeKeys.add(key)
       if (!this.keyMap.isModifiers(key)) {
@@ -77,11 +92,11 @@ class InputSystem {
   }
 
   private handleKeyUp(event: KeyboardEvent) {
-    event.stopPropagation()
-    event.preventDefault()
+    if (!this._isInputActive(event) || this._hasTriggerBrowserShortcut(event)) {
+      event.preventDefault()
+    }
 
     const key = this.keyMap.mapKey(event.code)
-
     if (key) {
       this.activeKeys.delete(key)
       this.clearTimer(key)
