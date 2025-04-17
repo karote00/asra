@@ -29,14 +29,6 @@ export class Viewport {
   }
 
   /**
-   * Move and zoom the canvas at the same time
-   */
-  moveTo(x: number, y: number, scale: number) {
-    this.panTo(x, y)
-    this.zoomTo(scale)
-  }
-
-  /**
    * Automatically fits all elements into the visible canvas area,
    * scaling and positioning them proportionally while maintaining aspect ratio.
    *
@@ -62,7 +54,8 @@ export class Viewport {
     const offsetX = uiBounds.minX + padding - elementsBounds.minX * newZoom
     const offsetY = uiBounds.minY + padding - elementsBounds.minY * newZoom
 
-    this.moveTo(offsetX, offsetY, newZoom)
+    this.panTo(offsetX, offsetY)
+    this.zoomTo(newZoom)
   }
 
   /**
