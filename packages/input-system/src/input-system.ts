@@ -1,6 +1,7 @@
+import { WheelEventData } from '@asra/utils'
 import KeyMap from './keymap'
 
-type Callback = (action: string) => void
+type Callback = (data?: any) => void
 
 const CLEAR_KEY_TIME = 100
 
@@ -27,6 +28,9 @@ class InputSystem {
     window.addEventListener('mousedown', (e) => this.handleMouseDown(e))
     window.addEventListener('mouseup', (e) => this.handleMouseUp(e))
     window.addEventListener('mousemove', (e) => this.handleMouseMove(e))
+    window.addEventListener('wheel', (e) => this.handleWheel(e), {
+      passive: false
+    })
   }
 
   on(action: string, callback: Callback): this {
@@ -154,12 +158,12 @@ class InputSystem {
     }
   }
 
-  private checkCombinations() {
+  private checkCombinations(data?: any) {
     const currentKeys = Array.from(this.activeKeys)
 
     for (const [action, requiredKeys] of Object.entries(this.combinations)) {
       if (this.isExactMatch(currentKeys, requiredKeys)) {
-        this.triggerAction(action)
+        this.triggerAction(action, data)
       }
     }
   }
@@ -171,10 +175,33 @@ class InputSystem {
     )
   }
 
-  private triggerAction(action: string) {
+  private triggerAction(action: string, data?: any) {
     const callbacks = this.listeners.get(action)
     if (callbacks) {
-      callbacks.forEach((cb) => cb(action))
+      callbacks.forEach((cb) => cb(data))
+    }
+  }
+
+  private handleWheel(event: WheelEvent) {
+    const deltaX = event.deltaX
+    const deltaY = event.deltaY
+
+    if (this.keyMap.isSpecialEvent('Wheel')) {
+      event.preventDefault()
+      this.activeKeys.add('Wheel')
+
+      const wheelData = {
+        deltaX,
+        deltaY,
+        deltaZ: event.deltaZ,
+        clientX: event.clientX,
+        clientY: event.clientY
+      } as WheelEventData
+
+      this.checkCombinations(wheelData)
+
+      // Remove wheel key immediately as scrolling is continuous
+      this.activeKeys.delete('Wheel')
     }
   }
 }

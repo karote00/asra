@@ -279,6 +279,58 @@ class Render {
     const elementsBounds = this.getAllElementsBounds(this.currentWorkspace)
     this.viewport.fitBounds(elementsBounds, rectToBounds(uiBounds))
   }
+
+  /**
+   * Move the canvas to the specified position
+   * @param x - The x-coordinate to move the canvas to
+   * @param y - The y-coordinate to move the canvas to
+   * @returns void
+   */
+  panTo(x: number, y: number) {
+    this.viewport.panTo(x, y)
+  }
+
+  /**
+   * Set the canvas zoom level
+   * @param scale - The zoom scale factor. A value of 1.0 represents 100% zoom.
+   *               Values greater than 1.0 zoom in, values less than 1.0 zoom out.
+   * @returns void
+   */
+  zoomTo(scale: number) {
+    this.viewport.zoomTo(scale)
+  }
+
+  /**
+   * Set the canvas zoom level centered on a specific point
+   * @param scale - The zoom scale factor
+   * @param centerX - The x-coordinate of the zoom center
+   * @param centerY - The y-coordinate of the zoom center
+   * @returns void
+   */
+  zoomToCenter(scale: number, centerX: number, centerY: number) {
+    const currentScale = this.getScale()
+    const currentPosition = this.getPosition()
+
+    // Calculate the position of the mouse in world coordinates
+    const worldX = (centerX - currentPosition.x) / currentScale
+    const worldY = (centerY - currentPosition.y) / currentScale
+
+    // Calculate the new position after zoom
+    const newX = centerX - worldX * scale
+    const newY = centerY - worldY * scale
+
+    // Apply the new scale and position
+    this.zoomTo(scale)
+    this.panTo(newX, newY)
+  }
+
+  getPosition() {
+    return this.viewport.getPosition()
+  }
+
+  getScale() {
+    return this.viewport.getScale()
+  }
 }
 
 const render = new Render()

@@ -1,4 +1,5 @@
 const MODIFIER_KEYS = new Set(['Meta', 'Ctrl', 'Shift', 'Alt'])
+const SPECIAL_EVENTS = new Set(['Wheel'])
 
 export default class KeyMap {
   private os: 'Windows' | 'Mac' | 'Linux'
@@ -147,5 +148,9 @@ export default class KeyMap {
 
   public isModifiers(key: string): boolean {
     return MODIFIER_KEYS.has(key)
+  }
+
+  public isSpecialEvent(key: string): boolean {
+    return SPECIAL_EVENTS.has(key)
   }
 }

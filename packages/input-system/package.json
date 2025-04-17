@@ -9,10 +9,13 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "dev": "tsc --watch",
-    "build:base": "tsc",
+    "build:module-base": "tsc",
     "clean": "rm -rf dist"
   },
   "devDependencies": {
     "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@asra/utils": "workspace:*"
   }
 }

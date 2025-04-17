@@ -10,6 +10,9 @@ export class Viewport {
 
   /**
    * Move the canvas to the specified position
+   * @param x - The x-coordinate to move the canvas to
+   * @param y - The y-coordinate to move the canvas to
+   * @returns void
    */
   panTo(x: number, y: number) {
     this.container.position.set(x, y)
@@ -17,6 +20,9 @@ export class Viewport {
 
   /**
    * Set the canvas zoom level
+   * @param scale - The zoom scale factor. A value of 1.0 represents 100% zoom.
+   *               Values greater than 1.0 zoom in, values less than 1.0 zoom out.
+   * @returns void
    */
   zoomTo(scale: number) {
     this.container.scale.set(scale)
