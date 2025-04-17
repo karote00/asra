@@ -1,6 +1,7 @@
 import { WheelEventData } from '@asra/utils'
 import KeyMap from './keymap'
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Callback = (data?: any) => void
 
 const CLEAR_KEY_TIME = 100
@@ -158,6 +159,7 @@ class InputSystem {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private checkCombinations(data?: any) {
     const currentKeys = Array.from(this.activeKeys)
 
@@ -175,6 +177,7 @@ class InputSystem {
     )
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private triggerAction(action: string, data?: any) {
     const callbacks = this.listeners.get(action)
     if (callbacks) {
