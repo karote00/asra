@@ -31,44 +31,32 @@ export class Viewport {
   }
 
   /**
-   * Fit all elements into the visible area
+   * Automatically fits all elements into the visible canvas area,
+   * scaling and positioning them proportionally while maintaining aspect ratio.
+   *
+   * @param elementsBounds - The global bounding box of all elements
+   * @param uiBounds - The visible UI canvas bounds
+   * @param padding - The desired padding between elements and the canvas edges
    */
-  fitBounds(target: Bounds, visible: Bounds, padding = 20) {
-    const targetWidth = target.maxX - target.minX
-    const targetHeight = target.maxY - target.minY
+  fitBounds(elementsBounds: Bounds, uiBounds: Bounds, padding = 20) {
+    // The available inner canvas area (excluding padding)
+    const availableWidth = uiBounds.maxX - uiBounds.minX - padding * 2
+    const availableHeight = uiBounds.maxY - uiBounds.minY - padding * 2
 
-    const visibleWidth = visible.maxX - visible.minX - padding * 2
-    const visibleHeight = visible.maxY - visible.minY - padding * 2
+    const contentWidth = elementsBounds.maxX - elementsBounds.minX
+    const contentHeight = elementsBounds.maxY - elementsBounds.minY
 
-    const targetCenterX = (target.minX + target.maxX) / 2
-    const targetCenterY = (target.minY + target.maxY) / 2
+    // Calculate proportional zoom ratio
+    const scaleX = availableWidth / contentWidth
+    const scaleY = availableHeight / contentHeight
 
-    const scaleX = visibleWidth / targetWidth
-    const scaleY = visibleHeight / targetHeight
+    const newZoom = Math.min(scaleX, scaleY)
 
-    // Need to move back the way we used to scale to
-    let scale = 1
-    let moveBackX = 0
-    let moveBackY = 0
-    if (scaleX > scaleY) {
-      scale = scaleY
-      moveBackX = targetCenterX * 2
-    } else if (scaleX < scaleY) {
-      scale = scaleX
-      moveBackY = targetCenterY * 2
-    } else {
-      moveBackX = targetCenterX * 2
-      moveBackY = targetCenterY * 2
-    }
+    // Compute the offset to align the content to the padded area
+    const offsetX = uiBounds.minX + padding - elementsBounds.minX * newZoom
+    const offsetY = uiBounds.minY + padding - elementsBounds.minY * newZoom
 
-    const visibleCenterX = (visible.minX + visible.maxX) / 2
-    const visibleCenterY = (visible.minY + visible.maxY) / 2
-
-    // Move the target to (0, 0) before calculating the final offset
-    const offsetX = visibleCenterX - targetCenterX * scale - moveBackX
-    const offsetY = visibleCenterY - targetCenterY * scale - moveBackY
-
-    this.moveTo(offsetX, offsetY, scale)
+    this.moveTo(offsetX, offsetY, newZoom)
   }
 
   /**
