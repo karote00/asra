@@ -1,16 +1,19 @@
 import type {
   SceneTreeYjsChange,
   AddRemoveElementChange,
-  UpdateElementChange
+  UpdateElementChange,
+  ComputedAttrs
 } from '@asra/utils'
 import { SCENE_TREE_ACTIONS } from '@asra/utils'
 import factory from '@asra/factory'
 import sceneTree from '@asra/scene-tree'
 import SceneTreeStore from '../stores/scene-tree'
 import {
+  requestElementSelection,
   subscribeToEndTransaction,
   subscribeToSceneTreeLoadComplete
 } from '@asra/reactive-events'
+import uiContext from '../ui-context'
 
 export const sceneTreeStore = new SceneTreeStore(sceneTree)
 
@@ -26,7 +29,7 @@ const updateUISceneTree = (change: SceneTreeYjsChange['payload']) => {
       sceneTreeStore.removeElement(data, parentId as string)
       break
     }
-    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_DATA: {
+    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA: {
       const { id, key, after } = change as UpdateElementChange
       sceneTreeStore.updateElement(id, key, after)
       break
@@ -36,17 +39,38 @@ const updateUISceneTree = (change: SceneTreeYjsChange['payload']) => {
 
 // @ts-expect-error: It's YJS event
 export const collectSceneTreeChange = (event) => {
+  const updatedComputedDataKeys = new Set() as Set<keyof ComputedAttrs>
+
   const processChanges = (
     items: typeof event.changes.added | typeof event.changes.deleted
   ) => {
     // @ts-expect-error: It's YJS event
     items.forEach((item) => {
-      item.content.getContent().forEach(updateUISceneTree)
+      item.content
+        .getContent()
+        .forEach((change: SceneTreeYjsChange['payload']) => {
+          if (
+            change.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA &&
+            'key' in change
+          ) {
+            updatedComputedDataKeys.add(change.key as keyof ComputedAttrs)
+          }
+          updateUISceneTree(change)
+        })
     })
   }
 
   processChanges(event.changes.added)
   processChanges(event.changes.deleted)
+
+  updatedComputedDataKeys.forEach(async (key) => {
+    const elementSelection = await requestElementSelection()
+    const propertyData = [...elementSelection].map((elementId) => {
+      const elementData = sceneTreeStore.getElementGeneralData(elementId)
+      return elementData?.[key]
+    }) as ComputedAttrs[keyof ComputedAttrs][]
+    uiContext.updateComputedProperty(key, propertyData)
+  })
 }
 
 let hasInit = false

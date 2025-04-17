@@ -12,6 +12,7 @@ const generalKeysToCompare: (keyof ElementProperties)[] = [
 ]
 
 class UIContext {
+  zoom: BehaviorSubject<number>
   flattenedElementIds: BehaviorSubject<string[]>
   elementSelection: BehaviorSubject<Set<string>>
   vertexSelection: BehaviorSubject<Set<string>>
@@ -23,6 +24,7 @@ class UIContext {
   //   fills: BehaviorSubject<ElementProperties['fills']>
 
   constructor() {
+    this.zoom = new BehaviorSubject<number>(1)
     this.flattenedElementIds = new BehaviorSubject<string[]>([])
     this.elementSelection = new BehaviorSubject<Set<string>>(new Set())
     this.vertexSelection = new BehaviorSubject<Set<string>>(new Set())
@@ -46,6 +48,21 @@ class UIContext {
     }
   }
 
+  updateComputedProperty<K extends keyof ComputedAttrs>(
+    key: K,
+    data: ComputedAttrs[K][]
+  ) {
+    const compareKey = key as keyof ElementProperties
+    if (generalKeysToCompare.includes(compareKey)) {
+      const result = this.computedSharedProperty(
+        data as ElementProperties[keyof ElementProperties][]
+      )
+      if (result !== this[compareKey].getValue()) {
+        this[compareKey].next(result)
+      }
+    }
+  }
+
   updateComputedProperties(allElementData: ComputedAttrs[]) {
     const result = this.computeSharedProperties(allElementData)
 
@@ -54,6 +71,12 @@ class UIContext {
         this[key].next(result[key])
       }
     })
+  }
+
+  computedSharedProperty<K extends keyof ElementProperties>(
+    data: ElementProperties[K][]
+  ) {
+    return compareValue(data)
   }
 
   computeSharedProperties(allElementData: ComputedAttrs[]): ElementProperties {
@@ -76,12 +99,32 @@ class UIContext {
 
     return result
   }
+
+  updateZoom(newZoom: number) {
+    this.zoom.next(newZoom)
+  }
 }
 
 const uiContext = new UIContext()
 
 export default uiContext
 export { UIContext }
+
+const compareValue = <K extends keyof ElementProperties>(
+  allElementData: ElementProperties[K][]
+) => {
+  const firstValue = allElementData[0]
+  let isMixed = false
+
+  for (let i = 1; i < allElementData.length; i++) {
+    if (allElementData[i] !== firstValue) {
+      isMixed = true
+      break
+    }
+  }
+
+  return isMixed ? MIXED_STRING : firstValue
+}
 
 const compareValues = (
   allElementData: ComputedAttrs[],

@@ -5,6 +5,7 @@ import type { SceneTreeEvents } from './scene-tree'
 import type { SelectionEvents } from './selection'
 import type { PropEvents } from './props-manager'
 import type { UIContextEvents } from './ui-context'
+import type { RenderEvents } from './render'
 
 export type AllEvent =
   | AppEvent
@@ -12,6 +13,7 @@ export type AllEvent =
   | SelectionEvents
   | PropEvents
   | UIContextEvents
+  | RenderEvents
 
 const eventBus = new ReplaySubject<AllEvent>(undefined, 5000)
 

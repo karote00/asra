@@ -22,8 +22,9 @@ const combinations: Record<string, string[]> = {
   MOVE_DOWN_FAST: ['Shift', 'ArrowDown'],
   MOVE_LEFT_FAST: ['Shift', 'ArrowLeft'],
   MOVE_RIGHT_FAST: ['Shift', 'ArrowRight'],
-  ZOOM_IN: ['Meta', 'MouseWheelUp'],
-  ZOOM_OUT: ['Meta', 'MouseWheelDown'],
+  ZOOM: ['Meta', 'Wheel'],
+  ZOOM_FIT: ['Meta', '1'],
+  PAN: ['Wheel'],
   HOVER: ['LeftMouseMove'],
   DRAG_START: ['LeftMouseDown'],
   DRAG_UPDATE: ['LeftMouseDown', 'LeftMouseMove'],
@@ -31,5 +32,13 @@ const combinations: Record<string, string[]> = {
   RIGHT_CLICK: ['RightMouseUp'],
   DOUBLE_CLICK: ['MouseDoubleClick']
 }
+
+export const Events = Object.keys(combinations).reduce(
+  (acc, eventName) => {
+    acc[eventName] = eventName
+    return acc
+  },
+  {} as Record<string, string>
+)
 
 export default combinations

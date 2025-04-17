@@ -1,6 +1,7 @@
 import factory, { DataTransact } from '@asra/factory'
-import sceneTree, { SceneTree } from '@asra/scene-tree'
 import InputSystem from '@asra/input-system'
+import sceneTree from '@asra/scene-tree'
+import render from '@asra/render'
 import type { PropsComponentRawData, SceneTreeRawData } from '@asra/utils'
 
 import SystemEventManager from './system-event-manager'
@@ -12,8 +13,8 @@ import combinations from './combinations'
 
 const inputSystem = new InputSystem(combinations)
 const systemEventManager = new SystemEventManager(inputSystem)
-const renderEventManager = new RenderEventManager(inputSystem)
-const sceneTreeManager = new SceneTreeManager()
+const renderEventManager = new RenderEventManager(inputSystem, render)
+const sceneTreeManager = new SceneTreeManager(sceneTree)
 const elementSelectionManager = new ElementSelectionManager()
 const elementPropsManager = new ElementPropsManager()
 
@@ -29,7 +30,6 @@ const DATA_VERSION = '1.0.0'
 class Core {
   version: string = DEFAULT_VERSION
   dataTransact: DataTransact = factory.transact
-  sceneTree: SceneTree = sceneTree
   elementPropsManager: ElementPropsManager = elementPropsManager
   systemEventManager: SystemEventManager = systemEventManager
   renderEventManager: RenderEventManager = renderEventManager
@@ -51,6 +51,7 @@ class Core {
     } else {
       this.sceneTreeManager.init()
     }
+    this.renderEventManager.zoomFit()
   }
 
   save() {

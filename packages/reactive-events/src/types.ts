@@ -1,6 +1,11 @@
 // Render
 export enum RenderEventTypes {
-  RENDER_IS_READY = 'renderIsReady'
+  INIT_RENDER = 'initRender',
+  FINISH_INIT_RENDER = 'finishInitRender',
+  RENDER_IS_READY = 'renderIsReady',
+  ZOOM_FIT = 'zoomFit',
+  REQUEST_RENDER_ZOOM = 'requestRenderZoom',
+  FINISH_REQUEST_RENDER_ZOOM = 'finishRequestRenderZoom'
 }
 
 // File

@@ -1,5 +1,6 @@
 import InputSystem from '@asra/input-system'
 import factory from '@asra/factory'
+import { Events } from './combinations'
 
 class SystemEventManager {
   private inputSystem: InputSystem
@@ -10,12 +11,12 @@ class SystemEventManager {
   }
 
   _init() {
-    this.inputSystem.on('HOVER', this._handleHover)
-    this.inputSystem.on('DRAG_START', this._handleDragStart)
-    this.inputSystem.on('DRAG_UPDATE', this._handleDragUpdate)
-    this.inputSystem.on('DRAG_END', this._handleDragEnd)
-    this.inputSystem.on('UNDO', this._handleUndo)
-    this.inputSystem.on('REDO', this._handleRedo)
+    this.inputSystem.on(Events.HOVER, this._handleHover)
+    this.inputSystem.on(Events.DRAG_START, this._handleDragStart)
+    this.inputSystem.on(Events.DRAG_UPDATE, this._handleDragUpdate)
+    this.inputSystem.on(Events.DRAG_END, this._handleDragEnd)
+    this.inputSystem.on(Events.UNDO, this._handleUndo)
+    this.inputSystem.on(Events.REDO, this._handleRedo)
   }
 
   _handleUndo() {

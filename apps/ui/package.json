@@ -8,7 +8,6 @@
     "@asra/design-system": "workspace:*",
     "@asra/factory": "workspace:*",
     "@asra/reactive-events": "workspace:*",
-    "@asra/render": "workspace:*",
     "@asra/ui-context": "workspace:*",
     "@asra/utils": "workspace:*",
     "@preact/signals-react": "^2.2.0",

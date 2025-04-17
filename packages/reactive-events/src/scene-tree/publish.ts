@@ -56,7 +56,7 @@ export const changeComputedData = (
   data: DataTypes
 ) => {
   publishEvent({
-    type: EventTypes.UPDATE_COMPUTED_DATA,
+    type: EventTypes.CHANGE_COMPUTED_DATA,
     payload: {
       key,
       data,

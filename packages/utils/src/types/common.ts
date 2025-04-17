@@ -9,3 +9,11 @@ export interface DimensionLike {
 }
 
 export type Style = PositionLike & DimensionLike
+
+export interface WheelEventData {
+  deltaX: number
+  deltaY: number
+  deltaZ: number
+  clientX: number
+  clientY: number
+}

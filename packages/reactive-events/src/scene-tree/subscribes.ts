@@ -69,7 +69,7 @@ export const subscribeToChangeComputedData = (
     .pipe(
       filter(
         (event): event is ChangeComputedDataEvent =>
-          event.type === EventTypes.UPDATE_COMPUTED_DATA
+          event.type === EventTypes.CHANGE_COMPUTED_DATA
       )
     )
     .subscribe(subscriber)

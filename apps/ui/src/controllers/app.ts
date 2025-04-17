@@ -1,21 +1,22 @@
-import { render } from '@asra/render'
 import { app, setPixiApp } from '../states/app'
 import { CANVAS_BACKGROUND_COLOR } from '../constants'
+import { core } from '../contexts'
 
 export const initRenderApp = async (
   container: HTMLDivElement,
   width: number,
   height: number
 ) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const setupPixiApp = (newApp: any) => {
-    if (newApp && newApp.canvas && !container.children.length) {
-      container.appendChild(newApp.canvas)
-      setPixiApp(newApp)
-    }
-  }
+  const newApp = await core.renderEventManager.initRender(
+    width,
+    height,
+    CANVAS_BACKGROUND_COLOR
+  )
 
-  await render.init(width, height, CANVAS_BACKGROUND_COLOR, setupPixiApp)
+  if (newApp && newApp.canvas && !container.children.length) {
+    container.appendChild(newApp.canvas)
+    setPixiApp(newApp)
+  }
 }
 
 export const destroyRenderApp = () => {

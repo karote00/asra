@@ -1,6 +1,8 @@
+import { WheelEventData } from '@asra/utils'
 import KeyMap from './keymap'
 
-type Callback = (action: string) => void
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Callback = (data?: any) => void
 
 const CLEAR_KEY_TIME = 100
 
@@ -27,6 +29,9 @@ class InputSystem {
     window.addEventListener('mousedown', (e) => this.handleMouseDown(e))
     window.addEventListener('mouseup', (e) => this.handleMouseUp(e))
     window.addEventListener('mousemove', (e) => this.handleMouseMove(e))
+    window.addEventListener('wheel', (e) => this.handleWheel(e), {
+      passive: false
+    })
   }
 
   on(action: string, callback: Callback): this {
@@ -61,9 +66,27 @@ class InputSystem {
     }
   }
 
-  private handleKeyDown(event: KeyboardEvent) {
-    const key = this.keyMap.mapKey(event.code)
+  private _isInputActive(event: KeyboardEvent) {
+    return (
+      ['INPUT', 'TEXT', 'TEXTAREA'].includes(
+        (event.target as HTMLElement).tagName
+      ) || (event.target as HTMLElement).isContentEditable
+    )
+  }
 
+  private _hasTriggerBrowserShortcut(event: KeyboardEvent) {
+    const hasMeta = this.activeKeys.has('Meta')
+    const key = this.keyMap.mapKey(event.code)
+    const hasNumber = !isNaN(Number(key))
+    return hasMeta && hasNumber
+  }
+
+  private handleKeyDown(event: KeyboardEvent) {
+    if (!this._isInputActive(event) || this._hasTriggerBrowserShortcut(event)) {
+      event.preventDefault()
+    }
+
+    const key = this.keyMap.mapKey(event.code)
     if (key) {
       this.activeKeys.add(key)
       if (!this.keyMap.isModifiers(key)) {
@@ -74,8 +97,11 @@ class InputSystem {
   }
 
   private handleKeyUp(event: KeyboardEvent) {
-    const key = this.keyMap.mapKey(event.code)
+    if (!this._isInputActive(event) || this._hasTriggerBrowserShortcut(event)) {
+      event.preventDefault()
+    }
 
+    const key = this.keyMap.mapKey(event.code)
     if (key) {
       this.activeKeys.delete(key)
       this.clearTimer(key)
@@ -133,12 +159,13 @@ class InputSystem {
     }
   }
 
-  private checkCombinations() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private checkCombinations(data?: any) {
     const currentKeys = Array.from(this.activeKeys)
 
     for (const [action, requiredKeys] of Object.entries(this.combinations)) {
       if (this.isExactMatch(currentKeys, requiredKeys)) {
-        this.triggerAction(action)
+        this.triggerAction(action, data)
       }
     }
   }
@@ -150,10 +177,34 @@ class InputSystem {
     )
   }
 
-  private triggerAction(action: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private triggerAction(action: string, data?: any) {
     const callbacks = this.listeners.get(action)
     if (callbacks) {
-      callbacks.forEach((cb) => cb(action))
+      callbacks.forEach((cb) => cb(data))
+    }
+  }
+
+  private handleWheel(event: WheelEvent) {
+    const deltaX = event.deltaX
+    const deltaY = event.deltaY
+
+    if (this.keyMap.isSpecialEvent('Wheel')) {
+      event.preventDefault()
+      this.activeKeys.add('Wheel')
+
+      const wheelData = {
+        deltaX,
+        deltaY,
+        deltaZ: event.deltaZ,
+        clientX: event.clientX,
+        clientY: event.clientY
+      } as WheelEventData
+
+      this.checkCombinations(wheelData)
+
+      // Remove wheel key immediately as scrolling is continuous
+      this.activeKeys.delete('Wheel')
     }
   }
 }

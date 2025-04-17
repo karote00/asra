@@ -1,6 +1,7 @@
 import { BehaviorSubject } from 'rxjs'
 import { EntityTypes } from '@asra/utils'
 import type {
+  ComputedAttrs,
   DataTypes,
   ElementRawData,
   GroupRawData,
@@ -9,12 +10,11 @@ import type {
 import type { SceneTree, Workspace } from '@asra/scene-tree'
 import uiContext from '../ui-context'
 
-type UIWorkspaceData = Pick<
-  WorkspaceRawData,
-  'id' | 'name' | 'type' | 'children'
+type UIWorkspaceData = Partial<
+  Pick<WorkspaceRawData, 'id' | 'name' | 'type' | 'children'> & ComputedAttrs
 >
 
-type UIAllElementData = ElementRawData | GroupRawData
+type UIAllElementData = (ElementRawData | GroupRawData) & ComputedAttrs
 
 type UIElementData = Partial<UIAllElementData>
 
@@ -141,9 +141,12 @@ export default class SceneTreeStore {
 
   getFlattenedElementIds() {
     const ids: string[] = []
-    this.workspace.getValue().children.forEach((childId: string) => {
-      this.collectChildrenIds(childId, ids)
-    })
+    const workspace = this.workspace.getValue()
+    if (workspace?.children) {
+      workspace.children.forEach((childId: string) => {
+        this.collectChildrenIds(childId, ids)
+      })
+    }
 
     return ids
   }
@@ -184,7 +187,7 @@ export default class SceneTreeStore {
     this.markDirty()
     const parent = this.getElement(parentId)
     const avaliableParent =
-      parent ?? (this.workspace as BehaviorSubject<UIElementData>)
+      parent ?? (this.workspace as BehaviorSubject<UIWorkspaceData>)
     if (avaliableParent && data.id) {
       const parentData = avaliableParent.getValue() as GroupRawData
       const idx = parentData.children.indexOf(data.id)
@@ -218,5 +221,12 @@ export default class SceneTreeStore {
         [key]: after
       })
     }
+  }
+
+  getElementGeneralData(elementId: string) {
+    const element = this.getElement(elementId)
+    if (!element) return
+
+    return element.getValue()
   }
 }
