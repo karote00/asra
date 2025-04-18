@@ -1,4 +1,4 @@
-import InputSystem from '@asra/input-system'
+import type InputSystem from '@asra/input-system'
 import factory from '@asra/factory'
 import { Events } from './combinations'
 

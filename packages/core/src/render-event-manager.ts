@@ -1,6 +1,6 @@
 import { initRender, zoomFit } from '@asra/reactive-events'
 import type { Render } from '@asra/render'
-import InputSystem from '@asra/input-system'
+import type InputSystem from '@asra/input-system'
 import { WheelEventData } from '@asra/utils'
 import { Events } from './combinations'
 
