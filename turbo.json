@@ -44,6 +44,7 @@
       "dependsOn": [
         "^build:core-base",
         "^build:module",
+        "^build:module-base",
         "^build:intermediate-core"
       ],
       "outputs": ["dist/**"]
