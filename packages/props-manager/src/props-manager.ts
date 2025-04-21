@@ -6,8 +6,8 @@ import type {
   PropsChange,
   PropsComponentRawData
 } from '@asra/utils'
-import { createProperty } from './utils'
 import { EventTypes, updateTransaction } from '@asra/reactive-events'
+import { createProperty } from './utils'
 
 class PropsManager {
   _components: Map<string, PropertyComponentInstanceTypes> = new Map()
