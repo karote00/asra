@@ -4,6 +4,7 @@ import type {
   SceneTreeYjsChange,
   SelectionYjsChange
 } from '@asra/utils'
+import { OWNER, UNDO } from '@asra/utils'
 import type { AllEvent, UpdateTransactionEvent } from '@asra/reactive-events'
 import {
   endTransaction,
@@ -11,7 +12,6 @@ import {
   startTransaction,
   updateUndoRedoStatus
 } from '@asra/reactive-events'
-import { OWNER, UNDO } from '@asra/utils'
 import {
   sceneTreeChanges,
   elementSelectionChanges,

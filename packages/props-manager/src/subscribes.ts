@@ -4,8 +4,8 @@ import {
   subscribeToRemoveProperty,
   updateTransaction
 } from '@asra/reactive-events'
-import propsManager from './props-manager'
 import { UNDO } from '@asra/utils'
+import propsManager from './props-manager'
 
 export const initPropXSubscribes = () => {
   let inUndoRedo = false

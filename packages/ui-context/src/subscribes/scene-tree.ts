@@ -7,12 +7,12 @@ import type {
 import { SCENE_TREE_ACTIONS } from '@asra/utils'
 import factory from '@asra/factory'
 import sceneTree from '@asra/scene-tree'
-import SceneTreeStore from '../stores/scene-tree'
 import {
   requestElementSelection,
   subscribeToEndTransaction,
   subscribeToSceneTreeLoadComplete
 } from '@asra/reactive-events'
+import SceneTreeStore from '../stores/scene-tree'
 import uiContext from '../ui-context'
 
 export const sceneTreeStore = new SceneTreeStore(sceneTree)
