@@ -8,9 +8,9 @@ import type {
   SceneTreeChange
 } from '@asra/utils'
 import { EntityTypes, OWNER, SCENE_TREE_ACTIONS } from '@asra/utils'
+import { EventTypes } from '@asra/reactive-events'
 import { createElement, createWorkspace } from './utils'
 import type Workspace from './components/workspace'
-import { EventTypes } from '@asra/reactive-events'
 
 type SceneTreeDataType = SceneTreeRawData
 
