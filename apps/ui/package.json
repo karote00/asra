@@ -6,7 +6,6 @@
   "dependencies": {
     "@asra/core": "workspace:*",
     "@asra/design-system": "workspace:*",
-    "@asra/factory": "workspace:*",
     "@asra/reactive-events": "workspace:*",
     "@asra/ui-context": "workspace:*",
     "@asra/utils": "workspace:*",

@@ -1,6 +1,5 @@
-import { factory, core } from './core'
+import { core } from './core'
 
-export { factory, core }
-export const dataTransact = factory.transact
+export { core }
 export const sceneTreeManager = core.sceneTreeManager
 export const elementSelectionManager = core.elementSelectionManager
