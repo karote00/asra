@@ -1,0 +1,24 @@
+{
+  "tasks": {
+    "watch:design-system": {
+      "cache": false,
+      "persistent": true
+    },
+    "dev": {
+      "cache": false,
+      "dependsOn": ["^dev"],
+      "outputs": ["dist/**"],
+      "persistent": true
+    },
+    "react:start": {
+      "cache": false,
+      "outputs": ["dist/**"],
+      "persistent": true
+    },
+    "clean": {
+      "cache": false
+    },
+    "test": {},
+    "test:ci": {}
+  }
+}
