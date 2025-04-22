@@ -9,7 +9,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "dev": "tsc --watch",
-    "build:module-base": "tsc",
+    "build:input-system": "tsc",
     "clean": "rm -rf dist"
   },
   "devDependencies": {

@@ -10,7 +10,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "dev": "tsc --watch",
-    "build:module": "tsc",
+    "build:factory": "tsc",
     "clean": "rm -rf dist"
   },
   "devDependencies": {
