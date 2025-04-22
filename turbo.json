@@ -6,58 +6,161 @@
     },
     "dev": {
       "cache": false,
-      "dependsOn": ["^dev"],
-      "outputs": ["dist/**"],
+      "dependsOn": [
+        "^dev"
+      ],
+      "outputs": [
+        "dist/**"
+      ],
       "persistent": true
     },
     "react:start": {
       "cache": false,
-      "outputs": ["dist/**"],
-      "persistent": true
-    },
-    "build:base": {
-      "cache": false,
-      "outputs": ["dist/**"]
-    },
-    "build:module-base": {
-      "cache": false,
-      "dependsOn": ["^build:base"],
-      "outputs": ["dist/**"]
-    },
-    "build:module": {
-      "cache": false,
-      "dependsOn": ["^build:module-base"],
-      "outputs": ["dist/**"]
-    },
-    "build:intermediate-core": {
-      "cache": false,
-      "dependsOn": ["^build:module-base", "^build:module"],
-      "outputs": ["dist/**"]
-    },
-    "build:core-base": {
-      "cache": false,
-      "dependsOn": ["^build:intermediate-core"],
-      "outputs": ["dist/**"]
-    },
-    "build:core": {
-      "cache": false,
-      "dependsOn": [
-        "^build:core-base",
-        "^build:module",
-        "^build:module-base",
-        "^build:intermediate-core"
+      "outputs": [
+        "dist/**"
       ],
-      "outputs": ["dist/**"]
-    },
-    "react:build": {
-      "cache": false,
-      "dependsOn": ["^build:core", "^build:core-base", "^build:module-base"],
-      "outputs": ["dist/**"]
+      "persistent": true
     },
     "clean": {
       "cache": false
     },
     "test": {},
-    "test:ci": {}
+    "test:ci": {},
+    "react:build": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:core",
+        "^build:design-system",
+        "^build:reactive-events",
+        "^build:ui-context",
+        "^build:utils"
+      ]
+    },
+    "build:core": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:factory",
+        "^build:input-system",
+        "^build:props-manager",
+        "^build:reactive-events",
+        "^build:render",
+        "^build:scene-tree",
+        "^build:selection",
+        "^build:utils"
+      ]
+    },
+    "build:design-system": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:utils"
+      ]
+    },
+    "build:event-emitter": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": []
+    },
+    "build:factory": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:reactive-events",
+        "^build:utils"
+      ]
+    },
+    "build:input-system": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:utils"
+      ]
+    },
+    "build:props-manager": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:reactive-events",
+        "^build:utils"
+      ]
+    },
+    "build:reactive-events": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:utils"
+      ]
+    },
+    "build:render": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:factory",
+        "^build:reactive-events",
+        "^build:scene-tree",
+        "^build:utils"
+      ]
+    },
+    "build:scene-tree": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:props-manager",
+        "^build:reactive-events",
+        "^build:utils"
+      ]
+    },
+    "build:selection": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:reactive-events",
+        "^build:utils"
+      ]
+    },
+    "build:ui-context": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:factory",
+        "^build:reactive-events",
+        "^build:scene-tree",
+        "^build:selection",
+        "^build:utils"
+      ]
+    },
+    "build:utils": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": []
+    }
   }
 }
