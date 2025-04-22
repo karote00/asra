@@ -19,7 +19,7 @@
     "clean": "rm -rf dist",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "build:module-base": "vite build && tsc",
+    "build:design-system": "vite build && tsc",
     "dev": "tsc --watch",
     "watch:design-system": "vite build --watch",
     "prebuild:design-system": "tailwindcss -i ./src/index.css -o ./dist/index.css",

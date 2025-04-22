@@ -9,7 +9,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "dev:event": "tsc --watch",
-    "build:event": "tsc",
+    "build:event-emitter": "tsc",
     "clean": "rm -rf dist"
   },
   "devDependencies": {

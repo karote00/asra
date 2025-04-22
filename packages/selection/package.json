@@ -10,7 +10,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "dev": "tsc --watch",
-    "build:module": "tsc",
+    "build:selection": "tsc",
     "clean": "rm -rf dist",
     "test": "vitest",
     "test:ci": "vitest run --coverage --reporter=default --reporter=junit"
