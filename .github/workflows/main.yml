@@ -39,6 +39,9 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
+      - name: Build turbo.json
+        run: yarn gen:turbo
+
       - name: Build React
         run: yarn react:build # 先執行 react:build，確保測試前已經 build 完成
 
