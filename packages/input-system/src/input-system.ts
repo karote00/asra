@@ -1,4 +1,4 @@
-import { WheelEventData } from '@asra/utils'
+import { MouseEventData, WheelEventData } from '@asra/utils'
 import KeyMap from './keymap'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -114,7 +114,10 @@ class InputSystem {
 
     if (key) {
       this.activeKeys.add(key)
-      this.checkCombinations()
+      this.checkCombinations({
+        clientX: event.clientX,
+        clientY: event.clientY
+      } as MouseEventData)
     }
   }
 
@@ -124,7 +127,10 @@ class InputSystem {
     if (key) {
       this.activeKeys.add(key)
       this.activeKeys.delete(key.replace('Up', 'Down'))
-      this.checkCombinations()
+      this.checkCombinations({
+        clientX: event.clientX,
+        clientY: event.clientY
+      } as MouseEventData)
 
       // No need to keep mouse up key after trigger action
       this.activeKeys.delete(key)
@@ -136,7 +142,10 @@ class InputSystem {
 
     if (key) {
       this.activeKeys.add(key)
-      this.checkCombinations()
+      this.checkCombinations({
+        clientX: event.clientX,
+        clientY: event.clientY
+      } as MouseEventData)
 
       // No need to keep mouse up key after trigger action
       this.activeKeys.delete(key)
