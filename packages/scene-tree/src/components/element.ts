@@ -139,14 +139,16 @@ class Element<T extends ElementAttrs = ElementAttrs>
     key: K,
     data: ComputedAttrs[K]
   ) {
-    this.computed.set(key, data)
+    if (!(key in this.data)) {
+      this.computed.set(key, data)
 
-    // Convert data type from ComputedAttrs to PropertyComponentInstanceDataTypes
-    type KEY = keyof PropertyComponentInstanceDataTypes
-    this.props.updateData(
-      key as KEY,
-      data as PropertyComponentInstanceDataTypes[KEY]
-    )
+      // Convert data type from ComputedAttrs to PropertyComponentInstanceDataTypes
+      type KEY = keyof PropertyComponentInstanceDataTypes
+      this.props.updateData(
+        key as KEY,
+        data as PropertyComponentInstanceDataTypes[KEY]
+      )
+    }
   }
 
   getAllComputedData() {
