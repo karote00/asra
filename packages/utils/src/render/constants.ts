@@ -1,0 +1,1 @@
+export const DEFAULT_CANVAS_PADDING = 20

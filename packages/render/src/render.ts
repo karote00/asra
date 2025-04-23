@@ -1,15 +1,13 @@
 import { Application, Container, Graphics, Point } from 'pixi.js'
-import { initDataContexts } from './subscribes'
 import {
   DataTypes,
+  DEFAULT_CANVAS_PADDING,
   EntityTypes,
   GroupRawData,
   MouseEventData
 } from '@asra/utils'
 import { RenderElementData, RenderContainerData } from './types'
 import { Viewport, rectToBounds } from './viewport'
-
-initDataContexts()
 
 type PixiInstance = Container | Graphics
 
@@ -131,6 +129,7 @@ class Render {
 
     this.addToMap(data.id, graphic)
     this.currentWorkspace.addChild(graphic)
+
     return graphic
   }
 
@@ -276,8 +275,15 @@ class Render {
   }
 
   zoomFit(uiBounds: DOMRect) {
-    const elementsBounds = this.getAllElementsBounds(this.currentWorkspace)
-    this.viewport.fitBounds(elementsBounds, rectToBounds(uiBounds))
+    if (this._elements.size) {
+      const elementsBounds = this.getAllElementsBounds(this.currentWorkspace)
+      this.viewport.fitBounds(elementsBounds, rectToBounds(uiBounds))
+    } else {
+      this.viewport.panTo(
+        uiBounds.x + DEFAULT_CANVAS_PADDING,
+        uiBounds.y + DEFAULT_CANVAS_PADDING
+      )
+    }
   }
 
   /**
