@@ -4,8 +4,7 @@ import {
   DataTypes,
   EntityTypes,
   GroupRawData,
-  MouseEventData,
-  WheelEventData
+  MouseEventData
 } from '@asra/utils'
 import { RenderElementData, RenderContainerData } from './types'
 import { Viewport, rectToBounds } from './viewport'
@@ -115,6 +114,7 @@ class Render {
     const element = this.getRestoreElement(data.id)
     if (element) {
       this.addToMap(data.id, element)
+      this.currentWorkspace.addChild(element)
       return element
     }
 
@@ -129,9 +129,8 @@ class Render {
         break
     }
 
-    this.currentWorkspace.addChild(graphic)
     this.addToMap(data.id, graphic)
-
+    this.currentWorkspace.addChild(graphic)
     return graphic
   }
 
@@ -201,12 +200,6 @@ class Render {
       default:
         this.updateElementProperties(element, key, after)
     }
-    // const parent = (this.getElementById(parentId) as Container) || this._root
-
-    // if (parent && graphic) {
-    //   const idx = index > -1 ? index : parent.children.length
-    //   parent.addChildAt(graphic, idx)
-    // }
   }
 
   updateElementProperties(
