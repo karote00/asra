@@ -1,6 +1,12 @@
 import { Application, Container, Graphics, Point } from 'pixi.js'
 import { initDataContexts } from './subscribes'
-import { DataTypes, EntityTypes, GroupRawData } from '@asra/utils'
+import {
+  DataTypes,
+  EntityTypes,
+  GroupRawData,
+  MouseEventData,
+  WheelEventData
+} from '@asra/utils'
 import { RenderElementData, RenderContainerData } from './types'
 import { Viewport, rectToBounds } from './viewport'
 
@@ -34,6 +40,7 @@ class Render {
     })
 
     this.app = app
+    this.app.stage.eventMode = 'static'
 
     return this.app
   }
@@ -330,6 +337,10 @@ class Render {
 
   getScale() {
     return this.viewport.getScale()
+  }
+
+  getMousePosInWorkspace(mousePos: MouseEventData) {
+    return this.viewport.getMousePosInWorkspace(mousePos)
   }
 }
 

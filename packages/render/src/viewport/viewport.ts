@@ -1,5 +1,6 @@
 import { Container } from 'pixi.js'
 import { Bounds } from './types'
+import { MouseEventData } from '@asra/utils'
 
 export class Viewport {
   constructor(private container: Container) {}
@@ -70,5 +71,12 @@ export class Viewport {
    */
   getPosition() {
     return this.container.position
+  }
+
+  getMousePosInWorkspace(mousePos: MouseEventData) {
+    return this.container.toLocal({
+      x: mousePos.clientX,
+      y: mousePos.clientY
+    })
   }
 }

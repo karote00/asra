@@ -10,6 +10,11 @@ export interface DimensionLike {
 
 export type Style = PositionLike & DimensionLike
 
+export interface MouseEventData {
+  clientX: number
+  clientY: number
+}
+
 export interface WheelEventData {
   deltaX: number
   deltaY: number
