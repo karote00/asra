@@ -11,12 +11,17 @@ class RenderManager {
   private render: Render
   private _isDrag: boolean
   private _startPos: MouseEventData
+  private _endPos: MouseEventData
 
   constructor(inputSystem: InputSystem, render: Render) {
     this.inputSystem = inputSystem
     this.render = render
     this._isDrag = false
     this._startPos = {
+      clientX: 0,
+      clientY: 0
+    }
+    this._endPos = {
       clientX: 0,
       clientY: 0
     }
@@ -54,13 +59,24 @@ class RenderManager {
     this.render.zoomToCenter(newScale, clientX, clientY)
   }
 
-  _handleDragStart = (data: MouseEventData) => {}
+  _handleDragStart = (data: MouseEventData) => {
+    this._startPos = { ...data }
+  }
 
   _handleDragUpdate = (data: MouseEventData) => {
     this._isDrag = true
+    this._endPos = { ...data }
   }
 
   _handleDragEnd = (data: MouseEventData) => {
+    if (!this._isDrag) {
+      const startPos = this.render.getMousePosInWorkspace(this._startPos)
+      const pos = {
+        x: roundFloat(startPos.x, 2),
+        y: roundFloat(startPos.y, 2)
+      }
+    }
+
     this._isDrag = false
   }
 
