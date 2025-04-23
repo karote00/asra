@@ -65,4 +65,6 @@ class Core {
   }
 }
 
-export default Core
+export { Core }
+const core = new Core()
+export default core
