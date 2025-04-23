@@ -7,7 +7,7 @@ export const initRenderApp = async (
   width: number,
   height: number
 ) => {
-  const newApp = await core.renderEventManager.initRender(
+  const newApp = await core.renderManager.initRender(
     width,
     height,
     CANVAS_BACKGROUND_COLOR

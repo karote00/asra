@@ -1,18 +1,25 @@
 import { initRender, zoomFit } from '@asra/reactive-events'
 import type { Render } from '@asra/render'
 import type InputSystem from '@asra/input-system'
-import { WheelEventData } from '@asra/utils'
+import { MouseEventData, roundFloat, WheelEventData } from '@asra/utils'
 import { Events } from './combinations'
 
 const ZOOM_SMOOTH_RATIO = 0.02
 
-class RenderEventManager {
+class RenderManager {
   private inputSystem: InputSystem
   private render: Render
+  private _isDrag: boolean
+  private _startPos: MouseEventData
 
   constructor(inputSystem: InputSystem, render: Render) {
     this.inputSystem = inputSystem
     this.render = render
+    this._isDrag = false
+    this._startPos = {
+      clientX: 0,
+      clientY: 0
+    }
 
     this._init()
   }
@@ -21,6 +28,9 @@ class RenderEventManager {
     this.inputSystem.on(Events.ZOOM_FIT, this._handleZoomFit)
     this.inputSystem.on(Events.PAN, this._handlePan)
     this.inputSystem.on(Events.ZOOM, this._handleZoom)
+    this.inputSystem.on(Events.DRAG_START, this._handleDragStart)
+    this.inputSystem.on(Events.DRAG_UPDATE, this._handleDragUpdate)
+    this.inputSystem.on(Events.DRAG_END, this._handleDragEnd)
   }
 
   _handleZoomFit = () => {
@@ -44,6 +54,16 @@ class RenderEventManager {
     this.render.zoomToCenter(newScale, clientX, clientY)
   }
 
+  _handleDragStart = (data: MouseEventData) => {}
+
+  _handleDragUpdate = (data: MouseEventData) => {
+    this._isDrag = true
+  }
+
+  _handleDragEnd = (data: MouseEventData) => {
+    this._isDrag = false
+  }
+
   async initRender(width: number, height: number, color: number) {
     return await initRender(width, height, color)
   }
@@ -57,4 +77,4 @@ class RenderEventManager {
   }
 }
 
-export default RenderEventManager
+export default RenderManager
