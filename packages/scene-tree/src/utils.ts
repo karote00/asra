@@ -50,24 +50,27 @@ type UnknownObject = Record<string, any>
 /**
  * Removes non-raw fields from an element object and returns the stripped fields.
  *
- * @param element - The original element object which may contain extra fields.
+ * @param elementData - The original element object which may contain extra fields.
  * @param rawKeys - Keys that should be kept in the original object (defaults to ElementRawData keys).
  * @returns An object containing the stripped (non-raw) fields.
  */
 export function stripNonRawFields(
-  element: UnknownObject,
+  elementData: UnknownObject,
   rawKeys: (keyof ElementRawData)[] = ['id', 'type', 'name', 'props']
 ): Record<string, any> {
   const stripped = {} as UnknownObject
 
-  for (const key in element) {
+  for (const key in elementData) {
     if (!rawKeys.includes(key as keyof ElementRawData)) {
-      stripped[key] = element[key]
+      stripped[key] = elementData[key]
     }
   }
 
   // Remove all non-raw keys from the original object
-  Object.keys(stripped).forEach((key) => delete element[key])
+  Object.keys(stripped).forEach((key) => delete elementData[key])
+
+  // Already know what type we need, and it should be insert by the component itself
+  delete elementData.type
 
   return stripped
 }

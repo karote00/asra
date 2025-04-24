@@ -43,7 +43,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
 
     const { rawData, propOverrides } = data
 
-    if (rawData) {
+    if (rawData && Object.keys(rawData).length) {
       this.load(rawData)
     } else {
       this.create()
