@@ -31,18 +31,8 @@ export const createElement = (elementData: Partial<ElementRawData>) => {
     throw new Error('Ivalid entity type.')
   }
 
-  const nonRawData = stripNonRawFields(elementData)
-  // TODO: apply nonRawData to props
-
-  // If only pass type to create a new element, it should create a new instance with empty data, not load data.
-  if (
-    Object.keys(elementData).length === 1 &&
-    typeof elementData.type !== 'undefined'
-  ) {
-    return new EntityClass()
-  } else {
-    return new EntityClass(elementData)
-  }
+  const propOverrides = stripNonRawFields(elementData)
+  return new EntityClass({ rawData: elementData, propOverrides })
 }
 
 export const createWorkspace = (workspaceData = initWorkspaceData) => {

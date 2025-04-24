@@ -1,4 +1,5 @@
-import { DimensionData, PositionData } from '../types'
+import { PropertyComponentInstanceDataTypes } from '../propsManager'
+import { DataTypes, DimensionData, PositionData } from '../types'
 import { EntityTypes } from './enum'
 
 export interface BaseRawData {
@@ -40,6 +41,14 @@ export interface SceneTreeRawData {
   elements: Record<string, ElementRawData | GroupRawData>
 }
 
+export interface ElementInitData {
+  rawData?: Partial<ElementRawData | GroupRawData>
+  propOverrides?: Record<
+    keyof PropertyComponentInstanceDataTypes,
+    PropertyComponentInstanceDataTypes[keyof PropertyComponentInstanceDataTypes]
+  >
+}
+// PropertyComponentInstanceDataTypes
 export type CreateRectangleData = PositionData &
   Partial<DimensionData> &
   Partial<ElementRawData>

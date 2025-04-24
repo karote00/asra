@@ -2,7 +2,8 @@ import type {
   GroupRawData,
   GroupAttrs,
   ElementInstanceTypes,
-  IGroupElement
+  IGroupElement,
+  ElementInitData
 } from '@asra/utils'
 import { EntityTypes, NameTypes } from '@asra/utils'
 import Props from './props'
@@ -17,7 +18,7 @@ class Group<T extends GroupAttrs = GroupAttrs>
   override data: T = { ...this.data, children: [] } as T
   props!: Props
 
-  constructor(data?: Partial<GroupRawData>) {
+  constructor(data: ElementInitData = {}) {
     super(data)
   }
 
