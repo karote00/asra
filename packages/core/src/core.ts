@@ -63,6 +63,12 @@ class Core {
 
     return data
   }
+
+  setupInputSystem(watchedElement?: HTMLElement) {
+    if (watchedElement) {
+      inputSystem.switchWatchedElement(watchedElement)
+    }
+  }
 }
 
 export { Core }

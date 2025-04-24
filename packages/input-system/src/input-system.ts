@@ -6,12 +6,15 @@ type Callback = (data?: any) => void
 
 const CLEAR_KEY_TIME = 100
 
+const WHEEL_EVENT_OPTIONS: AddEventListenerOptions = { passive: false }
+
 class InputSystem {
   private combinations: Record<string, string[]>
   private keyMap: KeyMap
   private activeKeys: Set<string>
   private listeners: Map<string, Callback[]>
   private timers: Map<string, NodeJS.Timeout>
+  private _privateWatchedElement: Window | HTMLElement
 
   constructor(combinations: Record<string, string[]>) {
     this.combinations = combinations
@@ -19,19 +22,18 @@ class InputSystem {
     this.activeKeys = new Set()
     this.listeners = new Map()
     this.timers = new Map()
+    this._privateWatchedElement = window
 
     this.setupListeners()
   }
 
   private setupListeners() {
-    window.addEventListener('keydown', (e) => this.handleKeyDown(e))
-    window.addEventListener('keyup', (e) => this.handleKeyUp(e))
-    window.addEventListener('mousedown', (e) => this.handleMouseDown(e))
-    window.addEventListener('mouseup', (e) => this.handleMouseUp(e))
-    window.addEventListener('mousemove', (e) => this.handleMouseMove(e))
-    window.addEventListener('wheel', (e) => this.handleWheel(e), {
-      passive: false
-    })
+    window.addEventListener('keydown', this.handleKeyDown)
+    window.addEventListener('keyup', this.handleKeyUp)
+    window.addEventListener('mousedown', this.handleMouseDown)
+    window.addEventListener('mouseup', this.handleMouseUp)
+    window.addEventListener('mousemove', this.handleMouseMove)
+    window.addEventListener('wheel', this.handleWheel, WHEEL_EVENT_OPTIONS)
   }
 
   on(action: string, callback: Callback): this {
@@ -40,6 +42,33 @@ class InputSystem {
     }
     this.listeners.get(action)?.push(callback)
     return this
+  }
+
+  switchWatchedElement(watchedElement: HTMLElement) {
+    this._privateWatchedElement.removeEventListener(
+      'mousedown',
+      this.handleMouseDown as EventListener
+    )
+    this._privateWatchedElement.removeEventListener(
+      'mouseup',
+      this.handleMouseUp as EventListener
+    )
+    this._privateWatchedElement.removeEventListener(
+      'mousemove',
+      this.handleMouseMove as EventListener
+    )
+    this._privateWatchedElement.removeEventListener(
+      'wheel',
+      this.handleWheel as EventListener,
+      WHEEL_EVENT_OPTIONS
+    )
+
+    watchedElement.addEventListener('mousedown', this.handleMouseDown)
+    watchedElement.addEventListener('mouseup', this.handleMouseUp)
+    watchedElement.addEventListener('mousemove', this.handleMouseMove)
+    watchedElement.addEventListener('wheel', this.handleWheel, {
+      passive: false
+    })
   }
 
   private startTimer(key: string) {
@@ -81,7 +110,7 @@ class InputSystem {
     return hasMeta && hasNumber
   }
 
-  private handleKeyDown(event: KeyboardEvent) {
+  private handleKeyDown = (event: KeyboardEvent) => {
     if (!this._isInputActive(event) || this._hasTriggerBrowserShortcut(event)) {
       event.preventDefault()
     }
@@ -96,7 +125,7 @@ class InputSystem {
     }
   }
 
-  private handleKeyUp(event: KeyboardEvent) {
+  private handleKeyUp = (event: KeyboardEvent) => {
     if (!this._isInputActive(event) || this._hasTriggerBrowserShortcut(event)) {
       event.preventDefault()
     }
@@ -109,7 +138,7 @@ class InputSystem {
     }
   }
 
-  private handleMouseDown(event: MouseEvent) {
+  private handleMouseDown = (event: MouseEvent) => {
     const key = this.getMouseEventKey(event, 'Down')
 
     if (key) {
@@ -121,7 +150,7 @@ class InputSystem {
     }
   }
 
-  private handleMouseUp(event: MouseEvent) {
+  private handleMouseUp = (event: MouseEvent) => {
     const key = this.getMouseEventKey(event, 'Up')
 
     if (key) {
@@ -137,7 +166,7 @@ class InputSystem {
     }
   }
 
-  private handleMouseMove(event: MouseEvent) {
+  private handleMouseMove = (event: MouseEvent) => {
     const key = this.getMouseEventKey(event, 'Move')
 
     if (key) {
@@ -194,7 +223,7 @@ class InputSystem {
     }
   }
 
-  private handleWheel(event: WheelEvent) {
+  private handleWheel = (event: WheelEvent) => {
     const deltaX = event.deltaX
     const deltaY = event.deltaY
 

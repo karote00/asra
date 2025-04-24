@@ -1,7 +1,8 @@
-import { subscribeToCoreAddElement, addRectangle } from '@asra/reactive-events'
+import { subscribeToCoreAddElement } from '@asra/reactive-events'
+import core from './core'
 
 export const initCoreSubscribes = () => {
   subscribeToCoreAddElement(({ payload }) => {
-    addRectangle(payload)
+    core.sceneTreeManager.addRectangle(payload)
   })
 }

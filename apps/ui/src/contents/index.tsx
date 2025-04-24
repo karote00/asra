@@ -13,7 +13,7 @@ const Contents: React.FC = () => {
 
   return (
     <div
-      className={`w-${COLUMN_WIDTH} dark:bg-panel-darker dark:border-r dark:border-border-dark overflow-y-auto`}
+      className={`w-${COLUMN_WIDTH} z-10 dark:bg-panel-darker dark:border-r dark:border-border-dark overflow-y-auto`}
       style={{ gridArea: 'left-sidebar' }}
       onClick={handleContentsPanelClick}
     >

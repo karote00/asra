@@ -16,7 +16,11 @@ export const initRenderApp = async (
   if (newApp && newApp.canvas && !container.children.length) {
     container.appendChild(newApp.canvas)
     setPixiApp(newApp)
+
+    return newApp.canvas
   }
+
+  return null
 }
 
 export const destroyRenderApp = () => {
