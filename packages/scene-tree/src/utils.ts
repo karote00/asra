@@ -1,4 +1,4 @@
-import { ElementRawData, EntityTypes } from '@asra/utils'
+import { ComputedAttrs, ElementRawData, EntityTypes } from '@asra/utils'
 import Frame from './components/frame'
 import Group from './components/group'
 import Rectangle from './components/rectangle'
@@ -47,7 +47,10 @@ export const createWorkspace = (workspaceData = initWorkspaceData) => {
   return newWorkspace
 }
 
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
 type UnknownObject = Record<string, any>
+
+const DefaultRawKeys: (keyof ElementRawData)[] = ['id', 'type', 'name', 'props']
 
 /**
  * Removes non-raw fields from an element object and returns the stripped fields.
@@ -58,8 +61,8 @@ type UnknownObject = Record<string, any>
  */
 export function stripNonRawFields(
   elementData: UnknownObject,
-  rawKeys: (keyof ElementRawData)[] = ['id', 'type', 'name', 'props']
-): Record<string, any> {
+  rawKeys: (keyof ElementRawData)[] = DefaultRawKeys
+): Record<string, ComputedAttrs[keyof ComputedAttrs]> {
   const stripped = {} as UnknownObject
 
   for (const key in elementData) {
@@ -69,7 +72,10 @@ export function stripNonRawFields(
   }
 
   // Remove all non-raw keys from the original object
-  Object.keys(stripped).forEach((key) => delete elementData[key])
+  Object.keys(stripped).forEach((key) => {
+    /* eslint-disable-next-line @typescript-eslint/no-dynamic-delete */
+    delete elementData[key]
+  })
 
   return stripped
 }

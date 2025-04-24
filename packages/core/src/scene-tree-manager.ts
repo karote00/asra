@@ -7,14 +7,7 @@ import {
   startTransaction
 } from '@asra/reactive-events'
 import type { SceneTree } from '@asra/scene-tree'
-import {
-  CreateRectangleData,
-  DataTypes,
-  DimensionData,
-  ElementRawData,
-  PositionData,
-  SceneTreeRawData
-} from '@asra/utils'
+import { CreateRectangleData, DataTypes, SceneTreeRawData } from '@asra/utils'
 
 export default class SceneTreeManager {
   sceneTree: SceneTree
