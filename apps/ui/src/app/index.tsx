@@ -5,6 +5,7 @@ import Properties from '../properties'
 import Animation from '../animation'
 import { realSize } from '../utils'
 import { COLUMN_WIDTH } from '../constants'
+import RenderApp from '../render-app'
 
 const App: React.FC = () => {
   return (
@@ -22,6 +23,7 @@ const App: React.FC = () => {
         gridTemplateRows: 'auto 1fr auto'
       }}
     >
+      <RenderApp />
       <ToolBar />
       <Contents />
       <Properties />

@@ -1,4 +1,4 @@
-import { core } from './core'
+import core from './core'
 
 export { core }
 export const sceneTreeManager = core.sceneTreeManager

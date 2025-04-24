@@ -1,3 +1,8 @@
+// Core
+export enum CoreEventTypes {
+  CORE_ADD_ELEMENT = 'coreAddElement'
+}
+
 // Render
 export enum RenderEventTypes {
   INIT_RENDER = 'initRender',
@@ -58,6 +63,7 @@ export enum UIContextEventTypes {
 }
 
 export const EventTypes = {
+  ...CoreEventTypes,
   ...RenderEventTypes,
   ...FileEventTypes,
   ...SceneTreeEventTypes,

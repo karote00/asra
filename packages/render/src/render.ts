@@ -1,10 +1,13 @@
 import { Application, Container, Graphics, Point } from 'pixi.js'
-import { initDataContexts } from './subscribes'
-import { DataTypes, EntityTypes, GroupRawData } from '@asra/utils'
+import {
+  DataTypes,
+  DEFAULT_CANVAS_PADDING,
+  EntityTypes,
+  GroupRawData,
+  MouseEventData
+} from '@asra/utils'
 import { RenderElementData, RenderContainerData } from './types'
 import { Viewport, rectToBounds } from './viewport'
-
-initDataContexts()
 
 type PixiInstance = Container | Graphics
 
@@ -34,6 +37,7 @@ class Render {
     })
 
     this.app = app
+    this.app.stage.eventMode = 'static'
 
     return this.app
   }
@@ -108,6 +112,7 @@ class Render {
     const element = this.getRestoreElement(data.id)
     if (element) {
       this.addToMap(data.id, element)
+      this.currentWorkspace.addChild(element)
       return element
     }
 
@@ -122,8 +127,8 @@ class Render {
         break
     }
 
-    this.currentWorkspace.addChild(graphic)
     this.addToMap(data.id, graphic)
+    this.currentWorkspace.addChild(graphic)
 
     return graphic
   }
@@ -194,12 +199,6 @@ class Render {
       default:
         this.updateElementProperties(element, key, after)
     }
-    // const parent = (this.getElementById(parentId) as Container) || this._root
-
-    // if (parent && graphic) {
-    //   const idx = index > -1 ? index : parent.children.length
-    //   parent.addChildAt(graphic, idx)
-    // }
   }
 
   updateElementProperties(
@@ -276,8 +275,15 @@ class Render {
   }
 
   zoomFit(uiBounds: DOMRect) {
-    const elementsBounds = this.getAllElementsBounds(this.currentWorkspace)
-    this.viewport.fitBounds(elementsBounds, rectToBounds(uiBounds))
+    if (this._elements.size) {
+      const elementsBounds = this.getAllElementsBounds(this.currentWorkspace)
+      this.viewport.fitBounds(elementsBounds, rectToBounds(uiBounds))
+    } else {
+      this.viewport.panTo(
+        uiBounds.x + DEFAULT_CANVAS_PADDING,
+        uiBounds.y + DEFAULT_CANVAS_PADDING
+      )
+    }
   }
 
   /**
@@ -330,6 +336,10 @@ class Render {
 
   getScale() {
     return this.viewport.getScale()
+  }
+
+  getMousePosInWorkspace(mousePos: MouseEventData) {
+    return this.viewport.getMousePosInWorkspace(mousePos)
   }
 }
 

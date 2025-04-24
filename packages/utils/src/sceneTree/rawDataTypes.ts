@@ -1,3 +1,4 @@
+import { DimensionData, PositionData } from '../types'
 import { EntityTypes } from './enum'
 
 export interface BaseRawData {
@@ -38,3 +39,7 @@ export interface SceneTreeRawData {
   workspaceList: string[]
   elements: Record<string, ElementRawData | GroupRawData>
 }
+
+export type CreateRectangleData = PositionData &
+  Partial<DimensionData> &
+  Partial<ElementRawData>

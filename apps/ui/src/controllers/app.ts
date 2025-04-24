@@ -7,7 +7,7 @@ export const initRenderApp = async (
   width: number,
   height: number
 ) => {
-  const newApp = await core.renderEventManager.initRender(
+  const newApp = await core.renderManager.initRender(
     width,
     height,
     CANVAS_BACKGROUND_COLOR
@@ -16,7 +16,11 @@ export const initRenderApp = async (
   if (newApp && newApp.canvas && !container.children.length) {
     container.appendChild(newApp.canvas)
     setPixiApp(newApp)
+
+    return newApp.canvas
   }
+
+  return null
 }
 
 export const destroyRenderApp = () => {

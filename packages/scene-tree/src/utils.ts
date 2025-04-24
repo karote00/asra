@@ -1,4 +1,4 @@
-import { ElementRawData, EntityTypes } from '@asra/utils'
+import { ComputedAttrs, ElementRawData, EntityTypes } from '@asra/utils'
 import Frame from './components/frame'
 import Group from './components/group'
 import Rectangle from './components/rectangle'
@@ -9,7 +9,7 @@ const entityClassMap = {
   [EntityTypes.FRAME]: Frame,
   [EntityTypes.GROUP]: Group,
   [EntityTypes.RECTANGLE]: Rectangle,
-  [EntityTypes.OVAL]: Rectangle
+  [EntityTypes.OVAL]: Rectangle // FIXME: Change this after finish OVAL component
 } as const
 
 const initWorkspaceData = {
@@ -31,15 +31,10 @@ export const createElement = (elementData: Partial<ElementRawData>) => {
     throw new Error('Ivalid entity type.')
   }
 
-  // If only pass type to create a new element, it should create a new instance with empty data, not load data.
-  if (
-    Object.keys(elementData).length === 1 &&
-    typeof elementData.type !== 'undefined'
-  ) {
-    return new EntityClass()
-  } else {
-    return new EntityClass(elementData)
-  }
+  // Already know what type we need, and it should be insert by the component itself
+  delete elementData.type
+
+  return new EntityClass(elementData)
 }
 
 export const createWorkspace = (workspaceData = initWorkspaceData) => {
@@ -50,4 +45,37 @@ export const createWorkspace = (workspaceData = initWorkspaceData) => {
   const newWorkspace = new Workspace()
   newWorkspace.load(workspaceData)
   return newWorkspace
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+type UnknownObject = Record<string, any>
+
+const DefaultRawKeys: (keyof ElementRawData)[] = ['id', 'type', 'name', 'props']
+
+/**
+ * Removes non-raw fields from an element object and returns the stripped fields.
+ *
+ * @param elementData - The original element object which may contain extra fields.
+ * @param rawKeys - Keys that should be kept in the original object (defaults to ElementRawData keys).
+ * @returns An object containing the stripped (non-raw) fields.
+ */
+export function stripNonRawFields(
+  elementData: UnknownObject,
+  rawKeys: (keyof ElementRawData)[] = DefaultRawKeys
+): Record<string, ComputedAttrs[keyof ComputedAttrs]> {
+  const stripped = {} as UnknownObject
+
+  for (const key in elementData) {
+    if (!rawKeys.includes(key as keyof ElementRawData)) {
+      stripped[key] = elementData[key]
+    }
+  }
+
+  // Remove all non-raw keys from the original object
+  Object.keys(stripped).forEach((key) => {
+    /* eslint-disable-next-line @typescript-eslint/no-dynamic-delete */
+    delete elementData[key]
+  })
+
+  return stripped
 }

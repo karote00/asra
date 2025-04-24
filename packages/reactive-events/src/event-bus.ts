@@ -1,6 +1,7 @@
 import { ReplaySubject, Observable, Subscription, filter, share } from 'rxjs'
 import { EventTypes } from './types'
 import type { AppEvent } from './app'
+import type { CoreEvents } from './core'
 import type { SceneTreeEvents } from './scene-tree'
 import type { SelectionEvents } from './selection'
 import type { PropEvents } from './props-manager'
@@ -9,6 +10,7 @@ import type { RenderEvents } from './render'
 
 export type AllEvent =
   | AppEvent
+  | CoreEvents
   | SceneTreeEvents
   | SelectionEvents
   | PropEvents

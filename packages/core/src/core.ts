@@ -5,7 +5,7 @@ import render from '@asra/render'
 import type { PropsComponentRawData, SceneTreeRawData } from '@asra/utils'
 
 import SystemEventManager from './system-event-manager'
-import RenderEventManager from './render-event-manager'
+import RenderManager from './render-manager'
 import SceneTreeManager from './scene-tree-manager'
 import ElementSelectionManager from './element-selection-manager'
 import ElementPropsManager from './element-props-manager'
@@ -13,7 +13,7 @@ import combinations from './combinations'
 
 const inputSystem = new InputSystem(combinations)
 const systemEventManager = new SystemEventManager(inputSystem)
-const renderEventManager = new RenderEventManager(inputSystem, render)
+const renderManager = new RenderManager(inputSystem, render)
 const sceneTreeManager = new SceneTreeManager(sceneTree)
 const elementSelectionManager = new ElementSelectionManager()
 const elementPropsManager = new ElementPropsManager()
@@ -32,7 +32,7 @@ class Core {
   dataTransact: DataTransact = factory.transact
   elementPropsManager: ElementPropsManager = elementPropsManager
   systemEventManager: SystemEventManager = systemEventManager
-  renderEventManager: RenderEventManager = renderEventManager
+  renderManager: RenderManager = renderManager
   sceneTreeManager: SceneTreeManager = sceneTreeManager
   elementSelectionManager: ElementSelectionManager = elementSelectionManager
 
@@ -51,7 +51,7 @@ class Core {
     } else {
       this.sceneTreeManager.init()
     }
-    this.renderEventManager.zoomFit()
+    this.renderManager.zoomFit()
   }
 
   save() {
@@ -63,6 +63,14 @@ class Core {
 
     return data
   }
+
+  setupInputSystem(watchedElement?: HTMLElement) {
+    if (watchedElement) {
+      inputSystem.switchWatchedElement(watchedElement)
+    }
+  }
 }
 
-export default Core
+export { Core }
+const core = new Core()
+export default core

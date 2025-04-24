@@ -2,19 +2,19 @@ import { PropertyTypes } from './enum'
 import type { PropertyComponentRawData } from './rawDataTypes'
 import type { ISetter } from '../setter'
 import { Unit } from '../enums'
-import { DataTypes, DimensionLike, PositionLike } from '../types'
+import { DataTypes, DimensionData, PositionData } from '../types'
 
 export interface BasePropertyAttrs {
   id: string
   type: PropertyTypes
 }
 
-export interface PositionAttrs extends BasePropertyAttrs, PositionLike {
+export interface PositionAttrs extends BasePropertyAttrs, PositionData {
   xUnit: Unit
   yUnit: Unit
 }
 
-export interface DimensionAttrs extends BasePropertyAttrs, DimensionLike {
+export interface DimensionAttrs extends BasePropertyAttrs, DimensionData {
   widthUnit: Unit
   heightUnit: Unit
 }

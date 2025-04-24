@@ -1,5 +1,7 @@
-import Core from './core'
-import SceneTreeManager from './scene-tree-manager'
+import core, { Core } from './core'
+import { initCoreSubscribes } from './subscribes'
 
-export default Core
-export { SceneTreeManager }
+initCoreSubscribes()
+
+export { Core }
+export default core

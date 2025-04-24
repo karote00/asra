@@ -5,7 +5,7 @@ import Easing from './easing'
 
 const Animation: React.FC = () => {
   return (
-    <div className="flex" style={{ gridArea: 'footer' }}>
+    <div className="flex z-10" style={{ gridArea: 'footer' }}>
       <Tree />
       <Keyframes />
       <Easing />

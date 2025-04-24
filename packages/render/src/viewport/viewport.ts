@@ -1,4 +1,5 @@
 import { Container } from 'pixi.js'
+import { DEFAULT_CANVAS_PADDING, MouseEventData } from '@asra/utils'
 import { Bounds } from './types'
 
 export class Viewport {
@@ -36,7 +37,11 @@ export class Viewport {
    * @param uiBounds - The visible UI canvas bounds
    * @param padding - The desired padding between elements and the canvas edges
    */
-  fitBounds(elementsBounds: Bounds, uiBounds: Bounds, padding = 20) {
+  fitBounds(
+    elementsBounds: Bounds,
+    uiBounds: Bounds,
+    padding = DEFAULT_CANVAS_PADDING
+  ) {
     // The available inner canvas area (excluding padding)
     const availableWidth = uiBounds.maxX - uiBounds.minX - padding * 2
     const availableHeight = uiBounds.maxY - uiBounds.minY - padding * 2
@@ -70,5 +75,12 @@ export class Viewport {
    */
   getPosition() {
     return this.container.position
+  }
+
+  getMousePosInWorkspace(mousePos: MouseEventData) {
+    return this.container.toLocal({
+      x: mousePos.clientX,
+      y: mousePos.clientY
+    })
   }
 }

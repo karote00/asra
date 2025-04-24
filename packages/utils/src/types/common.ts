@@ -1,14 +1,19 @@
-export interface PositionLike {
+export interface PositionData {
   x: number
   y: number
 }
 
-export interface DimensionLike {
+export interface DimensionData {
   width: number
   height: number
 }
 
-export type Style = PositionLike & DimensionLike
+export type Style = PositionData & DimensionData
+
+export interface MouseEventData {
+  clientX: number
+  clientY: number
+}
 
 export interface WheelEventData {
   deltaX: number

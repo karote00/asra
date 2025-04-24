@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { renderIsReady } from '@asra/reactive-events'
 import { initRenderApp, destroyRenderApp } from '../controllers/app'
+import { core } from '../contexts'
 
 const RenderApp: React.FC = () => {
   const pixiContainerRef = useRef<HTMLDivElement>(null)
@@ -10,12 +11,13 @@ const RenderApp: React.FC = () => {
     const initApp = async () => {
       if (pixiContainerRef.current && !hasInit.current) {
         hasInit.current = true
-        await initRenderApp(
+        const canvas = await initRenderApp(
           pixiContainerRef.current,
           window.innerWidth,
           window.innerHeight
         )
 
+        core.setupInputSystem(canvas)
         renderIsReady()
       }
     }
@@ -30,7 +32,7 @@ const RenderApp: React.FC = () => {
     }
   }, [])
 
-  return <div className="absolute top-0 left-0 z-10" ref={pixiContainerRef} />
+  return <div className="absolute top-0 left-0" ref={pixiContainerRef} />
 }
 
 export default RenderApp

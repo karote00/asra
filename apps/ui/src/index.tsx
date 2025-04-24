@@ -4,7 +4,6 @@ import './index.css'
 import '@asra/design-system/index.css'
 import DataContexts from './contexts/data-change'
 
-import RenderApp from './render-app'
 import App from './app'
 import reportWebVitals from './reportWebVitals'
 
@@ -12,7 +11,6 @@ const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement)
 root.render(
   <React.StrictMode>
     <DataContexts />
-    <RenderApp />
     <App />
   </React.StrictMode>
 )
