@@ -8,7 +8,9 @@ import {
 } from '@asra/reactive-events'
 import type { ComputedAttrs, ElementInstanceTypes } from '@asra/utils'
 import { UNDO } from '@asra/utils'
+import propsManager from '@asra/props-manager'
 import sceneTree from './sceneTree'
+import { stripNonRawFields } from './utils'
 
 const commitSceneTreeTransaction = () => {
   sceneTree.changes.forEach((change) => {
@@ -28,10 +30,22 @@ export const initSceneTreeSubscribes = () => {
 
     let newRectangle
 
+    const propOverrides = stripNonRawFields(data)
     if (inUndoRedo) {
       newRectangle = sceneTree.getRestoreElementById(data.id as string)
     } else {
       newRectangle = sceneTree.createElement(data)
+    }
+
+    if (newRectangle) {
+      // Override props after finish creating new instance
+      Object.keys(propOverrides).forEach((propKey) => {
+        newRectangle.updateComputedData(
+          propKey as keyof ComputedAttrs,
+          propOverrides[propKey]
+        )
+      })
+      propsManager.commitChanges()
     }
 
     sceneTree.addNewElement(newRectangle as ElementInstanceTypes, parent, index)

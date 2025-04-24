@@ -4,8 +4,7 @@ import type {
   IElement,
   PropsRawData,
   ComputedAttrs,
-  PropertyComponentInstanceDataTypes,
-  ElementInitData
+  PropertyComponentInstanceDataTypes
 } from '@asra/utils'
 import {
   Setter,
@@ -37,20 +36,17 @@ class Element<T extends ElementAttrs = ElementAttrs>
   props!: Props
   computed!: Computed<ComputedAttrs>
 
-  constructor(data: ElementInitData = {}) {
+  constructor(data?: Partial<ElementRawData>) {
     super(elementChangeHandler.addChange)
     this._init()
 
-    const { rawData, propOverrides } = data
-
-    if (rawData && Object.keys(rawData).length) {
-      this.load(rawData)
+    if (data && Object.keys(data).length) {
+      this.load(data)
     } else {
       this.create()
     }
 
-    this.setupProps(rawData?.props)
-    this.applyPropOverrides(propOverrides)
+    this.setupProps(data?.props)
   }
 
   _init(): void {
@@ -137,21 +133,6 @@ class Element<T extends ElementAttrs = ElementAttrs>
 
       this.computed = new Computed(elementId, this.props)
     }
-  }
-
-  applyPropOverrides<K extends keyof PropertyComponentInstanceDataTypes>(
-    propOverrides?: ElementInitData['propOverrides']
-  ) {
-    if (!propOverrides) {
-      return
-    }
-
-    Object.keys(propOverrides).forEach((propKey) => {
-      this.props.updateData(
-        propKey as K,
-        propOverrides[propKey as K] as PropertyComponentInstanceDataTypes[K]
-      )
-    })
   }
 
   updateComputedData<K extends keyof ComputedAttrs>(

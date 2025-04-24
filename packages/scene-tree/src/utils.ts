@@ -31,8 +31,10 @@ export const createElement = (elementData: Partial<ElementRawData>) => {
     throw new Error('Ivalid entity type.')
   }
 
-  const propOverrides = stripNonRawFields(elementData)
-  return new EntityClass({ rawData: elementData, propOverrides })
+  // Already know what type we need, and it should be insert by the component itself
+  delete elementData.type
+
+  return new EntityClass(elementData)
 }
 
 export const createWorkspace = (workspaceData = initWorkspaceData) => {
@@ -68,9 +70,6 @@ export function stripNonRawFields(
 
   // Remove all non-raw keys from the original object
   Object.keys(stripped).forEach((key) => delete elementData[key])
-
-  // Already know what type we need, and it should be insert by the component itself
-  delete elementData.type
 
   return stripped
 }
