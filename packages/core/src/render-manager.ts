@@ -3,6 +3,7 @@ import type { Render } from '@asra/render'
 import type InputSystem from '@asra/input-system'
 import { MouseEventData, roundFloat, WheelEventData } from '@asra/utils'
 import { Events } from './combinations'
+import { coreAddElement } from '@asra/reactive-events/dist/core'
 
 const ZOOM_SMOOTH_RATIO = 0.02
 
@@ -75,6 +76,8 @@ class RenderManager {
         x: roundFloat(startPos.x, 2),
         y: roundFloat(startPos.y, 2)
       }
+
+      coreAddElement(pos)
     }
 
     this._isDrag = false

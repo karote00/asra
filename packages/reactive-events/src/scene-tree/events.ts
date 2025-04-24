@@ -1,4 +1,9 @@
-import type { DataTypes, ElementRawData, GroupInstanceTypes } from '@asra/utils'
+import type {
+  CreateRectangleData,
+  DataTypes,
+  ElementRawData,
+  GroupInstanceTypes
+} from '@asra/utils'
 import { EventTypes } from '../types'
 
 export interface SceneTreeLoadCompleteEvent {
@@ -8,7 +13,7 @@ export interface SceneTreeLoadCompleteEvent {
 export interface AddElementEvent {
   type: EventTypes
   payload: {
-    data: Partial<ElementRawData>
+    data: CreateRectangleData
     parent?: GroupInstanceTypes
     index?: number
   }

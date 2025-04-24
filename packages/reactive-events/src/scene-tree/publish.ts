@@ -1,4 +1,9 @@
-import type { DataTypes, ElementRawData, GroupInstanceTypes } from '@asra/utils'
+import type {
+  CreateRectangleData,
+  DataTypes,
+  ElementRawData,
+  GroupInstanceTypes
+} from '@asra/utils'
 import { EntityTypes } from '@asra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
@@ -9,11 +14,14 @@ export const sceneTreeLoadComplete = () => {
   })
 }
 
-export const addRectangle = (elementData?: ElementRawData) => {
+export const addRectangle = (elementData: CreateRectangleData) => {
   publishEvent({
     type: EventTypes.ADD_ELEMENT,
     payload: {
-      data: elementData ?? { type: EntityTypes.RECTANGLE }
+      data: {
+        ...elementData,
+        type: EntityTypes.RECTANGLE
+      }
     }
   })
 }
