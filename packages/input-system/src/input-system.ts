@@ -1,5 +1,6 @@
 import { MouseEventData, WheelEventData } from '@asra/utils'
 import KeyMap from './keymap'
+import { CLICK_THRESHOLD } from './constants'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Callback = (data?: any) => void
@@ -9,20 +10,22 @@ const CLEAR_KEY_TIME = 100
 const WHEEL_EVENT_OPTIONS: AddEventListenerOptions = { passive: false }
 
 class InputSystem {
+  private _privateWatchedElement: Window | HTMLElement
   private combinations: Record<string, string[]>
   private keyMap: KeyMap
   private activeKeys: Set<string>
   private listeners: Map<string, Callback[]>
   private timers: Map<string, NodeJS.Timeout>
-  private _privateWatchedElement: Window | HTMLElement
+  private _startPos: MouseEventData | null
 
   constructor(combinations: Record<string, string[]>) {
+    this._privateWatchedElement = window
     this.combinations = combinations
     this.keyMap = new KeyMap()
     this.activeKeys = new Set()
     this.listeners = new Map()
     this.timers = new Map()
-    this._privateWatchedElement = window
+    this._startPos = null
 
     this.setupListeners()
   }
@@ -142,11 +145,12 @@ class InputSystem {
     const key = this.getMouseEventKey(event, 'Down')
 
     if (key) {
-      this.activeKeys.add(key)
-      this.checkCombinations({
+      this._startPos = {
         clientX: event.clientX,
         clientY: event.clientY
-      } as MouseEventData)
+      }
+      this.activeKeys.add(key)
+      this.checkCombinations(this._startPos)
     }
   }
 
@@ -170,14 +174,27 @@ class InputSystem {
     const key = this.getMouseEventKey(event, 'Move')
 
     if (key) {
-      this.activeKeys.add(key)
-      this.checkCombinations({
-        clientX: event.clientX,
-        clientY: event.clientY
-      } as MouseEventData)
+      let canMove = true
+      if (this._startPos) {
+        const dx = event.clientX - this._startPos.clientX
+        const dy = event.clientY - this._startPos.clientY
+        const distance = Math.sqrt(dx * dx + dy * dy)
 
-      // No need to keep mouse up key after trigger action
-      this.activeKeys.delete(key)
+        if (distance < CLICK_THRESHOLD) {
+          canMove = false
+        }
+      }
+
+      if (canMove) {
+        this.activeKeys.add(key)
+        this.checkCombinations({
+          clientX: event.clientX,
+          clientY: event.clientY
+        } as MouseEventData)
+
+        // No need to keep mouse up key after trigger action
+        this.activeKeys.delete(key)
+      }
     }
   }
 
