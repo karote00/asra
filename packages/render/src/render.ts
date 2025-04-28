@@ -8,6 +8,9 @@ import {
 } from '@asra/utils'
 import { RenderElementData, RenderContainerData } from './types'
 import { Viewport, rectToBounds } from './viewport'
+import { SelectionLayer } from './selection-layer/inxed'
+import renderSelection from './stores/selection'
+import { SceneElement } from './selection-layer/utils'
 
 type PixiInstance = Container | Graphics
 
@@ -17,10 +20,16 @@ class Render {
   private _deleteMap: Map<string, PixiInstance> = new Map()
   app: Application | null = null
   viewport: Viewport
+  selectionLayer: SelectionLayer
 
   constructor() {
     this.currentWorkspace = new Container()
     this.viewport = new Viewport(this.currentWorkspace)
+
+    this.selectionLayer = new SelectionLayer({
+      getSelectedElements: this.getSelectedElements.bind(this),
+      getHoverElement: () => null
+    })
   }
 
   async init(width: number, height: number, backgroundColor: number) {
@@ -40,6 +49,15 @@ class Render {
     this.app.stage.eventMode = 'static'
 
     return this.app
+  }
+
+  getSelectedElements(): SceneElement[] {
+    const selectedIds = renderSelection.getElementSelection()
+    return [...selectedIds].map(this.getElementById) as SceneElement[]
+  }
+
+  update() {
+    // this.selectionLayer.update()
   }
 
   addToMap(elementId: string, instance: PixiInstance) {
@@ -129,7 +147,7 @@ class Render {
 
     this.addToMap(data.id, graphic)
     this.currentWorkspace.addChild(graphic)
-
+    this.update()
     return graphic
   }
 
@@ -199,6 +217,7 @@ class Render {
       default:
         this.updateElementProperties(element, key, after)
     }
+    this.update()
   }
 
   updateElementProperties(

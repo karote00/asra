@@ -1,4 +1,4 @@
-import { SelectionManager } from '@asra/selection'
+import selectionManager, { SelectionManager } from '@asra/selection'
 import { ComputedAttrs, SELECTION_TYPES } from '@asra/utils'
 import sceneTree from '@asra/scene-tree'
 import uiContext from '../ui-context'
@@ -6,7 +6,7 @@ import uiContext from '../ui-context'
 export default class SelectionStore {
   selectionManager: SelectionManager
 
-  constructor(selectionManager: SelectionManager) {
+  constructor() {
     this.selectionManager = selectionManager
   }
 

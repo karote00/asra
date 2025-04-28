@@ -98,7 +98,7 @@ class RenderSceneTree {
   }
 }
 
-export default RenderSceneTree
+export { RenderSceneTree }
 
 const renderSceneTree = new RenderSceneTree()
-export { renderSceneTree }
+export default renderSceneTree

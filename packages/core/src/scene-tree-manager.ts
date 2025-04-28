@@ -4,6 +4,7 @@ import {
   endTransaction,
   requestElementSelection,
   sceneTreeLoadComplete,
+  selectElements,
   startTransaction
 } from '@asra/reactive-events'
 import type { SceneTree } from '@asra/scene-tree'
@@ -30,9 +31,10 @@ export default class SceneTreeManager {
     return this.sceneTree.save()
   }
 
-  addRectangle(data: CreateRectangleData) {
+  async addRectangle(data: CreateRectangleData) {
     startTransaction()
-    addRectangle(data)
+    const newElementId = await addRectangle(data)
+    selectElements([newElementId])
     endTransaction()
   }
 

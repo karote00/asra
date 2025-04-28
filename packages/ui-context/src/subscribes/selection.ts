@@ -1,6 +1,5 @@
 import type { SelectionYjsChange } from '@asra/utils'
 import { SELECTION_ACTIONS, SELECTION_TYPES } from '@asra/utils'
-import selectionManager from '@asra/selection'
 import factory from '@asra/factory'
 import {
   finishRequestElementSelection,
@@ -9,7 +8,7 @@ import {
 import SelectionStore from '../stores/selection'
 import uiContext from '../ui-context'
 
-export const selectionStore = new SelectionStore(selectionManager)
+export const selectionStore = new SelectionStore()
 
 const updateUIElementSelection = (change: SelectionYjsChange['payload']) => {
   switch (change.action) {
@@ -41,7 +40,7 @@ export const collectElementSelectionChange = (event) => {
 
 let hasInit = false
 
-export const initElementSelectionDataContext = () => {
+export const initSelectionDataContext = () => {
   if (hasInit) {
     return
   }
