@@ -4,9 +4,11 @@ import render from '../render'
 
 class RenderSelection {
   selectionManager: SelectionManager
+  elementSelection: Set<string>
 
   constructor() {
     this.selectionManager = selectionManager
+    this.elementSelection = new Set()
   }
 
   getElementSelection() {
@@ -24,6 +26,8 @@ class RenderSelection {
 
     switch (type) {
       case SELECTION_TYPES.ELEMENT: {
+        this.elementSelection = new Set(selectedIds)
+        render.updateSelectedSelection()
         break
       }
       case SELECTION_TYPES.VERTEX:

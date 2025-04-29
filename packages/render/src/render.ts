@@ -59,12 +59,13 @@ class Render {
   }
 
   getSelectedElements(): SceneElement[] {
-    const selectedIds = renderSelection.getElementSelection()
-    return [...selectedIds].map(this.getElementById) as SceneElement[]
+    return [...renderSelection.elementSelection].map((elementId) =>
+      this.getElementById(elementId)
+    ) as SceneElement[]
   }
 
-  update() {
-    // this.selectionLayer.update()
+  updateSelectedSelection() {
+    this.selectionLayer.updateSelected()
   }
 
   addToMap(elementId: string, instance: PixiInstance) {
@@ -145,7 +146,7 @@ class Render {
 
     this.addToMap(data.id, graphic)
     this.currentWorkspace.addChild(graphic)
-    this.update()
+
     return graphic
   }
 
@@ -215,7 +216,6 @@ class Render {
       default:
         this.updateElementProperties(element, key, after)
     }
-    this.update()
   }
 
   updateElementProperties(

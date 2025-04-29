@@ -24,7 +24,10 @@ export class SelectionLayer extends Container {
     super()
 
     this.selectedBox = new Graphics()
+    this.selectedBox.label = 'SelectedBox'
     this.hoverBox = new Graphics()
+    this.hoverBox.label = 'HoverBox'
+
     this.addChild(this.selectedBox)
     this.addChild(this.hoverBox)
 
@@ -40,6 +43,10 @@ export class SelectionLayer extends Container {
     this.updateHoverBox()
   }
 
+  updateSelected() {
+    this.updateSelectedBox()
+  }
+
   private updateSelectedBox() {
     const selectedElements = this.getSelectedElements()
     this.selectedBox.clear()
@@ -50,8 +57,11 @@ export class SelectionLayer extends Container {
       const element = selectedElements[0]
       const bounds = getSelectionLocalBounds(element)
 
-      this.selectedBox.lineStyle(1, 0x00ffff, 1) // Cyan color
-      this.selectedBox.drawRect(bounds.x, bounds.y, bounds.width, bounds.height)
+      this.selectedBox
+        .rect(0, 0, bounds.width, bounds.height)
+        .stroke({ width: 20, color: 0x1e90ff })
+      this.selectedBox.x = bounds.x
+      this.selectedBox.y = bounds.y
 
       const matrix = element.worldTransform.clone()
       this.selectedBox.setTransform(matrix)
