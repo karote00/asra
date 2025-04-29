@@ -48,7 +48,14 @@ class Render {
     this.app = app
     this.app.stage.eventMode = 'static'
 
+    this._setupStageLayers()
+
     return this.app
+  }
+
+  private _setupStageLayers() {
+    this.app?.stage.addChild(this.currentWorkspace)
+    this.app?.stage.addChild(this.selectionLayer)
   }
 
   getSelectedElements(): SceneElement[] {
@@ -103,24 +110,15 @@ class Render {
     })
   }
 
-  addRoot(root: Container) {
-    this.currentWorkspace = root
-  }
-
   switchWorkspace(workspaceData: RenderContainerData) {
-    if (this.currentWorkspace) {
-      this.app?.stage.removeChild(this.currentWorkspace)
-    }
-
-    const workspace = new Container(workspaceData)
-    this.app?.stage.addChild(workspace)
-    this.currentWorkspace = workspace
-    this.viewport.switchContainer(workspace)
+    this.currentWorkspace.label = workspaceData.label
+    this.currentWorkspace.x = workspaceData.x
+    this.currentWorkspace.y = workspaceData.y
   }
 
   addContainer(containerData: RenderContainerData) {
     const container = new Container(containerData)
-    this._elements.set(containerData.id, container)
+    this._elements.set(containerData.label, container)
     this.currentWorkspace.addChild(container)
 
     return container

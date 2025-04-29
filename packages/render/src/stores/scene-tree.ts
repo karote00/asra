@@ -24,7 +24,7 @@ class RenderSceneTree {
 
     // Create root render node
     render.switchWorkspace({
-      id: currentWorkspaceData.id,
+      label: currentWorkspaceData.id,
       x: 0,
       y: 0
     })
@@ -38,16 +38,6 @@ class RenderSceneTree {
     })
 
     this.groupMapChildren(currentWorkspaceData)
-  }
-
-  addContainer(currentWorkspaceId: string) {
-    const container = render.addContainer({
-      id: currentWorkspaceId,
-      x: 0,
-      y: 0
-    })
-
-    return container
   }
 
   groupMapChildren(data: WorkspaceRawData | GroupRawData) {
