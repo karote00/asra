@@ -56,23 +56,13 @@ export class SelectionLayer {
 
     if (selectedElements.length === 1) {
       const element = selectedElements[0]
-      const bounds = getSelectionLocalBounds(element)
 
       this.selectedBox
-        .rect(0, 0, bounds.width, bounds.height)
+        .rect(0, 0, element.width, element.height)
         .stroke({ width: 1, color: 0x1e90ff })
 
-      this.selectedBox.x = bounds.x
-      this.selectedBox.y = bounds.y
-
-      this.selectedBox.setTransform(element.relativeGroupTransform)
-    } else {
-      const bounds = getSelectionWorldBounds(selectedElements)
-      if (!bounds) return
-
-      this.selectedBox.setTransform(new Matrix()) // Reset any transform
-      this.selectedBox.lineStyle(1, 0x00ffff, 1) // Cyan color
-      this.selectedBox.drawRect(bounds.x, bounds.y, bounds.width, bounds.height)
+      this.selectedBox.x = element.x
+      this.selectedBox.y = element.y
     }
   }
 
