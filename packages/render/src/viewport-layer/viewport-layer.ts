@@ -1,7 +1,6 @@
 import { Container, Graphics } from 'pixi.js'
 import { DataTypes, DEFAULT_CANVAS_PADDING, MouseEventData } from '@asra/utils'
 import { Bounds } from './types'
-import { SelectionLayer } from '../selection-layer'
 import { RenderContainerData, RenderElementData, SceneElement } from '../types'
 import { RenderLayer } from '../render-layer'
 import renderSelection from '../stores/selection'
@@ -10,28 +9,20 @@ import { rectToBounds } from './utils'
 export class ViewportLayer {
   layer: Container
   private renderLayer: RenderLayer
-  private selectionLayer: SelectionLayer
 
   constructor() {
     this.layer = new Container()
     this.renderLayer = new RenderLayer()
-    this.selectionLayer = new SelectionLayer({
-      getSelectedElements: this.getSelectedElements.bind(this),
-      getHoverElement: () => null
-    })
 
     this.layer.addChild(this.renderLayer.view)
-    this.layer.addChild(this.selectionLayer.view)
   }
 
   get view() {
     return this.layer
   }
 
-  getSelectedElements(): SceneElement[] {
-    return [...renderSelection.elementSelection].map((elementId) =>
-      this.renderLayer.getElementById(elementId)
-    ) as SceneElement[]
+  getElementById(elementId: string): SceneElement | undefined {
+    return this.renderLayer.getElementById(elementId)
   }
 
   switchWorkspace(workspaceData: RenderContainerData) {
@@ -178,9 +169,5 @@ export class ViewportLayer {
       x: mousePos.clientX,
       y: mousePos.clientY
     })
-  }
-
-  updateSelectedSelection() {
-    this.selectionLayer.updateSelected()
   }
 }

@@ -1,14 +1,21 @@
 import { Application, Container, Graphics } from 'pixi.js'
 import { DataTypes, MouseEventData } from '@asra/utils'
-import { RenderElementData, RenderContainerData } from './types'
+import { RenderElementData, RenderContainerData, SceneElement } from './types'
 import { ViewportLayer } from './viewport-layer'
+import { SelectionLayer } from './selection-layer'
+import renderSelection from './stores/selection'
 
 class Render {
   app: Application | null = null
   viewport: ViewportLayer
+  selection: SelectionLayer
 
   constructor() {
     this.viewport = new ViewportLayer()
+    this.selection = new SelectionLayer({
+      getSelectedElements: this.getSelectedElements.bind(this),
+      getHoverElement: () => null
+    })
   }
 
   async init(width: number, height: number, backgroundColor: number) {
@@ -34,10 +41,17 @@ class Render {
 
   private _setupStageLayers() {
     this.app?.stage.addChild(this.viewport.view)
+    this.app?.stage.addChild(this.selection.view)
+  }
+
+  getSelectedElements(): SceneElement[] {
+    return [...renderSelection.elementSelection].map((elementId) =>
+      this.viewport.getElementById(elementId)
+    ) as SceneElement[]
   }
 
   updateSelectedSelection() {
-    this.viewport.updateSelectedSelection()
+    this.selection.updateSelected()
   }
 
   switchWorkspace(workspaceData: RenderContainerData) {

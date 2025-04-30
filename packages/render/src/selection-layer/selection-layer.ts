@@ -55,14 +55,18 @@ export class SelectionLayer {
     if (selectedElements.length === 0) return
 
     if (selectedElements.length === 1) {
+      this.selectedBox.clear()
+
       const element = selectedElements[0]
+      const bounds = element.getBounds()
 
-      this.selectedBox
-        .rect(0, 0, element.width, element.height)
-        .stroke({ width: 1, color: 0x1e90ff })
+      this.selectedBox.rect(0, 0, bounds.width, bounds.height).stroke({
+        width: 1,
+        color: 0x1e90ff
+      })
 
-      this.selectedBox.x = element.x
-      this.selectedBox.y = element.y
+      this.selectedBox.x = bounds.x
+      this.selectedBox.y = bounds.y
     }
   }
 
@@ -79,5 +83,9 @@ export class SelectionLayer {
 
     const matrix = hoverElement.worldTransform.clone()
     this.hoverBox.setTransform(matrix)
+  }
+
+  get viewportZoom() {
+    return this.layer.parent.scale.x
   }
 }
