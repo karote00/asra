@@ -25,7 +25,7 @@ export const initSystemContext = () => {
   })
 
   subscribeToRequestRenderZoom(() => {
-    const zoom = render.viewport.getScale()
+    const zoom = render.getScale()
     finishRequestRenderZoom(zoom)
   })
 

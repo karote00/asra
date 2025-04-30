@@ -1,7 +1,5 @@
-import { Container, Graphics, Rectangle } from 'pixi.js'
-
-// The type of elements that can be selected
-export type SceneElement = Container | Graphics
+import { Rectangle } from 'pixi.js'
+import { SceneElement } from '../types'
 
 /**
  * Calculate the world bounds that cover all given elements.

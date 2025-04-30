@@ -4891,20 +4891,20 @@ __metadata:
   linkType: hard
 
 "@types/react-dom@npm:^18.0.0":
-  version: 18.3.6
-  resolution: "@types/react-dom@npm:18.3.6"
+  version: 18.3.7
+  resolution: "@types/react-dom@npm:18.3.7"
   peerDependencies:
     "@types/react": ^18.0.0
-  checksum: 10c0/e77ac076096bd4b2e0a99130c47959762a927e536b83412e470ac5198d4b8d111cfd787ff2ab7c22bc39c114c0c5fef80046ea0cccb02a655e021a435859314a
+  checksum: 10c0/8bd309e2c3d1604a28a736a24f96cbadf6c05d5288cfef8883b74f4054c961b6b3a5e997fd5686e492be903c8f3380dba5ec017eff3906b1256529cd2d39603e
   languageName: node
   linkType: hard
 
 "@types/react-dom@npm:^19.0.0":
-  version: 19.1.2
-  resolution: "@types/react-dom@npm:19.1.2"
+  version: 19.1.3
+  resolution: "@types/react-dom@npm:19.1.3"
   peerDependencies:
     "@types/react": ^19.0.0
-  checksum: 10c0/100c341cacba9ec8ae1d47ee051072a3450e9573bf8eeb7262490e341cb246ea0f95a07a1f2077e61cf92648f812a0324c602fcd811bd87b7ce41db2811510cd
+  checksum: 10c0/bb1e3f7a446958f5aa7e46f74cf8470dab7444ab958a57efacca1abcc9847e4ca71e2df68515176ed8fe3fc89315bd949d60f1f346cbadbdbf302bff59d3961b
   languageName: node
   linkType: hard
 
@@ -6876,9 +6876,9 @@ __metadata:
   linkType: hard
 
 "caniuse-lite@npm:^1.0.0, caniuse-lite@npm:^1.0.30001688, caniuse-lite@npm:^1.0.30001702":
-  version: 1.0.30001715
-  resolution: "caniuse-lite@npm:1.0.30001715"
-  checksum: 10c0/0109a7da797ffbe1aa197baa5242b205011098eecec1087ef3d0c58ceea19be325ab6679b2751a78660adc3051a9f77e99d5789938fd1eb1235e6fdf6a1dbf8e
+  version: 1.0.30001716
+  resolution: "caniuse-lite@npm:1.0.30001716"
+  checksum: 10c0/5cca5089f7ee214a346ea38ecbd114c1a675c94254675150e535aa0766fe2c446961990637f25f65dc29ce9c543aed12006d679dd797d2e6159c46aa518da0cb
   languageName: node
   linkType: hard
 
@@ -7298,25 +7298,25 @@ __metadata:
   linkType: hard
 
 "core-js-compat@npm:^3.40.0":
-  version: 3.41.0
-  resolution: "core-js-compat@npm:3.41.0"
+  version: 3.42.0
+  resolution: "core-js-compat@npm:3.42.0"
   dependencies:
     browserslist: "npm:^4.24.4"
-  checksum: 10c0/92d2c748d3dd1c4e3b6cee6b6683b9212db9bc0a6574d933781210daf3baaeb76334ed4636eb8935b45802aa8d9235ab604c9a262694e02a2fa17ad0f6976829
+  checksum: 10c0/0138ce005c13ce642fc38e18e54a52a1c78ca8315ee6e4faad748d2a1b0ad2462ea615285ad4e6cf77afe48e47a868d898e64c70606c1eb1c9e6a9f19ee2b186
   languageName: node
   linkType: hard
 
 "core-js-pure@npm:^3.23.3":
-  version: 3.41.0
-  resolution: "core-js-pure@npm:3.41.0"
-  checksum: 10c0/d5003e91f167dd5670174d27bf313407325d0915454f41337510b89ba420f1d0d1b22d3b1793eb329b28e9273e951fb895eb574ecfc1ccc77ed6ad14af1c763b
+  version: 3.42.0
+  resolution: "core-js-pure@npm:3.42.0"
+  checksum: 10c0/e61b097bc83ec01839e7b04cad2e1d0dd8822275ea5a08a23dc7c907d13d2522aa2b09061cec68f0625fe40abb8b888be3b65a37c817eb53a695cf02c24217bf
   languageName: node
   linkType: hard
 
 "core-js@npm:^3.19.2":
-  version: 3.41.0
-  resolution: "core-js@npm:3.41.0"
-  checksum: 10c0/a29ed0b7fe81acf49d04ce5c17a1947166b1c15197327a5d12f95bbe84b46d60c3c13de701d808f41da06fa316285f3f55ce5903abc8d5642afc1eac4457afc8
+  version: 3.42.0
+  resolution: "core-js@npm:3.42.0"
+  checksum: 10c0/2913d3d5452d54ad92f058d66046782d608c05e037bcc523aab79c04454fe640998f94e6011292969d66dfa472f398b085ce843dcb362056532a5799c627184e
   languageName: node
   linkType: hard
 
@@ -8171,9 +8171,9 @@ __metadata:
   linkType: hard
 
 "electron-to-chromium@npm:^1.5.73":
-  version: 1.5.144
-  resolution: "electron-to-chromium@npm:1.5.144"
-  checksum: 10c0/c0e2be98de5b7c002fa647f6f0ba9a09cccc4c8d4ce967ff2e44e0c7c69b87cb98ef7bd46e4d0d2f93e2e9a7d9c64c7cedb8e525ac1a560cb71b492148ca6c35
+  version: 1.5.145
+  resolution: "electron-to-chromium@npm:1.5.145"
+  checksum: 10c0/0db2cf3de991b1c8dc38c7412179778a13ec46cd9eb5e520dc4f985762eb534c1307dd99573d6b68d04175d74a3bfc225f065fa567a946474cc1e70839af6d7b
   languageName: node
   linkType: hard
 
@@ -12008,15 +12008,15 @@ __metadata:
   linkType: hard
 
 "lib0@npm:^0.2.98":
-  version: 0.2.104
-  resolution: "lib0@npm:0.2.104"
+  version: 0.2.105
+  resolution: "lib0@npm:0.2.105"
   dependencies:
     isomorphic.js: "npm:^0.2.4"
   bin:
     0ecdsa-generate-keypair: bin/0ecdsa-generate-keypair.js
     0gentesthtml: bin/gentesthtml.js
     0serve: bin/0serve.js
-  checksum: 10c0/a1b3c320070b8c30ef9f22d065ee44e9715d172ce8554b28458ca95b8223292332aa7f6a5753d65d997ffb0ab6e19b18e1148c69df7f22801e25f32f2e441dc9
+  checksum: 10c0/74a4d5b48c8c8c9842334e4df3780cd208bb9e30393089951aa0b134fedadf9b24c311f3fd8da41554cd958ce761748a173570d4d72c7b399edf1f02e95ad940
   languageName: node
   linkType: hard
 
@@ -17314,8 +17314,8 @@ __metadata:
   linkType: hard
 
 "vite@npm:^5.0.0":
-  version: 5.4.18
-  resolution: "vite@npm:5.4.18"
+  version: 5.4.19
+  resolution: "vite@npm:5.4.19"
   dependencies:
     esbuild: "npm:^0.21.3"
     fsevents: "npm:~2.3.3"
@@ -17352,13 +17352,13 @@ __metadata:
       optional: true
   bin:
     vite: bin/vite.js
-  checksum: 10c0/a8cbbec6bdf399e62c386d70b8485e4f2f1b427beb19bc7c5d52b402a0c3750b7ff469fc20a8333755ea13bc1b0af5df3f22c8fd37d1739ee51d709b7a4740b6
+  checksum: 10c0/c97601234dba482cea5290f2a2ea0fcd65e1fab3df06718ea48adc8ceb14bc3129508216c4989329c618f6a0470b42f439677a207aef62b0c76f445091c2d89e
   languageName: node
   linkType: hard
 
 "vite@npm:^6.2.3":
-  version: 6.3.3
-  resolution: "vite@npm:6.3.3"
+  version: 6.3.4
+  resolution: "vite@npm:6.3.4"
   dependencies:
     esbuild: "npm:^0.25.0"
     fdir: "npm:^6.4.4"
@@ -17407,7 +17407,7 @@ __metadata:
       optional: true
   bin:
     vite: bin/vite.js
-  checksum: 10c0/7ea27d2c80a9e0b7ccf6cbd6c251455501286568160e8b632984e5332440f21a6d05f9236408212ba7653f7d2d4790f848956d8a620bbf4dd2ecb792a2fe1ab1
+  checksum: 10c0/f1534a3f42d14b30e11c58e5e451903d965d5f5ba18d8c81f9df208589e3d2c65535abaa3268d3963573174b8e056ea7bc445f567622c65fcdf98eb4acc1bf4e
   languageName: node
   linkType: hard
 

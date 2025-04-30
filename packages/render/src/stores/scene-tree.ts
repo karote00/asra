@@ -1,10 +1,5 @@
-import type {
-  DataTypes,
-  ElementRawData,
-  GroupRawData,
-  WorkspaceRawData
-} from '@asra/utils'
-import { EntityTypes, isGroupEntity } from '@asra/utils'
+import type { DataTypes, ElementRawData, WorkspaceRawData } from '@asra/utils'
+import { EntityTypes } from '@asra/utils'
 import sceneTree from '@asra/scene-tree'
 import { RenderElementData } from '../types'
 
@@ -34,22 +29,6 @@ class RenderSceneTree {
       const renderElementData = this._getRenderData(element.get('id'))
       if (element.get('type') !== EntityTypes.WORKSPACE) {
         this.addElement(renderElementData)
-      }
-    })
-
-    this.groupMapChildren(currentWorkspaceData)
-  }
-
-  groupMapChildren(data: WorkspaceRawData | GroupRawData) {
-    render.groupMapChildren(data)
-
-    data.children.forEach((childId) => {
-      const child = sceneTree.getElementById(childId)
-      if (!child) return
-
-      // Map children to group
-      if (isGroupEntity(child.get('type'))) {
-        this.groupMapChildren(child.save() as GroupRawData)
       }
     })
   }
