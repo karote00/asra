@@ -3,7 +3,6 @@ import { DataTypes, DEFAULT_CANVAS_PADDING, MouseEventData } from '@asra/utils'
 import { Bounds } from './types'
 import { RenderContainerData, RenderElementData, SceneElement } from '../types'
 import { RenderLayer } from '../render-layer'
-import renderSelection from '../stores/selection'
 import { rectToBounds } from './utils'
 
 export class ViewportLayer {

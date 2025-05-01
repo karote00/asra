@@ -1,6 +1,6 @@
 import { Container, Graphics, Point } from 'pixi.js'
 import { SceneElement, RenderContainerData, RenderElementData } from '../types'
-import { DataTypes, EntityTypes, GroupRawData } from '@asra/utils'
+import { DataTypes, EntityTypes } from '@asra/utils'
 
 export class RenderLayer {
   private currentWorkspace: Container

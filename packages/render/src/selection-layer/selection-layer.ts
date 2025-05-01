@@ -1,5 +1,5 @@
-import { Container, Graphics, Matrix } from 'pixi.js'
-import { getSelectionWorldBounds, getSelectionLocalBounds } from './utils'
+import { Container, Graphics } from 'pixi.js'
+import { getSelectionLocalBounds } from './utils'
 import { SceneElement } from '../types'
 
 interface SelectionLayerOptions {
