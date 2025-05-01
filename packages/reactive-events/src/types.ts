@@ -27,6 +27,7 @@ export enum SceneTreeEventTypes {
 // Element
 export enum ElementEventTypes {
   ADD_ELEMENT = 'addElement',
+  FINISH_ADD_ELEMENT = 'finishAddElement',
   REMOVE_ELEMENT = 'removeElement',
   UPDATE_COMPUTED_DATA = 'updateComputedData',
   CHANGE_COMPUTED_DATA = 'changeComputedData'

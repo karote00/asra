@@ -1,14 +1,11 @@
 import { sceneTreeStore, initSceneTreeDataContext } from './scene-tree'
-import {
-  selectionStore,
-  initElementSelectionDataContext
-} from './element-selection'
+import { selectionStore, initSelectionDataContext } from './selection'
 import { initRenderDataContext } from './render'
 
 export const initDataContexts = () => {
   initRenderDataContext()
   initSceneTreeDataContext()
-  initElementSelectionDataContext()
+  initSelectionDataContext()
 }
 
 export { sceneTreeStore, selectionStore }

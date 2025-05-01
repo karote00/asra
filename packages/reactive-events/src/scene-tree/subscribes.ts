@@ -5,7 +5,8 @@ import type {
   AddElementEvent,
   RemoveElementEvent,
   UpdateComputedDataEvent,
-  ChangeComputedDataEvent
+  ChangeComputedDataEvent,
+  FinishAddElementEvent
 } from './events'
 import { getEventBusObserve } from '../event-bus'
 import { EventTypes } from '../types'
@@ -31,6 +32,19 @@ export const subscribeToAddElement = (
       filter(
         (event): event is AddElementEvent =>
           event.type === EventTypes.ADD_ELEMENT
+      )
+    )
+    .subscribe(subscriber)
+}
+
+export const subscribeToFinishAddElement = (
+  subscriber: (event: FinishAddElementEvent) => void
+): Subscription => {
+  return getEventBusObserve()
+    .pipe(
+      filter(
+        (event): event is FinishAddElementEvent =>
+          event.type === EventTypes.FINISH_ADD_ELEMENT
       )
     )
     .subscribe(subscriber)

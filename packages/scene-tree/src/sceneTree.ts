@@ -209,10 +209,7 @@ class SceneTree {
   }
 }
 
-const sceneTree = new SceneTree()
-if (process.env.NODE_ENV === 'development') {
-  // window.__SCENE_TREE__ = sceneTree
-}
-
-export default sceneTree
 export { SceneTree }
+
+const sceneTree = new SceneTree()
+export default sceneTree

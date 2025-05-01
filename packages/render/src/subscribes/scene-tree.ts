@@ -6,7 +6,7 @@ import type {
 import factory from '@asra/factory'
 import { SCENE_TREE_ACTIONS } from '@asra/utils'
 import { subscribeToSceneTreeLoadComplete } from '@asra/reactive-events'
-import { renderSceneTree } from '../stores/scene-tree'
+import renderSceneTree from '../stores/scene-tree'
 
 const updateRenderSceneTree = (change: SceneTreeYjsChange['payload']) => {
   switch (change.action) {

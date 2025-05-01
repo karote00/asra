@@ -4,7 +4,8 @@ import {
   subscribeToRemoveElement,
   subscribeToChangeComputedData,
   updateTransaction,
-  subscribeToUpdateComputedData
+  subscribeToUpdateComputedData,
+  finishAddRectangle
 } from '@asra/reactive-events'
 import type { ComputedAttrs, ElementInstanceTypes } from '@asra/utils'
 import { UNDO } from '@asra/utils'
@@ -26,7 +27,7 @@ export const initSceneTreeSubscribes = () => {
   })
 
   subscribeToAddElement(({ payload }) => {
-    const { data, parent, index } = payload
+    const { data, parent, index, requestId } = payload
 
     let newRectangle
 
@@ -50,6 +51,8 @@ export const initSceneTreeSubscribes = () => {
 
     sceneTree.addNewElement(newRectangle as ElementInstanceTypes, parent, index)
     commitSceneTreeTransaction()
+
+    finishAddRectangle(requestId, newRectangle?.get('id') as string)
   })
 
   subscribeToRemoveElement(({ payload }) => {

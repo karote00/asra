@@ -13,9 +13,18 @@ export interface SceneTreeLoadCompleteEvent {
 export interface AddElementEvent {
   type: EventTypes
   payload: {
+    requestId: string
     data: CreateRectangleData
     parent?: GroupInstanceTypes
     index?: number
+  }
+}
+
+export interface FinishAddElementEvent {
+  type: EventTypes
+  payload: {
+    requestId: string
+    elementId: string
   }
 }
 
