@@ -99,6 +99,7 @@ class Render {
    */
   panTo(x: number, y: number) {
     this.viewport.panTo(x, y)
+    this.updateSelectedSelection()
   }
 
   /**
@@ -109,6 +110,7 @@ class Render {
    */
   zoomTo(scale: number) {
     this.viewport.zoomTo(scale)
+    this.updateSelectedSelection()
   }
 
   /**
@@ -120,6 +122,7 @@ class Render {
    */
   zoomToCenter(scale: number, centerX: number, centerY: number) {
     this.viewport.zoomToCenter(scale, centerX, centerY)
+    this.updateSelectedSelection()
   }
 
   getPosition() {
