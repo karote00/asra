@@ -4,7 +4,11 @@ import { EntityTypes } from '@asra/utils'
 import { Icon } from '@asra/design-system'
 import { useElementData } from '../providers'
 import { selectElements } from '../controllers/element-selection'
-import { useElementSelection } from '../providers'
+
+interface ElementData {
+  elementId: string
+  isSelected: boolean
+}
 
 const getModifiers = (e: KeyboardEvent): Modifiers => {
   return {
@@ -15,11 +19,10 @@ const getModifiers = (e: KeyboardEvent): Modifiers => {
   }
 }
 
-const Element = ({ elementId }: { elementId: string }) => {
+const Element = ({ elementId, isSelected }: ElementData) => {
   const elementData = useElementData(elementId)
   if (!elementData) return null
 
-  const elementSelection = useElementSelection()
   const { id, name, type, lock, visible } = elementData as ElementRawData
   const modifierKeys = useRef({
     meta: false,
@@ -53,7 +56,6 @@ const Element = ({ elementId }: { elementId: string }) => {
     }
   }, [])
 
-  const isSelected = elementSelection.has(id)
   const bgColor = isSelected ? 'bg-panel-lighter' : ''
   const hoverBgColor = isSelected
     ? 'hover:bg-panel-lighter'
