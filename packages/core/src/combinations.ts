@@ -30,7 +30,9 @@ const combinations: Record<string, string[]> = {
   DRAG_UPDATE: ['LeftMouseDown', 'LeftMouseMove'],
   DRAG_END: ['LeftMouseUp'],
   RIGHT_CLICK: ['RightMouseUp'],
-  DOUBLE_CLICK: ['MouseDoubleClick']
+  DOUBLE_CLICK: ['MouseDoubleClick'],
+  SWITCH_TO_SELECT_TOOL: ['V'],
+  SWITCH_TO_RECT_TOOL: ['R']
 }
 
 export const Events = Object.keys(combinations).reduce(
