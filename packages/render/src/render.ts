@@ -89,6 +89,7 @@ class Render {
 
   zoomFit(uiBounds: DOMRect) {
     this.viewport.zoomFit(uiBounds)
+    this.updateSelectedSelection()
   }
 
   /**
