@@ -2,7 +2,11 @@ import factory, { DataTransact } from '@asra/factory'
 import InputSystem from '@asra/input-system'
 import sceneTree from '@asra/scene-tree'
 import render from '@asra/render'
-import type { PropsComponentRawData, SceneTreeRawData } from '@asra/utils'
+import type {
+  DataTypes,
+  PropsComponentRawData,
+  SceneTreeRawData
+} from '@asra/utils'
 
 import SystemEventManager from './system-event-manager'
 import RenderManager from './render-manager'
@@ -64,10 +68,22 @@ class Core {
     return data
   }
 
+  async initRender(width: number, height: number, color: number) {
+    return await this.renderManager.initRender(width, height, color)
+  }
+
   setupInputSystem(watchedElement?: HTMLElement) {
     if (watchedElement) {
       inputSystem.switchWatchedElement(watchedElement)
     }
+  }
+
+  selectElement(elementIds: string[]) {
+    this.elementSelectionManager.select(elementIds)
+  }
+
+  changeComputedData(key: string, data: DataTypes) {
+    this.sceneTreeManager.changeComputedData(key, data)
   }
 }
 

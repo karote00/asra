@@ -1,5 +1,5 @@
-import { elementSelectionManager } from '../contexts'
+import core from '../contexts'
 
 export const selectElements = (elementIds: string[]) => {
-  elementSelectionManager.select(elementIds)
+  core.selectElement(elementIds)
 }

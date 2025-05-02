@@ -1,17 +1,13 @@
 import { app, setPixiApp } from '../states/app'
 import { CANVAS_BACKGROUND_COLOR } from '../constants'
-import { core } from '../contexts'
+import core from '../contexts'
 
 export const initRenderApp = async (
   container: HTMLDivElement,
   width: number,
   height: number
 ) => {
-  const newApp = await core.renderManager.initRender(
-    width,
-    height,
-    CANVAS_BACKGROUND_COLOR
-  )
+  const newApp = await core.initRender(width, height, CANVAS_BACKGROUND_COLOR)
 
   if (newApp && newApp.canvas && !container.children.length) {
     container.appendChild(newApp.canvas)

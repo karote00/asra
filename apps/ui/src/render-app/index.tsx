@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { renderIsReady } from '@asra/reactive-events'
 import { initRenderApp, destroyRenderApp } from '../controllers/app'
-import { core } from '../contexts'
+import core from '../contexts'
 
 const RenderApp: React.FC = () => {
   const pixiContainerRef = useRef<HTMLDivElement>(null)

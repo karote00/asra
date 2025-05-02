@@ -1,10 +1,6 @@
 import { DataTypes } from '@asra/utils'
-import { sceneTreeManager } from '../contexts'
-
-export const addRectangle = () => {
-  sceneTreeManager.addRectangle()
-}
+import core from '../contexts'
 
 export const changeElementComputedData = (key: string, data: DataTypes) => {
-  sceneTreeManager.changeComputedData(key, data)
+  core.changeComputedData(key, data)
 }
