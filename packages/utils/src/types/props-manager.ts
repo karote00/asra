@@ -1,4 +1,4 @@
-import { OWNER, PROPS_ACTIONS } from '../enums'
+import { OWNER, PROPS_ACTIONS } from '../constants'
 import { PropertyComponentRawData } from '../propsManager'
 import { DataTypes } from './constants'
 import type { YjsChange } from './yjs'

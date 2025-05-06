@@ -1,7 +1,7 @@
 import { PropertyTypes } from './enum'
 import type { PropertyComponentRawData } from './rawDataTypes'
 import type { ISetter } from '../setter'
-import { Unit } from '../enums'
+import { Unit } from '../constants'
 import { DataTypes, DimensionData, PositionData } from '../types'
 
 export interface BasePropertyAttrs {

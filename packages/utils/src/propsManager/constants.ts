@@ -1,4 +1,4 @@
-import { Unit } from '../enums'
+import { Unit } from '../constants'
 
 export const PropAlias: Record<string, string> = {
   x: 'position',

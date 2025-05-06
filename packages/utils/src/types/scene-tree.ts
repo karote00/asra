@@ -1,4 +1,4 @@
-import { OWNER, SCENE_TREE_ACTIONS } from '../enums'
+import { OWNER, SCENE_TREE_ACTIONS } from '../constants'
 import type { ElementRawData } from '../sceneTree'
 import { DataTypes } from './constants'
 import type { YjsChange } from './yjs'

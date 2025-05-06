@@ -4,6 +4,7 @@ import sceneTree from '@asra/scene-tree'
 import render from '@asra/render'
 import type {
   DataTypes,
+  PositionData,
   PropsComponentRawData,
   SceneTreeRawData
 } from '@asra/utils'
@@ -14,6 +15,8 @@ import SceneTreeManager from './scene-tree-manager'
 import ElementSelectionManager from './element-selection-manager'
 import ElementPropsManager from './element-props-manager'
 import combinations from './combinations'
+
+import { initShortcuts } from './shortcuts'
 
 const inputSystem = new InputSystem(combinations)
 const systemEventManager = new SystemEventManager(inputSystem)
@@ -33,10 +36,11 @@ const DATA_VERSION = '1.0.0'
 
 class Core {
   version: string = DEFAULT_VERSION
+  inputSystem: InputSystem = inputSystem
   dataTransact: DataTransact = factory.transact
   elementPropsManager: ElementPropsManager = elementPropsManager
   systemEventManager: SystemEventManager = systemEventManager
-  renderManager: RenderManager = renderManager
+  render: RenderManager = renderManager
   sceneTreeManager: SceneTreeManager = sceneTreeManager
   elementSelectionManager: ElementSelectionManager = elementSelectionManager
 
@@ -55,7 +59,7 @@ class Core {
     } else {
       this.sceneTreeManager.init()
     }
-    this.renderManager.zoomFit()
+    this.render.zoomFit()
   }
 
   save() {
@@ -69,13 +73,33 @@ class Core {
   }
 
   async initRender(width: number, height: number, color: number) {
-    return await this.renderManager.initRender(width, height, color)
+    return await this.render.initRender(width, height, color)
   }
 
   setupInputSystem(watchedElement?: HTMLElement) {
     if (watchedElement) {
       inputSystem.switchWatchedElement(watchedElement)
     }
+  }
+
+  getViewportPosition(): PositionData {
+    return this.render.getViewportPosition()
+  }
+
+  getViewportScale(): number {
+    return this.render.getViewportScale()
+  }
+
+  zoomFit() {
+    this.render.zoomFit()
+  }
+
+  panTo(x: number, y: number) {
+    this.render.panTo(x, y)
+  }
+
+  zoomToCenter(scale: number, centerX: number, centerY: number) {
+    this.render.zoomToCenter(scale, centerX, centerY)
   }
 
   selectElement(elementIds: string[]) {
@@ -89,4 +113,7 @@ class Core {
 
 export { Core }
 const core = new Core()
+
+initShortcuts(core)
+
 export default core
