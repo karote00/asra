@@ -1,13 +1,20 @@
-import type { Core } from '../../core'
+import type InputSystem from '@asra/input-system'
+import { UndoHandler } from './undo-handler'
 import { ViewportHandler } from './viewport-handler'
+import { CoreAPIs } from '../../types/core-apis'
 
-export const initAllHandlers = (core: Core) => {
-  new ViewportHandler(core.inputSystem, {
-    getViewportPosition: () => core.getViewportPosition(),
-    getViewportScale: () => core.getViewportScale(),
-    zoomFit: () => core.zoomFit(),
-    panTo: (x: number, y: number) => core.panTo(x, y),
+export const initAllHandlers = (inputSystem: InputSystem, apis: CoreAPIs) => {
+  new UndoHandler(inputSystem, {
+    undo: apis.undo,
+    redo: apis.redo
+  })
+
+  new ViewportHandler(inputSystem, {
+    getViewportPosition: () => apis.getViewportPosition(),
+    getViewportScale: () => apis.getViewportScale(),
+    zoomFit: () => apis.zoomFit(),
+    panTo: (x: number, y: number) => apis.panTo(x, y),
     zoomToCenter: (scale: number, centerX: number, centerY: number) =>
-      core.zoomToCenter(scale, centerX, centerY)
+      apis.zoomToCenter(scale, centerX, centerY)
   })
 }

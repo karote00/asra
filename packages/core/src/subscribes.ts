@@ -3,6 +3,6 @@ import core from './core'
 
 export const initCoreSubscribes = () => {
   subscribeToCoreAddElement(({ payload }) => {
-    core.sceneTreeManager.addRectangle(payload)
+    core.addRectangle(payload)
   })
 }

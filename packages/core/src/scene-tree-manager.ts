@@ -32,10 +32,7 @@ export default class SceneTreeManager {
   }
 
   async addRectangle(data: CreateRectangleData) {
-    startTransaction()
-    const newElementId = await addRectangle(data)
-    selectElements([newElementId])
-    endTransaction()
+    return await addRectangle(data)
   }
 
   async changeComputedData(key: string, data: DataTypes) {
