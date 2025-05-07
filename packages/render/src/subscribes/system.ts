@@ -2,8 +2,7 @@ import {
   finishInitRender,
   finishRequestRenderZoom,
   subscribeToInitRender,
-  subscribeToRequestRenderZoom,
-  subscribeToZoomFit
+  subscribeToRequestRenderZoom
 } from '@asra/reactive-events'
 import render from '../render'
 
@@ -18,10 +17,6 @@ export const initSystemContext = () => {
     const { width, height, color } = payload
     const newApp = await render.init(width, height, color)
     finishInitRender(newApp)
-  })
-
-  subscribeToZoomFit(({ payload }) => {
-    render.zoomFit(payload.rect)
   })
 
   subscribeToRequestRenderZoom(() => {

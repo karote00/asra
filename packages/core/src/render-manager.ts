@@ -1,7 +1,6 @@
-import { initRender, zoomFit } from '@asra/reactive-events'
 import type { Render } from '@asra/render'
 import type InputSystem from '@asra/input-system'
-import { MouseEventData, PositionData, roundFloat } from '@asra/utils'
+import { MouseEventData, roundFloat } from '@asra/utils'
 import { Events } from './combinations'
 import { coreAddElement } from '@asra/reactive-events/dist/core'
 
@@ -55,34 +54,6 @@ class RenderManager {
     }
 
     this._isDrag = false
-  }
-
-  async initRender(width: number, height: number, color: number) {
-    return await initRender(width, height, color)
-  }
-
-  getViewportPosition(): PositionData {
-    return this.render.getPosition()
-  }
-
-  getViewportScale(): number {
-    return this.render.getScale()
-  }
-
-  zoomFit() {
-    const centerDiv = document.querySelector('#viewport-anchor')
-    const uiBounds = centerDiv?.getBoundingClientRect()
-    if (uiBounds) {
-      zoomFit(uiBounds)
-    }
-  }
-
-  panTo(x: number, y: number) {
-    this.render.panTo(x, y)
-  }
-
-  zoomToCenter(scale: number, centerX: number, centerY: number) {
-    this.render.zoomToCenter(scale, centerX, centerY)
   }
 }
 
