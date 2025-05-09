@@ -1,5 +1,5 @@
 import {
-  subscribeUndoRedoStatus,
+  subscribeToUpdateUndoRedoStatus,
   subscribeToAddProperty,
   subscribeToRemoveProperty,
   updateTransaction
@@ -9,7 +9,7 @@ import propsManager from './props-manager'
 
 export const initPropXSubscribes = () => {
   let inUndoRedo = false
-  subscribeUndoRedoStatus(({ status }) => {
+  subscribeToUpdateUndoRedoStatus(({ status }) => {
     inUndoRedo = status !== UNDO.NONE
   })
 

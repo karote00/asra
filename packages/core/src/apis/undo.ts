@@ -1,13 +1,13 @@
-import { Factory } from '@asra/factory'
+import { redo, undo } from '@asra/reactive-events'
 import { UndoAPIs } from '../types/core-apis'
 
-export const createUndoAPIs = (factory: Factory): UndoAPIs => {
+export const createUndoAPIs = (): UndoAPIs => {
   return {
     undo() {
-      factory.undo()
+      undo()
     },
     redo() {
-      factory.redo()
+      redo()
     }
   }
 }

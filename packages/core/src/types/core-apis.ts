@@ -1,3 +1,4 @@
+import type { Factory } from '@asra/factory'
 import type InputSystem from '@asra/input-system'
 import type { Render } from '@asra/render'
 import { CreateRectangleData, PositionData } from '@asra/utils'
@@ -5,6 +6,7 @@ import { CreateRectangleData, PositionData } from '@asra/utils'
 export interface HandlerDeps {
   inputSystem: InputSystem
   render: Render
+  factory: Factory
 }
 
 export interface UndoAPIs {

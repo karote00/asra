@@ -40,3 +40,15 @@ export const updateUndoRedoStatus = (status: UNDO) => {
     status
   })
 }
+
+export const undo = () => {
+  publishEvent({
+    type: EventTypes.UNDO
+  })
+}
+
+export const redo = () => {
+  publishEvent({
+    type: EventTypes.REDO
+  })
+}

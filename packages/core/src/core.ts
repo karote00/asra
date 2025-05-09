@@ -64,7 +64,8 @@ class Core implements CoreAPIs {
     initShortcuts(
       {
         inputSystem: this.inputSystem,
-        render: this.render
+        render: this.render,
+        factory: this.factory
       },
       apis
     )

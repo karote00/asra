@@ -1,7 +1,8 @@
-import { Render } from '@asra/render'
-import { ViewportAPIs } from '../types/core-apis'
+import { HandlerDeps, ViewportAPIs } from '../types/core-apis'
 
-export const createViewportAPIs = (render: Render): ViewportAPIs => {
+export const createViewportAPIs = (
+  render: HandlerDeps['render']
+): ViewportAPIs => {
   return {
     getViewportPosition() {
       return render.getPosition()

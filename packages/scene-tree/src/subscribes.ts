@@ -1,5 +1,5 @@
 import {
-  subscribeUndoRedoStatus,
+  subscribeToUpdateUndoRedoStatus,
   subscribeToAddElement,
   subscribeToRemoveElement,
   subscribeToChangeComputedData,
@@ -22,7 +22,7 @@ const commitSceneTreeTransaction = () => {
 
 export const initSceneTreeSubscribes = () => {
   let inUndoRedo = false
-  subscribeUndoRedoStatus(({ status }) => {
+  subscribeToUpdateUndoRedoStatus(({ status }) => {
     inUndoRedo = status !== UNDO.NONE
   })
 

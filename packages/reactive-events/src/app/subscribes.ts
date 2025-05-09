@@ -5,8 +5,10 @@ import type {
   StartTransactionEvent,
   UpdateTransactionEvent,
   EndTransactionEvent,
-  UndoRedoStatusEvent,
-  RenderIsReadyEvent
+  UpdateUndoRedoStatusEvent,
+  RenderIsReadyEvent,
+  UndoEvent,
+  RedoEvent
 } from './events'
 import { getEventBusObserve } from '../event-bus'
 import { EventTypes } from '../types'
@@ -76,15 +78,31 @@ export const subscribeToEndTransaction = (
     .subscribe(subscriber)
 }
 
-export const subscribeUndoRedoStatus = (
-  subscriber: (event: UndoRedoStatusEvent) => void
+export const subscribeToUpdateUndoRedoStatus = (
+  subscriber: (event: UpdateUndoRedoStatusEvent) => void
 ): Subscription => {
   return getEventBusObserve()
     .pipe(
       filter(
-        (event): event is UndoRedoStatusEvent =>
+        (event): event is UpdateUndoRedoStatusEvent =>
           event.type === EventTypes.UNDOREDO_STATUS
       )
     )
+    .subscribe(subscriber)
+}
+
+export const subscribeToUndo = (
+  subscriber: (event: UndoEvent) => void
+): Subscription => {
+  return getEventBusObserve()
+    .pipe(filter((event): event is UndoEvent => event.type === EventTypes.UNDO))
+    .subscribe(subscriber)
+}
+
+export const subscribeToRedo = (
+  subscriber: (event: RedoEvent) => void
+): Subscription => {
+  return getEventBusObserve()
+    .pipe(filter((event): event is RedoEvent => event.type === EventTypes.REDO))
     .subscribe(subscriber)
 }

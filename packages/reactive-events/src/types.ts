@@ -40,6 +40,8 @@ export enum UndoRedoEventTypes {
 
 // Transaction
 export enum TransactionEventTypes {
+  UNDO = 'undo',
+  REDO = 'redo',
   START_TRANSACTION = 'startTransaction',
   UPDATE_TRANSACTION = 'updateTransaction',
   END_TRANSACTION = 'endTransaction'
