@@ -9,8 +9,7 @@ import {
 } from './events'
 import {
   subscribeToFinishRequestViewportPosition,
-  subscribeToFinishRequestViewportScale,
-  subscribeToRequestViewportPosition
+  subscribeToFinishRequestViewportScale
 } from './subscribes'
 import { generateRequestId, PositionData } from '@asra/utils'
 

@@ -39,6 +39,7 @@ class Core implements CoreAPIs {
   setupInputSystem!: (watchedElement?: HTMLElement) => void
 
   // Render APIs
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initRender!: (width: number, height: number, color: number) => Promise<any>
   renderIsReady!: () => void
   getViewportPosition!: () => Promise<PositionData>

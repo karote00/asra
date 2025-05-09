@@ -1,5 +1,5 @@
 import { Subscription } from 'rxjs'
-import { filter, throttleTime } from 'rxjs/operators'
+import { filter } from 'rxjs/operators'
 import type {
   FinishRequestViewportPosition,
   FinishRequestViewportScale,

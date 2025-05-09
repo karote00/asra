@@ -7,5 +7,7 @@ interface SwitchModeHandlerDeps {
 export class SiwtchModeHandler {
   constructor(private deps: SwitchModeHandlerDeps) {}
 
-  init() {}
+  init() {
+    // TODO: init switch handler
+  }
 }
