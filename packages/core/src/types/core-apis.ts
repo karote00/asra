@@ -35,4 +35,12 @@ export interface SceneTreeAPIs {
   addRectangle: (data: CreateRectangleData) => void
 }
 
-export type CoreAPIs = UndoAPIs & ViewportAPIs & RenderAPIs & SceneTreeAPIs
+export interface ElementSelectionAPIs {
+  selectElements: (elementIds: string[]) => void
+}
+
+export type CoreAPIs = UndoAPIs &
+  ViewportAPIs &
+  RenderAPIs &
+  SceneTreeAPIs &
+  ElementSelectionAPIs

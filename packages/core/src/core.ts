@@ -11,7 +11,6 @@ import type {
 } from '@asra/utils'
 
 import SceneTreeManager from './scene-tree-manager'
-import ElementSelectionManager from './element-selection-manager'
 import ElementPropsManager from './element-props-manager'
 import combinations from './combinations'
 
@@ -20,7 +19,6 @@ import { CoreAPIs } from './types/core-apis'
 
 const inputSystem = new InputSystem(combinations)
 const sceneTreeManager = new SceneTreeManager(sceneTree)
-const elementSelectionManager = new ElementSelectionManager()
 const elementPropsManager = new ElementPropsManager()
 
 import { createAPIs } from './apis'
@@ -41,7 +39,6 @@ class Core implements CoreAPIs {
   propsManager: ElementPropsManager = elementPropsManager
   render: Render = render
   sceneTree: SceneTreeManager = sceneTreeManager
-  elementSelection: ElementSelectionManager = elementSelectionManager
 
   // Render APIs
   initRender!: (width: number, height: number, color: number) => Promise<any>
@@ -57,6 +54,9 @@ class Core implements CoreAPIs {
 
   // SceneTree APIs
   addRectangle!: (data: CreateRectangleData) => void
+
+  // ElementSelection APIs
+  selectElements!: (elementIds: string[]) => void
 
   constructor() {
     const apis = createAPIs()
@@ -105,10 +105,6 @@ class Core implements CoreAPIs {
     if (watchedElement) {
       inputSystem.switchWatchedElement(watchedElement)
     }
-  }
-
-  selectElement(elementIds: string[]) {
-    this.elementSelection.select(elementIds)
   }
 
   changeComputedData(key: string, data: DataTypes) {
