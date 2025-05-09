@@ -1,8 +1,8 @@
-import { APIDeps, InputSystemAPIs } from '../types/core-apis'
+import { APIDeps, InputSystemRawAPIs } from '../types'
 
 export const createInputSystemAPIs = (
   inputSystem: APIDeps['inputSystem']
-): InputSystemAPIs => {
+): InputSystemRawAPIs => {
   return {
     setupInputSystem(watchedElement?: HTMLElement) {
       if (watchedElement) {

@@ -5,7 +5,7 @@ import {
   zoomFit,
   zoomToCenter
 } from '@asra/reactive-events'
-import { ViewportAPIs } from '../types/core-apis'
+import { ViewportAPIs } from '../types'
 
 export const createViewportAPIs = (): ViewportAPIs => {
   return {

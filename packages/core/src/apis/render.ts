@@ -1,7 +1,7 @@
 import { initRender, renderIsReady } from '@asra/reactive-events'
-import { RenderAPIs } from '../types/core-apis'
+import { RenderRawAPIs } from '../types'
 
-export const createRenderAPIs = (): RenderAPIs => {
+export const createRenderAPIs = (): RenderRawAPIs => {
   return {
     renderIsReady() {
       renderIsReady()

@@ -1,6 +1,6 @@
 import { createViewportAPIs } from './viewport'
 import { createUndoAPIs } from './undo'
-import { APIDeps, CoreAPIs } from '../types/core-apis'
+import { APIDeps, CoreAPIs } from '../types'
 import { createRenderAPIs } from './render'
 import { createSceneTreeAPIs } from './scene-tree'
 import { createElementSelectionAPIs } from './element-selection'
@@ -12,7 +12,7 @@ export const createAPIs = (deps: APIDeps): CoreAPIs => {
     ...createViewportAPIs(),
     ...createUndoAPIs(),
     ...createRenderAPIs(),
-    ...createSceneTreeAPIs(),
+    ...createSceneTreeAPIs(deps.sceneTree),
     ...createElementSelectionAPIs()
   }
 }

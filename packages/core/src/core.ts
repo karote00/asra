@@ -1,6 +1,6 @@
 import factory, { Factory } from '@asra/factory'
 import InputSystem from '@asra/input-system'
-import sceneTree from '@asra/scene-tree'
+import sceneTree, { SceneTree } from '@asra/scene-tree'
 import render, { Render } from '@asra/render'
 import type {
   CreateRectangleData,
@@ -10,15 +10,13 @@ import type {
   SceneTreeRawData
 } from '@asra/utils'
 
-import SceneTreeManager from './scene-tree-manager'
 import ElementPropsManager from './element-props-manager'
 import combinations from './combinations'
 
 import { initShortcuts } from './shortcuts'
-import { CoreAPIs } from './types/core-apis'
+import { CoreAPIs } from './types'
 
 const inputSystem = new InputSystem(combinations)
-const sceneTreeManager = new SceneTreeManager(sceneTree)
 const elementPropsManager = new ElementPropsManager()
 
 import { createAPIs } from './apis'
@@ -38,7 +36,7 @@ class Core implements CoreAPIs {
   factory: Factory = factory
   propsManager: ElementPropsManager = elementPropsManager
   render: Render = render
-  sceneTree: SceneTreeManager = sceneTreeManager
+  sceneTree: SceneTree = sceneTree
 
   // InputSystem APIs
   setupInputSystem!: (watchedElement?: HTMLElement) => void
@@ -57,14 +55,19 @@ class Core implements CoreAPIs {
   redo!: () => void
 
   // SceneTree APIs
+  initSceneTree!: () => void
+  loadSceneTree!: (data: SceneTreeRawData) => void
+  saveSceneTree!: () => SceneTreeRawData
   addRectangle!: (data: CreateRectangleData) => void
+  changeComputedData!: (key: string, data: DataTypes) => void
 
   // ElementSelection APIs
   selectElements!: (elementIds: string[]) => void
 
   constructor() {
     const apis = createAPIs({
-      inputSystem: this.inputSystem
+      inputSystem: this.inputSystem,
+      sceneTree: this.sceneTree
     })
 
     initShortcuts(
@@ -89,9 +92,9 @@ class Core implements CoreAPIs {
     }
 
     if (data.sceneTree) {
-      this.sceneTree.load(data.sceneTree)
+      this.loadSceneTree(data.sceneTree)
     } else {
-      this.sceneTree.init()
+      this.initSceneTree()
     }
 
     this.zoomFit()
@@ -100,15 +103,11 @@ class Core implements CoreAPIs {
   save() {
     const data = {
       version: this.version,
-      sceneTree: this.sceneTree.save(),
+      sceneTree: this.saveSceneTree(),
       props: this.propsManager.save()
     }
 
     return data
-  }
-
-  changeComputedData(key: string, data: DataTypes) {
-    this.sceneTree.changeComputedData(key, data)
   }
 }
 

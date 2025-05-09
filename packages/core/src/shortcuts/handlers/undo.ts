@@ -1,10 +1,10 @@
 import { Events } from '../../combinations'
-import { HandlerDeps, UndoAPIs } from '../../types/core-apis'
+import { HandlerDeps, UndoActionAPIs } from '../../types'
 
 export class UndoHandler {
   constructor(
     private inputSystem: HandlerDeps['inputSystem'],
-    private deps: UndoAPIs
+    private deps: UndoActionAPIs
   ) {
     this.init()
   }

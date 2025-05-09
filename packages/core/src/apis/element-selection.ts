@@ -3,9 +3,9 @@ import {
   selectElements,
   startTransaction
 } from '@asra/reactive-events'
-import { ElementSelectionAPIs } from '../types/core-apis'
+import { ElementSelectionActionAPIs } from '../types'
 
-export const createElementSelectionAPIs = (): ElementSelectionAPIs => {
+export const createElementSelectionAPIs = (): ElementSelectionActionAPIs => {
   return {
     selectElements(elementIds: string[]) {
       startTransaction()
