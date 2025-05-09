@@ -40,8 +40,12 @@ class Core implements CoreAPIs {
   render: Render = render
   sceneTree: SceneTreeManager = sceneTreeManager
 
+  // InputSystem APIs
+  setupInputSystem!: (watchedElement?: HTMLElement) => void
+
   // Render APIs
   initRender!: (width: number, height: number, color: number) => Promise<any>
+  renderIsReady!: () => void
   getViewportPosition!: () => Promise<PositionData>
   getViewportScale!: () => Promise<number>
   zoomFit!: () => void
@@ -59,7 +63,9 @@ class Core implements CoreAPIs {
   selectElements!: (elementIds: string[]) => void
 
   constructor() {
-    const apis = createAPIs()
+    const apis = createAPIs({
+      inputSystem: this.inputSystem
+    })
 
     initShortcuts(
       {
@@ -99,12 +105,6 @@ class Core implements CoreAPIs {
     }
 
     return data
-  }
-
-  setupInputSystem(watchedElement?: HTMLElement) {
-    if (watchedElement) {
-      inputSystem.switchWatchedElement(watchedElement)
-    }
   }
 
   changeComputedData(key: string, data: DataTypes) {

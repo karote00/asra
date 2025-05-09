@@ -4,13 +4,17 @@ import type { Render } from '@asra/render'
 import { CreateRectangleData, PositionData } from '@asra/utils'
 
 export interface APIDeps {
-  render: Render
+  inputSystem: InputSystem
 }
 
 export interface HandlerDeps {
   inputSystem: InputSystem
   render: Render
   factory: Factory
+}
+
+export interface InputSystemAPIs {
+  setupInputSystem: (watchedElement?: HTMLElement) => void
 }
 
 export interface UndoAPIs {
@@ -27,6 +31,7 @@ export interface ViewportAPIs {
 }
 
 export interface RenderAPIs {
+  renderIsReady: () => void
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initRender: (width: number, height: number, color: number) => Promise<any>
 }
@@ -39,7 +44,8 @@ export interface ElementSelectionAPIs {
   selectElements: (elementIds: string[]) => void
 }
 
-export type CoreAPIs = UndoAPIs &
+export type CoreAPIs = InputSystemAPIs &
+  UndoAPIs &
   ViewportAPIs &
   RenderAPIs &
   SceneTreeAPIs &

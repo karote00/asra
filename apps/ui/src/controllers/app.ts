@@ -31,3 +31,11 @@ export const destroyRenderApp = () => {
     texture: true
   })
 }
+
+export const setupInputSystem = (canvas: HTMLElement) => {
+  core.setupInputSystem(canvas)
+}
+
+export const renderIsReady = () => {
+  core.renderIsReady()
+}

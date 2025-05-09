@@ -20,6 +20,7 @@ export const initAllHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
   })
 
   new RenderHandler(deps.inputSystem, deps.render, {
+    renderIsReady: () => apis.renderIsReady(),
     initRender: async (width: number, height: number, color: number) =>
       await apis.initRender(width, height, color),
     addRectangle: (data: CreateRectangleData) => apis.addRectangle(data)
