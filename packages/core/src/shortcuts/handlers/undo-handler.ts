@@ -1,5 +1,5 @@
-import InputSystem from '@asra/input-system'
 import { Events } from '../../combinations'
+import { HandlerDeps } from '../../types/core-apis'
 
 interface UndoHandlerDeps {
   undo: () => void
@@ -8,7 +8,7 @@ interface UndoHandlerDeps {
 
 export class UndoHandler {
   constructor(
-    private inputSystem: InputSystem,
+    private inputSystem: HandlerDeps['inputSystem'],
     private deps: UndoHandlerDeps
   ) {
     this.init()

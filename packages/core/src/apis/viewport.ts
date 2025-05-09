@@ -1,13 +1,5 @@
 import { Render } from '@asra/render'
-import { PositionData } from '@asra/utils'
-
-export interface ViewportAPIs {
-  getViewportPosition: () => PositionData
-  getViewportScale: () => number
-  zoomFit: () => void
-  panTo: (x: number, y: number) => void
-  zoomToCenter: (scale: number, centerX: number, centerY: number) => void
-}
+import { ViewportAPIs } from '../types/core-apis'
 
 export const createViewportAPIs = (render: Render): ViewportAPIs => {
   return {

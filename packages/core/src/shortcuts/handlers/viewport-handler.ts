@@ -1,6 +1,6 @@
-import type InputSystem from '@asra/input-system'
 import { Events } from '../../combinations'
 import { PositionData, WheelEventData } from '@asra/utils'
+import { HandlerDeps } from '../../types/core-apis'
 
 const ZOOM_SMOOTH_RATIO = 0.02
 
@@ -14,7 +14,7 @@ interface ViewportHandlerDeps {
 
 export class ViewportHandler {
   constructor(
-    private inputSystem: InputSystem,
+    private inputSystem: HandlerDeps['inputSystem'],
     private deps: ViewportHandlerDeps
   ) {
     this.init()

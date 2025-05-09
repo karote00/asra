@@ -10,19 +10,12 @@ import type {
   SceneTreeRawData
 } from '@asra/utils'
 
-import RenderManager from './render-manager'
 import SceneTreeManager from './scene-tree-manager'
 import ElementSelectionManager from './element-selection-manager'
 import ElementPropsManager from './element-props-manager'
 import combinations from './combinations'
 
 import { initShortcuts } from './shortcuts'
-import {
-  endTransaction,
-  initRender,
-  selectElements,
-  startTransaction
-} from '@asra/reactive-events'
 import { CoreAPIs } from './types/core-apis'
 
 const inputSystem = new InputSystem(combinations)
@@ -52,6 +45,7 @@ class Core implements CoreAPIs {
   elementSelection: ElementSelectionManager = elementSelectionManager
 
   // APIs
+  initRender!: (width: number, height: number, color: number) => Promise<any>
   undo!: () => void
   redo!: () => void
   getViewportPosition!: () => PositionData
@@ -59,6 +53,7 @@ class Core implements CoreAPIs {
   zoomFit!: () => void
   panTo!: (x: number, y: number) => void
   zoomToCenter!: (scale: number, centerX: number, centerY: number) => void
+  addRectangle!: (data: CreateRectangleData) => void
 
   constructor() {
     const apis = createAPIs({
@@ -66,7 +61,13 @@ class Core implements CoreAPIs {
       factory: this.factory
     })
 
-    initShortcuts(this.inputSystem, apis)
+    initShortcuts(
+      {
+        inputSystem: this.inputSystem,
+        render: this.render
+      },
+      apis
+    )
     Object.assign(this, apis as APIMap)
   }
 
@@ -99,21 +100,10 @@ class Core implements CoreAPIs {
     return data
   }
 
-  async initRender(width: number, height: number, color: number) {
-    return await initRender(width, height, color)
-  }
-
   setupInputSystem(watchedElement?: HTMLElement) {
     if (watchedElement) {
       inputSystem.switchWatchedElement(watchedElement)
     }
-  }
-
-  async addRectangle(data: CreateRectangleData) {
-    startTransaction()
-    const newElementId = await this.sceneTree.addRectangle(data)
-    selectElements([newElementId])
-    endTransaction()
   }
 
   selectElement(elementIds: string[]) {

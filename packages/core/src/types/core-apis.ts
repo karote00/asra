@@ -1,11 +1,29 @@
-import { PositionData } from '@asra/utils'
+import type InputSystem from '@asra/input-system'
+import type { Render } from '@asra/render'
+import { CreateRectangleData, PositionData } from '@asra/utils'
 
-export interface CoreAPIs {
+export interface HandlerDeps {
+  inputSystem: InputSystem
+  render: Render
+}
+
+export interface UndoAPIs {
   undo: () => void
   redo: () => void
+}
+
+export interface ViewportAPIs {
   getViewportPosition: () => PositionData
   getViewportScale: () => number
   zoomFit: () => void
   panTo: (x: number, y: number) => void
   zoomToCenter: (scale: number, centerX: number, centerY: number) => void
 }
+
+export interface RenderAPIs {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  initRender: (width: number, height: number, color: number) => Promise<any>
+  addRectangle: (data: CreateRectangleData) => void
+}
+
+export type CoreAPIs = UndoAPIs & ViewportAPIs & RenderAPIs

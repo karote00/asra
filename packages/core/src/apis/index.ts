@@ -3,6 +3,7 @@ import { Render } from '@asra/render'
 import { createViewportAPIs } from './viewport'
 import { createUndoAPIs } from './undo'
 import { CoreAPIs } from '../types/core-apis'
+import { createRenderAPIs } from './render'
 
 export const createAPIs = (deps: {
   render: Render
@@ -10,7 +11,8 @@ export const createAPIs = (deps: {
 }): CoreAPIs => {
   return {
     ...createViewportAPIs(deps.render),
-    ...createUndoAPIs(deps.factory)
+    ...createUndoAPIs(deps.factory),
+    ...createRenderAPIs()
   }
 }
 

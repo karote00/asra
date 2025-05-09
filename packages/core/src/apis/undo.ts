@@ -1,9 +1,5 @@
 import { Factory } from '@asra/factory'
-
-export interface UndoAPIs {
-  undo: () => void
-  redo: () => void
-}
+import { UndoAPIs } from '../types/core-apis'
 
 export const createUndoAPIs = (factory: Factory): UndoAPIs => {
   return {
