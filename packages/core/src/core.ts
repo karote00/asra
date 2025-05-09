@@ -23,7 +23,6 @@ const sceneTreeManager = new SceneTreeManager(sceneTree)
 const elementSelectionManager = new ElementSelectionManager()
 const elementPropsManager = new ElementPropsManager()
 
-import type { APIMap } from './apis'
 import { createAPIs } from './apis'
 
 interface CoreRawData {
@@ -44,22 +43,23 @@ class Core implements CoreAPIs {
   sceneTree: SceneTreeManager = sceneTreeManager
   elementSelection: ElementSelectionManager = elementSelectionManager
 
-  // APIs
+  // Render APIs
   initRender!: (width: number, height: number, color: number) => Promise<any>
-  undo!: () => void
-  redo!: () => void
-  getViewportPosition!: () => PositionData
-  getViewportScale!: () => number
+  getViewportPosition!: () => Promise<PositionData>
+  getViewportScale!: () => Promise<number>
   zoomFit!: () => void
   panTo!: (x: number, y: number) => void
   zoomToCenter!: (scale: number, centerX: number, centerY: number) => void
+
+  // Undo APIs
+  undo!: () => void
+  redo!: () => void
+
+  // SceneTree APIs
   addRectangle!: (data: CreateRectangleData) => void
 
   constructor() {
-    const apis = createAPIs({
-      render: this.render,
-      factory: this.factory
-    })
+    const apis = createAPIs()
 
     initShortcuts(
       {
@@ -69,7 +69,7 @@ class Core implements CoreAPIs {
       },
       apis
     )
-    Object.assign(this, apis as APIMap)
+    Object.assign(this, apis as CoreAPIs)
   }
 
   load(data: CoreRawData): void {

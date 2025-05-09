@@ -1,9 +1,15 @@
 import { Subscription } from 'rxjs'
-import { filter } from 'rxjs/operators'
+import { filter, throttleTime } from 'rxjs/operators'
 import type {
+  FinishRequestViewportPosition,
+  FinishRequestViewportScale,
   InitRenderEvent,
+  PanToEvent,
   RequestRenderZoomEvent,
-  ZoomFitEvent
+  RequestViewportPosition,
+  RequestViewportScale,
+  ZoomFitEvent,
+  ZoomToCenterEvent
 } from './events'
 import { getEventBusObserve } from '../event-bus'
 import { EventTypes } from '../types'
@@ -33,6 +39,29 @@ export const subscribeToZoomFit = (
     .subscribe(subscriber)
 }
 
+export const subscribeToPanTo = (
+  subscriber: (event: PanToEvent) => void
+): Subscription => {
+  return getEventBusObserve()
+    .pipe(
+      filter((event): event is PanToEvent => event.type === EventTypes.PAN_TO)
+    )
+    .subscribe(subscriber)
+}
+
+export const subscribeToZoomToCenter = (
+  subscriber: (event: ZoomToCenterEvent) => void
+): Subscription => {
+  return getEventBusObserve()
+    .pipe(
+      filter(
+        (event): event is ZoomToCenterEvent =>
+          event.type === EventTypes.ZOOM_TO_CENTER
+      )
+    )
+    .subscribe(subscriber)
+}
+
 export const subscribeToRequestRenderZoom = (
   subscriber: (event: RequestRenderZoomEvent) => void
 ): Subscription => {
@@ -41,6 +70,58 @@ export const subscribeToRequestRenderZoom = (
       filter(
         (event): event is RequestRenderZoomEvent =>
           event.type === EventTypes.REQUEST_RENDER_ZOOM
+      )
+    )
+    .subscribe(subscriber)
+}
+
+export const subscribeToRequestViewportPosition = (
+  subscriber: (event: RequestViewportPosition) => void
+): Subscription => {
+  return getEventBusObserve()
+    .pipe(
+      filter(
+        (event): event is RequestViewportPosition =>
+          event.type === EventTypes.REQUEST_VIEWPORT_POSITION
+      )
+    )
+    .subscribe(subscriber)
+}
+
+export const subscribeToFinishRequestViewportPosition = (
+  subscriber: (event: FinishRequestViewportPosition) => void
+): Subscription => {
+  return getEventBusObserve()
+    .pipe(
+      filter(
+        (event): event is FinishRequestViewportPosition =>
+          event.type === EventTypes.FINISH_REQUEST_VIEWPORT_POSITION
+      )
+    )
+    .subscribe(subscriber)
+}
+
+export const subscribeToRequestViewportScale = (
+  subscriber: (event: RequestViewportScale) => void
+): Subscription => {
+  return getEventBusObserve()
+    .pipe(
+      filter(
+        (event): event is RequestViewportScale =>
+          event.type === EventTypes.REQUEST_VIEWPORT_SCALE
+      )
+    )
+    .subscribe(subscriber)
+}
+
+export const subscribeToFinishRequestViewportScale = (
+  subscriber: (event: FinishRequestViewportScale) => void
+): Subscription => {
+  return getEventBusObserve()
+    .pipe(
+      filter(
+        (event): event is FinishRequestViewportScale =>
+          event.type === EventTypes.FINISH_REQUEST_VIEWPORT_SCALE
       )
     )
     .subscribe(subscriber)

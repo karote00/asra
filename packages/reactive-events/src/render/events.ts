@@ -24,6 +24,23 @@ export interface ZoomFitEvent {
   }
 }
 
+export interface PanToEvent {
+  type: EventTypes
+  payload: {
+    x: number
+    y: number
+  }
+}
+
+export interface ZoomToCenterEvent {
+  type: EventTypes
+  payload: {
+    scale: number
+    centerX: number
+    centerY: number
+  }
+}
+
 export interface RequestRenderZoomEvent {
   type: EventTypes
 }
@@ -35,9 +52,46 @@ export interface FinishRequestRenderZoomEvent {
   }
 }
 
+export interface RequestViewportPosition {
+  type: EventTypes
+  payload: {
+    requestId: string
+  }
+}
+
+export interface FinishRequestViewportPosition {
+  type: EventTypes
+  payload: {
+    requestId: string
+    x: number
+    y: number
+  }
+}
+
+export interface RequestViewportScale {
+  type: EventTypes
+  payload: {
+    requestId: string
+  }
+}
+
+export interface FinishRequestViewportScale {
+  type: EventTypes
+  payload: {
+    requestId: string
+    scale: number
+  }
+}
+
 export type RenderEvents =
   | InitRenderEvent
   | FinishInitRenderEvent
   | ZoomFitEvent
+  | PanToEvent
+  | ZoomToCenterEvent
   | RequestRenderZoomEvent
   | FinishRequestRenderZoomEvent
+  | RequestViewportPosition
+  | FinishRequestViewportPosition
+  | RequestViewportScale
+  | FinishRequestViewportScale

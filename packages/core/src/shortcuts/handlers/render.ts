@@ -1,10 +1,6 @@
-import { CreateRectangleData, MouseEventData, roundFloat } from '@asra/utils'
+import { MouseEventData, roundFloat } from '@asra/utils'
 import { Events } from '../../combinations'
-import { HandlerDeps } from '../../types/core-apis'
-
-interface RenderHandlerDeps {
-  addRectangle: (data: CreateRectangleData) => void
-}
+import { HandlerDeps, RenderAPIs, SceneTreeAPIs } from '../../types/core-apis'
 
 export class RenderHandler {
   private _isDrag: boolean
@@ -14,7 +10,7 @@ export class RenderHandler {
   constructor(
     private inputSystem: HandlerDeps['inputSystem'],
     private render: HandlerDeps['render'],
-    private deps: RenderHandlerDeps
+    private deps: RenderAPIs & SceneTreeAPIs
   ) {
     this._isDrag = false
     this._startPos = {

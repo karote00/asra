@@ -1,15 +1,10 @@
 import { Events } from '../../combinations'
-import { HandlerDeps } from '../../types/core-apis'
-
-interface UndoHandlerDeps {
-  undo: () => void
-  redo: () => void
-}
+import { HandlerDeps, UndoAPIs } from '../../types/core-apis'
 
 export class UndoHandler {
   constructor(
     private inputSystem: HandlerDeps['inputSystem'],
-    private deps: UndoHandlerDeps
+    private deps: UndoAPIs
   ) {
     this.init()
   }

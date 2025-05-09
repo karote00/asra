@@ -1,27 +1,32 @@
-import { HandlerDeps, ViewportAPIs } from '../types/core-apis'
+import {
+  panTo,
+  requestViewportPosition,
+  requestViewportScale,
+  zoomFit,
+  zoomToCenter
+} from '@asra/reactive-events'
+import { ViewportAPIs } from '../types/core-apis'
 
-export const createViewportAPIs = (
-  render: HandlerDeps['render']
-): ViewportAPIs => {
+export const createViewportAPIs = (): ViewportAPIs => {
   return {
-    getViewportPosition() {
-      return render.getPosition()
+    async getViewportPosition() {
+      return await requestViewportPosition()
     },
-    getViewportScale() {
-      return render.getScale()
+    async getViewportScale() {
+      return requestViewportScale()
     },
     zoomFit() {
       const centerDiv = document.querySelector('#viewport-anchor')
       const uiBounds = centerDiv?.getBoundingClientRect()
       if (uiBounds) {
-        render.zoomFit(uiBounds)
+        zoomFit(uiBounds)
       }
     },
     panTo(x: number, y: number) {
-      render.panTo(x, y)
+      panTo(x, y)
     },
     zoomToCenter(scale: number, centerX: number, centerY: number) {
-      render.zoomToCenter(scale, centerX, centerY)
+      zoomToCenter(scale, centerX, centerY)
     }
   }
 }

@@ -1,21 +1,13 @@
 import { Events } from '../../combinations'
-import { PositionData, WheelEventData } from '@asra/utils'
-import { HandlerDeps } from '../../types/core-apis'
+import { WheelEventData } from '@asra/utils'
+import { HandlerDeps, ViewportAPIs } from '../../types/core-apis'
 
 const ZOOM_SMOOTH_RATIO = 0.02
-
-interface ViewportHandlerDeps {
-  getViewportPosition: () => PositionData
-  getViewportScale: () => number
-  zoomFit: () => void
-  panTo: (x: number, y: number) => void
-  zoomToCenter: (scale: number, centerX: number, centerY: number) => void
-}
 
 export class ViewportHandler {
   constructor(
     private inputSystem: HandlerDeps['inputSystem'],
-    private deps: ViewportHandlerDeps
+    private deps: ViewportAPIs
   ) {
     this.init()
   }
@@ -30,15 +22,15 @@ export class ViewportHandler {
     this.deps.zoomFit()
   }
 
-  _handlePan = (data: WheelEventData) => {
+  _handlePan = async (data: WheelEventData) => {
     const { deltaX, deltaY } = data
-    const currentPosition = this.deps.getViewportPosition()
+    const currentPosition = await this.deps.getViewportPosition()
     this.deps.panTo(currentPosition.x - deltaX, currentPosition.y - deltaY)
   }
 
-  _handleZoom = (data: WheelEventData) => {
+  _handleZoom = async (data: WheelEventData) => {
     const { deltaY, clientX, clientY } = data
-    const currentScale = this.deps.getViewportScale()
+    const currentScale = await this.deps.getViewportScale()
     // Adjust zoom scale based on wheel direction. deltaY > 0 means scrolling up (zoom in)
     // Using a smaller scale factor (1.05) for smoother zooming
     const newScale =

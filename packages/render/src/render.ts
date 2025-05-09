@@ -126,11 +126,11 @@ class Render {
     this.updateSelectedSelection()
   }
 
-  getPosition() {
+  getViewportPosition() {
     return this.viewport.getPosition()
   }
 
-  getScale() {
+  getViewportScale() {
     return this.viewport.getScale()
   }
 

@@ -9,6 +9,8 @@ export enum RenderEventTypes {
   FINISH_INIT_RENDER = 'finishInitRender',
   RENDER_IS_READY = 'renderIsReady',
   ZOOM_FIT = 'zoomFit',
+  PAN_TO = 'panTo',
+  ZOOM_TO_CENTER = 'zoomToCenter',
   REQUEST_RENDER_ZOOM = 'requestRenderZoom',
   FINISH_REQUEST_RENDER_ZOOM = 'finishRequestRenderZoom'
 }
@@ -35,13 +37,13 @@ export enum ElementEventTypes {
 
 // Undo
 export enum UndoRedoEventTypes {
+  UNDO = 'undo',
+  REDO = 'redo',
   UNDOREDO_STATUS = 'UNDOREDO_STATUS'
 }
 
 // Transaction
 export enum TransactionEventTypes {
-  UNDO = 'undo',
-  REDO = 'redo',
   START_TRANSACTION = 'startTransaction',
   UPDATE_TRANSACTION = 'updateTransaction',
   END_TRANSACTION = 'endTransaction'
@@ -60,9 +62,18 @@ export enum PropsEventTypes {
   PROP_CHANGE_COMPLETE = 'propChangeComplete'
 }
 
+// UI-Context
 export enum UIContextEventTypes {
   REQUEST_ELEMENT_SELECTION = 'requestElementSelection',
   FINISH_REQUEST_ELEMENT_SELECTION = 'finishRequestElementSelection'
+}
+
+// Viewport
+export enum ViewportEventTypes {
+  REQUEST_VIEWPORT_POSITION = 'requestViewportPosition',
+  FINISH_REQUEST_VIEWPORT_POSITION = 'finishRequestViewportPosition',
+  REQUEST_VIEWPORT_SCALE = 'requestViewportScale',
+  FINISH_REQUEST_VIEWPORT_SCALE = 'finishRequestViewportScale'
 }
 
 export const EventTypes = {
@@ -75,7 +86,8 @@ export const EventTypes = {
   ...TransactionEventTypes,
   ...SelectionEventTypes,
   ...PropsEventTypes,
-  ...UIContextEventTypes
+  ...UIContextEventTypes,
+  ...ViewportEventTypes
 } as const
 
 export type EventTypes = (typeof EventTypes)[keyof typeof EventTypes]

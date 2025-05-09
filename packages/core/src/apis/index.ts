@@ -1,17 +1,14 @@
 import { createViewportAPIs } from './viewport'
 import { createUndoAPIs } from './undo'
-import { CoreAPIs, HandlerDeps } from '../types/core-apis'
+import { CoreAPIs } from '../types/core-apis'
 import { createRenderAPIs } from './render'
+import { createSceneTreeAPIs } from './scene-tree'
 
-export const createAPIs = (deps: {
-  render: HandlerDeps['render']
-  factory: HandlerDeps['factory']
-}): CoreAPIs => {
+export const createAPIs = (): CoreAPIs => {
   return {
-    ...createViewportAPIs(deps.render),
+    ...createViewportAPIs(),
     ...createUndoAPIs(),
-    ...createRenderAPIs()
+    ...createRenderAPIs(),
+    ...createSceneTreeAPIs()
   }
 }
-
-export type APIMap = ReturnType<typeof createAPIs>
