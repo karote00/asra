@@ -2,6 +2,7 @@ import factory, { Factory } from '@asra/factory'
 import InputSystem from '@asra/input-system'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
 import render, { Render } from '@asra/render'
+import propsManager, { PropsManager } from '@asra/props-manager'
 import type {
   CreateRectangleData,
   DataTypes,
@@ -10,16 +11,12 @@ import type {
   SceneTreeRawData
 } from '@asra/utils'
 
-import ElementPropsManager from './element-props-manager'
 import combinations from './combinations'
-
 import { initShortcuts } from './shortcuts'
 import { CoreAPIs } from './types'
+import { createAPIs } from './apis'
 
 const inputSystem = new InputSystem(combinations)
-const elementPropsManager = new ElementPropsManager()
-
-import { createAPIs } from './apis'
 
 interface CoreRawData {
   version: string
@@ -34,7 +31,7 @@ class Core implements CoreAPIs {
   version: string = DEFAULT_VERSION
   inputSystem: InputSystem = inputSystem
   factory: Factory = factory
-  propsManager: ElementPropsManager = elementPropsManager
+  props: PropsManager = propsManager
   render: Render = render
   sceneTree: SceneTree = sceneTree
 
@@ -64,10 +61,15 @@ class Core implements CoreAPIs {
   // ElementSelection APIs
   selectElements!: (elementIds: string[]) => void
 
+  // Props APIs
+  loadProps!: (data: PropsComponentRawData) => void
+  saveProps!: () => void
+
   constructor() {
     const apis = createAPIs({
       inputSystem: this.inputSystem,
-      sceneTree: this.sceneTree
+      sceneTree: this.sceneTree,
+      props: this.props
     })
 
     initShortcuts(
@@ -88,7 +90,7 @@ class Core implements CoreAPIs {
 
     this.version = data.version ?? DATA_VERSION
     if (data.props) {
-      this.propsManager.load(data.props)
+      this.loadProps(data.props)
     }
 
     if (data.sceneTree) {
@@ -104,7 +106,7 @@ class Core implements CoreAPIs {
     const data = {
       version: this.version,
       sceneTree: this.saveSceneTree(),
-      props: this.propsManager.save()
+      props: this.saveProps()
     }
 
     return data

@@ -2,7 +2,7 @@ import { UndoHandler } from './undo'
 import { ViewportHandler } from './viewport'
 import { CoreAPIs, HandlerDeps } from '../../types'
 import { RenderHandler } from './render'
-import { CreateRectangleData, DataTypes } from '@asra/utils'
+import { CreateRectangleData } from '@asra/utils'
 
 export const initAllHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
   new UndoHandler(deps.inputSystem, {

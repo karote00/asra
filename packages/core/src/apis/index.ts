@@ -5,6 +5,7 @@ import { createRenderAPIs } from './render'
 import { createSceneTreeAPIs } from './scene-tree'
 import { createElementSelectionAPIs } from './element-selection'
 import { createInputSystemAPIs } from './input-system'
+import { createPropsAPIs } from './props'
 
 export const createAPIs = (deps: APIDeps): CoreAPIs => {
   return {
@@ -13,6 +14,7 @@ export const createAPIs = (deps: APIDeps): CoreAPIs => {
     ...createUndoAPIs(),
     ...createRenderAPIs(),
     ...createSceneTreeAPIs(deps.sceneTree),
+    ...createPropsAPIs(deps.props),
     ...createElementSelectionAPIs()
   }
 }

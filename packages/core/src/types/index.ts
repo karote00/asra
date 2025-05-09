@@ -4,6 +4,7 @@ import { RenderRawAPIs } from './render'
 import { SceneTreeAPIs, SceneTreeHandlerAPIs } from './scene-tree'
 import { UndoActionAPIs } from './undo'
 import { ViewportAPIs } from './viewport'
+import { RenderPropsAPIs } from './props'
 
 export { APIDeps, HandlerDeps } from './deps'
 
@@ -14,7 +15,8 @@ export {
   RenderRawAPIs,
   SceneTreeAPIs,
   SceneTreeHandlerAPIs,
-  ElementSelectionActionAPIs
+  ElementSelectionActionAPIs,
+  RenderPropsAPIs
 }
 
 export type CoreAPIs = InputSystemRawAPIs &
@@ -22,4 +24,5 @@ export type CoreAPIs = InputSystemRawAPIs &
   ViewportAPIs &
   RenderRawAPIs &
   SceneTreeAPIs &
-  ElementSelectionActionAPIs
+  ElementSelectionActionAPIs &
+  RenderPropsAPIs
