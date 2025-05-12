@@ -1,5 +1,5 @@
 import type { Factory } from '@asra/factory'
-import type InputSystem from '@asra/input-system'
+import type { InputSystem } from '@asra/input-system'
 import type { PropsManager } from '@asra/props-manager'
 import type { Render } from '@asra/render'
 import type { SceneTree } from '@asra/scene-tree'

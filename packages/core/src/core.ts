@@ -1,11 +1,10 @@
 import factory, { Factory } from '@asra/factory'
-import InputSystem from '@asra/input-system'
+import inputSystem, { InputSystem } from '@asra/input-system'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
 import render, { Render } from '@asra/render'
 import props, { PropsManager } from '@asra/props-manager'
 import type { PropsComponentRawData, SceneTreeRawData } from '@asra/utils'
 
-import combinations from './combinations'
 import { initShortcuts } from './shortcuts'
 import {
   CoreAPIs,
@@ -19,7 +18,8 @@ import {
 } from './types'
 import { createAPIs } from './apis'
 
-const inputSystem = new InputSystem(combinations)
+import combinations from './combinations'
+inputSystem.setCombinations(combinations)
 
 interface CoreRawData {
   version: string

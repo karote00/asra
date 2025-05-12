@@ -4,6 +4,7 @@ import { CLICK_THRESHOLD } from './constants'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Callback = (data?: any) => void
+type Combinations = Record<string, string[]>
 
 const CLEAR_KEY_TIME = 100
 
@@ -11,16 +12,15 @@ const WHEEL_EVENT_OPTIONS: AddEventListenerOptions = { passive: false }
 
 class InputSystem {
   private _privateWatchedElement: Window | HTMLElement
-  private combinations: Record<string, string[]>
+  private combinations: Combinations = {}
   private keyMap: KeyMap
   private activeKeys: Set<string>
   private listeners: Map<string, Callback[]>
   private timers: Map<string, NodeJS.Timeout>
   private _startPos: MouseEventData | null
 
-  constructor(combinations: Record<string, string[]>) {
+  constructor() {
     this._privateWatchedElement = window
-    this.combinations = combinations
     this.keyMap = new KeyMap()
     this.activeKeys = new Set()
     this.listeners = new Map()
@@ -37,6 +37,10 @@ class InputSystem {
     window.addEventListener('mouseup', this.handleMouseUp)
     window.addEventListener('mousemove', this.handleMouseMove)
     window.addEventListener('wheel', this.handleWheel, WHEEL_EVENT_OPTIONS)
+  }
+
+  setCombinations(combinations: Combinations) {
+    this.combinations = combinations
   }
 
   on(action: string, callback: Callback): this {
@@ -264,4 +268,7 @@ class InputSystem {
   }
 }
 
-export default InputSystem
+export { InputSystem }
+
+const inputSystem = new InputSystem()
+export default inputSystem
