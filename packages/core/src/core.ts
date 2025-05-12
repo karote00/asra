@@ -2,18 +2,21 @@ import factory, { Factory } from '@asra/factory'
 import InputSystem from '@asra/input-system'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
 import render, { Render } from '@asra/render'
-import propsManager, { PropsManager } from '@asra/props-manager'
-import type {
-  CreateRectangleData,
-  DataTypes,
-  PositionData,
-  PropsComponentRawData,
-  SceneTreeRawData
-} from '@asra/utils'
+import props, { PropsManager } from '@asra/props-manager'
+import type { PropsComponentRawData, SceneTreeRawData } from '@asra/utils'
 
 import combinations from './combinations'
 import { initShortcuts } from './shortcuts'
-import { CoreAPIs } from './types'
+import {
+  CoreAPIs,
+  InputSystemAPIs,
+  RenderAPIs,
+  ViewportAPIs,
+  UndoActionAPIs,
+  SceneTreeAPIs,
+  ElementSelectionAPIs,
+  PropsAPIs
+} from './types'
 import { createAPIs } from './apis'
 
 const inputSystem = new InputSystem(combinations)
@@ -24,60 +27,56 @@ interface CoreRawData {
   props: PropsComponentRawData
 }
 
+interface CoreDeps {
+  inputSystem: InputSystem
+  factory: Factory
+  props: PropsManager
+  render: Render
+  sceneTree: SceneTree
+}
+
 const DEFAULT_VERSION = '1.0.0'
 const DATA_VERSION = '1.0.0'
 
 class Core implements CoreAPIs {
   version: string = DEFAULT_VERSION
-  inputSystem: InputSystem = inputSystem
-  factory: Factory = factory
-  props: PropsManager = propsManager
-  render: Render = render
-  sceneTree: SceneTree = sceneTree
 
-  // InputSystem APIs
-  setupInputSystem!: (watchedElement?: HTMLElement) => void
+  setupInputSystem!: InputSystemAPIs['setupInputSystem']
 
-  // Render APIs
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  initRender!: (width: number, height: number, color: number) => Promise<any>
-  renderIsReady!: () => void
-  getViewportPosition!: () => Promise<PositionData>
-  getViewportScale!: () => Promise<number>
-  zoomFit!: () => void
-  panTo!: (x: number, y: number) => void
-  zoomToCenter!: (scale: number, centerX: number, centerY: number) => void
+  initRender!: RenderAPIs['initRender']
+  renderIsReady!: RenderAPIs['renderIsReady']
+  getViewportPosition!: ViewportAPIs['getViewportPosition']
+  getViewportScale!: ViewportAPIs['getViewportScale']
+  zoomFit!: ViewportAPIs['zoomFit']
+  panTo!: ViewportAPIs['panTo']
+  zoomToCenter!: ViewportAPIs['zoomToCenter']
 
-  // Undo APIs
-  undo!: () => void
-  redo!: () => void
+  undo!: UndoActionAPIs['undo']
+  redo!: UndoActionAPIs['redo']
 
-  // SceneTree APIs
-  initSceneTree!: () => void
-  loadSceneTree!: (data: SceneTreeRawData) => void
-  saveSceneTree!: () => SceneTreeRawData
-  addRectangle!: (data: CreateRectangleData) => void
-  changeComputedData!: (key: string, data: DataTypes) => void
+  initSceneTree!: SceneTreeAPIs['initSceneTree']
+  loadSceneTree!: SceneTreeAPIs['loadSceneTree']
+  saveSceneTree!: SceneTreeAPIs['saveSceneTree']
+  addRectangle!: SceneTreeAPIs['addRectangle']
+  changeComputedData!: SceneTreeAPIs['changeComputedData']
 
-  // ElementSelection APIs
-  selectElements!: (elementIds: string[]) => void
+  selectElements!: ElementSelectionAPIs['selectElements']
 
-  // Props APIs
-  loadProps!: (data: PropsComponentRawData) => void
-  saveProps!: () => void
+  loadProps!: PropsAPIs['loadProps']
+  saveProps!: PropsAPIs['saveProps']
 
-  constructor() {
+  constructor(private readonly deps: CoreDeps) {
     const apis = createAPIs({
-      inputSystem: this.inputSystem,
-      sceneTree: this.sceneTree,
-      props: this.props
+      inputSystem: this.deps.inputSystem,
+      sceneTree: this.deps.sceneTree,
+      props: this.deps.props
     })
 
     initShortcuts(
       {
-        inputSystem: this.inputSystem,
-        render: this.render,
-        factory: this.factory
+        inputSystem: this.deps.inputSystem,
+        render: this.deps.render,
+        factory: this.deps.factory
       },
       apis
     )
@@ -116,5 +115,11 @@ class Core implements CoreAPIs {
 
 export { Core }
 
-const core = new Core()
+const core = new Core({
+  inputSystem,
+  factory,
+  props,
+  render,
+  sceneTree
+})
 export default core

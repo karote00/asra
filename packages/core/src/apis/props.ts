@@ -1,7 +1,7 @@
 import { PropsComponentRawData } from '@asra/utils'
-import { APIDeps, RenderPropsAPIs } from '../types'
+import { APIDeps, PropsRawAPIs } from '../types'
 
-export const createPropsAPIs = (props: APIDeps['props']): RenderPropsAPIs => {
+export const createPropsAPIs = (props: APIDeps['props']): PropsRawAPIs => {
   return {
     loadProps(data: PropsComponentRawData) {
       props.load(data)

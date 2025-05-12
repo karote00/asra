@@ -1,28 +1,36 @@
-import { ElementSelectionActionAPIs } from './element-selection'
-import { InputSystemRawAPIs } from './input-system'
-import { RenderRawAPIs } from './render'
+import {
+  ElementSelectionAPIs,
+  ElementSelectionActionAPIs
+} from './element-selection'
+import { InputSystemAPIs, InputSystemRawAPIs } from './input-system'
+import { RenderAPIs, RenderRawAPIs } from './render'
 import { SceneTreeAPIs, SceneTreeHandlerAPIs } from './scene-tree'
-import { UndoActionAPIs } from './undo'
+import { UndoAPIs, UndoActionAPIs } from './undo'
 import { ViewportAPIs } from './viewport'
-import { RenderPropsAPIs } from './props'
+import { PropsAPIs, PropsRawAPIs } from './props'
 
 export { APIDeps, HandlerDeps } from './deps'
 
 export {
   InputSystemRawAPIs,
+  InputSystemAPIs,
   UndoActionAPIs,
+  UndoAPIs,
   ViewportAPIs,
   RenderRawAPIs,
+  RenderAPIs,
   SceneTreeAPIs,
   SceneTreeHandlerAPIs,
   ElementSelectionActionAPIs,
-  RenderPropsAPIs
+  ElementSelectionAPIs,
+  PropsRawAPIs,
+  PropsAPIs
 }
 
-export type CoreAPIs = InputSystemRawAPIs &
-  UndoActionAPIs &
+export type CoreAPIs = InputSystemAPIs &
+  UndoAPIs &
   ViewportAPIs &
-  RenderRawAPIs &
+  RenderAPIs &
   SceneTreeAPIs &
-  ElementSelectionActionAPIs &
-  RenderPropsAPIs
+  ElementSelectionAPIs &
+  PropsAPIs
