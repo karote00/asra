@@ -8,6 +8,7 @@ import { SceneTreeAPIs, SceneTreeHandlerAPIs } from './scene-tree'
 import { UndoAPIs, UndoActionAPIs } from './undo'
 import { ViewportAPIs } from './viewport'
 import { PropsAPIs, PropsRawAPIs } from './props'
+import { SystemContextAPIs, ToolAPIs } from './system-context'
 
 export { APIDeps, HandlerDeps } from './deps'
 
@@ -24,7 +25,9 @@ export {
   ElementSelectionActionAPIs,
   ElementSelectionAPIs,
   PropsRawAPIs,
-  PropsAPIs
+  PropsAPIs,
+  ToolAPIs,
+  SystemContextAPIs
 }
 
 export type CoreAPIs = InputSystemAPIs &
@@ -33,4 +36,5 @@ export type CoreAPIs = InputSystemAPIs &
   RenderAPIs &
   SceneTreeAPIs &
   ElementSelectionAPIs &
-  PropsAPIs
+  PropsAPIs &
+  SystemContextAPIs

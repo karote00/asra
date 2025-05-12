@@ -1,8 +1,9 @@
 import { UndoHandler } from './undo'
 import { ViewportHandler } from './viewport'
-import { CoreAPIs, HandlerDeps } from '../../types'
+import { CoreAPIs, HandlerDeps } from '../types'
 import { RenderHandler } from './render'
-import { CreateRectangleData } from '@asra/utils'
+import { CreateRectangleData, ToolType } from '@asra/utils'
+import { SiwtchModeHandler } from './tool'
 
 export const initAllHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
   new UndoHandler(deps.inputSystem, {
@@ -24,5 +25,9 @@ export const initAllHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
     initRender: async (width: number, height: number, color: number) =>
       await apis.initRender(width, height, color),
     addRectangle: (data: CreateRectangleData) => apis.addRectangle(data)
+  })
+
+  new SiwtchModeHandler(deps.inputSystem, {
+    switchTool: (tool: ToolType) => apis.switchTool(tool)
   })
 }

@@ -3,9 +3,10 @@ import inputSystem, { InputSystem } from '@asra/input-system'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
 import render, { Render } from '@asra/render'
 import props, { PropsManager } from '@asra/props-manager'
+import systemContext, { SystemContext } from '@asra/system-context'
 import type { PropsComponentRawData, SceneTreeRawData } from '@asra/utils'
 
-import { initShortcuts } from './shortcuts'
+import { initAllHandlers } from './handlers'
 import {
   CoreAPIs,
   InputSystemAPIs,
@@ -14,7 +15,8 @@ import {
   UndoActionAPIs,
   SceneTreeAPIs,
   ElementSelectionAPIs,
-  PropsAPIs
+  PropsAPIs,
+  SystemContextAPIs
 } from './types'
 import { createAPIs } from './apis'
 
@@ -33,6 +35,7 @@ interface CoreDeps {
   props: PropsManager
   render: Render
   sceneTree: SceneTree
+  systemContext: SystemContext
 }
 
 const DEFAULT_VERSION = '1.0.0'
@@ -65,14 +68,18 @@ class Core implements CoreAPIs {
   loadProps!: PropsAPIs['loadProps']
   saveProps!: PropsAPIs['saveProps']
 
+  getCurrentTool!: SystemContextAPIs['getCurrentTool']
+  switchTool!: SystemContextAPIs['switchTool']
+
   constructor(private readonly deps: CoreDeps) {
     const apis = createAPIs({
       inputSystem: this.deps.inputSystem,
       sceneTree: this.deps.sceneTree,
-      props: this.deps.props
+      props: this.deps.props,
+      systemContext: this.deps.systemContext
     })
 
-    initShortcuts(
+    initAllHandlers(
       {
         inputSystem: this.deps.inputSystem,
         render: this.deps.render,
@@ -120,6 +127,7 @@ const core = new Core({
   factory,
   props,
   render,
-  sceneTree
+  sceneTree,
+  systemContext
 })
 export default core

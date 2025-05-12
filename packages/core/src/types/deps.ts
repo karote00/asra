@@ -3,11 +3,13 @@ import type { InputSystem } from '@asra/input-system'
 import type { PropsManager } from '@asra/props-manager'
 import type { Render } from '@asra/render'
 import type { SceneTree } from '@asra/scene-tree'
+import type { SystemContext } from '@asra/system-context'
 
 export interface APIDeps {
   inputSystem: InputSystem
   sceneTree: SceneTree
   props: PropsManager
+  systemContext: SystemContext
 }
 
 export interface HandlerDeps {

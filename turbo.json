@@ -52,6 +52,7 @@
         "^build:render",
         "^build:scene-tree",
         "^build:selection",
+        "^build:system-context",
         "^build:utils"
       ]
     },
@@ -139,6 +140,15 @@
       ],
       "dependsOn": [
         "^build:reactive-events",
+        "^build:utils"
+      ]
+    },
+    "build:system-context": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
         "^build:utils"
       ]
     },

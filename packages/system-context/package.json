@@ -1,0 +1,25 @@
+{
+  "name": "@asra/system-context",
+  "version": "1.0.1",
+  "description": "Provides reactive system parameters, tool states, and feature access control for the core application.",
+  "author": "Asa Tsai",
+  "license": "MIT",
+  "packageManager": "yarn@4.3.1",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "tsc --watch",
+    "build:system-context": "tsc",
+    "clean": "rm -rf dist",
+    "test": "vitest",
+    "test:ci": "vitest run --coverage --reporter=default --reporter=junit"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.8",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "@asra/utils": "workspace:*"
+  }
+}

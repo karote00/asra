@@ -24,6 +24,7 @@
     "@asra/render": "workspace:*",
     "@asra/scene-tree": "workspace:*",
     "@asra/selection": "workspace:*",
+    "@asra/system-context": "workspace:*",
     "@asra/utils": "workspace:*"
   }
 }

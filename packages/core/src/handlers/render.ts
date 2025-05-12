@@ -1,6 +1,6 @@
 import { MouseEventData, roundFloat } from '@asra/utils'
-import { Events } from '../../combinations'
-import { HandlerDeps, RenderRawAPIs, SceneTreeHandlerAPIs } from '../../types'
+import { Events } from '../combinations'
+import { HandlerDeps, RenderRawAPIs, SceneTreeHandlerAPIs } from '../types'
 
 export class RenderHandler {
   private _isDrag: boolean
@@ -22,6 +22,10 @@ export class RenderHandler {
       clientY: 0
     }
 
+    this.init()
+  }
+
+  init() {
     this.inputSystem.on(Events.DRAG_START, this._handleDragStart)
     this.inputSystem.on(Events.DRAG_UPDATE, this._handleDragUpdate)
     this.inputSystem.on(Events.DRAG_END, this._handleDragEnd)
