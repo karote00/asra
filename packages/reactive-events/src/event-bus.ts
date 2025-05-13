@@ -1,21 +1,13 @@
-import { ReplaySubject, Observable, Subscription, filter, share } from 'rxjs'
+import {
+  ReplaySubject,
+  Observable,
+  Subscription,
+  filter,
+  share,
+  UnaryFunction
+} from 'rxjs'
 import { EventTypes } from './types'
-import type { AppEvent } from './app'
-import type { CoreEvents } from './core'
-import type { SceneTreeEvents } from './scene-tree'
-import type { SelectionEvents } from './selection'
-import type { PropEvents } from './props-manager'
-import type { UIContextEvents } from './ui-context'
-import type { RenderEvents } from './render'
-
-export type AllEvent =
-  | AppEvent
-  | CoreEvents
-  | SceneTreeEvents
-  | SelectionEvents
-  | PropEvents
-  | UIContextEvents
-  | RenderEvents
+import { AllEvent } from './constants'
 
 const eventBus = new ReplaySubject<AllEvent>(undefined, 5000)
 
@@ -23,9 +15,26 @@ export const publishEvent = (event: AllEvent) => {
   eventBus.next(event)
 }
 
-export const publishTransactCompleted = () => {
-  publishEvent({ type: EventTypes.END_TRANSACTION })
-}
+const DefaultOperator = <T extends AllEvent>(
+  type: EventTypes
+): UnaryFunction<Observable<any>, Observable<any>> =>
+  filter((event: AllEvent): event is T => event.type === type)
+
+export const createSubscribeEvent =
+  <T extends AllEvent>(
+    type: EventTypes,
+    operators: [...UnaryFunction<Observable<any>, Observable<any>>[]] = [],
+    defaultIndex = 0
+  ) =>
+  (subscriber: (event: T) => void): Subscription => {
+    const pipeline = [...operators]
+    pipeline.splice(defaultIndex, 0, DefaultOperator<T>(type))
+    const final$ = pipeline.reduce(
+      (obs, op) => obs.pipe(op),
+      getEventBusObserve() as Observable<any>
+    )
+    return final$.subscribe(subscriber)
+  }
 
 export const subscribeToEvents = (
   subscriber: (event: AllEvent) => void
