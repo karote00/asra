@@ -1,4 +1,3 @@
-import { Subscription } from 'rxjs'
 import type {
   FinishRequestElementSelectionEvent,
   RequestElementSelectionEvent

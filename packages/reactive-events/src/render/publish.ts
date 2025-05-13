@@ -20,6 +20,7 @@ export const initRender = async (
   height: number,
   color: number
 ) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return new Promise<any>((resolve) => {
     const requestId = generateRequestId()
     let subscription: Subscription | null = null

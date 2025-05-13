@@ -1,4 +1,3 @@
-import { Subscription } from 'rxjs'
 import { createSubscribeEvent } from '../event-bus'
 import { EventTypes } from '../types'
 import {

@@ -17,24 +17,32 @@ export const publishEvent = (event: AllEvent) => {
 
 const DefaultOperator = <T extends AllEvent>(
   type: EventTypes
-): UnaryFunction<Observable<any>, Observable<any>> =>
-  filter((event: AllEvent): event is T => event.type === type)
+): UnaryFunction<Observable<T>, Observable<AllEvent>> => {
+  return filter((event: AllEvent): event is T => event.type === type)
+}
 
-export const createSubscribeEvent =
-  <T extends AllEvent>(
-    type: EventTypes,
-    operators: [...UnaryFunction<Observable<any>, Observable<any>>[]] = [],
-    defaultIndex = 0
-  ) =>
-  (subscriber: (event: T) => void): Subscription => {
+type AppOperatorFunction<T extends AllEvent> = UnaryFunction<
+  Observable<T>,
+  Observable<AllEvent>
+>
+export const createSubscribeEvent = <T extends AllEvent>(
+  type: EventTypes,
+  operators: [...AppOperatorFunction<T>[]] = [],
+  defaultIndex = 0
+) => {
+  return (subscriber: (event: T) => void): Subscription => {
     const pipeline = [...operators]
     pipeline.splice(defaultIndex, 0, DefaultOperator<T>(type))
+
     const final$ = pipeline.reduce(
-      (obs, op) => obs.pipe(op),
+      (observer, op) => observer.pipe(op),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       getEventBusObserve() as Observable<any>
     )
+
     return final$.subscribe(subscriber)
   }
+}
 
 export const subscribeToEvents = (
   subscriber: (event: AllEvent) => void
