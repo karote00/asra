@@ -2,9 +2,11 @@ import { Subscription } from 'rxjs'
 import { createSubscribeEvent } from '../event-bus'
 import { EventTypes } from '../types'
 import {
+  EmitInitRenderEvent,
+  EmitZoomFitEvent,
+  FinishRequestRenderZoomEvent,
   FinishRequestViewportPositionEvent,
   FinishRequestViewportScaleEvent,
-  FinishZoomFitEvent,
   InitRenderEvent,
   PanToEvent,
   RequestRenderZoomEvent,
@@ -18,12 +20,16 @@ export const subscribeToInitRender = createSubscribeEvent<InitRenderEvent>(
   EventTypes.INIT_RENDER
 )
 
+export const subscribeToEmitInitRender =
+  createSubscribeEvent<EmitInitRenderEvent>(EventTypes.EMIT_INIT_RENDER)
+
 export const subscribeToZoomFit = createSubscribeEvent<ZoomFitEvent>(
   EventTypes.ZOOM_FIT
 )
 
-export const subscribeToFinishZoomFit =
-  createSubscribeEvent<FinishZoomFitEvent>(EventTypes.FINISH_ZOOM_FIT)
+export const subscribeToEmitZoomFit = createSubscribeEvent<EmitZoomFitEvent>(
+  EventTypes.EMIT_ZOOM_FIT
+)
 
 export const subscribeToPanTo = createSubscribeEvent<PanToEvent>(
   EventTypes.PAN_TO
@@ -35,6 +41,11 @@ export const subscribeToZoomToCenter = createSubscribeEvent<ZoomToCenterEvent>(
 
 export const subscribeToRequestRenderZoom =
   createSubscribeEvent<RequestRenderZoomEvent>(EventTypes.REQUEST_RENDER_ZOOM)
+
+export const subscribeToFinishRequestRenderZoom =
+  createSubscribeEvent<FinishRequestRenderZoomEvent>(
+    EventTypes.FINISH_REQUEST_RENDER_ZOOM
+  )
 
 export const subscribeToRequestViewportPosition =
   createSubscribeEvent<RequestViewportPositionEvent>(

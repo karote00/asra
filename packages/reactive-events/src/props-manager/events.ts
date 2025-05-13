@@ -1,13 +1,5 @@
 import type { PropertyComponentRawData } from '@asra/utils'
-import { PropertyTypes } from '@asra/utils'
 import type { EventTypes } from '../types'
-
-export interface PropChangeCompleteEvent {
-  type: EventTypes
-  payload: {
-    propertyIdsMap?: Record<PropertyTypes, string>
-  }
-}
 
 export interface AddPropertyEvent {
   type: EventTypes
@@ -31,7 +23,6 @@ export interface UpdatePropertyEvent {
 }
 
 export type PropEvents =
-  | PropChangeCompleteEvent
   | AddPropertyEvent
   | RemovePropertyEvent
   | UpdatePropertyEvent

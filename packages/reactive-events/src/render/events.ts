@@ -3,17 +3,19 @@ import type { EventTypes } from '../types'
 export interface InitRenderEvent {
   type: EventTypes
   payload: {
+    requestId: string
     width: number
     height: number
     color: number
   }
 }
 
-export interface FinishInitRenderEvent {
+export interface EmitInitRenderEvent {
   type: EventTypes
   payload: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     app: any
+    requestId: string
   }
 }
 
@@ -24,7 +26,7 @@ export interface ZoomFitEvent {
   }
 }
 
-export interface FinishZoomFitEvent {
+export interface EmitZoomFitEvent {
   type: EventTypes
 }
 
@@ -47,12 +49,16 @@ export interface ZoomToCenterEvent {
 
 export interface RequestRenderZoomEvent {
   type: EventTypes
+  payload: {
+    requestId: string
+  }
 }
 
 export interface FinishRequestRenderZoomEvent {
   type: EventTypes
   payload: {
     zoom: number
+    requestId: string
   }
 }
 
@@ -89,8 +95,9 @@ export interface FinishRequestViewportScaleEvent {
 
 export type RenderEvents =
   | InitRenderEvent
-  | FinishInitRenderEvent
+  | EmitInitRenderEvent
   | ZoomFitEvent
+  | EmitZoomFitEvent
   | PanToEvent
   | ZoomToCenterEvent
   | RequestRenderZoomEvent

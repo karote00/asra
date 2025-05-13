@@ -1,4 +1,5 @@
 import {
+  emitZoomFit,
   panTo,
   requestViewportPosition,
   requestViewportScale,
@@ -20,6 +21,7 @@ export const createViewportAPIs = (): ViewportAPIs => {
       const uiBounds = centerDiv?.getBoundingClientRect()
       if (uiBounds) {
         zoomFit(uiBounds)
+        emitZoomFit()
       }
     },
     panTo(x: number, y: number) {

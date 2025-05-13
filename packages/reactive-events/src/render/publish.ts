@@ -1,13 +1,15 @@
-import { filter, firstValueFrom, Subscription } from 'rxjs'
-import { getEventBus, publishEvent } from '../event-bus'
+import { Subscription } from 'rxjs'
+import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
 import {
-  FinishInitRenderEvent,
+  EmitInitRenderEvent,
   FinishRequestRenderZoomEvent,
   FinishRequestViewportPositionEvent,
   FinishRequestViewportScaleEvent
 } from './events'
 import {
+  subscribeToEmitInitRender,
+  subscribeToFinishRequestRenderZoom,
   subscribeToFinishRequestViewportPosition,
   subscribeToFinishRequestViewportScale
 } from './subscribes'
@@ -18,32 +20,41 @@ export const initRender = async (
   height: number,
   color: number
 ) => {
-  const response$ = getEventBus().pipe(
-    filter(
-      (event): event is FinishInitRenderEvent =>
-        event.type === EventTypes.FINISH_INIT_RENDER
-    )
-  )
+  return new Promise<any>((resolve) => {
+    const requestId = generateRequestId()
+    let subscription: Subscription | null = null
 
-  publishEvent({
-    type: EventTypes.INIT_RENDER,
-    payload: {
-      width,
-      height,
-      color
+    const handler = ({ payload }: EmitInitRenderEvent) => {
+      // Do nothing if the requestId is different
+      if (payload.requestId !== requestId) {
+        return
+      }
+
+      subscription?.unsubscribe()
+      resolve(payload.app)
     }
-  })
 
-  const responce = await firstValueFrom(response$)
-  return responce.payload.app
+    subscription = subscribeToEmitInitRender(handler)
+
+    publishEvent({
+      type: EventTypes.INIT_RENDER,
+      payload: {
+        requestId,
+        width,
+        height,
+        color
+      }
+    })
+  })
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const finishInitRender = (newApp: any) => {
+export const emitInitRender = (requestId: string, newApp: any) => {
   publishEvent({
-    type: EventTypes.FINISH_INIT_RENDER,
+    type: EventTypes.EMIT_INIT_RENDER,
     payload: {
-      app: newApp
+      app: newApp,
+      requestId
     }
   })
 }
@@ -57,9 +68,9 @@ export const zoomFit = (rect: DOMRect) => {
   })
 }
 
-export const finishZoomFit = () => {
+export const emitZoomFit = () => {
   publishEvent({
-    type: EventTypes.FINISH_ZOOM_FIT
+    type: EventTypes.EMIT_ZOOM_FIT
   })
 }
 
@@ -89,26 +100,37 @@ export const zoomToCenter = (
 }
 
 export const requestRenderZoom = async () => {
-  const response$ = getEventBus().pipe(
-    filter(
-      (event): event is FinishRequestRenderZoomEvent =>
-        event.type === EventTypes.FINISH_REQUEST_RENDER_ZOOM
-    )
-  )
+  return new Promise<number>((resolve) => {
+    const requestId = generateRequestId()
+    let subscription: Subscription | null = null
 
-  publishEvent({
-    type: EventTypes.REQUEST_RENDER_ZOOM
+    const handler = ({ payload }: FinishRequestRenderZoomEvent) => {
+      // Do nothing if the requestId is different
+      if (payload.requestId !== requestId) {
+        return
+      }
+
+      subscription?.unsubscribe()
+      resolve(payload.zoom)
+    }
+
+    subscription = subscribeToFinishRequestRenderZoom(handler)
+
+    publishEvent({
+      type: EventTypes.REQUEST_RENDER_ZOOM,
+      payload: {
+        requestId
+      }
+    })
   })
-
-  const responce = await firstValueFrom(response$)
-  return responce.payload.zoom
 }
 
-export const finishRequestRenderZoom = (newZoom: number) => {
+export const finishRequestRenderZoom = (requestId: string, newZoom: number) => {
   publishEvent({
     type: EventTypes.FINISH_REQUEST_RENDER_ZOOM,
     payload: {
-      zoom: newZoom
+      zoom: newZoom,
+      requestId
     }
   })
 }

@@ -18,9 +18,9 @@ export const initViewportContext = () => {
     return
   }
 
-  subscribeToRequestRenderZoom(() => {
+  subscribeToRequestRenderZoom(({ payload }) => {
     const zoom = render.getViewportScale()
-    finishRequestRenderZoom(zoom)
+    finishRequestRenderZoom(payload.requestId, zoom)
   })
 
   subscribeToZoomFit(({ payload }) => {

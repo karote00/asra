@@ -1,4 +1,4 @@
-import { finishInitRender, subscribeToInitRender } from '@asra/reactive-events'
+import { emitInitRender, subscribeToInitRender } from '@asra/reactive-events'
 import render from '../render'
 
 let hasInit = false
@@ -9,9 +9,9 @@ export const initSystemContext = () => {
   }
 
   subscribeToInitRender(async ({ payload }) => {
-    const { width, height, color } = payload
+    const { requestId, width, height, color } = payload
     const newApp = await render.init(width, height, color)
-    finishInitRender(newApp)
+    emitInitRender(requestId, newApp)
   })
 
   hasInit = true

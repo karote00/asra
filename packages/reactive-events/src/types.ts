@@ -6,7 +6,7 @@ export enum CoreEventTypes {
 // Render
 export enum RenderEventTypes {
   INIT_RENDER = 'initRender',
-  FINISH_INIT_RENDER = 'finishInitRender',
+  EMIT_INIT_RENDER = 'emitInitRender',
   RENDER_IS_READY = 'renderIsReady'
 }
 
@@ -53,8 +53,7 @@ export enum SelectionEventTypes {
 export enum PropsEventTypes {
   ADD_PROPERTY = 'addProperty',
   REMOVE_PROPERTY = 'removeProperty',
-  UPDATE_PROPERTY = 'updateProperty',
-  PROP_CHANGE_COMPLETE = 'propChangeComplete'
+  UPDATE_PROPERTY = 'updateProperty'
 }
 
 // UI-Context
@@ -70,7 +69,7 @@ export enum ViewportEventTypes {
   REQUEST_VIEWPORT_SCALE = 'requestViewportScale',
   FINISH_REQUEST_VIEWPORT_SCALE = 'finishRequestViewportScale',
   ZOOM_FIT = 'zoomFit',
-  FINISH_ZOOM_FIT = 'finishZoomFit',
+  EMIT_ZOOM_FIT = 'emitZoomFit',
   PAN_TO = 'panTo',
   ZOOM_TO_CENTER = 'zoomToCenter',
   REQUEST_RENDER_ZOOM = 'requestRenderZoom',
