@@ -22,8 +22,8 @@ const commitSceneTreeTransaction = () => {
 
 export const initSceneTreeSubscribes = () => {
   let inUndoRedo = false
-  subscribeToUpdateUndoRedoStatus(({ status }) => {
-    inUndoRedo = status !== UNDO.NONE
+  subscribeToUpdateUndoRedoStatus(({ payload }) => {
+    inUndoRedo = payload.status !== UNDO.NONE
   })
 
   subscribeToAddElement(({ payload }) => {

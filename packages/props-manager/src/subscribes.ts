@@ -9,8 +9,8 @@ import propsManager from './props-manager'
 
 export const initPropXSubscribes = () => {
   let inUndoRedo = false
-  subscribeToUpdateUndoRedoStatus(({ status }) => {
-    inUndoRedo = status !== UNDO.NONE
+  subscribeToUpdateUndoRedoStatus(({ payload }) => {
+    inUndoRedo = payload.status !== UNDO.NONE
   })
 
   subscribeToAddProperty(({ payload }) => {

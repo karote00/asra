@@ -26,7 +26,9 @@ export interface EndTransactionEvent {
 
 export interface UpdateUndoRedoStatusEvent {
   type: EventTypes
-  status: UNDO
+  payload: {
+    status: UNDO
+  }
 }
 
 export interface UndoEvent {

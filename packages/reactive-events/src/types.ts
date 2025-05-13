@@ -34,7 +34,7 @@ export enum ElementEventTypes {
 export enum UndoRedoEventTypes {
   UNDO = 'undo',
   REDO = 'redo',
-  UNDOREDO_STATUS = 'UNDOREDO_STATUS'
+  UPDATE_UNDOREDO_STATUS = 'updateUndoRedoStatus'
 }
 
 // Transaction
