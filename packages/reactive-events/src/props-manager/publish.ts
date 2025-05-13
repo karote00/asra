@@ -1,17 +1,6 @@
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
-import { PropertyTypes, PropertyComponentRawData } from '@asra/utils'
-
-export const propChangeComplete = (
-  propertyIdsMap: Record<PropertyTypes, string>
-) => {
-  publishEvent({
-    type: EventTypes.PROP_CHANGE_COMPLETE,
-    payload: {
-      propertyIdsMap
-    }
-  })
-}
+import { PropertyComponentRawData } from '@asra/utils'
 
 export const addProperty = (data: Partial<PropertyComponentRawData>[]) => {
   publishEvent({
