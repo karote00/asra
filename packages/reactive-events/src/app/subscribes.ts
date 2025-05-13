@@ -1,5 +1,4 @@
 import { Subscription } from 'rxjs'
-import { filter } from 'rxjs/operators'
 import type {
   FileLoadCompleteEvent,
   StartTransactionEvent,
@@ -10,7 +9,7 @@ import type {
   UndoEvent,
   RedoEvent
 } from './events'
-import { createSubscribeEvent, getEventBusObserve } from '../event-bus'
+import { createSubscribeEvent } from '../event-bus'
 import { EventTypes } from '../types'
 
 export const subscribeToRenderIsReady =
