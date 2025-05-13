@@ -1,4 +1,7 @@
-import { requestRenderZoom, subscribeToZoomFit } from '@asra/reactive-events'
+import {
+  requestRenderZoom,
+  subscribeToEmitZoomFit
+} from '@asra/reactive-events'
 import RenderStore from '../stores/render'
 
 const renderStore = new RenderStore()
@@ -10,7 +13,7 @@ export const initRenderDataContext = () => {
     return
   }
 
-  subscribeToZoomFit(async () => {
+  subscribeToEmitZoomFit(async () => {
     const zoom = await requestRenderZoom()
     renderStore.updateZoom(zoom)
   })

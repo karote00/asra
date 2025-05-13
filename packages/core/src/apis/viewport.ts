@@ -29,6 +29,7 @@ export const createViewportAPIs = (): ViewportAPIs => {
     },
     zoomToCenter(scale: number, centerX: number, centerY: number) {
       zoomToCenter(scale, centerX, centerY)
+      emitZoomFit()
     }
   }
 }
