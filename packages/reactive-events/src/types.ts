@@ -7,12 +7,7 @@ export enum CoreEventTypes {
 export enum RenderEventTypes {
   INIT_RENDER = 'initRender',
   FINISH_INIT_RENDER = 'finishInitRender',
-  RENDER_IS_READY = 'renderIsReady',
-  ZOOM_FIT = 'zoomFit',
-  PAN_TO = 'panTo',
-  ZOOM_TO_CENTER = 'zoomToCenter',
-  REQUEST_RENDER_ZOOM = 'requestRenderZoom',
-  FINISH_REQUEST_RENDER_ZOOM = 'finishRequestRenderZoom'
+  RENDER_IS_READY = 'renderIsReady'
 }
 
 // File
@@ -73,7 +68,13 @@ export enum ViewportEventTypes {
   REQUEST_VIEWPORT_POSITION = 'requestViewportPosition',
   FINISH_REQUEST_VIEWPORT_POSITION = 'finishRequestViewportPosition',
   REQUEST_VIEWPORT_SCALE = 'requestViewportScale',
-  FINISH_REQUEST_VIEWPORT_SCALE = 'finishRequestViewportScale'
+  FINISH_REQUEST_VIEWPORT_SCALE = 'finishRequestViewportScale',
+  ZOOM_FIT = 'zoomFit',
+  FINISH_ZOOM_FIT = 'finishZoomFit',
+  PAN_TO = 'panTo',
+  ZOOM_TO_CENTER = 'zoomToCenter',
+  REQUEST_RENDER_ZOOM = 'requestRenderZoom',
+  FINISH_REQUEST_RENDER_ZOOM = 'finishRequestRenderZoom'
 }
 
 export const EventTypes = {

@@ -4,8 +4,8 @@ import { EventTypes } from '../types'
 import {
   FinishInitRenderEvent,
   FinishRequestRenderZoomEvent,
-  FinishRequestViewportPosition,
-  FinishRequestViewportScale
+  FinishRequestViewportPositionEvent,
+  FinishRequestViewportScaleEvent
 } from './events'
 import {
   subscribeToFinishRequestViewportPosition,
@@ -54,6 +54,12 @@ export const zoomFit = (rect: DOMRect) => {
     payload: {
       rect
     }
+  })
+}
+
+export const finishZoomFit = () => {
+  publishEvent({
+    type: EventTypes.FINISH_ZOOM_FIT
   })
 }
 
@@ -112,7 +118,7 @@ export const requestViewportPosition = async () => {
     const requestId = generateRequestId()
     let subscription: Subscription | null = null
 
-    const handler = ({ payload }: FinishRequestViewportPosition) => {
+    const handler = ({ payload }: FinishRequestViewportPositionEvent) => {
       // Do nothing if the requestId is different
       if (payload.requestId !== requestId) {
         return
@@ -154,7 +160,7 @@ export const requestViewportScale = async () => {
     const requestId = generateRequestId()
     let subscription: Subscription | null = null
 
-    const handler = ({ payload }: FinishRequestViewportScale) => {
+    const handler = ({ payload }: FinishRequestViewportScaleEvent) => {
       // Do nothing if the requestId is different
       if (payload.requestId !== requestId) {
         return
