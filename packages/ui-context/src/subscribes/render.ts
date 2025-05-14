@@ -8,7 +8,7 @@ const renderStore = new RenderStore()
 
 let hasInit = false
 
-export const initRenderDataContext = () => {
+export const initRenderDataSubscribe = () => {
   if (hasInit) {
     return
   }

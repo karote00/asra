@@ -9,9 +9,11 @@ export class SystemContext implements SystemContextAPIs {
   switchPrimaryTool!: PrimaryToolAPIs['switchPrimaryTool']
 
   constructor(deps: HandlerDeps) {
-    initSystemContextSubscribe(deps)
+    const apis = createAllAPIs(deps)
 
-    Object.assign(this, createAllAPIs(deps))
+    initSystemContextSubscribe(apis)
+
+    Object.assign(this, apis)
   }
 }
 

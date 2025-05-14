@@ -1,5 +1,5 @@
 import { Input } from '@asra/design-system'
-import { useHeight, useWidth } from '../providers/properties'
+import { useHeight, useWidth } from '../providers'
 import { useCallback } from 'react'
 import { changeElementComputedData } from '../controllers/scene-tree'
 

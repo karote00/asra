@@ -1,11 +1,13 @@
-import { sceneTreeStore, initSceneTreeDataContext } from './scene-tree'
-import { selectionStore, initSelectionDataContext } from './selection'
-import { initRenderDataContext } from './render'
+import { sceneTreeStore, initSceneTreeDataSubscribe } from './scene-tree'
+import { selectionStore, initSelectionDataSubscribe } from './selection'
+import { initRenderDataSubscribe } from './render'
+import { initSystemContextSubscribe } from './system-context'
 
 export const initDataContexts = () => {
-  initRenderDataContext()
-  initSceneTreeDataContext()
-  initSelectionDataContext()
+  initRenderDataSubscribe()
+  initSceneTreeDataSubscribe()
+  initSelectionDataSubscribe()
+  initSystemContextSubscribe()
 }
 
 export { sceneTreeStore, selectionStore }

@@ -1,6 +1,7 @@
 import { createSubscribeEvent } from '../../event-bus'
 import { EventTypes } from '../../types'
 import {
+  EmitSwitchPrimaryToolEvent,
   FinishRequestCurrentPrimaryToolEvent,
   RequestCurrentPrimaryToolEvent,
   type SwitchPrimaryToolEvent
@@ -8,6 +9,11 @@ import {
 
 export const subscribeToSwitchPrimaryTool =
   createSubscribeEvent<SwitchPrimaryToolEvent>(EventTypes.SWITCH_PRIMARY_TOOL)
+
+export const subscribeToEmitSwitchPrimaryTool =
+  createSubscribeEvent<EmitSwitchPrimaryToolEvent>(
+    EventTypes.EMIT_SWITCH_PRIMARY_TOOL
+  )
 
 export const subscribeToRequestCurrentPrimaryTool =
   createSubscribeEvent<RequestCurrentPrimaryToolEvent>(

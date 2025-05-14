@@ -14,6 +14,12 @@ export const switchPrimaryTool = (tool: PrimaryToolType) => {
   })
 }
 
+export const emitSwitchPrimaryTool = () => {
+  publishEvent({
+    type: EventTypes.EMIT_SWITCH_PRIMARY_TOOL
+  })
+}
+
 export const requestCurrentPrimaryTool = () => {
   return new Promise<PrimaryToolType>((resolve) => {
     const requestId = generateRequestId()

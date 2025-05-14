@@ -78,6 +78,7 @@ export enum ViewportEventTypes {
 
 export enum PrimaryToolEventTypes {
   SWITCH_PRIMARY_TOOL = 'switchPrimaryTool',
+  EMIT_SWITCH_PRIMARY_TOOL = 'emitSwitchPrimaryTool',
   REQUEST_CURRENT_PRIMARY_TOOL = 'requestCurrentPrimaryTool',
   FINISH_REQUEST_CURRENT_PRIMARY_TOOL = 'finishRequestCurrentPrimaryTool'
 }

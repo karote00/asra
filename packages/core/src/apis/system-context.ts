@@ -1,6 +1,7 @@
 import { PrimaryToolType } from '@asra/utils'
 import { SystemContextAPIs } from '../types'
 import {
+  emitSwitchPrimaryTool,
   requestCurrentPrimaryTool,
   switchPrimaryTool
 } from '@asra/reactive-events'
@@ -12,6 +13,7 @@ export const createSystemContextAPIs = (): SystemContextAPIs => {
     },
     switchPrimaryTool(tool: PrimaryToolType) {
       switchPrimaryTool(tool)
+      emitSwitchPrimaryTool()
     }
   }
 }

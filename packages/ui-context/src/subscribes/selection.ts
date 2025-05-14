@@ -40,7 +40,7 @@ export const collectElementSelectionChange = (event) => {
 
 let hasInit = false
 
-export const initSelectionDataContext = () => {
+export const initSelectionDataSubscribe = () => {
   if (hasInit) {
     return
   }

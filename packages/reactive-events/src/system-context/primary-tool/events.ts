@@ -8,6 +8,10 @@ export interface SwitchPrimaryToolEvent {
   }
 }
 
+export interface EmitSwitchPrimaryToolEvent {
+  type: EventTypes
+}
+
 export interface RequestCurrentPrimaryToolEvent {
   type: EventTypes
   payload: {
