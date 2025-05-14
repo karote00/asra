@@ -1,0 +1,54 @@
+import { Subscription } from 'rxjs'
+import { generateRequestId, PrimaryToolType } from '@asra/utils'
+import { publishEvent } from '../../event-bus'
+import { EventTypes } from '../../types'
+import { FinishRequestCurrentPrimaryToolEvent } from './events'
+import { subscribeToFinishRequestCurrentPrimaryTool } from './subscribes'
+
+export const switchPrimaryTool = (tool: PrimaryToolType) => {
+  publishEvent({
+    type: EventTypes.SWITCH_PRIMARY_TOOL,
+    payload: {
+      tool
+    }
+  })
+}
+
+export const requestCurrentPrimaryTool = () => {
+  return new Promise<PrimaryToolType>((resolve) => {
+    const requestId = generateRequestId()
+    let subscription: Subscription | null = null
+
+    const handler = ({ payload }: FinishRequestCurrentPrimaryToolEvent) => {
+      // Do nothing if the requestId is different
+      if (payload.requestId !== requestId) {
+        return
+      }
+
+      subscription?.unsubscribe()
+      resolve(payload.tool)
+    }
+
+    subscription = subscribeToFinishRequestCurrentPrimaryTool(handler)
+
+    publishEvent({
+      type: EventTypes.REQUEST_CURRENT_PRIMARY_TOOL,
+      payload: {
+        requestId
+      }
+    })
+  })
+}
+
+export const finishRequestCurrentPRimaryTool = (
+  requestId: string,
+  tool: PrimaryToolType
+) => {
+  publishEvent({
+    type: EventTypes.FINISH_REQUEST_CURRENT_PRIMARY_TOOL,
+    payload: {
+      requestId,
+      tool
+    }
+  })
+}

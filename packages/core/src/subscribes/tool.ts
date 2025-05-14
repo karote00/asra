@@ -1,12 +1,12 @@
 import { HandlerDeps } from '../types'
-import { ToolActionAPIs } from '../types/system-context'
+import { PrimaryToolActionAPIs } from '../types/system-context'
 import { Events } from '../combinations'
-import { ToolType } from '@asra/utils'
+import { PrimaryToolType } from '@asra/utils'
 
-export class SiwtchModeHandler {
+export class SiwtchPrimaryToolHandler {
   constructor(
     private inputSystem: HandlerDeps['inputSystem'],
-    private deps: ToolActionAPIs
+    private deps: PrimaryToolActionAPIs
   ) {
     this.init()
   }
@@ -23,10 +23,10 @@ export class SiwtchModeHandler {
   }
 
   _handleSwitchToSelectTool = () => {
-    this.deps.switchTool(ToolType.SELECT)
+    this.deps.switchPrimaryTool(PrimaryToolType.SELECT)
   }
 
   _handleSwitchToRectangleTool = () => {
-    this.deps.switchTool(ToolType.RECTANGLE)
+    this.deps.switchPrimaryTool(PrimaryToolType.RECTANGLE)
   }
 }

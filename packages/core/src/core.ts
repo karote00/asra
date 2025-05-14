@@ -6,7 +6,7 @@ import props, { PropsManager } from '@asra/props-manager'
 import systemContext, { SystemContext } from '@asra/system-context'
 import type { PropsComponentRawData, SceneTreeRawData } from '@asra/utils'
 
-import { initAllHandlers } from './handlers'
+import { initAllHandlers } from './subscribes'
 import {
   CoreAPIs,
   InputSystemAPIs,
@@ -68,8 +68,8 @@ class Core implements CoreAPIs {
   loadProps!: PropsAPIs['loadProps']
   saveProps!: PropsAPIs['saveProps']
 
-  getCurrentTool!: SystemContextAPIs['getCurrentTool']
-  switchTool!: SystemContextAPIs['switchTool']
+  getCurrentPrimaryTool!: SystemContextAPIs['getCurrentPrimaryTool']
+  switchPrimaryTool!: SystemContextAPIs['switchPrimaryTool']
 
   constructor(private readonly deps: CoreDeps) {
     const apis = createAPIs({

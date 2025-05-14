@@ -1,15 +1,17 @@
-import { ToolType } from '@asra/utils'
-import { APIDeps, SystemContextAPIs } from '../types'
+import { PrimaryToolType } from '@asra/utils'
+import { SystemContextAPIs } from '../types'
+import {
+  requestCurrentPrimaryTool,
+  switchPrimaryTool
+} from '@asra/reactive-events'
 
-export const createSystemContextAPIs = (
-  systemContext: APIDeps['systemContext']
-): SystemContextAPIs => {
+export const createSystemContextAPIs = (): SystemContextAPIs => {
   return {
-    getCurrentTool() {
-      return systemContext.getCurrentTool()
+    async getCurrentPrimaryTool() {
+      return await requestCurrentPrimaryTool()
     },
-    switchTool(tool: ToolType) {
-      systemContext.switchTool(tool)
+    switchPrimaryTool(tool: PrimaryToolType) {
+      switchPrimaryTool(tool)
     }
   }
 }

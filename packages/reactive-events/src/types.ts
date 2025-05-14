@@ -76,6 +76,12 @@ export enum ViewportEventTypes {
   FINISH_REQUEST_RENDER_ZOOM = 'finishRequestRenderZoom'
 }
 
+export enum PrimaryToolEventTypes {
+  SWITCH_PRIMARY_TOOL = 'switchPrimaryTool',
+  REQUEST_CURRENT_PRIMARY_TOOL = 'requestCurrentPrimaryTool',
+  FINISH_REQUEST_CURRENT_PRIMARY_TOOL = 'finishRequestCurrentPrimaryTool'
+}
+
 export const EventTypes = {
   ...CoreEventTypes,
   ...RenderEventTypes,
@@ -87,7 +93,8 @@ export const EventTypes = {
   ...SelectionEventTypes,
   ...PropsEventTypes,
   ...UIContextEventTypes,
-  ...ViewportEventTypes
+  ...ViewportEventTypes,
+  ...PrimaryToolEventTypes
 } as const
 
 export type EventTypes = (typeof EventTypes)[keyof typeof EventTypes]

@@ -149,6 +149,7 @@
         "dist/**"
       ],
       "dependsOn": [
+        "^build:reactive-events",
         "^build:utils"
       ]
     },

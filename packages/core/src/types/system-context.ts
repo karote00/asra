@@ -1,13 +1,13 @@
-import { ToolType } from '@asra/utils'
+import { PrimaryToolType } from '@asra/utils'
 
-export interface ToolRawAPIs {
-  getCurrentTool: () => ToolType
+export interface PrimaryToolRawAPIs {
+  getCurrentPrimaryTool: () => Promise<PrimaryToolType>
 }
 
-export interface ToolActionAPIs {
-  switchTool: (tool: ToolType) => void
+export interface PrimaryToolActionAPIs {
+  switchPrimaryTool: (tool: PrimaryToolType) => void
 }
 
-export type ToolAPIs = ToolRawAPIs & ToolActionAPIs
+export type PrimaryToolAPIs = PrimaryToolRawAPIs & PrimaryToolActionAPIs
 
-export type SystemContextAPIs = ToolAPIs
+export type SystemContextAPIs = PrimaryToolAPIs

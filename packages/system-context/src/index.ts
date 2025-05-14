@@ -1,14 +1,4 @@
-import allApis from './apis'
-import { SystemContextAPIs } from './types'
-import { ToolAPIs } from './types/tool'
+import systemContext, { SystemContext } from './system-context'
 
-export class SystemContext implements SystemContextAPIs {
-  getCurrentTool!: ToolAPIs['getCurrentTool']
-  switchTool!: ToolAPIs['switchTool']
-
-  constructor() {
-    Object.assign(this, allApis)
-  }
-}
-
-export default new SystemContext()
+export { SystemContext }
+export default systemContext

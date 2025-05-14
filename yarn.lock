@@ -130,7 +130,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/reactive-events@workspace:*, @asra/reactive-events@workspace:packages/reactive-events":
+"@asra/reactive-events@workspace:*, @asra/reactive-events@workspace:^, @asra/reactive-events@workspace:packages/reactive-events":
   version: 0.0.0-use.local
   resolution: "@asra/reactive-events@workspace:packages/reactive-events"
   dependencies:
@@ -180,6 +180,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asra/system-context@workspace:packages/system-context"
   dependencies:
+    "@asra/reactive-events": "workspace:^"
     "@asra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"

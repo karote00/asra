@@ -1,3 +1,3 @@
-import toolState from './tool'
+import primaryToolState from './primary-tool'
 
-export { toolState }
+export { primaryToolState }

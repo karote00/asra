@@ -1,3 +1,7 @@
-import { ToolAPIs } from './tool'
+import { PrimaryToolAPIs } from './primary-tool'
 
-export type SystemContextAPIs = ToolAPIs
+export { PrimaryToolAPIs }
+
+export type SystemContextAPIs = PrimaryToolAPIs
+
+export * from './deps'

@@ -1,7 +1,6 @@
-import { createToolAPIs } from './tool'
+import { HandlerDeps } from '../types'
+import { createPrimaryToolAPIs } from './primary-tool'
 
-const allApis = {
-  ...createToolAPIs()
-}
-
-export default allApis
+export const createAllAPIs = (deps: HandlerDeps) => ({
+  ...createPrimaryToolAPIs(deps.primaryToolState)
+})
