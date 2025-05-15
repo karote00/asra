@@ -1,5 +1,5 @@
 import { MouseEvent, useCallback, useEffect, useRef } from 'react'
-import type { ElementRawData, Modifiers } from '@asra/utils'
+import type { ElementRawData, ModifierKeys } from '@asra/utils'
 import { EntityTypes } from '@asra/utils'
 import { Icon } from '@asra/design-system'
 import { useElementData } from '../providers'
@@ -10,12 +10,12 @@ interface ElementData {
   isSelected: boolean
 }
 
-const getModifiers = (e: KeyboardEvent): Modifiers => {
+const getModifierKeys = (e: KeyboardEvent): ModifierKeys => {
   return {
-    meta: e.metaKey,
-    ctrl: e.ctrlKey,
-    alt: e.altKey,
-    shift: e.shiftKey
+    Meta: e.metaKey,
+    Ctrl: e.ctrlKey,
+    Alt: e.altKey,
+    Shift: e.shiftKey
   }
 }
 
@@ -24,11 +24,11 @@ const Element = ({ elementId, isSelected }: ElementData) => {
   if (!elementData) return null
 
   const { id, name, type, lock, visible } = elementData as ElementRawData
-  const modifierKeys = useRef({
-    meta: false,
-    ctrl: false,
-    alt: false,
-    shift: false
+  const modifierKeys = useRef<ModifierKeys>({
+    Meta: false,
+    Ctrl: false,
+    Alt: false,
+    Shift: false
   })
   const handleElementClick = useCallback(
     (e: MouseEvent<HTMLDivElement>) => {
@@ -41,10 +41,10 @@ const Element = ({ elementId, isSelected }: ElementData) => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      modifierKeys.current = getModifiers(e)
+      modifierKeys.current = getModifierKeys(e)
     }
     const handleKeyUp = (e: KeyboardEvent) => {
-      modifierKeys.current = getModifiers(e)
+      modifierKeys.current = getModifierKeys(e)
     }
 
     window.addEventListener('keydown', handleKeyDown)

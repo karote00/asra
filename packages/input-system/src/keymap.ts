@@ -1,8 +1,13 @@
-const MODIFIER_KEYS = new Set(['Meta', 'Ctrl', 'Shift', 'Alt'])
-const SPECIAL_EVENTS = new Set(['Wheel'])
+import {
+  ModifierKeyList,
+  SpecialEventList,
+  Platforms,
+  ModifierKey,
+  SpecialEvent
+} from '@asra/utils'
 
 export default class KeyMap {
-  private os: 'Windows' | 'Mac' | 'Linux'
+  private os: Platforms
   private keyMap: Record<string, string>
 
   constructor() {
@@ -10,11 +15,11 @@ export default class KeyMap {
     this.keyMap = this.createKeyMap()
   }
 
-  private detectOS(): 'Windows' | 'Mac' | 'Linux' {
-    const platform = navigator.platform.toLowerCase()
-    if (platform.includes('mac')) return 'Mac'
-    if (platform.includes('win')) return 'Windows'
-    return 'Linux'
+  private detectOS(): Platforms {
+    const platform = navigator.userAgent.toLowerCase()
+    if (platform.includes('mac')) return Platforms.MAC
+    if (platform.includes('win')) return Platforms.WINDOWS
+    return Platforms.LINUX
   }
 
   private createKeyMap(): Record<string, string> {
@@ -127,13 +132,13 @@ export default class KeyMap {
       NumpadDecimal: '.'
     }
 
-    if (this.os === 'Mac') {
+    if (this.os === Platforms.MAC) {
       baseMap['MetaLeft'] = 'Meta'
       baseMap['MetaRight'] = 'Meta'
       baseMap['AltLeft'] = 'Option'
       baseMap['AltRight'] = 'Option'
       baseMap['Delete'] = 'Delete'
-    } else if (this.os === 'Windows' || this.os === 'Linux') {
+    } else if (this.os === Platforms.WINDOWS || this.os === Platforms.LINUX) {
       baseMap['MetaLeft'] = 'Windows'
       baseMap['MetaRight'] = 'Windows'
       baseMap['Delete'] = 'Del'
@@ -146,11 +151,11 @@ export default class KeyMap {
     return this.keyMap[code] || code
   }
 
-  public isModifiers(key: string): boolean {
-    return MODIFIER_KEYS.has(key)
+  public isModifierKeys(key: string): boolean {
+    return ModifierKeyList.includes(key as ModifierKey)
   }
 
   public isSpecialEvent(key: string): boolean {
-    return SPECIAL_EVENTS.has(key)
+    return SpecialEventList.includes(key as SpecialEvent)
   }
 }

@@ -1,17 +1,34 @@
-import { MouseEventData, WheelEventData } from '@asra/utils'
+import {
+  MouseEventData,
+  WheelEventData,
+  MouseButton,
+  SpecialEvent
+} from '@asra/utils'
+import { InputFieldsList } from '@asra/utils'
 import KeyMap from './keymap'
-import { CLICK_THRESHOLD } from './constants'
+import { CLICK_THRESHOLD, CLEAR_KEY_TIME } from './constants'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Callback = (data?: any) => void
 type Combinations = Record<string, string[]>
 
-const CLEAR_KEY_TIME = 100
-
 const WHEEL_EVENT_OPTIONS: AddEventListenerOptions = { passive: false }
 
+const getMouseButton = (button: number): MouseButton => {
+  switch (button) {
+    case 0:
+      return MouseButton.LEFT
+    case 1:
+      return MouseButton.MIDDLE
+    case 2:
+      return MouseButton.RIGHT
+    default:
+      return MouseButton.NONE
+  }
+}
+
 class InputSystem {
-  private _privateWatchedElement: Window | HTMLElement
+  private _previousWatchedElement: Window | HTMLElement
   private combinations: Combinations = {}
   private keyMap: KeyMap
   private activeKeys: Set<string>
@@ -20,7 +37,7 @@ class InputSystem {
   private _startPos: MouseEventData | null
 
   constructor() {
-    this._privateWatchedElement = window
+    this._previousWatchedElement = window
     this.keyMap = new KeyMap()
     this.activeKeys = new Set()
     this.listeners = new Map()
@@ -52,19 +69,19 @@ class InputSystem {
   }
 
   switchWatchedElement(watchedElement: HTMLElement) {
-    this._privateWatchedElement.removeEventListener(
+    this._previousWatchedElement.removeEventListener(
       'mousedown',
       this.handleMouseDown as EventListener
     )
-    this._privateWatchedElement.removeEventListener(
+    this._previousWatchedElement.removeEventListener(
       'mouseup',
       this.handleMouseUp as EventListener
     )
-    this._privateWatchedElement.removeEventListener(
+    this._previousWatchedElement.removeEventListener(
       'mousemove',
       this.handleMouseMove as EventListener
     )
-    this._privateWatchedElement.removeEventListener(
+    this._previousWatchedElement.removeEventListener(
       'wheel',
       this.handleWheel as EventListener,
       WHEEL_EVENT_OPTIONS
@@ -76,6 +93,8 @@ class InputSystem {
     watchedElement.addEventListener('wheel', this.handleWheel, {
       passive: false
     })
+
+    this._previousWatchedElement = watchedElement
   }
 
   private startTimer(key: string) {
@@ -85,6 +104,7 @@ class InputSystem {
         clearTimeout(currentTimer)
       }
     }
+
     const timer = setTimeout(() => {
       this.activeKeys.delete(key)
       this.timers.delete(key)
@@ -104,9 +124,8 @@ class InputSystem {
 
   private _isInputActive(event: KeyboardEvent) {
     return (
-      ['INPUT', 'TEXT', 'TEXTAREA'].includes(
-        (event.target as HTMLElement).tagName
-      ) || (event.target as HTMLElement).isContentEditable
+      InputFieldsList.includes((event.target as HTMLElement).tagName) ||
+      (event.target as HTMLElement).isContentEditable
     )
   }
 
@@ -125,7 +144,7 @@ class InputSystem {
     const key = this.keyMap.mapKey(event.code)
     if (key) {
       this.activeKeys.add(key)
-      if (!this.keyMap.isModifiers(key)) {
+      if (!this.keyMap.isModifierKeys(key)) {
         this.startTimer(key)
       }
       this.checkCombinations()
@@ -206,16 +225,10 @@ class InputSystem {
     event: MouseEvent,
     state: string
   ): string | undefined {
-    switch (event.button) {
-      case 0:
-        return `LeftMouse${state}`
-      case 1:
-        return `MiddleMouse${state}`
-      case 2:
-        return `RightMouse${state}`
-      default:
-        return undefined
-    }
+    const button = getMouseButton(event.button)
+    if (button === MouseButton.NONE) return
+
+    return `${button}Mouse${state}`
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -248,22 +261,22 @@ class InputSystem {
     const deltaX = event.deltaX
     const deltaY = event.deltaY
 
-    if (this.keyMap.isSpecialEvent('Wheel')) {
+    if (this.keyMap.isSpecialEvent(SpecialEvent.WHEEL)) {
       event.preventDefault()
-      this.activeKeys.add('Wheel')
+      this.activeKeys.add(SpecialEvent.WHEEL)
 
-      const wheelData = {
+      const wheelData: WheelEventData = {
         deltaX,
         deltaY,
         deltaZ: event.deltaZ,
         clientX: event.clientX,
         clientY: event.clientY
-      } as WheelEventData
+      }
 
       this.checkCombinations(wheelData)
 
       // Remove wheel key immediately as scrolling is continuous
-      this.activeKeys.delete('Wheel')
+      this.activeKeys.delete(SpecialEvent.WHEEL)
     }
   }
 }
