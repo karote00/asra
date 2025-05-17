@@ -1,6 +1,6 @@
 import { MouseEvent, useCallback, useEffect, useRef } from 'react'
 import type { ElementRawData, ModifierKeys } from '@asra/utils'
-import { EntityTypes } from '@asra/utils'
+import { capitalizeFirstLetter, EntityTypes } from '@asra/utils'
 import { Icon } from '@asra/design-system'
 import { useElementData } from '../providers'
 import { selectElements } from '../controllers/element-selection'
@@ -10,12 +10,19 @@ interface ElementData {
   isSelected: boolean
 }
 
+const INIT_MODIFIERS: ModifierKeys = {
+  meta: false,
+  ctrl: false,
+  alt: false,
+  shift: false
+}
+
 const getModifierKeys = (e: KeyboardEvent): ModifierKeys => {
   return {
-    Meta: e.metaKey,
-    Ctrl: e.ctrlKey,
-    Alt: e.altKey,
-    Shift: e.shiftKey
+    meta: e.metaKey,
+    ctrl: e.ctrlKey,
+    alt: e.altKey,
+    shift: e.shiftKey
   }
 }
 
@@ -24,12 +31,7 @@ const Element = ({ elementId, isSelected }: ElementData) => {
   if (!elementData) return null
 
   const { id, name, type, lock, visible } = elementData as ElementRawData
-  const modifierKeys = useRef<ModifierKeys>({
-    Meta: false,
-    Ctrl: false,
-    Alt: false,
-    Shift: false
-  })
+  const modifierKeys = useRef<ModifierKeys>(INIT_MODIFIERS)
   const handleElementClick = useCallback(
     (e: MouseEvent<HTMLDivElement>) => {
       e.stopPropagation()
@@ -67,7 +69,10 @@ const Element = ({ elementId, isSelected }: ElementData) => {
       onClick={handleElementClick}
     >
       <div className="flex items-center space-x-1 gap-1">
-        <Icon showCursor={false} name={type as EntityTypes} />
+        <Icon
+          showCursor={false}
+          name={capitalizeFirstLetter(type) as EntityTypes}
+        />
         {name}
       </div>
 

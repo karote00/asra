@@ -1,5 +1,5 @@
 export enum Platforms {
-  WINDOWS = 'Windows',
-  MAC = 'Mac',
-  LINUX = 'Linux'
+  WINDOWS = 'windows',
+  MAC = 'mac',
+  LINUX = 'linux'
 }

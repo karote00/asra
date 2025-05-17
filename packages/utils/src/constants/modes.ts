@@ -1,10 +1,10 @@
 export enum SystemMode {
-  DEFAULT = 'Default',
-  PREVIEW = 'Preview'
+  DEFAULT = 'default',
+  PREVIEW = 'preview'
 }
 
 export enum ToolMode {
-  SELECT = 'Select',
-  RECT = 'Rectangle',
-  OVAL = 'Oval'
+  SELECT = 'select',
+  RECT = 'rectangle',
+  OVAL = 'oval'
 }

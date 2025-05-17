@@ -1,5 +1,5 @@
 export enum UNDO {
-  NONE = 'NONE',
-  UNDO = 'UNDO',
-  REDO = 'REDO'
+  NONE = 'none',
+  UNDO = 'undo',
+  REDO = 'redo'
 }

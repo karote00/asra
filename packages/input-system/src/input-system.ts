@@ -2,7 +2,9 @@ import {
   MouseEventData,
   WheelEventData,
   MouseButton,
-  SpecialEvent
+  SpecialEvent,
+  InputField,
+  capitalizeFirstLetter
 } from '@asra/utils'
 import { InputFieldsList } from '@asra/utils'
 import KeyMap from './keymap'
@@ -124,8 +126,9 @@ class InputSystem {
 
   private _isInputActive(event: KeyboardEvent) {
     return (
-      InputFieldsList.includes((event.target as HTMLElement).tagName) ||
-      (event.target as HTMLElement).isContentEditable
+      InputFieldsList.includes(
+        (event.target as HTMLElement).tagName.toLowerCase() as InputField
+      ) || (event.target as HTMLElement).isContentEditable
     )
   }
 
@@ -228,7 +231,7 @@ class InputSystem {
     const button = getMouseButton(event.button)
     if (button === MouseButton.NONE) return
 
-    return `${button}Mouse${state}`
+    return `${capitalizeFirstLetter(button)}Mouse${state}`
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -263,7 +266,8 @@ class InputSystem {
 
     if (this.keyMap.isSpecialEvent(SpecialEvent.WHEEL)) {
       event.preventDefault()
-      this.activeKeys.add(SpecialEvent.WHEEL)
+      const wheelKey = capitalizeFirstLetter(SpecialEvent.WHEEL)
+      this.activeKeys.add(wheelKey)
 
       const wheelData: WheelEventData = {
         deltaX,
@@ -276,7 +280,7 @@ class InputSystem {
       this.checkCombinations(wheelData)
 
       // Remove wheel key immediately as scrolling is continuous
-      this.activeKeys.delete(SpecialEvent.WHEEL)
+      this.activeKeys.delete(wheelKey)
     }
   }
 }

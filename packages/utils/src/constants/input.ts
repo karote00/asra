@@ -1,8 +1,8 @@
 export enum ModifierKey {
-  META = 'Meta',
-  CTRL = 'Ctrl',
-  ALT = 'Alt',
-  SHIFT = 'Shift'
+  META = 'meta',
+  CTRL = 'ctrl',
+  ALT = 'alt',
+  SHIFT = 'shift'
 }
 
 export const ModifierKeyList = [
@@ -13,10 +13,10 @@ export const ModifierKeyList = [
 ]
 
 export enum MouseButton {
-  LEFT = 'Left',
-  RIGHT = 'Right',
-  MIDDLE = 'Middle',
-  NONE = 'None'
+  LEFT = 'left',
+  RIGHT = 'right',
+  MIDDLE = 'middle',
+  NONE = 'none'
 }
 
 export const MouseButtonList = [
@@ -27,9 +27,19 @@ export const MouseButtonList = [
 ]
 
 export enum SpecialEvent {
-  WHEEL = 'Wheel'
+  WHEEL = 'wheel'
 }
 
 export const SpecialEventList = [SpecialEvent.WHEEL]
 
-export const InputFieldsList = ['INPUT', 'TEXT', 'TEXTAREA']
+export enum InputField {
+  INPUT = 'input',
+  TEXT = 'text',
+  TEXTAREA = 'textarea'
+}
+
+export const InputFieldsList = [
+  InputField.INPUT,
+  InputField.TEXT,
+  InputField.TEXTAREA
+]

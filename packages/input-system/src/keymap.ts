@@ -152,7 +152,7 @@ export default class KeyMap {
   }
 
   public isModifierKeys(key: string): boolean {
-    return ModifierKeyList.includes(key as ModifierKey)
+    return ModifierKeyList.includes(key.toLowerCase() as ModifierKey)
   }
 
   public isSpecialEvent(key: string): boolean {

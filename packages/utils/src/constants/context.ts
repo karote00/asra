@@ -1,5 +1,5 @@
 export enum OWNER {
-  SCENE_TREE = 'SCENE_TREE',
-  ELEMENT_SELECTION = 'ELEMENT_SELECTION',
-  PROPS = 'PROPS'
+  SCENE_TREE = 'sceneTree',
+  ELEMENT_SELECTION = 'elementSelection',
+  PROPS = 'props'
 }

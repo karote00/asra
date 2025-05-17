@@ -1,6 +1,6 @@
 import { NameTypes } from './enum'
 import { FIRST_NAME, CODE_SPLIT } from './constants'
-import { isNumber } from '../common'
+import { isNumber } from '../helpers'
 
 const AvaliableNameTypes = new Set<NameTypes | string>(Object.values(NameTypes))
 
