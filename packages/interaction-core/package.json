@@ -1,0 +1,25 @@
+{
+  "name": "@asra/interaction-core",
+  "version": "1.0.1",
+  "description": "Determines interaction outcomes based on user input and system state.",
+  "author": "Asa Tsai",
+  "license": "MIT",
+  "packageManager": "yarn@4.3.1",
+  "keywords": [],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "adev": "tsc --watch",
+    "abuild:props-manager": "tsc",
+    "aclean": "rm -rf dist",
+    "atest": "vitest",
+    "atest:ci": "vitest run --coverage --reporter=default --reporter=junit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@asra/reactive-events": "workspace:*",
+    "@asra/utils": "workspace:*"
+  }
+}
