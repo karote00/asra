@@ -1,4 +1,4 @@
-import { WheelEventData } from '@asra/utils'
+import { ModifierKeys, WheelEventData } from '@asra/utils'
 import { Events } from '../../combinations'
 import { HandlerDeps, ViewportAPIs } from '../../types'
 
@@ -22,13 +22,13 @@ export class ViewportHandler {
     this.deps.zoomFit()
   }
 
-  _handlePan = async (data: WheelEventData) => {
+  _handlePan = async (modifiers: ModifierKeys, data: WheelEventData) => {
     const { deltaX, deltaY } = data
     const currentPosition = await this.deps.getViewportPosition()
     this.deps.panTo(currentPosition.x - deltaX, currentPosition.y - deltaY)
   }
 
-  _handleZoom = async (data: WheelEventData) => {
+  _handleZoom = async (modifiers: ModifierKeys, data: WheelEventData) => {
     const { deltaY, clientX, clientY } = data
     const currentScale = await this.deps.getViewportScale()
     // Adjust zoom scale based on wheel direction. deltaY > 0 means scrolling up (zoom in)

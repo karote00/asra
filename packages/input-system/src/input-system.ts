@@ -1,17 +1,19 @@
 import {
+  MouseData,
   MouseEventData,
   WheelEventData,
   MouseButton,
   SpecialEvent,
   InputField,
-  capitalizeFirstLetter
+  capitalizeFirstLetter,
+  ModifierKeys
 } from '@asra/utils'
 import { InputFieldsList } from '@asra/utils'
 import KeyMap from './keymap'
 import { CLICK_THRESHOLD, CLEAR_KEY_TIME } from './constants'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Callback = (data?: any) => void
+type Callback = (modifiers: ModifierKeys, data?: any) => void
 type Combinations = Record<string, string[]>
 
 const WHEEL_EVENT_OPTIONS: AddEventListenerOptions = { passive: false }
@@ -36,7 +38,7 @@ class InputSystem {
   private activeKeys: Set<string>
   private listeners: Map<string, Callback[]>
   private timers: Map<string, NodeJS.Timeout>
-  private _startPos: MouseEventData | null
+  private _startPos: MouseData | null
 
   constructor() {
     this._previousWatchedElement = window
@@ -190,7 +192,7 @@ class InputSystem {
   private handleMouseUp = (event: MouseEvent) => {
     const button = getMouseButton(event.button)
     const key = this.getMouseEventKey(button, 'Up')
-    console.log({ button, key })
+
     if (key) {
       this.activeKeys.add(key)
       this.activeKeys.delete(key.replace('Up', 'Down'))
@@ -247,10 +249,11 @@ class InputSystem {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private checkCombinations(data?: any) {
     const currentKeys = Array.from(this.activeKeys)
-    console.log(currentKeys)
+    const modifiers = this.getModifiers(this.activeKeys)
+
     for (const [action, requiredKeys] of Object.entries(this.combinations)) {
       if (this.isExactMatch(currentKeys, requiredKeys)) {
-        this.triggerAction(action, data)
+        this.triggerAction(action, modifiers, data)
       }
     }
   }
@@ -263,10 +266,10 @@ class InputSystem {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private triggerAction(action: string, data?: any) {
+  private triggerAction(action: string, modifiers: ModifierKeys, data?: any) {
     const callbacks = this.listeners.get(action)
     if (callbacks) {
-      callbacks.forEach((cb) => cb(data))
+      callbacks.forEach((cb) => cb(modifiers, data))
     }
   }
 
@@ -292,6 +295,23 @@ class InputSystem {
       // Remove wheel key immediately as scrolling is continuous
       this.activeKeys.delete(wheelKey)
     }
+  }
+
+  getModifiers(keys: Set<string>): ModifierKeys {
+    const modifiers = {
+      meta: false,
+      ctrl: false,
+      alt: false,
+      shift: false
+    } as ModifierKeys
+
+    keys.forEach((key) => {
+      if (this.keyMap.isModifierKeys(key)) {
+        modifiers[key.toLowerCase() as keyof ModifierKeys] = true
+      }
+    })
+
+    return modifiers
   }
 }
 

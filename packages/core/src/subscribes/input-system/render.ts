@@ -1,11 +1,17 @@
-import { MouseEventData, roundFloat } from '@asra/utils'
+import {
+  ModifierKeys,
+  MouseData,
+  MouseEventData,
+  roundFloat
+} from '@asra/utils'
 import { Events } from '../../combinations'
 import { HandlerDeps, RenderRawAPIs, SceneTreeHandlerAPIs } from '../../types'
+import { updateMouseStata } from '@asra/reactive-events'
 
 export class RenderHandler {
   private _isDrag: boolean
-  private _startPos: MouseEventData
-  private _endPos: MouseEventData
+  private _startPos: MouseData
+  private _endPos: MouseData
 
   constructor(
     private inputSystem: HandlerDeps['inputSystem'],
@@ -31,16 +37,27 @@ export class RenderHandler {
     this.inputSystem.on(Events.DRAG_END, this._handleDragEnd)
   }
 
-  _handleDragStart = (data: MouseEventData) => {
-    this._startPos = { ...data }
+  _handleDragStart = (modifiers: ModifierKeys, data: MouseEventData) => {
+    this._startPos = { clientX: data.clientX, clientY: data.clientY }
+
+    updateMouseStata({
+      position: {
+        x: data.clientX,
+        y: data.clientY
+      },
+      down: true,
+      button: data.button,
+      dragging: false,
+      modifiers
+    })
   }
 
-  _handleDragUpdate = (data: MouseEventData) => {
+  _handleDragUpdate = (modifiers: ModifierKeys, data: MouseEventData) => {
     this._isDrag = true
     this._endPos = { ...data }
   }
 
-  _handleDragEnd = (data: MouseEventData) => {
+  _handleDragEnd = (modifiers: ModifierKeys, data: MouseEventData) => {
     if (!this._isDrag) {
       const startPos = this.render.getMousePosInWorkspace(this._startPos)
       const pos = {
