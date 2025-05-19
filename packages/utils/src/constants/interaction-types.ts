@@ -4,8 +4,3 @@ export enum InteractionAction {
   DELETE_ELEMENTS = 'deleteElements',
   NONE = 'none'
 }
-
-export interface InteractionEvent {
-  type: InteractionAction
-  payload?: any
-}

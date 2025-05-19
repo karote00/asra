@@ -1,7 +1,5 @@
-import { PrimaryToolType } from '@asra/utils'
+import { PrimaryToolType, InteractionEvent, SystemSnapshot } from '@asra/utils'
 import { decideSelectBehavior } from './behavior'
-import { SystemSnapshot } from '../snapshot'
-import { InteractionEvent } from '../types'
 
 export function decideInteraction(
   snapshot: SystemSnapshot

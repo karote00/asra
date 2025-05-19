@@ -1,5 +1,8 @@
-import { SystemSnapshot } from '../../snapshot'
-import { InteractionAction, InteractionEvent } from '../../types'
+import {
+  InteractionAction,
+  InteractionEvent,
+  SystemSnapshot
+} from '@asra/utils'
 
 export function decideFromMoveRules(
   snapshot: SystemSnapshot

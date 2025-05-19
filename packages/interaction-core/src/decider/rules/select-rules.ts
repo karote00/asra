@@ -1,6 +1,9 @@
-import { MouseButton } from '@asra/utils'
-import { SystemSnapshot } from '../../snapshot'
-import { InteractionAction, InteractionEvent } from '../../types/'
+import {
+  InteractionAction,
+  InteractionEvent,
+  MouseButton,
+  SystemSnapshot
+} from '@asra/utils'
 
 export function decideFromSelectRules(
   snapshot: SystemSnapshot

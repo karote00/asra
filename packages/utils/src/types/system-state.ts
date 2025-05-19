@@ -1,4 +1,4 @@
-import { SystemMode } from '../types'
+import { SystemMode } from '../constants'
 
 export interface SystemState {
   primaryTool: string

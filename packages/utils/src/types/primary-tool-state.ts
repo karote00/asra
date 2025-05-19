@@ -1,4 +1,4 @@
-import { PrimaryToolType } from '@asra/utils'
+import { PrimaryToolType } from '../constants'
 
 export interface PrimaryToolState {
   currentTool: PrimaryToolType

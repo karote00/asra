@@ -29,5 +29,6 @@ export interface FinishRequestCurrentPrimaryToolEvent {
 
 export type PrimaryToolEvents =
   | SwitchPrimaryToolEvent
+  | EmitSwitchPrimaryToolEvent
   | RequestCurrentPrimaryToolEvent
   | FinishRequestCurrentPrimaryToolEvent

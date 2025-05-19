@@ -1,11 +1,14 @@
-import { ModifierKey, MouseButton } from '../constants/input'
+import { ModifierKey, MouseButton } from '../constants'
+import { PositionData } from './common'
 
 export type ModifierKeys = Record<ModifierKey, boolean>
 
 export type MouseState = {
   position: { x: number; y: number }
+  delta: PositionData
   button: MouseButton
-  isDown: boolean
+  down: boolean
+  dragging: boolean
   modifiers: ModifierKeys
 }
 
