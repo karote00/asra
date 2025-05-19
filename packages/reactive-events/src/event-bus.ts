@@ -1,5 +1,5 @@
 import {
-  ReplaySubject,
+  Subject,
   Observable,
   Subscription,
   filter,
@@ -9,7 +9,7 @@ import {
 import { EventTypes } from './types'
 import { AllEvent } from './constants'
 
-const eventBus = new ReplaySubject<AllEvent>(1)
+const eventBus = new Subject<AllEvent>()
 
 export const publishEvent = (event: AllEvent) => {
   eventBus.next(event)
@@ -50,7 +50,7 @@ export const subscribeToEvents = (
   return getEventBusObserve().subscribe(subscriber)
 }
 
-export const getEventBus = (): ReplaySubject<AllEvent> => eventBus
+export const getEventBus = (): Subject<AllEvent> => eventBus
 export const getEventBusObserve = (): Observable<AllEvent> =>
   eventBus.asObservable()
 
