@@ -5,9 +5,9 @@ import {
   SystemSnapshot
 } from '@asra/utils'
 
-export function decideFromSelectRules(
+export const decideFromSelectRules = (
   snapshot: SystemSnapshot
-): InteractionEvent | null {
+): InteractionEvent | null => {
   const { mouse, key, target } = snapshot
 
   if (

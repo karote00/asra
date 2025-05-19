@@ -1,9 +1,9 @@
 import { InteractionEvent, SystemSnapshot } from '@asra/utils'
 import { decideFromSelectRules, decideFromMoveRules } from '../rules'
 
-export function decideSelectBehavior(
+export const decideSelectBehavior = (
   snapshot: SystemSnapshot
-): InteractionEvent | null {
+): InteractionEvent | null => {
   const { mouse, target } = snapshot
 
   if (mouse.dragging && target.selectedElementIds.length > 0) {

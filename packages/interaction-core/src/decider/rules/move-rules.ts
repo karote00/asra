@@ -4,9 +4,9 @@ import {
   SystemSnapshot
 } from '@asra/utils'
 
-export function decideFromMoveRules(
+export const decideFromMoveRules = (
   snapshot: SystemSnapshot
-): InteractionEvent | null {
+): InteractionEvent | null => {
   const { mouse, target } = snapshot
 
   if (mouse.dragging && target.selectedElementIds.length > 0) {
