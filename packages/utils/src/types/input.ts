@@ -38,6 +38,7 @@ export type InputSnapshot = {
 export interface MouseEventData {
   clientX: number
   clientY: number
+  button: MouseButton
 }
 
 export interface WheelEventData {

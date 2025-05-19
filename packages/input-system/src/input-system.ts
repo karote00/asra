@@ -171,7 +171,8 @@ class InputSystem {
   }
 
   private handleMouseDown = (event: MouseEvent) => {
-    const key = this.getMouseEventKey(event, 'Down')
+    const button = getMouseButton(event.button)
+    const key = this.getMouseEventKey(button, 'Down')
 
     if (key) {
       this._startPos = {
@@ -179,19 +180,24 @@ class InputSystem {
         clientY: event.clientY
       }
       this.activeKeys.add(key)
-      this.checkCombinations(this._startPos)
+      this.checkCombinations({
+        ...this._startPos,
+        button
+      })
     }
   }
 
   private handleMouseUp = (event: MouseEvent) => {
-    const key = this.getMouseEventKey(event, 'Up')
-
+    const button = getMouseButton(event.button)
+    const key = this.getMouseEventKey(button, 'Up')
+    console.log({ button, key })
     if (key) {
       this.activeKeys.add(key)
       this.activeKeys.delete(key.replace('Up', 'Down'))
       this.checkCombinations({
         clientX: event.clientX,
-        clientY: event.clientY
+        clientY: event.clientY,
+        button
       } as MouseEventData)
 
       // No need to keep mouse up key after trigger action
@@ -200,7 +206,8 @@ class InputSystem {
   }
 
   private handleMouseMove = (event: MouseEvent) => {
-    const key = this.getMouseEventKey(event, 'Move')
+    const button = getMouseButton(event.button)
+    const key = this.getMouseEventKey(button, 'Move')
 
     if (key) {
       let canMove = true
@@ -218,7 +225,8 @@ class InputSystem {
         this.activeKeys.add(key)
         this.checkCombinations({
           clientX: event.clientX,
-          clientY: event.clientY
+          clientY: event.clientY,
+          button
         } as MouseEventData)
 
         // No need to keep mouse up key after trigger action
@@ -228,10 +236,9 @@ class InputSystem {
   }
 
   private getMouseEventKey(
-    event: MouseEvent,
+    button: MouseButton,
     state: string
   ): string | undefined {
-    const button = getMouseButton(event.button)
     if (button === MouseButton.NONE) return
 
     return `${capitalizeFirstLetter(button)}Mouse${state}`
@@ -240,7 +247,7 @@ class InputSystem {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private checkCombinations(data?: any) {
     const currentKeys = Array.from(this.activeKeys)
-
+    console.log(currentKeys)
     for (const [action, requiredKeys] of Object.entries(this.combinations)) {
       if (this.isExactMatch(currentKeys, requiredKeys)) {
         this.triggerAction(action, data)
