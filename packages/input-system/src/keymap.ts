@@ -135,8 +135,8 @@ export default class KeyMap {
     if (this.os === Platforms.MAC) {
       baseMap['MetaLeft'] = 'Meta'
       baseMap['MetaRight'] = 'Meta'
-      baseMap['AltLeft'] = 'Option'
-      baseMap['AltRight'] = 'Option'
+      baseMap['AltLeft'] = 'Alt'
+      baseMap['AltRight'] = 'Alt'
       baseMap['Delete'] = 'Delete'
     } else if (this.os === Platforms.WINDOWS || this.os === Platforms.LINUX) {
       baseMap['MetaLeft'] = 'Windows'
