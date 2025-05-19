@@ -9,7 +9,7 @@ import {
 import { EventTypes } from './types'
 import { AllEvent } from './constants'
 
-const eventBus = new ReplaySubject<AllEvent>(undefined, 5000)
+const eventBus = new ReplaySubject<AllEvent>(1)
 
 export const publishEvent = (event: AllEvent) => {
   eventBus.next(event)
