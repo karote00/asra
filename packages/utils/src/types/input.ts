@@ -35,6 +35,11 @@ export type InputSnapshot = {
 }
 
 /** EventData type */
+export interface MouseData {
+  clientX: number
+  clientY: number
+}
+
 export interface MouseEventData {
   clientX: number
   clientY: number
