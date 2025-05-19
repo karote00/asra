@@ -1,6 +1,6 @@
-import { Events } from '../combinations'
 import { WheelEventData } from '@asra/utils'
-import { HandlerDeps, ViewportAPIs } from '../types'
+import { Events } from '../../combinations'
+import { HandlerDeps, ViewportAPIs } from '../../types'
 
 const ZOOM_SMOOTH_RATIO = 0.02
 

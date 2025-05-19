@@ -1,6 +1,6 @@
 import { MouseEventData, roundFloat } from '@asra/utils'
-import { Events } from '../combinations'
-import { HandlerDeps, RenderRawAPIs, SceneTreeHandlerAPIs } from '../types'
+import { Events } from '../../combinations'
+import { HandlerDeps, RenderRawAPIs, SceneTreeHandlerAPIs } from '../../types'
 
 export class RenderHandler {
   private _isDrag: boolean

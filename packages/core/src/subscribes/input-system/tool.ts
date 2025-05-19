@@ -1,7 +1,7 @@
-import { HandlerDeps } from '../types'
-import { PrimaryToolActionAPIs } from '../types/system-context'
-import { Events } from '../combinations'
 import { PrimaryToolType } from '@asra/utils'
+import { HandlerDeps } from '../../types'
+import { PrimaryToolActionAPIs } from '../../types/system-context'
+import { Events } from '../../combinations'
 
 export class SiwtchPrimaryToolHandler {
   constructor(

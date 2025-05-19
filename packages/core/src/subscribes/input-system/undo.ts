@@ -1,5 +1,5 @@
-import { Events } from '../combinations'
-import { HandlerDeps, UndoActionAPIs } from '../types'
+import { Events } from '../../combinations'
+import { HandlerDeps, UndoActionAPIs } from '../../types'
 
 export class UndoHandler {
   constructor(
