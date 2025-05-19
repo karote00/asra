@@ -56,6 +56,9 @@ class InputSystem {
     window.addEventListener('mouseup', this.handleMouseUp)
     window.addEventListener('mousemove', this.handleMouseMove)
     window.addEventListener('wheel', this.handleWheel, WHEEL_EVENT_OPTIONS)
+    window.addEventListener('contextmenu', (e: MouseEvent) =>
+      e.preventDefault()
+    )
   }
 
   setCombinations(combinations: Combinations) {
