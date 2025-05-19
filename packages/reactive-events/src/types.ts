@@ -83,6 +83,10 @@ export enum PrimaryToolEventTypes {
   FINISH_REQUEST_CURRENT_PRIMARY_TOOL = 'finishRequestCurrentPrimaryTool'
 }
 
+export enum MouseStateEventTypes {
+  UPDATE_MOUSE_STATE = 'updateMouseState'
+}
+
 export const EventTypes = {
   ...CoreEventTypes,
   ...RenderEventTypes,
@@ -95,7 +99,8 @@ export const EventTypes = {
   ...PropsEventTypes,
   ...UIContextEventTypes,
   ...ViewportEventTypes,
-  ...PrimaryToolEventTypes
+  ...PrimaryToolEventTypes,
+  ...MouseStateEventTypes
 } as const
 
 export type EventTypes = (typeof EventTypes)[keyof typeof EventTypes]

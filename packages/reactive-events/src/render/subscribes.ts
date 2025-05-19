@@ -1,6 +1,4 @@
-import { createSubscribeEvent } from '../event-bus'
-import { EventTypes } from '../types'
-import {
+import type {
   EmitInitRenderEvent,
   EmitZoomFitEvent,
   FinishRequestRenderZoomEvent,
@@ -14,6 +12,8 @@ import {
   ZoomFitEvent,
   ZoomToCenterEvent
 } from './events'
+import { createSubscribeEvent } from '../event-bus'
+import { EventTypes } from '../types'
 
 export const subscribeToInitRender = createSubscribeEvent<InitRenderEvent>(
   EventTypes.INIT_RENDER

@@ -1,0 +1,12 @@
+import { MouseState } from '@asra/utils'
+import { publishEvent } from '../../event-bus'
+import { EventTypes } from '../../types'
+
+export const updateMouseStata = (mosueState: MouseState) => {
+  publishEvent({
+    type: EventTypes.UPDATE_MOUSE_STATE,
+    payload: {
+      ...mosueState
+    }
+  })
+}

@@ -1,11 +1,11 @@
-import { createSubscribeEvent } from '../../event-bus'
-import { EventTypes } from '../../types'
-import {
+import type {
   EmitSwitchPrimaryToolEvent,
   FinishRequestCurrentPrimaryToolEvent,
   RequestCurrentPrimaryToolEvent,
-  type SwitchPrimaryToolEvent
+  SwitchPrimaryToolEvent
 } from './events'
+import { createSubscribeEvent } from '../../event-bus'
+import { EventTypes } from '../../types'
 
 export const subscribeToSwitchPrimaryTool =
   createSubscribeEvent<SwitchPrimaryToolEvent>(EventTypes.SWITCH_PRIMARY_TOOL)

@@ -4,8 +4,7 @@ import { PositionData } from './common'
 export type ModifierKeys = Record<ModifierKey, boolean>
 
 export type MouseState = {
-  position: { x: number; y: number }
-  delta: PositionData
+  position: PositionData
   button: MouseButton
   down: boolean
   dragging: boolean
@@ -29,6 +28,13 @@ export type WheelState = {
   modifiers: ModifierKeys
 }
 
+export type InputSnapshot = {
+  mouse: MouseState
+  keyboard: KeyboardState
+  wheel?: WheelState
+}
+
+/** EventData type */
 export interface MouseEventData {
   clientX: number
   clientY: number
@@ -40,10 +46,4 @@ export interface WheelEventData {
   deltaZ: number
   clientX: number
   clientY: number
-}
-
-export type InputSnapshot = {
-  mouse: MouseState
-  keyboard: KeyboardState
-  wheel?: WheelState
 }
