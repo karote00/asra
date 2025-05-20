@@ -7,5 +7,8 @@ export const createMouseStateAPIs = (
 ): MouseStateAPIs => ({
   updateMouseState(mouseSnapshot: MouseSnapshot) {
     mouseState.set(mouseSnapshot)
+  },
+  getMouseState() {
+    return mouseState.current
   }
 })

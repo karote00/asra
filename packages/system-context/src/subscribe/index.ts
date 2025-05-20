@@ -11,6 +11,7 @@ export const initSystemContextSubscribe = (apis: SystemContextAPIs) => {
 
   initMouseStateSubscribe({
     updateMouseState: (mouseSnapshot: MouseSnapshot) =>
-      apis.updateMouseState(mouseSnapshot)
+      apis.updateMouseState(mouseSnapshot),
+    getMouseState: () => apis.getMouseState()
   })
 }
