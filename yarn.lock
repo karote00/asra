@@ -56,7 +56,9 @@ __metadata:
     "@asra/selection": "workspace:*"
     "@asra/system-context": "workspace:*"
     "@asra/utils": "workspace:*"
+    "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
+    vitest: "npm:^2.1.8"
   languageName: unknown
   linkType: soft
 
@@ -107,7 +109,9 @@ __metadata:
   dependencies:
     "@asra/reactive-events": "workspace:*"
     "@asra/utils": "workspace:*"
+    "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
+    vitest: "npm:^2.1.8"
     yjs: "npm:13.6.20"
   languageName: unknown
   linkType: soft
@@ -117,7 +121,9 @@ __metadata:
   resolution: "@asra/input-system@workspace:packages/input-system"
   dependencies:
     "@asra/utils": "workspace:*"
+    "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
+    vitest: "npm:^2.1.8"
   languageName: unknown
   linkType: soft
 
@@ -127,7 +133,9 @@ __metadata:
   dependencies:
     "@asra/reactive-events": "workspace:*"
     "@asra/utils": "workspace:*"
+    "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
+    vitest: "npm:^2.1.8"
   languageName: unknown
   linkType: soft
 
@@ -137,7 +145,9 @@ __metadata:
   dependencies:
     "@asra/reactive-events": "workspace:*"
     "@asra/utils": "workspace:*"
+    "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
+    vitest: "npm:^2.1.8"
   languageName: unknown
   linkType: soft
 
@@ -146,8 +156,10 @@ __metadata:
   resolution: "@asra/reactive-events@workspace:packages/reactive-events"
   dependencies:
     "@asra/utils": "workspace:*"
+    "@vitest/coverage-v8": "npm:^2.1.8"
     rxjs: "npm:^7.8.1"
     typescript: "npm:^5.7.2"
+    vitest: "npm:^2.1.8"
   languageName: unknown
   linkType: soft
 
@@ -159,8 +171,10 @@ __metadata:
     "@asra/reactive-events": "workspace:*"
     "@asra/scene-tree": "workspace:*"
     "@asra/utils": "workspace:*"
+    "@vitest/coverage-v8": "npm:^2.1.8"
     pixi.js: "npm:^8.6.3"
     typescript: "npm:^5.7.2"
+    vitest: "npm:^2.1.8"
   languageName: unknown
   linkType: soft
 
@@ -171,7 +185,9 @@ __metadata:
     "@asra/props-manager": "workspace:^"
     "@asra/reactive-events": "workspace:*"
     "@asra/utils": "workspace:*"
+    "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
+    vitest: "npm:^2.1.8"
   languageName: unknown
   linkType: soft
 
@@ -209,9 +225,11 @@ __metadata:
     "@asra/selection": "workspace:*"
     "@asra/utils": "workspace:*"
     "@types/lodash": "npm:^4"
+    "@vitest/coverage-v8": "npm:^2.1.8"
     lodash: "npm:^4.17.21"
     rxjs: "npm:^7.8.1"
     typescript: "npm:^5.7.2"
+    vitest: "npm:^2.1.8"
     yjs: "npm:13.6.20"
   languageName: unknown
   linkType: soft

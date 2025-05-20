@@ -1,7 +1,7 @@
-import { MouseState } from '@asra/utils'
+import { MouseSnapshot } from '@asra/utils'
 
 export interface MouseStateActionAPIs {
-  updateMouseState: (mouseStae: MouseState) => void
+  updateMouseState: (mouseSnapshot: MouseSnapshot) => void
 }
 
 export type MouseStateAPIs = MouseStateActionAPIs

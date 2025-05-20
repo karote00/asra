@@ -1,4 +1,4 @@
-import { PrimaryToolType, MouseState } from '@asra/utils'
+import { PrimaryToolType, MouseSnapshot } from '@asra/utils'
 import { SystemContextAPIs } from '../types'
 import {
   emitSwitchPrimaryTool,
@@ -16,8 +16,8 @@ export const createSystemContextAPIs = (): SystemContextAPIs => {
       switchPrimaryTool(tool)
       emitSwitchPrimaryTool()
     },
-    updateMouseState(mouseState: MouseState) {
-      updateMouseStata(mouseState)
+    updateMouseState(mouseSnapshot: MouseSnapshot) {
+      updateMouseStata(mouseSnapshot)
     }
   }
 }

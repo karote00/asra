@@ -1,8 +1,4 @@
-import type {
-  MouseState,
-  PropsComponentRawData,
-  SceneTreeRawData
-} from '@asra/utils'
+import type { PropsComponentRawData, SceneTreeRawData } from '@asra/utils'
 import factory, { Factory } from '@asra/factory'
 import inputSystem, { InputSystem } from '@asra/input-system'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
@@ -76,7 +72,7 @@ class Core implements CoreAPIs {
 
   getCurrentPrimaryTool!: SystemContextAPIs['getCurrentPrimaryTool']
   switchPrimaryTool!: SystemContextAPIs['switchPrimaryTool']
-  updateMouseState!: (mouseStae: MouseState) => void
+  updateMouseState!: SystemContextAPIs['updateMouseState']
 
   constructor(private readonly deps: CoreDeps) {
     const apis = createAPIs({

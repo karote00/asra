@@ -1,3 +1,4 @@
-import primaryToolState from './primary-tool'
+import primaryToolState, { PrimaryToolState } from './primary-tool'
+import mouseState, { MouseState } from './mouse-state'
 
-export { primaryToolState }
+export { primaryToolState, PrimaryToolState, mouseState, MouseState }

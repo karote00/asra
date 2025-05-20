@@ -1,4 +1,8 @@
-import { CreateRectangleData, MouseState, PrimaryToolType } from '@asra/utils'
+import {
+  CreateRectangleData,
+  MouseSnapshot,
+  PrimaryToolType
+} from '@asra/utils'
 import { UndoHandler } from './undo'
 import { ViewportHandler } from './viewport'
 import { CoreAPIs, HandlerDeps } from '../../types'
@@ -25,8 +29,8 @@ export const initAllHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
     initRender: async (width: number, height: number, color: number) =>
       await apis.initRender(width, height, color),
     addRectangle: (data: CreateRectangleData) => apis.addRectangle(data),
-    updateMouseState: (mouseState: MouseState) =>
-      apis.updateMouseState(mouseState)
+    updateMouseState: (mouseSnapshot: MouseSnapshot) =>
+      apis.updateMouseState(mouseSnapshot)
   })
 
   new SiwtchPrimaryToolHandler(deps.inputSystem, {

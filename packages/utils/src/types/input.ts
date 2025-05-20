@@ -3,7 +3,7 @@ import { PositionData } from './common'
 
 export type ModifierKeys = Record<ModifierKey, boolean>
 
-export type MouseState = {
+export interface MouseSnapshot {
   position: PositionData
   delta: PositionData
   button: MouseButton
@@ -12,27 +12,27 @@ export type MouseState = {
   modifiers: ModifierKeys
 }
 
-export type KeyPress = {
+export interface KeyPressSnapshot {
   key: string
   code: string
 }
 
-export type KeyboardState = {
+export interface KeyboardSnapshot {
   keysDown: Set<string>
   modifiers: ModifierKeys
-  lastKeyPress?: KeyPress
+  lastKeyPress?: KeyPressSnapshot
 }
 
-export type WheelState = {
+export interface WheelSnapshot {
   deltaX: number
   deltaY: number
   modifiers: ModifierKeys
 }
 
-export type InputSnapshot = {
-  mouse: MouseState
-  keyboard: KeyboardState
-  wheel?: WheelState
+export interface InputSnapshot {
+  mouse: MouseSnapshot
+  keyboard: KeyboardSnapshot
+  wheel?: WheelSnapshot
 }
 
 /** EventData type */
