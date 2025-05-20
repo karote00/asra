@@ -21,6 +21,7 @@
   "dependencies": {
     "@asra/factory": "workspace:*",
     "@asra/input-system": "workspace:*",
+    "@asra/interaction-core": "workspace:*",
     "@asra/props-manager": "workspace:*",
     "@asra/reactive-events": "workspace:*",
     "@asra/render": "workspace:*",
