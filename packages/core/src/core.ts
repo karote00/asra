@@ -1,10 +1,15 @@
+import type {
+  MouseState,
+  PropsComponentRawData,
+  SceneTreeRawData
+} from '@asra/utils'
 import factory, { Factory } from '@asra/factory'
 import inputSystem, { InputSystem } from '@asra/input-system'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
 import render, { Render } from '@asra/render'
 import props, { PropsManager } from '@asra/props-manager'
 import systemContext, { SystemContext } from '@asra/system-context'
-import type { PropsComponentRawData, SceneTreeRawData } from '@asra/utils'
+import interactionCore, { InteractionCore } from '@asra/interaction-core'
 
 import { initAllHandlers } from './subscribes'
 import {
@@ -36,6 +41,7 @@ interface CoreDeps {
   render: Render
   sceneTree: SceneTree
   systemContext: SystemContext
+  interactionCore: InteractionCore
 }
 
 const DEFAULT_VERSION = '1.0.0'
@@ -70,6 +76,7 @@ class Core implements CoreAPIs {
 
   getCurrentPrimaryTool!: SystemContextAPIs['getCurrentPrimaryTool']
   switchPrimaryTool!: SystemContextAPIs['switchPrimaryTool']
+  updateMouseState!: (mouseStae: MouseState) => void
 
   constructor(private readonly deps: CoreDeps) {
     const apis = createAPIs({
@@ -128,6 +135,7 @@ const core = new Core({
   props,
   render,
   sceneTree,
-  systemContext
+  systemContext,
+  interactionCore
 })
 export default core

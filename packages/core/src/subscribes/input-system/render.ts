@@ -5,8 +5,12 @@ import {
   roundFloat
 } from '@asra/utils'
 import { Events } from '../../combinations'
-import { HandlerDeps, RenderRawAPIs, SceneTreeHandlerAPIs } from '../../types'
-import { updateMouseStata } from '@asra/reactive-events'
+import {
+  HandlerDeps,
+  MouseStateAPIs,
+  RenderRawAPIs,
+  SceneTreeHandlerAPIs
+} from '../../types'
 
 export class RenderHandler {
   private _isDrag: boolean
@@ -16,7 +20,7 @@ export class RenderHandler {
   constructor(
     private inputSystem: HandlerDeps['inputSystem'],
     private render: HandlerDeps['render'],
-    private deps: RenderRawAPIs & SceneTreeHandlerAPIs
+    private deps: RenderRawAPIs & SceneTreeHandlerAPIs & MouseStateAPIs
   ) {
     this._isDrag = false
     this._startPos = {
@@ -40,10 +44,14 @@ export class RenderHandler {
   _handleDragStart = (modifiers: ModifierKeys, data: MouseEventData) => {
     this._startPos = { clientX: data.clientX, clientY: data.clientY }
 
-    updateMouseStata({
+    this.deps.updateMouseState({
       position: {
         x: data.clientX,
         y: data.clientY
+      },
+      delta: {
+        x: 0,
+        y: 0
       },
       down: true,
       button: data.button,

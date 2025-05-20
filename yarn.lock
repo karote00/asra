@@ -6,9 +6,9 @@ __metadata:
   cacheKey: 10c0
 
 "@adobe/css-tools@npm:^4.0.1, @adobe/css-tools@npm:^4.4.0":
-  version: 4.4.2
-  resolution: "@adobe/css-tools@npm:4.4.2"
-  checksum: 10c0/19433666ad18536b0ed05d4b53fbb3dd6ede266996796462023ec77a90b484890ad28a3e528cdf3ab8a65cb2fcdff5d8feb04db6bc6eed6ca307c40974239c94
+  version: 4.4.3
+  resolution: "@adobe/css-tools@npm:4.4.3"
+  checksum: 10c0/6d16c4d4b6752d73becf6e58611f893c7ed96e04017ff7084310901ccdbe0295171b722b158f6a2b0aa77182ef3446ffd62b39488fa5a7adab1f0dfe5ffafbae
   languageName: node
   linkType: hard
 
@@ -48,6 +48,7 @@ __metadata:
   dependencies:
     "@asra/factory": "workspace:*"
     "@asra/input-system": "workspace:*"
+    "@asra/interaction-core": "workspace:*"
     "@asra/props-manager": "workspace:*"
     "@asra/reactive-events": "workspace:*"
     "@asra/render": "workspace:*"
@@ -120,7 +121,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/interaction-core@workspace:packages/interaction-core":
+"@asra/interaction-core@workspace:*, @asra/interaction-core@workspace:packages/interaction-core":
   version: 0.0.0-use.local
   resolution: "@asra/interaction-core@workspace:packages/interaction-core"
   dependencies:
@@ -16393,9 +16394,9 @@ __metadata:
   linkType: hard
 
 "tapable@npm:^2.0.0, tapable@npm:^2.1.1, tapable@npm:^2.2.0, tapable@npm:^2.2.1":
-  version: 2.2.1
-  resolution: "tapable@npm:2.2.1"
-  checksum: 10c0/bc40e6efe1e554d075469cedaba69a30eeb373552aaf41caeaaa45bf56ffacc2674261b106245bd566b35d8f3329b52d838e851ee0a852120acae26e622925c9
+  version: 2.2.2
+  resolution: "tapable@npm:2.2.2"
+  checksum: 10c0/8ad130aa705cab6486ad89e42233569a1fb1ff21af115f59cebe9f2b45e9e7995efceaa9cc5062510cdb4ec673b527924b2ab812e3579c55ad659ae92117011e
   languageName: node
   linkType: hard
 
@@ -17527,12 +17528,12 @@ __metadata:
   linkType: hard
 
 "watchpack@npm:^2.4.1":
-  version: 2.4.2
-  resolution: "watchpack@npm:2.4.2"
+  version: 2.4.3
+  resolution: "watchpack@npm:2.4.3"
   dependencies:
     glob-to-regexp: "npm:^0.4.1"
     graceful-fs: "npm:^4.1.2"
-  checksum: 10c0/ec60a5f0e9efaeca0102fd9126346b3b2d523e01c34030d3fddf5813a7125765121ebdc2552981136dcd2c852deb1af0b39340f2fcc235f292db5399d0283577
+  checksum: 10c0/212c645311d6c3a920ccca5b5d27233e8477be4352a20ae30c207e1bc71691154f1179316d31fb1135e56cc948bae8590a648fa9c05f088741c18ef613203475
   languageName: node
   linkType: hard
 
@@ -18306,8 +18307,8 @@ __metadata:
   linkType: hard
 
 "zod@npm:^3.23.8":
-  version: 3.25.1
-  resolution: "zod@npm:3.25.1"
-  checksum: 10c0/41d81af0b2af257e12acafe3384deee22a20b094d800882e6bc8bc5d2b9d872cbf7233f64b08bb8944c7ec7ba7f9211235b5b1f72bff1ada154a04e0420d9bd1
+  version: 3.25.7
+  resolution: "zod@npm:3.25.7"
+  checksum: 10c0/9bf497ed9b810d30b84ae032ec7882435d0fb9c94db08427592f56b711227726cfb7551ee7ca9f99135dfaff1fcff5ce261e25a6400f62b651ec23880cb41013
   languageName: node
   linkType: hard

@@ -9,5 +9,3 @@ export interface PrimaryToolActionAPIs {
 }
 
 export type PrimaryToolAPIs = PrimaryToolRawAPIs & PrimaryToolActionAPIs
-
-export type SystemContextAPIs = PrimaryToolAPIs

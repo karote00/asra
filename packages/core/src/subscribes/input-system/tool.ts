@@ -1,6 +1,6 @@
 import { PrimaryToolType } from '@asra/utils'
 import { HandlerDeps } from '../../types'
-import { PrimaryToolActionAPIs } from '../../types/system-context'
+import { PrimaryToolActionAPIs } from '../../types/system-context/primary-tool'
 import { Events } from '../../combinations'
 
 export class SiwtchPrimaryToolHandler {

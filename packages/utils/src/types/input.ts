@@ -5,6 +5,7 @@ export type ModifierKeys = Record<ModifierKey, boolean>
 
 export type MouseState = {
   position: PositionData
+  delta: PositionData
   button: MouseButton
   down: boolean
   dragging: boolean
