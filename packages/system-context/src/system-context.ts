@@ -1,4 +1,3 @@
-import { MouseSnapshot } from '@asra/utils'
 import { createAllAPIs } from './apis'
 import { primaryToolState, mouseState } from './states'
 import { initSystemContextSubscribe } from './subscribe'
