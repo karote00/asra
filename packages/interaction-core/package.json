@@ -9,11 +9,11 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "adev": "tsc --watch",
-    "abuild:props-manager": "tsc",
-    "aclean": "rm -rf dist",
-    "atest": "vitest",
-    "atest:ci": "vitest run --coverage --reporter=default --reporter=junit"
+    "dev": "tsc --watch",
+    "build:interaction-core": "tsc",
+    "clean": "rm -rf dist",
+    "test": "vitest",
+    "test:ci": "vitest run --coverage --reporter=default --reporter=junit"
   },
   "devDependencies": {
     "typescript": "^5.7.2"
