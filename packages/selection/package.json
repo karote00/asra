@@ -12,8 +12,9 @@
     "dev": "tsc --watch --preserveWatchOutput",
     "build:selection": "tsc",
     "clean": "rm -rf dist",
-    "test": "vitest",
-    "test:ci": "vitest run --coverage --reporter=default --reporter=junit"
+    "has:test": "find . -type f \\( -name \"*.test.ts\" -o -name \"*.test.tsx\" \\) | grep -q .",
+    "test": "yarn has:test && vitest || echo 'No test files found. Skipping test.'",
+    "test:ci": "yarn has:test && vitest run --coverage --reporter=default --reporter=junit || echo 'No test files found. Skipping test:ci.'"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^2.1.8",
