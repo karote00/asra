@@ -5,7 +5,11 @@ import {
   subscribeToChangeComputedData,
   updateTransaction,
   subscribeToUpdateComputedData,
-  finishAddRectangle
+  finishAddRectangle,
+  subscribeToSceneTreeInit,
+  subscribeToSceneTreeLoadData,
+  subscribeToSceneTreeSaveData,
+  finishSceneTreeSaveData
 } from '@asra/reactive-events'
 import type { ComputedAttrs, ElementInstanceTypes } from '@asra/utils'
 import { UNDO } from '@asra/utils'
@@ -24,6 +28,18 @@ export const initSceneTreeSubscribes = () => {
   let inUndoRedo = false
   subscribeToUpdateUndoRedoStatus(({ payload }) => {
     inUndoRedo = payload.status !== UNDO.NONE
+  })
+
+  subscribeToSceneTreeInit(() => {
+    sceneTree.init()
+  })
+
+  subscribeToSceneTreeLoadData(({ payload }) => {
+    sceneTree.load(payload.data)
+  })
+
+  subscribeToSceneTreeSaveData(({ payload }) => {
+    finishSceneTreeSaveData(payload.requestId, sceneTree.save())
   })
 
   subscribeToAddElement(({ payload }) => {

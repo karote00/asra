@@ -19,8 +19,9 @@ const DataContexts = () => {
       }
     })
 
-    const transactSubscription = subscribeToEndTransaction(() => {
-      localStorage.setItem('FILE', JSON.stringify(core.save()))
+    const transactSubscription = subscribeToEndTransaction(async () => {
+      const coreData = await core.save()
+      localStorage.setItem('FILE', JSON.stringify(coreData))
     })
 
     return () => {

@@ -17,7 +17,11 @@ export enum FileEventTypes {
 
 // SceneTree
 export enum SceneTreeEventTypes {
+  SCENE_TREE_INIT = 'sceneTreeInit',
+  SCENE_TREE_LOAD_DATA = 'sceneTreeLoadData',
   SCENE_TREE_LOAD_COMPLETE = 'sceneTreeLoadComplete',
+  SCENE_TREE_SAVE_DATA = 'sceneTreeSaveData',
+  FINISH_SCENE_TREE_SAVE_DATA = 'finishSceneTreeSaveData',
   SCENE_TREE_CHANGED = 'sceneTreeChanged'
 }
 

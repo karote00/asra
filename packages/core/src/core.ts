@@ -1,8 +1,4 @@
-import type {
-  PropsComponentRawData,
-  SceneTreeRawData,
-  SystemSnapshot
-} from '@asra/utils'
+import type { PropsComponentRawData, SceneTreeRawData } from '@asra/utils'
 import factory, { Factory } from '@asra/factory'
 import inputSystem, { InputSystem } from '@asra/input-system'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
@@ -64,9 +60,9 @@ class Core implements CoreAPIs {
   undo!: UndoActionAPIs['undo']
   redo!: UndoActionAPIs['redo']
 
-  initSceneTree!: SceneTreeAPIs['initSceneTree']
-  loadSceneTree!: SceneTreeAPIs['loadSceneTree']
-  saveSceneTree!: SceneTreeAPIs['saveSceneTree']
+  sceneTreeInit!: SceneTreeAPIs['sceneTreeInit']
+  sceneTreeLoadData!: SceneTreeAPIs['sceneTreeLoadData']
+  sceneTreeSaveData!: SceneTreeAPIs['sceneTreeSaveData']
   addRectangle!: SceneTreeAPIs['addRectangle']
   changeComputedData!: SceneTreeAPIs['changeComputedData']
 
@@ -83,7 +79,6 @@ class Core implements CoreAPIs {
 
   constructor(private readonly deps: CoreDeps) {
     const apis = createAPIs({
-      sceneTree: this.deps.sceneTree,
       props: this.deps.props,
       systemContext: this.deps.systemContext,
       interactionCore: this.deps.interactionCore
@@ -111,18 +106,19 @@ class Core implements CoreAPIs {
     }
 
     if (data.sceneTree) {
-      this.loadSceneTree(data.sceneTree)
+      this.sceneTreeLoadData(data.sceneTree)
     } else {
-      this.initSceneTree()
+      this.sceneTreeInit()
     }
 
     this.zoomFit()
   }
 
-  save() {
+  async save() {
+    const sceneTreeData = await this.sceneTreeSaveData()
     const data = {
       version: this.version,
-      sceneTree: this.saveSceneTree(),
+      sceneTree: sceneTreeData,
       props: this.saveProps()
     }
 

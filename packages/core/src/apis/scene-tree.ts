@@ -5,25 +5,26 @@ import {
   startTransaction,
   sceneTreeLoadComplete,
   requestElementSelection,
-  changeComputedData
+  changeComputedData,
+  sceneTreeInit,
+  sceneTreeLoadData,
+  sceneTreeSaveData
 } from '@asra/reactive-events'
 import { CreateRectangleData, SceneTreeRawData, DataTypes } from '@asra/utils'
-import { APIDeps, SceneTreeAPIs } from '../types'
+import { SceneTreeAPIs } from '../types'
 
-export const createSceneTreeAPIs = (
-  sceneTree: APIDeps['sceneTree']
-): SceneTreeAPIs => {
+export const createSceneTreeAPIs = (): SceneTreeAPIs => {
   return {
-    initSceneTree() {
-      sceneTree.init()
+    sceneTreeInit() {
+      sceneTreeInit()
       sceneTreeLoadComplete()
     },
-    loadSceneTree(data: SceneTreeRawData) {
-      sceneTree.load(data)
+    sceneTreeLoadData(data: SceneTreeRawData) {
+      sceneTreeLoadData(data)
       sceneTreeLoadComplete()
     },
-    saveSceneTree() {
-      return sceneTree.save()
+    async sceneTreeSaveData() {
+      return await sceneTreeSaveData()
     },
     async addRectangle(data: CreateRectangleData) {
       startTransaction()

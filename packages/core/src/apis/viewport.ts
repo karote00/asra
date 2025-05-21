@@ -14,7 +14,7 @@ export const createViewportAPIs = (): ViewportAPIs => {
       return await requestViewportPosition()
     },
     async getViewportScale() {
-      return requestViewportScale()
+      return await requestViewportScale()
     },
     zoomFit() {
       const centerDiv = document.querySelector('#viewport-anchor')

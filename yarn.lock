@@ -120,6 +120,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asra/input-system@workspace:packages/input-system"
   dependencies:
+    "@asra/reactive-events": "workspace:*"
     "@asra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"

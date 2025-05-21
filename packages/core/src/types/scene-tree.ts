@@ -1,9 +1,9 @@
 import { CreateRectangleData, DataTypes, SceneTreeRawData } from '@asra/utils'
 
 export interface SceneTreeRawAPIs {
-  initSceneTree: () => void
-  loadSceneTree: (data: SceneTreeRawData) => void
-  saveSceneTree: () => SceneTreeRawData
+  sceneTreeInit: () => void
+  sceneTreeLoadData: (data: SceneTreeRawData) => void
+  sceneTreeSaveData: () => Promise<SceneTreeRawData>
 }
 
 export interface SceneTreeActionAPIs {
