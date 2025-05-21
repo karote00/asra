@@ -1,17 +1,17 @@
 import {
-  finishRequestCurrentPRimaryTool,
+  finishRequestCurrentPrimaryTool,
   subscribeToRequestCurrentPrimaryTool,
   subscribeToSwitchPrimaryTool
 } from '@asra/reactive-events'
-import { PrimaryToolAPIs } from '../types'
+import { PrimaryToolStateAPIs } from '../types'
 
-export const initPrimaryToolSubscribe = (apis: PrimaryToolAPIs) => {
+export const initPrimaryToolStateSubscribe = (apis: PrimaryToolStateAPIs) => {
   subscribeToSwitchPrimaryTool(({ payload }) => {
     apis.switchPrimaryTool(payload.tool)
   })
 
   subscribeToRequestCurrentPrimaryTool(({ payload }) => {
     const primaryTool = apis.getCurrentPrimaryTool()
-    finishRequestCurrentPRimaryTool(payload.requestId, primaryTool)
+    finishRequestCurrentPrimaryTool(payload.requestId, primaryTool)
   })
 }

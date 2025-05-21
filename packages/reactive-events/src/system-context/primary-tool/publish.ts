@@ -1,9 +1,9 @@
 import { Subscription } from 'rxjs'
 import { generateRequestId, PrimaryToolType } from '@asra/utils'
-import { publishEvent } from '../../event-bus'
-import { EventTypes } from '../../types'
 import { FinishRequestCurrentPrimaryToolEvent } from './events'
 import { subscribeToFinishRequestCurrentPrimaryTool } from './subscribes'
+import { publishEvent } from '../../event-bus'
+import { EventTypes } from '../../types'
 
 export const switchPrimaryTool = (tool: PrimaryToolType) => {
   publishEvent({
@@ -46,7 +46,7 @@ export const requestCurrentPrimaryTool = () => {
   })
 }
 
-export const finishRequestCurrentPRimaryTool = (
+export const finishRequestCurrentPrimaryTool = (
   requestId: string,
   tool: PrimaryToolType
 ) => {

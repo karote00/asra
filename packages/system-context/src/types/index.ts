@@ -1,8 +1,13 @@
-import { PrimaryToolAPIs } from './primary-tool'
+import { RootAPIs } from './root'
+import { PrimaryToolStateAPIs } from './primary-tool-state'
 import { MouseStateAPIs } from './mouse-state'
+import { SystemStateAPIs } from './system-state'
 
-export { PrimaryToolAPIs, MouseStateAPIs }
+export { RootAPIs, PrimaryToolStateAPIs, MouseStateAPIs, SystemStateAPIs }
 
-export type SystemContextAPIs = PrimaryToolAPIs & MouseStateAPIs
+export type SystemContextAPIs = RootAPIs &
+  SystemStateAPIs &
+  PrimaryToolStateAPIs &
+  MouseStateAPIs
 
 export * from './deps'

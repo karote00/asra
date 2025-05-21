@@ -32,8 +32,7 @@ export const initAllHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
     addRectangle: (data: CreateRectangleData) => apis.addRectangle(data),
     updateMouseState: (mouseSnapshot: MouseSnapshot) =>
       apis.updateMouseState(mouseSnapshot),
-    decideAction: (systemSnapshot: SystemSnapshot) =>
-      apis.decideAction(systemSnapshot)
+    decideAction: () => apis.decideAction()
   })
 
   new SiwtchPrimaryToolHandler(deps.inputSystem, {
