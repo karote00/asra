@@ -76,6 +76,7 @@ export enum ViewportEventTypes {
   FINISH_REQUEST_RENDER_ZOOM = 'finishRequestRenderZoom'
 }
 
+// PrimaryTool
 export enum PrimaryToolEventTypes {
   SWITCH_PRIMARY_TOOL = 'switchPrimaryTool',
   EMIT_SWITCH_PRIMARY_TOOL = 'emitSwitchPrimaryTool',
@@ -83,8 +84,14 @@ export enum PrimaryToolEventTypes {
   FINISH_REQUEST_CURRENT_PRIMARY_TOOL = 'finishRequestCurrentPrimaryTool'
 }
 
+// MouseState
 export enum MouseStateEventTypes {
   UPDATE_MOUSE_STATE = 'updateMouseState'
+}
+
+// InputSystem
+export enum InputSystemEventTypes {
+  SWITCH_INPUT_SYSTEM_WATCHED_ELEMENT = 'switchInputSystemWatchedElement'
 }
 
 export const EventTypes = {
@@ -100,7 +107,8 @@ export const EventTypes = {
   ...UIContextEventTypes,
   ...ViewportEventTypes,
   ...PrimaryToolEventTypes,
-  ...MouseStateEventTypes
+  ...MouseStateEventTypes,
+  ...InputSystemEventTypes
 } as const
 
 export type EventTypes = (typeof EventTypes)[keyof typeof EventTypes]

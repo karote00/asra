@@ -1,12 +1,11 @@
-import { APIDeps, InputSystemRawAPIs } from '../types'
+import { switchInputSystemWatchedElement } from '@asra/reactive-events/dist/input-system'
+import { InputSystemRawAPIs } from '../types'
 
-export const createInputSystemAPIs = (
-  inputSystem: APIDeps['inputSystem']
-): InputSystemRawAPIs => {
+export const createInputSystemAPIs = (): InputSystemRawAPIs => {
   return {
     setupInputSystem(watchedElement?: HTMLElement) {
       if (watchedElement) {
-        inputSystem.switchWatchedElement(watchedElement)
+        switchInputSystemWatchedElement(watchedElement)
       }
     }
   }

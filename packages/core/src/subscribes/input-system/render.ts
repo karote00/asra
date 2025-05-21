@@ -101,15 +101,15 @@ export class RenderHandler {
       modifiers
     })
 
-    // if (!this._isDrag) {
-    //   const startPos = this.render.getMousePosInWorkspace(this._startPos)
-    //   const pos = {
-    //     x: roundFloat(startPos.x, 2),
-    //     y: roundFloat(startPos.y, 2)
-    //   }
+    if (!this._isDrag) {
+      const startPos = this.render.getMousePosInWorkspace(this._startPos)
+      const pos = {
+        x: roundFloat(startPos.x, 2),
+        y: roundFloat(startPos.y, 2)
+      }
 
-    //   this.deps.addRectangle(pos)
-    // }
+      this.deps.addRectangle(pos)
+    }
 
     this._isDown = false
   }

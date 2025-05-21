@@ -7,7 +7,6 @@ import type { SceneTree } from '@asra/scene-tree'
 import type { SystemContext } from '@asra/system-context'
 
 export interface APIDeps {
-  inputSystem: InputSystem
   sceneTree: SceneTree
   props: PropsManager
   systemContext: SystemContext

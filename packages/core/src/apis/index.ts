@@ -11,7 +11,7 @@ import { createInteractionCoreAPIs } from './interaction-core'
 
 export const createAPIs = (deps: APIDeps): CoreAPIs => {
   return {
-    ...createInputSystemAPIs(deps.inputSystem),
+    ...createInputSystemAPIs(),
     ...createViewportAPIs(),
     ...createUndoAPIs(),
     ...createRenderAPIs(),
