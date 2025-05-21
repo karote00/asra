@@ -13,6 +13,7 @@ import {
 } from '../../types'
 
 export class RenderHandler {
+  private _isDown: boolean
   private _isDrag: boolean
   private _startPos: MouseData
   private _endPos: MouseData
@@ -22,6 +23,7 @@ export class RenderHandler {
     private render: HandlerDeps['render'],
     private deps: RenderRawAPIs & SceneTreeHandlerAPIs & MouseStateAPIs
   ) {
+    this._isDown = false
     this._isDrag = false
     this._startPos = {
       clientX: 0,
@@ -42,6 +44,8 @@ export class RenderHandler {
   }
 
   _handleDragStart = (modifiers: ModifierKeys, data: MouseEventData) => {
+    this._isDown = true
+    this._isDrag = false
     this._startPos = { clientX: data.clientX, clientY: data.clientY }
 
     this.deps.updateMouseState({
@@ -53,29 +57,60 @@ export class RenderHandler {
         x: 0,
         y: 0
       },
-      down: true,
+      down: this._isDown,
       button: data.button,
-      dragging: false,
+      dragging: this._isDrag,
       modifiers
     })
+    // TODO: 呼叫 interaction-core api 去發送事件並加入 interaction-core subscribers
   }
 
   _handleDragUpdate = (modifiers: ModifierKeys, data: MouseEventData) => {
     this._isDrag = true
     this._endPos = { ...data }
+
+    this.deps.updateMouseState({
+      position: {
+        x: data.clientX,
+        y: data.clientY
+      },
+      delta: {
+        x: data.clientX - this._startPos.clientX,
+        y: data.clientY - this._startPos.clientY
+      },
+      down: true,
+      button: data.button,
+      dragging: this._isDrag,
+      modifiers
+    })
   }
 
   _handleDragEnd = (modifiers: ModifierKeys, data: MouseEventData) => {
-    if (!this._isDrag) {
-      const startPos = this.render.getMousePosInWorkspace(this._startPos)
-      const pos = {
-        x: roundFloat(startPos.x, 2),
-        y: roundFloat(startPos.y, 2)
-      }
+    this.deps.updateMouseState({
+      position: {
+        x: data.clientX,
+        y: data.clientY
+      },
+      delta: {
+        x: data.clientX - this._startPos.clientX,
+        y: data.clientY - this._startPos.clientY
+      },
+      down: false,
+      button: data.button,
+      dragging: false,
+      modifiers
+    })
 
-      this.deps.addRectangle(pos)
-    }
+    // if (!this._isDrag) {
+    //   const startPos = this.render.getMousePosInWorkspace(this._startPos)
+    //   const pos = {
+    //     x: roundFloat(startPos.x, 2),
+    //     y: roundFloat(startPos.y, 2)
+    //   }
 
-    this._isDrag = false
+    //   this.deps.addRectangle(pos)
+    // }
+
+    this._isDown = false
   }
 }

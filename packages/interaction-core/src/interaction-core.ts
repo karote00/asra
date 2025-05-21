@@ -2,8 +2,8 @@ import { SystemSnapshot } from '@asra/utils'
 import { decideInteraction } from './decider'
 
 class InteractionCore {
-  decide(snapshot: SystemSnapshot) {
-    decideInteraction(snapshot)
+  decide(systemSnapshot: SystemSnapshot) {
+    decideInteraction(systemSnapshot)
   }
 }
 

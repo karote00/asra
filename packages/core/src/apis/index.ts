@@ -7,6 +7,7 @@ import { createElementSelectionAPIs } from './element-selection'
 import { createInputSystemAPIs } from './input-system'
 import { createPropsAPIs } from './props'
 import { createSystemContextAPIs } from './system-context'
+import { createInteractionCoreAPIs } from './interaction-core'
 
 export const createAPIs = (deps: APIDeps): CoreAPIs => {
   return {
@@ -17,6 +18,7 @@ export const createAPIs = (deps: APIDeps): CoreAPIs => {
     ...createSceneTreeAPIs(deps.sceneTree),
     ...createPropsAPIs(deps.props),
     ...createElementSelectionAPIs(),
-    ...createSystemContextAPIs()
+    ...createSystemContextAPIs(),
+    ...createInteractionCoreAPIs(deps.interactionCore)
   }
 }

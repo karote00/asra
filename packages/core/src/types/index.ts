@@ -13,6 +13,10 @@ import {
   PrimaryToolAPIs,
   MouseStateAPIs
 } from './system-context'
+import {
+  InteractionCoreAPIs,
+  InteractionCoreActionAPIs
+} from './interaction-core'
 
 export { APIDeps, HandlerDeps } from './deps'
 
@@ -32,7 +36,9 @@ export {
   PropsAPIs,
   PrimaryToolAPIs,
   MouseStateAPIs,
-  SystemContextAPIs
+  SystemContextAPIs,
+  InteractionCoreActionAPIs,
+  InteractionCoreAPIs
 }
 
 export type CoreAPIs = InputSystemAPIs &
@@ -42,4 +48,5 @@ export type CoreAPIs = InputSystemAPIs &
   SceneTreeAPIs &
   ElementSelectionAPIs &
   PropsAPIs &
-  SystemContextAPIs
+  SystemContextAPIs &
+  InteractionCoreAPIs

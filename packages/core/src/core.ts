@@ -1,4 +1,8 @@
-import type { PropsComponentRawData, SceneTreeRawData } from '@asra/utils'
+import type {
+  PropsComponentRawData,
+  SceneTreeRawData,
+  SystemSnapshot
+} from '@asra/utils'
 import factory, { Factory } from '@asra/factory'
 import inputSystem, { InputSystem } from '@asra/input-system'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
@@ -17,7 +21,8 @@ import {
   SceneTreeAPIs,
   ElementSelectionAPIs,
   PropsAPIs,
-  SystemContextAPIs
+  SystemContextAPIs,
+  InteractionCoreAPIs
 } from './types'
 import { createAPIs } from './apis'
 
@@ -74,12 +79,15 @@ class Core implements CoreAPIs {
   switchPrimaryTool!: SystemContextAPIs['switchPrimaryTool']
   updateMouseState!: SystemContextAPIs['updateMouseState']
 
+  decideAction!: InteractionCoreAPIs['decideAction']
+
   constructor(private readonly deps: CoreDeps) {
     const apis = createAPIs({
       inputSystem: this.deps.inputSystem,
       sceneTree: this.deps.sceneTree,
       props: this.deps.props,
-      systemContext: this.deps.systemContext
+      systemContext: this.deps.systemContext,
+      interactionCore: this.deps.interactionCore
     })
 
     initAllHandlers(
