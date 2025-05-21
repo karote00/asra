@@ -68,8 +68,8 @@ class Core implements CoreAPIs {
 
   selectElements!: ElementSelectionAPIs['selectElements']
 
-  loadProps!: PropsAPIs['loadProps']
-  saveProps!: PropsAPIs['saveProps']
+  propsLoadData!: PropsAPIs['propsLoadData']
+  propsSaveData!: PropsAPIs['propsSaveData']
 
   getCurrentPrimaryTool!: SystemContextAPIs['getCurrentPrimaryTool']
   switchPrimaryTool!: SystemContextAPIs['switchPrimaryTool']
@@ -79,8 +79,6 @@ class Core implements CoreAPIs {
 
   constructor(private readonly deps: CoreDeps) {
     const apis = createAPIs({
-      props: this.deps.props,
-      systemContext: this.deps.systemContext,
       interactionCore: this.deps.interactionCore
     })
 
@@ -102,7 +100,7 @@ class Core implements CoreAPIs {
 
     this.version = data.version ?? DATA_VERSION
     if (data.props) {
-      this.loadProps(data.props)
+      this.propsLoadData(data.props)
     }
 
     if (data.sceneTree) {
@@ -115,11 +113,13 @@ class Core implements CoreAPIs {
   }
 
   async save() {
+    const propsData = await this.propsSaveData()
     const sceneTreeData = await this.sceneTreeSaveData()
+
     const data = {
       version: this.version,
       sceneTree: sceneTreeData,
-      props: this.saveProps()
+      props: propsData
     }
 
     return data

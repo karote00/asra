@@ -1,8 +1,8 @@
 import { PropsComponentRawData } from '@asra/utils'
 
 export interface PropsRawAPIs {
-  loadProps: (data: PropsComponentRawData) => void
-  saveProps: () => void
+  propsLoadData: (data: PropsComponentRawData) => void
+  propsSaveData: () => Promise<PropsComponentRawData>
 }
 
 export type PropsAPIs = PropsRawAPIs

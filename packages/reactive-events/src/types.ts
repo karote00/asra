@@ -55,6 +55,9 @@ export enum SelectionEventTypes {
 
 // Properties
 export enum PropsEventTypes {
+  PROPS_LOAD_DATA = 'propsLoadData',
+  PROPS_SAVE_DATA = 'propsSaveData',
+  FINISH_PROPS_SAVE_DATA = 'finishPropsSaveData',
   ADD_PROPERTY = 'addProperty',
   REMOVE_PROPERTY = 'removeProperty',
   UPDATE_PROPERTY = 'updateProperty'

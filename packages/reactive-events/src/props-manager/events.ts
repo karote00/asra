@@ -1,5 +1,30 @@
-import type { PropertyComponentRawData } from '@asra/utils'
+import type {
+  PropsComponentRawData,
+  PropertyComponentRawData
+} from '@asra/utils'
 import type { EventTypes } from '../types'
+
+export interface PropsLoadDataEvent {
+  type: EventTypes
+  payload: {
+    data: PropsComponentRawData
+  }
+}
+
+export interface PropsSaveDataEvent {
+  type: EventTypes
+  payload: {
+    requestId: string
+  }
+}
+
+export interface FinishPropsSaveDataEvent {
+  type: EventTypes
+  payload: {
+    requestId: string
+    data: PropsComponentRawData
+  }
+}
 
 export interface AddPropertyEvent {
   type: EventTypes
@@ -23,6 +48,9 @@ export interface UpdatePropertyEvent {
 }
 
 export type PropEvents =
+  | PropsLoadDataEvent
+  | PropsSaveDataEvent
+  | FinishPropsSaveDataEvent
   | AddPropertyEvent
   | RemovePropertyEvent
   | UpdatePropertyEvent

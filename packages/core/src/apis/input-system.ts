@@ -1,4 +1,4 @@
-import { switchInputSystemWatchedElement } from '@asra/reactive-events/dist/input-system'
+import { switchInputSystemWatchedElement } from '@asra/reactive-events'
 import { InputSystemRawAPIs } from '../types'
 
 export const createInputSystemAPIs = (): InputSystemRawAPIs => {
