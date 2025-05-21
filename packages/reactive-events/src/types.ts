@@ -101,6 +101,11 @@ export enum InputSystemEventTypes {
   SWITCH_INPUT_SYSTEM_WATCHED_ELEMENT = 'switchInputSystemWatchedElement'
 }
 
+// InteractionCore
+export enum InteractionCoreEventTypes {
+  DECIDE_ACTION = 'decideAction'
+}
+
 export const EventTypes = {
   ...CoreEventTypes,
   ...RenderEventTypes,
@@ -115,7 +120,8 @@ export const EventTypes = {
   ...ViewportEventTypes,
   ...PrimaryToolEventTypes,
   ...MouseStateEventTypes,
-  ...InputSystemEventTypes
+  ...InputSystemEventTypes,
+  ...InteractionCoreEventTypes
 } as const
 
 export type EventTypes = (typeof EventTypes)[keyof typeof EventTypes]

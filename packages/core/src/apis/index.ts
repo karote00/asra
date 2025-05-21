@@ -1,6 +1,6 @@
 import { createViewportAPIs } from './viewport'
 import { createUndoAPIs } from './undo'
-import { APIDeps, CoreAPIs } from '../types'
+import { CoreAPIs } from '../types'
 import { createRenderAPIs } from './render'
 import { createSceneTreeAPIs } from './scene-tree'
 import { createElementSelectionAPIs } from './element-selection'
@@ -9,7 +9,7 @@ import { createPropsAPIs } from './props'
 import { createSystemContextAPIs } from './system-context'
 import { createInteractionCoreAPIs } from './interaction-core'
 
-export const createAPIs = (deps: APIDeps): CoreAPIs => {
+export const createAPIs = (): CoreAPIs => {
   return {
     ...createInputSystemAPIs(),
     ...createViewportAPIs(),
@@ -19,6 +19,6 @@ export const createAPIs = (deps: APIDeps): CoreAPIs => {
     ...createPropsAPIs(),
     ...createElementSelectionAPIs(),
     ...createSystemContextAPIs(),
-    ...createInteractionCoreAPIs(deps.interactionCore)
+    ...createInteractionCoreAPIs()
   }
 }

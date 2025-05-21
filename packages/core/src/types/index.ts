@@ -18,7 +18,7 @@ import {
   InteractionCoreActionAPIs
 } from './interaction-core'
 
-export { APIDeps, HandlerDeps } from './deps'
+export { HandlerDeps } from './deps'
 
 export {
   InputSystemRawAPIs,

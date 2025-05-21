@@ -3,7 +3,9 @@ import { decideInteraction } from './decider'
 
 class InteractionCore {
   decide(systemSnapshot: SystemSnapshot) {
-    decideInteraction(systemSnapshot)
+    const action = decideInteraction(systemSnapshot)
+    console.log('decidee action')
+    console.log(action)
   }
 }
 

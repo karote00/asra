@@ -78,9 +78,7 @@ class Core implements CoreAPIs {
   decideAction!: InteractionCoreAPIs['decideAction']
 
   constructor(private readonly deps: CoreDeps) {
-    const apis = createAPIs({
-      interactionCore: this.deps.interactionCore
-    })
+    const apis = createAPIs()
 
     initAllHandlers(
       {

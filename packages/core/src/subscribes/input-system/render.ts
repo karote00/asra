@@ -7,6 +7,7 @@ import {
 import { Events } from '../../combinations'
 import {
   HandlerDeps,
+  InteractionCoreActionAPIs,
   MouseStateAPIs,
   RenderRawAPIs,
   SceneTreeHandlerAPIs
@@ -21,7 +22,10 @@ export class RenderHandler {
   constructor(
     private inputSystem: HandlerDeps['inputSystem'],
     private render: HandlerDeps['render'],
-    private deps: RenderRawAPIs & SceneTreeHandlerAPIs & MouseStateAPIs
+    private deps: RenderRawAPIs &
+      SceneTreeHandlerAPIs &
+      MouseStateAPIs &
+      InteractionCoreActionAPIs
   ) {
     this._isDown = false
     this._isDrag = false
@@ -62,7 +66,7 @@ export class RenderHandler {
       dragging: this._isDrag,
       modifiers
     })
-    // TODO: 呼叫 interaction-core api 去發送事件並加入 interaction-core subscribers
+    this.deps.decideAction()
   }
 
   _handleDragUpdate = (modifiers: ModifierKeys, data: MouseEventData) => {
@@ -83,6 +87,7 @@ export class RenderHandler {
       dragging: this._isDrag,
       modifiers
     })
+    this.deps.decideAction()
   }
 
   _handleDragEnd = (modifiers: ModifierKeys, data: MouseEventData) => {
@@ -101,15 +106,16 @@ export class RenderHandler {
       modifiers
     })
 
-    if (!this._isDrag) {
-      const startPos = this.render.getMousePosInWorkspace(this._startPos)
-      const pos = {
-        x: roundFloat(startPos.x, 2),
-        y: roundFloat(startPos.y, 2)
-      }
+    // if (!this._isDrag) {
+    //   const startPos = this.render.getMousePosInWorkspace(this._startPos)
+    //   const pos = {
+    //     x: roundFloat(startPos.x, 2),
+    //     y: roundFloat(startPos.y, 2)
+    //   }
 
-      this.deps.addRectangle(pos)
-    }
+    //   this.deps.addRectangle(pos)
+    // }
+    this.deps.decideAction()
 
     this._isDown = false
   }

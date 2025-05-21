@@ -1,7 +1,8 @@
 import {
   CreateRectangleData,
   MouseSnapshot,
-  PrimaryToolType
+  PrimaryToolType,
+  SystemSnapshot
 } from '@asra/utils'
 import { UndoHandler } from './undo'
 import { ViewportHandler } from './viewport'
@@ -30,7 +31,9 @@ export const initAllHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
       await apis.initRender(width, height, color),
     addRectangle: (data: CreateRectangleData) => apis.addRectangle(data),
     updateMouseState: (mouseSnapshot: MouseSnapshot) =>
-      apis.updateMouseState(mouseSnapshot)
+      apis.updateMouseState(mouseSnapshot),
+    decideAction: (systemSnapshot: SystemSnapshot) =>
+      apis.decideAction(systemSnapshot)
   })
 
   new SiwtchPrimaryToolHandler(deps.inputSystem, {

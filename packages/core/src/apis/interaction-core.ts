@@ -1,12 +1,12 @@
 import { SystemSnapshot } from '@asra/utils'
-import { APIDeps, InteractionCoreAPIs } from '../types'
+import { InteractionCoreAPIs } from '../types'
+import { decideAction } from '@asra/reactive-events'
 
-export const createInteractionCoreAPIs = (
-  interactionCore: APIDeps['interactionCore']
-): InteractionCoreAPIs => {
+export const createInteractionCoreAPIs = (): InteractionCoreAPIs => {
   return {
-    decideAction(systemSnapshot: SystemSnapshot) {
-      interactionCore.decide(systemSnapshot)
+    async decideAction() {
+      //   const systemSnapshot = await requestSystemSnapshot()
+      //   decideAction(systemSnapshot)
     }
   }
 }
