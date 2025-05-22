@@ -2,13 +2,13 @@ import {
   InteractionAction,
   InteractionEvent,
   MouseButton,
-  SystemSnapshot
+  SystemContextSnapshot
 } from '@asra/utils'
 
 export const decideFromSelectRules = (
-  snapshot: SystemSnapshot
+  systemContextSnapshot: SystemContextSnapshot
 ): InteractionEvent | null => {
-  const { mouse, key, target } = snapshot
+  const { mouse, key, target } = systemContextSnapshot
 
   if (
     mouse.button === MouseButton.LEFT &&

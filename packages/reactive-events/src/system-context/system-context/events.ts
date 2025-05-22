@@ -1,21 +1,21 @@
-import { SystemSnapshot } from '@asra/utils'
+import { SystemContextSnapshot } from '@asra/utils'
 import { EventTypes } from '../../types'
 
-export interface RequestSystemSnapshotEvent {
+export interface RequestSystemContextSnapshotEvent {
   type: EventTypes
   payload: {
     requestId: string
   }
 }
 
-export interface FinishRequestSystemSnapshotEvent {
+export interface FinishRequestSystemContextSnapshotEvent {
   type: EventTypes
   payload: {
     requestId: string
-    systemSnapshot: SystemSnapshot
+    systemContextSnapshot: SystemContextSnapshot
   }
 }
 
 export type SystemContextSubEvents =
-  | RequestSystemSnapshotEvent
-  | FinishRequestSystemSnapshotEvent
+  | RequestSystemContextSnapshotEvent
+  | FinishRequestSystemContextSnapshotEvent

@@ -1,29 +1,29 @@
 import { Subscription } from 'rxjs'
-import { generateRequestId, SystemSnapshot } from '@asra/utils'
-import { FinishRequestSystemSnapshotEvent } from './events'
-import { subscribeToFinishRequestSystemSnapsho } from './subscribes'
+import { generateRequestId, SystemContextSnapshot } from '@asra/utils'
+import { FinishRequestSystemContextSnapshotEvent } from './events'
+import { subscribeToFinishRequestSystemContextSnapshot } from './subscribes'
 import { publishEvent } from '../../event-bus'
 import { EventTypes } from '../../types'
 
-export const requestSystemSnapshot = () => {
-  return new Promise<SystemSnapshot>((resolve) => {
+export const requestSystemContextSnapshot = () => {
+  return new Promise<SystemContextSnapshot>((resolve) => {
     const requestId = generateRequestId()
     let subscription: Subscription | null = null
 
-    const handler = ({ payload }: FinishRequestSystemSnapshotEvent) => {
+    const handler = ({ payload }: FinishRequestSystemContextSnapshotEvent) => {
       // Do nothing if the requestId is different
       if (payload.requestId !== requestId) {
         return
       }
 
       subscription?.unsubscribe()
-      resolve(payload.systemSnapshot)
+      resolve(payload.systemContextSnapshot)
     }
 
-    subscription = subscribeToFinishRequestSystemSnapsho(handler)
+    subscription = subscribeToFinishRequestSystemContextSnapshot(handler)
 
     publishEvent({
-      type: EventTypes.REQUEST_SYSTEM_SNAPSHOT,
+      type: EventTypes.REQUEST_SYSTEM_CONTEXT_SNAPSHOT,
       payload: {
         requestId
       }
@@ -31,15 +31,15 @@ export const requestSystemSnapshot = () => {
   })
 }
 
-export const finishRequestSystemSnapshot = (
+export const finishRequestSystemContextSnapshot = (
   requestId: string,
-  systemSnapshot: SystemSnapshot
+  systemContextSnapshot: SystemContextSnapshot
 ) => {
   publishEvent({
-    type: EventTypes.FINISH_REQUEST_SYSTEM_SNAPSHOT,
+    type: EventTypes.FINISH_REQUEST_SYSTEM_CONTEXT_SNAPSHOT,
     payload: {
       requestId,
-      systemSnapshot
+      systemContextSnapshot
     }
   })
 }

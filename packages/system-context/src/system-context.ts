@@ -1,5 +1,5 @@
 import { createAllAPIs } from './apis'
-import { systemState, primaryToolState, mouseState } from './states'
+import { systemState, primaryToolState, mouseState, keyState } from './states'
 import { initSystemContextSubscribe } from './subscribe'
 import {
   HandlerDeps,
@@ -7,19 +7,23 @@ import {
   MouseStateAPIs,
   SystemStateAPIs,
   SystemContextAPIs,
-  RootAPIs
+  RootAPIs,
+  KeyStateAPIs
 } from './types'
 
 export class SystemContext implements SystemContextAPIs {
+  getSystemMode!: SystemStateAPIs['getSystemMode']
+
   getCurrentPrimaryTool!: PrimaryToolStateAPIs['getCurrentPrimaryTool']
   switchPrimaryTool!: PrimaryToolStateAPIs['switchPrimaryTool']
 
-  updateMouseState!: MouseStateAPIs['updateMouseState']
   getMouseState!: MouseStateAPIs['getMouseState']
+  updateMouseState!: MouseStateAPIs['updateMouseState']
 
-  getSystemMode!: SystemStateAPIs['getSystemMode']
+  getKeyState!: KeyStateAPIs['getKeyState']
+  updateKeyState!: KeyStateAPIs['updateKeyState']
 
-  getSystemSnapshot!: RootAPIs['getSystemSnapshot']
+  getSystemContextSnapshot!: RootAPIs['getSystemContextSnapshot']
 
   constructor(private deps: HandlerDeps) {
     const apis = createAllAPIs(deps)
@@ -33,6 +37,7 @@ export class SystemContext implements SystemContextAPIs {
 const systemContext = new SystemContext({
   systemState,
   primaryToolState,
-  mouseState
+  mouseState,
+  keyState
 })
 export default systemContext

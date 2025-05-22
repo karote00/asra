@@ -1,7 +1,7 @@
-import { SystemSnapshot } from '@asra/utils'
+import { SystemContextSnapshot } from '@asra/utils'
 
 export interface RootRawAPIs {
-  getSystemSnapshot: () => SystemSnapshot
+  getSystemContextSnapshot: () => SystemContextSnapshot
 }
 
 export type RootAPIs = RootRawAPIs

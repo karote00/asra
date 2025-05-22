@@ -1,12 +1,12 @@
 import {
-  finishRequestSystemSnapshot,
-  subscribeToRequestSystemSnapshot
+  finishRequestSystemContextSnapshot,
+  subscribeToRequestSystemContextSnapshot
 } from '@asra/reactive-events'
 import { RootAPIs } from '../types'
 
 export const initRootSubscribe = (apis: RootAPIs) => {
-  subscribeToRequestSystemSnapshot(({ payload }) => {
-    const systemSnapshot = apis.getSystemSnapshot()
-    finishRequestSystemSnapshot(payload.requestId, systemSnapshot)
+  subscribeToRequestSystemContextSnapshot(({ payload }) => {
+    const systemContextSnapshot = apis.getSystemContextSnapshot()
+    finishRequestSystemContextSnapshot(payload.requestId, systemContextSnapshot)
   })
 }

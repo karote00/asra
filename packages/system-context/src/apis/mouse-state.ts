@@ -1,6 +1,5 @@
 import { MouseSnapshot } from '@asra/utils'
-import { MouseStateAPIs } from '../types'
-import { HandlerDeps } from '../types'
+import { HandlerDeps, MouseStateAPIs } from '../types'
 
 export const createMouseStateAPIs = (
   mouseState: HandlerDeps['mouseState']

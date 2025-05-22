@@ -11,7 +11,8 @@ import { PropsAPIs, PropsRawAPIs } from './props'
 import {
   SystemContextAPIs,
   PrimaryToolAPIs,
-  MouseStateAPIs
+  MouseStateAPIs,
+  KeyStateAPIs
 } from './system-context'
 import {
   InteractionCoreAPIs,
@@ -38,7 +39,8 @@ export {
   MouseStateAPIs,
   SystemContextAPIs,
   InteractionCoreActionAPIs,
-  InteractionCoreAPIs
+  InteractionCoreAPIs,
+  KeyStateAPIs
 }
 
 export type CoreAPIs = InputSystemAPIs &

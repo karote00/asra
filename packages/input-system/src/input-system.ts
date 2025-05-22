@@ -250,8 +250,10 @@ class InputSystem {
   private checkCombinations(data?: any) {
     const currentKeys = Array.from(this.activeKeys)
     const modifiers = this.getModifiers(this.activeKeys)
-
+    console.log('currentKeys')
+    console.log(currentKeys)
     for (const [action, requiredKeys] of Object.entries(this.combinations)) {
+      console.log()
       if (this.isExactMatch(currentKeys, requiredKeys)) {
         this.triggerAction(action, modifiers, data)
       }

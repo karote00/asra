@@ -1,12 +1,16 @@
-import { PrimaryToolType, InteractionEvent, SystemSnapshot } from '@asra/utils'
+import {
+  PrimaryToolType,
+  InteractionEvent,
+  SystemContextSnapshot
+} from '@asra/utils'
 import { decideSelectBehavior } from './behavior'
 
 export const decideInteraction = (
-  systemSnapshot: SystemSnapshot
+  systemContextSnapshot: SystemContextSnapshot
 ): InteractionEvent | null => {
-  switch (systemSnapshot.primaryTool) {
+  switch (systemContextSnapshot.primaryTool) {
     case PrimaryToolType.SELECT:
-      return decideSelectBehavior(systemSnapshot)
+      return decideSelectBehavior(systemContextSnapshot)
     default:
       return null
   }

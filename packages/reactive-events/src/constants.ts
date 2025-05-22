@@ -7,6 +7,7 @@ import type { UIContextEvents } from './ui-context'
 import type { RenderEvents } from './render'
 import type { InputSystemEvents } from './input-system'
 import type { InteractionCoreEvents } from './interaction-core'
+import type { KeyStateEvents } from './system-context'
 
 export type AllEvent =
   | AppEvent
@@ -18,3 +19,4 @@ export type AllEvent =
   | RenderEvents
   | InputSystemEvents
   | InteractionCoreEvents
+  | KeyStateEvents

@@ -1,16 +1,12 @@
-import {
-  ModifierKeys,
-  MouseData,
-  MouseEventData,
-  roundFloat
-} from '@asra/utils'
+import { ModifierKeys, MouseData, MouseEventData } from '@asra/utils'
 import { Events } from '../../combinations'
 import {
   HandlerDeps,
   InteractionCoreActionAPIs,
   MouseStateAPIs,
   RenderRawAPIs,
-  SceneTreeHandlerAPIs
+  SceneTreeHandlerAPIs,
+  KeyStateAPIs
 } from '../../types'
 
 export class RenderHandler {
@@ -25,7 +21,8 @@ export class RenderHandler {
     private deps: RenderRawAPIs &
       SceneTreeHandlerAPIs &
       MouseStateAPIs &
-      InteractionCoreActionAPIs
+      InteractionCoreActionAPIs &
+      KeyStateAPIs
   ) {
     this._isDown = false
     this._isDrag = false
@@ -48,6 +45,7 @@ export class RenderHandler {
   }
 
   _handleDragStart = (modifiers: ModifierKeys, data: MouseEventData) => {
+    console.log('fuck')
     this._isDown = true
     this._isDrag = false
     this._startPos = { clientX: data.clientX, clientY: data.clientY }
@@ -63,9 +61,13 @@ export class RenderHandler {
       },
       down: this._isDown,
       button: data.button,
-      dragging: this._isDrag,
-      modifiers
+      dragging: this._isDrag
     })
+    this.deps.updateKeyState({
+      ...modifiers,
+      pressedKeys: []
+    })
+
     this.deps.decideAction()
   }
 
@@ -84,9 +86,13 @@ export class RenderHandler {
       },
       down: true,
       button: data.button,
-      dragging: this._isDrag,
-      modifiers
+      dragging: this._isDrag
     })
+    this.deps.updateKeyState({
+      ...modifiers,
+      pressedKeys: []
+    })
+
     this.deps.decideAction()
   }
 
@@ -102,8 +108,11 @@ export class RenderHandler {
       },
       down: false,
       button: data.button,
-      dragging: false,
-      modifiers
+      dragging: false
+    })
+    this.deps.updateKeyState({
+      ...modifiers,
+      pressedKeys: []
     })
 
     // if (!this._isDrag) {

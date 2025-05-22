@@ -1,8 +1,8 @@
 import {
   CreateRectangleData,
+  KeySnapshot,
   MouseSnapshot,
-  PrimaryToolType,
-  SystemSnapshot
+  PrimaryToolType
 } from '@asra/utils'
 import { UndoHandler } from './undo'
 import { ViewportHandler } from './viewport'
@@ -32,6 +32,8 @@ export const initAllHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
     addRectangle: (data: CreateRectangleData) => apis.addRectangle(data),
     updateMouseState: (mouseSnapshot: MouseSnapshot) =>
       apis.updateMouseState(mouseSnapshot),
+    updateKeyState: (keySnapshot: KeySnapshot) =>
+      apis.updateKeyState(keySnapshot),
     decideAction: () => apis.decideAction()
   })
 

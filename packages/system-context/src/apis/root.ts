@@ -1,9 +1,8 @@
-import { SystemSnapshot } from '@asra/utils'
-import { RootAPIs } from '../types'
-import { HandlerDeps } from '../types'
+import { SystemContextSnapshot } from '@asra/utils'
+import { HandlerDeps, RootAPIs } from '../types'
 
 export const createRootAPIs = (deps: HandlerDeps): RootAPIs => ({
-  getSystemSnapshot(): SystemSnapshot {
+  getSystemContextSnapshot(): SystemContextSnapshot {
     return {
       primaryTool: deps.primaryToolState.current,
       mouse: deps.mouseState.current,
@@ -12,18 +11,12 @@ export const createRootAPIs = (deps: HandlerDeps): RootAPIs => ({
         featureFlags: {},
         permissions: {}
       },
+      key: deps.keyState.current,
       // TODO: Need to add system, target and key state and get current state here
       target: {
         hoveredElementId: null,
         selectedElementIds: [],
         activeElementId: null
-      },
-      key: {
-        alt: false,
-        ctrl: false,
-        shift: false,
-        meta: false,
-        pressedKeys: []
       }
     }
   }

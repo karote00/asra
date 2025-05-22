@@ -1,4 +1,8 @@
-import type { PropsComponentRawData, SceneTreeRawData } from '@asra/utils'
+import type {
+  KeySnapshot,
+  PropsComponentRawData,
+  SceneTreeRawData
+} from '@asra/utils'
 import factory, { Factory } from '@asra/factory'
 import inputSystem, { InputSystem } from '@asra/input-system'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
@@ -74,6 +78,7 @@ class Core implements CoreAPIs {
   getCurrentPrimaryTool!: SystemContextAPIs['getCurrentPrimaryTool']
   switchPrimaryTool!: SystemContextAPIs['switchPrimaryTool']
   updateMouseState!: SystemContextAPIs['updateMouseState']
+  updateKeyState!: SystemContextAPIs['updateKeyState']
 
   decideAction!: InteractionCoreAPIs['decideAction']
 

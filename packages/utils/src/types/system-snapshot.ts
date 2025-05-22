@@ -1,13 +1,13 @@
 import { PrimaryToolType } from '../constants'
-import { MouseSnapshot } from './input'
-import { KeyState } from './key-state'
-import { SystemState } from './system-state'
-import { TargetState } from './target-state'
+import { MouseSnapshot } from './mouse-state'
+import { KeySnapshot } from './key-state'
+import { SystemSnapshot } from './system-state'
+import { TargetSnapshot } from './target-state'
 
-export interface SystemSnapshot {
-  system: SystemState
+export interface SystemContextSnapshot {
+  system: SystemSnapshot
   primaryTool: PrimaryToolType
   mouse: MouseSnapshot
-  target: TargetState
-  key: KeyState
+  target: TargetSnapshot
+  key: KeySnapshot
 }

@@ -108,8 +108,13 @@ export enum InteractionCoreEventTypes {
 
 // SystemContext
 export enum SystemContextEventTypes {
-  REQUEST_SYSTEM_SNAPSHOT = 'requestSystemSnapshot',
-  FINISH_REQUEST_SYSTEM_SNAPSHOT = 'finishRequestSystemSnapshot'
+  REQUEST_SYSTEM_CONTEXT_SNAPSHOT = 'requestSystemContextSnapshot',
+  FINISH_REQUEST_SYSTEM_CONTEXT_SNAPSHOT = 'finishRequestSystemContextSnapshot'
+}
+
+// KeyState
+export enum KeyStateEventTypes {
+  UPDATE_KEY_STATE = 'updateKeyState'
 }
 
 export const EventTypes = {
@@ -128,7 +133,8 @@ export const EventTypes = {
   ...MouseStateEventTypes,
   ...InputSystemEventTypes,
   ...InteractionCoreEventTypes,
-  ...SystemContextEventTypes
+  ...SystemContextEventTypes,
+  ...KeyStateEventTypes
 } as const
 
 export type EventTypes = (typeof EventTypes)[keyof typeof EventTypes]

@@ -1,39 +1,27 @@
-import { ModifierKey, MouseButton } from '../constants'
-import { PositionData } from './common'
+import { MouseButton } from '../constants'
 
-export type ModifierKeys = Record<ModifierKey, boolean>
+// export interface KeyPressSnapshot {
+//   key: string
+//   code: string
+// }
 
-export interface MouseSnapshot {
-  position: PositionData
-  delta: PositionData
-  button: MouseButton
-  down: boolean
-  dragging: boolean
-  modifiers: ModifierKeys
-}
+// export interface KeyboardSnapshot {
+//   keysDown: Set<string>
+//   modifiers: ModifierKeys
+//   lastKeyPress?: KeyPressSnapshot
+// }
 
-export interface KeyPressSnapshot {
-  key: string
-  code: string
-}
+// export interface WheelSnapshot {
+//   deltaX: number
+//   deltaY: number
+//   modifiers: ModifierKeys
+// }
 
-export interface KeyboardSnapshot {
-  keysDown: Set<string>
-  modifiers: ModifierKeys
-  lastKeyPress?: KeyPressSnapshot
-}
-
-export interface WheelSnapshot {
-  deltaX: number
-  deltaY: number
-  modifiers: ModifierKeys
-}
-
-export interface InputSnapshot {
-  mouse: MouseSnapshot
-  keyboard: KeyboardSnapshot
-  wheel?: WheelSnapshot
-}
+// export interface InputSnapshot {
+//   mouse: MouseSnapshot
+//   keyboard: KeyboardSnapshot
+//   wheel?: WheelSnapshot
+// }
 
 /** EventData type */
 export interface MouseData {

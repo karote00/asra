@@ -1,13 +1,13 @@
 import {
   InteractionAction,
   InteractionEvent,
-  SystemSnapshot
+  SystemContextSnapshot
 } from '@asra/utils'
 
 export const decideFromMoveRules = (
-  snapshot: SystemSnapshot
+  systemContextSnapshot: SystemContextSnapshot
 ): InteractionEvent | null => {
-  const { mouse, target } = snapshot
+  const { mouse, target } = systemContextSnapshot
 
   if (mouse.dragging && target.selectedElementIds.length > 0) {
     return {

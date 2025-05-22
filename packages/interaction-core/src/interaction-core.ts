@@ -1,9 +1,10 @@
-import { SystemSnapshot } from '@asra/utils'
+import { SystemContextSnapshot } from '@asra/utils'
 import { decideInteraction } from './decider'
 
 class InteractionCore {
-  decide(systemSnapshot: SystemSnapshot) {
-    const action = decideInteraction(systemSnapshot)
+  decide(systemContextSnapshot: SystemContextSnapshot) {
+    console.log(systemContextSnapshot)
+    const action = decideInteraction(systemContextSnapshot)
     console.log('decidee action')
     console.log(action)
   }
