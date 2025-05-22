@@ -1,8 +1,4 @@
-import type {
-  KeySnapshot,
-  PropsComponentRawData,
-  SceneTreeRawData
-} from '@asra/utils'
+import type { PropsComponentRawData, SceneTreeRawData } from '@asra/utils'
 import factory, { Factory } from '@asra/factory'
 import inputSystem, { InputSystem } from '@asra/input-system'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
