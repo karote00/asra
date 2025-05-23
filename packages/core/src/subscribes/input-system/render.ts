@@ -1,5 +1,10 @@
-import { ModifierKeys, MouseData, MouseEventData } from '@asra/utils'
-import { Events } from '../../combinations'
+import {
+  ModifierKeys,
+  MouseData,
+  PointerEventData,
+  RawInputEvent
+} from '@asra/utils'
+import { InputSystemEvents } from '@asra/input-system'
 import {
   HandlerDeps,
   InteractionCoreActionAPIs,
@@ -39,79 +44,90 @@ export class RenderHandler {
   }
 
   init() {
-    this.inputSystem.on(Events.DRAG_START, this._handleDragStart)
-    this.inputSystem.on(Events.DRAG_UPDATE, this._handleDragUpdate)
-    this.inputSystem.on(Events.DRAG_END, this._handleDragEnd)
+    this.inputSystem.on(
+      InputSystemEvents.INPUT_DRAG_START,
+      this._handleDragStart
+    )
+    this.inputSystem.on(
+      InputSystemEvents.INPUT_DRAG_UPDATE,
+      this._handleDragUpdate
+    )
+    this.inputSystem.on(InputSystemEvents.INPUT_DRAG_END, this._handleDragEnd)
   }
 
-  _handleDragStart = (modifiers: ModifierKeys, data: MouseEventData) => {
-    console.log('fuck')
+  _handleDragStart = (raw: RawInputEvent) => {
+    const { clientX, clientY, button } = raw.pointer as PointerEventData
     this._isDown = true
     this._isDrag = false
-    this._startPos = { clientX: data.clientX, clientY: data.clientY }
+    this._startPos = { clientX, clientY }
 
     this.deps.updateMouseState({
       position: {
-        x: data.clientX,
-        y: data.clientY
+        x: clientX,
+        y: clientY
       },
       delta: {
         x: 0,
         y: 0
       },
       down: this._isDown,
-      button: data.button,
+      button: button,
       dragging: this._isDrag
     })
     this.deps.updateKeyState({
-      ...modifiers,
+      ...(raw.modifiers as ModifierKeys),
       pressedKeys: []
     })
 
     this.deps.decideAction()
   }
 
-  _handleDragUpdate = (modifiers: ModifierKeys, data: MouseEventData) => {
+  _handleDragUpdate = (raw: RawInputEvent) => {
+    const { clientX, clientY, button } = raw.pointer as PointerEventData
     this._isDrag = true
-    this._endPos = { ...data }
+    this._endPos = {
+      clientX,
+      clientY
+    }
 
     this.deps.updateMouseState({
       position: {
-        x: data.clientX,
-        y: data.clientY
+        x: clientX,
+        y: clientY
       },
       delta: {
-        x: data.clientX - this._startPos.clientX,
-        y: data.clientY - this._startPos.clientY
+        x: clientX - this._startPos.clientX,
+        y: clientY - this._startPos.clientY
       },
       down: true,
-      button: data.button,
+      button: button,
       dragging: this._isDrag
     })
     this.deps.updateKeyState({
-      ...modifiers,
+      ...(raw.modifiers as ModifierKeys),
       pressedKeys: []
     })
 
     this.deps.decideAction()
   }
 
-  _handleDragEnd = (modifiers: ModifierKeys, data: MouseEventData) => {
+  _handleDragEnd = (raw: RawInputEvent) => {
+    const { clientX, clientY, button } = raw.pointer as PointerEventData
     this.deps.updateMouseState({
       position: {
-        x: data.clientX,
-        y: data.clientY
+        x: clientX,
+        y: clientY
       },
       delta: {
-        x: data.clientX - this._startPos.clientX,
-        y: data.clientY - this._startPos.clientY
+        x: clientX - this._startPos.clientX,
+        y: clientY - this._startPos.clientY
       },
       down: false,
-      button: data.button,
+      button: button,
       dragging: false
     })
     this.deps.updateKeyState({
-      ...modifiers,
+      ...(raw.modifiers as ModifierKeys),
       pressedKeys: []
     })
 

@@ -1,19 +1,24 @@
 import {
   MouseData,
-  MouseEventData,
-  WheelEventData,
   MouseButton,
   SpecialEvent,
   InputField,
-  capitalizeFirstLetter,
-  ModifierKeys
+  ModifierKeys,
+  RawInputEvent,
+  InputType,
+  ModifierKey,
+  KeyboardKey,
+  arrEqual,
+  PointerEventData,
+  DefaultPointerEventData
 } from '@asra/utils'
 import { InputFieldsList } from '@asra/utils'
-import KeyMap from './keymap'
 import { CLICK_THRESHOLD, CLEAR_KEY_TIME } from './constants'
+import { InputEventCombo, InputEventMappings } from './input-event-mappings'
+import { InputSystemEvents } from './input-system-events'
+import keymap, { KeyMap } from './keymap'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Callback = (modifiers: ModifierKeys, data?: any) => void
+type Callback = (raw: RawInputEvent) => void
 type Combinations = Record<string, string[]>
 
 const WHEEL_EVENT_OPTIONS: AddEventListenerOptions = { passive: false }
@@ -42,7 +47,7 @@ class InputSystem {
 
   constructor() {
     this._previousWatchedElement = window
-    this.keyMap = new KeyMap()
+    this.keyMap = keymap
     this.activeKeys = new Set()
     this.listeners = new Map()
     this.timers = new Map()
@@ -155,7 +160,8 @@ class InputSystem {
       if (!this.keyMap.isModifierKeys(key)) {
         this.startTimer(key)
       }
-      this.checkCombinations()
+
+      this.checkCombinations(InputType.KEYBOARD)
     }
   }
 
@@ -168,7 +174,8 @@ class InputSystem {
     if (key) {
       this.activeKeys.delete(key)
       this.clearTimer(key)
-      this.checkCombinations()
+
+      this.checkCombinations(InputType.KEYBOARD)
     }
   }
 
@@ -182,7 +189,9 @@ class InputSystem {
         clientY: event.clientY
       }
       this.activeKeys.add(key)
-      this.checkCombinations({
+
+      this.checkCombinations(InputType.POINTER, {
+        ...DefaultPointerEventData,
         ...this._startPos,
         button
       })
@@ -196,11 +205,13 @@ class InputSystem {
     if (key) {
       this.activeKeys.add(key)
       this.activeKeys.delete(key.replace('Up', 'Down'))
-      this.checkCombinations({
+
+      this.checkCombinations(InputType.POINTER, {
+        ...DefaultPointerEventData,
         clientX: event.clientX,
         clientY: event.clientY,
         button
-      } as MouseEventData)
+      })
 
       // No need to keep mouse up key after trigger action
       this.activeKeys.delete(key)
@@ -225,11 +236,13 @@ class InputSystem {
 
       if (canMove) {
         this.activeKeys.add(key)
-        this.checkCombinations({
+
+        this.checkCombinations(InputType.POINTER, {
+          ...DefaultPointerEventData,
           clientX: event.clientX,
           clientY: event.clientY,
           button
-        } as MouseEventData)
+        })
 
         // No need to keep mouse up key after trigger action
         this.activeKeys.delete(key)
@@ -243,35 +256,54 @@ class InputSystem {
   ): string | undefined {
     if (button === MouseButton.NONE) return
 
-    return `${capitalizeFirstLetter(button)}Mouse${state}`
+    return `${button}Mouse${state}`
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private checkCombinations(data?: any) {
+  private checkCombinations(
+    type: InputType,
+    pointerData: PointerEventData = DefaultPointerEventData
+  ) {
     const currentKeys = Array.from(this.activeKeys)
-    const modifiers = this.getModifiers(this.activeKeys)
-    console.log('currentKeys')
-    console.log(currentKeys)
-    for (const [action, requiredKeys] of Object.entries(this.combinations)) {
-      console.log()
-      if (this.isExactMatch(currentKeys, requiredKeys)) {
-        this.triggerAction(action, modifiers, data)
+    const activeModifiers = this.getActiveModifiers(this.activeKeys)
+    const allModifiers = this.getAllModifiers(activeModifiers)
+
+    for (const [eventName, combos] of Object.entries(InputEventMappings)) {
+      for (const combo of combos) {
+        if (this.isExactMatch(type, currentKeys, combo, activeModifiers)) {
+          const raw: RawInputEvent = {
+            type,
+            keys: currentKeys,
+            modifiers: allModifiers,
+            pointer: pointerData
+          }
+          this.triggerAction(eventName as InputSystemEvents, raw)
+        }
       }
     }
   }
 
-  private isExactMatch(currentKeys: string[], requiredKeys: string[]): boolean {
-    return (
-      currentKeys.length === requiredKeys.length &&
-      requiredKeys.every((key) => currentKeys.includes(key))
-    )
+  private isExactMatch(
+    type: InputType,
+    keys: KeyboardKey[],
+    combo: InputEventCombo,
+    modifiers: ModifierKey[]
+  ): boolean {
+    const isKeysMatch = arrEqual(keys, combo.keys)
+    if (type !== combo.type || !isKeysMatch) return false
+    if (isKeysMatch && (!combo.modifiers || !combo.modifiers.length)) {
+      return true
+    }
+
+    return combo?.modifiers
+      ? combo.modifiers.every((m) => modifiers.includes(m))
+      : true
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private triggerAction(action: string, modifiers: ModifierKeys, data?: any) {
-    const callbacks = this.listeners.get(action)
+  private triggerAction(event: InputSystemEvents, raw: RawInputEvent) {
+    const callbacks = this.listeners.get(event)
     if (callbacks) {
-      callbacks.forEach((cb) => cb(modifiers, data))
+      callbacks.forEach((cb) => cb(raw))
     }
   }
 
@@ -281,39 +313,50 @@ class InputSystem {
 
     if (this.keyMap.isSpecialEvent(SpecialEvent.WHEEL)) {
       event.preventDefault()
-      const wheelKey = capitalizeFirstLetter(SpecialEvent.WHEEL)
-      this.activeKeys.add(wheelKey)
+      const key = SpecialEvent.WHEEL
+      this.activeKeys.add(key)
 
-      const wheelData: WheelEventData = {
+      const wheelData: PointerEventData = {
         deltaX,
         deltaY,
         deltaZ: event.deltaZ,
         clientX: event.clientX,
-        clientY: event.clientY
+        clientY: event.clientY,
+        button: MouseButton.MIDDLE
       }
 
-      this.checkCombinations(wheelData)
+      this.checkCombinations(InputType.WHEEL, wheelData)
 
       // Remove wheel key immediately as scrolling is continuous
-      this.activeKeys.delete(wheelKey)
+      this.activeKeys.delete(key)
     }
   }
 
-  getModifiers(keys: Set<string>): ModifierKeys {
-    const modifiers = {
-      meta: false,
-      ctrl: false,
-      alt: false,
-      shift: false
-    } as ModifierKeys
+  getActiveModifiers(keys: Set<string>): ModifierKey[] {
+    const modifiers: ModifierKey[] = []
 
     keys.forEach((key) => {
       if (this.keyMap.isModifierKeys(key)) {
-        modifiers[key.toLowerCase() as keyof ModifierKeys] = true
+        modifiers.push(key.toLocaleLowerCase() as ModifierKey)
       }
     })
 
     return modifiers
+  }
+
+  getAllModifiers(modifiers: ModifierKey[]): ModifierKeys {
+    const allModifiers: ModifierKeys = {
+      meta: false,
+      ctrl: false,
+      alt: false,
+      shift: false
+    }
+
+    modifiers.forEach((m) => {
+      allModifiers[m] = true
+    })
+
+    return allModifiers
   }
 }
 

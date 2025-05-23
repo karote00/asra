@@ -12,20 +12,6 @@ export const ModifierKeyList = [
   ModifierKey.SHIFT
 ]
 
-export enum MouseButton {
-  LEFT = 'left',
-  RIGHT = 'right',
-  MIDDLE = 'middle',
-  NONE = 'none'
-}
-
-export const MouseButtonList = [
-  MouseButton.LEFT,
-  MouseButton.RIGHT,
-  MouseButton.MIDDLE,
-  MouseButton.NONE
-]
-
 export enum SpecialEvent {
   WHEEL = 'wheel'
 }
@@ -43,3 +29,9 @@ export const InputFieldsList = [
   InputField.TEXT,
   InputField.TEXTAREA
 ]
+
+export enum InputType {
+  KEYBOARD = 'keyboard',
+  POINTER = 'pointer',
+  WHEEL = 'wheel'
+}

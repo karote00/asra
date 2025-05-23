@@ -42,3 +42,12 @@ export interface WheelEventData {
   clientX: number
   clientY: number
 }
+
+export interface PointerEventData {
+  clientX: number
+  clientY: number
+  deltaX: number
+  deltaY: number
+  deltaZ: number
+  button: MouseButton
+}

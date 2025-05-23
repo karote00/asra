@@ -3,16 +3,21 @@ import {
   SpecialEventList,
   Platforms,
   ModifierKey,
-  SpecialEvent
+  SpecialEvent,
+  KeyboardKey
 } from '@asra/utils'
 
-export default class KeyMap {
+export class KeyMap {
   private os: Platforms
-  private keyMap: Record<string, string>
+  private keyMap: Record<string, KeyboardKey>
 
   constructor() {
     this.os = this.detectOS()
     this.keyMap = this.createKeyMap()
+  }
+
+  get keys() {
+    return this.keyMap
   }
 
   private detectOS(): Platforms {
@@ -22,8 +27,8 @@ export default class KeyMap {
     return Platforms.LINUX
   }
 
-  private createKeyMap(): Record<string, string> {
-    const baseMap: Record<string, string> = {
+  private createKeyMap(): Record<string, KeyboardKey> {
+    const baseMap: Record<string, KeyboardKey> = {
       Escape: 'Escape',
       Tab: 'Tab',
       CapsLock: 'CapsLock',
@@ -159,3 +164,5 @@ export default class KeyMap {
     return SpecialEventList.includes(key as SpecialEvent)
   }
 }
+
+export default new KeyMap()
