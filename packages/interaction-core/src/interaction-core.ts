@@ -6,7 +6,7 @@ class InteractionCore {
     // console.log(systemContextSnapshot)
     const action = decideInteraction(systemContextSnapshot)
     // console.log('decidee action')
-    // console.log(action)
+    console.log(action)
   }
 }
 

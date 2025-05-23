@@ -2,7 +2,7 @@ import { InputType, KeyboardKey, PointerKey, ModifierKey } from '@asra/utils'
 import { InputSystemEvents } from './input-system-events'
 import keyMap from './keymap'
 
-export type InputEventCombo = {
+export interface InputEventCombo {
   type: InputType
   keys: KeyboardKey[]
   modifiers?: ModifierKey[]

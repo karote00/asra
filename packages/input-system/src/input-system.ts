@@ -299,7 +299,6 @@ class InputSystem {
       : true
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private triggerAction(event: InputSystemEvents, raw: RawInputEvent) {
     const callbacks = this.listeners.get(event)
     if (callbacks) {
