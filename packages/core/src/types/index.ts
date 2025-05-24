@@ -17,6 +17,7 @@ import {
 } from './system-context'
 import {
   InteractionCoreAPIs,
+  InteractionCoreSessionAPIs,
   InteractionCoreActionAPIs
 } from './interaction-core'
 
@@ -41,6 +42,7 @@ export {
   MouseStateAPIs,
   SystemContextAPIs,
   InteractionCoreActionAPIs,
+  InteractionCoreSessionAPIs,
   InteractionCoreAPIs,
   KeyStateAPIs
 }

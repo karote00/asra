@@ -13,15 +13,14 @@ export enum ElementInteraction {
 
 // PrimaryToolInteraction
 export enum PrimaryToolInteraction {
-  ACTION_SWITCH_PRIMARY_TOOL_TO_SELECT = 'ACTION_SWITCH_PRIMARY_TOOL_TO_SELECT',
-  ACTION_SWITCH_PRIMARY_TOOL_TO_RECTANGLE = 'ACTION_SWITCH_PRIMARY_TOOL_TO_RECTANGLE'
+  ACTION_SWITCH_PRIMARY_TOOL = 'ACTION_SWITCH_PRIMARY_TOOL'
 }
 
-export const InteractionAction = {
+export const InteractionActions = {
   ...NoneInteraction,
   ...ElementInteraction,
   ...PrimaryToolInteraction
 }
 
 export type InteractionAction =
-  (typeof InteractionAction)[keyof typeof InteractionAction]
+  (typeof InteractionActions)[keyof typeof InteractionActions]

@@ -76,7 +76,10 @@ class Core implements CoreAPIs {
   updateMouseState!: SystemContextAPIs['updateMouseState']
   updateKeyState!: SystemContextAPIs['updateKeyState']
 
-  decideAction!: InteractionCoreAPIs['decideAction']
+  executeAction!: InteractionCoreAPIs['executeAction']
+  startSession!: InteractionCoreAPIs['startSession']
+  updateSession!: InteractionCoreAPIs['updateSession']
+  endSession!: InteractionCoreAPIs['endSession']
 
   constructor(private readonly deps: CoreDeps) {
     const apis = createAPIs()
@@ -85,7 +88,8 @@ class Core implements CoreAPIs {
       {
         inputSystem: this.deps.inputSystem,
         render: this.deps.render,
-        factory: this.deps.factory
+        factory: this.deps.factory,
+        interactionCore: this.deps.interactionCore
       },
       apis
     )

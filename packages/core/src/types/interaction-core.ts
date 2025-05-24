@@ -1,7 +1,14 @@
 import { DetailType, InputSystemEvents } from '@asra/utils'
 
 export interface InteractionCoreActionAPIs {
-  decideAction: (eventName: InputSystemEvents, detail?: DetailType) => void
+  executeAction: (eventName: InputSystemEvents, detail?: DetailType) => void
 }
 
-export type InteractionCoreAPIs = InteractionCoreActionAPIs
+export interface InteractionCoreSessionAPIs {
+  startSession: (eventName: InputSystemEvents, detail?: DetailType) => void
+  updateSession: (eventName: InputSystemEvents, detail?: DetailType) => void
+  endSession: (eventName: InputSystemEvents, detail?: DetailType) => void
+}
+
+export type InteractionCoreAPIs = InteractionCoreActionAPIs &
+  InteractionCoreSessionAPIs

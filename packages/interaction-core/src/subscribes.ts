@@ -1,9 +1,9 @@
-import { subscribeToDecideAction } from '@asra/reactive-events'
+import { subscribeToExecuteAction } from '@asra/reactive-events'
 import interactionCore from './interaction-core'
 
 export const initInteractionCoreSubscribes = () => {
-  subscribeToDecideAction(({ payload }) => {
+  subscribeToExecuteAction(({ payload }) => {
     const { eventName, systemContextSnapshot, detail } = payload
-    interactionCore.decide(eventName, systemContextSnapshot, detail)
+    interactionCore.executeAction(eventName, systemContextSnapshot, detail)
   })
 }

@@ -7,11 +7,11 @@ import {
 } from '@asra/utils'
 import {
   HandlerDeps,
-  InteractionCoreActionAPIs,
   MouseStateAPIs,
   RenderRawAPIs,
   SceneTreeHandlerAPIs,
-  KeyStateAPIs
+  KeyStateAPIs,
+  InteractionCoreSessionAPIs
 } from '../../types'
 
 export class RenderHandler {
@@ -26,7 +26,7 @@ export class RenderHandler {
     private deps: RenderRawAPIs &
       SceneTreeHandlerAPIs &
       MouseStateAPIs &
-      InteractionCoreActionAPIs &
+      InteractionCoreSessionAPIs &
       KeyStateAPIs
   ) {
     this._isDown = false
@@ -78,7 +78,7 @@ export class RenderHandler {
       ...(raw.modifiers as ModifierKeys)
     })
 
-    this.deps.decideAction(InputSystemEvents.INPUT_DRAG_START)
+    this.deps.startSession(InputSystemEvents.INPUT_DRAG_START)
   }
 
   _handleDragUpdate = (raw: RawInputEvent) => {
@@ -106,7 +106,7 @@ export class RenderHandler {
       ...(raw.modifiers as ModifierKeys)
     })
 
-    this.deps.decideAction(InputSystemEvents.INPUT_DRAG_UPDATE)
+    this.deps.updateSession(InputSystemEvents.INPUT_DRAG_UPDATE)
   }
 
   _handleDragEnd = (raw: RawInputEvent) => {
@@ -137,7 +137,7 @@ export class RenderHandler {
 
     //   this.deps.addRectangle(pos)
     // }
-    this.deps.decideAction(InputSystemEvents.INPUT_DRAG_END)
+    this.deps.endSession(InputSystemEvents.INPUT_DRAG_END)
 
     this._isDown = false
   }

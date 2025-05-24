@@ -1,5 +1,5 @@
 import {
-  InteractionAction,
+  InteractionActions,
   InteractionEvent,
   MouseButton,
   SystemContextSnapshot
@@ -17,7 +17,7 @@ export const decideFromSelectRules = (
     target.hoveredElementId
   ) {
     return {
-      type: InteractionAction.ACTION_SELECT_ELEMENTS,
+      type: InteractionActions.ACTION_SELECT_ELEMENTS,
       payload: { id: target.hoveredElementId }
     }
   }

@@ -2,17 +2,16 @@ import {
   CreateRectangleData,
   KeySnapshot,
   MouseSnapshot,
-  PrimaryToolType,
   InputSystemEvents,
   DetailType
 } from '@asra/utils'
 import { UndoHandler } from './undo'
 import { ViewportHandler } from './viewport'
 import { RenderHandler } from './render'
-import { SiwtchPrimaryToolHandler } from './tool'
+import { PrimaryToolHandler } from './tool'
 import { CoreAPIs, HandlerDeps } from '../../types'
 
-export const initAllHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
+export const initInputSystemHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
   new UndoHandler(deps.inputSystem, {
     undo: apis.undo,
     redo: apis.redo
@@ -36,13 +35,16 @@ export const initAllHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
       apis.updateMouseState(mouseSnapshot),
     updateKeyState: (keySnapshot: KeySnapshot) =>
       apis.updateKeyState(keySnapshot),
-    decideAction: (eventName: InputSystemEvents, detail?: DetailType) =>
-      apis.decideAction(eventName, detail)
+    startSession: (eventName: InputSystemEvents, detail?: DetailType) =>
+      apis.startSession(eventName, detail),
+    updateSession: (eventName: InputSystemEvents, detail?: DetailType) =>
+      apis.updateSession(eventName, detail),
+    endSession: (eventName: InputSystemEvents, detail?: DetailType) =>
+      apis.endSession(eventName, detail)
   })
 
-  new SiwtchPrimaryToolHandler(deps.inputSystem, {
-    switchPrimaryTool: (tool: PrimaryToolType) => apis.switchPrimaryTool(tool),
-    decideAction: (eventName: InputSystemEvents, detail?: DetailType) =>
-      apis.decideAction(eventName, detail)
+  new PrimaryToolHandler(deps.inputSystem, {
+    executeAction: (eventName: InputSystemEvents, detail?: DetailType) =>
+      apis.executeAction(eventName, detail)
   })
 }

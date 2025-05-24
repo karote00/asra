@@ -103,7 +103,11 @@ export enum InputSystemEventTypes {
 
 // InteractionCore
 export enum InteractionCoreEventTypes {
-  DECIDE_ACTION = 'decideAction'
+  EXECUTE_ACTION = 'executeAction',
+  START_SESSION = 'startSession',
+  UPDATE_SESSION = 'updateSession',
+  END_SESSION = 'endSession',
+  DECIDE_SWITCH_PRIMARY_TOOL = 'decideSwitchPrimaryTool'
 }
 
 // SystemContext

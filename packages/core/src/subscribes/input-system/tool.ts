@@ -1,14 +1,10 @@
 import { InputSystemEvents, RawInputEvent } from '@asra/utils'
-import {
-  HandlerDeps,
-  PrimaryToolActionAPIs,
-  InteractionCoreActionAPIs
-} from '../../types'
+import { HandlerDeps, InteractionCoreActionAPIs } from '../../types'
 
-export class SiwtchPrimaryToolHandler {
+export class PrimaryToolHandler {
   constructor(
     private inputSystem: HandlerDeps['inputSystem'],
-    private deps: PrimaryToolActionAPIs & InteractionCoreActionAPIs
+    private deps: InteractionCoreActionAPIs
   ) {
     this.init()
   }
@@ -21,9 +17,11 @@ export class SiwtchPrimaryToolHandler {
   }
 
   _handleSwitchPrimaryTool = (raw: RawInputEvent) => {
-    this.deps.decideAction(
+    this.deps.executeAction(
       InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL,
       raw.detail
     )
   }
+
+  // this.deps.switchPrimaryTool(PrimaryToolType.RECTANGLE)
 }

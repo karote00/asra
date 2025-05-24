@@ -1,15 +1,30 @@
 import {
-  decideAction,
-  requestSystemContextSnapshot
+  endSession,
+  executeAction,
+  requestSystemContextSnapshot,
+  startSession,
+  updateSession
 } from '@asra/reactive-events'
 import { InputSystemEvents, DetailType } from '@asra/utils'
 import { InteractionCoreAPIs } from '../types'
 
 export const createInteractionCoreAPIs = (): InteractionCoreAPIs => {
   return {
-    async decideAction(eventName: InputSystemEvents, detail?: DetailType) {
+    async executeAction(eventName: InputSystemEvents, detail?: DetailType) {
       const systemContextSnapshot = await requestSystemContextSnapshot()
-      decideAction(eventName, systemContextSnapshot, detail)
+      executeAction(eventName, systemContextSnapshot, detail)
+    },
+    async startSession(eventName: InputSystemEvents, detail?: DetailType) {
+      const systemContextSnapshot = await requestSystemContextSnapshot()
+      startSession(eventName, systemContextSnapshot, detail)
+    },
+    async updateSession(eventName: InputSystemEvents, detail?: DetailType) {
+      const systemContextSnapshot = await requestSystemContextSnapshot()
+      updateSession(eventName, systemContextSnapshot, detail)
+    },
+    async endSession(eventName: InputSystemEvents, detail?: DetailType) {
+      const systemContextSnapshot = await requestSystemContextSnapshot()
+      endSession(eventName, systemContextSnapshot, detail)
     }
   }
 }

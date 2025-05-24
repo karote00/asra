@@ -3,7 +3,7 @@ import {
   PrimaryToolType,
   SystemContextSnapshot
 } from '@asra/utils'
-import { decideFromDragStartRules, decideFromSelectRules } from '../rules'
+import { decideFromCreateElementRules, decideFromSelectRules } from '../rules'
 
 export const decideDragStartBehavior = (
   systemContextSnapshot: SystemContextSnapshot
@@ -14,7 +14,7 @@ export const decideDragStartBehavior = (
     case PrimaryToolType.SELECT:
       return decideFromSelectRules(systemContextSnapshot)
     case PrimaryToolType.RECTANGLE:
-      return decideFromDragStartRules(systemContextSnapshot)
+      return decideFromCreateElementRules(systemContextSnapshot)
   }
 
   return null
