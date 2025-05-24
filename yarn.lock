@@ -132,6 +132,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asra/interaction-core@workspace:packages/interaction-core"
   dependencies:
+    "@asra/input-system": "workspace:*"
     "@asra/reactive-events": "workspace:*"
     "@asra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"

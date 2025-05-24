@@ -4,8 +4,7 @@ const InitModifiers = {
   meta: false,
   ctrl: false,
   alt: false,
-  shift: false,
-  pressedKeys: []
+  shift: false
 }
 
 export class KeyState {
@@ -18,7 +17,7 @@ export class KeyState {
   }
 
   set(keySnapshot: KeySnapshot) {
-    this._state = { ...keySnapshot, pressedKeys: [...keySnapshot.pressedKeys] }
+    this._state = { ...keySnapshot }
   }
 
   get current() {

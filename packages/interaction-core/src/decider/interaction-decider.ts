@@ -1,11 +1,13 @@
 import {
   PrimaryToolType,
   InteractionEvent,
-  SystemContextSnapshot
+  SystemContextSnapshot,
+  InputSystemEvents
 } from '@asra/utils'
 import { decideSelectBehavior } from './behavior'
 
 export const decideInteraction = (
+  eventName: InputSystemEvents,
   systemContextSnapshot: SystemContextSnapshot
 ): InteractionEvent | null => {
   switch (systemContextSnapshot.primaryTool) {

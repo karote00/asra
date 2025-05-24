@@ -2,13 +2,14 @@ import {
   CreateRectangleData,
   KeySnapshot,
   MouseSnapshot,
-  PrimaryToolType
+  PrimaryToolType,
+  InputSystemEvents
 } from '@asra/utils'
 import { UndoHandler } from './undo'
 import { ViewportHandler } from './viewport'
-import { CoreAPIs, HandlerDeps } from '../../types'
 import { RenderHandler } from './render'
 import { SiwtchPrimaryToolHandler } from './tool'
+import { CoreAPIs, HandlerDeps } from '../../types'
 
 export const initAllHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
   new UndoHandler(deps.inputSystem, {
@@ -34,7 +35,7 @@ export const initAllHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
       apis.updateMouseState(mouseSnapshot),
     updateKeyState: (keySnapshot: KeySnapshot) =>
       apis.updateKeyState(keySnapshot),
-    decideAction: () => apis.decideAction()
+    decideAction: (eventName: InputSystemEvents) => apis.decideAction(eventName)
   })
 
   new SiwtchPrimaryToolHandler(deps.inputSystem, {

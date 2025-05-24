@@ -10,12 +10,12 @@ import {
   KeyboardKey,
   arrEqual,
   PointerEventData,
-  DefaultPointerEventData
+  DefaultPointerEventData,
+  InputSystemEvents
 } from '@asra/utils'
 import { InputFieldsList } from '@asra/utils'
 import { CLICK_THRESHOLD, CLEAR_KEY_TIME } from './constants'
-import { InputEventCombo, InputEventMappings } from './input-event-mappings'
-import { InputSystemEvents } from './input-system-events'
+import { InputEventCombo, InputEventMappings } from './event-mappings'
 import keymap, { KeyMap } from './keymap'
 
 type Callback = (raw: RawInputEvent) => void

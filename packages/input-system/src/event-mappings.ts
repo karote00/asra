@@ -1,5 +1,10 @@
-import { InputType, KeyboardKey, PointerKey, ModifierKey } from '@asra/utils'
-import { InputSystemEvents } from './input-system-events'
+import {
+  InputType,
+  KeyboardKey,
+  PointerKey,
+  ModifierKey,
+  InputSystemEvents
+} from '@asra/utils'
 import keyMap from './keymap'
 
 export interface InputEventCombo {

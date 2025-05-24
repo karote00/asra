@@ -2,9 +2,9 @@ import {
   ModifierKeys,
   MouseData,
   PointerEventData,
-  RawInputEvent
+  RawInputEvent,
+  InputSystemEvents
 } from '@asra/utils'
-import { InputSystemEvents } from '@asra/input-system'
 import {
   HandlerDeps,
   InteractionCoreActionAPIs,
@@ -75,11 +75,10 @@ export class RenderHandler {
       dragging: this._isDrag
     })
     this.deps.updateKeyState({
-      ...(raw.modifiers as ModifierKeys),
-      pressedKeys: []
+      ...(raw.modifiers as ModifierKeys)
     })
 
-    this.deps.decideAction()
+    this.deps.decideAction(InputSystemEvents.INPUT_DRAG_START)
   }
 
   _handleDragUpdate = (raw: RawInputEvent) => {
@@ -104,11 +103,10 @@ export class RenderHandler {
       dragging: this._isDrag
     })
     this.deps.updateKeyState({
-      ...(raw.modifiers as ModifierKeys),
-      pressedKeys: []
+      ...(raw.modifiers as ModifierKeys)
     })
 
-    this.deps.decideAction()
+    this.deps.decideAction(InputSystemEvents.INPUT_DRAG_UPDATE)
   }
 
   _handleDragEnd = (raw: RawInputEvent) => {
@@ -127,8 +125,7 @@ export class RenderHandler {
       dragging: false
     })
     this.deps.updateKeyState({
-      ...(raw.modifiers as ModifierKeys),
-      pressedKeys: []
+      ...(raw.modifiers as ModifierKeys)
     })
 
     // if (!this._isDrag) {
@@ -140,7 +137,7 @@ export class RenderHandler {
 
     //   this.deps.addRectangle(pos)
     // }
-    this.deps.decideAction()
+    this.deps.decideAction(InputSystemEvents.INPUT_DRAG_END)
 
     this._isDown = false
   }
