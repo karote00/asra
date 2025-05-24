@@ -1,14 +1,12 @@
-import { MouseButton, MouseSnapshot } from '@asra/utils'
-
-const InitPosition = { x: 0, y: 0 }
+import { DefaultPosition, MouseButton, MouseSnapshot } from '@asra/utils'
 
 export class MouseState {
   private _state: MouseSnapshot
 
   constructor() {
     this._state = {
-      position: InitPosition,
-      delta: InitPosition,
+      position: DefaultPosition,
+      delta: DefaultPosition,
       button: MouseButton.NONE,
       down: false,
       dragging: false

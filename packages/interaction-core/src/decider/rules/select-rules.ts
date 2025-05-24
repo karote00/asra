@@ -8,6 +8,7 @@ import {
 export const decideFromSelectRules = (
   systemContextSnapshot: SystemContextSnapshot
 ): InteractionEvent | null => {
+  // TODO: refactor with targetElements to decide if can select-element, deselect-element or area-selection
   const { mouse, key, target } = systemContextSnapshot
 
   if (

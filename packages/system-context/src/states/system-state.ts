@@ -1,7 +1,7 @@
-import { SystemMode } from '@asra/utils'
+import { DefaultSystemSnapshot, SystemMode } from '@asra/utils'
 
 export class SystemState {
-  private _mode: SystemMode = SystemMode.DESIGN
+  private _mode: SystemMode = DefaultSystemSnapshot.mode
 
   set(mode: SystemMode) {
     this._mode = mode

@@ -1,7 +1,7 @@
-import { PrimaryToolType } from '@asra/utils'
+import { DefaultPrimaryTool, PrimaryToolType } from '@asra/utils'
 
 export class PrimaryToolState {
-  private _state: PrimaryToolType = PrimaryToolType.SELECT
+  private _state: PrimaryToolType = DefaultPrimaryTool
 
   set(tool: PrimaryToolType) {
     this._state = tool

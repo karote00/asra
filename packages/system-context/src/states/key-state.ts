@@ -1,18 +1,11 @@
-import { KeySnapshot } from '@asra/utils'
-
-const InitModifiers = {
-  meta: false,
-  ctrl: false,
-  alt: false,
-  shift: false
-}
+import { DefaultKeySnapshot, KeySnapshot } from '@asra/utils'
 
 export class KeyState {
   private _state: KeySnapshot
 
   constructor() {
     this._state = {
-      ...InitModifiers
+      ...DefaultKeySnapshot
     }
   }
 
