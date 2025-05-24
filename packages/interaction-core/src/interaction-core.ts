@@ -60,7 +60,7 @@ class InteractionCore {
     systemContextSnapshot: SystemContextSnapshot,
     detail?: DetailType
   ) {
-    const action = decideInteraction(eventName, systemContextSnapshot, detail)
+    // const action = decideInteraction(eventName, systemContextSnapshot, detail)
     this._previousSession = null
   }
 
