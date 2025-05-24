@@ -3,7 +3,7 @@ import interactionCore from './interaction-core'
 
 export const initInteractionCoreSubscribes = () => {
   subscribeToDecideAction(({ payload }) => {
-    const { eventName, systemContextSnapshot } = payload
-    interactionCore.decide(eventName, systemContextSnapshot)
+    const { eventName, systemContextSnapshot, detail } = payload
+    interactionCore.decide(eventName, systemContextSnapshot, detail)
   })
 }

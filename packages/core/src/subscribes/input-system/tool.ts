@@ -1,32 +1,29 @@
-import { PrimaryToolType } from '@asra/utils'
-import { HandlerDeps } from '../../types'
-import { PrimaryToolActionAPIs } from '../../types/system-context/primary-tool'
-import { Events } from '../../combinations'
+import { InputSystemEvents, RawInputEvent } from '@asra/utils'
+import {
+  HandlerDeps,
+  PrimaryToolActionAPIs,
+  InteractionCoreActionAPIs
+} from '../../types'
 
 export class SiwtchPrimaryToolHandler {
   constructor(
     private inputSystem: HandlerDeps['inputSystem'],
-    private deps: PrimaryToolActionAPIs
+    private deps: PrimaryToolActionAPIs & InteractionCoreActionAPIs
   ) {
     this.init()
   }
 
   init() {
     this.inputSystem.on(
-      Events.SWITCH_TO_SELECT_TOOL,
-      this._handleSwitchToSelectTool
-    )
-    this.inputSystem.on(
-      Events.SWITCH_TO_RECTANGLE_TOOL,
-      this._handleSwitchToRectangleTool
+      InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL,
+      this._handleSwitchPrimaryTool
     )
   }
 
-  _handleSwitchToSelectTool = () => {
-    this.deps.switchPrimaryTool(PrimaryToolType.SELECT)
-  }
-
-  _handleSwitchToRectangleTool = () => {
-    this.deps.switchPrimaryTool(PrimaryToolType.RECTANGLE)
+  _handleSwitchPrimaryTool = (raw: RawInputEvent) => {
+    this.deps.decideAction(
+      InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL,
+      raw.detail
+    )
   }
 }

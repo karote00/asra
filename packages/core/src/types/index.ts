@@ -10,6 +10,7 @@ import { ViewportAPIs } from './viewport'
 import { PropsAPIs, PropsRawAPIs } from './props'
 import {
   SystemContextAPIs,
+  PrimaryToolActionAPIs,
   PrimaryToolAPIs,
   MouseStateAPIs,
   KeyStateAPIs
@@ -35,6 +36,7 @@ export {
   ElementSelectionAPIs,
   PropsRawAPIs,
   PropsAPIs,
+  PrimaryToolActionAPIs,
   PrimaryToolAPIs,
   MouseStateAPIs,
   SystemContextAPIs,

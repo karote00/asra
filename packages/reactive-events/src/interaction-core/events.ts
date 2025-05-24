@@ -1,4 +1,8 @@
-import { SystemContextSnapshot, InputSystemEvents } from '@asra/utils'
+import {
+  SystemContextSnapshot,
+  InputSystemEvents,
+  DetailType
+} from '@asra/utils'
 import type { EventTypes } from '../types'
 
 export interface DecideActionEvent {
@@ -6,6 +10,7 @@ export interface DecideActionEvent {
   payload: {
     eventName: InputSystemEvents
     systemContextSnapshot: SystemContextSnapshot
+    detail?: DetailType
   }
 }
 

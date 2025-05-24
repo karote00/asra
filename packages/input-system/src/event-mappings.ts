@@ -3,7 +3,9 @@ import {
   KeyboardKey,
   PointerKey,
   ModifierKey,
-  InputSystemEvents
+  InputSystemEvents,
+  PrimaryToolType,
+  DetailType
 } from '@asra/utils'
 import keyMap from './keymap'
 
@@ -11,6 +13,7 @@ export interface InputEventCombo {
   type: InputType
   keys: KeyboardKey[]
   modifiers?: ModifierKey[]
+  detail?: DetailType
 }
 
 export const InputEventMappings: Record<InputSystemEvents, InputEventCombo[]> =
@@ -64,18 +67,24 @@ export const InputEventMappings: Record<InputSystemEvents, InputEventCombo[]> =
     [InputSystemEvents.INPUT_SHORTCUT_ZOOM_PRESET]: [
       {
         type: InputType.KEYBOARD,
-        keys: [keyMap.keys['1']],
+        keys: [keyMap.keys.Digit1],
         modifiers: [ModifierKey.META]
       }
     ],
-    [InputSystemEvents.INPUT_SHORTCUT_PRIMARY_TOOL]: [
+    [InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL]: [
       {
         type: InputType.KEYBOARD,
-        keys: [keyMap.keys.R]
+        keys: [keyMap.keys.KeyR],
+        detail: {
+          primaryTool: PrimaryToolType.RECTANGLE
+        }
       },
       {
         type: InputType.KEYBOARD,
-        keys: [keyMap.keys.V]
+        keys: [keyMap.keys.KeyV],
+        detail: {
+          primaryTool: PrimaryToolType.SELECT
+        }
       }
     ]
   }

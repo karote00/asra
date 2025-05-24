@@ -276,6 +276,9 @@ class InputSystem {
             modifiers: allModifiers,
             pointer: pointerData
           }
+          if (combo.detail) {
+            raw.detail = combo.detail
+          }
           this.triggerAction(eventName as InputSystemEvents, raw)
         }
       }

@@ -9,7 +9,7 @@ export const decideFromDragStartRules = (
 ): InteractionEvent | null => {
   const { mouse } = systemContextSnapshot
   const interaction: InteractionEvent = {
-    type: InteractionAction.CREATE_ELEMENT,
+    type: InteractionAction.ACTION_CREATE_ELEMENT,
     payload: {
       ...mouse.position
     }
