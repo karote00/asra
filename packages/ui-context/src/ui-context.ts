@@ -1,5 +1,5 @@
 import { BehaviorSubject } from 'rxjs'
-import { ComputedAttrs, MIXED_STRING } from '@asra/utils'
+import { ComputedAttrs, MIXED_STRING, PrimaryToolType } from '@asra/utils'
 import { isEqual } from 'lodash'
 import { ElementProperties } from './types'
 
@@ -23,6 +23,9 @@ class UIContext {
   rotation: BehaviorSubject<ElementProperties['rotation']>
   //   fills: BehaviorSubject<ElementProperties['fills']>
 
+  // System Context
+  primaryTool: BehaviorSubject<PrimaryToolType>
+
   constructor() {
     this.zoom = new BehaviorSubject<number>(1)
     this.flattenedElementIds = new BehaviorSubject<string[]>([])
@@ -34,6 +37,10 @@ class UIContext {
     this.height = new BehaviorSubject<ElementProperties['height']>(0)
     this.rotation = new BehaviorSubject<ElementProperties['rotation']>(0)
     // this.fills = new BehaviorSubject<ElementProperties['fills']>([])
+
+    this.primaryTool = new BehaviorSubject<PrimaryToolType>(
+      PrimaryToolType.SELECT
+    )
   }
 
   updateElementSelection(selectedIds: Set<string>) {
@@ -102,6 +109,12 @@ class UIContext {
 
   updateZoom(newZoom: number) {
     this.zoom.next(newZoom)
+  }
+
+  updatePrimaryTool(tool: PrimaryToolType) {
+    if (tool !== this.primaryTool.getValue()) {
+      this.primaryTool.next(tool)
+    }
   }
 }
 

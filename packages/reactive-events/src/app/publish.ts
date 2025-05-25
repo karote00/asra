@@ -36,7 +36,21 @@ export const endTransaction = () => {
 
 export const updateUndoRedoStatus = (status: UNDO) => {
   publishEvent({
-    type: EventTypes.UNDOREDO_STATUS,
-    status
+    type: EventTypes.UPDATE_UNDOREDO_STATUS,
+    payload: {
+      status
+    }
+  })
+}
+
+export const undo = () => {
+  publishEvent({
+    type: EventTypes.UNDO
+  })
+}
+
+export const redo = () => {
+  publishEvent({
+    type: EventTypes.REDO
   })
 }

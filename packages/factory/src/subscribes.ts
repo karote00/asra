@@ -2,7 +2,9 @@ import type { UpdateTransactionEvent } from '@asra/reactive-events'
 import {
   subscribeToStartTransaction,
   subscribeToUpdateTransaction,
-  subscribeToEndTransaction
+  subscribeToEndTransaction,
+  subscribeToUndo,
+  subscribeToRedo
 } from '@asra/reactive-events'
 import factory from './factory'
 
@@ -17,5 +19,13 @@ export const initFactorySubscribe = () => {
 
   subscribeToEndTransaction(() => {
     factory.endTransaction()
+  })
+
+  subscribeToUndo(() => {
+    factory.undo()
+  })
+
+  subscribeToRedo(() => {
+    factory.redo()
   })
 }

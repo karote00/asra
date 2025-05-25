@@ -1,6 +1,6 @@
 import { NameTypes } from './enum'
 import { FIRST_NAME, CODE_SPLIT } from './constants'
-import { isNumber } from '../common'
+import { capitalizeFirstLetter, isNumber } from '../helpers'
 
 const AvaliableNameTypes = new Set<NameTypes | string>(Object.values(NameTypes))
 
@@ -9,7 +9,8 @@ class NameCounter {
 
   constructor() {
     Object.values(NameTypes).forEach((type) => {
-      this.counter[type] = `${type}${CODE_SPLIT}${FIRST_NAME}`
+      this.counter[type] =
+        `${capitalizeFirstLetter(type)}${CODE_SPLIT}${FIRST_NAME}`
     })
   }
 
@@ -48,7 +49,7 @@ class NameCounter {
     const count = parseInt(splits[splits.length - 1])
     const next = count + 1
 
-    const newName = `${type}${CODE_SPLIT}${next}`
+    const newName = `${capitalizeFirstLetter(type)}${CODE_SPLIT}${next}`
     this.update(type, newName)
 
     return newName
@@ -61,7 +62,7 @@ class NameCounter {
 
     const splits = name.split(CODE_SPLIT)
     if (splits.length !== 2) return false
-    if (splits[0] === type) {
+    if (splits[0] === capitalizeFirstLetter(type)) {
       return isNumber(splits[1])
     }
 

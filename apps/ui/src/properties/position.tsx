@@ -1,5 +1,5 @@
 import { Input } from '@asra/design-system'
-import { useX, useY } from '../providers/properties'
+import { useX, useY } from '../providers'
 import { useCallback } from 'react'
 import { changeElementComputedData } from '../controllers/scene-tree'
 

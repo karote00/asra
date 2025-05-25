@@ -47,11 +47,13 @@
       "dependsOn": [
         "^build:factory",
         "^build:input-system",
+        "^build:interaction-core",
         "^build:props-manager",
         "^build:reactive-events",
         "^build:render",
         "^build:scene-tree",
         "^build:selection",
+        "^build:system-context",
         "^build:utils"
       ]
     },
@@ -87,6 +89,17 @@
         "dist/**"
       ],
       "dependsOn": [
+        "^build:reactive-events",
+        "^build:utils"
+      ]
+    },
+    "build:interaction-core": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:reactive-events",
         "^build:utils"
       ]
     },
@@ -133,6 +146,16 @@
       ]
     },
     "build:selection": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:reactive-events",
+        "^build:utils"
+      ]
+    },
+    "build:system-context": {
       "cache": false,
       "outputs": [
         "dist/**"

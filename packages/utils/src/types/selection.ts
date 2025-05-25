@@ -1,4 +1,4 @@
-import { OWNER, SELECTION_ACTIONS } from '../enums'
+import { OWNER, SELECTION_ACTIONS } from '../constants'
 import type { YjsChange } from './yjs'
 
 export interface ElementSelectionChange {

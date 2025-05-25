@@ -1,6 +1,6 @@
 import { IDTypes } from './enum'
 import { DEFAULT_TYPE, FIRST_ID, CODE_SPLIT } from './constants'
-import { isNumber } from '../common'
+import { isNumber } from '../helpers'
 
 const AvaliableIDTypes = new Set<IDTypes | string>(Object.values(IDTypes))
 

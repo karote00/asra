@@ -24,9 +24,19 @@ export interface EndTransactionEvent {
   type: EventTypes
 }
 
-export interface UndoRedoStatusEvent {
+export interface UpdateUndoRedoStatusEvent {
   type: EventTypes
-  status: UNDO
+  payload: {
+    status: UNDO
+  }
+}
+
+export interface UndoEvent {
+  type: EventTypes
+}
+
+export interface RedoEvent {
+  type: EventTypes
 }
 
 export type AppEvent =
@@ -35,4 +45,6 @@ export type AppEvent =
   | StartTransactionEvent
   | UpdateTransactionEvent
   | EndTransactionEvent
-  | UndoRedoStatusEvent
+  | UpdateUndoRedoStatusEvent
+  | UndoEvent
+  | RedoEvent

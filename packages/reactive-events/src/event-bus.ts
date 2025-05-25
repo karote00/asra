@@ -1,30 +1,47 @@
-import { ReplaySubject, Observable, Subscription, filter, share } from 'rxjs'
+import {
+  Subject,
+  Observable,
+  Subscription,
+  filter,
+  share,
+  UnaryFunction
+} from 'rxjs'
 import { EventTypes } from './types'
-import type { AppEvent } from './app'
-import type { CoreEvents } from './core'
-import type { SceneTreeEvents } from './scene-tree'
-import type { SelectionEvents } from './selection'
-import type { PropEvents } from './props-manager'
-import type { UIContextEvents } from './ui-context'
-import type { RenderEvents } from './render'
+import { AllEvent } from './constants'
 
-export type AllEvent =
-  | AppEvent
-  | CoreEvents
-  | SceneTreeEvents
-  | SelectionEvents
-  | PropEvents
-  | UIContextEvents
-  | RenderEvents
-
-const eventBus = new ReplaySubject<AllEvent>(undefined, 5000)
+const eventBus = new Subject<AllEvent>()
 
 export const publishEvent = (event: AllEvent) => {
   eventBus.next(event)
 }
 
-export const publishTransactCompleted = () => {
-  publishEvent({ type: EventTypes.END_TRANSACTION })
+const DefaultOperator = <T extends AllEvent>(
+  type: EventTypes
+): UnaryFunction<Observable<T>, Observable<AllEvent>> => {
+  return filter((event: AllEvent): event is T => event.type === type)
+}
+
+type AppOperatorFunction<T extends AllEvent> = UnaryFunction<
+  Observable<T>,
+  Observable<AllEvent>
+>
+export const createSubscribeEvent = <T extends AllEvent>(
+  type: EventTypes,
+  operators: [...AppOperatorFunction<T>[]] = [],
+  defaultIndex = 0
+) => {
+  return (subscriber: (event: T) => void): Subscription => {
+    const pipeline = [...operators]
+    pipeline.splice(defaultIndex, 0, DefaultOperator<T>(type))
+
+    const final$ = pipeline.reduce(
+      (observer, op) => observer.pipe(op),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      getEventBusObserve() as Observable<any>
+    )
+
+    return final$.subscribe(subscriber)
+  }
 }
 
 export const subscribeToEvents = (
@@ -33,7 +50,7 @@ export const subscribeToEvents = (
   return getEventBusObserve().subscribe(subscriber)
 }
 
-export const getEventBus = (): ReplaySubject<AllEvent> => eventBus
+export const getEventBus = (): Subject<AllEvent> => eventBus
 export const getEventBusObserve = (): Observable<AllEvent> =>
   eventBus.asObservable()
 

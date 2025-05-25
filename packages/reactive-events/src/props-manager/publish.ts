@@ -1,39 +1,69 @@
-import { filter, firstValueFrom } from 'rxjs'
-import { publishEvent, getEventBus } from '../event-bus'
+import { Subscription } from 'rxjs'
+import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
-import { PropChangeCompleteEvent } from './events'
-import { PropertyTypes, PropertyComponentRawData } from '@asra/utils'
+import {
+  generateRequestId,
+  PropertyComponentRawData,
+  PropsComponentRawData
+} from '@asra/utils'
+import { FinishPropsSaveDataEvent } from './events'
+import { subscribeToFinishPropsSaveData } from './subscribes'
 
-export const propChangeComplete = (
-  propertyIdsMap: Record<PropertyTypes, string>
-) => {
+export const propsLoadData = (data: PropsComponentRawData) => {
   publishEvent({
-    type: EventTypes.PROP_CHANGE_COMPLETE,
+    type: EventTypes.PROPS_LOAD_DATA,
     payload: {
-      propertyIdsMap
+      data
     }
   })
 }
 
-export const addProperty = async (
-  data: Partial<PropertyComponentRawData>[]
-) => {
-  const response$ = getEventBus().pipe(
-    filter(
-      (event): event is PropChangeCompleteEvent =>
-        event.type === EventTypes.PROP_CHANGE_COMPLETE && 'payload' in event
-    )
-  )
+export const propsSaveData = () => {
+  return new Promise<PropsComponentRawData>((resolve) => {
+    const requestId = generateRequestId()
+    let subscription: Subscription | null = null
 
+    const handler = ({ payload }: FinishPropsSaveDataEvent) => {
+      // Do nothing if the requestId is different
+      if (payload.requestId !== requestId) {
+        return
+      }
+
+      subscription?.unsubscribe()
+      resolve(payload.data)
+    }
+
+    subscription = subscribeToFinishPropsSaveData(handler)
+
+    publishEvent({
+      type: EventTypes.PROPS_SAVE_DATA,
+      payload: {
+        requestId
+      }
+    })
+  })
+}
+
+export const finishPropsSaveData = (
+  requestId: string,
+  data: PropsComponentRawData
+) => {
+  publishEvent({
+    type: EventTypes.FINISH_PROPS_SAVE_DATA,
+    payload: {
+      requestId,
+      data
+    }
+  })
+}
+
+export const addProperty = (data: Partial<PropertyComponentRawData>[]) => {
   publishEvent({
     type: EventTypes.ADD_PROPERTY,
     payload: {
       data
     }
   })
-
-  const response = await firstValueFrom(response$)
-  return response.payload.propertyIdsMap
 }
 
 export const removeProperty = (data: Partial<PropertyComponentRawData>[]) => {

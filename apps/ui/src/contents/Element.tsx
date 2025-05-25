@@ -1,6 +1,6 @@
 import { MouseEvent, useCallback, useEffect, useRef } from 'react'
-import type { ElementRawData, Modifiers } from '@asra/utils'
-import { EntityTypes } from '@asra/utils'
+import type { ElementRawData, ModifierKeys } from '@asra/utils'
+import { capitalizeFirstLetter, EntityTypes } from '@asra/utils'
 import { Icon } from '@asra/design-system'
 import { useElementData } from '../providers'
 import { selectElements } from '../controllers/element-selection'
@@ -10,7 +10,14 @@ interface ElementData {
   isSelected: boolean
 }
 
-const getModifiers = (e: KeyboardEvent): Modifiers => {
+const INIT_MODIFIERS: ModifierKeys = {
+  meta: false,
+  ctrl: false,
+  alt: false,
+  shift: false
+}
+
+const getModifierKeys = (e: KeyboardEvent): ModifierKeys => {
   return {
     meta: e.metaKey,
     ctrl: e.ctrlKey,
@@ -24,12 +31,7 @@ const Element = ({ elementId, isSelected }: ElementData) => {
   if (!elementData) return null
 
   const { id, name, type, lock, visible } = elementData as ElementRawData
-  const modifierKeys = useRef({
-    meta: false,
-    ctrl: false,
-    alt: false,
-    shift: false
-  })
+  const modifierKeys = useRef<ModifierKeys>(INIT_MODIFIERS)
   const handleElementClick = useCallback(
     (e: MouseEvent<HTMLDivElement>) => {
       e.stopPropagation()
@@ -41,10 +43,10 @@ const Element = ({ elementId, isSelected }: ElementData) => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      modifierKeys.current = getModifiers(e)
+      modifierKeys.current = getModifierKeys(e)
     }
     const handleKeyUp = (e: KeyboardEvent) => {
-      modifierKeys.current = getModifiers(e)
+      modifierKeys.current = getModifierKeys(e)
     }
 
     window.addEventListener('keydown', handleKeyDown)
@@ -67,7 +69,10 @@ const Element = ({ elementId, isSelected }: ElementData) => {
       onClick={handleElementClick}
     >
       <div className="flex items-center space-x-1 gap-1">
-        <Icon showCursor={false} name={type as EntityTypes} />
+        <Icon
+          showCursor={false}
+          name={capitalizeFirstLetter(type) as EntityTypes}
+        />
         {name}
       </div>
 

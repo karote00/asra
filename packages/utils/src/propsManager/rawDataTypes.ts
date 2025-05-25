@@ -1,4 +1,4 @@
-import { Unit } from '../enums'
+import { Unit } from '../constants'
 import { PropertyTypes } from './enum'
 
 export interface PropertyRawData {

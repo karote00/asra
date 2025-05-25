@@ -1,7 +1,10 @@
 import React, { useEffect, useRef } from 'react'
-import { renderIsReady } from '@asra/reactive-events'
-import { initRenderApp, destroyRenderApp } from '../controllers/app'
-import { core } from '../contexts'
+import {
+  initRenderApp,
+  destroyRenderApp,
+  renderIsReady,
+  setupInputSystem
+} from '../controllers/app'
 
 const RenderApp: React.FC = () => {
   const pixiContainerRef = useRef<HTMLDivElement>(null)
@@ -17,7 +20,7 @@ const RenderApp: React.FC = () => {
           window.innerHeight
         )
 
-        core.setupInputSystem(canvas)
+        setupInputSystem(canvas)
         renderIsReady()
       }
     }

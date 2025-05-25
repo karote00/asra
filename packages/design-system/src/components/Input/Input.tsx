@@ -1,4 +1,11 @@
-import React, { ChangeEvent, useState, useCallback, useEffect } from 'react'
+import React, {
+  ChangeEvent,
+  useState,
+  useCallback,
+  useEffect,
+  KeyboardEvent,
+  useRef
+} from 'react'
 import { MIXED_STRING } from '@asra/utils'
 import { Text } from '../Text'
 
@@ -35,7 +42,22 @@ const Input: React.FC<InputProps> = ({
   size = 'medium',
   onChange
 }) => {
+  const inputRef = useRef(null)
   const [data, setData] = useState<string>(value?.toString() ?? '')
+
+  const handleKeydon = useCallback(
+    (e: KeyboardEvent) => {
+      if (!inputRef.current) {
+        return
+      }
+
+      const input = inputRef.current as HTMLInputElement
+      if (e.code === 'Enter') {
+        input.blur()
+      }
+    },
+    [inputRef.current]
+  )
 
   const handleChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
@@ -65,7 +87,9 @@ const Input: React.FC<InputProps> = ({
       )}
       <input
         type="text"
+        ref={inputRef}
         value={data}
+        onKeyDown={handleKeydon}
         onChange={handleChange}
         onBlur={handleBlur}
         placeholder={placeholder}

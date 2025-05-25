@@ -1,24 +1,34 @@
-const MODIFIER_KEYS = new Set(['Meta', 'Ctrl', 'Shift', 'Alt'])
-const SPECIAL_EVENTS = new Set(['Wheel'])
+import {
+  ModifierKeyList,
+  SpecialEventList,
+  Platforms,
+  ModifierKey,
+  SpecialEvent,
+  KeyboardKey
+} from '@asra/utils'
 
-export default class KeyMap {
-  private os: 'Windows' | 'Mac' | 'Linux'
-  private keyMap: Record<string, string>
+export class KeyMap {
+  private os: Platforms
+  private keyMap: Record<string, KeyboardKey>
 
   constructor() {
     this.os = this.detectOS()
     this.keyMap = this.createKeyMap()
   }
 
-  private detectOS(): 'Windows' | 'Mac' | 'Linux' {
-    const platform = navigator.platform.toLowerCase()
-    if (platform.includes('mac')) return 'Mac'
-    if (platform.includes('win')) return 'Windows'
-    return 'Linux'
+  get keys() {
+    return this.keyMap
   }
 
-  private createKeyMap(): Record<string, string> {
-    const baseMap: Record<string, string> = {
+  private detectOS(): Platforms {
+    const platform = navigator.userAgent.toLowerCase()
+    if (platform.includes('mac')) return Platforms.MAC
+    if (platform.includes('win')) return Platforms.WINDOWS
+    return Platforms.LINUX
+  }
+
+  private createKeyMap(): Record<string, KeyboardKey> {
+    const baseMap: Record<string, KeyboardKey> = {
       Escape: 'Escape',
       Tab: 'Tab',
       CapsLock: 'CapsLock',
@@ -127,13 +137,13 @@ export default class KeyMap {
       NumpadDecimal: '.'
     }
 
-    if (this.os === 'Mac') {
+    if (this.os === Platforms.MAC) {
       baseMap['MetaLeft'] = 'Meta'
       baseMap['MetaRight'] = 'Meta'
-      baseMap['AltLeft'] = 'Option'
-      baseMap['AltRight'] = 'Option'
+      baseMap['AltLeft'] = 'Alt'
+      baseMap['AltRight'] = 'Alt'
       baseMap['Delete'] = 'Delete'
-    } else if (this.os === 'Windows' || this.os === 'Linux') {
+    } else if (this.os === Platforms.WINDOWS || this.os === Platforms.LINUX) {
       baseMap['MetaLeft'] = 'Windows'
       baseMap['MetaRight'] = 'Windows'
       baseMap['Delete'] = 'Del'
@@ -146,11 +156,13 @@ export default class KeyMap {
     return this.keyMap[code] || code
   }
 
-  public isModifiers(key: string): boolean {
-    return MODIFIER_KEYS.has(key)
+  public isModifierKeys(key: string): boolean {
+    return ModifierKeyList.includes(key.toLowerCase() as ModifierKey)
   }
 
   public isSpecialEvent(key: string): boolean {
-    return SPECIAL_EVENTS.has(key)
+    return SpecialEventList.includes(key as SpecialEvent)
   }
 }
+
+export default new KeyMap()

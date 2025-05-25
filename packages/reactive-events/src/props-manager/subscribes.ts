@@ -1,62 +1,31 @@
-import { Subscription } from 'rxjs'
-import { filter } from 'rxjs/operators'
-import type {
-  AddPropertyEvent,
-  PropChangeCompleteEvent,
-  RemovePropertyEvent,
-  UpdatePropertyEvent
+import {
+  FinishPropsSaveDataEvent,
+  PropsLoadDataEvent,
+  PropsSaveDataEvent,
+  type AddPropertyEvent,
+  type RemovePropertyEvent,
+  type UpdatePropertyEvent
 } from './events'
-import { getEventBusObserve } from '../event-bus'
+import { createSubscribeEvent } from '../event-bus'
 import { EventTypes } from '../types'
 
-export const subscribeToPropChangeComplete = (
-  subscriber: (event: PropChangeCompleteEvent) => void
-): Subscription => {
-  return getEventBusObserve()
-    .pipe(
-      filter(
-        (event): event is PropChangeCompleteEvent =>
-          event.type === EventTypes.PROP_CHANGE_COMPLETE
-      )
-    )
-    .subscribe(subscriber)
-}
+export const subscribeToPropsLoadData =
+  createSubscribeEvent<PropsLoadDataEvent>(EventTypes.PROPS_LOAD_DATA)
 
-export const subscribeToAddProperty = (
-  subscriber: (event: AddPropertyEvent) => void
-): Subscription => {
-  return getEventBusObserve()
-    .pipe(
-      filter(
-        (event): event is AddPropertyEvent =>
-          event.type === EventTypes.ADD_PROPERTY
-      )
-    )
-    .subscribe(subscriber)
-}
+export const subscribeToPropsSaveData =
+  createSubscribeEvent<PropsSaveDataEvent>(EventTypes.PROPS_SAVE_DATA)
 
-export const subscribeToRemoveProperty = (
-  subscriber: (event: RemovePropertyEvent) => void
-): Subscription => {
-  return getEventBusObserve()
-    .pipe(
-      filter(
-        (event): event is RemovePropertyEvent =>
-          event.type === EventTypes.REMOVE_PROPERTY
-      )
-    )
-    .subscribe(subscriber)
-}
+export const subscribeToFinishPropsSaveData =
+  createSubscribeEvent<FinishPropsSaveDataEvent>(
+    EventTypes.FINISH_PROPS_SAVE_DATA
+  )
 
-export const subscribeToUpdateProperty = (
-  subscriber: (event: UpdatePropertyEvent) => void
-): Subscription => {
-  return getEventBusObserve()
-    .pipe(
-      filter(
-        (event): event is UpdatePropertyEvent =>
-          event.type === EventTypes.UPDATE_PROPERTY
-      )
-    )
-    .subscribe(subscriber)
-}
+export const subscribeToAddProperty = createSubscribeEvent<AddPropertyEvent>(
+  EventTypes.ADD_PROPERTY
+)
+
+export const subscribeToRemoveProperty =
+  createSubscribeEvent<RemovePropertyEvent>(EventTypes.REMOVE_PROPERTY)
+
+export const subscribeToUpdateProperty =
+  createSubscribeEvent<UpdatePropertyEvent>(EventTypes.UPDATE_PROPERTY)

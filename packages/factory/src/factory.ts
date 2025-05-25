@@ -20,6 +20,17 @@ class Factory {
   endTransaction() {
     this.transact.end()
   }
+
+  undo() {
+    this.transact.undo()
+  }
+
+  redo() {
+    this.transact.redo()
+  }
 }
 
-export default new Factory()
+const factory = new Factory()
+export default factory
+
+export { Factory }

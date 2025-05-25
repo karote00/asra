@@ -75,7 +75,7 @@ export const collectSceneTreeChange = (event) => {
 
 let hasInit = false
 
-export const initSceneTreeDataContext = () => {
+export const initSceneTreeDataSubscribe = () => {
   if (hasInit) {
     return
   }

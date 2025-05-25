@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { nameCounter } from '../nameCounter'
 import { CODE_SPLIT, FIRST_NAME } from '../constants'
 import { NameTypes } from '../enum'
+import { capitalizeFirstLetter } from '../../helpers'
 
 const addOne = (str: string): string => (Number(str) + 1).toString()
 
@@ -12,7 +13,7 @@ describe('nameCounter', () => {
 
       const currentName = nameCounter.current(type)
 
-      const expectResult = `${type}${CODE_SPLIT}${FIRST_NAME}`
+      const expectResult = `${capitalizeFirstLetter(type)}${CODE_SPLIT}${FIRST_NAME}`
       expect(currentName).toBe(expectResult)
     })
   })
@@ -25,7 +26,7 @@ describe('nameCounter', () => {
       const newName = nameCounter.increase(type)
 
       const next = addOne(currentName.split(CODE_SPLIT)[1])
-      const expectResult = `${type}${CODE_SPLIT}${next}`
+      const expectResult = `${capitalizeFirstLetter(type)}${CODE_SPLIT}${next}`
       expect(newName).toBe(expectResult)
     })
   })

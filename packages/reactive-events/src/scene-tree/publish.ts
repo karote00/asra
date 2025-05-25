@@ -3,17 +3,75 @@ import type {
   CreateRectangleData,
   DataTypes,
   ElementRawData,
-  GroupInstanceTypes
+  GroupInstanceTypes,
+  SceneTreeRawData
 } from '@asra/utils'
 import { EntityTypes, generateRequestId } from '@asra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
-import { FinishAddElementEvent } from './events'
-import { subscribeToFinishAddElement } from './subscribes'
+import { FinishAddElementEvent, FinishSceneTreeSaveDataEvent } from './events'
+import {
+  subscribeToFinishAddElement,
+  subscribeToFinishSceneTreeSaveData
+} from './subscribes'
+
+export const sceneTreeInit = () => {
+  publishEvent({
+    type: EventTypes.SCENE_TREE_INIT
+  })
+}
+
+export const sceneTreeLoadData = (data: SceneTreeRawData) => {
+  publishEvent({
+    type: EventTypes.SCENE_TREE_LOAD_DATA,
+    payload: {
+      data
+    }
+  })
+}
 
 export const sceneTreeLoadComplete = () => {
   publishEvent({
     type: EventTypes.SCENE_TREE_LOAD_COMPLETE
+  })
+}
+
+export const sceneTreeSaveData = () => {
+  return new Promise<SceneTreeRawData>((resolve) => {
+    const requestId = generateRequestId()
+    let subscription: Subscription | null = null
+
+    const handler = ({ payload }: FinishSceneTreeSaveDataEvent) => {
+      // Do nothing if the requestId is different
+      if (payload.requestId !== requestId) {
+        return
+      }
+
+      subscription?.unsubscribe()
+      resolve(payload.data)
+    }
+
+    subscription = subscribeToFinishSceneTreeSaveData(handler)
+
+    publishEvent({
+      type: EventTypes.SCENE_TREE_SAVE_DATA,
+      payload: {
+        requestId
+      }
+    })
+  })
+}
+
+export const finishSceneTreeSaveData = (
+  requestId: string,
+  data: SceneTreeRawData
+) => {
+  publishEvent({
+    type: EventTypes.FINISH_SCENE_TREE_SAVE_DATA,
+    payload: {
+      requestId,
+      data
+    }
   })
 }
 

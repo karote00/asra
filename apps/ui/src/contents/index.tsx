@@ -35,12 +35,13 @@ const Contents: React.FC = () => {
           position: 'relative'
         }}
       >
-        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+        {rowVirtualizer.getVirtualItems().map((virtualRow, index) => {
           const elementId = flattenedIds[virtualRow.index]
 
           return (
             <div
               key={elementId}
+              data-index={index}
               ref={rowVirtualizer.measureElement}
               style={{
                 position: 'absolute',

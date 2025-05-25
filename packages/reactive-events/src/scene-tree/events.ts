@@ -2,12 +2,39 @@ import type {
   CreateRectangleData,
   DataTypes,
   ElementRawData,
-  GroupInstanceTypes
+  GroupInstanceTypes,
+  SceneTreeRawData
 } from '@asra/utils'
 import { EventTypes } from '../types'
 
+export interface SceneTreeInitEvent {
+  type: EventTypes
+}
+
+export interface SceneTreeLoadDataEvent {
+  type: EventTypes
+  payload: {
+    data: SceneTreeRawData
+  }
+}
+
 export interface SceneTreeLoadCompleteEvent {
   type: EventTypes
+}
+
+export interface SceneTreeSaveDataEvent {
+  type: EventTypes
+  payload: {
+    requestId: string
+  }
+}
+
+export interface FinishSceneTreeSaveDataEvent {
+  type: EventTypes
+  payload: {
+    requestId: string
+    data: SceneTreeRawData
+  }
 }
 
 export interface AddElementEvent {
@@ -57,8 +84,13 @@ export interface ChangeComputedDataEvent {
 }
 
 export type SceneTreeEvents =
+  | SceneTreeInitEvent
+  | SceneTreeLoadDataEvent
   | SceneTreeLoadCompleteEvent
+  | SceneTreeSaveDataEvent
+  | FinishSceneTreeSaveDataEvent
   | AddElementEvent
+  | FinishAddElementEvent
   | RemoveElementEvent
   | UpdateComputedDataEvent
   | ChangeComputedDataEvent

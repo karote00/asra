@@ -1,7 +1,7 @@
 export enum NameTypes {
-  WORKSPACE = 'Workspace',
-  FRAME = 'Frame',
-  GROUP = 'Group',
-  ELEMENT = 'Element',
-  RECTANGLE = 'Rectangle'
+  WORKSPACE = 'workspace',
+  FRAME = 'frame',
+  GROUP = 'group',
+  ELEMENT = 'element',
+  RECTANGLE = 'rectangle'
 }

@@ -1,90 +1,36 @@
-import { Subscription } from 'rxjs'
-import { filter } from 'rxjs/operators'
 import type {
   FileLoadCompleteEvent,
   StartTransactionEvent,
   UpdateTransactionEvent,
   EndTransactionEvent,
-  UndoRedoStatusEvent,
-  RenderIsReadyEvent
+  UpdateUndoRedoStatusEvent,
+  RenderIsReadyEvent,
+  UndoEvent,
+  RedoEvent
 } from './events'
-import { getEventBusObserve } from '../event-bus'
+import { createSubscribeEvent } from '../event-bus'
 import { EventTypes } from '../types'
 
-export const subscribeToRenderIsReady = (
-  subscriber: (event: RenderIsReadyEvent) => void
-): Subscription => {
-  return getEventBusObserve()
-    .pipe(
-      filter(
-        (event): event is RenderIsReadyEvent =>
-          event.type === EventTypes.RENDER_IS_READY
-      )
-    )
-    .subscribe(subscriber)
-}
+export const subscribeToRenderIsReady =
+  createSubscribeEvent<RenderIsReadyEvent>(EventTypes.RENDER_IS_READY)
 
-export const subscribeToFileLoadComplete = (
-  subscriber: (event: FileLoadCompleteEvent) => void
-): Subscription => {
-  return getEventBusObserve()
-    .pipe(
-      filter(
-        (event): event is FileLoadCompleteEvent =>
-          event.type === EventTypes.FILE_LOAD_COMPLETE
-      )
-    )
-    .subscribe(subscriber)
-}
+export const subscribeToFileLoadComplete =
+  createSubscribeEvent<FileLoadCompleteEvent>(EventTypes.FILE_LOAD_COMPLETE)
 
-export const subscribeToStartTransaction = (
-  subscriber: (event: StartTransactionEvent) => void
-): Subscription => {
-  return getEventBusObserve()
-    .pipe(
-      filter(
-        (event): event is StartTransactionEvent =>
-          event.type === EventTypes.START_TRANSACTION
-      )
-    )
-    .subscribe(subscriber)
-}
+export const subscribeToStartTransaction =
+  createSubscribeEvent<StartTransactionEvent>(EventTypes.START_TRANSACTION)
 
-export const subscribeToUpdateTransaction = (
-  subscriber: (event: UpdateTransactionEvent) => void
-): Subscription => {
-  return getEventBusObserve()
-    .pipe(
-      filter(
-        (event): event is UpdateTransactionEvent =>
-          event.type === EventTypes.UPDATE_TRANSACTION
-      )
-    )
-    .subscribe(subscriber)
-}
+export const subscribeToUpdateTransaction =
+  createSubscribeEvent<UpdateTransactionEvent>(EventTypes.UPDATE_TRANSACTION)
 
-export const subscribeToEndTransaction = (
-  subscriber: (event: EndTransactionEvent) => void
-): Subscription => {
-  return getEventBusObserve()
-    .pipe(
-      filter(
-        (event): event is EndTransactionEvent =>
-          event.type === EventTypes.END_TRANSACTION
-      )
-    )
-    .subscribe(subscriber)
-}
+export const subscribeToEndTransaction =
+  createSubscribeEvent<EndTransactionEvent>(EventTypes.END_TRANSACTION)
 
-export const subscribeUndoRedoStatus = (
-  subscriber: (event: UndoRedoStatusEvent) => void
-): Subscription => {
-  return getEventBusObserve()
-    .pipe(
-      filter(
-        (event): event is UndoRedoStatusEvent =>
-          event.type === EventTypes.UNDOREDO_STATUS
-      )
-    )
-    .subscribe(subscriber)
-}
+export const subscribeToUpdateUndoRedoStatus =
+  createSubscribeEvent<UpdateUndoRedoStatusEvent>(
+    EventTypes.UPDATE_UNDOREDO_STATUS
+  )
+
+export const subscribeToUndo = createSubscribeEvent<UndoEvent>(EventTypes.UNDO)
+
+export const subscribeToRedo = createSubscribeEvent<RedoEvent>(EventTypes.REDO)

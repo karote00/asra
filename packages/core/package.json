@@ -9,21 +9,28 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "dev": "tsc --watch",
+    "dev": "tsc --watch --preserveWatchOutput",
     "build:core": "tsc",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "has:test": "find . -type f \\( -name \"*.test.ts\" -o -name \"*.test.tsx\" \\) | grep -q .",
+    "test": "yarn has:test && vitest || echo 'No test files found. Skipping test.'",
+    "test:ci": "yarn has:test && vitest run --coverage --reporter=default --reporter=junit || echo 'No test files found. Skipping test:ci.'"
   },
   "devDependencies": {
-    "typescript": "^5.7.2"
+    "@vitest/coverage-v8": "^2.1.8",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   },
   "dependencies": {
     "@asra/factory": "workspace:*",
     "@asra/input-system": "workspace:*",
+    "@asra/interaction-core": "workspace:*",
     "@asra/props-manager": "workspace:*",
     "@asra/reactive-events": "workspace:*",
     "@asra/render": "workspace:*",
     "@asra/scene-tree": "workspace:*",
     "@asra/selection": "workspace:*",
+    "@asra/system-context": "workspace:*",
     "@asra/utils": "workspace:*"
   }
 }

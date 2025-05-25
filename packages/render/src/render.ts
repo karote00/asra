@@ -1,5 +1,5 @@
 import { Application, Container, Graphics } from 'pixi.js'
-import { DataTypes, MouseEventData } from '@asra/utils'
+import { DataTypes, MouseData } from '@asra/utils'
 import { RenderElementData, RenderContainerData, SceneElement } from './types'
 import { ViewportLayer } from './viewport-layer'
 import { SelectionLayer } from './selection-layer'
@@ -126,15 +126,15 @@ class Render {
     this.updateSelectedSelection()
   }
 
-  getPosition() {
+  getViewportPosition() {
     return this.viewport.getPosition()
   }
 
-  getScale() {
+  getViewportScale() {
     return this.viewport.getScale()
   }
 
-  getMousePosInWorkspace(mousePos: MouseEventData) {
+  getMousePosInWorkspace(mousePos: MouseData) {
     return this.viewport.getMousePosInWorkspace(mousePos)
   }
 }
