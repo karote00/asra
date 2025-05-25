@@ -1,8 +1,8 @@
-import { subscribeToDecideSwitchPrimaryTool } from '@asra/reactive-events'
+import { subscribeToDecideToSwitchPrimaryTool } from '@asra/reactive-events'
 import { PrimaryToolActionAPIs } from '../../types'
 
 export const initPrimaryToolHandlers = (apis: PrimaryToolActionAPIs) => {
-  subscribeToDecideSwitchPrimaryTool(({ payload }) => {
+  subscribeToDecideToSwitchPrimaryTool(({ payload }) => {
     apis.switchPrimaryTool(payload.primaryTool)
   })
 }

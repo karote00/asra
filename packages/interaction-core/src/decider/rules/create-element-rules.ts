@@ -11,7 +11,7 @@ export const decideFromCreateElementRules = (
   const interaction: InteractionEvent = {
     type: InteractionActions.INTERACTION_CREATE_ELEMENT,
     payload: {
-      ...mouse.position,
+      position: mouse.position,
       elementType: primaryTool
     }
   }

@@ -2,7 +2,8 @@ import {
   SystemContextSnapshot,
   InputSystemEvents,
   DetailType,
-  PrimaryToolType
+  PrimaryToolType,
+  PositionData
 } from '@asra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
@@ -72,6 +73,19 @@ export const decideToSwitchPrimaryTool = (primaryTool: PrimaryToolType) => {
     type: EventTypes.DECIDE_TO_SWITCH_PRIMARY_TOOL,
     payload: {
       primaryTool
+    }
+  })
+}
+
+export const decideToCreateElement = (
+  position: PositionData,
+  elementType: PrimaryToolType
+) => {
+  publishEvent({
+    type: EventTypes.DECIDE_TO_CREATE_ELEMENT,
+    payload: {
+      position,
+      elementType
     }
   })
 }

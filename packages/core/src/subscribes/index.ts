@@ -4,5 +4,5 @@ import { CoreAPIs, HandlerDeps } from '../types'
 
 export const initAllHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
   initInputSystemHandlers(deps, apis)
-  initInteractionCoreHandlers(apis)
+  initInteractionCoreHandlers(deps, apis)
 }

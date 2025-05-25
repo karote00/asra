@@ -2,7 +2,8 @@ import {
   SystemContextSnapshot,
   InputSystemEvents,
   DetailType,
-  PrimaryToolType
+  PrimaryToolType,
+  PositionData
 } from '@asra/utils'
 import type { EventTypes } from '../types'
 
@@ -49,9 +50,18 @@ export interface DecideToSwitchPrimaryToolEvent {
   }
 }
 
+export interface DecideToCreateElementEvent {
+  type: EventTypes
+  payload: {
+    position: PositionData
+    elementType: PrimaryToolType
+  }
+}
+
 export type InteractionCoreEvents =
   | ExecuteActionEvent
   | StartSessionEvent
   | UpdateSessionEvent
   | EndSessionEvent
   | DecideToSwitchPrimaryToolEvent
+  | DecideToCreateElementEvent
