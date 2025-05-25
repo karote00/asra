@@ -13,8 +13,10 @@ import { CoreAPIs, HandlerDeps } from '../../types'
 
 export const initInputSystemHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
   new UndoHandler(deps.inputSystem, {
-    undo: apis.undo,
-    redo: apis.redo
+    updateKeyState: (keySnapshot: KeySnapshot) =>
+      apis.updateKeyState(keySnapshot),
+    executeAction: (eventName: InputSystemEvents, detail?: DetailType) =>
+      apis.executeAction(eventName, detail)
   })
 
   new ViewportHandler(deps.inputSystem, {

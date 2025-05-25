@@ -60,7 +60,7 @@ export const InputEventMappings: Record<InputSystemEvents, InputEventCombo[]> =
     [InputSystemEvents.INPUT_SHORTCUT_UNDOREDO]: [
       {
         type: InputType.KEYBOARD,
-        keys: [keyMap.keys.Z],
+        keys: [keyMap.keys.KeyZ],
         modifiers: [ModifierKey.META]
       }
     ],

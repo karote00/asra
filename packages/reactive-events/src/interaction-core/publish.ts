@@ -3,7 +3,8 @@ import {
   InputSystemEvents,
   DetailType,
   PrimaryToolType,
-  PositionData
+  PositionData,
+  UNDO
 } from '@asra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
@@ -86,6 +87,15 @@ export const decideToCreateElement = (
     payload: {
       position,
       elementType
+    }
+  })
+}
+
+export const decideToUndoRedo = (undoredo: UNDO) => {
+  publishEvent({
+    type: EventTypes.DECIDE_TO_UNDOREDO,
+    payload: {
+      undoredo
     }
   })
 }

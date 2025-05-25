@@ -1,6 +1,7 @@
 import { PositionData, PrimaryToolType } from '@asra/utils'
 import { initPrimaryToolHandlers } from './primary-tool'
 import { initCreateElementHandlers } from './create-element'
+import { initUndoRedoHandlers } from './undoredo'
 import { CoreAPIs, HandlerDeps } from '../../types'
 
 export const initInteractionCoreHandlers = (
@@ -14,5 +15,10 @@ export const initInteractionCoreHandlers = (
 
   initCreateElementHandlers(deps.render, {
     addRectangle: (pos: PositionData) => apis.addRectangle(pos)
+  })
+
+  initUndoRedoHandlers({
+    undo: () => apis.undo(),
+    redo: () => apis.redo()
   })
 }

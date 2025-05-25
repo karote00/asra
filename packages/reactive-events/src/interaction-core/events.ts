@@ -3,7 +3,8 @@ import {
   InputSystemEvents,
   DetailType,
   PrimaryToolType,
-  PositionData
+  PositionData,
+  UNDO
 } from '@asra/utils'
 import type { EventTypes } from '../types'
 
@@ -58,6 +59,13 @@ export interface DecideToCreateElementEvent {
   }
 }
 
+export interface DecideToUndoRedoEvent {
+  type: EventTypes
+  payload: {
+    undoredo: UNDO
+  }
+}
+
 export type InteractionCoreEvents =
   | ExecuteActionEvent
   | StartSessionEvent
@@ -65,3 +73,4 @@ export type InteractionCoreEvents =
   | EndSessionEvent
   | DecideToSwitchPrimaryToolEvent
   | DecideToCreateElementEvent
+  | DecideToUndoRedoEvent

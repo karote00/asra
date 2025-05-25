@@ -6,7 +6,8 @@ import {
 } from '@asra/utils'
 import {
   decideDragStartBehavior,
-  decideSwitchPrimaryToolBehavior
+  decideSwitchPrimaryToolBehavior,
+  decideUndoRedoBehavior
 } from './behavior'
 
 export const decideInteraction = (
@@ -19,6 +20,8 @@ export const decideInteraction = (
       return decideDragStartBehavior(systemContextSnapshot)
     case InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL:
       return decideSwitchPrimaryToolBehavior(detail)
+    case InputSystemEvents.INPUT_SHORTCUT_UNDOREDO:
+      return decideUndoRedoBehavior(systemContextSnapshot)
     default:
       return null
   }

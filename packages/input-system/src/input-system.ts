@@ -263,7 +263,9 @@ class InputSystem {
     type: InputType,
     pointerData: PointerEventData = DefaultPointerEventData
   ) {
-    const currentKeys = Array.from(this.activeKeys)
+    const currentKeys = Array.from(this.activeKeys).filter(
+      (key) => !this.keyMap.isModifierKeys(key)
+    )
     const activeModifiers = this.getActiveModifiers(this.activeKeys)
     const allModifiers = this.getAllModifiers(activeModifiers)
 

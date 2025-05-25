@@ -128,15 +128,6 @@ export class RenderHandler {
       ...(raw.modifiers as ModifierKeys)
     })
 
-    // if (!this._isDrag) {
-    //   const startPos = this.render.getMousePosInWorkspace(this._startPos)
-    //   const pos = {
-    //     x: roundFloat(startPos.x, 2),
-    //     y: roundFloat(startPos.y, 2)
-    //   }
-
-    //   this.deps.addRectangle(pos)
-    // }
     this.deps.endSession(InputSystemEvents.INPUT_DRAG_END)
 
     this._isDown = false

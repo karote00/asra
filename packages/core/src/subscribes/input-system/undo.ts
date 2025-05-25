@@ -1,24 +1,29 @@
-import { Events } from '../../combinations'
-import { HandlerDeps, UndoActionAPIs } from '../../types'
+import { InputSystemEvents, ModifierKeys, RawInputEvent } from '@asra/utils'
+import {
+  HandlerDeps,
+  InteractionCoreActionAPIs,
+  KeyStateAPIs
+} from '../../types'
 
 export class UndoHandler {
   constructor(
     private inputSystem: HandlerDeps['inputSystem'],
-    private deps: UndoActionAPIs
+    private deps: InteractionCoreActionAPIs & KeyStateAPIs
   ) {
     this.init()
   }
 
   init() {
-    this.inputSystem.on(Events.UNDO, this._handleUndo)
-    this.inputSystem.on(Events.REDO, this._handleRedo)
+    this.inputSystem.on(
+      InputSystemEvents.INPUT_SHORTCUT_UNDOREDO,
+      this._handleUndoRedo
+    )
   }
 
-  _handleUndo = () => {
-    this.deps.undo()
-  }
-
-  _handleRedo = () => {
-    this.deps.redo()
+  _handleUndoRedo = (raw: RawInputEvent) => {
+    this.deps.updateKeyState({
+      ...(raw.modifiers as ModifierKeys)
+    })
+    this.deps.executeAction(InputSystemEvents.INPUT_SHORTCUT_UNDOREDO)
   }
 }

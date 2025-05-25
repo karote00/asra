@@ -1,10 +1,11 @@
-import {
-  type ExecuteActionEvent,
-  type DecideToSwitchPrimaryToolEvent,
-  type StartSessionEvent,
-  type UpdateSessionEvent,
-  type EndSessionEvent,
-  DecideToCreateElementEvent
+import type {
+  ExecuteActionEvent,
+  DecideToSwitchPrimaryToolEvent,
+  StartSessionEvent,
+  UpdateSessionEvent,
+  EndSessionEvent,
+  DecideToCreateElementEvent,
+  DecideToUndoRedoEvent
 } from './events'
 import { createSubscribeEvent } from '../event-bus'
 import { EventTypes } from '../types'
@@ -32,3 +33,6 @@ export const subscribeToDecideToCreateElement =
   createSubscribeEvent<DecideToCreateElementEvent>(
     EventTypes.DECIDE_TO_CREATE_ELEMENT
   )
+
+export const subscribeToDecideToUndoRedo =
+  createSubscribeEvent<DecideToUndoRedoEvent>(EventTypes.DECIDE_TO_UNDOREDO)

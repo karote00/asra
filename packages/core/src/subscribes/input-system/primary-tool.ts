@@ -22,6 +22,4 @@ export class PrimaryToolHandler {
       raw.detail
     )
   }
-
-  // this.deps.switchPrimaryTool(PrimaryToolType.RECTANGLE)
 }

@@ -108,7 +108,8 @@ export enum InteractionCoreEventTypes {
   UPDATE_SESSION = 'updateSession',
   END_SESSION = 'endSession',
   DECIDE_TO_SWITCH_PRIMARY_TOOL = 'decideToSwitchPrimaryTool',
-  DECIDE_TO_CREATE_ELEMENT = 'decideToCreateElement'
+  DECIDE_TO_CREATE_ELEMENT = 'decideToCreateElement',
+  DECIDE_TO_UNDOREDO = 'decideToUndoRedo'
 }
 
 // SystemContext
