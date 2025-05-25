@@ -4,7 +4,9 @@ import {
   DetailType,
   PrimaryToolType,
   PositionData,
-  UNDO
+  UNDO,
+  PanZoom,
+  MouseSnapshot
 } from '@asra/utils'
 import type { EventTypes } from '../types'
 
@@ -66,6 +68,22 @@ export interface DecideToUndoRedoEvent {
   }
 }
 
+export interface DecideToZoomFitEvent {
+  type: EventTypes
+  payload: {
+    zoom: number
+  }
+}
+
+export interface DecideToPanZoomEvent {
+  type: EventTypes
+  payload: {
+    panzoom: PanZoom
+    mouse: MouseSnapshot['position']
+    wheel: MouseSnapshot['delta']
+  }
+}
+
 export type InteractionCoreEvents =
   | ExecuteActionEvent
   | StartSessionEvent
@@ -74,3 +92,5 @@ export type InteractionCoreEvents =
   | DecideToSwitchPrimaryToolEvent
   | DecideToCreateElementEvent
   | DecideToUndoRedoEvent
+  | DecideToZoomFitEvent
+  | DecideToPanZoomEvent

@@ -20,6 +20,12 @@ export const initInputSystemHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
   })
 
   new ViewportHandler(deps.inputSystem, {
+    updateMouseState: (mouseSnapshot: MouseSnapshot) =>
+      apis.updateMouseState(mouseSnapshot),
+    updateKeyState: (keySnapshot: KeySnapshot) =>
+      apis.updateKeyState(keySnapshot),
+    executeAction: (eventName: InputSystemEvents, detail?: DetailType) =>
+      apis.executeAction(eventName, detail),
     getViewportPosition: async () => await apis.getViewportPosition(),
     getViewportScale: async () => await apis.getViewportScale(),
     zoomFit: () => apis.zoomFit(),

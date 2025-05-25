@@ -109,7 +109,9 @@ export enum InteractionCoreEventTypes {
   END_SESSION = 'endSession',
   DECIDE_TO_SWITCH_PRIMARY_TOOL = 'decideToSwitchPrimaryTool',
   DECIDE_TO_CREATE_ELEMENT = 'decideToCreateElement',
-  DECIDE_TO_UNDOREDO = 'decideToUndoRedo'
+  DECIDE_TO_UNDOREDO = 'decideToUndoRedo',
+  DECIDE_TO_ZOOM_FIT = 'decideToZoomFit',
+  DECIDE_TO_PAN_ZOOM = 'decideToPanZoom'
 }
 
 // SystemContext

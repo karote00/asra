@@ -6,8 +6,10 @@ import {
 } from '@asra/utils'
 import {
   decideDragStartBehavior,
+  decidePanZoomBehavior,
   decideSwitchPrimaryToolBehavior,
-  decideUndoRedoBehavior
+  decideUndoRedoBehavior,
+  decideZoomFitBehavior
 } from './behavior'
 
 export const decideInteraction = (
@@ -22,6 +24,10 @@ export const decideInteraction = (
       return decideSwitchPrimaryToolBehavior(detail)
     case InputSystemEvents.INPUT_SHORTCUT_UNDOREDO:
       return decideUndoRedoBehavior(systemContextSnapshot)
+    case InputSystemEvents.INPUT_SHORTCUT_ZOOM_PRESET:
+      return decideZoomFitBehavior()
+    case InputSystemEvents.INPUT_WHEEL_SCROLL:
+      return decidePanZoomBehavior(systemContextSnapshot)
     default:
       return null
   }

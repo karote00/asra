@@ -4,7 +4,9 @@ import {
   DetailType,
   PrimaryToolType,
   PositionData,
-  UNDO
+  UNDO,
+  PanZoom,
+  MouseSnapshot
 } from '@asra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
@@ -96,6 +98,27 @@ export const decideToUndoRedo = (undoredo: UNDO) => {
     type: EventTypes.DECIDE_TO_UNDOREDO,
     payload: {
       undoredo
+    }
+  })
+}
+
+export const decideToZoomFit = () => {
+  publishEvent({
+    type: EventTypes.DECIDE_TO_ZOOM_FIT
+  })
+}
+
+export const decideToPanZoom = (
+  panzoom: PanZoom,
+  mouse: MouseSnapshot['position'],
+  wheel: MouseSnapshot['delta']
+) => {
+  publishEvent({
+    type: EventTypes.DECIDE_TO_PAN_ZOOM,
+    payload: {
+      panzoom,
+      mouse,
+      wheel
     }
   })
 }

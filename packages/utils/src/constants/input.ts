@@ -16,6 +16,8 @@ export enum SpecialEvent {
   WHEEL = 'wheel'
 }
 
+export const ZOOM_SMOOTH_RATIO = 0.02
+
 export const SpecialEventList = [SpecialEvent.WHEEL]
 
 export enum InputField {

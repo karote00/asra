@@ -16,10 +16,17 @@ export enum UndoRedoInteraction {
   INTERACTION_UNDOREDO = 'INTERACTION_UNDOREDO'
 }
 
+// ZoomPreset
+export enum ZoomPresetInteraction {
+  INTERACTION_ZOOM_FIT = 'INTERACTION_ZOOM_FIT',
+  INTERACTION_PAN_ZOOM = 'INTERACTION_PAN_ZOOM'
+}
+
 export const InteractionActions = {
   ...ElementInteraction,
   ...PrimaryToolInteraction,
-  ...UndoRedoInteraction
+  ...UndoRedoInteraction,
+  ...ZoomPresetInteraction
 } as const
 
 export type InteractionActions =

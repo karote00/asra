@@ -5,7 +5,9 @@ import type {
   UpdateSessionEvent,
   EndSessionEvent,
   DecideToCreateElementEvent,
-  DecideToUndoRedoEvent
+  DecideToUndoRedoEvent,
+  DecideToZoomFitEvent,
+  DecideToPanZoomEvent
 } from './events'
 import { createSubscribeEvent } from '../event-bus'
 import { EventTypes } from '../types'
@@ -36,3 +38,9 @@ export const subscribeToDecideToCreateElement =
 
 export const subscribeToDecideToUndoRedo =
   createSubscribeEvent<DecideToUndoRedoEvent>(EventTypes.DECIDE_TO_UNDOREDO)
+
+export const subscribeToDecideToZoomFit =
+  createSubscribeEvent<DecideToZoomFitEvent>(EventTypes.DECIDE_TO_ZOOM_FIT)
+
+export const subscribeToDecideToPanZoom =
+  createSubscribeEvent<DecideToPanZoomEvent>(EventTypes.DECIDE_TO_PAN_ZOOM)

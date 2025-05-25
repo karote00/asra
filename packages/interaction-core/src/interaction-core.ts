@@ -15,14 +15,12 @@ class InteractionCore {
     systemContextSnapshot: SystemContextSnapshot,
     detail?: DetailType
   ) {
-    console.log(eventName, systemContextSnapshot, detail)
     const interaction = decideInteraction(
       eventName,
       systemContextSnapshot,
       detail
     )
-    console.log('decidee interaction')
-    console.log(interaction)
+
     this.dispatchSession(interaction)
   }
 
@@ -58,7 +56,7 @@ class InteractionCore {
     detail?: DetailType
   ) {
     // const interaction = decideInteraction(eventName, systemContextSnapshot, detail)
-    this.cancelPreviousSession()
+    // this.cancelPreviousSession()
   }
 
   dispatchSession(interaction: InteractionEvent | null) {
@@ -70,7 +68,6 @@ class InteractionCore {
       this.cancelPreviousSession()
     }
 
-    console.log('dispatchSession', interaction)
     const handler = InteractionCoreHandlers[interaction.type]
     if (handler) {
       handler(interaction.payload)
