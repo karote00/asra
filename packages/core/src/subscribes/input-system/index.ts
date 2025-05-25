@@ -8,7 +8,7 @@ import {
 import { UndoHandler } from './undo'
 import { ViewportHandler } from './viewport'
 import { RenderHandler } from './render'
-import { PrimaryToolHandler } from './tool'
+import { PrimaryToolHandler } from './primary-tool'
 import { CoreAPIs, HandlerDeps } from '../../types'
 
 export const initInputSystemHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {

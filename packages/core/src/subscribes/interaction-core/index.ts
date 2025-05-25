@@ -1,6 +1,6 @@
 import { PrimaryToolType } from '@asra/utils'
 import { CoreAPIs } from '../../types'
-import { initPrimaryToolHandlers } from './tool'
+import { initPrimaryToolHandlers } from './primary-tool'
 
 export const initInteractionCoreHandlers = (apis: CoreAPIs) => {
   initPrimaryToolHandlers({

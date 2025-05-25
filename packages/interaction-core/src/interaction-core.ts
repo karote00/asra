@@ -2,11 +2,10 @@ import {
   SystemContextSnapshot,
   InputSystemEvents,
   DetailType,
-  InteractionEvent,
-  InteractionActions
+  InteractionEvent
 } from '@asra/utils'
 import { decideInteraction } from './decider'
-import { decideSwitchPrimaryTool } from '@asra/reactive-events'
+import { InteractionCoreHandlers } from './handlers'
 
 class InteractionCore {
   private _previousSession: InteractionEvent | null = null
@@ -17,18 +16,14 @@ class InteractionCore {
     detail?: DetailType
   ) {
     console.log(eventName, systemContextSnapshot, detail)
-    const action = decideInteraction(eventName, systemContextSnapshot, detail)
-    console.log('decidee action')
-    console.log(action)
-    if (action) {
-      if (this._previousSession) {
-        this.cancelPreviousAction()
-      }
-
-      this.emitAction(action)
-
-      this._previousSession = action
-    }
+    const interaction = decideInteraction(
+      eventName,
+      systemContextSnapshot,
+      detail
+    )
+    console.log('decidee interaction')
+    console.log(interaction)
+    this.dispatchSession(interaction)
   }
 
   startSession(
@@ -36,14 +31,12 @@ class InteractionCore {
     systemContextSnapshot: SystemContextSnapshot,
     detail?: DetailType
   ) {
-    const action = decideInteraction(eventName, systemContextSnapshot, detail)
-    if (action) {
-      if (this._previousSession) {
-        this.cancelPreviousAction()
-      }
-    }
-
-    this._previousSession = action
+    const interaction = decideInteraction(
+      eventName,
+      systemContextSnapshot,
+      detail
+    )
+    this.dispatchSession(interaction)
   }
 
   updateSession(
@@ -51,8 +44,12 @@ class InteractionCore {
     systemContextSnapshot: SystemContextSnapshot,
     detail?: DetailType
   ) {
-    const action = decideInteraction(eventName, systemContextSnapshot, detail)
-    this._previousSession = action
+    const interaction = decideInteraction(
+      eventName,
+      systemContextSnapshot,
+      detail
+    )
+    this._previousSession = interaction
   }
 
   endSession(
@@ -60,20 +57,29 @@ class InteractionCore {
     systemContextSnapshot: SystemContextSnapshot,
     detail?: DetailType
   ) {
-    // const action = decideInteraction(eventName, systemContextSnapshot, detail)
-    this._previousSession = null
+    // const interaction = decideInteraction(eventName, systemContextSnapshot, detail)
+    this.cancelPreviousSession()
   }
 
-  emitAction(action: InteractionEvent) {
-    console.log('executeAction', action)
-    switch (action.type) {
-      case InteractionActions.ACTION_SWITCH_PRIMARY_TOOL:
-        decideSwitchPrimaryTool(action.payload.primaryTool)
-        break
+  dispatchSession(interaction: InteractionEvent | null) {
+    if (!interaction) {
+      return
     }
+
+    if (this._previousSession) {
+      this.cancelPreviousSession()
+    }
+
+    console.log('dispatchSession', interaction)
+    const handler = InteractionCoreHandlers[interaction.type]
+    if (handler) {
+      handler(interaction.payload)
+    }
+
+    this._previousSession = interaction
   }
 
-  cancelPreviousAction() {
+  cancelPreviousSession() {
     this._previousSession = null
   }
 }

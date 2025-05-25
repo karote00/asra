@@ -67,9 +67,9 @@ export const endSession = (
   })
 }
 
-export const decideSwitchPrimaryTool = (primaryTool: PrimaryToolType) => {
+export const decideToSwitchPrimaryTool = (primaryTool: PrimaryToolType) => {
   publishEvent({
-    type: EventTypes.DECIDE_SWITCH_PRIMARY_TOOL,
+    type: EventTypes.DECIDE_TO_SWITCH_PRIMARY_TOOL,
     payload: {
       primaryTool
     }

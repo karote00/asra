@@ -17,7 +17,7 @@ export const decideFromSelectRules = (
     target.hoveredElementId
   ) {
     return {
-      type: InteractionActions.ACTION_SELECT_ELEMENTS,
+      type: InteractionActions.INTERACTION_SELECT_ELEMENTS,
       payload: { id: target.hoveredElementId }
     }
   }

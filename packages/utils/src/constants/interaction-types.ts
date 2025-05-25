@@ -1,26 +1,20 @@
-// NoneInteraction
-export enum NoneInteraction {
-  ACTION_NONE = 'ACTION_NONE'
-}
-
 // ElementInteraction
 export enum ElementInteraction {
-  ACTION_SELECT_ELEMENTS = 'ACTION_SELECT_ELEMENTS',
-  ACTION_MOVE_ELEMENTS = 'ACTION_MOVE_ELEMENTS',
-  ACTION_DELETE_ELEMENTS = 'ACTION_DELETE_ELEMENTS',
-  ACTION_CREATE_ELEMENT = 'ACTION_CREATE_ELEMENT'
+  INTERACTION_SELECT_ELEMENTS = 'INTERACTION_SELECT_ELEMENTS',
+  INTERACTION_MOVE_ELEMENTS = 'INTERACTION_MOVE_ELEMENTS',
+  INTERACTION_DELETE_ELEMENTS = 'INTERACTION_DELETE_ELEMENTS',
+  INTERACTION_CREATE_ELEMENT = 'INTERACTION_CREATE_ELEMENT'
 }
 
 // PrimaryToolInteraction
 export enum PrimaryToolInteraction {
-  ACTION_SWITCH_PRIMARY_TOOL = 'ACTION_SWITCH_PRIMARY_TOOL'
+  INTERACTION_SWITCH_PRIMARY_TOOL = 'INTERACTION_SWITCH_PRIMARY_TOOL'
 }
 
 export const InteractionActions = {
-  ...NoneInteraction,
   ...ElementInteraction,
   ...PrimaryToolInteraction
-}
+} as const
 
-export type InteractionAction =
+export type InteractionActions =
   (typeof InteractionActions)[keyof typeof InteractionActions]

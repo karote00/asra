@@ -11,7 +11,7 @@ export const decideFromMoveRules = (
 
   if (mouse.dragging && target.selectedElementIds.length > 0) {
     return {
-      type: InteractionActions.ACTION_MOVE_ELEMENTS,
+      type: InteractionActions.INTERACTION_MOVE_ELEMENTS,
       payload: { ids: target.selectedElementIds, delta: mouse.delta }
     }
   }

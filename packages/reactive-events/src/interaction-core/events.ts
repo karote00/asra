@@ -42,7 +42,7 @@ export interface EndSessionEvent {
   }
 }
 
-export interface DecideSwitchPrimaryToolEvent {
+export interface DecideToSwitchPrimaryToolEvent {
   type: EventTypes
   payload: {
     primaryTool: PrimaryToolType
@@ -54,4 +54,4 @@ export type InteractionCoreEvents =
   | StartSessionEvent
   | UpdateSessionEvent
   | EndSessionEvent
-  | DecideSwitchPrimaryToolEvent
+  | DecideToSwitchPrimaryToolEvent

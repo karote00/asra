@@ -107,7 +107,7 @@ export enum InteractionCoreEventTypes {
   START_SESSION = 'startSession',
   UPDATE_SESSION = 'updateSession',
   END_SESSION = 'endSession',
-  DECIDE_SWITCH_PRIMARY_TOOL = 'decideSwitchPrimaryTool'
+  DECIDE_TO_SWITCH_PRIMARY_TOOL = 'decideToSwitchPrimaryTool'
 }
 
 // SystemContext

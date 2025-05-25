@@ -1,6 +1,6 @@
 import type {
   ExecuteActionEvent,
-  DecideSwitchPrimaryToolEvent,
+  DecideToSwitchPrimaryToolEvent,
   StartSessionEvent,
   UpdateSessionEvent,
   EndSessionEvent
@@ -23,6 +23,6 @@ export const subscribeToEndSession = createSubscribeEvent<EndSessionEvent>(
 )
 
 export const subscribeToDecideSwitchPrimaryTool =
-  createSubscribeEvent<DecideSwitchPrimaryToolEvent>(
-    EventTypes.DECIDE_SWITCH_PRIMARY_TOOL
+  createSubscribeEvent<DecideToSwitchPrimaryToolEvent>(
+    EventTypes.DECIDE_TO_SWITCH_PRIMARY_TOOL
   )

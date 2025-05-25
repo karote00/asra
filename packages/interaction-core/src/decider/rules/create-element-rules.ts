@@ -9,7 +9,7 @@ export const decideFromCreateElementRules = (
 ): InteractionEvent | null => {
   const { primaryTool, mouse } = systemContextSnapshot
   const interaction: InteractionEvent = {
-    type: InteractionActions.ACTION_CREATE_ELEMENT,
+    type: InteractionActions.INTERACTION_CREATE_ELEMENT,
     payload: {
       ...mouse.position,
       elementType: primaryTool
