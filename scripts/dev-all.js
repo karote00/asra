@@ -6,9 +6,6 @@ import fs from 'fs/promises'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// For ui app folder
-const uiAppPath = path.resolve(__dirname, '../apps/ui')
-
 async function getPackages() {
   const packagesDir = path.resolve(__dirname, '../packages')
   const dirs = await fs.readdir(packagesDir, { withFileTypes: true })

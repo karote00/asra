@@ -1,3 +1,5 @@
+/* eslint-env node */
+
 import { includeIgnoreFile } from '@eslint/compat'
 import tseslint from 'typescript-eslint'
 import js from '@eslint/js'
@@ -55,6 +57,20 @@ export default tseslint.config(
     files: ['**/enum.ts'],
     rules: {
       'no-unused-vars': 'off'
+    }
+  },
+  {
+    files: ['scripts/**/*.js'],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        Buffer: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly'
+      }
     }
   }
 )
