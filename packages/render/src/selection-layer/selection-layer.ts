@@ -1,4 +1,4 @@
-import { Container, Graphics } from 'pixi.js'
+import { Container, Graphics, Ticker } from 'pixi.js'
 import { getSelectionLocalBounds } from './utils'
 import { SceneElement } from '../types'
 
@@ -6,6 +6,8 @@ interface SelectionLayerOptions {
   getSelectedElements: () => SceneElement[]
   getHoverElement: () => SceneElement | null
 }
+
+const ticker = Ticker.shared
 
 /**
  * A special layer responsible for rendering selection boxes.
@@ -31,6 +33,18 @@ export class SelectionLayer {
 
     this.getSelectedElements = options.getSelectedElements
     this.getHoverElement = options.getHoverElement
+
+    this.init()
+  }
+
+  init() {
+    ticker.add(() => {
+      const animate = (time: number) => {
+        this.update()
+      }
+
+      animate(performance.now())
+    })
   }
 
   get view() {

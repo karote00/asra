@@ -50,10 +50,6 @@ class Render {
     ) as SceneElement[]
   }
 
-  updateSelectedSelection() {
-    this.selection.updateSelected()
-  }
-
   switchWorkspace(workspaceData: RenderContainerData) {
     this.viewport.switchWorkspace(workspaceData)
   }
@@ -89,7 +85,6 @@ class Render {
 
   zoomFit(uiBounds: DOMRect) {
     this.viewport.zoomFit(uiBounds)
-    this.updateSelectedSelection()
   }
 
   /**
@@ -100,7 +95,6 @@ class Render {
    */
   panTo(x: number, y: number) {
     this.viewport.panTo(x, y)
-    this.updateSelectedSelection()
   }
 
   /**
@@ -111,7 +105,6 @@ class Render {
    */
   zoomTo(scale: number) {
     this.viewport.zoomTo(scale)
-    this.updateSelectedSelection()
   }
 
   /**
@@ -123,7 +116,6 @@ class Render {
    */
   zoomToCenter(scale: number, centerX: number, centerY: number) {
     this.viewport.zoomToCenter(scale, centerX, centerY)
-    this.updateSelectedSelection()
   }
 
   getViewportPosition() {
