@@ -1,6 +1,7 @@
 import { app, setPixiApp } from '../states/app'
 import { CANVAS_BACKGROUND_COLOR } from '../constants'
 import core from '../contexts'
+import { PrimaryToolType } from '@asra/utils'
 
 export const initRenderApp = async (
   container: HTMLDivElement,
@@ -43,4 +44,8 @@ export const renderIsReady = () => {
 export const resetData = () => {
   localStorage.setItem('FILE', JSON.stringify({}))
   location.reload()
+}
+
+export const switchPrimaryTool = (primaryTool: PrimaryToolType) => {
+  core.switchPrimaryTool(primaryTool)
 }

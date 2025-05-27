@@ -1,8 +1,8 @@
 import { useCallback } from 'react'
 import { Icon } from '@asra/design-system'
-import { usePrimaryTool } from '../providers'
 import { PrimaryToolType } from '@asra/utils'
-import { resetData } from '../controllers/app'
+import { usePrimaryTool } from '../providers'
+import { resetData, switchPrimaryTool } from '../controllers/app'
 
 const selectedStyle =
   'bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-white'
@@ -20,15 +20,29 @@ const ToolButton = () => {
     resetData()
   }, [])
 
+  const handleSwitchToSelectTool = useCallback(() => {
+    switchPrimaryTool(PrimaryToolType.SELECT)
+  }, [])
+
+  const handleSwitchToRectangleTool = useCallback(() => {
+    switchPrimaryTool(PrimaryToolType.RECTANGLE)
+  }, [])
+
   return (
     <div className="flex text-white">
-      <div onClick={handleReset} className="pr-4 cursor-pointer">
+      <div className="pr-4 cursor-pointer" onClick={handleReset}>
         Reset
       </div>
-      <div className={`flex align-middle ${selectToolStyle}`}>
+      <div
+        className={`flex align-middle ${selectToolStyle}`}
+        onClick={handleSwitchToSelectTool}
+      >
         <Icon name="Select" />
       </div>
-      <div className={`flex align-middle ${rectangleToolStyle}`}>
+      <div
+        className={`flex align-middle ${rectangleToolStyle}`}
+        onClick={handleSwitchToRectangleTool}
+      >
         <Icon name="Rectangle" />
       </div>
     </div>
