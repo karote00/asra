@@ -1,6 +1,8 @@
+import { useCallback } from 'react'
 import { Icon } from '@asra/design-system'
 import { usePrimaryTool } from '../providers'
 import { PrimaryToolType } from '@asra/utils'
+import { resetData } from '../controllers/app'
 
 const selectedStyle =
   'bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-white'
@@ -14,8 +16,15 @@ const ToolButton = () => {
   const rectangleToolStyle =
     primaryTool === PrimaryToolType.RECTANGLE ? selectedStyle : normalStyle
 
+  const handleReset = useCallback(() => {
+    resetData()
+  }, [])
+
   return (
     <div className="flex text-white">
+      <div onClick={handleReset} className="pr-4 cursor-pointer">
+        Reset
+      </div>
       <div className={`flex align-middle ${selectToolStyle}`}>
         <Icon name="Select" />
       </div>

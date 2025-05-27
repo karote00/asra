@@ -39,3 +39,8 @@ export const setupInputSystem = (canvas: HTMLElement) => {
 export const renderIsReady = () => {
   core.renderIsReady()
 }
+
+export const resetData = () => {
+  localStorage.setItem('FILE', JSON.stringify({}))
+  location.reload()
+}
