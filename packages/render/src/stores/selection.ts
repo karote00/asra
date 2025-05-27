@@ -1,6 +1,5 @@
 import selectionManager, { SelectionManager } from '@asra/selection'
 import { SELECTION_TYPES } from '@asra/utils'
-import render from '../render'
 
 class RenderSelection {
   selectionManager: SelectionManager
@@ -27,7 +26,6 @@ class RenderSelection {
     switch (type) {
       case SELECTION_TYPES.ELEMENT: {
         this.elementSelection = new Set(selectedIds)
-        render.updateSelectedSelection()
         break
       }
       case SELECTION_TYPES.VERTEX:
