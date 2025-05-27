@@ -12,6 +12,7 @@ const DataContexts = () => {
     initDataContexts()
 
     const renderSubscription = subscribeToRenderIsReady(() => {
+      // TODO: Connect to DB
       const fileData = localStorage.getItem('FILE')
       if (fileData) {
         core.load(JSON.parse(fileData))
@@ -20,6 +21,7 @@ const DataContexts = () => {
     })
 
     const transactSubscription = subscribeToEndTransaction(async () => {
+      // TODO: Connect to DB
       const coreData = await core.save()
       localStorage.setItem('FILE', JSON.stringify(coreData))
     })
