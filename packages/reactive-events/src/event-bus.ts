@@ -1,15 +1,15 @@
 import {
-  Subject,
   Observable,
   Subscription,
   filter,
   share,
-  UnaryFunction
+  UnaryFunction,
+  ReplaySubject
 } from 'rxjs'
 import { EventTypes } from './types'
 import { AllEvent } from './constants'
 
-const eventBus = new Subject<AllEvent>()
+const eventBus = new ReplaySubject<AllEvent>(1)
 
 export const publishEvent = (event: AllEvent) => {
   eventBus.next(event)
@@ -50,7 +50,7 @@ export const subscribeToEvents = (
   return getEventBusObserve().subscribe(subscriber)
 }
 
-export const getEventBus = (): Subject<AllEvent> => eventBus
+export const getEventBus = (): ReplaySubject<AllEvent> => eventBus
 export const getEventBusObserve = (): Observable<AllEvent> =>
   eventBus.asObservable()
 
