@@ -48,6 +48,7 @@ class InteractionCore {
       detail
     )
     this._previousSession = interaction
+    this.dispatchSession(interaction)
   }
 
   endSession(
@@ -55,8 +56,13 @@ class InteractionCore {
     systemContextSnapshot: SystemContextSnapshot,
     detail?: DetailType
   ) {
-    // const interaction = decideInteraction(eventName, systemContextSnapshot, detail)
-    // this.cancelPreviousSession()
+    const interaction = decideInteraction(
+      eventName,
+      systemContextSnapshot,
+      detail
+    )
+    this.dispatchSession(interaction)
+    this.cancelPreviousSession()
   }
 
   dispatchSession(interaction: InteractionEvent | null) {

@@ -10,7 +10,13 @@ import {
   sceneTreeLoadData,
   sceneTreeSaveData
 } from '@asra/reactive-events'
-import { CreateRectangleData, SceneTreeRawData, DataTypes } from '@asra/utils'
+import {
+  CreateRectangleData,
+  SceneTreeRawData,
+  DataTypes,
+  PositionData,
+  DimensionData
+} from '@asra/utils'
 import { SceneTreeAPIs } from '../types'
 
 export const createSceneTreeAPIs = (): SceneTreeAPIs => {
@@ -36,6 +42,15 @@ export const createSceneTreeAPIs = (): SceneTreeAPIs => {
       startTransaction()
       const elementIds = await requestElementSelection()
       changeComputedData(elementIds, key, data)
+      endTransaction()
+    },
+    async resizeElement(pos: PositionData, dimension: DimensionData) {
+      startTransaction()
+      const elementIds = await requestElementSelection()
+      changeComputedData(elementIds, 'x', pos.x)
+      changeComputedData(elementIds, 'y', pos.y)
+      changeComputedData(elementIds, 'width', dimension.width)
+      changeComputedData(elementIds, 'height', dimension.height)
       endTransaction()
     }
   }

@@ -1,5 +1,7 @@
 export * from './select-behavior'
 export * from './drag-start-behavior'
+export * from './drag-update-behavior'
+export * from './drag-end-behavior'
 export * from './switch-primary-tool-behavior'
 export * from './undoredo-behavior'
 export * from './zoomfit-behavior'

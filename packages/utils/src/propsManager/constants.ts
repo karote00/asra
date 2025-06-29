@@ -15,8 +15,8 @@ export const DefaultPositionData = {
 }
 
 export const DefaultDimensionData = {
-  width: 100,
-  height: 100,
+  width: 0.1,
+  height: 0.1,
   widthUnit: Unit.PX,
   heightUnit: Unit.PX
 }

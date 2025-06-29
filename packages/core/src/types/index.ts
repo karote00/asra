@@ -4,7 +4,11 @@ import {
 } from './element-selection'
 import { InputSystemAPIs, InputSystemRawAPIs } from './input-system'
 import { RenderAPIs, RenderRawAPIs } from './render'
-import { SceneTreeAPIs, SceneTreeHandlerAPIs } from './scene-tree'
+import {
+  SceneTreeAPIs,
+  SceneTreeActionAPIs,
+  SceneTreeHandlerAPIs
+} from './scene-tree'
 import { UndoAPIs, UndoActionAPIs } from './undo'
 import { ViewportAPIs } from './viewport'
 import { PropsAPIs, PropsRawAPIs } from './props'
@@ -32,6 +36,7 @@ export {
   RenderRawAPIs,
   RenderAPIs,
   SceneTreeAPIs,
+  SceneTreeActionAPIs,
   SceneTreeHandlerAPIs,
   ElementSelectionActionAPIs,
   ElementSelectionAPIs,

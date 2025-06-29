@@ -1,9 +1,15 @@
-import { PositionData, PrimaryToolType } from '@asra/utils'
+import {
+  DataTypes,
+  DimensionData,
+  PositionData,
+  PrimaryToolType
+} from '@asra/utils'
 import { initPrimaryToolHandlers } from './primary-tool'
 import { initCreateElementHandlers } from './create-element'
 import { initUndoRedoHandlers } from './undoredo'
 import { CoreAPIs, HandlerDeps } from '../../types'
 import { initViewportHandlers } from './viewport'
+import { initResizeElementHandlers } from './resize-element'
 
 export const initInteractionCoreHandlers = (
   deps: HandlerDeps,
@@ -16,6 +22,13 @@ export const initInteractionCoreHandlers = (
 
   initCreateElementHandlers(deps.render, {
     addRectangle: (pos: PositionData) => apis.addRectangle(pos)
+  })
+
+  initResizeElementHandlers(deps.render, {
+    changeComputedData: (key: string, data: DataTypes) =>
+      apis.changeComputedData(key, data),
+    resizeElement: (pos: PositionData, dimension: DimensionData) =>
+      apis.resizeElement(pos, dimension)
   })
 
   initUndoRedoHandlers({

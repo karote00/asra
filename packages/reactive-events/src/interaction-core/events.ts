@@ -61,6 +61,23 @@ export interface DecideToCreateElementEvent {
   }
 }
 
+export interface DecideToResizeElementEvent {
+  type: EventTypes
+  payload: {
+    dragStart: PositionData
+    position: PositionData
+    elementType: PrimaryToolType
+  }
+}
+
+export interface DecideToEndResizeElementEvent {
+  type: EventTypes
+  payload: {
+    position: PositionData
+    elementType: PrimaryToolType
+  }
+}
+
 export interface DecideToUndoRedoEvent {
   type: EventTypes
   payload: {

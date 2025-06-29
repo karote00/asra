@@ -65,7 +65,7 @@ class Core implements CoreAPIs {
   sceneTreeSaveData!: SceneTreeAPIs['sceneTreeSaveData']
   addRectangle!: SceneTreeAPIs['addRectangle']
   changeComputedData!: SceneTreeAPIs['changeComputedData']
-
+  resizeElement!: SceneTreeAPIs['resizeElement']
   selectElements!: ElementSelectionAPIs['selectElements']
 
   propsLoadData!: PropsAPIs['propsLoadData']
