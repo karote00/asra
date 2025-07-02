@@ -20,7 +20,7 @@
     "lint:ci": "eslint .",
     "clean": "turbo run clean",
     "reinstall": "yarn clean && rm -rf node_modules .turbo && yarn && yarn react:build",
-    "gen:turbo": "node scripts/gen-turbo.js",
+    "gen:turbo": "node scripts/gen-turbo.js && yarn install",
     "predev": "yarn gen:turbo"
   },
   "workspaces": [
