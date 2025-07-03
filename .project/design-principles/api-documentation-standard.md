@@ -17,7 +17,7 @@ Each documented function must have a dedicated section with the following struct
 ### `functionName()`
 
 -   **Description**: A clear, one-sentence summary of the function's purpose. **This MUST be taken from the function's JSDoc comments if they exist.** If not, a description should be generated.
--   **Type**: The function's role in the event system (e.g., Publisher, Subscriber, Requestor, Stream Creator).
+-   **Type**: The function's architectural role or category (e.g., Publisher, Factory Function, Utility Helper).
 -   **Signature**: The full TypeScript function signature.
 -   **Parameters**:
     -   `paramName` (`type`): A description of the parameter's purpose.
