@@ -45,7 +45,7 @@ The architecture is a classic **Event Bus** pattern, centralized around a single
 
 1.  **Event Definition**: A developer first defines a new event type in `types.ts` (e.g., `MY_NEW_EVENT = 'myNewEvent'`) and its corresponding interface in the relevant domain directory (e.g., `packages/reactive-events/src/my-feature/events.ts`).
 
-2.  **Publishing**: When a part of the application needs to signal an event (e.g., `packages/input-system` detects a mouse move), it calls `publishEvent` with the appropriate event object (e.g., `{ type: 'updateMouseState', payload: { x: 100, y: 200 } }`).
+2.  **Publishing**: A feature package (e.g., `@asra/interaction-core`) calls the specific, high-level publisher function for the event it wants to signal (e.g., `decideToCreateElement(...)`). It **does not** call the generic `publishEvent` directly.
 
 3.  **Subscription**: Other packages that care about this event (e.g., `packages/render` to draw a cursor, `packages/ui-context` to show coordinates) use a pre-defined subscription function (like `subscribeToMouseUpdate(...)`).
 
@@ -55,19 +55,17 @@ The architecture is a classic **Event Bus** pattern, centralized around a single
 
 This example shows the primary use case: communication between two internal packages.
 
-**Scenario**: The `interaction-core` package determines a user action should result in creating a new element. It publishes an event, and the `core` package listens for this event to handle the logic.
+**Scenario**: The `interaction-core` package determines a user action should result in creating a new element. It calls the appropriate high-level function from `@asra/reactive-events`. The `core` package, in turn, uses the corresponding high-level subscription function to listen for this event and handle the logic.
 
 **1. Publishing Package (`@asra/interaction-core`)**
 ```typescript
 // In a file within @asra/interaction-core
-import { publishEvent } from '@asra/reactive-events';
+import { decideToCreateElement } from '@asra/reactive-events';
 
 function userClicksCreateButton() {
-  // This package's only job is to announce what happened.
-  publishEvent({
-    type: 'decideToCreateElement',
-    payload: { elementType: 'box', position: { x: 10, y: 20 } }
-  });
+  // This package calls the specific, named function for the event.
+  // It does NOT use the generic `publishEvent`.
+  decideToCreateElement({ x: 10, y: 20 }, 'box');
 }
 ```
 
