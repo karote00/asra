@@ -20,12 +20,12 @@ This document defines the principles for managing application state, distinguish
 
 -   **Definition**: Information that represents the core application data model and must be consistent across all collaborative clients.
 -   **Examples**: Scene graph (elements, their hierarchy, properties), document metadata, undo/redo history (if collaborative).
--   **Handling**: This state is managed using **YJS objects**. YJS provides the underlying CRDT (Conflict-free Replicated Data Type) capabilities to ensure automatic synchronization and conflict resolution across all connected clients.
--   **Communication**: When shared state changes, the updates are automatically propagated by YJS. Repositories that need to react to these changes (e.g., `@asra/render`, `@asra/ui-context`) directly observe the YJS object for granular updates. High-level events (via `@asra/reactive-events`) may still be published to signal that a shared state change *has occurred*, but the detailed data for the change comes from the YJS object itself.
+-   **Handling**: This state is managed directly within **YJS objects**. YJS provides the underlying CRDT (Conflict-free Replicated Data Type) capabilities to ensure automatic synchronization and conflict resolution across all connected clients. While YJS holds the real data for shared state, the application-specific logic and behavior associated with this data are managed by the relevant repositories (e.g., `@asra/scene-tree` for the scene graph).
+-   **Communication**: When shared state changes within the YJS document, these updates are automatically propagated by YJS. Repositories that need to react to these changes (e.g., `@asra/render`, `@asra/ui-context`) directly observe the YJS object for granular updates. High-level events (via `@asra/reactive-events`) may still be published to signal that a shared state change *has occurred*, but the detailed data for the change comes directly from the YJS object itself.
 
 ## Relationship between Event Flow and Data Flow
 
 -   **Events (Reactive Events)**: Primarily signal *actions*, *commands*, or *notifications* (e.g., "user clicked here", "element created", "tool changed"). For shared state, events might carry the data that will be applied to the YJS document (e.g., `updateComputedData` event payload becomes YJS data).
--   **Data (YJS)**: Represents the *current truth* of the shared application state. Components react to changes in the YJS document to update their views or internal logic.
+-   **Data (YJS)**: Represents the *current truth* of the shared application state, directly held and synchronized by YJS. Components react to changes in the YJS document to update their views or internal logic.
 
 This clear separation ensures that the system is both responsive to user actions and robust in its collaborative capabilities.
