@@ -44,3 +44,8 @@ This section outlines the key information an AI agent should prioritize identify
 8.  **Build, Development, and Deployment Commands**:
     *   Identify how the project is built, run locally, and potentially deployed.
     *   *Inference Sources*: `package.json` (`scripts`), `Dockerfile`, `vercel.json`, CI/CD workflow files (`.github/workflows/`).
+
+9.  **External Documentation & Project-Specific Terminology**:
+    *   Actively search for and prioritize learning from external documentation links (e.g., in `README.md`, comments, or other project guides) that define architectural styles or project-specific terms.
+    *   Note any unique acronyms or terms used within the codebase that might require clarification.
+    *   *Inference Sources*: `README.md`, project-specific `.md` files, code comments, variable/function names that appear to be acronyms or unique terms.
