@@ -18,7 +18,7 @@ To produce a complete set of project metadata including Architecture overviews, 
 **AI Agent Action**: The AI agent will present the "Initial Project Understanding Report" to the human collaborator.
 
 -   **Human Collaborator Action**: The human collaborator will review the report, confirming accurate inferences, correcting misunderstandings, and, most importantly, providing the crucial "why" and "intent" behind the project's design. The human will also identify specific areas where deeper documentation is needed.
--   **AI Agent Action**: The AI agent will engage in a dialogue with the human, asking targeted questions to clarify ambiguities and gather missing context. Key areas for human input include:
+-   **AI Agent Action**: The AI agent will engage in a dialogue with the human, asking targeted questions in **small, focused groups** to clarify ambiguities and gather missing context. Key areas for human input include:
     *   **Core Responsibilities**: Explicitly define the purpose and boundaries of each major module/package.
     *   **Design Principles**: Articulate strict architectural rules, conventions, and strategic decisions (e.g., state management, transaction patterns, coding style).
     *   **Golden Paths**: Identify critical, end-to-end user journeys that demonstrate core functionality.
