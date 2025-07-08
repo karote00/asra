@@ -33,7 +33,7 @@ This section outlines the key information an AI agent should prioritize identify
 
 6.  **Inter-Module Communication Mechanisms**:
     *   Identify how different parts of the system communicate with each other (e.g., explicit event buses, pub/sub patterns, direct function calls, API endpoints, message queues).
-    *   *Inference Sources*: Imports of event emitter libraries, custom event bus implementations, `publish`/`subscribe` patterns, API route definitions.
+    *   *Inference Sources*: Imports of event emitter libraries, custom event bus implementations, `publish`/`subscribe` patterns, API route definitions, common event-related terms.
 
 7.  **Testing & Quality Assurance Indicators**:
     *   Determine if test directories exist (`__tests__`, `tests`, `e2e`).
