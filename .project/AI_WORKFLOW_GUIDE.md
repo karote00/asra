@@ -38,7 +38,7 @@ This guide outlines a universal workflow for AI agents in software engineering p
     *   **Task Decomposition**: Break down the main task into smaller, manageable sub-tasks (e.g., "locate bug," "implement fix," "write test," "refactor function").
     *   **Tool Identification**: For each sub-task, identify the specific tools (`read_file`, `replace`, `write_file`, `run_shell_command`, etc.) and their arguments.
     *   **Self-Verification Integration**: This is crucial. The AI will plan for:
-        *   **Testing**: Identify existing test commands (e.g., `npm test`, `pytest`) or propose writing new unit/integration tests if a safety net is missing.
+        *   **Testing**: Identify existing test commands (e.g., `npm test`, `pytest`). The AI will also determine the most appropriate test type (unit, integration, E2E) and framework (e.g., Playwright for E2E on canvas features) based on the task and project context, and propose writing new tests if a safety net is missing.
         *   **Linting/Type-checking**: Identify and plan to run project-specific code quality checks (e.g., `eslint`, `tsc`, `ruff check`).
         *   **Debugging/Logging**: Plan for temporary debug statements or log outputs if complex logic needs to be traced.
     *   **Plan Formulation**: Construct a concise, high-level summary of the plan, including the proposed steps and verification strategy, to present to the user.
@@ -68,7 +68,8 @@ This guide outlines a universal workflow for AI agents in software engineering p
 
 *   **Goal**: To ensure the overall task is successfully completed, meets all requirements, and is ready for final human approval.
 *   **AI Actions**:
-    *   **Execute Final Verification**: Run all planned tests, linting, and type-checking commands to confirm code quality and correctness.
+    *   **Execute Final Verification**: Run all planned tests (unit, integration, E2E), linting, and type-checking commands to confirm code quality and correctness.
+    *   **Build Verification**: Ensure the project successfully builds, confirming it's ready for deployment.
     *   **Status Report**:
         *   If all checks pass, the AI will report successful completion of the task.
         *   If checks fail, the AI will report the failures and return to Phase 3 for further implementation/correction.
@@ -82,6 +83,7 @@ This guide outlines a universal workflow for AI agents in software engineering p
 *   **Goal**: To maintain clear communication, address ambiguities, and learn from the process to enhance future performance.
 *   **AI Actions**:
     *   **Communication and Clarification**: If the AI encounters ambiguities, unexpected issues, or needs to deviate from the approved plan, it will communicate these to the user for clarification and re-alignment. The user can also request the AI to "think out loud" at any point to understand its reasoning or current state.
+    *   **Loop Detection and Intervention**: If the AI finds itself repeatedly executing the same or similar commands, encountering the same errors, or making no discernible progress towards a sub-task's objective after a predefined number of attempts (e.g., 3-5 attempts), it will consider itself "stuck in a loop." In such cases, the AI will immediately halt the current sub-task's execution, report the issue to the user (stating the sub-task, recurring problem, attempted steps, and reason for being stuck), and request user intervention/guidance.
     *   **Learning from Interactions**: The AI will continuously learn from user feedback, successful and unsuccessful attempts, and new information to improve its understanding and execution of future tasks.
 *   **Output**: Clear communication with the user, and improved future performance.
 
