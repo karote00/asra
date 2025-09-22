@@ -9,6 +9,19 @@ This is the first file AI agents should read when starting work on this project.
 **Current Focus**: Interactive UI features (mouse drag resize)
 **Documentation System**: Handoff - persistent AI knowledge transfer
 
+## 🧪 Testing Guidelines
+
+**For Documentation/Analysis Tasks**:
+- ✅ Use CI commands: `yarn test:ci`, `yarn lint:ci`
+- ❌ Avoid watch mode: `yarn test`, `yarn lint` (these start watch mode)
+
+**For Active Development**:
+- ✅ Watch mode is fine: `yarn test`, `yarn dev`
+
+**Build Commands**:
+- ✅ Production builds: `yarn react:build`
+- ✅ Clean builds: `yarn clean && yarn react:build`
+
 ## 📋 Before You Start
 
 1. **Check Engagement Level**: Read `.project/handoff-config.md` for interaction preferences

@@ -69,12 +69,36 @@ This guide outlines a universal workflow for AI agents in software engineering p
 *   **Goal**: To ensure the overall task is successfully completed, meets all requirements, and is ready for final human approval.
 *   **AI Actions**:
     *   **Execute Final Verification**: Run all planned tests (unit, integration, E2E), linting, and type-checking commands to confirm code quality and correctness.
+        *   **Use CI commands for verification**: `yarn test:ci`, `yarn lint:ci` (avoid watch mode commands)
     *   **Build Verification**: Ensure the project successfully builds, confirming it's ready for deployment.
     *   **Status Report**:
         *   If all checks pass, the AI will report successful completion of the task.
         *   If checks fail, the AI will report the failures and return to Phase 3 for further implementation/correction.
     *   **Commit Proposal**: If the task involves code changes, the AI will propose a draft commit message and ask for user confirmation before committing.
 *   **Output**: Confirmation of task completion, or a report of remaining issues.
+
+## Phase 5: Documentation Sync & Handoff Preparation
+
+*   **Goal**: To update project documentation with new patterns, decisions, and functionality before PR/merge, ensuring knowledge is preserved for future AI sessions and team members.
+*   **AI Actions**:
+    *   **Update Handoff Documentation**:
+        *   Update `.project/assumptions.md` with new patterns learned and decisions made
+        *   Update relevant golden paths if feature affects user workflows
+        *   Update architecture docs if new components/patterns were introduced
+        *   Update BDD features if new user behaviors were added
+        *   Update API documentation for new endpoints or modified interfaces
+    *   **Test Documentation**: Suggest updates to test documentation for new functionality
+    *   **Knowledge Preservation**: Document any new architectural patterns or conventions established
+    *   **Handoff Checklist**: Create a summary of changes for team review
+*   **Documentation Update Checklist**:
+    *   [ ] Golden paths updated for new user flows
+    *   [ ] Architecture docs reflect new components/patterns
+    *   [ ] BDD features cover new functionality
+    *   [ ] API docs updated for new/modified endpoints
+    *   [ ] Assumptions log updated with implementation decisions
+    *   [ ] Test documentation reflects new test patterns
+    *   [ ] Any new conventions documented for future reference
+*   **Output**: Updated project documentation ready for PR review and team handoff.
 
 ---
 
