@@ -7,8 +7,8 @@ export const initResizeElementHandlers = (
   apis: SceneTreeActionAPIs
 ) => {
   subscribeToDecideToResizeElement(({ payload }) => {
-    const { dragStart, position, elementType } = payload
-    console.log(dragStart, position)
+    const { dragStart, position } = payload
+
     const oldPos = render.getMousePosInWorkspace({
       clientX: dragStart.x,
       clientY: dragStart.y
