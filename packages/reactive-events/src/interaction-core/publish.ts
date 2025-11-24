@@ -93,6 +93,34 @@ export const decideToCreateElement = (
   })
 }
 
+export const decideToResizeElement = (
+  dragStart: PositionData,
+  position: PositionData,
+  elementType: PrimaryToolType
+) => {
+  publishEvent({
+    type: EventTypes.DECIDE_TO_RESIZE_ELEMENT,
+    payload: {
+      dragStart,
+      position,
+      elementType
+    }
+  })
+}
+
+export const decideToEndResizeElement = (
+  position: PositionData,
+  elementType: PrimaryToolType
+) => {
+  publishEvent({
+    type: EventTypes.DECIDE_TO_END_RESIZE_ELEMENT,
+    payload: {
+      position,
+      elementType
+    }
+  })
+}
+
 export const decideToUndoRedo = (undoredo: UNDO) => {
   publishEvent({
     type: EventTypes.DECIDE_TO_UNDOREDO,

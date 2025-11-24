@@ -62,6 +62,10 @@ export class RenderHandler {
     this._startPos = { clientX, clientY }
 
     this.deps.updateMouseState({
+      dragStart: {
+        x: clientX,
+        y: clientY
+      },
       position: {
         x: clientX,
         y: clientY

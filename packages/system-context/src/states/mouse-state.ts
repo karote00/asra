@@ -5,6 +5,7 @@ export class MouseState {
 
   constructor() {
     this._state = {
+      dragStart: DefaultPosition,
       position: DefaultPosition,
       delta: DefaultPosition,
       button: MouseButton.NONE,
@@ -14,6 +15,9 @@ export class MouseState {
   }
 
   set(mouseSnapshot: MouseSnapshot) {
+    if (mouseSnapshot.dragStart) {
+      this._state.dragStart = { ...mouseSnapshot.dragStart }
+    }
     this._state.position = { ...mouseSnapshot.position }
     this._state.delta = { ...mouseSnapshot.delta }
     this._state.button = mouseSnapshot.button

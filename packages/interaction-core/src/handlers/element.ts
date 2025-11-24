@@ -1,4 +1,8 @@
-import { decideToCreateElement } from '@asra/reactive-events'
+import {
+  decideToCreateElement,
+  decideToEndResizeElement,
+  decideToResizeElement
+} from '@asra/reactive-events'
 import { InteractionActions, InteractionEvent } from '@asra/utils'
 
 export const ElementHandlers = {
@@ -6,6 +10,20 @@ export const ElementHandlers = {
     payload?: InteractionEvent['payload']
   ) => {
     decideToCreateElement(payload.position, payload.elementType)
+  },
+  [InteractionActions.INTERACTION_RESIZE_ELEMENT]: (
+    payload?: InteractionEvent['payload']
+  ) => {
+    decideToResizeElement(
+      payload.dragStart,
+      payload.position,
+      payload.elementType
+    )
+  },
+  [InteractionActions.INTERACTION_END_RESIZE_ELEMENT]: (
+    payload?: InteractionEvent['payload']
+  ) => {
+    decideToEndResizeElement(payload.position, payload.elementType)
   },
   [InteractionActions.INTERACTION_MOVE_ELEMENTS]: (
     payload?: InteractionEvent['payload']

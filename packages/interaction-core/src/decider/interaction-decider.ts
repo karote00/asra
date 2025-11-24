@@ -6,6 +6,8 @@ import {
 } from '@asra/utils'
 import {
   decideDragStartBehavior,
+  decideDragUpdateBehavior,
+  decideDragEndBehavior,
   decidePanZoomBehavior,
   decideSwitchPrimaryToolBehavior,
   decideUndoRedoBehavior,
@@ -20,6 +22,10 @@ export const decideInteraction = (
   switch (eventName) {
     case InputSystemEvents.INPUT_DRAG_START:
       return decideDragStartBehavior(systemContextSnapshot)
+    case InputSystemEvents.INPUT_DRAG_UPDATE:
+      return decideDragUpdateBehavior(systemContextSnapshot)
+    case InputSystemEvents.INPUT_DRAG_END:
+      return decideDragEndBehavior(systemContextSnapshot)
     case InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL:
       return decideSwitchPrimaryToolBehavior(detail)
     case InputSystemEvents.INPUT_SHORTCUT_UNDOREDO:

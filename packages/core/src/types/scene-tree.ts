@@ -1,4 +1,10 @@
-import { CreateRectangleData, DataTypes, SceneTreeRawData } from '@asra/utils'
+import {
+  CreateRectangleData,
+  DataTypes,
+  DimensionData,
+  PositionData,
+  SceneTreeRawData
+} from '@asra/utils'
 
 export interface SceneTreeRawAPIs {
   sceneTreeInit: () => void
@@ -8,6 +14,7 @@ export interface SceneTreeRawAPIs {
 
 export interface SceneTreeActionAPIs {
   changeComputedData: (key: string, data: DataTypes) => void
+  resizeElement: (pos: PositionData, dimension: DimensionData) => void
 }
 
 export interface SceneTreeHandlerAPIs {
