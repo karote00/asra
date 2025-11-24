@@ -66,13 +66,6 @@
         "^build:utils"
       ]
     },
-    "build:event-emitter": {
-      "cache": false,
-      "outputs": [
-        "dist/**"
-      ],
-      "dependsOn": []
-    },
     "build:factory": {
       "cache": false,
       "outputs": [
@@ -99,6 +92,7 @@
         "dist/**"
       ],
       "dependsOn": [
+        "^build:input-system",
         "^build:reactive-events",
         "^build:utils"
       ]

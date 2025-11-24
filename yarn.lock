@@ -95,14 +95,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/event-emitter@workspace:packages/event-emitter":
-  version: 0.0.0-use.local
-  resolution: "@asra/event-emitter@workspace:packages/event-emitter"
-  dependencies:
-    typescript: "npm:^5.7.2"
-  languageName: unknown
-  linkType: soft
-
 "@asra/factory@workspace:*, @asra/factory@workspace:packages/factory":
   version: 0.0.0-use.local
   resolution: "@asra/factory@workspace:packages/factory"
