@@ -3,3 +3,5 @@ export enum SCENE_TREE_ACTIONS {
   REMOVE_ELEMENT = 'removeElement',
   UPDATE_ELEMENT_COMPUTED_DATA = 'updateElementComputedData'
 }
+
+export const DEFAULT_ELEMENT_SIZE = 100
