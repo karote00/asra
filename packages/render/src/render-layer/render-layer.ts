@@ -11,6 +11,17 @@ export class RenderLayer {
 
   constructor() {
     this.currentWorkspace = new Container()
+    this.bindWorkspaceEvents()
+  }
+
+  private bindWorkspaceEvents() {
+    this.currentWorkspace.eventMode = 'static'
+    this.currentWorkspace.on('pointerup', (e) => {
+      // Only deselect if clicking on empty space (not on an element)
+      if (e.target === this.currentWorkspace) {
+        this.interactionHandler.handleWorkspaceClick()
+      }
+    })
   }
 
   get view() {

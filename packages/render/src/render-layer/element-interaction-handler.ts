@@ -1,6 +1,15 @@
 import { Container, Graphics, FederatedPointerEvent } from 'pixi.js'
+import { ElementSelectionHandlers } from '../handlers'
 
 export class ElementInteractionHandler {
+  private hasMoved = false
+  private downElementId: string | null = null
+
+  handleWorkspaceClick() {
+    // Deselect all when clicking on empty space
+    ElementSelectionHandlers.deselectAll()
+  }
+
   bindElementEvents(element: Container | Graphics) {
     element.eventMode = 'static'
     element.cursor = 'pointer'
@@ -19,21 +28,28 @@ export class ElementInteractionHandler {
     element: Container | Graphics,
     e: FederatedPointerEvent
   ) {
-    console.log('pointer DOWN on', element)
-    // TODO: Publish selection event here
+    this.hasMoved = false
+    this.downElementId = element.label
+
+    // Select element on mouse down
+    ElementSelectionHandlers.selectElement(element.label)
   }
 
   private handlePointerMove(
     element: Container | Graphics,
     e: FederatedPointerEvent
   ) {
-    console.log('pointer MOVE on', element)
+    if (this.downElementId) {
+      this.hasMoved = true
+    }
   }
 
   private handlePointerUp(
     element: Container | Graphics,
     e: FederatedPointerEvent
   ) {
-    console.log('pointer UP on', element)
+    // Reset state
+    this.hasMoved = false
+    this.downElementId = null
   }
 }
