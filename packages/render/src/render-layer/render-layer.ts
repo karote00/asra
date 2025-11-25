@@ -1,14 +1,27 @@
 import { Container, Graphics, Point } from 'pixi.js'
 import { SceneElement, RenderContainerData, RenderElementData } from '../types'
 import { DataTypes, EntityTypes } from '@asra/utils'
+import { ElementInteractionHandler } from './element-interaction-handler'
 
 export class RenderLayer {
   private currentWorkspace: Container
   private _elements: Map<string, SceneElement> = new Map()
   private _deleteMap: Map<string, SceneElement> = new Map()
+  private interactionHandler = new ElementInteractionHandler()
 
   constructor() {
     this.currentWorkspace = new Container()
+    this.bindWorkspaceEvents()
+  }
+
+  private bindWorkspaceEvents() {
+    this.currentWorkspace.eventMode = 'static'
+    this.currentWorkspace.on('pointerup', (e) => {
+      // Only deselect if clicking on empty space (not on an element)
+      if (e.target === this.currentWorkspace) {
+        this.interactionHandler.handleWorkspaceClick()
+      }
+    })
   }
 
   get view() {
@@ -18,10 +31,12 @@ export class RenderLayer {
   addToMap(elementId: string, instance: SceneElement) {
     this._elements.set(elementId, instance)
     this.removeFromDeleteMap(elementId)
+    this.interactionHandler.bindElementEvents(instance)
   }
 
   removeFromMap(elementId: string) {
     const instance = this.getElementById(elementId) as SceneElement
+    this.interactionHandler.unbindElementEvents(instance)
     this._elements.delete(elementId)
     this.addToDeleteMap(elementId, instance)
   }
