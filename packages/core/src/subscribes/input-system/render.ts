@@ -3,7 +3,8 @@ import {
   MouseData,
   PointerEventData,
   RawInputEvent,
-  InputSystemEvents
+  InputSystemEvents,
+  DEFAULT_ELEMENT_SIZE
 } from '@asra/utils'
 import {
   HandlerDeps,
@@ -11,7 +12,8 @@ import {
   RenderRawAPIs,
   SceneTreeHandlerAPIs,
   KeyStateAPIs,
-  InteractionCoreSessionAPIs
+  InteractionCoreSessionAPIs,
+  SceneTreeActionAPIs
 } from '../../types'
 
 export class RenderHandler {
@@ -27,7 +29,8 @@ export class RenderHandler {
       SceneTreeHandlerAPIs &
       MouseStateAPIs &
       InteractionCoreSessionAPIs &
-      KeyStateAPIs
+      KeyStateAPIs &
+      SceneTreeActionAPIs
   ) {
     this._isDown = false
     this._isDrag = false
@@ -113,7 +116,7 @@ export class RenderHandler {
     this.deps.updateSession(InputSystemEvents.INPUT_DRAG_UPDATE)
   }
 
-  _handleDragEnd = (raw: RawInputEvent) => {
+  _handleDragEnd = async (raw: RawInputEvent) => {
     const { clientX, clientY, button } = raw.pointer as PointerEventData
     this.deps.updateMouseState({
       position: {
@@ -133,6 +136,12 @@ export class RenderHandler {
     })
 
     this.deps.endSession(InputSystemEvents.INPUT_DRAG_END)
+
+    // If never move mouse, then update new element's size to 100*100
+    if (!this._isDrag) {
+      await this.deps.changeComputedData('width', DEFAULT_ELEMENT_SIZE)
+      await this.deps.changeComputedData('height', DEFAULT_ELEMENT_SIZE)
+    }
 
     this._isDown = false
   }
