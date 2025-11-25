@@ -1,11 +1,13 @@
 import { Container, Graphics, Point } from 'pixi.js'
 import { SceneElement, RenderContainerData, RenderElementData } from '../types'
 import { DataTypes, EntityTypes } from '@asra/utils'
+import { ElementInteractionHandler } from './element-interaction-handler'
 
 export class RenderLayer {
   private currentWorkspace: Container
   private _elements: Map<string, SceneElement> = new Map()
   private _deleteMap: Map<string, SceneElement> = new Map()
+  private interactionHandler = new ElementInteractionHandler()
 
   constructor() {
     this.currentWorkspace = new Container()
@@ -18,10 +20,12 @@ export class RenderLayer {
   addToMap(elementId: string, instance: SceneElement) {
     this._elements.set(elementId, instance)
     this.removeFromDeleteMap(elementId)
+    this.interactionHandler.bindElementEvents(instance)
   }
 
   removeFromMap(elementId: string) {
     const instance = this.getElementById(elementId) as SceneElement
+    this.interactionHandler.unbindElementEvents(instance)
     this._elements.delete(elementId)
     this.addToDeleteMap(elementId, instance)
   }
@@ -114,20 +118,20 @@ export class RenderLayer {
       case 'children': {
         const oldList = new Set(before as string[])
         let deleteCount = 0
-        // Add element
-        ;(after as string[]).forEach((childId, index) => {
-          const child = this.getElementById(childId)
-          if (!child) {
-            return
-          }
+          // Add element
+          ; (after as string[]).forEach((childId, index) => {
+            const child = this.getElementById(childId)
+            if (!child) {
+              return
+            }
 
-          if (oldList.has(childId)) {
-            oldList.delete(childId)
-            deleteCount++
-          } else {
-            element.addChildAt(child, index - deleteCount)
-          }
-        })
+            if (oldList.has(childId)) {
+              oldList.delete(childId)
+              deleteCount++
+            } else {
+              element.addChildAt(child, index - deleteCount)
+            }
+          })
 
         // Remove element
         oldList.forEach((childId) => {
