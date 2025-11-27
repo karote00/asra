@@ -35,8 +35,26 @@ class Render {
     this.app.stage.eventMode = 'static'
 
     this._setupStageLayers()
+    this._bindStageEvents()
 
     return this.app
+  }
+
+  private _bindStageEvents() {
+    // Use HTML canvas element for click detection
+    const canvas = this.app?.canvas
+    if (canvas) {
+      canvas.addEventListener('pointerup', (e) => {
+        // Check if we clicked on an actual PixiJS element
+        const pixiEvent = this.app?.renderer.events.rootBoundary
+        const target = pixiEvent?.hitTest(e.clientX, e.clientY)
+
+        // If no PixiJS element was hit, we clicked on empty space
+        if (!target || target === this.app?.stage) {
+          this.viewport.handleEmptySpaceClick()
+        }
+      })
+    }
   }
 
   private _setupStageLayers() {

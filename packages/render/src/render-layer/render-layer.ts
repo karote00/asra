@@ -28,6 +28,10 @@ export class RenderLayer {
     return this.currentWorkspace
   }
 
+  handleEmptySpaceClick() {
+    this.interactionHandler.handleWorkspaceClick()
+  }
+
   addToMap(elementId: string, instance: SceneElement) {
     this._elements.set(elementId, instance)
     this.removeFromDeleteMap(elementId)
