@@ -20,6 +20,10 @@ export class ViewportLayer {
     return this.layer
   }
 
+  handleEmptySpaceClick() {
+    this.renderLayer.handleEmptySpaceClick()
+  }
+
   getElementById(elementId: string): SceneElement | undefined {
     return this.renderLayer.getElementById(elementId)
   }
