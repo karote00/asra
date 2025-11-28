@@ -18,7 +18,7 @@ import { CLICK_THRESHOLD, CLEAR_KEY_TIME } from './constants'
 import { InputEventCombo, InputEventMappings } from './event-mappings'
 import keymap, { KeyMap } from './keymap'
 
-type Callback = (raw: RawInputEvent) => void
+type Callback = (raw: RawInputEvent) => void | Promise<void>
 type Combinations = Record<string, string[]>
 
 const WHEEL_EVENT_OPTIONS: AddEventListenerOptions = { passive: false }
@@ -307,7 +307,15 @@ class InputSystem {
   private triggerAction(event: InputSystemEvents, raw: RawInputEvent) {
     const callbacks = this.listeners.get(event)
     if (callbacks) {
-      callbacks.forEach((cb) => cb(raw))
+      callbacks.forEach((cb) => {
+        const result = cb(raw)
+        // If callback returns a promise, catch any errors
+        if (result instanceof Promise) {
+          result.catch((error) => {
+            console.error('Error in async input system callback:', error)
+          })
+        }
+      })
     }
   }
 
