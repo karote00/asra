@@ -3,7 +3,7 @@ import {
   PrimaryToolType,
   SystemContextSnapshot
 } from '@asra/utils'
-// import { decideFromCreateElementRules, decideFromSelectRules } from '../rules'
+import { decideFromResetElementSizeRules } from '../rules'
 
 export const decideDragEndBehavior = (
   systemContextSnapshot: SystemContextSnapshot
@@ -16,10 +16,6 @@ export const decideDragEndBehavior = (
       // return decideFromSelectRules(systemContextSnapshot)
       return null
     case PrimaryToolType.RECTANGLE:
-      // TODO: end resize-element
-      // return decideFromCreateElementRules(systemContextSnapshot)
-      return null
+      return decideFromResetElementSizeRules(systemContextSnapshot)
   }
-
-  return null
 }

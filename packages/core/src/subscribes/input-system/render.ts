@@ -3,8 +3,7 @@ import {
   MouseData,
   PointerEventData,
   RawInputEvent,
-  InputSystemEvents,
-  DEFAULT_ELEMENT_SIZE
+  InputSystemEvents
 } from '@asra/utils'
 import {
   HandlerDeps,
@@ -118,6 +117,7 @@ export class RenderHandler {
 
   _handleDragEnd = async (raw: RawInputEvent) => {
     const { clientX, clientY, button } = raw.pointer as PointerEventData
+    
     this.deps.updateMouseState({
       position: {
         x: clientX,
@@ -127,21 +127,15 @@ export class RenderHandler {
         x: clientX - this._startPos.clientX,
         y: clientY - this._startPos.clientY
       },
-      down: false,
       button: button,
-      dragging: false
+      down: this._isDown,
+      dragging: this._isDrag
     })
     this.deps.updateKeyState({
       ...(raw.modifiers as ModifierKeys)
     })
 
     this.deps.endSession(InputSystemEvents.INPUT_DRAG_END)
-
-    // If never move mouse, then update new element's size to 100*100
-    if (!this._isDrag) {
-      await this.deps.changeComputedData('width', DEFAULT_ELEMENT_SIZE)
-      await this.deps.changeComputedData('height', DEFAULT_ELEMENT_SIZE)
-    }
 
     this._isDown = false
   }

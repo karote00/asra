@@ -10,6 +10,7 @@ import { initUndoRedoHandlers } from './undoredo'
 import { CoreAPIs, HandlerDeps } from '../../types'
 import { initViewportHandlers } from './viewport'
 import { initResizeElementHandlers } from './resize-element'
+import { initResetElementSizeSubscriber } from './reset-element-size'
 
 export const initInteractionCoreHandlers = (
   deps: HandlerDeps,
@@ -29,6 +30,11 @@ export const initInteractionCoreHandlers = (
       apis.changeComputedData(key, data),
     resizeElement: (pos: PositionData, dimension: DimensionData) =>
       apis.resizeElement(pos, dimension)
+  })
+
+  initResetElementSizeSubscriber({
+    changeComputedData: (key: string, data: DataTypes) =>
+      apis.changeComputedData(key, data)
   })
 
   initUndoRedoHandlers({

@@ -111,6 +111,7 @@ export enum InteractionCoreEventTypes {
   DECIDE_TO_CREATE_ELEMENT = 'decideToCreateElement',
   DECIDE_TO_RESIZE_ELEMENT = 'decideToResizeElement',
   DECIDE_TO_END_RESIZE_ELEMENT = 'decideToEndResizeElement',
+  DECIDE_TO_RESET_ELEMENT_SIZE = 'decideToResetElementSize',
   DECIDE_TO_UNDOREDO = 'decideToUndoRedo',
   DECIDE_TO_ZOOM_FIT = 'decideToZoomFit',
   DECIDE_TO_PAN_ZOOM = 'decideToPanZoom'

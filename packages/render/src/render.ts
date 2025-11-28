@@ -51,7 +51,8 @@ class Render {
 
         // If no PixiJS element was hit, we clicked on empty space
         if (!target || target === this.app?.stage) {
-          this.viewport.handleEmptySpaceClick()
+          // FIXME: Refactor this, implement with interaction-core
+          // this.viewport.handleEmptySpaceClick()
         }
       })
     }

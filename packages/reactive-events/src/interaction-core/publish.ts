@@ -121,6 +121,19 @@ export const decideToEndResizeElement = (
   })
 }
 
+export const decideToResetElementSize = (
+  dimension: { width: number; height: number },
+  elementType: PrimaryToolType
+) => {
+  publishEvent({
+    type: EventTypes.DECIDE_TO_RESET_ELEMENT_SIZE,
+    payload: {
+      dimension,
+      elementType
+    }
+  })
+}
+
 export const decideToUndoRedo = (undoredo: UNDO) => {
   publishEvent({
     type: EventTypes.DECIDE_TO_UNDOREDO,

@@ -9,7 +9,8 @@ import type {
   DecideToZoomFitEvent,
   DecideToPanZoomEvent,
   DecideToResizeElementEvent,
-  DecideToEndResizeElementEvent
+  DecideToEndResizeElementEvent,
+  DecideToResetElementSizeEvent
 } from './events'
 import { createSubscribeEvent } from '../event-bus'
 import { EventTypes } from '../types'
@@ -46,6 +47,11 @@ export const subscribeToDecideToResizeElement =
 export const subscribeToDecideToEndResizeElement =
   createSubscribeEvent<DecideToEndResizeElementEvent>(
     EventTypes.DECIDE_TO_END_RESIZE_ELEMENT
+  )
+
+export const subscribeToDecideToResetElementSize =
+  createSubscribeEvent<DecideToResetElementSizeEvent>(
+    EventTypes.DECIDE_TO_RESET_ELEMENT_SIZE
   )
 
 export const subscribeToDecideToUndoRedo =

@@ -78,6 +78,17 @@ export interface DecideToEndResizeElementEvent {
   }
 }
 
+export interface DecideToResetElementSizeEvent {
+  type: EventTypes
+  payload: {
+    dimension: {
+      width: number
+      height: number
+    }
+    elementType: PrimaryToolType
+  }
+}
+
 export interface DecideToUndoRedoEvent {
   type: EventTypes
   payload: {
@@ -108,6 +119,9 @@ export type InteractionCoreEvents =
   | EndSessionEvent
   | DecideToSwitchPrimaryToolEvent
   | DecideToCreateElementEvent
+  | DecideToResizeElementEvent
+  | DecideToEndResizeElementEvent
+  | DecideToResetElementSizeEvent
   | DecideToUndoRedoEvent
   | DecideToZoomFitEvent
   | DecideToPanZoomEvent
