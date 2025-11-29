@@ -2,6 +2,7 @@ import systemState, { SystemState } from './system-state'
 import primaryToolState, { PrimaryToolState } from './primary-tool-state'
 import mouseState, { MouseState } from './mouse-state'
 import keyState, { KeyState } from './key-state'
+import targetState, { TargetState } from './target-state'
 
 export {
   systemState,
@@ -11,5 +12,7 @@ export {
   mouseState,
   MouseState,
   keyState,
-  KeyState
+  KeyState,
+  targetState,
+  TargetState
 }

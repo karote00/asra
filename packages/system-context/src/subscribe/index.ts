@@ -4,6 +4,7 @@ import { initPrimaryToolStateSubscribe } from './primary-tool-state'
 import { initMouseStateSubscribe } from './mouse-state'
 import { initSystemStateSubscribe } from './system-state'
 import { initKeyStateSubscribe } from './key-state'
+import { initTargetStateSubscribe } from './target-state'
 import { SystemContextAPIs } from '../types'
 
 export const initSystemContextSubscribe = (apis: SystemContextAPIs) => {
@@ -28,5 +29,10 @@ export const initSystemContextSubscribe = (apis: SystemContextAPIs) => {
     getKeyState: () => apis.getKeyState(),
     updateKeyState: (keySnapshot: KeySnapshot) =>
       apis.updateKeyState(keySnapshot)
+  })
+
+  initTargetStateSubscribe({
+    getTargetState: () => apis.getTargetState(),
+    updateHoveredElementId: (elementId: string | null) => apis.updateHoveredElementId(elementId)
   })
 }
