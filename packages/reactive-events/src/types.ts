@@ -96,6 +96,12 @@ export enum MouseStateEventTypes {
   UPDATE_MOUSE_STATE = 'updateMouseState'
 }
 
+// TargetState
+export enum TargetStateEventTypes {
+  UPDATE_TARGET_STATE = 'updateTargetState',
+  UPDATE_HOVERED_ELEMENT_ID = 'updateHoveredElementId'
+}
+
 // InputSystem
 export enum InputSystemEventTypes {
   SWITCH_INPUT_SYSTEM_WATCHED_ELEMENT = 'switchInputSystemWatchedElement'
@@ -142,6 +148,7 @@ export const EventTypes = {
   ...ViewportEventTypes,
   ...PrimaryToolEventTypes,
   ...MouseStateEventTypes,
+  ...TargetStateEventTypes,
   ...InputSystemEventTypes,
   ...InteractionCoreEventTypes,
   ...SystemContextEventTypes,
