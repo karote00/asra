@@ -96,6 +96,12 @@ export enum MouseStateEventTypes {
   UPDATE_MOUSE_STATE = 'updateMouseState'
 }
 
+// TargetState
+export enum TargetStateEventTypes {
+  UPDATE_TARGET_STATE = 'updateTargetState',
+  UPDATE_HOVERED_ELEMENT_ID = 'updateHoveredElementId'
+}
+
 // InputSystem
 export enum InputSystemEventTypes {
   SWITCH_INPUT_SYSTEM_WATCHED_ELEMENT = 'switchInputSystemWatchedElement'
@@ -109,8 +115,10 @@ export enum InteractionCoreEventTypes {
   END_SESSION = 'endSession',
   DECIDE_TO_SWITCH_PRIMARY_TOOL = 'decideToSwitchPrimaryTool',
   DECIDE_TO_CREATE_ELEMENT = 'decideToCreateElement',
+  DECIDE_TO_SELECT_ELEMENTS = 'decideToSelectElements',
   DECIDE_TO_RESIZE_ELEMENT = 'decideToResizeElement',
   DECIDE_TO_END_RESIZE_ELEMENT = 'decideToEndResizeElement',
+  DECIDE_TO_RESET_ELEMENT_SIZE = 'decideToResetElementSize',
   DECIDE_TO_UNDOREDO = 'decideToUndoRedo',
   DECIDE_TO_ZOOM_FIT = 'decideToZoomFit',
   DECIDE_TO_PAN_ZOOM = 'decideToPanZoom'
@@ -141,6 +149,7 @@ export const EventTypes = {
   ...ViewportEventTypes,
   ...PrimaryToolEventTypes,
   ...MouseStateEventTypes,
+  ...TargetStateEventTypes,
   ...InputSystemEventTypes,
   ...InteractionCoreEventTypes,
   ...SystemContextEventTypes,

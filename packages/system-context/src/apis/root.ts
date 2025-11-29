@@ -12,12 +12,7 @@ export const createRootAPIs = (deps: HandlerDeps): RootAPIs => ({
         permissions: {}
       },
       key: deps.keyState.current,
-      // TODO: Need to add system, target and key state and get current state here
-      target: {
-        hoveredElementId: null,
-        selectedElementIds: [],
-        activeElementId: null
-      }
+      target: deps.targetState.current
     }
   }
 })

@@ -1,7 +1,9 @@
 import {
   decideToCreateElement,
   decideToEndResizeElement,
-  decideToResizeElement
+  decideToResizeElement,
+  decideToResetElementSize,
+  decideToSelectElements
 } from '@asra/reactive-events'
 import { InteractionActions, InteractionEvent } from '@asra/utils'
 
@@ -25,6 +27,11 @@ export const ElementHandlers = {
   ) => {
     decideToEndResizeElement(payload.position, payload.elementType)
   },
+  [InteractionActions.INTERACTION_RESET_ELEMENT_SIZE]: (
+    payload?: InteractionEvent['payload']
+  ) => {
+    decideToResetElementSize(payload.dimension, payload.elementType)
+  },
   [InteractionActions.INTERACTION_MOVE_ELEMENTS]: (
     payload?: InteractionEvent['payload']
   ) => {
@@ -38,6 +45,6 @@ export const ElementHandlers = {
   [InteractionActions.INTERACTION_SELECT_ELEMENTS]: (
     payload?: InteractionEvent['payload']
   ) => {
-    // TODO:
+    decideToSelectElements(payload.elementIds)
   }
 }

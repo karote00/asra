@@ -61,6 +61,13 @@ export interface DecideToCreateElementEvent {
   }
 }
 
+export interface DecideToSelectElementsEvent {
+  type: EventTypes
+  payload: {
+    elementIds: string[]
+  }
+}
+
 export interface DecideToResizeElementEvent {
   type: EventTypes
   payload: {
@@ -74,6 +81,17 @@ export interface DecideToEndResizeElementEvent {
   type: EventTypes
   payload: {
     position: PositionData
+    elementType: PrimaryToolType
+  }
+}
+
+export interface DecideToResetElementSizeEvent {
+  type: EventTypes
+  payload: {
+    dimension: {
+      width: number
+      height: number
+    }
     elementType: PrimaryToolType
   }
 }
@@ -108,6 +126,10 @@ export type InteractionCoreEvents =
   | EndSessionEvent
   | DecideToSwitchPrimaryToolEvent
   | DecideToCreateElementEvent
+  | DecideToSelectElementsEvent
+  | DecideToResizeElementEvent
+  | DecideToEndResizeElementEvent
+  | DecideToResetElementSizeEvent
   | DecideToUndoRedoEvent
   | DecideToZoomFitEvent
   | DecideToPanZoomEvent

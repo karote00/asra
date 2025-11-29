@@ -1,15 +1,17 @@
-import type {
-  ExecuteActionEvent,
-  DecideToSwitchPrimaryToolEvent,
-  StartSessionEvent,
-  UpdateSessionEvent,
-  EndSessionEvent,
-  DecideToCreateElementEvent,
-  DecideToUndoRedoEvent,
-  DecideToZoomFitEvent,
-  DecideToPanZoomEvent,
-  DecideToResizeElementEvent,
-  DecideToEndResizeElementEvent
+import {
+  type ExecuteActionEvent,
+  type DecideToSwitchPrimaryToolEvent,
+  type StartSessionEvent,
+  type UpdateSessionEvent,
+  type EndSessionEvent,
+  type DecideToCreateElementEvent,
+  type DecideToUndoRedoEvent,
+  type DecideToZoomFitEvent,
+  type DecideToPanZoomEvent,
+  type DecideToResizeElementEvent,
+  type DecideToEndResizeElementEvent,
+  type DecideToResetElementSizeEvent,
+  DecideToSelectElementsEvent
 } from './events'
 import { createSubscribeEvent } from '../event-bus'
 import { EventTypes } from '../types'
@@ -38,6 +40,11 @@ export const subscribeToDecideToCreateElement =
     EventTypes.DECIDE_TO_CREATE_ELEMENT
   )
 
+export const subscribeToDecideToSelectElements =
+  createSubscribeEvent<DecideToSelectElementsEvent>(
+    EventTypes.DECIDE_TO_SELECT_ELEMENTS
+  )
+
 export const subscribeToDecideToResizeElement =
   createSubscribeEvent<DecideToResizeElementEvent>(
     EventTypes.DECIDE_TO_RESIZE_ELEMENT
@@ -46,6 +53,11 @@ export const subscribeToDecideToResizeElement =
 export const subscribeToDecideToEndResizeElement =
   createSubscribeEvent<DecideToEndResizeElementEvent>(
     EventTypes.DECIDE_TO_END_RESIZE_ELEMENT
+  )
+
+export const subscribeToDecideToResetElementSize =
+  createSubscribeEvent<DecideToResetElementSizeEvent>(
+    EventTypes.DECIDE_TO_RESET_ELEMENT_SIZE
   )
 
 export const subscribeToDecideToUndoRedo =

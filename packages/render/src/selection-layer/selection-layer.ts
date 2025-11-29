@@ -66,11 +66,10 @@ export class SelectionLayer {
   private updateSelectedBox() {
     const selectedElements = this.getSelectedElements()
 
+    this.selectedBox.clear()
     if (selectedElements.length === 0) return
 
     if (selectedElements.length === 1) {
-      this.selectedBox.clear()
-
       const element = selectedElements[0]
       const bounds = element.getBounds()
 

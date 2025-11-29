@@ -10,6 +10,8 @@ import { initUndoRedoHandlers } from './undoredo'
 import { CoreAPIs, HandlerDeps } from '../../types'
 import { initViewportHandlers } from './viewport'
 import { initResizeElementHandlers } from './resize-element'
+import { initResetElementSizeSubscriber } from './reset-element-size'
+import { initSelectElementHandlers } from './select-elements'
 
 export const initInteractionCoreHandlers = (
   deps: HandlerDeps,
@@ -31,6 +33,11 @@ export const initInteractionCoreHandlers = (
       apis.resizeElement(pos, dimension)
   })
 
+  initResetElementSizeSubscriber({
+    changeComputedData: (key: string, data: DataTypes) =>
+      apis.changeComputedData(key, data)
+  })
+
   initUndoRedoHandlers({
     undo: () => apis.undo(),
     redo: () => apis.redo()
@@ -43,5 +50,9 @@ export const initInteractionCoreHandlers = (
     panTo: (x: number, y: number) => apis.panTo(x, y),
     zoomToCenter: (scale: number, centerX: number, centerY: number) =>
       apis.zoomToCenter(scale, centerX, centerY)
+  })
+
+  initSelectElementHandlers({
+    selectElements: (elementIds: string[]) => apis.selectElements(elementIds)
   })
 }

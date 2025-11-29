@@ -93,6 +93,15 @@ export const decideToCreateElement = (
   })
 }
 
+export const decideToSelectElements = (elementIds: string[]) => {
+  publishEvent({
+    type: EventTypes.DECIDE_TO_SELECT_ELEMENTS,
+    payload: {
+      elementIds
+    }
+  })
+}
+
 export const decideToResizeElement = (
   dragStart: PositionData,
   position: PositionData,
@@ -116,6 +125,19 @@ export const decideToEndResizeElement = (
     type: EventTypes.DECIDE_TO_END_RESIZE_ELEMENT,
     payload: {
       position,
+      elementType
+    }
+  })
+}
+
+export const decideToResetElementSize = (
+  dimension: { width: number; height: number },
+  elementType: PrimaryToolType
+) => {
+  publishEvent({
+    type: EventTypes.DECIDE_TO_RESET_ELEMENT_SIZE,
+    payload: {
+      dimension,
       elementType
     }
   })
