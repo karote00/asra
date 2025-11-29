@@ -1,5 +1,11 @@
 import { createAllAPIs } from './apis'
-import { systemState, primaryToolState, mouseState, keyState, targetState } from './states'
+import {
+  systemState,
+  primaryToolState,
+  mouseState,
+  keyState,
+  targetState
+} from './states'
 import { initSystemContextSubscribe } from './subscribe'
 import {
   HandlerDeps,

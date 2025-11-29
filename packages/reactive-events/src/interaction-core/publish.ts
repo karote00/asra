@@ -93,9 +93,7 @@ export const decideToCreateElement = (
   })
 }
 
-export const decideToSelectElements = (
-  elementIds: string[]
-) => {
+export const decideToSelectElements = (elementIds: string[]) => {
   publishEvent({
     type: EventTypes.DECIDE_TO_SELECT_ELEMENTS,
     payload: {

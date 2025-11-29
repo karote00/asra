@@ -33,6 +33,7 @@ export const initSystemContextSubscribe = (apis: SystemContextAPIs) => {
 
   initTargetStateSubscribe({
     getTargetState: () => apis.getTargetState(),
-    updateHoveredElementId: (elementId: string | null) => apis.updateHoveredElementId(elementId)
+    updateHoveredElementId: (elementId: string | null) =>
+      apis.updateHoveredElementId(elementId)
   })
 }

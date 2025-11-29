@@ -117,7 +117,7 @@ export class RenderHandler {
 
   _handleDragEnd = async (raw: RawInputEvent) => {
     const { clientX, clientY, button } = raw.pointer as PointerEventData
-    
+
     this.deps.updateMouseState({
       position: {
         x: clientX,
