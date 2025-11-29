@@ -93,6 +93,17 @@ export const decideToCreateElement = (
   })
 }
 
+export const decideToSelectElements = (
+  elementIds: string[]
+) => {
+  publishEvent({
+    type: EventTypes.DECIDE_TO_SELECT_ELEMENTS,
+    payload: {
+      elementIds
+    }
+  })
+}
+
 export const decideToResizeElement = (
   dragStart: PositionData,
   position: PositionData,

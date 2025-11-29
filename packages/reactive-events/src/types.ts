@@ -115,6 +115,7 @@ export enum InteractionCoreEventTypes {
   END_SESSION = 'endSession',
   DECIDE_TO_SWITCH_PRIMARY_TOOL = 'decideToSwitchPrimaryTool',
   DECIDE_TO_CREATE_ELEMENT = 'decideToCreateElement',
+  DECIDE_TO_SELECT_ELEMENTS = 'decideToSelectElements',
   DECIDE_TO_RESIZE_ELEMENT = 'decideToResizeElement',
   DECIDE_TO_END_RESIZE_ELEMENT = 'decideToEndResizeElement',
   DECIDE_TO_RESET_ELEMENT_SIZE = 'decideToResetElementSize',
