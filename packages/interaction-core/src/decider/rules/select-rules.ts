@@ -13,12 +13,11 @@ export const decideFromSelectRules = (
 
   if (
     mouse.button === MouseButton.LEFT &&
-    !key.shift &&
-    target.hoveredElementId
+    !key.shift
   ) {
     return {
       type: InteractionActions.INTERACTION_SELECT_ELEMENTS,
-      payload: { id: target.hoveredElementId }
+      payload: { elementIds: target.hoveredElementId ? [target.hoveredElementId] : [] }
     }
   }
 

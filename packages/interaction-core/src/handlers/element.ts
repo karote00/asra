@@ -2,7 +2,8 @@ import {
   decideToCreateElement,
   decideToEndResizeElement,
   decideToResizeElement,
-  decideToResetElementSize
+  decideToResetElementSize,
+  decideToSelectElements
 } from '@asra/reactive-events'
 import { InteractionActions, InteractionEvent } from '@asra/utils'
 
@@ -44,6 +45,6 @@ export const ElementHandlers = {
   [InteractionActions.INTERACTION_SELECT_ELEMENTS]: (
     payload?: InteractionEvent['payload']
   ) => {
-    // TODO:
+    decideToSelectElements(payload.elementIds)
   }
 }

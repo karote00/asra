@@ -11,6 +11,7 @@ import { CoreAPIs, HandlerDeps } from '../../types'
 import { initViewportHandlers } from './viewport'
 import { initResizeElementHandlers } from './resize-element'
 import { initResetElementSizeSubscriber } from './reset-element-size'
+import { initSelectElementHandlers } from './select-elements'
 
 export const initInteractionCoreHandlers = (
   deps: HandlerDeps,
@@ -49,5 +50,9 @@ export const initInteractionCoreHandlers = (
     panTo: (x: number, y: number) => apis.panTo(x, y),
     zoomToCenter: (scale: number, centerX: number, centerY: number) =>
       apis.zoomToCenter(scale, centerX, centerY)
+  })
+
+  initSelectElementHandlers({
+    selectElements: (elementIds: string[]) => apis.selectElements(elementIds)
   })
 }
