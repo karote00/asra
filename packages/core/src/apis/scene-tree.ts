@@ -44,13 +44,13 @@ export const createSceneTreeAPIs = (): SceneTreeAPIs => {
       changeComputedData(elementIds, key, data)
       endTransaction()
     },
-    async resizeElement(pos: PositionData, dimension: DimensionData) {
+    async resizeElement(pos: PositionData, dimension: DimensionData, option) {
       startTransaction()
       const elementIds = await requestElementSelection()
-      changeComputedData(elementIds, 'x', pos.x)
-      changeComputedData(elementIds, 'y', pos.y)
-      changeComputedData(elementIds, 'width', dimension.width)
-      changeComputedData(elementIds, 'height', dimension.height)
+      changeComputedData(elementIds, 'x', pos.x, option)
+      changeComputedData(elementIds, 'y', pos.y, option)
+      changeComputedData(elementIds, 'width', dimension.width, option)
+      changeComputedData(elementIds, 'height', dimension.height, option)
       endTransaction()
     }
   }

@@ -15,6 +15,9 @@ export const decideFromResizeElementRules = (
       dragStart: mouse.dragStart,
       position: mouse.position,
       elementType: primaryTool
+    },
+    options: {
+      undoable: false
     }
   }
 

@@ -6,7 +6,8 @@ import {
   PositionData,
   UNDO,
   PanZoom,
-  MouseSnapshot
+  MouseSnapshot,
+  EVNET_OPTIONS
 } from '@asra/utils'
 import type { EventTypes } from '../types'
 
@@ -83,6 +84,7 @@ export interface DecideToResizeElementEvent {
     position: PositionData
     elementType: PrimaryToolType
   }
+  options: EVNET_OPTIONS
 }
 
 export interface DecideToEndResizeElementEvent {
@@ -91,6 +93,7 @@ export interface DecideToEndResizeElementEvent {
     position: PositionData
     elementType: PrimaryToolType
   }
+  options: EVNET_OPTIONS
 }
 
 export interface DecideToResetElementSizeEvent {

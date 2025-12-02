@@ -14,12 +14,14 @@ export const ElementHandlers = {
     decideToCreateElement(payload.position, payload.elementType)
   },
   [InteractionActions.INTERACTION_RESIZE_ELEMENT]: (
-    payload?: InteractionEvent['payload']
+    payload?: InteractionEvent['payload'],
+    options?: InteractionEvent['options']
   ) => {
     decideToResizeElement(
       payload.dragStart,
       payload.position,
-      payload.elementType
+      payload.elementType,
+      options
     )
   },
   [InteractionActions.INTERACTION_END_RESIZE_ELEMENT]: (

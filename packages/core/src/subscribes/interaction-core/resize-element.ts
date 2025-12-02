@@ -6,7 +6,7 @@ export const initResizeElementHandlers = (
   render: HandlerDeps['render'],
   apis: SceneTreeActionAPIs
 ) => {
-  subscribeToDecideToResizeElement(({ payload }) => {
+  subscribeToDecideToResizeElement(({ payload, options }) => {
     const { dragStart, position } = payload
 
     const oldPos = render.getMousePosInWorkspace({
@@ -27,7 +27,7 @@ export const initResizeElementHandlers = (
       height: Math.abs(newPos.y - oldPos.y)
     }
 
-    apis.resizeElement(pos, dimension)
+    apis.resizeElement(pos, dimension, options)
 
     // switch (elementType) {
     //   case PrimaryToolType.RECTANGLE:
