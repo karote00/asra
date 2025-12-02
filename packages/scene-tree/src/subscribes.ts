@@ -11,15 +11,19 @@ import {
   subscribeToSceneTreeSaveData,
   finishSceneTreeSaveData
 } from '@asra/reactive-events'
-import type { ComputedAttrs, ElementInstanceTypes } from '@asra/utils'
+import type {
+  ComputedAttrs,
+  ElementInstanceTypes,
+  EVNET_OPTIONS
+} from '@asra/utils'
 import { UNDO } from '@asra/utils'
 import propsManager from '@asra/props-manager'
 import sceneTree from './sceneTree'
 import { stripNonRawFields } from './utils'
 
-const commitSceneTreeTransaction = () => {
+const commitSceneTreeTransaction = (options?: EVNET_OPTIONS) => {
   sceneTree.changes.forEach((change) => {
-    updateTransaction(change.eventName, change)
+    updateTransaction(change.eventName, change, options)
   })
   sceneTree.cleanChanges()
 }
@@ -78,7 +82,7 @@ export const initSceneTreeSubscribes = () => {
     commitSceneTreeTransaction()
   })
 
-  subscribeToChangeComputedData(async ({ payload }) => {
+  subscribeToChangeComputedData(async ({ payload, options }) => {
     const { elementIds, key, data } = payload
 
     elementIds.forEach((elementId) => {
@@ -89,7 +93,7 @@ export const initSceneTreeSubscribes = () => {
         data as ComputedAttrs[KEY]
       )
     })
-    commitSceneTreeTransaction()
+    commitSceneTreeTransaction(options)
   })
 
   subscribeToUpdateComputedData(({ payload }) => {
