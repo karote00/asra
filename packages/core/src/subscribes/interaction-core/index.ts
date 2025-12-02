@@ -4,6 +4,7 @@ import {
   PositionData,
   PrimaryToolType
 } from '@asra/utils'
+import { initTransactionHandlers } from './transaction'
 import { initPrimaryToolHandlers } from './primary-tool'
 import { initCreateElementHandlers } from './create-element'
 import { initUndoRedoHandlers } from './undoredo'
@@ -17,6 +18,11 @@ export const initInteractionCoreHandlers = (
   deps: HandlerDeps,
   apis: CoreAPIs
 ) => {
+  initTransactionHandlers({
+    startTransaction: () => apis.startTransaction(),
+    endTransaction: () => apis.endTransaction()
+  })
+
   initPrimaryToolHandlers({
     switchPrimaryTool: (primaryTool: PrimaryToolType) =>
       apis.switchPrimaryTool(primaryTool)

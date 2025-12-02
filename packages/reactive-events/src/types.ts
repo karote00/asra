@@ -113,6 +113,8 @@ export enum InteractionCoreEventTypes {
   START_SESSION = 'startSession',
   UPDATE_SESSION = 'updateSession',
   END_SESSION = 'endSession',
+  DECIDE_TO_START_TRANSACTION = 'decideToStartTransaction',
+  DECIDE_TO_END_TRANSACTION = 'decideToEndTransaction',
   DECIDE_TO_SWITCH_PRIMARY_TOOL = 'decideToSwitchPrimaryTool',
   DECIDE_TO_CREATE_ELEMENT = 'decideToCreateElement',
   DECIDE_TO_SELECT_ELEMENTS = 'decideToSelectElements',

@@ -2,6 +2,7 @@ import {
   CreateRectangleData,
   DataTypes,
   DimensionData,
+  EVNET_OPTIONS,
   PositionData,
   SceneTreeRawData
 } from '@asra/utils'
@@ -14,7 +15,11 @@ export interface SceneTreeRawAPIs {
 
 export interface SceneTreeActionAPIs {
   changeComputedData: (key: string, data: DataTypes) => void
-  resizeElement: (pos: PositionData, dimension: DimensionData) => void
+  resizeElement: (
+    pos: PositionData,
+    dimension: DimensionData,
+    options?: EVNET_OPTIONS
+  ) => void
 }
 
 export interface SceneTreeHandlerAPIs {

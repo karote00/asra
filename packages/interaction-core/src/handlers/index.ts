@@ -1,4 +1,5 @@
 import { InteractionActions, InteractionEvent } from '@asra/utils'
+import { TransactionHandlers } from './transaction'
 import { PrimaryToolHandlers } from './primary-tool'
 import { ElementHandlers } from './element'
 import { UndoRedoHandlers } from './undoredo'
@@ -9,6 +10,7 @@ export const InteractionCoreHandlers: Record<
   InteractionActions,
   (payload?: InteractionEvent['payload']) => void
 > = {
+  ...TransactionHandlers,
   ...PrimaryToolHandlers,
   ...ElementHandlers,
   ...UndoRedoHandlers,

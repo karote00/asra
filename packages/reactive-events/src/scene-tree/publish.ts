@@ -152,7 +152,8 @@ export const updateComputedData = (
 export const changeComputedData = (
   elementIds: string[],
   key: string,
-  data: DataTypes
+  data: DataTypes,
+  options = { undoable: true }
 ) => {
   publishEvent({
     type: EventTypes.CHANGE_COMPUTED_DATA,
@@ -160,6 +161,7 @@ export const changeComputedData = (
       key,
       data,
       elementIds
-    }
+    },
+    options
   })
 }

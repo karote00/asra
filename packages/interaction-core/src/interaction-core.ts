@@ -2,7 +2,8 @@ import {
   SystemContextSnapshot,
   InputSystemEvents,
   DetailType,
-  InteractionEvent
+  InteractionEvent,
+  InteractionActions
 } from '@asra/utils'
 import { decideInteraction } from './decider'
 import { InteractionCoreHandlers } from './handlers'
@@ -29,6 +30,10 @@ class InteractionCore {
     systemContextSnapshot: SystemContextSnapshot,
     detail?: DetailType
   ) {
+    this.dispatchSession({
+      type: InteractionActions.INTERACTION_START_TRANSACTION
+    })
+
     const interaction = decideInteraction(
       eventName,
       systemContextSnapshot,
@@ -63,6 +68,10 @@ class InteractionCore {
     )
     this.dispatchSession(interaction)
     this.cancelPreviousSession()
+
+    this.dispatchSession({
+      type: InteractionActions.INTERACTION_END_TRANSACTION
+    })
   }
 
   dispatchSession(interaction: InteractionEvent | null) {

@@ -1,3 +1,9 @@
+// Transaction
+export enum TransactionInteraction {
+  INTERACTION_START_TRANSACTION = 'INTERACTION_START_TRANSACTION',
+  INTERACTION_END_TRANSACTION = 'INTERACTION_END_TRANSACTION'
+}
+
 // ElementInteraction
 export enum ElementInteraction {
   INTERACTION_SELECT_ELEMENTS = 'INTERACTION_SELECT_ELEMENTS',
@@ -26,6 +32,7 @@ export enum ZoomPresetInteraction {
 }
 
 export const InteractionActions = {
+  ...TransactionInteraction,
   ...ElementInteraction,
   ...PrimaryToolInteraction,
   ...UndoRedoInteraction,

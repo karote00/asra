@@ -18,7 +18,8 @@ import {
   ElementSelectionAPIs,
   PropsAPIs,
   SystemContextAPIs,
-  InteractionCoreAPIs
+  InteractionCoreAPIs,
+  TransactionAPIs
 } from './types'
 import { createAPIs } from './apis'
 
@@ -46,6 +47,9 @@ const DATA_VERSION = '1.0.0'
 
 class Core implements CoreAPIs {
   version: string = DEFAULT_VERSION
+
+  startTransaction!: TransactionAPIs['startTransaction']
+  endTransaction!: TransactionAPIs['endTransaction']
 
   setupInputSystem!: InputSystemAPIs['setupInputSystem']
 

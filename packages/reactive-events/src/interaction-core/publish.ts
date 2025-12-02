@@ -6,7 +6,8 @@ import {
   PositionData,
   UNDO,
   PanZoom,
-  MouseSnapshot
+  MouseSnapshot,
+  EVNET_OPTIONS
 } from '@asra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
@@ -71,6 +72,18 @@ export const endSession = (
   })
 }
 
+export const decideToStartTransaction = () => {
+  publishEvent({
+    type: EventTypes.DECIDE_TO_START_TRANSACTION
+  })
+}
+
+export const decideToEndTransaction = () => {
+  publishEvent({
+    type: EventTypes.DECIDE_TO_END_TRANSACTION
+  })
+}
+
 export const decideToSwitchPrimaryTool = (primaryTool: PrimaryToolType) => {
   publishEvent({
     type: EventTypes.DECIDE_TO_SWITCH_PRIMARY_TOOL,
@@ -105,7 +118,8 @@ export const decideToSelectElements = (elementIds: string[]) => {
 export const decideToResizeElement = (
   dragStart: PositionData,
   position: PositionData,
-  elementType: PrimaryToolType
+  elementType: PrimaryToolType,
+  options?: EVNET_OPTIONS
 ) => {
   publishEvent({
     type: EventTypes.DECIDE_TO_RESIZE_ELEMENT,
@@ -113,7 +127,8 @@ export const decideToResizeElement = (
       dragStart,
       position,
       elementType
-    }
+    },
+    options
   })
 }
 

@@ -6,7 +6,8 @@ import {
   PositionData,
   UNDO,
   PanZoom,
-  MouseSnapshot
+  MouseSnapshot,
+  EVNET_OPTIONS
 } from '@asra/utils'
 import type { EventTypes } from '../types'
 
@@ -46,6 +47,14 @@ export interface EndSessionEvent {
   }
 }
 
+export interface DecideToStartTransactionEvent {
+  type: EventTypes
+}
+
+export interface DecideToEndTransactionEvent {
+  type: EventTypes
+}
+
 export interface DecideToSwitchPrimaryToolEvent {
   type: EventTypes
   payload: {
@@ -75,6 +84,7 @@ export interface DecideToResizeElementEvent {
     position: PositionData
     elementType: PrimaryToolType
   }
+  options: EVNET_OPTIONS
 }
 
 export interface DecideToEndResizeElementEvent {
@@ -83,6 +93,7 @@ export interface DecideToEndResizeElementEvent {
     position: PositionData
     elementType: PrimaryToolType
   }
+  options: EVNET_OPTIONS
 }
 
 export interface DecideToResetElementSizeEvent {
@@ -124,6 +135,8 @@ export type InteractionCoreEvents =
   | StartSessionEvent
   | UpdateSessionEvent
   | EndSessionEvent
+  | DecideToStartTransactionEvent
+  | DecideToEndTransactionEvent
   | DecideToSwitchPrimaryToolEvent
   | DecideToCreateElementEvent
   | DecideToSelectElementsEvent
