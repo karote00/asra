@@ -50,7 +50,7 @@ class DataTransact {
   }
 
   update(event: UpdateTransactionEvent) {
-    if (!this.isTransacting) {
+    if (this.isTransacting <= 0 || (event.option && !event.option.undoable)) {
       return
     }
 
