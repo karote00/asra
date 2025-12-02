@@ -81,6 +81,9 @@ export interface ChangeComputedDataEvent {
     key: string
     data: DataTypes
   }
+  options: {
+    undoable: boolean
+  }
 }
 
 export type SceneTreeEvents =
