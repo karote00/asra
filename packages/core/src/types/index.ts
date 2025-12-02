@@ -1,3 +1,4 @@
+import { TransactionAPIs, TransactionActionAPIs } from './transaction'
 import {
   ElementSelectionAPIs,
   ElementSelectionActionAPIs
@@ -28,6 +29,8 @@ import {
 export { HandlerDeps } from './deps'
 
 export {
+  TransactionAPIs,
+  TransactionActionAPIs,
   InputSystemRawAPIs,
   InputSystemAPIs,
   UndoActionAPIs,
@@ -52,7 +55,8 @@ export {
   KeyStateAPIs
 }
 
-export type CoreAPIs = InputSystemAPIs &
+export type CoreAPIs = TransactionAPIs &
+  InputSystemAPIs &
   UndoAPIs &
   ViewportAPIs &
   RenderAPIs &

@@ -1,3 +1,4 @@
+import { createTransactionAPIs } from './transaction'
 import { createViewportAPIs } from './viewport'
 import { createUndoAPIs } from './undo'
 import { CoreAPIs } from '../types'
@@ -11,6 +12,7 @@ import { createInteractionCoreAPIs } from './interaction-core'
 
 export const createAPIs = (): CoreAPIs => {
   return {
+    ...createTransactionAPIs(),
     ...createInputSystemAPIs(),
     ...createViewportAPIs(),
     ...createUndoAPIs(),
