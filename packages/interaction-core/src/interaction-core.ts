@@ -7,7 +7,6 @@ import {
 } from '@asra/utils'
 import { decideInteraction } from './decider'
 import { InteractionCoreHandlers } from './handlers'
-import { endTransaction, startTransaction } from '@asra/reactive-events'
 
 class InteractionCore {
   private _previousSession: InteractionEvent | null = null

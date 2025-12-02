@@ -15,7 +15,11 @@ export interface SceneTreeRawAPIs {
 
 export interface SceneTreeActionAPIs {
   changeComputedData: (key: string, data: DataTypes) => void
-  resizeElement: (pos: PositionData, dimension: DimensionData, options?: EVNET_OPTIONS) => void
+  resizeElement: (
+    pos: PositionData,
+    dimension: DimensionData,
+    options?: EVNET_OPTIONS
+  ) => void
 }
 
 export interface SceneTreeHandlerAPIs {

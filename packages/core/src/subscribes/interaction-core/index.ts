@@ -14,7 +14,6 @@ import { initResizeElementHandlers } from './resize-element'
 import { initResetElementSizeSubscriber } from './reset-element-size'
 import { initSelectElementHandlers } from './select-elements'
 
-
 export const initInteractionCoreHandlers = (
   deps: HandlerDeps,
   apis: CoreAPIs
