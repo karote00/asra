@@ -46,6 +46,14 @@ export interface EndSessionEvent {
   }
 }
 
+export interface DecideToStartTransactionEvent {
+  type: EventTypes
+}
+
+export interface DecideToEndTransactionEvent {
+  type: EventTypes
+}
+
 export interface DecideToSwitchPrimaryToolEvent {
   type: EventTypes
   payload: {
@@ -124,6 +132,8 @@ export type InteractionCoreEvents =
   | StartSessionEvent
   | UpdateSessionEvent
   | EndSessionEvent
+  | DecideToStartTransactionEvent
+  | DecideToEndTransactionEvent
   | DecideToSwitchPrimaryToolEvent
   | DecideToCreateElementEvent
   | DecideToSelectElementsEvent

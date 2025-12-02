@@ -71,6 +71,18 @@ export const endSession = (
   })
 }
 
+export const decideToStartTransaction = () => {
+  publishEvent({
+    type: EventTypes.DECIDE_TO_START_TRANSACTION
+  })
+}
+
+export const decideToEndTransaction = () => {
+  publishEvent({
+    type: EventTypes.DECIDE_TO_END_TRANSACTION
+  })
+}
+
 export const decideToSwitchPrimaryTool = (primaryTool: PrimaryToolType) => {
   publishEvent({
     type: EventTypes.DECIDE_TO_SWITCH_PRIMARY_TOOL,

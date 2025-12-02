@@ -11,7 +11,9 @@ import {
   type DecideToResizeElementEvent,
   type DecideToEndResizeElementEvent,
   type DecideToResetElementSizeEvent,
-  DecideToSelectElementsEvent
+  DecideToSelectElementsEvent,
+  DecideToStartTransactionEvent,
+  DecideToEndTransactionEvent
 } from './events'
 import { createSubscribeEvent } from '../event-bus'
 import { EventTypes } from '../types'
@@ -29,6 +31,16 @@ export const subscribeToUpdateSession =
 export const subscribeToEndSession = createSubscribeEvent<EndSessionEvent>(
   EventTypes.END_SESSION
 )
+
+export const subscribeToDecideToStartTransaction =
+  createSubscribeEvent<DecideToStartTransactionEvent>(
+    EventTypes.DECIDE_TO_START_TRANSACTION
+  )
+
+export const subscribeToDecideToEndTransaction =
+  createSubscribeEvent<DecideToEndTransactionEvent>(
+    EventTypes.DECIDE_TO_END_TRANSACTION
+  )
 
 export const subscribeToDecideToSwitchPrimaryTool =
   createSubscribeEvent<DecideToSwitchPrimaryToolEvent>(
