@@ -36,16 +36,16 @@ class DataTransact {
   private changes: AllEvent[] = []
   private undoStack: AllEvent[][] = []
   private redoStack: AllEvent[][] = []
-  private isTransacting = false
+  private isTransacting = 0
   private inUndo = false
   private inRedo = false
 
   start() {
-    if (this.isTransacting) {
+    this.isTransacting++
+    if (this.isTransacting > 1) {
       return
     }
 
-    this.isTransacting = true
     this.changes = []
   }
 
@@ -70,13 +70,16 @@ class DataTransact {
   }
 
   end() {
-    if (!this.isTransacting) {
+    if (this.isTransacting <= 0) {
       return
     }
 
-    this.isTransacting = false
-    this.commitUndo()
-    this.changes = []
+    this.isTransacting--
+
+    if (this.isTransacting === 0) {
+      this.commitUndo()
+      this.changes = []
+    }
   }
 
   commitUndo() {
