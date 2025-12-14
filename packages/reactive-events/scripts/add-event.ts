@@ -186,7 +186,199 @@ program
             console.warn(chalk.yellow(`Union type ${unionName} not found. Skipped updating union.`));
         }
 
-        await eventsSourceFile.save();
+
+        // 3. Subscriber Update (src/[scope]/subscribes.ts)
+        // We do this BEFORE publish because publish might rely on subscriber (if async)
+        const subscribesPath = path.resolve(__dirname, `../src/${config.scope}/subscribes.ts`);
+        const subscribesSourceFile = project.addSourceFileAtPathIfExists(subscribesPath);
+
+        if (!subscribesSourceFile) {
+            console.error(chalk.red(`File not found: ${subscribesPath}`));
+            process.exit(1);
+        }
+
+        const subscriberName = `subscribeTo${eventNamePascal}`;
+        const finishSubscriberName = `subscribeToFinish${eventNamePascal}`;
+
+        // Add Imports
+        const subEventsImport = subscribesSourceFile.getImportDeclaration(d => d.getModuleSpecifierValue() === './events');
+        if (subEventsImport) {
+            subEventsImport.addNamedImport(eventInterfaceName);
+            if (config.pattern === 'async') {
+                subEventsImport.addNamedImport(finishEventInterfaceName);
+            }
+        } else {
+            const imports = [eventInterfaceName];
+            if (config.pattern === 'async') imports.push(finishEventInterfaceName);
+            subscribesSourceFile.addImportDeclaration({
+                moduleSpecifier: './events',
+                namedImports: imports
+            });
+        }
+
+        // Add Subscribe Function
+        subscribesSourceFile.addVariableStatement({
+            declarationKind: 'const' as any,
+            isExported: true,
+            declarations: [{
+                name: subscriberName,
+                initializer: `createSubscribeEvent<${eventInterfaceName}>(EventTypes.${eventNameConstant})`
+            }]
+        });
+        console.log(chalk.green(`Added ${subscriberName}`));
+
+        if (config.pattern === 'async') {
+            const finishConst = `FINISH_${eventNameConstant}`;
+            subscribesSourceFile.addVariableStatement({
+                declarationKind: 'const' as any,
+                isExported: true,
+                declarations: [{
+                    name: finishSubscriberName,
+                    initializer: `createSubscribeEvent<${finishEventInterfaceName}>(EventTypes.${finishConst})`
+                }]
+            });
+            console.log(chalk.green(`Added ${finishSubscriberName}`));
+        }
+
+        await subscribesSourceFile.save();
+
+        // 4. Publisher Update (src/[scope]/publish.ts)
+        const publishPath = path.resolve(__dirname, `../src/${config.scope}/publish.ts`);
+        const publishSourceFile = project.addSourceFileAtPathIfExists(publishPath);
+
+        if (!publishSourceFile) {
+            console.error(chalk.red(`File not found: ${publishPath}`));
+            process.exit(1);
+        }
+
+        // Imports in publish.ts
+        const pubEventsImport = publishSourceFile.getImportDeclaration(d => d.getModuleSpecifierValue() === './events');
+        if (pubEventsImport) {
+            pubEventsImport.addNamedImport(eventInterfaceName);
+            if (config.pattern === 'async') {
+                pubEventsImport.addNamedImport(finishEventInterfaceName);
+            }
+        } else {
+            const imports = [eventInterfaceName];
+            if (config.pattern === 'async') imports.push(finishEventInterfaceName);
+            publishSourceFile.addImportDeclaration({
+                moduleSpecifier: './events',
+                namedImports: imports
+            });
+        }
+
+        if (config.pattern === 'async') {
+            // Import generateRequestId if needed
+            const utilsImport = publishSourceFile.getImportDeclaration(d => d.getModuleSpecifierValue() === '@asra/utils');
+            if (utilsImport) {
+                if (!utilsImport.getNamedImports().some(n => n.getName() === 'generateRequestId')) {
+                    utilsImport.addNamedImport('generateRequestId');
+                }
+            } else {
+                // Maybe it's imported from somewhere else? or assuming it exists. 
+                // Existing code has it from @asra/utils.
+                publishSourceFile.addImportDeclaration({
+                    moduleSpecifier: '@asra/utils',
+                    namedImports: ['generateRequestId']
+                });
+            }
+
+            // Import Subscription from rxjs
+            const rxjsImport = publishSourceFile.getImportDeclaration(d => d.getModuleSpecifierValue() === 'rxjs');
+            if (!rxjsImport) {
+                publishSourceFile.addImportDeclaration({
+                    moduleSpecifier: 'rxjs',
+                    namedImports: ['Subscription']
+                });
+            } else {
+                if (!rxjsImport.getNamedImports().some(n => n.getName() === 'Subscription')) {
+                    rxjsImport.addNamedImport('Subscription');
+                }
+            }
+
+            // Import subscriber
+            const pubSubsImport = publishSourceFile.getImportDeclaration(d => d.getModuleSpecifierValue() === './subscribes');
+            if (pubSubsImport) {
+                pubSubsImport.addNamedImport(finishSubscriberName);
+            } else {
+                publishSourceFile.addImportDeclaration({
+                    moduleSpecifier: './subscribes',
+                    namedImports: [finishSubscriberName]
+                });
+            }
+        }
+
+        // Generate Publisher Function
+        // We construct the body as string
+        let funcBody = '';
+        const payloadArgType = config.pattern === 'async'
+            ? `Omit<${eventInterfaceName}['payload'], 'requestId'>`
+            : `${eventInterfaceName}['payload']`;
+
+        // args: payload
+        // If payload is empty or not required, handle optionality?
+        // User says "Ensure payload and options args are optional if not defined in input."
+        // We can just use optional argument `payload?`.
+
+        const hasPayload = (config.payload && config.payload !== '{}') || (config.pattern === 'async');
+        // If async, we create a requestId, so we might need input payload if there are OTHER fields.
+        // If no other fields, then payload arg might be empty object?
+
+        const payloadArg = hasPayload ? `payload: ${payloadArgType}` : '';
+        const optionsArg = config.options ? `, options?: ${eventInterfaceName}['options']` : '';
+
+        if (config.pattern === 'async') {
+            // Async Body
+            // Default generic Promise<any> for result, or try to infer from Finish event payload?
+            // Finish event payload: { requestId, ...result }.
+            // We can use `Omit<Finish...Event['payload'], 'requestId'>` or similar.
+            // For now, `Promise<any>` or `Promise<void>` if we don't know structure.
+            // Let's use `Promise<any>` to be safe, or `Promise<unknown>`.
+            // Existing code uses `Promise<SceneTreeRawData>`.
+
+            funcBody = `return new Promise<any>((resolve) => {
+    const requestId = generateRequestId();
+    let subscription: Subscription | null = null;
+
+    const handler = ({ payload }: ${finishEventInterfaceName}) => {
+      if (payload.requestId !== requestId) return;
+      subscription?.unsubscribe();
+      resolve(payload); // resolving full payload or specific data?
+    };
+
+    subscription = ${finishSubscriberName}(handler);
+
+    publishEvent({
+      type: EventTypes.${eventNameConstant},
+      payload: {
+        requestId,
+        ...payload
+      }
+    });
+  });`;
+        } else {
+            // Simple Body
+            funcBody = `publishEvent({
+    type: EventTypes.${eventNameConstant}${hasPayload ? ',\n    payload' : ''}${config.options ? ',\n    options' : ''}
+  });`;
+        }
+
+        publishSourceFile.addVariableStatement({
+            declarationKind: 'const' as any,
+            isExported: true,
+            declarations: [{
+                name: eventNameCamel,
+                initializer: `${config.pattern === 'async' ? 'async ' : ''}(${payloadArg}${optionsArg}) => {
+  ${funcBody}
+}`
+            }]
+        });
+        console.log(chalk.green(`Added publisher ${eventNameCamel}`));
+
+
+        await publishSourceFile.save();
     });
 
 program.parse(process.argv);
+
+
