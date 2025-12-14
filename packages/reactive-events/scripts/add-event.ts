@@ -44,7 +44,53 @@ program
             process.exit(1);
         }
 
-        // Logic will go here
+
+        // Logic starts here
+        const project = new Project();
+        const typesPath = path.resolve(__dirname, '../src/types.ts');
+        const sourceFile = project.addSourceFileAtPath(typesPath);
+
+        const pascalScope = config.scope.split('-').map((s: string) => s.charAt(0).toUpperCase() + s.slice(1)).join('');
+        const enumName = `${pascalScope}EventTypes`;
+        const enumDecl = sourceFile.getEnum(enumName);
+
+        if (!enumDecl) {
+            console.error(chalk.red(`Enum ${enumName} not found in types.ts`));
+            process.exit(1);
+        }
+
+        const eventNamePascal = config.name.charAt(0).toUpperCase() + config.name.slice(1);
+        const eventNameCamel = config.name.charAt(0).toLowerCase() + config.name.slice(1);
+        const eventNameConstant = config.name.replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase();
+
+        // 1. Add Main Event
+        // Check if exists
+        if (enumDecl.getMember(eventNameConstant)) {
+            console.warn(chalk.yellow(`Event ${eventNameConstant} already exists in ${enumName}. Skipping.`));
+        } else {
+            enumDecl.addMember({
+                name: eventNameConstant,
+                value: eventNameCamel
+            });
+            console.log(chalk.green(`Added ${eventNameConstant} to ${enumName}`));
+        }
+
+        // 2. Add Finish Event if async
+        if (config.pattern === 'async') {
+            const finishConstant = `FINISH_${eventNameConstant}`;
+            const finishValue = `finish${eventNamePascal}`;
+            if (enumDecl.getMember(finishConstant)) {
+                console.warn(chalk.yellow(`Event ${finishConstant} already exists in ${enumName}. Skipping.`));
+            } else {
+                enumDecl.addMember({
+                    name: finishConstant,
+                    value: finishValue
+                });
+                console.log(chalk.green(`Added ${finishConstant} to ${enumName}`));
+            }
+        }
+
+        await sourceFile.save();
     });
 
 program.parse(process.argv);
