@@ -28,7 +28,7 @@ To produce a complete Handoff knowledge base including Architecture overviews, A
 
 **AI Agent Action**: Upon receiving this guide, the AI agent's first task is to perform a comprehensive, unguided analysis of the entire project codebase. The goal is to build a foundational understanding of the project's structure, technologies, and apparent patterns.
 
--   **Reference**: The AI agent should consult the guidelines in `AI_ANALYSIS_PROMPT.md` for specific areas to prioritize during this analysis.
+-   **Reference**: The AI agent should consult the [Analysis Prompt Appendix](../COLLABORATIVE_DOCUMENTATION_GUIDE.md#appendix-ai-initial-project-analysis-prompt) for specific areas to prioritize during this analysis.
 -   **Output**: The AI agent will generate an "Initial Project Understanding Report." This report will be written to a file (e.g., `.project/reports/initial_project_understanding.md`) to avoid excessive token usage and provide a persistent record. It will summarize its findings, including identified technologies, module structures, observed code patterns, and a preliminary assessment of potential documentation gaps or ambiguities.
 
 ## Phase 2: Collaborative Refinement & Gap Identification
