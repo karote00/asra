@@ -1,10 +1,20 @@
-# Agent Rules & Context
+# Agent Protocol
 
-## Global Context
-This project uses a central documentation hub located in `.project/`. All agents MUST check this directory for architectural guides, workflows, and project context before starting complex tasks.
+## 1. The Prime Directive
+You are working in a highly structured environment defined by the `.project/` directory.
+Your FIRST action in any session MUST be to read `.project/ai-quick-start.md`.
 
-## Specific Rules
-1. **Always Check .project**: Before starting a task, read `AI_WORKFLOW_GUIDE.md` and `PROJECT_GUIDE.md` in `.project/` if you are not familiar with the project's specific workflows.
-2. **Documentation Sync**: When creating new tools or features, always create or update corresponding documentation in `.project/`.
-3. **Commit Messages**: Follow the project's commit message convention.
-4. **Indentation**: Use 2 spaces for indentation in all files (TS, JSON, YML, etc.).
+## 2. Development Process
+You MUST follow the **Universal AI Software Engineering Workflow** defined in `.project/AI_WORKFLOW_GUIDE.md`.
+- **Start**: Phase 1 (Strategic Thinking)
+- **Implement**: Phase 3 (Iterative)
+- **Verify**: Phase 4 (Lint/Test `yarn test:ci` before commit)
+- **Finish**: Phase 5 (Sync Documentation)
+
+## 3. Tool Awareness
+Before writing custom scripts or manual code, check for existing project tools.
+- **Event Generation**: Use `yarn gen:event` (See `.project/EVENT_ARCHITECT_CLI.md`).
+
+## 4. Documentation Strategy
+- Never invent new conventions without updating `.project/assumptions.md`.
+- All architectural decisions must be reflected in `.project/AI_ARCHITECTURAL_GUIDE.md`.

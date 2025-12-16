@@ -9,6 +9,10 @@ This is the first file AI agents should read when starting work on this project.
 **Current Focus**: Interactive UI features (mouse drag resize)
 **Documentation System**: Handoff - persistent AI knowledge transfer
 
+## 🛠 Project Tools
+- **Event Architect**: `yarn gen:event` (See `.project/EVENT_ARCHITECT_CLI.md`)
+  - Automates boilerplate for new Reactive Events (Enums, Types, Publishers, Subscribers).
+
 ## 🧪 Testing Guidelines
 
 **For Documentation/Analysis Tasks**:
