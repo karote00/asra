@@ -17,24 +17,29 @@ This document consolidates key architectural principles, interaction patterns, d
     *   The `system-context` package is the single source of truth for the current state of the system (e.g., active primary tool, mouse position, keyboard modifiers).
     *   This context is accessible via `systemContext.getSystemContextSnapshot()`.
 
-### II. User Interaction Flow (Example: Interactive Element Creation)
+### II. User Interaction Flow (Updated for Interaction Core V2)
 
 This section details the precise flow for handling user interactions, particularly those involving tools and state changes.
 
 1.  **Input System (`packages/input-system`):**
-    *   **Responsibility:** Detects raw user input and emits `InputSystemEvents` (e.g., `INPUT_DRAG_START`, `INPUT_DRAG_UPDATE`, `INPUT_DRAG_END`).
-    *   **Action:** Updates mouse/keyboard state within `system-context` and calls `interaction-core` session APIs (`startSession`, `updateSession`, `endSession`).
-    *   **Crucial:** It **does not** contain tool-specific logic, nor does it directly interact with `factory`, `sceneTree`, or manage transactions.
+    *   **Responsibility:** Detects input combinations.
+    *   **Action:** Triggers input actions defined in `src/event-mappings.ts`.
+    *   **Flow:** Emits `Input Action` -> `packages/core` (via `src/subscribes/input-system`) -> Notifies `interaction-core`.
 
-2.  **Interaction Core (`packages/interaction-core`):**
-    *   **Responsibility:** Receives `InputSystemEvents` and the `SystemContextSnapshot`. Its `InteractionDecider` component *decides* what high-level user action is intended based on the input event and the current system contexts (e.g., if the Rectangle Tool is active during a drag start).
-    *   **Action:** Publishes a specific `InteractionEvent` (e.g., `CREATE_RECTANGLE_STARTED`, `UPDATE_RECTANGLE_PROPERTIES`, `CREATE_RECTANGLE_ENDED`) with relevant payload data.
-    *   **Crucial:** It **does not** contain tool-specific *implementation* logic (e.g., calculating dimensions, adding elements), nor does it directly interact with `factory` or `sceneTree`. It acts as a dispatcher.
+2.  **Interaction Core Decider (`packages/interaction-core`):**
+    *   **Responsibility:** Receives action/session data and makes the **Final Decision**.
+    *   **Logic:** Uses `src/decider/rules` (logic) and `src/decider/behavior` (flow control).
+    *   **Action:** Decides on an `InteractionAction`.
 
-3.  **Interaction Core Handlers (`packages/interaction-core/src/handlers/`):**
-    *   **Responsibility:** Subscribe to the specific `InteractionEvents` published by `InteractionDecider`. This is where the tool-specific *implementation logic* resides.
-    *   **Action:** Perform the actual operations by calling APIs in `factory`, `sceneTree`, and `render`.
-    *   **Crucial:** These handlers manage any transient state related to the ongoing interaction (e.g., `currentElementId`, `startX`, `startY` for a creation drag).
+3.  **Interaction Core Handlers (`packages/interaction-core/src/handlers`):**
+    *   **Responsibility:** Executes the decision logic.
+    *   **Action:** Publishes the final **Decision Event** via `packages/reactive-events`.
+
+4.  **Core Subscription (`packages/core/src/subscribes/interaction-core`):**
+    *   **Responsibility:** Listens to the Decision Events.
+    *   **Action:** Calls the actual System APIs (`packages/core/src/apis`) to modify state (Factory, SceneTree, etc.).
+
+**Summary:** `Input` -> `Core (Input Sub)` -> `Interaction Core (Decider -> Handler)` -> `Reactive Event` -> `Core (Interaction Sub)` -> `System API`.
 
 ### III. Data Manipulation & Transaction System
 
