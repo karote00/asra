@@ -28,7 +28,7 @@ To produce a complete Handoff knowledge base including Architecture overviews, A
 
 **AI Agent Action**: Upon receiving this guide, the AI agent's first task is to perform a comprehensive, unguided analysis of the entire project codebase. The goal is to build a foundational understanding of the project's structure, technologies, and apparent patterns.
 
--   **Reference**: The AI agent should consult the guidelines in `ai_analysis_prompt.md` for specific areas to prioritize during this analysis.
+-   **Reference**: The AI agent should consult the guidelines in `AI_ANALYSIS_PROMPT.md` for specific areas to prioritize during this analysis.
 -   **Output**: The AI agent will generate an "Initial Project Understanding Report." This report will be written to a file (e.g., `.project/reports/initial_project_understanding.md`) to avoid excessive token usage and provide a persistent record. It will summarize its findings, including identified technologies, module structures, observed code patterns, and a preliminary assessment of potential documentation gaps or ambiguities.
 
 ## Phase 2: Collaborative Refinement & Gap Identification
@@ -50,7 +50,7 @@ To produce a complete Handoff knowledge base including Architecture overviews, A
 
 **Human Collaborator Action**: Answer high-level questions about project goals and priorities.
 
-**AI Agent Action**: Make reasonable assumptions for detailed decisions, document them in `.project/assumptions.md` for later review.
+**AI Agent Action**: Make reasonable assumptions for detailed decisions, document them in `.project/ASSUMPTIONS.md` for later review.
 
 ### 🚀 Auto-Pilot Mode
 **AI Agent Action**: Analyze existing codebase patterns to infer:
@@ -62,7 +62,7 @@ To produce a complete Handoff knowledge base including Architecture overviews, A
 **Fallback Strategy**: When human input is unavailable:
 1. Infer principles from existing code patterns
 2. Apply industry best practices as defaults
-3. Document all assumptions in `.project/assumptions.md`
+3. Document all assumptions in `.project/ASSUMPTIONS.md`
 4. Use conservative, safe architectural choices
 5. Flag areas needing future human review
 
@@ -74,7 +74,7 @@ To produce a complete Handoff knowledge base including Architecture overviews, A
 - **Design Principle Documents**: Architectural rules and conventions (`design-principles/`)
 - **Golden Path Narratives**: Critical user journeys (`golden-paths/<feature-name>.md`)
 - **BDD Gherkin Specifications**: Behavioral specifications (`features/<feature-name>.feature`)
-- **Assumptions Log**: AI decisions and reasoning (`.project/assumptions.md`)
+- **Assumptions Log**: AI decisions and reasoning (`.project/ASSUMPTIONS.md`)
 
 ### 🤝 High Engagement Process
 For each document, AI will:

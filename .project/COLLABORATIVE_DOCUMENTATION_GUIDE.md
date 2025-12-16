@@ -10,7 +10,7 @@ To produce a complete set of project metadata including Architecture overviews, 
 
 **AI Agent Action**: Upon receiving this guide, the AI agent's first task is to perform a comprehensive, unguided analysis of the entire project codebase. The goal is to build a foundational understanding of the project's structure, technologies, and apparent patterns.
 
--   **Reference**: The AI agent should consult the guidelines in `ai_analysis_prompt.md` for specific areas to prioritize during this analysis.
+-   **Reference**: The AI agent should consult the guidelines in `AI_ANALYSIS_PROMPT.md` for specific areas to prioritize during this analysis.
 -   **Output**: The AI agent will generate an "Initial Project Understanding Report." This report will be written to a file (e.g., `.project/reports/project_understanding_report.md`) and will serve as a **single, consolidated, living document** that evolves throughout all phases of the collaboration. It will summarize its findings, including identified technologies, module structures, observed code patterns, and a preliminary assessment of potential documentation gaps or ambiguities.
 
 ## Phase 2: Collaborative Refinement & Gap Identification (AI & Human)

@@ -2,7 +2,7 @@
 
 ## 1. The Prime Directive
 You are working in a highly structured environment defined by the `.project/` directory.
-Your FIRST action in any session MUST be to read `.project/ai-quick-start.md`.
+Your FIRST action in any session MUST be to read `.project/AI_QUICK_START.md`.
 
 ## 2. Development Process
 You MUST follow the **Universal AI Software Engineering Workflow** defined in `.project/AI_WORKFLOW_GUIDE.md`.
@@ -16,5 +16,5 @@ Before writing custom scripts or manual code, check for existing project tools.
 - **Event Generation**: Use `yarn gen:event` (See `.project/EVENT_ARCHITECT_CLI.md`).
 
 ## 4. Documentation Strategy
-- Never invent new conventions without updating `.project/assumptions.md`.
+- Never invent new conventions without updating `.project/ASSUMPTIONS.md`.
 - All architectural decisions must be reflected in `.project/AI_ARCHITECTURAL_GUIDE.md`.
