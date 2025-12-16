@@ -5,7 +5,7 @@ This is the first file AI agents should read when starting work on this project.
 ## 🚀 Quick Context
 
 **Project**: Asra - AI-powered collaborative software engineering platform
-**Architecture**: Event-driven monorepo with strict package boundaries
+**Architecture**: Communication-Driven Development (CDD) monorepo (See [cdd-docs.vercel.app](https://cdd-docs.vercel.app/))
 **Current Focus**: Interactive UI features (mouse drag resize)
 **Documentation System**: Handoff - persistent AI knowledge transfer
 
