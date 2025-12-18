@@ -22,6 +22,7 @@
     "reinstall": "yarn clean && rm -rf node_modules .turbo && yarn && yarn react:build",
     "gen:turbo": "node scripts/gen-turbo.js && yarn install",
     "gen:event": "yarn workspace @asra/reactive-events add-event",
+    "gen:interaction": "yarn workspace @asra/reactive-events add-interaction",
     "predev": "yarn gen:turbo"
   },
   "workspaces": [
