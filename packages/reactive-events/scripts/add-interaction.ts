@@ -6,7 +6,7 @@ import path from 'path'
 import fs from 'fs'
 
 // --- Configuration ---
-const PACKAGES_DIR = path.resolve(__dirname, '../../..')
+const PACKAGES_DIR = path.resolve(__dirname, '../../..', 'packages')
 const UTILS_PKG = path.join(PACKAGES_DIR, 'utils')
 const REACTIVE_EVENTS_PKG = path.join(PACKAGES_DIR, 'reactive-events')
 const INTERACTION_CORE_PKG = path.join(PACKAGES_DIR, 'interaction-core')
@@ -100,7 +100,7 @@ program
         })
 
         logStep('Step 1: Updating Global Registry (@asra/utils)')
-        await updateRegistry(project, constantName)
+        await updateRegistry(project, pascalName, constantName)
 
         logStep('Step 2: Generating Reactive Events')
         await updateReactiveEvents(project, pascalName, constantName, kebabName)
@@ -155,7 +155,7 @@ program
 
 // --- Sub-functions ---
 
-async function updateRegistry(project: Project, constantName: string) {
+async function updateRegistry(project: Project, pascalName: string, constantName: string) {
     const filePath = path.join(
         UTILS_PKG,
         'src',
@@ -183,7 +183,7 @@ async function updateRegistry(project: Project, constantName: string) {
         // For simplicity, we will append it to a new Enum block at the end of file and spread it.
 
         // 1. Create the new Enum
-        const enumName = `${toPascalCase(constantName.split('_')[1])}Interaction` // e.g. RotateElementInteraction
+        const enumName = `${pascalName}Interaction` // e.g. RotateElementInteraction
 
         // Check if enum exists (unlikely for new feature)
         let enumDecl = sourceFile.getEnum(enumName)
@@ -240,8 +240,11 @@ async function updateReactiveEvents(
         // Update Union Type
         const typeAlias = eventsFile.getTypeAlias('InteractionCoreEvents')
         if (typeAlias) {
-            const currentType = typeAlias.getTypeNode().getText()
-            typeAlias.setType(`${currentType} | ${interfaceName}`)
+            const typeNode = typeAlias.getTypeNode()
+            if (typeNode) {
+                const currentType = typeNode.getText()
+                typeAlias.setType(`${currentType} | ${interfaceName}`)
+            }
         }
         logInfo(`Added interface ${interfaceName}`)
     }

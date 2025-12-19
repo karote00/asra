@@ -150,7 +150,7 @@ __metadata:
   resolution: "@asra/reactive-events@workspace:packages/reactive-events"
   dependencies:
     "@asra/utils": "workspace:*"
-    "@types/inquirer": "npm:^9.0.9"
+    "@types/inquirer": "npm:^8.2.6"
     "@types/node": "npm:^25.0.2"
     "@vitest/coverage-v8": "npm:^2.1.8"
     chalk: "npm:^5.6.2"
@@ -5026,13 +5026,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/inquirer@npm:^9.0.9":
-  version: 9.0.9
-  resolution: "@types/inquirer@npm:9.0.9"
+"@types/inquirer@npm:^8.2.6":
+  version: 8.2.12
+  resolution: "@types/inquirer@npm:8.2.12"
   dependencies:
     "@types/through": "npm:*"
     rxjs: "npm:^7.2.0"
-  checksum: 10c0/235a02a3afa5b238ca9093ef7064e17d763ba134b1afd5a263ffc363ccdb6d1f7d64aa3866ca93e7ad52be4ff21324368a983d20d35caf21c16475cfb32db8c8
+  checksum: 10c0/a9bb3ca2960aa4b985e8cf7f7bafb4aae015136be87764ec78ce84925aac222d346e540e1459484c8dfc46f9579069025d9c0676dc9cefce71304d96cf9fb50a
   languageName: node
   linkType: hard
 
