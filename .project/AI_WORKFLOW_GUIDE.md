@@ -82,7 +82,7 @@ This guide outlines a universal workflow for AI agents in software engineering p
 *   **Goal**: To update project documentation with new patterns, decisions, and functionality before PR/merge, ensuring knowledge is preserved for future AI sessions and team members.
 *   **AI Actions**:
     *   **Update Handoff Documentation**:
-        *   Update `.project/assumptions.md` with new patterns learned and decisions made
+        *   Update `.project/ASSUMPTIONS.md` with new patterns learned and decisions made
         *   Update relevant golden paths if feature affects user workflows
         *   Update architecture docs if new components/patterns were introduced
         *   Update BDD features if new user behaviors were added

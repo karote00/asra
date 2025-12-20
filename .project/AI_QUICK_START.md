@@ -5,9 +5,13 @@ This is the first file AI agents should read when starting work on this project.
 ## 🚀 Quick Context
 
 **Project**: Asra - AI-powered collaborative software engineering platform
-**Architecture**: Event-driven monorepo with strict package boundaries
+**Architecture**: Communication-Driven Development (CDD) monorepo (See [cdd-docs.vercel.app](https://cdd-docs.vercel.app/))
 **Current Focus**: Interactive UI features (mouse drag resize)
 **Documentation System**: Handoff - persistent AI knowledge transfer
+
+## 🛠 Project Tools
+- **Event Architect**: `yarn gen:event` (See `.project/EVENT_ARCHITECT_CLI.md`)
+  - Automates boilerplate for new Reactive Events (Enums, Types, Publishers, Subscribers).
 
 ## 🧪 Testing Guidelines
 
@@ -25,7 +29,7 @@ This is the first file AI agents should read when starting work on this project.
 ## 📋 Before You Start
 
 1. **Check Engagement Level**: Read `.project/handoff-config.md` for interaction preferences
-2. **Review Assumptions**: Check `.project/assumptions.md` for previous AI decisions
+2. **Review Assumptions**: Check `.project/ASSUMPTIONS.md` for previous AI decisions
 3. **Understand Architecture**: Consult `.project/AI_ARCHITECTURAL_GUIDE.md` for technical constraints
 
 ## 🎯 Common Task Routing
@@ -55,7 +59,7 @@ This is the first file AI agents should read when starting work on this project.
 **Human says "just figure it out"**:
 1. Set engagement level to `auto-pilot`
 2. Analyze codebase patterns
-3. Document all assumptions in `.project/assumptions.md`
+3. Document all assumptions in `.project/ASSUMPTIONS.md`
 4. Proceed with conservative choices
 
 **Human seems junior/uncertain**:

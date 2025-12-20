@@ -14,10 +14,19 @@
     "clean": "rm -rf dist",
     "has:test": "find . -type f \\( -name \"*.test.ts\" -o -name \"*.test.tsx\" \\) | grep -q .",
     "test": "yarn has:test && vitest || echo 'No test files found. Skipping test.'",
-    "test:ci": "yarn has:test && vitest run --coverage --reporter=default --reporter=junit || echo 'No test files found. Skipping test:ci.'"
+    "test:ci": "yarn has:test && vitest run --coverage --reporter=default --reporter=junit || echo 'No test files found. Skipping test:ci.'",
+    "add-event": "tsx scripts/add-event.ts",
+    "add-interaction": "tsx scripts/add-interaction.ts"
   },
   "devDependencies": {
+    "@types/inquirer": "^8.2.6",
+    "@types/node": "^25.0.2",
     "@vitest/coverage-v8": "^2.1.8",
+    "chalk": "^5.6.2",
+    "commander": "^14.0.2",
+    "inquirer": "^8.0.0",
+    "ts-morph": "^27.0.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   },
