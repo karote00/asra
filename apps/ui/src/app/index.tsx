@@ -5,6 +5,7 @@ import Properties from '../properties'
 import Animation from '../animation'
 import { realSize } from '../utils'
 import { COLUMN_WIDTH } from '../constants'
+import { DebugTimeline } from '../components/DebugTimeline'
 import RenderApp from '../render-app'
 
 const App: React.FC = () => {
@@ -33,6 +34,7 @@ const App: React.FC = () => {
         className="absolute inset-0 pointer-events-none"
         style={{ gridArea: 'canvas' }}
       />
+      <DebugTimeline />
     </div>
   )
 }
