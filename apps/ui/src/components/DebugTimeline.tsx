@@ -16,6 +16,7 @@ export const DebugTimeline: React.FC = () => {
   const [events, setEvents] = useState<AllEvent[]>([])
   const [filter, setFilter] = useState('')
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null)
+  const [isCollapsed, setIsCollapsed] = useState(false)
 
   useEffect(() => {
     const subscription = subscribeToEvents((event) => {
@@ -31,9 +32,22 @@ export const DebugTimeline: React.FC = () => {
     event.type.toLowerCase().includes(filter.toLowerCase())
   )
 
+  if (isCollapsed) {
+    return (
+      <div className="fixed bottom-4 right-4 bg-gray-800 text-white p-4 rounded-lg shadow-lg">
+        <button onClick={() => setIsCollapsed(false)}>Event Stream</button>
+      </div>
+    )
+  }
+
   return (
     <div className="fixed bottom-4 right-4 w-96 h-1/2 bg-gray-800 text-white p-4 rounded-lg shadow-lg flex flex-col">
-      <h2 className="text-lg font-bold mb-4">Event Stream</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-bold">Event Stream</h2>
+        <button onClick={() => setIsCollapsed(true)} className="text-white">
+          Collapse
+        </button>
+      </div>
       <input
         type="text"
         placeholder="Filter events..."
