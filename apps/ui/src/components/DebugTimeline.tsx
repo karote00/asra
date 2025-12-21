@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { subscribeToEvents, AllEvent } from '@asra/reactive-events'
 
+const MAX_EVENTS = 100
+
 const getEventColor = (eventType: string): string => {
   if (eventType.startsWith('DECIDE_TO')) return 'bg-blue-900'
   if (eventType.includes('SESSION')) return 'bg-blue-800'
@@ -20,7 +22,7 @@ export const DebugTimeline: React.FC = () => {
 
   useEffect(() => {
     const subscription = subscribeToEvents((event) => {
-      setEvents((prevEvents) => [event, ...prevEvents])
+      setEvents((prevEvents) => [event, ...prevEvents.slice(0, MAX_EVENTS - 1)])
     })
 
     return () => {
@@ -34,14 +36,14 @@ export const DebugTimeline: React.FC = () => {
 
   if (isCollapsed) {
     return (
-      <div className="fixed bottom-4 right-4 bg-gray-800 text-white p-4 rounded-lg shadow-lg">
+      <div className="fixed bottom-4 right-4 bg-gray-800 text-white p-4 rounded-lg shadow-lg z-50">
         <button onClick={() => setIsCollapsed(false)}>Event Stream</button>
       </div>
     )
   }
 
   return (
-    <div className="fixed bottom-4 right-4 w-96 h-1/2 bg-gray-800 text-white p-4 rounded-lg shadow-lg flex flex-col">
+    <div className="fixed bottom-4 right-4 w-96 h-1/2 bg-gray-800 text-white p-4 rounded-lg shadow-lg flex flex-col z-50">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-bold">Event Stream</h2>
         <button onClick={() => setIsCollapsed(true)} className="text-white">
