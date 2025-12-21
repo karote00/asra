@@ -18,7 +18,7 @@ export const DebugTimeline: React.FC = () => {
   const events = useEventStream()
   const [filter, setFilter] = useState('')
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null)
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(true)
 
   const [size, setSize] = useState({
     width: realSize(COLUMN_WIDTH),
@@ -62,6 +62,10 @@ export const DebugTimeline: React.FC = () => {
   const filteredEvents = events.filter((event) =>
     event.type.toLowerCase().includes(filter.toLowerCase())
   )
+
+  if (process.env.NODE_ENV !== 'development') {
+    return null
+  }
 
   if (isCollapsed) {
     return (
