@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useEventStream } from '../hooks/useEventStream'
 import { COLUMN_WIDTH } from '../constants'
-import { realSize } from '../utils'
 
 const getEventColor = (eventType: string): string => {
   if (eventType.startsWith('DECIDE_TO')) return 'bg-blue-900'
@@ -21,7 +20,7 @@ export const DebugTimeline: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   const [size, setSize] = useState({
-    width: realSize(COLUMN_WIDTH),
+    width: COLUMN_WIDTH * 4, // Use the raw pixel value
     height: window.innerHeight / 2
   })
   const isResizing = useRef(false)
@@ -66,8 +65,7 @@ export const DebugTimeline: React.FC = () => {
   if (isCollapsed) {
     return (
       <div
-        className="fixed bottom-0 right-0 bg-gray-800 text-white p-4 rounded-tl-lg shadow-lg z-50"
-        style={{ width: realSize(COLUMN_WIDTH) }}
+        className={`fixed bottom-0 right-0 bg-gray-800 text-white p-4 rounded-tl-lg shadow-lg z-50 w-${COLUMN_WIDTH}`}
       >
         <button onClick={() => setIsCollapsed(false)}>Event Stream</button>
       </div>
@@ -119,4 +117,3 @@ export const DebugTimeline: React.FC = () => {
     </div>
   )
 }
-
