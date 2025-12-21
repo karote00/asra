@@ -31,7 +31,7 @@ export const DebugTimeline: React.FC = () => {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 w-[232px] h-1/2 bg-gray-800 text-white p-4 rounded-lg shadow-lg flex flex-col z-50">
+    <div className="fixed bottom-4 right-4 w-[200px] h-1/2 bg-gray-800 text-white p-4 rounded-lg shadow-lg flex flex-col z-50">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-bold">Event Stream</h2>
         <button onClick={() => setIsCollapsed(true)} className="text-white">
