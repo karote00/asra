@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useEventStream } from '../hooks/useEventStream'
 import { COLUMN_WIDTH } from '../constants'
+import { realSize } from '../utils'
 
 const getEventColor = (eventType: string): string => {
   if (eventType.startsWith('DECIDE_TO')) return 'bg-blue-900'
@@ -20,7 +21,7 @@ export const DebugTimeline: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   const [size, setSize] = useState({
-    width: COLUMN_WIDTH * 4, // Use the raw pixel value
+    width: realSize(COLUMN_WIDTH),
     height: window.innerHeight / 2
   })
   const isResizing = useRef(false)
