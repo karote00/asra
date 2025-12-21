@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { subscribeToEvents, AllEvent } from '@asra/reactive-events'
 
-const MAX_EVENTS = 100
+const MAX_EVENTS = 300
 
 export const useEventStream = () => {
   const [events, setEvents] = useState<AllEvent[]>([])
