@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useEventStream } from '../hooks/useEventStream'
 import { COLUMN_WIDTH } from '../constants'
 import { realSize } from '../utils'
@@ -20,6 +20,45 @@ export const DebugTimeline: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null)
   const [isCollapsed, setIsCollapsed] = useState(false)
 
+  const [size, setSize] = useState({
+    width: realSize(COLUMN_WIDTH),
+    height: window.innerHeight / 2
+  })
+  const isResizing = useRef(false)
+  const initialPos = useRef({ x: 0, y: 0 })
+  const initialSize = useRef({ width: 0, height: 0 })
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    isResizing.current = true
+    initialPos.current = { x: e.clientX, y: e.clientY }
+    initialSize.current = size
+  }
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isResizing.current) {
+        const dx = e.clientX - initialPos.current.x
+        const dy = e.clientY - initialPos.current.y
+        setSize({
+          width: initialSize.current.width - dx,
+          height: initialSize.current.height - dy
+        })
+      }
+    }
+
+    const handleMouseUp = () => {
+      isResizing.current = false
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [])
+
   const filteredEvents = events.filter((event) =>
     event.type.toLowerCase().includes(filter.toLowerCase())
   )
@@ -27,7 +66,7 @@ export const DebugTimeline: React.FC = () => {
   if (isCollapsed) {
     return (
       <div
-        className="fixed bottom-0 right-0 bg-gray-800 text-white p-4 rounded-lg shadow-lg z-50"
+        className="fixed bottom-0 right-0 bg-gray-800 text-white p-4 rounded-tl-lg shadow-lg z-50"
         style={{ width: realSize(COLUMN_WIDTH) }}
       >
         <button onClick={() => setIsCollapsed(false)}>Event Stream</button>
@@ -37,9 +76,13 @@ export const DebugTimeline: React.FC = () => {
 
   return (
     <div
-      className="fixed bottom-0 right-0 h-1/2 bg-gray-800 text-white p-4 rounded-lg shadow-lg flex flex-col z-50"
-      style={{ width: realSize(COLUMN_WIDTH) }}
+      className="fixed bottom-0 right-0 bg-gray-800 text-white p-4 rounded-tl-lg shadow-lg flex flex-col z-50"
+      style={{ width: size.width, height: size.height }}
     >
+      <div
+        className="absolute top-0 left-0 w-4 h-4 cursor-nwse-resize bg-gray-600"
+        onMouseDown={handleMouseDown}
+      />
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-bold">Event Stream</h2>
         <button onClick={() => setIsCollapsed(true)} className="text-white">
