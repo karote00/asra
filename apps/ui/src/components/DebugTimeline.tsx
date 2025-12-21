@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 import { useEventStream } from '../hooks/useEventStream'
+import { COLUMN_WIDTH } from '../constants'
+import { realSize } from '../utils'
 
 const getEventColor = (eventType: string): string => {
   if (eventType.startsWith('DECIDE_TO')) return 'bg-blue-900'
@@ -24,14 +26,20 @@ export const DebugTimeline: React.FC = () => {
 
   if (isCollapsed) {
     return (
-      <div className="fixed bottom-4 right-4 bg-gray-800 text-white p-4 rounded-lg shadow-lg z-50">
+      <div
+        className="fixed bottom-0 right-0 bg-gray-800 text-white p-4 rounded-lg shadow-lg z-50"
+        style={{ width: realSize(COLUMN_WIDTH) }}
+      >
         <button onClick={() => setIsCollapsed(false)}>Event Stream</button>
       </div>
     )
   }
 
   return (
-    <div className="fixed bottom-4 right-4 w-[200px] h-1/2 bg-gray-800 text-white p-4 rounded-lg shadow-lg flex flex-col z-50">
+    <div
+      className="fixed bottom-0 right-0 h-1/2 bg-gray-800 text-white p-4 rounded-lg shadow-lg flex flex-col z-50"
+      style={{ width: realSize(COLUMN_WIDTH) }}
+    >
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-bold">Event Stream</h2>
         <button onClick={() => setIsCollapsed(true)} className="text-white">
@@ -68,3 +76,4 @@ export const DebugTimeline: React.FC = () => {
     </div>
   )
 }
+
