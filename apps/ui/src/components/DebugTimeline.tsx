@@ -1,7 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { subscribeToEvents, AllEvent } from '@asra/reactive-events'
-
-const MAX_EVENTS = 100
+import React, { useState } from 'react'
+import { useEventStream } from '../hooks/useEventStream'
 
 const getEventColor = (eventType: string): string => {
   if (eventType.startsWith('DECIDE_TO')) return 'bg-blue-900'
@@ -15,20 +13,10 @@ const getEventColor = (eventType: string): string => {
 }
 
 export const DebugTimeline: React.FC = () => {
-  const [events, setEvents] = useState<AllEvent[]>([])
+  const events = useEventStream()
   const [filter, setFilter] = useState('')
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null)
   const [isCollapsed, setIsCollapsed] = useState(false)
-
-  useEffect(() => {
-    const subscription = subscribeToEvents((event) => {
-      setEvents((prevEvents) => [event, ...prevEvents.slice(0, MAX_EVENTS - 1)])
-    })
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [])
 
   const filteredEvents = events.filter((event) =>
     event.type.toLowerCase().includes(filter.toLowerCase())

@@ -1,0 +1,20 @@
+import { useState, useEffect } from 'react'
+import { subscribeToEvents, AllEvent } from '@asra/reactive-events'
+
+const MAX_EVENTS = 100
+
+export const useEventStream = () => {
+  const [events, setEvents] = useState<AllEvent[]>([])
+
+  useEffect(() => {
+    const subscription = subscribeToEvents((event) => {
+      setEvents((prevEvents) => [event, ...prevEvents.slice(0, MAX_EVENTS - 1)])
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  return events
+}
