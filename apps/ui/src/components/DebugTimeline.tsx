@@ -24,14 +24,14 @@ export const DebugTimeline: React.FC = () => {
 
   if (isCollapsed) {
     return (
-      <div className="fixed bottom-4 right-4 bg-gray-800 text-white p-4 rounded-lg shadow-lg z-50">
+      <div className="fixed bottom-4 right-4 bg-gray-800 text-white p-4 rounded-lg shadow-lg z-50 pointer-events-none">
         <button onClick={() => setIsCollapsed(false)}>Event Stream</button>
       </div>
     )
   }
 
   return (
-    <div className="fixed bottom-4 right-4 w-96 h-1/2 bg-gray-800 text-white p-4 rounded-lg shadow-lg flex flex-col z-50">
+    <div className="fixed bottom-4 right-4 w-96 h-1/2 bg-gray-800 text-white p-4 rounded-lg shadow-lg flex flex-col z-50 pointer-events-none">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-bold">Event Stream</h2>
         <button onClick={() => setIsCollapsed(true)} className="text-white">
