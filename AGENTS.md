@@ -18,3 +18,15 @@ Before writing custom scripts or manual code, check for existing project tools.
 ## 4. Documentation Strategy
 - Never invent new conventions without updating `.project/ASSUMPTIONS.md`.
 - All architectural decisions must be reflected in `.project/AI_ARCHITECTURAL_GUIDE.md`.
+
+## 5. Code Style and Quality
+
+All code contributions must adhere to the project's established linting and formatting rules. Before committing any changes, you MUST run the linter to format and check your code.
+
+Run the following command from the root directory:
+
+```bash
+yarn lint --fix
+```
+
+This command will automatically fix most formatting and style issues. If any errors or warnings remain, they must be addressed manually before the code is committed. This ensures consistency and quality across the entire codebase.
