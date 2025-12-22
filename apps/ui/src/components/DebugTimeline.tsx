@@ -10,14 +10,15 @@ const EVENT_COLOR_MAP: Record<string, string> = {
   startSession: 'bg-blue-900',
   endSession: 'bg-blue-800',
 
-  startTransition: 'bg-purple-900',
-  endTransition: 'bg-purple-800',
+  startTransaction: 'bg-purple-900',
+  endTransaction: 'bg-purple-800',
 
   finish: 'bg-green-900',
   emit: 'bg-green-800',
   core: 'bg-green-700',
 
-  update: 'bg-yellow-900'
+  update: 'bg-yellow-900',
+  change: 'bg-yellow-900'
 }
 
 const getEventColor = (eventType: string): string => {
