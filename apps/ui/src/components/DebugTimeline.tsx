@@ -3,14 +3,29 @@ import { useEventStream } from '../hooks/useEventStream'
 import { COLUMN_WIDTH } from '../constants'
 import { realSize } from '../utils'
 
+const EVENT_COLOR_MAP: Record<string, string> = {
+  decideTo: 'bg-indigo-900',
+  request: 'bg-indigo-800',
+
+  startSession: 'bg-blue-900',
+  endSession: 'bg-blue-800',
+
+  startTransition: 'bg-purple-900',
+  endTransition: 'bg-purple-800',
+
+  finish: 'bg-green-900',
+  emit: 'bg-green-800',
+  core: 'bg-green-700',
+
+  update: 'bg-yellow-900'
+}
+
 const getEventColor = (eventType: string): string => {
-  if (eventType.startsWith('DECIDE_TO')) return 'bg-blue-900'
-  if (eventType.includes('SESSION')) return 'bg-blue-800'
-  if (eventType.startsWith('FINISH_')) return 'bg-green-900'
-  if (eventType.startsWith('EMIT_')) return 'bg-green-800'
-  if (eventType.startsWith('CORE_')) return 'bg-green-700'
-  if (eventType.startsWith('UPDATE_')) return 'bg-yellow-900'
-  if (eventType.startsWith('REQUEST_')) return 'bg-yellow-800'
+  for (const prefix in EVENT_COLOR_MAP) {
+    if (eventType.startsWith(prefix)) {
+      return EVENT_COLOR_MAP[prefix]
+    }
+  }
   return 'bg-gray-700'
 }
 
