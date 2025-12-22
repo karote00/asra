@@ -1,6 +1,6 @@
 # Design Principle: API Documentation Standard
 
-This document defines the standard format for all API reference documentation stored in `.project/apis/`. Following this standard ensures that API documentation is clear, consistent, and provides the necessary level of detail for developers.
+This document defines the standard format for all API reference documentation stored in `.project/frontend-apis/`. Following this standard ensures that API documentation is clear, consistent, and provides the necessary level of detail for developers.
 
 ## Guiding Principles
 
