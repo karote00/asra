@@ -15,6 +15,7 @@ node_modules
 
 # build outputs
 dist
+/packages/*/coverage/
 
 # Turbo Cache
 .turbo
