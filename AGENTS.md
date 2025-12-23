@@ -30,12 +30,13 @@ When receiving a new request, follow these steps:
 5.  **Review Design Principles:** Only update design principle files in `.project/design-principles/` if absolutely necessary and after careful consideration. These files are generally stable. Use `handoff-ai` commands if changes are required.
 6.  **Confirm BDD and Golden Paths:** Double-check that the BDD and golden path definitions accurately reflect the request and are comprehensive.
 7.  **Implement Iteratively:** Begin implementation, committing changes for each logical step or small, verifiable unit of work.
-8.  **Validate Implementation:** Upon completion of implementation, perform thorough validation by running:
+8.  **Write/Update Unit Tests:** Develop or update unit tests to cover the new or modified functionality. Ensure tests are comprehensive and pass locally.
+9.  **Validate Implementation:** Upon completion of implementation, perform thorough validation by running:
     *   `yarn lint` (for linting and formatting)
     *   `yarn test:ci` (for unit and integration tests)
     *   `yarn react:build` (for building the application)
-9.  **Push to GitHub:** Push the feature branch to GitHub.
-10. **Automated Documentation Update (Post-CI):** After all CI checks have passed, ensure that related documentation and specifications (e.g., architecture, APIs) are automatically updated to reflect the changes. This step should leverage `handoff-ai`'s capabilities (e.g., `handoff-ai inject-docs`) and potentially custom scripts for `.project` Markdown files.
+10. **Push to GitHub:** Push the feature branch to GitHub.
+11. **Automated Documentation Update (Post-CI):** After all CI checks have passed, ensure that related documentation and specifications (e.g., architecture, APIs) are automatically updated to reflect the changes. This step should leverage `handoff-ai`'s capabilities (e.g., `handoff-ai inject-docs`) and potentially custom scripts for `.project` Markdown files.
 
 **Goals of this Workflow:**
 
