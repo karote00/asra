@@ -23,11 +23,11 @@ Before writing custom scripts or manual code, check for existing project tools.
 
 When receiving a new request, follow these steps:
 
-1.  **Start Planning:** Begin by thoroughly understanding the request and outlining a high-level plan.
-2.  **Update Epics:** Document or update relevant epic files in the `.project/epics/` directory.
-3.  **Update BDD Files:** Document or update Behavior-Driven Development (BDD) files in the `.project/features/` directory.
-4.  **Update Golden Path Files:** Document or update golden path files in the `.project/golden-paths/` directory.
-5.  **Review Design Principles:** Only update design principle files in `.project/design-principles/` if absolutely necessary and after careful consideration. These files are generally stable.
+1.  **Start Planning & Context Retrieval:** Begin by thoroughly understanding the request and outlining a high-level plan. Query `context-rag ai "your question"` to retrieve relevant existing documentation and context from the `.project` folder.
+2.  **Update Epics:** Use `handoff-ai` commands to document or update relevant epic files in the `.project/epics/` directory.
+3.  **Update BDD Files:** Use `handoff-ai` commands to document or update Behavior-Driven Development (BDD) files in the `.project/features/` directory.
+4.  **Update Golden Path Files:** Use `handoff-ai` commands to document or update golden path files in the `.project/golden-paths/` directory.
+5.  **Review Design Principles:** Only update design principle files in `.project/design-principles/` if absolutely necessary and after careful consideration. These files are generally stable. Use `handoff-ai` commands if changes are required.
 6.  **Confirm BDD and Golden Paths:** Double-check that the BDD and golden path definitions accurately reflect the request and are comprehensive.
 7.  **Implement Iteratively:** Begin implementation, committing changes for each logical step or small, verifiable unit of work.
 8.  **Validate Implementation:** Upon completion of implementation, perform thorough validation by running:
@@ -35,7 +35,7 @@ When receiving a new request, follow these steps:
     *   `yarn test:ci` (for unit and integration tests)
     *   `yarn react:build` (for building the application)
 9.  **Push to GitHub:** Push the feature branch to GitHub.
-10. **Automated Documentation Update (Post-CI):** After all CI checks have passed, ensure that related documentation and specifications (e.g., architecture, APIs) are automatically updated to reflect the changes.
+10. **Automated Documentation Update (Post-CI):** After all CI checks have passed, ensure that related documentation and specifications (e.g., architecture, APIs) are automatically updated to reflect the changes. This step should leverage `handoff-ai`'s capabilities (e.g., `handoff-ai inject-docs`) and potentially custom scripts for `.project` Markdown files.
 
 **Goals of this Workflow:**
 
