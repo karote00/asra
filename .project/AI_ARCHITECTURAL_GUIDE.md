@@ -17,7 +17,26 @@ This document consolidates key architectural principles, interaction patterns, d
     *   The `system-context` package is the single source of truth for the current state of the system (e.g., active primary tool, mouse position, keyboard modifiers).
     *   This context is accessible via `systemContext.getSystemContextSnapshot()`.
 
-### II. User Interaction Flow (Updated for Interaction Core V2)
+### II. Package Ecosystem
+
+The Asra monorepo is divided into specialized packages, each with a clear responsibility:
+
+*   **`apps/ui`**: The main React application entry point, containing the UI components and layout.
+*   **`packages/core`**: The central orchestrator. It holds subscriptions to events and calls APIs in other packages.
+*   **`packages/input-system`**: Captures raw browser events and maps them to internal input actions.
+*   **`packages/interaction-core`**: The brain of the operation. Decides how to respond to input actions based on current rules and behaviors.
+*   **`packages/reactive-events`**: The event bus definitions. All cross-package communication happens via these events.
+*   **`packages/system-context`**: Holds global ephemeral state (mouse position, active tool, held keys).
+*   **`packages/scene-tree`**: Manages the document model (elements, hierarchy) and provides real-time updates.
+*   **`packages/factory`**: Manages data transactions, undo/redo history, and strictly coupled operations.
+*   **`packages/selection`**: Manages selection state and logic (what is currently selected).
+*   **`packages/props-manager`**: (To be documented) Manages property definitions and updates.
+*   **`packages/render`**: (To be documented) Handles the rendering logic (e.g., Canvas or DOM rendering).
+*   **`packages/ui-context`**: (To be documented) Context for UI-specific state.
+*   **`packages/utils`**: shared utilities and helpers.
+
+
+### III. User Interaction Flow (Updated for Interaction Core V2)
 
 This section details the precise flow for handling user interactions, particularly those involving tools and state changes.
 
@@ -41,7 +60,7 @@ This section details the precise flow for handling user interactions, particular
 
 **Summary:** `Input` -> `Core (Input Sub)` -> `Interaction Core (Decider -> Handler)` -> `Reactive Event` -> `Core (Interaction Sub)` -> `System API`.
 
-### III. Data Manipulation & Transaction System
+### IV. Data Manipulation & Transaction System
 
 This defines how data changes are managed, particularly concerning undo/redo.
 
@@ -61,7 +80,7 @@ This defines how data changes are managed, particularly concerning undo/redo.
     *   Many `sceneTree` APIs (e.g., `changeComputedData`, `updateComputedData`) implicitly operate on the currently selected elements.
     *   This means that for property updates on selected elements, the `id` parameter is often **not needed** in the API call, as the system will apply the change to all currently selected elements.
 
-### IV. AI Workflow & Collaboration Rules (Consolidated from `AI_WORKFLOW_GUIDE.md`)
+### V. AI Workflow & Collaboration Rules (Consolidated from `AI_WORKFLOW_GUIDE.md`)
 
 This section outlines the standard workflow for AI-assisted tasks, emphasizing upfront planning, human review, and continuous improvement.
 
@@ -90,7 +109,7 @@ This section outlines the standard workflow for AI-assisted tasks, emphasizing u
 6.  **`save_memory` Tool:**
     *   Used to store specific, user-defined facts or critical instructions for long-term retention across sessions.
 
-### V. AI Limitations & Learning Points (Self-Reflection)
+### VI. AI Limitations & Learning Points (Self-Reflection)
 
 This section highlights common pitfalls for the AI to avoid, based on past misunderstandings.
 
@@ -98,7 +117,7 @@ This section highlights common pitfalls for the AI to avoid, based on past misun
 *   **Verify existing implementations:** Never assume a feature or flow is absent without thorough investigation of the codebase.
 *   **Distinguish event layers:** Clearly differentiate between raw input events, high-level decided actions, and the implementation logic that responds to those actions.
 *   **Understand transaction boundaries:** Be precise about when `startTransaction`, `updateTransaction`, and `endTransaction` are used, and when direct, non-undoable updates are appropriate.
-### VI. Communication-Driven Development (CDD) Insights
+### VII. Communication-Driven Development (CDD) Insights
 
 This section summarizes key insights into the CDD paradigm, guiding the "Why" behind the architecture above.
 
