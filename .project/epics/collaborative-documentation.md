@@ -70,7 +70,7 @@ To produce a complete Handoff knowledge base including Architecture overviews, A
 
 ### Documentation Types Generated
 - **Architecture Documents**: For each major package/module (`architecture/<package-name>.md`)
-- **API Reference Documents**: Detailed specifications (`apis/<package-name>.md`)
+- **API Reference Documents**: Detailed specifications (`apis/frontend/<package-name>.md` or `apis/backend/<service-name>.md`)
 - **Design Principle Documents**: Architectural rules and conventions (`design-principles/`)
 - **Golden Path Narratives**: Critical user journeys (`golden-paths/<feature-name>.md`)
 - **BDD Gherkin Specifications**: Behavioral specifications (`bdd-features/<feature-name>.feature`)
