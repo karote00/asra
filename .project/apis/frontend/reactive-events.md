@@ -1,6 +1,6 @@
 # API Reference: @asra/reactive-events
 
-This document provides a detailed reference for the public API of the `@asra/reactive-events` package. For architectural details and design patterns, see the documents in `.project/architecture/` and `.project/design-principles/`.
+This document provides a detailed reference for the public API of the `@asra/reactive-events` package. For architectural details and design patterns, see the documents in `.project/architecture/frontend/` and `.project/design-principles/`.
 
 ## Core API
 

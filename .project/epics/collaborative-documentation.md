@@ -69,7 +69,7 @@ To produce a complete Handoff knowledge base including Architecture overviews, A
 ## Phase 3: Systematic Documentation Generation
 
 ### Documentation Types Generated
-- **Architecture Documents**: For each major package/module (`architecture/<package-name>.md`)
+- **Architecture Documents**: For each major package/module (`architecture/frontend/<package-name>.md` or `architecture/backend/<service-name>.md`)
 - **API Reference Documents**: Detailed specifications (`apis/frontend/<package-name>.md` or `apis/backend/<service-name>.md`)
 - **Design Principle Documents**: Architectural rules and conventions (`design-principles/`)
 - **Golden Path Narratives**: Critical user journeys (`golden-paths/<feature-name>.md`)
