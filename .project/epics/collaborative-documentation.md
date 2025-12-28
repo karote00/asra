@@ -73,7 +73,7 @@ To produce a complete Handoff knowledge base including Architecture overviews, A
 - **API Reference Documents**: Detailed specifications (`apis/<package-name>.md`)
 - **Design Principle Documents**: Architectural rules and conventions (`design-principles/`)
 - **Golden Path Narratives**: Critical user journeys (`golden-paths/<feature-name>.md`)
-- **BDD Gherkin Specifications**: Behavioral specifications (`features/<feature-name>.feature`)
+- **BDD Gherkin Specifications**: Behavioral specifications (`bdd-features/<feature-name>.feature`)
 - **Assumptions Log**: AI decisions and reasoning (`.project/ASSUMPTIONS.md`)
 
 ### 🤝 High Engagement Process
