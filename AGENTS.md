@@ -36,7 +36,8 @@ When receiving a new request, follow these steps:
     *   `yarn test:ci` (for unit and integration tests)
     *   `yarn react:build` (for building the application)
 10. **Push to GitHub:** Push the feature branch to GitHub.
-11. **Automated Documentation Update (Post-CI):** After all CI checks have passed, ensure that related documentation and specifications (e.g., architecture, APIs) are automatically updated to reflect the changes. This step should leverage `handoff-ai`'s capabilities (e.g., `handoff-ai inject-docs`) and potentially custom scripts for `.project` Markdown files.
+11. **AI-Assisted Code Review:** Initiate an AI-assisted code review on the feature branch. The AI agent should utilize `handoff-ai`'s context-providing script to retrieve relevant project details (e.g., related Epics, BDDs, Golden Paths, API standards) before performing the review, ensuring a high-quality, context-aware assessment.
+12. **Automated Documentation Update (Post-CI):** After all CI checks have passed, ensure that related documentation and specifications (e.g., architecture, APIs) are automatically updated to reflect the changes. This step should leverage `handoff-ai`'s capabilities (e.g., `handoff-ai inject-docs`) and potentially custom scripts for `.project` Markdown files.
 
 **Goals of this Workflow:**
 
