@@ -37,9 +37,7 @@ When receiving a new request, follow these steps:
     *   `yarn react:build` (for building the application)
 10. **Push to GitHub:** Push the feature branch to GitHub.
 11. **AI-Assisted Code Review:** Initiate an AI-assisted code review on the feature branch. The AI agent should utilize `handoff-ai`'s context-providing script to retrieve relevant project details (e.g., related Epics, BDDs, Golden Paths, API standards) before performing the review, ensuring a high-quality, context-aware assessment that verifies adherence to architecture, rules, and golden paths.
-12. **Automated Documentation Update (Post-CI):** After all CI checks have passed, ensure that related documentation and specifications (e.g., architecture, APIs) are automatically updated to reflect the changes. This can happen in two ways:
-    *   **Scenario 1 (Local Update):** The user's PR is ready to merge. Docs are updated locally (e.g., via `handoff-ai` commands), reviewed, and pushed to the PR for merge.
-    *   **Scenario 2 (CI-driven Update):** During the PR merge process, CI automatically triggers updates for specific documentation types (e.g., API reference generation from code). This is more complex for narrative docs and might involve automated validation or deployment of a static site. This step should leverage `handoff-ai`'s capabilities (e.g., `handoff-ai inject-docs`) and potentially custom scripts for `.project` Markdown files.
+12. **Update Documentation Locally:** Once the AI-assisted code review (Step 11) is passed, the user/AI agent should update related documentation and specifications (e.g., architecture, APIs) locally to reflect the changes. This process should leverage `handoff-ai`'s capabilities for documentation generation and management. After local updates are complete and reviewed, push these changes to GitHub.
 
 **Goals of this Workflow:**
 
