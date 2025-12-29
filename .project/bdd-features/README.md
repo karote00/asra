@@ -4,12 +4,9 @@ This directory contains Gherkin feature files that describe the expected behavio
 
 ## Existing Features
 
-*   **[Element Creation](./element-creation.feature)**: Behavior for creating new elements (Rectangles, etc.) on the canvas.
+*   **[Element Creation](./element-creation.feature)**: Creating rectangles via click or drag.
+*   **[Tool Switching](./tool-switching.feature)**: Switching active tools via shortcuts (R, V).
+*   **[Element Selection](./selection.feature)**: Selecting/Deselecting elements on canvas and contents panel.
+*   **[Property Management](./properties.feature)**: Viewing and updating properties via the side panel.
+*   **[Viewport Navigation](./viewport-navigation.feature)**: Zooming with the mouse wheel.
 
-## Future / Planned Features
-
-*   **Selection**: Multi-select, click-to-select, drag-select.
-*   **Transformation**: Resizing, moving, rotating elements.
-*   **Properties**: Updating properties via side panel.
-*   **Tools**: Panning (Hand tool), Zooming.
-*   **Undo/Redo**: Reverting actions.
