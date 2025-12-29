@@ -56,15 +56,6 @@ yarn dev:all
 
 The app will run at `http://localhost:3000` (or similar, check console output).
 
-## 📂 Project Structure
-
-*   `apps/ui`: The main React application entry point.
-*   `packages/`: The monorepo packages containing the core logic.
-    *   `core`: System orchestrator.
-    *   `interaction-core`: The brain (Decider & Handlers).
-    *   `reactive-events`: Central event definitions.
-    *   `scene-tree`: Document model management.
-*   `.project/`: **Project Intelligence.** Contains architecture guides, task breakdowns, and AI context files.
 
 ## 🤝 Contributing & AI Collaboration
 
