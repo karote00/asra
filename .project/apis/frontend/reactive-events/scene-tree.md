@@ -210,11 +210,12 @@ This domain handles events related to the scene tree, including initialization, 
 
 -   **Description**: Publishes an event to change the computed data of multiple elements.
 -   **Type**: Publisher
--   **Signature**: `export const changeComputedData = (elementIds: string[], key: string, data: DataTypes): void`
+-   **Signature**: `export const changeComputedData = (elementIds: string[], key: string, data: DataTypes, options = { undoable: true }): void`
 -   **Parameters**:
     -   `elementIds` (`string[]`): The IDs of the elements to update.
     -   `key` (`string`): The key of the data to update.
     -   `data` (`DataTypes`): The new data value.
+    -   `options` (`{ undoable: boolean }`): Optional configuration.
 -   **Returns**: `void`
 -   **Associated Event**:
     -   **Event Type**: `CHANGE_COMPUTED_DATA`

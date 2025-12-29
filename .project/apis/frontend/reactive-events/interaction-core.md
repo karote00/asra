@@ -124,6 +124,32 @@ This domain handles events related to user interactions and decisions made by th
 
 ---
 
+---
+
+### `decideToStartTransaction()`
+
+-   **Description**: Publishes an event to signal the start of a transaction.
+-   **Type**: Publisher
+-   **Signature**: `export const decideToStartTransaction = (): void`
+-   **Parameters**: None
+-   **Returns**: `void`
+-   **Associated Event**:
+    -   **Event Type**: `DECIDE_TO_START_TRANSACTION`
+
+---
+
+### `decideToEndTransaction()`
+
+-   **Description**: Publishes an event to signal the end of a transaction.
+-   **Type**: Publisher
+-   **Signature**: `export const decideToEndTransaction = (): void`
+-   **Parameters**: None
+-   **Returns**: `void`
+-   **Associated Event**:
+    -   **Event Type**: `DECIDE_TO_END_TRANSACTION`
+
+---
+
 ### `decideToSwitchPrimaryTool()`
 
 -   **Description**: Publishes an event to signal a decision to switch the primary tool.
@@ -178,6 +204,67 @@ This domain handles events related to user interactions and decisions made by th
 -   **Associated Event**:
     -   **Event Type**: `DECIDE_TO_CREATE_ELEMENT`
     -   **Payload Interface**: `DecideToCreateElementEvent`
+
+---
+
+### `decideToSelectElements()`
+
+-   **Description**: Publishes an event to signal a decision to select elements.
+-   **Type**: Publisher
+-   **Signature**: `export const decideToSelectElements = (elementIds: string[]): void`
+-   **Parameters**:
+    -   `elementIds` (`string[]`): The IDs of the elements to select.
+-   **Returns**: `void`
+-   **Associated Event**:
+    -   **Event Type**: `DECIDE_TO_SELECT_ELEMENTS`
+    -   **Payload Interface**: `DecideToSelectElementsEvent`
+
+---
+
+### `decideToResizeElement()`
+
+-   **Description**: Publishes an event to signal a decision to resize an element.
+-   **Type**: Publisher
+-   **Signature**: `export const decideToResizeElement = (dragStart: PositionData, position: PositionData, elementType: PrimaryToolType, options?: EVNET_OPTIONS): void`
+-   **Parameters**:
+    -   `dragStart` (`PositionData`): Start position of the drag.
+    -   `position` (`PositionData`): Current cursor position.
+    -   `elementType` (`PrimaryToolType`): The type of element being resized.
+    -   `options` (`EVNET_OPTIONS`): Optional event options.
+-   **Returns**: `void`
+-   **Associated Event**:
+    -   **Event Type**: `DECIDE_TO_RESIZE_ELEMENT`
+    -   **Payload Interface**: `DecideToResizeElementEvent`
+
+---
+
+### `decideToEndResizeElement()`
+
+-   **Description**: Publishes an event to signal the end of a resize operation.
+-   **Type**: Publisher
+-   **Signature**: `export const decideToEndResizeElement = (position: PositionData, elementType: PrimaryToolType): void`
+-   **Parameters**:
+    -   `position` (`PositionData`): Final position.
+    -   `elementType` (`PrimaryToolType`): The type of element resized.
+-   **Returns**: `void`
+-   **Associated Event**:
+    -   **Event Type**: `DECIDE_TO_END_RESIZE_ELEMENT`
+    -   **Payload Interface**: `DecideToEndResizeElementEvent`
+
+---
+
+### `decideToResetElementSize()`
+
+-   **Description**: Publishes an event to signal a decision to reset an element's size.
+-   **Type**: Publisher
+-   **Signature**: `export const decideToResetElementSize = (dimension: { width: number; height: number }, elementType: PrimaryToolType): void`
+-   **Parameters**:
+    -   `dimension` (`{ width: number; height: number }`): The dimensions to reset to.
+    -   `elementType` (`PrimaryToolType`): The type of element.
+-   **Returns**: `void`
+-   **Associated Event**:
+    -   **Event Type**: `DECIDE_TO_RESET_ELEMENT_SIZE`
+    -   **Payload Interface**: `DecideToResetElementSizeEvent`
 
 ---
 
