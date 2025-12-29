@@ -6,7 +6,7 @@
 
 ## 🎯 Project Goals
 
-Building design software is notoriously difficult due to specialized domain requirements. Asra aims to democratize this knowledge, embedding **expert-level patterns** directly into the codebase to help developers and AI agents build with confidence. It serves as a reference implementation for:
+Design tools involve complex architectural challenges and specialized patterns. Asra aims to share proven solutions by embedding **expert-level patterns** directly into the codebase, helping developers and AI agents build with confidence. It serves as a reference implementation for:
 
 *   **Communication-Driven Development (CDD)**: A philosophy prioritizing clear communication, implemented in this project via Event-Driven Architecture, BDD, and TDD. [Learn more about CDD →](https://cdd-docs.vercel.app/)
 *   **AI-Native Workflow**: A repository structure (`.project/`) specifically optimized to allow AI agents to understand, navigate, and contribute to the codebase effectively.
@@ -42,9 +42,6 @@ This repository includes a suite of tools and documentation located in the `.pro
 ### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/karote00/asra.git
-
 # Install dependencies
 yarn install
 ```
