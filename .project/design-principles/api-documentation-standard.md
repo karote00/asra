@@ -2,6 +2,7 @@
 
 This document defines the standard format for all API reference documentation stored in `.project/apis/frontend/` and `.project/apis/backend/`. Following this standard ensures that API documentation is clear, consistent, and provides the necessary level of detail for developers.
 
+
 ## Guiding Principles
 
 1.  **Source from Code**: Documentation should reflect the reality of the source code. Whenever possible, information should be sourced from the code itself.
