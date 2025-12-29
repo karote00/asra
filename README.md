@@ -1,3 +1,75 @@
-# asra
+# Asra
 
-An open-source prototype tool names Asra.
+**Asra** is an open-source design tool prototype engineered to demonstrate advanced application architecture and human-AI collaboration patterns.
+
+## 🎯 Project Goals
+
+Building design software is notoriously difficult due to specialized domain requirements. Asra aims to democratize this knowledge, embedding **expert-level patterns** directly into the codebase to help developers and AI agents build with confidence. It serves as a reference implementation for:
+
+*   **Communication-Driven Development (CDD)**: A philosophy prioritizing clear communication, implemented in this project via Event-Driven Architecture, BDD, and TDD.
+*   **AI-Native Workflow**: A repository structure (`.project/`) specifically optimized to allow AI agents to understand, navigate, and contribute to the codebase effectively.
+*   **Knowledge Encoding**: Reducing the gap between developers by documenting not just the *code*, but the *decisions* and *patterns* (Golden Paths, Design Principles) directly in the repo.
+
+## 🏗 Architecture: Communication-Driven Development (CDD)
+
+Asra follows **Communication-Driven Development (CDD)**. The core belief is simple: **No matter what tools or methodologies we use, their primary purpose must be to facilitate Communication.**
+
+In this project, we implement CDD using:
+
+*   **Architecture (Event-Driven)**: Components communicate via explicit **Events**, never direct calls. This ensures system parts understand *intent* without knowing *implementation*.
+*   **Specification (BDD)**: We use Behavior-Driven Development to communicate requirements clearly between **Humans and AI**, reducing the gap between "what we want" and "what we build."
+*   **Verification (TDD)**: We use Test-Driven Development to communicate reliability, ensuring that the system's behavior remains consistent as it evolves.
+
+## 🛠 Repository Features
+
+This repository includes a suite of tools and documentation located in the `.project/` directory to facilitate rapid development and onboarding:
+
+*   **Golden Paths**: Step-by-step implementation guides for common patterns (e.g., "Adding a new tool").
+*   **Generators**: CLI tools to scaffold events, interactions, and boilerplate code.
+*   **Design Principles**: Codified rules to ensure architectural alignment.
+*   **Task Breakdowns & Epics**: Comprehensive context for project features.
+
+## 🚀 Getting Started
+
+### Prerequisites
+*   Node.js (v20.x)
+*   Yarn (v4.3.1+)
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/karote00/asra.git
+
+# Install dependencies
+yarn install
+```
+
+### Running the App
+
+```bash
+# Start the development server
+yarn dev:all
+```
+
+The app will run at `http://localhost:3000` (or similar, check console output).
+
+## 📂 Project Structure
+
+*   `apps/ui`: The main React application entry point.
+*   `packages/`: The monorepo packages containing the core logic.
+    *   `core`: System orchestrator.
+    *   `interaction-core`: The brain (Decider & Handlers).
+    *   `reactive-events`: Central event definitions.
+    *   `scene-tree`: Document model management.
+*   `.project/`: **Project Intelligence.** Contains architecture guides, task breakdowns, and AI context files.
+
+## 🤝 Contributing & AI Collaboration
+
+This project relies on structured documentation to enable AI agents to code effectively.
+*   **Human Developers**: Refer to `.project/PROJECT_GUIDE.md`.
+*   **AI Agents**: Refer to `.project/AI_QUICK_START.md`.
+
+## License
+
+MIT
