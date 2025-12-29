@@ -24,36 +24,37 @@ These two flows work in tandem. Events often signal that data changes have occur
 The journey begins when the user clicks the mouse on the main canvas element.
 
 - **Package**: `@asra/input-system` (or its adapter)
-- **Action**: It captures the browser's raw **mouse events** (e.g., `mousedown`, `mouseup`). It processes these raw events and determines that a "click" has occurred at a specific set of coordinates.
+- **Action**: It captures the browser's raw **mouse events** (e.g., `mousedown`, `mouseup`).
 
 - **Package**: `@asra/core` (acting as middleware)
-- **Action**: The `core` package is subscribed to the raw mouse events exposed by the `@asra/input-system` adapter. It acts as a central handler, processing these low-level events and enriching them with system context (e.g., current tool, key states, click position relative to canvas). At this point, `core` has **all the necessary data** to inform a decision.
-- **Event Published**: The `core` package publishes a high-level event like `decideToCreateElement` (via `@asra/reactive-events`) with the fully prepared payload.
+- **Action**: The `core` package's specific input subscriber listens to these raw events. It enriches them with the current system context (tool, keys, etc.).
+- **Event Published**: The `core` package publishes a generic **Input Action** event, such as `executeAction` (via `@asra/reactive-events`), carrying the context and details of the interaction.
 
 #### Step 2: Decision Making (Interaction Core)
 
-The `interaction-core` receives the fully prepared input and context, and makes a decision based on the current application state.
+The `interaction-core` receives the generic input action and determines the specific user intent.
 
 - **Package**: `@asra/interaction-core`
-- **Action**: It receives the `decideToCreateElement` event from `core`. Since the event payload already contains all necessary data (position, element type, etc.), `interaction-core`'s role is to validate the decision and potentially add further context or trigger related actions.
-- **Decision**: "Based on the complete data provided, the user intends to create a rectangle. I will confirm this decision."
+- **Action**: It subscribes to `executeAction`. It passes the event payload to its internal **Decider**.
+- **Logic**: The Decider checks the current rules (e.g., "If Primary Tool is Rectangle AND Input is LeftClick...").
+- **Decision**: The system concludes: "The user intends to create a rectangle."
 
 #### Step 3: Announcing the Decision (Reactive Events)
 
-The `interaction-core` confirms the decision to create the rectangle by re-publishing the event, ensuring all relevant listeners are notified.
+The `interaction-core` announces this specific intent to the rest of the system.
 
 - **Package**: `@asra/reactive-events`
--   **Action**: The `interaction-core` calls the `decideToCreateElement()` function from `@asra/reactive-events` (or a similar event if `interaction-core` adds further processing before re-publishing).
--   **Event Published**: `{ type: 'decideToCreateElement', payload: { elementType: 'rectangle', position: { ... } } }` (This event now carries all the data needed for creation).
+-   **Action**: The `interaction-core` publishes the specific decision event: `decideToCreateElement`.
+-   **Event Payload**: `{ elementType: 'rectangle', position: { x: ..., y: ... } }`.
 
 #### Step 4: Core Orchestrates Action & Transaction (Core)
 
-The `@asra/core` package acts as the central orchestrator, listening to decisions and translating them into concrete actions, while also managing undoable transactions.
+The `@asra/core` package acts as the central coordinator. It hears the decision and executes the necessary sequence of operations.
 
 -   **Package**: `@asra/core`
--   **Action**: It is subscribed to the `decideToCreateElement` event (via `subscribeToDecideToCreateElement()`). Upon receiving this decision, `core` initiates an undoable transaction.
--   **Transaction**: `core` calls `startTransaction()` (via `@asra/reactive-events`) to begin recording changes for undo/redo.
--   **Event Published**: `core` then publishes the specific action event, `addRectangle` (via `@asra/reactive-events`), with the complete data for the new rectangle.
+-   **Action**: It is subscribed to `decideToCreateElement`. Upon receiving it, it executes a coordinated workflow (defined in `core/src/apis/scene-tree.ts`).
+-   **Transaction Start**: `core` calls `startTransaction()` to begin recording the history.
+-   **Request**: `core` calls the asynchronous `addRectangle()` API (wrapping a request event) to ask the Scene Tree to create the data.
 
 #### Step 5: Element Creation and State Update (Scene Tree)
 
