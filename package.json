@@ -10,7 +10,6 @@
   "type": "module",
   "keywords": [],
   "scripts": {
-    "react:start": "turbo run dev react:start --parallel",
     "dev:all": "node scripts/dev-all.js",
     "watch:design-system": "turbo run watch:design-system",
     "react:build": "turbo run react:build",
