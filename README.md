@@ -2,6 +2,8 @@
 
 **Asra** is an open-source design tool prototype engineered to demonstrate advanced application architecture and human-AI collaboration patterns.
 
+🌐 **[Live Demo](https://cdd-demo.vercel.app/)** - Try Asra in your browser
+
 ## 🎯 Project Goals
 
 Building design software is notoriously difficult due to specialized domain requirements. Asra aims to democratize this knowledge, embedding **expert-level patterns** directly into the codebase to help developers and AI agents build with confidence. It serves as a reference implementation for:
@@ -57,11 +59,25 @@ yarn dev:all
 The app will run at `http://localhost:3000` (or similar, check console output).
 
 
-## 🤝 Contributing & AI Collaboration
+## 🤝 Human & AI Collaboration
 
 This project relies on structured documentation to enable AI agents to code effectively.
 *   **Human Developers**: Refer to `.project/PROJECT_GUIDE.md`.
 *   **AI Agents**: Refer to `.project/AI_QUICK_START.md`.
+
+
+## 🤝 Contribution Policy
+
+Asra is an open-source project and is publicly available for reference, learning, and use.
+
+However, this repository is **not accepting external contributions** at this time.
+This includes pull requests, issues, and other forms of direct contribution.
+
+The codebase is intentionally curated to serve as a **cohesive reference implementation**
+for Communication-Driven Development (CDD) and AI-native workflows.
+
+You are welcome to fork the project and adapt it for your own needs.
+
 
 ## License
 
