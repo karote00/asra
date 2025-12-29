@@ -6,13 +6,15 @@
 
 Building design software is notoriously difficult due to specialized domain requirements. Asra aims to democratize this knowledge, embedding **expert-level patterns** directly into the codebase to help developers and AI agents build with confidence. It serves as a reference implementation for:
 
-*   **Communication-Driven Development (CDD)**: A philosophy prioritizing clear communication, implemented in this project via Event-Driven Architecture, BDD, and TDD.
+*   **Communication-Driven Development (CDD)**: A philosophy prioritizing clear communication, implemented in this project via Event-Driven Architecture, BDD, and TDD. [Learn more about CDD →](https://cdd-docs.vercel.app/)
 *   **AI-Native Workflow**: A repository structure (`.project/`) specifically optimized to allow AI agents to understand, navigate, and contribute to the codebase effectively.
 *   **Knowledge Encoding**: Reducing the gap between developers by documenting not just the *code*, but the *decisions* and *patterns* (Golden Paths, Design Principles) directly in the repo.
 
 ## 🏗 Architecture: Communication-Driven Development (CDD)
 
 Asra follows **Communication-Driven Development (CDD)**. The core belief is simple: **No matter what tools or methodologies we use, their primary purpose must be to facilitate Communication.**
+
+> 📖 **Learn More**: For a comprehensive guide to CDD principles and implementation patterns, visit the [CDD Documentation](https://cdd-docs.vercel.app/).
 
 In this project, we implement CDD using:
 
