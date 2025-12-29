@@ -42,9 +42,6 @@ This repository includes a suite of tools and documentation located in the `.pro
 ### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/karote00/asra.git
-
 # Install dependencies
 yarn install
 ```
