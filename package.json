@@ -1,14 +1,24 @@
 {
   "name": "asra",
-  "version": "1.0.1",
-  "description": "An open-source prototype tool names Asra.",
+  "version": "0.1.0",
+  "description": "An open-source design tool prototype demonstrating Communication-Driven Development and AI collaboration patterns.",
   "author": "Asa Tsai",
   "license": "MIT",
   "private": true,
   "packageManager": "yarn@4.3.1",
   "main": "index.js",
   "type": "module",
-  "keywords": [],
+  "keywords": [
+    "design-tool",
+    "communication-driven-development",
+    "cdd",
+    "event-driven-architecture",
+    "ai-collaboration",
+    "typescript",
+    "react",
+    "monorepo",
+    "reference-implementation"
+  ],
   "scripts": {
     "dev:all": "node scripts/dev-all.js",
     "watch:design-system": "turbo run watch:design-system",
