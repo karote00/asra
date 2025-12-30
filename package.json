@@ -24,6 +24,7 @@
     "watch:design-system": "turbo run watch:design-system",
     "react:build": "turbo run react:build",
     "test": "turbo run test",
+    "test:local": "turbo run test:local",
     "test:ci": "turbo run test:ci",
     "lint": "eslint .",
     "lint:ci": "eslint .",

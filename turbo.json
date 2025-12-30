@@ -25,6 +25,7 @@
       "cache": false
     },
     "test": {},
+    "test:local": {},
     "test:ci": {},
     "react:build": {
       "cache": false,
