@@ -1,93 +1,117 @@
 # AI Quick Start Guide
 
-This is the first file AI agents should read when starting work on this project. It provides immediate context and routing to appropriate workflows.
+**READ THIS FIRST** before making any code changes to this project.
 
-## 🚀 Quick Context
+## 🚨 MANDATORY: Follow Project Configuration Files
 
-**Project**: Asra - AI-powered collaborative software engineering platform
-**Architecture**: Communication-Driven Development (CDD) monorepo (See [cdd-docs.vercel.app](https://cdd-docs.vercel.app/))
-**Current Focus**: Interactive UI features (mouse drag resize)
-**Documentation System**: Handoff - persistent AI knowledge transfer
+**AI agents MUST read and follow the project's configuration files:**
 
-## 🛠 Project Tools
-- **Event Architect**: `yarn gen:event` (See `.project/EVENT_ARCHITECT_CLI.md`)
-  - Automates boilerplate for new Reactive Events (Enums, Types, Publishers, Subscribers).
+### Formatting Configuration (READ THESE FILES)
+- **`.editorconfig`**: Defines indentation, line endings, and character encoding
+- **`.prettierrc`**: Code formatting rules (quotes, semicolons, line width, etc.)
+- **`eslint.config.js`**: Linting rules and code style enforcement
+
+**NEVER hardcode formatting rules - always check these config files first!**
+
+### Quick Config Check
+```bash
+# Check current formatting rules
+cat .editorconfig
+cat .prettierrc
+head -20 eslint.config.js
+```
+
+### Auto-Apply Project Formatting
+```bash
+# Fix formatting according to project config
+yarn lint --fix
+```
+
+## 🏗 Project Architecture
+
+This project follows **Communication-Driven Development (CDD)** principles:
+
+### Core Packages
+- `@asra/core`: System orchestrator
+- `@asra/interaction-core`: Decision-making engine
+- `@asra/reactive-events`: Event communication system
+- `@asra/scene-tree`: Document model management
+- `@asra/system-context`: Global state management
+- `@asra/utils`: Shared utilities and types
+
+### Event-Driven Architecture
+- All components communicate via **typed events**
+- No direct function calls between packages
+- Events flow: Input → Decision → Action → State Update
 
 ## 🧪 Testing Guidelines
 
-**For Documentation/Analysis Tasks**:
-- ✅ Use CI commands: `yarn test:ci`, `yarn lint:ci`
-- ❌ Avoid watch mode: `yarn test`, `yarn lint` (these start watch mode)
+### Test Philosophy
+- Write **meaningful tests** that demonstrate "how it works and what it needs"
+- Focus on **behavior documentation**, not just coverage
+- Test **critical paths** and **edge cases**
 
-**For Active Development**:
-- ✅ Watch mode is fine: `yarn test`, `yarn dev`
+### Test Scripts
+- `yarn workspace @package/name test:local` - Clean output for development
+- `yarn workspace @package/name test:ci` - CI format with JUnit XML
+- `yarn workspace @package/name test` - Watch mode for interactive development
 
-**Build Commands**:
-- ✅ Production builds: `yarn react:build`
-- ✅ Clean builds: `yarn clean && yarn react:build`
+### Test Structure
+```typescript
+describe('Feature Name - Purpose', () => {
+  it('should demonstrate specific behavior', () => {
+    // Arrange: Set up test data
+    // Act: Execute the behavior
+    // Assert: Verify the outcome
+  })
+})
+```
 
-## 📋 Before You Start
+## 📁 Key Documentation
 
-1. **Check Engagement Level**: Read `.project/handoff-config.md` for interaction preferences
-2. **Review Assumptions**: Check `.project/ASSUMPTIONS.md` for previous AI decisions
-3. **Understand Architecture**: Consult `.project/AI_ARCHITECTURAL_GUIDE.md` for technical constraints
+- **[PROJECT_GUIDE.md](./PROJECT_GUIDE.md)**: Comprehensive project overview
+- **[AI_ARCHITECTURAL_GUIDE.md](./AI_ARCHITECTURAL_GUIDE.md)**: Technical architecture details
+- **[prd/](./prd/)**: Product Requirements Documents for all features
+- **[golden-paths/](./golden-paths/)**: Step-by-step implementation guides
 
-## 🎯 Common Task Routing
+## 🔄 Development Workflow
 
-**"I want to implement a new feature"**
-→ Use `.project/AI_WORKFLOW_GUIDE.md`
-→ Follow Phase 1-5 implementation process
+1. **Read project config files** (`.editorconfig`, `.prettierrc`, `eslint.config.js`)
+2. **Understand the feature** (check PRDs and golden paths)
+3. **Follow CDD patterns** (event-driven communication)
+4. **Write meaningful tests** (behavior-focused)
+5. **Verify formatting** (`yarn lint:ci`)
+6. **Run tests** (`yarn workspace @package/name test:local`)
 
-**"I want to understand this codebase"**  
-→ Use `.project/epics/codebase-exploration.md`
-→ Start with comprehensive analysis
+## 🎯 Quick Commands
 
-**"I want to document this project"**
-→ Use `.project/epics/collaborative-documentation.md`  
-→ Choose appropriate engagement level
+```bash
+# Check formatting according to project config
+yarn lint:ci
 
-**"I want to improve existing code"**
-→ Use `.project/epics/codebase-improvement.md`
-→ Focus on quality and maintainability
+# Fix formatting according to project config
+yarn lint --fix
 
-**"I want to start a new project"**
-→ Use `.project/epics/build-from-scratch.md`
-→ Begin with requirements gathering
+# Run tests (clean output)
+yarn workspace @asra/utils test:local
 
-## ⚡ Emergency Shortcuts
+# Build project
+yarn react:build
+```
 
-**Human says "just figure it out"**:
-1. Set engagement level to `auto-pilot`
-2. Analyze codebase patterns
-3. Document all assumptions in `.project/ASSUMPTIONS.md`
-4. Proceed with conservative choices
+## ⚠️ Common Pitfalls
 
-**Human seems junior/uncertain**:
-1. Switch to `beginner` expertise level
-2. Provide multiple choice options
-3. Explain architectural concepts
-4. Use guided decision-making
+- **Don't assume formatting rules** - always check config files first
+- **Don't hardcode indentation** - read `.editorconfig` for indent_size
+- **Don't guess quote style** - check `.prettierrc` for singleQuote setting
+- **Don't create direct dependencies** between packages (use events)
+- **Don't write coverage-focused tests** (write behavior-focused tests)
 
-**Human is in a hurry**:
-1. Use `medium-engagement` mode
-2. Focus on `key-decisions-only` reviews
-3. Make reasonable assumptions quickly
-4. Document decisions for later review
+## 🤝 Communication
 
-## 🔧 Key Files to Reference
+This project emphasizes **clear communication** through:
+- **Typed events** for component interaction
+- **Behavior-driven tests** for requirement clarity
+- **Comprehensive documentation** for context sharing
 
-- **Technical Rules**: `.project/AI_ARCHITECTURAL_GUIDE.md`
-- **Workflow Process**: `.project/AI_WORKFLOW_GUIDE.md`  
-- **Human Preferences**: `.project/handoff-config.md`
-- **Previous Decisions**: `.project/assumptions.md`
-- **Project Context**: `.project/PROJECT_GUIDE.md`
-
-## 🎪 Success Patterns
-
-- **Always document assumptions** when human input is limited
-- **Reference existing patterns** before proposing new approaches
-- **Adapt engagement level** based on human responses
-- **Maintain consistency** with previous AI decisions
-- **Flag critical decisions** that need human review
-
-Remember: Handoff is about smooth knowledge transfer. Your job is to build on previous work, not start from scratch every time.
+**Remember: Configuration files are the source of truth for formatting and style rules.**
