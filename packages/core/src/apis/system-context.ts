@@ -4,7 +4,7 @@ import {
   requestCurrentPrimaryTool,
   switchPrimaryTool,
   updateKeyState,
-  updateMouseStata
+  updateMouseState
 } from '@asra/reactive-events'
 import { SystemContextAPIs } from '../types'
 
@@ -18,7 +18,7 @@ export const createSystemContextAPIs = (): SystemContextAPIs => {
       emitSwitchPrimaryTool()
     },
     updateMouseState(mouseSnapshot: MouseSnapshot) {
-      updateMouseStata(mouseSnapshot)
+      updateMouseState(mouseSnapshot)
     },
     updateKeyState(keySnapshot: KeySnapshot) {
       updateKeyState(keySnapshot)
