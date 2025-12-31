@@ -1,12 +1,11 @@
-
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest'
 import {
   InteractionActions,
   PrimaryToolType,
-  SystemContextSnapshot,
-} from '@asra/utils';
-import { decideFromCreateElementRules } from '../create-element-rules';
-import { baseSnapshot } from './test-helpers';
+  SystemContextSnapshot
+} from '@asra/utils'
+import { decideFromCreateElementRules } from '../create-element-rules'
+import { baseSnapshot } from './test-helpers'
 
 describe('decideFromCreateElementRules', () => {
   it('should return INTERACTION_CREATE_ELEMENT with the correct payload', () => {
@@ -15,18 +14,18 @@ describe('decideFromCreateElementRules', () => {
       primaryTool: PrimaryToolType.RECTANGLE,
       mouse: {
         ...baseSnapshot.mouse,
-        position: { x: 123, y: 456 },
-      },
-    };
+        position: { x: 123, y: 456 }
+      }
+    }
 
-    const result = decideFromCreateElementRules(snapshot);
+    const result = decideFromCreateElementRules(snapshot)
 
     expect(result).toEqual({
       type: InteractionActions.INTERACTION_CREATE_ELEMENT,
       payload: {
         position: { x: 123, y: 456 },
-        elementType: PrimaryToolType.RECTANGLE,
-      },
-    });
-  });
-});
+        elementType: PrimaryToolType.RECTANGLE
+      }
+    })
+  })
+})

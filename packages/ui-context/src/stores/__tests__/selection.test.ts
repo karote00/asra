@@ -56,29 +56,35 @@ describe('SelectionStore', () => {
   // Test updateSelection for ELEMENT type
   it('should update element selection and computed properties when elements are selected', () => {
     const mockElement1 = {
-      getAllComputedData: vi.fn(() => ({
-        id: 'elem-1',
-        type: EntityTypes.RECTANGLE,
-        name: 'Element 1',
-        x: 10,
-        y: 20,
-        width: 100,
-        height: 50,
-        rotation: 0
-      } as ComputedAttrs))
+      getAllComputedData: vi.fn(
+        () =>
+          ({
+            id: 'elem-1',
+            type: EntityTypes.RECTANGLE,
+            name: 'Element 1',
+            x: 10,
+            y: 20,
+            width: 100,
+            height: 50,
+            rotation: 0
+          }) as ComputedAttrs
+      )
     }
 
     const mockElement2 = {
-      getAllComputedData: vi.fn(() => ({
-        id: 'elem-2',
-        type: EntityTypes.RECTANGLE,
-        name: 'Element 2',
-        x: 10,
-        y: 20,
-        width: 100,
-        height: 50,
-        rotation: 0
-      } as ComputedAttrs))
+      getAllComputedData: vi.fn(
+        () =>
+          ({
+            id: 'elem-2',
+            type: EntityTypes.RECTANGLE,
+            name: 'Element 2',
+            x: 10,
+            y: 20,
+            width: 100,
+            height: 50,
+            rotation: 0
+          }) as ComputedAttrs
+      )
     }
 
     vi.mocked(SceneTreeModule.default.getElementById)
@@ -87,11 +93,15 @@ describe('SelectionStore', () => {
 
     selectionStore.updateSelection(SELECTION_TYPES.ELEMENT)
 
-    expect(mockSelectionManager.get).toHaveBeenCalledWith(SELECTION_TYPES.ELEMENT)
+    expect(mockSelectionManager.get).toHaveBeenCalledWith(
+      SELECTION_TYPES.ELEMENT
+    )
     expect(UIContextModule.default.updateElementSelection).toHaveBeenCalledWith(
       new Set(['elem-1', 'elem-2'])
     )
-    expect(UIContextModule.default.updateComputedProperties).toHaveBeenCalledWith([
+    expect(
+      UIContextModule.default.updateComputedProperties
+    ).toHaveBeenCalledWith([
       {
         id: 'elem-1',
         type: EntityTypes.RECTANGLE,
@@ -123,7 +133,9 @@ describe('SelectionStore', () => {
     expect(UIContextModule.default.updateElementSelection).toHaveBeenCalledWith(
       new Set()
     )
-    expect(UIContextModule.default.updateComputedProperties).not.toHaveBeenCalled()
+    expect(
+      UIContextModule.default.updateComputedProperties
+    ).not.toHaveBeenCalled()
   })
 
   it('should handle missing elements gracefully', () => {
@@ -134,20 +146,28 @@ describe('SelectionStore', () => {
     selectionStore.updateSelection(SELECTION_TYPES.ELEMENT)
 
     expect(UIContextModule.default.updateElementSelection).toHaveBeenCalled()
-    expect(UIContextModule.default.updateComputedProperties).toHaveBeenCalledWith([])
+    expect(
+      UIContextModule.default.updateComputedProperties
+    ).toHaveBeenCalledWith([])
   })
 
   // Test updateSelection for VERTEX type
   it('should update vertex selection when vertices are selected', () => {
-    mockSelection.getSelectedIds = vi.fn(() => new Set(['vertex-1', 'vertex-2']))
+    mockSelection.getSelectedIds = vi.fn(
+      () => new Set(['vertex-1', 'vertex-2'])
+    )
 
     selectionStore.updateSelection(SELECTION_TYPES.VERTEX)
 
-    expect(mockSelectionManager.get).toHaveBeenCalledWith(SELECTION_TYPES.VERTEX)
+    expect(mockSelectionManager.get).toHaveBeenCalledWith(
+      SELECTION_TYPES.VERTEX
+    )
     expect(UIContextModule.default.updateVertexSelection).toHaveBeenCalledWith(
       new Set(['vertex-1', 'vertex-2'])
     )
-    expect(UIContextModule.default.updateComputedProperties).not.toHaveBeenCalled()
+    expect(
+      UIContextModule.default.updateComputedProperties
+    ).not.toHaveBeenCalled()
   })
 
   it('should return early when selection is null', () => {
@@ -155,7 +175,11 @@ describe('SelectionStore', () => {
 
     selectionStore.updateSelection(SELECTION_TYPES.ELEMENT)
 
-    expect(UIContextModule.default.updateElementSelection).not.toHaveBeenCalled()
-    expect(UIContextModule.default.updateComputedProperties).not.toHaveBeenCalled()
+    expect(
+      UIContextModule.default.updateElementSelection
+    ).not.toHaveBeenCalled()
+    expect(
+      UIContextModule.default.updateComputedProperties
+    ).not.toHaveBeenCalled()
   })
 })
