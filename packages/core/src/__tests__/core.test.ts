@@ -9,7 +9,12 @@ import * as SystemContextModule from '@asra/system-context'
 import * as InteractionCoreModule from '@asra/interaction-core'
 import * as SubscribesModule from '../subscribes'
 import * as ApisModule from '../apis'
-import { PrimaryToolType, SpecialEvent } from '@asra/utils'
+import {
+  PrimaryToolType,
+  SpecialEvent,
+  SystemContextSnapshot,
+  InputSystemEvents
+} from '@asra/utils'
 
 // Mock all external dependencies
 vi.mock('@asra/factory')
@@ -292,8 +297,40 @@ describe('Core', () => {
   })
 
   it('should delegate executeAction to interactionCore', () => {
-    const action = { type: 'SOME_ACTION' }
-    core.executeAction(action as any)
-    expect(mockApis.executeAction).toHaveBeenCalledWith(action)
+    const eventName: InputSystemEvents = InputSystemEvents.INPUT_KEYBOARD_A // Using an example event
+    const systemContextSnapshot: SystemContextSnapshot = {
+      // Mock SystemContextSnapshot properties as needed for the test
+      keyState: {
+        alt: false,
+        ctrl: false,
+        meta: false,
+        shift: false
+      },
+      mouseState: {
+        button: 0,
+        delta: { x: 0, y: 0 },
+        down: false,
+        dragStart: { x: 0, y: 0 },
+        dragging: false,
+        position: { x: 0, y: 0 }
+      },
+      primaryTool: PrimaryToolType.SELECT,
+      systemState: {
+        activeWorkspace: 'workspace-1',
+        activeWorkspaces: ['workspace-1']
+      },
+      targetState: {
+        element: null,
+        vertex: null
+      }
+    }
+    const detail = { some: 'detail' } // Optional detail
+
+    core.executeAction(eventName, systemContextSnapshot, detail)
+    expect(mockApis.executeAction).toHaveBeenCalledWith(
+      eventName,
+      systemContextSnapshot,
+      detail
+    )
   })
 })

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   InputSystemEvents,
   PrimaryToolType,
-  SystemContextSnapshot
+  _SystemContextSnapshot
 } from '@asra/utils'
 import { decideInteraction } from '../interaction-decider'
 import * as behavior from '../behavior'

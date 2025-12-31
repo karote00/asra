@@ -17,7 +17,7 @@ interface TestEvent {
 describe('Event Bus - Communication Backbone', () => {
   beforeEach(() => {
     // Clear any existing events
-    const eventBus = getEventBus()
+    const _eventBus = getEventBus()
     // Note: ReplaySubject doesn't have a clear method, but we can work with it
   })
 

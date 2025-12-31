@@ -47,7 +47,7 @@ describe('SelectionStore', () => {
     vi.mocked(SelectionModule.default).get = mockSelectionManager.get
     vi.mocked(SelectionModule.default).constructor = vi.fn(
       () => mockSelectionManager
-    ) as any
+    )
 
     selectionStore = new SelectionStore()
     selectionStore.selectionManager = mockSelectionManager as any

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Factory } from '../factory'
-import DataTransact from '../data-transact' // Keep this import for type inference
+import type _DataTransact from '../data-transact' // Keep this import for type inference
 import { UpdateTransactionEvent } from '@asra/reactive-events'
 
 describe('Factory', () => {

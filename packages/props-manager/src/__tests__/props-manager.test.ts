@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as ReactiveEventsModule from '@asra/reactive-events'
 import {
-  OWNER,
+  _OWNER,
   PROPS_ACTIONS,
   PropertyComponentInstanceTypes,
-  PropertyComponentInstanceDataTypes,
-  PropertyComponentRawData,
+  _PropertyComponentInstanceDataTypes,
+  _PropertyComponentRawData,
   PropertyTypes,
   Unit
 } from '@asra/utils'

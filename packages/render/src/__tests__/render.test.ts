@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Render } from '../render'
-import { Application, Container, Graphics } from 'pixi.js'
+import { Application, Container, _Graphics } from 'pixi.js'
 import * as ViewportLayerModule from '../viewport-layer'
 import * as SelectionLayerModule from '../selection-layer'
 import * as RenderSelectionStore from '../stores/selection'
 import {
-  DataTypes,
+  _DataTypes,
   MouseData,
   RenderContainerData,
   RenderElementData,
@@ -131,7 +131,7 @@ describe('Render', () => {
 
   // Test getSelectedElements
   it('should get selected elements from renderSelection and viewport', () => {
-    const mockElementIds = ['el1', 'el2']
+    const _mockElementIds = ['el1', 'el2']
     const mockSceneElements = [
       { id: 'el1', type: 'RECTANGLE' },
       { id: 'el2', type: 'CIRCLE' }

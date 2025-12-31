@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { SystemContext } from '../system-context'
 import { KeyState } from '../states/key-state'
 import { MouseState } from '../states/mouse-state'
