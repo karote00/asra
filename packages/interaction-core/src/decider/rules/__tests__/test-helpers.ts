@@ -3,9 +3,9 @@ import {
   DefaultPosition,
   DefaultMoseSnapshot,
   DefaultTargetSnapshot,
+  DefaultSystemSnapshot,
   PrimaryToolType,
-  SystemContextSnapshot,
-  SystemMode
+  SystemContextSnapshot
 } from '@asra/utils'
 
 export const baseSnapshot: SystemContextSnapshot = {
@@ -16,5 +16,5 @@ export const baseSnapshot: SystemContextSnapshot = {
   key: DefaultKeySnapshot,
   target: DefaultTargetSnapshot,
   primaryTool: PrimaryToolType.SELECT,
-  systemMode: SystemMode.IDLE
+  system: DefaultSystemSnapshot
 }
