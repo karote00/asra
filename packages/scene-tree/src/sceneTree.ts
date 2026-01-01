@@ -88,8 +88,8 @@ class SceneTree {
     return this._elements
   }
 
-  getElementById(elementId: string): ElementInstanceTypes {
-    return this._elements.get(elementId) as ElementInstanceTypes
+  getElementById(elementId: string): ElementInstanceTypes | undefined {
+    return this._elements.get(elementId)
   }
 
   addToMap(element: ElementInstanceTypes) {
@@ -191,6 +191,10 @@ class SceneTree {
 
     const elementId = data.id as string
     const element = this.getElementById(elementId)
+    if (!element) {
+      return
+    }
+
     sceneTree.addChangeForRemoveElement(element)
     workspace.removeElement(element, index, parent)
   }

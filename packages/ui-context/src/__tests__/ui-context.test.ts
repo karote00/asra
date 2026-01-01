@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { UIContext } from '../ui-context'
 import { BehaviorSubject } from 'rxjs'
-import { ComputedAttrs, MIXED_STRING, PrimaryToolType, EntityTypes } from '@asra/utils'
+import {
+  ComputedAttrs,
+  MIXED_STRING,
+  PrimaryToolType,
+  EntityTypes
+} from '@asra/utils'
 import { isEqual } from 'lodash'
 
 // Mock lodash.isEqual to control its behavior
@@ -11,7 +16,7 @@ vi.mock('lodash', () => ({
 
 // Mock @asra/utils to ensure constants are defined
 vi.mock('@asra/utils', async (importOriginal) => {
-  const actual = (await importOriginal()) as any
+  const actual = (await importOriginal()) as Record<string, unknown>
   return {
     ...actual,
     MIXED_STRING: 'MIXED_STRING',
@@ -126,10 +131,13 @@ describe('UIContext', () => {
   it('should not update properties not in generalKeysToCompare', () => {
     const nextSpy = vi.spyOn(uiContext.flattenedElementIds, 'next')
     // Attempt to update a property not in generalKeysToCompare
-    uiContext.updateComputedProperty('flattenedElementIds' as any, [
-      ['id1'],
-      ['id2']
-    ])
+    uiContext.updateComputedProperty(
+      'flattenedElementIds' as unknown as keyof ComputedAttrs,
+      [
+        ['id1'] as unknown as ComputedAttrs[keyof ComputedAttrs],
+        ['id2'] as unknown as ComputedAttrs[keyof ComputedAttrs]
+      ]
+    )
     expect(nextSpy).not.toHaveBeenCalled()
   })
 

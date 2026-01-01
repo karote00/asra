@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as ReactiveEventsModule from '@asra/reactive-events'
 import {
-  OWNER,
   PROPS_ACTIONS,
   PropertyComponentInstanceTypes,
   PropertyComponentInstanceDataTypes,
@@ -270,7 +269,11 @@ describe('PropsManager', () => {
     propsManager.addToMap(positionComponent)
     // Type assertion needed because updatePropsData uses union type for keys
     // 'x' is a valid key for PositionAttrs, which is part of PropertyComponentInstanceDataTypes
-    propsManager.updatePropsData('prop-id-1', 'x' as unknown as keyof PropertyComponentInstanceDataTypes, 100 as unknown as PropertyComponentInstanceDataTypes[keyof PropertyComponentInstanceDataTypes])
+    propsManager.updatePropsData(
+      'prop-id-1',
+      'x' as unknown as keyof PropertyComponentInstanceDataTypes,
+      100 as unknown as PropertyComponentInstanceDataTypes[keyof PropertyComponentInstanceDataTypes]
+    )
     expect(positionComponent.set).toHaveBeenCalledWith('x', 100)
   })
 

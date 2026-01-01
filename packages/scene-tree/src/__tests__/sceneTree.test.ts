@@ -50,7 +50,11 @@ describe('SceneTree', () => {
     vi.mocked(utils.createElement).mockImplementation(
       (data: Partial<ElementRawData>) =>
         ({
-          get: vi.fn((key: string) => (data as unknown as Record<string, string>)[key] || 'mock-element-id'),
+          get: vi.fn(
+            (key: string) =>
+              (data as unknown as Record<string, string>)[key] ||
+              'mock-element-id'
+          ),
           save: vi.fn(() => data),
           updateComputedData: vi.fn()
         }) as unknown as Rectangle | Group
@@ -127,7 +131,9 @@ describe('SceneTree', () => {
 
   // Test change tracking
   it('should add a change to the changes array', () => {
-    const change = { eventName: EventTypes.ADD_ELEMENT } as unknown as SceneTreeChange
+    const change = {
+      eventName: EventTypes.ADD_ELEMENT
+    } as unknown as SceneTreeChange
     sceneTree.addChange(change)
     expect(sceneTree.changes).toEqual([change])
   })
@@ -232,8 +238,12 @@ describe('SceneTree', () => {
       get: vi.fn((key: string) => (key === 'id' ? 'ws-load' : undefined))
     } as unknown as ElementInstanceTypes
 
-    vi.mocked(utils.createElement).mockReturnValue(mockElement1 as unknown as Rectangle)
-    vi.mocked(utils.createWorkspace).mockReturnValue(mockWorkspaceLoad as unknown as Workspace)
+    vi.mocked(utils.createElement).mockReturnValue(
+      mockElement1 as unknown as Rectangle
+    )
+    vi.mocked(utils.createWorkspace).mockReturnValue(
+      mockWorkspaceLoad as unknown as Workspace
+    )
 
     const dataToLoad = {
       workspace: 'ws-load',

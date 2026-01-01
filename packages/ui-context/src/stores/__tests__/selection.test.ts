@@ -1,9 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import SelectionStore from '../selection'
 import * as SelectionModule from '@asra/selection'
 import * as SceneTreeModule from '@asra/scene-tree'
 import * as UIContextModule from '../../ui-context'
-import { SELECTION_TYPES, ComputedAttrs, EntityTypes } from '@asra/utils'
+import {
+  SELECTION_TYPES,
+  ComputedAttrs,
+  EntityTypes,
+  ElementInstanceTypes
+} from '@asra/utils'
 
 // Mock external dependencies
 vi.mock('@asra/selection', () => ({
@@ -29,8 +34,8 @@ vi.mock('../../ui-context', () => ({
 
 describe('SelectionStore', () => {
   let selectionStore: SelectionStore
-  let mockSelectionManager: any
-  let mockSelection: any
+  let mockSelectionManager: { get: Mock }
+  let mockSelection: { getSelectedIds: Mock }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -44,10 +49,13 @@ describe('SelectionStore', () => {
       get: vi.fn(() => mockSelection)
     }
 
-    vi.mocked(SelectionModule.default.get).mockImplementation(mockSelectionManager.get)
+    vi.mocked(SelectionModule.default.get).mockImplementation(
+      mockSelectionManager.get
+    )
 
     selectionStore = new SelectionStore()
-    selectionStore.selectionManager = mockSelectionManager as any
+    selectionStore.selectionManager =
+      mockSelectionManager as unknown as SelectionModule.SelectionManager
   })
 
   // Test updateSelection for ELEMENT type
@@ -85,8 +93,8 @@ describe('SelectionStore', () => {
     }
 
     vi.mocked(SceneTreeModule.default.getElementById)
-      .mockReturnValueOnce(mockElement1 as any)
-      .mockReturnValueOnce(mockElement2 as any)
+      .mockReturnValueOnce(mockElement1 as unknown as ElementInstanceTypes)
+      .mockReturnValueOnce(mockElement2 as unknown as ElementInstanceTypes)
 
     selectionStore.updateSelection(SELECTION_TYPES.ELEMENT)
 
@@ -137,8 +145,8 @@ describe('SelectionStore', () => {
 
   it('should handle missing elements gracefully', () => {
     vi.mocked(SceneTreeModule.default.getElementById)
-      .mockReturnValueOnce(undefined as any)
-      .mockReturnValueOnce(undefined as any)
+      .mockReturnValueOnce(undefined as unknown as ElementInstanceTypes)
+      .mockReturnValueOnce(undefined as unknown as ElementInstanceTypes)
 
     selectionStore.updateSelection(SELECTION_TYPES.ELEMENT)
 

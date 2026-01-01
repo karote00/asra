@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, type Mocked } from 'vitest'
 import { Render } from '../render'
-import { Application, Container, Graphics } from 'pixi.js'
+import { Application, Container } from 'pixi.js'
 import * as ViewportLayerModule from '../viewport-layer'
 import * as SelectionLayerModule from '../selection-layer'
 import * as RenderSelectionStore from '../stores/selection'
-import { DataTypes, MouseData } from '@asra/utils'
+import { MouseData } from '@asra/utils'
 import { RenderContainerData, RenderElementData, SceneElement } from '../types'
 
 // Mock pixi.js Application FIRST
@@ -23,30 +23,32 @@ vi.mock('pixi.js', () => {
   }
 })
 
-const { mockViewportLayerInstance, mockSelectionLayerInstance } = vi.hoisted(() => {
-  return {
-    mockViewportLayerInstance: {
-      view: new Container(),
-      switchWorkspace: vi.fn(),
-      addContainer: vi.fn(),
-      addElement: vi.fn(),
-      removeElement: vi.fn(),
-      updateElement: vi.fn(),
-      updateElementProperties: vi.fn(),
-      zoomFit: vi.fn(),
-      panTo: vi.fn(),
-      zoomTo: vi.fn(),
-      zoomToCenter: vi.fn(),
-      getPosition: vi.fn(),
-      getScale: vi.fn(),
-      getMousePosInWorkspace: vi.fn(),
-      getElementById: vi.fn()
-    },
-    mockSelectionLayerInstance: {
-      view: new Container()
+const { mockViewportLayerInstance, mockSelectionLayerInstance } = vi.hoisted(
+  () => {
+    return {
+      mockViewportLayerInstance: {
+        view: new Container(),
+        switchWorkspace: vi.fn(),
+        addContainer: vi.fn(),
+        addElement: vi.fn(),
+        removeElement: vi.fn(),
+        updateElement: vi.fn(),
+        updateElementProperties: vi.fn(),
+        zoomFit: vi.fn(),
+        panTo: vi.fn(),
+        zoomTo: vi.fn(),
+        zoomToCenter: vi.fn(),
+        getPosition: vi.fn(),
+        getScale: vi.fn(),
+        getMousePosInWorkspace: vi.fn(),
+        getElementById: vi.fn()
+      },
+      mockSelectionLayerInstance: {
+        view: new Container()
+      }
     }
   }
-})
+)
 
 // THEN Mock ViewportLayer
 vi.mock('../viewport-layer', () => {
@@ -129,10 +131,7 @@ describe('Render', () => {
 
   // Test getSelectedElements
   it('should get selected elements from renderSelection and viewport', () => {
-    const mockSceneElements = [
-      new Container(),
-      new Container()
-    ]
+    const mockSceneElements = [new Container(), new Container()]
     mockSceneElements[0].label = 'el1'
     mockSceneElements[1].label = 'el2'
 
@@ -154,19 +153,37 @@ describe('Render', () => {
 
   // Test delegation methods to viewport
   it('should delegate switchWorkspace to viewport', () => {
-    const data = { id: 'ws1', type: 'WORKSPACE', label: 'ws1', x: 0, y: 0 } as unknown as RenderContainerData
+    const data = {
+      id: 'ws1',
+      type: 'WORKSPACE',
+      label: 'ws1',
+      x: 0,
+      y: 0
+    } as unknown as RenderContainerData
     render.switchWorkspace(data)
     expect(mockViewportLayerInstance.switchWorkspace).toHaveBeenCalledWith(data)
   })
 
   it('should delegate addContainer to viewport', () => {
-    const data = { id: 'cont1', type: 'CONTAINER', label: 'cont1', x: 0, y: 0 } as unknown as RenderContainerData
+    const data = {
+      id: 'cont1',
+      type: 'CONTAINER',
+      label: 'cont1',
+      x: 0,
+      y: 0
+    } as unknown as RenderContainerData
     render.addContainer(data)
     expect(mockViewportLayerInstance.addContainer).toHaveBeenCalledWith(data)
   })
 
   it('should delegate addElement to viewport', () => {
-    const data = { id: 'el1', type: 'RECTANGLE', visible: true, name: 'el1', lock: false } as unknown as RenderElementData
+    const data = {
+      id: 'el1',
+      type: 'RECTANGLE',
+      visible: true,
+      name: 'el1',
+      lock: false
+    } as unknown as RenderElementData
     render.addElement(data)
     expect(mockViewportLayerInstance.addElement).toHaveBeenCalledWith(data)
   })

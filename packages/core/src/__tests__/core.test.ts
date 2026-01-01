@@ -16,7 +16,6 @@ import {
   InputSystemEvents,
   MouseButton,
   SystemMode,
-  SceneTreeRawData,
   PropsComponentRawData
 } from '@asra/utils'
 import type { Mocked } from 'vitest'

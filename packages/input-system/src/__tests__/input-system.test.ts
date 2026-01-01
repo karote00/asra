@@ -1,7 +1,15 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi, beforeEach, type MockInstance, type Mock } from 'vitest'
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  type MockInstance,
+  type Mock
+} from 'vitest'
 import { InputSystem } from '../input-system'
 
 import {
@@ -15,8 +23,6 @@ import keyMap from '../keymap'
 import { CLEAR_KEY_TIME } from '../constants'
 import { InputEventMappings } from '../event-mappings'
 import * as EventMappingsModule from '../event-mappings'
-
-
 
 vi.mock('@asra/utils', async (importOriginal) => {
   const original = await importOriginal<typeof import('@asra/utils')>()
@@ -40,13 +46,9 @@ vi.mock('../event-mappings', async (importOriginal) => {
   }
 })
 
-
-
-
 describe('InputSystem', () => {
   let inputSystem: InputSystem
   let addEventListenerSpy: MockInstance
-  let removeEventListenerSpy: MockInstance
   let preventDefaultSpy: Mock
   let clearTimeoutSpy: MockInstance
   let setTimeoutSpy: MockInstance
@@ -68,10 +70,8 @@ describe('InputSystem', () => {
       ]
     }
 
-
     // Mock window event listeners
     addEventListenerSpy = vi.spyOn(window, 'addEventListener')
-    removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
     preventDefaultSpy = vi.fn()
     clearTimeoutSpy = vi.spyOn(global, 'clearTimeout')
     setTimeoutSpy = vi.spyOn(global, 'setTimeout')
@@ -85,8 +85,6 @@ describe('InputSystem', () => {
 
     inputSystem = new InputSystem()
   })
-
-
 
   // Test constructor and setupListeners
   it('should set up event listeners on window during construction', () => {
@@ -133,7 +131,6 @@ describe('InputSystem', () => {
     expect(preventDefaultSpy).toHaveBeenCalled()
   })
 
-
   it('should not prevent default if input field is active', () => {
     const event = new KeyboardEvent('keydown', { code: 'KeyA' })
     const inputElement = document.createElement('input')
@@ -172,8 +169,6 @@ describe('InputSystem', () => {
     expect(setTimeoutSpy).not.toHaveBeenCalled()
   })
 
-
-
   // Test handleKeyUp
   it('should remove key from activeKeys and clear timer', () => {
     const key = keyMap.keys.KeyA
@@ -191,10 +186,6 @@ describe('InputSystem', () => {
     expect(inputSystem['timers'].has(key)).toBe(false)
     expect(preventDefaultSpy).toHaveBeenCalled()
   })
-
-
-
-
 
   // Test handleMouseDown
   it('should add mouse button key to activeKeys and set startPos', () => {
@@ -224,7 +215,6 @@ describe('InputSystem', () => {
     expect(inputSystem['activeKeys'].has('leftMouseDown')).toBe(false)
   })
 
-
   // Test handleMouseMove
   it('should add mouse move key and trigger checkCombinations if dragging beyond threshold', () => {
     inputSystem['_startPos'] = { clientX: 0, clientY: 0 }
@@ -237,7 +227,6 @@ describe('InputSystem', () => {
     inputSystem['handleMouseMove'](event)
     expect(inputSystem['activeKeys'].has('leftMouseMove')).toBe(false)
   })
-
 
   it('should not add mouse move key if dragging within threshold', () => {
     inputSystem['_startPos'] = { clientX: 0, clientY: 0 }
@@ -277,16 +266,13 @@ describe('InputSystem', () => {
     inputSystem['activeKeys'].add(keyMap.keys.ControlLeft)
 
     // Explicitly mock to ensure it works in this test context
-    vi.spyOn(keyMap, 'isModifierKeys').mockImplementation(
-      (key: string) => ['Shift', 'Ctrl'].includes(key)
+    vi.spyOn(keyMap, 'isModifierKeys').mockImplementation((key: string) =>
+      ['Shift', 'Ctrl'].includes(key)
     )
 
     const modifiers = inputSystem.getActiveModifiers(inputSystem['activeKeys'])
     expect(modifiers).toEqual(['shift', 'ctrl'])
   })
-
-
-
 
   // Test getAllModifiers
   it('should return all modifier keys status', () => {
@@ -302,7 +288,10 @@ describe('InputSystem', () => {
 
   // Test checkCombinations and triggerAction
   it('should trigger action for matching combination', () => {
-    const triggerActionSpy = vi.spyOn(inputSystem, 'triggerAction' as keyof InputSystem)
+    const triggerActionSpy = vi.spyOn(
+      inputSystem,
+      'triggerAction' as keyof InputSystem
+    )
     inputSystem['activeKeys'].add(keyMap.keys.KeyA)
     const INPUT_KEYBOARD_A = 'INPUT_KEYBOARD_A' as InputSystemEvents
     vi.mocked(EventMappingsModule).InputEventMappings = {
@@ -316,7 +305,7 @@ describe('InputSystem', () => {
 
     expect(triggerActionSpy).toHaveBeenCalledTimes(1)
     expect(triggerActionSpy).toHaveBeenCalledWith(
-      (InputSystemEvents as any).INPUT_KEYBOARD_A,
+      (InputSystemEvents as unknown as Record<string, string>).INPUT_KEYBOARD_A,
       expect.objectContaining({
         type: InputType.KEYBOARD,
         keys: [keyMap.keys.KeyA]
@@ -325,7 +314,10 @@ describe('InputSystem', () => {
   })
 
   it('should not trigger action for non-matching combination', () => {
-    const triggerActionSpy = vi.spyOn(inputSystem, 'triggerAction' as keyof InputSystem)
+    const triggerActionSpy = vi.spyOn(
+      inputSystem,
+      'triggerAction' as keyof InputSystem
+    )
     inputSystem['activeKeys'].add('KeyB') // Active key is B
     const INPUT_KEYBOARD_A = 'INPUT_KEYBOARD_A' as InputSystemEvents
     vi.mocked(EventMappingsModule).InputEventMappings = {
@@ -341,7 +333,10 @@ describe('InputSystem', () => {
   })
 
   it('should trigger action with detail if provided in combo', () => {
-    const triggerActionSpy = vi.spyOn(inputSystem, 'triggerAction' as keyof InputSystem)
+    const triggerActionSpy = vi.spyOn(
+      inputSystem,
+      'triggerAction' as keyof InputSystem
+    )
     inputSystem['activeKeys'].add(keyMap.keys.KeyA)
     const mockDetail = { some: 'detail' }
     const INPUT_KEYBOARD_A = 'INPUT_KEYBOARD_A' as InputSystemEvents
@@ -360,7 +355,7 @@ describe('InputSystem', () => {
     inputSystem['checkCombinations'](InputType.KEYBOARD)
 
     expect(triggerActionSpy).toHaveBeenCalledWith(
-      (InputSystemEvents as any).INPUT_KEYBOARD_A,
+      (InputSystemEvents as unknown as Record<string, string>).INPUT_KEYBOARD_A,
       expect.objectContaining({
         detail: mockDetail
       })
@@ -390,7 +385,10 @@ describe('InputSystem', () => {
 
   it('should handle async listeners correctly', async () => {
     const asyncListener = vi.fn(() => Promise.resolve())
-    inputSystem.on((InputSystemEvents as any).INPUT_KEYBOARD_A, asyncListener)
+    inputSystem.on(
+      (InputSystemEvents as unknown as Record<string, string>).INPUT_KEYBOARD_A,
+      asyncListener
+    )
 
     const rawEvent: RawInputEvent = {
       type: InputType.KEYBOARD,
@@ -399,7 +397,7 @@ describe('InputSystem', () => {
       pointer: {} as PointerEventData
     }
     await inputSystem['triggerAction'](
-      (InputSystemEvents as any).INPUT_KEYBOARD_A,
+      (InputSystemEvents as unknown as Record<string, string>).INPUT_KEYBOARD_A,
       rawEvent
     )
 
@@ -411,7 +409,10 @@ describe('InputSystem', () => {
       /* no-op */
     })
     const asyncListener = vi.fn(() => Promise.reject('Test Error'))
-    inputSystem.on((InputSystemEvents as any).INPUT_KEYBOARD_A, asyncListener)
+    inputSystem.on(
+      (InputSystemEvents as unknown as Record<string, string>).INPUT_KEYBOARD_A,
+      asyncListener
+    )
 
     const rawEvent: RawInputEvent = {
       type: InputType.KEYBOARD,
@@ -420,7 +421,7 @@ describe('InputSystem', () => {
       pointer: {} as PointerEventData
     }
     await inputSystem['triggerAction'](
-      (InputSystemEvents as any).INPUT_KEYBOARD_A,
+      (InputSystemEvents as unknown as Record<string, string>).INPUT_KEYBOARD_A,
       rawEvent
     )
 
