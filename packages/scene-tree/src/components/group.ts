@@ -13,10 +13,8 @@ type GroupDataType = Partial<GroupRawData>
 
 class Group<T extends GroupAttrs = GroupAttrs>
   extends Element<T>
-  implements IGroupElement<T>
-{
-  override data: T = { ...this.data, children: [] } as T
-  props!: Props
+  implements IGroupElement<T> {
+  override data: T = { children: [] } as unknown as T
 
   constructor(data?: Partial<ElementRawData>) {
     super(data)

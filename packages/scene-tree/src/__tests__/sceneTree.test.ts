@@ -5,10 +5,14 @@ import {
   ElementInstanceTypes,
   EntityTypes,
   OWNER,
-  SCENE_TREE_ACTIONS
+  SCENE_TREE_ACTIONS,
+  ElementRawData,
+  SceneTreeChange
 } from '@asra/utils'
 import { EventTypes } from '@asra/reactive-events' // Import EventTypes
 import Workspace from '../components/workspace' // Assuming Workspace is a class
+import Rectangle from '../components/rectangle'
+import Group from '../components/group'
 
 // Mock the utils module
 vi.mock('../utils', () => ({
@@ -44,12 +48,12 @@ describe('SceneTree', () => {
     // Configure mocks for utils
     vi.mocked(utils.createWorkspace).mockReturnValue(mockWorkspaceInstance)
     vi.mocked(utils.createElement).mockImplementation(
-      (data: any) =>
+      (data: Partial<ElementRawData>) =>
         ({
-          get: vi.fn((key: string) => data[key] || 'mock-element-id'),
+          get: vi.fn((key: string) => (data as unknown as Record<string, string>)[key] || 'mock-element-id'),
           save: vi.fn(() => data),
           updateComputedData: vi.fn()
-        }) as unknown as ElementInstanceTypes
+        }) as unknown as Rectangle | Group
     )
 
     sceneTree = new SceneTree()
@@ -123,13 +127,13 @@ describe('SceneTree', () => {
 
   // Test change tracking
   it('should add a change to the changes array', () => {
-    const change = { eventName: EventTypes.ADD_ELEMENT } as any
+    const change = { eventName: EventTypes.ADD_ELEMENT } as unknown as SceneTreeChange
     sceneTree.addChange(change)
     expect(sceneTree.changes).toEqual([change])
   })
 
   it('should clean all changes', () => {
-    sceneTree.addChange({} as any)
+    sceneTree.addChange({} as unknown as SceneTreeChange)
     sceneTree.cleanChanges()
     expect(sceneTree.changes).toEqual([])
   })
@@ -228,15 +232,28 @@ describe('SceneTree', () => {
       get: vi.fn((key: string) => (key === 'id' ? 'ws-load' : undefined))
     } as unknown as ElementInstanceTypes
 
-    vi.mocked(utils.createElement).mockReturnValue(mockElement1)
-    vi.mocked(utils.createWorkspace).mockReturnValue(mockWorkspaceLoad)
+    vi.mocked(utils.createElement).mockReturnValue(mockElement1 as unknown as Rectangle)
+    vi.mocked(utils.createWorkspace).mockReturnValue(mockWorkspaceLoad as unknown as Workspace)
 
     const dataToLoad = {
       workspace: 'ws-load',
       workspaceList: ['ws-load'],
       elements: {
-        'ws-load': { id: 'ws-load', type: EntityTypes.WORKSPACE },
-        'el-load-1': { id: 'el-load-1', type: EntityTypes.RECTANGLE }
+        'ws-load': {
+          id: 'ws-load',
+          type: EntityTypes.WORKSPACE,
+          name: 'ws-load',
+          visible: true,
+          lock: false,
+          children: []
+        },
+        'el-load-1': {
+          id: 'el-load-1',
+          type: EntityTypes.RECTANGLE,
+          name: 'el-load-1',
+          visible: true,
+          lock: false
+        }
       }
     }
 

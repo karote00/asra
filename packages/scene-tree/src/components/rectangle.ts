@@ -6,7 +6,6 @@ import Element from './element'
 type RectangleDataType = Partial<RectangleRawData>
 
 class Rectangle extends Element {
-  props!: Props
 
   constructor(data?: Partial<RectangleRawData>) {
     super(data)
