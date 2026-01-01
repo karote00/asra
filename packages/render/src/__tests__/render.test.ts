@@ -130,17 +130,21 @@ describe('Render', () => {
   // Test getSelectedElements
   it('should get selected elements from renderSelection and viewport', () => {
     const mockSceneElements = [
-      new Container(),
-      new Container()
-    ]
-    mockSceneElements[0].name = 'el1'
-    mockSceneElements[1].name = 'el2'
+      Object.assign(new Container(), {
+        get: vi.fn((key: string) => (key === 'name' ? 'el1' : undefined))
+      }),
+      Object.assign(new Container(), {
+        get: vi.fn((key: string) => (key === 'name' ? 'el2' : undefined))
+      })
+    ] as unknown as SceneElement[]
 
     vi.mocked(RenderSelectionStore.default.elementSelection).add('el1')
     vi.mocked(RenderSelectionStore.default.elementSelection).add('el2')
     vi.mocked(mockViewportLayerInstance.getElementById).mockImplementation(
       (id) => {
-        return mockSceneElements.find((el) => el.name === id) as SceneElement
+        return mockSceneElements.find(
+          (el) => (el as unknown as { get: (k: string) => string }).get('name') === id
+        ) as SceneElement
       }
     )
 
