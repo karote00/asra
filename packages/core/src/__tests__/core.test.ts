@@ -13,8 +13,13 @@ import {
   PrimaryToolType,
   SpecialEvent,
   SystemContextSnapshot,
-  InputSystemEvents
+  InputSystemEvents,
+  MouseButton,
+  SystemMode,
+  SceneTreeRawData,
+  PropsComponentRawData
 } from '@asra/utils'
+import type { Mocked } from 'vitest'
 
 // Mock all external dependencies
 vi.mock('@asra/factory')
@@ -71,21 +76,13 @@ vi.mock('@asra/render', () => {
 
 describe('Core', () => {
   let core: Core
-  let mockFactory: vi.Mocked<InstanceType<typeof FactoryModule.Factory>>
-  let mockInputSystem: vi.Mocked<
-    InstanceType<typeof InputSystemModule.InputSystem>
-  >
-  let mockSceneTree: vi.Mocked<InstanceType<typeof SceneTreeModule.SceneTree>>
-  let mockRender: vi.Mocked<InstanceType<typeof RenderModule.Render>>
-  let mockPropsManager: vi.Mocked<
-    InstanceType<typeof PropsManagerModule.PropsManager>
-  >
-  let mockSystemContext: vi.Mocked<
-    InstanceType<typeof SystemContextModule.SystemContext>
-  >
-  let mockInteractionCore: vi.Mocked<
-    InstanceType<typeof InteractionCoreModule.InteractionCore>
-  >
+  let mockFactory: Mocked<FactoryModule.Factory>
+  let mockInputSystem: Mocked<InputSystemModule.InputSystem>
+  let mockSceneTree: Mocked<SceneTreeModule.SceneTree>
+  let mockRender: Mocked<RenderModule.Render>
+  let mockPropsManager: Mocked<PropsManagerModule.PropsManager>
+  let mockSystemContext: Mocked<SystemContextModule.SystemContext>
+  let mockInteractionCore: Mocked<InteractionCoreModule.InteractionCore>
 
   const mockApis = {
     startTransaction: vi.fn(),
@@ -130,15 +127,13 @@ describe('Core', () => {
       endTransaction: vi.fn(),
       undo: vi.fn(),
       redo: vi.fn()
-    } as unknown as vi.Mocked<InstanceType<typeof FactoryModule.Factory>>
+    } as unknown as Mocked<FactoryModule.Factory>
 
     mockInputSystem = {
       setCombinations: vi.fn(),
       on: vi.fn(),
       switchWatchedElement: vi.fn()
-    } as unknown as vi.Mocked<
-      InstanceType<typeof InputSystemModule.InputSystem>
-    >
+    } as unknown as Mocked<InputSystemModule.InputSystem>
 
     mockSceneTree = {
       init: vi.fn(),
@@ -147,7 +142,7 @@ describe('Core', () => {
       addRectangle: vi.fn(),
       changeComputedData: vi.fn(),
       resizeElement: vi.fn()
-    } as unknown as vi.Mocked<InstanceType<typeof SceneTreeModule.SceneTree>>
+    } as unknown as Mocked<SceneTreeModule.SceneTree>
 
     mockRender = {
       init: vi.fn(),
@@ -157,32 +152,26 @@ describe('Core', () => {
       zoomFit: vi.fn(),
       panTo: vi.fn(),
       zoomToCenter: vi.fn()
-    } as unknown as vi.Mocked<InstanceType<typeof RenderModule.Render>>
+    } as unknown as Mocked<RenderModule.Render>
 
     mockPropsManager = {
       load: vi.fn(),
       save: vi.fn()
-    } as unknown as vi.Mocked<
-      InstanceType<typeof PropsManagerModule.PropsManager>
-    >
+    } as unknown as Mocked<PropsManagerModule.PropsManager>
 
     mockSystemContext = {
       getCurrentPrimaryTool: vi.fn(),
       switchPrimaryTool: vi.fn(),
       updateMouseState: vi.fn(),
       updateKeyState: vi.fn()
-    } as unknown as vi.Mocked<
-      InstanceType<typeof SystemContextModule.SystemContext>
-    >
+    } as unknown as Mocked<SystemContextModule.SystemContext>
 
     mockInteractionCore = {
       executeAction: vi.fn(),
       startSession: vi.fn(),
       updateSession: vi.fn(),
       endSession: vi.fn()
-    } as unknown as vi.Mocked<
-      InstanceType<typeof InteractionCoreModule.InteractionCore>
-    >
+    } as unknown as Mocked<InteractionCoreModule.InteractionCore>
 
     // Mock createAPIs to return our mockApis object
     vi.mocked(ApisModule).createAPIs.mockReturnValue(mockApis)
@@ -230,7 +219,7 @@ describe('Core', () => {
     const dataToLoad = {
       version: '1.0.0',
       sceneTree: mockSceneTreeData,
-      props: mockPropsData
+      props: mockPropsData as unknown as PropsComponentRawData
     }
 
     core.load(dataToLoad)
@@ -245,7 +234,12 @@ describe('Core', () => {
   it('should call sceneTreeInit if no sceneTree data is provided', () => {
     const dataToLoad = {
       version: '1.0.0',
-      props: { someProp: 'value' }
+      sceneTree: {
+        elements: {},
+        workspace: '',
+        workspaceList: []
+      },
+      props: {}
     }
 
     core.load(dataToLoad)
@@ -297,17 +291,17 @@ describe('Core', () => {
   })
 
   it('should delegate executeAction to interactionCore', () => {
-    const eventName: InputSystemEvents = InputSystemEvents.INPUT_KEYBOARD_A // Using an example event
+    const eventName: InputSystemEvents = InputSystemEvents.INPUT_MOUSE_MOVE // Using an example event
     const systemContextSnapshot: SystemContextSnapshot = {
       // Mock SystemContextSnapshot properties as needed for the test
-      keyState: {
+      key: {
         alt: false,
         ctrl: false,
         meta: false,
         shift: false
       },
-      mouseState: {
-        button: 0,
+      mouse: {
+        button: MouseButton.NONE,
         delta: { x: 0, y: 0 },
         down: false,
         dragStart: { x: 0, y: 0 },
@@ -315,18 +309,20 @@ describe('Core', () => {
         position: { x: 0, y: 0 }
       },
       primaryTool: PrimaryToolType.SELECT,
-      systemState: {
-        activeWorkspace: 'workspace-1',
-        activeWorkspaces: ['workspace-1']
+      system: {
+        mode: SystemMode.DESIGN,
+        featureFlags: {},
+        permissions: {}
       },
-      targetState: {
-        element: null,
-        vertex: null
+      target: {
+        hoveredElementId: null,
+        selectedElementIds: [],
+        activeElementId: null
       }
     }
     const detail = { some: 'detail' } // Optional detail
 
-    core.executeAction(eventName, systemContextSnapshot, detail)
+    core.executeAction(eventName, detail)
     expect(mockApis.executeAction).toHaveBeenCalledWith(
       eventName,
       systemContextSnapshot,
