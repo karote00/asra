@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Factory } from '../factory'
 import type _DataTransact from '../data-transact' // Keep this import for type inference
-import { UpdateTransactionEvent } from '@asra/reactive-events'
+import { UpdateTransactionEvent, TransactionEventTypes } from '@asra/reactive-events'
 
 describe('Factory', () => {
   let factory: Factory
@@ -25,7 +25,8 @@ describe('Factory', () => {
 
   it('should call DataTransact.update when updateTransaction is called', () => {
     const mockEvent: UpdateTransactionEvent = {
-      type: 'UPDATE_TRANSACTION',
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: 'test-event',
       payload: { changes: [] }
     }
     factory.updateTransaction(mockEvent)
