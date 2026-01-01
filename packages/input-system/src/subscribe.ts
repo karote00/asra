@@ -1,4 +1,4 @@
-import { subscribeToSwitchInputSystemWatchedElement } from '@asra/reactive-events/dist/input-system'
+import { subscribeToSwitchInputSystemWatchedElement } from '@asra/reactive-events'
 import inputSystem from './input-system'
 
 export const initInputSystemSubscribe = () => {
