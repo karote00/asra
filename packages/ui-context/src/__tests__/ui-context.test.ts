@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { UIContext } from '../ui-context'
 import { BehaviorSubject } from 'rxjs'
-import { ComputedAttrs, MIXED_STRING, PrimaryToolType } from '@asra/utils'
+import { ComputedAttrs, MIXED_STRING, PrimaryToolType, EntityTypes } from '@asra/utils'
 import { isEqual } from 'lodash'
 
 // Mock lodash.isEqual to control its behavior
@@ -11,7 +11,7 @@ vi.mock('lodash', () => ({
 
 // Mock @asra/utils to ensure constants are defined
 vi.mock('@asra/utils', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = (await importOriginal()) as any
   return {
     ...actual,
     MIXED_STRING: 'MIXED_STRING',
@@ -136,8 +136,26 @@ describe('UIContext', () => {
   // Test updateComputedProperties
   it('should update all general properties with consistent values', () => {
     const allElementData: ComputedAttrs[] = [
-      { x: 10, y: 20, width: 100, height: 50, rotation: 45 },
-      { x: 10, y: 20, width: 100, height: 50, rotation: 45 }
+      {
+        id: '1',
+        type: EntityTypes.RECTANGLE,
+        name: 'rect 1',
+        x: 10,
+        y: 20,
+        width: 100,
+        height: 50,
+        rotation: 45
+      },
+      {
+        id: '2',
+        type: EntityTypes.RECTANGLE,
+        name: 'rect 2',
+        x: 10,
+        y: 20,
+        width: 100,
+        height: 50,
+        rotation: 45
+      }
     ]
     const xSpy = vi.spyOn(uiContext.x, 'next')
     const ySpy = vi.spyOn(uiContext.y, 'next')
@@ -156,8 +174,26 @@ describe('UIContext', () => {
 
   it('should update all general properties with MIXED_STRING for mixed values', () => {
     const allElementData: ComputedAttrs[] = [
-      { x: 10, y: 20, width: 100, height: 50, rotation: 0 },
-      { x: 15, y: 20, width: 100, height: 50, rotation: 0 }
+      {
+        id: '1',
+        type: EntityTypes.RECTANGLE,
+        name: 'rect 1',
+        x: 10,
+        y: 20,
+        width: 100,
+        height: 50,
+        rotation: 0
+      },
+      {
+        id: '2',
+        type: EntityTypes.RECTANGLE,
+        name: 'rect 2',
+        x: 15,
+        y: 20,
+        width: 100,
+        height: 50,
+        rotation: 0
+      }
     ]
     const xSpy = vi.spyOn(uiContext.x, 'next')
 
