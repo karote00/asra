@@ -33,7 +33,7 @@ describe('SelectionManager', () => {
   })
 
   it('should return undefined for an unregistered selection type', () => {
-    const selection = manager.get(SELECTION_TYPES.AREA)
+    const selection = manager.get(SELECTION_TYPES.VERTEX)
     expect(selection).toBeUndefined()
   })
 
@@ -46,7 +46,7 @@ describe('SelectionManager', () => {
       mockSelection1 as unknown as BaseSelection
     )
     manager.register(
-      SELECTION_TYPES.AREA,
+      SELECTION_TYPES.VERTEX,
       mockSelection2 as unknown as BaseSelection
     )
 
