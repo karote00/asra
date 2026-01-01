@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as ReactiveEventsModule from '@asra/reactive-events'
 import {
-  _OWNER,
+  OWNER,
   PROPS_ACTIONS,
   PropertyComponentInstanceTypes,
-  _PropertyComponentInstanceDataTypes,
-  _PropertyComponentRawData,
+  PropertyComponentInstanceDataTypes,
+  PropertyComponentRawData,
   PropertyTypes,
-  Unit
+  Unit,
+  PropsChange
 } from '@asra/utils'
 
 // Mock external dependencies - must be before imports
@@ -51,7 +52,7 @@ describe('PropsManager', () => {
     } as unknown as PropertyComponentInstanceTypes
 
     mockCreateProperty.mockImplementation(
-      (data: any) =>
+      (data: PropertyComponentRawData) =>
         ({
           get: vi.fn((key: string) => {
             if (key === 'id') return data.id || 'mock-prop-id'
@@ -89,7 +90,7 @@ describe('PropsManager', () => {
 
     // Capture the instances returned by createProperty
     const createdProps: PropertyComponentInstanceTypes[] = []
-    mockCreateProperty.mockImplementation((data: any) => {
+    mockCreateProperty.mockImplementation((data: PropertyComponentRawData) => {
       const newMock = {
         get: vi.fn((key: string) => {
           if (key === 'id') return data.id || 'mock-prop-id'
@@ -125,13 +126,13 @@ describe('PropsManager', () => {
   it('should add a change to the changes array', () => {
     const change = {
       eventName: ReactiveEventsModule.EventTypes.ADD_PROPERTY
-    } as any
+    } as unknown as PropsChange
     propsManager.addChange(change)
     expect(propsManager.changes).toEqual([change])
   })
 
   it('should clean all changes', () => {
-    propsManager.addChange({} as any)
+    propsManager.addChange({} as unknown as PropsChange)
     propsManager.cleanChanges()
     expect(propsManager.changes).toEqual([])
   })
@@ -269,7 +270,7 @@ describe('PropsManager', () => {
     propsManager.addToMap(positionComponent)
     // Type assertion needed because updatePropsData uses union type for keys
     // 'x' is a valid key for PositionAttrs, which is part of PropertyComponentInstanceDataTypes
-    propsManager.updatePropsData('prop-id-1', 'x' as any, 100 as any)
+    propsManager.updatePropsData('prop-id-1', 'x' as unknown as keyof PropertyComponentInstanceDataTypes, 100 as unknown as PropertyComponentInstanceDataTypes[keyof PropertyComponentInstanceDataTypes])
     expect(positionComponent.set).toHaveBeenCalledWith('x', 100)
   })
 
@@ -277,10 +278,10 @@ describe('PropsManager', () => {
   it('should commit changes and clean the changes array', () => {
     const change1 = {
       eventName: ReactiveEventsModule.EventTypes.ADD_PROPERTY
-    } as any
+    } as unknown as PropsChange
     const change2 = {
       eventName: ReactiveEventsModule.EventTypes.REMOVE_PROPERTY
-    } as any
+    } as unknown as PropsChange
     propsManager.addChange(change1)
     propsManager.addChange(change2)
 
