@@ -44,10 +44,7 @@ describe('SelectionStore', () => {
       get: vi.fn(() => mockSelection)
     }
 
-    vi.mocked(SelectionModule.default).get = mockSelectionManager.get
-    vi.mocked(SelectionModule.default).constructor = vi.fn(
-      () => mockSelectionManager
-    )
+    vi.mocked(SelectionModule.default.get).mockImplementation(mockSelectionManager.get)
 
     selectionStore = new SelectionStore()
     selectionStore.selectionManager = mockSelectionManager as any
@@ -140,8 +137,8 @@ describe('SelectionStore', () => {
 
   it('should handle missing elements gracefully', () => {
     vi.mocked(SceneTreeModule.default.getElementById)
-      .mockReturnValueOnce(null)
-      .mockReturnValueOnce(null)
+      .mockReturnValueOnce(undefined as any)
+      .mockReturnValueOnce(undefined as any)
 
     selectionStore.updateSelection(SELECTION_TYPES.ELEMENT)
 
