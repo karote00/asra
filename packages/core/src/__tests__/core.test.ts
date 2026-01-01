@@ -12,45 +12,46 @@ import * as ApisModule from '../apis'
 import {
   PrimaryToolType,
   SpecialEvent,
-  SystemContextSnapshot,
   InputSystemEvents,
-  MouseButton,
-  SystemMode,
   PropsComponentRawData
 } from '@asra/utils'
 import type { Mocked } from 'vitest'
 
 // Mock reactive-events with hoisted mocks
-const { mockExecuteAction, mockRequestSystemContextSnapshot } = vi.hoisted(() => ({
-  mockExecuteAction: vi.fn(),
-  mockRequestSystemContextSnapshot: vi.fn(() => Promise.resolve({
-    key: {
-      alt: false,
-      ctrl: false,
-      meta: false,
-      shift: false
-    },
-    mouse: {
-      button: 0,
-      delta: { x: 0, y: 0 },
-      down: false,
-      dragStart: { x: 0, y: 0 },
-      dragging: false,
-      position: { x: 0, y: 0 }
-    },
-    primaryTool: 'select',
-    system: {
-      mode: 'DESIGN',
-      featureFlags: {},
-      permissions: {}
-    },
-    target: {
-      hoveredElementId: null,
-      selectedElementIds: [],
-      activeElementId: null
-    }
-  }))
-}))
+const { mockExecuteAction, mockRequestSystemContextSnapshot } = vi.hoisted(
+  () => ({
+    mockExecuteAction: vi.fn(),
+    mockRequestSystemContextSnapshot: vi.fn(() =>
+      Promise.resolve({
+        key: {
+          alt: false,
+          ctrl: false,
+          meta: false,
+          shift: false
+        },
+        mouse: {
+          button: 0,
+          delta: { x: 0, y: 0 },
+          down: false,
+          dragStart: { x: 0, y: 0 },
+          dragging: false,
+          position: { x: 0, y: 0 }
+        },
+        primaryTool: 'select',
+        system: {
+          mode: 'DESIGN',
+          featureFlags: {},
+          permissions: {}
+        },
+        target: {
+          hoveredElementId: null,
+          selectedElementIds: [],
+          activeElementId: null
+        }
+      })
+    )
+  })
+)
 
 vi.mock('@asra/reactive-events', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@asra/reactive-events')>()
@@ -279,7 +280,7 @@ describe('Core', () => {
       props: {}
     }
 
-    core.load(dataToLoad as any)
+    core.load(dataToLoad as unknown as Parameters<typeof core.load>[0])
 
     expect(mockApis.sceneTreeInit).toHaveBeenCalledTimes(1)
     expect(mockApis.sceneTreeLoadData).not.toHaveBeenCalled()
