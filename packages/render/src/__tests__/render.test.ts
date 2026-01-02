@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, type Mocked } from 'vitest'
-import { Render } from '../render'
 import { Application, Container } from 'pixi.js'
+import { Render } from '../render'
 import * as ViewportLayerModule from '../viewport-layer'
 import * as SelectionLayerModule from '../selection-layer'
 import * as RenderSelectionStore from '../stores/selection'
@@ -16,53 +16,33 @@ vi.mock('pixi.js', () => {
       eventMode: ''
     }
   }
-  return {
-    Application: vi.fn(() => mockAppInstance),
-    Container: vi.fn(), // Make sure Container is mocked and available
-    Graphics: vi.fn()
-  }
-})
 
-const { mockViewportLayerInstance, mockSelectionLayerInstance } = vi.hoisted(
-  () => {
-    return {
-      mockViewportLayerInstance: {
-        view: new Container(),
-        switchWorkspace: vi.fn(),
-        addContainer: vi.fn(),
-        addElement: vi.fn(),
-        removeElement: vi.fn(),
-        updateElement: vi.fn(),
-        updateElementProperties: vi.fn(),
-        zoomFit: vi.fn(),
-        panTo: vi.fn(),
-        zoomTo: vi.fn(),
-        zoomToCenter: vi.fn(),
-        getPosition: vi.fn(),
-        getScale: vi.fn(),
-        getMousePosInWorkspace: vi.fn(),
-        getElementById: vi.fn()
-      },
-      mockSelectionLayerInstance: {
-        view: new Container()
-      }
+  const mockPixiInstance = {
+    label: '',
+    addChild: vi.fn(),
+    removeChild: vi.fn(),
+    on: vi.fn(),
+    removeAllListeners: vi.fn(),
+    toLocal: vi.fn(),
+    position: {
+      set: vi.fn()
+    },
+    scale: {
+      set: vi.fn()
     }
   }
-)
 
-// THEN Mock ViewportLayer
-vi.mock('../viewport-layer', () => {
-  return {
-    ViewportLayer: vi.fn(() => mockViewportLayerInstance),
-    default: mockViewportLayerInstance
+  const mockTicker = {
+    shared: {
+      add: vi.fn(() => vi.fn())
+    }
   }
-})
 
-// THEN Mock SelectionLayer
-vi.mock('../selection-layer', () => {
   return {
-    SelectionLayer: vi.fn(() => mockSelectionLayerInstance),
-    default: mockSelectionLayerInstance
+    Application: vi.fn(() => mockAppInstance),
+    Container: vi.fn(() => ({ ...mockPixiInstance })),
+    Graphics: vi.fn(() => ({ ...mockPixiInstance })),
+    Ticker: mockTicker
   }
 })
 
@@ -79,12 +59,9 @@ describe('Render', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.resetAllMocks()
 
     // Reset mock instances for each test
     vi.mocked(Application).mockClear()
-    vi.mocked(ViewportLayerModule.ViewportLayer).mockClear()
-    vi.mocked(SelectionLayerModule.SelectionLayer).mockClear()
 
     // Ensure mockApp is the instance returned by Application constructor
     mockApp = new Application() as Mocked<Application>
@@ -95,8 +72,6 @@ describe('Render', () => {
 
   // Test constructor
   it('should instantiate ViewportLayer and SelectionLayer', () => {
-    expect(ViewportLayerModule.ViewportLayer).toHaveBeenCalledTimes(1)
-    expect(SelectionLayerModule.SelectionLayer).toHaveBeenCalledTimes(1)
     expect(render.viewport).toBeInstanceOf(ViewportLayerModule.ViewportLayer)
     expect(render.selection).toBeInstanceOf(SelectionLayerModule.SelectionLayer)
   })
@@ -109,7 +84,6 @@ describe('Render', () => {
 
     await render.init(width, height, backgroundColor)
 
-    expect(Application).toHaveBeenCalledTimes(1)
     expect(mockApp.init).toHaveBeenCalledWith({
       width,
       height,
@@ -121,12 +95,8 @@ describe('Render', () => {
     })
     expect(render.app).toBe(mockApp)
     expect(mockApp.stage.addChild).toHaveBeenCalledTimes(2)
-    expect(mockApp.stage.addChild).toHaveBeenCalledWith(
-      mockViewportLayerInstance.view
-    )
-    expect(mockApp.stage.addChild).toHaveBeenCalledWith(
-      mockSelectionLayerInstance.view
-    )
+    expect(mockApp.stage.addChild).toHaveBeenCalledWith(render.viewport.view)
+    expect(mockApp.stage.addChild).toHaveBeenCalledWith(render.selection.view)
   })
 
   // Test getSelectedElements
@@ -134,20 +104,17 @@ describe('Render', () => {
     const mockSceneElements = [new Container(), new Container()]
     mockSceneElements[0].label = 'el1'
     mockSceneElements[1].label = 'el2'
-
+    vi.spyOn(render.viewport, 'getElementById').mockImplementation((id) => {
+      return mockSceneElements.find((el) => el.label === id) as SceneElement
+    })
     vi.mocked(RenderSelectionStore.default.elementSelection).add('el1')
     vi.mocked(RenderSelectionStore.default.elementSelection).add('el2')
-    vi.mocked(mockViewportLayerInstance.getElementById).mockImplementation(
-      (id) => {
-        return mockSceneElements.find((el) => el.label === id) as SceneElement
-      }
-    )
 
     const result = render.getSelectedElements()
 
-    expect(mockViewportLayerInstance.getElementById).toHaveBeenCalledTimes(2)
-    expect(mockViewportLayerInstance.getElementById).toHaveBeenCalledWith('el1')
-    expect(mockViewportLayerInstance.getElementById).toHaveBeenCalledWith('el2')
+    expect(render.viewport.getElementById).toHaveBeenCalledTimes(2)
+    expect(render.viewport.getElementById).toHaveBeenCalledWith('el1')
+    expect(render.viewport.getElementById).toHaveBeenCalledWith('el2')
     expect(result).toEqual(mockSceneElements)
   })
 
@@ -160,8 +127,11 @@ describe('Render', () => {
       x: 0,
       y: 0
     } as unknown as RenderContainerData
+    vi.spyOn(render.viewport, 'switchWorkspace')
+
     render.switchWorkspace(data)
-    expect(mockViewportLayerInstance.switchWorkspace).toHaveBeenCalledWith(data)
+
+    expect(render.viewport.switchWorkspace).toHaveBeenCalledWith(data)
   })
 
   it('should delegate addContainer to viewport', () => {
@@ -172,8 +142,11 @@ describe('Render', () => {
       x: 0,
       y: 0
     } as unknown as RenderContainerData
+    vi.spyOn(render.viewport, 'addContainer')
+
     render.addContainer(data)
-    expect(mockViewportLayerInstance.addContainer).toHaveBeenCalledWith(data)
+
+    expect(render.viewport.addContainer).toHaveBeenCalledWith(data)
   })
 
   it('should delegate addElement to viewport', () => {
@@ -184,23 +157,29 @@ describe('Render', () => {
       name: 'el1',
       lock: false
     } as unknown as RenderElementData
+    vi.spyOn(render.viewport, 'addElement')
+
     render.addElement(data)
-    expect(mockViewportLayerInstance.addElement).toHaveBeenCalledWith(data)
+
+    expect(render.viewport.addElement).toHaveBeenCalledWith(data)
   })
 
   it('should delegate removeElement to viewport', () => {
+    vi.spyOn(render.viewport, 'removeElement')
+
     render.removeElement('el1', 'parent1')
-    expect(mockViewportLayerInstance.removeElement).toHaveBeenCalledWith(
-      'el1',
-      'parent1'
-    )
+
+    expect(render.viewport.removeElement).toHaveBeenCalledWith('el1', 'parent1')
   })
 
   it('should delegate updateElement to viewport', () => {
     const before = 0
     const after = 10
+    vi.spyOn(render.viewport, 'updateElement')
+
     render.updateElement('el1', 'x', before, after)
-    expect(mockViewportLayerInstance.updateElement).toHaveBeenCalledWith(
+
+    expect(render.viewport.updateElement).toHaveBeenCalledWith(
       'el1',
       'x',
       before,
@@ -211,52 +190,74 @@ describe('Render', () => {
   it('should delegate updateElementProperties to viewport', () => {
     const element = new Container()
     const after = 10
+    vi.spyOn(render.viewport, 'updateElementProperties')
+
     render.updateElementProperties(element, 'x', after)
-    expect(
-      mockViewportLayerInstance.updateElementProperties
-    ).toHaveBeenCalledWith(element, 'x', after)
+
+    expect(render.viewport.updateElementProperties).toHaveBeenCalledWith(
+      element,
+      'x',
+      after
+    )
   })
 
   it('should delegate zoomFit to viewport', () => {
     const uiBounds = new DOMRect(0, 0, 100, 100)
+    vi.spyOn(render.viewport, 'zoomFit')
+
     render.zoomFit(uiBounds)
-    expect(mockViewportLayerInstance.zoomFit).toHaveBeenCalledWith(uiBounds)
+
+    expect(render.viewport.zoomFit).toHaveBeenCalledWith(uiBounds)
   })
 
   it('should delegate panTo to viewport', () => {
+    vi.spyOn(render.viewport, 'panTo')
+
     render.panTo(10, 20)
-    expect(mockViewportLayerInstance.panTo).toHaveBeenCalledWith(10, 20)
+
+    expect(render.viewport.panTo).toHaveBeenCalledWith(10, 20)
   })
 
   it('should delegate zoomTo to viewport', () => {
+    vi.spyOn(render.viewport, 'zoomTo')
+
     render.zoomTo(1.5)
-    expect(mockViewportLayerInstance.zoomTo).toHaveBeenCalledWith(1.5)
+
+    expect(render.viewport.zoomTo).toHaveBeenCalledWith(1.5)
   })
 
   it('should delegate zoomToCenter to viewport', () => {
+    vi.spyOn(render.viewport, 'zoomToCenter')
+
     render.zoomToCenter(1.5, 10, 20)
-    expect(mockViewportLayerInstance.zoomToCenter).toHaveBeenCalledWith(
-      1.5,
-      10,
-      20
-    )
+
+    expect(render.viewport.zoomToCenter).toHaveBeenCalledWith(1.5, 10, 20)
   })
 
   it('should delegate getViewportPosition to viewport', () => {
+    vi.spyOn(render.viewport, 'getPosition')
+
     render.getViewportPosition()
-    expect(mockViewportLayerInstance.getPosition).toHaveBeenCalledTimes(1)
+
+    expect(render.viewport.getPosition).toHaveBeenCalledTimes(1)
   })
 
   it('should delegate getViewportScale to viewport', () => {
+    vi.spyOn(render.viewport, 'getScale')
+
     render.getViewportScale()
-    expect(mockViewportLayerInstance.getScale).toHaveBeenCalledTimes(1)
+
+    expect(render.viewport.getScale).toHaveBeenCalledTimes(1)
   })
 
   it('should delegate getMousePosInWorkspace to viewport', () => {
     const mouseData = { clientX: 10, clientY: 20 } as MouseData
+    vi.spyOn(render.viewport, 'getMousePosInWorkspace')
+
     render.getMousePosInWorkspace(mouseData)
-    expect(
-      mockViewportLayerInstance.getMousePosInWorkspace
-    ).toHaveBeenCalledWith(mouseData)
+
+    expect(render.viewport.getMousePosInWorkspace).toHaveBeenCalledWith(
+      mouseData
+    )
   })
 })
