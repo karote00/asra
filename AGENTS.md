@@ -19,6 +19,13 @@ Before writing custom scripts or manual code, check for existing project tools.
 - Never invent new conventions without updating `.project/ASSUMPTIONS.md`.
 - All architectural decisions must be reflected in `.project/AI_ARCHITECTURAL_GUIDE.md`.
 
+## 5. Changelog Management
+- **Single File**: All changes are documented in the root `CHANGELOG.md` file
+- **Unreleased Section**: Add changes under `## [Unreleased]` section during development
+- **Template**: Follow `.project/templates/changelog-template.md` for update guidelines
+- **Continuous Updates**: Each contributor updates the changelog with their changes
+- **Release Process**: When releasing, `[Unreleased]` becomes the version number and date
+
 ## 6. Request Handling Workflow
 
 When receiving a new request, follow these steps:
@@ -35,9 +42,10 @@ When receiving a new request, follow these steps:
     *   `yarn lint` (for linting and formatting)
     *   `yarn test:ci` (for unit and integration tests)
     *   `yarn react:build` (for building the application)
-10. **Push to GitHub:** Push the feature branch to GitHub.
-11. **AI-Assisted Code Review:** Initiate an AI-assisted code review on the feature branch. The AI agent should utilize `handoff-ai`'s context-providing script to retrieve relevant project details (e.g., related Epics, BDDs, Golden Paths, API standards) before performing the review, ensuring a high-quality, context-aware assessment that verifies adherence to architecture, rules, and golden paths.
-12. **Update Documentation Locally:** Once the AI-assisted code review (Step 11) is passed, the user/AI agent should update related documentation and specifications (e.g., architecture, APIs) locally to reflect the changes. This process should leverage `handoff-ai`'s capabilities for documentation generation and management. After local updates are complete and reviewed, push these changes to GitHub.
+10. **Update Changelog:** Add your changes to the `CHANGELOG.md` file under the `## [Unreleased]` section. Follow the guidelines in `.project/templates/changelog-template.md`. Document changes from the user's perspective and include `[BREAKING]` prefix for breaking changes.
+11. **Push to GitHub:** Push the feature branch to GitHub.
+12. **AI-Assisted Code Review:** Initiate an AI-assisted code review on the feature branch. The AI agent should utilize `handoff-ai`'s context-providing script to retrieve relevant project details (e.g., related Epics, BDDs, Golden Paths, API standards) before performing the review, ensuring a high-quality, context-aware assessment that verifies adherence to architecture, rules, and golden paths.
+13. **Update Documentation Locally:** Once the AI-assisted code review (Step 12) is passed, the user/AI agent should update related documentation and specifications (e.g., architecture, APIs) locally to reflect the changes. This process should leverage `handoff-ai`'s capabilities for documentation generation and management. After local updates are complete and reviewed, push these changes to GitHub.
 
 **Goals of this Workflow:**
 

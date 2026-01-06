@@ -24,18 +24,7 @@ This file tracks all assumptions made by AI agents when human input is limited. 
 
 ## Assumption Template
 
-When adding new assumptions, use this format:
-
-```markdown
-### [Category] - [Date] - [AI Session ID]
-
-**Assumption**: [What was assumed]
-**Reasoning**: [Why this assumption was made]
-**Evidence**: [Code patterns or industry standards that support this]
-**Confidence**: [High/Medium/Low]
-**Review Priority**: [Critical/Important/Nice-to-have]
-**Status**: [Active/Reviewed/Corrected]
-```
+When adding new assumptions, follow the template in `.project/templates/assumption-template.md`.
 
 ## Review Status
 
