@@ -7,32 +7,13 @@ import {
   PrimaryToolType,
   EntityTypes
 } from '@asra/utils'
-import { isEqual } from 'lodash'
-
-// Mock lodash.isEqual to control its behavior
-vi.mock('lodash', () => ({
-  isEqual: vi.fn()
-}))
-
-// Mock @asra/utils to ensure constants are defined
-vi.mock('@asra/utils', async (importOriginal) => {
-  const actual = (await importOriginal()) as Record<string, unknown>
-  return {
-    ...actual,
-    MIXED_STRING: 'MIXED_STRING',
-    PrimaryToolType: {
-      SELECT: 'select',
-      RECTANGLE: 'rectangle'
-    }
-  }
-})
 
 describe('UIContext', () => {
   let uiContext: UIContext
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.resetAllMocks()
+
     uiContext = new UIContext()
   })
 
@@ -63,73 +44,72 @@ describe('UIContext', () => {
   // Test updateElementSelection
   it('should update elementSelection when selectedIds are different', () => {
     const newSelection = new Set(['id1', 'id2'])
-    vi.mocked(isEqual).mockReturnValue(false) // Simulate different selection
     const nextSpy = vi.spyOn(uiContext.elementSelection, 'next')
 
     uiContext.updateElementSelection(newSelection)
 
-    expect(isEqual).toHaveBeenCalledWith(new Set(), newSelection)
     expect(nextSpy).toHaveBeenCalledWith(newSelection)
   })
 
   it('should not update elementSelection when selectedIds are the same', () => {
     const currentSelection = new Set(['id1'])
     uiContext.elementSelection.next(currentSelection)
-    vi.mocked(isEqual).mockReturnValue(true) // Simulate same selection
     const nextSpy = vi.spyOn(uiContext.elementSelection, 'next')
 
     uiContext.updateElementSelection(currentSelection)
 
-    expect(isEqual).toHaveBeenCalledWith(currentSelection, currentSelection)
     expect(nextSpy).not.toHaveBeenCalled()
   })
 
   // Test updateVertexSelection
   it('should update vertexSelection when selectedIds are different', () => {
     const newSelection = new Set(['v1', 'v2'])
-    vi.mocked(isEqual).mockReturnValue(false)
     const nextSpy = vi.spyOn(uiContext.vertexSelection, 'next')
 
     uiContext.updateVertexSelection(newSelection)
 
-    expect(isEqual).toHaveBeenCalledWith(new Set(), newSelection)
     expect(nextSpy).toHaveBeenCalledWith(newSelection)
   })
 
   it('should not update vertexSelection when selectedIds are the same', () => {
     const currentSelection = new Set(['v1'])
     uiContext.vertexSelection.next(currentSelection)
-    vi.mocked(isEqual).mockReturnValue(true)
     const nextSpy = vi.spyOn(uiContext.vertexSelection, 'next')
 
     uiContext.updateVertexSelection(currentSelection)
 
-    expect(isEqual).toHaveBeenCalledWith(currentSelection, currentSelection)
     expect(nextSpy).not.toHaveBeenCalled()
   })
 
   // Test updateComputedProperty
   it('should update computed property with consistent value', () => {
     const nextSpy = vi.spyOn(uiContext.x, 'next')
+
     uiContext.updateComputedProperty('x', [10, 10])
+
     expect(nextSpy).toHaveBeenCalledWith(10)
   })
 
   it('should update computed property with MIXED_STRING for mixed values', () => {
     const nextSpy = vi.spyOn(uiContext.width, 'next')
+
     uiContext.updateComputedProperty('width', [100, 200])
+
     expect(nextSpy).toHaveBeenCalledWith(MIXED_STRING)
   })
 
   it('should not update computed property if value is the same', () => {
     uiContext.y.next(50)
     const nextSpy = vi.spyOn(uiContext.y, 'next')
+
     uiContext.updateComputedProperty('y', [50, 50])
+
     expect(nextSpy).not.toHaveBeenCalled()
   })
 
   it('should not update properties not in generalKeysToCompare', () => {
     const nextSpy = vi.spyOn(uiContext.flattenedElementIds, 'next')
+
     // Attempt to update a property not in generalKeysToCompare
     uiContext.updateComputedProperty(
       'flattenedElementIds' as unknown as keyof ComputedAttrs,
@@ -138,6 +118,7 @@ describe('UIContext', () => {
         ['id2'] as unknown as ComputedAttrs[keyof ComputedAttrs]
       ]
     )
+
     expect(nextSpy).not.toHaveBeenCalled()
   })
 
@@ -213,21 +194,27 @@ describe('UIContext', () => {
   // Test updateZoom
   it('should update zoom value', () => {
     const nextSpy = vi.spyOn(uiContext.zoom, 'next')
+
     uiContext.updateZoom(2)
+
     expect(nextSpy).toHaveBeenCalledWith(2)
   })
 
   // Test updatePrimaryTool
   it('should update primaryTool when tool is different', () => {
     const nextSpy = vi.spyOn(uiContext.primaryTool, 'next')
+
     uiContext.updatePrimaryTool(PrimaryToolType.RECTANGLE)
+
     expect(nextSpy).toHaveBeenCalledWith(PrimaryToolType.RECTANGLE)
   })
 
   it('should not update primaryTool when tool is the same', () => {
     uiContext.primaryTool.next(PrimaryToolType.SELECT)
     const nextSpy = vi.spyOn(uiContext.primaryTool, 'next')
+
     uiContext.updatePrimaryTool(PrimaryToolType.SELECT)
+
     expect(nextSpy).not.toHaveBeenCalled()
   })
 })
