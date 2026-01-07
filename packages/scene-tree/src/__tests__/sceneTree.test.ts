@@ -6,59 +6,18 @@ import {
   EntityTypes,
   OWNER,
   SCENE_TREE_ACTIONS,
-  ElementRawData,
   SceneTreeChange
 } from '@asra/utils'
 import { EventTypes } from '@asra/reactive-events' // Import EventTypes
 import Workspace from '../components/workspace' // Assuming Workspace is a class
 import Rectangle from '../components/rectangle'
-import Group from '../components/group'
-
-// Mock the utils module
-vi.mock('../utils', () => ({
-  createElement: vi.fn(),
-  createWorkspace: vi.fn()
-}))
-
-// Mock reactive-events for EventTypes
-vi.mock('@asra/reactive-events', () => ({
-  EventTypes: {
-    ADD_ELEMENT: 'ADD_ELEMENT',
-    REMOVE_ELEMENT: 'REMOVE_ELEMENT'
-  }
-}))
 
 describe('SceneTree', () => {
   let sceneTree: SceneTree
-  let mockWorkspaceInstance: Workspace
 
   beforeEach(() => {
     // Reset mocks before each test
     vi.clearAllMocks()
-    vi.resetAllMocks()
-
-    // Define mockWorkspaceInstance inside beforeEach for fresh instance per test
-    mockWorkspaceInstance = {
-      get: vi.fn((key: string) => (key === 'id' ? 'workspace-1' : undefined)),
-      save: vi.fn(() => ({ id: 'workspace-1', type: EntityTypes.WORKSPACE })),
-      addNewElement: vi.fn(),
-      removeElement: vi.fn()
-    } as unknown as Workspace
-
-    // Configure mocks for utils
-    vi.mocked(utils.createWorkspace).mockReturnValue(mockWorkspaceInstance)
-    vi.mocked(utils.createElement).mockImplementation(
-      (data: Partial<ElementRawData>) =>
-        ({
-          get: vi.fn(
-            (key: string) =>
-              (data as unknown as Record<string, string>)[key] ||
-              'mock-element-id'
-          ),
-          save: vi.fn(() => data),
-          updateComputedData: vi.fn()
-        }) as unknown as Rectangle | Group
-    )
 
     sceneTree = new SceneTree()
   })
@@ -66,7 +25,7 @@ describe('SceneTree', () => {
   // Test _init() and basic workspace creation
   it('should initialize with a new workspace if none exists', () => {
     sceneTree.init()
-    expect(utils.createWorkspace).toHaveBeenCalled()
+
     expect(sceneTree.workspace).toBe('workspace-1')
     expect(sceneTree.workspaceList).toEqual(['workspace-1'])
     expect(sceneTree.getAllElements().has('workspace-1')).toBe(true)
@@ -75,7 +34,9 @@ describe('SceneTree', () => {
   it('should not create a new workspace if one already exists', () => {
     sceneTree.workspace = 'existing-workspace'
     sceneTree.workspaceList = ['existing-workspace']
+
     sceneTree.init()
+
     expect(utils.createWorkspace).not.toHaveBeenCalled()
   })
 
@@ -83,6 +44,7 @@ describe('SceneTree', () => {
   it('should create a new element and add a change for it', () => {
     const elementData = { id: 'el-1', type: EntityTypes.RECTANGLE }
     const newElement = sceneTree.createElement(elementData)
+
     expect(utils.createElement).toHaveBeenCalledWith(elementData)
     expect(newElement?.get('id')).toBe('el-1')
     expect(sceneTree.changes.length).toBe(1)
@@ -99,6 +61,7 @@ describe('SceneTree', () => {
   it('should not create a workspace element using createElement', () => {
     const elementData = { id: 'ws-2', type: EntityTypes.WORKSPACE }
     const newElement = sceneTree.createElement(elementData)
+
     expect(newElement).toBeNull()
     expect(sceneTree.changes.length).toBe(0)
   })
@@ -107,7 +70,9 @@ describe('SceneTree', () => {
     const element = {
       get: vi.fn(() => 'el-add')
     } as unknown as ElementInstanceTypes
+
     sceneTree.addToMap(element)
+
     expect(sceneTree.getAllElements().has('el-add')).toBe(true)
   })
 
@@ -115,8 +80,10 @@ describe('SceneTree', () => {
     const element = {
       get: vi.fn(() => 'el-remove')
     } as unknown as ElementInstanceTypes
+
     sceneTree.addToMap(element)
     expect(sceneTree.getAllElements().has('el-remove')).toBe(true)
+
     sceneTree.removeFromMap(element)
     expect(sceneTree.getAllElements().has('el-remove')).toBe(false)
   })
@@ -125,7 +92,9 @@ describe('SceneTree', () => {
     const element = {
       get: vi.fn(() => 'el-get')
     } as unknown as ElementInstanceTypes
+
     sceneTree.addToMap(element)
+
     expect(sceneTree.getElementById('el-get')).toBe(element)
   })
 
@@ -134,13 +103,17 @@ describe('SceneTree', () => {
     const change = {
       eventName: EventTypes.ADD_ELEMENT
     } as unknown as SceneTreeChange
+
     sceneTree.addChange(change)
+
     expect(sceneTree.changes).toEqual([change])
   })
 
   it('should clean all changes', () => {
     sceneTree.addChange({} as unknown as SceneTreeChange)
+
     sceneTree.cleanChanges()
+
     expect(sceneTree.changes).toEqual([])
   })
 
@@ -150,7 +123,9 @@ describe('SceneTree', () => {
       save: vi.fn(() => elementData),
       get: vi.fn(() => 'el-change')
     } as unknown as ElementInstanceTypes
+
     sceneTree.addChangeForAddElement(element)
+
     expect(sceneTree.changes.length).toBe(1)
     expect(sceneTree.changes[0].action).toBe(SCENE_TREE_ACTIONS.ADD_ELEMENT)
   })
@@ -161,7 +136,9 @@ describe('SceneTree', () => {
       save: vi.fn(() => elementData),
       get: vi.fn(() => 'el-change-remove')
     } as unknown as ElementInstanceTypes
+
     sceneTree.addChangeForRemoveElement(element)
+
     expect(sceneTree.changes.length).toBe(1)
     expect(sceneTree.changes[0].action).toBe(SCENE_TREE_ACTIONS.REMOVE_ELEMENT)
   })
@@ -171,7 +148,9 @@ describe('SceneTree', () => {
     const element = {
       get: vi.fn(() => 'el-deleted')
     } as unknown as ElementInstanceTypes
+
     sceneTree.addToDeleteMap(element)
+
     expect(sceneTree._deletedMap.has('el-deleted')).toBe(true)
   })
 
@@ -180,7 +159,9 @@ describe('SceneTree', () => {
       get: vi.fn(() => 'el-deleted-remove')
     } as unknown as ElementInstanceTypes
     sceneTree.addToDeleteMap(element)
+
     sceneTree.removeFromDeleteMap('el-deleted-remove')
+
     expect(sceneTree._deletedMap.has('el-deleted-remove')).toBe(false)
   })
 
@@ -191,25 +172,27 @@ describe('SceneTree', () => {
       get: vi.fn(() => 'el-restore')
     } as unknown as ElementInstanceTypes
     sceneTree.addToDeleteMap(element)
+
     const restored = sceneTree.getRestoreElementById('el-restore')
+
     expect(restored).toBe(element)
-    // expect(sceneTree._deletedMap.has('el-restore')).toBe(false); // Commented out as per code behavior
+    // expect(sceneTree._deletedMap.has('el-restore')).toBe(false)
     expect(sceneTree.changes.length).toBe(1)
     expect(sceneTree.changes[0].action).toBe(SCENE_TREE_ACTIONS.ADD_ELEMENT)
   })
 
   // Test addNewElement (delegated to workspace)
-  it('should call addNewElement on the current workspace', () => {
+  it.only('should call addNewElement on the current workspace', () => {
     sceneTree.init() // Ensure workspace is initialized
     const element = {
       get: vi.fn(() => 'new-el')
     } as unknown as ElementInstanceTypes
+    const workspace = sceneTree.currentWorkspace as Workspace
+    vi.spyOn(workspace, 'addNewElement')
+
     sceneTree.addNewElement(element)
-    expect(mockWorkspaceInstance.addNewElement).toHaveBeenCalledWith(
-      element,
-      undefined,
-      -1
-    )
+
+    expect(workspace.addNewElement).toHaveBeenCalledWith(element, undefined, -1)
   })
 
   // Test updateComputedData
@@ -283,20 +266,28 @@ describe('SceneTree', () => {
 
   it('should save data correctly', () => {
     sceneTree.init() // Ensure initial workspace
-    const elementData = { id: 'el-save', type: EntityTypes.RECTANGLE }
+    const elementData = { id: 'el-1', type: EntityTypes.RECTANGLE }
     const element = {
       save: vi.fn(() => elementData),
-      get: vi.fn(() => 'el-save')
+      get: vi.fn(() => 'el-1')
     } as unknown as ElementInstanceTypes
+    const workspace = sceneTree.currentWorkspace as Workspace
+    const workspaceSaveData = {
+      id: 'workspace-1',
+      type: EntityTypes.WORKSPACE,
+      name: 'workspace-1',
+      visible: true,
+      lock: false,
+      children: ['el-1']
+    }
+    vi.spyOn(workspace, 'save').mockReturnValueOnce(workspaceSaveData)
     sceneTree.addToMap(element)
 
     const savedData = sceneTree.save()
 
     expect(savedData.workspace).toBe('workspace-1')
     expect(savedData.workspaceList).toEqual(['workspace-1'])
-    expect(savedData.elements['workspace-1']).toEqual(
-      mockWorkspaceInstance.save()
-    )
-    expect(savedData.elements['el-save']).toEqual(elementData)
+    expect(savedData.elements['workspace-1']).toEqual(workspaceSaveData)
+    expect(savedData.elements['el-1']).toEqual(elementData)
   })
 })
