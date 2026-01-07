@@ -19,7 +19,7 @@ describe('SelectionManager', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.resetAllMocks()
+
     manager = new SelectionManager()
   })
 
@@ -28,19 +28,21 @@ describe('SelectionManager', () => {
       SELECTION_TYPES.ELEMENT,
       mockBaseSelection as unknown as BaseSelection
     )
+
     const selection = manager.get(SELECTION_TYPES.ELEMENT)
+
     expect(selection).toBe(mockBaseSelection)
   })
 
   it('should return undefined for an unregistered selection type', () => {
     const selection = manager.get(SELECTION_TYPES.VERTEX)
+
     expect(selection).toBeUndefined()
   })
 
   it('should call clear() on all registered selections when clearAllSelections is called', () => {
     const mockSelection1 = { ...mockBaseSelection, clear: vi.fn() }
     const mockSelection2 = { ...mockBaseSelection, clear: vi.fn() }
-
     manager.register(
       SELECTION_TYPES.ELEMENT,
       mockSelection1 as unknown as BaseSelection
