@@ -4,64 +4,27 @@ import {
   PROPS_ACTIONS,
   PropertyComponentInstanceTypes,
   PropertyComponentInstanceDataTypes,
-  PropertyComponentRawData,
   PropertyTypes,
   Unit,
   PropsChange
 } from '@asra/utils'
+import { PropsManager } from '../props-manager'
+import { createProperty } from '../utils'
 
-// Mock external dependencies - must be before imports
-const { mockCreateProperty } = vi.hoisted(() => {
+vi.mock('@asra/reactive-events', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@asra/reactive-events')>()
+
   return {
-    mockCreateProperty: vi.fn()
+    ...actual,
+    updateTransaction: vi.fn()
   }
 })
 
-vi.mock('../utils', () => ({
-  createProperty: mockCreateProperty
-}))
-
-vi.mock('@asra/reactive-events', () => ({
-  updateTransaction: vi.fn(),
-  EventTypes: {
-    ADD_PROPERTY: 'ADD_PROPERTY',
-    REMOVE_PROPERTY: 'REMOVE_PROPERTY'
-  }
-}))
-
-// Import after mocks to ensure mocks are applied
-import { PropsManager } from '../props-manager'
-
 describe('PropsManager', () => {
   let propsManager: PropsManager
-  let mockPropertyComponent: PropertyComponentInstanceTypes
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.resetAllMocks()
-
-    mockPropertyComponent = {
-      get: vi.fn((key: string) => {
-        if (key === 'id') return 'prop-id-1'
-        if (key === 'type') return PropertyTypes.POSITION
-        return undefined
-      }),
-      save: vi.fn(() => ({ id: 'prop-id-1', type: PropertyTypes.POSITION })),
-      set: vi.fn()
-    } as unknown as PropertyComponentInstanceTypes
-
-    mockCreateProperty.mockImplementation(
-      (data: PropertyComponentRawData) =>
-        ({
-          get: vi.fn((key: string) => {
-            if (key === 'id') return data.id || 'mock-prop-id'
-            if (key === 'type') return data.type || PropertyTypes.POSITION
-            return undefined
-          }),
-          save: vi.fn(() => data),
-          set: vi.fn()
-        }) as unknown as PropertyComponentInstanceTypes
-    )
 
     propsManager = new PropsManager()
   })
@@ -69,16 +32,16 @@ describe('PropsManager', () => {
   // Test load and save
   it('should load data correctly', () => {
     const dataToLoad = {
-      'prop-id-1': {
-        id: 'prop-id-1',
+      'pp-1': {
+        id: 'pp-1',
         type: PropertyTypes.POSITION,
         x: 0,
         y: 0,
         xUnit: Unit.PX,
         yUnit: Unit.PX
       },
-      'prop-id-2': {
-        id: 'prop-id-2',
+      'pp-2': {
+        id: 'pp-2',
         type: PropertyTypes.DIMENSION,
         width: 100,
         height: 100,
@@ -87,38 +50,28 @@ describe('PropsManager', () => {
       }
     }
 
-    // Capture the instances returned by createProperty
-    const createdProps: PropertyComponentInstanceTypes[] = []
-    mockCreateProperty.mockImplementation((data: PropertyComponentRawData) => {
-      const newMock = {
-        get: vi.fn((key: string) => {
-          if (key === 'id') return data.id || 'mock-prop-id'
-          if (key === 'type') return data.type || PropertyTypes.POSITION
-          return undefined
-        }),
-        save: vi.fn(() => data),
-        set: vi.fn()
-      } as unknown as PropertyComponentInstanceTypes
-      createdProps.push(newMock)
-      return newMock
-    })
-
     propsManager.load(dataToLoad)
 
-    expect(mockCreateProperty).toHaveBeenCalledTimes(2)
-    expect(propsManager.getComponentById('prop-id-1')).toBe(createdProps[0])
-    expect(propsManager.getComponentById('prop-id-2')).toBe(createdProps[1])
+    expect(propsManager.getComponentById('pp-1')?.get('id')).toBe('pp-1')
+    expect(propsManager.getComponentById('pp-2')?.get('id')).toBe('pp-2')
   })
 
   it('should save data correctly', () => {
-    propsManager.addToMap(mockPropertyComponent)
+    const dataToLoad = {
+      'pp-1': {
+        id: 'pp-1',
+        type: PropertyTypes.POSITION,
+        x: 0,
+        y: 0,
+        xUnit: Unit.PX,
+        yUnit: Unit.PX
+      }
+    }
+    propsManager.load(dataToLoad)
+
     const savedData = propsManager.save()
 
-    expect(mockPropertyComponent.save).toHaveBeenCalledTimes(1)
-    expect(savedData['prop-id-1']).toEqual({
-      id: 'prop-id-1',
-      type: PropertyTypes.POSITION
-    })
+    expect(savedData['pp-1']).toEqual(dataToLoad['pp-1'])
   })
 
   // Test change tracking
@@ -126,75 +79,166 @@ describe('PropsManager', () => {
     const change = {
       eventName: ReactiveEventsModule.EventTypes.ADD_PROPERTY
     } as unknown as PropsChange
+
     propsManager.addChange(change)
+
     expect(propsManager.changes).toEqual([change])
   })
 
   it('should clean all changes', () => {
     propsManager.addChange({} as unknown as PropsChange)
+
     propsManager.cleanChanges()
+
     expect(propsManager.changes).toEqual([])
   })
 
   it('should add a change for adding a property', () => {
-    propsManager.addChangeForAddProperty(mockPropertyComponent)
+    const p1Data = {
+      id: 'pp-1',
+      type: PropertyTypes.POSITION,
+      x: 0,
+      y: 0,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }
+    const p1Component = createProperty(p1Data) as PropertyComponentInstanceTypes
+
+    propsManager.addChangeForAddProperty(p1Component)
+
     expect(propsManager.changes.length).toBe(1)
     expect(propsManager.changes[0].action).toBe(PROPS_ACTIONS.ADD_PROPERTY)
   })
 
   it('should add a change for removing a property', () => {
-    propsManager.addChangeForRemoveProperty(mockPropertyComponent)
+    const p1Data = {
+      id: 'pp-1',
+      type: PropertyTypes.POSITION,
+      x: 0,
+      y: 0,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }
+    const p1Component = createProperty(p1Data) as PropertyComponentInstanceTypes
+
+    propsManager.addChangeForRemoveProperty(p1Component)
+
     expect(propsManager.changes.length).toBe(1)
     expect(propsManager.changes[0].action).toBe(PROPS_ACTIONS.REMOVE_PROPERTY)
   })
 
   // Test component management
   it('should get a component by ID', () => {
-    propsManager.addToMap(mockPropertyComponent)
-    expect(propsManager.getComponentById('prop-id-1')).toBe(
-      mockPropertyComponent
-    )
+    const p1Data = {
+      id: 'pp-1',
+      type: PropertyTypes.POSITION,
+      x: 0,
+      y: 0,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }
+    const p1Component = createProperty(p1Data) as PropertyComponentInstanceTypes
+
+    propsManager.addToMap(p1Component)
+
+    expect(propsManager.getComponentById('pp-1')).toBe(p1Component)
   })
 
   it('should add a component to the map', () => {
-    propsManager.addToMap(mockPropertyComponent)
-    expect(propsManager._components.has('prop-id-1')).toBe(true)
+    const p1Data = {
+      id: 'pp-1',
+      type: PropertyTypes.POSITION,
+      x: 0,
+      y: 0,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }
+    const p1Component = createProperty(p1Data) as PropertyComponentInstanceTypes
+
+    propsManager.addToMap(p1Component)
+
+    expect(propsManager._components.has('pp-1')).toBe(true)
   })
 
   it('should remove a component from the map', () => {
-    propsManager.addToMap(mockPropertyComponent)
-    propsManager.removeFromMap('prop-id-1')
-    expect(propsManager._components.has('prop-id-1')).toBe(false)
+    const p1Data = {
+      id: 'pp-1',
+      type: PropertyTypes.POSITION,
+      x: 0,
+      y: 0,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }
+    const p1Component = createProperty(p1Data) as PropertyComponentInstanceTypes
+    propsManager.addToMap(p1Component)
+
+    propsManager.removeFromMap('pp-1')
+
+    expect(propsManager._components.has('pp-1')).toBe(false)
   })
 
   // Test deleted map functionality
   it('should add a component to the deleted map', () => {
-    propsManager.addToDeletedMap(mockPropertyComponent)
-    expect(propsManager._deletedMap.has('prop-id-1')).toBe(true)
+    const p1Data = {
+      id: 'pp-1',
+      type: PropertyTypes.POSITION,
+      x: 0,
+      y: 0,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }
+    const p1Component = createProperty(p1Data) as PropertyComponentInstanceTypes
+
+    propsManager.addToDeletedMap(p1Component)
+
+    expect(propsManager._deletedMap.has('pp-1')).toBe(true)
   })
 
   it('should remove a component from the deleted map', () => {
-    propsManager.addToDeletedMap(mockPropertyComponent)
-    propsManager.removeFromDeletedMap('prop-id-1')
-    expect(propsManager._deletedMap.has('prop-id-1')).toBe(false)
+    const p1Data = {
+      id: 'pp-1',
+      type: PropertyTypes.POSITION,
+      x: 0,
+      y: 0,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }
+    const p1Component = createProperty(p1Data) as PropertyComponentInstanceTypes
+    propsManager.addToDeletedMap(p1Component)
+
+    propsManager.removeFromDeletedMap('pp-1')
+
+    expect(propsManager._deletedMap.has('pp-1')).toBe(false)
   })
 
   it('should get a restored component by ID', () => {
-    propsManager.addToDeletedMap(mockPropertyComponent)
-    expect(propsManager.getRestoreComponentById('prop-id-1')).toBe(
-      mockPropertyComponent
-    )
+    const p1Data = {
+      id: 'pp-1',
+      type: PropertyTypes.POSITION,
+      x: 0,
+      y: 0,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }
+    const p1Component = createProperty(p1Data) as PropertyComponentInstanceTypes
+
+    propsManager.addToDeletedMap(p1Component)
+    expect(propsManager.getRestoreComponentById('pp-1')).toBe(p1Component)
   })
 
   // Test createProperty
   it('should create a property and add a change', () => {
-    const propData = { id: 'new-prop-id', type: PropertyTypes.POSITION }
-    const newProp = propsManager.createProperty(propData)
-    expect(mockCreateProperty).toHaveBeenCalledWith({
-      ...propData,
-      type: PropertyTypes.POSITION
-    })
-    expect(newProp?.get('id')).toBe('new-prop-id')
+    const p1Data = {
+      id: 'pp-1',
+      type: PropertyTypes.POSITION,
+      x: 0,
+      y: 0,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }
+    const newProp = propsManager.createProperty(p1Data)
+
+    expect(newProp?.get('id')).toBe('pp-1')
     expect(propsManager.changes.length).toBe(1)
     expect(propsManager.changes[0].action).toBe(PROPS_ACTIONS.ADD_PROPERTY)
   })
@@ -205,72 +249,86 @@ describe('PropsManager', () => {
 
   // Test addProperty
   it('should add multiple properties and return their IDs mapped by type', () => {
-    const mockProp1 = {
-      get: vi.fn((key: string) =>
-        key === 'id' ? 'p1' : PropertyTypes.POSITION
-      )
-    } as unknown as PropertyComponentInstanceTypes
-    const mockProp2 = {
-      get: vi.fn((key: string) =>
-        key === 'id' ? 'p2' : PropertyTypes.DIMENSION
-      )
-    } as unknown as PropertyComponentInstanceTypes
+    const p1Data = {
+      id: 'pp-1',
+      type: PropertyTypes.POSITION,
+      x: 0,
+      y: 0,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }
+    const p1Component = createProperty(p1Data) as PropertyComponentInstanceTypes
+    const p2Data = {
+      id: 'pp-2',
+      type: PropertyTypes.DIMENSION,
+      width: 100,
+      height: 100,
+      widthUnit: Unit.PX,
+      heightUnit: Unit.PX
+    }
+    const p2Component = createProperty(p2Data) as PropertyComponentInstanceTypes
 
-    const result = propsManager.addProperty([mockProp1, mockProp2])
+    const result = propsManager.addProperty([p1Component, p2Component])
 
-    expect(propsManager._components.has('p1')).toBe(true)
-    expect(propsManager._components.has('p2')).toBe(true)
+    expect(propsManager._components.has('pp-1')).toBe(true)
+    expect(propsManager._components.has('pp-2')).toBe(true)
     expect(result).toEqual({
-      [PropertyTypes.POSITION]: 'p1',
-      [PropertyTypes.DIMENSION]: 'p2'
+      [PropertyTypes.POSITION]: 'pp-1',
+      [PropertyTypes.DIMENSION]: 'pp-2'
     })
   })
 
   // Test removeProperty
   it('should remove multiple properties', () => {
-    propsManager.addToMap(mockPropertyComponent) // Add mockPropertyComponent with id 'prop-id-1'
-    const mockProp2 = {
-      get: vi.fn(() => 'prop-id-2')
-    } as unknown as PropertyComponentInstanceTypes
-    propsManager.addToMap(mockProp2)
+    const p1Data = {
+      id: 'pp-1',
+      type: PropertyTypes.POSITION,
+      x: 0,
+      y: 0,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }
+    const p1Component = createProperty(p1Data) as PropertyComponentInstanceTypes
+    propsManager.addToMap(p1Component)
+    const p2Data = {
+      id: 'pp-2',
+      type: PropertyTypes.POSITION,
+      x: 0,
+      y: 0,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }
+    const p2Component = createProperty(p2Data) as PropertyComponentInstanceTypes
+    propsManager.addToMap(p2Component)
 
-    propsManager.removeProperty(['prop-id-1', 'prop-id-2'])
+    propsManager.removeProperty(['pp-1', 'pp-2'])
 
-    expect(propsManager._components.has('prop-id-1')).toBe(false)
-    expect(propsManager._components.has('prop-id-2')).toBe(false)
-    expect(propsManager._deletedMap.has('prop-id-1')).toBe(true)
-    expect(propsManager._deletedMap.has('prop-id-2')).toBe(true)
+    expect(propsManager._components.has('pp-1')).toBe(false)
+    expect(propsManager._components.has('pp-2')).toBe(false)
+    expect(propsManager._deletedMap.has('pp-1')).toBe(true)
+    expect(propsManager._deletedMap.has('pp-2')).toBe(true)
   })
 
   // Test updatePropsData
   it('should update props data on a component', () => {
-    // Create a proper Position component mock
-    const positionComponent = {
-      get: vi.fn((key: string) => {
-        if (key === 'id') return 'prop-id-1'
-        if (key === 'type') return PropertyTypes.POSITION
-        if (key === 'x') return 0
-        if (key === 'y') return 0
-        if (key === 'xUnit') return Unit.PX
-        if (key === 'yUnit') return Unit.PX
-        return undefined
-      }),
-      save: vi.fn(() => ({
-        id: 'prop-id-1',
-        type: PropertyTypes.POSITION,
-        x: 0,
-        y: 0,
-        xUnit: Unit.PX,
-        yUnit: Unit.PX
-      })),
-      set: vi.fn()
-    } as unknown as PropertyComponentInstanceTypes
+    const positionData = {
+      id: 'pp-1',
+      type: PropertyTypes.POSITION,
+      x: 0,
+      y: 0,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }
+    const positionComponent = createProperty(
+      positionData
+    ) as PropertyComponentInstanceTypes
+    vi.spyOn(positionComponent, 'set')
 
     propsManager.addToMap(positionComponent)
     // Type assertion needed because updatePropsData uses union type for keys
     // 'x' is a valid key for PositionAttrs, which is part of PropertyComponentInstanceDataTypes
     propsManager.updatePropsData(
-      'prop-id-1',
+      'pp-1',
       'x' as unknown as keyof PropertyComponentInstanceDataTypes,
       100 as unknown as PropertyComponentInstanceDataTypes[keyof PropertyComponentInstanceDataTypes]
     )
