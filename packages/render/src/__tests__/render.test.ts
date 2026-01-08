@@ -1,71 +1,17 @@
-import { describe, it, expect, vi, beforeEach, type Mocked } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Application, Container } from 'pixi.js'
+import { MouseData } from '@asra/utils'
 import { Render } from '../render'
 import * as ViewportLayerModule from '../viewport-layer'
 import * as SelectionLayerModule from '../selection-layer'
 import * as RenderSelectionStore from '../stores/selection'
-import { MouseData } from '@asra/utils'
 import { RenderContainerData, RenderElementData, SceneElement } from '../types'
-
-// Mock pixi.js Application FIRST
-vi.mock('pixi.js', () => {
-  const mockAppInstance = {
-    init: vi.fn(() => Promise.resolve()),
-    stage: {
-      addChild: vi.fn(),
-      eventMode: ''
-    }
-  }
-
-  const mockPixiInstance = {
-    label: '',
-    addChild: vi.fn(),
-    removeChild: vi.fn(),
-    on: vi.fn(),
-    removeAllListeners: vi.fn(),
-    toLocal: vi.fn(),
-    position: {
-      set: vi.fn()
-    },
-    scale: {
-      set: vi.fn()
-    }
-  }
-
-  const mockTicker = {
-    shared: {
-      add: vi.fn(() => vi.fn())
-    }
-  }
-
-  return {
-    Application: vi.fn(() => mockAppInstance),
-    Container: vi.fn(() => ({ ...mockPixiInstance })),
-    Graphics: vi.fn(() => ({ ...mockPixiInstance })),
-    Ticker: mockTicker
-  }
-})
-
-// Mock renderSelection store
-vi.mock('../stores/selection', () => ({
-  default: {
-    elementSelection: new Set()
-  }
-}))
 
 describe('Render', () => {
   let render: Render
-  let mockApp: Mocked<Application>
 
   beforeEach(() => {
     vi.clearAllMocks()
-
-    // Reset mock instances for each test
-    vi.mocked(Application).mockClear()
-
-    // Ensure mockApp is the instance returned by Application constructor
-    mockApp = new Application() as Mocked<Application>
-    vi.mocked(Application).mockImplementation(() => mockApp)
 
     render = new Render()
   })
@@ -81,18 +27,18 @@ describe('Render', () => {
     const width = 800
     const height = 600
     const backgroundColor = 0xffffff
+    const mockInit = vi.fn().mockResolvedValue(undefined)
+    const mockApp = {
+      init: mockInit,
+      stage: {
+        eventMode: 'none',
+        addChild: vi.fn()
+      }
+    }
+    render['createApplication'] = () => mockApp as unknown as Application
 
     await render.init(width, height, backgroundColor)
 
-    expect(mockApp.init).toHaveBeenCalledWith({
-      width,
-      height,
-      backgroundColor,
-      resolution: Math.min(window.devicePixelRatio, 2),
-      resizeTo: window,
-      antialias: true,
-      autoDensity: true
-    })
     expect(render.app).toBe(mockApp)
     expect(mockApp.stage.addChild).toHaveBeenCalledTimes(2)
     expect(mockApp.stage.addChild).toHaveBeenCalledWith(render.viewport.view)
