@@ -14,7 +14,9 @@ describe('UndoRedoHandlers', () => {
 
   it('should call decideToUndoRedo for INTERACTION_UNDOREDO', () => {
     const payload = { undoredo: UNDO.UNDO }
+
     UndoRedoHandlers[InteractionActions.INTERACTION_UNDOREDO](payload)
+
     expect(reactiveEvents.decideToUndoRedo).toHaveBeenCalledWith(
       payload.undoredo
     )

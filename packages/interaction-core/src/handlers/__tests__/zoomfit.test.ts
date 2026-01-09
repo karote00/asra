@@ -14,6 +14,7 @@ describe('ZoomFitHandlers', () => {
 
   it('should call decideToZoomFit for INTERACTION_ZOOM_FIT', () => {
     ZoomFitHandlers[InteractionActions.INTERACTION_ZOOM_FIT]()
+
     expect(reactiveEvents.decideToZoomFit).toHaveBeenCalled()
   })
 })

@@ -14,9 +14,11 @@ describe('PrimaryToolHandlers', () => {
 
   it('should call decideToSwitchPrimaryTool for INTERACTION_SWITCH_PRIMARY_TOOL', () => {
     const payload = { primaryTool: PrimaryToolType.RECTANGLE }
+
     PrimaryToolHandlers[InteractionActions.INTERACTION_SWITCH_PRIMARY_TOOL](
       payload
     )
+
     expect(reactiveEvents.decideToSwitchPrimaryTool).toHaveBeenCalledWith(
       payload.primaryTool
     )

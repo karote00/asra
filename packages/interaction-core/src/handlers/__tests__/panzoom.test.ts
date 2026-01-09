@@ -18,7 +18,9 @@ describe('PanZoomHandlers', () => {
       mouse: { x: 100, y: 200 },
       wheel: { x: 10, y: 10 }
     }
+
     PanZoomHandlers[InteractionActions.INTERACTION_PAN_ZOOM](payload)
+
     expect(reactiveEvents.decideToPanZoom).toHaveBeenCalledWith(
       payload.panzoom,
       payload.mouse,

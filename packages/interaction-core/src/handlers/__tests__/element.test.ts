@@ -25,7 +25,9 @@ describe('ElementHandlers', () => {
       position: { x: 10, y: 20 },
       elementType: PrimaryToolType.RECTANGLE
     }
+
     ElementHandlers[InteractionActions.INTERACTION_CREATE_ELEMENT](payload)
+
     expect(reactiveEvents.decideToCreateElement).toHaveBeenCalledWith(
       payload.position,
       payload.elementType
@@ -39,10 +41,12 @@ describe('ElementHandlers', () => {
       elementType: PrimaryToolType.RECTANGLE
     }
     const options = { undoable: false }
+
     ElementHandlers[InteractionActions.INTERACTION_RESIZE_ELEMENT](
       payload,
       options
     )
+
     expect(reactiveEvents.decideToResizeElement).toHaveBeenCalledWith(
       payload.dragStart,
       payload.position,
@@ -56,7 +60,9 @@ describe('ElementHandlers', () => {
       position: { x: 10, y: 20 },
       elementType: PrimaryToolType.RECTANGLE
     }
+
     ElementHandlers[InteractionActions.INTERACTION_END_RESIZE_ELEMENT](payload)
+
     expect(reactiveEvents.decideToEndResizeElement).toHaveBeenCalledWith(
       payload.position,
       payload.elementType
@@ -68,7 +74,9 @@ describe('ElementHandlers', () => {
       dimension: { width: DEFAULT_ELEMENT_SIZE, height: DEFAULT_ELEMENT_SIZE },
       elementType: PrimaryToolType.RECTANGLE
     }
+
     ElementHandlers[InteractionActions.INTERACTION_RESET_ELEMENT_SIZE](payload)
+
     expect(reactiveEvents.decideToResetElementSize).toHaveBeenCalledWith(
       payload.dimension,
       payload.elementType
@@ -77,7 +85,9 @@ describe('ElementHandlers', () => {
 
   it('should call decideToSelectElements for INTERACTION_SELECT_ELEMENTS', () => {
     const payload = { elementIds: ['element-1', 'element-2'] }
+
     ElementHandlers[InteractionActions.INTERACTION_SELECT_ELEMENTS](payload)
+
     expect(reactiveEvents.decideToSelectElements).toHaveBeenCalledWith(
       payload.elementIds
     )
@@ -86,6 +96,7 @@ describe('ElementHandlers', () => {
   // Test for TODOs (INTERACTION_MOVE_ELEMENTS, INTERACTION_DELETE_ELEMENTS)
   it('should not throw for INTERACTION_MOVE_ELEMENTS (TODO)', () => {
     const payload = { ids: ['element-1'], delta: { x: 5, y: 5 } }
+
     expect(() =>
       ElementHandlers[InteractionActions.INTERACTION_MOVE_ELEMENTS](payload)
     ).not.toThrow()
@@ -93,6 +104,7 @@ describe('ElementHandlers', () => {
 
   it('should not throw for INTERACTION_DELETE_ELEMENTS (TODO)', () => {
     const payload = { ids: ['element-1'] }
+
     expect(() =>
       ElementHandlers[InteractionActions.INTERACTION_DELETE_ELEMENTS](payload)
     ).not.toThrow()
