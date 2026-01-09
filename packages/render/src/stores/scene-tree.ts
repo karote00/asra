@@ -13,6 +13,8 @@ class RenderSceneTree {
   }
 
   reload() {
+    if (!sceneTree.currentWorkspace) return
+
     const currentWorkspaceData =
       sceneTree.currentWorkspace.save() as WorkspaceRawData
     this._workspace = currentWorkspaceData
@@ -27,7 +29,7 @@ class RenderSceneTree {
     // Create all element render node
     sceneTree.getAllElements().forEach((element) => {
       const renderElementData = this._getRenderData(element.get('id'))
-      if (element.get('type') !== EntityTypes.WORKSPACE) {
+      if (element.get('type') !== EntityTypes.WORKSPACE && renderElementData) {
         this.addElement(renderElementData)
       }
     })
@@ -35,6 +37,8 @@ class RenderSceneTree {
 
   private _getRenderData(id: string) {
     const element = sceneTree.getElementById(id)
+    if (!element) return null
+
     const elementComputedData = element.getAllComputedData()
     const elementData = {
       ...element.save(),
@@ -46,7 +50,9 @@ class RenderSceneTree {
 
   addElementById(id: string) {
     const renderElementData = this._getRenderData(id)
-    this.addElement(renderElementData)
+    if (renderElementData) {
+      this.addElement(renderElementData)
+    }
   }
 
   addElement(data: RenderElementData) {

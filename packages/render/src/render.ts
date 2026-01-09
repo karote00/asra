@@ -18,8 +18,14 @@ class Render {
     })
   }
 
-  async init(width: number, height: number, backgroundColor: number) {
+  private createApplication() {
     const app = new Application()
+
+    return app
+  }
+
+  async init(width: number, height: number, backgroundColor: number) {
+    const app = this.createApplication()
 
     await app.init({
       width,

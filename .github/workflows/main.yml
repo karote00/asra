@@ -43,7 +43,7 @@ jobs:
         run: yarn gen:turbo
 
       - name: Build React
-        run: yarn react:build # 先執行 react:build，確保測試前已經 build 完成
+        run: yarn react:build
 
       - name: Lint
         run: yarn lint:ci

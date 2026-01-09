@@ -1,13 +1,10 @@
 import type { RectangleRawData } from '@asra/utils'
 import { EntityTypes, NameTypes } from '@asra/utils'
-import Props from './props'
 import Element from './element'
 
 type RectangleDataType = Partial<RectangleRawData>
 
 class Rectangle extends Element {
-  props!: Props
-
   constructor(data?: Partial<RectangleRawData>) {
     super(data)
   }

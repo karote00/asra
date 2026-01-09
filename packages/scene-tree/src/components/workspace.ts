@@ -35,9 +35,10 @@ class Workspace extends Group {
     let result = null
 
     const children = this.get('children')
-    for (let i = 0, childId = children[i]; i < children.length; i++) {
+    for (const childId of children) {
       const child = sceneTree.getElementById(childId)
       if (
+        child &&
         isGroupEntity(child.get('type')) &&
         (child as GroupInstanceTypes).get('children')
       ) {
