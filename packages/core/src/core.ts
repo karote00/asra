@@ -25,7 +25,7 @@ import { createAPIs } from './apis'
 
 import combinations from './combinations'
 inputSystem.setCombinations(combinations)
-
+console.log('test-ci')
 interface CoreRawData {
   version: string
   sceneTree: SceneTreeRawData
