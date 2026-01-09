@@ -1,6 +1,3 @@
-/**
- * @vitest-environment jsdom
- */
 import {
   describe,
   it,
@@ -24,25 +21,10 @@ import { CLEAR_KEY_TIME } from '../constants'
 import { InputEventMappings } from '../event-mappings'
 import * as EventMappingsModule from '../event-mappings'
 
-vi.mock('@asra/utils', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@asra/utils')>()
-  return {
-    ...original,
-    InputSystemEvents: {
-      ...original.InputSystemEvents,
-      INPUT_KEYBOARD_A: 'INPUT_KEYBOARD_A'
-    }
-  }
-})
-
-// We still need to mock this because we want to define custom mappings in tests
 vi.mock('../event-mappings', async (importOriginal) => {
-  const original = await importOriginal<typeof import('../event-mappings')>()
+  const actual = await importOriginal<typeof import('../event-mappings')>()
   return {
-    ...original,
-    InputEventMappings: {
-      ...original.InputEventMappings
-    }
+    ...actual,
   }
 })
 
@@ -56,19 +38,6 @@ describe('InputSystem', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.resetAllMocks()
-
-    const INPUT_KEYBOARD_A = 'INPUT_KEYBOARD_A' as InputSystemEvents
-    vi.mocked(EventMappingsModule).InputEventMappings = {
-      ...InputEventMappings,
-      [INPUT_KEYBOARD_A]: [
-        {
-          type: InputType.KEYBOARD,
-          keys: [keyMap.keys.KeyA],
-          modifiers: []
-        }
-      ]
-    }
 
     // Mock window event listeners
     addEventListenerSpy = vi.spyOn(window, 'addEventListener')
@@ -305,7 +274,7 @@ describe('InputSystem', () => {
 
     expect(triggerActionSpy).toHaveBeenCalledTimes(1)
     expect(triggerActionSpy).toHaveBeenCalledWith(
-      (InputSystemEvents as unknown as Record<string, string>).INPUT_KEYBOARD_A,
+      'INPUT_KEYBOARD_A' as InputSystemEvents,
       expect.objectContaining({
         type: InputType.KEYBOARD,
         keys: [keyMap.keys.KeyA]
@@ -355,7 +324,7 @@ describe('InputSystem', () => {
     inputSystem['checkCombinations'](InputType.KEYBOARD)
 
     expect(triggerActionSpy).toHaveBeenCalledWith(
-      (InputSystemEvents as unknown as Record<string, string>).INPUT_KEYBOARD_A,
+      'INPUT_KEYBOARD_A' as InputSystemEvents,
       expect.objectContaining({
         detail: mockDetail
       })
@@ -386,7 +355,7 @@ describe('InputSystem', () => {
   it('should handle async listeners correctly', async () => {
     const asyncListener = vi.fn(() => Promise.resolve())
     inputSystem.on(
-      (InputSystemEvents as unknown as Record<string, string>).INPUT_KEYBOARD_A,
+      'INPUT_KEYBOARD_A' as InputSystemEvents,
       asyncListener
     )
 
@@ -397,7 +366,7 @@ describe('InputSystem', () => {
       pointer: {} as PointerEventData
     }
     await inputSystem['triggerAction'](
-      (InputSystemEvents as unknown as Record<string, string>).INPUT_KEYBOARD_A,
+      'INPUT_KEYBOARD_A' as InputSystemEvents,
       rawEvent
     )
 
@@ -410,7 +379,7 @@ describe('InputSystem', () => {
     })
     const asyncListener = vi.fn(() => Promise.reject('Test Error'))
     inputSystem.on(
-      (InputSystemEvents as unknown as Record<string, string>).INPUT_KEYBOARD_A,
+      'INPUT_KEYBOARD_A' as InputSystemEvents,
       asyncListener
     )
 
@@ -421,7 +390,7 @@ describe('InputSystem', () => {
       pointer: {} as PointerEventData
     }
     await inputSystem['triggerAction'](
-      (InputSystemEvents as unknown as Record<string, string>).INPUT_KEYBOARD_A,
+      'INPUT_KEYBOARD_A' as InputSystemEvents,
       rawEvent
     )
 
