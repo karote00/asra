@@ -6,19 +6,26 @@
     },
     "dev": {
       "cache": false,
-      "dependsOn": ["^dev"],
-      "outputs": ["dist/**"],
+      "dependsOn": [
+        "^dev"
+      ],
+      "outputs": [
+        "dist/**"
+      ],
       "persistent": true
     },
     "react:start": {
       "cache": false,
-      "outputs": ["dist/**"],
+      "outputs": [
+        "dist/**"
+      ],
       "persistent": true
     },
     "clean": {
       "cache": false
     },
     "test": {},
+    "test:local": {},
     "test:ci": {}
   }
 }
