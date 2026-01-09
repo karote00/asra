@@ -41,6 +41,13 @@ jobs:
       - name: Build turbo.json
         run: yarn gen:turbo
 
+      - name: Debug Turbo
+        run: |
+          echo "=== turbo.json ==="
+          cat turbo.json
+          echo "=== packages/core/package.json ==="
+          cat packages/core/package.json
+
       - name: Build React
         run: yarn react:build
 
