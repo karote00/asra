@@ -34,6 +34,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20.17.0
+          cache: 'yarn'
 
       - name: Install dependencies
         run: yarn install --immutable
@@ -66,6 +67,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20.17.0
+          cache: 'yarn'
 
       - name: Install dependencies
         run: yarn
