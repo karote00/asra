@@ -10,13 +10,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "moduleResolution": "Node",
-    "resolveJsonModule": true,
-    "baseUrl": ".",
-    "paths": {
-      "@asra/render": [
-        "../render/src/index.ts"
-      ]
-    }
+    "resolveJsonModule": true
   },
   "include": [
     "src"

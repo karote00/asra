@@ -13,9 +13,7 @@
     "resolveJsonModule": true
   },
   "include": [
-    "src",
-    "test-setup.ts",
-    "test-global.d.ts"
+    "src"
   ],
   "exclude": [
     "node_modules",
