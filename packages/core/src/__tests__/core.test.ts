@@ -1,94 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Core } from '../core'
-import * as FactoryModule from '@asra/factory'
-import * as InputSystemModule from '@asra/input-system'
-import * as SceneTreeModule from '@asra/scene-tree'
-import * as RenderModule from '@asra/render'
-import * as PropsManagerModule from '@asra/props-manager'
-import * as SystemContextModule from '@asra/system-context'
-import * as InteractionCoreModule from '@asra/interaction-core'
+import factory from '@asra/factory'
+import inputSystem from '@asra/input-system'
+import sceneTree from '@asra/scene-tree'
+import render from '@asra/render'
+import props from '@asra/props-manager'
+import systemContext from '@asra/system-context'
+import interactionCore from '@asra/interaction-core'
 import {
   PrimaryToolType,
   InputSystemEvents,
   PropsComponentRawData,
   Unit
 } from '@asra/utils'
-import type { Mocked } from 'vitest'
 
 describe('Core', () => {
   let core: Core
-  let mockFactory: Mocked<FactoryModule.Factory>
-  let mockInputSystem: Mocked<InputSystemModule.InputSystem>
-  let mockSceneTree: Mocked<SceneTreeModule.SceneTree>
-  let mockRender: Mocked<RenderModule.Render>
-  let mockPropsManager: Mocked<PropsManagerModule.PropsManager>
-  let mockSystemContext: Mocked<SystemContextModule.SystemContext>
-  let mockInteractionCore: Mocked<InteractionCoreModule.InteractionCore>
 
   beforeEach(() => {
     vi.clearAllMocks()
 
-    // Define mock instances directly
-    mockFactory = {
-      startTransaction: vi.fn(),
-      updateTransaction: vi.fn(),
-      endTransaction: vi.fn(),
-      undo: vi.fn(),
-      redo: vi.fn()
-    } as unknown as Mocked<FactoryModule.Factory>
-
-    mockInputSystem = {
-      setCombinations: vi.fn(),
-      on: vi.fn(),
-      switchWatchedElement: vi.fn()
-    } as unknown as Mocked<InputSystemModule.InputSystem>
-
-    mockSceneTree = {
-      init: vi.fn(),
-      load: vi.fn(),
-      save: vi.fn(),
-      addRectangle: vi.fn(),
-      changeComputedData: vi.fn(),
-      resizeElement: vi.fn()
-    } as unknown as Mocked<SceneTreeModule.SceneTree>
-
-    mockRender = {
-      init: vi.fn(),
-      isReady: vi.fn(),
-      getViewportPosition: vi.fn(),
-      getViewportScale: vi.fn(),
-      zoomFit: vi.fn(),
-      panTo: vi.fn(),
-      zoomToCenter: vi.fn()
-    } as unknown as Mocked<RenderModule.Render>
-
-    mockPropsManager = {
-      load: vi.fn(),
-      save: vi.fn()
-    } as unknown as Mocked<PropsManagerModule.PropsManager>
-
-    mockSystemContext = {
-      getCurrentPrimaryTool: vi.fn(),
-      switchPrimaryTool: vi.fn(),
-      updateMouseState: vi.fn(),
-      updateKeyState: vi.fn()
-    } as unknown as Mocked<SystemContextModule.SystemContext>
-
-    mockInteractionCore = {
-      executeAction: vi.fn(),
-      startSession: vi.fn(),
-      updateSession: vi.fn(),
-      endSession: vi.fn()
-    } as unknown as Mocked<InteractionCoreModule.InteractionCore>
-
     core = new Core({
-      inputSystem: mockInputSystem,
-      factory: mockFactory,
-      props: mockPropsManager,
-      render: mockRender,
-      sceneTree: mockSceneTree,
-      systemContext: mockSystemContext,
-      interactionCore: mockInteractionCore
+      inputSystem,
+      factory,
+      props,
+      render,
+      sceneTree,
+      systemContext,
+      interactionCore
     })
   })
 

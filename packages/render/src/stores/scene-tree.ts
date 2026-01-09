@@ -29,10 +29,7 @@ class RenderSceneTree {
     // Create all element render node
     sceneTree.getAllElements().forEach((element) => {
       const renderElementData = this._getRenderData(element.get('id'))
-      if (
-        element.get('type') !== EntityTypes.WORKSPACE &&
-        renderElementData
-      ) {
+      if (element.get('type') !== EntityTypes.WORKSPACE && renderElementData) {
         this.addElement(renderElementData)
       }
     })
