@@ -24,7 +24,7 @@ import * as EventMappingsModule from '../event-mappings'
 vi.mock('../event-mappings', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../event-mappings')>()
   return {
-    ...actual,
+    ...actual
   }
 })
 
@@ -354,10 +354,7 @@ describe('InputSystem', () => {
 
   it('should handle async listeners correctly', async () => {
     const asyncListener = vi.fn(() => Promise.resolve())
-    inputSystem.on(
-      'INPUT_KEYBOARD_A' as InputSystemEvents,
-      asyncListener
-    )
+    inputSystem.on('INPUT_KEYBOARD_A' as InputSystemEvents, asyncListener)
 
     const rawEvent: RawInputEvent = {
       type: InputType.KEYBOARD,
@@ -378,10 +375,7 @@ describe('InputSystem', () => {
       /* no-op */
     })
     const asyncListener = vi.fn(() => Promise.reject('Test Error'))
-    inputSystem.on(
-      'INPUT_KEYBOARD_A' as InputSystemEvents,
-      asyncListener
-    )
+    inputSystem.on('INPUT_KEYBOARD_A' as InputSystemEvents, asyncListener)
 
     const rawEvent: RawInputEvent = {
       type: InputType.KEYBOARD,
