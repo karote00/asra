@@ -48,11 +48,14 @@ export default class SceneTreeStore {
 
   reload() {
     this.workspaceId = this.sceneTree.workspace
+    const currentWs = this.sceneTree.currentWorkspace
+
     if (
       this.workspaceId &&
-      this.sceneTree.currentWorkspace.get('id') === this.workspaceId
+      currentWs &&
+      currentWs.get('id') === this.workspaceId
     ) {
-      const ws = this.sceneTree.currentWorkspace
+      const ws = currentWs
       this.workspace = new BehaviorSubject<UIWorkspaceData>({
         id: ws.get('id'),
         name: ws.get('name'),
