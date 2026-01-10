@@ -1,10 +1,14 @@
 # Agent Protocol
 
-This file serves as an index for the agent protocols. Please read the specific rule file relevant to your current task.
+**Universal AI entry point** - Read this before any work on this project.
 
-- **For Starting a Session**: Read `.project/rules/prime-directive.md`
-- **For Development Workflows (Phases)**: Read `.project/rules/development-process.md`
-- **For Using Project Tools**: Read `.project/rules/tool-awareness.md`
-- **For Documentation Rules**: Read `.project/rules/documentation-strategy.md`
-- **For Updating Changelogs**: Read `.project/rules/changelog-management.md`
-- **For Handling New User Requests**: Read `.project/rules/request-handling-workflow.md`
+## Essential Reading (in order)
+1. **[.project/AI_ESSENTIALS.md](.project/AI_ESSENTIALS.md)** - Core rules and guidelines (READ FIRST)
+2. **[.project/ARCHITECTURE.md](.project/ARCHITECTURE.md)** - Technical architecture details
+3. **[.project/WORKFLOW.md](.project/WORKFLOW.md)** - Development process phases
+
+## Quick Reference
+- **Testing**: `yarn workspace @package/name test:local`
+- **Formatting**: `yarn lint:ci` (check) / `yarn lint --fix` (fix)
+- **Build**: `yarn react:build`
+- **Architecture**: Communication-Driven Development (CDD) with typed events
