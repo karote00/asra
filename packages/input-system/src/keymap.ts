@@ -21,9 +21,17 @@ export class KeyMap {
   }
 
   private detectOS(): Platforms {
-    const platform = navigator.userAgent.toLowerCase()
-    if (platform.includes('mac')) return Platforms.MAC
-    if (platform.includes('win')) return Platforms.WINDOWS
+    // navigator.platform is often more reliable than userAgent for OS detection
+    const platform = (
+      (navigator as any).userAgentData?.platform ||
+      navigator.platform ||
+      ''
+    ).toLowerCase()
+    const userAgent = navigator.userAgent.toLowerCase()
+
+    if (platform.includes('mac') || userAgent.includes('mac')) return Platforms.MAC
+    if (platform.includes('win') || userAgent.includes('win'))
+      return Platforms.WINDOWS
     return Platforms.LINUX
   }
 
@@ -40,8 +48,11 @@ export class KeyMap {
       AltRight: 'Alt',
       MetaLeft: 'Meta',
       MetaRight: 'Meta',
+      OSLeft: 'Meta',
+      OSRight: 'Meta',
       Space: 'Space',
       Enter: 'Enter',
+      // ... same as before
       Backspace: 'Backspace',
 
       // Arrow Key
@@ -138,14 +149,10 @@ export class KeyMap {
     }
 
     if (this.os === Platforms.MAC) {
-      baseMap['MetaLeft'] = 'Meta'
-      baseMap['MetaRight'] = 'Meta'
       baseMap['AltLeft'] = 'Alt'
       baseMap['AltRight'] = 'Alt'
       baseMap['Delete'] = 'Delete'
     } else if (this.os === Platforms.WINDOWS || this.os === Platforms.LINUX) {
-      baseMap['MetaLeft'] = 'Windows'
-      baseMap['MetaRight'] = 'Windows'
       baseMap['Delete'] = 'Del'
     }
 

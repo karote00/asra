@@ -268,7 +268,6 @@ class InputSystem {
     )
     const activeModifiers = this.getActiveModifiers(this.activeKeys)
     const allModifiers = this.getAllModifiers(activeModifiers)
-
     for (const [eventName, combos] of Object.entries(InputEventMappings)) {
       for (const combo of combos) {
         if (this.isExactMatch(type, currentKeys, combo, activeModifiers)) {
