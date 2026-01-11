@@ -7,7 +7,11 @@ const Zoom = () => {
   return (
     <div className="flex">
       <Text label="Zoom" />
-      <div className="w-14 text-right">
+      <div
+        className="w-14 text-right"
+        data-testid="zoom-level"
+        data-value={zoom}
+      >
         <Text label={`${(zoom * 100).toFixed(1)}%`} />
       </div>
     </div>
