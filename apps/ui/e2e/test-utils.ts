@@ -74,7 +74,7 @@ export async function dragOnCanvas(
 export async function waitForAppReady(page: Page) {
     await page.waitForLoadState('networkidle')
     await page.waitForSelector('#viewport-anchor')
-    await page.waitForSelector('[style*="grid-area: header"]')
+    await page.waitForSelector('[data-testid="toolbar"]')
     // Extra wait for canvas to be ready
     await page.waitForSelector('canvas')
     await page.waitForTimeout(500) // Allow rendering to complete
@@ -114,7 +114,7 @@ export async function createRectangle(
  * Perform an Undo operation
  */
 export async function undo(page: Page) {
-    // Click on the toolbar/header area (neutral zone) to gain focus without triggering tools
+    // Click on the toolbar area (neutral zone) to gain focus without triggering tools
     const toolbar = getToolbar(page)
     await toolbar.click({ position: { x: 5, y: 5 } })
 
@@ -129,7 +129,7 @@ export async function undo(page: Page) {
  * Perform a Redo operation
  */
 export async function redo(page: Page) {
-    // Click on the toolbar/header area (neutral zone) to gain focus without triggering tools
+    // Click on the toolbar area (neutral zone) to gain focus without triggering tools
     const toolbar = getToolbar(page)
     await toolbar.click({ position: { x: 5, y: 5 } })
 
@@ -145,7 +145,7 @@ export async function redo(page: Page) {
  * Check if an element is selected by checking the Properties Panel
  */
 export async function hasSelectedElement(page: Page): Promise<boolean> {
-    const propertiesPanel = page.locator('[style*="grid-area: right-sidebar"]')
+    const propertiesPanel = getPropertiesPanel(page)
     const layoutHeader = propertiesPanel.locator('text=Layout')
     return await layoutHeader.isVisible()
 }
@@ -154,10 +154,8 @@ export async function hasSelectedElement(page: Page): Promise<boolean> {
  * Get the number of elements in the Contents Panel
  */
 export async function getElementCount(page: Page): Promise<number> {
-    const contentsPanel = page.locator('[style*="grid-area: left-sidebar"]')
-    const elements = contentsPanel.locator(
-        '[class*="flex items-center justify-between"]'
-    )
+    const contentsPanel = getContentsPanel(page)
+    const elements = contentsPanel.locator('[data-layer-element="true"]')
     return await elements.count()
 }
 
@@ -165,21 +163,21 @@ export async function getElementCount(page: Page): Promise<number> {
  * Get the Contents Panel locator
  */
 export function getContentsPanel(page: Page) {
-    return page.locator('[style*="grid-area: left-sidebar"]')
+    return page.getByTestId('contents-panel')
 }
 
 /**
  * Get the Properties Panel locator
  */
 export function getPropertiesPanel(page: Page) {
-    return page.locator('[style*="grid-area: right-sidebar"]')
+    return page.getByTestId('properties-panel')
 }
 
 /**
  * Get the Toolbar locator
  */
 export function getToolbar(page: Page) {
-    return page.locator('[style*="grid-area: header"]')
+    return page.getByTestId('toolbar')
 }
 
 /**

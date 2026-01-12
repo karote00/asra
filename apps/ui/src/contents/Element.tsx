@@ -68,6 +68,7 @@ const Element = ({ elementId, isSelected }: ElementData) => {
       className={`flex items-center justify-between p-2 ${bgColor} ${hoverBgColor} text-gray-200`}
       onClick={handleElementClick}
       data-testid={`element-item-${id}`}
+      data-layer-element="true"
       data-selected={isSelected}
     >
       <div className="flex items-center space-x-1 gap-1">

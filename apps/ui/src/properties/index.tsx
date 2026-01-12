@@ -13,6 +13,7 @@ const Properties: React.FC = () => {
     <div
       className={`w-${COLUMN_WIDTH} z-10 dark:bg-panel-darker dark:border-l dark:border-border-dark overflow-y-auto`}
       style={{ gridArea: 'right-sidebar' }}
+      data-testid="properties-panel"
     >
       {elementSelection.size && (
         <>
