@@ -50,7 +50,7 @@ class DataTransact {
   }
 
   update(event: UpdateTransactionEvent) {
-    if (this.isTransacting <= 0 || (event.option && !event.option.undoable)) {
+    if (this.isTransacting <= 0) {
       return
     }
 
@@ -61,7 +61,9 @@ class DataTransact {
       payload: newPayload
     }
 
-    this.changes.push(newEvent)
+    if (!(event.options && !event.options.undoable)) {
+      this.changes.push(newEvent)
+    }
 
     const map = ChangesMaps[event.payload.owner as OWNER]
     if (map instanceof Y.Array) {
@@ -84,7 +86,7 @@ class DataTransact {
 
   commitUndo() {
     // If changes are coming from Undo or Redo events, they should not push back to list again
-    if (!this.isInUndo() && !this.isInRedo()) {
+    if (!this.isInUndo() && !this.isInRedo() && this.changes.length > 0) {
       this.undoStack.push(this.changes)
       this.changes = []
       this.redoStack = []

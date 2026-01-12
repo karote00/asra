@@ -8,7 +8,10 @@ import { PanZoomHandlers } from './panzoom'
 
 export const InteractionCoreHandlers: Record<
   InteractionActions,
-  (payload?: InteractionEvent['payload']) => void
+  (
+    payload?: InteractionEvent['payload'],
+    options?: InteractionEvent['options']
+  ) => void
 > = {
   ...TransactionHandlers,
   ...PrimaryToolHandlers,

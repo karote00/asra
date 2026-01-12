@@ -1,6 +1,7 @@
 import {
   DataTypes,
   DimensionData,
+  EVENT_OPTIONS,
   PositionData,
   PrimaryToolType
 } from '@asra/utils'
@@ -35,8 +36,8 @@ export const initInteractionCoreHandlers = (
   initResizeElementHandlers(deps.render, {
     changeComputedData: (key: string, data: DataTypes) =>
       apis.changeComputedData(key, data),
-    resizeElement: (pos: PositionData, dimension: DimensionData) =>
-      apis.resizeElement(pos, dimension)
+    resizeElement: (pos: PositionData, dimension: DimensionData, options?: EVENT_OPTIONS) =>
+      apis.resizeElement(pos, dimension, options)
   })
 
   initResetElementSizeSubscriber({

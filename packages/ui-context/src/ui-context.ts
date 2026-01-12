@@ -59,6 +59,10 @@ class UIContext {
     key: K,
     data: ComputedAttrs[K][]
   ) {
+    if (!data.length) {
+      return
+    }
+
     const compareKey = key as keyof ElementProperties
     if (generalKeysToCompare.includes(compareKey)) {
       const result = this.computedSharedProperty(

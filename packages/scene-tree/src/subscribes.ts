@@ -14,14 +14,14 @@ import {
 import type {
   ComputedAttrs,
   ElementInstanceTypes,
-  EVNET_OPTIONS
+  EVENT_OPTIONS
 } from '@asra/utils'
 import { UNDO } from '@asra/utils'
 import propsManager from '@asra/props-manager'
 import sceneTree from './sceneTree'
 import { stripNonRawFields } from './utils'
 
-const commitSceneTreeTransaction = (options?: EVNET_OPTIONS) => {
+const commitSceneTreeTransaction = (options?: EVENT_OPTIONS) => {
   sceneTree.changes.forEach((change) => {
     updateTransaction(change.eventName, change, options)
   })

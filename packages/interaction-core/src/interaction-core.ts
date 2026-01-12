@@ -16,6 +16,10 @@ class InteractionCore {
     systemContextSnapshot: SystemContextSnapshot,
     detail?: DetailType
   ) {
+    if (this._previousSession) {
+      this.cancelPreviousSession()
+    }
+
     const interaction = decideInteraction(
       eventName,
       systemContextSnapshot,
@@ -30,6 +34,10 @@ class InteractionCore {
     systemContextSnapshot: SystemContextSnapshot,
     detail?: DetailType
   ) {
+    if (this._previousSession) {
+      this.cancelPreviousSession()
+    }
+
     this.dispatchSession({
       type: InteractionActions.INTERACTION_START_TRANSACTION
     })
@@ -79,13 +87,9 @@ class InteractionCore {
       return
     }
 
-    if (this._previousSession) {
-      this.cancelPreviousSession()
-    }
-
     const handler = InteractionCoreHandlers[interaction.type]
     if (handler) {
-      handler(interaction.payload)
+      handler(interaction.payload, interaction.options)
     }
 
     this._previousSession = interaction

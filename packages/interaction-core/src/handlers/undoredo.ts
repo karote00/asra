@@ -3,7 +3,8 @@ import { InteractionActions, InteractionEvent } from '@asra/utils'
 
 export const UndoRedoHandlers = {
   [InteractionActions.INTERACTION_UNDOREDO]: (
-    payload?: InteractionEvent['payload']
+    payload?: InteractionEvent['payload'],
+    options?: InteractionEvent['options']
   ) => {
     decideToUndoRedo(payload.undoredo)
   }

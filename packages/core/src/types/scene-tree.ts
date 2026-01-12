@@ -2,7 +2,7 @@ import {
   CreateRectangleData,
   DataTypes,
   DimensionData,
-  EVNET_OPTIONS,
+  EVENT_OPTIONS,
   PositionData,
   SceneTreeRawData
 } from '@asra/utils'
@@ -18,7 +18,7 @@ export interface SceneTreeActionAPIs {
   resizeElement: (
     pos: PositionData,
     dimension: DimensionData,
-    options?: EVNET_OPTIONS
+    options?: EVENT_OPTIONS
   ) => void
 }
 
