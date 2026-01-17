@@ -48,6 +48,8 @@ yarn workspace @package/name build  # Package-specific build
 
 ## Critical Rules
 
+- **Project Context**: Always read `.project/` folder first for architecture patterns
+- **External APIs**: Use Context7 MCP server for libraries/frameworks/APIs (see `.antigravity/rules.md`)
 - Read `.project/AI_ESSENTIALS.md` before any work
 - Use direct assignment for mocking dynamic methods: `instance.method = vi.fn()`
 - No commits without explicit user approval
