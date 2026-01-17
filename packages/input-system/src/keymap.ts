@@ -23,13 +23,15 @@ export class KeyMap {
   private detectOS(): Platforms {
     // navigator.platform is often more reliable than userAgent for OS detection
     const platform = (
-      (navigator as any).userAgentData?.platform ||
+      (navigator as unknown as { userAgentData?: { platform?: string } })
+        .userAgentData?.platform ||
       navigator.platform ||
       ''
     ).toLowerCase()
     const userAgent = navigator.userAgent.toLowerCase()
 
-    if (platform.includes('mac') || userAgent.includes('mac')) return Platforms.MAC
+    if (platform.includes('mac') || userAgent.includes('mac'))
+      return Platforms.MAC
     if (platform.includes('win') || userAgent.includes('win'))
       return Platforms.WINDOWS
     return Platforms.LINUX

@@ -1,29 +1,34 @@
 import {
   endSession,
   executeAction,
-  requestSystemContextSnapshot,
   startSession,
   updateSession
 } from '@asra/reactive-events'
 import { InputSystemEvents, DetailType } from '@asra/utils'
-import { InteractionCoreAPIs } from '../types'
+import { InteractionCoreAPIs, SystemContextRequestAPIs } from '../types'
 
-export const createInteractionCoreAPIs = (): InteractionCoreAPIs => {
+export const createInteractionCoreAPIs = (
+  systemContextRequests: SystemContextRequestAPIs
+): InteractionCoreAPIs => {
   return {
-    async executeAction(eventName: InputSystemEvents, detail?: DetailType) {
-      const systemContextSnapshot = await requestSystemContextSnapshot()
+    executeAction(eventName: InputSystemEvents, detail?: DetailType) {
+      const systemContextSnapshot =
+        systemContextRequests.getSystemContextSnapshot()
       executeAction(eventName, systemContextSnapshot, detail)
     },
-    async startSession(eventName: InputSystemEvents, detail?: DetailType) {
-      const systemContextSnapshot = await requestSystemContextSnapshot()
+    startSession(eventName: InputSystemEvents, detail?: DetailType) {
+      const systemContextSnapshot =
+        systemContextRequests.getSystemContextSnapshot()
       startSession(eventName, systemContextSnapshot, detail)
     },
-    async updateSession(eventName: InputSystemEvents, detail?: DetailType) {
-      const systemContextSnapshot = await requestSystemContextSnapshot()
+    updateSession(eventName: InputSystemEvents, detail?: DetailType) {
+      const systemContextSnapshot =
+        systemContextRequests.getSystemContextSnapshot()
       updateSession(eventName, systemContextSnapshot, detail)
     },
-    async endSession(eventName: InputSystemEvents, detail?: DetailType) {
-      const systemContextSnapshot = await requestSystemContextSnapshot()
+    endSession(eventName: InputSystemEvents, detail?: DetailType) {
+      const systemContextSnapshot =
+        systemContextRequests.getSystemContextSnapshot()
       endSession(eventName, systemContextSnapshot, detail)
     }
   }

@@ -36,8 +36,11 @@ export const initInteractionCoreHandlers = (
   initResizeElementHandlers(deps.render, {
     changeComputedData: (key: string, data: DataTypes) =>
       apis.changeComputedData(key, data),
-    resizeElement: (pos: PositionData, dimension: DimensionData, options?: EVENT_OPTIONS) =>
-      apis.resizeElement(pos, dimension, options)
+    resizeElement: (
+      pos: PositionData,
+      dimension: DimensionData,
+      options?: EVENT_OPTIONS
+    ) => apis.resizeElement(pos, dimension, options)
   })
 
   initResetElementSizeSubscriber({

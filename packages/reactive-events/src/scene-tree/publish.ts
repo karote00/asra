@@ -3,7 +3,6 @@ import type {
   CreateRectangleData,
   DataTypes,
   ElementRawData,
-  EVENT_OPTIONS,
   GroupInstanceTypes,
   SceneTreeRawData
 } from '@asra/utils'

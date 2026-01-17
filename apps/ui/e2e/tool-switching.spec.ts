@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test'
-import { waitForAppReady, getToolbar, getActiveTool } from './test-utils'
+import {
+  waitForAppReady,
+  // getToolbar,
+  getActiveTool
+} from './test-utils'
 
 /**
  * E2E Tests for Tool Switching

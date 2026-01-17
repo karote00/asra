@@ -1,10 +1,10 @@
 import { decideToZoomFit } from '@asra/reactive-events'
-import { InteractionActions } from '@asra/utils'
+import { InteractionActions, DetailType } from '@asra/utils'
 
 export const ZoomFitHandlers = {
   [InteractionActions.INTERACTION_ZOOM_FIT]: (
-    payload?: any,
-    options?: any
+    payload?: DetailType,
+    options?: DetailType
   ) => {
     decideToZoomFit()
   }

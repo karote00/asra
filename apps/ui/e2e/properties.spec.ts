@@ -3,7 +3,7 @@ import {
   waitForAppReady,
   resetCanvas,
   createRectangle,
-  hasSelectedElement,
+  // hasSelectedElement,
   clickCanvas,
   getPropertiesPanel,
   getContentsPanel
