@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Core } from '../core'
 import factory from '@asra/factory'
 import inputSystem from '@asra/input-system'
 import sceneTree from '@asra/scene-tree'
@@ -13,6 +12,8 @@ import {
   PropsComponentRawData,
   Unit
 } from '@asra/utils'
+
+import { Core } from '../core'
 
 describe('Core', () => {
   let core: Core

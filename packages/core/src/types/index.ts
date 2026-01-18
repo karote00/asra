@@ -29,7 +29,9 @@ import {
   Requests,
   RequestsDeps,
   SystemContextRequests,
-  SystemContextRequestsDeps
+  SystemContextRequestsDeps,
+  PropsRequests,
+  PropsRequestDeps
 } from './requests'
 
 export { HandlerDeps } from './deps'
@@ -62,7 +64,9 @@ export {
   Requests,
   RequestsDeps,
   SystemContextRequests,
-  SystemContextRequestsDeps
+  SystemContextRequestsDeps,
+  PropsRequests,
+  PropsRequestDeps
 }
 
 export type CoreAPIs = TransactionAPIs &

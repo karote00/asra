@@ -5,8 +5,18 @@ import {
   SystemContextRequests,
   SystemContextRequestsDeps
 } from './system-context'
+import { PropsRequests, PropsRequestDeps } from './props'
 
-export { SystemContextRequests, SystemContextRequestsDeps }
+export {
+  SystemContextRequests,
+  SystemContextRequestsDeps,
+  PropsRequests,
+  PropsRequestDeps
+}
 
-export type RequestsDeps = SystemContextRequestsDeps
-export type Requests = SystemContextRequests
+export type RequestsDeps = SystemContextRequestsDeps & PropsRequestDeps
+
+export interface Requests {
+  systemContextRequests: SystemContextRequests
+  propsRequests: PropsRequests
+}

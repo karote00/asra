@@ -18,9 +18,9 @@ export const createAPIs = (requests: Requests): CoreAPIs => {
     ...createUndoAPIs(),
     ...createRenderAPIs(),
     ...createSceneTreeAPIs(),
-    ...createPropsAPIs(),
+    ...createPropsAPIs(requests.propsRequests),
     ...createElementSelectionAPIs(),
     ...createSystemContextAPIs(),
-    ...createInteractionCoreAPIs(requests)
+    ...createInteractionCoreAPIs(requests.systemContextRequests)
   }
 }
