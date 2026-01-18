@@ -10,7 +10,7 @@ import {
  * Dependencies for System Context Request APIs
  * System context dependencies injected from outside
  */
-export interface SystemContextRequestDeps {
+export interface SystemContextRequestsDeps {
   systemContext: SystemContext
 }
 
@@ -19,7 +19,7 @@ export interface SystemContextRequestDeps {
  * Type definitions for synchronous system context data access
  */
 
-export interface SystemContextRequestAPIs {
+export interface SystemContextRequests {
   getSystemContextSnapshot: () => SystemContextSnapshot
   getCurrentPrimaryTool: () => PrimaryToolType
   getMouseState: () => MouseSnapshot

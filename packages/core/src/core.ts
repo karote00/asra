@@ -22,7 +22,7 @@ import {
   TransactionAPIs
 } from './types'
 import { createAPIs } from './apis'
-import { createRequestAPIs } from './requests'
+import { createRequests } from './requests'
 
 import combinations from './combinations'
 inputSystem.setCombinations(combinations)
@@ -87,10 +87,10 @@ class Core implements CoreAPIs {
   endSession!: InteractionCoreAPIs['endSession']
 
   constructor(private readonly deps: CoreDeps) {
-    const requestAPIs = createRequestAPIs({
+    const requests = createRequests({
       systemContext: this.deps.systemContext
     })
-    const apis = createAPIs(requestAPIs)
+    const apis = createAPIs(requests)
 
     initAllHandlers(
       {

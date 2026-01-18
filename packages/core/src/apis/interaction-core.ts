@@ -5,10 +5,10 @@ import {
   updateSession
 } from '@asra/reactive-events'
 import { InputSystemEvents, DetailType } from '@asra/utils'
-import { InteractionCoreAPIs, SystemContextRequestAPIs } from '../types'
+import { InteractionCoreAPIs, SystemContextRequests } from '../types'
 
 export const createInteractionCoreAPIs = (
-  systemContextRequests: SystemContextRequestAPIs
+  systemContextRequests: SystemContextRequests
 ): InteractionCoreAPIs => {
   return {
     executeAction(eventName: InputSystemEvents, detail?: DetailType) {

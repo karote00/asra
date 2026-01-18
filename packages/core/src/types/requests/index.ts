@@ -2,11 +2,11 @@
 // Domain-specific type definitions for request layer
 
 import {
-  SystemContextRequestAPIs,
-  SystemContextRequestDeps
+  SystemContextRequests,
+  SystemContextRequestsDeps
 } from './system-context'
 
-export { SystemContextRequestAPIs, SystemContextRequestDeps }
+export { SystemContextRequests, SystemContextRequestsDeps }
 
-export type RequestAPIsDeps = SystemContextRequestDeps
-export type RequestAPIs = SystemContextRequestAPIs
+export type RequestsDeps = SystemContextRequestsDeps
+export type Requests = SystemContextRequests

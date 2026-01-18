@@ -1,11 +1,11 @@
 // Request API Layer - Pure data access functions
 // This layer provides synchronous access to system data without business logic
 
-import { createSystemContextRequestAPIs } from './system-context'
-import { RequestAPIs, RequestAPIsDeps } from '../types'
+import { createSystemContextRequests } from './system-context'
+import { Requests, RequestsDeps } from '../types'
 
-export const createRequestAPIs = (deps: RequestAPIsDeps): RequestAPIs => {
+export const createRequests = (deps: RequestsDeps): Requests => {
   return {
-    ...createSystemContextRequestAPIs({ systemContext: deps.systemContext })
+    ...createSystemContextRequests({ systemContext: deps.systemContext })
   }
 }

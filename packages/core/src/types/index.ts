@@ -26,10 +26,10 @@ import {
   InteractionCoreActionAPIs
 } from './interaction-core'
 import {
-  RequestAPIs,
-  RequestAPIsDeps,
-  SystemContextRequestAPIs,
-  SystemContextRequestDeps
+  Requests,
+  RequestsDeps,
+  SystemContextRequests,
+  SystemContextRequestsDeps
 } from './requests'
 
 export { HandlerDeps } from './deps'
@@ -59,10 +59,10 @@ export {
   InteractionCoreSessionAPIs,
   InteractionCoreAPIs,
   KeyStateAPIs,
-  RequestAPIs,
-  RequestAPIsDeps,
-  SystemContextRequestAPIs,
-  SystemContextRequestDeps
+  Requests,
+  RequestsDeps,
+  SystemContextRequests,
+  SystemContextRequestsDeps
 }
 
 export type CoreAPIs = TransactionAPIs &

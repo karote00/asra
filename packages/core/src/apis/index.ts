@@ -8,9 +8,9 @@ import { createInputSystemAPIs } from './input-system'
 import { createPropsAPIs } from './props'
 import { createSystemContextAPIs } from './system-context'
 import { createInteractionCoreAPIs } from './interaction-core'
-import { CoreAPIs, RequestAPIs } from '../types'
+import { CoreAPIs, Requests } from '../types'
 
-export const createAPIs = (requestAPIs: RequestAPIs): CoreAPIs => {
+export const createAPIs = (requests: Requests): CoreAPIs => {
   return {
     ...createTransactionAPIs(),
     ...createInputSystemAPIs(),
@@ -21,6 +21,6 @@ export const createAPIs = (requestAPIs: RequestAPIs): CoreAPIs => {
     ...createPropsAPIs(),
     ...createElementSelectionAPIs(),
     ...createSystemContextAPIs(),
-    ...createInteractionCoreAPIs(requestAPIs)
+    ...createInteractionCoreAPIs(requests)
   }
 }
