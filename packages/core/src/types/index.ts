@@ -31,12 +31,19 @@ import {
   SystemContextRequests,
   SystemContextRequestsDeps,
   PropsRequests,
-  PropsRequestDeps
+  PropsRequestDeps,
+  SceneTreeRequests,
+  SceneTreeRequestDeps,
+  FactoryRequests,
+  FactoryRequestDeps,
+  RenderRequests,
+  RenderRequestDeps
 } from './requests'
 
 export { HandlerDeps } from './deps'
 
 export {
+  // APIs
   TransactionAPIs,
   TransactionActionAPIs,
   InputSystemRawAPIs,
@@ -61,12 +68,20 @@ export {
   InteractionCoreSessionAPIs,
   InteractionCoreAPIs,
   KeyStateAPIs,
+
+  // Requests
   Requests,
   RequestsDeps,
   SystemContextRequests,
   SystemContextRequestsDeps,
   PropsRequests,
-  PropsRequestDeps
+  PropsRequestDeps,
+  SceneTreeRequests,
+  SceneTreeRequestDeps,
+  FactoryRequests,
+  FactoryRequestDeps,
+  RenderRequests,
+  RenderRequestDeps
 }
 
 export type CoreAPIs = TransactionAPIs &

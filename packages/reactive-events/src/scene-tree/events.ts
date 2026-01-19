@@ -1,5 +1,4 @@
 import type {
-  CreateRectangleData,
   DataTypes,
   ElementRawData,
   GroupInstanceTypes,
@@ -22,36 +21,12 @@ export interface SceneTreeLoadCompleteEvent {
   type: EventTypes
 }
 
-export interface SceneTreeSaveDataEvent {
-  type: EventTypes
-  payload: {
-    requestId: string
-  }
-}
-
-export interface FinishSceneTreeSaveDataEvent {
-  type: EventTypes
-  payload: {
-    requestId: string
-    data: SceneTreeRawData
-  }
-}
-
 export interface AddElementEvent {
   type: EventTypes
   payload: {
-    requestId: string
-    data: CreateRectangleData
+    data: ElementRawData
     parent?: GroupInstanceTypes
     index?: number
-  }
-}
-
-export interface FinishAddElementEvent {
-  type: EventTypes
-  payload: {
-    requestId: string
-    elementId: string
   }
 }
 
@@ -90,10 +65,7 @@ export type SceneTreeEvents =
   | SceneTreeInitEvent
   | SceneTreeLoadDataEvent
   | SceneTreeLoadCompleteEvent
-  | SceneTreeSaveDataEvent
-  | FinishSceneTreeSaveDataEvent
   | AddElementEvent
-  | FinishAddElementEvent
   | RemoveElementEvent
   | UpdateComputedDataEvent
   | ChangeComputedDataEvent

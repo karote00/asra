@@ -1,13 +1,15 @@
-import { initRender, renderIsReady } from '@asra/reactive-events'
-import { RenderRawAPIs } from '../types'
+import { renderIsReady } from '@asra/reactive-events'
+import { RenderRawAPIs, RenderRequests } from '../types'
 
-export const createRenderAPIs = (): RenderRawAPIs => {
+export const createRenderAPIs = (
+  renderRequests: RenderRequests
+): RenderRawAPIs => {
   return {
     renderIsReady() {
       renderIsReady()
     },
     async initRender(width: number, height: number, color: number) {
-      return await initRender(width, height, color)
+      return await renderRequests.initRender(width, height, color)
     }
   }
 }

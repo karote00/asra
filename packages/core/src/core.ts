@@ -89,7 +89,10 @@ class Core implements CoreAPIs {
   constructor(private readonly deps: CoreDeps) {
     const requests = createRequests({
       systemContext: this.deps.systemContext,
-      props: this.deps.props
+      props: this.deps.props,
+      sceneTree: this.deps.sceneTree,
+      factory: this.deps.factory,
+      render: this.deps.render
     })
     const apis = createAPIs(requests)
 

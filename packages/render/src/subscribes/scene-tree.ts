@@ -49,7 +49,7 @@ let hasInit = false
 
 let sceneTreeLoadCompleteSubscription = {
   // eslint-disable-next-line @typescript-eslint/no-empty-function
-  unsubscribe: () => {}
+  unsubscribe: () => { }
 }
 
 export const initSceneTreeDataContext = () => {

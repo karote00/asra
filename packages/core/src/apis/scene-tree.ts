@@ -1,14 +1,12 @@
 import {
   endTransaction,
-  addRectangle,
   selectElements,
   startTransaction,
   sceneTreeLoadComplete,
   requestElementSelection,
   changeComputedData,
   sceneTreeInit,
-  sceneTreeLoadData,
-  sceneTreeSaveData
+  sceneTreeLoadData
 } from '@asra/reactive-events'
 import {
   CreateRectangleData,
@@ -18,9 +16,12 @@ import {
   DimensionData,
   EVENT_OPTIONS
 } from '@asra/utils'
-import { SceneTreeAPIs } from '../types'
+import { SceneTreeAPIs, SceneTreeRequests, FactoryRequests } from '../types'
 
-export const createSceneTreeAPIs = (): SceneTreeAPIs => {
+export const createSceneTreeAPIs = (
+  sceneTreeRequests: SceneTreeRequests,
+  factoryRequests: FactoryRequests
+): SceneTreeAPIs => {
   return {
     sceneTreeInit() {
       sceneTreeInit()
@@ -30,12 +31,13 @@ export const createSceneTreeAPIs = (): SceneTreeAPIs => {
       sceneTreeLoadData(data)
       sceneTreeLoadComplete()
     },
-    async sceneTreeSaveData() {
-      return await sceneTreeSaveData()
+    sceneTreeSaveData() {
+      return sceneTreeRequests.sceneTreeSaveData()
     },
-    async addRectangle(data: CreateRectangleData) {
+    addRectangle(data: CreateRectangleData) {
       startTransaction()
-      const newElementId = await addRectangle(data)
+      const inUndoRedo = factoryRequests.isInUndoRedo()
+      const newElementId = sceneTreeRequests.addRectangle(data, inUndoRedo)
       selectElements([newElementId])
       endTransaction()
     },

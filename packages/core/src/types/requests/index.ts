@@ -6,17 +6,33 @@ import {
   SystemContextRequestsDeps
 } from './system-context'
 import { PropsRequests, PropsRequestDeps } from './props'
+import { SceneTreeRequestDeps, SceneTreeRequests } from './scene-tree'
+import { FactoryRequests, FactoryRequestDeps } from './factory'
+import { RenderRequestDeps, RenderRequests } from './render'
 
 export {
   SystemContextRequests,
   SystemContextRequestsDeps,
   PropsRequests,
-  PropsRequestDeps
+  PropsRequestDeps,
+  SceneTreeRequests,
+  SceneTreeRequestDeps,
+  FactoryRequests,
+  FactoryRequestDeps,
+  RenderRequests,
+  RenderRequestDeps
 }
 
-export type RequestsDeps = SystemContextRequestsDeps & PropsRequestDeps
+export type RequestsDeps = SystemContextRequestsDeps &
+  PropsRequestDeps &
+  SceneTreeRequestDeps &
+  FactoryRequestDeps &
+  RenderRequestDeps
 
 export interface Requests {
   systemContextRequests: SystemContextRequests
   propsRequests: PropsRequests
+  sceneTreeRequests: SceneTreeRequests
+  factoryRequests: FactoryRequests
+  renderRequests: RenderRequests
 }

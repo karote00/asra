@@ -31,6 +31,7 @@ export default class SelectionStore {
           acc.push(elementData)
           return acc
         }, [] as ComputedAttrs[])
+
         if (selectedIds.size) {
           uiContext.updateComputedProperties(allElementData)
         }

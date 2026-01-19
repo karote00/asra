@@ -10,7 +10,7 @@ import {
 export interface SceneTreeRawAPIs {
   sceneTreeInit: () => void
   sceneTreeLoadData: (data: SceneTreeRawData) => void
-  sceneTreeSaveData: () => Promise<SceneTreeRawData>
+  sceneTreeSaveData: () => SceneTreeRawData
 }
 
 export interface SceneTreeActionAPIs {

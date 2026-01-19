@@ -12,7 +12,7 @@ class RenderSelection {
 
   getElementSelection() {
     const selection = this.selectionManager.get(SELECTION_TYPES.ELEMENT)
-    return selection ? selection.getSelectedIds() : []
+    return selection ? [...selection.getSelectedIds()] : []
   }
 
   updateSelection(type: SELECTION_TYPES) {
