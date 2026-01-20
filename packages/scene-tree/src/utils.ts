@@ -59,10 +59,10 @@ const DefaultRawKeys: (keyof ElementRawData)[] = ['id', 'type', 'name', 'props']
  * @param rawKeys - Keys that should be kept in the original object (defaults to ElementRawData keys).
  * @returns An object containing the stripped (non-raw) fields.
  */
-export function stripNonRawFields(
+export const stripNonRawFields = (
   elementData: UnknownObject,
   rawKeys: (keyof ElementRawData)[] = DefaultRawKeys
-): Record<string, ComputedAttrs[keyof ComputedAttrs]> {
+): Record<string, ComputedAttrs[keyof ComputedAttrs]> => {
   const stripped = {} as UnknownObject
 
   for (const key in elementData) {
