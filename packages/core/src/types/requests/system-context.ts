@@ -1,10 +1,5 @@
 import { SystemContext } from '@asra/system-context'
-import {
-  SystemContextSnapshot,
-  PrimaryToolType,
-  MouseSnapshot,
-  KeySnapshot
-} from '@asra/utils'
+import { SystemContextSnapshot } from '@asra/utils'
 
 /**
  * Dependencies for System Context Request APIs
@@ -21,7 +16,4 @@ export interface SystemContextRequestsDeps {
 
 export interface SystemContextRequests {
   getSystemContextSnapshot: () => SystemContextSnapshot
-  getCurrentPrimaryTool: () => PrimaryToolType
-  getMouseState: () => MouseSnapshot
-  getKeyState: () => KeySnapshot
 }

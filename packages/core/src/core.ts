@@ -78,7 +78,6 @@ class Core implements CoreAPIs {
   propsLoadData!: PropsAPIs['propsLoadData']
   propsSaveData!: PropsAPIs['propsSaveData']
 
-  getCurrentPrimaryTool!: SystemContextAPIs['getCurrentPrimaryTool']
   switchPrimaryTool!: SystemContextAPIs['switchPrimaryTool']
   updateMouseState!: SystemContextAPIs['updateMouseState']
   updateKeyState!: SystemContextAPIs['updateKeyState']

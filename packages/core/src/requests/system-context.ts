@@ -16,14 +16,5 @@ export const createSystemContextRequests = (
 ): SystemContextRequests => ({
   getSystemContextSnapshot: (): SystemContextSnapshot => {
     return deps.systemContext.getSystemContextSnapshot()
-  },
-  getCurrentPrimaryTool: (): PrimaryToolType => {
-    return deps.systemContext.getCurrentPrimaryTool()
-  },
-  getMouseState: (): MouseSnapshot => {
-    return deps.systemContext.getMouseState()
-  },
-  getKeyState: (): KeySnapshot => {
-    return deps.systemContext.getKeyState()
   }
 })
