@@ -5,7 +5,9 @@ import { SelectionRequestDeps, SelectionRequests } from '../types'
  * Provides synchronous access to selection state with dependency injection
  */
 
-export const createSelectionRequests = (deps: SelectionRequestDeps): SelectionRequests => ({
+export const createSelectionRequests = (
+  deps: SelectionRequestDeps
+): SelectionRequests => ({
   elementSelection: (): string[] => {
     return deps.selection.getElementSelectionIds()
   }

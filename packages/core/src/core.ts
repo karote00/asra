@@ -103,7 +103,7 @@ class Core implements CoreAPIs {
         inputSystem: this.deps.inputSystem,
         render: this.deps.render,
         factory: this.deps.factory,
-        interactionCore: this.deps.interactionCore,
+        interactionCore: this.deps.interactionCore
       },
       apis
     )

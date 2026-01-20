@@ -1,9 +1,4 @@
-import {
-  SystemContextSnapshot,
-  PrimaryToolType,
-  MouseSnapshot,
-  KeySnapshot
-} from '@asra/utils'
+import { SystemContextSnapshot } from '@asra/utils'
 import { SystemContextRequestsDeps, SystemContextRequests } from '../types'
 
 /**

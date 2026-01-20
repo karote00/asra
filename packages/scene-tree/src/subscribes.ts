@@ -26,7 +26,12 @@ export const initSceneTreeSubscribes = () => {
 
   subscribeToAddElement(({ payload }) => {
     const { data, parent, index } = payload
-    sceneTree.addNewElement(data as CreateElementData, parent, index, inUndoRedo)
+    sceneTree.addNewElement(
+      data as CreateElementData,
+      parent,
+      index,
+      inUndoRedo
+    )
 
     sceneTree.commitSceneTreeTransaction()
   })

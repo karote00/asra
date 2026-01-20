@@ -14,9 +14,7 @@ import {
 export class ViewportHandler {
   constructor(
     private inputSystem: HandlerDeps['inputSystem'],
-    private deps: InteractionCoreActionAPIs &
-      MouseStateAPIs &
-      KeyStateAPIs
+    private deps: InteractionCoreActionAPIs & MouseStateAPIs & KeyStateAPIs
   ) {
     this.init()
   }

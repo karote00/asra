@@ -15,7 +15,12 @@ import {
   EVENT_OPTIONS,
   CreateElementData
 } from '@asra/utils'
-import { SceneTreeAPIs, SceneTreeRequests, FactoryRequests, SelectionRequests } from '../types'
+import {
+  SceneTreeAPIs,
+  SceneTreeRequests,
+  FactoryRequests,
+  SelectionRequests
+} from '../types'
 
 export const createSceneTreeAPIs = (
   sceneTreeRequests: SceneTreeRequests,

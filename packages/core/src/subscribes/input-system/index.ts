@@ -24,7 +24,7 @@ export const initInputSystemHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
     updateKeyState: (keySnapshot: KeySnapshot) =>
       apis.updateKeyState(keySnapshot),
     executeAction: (eventName: InputSystemEvents, detail?: DetailType) =>
-      apis.executeAction(eventName, detail),
+      apis.executeAction(eventName, detail)
   })
 
   new RenderHandler(deps.inputSystem, {

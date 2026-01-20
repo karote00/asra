@@ -20,9 +20,7 @@ export class RenderHandler {
 
   constructor(
     private inputSystem: HandlerDeps['inputSystem'],
-    private deps: MouseStateAPIs &
-      InteractionCoreSessionAPIs &
-      KeyStateAPIs
+    private deps: MouseStateAPIs & InteractionCoreSessionAPIs & KeyStateAPIs
   ) {
     this._isDown = false
     this._isDrag = false

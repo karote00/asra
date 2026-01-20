@@ -17,7 +17,9 @@ class SelectionManager {
   }
 
   getElementSelectionIds(): string[] {
-    return Array.from(this.selections.get(SELECTION_TYPES.ELEMENT)?.getSelectedIds() || [])
+    return Array.from(
+      this.selections.get(SELECTION_TYPES.ELEMENT)?.getSelectedIds() || []
+    )
   }
 }
 
