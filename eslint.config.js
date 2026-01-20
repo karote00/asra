@@ -15,12 +15,15 @@ const gitignorePath = path.resolve(__dirname, '.gitignore')
 export default tseslint.config(
   js.configs.recommended,
   includeIgnoreFile(gitignorePath),
+  {
+    ignores: ['.claude/**/*']
+  },
   tseslint.configs.recommended,
   tseslint.configs.strict,
   tseslint.configs.stylistic,
   eslintPluginPrettierRecommended,
   {
-    files: ['**/*.{ts,tsx}'],
+    files: ['apps/**/*.{ts,tsx}', 'packages/**/*.{ts,tsx}'],
     plugins: {
       react
     },
