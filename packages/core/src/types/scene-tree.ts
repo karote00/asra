@@ -1,7 +1,7 @@
 import {
+  CreateElementData,
   DataTypes,
   DimensionData,
-  ElementRawData,
   EVENT_OPTIONS,
   PositionData,
   SceneTreeRawData
@@ -23,7 +23,7 @@ export interface SceneTreeActionAPIs {
 }
 
 export interface SceneTreeHandlerAPIs {
-  addRectangle: (data: ElementRawData) => void
+  addRectangle: (data: CreateElementData) => void
 }
 
 export type SceneTreeAPIs = SceneTreeRawAPIs &

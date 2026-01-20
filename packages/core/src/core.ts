@@ -4,6 +4,7 @@ import inputSystem, { InputSystem } from '@asra/input-system'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
 import render, { Render } from '@asra/render'
 import props, { PropsManager } from '@asra/props-manager'
+import selection, { SelectionManager } from '@asra/selection'
 import systemContext, { SystemContext } from '@asra/system-context'
 import interactionCore, { InteractionCore } from '@asra/interaction-core'
 
@@ -39,6 +40,7 @@ interface CoreDeps {
   props: PropsManager
   render: Render
   sceneTree: SceneTree
+  selection: SelectionManager
   systemContext: SystemContext
   interactionCore: InteractionCore
 }
@@ -92,7 +94,8 @@ class Core implements CoreAPIs {
       props: this.deps.props,
       sceneTree: this.deps.sceneTree,
       factory: this.deps.factory,
-      render: this.deps.render
+      render: this.deps.render,
+      selection: this.deps.selection
     })
     const apis = createAPIs(requests)
 
@@ -101,7 +104,7 @@ class Core implements CoreAPIs {
         inputSystem: this.deps.inputSystem,
         render: this.deps.render,
         factory: this.deps.factory,
-        interactionCore: this.deps.interactionCore
+        interactionCore: this.deps.interactionCore,
       },
       apis
     )
@@ -149,6 +152,7 @@ const core = new Core({
   props,
   render,
   sceneTree,
+  selection,
   systemContext,
   interactionCore
 })

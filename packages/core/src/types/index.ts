@@ -37,7 +37,9 @@ import {
   FactoryRequests,
   FactoryRequestDeps,
   RenderRequests,
-  RenderRequestDeps
+  RenderRequestDeps,
+  SelectionRequests,
+  SelectionRequestDeps
 } from './requests'
 
 export { HandlerDeps } from './deps'
@@ -81,7 +83,9 @@ export {
   FactoryRequests,
   FactoryRequestDeps,
   RenderRequests,
-  RenderRequestDeps
+  RenderRequestDeps,
+  SelectionRequests,
+  SelectionRequestDeps
 }
 
 export type CoreAPIs = TransactionAPIs &

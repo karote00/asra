@@ -3,24 +3,24 @@ import {
   selectElements,
   startTransaction,
   sceneTreeLoadComplete,
-  requestElementSelection,
   changeComputedData,
   sceneTreeInit,
   sceneTreeLoadData
 } from '@asra/reactive-events'
 import {
-  ElementRawData,
   SceneTreeRawData,
   DataTypes,
   PositionData,
   DimensionData,
-  EVENT_OPTIONS
+  EVENT_OPTIONS,
+  CreateElementData
 } from '@asra/utils'
-import { SceneTreeAPIs, SceneTreeRequests, FactoryRequests } from '../types'
+import { SceneTreeAPIs, SceneTreeRequests, FactoryRequests, SelectionRequests } from '../types'
 
 export const createSceneTreeAPIs = (
   sceneTreeRequests: SceneTreeRequests,
-  factoryRequests: FactoryRequests
+  factoryRequests: FactoryRequests,
+  selectionRequests: SelectionRequests
 ): SceneTreeAPIs => {
   return {
     sceneTreeInit() {
@@ -34,26 +34,26 @@ export const createSceneTreeAPIs = (
     sceneTreeSaveData() {
       return sceneTreeRequests.sceneTreeSaveData()
     },
-    addRectangle(data: ElementRawData) {
+    addRectangle(data: CreateElementData) {
       startTransaction()
       const inUndoRedo = factoryRequests.isInUndoRedo()
       const newElementId = sceneTreeRequests.addRectangle(data, inUndoRedo)
       selectElements([newElementId])
       endTransaction()
     },
-    async changeComputedData(key: string, data: DataTypes) {
+    changeComputedData(key: string, data: DataTypes) {
       startTransaction()
-      const elementIds = await requestElementSelection()
+      const elementIds = selectionRequests.elementSelection()
       changeComputedData(elementIds, key, data)
       endTransaction()
     },
-    async resizeElement(
+    resizeElement(
       pos: PositionData,
       dimension: DimensionData,
       options?: EVENT_OPTIONS
     ) {
       startTransaction()
-      const elementIds = await requestElementSelection()
+      const elementIds = selectionRequests.elementSelection()
       changeComputedData(elementIds, 'x', pos.x, options)
       changeComputedData(elementIds, 'y', pos.y, options)
       changeComputedData(elementIds, 'width', dimension.width, options)

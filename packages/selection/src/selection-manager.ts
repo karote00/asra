@@ -15,6 +15,10 @@ class SelectionManager {
   clearAllSelections(): void {
     this.selections.forEach((selection) => selection.clear())
   }
+
+  getElementSelectionIds(): string[] {
+    return Array.from(this.selections.get(SELECTION_TYPES.ELEMENT)?.getSelectedIds() || [])
+  }
 }
 
 export default SelectionManager

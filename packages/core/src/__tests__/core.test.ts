@@ -4,6 +4,7 @@ import inputSystem from '@asra/input-system'
 import sceneTree from '@asra/scene-tree'
 import render from '@asra/render'
 import props from '@asra/props-manager'
+import selection from '@asra/selection'
 import systemContext from '@asra/system-context'
 import interactionCore from '@asra/interaction-core'
 import {
@@ -27,6 +28,7 @@ describe('Core', () => {
       props,
       render,
       sceneTree,
+      selection,
       systemContext,
       interactionCore
     })

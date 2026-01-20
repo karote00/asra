@@ -1,5 +1,5 @@
 import { SceneTree } from '@asra/scene-tree'
-import { ElementRawData, SceneTreeRawData } from '@asra/utils'
+import { CreateElementData, SceneTreeRawData } from '@asra/utils'
 
 /**
  * Request API for SceneTree data
@@ -8,7 +8,7 @@ import { ElementRawData, SceneTreeRawData } from '@asra/utils'
 
 export interface SceneTreeRequests {
   sceneTreeSaveData: () => SceneTreeRawData
-  addRectangle: (data: ElementRawData, inUndoRedo: boolean) => string
+  addRectangle: (data: CreateElementData, inUndoRedo: boolean) => string
 }
 
 export interface SceneTreeRequestDeps {

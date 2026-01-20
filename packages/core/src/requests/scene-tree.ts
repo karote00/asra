@@ -1,4 +1,4 @@
-import { SceneTreeRawData, ElementRawData, EntityTypes } from '@asra/utils'
+import { SceneTreeRawData, EntityTypes, CreateElementData } from '@asra/utils'
 import { SceneTreeRequestDeps, SceneTreeRequests } from '../types'
 
 /**
@@ -12,7 +12,7 @@ export const createSceneTreeRequests = (
   sceneTreeSaveData: (): SceneTreeRawData => {
     return deps.sceneTree.save()
   },
-  addRectangle: (data: ElementRawData, inUndoRedo: boolean): string => {
+  addRectangle: (data: CreateElementData, inUndoRedo: boolean): string => {
     return deps.sceneTree.addNewElement(
       {
         ...data,

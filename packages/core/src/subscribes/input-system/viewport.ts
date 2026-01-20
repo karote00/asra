@@ -8,15 +8,13 @@ import {
   HandlerDeps,
   InteractionCoreActionAPIs,
   KeyStateAPIs,
-  MouseStateAPIs,
-  ViewportAPIs
+  MouseStateAPIs
 } from '../../types'
 
 export class ViewportHandler {
   constructor(
     private inputSystem: HandlerDeps['inputSystem'],
-    private deps: ViewportAPIs &
-      InteractionCoreActionAPIs &
+    private deps: InteractionCoreActionAPIs &
       MouseStateAPIs &
       KeyStateAPIs
   ) {

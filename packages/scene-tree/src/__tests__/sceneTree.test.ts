@@ -222,11 +222,8 @@ describe('SceneTree', () => {
   it('should call addNewElement on the current workspace', () => {
     sceneTree.init() // Ensure workspace is initialized
     const elementData = {
-      id: 'el-1',
-      type: EntityTypes.RECTANGLE,
-      name: 'el-1',
-      visible: true,
-      lock: false
+      x: 100,
+      y: 100
     }
     const workspace = sceneTree.currentWorkspace as Workspace
     vi.spyOn(workspace, 'addNewElement')
