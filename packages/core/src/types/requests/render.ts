@@ -6,6 +6,7 @@ import { Render } from '@asra/render'
  */
 
 export interface RenderRequests {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initRender: (width: number, height: number, color: number) => Promise<any>
 }
 

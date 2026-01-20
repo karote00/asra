@@ -21,8 +21,9 @@ export const subscribeToSceneTreeLoadComplete =
     EventTypes.SCENE_TREE_LOAD_COMPLETE
   )
 
-export const subscribeToAddElement =
-  createSubscribeEvent<AddElementEvent>(EventTypes.ADD_ELEMENT)
+export const subscribeToAddElement = createSubscribeEvent<AddElementEvent>(
+  EventTypes.ADD_ELEMENT
+)
 
 export const subscribeToRemoveElement =
   createSubscribeEvent<RemoveElementEvent>(EventTypes.REMOVE_ELEMENT)

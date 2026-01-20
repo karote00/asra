@@ -9,7 +9,7 @@ import {
   sceneTreeLoadData
 } from '@asra/reactive-events'
 import {
-  CreateRectangleData,
+  ElementRawData,
   SceneTreeRawData,
   DataTypes,
   PositionData,
@@ -34,7 +34,7 @@ export const createSceneTreeAPIs = (
     sceneTreeSaveData() {
       return sceneTreeRequests.sceneTreeSaveData()
     },
-    addRectangle(data: CreateRectangleData) {
+    addRectangle(data: ElementRawData) {
       startTransaction()
       const inUndoRedo = factoryRequests.isInUndoRedo()
       const newElementId = sceneTreeRequests.addRectangle(data, inUndoRedo)

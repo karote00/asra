@@ -5,7 +5,9 @@ import { FactoryRequestDeps, FactoryRequests } from '../types'
  * Provides synchronous access to factory state with dependency injection
  */
 
-export const createFactoryRequests = (deps: FactoryRequestDeps): FactoryRequests => ({
+export const createFactoryRequests = (
+  deps: FactoryRequestDeps
+): FactoryRequests => ({
   isInUndoRedo: (): boolean => {
     return deps.factory.isInUndoRedo()
   }

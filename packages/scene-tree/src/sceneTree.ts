@@ -6,8 +6,7 @@ import type {
   ElementInstanceTypes,
   GroupInstanceTypes,
   SceneTreeChange,
-  EVENT_OPTIONS,
-  CreateRectangleData
+  EVENT_OPTIONS
 } from '@asra/utils'
 import { EntityTypes, OWNER, SCENE_TREE_ACTIONS } from '@asra/utils'
 import { EventTypes, updateTransaction } from '@asra/reactive-events'
@@ -170,7 +169,7 @@ class SceneTree {
   }
 
   addNewElement(
-    elementData: CreateRectangleData,
+    elementData: ElementRawData,
     parent?: GroupInstanceTypes,
     index = -1,
     inUndoRedo = false

@@ -1,12 +1,12 @@
 import {
-  CreateRectangleData,
   KeySnapshot,
   MouseSnapshot,
   InputSystemEvents,
   DetailType,
   DataTypes,
   PositionData,
-  DimensionData
+  DimensionData,
+  ElementRawData
 } from '@asra/utils'
 import { UndoHandler } from './undo'
 import { ViewportHandler } from './viewport'
@@ -41,7 +41,7 @@ export const initInputSystemHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
     renderIsReady: () => apis.renderIsReady(),
     initRender: async (width: number, height: number, color: number) =>
       await apis.initRender(width, height, color),
-    addRectangle: (data: CreateRectangleData) => apis.addRectangle(data),
+    addRectangle: (data: ElementRawData) => apis.addRectangle(data),
     changeComputedData: (key: string, data: DataTypes) =>
       apis.changeComputedData(key, data),
     resizeElement: (pos: PositionData, dimension: DimensionData) =>

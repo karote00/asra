@@ -7,8 +7,15 @@ import { RenderRequestDeps, RenderRequests } from '../types'
 
 let hasInitRender = false
 
-export const createRenderRequests = (deps: RenderRequestDeps): RenderRequests => ({
-  initRender: async (width: number, height: number, color: number): Promise<any> => {
+export const createRenderRequests = (
+  deps: RenderRequestDeps
+): RenderRequests => ({
+  initRender: async (
+    width: number,
+    height: number,
+    color: number
+  ): // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Promise<any> => {
     if (hasInitRender) {
       return
     }

@@ -118,20 +118,20 @@ export class RenderLayer {
       case 'children': {
         const oldList = new Set(before as string[])
         let deleteCount = 0
-          // Add element
-          ; (after as string[]).forEach((childId, index) => {
-            const child = this.getElementById(childId)
-            if (!child) {
-              return
-            }
+        // Add element
+        ;(after as string[]).forEach((childId, index) => {
+          const child = this.getElementById(childId)
+          if (!child) {
+            return
+          }
 
-            if (oldList.has(childId)) {
-              oldList.delete(childId)
-              deleteCount++
-            } else {
-              element.addChildAt(child, index - deleteCount)
-            }
-          })
+          if (oldList.has(childId)) {
+            oldList.delete(childId)
+            deleteCount++
+          } else {
+            element.addChildAt(child, index - deleteCount)
+          }
+        })
 
         // Remove element
         oldList.forEach((childId) => {
