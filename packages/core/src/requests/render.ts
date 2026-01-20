@@ -15,7 +15,7 @@ export const createRenderRequests = (
     height: number,
     color: number
   ): // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  Promise<any> => {
+    Promise<any> => {
     if (hasInitRender) {
       return
     }
@@ -24,5 +24,11 @@ export const createRenderRequests = (
     hasInitRender = true
 
     return app
+  },
+  getViewportPosition: () => {
+    return deps.render.getViewportPosition()
+  },
+  getViewportScale: () => {
+    return deps.render.getViewportScale()
   }
 })

@@ -1,8 +1,8 @@
 import { PositionData } from '@asra/utils'
 
 export interface ViewportRawAPIs {
-  getViewportPosition: () => Promise<PositionData>
-  getViewportScale: () => Promise<number>
+  getViewportPosition: () => PositionData
+  getViewportScale: () => number
 }
 
 export interface ViewportActionAPIs {

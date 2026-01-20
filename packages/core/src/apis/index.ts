@@ -14,7 +14,7 @@ export const createAPIs = (requests: Requests): CoreAPIs => {
   return {
     ...createTransactionAPIs(),
     ...createInputSystemAPIs(),
-    ...createViewportAPIs(),
+    ...createViewportAPIs(requests.renderRequests),
     ...createUndoAPIs(),
     ...createRenderAPIs(requests.renderRequests),
     ...createSceneTreeAPIs(
