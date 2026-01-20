@@ -4,13 +4,18 @@ import {
   subscribeToUpdateComputedData,
   subscribeToSceneTreeInit,
   subscribeToSceneTreeLoadData,
-  subscribeToAddElement
+  subscribeToAddElement,
+  subscribeToUpdateUndoRedoStatus
 } from '@asra/reactive-events'
-import type { ComputedAttrs } from '@asra/utils'
+import { UNDO, type ComputedAttrs } from '@asra/utils'
 import sceneTree from './sceneTree'
 
-
 export const initSceneTreeSubscribes = () => {
+  let inUndoRedo = false
+  subscribeToUpdateUndoRedoStatus(({ payload }) => {
+    inUndoRedo = payload.status !== UNDO.NONE
+  })
+
   subscribeToSceneTreeInit(() => {
     sceneTree.init()
   })
@@ -21,7 +26,7 @@ export const initSceneTreeSubscribes = () => {
 
   subscribeToAddElement(({ payload }) => {
     const { data, parent, index } = payload
-    sceneTree.addNewElement(data as any, parent, index)
+    sceneTree.addNewElement(data as any, parent, index, inUndoRedo)
 
     sceneTree.commitSceneTreeTransaction()
   })
