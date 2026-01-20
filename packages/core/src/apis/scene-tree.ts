@@ -48,7 +48,7 @@ export const createSceneTreeAPIs = (
     },
     changeComputedData(key: string, data: DataTypes) {
       startTransaction()
-      const elementIds = selectionRequests.elementSelection()
+      const elementIds = selectionRequests.getElementSelectionIds()
       changeComputedData(elementIds, key, data)
       endTransaction()
     },
@@ -58,7 +58,7 @@ export const createSceneTreeAPIs = (
       options?: EVENT_OPTIONS
     ) {
       startTransaction()
-      const elementIds = selectionRequests.elementSelection()
+      const elementIds = selectionRequests.getElementSelectionIds()
       changeComputedData(elementIds, 'x', pos.x, options)
       changeComputedData(elementIds, 'y', pos.y, options)
       changeComputedData(elementIds, 'width', dimension.width, options)

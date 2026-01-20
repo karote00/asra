@@ -6,7 +6,7 @@ import { SelectionManager } from '@asra/selection'
  */
 
 export interface SelectionRequests {
-  elementSelection: () => string[]
+  getElementSelectionIds: () => string[]
 }
 
 export interface SelectionRequestDeps {

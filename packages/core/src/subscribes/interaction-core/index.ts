@@ -54,8 +54,8 @@ export const initInteractionCoreHandlers = (
   })
 
   initViewportHandlers({
-    getViewportPosition: async () => await apis.getViewportPosition(),
-    getViewportScale: async () => await apis.getViewportScale(),
+    getViewportPosition: () => apis.getViewportPosition(),
+    getViewportScale: () => apis.getViewportScale(),
     zoomFit: () => apis.zoomFit(),
     panTo: (x: number, y: number) => apis.panTo(x, y),
     zoomToCenter: (scale: number, centerX: number, centerY: number) =>

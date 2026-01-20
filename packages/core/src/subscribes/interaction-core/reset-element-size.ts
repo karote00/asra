@@ -6,8 +6,6 @@ export const initResetElementSizeSubscriber = (deps: {
 }) => {
   subscribeToDecideToResetElementSize((event) => {
     const { dimension } = event.payload
-
-    // Update the element's width and height
     deps.changeComputedData('width', dimension.width)
     deps.changeComputedData('height', dimension.height)
   })

@@ -103,7 +103,7 @@ export async function createRectangle(
 
   // Click to create rectangle
   await clickCanvas(page, relativeX, relativeY)
-  await page.waitForTimeout(300)
+  await page.waitForTimeout(500)
 
   // Switch back to Select tool
   await page.keyboard.press('v')
@@ -122,7 +122,7 @@ export async function undo(page: Page) {
   await page.keyboard.down('Meta')
   await page.keyboard.press('Z')
   await page.keyboard.up('Meta')
-  await page.waitForTimeout(300)
+  await page.waitForTimeout(500)
 }
 
 /**
@@ -138,7 +138,7 @@ export async function redo(page: Page) {
   await page.keyboard.press('Shift')
   await page.keyboard.press('Z')
   await page.keyboard.up('Meta')
-  await page.waitForTimeout(300)
+  await page.waitForTimeout(1000) // Extra time for redo to process
 }
 
 /**

@@ -8,7 +8,7 @@ import { SelectionRequestDeps, SelectionRequests } from '../types'
 export const createSelectionRequests = (
   deps: SelectionRequestDeps
 ): SelectionRequests => ({
-  elementSelection: (): string[] => {
+  getElementSelectionIds: (): string[] => {
     return deps.selection.getElementSelectionIds()
   }
 })
