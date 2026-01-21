@@ -5,11 +5,14 @@ import type {
   ElementRawData,
   ElementInstanceTypes,
   GroupInstanceTypes,
-  SceneTreeChange
+  SceneTreeChange,
+  EVENT_OPTIONS,
+  CreateElementData
 } from '@asra/utils'
 import { EntityTypes, OWNER, SCENE_TREE_ACTIONS } from '@asra/utils'
-import { EventTypes } from '@asra/reactive-events'
-import { createElement, createWorkspace } from './utils'
+import { EventTypes, updateTransaction } from '@asra/reactive-events'
+import propsManager from '@asra/props-manager'
+import { createElement, createWorkspace, stripNonRawFields } from './utils'
 import type Workspace from './components/workspace'
 
 type SceneTreeDataType = SceneTreeRawData
@@ -167,16 +170,43 @@ class SceneTree {
   }
 
   addNewElement(
-    element: ElementInstanceTypes,
+    elementData: CreateElementData,
     parent?: GroupInstanceTypes,
-    index = -1
-  ) {
+    index = -1,
+    inUndoRedo = false
+  ): string {
     const workspace = this.currentWorkspace as Workspace
     if (!workspace) {
-      return
+      return ''
     }
 
-    workspace.addNewElement(element, parent, index)
+    let newElement: ElementInstanceTypes | null = null
+
+    const propOverrides = stripNonRawFields(elementData)
+    if (inUndoRedo) {
+      newElement = this.getRestoreElementById(elementData.id as string)
+    } else {
+      newElement = this.createElement(elementData)
+    }
+
+    if (newElement) {
+      // Override props after finish creating new instance
+      Object.keys(propOverrides).forEach((propKey) => {
+        newElement.updateComputedData(
+          propKey as keyof ComputedAttrs,
+          propOverrides[propKey]
+        )
+      })
+      propsManager.commitChanges()
+
+      workspace.addNewElement(newElement, parent, index)
+
+      this.commitSceneTreeTransaction()
+
+      return newElement.get('id')
+    }
+
+    return ''
   }
 
   removeElement(
@@ -195,7 +225,7 @@ class SceneTree {
       return
     }
 
-    sceneTree.addChangeForRemoveElement(element)
+    this.addChangeForRemoveElement(element)
     workspace.removeElement(element, index, parent)
   }
 
@@ -210,6 +240,13 @@ class SceneTree {
     }
 
     element.updateComputedData(key, data)
+  }
+
+  commitSceneTreeTransaction(options?: EVENT_OPTIONS) {
+    this.changes.forEach((change) => {
+      updateTransaction(change.eventName, change, options)
+    })
+    this.cleanChanges()
   }
 }
 

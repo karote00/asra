@@ -1,4 +1,4 @@
-import { EVNET_OPTIONS, UNDO } from '@asra/utils'
+import { EVENT_OPTIONS, UNDO } from '@asra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
 
@@ -23,7 +23,7 @@ export const startTransaction = () => {
 export const updateTransaction = (
   eventName: string,
   payload: unknown,
-  options?: EVNET_OPTIONS
+  options?: EVENT_OPTIONS
 ) => {
   publishEvent({
     type: EventTypes.UPDATE_TRANSACTION,

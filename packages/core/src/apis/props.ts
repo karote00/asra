@@ -1,14 +1,13 @@
-import { propsLoadData, propsSaveData } from '@asra/reactive-events'
 import { PropsComponentRawData } from '@asra/utils'
-import { PropsRawAPIs } from '../types'
+import { PropsRawAPIs, PropsRequests } from '../types'
 
-export const createPropsAPIs = (): PropsRawAPIs => {
+export const createPropsAPIs = (propsRequests: PropsRequests): PropsRawAPIs => {
   return {
     propsLoadData(data: PropsComponentRawData) {
-      propsLoadData(data)
+      propsRequests.propsLoadData(data)
     },
-    async propsSaveData() {
-      return await propsSaveData()
+    propsSaveData() {
+      return propsRequests.propsSaveData()
     }
   }
 }

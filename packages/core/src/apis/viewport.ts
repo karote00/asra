@@ -1,20 +1,21 @@
 import {
   emitZoomFit,
   panTo,
-  requestViewportPosition,
-  requestViewportScale,
   zoomFit,
   zoomToCenter
 } from '@asra/reactive-events'
+import { RenderRequests } from '../types'
 import { ViewportAPIs } from '../types'
 
-export const createViewportAPIs = (): ViewportAPIs => {
+export const createViewportAPIs = (
+  renderRequests: RenderRequests
+): ViewportAPIs => {
   return {
-    async getViewportPosition() {
-      return await requestViewportPosition()
+    getViewportPosition() {
+      return renderRequests.getViewportPosition()
     },
-    async getViewportScale() {
-      return await requestViewportScale()
+    getViewportScale() {
+      return renderRequests.getViewportScale()
     },
     zoomFit() {
       const centerDiv = document.querySelector('#viewport-anchor')

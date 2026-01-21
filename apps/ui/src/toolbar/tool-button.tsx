@@ -30,18 +30,26 @@ const ToolButton = () => {
 
   return (
     <div className="flex text-white">
-      <div className="pr-4 cursor-pointer" onClick={handleReset}>
+      <div
+        className="pr-4 cursor-pointer"
+        onClick={handleReset}
+        data-testid="reset-button"
+      >
         Reset
       </div>
       <div
         className={`flex align-middle ${selectToolStyle}`}
         onClick={handleSwitchToSelectTool}
+        data-testid="tool-select"
+        data-active={primaryTool === PrimaryToolType.SELECT}
       >
         <Icon name="Select" />
       </div>
       <div
         className={`flex align-middle ${rectangleToolStyle}`}
         onClick={handleSwitchToRectangleTool}
+        data-testid="tool-rectangle"
+        data-active={primaryTool === PrimaryToolType.RECTANGLE}
       >
         <Icon name="Rectangle" />
       </div>

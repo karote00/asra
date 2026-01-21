@@ -25,10 +25,27 @@ import {
   InteractionCoreSessionAPIs,
   InteractionCoreActionAPIs
 } from './interaction-core'
+import {
+  Requests,
+  RequestsDeps,
+  SystemContextRequests,
+  SystemContextRequestsDeps,
+  PropsRequests,
+  PropsRequestDeps,
+  SceneTreeRequests,
+  SceneTreeRequestDeps,
+  FactoryRequests,
+  FactoryRequestDeps,
+  RenderRequests,
+  RenderRequestDeps,
+  SelectionRequests,
+  SelectionRequestDeps
+} from './requests'
 
 export { HandlerDeps } from './deps'
 
 export {
+  // APIs
   TransactionAPIs,
   TransactionActionAPIs,
   InputSystemRawAPIs,
@@ -52,7 +69,23 @@ export {
   InteractionCoreActionAPIs,
   InteractionCoreSessionAPIs,
   InteractionCoreAPIs,
-  KeyStateAPIs
+  KeyStateAPIs,
+
+  // Requests
+  Requests,
+  RequestsDeps,
+  SystemContextRequests,
+  SystemContextRequestsDeps,
+  PropsRequests,
+  PropsRequestDeps,
+  SceneTreeRequests,
+  SceneTreeRequestDeps,
+  FactoryRequests,
+  FactoryRequestDeps,
+  RenderRequests,
+  RenderRequestDeps,
+  SelectionRequests,
+  SelectionRequestDeps
 }
 
 export type CoreAPIs = TransactionAPIs &

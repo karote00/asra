@@ -8,11 +8,8 @@ import {
 import {
   HandlerDeps,
   MouseStateAPIs,
-  RenderRawAPIs,
-  SceneTreeHandlerAPIs,
   KeyStateAPIs,
-  InteractionCoreSessionAPIs,
-  SceneTreeActionAPIs
+  InteractionCoreSessionAPIs
 } from '../../types'
 
 export class RenderHandler {
@@ -23,13 +20,7 @@ export class RenderHandler {
 
   constructor(
     private inputSystem: HandlerDeps['inputSystem'],
-    private render: HandlerDeps['render'],
-    private deps: RenderRawAPIs &
-      SceneTreeHandlerAPIs &
-      MouseStateAPIs &
-      InteractionCoreSessionAPIs &
-      KeyStateAPIs &
-      SceneTreeActionAPIs
+    private deps: MouseStateAPIs & InteractionCoreSessionAPIs & KeyStateAPIs
   ) {
     this._isDown = false
     this._isDrag = false

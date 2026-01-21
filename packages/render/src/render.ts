@@ -1,9 +1,11 @@
-import { Application, Container, Graphics } from 'pixi.js'
+import { Application, Container, Graphics, Ticker } from 'pixi.js'
 import { DataTypes, MouseData } from '@asra/utils'
 import { RenderElementData, RenderContainerData, SceneElement } from './types'
 import { ViewportLayer } from './viewport-layer'
 import { SelectionLayer } from './selection-layer'
 import renderSelection from './stores/selection'
+
+const ticker = Ticker.shared
 
 class Render {
   app: Application | null = null
@@ -16,6 +18,22 @@ class Render {
       getSelectedElements: this.getSelectedElements.bind(this),
       getHoverElement: () => null
     })
+
+    this.run()
+  }
+
+  run() {
+    ticker.add(() => {
+      const animate = (time: number) => {
+        this.updateLayers()
+      }
+
+      animate(performance.now())
+    })
+  }
+
+  updateLayers() {
+    this.selection.update()
   }
 
   private createApplication() {

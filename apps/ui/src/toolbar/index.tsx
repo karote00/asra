@@ -8,6 +8,7 @@ const ToolBar = () => {
     <div
       className={`h-12 z-10 dark:bg-panel-darker dark:border-b dark:border-border-dark flex items-center px-4 justify-between h-${ROW_HEIGHT} px-4`}
       style={{ gridArea: 'header' }}
+      data-testid="toolbar"
     >
       <ToolButton />
       <ThemeToggle />

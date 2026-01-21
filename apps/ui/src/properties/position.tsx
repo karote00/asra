@@ -24,10 +24,20 @@ const Position = () => {
   return (
     <div className="flex items-center gap-2 text-gray-200 w-full px-3 py-1">
       <div className="w-1/2">
-        <Input value={x} prefix="X" onChange={handleChangeX} />
+        <Input
+          value={x}
+          prefix="X"
+          onChange={handleChangeX}
+          data-testid="prop-x"
+        />
       </div>
       <div className="w-1/2">
-        <Input value={y} prefix="Y" onChange={handleChangeY} />
+        <Input
+          value={y}
+          prefix="Y"
+          onChange={handleChangeY}
+          data-testid="prop-y"
+        />
       </div>
     </div>
   )

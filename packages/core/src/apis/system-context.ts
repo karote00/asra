@@ -1,7 +1,6 @@
 import { PrimaryToolType, MouseSnapshot, KeySnapshot } from '@asra/utils'
 import {
   emitSwitchPrimaryTool,
-  requestCurrentPrimaryTool,
   switchPrimaryTool,
   updateKeyState,
   updateMouseState
@@ -10,9 +9,6 @@ import { SystemContextAPIs } from '../types'
 
 export const createSystemContextAPIs = (): SystemContextAPIs => {
   return {
-    async getCurrentPrimaryTool() {
-      return await requestCurrentPrimaryTool()
-    },
     switchPrimaryTool(tool: PrimaryToolType) {
       switchPrimaryTool(tool)
       emitSwitchPrimaryTool()

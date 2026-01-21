@@ -28,6 +28,7 @@ const Contents: React.FC = () => {
       className={`w-${COLUMN_WIDTH} z-10 dark:bg-panel-darker dark:border-r dark:border-border-dark overflow-y-auto`}
       style={{ gridArea: 'left-sidebar' }}
       onClick={handleContentsPanelClick}
+      data-testid="contents-panel"
     >
       <div
         style={{

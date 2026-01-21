@@ -7,7 +7,7 @@ import {
   UNDO,
   PanZoom,
   MouseSnapshot,
-  EVNET_OPTIONS
+  EVENT_OPTIONS
 } from '@asra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
@@ -119,7 +119,7 @@ export const decideToResizeElement = (
   dragStart: PositionData,
   position: PositionData,
   elementType: PrimaryToolType,
-  options?: EVNET_OPTIONS
+  options?: EVENT_OPTIONS
 ) => {
   publishEvent({
     type: EventTypes.DECIDE_TO_RESIZE_ELEMENT,

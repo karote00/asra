@@ -1,3 +1,3 @@
-export interface EVNET_OPTIONS {
+export interface EVENT_OPTIONS {
   undoable: boolean
 }

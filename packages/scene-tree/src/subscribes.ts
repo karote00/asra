@@ -1,32 +1,14 @@
 import {
-  subscribeToUpdateUndoRedoStatus,
-  subscribeToAddElement,
   subscribeToRemoveElement,
   subscribeToChangeComputedData,
-  updateTransaction,
   subscribeToUpdateComputedData,
-  finishAddRectangle,
   subscribeToSceneTreeInit,
   subscribeToSceneTreeLoadData,
-  subscribeToSceneTreeSaveData,
-  finishSceneTreeSaveData
+  subscribeToAddElement,
+  subscribeToUpdateUndoRedoStatus
 } from '@asra/reactive-events'
-import type {
-  ComputedAttrs,
-  ElementInstanceTypes,
-  EVNET_OPTIONS
-} from '@asra/utils'
-import { UNDO } from '@asra/utils'
-import propsManager from '@asra/props-manager'
+import { CreateElementData, UNDO, type ComputedAttrs } from '@asra/utils'
 import sceneTree from './sceneTree'
-import { stripNonRawFields } from './utils'
-
-const commitSceneTreeTransaction = (options?: EVNET_OPTIONS) => {
-  sceneTree.changes.forEach((change) => {
-    updateTransaction(change.eventName, change, options)
-  })
-  sceneTree.cleanChanges()
-}
 
 export const initSceneTreeSubscribes = () => {
   let inUndoRedo = false
@@ -42,44 +24,23 @@ export const initSceneTreeSubscribes = () => {
     sceneTree.load(payload.data)
   })
 
-  subscribeToSceneTreeSaveData(({ payload }) => {
-    finishSceneTreeSaveData(payload.requestId, sceneTree.save())
-  })
-
   subscribeToAddElement(({ payload }) => {
-    const { data, parent, index, requestId } = payload
+    const { data, parent, index } = payload
+    sceneTree.addNewElement(
+      data as CreateElementData,
+      parent,
+      index,
+      inUndoRedo
+    )
 
-    let newRectangle
-
-    const propOverrides = stripNonRawFields(data)
-    if (inUndoRedo) {
-      newRectangle = sceneTree.getRestoreElementById(data.id as string)
-    } else {
-      newRectangle = sceneTree.createElement(data)
-    }
-
-    if (newRectangle) {
-      // Override props after finish creating new instance
-      Object.keys(propOverrides).forEach((propKey) => {
-        newRectangle.updateComputedData(
-          propKey as keyof ComputedAttrs,
-          propOverrides[propKey]
-        )
-      })
-      propsManager.commitChanges()
-    }
-
-    sceneTree.addNewElement(newRectangle as ElementInstanceTypes, parent, index)
-    commitSceneTreeTransaction()
-
-    finishAddRectangle(requestId, newRectangle?.get('id') as string)
+    sceneTree.commitSceneTreeTransaction()
   })
 
   subscribeToRemoveElement(({ payload }) => {
     const { data, parent, index } = payload
     sceneTree.removeElement(data, index, parent)
 
-    commitSceneTreeTransaction()
+    sceneTree.commitSceneTreeTransaction()
   })
 
   subscribeToChangeComputedData(async ({ payload, options }) => {
@@ -93,7 +54,7 @@ export const initSceneTreeSubscribes = () => {
         data as ComputedAttrs[KEY]
       )
     })
-    commitSceneTreeTransaction(options)
+    sceneTree.commitSceneTreeTransaction(options)
   })
 
   subscribeToUpdateComputedData(({ payload }) => {
@@ -104,6 +65,6 @@ export const initSceneTreeSubscribes = () => {
       key as keyof ComputedAttrs,
       after as ComputedAttrs[keyof ComputedAttrs]
     )
-    commitSceneTreeTransaction()
+    sceneTree.commitSceneTreeTransaction()
   })
 }

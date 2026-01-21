@@ -1,25 +1,32 @@
 import {
   endTransaction,
-  addRectangle,
   selectElements,
   startTransaction,
   sceneTreeLoadComplete,
-  requestElementSelection,
   changeComputedData,
   sceneTreeInit,
-  sceneTreeLoadData,
-  sceneTreeSaveData
+  sceneTreeLoadData
 } from '@asra/reactive-events'
 import {
-  CreateRectangleData,
   SceneTreeRawData,
   DataTypes,
   PositionData,
-  DimensionData
+  DimensionData,
+  EVENT_OPTIONS,
+  CreateElementData
 } from '@asra/utils'
-import { SceneTreeAPIs } from '../types'
+import {
+  SceneTreeAPIs,
+  SceneTreeRequests,
+  FactoryRequests,
+  SelectionRequests
+} from '../types'
 
-export const createSceneTreeAPIs = (): SceneTreeAPIs => {
+export const createSceneTreeAPIs = (
+  sceneTreeRequests: SceneTreeRequests,
+  factoryRequests: FactoryRequests,
+  selectionRequests: SelectionRequests
+): SceneTreeAPIs => {
   return {
     sceneTreeInit() {
       sceneTreeInit()
@@ -29,28 +36,33 @@ export const createSceneTreeAPIs = (): SceneTreeAPIs => {
       sceneTreeLoadData(data)
       sceneTreeLoadComplete()
     },
-    async sceneTreeSaveData() {
-      return await sceneTreeSaveData()
+    sceneTreeSaveData() {
+      return sceneTreeRequests.sceneTreeSaveData()
     },
-    async addRectangle(data: CreateRectangleData) {
+    addRectangle(data: CreateElementData) {
       startTransaction()
-      const newElementId = await addRectangle(data)
+      const inUndoRedo = factoryRequests.isInUndoRedo()
+      const newElementId = sceneTreeRequests.addRectangle(data, inUndoRedo)
       selectElements([newElementId])
       endTransaction()
     },
-    async changeComputedData(key: string, data: DataTypes) {
+    changeComputedData(key: string, data: DataTypes) {
       startTransaction()
-      const elementIds = await requestElementSelection()
+      const elementIds = selectionRequests.getElementSelectionIds()
       changeComputedData(elementIds, key, data)
       endTransaction()
     },
-    async resizeElement(pos: PositionData, dimension: DimensionData, option) {
+    resizeElement(
+      pos: PositionData,
+      dimension: DimensionData,
+      options?: EVENT_OPTIONS
+    ) {
       startTransaction()
-      const elementIds = await requestElementSelection()
-      changeComputedData(elementIds, 'x', pos.x, option)
-      changeComputedData(elementIds, 'y', pos.y, option)
-      changeComputedData(elementIds, 'width', dimension.width, option)
-      changeComputedData(elementIds, 'height', dimension.height, option)
+      const elementIds = selectionRequests.getElementSelectionIds()
+      changeComputedData(elementIds, 'x', pos.x, options)
+      changeComputedData(elementIds, 'y', pos.y, options)
+      changeComputedData(elementIds, 'width', dimension.width, options)
+      changeComputedData(elementIds, 'height', dimension.height, options)
       endTransaction()
     }
   }

@@ -4,6 +4,7 @@ import inputSystem, { InputSystem } from '@asra/input-system'
 import sceneTree, { SceneTree } from '@asra/scene-tree'
 import render, { Render } from '@asra/render'
 import props, { PropsManager } from '@asra/props-manager'
+import selection, { SelectionManager } from '@asra/selection'
 import systemContext, { SystemContext } from '@asra/system-context'
 import interactionCore, { InteractionCore } from '@asra/interaction-core'
 
@@ -22,6 +23,7 @@ import {
   TransactionAPIs
 } from './types'
 import { createAPIs } from './apis'
+import { createRequests } from './requests'
 
 import combinations from './combinations'
 inputSystem.setCombinations(combinations)
@@ -38,6 +40,7 @@ interface CoreDeps {
   props: PropsManager
   render: Render
   sceneTree: SceneTree
+  selection: SelectionManager
   systemContext: SystemContext
   interactionCore: InteractionCore
 }
@@ -75,7 +78,6 @@ class Core implements CoreAPIs {
   propsLoadData!: PropsAPIs['propsLoadData']
   propsSaveData!: PropsAPIs['propsSaveData']
 
-  getCurrentPrimaryTool!: SystemContextAPIs['getCurrentPrimaryTool']
   switchPrimaryTool!: SystemContextAPIs['switchPrimaryTool']
   updateMouseState!: SystemContextAPIs['updateMouseState']
   updateKeyState!: SystemContextAPIs['updateKeyState']
@@ -86,7 +88,15 @@ class Core implements CoreAPIs {
   endSession!: InteractionCoreAPIs['endSession']
 
   constructor(private readonly deps: CoreDeps) {
-    const apis = createAPIs()
+    const requests = createRequests({
+      systemContext: this.deps.systemContext,
+      props: this.deps.props,
+      sceneTree: this.deps.sceneTree,
+      factory: this.deps.factory,
+      render: this.deps.render,
+      selection: this.deps.selection
+    })
+    const apis = createAPIs(requests)
 
     initAllHandlers(
       {
@@ -141,6 +151,7 @@ const core = new Core({
   props,
   render,
   sceneTree,
+  selection,
   systemContext,
   interactionCore
 })

@@ -8,6 +8,10 @@ class IDCounter {
   counter: Record<string, string> = {}
 
   constructor() {
+    this.init()
+  }
+
+  init() {
     Object.values(IDTypes).forEach((type: string) => {
       this.counter[type] =
         type === IDTypes.DEFAULT ? FIRST_ID : `${type}${CODE_SPLIT}${FIRST_ID}`
@@ -84,6 +88,10 @@ class IDCounter {
     }
 
     return false
+  }
+
+  clear() {
+    this.init()
   }
 }
 

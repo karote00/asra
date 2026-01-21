@@ -1,16 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { SceneTree } from '../sceneTree'
-import * as utils from '../utils'
 import {
   ElementInstanceTypes,
   EntityTypes,
   OWNER,
   SCENE_TREE_ACTIONS,
-  SceneTreeChange
+  SceneTreeChange,
+  resetIdCounter
 } from '@asra/utils'
+import { SceneTree } from '../sceneTree'
+import * as utils from '../utils'
 import { EventTypes } from '@asra/reactive-events' // Import EventTypes
 import Workspace from '../components/workspace' // Assuming Workspace is a class
 import Rectangle from '../components/rectangle'
+
+vi.mock('../utils', () => ({
+  createElement: vi.fn(),
+  createWorkspace: vi.fn(),
+  stripNonRawFields: vi.fn((data: Record<string, unknown>) => {
+    const stripped: Record<string, unknown> = {}
+    Object.keys(data).forEach((key) => {
+      if (!['id', 'type', 'name', 'props'].includes(key)) {
+        stripped[key] = data[key]
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+        delete data[key]
+      }
+    })
+    return stripped
+  })
+}))
 
 describe('SceneTree', () => {
   let sceneTree: SceneTree
@@ -19,30 +36,50 @@ describe('SceneTree', () => {
     // Reset mocks before each test
     vi.clearAllMocks()
 
+    resetIdCounter()
     sceneTree = new SceneTree()
   })
 
   // Test _init() and basic workspace creation
   it('should initialize with a new workspace if none exists', () => {
+    // Mock to return a workspace with proper ID
+    vi.mocked(utils.createWorkspace).mockReturnValue({
+      get: vi.fn().mockReturnValue('ws-1'),
+      save: vi
+        .fn()
+        .mockReturnValue({ id: 'ws-1', type: EntityTypes.WORKSPACE }),
+      addNewElement: vi.fn(),
+      load: vi.fn()
+    } as unknown as Workspace)
+
     sceneTree.init()
 
-    expect(sceneTree.workspace).toBe('workspace-1')
-    expect(sceneTree.workspaceList).toEqual(['workspace-1'])
-    expect(sceneTree.getAllElements().has('workspace-1')).toBe(true)
+    expect(sceneTree.workspace).toBe('ws-1')
+    expect(sceneTree.workspaceList).toEqual(['ws-1'])
+    expect(sceneTree.getAllElements().has('ws-1')).toBe(true)
   })
 
   it('should not create a new workspace if one already exists', () => {
-    sceneTree.workspace = 'existing-workspace'
-    sceneTree.workspaceList = ['existing-workspace']
+    // Create a new SceneTree instance for this test to avoid interference
+    const customSceneTree = new SceneTree()
+    customSceneTree.workspace = 'existing-workspace'
+    customSceneTree.workspaceList = ['existing-workspace']
 
-    sceneTree.init()
+    customSceneTree.init()
 
     expect(utils.createWorkspace).not.toHaveBeenCalled()
   })
 
   // Test element creation and management
   it('should create a new element and add a change for it', () => {
+    // Mock to return an element with proper ID based on input
     const elementData = { id: 'el-1', type: EntityTypes.RECTANGLE }
+    vi.mocked(utils.createElement).mockReturnValue({
+      get: vi.fn().mockReturnValue('el-1'),
+      save: vi.fn().mockReturnValue(elementData),
+      updateComputedData: vi.fn()
+    } as unknown as Rectangle)
+
     const newElement = sceneTree.createElement(elementData)
 
     expect(utils.createElement).toHaveBeenCalledWith(elementData)
@@ -182,17 +219,24 @@ describe('SceneTree', () => {
   })
 
   // Test addNewElement (delegated to workspace)
-  it.only('should call addNewElement on the current workspace', () => {
+  it('should call addNewElement on the current workspace', () => {
     sceneTree.init() // Ensure workspace is initialized
-    const element = {
-      get: vi.fn(() => 'new-el')
-    } as unknown as ElementInstanceTypes
+    const elementData = {
+      x: 100,
+      y: 100
+    }
     const workspace = sceneTree.currentWorkspace as Workspace
     vi.spyOn(workspace, 'addNewElement')
 
-    sceneTree.addNewElement(element)
+    sceneTree.addNewElement(elementData, undefined, -1, false)
 
-    expect(workspace.addNewElement).toHaveBeenCalledWith(element, undefined, -1)
+    // The workspace.addNewElement should be called with an ElementInstanceTypes, not the raw data
+    expect(workspace.addNewElement).toHaveBeenCalled()
+    expect(workspace.addNewElement).toHaveBeenCalledWith(
+      expect.any(Object),
+      undefined,
+      -1
+    )
   })
 
   // Test updateComputedData
@@ -221,11 +265,11 @@ describe('SceneTree', () => {
       get: vi.fn((key: string) => (key === 'id' ? 'ws-load' : undefined))
     } as unknown as ElementInstanceTypes
 
-    vi.mocked(utils.createElement).mockReturnValue(
-      mockElement1 as unknown as Rectangle
+    vi.mocked(utils.createElement).mockImplementation(
+      () => mockElement1 as unknown as Rectangle
     )
-    vi.mocked(utils.createWorkspace).mockReturnValue(
-      mockWorkspaceLoad as unknown as Workspace
+    vi.mocked(utils.createWorkspace).mockImplementation(
+      () => mockWorkspaceLoad as unknown as Workspace
     )
 
     const dataToLoad = {
@@ -265,6 +309,16 @@ describe('SceneTree', () => {
   })
 
   it('should save data correctly', () => {
+    // Mock workspace creation with proper ID
+    vi.mocked(utils.createWorkspace).mockReturnValue({
+      get: vi.fn().mockReturnValue('ws-1'),
+      save: vi
+        .fn()
+        .mockReturnValue({ id: 'ws-1', type: EntityTypes.WORKSPACE }),
+      addNewElement: vi.fn(),
+      load: vi.fn()
+    } as unknown as Workspace)
+
     sceneTree.init() // Ensure initial workspace
     const elementData = { id: 'el-1', type: EntityTypes.RECTANGLE }
     const element = {
@@ -272,22 +326,14 @@ describe('SceneTree', () => {
       get: vi.fn(() => 'el-1')
     } as unknown as ElementInstanceTypes
     const workspace = sceneTree.currentWorkspace as Workspace
-    const workspaceSaveData = {
-      id: 'workspace-1',
-      type: EntityTypes.WORKSPACE,
-      name: 'workspace-1',
-      visible: true,
-      lock: false,
-      children: ['el-1']
-    }
-    vi.spyOn(workspace, 'save').mockReturnValueOnce(workspaceSaveData)
+    const workspaceSaveData = workspace.save()
     sceneTree.addToMap(element)
 
     const savedData = sceneTree.save()
 
-    expect(savedData.workspace).toBe('workspace-1')
-    expect(savedData.workspaceList).toEqual(['workspace-1'])
-    expect(savedData.elements['workspace-1']).toEqual(workspaceSaveData)
+    expect(savedData.workspace).toBe('ws-1')
+    expect(savedData.workspaceList).toEqual(['ws-1'])
+    expect(savedData.elements['ws-1']).toEqual(workspaceSaveData)
     expect(savedData.elements['el-1']).toEqual(elementData)
   })
 })

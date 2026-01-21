@@ -40,6 +40,6 @@ export interface SceneTreeRawData {
   elements: Record<string, ElementRawData | GroupRawData>
 }
 
-export type CreateRectangleData = PositionData &
+export type CreateElementData = PositionData &
   Partial<DimensionData> &
   Partial<ElementRawData>

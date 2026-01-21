@@ -28,11 +28,5 @@ export const initResizeElementHandlers = (
     }
 
     apis.resizeElement(pos, dimension, options)
-
-    // switch (elementType) {
-    //   case PrimaryToolType.RECTANGLE:
-    //     apis.addRectangle(pos)
-    //     break
-    // }
   })
 }

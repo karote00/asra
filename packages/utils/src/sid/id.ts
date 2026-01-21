@@ -13,3 +13,7 @@ export const loadId = (name: string, type: IDTypes) => {
 
 export const isValidId = (id: string, type: IDTypes): boolean =>
   idCounter.valid(id, type)
+
+export const resetIdCounter = () => {
+  idCounter.clear()
+}

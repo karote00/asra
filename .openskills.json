@@ -1,0 +1,6 @@
+{
+  "defaultOutput": ".project/SKILLS.md",
+  "sync": {
+    "preserveManualContent": true
+  }
+}

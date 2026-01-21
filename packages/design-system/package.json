@@ -20,6 +20,7 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "build:design-system": "vite build && tsc",
+    "rebuild:design-system": "yarn prebuild:design-system && yarn build:design-system",
     "dev": "tsc --watch --preserveWatchOutput",
     "watch:design-system": "vite build --watch",
     "prebuild:design-system": "tailwindcss -i ./src/index.css -o ./dist/index.css",

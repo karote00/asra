@@ -28,6 +28,10 @@ class Factory {
   redo() {
     this.transact.redo()
   }
+
+  isInUndoRedo() {
+    return this.transact.isInUndo() || this.transact.isInRedo()
+  }
 }
 
 const factory = new Factory()

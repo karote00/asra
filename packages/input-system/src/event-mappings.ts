@@ -62,6 +62,11 @@ export const InputEventMappings: Record<InputSystemEvents, InputEventCombo[]> =
         type: InputType.KEYBOARD,
         keys: [keyMap.keys.KeyZ],
         modifiers: [ModifierKey.META]
+      },
+      {
+        type: InputType.KEYBOARD,
+        keys: [keyMap.keys.KeyZ],
+        modifiers: [ModifierKey.CTRL]
       }
     ],
     [InputSystemEvents.INPUT_SHORTCUT_ZOOM_PRESET]: [

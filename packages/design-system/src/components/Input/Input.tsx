@@ -10,13 +10,14 @@ import { MIXED_STRING } from '@asra/utils'
 import { Text } from '../Text'
 
 // InputProps Interface
-interface InputProps {
+// InputProps Interface
+interface InputProps
+  extends Omit<
+    React.InputHTMLAttributes<HTMLInputElement>,
+    'onChange' | 'size'
+  > {
   /** Content inside the input */
   value?: number | string | typeof MIXED_STRING
-  /** Placeholder text inside the input */
-  placeholder?: string
-  /** Whether the input is disabled */
-  disabled?: boolean
   /** Prefix element (e.g., currency symbol) */
   prefix?: string
   /** Suffix element (e.g., measurement unit) */
@@ -40,7 +41,8 @@ const Input: React.FC<InputProps> = ({
   prefix,
   suffix,
   size = 'medium',
-  onChange
+  onChange,
+  ...rest
 }) => {
   const inputRef = useRef(null)
   const [data, setData] = useState<string>(value?.toString() ?? '')
@@ -94,6 +96,7 @@ const Input: React.FC<InputProps> = ({
         onBlur={handleBlur}
         placeholder={placeholder}
         disabled={disabled}
+        {...rest}
         className="bg-transparent w-full px-1 outline-none placeholder-gray-500"
       />
       {suffix && (

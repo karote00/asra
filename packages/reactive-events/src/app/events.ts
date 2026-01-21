@@ -1,4 +1,4 @@
-import { EVNET_OPTIONS, UNDO } from '@asra/utils'
+import { EVENT_OPTIONS, UNDO } from '@asra/utils'
 import type { EventTypes } from '../types'
 
 export interface RenderIsReadyEvent {
@@ -18,7 +18,7 @@ export interface UpdateTransactionEvent {
   eventName: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload: any
-  option?: EVNET_OPTIONS
+  options?: EVENT_OPTIONS
 }
 
 export interface EndTransactionEvent {

@@ -1,8 +1,6 @@
 import { PrimaryToolType } from '@asra/utils'
 
-export interface PrimaryToolRawAPIs {
-  getCurrentPrimaryTool: () => Promise<PrimaryToolType>
-}
+export interface PrimaryToolRawAPIs {}
 
 export interface PrimaryToolActionAPIs {
   switchPrimaryTool: (tool: PrimaryToolType) => void
