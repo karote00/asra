@@ -3,7 +3,6 @@ import {
   waitForAppReady,
   resetCanvas,
   createRectangle,
-  // hasSelectedElement,
   clickCanvas,
   getPropertiesPanel,
   getContentsPanel
@@ -200,7 +199,7 @@ test.describe('Property Management', () => {
     await createRectangle(page, 0.6, 0.6)
 
     // Get X value after creating second rectangle (should be selected)
-    const secondRectX = await xInput.inputValue()
+    const _secondRectX = await xInput.inputValue()
 
     // Select first rectangle via Contents Panel to verify properties update
     const contentsPanel = getContentsPanel(page)
