@@ -31,14 +31,7 @@ jobs:
       - name: Build React
         run: yarn react:build
 
-      - name: Start application
-        run: yarn workspace @asra/ui react:start &
-
-      - name: Wait for app to be ready
-        run: |
-          timeout 60 bash -c 'until curl -f http://localhost:3000; do sleep 2; done' || exit 1
-
-      - name: Run E2E tests
+      - name: Run E2E tests with built-in server
         run: yarn workspace @asra/ui test:e2e
 
       - name: Upload test results
