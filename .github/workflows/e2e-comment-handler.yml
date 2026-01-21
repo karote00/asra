@@ -59,7 +59,7 @@ jobs:
               **Branch:** \`${pr.head.ref}\`  
               **Started by:** @${context.actor}
               
-              [Watch progress here](${context.payload.repository.html_url}/actions/workflows/e2e-manual.yml)
+              [Watch progress here](${context.payload.repository.html_url}/actions/workflows/e2e-pr-trigger.yml)
               
               ---
               *Tests will run for ~5-10 minutes...*
