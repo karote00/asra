@@ -198,9 +198,6 @@ test.describe('Property Management', () => {
     // Create second rectangle at different position
     await createRectangle(page, 0.6, 0.6)
 
-    // Get X value after creating second rectangle (should be selected)
-    const _secondRectX = await xInput.inputValue()
-
     // Select first rectangle via Contents Panel to verify properties update
     const contentsPanel = getContentsPanel(page)
     const firstElement = contentsPanel
