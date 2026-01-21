@@ -135,7 +135,7 @@ export async function redo(page: Page) {
 
   // Press the shortcut
   await page.keyboard.down('Meta')
-  await page.keyboard.press('Shift')
+  await page.keyboard.down('Shift')
   await page.keyboard.press('Z')
   await page.keyboard.up('Meta')
   await page.waitForTimeout(1000) // Extra time for redo to process
