@@ -28,5 +28,8 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
+      - name: Install Playwright browsers
+        run: yarn workspace @asra/ui playwright install --with-deps
+
       - name: Run E2E Tests
         run: bash scripts/run-e2e.sh
