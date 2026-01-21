@@ -1,0 +1,121 @@
+name: E2E Tests (PR Trigger)
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to test'
+        required: false
+        type: string
+      branch:
+        description: 'Branch to test (if no PR)'
+        required: false
+        type: string
+
+jobs:
+  detect-target:
+    runs-on: ubuntu-latest
+    outputs:
+      ref-to-test: ${{ steps.detect.outputs.ref }}
+      target-url: ${{ steps.detect.outputs.target_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect what to test
+        id: detect
+        run: |
+          if [[ -n "${{ github.event.inputs.pr_number }}" ]]; then
+            # Test specific PR
+            echo "ref=refs/pull/${{ github.event.inputs.pr_number }}/head" >> $GITHUB_OUTPUT
+            echo "target_url=https://github.com/${{ github.repository }}/pull/${{ github.event.inputs.pr_number }}" >> $GITHUB_OUTPUT
+          elif [[ -n "${{ github.event.inputs.branch }}" ]]; then
+            # Test specific branch
+            echo "ref=${{ github.event.inputs.branch }}" >> $GITHUB_OUTPUT
+            echo "target_url=https://github.com/${{ github.repository }}/tree/${{ github.event.inputs.branch }}" >> $GITHUB_OUTPUT
+          else
+            # Default to main branch
+            echo "ref=main" >> $GITHUB_OUTPUT
+            echo "target_url=https://github.com/${{ github.repository }}" >> $GITHUB_OUTPUT
+          fi
+
+  e2e-test:
+    needs: detect-target
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.detect-target.outputs.ref-to-test }}
+
+      - name: Setup Yarn
+        run: corepack enable && yarn set version 4.3.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.17.0
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Install Playwright browsers
+        run: yarn workspace @asra/ui exec playwright install --with-deps
+
+      - name: Build React
+        run: yarn react:build
+
+      - name: Start application
+        run: yarn workspace @asra/ui react:start &
+
+      - name: Wait for app to be ready
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:3000; do sleep 2; done' || exit 1
+
+      - name: Run E2E tests
+        run: yarn workspace @asra/ui test:e2e
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-pr-${{ github.event.inputs.pr_number || 'manual' }}-${{ github.run_number }}
+          path: apps/ui/playwright-report/
+          retention-days: 3
+
+      - name: Post results to PR
+        if: github.event.inputs.pr_number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = '${{ github.event.inputs.pr_number }}';
+            const status = context.payload.conclusion === 'success' ? 'Passed' : 'Failed';
+            const emoji = context.payload.conclusion === 'success' ? '✅' : '❌';
+
+            const message = `
+            ## E2E Test Results: ${emoji} ${status}
+
+            **PR:** #${prNumber}
+            **Triggered:** Manual trigger
+            **Duration:** ${Math.round((Date.now() - new Date('${{ github.event.created_at }}').getTime()) / 1000 / 60)} minutes
+
+            ${
+              context.payload.conclusion === 'success' 
+                ? '🎉 All E2E tests passed successfully!' 
+                : '🔍 Check the artifact `playwright-report-pr-*` for detailed failure information.'
+            }
+
+            ---
+            *E2E tests run on branch: ${{ needs.detect-target.outputs.ref-to-test }}*
+            `;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: parseInt(prNumber),
+              body: message
+            });

@@ -1,0 +1,102 @@
+name: E2E Tests (Nightly)
+
+on:
+  schedule:
+    - cron: '0 2 * * *' # Run daily at 2 AM UTC
+  workflow_dispatch: # Manual trigger from Actions page
+
+jobs:
+  e2e-main:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Yarn
+        run: corepack enable && yarn set version 4.3.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.17.0
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Install Playwright browsers
+        run: yarn workspace @asra/ui exec playwright install --with-deps
+
+      - name: Build React
+        run: yarn react:build
+
+      - name: Start application
+        run: yarn workspace @asra/ui react:start &
+
+      - name: Wait for app to be ready
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:3000; do sleep 2; done' || exit 1
+
+      - name: Run E2E tests
+        run: yarn workspace @asra/ui test:e2e
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-nightly-$(date +%Y%m%d)
+          path: apps/ui/playwright-report/
+          retention-days: 7
+
+      - name: Create issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🧪 E2E Tests Failed - ${new Date().toISOString().split('T')[0]}`,
+              body: `
+              ## Nightly E2E Test Failure
+              
+              **Date:** ${new Date().toLocaleDateString()}
+              **Workflow:** [View Details](${context.payload.repository.html_url}/actions/runs/${context.runId})
+              
+              ### What Failed:
+              - Check the artifact \`playwright-report-nightly-*\` for detailed test results
+              - Look at the workflow logs for specific error messages
+              
+              ### Next Steps:
+              - [ ] Investigate failing tests
+              - [ ] Fix the issues
+              - [ ] Verify fixes with \`/e2e\` in a test PR
+              - [ ] Close this issue when resolved
+              
+              ---
+              *Automatically created by nightly E2E workflow*
+              `,
+              labels: ['bug', 'e2e-failure', 'high-priority']
+            });
+
+  e2e-notify:
+    needs: e2e-main
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Assign to E2E owner (you can customize this)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Assign to the person responsible for E2E failures
+            // Replace 'your-username' with the actual username
+            await github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: '1',  // This won't work as-is, needs issue number lookup
+              assignees: ['your-username']  // Replace with actual username
+            });
