@@ -28,8 +28,9 @@ export default tseslint.config(
       react
     },
     rules: {
-      indent: ['error', 2, { SwitchCase: 1 }],
-      quotes: ['error', 'single'],
+      // Disable ESLint formatting rules that conflict with Prettier
+      // indent: ['error', 2, { SwitchCase: 1 }], // Disabled - handled by Prettier
+      // quotes: ['error', 'single'], // Disabled - handled by Prettier
       'no-console': 'warn',
       'react/jsx-uses-react': 'error',
       'react/jsx-uses-vars': 'error',
