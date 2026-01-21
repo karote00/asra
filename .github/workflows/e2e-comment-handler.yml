@@ -1,0 +1,75 @@
+name: E2E Comment Handler
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  handle-e2e-request:
+    if: contains(github.event.comment.body, '/e2e') || contains(github.event.comment.body, '/run-e2e')
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      actions: write
+
+    steps:
+      - name: Extract PR number and trigger E2E
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { context, github } = actions;
+
+            // Get PR number from comment
+            if (!context.issue.pull_request) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: '❌ This command only works in pull requests.'
+              });
+              return;
+            }
+
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+
+            // Trigger E2E workflow
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'e2e-pr-trigger.yml',
+              ref: 'main',
+              inputs: {
+                pr_number: pr.number.toString()
+              }
+            });
+
+            // Acknowledge the request
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `
+              ## E2E Tests Triggered!
+              
+              **PR:** #${pr.number}  
+              **Branch:** \`${pr.head.ref}\`  
+              **Started by:** @${context.actor}
+              
+              [Watch progress here](${context.payload.repository.html_url}/actions/workflows/e2e-manual.yml)
+              
+              ---
+              *Tests will run for ~5-10 minutes...*
+              `
+            });
+
+            // React to original comment
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket'
+            });
