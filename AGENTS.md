@@ -8,6 +8,7 @@
 2. **[.project/ARCHITECTURE.md](.project/ARCHITECTURE.md)** - Technical architecture details
 3. **[.project/WORKFLOW.md](.project/WORKFLOW.md)** - Development process phases
 4. **[.project/SKILLS.md](.project/SKILLS.md)** - Available AI agent skills and expertise
+5. **[.project/workflows/](.project/workflows/)** - Universal workflows for guaranteed process execution
 
 ## Quick Reference
 
@@ -16,7 +17,18 @@
 - **Build**: `yarn react:build`
 - **Architecture**: Communication-Driven Development (CDD) with typed events
 
-## Skills & Capabilities
+## Universal Workflows
+
+For guaranteed process execution, use these workflows:
+
+- **`/feature <description>`** - New feature development with automatic CDD compliance
+- **`/refactor <description>`** - Code refactoring following architecture patterns
+- **`/bugfix <description>`** - Systematic bug fixing with regression prevention
+- **`/docs <task>`** - Comprehensive documentation updates with quality standards
+
+Each workflow automatically loads appropriate skills and follows the complete development process from **[.project/rules/request-handling-workflow.md](.project/rules/request-handling-workflow.md)**.
+
+### Skills & Capabilities
 
 For available AI agent skills and domain expertise, see **[.project/SKILLS.md](.project/SKILLS.md)**.
 
@@ -26,7 +38,10 @@ For available AI agent skills and domain expertise, see **[.project/SKILLS.md](.
 - **Load skill**: `npx openskills read <skill-name>`
 - **Update catalog**: `npx openskills sync -y --output .project/SKILLS.md`
 
-> ⚠️ **Important**: To update skills catalog, always use:
+> ⚠️ **Important**:
+>
+> - **For workflows**: Use `/feature`, `/refactor`, `/bugfix`, or `/docs` commands for guaranteed process execution
+> - **For skills catalog**: Always use:
 >
 > ```bash
 > ./scripts/update-skills.sh
