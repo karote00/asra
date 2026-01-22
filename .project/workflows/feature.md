@@ -27,7 +27,7 @@ Example:
 
 ### Phase 1: Strategic Thinking (Automatic)
 
-1. **Load CDD Rules**: Apply Communication-Driven Development patterns from AI_ESSENTIALS.md
+1. **Load CDD Rules**: Apply Communication-Driven Development patterns from [CDD_SPECIFICATION.md](CDD_SPECIFICATION.md)
 2. **Parse Request**: Analyze feature description for requirements and constraints
 3. **Explore Codebase**: Identify relevant packages and existing patterns
 4. **Ask Clarifying Questions**: If requirements are ambiguous
@@ -87,8 +87,8 @@ Example:
 
 This workflow includes CDD and testing patterns directly:
 
-- **CDD Principles**: Event-driven communication and request APIs embedded in workflow steps
-- **E2E Testing**: Playwright testing patterns included in testing phases
+- **CDD Principles**: Applied from [CDD_SPECIFICATION.md](CDD_SPECIFICATION.md)
+- **E2E Testing**: Playwright testing patterns from [e2e-best-practices.md](rules/e2e-best-practices.md)
 - **Architecture Guidance**: Communication-Driven Development patterns applied throughout
 
 ## Quality Gates
