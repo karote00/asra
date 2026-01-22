@@ -27,7 +27,7 @@ Example:
 
 ### Phase 1: Strategic Thinking (Automatic)
 
-1. **Load CDD Rules**: Automatically load `cdd-development` skill for architecture patterns
+1. **Load CDD Rules**: Apply Communication-Driven Development patterns from AI_ESSENTIALS.md
 2. **Parse Request**: Analyze feature description for requirements and constraints
 3. **Explore Codebase**: Identify relevant packages and existing patterns
 4. **Ask Clarifying Questions**: If requirements are ambiguous
@@ -49,7 +49,7 @@ Example:
 
 ### Phase 4: Implementation
 
-1. **Load Testing Skill**: Load `e2e-testing` skill for UI testing patterns
+1. **Apply E2E Testing Patterns**: Use data-testid attributes and cross-platform testing
 2. **Implement Events**: Add event types to `@asra/reactive-events`
 3. **Implement Publishers**: Create event publishers in source packages
 4. **Implement Subscribers**: Create event handlers in target packages
@@ -61,7 +61,11 @@ Example:
 
 1. **Unit Tests**: Write behavior-focused tests for new functionality
 2. **Integration Tests**: Test event-driven communication
-3. **E2E Tests**: Create Playwright tests for UI interactions
+3. **E2E Tests**: Create Playwright tests using these patterns:
+   - Use `data-testid` attributes for element selection
+   - Support cross-platform shortcuts (Meta/Control)
+   - Focus on neutral areas to avoid tool triggering
+   - Use proper waiting strategies, not arbitrary timeouts
 4. **Cross-Platform Tests**: Verify keyboard shortcuts work on all platforms
 
 ### Phase 6: Verification
@@ -79,13 +83,13 @@ Example:
 4. **Update API Docs**: Document new request APIs
 5. **Update E2E Documentation**: Document new test scenarios
 
-## Required Skills Loading
+## Built-in Patterns
 
-This workflow automatically loads these skills at appropriate phases:
+This workflow includes CDD and testing patterns directly:
 
-- **`cdd-development`**: Loaded immediately for architecture guidance
-- **`e2e-testing`**: Loaded in Phase 4 for testing patterns
-- **Additional skills**: Loaded based on specific feature requirements
+- **CDD Principles**: Event-driven communication and request APIs embedded in workflow steps
+- **E2E Testing**: Playwright testing patterns included in testing phases
+- **Architecture Guidance**: Communication-Driven Development patterns applied throughout
 
 ## Quality Gates
 
