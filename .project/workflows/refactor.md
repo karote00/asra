@@ -28,7 +28,7 @@ Example:
 
 ### Phase 1: Analysis (Automatic)
 
-1. **Load CDD Rules**: Automatically load `cdd-development` skill for architecture patterns
+1. **Load CDD Rules**: Apply Communication-Driven Development patterns from AI_ESSENTIALS.md
 2. **Parse Request**: Identify what needs to be refactored and why
 3. **Explore Target Code**: Analyze current implementation
 4. **Identify Violations**: Find CDD violations, performance issues, or maintainability problems
@@ -51,7 +51,7 @@ Example:
 
 ### Phase 4: Implementation
 
-1. **Load Testing Skills**: Load `e2e-testing` skill if UI is affected
+1. **Apply E2E Testing Patterns**: Use data-testid attributes if UI components are affected
 2. **Implement Changes**: Apply refactoring following CDD patterns
 3. **Maintain API Compatibility**: Ensure existing interfaces still work
 4. **Add Migration Paths**: Help users transition from old to new implementation
@@ -81,13 +81,13 @@ Example:
 4. **E2E Tests**: `yarn test:e2e` - Complete UI testing
 5. **Performance Benchmarks**: Verify improvements (if applicable)
 
-## Required Skills Loading
+## Built-in Patterns
 
-This workflow automatically loads these skills at appropriate phases:
+This workflow includes CDD and testing patterns directly:
 
-- **`cdd-development`**: Loaded immediately for architecture guidance
-- **`e2e-testing`**: Loaded in Phase 4 if UI components are affected
-- **Additional skills**: Loaded based on specific refactoring requirements
+- **CDD Principles**: Event-driven communication and request APIs embedded in workflow steps
+- **E2E Testing**: Playwright testing patterns included in testing phases
+- **Architecture Guidance**: Communication-Driven Development patterns applied throughout
 
 ## Common Refactoring Patterns
 
