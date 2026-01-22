@@ -28,7 +28,7 @@ Example:
 
 ### Phase 1: Bug Analysis (Automatic)
 
-1. **Load CDD Rules**: Automatically load `cdd-development` skill for architecture patterns
+1. **Load CDD Rules**: Apply Communication-Driven Development patterns from AI_ESSENTIALS.md
 2. **Parse Bug Report**: Understand what's broken and expected behavior
 3. **Identify Affected Code**: Locate relevant packages and components
 4. **Reproduce Bug**: Create minimal reproduction case
@@ -51,7 +51,7 @@ Example:
 
 ### Phase 4: Implementation
 
-1. **Load Testing Skills**: Load `e2e-testing` skill if UI bug
+1. **Apply E2E Testing Patterns**: Use data-testid attributes if UI components are affected
 2. **Implement Minimal Fix**: Apply targeted solution following CDD patterns
 3. **Maintain Architecture**: Ensure fix doesn't break CDD principles
 4. **Add Event Handling**: Fix event-driven communication if needed
@@ -82,13 +82,13 @@ Example:
 4. **E2E Tests**: `yarn test:e2e` - Complete UI testing
 5. **Regression Test Suite**: Run full regression test battery
 
-## Required Skills Loading
+## Built-in Patterns
 
-This workflow automatically loads these skills at appropriate phases:
+This workflow includes CDD and testing patterns directly:
 
-- **`cdd-development`**: Loaded immediately for architecture guidance
-- **`e2e-testing`**: Loaded in Phase 4 if UI components are involved
-- **Additional skills**: Loaded based on specific bug type
+- **CDD Principles**: Event-driven communication and request APIs embedded in workflow steps
+- **E2E Testing**: Playwright testing patterns included in testing phases
+- **Architecture Guidance**: Communication-Driven Development patterns applied throughout
 
 ## Common Bug Categories & Patterns
 
