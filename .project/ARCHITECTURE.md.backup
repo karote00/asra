@@ -22,116 +22,43 @@ Detailed technical architecture for the Asra project.
 
 ## Package Responsibilities
 
-### System Layer
-
-#### `@asra/core` - System Orchestrator
+### `@asra/core` - System Orchestrator
 
 - Central event subscription hub
 - API delegation to other packages
 - Methods assigned via `Object.assign()` from `createAPIs()`
 - Request-based APIs for synchronous operations
 - Dependency injection pattern for better testability
-- **Request APIs**: Factory, Props, Render, SceneTree, Selection, SystemContext
 
-#### `@asra/interaction-core` - Decision Engine
+### `@asra/interaction-core` - Decision Engine
 
 - Receives action/session data
 - Uses `src/decider/rules` (logic) and `src/decider/behavior` (flow)
 - Publishes final decisions via events
-- Handlers for elements, viewport, transactions, tools
 
-#### `@asra/reactive-events` - Event Bus
+### `@asra/reactive-events` - Event Bus
 
 - Defines all cross-package communication events
 - Typed event system for type safety
 - Streamlined event flow for request-response pattern
-- Event modules: app, interaction-core, props-manager, scene-tree, system-context
 
-#### `@asra/factory` - Transaction System
-
-- `startTransaction()`: Begin undoable unit
-- `updateTransaction()`: Add undoable changes
-- `endTransaction()`: Commit as single unit
-- Supports undo/redo for all data operations
-
-### Data Layer
-
-#### `@asra/scene-tree` - Document Model
+### `@asra/scene-tree` - Document Model
 
 - Manages elements and hierarchy
 - Provides real-time updates
 - Implicit operations on selected elements
-- Components: workspace, rectangle, group
-- YJS-based CRDT for collaboration
 
-#### `@asra/system-context` - Global State
+### `@asra/system-context` - Global State
 
 - Single source of truth for system state
 - Active tool, mouse position, keyboard modifiers
 - Accessible via `systemContext.getSystemContextSnapshot()`
-- Stores primary tool, selection, viewport state
 
-#### `@asra/props-manager` - Property Management
+### `@asra/factory` - Transaction System
 
-- Structured property management separate from scene tree
-- API-based control over prop components
-- Reactive updates via events
-- Supports serialization/deserialization of property data
-
-#### `@asra/selection` - Selection Management
-
-- Handles element, vertex, edge selection
-- Provides selection state queries
-- Integrates with scene tree and UI context
-- Selection events for reactive updates
-
-### Input/Output Layer
-
-#### `@asra/input-system` - Input Handling
-
-- Keyboard and mouse event processing
-- Event mappings and keymaps
-- Cross-platform shortcut support (Meta/Control)
-- Input action generation for interaction-core
-
-#### `@asra/render` - Rendering System
-
-- WebGL/Canvas rendering engine
-- Viewport management (position, scale)
-- Selection layer rendering
-- Integration with scene tree for element display
-
-#### `@asra/ui-context` - UI State Optimization
-
-- Manages and optimizes data for UI consumption
-- Reactive stores for selection, scene-tree, system-context
-- Efficient rendering with RxJS and YJS integration
-- Framework-agnostic state management
-
-#### `@asra/design-system` - UI Components
-
-- Reusable React components
-- Design tokens and styling system
-- Input components and layout primitives
-- Integration with Tailwind CSS
-
-### Application Layer
-
-#### `@asra/ui` - React Application
-
-- Main application interface (apps/ui)
-- React 19 + Vite build system
-- Playwright E2E testing setup
-- Integration with all backend packages
-
-### Shared Infrastructure
-
-#### `@asra/utils` - Shared Utilities
-
-- Common types and interfaces
-- Utility functions and constants
-- ID generation and counters
-- Scene tree data type definitions
+- `startTransaction()`: Begin undoable unit
+- `updateTransaction()`: Add undoable changes
+- `endTransaction()`: Commit as single unit
 
 ## Data Manipulation Rules
 
@@ -139,7 +66,6 @@ Detailed technical architecture for the Asra project.
 
 - **Undoable Changes**: Use `factory.updateTransaction()`
 - **Real-time Updates**: Use `sceneTree.updateComputedData()`
-- **Property Updates**: Use `props-manager` for structured data
 - **Implicit Selection**: Many APIs operate on currently selected elements
 
 ### Event vs Data Flow
@@ -168,23 +94,6 @@ Detailed technical architecture for the Asra project.
 - SceneTreeRequests: Document model operations
 - SelectionRequests: Element selection queries
 - SystemContextRequests: Global state access
-```
-
-### Usage Examples
-
-```typescript
-// Direct state access
-const context = core.requests.systemContext.getSystemContextSnapshot()
-const selectedIds = core.requests.selection.getElementSelectionIds()
-const viewportPos = core.requests.render.getViewportPosition()
-
-// Business logic orchestration
-addRectangle(data: CreateElementData): void {
-  startTransaction()
-  const elementId = requests.sceneTree.addRectangle(data, inUndoRedo)
-  requests.selection.selectElements([elementId])
-  endTransaction()
-}
 ```
 
 ## Testing Architecture
@@ -225,13 +134,6 @@ core.propsLoadData = vi.fn()
 - `yarn test:e2e`: Playwright test execution
 - `apps/ui/playwright.config.ts`: Test configuration with CI/CD environment support
 
-### E2E Best Practices
-
-- Use `data-testid` for stable element selection
-- Support cross-platform keyboard shortcuts
-- Expose internal state with data attributes
-- Focus neutral areas to avoid triggering tools
-
 ## Skills Management System
 
 ### OpenSkills Integration
@@ -252,53 +154,3 @@ core.propsLoadData = vi.fn()
 - **algorithmic-art**: Generative art creation
 - **internal-comms**: Professional communication templates
 - **skill-creator**: Custom skill development
-
-## Input System Architecture
-
-### Cross-Platform Support
-
-- Detects platform (Mac vs Windows/Linux)
-- Maps Meta key on Mac, Control on others
-- Consistent keyboard shortcuts across platforms
-- Event mapping system for tool-specific actions
-
-### Event Flow
-
-1. Raw keyboard/mouse events captured
-2. Input system maps to standardized actions
-3. Actions sent to interaction-core via events
-4. Interaction core decides on behavior
-5. Decision published via events
-6. Core subscribes and executes actions
-
-## UI Context Architecture
-
-### Reactive State Management
-
-- RxJS-based reactive streams
-- YJS integration for collaborative features
-- Optimized data transformation for UI
-- Framework-agnostic design patterns
-
-### Data Optimization
-
-- Efficient diffing and updates
-- Memoized computed values
-- Batch updates for performance
-- Memory-efficient subscriptions
-
-## Property Management System
-
-### Structured Data
-
-- Separate from scene tree hierarchy
-- Component-based property organization
-- Type-safe property definitions
-- Reactive updates via events
-
-### API Integration
-
-- Request APIs for synchronous access
-- Event-driven updates for changes
-- Serialization support for persistence
-- Validation and type checking
