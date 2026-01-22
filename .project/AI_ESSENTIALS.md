@@ -10,10 +10,22 @@ Your FIRST action in any session MUST be to read this file completely.
 
 This project follows **Communication-Driven Development (CDD)**:
 
+**For comprehensive CDD patterns and specifications, see:**
+
+- **[CDD/INDEX.md](CDD/INDEX.md)** - Overview and usage guide
+- **[CDD/EVENTS.md](CDD/EVENTS.md)** - Event-driven communication
+- **[CDD/TRANSACTIONS.md](CDD/TRANSACTIONS.md)** - Transaction management
+- **[CDD/REQUEST_APIS.md](CDD/REQUEST_APIS.md)** - Synchronous API patterns
+- **[CDD/TESTING.md](CDD/TESTING.md)** - Testing patterns and quality gates
+- **[CDD/VALIDATION.md](CDD/VALIDATION.md)** - Validation rules and automated checking
+
+### Core Principles
+
 - All components communicate via **typed events** (`@asra/reactive-events`)
 - No direct function calls between packages
 - Event flow: Input → Decision → Action → State Update
 - **Request-Response Pattern**: Synchronous APIs via dependency injection
+- **Transaction Management**: All state changes wrapped in undo/redo transactions
 
 ### Core Packages
 
