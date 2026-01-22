@@ -170,7 +170,7 @@ All state changes must support undo/redo through `@asra/factory`.
 
 ## Built-in Documentation Standards
 
-This workflow includes documentation patterns directly:
+This workflow includes focused documentation patterns:
 
 - **Template Usage**: Uses project templates from `.project/templates/`
 - **Formatting Standards**: Follows existing documentation conventions

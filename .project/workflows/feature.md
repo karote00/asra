@@ -85,11 +85,13 @@ Example:
 
 ## Built-in Patterns
 
-This workflow includes CDD and testing patterns directly:
+This workflow includes focused CDD patterns:
 
-- **CDD Principles**: Applied from [CDD_SPECIFICATION.md](CDD_SPECIFICATION.md)
-- **E2E Testing**: Playwright testing patterns from [e2e-best-practices.md](rules/e2e-best-practices.md)
-- **Architecture Guidance**: Communication-Driven Development patterns applied throughout
+- **CDD Events**: Applied from [CDD/EVENTS.md](CDD/EVENTS.md)
+- **CDD Transactions**: From [CDD/TRANSACTIONS.md](CDD/TRANSACTIONS.md) for state changes
+- **CDD Request APIs**: From [CDD/REQUEST_APIS.md](CDD/REQUEST_APIS.md) for synchronous operations
+- **E2E Testing**: Playwright patterns from [e2e-best-practices.md](rules/e2e-best-practices.md)
+- **CDD Validation**: From [CDD/VALIDATION.md](CDD/VALIDATION.md) for quality gates
 
 ## Quality Gates
 
