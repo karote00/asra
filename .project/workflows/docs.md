@@ -29,7 +29,7 @@ Example:
 
 ### Phase 1: Documentation Analysis (Automatic)
 
-1. **Load Relevant Skills**: Automatically load appropriate skills based on documentation type
+1. **Review Standards**: Apply documentation patterns from existing project files
 2. **Parse Request**: Understand what documentation needs updating
 3. **Identify Target**: Determine which docs need changes (API, architecture, user guides)
 4. **Assess Scope**: Evaluate impact on other documentation
@@ -168,15 +168,14 @@ All state changes must support undo/redo through `@asra/factory`.
 - `Delete`: Remove selected elements
 ```
 
-## Required Skills Loading
+## Built-in Documentation Standards
 
-This workflow automatically loads these skills based on documentation type:
+This workflow includes documentation patterns directly:
 
-- **`skill-creator`**: When creating new documentation templates
-- **`brand-guidelines`**: When creating visual documentation or presentations
-- **`theme-factory`**: When styling documentation artifacts
-- **`internal-comms`**: When creating internal communications
-- **`webapp-testing`**: When documenting testing procedures
+- **Template Usage**: Uses project templates from `.project/templates/`
+- **Formatting Standards**: Follows existing documentation conventions
+- **Quality Assurance**: Built-in accuracy and completeness checks
+- **Cross-Reference Management**: Integrated navigation and linking patterns
 
 ## Quality Gates
 
