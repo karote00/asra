@@ -237,9 +237,9 @@ core.propsLoadData = vi.fn()
 ### OpenSkills Integration
 
 - **Purpose**: Modular AI agent capabilities loaded on-demand
-- **Location**: `.claude/skills/` directory with structured skill definitions
+- **Location**: `docs/ai/skills/` directory with structured skill definitions
 - **Management**: `scripts/update-skills.sh` for catalog synchronization
-- **Catalog**: `docs/ai/project/SKILLS.md` with available skills and usage patterns
+- **Catalog**: `docs/ai/skills/README.md` with available skills and usage patterns
 
 ### Available Skills
 

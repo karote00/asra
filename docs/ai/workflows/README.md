@@ -1,6 +1,83 @@
-# Universal Workflows Integration Guide
+# Development Workflows
 
-**Purpose**: Guide for AI agents to integrate and execute universal workflows in any IDE
+This directory contains executable and composable workflows for systematic development processes.
+
+## 🔄 Available Workflows
+
+### Core Development Workflows
+
+- **feature-dev.md** - Complete feature development lifecycle
+- **bugfix.md** - Systematic bug fixing with regression prevention
+- **release.md** - Release preparation and deployment process
+
+### Specialized Workflows
+
+- **docs.md** - Documentation updates and maintenance
+- **refactor.md** - Code refactoring following architecture patterns
+
+## 🚀 Workflow Execution
+
+### Universal Workflow Commands
+
+```bash
+/feature <description>     # New feature development
+/refactor <description>      # Code refactoring
+/bugfix <description>       # Bug fixing
+/docs <task>               # Documentation updates
+```
+
+### Workflow Characteristics
+
+Each workflow provides:
+
+- **Structured Process**: Step-by-step execution
+- **Quality Gates**: Automated testing and validation
+- **CDD Compliance**: Communication-Driven Development patterns
+- **Documentation**: Integrated documentation updates
+
+## 📋 Workflow Structure
+
+Standard workflow phases:
+
+1. **Planning**: Requirements analysis and task breakdown
+2. **Implementation**: Code changes and feature development
+3. **Verification**: Testing and quality checks
+4. **Documentation**: Updates and knowledge sharing
+5. **Review**: Human validation and approval
+
+## 🔧 Integration
+
+### With Skills
+
+Workflows can load and combine skills from `../skills/`:
+
+```bash
+# Load frontend design skill during feature development
+npx openskills read frontend-design
+```
+
+### With Project Context
+
+All workflows reference:
+
+- **Architecture**: `../project/ARCHITECTURE.md`
+- **Guidelines**: `../project/AI_ESSENTIALS.md`
+- **Patterns**: `../project/golden-paths/`
+
+## 📚 Related Documentation
+
+- **[AI Skills](../skills/)** - Reusable capabilities
+- **[Project Guides](../project/)** - Technical documentation
+- **[AI Essentials](../project/AI_ESSENTIALS.md)** - Core rules
+
+## ⚡ Quick Start
+
+1. **Choose workflow** based on your task
+2. **Execute command** (e.g., `/feature add user login`)
+3. **Follow prompts** for systematic completion
+4. **Review results** before commit
+
+Workflows guarantee process compliance and quality outcomes.
 
 ## Overview
 
@@ -47,7 +124,7 @@ AI agents should recognize these patterns:
 When workflow command is detected:
 
 1. **Parse command** - Extract workflow type and description
-2. **Load workflow file** - Read corresponding `docs/ai/project/workflows/<name>.md`
+2. **Load workflow file** - Read corresponding `docs/ai/workflows/<name>.md`
 3. **Follow steps** - Execute workflow phases sequentially
 4. **Load skills** - Automatically load specified skills at appropriate phases
 5. **Apply patterns** - Follow CDD principles automatically
@@ -86,7 +163,7 @@ if (userInput.startsWith('/feature ')) {
 ```javascript
 function executeWorkflow(type, description) {
   // Load workflow specification
-  const workflow = readFile(`docs/ai/project/workflows/${type}.md`)
+  const workflow = readFile(`docs/ai/workflows/${type}.md`)
 
   // Parse and follow phases
   executePhases(workflow.phases, description)
@@ -125,7 +202,7 @@ function loadSkill(skillName) {
 
 Before executing workflows, ensure:
 
-- [ ] Project has `docs/ai/project/workflows/` directory
+- [ ] Project has `docs/ai/workflows/` directory
 - [ ] AI_ESSENTIALS.md is readable
 - [ ] Required skills are available
 - [ ] Build tools are accessible
@@ -147,7 +224,7 @@ During workflow execution:
 If workflow file doesn't exist:
 
 1. **Inform user** - "Workflow not found: <name>"
-2. **Suggest available** - List workflows in `docs/ai/project/workflows/`
+2. **Suggest available** - List workflows in `docs/ai/workflows/`
 3. **Check permissions** - Verify read access to project files
 
 ### Skill Loading Failures
@@ -174,7 +251,7 @@ If workflow is interrupted:
 User: /feature User wants to delete selected elements
 
 AI Execution:
-1. Load workflow: docs/ai/project/workflows/feature.md
+1. Load workflow: docs/ai/workflows/feature.md
 2. Phase 1: Load cdd-development skill automatically
 3. Phase 2: Follow request-handling-workflow.md steps
 4. Phase 4: Load e2e-testing skill for UI components
@@ -188,7 +265,7 @@ AI Execution:
 User: /refactor Convert direct calls to reactive events
 
 AI Execution:
-1. Load workflow: docs/ai/project/workflows/refactor.md
+1. Load workflow: docs/ai/workflows/refactor.md
 2. Phase 1: Load cdd-development skill automatically
 3. Phase 3: Convert direct calls to event patterns
 4. Phase 5: Add regression tests
@@ -218,14 +295,14 @@ AI Execution:
 
 1. **Workflows not loading**
 
-   - Check file permissions on `docs/ai/project/workflows/`
+   - Check file permissions on `docs/ai/workflows/`
    - Verify workflow files have correct naming
    - Ensure markdown formatting is valid
 
 2. **Skills not available**
 
    - Run `npx openskills list` to verify installation
-   - Check `.claude/skills/` directory contents
+   - Check `docs/ai/skills/` directory contents
    - Update skills catalog with `./scripts/update-skills.sh`
 
 3. **Process inconsistencies**

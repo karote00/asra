@@ -7,8 +7,8 @@
 1. **[docs/ai/project/AI_ESSENTIALS.md](docs/ai/project/AI_ESSENTIALS.md)** - Core rules and guidelines (READ FIRST)
 2. **[docs/ai/project/ARCHITECTURE.md](docs/ai/project/ARCHITECTURE.md)** - Technical architecture details
 3. **[docs/ai/project/WORKFLOW.md](docs/ai/project/WORKFLOW.md)** - Development process phases
-4. **[docs/ai/project/SKILLS.md](docs/ai/project/SKILLS.md)** - Available AI agent skills and expertise
-5. **[docs/ai/project/workflows/](docs/ai/project/workflows/)** - Universal workflows for guaranteed process execution
+4. **[docs/ai/skills/](docs/ai/skills/)** - Reusable AI agent capabilities and skills
+5. **[docs/ai/workflows/](docs/ai/workflows/)** - Universal workflows for guaranteed process execution
 
 ## Quick Reference
 
@@ -30,13 +30,13 @@ Each workflow automatically loads appropriate skills and follows the complete de
 
 ### Skills & Capabilities
 
-For available AI agent skills and domain expertise, see **[docs/ai/project/SKILLS.md](docs/ai/project/SKILLS.md)**.
+For available AI agent skills and domain expertise, see **[docs/ai/skills/](docs/ai/skills/)**.
 
 ### Quick Skill Usage
 
 - **List skills**: `npx openskills list`
 - **Load skill**: `npx openskills read <skill-name>`
-- **Update catalog**: `npx openskills sync -y --output docs/ai/project/SKILLS.md`
+- **Update catalog**: `npx openskills sync -y --output docs/ai/skills/README.md`
 
 > ⚠️ **Important**:
 >
@@ -45,7 +45,7 @@ For available AI agent skills and domain expertise, see **[docs/ai/project/SKILL
 >
 > ```bash
 > ./scripts/update-skills.sh
-> # or: npx openskills sync -y --output docs/ai/project/SKILLS.md
+> # or: npx openskills sync -y --output docs/ai/skills/README.md
 > ```
 >
 > Running `npx openskills sync` without output flag will overwrite AGENTS.md with skills data.

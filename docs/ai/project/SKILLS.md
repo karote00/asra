@@ -10,7 +10,7 @@ This catalog contains specialized skills that extend AI agent capabilities. Skil
 
 - **Load skill**: `npx openskills read <skill-name>`
 - **List all**: `npx openskills list`
-- **Update catalog**: `npx openskills sync -y --output docs/ai/project/SKILLS.md`
+- **Update catalog**: `npx openskills sync -y --output docs/ai/skills/README.md`
 
 ## Available Skills
 
@@ -99,7 +99,7 @@ npx openskills install <repo-name>
 npx openskills install ./local-skill
 
 # Update catalog
-npx openskills sync -y --output docs/ai/project/SKILLS.md
+npx openskills sync -y --output docs/ai/skills/README.md
 ```
 
 ### Removal

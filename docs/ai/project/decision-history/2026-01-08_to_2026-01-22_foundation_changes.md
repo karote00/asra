@@ -151,8 +151,8 @@ Over the past 2 weeks, the project underwent significant foundational changes in
 
 **Infrastructure**:
 
-- `.claude/skills/` directory with skill definitions
-- `docs/ai/project/SKILLS.md` catalog with usage patterns
+- `docs/ai/skills/` directory with skill definitions
+- `docs/ai/skills/README.md` catalog with usage patterns
 - `scripts/update-skills.sh` for catalog management
 - OpenSkills configuration and tooling
 

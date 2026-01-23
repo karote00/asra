@@ -205,7 +205,7 @@ The project integrates **OpenSkills** for modular AI capabilities:
 
 - **On-Demand Loading**: Skills loaded when needed via `npx openskills read`
 - **Modular Architecture**: 10 specialized skills for different domains
-- **Catalog Management**: `docs/ai/project/SKILLS.md` with usage patterns
+- **Catalog Management**: `docs/ai/skills/README.md` with usage patterns
 - **Version Control**: Skills can be updated independently
 
 **Available Skills**:

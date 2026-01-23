@@ -101,7 +101,7 @@ Universal AI Software Engineering Workflow for structured development.
 
 When encountering specialized tasks:
 
-1. Check `docs/ai/project/SKILLS.md` for relevant skills
+1. Check `docs/ai/skills/README.md` for relevant skills
 2. Load skill: `npx openskills read <skill-name>`
 3. Follow skill-specific guidance
 4. Execute using skill patterns

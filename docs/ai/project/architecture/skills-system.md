@@ -14,7 +14,7 @@ The Skills System provides modular, on-demand AI agent capabilities through the 
 
 ### Skill Structure
 ```
-.claude/skills/
+docs/ai/skills/
 ├── skill-name/
 │   ├── .openskills.json          # Skill metadata
 │   ├── SKILL.md                  # Main skill documentation
@@ -153,7 +153,7 @@ npx openskills install <repo-name>
 npx openskills install ./local-skill
 
 # Update catalog
-npx openskills sync -y --output docs/ai/project/SKILLS.md
+npx openskills sync -y --output docs/ai/skills/README.md
 ```
 
 ### Usage
@@ -271,7 +271,7 @@ Known constraints and boundaries
 # scripts/update-skills.sh
 
 echo "Updating skills catalog..."
-npx openskills sync -y --output docs/ai/project/SKILLS.md
+npx openskills sync -y --output docs/ai/skills/README.md
 
 echo "Skills catalog updated successfully!"
 ```
