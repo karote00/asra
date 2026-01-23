@@ -4,11 +4,11 @@
 
 ## Essential Reading (in order)
 
-1. **[.project/AI_ESSENTIALS.md](.project/AI_ESSENTIALS.md)** - Core rules and guidelines (READ FIRST)
-2. **[.project/ARCHITECTURE.md](.project/ARCHITECTURE.md)** - Technical architecture details
-3. **[.project/WORKFLOW.md](.project/WORKFLOW.md)** - Development process phases
-4. **[.project/SKILLS.md](.project/SKILLS.md)** - Available AI agent skills and expertise
-5. **[.project/workflows/](.project/workflows/)** - Universal workflows for guaranteed process execution
+1. **[docs/ai/project/AI_ESSENTIALS.md](docs/ai/project/AI_ESSENTIALS.md)** - Core rules and guidelines (READ FIRST)
+2. **[docs/ai/project/ARCHITECTURE.md](docs/ai/project/ARCHITECTURE.md)** - Technical architecture details
+3. **[docs/ai/project/WORKFLOW.md](docs/ai/project/WORKFLOW.md)** - Development process phases
+4. **[docs/ai/skills/](docs/ai/skills/)** - Reusable AI agent capabilities and skills
+5. **[docs/ai/workflows/](docs/ai/workflows/)** - Universal workflows for guaranteed process execution
 
 ## Quick Reference
 
@@ -26,17 +26,17 @@ For guaranteed process execution, use these workflows:
 - **`/bugfix <description>`** - Systematic bug fixing with regression prevention
 - **`/docs <task>`** - Comprehensive documentation updates with quality standards
 
-Each workflow automatically loads appropriate skills and follows the complete development process from **[.project/rules/request-handling-workflow.md](.project/rules/request-handling-workflow.md)**.
+Each workflow automatically loads appropriate skills and follows the complete development process from **[docs/ai/project/rules/request-handling-workflow.md](docs/ai/project/rules/request-handling-workflow.md)**.
 
 ### Skills & Capabilities
 
-For available AI agent skills and domain expertise, see **[.project/SKILLS.md](.project/SKILLS.md)**.
+For available AI agent skills and domain expertise, see **[docs/ai/skills/](docs/ai/skills/)**.
 
 ### Quick Skill Usage
 
 - **List skills**: `npx openskills list`
 - **Load skill**: `npx openskills read <skill-name>`
-- **Update catalog**: `npx openskills sync -y --output .project/SKILLS.md`
+- **Update catalog**: `npx openskills sync -y --output docs/ai/skills/README.md`
 
 > ⚠️ **Important**:
 >
@@ -45,7 +45,7 @@ For available AI agent skills and domain expertise, see **[.project/SKILLS.md](.
 >
 > ```bash
 > ./scripts/update-skills.sh
-> # or: npx openskills sync -y --output .project/SKILLS.md
+> # or: npx openskills sync -y --output docs/ai/skills/README.md
 > ```
 >
 > Running `npx openskills sync` without output flag will overwrite AGENTS.md with skills data.
@@ -91,8 +91,8 @@ yarn workspace @package/name build  # Package-specific build
 
 ## Critical Rules
 
-- **Project Context**: Always read `.project/` folder first for architecture patterns
+- **Project Context**: Always read `docs/ai/project/` folder first for architecture patterns
 - **External APIs**: Use Context7 MCP server for libraries/frameworks/APIs (see `.antigravity/rules.md`)
-- Read `.project/AI_ESSENTIALS.md` before any work
+- Read `docs/ai/project/AI_ESSENTIALS.md` before any work
 - Use direct assignment for mocking dynamic methods: `instance.method = vi.fn()`
 - No commits without explicit user approval

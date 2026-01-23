@@ -60,5 +60,9 @@
     "turbo": "^2.3.3",
     "typescript-eslint": "^8.18.2",
     "wait-on": "^9.0.3"
+  },
+  "dependencies": {
+    "context-rag": "^2.1.4",
+    "handoff-ai": "^0.7.0"
   }
 }
