@@ -91,6 +91,7 @@ yarn workspace @package/name build  # Package-specific build
 
 ## Critical Rules
 
+- **🚨 MAIN BRANCH PROTECTION**: NEVER work on main branch - use feature branches only (see `docs/ai/project/rules/main-branch-protection.md`)
 - **Project Context**: Always read `docs/ai/project/` folder first for architecture patterns
 - **External APIs**: Use Context7 MCP server for libraries/frameworks/APIs (see `.antigravity/rules.md`)
 - Read `docs/ai/project/AI_ESSENTIALS.md` before any work

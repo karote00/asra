@@ -115,6 +115,7 @@ npx openskills read <skill-name>         # Load specific skill
 
 ## ⚠️ Critical Rules
 
+- **🚨 MAIN BRANCH PROTECTION**: NEVER work on main branch - use feature branches only (see [rules/main-branch-protection.md](./rules/main-branch-protection.md))
 - **Never hardcode formatting** - always check config files
 - **No direct dependencies** between packages (use events or request APIs)
 - **Always validate** with lint and test before finishing
