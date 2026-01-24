@@ -5,10 +5,11 @@
 ## Essential Reading (in order)
 
 1. **[docs/ai/project/AI_ESSENTIALS.md](docs/ai/project/AI_ESSENTIALS.md)** - Core rules and guidelines (READ FIRST)
-2. **[docs/ai/project/ARCHITECTURE.md](docs/ai/project/ARCHITECTURE.md)** - Technical architecture details
-3. **[docs/ai/project/WORKFLOW.md](docs/ai/project/WORKFLOW.md)** - Development process phases
-4. **[docs/ai/skills/](docs/ai/skills/)** - Reusable AI agent capabilities and skills
-5. **[docs/ai/workflows/](docs/ai/workflows/)** - Universal workflows for guaranteed process execution
+2. **[docs/ai/project/CODING_STANDARDS.md](docs/ai/project/CODING_STANDARDS.md)** - **MONOREPO IMPORT RULE** (READ SECOND - HIGHEST PRIORITY)
+3. **[docs/ai/project/ARCHITECTURE.md](docs/ai/project/ARCHITECTURE.md)** - Technical architecture details
+4. **[docs/ai/project/WORKFLOW.md](docs/ai/project/WORKFLOW.md)** - Development process phases
+5. **[docs/ai/skills/](docs/ai/skills/)** - Reusable AI agent capabilities and skills
+6. **[docs/ai/workflows/](docs/ai/workflows/)** - Universal workflows for guaranteed process execution
 
 ## Quick Reference
 
@@ -91,6 +92,7 @@ yarn workspace @package/name build  # Package-specific build
 
 ## Critical Rules
 
+- **🚨 MONOREPO IMPORT RULE**: **ALWAYS** use `@asra/package-name` for cross-package imports, NEVER use relative paths like `../../../other-package` (see `docs/ai/project/CODING_STANDARDS.md`)
 - **🚨 MAIN BRANCH PROTECTION**: NEVER work on main branch - use feature branches only (see `docs/ai/project/rules/main-branch-protection.md`)
 - **Project Context**: Always read `docs/ai/project/` folder first for architecture patterns
 - **External APIs**: Use Context7 MCP server for libraries/frameworks/APIs (see `.antigravity/rules.md`)
