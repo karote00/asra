@@ -50,7 +50,8 @@ function generateTurboJson(packages) {
 
   for (const pkg of packages) {
     const repoName = pkg.name.split('/').pop()
-    const buildCmd = repoName === 'asra-design' ? 'react:build' : `build:${repoName}`
+    const buildCmd =
+      repoName === 'asra-design' ? 'react:build' : `build:${repoName}`
 
     tasks[buildCmd] = {
       cache: false,

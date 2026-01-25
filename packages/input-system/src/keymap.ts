@@ -110,7 +110,7 @@ export class KeyMap {
       BracketRight: ']',
       Backslash: '\\',
       Semicolon: ';',
-      /* eslint-disable quotes */
+
       Quote: "'",
       Backquote: '`',
       Comma: ',',
