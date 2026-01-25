@@ -1,6 +1,6 @@
 {
-  "name": "@asra/ui",
-  "version": "1.0.1",
+  "name": "@asra/asra-design",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "dependencies": {
