@@ -1,6 +1,7 @@
 {
   "name": "@asra/props-manager",
-  "version": "0.2.0",
+  "version": "0.1.0",
+  "private": false,
   "description": "A structured property management library that provides API-based control over prop components, separate from the scene tree.",
   "author": "Asa Tsai",
   "license": "MIT",

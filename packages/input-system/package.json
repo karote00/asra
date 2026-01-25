@@ -1,6 +1,7 @@
 {
   "name": "@asra/input-system",
-  "version": "0.2.0",
+  "version": "0.1.0",
+  "private": false,
   "description": "Keyboard and Mouse event listener plugin",
   "author": "Asa Tsai",
   "license": "MIT",

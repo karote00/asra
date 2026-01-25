@@ -1,6 +1,7 @@
 {
   "name": "@asra/factory",
-  "version": "0.2.0",
+  "version": "0.1.0",
+  "private": false,
   "description": "Manipulate with data changes",
   "author": "Asa Tsai",
   "license": "MIT",
