@@ -1,6 +1,6 @@
 {
   "name": "@asra/interaction-core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Determines interaction outcomes based on user input and system state.",
   "author": "Asa Tsai",
   "license": "MIT",
