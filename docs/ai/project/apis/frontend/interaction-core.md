@@ -1,6 +1,6 @@
-# API Reference: @asra/interaction-core
+# API Reference: @asyra/interaction-core
 
-The `@asra/interaction-core` package is the decision engine. It exposes methods to feed input events into its internal state machine/decider logic.
+The `@asyra/interaction-core` package is the decision engine. It exposes methods to feed input events into its internal state machine/decider logic.
 
 ## Session Management
 

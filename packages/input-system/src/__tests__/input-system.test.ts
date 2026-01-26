@@ -15,7 +15,7 @@ import {
   RawInputEvent,
   ModifierKey,
   PointerEventData
-} from '@asra/utils'
+} from '@asyra/utils'
 import keyMap from '../keymap'
 import { CLEAR_KEY_TIME } from '../constants'
 import { InputEventMappings } from '../event-mappings'

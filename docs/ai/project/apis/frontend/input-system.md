@@ -1,6 +1,6 @@
-# API Reference: @asra/input-system
+# API Reference: @asyra/input-system
 
-The `@asra/input-system` package normalizes raw browser events (keyboard, mouse, wheel) into a coherent stream of high-level input signals using a combination-based matching system.
+The `@asyra/input-system` package normalizes raw browser events (keyboard, mouse, wheel) into a coherent stream of high-level input signals using a combination-based matching system.
 
 ## Setup & Configuration
 

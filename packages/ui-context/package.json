@@ -1,6 +1,6 @@
 {
-  "name": "@asra/ui-context",
-  "version": "0.1.0",
+  "name": "@asyra/ui-context",
+  "version": "0.2.0",
   "description": "Manages and optimizes data from data contexts for UI consumption, ensuring efficient rendering and framework flexibility.",
   "author": "Asa Tsai",
   "license": "MIT",
@@ -24,11 +24,11 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
-    "@asra/factory": "workspace:*",
-    "@asra/reactive-events": "workspace:*",
-    "@asra/scene-tree": "workspace:*",
-    "@asra/selection": "workspace:*",
-    "@asra/utils": "workspace:*",
+    "@asyra/factory": "workspace:*",
+    "@asyra/reactive-events": "workspace:*",
+    "@asyra/scene-tree": "workspace:*",
+    "@asyra/selection": "workspace:*",
+    "@asyra/utils": "workspace:*",
     "lodash": "^4.17.21",
     "rxjs": "^7.8.1",
     "yjs": "13.6.20"

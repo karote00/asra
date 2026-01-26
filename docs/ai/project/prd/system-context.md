@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-Design applications need centralized management of global application state that multiple components can access and modify. Without proper global state management, components become tightly coupled and state synchronization becomes unreliable. Asra needs a robust system context that provides single source of truth for global state.
+Design applications need centralized management of global application state that multiple components can access and modify. Without proper global state management, components become tightly coupled and state synchronization becomes unreliable. Asyra needs a robust system context that provides single source of truth for global state.
 
 ## Goals & Objectives
 
@@ -104,8 +104,8 @@ Design applications need centralized management of global application state that
 ## Technical Dependencies
 
 ### Internal Dependencies
-- **@asra/system-context**: Core state management implementation
-- **@asra/reactive-events**: State change event communication
+- **@asyra/system-context**: Core state management implementation
+- **@asyra/reactive-events**: State change event communication
 - **All packages**: State access and subscription
 
 ### External Dependencies

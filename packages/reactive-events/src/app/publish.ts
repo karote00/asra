@@ -1,4 +1,4 @@
-import { EVENT_OPTIONS, UNDO } from '@asra/utils'
+import { EVENT_OPTIONS, UNDO } from '@asyra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
 

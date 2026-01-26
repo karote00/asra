@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-Users need to efficiently transform design elements (move, resize) with precision and visual feedback. Poor transformation tools can make design work frustrating and imprecise. Asra needs to provide smooth, accurate transformation capabilities that feel natural and responsive.
+Users need to efficiently transform design elements (move, resize) with precision and visual feedback. Poor transformation tools can make design work frustrating and imprecise. Asyra needs to provide smooth, accurate transformation capabilities that feel natural and responsive.
 
 ## Goals & Objectives
 
@@ -103,12 +103,12 @@ Users need to efficiently transform design elements (move, resize) with precisio
 ## Technical Dependencies
 
 ### Internal Dependencies
-- **@asra/interaction-core**: Transformation behavior logic and state management
-- **@asra/render**: Real-time transformation preview and handle rendering
-- **@asra/scene-tree**: Element data model and property updates
-- **@asra/factory**: Transaction management for undoable transformations
-- **@asra/selection**: Selected element tracking
-- **@asra/system-context**: Mouse state and modifier key tracking
+- **@asyra/interaction-core**: Transformation behavior logic and state management
+- **@asyra/render**: Real-time transformation preview and handle rendering
+- **@asyra/scene-tree**: Element data model and property updates
+- **@asyra/factory**: Transaction management for undoable transformations
+- **@asyra/selection**: Selected element tracking
+- **@asyra/system-context**: Mouse state and modifier key tracking
 
 ### External Dependencies
 - High-precision mouse event handling

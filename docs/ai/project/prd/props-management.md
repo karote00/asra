@@ -171,9 +171,9 @@ Design elements need structured property management that is separate from the sc
 ## Dependencies
 
 ### Technical Dependencies
-- `@asra/reactive-events` for property change events
-- `@asra/scene-tree` for element property association
-- `@asra/factory` for transaction support
+- `@asyra/reactive-events` for property change events
+- `@asyra/scene-tree` for element property association
+- `@asyra/factory` for transaction support
 - TypeScript for type safety
 - JSON schema validation
 

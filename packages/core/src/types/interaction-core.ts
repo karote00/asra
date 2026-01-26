@@ -1,4 +1,4 @@
-import { DetailType, InputSystemEvents } from '@asra/utils'
+import { DetailType, InputSystemEvents } from '@asyra/utils'
 
 export interface InteractionCoreActionAPIs {
   executeAction: (eventName: InputSystemEvents, detail?: DetailType) => void

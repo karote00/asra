@@ -1,6 +1,6 @@
 # /feature Workflow
 
-**Purpose**: Implement new features following complete Asra development process with guaranteed CDD compliance
+**Purpose**: Implement new features following complete Asyra development process with guaranteed CDD compliance
 
 ## Usage
 
@@ -20,7 +20,7 @@ Example:
 
 - Must have read `AI_ESSENTIALS.md` (loaded automatically)
 - Must follow Communication-Driven Development (CDD) patterns
-- Must use `@asra/reactive-events` for inter-package communication
+- Must use `@asyra/reactive-events` for inter-package communication
 - Must use request APIs for synchronous operations
 
 ## Workflow Steps
@@ -50,7 +50,7 @@ Example:
 ### Phase 4: Implementation
 
 1. **Apply E2E Testing Patterns**: Use data-testid attributes and cross-platform testing
-2. **Implement Events**: Add event types to `@asra/reactive-events`
+2. **Implement Events**: Add event types to `@asyra/reactive-events`
 3. **Implement Publishers**: Create event publishers in source packages
 4. **Implement Subscribers**: Create event handlers in target packages
 5. **Implement Request APIs**: Add synchronous APIs to appropriate packages
@@ -134,4 +134,4 @@ This workflow integrates with:
 
 ---
 
-**This workflow guarantees that every new feature follows Asra's Communication-Driven Development principles while maintaining complete documentation and testing standards.**
+**This workflow guarantees that every new feature follows Asyra's Communication-Driven Development principles while maintaining complete documentation and testing standards.**

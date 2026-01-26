@@ -1,6 +1,6 @@
-import selectionManager, { SelectionManager } from '@asra/selection'
-import { ComputedAttrs, SELECTION_TYPES } from '@asra/utils'
-import sceneTree from '@asra/scene-tree'
+import selectionManager, { SelectionManager } from '@asyra/selection'
+import { ComputedAttrs, SELECTION_TYPES } from '@asyra/utils'
+import sceneTree from '@asyra/scene-tree'
 import uiContext from '../ui-context'
 
 export default class SelectionStore {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Application, Container } from 'pixi.js'
-import { MouseData } from '@asra/utils'
+import { MouseData } from '@asyra/utils'
 import { Render } from '../render'
 import * as ViewportLayerModule from '../viewport-layer'
 import * as SelectionLayerModule from '../selection-layer'

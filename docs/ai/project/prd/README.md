@@ -1,10 +1,10 @@
 # Product Requirements Documents (PRDs)
 
-This directory contains Product Requirements Documents for each major feature of Asra, an open-source design tool prototype.
+This directory contains Product Requirements Documents for each major feature of Asyra, an open-source design tool prototype.
 
 ## Overview
 
-Asra is a design tool that demonstrates advanced application architecture and human-AI collaboration patterns. Each PRD defines the product requirements, user needs, and success criteria for specific features.
+Asyra is a design tool that demonstrates advanced application architecture and human-AI collaboration patterns. Each PRD defines the product requirements, user needs, and success criteria for specific features.
 
 ## PRD Structure
 
@@ -72,7 +72,7 @@ Each PRD follows a consistent structure:
 
 Each PRD aligns with the project's Communication-Driven Development (CDD) architecture:
 
-- **Event-Driven Communication**: Features communicate via `@asra/reactive-events`
+- **Event-Driven Communication**: Features communicate via `@asyra/reactive-events`
 - **Request-Response Pattern**: Synchronous APIs via dependency injection
 - **Decoupled Components**: No direct dependencies between packages
 - **Transaction Management**: All data changes support undo/redo

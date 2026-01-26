@@ -1,4 +1,4 @@
-import { DefaultPrimaryTool, PrimaryToolType } from '@asra/utils'
+import { DefaultPrimaryTool, PrimaryToolType } from '@asyra/utils'
 
 export class PrimaryToolState {
   private _state: PrimaryToolType = DefaultPrimaryTool

@@ -38,6 +38,6 @@ This Epic encompasses the following domains:
 
 ## Technical Dependencies
 
--   **`@asra/interaction-core`**: Must handle state machine logic for dragging vs. clicking.
--   **`@asra/render`**: Must support high-performance updates for 60fps dragging.
--   **`@asra/scene-tree`**: Must update the model transactionally.
+-   **`@asyra/interaction-core`**: Must handle state machine logic for dragging vs. clicking.
+-   **`@asyra/render`**: Must support high-performance updates for 60fps dragging.
+-   **`@asyra/scene-tree`**: Must update the model transactionally.

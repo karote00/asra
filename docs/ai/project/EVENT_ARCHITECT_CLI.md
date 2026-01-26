@@ -1,6 +1,6 @@
 # Event Architect CLI
 
-The **Event Architect CLI** (`add-event`) automates the boilerplate required to add new events to the `@asra/reactive-events` package. It ensures consistency across definitions, publishers, and subscribers.
+The **Event Architect CLI** (`add-event`) automates the boilerplate required to add new events to the `@asyra/reactive-events` package. It ensures consistency across definitions, publishers, and subscribers.
 
 ## Usage
 
@@ -10,7 +10,7 @@ You can run the CLI from the root of the repository or from the `packages/reacti
 Simply run the command without arguments to start the interactive wizard:
 
 ```bash
-yarn workspace @asra/reactive-events add-event
+yarn workspace @asyra/reactive-events add-event
 ```
 
 ### Command Line Mode
@@ -18,7 +18,7 @@ You can pass arguments directly to skip prompts.
 
 **Syntax:**
 ```bash
-yarn workspace @asra/reactive-events add-event [options]
+yarn workspace @asyra/reactive-events add-event [options]
 ```
 
 **Options:**
@@ -39,7 +39,7 @@ yarn workspace @asra/reactive-events add-event [options]
 A fire-and-forget event (e.g., selecting an element).
 
 ```bash
-yarn workspace @asra/reactive-events add-event \
+yarn workspace @asyra/reactive-events add-event \
   --name SelectElement \
   --scope selection \
   --pattern simple \
@@ -56,7 +56,7 @@ yarn workspace @asra/reactive-events add-event \
 An event that expects a completion signal (e.g., saving data which might be async).
 
 ```bash
-yarn workspace @asra/reactive-events add-event \
+yarn workspace @asyra/reactive-events add-event \
   --name SaveData \
   --scope core \
   --pattern async \
@@ -73,7 +73,7 @@ yarn workspace @asra/reactive-events add-event \
 Adding extra meta-options (like undo/redo flags).
 
 ```bash
-yarn workspace @asra/reactive-events add-event \
+yarn workspace @asyra/reactive-events add-event \
   --name UpdateProp \
   --scope props-manager \
   --payload "{ key: string, value: any }" \

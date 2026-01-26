@@ -2,7 +2,7 @@ import {
   InteractionEvent,
   PrimaryToolType,
   SystemContextSnapshot
-} from '@asra/utils'
+} from '@asyra/utils'
 import { decideFromResetElementSizeRules } from '../rules'
 
 export const decideDragEndBehavior = (

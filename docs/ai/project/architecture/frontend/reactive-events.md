@@ -1,17 +1,17 @@
-# Architecture: @asra/reactive-events
+# Architecture: @asyra/reactive-events
 
 ## Core Responsibility
 
-This package implements a global, application-wide event bus using `rxjs`. It is the **single source of truth for all asynchronous, cross-package communication**. Its primary goal is to allow feature packages (like `@asra/core`, `@asra/scene-tree`, etc.) to interact without depending on each other, preventing circular dependencies and ensuring a clean, unidirectional data flow.
+This package implements a global, application-wide event bus using `rxjs`. It is the **single source of truth for all asynchronous, cross-package communication**. Its primary goal is to allow feature packages (like `@asyra/core`, `@asyra/scene-tree`, etc.) to interact without depending on each other, preventing circular dependencies and ensuring a clean, unidirectional data flow.
 
 ## Architectural Principle: The Central Event Hub
 
 The fundamental rule of this architecture is:
 
-**No feature package should ever import another feature package. All interactions must go through `@asra/reactive-events`.**
+**No feature package should ever import another feature package. All interactions must go through `@asyra/reactive-events`.**
 
--   **Correct:** `@asra/core` imports from `@asra/reactive-events` to listen for an event from `@asra/interaction-core`.
--   **Incorrect:** `@asra/core` imports from `@asra/interaction-core`.
+-   **Correct:** `@asyra/core` imports from `@asyra/reactive-events` to listen for an event from `@asyra/interaction-core`.
+-   **Incorrect:** `@asyra/core` imports from `@asyra/interaction-core`.
 
 This package acts as a central hub, defining all possible events and providing all necessary functions to publish and subscribe to them. This makes the system modular, testable, and easier to reason about.
 
@@ -45,7 +45,7 @@ The architecture is a classic **Event Bus** pattern, centralized around a single
 
 1.  **Event Definition**: A developer first defines a new event type in `types.ts` (e.g., `MY_NEW_EVENT = 'myNewEvent'`) and its corresponding interface in the relevant domain directory (e.g., `packages/reactive-events/src/my-feature/events.ts`).
 
-2.  **Publishing**: A feature package (e.g., `@asra/interaction-core`) calls the specific, high-level publisher function for the event it wants to signal (e.g., `decideToCreateElement(...)`). It **does not** call the generic `publishEvent` directly.
+2.  **Publishing**: A feature package (e.g., `@asyra/interaction-core`) calls the specific, high-level publisher function for the event it wants to signal (e.g., `decideToCreateElement(...)`). It **does not** call the generic `publishEvent` directly.
 
 3.  **Subscription**: Other packages that care about this event (e.g., `packages/render` to draw a cursor, `packages/ui-context` to show coordinates) use a pre-defined subscription function (like `subscribeToMouseUpdate(...)`).
 
@@ -55,12 +55,12 @@ The architecture is a classic **Event Bus** pattern, centralized around a single
 
 This example shows the primary use case: communication between two internal packages.
 
-**Scenario**: The `interaction-core` package determines a user action should result in creating a new element. It calls the appropriate high-level function from `@asra/reactive-events`. The `core` package, in turn, uses the corresponding high-level subscription function to listen for this event and handle the logic.
+**Scenario**: The `interaction-core` package determines a user action should result in creating a new element. It calls the appropriate high-level function from `@asyra/reactive-events`. The `core` package, in turn, uses the corresponding high-level subscription function to listen for this event and handle the logic.
 
-**1. Publishing Package (`@asra/interaction-core`)**
+**1. Publishing Package (`@asyra/interaction-core`)**
 ```typescript
-// In a file within @asra/interaction-core
-import { decideToCreateElement } from '@asra/reactive-events';
+// In a file within @asyra/interaction-core
+import { decideToCreateElement } from '@asyra/reactive-events';
 
 function userClicksCreateButton() {
   // This package calls the specific, named function for the event.
@@ -69,10 +69,10 @@ function userClicksCreateButton() {
 }
 ```
 
-**2. Subscribing Package (`@asra/core`)**
+**2. Subscribing Package (`@asyra/core`)**
 ```typescript
-// In a file within @asra/core
-import { subscribeToDecideToCreateElement } from '@asra/reactive-events';
+// In a file within @asyra/core
+import { subscribeToDecideToCreateElement } from '@asyra/reactive-events';
 
 // This package listens for the decision and handles the work.
 const unsubscribe = subscribeToDecideToCreateElement((event) => {
@@ -85,11 +85,11 @@ const unsubscribe = subscribeToDecideToCreateElement((event) => {
 
 ## Integrating External Packages (The Adapter Pattern)
 
-For packages that are intended to be open-source (like `@asra/input-system`) or for any third-party libraries, a different approach is required. These packages **must not** have a direct dependency on `@asra/reactive-events`.
+For packages that are intended to be open-source (like `@asyra/input-system`) or for any third-party libraries, a different approach is required. These packages **must not** have a direct dependency on `@asyra/reactive-events`.
 
 Instead, we use the **Adapter Pattern**.
 
 1.  **The External Package**: It has its own internal event system and exposes its own API (e.g., `inputSystem.on('pointerMove', handler)`).
-2.  **The Adapter**: A dedicated internal package or a module in your main application is created. Its sole responsibility is to "bridge" the two systems. It listens to the external package's native events and **re-publishes** them onto the main application bus via `@asra/reactive-events`.
+2.  **The Adapter**: A dedicated internal package or a module in your main application is created. Its sole responsibility is to "bridge" the two systems. It listens to the external package's native events and **re-publishes** them onto the main application bus via `@asyra/reactive-events`.
 
 This keeps the external package fully decoupled while allowing it to integrate cleanly with the rest of the application.

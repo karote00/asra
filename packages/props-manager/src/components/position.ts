@@ -4,7 +4,7 @@ import {
   PositionComponentRawData,
   PropertyTypes,
   Unit
-} from '@asra/utils'
+} from '@asyra/utils'
 import BaseComponent from './base'
 
 class PositionComponent extends BaseComponent<PositionAttrs> {

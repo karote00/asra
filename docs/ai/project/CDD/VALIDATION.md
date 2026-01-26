@@ -142,7 +142,7 @@ jobs:
 
       - name: Validate CDD Compliance
         run: |
-          npm install -g @asra/cdd-validator
+          npm install -g @asyra/cdd-validator
           cdd-validate .
 
       - name: Upload Validation Report
@@ -205,11 +205,11 @@ interface CDDValidationReport {
 // Example report
 {
   "timestamp": "2026-01-22T10:00:00Z",
-  "package": "@asra/my-component",
+  "package": "@asyra/my-component",
   "violations": [
     {
       "type": "direct-package-dependency",
-      "message": "Direct import from @asra/scene-tree",
+      "message": "Direct import from @asyra/scene-tree",
       "line": 15,
       "severity": "error"
     }
@@ -232,11 +232,11 @@ interface CDDValidationReport {
 
 ```typescript
 // ❌ Before
-import { SceneTree } from '@asra/scene-tree'
+import { SceneTree } from '@asyra/scene-tree'
 const element = sceneTree.addElement(data)
 
 // ✅ After
-import { reactiveEvents } from '@asra/reactive-events'
+import { reactiveEvents } from '@asyra/reactive-events'
 reactiveEvents.publish.addElement({ type: 'creation', data })
 ```
 
@@ -302,7 +302,7 @@ Integrate validation into development process:
 
 ```bash
 # Setup validation
-npm install -g @asra/cdd-validator
+npm install -g @asyra/cdd-validator
 
 # Run validation during development
 npm run validate:cdd

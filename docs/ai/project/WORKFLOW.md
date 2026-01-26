@@ -119,7 +119,7 @@ When needing library/framework documentation:
 For any UI-related implementations:
 
 1. Add `data-testid` attributes to new components
-2. Create/update Playwright tests in `apps/ui/e2e/`
+2. Create/update Playwright tests in `apps/asyra-design/e2e/`
 3. Run `yarn test:e2e` for verification
 4. Ensure tests pass in CI/CD environment
 

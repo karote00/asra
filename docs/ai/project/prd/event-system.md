@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-Complex design applications require robust communication between different system components. Traditional tightly-coupled architectures become difficult to maintain and extend. Asra needs a comprehensive event-driven communication system that enables loose coupling while maintaining performance and reliability.
+Complex design applications require robust communication between different system components. Traditional tightly-coupled architectures become difficult to maintain and extend. Asyra needs a comprehensive event-driven communication system that enables loose coupling while maintaining performance and reliability.
 
 ## Goals & Objectives
 
@@ -104,8 +104,8 @@ Complex design applications require robust communication between different syste
 ## Technical Dependencies
 
 ### Internal Dependencies
-- **@asra/reactive-events**: Core event definitions and infrastructure
-- **@asra/core**: Event orchestration and subscription management
+- **@asyra/reactive-events**: Core event definitions and infrastructure
+- **@asyra/core**: Event orchestration and subscription management
 - **All packages**: Event publishing and subscription
 
 ### External Dependencies

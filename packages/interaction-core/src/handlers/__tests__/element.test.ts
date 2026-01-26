@@ -4,10 +4,10 @@ import {
   InteractionActions,
   PrimaryToolType,
   DEFAULT_ELEMENT_SIZE
-} from '@asra/utils'
-import * as reactiveEvents from '@asra/reactive-events'
+} from '@asyra/utils'
+import * as reactiveEvents from '@asyra/reactive-events'
 
-vi.mock('@asra/reactive-events', () => ({
+vi.mock('@asyra/reactive-events', () => ({
   decideToCreateElement: vi.fn(),
   decideToEndResizeElement: vi.fn(),
   decideToResizeElement: vi.fn(),

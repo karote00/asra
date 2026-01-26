@@ -4,7 +4,7 @@ import {
   KeySnapshot,
   MouseSnapshot,
   PanZoom
-} from '@asra/utils'
+} from '@asyra/utils'
 
 export const decidePanZoomRules = (
   keySnapshot: KeySnapshot,

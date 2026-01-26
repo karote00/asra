@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { DetailType, PrimaryToolType } from '@asra/utils'
+import { DetailType, PrimaryToolType } from '@asyra/utils'
 import { decideSwitchPrimaryToolBehavior } from '../switch-primary-tool-behavior'
 import * as rules from '../../rules'
 

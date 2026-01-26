@@ -1,5 +1,5 @@
 import { BehaviorSubject } from 'rxjs'
-import { ComputedAttrs, MIXED_STRING, PrimaryToolType } from '@asra/utils'
+import { ComputedAttrs, MIXED_STRING, PrimaryToolType } from '@asyra/utils'
 import { isEqual } from 'lodash'
 import { ElementProperties } from './types'
 

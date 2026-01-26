@@ -1,4 +1,4 @@
-import { InteractionEvent, SystemContextSnapshot } from '@asra/utils'
+import { InteractionEvent, SystemContextSnapshot } from '@asyra/utils'
 import { decidePanZoomRules } from '../rules'
 
 export const decidePanZoomBehavior = (

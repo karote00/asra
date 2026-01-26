@@ -1,4 +1,4 @@
-import { SELECTION_TYPES } from '@asra/utils'
+import { SELECTION_TYPES } from '@asyra/utils'
 import SelectionManager from './selection-manager'
 import { elementSelection } from './selections/element-selection'
 import { vertexSelection } from './selections/vertex-selection'

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { InteractionActions } from '@asra/utils'
+import { InteractionActions } from '@asyra/utils'
 import { decideZoomFitRules } from '../zoomfit-rules'
 
 describe('decideZoomFitRules', () => {

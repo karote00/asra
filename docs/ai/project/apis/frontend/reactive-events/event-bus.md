@@ -16,7 +16,7 @@ The `event-bus.ts` module provides the core mechanism for publishing and subscri
 -   **Returns**: `void`
 -   **Example**:
     ```typescript
-    import { publishEvent } from '@asra/reactive-events';
+    import { publishEvent } from '@asyra/reactive-events';
     
     publishEvent({
       type: 'SOME_EVENT_TYPE',

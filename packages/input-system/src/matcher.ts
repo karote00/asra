@@ -1,4 +1,4 @@
-import { InputKey } from '@asra/utils'
+import { InputKey } from '@asyra/utils'
 
 /**
  * Checks if the currently active keys match a given combination.

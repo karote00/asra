@@ -1,4 +1,4 @@
-import { DefaultKeySnapshot, KeySnapshot } from '@asra/utils'
+import { DefaultKeySnapshot, KeySnapshot } from '@asyra/utils'
 
 export class KeyState {
   private _state: KeySnapshot

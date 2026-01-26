@@ -1,4 +1,4 @@
-import { endTransaction, startTransaction } from '@asra/reactive-events'
+import { endTransaction, startTransaction } from '@asyra/reactive-events'
 import { TransactionActionAPIs } from '../types'
 
 export const createTransactionAPIs = (): TransactionActionAPIs => {

@@ -1,12 +1,12 @@
-import { OWNER, PropertyTypes, PROPS_ACTIONS } from '@asra/utils'
+import { OWNER, PropertyTypes, PROPS_ACTIONS } from '@asyra/utils'
 import type {
   PropertyComponentInstanceDataTypes,
   PropertyComponentInstanceTypes,
   PropertyComponentRawData,
   PropsChange,
   PropsComponentRawData
-} from '@asra/utils'
-import { EventTypes, updateTransaction } from '@asra/reactive-events'
+} from '@asyra/utils'
+import { EventTypes, updateTransaction } from '@asyra/reactive-events'
 import { createProperty } from './utils'
 
 class PropsManager {

@@ -1,6 +1,6 @@
-# API Reference: @asra/ui-context
+# API Reference: @asyra/ui-context
 
-The `@asra/ui-context` package acts as the view model for the UI. It aggregates application state into `RxJS BehaviorSubjects` that UI components can consume directly. It handles logic like property averaging (e.g., showing "Mixed" if selected elements have different colors).
+The `@asyra/ui-context` package acts as the view model for the UI. It aggregates application state into `RxJS BehaviorSubjects` that UI components can consume directly. It handles logic like property averaging (e.g., showing "Mixed" if selected elements have different colors).
 
 ## Reactive State (BehaviorSubjects)
 

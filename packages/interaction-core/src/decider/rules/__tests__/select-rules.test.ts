@@ -3,7 +3,7 @@ import {
   InteractionActions,
   MouseButton,
   SystemContextSnapshot
-} from '@asra/utils'
+} from '@asyra/utils'
 import { decideFromSelectRules } from '../select-rules'
 import { baseSnapshot } from './test-helpers'
 

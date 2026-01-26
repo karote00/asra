@@ -3,7 +3,7 @@ import type {
   ElementRawData,
   GroupInstanceTypes,
   SceneTreeRawData
-} from '@asra/utils'
+} from '@asyra/utils'
 import { EventTypes } from '../types'
 
 export interface SceneTreeInitEvent {

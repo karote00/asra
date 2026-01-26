@@ -5,7 +5,7 @@ import {
   EVENT_OPTIONS,
   PositionData,
   SceneTreeRawData
-} from '@asra/utils'
+} from '@asyra/utils'
 
 export interface SceneTreeRawAPIs {
   sceneTreeInit: () => void

@@ -120,10 +120,10 @@ const result = core.requests.someApi.getData()
 
 ```typescript
 // Before (Direct import)
-import { SceneTree } from '@asra/scene-tree'
+import { SceneTree } from '@asyra/scene-tree'
 
 // After (Event communication)
-import { reactiveEvents } from '@asra/reactive-events'
+import { reactiveEvents } from '@asyra/reactive-events'
 ```
 
 ## Quality Gates

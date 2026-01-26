@@ -1,9 +1,9 @@
-import factory from '@asra/factory'
+import factory from '@asyra/factory'
 import {
   SELECTION_ACTIONS,
   SELECTION_TYPES,
   SelectionYjsChange
-} from '@asra/utils'
+} from '@asyra/utils'
 import renderSelection from '../stores/selection'
 
 const updateUIElementSelection = (change: SelectionYjsChange['payload']) => {

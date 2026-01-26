@@ -2,7 +2,7 @@ import {
   endTransaction,
   selectElements,
   startTransaction
-} from '@asra/reactive-events'
+} from '@asyra/reactive-events'
 import { ElementSelectionActionAPIs } from '../types'
 
 export const createElementSelectionAPIs = (): ElementSelectionActionAPIs => {

@@ -48,7 +48,7 @@ export interface ElementStateChangedEvent {
 
 ```typescript
 // Publisher package
-import { reactiveEvents } from '@asra/reactive-events'
+import { reactiveEvents } from '@asyra/reactive-events'
 
 export class InputHandler {
   onCanvasClick(position: Point) {
@@ -73,7 +73,7 @@ export class InputHandler {
 
 ```typescript
 // Subscriber package
-import { reactiveEvents } from '@asra/reactive-events'
+import { reactiveEvents } from '@asyra/reactive-events'
 
 export class InteractionCore {
   private unsubscribeFunctions: (() => void)[] = []
@@ -178,7 +178,7 @@ export class EventValidator {
 ### Input System Events
 
 ```typescript
-// @asra/input-system
+// @asyra/input-system
 export class InputSystem {
   onKeyboardShortcut(combo: string, modifiers: string[]) {
     reactiveEvents.publish.executeAction({
@@ -199,7 +199,7 @@ export class InputSystem {
 ### Core Orchestration Events
 
 ```typescript
-// @asra/core
+// @asyra/core
 export class Core {
   constructor() {
     // Subscribe to decisions

@@ -1,11 +1,11 @@
-import type { UpdateTransactionEvent } from '@asra/reactive-events'
+import type { UpdateTransactionEvent } from '@asyra/reactive-events'
 import {
   subscribeToStartTransaction,
   subscribeToUpdateTransaction,
   subscribeToEndTransaction,
   subscribeToUndo,
   subscribeToRedo
-} from '@asra/reactive-events'
+} from '@asyra/reactive-events'
 import factory from './factory'
 
 export const initFactorySubscribe = () => {

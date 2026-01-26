@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-Users need a fast, intuitive way to create design elements on the canvas. Traditional design tools often have complex creation workflows that slow down the creative process. Asra needs to provide immediate, gesture-based element creation that feels natural and predictable.
+Users need a fast, intuitive way to create design elements on the canvas. Traditional design tools often have complex creation workflows that slow down the creative process. Asyra needs to provide immediate, gesture-based element creation that feels natural and predictable.
 
 ## Goals & Objectives
 
@@ -100,12 +100,12 @@ Users need a fast, intuitive way to create design elements on the canvas. Tradit
 ## Technical Dependencies
 
 ### Internal Dependencies
-- **@asra/interaction-core**: Creation behavior logic and state management
-- **@asra/input-system**: Mouse event capture and modifier key detection
-- **@asra/render**: Real-time preview rendering and visual feedback
-- **@asra/scene-tree**: Element data model and hierarchy management
-- **@asra/factory**: Transaction management for undoable creation
-- **@asra/selection**: Automatic selection of created elements
+- **@asyra/interaction-core**: Creation behavior logic and state management
+- **@asyra/input-system**: Mouse event capture and modifier key detection
+- **@asyra/render**: Real-time preview rendering and visual feedback
+- **@asyra/scene-tree**: Element data model and hierarchy management
+- **@asyra/factory**: Transaction management for undoable creation
+- **@asyra/selection**: Automatic selection of created elements
 
 ### External Dependencies
 - Browser mouse event handling

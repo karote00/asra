@@ -1,4 +1,4 @@
-import { SceneTreeRawData, EntityTypes, CreateElementData } from '@asra/utils'
+import { SceneTreeRawData, EntityTypes, CreateElementData } from '@asyra/utils'
 import { SceneTreeRequestDeps, SceneTreeRequests } from '../types'
 
 /**

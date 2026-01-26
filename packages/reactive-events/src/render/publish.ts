@@ -13,7 +13,7 @@ import {
   subscribeToFinishRequestViewportPosition,
   subscribeToFinishRequestViewportScale
 } from './subscribes'
-import { generateRequestId, PositionData } from '@asra/utils'
+import { generateRequestId, PositionData } from '@asyra/utils'
 
 export const initRender = async (
   width: number,

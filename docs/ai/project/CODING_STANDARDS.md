@@ -1,18 +1,18 @@
 # Coding Standards
 
-**READ THIS FIRST** - This document contains essential coding standards for the Asra project.
+**READ THIS FIRST** - This document contains essential coding standards for the Asyra project.
 
 ## 🚨 Prime Directive: Monorepo Import Rule
 
-### CROSS-PACKAGE IMPORTS: USE `@asra/package-name`
+### CROSS-PACKAGE IMPORTS: USE `@asyra/package-name`
 
 **ALWAYS** import from other packages using the monorepo naming convention:
 
 ```typescript
 // ✅ CORRECT
-import { Shape, EntityKind } from '@asra/utils'
-import { ShapeEntityImpl } from '@asra/scene-tree'
-import { ShapeRenderSystem } from '@asra/render'
+import { Shape, EntityKind } from '@asyra/utils'
+import { ShapeEntityImpl } from '@asyra/scene-tree'
+import { ShapeRenderSystem } from '@asyra/render'
 
 // ❌ FORBIDDEN - Never do this
 import { Shape } from '../../../utils/src/sceneTree/shapeTypes'
@@ -25,16 +25,16 @@ import { ShapeRenderSystem } from '../../../render/src/shape-render-system'
 **WITHIN the same package**, use relative paths to avoid circular dependencies:
 
 ```typescript
-// ✅ CORRECT (within @asra/render package)
+// ✅ CORRECT (within @asyra/render package)
 import { ShapeRenderSystem } from '../shape-render-system'
 
-// ✅ CORRECT (within @asra/scene-tree package)
+// ✅ CORRECT (within @asyra/scene-tree package)
 import { ShapeEntityImpl } from './components/shape-entity'
 ```
 
 ## Why This Matters
 
-1. **Build System Compatibility**: TypeScript can resolve `@asra/package` imports correctly across the monorepo
+1. **Build System Compatibility**: TypeScript can resolve `@asyra/package` imports correctly across the monorepo
 2. **Dependency Clarity**: Makes cross-package dependencies explicit and traceable
 3. **Circular Dependency Avoidance**: Relative imports within same package prevent infinite loops
 4. **Monorepo Best Practices**: Follows standard Turborepo/Yarn workspaces conventions
@@ -45,27 +45,27 @@ import { ShapeEntityImpl } from './components/shape-entity'
 - **Pre-commit Hooks**: Consider adding linters to catch violations
 - **IDE Configuration**: Configure your editor to prefer package imports
 
-## Examples from Asra Codebase
+## Examples from Asyra Codebase
 
 ### Shape System Implementation (Reference Implementation)
 
 ```typescript
 // packages/utils/src/sceneTree/__tests__/integration.test.ts
-import { Shape, ShapeRegistry, EntityKind } from '@asra/utils' // ✅ Cross-package
-import { ShapeEntityImpl } from '@asra/scene-tree' // ✅ Cross-package
-import { ShapeRenderSystem } from '@asra/render' // ✅ Cross-package
+import { Shape, ShapeRegistry, EntityKind } from '@asyra/utils' // ✅ Cross-package
+import { ShapeEntityImpl } from '@asyra/scene-tree' // ✅ Cross-package
+import { ShapeRenderSystem } from '@asyra/render' // ✅ Cross-package
 
 // packages/render/src/__tests__/shape-render-system.test.ts
 import { ShapeRenderSystem } from '../shape-render-system' // ✅ Same package
-import { Shape, ShapeRegistry, EntityKind } from '@asra/utils' // ✅ Cross-package
-import { ShapeEntityImpl } from '@asra/scene-tree' // ✅ Cross-package
+import { Shape, ShapeRegistry, EntityKind } from '@asyra/utils' // ✅ Cross-package
+import { ShapeEntityImpl } from '@asyra/scene-tree' // ✅ Cross-package
 ```
 
 ## Quick Checklist
 
 Before committing code, verify:
 
-- [ ] All cross-package imports use `@asra/package-name` format
+- [ ] All cross-package imports use `@asyra/package-name` format
 - [ ] No `../../../packages/` or similar deep relative imports
 - [ ] Same-package imports use relative paths
 - [ ] Tests build successfully with `yarn workspace @package/name build:package`

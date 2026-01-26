@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { InteractionActions, PrimaryToolType, DetailType } from '@asra/utils'
+import { InteractionActions, PrimaryToolType, DetailType } from '@asyra/utils'
 import { decideFromSwitchPrimaryToolRules } from '../switch-primary-tool-rules'
 
 describe('decideFromSwitchPrimaryToolRules', () => {

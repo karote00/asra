@@ -1,4 +1,4 @@
-import { MouseSnapshot } from '@asra/utils'
+import { MouseSnapshot } from '@asyra/utils'
 import { HandlerDeps, MouseStateAPIs } from '../types'
 
 export const createMouseStateAPIs = (

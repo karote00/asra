@@ -32,12 +32,12 @@ yarn lint --fix
 This project follows **Communication-Driven Development (CDD)** principles:
 
 ### Core Packages
-- `@asra/core`: System orchestrator
-- `@asra/interaction-core`: Decision-making engine
-- `@asra/reactive-events`: Event communication system
-- `@asra/scene-tree`: Document model management
-- `@asra/system-context`: Global state management
-- `@asra/utils`: Shared utilities and types
+- `@asyra/core`: System orchestrator
+- `@asyra/interaction-core`: Decision-making engine
+- `@asyra/reactive-events`: Event communication system
+- `@asyra/scene-tree`: Document model management
+- `@asyra/system-context`: Global state management
+- `@asyra/utils`: Shared utilities and types
 
 ### Event-Driven Architecture
 - All components communicate via **typed events**
@@ -93,7 +93,7 @@ yarn lint:ci
 yarn lint --fix
 
 # Run tests (clean output)
-yarn workspace @asra/utils test:local
+yarn workspace @asyra/utils test:local
 
 # Build project
 yarn react:build

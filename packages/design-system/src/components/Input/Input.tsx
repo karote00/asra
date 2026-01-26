@@ -6,7 +6,7 @@ import React, {
   KeyboardEvent,
   useRef
 } from 'react'
-import { MIXED_STRING } from '@asra/utils'
+import { MIXED_STRING } from '@asyra/utils'
 import { Text } from '../Text'
 
 // InputProps Interface

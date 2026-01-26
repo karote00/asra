@@ -1,4 +1,4 @@
-import { subscribeToUpdateMouseState } from '@asra/reactive-events'
+import { subscribeToUpdateMouseState } from '@asyra/reactive-events'
 import { MouseStateAPIs } from '../types'
 
 export const initMouseStateSubscribe = (apis: MouseStateAPIs) => {

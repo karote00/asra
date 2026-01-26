@@ -1,14 +1,14 @@
 # Architecture Guide
 
-Detailed technical architecture for the Asra project.
+Detailed technical architecture for the Asyra project.
 
 ## Communication-Driven Development (CDD)
 
 ### Core Principles
 
 1. **Event-Driven Communication**: All components communicate via typed events
-2. **Centralized Orchestration**: `@asra/core` acts as middleware
-3. **Transaction Management**: `@asra/factory` handles undo/redo
+2. **Centralized Orchestration**: `@asyra/core` acts as middleware
+3. **Transaction Management**: `@asyra/factory` handles undo/redo
 4. **Decoupled Components**: No direct function calls between packages
 5. **Request-Response Pattern**: Synchronous API calls via dependency injection
 6. **Skills-Based AI**: Modular capabilities loaded on-demand via OpenSkills
@@ -24,7 +24,7 @@ Detailed technical architecture for the Asra project.
 
 ### System Layer
 
-#### `@asra/core` - System Orchestrator
+#### `@asyra/core` - System Orchestrator
 
 - Central event subscription hub
 - API delegation to other packages
@@ -33,21 +33,21 @@ Detailed technical architecture for the Asra project.
 - Dependency injection pattern for better testability
 - **Request APIs**: Factory, Props, Render, SceneTree, Selection, SystemContext
 
-#### `@asra/interaction-core` - Decision Engine
+#### `@asyra/interaction-core` - Decision Engine
 
 - Receives action/session data
 - Uses `src/decider/rules` (logic) and `src/decider/behavior` (flow)
 - Publishes final decisions via events
 - Handlers for elements, viewport, transactions, tools
 
-#### `@asra/reactive-events` - Event Bus
+#### `@asyra/reactive-events` - Event Bus
 
 - Defines all cross-package communication events
 - Typed event system for type safety
 - Streamlined event flow for request-response pattern
 - Event modules: app, interaction-core, props-manager, scene-tree, system-context
 
-#### `@asra/factory` - Transaction System
+#### `@asyra/factory` - Transaction System
 
 - `startTransaction()`: Begin undoable unit
 - `updateTransaction()`: Add undoable changes
@@ -56,7 +56,7 @@ Detailed technical architecture for the Asra project.
 
 ### Data Layer
 
-#### `@asra/scene-tree` - Document Model
+#### `@asyra/scene-tree` - Document Model
 
 - Manages elements and hierarchy
 - Provides real-time updates
@@ -64,21 +64,21 @@ Detailed technical architecture for the Asra project.
 - Components: workspace, rectangle, group
 - YJS-based CRDT for collaboration
 
-#### `@asra/system-context` - Global State
+#### `@asyra/system-context` - Global State
 
 - Single source of truth for system state
 - Active tool, mouse position, keyboard modifiers
 - Accessible via `systemContext.getSystemContextSnapshot()`
 - Stores primary tool, selection, viewport state
 
-#### `@asra/props-manager` - Property Management
+#### `@asyra/props-manager` - Property Management
 
 - Structured property management separate from scene tree
 - API-based control over prop components
 - Reactive updates via events
 - Supports serialization/deserialization of property data
 
-#### `@asra/selection` - Selection Management
+#### `@asyra/selection` - Selection Management
 
 - Handles element, vertex, edge selection
 - Provides selection state queries
@@ -87,28 +87,28 @@ Detailed technical architecture for the Asra project.
 
 ### Input/Output Layer
 
-#### `@asra/input-system` - Input Handling
+#### `@asyra/input-system` - Input Handling
 
 - Keyboard and mouse event processing
 - Event mappings and keymaps
 - Cross-platform shortcut support (Meta/Control)
 - Input action generation for interaction-core
 
-#### `@asra/render` - Rendering System
+#### `@asyra/render` - Rendering System
 
 - WebGL/Canvas rendering engine
 - Viewport management (position, scale)
 - Selection layer rendering
 - Integration with scene tree for element display
 
-#### `@asra/ui-context` - UI State Optimization
+#### `@asyra/ui-context` - UI State Optimization
 
 - Manages and optimizes data for UI consumption
 - Reactive stores for selection, scene-tree, system-context
 - Efficient rendering with RxJS and YJS integration
 - Framework-agnostic state management
 
-#### `@asra/design-system` - UI Components
+#### `@asyra/design-system` - UI Components
 
 - Reusable React components
 - Design tokens and styling system
@@ -117,16 +117,16 @@ Detailed technical architecture for the Asra project.
 
 ### Application Layer
 
-#### `@asra/asra-design` - A design tool application built with React
+#### `@asyra/asyra-design` - A design tool application built with React
 
-- Main application interface (apps/ui)
+- Main application interface (apps/asyra-design)
 - React 19 + Vite build system
 - Playwright E2E testing setup
 - Integration with all backend packages
 
 ### Shared Infrastructure
 
-#### `@asra/utils` - Shared Utilities
+#### `@asyra/utils` - Shared Utilities
 
 - Common types and interfaces
 - Utility functions and constants
@@ -154,7 +154,7 @@ Detailed technical architecture for the Asra project.
 ### Request-Response Pattern
 
 - **Purpose**: Replace async/await with synchronous calls
-- **Implementation**: Dependency injection in `@asra/core`
+- **Implementation**: Dependency injection in `@asyra/core`
 - **Benefits**: Better testability, clearer data flow
 - **Usage**: Direct method calls instead of event publishing/subscription
 
@@ -191,7 +191,7 @@ addRectangle(data: CreateElementData): void {
 
 ### Mocking Dynamically Assigned Methods
 
-For classes using `Object.assign()` (like `@asra/core`):
+For classes using `Object.assign()` (like `@asyra/core`):
 
 ```typescript
 // ❌ Don't use spyOn - fails on dynamically assigned methods
@@ -223,7 +223,7 @@ core.propsLoadData = vi.fn()
 
 - `scripts/run-e2e.sh`: Complete test orchestration (build → serve → test → cleanup)
 - `yarn test:e2e`: Playwright test execution
-- `apps/ui/playwright.config.ts`: Test configuration with CI/CD environment support
+- `apps/asyra-design/playwright.config.ts`: Test configuration with CI/CD environment support
 
 ### E2E Best Practices
 

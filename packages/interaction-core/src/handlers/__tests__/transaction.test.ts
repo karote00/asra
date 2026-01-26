@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { TransactionHandlers } from '../transaction'
-import { InteractionActions } from '@asra/utils'
-import * as reactiveEvents from '@asra/reactive-events'
+import { InteractionActions } from '@asyra/utils'
+import * as reactiveEvents from '@asyra/reactive-events'
 
-vi.mock('@asra/reactive-events', () => ({
+vi.mock('@asyra/reactive-events', () => ({
   decideToStartTransaction: vi.fn(),
   decideToEndTransaction: vi.fn()
 }))

@@ -1,6 +1,6 @@
-# API Reference: @asra/core
+# API Reference: @asyra/core
 
-The `@asra/core` package exposes a unified API surface that aggregates functionality from multiple domains. It serves as the main entry point for the application logic.
+The `@asyra/core` package exposes a unified API surface that aggregates functionality from multiple domains. It serves as the main entry point for the application logic.
 
 ## Request API Architecture
 

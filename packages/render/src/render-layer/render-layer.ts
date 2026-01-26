@@ -1,6 +1,6 @@
 import { Container, Graphics, Point } from 'pixi.js'
 import { SceneElement, RenderContainerData, RenderElementData } from '../types'
-import { DataTypes, EntityTypes } from '@asra/utils'
+import { DataTypes, EntityTypes } from '@asyra/utils'
 import { ElementInteractionHandler } from './element-interaction-handler'
 
 export class RenderLayer {

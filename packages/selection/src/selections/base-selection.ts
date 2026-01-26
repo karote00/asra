@@ -1,6 +1,6 @@
-import { EventTypes } from '@asra/reactive-events'
-import { OWNER, SELECTION_ACTIONS } from '@asra/utils'
-import type { SelectionChange } from '@asra/utils'
+import { EventTypes } from '@asyra/reactive-events'
+import { OWNER, SELECTION_ACTIONS } from '@asyra/utils'
+import type { SelectionChange } from '@asyra/utils'
 
 export default class BaseSelection {
   protected selectedIds: Set<string> = new Set()

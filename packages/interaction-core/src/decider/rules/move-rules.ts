@@ -2,7 +2,7 @@ import {
   InteractionActions,
   InteractionEvent,
   SystemContextSnapshot
-} from '@asra/utils'
+} from '@asyra/utils'
 
 export const decideFromMoveRules = (
   systemContextSnapshot: SystemContextSnapshot

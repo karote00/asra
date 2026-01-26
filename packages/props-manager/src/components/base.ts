@@ -3,8 +3,8 @@ import type {
   PositionAttrs,
   PropertyComponentInstanceDataTypes,
   PropertyComponentRawData
-} from '@asra/utils'
-import { Setter, Unit, isNil } from '@asra/utils'
+} from '@asyra/utils'
+import { Setter, Unit, isNil } from '@asyra/utils'
 import PropsChangeHandler from './props-change-handler'
 
 const propsChangeHandler = new PropsChangeHandler()

@@ -1,8 +1,8 @@
-# Architecture: @asra/asra-design
+# Architecture: @asyra/asyra-design
 
 ## Overview
 
-The `@asra/asra-design` application is the main React application that provides the user interface for the Asra design tool. Built with modern React patterns, Vite build system, and Tailwind CSS styling.
+The `@asyra/asyra-design` application is the main React application that provides the user interface for the Asyra design tool. Built with modern React patterns, Vite build system, and Tailwind CSS styling.
 
 ## Technology Stack
 
@@ -67,18 +67,18 @@ Using signals for fine-grained reactivity:
 Components receive updates through reactive event streams:
 
 - **useEventStream()**: Custom hook for event subscription
-- **Event Bus Integration**: Connection to `@asra/reactive-events`
+- **Event Bus Integration**: Connection to `@asyra/reactive-events`
 - **Automatic Unsubscription**: Cleanup on component unmount
 
 ## Core Dependencies
 
 ### Internal Packages
 
-- `@asra/core`: Main system orchestration and APIs
-- `@asra/design-system`: Reusable UI components
-- `@asra/ui-context`: UI-specific state management
-- `@asra/reactive-events`: Event-driven communication
-- `@asra/utils`: Shared utilities and types
+- `@asyra/core`: Main system orchestration and APIs
+- `@asyra/design-system`: Reusable UI components
+- `@asyra/ui-context`: UI-specific state management
+- `@asyra/reactive-events`: Event-driven communication
+- `@asyra/utils`: Shared utilities and types
 
 ### External Dependencies
 
@@ -179,7 +179,7 @@ export default defineConfig({
 ### UI → Core Communication
 
 1. **User Interaction**: UI component captures user input
-2. **Event Emission**: Through reactive events to `@asra/core`
+2. **Event Emission**: Through reactive events to `@asyra/core`
 3. **State Update**: Core processes and updates system state
 4. **Reactive Update**: UI components react to state changes
 

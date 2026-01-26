@@ -1,5 +1,5 @@
-import { Render } from '@asra/render'
-import { PositionData } from '@asra/utils'
+import { Render } from '@asyra/render'
+import { PositionData } from '@asyra/utils'
 
 /**
  * Request API for Render data

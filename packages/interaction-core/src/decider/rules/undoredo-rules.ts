@@ -3,7 +3,7 @@ import {
   InteractionEvent,
   KeySnapshot,
   UNDO
-} from '@asra/utils'
+} from '@asyra/utils'
 
 export const decideUndoRedoRules = (
   keySnapshot: KeySnapshot

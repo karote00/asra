@@ -1,4 +1,4 @@
-import type { PropertyComponentRawData } from '@asra/utils'
+import type { PropertyComponentRawData } from '@asyra/utils'
 import type { EventTypes } from '../types'
 
 export interface AddPropertyEvent {

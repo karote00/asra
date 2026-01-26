@@ -2,7 +2,7 @@ import {
   InteractionEvent,
   PrimaryToolType,
   SystemContextSnapshot
-} from '@asra/utils'
+} from '@asyra/utils'
 import { decideFromResizeElementRules } from '../rules'
 
 export const decideDragUpdateBehavior = (

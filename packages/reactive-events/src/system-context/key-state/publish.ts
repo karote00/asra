@@ -1,4 +1,4 @@
-import { KeySnapshot } from '@asra/utils'
+import { KeySnapshot } from '@asyra/utils'
 import { publishEvent } from '../../event-bus'
 import { EventTypes } from '../../types'
 

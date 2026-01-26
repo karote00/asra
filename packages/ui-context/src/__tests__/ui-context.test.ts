@@ -6,7 +6,7 @@ import {
   MIXED_STRING,
   PrimaryToolType,
   EntityTypes
-} from '@asra/utils'
+} from '@asyra/utils'
 
 describe('UIContext', () => {
   let uiContext: UIContext

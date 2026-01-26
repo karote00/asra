@@ -10,25 +10,25 @@ This document describes the flow when a user modifies a property via the UI (e.g
 
 #### Step 1: User Input (UI App)
 
--   **Package**: `apps/ui`
+-   **Package**: `apps/asyra-design`
 -   **Component**: `PropertiesPanel/Input`.
 -   **Action**: User types "300" and presses Enter (or blurs).
 -   **Dispatch**: Comparison check passes (value changed). Component calls `core.changeComputedData('width', 300)`.
 
 #### Step 2: Transaction & Data Update (Core & Scene Tree)
 
--   **Package**: `@asra/core`
+-   **Package**: `@asyra/core`
 -   **Action**:
     1.  `startTransaction()`
     2.  `sceneTree.updateComputedData('rect-1', 'width', 300)`
     3.  `endTransaction()`
--   **Package**: `@asra/scene-tree`
+-   **Package**: `@asyra/scene-tree`
 -   **Action**: Updates the `width` property of the element in the YJS Map.
 -   **Audit**: Records a `PropsChange` event for Undo/Redo history.
 
 #### Step 3: Visual Update (Render)
 
--   **Package**: `@asra/render`
+-   **Package**: `@asyra/render`
 -   **Action**: Observes the YJS Map change for 'rect-1'.
 -   **Reaction**: PixiJS updates the width of the sprite immediately. The Canvas redraws.
 
@@ -38,7 +38,7 @@ This document describes the flow when a user modifies a property via the UI (e.g
 
 #### Step 5: Loop Validation (UI Context)
 
--   **Package**: `@asra/ui-context`
+-   **Package**: `@asyra/ui-context`
 -   **Action**: It also sees the YJS update. It emits `300` on the `width` subject.
 -   **Result**: The Input field receives `300`. Since it matches what the user just typed, no visual change happens (prevents cursor jumping), but it confirms the cycle is complete.
 

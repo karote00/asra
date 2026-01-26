@@ -81,7 +81,7 @@ Workflows guarantee process compliance and quality outcomes.
 
 ## Overview
 
-Asra project provides 4 universal workflows that guarantee consistent development process execution:
+Asyra project provides 4 universal workflows that guarantee consistent development process execution:
 
 - **`/feature`** - New feature development with automatic CDD compliance
 - **`/refactor`** - Code improvement while preserving functionality
@@ -321,4 +321,4 @@ If workflow execution fails:
 
 ---
 
-**This integration guide ensures that universal workflows work consistently across all AI agents and development environments while maintaining Asra's Communication-Driven Development principles.**
+**This integration guide ensures that universal workflows work consistently across all AI agents and development environments while maintaining Asyra's Communication-Driven Development principles.**

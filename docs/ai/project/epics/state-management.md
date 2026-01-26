@@ -31,5 +31,5 @@ This Epic encompasses:
 
 ## Technical Dependencies
 
--   **`@asra/factory`**: Wraps YJS `Y.Doc`, `Y.Map`, `Y.Array`.
+-   **`@asyra/factory`**: Wraps YJS `Y.Doc`, `Y.Map`, `Y.Array`.
 -   **Custom Middleware**: To translate application events into YJS mutations.

@@ -5,7 +5,7 @@ import {
   KeySnapshot,
   MouseSnapshot,
   MouseButton
-} from '@asra/utils'
+} from '@asyra/utils'
 import { decidePanZoomRules } from '../panzoom-rules'
 
 describe('decidePanZoomRules', () => {

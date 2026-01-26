@@ -5,7 +5,7 @@ import {
   ModifierKey,
   SpecialEvent,
   KeyboardKey
-} from '@asra/utils'
+} from '@asyra/utils'
 
 export class KeyMap {
   private os: Platforms

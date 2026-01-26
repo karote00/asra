@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import * as ReactiveEventsModule from '@asra/reactive-events'
+import * as ReactiveEventsModule from '@asyra/reactive-events'
 import {
   PROPS_ACTIONS,
   PropertyComponentInstanceTypes,
@@ -7,12 +7,12 @@ import {
   PropertyTypes,
   Unit,
   PropsChange
-} from '@asra/utils'
+} from '@asyra/utils'
 import { PropsManager } from '../props-manager'
 import { createProperty } from '../utils'
 
-vi.mock('@asra/reactive-events', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@asra/reactive-events')>()
+vi.mock('@asyra/reactive-events', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@asyra/reactive-events')>()
 
   return {
     ...actual,

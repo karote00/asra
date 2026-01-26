@@ -1,6 +1,6 @@
 {
-  "name": "@asra/scene-tree",
-  "version": "0.1.0",
+  "name": "@asyra/scene-tree",
+  "version": "0.2.0",
   "description": "SceneTree structure.",
   "author": "Asa Tsai",
   "license": "MIT",
@@ -23,8 +23,8 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
-    "@asra/props-manager": "workspace:^",
-    "@asra/reactive-events": "workspace:*",
-    "@asra/utils": "workspace:*"
+    "@asyra/props-manager": "workspace:^",
+    "@asyra/reactive-events": "workspace:*",
+    "@asyra/utils": "workspace:*"
   }
 }

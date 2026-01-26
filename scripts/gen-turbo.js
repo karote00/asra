@@ -32,7 +32,7 @@ function getWorkspacePackages() {
       const dependencies = Object.keys({
         ...pkgJson.dependencies,
         ...pkgJson.devDependencies
-      }).filter((dep) => dep.startsWith('@asra/'))
+      }).filter((dep) => dep.startsWith('@asyra/'))
 
       pkgs.push({
         name: pkgJson.name,
@@ -51,7 +51,7 @@ function generateTurboJson(packages) {
   for (const pkg of packages) {
     const repoName = pkg.name.split('/').pop()
     const buildCmd =
-      repoName === 'asra-design' ? 'react:build' : `build:${repoName}`
+      repoName === 'asyra-design' ? 'react:build' : `build:${repoName}`
 
     tasks[buildCmd] = {
       cache: false,

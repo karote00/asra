@@ -1,4 +1,4 @@
-import { EVENT_OPTIONS, UNDO } from '@asra/utils'
+import { EVENT_OPTIONS, UNDO } from '@asyra/utils'
 import type { EventTypes } from '../types'
 
 export interface RenderIsReadyEvent {

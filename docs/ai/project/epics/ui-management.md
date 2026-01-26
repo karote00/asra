@@ -30,5 +30,5 @@ This Epic encompasses:
 
 ## Technical Dependencies
 
--   **`@asra/ui-context`**: Uses RxJS `BehaviorSubject`s to push high-frequency updates to React without re-rendering the whole tree.
--   **`apps/ui`**: React component tree.
+-   **`@asyra/ui-context`**: Uses RxJS `BehaviorSubject`s to push high-frequency updates to React without re-rendering the whole tree.
+-   **`apps/asyra-design`**: React component tree.

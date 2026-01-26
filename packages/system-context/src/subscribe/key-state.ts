@@ -1,4 +1,4 @@
-import { subscribeToUpdateKeyState } from '@asra/reactive-events'
+import { subscribeToUpdateKeyState } from '@asyra/reactive-events'
 import { KeyStateAPIs } from '../types'
 
 export const initKeyStateSubscribe = (apis: KeyStateAPIs) => {

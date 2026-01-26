@@ -1,5 +1,5 @@
 import { Subscription } from 'rxjs'
-import { generateRequestId, PrimaryToolType } from '@asra/utils'
+import { generateRequestId, PrimaryToolType } from '@asyra/utils'
 import { FinishRequestCurrentPrimaryToolEvent } from './events'
 import { subscribeToFinishRequestCurrentPrimaryTool } from './subscribes'
 import { publishEvent } from '../../event-bus'

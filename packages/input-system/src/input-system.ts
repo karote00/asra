@@ -12,8 +12,8 @@ import {
   PointerEventData,
   DefaultPointerEventData,
   InputSystemEvents
-} from '@asra/utils'
-import { InputFieldsList } from '@asra/utils'
+} from '@asyra/utils'
+import { InputFieldsList } from '@asyra/utils'
 import { CLICK_THRESHOLD, CLEAR_KEY_TIME } from './constants'
 import { InputEventCombo, InputEventMappings } from './event-mappings'
 import keymap, { KeyMap } from './keymap'

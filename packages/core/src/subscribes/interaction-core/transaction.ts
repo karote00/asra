@@ -1,7 +1,7 @@
 import {
   subscribeToDecideToEndTransaction,
   subscribeToDecideToStartTransaction
-} from '@asra/reactive-events'
+} from '@asyra/reactive-events'
 import { TransactionActionAPIs } from '../../types'
 
 export const initTransactionHandlers = (apis: TransactionActionAPIs) => {

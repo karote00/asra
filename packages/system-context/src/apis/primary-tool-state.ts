@@ -1,4 +1,4 @@
-import { PrimaryToolType } from '@asra/utils'
+import { PrimaryToolType } from '@asyra/utils'
 import { HandlerDeps, PrimaryToolStateAPIs } from '../types'
 
 export const createPrimaryToolStateAPIs = (

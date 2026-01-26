@@ -1,5 +1,5 @@
-import { PropsManager } from '@asra/props-manager'
-import { PropsComponentRawData } from '@asra/utils'
+import { PropsManager } from '@asyra/props-manager'
+import { PropsComponentRawData } from '@asyra/utils'
 
 /**
  * Request API for Props data

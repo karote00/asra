@@ -3,7 +3,7 @@ import {
   panTo,
   zoomFit,
   zoomToCenter
-} from '@asra/reactive-events'
+} from '@asyra/reactive-events'
 import { RenderRequests } from '../types'
 import { ViewportAPIs } from '../types'
 

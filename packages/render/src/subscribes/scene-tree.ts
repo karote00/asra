@@ -2,10 +2,10 @@ import type {
   SceneTreeYjsChange,
   AddRemoveElementChange,
   UpdateElementChange
-} from '@asra/utils'
-import factory from '@asra/factory'
-import { SCENE_TREE_ACTIONS } from '@asra/utils'
-import { subscribeToSceneTreeLoadComplete } from '@asra/reactive-events'
+} from '@asyra/utils'
+import factory from '@asyra/factory'
+import { SCENE_TREE_ACTIONS } from '@asyra/utils'
+import { subscribeToSceneTreeLoadComplete } from '@asyra/reactive-events'
 import renderSceneTree from '../stores/scene-tree'
 
 const updateRenderSceneTree = (change: SceneTreeYjsChange['payload']) => {

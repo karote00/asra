@@ -4,7 +4,7 @@ import {
   SystemContextSnapshot,
   DEFAULT_ELEMENT_SIZE,
   PrimaryToolType
-} from '@asra/utils'
+} from '@asyra/utils'
 import { decideFromResetElementSizeRules } from '../reset-element-size-rules'
 import { baseSnapshot } from './test-helpers'
 

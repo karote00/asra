@@ -16,13 +16,13 @@ You can install the Input System package via npm or yarn:
 ### Using npm
 
 ```bash
-npm install @asra/input-system
+npm install @asyra/input-system
 ```
 
 ### Using yarn
 
 ```bash
-yarn add @asra/input-system
+yarn add @asyra/input-system
 ```
 
 ## Usage
@@ -32,7 +32,7 @@ To get started with the Input System, follow these steps:
 1. **Import the Input System**:
 
    ```typescript
-   import InputSystem from '@asra/input-system'
+   import InputSystem from '@asyra/input-system'
    ```
 
 2. **Define Your Key Combinations**:

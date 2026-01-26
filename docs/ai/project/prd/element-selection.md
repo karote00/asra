@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-Users need a reliable, intuitive way to select and manage design elements on the canvas. Poor selection behavior can frustrate users and slow down their workflow. Asra needs to provide predictable selection that works consistently across different scenarios and element types.
+Users need a reliable, intuitive way to select and manage design elements on the canvas. Poor selection behavior can frustrate users and slow down their workflow. Asyra needs to provide predictable selection that works consistently across different scenarios and element types.
 
 ## Goals & Objectives
 
@@ -103,12 +103,12 @@ Users need a reliable, intuitive way to select and manage design elements on the
 ## Technical Dependencies
 
 ### Internal Dependencies
-- **@asra/selection**: Core selection state management
-- **@asra/render**: Visual feedback rendering (selection handles, outlines)
-- **@asra/scene-tree**: Element hierarchy and hit-testing
-- **@asra/interaction-core**: Selection behavior logic
-- **@asra/system-context**: Global state coordination
-- **@asra/reactive-events**: Selection event communication
+- **@asyra/selection**: Core selection state management
+- **@asyra/render**: Visual feedback rendering (selection handles, outlines)
+- **@asyra/scene-tree**: Element hierarchy and hit-testing
+- **@asyra/interaction-core**: Selection behavior logic
+- **@asyra/system-context**: Global state coordination
+- **@asyra/reactive-events**: Selection event communication
 
 ### External Dependencies
 - Canvas hit-testing capabilities

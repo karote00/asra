@@ -1,6 +1,6 @@
 {
-  "name": "@asra/factory",
-  "version": "0.1.0",
+  "name": "@asyra/factory",
+  "version": "0.2.0",
   "description": "Manipulate with data changes",
   "author": "Asa Tsai",
   "license": "MIT",
@@ -23,8 +23,8 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
-    "@asra/reactive-events": "workspace:*",
-    "@asra/utils": "workspace:*",
+    "@asyra/reactive-events": "workspace:*",
+    "@asyra/utils": "workspace:*",
     "yjs": "13.6.20"
   }
 }

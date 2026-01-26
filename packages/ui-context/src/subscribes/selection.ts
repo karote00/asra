@@ -1,10 +1,10 @@
-import type { SelectionYjsChange } from '@asra/utils'
-import { SELECTION_ACTIONS, SELECTION_TYPES } from '@asra/utils'
-import factory from '@asra/factory'
+import type { SelectionYjsChange } from '@asyra/utils'
+import { SELECTION_ACTIONS, SELECTION_TYPES } from '@asyra/utils'
+import factory from '@asyra/factory'
 import {
   finishRequestElementSelection,
   subscribeToRequestElementSelection
-} from '@asra/reactive-events'
+} from '@asyra/reactive-events'
 import SelectionStore from '../stores/selection'
 import uiContext from '../ui-context'
 

@@ -3,8 +3,8 @@ import {
   executeAction,
   startSession,
   updateSession
-} from '@asra/reactive-events'
-import { InputSystemEvents, DetailType } from '@asra/utils'
+} from '@asyra/reactive-events'
+import { InputSystemEvents, DetailType } from '@asyra/utils'
 import { InteractionCoreAPIs, SystemContextRequests } from '../types'
 
 export const createInteractionCoreAPIs = (

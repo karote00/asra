@@ -1,4 +1,4 @@
-import { MouseSnapshot } from '@asra/utils'
+import { MouseSnapshot } from '@asyra/utils'
 import { EventTypes } from '../../types'
 
 export interface UpdateMouseStateEvent {

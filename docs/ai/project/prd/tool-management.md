@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-Users need efficient ways to switch between different design tools and understand which tool is currently active. Poor tool management can disrupt creative flow and cause user confusion. Asra needs to provide intuitive tool switching with clear visual feedback and consistent behavior.
+Users need efficient ways to switch between different design tools and understand which tool is currently active. Poor tool management can disrupt creative flow and cause user confusion. Asyra needs to provide intuitive tool switching with clear visual feedback and consistent behavior.
 
 ## Goals & Objectives
 
@@ -102,11 +102,11 @@ Users need efficient ways to switch between different design tools and understan
 ## Technical Dependencies
 
 ### Internal Dependencies
-- **@asra/system-context**: Tool state management and global context
-- **@asra/input-system**: Keyboard shortcut detection and handling
-- **@asra/interaction-core**: Tool-specific behavior implementation
-- **@asra/reactive-events**: Tool change event communication
-- **apps/ui**: Toolbar UI and visual feedback components
+- **@asyra/system-context**: Tool state management and global context
+- **@asyra/input-system**: Keyboard shortcut detection and handling
+- **@asyra/interaction-core**: Tool-specific behavior implementation
+- **@asyra/reactive-events**: Tool change event communication
+- **apps/asyra-design**: Toolbar UI and visual feedback components
 
 ### External Dependencies
 - Browser keyboard event handling

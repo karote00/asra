@@ -3,7 +3,7 @@ import {
   InteractionEvent,
   SystemContextSnapshot,
   DEFAULT_ELEMENT_SIZE
-} from '@asra/utils'
+} from '@asyra/utils'
 
 export const decideFromResetElementSizeRules = (
   systemContextSnapshot: SystemContextSnapshot

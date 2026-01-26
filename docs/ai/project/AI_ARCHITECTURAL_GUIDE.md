@@ -1,6 +1,6 @@
-## AI Architectural Guide for Asra Project
+## AI Architectural Guide for Asyra Project
 
-This document consolidates key architectural principles, interaction patterns, data manipulation rules, and collaboration guidelines specific to the Asra project. It serves as a living guide for AI agents to ensure implementations are consistent, correct, and aligned with the project's design.
+This document consolidates key architectural principles, interaction patterns, data manipulation rules, and collaboration guidelines specific to the Asyra project. It serves as a living guide for AI agents to ensure implementations are consistent, correct, and aligned with the project's design.
 
 ### I. Core Architectural Principles
 
@@ -21,9 +21,9 @@ This document consolidates key architectural principles, interaction patterns, d
 
 ### II. Package Ecosystem
 
-The Asra monorepo is divided into specialized packages, each with a clear responsibility:
+The Asyra monorepo is divided into specialized packages, each with a clear responsibility:
 
-- **`apps/ui`**: The main React application entry point, containing UI components and layout. Built with React 19, Vite, and Tailwind CSS.
+- **`apps/asyra-design`**: The main React application entry point, containing UI components and layout. Built with React 19, Vite, and Tailwind CSS.
 - **`packages/core`**: The central orchestrator with request-response architecture. Provides unified API surface and dependency injection for synchronous operations.
 - **`packages/input-system`**: Captures raw browser events and maps them to internal input actions.
 - **`packages/interaction-core`**: The brain of the operation. Decides how to respond to input actions based on current rules and behaviors.
@@ -140,10 +140,10 @@ CDD is an **architectural paradigm** where the design and interaction of system 
 
 #### 2. Core Components and Their Roles
 
-- **Event-Driven Communication (`@asra/reactive-events`)**: The primary _mechanism_ for intended actions. Modules publish events to announce intentions ("I want something to happen").
-- **Centralized Orchestration (`@asra/core`)**: Acts as middleware. It listens to inputs/events and decides which subsequent communications need to be initiated.
+- **Event-Driven Communication (`@asyra/reactive-events`)**: The primary _mechanism_ for intended actions. Modules publish events to announce intentions ("I want something to happen").
+- **Centralized Orchestration (`@asyra/core`)**: Acts as middleware. It listens to inputs/events and decides which subsequent communications need to be initiated.
 - **Collaborative Data Flow (YJS/CRDT)**: Manages _state_. Events signal _actions_, but YJS handles the _real data_. Components observe YJS for granular data changes (CRDT capabilities).
-- **Transaction Management (`@asra/factory`)**: Manages the custom undo/redo system.
+- **Transaction Management (`@asyra/factory`)**: Manages the custom undo/redo system.
 
 #### 3. Key Principles
 

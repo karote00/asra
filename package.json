@@ -1,6 +1,6 @@
 {
-  "name": "asra",
-  "version": "0.1.0",
+  "name": "asyra",
+  "version": "0.2.0",
   "description": "An open-source design tool demonstrating Communication-Driven Development and AI collaboration patterns.",
   "author": "Asa Tsai",
   "license": "MIT",
@@ -21,19 +21,19 @@
   "scripts": {
     "dev:all": "node scripts/dev-all.js",
     "watch:design-system": "turbo run watch:design-system",
-    "rebuild:design-system": "yarn workspace @asra/design-system rebuild:design-system",
+    "rebuild:design-system": "yarn workspace @asyra/design-system rebuild:design-system",
     "react:build": "turbo run react:build",
     "test": "turbo run test",
     "test:local": "turbo run test:local",
     "test:ci": "turbo run test:ci",
-    "test:e2e": "yarn workspace @asra/asra-design test:e2e",
+    "test:e2e": "yarn workspace @asyra/asyra-design test:e2e",
     "lint": "eslint .",
     "lint:ci": "eslint .",
     "clean": "turbo run clean",
     "reinstall": "yarn clean && rm -rf node_modules .turbo && yarn && yarn react:build",
     "gen:turbo": "node scripts/gen-turbo.js && yarn install",
-    "gen:event": "yarn workspace @asra/reactive-events add-event",
-    "gen:interaction": "yarn workspace @asra/reactive-events add-interaction",
+    "gen:event": "yarn workspace @asyra/reactive-events add-event",
+    "gen:interaction": "yarn workspace @asyra/reactive-events add-interaction",
     "predev": "yarn gen:turbo"
   },
   "workspaces": [
@@ -49,6 +49,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.29.8",
     "@eslint/compat": "^1.2.4",
     "@eslint/js": "^9.17.0",
     "eslint": "^9.17.0",

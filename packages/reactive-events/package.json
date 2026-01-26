@@ -1,6 +1,6 @@
 {
-  "name": "@asra/reactive-events",
-  "version": "0.1.0",
+  "name": "@asyra/reactive-events",
+  "version": "0.2.0",
   "description": "Event middleware",
   "author": "Asa Tsai",
   "license": "MIT",
@@ -32,7 +32,7 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
-    "@asra/utils": "workspace:*",
+    "@asyra/utils": "workspace:*",
     "rxjs": "^7.8.1"
   }
 }

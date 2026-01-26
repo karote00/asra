@@ -3,7 +3,7 @@ import type {
   ElementRawData,
   GroupInstanceTypes,
   SceneTreeRawData
-} from '@asra/utils'
+} from '@asyra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
 

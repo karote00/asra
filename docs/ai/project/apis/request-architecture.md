@@ -27,7 +27,7 @@ The Request API architecture provides a synchronous, dependency-injected pattern
 ┌─────────────────────▼───────────────────────────────────────┐
 │                    Package Layer                            │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │ @asra/      │  │ @asra/      │  │ @asra/      │        │
+│  │ @asyra/     │  │ @asyra/     │  │ @asyra/     │        │
 │  │ factory     │  │ scene-tree  │  │ selection   │        │
 │  └─────────────┘  └─────────────┘  └─────────────┘        │
 └─────────────────────────────────────────────────────────────┘

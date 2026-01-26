@@ -317,7 +317,7 @@ program
     if (config.pattern === 'async') {
       // Import generateRequestId if needed
       const utilsImport = publishSourceFile.getImportDeclaration(
-        (d) => d.getModuleSpecifierValue() === '@asra/utils'
+        (d) => d.getModuleSpecifierValue() === '@asyra/utils'
       )
       if (utilsImport) {
         if (
@@ -329,9 +329,9 @@ program
         }
       } else {
         // Maybe it's imported from somewhere else? or assuming it exists.
-        // Existing code has it from @asra/utils.
+        // Existing code has it from @asyra/utils.
         publishSourceFile.addImportDeclaration({
-          moduleSpecifier: '@asra/utils',
+          moduleSpecifier: '@asyra/utils',
           namedImports: ['generateRequestId']
         })
       }

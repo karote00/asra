@@ -1,5 +1,5 @@
-import selectionManager, { SelectionManager } from '@asra/selection'
-import { SELECTION_TYPES } from '@asra/utils'
+import selectionManager, { SelectionManager } from '@asyra/selection'
+import { SELECTION_TYPES } from '@asyra/utils'
 
 class RenderSelection {
   selectionManager: SelectionManager

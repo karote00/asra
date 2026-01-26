@@ -3,7 +3,7 @@
 **Status**: [Completed]
 
 ## 1. Interaction State Machine
-- [x] Create `@asra/interaction-core` package
+- [x] Create `@asyra/interaction-core` package
 - [x] Implement `InteractionCore` class (Session Manager)
 - [x] Define `decideInteraction` function structure
 
@@ -14,7 +14,7 @@
 - [x] Create `select-rules.ts` (Hit testing)
 
 ## 3. System Context
-- [x] Create `@asra/system-context`
+- [x] Create `@asyra/system-context`
 - [x] Implement state slices: `MouseState`, `KeyState`, `PrimaryToolState`
 - [x] Implement `getSystemContextSnapshot()`
 

@@ -3,7 +3,7 @@ import {
   MouseSnapshot,
   InputSystemEvents,
   DetailType
-} from '@asra/utils'
+} from '@asyra/utils'
 import { UndoHandler } from './undo'
 import { ViewportHandler } from './viewport'
 import { RenderHandler } from './render'

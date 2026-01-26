@@ -1,5 +1,5 @@
 import * as Y from 'yjs'
-import { SelectionYjsChange } from '@asra/utils'
+import { SelectionYjsChange } from '@asyra/utils'
 import doc from '../data'
 import { UNDO_CAPTURE_TIMEOUT } from './constants'
 

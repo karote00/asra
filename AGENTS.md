@@ -85,14 +85,14 @@ yarn workspace @package/name build  # Package-specific build
 
 ## Key Principles
 
-- **Event-Driven Architecture**: No direct package dependencies, use `@asra/reactive-events`
+- **Event-Driven Architecture**: No direct package dependencies, use `@asyra/reactive-events`
 - **Behavior-Focused Tests**: Document behavior, not coverage
 - **Check Config Files**: Never hardcode formatting preferences
 - **Quality Gates**: Tests pass + lint clean + build succeeds
 
 ## Critical Rules
 
-- **🚨 MONOREPO IMPORT RULE**: **ALWAYS** use `@asra/package-name` for cross-package imports, NEVER use relative paths like `../../../other-package` (see `docs/ai/project/CODING_STANDARDS.md`)
+- **🚨 MONOREPO IMPORT RULE**: **ALWAYS** use `@asyra/package-name` for cross-package imports, NEVER use relative paths like `../../../other-package` (see `docs/ai/project/CODING_STANDARDS.md`)
 - **🚨 MAIN BRANCH PROTECTION**: NEVER work on main branch - use feature branches only (see `docs/ai/project/rules/main-branch-protection.md`)
 - **Project Context**: Always read `docs/ai/project/` folder first for architecture patterns
 - **External APIs**: Use Context7 MCP server for libraries/frameworks/APIs (see `.antigravity/rules.md`)

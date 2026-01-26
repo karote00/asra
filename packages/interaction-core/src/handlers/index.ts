@@ -1,4 +1,4 @@
-import { InteractionActions, InteractionEvent } from '@asra/utils'
+import { InteractionActions, InteractionEvent } from '@asyra/utils'
 import { TransactionHandlers } from './transaction'
 import { PrimaryToolHandlers } from './primary-tool'
 import { ElementHandlers } from './element'

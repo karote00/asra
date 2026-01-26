@@ -1,4 +1,4 @@
-import { DetailType, InteractionActions, InteractionEvent } from '@asra/utils'
+import { DetailType, InteractionActions, InteractionEvent } from '@asyra/utils'
 
 export const decideFromSwitchPrimaryToolRules = (
   detail?: DetailType

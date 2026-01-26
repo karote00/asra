@@ -171,9 +171,9 @@ interface InputMapping {
 ## Dependencies
 
 ### Technical Dependencies
-- `@asra/reactive-events` for input event publishing
-- `@asra/system-context` for input state management
-- `@asra/interaction-core` for input action routing
+- `@asyra/reactive-events` for input event publishing
+- `@asyra/system-context` for input state management
+- `@asyra/interaction-core` for input action routing
 - Browser APIs for keyboard/mouse event handling
 - TypeScript for type safety
 

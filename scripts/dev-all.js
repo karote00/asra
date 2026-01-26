@@ -59,9 +59,9 @@ async function runAll() {
     // get all packages
     const pkgs = await getPackages()
 
-    // add asra-design app
+    // add asyra-design app
     pkgs.push({
-      dir: 'apps/asra-design',
+      dir: 'apps/asyra-design',
       cmd: 'yarn react:start'
     })
 

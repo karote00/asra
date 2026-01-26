@@ -1,7 +1,7 @@
 {
-  "name": "@asra/core",
-  "version": "0.1.0",
-  "description": "Core of Asra.",
+  "name": "@asyra/core",
+  "version": "0.2.0",
+  "description": "Core of Asyra.",
   "author": "Asa Tsai",
   "license": "MIT",
   "packageManager": "yarn@4.3.1",
@@ -23,15 +23,15 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
-    "@asra/factory": "workspace:*",
-    "@asra/input-system": "workspace:*",
-    "@asra/interaction-core": "workspace:*",
-    "@asra/props-manager": "workspace:*",
-    "@asra/reactive-events": "workspace:*",
-    "@asra/render": "workspace:*",
-    "@asra/scene-tree": "workspace:*",
-    "@asra/selection": "workspace:*",
-    "@asra/system-context": "workspace:*",
-    "@asra/utils": "workspace:*"
+    "@asyra/factory": "workspace:*",
+    "@asyra/input-system": "workspace:*",
+    "@asyra/interaction-core": "workspace:*",
+    "@asyra/props-manager": "workspace:*",
+    "@asyra/reactive-events": "workspace:*",
+    "@asyra/render": "workspace:*",
+    "@asyra/scene-tree": "workspace:*",
+    "@asyra/selection": "workspace:*",
+    "@asyra/system-context": "workspace:*",
+    "@asyra/utils": "workspace:*"
   }
 }

@@ -8,7 +8,7 @@ import {
   subscribeToRequestViewportScale,
   subscribeToZoomFit,
   subscribeToZoomToCenter
-} from '@asra/reactive-events'
+} from '@asyra/reactive-events'
 import render from '../render'
 
 let hasInit = false

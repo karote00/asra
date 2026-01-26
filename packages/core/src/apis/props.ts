@@ -1,4 +1,4 @@
-import { PropsComponentRawData } from '@asra/utils'
+import { PropsComponentRawData } from '@asyra/utils'
 import { PropsRawAPIs, PropsRequests } from '../types'
 
 export const createPropsAPIs = (propsRequests: PropsRequests): PropsRawAPIs => {

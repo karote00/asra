@@ -6,7 +6,7 @@ import {
   DefaultSystemSnapshot,
   PrimaryToolType,
   SystemContextSnapshot
-} from '@asra/utils'
+} from '@asyra/utils'
 
 export const baseSnapshot: SystemContextSnapshot = {
   mouse: {

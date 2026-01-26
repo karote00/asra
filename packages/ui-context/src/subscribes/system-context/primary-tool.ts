@@ -1,7 +1,7 @@
 import {
   requestCurrentPrimaryTool,
   subscribeToEmitSwitchPrimaryTool
-} from '@asra/reactive-events'
+} from '@asyra/reactive-events'
 import { PrimaryToolStore } from '../../stores/system-context'
 
 export const primaryToolStore = new PrimaryToolStore()

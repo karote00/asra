@@ -6,7 +6,7 @@ import {
   InputSystemEvents,
   PrimaryToolType,
   DetailType
-} from '@asra/utils'
+} from '@asyra/utils'
 import keyMap from './keymap'
 
 export interface InputEventCombo {

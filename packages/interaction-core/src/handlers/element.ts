@@ -4,8 +4,8 @@ import {
   decideToResizeElement,
   decideToResetElementSize,
   decideToSelectElements
-} from '@asra/reactive-events'
-import { InteractionActions, InteractionEvent } from '@asra/utils'
+} from '@asyra/reactive-events'
+import { InteractionActions, InteractionEvent } from '@asyra/utils'
 
 export const ElementHandlers = {
   [InteractionActions.INTERACTION_CREATE_ELEMENT]: (

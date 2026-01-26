@@ -1,4 +1,4 @@
-import { Factory } from '@asra/factory'
+import { Factory } from '@asyra/factory'
 
 /**
  * Request API for Factory data

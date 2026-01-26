@@ -1,8 +1,8 @@
-# Architecture: @asra/interaction-core
+# Architecture: @asyra/interaction-core
 
 ## Core Responsibility
 
-The `@asra/interaction-core` package serves as the central decision-making unit of the application. Its primary responsibility is to interpret high-level input events (processed by `@asra/core`'s middleware) and the current system context, determine the user's intent, and then dispatch these decisions as specific, actionable events via `@asra/reactive-events`. It effectively translates raw user interactions into meaningful application actions.
+The `@asyra/interaction-core` package serves as the central decision-making unit of the application. Its primary responsibility is to interpret high-level input events (processed by `@asyra/core`'s middleware) and the current system context, determine the user's intent, and then dispatch these decisions as specific, actionable events via `@asyra/reactive-events`. It effectively translates raw user interactions into meaningful application actions.
 
 ## Key Files & Architecture
 
@@ -23,24 +23,24 @@ The package implements a **Decision-Dispatch Pattern**, where input is processed
 
 - **`handlers/`**: This directory contains the specific handlers for each type of `InteractionEvent`.
 
-  - **`index.ts`**: This file aggregates all individual handlers into a single `InteractionCoreHandlers` map. Each handler function in this map is responsible for taking the payload of an `InteractionEvent` and publishing the corresponding specific event via `@asra/reactive-events` (e.g., `decideToCreateElement`, `decideToSwitchPrimaryTool`). This ensures that the decisions made by the `decider` are properly announced to the rest of the application.
+  - **`index.ts`**: This file aggregates all individual handlers into a single `InteractionCoreHandlers` map. Each handler function in this map is responsible for taking the payload of an `InteractionEvent` and publishing the corresponding specific event via `@asyra/reactive-events` (e.g., `decideToCreateElement`, `decideToSwitchPrimaryTool`). This ensures that the decisions made by the `decider` are properly announced to the rest of the application.
   - **Subdirectories (e.g., `primary-tool`, `element`, `undoredo`)**: These subdirectories contain the individual handler functions for specific interaction types. For example, `primary-tool/index.ts` would export handlers related to tool switching decisions.
 
-- **`subscribes.ts`**: This file initializes the package's entry point for receiving events from `@asra/reactive-events`.
-  - It subscribes to generic interaction lifecycle events (e.g., `executeAction`, `startSession`, `updateSession`, `endSession`) which are typically published by the `@asra/core` middleware.
+- **`subscribes.ts`**: This file initializes the package's entry point for receiving events from `@asyra/reactive-events`.
+  - It subscribes to generic interaction lifecycle events (e.g., `executeAction`, `startSession`, `updateSession`, `endSession`) which are typically published by the `@asyra/core` middleware.
   - Upon receiving these events, it calls the corresponding methods on the `InteractionCore` instance, feeding the processed input and context into the decision-making pipeline.
 
 ## Inter-Package Communication
 
-- **Receives from `@asra/reactive-events`**: Subscribes to high-level input events (e.g., `executeAction`, `startSession`) that have been processed and enriched by `@asra/core`.
-- **Publishes to `@asra/reactive-events`**: Publishes specific decision events (e.g., `decideToCreateElement`, `decideToSwitchPrimaryTool`) that signal the user's intent to other parts of the application. These are the events that other core application logic packages will subscribe to.
+- **Receives from `@asyra/reactive-events`**: Subscribes to high-level input events (e.g., `executeAction`, `startSession`) that have been processed and enriched by `@asyra/core`.
+- **Publishes to `@asyra/reactive-events`**: Publishes specific decision events (e.g., `decideToCreateElement`, `decideToSwitchPrimaryTool`) that signal the user's intent to other parts of the application. These are the events that other core application logic packages will subscribe to.
 
 ## How It Works: Decision Flow
 
-1.  **Input Reception**: The `subscribes.ts` file listens for processed input events from `@asra/reactive-events`. These events (e.g., `executeAction`, `startSession`, `updateSession`, `endSession`) are published by `@asra/core`'s middleware, which determines the appropriate event based on the nature of the user input (e.g., a single click vs. a continuous drag).
+1.  **Input Reception**: The `subscribes.ts` file listens for processed input events from `@asyra/reactive-events`. These events (e.g., `executeAction`, `startSession`, `updateSession`, `endSession`) are published by `@asyra/core`'s middleware, which determines the appropriate event based on the nature of the user input (e.g., a single click vs. a continuous drag).
 2.  **Method Call**: The received event triggers a corresponding method call on the `InteractionCore` instance (e.g., `interactionCore.executeAction(...)` or `interactionCore.startSession(...)`).
 3.  **Decision Making**: Inside the `InteractionCore` method, the `decideInteraction` function (from `decider/`) is invoked. It analyzes the input event and the current `SystemContextSnapshot` to determine the precise user intent (e.g., `DECIDE_TO_CREATE_ELEMENT`).
 4.  **Handler Dispatch**: The `InteractionCore` then uses the `InteractionCoreHandlers` map to find the appropriate handler for the determined `InteractionEvent.type`.
-5.  **Event Publication**: The selected handler (from `handlers/`) publishes a specific, high-level decision event (e.g., `decideToCreateElement`) via `@asra/reactive-events`. This event carries all the necessary payload for other parts of the application to act upon.
+5.  **Event Publication**: The selected handler (from `handlers/`) publishes a specific, high-level decision event (e.g., `decideToCreateElement`) via `@asyra/reactive-events`. This event carries all the necessary payload for other parts of the application to act upon.
 
 This structured flow ensures that `interaction-core` acts as a clear translation layer between raw user input and high-level application commands.

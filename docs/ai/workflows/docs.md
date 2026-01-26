@@ -123,20 +123,20 @@ const elementId = core.requests.sceneTree.addRectangle(
 ## Core Principles
 
 ### Event-Driven Communication
-All packages communicate via typed events in `@asra/reactive-events`. No direct function calls between packages.
+All packages communicate via typed events in `@asyra/reactive-events`. No direct function calls between packages.
 
 ### Request-Response Pattern
-Synchronous operations use dependency injection via request APIs in `@asra/core`.
+Synchronous operations use dependency injection via request APIs in `@asyra/core`.
 
 ### Transaction Management
-All state changes must support undo/redo through `@asra/factory`.
+All state changes must support undo/redo through `@asyra/factory`.
 
 ## Package Structure
 
 ### System Layer
-- `@asra/core`: System orchestrator with request APIs
-- `@asra/interaction-core`: Decision-making engine
-- `@asra/reactive-events`: Event communication system
+- `@asyra/core`: System orchestrator with request APIs
+- `@asyra/interaction-core`: Decision-making engine
+- `@asyra/reactive-events`: Event communication system
 
 [Continue with detailed package descriptions...]
 ````

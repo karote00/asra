@@ -1,5 +1,5 @@
 import { Container, Graphics } from 'pixi.js'
-import { ComputedAttrs, ElementRawData } from '@asra/utils'
+import { ComputedAttrs, ElementRawData } from '@asyra/utils'
 
 export type RenderElementData = Omit<ElementRawData, 'props'> & ComputedAttrs
 
