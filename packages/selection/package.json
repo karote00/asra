@@ -1,7 +1,6 @@
 {
   "name": "@asra/selection",
   "version": "0.1.0",
-  "private": false,
   "description": "A selection management library for handling element, vertex, edge, or any other selectable entities in a scene graph.",
   "author": "Asa Tsai",
   "license": "MIT",

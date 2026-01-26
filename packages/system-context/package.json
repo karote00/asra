@@ -1,7 +1,6 @@
 {
   "name": "@asra/system-context",
   "version": "0.1.0",
-  "private": false,
   "description": "Provides reactive system parameters, tool states, and feature access control for the core application.",
   "author": "Asa Tsai",
   "license": "MIT",

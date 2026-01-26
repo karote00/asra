@@ -1,7 +1,6 @@
 {
   "name": "@asra/scene-tree",
   "version": "0.1.0",
-  "private": false,
   "description": "SceneTree structure.",
   "author": "Asa Tsai",
   "license": "MIT",

@@ -1,7 +1,6 @@
 {
   "name": "@asra/utils",
   "version": "0.1.0",
-  "private": false,
   "description": "Shared properties and functionalities",
   "author": "Asa Tsai",
   "license": "MIT",

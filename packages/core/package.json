@@ -1,7 +1,6 @@
 {
   "name": "@asra/core",
   "version": "0.1.0",
-  "private": false,
   "description": "Core of Asra.",
   "author": "Asa Tsai",
   "license": "MIT",
