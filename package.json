@@ -26,7 +26,7 @@
     "test": "turbo run test",
     "test:local": "turbo run test:local",
     "test:ci": "turbo run test:ci",
-    "test:e2e": "yarn workspace @asra/ui test:e2e",
+    "test:e2e": "yarn workspace @asra/asra-design test:e2e",
     "lint": "eslint .",
     "lint:ci": "eslint .",
     "clean": "turbo run clean",
