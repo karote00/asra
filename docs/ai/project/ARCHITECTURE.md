@@ -117,7 +117,7 @@ Detailed technical architecture for the Asra project.
 
 ### Application Layer
 
-#### `@asra/ui` - React Application
+#### `@asra/asra-design` - A design tool application built with React
 
 - Main application interface (apps/ui)
 - React 19 + Vite build system

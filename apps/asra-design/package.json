@@ -1,7 +1,6 @@
 {
-  "name": "@asra/ui",
-  "version": "1.0.1",
-  "private": true,
+  "name": "@asra/asra-design",
+  "version": "0.1.0",
   "type": "module",
   "dependencies": {
     "@asra/core": "workspace:*",

@@ -1,6 +1,6 @@
 {
   "name": "@asra/design-system",
-  "version": "1.0.1",
+  "version": "0.1.0",
   "packageManager": "yarn@4.3.1",
   "main": "./dist/index.js",
   "module": "./dist/index.esm.js",

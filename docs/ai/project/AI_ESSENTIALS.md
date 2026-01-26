@@ -52,7 +52,7 @@ This project follows **Communication-Driven Development (CDD)**:
 
 **Application:**
 
-- `@asra/ui`: React application (apps/ui)
+- `@asra/asra-design`: A design tool application built with React
 
 **Shared:**
 

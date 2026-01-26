@@ -13,7 +13,7 @@ async function getPackages() {
     .filter((dirent) => dirent.isDirectory())
     .map((dirent) => dirent.name)
 
-  // Map to {dir, cmd} 物件陣列
+  // Map to {dir, cmd} array
   return packageDirs.map((pkgName) => ({
     dir: path.join('packages', pkgName),
     cmd: 'yarn dev'
@@ -56,16 +56,16 @@ function runCommand(cmd, cwd) {
  */
 async function runAll() {
   try {
-    // 先取得 packages
+    // get all packages
     const pkgs = await getPackages()
 
-    // 把 ui app 加進去
+    // add asra-design app
     pkgs.push({
-      dir: 'apps/ui',
+      dir: 'apps/asra-design',
       cmd: 'yarn react:start'
     })
 
-    // 平行啟動所有
+    // run all in parallel
     await Promise.all(
       pkgs.map(({ dir, cmd }) => {
         return runCommand(cmd, path.resolve(__dirname, '../' + dir))

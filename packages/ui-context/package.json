@@ -1,6 +1,6 @@
 {
   "name": "@asra/ui-context",
-  "version": "1.0.1",
+  "version": "0.1.0",
   "description": "Manages and optimizes data from data contexts for UI consumption, ensuring efficient rendering and framework flexibility.",
   "author": "Asa Tsai",
   "license": "MIT",

@@ -24,7 +24,7 @@ Comprehensive audit of .project/ documentation against current codebase revealed
 - `@asra/selection` - Element selection management
 - `@asra/design-system` - UI component library
 - `@asra/render` - Rendering system
-- `@asra/ui` - React application
+- `@asra/asra-design` - A design tool application built with React
 
 **Impact**: Developers lack understanding of complete system architecture.
 
