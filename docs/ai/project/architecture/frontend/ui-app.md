@@ -1,8 +1,8 @@
-# Architecture: @asra/ui
+# Architecture: @asra/asra-design
 
 ## Overview
 
-The `@asra/ui` application is the main React application that provides the user interface for the Asra design tool. Built with modern React patterns, Vite build system, and Tailwind CSS styling.
+The `@asra/asra-design` application is the main React application that provides the user interface for the Asra design tool. Built with modern React patterns, Vite build system, and Tailwind CSS styling.
 
 ## Technology Stack
 

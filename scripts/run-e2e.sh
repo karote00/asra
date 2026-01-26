@@ -23,7 +23,7 @@ yarn react:build
 # 2. Start test server (background)
 # Using 'preview' to serve the built artifacts, mimicking production-like environment
 echo "Step 2: Starting server on port 3000..."
-yarn workspace @asra/ui preview --port 3000 --host 0.0.0.0 &
+yarn workspace @asra/asra-design preview --port 3000 --host 0.0.0.0 &
 SERVER_PID=$!
 
 # 3. Wait for server ready
