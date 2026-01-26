@@ -76,6 +76,10 @@ for Communication-Driven Development (CDD) and AI-native workflows.
 You are welcome to fork the project and adapt it for your own needs.
 
 
+---
+> Asyra is the evolution of Asra — consolidating previous experiences into a new, long-term vision.
+
+
 ## License
 
 MIT
