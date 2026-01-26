@@ -1,5 +1,5 @@
-import type { RectangleRawData } from '@asra/utils'
-import { EntityTypes, NameTypes } from '@asra/utils'
+import type { RectangleRawData } from '@asyra/utils'
+import { EntityTypes, NameTypes } from '@asyra/utils'
 import Element from './element'
 
 type RectangleDataType = Partial<RectangleRawData>

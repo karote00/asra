@@ -1,8 +1,8 @@
 import {
   decideToEndTransaction,
   decideToStartTransaction
-} from '@asra/reactive-events'
-import { InteractionActions, DetailType } from '@asra/utils'
+} from '@asyra/reactive-events'
+import { InteractionActions, DetailType } from '@asyra/utils'
 
 export const TransactionHandlers = {
   [InteractionActions.INTERACTION_START_TRANSACTION]: (

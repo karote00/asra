@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { UndoRedoHandlers } from '../undoredo'
-import { InteractionActions, UNDO } from '@asra/utils'
-import * as reactiveEvents from '@asra/reactive-events'
+import { InteractionActions, UNDO } from '@asyra/utils'
+import * as reactiveEvents from '@asyra/reactive-events'
 
-vi.mock('@asra/reactive-events', () => ({
+vi.mock('@asyra/reactive-events', () => ({
   decideToUndoRedo: vi.fn()
 }))
 

@@ -1,4 +1,4 @@
-import { KeySnapshot } from '@asra/utils'
+import { KeySnapshot } from '@asyra/utils'
 import { HandlerDeps, KeyStateAPIs } from '../types'
 
 export const createKeyStateAPIs = (

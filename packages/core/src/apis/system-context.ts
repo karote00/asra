@@ -1,10 +1,10 @@
-import { PrimaryToolType, MouseSnapshot, KeySnapshot } from '@asra/utils'
+import { PrimaryToolType, MouseSnapshot, KeySnapshot } from '@asyra/utils'
 import {
   emitSwitchPrimaryTool,
   switchPrimaryTool,
   updateKeyState,
   updateMouseState
-} from '@asra/reactive-events'
+} from '@asyra/reactive-events'
 import { SystemContextAPIs } from '../types'
 
 export const createSystemContextAPIs = (): SystemContextAPIs => {

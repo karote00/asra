@@ -2,7 +2,7 @@ import {
   finishRequestCurrentPrimaryTool,
   subscribeToRequestCurrentPrimaryTool,
   subscribeToSwitchPrimaryTool
-} from '@asra/reactive-events'
+} from '@asyra/reactive-events'
 import { PrimaryToolStateAPIs } from '../types'
 
 export const initPrimaryToolStateSubscribe = (apis: PrimaryToolStateAPIs) => {

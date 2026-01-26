@@ -6,7 +6,7 @@ Comprehensive audit of .project/ documentation against current codebase revealed
 
 ## Audit Scope
 
-- **Analyzed**: 13 existing packages, 1 application (apps/ui)
+- **Analyzed**: 13 existing packages, 1 application (apps/asyra-design)
 - **Reviewed**: All .project/ documentation files
 - **Timeframe**: Current state vs documentation from past 2 weeks
 - **Focus**: Package completeness, architectural accuracy, feature coverage
@@ -18,13 +18,13 @@ Comprehensive audit of .project/ documentation against current codebase revealed
 **Problem**: Core architecture documentation listed only 6 packages, but 13 packages actually exist.
 
 **Missing from Documentation**:
-- `@asra/props-manager` - Property data management
-- `@asra/ui-context` - UI state optimization layer
-- `@asra/input-system` - Keyboard and mouse event handling
-- `@asra/selection` - Element selection management
-- `@asra/design-system` - UI component library
-- `@asra/render` - Rendering system
-- `@asra/asra-design` - A design tool application built with React
+- `@asyra/props-manager` - Property data management
+- `@asyra/ui-context` - UI state optimization layer
+- `@asyra/input-system` - Keyboard and mouse event handling
+- `@asyra/selection` - Element selection management
+- `@asyra/design-system` - UI component library
+- `@asyra/render` - Rendering system
+- `@asyra/asyra-design` - A design tool application built with React
 
 **Impact**: Developers lack understanding of complete system architecture.
 
@@ -215,7 +215,7 @@ Comprehensive audit of .project/ documentation against current codebase revealed
 
 ## Conclusion
 
-The documentation audit revealed significant gaps between the documented and actual state of the Asra project. The updates made have addressed all critical gaps and brought the documentation to 100% coverage of current systems. The project now has comprehensive documentation covering:
+The documentation audit revealed significant gaps between the documented and actual state of the Asyra project. The updates made have addressed all critical gaps and brought the documentation to 100% coverage of current systems. The project now has comprehensive documentation covering:
 
 - Complete package architecture (14 packages)
 - All major systems (Request APIs, E2E, Skills, Input, Props)

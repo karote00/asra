@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { InputSystemEvents, PrimaryToolType } from '@asra/utils'
+import { InputSystemEvents, PrimaryToolType } from '@asyra/utils'
 import { decideInteraction } from '../interaction-decider'
 import * as behavior from '../behavior'
 import { baseSnapshot } from '../rules/__tests__/test-helpers'

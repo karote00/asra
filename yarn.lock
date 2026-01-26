@@ -42,15 +42,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@asra/asra-design@workspace:apps/asra-design":
+"@asyra/asyra-design@workspace:apps/asyra-design":
   version: 0.0.0-use.local
-  resolution: "@asra/asra-design@workspace:apps/asra-design"
+  resolution: "@asyra/asyra-design@workspace:apps/asyra-design"
   dependencies:
-    "@asra/core": "workspace:*"
-    "@asra/design-system": "workspace:*"
-    "@asra/reactive-events": "workspace:*"
-    "@asra/ui-context": "workspace:*"
-    "@asra/utils": "workspace:*"
+    "@asyra/core": "workspace:*"
+    "@asyra/design-system": "workspace:*"
+    "@asyra/reactive-events": "workspace:*"
+    "@asyra/ui-context": "workspace:*"
+    "@asyra/utils": "workspace:*"
     "@playwright/test": "npm:^1.57.0"
     "@preact/signals-react": "npm:^2.2.0"
     "@tanstack/react-virtual": "npm:^3.13.6"
@@ -78,31 +78,31 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/core@workspace:*, @asra/core@workspace:packages/core":
+"@asyra/core@workspace:*, @asyra/core@workspace:packages/core":
   version: 0.0.0-use.local
-  resolution: "@asra/core@workspace:packages/core"
+  resolution: "@asyra/core@workspace:packages/core"
   dependencies:
-    "@asra/factory": "workspace:*"
-    "@asra/input-system": "workspace:*"
-    "@asra/interaction-core": "workspace:*"
-    "@asra/props-manager": "workspace:*"
-    "@asra/reactive-events": "workspace:*"
-    "@asra/render": "workspace:*"
-    "@asra/scene-tree": "workspace:*"
-    "@asra/selection": "workspace:*"
-    "@asra/system-context": "workspace:*"
-    "@asra/utils": "workspace:*"
+    "@asyra/factory": "workspace:*"
+    "@asyra/input-system": "workspace:*"
+    "@asyra/interaction-core": "workspace:*"
+    "@asyra/props-manager": "workspace:*"
+    "@asyra/reactive-events": "workspace:*"
+    "@asyra/render": "workspace:*"
+    "@asyra/scene-tree": "workspace:*"
+    "@asyra/selection": "workspace:*"
+    "@asyra/system-context": "workspace:*"
+    "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
     vitest: "npm:^2.1.8"
   languageName: unknown
   linkType: soft
 
-"@asra/design-system@workspace:*, @asra/design-system@workspace:packages/design-system":
+"@asyra/design-system@workspace:*, @asyra/design-system@workspace:packages/design-system":
   version: 0.0.0-use.local
-  resolution: "@asra/design-system@workspace:packages/design-system"
+  resolution: "@asyra/design-system@workspace:packages/design-system"
   dependencies:
-    "@asra/utils": "workspace:*"
+    "@asyra/utils": "workspace:*"
     "@chromatic-com/storybook": "npm:^3.2.3"
     "@storybook/addon-essentials": "npm:^8.4.7"
     "@storybook/addon-interactions": "npm:^8.4.7"
@@ -131,12 +131,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/factory@workspace:*, @asra/factory@workspace:packages/factory":
+"@asyra/factory@workspace:*, @asyra/factory@workspace:packages/factory":
   version: 0.0.0-use.local
-  resolution: "@asra/factory@workspace:packages/factory"
+  resolution: "@asyra/factory@workspace:packages/factory"
   dependencies:
-    "@asra/reactive-events": "workspace:*"
-    "@asra/utils": "workspace:*"
+    "@asyra/reactive-events": "workspace:*"
+    "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
     vitest: "npm:^2.1.8"
@@ -144,48 +144,48 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/input-system@workspace:*, @asra/input-system@workspace:packages/input-system":
+"@asyra/input-system@workspace:*, @asyra/input-system@workspace:packages/input-system":
   version: 0.0.0-use.local
-  resolution: "@asra/input-system@workspace:packages/input-system"
+  resolution: "@asyra/input-system@workspace:packages/input-system"
   dependencies:
-    "@asra/reactive-events": "workspace:*"
-    "@asra/utils": "workspace:*"
+    "@asyra/reactive-events": "workspace:*"
+    "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
     vitest: "npm:^2.1.8"
   languageName: unknown
   linkType: soft
 
-"@asra/interaction-core@workspace:*, @asra/interaction-core@workspace:packages/interaction-core":
+"@asyra/interaction-core@workspace:*, @asyra/interaction-core@workspace:packages/interaction-core":
   version: 0.0.0-use.local
-  resolution: "@asra/interaction-core@workspace:packages/interaction-core"
+  resolution: "@asyra/interaction-core@workspace:packages/interaction-core"
   dependencies:
-    "@asra/input-system": "workspace:*"
-    "@asra/reactive-events": "workspace:*"
-    "@asra/utils": "workspace:*"
+    "@asyra/input-system": "workspace:*"
+    "@asyra/reactive-events": "workspace:*"
+    "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
     vitest: "npm:^2.1.8"
   languageName: unknown
   linkType: soft
 
-"@asra/props-manager@workspace:*, @asra/props-manager@workspace:^, @asra/props-manager@workspace:packages/props-manager":
+"@asyra/props-manager@workspace:*, @asyra/props-manager@workspace:^, @asyra/props-manager@workspace:packages/props-manager":
   version: 0.0.0-use.local
-  resolution: "@asra/props-manager@workspace:packages/props-manager"
+  resolution: "@asyra/props-manager@workspace:packages/props-manager"
   dependencies:
-    "@asra/reactive-events": "workspace:*"
-    "@asra/utils": "workspace:*"
+    "@asyra/reactive-events": "workspace:*"
+    "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
     vitest: "npm:^2.1.8"
   languageName: unknown
   linkType: soft
 
-"@asra/reactive-events@workspace:*, @asra/reactive-events@workspace:packages/reactive-events":
+"@asyra/reactive-events@workspace:*, @asyra/reactive-events@workspace:packages/reactive-events":
   version: 0.0.0-use.local
-  resolution: "@asra/reactive-events@workspace:packages/reactive-events"
+  resolution: "@asyra/reactive-events@workspace:packages/reactive-events"
   dependencies:
-    "@asra/utils": "workspace:*"
+    "@asyra/utils": "workspace:*"
     "@types/inquirer": "npm:^8.2.6"
     "@types/node": "npm:^25.0.2"
     "@vitest/coverage-v8": "npm:^2.1.8"
@@ -200,14 +200,14 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/render@workspace:*, @asra/render@workspace:packages/render":
+"@asyra/render@workspace:*, @asyra/render@workspace:packages/render":
   version: 0.0.0-use.local
-  resolution: "@asra/render@workspace:packages/render"
+  resolution: "@asyra/render@workspace:packages/render"
   dependencies:
-    "@asra/factory": "workspace:*"
-    "@asra/reactive-events": "workspace:*"
-    "@asra/scene-tree": "workspace:*"
-    "@asra/utils": "workspace:*"
+    "@asyra/factory": "workspace:*"
+    "@asyra/reactive-events": "workspace:*"
+    "@asyra/scene-tree": "workspace:*"
+    "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     pixi.js: "npm:^8.6.3"
     typescript: "npm:^5.7.2"
@@ -215,52 +215,52 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/scene-tree@workspace:*, @asra/scene-tree@workspace:packages/scene-tree":
+"@asyra/scene-tree@workspace:*, @asyra/scene-tree@workspace:packages/scene-tree":
   version: 0.0.0-use.local
-  resolution: "@asra/scene-tree@workspace:packages/scene-tree"
+  resolution: "@asyra/scene-tree@workspace:packages/scene-tree"
   dependencies:
-    "@asra/props-manager": "workspace:^"
-    "@asra/reactive-events": "workspace:*"
-    "@asra/utils": "workspace:*"
+    "@asyra/props-manager": "workspace:^"
+    "@asyra/reactive-events": "workspace:*"
+    "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
     vitest: "npm:^2.1.8"
   languageName: unknown
   linkType: soft
 
-"@asra/selection@workspace:*, @asra/selection@workspace:packages/selection":
+"@asyra/selection@workspace:*, @asyra/selection@workspace:packages/selection":
   version: 0.0.0-use.local
-  resolution: "@asra/selection@workspace:packages/selection"
+  resolution: "@asyra/selection@workspace:packages/selection"
   dependencies:
-    "@asra/reactive-events": "workspace:*"
-    "@asra/utils": "workspace:*"
+    "@asyra/reactive-events": "workspace:*"
+    "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
     vitest: "npm:^2.1.8"
   languageName: unknown
   linkType: soft
 
-"@asra/system-context@workspace:*, @asra/system-context@workspace:packages/system-context":
+"@asyra/system-context@workspace:*, @asyra/system-context@workspace:packages/system-context":
   version: 0.0.0-use.local
-  resolution: "@asra/system-context@workspace:packages/system-context"
+  resolution: "@asyra/system-context@workspace:packages/system-context"
   dependencies:
-    "@asra/reactive-events": "workspace:*"
-    "@asra/utils": "workspace:*"
+    "@asyra/reactive-events": "workspace:*"
+    "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
     vitest: "npm:^2.1.8"
   languageName: unknown
   linkType: soft
 
-"@asra/ui-context@workspace:*, @asra/ui-context@workspace:packages/ui-context":
+"@asyra/ui-context@workspace:*, @asyra/ui-context@workspace:packages/ui-context":
   version: 0.0.0-use.local
-  resolution: "@asra/ui-context@workspace:packages/ui-context"
+  resolution: "@asyra/ui-context@workspace:packages/ui-context"
   dependencies:
-    "@asra/factory": "workspace:*"
-    "@asra/reactive-events": "workspace:*"
-    "@asra/scene-tree": "workspace:*"
-    "@asra/selection": "workspace:*"
-    "@asra/utils": "workspace:*"
+    "@asyra/factory": "workspace:*"
+    "@asyra/reactive-events": "workspace:*"
+    "@asyra/scene-tree": "workspace:*"
+    "@asyra/selection": "workspace:*"
+    "@asyra/utils": "workspace:*"
     "@types/lodash": "npm:^4"
     "@vitest/coverage-v8": "npm:^2.1.8"
     lodash: "npm:^4.17.21"
@@ -271,9 +271,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asra/utils@workspace:*, @asra/utils@workspace:packages/utils":
+"@asyra/utils@workspace:*, @asyra/utils@workspace:packages/utils":
   version: 0.0.0-use.local
-  resolution: "@asra/utils@workspace:packages/utils"
+  resolution: "@asyra/utils@workspace:packages/utils"
   dependencies:
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
@@ -6674,25 +6674,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"asra@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "asra@workspace:."
-  dependencies:
-    "@eslint/compat": "npm:^1.2.4"
-    "@eslint/js": "npm:^9.17.0"
-    context-rag: "npm:^2.1.4"
-    eslint: "npm:^9.17.0"
-    eslint-config-prettier: "npm:^9.1.0"
-    eslint-plugin-prettier: "npm:^5.2.1"
-    eslint-plugin-react: "npm:^7.37.3"
-    handoff-ai: "npm:^0.7.0"
-    prettier: "npm:^3.4.2"
-    turbo: "npm:^2.3.3"
-    typescript-eslint: "npm:^8.18.2"
-    wait-on: "npm:^9.0.3"
-  languageName: unknown
-  linkType: soft
-
 "assertion-error@npm:^2.0.1":
   version: 2.0.1
   resolution: "assertion-error@npm:2.0.1"
@@ -6743,6 +6724,25 @@ __metadata:
   checksum: 10c0/d73e2ddf20c4eb9337e1b3df1a0f6159481050a5de457c55b14ea2e5cb6d90bb69e004c9af54737a5ee0917fcf2c9e25de67777bbe58261847846066ba75bc9d
   languageName: node
   linkType: hard
+
+"asyra@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "asyra@workspace:."
+  dependencies:
+    "@eslint/compat": "npm:^1.2.4"
+    "@eslint/js": "npm:^9.17.0"
+    context-rag: "npm:^2.1.4"
+    eslint: "npm:^9.17.0"
+    eslint-config-prettier: "npm:^9.1.0"
+    eslint-plugin-prettier: "npm:^5.2.1"
+    eslint-plugin-react: "npm:^7.37.3"
+    handoff-ai: "npm:^0.7.0"
+    prettier: "npm:^3.4.2"
+    turbo: "npm:^2.3.3"
+    typescript-eslint: "npm:^8.18.2"
+    wait-on: "npm:^9.0.3"
+  languageName: unknown
+  linkType: soft
 
 "at-least-node@npm:^1.0.0":
   version: 1.0.0

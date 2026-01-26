@@ -24,7 +24,7 @@ Over the past 2 weeks, the project underwent significant foundational changes in
 
 - Added `packages/core/src/types/requests/` with domain-specific request interfaces
 - Created `packages/core/src/requests/` with request implementations
-- Updated `@asra/core` APIs to use dependency injection pattern
+- Updated `@asyra/core` APIs to use dependency injection pattern
 - Maintained backward compatibility with existing event system
 
 **Benefits**:
@@ -107,8 +107,8 @@ Over the past 2 weeks, the project underwent significant foundational changes in
 
 **Files Added**:
 
-- `apps/ui/e2e/*.spec.ts` - E2E test specifications
-- `apps/ui/playwright.config.ts` - Playwright configuration
+- `apps/asyra-design/e2e/*.spec.ts` - E2E test specifications
+- `apps/asyra-design/playwright.config.ts` - Playwright configuration
 - `scripts/run-e2e.sh` - Test orchestration script
 - `.github/workflows/e2e.yml` - CI/CD E2E workflow
 

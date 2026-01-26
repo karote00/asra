@@ -1,6 +1,6 @@
-import { subscribeToDecideToResizeElement } from '@asra/reactive-events'
+import { subscribeToDecideToResizeElement } from '@asyra/reactive-events'
 import { HandlerDeps, SceneTreeActionAPIs } from '../../types'
-// import { PrimaryToolType } from '@asra/utils'
+// import { PrimaryToolType } from '@asyra/utils'
 
 export const initResizeElementHandlers = (
   render: HandlerDeps['render'],

@@ -1,4 +1,4 @@
-import { PositionData } from '@asra/utils'
+import { PositionData } from '@asyra/utils'
 
 export interface ViewportRawAPIs {
   getViewportPosition: () => PositionData

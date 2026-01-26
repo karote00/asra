@@ -10,7 +10,7 @@ import {
   DefaultPosition,
   MouseButton,
   PrimaryToolType
-} from '@asra/utils'
+} from '@asyra/utils'
 
 describe('SystemContext', () => {
   let systemContext: SystemContext

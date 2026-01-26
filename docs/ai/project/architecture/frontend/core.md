@@ -1,8 +1,8 @@
-# Architecture: @asra/core
+# Architecture: @asyra/core
 
 ## Core Responsibility
 
-The `@asra/core` package acts as the **central nervous system** and **orchestrator** of the application. It is the middleware that connects all other domain-specific packages (`scene-tree`, `input-system`, `interaction-core`, etc.).
+The `@asyra/core` package acts as the **central nervous system** and **orchestrator** of the application. It is the middleware that connects all other domain-specific packages (`scene-tree`, `input-system`, `interaction-core`, etc.).
 
 Its primary responsibilities are:
 
@@ -23,7 +23,7 @@ The package follows a **Facade & Mediator Pattern** with Request-Response archit
 
 ## Inter-Package Communication
 
-`@asra/core` sits in the middle of everything.
+`@asyra/core` sits in the middle of everything.
 
 - **Receives from**: `input-system` (raw processing), and virtually all other packages via `reactive-events` (listening for signals).
 - **Delegates to**: `interaction-core` (for decisions), `scene-tree` (for data), `factory` (for transactions), `render` (for visuals).

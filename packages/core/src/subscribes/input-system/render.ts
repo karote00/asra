@@ -4,7 +4,7 @@ import {
   PointerEventData,
   RawInputEvent,
   InputSystemEvents
-} from '@asra/utils'
+} from '@asyra/utils'
 import {
   HandlerDeps,
   MouseStateAPIs,

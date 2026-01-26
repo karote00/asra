@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { InteractionActions, SystemContextSnapshot } from '@asra/utils'
+import { InteractionActions, SystemContextSnapshot } from '@asyra/utils'
 import { decideFromMoveRules } from '../move-rules'
 import { baseSnapshot } from './test-helpers'
 

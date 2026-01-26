@@ -1,24 +1,24 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import SelectionStore from '../selection'
-import * as SelectionModule from '@asra/selection'
-import * as SceneTreeModule from '@asra/scene-tree'
+import * as SelectionModule from '@asyra/selection'
+import * as SceneTreeModule from '@asyra/scene-tree'
 import * as UIContextModule from '../../ui-context'
 import {
   SELECTION_TYPES,
   ComputedAttrs,
   EntityTypes,
   ElementInstanceTypes
-} from '@asra/utils'
+} from '@asyra/utils'
 
 // Mock external dependencies
-vi.mock('@asra/selection', () => ({
+vi.mock('@asyra/selection', () => ({
   default: {
     get: vi.fn()
   },
   SelectionManager: vi.fn()
 }))
 
-vi.mock('@asra/scene-tree', () => ({
+vi.mock('@asyra/scene-tree', () => ({
   default: {
     getElementById: vi.fn()
   }

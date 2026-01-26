@@ -1,4 +1,4 @@
-import { SystemMode } from '@asra/utils'
+import { SystemMode } from '@asyra/utils'
 
 export interface SystemStateRawAPIs {
   getSystemMode: () => SystemMode

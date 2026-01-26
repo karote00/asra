@@ -1,12 +1,12 @@
-# Asra
+# Asyra
 
-**Asra** is an open-source design tool prototype engineered to demonstrate advanced application architecture and human-AI collaboration patterns.
+**Asyra** is an open-source design tool prototype engineered to demonstrate advanced application architecture and human-AI collaboration patterns.
 
-🌐 **[Live Demo](https://cdd-demo.vercel.app/)** - Try Asra in your browser
+🌐 **[Live Demo](https://cdd-demo.vercel.app/)** - Try Asyra in your browser
 
 ## 🎯 Project Goals
 
-Design tools involve complex architectural challenges and specialized patterns. Asra aims to share proven solutions by embedding **expert-level patterns** directly into the codebase, helping developers and AI agents build with confidence. It serves as a reference implementation for:
+Design tools involve complex architectural challenges and specialized patterns. Asyra aims to share proven solutions by embedding **expert-level patterns** directly into the codebase, helping developers and AI agents build with confidence. It serves as a reference implementation for:
 
 *   **Communication-Driven Development (CDD)**: A philosophy prioritizing clear communication, implemented in this project via Event-Driven Architecture, BDD, and TDD. [Learn more about CDD →](https://cdd-docs.vercel.app/)
 *   **AI-Native Workflow**: A repository structure (`.project/`) specifically optimized to allow AI agents to understand, navigate, and contribute to the codebase effectively.
@@ -14,7 +14,7 @@ Design tools involve complex architectural challenges and specialized patterns. 
 
 ## 🏗 Architecture: Communication-Driven Development (CDD)
 
-Asra follows **Communication-Driven Development (CDD)**. The core belief is simple: **No matter what tools or methodologies we use, their primary purpose must be to facilitate Communication.**
+Asyra follows **Communication-Driven Development (CDD)**. The core belief is simple: **No matter what tools or methodologies we use, their primary purpose must be to facilitate Communication.**
 
 > 📖 **Learn More**: For a comprehensive guide to CDD principles and implementation patterns, visit the [CDD Documentation](https://cdd-docs.vercel.app/).
 
@@ -65,7 +65,7 @@ This project relies on structured documentation to enable AI agents to code effe
 
 ## 🤝 Contribution Policy
 
-Asra is an open-source project and is publicly available for reference, learning, and use.
+Asyra is an open-source project and is publicly available for reference, learning, and use.
 
 However, this repository is **not accepting external contributions** at this time.
 This includes pull requests, issues, and other forms of direct contribution.

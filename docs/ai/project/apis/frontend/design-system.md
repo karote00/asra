@@ -1,6 +1,6 @@
-# API Reference: @asra/design-system
+# API Reference: @asyra/design-system
 
-The `@asra/design-system` package provides a set of reusable UI components styled with Tailwind CSS. These components are used to build the application interface in `apps/ui`.
+The `@asyra/design-system` package provides a set of reusable UI components styled with Tailwind CSS. These components are used to build the application interface in `apps/asyra-design`.
 
 ## Components
 

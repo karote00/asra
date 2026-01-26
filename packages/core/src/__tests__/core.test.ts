@@ -1,18 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import factory from '@asra/factory'
-import inputSystem from '@asra/input-system'
-import sceneTree from '@asra/scene-tree'
-import render from '@asra/render'
-import props from '@asra/props-manager'
-import selection from '@asra/selection'
-import systemContext from '@asra/system-context'
-import interactionCore from '@asra/interaction-core'
+import factory from '@asyra/factory'
+import inputSystem from '@asyra/input-system'
+import sceneTree from '@asyra/scene-tree'
+import render from '@asyra/render'
+import props from '@asyra/props-manager'
+import selection from '@asyra/selection'
+import systemContext from '@asyra/system-context'
+import interactionCore from '@asyra/interaction-core'
 import {
   PrimaryToolType,
   InputSystemEvents,
   PropsComponentRawData,
   Unit
-} from '@asra/utils'
+} from '@asyra/utils'
 
 import { Core } from '../core'
 

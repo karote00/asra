@@ -1,4 +1,4 @@
-import { PositionData, DimensionData } from '@asra/utils'
+import { PositionData, DimensionData } from '@asyra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
 

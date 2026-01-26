@@ -1,7 +1,7 @@
 import {
   subscribeToSelectElements,
   updateTransaction
-} from '@asra/reactive-events'
+} from '@asyra/reactive-events'
 import { elementSelection } from '../selections/element-selection'
 
 export const initElementSelectionSubscribes = () => {

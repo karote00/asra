@@ -1,6 +1,6 @@
-# API Reference: @asra/render
+# API Reference: @asyra/render
 
-The `@asra/render` package manages the visual representation of the application using Pixi.js. It handles the canvas, viewport, and rendering of all elements and selection boxes.
+The `@asyra/render` package manages the visual representation of the application using Pixi.js. It handles the canvas, viewport, and rendering of all elements and selection boxes.
 
 ## Initialization
 

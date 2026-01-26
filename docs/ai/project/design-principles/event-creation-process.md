@@ -1,10 +1,10 @@
 # Design Principle: Event Creation Process
 
-This document outlines the standard process and naming conventions for adding a new event to the `@asra/reactive-events` system. Adhering to this process ensures that the event system remains consistent, predictable, and easy to navigate.
+This document outlines the standard process and naming conventions for adding a new event to the `@asyra/reactive-events` system. Adhering to this process ensures that the event system remains consistent, predictable, and easy to navigate.
 
 ## Guiding Principle
 
-Every distinct user action or system event should be represented by a complete, self-contained set of types, functions, and files within the `@asra/reactive-events` package. This keeps all event-related logic centralized.
+Every distinct user action or system event should be represented by a complete, self-contained set of types, functions, and files within the `@asyra/reactive-events` package. This keeps all event-related logic centralized.
 
 ## Process and File Structure
 

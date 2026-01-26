@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-Users need efficient ways to navigate around the canvas to work with designs at different scales and positions. Poor navigation tools can make it difficult to work on large designs or focus on details. Asra needs to provide smooth, intuitive viewport navigation that supports both overview and detail work.
+Users need efficient ways to navigate around the canvas to work with designs at different scales and positions. Poor navigation tools can make it difficult to work on large designs or focus on details. Asyra needs to provide smooth, intuitive viewport navigation that supports both overview and detail work.
 
 ## Goals & Objectives
 
@@ -103,11 +103,11 @@ Users need efficient ways to navigate around the canvas to work with designs at 
 ## Technical Dependencies
 
 ### Internal Dependencies
-- **@asra/render**: Viewport transformation and rendering
-- **@asra/input-system**: Mouse wheel and keyboard event handling
-- **@asra/system-context**: Viewport state management
-- **@asra/interaction-core**: Navigation behavior logic
-- **apps/ui**: Zoom level display and navigation controls
+- **@asyra/render**: Viewport transformation and rendering
+- **@asyra/input-system**: Mouse wheel and keyboard event handling
+- **@asyra/system-context**: Viewport state management
+- **@asyra/interaction-core**: Navigation behavior logic
+- **apps/asyra-design**: Zoom level display and navigation controls
 
 ### External Dependencies
 - Browser mouse wheel event handling

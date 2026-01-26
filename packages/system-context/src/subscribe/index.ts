@@ -1,4 +1,4 @@
-import { KeySnapshot, MouseSnapshot, PrimaryToolType } from '@asra/utils'
+import { KeySnapshot, MouseSnapshot, PrimaryToolType } from '@asyra/utils'
 import { initPrimaryToolStateSubscribe } from './primary-tool-state'
 import { initMouseStateSubscribe } from './mouse-state'
 import { initSystemStateSubscribe } from './system-state'

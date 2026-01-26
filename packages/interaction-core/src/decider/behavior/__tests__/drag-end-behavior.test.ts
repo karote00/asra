@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { PrimaryToolType, SystemContextSnapshot } from '@asra/utils'
+import { PrimaryToolType, SystemContextSnapshot } from '@asyra/utils'
 import { decideDragEndBehavior } from '../drag-end-behavior'
 import * as rules from '../../rules'
 import { baseSnapshot } from '../../rules/__tests__/test-helpers'

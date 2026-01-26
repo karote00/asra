@@ -1,6 +1,6 @@
-# API Reference: @asra/system-context
+# API Reference: @asyra/system-context
 
-The `@asra/system-context` package maintains the real-time global state of the application's input and modes.
+The `@asyra/system-context` package maintains the real-time global state of the application's input and modes.
 
 ## State Snapshots
 

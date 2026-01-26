@@ -4,7 +4,7 @@ import {
   DefaultDimensionData,
   DimensionAttrs,
   DimensionComponentRawData
-} from '@asra/utils'
+} from '@asyra/utils'
 import BaseComponent from './base'
 
 class DimensionComponent extends BaseComponent<DimensionAttrs> {

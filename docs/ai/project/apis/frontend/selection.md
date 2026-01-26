@@ -1,6 +1,6 @@
-# API Reference: @asra/selection
+# API Reference: @asyra/selection
 
-The `@asra/selection` package provides a unified manager for handling different types of selections (e.g., Element selection, Node selection).
+The `@asyra/selection` package provides a unified manager for handling different types of selections (e.g., Element selection, Node selection).
 
 ## Selection Manager
 

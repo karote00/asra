@@ -5,7 +5,7 @@ import type {
   PropsRawData,
   ComputedAttrs,
   PropertyComponentInstanceDataTypes
-} from '@asra/utils'
+} from '@asyra/utils'
 import {
   Setter,
   IDTypes,
@@ -15,7 +15,7 @@ import {
   loadId,
   name,
   loadName
-} from '@asra/utils'
+} from '@asyra/utils'
 import Props from './props'
 import Computed from './computed'
 import ElementChangeHandler from './element-change-handler'

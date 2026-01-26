@@ -1,6 +1,6 @@
-# API Reference: @asra/props-manager
+# API Reference: @asyra/props-manager
 
-The `@asra/props-manager` package handles the properties of components/elements, supporting loading, saving, and granular updates.
+The `@asyra/props-manager` package handles the properties of components/elements, supporting loading, saving, and granular updates.
 
 ## Lifecycle
 

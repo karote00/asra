@@ -1,6 +1,6 @@
-import type { ChangeHandler, DataTypes } from '@asra/utils'
-import { OWNER, SCENE_TREE_ACTIONS } from '@asra/utils'
-import { EventTypes } from '@asra/reactive-events'
+import type { ChangeHandler, DataTypes } from '@asyra/utils'
+import { OWNER, SCENE_TREE_ACTIONS } from '@asyra/utils'
+import { EventTypes } from '@asyra/reactive-events'
 import sceneTree from '../sceneTree'
 
 export default class ElementChangeHandler implements ChangeHandler {

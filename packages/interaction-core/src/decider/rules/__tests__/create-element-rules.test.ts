@@ -3,7 +3,7 @@ import {
   InteractionActions,
   PrimaryToolType,
   SystemContextSnapshot
-} from '@asra/utils'
+} from '@asyra/utils'
 import { decideFromCreateElementRules } from '../create-element-rules'
 import { baseSnapshot } from './test-helpers'
 

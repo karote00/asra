@@ -1,6 +1,6 @@
-# API Reference: @asra/scene-tree
+# API Reference: @asyra/scene-tree
 
-The `@asra/scene-tree` package manages the hierarchical scene graph of the application. It acts as the "Model" in the MVC pattern, holding the true state of all elements.
+The `@asyra/scene-tree` package manages the hierarchical scene graph of the application. It acts as the "Model" in the MVC pattern, holding the true state of all elements.
 
 ## Lifecycle
 

@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PanZoomHandlers } from '../panzoom'
-import { InteractionActions, PanZoom } from '@asra/utils'
-import * as reactiveEvents from '@asra/reactive-events'
+import { InteractionActions, PanZoom } from '@asyra/utils'
+import * as reactiveEvents from '@asyra/reactive-events'
 
-vi.mock('@asra/reactive-events', () => ({
+vi.mock('@asyra/reactive-events', () => ({
   decideToPanZoom: vi.fn()
 }))
 

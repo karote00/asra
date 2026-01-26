@@ -2,7 +2,7 @@
 
 ## Overview
 
-The E2E testing architecture provides comprehensive end-to-end validation of the Asra design tool using Playwright. This system ensures that all user interactions work correctly across different browsers and platforms while maintaining the quality and reliability expected in a production application.
+The E2E testing architecture provides comprehensive end-to-end validation of the Asyra design tool using Playwright. This system ensures that all user interactions work correctly across different browsers and platforms while maintaining the quality and reliability expected in a production application.
 
 ## Architecture Components
 
@@ -15,7 +15,7 @@ The E2E testing architecture provides comprehensive end-to-end validation of the
 
 ### Test Organization
 ```
-apps/ui/e2e/
+apps/asyra-design/e2e/
 ├── spec/                    # Test specifications
 │   ├── app.spec.ts          # Application initialization
 │   ├── element-creation.spec.ts  # Element creation workflows
@@ -32,7 +32,7 @@ apps/ui/e2e/
 
 #### Playwright Configuration
 ```typescript
-// apps/ui/playwright.config.ts
+// apps/asyra-design/playwright.config.ts
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -93,7 +93,7 @@ All interactive elements must have stable `data-testid` attributes:
 Shared utilities for common testing patterns:
 
 ```typescript
-// apps/ui/e2e/test-utils.ts
+// apps/asyra-design/e2e/test-utils.ts
 export class TestUtils {
   static async waitForAppLoad(page: Page) {
     await page.waitForSelector('[data-testid="app-container"]')

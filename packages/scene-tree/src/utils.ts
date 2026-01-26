@@ -1,4 +1,4 @@
-import { ComputedAttrs, ElementRawData, EntityTypes } from '@asra/utils'
+import { ComputedAttrs, ElementRawData, EntityTypes } from '@asyra/utils'
 import Frame from './components/frame'
 import Group from './components/group'
 import Rectangle from './components/rectangle'

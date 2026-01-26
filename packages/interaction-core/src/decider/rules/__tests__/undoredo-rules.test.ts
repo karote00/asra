@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { InteractionActions, KeySnapshot, UNDO } from '@asra/utils'
+import { InteractionActions, KeySnapshot, UNDO } from '@asyra/utils'
 import { decideUndoRedoRules } from '../undoredo-rules'
 
 describe('decideUndoRedoRules', () => {

@@ -1,4 +1,4 @@
-import { TailwindConfig } from '@asra/utils'
+import { TailwindConfig } from '@asyra/utils'
 
 export default {
   ...TailwindConfig,

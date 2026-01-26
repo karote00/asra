@@ -1,4 +1,4 @@
-import { DefaultSystemSnapshot, SystemMode } from '@asra/utils'
+import { DefaultSystemSnapshot, SystemMode } from '@asyra/utils'
 
 export class SystemState {
   private _mode: SystemMode = DefaultSystemSnapshot.mode

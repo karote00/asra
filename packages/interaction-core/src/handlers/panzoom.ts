@@ -1,5 +1,5 @@
-import { decideToPanZoom } from '@asra/reactive-events'
-import { InteractionActions, InteractionEvent } from '@asra/utils'
+import { decideToPanZoom } from '@asyra/reactive-events'
+import { InteractionActions, InteractionEvent } from '@asyra/utils'
 
 export const PanZoomHandlers = {
   [InteractionActions.INTERACTION_PAN_ZOOM]: (

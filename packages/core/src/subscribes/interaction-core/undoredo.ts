@@ -1,5 +1,5 @@
-import { subscribeToDecideToUndoRedo } from '@asra/reactive-events'
-import { UNDO } from '@asra/utils'
+import { subscribeToDecideToUndoRedo } from '@asyra/reactive-events'
+import { UNDO } from '@asyra/utils'
 import { UndoActionAPIs } from '../../types'
 
 export const initUndoRedoHandlers = (apis: UndoActionAPIs) => {

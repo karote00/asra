@@ -1,5 +1,5 @@
 import { Container, Graphics } from 'pixi.js'
-import { DataTypes, DEFAULT_CANVAS_PADDING, MouseData } from '@asra/utils'
+import { DataTypes, DEFAULT_CANVAS_PADDING, MouseData } from '@asyra/utils'
 import { Bounds } from './types'
 import { RenderContainerData, RenderElementData, SceneElement } from '../types'
 import { RenderLayer } from '../render-layer'

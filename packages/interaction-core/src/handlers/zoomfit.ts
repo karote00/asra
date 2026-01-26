@@ -1,5 +1,5 @@
-import { decideToZoomFit } from '@asra/reactive-events'
-import { InteractionActions, DetailType } from '@asra/utils'
+import { decideToZoomFit } from '@asyra/reactive-events'
+import { InteractionActions, DetailType } from '@asyra/utils'
 
 export const ZoomFitHandlers = {
   [InteractionActions.INTERACTION_ZOOM_FIT]: (

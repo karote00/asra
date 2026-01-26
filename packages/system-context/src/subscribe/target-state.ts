@@ -1,4 +1,4 @@
-import { subscribeToUpdateHoveredElementId } from '@asra/reactive-events'
+import { subscribeToUpdateHoveredElementId } from '@asyra/reactive-events'
 import { TargetStateAPIs } from '../types'
 
 export const initTargetStateSubscribe = (apis: TargetStateAPIs) => {

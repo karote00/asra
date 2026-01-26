@@ -8,7 +8,7 @@ import {
   IDTypes,
   PropertyComponentRawData,
   isNil
-} from '@asra/utils'
+} from '@asyra/utils'
 import {
   PositionComponent,
   DimensionComponent,

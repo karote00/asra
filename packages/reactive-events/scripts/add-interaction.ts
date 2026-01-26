@@ -104,7 +104,7 @@ program
       }
     })
 
-    logStep('Step 1: Updating Global Registry (@asra/utils)')
+    logStep('Step 1: Updating Global Registry (@asyra/utils)')
     await updateRegistry(project, pascalName, constantName)
 
     logStep('Step 2: Generating Reactive Events')
@@ -341,7 +341,7 @@ async function generateInteractionCore(
   // 1. Rules
   const rulesFile = project.createSourceFile(
     path.join(scopeDirRules, `${kebabName}-rules.ts`),
-    `import { InteractionActions, InteractionEvent, SystemContextSnapshot } from '@asra/utils'
+    `import { InteractionActions, InteractionEvent, SystemContextSnapshot } from '@asyra/utils'
 
 export const decideFrom${pascalName}Rules = (
   systemContextSnapshot: SystemContextSnapshot
@@ -373,7 +373,7 @@ export const decideFrom${pascalName}Rules = (
   // 2. Behavior
   const behaviorFile = project.createSourceFile(
     path.join(scopeDirBehavior, `${kebabName}-behavior.ts`),
-    `import { InteractionEvent, SystemContextSnapshot } from '@asra/utils'
+    `import { InteractionEvent, SystemContextSnapshot } from '@asyra/utils'
 import { decideFrom${pascalName}Rules } from '../rules'
 
 export const decide${pascalName}Behavior = (
@@ -419,8 +419,8 @@ export const decide${pascalName}Behavior = (
     // Create new
     handlerFile = project.createSourceFile(
       handlerPath,
-      `import { InteractionActions, InteractionEvent } from '@asra/utils'
-// import { decideTo${pascalName} } from '@asra/reactive-events'
+      `import { InteractionActions, InteractionEvent } from '@asyra/utils'
+// import { decideTo${pascalName} } from '@asyra/reactive-events'
 
 export const ${handlerVarName} = {
   [InteractionActions.${constantName}]: (
@@ -475,13 +475,13 @@ async function generateCoreSubscription(
       // Add Import
       sourceFile.addImportDeclaration({
         namedImports: [`subscribeToDecideTo${pascalName}`],
-        moduleSpecifier: '@asra/reactive-events'
+        moduleSpecifier: '@asyra/reactive-events'
       })
     }
   } else {
     sourceFile = project.createSourceFile(
       filePath,
-      `import { subscribeToDecideTo${pascalName} } from '@asra/reactive-events'
+      `import { subscribeToDecideTo${pascalName} } from '@asyra/reactive-events'
 import { HandlerDeps, SceneTreeHandlerAPIs } from '../../types'
 
 export const ${funcName} = (

@@ -1,4 +1,4 @@
-import { renderIsReady } from '@asra/reactive-events'
+import { renderIsReady } from '@asyra/reactive-events'
 import { RenderRawAPIs, RenderRequests } from '../types'
 
 export const createRenderAPIs = (

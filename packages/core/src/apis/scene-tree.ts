@@ -6,7 +6,7 @@ import {
   changeComputedData,
   sceneTreeInit,
   sceneTreeLoadData
-} from '@asra/reactive-events'
+} from '@asyra/reactive-events'
 import {
   SceneTreeRawData,
   DataTypes,
@@ -14,7 +14,7 @@ import {
   DimensionData,
   EVENT_OPTIONS,
   CreateElementData
-} from '@asra/utils'
+} from '@asyra/utils'
 import {
   SceneTreeAPIs,
   SceneTreeRequests,

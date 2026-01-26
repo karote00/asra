@@ -10,7 +10,7 @@ This document outlines the different strategies for reacting to application stat
 
 -   **Purpose**: To provide real-time, granular feedback for critical visual elements or core application state that demands instant reflection of changes.
 -   **Characteristics**: Components using this strategy react directly to the most granular source of truth for data changes.
--   **Example**: `@asra/render`
+-   **Example**: `@asyra/render`
     -   **Action**: The `render` package directly observes the YJS resource (scene graph, selection) for granular data changes. When the YJS object changes, `render` automatically updates its visual representation immediately.
     -   **Reasoning**: Visual feedback on the canvas (e.g., moving an element, drawing a new shape) must be instantaneous to provide a smooth and responsive user experience. Delaying these updates would lead to a sluggish and disconnected feel.
 
@@ -18,8 +18,8 @@ This document outlines the different strategies for reacting to application stat
 
 -   **Purpose**: To optimize performance and prevent excessive re-renders or computations for components that do not require immediate, per-change updates. Changes are aggregated and processed at logical breakpoints.
 -   **Characteristics**: Components using this strategy typically listen for higher-level signals that indicate a transaction or a group of changes has completed.
--   **Example**: `@asra/ui-context`
-    -   **Action**: The `ui-context` package observes the YJS resource for UI-relevant data, but for certain updates (especially those that trigger complex UI re-renders or property aggregations), it listens to the `endTransaction` event from `@asra/reactive-events`.
+-   **Example**: `@asyra/ui-context`
+    -   **Action**: The `ui-context` package observes the YJS resource for UI-relevant data, but for certain updates (especially those that trigger complex UI re-renders or property aggregations), it listens to the `endTransaction` event from `@asyra/reactive-events`.
     -   **Reasoning**: Continuously updating UI elements (like property panels) for every single granular change within a transaction (e.g., during a drag operation) would lead to excessive and unnecessary re-renders, potentially impacting performance. By listening to `endTransaction`, `ui-context` ensures that all related changes within a user action are processed and reflected in the UI at once, providing a stable and efficient update.
 
 ## Conclusion

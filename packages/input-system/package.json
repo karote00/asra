@@ -1,5 +1,5 @@
 {
-  "name": "@asra/input-system",
+  "name": "@asyra/input-system",
   "version": "0.2.0",
   "description": "Keyboard and Mouse event listener plugin",
   "author": "Asa Tsai",
@@ -22,7 +22,7 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
-    "@asra/reactive-events": "workspace:*",
-    "@asra/utils": "workspace:*"
+    "@asyra/reactive-events": "workspace:*",
+    "@asyra/utils": "workspace:*"
   }
 }

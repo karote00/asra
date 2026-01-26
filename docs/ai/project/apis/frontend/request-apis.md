@@ -14,7 +14,7 @@ Requests Layer (Pure Data Access):
 Business Logic Layer (Core APIs):
 ├── Orchestrates multiple request calls
 ├── Handles transaction management
-├── Emits events via @asra/reactive-events
+├── Emits events via @asyra/reactive-events
 └── Provides unified API surface
 ```
 

@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-Users need reliable undo/redo functionality and data consistency in their design work. Without proper transaction management, users can lose work or encounter inconsistent application state. Asra needs a robust transaction system that groups related operations and provides reliable undo/redo capabilities.
+Users need reliable undo/redo functionality and data consistency in their design work. Without proper transaction management, users can lose work or encounter inconsistent application state. Asyra needs a robust transaction system that groups related operations and provides reliable undo/redo capabilities.
 
 ## Goals & Objectives
 
@@ -105,11 +105,11 @@ Users need reliable undo/redo functionality and data consistency in their design
 ## Technical Dependencies
 
 ### Internal Dependencies
-- **@asra/factory**: Core transaction management and data operations
-- **@asra/scene-tree**: Element data model and state management
-- **@asra/selection**: Selection state tracking
-- **@asra/reactive-events**: Transaction event communication
-- **@asra/core**: Transaction orchestration and coordination
+- **@asyra/factory**: Core transaction management and data operations
+- **@asyra/scene-tree**: Element data model and state management
+- **@asyra/selection**: Selection state tracking
+- **@asyra/reactive-events**: Transaction event communication
+- **@asyra/core**: Transaction orchestration and coordination
 
 ### External Dependencies
 - Efficient data structures for history management

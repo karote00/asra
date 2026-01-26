@@ -3,8 +3,8 @@ import {
   subscribeToAddProperty,
   subscribeToRemoveProperty,
   updateTransaction
-} from '@asra/reactive-events'
-import { UNDO } from '@asra/utils'
+} from '@asyra/reactive-events'
+import { UNDO } from '@asyra/utils'
 import propsManager from './props-manager'
 
 export const initPropXSubscribes = () => {

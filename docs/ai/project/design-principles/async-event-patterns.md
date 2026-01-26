@@ -1,6 +1,6 @@
 # Design Principle: Asynchronous Event Patterns
 
-This document outlines the standard patterns for handling asynchronous operations within the `@asra/reactive-events` system. These patterns are crucial for managing state synchronization and data retrieval in a decoupled architecture.
+This document outlines the standard patterns for handling asynchronous operations within the `@asyra/reactive-events` system. These patterns are crucial for managing state synchronization and data retrieval in a decoupled architecture.
 
 ## 1. Request/Response Pattern (for Pulling Data)
 

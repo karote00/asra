@@ -1,5 +1,5 @@
-import { subscribeToDecideToResetElementSize } from '@asra/reactive-events'
-import { DataTypes } from '@asra/utils'
+import { subscribeToDecideToResetElementSize } from '@asyra/reactive-events'
+import { DataTypes } from '@asyra/utils'
 
 export const initResetElementSizeSubscriber = (deps: {
   changeComputedData: (key: string, data: DataTypes) => void

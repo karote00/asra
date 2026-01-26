@@ -8,7 +8,7 @@ This document defines the standard pattern for managing undoable actions within 
 
 ## Transaction Lifecycle
 
-An undoable action follows a clear transaction lifecycle, typically orchestrated by the `@asra/core` package.
+An undoable action follows a clear transaction lifecycle, typically orchestrated by the `@asyra/core` package.
 
 1.  **Start Transaction (`startTransaction()`):**
     -   **Purpose**: Initiates a new undoable transaction. All subsequent changes until `endTransaction()` are grouped into a single undo/redo step.
@@ -28,7 +28,7 @@ An undoable action follows a clear transaction lifecycle, typically orchestrated
 
 ## Integration with Factory and YJS
 
-Transaction management is primarily handled by the `@asra/factory` package. The `factory` is responsible for maintaining the undo/redo stacks and processing changes.
+Transaction management is primarily handled by the `@asyra/factory` package. The `factory` is responsible for maintaining the undo/redo stacks and processing changes.
 
 -   When `startTransaction()` is called, it signals the `factory` to begin a new undo/redo group.
 -   `updateTransaction()` provides the `factory` with the specific change payloads (which might be synchronized via YJS) that need to be recorded for the current undo/redo step.

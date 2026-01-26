@@ -1,4 +1,4 @@
-import { emitInitRender, subscribeToInitRender } from '@asra/reactive-events'
+import { emitInitRender, subscribeToInitRender } from '@asyra/reactive-events'
 import render from '../render'
 
 let hasInit = false

@@ -1,5 +1,5 @@
-import { SceneTree } from '@asra/scene-tree'
-import { CreateElementData, SceneTreeRawData } from '@asra/utils'
+import { SceneTree } from '@asyra/scene-tree'
+import { CreateElementData, SceneTreeRawData } from '@asyra/utils'
 
 /**
  * Request API for SceneTree data

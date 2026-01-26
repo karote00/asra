@@ -3,7 +3,7 @@ import {
   SystemContextSnapshot,
   InputSystemEvents,
   DetailType
-} from '@asra/utils'
+} from '@asyra/utils'
 import {
   decideDragStartBehavior,
   decideDragUpdateBehavior,

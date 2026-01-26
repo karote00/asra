@@ -1,6 +1,6 @@
-# API Reference: @asra/factory
+# API Reference: @asyra/factory
 
-The `@asra/factory` package manages collaborative data state (YJS) and the undo/redo history.
+The `@asyra/factory` package manages collaborative data state (YJS) and the undo/redo history.
 
 ## Transaction Control
 

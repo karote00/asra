@@ -3,7 +3,7 @@ import {
   subscribeToExecuteAction,
   subscribeToStartSession,
   subscribeToUpdateSession
-} from '@asra/reactive-events'
+} from '@asyra/reactive-events'
 import interactionCore from './interaction-core'
 
 export const initInteractionCoreSubscribes = () => {

@@ -1,5 +1,5 @@
 {
-  "name": "@asra/system-context",
+  "name": "@asyra/system-context",
   "version": "0.2.0",
   "description": "Provides reactive system parameters, tool states, and feature access control for the core application.",
   "author": "Asa Tsai",
@@ -22,7 +22,7 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
-    "@asra/reactive-events": "workspace:*",
-    "@asra/utils": "workspace:*"
+    "@asyra/reactive-events": "workspace:*",
+    "@asyra/utils": "workspace:*"
   }
 }

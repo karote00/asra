@@ -1,4 +1,4 @@
-import { redo, undo } from '@asra/reactive-events'
+import { redo, undo } from '@asyra/reactive-events'
 import { UndoActionAPIs } from '../types'
 
 export const createUndoAPIs = (): UndoActionAPIs => {

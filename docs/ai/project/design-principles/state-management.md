@@ -14,14 +14,14 @@ This document defines the principles for managing application state, distinguish
 -   **Definition**: Information that is unique to a user's current session or environment and does not impact other collaborators.
 -   **Examples**: Mouse position, keyboard key states, local UI preferences, temporary selections (if not intended for collaboration).
 -   **Handling**: This state is managed directly within the relevant repository or component. It does not involve YJS or the collaborative document.
--   **Communication**: Changes to local state can be communicated via `@asra/reactive-events` if other parts of the *local* application need to react to them.
+-   **Communication**: Changes to local state can be communicated via `@asyra/reactive-events` if other parts of the *local* application need to react to them.
 
 ## Shared State Management
 
 -   **Definition**: Information that represents the core application data model and must be consistent across all collaborative clients.
 -   **Examples**: Scene graph (elements, their hierarchy, properties), document metadata, undo/redo history (if collaborative).
--   **Handling**: This state is managed directly within **YJS objects**. YJS provides the underlying CRDT (Conflict-free Replicated Data Type) capabilities to ensure automatic synchronization and conflict resolution across all connected clients. While YJS holds the real data for shared state, the application-specific logic and behavior associated with this data are managed by the relevant repositories (e.g., `@asra/scene-tree` for the scene graph).
--   **Communication**: When shared state changes within the YJS document, these updates are automatically propagated by YJS. Repositories that need to react to these changes (e.g., `@asra/render`, `@asra/ui-context`) directly observe the YJS object for granular updates. High-level events (via `@asra/reactive-events`) may still be published to signal that a shared state change *has occurred*, but the detailed data for the change comes directly from the YJS object itself.
+-   **Handling**: This state is managed directly within **YJS objects**. YJS provides the underlying CRDT (Conflict-free Replicated Data Type) capabilities to ensure automatic synchronization and conflict resolution across all connected clients. While YJS holds the real data for shared state, the application-specific logic and behavior associated with this data are managed by the relevant repositories (e.g., `@asyra/scene-tree` for the scene graph).
+-   **Communication**: When shared state changes within the YJS document, these updates are automatically propagated by YJS. Repositories that need to react to these changes (e.g., `@asyra/render`, `@asyra/ui-context`) directly observe the YJS object for granular updates. High-level events (via `@asyra/reactive-events`) may still be published to signal that a shared state change *has occurred*, but the detailed data for the change comes directly from the YJS object itself.
 
 ## Relationship between Event Flow and Data Flow
 

@@ -1,9 +1,9 @@
 import {
   subscribeToDecideToPanZoom,
   subscribeToDecideToZoomFit
-} from '@asra/reactive-events'
+} from '@asyra/reactive-events'
 import { ViewportAPIs } from '../../types'
-import { PanZoom, ZOOM_SMOOTH_RATIO } from '@asra/utils'
+import { PanZoom, ZOOM_SMOOTH_RATIO } from '@asyra/utils'
 
 export const initViewportHandlers = (apis: ViewportAPIs) => {
   subscribeToDecideToZoomFit(() => {

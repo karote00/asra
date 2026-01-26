@@ -1,4 +1,4 @@
-import { MouseSnapshot } from '@asra/utils'
+import { MouseSnapshot } from '@asyra/utils'
 import { publishEvent } from '../../event-bus'
 import { EventTypes } from '../../types'
 

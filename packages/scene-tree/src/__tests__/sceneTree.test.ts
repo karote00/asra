@@ -6,10 +6,10 @@ import {
   SCENE_TREE_ACTIONS,
   SceneTreeChange,
   resetIdCounter
-} from '@asra/utils'
+} from '@asyra/utils'
 import { SceneTree } from '../sceneTree'
 import * as utils from '../utils'
-import { EventTypes } from '@asra/reactive-events' // Import EventTypes
+import { EventTypes } from '@asyra/reactive-events' // Import EventTypes
 import Workspace from '../components/workspace' // Assuming Workspace is a class
 import Rectangle from '../components/rectangle'
 

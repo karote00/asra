@@ -20,7 +20,7 @@ This domain manages events related to the overall state of the application conte
 - **Example**:
 
   ```typescript
-  import { switchPrimaryTool } from '@asra/reactive-events'
+  import { switchPrimaryTool } from '@asyra/reactive-events'
 
   switchPrimaryTool('select')
   ```

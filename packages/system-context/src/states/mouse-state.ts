@@ -1,4 +1,4 @@
-import { DefaultPosition, MouseButton, MouseSnapshot } from '@asra/utils'
+import { DefaultPosition, MouseButton, MouseSnapshot } from '@asyra/utils'
 
 export class MouseState {
   private _state: MouseSnapshot

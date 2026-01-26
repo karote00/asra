@@ -1,5 +1,5 @@
 import { Application, Container, Graphics, Ticker } from 'pixi.js'
-import { DataTypes, MouseData } from '@asra/utils'
+import { DataTypes, MouseData } from '@asyra/utils'
 import { RenderElementData, RenderContainerData, SceneElement } from './types'
 import { ViewportLayer } from './viewport-layer'
 import { SelectionLayer } from './selection-layer'

@@ -3,7 +3,7 @@ import {
   ModifierKeys,
   PointerEventData,
   RawInputEvent
-} from '@asra/utils'
+} from '@asyra/utils'
 import {
   HandlerDeps,
   InteractionCoreActionAPIs,

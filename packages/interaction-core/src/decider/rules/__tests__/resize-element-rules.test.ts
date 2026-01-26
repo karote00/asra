@@ -3,7 +3,7 @@ import {
   InteractionActions,
   SystemContextSnapshot,
   PrimaryToolType
-} from '@asra/utils'
+} from '@asyra/utils'
 import { decideFromResizeElementRules } from '../resize-element-rules'
 import { baseSnapshot } from './test-helpers'
 

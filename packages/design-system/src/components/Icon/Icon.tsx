@@ -1,5 +1,5 @@
 import React from 'react'
-import { Size } from '@asra/utils'
+import { Size } from '@asyra/utils'
 import { Icons, IconName } from './svgs-components'
 
 type IconSize = Size

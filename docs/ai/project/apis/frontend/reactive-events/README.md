@@ -1,6 +1,6 @@
-# API Reference: @asra/reactive-events
+# API Reference: @asyra/reactive-events
 
-This directory provides a detailed reference for the public API of the `@asra/reactive-events` package, categorized by domain.
+This directory provides a detailed reference for the public API of the `@asyra/reactive-events` package, categorized by domain.
 
 For architectural details and design patterns, see the documents in `../../architecture/frontend/` and `../../design-principles/`.
 

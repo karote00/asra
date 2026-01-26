@@ -1,4 +1,4 @@
-import { InputSystemEvents, RawInputEvent } from '@asra/utils'
+import { InputSystemEvents, RawInputEvent } from '@asyra/utils'
 import { HandlerDeps, InteractionCoreActionAPIs } from '../../types'
 
 export class PrimaryToolHandler {

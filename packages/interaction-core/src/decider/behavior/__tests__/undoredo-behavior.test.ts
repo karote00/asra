@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { SystemContextSnapshot } from '@asra/utils'
+import { SystemContextSnapshot } from '@asyra/utils'
 import { decideUndoRedoBehavior } from '../undoredo-behavior'
 import * as rules from '../../rules'
 import { baseSnapshot } from '../../rules/__tests__/test-helpers'

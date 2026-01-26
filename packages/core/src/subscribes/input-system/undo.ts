@@ -1,4 +1,4 @@
-import { InputSystemEvents, ModifierKeys, RawInputEvent } from '@asra/utils'
+import { InputSystemEvents, ModifierKeys, RawInputEvent } from '@asyra/utils'
 import {
   HandlerDeps,
   InteractionCoreActionAPIs,

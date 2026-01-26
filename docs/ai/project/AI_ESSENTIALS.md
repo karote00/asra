@@ -21,7 +21,7 @@ This project follows **Communication-Driven Development (CDD)**:
 
 ### Core Principles
 
-- All components communicate via **typed events** (`@asra/reactive-events`)
+- All components communicate via **typed events** (`@asyra/reactive-events`)
 - No direct function calls between packages
 - Event flow: Input → Decision → Action → State Update
 - **Request-Response Pattern**: Synchronous APIs via dependency injection
@@ -31,39 +31,39 @@ This project follows **Communication-Driven Development (CDD)**:
 
 **System Layer:**
 
-- `@asra/core`: System orchestrator with request APIs
-- `@asra/interaction-core`: Decision-making engine
-- `@asra/reactive-events`: Event communication system
-- `@asra/factory`: Transaction management (undo/redo)
+- `@asyra/core`: System orchestrator with request APIs
+- `@asyra/interaction-core`: Decision-making engine
+- `@asyra/reactive-events`: Event communication system
+- `@asyra/factory`: Transaction management (undo/redo)
 
 **Data Layer:**
 
-- `@asra/scene-tree`: Document model management
-- `@asra/system-context`: Global state management
-- `@asra/props-manager`: Property data management
-- `@asra/selection`: Element selection management
+- `@asyra/scene-tree`: Document model management
+- `@asyra/system-context`: Global state management
+- `@asyra/props-manager`: Property data management
+- `@asyra/selection`: Element selection management
 
 **Input/Output Layer:**
 
-- `@asra/input-system`: Keyboard and mouse event handling
-- `@asra/render`: Rendering system and viewport management
-- `@asra/ui-context`: UI state optimization layer
-- `@asra/design-system`: UI component library
+- `@asyra/input-system`: Keyboard and mouse event handling
+- `@asyra/render`: Rendering system and viewport management
+- `@asyra/ui-context`: UI state optimization layer
+- `@asyra/design-system`: UI component library
 
 **Application:**
 
-- `@asra/asra-design`: A design tool application built with React
+- `@asyra/asyra-design`: A design tool application built with React
 
 **Shared:**
 
-- `@asra/utils`: Shared utilities and types
+- `@asyra/utils`: Shared utilities and types
 
 ## 🧪 Testing Rules
 
 - Use `yarn workspace @package/name test:local` for development
 - Use `yarn workspace @package/name test:ci` for CI format
 - Write **behavior-focused** tests, not coverage-focused
-- For dynamically assigned methods (like `@asra/core`): use direct assignment `instance.method = vi.fn()` instead of `vi.spyOn()`
+- For dynamically assigned methods (like `@asyra/core`): use direct assignment `instance.method = vi.fn()` instead of `vi.spyOn()`
 - **E2E Testing**: Use Playwright with `yarn test:e2e` for UI testing
 
 ## 🎯 Commands

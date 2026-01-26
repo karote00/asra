@@ -3,7 +3,7 @@ import {
   InteractionEvent,
   MouseButton,
   SystemContextSnapshot
-} from '@asra/utils'
+} from '@asyra/utils'
 
 export const decideFromSelectRules = (
   systemContextSnapshot: SystemContextSnapshot

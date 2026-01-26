@@ -1,5 +1,5 @@
 {
-  "name": "@asra/selection",
+  "name": "@asyra/selection",
   "version": "0.2.0",
   "description": "A selection management library for handling element, vertex, edge, or any other selectable entities in a scene graph.",
   "author": "Asa Tsai",
@@ -23,7 +23,7 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
-    "@asra/reactive-events": "workspace:*",
-    "@asra/utils": "workspace:*"
+    "@asyra/reactive-events": "workspace:*",
+    "@asyra/utils": "workspace:*"
   }
 }

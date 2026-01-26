@@ -2,7 +2,7 @@ import {
   InteractionEvent,
   PrimaryToolType,
   SystemContextSnapshot
-} from '@asra/utils'
+} from '@asyra/utils'
 import { decideFromCreateElementRules, decideFromSelectRules } from '../rules'
 
 export const decideDragStartBehavior = (

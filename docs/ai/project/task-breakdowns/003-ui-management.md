@@ -3,14 +3,14 @@
 **Status**: [Completed]
 
 ## 1. UI Context (View Model)
-- [x] Create `@asra/ui-context`
+- [x] Create `@asyra/ui-context`
 - [x] Implement RxJS `BehaviorSubject`s for properties (x, y, width, etc.)
 - [x] Implement "Mixed" value calculation for multi-selection
 
 ## 2. UI Application Shell
-- [x] Create `apps/ui` (React + Vite + Tailwind)
+- [x] Create `apps/asyra-design` (React + Vite + Tailwind)
 - [x] Setup CSS Grid layout (Toolbar, Sidebar, Canvas, Right Panel)
-- [x] Create `@asra/design-system` for shared components (`Button`, `Input`)
+- [x] Create `@asyra/design-system` for shared components (`Button`, `Input`)
 
 ## 3. Properties Panel
 - [x] Create `PropertiesPanel` component

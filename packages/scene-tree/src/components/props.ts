@@ -1,10 +1,10 @@
-import { PropertyTypes } from '@asra/utils'
+import { PropertyTypes } from '@asyra/utils'
 import type {
   PropertyComponentInstanceDataTypes,
   PropsRawData
-} from '@asra/utils'
-import { removeProperty } from '@asra/reactive-events'
-import propsManager from '@asra/props-manager'
+} from '@asyra/utils'
+import { removeProperty } from '@asyra/reactive-events'
+import propsManager from '@asyra/props-manager'
 
 type PropsDataType = Partial<PropsRawData>
 

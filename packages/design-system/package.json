@@ -1,5 +1,5 @@
 {
-  "name": "@asra/design-system",
+  "name": "@asyra/design-system",
   "version": "0.2.0",
   "packageManager": "yarn@4.3.1",
   "main": "./dist/index.js",
@@ -31,7 +31,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@asra/utils": "workspace:*",
+    "@asyra/utils": "workspace:*",
     "@chromatic-com/storybook": "^3.2.3",
     "@storybook/addon-essentials": "^8.4.7",
     "@storybook/addon-interactions": "^8.4.7",

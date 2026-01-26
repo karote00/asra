@@ -1,6 +1,6 @@
 import * as Y from 'yjs'
-import type { SceneTreeYjsChange, SelectionYjsChange } from '@asra/utils'
-import type { UpdateTransactionEvent } from '@asra/reactive-events'
+import type { SceneTreeYjsChange, SelectionYjsChange } from '@asyra/utils'
+import type { UpdateTransactionEvent } from '@asyra/reactive-events'
 import DataTransact from './data-transact'
 import { sceneTreeChanges, elementSelectionChanges } from './registry'
 

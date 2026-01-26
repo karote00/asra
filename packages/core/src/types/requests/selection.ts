@@ -1,4 +1,4 @@
-import { SelectionManager } from '@asra/selection'
+import { SelectionManager } from '@asyra/selection'
 
 /**
  * Request API for Selection data

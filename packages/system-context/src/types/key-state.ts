@@ -1,4 +1,4 @@
-import { KeySnapshot } from '@asra/utils'
+import { KeySnapshot } from '@asyra/utils'
 
 export interface KeyStateRawAPIs {
   getKeyState: () => KeySnapshot

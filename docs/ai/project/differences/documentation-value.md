@@ -23,7 +23,7 @@ While an AI can analyze code, it fundamentally lacks human intuition, context, a
 1.  **Intent and Purpose (The "Why")**:
     *   **Architectural Principles**: Why a specific pattern (like the "Central Event Hub" or "Adapter Pattern") was chosen. An AI can see the pattern, but not the underlying design philosophy or constraints that led to its adoption.
     *   **Design Decisions**: The rationale behind non-obvious choices, trade-offs made, or rejected alternatives. For example, why a custom undo/redo system was implemented instead of YJS's built-in one.
-    *   **Future Vision**: The intended evolution of a module (e.g., `@asra/input-system` becoming open-source). This impacts current design choices but is not visible in the code.
+    *   **Future Vision**: The intended evolution of a module (e.g., `@asyra/input-system` becoming open-source). This impacts current design choices but is not visible in the code.
 
 2.  **Implicit Relationships and High-Level Flows**:
     *   **Golden Paths**: The end-to-end user journeys that span multiple packages and illustrate the system's core functionality. An AI can trace individual function calls but cannot identify the "most important" or "intended" user flows without guidance.

@@ -4,7 +4,7 @@ import type _DataTransact from '../data-transact' // Keep this import for type i
 import {
   UpdateTransactionEvent,
   TransactionEventTypes
-} from '@asra/reactive-events'
+} from '@asyra/reactive-events'
 
 describe('Factory', () => {
   let factory: Factory

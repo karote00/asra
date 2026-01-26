@@ -1,4 +1,4 @@
-import { MIXED_STRING } from '@asra/utils'
+import { MIXED_STRING } from '@asyra/utils'
 
 type MixedType = typeof MIXED_STRING
 

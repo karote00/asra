@@ -1,6 +1,6 @@
-# API Reference: @asra/utils
+# API Reference: @asyra/utils
 
-The `@asra/utils` package acts as the shared utility library for the entire monorepo. It contains shared types, constants, helper functions, and domain-agnostic logic.
+The `@asyra/utils` package acts as the shared utility library for the entire monorepo. It contains shared types, constants, helper functions, and domain-agnostic logic.
 
 ## Module Structure
 

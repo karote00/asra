@@ -1,5 +1,5 @@
 {
-  "name": "@asra/props-manager",
+  "name": "@asyra/props-manager",
   "version": "0.2.0",
   "description": "A structured property management library that provides API-based control over prop components, separate from the scene tree.",
   "author": "Asa Tsai",
@@ -23,7 +23,7 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
-    "@asra/reactive-events": "workspace:*",
-    "@asra/utils": "workspace:*"
+    "@asyra/reactive-events": "workspace:*",
+    "@asyra/utils": "workspace:*"
   }
 }

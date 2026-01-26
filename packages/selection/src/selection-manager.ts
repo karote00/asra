@@ -1,4 +1,4 @@
-import { SELECTION_TYPES } from '@asra/utils'
+import { SELECTION_TYPES } from '@asyra/utils'
 import Selection from './selections/base-selection'
 
 class SelectionManager {

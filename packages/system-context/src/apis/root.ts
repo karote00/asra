@@ -1,4 +1,4 @@
-import { SystemContextSnapshot } from '@asra/utils'
+import { SystemContextSnapshot } from '@asyra/utils'
 import { HandlerDeps, RootAPIs } from '../types'
 
 export const createRootAPIs = (deps: HandlerDeps): RootAPIs => ({

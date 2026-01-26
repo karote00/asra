@@ -1,4 +1,4 @@
-import propsManager from '@asra/props-manager'
+import propsManager from '@asyra/props-manager'
 import {
   ComputedAttrs,
   IComputed,
@@ -6,7 +6,7 @@ import {
   NameTypes,
   PropsRawData,
   Setter
-} from '@asra/utils'
+} from '@asyra/utils'
 import Props from './props'
 import ElementChangeHandler from './element-change-handler'
 

@@ -1,4 +1,4 @@
-import { TargetSnapshot } from '@asra/utils'
+import { TargetSnapshot } from '@asyra/utils'
 
 export class TargetState {
   private _state: TargetSnapshot

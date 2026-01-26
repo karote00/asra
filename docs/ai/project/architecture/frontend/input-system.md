@@ -25,7 +25,7 @@ Handling specific key bindings and aliases.
 2.  `InputSystem` captures the `keydown` event.
 3.  It checks `event-mappings.ts` / `keymap.ts`.
 4.  It identifies the action as `INPUT_ACTIONS.SWITCH_TO_SELECT_TOOL` (hypothetically).
-5.  It invokes subscribed callbacks (usually from `@asra/core`) with this action.
+5.  It invokes subscribed callbacks (usually from `@asyra/core`) with this action.
 
 ## Isolation
 The `input-system` **does not** know about:

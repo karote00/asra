@@ -1,6 +1,6 @@
-import type { ChangeHandler, DataTypes } from '@asra/utils'
-import { OWNER, PROPS_ACTIONS } from '@asra/utils'
-import { EventTypes } from '@asra/reactive-events'
+import type { ChangeHandler, DataTypes } from '@asyra/utils'
+import { OWNER, PROPS_ACTIONS } from '@asyra/utils'
+import { EventTypes } from '@asyra/reactive-events'
 import propsManager from '../props-manager'
 
 export default class PropsChangeHandler implements ChangeHandler {

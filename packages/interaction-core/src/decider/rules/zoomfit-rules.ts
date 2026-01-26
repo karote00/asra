@@ -1,4 +1,4 @@
-import { InteractionActions, InteractionEvent } from '@asra/utils'
+import { InteractionActions, InteractionEvent } from '@asyra/utils'
 
 export const decideZoomFitRules = (): InteractionEvent => {
   const interaction: InteractionEvent = {

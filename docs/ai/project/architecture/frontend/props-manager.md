@@ -8,4 +8,4 @@ The `props-manager` package is responsible for managing the logical definitions 
 2.  **Update Logic**: Handling how a change in the UI (e.g., changing color in a picker) translates to a change in the `scene-tree`.
 
 ## Usage
-Used primarily by the frontend UI (`apps/ui`) to populate the sidebar configuration panels and apply changes back to the system.
+Used primarily by the frontend UI (`apps/asyra-design`) to populate the sidebar configuration panels and apply changes back to the system.

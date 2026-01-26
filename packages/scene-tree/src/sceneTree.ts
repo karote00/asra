@@ -8,10 +8,10 @@ import type {
   SceneTreeChange,
   EVENT_OPTIONS,
   CreateElementData
-} from '@asra/utils'
-import { EntityTypes, OWNER, SCENE_TREE_ACTIONS } from '@asra/utils'
-import { EventTypes, updateTransaction } from '@asra/reactive-events'
-import propsManager from '@asra/props-manager'
+} from '@asyra/utils'
+import { EntityTypes, OWNER, SCENE_TREE_ACTIONS } from '@asyra/utils'
+import { EventTypes, updateTransaction } from '@asyra/reactive-events'
+import propsManager from '@asyra/props-manager'
 import { createElement, createWorkspace, stripNonRawFields } from './utils'
 import type Workspace from './components/workspace'
 

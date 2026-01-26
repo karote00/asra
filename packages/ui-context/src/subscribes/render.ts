@@ -1,7 +1,7 @@
 import {
   requestRenderZoom,
   subscribeToEmitZoomFit
-} from '@asra/reactive-events'
+} from '@asyra/reactive-events'
 import RenderStore from '../stores/render'
 
 const renderStore = new RenderStore()

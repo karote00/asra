@@ -1,4 +1,4 @@
-import { SystemContextSnapshot } from '@asra/utils'
+import { SystemContextSnapshot } from '@asyra/utils'
 
 export interface RootRawAPIs {
   getSystemContextSnapshot: () => SystemContextSnapshot

@@ -4,7 +4,7 @@ import {
   DetailType,
   InteractionEvent,
   InteractionActions
-} from '@asra/utils'
+} from '@asyra/utils'
 import { decideInteraction } from './decider'
 import { InteractionCoreHandlers } from './handlers'
 

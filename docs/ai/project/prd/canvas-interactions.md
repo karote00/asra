@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-Users need an intuitive, high-performance canvas environment to create and manipulate design elements. Traditional design tools often suffer from poor performance, unintuitive interactions, or limited flexibility. Asra needs to provide a seamless drawing experience that feels natural and responsive.
+Users need an intuitive, high-performance canvas environment to create and manipulate design elements. Traditional design tools often suffer from poor performance, unintuitive interactions, or limited flexibility. Asyra needs to provide a seamless drawing experience that feels natural and responsive.
 
 ## Goals & Objectives
 
@@ -91,12 +91,12 @@ Users need an intuitive, high-performance canvas environment to create and manip
 ## Technical Dependencies
 
 ### Internal Dependencies
-- **@asra/interaction-core**: Decision-making and behavior logic
-- **@asra/input-system**: Raw input event capture and processing
-- **@asra/render**: High-performance canvas rendering (PixiJS)
-- **@asra/scene-tree**: Element data model and hierarchy
-- **@asra/system-context**: Global state management
-- **@asra/reactive-events**: Event-driven communication
+- **@asyra/interaction-core**: Decision-making and behavior logic
+- **@asyra/input-system**: Raw input event capture and processing
+- **@asyra/render**: High-performance canvas rendering (PixiJS)
+- **@asyra/scene-tree**: Element data model and hierarchy
+- **@asyra/system-context**: Global state management
+- **@asyra/reactive-events**: Event-driven communication
 
 ### External Dependencies
 - PixiJS for high-performance 2D rendering

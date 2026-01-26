@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PrimaryToolStore } from '../primary-tool'
 import * as UIContextModule from '../../../ui-context'
-import { PrimaryToolType } from '@asra/utils'
+import { PrimaryToolType } from '@asyra/utils'
 
 // Mock ui-context
 vi.mock('../../../ui-context', () => ({

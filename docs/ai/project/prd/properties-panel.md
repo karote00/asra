@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-Users need a responsive, contextual interface to view and modify properties of selected design elements. Traditional design tools often have cluttered or slow property panels that disrupt the creative workflow. Asra needs to provide an intuitive properties panel that updates in real-time and supports efficient property editing.
+Users need a responsive, contextual interface to view and modify properties of selected design elements. Traditional design tools often have cluttered or slow property panels that disrupt the creative workflow. Asyra needs to provide an intuitive properties panel that updates in real-time and supports efficient property editing.
 
 ## Goals & Objectives
 
@@ -102,11 +102,11 @@ Users need a responsive, contextual interface to view and modify properties of s
 ## Technical Dependencies
 
 ### Internal Dependencies
-- **@asra/ui-context**: RxJS-based reactive state management for UI
-- **@asra/selection**: Selected element tracking and updates
-- **@asra/scene-tree**: Element property data and updates
-- **@asra/props-manager**: Property definitions and validation
-- **apps/ui**: React components for property inputs and panels
+- **@asyra/ui-context**: RxJS-based reactive state management for UI
+- **@asyra/selection**: Selected element tracking and updates
+- **@asyra/scene-tree**: Element property data and updates
+- **@asyra/props-manager**: Property definitions and validation
+- **apps/asyra-design**: React components for property inputs and panels
 
 ### External Dependencies
 - React for UI components
