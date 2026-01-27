@@ -12,6 +12,9 @@
  *   - Copy source files to release template folder
  *   - Clean unnecessary files (lock files, node_modules, .env, etc.)
  *   - Update @asyra/* dependencies to fixed versions from packages/
+ *   - Add standard devDependencies (ESLint, Prettier, etc.)
+ *   - Copy root ESLint/Prettier config
+ *   - Copy prod app .gitignore
  *   - Optional verbose output
  */
 
@@ -70,21 +73,25 @@ fse.mkdirpSync(DEST_DIR);
 // Copy source files
 // ----------------------
 if (VERBOSE) console.log('Copying files...');
-fse.copySync(SRC_DIR, DEST_DIR);
+fse.copySync(SRC_DIR, DEST_DIR, {
+  filter: (src) => {
+    const relPath = path.relative(SRC_DIR, src);
+    // Exclude CHANGELOG.md from being copied
+    if (relPath === 'CHANGELOG.md') return false;
+    return true;
+  }
+});
 
 // ----------------------
 // Remove unnecessary files
 // ----------------------
 if (VERBOSE) console.log('Removing unnecessary files...');
 for (const pattern of CLEAN_FILES) {
-  // Delete files matching pattern
   const files = glob.sync(`${DEST_DIR}/**/${pattern}`, { nodir: true });
   for (const file of files) {
     fs.unlinkSync(file);
     if (VERBOSE) console.log(`Deleted file: ${file}`);
   }
-
-  // Delete directories matching pattern
   const dirs = glob.sync(`${DEST_DIR}/**/${pattern}`, { onlyDirectories: true });
   for (const dir of dirs) {
     fse.removeSync(dir);
@@ -122,8 +129,47 @@ if (!fs.existsSync(pkgPath)) {
   updateDeps(pkg.devDependencies);
   updateDeps(pkg.peerDependencies);
 
+  // ----------------------
+  // Add standard ESLint / Prettier devDependencies
+  // ----------------------
+  const standardDevDeps = {
+    "@eslint/compat": "^2.0.1",
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "eslint-plugin-react": "^7.37.5",
+    "typescript-eslint": "^8.54.0"
+  };
+  pkg.devDependencies = pkg.devDependencies || {};
+  Object.assign(pkg.devDependencies, standardDevDeps);
+  if (VERBOSE) console.log('Added standard ESLint/Prettier devDependencies');
+
   fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
   if (VERBOSE) console.log('package.json updated ✅');
+}
+
+// ----------------------
+// Copy root ESLint / Prettier configs
+// ----------------------
+const rootConfigs = ['.eslintrc.js', '.prettierrc'];
+for (const file of rootConfigs) {
+  const srcFile = path.resolve(file);
+  const destFile = path.join(DEST_DIR, file);
+  if (fs.existsSync(srcFile)) {
+    fse.copySync(srcFile, destFile);
+    if (VERBOSE) console.log(`Copied ${file} to template`);
+  }
+}
+
+// ----------------------
+// Copy prod app .gitignore
+// ----------------------
+const gitignoreSrc = path.join(SRC_DIR, '.gitignore');
+const gitignoreDest = path.join(DEST_DIR, '.gitignore');
+if (fs.existsSync(gitignoreSrc)) {
+  fse.copySync(gitignoreSrc, gitignoreDest);
+  if (VERBOSE) console.log('Copied .gitignore to template');
 }
 
 console.log(`Release of "${APP_NAME}" finished!`);
