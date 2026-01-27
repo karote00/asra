@@ -56,10 +56,7 @@ run('yarn changeset publish');
 // 4️⃣ release:app
 run(`yarn release:app --prod=${PROD_APP}`);
 
-// 5️⃣ release:full
-run(`yarn release:full --prod=${PROD_APP}`);
-
-// 6️⃣ bump:workspace --env=dev
+// 5️⃣ bump:workspace --env=dev
 run('yarn bump:workspace --env=dev');
 
 console.log('\n✅ Full release completed!');
