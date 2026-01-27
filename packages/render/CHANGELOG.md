@@ -1,5 +1,17 @@
 # @asyra/render
 
+## 0.2.4
+
+### Patch Changes
+
+- Auto-patch all packages.
+- Updated dependencies
+  - @asyra/factory@0.2.4
+  - @asyra/reactive-events@0.2.4
+  - @asyra/scene-tree@0.2.4
+  - @asyra/selection@0.2.4
+  - @asyra/utils@0.2.4
+
 ## 0.2.3
 
 ### Patch Changes

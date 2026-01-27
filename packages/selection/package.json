@@ -1,6 +1,6 @@
 {
   "name": "@asyra/selection",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "A selection management library for handling element, vertex, edge, or any other selectable entities in a scene graph.",
   "author": "Asa Tsai",
   "license": "MIT",
