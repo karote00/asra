@@ -23,7 +23,7 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
-    "@asyra/props-manager": "workspace:^",
+    "@asyra/props-manager": "workspace:*",
     "@asyra/reactive-events": "workspace:*",
     "@asyra/utils": "workspace:*"
   }
