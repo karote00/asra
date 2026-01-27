@@ -38,7 +38,8 @@
     "bump:workspace": "node scripts/bump-workspace-versions.js",
     "release:app": "node scripts/release-template.js",
     "release:app:verbose": "node scripts/release-template.js --verbose",
-    "release:full": "node scripts/release-full.js"
+    "release:full": "node scripts/release-full.js",
+    "release:full:asyra-design": "node scripts/release-full.js --prod=asyra-design"
   },
   "workspaces": [
     "apps/*",

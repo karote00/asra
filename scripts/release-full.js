@@ -43,11 +43,11 @@ function run(cmd, options = {}) {
   }
 }
 
-// 1️⃣ bump:workspace --env=prod (convert workspace:* -> actual versions)
-run('yarn bump:workspace --env=prod');
-
-// 2️⃣ changeset version (no arguments!)
+// 1️⃣ changeset version (no arguments!)
 run('yarn changeset version');
+
+// 2️⃣ bump:workspace --env=prod (convert workspace:* -> actual versions)
+run('yarn bump:workspace --env=prod');
 
 // 3️⃣ changeset publish
 run('yarn changeset publish');
