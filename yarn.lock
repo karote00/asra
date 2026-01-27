@@ -169,7 +169,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asyra/props-manager@workspace:*, @asyra/props-manager@workspace:^, @asyra/props-manager@workspace:packages/props-manager":
+"@asyra/props-manager@workspace:*, @asyra/props-manager@workspace:packages/props-manager":
   version: 0.0.0-use.local
   resolution: "@asyra/props-manager@workspace:packages/props-manager"
   dependencies:
@@ -207,6 +207,7 @@ __metadata:
     "@asyra/factory": "workspace:*"
     "@asyra/reactive-events": "workspace:*"
     "@asyra/scene-tree": "workspace:*"
+    "@asyra/selection": "workspace:*"
     "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     pixi.js: "npm:^8.6.3"
@@ -219,7 +220,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asyra/scene-tree@workspace:packages/scene-tree"
   dependencies:
-    "@asyra/props-manager": "workspace:^"
+    "@asyra/props-manager": "workspace:*"
     "@asyra/reactive-events": "workspace:*"
     "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
