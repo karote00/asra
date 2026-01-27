@@ -1,6 +1,6 @@
 {
   "name": "@asyra/interaction-core",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Determines interaction outcomes based on user input and system state.",
   "author": "Asa Tsai",
   "license": "MIT",
@@ -23,8 +23,8 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
-    "@asyra/input-system": "^0.2.2",
-    "@asyra/reactive-events": "^0.2.2",
-    "@asyra/utils": "^0.2.2"
+    "@asyra/input-system": "workspace:*",
+    "@asyra/reactive-events": "workspace:*",
+    "@asyra/utils": "workspace:*"
   }
 }

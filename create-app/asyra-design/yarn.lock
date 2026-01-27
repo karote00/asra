@@ -136,13 +136,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"create-asra-design-app@workspace:.":
+"create-asyra-design-app@workspace:.":
   version: 0.0.0-use.local
-  resolution: "create-asra-design-app@workspace:."
+  resolution: "create-asyra-design-app@workspace:."
   dependencies:
     inquirer: "npm:^8.2.5"
   bin:
-    create-asra-design: ./bin/index.js
+    create-asyra-design: ./bin/index.js
   languageName: unknown
   linkType: soft
 
