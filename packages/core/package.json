@@ -1,6 +1,6 @@
 {
   "name": "@asyra/core",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "description": "Core of Asyra.",
   "author": "Asa Tsai",
   "license": "MIT",
@@ -23,15 +23,15 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
-    "@asyra/factory": "workspace:*",
-    "@asyra/input-system": "workspace:*",
-    "@asyra/interaction-core": "workspace:*",
-    "@asyra/props-manager": "workspace:*",
-    "@asyra/reactive-events": "workspace:*",
-    "@asyra/render": "workspace:*",
-    "@asyra/scene-tree": "workspace:*",
-    "@asyra/selection": "workspace:*",
-    "@asyra/system-context": "workspace:*",
-    "@asyra/utils": "workspace:*"
+    "@asyra/factory": "^0.2.2",
+    "@asyra/input-system": "^0.2.2",
+    "@asyra/interaction-core": "^0.2.2",
+    "@asyra/props-manager": "^0.2.2",
+    "@asyra/reactive-events": "^0.2.2",
+    "@asyra/render": "^0.2.2",
+    "@asyra/scene-tree": "^0.2.2",
+    "@asyra/selection": "^0.2.2",
+    "@asyra/system-context": "^0.2.2",
+    "@asyra/utils": "^0.2.2"
   }
 }

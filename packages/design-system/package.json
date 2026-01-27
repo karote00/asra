@@ -1,6 +1,6 @@
 {
   "name": "@asyra/design-system",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "packageManager": "yarn@4.3.1",
   "main": "./dist/index.js",
   "module": "./dist/index.esm.js",
@@ -31,7 +31,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@asyra/utils": "workspace:*",
+    "@asyra/utils": "^0.2.2",
     "@chromatic-com/storybook": "^3.2.3",
     "@storybook/addon-essentials": "^8.4.7",
     "@storybook/addon-interactions": "^8.4.7",

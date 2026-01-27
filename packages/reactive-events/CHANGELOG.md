@@ -1,0 +1,17 @@
+# @asyra/reactive-events
+
+## 0.2.2
+
+### Patch Changes
+
+- Auto-patch all packages.
+- Updated dependencies
+  - @asyra/utils@0.2.2
+
+## 0.2.1
+
+### Patch Changes
+
+- Auto-patch all packages.
+- Updated dependencies
+  - @asyra/utils@0.2.1

@@ -1,6 +1,6 @@
 {
   "name": "@asyra/render",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "description": "Render engine",
   "author": "Asa Tsai",
   "license": "MIT",
@@ -18,10 +18,10 @@
     "test:ci": "yarn has:test && vitest run --coverage --reporter=default --reporter=junit || echo 'No test files found. Skipping test:ci.'"
   },
   "dependencies": {
-    "@asyra/factory": "workspace:*",
-    "@asyra/reactive-events": "workspace:*",
-    "@asyra/scene-tree": "workspace:*",
-    "@asyra/utils": "workspace:*",
+    "@asyra/factory": "^0.2.2",
+    "@asyra/reactive-events": "^0.2.2",
+    "@asyra/scene-tree": "^0.2.2",
+    "@asyra/utils": "^0.2.2",
     "pixi.js": "^8.6.3"
   },
   "devDependencies": {
