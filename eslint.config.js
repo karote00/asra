@@ -76,16 +76,5 @@ export default tseslint.config(
         clearTimeout: 'readonly'
       }
     }
-  },
-  {
-    files: ['create-app/**/*.js', 'bin/**/*.js'],
-    languageOptions: {
-      globals: {
-        console: 'readonly',
-        process: 'readonly',
-        __dirname: 'readonly',
-        __filename: 'readonly'
-      }
-    }
   }
 )
