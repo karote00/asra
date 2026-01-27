@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-const fs = require('fs')
-const path = require('path')
-const { execSync } = require('child_process')
-const inquirer = require('inquirer')
+import fs from 'fs'
+import path from 'path'
+import { execSync } from 'child_process'
+import inquirer from 'inquirer'
 
 function resolveTargetName(argv) {
   const args = argv.slice(2)
@@ -20,8 +20,8 @@ async function main() {
         type: 'input',
         name: 'projectName',
         message: 'Project name:',
-        validate: (input) => input ? true : 'Project name cannot be empty',
-      },
+        validate: (input) => (input ? true : 'Project name cannot be empty')
+      }
     ])
     targetName = answer.projectName
   }
@@ -46,8 +46,8 @@ async function main() {
       name: 'packageManager',
       message: 'Choose a package manager',
       choices: ['yarn', 'npm', 'pnpm'],
-      default: 'yarn',
-    },
+      default: 'yarn'
+    }
   ])
 
   console.log(`\n🚀 Creating project "${targetName}"...\n`)
@@ -60,7 +60,7 @@ async function main() {
   const lockfileMap = {
     yarn: 'yarn.lock',
     npm: 'package-lock.json',
-    pnpm: 'pnpm-lock.yaml',
+    pnpm: 'pnpm-lock.yaml'
   }
 
   const lockfileName = lockfileMap[packageManager]
@@ -77,11 +77,11 @@ async function main() {
     const installCmd = {
       yarn: 'yarn install',
       npm: 'npm install',
-      pnpm: 'pnpm install',
+      pnpm: 'pnpm install'
     }[packageManager]
 
     execSync(installCmd, { cwd: targetDir, stdio: 'inherit' })
-  } catch (err) {
+  } catch {
     console.error('\n❌ Failed to install dependencies.')
     console.error('You can try manually:')
     console.error(`  cd ${targetName}`)

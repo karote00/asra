@@ -1,7 +1,7 @@
 {
   "name": "create-asyra-design-app",
   "version": "0.1.0",
-  "type": "commonjs",
+  "type": "module",
   "bin": {
     "create-asyra-design": "./bin/index.js"
   },
