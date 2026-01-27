@@ -64,7 +64,7 @@ export default tseslint.config(
     }
   },
   {
-    files: ['scripts/**/*.js'],
+    files: ['scripts/**/*.js', 'create-app/**/*.js'],
     languageOptions: {
       globals: {
         console: 'readonly',
