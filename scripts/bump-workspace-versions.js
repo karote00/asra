@@ -3,11 +3,13 @@
  * bump-workspace-versions.js
  *
  * Usage:
- *   # prod mode: fix workspace dependencies to actual version
+ *   # prod mode: fix workspace dependencies to actual version (with ^)
  *   yarn bump:workspace --env=prod
  *
  *   # dev mode: restore workspace:* for local development
  *   yarn bump:workspace --env=dev
+ *
+ * Logs each package and which dependencies were updated.
  */
 
 import fs from 'fs';
@@ -53,21 +55,33 @@ packagesDir.forEach(baseDir => {
     const pkgPath = path.join(baseDir, pkgName, 'package.json');
     if (!fs.existsSync(pkgPath)) return;
     const pkgJson = readJson(pkgPath);
+    const modifiedDeps = [];
+
     ['dependencies', 'devDependencies', 'peerDependencies'].forEach(depType => {
       if (!pkgJson[depType]) return;
       Object.keys(pkgJson[depType]).forEach(dep => {
         if (!dep.startsWith('@asyra/')) return;
+
         if (ENV === 'dev') {
-          pkgJson[depType][dep] = 'workspace:*';
+          if (pkgJson[depType][dep] !== 'workspace:*') {
+            pkgJson[depType][dep] = 'workspace:*';
+            modifiedDeps.push(`${depType}.${dep} -> workspace:*`);
+          }
         } else {
-          if (versionCache[dep]) {
-            pkgJson[depType][dep] = versionCache[dep];
+          if (versionCache[dep] && pkgJson[depType][dep] !== `^${versionCache[dep]}`) {
+            pkgJson[depType][dep] = `^${versionCache[dep]}`;
+            modifiedDeps.push(`${depType}.${dep} -> ^${versionCache[dep]}`);
           }
         }
       });
     });
-    writeJson(pkgPath, pkgJson);
+
+    if (modifiedDeps.length > 0) {
+      writeJson(pkgPath, pkgJson);
+      console.log(`\n📦 Updated ${pkgJson.name}:`);
+      modifiedDeps.forEach(dep => console.log(`   ${dep}`));
+    }
   });
 });
 
-console.log(`✅ bump-workspace-versions completed (env=${ENV})`);
+console.log(`\n✅ bump-workspace-versions completed (env=${ENV})`);
