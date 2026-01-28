@@ -83,7 +83,17 @@ async function main() {
 
   await copyDirRecursive(templateDir, targetDir)
 
-  // 2️⃣ Create empty lockfile based on package manager
+  // 2️⃣ Explicitly copy .gitignore and .prettierrc if they exist
+  const dotfiles = ['.gitignore', '.prettierrc']
+  for (const dotfile of dotfiles) {
+    const srcPath = path.join(templateDir, dotfile)
+    const destPath = path.join(targetDir, dotfile)
+    if (fs.existsSync(srcPath)) {
+      fs.copyFileSync(srcPath, destPath)
+    }
+  }
+
+  // 3️⃣ Create empty lockfile based on package manager
   const lockfileMap = {
     yarn: 'yarn.lock',
     npm: 'package-lock.json',
@@ -98,7 +108,7 @@ async function main() {
 
   console.log(`📝 Created empty ${lockfileName}`)
 
-  // 3️⃣ Install dependencies
+  // 4️⃣ Install dependencies
   try {
     console.log('📦 Installing dependencies...')
     const installCmd = {
