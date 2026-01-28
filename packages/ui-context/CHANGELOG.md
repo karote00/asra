@@ -1,5 +1,17 @@
 # @asyra/ui-context
 
+## 0.2.5
+
+### Patch Changes
+
+- Auto-patch all packages.
+- Updated dependencies
+  - @asyra/factory@0.2.5
+  - @asyra/reactive-events@0.2.5
+  - @asyra/scene-tree@0.2.5
+  - @asyra/selection@0.2.5
+  - @asyra/utils@0.2.5
+
 ## 0.2.4
 
 ### Patch Changes

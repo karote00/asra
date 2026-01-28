@@ -1,6 +1,6 @@
 {
   "name": "@asyra/reactive-events",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Event middleware",
   "author": "Asa Tsai",
   "license": "MIT",

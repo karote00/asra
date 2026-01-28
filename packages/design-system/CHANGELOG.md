@@ -1,5 +1,13 @@
 # @asyra/design-system
 
+## 0.2.5
+
+### Patch Changes
+
+- Auto-patch all packages.
+- Updated dependencies
+  - @asyra/utils@0.2.5
+
 ## 0.2.4
 
 ### Patch Changes
