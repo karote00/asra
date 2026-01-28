@@ -1,6 +1,6 @@
 {
   "name": "@asyra/render",
-  "version": "0.2.0",
+  "version": "0.2.5",
   "description": "Render engine",
   "author": "Asa Tsai",
   "license": "MIT",
@@ -21,6 +21,7 @@
     "@asyra/factory": "workspace:*",
     "@asyra/reactive-events": "workspace:*",
     "@asyra/scene-tree": "workspace:*",
+    "@asyra/selection": "workspace:*",
     "@asyra/utils": "workspace:*",
     "pixi.js": "^8.6.3"
   },

@@ -126,6 +126,7 @@
         "^build:factory",
         "^build:reactive-events",
         "^build:scene-tree",
+        "^build:selection",
         "^build:utils"
       ]
     },

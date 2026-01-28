@@ -34,11 +34,19 @@
     "gen:turbo": "node scripts/gen-turbo.js && yarn install",
     "gen:event": "yarn workspace @asyra/reactive-events add-event",
     "gen:interaction": "yarn workspace @asyra/reactive-events add-interaction",
-    "predev": "yarn gen:turbo"
+    "predev": "yarn gen:turbo",
+    "deps:validate": "node scripts/deps-validate.js",
+    "deps:validate:verbose": "node scripts/deps-validate.js --verbose",
+    "bump:workspace": "node scripts/bump-workspace-versions.js",
+    "release:app": "node scripts/release-template.js",
+    "release:app:verbose": "node scripts/release-template.js --verbose",
+    "release:full": "node scripts/release-full.js",
+    "release:full:asyra-design": "node scripts/release-full.js --prod=asyra-design"
   },
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "create-app/*"
   ],
   "engines": {
     "node": "20.x",
@@ -56,6 +64,8 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",
     "eslint-plugin-react": "^7.37.3",
+    "fs-extra": "^11.3.3",
+    "glob": "^13.0.0",
     "prettier": "^3.4.2",
     "turbo": "^2.3.3",
     "typescript-eslint": "^8.18.2",

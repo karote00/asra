@@ -1,6 +1,6 @@
+import { PropertyComponentRawData } from '@asyra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
-import { PropertyComponentRawData } from '@asyra/utils'
 
 export const addProperty = (data: Partial<PropertyComponentRawData>[]) => {
   publishEvent({

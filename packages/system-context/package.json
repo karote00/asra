@@ -1,6 +1,6 @@
 {
   "name": "@asyra/system-context",
-  "version": "0.2.0",
+  "version": "0.2.5",
   "description": "Provides reactive system parameters, tool states, and feature access control for the core application.",
   "author": "Asa Tsai",
   "license": "MIT",
