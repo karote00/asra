@@ -1,7 +1,7 @@
 import core from '@asyra/core'
 
 // For debug
-if (process.env.NODE_ENV === 'development') {
+if (import.meta.env.DEV) {
   window.__Core__ = core
 }
 
