@@ -8197,6 +8197,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"create-asyra-design-app@workspace:create-app/asyra-design":
+  version: 0.0.0-use.local
+  resolution: "create-asyra-design-app@workspace:create-app/asyra-design"
+  dependencies:
+    inquirer: "npm:^8.2.5"
+  bin:
+    create-asyra-design: ./bin/index.js
+  languageName: unknown
+  linkType: soft
+
 "cross-spawn@npm:^7.0.2, cross-spawn@npm:^7.0.3, cross-spawn@npm:^7.0.5, cross-spawn@npm:^7.0.6":
   version: 7.0.6
   resolution: "cross-spawn@npm:7.0.6"
@@ -11667,7 +11677,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"inquirer@npm:^8.0.0, inquirer@npm:^8.2.7":
+"inquirer@npm:^8.0.0, inquirer@npm:^8.2.5, inquirer@npm:^8.2.7":
   version: 8.2.7
   resolution: "inquirer@npm:8.2.7"
   dependencies:

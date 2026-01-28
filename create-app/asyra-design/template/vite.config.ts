@@ -13,7 +13,7 @@ export default defineConfig({
     port: 3000,
     open: true
   },
-    esbuild: {
+  esbuild: {
     target: 'esnext'
   },
   publicDir: 'public',

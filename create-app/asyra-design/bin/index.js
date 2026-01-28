@@ -57,9 +57,7 @@ async function main() {
   console.log(`\n🚀 Creating project "${targetName}"...\n`)
 
   // 1️⃣ Copy template ONLY
-  async function copyDirRecursive(src, dest, options = {}) {
-    const { includeDotfiles = true } = options
-
+  async function copyDirRecursive(src, dest) {
     try {
       await fs.promises.mkdir(dest, { recursive: true })
 
@@ -70,7 +68,7 @@ async function main() {
         const destPath = path.join(dest, entry.name)
 
         if (entry.isDirectory()) {
-          await copyDirRecursive(srcPath, destPath, options)
+          await copyDirRecursive(srcPath, destPath)
         } else {
           await fs.promises.copyFile(srcPath, destPath)
         }
