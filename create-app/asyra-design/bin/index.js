@@ -54,7 +54,13 @@ async function main() {
 
   // 1️⃣ Copy template ONLY
   fs.mkdirSync(targetDir, { recursive: true })
-  fs.cpSync(templateDir, targetDir, { recursive: true })
+  fs.cpSync(templateDir, targetDir, {
+    recursive: true,
+    filter: (src) => {
+      const basename = path.basename(src)
+      return true // Copy all files including dotfiles
+    }
+  })
 
   // 2️⃣ Create empty lockfile based on package manager
   const lockfileMap = {
