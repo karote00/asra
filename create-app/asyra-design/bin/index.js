@@ -57,14 +57,35 @@ async function main() {
   console.log(`\n🚀 Creating project "${targetName}"...\n`)
 
   // 1️⃣ Copy template ONLY
-  fs.mkdirSync(targetDir, { recursive: true })
-  fs.cpSync(templateDir, targetDir, {
-    recursive: true,
-    filter: (src) => {
-      const basename = path.basename(src)
-      return true // Copy all files including dotfiles
+  async function copyDirRecursive(src, dest, options = {}) {
+    const { includeDotfiles = true } = options
+
+    try {
+      const entries = await fs.promises.readdir(src, { withFileTypes: true })
+
+      for (const entry of entries) {
+        // Skip if it's a dotfile and we're not including them
+        if (entry.name.startsWith('.') && !includeDotfiles) {
+          continue
+        }
+
+        const srcPath = path.join(src, entry.name)
+        const destPath = path.join(dest, entry.name)
+
+        if (entry.isDirectory()) {
+          await fs.promises.mkdir(destPath, { recursive: true })
+          await copyDirRecursive(srcPath, destPath, options)
+        } else {
+          await fs.promises.copyFile(srcPath, destPath)
+        }
+      }
+    } catch (err) {
+      console.error(`Error copying ${src} to ${dest}:`, err)
+      throw err
     }
-  })
+  }
+
+  await copyDirRecursive(templateDir, targetDir)
 
   // 2️⃣ Create empty lockfile based on package manager
   const lockfileMap = {
