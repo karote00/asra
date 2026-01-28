@@ -172,12 +172,20 @@ if (!fs.existsSync(pkgPath)) {
     if (VERBOSE) console.log('Removed old eslintConfig (react-app)')
   }
 
+  // ----------------------
+  // Remove vite-plugin-vercel from devDependencies
+  // ----------------------
+  if (pkg.devDependencies?.['vite-plugin-vercel']) {
+    delete pkg.devDependencies['vite-plugin-vercel']
+    if (VERBOSE) console.log('Removed vite-plugin-vercel from devDependencies')
+  }
+
   fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2))
   if (VERBOSE) console.log('package.json updated ✅')
 }
 
 // ----------------------
-// Fix vite.config.ts outDir
+// Fix vite.config.ts outDir and remove Vercel config
 // ----------------------
 const viteConfigPath = path.join(DEST_DIR, 'vite.config.ts')
 if (fs.existsSync(viteConfigPath)) {
@@ -190,13 +198,40 @@ if (fs.existsSync(viteConfigPath)) {
     "outDir: 'dist'"
   )
 
+  // Remove vercel import
+  viteConfigContent = viteConfigContent.replace(
+    /import\s+vercel\s+from\s+['"]vite-plugin-vercel['"]\s*\n/,
+    ''
+  )
+
+  // Remove vercel plugin from plugins array
+  viteConfigContent = viteConfigContent.replace(/vercel\(\)(?:,\s*)?/g, '')
+
+  // Remove define section with __APP_ENV__
+  viteConfigContent = viteConfigContent.replace(
+    /define:\s*\{[\s\S]*?__APP_ENV__:\s*process\.env\.VITE_VERCEL_ENV[\s\S]*?\},?\s*\n/,
+    ''
+  )
+
+  // Clean up any duplicate commas after removing elements
+  viteConfigContent = viteConfigContent.replace(/,(\s*[}\]])/g, '$1')
+
   if (viteConfigContent !== originalConfig) {
     fs.writeFileSync(viteConfigPath, viteConfigContent)
     if (VERBOSE)
-      console.log('Fixed vite.config.ts outDir to use local dist folder')
+      console.log('Fixed vite.config.ts: removed Vercel config and set outDir')
   } else if (VERBOSE) {
-    console.log('vite.config.ts outDir already set correctly')
+    console.log('vite.config.ts already configured correctly')
   }
+}
+
+// ----------------------
+// Remove .vercel directory
+// ----------------------
+const vercelDir = path.join(DEST_DIR, '.vercel')
+if (fs.existsSync(vercelDir)) {
+  fse.removeSync(vercelDir)
+  if (VERBOSE) console.log('Removed .vercel directory')
 }
 
 // ----------------------

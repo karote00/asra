@@ -1,6 +1,5 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import vercel from 'vite-plugin-vercel'
 import eslint from 'vite-plugin-eslint'
 import tailwindcss from 'tailwindcss'
 
@@ -10,15 +9,12 @@ export default defineConfig({
       plugins: [tailwindcss()]
     }
   },
-  plugins: [vercel(), react(), eslint()],
+  plugins: [react(), eslint()],
   server: {
     port: (process.env.PORT || 3000) as unknown as number,
     open: true
   },
-  define: {
-    __APP_ENV__: process.env.VITE_VERCEL_ENV
-  },
-  esbuild: {
+    esbuild: {
     target: 'esnext'
   },
   publicDir: 'public',
