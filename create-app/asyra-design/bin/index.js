@@ -61,19 +61,15 @@ async function main() {
     const { includeDotfiles = true } = options
 
     try {
+      await fs.promises.mkdir(dest, { recursive: true })
+
       const entries = await fs.promises.readdir(src, { withFileTypes: true })
 
       for (const entry of entries) {
-        // Skip if it's a dotfile and we're not including them
-        if (entry.name.startsWith('.') && !includeDotfiles) {
-          continue
-        }
-
         const srcPath = path.join(src, entry.name)
         const destPath = path.join(dest, entry.name)
 
         if (entry.isDirectory()) {
-          await fs.promises.mkdir(destPath, { recursive: true })
           await copyDirRecursive(srcPath, destPath, options)
         } else {
           await fs.promises.copyFile(srcPath, destPath)
