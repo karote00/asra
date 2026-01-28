@@ -83,17 +83,53 @@ async function main() {
 
   await copyDirRecursive(templateDir, targetDir)
 
-  // 2️⃣ Explicitly copy .gitignore and .prettierrc if they exist
-  const dotfiles = ['.gitignore', '.prettierrc']
-  for (const dotfile of dotfiles) {
-    const srcPath = path.join(templateDir, dotfile)
-    const destPath = path.join(targetDir, dotfile)
-    if (fs.existsSync(srcPath)) {
-      fs.copyFileSync(srcPath, destPath)
-    }
-  }
+  // 2️⃣ Create .gitignore and .prettierrc (dotfiles are excluded from npm packages by default)
+  const gitignoreContent = `# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-  // 3️⃣ Create empty lockfile based on package manager
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# production
+/build
+/dist
+
+# misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+`
+  const prettierConfigContent = JSON.stringify(
+    {
+      useTabs: false,
+      printWidth: 80,
+      semi: false,
+      singleQuote: true,
+      tabWidth: 2,
+      trailingComma: 'none'
+    },
+    null,
+    2
+  )
+
+  fs.writeFileSync(path.join(targetDir, '.gitignore'), gitignoreContent)
+  fs.writeFileSync(path.join(targetDir, '.prettierrc'), prettierConfigContent)
+  console.log('✓ Created .gitignore and .prettierrc')
+
+  // 4️⃣ Create empty lockfile based on package manager
   const lockfileMap = {
     yarn: 'yarn.lock',
     npm: 'package-lock.json',
