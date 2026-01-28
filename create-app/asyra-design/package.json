@@ -5,6 +5,10 @@
   "bin": {
     "create-asyra-design": "./bin/index.js"
   },
+  "files": [
+    "bin",
+    "template"
+  ],
   "dependencies": {
     "inquirer": "^8.2.5"
   },
