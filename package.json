@@ -45,7 +45,8 @@
   },
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "create-app/*"
   ],
   "engines": {
     "node": "20.x",

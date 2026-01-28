@@ -216,6 +216,50 @@ if (fs.existsSync(viteConfigPath)) {
   // Clean up any duplicate commas after removing elements
   viteConfigContent = viteConfigContent.replace(/,(\s*[}\]])/g, '$1')
 
+  // Fix indentation issues caused by removing define section
+  // When "define: { }\n" is removed, the following top-level property (esbuild:) ends up with 4 spaces
+  // Need to detect top-level properties with wrong indentation and fix to 2 spaces
+  // A top-level property with wrong indent will have: 4 spaces, followed by lines with <= 4 spaces (not children)
+  const lines = viteConfigContent.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const trimmed = line.trim()
+
+    // Check if this is a property line opening an object
+    if (trimmed.match(/^[a-z]+\s*:\s*\{/)) {
+      const leadingSpaces = (line.match(/^\s*/)[0] || '').length
+
+      // If it has 4 spaces, check if it should be 2 (top-level property)
+      if (leadingSpaces === 4) {
+        // Check next few lines to see if they're children (more indented) or siblings (same/less indented)
+        let hasChildren = false
+        for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+          const nextLine = lines[j]
+          const nextSpaces = (nextLine.match(/^\s*/)[0] || '').length
+          const nextTrimmed = nextLine.trim()
+
+          // Skip empty lines
+          if (!nextTrimmed) continue
+
+          // If next non-empty line has MORE indentation, this is a parent with children
+          if (nextSpaces > 4) {
+            hasChildren = true
+            break
+          }
+
+          // If next non-empty line has SAME or LESS indentation, this is a sibling
+          break
+        }
+
+        // If no children found, this is likely a top-level property with wrong indent
+        if (!hasChildren) {
+          lines[i] = '  ' + trimmed
+        }
+      }
+    }
+  }
+  viteConfigContent = lines.join('\n')
+
   if (viteConfigContent !== originalConfig) {
     fs.writeFileSync(viteConfigPath, viteConfigContent)
     if (VERBOSE)

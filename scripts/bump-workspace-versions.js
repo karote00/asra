@@ -23,9 +23,7 @@ args.forEach((arg) => {
 })
 
 const rootDir = process.cwd()
-const packagesDir = ['packages', 'apps', 'create-app'].map((d) =>
-  path.join(rootDir, d)
-)
+const packagesDir = ['packages', 'apps'].map((d) => path.join(rootDir, d))
 
 /** Helper to read JSON file */
 function readJson(filePath) {
@@ -58,30 +56,29 @@ packagesDir.forEach((baseDir) => {
     if (!fs.existsSync(pkgPath)) return
     const pkgJson = readJson(pkgPath)
     const modifiedDeps = []
+    const deps = ['dependencies', 'devDependencies', 'peerDependencies']
 
-    ;['dependencies', 'devDependencies', 'peerDependencies'].forEach(
-      (depType) => {
-        if (!pkgJson[depType]) return
-        Object.keys(pkgJson[depType]).forEach((dep) => {
-          if (!dep.startsWith('@asyra/')) return
+    deps.forEach((depType) => {
+      if (!pkgJson[depType]) return
+      Object.keys(pkgJson[depType]).forEach((dep) => {
+        if (!dep.startsWith('@asyra/')) return
 
-          if (ENV === 'dev') {
-            if (pkgJson[depType][dep] !== 'workspace:*') {
-              pkgJson[depType][dep] = 'workspace:*'
-              modifiedDeps.push(`${depType}.${dep} -> workspace:*`)
-            }
-          } else {
-            if (
-              versionCache[dep] &&
-              pkgJson[depType][dep] !== `^${versionCache[dep]}`
-            ) {
-              pkgJson[depType][dep] = `^${versionCache[dep]}`
-              modifiedDeps.push(`${depType}.${dep} -> ^${versionCache[dep]}`)
-            }
+        if (ENV === 'dev') {
+          if (pkgJson[depType][dep] !== 'workspace:*') {
+            pkgJson[depType][dep] = 'workspace:*'
+            modifiedDeps.push(`${depType}.${dep} -> workspace:*`)
           }
-        })
-      }
-    )
+        } else {
+          if (
+            versionCache[dep] &&
+            pkgJson[depType][dep] !== `^${versionCache[dep]}`
+          ) {
+            pkgJson[depType][dep] = `^${versionCache[dep]}`
+            modifiedDeps.push(`${depType}.${dep} -> ^${versionCache[dep]}`)
+          }
+        }
+      })
+    })
 
     if (modifiedDeps.length > 0) {
       writeJson(pkgPath, pkgJson)

@@ -9,6 +9,8 @@ const workspaceRoot = path.resolve(__dirname, '..')
 const turboJsonPath = path.join(workspaceRoot, 'turbo.json')
 const baseConfigPath = path.join(workspaceRoot, 'turbo.base.json')
 
+const ignorePackages = ['create-app/*']
+
 // Scan all packages in the monorepo workspaces
 function getWorkspacePackages() {
   const rootPkgJson = JSON.parse(
@@ -18,6 +20,8 @@ function getWorkspacePackages() {
   const pkgs = []
 
   for (const pattern of workspaces) {
+    if (ignorePackages.includes(pattern)) continue
+
     const baseDir = pattern.replace('/*', '')
     const dirs = fs.readdirSync(path.join(workspaceRoot, baseDir))
 
