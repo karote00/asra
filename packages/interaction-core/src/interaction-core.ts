@@ -5,11 +5,17 @@ import {
   InteractionEvent,
   InteractionActions
 } from '@asyra/utils'
-import { decideInteraction } from './decider'
+import { initInteractions } from './decider'
 import { InteractionCoreHandlers } from './handlers'
+import { InteractionRegistry } from './registry'
 
 class InteractionCore {
   private _previousSession: InteractionEvent | null = null
+  public registry: InteractionRegistry
+
+  constructor() {
+    this.registry = new InteractionRegistry()
+  }
 
   executeAction(
     eventName: InputSystemEvents,
@@ -20,7 +26,7 @@ class InteractionCore {
       this.cancelPreviousSession()
     }
 
-    const interaction = decideInteraction(
+    const interaction = this.registry.decide(
       eventName,
       systemContextSnapshot,
       detail
@@ -42,7 +48,7 @@ class InteractionCore {
       type: InteractionActions.INTERACTION_START_TRANSACTION
     })
 
-    const interaction = decideInteraction(
+    const interaction = this.registry.decide(
       eventName,
       systemContextSnapshot,
       detail
@@ -55,7 +61,7 @@ class InteractionCore {
     systemContextSnapshot: SystemContextSnapshot,
     detail?: DetailType
   ) {
-    const interaction = decideInteraction(
+    const interaction = this.registry.decide(
       eventName,
       systemContextSnapshot,
       detail
@@ -69,7 +75,7 @@ class InteractionCore {
     systemContextSnapshot: SystemContextSnapshot,
     detail?: DetailType
   ) {
-    const interaction = decideInteraction(
+    const interaction = this.registry.decide(
       eventName,
       systemContextSnapshot,
       detail
@@ -103,4 +109,6 @@ class InteractionCore {
 export { InteractionCore }
 
 const interactionCore = new InteractionCore()
+initInteractions(interactionCore.registry)
+
 export default interactionCore

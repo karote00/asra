@@ -6,7 +6,10 @@ import render, { Render } from '@asyra/render'
 import props, { PropsManager } from '@asyra/props-manager'
 import selection, { SelectionManager } from '@asyra/selection'
 import systemContext, { SystemContext } from '@asyra/system-context'
-import interactionCore, { InteractionCore } from '@asyra/interaction-core'
+import interactionCore, {
+  InteractionCore,
+  DecisionHandler
+} from '@asyra/interaction-core'
 
 import { initAllHandlers } from './subscribes'
 import {
@@ -108,6 +111,10 @@ class Core implements CoreAPIs {
       apis
     )
     Object.assign(this, apis as CoreAPIs)
+  }
+
+  registerInteraction(eventName: string, handler: DecisionHandler) {
+    this.deps.interactionCore.registry.register(eventName, handler)
   }
 
   load(data: CoreRawData): void {

@@ -2,7 +2,7 @@
 
 ⚠️ **Experimental project. APIs and structure may change before 1.0.**
 
-Official CLI to quickly scaffold the **Asra Design** starter kit.  
+Official CLI to quickly scaffold the **Asyra Design** starter kit.  
 Install, create a new project, and start designing immediately—no setup required.
 
 ---
@@ -11,7 +11,7 @@ Install, create a new project, and start designing immediately—no setup requir
 
 - Installs the latest stable `asyra-design` with all dependencies (`@asyra/core`, `@asyra/renderer`)  
 - Provides a ready-to-run template project  
-- Perfect for beginners or teams wanting to quickly prototype with Asra  
+- Perfect for beginners or teams wanting to quickly prototype with Asyra  
 - Safe and stable: isolated from main UI development branch
 
 ---
@@ -54,7 +54,7 @@ cd my-project
 yarn start
 ```
 
-Now you have a fully working Asra Design environment, ready to experiment and create.
+Now you have a fully working Asyra Design environment, ready to experiment and create.
 
 ---
 

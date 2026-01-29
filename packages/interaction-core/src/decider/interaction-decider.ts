@@ -1,9 +1,5 @@
-import {
-  InteractionEvent,
-  SystemContextSnapshot,
-  InputSystemEvents,
-  DetailType
-} from '@asyra/utils'
+import { InputSystemEvents } from '@asyra/utils'
+import { InteractionRegistry } from '../registry'
 import {
   decideDragStartBehavior,
   decideDragUpdateBehavior,
@@ -14,27 +10,41 @@ import {
   decideZoomFitBehavior
 } from './behavior'
 
-export const decideInteraction = (
-  eventName: InputSystemEvents,
-  systemContextSnapshot: SystemContextSnapshot,
-  detail?: DetailType
-): InteractionEvent | null => {
-  switch (eventName) {
-    case InputSystemEvents.INPUT_DRAG_START:
-      return decideDragStartBehavior(systemContextSnapshot)
-    case InputSystemEvents.INPUT_DRAG_UPDATE:
-      return decideDragUpdateBehavior(systemContextSnapshot)
-    case InputSystemEvents.INPUT_DRAG_END:
-      return decideDragEndBehavior(systemContextSnapshot)
-    case InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL:
-      return decideSwitchPrimaryToolBehavior(detail)
-    case InputSystemEvents.INPUT_SHORTCUT_UNDOREDO:
-      return decideUndoRedoBehavior(systemContextSnapshot)
-    case InputSystemEvents.INPUT_SHORTCUT_ZOOM_PRESET:
-      return decideZoomFitBehavior()
-    case InputSystemEvents.INPUT_WHEEL_SCROLL:
-      return decidePanZoomBehavior(systemContextSnapshot)
-    default:
-      return null
-  }
+// This replaces the old 'decideInteraction' function.
+// Instead of a switch statement, it registers the default product behaviors.
+export const initInteractions = (registry: InteractionRegistry) => {
+  registry.register(
+    InputSystemEvents.INPUT_DRAG_START,
+    (snapshot) => decideDragStartBehavior(snapshot)
+  )
+
+  registry.register(
+    InputSystemEvents.INPUT_DRAG_UPDATE,
+    (snapshot) => decideDragUpdateBehavior(snapshot)
+  )
+
+  registry.register(
+    InputSystemEvents.INPUT_DRAG_END,
+    (snapshot) => decideDragEndBehavior(snapshot)
+  )
+
+  registry.register(
+    InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL,
+    (_, detail) => decideSwitchPrimaryToolBehavior(detail)
+  )
+
+  registry.register(
+    InputSystemEvents.INPUT_SHORTCUT_UNDOREDO,
+    (snapshot) => decideUndoRedoBehavior(snapshot)
+  )
+
+  registry.register(
+    InputSystemEvents.INPUT_SHORTCUT_ZOOM_PRESET,
+    () => decideZoomFitBehavior()
+  )
+
+  registry.register(
+    InputSystemEvents.INPUT_WHEEL_SCROLL,
+    (snapshot) => decidePanZoomBehavior(snapshot)
+  )
 }
