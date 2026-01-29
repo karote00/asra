@@ -5,7 +5,6 @@ import {
   InteractionEvent,
   InteractionActions
 } from '@asyra/utils'
-import { initInteractions } from './decider'
 import { InteractionCoreHandlers } from './handlers'
 import { InteractionRegistry } from './registry'
 
@@ -109,6 +108,5 @@ class InteractionCore {
 export { InteractionCore }
 
 const interactionCore = new InteractionCore()
-initInteractions(interactionCore.registry)
 
 export default interactionCore

@@ -5,4 +5,5 @@ initInteractionCoreSubscribes()
 
 export { InteractionCore }
 export * from './registry'
+export * from './decider/behavior'
 export default interactionCore

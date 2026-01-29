@@ -6,6 +6,9 @@ import DataContexts from './contexts/data-change'
 
 import App from './app'
 import reportWebVitals from './reportWebVitals'
+import { initInteractions } from './init-interactions'
+
+initInteractions()
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement)
 root.render(
