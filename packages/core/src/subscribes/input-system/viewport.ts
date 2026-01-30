@@ -1,5 +1,5 @@
 import {
-  InputSystemEvents,
+ 
   ModifierKeys,
   PointerEventData,
   RawInputEvent
@@ -21,17 +21,17 @@ export class ViewportHandler {
 
   init() {
     this.inputSystem.on(
-      InputSystemEvents.INPUT_SHORTCUT_ZOOM_PRESET,
+      'input.shortcut.zoomPreset',
       this._handleZoomFit
     )
     this.inputSystem.on(
-      InputSystemEvents.INPUT_WHEEL_SCROLL,
+      'input.wheel.scroll',
       this._handleWheelScroll
     )
   }
 
   _handleZoomFit = () => {
-    this.deps.executeAction(InputSystemEvents.INPUT_SHORTCUT_ZOOM_PRESET)
+    this.deps.executeAction('input.shortcut.zoomPreset')
   }
 
   _handleWheelScroll = (raw: RawInputEvent) => {
@@ -53,6 +53,6 @@ export class ViewportHandler {
     this.deps.updateKeyState({
       ...(raw.modifiers as ModifierKeys)
     })
-    this.deps.executeAction(InputSystemEvents.INPUT_WHEEL_SCROLL)
+    this.deps.executeAction('input.wheel.scroll')
   }
 }

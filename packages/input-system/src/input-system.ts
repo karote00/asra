@@ -10,8 +10,7 @@ import {
   KeyboardKey,
   arrEqual,
   PointerEventData,
-  DefaultPointerEventData,
-  InputSystemEvents
+  DefaultPointerEventData
 } from '@asyra/utils'
 import { InputFieldsList } from '@asyra/utils'
 import { CLICK_THRESHOLD, CLEAR_KEY_TIME } from './constants'
@@ -280,7 +279,7 @@ class InputSystem {
           if (combo.detail) {
             raw.detail = combo.detail
           }
-          this.triggerAction(eventName as InputSystemEvents, raw)
+          this.triggerAction(eventName, raw)
         }
       }
     }
@@ -303,7 +302,7 @@ class InputSystem {
       : true
   }
 
-  private triggerAction(event: InputSystemEvents, raw: RawInputEvent) {
+  private triggerAction(event: string, raw: RawInputEvent) {
     const callbacks = this.listeners.get(event)
     if (callbacks) {
       callbacks.forEach((cb) => {

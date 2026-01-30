@@ -1,4 +1,3 @@
-import { InputSystemEvents } from '@asyra/utils'
 import { InteractionRegistry } from '../registry'
 import {
   decideDragStartBehavior,
@@ -13,38 +12,29 @@ import {
 // This replaces the old 'decideInteraction' function.
 // Instead of a switch statement, it registers the default product behaviors.
 export const initInteractions = (registry: InteractionRegistry) => {
-  registry.register(
-    InputSystemEvents.INPUT_DRAG_START,
-    (snapshot) => decideDragStartBehavior(snapshot)
+  registry.register('input.drag.start', (snapshot) =>
+    decideDragStartBehavior(snapshot)
   )
 
-  registry.register(
-    InputSystemEvents.INPUT_DRAG_UPDATE,
-    (snapshot) => decideDragUpdateBehavior(snapshot)
+  registry.register('input.drag.update', (snapshot) =>
+    decideDragUpdateBehavior(snapshot)
   )
 
-  registry.register(
-    InputSystemEvents.INPUT_DRAG_END,
-    (snapshot) => decideDragEndBehavior(snapshot)
+  registry.register('input.drag.end', (snapshot) =>
+    decideDragEndBehavior(snapshot)
   )
 
-  registry.register(
-    InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL,
-    (_, detail) => decideSwitchPrimaryToolBehavior(detail)
+  registry.register('input.shortcut.switchPrimaryTool', (_, detail) =>
+    decideSwitchPrimaryToolBehavior(detail)
   )
 
-  registry.register(
-    InputSystemEvents.INPUT_SHORTCUT_UNDOREDO,
-    (snapshot) => decideUndoRedoBehavior(snapshot)
+  registry.register('input.shortcut.undoredo', (snapshot) =>
+    decideUndoRedoBehavior(snapshot)
   )
 
-  registry.register(
-    InputSystemEvents.INPUT_SHORTCUT_ZOOM_PRESET,
-    () => decideZoomFitBehavior()
-  )
+  registry.register('input.shortcut.zoomPreset', () => decideZoomFitBehavior())
 
-  registry.register(
-    InputSystemEvents.INPUT_WHEEL_SCROLL,
-    (snapshot) => decidePanZoomBehavior(snapshot)
+  registry.register('input.wheel.scroll', (snapshot) =>
+    decidePanZoomBehavior(snapshot)
   )
 }

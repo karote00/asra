@@ -1,6 +1,5 @@
 import {
   SystemContextSnapshot,
-  InputSystemEvents,
   DetailType,
   PrimaryToolType,
   PositionData,
@@ -14,7 +13,7 @@ import type { EventTypes } from '../types'
 export interface ExecuteActionEvent {
   type: EventTypes
   payload: {
-    eventName: InputSystemEvents
+    eventName: string
     systemContextSnapshot: SystemContextSnapshot
     detail?: DetailType
   }
@@ -23,7 +22,7 @@ export interface ExecuteActionEvent {
 export interface StartSessionEvent {
   type: EventTypes
   payload: {
-    eventName: InputSystemEvents
+    eventName: string
     systemContextSnapshot: SystemContextSnapshot
     detail?: DetailType
   }
@@ -32,7 +31,7 @@ export interface StartSessionEvent {
 export interface UpdateSessionEvent {
   type: EventTypes
   payload: {
-    eventName: InputSystemEvents
+    eventName: string
     systemContextSnapshot: SystemContextSnapshot
     detail?: DetailType
   }
@@ -41,7 +40,7 @@ export interface UpdateSessionEvent {
 export interface EndSessionEvent {
   type: EventTypes
   payload: {
-    eventName: InputSystemEvents
+    eventName: string
     systemContextSnapshot: SystemContextSnapshot
     detail?: DetailType
   }

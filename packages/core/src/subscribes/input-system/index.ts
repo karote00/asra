@@ -1,7 +1,7 @@
 import {
   KeySnapshot,
   MouseSnapshot,
-  InputSystemEvents,
+  PrimaryToolType,
   DetailType
 } from '@asyra/utils'
 import { UndoHandler } from './undo'
@@ -14,7 +14,7 @@ export const initInputSystemHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
   new UndoHandler(deps.inputSystem, {
     updateKeyState: (keySnapshot: KeySnapshot) =>
       apis.updateKeyState(keySnapshot),
-    executeAction: (eventName: InputSystemEvents, detail?: DetailType) =>
+    executeAction: (eventName: string, detail?: DetailType) =>
       apis.executeAction(eventName, detail)
   })
 
@@ -23,7 +23,7 @@ export const initInputSystemHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
       apis.updateMouseState(mouseSnapshot),
     updateKeyState: (keySnapshot: KeySnapshot) =>
       apis.updateKeyState(keySnapshot),
-    executeAction: (eventName: InputSystemEvents, detail?: DetailType) =>
+    executeAction: (eventName: string, detail?: DetailType) =>
       apis.executeAction(eventName, detail)
   })
 
@@ -32,16 +32,16 @@ export const initInputSystemHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
       apis.updateMouseState(mouseSnapshot),
     updateKeyState: (keySnapshot: KeySnapshot) =>
       apis.updateKeyState(keySnapshot),
-    startSession: (eventName: InputSystemEvents, detail?: DetailType) =>
+    startSession: (eventName: string, detail?: DetailType) =>
       apis.startSession(eventName, detail),
-    updateSession: (eventName: InputSystemEvents, detail?: DetailType) =>
+    updateSession: (eventName: string, detail?: DetailType) =>
       apis.updateSession(eventName, detail),
-    endSession: (eventName: InputSystemEvents, detail?: DetailType) =>
+    endSession: (eventName: string, detail?: DetailType) =>
       apis.endSession(eventName, detail)
   })
 
   new PrimaryToolHandler(deps.inputSystem, {
-    executeAction: (eventName: InputSystemEvents, detail?: DetailType) =>
+    executeAction: (eventName: string, detail?: DetailType) =>
       apis.executeAction(eventName, detail)
   })
 }

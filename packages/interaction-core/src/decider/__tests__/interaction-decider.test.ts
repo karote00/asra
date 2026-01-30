@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { InputSystemEvents, PrimaryToolType } from '@asyra/utils'
+import { PrimaryToolType } from '@asyra/utils'
 import { initInteractions } from '../interaction-decider'
 import { InteractionRegistry } from '../../registry'
 import * as behavior from '../behavior'
@@ -25,7 +25,7 @@ describe('initInteractions', () => {
   })
 
   it('should register decideDragStartBehavior for INPUT_DRAG_START event', () => {
-    registry.decide(InputSystemEvents.INPUT_DRAG_START, baseSnapshot)
+    registry.decide('input.drag.start', baseSnapshot)
 
     expect(behavior.decideDragStartBehavior).toHaveBeenCalledWith(baseSnapshot)
     expect(behavior.decideDragUpdateBehavior).not.toHaveBeenCalled()
@@ -37,14 +37,14 @@ describe('initInteractions', () => {
   })
 
   it('should register decideDragUpdateBehavior for INPUT_DRAG_UPDATE event', () => {
-    registry.decide(InputSystemEvents.INPUT_DRAG_UPDATE, baseSnapshot)
+    registry.decide('input.drag.update', baseSnapshot)
 
     expect(behavior.decideDragUpdateBehavior).toHaveBeenCalledWith(baseSnapshot)
     expect(behavior.decideDragStartBehavior).not.toHaveBeenCalled()
   })
 
   it('should register decideDragEndBehavior for INPUT_DRAG_END event', () => {
-    registry.decide(InputSystemEvents.INPUT_DRAG_END, baseSnapshot)
+    registry.decide('input.drag.end', baseSnapshot)
 
     expect(behavior.decideDragEndBehavior).toHaveBeenCalledWith(baseSnapshot)
   })
@@ -52,11 +52,7 @@ describe('initInteractions', () => {
   it('should register decideSwitchPrimaryToolBehavior for INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL event', () => {
     const detail = { primaryTool: PrimaryToolType.RECTANGLE }
 
-    registry.decide(
-      InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL,
-      baseSnapshot,
-      detail
-    )
+    registry.decide('input.shortcut.switchPrimaryTool', baseSnapshot, detail)
 
     expect(behavior.decideSwitchPrimaryToolBehavior).toHaveBeenCalledWith(
       detail
@@ -64,28 +60,25 @@ describe('initInteractions', () => {
   })
 
   it('should register decideUndoRedoBehavior for INPUT_SHORTCUT_UNDOREDO event', () => {
-    registry.decide(InputSystemEvents.INPUT_SHORTCUT_UNDOREDO, baseSnapshot)
+    registry.decide('input.shortcut.undoredo', baseSnapshot)
 
     expect(behavior.decideUndoRedoBehavior).toHaveBeenCalledWith(baseSnapshot)
   })
 
   it('should register decideZoomFitBehavior for INPUT_SHORTCUT_ZOOM_PRESET event', () => {
-    registry.decide(
-      InputSystemEvents.INPUT_SHORTCUT_ZOOM_PRESET,
-      baseSnapshot
-    )
+    registry.decide('input.shortcut.zoomPreset', baseSnapshot)
 
     expect(behavior.decideZoomFitBehavior).toHaveBeenCalled()
   })
 
   it('should register decidePanZoomBehavior for INPUT_WHEEL_SCROLL event', () => {
-    registry.decide(InputSystemEvents.INPUT_WHEEL_SCROLL, baseSnapshot)
+    registry.decide('input.wheel.scroll', baseSnapshot)
 
     expect(behavior.decidePanZoomBehavior).toHaveBeenCalledWith(baseSnapshot)
   })
 
   it('should return null for unhandled events', () => {
-    const unhandledEvent = 'UNHANDLED_EVENT' as InputSystemEvents
+    const unhandledEvent = 'UNHANDLED_EVENT'
 
     const result = registry.decide(unhandledEvent, baseSnapshot)
 

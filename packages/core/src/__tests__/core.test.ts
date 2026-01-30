@@ -9,7 +9,7 @@ import systemContext from '@asyra/system-context'
 import interactionCore from '@asyra/interaction-core'
 import {
   PrimaryToolType,
-  InputSystemEvents,
+ 
   PropsComponentRawData,
   Unit
 } from '@asyra/utils'
@@ -142,7 +142,7 @@ describe('Core', () => {
   })
 
   it('should call executeAction without error', async () => {
-    const eventName: InputSystemEvents = InputSystemEvents.INPUT_MOUSE_MOVE
+    const eventName: string = 'input.mouse.move'
     const detail = { some: 'detail' }
     core.executeAction = vi.fn()
 

@@ -1,6 +1,5 @@
 import {
   SystemContextSnapshot,
-  InputSystemEvents,
   DetailType,
   PrimaryToolType,
   PositionData,
@@ -13,7 +12,7 @@ import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
 
 export const executeAction = (
-  eventName: InputSystemEvents,
+  eventName: string,
   systemContextSnapshot: SystemContextSnapshot,
   detail?: DetailType
 ) => {
@@ -28,7 +27,7 @@ export const executeAction = (
 }
 
 export const startSession = (
-  eventName: InputSystemEvents,
+  eventName: string,
   systemContextSnapshot: SystemContextSnapshot,
   detail?: DetailType
 ) => {
@@ -43,7 +42,7 @@ export const startSession = (
 }
 
 export const updateSession = (
-  eventName: InputSystemEvents,
+  eventName: string,
   systemContextSnapshot: SystemContextSnapshot,
   detail?: DetailType
 ) => {
@@ -58,7 +57,7 @@ export const updateSession = (
 }
 
 export const endSession = (
-  eventName: InputSystemEvents,
+  eventName: string,
   systemContextSnapshot: SystemContextSnapshot,
   detail?: DetailType
 ) => {

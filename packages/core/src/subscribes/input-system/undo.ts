@@ -1,4 +1,4 @@
-import { InputSystemEvents, ModifierKeys, RawInputEvent } from '@asyra/utils'
+import { RawInputEvent, ModifierKeys } from '@asyra/utils'
 import {
   HandlerDeps,
   InteractionCoreActionAPIs,
@@ -14,16 +14,13 @@ export class UndoHandler {
   }
 
   init() {
-    this.inputSystem.on(
-      InputSystemEvents.INPUT_SHORTCUT_UNDOREDO,
-      this._handleUndoRedo
-    )
+    this.inputSystem.on('input.shortcut.undoredo', this._handleUndoRedo)
   }
 
   _handleUndoRedo = (raw: RawInputEvent) => {
     this.deps.updateKeyState({
       ...(raw.modifiers as ModifierKeys)
     })
-    this.deps.executeAction(InputSystemEvents.INPUT_SHORTCUT_UNDOREDO)
+    this.deps.executeAction('input.shortcut.undoredo')
   }
 }

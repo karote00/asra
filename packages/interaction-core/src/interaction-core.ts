@@ -1,6 +1,5 @@
 import {
   SystemContextSnapshot,
-  InputSystemEvents,
   DetailType,
   InteractionEvent,
   InteractionActions
@@ -17,7 +16,7 @@ class InteractionCore {
   }
 
   executeAction(
-    eventName: InputSystemEvents,
+    eventName: string,
     systemContextSnapshot: SystemContextSnapshot,
     detail?: DetailType
   ) {
@@ -35,7 +34,7 @@ class InteractionCore {
   }
 
   startSession(
-    eventName: InputSystemEvents,
+    eventName: string,
     systemContextSnapshot: SystemContextSnapshot,
     detail?: DetailType
   ) {
@@ -56,7 +55,7 @@ class InteractionCore {
   }
 
   updateSession(
-    eventName: InputSystemEvents,
+    eventName: string,
     systemContextSnapshot: SystemContextSnapshot,
     detail?: DetailType
   ) {
@@ -70,7 +69,7 @@ class InteractionCore {
   }
 
   endSession(
-    eventName: InputSystemEvents,
+    eventName: string,
     systemContextSnapshot: SystemContextSnapshot,
     detail?: DetailType
   ) {

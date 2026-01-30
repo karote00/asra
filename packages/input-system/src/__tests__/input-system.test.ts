@@ -10,7 +10,6 @@ import {
 import { InputSystem } from '../input-system'
 
 import {
-  InputSystemEvents,
   InputType,
   RawInputEvent,
   ModifierKey,
@@ -262,7 +261,7 @@ describe('InputSystem', () => {
       'triggerAction' as keyof InputSystem
     )
     inputSystem['activeKeys'].add(keyMap.keys.KeyA)
-    const INPUT_KEYBOARD_A = 'INPUT_KEYBOARD_A' as InputSystemEvents
+    const INPUT_KEYBOARD_A = 'INPUT_KEYBOARD_A'
     vi.mocked(EventMappingsModule).InputEventMappings = {
       ...InputEventMappings,
       [INPUT_KEYBOARD_A]: [
@@ -274,7 +273,7 @@ describe('InputSystem', () => {
 
     expect(triggerActionSpy).toHaveBeenCalledTimes(1)
     expect(triggerActionSpy).toHaveBeenCalledWith(
-      'INPUT_KEYBOARD_A' as InputSystemEvents,
+      'INPUT_KEYBOARD_A',
       expect.objectContaining({
         type: InputType.KEYBOARD,
         keys: [keyMap.keys.KeyA]
@@ -288,7 +287,7 @@ describe('InputSystem', () => {
       'triggerAction' as keyof InputSystem
     )
     inputSystem['activeKeys'].add('KeyB') // Active key is B
-    const INPUT_KEYBOARD_A = 'INPUT_KEYBOARD_A' as InputSystemEvents
+    const INPUT_KEYBOARD_A = 'INPUT_KEYBOARD_A'
     vi.mocked(EventMappingsModule).InputEventMappings = {
       ...InputEventMappings,
       [INPUT_KEYBOARD_A]: [
@@ -308,7 +307,7 @@ describe('InputSystem', () => {
     )
     inputSystem['activeKeys'].add(keyMap.keys.KeyA)
     const mockDetail = { some: 'detail' }
-    const INPUT_KEYBOARD_A = 'INPUT_KEYBOARD_A' as InputSystemEvents
+    const INPUT_KEYBOARD_A = 'INPUT_KEYBOARD_A'
     vi.mocked(EventMappingsModule).InputEventMappings = {
       ...InputEventMappings,
       [INPUT_KEYBOARD_A]: [
@@ -324,7 +323,7 @@ describe('InputSystem', () => {
     inputSystem['checkCombinations'](InputType.KEYBOARD)
 
     expect(triggerActionSpy).toHaveBeenCalledWith(
-      'INPUT_KEYBOARD_A' as InputSystemEvents,
+      'INPUT_KEYBOARD_A',
       expect.objectContaining({
         detail: mockDetail
       })
@@ -334,7 +333,7 @@ describe('InputSystem', () => {
   it('should call registered listeners when triggerAction is called', () => {
     const listener1 = vi.fn()
     const listener2 = vi.fn()
-    const INPUT_KEYBOARD_A = 'INPUT_KEYBOARD_A' as InputSystemEvents
+    const INPUT_KEYBOARD_A = 'INPUT_KEYBOARD_A'
     inputSystem.on(INPUT_KEYBOARD_A, listener1)
     inputSystem.on(INPUT_KEYBOARD_A, listener2)
 
@@ -354,7 +353,7 @@ describe('InputSystem', () => {
 
   it('should handle async listeners correctly', async () => {
     const asyncListener = vi.fn(() => Promise.resolve())
-    inputSystem.on('INPUT_KEYBOARD_A' as InputSystemEvents, asyncListener)
+    inputSystem.on('INPUT_KEYBOARD_A', asyncListener)
 
     const rawEvent: RawInputEvent = {
       type: InputType.KEYBOARD,
@@ -362,10 +361,7 @@ describe('InputSystem', () => {
       modifiers: { meta: false, ctrl: false, alt: false, shift: false },
       pointer: {} as PointerEventData
     }
-    await inputSystem['triggerAction'](
-      'INPUT_KEYBOARD_A' as InputSystemEvents,
-      rawEvent
-    )
+    await inputSystem['triggerAction']('INPUT_KEYBOARD_A', rawEvent)
 
     expect(asyncListener).toHaveBeenCalledTimes(1)
   })
@@ -375,7 +371,7 @@ describe('InputSystem', () => {
       /* no-op */
     })
     const asyncListener = vi.fn(() => Promise.reject('Test Error'))
-    inputSystem.on('INPUT_KEYBOARD_A' as InputSystemEvents, asyncListener)
+    inputSystem.on('INPUT_KEYBOARD_A', asyncListener)
 
     const rawEvent: RawInputEvent = {
       type: InputType.KEYBOARD,
@@ -383,10 +379,7 @@ describe('InputSystem', () => {
       modifiers: { meta: false, ctrl: false, alt: false, shift: false },
       pointer: {} as PointerEventData
     }
-    await inputSystem['triggerAction'](
-      'INPUT_KEYBOARD_A' as InputSystemEvents,
-      rawEvent
-    )
+    await inputSystem['triggerAction']('INPUT_KEYBOARD_A', rawEvent)
 
     expect(asyncListener).toHaveBeenCalledTimes(1)
     expect(errorSpy).toHaveBeenCalledWith(

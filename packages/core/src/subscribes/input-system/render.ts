@@ -2,8 +2,7 @@ import {
   ModifierKeys,
   MouseData,
   PointerEventData,
-  RawInputEvent,
-  InputSystemEvents
+  RawInputEvent
 } from '@asyra/utils'
 import {
   HandlerDeps,
@@ -37,15 +36,9 @@ export class RenderHandler {
   }
 
   init() {
-    this.inputSystem.on(
-      InputSystemEvents.INPUT_DRAG_START,
-      this._handleDragStart
-    )
-    this.inputSystem.on(
-      InputSystemEvents.INPUT_DRAG_UPDATE,
-      this._handleDragUpdate
-    )
-    this.inputSystem.on(InputSystemEvents.INPUT_DRAG_END, this._handleDragEnd)
+    this.inputSystem.on('input.drag.start', this._handleDragStart)
+    this.inputSystem.on('input.drag.update', this._handleDragUpdate)
+    this.inputSystem.on('input.drag.end', this._handleDragEnd)
   }
 
   _handleDragStart = (raw: RawInputEvent) => {
@@ -75,7 +68,7 @@ export class RenderHandler {
       ...(raw.modifiers as ModifierKeys)
     })
 
-    this.deps.startSession(InputSystemEvents.INPUT_DRAG_START)
+    this.deps.startSession('input.drag.start')
   }
 
   _handleDragUpdate = (raw: RawInputEvent) => {
@@ -103,7 +96,7 @@ export class RenderHandler {
       ...(raw.modifiers as ModifierKeys)
     })
 
-    this.deps.updateSession(InputSystemEvents.INPUT_DRAG_UPDATE)
+    this.deps.updateSession('input.drag.update')
   }
 
   _handleDragEnd = async (raw: RawInputEvent) => {
@@ -126,7 +119,7 @@ export class RenderHandler {
       ...(raw.modifiers as ModifierKeys)
     })
 
-    this.deps.endSession(InputSystemEvents.INPUT_DRAG_END)
+    this.deps.endSession('input.drag.end')
 
     this._isDown = false
   }

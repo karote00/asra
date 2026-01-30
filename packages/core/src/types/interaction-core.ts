@@ -1,6 +1,5 @@
 import {
   DetailType,
-  InputSystemEvents,
   InteractionEvent,
   SystemContextSnapshot
 } from '@asyra/utils'
@@ -11,13 +10,13 @@ export type DecisionHandler = (
 ) => InteractionEvent | null
 
 export interface InteractionCoreActionAPIs {
-  executeAction: (eventName: InputSystemEvents, detail?: DetailType) => void
+  executeAction: (eventName: string, detail?: DetailType) => void
 }
 
 export interface InteractionCoreSessionAPIs {
-  startSession: (eventName: InputSystemEvents, detail?: DetailType) => void
-  updateSession: (eventName: InputSystemEvents, detail?: DetailType) => void
-  endSession: (eventName: InputSystemEvents, detail?: DetailType) => void
+  startSession: (eventName: string, detail?: DetailType) => void
+  updateSession: (eventName: string, detail?: DetailType) => void
+  endSession: (eventName: string, detail?: DetailType) => void
 }
 
 export interface InteractionCoreRegistryAPIs {
@@ -25,5 +24,4 @@ export interface InteractionCoreRegistryAPIs {
 }
 
 export type InteractionCoreAPIs = InteractionCoreActionAPIs &
-  InteractionCoreSessionAPIs &
-  InteractionCoreRegistryAPIs
+  InteractionCoreSessionAPIs
