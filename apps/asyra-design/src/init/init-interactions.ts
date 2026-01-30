@@ -7,7 +7,7 @@ import {
   decideSwitchPrimaryToolBehavior,
   decideUndoRedoBehavior,
   decideZoomFitBehavior
-} from '@asyra/interaction-core'
+} from './behaviors'
 import { InputSystemEvents } from '../constants'
 
 export const initInteractions = () => {

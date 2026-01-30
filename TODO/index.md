@@ -39,6 +39,9 @@ This folder contains task checklists and improvement plans for the @asyra framew
 ## Documents
 
 - **[FRAMEWORK_STATUS.md](./FRAMEWORK_STATUS.md)** - Current framework status, improvements, and roadmap
+- **[GENERIC_HANDLER_REGISTRY.md](./GENERIC_HANDLER_REGISTRY.md)** - Plan to make subscribe handlers configurable & extend Core APIs (COMPLETES framework transformation)
+- **[REMOVE_RULES_BEHAVIORS_FROM_FRAMEWORK.md](./REMOVE_RULES_BEHAVIORS_FROM_FRAMEWORK.md)** - Plan to delete all rules/behaviors from framework, move to app
+- **[SINGLE_FINAL_ACTION_INVESTIGATION.md](./SINGLE_FINAL_ACTION_INVESTIGATION.md)** - Investigation into single final action guarantee
 
 ---
 
