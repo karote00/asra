@@ -247,6 +247,7 @@ describe('InputSystem', () => {
 
   // Test checkCombinations and triggerAction
   it('should trigger action for matching combination', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const triggerActionSpy = vi.spyOn(inputSystem, 'triggerAction' as any)
     inputSystem['activeKeys'].add(keyMap.keys.KeyA)
     const INPUT_KEYBOARD_A = 'INPUT_KEYBOARD_A'
@@ -267,6 +268,7 @@ describe('InputSystem', () => {
   })
 
   it('should not trigger action for non-matching combination', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const triggerActionSpy = vi.spyOn(inputSystem, 'triggerAction' as any)
     inputSystem['activeKeys'].add('KeyB') // Active key is B
     const INPUT_KEYBOARD_A = 'INPUT_KEYBOARD_A'
@@ -280,6 +282,7 @@ describe('InputSystem', () => {
   })
 
   it('should trigger action with detail if provided in combo', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const triggerActionSpy = vi.spyOn(inputSystem, 'triggerAction' as any)
     inputSystem['activeKeys'].add(keyMap.keys.KeyA)
     const mockDetail = { some: 'detail' }
