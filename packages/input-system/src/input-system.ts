@@ -14,7 +14,8 @@ import {
 } from '@asyra/utils'
 import { InputFieldsList } from '@asyra/utils'
 import { CLICK_THRESHOLD, CLEAR_KEY_TIME } from './constants'
-import { InputEventCombo, InputEventMappings } from './event-mappings'
+import { InputEventCombo } from './event-mappings'
+import { InputSystemRegistry } from './registry'
 import keymap, { KeyMap } from './keymap'
 
 type Callback = (raw: RawInputEvent) => void | Promise<void>
@@ -43,6 +44,7 @@ class InputSystem {
   private listeners: Map<string, Callback[]>
   private timers: Map<string, NodeJS.Timeout>
   private _startPos: MouseData | null
+  public registry: InputSystemRegistry
 
   constructor() {
     this._previousWatchedElement = window
@@ -51,6 +53,7 @@ class InputSystem {
     this.listeners = new Map()
     this.timers = new Map()
     this._startPos = null
+    this.registry = new InputSystemRegistry()
 
     this.setupListeners()
   }
@@ -267,7 +270,10 @@ class InputSystem {
     )
     const activeModifiers = this.getActiveModifiers(this.activeKeys)
     const allModifiers = this.getAllModifiers(activeModifiers)
-    for (const [eventName, combos] of Object.entries(InputEventMappings)) {
+    for (const eventName of this.registry.getEventNames()) {
+      const combos = this.registry.getCombinations(eventName)
+      if (!combos) continue
+
       for (const combo of combos) {
         if (this.isExactMatch(type, currentKeys, combo, activeModifiers)) {
           const raw: RawInputEvent = {

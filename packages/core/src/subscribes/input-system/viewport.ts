@@ -1,9 +1,4 @@
-import {
- 
-  ModifierKeys,
-  PointerEventData,
-  RawInputEvent
-} from '@asyra/utils'
+import { ModifierKeys, PointerEventData, RawInputEvent } from '@asyra/utils'
 import {
   HandlerDeps,
   InteractionCoreActionAPIs,
@@ -20,14 +15,8 @@ export class ViewportHandler {
   }
 
   init() {
-    this.inputSystem.on(
-      'input.shortcut.zoomPreset',
-      this._handleZoomFit
-    )
-    this.inputSystem.on(
-      'input.wheel.scroll',
-      this._handleWheelScroll
-    )
+    this.inputSystem.on('input.shortcut.zoomPreset', this._handleZoomFit)
+    this.inputSystem.on('input.wheel.scroll', this._handleWheelScroll)
   }
 
   _handleZoomFit = () => {

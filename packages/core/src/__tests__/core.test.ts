@@ -7,12 +7,7 @@ import props from '@asyra/props-manager'
 import selection from '@asyra/selection'
 import systemContext from '@asyra/system-context'
 import interactionCore from '@asyra/interaction-core'
-import {
-  PrimaryToolType,
- 
-  PropsComponentRawData,
-  Unit
-} from '@asyra/utils'
+import { PrimaryToolType, PropsComponentRawData, Unit } from '@asyra/utils'
 
 import { Core } from '../core'
 
@@ -142,7 +137,7 @@ describe('Core', () => {
   })
 
   it('should call executeAction without error', async () => {
-    const eventName: string = 'input.mouse.move'
+    const eventName = 'input.mouse.move'
     const detail = { some: 'detail' }
     core.executeAction = vi.fn()
 

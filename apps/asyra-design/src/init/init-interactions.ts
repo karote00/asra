@@ -8,7 +8,7 @@ import {
   decideUndoRedoBehavior,
   decideZoomFitBehavior
 } from '@asyra/interaction-core'
-import { InputSystemEvents } from './constants/events'
+import { InputSystemEvents } from '../constants'
 
 export const initInteractions = () => {
   core.registerInteraction(InputSystemEvents.INPUT_DRAG_START, (snapshot) =>

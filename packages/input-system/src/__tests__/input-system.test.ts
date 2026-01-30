@@ -17,15 +17,6 @@ import {
 } from '@asyra/utils'
 import keyMap from '../keymap'
 import { CLEAR_KEY_TIME } from '../constants'
-import { InputEventMappings } from '../event-mappings'
-import * as EventMappingsModule from '../event-mappings'
-
-vi.mock('../event-mappings', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../event-mappings')>()
-  return {
-    ...actual
-  }
-})
 
 describe('InputSystem', () => {
   let inputSystem: InputSystem
@@ -256,18 +247,12 @@ describe('InputSystem', () => {
 
   // Test checkCombinations and triggerAction
   it('should trigger action for matching combination', () => {
-    const triggerActionSpy = vi.spyOn(
-      inputSystem,
-      'triggerAction' as keyof InputSystem
-    )
+    const triggerActionSpy = vi.spyOn(inputSystem, 'triggerAction' as any)
     inputSystem['activeKeys'].add(keyMap.keys.KeyA)
     const INPUT_KEYBOARD_A = 'INPUT_KEYBOARD_A'
-    vi.mocked(EventMappingsModule).InputEventMappings = {
-      ...InputEventMappings,
-      [INPUT_KEYBOARD_A]: [
-        { type: InputType.KEYBOARD, keys: [keyMap.keys.KeyA], modifiers: [] }
-      ]
-    }
+    inputSystem.registry.register(INPUT_KEYBOARD_A, [
+      { type: InputType.KEYBOARD, keys: [keyMap.keys.KeyA], modifiers: [] }
+    ])
 
     inputSystem['checkCombinations'](InputType.KEYBOARD)
 
@@ -282,18 +267,12 @@ describe('InputSystem', () => {
   })
 
   it('should not trigger action for non-matching combination', () => {
-    const triggerActionSpy = vi.spyOn(
-      inputSystem,
-      'triggerAction' as keyof InputSystem
-    )
+    const triggerActionSpy = vi.spyOn(inputSystem, 'triggerAction' as any)
     inputSystem['activeKeys'].add('KeyB') // Active key is B
     const INPUT_KEYBOARD_A = 'INPUT_KEYBOARD_A'
-    vi.mocked(EventMappingsModule).InputEventMappings = {
-      ...InputEventMappings,
-      [INPUT_KEYBOARD_A]: [
-        { type: InputType.KEYBOARD, keys: [keyMap.keys.KeyA], modifiers: [] } // Mapping is for A
-      ]
-    }
+    inputSystem.registry.register(INPUT_KEYBOARD_A, [
+      { type: InputType.KEYBOARD, keys: [keyMap.keys.KeyA], modifiers: [] } // Mapping is for A
+    ])
 
     inputSystem['checkCombinations'](InputType.KEYBOARD)
 
@@ -301,24 +280,18 @@ describe('InputSystem', () => {
   })
 
   it('should trigger action with detail if provided in combo', () => {
-    const triggerActionSpy = vi.spyOn(
-      inputSystem,
-      'triggerAction' as keyof InputSystem
-    )
+    const triggerActionSpy = vi.spyOn(inputSystem, 'triggerAction' as any)
     inputSystem['activeKeys'].add(keyMap.keys.KeyA)
     const mockDetail = { some: 'detail' }
     const INPUT_KEYBOARD_A = 'INPUT_KEYBOARD_A'
-    vi.mocked(EventMappingsModule).InputEventMappings = {
-      ...InputEventMappings,
-      [INPUT_KEYBOARD_A]: [
-        {
-          type: InputType.KEYBOARD,
-          keys: [keyMap.keys.KeyA],
-          modifiers: [],
-          detail: mockDetail
-        }
-      ]
-    }
+    inputSystem.registry.register(INPUT_KEYBOARD_A, [
+      {
+        type: InputType.KEYBOARD,
+        keys: [keyMap.keys.KeyA],
+        modifiers: [],
+        detail: mockDetail
+      }
+    ])
 
     inputSystem['checkCombinations'](InputType.KEYBOARD)
 

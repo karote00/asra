@@ -32,8 +32,10 @@ export const InputFieldsList = [
   InputField.TEXTAREA
 ]
 
-export enum InputType {
-  KEYBOARD = 'keyboard',
-  POINTER = 'pointer',
-  WHEEL = 'wheel'
-}
+export const InputType = {
+  KEYBOARD: 'keyboard',
+  POINTER: 'pointer',
+  WHEEL: 'wheel'
+} as const
+
+export type InputType = string

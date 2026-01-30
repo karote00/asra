@@ -1,9 +1,4 @@
-import {
-  KeySnapshot,
-  MouseSnapshot,
-  PrimaryToolType,
-  DetailType
-} from '@asyra/utils'
+import { KeySnapshot, MouseSnapshot, DetailType } from '@asyra/utils'
 import { UndoHandler } from './undo'
 import { ViewportHandler } from './viewport'
 import { RenderHandler } from './render'
