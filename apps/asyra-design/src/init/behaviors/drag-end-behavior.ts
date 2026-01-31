@@ -1,19 +1,14 @@
-import {
-  InteractionEvent,
-  PrimaryToolType,
-  SystemContextSnapshot
-} from '@asyra/utils'
+import { PrimaryToolType, SystemContextSnapshot } from '@asyra/utils'
+import type { DecisionResult } from '@asyra/interaction-core'
 import { decideFromResetElementSizeRules } from '../rules'
 
 export const decideDragEndBehavior = (
   systemContextSnapshot: SystemContextSnapshot
-): InteractionEvent | null => {
+): DecisionResult | null => {
   const { primaryTool } = systemContextSnapshot
 
   switch (primaryTool) {
     case PrimaryToolType.SELECT:
-      // TODO: end area-select
-      // return decideFromSelectRules(systemContextSnapshot)
       return null
     case PrimaryToolType.RECTANGLE:
       return decideFromResetElementSizeRules(systemContextSnapshot)

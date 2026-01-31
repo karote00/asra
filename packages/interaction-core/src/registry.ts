@@ -1,13 +1,27 @@
-import {
-  InteractionEvent,
-  SystemContextSnapshot,
-  DetailType
-} from '@asyra/utils'
+import { SystemContextSnapshot, DetailType, EVENT_OPTIONS } from '@asyra/utils'
 
-export type DecisionHandler = (
+/**
+ * Decision Handler Function
+ * Maps input events to decision results
+ */
+export type DecisionHandler<TPayload = unknown> = (
   systemContextSnapshot: SystemContextSnapshot,
   detail?: DetailType
-) => InteractionEvent | null
+) => DecisionResult<TPayload> | null
+
+/**
+ * Decision Result Interface
+ * Result from decide() - simple object with type, payload, options, and handler
+ */
+export interface DecisionResult<TPayload = unknown> {
+  type: string
+  payload?: TPayload
+  options?: EVENT_OPTIONS
+  handler?: (
+    payload: TPayload | undefined,
+    options: EVENT_OPTIONS | undefined
+  ) => void
+}
 
 export class InteractionRegistry {
   private handlers = new Map<string, DecisionHandler>()
@@ -20,12 +34,11 @@ export class InteractionRegistry {
     eventName: string,
     systemContextSnapshot: SystemContextSnapshot,
     detail?: DetailType
-  ): InteractionEvent | null {
+  ): DecisionResult | null {
     const handler = this.handlers.get(eventName)
     return handler ? handler(systemContextSnapshot, detail) : null
   }
 
-  // Helper to bulk check current registry state (useful for debugging)
   getRegisteredEvents(): string[] {
     return Array.from(this.handlers.keys())
   }

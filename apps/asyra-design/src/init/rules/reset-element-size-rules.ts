@@ -1,28 +1,24 @@
-import {
-  InteractionActions,
-  InteractionEvent,
-  SystemContextSnapshot,
-  DEFAULT_ELEMENT_SIZE
-} from '@asyra/utils'
+import type { DecisionResult } from '@asyra/interaction-core'
+import { decideToResetElementSize } from '@asyra/reactive-events'
+import { SystemContextSnapshot, DEFAULT_ELEMENT_SIZE } from '@asyra/utils'
 
 export const decideFromResetElementSizeRules = (
   systemContextSnapshot: SystemContextSnapshot
-): InteractionEvent | null => {
+): DecisionResult | null => {
   const { primaryTool, mouse } = systemContextSnapshot
   if (mouse.down && !mouse.dragging) {
-    // If never move mouse, then update new element's size to 100*100
-    const interaction: InteractionEvent = {
-      type: InteractionActions.INTERACTION_RESET_ELEMENT_SIZE,
+    return {
+      type: 'INTERACTION_RESET_ELEMENT_SIZE',
       payload: {
         dimension: {
           width: DEFAULT_ELEMENT_SIZE,
           height: DEFAULT_ELEMENT_SIZE
         },
         elementType: primaryTool
-      }
+      },
+      handler: (payload: any) =>
+        decideToResetElementSize(payload.dimension, payload.elementType)
     }
-
-    return interaction
   }
 
   return null

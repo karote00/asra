@@ -1,16 +1,14 @@
-import {
-  InteractionActions,
-  InteractionEvent,
-  SystemContextSnapshot
-} from '@asyra/utils'
+import type { DecisionResult } from '@asyra/interaction-core'
+import { decideToResizeElement } from '@asyra/reactive-events'
+import { SystemContextSnapshot } from '@asyra/utils'
 
 export const decideFromResizeElementRules = (
   systemContextSnapshot: SystemContextSnapshot
-): InteractionEvent | null => {
+): DecisionResult => {
   const { primaryTool, mouse } = systemContextSnapshot
 
-  const interaction: InteractionEvent = {
-    type: InteractionActions.INTERACTION_RESIZE_ELEMENT,
+  return {
+    type: 'INTERACTION_RESIZE_ELEMENT',
     payload: {
       dragStart: mouse.dragStart,
       position: mouse.position,
@@ -18,8 +16,13 @@ export const decideFromResizeElementRules = (
     },
     options: {
       undoable: false
-    }
+    },
+    handler: (payload: any, options: any) =>
+      decideToResizeElement(
+        payload.dragStart,
+        payload.position,
+        payload.elementType,
+        options
+      )
   }
-
-  return interaction
 }

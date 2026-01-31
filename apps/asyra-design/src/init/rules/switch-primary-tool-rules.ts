@@ -1,12 +1,15 @@
-import { DetailType, InteractionActions, InteractionEvent } from '@asyra/utils'
+import type { DecisionResult } from '@asyra/interaction-core'
+import { decideToSwitchPrimaryTool } from '@asyra/reactive-events'
+import { DetailType } from '@asyra/utils'
 
 export const decideFromSwitchPrimaryToolRules = (
   detail?: DetailType
-): InteractionEvent => {
+): DecisionResult => {
   return {
-    type: InteractionActions.INTERACTION_SWITCH_PRIMARY_TOOL,
+    type: 'INTERACTION_SWITCH_PRIMARY_TOOL',
     payload: {
       primaryTool: detail?.primaryTool
-    }
+    },
+    handler: (payload: any) => decideToSwitchPrimaryTool(payload.primaryTool)
   }
 }

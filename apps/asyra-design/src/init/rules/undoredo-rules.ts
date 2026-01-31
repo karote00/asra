@@ -1,19 +1,15 @@
-import {
-  InteractionActions,
-  InteractionEvent,
-  KeySnapshot,
-  UNDO
-} from '@asyra/utils'
+import { KeySnapshot, UNDO } from '@asyra/utils'
+import type { DecisionResult } from '@asyra/interaction-core'
+import { decideToUndoRedo } from '@asyra/reactive-events'
 
 export const decideUndoRedoRules = (
   keySnapshot: KeySnapshot
-): InteractionEvent => {
-  const interaction: InteractionEvent = {
-    type: InteractionActions.INTERACTION_UNDOREDO,
+): DecisionResult => {
+  return {
+    type: 'INTERACTION_UNDOREDO',
     payload: {
       undoredo: keySnapshot.shift ? UNDO.REDO : UNDO.UNDO
-    }
+    },
+    handler: (payload: any) => decideToUndoRedo(payload.undoredo)
   }
-
-  return interaction
 }

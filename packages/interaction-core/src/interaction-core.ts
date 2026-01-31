@@ -1,14 +1,8 @@
-import {
-  SystemContextSnapshot,
-  DetailType,
-  InteractionEvent,
-  InteractionActions
-} from '@asyra/utils'
-import { InteractionCoreHandlers } from './handlers'
-import { InteractionRegistry } from './registry'
+import { SystemContextSnapshot, DetailType } from '@asyra/utils'
+import { InteractionRegistry, type DecisionResult } from './registry'
 
 class InteractionCore {
-  private _previousSession: InteractionEvent | null = null
+  private _previousSession: DecisionResult | null = null
   public registry: InteractionRegistry
 
   constructor() {
@@ -24,13 +18,13 @@ class InteractionCore {
       this.cancelPreviousSession()
     }
 
-    const interaction = this.registry.decide(
+    const result = this.registry.decide(
       eventName,
       systemContextSnapshot,
       detail
     )
 
-    this.dispatchSession(interaction)
+    this.dispatchDecision(result)
   }
 
   startSession(
@@ -42,16 +36,17 @@ class InteractionCore {
       this.cancelPreviousSession()
     }
 
-    this.dispatchSession({
-      type: InteractionActions.INTERACTION_START_TRANSACTION
-    })
+    const startTransactionResult: DecisionResult = {
+      type: 'INTERACTION_START_TRANSACTION'
+    }
+    this.dispatchDecision(startTransactionResult)
 
-    const interaction = this.registry.decide(
+    const result = this.registry.decide(
       eventName,
       systemContextSnapshot,
       detail
     )
-    this.dispatchSession(interaction)
+    this.dispatchDecision(result)
   }
 
   updateSession(
@@ -59,13 +54,13 @@ class InteractionCore {
     systemContextSnapshot: SystemContextSnapshot,
     detail?: DetailType
   ) {
-    const interaction = this.registry.decide(
+    const result = this.registry.decide(
       eventName,
       systemContextSnapshot,
       detail
     )
-    this._previousSession = interaction
-    this.dispatchSession(interaction)
+    this._previousSession = result
+    this.dispatchDecision(result)
   }
 
   endSession(
@@ -73,39 +68,46 @@ class InteractionCore {
     systemContextSnapshot: SystemContextSnapshot,
     detail?: DetailType
   ) {
-    const interaction = this.registry.decide(
+    const result = this.registry.decide(
       eventName,
       systemContextSnapshot,
       detail
     )
-    this.dispatchSession(interaction)
-    this.cancelPreviousSession()
+    this._previousSession = result
 
-    this.dispatchSession({
-      type: InteractionActions.INTERACTION_END_TRANSACTION
-    })
+    const endTransactionResult: DecisionResult = {
+      type: 'INTERACTION_END_TRANSACTION'
+    }
+    this.dispatchDecision(endTransactionResult)
+
+    this.dispatchDecision(result)
+
+    this._previousSession = null
   }
 
-  dispatchSession(interaction: InteractionEvent | null) {
-    if (!interaction) {
+  private cancelPreviousSession() {
+    if (this._previousSession) {
+      const endTransactionResult: DecisionResult = {
+        type: 'INTERACTION_END_TRANSACTION'
+      }
+      this.dispatchDecision(endTransactionResult)
+    }
+    this._previousSession = null
+  }
+
+  private dispatchDecision(result: DecisionResult | null) {
+    if (!result) {
       return
     }
 
-    const handler = InteractionCoreHandlers[interaction.type]
-    if (handler) {
-      handler(interaction.payload, interaction.options)
+    if (result.handler) {
+      result.handler(result.payload, result.options)
     }
-
-    this._previousSession = interaction
-  }
-
-  cancelPreviousSession() {
-    this._previousSession = null
   }
 }
 
 export { InteractionCore }
+export type { DecisionResult } from './registry'
 
 const interactionCore = new InteractionCore()
-
 export default interactionCore

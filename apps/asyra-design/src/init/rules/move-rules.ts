@@ -1,18 +1,16 @@
-import {
-  InteractionActions,
-  InteractionEvent,
-  SystemContextSnapshot
-} from '@asyra/utils'
+import type { DecisionResult } from '@asyra/interaction-core'
+import { SystemContextSnapshot } from '@asyra/utils'
 
 export const decideFromMoveRules = (
   systemContextSnapshot: SystemContextSnapshot
-): InteractionEvent | null => {
+): DecisionResult | null => {
   const { mouse, target } = systemContextSnapshot
 
   if (mouse.dragging && target.selectedElementIds.length > 0) {
     return {
-      type: InteractionActions.INTERACTION_MOVE_ELEMENTS,
-      payload: { ids: target.selectedElementIds, delta: mouse.delta }
+      type: 'INTERACTION_MOVE_ELEMENTS',
+      payload: { ids: target.selectedElementIds, delta: mouse.delta },
+      handler: () => {}
     }
   }
 

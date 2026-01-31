@@ -1,20 +1,18 @@
-import {
-  InteractionActions,
-  InteractionEvent,
-  SystemContextSnapshot
-} from '@asyra/utils'
+import type { DecisionResult } from '@asyra/interaction-core'
+import { decideToCreateElement } from '@asyra/reactive-events'
+import { SystemContextSnapshot } from '@asyra/utils'
 
 export const decideFromCreateElementRules = (
   systemContextSnapshot: SystemContextSnapshot
-): InteractionEvent | null => {
+): DecisionResult => {
   const { primaryTool, mouse } = systemContextSnapshot
-  const interaction: InteractionEvent = {
-    type: InteractionActions.INTERACTION_CREATE_ELEMENT,
+  return {
+    type: 'INTERACTION_CREATE_ELEMENT',
     payload: {
       position: mouse.position,
       elementType: primaryTool
-    }
+    },
+    handler: (payload: any) =>
+      decideToCreateElement(payload.position, payload.elementType)
   }
-
-  return interaction
 }

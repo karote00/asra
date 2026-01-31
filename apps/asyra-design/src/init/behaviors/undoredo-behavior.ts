@@ -1,8 +1,9 @@
-import { InteractionEvent, SystemContextSnapshot } from '@asyra/utils'
+import { SystemContextSnapshot } from '@asyra/utils'
+import type { DecisionResult } from '@asyra/interaction-core'
 import { decideUndoRedoRules } from '../rules'
 
 export const decideUndoRedoBehavior = (
   systemContextSnapshot: SystemContextSnapshot
-): InteractionEvent => {
+): DecisionResult => {
   return decideUndoRedoRules(systemContextSnapshot.key)
 }

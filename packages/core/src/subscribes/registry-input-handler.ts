@@ -23,7 +23,6 @@ export const initRegistryInputHandler = (
   allInputEvents.forEach((eventName: string) => {
     deps.inputSystem.on(eventName, (raw: RawInputEvent) => {
       const workflow = workflowRegistry.get(eventName)
-
       if (!workflow) {
         return
       }

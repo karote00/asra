@@ -1,13 +1,10 @@
-import {
-  InteractionEvent,
-  PrimaryToolType,
-  SystemContextSnapshot
-} from '@asyra/utils'
+import { PrimaryToolType, SystemContextSnapshot } from '@asyra/utils'
+import type { DecisionResult } from '@asyra/interaction-core'
 import { decideFromCreateElementRules, decideFromSelectRules } from '../rules'
 
 export const decideDragStartBehavior = (
   systemContextSnapshot: SystemContextSnapshot
-): InteractionEvent | null => {
+): DecisionResult | null => {
   const { primaryTool } = systemContextSnapshot
 
   switch (primaryTool) {
