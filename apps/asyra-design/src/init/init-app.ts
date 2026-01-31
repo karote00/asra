@@ -1,5 +1,7 @@
 import { initInputSystem } from './init-input-system'
 import { initInteractions } from './init-interactions'
+import { initWorkflows } from './init-workflows'
+import core from '@asyra/core'
 
 /**
  * Initializes all framework components and configurations.
@@ -24,7 +26,10 @@ import { initInteractions } from './init-interactions'
  */
 export const initApp = (): void => {
   initInputSystem()
+  initWorkflows()
   initInteractions()
+
+  core.initEventHandlers()
 
   // Future: More framework initialization can be added here
   // initRender()

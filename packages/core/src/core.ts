@@ -11,6 +11,7 @@ import interactionCore, {
   DecisionHandler
 } from '@asyra/interaction-core'
 
+import { initRegistryInputHandler } from './subscribes/registry-input-handler'
 import { initAllHandlers } from './subscribes'
 import {
   CoreAPIs,
@@ -27,6 +28,8 @@ import {
 } from './types'
 import { createAPIs } from './apis'
 import { createRequests } from './requests'
+import { WorkflowRegistryClass } from './registries/workflow-registry'
+import { handlerRegistry as globalHandlerRegistry } from './registries/handler-registry'
 
 import combinations from './combinations'
 inputSystem.setCombinations(combinations)
@@ -90,6 +93,9 @@ class Core implements CoreAPIs {
   updateSession!: InteractionCoreAPIs['updateSession']
   endSession!: InteractionCoreAPIs['endSession']
 
+  workflowRegistry = new WorkflowRegistryClass()
+  handlerRegistryInstance = globalHandlerRegistry
+
   constructor(private readonly deps: CoreDeps) {
     const requests = createRequests({
       systemContext: this.deps.systemContext,
@@ -101,6 +107,17 @@ class Core implements CoreAPIs {
     })
     const apis = createAPIs(requests)
 
+    Object.assign(this, apis as CoreAPIs)
+  }
+
+  initEventHandlers(): void {
+    initRegistryInputHandler(
+      {
+        inputSystem: this.deps.inputSystem
+      },
+      this.workflowRegistry,
+      this as SystemContextAPIs & InteractionCoreAPIs
+    )
     initAllHandlers(
       {
         inputSystem: this.deps.inputSystem,
@@ -108,9 +125,9 @@ class Core implements CoreAPIs {
         factory: this.deps.factory,
         interactionCore: this.deps.interactionCore
       },
-      apis
+      this as CoreAPIs
     )
-    Object.assign(this, apis as CoreAPIs)
+    this.handlerRegistryInstance.init()
   }
 
   registerInteraction(eventName: string, handler: DecisionHandler) {
@@ -163,3 +180,6 @@ const core = new Core({
   interactionCore
 })
 export default core
+
+export const workflowRegistry = core.workflowRegistry
+export const handlerRegistry = globalHandlerRegistry

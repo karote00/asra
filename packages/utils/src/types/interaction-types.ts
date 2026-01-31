@@ -1,8 +1,24 @@
-import type { EVENT_OPTIONS, InteractionActions } from '../constants'
+import type {
+  EVENT_OPTIONS,
+  InteractionEvent,
+  KnownInteractionAction
+} from '../constants'
 
-export interface InteractionEvent {
-  type: InteractionActions
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  payload?: any
+/**
+ * Decision Event Interface
+ * Represents an interaction decision with customizable type
+ * TType defaults to any known interaction action or custom string
+ */
+export interface DecisionEvent<
+  TPayload = unknown,
+  TType = KnownInteractionAction | string
+> {
+  type: TType
+  payload?: TPayload
   options?: EVENT_OPTIONS
 }
+
+/**
+ * Re-export for backward compatibility
+ */
+export type InteractionEventInterface = DecisionEvent
