@@ -1,9 +1,9 @@
-import { DefaultPrimaryTool, PrimaryToolType } from '@asyra/utils'
+import { DefaultPrimaryTool } from '@asyra/utils'
 
 export class PrimaryToolState {
-  private _state: PrimaryToolType = DefaultPrimaryTool
+  private _state: string = DefaultPrimaryTool
 
-  set(tool: PrimaryToolType) {
+  set(tool: string) {
     this._state = tool
   }
 

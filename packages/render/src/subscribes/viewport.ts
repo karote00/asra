@@ -2,12 +2,12 @@ import {
   finishRequestRenderZoom,
   finishRequestViewportPosition,
   finishRequestViewportScale,
-  subscribeToPanTo,
+  // subscribeToPanTo,
   subscribeToRequestRenderZoom,
   subscribeToRequestViewportPosition,
   subscribeToRequestViewportScale,
-  subscribeToZoomFit,
-  subscribeToZoomToCenter
+  // subscribeToZoomFit,
+  // subscribeToZoomToCenter
 } from '@asyra/reactive-events'
 import render from '../render'
 
@@ -23,19 +23,19 @@ export const initViewportContext = () => {
     finishRequestRenderZoom(payload.requestId, zoom)
   })
 
-  subscribeToZoomFit(({ payload }) => {
-    render.zoomFit(payload.rect)
-  })
+  // subscribeToZoomFit(({ payload }) => {
+  //   render.zoomFit(payload.rect)
+  // })
 
-  subscribeToPanTo(({ payload }) => {
-    const { x, y } = payload
-    render.panTo(x, y)
-  })
+  // subscribeToPanTo(({ payload }) => {
+  //   const { x, y } = payload
+  //   render.panTo(x, y)
+  // })
 
-  subscribeToZoomToCenter(({ payload }) => {
-    const { scale, centerX, centerY } = payload
-    render.zoomToCenter(scale, centerX, centerY)
-  })
+  // subscribeToZoomToCenter(({ payload }) => {
+  //   const { scale, centerX, centerY } = payload
+  //   render.zoomToCenter(scale, centerX, centerY)
+  // })
 
   subscribeToRequestViewportPosition(({ payload }) => {
     const viewportPosition = render.getViewportPosition()

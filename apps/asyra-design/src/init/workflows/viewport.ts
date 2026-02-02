@@ -1,13 +1,14 @@
 import type { ModifierKeys, PointerEventData } from '@asyra/utils'
-import type { Workflow } from '@asyra/core/types'
+import type { Workflow } from '@asyra/core'
+import { InputSystemEvents } from '../../constants'
 
 export const zoomFitWorkflow: Workflow = {
   // No context update needed for zoom fit shortcut
   contextUpdate:
     // eslint-disable-next-line @typescript-eslint/no-empty-function
-    () => {},
+    () => { },
   coreAPI: 'executeAction',
-  APIArgs: () => ['input.shortcut.zoomPreset']
+  APIArgs: () => [InputSystemEvents.INPUT_SHORTCUT_ZOOM_PRESET]
 }
 
 export const wheelScrollWorkflow: Workflow = {
@@ -30,5 +31,5 @@ export const wheelScrollWorkflow: Workflow = {
     core.updateKeyState(raw.modifiers as ModifierKeys)
   },
   coreAPI: 'executeAction',
-  APIArgs: () => ['input.wheel.scroll']
+  APIArgs: () => [InputSystemEvents.INPUT_WHEEL_SCROLL]
 }

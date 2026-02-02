@@ -1,5 +1,5 @@
 import type { DecisionResult } from '@asyra/interaction-core'
-import { decideToSwitchPrimaryTool } from '@asyra/reactive-events'
+import { decideToSwitchPrimaryTool } from '../events'
 import { DetailType } from '@asyra/utils'
 
 export const decideFromSwitchPrimaryToolRules = (

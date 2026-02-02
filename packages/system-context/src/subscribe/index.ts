@@ -1,4 +1,4 @@
-import { KeySnapshot, MouseSnapshot, PrimaryToolType } from '@asyra/utils'
+import { KeySnapshot, MouseSnapshot } from '@asyra/utils'
 import { initPrimaryToolStateSubscribe } from './primary-tool-state'
 import { initMouseStateSubscribe } from './mouse-state'
 import { initSystemStateSubscribe } from './system-state'
@@ -11,7 +11,7 @@ export const initSystemContextSubscribe = (apis: SystemContextAPIs) => {
 
   initPrimaryToolStateSubscribe({
     getCurrentPrimaryTool: () => apis.getCurrentPrimaryTool(),
-    switchPrimaryTool: (tool: PrimaryToolType) => apis.switchPrimaryTool(tool)
+    switchPrimaryTool: (tool: string) => apis.switchPrimaryTool(tool)
   })
 
   initMouseStateSubscribe({

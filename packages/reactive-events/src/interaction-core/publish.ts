@@ -1,11 +1,8 @@
 import {
   SystemContextSnapshot,
   DetailType,
-  PrimaryToolType,
   PositionData,
   UNDO,
-  PanZoom,
-  MouseSnapshot,
   EVENT_OPTIONS
 } from '@asyra/utils'
 import { publishEvent } from '../event-bus'
@@ -83,18 +80,9 @@ export const decideToEndTransaction = () => {
   })
 }
 
-export const decideToSwitchPrimaryTool = (primaryTool: PrimaryToolType) => {
-  publishEvent({
-    type: EventTypes.DECIDE_TO_SWITCH_PRIMARY_TOOL,
-    payload: {
-      primaryTool
-    }
-  })
-}
-
 export const decideToCreateElement = (
   position: PositionData,
-  elementType: PrimaryToolType
+  elementType: string
 ) => {
   publishEvent({
     type: EventTypes.DECIDE_TO_CREATE_ELEMENT,
@@ -117,7 +105,7 @@ export const decideToSelectElements = (elementIds: string[]) => {
 export const decideToResizeElement = (
   dragStart: PositionData,
   position: PositionData,
-  elementType: PrimaryToolType,
+  elementType: string,
   options?: EVENT_OPTIONS
 ) => {
   publishEvent({
@@ -133,7 +121,7 @@ export const decideToResizeElement = (
 
 export const decideToEndResizeElement = (
   position: PositionData,
-  elementType: PrimaryToolType
+  elementType: string
 ) => {
   publishEvent({
     type: EventTypes.DECIDE_TO_END_RESIZE_ELEMENT,
@@ -146,7 +134,7 @@ export const decideToEndResizeElement = (
 
 export const decideToResetElementSize = (
   dimension: { width: number; height: number },
-  elementType: PrimaryToolType
+  elementType: string
 ) => {
   publishEvent({
     type: EventTypes.DECIDE_TO_RESET_ELEMENT_SIZE,
@@ -162,27 +150,6 @@ export const decideToUndoRedo = (undoredo: UNDO) => {
     type: EventTypes.DECIDE_TO_UNDOREDO,
     payload: {
       undoredo
-    }
-  })
-}
-
-export const decideToZoomFit = () => {
-  publishEvent({
-    type: EventTypes.DECIDE_TO_ZOOM_FIT
-  })
-}
-
-export const decideToPanZoom = (
-  panzoom: PanZoom,
-  mouse: MouseSnapshot['position'],
-  wheel: MouseSnapshot['delta']
-) => {
-  publishEvent({
-    type: EventTypes.DECIDE_TO_PAN_ZOOM,
-    payload: {
-      panzoom,
-      mouse,
-      wheel
     }
   })
 }

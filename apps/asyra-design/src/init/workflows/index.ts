@@ -7,16 +7,17 @@ import {
   dragEndWorkflow
 } from './render'
 import { switchPrimaryToolWorkflow } from './primary-tool'
+import { InputSystemEvents } from '../../constants'
 
 export const registerWorkflows = (workflowRegistry: WorkflowRegistryClass) => {
-  workflowRegistry.register('input.shortcut.undoredo', undoRedoWorkflow)
-  workflowRegistry.register('input.shortcut.zoomPreset', zoomFitWorkflow)
-  workflowRegistry.register('input.wheel.scroll', wheelScrollWorkflow)
-  workflowRegistry.register('input.drag.start', dragStartWorkflow)
-  workflowRegistry.register('input.drag.update', dragUpdateWorkflow)
-  workflowRegistry.register('input.drag.end', dragEndWorkflow)
+  workflowRegistry.register(InputSystemEvents.INPUT_SHORTCUT_UNDOREDO, undoRedoWorkflow)
+  workflowRegistry.register(InputSystemEvents.INPUT_SHORTCUT_ZOOM_PRESET, zoomFitWorkflow)
+  workflowRegistry.register(InputSystemEvents.INPUT_WHEEL_SCROLL, wheelScrollWorkflow)
+  workflowRegistry.register(InputSystemEvents.INPUT_DRAG_START, dragStartWorkflow)
+  workflowRegistry.register(InputSystemEvents.INPUT_DRAG_UPDATE, dragUpdateWorkflow)
+  workflowRegistry.register(InputSystemEvents.INPUT_DRAG_END, dragEndWorkflow)
   workflowRegistry.register(
-    'input.shortcut.switchPrimaryTool',
+    InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL,
     switchPrimaryToolWorkflow
   )
 }

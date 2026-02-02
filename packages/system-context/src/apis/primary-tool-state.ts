@@ -1,13 +1,12 @@
-import { PrimaryToolType } from '@asyra/utils'
 import { HandlerDeps, PrimaryToolStateAPIs } from '../types'
 
 export const createPrimaryToolStateAPIs = (
   primaryToolState: HandlerDeps['primaryToolState']
 ): PrimaryToolStateAPIs => ({
-  getCurrentPrimaryTool(): PrimaryToolType {
+  getCurrentPrimaryTool(): string {
     return primaryToolState.current
   },
-  switchPrimaryTool(tool: PrimaryToolType) {
+  switchPrimaryTool(tool: string) {
     primaryToolState.set(tool)
   }
 })

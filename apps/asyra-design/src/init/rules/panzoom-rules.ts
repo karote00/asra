@@ -1,5 +1,5 @@
 import type { DecisionResult } from '@asyra/interaction-core'
-import { decideToPanZoom } from '@asyra/reactive-events'
+import { decideToPanZoom } from '../events'
 import { KeySnapshot, MouseSnapshot, PanZoom } from '@asyra/utils'
 
 export const decidePanZoomRules = (

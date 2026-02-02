@@ -1,9 +1,10 @@
 import { publishEvent, subscribeToEvents } from './event-bus'
-import type { InteractionEvent } from '@asyra/utils'
 
 /**
  * Registry for custom decision events
  * Allows users to register custom interaction events and subscribe to them
+ * Note: Using 'any' for event publishing is necessary because custom user-defined events
+ * cannot be statically typed in the AllEvent union type
  */
 export class DecisionEventRegistry {
   private eventTypes = new Set<string>()
@@ -21,8 +22,9 @@ export class DecisionEventRegistry {
       },
       emit: (payload?: T) => {
         publishEvent({
-          type: eventName as any,
-          payload: payload as any
+          type: eventName,
+          payload
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any)
       }
     }

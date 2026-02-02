@@ -8,8 +8,7 @@ import { TargetState } from '../states/target-state'
 import {
   DefaultKeySnapshot,
   DefaultPosition,
-  MouseButton,
-  PrimaryToolType
+  MouseButton
 } from '@asyra/utils'
 
 describe('SystemContext', () => {

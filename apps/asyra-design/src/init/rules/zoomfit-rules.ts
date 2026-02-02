@@ -1,5 +1,5 @@
 import type { DecisionResult } from '@asyra/interaction-core'
-import { decideToZoomFit } from '@asyra/reactive-events'
+import { decideToZoomFit } from '../events'
 
 export const decideZoomFitRules = (): DecisionResult => {
   return {

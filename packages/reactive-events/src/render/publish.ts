@@ -60,45 +60,45 @@ export const emitInitRender = (requestId: string, newApp: any) => {
   })
 }
 
-export const zoomFit = (rect: DOMRect) => {
-  publishEvent({
-    type: EventTypes.ZOOM_FIT,
-    payload: {
-      rect
-    }
-  })
-}
+// export const zoomFit = (rect: DOMRect) => {
+//   publishEvent({
+//     type: EventTypes.ZOOM_FIT,
+//     payload: {
+//       rect
+//     }
+//   })
+// }
 
-export const emitZoomFit = () => {
-  publishEvent({
-    type: EventTypes.EMIT_ZOOM_FIT
-  })
-}
+// export const emitZoomFit = () => {
+//   publishEvent({
+//     type: EventTypes.EMIT_ZOOM_FIT
+//   })
+// }
 
-export const panTo = (x: number, y: number) => {
-  publishEvent({
-    type: EventTypes.PAN_TO,
-    payload: {
-      x,
-      y
-    }
-  })
-}
+// export const panTo = (x: number, y: number) => {
+//   publishEvent({
+//     type: EventTypes.PAN_TO,
+//     payload: {
+//       x,
+//       y
+//     }
+//   })
+// }
 
-export const zoomToCenter = (
-  scale: number,
-  centerX: number,
-  centerY: number
-) => {
-  publishEvent({
-    type: EventTypes.ZOOM_TO_CENTER,
-    payload: {
-      scale,
-      centerX,
-      centerY
-    }
-  })
-}
+// export const zoomToCenter = (
+//   scale: number,
+//   centerX: number,
+//   centerY: number
+// ) => {
+//   publishEvent({
+//     type: EventTypes.ZOOM_TO_CENTER,
+//     payload: {
+//       scale,
+//       centerX,
+//       centerY
+//     }
+//   })
+// }
 
 export const requestRenderZoom = async () => {
   return new Promise<number>((resolve) => {

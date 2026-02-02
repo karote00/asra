@@ -11,8 +11,7 @@ import interactionCore, {
   DecisionHandler
 } from '@asyra/interaction-core'
 
-import { initRegistryInputHandler } from './subscribes/registry-input-handler'
-import { initAllHandlers } from './subscribes'
+import { initRegistryInputHandler } from './registry-input-handler'
 import {
   CoreAPIs,
   InputSystemAPIs,
@@ -24,6 +23,7 @@ import {
   PropsAPIs,
   SystemContextAPIs,
   InteractionCoreAPIs,
+  InteractionCoreActionAPIs,
   TransactionAPIs
 } from './types'
 import { createAPIs } from './apis'
@@ -66,9 +66,6 @@ class Core implements CoreAPIs {
   renderIsReady!: RenderAPIs['renderIsReady']
   getViewportPosition!: ViewportAPIs['getViewportPosition']
   getViewportScale!: ViewportAPIs['getViewportScale']
-  zoomFit!: ViewportAPIs['zoomFit']
-  panTo!: ViewportAPIs['panTo']
-  zoomToCenter!: ViewportAPIs['zoomToCenter']
 
   undo!: UndoActionAPIs['undo']
   redo!: UndoActionAPIs['redo']
@@ -84,7 +81,6 @@ class Core implements CoreAPIs {
   propsLoadData!: PropsAPIs['propsLoadData']
   propsSaveData!: PropsAPIs['propsSaveData']
 
-  switchPrimaryTool!: SystemContextAPIs['switchPrimaryTool']
   updateMouseState!: SystemContextAPIs['updateMouseState']
   updateKeyState!: SystemContextAPIs['updateKeyState']
 
@@ -96,7 +92,7 @@ class Core implements CoreAPIs {
   workflowRegistry = new WorkflowRegistryClass()
   handlerRegistryInstance = globalHandlerRegistry
 
-  constructor(private readonly deps: CoreDeps) {
+  constructor(readonly deps: CoreDeps) {
     const requests = createRequests({
       systemContext: this.deps.systemContext,
       props: this.deps.props,
@@ -116,18 +112,9 @@ class Core implements CoreAPIs {
         inputSystem: this.deps.inputSystem
       },
       this.workflowRegistry,
-      this as SystemContextAPIs & InteractionCoreAPIs
+      this as SystemContextAPIs & InteractionCoreActionAPIs
     )
-    initAllHandlers(
-      {
-        inputSystem: this.deps.inputSystem,
-        render: this.deps.render,
-        factory: this.deps.factory,
-        interactionCore: this.deps.interactionCore
-      },
-      this as CoreAPIs
-    )
-    this.handlerRegistryInstance.init()
+    // No framework interaction handlers - all are user-defined
   }
 
   registerInteraction(eventName: string, handler: DecisionHandler) {
@@ -150,7 +137,7 @@ class Core implements CoreAPIs {
       this.sceneTreeInit()
     }
 
-    this.zoomFit()
+    // this.zoomFit()
   }
 
   async save() {

@@ -1,6 +1,3 @@
-import { initInteractionCoreHandlers } from './interaction-core'
-import { CoreAPIs, HandlerDeps } from '../types'
-
-export const initAllHandlers = (deps: HandlerDeps, apis: CoreAPIs) => {
-  initInteractionCoreHandlers(deps, apis)
+export const initAllHandlers = () => {
+  // Framework infrastructure only - all interaction-core subscribers moved to user-defined
 }

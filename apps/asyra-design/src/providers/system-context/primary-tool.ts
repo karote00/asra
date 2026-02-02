@@ -1,6 +1,5 @@
-import { uiContext } from '@asyra/ui-context'
-import { PrimaryToolType } from '@asyra/utils'
+import uiContext from '@asyra/ui-context'
 import { createStore } from '../utils'
 
-export const usePrimaryTool = (): PrimaryToolType =>
+export const usePrimaryTool = (): string =>
   createStore(uiContext.primaryTool)

@@ -1,6 +1,7 @@
-import { PrimaryToolType, SystemContextSnapshot } from '@asyra/utils'
+import { SystemContextSnapshot } from '@asyra/utils'
 import type { DecisionResult } from '@asyra/interaction-core'
 import { decideFromResizeElementRules } from '../rules'
+import { PrimaryToolType } from '../../constants'
 
 export const decideDragUpdateBehavior = (
   systemContextSnapshot: SystemContextSnapshot

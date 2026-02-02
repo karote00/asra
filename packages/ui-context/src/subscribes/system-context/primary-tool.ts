@@ -1,7 +1,6 @@
-import {
-  requestCurrentPrimaryTool,
-  subscribeToEmitSwitchPrimaryTool
-} from '@asyra/reactive-events'
+// import {
+//   subscribeToEmitSwitchPrimaryTool
+// } from '@asyra/reactive-events'
 import { PrimaryToolStore } from '../../stores/system-context'
 
 export const primaryToolStore = new PrimaryToolStore()
@@ -13,10 +12,10 @@ export const initPrimaryToolSubscribe = () => {
     return
   }
 
-  subscribeToEmitSwitchPrimaryTool(async () => {
-    const primaryTool = await requestCurrentPrimaryTool()
-    primaryToolStore.updatePrimaryTool(primaryTool)
-  })
+  // subscribeToEmitSwitchPrimaryTool(async () => {
+  //   const primaryTool = await requestCurrentPrimaryTool()
+  //   primaryToolStore.updatePrimaryTool(primaryTool)
+  // })
 
   hasInit = true
 }

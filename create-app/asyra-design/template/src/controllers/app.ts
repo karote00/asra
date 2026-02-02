@@ -1,7 +1,6 @@
 import { app, setPixiApp } from '../states/app'
 import { CANVAS_BACKGROUND_COLOR } from '../constants'
 import core from '../contexts'
-import { PrimaryToolType } from '@asyra/utils'
 
 export const initRenderApp = async (
   container: HTMLDivElement,

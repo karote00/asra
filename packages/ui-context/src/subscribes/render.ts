@@ -1,6 +1,6 @@
 import {
   requestRenderZoom,
-  subscribeToEmitZoomFit
+  // subscribeToEmitZoomFit
 } from '@asyra/reactive-events'
 import RenderStore from '../stores/render'
 
@@ -13,10 +13,10 @@ export const initRenderDataSubscribe = () => {
     return
   }
 
-  subscribeToEmitZoomFit(async () => {
-    const zoom = await requestRenderZoom()
-    renderStore.updateZoom(zoom)
-  })
+  // subscribeToEmitZoomFit(async () => {
+  //   const zoom = await requestRenderZoom()
+  //   renderStore.updateZoom(zoom)
+  // })
 
   hasInit = true
 }

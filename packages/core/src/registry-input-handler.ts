@@ -1,6 +1,6 @@
 import type { RawInputEvent } from '@asyra/utils'
-import type { SystemContextAPIs, InteractionCoreActionAPIs } from '../types'
-import type { WorkflowRegistryClass } from '../registries/workflow-registry'
+import type { SystemContextAPIs, InteractionCoreActionAPIs } from './types'
+import type { WorkflowRegistryClass } from './registries/workflow-registry'
 import type { InputSystem } from '@asyra/input-system'
 
 interface RegistrySubscribeDeps {

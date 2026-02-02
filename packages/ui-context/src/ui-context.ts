@@ -1,5 +1,5 @@
 import { BehaviorSubject } from 'rxjs'
-import { ComputedAttrs, MIXED_STRING, PrimaryToolType } from '@asyra/utils'
+import { ComputedAttrs, MIXED_STRING } from '@asyra/utils'
 import { isEqual } from 'lodash'
 import { ElementProperties } from './types'
 
@@ -24,7 +24,7 @@ class UIContext {
   //   fills: BehaviorSubject<ElementProperties['fills']>
 
   // System Context
-  primaryTool: BehaviorSubject<PrimaryToolType>
+  primaryTool: BehaviorSubject<string>
 
   constructor() {
     this.zoom = new BehaviorSubject<number>(1)
@@ -38,8 +38,8 @@ class UIContext {
     this.rotation = new BehaviorSubject<ElementProperties['rotation']>(0)
     // this.fills = new BehaviorSubject<ElementProperties['fills']>([])
 
-    this.primaryTool = new BehaviorSubject<PrimaryToolType>(
-      PrimaryToolType.SELECT
+    this.primaryTool = new BehaviorSubject<string>(
+      'select'
     )
   }
 
@@ -115,7 +115,7 @@ class UIContext {
     this.zoom.next(newZoom)
   }
 
-  updatePrimaryTool(tool: PrimaryToolType) {
+  updatePrimaryTool(tool: string) {
     if (tool !== this.primaryTool.getValue()) {
       this.primaryTool.next(tool)
     }

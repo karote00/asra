@@ -16,3 +16,11 @@ export const InputSystemEvents = {
 
 export type InputSystemEvents =
   (typeof InputSystemEvents)[keyof typeof InputSystemEvents]
+
+export const PrimaryToolType = {
+  SELECT: 'select',
+  RECTANGLE: 'rectangle'
+} as const
+
+export type PrimaryToolType =
+  (typeof PrimaryToolType)[keyof typeof PrimaryToolType]

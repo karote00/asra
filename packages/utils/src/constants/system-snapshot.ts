@@ -1,6 +1,5 @@
 import { MouseButton } from './pointer'
 import { SystemMode } from './system-mode'
-import { PrimaryToolType } from './tool'
 import {
   KeySnapshot,
   MouseSnapshot,
@@ -17,7 +16,7 @@ export const DefaultSystemSnapshot: SystemSnapshot = {
   permissions: {}
 }
 
-export const DefaultPrimaryTool: PrimaryToolType = PrimaryToolType.SELECT
+export const DefaultPrimaryTool: string = 'select'
 
 export const DefaultMoseSnapshot: MouseSnapshot = {
   position: DefaultPosition,

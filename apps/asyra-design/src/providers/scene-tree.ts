@@ -1,5 +1,5 @@
 import { BehaviorSubject } from 'rxjs'
-import { sceneTreeStore, uiContext } from '@asyra/ui-context'
+import uiContext, { sceneTreeStore } from '@asyra/ui-context'
 import { ElementRawData } from '@asyra/utils'
 
 import { createStore } from './utils'

@@ -1,4 +1,3 @@
-import { SystemContextSnapshot } from '@asyra/utils'
 import type { DecisionResult } from '@asyra/interaction-core'
 import { decideZoomFitRules } from '../rules'
 

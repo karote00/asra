@@ -1,4 +1,5 @@
-import uiContext from './ui-context'
+import uiContext, { UIContext } from './ui-context'
 
 export * from './subscribes'
-export { uiContext }
+export { UIContext }
+export default uiContext

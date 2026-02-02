@@ -1,11 +1,9 @@
-import { PrimaryToolType } from '@asyra/utils'
-
 export interface PrimaryToolStateRawAPIs {
-  getCurrentPrimaryTool: () => PrimaryToolType
+  getCurrentPrimaryTool: () => string
 }
 
 export interface PrimaryToolStateActionAPIs {
-  switchPrimaryTool: (tool: PrimaryToolType) => void
+  switchPrimaryTool: (tool: string) => void
 }
 
 export type PrimaryToolStateAPIs = PrimaryToolStateRawAPIs &

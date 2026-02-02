@@ -1,27 +1,13 @@
 import { Subscription } from 'rxjs'
-import { generateRequestId, PrimaryToolType } from '@asyra/utils'
+import { generateRequestId } from '@asyra/utils'
 import { FinishRequestCurrentPrimaryToolEvent } from './events'
 import { subscribeToFinishRequestCurrentPrimaryTool } from './subscribes'
 import { publishEvent } from '../../event-bus'
 import { EventTypes } from '../../types'
 
-export const switchPrimaryTool = (tool: PrimaryToolType) => {
-  publishEvent({
-    type: EventTypes.SWITCH_PRIMARY_TOOL,
-    payload: {
-      tool
-    }
-  })
-}
-
-export const emitSwitchPrimaryTool = () => {
-  publishEvent({
-    type: EventTypes.EMIT_SWITCH_PRIMARY_TOOL
-  })
-}
 
 export const requestCurrentPrimaryTool = () => {
-  return new Promise<PrimaryToolType>((resolve) => {
+  return new Promise<string>((resolve) => {
     const requestId = generateRequestId()
     let subscription: Subscription | null = null
 
@@ -48,7 +34,7 @@ export const requestCurrentPrimaryTool = () => {
 
 export const finishRequestCurrentPrimaryTool = (
   requestId: string,
-  tool: PrimaryToolType
+  tool: string
 ) => {
   publishEvent({
     type: EventTypes.FINISH_REQUEST_CURRENT_PRIMARY_TOOL,

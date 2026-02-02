@@ -1,8 +1,8 @@
 import { useCallback } from 'react'
 import { Icon } from '@asyra/design-system'
-import { PrimaryToolType } from '@asyra/utils'
 import { usePrimaryTool } from '../providers'
 import { resetData, switchPrimaryTool } from '../controllers/app'
+import { PrimaryToolType } from '../constants'
 
 const selectedStyle =
   'bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-white'

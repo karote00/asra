@@ -1,4 +1,4 @@
-import { uiContext } from '@asyra/ui-context'
+import uiContext from '@asyra/ui-context'
 import { MIXED_STRING } from '@asyra/utils'
 import { createStore } from './utils'
 

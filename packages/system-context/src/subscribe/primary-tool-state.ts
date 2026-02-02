@@ -1,14 +1,14 @@
 import {
   finishRequestCurrentPrimaryTool,
-  subscribeToRequestCurrentPrimaryTool,
-  subscribeToSwitchPrimaryTool
+  subscribeToRequestCurrentPrimaryTool
+  // subscribeToSwitchPrimaryTool
 } from '@asyra/reactive-events'
 import { PrimaryToolStateAPIs } from '../types'
 
 export const initPrimaryToolStateSubscribe = (apis: PrimaryToolStateAPIs) => {
-  subscribeToSwitchPrimaryTool(({ payload }) => {
-    apis.switchPrimaryTool(payload.tool)
-  })
+  // subscribeToSwitchPrimaryTool(({ payload }) => {
+  //   apis.switchPrimaryTool(payload.tool)
+  // })
 
   subscribeToRequestCurrentPrimaryTool(({ payload }) => {
     const primaryTool = apis.getCurrentPrimaryTool()

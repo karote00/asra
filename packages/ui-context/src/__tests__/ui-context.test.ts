@@ -4,7 +4,6 @@ import { BehaviorSubject } from 'rxjs'
 import {
   ComputedAttrs,
   MIXED_STRING,
-  PrimaryToolType,
   EntityTypes
 } from '@asyra/utils'
 

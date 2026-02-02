@@ -2,6 +2,7 @@ import { app, setPixiApp } from '../states/app'
 import { CANVAS_BACKGROUND_COLOR } from '../constants'
 import core from '../contexts'
 import { PrimaryToolType } from '@asyra/utils'
+import { decideToSwitchPrimaryTool } from '../init/events/interaction'
 
 export const initRenderApp = async (
   container: HTMLDivElement,
@@ -47,5 +48,5 @@ export const resetData = () => {
 }
 
 export const switchPrimaryTool = (primaryTool: PrimaryToolType) => {
-  core.switchPrimaryTool(primaryTool)
+  decideToSwitchPrimaryTool(primaryTool)
 }

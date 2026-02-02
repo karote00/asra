@@ -1,13 +1,13 @@
 import {
   type ExecuteActionEvent,
-  type DecideToSwitchPrimaryToolEvent,
+  // type DecideToSwitchPrimaryToolEvent,
   type StartSessionEvent,
   type UpdateSessionEvent,
   type EndSessionEvent,
   type DecideToCreateElementEvent,
   type DecideToUndoRedoEvent,
-  type DecideToZoomFitEvent,
-  type DecideToPanZoomEvent,
+  // type DecideToZoomFitEvent,
+  // type DecideToPanZoomEvent,
   type DecideToResizeElementEvent,
   type DecideToEndResizeElementEvent,
   type DecideToResetElementSizeEvent,
@@ -42,10 +42,10 @@ export const subscribeToDecideToEndTransaction =
     EventTypes.DECIDE_TO_END_TRANSACTION
   )
 
-export const subscribeToDecideToSwitchPrimaryTool =
-  createSubscribeEvent<DecideToSwitchPrimaryToolEvent>(
-    EventTypes.DECIDE_TO_SWITCH_PRIMARY_TOOL
-  )
+// export const subscribeToDecideToSwitchPrimaryTool =
+//   createSubscribeEvent<DecideToSwitchPrimaryToolEvent>(
+//     EventTypes.DECIDE_TO_SWITCH_PRIMARY_TOOL
+//   )
 
 export const subscribeToDecideToCreateElement =
   createSubscribeEvent<DecideToCreateElementEvent>(
@@ -75,8 +75,8 @@ export const subscribeToDecideToResetElementSize =
 export const subscribeToDecideToUndoRedo =
   createSubscribeEvent<DecideToUndoRedoEvent>(EventTypes.DECIDE_TO_UNDOREDO)
 
-export const subscribeToDecideToZoomFit =
-  createSubscribeEvent<DecideToZoomFitEvent>(EventTypes.DECIDE_TO_ZOOM_FIT)
+// export const subscribeToDecideToZoomFit =
+//   createSubscribeEvent<DecideToZoomFitEvent>(EventTypes.DECIDE_TO_ZOOM_FIT)
 
-export const subscribeToDecideToPanZoom =
-  createSubscribeEvent<DecideToPanZoomEvent>(EventTypes.DECIDE_TO_PAN_ZOOM)
+// export const subscribeToDecideToPanZoom =
+//   createSubscribeEvent<DecideToPanZoomEvent>(EventTypes.DECIDE_TO_PAN_ZOOM)

@@ -1,10 +1,9 @@
 import {
   InputType,
   PointerKey,
-  ModifierKey,
-  PrimaryToolType
+  ModifierKey
 } from '@asyra/utils'
-import { InputSystemEvents } from '../constants'
+import { InputSystemEvents, PrimaryToolType } from '../constants'
 import inputSystem from '@asyra/input-system'
 import keyMap from '@asyra/input-system/src/keymap'
 

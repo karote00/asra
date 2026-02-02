@@ -1,11 +1,8 @@
 import {
   SystemContextSnapshot,
   DetailType,
-  PrimaryToolType,
   PositionData,
   UNDO,
-  PanZoom,
-  MouseSnapshot,
   EVENT_OPTIONS
 } from '@asyra/utils'
 import type { EventTypes } from '../types'
@@ -54,18 +51,12 @@ export interface DecideToEndTransactionEvent {
   type: EventTypes
 }
 
-export interface DecideToSwitchPrimaryToolEvent {
-  type: EventTypes
-  payload: {
-    primaryTool: PrimaryToolType
-  }
-}
 
 export interface DecideToCreateElementEvent {
   type: EventTypes
   payload: {
     position: PositionData
-    elementType: PrimaryToolType
+    elementType: string
   }
 }
 
@@ -81,7 +72,7 @@ export interface DecideToResizeElementEvent {
   payload: {
     dragStart: PositionData
     position: PositionData
-    elementType: PrimaryToolType
+    elementType: string
   }
   options: EVENT_OPTIONS
 }
@@ -90,7 +81,7 @@ export interface DecideToEndResizeElementEvent {
   type: EventTypes
   payload: {
     position: PositionData
-    elementType: PrimaryToolType
+    elementType: string
   }
   options: EVENT_OPTIONS
 }
@@ -102,7 +93,7 @@ export interface DecideToResetElementSizeEvent {
       width: number
       height: number
     }
-    elementType: PrimaryToolType
+    elementType: string
   }
 }
 
@@ -113,22 +104,6 @@ export interface DecideToUndoRedoEvent {
   }
 }
 
-export interface DecideToZoomFitEvent {
-  type: EventTypes
-  payload: {
-    zoom: number
-  }
-}
-
-export interface DecideToPanZoomEvent {
-  type: EventTypes
-  payload: {
-    panzoom: PanZoom
-    mouse: MouseSnapshot['position']
-    wheel: MouseSnapshot['delta']
-  }
-}
-
 export type InteractionCoreEvents =
   | ExecuteActionEvent
   | StartSessionEvent
@@ -136,12 +111,9 @@ export type InteractionCoreEvents =
   | EndSessionEvent
   | DecideToStartTransactionEvent
   | DecideToEndTransactionEvent
-  | DecideToSwitchPrimaryToolEvent
   | DecideToCreateElementEvent
   | DecideToSelectElementsEvent
   | DecideToResizeElementEvent
   | DecideToEndResizeElementEvent
   | DecideToResetElementSizeEvent
   | DecideToUndoRedoEvent
-  | DecideToZoomFitEvent
-  | DecideToPanZoomEvent
