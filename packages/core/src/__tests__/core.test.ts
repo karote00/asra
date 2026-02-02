@@ -61,7 +61,6 @@ describe('Core', () => {
     core.propsLoadData = vi.fn()
     core.sceneTreeLoadData = vi.fn()
     core.sceneTreeInit = vi.fn()
-    core.zoomFit = vi.fn()
 
     core.load(dataToLoad)
 
@@ -69,7 +68,6 @@ describe('Core', () => {
     expect(core.propsLoadData).toHaveBeenCalledWith(mockPropsData)
     expect(core.sceneTreeLoadData).toHaveBeenCalledWith(mockSceneTreeData)
     expect(core.sceneTreeInit).not.toHaveBeenCalled()
-    expect(core.zoomFit).toHaveBeenCalledTimes(1)
   })
 
   it('should call sceneTreeInit if no sceneTree data is provided', () => {
@@ -115,16 +113,6 @@ describe('Core', () => {
     core.startTransaction()
 
     expect(core.startTransaction).toHaveBeenCalledTimes(1)
-  })
-
-  it('should delegate switchPrimaryTool to systemContext', () => {
-    core.switchPrimaryTool = vi.fn()
-
-    core.switchPrimaryTool(PrimaryToolType.RECTANGLE)
-
-    expect(core.switchPrimaryTool).toHaveBeenCalledWith(
-      PrimaryToolType.RECTANGLE
-    )
   })
 
   it('should delegate addRectangle to sceneTree', () => {

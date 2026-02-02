@@ -1,7 +1,6 @@
 import { app, setPixiApp } from '../states/app'
-import { CANVAS_BACKGROUND_COLOR } from '../constants'
+import { CANVAS_BACKGROUND_COLOR, PrimaryToolType } from '../constants'
 import core from '../contexts'
-import { PrimaryToolType } from '@asyra/utils'
 import { decideToSwitchPrimaryTool } from '../init/events/interaction'
 
 export const initRenderApp = async (

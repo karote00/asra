@@ -37,7 +37,7 @@ describe('UIContext', () => {
     expect(uiContext.rotation).toBeInstanceOf(BehaviorSubject)
     expect(uiContext.rotation.getValue()).toBe(0)
     expect(uiContext.primaryTool).toBeInstanceOf(BehaviorSubject)
-    expect(uiContext.primaryTool.getValue()).toBe(PrimaryToolType.SELECT)
+    expect(uiContext.primaryTool.getValue()).toBe('select')
   })
 
   // Test updateElementSelection
@@ -203,16 +203,16 @@ describe('UIContext', () => {
   it('should update primaryTool when tool is different', () => {
     const nextSpy = vi.spyOn(uiContext.primaryTool, 'next')
 
-    uiContext.updatePrimaryTool(PrimaryToolType.RECTANGLE)
+    uiContext.updatePrimaryTool('rectangle')
 
-    expect(nextSpy).toHaveBeenCalledWith(PrimaryToolType.RECTANGLE)
+    expect(nextSpy).toHaveBeenCalledWith('rectangle')
   })
 
   it('should not update primaryTool when tool is the same', () => {
-    uiContext.primaryTool.next(PrimaryToolType.SELECT)
+    uiContext.primaryTool.next('select')
     const nextSpy = vi.spyOn(uiContext.primaryTool, 'next')
 
-    uiContext.updatePrimaryTool(PrimaryToolType.SELECT)
+    uiContext.updatePrimaryTool('select')
 
     expect(nextSpy).not.toHaveBeenCalled()
   })

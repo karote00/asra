@@ -46,7 +46,7 @@ describe('SystemContext', () => {
       dragging: false
     })
     expect(systemContext.getCurrentPrimaryTool()).toEqual(
-      PrimaryToolType.SELECT
+      'select'
     )
   })
 
@@ -64,9 +64,9 @@ describe('SystemContext', () => {
   })
 
   it('should update tool state correctly', () => {
-    systemContext.switchPrimaryTool(PrimaryToolType.RECTANGLE)
+    systemContext.switchPrimaryTool('rectangle')
     expect(systemContext.getCurrentPrimaryTool()).toEqual(
-      PrimaryToolType.RECTANGLE
+      'rectangle'
     )
   })
 

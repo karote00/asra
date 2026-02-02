@@ -19,18 +19,18 @@ describe('PrimaryToolStore', () => {
   })
 
   it('should update primary tool in ui context', () => {
-    primaryToolStore.updatePrimaryTool(PrimaryToolType.RECTANGLE)
+    primaryToolStore.updatePrimaryTool('rectangle')
 
     expect(UIContextModule.default.updatePrimaryTool).toHaveBeenCalledWith(
-      PrimaryToolType.RECTANGLE
+      'rectangle'
     )
   })
 
   it('should update primary tool to SELECT', () => {
-    primaryToolStore.updatePrimaryTool(PrimaryToolType.SELECT)
+    primaryToolStore.updatePrimaryTool('select')
 
     expect(UIContextModule.default.updatePrimaryTool).toHaveBeenCalledWith(
-      PrimaryToolType.SELECT
+      'select'
     )
   })
 })

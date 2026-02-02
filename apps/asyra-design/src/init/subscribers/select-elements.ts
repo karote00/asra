@@ -3,11 +3,11 @@
  */
 
 import { subscribeToDecideToSelectElements } from '../events'
-import { selectElementsBehavior } from './../behaviors/select-elements'
+import { selectionApis } from '../apis'
 
 export const initSelectElementsSubscribers = () => {
   subscribeToDecideToSelectElements((payload) => {
     const { elementIds } = payload as any
-    selectElementsBehavior(elementIds)
+    selectionApis.selectElements(elementIds)
   })
 }

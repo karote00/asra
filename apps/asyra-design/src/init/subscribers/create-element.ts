@@ -3,11 +3,11 @@
  */
 
 import { subscribeToDecideToCreateElement } from '../events'
-import { createElementsBehavior } from './../behaviors/create-element'
+import { sceneTreeApis } from '../apis'
 
 export const initCreateElementSubscribers = () => {
   subscribeToDecideToCreateElement((payload) => {
     const { position, elementType } = payload as any
-    createElementsBehavior(position, elementType)
+    sceneTreeApis.createElements(position, elementType)
   })
 }

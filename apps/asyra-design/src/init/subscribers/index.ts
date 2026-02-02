@@ -9,6 +9,7 @@ import { initSelectElementsSubscribers } from './select-elements'
 import { initPrimaryToolSubscribers } from './primary-tool'
 import { initUndoRedoSubscribers } from './undoredo'
 import { initViewportSubscribers } from './viewport'
+import { initUIContextSubscribers } from './ui-context'
 
 export const initSubscribers = () => {
   initTransactionSubscribers()
@@ -17,4 +18,5 @@ export const initSubscribers = () => {
   initPrimaryToolSubscribers()
   initUndoRedoSubscribers()
   initViewportSubscribers()
+  initUIContextSubscribers()
 }

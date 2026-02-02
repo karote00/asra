@@ -3,12 +3,10 @@
  */
 
 import { subscribeToDecideToSwitchPrimaryTool } from '../events'
-import { systemContextApis, uiContextApis } from '../apis'
+import { systemContextApis } from '../apis'
 
 export const initPrimaryToolSubscribers = () => {
-  subscribeToDecideToSwitchPrimaryTool((payload) => {
-    const primaryTool = payload?.primaryTool
-    systemContextApis.switchPrimaryTool(primaryTool)
-    uiContextApis.switchPrimaryTool(primaryTool)
+  subscribeToDecideToSwitchPrimaryTool((payload: any) => {
+    systemContextApis.switchPrimaryTool(payload.primaryTool)
   })
 }
