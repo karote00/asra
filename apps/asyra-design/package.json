@@ -6,6 +6,7 @@
   "dependencies": {
     "@asyra/core": "workspace:*",
     "@asyra/design-system": "workspace:*",
+    "@asyra/feature-system": "workspace:*",
     "@asyra/reactive-events": "workspace:*",
     "@asyra/ui-context": "workspace:*",
     "@asyra/utils": "workspace:*",

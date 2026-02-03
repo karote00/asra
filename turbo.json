@@ -35,6 +35,7 @@
       "dependsOn": [
         "^build:core",
         "^build:design-system",
+        "^build:feature-system",
         "^build:reactive-events",
         "^build:ui-context",
         "^build:utils"
