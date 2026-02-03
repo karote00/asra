@@ -26,6 +26,9 @@ export { SessionManager } from './core/session-manager'
 // Types
 export * from './types'
 
+// Utils and Templates
+export * from './utils'
+
 // Re-export for convenience
 export type {
   FeatureDefinition,
