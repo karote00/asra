@@ -47,6 +47,7 @@
       ],
       "dependsOn": [
         "^build:factory",
+        "^build:feature-system",
         "^build:input-system",
         "^build:interaction-core",
         "^build:props-manager",
