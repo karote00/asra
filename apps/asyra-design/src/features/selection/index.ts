@@ -2,8 +2,9 @@
  * Selection Feature
  * Manages element selection with transaction support
  */
+// @ts-ignore - feature-system integration
 import core from '../../contexts'
-// @ts-ignore - feature-system not fully integrated yet
+// @ts-ignore
 import { defineFeature, importFeature } from '@asyra/feature-system'
 
 const packages = core.deps
