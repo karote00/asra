@@ -46,7 +46,7 @@ export default class BaseSelection {
     this.changes.push({
       action,
       owner: OWNER.ELEMENT_SELECTION,
-      eventName: EventTypes.SELECT_ELEMENTS,
+      eventName: 'selectElements',
       before,
       after
     })

@@ -1,14 +1,25 @@
-import type { SelectionYjsChange } from '@asyra/utils'
-import { SELECTION_ACTIONS, SELECTION_TYPES } from '@asyra/utils'
-import factory from '@asyra/factory'
-import {
-  finishRequestElementSelection,
-  subscribeToRequestElementSelection
-} from '@asyra/reactive-events'
-import SelectionStore from '../stores/selection'
-import uiContext from '../ui-context'
+/**
+ * Subscribers - Simple forwarding layer
+ */
 
-export const selectionStore = new SelectionStore()
+import { UIContext } from '@asyra/ui-context'
+import { SELECTION_ACTIONS, SELECTION_TYPES, SelectionYjsChange } from '@asyra/utils'
+import { subscribeToDecideToSelectElements, subscribeToDecideToSwitchPrimaryTool } from '../../events'
+import { uiContextApis } from '../../apis'
+import { factory, systemContext } from '../../../contexts'
+
+export const initUIContextSubscribers = () => {
+  subscribeToDecideToSwitchPrimaryTool(() => {
+    const newPrimaryTool = systemContext.getCurrentPrimaryTool()
+    uiContextApis.switchPrimaryTool(newPrimaryTool)
+  })
+
+  subscribeToDecideToSelectElements(() => {
+
+  })
+}
+
+const selectionStore = UIContext.createSelectionStore()
 
 const updateUIElementSelection = (change: SelectionYjsChange['payload']) => {
   switch (change.action) {
@@ -24,7 +35,7 @@ const updateUIElementSelection = (change: SelectionYjsChange['payload']) => {
 }
 
 // @ts-expect-error: It's YJS event
-export const collectElementSelectionChange = (event) => {
+const collectElementSelectionChange = (event) => {
   console.log('collectElementSelectionChange')
   const processChanges = (
     items: typeof event.changes.added | typeof event.changes.deleted
@@ -41,7 +52,8 @@ export const collectElementSelectionChange = (event) => {
 
 let hasInit = false
 
-export const initSelectionDataSubscribe = () => {
+export const initSelectionYJSDataSubscribe = () => {
+  console.log('initSelectionYJSDataSubscribe')
   if (hasInit) {
     return
   }
@@ -49,9 +61,9 @@ export const initSelectionDataSubscribe = () => {
   const elementSelectionArray = factory.elementSelectionMap
   elementSelectionArray.observe(collectElementSelectionChange)
 
-  subscribeToRequestElementSelection(() => {
-    finishRequestElementSelection(uiContext.elementSelection.getValue())
-  })
+  // subscribeToRequestElementSelection(() => {
+  //   finishRequestElementSelection(uiContext.elementSelection.getValue())
+  // })
 
   hasInit = true
 }

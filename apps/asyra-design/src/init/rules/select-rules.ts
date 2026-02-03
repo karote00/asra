@@ -1,6 +1,6 @@
 import type { DecisionResult } from '@asyra/interaction-core'
-import { decideToSelectElements } from '@asyra/reactive-events'
 import { MouseButton, SystemContextSnapshot } from '@asyra/utils'
+import { decideToSelectElements } from '../events'
 
 export const decideFromSelectRules = (
   systemContextSnapshot: SystemContextSnapshot

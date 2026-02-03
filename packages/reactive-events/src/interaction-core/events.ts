@@ -60,13 +60,6 @@ export interface DecideToCreateElementEvent {
   }
 }
 
-export interface DecideToSelectElementsEvent {
-  type: EventTypes
-  payload: {
-    elementIds: string[]
-  }
-}
-
 export interface DecideToResizeElementEvent {
   type: EventTypes
   payload: {
@@ -112,7 +105,6 @@ export type InteractionCoreEvents =
   | DecideToStartTransactionEvent
   | DecideToEndTransactionEvent
   | DecideToCreateElementEvent
-  | DecideToSelectElementsEvent
   | DecideToResizeElementEvent
   | DecideToEndResizeElementEvent
   | DecideToResetElementSizeEvent

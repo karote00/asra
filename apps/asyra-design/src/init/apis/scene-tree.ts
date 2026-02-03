@@ -1,6 +1,6 @@
 import { EntityTypes, PositionData } from "@asyra/utils"
 import { factory, render, sceneTree } from "../../contexts"
-import { startTransaction, endTransaction, selectElements } from "../events"
+import { startTransaction, endTransaction, decideToSelectElements } from "../events"
 import { PrimaryToolType } from "../../constants"
 
 export const sceneTreeApis = {
@@ -24,7 +24,7 @@ export const sceneTreeApis = {
       -1,
       inUndoRedo
     )
-    selectElements([newElementId])
+    decideToSelectElements([newElementId])
     endTransaction()
   },
   createElements: (

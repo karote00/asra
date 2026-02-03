@@ -50,6 +50,7 @@ class DataTransact {
   }
 
   update(event: UpdateTransactionEvent) {
+    console.log('update', event)
     if (this.isTransacting <= 0) {
       return
     }

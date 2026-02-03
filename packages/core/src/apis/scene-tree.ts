@@ -1,6 +1,5 @@
 import {
   endTransaction,
-  selectElements,
   startTransaction,
   sceneTreeLoadComplete,
   changeComputedData,
@@ -43,7 +42,7 @@ export const createSceneTreeAPIs = (
       startTransaction()
       const inUndoRedo = factoryRequests.isInUndoRedo()
       const newElementId = sceneTreeRequests.addRectangle(data, inUndoRedo)
-      selectElements([newElementId])
+      // selectElements([newElementId])
       endTransaction()
     },
     changeComputedData(key: string, data: DataTypes) {

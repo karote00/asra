@@ -19,7 +19,6 @@ import {
   ViewportAPIs,
   UndoActionAPIs,
   SceneTreeAPIs,
-  ElementSelectionAPIs,
   PropsAPIs,
   SystemContextAPIs,
   InteractionCoreAPIs,
@@ -76,7 +75,6 @@ class Core implements CoreAPIs {
   addRectangle!: SceneTreeAPIs['addRectangle']
   changeComputedData!: SceneTreeAPIs['changeComputedData']
   resizeElement!: SceneTreeAPIs['resizeElement']
-  selectElements!: ElementSelectionAPIs['selectElements']
 
   propsLoadData!: PropsAPIs['propsLoadData']
   propsSaveData!: PropsAPIs['propsSaveData']

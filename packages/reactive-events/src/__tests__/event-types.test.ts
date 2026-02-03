@@ -4,8 +4,7 @@ import {
   CoreEventTypes,
   InteractionCoreEventTypes,
   SceneTreeEventTypes,
-  TransactionEventTypes,
-  SelectionEventTypes
+  TransactionEventTypes
 } from '../types'
 
 describe('Event Types - System Communication Contract', () => {
@@ -38,24 +37,6 @@ describe('Event Types - System Communication Contract', () => {
       // Shows how user interactions flow through the system
       expect(EventTypes.EXECUTE_ACTION).toBe('executeAction')
       expect(EventTypes.START_SESSION).toBe('startSession')
-    })
-
-    it('should demonstrate decision events for interaction outcomes', () => {
-      // Demonstrates: How interaction decisions are communicated
-      const decisionEvents = [
-        InteractionCoreEventTypes.DECIDE_TO_CREATE_ELEMENT,
-        InteractionCoreEventTypes.DECIDE_TO_SELECT_ELEMENTS,
-        InteractionCoreEventTypes.DECIDE_TO_RESIZE_ELEMENT,
-        InteractionCoreEventTypes.DECIDE_TO_UNDOREDO
-      ]
-
-      // These events represent decisions made by the interaction core
-      expect(decisionEvents).toEqual([
-        'decideToCreateElement',
-        'decideToSelectElements',
-        'decideToResizeElement',
-        'decideToUndoRedo'
-      ])
     })
   })
 
@@ -103,16 +84,6 @@ describe('Event Types - System Communication Contract', () => {
     })
   })
 
-  describe('selection events', () => {
-    it('should demonstrate element selection communication', () => {
-      // Demonstrates: How element selection is communicated across components
-      expect(SelectionEventTypes.SELECT_ELEMENTS).toBe('selectElements')
-      expect(EventTypes.SELECT_ELEMENTS).toBe('selectElements')
-
-      // This event is critical for UI synchronization
-    })
-  })
-
   describe('event type consolidation', () => {
     it('should demonstrate unified event type system', () => {
       // Demonstrates: All event types are consolidated into single EventTypes object
@@ -132,9 +103,6 @@ describe('Event Types - System Communication Contract', () => {
       // Transaction events
       expect(EventTypes.START_TRANSACTION).toBeDefined()
       expect(EventTypes.UNDO).toBeDefined()
-
-      // Selection events
-      expect(EventTypes.SELECT_ELEMENTS).toBeDefined()
     })
 
     it('should ensure no event type conflicts exist', () => {

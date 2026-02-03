@@ -1,8 +1,4 @@
 import { TransactionAPIs, TransactionActionAPIs } from './transaction'
-import {
-  ElementSelectionAPIs,
-  ElementSelectionActionAPIs
-} from './element-selection'
 import { InputSystemAPIs, InputSystemRawAPIs } from './input-system'
 import { RenderAPIs, RenderRawAPIs } from './render'
 import {
@@ -15,8 +11,6 @@ import { ViewportAPIs } from './viewport'
 import { PropsAPIs, PropsRawAPIs } from './props'
 import {
   SystemContextAPIs,
-  PrimaryToolActionAPIs,
-  PrimaryToolAPIs,
   MouseStateAPIs,
   KeyStateAPIs
 } from './system-context'
@@ -59,12 +53,8 @@ export {
   SceneTreeAPIs,
   SceneTreeActionAPIs,
   SceneTreeHandlerAPIs,
-  ElementSelectionActionAPIs,
-  ElementSelectionAPIs,
   PropsRawAPIs,
   PropsAPIs,
-  PrimaryToolActionAPIs,
-  PrimaryToolAPIs,
   MouseStateAPIs,
   SystemContextAPIs,
   InteractionCoreActionAPIs,
@@ -95,7 +85,6 @@ export type CoreAPIs = TransactionAPIs &
   ViewportAPIs &
   RenderAPIs &
   SceneTreeAPIs &
-  ElementSelectionAPIs &
   PropsAPIs &
   SystemContextAPIs &
   InteractionCoreAPIs

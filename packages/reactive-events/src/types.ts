@@ -48,11 +48,6 @@ export enum TransactionEventTypes {
   END_TRANSACTION = 'endTransaction'
 }
 
-// Selection
-export enum SelectionEventTypes {
-  SELECT_ELEMENTS = 'selectElements'
-}
-
 // Properties
 export enum PropsEventTypes {
   PROPS_LOAD_DATA = 'propsLoadData',
@@ -75,18 +70,12 @@ export enum ViewportEventTypes {
   FINISH_REQUEST_VIEWPORT_POSITION = 'finishRequestViewportPosition',
   REQUEST_VIEWPORT_SCALE = 'requestViewportScale',
   FINISH_REQUEST_VIEWPORT_SCALE = 'finishRequestViewportScale',
-  ZOOM_FIT = 'zoomFit',
-  EMIT_ZOOM_FIT = 'emitZoomFit',
-  PAN_TO = 'panTo',
-  ZOOM_TO_CENTER = 'zoomToCenter',
   REQUEST_RENDER_ZOOM = 'requestRenderZoom',
   FINISH_REQUEST_RENDER_ZOOM = 'finishRequestRenderZoom'
 }
 
 // PrimaryTool
 export enum PrimaryToolEventTypes {
-  SWITCH_PRIMARY_TOOL = 'switchPrimaryTool',
-  EMIT_SWITCH_PRIMARY_TOOL = 'emitSwitchPrimaryTool',
   REQUEST_CURRENT_PRIMARY_TOOL = 'requestCurrentPrimaryTool',
   FINISH_REQUEST_CURRENT_PRIMARY_TOOL = 'finishRequestCurrentPrimaryTool'
 }
@@ -115,15 +104,11 @@ export enum InteractionCoreEventTypes {
   END_SESSION = 'endSession',
   DECIDE_TO_START_TRANSACTION = 'decideToStartTransaction',
   DECIDE_TO_END_TRANSACTION = 'decideToEndTransaction',
-  DECIDE_TO_SWITCH_PRIMARY_TOOL = 'decideToSwitchPrimaryTool',
   DECIDE_TO_CREATE_ELEMENT = 'decideToCreateElement',
-  DECIDE_TO_SELECT_ELEMENTS = 'decideToSelectElements',
   DECIDE_TO_RESIZE_ELEMENT = 'decideToResizeElement',
   DECIDE_TO_END_RESIZE_ELEMENT = 'decideToEndResizeElement',
   DECIDE_TO_RESET_ELEMENT_SIZE = 'decideToResetElementSize',
-  DECIDE_TO_UNDOREDO = 'decideToUndoRedo',
-  DECIDE_TO_ZOOM_FIT = 'decideToZoomFit',
-  DECIDE_TO_PAN_ZOOM = 'decideToPanZoom'
+  DECIDE_TO_UNDOREDO = 'decideToUndoRedo'
 }
 
 // SystemContext
@@ -145,7 +130,6 @@ export const EventTypes = {
   ...ElementEventTypes,
   ...UndoRedoEventTypes,
   ...TransactionEventTypes,
-  ...SelectionEventTypes,
   ...PropsEventTypes,
   ...UIContextEventTypes,
   ...ViewportEventTypes,
