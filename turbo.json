@@ -86,9 +86,7 @@
       ],
       "dependsOn": [
         "^build:reactive-events",
-        "^build:utils",
-        "^build:core",
-        "^build:input-system"
+        "^build:utils"
       ]
     },
     "build:input-system": {

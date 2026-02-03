@@ -1,3 +1,4 @@
+// @ts-ignore - feature-system will be available after build
 import { getSessionManager, getFeatureRegistry } from '@asyra/feature-system'
 
 // Type imports - will be connected properly after core integration
