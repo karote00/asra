@@ -48,6 +48,7 @@ __metadata:
   dependencies:
     "@asyra/core": "workspace:*"
     "@asyra/design-system": "workspace:*"
+    "@asyra/feature-system": "workspace:*"
     "@asyra/reactive-events": "workspace:*"
     "@asyra/ui-context": "workspace:*"
     "@asyra/utils": "workspace:*"
@@ -83,6 +84,7 @@ __metadata:
   resolution: "@asyra/core@workspace:packages/core"
   dependencies:
     "@asyra/factory": "workspace:*"
+    "@asyra/feature-system": "workspace:*"
     "@asyra/input-system": "workspace:*"
     "@asyra/interaction-core": "workspace:*"
     "@asyra/props-manager": "workspace:*"
@@ -141,6 +143,18 @@ __metadata:
     typescript: "npm:^5.7.2"
     vitest: "npm:^2.1.8"
     yjs: "npm:13.6.20"
+  languageName: unknown
+  linkType: soft
+
+"@asyra/feature-system@workspace:*, @asyra/feature-system@workspace:packages/feature-system":
+  version: 0.0.0-use.local
+  resolution: "@asyra/feature-system@workspace:packages/feature-system"
+  dependencies:
+    "@asyra/reactive-events": "workspace:*"
+    "@asyra/utils": "workspace:*"
+    "@vitest/coverage-v8": "npm:^2.1.8"
+    typescript: "npm:^5.7.2"
+    vitest: "npm:^2.1.8"
   languageName: unknown
   linkType: soft
 

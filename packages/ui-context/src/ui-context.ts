@@ -2,7 +2,6 @@ import { BehaviorSubject } from 'rxjs'
 import { ComputedAttrs, MIXED_STRING } from '@asyra/utils'
 import { isEqual } from 'lodash'
 import { ElementProperties } from './types'
-import SelectionStore from './stores/selection'
 
 const generalKeysToCompare: (keyof ElementProperties)[] = [
   'x',
@@ -42,10 +41,6 @@ class UIContext {
     this.primaryTool = new BehaviorSubject<string>(
       'select'
     )
-  }
-
-  static createSelectionStore() {
-    return new SelectionStore()
   }
 
   updateElementSelection(selectedIds: Set<string>) {
