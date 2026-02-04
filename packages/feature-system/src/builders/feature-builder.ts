@@ -14,8 +14,10 @@ const pendingHandlerRegistrations: {
 let isPackagesSet = false
 
 export function setCorePackages(packages: any) {
+  console.log('[setCorePackages] Setting core packages:', Object.keys(packages))
   corePackages = packages
   isPackagesSet = true
+  console.log('[setCorePackages] isPackagesSet:', isPackagesSet)
 
   if (pendingHandlerRegistrations.length > 0) {
     console.log(
