@@ -70,7 +70,6 @@ export default class SceneTreeStore {
         this.addToMap(id, new BehaviorSubject(element.save() as UIElementData))
       }
     })
-
     this.updateFlattenedElementIds()
   }
 

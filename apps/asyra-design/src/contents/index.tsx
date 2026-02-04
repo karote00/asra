@@ -10,7 +10,6 @@ const Contents: React.FC = () => {
   const parentRef = useRef<HTMLDivElement>(null)
   const flattenedIds = useFlattenedIdsData()
   const elementSelection = useElementSelection()
-
   const rowVirtualizer = useVirtualizer({
     count: flattenedIds.length,
     getScrollElement: () => parentRef.current,
