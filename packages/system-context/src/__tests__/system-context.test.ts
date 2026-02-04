@@ -5,11 +5,7 @@ import { MouseState } from '../states/mouse-state'
 import { PrimaryToolState } from '../states/primary-tool-state'
 import { SystemState } from '../states/system-state'
 import { TargetState } from '../states/target-state'
-import {
-  DefaultKeySnapshot,
-  DefaultPosition,
-  MouseButton
-} from '@asyra/utils'
+import { DefaultKeySnapshot, DefaultPosition, MouseButton } from '@asyra/utils'
 
 describe('SystemContext', () => {
   let systemContext: SystemContext
@@ -45,9 +41,7 @@ describe('SystemContext', () => {
       down: false,
       dragging: false
     })
-    expect(systemContext.getCurrentPrimaryTool()).toEqual(
-      'select'
-    )
+    expect(systemContext.getCurrentPrimaryTool()).toEqual('select')
   })
 
   it('should update mouse state correctly', () => {
@@ -65,9 +59,7 @@ describe('SystemContext', () => {
 
   it('should update tool state correctly', () => {
     systemContext.switchPrimaryTool('rectangle')
-    expect(systemContext.getCurrentPrimaryTool()).toEqual(
-      'rectangle'
-    )
+    expect(systemContext.getCurrentPrimaryTool()).toEqual('rectangle')
   })
 
   it('should update key state correctly', () => {

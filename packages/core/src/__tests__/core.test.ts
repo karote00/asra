@@ -7,7 +7,7 @@ import props from '@asyra/props-manager'
 import selection from '@asyra/selection'
 import systemContext from '@asyra/system-context'
 import interactionCore from '@asyra/interaction-core'
-import { PrimaryToolType, PropsComponentRawData, Unit } from '@asyra/utils'
+import { PropsComponentRawData, Unit } from '@asyra/utils'
 
 import { Core } from '../core'
 

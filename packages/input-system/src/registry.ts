@@ -13,6 +13,18 @@ export class InputSystemRegistry {
   }
 
   /**
+   * Register multiple events from a config object
+   * @param combinations - Config object with event names as keys
+   */
+  registerKeyCombinations(
+    combinations: Record<string, InputEventCombo[]>
+  ): void {
+    for (const [eventName, combos] of Object.entries(combinations)) {
+      this.register(eventName, combos)
+    }
+  }
+
+  /**
    * Get all registered event names
    */
   getEventNames(): string[] {

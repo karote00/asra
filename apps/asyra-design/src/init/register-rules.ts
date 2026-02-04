@@ -7,7 +7,6 @@ import core from '@asyra/core'
 import {
   decideFromCreateElementRules,
   decideFromSelectRules,
-  decideFromSwitchPrimaryToolRules,
   decideZoomFitRules,
   decidePanZoomRules,
   decideUndoRedoRules,
@@ -47,16 +46,6 @@ export const registerRules = () => {
     }
     return null
   })
-
-  core.registerInteraction(
-    'input.shortcut.switchPrimaryTool',
-    (snapshot, detail) => {
-      console.log('[DEBUG] input.shortcut.switchPrimaryTool triggered', {
-        detail
-      })
-      return decideFromSwitchPrimaryToolRules(detail)
-    }
-  )
 
   core.registerInteraction('input.wheel.scroll', (snapshot, raw) => {
     const keySnapshot = {

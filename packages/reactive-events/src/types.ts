@@ -34,6 +34,11 @@ export enum ElementEventTypes {
   CHANGE_COMPUTED_DATA = 'changeComputedData'
 }
 
+// Selection
+export enum SelectionEventTypes {
+  SELECT_ELEMENTS = 'selectElements'
+}
+
 // Undo
 export enum UndoRedoEventTypes {
   UNDO = 'undo',
@@ -128,6 +133,7 @@ export const EventTypes = {
   ...FileEventTypes,
   ...SceneTreeEventTypes,
   ...ElementEventTypes,
+  ...SelectionEventTypes,
   ...UndoRedoEventTypes,
   ...TransactionEventTypes,
   ...PropsEventTypes,

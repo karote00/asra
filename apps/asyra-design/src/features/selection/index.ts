@@ -1,60 +1,46 @@
-/**
- * Selection Feature
- * Manages element selection with transaction support
- */
-// @ts-ignore - feature-system integration
 import core from '../../contexts'
-// @ts-ignore
-import { defineFeature, importFeature } from '@asyra/feature-system'
+import { defineFeature } from '@asyra/feature-system'
 
-const packages = core.deps
-
-export const selectionFeature: any = defineFeature(
-  'selection',
-  ({ packages, importFeature }: any) => ({
-    api: {
-      selectElements: (ids: string[]) => {
-        const txn = importFeature('transaction')
-        txn.start()
-        packages.selection.selectElements(ids)
-        txn.end()
-      },
-      toggleSelection: (id: string) => {
-        const txn = importFeature('transaction')
-        txn.start()
-        const current = packages.selection.getElementSelectionIds()
-        if (current.includes(id)) {
-          packages.selection.deselectElements([id])
-        } else {
-          packages.selection.selectElements([id])
-        }
-        txn.end()
-      },
-      clearSelection: () => {
-        const txn = importFeature('transaction')
-        txn.start()
-        packages.selection.clearSelection()
-        txn.end()
-      },
-      getSelectedIds: () => packages.selection.getElementSelectionIds()
+export const selectionFeature = defineFeature('selection', undefined, {
+  name: 'selection',
+  api: {
+    selectElements: (ids: string[]) => {
+      core.deps.selection.setElementSelection(ids)
     },
-    define: ({ on }: any) => {
-      on('select_single', ({ elementId }: any) => {
-        const api = selectionFeature.api as any
-        api.selectElements([elementId])
-      })
+    toggleSelection: (id: string) => {
+      const current = core.deps.selection.getElementSelectionIds()
+      if (current.includes(id)) {
+        const idx = current.indexOf(id)
+        const newSelected = [
+          ...current.slice(0, idx),
+          ...current.slice(idx + 1)
+        ]
+        core.deps.selection.setElementSelection(newSelected)
+      } else {
+        core.deps.selection.setElementSelection([...current, id])
+      }
+    },
+    clearSelection: () => {
+      core.deps.selection.setElementSelection([])
+    },
+    getSelectedIds: () => core.deps.selection.getElementSelectionIds()
+  },
+  define: ({ on }: any) => {
+    on('select_single', ({ elementId }: any) => {
+      const api = selectionFeature.api as any
+      api.selectElements([elementId])
+    })
 
-      on('toggle_selection', ({ elementId }: any) => {
-        const api = selectionFeature.api as any
-        api.toggleSelection(elementId)
-      })
+    on('toggle_selection', ({ elementId }: any) => {
+      const api = selectionFeature.api as any
+      api.toggleSelection(elementId)
+    })
 
-      on('clear_selection', () => {
-        const api = selectionFeature.api as any
-        api.clearSelection()
-      })
-    }
-  })
-)
+    on('clear_selection', () => {
+      const api = selectionFeature.api as any
+      api.clearSelection()
+    })
+  }
+})
 
 export default selectionFeature

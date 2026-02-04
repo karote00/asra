@@ -51,7 +51,6 @@ export interface DecideToEndTransactionEvent {
   type: EventTypes
 }
 
-
 export interface DecideToCreateElementEvent {
   type: EventTypes
   payload: {

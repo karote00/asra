@@ -1,11 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { UIContext } from '../ui-context'
 import { BehaviorSubject } from 'rxjs'
-import {
-  ComputedAttrs,
-  MIXED_STRING,
-  EntityTypes
-} from '@asyra/utils'
+import { ComputedAttrs, MIXED_STRING, EntityTypes } from '@asyra/utils'
 
 describe('UIContext', () => {
   let uiContext: UIContext

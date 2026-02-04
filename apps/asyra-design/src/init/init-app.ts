@@ -3,6 +3,7 @@ import { initInputSystem } from './init-input-system'
 import { initInteractions } from './init-interactions'
 import { initWorkflows } from './init-workflows'
 import { initSubscribers } from './subscribers'
+import { initFeatures } from './init-features'
 
 /**
  * Initializes all framework components and configurations.
@@ -26,6 +27,7 @@ import { initSubscribers } from './subscribers'
  * ```
  */
 export const initApp = (): void => {
+  console.log('[initApp] Starting...')
   initInputSystem()
   initWorkflows()
   initInteractions()
@@ -33,6 +35,11 @@ export const initApp = (): void => {
 
   core.initEventHandlers()
 
+  // Initialize feature-system for application-level features
+  console.log('[initApp] Initializing feature-system...')
+  initFeatures()
+
+  console.log('[initApp] Complete')
   // Future: More framework initialization can be added here
   // initRender()
   // initCustomPlugins()

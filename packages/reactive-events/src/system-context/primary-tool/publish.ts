@@ -5,7 +5,6 @@ import { subscribeToFinishRequestCurrentPrimaryTool } from './subscribes'
 import { publishEvent } from '../../event-bus'
 import { EventTypes } from '../../types'
 
-
 export const requestCurrentPrimaryTool = () => {
   return new Promise<string>((resolve) => {
     const requestId = generateRequestId()

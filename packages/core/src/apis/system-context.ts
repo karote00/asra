@@ -1,8 +1,5 @@
 import { MouseSnapshot, KeySnapshot } from '@asyra/utils'
-import {
-  updateKeyState,
-  updateMouseState
-} from '@asyra/reactive-events'
+import { updateKeyState, updateMouseState } from '@asyra/reactive-events'
 import { SystemContextAPIs } from '../types'
 
 export const createSystemContextAPIs = (): SystemContextAPIs => {

@@ -10,6 +10,7 @@ import interactionCore, {
   InteractionCore,
   DecisionHandler
 } from '@asyra/interaction-core'
+import type { FeatureSystemAPIs } from './types/feature-system'
 
 import { initRegistryInputHandler } from './registry-input-handler'
 import {
@@ -88,6 +89,8 @@ class Core implements CoreAPIs {
   startSession!: InteractionCoreAPIs['startSession']
   updateSession!: InteractionCoreAPIs['updateSession']
   endSession!: InteractionCoreAPIs['endSession']
+
+  initFeatureSystem!: FeatureSystemAPIs['initFeatureSystem']
 
   workflowRegistry = new WorkflowRegistryClass()
   handlerRegistryInstance = globalHandlerRegistry

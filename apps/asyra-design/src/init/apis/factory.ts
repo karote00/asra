@@ -1,5 +1,5 @@
-import { EventTypes, UpdateTransactionEvent } from "@asyra/reactive-events"
-import { factory } from "../../contexts"
+import { EventTypes, UpdateTransactionEvent } from '@asyra/reactive-events'
+import { factory } from '../../contexts'
 
 export const factoryApis = {
   startTransaction: () => {

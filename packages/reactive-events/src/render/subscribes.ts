@@ -8,7 +8,7 @@ import type {
   // PanToEvent,
   RequestRenderZoomEvent,
   RequestViewportPositionEvent,
-  RequestViewportScaleEvent,
+  RequestViewportScaleEvent
   // ZoomFitEvent,
   // ZoomToCenterEvent
 } from './events'

@@ -2,8 +2,8 @@
  * App-level viewport behaviors
  */
 
-import { MouseSnapshot, PanZoom, ZOOM_SMOOTH_RATIO } from "@asyra/utils"
-import { render } from "../../contexts"
+import { MouseSnapshot, PanZoom, ZOOM_SMOOTH_RATIO } from '@asyra/utils'
+import { render } from '../../contexts'
 
 export const viewportApis = {
   zoomFit: () => {
@@ -17,11 +17,7 @@ export const viewportApis = {
     const currentPosition = render.getViewportPosition()
     render.panTo(currentPosition.x - x, currentPosition.y - y)
   },
-  zoomToCenter: (
-    scale: number,
-    clientX: number,
-    clientY: number
-  ) => {
+  zoomToCenter: (scale: number, clientX: number, clientY: number) => {
     render.zoomToCenter(scale, clientX, clientY)
   },
   panZoom: (

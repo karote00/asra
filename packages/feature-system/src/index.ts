@@ -16,20 +16,18 @@ export {
   registerFeature,
   unregisterFeature,
   getFeatureRegistry,
-  getSessionManager
+  getSessionManager,
+  setCorePackagesAndProcessRegistrations
 } from './core/feature'
 
-// Core implementations
 export { FeatureRegistry } from './core/feature-registry'
 export { SessionManager } from './core/session-manager'
 
-// Types
 export * from './types'
+export type { FeatureKeyMap } from './types/feature'
 
-// Utils and Templates
 export * from './utils'
 
-// Re-export for convenience
 export type {
   FeatureDefinition,
   FeatureAPI,

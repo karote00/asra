@@ -38,9 +38,7 @@ class UIContext {
     this.rotation = new BehaviorSubject<ElementProperties['rotation']>(0)
     // this.fills = new BehaviorSubject<ElementProperties['fills']>([])
 
-    this.primaryTool = new BehaviorSubject<string>(
-      'select'
-    )
+    this.primaryTool = new BehaviorSubject<string>('select')
   }
 
   updateElementSelection(selectedIds: Set<string>) {

@@ -16,7 +16,7 @@ export const createViewportAPIs = (
     },
     getViewportScale() {
       return renderRequests.getViewportScale()
-    },
+    }
     // zoomFit() {
     //   const centerDiv = document.querySelector('#viewport-anchor')
     //   const uiBounds = centerDiv?.getBoundingClientRect()

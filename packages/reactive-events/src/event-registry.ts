@@ -26,7 +26,7 @@ interface EventRegistration {
  * myEvent.subscribe().unsubscribe()  // Cleanup
  * ```
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 export const eventRegistry = {
   register(eventName: string): EventRegistration {
     return {

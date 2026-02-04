@@ -1,7 +1,11 @@
-import { EntityTypes, PositionData } from "@asyra/utils"
-import { factory, render, sceneTree } from "../../contexts"
-import { startTransaction, endTransaction, decideToSelectElements } from "../events"
-import { PrimaryToolType } from "../../constants"
+import { EntityTypes, PositionData } from '@asyra/utils'
+import { factory, render, sceneTree } from '../../contexts'
+import {
+  startTransaction,
+  endTransaction,
+  decideToSelectElements
+} from '../events'
+import { PrimaryToolType } from '../../constants'
 
 export const sceneTreeApis = {
   createRectangle: (position: PositionData) => {
@@ -27,10 +31,7 @@ export const sceneTreeApis = {
     decideToSelectElements([newElementId])
     endTransaction()
   },
-  createElements: (
-    position: PositionData,
-    elementType: PrimaryToolType
-  ) => {
+  createElements: (position: PositionData, elementType: PrimaryToolType) => {
     switch (elementType) {
       case PrimaryToolType.RECTANGLE:
         sceneTreeApis.createRectangle(position)

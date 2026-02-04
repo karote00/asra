@@ -1,17 +1,20 @@
 import type { SystemContextSnapshot } from '@asyra/utils'
+import { KeyboardKey, ModifierKey, DetailType } from '@asyra/utils'
 
-/**
- * Feature definition interface
- * Features are self-contained capabilities with public APIs and internal setup
- */
+export type FeatureKeyMap = Record<
+  string,
+  {
+    keys: KeyboardKey[]
+    modifiers?: ModifierKey[]
+    event: string
+    detail?: DetailType
+  }
+>
+
 export interface FeatureDefinition<API = Record<string, any>> {
-  /** Unique feature name */
   name: string
-  /** Public API exposed to other features */
   api?: API
-  /** Internal feature setup logic */
   define: (builder: FeatureBuilder) => void
-  /** Optional metadata about the feature */
   metadata?: {
     version?: string
     description?: string
@@ -19,15 +22,9 @@ export interface FeatureDefinition<API = Record<string, any>> {
   }
 }
 
-/** API that features expose to other features */
 export type FeatureAPI<T = Record<string, any>> = T
 
-/**
- * Builder provided to feature definitions
- * Gives features access to packages, events, keys, handlers, and sessions
- */
 export interface FeatureBuilder {
-  /** Package access (injected from core) */
   packages: {
     factory: any
     sceneTree: any
@@ -36,40 +33,29 @@ export interface FeatureBuilder {
     props: any
     systemContext: any
     viewport: any
+    inputSystem: any
+    interactionCore: any
+    core?: any
   }
-
-  /** Event operations */
   events: {
     register: (name: string) => EventRegistration
     emit: (name: string, payload?: unknown, options?: unknown) => void
     subscribe: (name: string, handler: EventHandler) => Subscription
   }
-
-  /** Key combination registration */
   keys: (combos: KeyCombo[]) => void
-
-  /** Interaction handler registration */
   handle: (eventName: string, handler: InteractionHandler) => void
-
-  /** Event subscriber (auto-wiring) */
   on: (eventName: string, handler: EventHandler) => void
-
-  /** Import other features' APIs */
   importFeature: (featureName: string) => FeatureAPI
-
-  /** Session builder */
   session: {
     start: <T>(
       sessionName: string,
       config?: SessionConfig,
-      onStart?: SessionStartHandler<T>,
-      onUpdate?: SessionUpdateHandler<T>,
-      onEnd?: SessionEndHandler<T>
+      onStart?: any,
+      onUpdate?: any,
+      onEnd?: any
     ) => void
   }
 }
-
-/** Supporting types for FeatureBuilder */
 
 export interface KeyCombo {
   keys: string
@@ -77,9 +63,9 @@ export interface KeyCombo {
   meta?: any
 }
 
-export type InteractionHandler = {
-  (snapshot: SystemContextSnapshot): DecisionResult
-}
+export type InteractionHandler = (
+  snapshot: SystemContextSnapshot
+) => DecisionResult
 
 export interface DecisionResult {
   event?: string
@@ -97,9 +83,10 @@ export interface EventRegistration {
   ) => Subscription
 }
 
-export type Subscription = { unsubscribe: () => void }
+export interface Subscription {
+  unsubscribe: () => void
+}
 
-// Session types needed before session.ts
 export interface SessionConfig {
   priority?: number
   exclusive?: boolean

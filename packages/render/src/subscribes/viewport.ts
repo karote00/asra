@@ -5,7 +5,7 @@ import {
   // subscribeToPanTo,
   subscribeToRequestRenderZoom,
   subscribeToRequestViewportPosition,
-  subscribeToRequestViewportScale,
+  subscribeToRequestViewportScale
   // subscribeToZoomFit,
   // subscribeToZoomToCenter
 } from '@asyra/reactive-events'

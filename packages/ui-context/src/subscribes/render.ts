@@ -1,5 +1,5 @@
 import {
-  requestRenderZoom,
+  requestRenderZoom
   // subscribeToEmitZoomFit
 } from '@asyra/reactive-events'
 import RenderStore from '../stores/render'

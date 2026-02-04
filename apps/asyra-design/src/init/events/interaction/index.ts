@@ -4,12 +4,7 @@
  */
 
 import { eventRegistry } from '@asyra/reactive-events'
-import type {
-  PositionData,
-  EVENT_OPTIONS,
-  UNDO,
-  PanZoom
-} from '@asyra/utils'
+import type { PositionData, EVENT_OPTIONS, UNDO, PanZoom } from '@asyra/utils'
 import type { MouseSnapshot } from '@asyra/utils'
 import type { PrimaryToolType } from '../../../constants'
 
@@ -78,16 +73,6 @@ export const decideToResetElementSize = (
 export const subscribeToDecideToResetElementSize =
   resetElementSizeEvent.subscribe
 
-// Tool events
-const decideToSwitchPrimaryToolEvent = eventRegistry.register(
-  'decideTo.switch.primary.tool'
-)
-export const decideToSwitchPrimaryTool = (primaryTool: PrimaryToolType) => {
-  decideToSwitchPrimaryToolEvent.publish({ primaryTool })
-}
-export const subscribeToDecideToSwitchPrimaryTool =
-  decideToSwitchPrimaryToolEvent.subscribe
-
 // Undo/Redo events
 const undoRedoEvent = eventRegistry.register('decideToUndoRedo')
 
@@ -135,9 +120,6 @@ export interface InteractionEventPayloads {
   decideToResetElementSize: {
     dimension: { width: number; height: number }
     elementType: PrimaryToolType
-  }
-  decideToSwitchPrimaryTool: {
-    primaryTool: PrimaryToolType
   }
   decideToUndoRedo: {
     undoredo: UNDO

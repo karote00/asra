@@ -1,66 +1,153 @@
 import type {
   FeatureDefinition,
   FeatureAPI,
-  FeatureBuilder
+  FeatureBuilder,
+  FeatureKeyMap
 } from '../types/feature'
 import { FeatureRegistry } from './feature-registry'
 import { SessionManager } from './session-manager'
-import { createFeatureBuilder } from '../builders/feature-builder'
+import {
+  createFeatureBuilder,
+  setCorePackages
+} from '../builders/feature-builder'
+import { InputType } from '@asyra/utils'
 
 const featureRegistry = new FeatureRegistry()
 const sessionManager = new SessionManager()
 
-/**
- * Define a new feature
- * @param name - Unique feature name
- * @param definition - Feature definition with api and setup
- * @returns Feature with public API
- * @example
- * ```typescript
- * const transactionFeature = defineFeature('transaction', ({ packages }) => ({
- *   api: {
- *     start: () => packages.factory.startTransaction(),
- *     end: () => packages.factory.endTransaction()
- *   },
- *   define: ({ on }) => {
- *     on('execute', () => { ... })
- *   }
- * }))
- * ```
- */
+const pendingRegistrations: {
+  featureName: string
+  keyConfig: FeatureKeyMap
+  builder: FeatureBuilder
+}[] = []
+
+let isPackagesSet = false
+
+async function registerFeatureEventHandlers(
+  featureName: string,
+  keyConfig: FeatureKeyMap,
+  builder: FeatureBuilder
+) {
+  const packages = builder.packages
+  const inputSystem = packages?.inputSystem
+  const interactionCore = packages?.interactionCore
+  const systemContext = packages?.systemContext
+
+  if (
+    !interactionCore?.registry ||
+    !inputSystem?.on ||
+    !inputSystem?.registry ||
+    !systemContext
+  ) {
+    return
+  }
+
+  const registeredEvents = new Set<string>()
+  const keyCombinationsMap: Record<string, any[]> = {}
+
+  for (const [keyId, config] of Object.entries(keyConfig)) {
+    const { event, keys, modifiers, detail } = config
+
+    registeredEvents.add(event)
+
+    if (!keyCombinationsMap[event]) {
+      keyCombinationsMap[event] = []
+    }
+
+    keyCombinationsMap[event].push({
+      type: InputType.KEYBOARD,
+      keys,
+      modifiers: modifiers || [],
+      detail
+    })
+  }
+
+  inputSystem.registry.registerKeyCombinations(keyCombinationsMap)
+
+  for (const event of registeredEvents) {
+    inputSystem.on(event, (raw: any) => {
+      const snapshot = systemContext.getSystemContextSnapshot?.() || raw
+
+      const result = interactionCore.registry.decide(
+        event,
+        snapshot,
+        raw.detail
+      )
+
+      if (result?.handler) {
+        result.handler(result.payload, result.options)
+      }
+    })
+  }
+}
+
+async function processPendingRegistrations() {
+  if (pendingRegistrations.length === 0) return
+
+  for (const registration of pendingRegistrations) {
+    try {
+      await registerFeatureEventHandlers(
+        registration.featureName,
+        registration.keyConfig,
+        registration.builder
+      )
+    } catch (error) {
+      console.error(
+        `[defineFeature] Failed to register handlers for "${registration.featureName}":`,
+        error
+      )
+    }
+  }
+
+  pendingRegistrations.length = 0
+}
+
 export function defineFeature<API>(
   name: string,
+  keyConfig: FeatureKeyMap | undefined,
   definition: FeatureDefinition<API>
 ): { api: FeatureAPI<API> } {
   const builder = createFeatureBuilder({
     name,
-    packages: {}, // Will be properly injected via core integration
+    packages: {},
     sessionManager,
-    featureRegistry
+    featureRegistry,
+    keyConfig
   })
 
-  // Execute feature's define block
   definition.define(builder)
 
-  // Register feature
-  const api = featureRegistry.register(name, definition)
+  const api = featureRegistry.register(name, definition as any)
 
-  // Return public API wrapper
-  return {
-    api: api as FeatureAPI<API>
+  if (keyConfig && Object.keys(keyConfig).length > 0) {
+    if (isPackagesSet) {
+      registerFeatureEventHandlers(name, keyConfig, builder).catch((error) => {
+        console.error(
+          `[defineFeature] Failed to register handlers for "${name}":`,
+          error
+        )
+      })
+    } else {
+      pendingRegistrations.push({ featureName: name, keyConfig, builder })
+    }
   }
+
+  return { api: api as FeatureAPI<API> }
 }
 
-/**
- * Import a feature's API
- * @param featureName - Name of feature to import
- * @returns Feature's public API
- * @example
- * ```typescript
- * const transactionFeature = importFeature('transaction')
- * transactionFeature.start()
- * ```
- */
+const originalSetCorePackages = setCorePackages
+
+export function setCorePackagesAndProcessRegistrations(packages: any) {
+  originalSetCorePackages(packages)
+  isPackagesSet = true
+  processPendingRegistrations().catch((error) => {
+    console.error(
+      '[defineFeature] Failed to process pending registrations:',
+      error
+    )
+  })
+}
+
 export function importFeature(featureName: string): FeatureAPI {
   const api = featureRegistry.getAPI(featureName)
   if (!api) {
@@ -69,41 +156,19 @@ export function importFeature(featureName: string): FeatureAPI {
   return api
 }
 
-/**
- * Register a feature (for initialization)
- * @param feature - Feature from defineFeature()
- * @deprecated Features are auto-registered by defineFeature()
- */
-export function registerFeature(feature: { api: FeatureAPI }): void {
-  // Feature already registered by defineFeature()
-  // This is included for explicit initialization control if needed
-}
+export function registerFeature(feature: { api: FeatureAPI }): void {}
 
-/**
- * Unregister a feature
- * @param featureName - Name of feature to unregister
- * @returns True if feature was removed
- */
 export function unregisterFeature(featureName: string): boolean {
   return featureRegistry.unregister(featureName)
 }
 
-/**
- * Get feature registry instance
- * @internal
- */
 export function getFeatureRegistry(): FeatureRegistry {
   return featureRegistry
 }
 
-/**
- * Get session manager instance
- * @internal
- */
 export function getSessionManager(): SessionManager {
   return sessionManager
 }
 
-// Export core components
 export { FeatureRegistry } from './feature-registry'
 export { SessionManager } from './session-manager'

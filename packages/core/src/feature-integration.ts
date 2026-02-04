@@ -1,5 +1,9 @@
 // @ts-ignore - feature-system will be available after build
-import { getSessionManager, getFeatureRegistry } from '@asyra/feature-system'
+import {
+  getSessionManager,
+  getFeatureRegistry,
+  setCorePackagesAndProcessRegistrations
+} from '@asyra/feature-system'
 
 // Type imports - will be connected properly after core integration
 type CoreDeps = any
@@ -12,12 +16,18 @@ type SystemContextSnapshot = any
 export function initFeatureSystem(coreDeps: {
   inputSystem: any
   systemContext: any
+  interactionCore: any
+  core?: any
 }): void {
   const sessionManager = getSessionManager()
 
   // Connect session manager to input-system events
   const inputSystem = coreDeps.inputSystem
   const systemContext = coreDeps.systemContext
+  const core = coreDeps.core
+
+  // Set core packages for feature system to use in builders
+  setCorePackagesAndProcessRegistrations(coreDeps)
 
   // Track input.drag.start
   if (inputSystem.on) {

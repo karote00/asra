@@ -38,7 +38,7 @@ export class FeatureRegistry {
    */
   getAPI(name: string): FeatureAPI {
     const entry = this.registry.get(name)
-    return entry?.api
+    return entry?.api || ({} as FeatureAPI)
   }
 
   /**

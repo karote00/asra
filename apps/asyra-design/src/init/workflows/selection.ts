@@ -6,7 +6,7 @@ export const selectElementsWorkflow: Workflow = {
   // No context update needed for switch primary tool shortcut
   contextUpdate:
     // eslint-disable-next-line @typescript-eslint/no-empty-function
-    () => { },
+    () => {},
   coreAPI: 'executeAction',
   APIArgs: (core, raw: RawInputEvent) => [
     InputSystemEvents.INPUT_SHORTCUT_SELECT_ELEMENTS,

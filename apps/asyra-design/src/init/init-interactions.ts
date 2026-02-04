@@ -4,7 +4,6 @@ import {
   decideDragUpdateBehavior,
   decideDragEndBehavior,
   decidePanZoomBehavior,
-  decideSwitchPrimaryToolBehavior,
   decideUndoRedoBehavior,
   decideZoomFitBehavior
 } from './behaviors'
@@ -21,11 +20,6 @@ export const initInteractions = () => {
 
   core.registerInteraction(InputSystemEvents.INPUT_DRAG_END, (snapshot) =>
     decideDragEndBehavior(snapshot)
-  )
-
-  core.registerInteraction(
-    InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL,
-    (_, detail) => decideSwitchPrimaryToolBehavior(detail)
   )
 
   core.registerInteraction(

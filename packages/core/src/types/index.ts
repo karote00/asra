@@ -15,8 +15,6 @@ import { ViewportAPIs } from './viewport'
 import { PropsAPIs, PropsRawAPIs } from './props'
 import {
   SystemContextAPIs,
-  PrimaryToolActionAPIs,
-  PrimaryToolAPIs,
   MouseStateAPIs,
   KeyStateAPIs
 } from './system-context'
@@ -25,6 +23,7 @@ import {
   InteractionCoreSessionAPIs,
   InteractionCoreActionAPIs
 } from './interaction-core'
+import { FeatureSystemAPIs } from './feature-system'
 import {
   Requests,
   RequestsDeps,
@@ -63,14 +62,13 @@ export {
   ElementSelectionAPIs,
   PropsRawAPIs,
   PropsAPIs,
-  PrimaryToolActionAPIs,
-  PrimaryToolAPIs,
   MouseStateAPIs,
+  KeyStateAPIs,
   SystemContextAPIs,
   InteractionCoreActionAPIs,
   InteractionCoreSessionAPIs,
   InteractionCoreAPIs,
-  KeyStateAPIs,
+  FeatureSystemAPIs,
 
   // Requests
   Requests,
@@ -98,4 +96,5 @@ export type CoreAPIs = TransactionAPIs &
   ElementSelectionAPIs &
   PropsAPIs &
   SystemContextAPIs &
-  InteractionCoreAPIs
+  InteractionCoreAPIs &
+  FeatureSystemAPIs

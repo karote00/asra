@@ -16,7 +16,7 @@ export const DefaultSystemSnapshot: SystemSnapshot = {
   permissions: {}
 }
 
-export const DefaultPrimaryTool: string = 'select'
+export const DefaultPrimaryTool = 'select'
 
 export const DefaultMoseSnapshot: MouseSnapshot = {
   position: DefaultPosition,

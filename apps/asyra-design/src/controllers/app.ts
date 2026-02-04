@@ -1,7 +1,12 @@
 import { app, setPixiApp } from '../states/app'
 import { CANVAS_BACKGROUND_COLOR, PrimaryToolType } from '../constants'
 import core from '../contexts'
-import { decideToSwitchPrimaryTool } from '../init/events/interaction'
+
+console.log('[controllers/app.ts] Module loaded')
+
+// NOTE: Using feature-system API for switchPrimaryTool
+// @ts-ignore - feature-system not fully integrated yet
+import { importFeature } from '@asyra/feature-system'
 
 export const initRenderApp = async (
   container: HTMLDivElement,
@@ -47,5 +52,12 @@ export const resetData = () => {
 }
 
 export const switchPrimaryTool = (primaryTool: PrimaryToolType) => {
-  decideToSwitchPrimaryTool(primaryTool)
+  try {
+    const switchPrimaryToolFeature: any = importFeature('switchPrimaryTool')
+    if (switchPrimaryToolFeature?.api?.switch) {
+      switchPrimaryToolFeature.api.switch(primaryTool)
+    }
+  } catch (error) {
+    console.error('[app.controller.switchPrimaryTool] Error:', error)
+  }
 }
