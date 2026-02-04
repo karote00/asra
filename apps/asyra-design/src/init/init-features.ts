@@ -1,6 +1,9 @@
 import core from '../contexts'
 import { inputSystem, interactionCore, systemContext } from '../contexts'
 
+// Import all features - they auto-register via defineFeature()
+import '../features'
+
 export const initFeatures = (): void => {
   console.log('[initFeatures] Starting feature initialization...')
   console.log('[initFeatures] core:', !!core)
