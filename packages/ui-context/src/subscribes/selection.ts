@@ -25,7 +25,6 @@ const updateUIElementSelection = (change: SelectionYjsChange['payload']) => {
 
 // @ts-expect-error: It's YJS event
 export const collectElementSelectionChange = (event) => {
-  console.log('collectElementSelectionChange')
   const processChanges = (
     items: typeof event.changes.added | typeof event.changes.deleted
   ) => {

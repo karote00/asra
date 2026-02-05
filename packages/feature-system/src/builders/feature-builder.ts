@@ -14,20 +14,15 @@ const pendingHandlerRegistrations: {
 let isPackagesSet = false
 
 export function setCorePackages(packages: any) {
-  console.log('[setCorePackages] Setting core packages:', Object.keys(packages))
   corePackages = packages
   isPackagesSet = true
-  console.log('[setCorePackages] isPackagesSet:', isPackagesSet)
 
   if (pendingHandlerRegistrations.length > 0) {
-    console.log(
-      `[setCorePackages] Processing ${pendingHandlerRegistrations.length} pending handler registrations...`
-    )
     for (const registration of pendingHandlerRegistrations) {
       try {
         if (!corePackages.interactionCore?.registry) {
           console.warn(
-            `[setCorePackages] Cannot register handler for "${registration.eventName}" in feature "${registration.featureName}": interactionCore not available`
+            `Cannot register handler for "${registration.eventName}" in feature "${registration.featureName}": interactionCore not available`
           )
           continue
         }
@@ -35,18 +30,14 @@ export function setCorePackages(packages: any) {
           registration.eventName,
           registration.handler
         )
-        console.log(
-          `[setCorePackages] Registered handler for "${registration.eventName}" in feature "${registration.featureName}"`
-        )
       } catch (error) {
         console.error(
-          `[setCorePackages] Failed to register handler for "${registration.eventName}" in feature "${registration.featureName}":`,
+          `Failed to register handler for "${registration.eventName}" in feature "${registration.featureName}":`,
           error
         )
       }
     }
     pendingHandlerRegistrations.length = 0
-    console.log('[setCorePackages] All pending handler registrations processed')
   }
 }
 
@@ -79,36 +70,28 @@ export function createFeatureBuilder(context: {
     },
 
     keys: (combos) => {
-      console.warn(
-        `keys() builder is deprecated for Feature "${name}". Use defineFeature(name, keyConfig, definition) instead.`
-      )
+      // No-op: keys() is deprecated for Feature "${name}". Use defineFeature(name, keyConfig, definition) instead.
     },
 
     handle: (eventName: string, handler) => {
       const interactionCore = corePackages?.interactionCore
       if (interactionCore?.registry) {
         interactionCore.registry.register(eventName, handler)
-        console.log(
-          `[handle] Registered handler for "${eventName}" in feature "${name}"`
-        )
       } else if (!isPackagesSet) {
         pendingHandlerRegistrations.push({
           featureName: name,
           eventName,
           handler
         })
-        console.log(
-          `[handle] Queued handler registration for "${eventName}" in feature "${name}" (waiting for packages)`
-        )
       } else {
         console.warn(
-          `[handle] Cannot register handler for "${eventName}" in feature "${name}": interactionCore not available`
+          `Cannot register handler for "${eventName}" in feature "${name}": interactionCore not available`
         )
       }
     },
 
     on: (eventName: string, handler) => {
-      console.log(`[On] Feature "${name}" listening to: ${eventName}`)
+      // No-op
     },
 
     importFeature: (featureName: string) => {
