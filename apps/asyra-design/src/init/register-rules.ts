@@ -15,8 +15,6 @@ import {
 } from './rules'
 
 export const registerRules = () => {
-  console.log('[DEBUG] Registering rules...')
-
   // drag.start: create element or select
   core.registerInteraction('input.drag.start', (snapshot) => {
     const { primaryTool } = snapshot
@@ -75,6 +73,4 @@ export const registerRules = () => {
   core.registerInteraction('input.mouse.move', (snapshot) =>
     decideFromSelectRules(snapshot)
   )
-
-  console.log('[DEBUG] Rules registered')
 }

@@ -27,7 +27,6 @@ import { initFeatures } from './init-features'
  * ```
  */
 export const initApp = (): void => {
-  console.log('[initApp] Starting...')
   initInputSystem()
   initWorkflows()
   initInteractions()
@@ -36,10 +35,8 @@ export const initApp = (): void => {
   core.initEventHandlers()
 
   // Initialize feature-system for application-level features
-  console.log('[initApp] Initializing feature-system...')
   initFeatures()
 
-  console.log('[initApp] Complete')
   // Future: More framework initialization can be added here
   // initRender()
   // initCustomPlugins()
