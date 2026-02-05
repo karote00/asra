@@ -13,7 +13,6 @@
 export {
   defineFeature,
   importFeature,
-  registerFeature,
   unregisterFeature,
   getFeatureRegistry,
   getSessionManager,
@@ -25,13 +24,12 @@ export { FeatureRegistry } from './core/feature-registry'
 export { SessionManager } from './core/session-manager'
 
 export * from './types'
-export type { FeatureKeyMap } from './types/feature'
 
 export * from './utils'
 
 export type {
   FeatureDefinition,
-  FeatureAPI
+  FeatureAPI,
   SessionConfig,
   ActiveSession
 } from './types/feature'
