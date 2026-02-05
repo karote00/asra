@@ -1,43 +1,34 @@
-import core from '../../contexts'
-import { InputSystemEvents, PrimaryToolType } from '../../constants'
 import { defineFeature } from '@asyra/feature-system'
 import { EntityTypes, DEFAULT_ELEMENT_SIZE } from '@asyra/utils'
 import {
-  addElement,
   changeComputedData,
   selectElements,
   startTransaction,
   endTransaction
 } from '@asyra/reactive-events'
+import { render, sceneTree } from '../../contexts'
+import { InputSystemEvents, PrimaryToolType } from '../../constants'
 
 let createdElementId: string | null = null
 let dragStartWorkspacePos: { x: number; y: number } | null = null
 
-const getLastCreatedElementId = () => {
-  const factory = core.deps.factory
-  const yjsChanges = factory.sceneTreeMap.toJSON()
-  const addElementChanges = yjsChanges.filter((c) => c.action === 'addElement')
-  const lastAdded = addElementChanges[addElementChanges.length - 1]
-  return lastAdded ? lastAdded.data.id : null
-}
 
 export const createElementFeature = defineFeature('createElement', undefined, {
   name: 'createElement',
   api: {
     createRectangle: (position: { x: number; y: number }) => {
-      const pos = core.deps.render!.getMousePosInWorkspace({
+      const pos = render!.getMousePosInWorkspace({
         clientX: position.x,
         clientY: position.y
       })
 
-      addElement({
+      const createdElementId = sceneTree.addNewElement({
         type: EntityTypes.RECTANGLE,
         x: pos.x,
         y: pos.y
-      } as any)
+      })
 
-      console.log('[createElement] Created rectangle at position:', pos)
-      return pos
+      return createdElementId
     },
     updateElementSizeAndPosition: (
       elementId: string,
@@ -46,13 +37,6 @@ export const createElementFeature = defineFeature('createElement', undefined, {
     ) => {
       const width = currentPos.x - dragStart.x
       const height = currentPos.y - dragStart.y
-      console.log('[createElement] updateElementSizeAndPosition:', {
-        elementId,
-        dragStart,
-        currentPos,
-        width,
-        height
-      })
 
       changeComputedData([elementId], 'width', width)
       changeComputedData([elementId], 'height', height)
@@ -74,11 +58,11 @@ export const createElementFeature = defineFeature('createElement', undefined, {
       clientDragStart: { x: number; y: number },
       clientCurrentPos: { x: number; y: number }
     ) => {
-      const dragStartWorkspace = core.deps.render!.getMousePosInWorkspace({
+      const dragStartWorkspace = render!.getMousePosInWorkspace({
         clientX: clientDragStart.x,
         clientY: clientDragStart.y
       })
-      const currentWorkspace = core.deps.render!.getMousePosInWorkspace({
+      const currentWorkspace = render!.getMousePosInWorkspace({
         clientX: clientCurrentPos.x,
         clientY: clientCurrentPos.y
       })
@@ -96,19 +80,16 @@ export const createElementFeature = defineFeature('createElement', undefined, {
     handle(InputSystemEvents.INPUT_DRAG_START, (snapshot: any) => {
       const { primaryTool, mouse } = snapshot
 
-      console.log('[createElement] DRAG_START:', { primaryTool, mouse })
-
       if (primaryTool === PrimaryToolType.RECTANGLE && mouse.down) {
         const dragStart = mouse.dragStart || mouse.position
-        const dragStartWorkspace = core.deps.render!.getMousePosInWorkspace({
+        const dragStartWorkspace = render!.getMousePosInWorkspace({
           clientX: dragStart.x,
           clientY: dragStart.y
         })
 
         startTransaction()
         const api = createElementFeature.api as any
-        api.createRectangle(dragStart)
-        createdElementId = getLastCreatedElementId()
+        createdElementId = api.createRectangle(dragStart)
         dragStartWorkspacePos = dragStartWorkspace
 
         if (createdElementId) {
@@ -124,20 +105,13 @@ export const createElementFeature = defineFeature('createElement', undefined, {
     handle(InputSystemEvents.INPUT_DRAG_UPDATE, (snapshot: any) => {
       const { primaryTool, mouse } = snapshot
 
-      console.log('[createElement] DRAG_UPDATE:', {
-        primaryTool,
-        mouse,
-        createdElementId,
-        dragStartWorkspacePos
-      })
-
       if (
         primaryTool === PrimaryToolType.RECTANGLE &&
         mouse.dragging &&
         createdElementId &&
         dragStartWorkspacePos
       ) {
-        const currentWorkspacePos = core.deps.render!.getMousePosInWorkspace({
+        const currentWorkspacePos = render!.getMousePosInWorkspace({
           clientX: mouse.position.x,
           clientY: mouse.position.y
         })
@@ -150,10 +124,6 @@ export const createElementFeature = defineFeature('createElement', undefined, {
           currentWorkspacePos
         )
         endTransaction()
-        console.log('[createElement] Updated size:', {
-          width: currentWorkspacePos.x - dragStartWorkspacePos.x,
-          height: currentWorkspacePos.y - dragStartWorkspacePos.y
-        })
       }
 
       return null
@@ -161,13 +131,6 @@ export const createElementFeature = defineFeature('createElement', undefined, {
 
     handle(InputSystemEvents.INPUT_DRAG_END, (snapshot: any) => {
       const { primaryTool, mouse } = snapshot
-
-      console.log('[createElement] DRAG_END:', {
-        primaryTool,
-        mouse,
-        createdElementId,
-        dragStartWorkspacePos
-      })
 
       if (primaryTool === PrimaryToolType.RECTANGLE && createdElementId) {
         const api = createElementFeature.api as any
