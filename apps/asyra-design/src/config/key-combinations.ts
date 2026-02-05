@@ -22,6 +22,18 @@ export const keyCombinations = {
   [InputSystemEvents.INPUT_WHEEL_SCROLL]: [
     { type: InputType.WHEEL, keys: [PointerKey.WHEEL] }
   ],
+  [InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL]: [
+    {
+      type: InputType.KEYBOARD,
+      keys: [keyMap.keys.KeyR],
+      detail: { primaryTool: PrimaryToolType.RECTANGLE }
+    },
+    {
+      type: InputType.KEYBOARD,
+      keys: [keyMap.keys.KeyV],
+      detail: { primaryTool: PrimaryToolType.SELECT }
+    }
+  ],
   [InputSystemEvents.INPUT_SHORTCUT_ARROW]: [
     { type: InputType.KEYBOARD, keys: [keyMap.keys.ArrowUp] },
     { type: InputType.KEYBOARD, keys: [keyMap.keys.ArrowDown] },
@@ -50,44 +62,5 @@ export const keyCombinations = {
 }
 
 export const featureKeyConfigs = {
-  SWITCH_TO_RECTANGLE_TOOL: {
-    keys: [keyMap.keys.KeyR],
-    event: InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL,
-    detail: { primaryTool: PrimaryToolType.RECTANGLE }
-  },
-  SWITCH_TO_SELECT_TOOL: {
-    keys: [keyMap.keys.KeyV],
-    event: InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL,
-    detail: { primaryTool: PrimaryToolType.SELECT }
-  },
-  // Create element feature - handles drag events when in rectangle tool
-  CREATE_ELEMENT_DRAG_START: {
-    keys: [PointerKey.LEFT_MOUSE_DOWN],
-    event: InputSystemEvents.INPUT_DRAG_START,
-    detail: { primaryTool: PrimaryToolType.RECTANGLE },
-    priority: 10,
-    exclusive: true
-  },
-  CREATE_ELEMENT_DRAG_UPDATE: {
-    keys: [PointerKey.LEFT_MOUSE_DOWN, PointerKey.LEFT_MOUSE_MOVE],
-    event: InputSystemEvents.INPUT_DRAG_UPDATE,
-    detail: { primaryTool: PrimaryToolType.RECTANGLE },
-    priority: 10,
-    exclusive: true
-  },
-  CREATE_ELEMENT_DRAG_END: {
-    keys: [PointerKey.LEFT_MOUSE_UP],
-    event: InputSystemEvents.INPUT_DRAG_END,
-    detail: { primaryTool: PrimaryToolType.RECTANGLE },
-    priority: 10,
-    exclusive: true
-  },
-  // Select elements feature - handles drag start when in select tool
-  SELECT_ELEMENTS_DRAG_START: {
-    keys: [PointerKey.LEFT_MOUSE_DOWN],
-    event: InputSystemEvents.INPUT_DRAG_START,
-    detail: { primaryTool: PrimaryToolType.SELECT },
-    priority: 5,
-    exclusive: false
-  }
+  // Remove - now using string keyConfig in defineFeature
 }
