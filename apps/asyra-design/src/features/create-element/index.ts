@@ -94,6 +94,10 @@ export const createElementFeature = defineFeature('createElement', undefined, {
       const { primaryTool, mouse } = snapshot
 
       if (primaryTool === PrimaryToolType.RECTANGLE && mouse.down) {
+        if (!render) {
+          return null
+        }
+
         const dragStart = mouse.dragStart || mouse.position
         const dragStartWorkspace = render!.getMousePosInWorkspace({
           clientX: dragStart.x,
