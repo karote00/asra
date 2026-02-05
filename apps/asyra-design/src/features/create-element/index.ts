@@ -5,6 +5,7 @@ import { EntityTypes, DEFAULT_ELEMENT_SIZE } from '@asyra/utils'
 import {
   addElement,
   changeComputedData,
+  selectElements,
   startTransaction,
   endTransaction
 } from '@asyra/reactive-events'
@@ -31,22 +32,20 @@ export const createElementFeature = defineFeature('createElement', undefined, {
       addElement({
         type: EntityTypes.RECTANGLE,
         x: pos.x,
-        y: pos.y,
-        width: 0,
-        height: 0
+        y: pos.y
       } as any)
 
       console.log('[createElement] Created rectangle at position:', pos)
       return pos
     },
-    updateElementSize: (
+    updateElementSizeAndPosition: (
       elementId: string,
       dragStart: { x: number; y: number },
       currentPos: { x: number; y: number }
     ) => {
       const width = currentPos.x - dragStart.x
       const height = currentPos.y - dragStart.y
-      console.log('[createElement] updateElementSize:', {
+      console.log('[createElement] updateElementSizeAndPosition:', {
         elementId,
         dragStart,
         currentPos,
@@ -60,6 +59,15 @@ export const createElementFeature = defineFeature('createElement', undefined, {
     resetElementSize: (elementId: string) => {
       changeComputedData([elementId], 'width', DEFAULT_ELEMENT_SIZE)
       changeComputedData([elementId], 'height', DEFAULT_ELEMENT_SIZE)
+    },
+    hasMoved: (
+      dragStart: { x: number; y: number },
+      currentPos: { x: number; y: number }
+    ) => {
+      return (
+        Math.abs(currentPos.x - dragStart.x) > 1 ||
+        Math.abs(currentPos.y - dragStart.y) > 1
+      )
     }
   },
   define: ({
@@ -76,9 +84,8 @@ export const createElementFeature = defineFeature('createElement', undefined, {
         startTransaction()
         const api = createElementFeature.api as any
         api.createRectangle(mouse.dragStart || mouse.position)
-        endTransaction()
-
         createdElementId = getLastCreatedElementId()
+        endTransaction()
       }
 
       return null
@@ -100,7 +107,7 @@ export const createElementFeature = defineFeature('createElement', undefined, {
       ) {
         startTransaction()
         const api = createElementFeature.api as any
-        api.updateElementSize(
+        api.updateElementSizeAndPosition(
           createdElementId,
           mouse.dragStart || mouse.position,
           mouse.position
@@ -128,9 +135,7 @@ export const createElementFeature = defineFeature('createElement', undefined, {
         const api = createElementFeature.api as any
 
         const dragStart = mouse.dragStart || mouse.position
-        const hasMoved =
-          Math.abs(mouse.position.x - dragStart.x) > 1 ||
-          Math.abs(mouse.position.y - dragStart.y) > 1
+        const hasMoved = api.hasMoved(dragStart, mouse.position)
 
         if (!hasMoved) {
           startTransaction()

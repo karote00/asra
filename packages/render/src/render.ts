@@ -83,6 +83,7 @@ class Render {
   }
 
   addElement(data: RenderElementData) {
+    console.log('add element to viewport', data)
     return this.viewport.addElement(data)
   }
 

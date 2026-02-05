@@ -4,6 +4,7 @@ import { initSelectionContext } from './selection'
 import { initViewportContext } from './viewport'
 
 export const initDataContexts = () => {
+  console.error('init all data contexts')
   initSystemContext()
   initSceneTreeDataContext()
   initSelectionContext()

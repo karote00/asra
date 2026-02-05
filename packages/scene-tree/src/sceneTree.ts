@@ -201,8 +201,6 @@ class SceneTree {
 
       workspace.addNewElement(newElement, parent, index)
 
-      this.commitSceneTreeTransaction()
-
       return newElement.get('id')
     }
 

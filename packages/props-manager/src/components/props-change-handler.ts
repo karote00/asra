@@ -12,7 +12,7 @@ export default class PropsChangeHandler implements ChangeHandler {
   }): void {
     propsManager.addChange({
       action: PROPS_ACTIONS.UPDATE_PROPERTY,
-      owner: OWNER.SCENE_TREE,
+      owner: OWNER.PROPS,
       eventName: EventTypes.UPDATE_PROPERTY,
       ...data
     })
