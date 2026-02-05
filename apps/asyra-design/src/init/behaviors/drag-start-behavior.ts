@@ -1,6 +1,6 @@
 import { SystemContextSnapshot } from '@asyra/utils'
 import type { DecisionResult } from '@asyra/interaction-core'
-import { decideFromCreateElementRules, decideFromSelectRules } from '../rules'
+import { decideFromSelectRules } from '../rules'
 import { PrimaryToolType } from '../../constants'
 
 export const decideDragStartBehavior = (
@@ -11,8 +11,9 @@ export const decideDragStartBehavior = (
   switch (primaryTool) {
     case PrimaryToolType.SELECT:
       return decideFromSelectRules(systemContextSnapshot)
+    // Note: PrimaryToolType.RECTANGLE is now handled by feature-system
     case PrimaryToolType.RECTANGLE:
-      return decideFromCreateElementRules(systemContextSnapshot)
+      return null
   }
 
   return null

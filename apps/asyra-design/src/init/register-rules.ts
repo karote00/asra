@@ -5,7 +5,6 @@
 
 import core from '@asyra/core'
 import {
-  decideFromCreateElementRules,
   decideFromSelectRules,
   decideZoomFitRules,
   decidePanZoomRules,
@@ -15,32 +14,35 @@ import {
 } from './rules'
 
 export const registerRules = () => {
-  // drag.start: create element or select
+  // Note: create-element (rectangle tool) is now handled by feature-system
+  // Only select is handled here for now (80% refactored)
+
+  // drag.start: select (only for select tool)
   core.registerInteraction('input.drag.start', (snapshot) => {
     const { primaryTool } = snapshot
     if (primaryTool === 'select') {
       return decideFromSelectRules(snapshot)
     }
-    if (primaryTool === 'rectangle') {
-      return decideFromCreateElementRules(snapshot)
-    }
     return null
   })
 
-  // drag.update: resize element
+  // Note: drag.update and drag.end for rectangle (resize/reset) are now handled by feature-system
+  // Only keeping select-related drag handlers
+
+  // drag.update: select logic (maintained for 80% refactor)
   core.registerInteraction('input.drag.update', (snapshot) => {
     const { primaryTool } = snapshot
-    if (primaryTool === 'rectangle') {
-      return decideFromResizeElementRules(snapshot)
+    if (primaryTool === 'select') {
+      return decideFromSelectRules(snapshot)
     }
     return null
   })
 
-  // drag.end: reset element size
+  // drag.end: select logic (maintained for 80% refactor)
   core.registerInteraction('input.drag.end', (snapshot) => {
     const { primaryTool } = snapshot
-    if (primaryTool === 'rectangle') {
-      return decideFromResetElementSizeRules(snapshot)
+    if (primaryTool === 'select') {
+      return decideFromSelectRules(snapshot)
     }
     return null
   })

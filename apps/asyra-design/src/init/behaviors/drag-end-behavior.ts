@@ -1,6 +1,5 @@
 import { SystemContextSnapshot } from '@asyra/utils'
 import type { DecisionResult } from '@asyra/interaction-core'
-import { decideFromResetElementSizeRules } from '../rules'
 import { PrimaryToolType } from '../../constants'
 
 export const decideDragEndBehavior = (
@@ -10,9 +9,11 @@ export const decideDragEndBehavior = (
 
   switch (primaryTool) {
     case PrimaryToolType.SELECT:
+      // Select logic handled by 80% refactored rules
       return null
     case PrimaryToolType.RECTANGLE:
-      return decideFromResetElementSizeRules(systemContextSnapshot)
+      // Rectangle reset element size handled by feature-system
+      return null
   }
 
   return null

@@ -1,10 +1,9 @@
 import core from '../../contexts'
 import { defineFeature } from '@asyra/feature-system'
 import { selectElements } from '@asyra/reactive-events'
-import { InputSystemEvents } from '../../constants'
 import type { ModifierKeys } from '@asyra/utils'
 
-export const selectionFeature = defineFeature('selection', 'input.drag.start', {
+export const selectionFeature = defineFeature('selection', 'input.drag', {
   priority: 5,
   exclusive: false,
   api: {
@@ -19,34 +18,33 @@ export const selectionFeature = defineFeature('selection', 'input.drag.start', {
       }
     }
   },
-  execution: (snapshot: {
-    primaryTool: string
-    mouse: { down: boolean }
-    key: ModifierKeys
-  }) => {
-    const { primaryTool, mouse } = snapshot
+  session: {
+    start: (snapshot: any) => {
+      const { primaryTool } = snapshot
+      const mouse = snapshot.mouse
 
-    if (primaryTool !== 'select' || !mouse.down) {
-      return null
-    }
-
-    const systemContext = core.deps.systemContext.getSystemContextSnapshot()
-    const hoveredElementId = systemContext.target?.hoveredElementId
-
-    if (hoveredElementId) {
-      if (snapshot.key.shift) {
-        const api = selectionFeature.api as {
-          toggleSelection: (elementId: string) => void
-        }
-        api.toggleSelection(hoveredElementId)
-      } else {
-        selectElements([hoveredElementId])
+      if (primaryTool !== 'select' || !mouse.down) {
+        return null
       }
-    } else {
-      selectElements([])
-    }
 
-    return { action: 'selection-updated' }
+      const systemContext = core.deps.systemContext.getSystemContextSnapshot()
+      const hoveredElementId = systemContext.target?.hoveredElementId
+
+      if (hoveredElementId) {
+        if (snapshot.key.shift) {
+          const api = selectionFeature.api as {
+            toggleSelection: (elementId: string) => void
+          }
+          api.toggleSelection(hoveredElementId)
+        } else {
+          selectElements([hoveredElementId])
+        }
+      } else {
+        selectElements([])
+      }
+
+      return { action: 'selection-updated' }
+    }
   }
 })
 

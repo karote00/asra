@@ -14,6 +14,8 @@ let corePackages: any = {}
 let isPackagesSet = false
 let appKeyCombinations: any = {}
 
+const registeredEvents = new Set<string>()
+
 const pendingRegistrations: {
   featureName: string
   keyConfig: FeatureKeyMap
@@ -80,10 +82,39 @@ function registerFeatureHandlers(
   const { inputSystem, systemContext } = corePackages
   if (inputSystem && systemContext) {
     for (const event of eventsToRegister) {
-      inputSystem.on(event, (raw: any) => {
-        const snapshot = systemContext.getSystemContextSnapshot?.() || raw
-        executionRegistry.execute(event, snapshot)
-      })
+      if (registeredEvents.has(event)) {
+        continue
+      }
+
+      if (hasSession) {
+        const eventHandler = async (raw: any) => {
+          const snapshot = systemContext.getSystemContextSnapshot?.() || raw
+          const mergedSnapshot = {
+            ...snapshot,
+            ...(raw.detail ? { detail: raw.detail } : {})
+          }
+
+          if (event.includes('.start')) {
+            await sessionManager.handleStart(keyConfig, mergedSnapshot)
+          } else if (event.includes('.update')) {
+            await sessionManager.handleUpdate(keyConfig, mergedSnapshot)
+          } else if (event.includes('.end')) {
+            await sessionManager.handleEnd(keyConfig, mergedSnapshot)
+          }
+        }
+        inputSystem.on(event, eventHandler)
+        registeredEvents.add(event)
+      } else if (hasExecution) {
+        inputSystem.on(event, (raw: any) => {
+          const snapshot = systemContext.getSystemContextSnapshot?.() || raw
+          const mergedSnapshot = {
+            ...snapshot,
+            ...(raw.detail ? { detail: raw.detail } : {})
+          }
+          executionRegistry.execute(event, mergedSnapshot)
+        })
+        registeredEvents.add(event)
+      }
     }
   }
 }

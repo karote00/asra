@@ -182,6 +182,14 @@ export class SessionManager {
   }
 
   /**
+   * Get all registered session names
+   * @returns Array of session names
+   */
+  getRegisteredSessionNames(): string[] {
+    return Array.from(this.sessionHandlers.keys())
+  }
+
+  /**
    * Get all active sessions
    * @returns Map of session name to active session
    */

@@ -94,7 +94,7 @@ export const createElementFeature = defineFeature(
           return null
         }
 
-        const api = createElementFeature.api
+        const api = createElementFeature.api as any
         const dragStartWorkspace = render!.getMousePosInWorkspace({
           clientX: snapshot.mouse.position.x,
           clientY: snapshot.mouse.position.y

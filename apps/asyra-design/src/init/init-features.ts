@@ -13,6 +13,9 @@ export const initFeatures = (): void => {
       interactionCore
     })
     core.setAppKeyCombinations(keyCombinations)
+
+    // Register key combinations with input-system registry
+    inputSystem.registry.registerKeyCombinations(keyCombinations)
   } catch (error) {
     console.error('[initFeatures] Error:', error)
   }
