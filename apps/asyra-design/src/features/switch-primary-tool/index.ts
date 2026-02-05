@@ -1,12 +1,11 @@
 import core from '../../contexts'
-import { InputSystemEvents } from '../../constants'
 import { defineFeature } from '@asyra/feature-system'
 import uiContext from '@asyra/ui-context'
-import { featureKeyConfigs } from '../../config/key-combinations'
+import { InputSystemEvents } from '../../constants'
 
 export const switchPrimaryToolFeature = defineFeature(
   'switchPrimaryTool',
-  featureKeyConfigs,
+  'input.shortcut.switchPrimaryTool', // Keyboard shortcut event
   {
     name: 'switchPrimaryTool',
     api: {
@@ -15,21 +14,19 @@ export const switchPrimaryToolFeature = defineFeature(
         uiContext.updatePrimaryTool(tool)
       }
     },
-    define: ({ handle }: any) => {
-      handle(
+    define: ({ execution }: any) => {
+      execution.register(
         InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL,
-        (snapshot: any, detail: any) => {
-          const tool = snapshot.detail?.primaryTool || detail?.primaryTool
-          return {
-            type: 'INTERACTION_SWITCH_PRIMARY_TOOL',
-            payload: { tool },
-            handler: ({ tool }: any) => {
-              const api = switchPrimaryToolFeature.api
-              if (api?.switch) {
-                api.switch(tool)
-              }
+        {},
+        (snapshot: any) => {
+          const tool = snapshot.detail?.primaryTool
+          if (tool) {
+            const api = switchPrimaryToolFeature.api
+            if (api?.switch) {
+              api.switch(tool)
             }
           }
+          return { tool }
         }
       )
     }

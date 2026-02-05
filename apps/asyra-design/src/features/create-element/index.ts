@@ -8,7 +8,6 @@ import {
 } from '@asyra/reactive-events'
 import { render, sceneTree } from '../../contexts'
 import { InputSystemEvents, PrimaryToolType } from '../../constants'
-import { featureKeyConfigs } from '../../config/key-combinations'
 
 interface CreateElementState {
   elementId: string | null
@@ -17,11 +16,7 @@ interface CreateElementState {
 
 export const createElementFeature = defineFeature(
   'createElement',
-  {
-    CREATE_ELEMENT_DRAG_START: featureKeyConfigs.CREATE_ELEMENT_DRAG_START,
-    CREATE_ELEMENT_DRAG_UPDATE: featureKeyConfigs.CREATE_ELEMENT_DRAG_UPDATE,
-    CREATE_ELEMENT_DRAG_END: featureKeyConfigs.CREATE_ELEMENT_DRAG_END
-  },
+  'input.drag', // Session: auto-expands to start/update/end
   {
     name: 'createElement',
     api: {
@@ -87,7 +82,6 @@ export const createElementFeature = defineFeature(
       }
     },
     define: ({ session }: any) => {
-      // Drag start session - creates the element
       session.start(
         InputSystemEvents.INPUT_DRAG_START,
         { priority: 10, exclusive: true },
@@ -122,7 +116,6 @@ export const createElementFeature = defineFeature(
           } as CreateElementState
         },
         (snapshot: any, state: CreateElementState) => {
-          // Drag update session - resizes the element
           if (!state || state.elementId === null) {
             return
           }
@@ -142,7 +135,6 @@ export const createElementFeature = defineFeature(
           endTransaction()
         },
         (snapshot: any, state: CreateElementState) => {
-          // Drag end session - resets size if no movement
           if (!state || state.elementId === null) {
             return
           }

@@ -12,6 +12,7 @@ const pendingHandlerRegistrations: {
   featureName: string
   eventName: string
   handler: any
+  isSession: boolean
 }[] = []
 
 const pendingExecutionRegistrations: {
@@ -19,6 +20,12 @@ const pendingExecutionRegistrations: {
   eventName: string
   config: ExecutionConfig
   handler: any
+}[] = []
+
+const pendingKeyCombinations: {
+  featureName: string
+  keyConfig?: string
+  isSession: boolean
 }[] = []
 
 let isPackagesSet = false
@@ -76,10 +83,16 @@ export function createFeatureBuilder(context: {
   sessionManager?: any
   featureRegistry: any
   keyConfig?: FeatureKeyMap
-}): FeatureBuilder {
+}): {
+  builder: FeatureBuilder
+  tracking: { usedSession: boolean; usedExecution: boolean }
+} {
   const { name, sessionManager, featureRegistry, keyConfig } = context
 
-  return {
+  let usedSession = false
+  let usedExecution = false
+
+  const builder: FeatureBuilder = {
     get packages() {
       return Object.keys(context.packages).length > 0
         ? context.packages
@@ -98,11 +111,11 @@ export function createFeatureBuilder(context: {
       })
     },
 
-    keys: (combos) => {
-      // No-op: keys() is deprecated for Feature "${name}". Use defineFeature(name, keyConfig, definition) instead.
+    keys: (combos: any) => {
+      // Deprecated: keys() builder. Use defineFeature(keyConfig) instead.
     },
 
-    handle: (eventName: string, handler) => {
+    handle: (eventName: string, handler: any) => {
       const interactionCore = corePackages?.interactionCore
       if (interactionCore?.registry) {
         interactionCore.registry.register(eventName, handler)
@@ -110,7 +123,8 @@ export function createFeatureBuilder(context: {
         pendingHandlerRegistrations.push({
           featureName: name,
           eventName,
-          handler
+          handler,
+          isSession: false
         })
       } else {
         console.warn(
@@ -119,7 +133,7 @@ export function createFeatureBuilder(context: {
       }
     },
 
-    on: (eventName: string, handler) => {
+    on: (eventName: string, handler: any) => {
       // No-op
     },
 
@@ -137,6 +151,7 @@ export function createFeatureBuilder(context: {
         config?: ExecutionConfig,
         handler?: any
       ) => {
+        usedExecution = true
         if (isPackagesSet && executionRegistryLocal) {
           executionRegistryLocal.register(
             eventName,
@@ -163,6 +178,7 @@ export function createFeatureBuilder(context: {
         onUpdate?: any,
         onEnd?: any
       ) => {
+        usedSession = true
         if (sessionManager) {
           sessionManager.registerSession(sessionName, name, config || {}, {
             onStart,
@@ -172,5 +188,10 @@ export function createFeatureBuilder(context: {
         }
       }
     }
+  }
+
+  return {
+    builder,
+    tracking: { usedSession, usedExecution }
   }
 }

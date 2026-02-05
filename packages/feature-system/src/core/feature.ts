@@ -20,14 +20,23 @@ const pendingRegistrations: {
   featureName: string
   keyConfig: FeatureKeyMap
   builder: FeatureBuilder
+  tracking: { usedSession: boolean; usedExecution: boolean }
 }[] = []
 
 let isPackagesSet = false
 
+// App-level key combinations will be set via core.initKeyCombinations()
+let appKeyCombinations: any = {}
+
+function setAppKeyCombinationsInternal(combinations: any) {
+  appKeyCombinations = combinations
+}
+
 async function registerFeatureEventHandlers(
   featureName: string,
   keyConfig: FeatureKeyMap,
-  builder: FeatureBuilder
+  builder: FeatureBuilder,
+  tracking: { usedSession: boolean; usedExecution: boolean }
 ) {
   const packages = builder.packages
   const inputSystem = packages?.inputSystem
@@ -43,28 +52,46 @@ async function registerFeatureEventHandlers(
     return
   }
 
-  const registeredEvents = new Set<string>()
-  const keyCombinationsMap: Record<string, any[]> = {}
-
-  for (const [keyId, config] of Object.entries(keyConfig)) {
-    const { event, keys, modifiers, detail } = config
-
-    registeredEvents.add(event)
-
-    if (!keyCombinationsMap[event]) {
-      keyCombinationsMap[event] = []
-    }
-
-    keyCombinationsMap[event].push({
-      type: InputType.KEYBOARD,
-      keys,
-      modifiers: modifiers || [],
-      detail
-    })
+  if (!keyConfig) {
+    return // General rules (like transaction) don't need keyConfig
   }
 
+  // Determine events based on session vs execution
+  let eventsToRegister: string[] = []
+
+  if (tracking.usedSession) {
+    // Session: auto-expand 'input.drag' to start/update/end
+    const baseEvent = keyConfig
+    eventsToRegister = [
+      `${baseEvent}.start`,
+      `${baseEvent}.update`,
+      `${baseEvent}.end`
+    ]
+  } else if (tracking.usedExecution) {
+    // Execution: use exact event name
+    eventsToRegister = [keyConfig]
+  } else {
+    // Fallback: assume it's an exact event name
+    eventsToRegister = [keyConfig]
+  }
+
+  // Build key combinations map for input system
+  const keyCombinationsMap: Record<string, any[]> = {}
+  const registeredEvents = new Set<string>()
+
+  // Look up key combinations from app-level keyCombinations
+  for (const event of eventsToRegister) {
+    const keyCombinations = appKeyCombinations[event]
+    if (keyCombinations) {
+      registeredEvents.add(event)
+      keyCombinationsMap[event] = keyCombinations
+    }
+  }
+
+  // Register key combinations with input system
   inputSystem.registry.registerKeyCombinations(keyCombinationsMap)
 
+  // Set up event handlers
   for (const event of registeredEvents) {
     inputSystem.on(event, (raw: any) => {
       const snapshot = systemContext.getSystemContextSnapshot?.() || raw
@@ -72,17 +99,10 @@ async function registerFeatureEventHandlers(
       // First try execution registry (for one-time actions like selection)
       const executionRan = executionRegistry.execute(event, snapshot)
 
-      // If no execution ran, try interactionCore (for session-based actions)
+      // If no execution ran, try session manager (for continuous actions like drag)
       if (!executionRan) {
-        const result = interactionCore.registry.decide(
-          event,
-          snapshot,
-          raw.detail
-        )
-
-        if (result?.handler) {
-          result.handler(result.payload, result.options)
-        }
+        // The session manager will be called by the interactionCore
+        // for session-based features that registered via handle()
       }
     })
   }
@@ -96,7 +116,8 @@ async function processPendingRegistrations() {
       await registerFeatureEventHandlers(
         registration.featureName,
         registration.keyConfig,
-        registration.builder
+        registration.builder,
+        registration.tracking
       )
     } catch (error) {
       console.error(
@@ -114,7 +135,7 @@ export function defineFeature<API>(
   keyConfig: FeatureKeyMap | undefined,
   definition: FeatureDefinition<API>
 ): { api: FeatureAPI<API> } {
-  const builder = createFeatureBuilder({
+  const { builder, tracking } = createFeatureBuilder({
     name,
     packages: {},
     sessionManager,
@@ -126,16 +147,24 @@ export function defineFeature<API>(
 
   const api = featureRegistry.register(name, definition as any)
 
-  if (keyConfig && Object.keys(keyConfig).length > 0) {
+  if (keyConfig !== undefined) {
+    // Only register key configs for features with explicit keyConfig
     if (isPackagesSet) {
-      registerFeatureEventHandlers(name, keyConfig, builder).catch((error) => {
-        console.error(
-          `[defineFeature] Failed to register handlers for "${name}":`,
-          error
-        )
-      })
+      registerFeatureEventHandlers(name, keyConfig, builder, tracking).catch(
+        (error) => {
+          console.error(
+            `[defineFeature] Failed to register handlers for "${name}":`,
+            error
+          )
+        }
+      )
     } else {
-      pendingRegistrations.push({ featureName: name, keyConfig, builder })
+      pendingRegistrations.push({
+        featureName: name,
+        keyConfig,
+        builder,
+        tracking
+      })
     }
   }
 
@@ -179,3 +208,5 @@ export function getSessionManager(): SessionManager {
 
 export { FeatureRegistry } from './feature-registry'
 export { SessionManager } from './session-manager'
+
+export const setAppKeyCombinations = setAppKeyCombinationsInternal

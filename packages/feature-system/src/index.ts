@@ -17,7 +17,8 @@ export {
   unregisterFeature,
   getFeatureRegistry,
   getSessionManager,
-  setCorePackagesAndProcessRegistrations
+  setCorePackagesAndProcessRegistrations,
+  setAppKeyCombinations
 } from './core/feature'
 
 export { FeatureRegistry } from './core/feature-registry'

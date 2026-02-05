@@ -1,15 +1,12 @@
 import core from '../../contexts'
 import { defineFeature } from '@asyra/feature-system'
 import { selectElements } from '@asyra/reactive-events'
-import { InputSystemEvents, PrimaryToolType } from '../../constants'
+import { InputSystemEvents } from '../../constants'
 import type { ModifierKeys } from '@asyra/utils'
-import { featureKeyConfigs } from '../../config/key-combinations'
 
 export const selectionFeature = defineFeature(
   'selection',
-  {
-    SELECT_ELEMENTS_DRAG_START: featureKeyConfigs.SELECT_ELEMENTS_DRAG_START
-  },
+  'input.drag.start', // Execution: exact event name
   {
     name: 'selection',
     api: {
@@ -25,7 +22,6 @@ export const selectionFeature = defineFeature(
       }
     },
     define: ({ execution }: any) => {
-      // Register execution handler for selection (one-time action)
       execution.register(
         InputSystemEvents.INPUT_DRAG_START,
         { priority: 5, exclusive: false },
@@ -36,7 +32,7 @@ export const selectionFeature = defineFeature(
         }) => {
           const { primaryTool, mouse } = snapshot
 
-          if (primaryTool !== PrimaryToolType.SELECT || !mouse.down) {
+          if (primaryTool !== 'select' || !mouse.down) {
             return null
           }
 

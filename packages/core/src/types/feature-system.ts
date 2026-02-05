@@ -5,4 +5,5 @@ export interface FeatureSystemAPIs {
     interactionCore: any
     core?: any
   }) => void
+  setAppKeyCombinations: (combinations: any) => void
 }

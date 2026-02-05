@@ -2,17 +2,7 @@ import type { SystemContextSnapshot } from '@asyra/utils'
 import { KeyboardKey, ModifierKey, DetailType } from '@asyra/utils'
 import type { ExecutionConfig, ExecutionHandler } from './execution'
 
-export type FeatureKeyMap = Record<
-  string,
-  {
-    keys: KeyboardKey[]
-    modifiers?: ModifierKey[]
-    event: string
-    detail?: DetailType
-    priority?: number
-    exclusive?: boolean
-  }
->
+export type FeatureKeyMap = string
 
 export interface FeatureDefinition<API = Record<string, any>> {
   name: string
@@ -22,6 +12,7 @@ export interface FeatureDefinition<API = Record<string, any>> {
     version?: string
     description?: string
     author?: string
+    keyConfig?: string
   }
 }
 
