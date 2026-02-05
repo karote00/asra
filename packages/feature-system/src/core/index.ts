@@ -4,3 +4,4 @@
 
 export * from './feature-registry'
 export * from './session-manager'
+export * from './execution-registry'

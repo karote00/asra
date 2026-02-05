@@ -1,5 +1,6 @@
 import type { SystemContextSnapshot } from '@asyra/utils'
 import { KeyboardKey, ModifierKey, DetailType } from '@asyra/utils'
+import type { ExecutionConfig, ExecutionHandler } from './execution'
 
 export type FeatureKeyMap = Record<
   string,
@@ -8,6 +9,8 @@ export type FeatureKeyMap = Record<
     modifiers?: ModifierKey[]
     event: string
     detail?: DetailType
+    priority?: number
+    exclusive?: boolean
   }
 >
 
@@ -46,6 +49,13 @@ export interface FeatureBuilder {
   handle: (eventName: string, handler: InteractionHandler) => void
   on: (eventName: string, handler: EventHandler) => void
   importFeature: (featureName: string) => FeatureAPI
+  execution: {
+    register: (
+      eventName: string,
+      config?: ExecutionConfig,
+      handler?: ExecutionHandler
+    ) => void
+  }
   session: {
     start: <T>(
       sessionName: string,

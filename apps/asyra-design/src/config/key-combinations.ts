@@ -59,5 +59,35 @@ export const featureKeyConfigs = {
     keys: [keyMap.keys.KeyV],
     event: InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL,
     detail: { primaryTool: PrimaryToolType.SELECT }
+  },
+  // Create element feature - handles drag events when in rectangle tool
+  CREATE_ELEMENT_DRAG_START: {
+    keys: [PointerKey.LEFT_MOUSE_DOWN],
+    event: InputSystemEvents.INPUT_DRAG_START,
+    detail: { primaryTool: PrimaryToolType.RECTANGLE },
+    priority: 10,
+    exclusive: true
+  },
+  CREATE_ELEMENT_DRAG_UPDATE: {
+    keys: [PointerKey.LEFT_MOUSE_DOWN, PointerKey.LEFT_MOUSE_MOVE],
+    event: InputSystemEvents.INPUT_DRAG_UPDATE,
+    detail: { primaryTool: PrimaryToolType.RECTANGLE },
+    priority: 10,
+    exclusive: true
+  },
+  CREATE_ELEMENT_DRAG_END: {
+    keys: [PointerKey.LEFT_MOUSE_UP],
+    event: InputSystemEvents.INPUT_DRAG_END,
+    detail: { primaryTool: PrimaryToolType.RECTANGLE },
+    priority: 10,
+    exclusive: true
+  },
+  // Select elements feature - handles drag start when in select tool
+  SELECT_ELEMENTS_DRAG_START: {
+    keys: [PointerKey.LEFT_MOUSE_DOWN],
+    event: InputSystemEvents.INPUT_DRAG_START,
+    detail: { primaryTool: PrimaryToolType.SELECT },
+    priority: 5,
+    exclusive: false
   }
 }

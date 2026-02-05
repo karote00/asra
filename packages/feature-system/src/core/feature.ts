@@ -6,6 +6,7 @@ import type {
 } from '../types/feature'
 import { FeatureRegistry } from './feature-registry'
 import { SessionManager } from './session-manager'
+import executionRegistry from './execution-registry'
 import {
   createFeatureBuilder,
   setCorePackages
@@ -68,14 +69,20 @@ async function registerFeatureEventHandlers(
     inputSystem.on(event, (raw: any) => {
       const snapshot = systemContext.getSystemContextSnapshot?.() || raw
 
-      const result = interactionCore.registry.decide(
-        event,
-        snapshot,
-        raw.detail
-      )
+      // First try execution registry (for one-time actions like selection)
+      const executionRan = executionRegistry.execute(event, snapshot)
 
-      if (result?.handler) {
-        result.handler(result.payload, result.options)
+      // If no execution ran, try interactionCore (for session-based actions)
+      if (!executionRan) {
+        const result = interactionCore.registry.decide(
+          event,
+          snapshot,
+          raw.detail
+        )
+
+        if (result?.handler) {
+          result.handler(result.payload, result.options)
+        }
       }
     })
   }

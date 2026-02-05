@@ -1,13 +1,23 @@
 import type { FeatureBuilder, FeatureKeyMap } from '../types/feature'
 import type { SessionConfig } from '../types/feature'
+import type { ExecutionConfig } from '../types/execution'
 import { InputType, ModifierKey } from '@asyra/utils'
 import keyMap from '@asyra/input-system/src/keymap'
+import executionRegistry from '../core/execution-registry'
 
 let corePackages: any = {}
+let executionRegistryLocal: any = executionRegistry
 
 const pendingHandlerRegistrations: {
   featureName: string
   eventName: string
+  handler: any
+}[] = []
+
+const pendingExecutionRegistrations: {
+  featureName: string
+  eventName: string
+  config: ExecutionConfig
   handler: any
 }[] = []
 
@@ -39,12 +49,31 @@ export function setCorePackages(packages: any) {
     }
     pendingHandlerRegistrations.length = 0
   }
+
+  if (pendingExecutionRegistrations.length > 0) {
+    for (const registration of pendingExecutionRegistrations) {
+      try {
+        executionRegistryLocal.register(
+          registration.eventName,
+          registration.featureName,
+          registration.config,
+          registration.handler
+        )
+      } catch (error) {
+        console.error(
+          `Failed to register execution for "${registration.eventName}" in feature "${registration.featureName}":`,
+          error
+        )
+      }
+    }
+    pendingExecutionRegistrations.length = 0
+  }
 }
 
 export function createFeatureBuilder(context: {
   name: string
   packages: any
-  sessionManager: any
+  sessionManager?: any
   featureRegistry: any
   keyConfig?: FeatureKeyMap
 }): FeatureBuilder {
@@ -102,6 +131,30 @@ export function createFeatureBuilder(context: {
       return api
     },
 
+    execution: {
+      register: (
+        eventName: string,
+        config?: ExecutionConfig,
+        handler?: any
+      ) => {
+        if (isPackagesSet && executionRegistryLocal) {
+          executionRegistryLocal.register(
+            eventName,
+            name,
+            config || {},
+            handler
+          )
+        } else {
+          pendingExecutionRegistrations.push({
+            featureName: name,
+            eventName,
+            config: config || {},
+            handler
+          })
+        }
+      }
+    },
+
     session: {
       start: <T>(
         sessionName: string,
@@ -110,11 +163,13 @@ export function createFeatureBuilder(context: {
         onUpdate?: any,
         onEnd?: any
       ) => {
-        sessionManager.registerSession(sessionName, name, config || {}, {
-          onStart,
-          onUpdate,
-          onEnd
-        })
+        if (sessionManager) {
+          sessionManager.registerSession(sessionName, name, config || {}, {
+            onStart,
+            onUpdate,
+            onEnd
+          })
+        }
       }
     }
   }
