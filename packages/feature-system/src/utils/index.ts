@@ -9,10 +9,3 @@ export {
   withUndoRedo,
   withContextSnapshot
 } from './micro-features'
-
-// Templates
-export {
-  toolTemplate,
-  shortcutTemplate,
-  transactionalTemplate
-} from './templates'

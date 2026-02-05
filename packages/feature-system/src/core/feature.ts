@@ -93,24 +93,27 @@ export function defineFeature<API>(
   keyConfig: FeatureKeyMap | undefined,
   definition: FeatureDefinition<API>
 ): { api: FeatureAPI<API> } {
-  const api = featureRegistry.register(name, definition)
+  const api = featureRegistry.register(
+    name,
+    definition as any as FeatureDefinition<any>
+  )
 
   const hasSession = !!definition.session
   const hasExecution = !!definition.execution
 
   if ((hasSession || hasExecution) && keyConfig !== undefined) {
     if (isPackagesSet) {
-      registerFeatureHandlers(name, keyConfig, definition)
+      registerFeatureHandlers(name, keyConfig, definition as any)
     } else {
       pendingRegistrations.push({
         featureName: name,
         keyConfig,
-        definition
+        definition: definition as any
       })
     }
   }
 
-  return { api }
+  return { api } as { api: FeatureAPI<API> }
 }
 
 export function setCorePackages(packages: any) {
@@ -119,7 +122,7 @@ export function setCorePackages(packages: any) {
 
   for (const registration of pendingRegistrations) {
     try {
-      registerFeature(
+      registerFeatureHandlers(
         registration.featureName,
         registration.keyConfig,
         registration.definition
@@ -141,8 +144,6 @@ export function importFeature(featureName: string): FeatureAPI {
   }
   return api
 }
-
-export function registerFeature(feature: { api: FeatureAPI }): void {}
 
 export function unregisterFeature(featureName: string): boolean {
   return featureRegistry.unregister(featureName)

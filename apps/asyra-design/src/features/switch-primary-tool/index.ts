@@ -1,34 +1,27 @@
 import { systemContext } from '../../contexts'
 import { defineFeature } from '@asyra/feature-system'
 import uiContext from '@asyra/ui-context'
-import { InputSystemEvents } from '../../constants'
 
 export const switchPrimaryToolFeature = defineFeature(
   'switchPrimaryTool',
-  InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL,
+  'input.shortcut.switchPrimaryTool',
   {
-    name: 'switchPrimaryTool',
     api: {
       switch: (tool: string) => {
         systemContext.switchPrimaryTool(tool)
         uiContext.updatePrimaryTool(tool)
       }
     },
-    define: ({ execution }: any) => {
-      execution.register(
-        InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL,
-        {},
-        (snapshot: any) => {
-          const tool = snapshot.detail?.primaryTool
-          if (tool) {
-            const api = switchPrimaryToolFeature.api
-            if (api?.switch) {
-              api.switch(tool)
-            }
-          }
-          return { tool }
+    execution: (snapshot: any) => {
+      const tool = snapshot.detail?.primaryTool
+      if (tool) {
+        const api = switchPrimaryToolFeature.api as {
+          switch: (tool: string) => void
         }
-      )
+        api.switch(tool)
+        return { tool }
+      }
+      return null
     }
   }
 )

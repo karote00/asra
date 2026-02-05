@@ -17,7 +17,7 @@ export {
   unregisterFeature,
   getFeatureRegistry,
   getSessionManager,
-  setCorePackagesAndProcessRegistrations,
+  setCorePackages,
   setAppKeyCombinations
 } from './core/feature'
 
@@ -31,8 +31,7 @@ export * from './utils'
 
 export type {
   FeatureDefinition,
-  FeatureAPI,
-  FeatureBuilder,
+  FeatureAPI
   SessionConfig,
   ActiveSession
 } from './types/feature'

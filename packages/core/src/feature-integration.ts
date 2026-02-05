@@ -2,7 +2,7 @@
 import {
   getSessionManager,
   getFeatureRegistry,
-  setCorePackagesAndProcessRegistrations,
+  setCorePackages,
   setAppKeyCombinations
 } from '@asyra/feature-system'
 
@@ -27,8 +27,8 @@ export function initFeatureSystem(coreDeps: {
   const systemContext = coreDeps.systemContext
   const core = coreDeps.core
 
-  // Set core packages for feature system to use in builders
-  setCorePackagesAndProcessRegistrations(coreDeps)
+  // Set core packages for feature system to use
+  setCorePackages(coreDeps)
 
   // Track input.drag.start
   if (inputSystem.on) {
