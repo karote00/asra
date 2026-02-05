@@ -7,7 +7,7 @@ import {
   endTransaction
 } from '@asyra/reactive-events'
 import { render, sceneTree } from '../../contexts'
-import { InputSystemEvents, PrimaryToolType } from '../../constants'
+import { PrimaryToolType } from '../../constants'
 
 interface CreateElementState {
   elementId: string | null
@@ -16,9 +16,10 @@ interface CreateElementState {
 
 export const createElementFeature = defineFeature(
   'createElement',
-  'input.drag', // Session: auto-expands to start/update/end
+  'input.drag',
   {
-    name: 'createElement',
+    priority: 10,
+    exclusive: true,
     api: {
       createRectangle: (position: { x: number; y: number }) => {
         const pos = render!.getMousePosInWorkspace({
@@ -81,77 +82,77 @@ export const createElementFeature = defineFeature(
         )
       }
     },
-    define: ({ session }: any) => {
-      session.start(
-        InputSystemEvents.INPUT_DRAG_START,
-        { priority: 10, exclusive: true },
-        (snapshot: any) => {
-          const { primaryTool } = snapshot
+    session: {
+      start: (snapshot: any) => {
+        const { primaryTool } = snapshot
 
-          if (primaryTool !== PrimaryToolType.RECTANGLE) {
-            return null
-          }
-
-          if (!render) {
-            return null
-          }
-
-          const api = createElementFeature.api as any
-          const dragStartWorkspace = render!.getMousePosInWorkspace({
-            clientX: snapshot.mouse.position.x,
-            clientY: snapshot.mouse.position.y
-          })
-
-          startTransaction()
-          const elementId = api.createRectangle(snapshot.mouse.position)
-          endTransaction()
-
-          if (elementId) {
-            selectElements([elementId])
-          }
-
-          return {
-            elementId,
-            dragStartWorkspacePos: dragStartWorkspace
-          } as CreateElementState
-        },
-        (snapshot: any, state: CreateElementState) => {
-          if (!state || state.elementId === null) {
-            return
-          }
-
-          const currentWorkspacePos = render!.getMousePosInWorkspace({
-            clientX: snapshot.mouse.position.x,
-            clientY: snapshot.mouse.position.y
-          })
-
-          startTransaction()
-          const api = createElementFeature.api as any
-          api.updateElementSizeAndPosition(
-            state.elementId,
-            state.dragStartWorkspacePos,
-            currentWorkspacePos
-          )
-          endTransaction()
-        },
-        (snapshot: any, state: CreateElementState) => {
-          if (!state || state.elementId === null) {
-            return
-          }
-
-          const api = createElementFeature.api as any
-          const hasMoved = api.hasMovedWithViewport(
-            snapshot.mouse.dragStart || snapshot.mouse.position,
-            snapshot.mouse.position
-          )
-
-          if (!hasMoved) {
-            startTransaction()
-            api.resetElementSize(state.elementId)
-            endTransaction()
-          }
+        if (primaryTool !== PrimaryToolType.RECTANGLE) {
+          return null
         }
-      )
+
+        if (!render) {
+          return null
+        }
+
+        const api = createElementFeature.api
+        const dragStartWorkspace = render!.getMousePosInWorkspace({
+          clientX: snapshot.mouse.position.x,
+          clientY: snapshot.mouse.position.y
+        })
+
+        startTransaction()
+        const elementId = api.createRectangle(snapshot.mouse.position)
+        endTransaction()
+
+        if (elementId) {
+          selectElements([elementId])
+        }
+
+        return {
+          elementId,
+          dragStartWorkspacePos: dragStartWorkspace
+        } as CreateElementState
+      },
+      update: (snapshot: any, state: CreateElementState) => {
+        if (
+          !state ||
+          state.elementId === null ||
+          !state.dragStartWorkspacePos
+        ) {
+          return
+        }
+
+        const currentWorkspacePos = render!.getMousePosInWorkspace({
+          clientX: snapshot.mouse.position.x,
+          clientY: snapshot.mouse.position.y
+        })
+
+        startTransaction()
+        const api = createElementFeature.api
+        api.updateElementSizeAndPosition(
+          state.elementId,
+          state.dragStartWorkspacePos,
+          currentWorkspacePos
+        )
+        endTransaction()
+      },
+      end: (snapshot: any, state: CreateElementState) => {
+        if (!state || state.elementId === null) {
+          return
+        }
+
+        const api = createElementFeature.api
+        const hasMoved = api.hasMovedWithViewport(
+          snapshot.mouse.dragStart || snapshot.mouse.position,
+          snapshot.mouse.position
+        )
+
+        if (!hasMoved) {
+          startTransaction()
+          api.resetElementSize(state.elementId)
+          endTransaction()
+        }
+      }
     }
   }
 )
