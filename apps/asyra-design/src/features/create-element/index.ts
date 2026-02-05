@@ -12,7 +12,6 @@ import { InputSystemEvents, PrimaryToolType } from '../../constants'
 let createdElementId: string | null = null
 let dragStartWorkspacePos: { x: number; y: number } | null = null
 
-
 export const createElementFeature = defineFeature('createElement', undefined, {
   name: 'createElement',
   api: {
@@ -35,9 +34,23 @@ export const createElementFeature = defineFeature('createElement', undefined, {
       dragStart: { x: number; y: number },
       currentPos: { x: number; y: number }
     ) => {
-      const width = currentPos.x - dragStart.x
-      const height = currentPos.y - dragStart.y
+      let width = currentPos.x - dragStart.x
+      let height = currentPos.y - dragStart.y
+      let x = dragStart.x
+      let y = dragStart.y
 
+      if (width < 0) {
+        width = Math.abs(width)
+        x = currentPos.x
+      }
+
+      if (height < 0) {
+        height = Math.abs(height)
+        y = currentPos.y
+      }
+
+      changeComputedData([elementId], 'x', x)
+      changeComputedData([elementId], 'y', y)
       changeComputedData([elementId], 'width', width)
       changeComputedData([elementId], 'height', height)
     },

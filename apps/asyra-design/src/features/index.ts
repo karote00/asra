@@ -3,10 +3,9 @@ import './switch-primary-tool'
 import './create-element'
 import './selection'
 import './transaction'
+// import './move-elements'
 
-export function registerAllFeatures() {
-  console.log('Features registered via defineFeature')
-}
+export function registerAllFeatures() {}
 
 export default {
   registerAllFeatures
