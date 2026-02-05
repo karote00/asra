@@ -24,7 +24,7 @@ export function setAppKeyCombinations(combinations: any) {
   appKeyCombinations = combinations
 }
 
-function registerFeature(
+function registerFeatureHandlers(
   name: string,
   keyConfig: FeatureKeyMap,
   definition: FeatureDefinition
@@ -100,7 +100,7 @@ export function defineFeature<API>(
 
   if ((hasSession || hasExecution) && keyConfig !== undefined) {
     if (isPackagesSet) {
-      registerFeature(name, keyConfig, definition)
+      registerFeatureHandlers(name, keyConfig, definition)
     } else {
       pendingRegistrations.push({
         featureName: name,
