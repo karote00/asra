@@ -11,6 +11,7 @@ import {
 } from '@asyra/reactive-events'
 
 let createdElementId: string | null = null
+let dragStartWorkspacePos: { x: number; y: number } | null = null
 
 const getLastCreatedElementId = () => {
   const factory = core.deps.factory
@@ -68,6 +69,23 @@ export const createElementFeature = defineFeature('createElement', undefined, {
         Math.abs(currentPos.x - dragStart.x) > 1 ||
         Math.abs(currentPos.y - dragStart.y) > 1
       )
+    },
+    hasMovedWithViewport: (
+      clientDragStart: { x: number; y: number },
+      clientCurrentPos: { x: number; y: number }
+    ) => {
+      const dragStartWorkspace = core.deps.render!.getMousePosInWorkspace({
+        clientX: clientDragStart.x,
+        clientY: clientDragStart.y
+      })
+      const currentWorkspace = core.deps.render!.getMousePosInWorkspace({
+        clientX: clientCurrentPos.x,
+        clientY: clientCurrentPos.y
+      })
+      return (
+        Math.abs(currentWorkspace.x - dragStartWorkspace.x) > 1 ||
+        Math.abs(currentWorkspace.y - dragStartWorkspace.y) > 1
+      )
     }
   },
   define: ({
@@ -81,10 +99,22 @@ export const createElementFeature = defineFeature('createElement', undefined, {
       console.log('[createElement] DRAG_START:', { primaryTool, mouse })
 
       if (primaryTool === PrimaryToolType.RECTANGLE && mouse.down) {
+        const dragStart = mouse.dragStart || mouse.position
+        const dragStartWorkspace = core.deps.render!.getMousePosInWorkspace({
+          clientX: dragStart.x,
+          clientY: dragStart.y
+        })
+
         startTransaction()
         const api = createElementFeature.api as any
-        api.createRectangle(mouse.dragStart || mouse.position)
+        api.createRectangle(dragStart)
         createdElementId = getLastCreatedElementId()
+        dragStartWorkspacePos = dragStartWorkspace
+
+        if (createdElementId) {
+          selectElements([createdElementId])
+        }
+
         endTransaction()
       }
 
@@ -97,25 +127,32 @@ export const createElementFeature = defineFeature('createElement', undefined, {
       console.log('[createElement] DRAG_UPDATE:', {
         primaryTool,
         mouse,
-        createdElementId
+        createdElementId,
+        dragStartWorkspacePos
       })
 
       if (
         primaryTool === PrimaryToolType.RECTANGLE &&
         mouse.dragging &&
-        createdElementId
+        createdElementId &&
+        dragStartWorkspacePos
       ) {
+        const currentWorkspacePos = core.deps.render!.getMousePosInWorkspace({
+          clientX: mouse.position.x,
+          clientY: mouse.position.y
+        })
+
         startTransaction()
         const api = createElementFeature.api as any
         api.updateElementSizeAndPosition(
           createdElementId,
-          mouse.dragStart || mouse.position,
-          mouse.position
+          dragStartWorkspacePos,
+          currentWorkspacePos
         )
         endTransaction()
         console.log('[createElement] Updated size:', {
-          width: mouse.position.x - (mouse.dragStart?.x || mouse.position.x),
-          height: mouse.position.y - (mouse.dragStart?.y || mouse.position.y)
+          width: currentWorkspacePos.x - dragStartWorkspacePos.x,
+          height: currentWorkspacePos.y - dragStartWorkspacePos.y
         })
       }
 
@@ -128,20 +165,23 @@ export const createElementFeature = defineFeature('createElement', undefined, {
       console.log('[createElement] DRAG_END:', {
         primaryTool,
         mouse,
-        createdElementId
+        createdElementId,
+        dragStartWorkspacePos
       })
 
       if (primaryTool === PrimaryToolType.RECTANGLE && createdElementId) {
         const api = createElementFeature.api as any
 
         const dragStart = mouse.dragStart || mouse.position
-        const hasMoved = api.hasMoved(dragStart, mouse.position)
+        const hasMoved = api.hasMovedWithViewport(dragStart, mouse.position)
 
         if (!hasMoved) {
           startTransaction()
           api.resetElementSize(createdElementId)
           endTransaction()
         }
+
+        dragStartWorkspacePos = null
       }
 
       createdElementId = null
