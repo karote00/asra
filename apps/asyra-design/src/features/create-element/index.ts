@@ -102,11 +102,10 @@ export const createElementFeature = defineFeature(
 
         startTransaction()
         const elementId = api.createRectangle(snapshot.mouse.position)
-        endTransaction()
-
         if (elementId) {
           selectElements([elementId])
         }
+        endTransaction()
 
         return {
           elementId,
