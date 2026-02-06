@@ -1,6 +1,10 @@
 import core from '../../contexts'
 import { defineFeature } from '@asyra/feature-system'
-import { selectElements } from '@asyra/reactive-events'
+import {
+  selectElements,
+  startTransaction,
+  endTransaction
+} from '@asyra/reactive-events'
 import type { ModifierKeys } from '@asyra/utils'
 
 export const selectionFeature = defineFeature('selection', 'input.drag', {
@@ -8,14 +12,20 @@ export const selectionFeature = defineFeature('selection', 'input.drag', {
   exclusive: false,
   api: {
     getSelectedIds: () => core.deps.selection.getElementSelectionIds(),
-    clearSelection: () => selectElements([]),
+    clearSelection: () => {
+      startTransaction()
+      selectElements([])
+      endTransaction()
+    },
     toggleSelection: (elementId: string) => {
       const currentIds = core.deps.selection.getElementSelectionIds()
+      startTransaction()
       if (currentIds.includes(elementId)) {
         selectElements(currentIds.filter((id) => id !== elementId))
       } else {
         selectElements([...currentIds, elementId])
       }
+      endTransaction()
     }
   },
   session: {
@@ -30,17 +40,22 @@ export const selectionFeature = defineFeature('selection', 'input.drag', {
       const systemContext = core.deps.systemContext.getSystemContextSnapshot()
       const hoveredElementId = systemContext.target?.hoveredElementId
 
-      if (hoveredElementId) {
-        if (snapshot.key.shift) {
-          const api = selectionFeature.api as {
-            toggleSelection: (elementId: string) => void
+      startTransaction()
+      try {
+        if (hoveredElementId) {
+          if (snapshot.key.shift) {
+            const api = selectionFeature.api as {
+              toggleSelection: (elementId: string) => void
+            }
+            api.toggleSelection(hoveredElementId)
+          } else {
+            selectElements([hoveredElementId])
           }
-          api.toggleSelection(hoveredElementId)
         } else {
-          selectElements([hoveredElementId])
+          selectElements([])
         }
-      } else {
-        selectElements([])
+      } finally {
+        endTransaction()
       }
 
       return { action: 'selection-updated' }

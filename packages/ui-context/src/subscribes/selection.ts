@@ -30,7 +30,9 @@ export const collectElementSelectionChange = (event) => {
   ) => {
     // @ts-expect-error: It's YJS event
     items.forEach((item) => {
-      item.content.getContent().forEach(updateUIElementSelection)
+      item.content.getContent().forEach((change: any) => {
+        updateUIElementSelection(change)
+      })
     })
   }
 
