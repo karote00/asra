@@ -3,11 +3,6 @@ import type { ExecutionConfig, ExecutionHandler } from './execution'
 
 export type FeatureKeyMap = string | undefined
 
-export interface SessionConfig {
-  priority?: number
-  exclusive?: boolean
-}
-
 export type SessionStartHandler<T = Record<string, unknown>> = (
   snapshot: SystemContextSnapshot
 ) => T | null

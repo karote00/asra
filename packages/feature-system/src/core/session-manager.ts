@@ -1,5 +1,4 @@
 import type {
-  SessionConfig,
   ActiveSession,
   SessionParticipant,
   SessionState
@@ -18,19 +17,21 @@ export class SessionManager {
    * Register a session handler for a feature
    * @param sessionName - Name of the session (e.g., 'input.drag')
    * @param featureName - Name of the feature registering
-   * @param config - Session configuration (priority, exclusive)
+   * @param priority - Execution priority (higher = runs first)
+   * @param exclusive - If true, stops lower priority features
    * @param handler - Session lifecycle handlers
    */
   registerSession(
     sessionName: string,
     featureName: string,
-    config: SessionConfig,
+    priority: number,
+    exclusive: boolean,
     handler: any
   ): void {
     const participant: SessionParticipant = {
       featureName,
-      priority: config.priority ?? 0,
-      exclusive: config.exclusive ?? true,
+      priority,
+      exclusive,
       handler,
       state: null
     }

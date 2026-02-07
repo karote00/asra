@@ -56,16 +56,11 @@ function registerFeatureHandlers(
 
   if (hasSession && definition.session) {
     const { start, update, end } = definition.session
-    sessionManager.registerSession(
-      keyConfig,
-      name,
-      { priority, exclusive },
-      {
-        onStart: start,
-        onUpdate: update,
-        onEnd: end
-      }
-    )
+    sessionManager.registerSession(keyConfig, name, priority, exclusive, {
+      onStart: start,
+      onUpdate: update,
+      onEnd: end
+    })
   }
 
   if (hasExecution && definition.execution) {

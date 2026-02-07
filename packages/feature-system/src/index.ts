@@ -30,6 +30,5 @@ export * from './utils'
 export type {
   FeatureDefinition,
   FeatureAPI,
-  SessionConfig,
   ActiveSession
 } from './types/feature'

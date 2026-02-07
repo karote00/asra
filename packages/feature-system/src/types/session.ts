@@ -5,14 +5,12 @@
 
 // Re-export session types from feature.ts to avoid circular dependencies
 export type {
-  SessionConfig,
   SessionStartHandler,
   SessionUpdateHandler,
   SessionEndHandler,
   SessionState,
   ActiveSession,
-  SessionParticipant,
-  SessionHandler
+  SessionParticipant
 } from './feature'
 
 // Additional session-specific types can be added here if needed
