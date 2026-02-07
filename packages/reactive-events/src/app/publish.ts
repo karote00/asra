@@ -59,3 +59,22 @@ export const redo = () => {
     type: EventTypes.REDO
   })
 }
+
+// Renderer events - published by render engine adapter
+export const renderPointerHover = (elementId: string) => {
+  publishEvent({
+    type: EventTypes.POINTER_HOVER,
+    payload: {
+      elementId
+    }
+  })
+}
+
+export const renderPointerLeave = (elementId: string) => {
+  publishEvent({
+    type: EventTypes.POINTER_LEAVE,
+    payload: {
+      elementId
+    }
+  })
+}

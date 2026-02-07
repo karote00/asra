@@ -6,7 +6,9 @@ import type {
   UpdateUndoRedoStatusEvent,
   RenderIsReadyEvent,
   UndoEvent,
-  RedoEvent
+  RedoEvent,
+  RenderPointerHoverEvent,
+  RenderPointerLeaveEvent
 } from './events'
 import { createSubscribeEvent } from '../event-bus'
 import { EventTypes } from '../types'
@@ -34,3 +36,9 @@ export const subscribeToUpdateUndoRedoStatus =
 export const subscribeToUndo = createSubscribeEvent<UndoEvent>(EventTypes.UNDO)
 
 export const subscribeToRedo = createSubscribeEvent<RedoEvent>(EventTypes.REDO)
+
+export const subscribeToRenderPointerHover =
+  createSubscribeEvent<RenderPointerHoverEvent>(EventTypes.POINTER_HOVER)
+
+export const subscribeToRenderPointerLeave =
+  createSubscribeEvent<RenderPointerLeaveEvent>(EventTypes.POINTER_LEAVE)

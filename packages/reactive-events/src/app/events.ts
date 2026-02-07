@@ -40,6 +40,20 @@ export interface RedoEvent {
   type: EventTypes
 }
 
+export interface RenderPointerHoverEvent {
+  type: EventTypes
+  payload: {
+    elementId: string
+  }
+}
+
+export interface RenderPointerLeaveEvent {
+  type: EventTypes
+  payload: {
+    elementId: string
+  }
+}
+
 export type AppEvent =
   | RenderIsReadyEvent
   | FileLoadCompleteEvent
@@ -49,3 +63,5 @@ export type AppEvent =
   | UpdateUndoRedoStatusEvent
   | UndoEvent
   | RedoEvent
+  | RenderPointerHoverEvent
+  | RenderPointerLeaveEvent

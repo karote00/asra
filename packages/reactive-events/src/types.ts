@@ -96,6 +96,26 @@ export enum TargetStateEventTypes {
   UPDATE_HOVERED_ELEMENT_ID = 'updateHoveredElementId'
 }
 
+/**
+ * Renderer Events
+ *
+ * These events are published by the render engine's native event handlers.
+ * They represent the render engine's feedback about what's happening in the rendered scene.
+ *
+ * IMPORTANT: Distinction between input.* and renderer.* events:
+ * - input.* events: Raw user input actions (mouse move, click, keyboard) from DOM
+ * - renderer.* events: Render engine feedback (element hover, visibility change) from rendering layer
+ *
+ * Example: User moves mouse over a rectangle:
+ *   1. input.mouse.move fires (raw action)
+ *   2. Render engine detects rectangle under cursor
+ *   3. render.pointer.hover fires (engine feedback with elementId)
+ */
+export enum RendererEventTypes {
+  POINTER_HOVER = 'render.pointer.hover',
+  POINTER_LEAVE = 'render.pointer.leave'
+}
+
 // InputSystem
 export enum InputSystemEventTypes {
   SWITCH_INPUT_SYSTEM_WATCHED_ELEMENT = 'switchInputSystemWatchedElement'
@@ -145,7 +165,8 @@ export const EventTypes = {
   ...InputSystemEventTypes,
   ...InteractionCoreEventTypes,
   ...SystemContextEventTypes,
-  ...KeyStateEventTypes
+  ...KeyStateEventTypes,
+  ...RendererEventTypes
 } as const
 
 export type EventTypes = (typeof EventTypes)[keyof typeof EventTypes]
