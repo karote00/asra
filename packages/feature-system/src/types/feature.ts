@@ -33,14 +33,18 @@ export interface ActiveSession {
 }
 
 export interface SessionParticipant {
+  // Runtime data for session execution in SessionManager
   featureName: string
+  // Session execution priority (higher = runs first)
   priority: number
+  // If true, stops lower priority features from running
   exclusive: boolean
   handler: SessionHandler
   state: SessionState | null
 }
 
 export interface FeatureDefinition<API = Record<string, any>> {
+  // Static configuration for feature registration
   api?: API
   execution?: ExecutionHandler
   session?: {
@@ -48,7 +52,9 @@ export interface FeatureDefinition<API = Record<string, any>> {
     update?: (snapshot: SystemContextSnapshot, state: any) => void
     end?: (snapshot: SystemContextSnapshot, state: any) => void
   }
+  // Feature priority for session registration
   priority?: number
+  // Whether feature blocks lower priority features
   exclusive?: boolean
 }
 
