@@ -3,6 +3,7 @@ import './switch-primary-tool'
 import './create-element'
 import './selection'
 import './transaction'
+import './hover-element'
 // import './move-elements'
 
 export function registerAllFeatures() {}
