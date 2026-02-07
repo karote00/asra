@@ -1,55 +1,33 @@
 import core from '../../contexts'
 import { defineFeature } from '@asyra/feature-system'
-import type { Container, Graphics } from 'pixi.js'
-
-type SceneElement = Container | Graphics
+import {
+  subscribeToRenderPointerHover,
+  subscribeToRenderPointerLeave
+} from '@asyra/reactive-events'
 
 export const hoverElementFeature = defineFeature(
   'hoverElement',
-  'input.mouse.move',
+  'render.pointer.hover',
   {
+    priority: 0,
+    exclusive: false,
     api: {},
     execution: (snapshot: any) => {
-      if (!core.deps.render) return null
-
-      const { mouse } = snapshot
-      const render = core.deps.render
-
-      const mousePosInWorkspace = render.getMousePosInWorkspace({
-        clientX: mouse.position.x,
-        clientY: mouse.position.y
-      })
-
-      const elements = render.viewport.view.children[0].children
-      if (!elements || elements.length === 0) {
-        core.deps.systemContext.updateHoveredElementId(null)
+      const { payload } = snapshot
+      if (!payload || !payload.elementId) {
         return null
       }
 
-      let hoveredElementId: string | null = null
+      core.deps.systemContext.updateHoveredElementId(payload.elementId)
 
-      // Iterate in reverse to check top-most elements first (higher index = rendered on top)
-      for (let i = elements.length - 1; i >= 0; i--) {
-        const element = elements[i]
-        const sceneElement = element as SceneElement
-        if (!sceneElement.label) continue
-
-        const bounds = sceneElement.getBounds()
-        const isInBounds =
-          mousePosInWorkspace.x >= bounds.x &&
-          mousePosInWorkspace.x <= bounds.x + bounds.width &&
-          mousePosInWorkspace.y >= bounds.y &&
-          mousePosInWorkspace.y <= bounds.y + bounds.height
-
-        if (isInBounds) {
-          hoveredElementId = sceneElement.label
-          break
-        }
-      }
-
-      core.deps.systemContext.updateHoveredElementId(hoveredElementId)
-
-      return { hoveredId: hoveredElementId }
+      return { hoveredId: payload.elementId }
     }
   }
 )
+
+// Also subscribe to pointer leave events to clear hovered element
+subscribeToRenderPointerLeave(({ payload }) => {
+  if (payload?.elementId) {
+    core.deps.systemContext.updateHoveredElementId(null)
+  }
+})
