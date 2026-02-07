@@ -8,9 +8,7 @@ import {
   decideFromSelectRules,
   decideZoomFitRules,
   decidePanZoomRules,
-  decideUndoRedoRules,
-  decideFromResizeElementRules,
-  decideFromResetElementSizeRules
+  decideUndoRedoRules
 } from './rules'
 
 export const registerRules = () => {
@@ -72,7 +70,6 @@ export const registerRules = () => {
     return decideUndoRedoRules(keySnapshot)
   })
 
-  core.registerInteraction('input.mouse.move', (snapshot) =>
-    decideFromSelectRules(snapshot)
-  )
+  // Note: input.mouse.move is now handled by hover-element feature-system
+  // Old registration disabled - hover detection is managed by feature-system
 }

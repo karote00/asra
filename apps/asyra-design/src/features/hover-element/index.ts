@@ -1,6 +1,5 @@
 import core from '../../contexts'
 import { defineFeature } from '@asyra/feature-system'
-import { InputSystemEvents } from '../../constants'
 import type { Container, Graphics } from 'pixi.js'
 
 type SceneElement = Container | Graphics
@@ -29,7 +28,9 @@ export const hoverElementFeature = defineFeature(
 
       let hoveredElementId: string | null = null
 
-      for (const element of elements) {
+      // Iterate in reverse to check top-most elements first (higher index = rendered on top)
+      for (let i = elements.length - 1; i >= 0; i--) {
+        const element = elements[i]
         const sceneElement = element as SceneElement
         if (!sceneElement.label) continue
 
