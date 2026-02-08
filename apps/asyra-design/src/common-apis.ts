@@ -5,18 +5,23 @@
  * As the framework evolves, some of these may move to core packages if needed.
  */
 
+import {
+  selectElements,
+  subscribeToStartTransaction,
+  subscribeToEndTransaction,
+  changeComputedData
+} from '@asyra/reactive-events'
+import { selection } from './contexts'
+
 /**
  * Transaction APIs - for data modifications
  * Used in: create-element, selection, and many future features
  */
 export const transactionApis = {
   startTransaction: () => {
-    // Will import from reactive-events when needed
-    const { subscribeToStartTransaction } = require('@asyra/reactive-events')
     subscribeToStartTransaction(() => {})
   },
   endTransaction: () => {
-    const { subscribeToEndTransaction } = require('@asyra/reactive-events')
     subscribeToEndTransaction(() => {})
   }
 }
@@ -29,21 +34,14 @@ export const selectionApis = {
   /**
    * Get currently selected element IDs
    */
-  getSelectedIds: (selection: { getElementSelectionIds: () => string[] }) => {
+  getSelectedIds: () => {
     return selection.getElementSelectionIds()
   },
 
   /**
    * Clear all selections
    */
-  clearSelection: (
-    selection: { getElementSelectionIds: () => string[] },
-    transactionApis: {
-      startTransaction: () => void
-      endTransaction: () => void
-    }
-  ) => {
-    const { selectElements } = require('@asyra/reactive-events')
+  clearSelection: () => {
     transactionApis.startTransaction()
     selectElements([])
     transactionApis.endTransaction()
@@ -52,15 +50,7 @@ export const selectionApis = {
   /**
    * Toggle selection of an element
    */
-  toggleSelection: (
-    elementId: string,
-    selection: { getElementSelectionIds: () => string[] },
-    transactionApis: {
-      startTransaction: () => void
-      endTransaction: () => void
-    }
-  ) => {
-    const { selectElements } = require('@asyra/reactive-events')
+  toggleSelection: (elementId: string) => {
     const currentIds = selection.getElementSelectionIds()
     transactionApis.startTransaction()
     if (currentIds.includes(elementId)) {
@@ -81,7 +71,6 @@ export const elementApis = {
    * Reset element to default size
    */
   resetElementSize: (elementId: string, defaultSize: number) => {
-    const { changeComputedData } = require('@asyra/reactive-events')
     changeComputedData([elementId], 'width', defaultSize)
     changeComputedData([elementId], 'height', defaultSize)
   },
