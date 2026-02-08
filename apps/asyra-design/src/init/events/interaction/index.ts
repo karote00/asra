@@ -21,15 +21,6 @@ export const endTransaction = endTransactionEvent.publish
 export const subscribeToDecideToEndTransaction = endTransactionEvent.subscribe
 
 // Element events
-const createElementEvent = eventRegistry.register('decideToCreateElement')
-export const decideToCreateElement = (
-  position: PositionData,
-  elementType: PrimaryToolType
-) => {
-  createElementEvent.publish({ position, elementType })
-}
-export const subscribeToDecideToCreateElement = createElementEvent.subscribe
-
 const selectElementsEvent = eventRegistry.register('decideToSelectElements')
 export const selectElements = (elementIds: string[]) => {
   selectElementsEvent.publish({ elementIds })
@@ -38,40 +29,6 @@ export const decideToSelectElements = (elementIds: string[]) => {
   selectElementsEvent.publish({ elementIds })
 }
 export const subscribeToDecideToSelectElements = selectElementsEvent.subscribe
-
-const resizeElementEvent = eventRegistry.register('decideToResizeElement')
-// Resize element with options wrapper
-export const decideToResizeElement = (
-  dragStart: PositionData,
-  position: PositionData,
-  elementType: PrimaryToolType,
-  options?: EVENT_OPTIONS
-) => {
-  resizeElementEvent.publish({ dragStart, position, elementType }, options)
-}
-
-const endResizeElementEvent = eventRegistry.register('decideToEndResizeElement')
-export const decideToEndResizeElement = (
-  position: PositionData,
-  elementType: PrimaryToolType
-) => {
-  endResizeElementEvent.publish({ position, elementType })
-}
-
-export const subscribeToDecideToEndResizeElement =
-  endResizeElementEvent.subscribe
-
-const resetElementSizeEvent = eventRegistry.register('decideToResetElementSize')
-
-export const decideToResetElementSize = (
-  dimension: { width: number; height: number },
-  elementType: PrimaryToolType
-) => {
-  resetElementSizeEvent.publish({ dimension, elementType })
-}
-
-export const subscribeToDecideToResetElementSize =
-  resetElementSizeEvent.subscribe
 
 // Undo/Redo events
 const undoRedoEvent = eventRegistry.register('decideToUndoRedo')
