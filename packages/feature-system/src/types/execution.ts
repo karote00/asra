@@ -1,6 +1,6 @@
 import type { SystemContextSnapshot } from '@asyra/utils'
 
-export type ExecutionConfig = {
+export interface ExecutionConfig {
   priority?: number
   exclusive?: boolean
 }

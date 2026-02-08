@@ -79,7 +79,7 @@ export const elementApis = {
     clientDragStart: { x: number; y: number },
     clientCurrentPos: { x: number; y: number },
     render: { getMousePosInWorkspace: (pos: any) => { x: number; y: number } },
-    threshold: number = 1
+    threshold = 1
   ) => {
     const dragStartWorkspace = render!.getMousePosInWorkspace({
       clientX: clientDragStart.x,

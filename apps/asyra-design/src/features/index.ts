@@ -4,6 +4,7 @@ import './create-element'
 import './selection'
 import './transaction'
 import './hover-element'
+import './zoom'
 // import './move-elements'
 
 export function registerAllFeatures() {}
