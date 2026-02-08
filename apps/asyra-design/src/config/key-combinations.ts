@@ -178,7 +178,3 @@ export const keyCombinations = {
     }
   ]
 }
-
-export const featureKeyConfigs = {
-  // Remove - now using string keyConfig in defineFeature
-}
