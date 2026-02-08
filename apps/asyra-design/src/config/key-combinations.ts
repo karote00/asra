@@ -5,6 +5,20 @@ import keyMap from '@asyra/input-system/src/keymap'
 import { InputSystemEvents } from '../constants'
 import { PrimaryToolType } from '../constants'
 
+// Helper functions to reduce code duplication
+const updateKeyState = (raw: RawInputEvent) => {
+  systemContext.updateKeyState({
+    shift: raw.modifiers.shift,
+    ctrl: raw.modifiers.ctrl,
+    alt: raw.modifiers.alt,
+    meta: raw.modifiers.meta
+  })
+}
+
+const updateMouseState = (mouseState: any) => {
+  systemContext.updateMouseState(mouseState)
+}
+
 export const keyCombinations = {
   [InputSystemEvents.INPUT_DRAG_START]: [
     {
@@ -12,7 +26,7 @@ export const keyCombinations = {
       keys: [PointerKey.LEFT_MOUSE_DOWN],
       callback: (raw: RawInputEvent) => {
         const { clientX, clientY, button } = raw.pointer
-        systemContext.updateMouseState({
+        updateMouseState({
           dragStart: { x: clientX, y: clientY },
           position: { x: clientX, y: clientY },
           delta: { x: 0, y: 0 },
@@ -20,12 +34,7 @@ export const keyCombinations = {
           down: true,
           dragging: false
         })
-        systemContext.updateKeyState({
-          shift: raw.modifiers.shift,
-          ctrl: raw.modifiers.ctrl,
-          alt: raw.modifiers.alt,
-          meta: raw.modifiers.meta
-        })
+        updateKeyState(raw)
       }
     }
   ],
@@ -38,7 +47,7 @@ export const keyCombinations = {
         const currentMouse = systemContext.getSystemContextSnapshot().mouse
         const startPos = currentMouse.dragStart || { x: clientX, y: clientY }
 
-        systemContext.updateMouseState({
+        updateMouseState({
           dragStart: startPos,
           position: { x: clientX, y: clientY },
           delta: {
@@ -49,12 +58,7 @@ export const keyCombinations = {
           down: true,
           dragging: true
         })
-        systemContext.updateKeyState({
-          shift: raw.modifiers.shift,
-          ctrl: raw.modifiers.ctrl,
-          alt: raw.modifiers.alt,
-          meta: raw.modifiers.meta
-        })
+        updateKeyState(raw)
       }
     }
   ],
@@ -67,7 +71,7 @@ export const keyCombinations = {
         const currentMouse = systemContext.getSystemContextSnapshot().mouse
         const startPos = currentMouse.dragStart || { x: clientX, y: clientY }
 
-        systemContext.updateMouseState({
+        updateMouseState({
           dragStart: startPos,
           position: { x: clientX, y: clientY },
           delta: {
@@ -78,12 +82,7 @@ export const keyCombinations = {
           down: false,
           dragging: true
         })
-        systemContext.updateKeyState({
-          shift: raw.modifiers.shift,
-          ctrl: raw.modifiers.ctrl,
-          alt: raw.modifiers.alt,
-          meta: raw.modifiers.meta
-        })
+        updateKeyState(raw)
       }
     }
   ],
@@ -93,8 +92,7 @@ export const keyCombinations = {
       keys: [PointerKey.LEFT_MOUSE_MOVE],
       callback: (raw: RawInputEvent) => {
         const { clientX, clientY, button } = raw.pointer
-
-        systemContext.updateMouseState({
+        updateMouseState({
           position: { x: clientX, y: clientY },
           delta: { x: 0, y: 0 },
           button,
@@ -110,20 +108,14 @@ export const keyCombinations = {
       keys: [PointerKey.WHEEL],
       callback: (raw: RawInputEvent) => {
         const { clientX, clientY, deltaX, deltaY } = raw.pointer
-
-        systemContext.updateMouseState({
+        updateMouseState({
           position: { x: clientX, y: clientY },
           delta: { x: deltaX, y: deltaY },
           button: MouseButton.MIDDLE,
           down: false,
           dragging: false
         })
-        systemContext.updateKeyState({
-          shift: raw.modifiers.shift,
-          ctrl: raw.modifiers.ctrl,
-          alt: raw.modifiers.alt,
-          meta: raw.modifiers.meta
-        })
+        updateKeyState(raw)
       }
     }
   ],
@@ -132,77 +124,35 @@ export const keyCombinations = {
       type: InputType.KEYBOARD,
       keys: [keyMap.keys.KeyR],
       detail: { primaryTool: PrimaryToolType.RECTANGLE },
-      callback: (raw: RawInputEvent) => {
-        systemContext.updateKeyState({
-          shift: raw.modifiers.shift,
-          ctrl: raw.modifiers.ctrl,
-          alt: raw.modifiers.alt,
-          meta: raw.modifiers.meta
-        })
-      }
+      callback: updateKeyState
     },
     {
       type: InputType.KEYBOARD,
       keys: [keyMap.keys.KeyV],
       detail: { primaryTool: PrimaryToolType.SELECT },
-      callback: (raw: RawInputEvent) => {
-        systemContext.updateKeyState({
-          shift: raw.modifiers.shift,
-          ctrl: raw.modifiers.ctrl,
-          alt: raw.modifiers.alt,
-          meta: raw.modifiers.meta
-        })
-      }
+      callback: updateKeyState
     }
   ],
   [InputSystemEvents.INPUT_SHORTCUT_ARROW]: [
     {
       type: InputType.KEYBOARD,
       keys: [keyMap.keys.ArrowUp],
-      callback: (raw: RawInputEvent) => {
-        systemContext.updateKeyState({
-          shift: raw.modifiers.shift,
-          ctrl: raw.modifiers.ctrl,
-          alt: raw.modifiers.alt,
-          meta: raw.modifiers.meta
-        })
-      }
+      callback: updateKeyState
     },
     {
       type: InputType.KEYBOARD,
       keys: [keyMap.keys.ArrowDown],
-      callback: (raw: RawInputEvent) => {
-        systemContext.updateKeyState({
-          shift: raw.modifiers.shift,
-          ctrl: raw.modifiers.ctrl,
-          alt: raw.modifiers.alt,
-          meta: raw.modifiers.meta
-        })
-      }
+      callback: updateKeyState
     },
     {
       type: InputType.KEYBOARD,
       keys: [keyMap.keys.ArrowLeft],
-      callback: (raw: RawInputEvent) => {
-        systemContext.updateKeyState({
-          shift: raw.modifiers.shift,
-          ctrl: raw.modifiers.ctrl,
-          alt: raw.modifiers.alt,
-          meta: raw.modifiers.meta
-        })
-      }
+      callback: updateKeyState
     },
     {
       type: InputType.KEYBOARD,
       keys: [keyMap.keys.ArrowRight],
-      callback: (raw: RawInputEvent) => {
-        systemContext.updateKeyState({
-          shift: raw.modifiers.shift,
-          ctrl: raw.modifiers.ctrl,
-          alt: raw.modifiers.alt,
-          meta: raw.modifiers.meta
-        })
-      }
+      callback: updateKeyState
     }
   ],
   [InputSystemEvents.INPUT_SHORTCUT_UNDOREDO]: [
@@ -210,27 +160,13 @@ export const keyCombinations = {
       type: InputType.KEYBOARD,
       keys: [keyMap.keys.KeyZ],
       modifiers: [ModifierKey.META],
-      callback: (raw: RawInputEvent) => {
-        systemContext.updateKeyState({
-          shift: raw.modifiers.shift,
-          ctrl: raw.modifiers.ctrl,
-          alt: raw.modifiers.alt,
-          meta: raw.modifiers.meta
-        })
-      }
+      callback: updateKeyState
     },
     {
       type: InputType.KEYBOARD,
       keys: [keyMap.keys.KeyZ],
       modifiers: [ModifierKey.CTRL],
-      callback: (raw: RawInputEvent) => {
-        systemContext.updateKeyState({
-          shift: raw.modifiers.shift,
-          ctrl: raw.modifiers.ctrl,
-          alt: raw.modifiers.alt,
-          meta: raw.modifiers.meta
-        })
-      }
+      callback: updateKeyState
     }
   ],
   [InputSystemEvents.INPUT_SHORTCUT_ZOOM_PRESET]: [
@@ -238,14 +174,7 @@ export const keyCombinations = {
       type: InputType.KEYBOARD,
       keys: [keyMap.keys.Digit1],
       modifiers: [ModifierKey.META],
-      callback: (raw: RawInputEvent) => {
-        systemContext.updateKeyState({
-          shift: raw.modifiers.shift,
-          ctrl: raw.modifiers.ctrl,
-          alt: raw.modifiers.alt,
-          meta: raw.modifiers.meta
-        })
-      }
+      callback: updateKeyState
     }
   ]
 }
