@@ -5,7 +5,6 @@ import {
   renderIsReady,
   setupInputSystem
 } from '../controllers/app'
-import { decideToZoomFit } from '../init/events/interaction'
 
 const RenderApp: React.FC = () => {
   const pixiContainerRef = useRef<HTMLDivElement>(null)
@@ -23,7 +22,6 @@ const RenderApp: React.FC = () => {
 
         setupInputSystem(canvas)
         renderIsReady()
-        decideToZoomFit()
       }
     }
 

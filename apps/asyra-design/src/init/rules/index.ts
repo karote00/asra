@@ -1,5 +1,0 @@
-export * from './move-rules'
-export * from './select-rules'
-export * from './undoredo-rules'
-export * from './zoomfit-rules'
-export * from './panzoom-rules'

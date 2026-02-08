@@ -1,7 +1,4 @@
-import core from '@asyra/core'
 import { initInputSystem } from './init-input-system'
-import { initInteractions } from './init-interactions'
-import { initWorkflows } from './init-workflows'
 import { initSubscribers } from './subscribers'
 import { initFeatures } from './init-features'
 
@@ -28,11 +25,7 @@ import { initFeatures } from './init-features'
  */
 export const initApp = (): void => {
   initInputSystem()
-  initWorkflows()
-  initInteractions()
   initSubscribers()
-
-  core.initEventHandlers()
 
   // Initialize feature-system for application-level features
   initFeatures()
