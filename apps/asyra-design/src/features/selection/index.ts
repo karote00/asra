@@ -5,27 +5,19 @@ import {
   endTransaction
 } from '@asyra/reactive-events'
 import { systemContext, selection } from '../../contexts'
+import { selectionApis, transactionApis } from '../../common-apis'
 import type { ModifierKeys } from '@asyra/utils'
 
 export const selectionFeature = defineFeature('selection', 'input.drag', {
   priority: 5,
   exclusive: false,
   api: {
-    getSelectedIds: () => selection.getElementSelectionIds(),
+    getSelectedIds: () => selectionApis.getSelectedIds(selection),
     clearSelection: () => {
-      startTransaction()
-      selectElements([])
-      endTransaction()
+      selectionApis.clearSelection(selection, transactionApis)
     },
     toggleSelection: (elementId: string) => {
-      const currentIds = selection.getElementSelectionIds()
-      startTransaction()
-      if (currentIds.includes(elementId)) {
-        selectElements(currentIds.filter((id) => id !== elementId))
-      } else {
-        selectElements([...currentIds, elementId])
-      }
-      endTransaction()
+      selectionApis.toggleSelection(elementId, selection, transactionApis)
     }
   },
   session: {

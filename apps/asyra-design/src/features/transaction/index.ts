@@ -1,15 +1,11 @@
 import { defineFeature } from '@asyra/feature-system'
-import {
-  subscribeToStartTransaction,
-  subscribeToEndTransaction,
-  subscribeToUndo,
-  subscribeToRedo
-} from '@asyra/reactive-events'
+import { subscribeToUndo, subscribeToRedo } from '@asyra/reactive-events'
+import { transactionApis } from '../../common-apis'
 
 export const transactionFeature = defineFeature('transaction', undefined, {
   api: {
-    start: () => subscribeToStartTransaction(() => {}),
-    end: () => subscribeToEndTransaction(() => {}),
+    start: () => transactionApis.startTransaction(),
+    end: () => transactionApis.endTransaction(),
     undo: () => subscribeToUndo(() => {}),
     redo: () => subscribeToRedo(() => {})
   }

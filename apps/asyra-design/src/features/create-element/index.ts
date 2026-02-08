@@ -7,6 +7,7 @@ import {
   endTransaction
 } from '@asyra/reactive-events'
 import { render, sceneTree } from '../../contexts'
+import { elementApis } from '../../common-apis'
 import { PrimaryToolType } from '../../constants'
 
 interface CreateElementState {
@@ -61,24 +62,16 @@ export const createElementFeature = defineFeature(
         changeComputedData([elementId], 'height', height)
       },
       resetElementSize: (elementId: string) => {
-        changeComputedData([elementId], 'width', DEFAULT_ELEMENT_SIZE)
-        changeComputedData([elementId], 'height', DEFAULT_ELEMENT_SIZE)
+        elementApis.resetElementSize(elementId, DEFAULT_ELEMENT_SIZE)
       },
       hasMovedWithViewport: (
         clientDragStart: { x: number; y: number },
         clientCurrentPos: { x: number; y: number }
       ) => {
-        const dragStartWorkspace = render!.getMousePosInWorkspace({
-          clientX: clientDragStart.x,
-          clientY: clientDragStart.y
-        })
-        const currentWorkspace = render!.getMousePosInWorkspace({
-          clientX: clientCurrentPos.x,
-          clientY: clientCurrentPos.y
-        })
-        return (
-          Math.abs(currentWorkspace.x - dragStartWorkspace.x) > 1 ||
-          Math.abs(currentWorkspace.y - dragStartWorkspace.y) > 1
+        return elementApis.hasMovedWithViewport(
+          clientDragStart,
+          clientCurrentPos,
+          render as any
         )
       }
     },
