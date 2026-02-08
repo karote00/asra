@@ -7,8 +7,8 @@
 
 import {
   selectElements,
-  subscribeToStartTransaction,
-  subscribeToEndTransaction,
+  startTransaction,
+  endTransaction,
   changeComputedData
 } from '@asyra/reactive-events'
 import { selection } from './contexts'
@@ -18,12 +18,8 @@ import { selection } from './contexts'
  * Used in: create-element, selection, and many future features
  */
 export const transactionApis = {
-  startTransaction: () => {
-    subscribeToStartTransaction(() => {})
-  },
-  endTransaction: () => {
-    subscribeToEndTransaction(() => {})
-  }
+  startTransaction,
+  endTransaction
 }
 
 /**
@@ -42,9 +38,9 @@ export const selectionApis = {
    * Clear all selections
    */
   clearSelection: () => {
-    transactionApis.startTransaction()
+    startTransaction()
     selectElements([])
-    transactionApis.endTransaction()
+    endTransaction()
   },
 
   /**
@@ -52,13 +48,13 @@ export const selectionApis = {
    */
   toggleSelection: (elementId: string) => {
     const currentIds = selection.getElementSelectionIds()
-    transactionApis.startTransaction()
+    startTransaction()
     if (currentIds.includes(elementId)) {
       selectElements(currentIds.filter((id) => id !== elementId))
     } else {
       selectElements([...currentIds, elementId])
     }
-    transactionApis.endTransaction()
+    endTransaction()
   }
 }
 

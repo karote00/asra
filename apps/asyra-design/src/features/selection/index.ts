@@ -1,11 +1,7 @@
 import { defineFeature } from '@asyra/feature-system'
-import {
-  selectElements,
-  startTransaction,
-  endTransaction
-} from '@asyra/reactive-events'
+import { selectElements } from '@asyra/reactive-events'
 import { systemContext, selection } from '../../contexts'
-import { selectionApis } from '../../common-apis'
+import { selectionApis, transactionApis } from '../../common-apis'
 import type { ModifierKeys } from '@asyra/utils'
 
 export const selectionFeature = defineFeature('selection', 'input.drag', {
@@ -32,7 +28,7 @@ export const selectionFeature = defineFeature('selection', 'input.drag', {
       const systemContextSnapshot = systemContext.getSystemContextSnapshot()
       const hoveredElementId = systemContextSnapshot.target?.hoveredElementId
 
-      startTransaction()
+      transactionApis.startTransaction()
       try {
         if (hoveredElementId) {
           if (snapshot.key.shift) {
@@ -47,7 +43,7 @@ export const selectionFeature = defineFeature('selection', 'input.drag', {
           selectElements([])
         }
       } finally {
-        endTransaction()
+        transactionApis.endTransaction()
       }
 
       return { action: 'selection-updated' }
