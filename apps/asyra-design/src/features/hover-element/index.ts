@@ -1,9 +1,5 @@
 import core from '../../contexts'
 import { defineFeature } from '@asyra/feature-system'
-import {
-  subscribeToRenderPointerHover,
-  subscribeToRenderPointerLeave
-} from '@asyra/reactive-events'
 
 export const hoverElementFeature = defineFeature(
   'hoverElement',
@@ -25,9 +21,19 @@ export const hoverElementFeature = defineFeature(
   }
 )
 
-// Also subscribe to pointer leave events to clear hovered element
-subscribeToRenderPointerLeave(({ payload }) => {
-  if (payload?.elementId) {
-    core.deps.systemContext.updateHoveredElementId(null)
+export const leaveElementFeature = defineFeature(
+  'leaveElement',
+  'render.pointer.leave',
+  {
+    priority: 0,
+    exclusive: false,
+    api: {},
+    execution: (snapshot: any) => {
+      const { payload } = snapshot
+      if (payload?.elementId) {
+        core.deps.systemContext.updateHoveredElementId(null)
+      }
+      return null
+    }
   }
-})
+)

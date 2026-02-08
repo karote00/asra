@@ -81,7 +81,14 @@ function registerFeatureHandlers(
         continue
       }
 
+      const isRendererEvent = event.startsWith('render.')
+
       if (hasSession) {
+        // Sessions don't support renderer events
+        if (isRendererEvent) {
+          continue
+        }
+
         const eventHandler = async (raw: any) => {
           const snapshot = systemContext.getSystemContextSnapshot?.() || raw
           const mergedSnapshot = {
@@ -100,15 +107,34 @@ function registerFeatureHandlers(
         inputSystem.on(event, eventHandler)
         registeredEvents.add(event)
       } else if (hasExecution) {
-        inputSystem.on(event, (raw: any) => {
-          const snapshot = systemContext.getSystemContextSnapshot?.() || raw
-          const mergedSnapshot = {
-            ...snapshot,
-            ...(raw.detail ? { detail: raw.detail } : {})
-          }
-          executionRegistry.execute(event, mergedSnapshot)
-        })
-        registeredEvents.add(event)
+        if (isRendererEvent) {
+          // Subscribe to EventBus for renderer events
+          import('@asyra/reactive-events')
+            .then((module) => {
+              if (module.getEventBus) {
+                const eventBus = module.getEventBus()
+                eventBus.subscribe((raw: any) => {
+                  if (raw.type === event) {
+                    executionRegistry.execute(event, raw)
+                  }
+                })
+              }
+            })
+            .catch(console.error)
+
+          registeredEvents.add(event)
+        } else {
+          // Input events: Listen via inputSystem
+          inputSystem.on(event, (raw: any) => {
+            const snapshot = systemContext.getSystemContextSnapshot?.() || raw
+            const mergedSnapshot = {
+              ...snapshot,
+              ...(raw.detail ? { detail: raw.detail } : {})
+            }
+            executionRegistry.execute(event, mergedSnapshot)
+          })
+          registeredEvents.add(event)
+        }
       }
     }
   }
