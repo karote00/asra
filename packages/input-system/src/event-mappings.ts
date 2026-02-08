@@ -1,4 +1,5 @@
 import { InputType, KeyboardKey, ModifierKey, DetailType } from '@asyra/utils'
+import type { RawInputEvent } from '@asyra/utils'
 
 /**
  * Defines a single input combination that can trigger an event.
@@ -19,6 +20,15 @@ import { InputType, KeyboardKey, ModifierKey, DetailType } from '@asyra/utils'
  *   keys: [PointerKey.LEFT_MOUSE_DOWN]
  * }
  *
+ * @example With callback to update system context
+ * const combo: InputEventCombo = {
+ *   type: InputType.POINTER,
+ *   keys: [PointerKey.LEFT_MOUSE_DOWN],
+ *   callback: (raw: RawInputEvent) => {
+ *     core.deps.systemContext.updateMouseState({...})
+ *   }
+ * }
+ *
  * @example Custom device
  * const combo: InputEventCombo = {
  *   type: 'voice.command',  // Custom InputType
@@ -30,4 +40,5 @@ export interface InputEventCombo {
   keys: KeyboardKey[]
   modifiers?: ModifierKey[]
   detail?: DetailType
+  callback?: (raw: RawInputEvent) => void
 }

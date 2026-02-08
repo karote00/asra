@@ -10,6 +10,8 @@ import { InputSystemEvents } from '../../constants'
 import { selectElementsWorkflow } from './selection'
 
 export const registerWorkflows = (workflowRegistry: WorkflowRegistryClass) => {
+  // Workflows disabled - investigating feature-system migration
+  /*
   workflowRegistry.register(
     InputSystemEvents.INPUT_SHORTCUT_UNDOREDO,
     undoRedoWorkflow
@@ -35,4 +37,5 @@ export const registerWorkflows = (workflowRegistry: WorkflowRegistryClass) => {
     dragUpdateWorkflow
   )
   workflowRegistry.register(InputSystemEvents.INPUT_DRAG_END, dragEndWorkflow)
+  */
 }

@@ -285,6 +285,12 @@ class InputSystem {
           if (combo.detail) {
             raw.detail = combo.detail
           }
+
+          // Call callback before triggering action (if defined)
+          if (combo.callback) {
+            combo.callback(raw)
+          }
+
           this.triggerAction(eventName, raw)
         }
       }
