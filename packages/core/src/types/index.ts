@@ -42,7 +42,6 @@ import {
 } from './requests'
 
 export { HandlerDeps } from './deps'
-export { Workflow, WorkflowRegistry } from './workflow'
 
 export {
   // APIs

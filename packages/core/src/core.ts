@@ -12,7 +12,6 @@ import interactionCore, {
 } from '@asyra/interaction-core'
 import type { FeatureSystemAPIs } from './types/feature-system'
 
-import { initRegistryInputHandler } from './registry-input-handler'
 import {
   CoreAPIs,
   InputSystemAPIs,
@@ -29,11 +28,6 @@ import {
 } from './types'
 import { createAPIs } from './apis'
 import { createRequests } from './requests'
-import { WorkflowRegistryClass } from './registries/workflow-registry'
-import { handlerRegistry as globalHandlerRegistry } from './registries/handler-registry'
-
-import combinations from './combinations'
-inputSystem.setCombinations(combinations)
 
 interface CoreRawData {
   version: string
@@ -92,9 +86,6 @@ class Core implements CoreAPIs {
 
   initFeatureSystem!: FeatureSystemAPIs['initFeatureSystem']
 
-  workflowRegistry = new WorkflowRegistryClass()
-  handlerRegistryInstance = globalHandlerRegistry
-
   constructor(readonly deps: CoreDeps) {
     const requests = createRequests({
       systemContext: this.deps.systemContext,
@@ -107,17 +98,6 @@ class Core implements CoreAPIs {
     const apis = createAPIs(requests)
 
     Object.assign(this, apis as CoreAPIs)
-  }
-
-  initEventHandlers(): void {
-    initRegistryInputHandler(
-      {
-        inputSystem: this.deps.inputSystem
-      },
-      this.workflowRegistry,
-      this as SystemContextAPIs & InteractionCoreActionAPIs
-    )
-    // No framework interaction handlers - all are user-defined
   }
 
   registerInteraction(eventName: string, handler: DecisionHandler) {
@@ -170,6 +150,3 @@ const core = new Core({
   interactionCore
 })
 export default core
-
-export const workflowRegistry = core.workflowRegistry
-export const handlerRegistry = globalHandlerRegistry
