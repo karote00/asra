@@ -1,7 +1,10 @@
 export interface RenderRawAPIs {
+  initRender: (
+    width: number,
+    height: number,
+    color: number
+  ) => Promise<HTMLCanvasElement | null>
   renderIsReady: () => void
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  initRender: (width: number, height: number, color: number) => Promise<any>
 }
 
 export type RenderAPIs = RenderRawAPIs

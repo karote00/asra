@@ -12,22 +12,8 @@ import interactionCore, {
 } from '@asyra/interaction-core'
 import type { FeatureSystemAPIs } from './types/feature-system'
 
-import {
-  CoreAPIs,
-  InputSystemAPIs,
-  RenderAPIs,
-  ViewportAPIs,
-  UndoActionAPIs,
-  SceneTreeAPIs,
-  ElementSelectionAPIs,
-  PropsAPIs,
-  SystemContextAPIs,
-  InteractionCoreAPIs,
-  InteractionCoreActionAPIs,
-  TransactionAPIs
-} from './types'
+import { CoreAPIs, ElementSelectionActionAPIs } from './types'
 import { createAPIs } from './apis'
-import { createRequests } from './requests'
 
 interface CoreRawData {
   version: string
@@ -52,50 +38,20 @@ const DATA_VERSION = '1.0.0'
 class Core implements CoreAPIs {
   version: string = DEFAULT_VERSION
 
-  startTransaction!: TransactionAPIs['startTransaction']
-  endTransaction!: TransactionAPIs['endTransaction']
+  setupInputSystem!: CoreAPIs['setupInputSystem']
 
-  setupInputSystem!: InputSystemAPIs['setupInputSystem']
+  initRender!: CoreAPIs['initRender']
+  renderIsReady!: CoreAPIs['renderIsReady']
 
-  initRender!: RenderAPIs['initRender']
-  renderIsReady!: RenderAPIs['renderIsReady']
-  getViewportPosition!: ViewportAPIs['getViewportPosition']
-  getViewportScale!: ViewportAPIs['getViewportScale']
-
-  undo!: UndoActionAPIs['undo']
-  redo!: UndoActionAPIs['redo']
-
-  sceneTreeInit!: SceneTreeAPIs['sceneTreeInit']
-  sceneTreeLoadData!: SceneTreeAPIs['sceneTreeLoadData']
-  sceneTreeSaveData!: SceneTreeAPIs['sceneTreeSaveData']
-  addRectangle!: SceneTreeAPIs['addRectangle']
-  changeComputedData!: SceneTreeAPIs['changeComputedData']
-  resizeElement!: SceneTreeAPIs['resizeElement']
-  selectElements!: ElementSelectionAPIs['selectElements']
-
-  propsLoadData!: PropsAPIs['propsLoadData']
-  propsSaveData!: PropsAPIs['propsSaveData']
-
-  updateMouseState!: SystemContextAPIs['updateMouseState']
-  updateKeyState!: SystemContextAPIs['updateKeyState']
-
-  executeAction!: InteractionCoreAPIs['executeAction']
-  startSession!: InteractionCoreAPIs['startSession']
-  updateSession!: InteractionCoreAPIs['updateSession']
-  endSession!: InteractionCoreAPIs['endSession']
+  sceneTreeInit!: CoreAPIs['sceneTreeInit']
+  sceneTreeLoadData!: CoreAPIs['sceneTreeLoadData']
+  sceneTreeSaveData!: CoreAPIs['sceneTreeSaveData']
+  selectElements!: ElementSelectionActionAPIs['selectElements']
 
   initFeatureSystem!: FeatureSystemAPIs['initFeatureSystem']
 
   constructor(readonly deps: CoreDeps) {
-    const requests = createRequests({
-      systemContext: this.deps.systemContext,
-      props: this.deps.props,
-      sceneTree: this.deps.sceneTree,
-      factory: this.deps.factory,
-      render: this.deps.render,
-      selection: this.deps.selection
-    })
-    const apis = createAPIs(requests)
+    const apis = createAPIs(deps.sceneTree, deps.render)
 
     Object.assign(this, apis as CoreAPIs)
   }
@@ -110,27 +66,20 @@ class Core implements CoreAPIs {
     }
 
     this.version = data.version ?? DATA_VERSION
-    if (data.props) {
-      this.propsLoadData(data.props)
-    }
 
     if (data.sceneTree) {
       this.sceneTreeLoadData(data.sceneTree)
     } else {
       this.sceneTreeInit()
     }
-
-    // this.zoomFit()
   }
 
   async save() {
-    const propsData = await this.propsSaveData()
     const sceneTreeData = await this.sceneTreeSaveData()
 
     const data = {
       version: this.version,
-      sceneTree: sceneTreeData,
-      props: propsData
+      sceneTree: sceneTreeData
     }
 
     return data

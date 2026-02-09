@@ -1,15 +1,19 @@
 import { renderIsReady } from '@asyra/reactive-events'
-import { RenderRawAPIs, RenderRequests } from '../types'
+import type { ObservablePoint } from 'pixi.js'
 
-export const createRenderAPIs = (
-  renderRequests: RenderRequests
-): RenderRawAPIs => {
+export interface RenderRequests {
+  initRender: (width: number, height: number, color: number) => Promise<any>
+  getViewportPosition: () => ObservablePoint
+  getViewportScale: () => number
+}
+
+export const createRenderAPIs = (requests: RenderRequests) => {
   return {
     renderIsReady() {
       renderIsReady()
     },
     async initRender(width: number, height: number, color: number) {
-      return await renderRequests.initRender(width, height, color)
+      return await requests.initRender(width, height, color)
     }
   }
 }

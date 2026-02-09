@@ -1,32 +1,30 @@
-import { createTransactionAPIs } from './transaction'
-import { createViewportAPIs } from './viewport'
-import { createUndoAPIs } from './undo'
+import sceneTree, { SceneTree } from '@asyra/scene-tree'
+import render, { Render } from '@asyra/render'
+
 import { createRenderAPIs } from './render'
 import { createSceneTreeAPIs } from './scene-tree'
 import { createElementSelectionAPIs } from './element-selection'
 import { createInputSystemAPIs } from './input-system'
-import { createPropsAPIs } from './props'
-import { createSystemContextAPIs } from './system-context'
-import { createInteractionCoreAPIs } from './interaction-core'
 import { createFeatureSystemAPIs } from './feature-system'
-import { CoreAPIs, Requests } from '../types'
+import { CoreAPIs } from '../types'
 
-export const createAPIs = (requests: Requests): CoreAPIs => {
+export const createAPIs = (sceneTree: SceneTree, render: Render): CoreAPIs => {
+  const sceneTreeRequests = {
+    sceneTreeSaveData: () => sceneTree.save()
+  }
+
+  const renderRequests = {
+    initRender: (width: number, height: number, color: number) =>
+      render.init(width, height, color),
+    getViewportPosition: () => render.getViewportPosition(),
+    getViewportScale: () => render.getViewportScale()
+  }
+
   return {
-    ...createTransactionAPIs(),
     ...createInputSystemAPIs(),
-    ...createViewportAPIs(requests.renderRequests),
-    ...createUndoAPIs(),
-    ...createRenderAPIs(requests.renderRequests),
-    ...createSceneTreeAPIs(
-      requests.sceneTreeRequests,
-      requests.factoryRequests,
-      requests.selectionRequests
-    ),
-    ...createPropsAPIs(requests.propsRequests),
-    ...createElementSelectionAPIs(),
-    ...createSystemContextAPIs(),
-    ...createInteractionCoreAPIs(requests.systemContextRequests),
-    ...createFeatureSystemAPIs()
+    ...createFeatureSystemAPIs(),
+    ...createRenderAPIs(renderRequests),
+    ...createSceneTreeAPIs(sceneTreeRequests),
+    ...createElementSelectionAPIs()
   }
 }

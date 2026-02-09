@@ -1,5 +1,4 @@
 import core, { Core } from './core'
-export type { SystemContextAPIs, InteractionCoreActionAPIs } from './types'
 export {
   initFeatureSystem,
   getFeatureRegistry,
