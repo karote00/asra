@@ -27,8 +27,8 @@ export const panFeature = defineFeature(
 
       const { x: deltaX, y: deltaY } = snapshot.mouse.delta
 
-      // Pan viewport (deltaX for horizontal, deltaY for vertical)
-      api.pan(deltaX, deltaY)
+      // Pan viewport (negate delta to match natural cursor direction)
+      api.pan(-deltaX, -deltaY)
 
       return { panned: true }
     }
