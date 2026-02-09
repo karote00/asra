@@ -24,11 +24,7 @@ export const zoomFeature = defineFeature(
         zoom: (deltaY: number, clientX: number, clientY: number) => void
       }
 
-      // Only zoom if ALT or META modifier is pressed
-      if (!snapshot.key.alt && !snapshot.key.meta) {
-        return null
-      }
-
+      // Zoom on mouse wheel (no modifier required per PRD FR-001)
       const { y: deltaY } = snapshot.mouse.delta
       const { x: clientX, y: clientY } = snapshot.mouse.position
 
