@@ -20,14 +20,12 @@ export const panFeature = defineFeature(
         pan: (deltaX: number, deltaY: number) => void
       }
 
-      // Pan if Meta (Cmd) NOT pressed (2-finger touchpad = pan, Cmd+3-finger = zoom)
-      if (snapshot.key.meta) {
+      if (snapshot.key.meta || snapshot.key.ctrl) {
         return null
       }
 
       const { x: deltaX, y: deltaY } = snapshot.mouse.delta
 
-      // Pan viewport (negate delta to match natural cursor direction)
       api.pan(-deltaX, -deltaY)
 
       return { panned: true }

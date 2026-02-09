@@ -27,8 +27,7 @@ export const zoomFeature = defineFeature(
         zoom: (deltaY: number, clientX: number, clientY: number) => void
       }
 
-      // Zoom only if Meta (Cmd) modifier is pressed (3-finger touchpad)
-      if (!snapshot.key.meta) {
+      if (!snapshot.key.meta && !snapshot.key.ctrl) {
         return null
       }
 

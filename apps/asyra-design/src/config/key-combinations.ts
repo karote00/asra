@@ -175,6 +175,12 @@ export const keyCombinations = {
       keys: [keyMap.keys.Digit1],
       modifiers: [ModifierKey.META],
       callback: updateKeyState
+    },
+    {
+      type: InputType.KEYBOARD,
+      keys: [keyMap.keys.Digit1],
+      modifiers: [ModifierKey.CTRL],
+      callback: updateKeyState
     }
   ]
 }
