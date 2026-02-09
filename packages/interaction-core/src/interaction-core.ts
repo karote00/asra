@@ -1,5 +1,6 @@
 import { SystemContextSnapshot, DetailType } from '@asyra/utils'
 import { InteractionRegistry, type DecisionResult } from './registry'
+import { startTransaction, endTransaction } from '@asyra/reactive-events'
 
 class InteractionCore {
   private _previousSession: DecisionResult | null = null
@@ -18,6 +19,8 @@ class InteractionCore {
       this.cancelPreviousSession()
     }
 
+    startTransaction()
+
     const result = this.registry.decide(
       eventName,
       systemContextSnapshot,
@@ -25,6 +28,8 @@ class InteractionCore {
     )
 
     this.dispatchDecision(result)
+
+    endTransaction()
   }
 
   startSession(
@@ -36,10 +41,7 @@ class InteractionCore {
       this.cancelPreviousSession()
     }
 
-    const startTransactionResult: DecisionResult = {
-      type: 'INTERACTION_START_TRANSACTION'
-    }
-    this.dispatchDecision(startTransactionResult)
+    startTransaction()
 
     const result = this.registry.decide(
       eventName,
@@ -74,23 +76,16 @@ class InteractionCore {
       detail
     )
     this._previousSession = result
-
-    const endTransactionResult: DecisionResult = {
-      type: 'INTERACTION_END_TRANSACTION'
-    }
-    this.dispatchDecision(endTransactionResult)
-
     this.dispatchDecision(result)
+
+    endTransaction()
 
     this._previousSession = null
   }
 
   private cancelPreviousSession() {
     if (this._previousSession) {
-      const endTransactionResult: DecisionResult = {
-        type: 'INTERACTION_END_TRANSACTION'
-      }
-      this.dispatchDecision(endTransactionResult)
+      endTransaction()
     }
     this._previousSession = null
   }
