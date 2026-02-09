@@ -30,6 +30,14 @@ export class Setter<T extends InstanceDataType> {
       this.data[key] = value
       const after = cloneDeep(value)
 
+      console.log('[Setter.set]', {
+        id: this.get('id'),
+        key,
+        before,
+        after,
+        isEqual: isEqual(before, after)
+      })
+
       if (!isEqual(before, after)) {
         this.addChangeCallback({
           id: this.get('id'),
@@ -37,6 +45,8 @@ export class Setter<T extends InstanceDataType> {
           before: before as DataTypes,
           after: after as DataTypes
         })
+      } else {
+        console.warn('[Setter.set] Values are equal, skipping change')
       }
     }
   }
