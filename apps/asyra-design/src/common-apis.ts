@@ -3,12 +3,15 @@
  *
  * This file contains common APIs extracted from features for reuse.
  * As the framework evolves, some of these may move to core packages if needed.
+ *
+ * Features should ONLY import from this file, NOT directly from @asyra/reactive-events
  */
 
 import {
   selectElements,
   startTransaction,
   endTransaction,
+  updateTransaction,
   changeComputedData
 } from '@asyra/reactive-events'
 import { selection } from './contexts'
@@ -19,7 +22,8 @@ import { selection } from './contexts'
  */
 export const transactionApis = {
   startTransaction,
-  endTransaction
+  endTransaction,
+  updateTransaction
 }
 
 /**
@@ -55,7 +59,12 @@ export const selectionApis = {
       selectElements([...currentIds, elementId])
     }
     endTransaction()
-  }
+  },
+
+  /**
+   * Set selected elements
+   */
+  selectElements
 }
 
 /**
@@ -93,5 +102,10 @@ export const elementApis = {
       Math.abs(currentWorkspace.x - dragStartWorkspace.x) > threshold ||
       Math.abs(currentWorkspace.y - dragStartWorkspace.y) > threshold
     )
-  }
+  },
+
+  /**
+   * Change element computed data
+   */
+  changeComputedData
 }

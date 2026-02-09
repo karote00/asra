@@ -1,14 +1,7 @@
 import { defineFeature } from '@asyra/feature-system'
 import { EntityTypes, DEFAULT_ELEMENT_SIZE } from '@asyra/utils'
-import {
-  changeComputedData,
-  selectElements,
-  startTransaction,
-  updateTransaction,
-  endTransaction
-} from '@asyra/reactive-events'
 import { render, sceneTree } from '../../contexts'
-import { elementApis } from '../../common-apis'
+import { elementApis, transactionApis, selectionApis } from '../../common-apis'
 import { PrimaryToolType } from '../../constants'
 
 interface CreateElementState {
@@ -57,10 +50,10 @@ export const createElementFeature = defineFeature(
           y = currentPos.y
         }
 
-        changeComputedData([elementId], 'x', x)
-        changeComputedData([elementId], 'y', y)
-        changeComputedData([elementId], 'width', width)
-        changeComputedData([elementId], 'height', height)
+        elementApis.changeComputedData([elementId], 'x', x)
+        elementApis.changeComputedData([elementId], 'y', y)
+        elementApis.changeComputedData([elementId], 'width', width)
+        elementApis.changeComputedData([elementId], 'height', height)
       },
       resetElementSize: (elementId: string) => {
         elementApis.resetElementSize(elementId, DEFAULT_ELEMENT_SIZE)
@@ -94,12 +87,11 @@ export const createElementFeature = defineFeature(
           clientY: snapshot.mouse.position.y
         })
 
-        startTransaction()
+        transactionApis.startTransaction()
         const elementId = api.createRectangle(snapshot.mouse.position)
         if (elementId) {
-          selectElements([elementId])
+          selectionApis.selectElements([elementId])
         }
-        endTransaction()
 
         return {
           elementId,
@@ -120,8 +112,6 @@ export const createElementFeature = defineFeature(
           clientY: snapshot.mouse.position.y
         })
 
-        updateTransaction('update-element', { elementId: state.elementId })
-
         const api = createElementFeature.api
         api.updateElementSizeAndPosition(
           state.elementId,
@@ -141,10 +131,12 @@ export const createElementFeature = defineFeature(
         )
 
         if (!hasMoved) {
-          startTransaction()
+          transactionApis.startTransaction()
           api.resetElementSize(state.elementId)
-          endTransaction()
+          transactionApis.endTransaction()
         }
+
+        transactionApis.endTransaction()
       }
     }
   }

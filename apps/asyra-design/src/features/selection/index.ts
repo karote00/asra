@@ -1,5 +1,4 @@
 import { defineFeature } from '@asyra/feature-system'
-import { selectElements } from '@asyra/reactive-events'
 import { systemContext, selection } from '../../contexts'
 import { selectionApis, transactionApis } from '../../common-apis'
 import type { ModifierKeys } from '@asyra/utils'
@@ -37,10 +36,10 @@ export const selectionFeature = defineFeature('selection', 'input.drag', {
             }
             api.toggleSelection(hoveredElementId)
           } else {
-            selectElements([hoveredElementId])
+            selectionApis.selectElements([hoveredElementId])
           }
         } else {
-          selectElements([])
+          selectionApis.selectElements([])
         }
       } finally {
         transactionApis.endTransaction()
