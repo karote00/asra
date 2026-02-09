@@ -1,8 +1,14 @@
 import { defineFeature } from '@asyra/feature-system'
 import { EntityTypes, DEFAULT_ELEMENT_SIZE } from '@asyra/utils'
-import { changeComputedData, selectElements } from '@asyra/reactive-events'
+import {
+  changeComputedData,
+  selectElements,
+  startTransaction,
+  updateTransaction,
+  endTransaction
+} from '@asyra/reactive-events'
 import { render, sceneTree } from '../../contexts'
-import { elementApis, transactionApis } from '../../common-apis'
+import { elementApis } from '../../common-apis'
 import { PrimaryToolType } from '../../constants'
 
 interface CreateElementState {
@@ -88,12 +94,12 @@ export const createElementFeature = defineFeature(
           clientY: snapshot.mouse.position.y
         })
 
-        transactionApis.startTransaction()
+        startTransaction()
         const elementId = api.createRectangle(snapshot.mouse.position)
         if (elementId) {
           selectElements([elementId])
         }
-        transactionApis.endTransaction()
+        endTransaction()
 
         return {
           elementId,
@@ -114,14 +120,14 @@ export const createElementFeature = defineFeature(
           clientY: snapshot.mouse.position.y
         })
 
-        transactionApis.startTransaction()
+        updateTransaction('update-element', { elementId: state.elementId })
+
         const api = createElementFeature.api
         api.updateElementSizeAndPosition(
           state.elementId,
           state.dragStartWorkspacePos,
           currentWorkspacePos
         )
-        transactionApis.endTransaction()
       },
       end: (snapshot: any, state: CreateElementState) => {
         if (!state || state.elementId === null) {
@@ -135,9 +141,9 @@ export const createElementFeature = defineFeature(
         )
 
         if (!hasMoved) {
-          transactionApis.startTransaction()
+          startTransaction()
           api.resetElementSize(state.elementId)
-          transactionApis.endTransaction()
+          endTransaction()
         }
       }
     }
