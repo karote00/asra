@@ -1,9 +1,7 @@
-// @ts-ignore - feature-system will be available after build
 import {
   getSessionManager,
   getFeatureRegistry,
-  setCorePackages,
-  setAppKeyCombinations
+  setCorePackages
 } from '@asyra/feature-system'
 
 // Type imports - will be connected properly after core integration
@@ -34,8 +32,3 @@ export { getFeatureRegistry }
  * Get session manager instance
  */
 export { getSessionManager }
-
-/**
- * Set app-level key combinations for feature system
- */
-export { setAppKeyCombinations }

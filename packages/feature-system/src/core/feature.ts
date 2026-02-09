@@ -12,7 +12,6 @@ const sessionManager = new SessionManager()
 
 let corePackages: any = {}
 let isPackagesSet = false
-let appKeyCombinations: any = {}
 
 const registeredEvents = new Set<string>()
 
@@ -21,10 +20,6 @@ const pendingRegistrations: {
   keyConfig: FeatureKeyMap
   definition: FeatureDefinition
 }[] = []
-
-export function setAppKeyCombinations(combinations: any) {
-  appKeyCombinations = combinations
-}
 
 function registerFeatureHandlers(
   name: string,

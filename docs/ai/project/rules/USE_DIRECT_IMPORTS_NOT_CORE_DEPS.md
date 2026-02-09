@@ -56,7 +56,7 @@ export const props = AsyraPropsManager
 
 The `core` object is ONLY for:
 
-1. **Framework-level APIs**: `core.initFeatureSystem()`, `core.setAppKeyCombinations()`
+1. **Framework-level APIs**: `core.initFeatureSystem()`
 2. **Legacy APIs**: During migration from old workflow system (to be removed)
 
 ## Examples

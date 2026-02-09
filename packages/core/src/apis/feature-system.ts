@@ -1,11 +1,11 @@
-import {
-  initFeatureSystem,
-  setAppKeyCombinations
-} from '../feature-integration'
+/**
+ * Feature System APIs exposed at core level
+ */
+
+import { initFeatureSystem } from '../feature-integration'
 
 export const FeatureSystemAPIs = {
-  initFeatureSystem,
-  setAppKeyCombinations
+  initFeatureSystem
 }
 
 export const createFeatureSystemAPIs = () => FeatureSystemAPIs

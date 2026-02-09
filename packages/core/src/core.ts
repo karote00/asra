@@ -91,7 +91,6 @@ class Core implements CoreAPIs {
   endSession!: InteractionCoreAPIs['endSession']
 
   initFeatureSystem!: FeatureSystemAPIs['initFeatureSystem']
-  setAppKeyCombinations!: FeatureSystemAPIs['setAppKeyCombinations']
 
   workflowRegistry = new WorkflowRegistryClass()
   handlerRegistryInstance = globalHandlerRegistry
