@@ -2,9 +2,9 @@ import React from 'react'
 import Header from './header'
 import Position from './position'
 import Dimension from './dimension'
+import Rotation from './rotation'
 import { COLUMN_WIDTH } from '../constants'
 import { useElementSelection } from '../providers'
-// import Rotation from './rotation'
 
 const Properties: React.FC = () => {
   const elementSelection = useElementSelection()
@@ -20,7 +20,7 @@ const Properties: React.FC = () => {
           <Header label="Layout" />
           <Position />
           <Dimension />
-          {/* <Rotation /> */}
+          <Rotation />
         </>
       )}
     </div>

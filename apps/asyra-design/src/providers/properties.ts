@@ -8,3 +8,5 @@ export const useWidth = (): number | typeof MIXED_STRING =>
   createStore(uiContext.width)
 export const useHeight = (): number | typeof MIXED_STRING =>
   createStore(uiContext.height)
+export const useRotation = (): number | typeof MIXED_STRING =>
+  createStore(uiContext.rotation)
