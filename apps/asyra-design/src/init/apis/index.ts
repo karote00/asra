@@ -1,6 +1,5 @@
 export * from './system-context'
 export * from './ui-context'
-export * from './viewport'
 export * from './factory'
 export * from './scene-tree'
 export * from './selection'
