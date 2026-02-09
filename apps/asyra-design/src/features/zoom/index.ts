@@ -3,6 +3,7 @@ import { ZOOM_SMOOTH_RATIO } from '@asyra/utils'
 import { render } from '../../contexts'
 import { InputSystemEvents } from '../../constants'
 import type { SystemContextSnapshot } from '@asyra/utils'
+import uiContext from '@asyra/ui-context'
 
 export const zoomFeature = defineFeature(
   'zoom',
@@ -17,6 +18,8 @@ export const zoomFeature = defineFeature(
           currentScale *
           (deltaY < 0 ? 1 + ZOOM_SMOOTH_RATIO : 1 - ZOOM_SMOOTH_RATIO)
         render.zoomToCenter(newScale, clientX, clientY)
+        // Update UI context to reflect zoom level
+        uiContext.updateZoom(newScale)
       }
     },
     execution: (snapshot: SystemContextSnapshot) => {
