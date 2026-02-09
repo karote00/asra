@@ -7,9 +7,3 @@ import './hover-element'
 import './zoom'
 import './pan'
 // import './move-elements'
-
-export function registerAllFeatures() {}
-
-export default {
-  registerAllFeatures
-}

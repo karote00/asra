@@ -7,7 +7,6 @@ export const hoverElementFeature = defineFeature(
   {
     priority: 0,
     exclusive: false,
-    api: {},
     execution: (snapshot: any) => {
       const { payload } = snapshot
       if (!payload || !payload.elementId) {
@@ -27,7 +26,6 @@ export const leaveElementFeature = defineFeature(
   {
     priority: 0,
     exclusive: false,
-    api: {},
     execution: (snapshot: any) => {
       const { payload } = snapshot
       if (payload?.elementId) {

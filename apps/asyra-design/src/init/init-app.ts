@@ -1,5 +1,4 @@
 import { initInputSystem } from './init-input-system'
-import { initSubscribers } from './subscribers'
 import { initFeatures } from './init-features'
 
 /**
@@ -25,8 +24,6 @@ import { initFeatures } from './init-features'
  */
 export const initApp = (): void => {
   initInputSystem()
-  initSubscribers()
-
   // Initialize feature-system for application-level features
   initFeatures()
 
