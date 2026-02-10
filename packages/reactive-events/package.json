@@ -32,6 +32,7 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
+    "@asyra/persistence": "workspace:*",
     "@asyra/utils": "workspace:*",
     "rxjs": "^7.8.1"
   }

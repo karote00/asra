@@ -1,4 +1,4 @@
-import { IPersistenceProvider, CoreData } from './persistence'
+import type { CoreRawData, IPersistenceProvider } from '../persistence'
 
 /**
  * LocalStorage Persistence Provider
@@ -9,7 +9,7 @@ export class LocalStoragePersistence implements IPersistenceProvider {
   readonly name = 'LocalStorage'
   private readonly storageKey = 'FILE'
 
-  async save(data: CoreData): Promise<void> {
+  async save(data: CoreRawData): Promise<void> {
     try {
       const serialized = JSON.stringify(data)
       localStorage.setItem(this.storageKey, serialized)
@@ -19,7 +19,7 @@ export class LocalStoragePersistence implements IPersistenceProvider {
     }
   }
 
-  async load(): Promise<CoreData | null> {
+  async load(): Promise<CoreRawData | null> {
     try {
       const serialized = localStorage.getItem(this.storageKey)
       if (!serialized) {
@@ -49,13 +49,13 @@ export class LocalStoragePersistence implements IPersistenceProvider {
  */
 export class MemoryPersistence implements IPersistenceProvider {
   readonly name = 'Memory'
-  private data: CoreData | null = null
+  private data: CoreRawData | null = null
 
-  async save(data: CoreData): Promise<void> {
+  async save(data: CoreRawData): Promise<void> {
     this.data = data
   }
 
-  async load(): Promise<CoreData | null> {
+  async load(): Promise<CoreRawData | null> {
     return this.data
   }
 

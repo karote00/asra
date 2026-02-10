@@ -1,4 +1,4 @@
-import type { SceneTreeRawData } from '@asyra/utils'
+import type { SceneTreeRawData, CoreRawData } from '@asyra/utils'
 import factory, { Factory } from '@asyra/factory'
 import inputSystem, { InputSystem } from '@asyra/input-system'
 import sceneTree, { SceneTree } from '@asyra/scene-tree'
@@ -11,12 +11,7 @@ import interactionCore, {
 } from '@asyra/interaction-core'
 import type { FeatureSystemAPIs } from './types/feature-system'
 import { IRenderer, RenderOptions } from '@asyra/render'
-import {
-  IPersistenceProvider,
-  CoreData,
-  SaveHook,
-  LoadHook
-} from '@asyra/reactive-events'
+import { IPersistenceProvider, SaveHook, LoadHook } from '@asyra/persistence'
 
 import { CoreAPIs, ElementSelectionActionAPIs } from './types'
 import { createAPIs } from './apis'
@@ -153,7 +148,7 @@ class Core implements CoreAPIs {
       return
     }
 
-    let data: CoreData = {
+    let data: CoreRawData = {
       version: this.version,
       sceneTree: await this.sceneTreeSaveData(),
       props: this.deps.props.save()
@@ -198,7 +193,7 @@ class Core implements CoreAPIs {
     this.deps.interactionCore.registry.register(eventName, handler)
   }
 
-  load(data: CoreData): void {
+  load(data: CoreRawData): void {
     if (!data) {
       return
     }
@@ -220,7 +215,7 @@ class Core implements CoreAPIs {
   async save() {
     const sceneTreeData = await this.sceneTreeSaveData()
 
-    const data: CoreData = {
+    const data: CoreRawData = {
       version: this.version,
       sceneTree: sceneTreeData,
       props: this.deps.props.save()

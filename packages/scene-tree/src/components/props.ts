@@ -67,7 +67,6 @@ class Props {
       }
     })
     const propIdsMap = propsManager.addProperty(propertyComponents)
-    propsManager.commitChanges()
     if (!propIdsMap) {
       return
     }
