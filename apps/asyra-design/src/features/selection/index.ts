@@ -39,6 +39,7 @@ export const selectionFeature = defineFeature('selection', 'input.drag', {
             selectionApis.selectElements([hoveredElementId])
           }
         } else {
+          // Click on empty space on canvas - deselect
           selectionApis.selectElements([])
         }
       } finally {

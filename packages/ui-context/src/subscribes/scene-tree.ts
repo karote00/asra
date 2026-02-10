@@ -71,6 +71,8 @@ export const collectSceneTreeChange = (event) => {
     }) as ComputedAttrs[keyof ComputedAttrs][]
     uiContext.updateComputedProperty(key, propertyData)
   })
+
+  sceneTreeStore.fireChange()
 }
 
 let hasInit = false

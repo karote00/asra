@@ -85,7 +85,6 @@ export class RenderLayer {
 
     this.addToMap(data.id, graphic)
     this.currentWorkspace.addChild(graphic)
-
     return graphic
   }
 

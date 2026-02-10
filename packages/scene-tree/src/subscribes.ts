@@ -5,7 +5,8 @@ import {
   subscribeToSceneTreeInit,
   subscribeToSceneTreeLoadData,
   subscribeToAddElement,
-  subscribeToUpdateUndoRedoStatus
+  subscribeToUpdateUndoRedoStatus,
+  sceneTreeLoadComplete
 } from '@asyra/reactive-events'
 import { CreateElementData, UNDO, type ComputedAttrs } from '@asyra/utils'
 import sceneTree from './sceneTree'
@@ -18,10 +19,12 @@ export const initSceneTreeSubscribes = () => {
 
   subscribeToSceneTreeInit(() => {
     sceneTree.init()
+    sceneTreeLoadComplete()
   })
 
   subscribeToSceneTreeLoadData(({ payload }) => {
     sceneTree.load(payload.data)
+    sceneTreeLoadComplete()
   })
 
   subscribeToAddElement(({ payload }) => {

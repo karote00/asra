@@ -1,10 +1,9 @@
 import React, { useEffect, useRef } from 'react'
-import {
-  initRenderApp,
-  destroyRenderApp,
-  renderIsReady,
-  setupInputSystem
-} from '../controllers/app'
+import { destroyRenderApp } from '../controllers/app'
+import core from '../contexts'
+import { PixiJSRenderer } from '@asyra/render'
+import { providers } from '@asyra/reactive-events'
+import { CANVAS_BACKGROUND_COLOR } from '../constants'
 
 const RenderApp: React.FC = () => {
   const pixiContainerRef = useRef<HTMLDivElement>(null)
@@ -14,14 +13,18 @@ const RenderApp: React.FC = () => {
     const initApp = async () => {
       if (pixiContainerRef.current && !hasInit.current) {
         hasInit.current = true
-        const canvas = await initRenderApp(
-          pixiContainerRef.current,
-          window.innerWidth,
-          window.innerHeight
-        )
 
-        setupInputSystem(canvas)
-        renderIsReady()
+        // Phase 1: Configure renderer and persistence
+        core.setRenderer(new PixiJSRenderer())
+        core.setPersistence(providers.localStorage)
+
+        // Phase 3: Single startup call
+        await core.start(pixiContainerRef.current, {
+          width: window.innerWidth,
+          height: window.innerHeight,
+          backgroundColor: CANVAS_BACKGROUND_COLOR,
+          backgroundColorAlpha: 1
+        })
       }
     }
 

@@ -53,8 +53,27 @@ class Props {
   }
 
   load(data: PropsDataType = {}): void {
+    const propertyComponents = PROP_NAMES.map((propName) => {
+      const propId = data[propName]
+      const propComponent = propId
+        ? propsManager.getComponentById(propId)
+        : null
+      if (propComponent) {
+        // Restore existing prop component
+        return propComponent
+      } else {
+        // Create new prop component
+        return propsManager.createProperty({ type: propName })
+      }
+    })
+    const propIdsMap = propsManager.addProperty(propertyComponents)
+    propsManager.commitChanges()
+    if (!propIdsMap) {
+      return
+    }
+
     PROP_NAMES.forEach((propName) => {
-      this[propName] = data[propName]
+      this[propName] = propIdsMap[propName]
     })
   }
 
