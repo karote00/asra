@@ -51,6 +51,7 @@
         "^build:feature-system",
         "^build:input-system",
         "^build:interaction-core",
+        "^build:persistence",
         "^build:props-manager",
         "^build:reactive-events",
         "^build:render",
@@ -110,6 +111,15 @@
         "^build:utils"
       ]
     },
+    "build:persistence": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:utils"
+      ]
+    },
     "build:props-manager": {
       "cache": false,
       "outputs": [
@@ -126,6 +136,7 @@
         "dist/**"
       ],
       "dependsOn": [
+        "^build:persistence",
         "^build:utils"
       ]
     },

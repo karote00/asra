@@ -1,2 +1,7 @@
 export * from './persistence'
-export { providers } from './providers'
+export {
+  LocalStoragePersistence,
+  MemoryPersistence,
+  providers
+} from './providers'
+export * from './hooks'

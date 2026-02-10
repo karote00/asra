@@ -1,30 +1,22 @@
 {
   "name": "@asyra/persistence",
-  "version": "1.0.0",
+  "version": "0.2.5",
   "description": "Persistence providers and hooks for Asyra framework",
-  "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "author": "Asa Tsai",
+  "license": "MIT",
+  "packageManager": "yarn@4.3.1",
+  "keywords": [],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "vite build && tsc --emitDeclarationOnly"
+    "dev": "tsc --watch --preserveWatchOutput",
+    "build:persistence": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
   },
   "dependencies": {
     "@asyra/utils": "workspace:*"
-  },
-  "devDependencies": {
-    "typescript": "^5.7.3",
-    "vite-plugin-dts": "^4.5.0",
-    "vite": "^6.3.5"
-  },
-  "exports": {
-    ".": {
-      "import": "./dist/persistence.js",
-      "types": "./dist/persistence.d.ts"
-    },
-    "./providers": {
-      "import": "./dist/providers/index.js",
-      "types": "./dist/providers/index.d.ts"
-    }
   }
 }

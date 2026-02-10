@@ -1,4 +1,5 @@
-import type { CoreRawData, IPersistenceProvider } from '../persistence'
+import type { CoreRawData } from '@asyra/utils'
+import type { IPersistenceProvider } from '../persistence'
 
 /**
  * LocalStorage Persistence Provider
