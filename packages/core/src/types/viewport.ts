@@ -6,7 +6,7 @@ export interface ViewportRawAPIs {
 }
 
 export interface ViewportActionAPIs {
-  // zoomFit: () => void
+  // Action APIs can be added here as needed
 }
 
 export type ViewportAPIs = ViewportRawAPIs & ViewportActionAPIs

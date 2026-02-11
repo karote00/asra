@@ -1,5 +1,5 @@
 import { defineFeature } from '@asyra/feature-system'
-import { render } from '../../contexts'
+import { viewportApis } from '../../common-apis'
 import { InputSystemEvents } from '../../constants'
 import type { SystemContextSnapshot } from '@asyra/utils'
 
@@ -11,8 +11,11 @@ export const panFeature = defineFeature(
     exclusive: false,
     api: {
       pan: (deltaX: number, deltaY: number) => {
-        const currentPosition = render.getViewportPosition()
-        render.panTo(currentPosition.x + deltaX, currentPosition.y + deltaY)
+        const currentPosition = viewportApis.getPosition()
+        viewportApis.panTo(
+          currentPosition.x + deltaX,
+          currentPosition.y + deltaY
+        )
       }
     },
     execution: (snapshot: SystemContextSnapshot) => {

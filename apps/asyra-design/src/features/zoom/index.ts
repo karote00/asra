@@ -1,9 +1,8 @@
 import { defineFeature } from '@asyra/feature-system'
 import { ZOOM_SMOOTH_RATIO } from '@asyra/utils'
-import { render } from '../../contexts'
+import { viewportApis } from '../../common-apis'
 import { InputSystemEvents } from '../../constants'
 import type { SystemContextSnapshot } from '@asyra/utils'
-import uiContext from '@asyra/ui-context'
 
 export const zoomFeature = defineFeature(
   'zoom',
@@ -13,13 +12,12 @@ export const zoomFeature = defineFeature(
     exclusive: true,
     api: {
       zoom: (deltaY: number, clientX: number, clientY: number) => {
-        const currentScale = render.getViewportScale()
+        const currentScale = viewportApis.getScale()
         const newScale =
           currentScale *
           (deltaY < 0 ? 1 + ZOOM_SMOOTH_RATIO : 1 - ZOOM_SMOOTH_RATIO)
-        render.zoomToCenter(newScale, clientX, clientY)
-        // Update UI context to reflect zoom level
-        uiContext.updateZoom(newScale)
+        viewportApis.zoomToCenter(newScale, clientX, clientY)
+        viewportApis.updateZoomUI(newScale)
       }
     },
     execution: (snapshot: SystemContextSnapshot) => {
@@ -34,7 +32,6 @@ export const zoomFeature = defineFeature(
       const { y: deltaY } = snapshot.mouse.delta
       const { x: clientX, y: clientY } = snapshot.mouse.position
 
-      // Use deltaY for zoom (positive = zoom out, negative = zoom in)
       api.zoom(deltaY, clientX, clientY)
 
       return { zoomed: true }

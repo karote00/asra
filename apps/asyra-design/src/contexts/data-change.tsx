@@ -2,9 +2,11 @@ import { useEffect } from 'react'
 import {
   subscribeToEndTransaction,
   subscribeToRenderIsReady,
+  subscribeToFileLoadComplete,
   fileLoadComplete
 } from '@asyra/reactive-events'
 import { initDataContexts } from '@asyra/ui-context'
+import { importFeature } from '@asyra/feature-system'
 import core from './core'
 
 const DataContexts = () => {
@@ -33,8 +35,21 @@ const DataContexts = () => {
       fileLoadComplete()
     })
 
+    // Trigger zoom fit after file is loaded to show all content in viewport
+    const fileLoadSubscription = subscribeToFileLoadComplete(() => {
+      try {
+        const zoomFitFeature = importFeature('zoomFit')
+        if (zoomFitFeature?.zoomFit) {
+          zoomFitFeature.zoomFit()
+        }
+      } catch (error) {
+        // Feature may not be available yet
+      }
+    })
+
     return () => {
       renderSubscription.unsubscribe()
+      fileLoadSubscription.unsubscribe()
       // transactSubscription.unsubscribe()
     }
   }, [])

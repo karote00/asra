@@ -1,5 +1,5 @@
 import { defineFeature } from '@asyra/feature-system'
-import { undo, redo } from '@asyra/reactive-events'
+import { historyApis } from '../../common-apis'
 import { InputSystemEvents } from '../../constants'
 import type { SystemContextSnapshot } from '@asyra/utils'
 
@@ -11,10 +11,10 @@ export const undoRedoFeature = defineFeature(
     exclusive: true,
     execution: (snapshot: SystemContextSnapshot) => {
       if (snapshot.key.shift) {
-        redo()
+        historyApis.redo()
         return { redid: true }
       } else {
-        undo()
+        historyApis.undo()
         return { undid: true }
       }
     }

@@ -107,6 +107,11 @@ class Render {
     this.viewport.updateElementProperties(element, key, after)
   }
 
+  /**
+   * Zoom to fit all elements within the specified UI bounds
+   * @param uiBounds - The DOMRect representing the visible canvas area
+   * @returns void
+   */
   zoomFit(uiBounds: DOMRect) {
     this.viewport.zoomFit(uiBounds)
   }

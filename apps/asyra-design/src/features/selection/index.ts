@@ -1,7 +1,6 @@
 import { defineFeature } from '@asyra/feature-system'
-import { systemContext, selection } from '../../contexts'
+import { systemContext } from '../../contexts'
 import { selectionApis, transactionApis } from '../../common-apis'
-import type { ModifierKeys } from '@asyra/utils'
 
 export const selectionFeature = defineFeature('selection', 'input.drag', {
   priority: 5,

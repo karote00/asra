@@ -1,7 +1,7 @@
 import { systemContext } from '../../contexts'
 import { defineFeature } from '@asyra/feature-system'
 import { InputSystemEvents } from '../../constants'
-import uiContext from '@asyra/ui-context'
+import { uiContextApis } from '../../common-apis'
 
 export const switchPrimaryToolFeature = defineFeature(
   'switchPrimaryTool',
@@ -10,7 +10,7 @@ export const switchPrimaryToolFeature = defineFeature(
     api: {
       switch: (tool: string) => {
         systemContext.switchPrimaryTool(tool)
-        uiContext.updatePrimaryTool(tool)
+        uiContextApis.updatePrimaryTool(tool)
       }
     },
     execution: (snapshot: any) => {
