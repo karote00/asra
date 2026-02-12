@@ -17,7 +17,6 @@ export const zoomFeature = defineFeature(
           currentScale *
           (deltaY < 0 ? 1 + ZOOM_SMOOTH_RATIO : 1 - ZOOM_SMOOTH_RATIO)
         viewportApis.zoomToCenter(newScale, clientX, clientY)
-        viewportApis.updateZoomUI(newScale)
       }
     },
     execution: (snapshot: SystemContextSnapshot) => {

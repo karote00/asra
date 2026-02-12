@@ -3,26 +3,34 @@
  * Used in: create-element, and future features
  */
 
-import { changeComputedData } from '@asyra/reactive-events'
+import {
+  changeComputedData,
+  startTransaction,
+  endTransaction
+} from '@asyra/reactive-events'
+import { DEFAULT_ELEMENT_SIZE } from '@asyra/utils'
+import { MOUSE_MOVEMENT_THRESHOLD } from '../constants'
 
 export const elementApis = {
   /**
    * Reset element to default size
    */
-  resetElementSize: (elementId: string, defaultSize: number) => {
-    changeComputedData([elementId], 'width', defaultSize)
-    changeComputedData([elementId], 'height', defaultSize)
+  resetElementSize: (elementId: string) => {
+    startTransaction()
+    changeComputedData([elementId], 'width', DEFAULT_ELEMENT_SIZE)
+    changeComputedData([elementId], 'height', DEFAULT_ELEMENT_SIZE)
+    endTransaction()
   },
 
   /**
-   * Check if mouse has moved beyond threshold
-   * Used to distinguish between click and drag
+   * Check if user significantly moved the mouse
+   * Helps distinguish intentional drag from accidental movement
    */
-  hasMovedWithViewport: (
+  hasMovedBeyondThreshold: (
     clientDragStart: { x: number; y: number },
     clientCurrentPos: { x: number; y: number },
     render: { getMousePosInWorkspace: (pos: any) => { x: number; y: number } },
-    threshold = 1
+    threshold = MOUSE_MOVEMENT_THRESHOLD
   ) => {
     const dragStartWorkspace = render!.getMousePosInWorkspace({
       clientX: clientDragStart.x,
@@ -39,7 +47,11 @@ export const elementApis = {
   },
 
   /**
-   * Change element computed data
+   * Change element computed data (wrapped in transaction)
    */
-  changeComputedData
+  changeComputedData: (elementIds: string[], key: string, value: any) => {
+    startTransaction()
+    changeComputedData(elementIds, key, value)
+    endTransaction()
+  }
 }

@@ -4,7 +4,6 @@
  */
 
 import { render } from '../contexts'
-import { uiContextApis } from './ui-context'
 
 export const viewportApis = {
   /**
@@ -43,12 +42,5 @@ export const viewportApis = {
 
     const viewportBounds = viewportAnchor.getBoundingClientRect()
     render.zoomFit(viewportBounds)
-  },
-
-  /**
-   * Update zoom level in UI context
-   */
-  updateZoomUI: (scale: number) => {
-    uiContextApis.updateZoom(scale)
   }
 }

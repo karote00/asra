@@ -1,6 +1,9 @@
 import { defineFeature } from '@asyra/feature-system'
-import { systemContext } from '../../contexts'
-import { selectionApis, transactionApis } from '../../common-apis'
+import {
+  systemContextApis,
+  selectionApis,
+  transactionApis
+} from '../../common-apis'
 
 export const selectionFeature = defineFeature('selection', 'input.drag', {
   priority: 5,
@@ -23,7 +26,7 @@ export const selectionFeature = defineFeature('selection', 'input.drag', {
         return null
       }
 
-      const systemContextSnapshot = systemContext.getSystemContextSnapshot()
+      const systemContextSnapshot = systemContextApis.getSystemContextSnapshot()
       const hoveredElementId = systemContextSnapshot.target?.hoveredElementId
 
       transactionApis.startTransaction()

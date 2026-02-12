@@ -1,5 +1,5 @@
 import { defineFeature } from '@asyra/feature-system'
-import { systemContext } from '../../contexts'
+import { systemContextApis } from '../../common-apis'
 
 export const hoverElementFeature = defineFeature(
   'hoverElement',
@@ -13,7 +13,7 @@ export const hoverElementFeature = defineFeature(
         return null
       }
 
-      systemContext.updateHoveredElementId(payload.elementId)
+      systemContextApis.updateHoveredElementId(payload.elementId)
 
       return { hoveredId: payload.elementId }
     }
@@ -29,7 +29,7 @@ export const leaveElementFeature = defineFeature(
     execution: (snapshot: any) => {
       const { payload } = snapshot
       if (payload?.elementId) {
-        systemContext.updateHoveredElementId(null)
+        systemContextApis.updateHoveredElementId(null)
       }
       return null
     }

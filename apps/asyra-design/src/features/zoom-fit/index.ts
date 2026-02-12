@@ -12,9 +12,6 @@ export const zoomFitFeature = defineFeature(
     api: {
       zoomFit: () => {
         viewportApis.zoomFit()
-
-        const newScale = viewportApis.getScale()
-        viewportApis.updateZoomUI(newScale)
       }
     },
     execution: (snapshot: SystemContextSnapshot) => {
