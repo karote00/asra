@@ -8,14 +8,14 @@ export const hoverElementFeature = defineFeature(
     priority: 0,
     exclusive: false,
     execution: (snapshot: any) => {
-      const { payload } = snapshot
-      if (!payload || !payload.elementId) {
+      const { detail } = snapshot
+      if (!detail || !detail.elementId) {
         return null
       }
 
-      systemContextApis.updateHoveredElementId(payload.elementId)
+      systemContextApis.updateHoveredElementId(detail.elementId)
 
-      return { hoveredId: payload.elementId }
+      return { hoveredId: detail.elementId }
     }
   }
 )
@@ -27,8 +27,8 @@ export const leaveElementFeature = defineFeature(
     priority: 0,
     exclusive: false,
     execution: (snapshot: any) => {
-      const { payload } = snapshot
-      if (payload?.elementId) {
+      const { detail } = snapshot
+      if (detail?.elementId) {
         systemContextApis.updateHoveredElementId(null)
       }
       return null

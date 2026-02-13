@@ -3,55 +3,86 @@
  * Used in: create-element, and future features
  */
 
-import {
-  changeComputedData,
-  startTransaction,
-  endTransaction
-} from '@asyra/reactive-events'
-import { DEFAULT_ELEMENT_SIZE } from '@asyra/utils'
+import { startTransaction, endTransaction } from '@asyra/reactive-events'
+import { DEFAULT_ELEMENT_SIZE, EntityTypes, DataTypes } from '@asyra/utils'
 import { MOUSE_MOVEMENT_THRESHOLD } from '../constants'
+import core, { render } from '../contexts'
 
 export const elementApis = {
-  /**
-   * Reset element to default size
-   */
-  resetElementSize: (elementId: string) => {
-    startTransaction()
-    changeComputedData([elementId], 'width', DEFAULT_ELEMENT_SIZE)
-    changeComputedData([elementId], 'height', DEFAULT_ELEMENT_SIZE)
-    endTransaction()
+  getMousePosInWorkspace: (clientPos: { x: number; y: number }) => {
+    if (!render) {
+      return null
+    }
+
+    return render.getMousePosInWorkspace({
+      clientX: clientPos.x,
+      clientY: clientPos.y
+    })
   },
 
-  /**
-   * Check if user significantly moved the mouse
-   * Helps distinguish intentional drag from accidental movement
-   */
+  createRectangleAtClientPos: (position: { x: number; y: number }) => {
+    if (!render) {
+      return null
+    }
+
+    const pos = render.getMousePosInWorkspace({
+      clientX: position.x,
+      clientY: position.y
+    })
+
+    startTransaction()
+    const elementId = core.createElement({
+      type: EntityTypes.RECTANGLE,
+      x: pos.x,
+      y: pos.y
+    })
+    endTransaction()
+
+    return elementId
+  },
+
+  resetElementSize: (elementId: string) => {
+    elementApis.changeComputedData([elementId], {
+      width: DEFAULT_ELEMENT_SIZE,
+      height: DEFAULT_ELEMENT_SIZE
+    })
+  },
+
   hasMovedBeyondThreshold: (
     clientDragStart: { x: number; y: number },
     clientCurrentPos: { x: number; y: number },
-    render: { getMousePosInWorkspace: (pos: any) => { x: number; y: number } },
     threshold = MOUSE_MOVEMENT_THRESHOLD
   ) => {
-    const dragStartWorkspace = render!.getMousePosInWorkspace({
+    if (!render) {
+      return false
+    }
+
+    const dragStartWorkspace = render.getMousePosInWorkspace({
       clientX: clientDragStart.x,
       clientY: clientDragStart.y
     })
-    const currentWorkspace = render!.getMousePosInWorkspace({
+    const currentWorkspace = render.getMousePosInWorkspace({
       clientX: clientCurrentPos.x,
       clientY: clientCurrentPos.y
     })
+
     return (
       Math.abs(currentWorkspace.x - dragStartWorkspace.x) > threshold ||
       Math.abs(currentWorkspace.y - dragStartWorkspace.y) > threshold
     )
   },
 
-  /**
-   * Change element computed data (wrapped in transaction)
-   */
-  changeComputedData: (elementIds: string[], key: string, value: any) => {
+  changeComputedData: (
+    elementIds: string[],
+    data: Record<string, DataTypes>
+  ) => {
+    const entries = Object.entries(data ?? {})
+    if (entries.length === 0) {
+      return
+    }
+
     startTransaction()
-    changeComputedData(elementIds, key, value)
+    core.changeComputedData(elementIds, data)
     endTransaction()
   }
 }

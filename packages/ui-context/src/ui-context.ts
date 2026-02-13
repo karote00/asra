@@ -1,122 +1,97 @@
 import { BehaviorSubject } from 'rxjs'
 import { ComputedAttrs, MIXED_STRING } from '@asyra/utils'
 import { isEqual } from 'lodash'
-import { ElementProperties } from './types'
-
-const generalKeysToCompare: (keyof ElementProperties)[] = [
-  'x',
-  'y',
-  'width',
-  'height',
-  'rotation'
-]
+import {
+  propertyRegistry,
+  PropertyValue,
+  PropertyComputeContext,
+  PropertyRegistration
+} from './property-registry'
 
 class UIContext {
-  zoom: BehaviorSubject<number>
-  flattenedElementIds: BehaviorSubject<string[]>
-  elementSelection: BehaviorSubject<Set<string>>
-  vertexSelection: BehaviorSubject<Set<string>>
-  x: BehaviorSubject<ElementProperties['x']>
-  y: BehaviorSubject<ElementProperties['y']>
-  width: BehaviorSubject<ElementProperties['width']>
-  height: BehaviorSubject<ElementProperties['height']>
-  rotation: BehaviorSubject<ElementProperties['rotation']>
-  //   fills: BehaviorSubject<ElementProperties['fills']>
-
-  // System Context
-  primaryTool: BehaviorSubject<string>
-
-  constructor() {
-    this.zoom = new BehaviorSubject<number>(1)
-    this.flattenedElementIds = new BehaviorSubject<string[]>([])
-    this.elementSelection = new BehaviorSubject<Set<string>>(new Set())
-    this.vertexSelection = new BehaviorSubject<Set<string>>(new Set())
-    this.x = new BehaviorSubject<ElementProperties['x']>(0)
-    this.y = new BehaviorSubject<ElementProperties['y']>(0)
-    this.width = new BehaviorSubject<ElementProperties['width']>(0)
-    this.height = new BehaviorSubject<ElementProperties['height']>(0)
-    this.rotation = new BehaviorSubject<ElementProperties['rotation']>(0)
-    // this.fills = new BehaviorSubject<ElementProperties['fills']>([])
-
-    this.primaryTool = new BehaviorSubject<string>('select')
+  registerProperty<T extends PropertyValue>(
+    key: string,
+    config: PropertyRegistration<T>
+  ): void {
+    propertyRegistry.register<T>(key, config)
   }
 
-  updateElementSelection(selectedIds: Set<string>) {
-    if (!isEqual(this.elementSelection.getValue(), selectedIds)) {
-      this.elementSelection.next(selectedIds)
-    }
+  get<T extends PropertyValue>(key: string): T | undefined {
+    return propertyRegistry.get<T>(key)
   }
 
-  updateVertexSelection(selectedIds: Set<string>) {
-    if (!isEqual(this.vertexSelection.getValue(), selectedIds)) {
-      this.vertexSelection.next(selectedIds)
-    }
+  set<T extends PropertyValue>(key: string, value: T): void {
+    propertyRegistry.set<T>(key, value)
   }
 
-  updateComputedProperty<K extends keyof ComputedAttrs>(
-    key: K,
-    data: ComputedAttrs[K][]
-  ) {
-    if (!data.length) {
+  getSubject<T extends PropertyValue>(
+    key: string
+  ): BehaviorSubject<T> | undefined {
+    return propertyRegistry.getSubject(key) as BehaviorSubject<T> | undefined
+  }
+
+  onChange<T extends PropertyValue>(
+    key: string,
+    callback: (value: T) => void
+  ): () => void {
+    return propertyRegistry.onChange(key, callback)
+  }
+
+  recomputeSelectionProperties(context: PropertyComputeContext): void {
+    const keys = propertyRegistry.getSelectionTriggeredKeys()
+    if (keys.length === 0) {
       return
     }
-
-    const compareKey = key as keyof ElementProperties
-    if (generalKeysToCompare.includes(compareKey)) {
-      const result = this.computedSharedProperty(
-        data as ElementProperties[keyof ElementProperties][]
-      )
-      if (result !== this[compareKey].getValue()) {
-        this[compareKey].next(result)
-      }
-    }
+    this.recomputeProperties(keys, context)
   }
 
-  updateComputedProperties(allElementData: ComputedAttrs[]) {
-    const result = this.computeSharedProperties(allElementData)
-
-    generalKeysToCompare.forEach((key) => {
-      if (result[key] !== this[key].getValue()) {
-        this[key].next(result[key])
+  recomputeProperties(
+    keys: string[],
+    context: PropertyComputeContext
+  ): void {
+    keys.forEach((key) => {
+      const nextValue = this.computePropertyValue(key, context)
+      if (nextValue !== SKIP_UPDATE) {
+        propertyRegistry.set(key, nextValue as PropertyValue)
       }
     })
   }
 
-  computedSharedProperty<K extends keyof ElementProperties>(
-    data: ElementProperties[K][]
-  ) {
-    return compareValue(data)
-  }
-
-  computeSharedProperties(allElementData: ComputedAttrs[]): ElementProperties {
-    const result = {} as ElementProperties
-
-    result.x = compareValues(allElementData, 'x') as ElementProperties['x']
-    result.y = compareValues(allElementData, 'y') as ElementProperties['y']
-    result.width = compareValues(
-      allElementData,
-      'width'
-    ) as ElementProperties['width']
-    result.height = compareValues(
-      allElementData,
-      'height'
-    ) as ElementProperties['height']
-    result.rotation = compareValues(
-      allElementData,
-      'rotation'
-    ) as ElementProperties['rotation']
-
-    return result
-  }
-
-  updateZoom(newZoom: number) {
-    this.zoom.next(newZoom)
-  }
-
-  updatePrimaryTool(tool: string) {
-    if (tool !== this.primaryTool.getValue()) {
-      this.primaryTool.next(tool)
+  private computePropertyValue(
+    key: string,
+    context: PropertyComputeContext
+  ): PropertyValue | typeof SKIP_UPDATE {
+    const registration = propertyRegistry.getRegistration(key)
+    if (!registration) {
+      return SKIP_UPDATE
     }
+
+    if (registration.source$) {
+      return SKIP_UPDATE
+    }
+
+    const emptyValue = registration.emptyValue ?? registration.defaultValue
+    if (context.selectedIds.size === 0) {
+      return emptyValue
+    }
+
+    if (registration.compute) {
+      return registration.compute(context)
+    }
+
+    if (registration.aggregate) {
+      const aggregateKey =
+        registration.aggregateKey ?? (key as keyof ComputedAttrs)
+      const values = context.elements
+        .map((element) => element[aggregateKey])
+        .filter((value) => value !== undefined)
+      if (values.length === 0) {
+        return emptyValue
+      }
+      return compareAggregateValues(values)
+    }
+
+    return SKIP_UPDATE
   }
 }
 
@@ -125,35 +100,14 @@ const uiContext = new UIContext()
 export default uiContext
 export { UIContext }
 
-const compareValue = <K extends keyof ElementProperties>(
-  allElementData: ElementProperties[K][]
-) => {
-  const firstValue = allElementData[0]
-  let isMixed = false
-
-  for (let i = 1; i < allElementData.length; i++) {
-    if (allElementData[i] !== firstValue) {
-      isMixed = true
-      break
+const compareAggregateValues = (values: unknown[]) => {
+  const firstValue = values[0]
+  for (let i = 1; i < values.length; i++) {
+    if (!isEqual(values[i], firstValue)) {
+      return MIXED_STRING
     }
   }
-
-  return isMixed ? MIXED_STRING : firstValue
+  return firstValue
 }
 
-const compareValues = (
-  allElementData: ComputedAttrs[],
-  compareKey: keyof ComputedAttrs
-) => {
-  const firstValue = allElementData[0][compareKey]
-  let isMixed = false
-
-  for (let i = 1; i < allElementData.length; i++) {
-    if (allElementData[i][compareKey] !== firstValue) {
-      isMixed = true
-      break
-    }
-  }
-
-  return isMixed ? MIXED_STRING : firstValue
-}
+const SKIP_UPDATE = Symbol('skip-ui-property-update')

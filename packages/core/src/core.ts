@@ -13,11 +13,20 @@ import type { FeatureSystemAPIs } from './types/feature-system'
 import { IRenderer, RenderOptions } from '@asyra/render'
 import { IPersistenceProvider, SaveHook, LoadHook } from '@asyra/persistence'
 
-import { CoreAPIs, ElementSelectionActionAPIs } from './types'
+import {
+  CoreAPIs,
+  ElementSelectionActionAPIs,
+  InputSystemAPIs,
+  RenderAPIs,
+  SceneTreeAPIs,
+  UIContextAPIs,
+  SystemManagedPropertyAPIs
+} from './types'
 import { createAPIs } from './apis'
 import { subscribeToEvents } from '@asyra/reactive-events'
 import { EventTypes } from '@asyra/reactive-events'
 import render from '@asyra/render'
+import { initDataContexts } from '@asyra/ui-context'
 
 interface CoreDeps {
   inputSystem: InputSystem
@@ -40,18 +49,32 @@ class Core implements CoreAPIs {
   private persistence: IPersistenceProvider | null = null
   private saveHooks: SaveHook[] = []
   private loadHooks: LoadHook[] = []
+  private uiContextInitialized = false
 
-  setupInputSystem!: CoreAPIs['setupInputSystem']
+  setupInputSystem!: InputSystemAPIs['setupInputSystem']
 
-  initRender!: CoreAPIs['initRender']
-  renderIsReady!: CoreAPIs['renderIsReady']
+  initRender!: RenderAPIs['initRender']
+  renderIsReady!: RenderAPIs['renderIsReady']
 
-  sceneTreeInit!: CoreAPIs['sceneTreeInit']
-  sceneTreeLoadData!: CoreAPIs['sceneTreeLoadData']
-  sceneTreeSaveData!: CoreAPIs['sceneTreeSaveData']
+  sceneTreeInit!: SceneTreeAPIs['sceneTreeInit']
+  sceneTreeLoadData!: SceneTreeAPIs['sceneTreeLoadData']
+  sceneTreeSaveData!: SceneTreeAPIs['sceneTreeSaveData']
+  createElement!: SceneTreeAPIs['createElement']
+  changeComputedData!: SceneTreeAPIs['changeComputedData']
+  getAllElementsBounds!: SceneTreeAPIs['getAllElementsBounds']
   selectElements!: ElementSelectionActionAPIs['selectElements']
 
   initFeatureSystem!: FeatureSystemAPIs['initFeatureSystem']
+  registerUIProperty!: UIContextAPIs['registerUIProperty']
+  getUIProperty!: UIContextAPIs['getUIProperty']
+  setUIProperty!: UIContextAPIs['setUIProperty']
+  getUIPropertySubject!: UIContextAPIs['getUIPropertySubject']
+  onUIPropertyChange!: UIContextAPIs['onUIPropertyChange']
+
+  registerSystemProperty!: SystemManagedPropertyAPIs['registerSystemProperty']
+  getSystemProperty!: SystemManagedPropertyAPIs['getSystemProperty']
+  setSystemProperty!: SystemManagedPropertyAPIs['setSystemProperty']
+  getSystemPropertyObservable!: SystemManagedPropertyAPIs['getSystemPropertyObservable']
 
   constructor(readonly deps: CoreDeps) {
     const apis = createAPIs(deps.sceneTree, deps.render)
@@ -116,6 +139,11 @@ class Core implements CoreAPIs {
       container.appendChild(result.canvas)
       // Setup input system to watch the canvas
       this.setupInputSystem(result.canvas)
+    }
+
+    if (!this.uiContextInitialized) {
+      initDataContexts()
+      this.uiContextInitialized = true
     }
 
     // Phase 2: Load data from persistence

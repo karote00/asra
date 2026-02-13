@@ -3,12 +3,7 @@
  * Used in: selection, and future features like delete, copy, paste, move, resize
  */
 
-import {
-  selectElements,
-  startTransaction,
-  endTransaction
-} from '@asyra/reactive-events'
-import { selection } from '../contexts'
+import core, { selection } from '../contexts'
 
 export const selectionApis = {
   /**
@@ -22,9 +17,7 @@ export const selectionApis = {
    * Clear all selections
    */
   clearSelection: () => {
-    startTransaction()
-    selectElements([])
-    endTransaction()
+    core.selectElements([])
   },
 
   /**
@@ -32,17 +25,16 @@ export const selectionApis = {
    */
   toggleSelection: (elementId: string) => {
     const currentIds = selection.getElementSelectionIds()
-    startTransaction()
-    if (currentIds.includes(elementId)) {
-      selectElements(currentIds.filter((id) => id !== elementId))
-    } else {
-      selectElements([...currentIds, elementId])
-    }
-    endTransaction()
+    const newIds = currentIds.includes(elementId)
+      ? currentIds.filter((id: string) => id !== elementId)
+      : [...currentIds, elementId]
+    core.selectElements(newIds)
   },
 
   /**
-   * Set selected elements
+   * Set selected elements (delegates to core)
    */
-  selectElements
+  selectElements: (elementIds: string[]) => {
+    core.selectElements(elementIds)
+  }
 }

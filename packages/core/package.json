@@ -34,6 +34,7 @@
     "@asyra/scene-tree": "workspace:*",
     "@asyra/selection": "workspace:*",
     "@asyra/system-context": "workspace:*",
+    "@asyra/ui-context": "workspace:*",
     "@asyra/utils": "workspace:*"
   }
 }

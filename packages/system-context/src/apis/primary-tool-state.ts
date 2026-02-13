@@ -1,12 +1,13 @@
 import { HandlerDeps, PrimaryToolStateAPIs } from '../types'
 
 export const createPrimaryToolStateAPIs = (
-  primaryToolState: HandlerDeps['primaryToolState']
+  deps: HandlerDeps
 ): PrimaryToolStateAPIs => ({
   getCurrentPrimaryTool(): string {
-    return primaryToolState.current
+    return deps.primaryToolState.current
   },
   switchPrimaryTool(tool: string) {
-    primaryToolState.set(tool)
+    deps.primaryToolState.set(tool)
+    deps.managedPropertyState.setIfRegistered('primaryTool', tool)
   }
 })

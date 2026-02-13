@@ -1,12 +1,14 @@
 import { HandlerDeps, TargetStateAPIs } from '../types'
 
 export const createTargetStateAPIs = (
-  targetState: HandlerDeps['targetState']
+  deps: HandlerDeps
 ): TargetStateAPIs => ({
   updateHoveredElementId(elementId: string | null) {
-    targetState.updateHoveredElementId(elementId)
+    deps.targetState.updateHoveredElementId(elementId)
+    deps.managedPropertyState.setIfRegistered('targetState', deps.targetState.current)
+    deps.managedPropertyState.setIfRegistered('hoveredElementId', elementId)
   },
   getTargetState() {
-    return targetState.current
+    return deps.targetState.current
   }
 })

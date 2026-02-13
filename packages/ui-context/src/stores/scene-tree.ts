@@ -172,7 +172,7 @@ export default class SceneTreeStore {
   }
 
   updateFlattenedElementIds() {
-    uiContext.flattenedElementIds.next(this.getFlattenedElementIds())
+    uiContext.set('flattenedElementIds', this.getFlattenedElementIds())
   }
 
   addElement(data: Partial<ElementRawData | GroupRawData>) {

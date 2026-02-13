@@ -30,6 +30,7 @@ export interface ActiveSession {
   participants: SessionParticipant[]
   startTime: number
   states: Map<string, SessionState>
+  abortController?: AbortController
 }
 
 export interface SessionParticipant {

@@ -74,6 +74,10 @@ class Render {
     ) as SceneElement[]
   }
 
+  getAllElementsBounds() {
+    return this.viewport.getAllElementsBounds()
+  }
+
   switchWorkspace(workspaceData: RenderContainerData) {
     this.viewport.switchWorkspace(workspaceData)
   }

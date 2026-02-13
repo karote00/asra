@@ -94,6 +94,7 @@ __metadata:
     "@asyra/scene-tree": "workspace:*"
     "@asyra/selection": "workspace:*"
     "@asyra/system-context": "workspace:*"
+    "@asyra/ui-context": "workspace:*"
     "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
@@ -233,6 +234,7 @@ __metadata:
     "@asyra/reactive-events": "workspace:*"
     "@asyra/scene-tree": "workspace:*"
     "@asyra/selection": "workspace:*"
+    "@asyra/system-context": "workspace:*"
     "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     pixi.js: "npm:^8.6.3"
@@ -288,12 +290,18 @@ __metadata:
     "@asyra/selection": "workspace:*"
     "@asyra/utils": "workspace:*"
     "@types/lodash": "npm:^4"
+    "@types/react": "npm:^19.0.0"
     "@vitest/coverage-v8": "npm:^2.1.8"
     lodash: "npm:^4.17.21"
     rxjs: "npm:^7.8.1"
     typescript: "npm:^5.7.2"
     vitest: "npm:^2.1.8"
     yjs: "npm:13.6.20"
+  peerDependencies:
+    react: ^19.0.0
+  peerDependenciesMeta:
+    react:
+      optional: true
   languageName: unknown
   linkType: soft
 

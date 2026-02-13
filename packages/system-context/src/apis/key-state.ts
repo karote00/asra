@@ -2,12 +2,13 @@ import { KeySnapshot } from '@asyra/utils'
 import { HandlerDeps, KeyStateAPIs } from '../types'
 
 export const createKeyStateAPIs = (
-  keyState: HandlerDeps['keyState']
+  deps: HandlerDeps
 ): KeyStateAPIs => ({
   updateKeyState(keySnapshot: KeySnapshot) {
-    keyState.set(keySnapshot)
+    deps.keyState.set(keySnapshot)
+    deps.managedPropertyState.setIfRegistered('keyState', keySnapshot)
   },
   getKeyState() {
-    return keyState.current
+    return deps.keyState.current
   }
 })

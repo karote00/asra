@@ -153,6 +153,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
 
   getAllComputedData() {
     if (this.get('type') !== EntityTypes.WORKSPACE) {
+      this.computed.setup(this.props)
       return this.computed.save()
     }
 

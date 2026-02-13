@@ -58,6 +58,7 @@
         "^build:scene-tree",
         "^build:selection",
         "^build:system-context",
+        "^build:ui-context",
         "^build:utils"
       ]
     },
@@ -148,6 +149,7 @@
       "dependsOn": [
         "^build:factory",
         "^build:reactive-events",
+        "^build:system-context",
         "^build:scene-tree",
         "^build:selection",
         "^build:utils"

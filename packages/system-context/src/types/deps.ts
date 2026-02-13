@@ -3,7 +3,8 @@ import type {
   PrimaryToolState,
   MouseState,
   KeyState,
-  TargetState
+  TargetState,
+  ManagedPropertyState
 } from '../states'
 
 export interface HandlerDeps {
@@ -12,6 +13,7 @@ export interface HandlerDeps {
   mouseState: MouseState
   keyState: KeyState
   targetState: TargetState
+  managedPropertyState: ManagedPropertyState
 }
 
 export interface SystemDeps {

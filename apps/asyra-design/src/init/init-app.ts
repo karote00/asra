@@ -1,5 +1,6 @@
 import { initInputSystem } from './init-input-system'
 import { initFeatures } from './init-features'
+import { initPropertyRegistrations } from '../registrations'
 
 /**
  * Initializes all framework components and configurations.
@@ -23,6 +24,9 @@ import { initFeatures } from './init-features'
  * ```
  */
 export const initApp = (): void => {
+  // Initialize property registry first (before features)
+  initPropertyRegistrations()
+
   initInputSystem()
   // Initialize feature-system for application-level features
   initFeatures()

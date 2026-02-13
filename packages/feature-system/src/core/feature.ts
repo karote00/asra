@@ -92,6 +92,14 @@ function registerFeatureHandlers(
           }
 
           if (event.includes('.start')) {
+            await sessionManager.cancelActiveSessions({
+              ...mergedSnapshot,
+              detail: {
+                ...(mergedSnapshot as any).detail,
+                cancelled: true,
+                cancelledBy: event
+              }
+            })
             await sessionManager.handleStart(keyConfig, mergedSnapshot)
           } else if (event.includes('.update')) {
             await sessionManager.handleUpdate(keyConfig, mergedSnapshot)
@@ -110,7 +118,14 @@ function registerFeatureHandlers(
                 const eventBus = module.getEventBus()
                 eventBus.subscribe((raw: any) => {
                   if (raw.type === event) {
-                    executionRegistry.execute(event, raw)
+                    const snapshot =
+                      systemContext.getSystemContextSnapshot?.() || raw
+                    const mergedSnapshot = {
+                      ...snapshot,
+                      detail: raw.detail ?? raw.payload,
+                      payload: raw.payload
+                    }
+                    executionRegistry.execute(event, mergedSnapshot)
                   }
                 })
               }
@@ -120,12 +135,20 @@ function registerFeatureHandlers(
           registeredEvents.add(event)
         } else {
           // Input events: Listen via inputSystem
-          inputSystem.on(event, (raw: any) => {
+          inputSystem.on(event, async (raw: any) => {
             const snapshot = systemContext.getSystemContextSnapshot?.() || raw
             const mergedSnapshot = {
               ...snapshot,
               ...(raw.detail ? { detail: raw.detail } : {})
             }
+            await sessionManager.cancelActiveSessions({
+              ...mergedSnapshot,
+              detail: {
+                ...(mergedSnapshot as any).detail,
+                cancelled: true,
+                cancelledBy: event
+              }
+            })
             executionRegistry.execute(event, mergedSnapshot)
           })
           registeredEvents.add(event)

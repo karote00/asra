@@ -4,7 +4,8 @@ import {
   primaryToolState,
   mouseState,
   keyState,
-  targetState
+  targetState,
+  managedPropertyState
 } from './states'
 import { initSystemContextSubscribe } from './subscribe'
 import {
@@ -15,7 +16,8 @@ import {
   SystemContextAPIs,
   RootAPIs,
   KeyStateAPIs,
-  TargetStateAPIs
+  TargetStateAPIs,
+  ManagedPropertyStateAPIs
 } from './types'
 
 export class SystemContext implements SystemContextAPIs {
@@ -35,6 +37,11 @@ export class SystemContext implements SystemContextAPIs {
 
   getSystemContextSnapshot!: RootAPIs['getSystemContextSnapshot']
 
+  registerProperty!: ManagedPropertyStateAPIs['registerProperty']
+  getManagedProperty!: ManagedPropertyStateAPIs['getManagedProperty']
+  setManagedProperty!: ManagedPropertyStateAPIs['setManagedProperty']
+  getManagedPropertyObservable!: ManagedPropertyStateAPIs['getManagedPropertyObservable']
+
   constructor(private deps: HandlerDeps) {
     const apis = createAllAPIs(deps)
 
@@ -49,6 +56,7 @@ const systemContext = new SystemContext({
   primaryToolState,
   mouseState,
   keyState,
-  targetState
+  targetState,
+  managedPropertyState
 })
 export default systemContext

@@ -1,4 +1,5 @@
 import type {
+  CreateElementData,
   DataTypes,
   ElementRawData,
   GroupInstanceTypes,
@@ -29,7 +30,7 @@ export const sceneTreeLoadComplete = () => {
 }
 
 export const addElement = (
-  elementData: ElementRawData,
+  elementData: CreateElementData,
   index?: number,
   parent?: GroupInstanceTypes
 ) => {

@@ -1,4 +1,5 @@
-import uiContext from '@asyra/ui-context'
-import { createStore } from '../utils'
+import { useProperty } from '../../hooks'
 
-export const usePrimaryTool = (): string => createStore(uiContext.primaryTool)
+export const usePrimaryTool = (): string => {
+  return useProperty<string>('primaryTool')
+}

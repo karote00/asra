@@ -51,7 +51,8 @@ export const initSelectionDataSubscribe = () => {
   elementSelectionArray.observe(collectElementSelectionChange)
 
   subscribeToRequestElementSelection(() => {
-    finishRequestElementSelection(uiContext.elementSelection.getValue())
+    const selection = uiContext.get<Set<string>>('elementSelection') || new Set()
+    finishRequestElementSelection(selection)
   })
 
   hasInit = true

@@ -1,4 +1,5 @@
 import type {
+  CreateElementData,
   DataTypes,
   ElementRawData,
   GroupInstanceTypes,
@@ -24,7 +25,7 @@ export interface SceneTreeLoadCompleteEvent {
 export interface AddElementEvent {
   type: EventTypes
   payload: {
-    data: ElementRawData
+    data: CreateElementData
     parent?: GroupInstanceTypes
     index?: number
   }

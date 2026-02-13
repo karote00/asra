@@ -38,6 +38,7 @@ Executable and composable development workflows:
 
 - **Project Essentials**: `project/AI_ESSENTIALS.md`
 - **Architecture**: `project/ARCHITECTURE.md`
+- **Framework Notes**: `framework-notes.md`
 - **Available Skills**: `skills/README.md`
 - **Development Workflows**: `workflows/README.md`
 - **Testing Guide**: `project/AI_ESSENTIALS.md#testing-rules`

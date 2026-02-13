@@ -24,6 +24,14 @@ export class ViewportLayer {
     return this.renderLayer.getElementById(elementId)
   }
 
+  getAllElementsBounds(): Bounds | null {
+    if (this.renderLayer.getAllElements().size === 0) {
+      return null
+    }
+
+    return this.renderLayer.getAllElementsBounds(this.renderLayer.view)
+  }
+
   switchWorkspace(workspaceData: RenderContainerData) {
     this.renderLayer.switchWorkspace(workspaceData)
   }

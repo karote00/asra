@@ -12,204 +12,93 @@ describe('UIContext', () => {
     uiContext = new UIContext()
   })
 
-  // Test constructor
-  it('should initialize all BehaviorSubjects with correct default values', () => {
-    expect(uiContext.zoom).toBeInstanceOf(BehaviorSubject)
-    expect(uiContext.zoom.getValue()).toBe(1)
-    expect(uiContext.flattenedElementIds).toBeInstanceOf(BehaviorSubject)
-    expect(uiContext.flattenedElementIds.getValue()).toEqual([])
-    expect(uiContext.elementSelection).toBeInstanceOf(BehaviorSubject)
-    expect(uiContext.elementSelection.getValue()).toEqual(new Set())
-    expect(uiContext.vertexSelection).toBeInstanceOf(BehaviorSubject)
-    expect(uiContext.vertexSelection.getValue()).toEqual(new Set())
-    expect(uiContext.x).toBeInstanceOf(BehaviorSubject)
-    expect(uiContext.x.getValue()).toBe(0)
-    expect(uiContext.y).toBeInstanceOf(BehaviorSubject)
-    expect(uiContext.y.getValue()).toBe(0)
-    expect(uiContext.width).toBeInstanceOf(BehaviorSubject)
-    expect(uiContext.width.getValue()).toBe(0)
-    expect(uiContext.height).toBeInstanceOf(BehaviorSubject)
-    expect(uiContext.height.getValue()).toBe(0)
-    expect(uiContext.rotation).toBeInstanceOf(BehaviorSubject)
-    expect(uiContext.rotation.getValue()).toBe(0)
-    expect(uiContext.primaryTool).toBeInstanceOf(BehaviorSubject)
-    expect(uiContext.primaryTool.getValue()).toBe('select')
+  it('should register properties and expose their subjects', () => {
+    uiContext.registerProperty<number>('zoom', { defaultValue: 1 })
+
+    const subject = uiContext.getSubject<number>('zoom')
+    expect(subject).toBeInstanceOf(BehaviorSubject)
+    expect(uiContext.get<number>('zoom')).toBe(1)
   })
 
-  // Test updateElementSelection
-  it('should update elementSelection when selectedIds are different', () => {
-    const newSelection = new Set(['id1', 'id2'])
-    const nextSpy = vi.spyOn(uiContext.elementSelection, 'next')
+  it('should sync values from a source observable', () => {
+    const source$ = new BehaviorSubject<number>(1)
+    uiContext.registerProperty<number>('zoom', {
+      defaultValue: 1,
+      source$: source$
+    })
 
-    uiContext.updateElementSelection(newSelection)
-
-    expect(nextSpy).toHaveBeenCalledWith(newSelection)
+    source$.next(2)
+    expect(uiContext.get<number>('zoom')).toBe(2)
   })
 
-  it('should not update elementSelection when selectedIds are the same', () => {
-    const currentSelection = new Set(['id1'])
-    uiContext.elementSelection.next(currentSelection)
-    const nextSpy = vi.spyOn(uiContext.elementSelection, 'next')
+  it('should recompute aggregate properties with consistent values', () => {
+    uiContext.registerProperty<number | string>('x', {
+      defaultValue: 0,
+      aggregate: true
+    })
 
-    uiContext.updateElementSelection(currentSelection)
-
-    expect(nextSpy).not.toHaveBeenCalled()
-  })
-
-  // Test updateVertexSelection
-  it('should update vertexSelection when selectedIds are different', () => {
-    const newSelection = new Set(['v1', 'v2'])
-    const nextSpy = vi.spyOn(uiContext.vertexSelection, 'next')
-
-    uiContext.updateVertexSelection(newSelection)
-
-    expect(nextSpy).toHaveBeenCalledWith(newSelection)
-  })
-
-  it('should not update vertexSelection when selectedIds are the same', () => {
-    const currentSelection = new Set(['v1'])
-    uiContext.vertexSelection.next(currentSelection)
-    const nextSpy = vi.spyOn(uiContext.vertexSelection, 'next')
-
-    uiContext.updateVertexSelection(currentSelection)
-
-    expect(nextSpy).not.toHaveBeenCalled()
-  })
-
-  // Test updateComputedProperty
-  it('should update computed property with consistent value', () => {
-    const nextSpy = vi.spyOn(uiContext.x, 'next')
-
-    uiContext.updateComputedProperty('x', [10, 10])
-
-    expect(nextSpy).toHaveBeenCalledWith(10)
-  })
-
-  it('should update computed property with MIXED_STRING for mixed values', () => {
-    const nextSpy = vi.spyOn(uiContext.width, 'next')
-
-    uiContext.updateComputedProperty('width', [100, 200])
-
-    expect(nextSpy).toHaveBeenCalledWith(MIXED_STRING)
-  })
-
-  it('should not update computed property if value is the same', () => {
-    uiContext.y.next(50)
-    const nextSpy = vi.spyOn(uiContext.y, 'next')
-
-    uiContext.updateComputedProperty('y', [50, 50])
-
-    expect(nextSpy).not.toHaveBeenCalled()
-  })
-
-  it('should not update properties not in generalKeysToCompare', () => {
-    const nextSpy = vi.spyOn(uiContext.flattenedElementIds, 'next')
-
-    // Attempt to update a property not in generalKeysToCompare
-    uiContext.updateComputedProperty(
-      'flattenedElementIds' as unknown as keyof ComputedAttrs,
-      [
-        ['id1'] as unknown as ComputedAttrs[keyof ComputedAttrs],
-        ['id2'] as unknown as ComputedAttrs[keyof ComputedAttrs]
+    const context = {
+      selectedIds: new Set(['1', '2']),
+      elements: [
+        {
+          id: '1',
+          type: EntityTypes.RECTANGLE,
+          name: 'rect 1',
+          x: 10
+        } as ComputedAttrs,
+        {
+          id: '2',
+          type: EntityTypes.RECTANGLE,
+          name: 'rect 2',
+          x: 10
+        } as ComputedAttrs
       ]
-    )
+    }
 
-    expect(nextSpy).not.toHaveBeenCalled()
+    uiContext.recomputeProperties(['x'], context)
+    expect(uiContext.get('x')).toBe(10)
   })
 
-  // Test updateComputedProperties
-  it('should update all general properties with consistent values', () => {
-    const allElementData: ComputedAttrs[] = [
-      {
-        id: '1',
-        type: EntityTypes.RECTANGLE,
-        name: 'rect 1',
-        x: 10,
-        y: 20,
-        width: 100,
-        height: 50,
-        rotation: 45
-      },
-      {
-        id: '2',
-        type: EntityTypes.RECTANGLE,
-        name: 'rect 2',
-        x: 10,
-        y: 20,
-        width: 100,
-        height: 50,
-        rotation: 45
-      }
-    ]
-    const xSpy = vi.spyOn(uiContext.x, 'next')
-    const ySpy = vi.spyOn(uiContext.y, 'next')
-    const widthSpy = vi.spyOn(uiContext.width, 'next')
-    const heightSpy = vi.spyOn(uiContext.height, 'next')
-    const rotationSpy = vi.spyOn(uiContext.rotation, 'next')
+  it('should recompute aggregate properties with MIXED_STRING for mixed values', () => {
+    uiContext.registerProperty<number | string>('x', {
+      defaultValue: 0,
+      aggregate: true
+    })
 
-    uiContext.updateComputedProperties(allElementData)
+    const context = {
+      selectedIds: new Set(['1', '2']),
+      elements: [
+        {
+          id: '1',
+          type: EntityTypes.RECTANGLE,
+          name: 'rect 1',
+          x: 10
+        } as ComputedAttrs,
+        {
+          id: '2',
+          type: EntityTypes.RECTANGLE,
+          name: 'rect 2',
+          x: 15
+        } as ComputedAttrs
+      ]
+    }
 
-    expect(xSpy).toHaveBeenCalledWith(10)
-    expect(ySpy).toHaveBeenCalledWith(20)
-    expect(widthSpy).toHaveBeenCalledWith(100)
-    expect(heightSpy).toHaveBeenCalledWith(50)
-    expect(rotationSpy).toHaveBeenCalledWith(45)
+    uiContext.recomputeProperties(['x'], context)
+    expect(uiContext.get('x')).toBe(MIXED_STRING)
   })
 
-  it('should update all general properties with MIXED_STRING for mixed values', () => {
-    const allElementData: ComputedAttrs[] = [
-      {
-        id: '1',
-        type: EntityTypes.RECTANGLE,
-        name: 'rect 1',
-        x: 10,
-        y: 20,
-        width: 100,
-        height: 50,
-        rotation: 0
-      },
-      {
-        id: '2',
-        type: EntityTypes.RECTANGLE,
-        name: 'rect 2',
-        x: 15,
-        y: 20,
-        width: 100,
-        height: 50,
-        rotation: 0
-      }
-    ]
-    const xSpy = vi.spyOn(uiContext.x, 'next')
+  it('should apply empty values when selection is empty', () => {
+    uiContext.registerProperty<number | string>('x', {
+      defaultValue: 0,
+      aggregate: true,
+      emptyValue: 123
+    })
 
-    uiContext.updateComputedProperties(allElementData)
+    uiContext.recomputeProperties(['x'], {
+      selectedIds: new Set(),
+      elements: []
+    })
 
-    expect(xSpy).toHaveBeenCalledWith(MIXED_STRING)
-  })
-
-  // Test updateZoom
-  it('should update zoom value', () => {
-    const nextSpy = vi.spyOn(uiContext.zoom, 'next')
-
-    uiContext.updateZoom(2)
-
-    expect(nextSpy).toHaveBeenCalledWith(2)
-  })
-
-  // Test updatePrimaryTool
-  it('should update primaryTool when tool is different', () => {
-    const nextSpy = vi.spyOn(uiContext.primaryTool, 'next')
-
-    uiContext.updatePrimaryTool('rectangle')
-
-    expect(nextSpy).toHaveBeenCalledWith('rectangle')
-  })
-
-  it('should not update primaryTool when tool is the same', () => {
-    uiContext.primaryTool.next('select')
-    const nextSpy = vi.spyOn(uiContext.primaryTool, 'next')
-
-    uiContext.updatePrimaryTool('select')
-
-    expect(nextSpy).not.toHaveBeenCalled()
+    expect(uiContext.get('x')).toBe(123)
   })
 })

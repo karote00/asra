@@ -1,19 +1,19 @@
 import type {
   SceneTreeYjsChange,
   AddRemoveElementChange,
-  UpdateElementChange,
-  ComputedAttrs
+  UpdateElementChange
 } from '@asyra/utils'
 import { SCENE_TREE_ACTIONS } from '@asyra/utils'
 import factory from '@asyra/factory'
 import sceneTree from '@asyra/scene-tree'
 import {
-  requestElementSelection,
   subscribeToEndTransaction,
   subscribeToSceneTreeLoadComplete
 } from '@asyra/reactive-events'
 import SceneTreeStore from '../stores/scene-tree'
 import uiContext from '../ui-context'
+import { propertyRegistry } from '../property-registry'
+import { selectionStore } from './selection'
 
 export const sceneTreeStore = new SceneTreeStore(sceneTree)
 
@@ -39,7 +39,7 @@ const updateUISceneTree = (change: SceneTreeYjsChange['payload']) => {
 
 // @ts-expect-error: It's YJS event
 export const collectSceneTreeChange = (event) => {
-  const updatedComputedDataKeys = new Set() as Set<keyof ComputedAttrs>
+  const updatedPropertyKeys = new Set<string>()
 
   const processChanges = (
     items: typeof event.changes.added | typeof event.changes.deleted
@@ -49,12 +49,8 @@ export const collectSceneTreeChange = (event) => {
       item.content
         .getContent()
         .forEach((change: SceneTreeYjsChange['payload']) => {
-          if (
-            change.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA &&
-            'key' in change
-          ) {
-            updatedComputedDataKeys.add(change.key as keyof ComputedAttrs)
-          }
+          const matching = propertyRegistry.getMatchingProperties(change)
+          matching.forEach((key) => updatedPropertyKeys.add(key))
           updateUISceneTree(change)
         })
     })
@@ -63,14 +59,10 @@ export const collectSceneTreeChange = (event) => {
   processChanges(event.changes.added)
   processChanges(event.changes.deleted)
 
-  updatedComputedDataKeys.forEach(async (key) => {
-    const elementSelection = await requestElementSelection()
-    const propertyData = [...elementSelection].map((elementId) => {
-      const elementData = sceneTreeStore.getElementGeneralData(elementId)
-      return elementData?.[key]
-    }) as ComputedAttrs[keyof ComputedAttrs][]
-    uiContext.updateComputedProperty(key, propertyData)
-  })
+  if (updatedPropertyKeys.size > 0) {
+    const context = selectionStore.getCurrentSelectionContext()
+    uiContext.recomputeProperties([...updatedPropertyKeys], context)
+  }
 
   sceneTreeStore.fireChange()
 }
@@ -92,6 +84,7 @@ export const initSceneTreeDataSubscribe = () => {
 
   subscribeToEndTransaction(() => {
     sceneTreeStore.fireChange()
+    selectionStore.recomputeSelectionProperties()
   })
 
   hasInit = true

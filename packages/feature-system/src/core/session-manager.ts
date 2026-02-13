@@ -4,6 +4,9 @@ import type {
   SessionState
 } from '../types/feature'
 import type { SystemContextSnapshot } from '@asyra/utils'
+import { startTransaction, endTransaction } from '@asyra/reactive-events'
+
+const DEFAULT_HANDLER_TIMEOUT_MS = 5000
 
 /**
  * Session Manager
@@ -12,6 +15,58 @@ import type { SystemContextSnapshot } from '@asyra/utils'
 export class SessionManager {
   private activeSessions = new Map<string, ActiveSession>()
   private sessionHandlers = new Map<string, SessionParticipant[]>()
+  private handlerTimeoutMs = DEFAULT_HANDLER_TIMEOUT_MS
+
+  private withDetail(
+    snapshot: SystemContextSnapshot,
+    detail: Record<string, unknown>,
+    signal?: AbortSignal
+  ): SystemContextSnapshot {
+    const existingDetail =
+      (snapshot as SystemContextSnapshot & { detail?: Record<string, unknown> })
+        .detail ?? {}
+
+    return {
+      ...snapshot,
+      detail: {
+        ...existingDetail,
+        ...detail,
+        ...(signal ? { signal } : {})
+      }
+    } as SystemContextSnapshot
+  }
+
+  private async runWithTimeout<T>(
+    handler: (() => T | Promise<T>) | undefined,
+    label: string
+  ): Promise<T | undefined> {
+    if (!handler) {
+      return undefined
+    }
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+    try {
+      const result = await Promise.race([
+        Promise.resolve().then(handler),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(
+            () => reject(new Error(`Session handler timeout: ${label}`)),
+            this.handlerTimeoutMs
+          )
+        })
+      ])
+
+      return result as T
+    } catch (error) {
+      console.error(error)
+      return undefined
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId)
+      }
+    }
+  }
 
   /**
    * Register a session handler for a feature
@@ -60,6 +115,15 @@ export class SessionManager {
     const handlers = this.sessionHandlers.get(sessionName)
     if (!handlers || handlers.length === 0) return false
 
+    startTransaction()
+
+    const abortController = new AbortController()
+    const snapshotWithSignal = this.withDetail(
+      snapshot,
+      { sessionName },
+      abortController.signal
+    )
+
     // Priority-ordered: check features from highest to lowest priority
     const participants: SessionParticipant[] = []
     let exclusiveFound = false
@@ -70,7 +134,10 @@ export class SessionManager {
 
       try {
         // Call onStart handler
-        const state = await participant.handler.onStart?.(snapshot)
+        const state = await this.runWithTimeout(
+          () => participant.handler.onStart?.(snapshotWithSignal),
+          `${participant.featureName}.onStart`
+        )
 
         if (state !== null && state !== undefined) {
           // Feature participates
@@ -94,6 +161,7 @@ export class SessionManager {
     }
 
     if (participants.length === 0) {
+      endTransaction()
       return false // No participants
     }
 
@@ -102,7 +170,8 @@ export class SessionManager {
       name: sessionName,
       participants,
       startTime: Date.now(),
-      states: new Map()
+      states: new Map(),
+      abortController
     }
 
     participants.forEach((p) => {
@@ -126,12 +195,21 @@ export class SessionManager {
     const session = this.activeSessions.get(sessionName)
     if (!session) return
 
+    const snapshotWithSignal = this.withDetail(
+      snapshot,
+      { sessionName },
+      session.abortController?.signal
+    )
+
     // Call onUpdate for all participants (original priority order)
     for (const participant of session.participants) {
       try {
         const state = session.states.get(participant.featureName)
         if (state !== undefined) {
-          await participant.handler.onUpdate?.(snapshot, state)
+          await this.runWithTimeout(
+            () => participant.handler.onUpdate?.(snapshotWithSignal, state),
+            `${participant.featureName}.onUpdate`
+          )
         }
       } catch (error) {
         console.error(
@@ -154,12 +232,21 @@ export class SessionManager {
     const session = this.activeSessions.get(sessionName)
     if (!session) return
 
+    const snapshotWithSignal = this.withDetail(
+      snapshot,
+      { sessionName },
+      session.abortController?.signal
+    )
+
     // Call onEnd for all participants
     for (const participant of session.participants) {
       try {
         const state = session.states.get(participant.featureName)
         if (state !== undefined) {
-          await participant.handler.onEnd?.(snapshot, state)
+          await this.runWithTimeout(
+            () => participant.handler.onEnd?.(snapshotWithSignal, state),
+            `${participant.featureName}.onEnd`
+          )
         }
       } catch (error) {
         console.error(
@@ -171,6 +258,34 @@ export class SessionManager {
 
     // Clear session
     this.activeSessions.delete(sessionName)
+    endTransaction()
+  }
+
+  /**
+   * Cancel all active sessions before starting a new action
+   */
+  async cancelActiveSessions(
+    snapshot: SystemContextSnapshot & { detail?: any }
+  ): Promise<void> {
+    if (this.activeSessions.size === 0) {
+      return
+    }
+
+    const sessionNames = Array.from(this.activeSessions.keys())
+    for (const sessionName of sessionNames) {
+      const session = this.activeSessions.get(sessionName)
+      session?.abortController?.abort()
+      const currentDetail =
+        (snapshot as SystemContextSnapshot & { detail?: Record<string, unknown> })
+          .detail ?? {}
+      await this.handleEnd(
+        sessionName,
+        this.withDetail(snapshot, {
+          cancelled: true,
+          cancelledBy: currentDetail.cancelledBy ?? sessionName
+        })
+      )
+    }
   }
 
   /**

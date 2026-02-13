@@ -4,6 +4,7 @@ import { PrimaryToolStateAPIs } from './primary-tool-state'
 import { MouseStateAPIs } from './mouse-state'
 import { KeyStateAPIs } from './key-state'
 import { TargetStateAPIs } from './target-state'
+import { ManagedPropertyStateAPIs } from './managed-property-state'
 
 export {
   RootAPIs,
@@ -11,7 +12,8 @@ export {
   PrimaryToolStateAPIs,
   MouseStateAPIs,
   KeyStateAPIs,
-  TargetStateAPIs
+  TargetStateAPIs,
+  ManagedPropertyStateAPIs
 }
 
 export type SystemContextAPIs = RootAPIs &
@@ -19,6 +21,7 @@ export type SystemContextAPIs = RootAPIs &
   PrimaryToolStateAPIs &
   MouseStateAPIs &
   KeyStateAPIs &
-  TargetStateAPIs
+  TargetStateAPIs &
+  ManagedPropertyStateAPIs
 
 export * from './deps'

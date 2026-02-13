@@ -1,12 +1,10 @@
-import uiContext from '@asyra/ui-context'
+import { useProperty } from '../hooks'
 import { MIXED_STRING } from '@asyra/utils'
-import { createStore } from './utils'
 
-export const useX = (): number | typeof MIXED_STRING => createStore(uiContext.x)
-export const useY = (): number | typeof MIXED_STRING => createStore(uiContext.y)
-export const useWidth = (): number | typeof MIXED_STRING =>
-  createStore(uiContext.width)
-export const useHeight = (): number | typeof MIXED_STRING =>
-  createStore(uiContext.height)
-export const useRotation = (): number | typeof MIXED_STRING =>
-  createStore(uiContext.rotation)
+type MixedNumber = number | typeof MIXED_STRING
+
+export const useX = (): MixedNumber => useProperty<MixedNumber>('x')
+export const useY = (): MixedNumber => useProperty<MixedNumber>('y')
+export const useWidth = (): MixedNumber => useProperty<MixedNumber>('width')
+export const useHeight = (): MixedNumber => useProperty<MixedNumber>('height')
+export const useRotation = (): MixedNumber => useProperty<MixedNumber>('rotation')

@@ -1,7 +1,5 @@
 import { defineFeature } from '@asyra/feature-system'
-import { EntityTypes, DEFAULT_ELEMENT_SIZE } from '@asyra/utils'
-import { render, sceneTree } from '../../contexts'
-import { elementApis, transactionApis, selectionApis } from '../../common-apis'
+import { elementApis, selectionApis } from '../../common-apis'
 import { PrimaryToolType } from '../../constants'
 
 interface CreateElementState {
@@ -17,18 +15,7 @@ export const createElementFeature = defineFeature(
     exclusive: true,
     api: {
       createRectangle: (position: { x: number; y: number }) => {
-        const pos = render!.getMousePosInWorkspace({
-          clientX: position.x,
-          clientY: position.y
-        })
-
-        const createdElementId = sceneTree.addNewElement({
-          type: EntityTypes.RECTANGLE,
-          x: pos.x,
-          y: pos.y
-        })
-
-        return createdElementId
+        return elementApis.createRectangleAtClientPos(position)
       },
       updateElementSizeAndPosition: (
         elementId: string,
@@ -50,22 +37,23 @@ export const createElementFeature = defineFeature(
           y = currentPos.y
         }
 
-        elementApis.changeComputedData([elementId], 'x', x)
-        elementApis.changeComputedData([elementId], 'y', y)
-        elementApis.changeComputedData([elementId], 'width', width)
-        elementApis.changeComputedData([elementId], 'height', height)
+        elementApis.changeComputedData([elementId], {
+          x,
+          y,
+          width,
+          height
+        })
       },
       resetElementSize: (elementId: string) => {
-        elementApis.resetElementSize(elementId, DEFAULT_ELEMENT_SIZE)
+        elementApis.resetElementSize(elementId)
       },
-      hasMovedWithViewport: (
+      hasMovedBeyondThreshold: (
         clientDragStart: { x: number; y: number },
         clientCurrentPos: { x: number; y: number }
       ) => {
-        return elementApis.hasMovedWithViewport(
+        return elementApis.hasMovedBeyondThreshold(
           clientDragStart,
-          clientCurrentPos,
-          render as any
+          clientCurrentPos
         )
       }
     },
@@ -77,17 +65,15 @@ export const createElementFeature = defineFeature(
           return null
         }
 
-        if (!render) {
+        const api = createElementFeature.api as any
+        const dragStartWorkspace = elementApis.getMousePosInWorkspace({
+          x: snapshot.mouse.position.x,
+          y: snapshot.mouse.position.y
+        })
+        if (!dragStartWorkspace) {
           return null
         }
 
-        const api = createElementFeature.api as any
-        const dragStartWorkspace = render!.getMousePosInWorkspace({
-          clientX: snapshot.mouse.position.x,
-          clientY: snapshot.mouse.position.y
-        })
-
-        transactionApis.startTransaction()
         const elementId = api.createRectangle(snapshot.mouse.position)
         if (elementId) {
           selectionApis.selectElements([elementId])
@@ -107,10 +93,17 @@ export const createElementFeature = defineFeature(
           return
         }
 
-        const currentWorkspacePos = render!.getMousePosInWorkspace({
-          clientX: snapshot.mouse.position.x,
-          clientY: snapshot.mouse.position.y
+        if (!snapshot.mouse.dragging) {
+          return
+        }
+
+        const currentWorkspacePos = elementApis.getMousePosInWorkspace({
+          x: snapshot.mouse.position.x,
+          y: snapshot.mouse.position.y
         })
+        if (!currentWorkspacePos) {
+          return
+        }
 
         const api = createElementFeature.api
         api.updateElementSizeAndPosition(
@@ -125,18 +118,17 @@ export const createElementFeature = defineFeature(
         }
 
         const api = createElementFeature.api
-        const hasMoved = api.hasMovedWithViewport(
+
+        // If user just clicked without significant drag, reset to default size
+        // This handles accidental movements (hand tremors, etc.)
+        const hasSignificantMove = api.hasMovedBeyondThreshold(
           snapshot.mouse.dragStart || snapshot.mouse.position,
           snapshot.mouse.position
         )
 
-        if (!hasMoved) {
-          transactionApis.startTransaction()
+        if (!hasSignificantMove) {
           api.resetElementSize(state.elementId)
-          transactionApis.endTransaction()
         }
-
-        transactionApis.endTransaction()
       }
     }
   }

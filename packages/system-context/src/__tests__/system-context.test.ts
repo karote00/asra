@@ -5,6 +5,7 @@ import { MouseState } from '../states/mouse-state'
 import { PrimaryToolState } from '../states/primary-tool-state'
 import { SystemState } from '../states/system-state'
 import { TargetState } from '../states/target-state'
+import { ManagedPropertyState } from '../states/managed-property-state'
 import { DefaultKeySnapshot, DefaultPosition, MouseButton } from '@asyra/utils'
 
 describe('SystemContext', () => {
@@ -14,6 +15,7 @@ describe('SystemContext', () => {
   let primaryToolState: PrimaryToolState
   let systemState: SystemState
   let targetState: TargetState
+  let managedPropertyState: ManagedPropertyState
 
   beforeEach(() => {
     keyState = new KeyState()
@@ -21,13 +23,15 @@ describe('SystemContext', () => {
     primaryToolState = new PrimaryToolState()
     systemState = new SystemState()
     targetState = new TargetState()
+    managedPropertyState = new ManagedPropertyState()
 
     systemContext = new SystemContext({
       keyState,
       mouseState,
       primaryToolState,
       systemState,
-      targetState
+      targetState,
+      managedPropertyState
     })
   })
 

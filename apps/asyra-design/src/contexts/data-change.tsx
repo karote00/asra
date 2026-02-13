@@ -1,18 +1,13 @@
 import { useEffect } from 'react'
 import {
-  subscribeToEndTransaction,
   subscribeToRenderIsReady,
   subscribeToFileLoadComplete,
   fileLoadComplete
 } from '@asyra/reactive-events'
-import { initDataContexts } from '@asyra/ui-context'
 import { importFeature } from '@asyra/feature-system'
-import core from './core'
 
 const DataContexts = () => {
   useEffect(() => {
-    initDataContexts()
-
     // Old persistence is now handled by core.start() with setPersistence()
     // Commenting out to avoid duplicate save/load
     // const renderSubscription = subscribeToRenderIsReady(() => {

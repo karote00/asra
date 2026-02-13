@@ -26,9 +26,8 @@ vi.mock('@asyra/scene-tree', () => ({
 
 vi.mock('../../ui-context', () => ({
   default: {
-    updateElementSelection: vi.fn(),
-    updateVertexSelection: vi.fn(),
-    updateComputedProperties: vi.fn()
+    set: vi.fn(),
+    recomputeSelectionProperties: vi.fn()
   }
 }))
 
@@ -101,33 +100,37 @@ describe('SelectionStore', () => {
     expect(mockSelectionManager.get).toHaveBeenCalledWith(
       SELECTION_TYPES.ELEMENT
     )
-    expect(UIContextModule.default.updateElementSelection).toHaveBeenCalledWith(
+    expect(UIContextModule.default.set).toHaveBeenCalledWith(
+      'elementSelection',
       new Set(['elem-1', 'elem-2'])
     )
     expect(
-      UIContextModule.default.updateComputedProperties
-    ).toHaveBeenCalledWith([
-      {
-        id: 'elem-1',
-        type: EntityTypes.RECTANGLE,
-        name: 'Element 1',
-        x: 10,
-        y: 20,
-        width: 100,
-        height: 50,
-        rotation: 0
-      },
-      {
-        id: 'elem-2',
-        type: EntityTypes.RECTANGLE,
-        name: 'Element 2',
-        x: 10,
-        y: 20,
-        width: 100,
-        height: 50,
-        rotation: 0
-      }
-    ])
+      UIContextModule.default.recomputeSelectionProperties
+    ).toHaveBeenCalledWith({
+      selectedIds: new Set(['elem-1', 'elem-2']),
+      elements: [
+        {
+          id: 'elem-1',
+          type: EntityTypes.RECTANGLE,
+          name: 'Element 1',
+          x: 10,
+          y: 20,
+          width: 100,
+          height: 50,
+          rotation: 0
+        },
+        {
+          id: 'elem-2',
+          type: EntityTypes.RECTANGLE,
+          name: 'Element 2',
+          x: 10,
+          y: 20,
+          width: 100,
+          height: 50,
+          rotation: 0
+        }
+      ]
+    })
   })
 
   it('should not update computed properties when no elements are selected', () => {
@@ -135,12 +138,13 @@ describe('SelectionStore', () => {
 
     selectionStore.updateSelection(SELECTION_TYPES.ELEMENT)
 
-    expect(UIContextModule.default.updateElementSelection).toHaveBeenCalledWith(
+    expect(UIContextModule.default.set).toHaveBeenCalledWith(
+      'elementSelection',
       new Set()
     )
     expect(
-      UIContextModule.default.updateComputedProperties
-    ).not.toHaveBeenCalled()
+      UIContextModule.default.recomputeSelectionProperties
+    ).toHaveBeenCalled()
   })
 
   it('should handle missing elements gracefully', () => {
@@ -150,10 +154,13 @@ describe('SelectionStore', () => {
 
     selectionStore.updateSelection(SELECTION_TYPES.ELEMENT)
 
-    expect(UIContextModule.default.updateElementSelection).toHaveBeenCalled()
+    expect(UIContextModule.default.set).toHaveBeenCalled()
     expect(
-      UIContextModule.default.updateComputedProperties
-    ).toHaveBeenCalledWith([])
+      UIContextModule.default.recomputeSelectionProperties
+    ).toHaveBeenCalledWith({
+      selectedIds: new Set(['elem-1', 'elem-2']),
+      elements: []
+    })
   })
 
   // Test updateSelection for VERTEX type
@@ -167,11 +174,12 @@ describe('SelectionStore', () => {
     expect(mockSelectionManager.get).toHaveBeenCalledWith(
       SELECTION_TYPES.VERTEX
     )
-    expect(UIContextModule.default.updateVertexSelection).toHaveBeenCalledWith(
+    expect(UIContextModule.default.set).toHaveBeenCalledWith(
+      'vertexSelection',
       new Set(['vertex-1', 'vertex-2'])
     )
     expect(
-      UIContextModule.default.updateComputedProperties
+      UIContextModule.default.recomputeSelectionProperties
     ).not.toHaveBeenCalled()
   })
 
@@ -180,11 +188,9 @@ describe('SelectionStore', () => {
 
     selectionStore.updateSelection(SELECTION_TYPES.ELEMENT)
 
+    expect(UIContextModule.default.set).not.toHaveBeenCalled()
     expect(
-      UIContextModule.default.updateElementSelection
-    ).not.toHaveBeenCalled()
-    expect(
-      UIContextModule.default.updateComputedProperties
+      UIContextModule.default.recomputeSelectionProperties
     ).not.toHaveBeenCalled()
   })
 })
