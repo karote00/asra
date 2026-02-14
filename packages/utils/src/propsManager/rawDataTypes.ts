@@ -1,9 +1,9 @@
 import { Unit } from '../constants'
-import { PropertyTypes } from './enum'
+import { PropertyType, PropertyTypes } from './enum'
 
 export interface PropertyRawData {
   id: string
-  type: PropertyTypes
+  type: PropertyType
 }
 
 export interface PositionComponentRawData extends PropertyRawData {

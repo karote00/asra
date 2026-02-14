@@ -1,4 +1,5 @@
 import core, { Core } from './core'
+import './components'
 export {
   initFeatureSystem,
   getFeatureRegistry,

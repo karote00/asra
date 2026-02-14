@@ -10,8 +10,10 @@ import {
   DataTypes,
   GroupInstanceTypes,
   IDTypes,
+  NameType,
   NameTypes,
   SceneTreeRawData,
+  EntityType,
   EntityTypes,
   id,
   name
@@ -75,7 +77,7 @@ export const createSceneTreeAPIs = (
   }
 }
 
-const resolveNameType = (type: EntityTypes): NameTypes => {
+const resolveNameType = (type: EntityType): NameType => {
   switch (type) {
     case EntityTypes.FRAME:
       return NameTypes.FRAME

@@ -104,53 +104,58 @@ export class RenderLayer {
     elementId: string,
     key: string,
     before: DataTypes,
-    after: DataTypes
+    after: DataTypes,
+    data?: RenderElementData
   ) {
     const element = this.getElementById(elementId)
     if (!element) {
       return
     }
 
-    switch (key) {
-      case 'children': {
-        const oldList = new Set(before as string[])
-        let deleteCount = 0
-          // Add element
-          ; (after as string[]).forEach((childId, index) => {
-            const child = this.getElementById(childId)
-            if (!child) {
-              return
-            }
-
-            if (oldList.has(childId)) {
-              oldList.delete(childId)
-              deleteCount++
-            } else {
-              element.addChildAt(child, index - deleteCount)
-            }
-          })
-
-        // Remove element
-        oldList.forEach((childId) => {
+    // Handle children separately as it requires structural changes
+    if (key === 'children') {
+      const oldList = new Set(before as string[])
+      let deleteCount = 0
+        // Add element
+        ; (after as string[]).forEach((childId, index) => {
           const child = this.getElementById(childId)
           if (!child) {
             return
           }
 
-          element.removeChild(child)
-        })
-
-        // Move element
-        element.children.forEach((child, index) => {
-          const newIndex = (after as string[]).indexOf(child.label)
-          if (newIndex !== index) {
-            element.setChildIndex(child, newIndex)
+          if (oldList.has(childId)) {
+            oldList.delete(childId)
+          } else {
+            element.addChildAt(child, index - deleteCount)
           }
         })
-        break
-      }
-      default:
-        this.updateElementProperties(element, key, after)
+
+      // Remove element
+      oldList.forEach((childId) => {
+        const child = this.getElementById(childId)
+        if (!child) {
+          return
+        }
+
+        element.removeChild(child)
+      })
+
+      // Move element
+      element.children.forEach((child, index) => {
+        const newIndex = (after as string[]).indexOf(child.label)
+        if (newIndex !== index && newIndex !== -1) {
+          element.setChildIndex(child, newIndex)
+        }
+      })
+      return
+    }
+
+    // For other properties, use strategy if available and it's a Graphics object
+    const strategy = data ? (renderRegistry.get(data.type) || defaultStrategy) : null
+    if (strategy && element instanceof Graphics && data) {
+      strategy(element, data)
+    } else {
+      this.updateElementProperties(element, key, after)
     }
   }
 

@@ -4,7 +4,8 @@ import type {
   GroupInstanceTypes,
   IElement
 } from '@asyra/utils'
-import { isGroupEntity, IDTypes, NameTypes, EntityTypes } from '@asyra/utils'
+import { IDTypes, NameTypes, EntityTypes } from '@asyra/utils'
+import { isGroupEntity } from '../utils'
 import Group from './group'
 import sceneTree from '../sceneTree'
 

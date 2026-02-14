@@ -1,4 +1,4 @@
-import { PropertyTypes } from './enum'
+import { PropertyType, PropertyTypes } from './enum'
 import type { PropertyComponentRawData } from './rawDataTypes'
 import type { ISetter } from '../setter'
 import { Unit } from '../constants'
@@ -6,7 +6,7 @@ import { DataTypes, DimensionData, PositionData } from '../types'
 
 export interface BasePropertyAttrs {
   id: string
-  type: PropertyTypes
+  type: PropertyType
 }
 
 export interface PositionAttrs extends BasePropertyAttrs, PositionData {
@@ -31,8 +31,8 @@ export interface IProperty<T extends BasePropertyAttrs = BasePropertyAttrs>
   getValue(): Record<string, DataTypes>
 }
 
-export interface Position extends IProperty {}
-export interface Dimension extends IProperty {}
+export interface Position extends IProperty { }
+export interface Dimension extends IProperty { }
 
-export interface PropertyComponentInstanceTypes extends IProperty {}
+export interface PropertyComponentInstanceTypes extends IProperty { }
 export type PropertyComponentInstanceDataTypes = PositionAttrs | DimensionAttrs

@@ -29,6 +29,11 @@ export interface ComponentDefinition {
      * If not provided, will use default rectangle rendering
      */
     renderStrategy?: RenderStrategy
+
+    /**
+     * Whether this component acts as a container (can have children)
+     */
+    isContainer?: boolean
 }
 
 /**
@@ -56,7 +61,7 @@ export interface ComponentDefinition {
  * ```
  */
 export function defineComponent(definition: ComponentDefinition): void {
-    const { type, idPrefix, namePrefix, properties, renderStrategy } = definition
+    const { type, idPrefix, namePrefix, properties, renderStrategy, isContainer } = definition
 
     // 1. Register properties with PropertyRegistry
     for (const prop of properties) {
@@ -72,7 +77,7 @@ export function defineComponent(definition: ComponentDefinition): void {
     }
 
     // 3. Create dynamic component class
-    const ComponentClass = createDynamicComponent(type, idPrefix, namePrefix, properties, defaults)
+    const ComponentClass = createDynamicComponent(type, idPrefix, namePrefix, properties, defaults, isContainer)
 
     // 4. Register component with ComponentRegistry
     componentRegistry.register({
@@ -81,7 +86,8 @@ export function defineComponent(definition: ComponentDefinition): void {
         namePrefix,
         constructor: ComponentClass,
         properties,
-        defaults
+        defaults,
+        isContainer
     })
 
     // 5. Register render strategy if provided

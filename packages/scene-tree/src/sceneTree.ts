@@ -47,7 +47,7 @@ class SceneTree {
         const elementData = data.elements[elementId]
         let element
         if (elementData.type === EntityTypes.WORKSPACE) {
-          element = createWorkspace(elementData as WorkspaceRawData)
+          element = createWorkspace(elementData as any)
         } else {
           element = createElement(elementData)
         }

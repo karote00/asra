@@ -69,7 +69,10 @@ class RenderSceneTree {
     before: DataTypes,
     after: DataTypes
   ) {
-    render.updateElement(elementId, key, before, after)
+    const data = this._getRenderData(elementId)
+    if (data) {
+      render.updateElement(elementId, key, before, after, data)
+    }
   }
 }
 

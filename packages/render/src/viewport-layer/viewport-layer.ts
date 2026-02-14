@@ -52,9 +52,10 @@ export class ViewportLayer {
     elementId: string,
     key: string,
     before: DataTypes,
-    after: DataTypes
+    after: DataTypes,
+    data?: RenderElementData
   ) {
-    this.renderLayer.updateElement(elementId, key, before, after)
+    this.renderLayer.updateElement(elementId, key, before, after, data)
   }
 
   updateElementProperties(

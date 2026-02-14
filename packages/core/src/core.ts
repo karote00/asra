@@ -1,4 +1,5 @@
 import type { SceneTreeRawData, CoreRawData } from '@asyra/utils'
+import './components'
 import factory, { Factory } from '@asyra/factory'
 import inputSystem, { InputSystem } from '@asyra/input-system'
 import sceneTree, { SceneTree } from '@asyra/scene-tree'

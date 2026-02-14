@@ -9,6 +9,7 @@ interface ComponentRegistration {
     constructor: new (data?: Partial<ElementRawData>) => Element
     properties: PropertyDefinition[]
     defaults: Record<string, any>
+    isContainer?: boolean
 }
 
 class ComponentRegistry {

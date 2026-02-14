@@ -1,4 +1,4 @@
-import { PropertyTypes } from '@asyra/utils'
+import { PropertyType, PropertyTypes } from '@asyra/utils'
 import type {
   PropertyComponentInstanceDataTypes,
   PropsRawData
@@ -8,14 +8,14 @@ import propsManager from '@asyra/props-manager'
 
 type PropsDataType = Partial<PropsRawData>
 
-const PROP_NAMES: PropertyTypes[] = [
+const PROP_NAMES: PropertyType[] = [
   PropertyTypes.POSITION,
   PropertyTypes.DIMENSION
 ]
 
 type AliasKeys = 'x' | 'y' | 'width' | 'height'
 
-const PROP_ALIAS: Record<AliasKeys, PropertyTypes> = {
+const PROP_ALIAS: Record<AliasKeys, PropertyType> = {
   x: PropertyTypes.POSITION,
   y: PropertyTypes.POSITION,
   width: PropertyTypes.DIMENSION,
@@ -24,8 +24,8 @@ const PROP_ALIAS: Record<AliasKeys, PropertyTypes> = {
 
 class Props {
   elementId: string
-  position?: PropsRawData[PropertyTypes.POSITION]
-  dimension?: PropsRawData[PropertyTypes.DIMENSION]
+  position?: string
+  dimension?: string
 
   constructor(elementId: string, data?: PropsDataType) {
     this.elementId = elementId
@@ -48,13 +48,13 @@ class Props {
     }
 
     PROP_NAMES.forEach((propName) => {
-      this[propName] = propIdsMap[propName]
+      (this as any)[propName] = propIdsMap[propName]
     })
   }
 
   load(data: PropsDataType = {}): void {
     const propertyComponents = PROP_NAMES.map((propName) => {
-      const propId = data[propName]
+      const propId = (data as any)[propName]
       const propComponent = propId
         ? propsManager.getComponentById(propId)
         : null
@@ -72,7 +72,7 @@ class Props {
     }
 
     PROP_NAMES.forEach((propName) => {
-      this[propName] = propIdsMap[propName]
+      (this as any)[propName] = propIdsMap[propName]
     })
   }
 
@@ -88,8 +88,8 @@ class Props {
     key: K,
     data: PropertyComponentInstanceDataTypes[K]
   ) {
-    const propName = (PROP_ALIAS[key] || key) as PropertyTypes
-    const propComponentId = this[propName]
+    const propName = (PROP_ALIAS[key as AliasKeys] || key) as PropertyType
+    const propComponentId = (this as any)[propName]
     if (!propComponentId) {
       return
     }
@@ -99,7 +99,7 @@ class Props {
 
   cleanup() {
     const removedPropertyIds = PROP_NAMES.map((propName) => ({
-      id: this[propName]
+      id: (this as any)[propName]
     }))
     removeProperty(removedPropertyIds)
   }

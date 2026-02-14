@@ -28,10 +28,9 @@ const ElementProps: (keyof ElementAttrs)[] = ['id', 'name', 'visible', 'lock']
 
 class Element<T extends ElementAttrs = ElementAttrs>
   extends Setter<T>
-  implements IElement<T>
-{
-  _idType!: IDTypes
-  _nameType!: NameTypes
+  implements IElement<T> {
+  _idType!: string
+  _nameType!: string
 
   props!: Props
   computed!: Computed<ComputedAttrs>
@@ -131,7 +130,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
         this.props = new Props(elementId)
       }
 
-      this.computed = new Computed(elementId, this.props)
+      this.computed = new Computed(elementId, this.props, ['position', 'dimension'])
     }
   }
 
@@ -153,7 +152,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
 
   getAllComputedData() {
     if (this.get('type') !== EntityTypes.WORKSPACE) {
-      this.computed.setup(this.props)
+      this.computed.setup(this.props, ['position', 'dimension'])
       return this.computed.save()
     }
 

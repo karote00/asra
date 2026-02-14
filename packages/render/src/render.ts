@@ -98,9 +98,10 @@ class Render {
     elementId: string,
     key: string,
     before: DataTypes,
-    after: DataTypes
+    after: DataTypes,
+    data?: RenderElementData
   ) {
-    this.viewport.updateElement(elementId, key, before, after)
+    this.viewport.updateElement(elementId, key, before, after, data)
   }
 
   updateElementProperties(

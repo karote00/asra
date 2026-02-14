@@ -56,7 +56,7 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
 
         load(data: Partial<PropsRawData> = {}): void {
             const propertyComponents = properties.map((prop) => {
-                const propId = data[prop.type]
+                const propId = (data as any)[prop.type]
                 const propComponent = propId
                     ? propsManager.getComponentById(propId)
                     : null
@@ -80,7 +80,7 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
 
         save(): PropsRawData {
             return properties.reduce((acc, prop) => {
-                acc[prop.type] = this[prop.name] as string
+                (acc as any)[prop.type] = this[prop.name] as string
                 return acc
             }, {} as PropsRawData)
         }

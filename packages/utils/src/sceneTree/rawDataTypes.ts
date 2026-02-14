@@ -1,5 +1,5 @@
 import { DimensionData, PositionData } from '../types'
-import { EntityTypes } from './enum'
+import { EntityType, EntityTypes } from './enum'
 
 export interface BaseRawData {
   id: string
@@ -12,7 +12,7 @@ export interface PropsRawData {
 }
 
 export interface ElementRawData extends BaseRawData {
-  type: EntityTypes
+  type: EntityType
   visible: boolean
   lock: boolean
   props?: PropsRawData

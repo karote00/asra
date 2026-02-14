@@ -1,4 +1,4 @@
-import { OWNER, PropertyTypes, PROPS_ACTIONS } from '@asyra/utils'
+import { OWNER, PropertyType, PropertyTypes, PROPS_ACTIONS } from '@asyra/utils'
 import type {
   PropertyComponentInstanceDataTypes,
   PropertyComponentInstanceTypes,
@@ -107,7 +107,7 @@ class PropsManager {
 
     const newProperty = createProperty({
       ...propData,
-      type: propData.type as PropertyTypes
+      type: propData.type as PropertyType
     }) as PropertyComponentInstanceTypes
     this.addChangeForAddProperty(newProperty)
     return newProperty
@@ -115,7 +115,7 @@ class PropsManager {
 
   addProperty(
     propComponents: PropertyComponentInstanceTypes[]
-  ): Record<PropertyTypes, string> {
+  ): Record<PropertyType, string> {
     return propComponents.reduce(
       (acc, com) => {
         if (!com) {
@@ -126,7 +126,7 @@ class PropsManager {
         acc[com.get('type')] = com.get('id')
         return acc
       },
-      {} as Record<PropertyTypes, string>
+      {} as Record<PropertyType, string>
     )
   }
 

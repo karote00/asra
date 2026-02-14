@@ -1,20 +1,22 @@
 import { ComputedAttrs, ElementRawData, EntityTypes } from '@asyra/utils'
-import Frame from './components/frame'
-import Group from './components/group'
-import Rectangle from './components/rectangle'
 import Workspace from './components/workspace'
 import componentRegistry from './component-registry'
 
-const entityClassMap = {
-  [EntityTypes.UNDEFINED]: undefined,
-  [EntityTypes.FRAME]: Frame,
-  [EntityTypes.GROUP]: Group,
-  [EntityTypes.RECTANGLE]: Rectangle,
-  [EntityTypes.OVAL]: Rectangle // FIXME: Change this after finish OVAL component
-} as const
-
 const initWorkspaceData = {
   type: EntityTypes.WORKSPACE
+}
+
+export const isGroupEntity = (type: string): boolean => {
+  if (
+    type === EntityTypes.WORKSPACE ||
+    type === EntityTypes.FRAME ||
+    type === EntityTypes.GROUP
+  ) {
+    return true
+  }
+
+  const registration = componentRegistry.get(type)
+  return registration?.isContainer ?? false
 }
 
 export const createElement = (elementData: Partial<ElementRawData>) => {
@@ -32,20 +34,15 @@ export const createElement = (elementData: Partial<ElementRawData>) => {
   const registration = componentRegistry.get(elementType)
   if (registration) {
     const EntityClass = registration.constructor
+    // Make a shallow copy to avoid modifying original object if reference is shared
+    // but here we modify the passed object as per original logic?
+    // Original logic: delete elementData.type
+    // We should follow that.
     delete elementData.type
     return new EntityClass(elementData)
   }
 
-  // Fallback to hardcoded map for built-in types
-  const EntityClass = entityClassMap[elementType]
-  if (!EntityClass) {
-    throw new Error(`No component registered for type: ${elementType}`)
-  }
-
-  // Already know what type we need, and it should be insert by the component itself
-  delete elementData.type
-
-  return new EntityClass(elementData)
+  throw new Error(`No component registered for type: ${elementType}`)
 }
 
 export const createWorkspace = (workspaceData = initWorkspaceData) => {

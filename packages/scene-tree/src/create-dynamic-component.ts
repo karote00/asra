@@ -1,27 +1,34 @@
 import Element from './components/element'
+import Group from './components/group'
 import type { ElementRawData } from '@asyra/utils'
 import { id, loadId, name, loadName } from '@asyra/utils'
 import type { PropertyDefinition } from '@asyra/props-manager'
 import { createDynamicPropsClass } from './create-dynamic-props'
+import Computed from './components/computed'
 
 export function createDynamicComponent(
     type: string,
     idPrefix: string,
     namePrefix: string,
     properties: PropertyDefinition[],
-    defaults: Record<string, any>
+    defaults: Record<string, any>,
+    isContainer: boolean = false
 ) {
     // Create custom Props class for this component
     const DynamicPropsClass = createDynamicPropsClass(properties)
+    const BaseClass = (isContainer ? Group : Element) as any
 
-    return class DynamicComponent extends Element {
+    return class DynamicComponent extends BaseClass {
         constructor(data?: Partial<ElementRawData>) {
             super(data)
         }
 
         _init(): void {
-            // Don't call super._init() - we handle everything here
+            super._init() // Initialize base class first (Group sets up children)
+
+            // Override base initialization where needed
             this.data = {
+                ...this.data,
                 id: '',
                 type,
                 name: '',
@@ -31,7 +38,10 @@ export function createDynamicComponent(
         }
 
         create(): void {
+            super.create() // Initialize base create
+
             this.data = {
+                ...this.data,
                 id: id(idPrefix),
                 type,
                 name: name(namePrefix),
@@ -43,21 +53,22 @@ export function createDynamicComponent(
 
         load(data: Partial<ElementRawData>): void {
             if (!data) return
+            super.load(data) // Load base properties (including children for Group)
 
-            // Load id
+            // Load id override if needed
             if (data.id) {
                 this.data.id = data.id
                 loadId(data.id, idPrefix)
             }
 
-            // Load name
+            // Load name override
             if (data.name) {
                 this.data.name = data.name
                 loadName(data.name, namePrefix)
             }
 
-            // Load other properties
-            const keys = ['visible', 'lock', ...Object.keys(defaults)]
+            // Load added custom properties
+            const keys = Object.keys(defaults)
             keys.forEach((key) => {
                 const value = (data as any)[key]
                 if (value !== undefined) {
@@ -75,10 +86,8 @@ export function createDynamicComponent(
                     this.props = new DynamicPropsClass(elementId) as any
                 }
 
-                // Setup computed (reuse existing Computed class)
-                const Computed = require('./components/computed').default
-                this.computed = new Computed(elementId, this.props)
+                this.computed = new Computed(elementId, this.props, properties.map((p) => p.name))
             }
         }
-    }
+    } as unknown as new (data?: Partial<ElementRawData>) => Element
 }

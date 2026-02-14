@@ -12,24 +12,25 @@ import {
 import {
   PositionComponent,
   DimensionComponent,
+  CustomComponent,
   PropertyComponentType
 } from './components'
 
-const PropClassMap: Record<PropertyTypes, PropertyComponentType> = {
+const PropClassMap: Record<string, PropertyComponentType> = {
   [PropertyTypes.POSITION]: PositionComponent,
-  [PropertyTypes.DIMENSION]: DimensionComponent
+  [PropertyTypes.DIMENSION]: DimensionComponent,
+  [PropertyTypes.CUSTOM]: CustomComponent
 }
-const DefaultDataMap: Record<PropertyTypes, object> = {
+const DefaultDataMap: Record<string, object> = {
   [PropertyTypes.POSITION]: DefaultPositionData,
-  [PropertyTypes.DIMENSION]: DefaultDimensionData
+  [PropertyTypes.DIMENSION]: DefaultDimensionData,
+  [PropertyTypes.CUSTOM]: {}
 }
 
 export const createProperty = (data: Partial<PropertyComponentRawData>) => {
-  const type = data.type as PropertyTypes
-  const PropClass = PropClassMap[type]
-  if (!PropClass) {
-    return
-  }
+  const type = data.type as string
+  // Use specific class if mapped, otherwise default to CustomComponent
+  const PropClass = PropClassMap[type] || CustomComponent
 
   let comId = data.id
   if (isNil(comId)) {
@@ -37,7 +38,7 @@ export const createProperty = (data: Partial<PropertyComponentRawData>) => {
   } else {
     loadId(data.id as string, IDTypes.PROPS)
   }
-  const defaultData = DefaultDataMap[type]
+  const defaultData = DefaultDataMap[type] || {}
 
   return new PropClass({
     id: comId,

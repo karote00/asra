@@ -1,4 +1,4 @@
-import { EntityTypes } from './enum'
+import { EntityType, EntityTypes } from './enum'
 import type { ElementRawData } from './rawDataTypes'
 import { ISetter } from '../setter'
 import { Style } from '../types'
@@ -6,7 +6,7 @@ import { Style } from '../types'
 
 export interface ComputedAttrs extends Style {
   id: string
-  type: EntityTypes
+  type: EntityType
   name: string
   rotation: number
   // fills: FillAttrs[]
@@ -14,7 +14,7 @@ export interface ComputedAttrs extends Style {
 
 export interface ElementAttrs {
   id: string
-  type: EntityTypes
+  type: EntityType
   name: string
   visible: boolean
   lock: boolean
@@ -47,6 +47,6 @@ export interface IGroupElement<T extends GroupAttrs = GroupAttrs>
   removeElement(element: ElementInstanceTypes, index: number): void
 }
 
-export interface ElementInstanceTypes extends IElement {}
-export interface GroupInstanceTypes extends IGroupElement {}
+export interface ElementInstanceTypes extends IElement { }
+export interface GroupInstanceTypes extends IGroupElement { }
 export type ElementInstanceDataTypes = ComputedAttrs | GroupAttrs | ElementAttrs
