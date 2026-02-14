@@ -97,11 +97,12 @@ export class SessionManager {
       this.sessionHandlers.set(sessionName, [])
     }
 
-    const handlers = this.sessionHandlers.get(sessionName)!
-    handlers.push(participant)
-
-    // Sort by priority (descending) - higher priority runs first
-    handlers.sort((a, b) => b.priority - a.priority)
+    const handlers = this.sessionHandlers.get(sessionName)
+    if (handlers) {
+      handlers.push(participant)
+      // Sort by priority (descending) - higher priority runs first
+      handlers.sort((a, b) => b.priority - a.priority)
+    }
   }
 
   /**
@@ -178,7 +179,9 @@ export class SessionManager {
 
     participants.forEach((p) => {
       // Use p.featureName as the key, not p.name which doesn't exist
-      activeSession.states.set(p.featureName, p.state!)
+      if (p.state) {
+        activeSession.states.set(p.featureName, p.state)
+      }
     })
 
     this.activeSessions.set(sessionName, activeSession)

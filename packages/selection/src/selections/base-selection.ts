@@ -1,4 +1,3 @@
-import { EventTypes } from '@asyra/reactive-events'
 import { OWNER, SELECTION_ACTIONS } from '@asyra/utils'
 import type { SelectionChange } from '@asyra/utils'
 

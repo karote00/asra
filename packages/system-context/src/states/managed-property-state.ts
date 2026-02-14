@@ -19,7 +19,10 @@ export class ManagedPropertyState {
           `[ManagedPropertyState] Property "${key}" already registered, returning existing`
         )
       }
-      return this.getProperty<T>(key)!.state
+      const existing = this.getProperty<T>(key)
+      if (existing) {
+        return existing.state
+      }
     }
 
     const state = new BehaviorSubject<T>(defaultValue)

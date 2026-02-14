@@ -32,11 +32,12 @@ export class ExecutionRegistryClass implements ExecutionRegistry {
       this.executionHandlers.set(eventName, [])
     }
 
-    const handlers = this.executionHandlers.get(eventName)!
-    handlers.push(participant)
-
-    // Sort by priority (descending) - higher priority runs first
-    handlers.sort((a, b) => b.priority - a.priority)
+    const handlers = this.executionHandlers.get(eventName)
+    if (handlers) {
+      handlers.push(participant)
+      // Sort by priority (descending) - higher priority runs first
+      handlers.sort((a, b) => b.priority - a.priority)
+    }
   }
 
   execute(eventName: string, snapshot: SystemContextSnapshot): boolean {

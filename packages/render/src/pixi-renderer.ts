@@ -10,7 +10,8 @@ export class PixiJSRenderer implements IRenderer {
 
   private container: HTMLElement | null = null
 
-  constructor() {} // eslint-disable-line @typescript-eslint/no-empty-constructor
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  constructor() {}
 
   async init(
     container: HTMLElement,

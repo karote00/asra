@@ -1,5 +1,5 @@
-import sceneTree, { SceneTree } from '@asyra/scene-tree'
-import render, { Render } from '@asyra/render'
+import { SceneTree } from '@asyra/scene-tree'
+import { Render } from '@asyra/render'
 import { Bounds, EntityTypes, ComputedAttrs } from '@asyra/utils'
 
 import { createRenderAPIs } from './render'

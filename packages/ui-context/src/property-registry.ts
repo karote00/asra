@@ -156,6 +156,7 @@ export class PropertyRegistry {
       console.warn(
         `[PropertyRegistry] Cannot subscribe to "${key}", property not found`
       )
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
       return () => {}
     }
 
