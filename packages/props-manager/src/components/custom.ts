@@ -12,7 +12,7 @@ class CustomComponent extends BaseComponent<PropertyComponentInstanceDataTypes> 
   data: PropertyComponentInstanceDataTypes = {
     id: '',
     type: PropertyTypes.CUSTOM
-  } as any
+  }
 
   constructor(data: Partial<PropertyComponentInstanceDataTypes>) {
     super()
@@ -25,8 +25,8 @@ class CustomComponent extends BaseComponent<PropertyComponentInstanceDataTypes> 
   }
 
   // Allow any key except reserved ones to be valid for custom properties
-  protected isValidKey(key: keyof PropertyComponentInstanceDataTypes): boolean {
-    return !RESERVED_KEYS.includes(key as string)
+  protected isValidKey(key: string | number | symbol): boolean {
+    return typeof key === 'string' && !RESERVED_KEYS.includes(key)
   }
 
   // Override set to allow adding new keys dynamically
@@ -53,18 +53,23 @@ class CustomComponent extends BaseComponent<PropertyComponentInstanceDataTypes> 
     // Init reserved
     this.data.id = data.id
     // Load implementation
-    Object.keys(data).forEach((key) => {
-      if (this.isValidKey(key as keyof PropertyComponentInstanceDataTypes)) {
-        (this.data as any)[key] = (data as any)[key]
+    const dataObj = data as unknown as Record<string, unknown>
+    Object.keys(dataObj).forEach((key) => {
+      if (this.isValidKey(key)) {
+        this.data[key] = dataObj[key]
       }
     })
   }
 
   getValue(): Record<string, number> {
     const result: Record<string, number> = {}
-    Object.keys(this.data).forEach((key) => {
-      if (this.isValidKey(key as any)) {
-        result[key] = (this.data as any)[key]
+    const dataObj = this.data as Record<string, unknown>
+    Object.keys(dataObj).forEach((key) => {
+      if (this.isValidKey(key)) {
+        const val = dataObj[key]
+        if (typeof val === 'number') {
+          result[key] = val
+        }
       }
     })
     return result

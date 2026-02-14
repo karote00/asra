@@ -61,6 +61,10 @@ describe('RenderRegistry', () => {
         const mockData: RenderElementData = {
             id: 'test-1',
             type: 'star',
+            name: 'Star 1',
+            visible: true,
+            lock: false,
+            rotation: 0,
             x: 10,
             y: 20,
             width: 100,

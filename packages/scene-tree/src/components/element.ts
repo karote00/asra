@@ -2,6 +2,7 @@ import type {
   ElementRawData,
   ElementAttrs,
   IElement,
+  IProps,
   PropsRawData,
   ComputedAttrs,
   PropertyComponentInstanceDataTypes
@@ -32,7 +33,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
   _idType!: string
   _nameType!: string
 
-  props!: Props
+  props!: IProps
   computed!: Computed<ComputedAttrs>
 
   constructor(data?: Partial<ElementRawData>) {

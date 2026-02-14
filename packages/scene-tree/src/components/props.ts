@@ -1,4 +1,4 @@
-import { PropertyType, PropertyTypes } from '@asyra/utils'
+import { IProps, PropertyType, PropertyTypes } from '@asyra/utils'
 import type {
   PropertyComponentInstanceDataTypes,
   PropsRawData
@@ -22,10 +22,9 @@ const PROP_ALIAS: Record<AliasKeys, PropertyType> = {
   height: PropertyTypes.DIMENSION
 }
 
-class Props {
+class Props implements IProps {
   elementId: string
-  position?: string
-  dimension?: string
+  private propertyIds: Map<string, string> = new Map()
 
   constructor(elementId: string, data?: PropsDataType) {
     this.elementId = elementId
@@ -35,6 +34,13 @@ class Props {
     } else {
       this.init()
     }
+  }
+
+  get position() { return this.propertyIds.get(PropertyTypes.POSITION) }
+  get dimension() { return this.propertyIds.get(PropertyTypes.DIMENSION) }
+
+  getPropId(name: string): string | undefined {
+    return this.propertyIds.get(name)
   }
 
   init() {
@@ -48,13 +54,17 @@ class Props {
     }
 
     PROP_NAMES.forEach((propName) => {
-      (this as any)[propName] = propIdsMap[propName]
+      const id = propIdsMap[propName]
+      if (id) {
+        this.propertyIds.set(propName, id)
+      }
     })
   }
 
   load(data: PropsDataType = {}): void {
+    const dataObj = data as Record<string, string | undefined>
     const propertyComponents = PROP_NAMES.map((propName) => {
-      const propId = (data as any)[propName]
+      const propId = dataObj[propName]
       const propComponent = propId
         ? propsManager.getComponentById(propId)
         : null
@@ -72,16 +82,19 @@ class Props {
     }
 
     PROP_NAMES.forEach((propName) => {
-      (this as any)[propName] = propIdsMap[propName]
+      const id = propIdsMap[propName]
+      if (id) {
+        this.propertyIds.set(propName, id)
+      }
     })
   }
 
   save(): PropsRawData {
-    return PROP_NAMES.reduce((acc, propName) => {
-      const key = propName as keyof PropsRawData
-      acc[key] = this[key] as string
-      return acc
-    }, {} as PropsRawData)
+    const data = {} as PropsRawData
+    this.propertyIds.forEach((id, propName) => {
+      (data as any)[propName] = id
+    })
+    return data
   }
 
   updateData<K extends keyof PropertyComponentInstanceDataTypes>(
@@ -89,7 +102,7 @@ class Props {
     data: PropertyComponentInstanceDataTypes[K]
   ) {
     const propName = (PROP_ALIAS[key as AliasKeys] || key) as PropertyType
-    const propComponentId = (this as any)[propName]
+    const propComponentId = this.propertyIds.get(propName)
     if (!propComponentId) {
       return
     }
@@ -98,9 +111,10 @@ class Props {
   }
 
   cleanup() {
-    const removedPropertyIds = PROP_NAMES.map((propName) => ({
-      id: (this as any)[propName]
-    }))
+    const removedPropertyIds: { id: string }[] = []
+    this.propertyIds.forEach((id) => {
+      removedPropertyIds.push({ id })
+    })
     removeProperty(removedPropertyIds)
   }
 }

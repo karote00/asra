@@ -3,10 +3,10 @@ import {
   ComputedAttrs,
   IComputed,
   IDTypes,
+  IProps,
   NameTypes,
   Setter
 } from '@asyra/utils'
-import Props from './props'
 import ElementChangeHandler from './element-change-handler'
 
 const elementChangeHandler = new ElementChangeHandler()
@@ -17,7 +17,7 @@ class Computed<T extends ComputedAttrs>
   _idType!: string
   _nameType!: string
 
-  constructor(elementId: string, props: Props, propertyNames: string[]) {
+  constructor(elementId: string, props: IProps, propertyNames: string[]) {
     super(elementChangeHandler.addChange)
 
     this._init()
@@ -31,9 +31,9 @@ class Computed<T extends ComputedAttrs>
     } as T
   }
 
-  setup(props: Props, propertyNames: string[]): void {
+  setup(props: IProps, propertyNames: string[]): void {
     propertyNames.forEach((propName) => {
-      const propId = (props as any)[propName]
+      const propId = props.getPropId(propName)
       if (!propId) return
 
       const propComponent = propsManager.getComponentById(propId)

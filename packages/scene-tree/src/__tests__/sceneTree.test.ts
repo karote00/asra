@@ -11,7 +11,6 @@ import { SceneTree } from '../sceneTree'
 import * as utils from '../utils'
 import { EventTypes } from '@asyra/reactive-events' // Import EventTypes
 import Workspace from '../components/workspace' // Assuming Workspace is a class
-import Rectangle from '../components/rectangle'
 
 vi.mock('../utils', () => ({
   createElement: vi.fn(),
@@ -78,7 +77,7 @@ describe('SceneTree', () => {
       get: vi.fn().mockReturnValue('el-1'),
       save: vi.fn().mockReturnValue(elementData),
       updateComputedData: vi.fn()
-    } as unknown as Rectangle)
+    } as unknown as ElementInstanceTypes)
 
     const newElement = sceneTree.createElement(elementData)
 
@@ -266,7 +265,7 @@ describe('SceneTree', () => {
     } as unknown as ElementInstanceTypes
 
     vi.mocked(utils.createElement).mockImplementation(
-      () => mockElement1 as unknown as Rectangle
+      () => mockElement1 as unknown as ElementInstanceTypes
     )
     vi.mocked(utils.createWorkspace).mockImplementation(
       () => mockWorkspaceLoad as unknown as Workspace

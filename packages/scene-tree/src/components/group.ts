@@ -12,8 +12,7 @@ type GroupDataType = Partial<GroupRawData>
 
 class Group<T extends GroupAttrs = GroupAttrs>
   extends Element<T>
-  implements IGroupElement<T>
-{
+  implements IGroupElement<T> {
   constructor(data?: Partial<ElementRawData>) {
     super(data)
   }
@@ -33,6 +32,7 @@ class Group<T extends GroupAttrs = GroupAttrs>
   create(): void {
     super.create()
     this.data.type = EntityTypes.GROUP
+    this.data.children = []
   }
 
   save(): GroupRawData {

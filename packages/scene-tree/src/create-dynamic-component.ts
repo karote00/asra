@@ -1,6 +1,6 @@
 import Element from './components/element'
 import Group from './components/group'
-import type { ElementRawData } from '@asyra/utils'
+import type { ElementRawData, ElementAttrs, PropsRawData } from '@asyra/utils'
 import { id, loadId, name, loadName } from '@asyra/utils'
 import type { PropertyDefinition } from '@asyra/props-manager'
 import { createDynamicPropsClass } from './create-dynamic-props'
@@ -11,14 +11,14 @@ export function createDynamicComponent(
     idPrefix: string,
     namePrefix: string,
     properties: PropertyDefinition[],
-    defaults: Record<string, any>,
+    defaults: Record<string, unknown>,
     isContainer: boolean = false
 ) {
     // Create custom Props class for this component
     const DynamicPropsClass = createDynamicPropsClass(properties)
-    const BaseClass = (isContainer ? Group : Element) as any
+    const BaseClass = (isContainer ? Group : Element) as typeof Element
 
-    return class DynamicComponent extends BaseClass {
+    return class DynamicComponent extends BaseClass<ElementAttrs & Record<string, unknown>> {
         constructor(data?: Partial<ElementRawData>) {
             super(data)
         }
@@ -34,7 +34,7 @@ export function createDynamicComponent(
                 name: '',
                 visible: false,
                 lock: true
-            } as any
+            }
         }
 
         create(): void {
@@ -48,7 +48,7 @@ export function createDynamicComponent(
                 visible: true,
                 lock: false,
                 ...defaults
-            } as any
+            }
         }
 
         load(data: Partial<ElementRawData>): void {
@@ -68,22 +68,22 @@ export function createDynamicComponent(
             }
 
             // Load added custom properties
-            const keys = Object.keys(defaults)
-            keys.forEach((key) => {
-                const value = (data as any)[key]
+            const dataObj = data as Record<string, unknown>
+            Object.keys(defaults).forEach((key) => {
+                const value = dataObj[key]
                 if (value !== undefined) {
-                    (this.data as any)[key] = value
+                    this.data[key] = value
                 }
             })
         }
 
-        setupProps(propsData?: any) {
-            const elementId = this.get('id') as string
+        setupProps(propsData?: Partial<PropsRawData>) {
+            const elementId = this.get('id')
             if (this.data.type !== 'workspace') {
                 if (propsData) {
-                    this.props = new DynamicPropsClass(elementId, propsData) as any
+                    this.props = new DynamicPropsClass(elementId, propsData)
                 } else {
-                    this.props = new DynamicPropsClass(elementId) as any
+                    this.props = new DynamicPropsClass(elementId)
                 }
 
                 this.computed = new Computed(elementId, this.props, properties.map((p) => p.name))

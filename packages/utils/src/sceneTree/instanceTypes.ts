@@ -1,5 +1,5 @@
 import { EntityType, EntityTypes } from './enum'
-import type { ElementRawData } from './rawDataTypes'
+import type { ElementRawData, PropsRawData } from './rawDataTypes'
 import { ISetter } from '../setter'
 import { Style } from '../types'
 // import { FillAttrs } from '../propsManager'
@@ -24,12 +24,22 @@ export interface GroupAttrs extends ElementAttrs {
   children: string[]
 }
 
+export interface IProps {
+  elementId: string
+  load(data?: Partial<PropsRawData>): void
+  save(): PropsRawData
+  updateData(key: string, data: unknown): void
+  cleanup(): void
+  getPropId(name: string): string | undefined
+}
+
 export interface IComputed<T extends ComputedAttrs> extends ISetter<T> {
   set<K extends keyof T>(key: K, data: T[K]): void
 }
 
 export interface IElement<T extends ElementAttrs = ElementAttrs>
   extends ISetter<T> {
+  props: IProps
   computed: IComputed<ComputedAttrs>
   load(data: Partial<ElementRawData>): void
   save(): ElementRawData

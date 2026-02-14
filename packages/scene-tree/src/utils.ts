@@ -1,4 +1,4 @@
-import { ComputedAttrs, ElementRawData, EntityTypes } from '@asyra/utils'
+import { ComputedAttrs, ElementInstanceTypes, ElementRawData, EntityTypes } from '@asyra/utils'
 import Workspace from './components/workspace'
 import componentRegistry from './component-registry'
 
@@ -19,7 +19,7 @@ export const isGroupEntity = (type: string): boolean => {
   return registration?.isContainer ?? false
 }
 
-export const createElement = (elementData: Partial<ElementRawData>) => {
+export const createElement = (elementData: Partial<ElementRawData>): ElementInstanceTypes | null => {
   if (
     elementData.type === EntityTypes.WORKSPACE ||
     elementData.type === EntityTypes.ELEMENT ||
@@ -45,7 +45,7 @@ export const createElement = (elementData: Partial<ElementRawData>) => {
   throw new Error(`No component registered for type: ${elementType}`)
 }
 
-export const createWorkspace = (workspaceData = initWorkspaceData) => {
+export const createWorkspace = (workspaceData: Partial<ElementRawData> = initWorkspaceData): Workspace | null => {
   if (workspaceData.type !== EntityTypes.WORKSPACE) {
     return null
   }
@@ -55,8 +55,7 @@ export const createWorkspace = (workspaceData = initWorkspaceData) => {
   return newWorkspace
 }
 
-/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- stripNonRawFields does dynamic key manipulation */
-type UnknownObject = Record<string, any>
+type UnknownObject = Record<string, unknown>
 
 const DefaultRawKeys: (keyof ElementRawData)[] = ['id', 'type', 'name', 'props']
 
@@ -68,14 +67,14 @@ const DefaultRawKeys: (keyof ElementRawData)[] = ['id', 'type', 'name', 'props']
  * @returns An object containing the stripped (non-raw) fields.
  */
 export const stripNonRawFields = (
-  elementData: UnknownObject,
+  elementData: Record<string, unknown>,
   rawKeys: (keyof ElementRawData)[] = DefaultRawKeys
 ): Record<string, ComputedAttrs[keyof ComputedAttrs]> => {
-  const stripped = {} as UnknownObject
+  const stripped = {} as Record<string, ComputedAttrs[keyof ComputedAttrs]>
 
   for (const key in elementData) {
     if (!rawKeys.includes(key as keyof ElementRawData)) {
-      stripped[key] = elementData[key]
+      stripped[key] = elementData[key] as ComputedAttrs[keyof ComputedAttrs]
     }
   }
 

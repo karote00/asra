@@ -1,6 +1,7 @@
 import type {
     PropertyComponentInstanceDataTypes,
-    PropsRawData
+    PropsRawData,
+    IProps
 } from '@asyra/utils'
 import { removeProperty } from '@asyra/reactive-events'
 import propsManager from '@asyra/props-manager'
@@ -23,7 +24,7 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
 
     return class DynamicProps {
         elementId: string
-        [key: string]: any // Dynamic property IDs
+        [key: string]: unknown // Generic index for class methods and properties
 
         constructor(elementId: string, data?: Partial<PropsRawData>) {
             this.elementId = elementId
@@ -35,54 +36,49 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
             }
         }
 
+        getPropId(name: string): string | undefined {
+            const val = this[name]
+            return typeof val === 'string' ? val : undefined
+        }
+
         init() {
-            // Create property components for each property
-            const propertyComponents = properties.map((prop) =>
-                propsManager.createProperty({ type: prop.type })
-            )
-
-            const propIdsMap = propsManager.addProperty(propertyComponents)
-            propsManager.commitChanges()
-
-            if (!propIdsMap) {
-                return
-            }
-
-            // Store property component IDs by property name
+            // Create property components for each property and store by name
             properties.forEach((prop) => {
-                this[prop.name] = propIdsMap[prop.type]
+                const component = propsManager.createProperty({ type: prop.type })
+                propsManager.addToMap(component)
+                this[prop.name] = component.get('id')
             })
+            propsManager.commitChanges()
         }
 
         load(data: Partial<PropsRawData> = {}): void {
-            const propertyComponents = properties.map((prop) => {
-                const propId = (data as any)[prop.type]
+            const dataObj = data as Record<string, string | undefined>
+            properties.forEach((prop) => {
+                const propId = dataObj[prop.name]
                 const propComponent = propId
                     ? propsManager.getComponentById(propId)
                     : null
 
                 if (propComponent) {
-                    return propComponent
+                    this[prop.name] = propId
+                    propsManager.addToMap(propComponent)
                 } else {
-                    return propsManager.createProperty({ type: prop.type })
+                    const component = propsManager.createProperty({ type: prop.type })
+                    propsManager.addToMap(component)
+                    this[prop.name] = component.get('id')
                 }
-            })
-
-            const propIdsMap = propsManager.addProperty(propertyComponents)
-            if (!propIdsMap) {
-                return
-            }
-
-            properties.forEach((prop) => {
-                this[prop.name] = propIdsMap[prop.type]
             })
         }
 
         save(): PropsRawData {
-            return properties.reduce((acc, prop) => {
-                (acc as any)[prop.type] = this[prop.name] as string
-                return acc
-            }, {} as PropsRawData)
+            const data = {} as PropsRawData
+            properties.forEach((prop) => {
+                const id = this.getPropId(prop.name)
+                if (id) {
+                    data[prop.name] = id
+                }
+            })
+            return data
         }
 
         updateData<K extends keyof PropertyComponentInstanceDataTypes>(
@@ -92,21 +88,25 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
             // Resolve alias to property name
             const propName =
                 aliasToProperty.get(key as string) || (key as string)
-            const propComponentId = this[propName]
+            const propId = this.getPropId(propName)
 
-            if (!propComponentId) {
+            if (!propId) {
                 return
             }
 
             // Update the property component data
-            propsManager.updatePropsData(propComponentId, key, data)
+            propsManager.updatePropsData(propId, key, data)
         }
 
         cleanup() {
-            const removedPropertyIds = properties.map((prop) => ({
-                id: this[prop.name]
-            }))
+            const removedPropertyIds = properties.reduce<{ id: string }[]>((acc, prop) => {
+                const id = this.getPropId(prop.name)
+                if (id) {
+                    acc.push({ id })
+                }
+                return acc
+            }, [])
             removeProperty(removedPropertyIds)
         }
-    }
+    } as unknown as new (elementId: string, data?: Partial<PropsRawData>) => IProps
 }

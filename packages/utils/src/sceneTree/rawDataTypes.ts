@@ -9,6 +9,7 @@ export interface BaseRawData {
 export interface PropsRawData {
   position: string
   dimension: string
+  [key: string]: string
 }
 
 export interface ElementRawData extends BaseRawData {
@@ -42,4 +43,5 @@ export interface SceneTreeRawData {
 
 export type CreateElementData = PositionData &
   Partial<DimensionData> &
-  Partial<ElementRawData>
+  Partial<ElementRawData> &
+  Record<string, unknown>

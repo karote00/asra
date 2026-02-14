@@ -2,7 +2,7 @@ interface PropertyDefinition {
     name: string
     type: string
     alias?: string[]
-    defaultValue?: any
+    defaultValue?: unknown
 }
 
 interface RegisteredProperty {

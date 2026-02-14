@@ -69,7 +69,7 @@ export function defineComponent(definition: ComponentDefinition): void {
     }
 
     // 2. Build defaults object from properties
-    const defaults: Record<string, any> = {}
+    const defaults: Record<string, unknown> = {}
     for (const prop of properties) {
         if (prop.defaultValue !== undefined) {
             defaults[prop.name] = prop.defaultValue

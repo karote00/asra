@@ -35,4 +35,4 @@ export interface Position extends IProperty { }
 export interface Dimension extends IProperty { }
 
 export interface PropertyComponentInstanceTypes extends IProperty { }
-export type PropertyComponentInstanceDataTypes = PositionAttrs | DimensionAttrs
+export type PropertyComponentInstanceDataTypes = (PositionAttrs | DimensionAttrs | BasePropertyAttrs) & Record<string, unknown>

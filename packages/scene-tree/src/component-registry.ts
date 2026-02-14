@@ -8,7 +8,7 @@ interface ComponentRegistration {
     namePrefix: string
     constructor: new (data?: Partial<ElementRawData>) => Element
     properties: PropertyDefinition[]
-    defaults: Record<string, any>
+    defaults: Record<string, unknown>
     isContainer?: boolean
 }
 

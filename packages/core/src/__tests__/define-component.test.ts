@@ -6,6 +6,9 @@ import { renderRegistry } from '@asyra/render'
 import { PropertyTypes } from '@asyra/utils'
 import type { RenderStrategy } from '@asyra/render'
 
+// Use actual package imports without mocks to source files
+
+
 describe('defineComponent', () => {
     beforeEach(() => {
         // Clean up registries before each test
@@ -26,8 +29,8 @@ describe('defineComponent', () => {
             namePrefix: 'Star',
             properties: [
                 { name: 'count', type: PropertyTypes.CUSTOM, defaultValue: 5 },
-                { name: 'x', type: PropertyTypes.NUMBER, defaultValue: 0 },
-                { name: 'y', type: PropertyTypes.NUMBER, defaultValue: 0 }
+                { name: 'x', type: PropertyTypes.CUSTOM, defaultValue: 0 },
+                { name: 'y', type: PropertyTypes.CUSTOM, defaultValue: 0 }
             ],
             renderStrategy: mockRenderStrategy
         })
@@ -84,22 +87,18 @@ describe('defineComponent', () => {
             namePrefix: 'Star',
             properties: [
                 { name: 'count', type: PropertyTypes.CUSTOM, defaultValue: 5 },
-                { name: 'x', type: PropertyTypes.NUMBER, defaultValue: 0 },
-                { name: 'y', type: PropertyTypes.NUMBER, defaultValue: 0 },
-                { name: 'width', type: PropertyTypes.NUMBER, defaultValue: 100 },
-                { name: 'height', type: PropertyTypes.NUMBER, defaultValue: 100 },
-                { name: 'rotation', type: PropertyTypes.NUMBER, defaultValue: 0 }
+                { name: 'position', type: PropertyTypes.POSITION },
+                { name: 'dimension', type: PropertyTypes.DIMENSION },
+                { name: 'rotation', type: PropertyTypes.CUSTOM, defaultValue: 0 }
             ]
         })
 
         const properties = propertyRegistry.getPropertiesForComponent('star')
-        expect(properties).toHaveLength(6)
+        expect(properties).toHaveLength(4)
         expect(properties.map(p => p.name)).toEqual([
             'count',
-            'x',
-            'y',
-            'width',
-            'height',
+            'position',
+            'dimension',
             'rotation'
         ])
     })
@@ -118,6 +117,24 @@ describe('defineComponent', () => {
         const properties = propertyRegistry.getPropertiesForComponent('star')
         expect(properties[0].type).toBe(PropertyTypes.CUSTOM)
         expect(properties[1].type).toBe(PropertyTypes.CUSTOM)
+    })
+
+    it('should register container components', () => {
+        defineComponent({
+            type: 'container',
+            idPrefix: 'container',
+            namePrefix: 'Container',
+            properties: [],
+            isContainer: true
+        })
+
+        const registration = componentRegistry.get('container')
+        expect(registration).toBeDefined()
+        const ComponentClass = registration!.constructor
+        const instance = new ComponentClass()
+        // Check if it has children array (Group characteristic)
+        expect((instance as any).data.children).toBeDefined()
+        expect(Array.isArray((instance as any).data.children)).toBe(true)
     })
 })
 
