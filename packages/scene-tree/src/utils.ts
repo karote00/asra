@@ -3,6 +3,7 @@ import Frame from './components/frame'
 import Group from './components/group'
 import Rectangle from './components/rectangle'
 import Workspace from './components/workspace'
+import componentRegistry from './component-registry'
 
 const entityClassMap = {
   [EntityTypes.UNDEFINED]: undefined,
@@ -26,9 +27,19 @@ export const createElement = (elementData: Partial<ElementRawData>) => {
   }
 
   const elementType = elementData.type ?? EntityTypes.UNDEFINED
+
+  // Check registry first for custom components
+  const registration = componentRegistry.get(elementType)
+  if (registration) {
+    const EntityClass = registration.constructor
+    delete elementData.type
+    return new EntityClass(elementData)
+  }
+
+  // Fallback to hardcoded map for built-in types
   const EntityClass = entityClassMap[elementType]
   if (!EntityClass) {
-    throw new Error('Ivalid entity type.')
+    throw new Error(`No component registered for type: ${elementType}`)
   }
 
   // Already know what type we need, and it should be insert by the component itself
