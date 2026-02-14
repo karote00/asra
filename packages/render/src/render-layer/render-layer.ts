@@ -2,6 +2,8 @@ import { Container, Graphics, Point } from 'pixi.js'
 import { SceneElement, RenderContainerData, RenderElementData } from '../types'
 import { DataTypes, EntityTypes } from '@asyra/utils'
 import { ElementInteractionHandler } from './element-interaction-handler'
+import renderRegistry from '../render-registry'
+import { defaultStrategy } from '../strategies/default-strategy'
 
 export class RenderLayer {
   private currentWorkspace: Container
@@ -75,13 +77,9 @@ export class RenderLayer {
     const graphic = new Graphics()
     graphic.label = data.id
 
-    switch (data.type) {
-      case EntityTypes.RECTANGLE:
-        graphic.rect(0, 0, data.width, data.height).fill(randomHexColorCode())
-        graphic.x = data.x
-        graphic.y = data.y
-        break
-    }
+    // Use registry to get render strategy, fallback to default
+    const strategy = renderRegistry.get(data.type) || defaultStrategy
+    strategy(graphic, data)
 
     this.addToMap(data.id, graphic)
     this.currentWorkspace.addChild(graphic)
@@ -117,20 +115,20 @@ export class RenderLayer {
       case 'children': {
         const oldList = new Set(before as string[])
         let deleteCount = 0
-        // Add element
-        ;(after as string[]).forEach((childId, index) => {
-          const child = this.getElementById(childId)
-          if (!child) {
-            return
-          }
+          // Add element
+          ; (after as string[]).forEach((childId, index) => {
+            const child = this.getElementById(childId)
+            if (!child) {
+              return
+            }
 
-          if (oldList.has(childId)) {
-            oldList.delete(childId)
-            deleteCount++
-          } else {
-            element.addChildAt(child, index - deleteCount)
-          }
-        })
+            if (oldList.has(childId)) {
+              oldList.delete(childId)
+              deleteCount++
+            } else {
+              element.addChildAt(child, index - deleteCount)
+            }
+          })
 
         // Remove element
         oldList.forEach((childId) => {
@@ -228,10 +226,4 @@ export class RenderLayer {
 
     return bounds
   }
-}
-
-// REMOVE: test data
-const randomHexColorCode = () => {
-  const n = (Math.random() * 0xfffff * 1000000).toString(16)
-  return '#' + n.slice(0, 6)
 }
