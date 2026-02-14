@@ -13,8 +13,7 @@ export interface InitRenderEvent {
 export interface EmitInitRenderEvent {
   type: EventTypes
   payload: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    app: any
+    app: unknown
     requestId: string
   }
 }

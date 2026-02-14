@@ -47,7 +47,7 @@ export const createWorkspace = (workspaceData = initWorkspaceData) => {
   return newWorkspace
 }
 
-/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- stripNonRawFields does dynamic key manipulation */
 type UnknownObject = Record<string, any>
 
 const DefaultRawKeys: (keyof ElementRawData)[] = ['id', 'type', 'name', 'props']

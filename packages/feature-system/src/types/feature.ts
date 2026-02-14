@@ -1,5 +1,5 @@
 import type { SystemContextSnapshot } from '@asyra/utils'
-import type { ExecutionConfig, ExecutionHandler } from './execution'
+import type { ExecutionHandler } from './execution'
 
 export type FeatureKeyMap = string | undefined
 
@@ -44,14 +44,14 @@ export interface SessionParticipant {
   state: SessionState | null
 }
 
-export interface FeatureDefinition<API = Record<string, any>> {
+export interface FeatureDefinition<API = Record<string, unknown>> {
   // Static configuration for feature registration
   api?: API
   execution?: ExecutionHandler
   session?: {
-    start: (snapshot: SystemContextSnapshot) => any | null
-    update?: (snapshot: SystemContextSnapshot, state: any) => void
-    end?: (snapshot: SystemContextSnapshot, state: any) => void
+    start: (snapshot: SystemContextSnapshot) => SessionState | null
+    update?: (snapshot: SystemContextSnapshot, state: SessionState) => void
+    end?: (snapshot: SystemContextSnapshot, state: SessionState) => void
   }
   // Feature priority for session registration
   priority?: number
@@ -59,4 +59,4 @@ export interface FeatureDefinition<API = Record<string, any>> {
   exclusive?: boolean
 }
 
-export type FeatureAPI<T = Record<string, any>> = T
+export type FeatureAPI<T = Record<string, unknown>> = T

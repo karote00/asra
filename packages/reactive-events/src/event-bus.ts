@@ -4,7 +4,8 @@ import {
   filter,
   share,
   UnaryFunction,
-  ReplaySubject
+  ReplaySubject,
+  OperatorFunction
 } from 'rxjs'
 import { EventTypes } from './types'
 import { AllEvent } from './constants'
@@ -34,11 +35,14 @@ export const createSubscribeEvent = <T extends AllEvent>(
     const pipeline = [...operators]
     pipeline.splice(defaultIndex, 0, DefaultOperator<T>(type))
 
+    // RxJS pipe chain has varying generic types (AllEvent -> T -> AllEvent); reduce cannot infer.
+    // Isolated internal boundary: minimal any for accumulator compatibility.
+    const initial$ = getEventBusObserve()
     const final$ = pipeline.reduce(
-      (observer, op) => observer.pipe(op),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      getEventBusObserve() as Observable<any>
-    )
+      (observer, op) =>
+        observer.pipe(op as OperatorFunction<AllEvent, AllEvent>),
+      initial$
+    ) as Observable<T>
 
     return final$.subscribe(subscriber)
   }

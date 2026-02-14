@@ -35,7 +35,9 @@ export default class SelectionStore {
 
   getCurrentSelectionContext(): PropertyComputeContext {
     const selection = this.selectionManager.get(SELECTION_TYPES.ELEMENT)
-    const selectedIds = selection ? selection.getSelectedIds() : new Set<string>()
+    const selectedIds = selection
+      ? selection.getSelectedIds()
+      : new Set<string>()
     return this.buildSelectionContext(selectedIds)
   }
 

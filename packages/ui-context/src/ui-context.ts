@@ -45,10 +45,7 @@ class UIContext {
     this.recomputeProperties(keys, context)
   }
 
-  recomputeProperties(
-    keys: string[],
-    context: PropertyComputeContext
-  ): void {
+  recomputeProperties(keys: string[], context: PropertyComputeContext): void {
     keys.forEach((key) => {
       const nextValue = this.computePropertyValue(key, context)
       if (nextValue !== SKIP_UPDATE) {
@@ -100,14 +97,14 @@ const uiContext = new UIContext()
 export default uiContext
 export { UIContext }
 
-const compareAggregateValues = (values: unknown[]) => {
+const compareAggregateValues = (values: unknown[]): PropertyValue => {
   const firstValue = values[0]
   for (let i = 1; i < values.length; i++) {
     if (!isEqual(values[i], firstValue)) {
       return MIXED_STRING
     }
   }
-  return firstValue
+  return firstValue as PropertyValue
 }
 
 const SKIP_UPDATE = Symbol('skip-ui-property-update')

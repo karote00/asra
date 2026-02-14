@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import {
   defineFeature,
   importFeature,
@@ -8,32 +8,24 @@ import {
 
 describe('Feature System', () => {
   it('should define and register a feature', () => {
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
-    const feature: any = defineFeature('test-feature', ({ packages }) => ({
+    const feature = defineFeature('test-feature', undefined, {
       api: {
         hello: () => 'hello world',
         add: (a: number, b: number) => a + b
-      },
-      define: ({ on }) => {
-        console.log('Test feature defined')
       }
-    }))
+    })
 
     expect(feature.api).toBeDefined()
     expect(feature.api.hello()).toBe('hello world')
     expect(feature.api.add(1, 2)).toBe(3)
-
-    consoleSpy.mockRestore()
   })
 
   it('should import feature API', () => {
-    defineFeature('import-test', ({ packages }) => ({
+    defineFeature('import-test', undefined, {
       api: {
         value: 42
-      },
-      define: () => {}
-    }))
+      }
+    })
 
     const api = importFeature('import-test')
     expect(api.value).toBe(42)
@@ -53,10 +45,7 @@ describe('Feature System', () => {
 
   it('should throw error when registering duplicate feature', () => {
     expect(() => {
-      defineFeature('test-feature', ({ packages }) => ({
-        api: {},
-        define: () => {}
-      }))
+      defineFeature('test-feature', undefined, { api: {} })
     }).toThrow('Feature "test-feature" is already registered')
   })
 

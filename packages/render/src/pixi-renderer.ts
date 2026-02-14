@@ -1,5 +1,5 @@
 import { IRenderer, RenderOptions, RenderResult } from './types/renderer'
-import render from './render'
+import render, { Render } from './render'
 
 /**
  * PixiJS Renderer Adapter
@@ -63,11 +63,13 @@ export class PixiJSRenderer implements IRenderer {
   }
 
   getCanvas(): HTMLCanvasElement | null {
-    return (render as any).app?.canvas || null
+    const r = render as Render
+    return r.app?.canvas ?? null
   }
 
-  getInstance() {
-    return (render as any).app
+  getInstance(): unknown {
+    const r = render as Render
+    return r.app
   }
 }
 

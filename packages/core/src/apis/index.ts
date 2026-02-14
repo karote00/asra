@@ -1,6 +1,6 @@
 import sceneTree, { SceneTree } from '@asyra/scene-tree'
 import render, { Render } from '@asyra/render'
-import { Bounds, EntityTypes } from '@asyra/utils'
+import { Bounds, EntityTypes, ComputedAttrs } from '@asyra/utils'
 
 import { createRenderAPIs } from './render'
 import { createSceneTreeAPIs } from './scene-tree'
@@ -28,21 +28,22 @@ export const createAPIs = (sceneTree: SceneTree, render: Render): CoreAPIs => {
           return
         }
 
-        const computed = element.getAllComputedData?.()
-        if (!computed) {
+        const computed = element.getAllComputedData?.() as
+          | ComputedAttrs
+          | undefined
+        if (!computed || typeof computed.x !== 'number') {
           return
         }
 
-        const x = computed.x as number | undefined
-        const y = computed.y as number | undefined
-        const width = computed.width as number | undefined
-        const height = computed.height as number | undefined
+        const x = computed.x
+        const y = computed.y as number
+        const width = computed.width as number
+        const height = computed.height as number
 
         if (
-          x === undefined ||
-          y === undefined ||
-          width === undefined ||
-          height === undefined
+          typeof y !== 'number' ||
+          typeof width !== 'number' ||
+          typeof height !== 'number'
         ) {
           return
         }

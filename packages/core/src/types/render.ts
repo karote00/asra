@@ -1,9 +1,5 @@
 export interface RenderRawAPIs {
-  initRender: (
-    width: number,
-    height: number,
-    color: number
-  ) => Promise<HTMLCanvasElement | null>
+  initRender: (width: number, height: number, color: number) => Promise<unknown>
   renderIsReady: () => void
 }
 

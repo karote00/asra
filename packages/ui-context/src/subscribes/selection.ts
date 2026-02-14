@@ -30,9 +30,11 @@ export const collectElementSelectionChange = (event) => {
   ) => {
     // @ts-expect-error: It's YJS event
     items.forEach((item) => {
-      item.content.getContent().forEach((change: any) => {
-        updateUIElementSelection(change)
-      })
+      item.content
+        .getContent()
+        .forEach((change: SelectionYjsChange['payload']) => {
+          updateUIElementSelection(change)
+        })
     })
   }
 
@@ -51,7 +53,8 @@ export const initSelectionDataSubscribe = () => {
   elementSelectionArray.observe(collectElementSelectionChange)
 
   subscribeToRequestElementSelection(() => {
-    const selection = uiContext.get<Set<string>>('elementSelection') || new Set()
+    const selection =
+      uiContext.get<Set<string>>('elementSelection') || new Set()
     finishRequestElementSelection(selection)
   })
 

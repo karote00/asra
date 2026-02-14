@@ -1,5 +1,6 @@
 import { publishEvent, subscribeToEvents } from './event-bus'
 import type { Subscription } from 'rxjs'
+import type { AllEvent } from './constants'
 
 interface EventRegistration {
   eventName: string
@@ -9,14 +10,20 @@ interface EventRegistration {
   ) => Subscription
 }
 
+/** Custom event shape - extends base for dynamic user events */
+interface CustomEventShape {
+  type: string
+  payload?: unknown
+  options?: unknown
+}
+
 /**
  * Event Registry for user-defined events
  * Simple API: pass eventName, get publish/subscribe functions
  *
  * Events are published with structure: { type: string, payload?, options? }
  *
- * Note: Using 'any' for event publishing/subscribing is necessary because custom user-defined events
- * cannot be statically typed in the AllEvent union type
+ * Custom events use type assertion to AllEvent since they cannot be in the static union.
  *
  * Example:
  * ```typescript
@@ -40,17 +47,16 @@ export const eventRegistry = {
         if (options !== undefined) {
           event.options = options
         }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        publishEvent(event as any)
+        publishEvent(event as unknown as AllEvent)
       },
 
       subscribe(
         handler: (payload?: unknown, options?: unknown) => void
       ): Subscription {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return subscribeToEvents((e: any) => {
+        return subscribeToEvents((e: AllEvent) => {
           if (e.type === eventName) {
-            handler(e.payload, e.options)
+            const custom = e as CustomEventShape
+            handler(custom.payload, custom.options)
           }
         })
       }

@@ -10,8 +10,10 @@ import interactionCore, {
   DecisionHandler
 } from '@asyra/interaction-core'
 import type { FeatureSystemAPIs } from './types/feature-system'
-import { IRenderer, RenderOptions } from '@asyra/render'
+import render, { Render, IRenderer, RenderOptions } from '@asyra/render'
 import { IPersistenceProvider, SaveHook, LoadHook } from '@asyra/persistence'
+import { EventTypes, subscribeToEvents } from '@asyra/reactive-events'
+import { initDataContexts } from '@asyra/ui-context'
 
 import {
   CoreAPIs,
@@ -23,16 +25,12 @@ import {
   SystemManagedPropertyAPIs
 } from './types'
 import { createAPIs } from './apis'
-import { subscribeToEvents } from '@asyra/reactive-events'
-import { EventTypes } from '@asyra/reactive-events'
-import render from '@asyra/render'
-import { initDataContexts } from '@asyra/ui-context'
 
 interface CoreDeps {
   inputSystem: InputSystem
   factory: Factory
   props: PropsManager
-  render: any
+  render: Render
   sceneTree: SceneTree
   selection: SelectionManager
   systemContext: SystemContext
@@ -206,7 +204,7 @@ class Core implements CoreAPIs {
 
       // Load props first, then scene tree (they have dependencies)
       if (data.props && Object.keys(data.props).length > 0) {
-        this.deps.props.load(data.props as any)
+        this.deps.props.load(data.props)
       }
 
       if (data.sceneTree) {
@@ -230,7 +228,7 @@ class Core implements CoreAPIs {
 
     // Load props first, then scene tree (they have dependencies)
     if (data.props && Object.keys(data.props).length > 0) {
-      this.deps.props.load(data.props as any)
+      this.deps.props.load(data.props)
     }
 
     if (data.sceneTree) {

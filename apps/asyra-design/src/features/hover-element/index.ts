@@ -1,3 +1,4 @@
+import type { SystemContextSnapshotWithDetail } from '@asyra/utils'
 import { defineFeature } from '@asyra/feature-system'
 import { systemContextApis } from '../../common-apis'
 
@@ -7,7 +8,7 @@ export const hoverElementFeature = defineFeature(
   {
     priority: 0,
     exclusive: false,
-    execution: (snapshot: any) => {
+    execution: (snapshot: SystemContextSnapshotWithDetail) => {
       const { detail } = snapshot
       if (!detail || !detail.elementId) {
         return null
@@ -26,7 +27,7 @@ export const leaveElementFeature = defineFeature(
   {
     priority: 0,
     exclusive: false,
-    execution: (snapshot: any) => {
+    execution: (snapshot: SystemContextSnapshotWithDetail) => {
       const { detail } = snapshot
       if (detail?.elementId) {
         systemContextApis.updateHoveredElementId(null)

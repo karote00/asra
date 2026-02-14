@@ -6,7 +6,7 @@ export interface ManagedProperty<T> {
 }
 
 export class ManagedPropertyState {
-  private properties = new Map<string, ManagedProperty<any>>()
+  private properties = new Map<string, ManagedProperty<unknown>>()
 
   register<T>(
     key: string,
@@ -23,14 +23,14 @@ export class ManagedPropertyState {
     }
 
     const state = new BehaviorSubject<T>(defaultValue)
-    this.properties.set(key, { key, state })
+    this.properties.set(key, { key, state } as ManagedProperty<unknown>)
 
     return state
   }
 
   get<T>(key: string): T | undefined {
     const prop = this.properties.get(key)
-    return prop?.state.getValue()
+    return prop?.state.getValue() as T | undefined
   }
 
   set<T>(key: string, value: T): void {

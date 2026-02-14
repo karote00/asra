@@ -1,4 +1,12 @@
 import type { DataTypes, EvnetOptions } from './types'
+
+/** Change record passed to Setter callback */
+interface ChangeRecord {
+  id: string
+  key: string
+  before: DataTypes
+  after: DataTypes
+}
 import { isEqual, cloneDeep } from 'lodash'
 import { ElementInstanceDataTypes } from './sceneTree'
 import { PropertyComponentInstanceDataTypes } from './propsManager'
@@ -9,11 +17,9 @@ type InstanceDataType =
 
 export class Setter<T extends InstanceDataType> {
   data!: T
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private addChangeCallback: (data: any) => void
+  private addChangeCallback: (data: ChangeRecord) => void
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(addChangeCallback: (data: any) => void) {
+  constructor(addChangeCallback: (data: ChangeRecord) => void) {
     this.addChangeCallback = addChangeCallback
   }
 

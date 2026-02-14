@@ -24,10 +24,12 @@ export const viewportApis = {
    * Get current viewport position
    */
   getPosition: (): PositionData => {
-    return core.getSystemProperty<PositionData>('viewportPosition') ?? {
-      x: 0,
-      y: 0
-    }
+    return (
+      core.getSystemProperty<PositionData>('viewportPosition') ?? {
+        x: 0,
+        y: 0
+      }
+    )
   },
 
   /**

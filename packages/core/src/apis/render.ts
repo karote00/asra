@@ -2,7 +2,7 @@ import { renderIsReady } from '@asyra/reactive-events'
 import type { ObservablePoint } from 'pixi.js'
 
 export interface RenderRequests {
-  initRender: (width: number, height: number, color: number) => Promise<any>
+  initRender: (width: number, height: number, color: number) => Promise<unknown>
   getViewportPosition: () => ObservablePoint
   getViewportScale: () => number
 }

@@ -1,5 +1,6 @@
 import { InputType, ModifierKey, PointerKey, MouseButton } from '@asyra/utils'
 import type { RawInputEvent } from '@asyra/utils'
+import type { MouseSnapshot } from '@asyra/utils'
 import { systemContext } from '../contexts'
 import keyMap from '@asyra/input-system/src/keymap'
 import { InputSystemEvents } from '../constants'
@@ -15,7 +16,7 @@ const updateKeyState = (raw: RawInputEvent) => {
   })
 }
 
-const updateMouseState = (mouseState: any) => {
+const updateMouseState = (mouseState: MouseSnapshot) => {
   systemContext.updateMouseState(mouseState)
 }
 

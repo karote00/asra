@@ -60,6 +60,7 @@ export interface PropertyRegistration<T extends PropertyValue> {
 
 export class PropertyRegistry {
   private properties = new Map<string, BehaviorSubject<PropertyValue>>()
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous property types */
   private registrations = new Map<string, PropertyRegistration<any>>()
   private subscriptions = new Map<string, import('rxjs').Subscription>()
   private yjsFilters = new Map<

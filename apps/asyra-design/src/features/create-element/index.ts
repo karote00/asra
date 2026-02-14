@@ -1,3 +1,4 @@
+import type { SystemContextSnapshot } from '@asyra/utils'
 import { defineFeature } from '@asyra/feature-system'
 import { elementApis, selectionApis } from '../../common-apis'
 import { PrimaryToolType } from '../../constants'
@@ -58,14 +59,14 @@ export const createElementFeature = defineFeature(
       }
     },
     session: {
-      start: (snapshot: any) => {
+      start: (snapshot: SystemContextSnapshot) => {
         const { primaryTool } = snapshot
 
         if (primaryTool !== PrimaryToolType.RECTANGLE) {
           return null
         }
 
-        const api = createElementFeature.api as any
+        const api = createElementFeature.api
         const dragStartWorkspace = elementApis.getMousePosInWorkspace({
           x: snapshot.mouse.position.x,
           y: snapshot.mouse.position.y
@@ -84,7 +85,7 @@ export const createElementFeature = defineFeature(
           dragStartWorkspacePos: dragStartWorkspace
         } as CreateElementState
       },
-      update: (snapshot: any, state: CreateElementState) => {
+      update: (snapshot: SystemContextSnapshot, state: CreateElementState) => {
         if (
           !state ||
           state.elementId === null ||
@@ -112,7 +113,7 @@ export const createElementFeature = defineFeature(
           currentWorkspacePos
         )
       },
-      end: (snapshot: any, state: CreateElementState) => {
+      end: (snapshot: SystemContextSnapshot, state: CreateElementState) => {
         if (!state || state.elementId === null) {
           return
         }

@@ -1,3 +1,4 @@
+import type { SystemContextSnapshotWithDetail } from '@asyra/utils'
 import { defineFeature } from '@asyra/feature-system'
 import { systemContextApis } from '../../common-apis'
 import { InputSystemEvents } from '../../constants'
@@ -11,7 +12,7 @@ export const switchPrimaryToolFeature = defineFeature(
         systemContextApis.switchPrimaryTool(tool)
       }
     },
-    execution: (snapshot: any) => {
+    execution: (snapshot: SystemContextSnapshotWithDetail) => {
       const tool = snapshot.detail?.primaryTool
       if (tool) {
         const api = switchPrimaryToolFeature.api as {

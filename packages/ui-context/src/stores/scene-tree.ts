@@ -162,7 +162,7 @@ export default class SceneTreeStore {
       ids.push(element.id)
     }
     if (this.isGroup(element)) {
-      ; (element as GroupRawData).children.forEach((childId: string) => {
+      ;(element as GroupRawData).children.forEach((childId: string) => {
         const child = this.getElement(childId)?.getValue()
         if (!child) return
 
@@ -213,12 +213,12 @@ export default class SceneTreeStore {
     this.markDirty()
     const current = element.getValue()
     if ('children' in current) {
-      ; (element as BehaviorSubject<UIWorkspaceData | GroupRawData>).next({
+      ;(element as BehaviorSubject<UIWorkspaceData | GroupRawData>).next({
         ...current,
         [key]: after
       })
     } else {
-      ; (element as BehaviorSubject<UIElementData>).next({
+      ;(element as BehaviorSubject<UIElementData>).next({
         ...current,
         [key]: after
       })

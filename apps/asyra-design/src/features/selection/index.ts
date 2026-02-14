@@ -1,3 +1,4 @@
+import type { SystemContextSnapshot } from '@asyra/utils'
 import { defineFeature } from '@asyra/feature-system'
 import { selectionApis, transactionApis } from '../../common-apis'
 import { PrimaryToolType } from '../../constants'
@@ -15,7 +16,7 @@ export const selectionFeature = defineFeature('selection', 'input.drag', {
     }
   },
   session: {
-    start: (snapshot: any) => {
+    start: (snapshot: SystemContextSnapshot) => {
       const { primaryTool } = snapshot
       const mouse = snapshot.mouse
 

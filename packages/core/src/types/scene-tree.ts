@@ -15,7 +15,10 @@ export interface SceneTreeRawAPIs {
     parent?: GroupInstanceTypes,
     index?: number
   ) => string
-  changeComputedData: (elementIds: string[], data: Record<string, DataTypes>) => void
+  changeComputedData: (
+    elementIds: string[],
+    data: Record<string, DataTypes>
+  ) => void
   getAllElementsBounds: () => Bounds | null
 }
 

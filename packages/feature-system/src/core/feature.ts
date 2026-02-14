@@ -1,8 +1,14 @@
 import type {
+  SystemContextSnapshot,
+  SystemContextSnapshotWithDetail
+} from '@asyra/utils'
+import type { RawInputEvent } from '@asyra/utils'
+import type {
   FeatureDefinition,
   FeatureAPI,
   FeatureKeyMap
 } from '../types/feature'
+import type { CorePackages } from '../types/core-packages'
 import { FeatureRegistry } from './feature-registry'
 import { SessionManager } from './session-manager'
 import executionRegistry from './execution-registry'
@@ -10,7 +16,7 @@ import executionRegistry from './execution-registry'
 const featureRegistry = new FeatureRegistry()
 const sessionManager = new SessionManager()
 
-let corePackages: any = {}
+let corePackages: CorePackages = {}
 let isPackagesSet = false
 
 const registeredEvents = new Set<string>()
@@ -84,18 +90,18 @@ function registerFeatureHandlers(
           continue
         }
 
-        const eventHandler = async (raw: any) => {
-          const snapshot = systemContext.getSystemContextSnapshot?.() || raw
+        const eventHandler = async (raw: RawInputEvent) => {
+          const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
           const mergedSnapshot = {
             ...snapshot,
             ...(raw.detail ? { detail: raw.detail } : {})
-          }
+          } as SystemContextSnapshotWithDetail
 
           if (event.includes('.start')) {
             await sessionManager.cancelActiveSessions({
               ...mergedSnapshot,
               detail: {
-                ...(mergedSnapshot as any).detail,
+                ...mergedSnapshot.detail,
                 cancelled: true,
                 cancelledBy: event
               }
@@ -107,7 +113,7 @@ function registerFeatureHandlers(
             await sessionManager.handleEnd(keyConfig, mergedSnapshot)
           }
         }
-        inputSystem.on(event, eventHandler)
+        inputSystem.on?.(event, eventHandler)
         registeredEvents.add(event)
       } else if (hasExecution) {
         if (isRendererEvent) {
@@ -116,18 +122,24 @@ function registerFeatureHandlers(
             .then((module) => {
               if (module.getEventBus) {
                 const eventBus = module.getEventBus()
-                eventBus.subscribe((raw: any) => {
-                  if (raw.type === event) {
-                    const snapshot =
-                      systemContext.getSystemContextSnapshot?.() || raw
-                    const mergedSnapshot = {
-                      ...snapshot,
-                      detail: raw.detail ?? raw.payload,
-                      payload: raw.payload
+                eventBus.subscribe(
+                  (raw: {
+                    type: string
+                    detail?: unknown
+                    payload?: unknown
+                  }) => {
+                    if (raw.type === event) {
+                      const snapshot =
+                        systemContext.getSystemContextSnapshot?.() ?? raw
+                      const mergedSnapshot = {
+                        ...snapshot,
+                        detail: raw.detail ?? raw.payload,
+                        payload: raw.payload
+                      } as unknown as SystemContextSnapshot
+                      executionRegistry.execute(event, mergedSnapshot)
                     }
-                    executionRegistry.execute(event, mergedSnapshot)
                   }
-                })
+                )
               }
             })
             .catch(console.error)
@@ -135,16 +147,16 @@ function registerFeatureHandlers(
           registeredEvents.add(event)
         } else {
           // Input events: Listen via inputSystem
-          inputSystem.on(event, async (raw: any) => {
-            const snapshot = systemContext.getSystemContextSnapshot?.() || raw
+          inputSystem.on?.(event, async (raw: RawInputEvent) => {
+            const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
             const mergedSnapshot = {
               ...snapshot,
               ...(raw.detail ? { detail: raw.detail } : {})
-            }
+            } as SystemContextSnapshotWithDetail
             await sessionManager.cancelActiveSessions({
               ...mergedSnapshot,
               detail: {
-                ...(mergedSnapshot as any).detail,
+                ...mergedSnapshot.detail,
                 cancelled: true,
                 cancelledBy: event
               }
@@ -158,14 +170,16 @@ function registerFeatureHandlers(
   }
 }
 
-export function defineFeature<API>(
+export function defineFeature<
+  API extends Record<string, unknown> = Record<string, unknown>
+>(
   name: string,
   keyConfig: FeatureKeyMap | undefined,
   definition: FeatureDefinition<API>
 ): { api: FeatureAPI<API> } {
   const api = featureRegistry.register(
     name,
-    definition as any as FeatureDefinition<any>
+    definition as FeatureDefinition<Record<string, unknown>>
   )
 
   const hasSession = !!definition.session
@@ -173,12 +187,16 @@ export function defineFeature<API>(
 
   if ((hasSession || hasExecution) && keyConfig !== undefined) {
     if (isPackagesSet) {
-      registerFeatureHandlers(name, keyConfig, definition as any)
+      registerFeatureHandlers(
+        name,
+        keyConfig,
+        definition as FeatureDefinition<Record<string, unknown>>
+      )
     } else {
       pendingRegistrations.push({
         featureName: name,
         keyConfig,
-        definition: definition as any
+        definition: definition as FeatureDefinition<Record<string, unknown>>
       })
     }
   }
@@ -186,7 +204,7 @@ export function defineFeature<API>(
   return { api } as { api: FeatureAPI<API> }
 }
 
-export function setCorePackages(packages: any) {
+export function setCorePackages(packages: CorePackages) {
   corePackages = packages
   isPackagesSet = true
 
@@ -208,11 +226,10 @@ export function setCorePackages(packages: any) {
 }
 
 export function importFeature(featureName: string): FeatureAPI {
-  const api = featureRegistry.getAPI(featureName)
-  if (!api) {
+  if (!featureRegistry.has(featureName)) {
     throw new Error(`Feature "${featureName}" not found`)
   }
-  return api
+  return featureRegistry.getAPI(featureName)
 }
 
 export function unregisterFeature(featureName: string): boolean {

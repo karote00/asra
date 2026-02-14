@@ -31,3 +31,4 @@ export type {
   FeatureAPI,
   ActiveSession
 } from './types/feature'
+export type { CorePackages } from './types/core-packages'

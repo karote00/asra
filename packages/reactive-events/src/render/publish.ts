@@ -19,9 +19,8 @@ export const initRender = async (
   width: number,
   height: number,
   color: number
-) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return new Promise<any>((resolve) => {
+): Promise<unknown> => {
+  return new Promise<unknown>((resolve) => {
     const requestId = generateRequestId()
     let subscription: Subscription | null = null
 
@@ -49,8 +48,7 @@ export const initRender = async (
   })
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const emitInitRender = (requestId: string, newApp: any) => {
+export const emitInitRender = (requestId: string, newApp: unknown) => {
   publishEvent({
     type: EventTypes.EMIT_INIT_RENDER,
     payload: {

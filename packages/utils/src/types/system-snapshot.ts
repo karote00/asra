@@ -10,3 +10,8 @@ export interface SystemContextSnapshot {
   target: TargetSnapshot
   key: KeySnapshot
 }
+
+/** Snapshot extended with optional event detail (e.g. from input/render events) */
+export type SystemContextSnapshotWithDetail = SystemContextSnapshot & {
+  detail?: Record<string, unknown>
+}

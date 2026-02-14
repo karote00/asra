@@ -1,8 +1,5 @@
+import type { CorePackages } from '@asyra/feature-system'
+
 export interface FeatureSystemAPIs {
-  initFeatureSystem: (packages: {
-    inputSystem: any
-    systemContext: any
-    interactionCore: any
-    core?: any
-  }) => void
+  initFeatureSystem: (packages: CorePackages) => void
 }

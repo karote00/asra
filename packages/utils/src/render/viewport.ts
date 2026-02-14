@@ -57,8 +57,7 @@ export const calculateZoomFit = (params: {
   const { elementsBounds, viewportBounds } = params
   const padding = params.padding ?? DEFAULT_CANVAS_PADDING
 
-  const availableWidth =
-    viewportBounds.maxX - viewportBounds.minX - padding * 2
+  const availableWidth = viewportBounds.maxX - viewportBounds.minX - padding * 2
   const availableHeight =
     viewportBounds.maxY - viewportBounds.minY - padding * 2
 
@@ -69,10 +68,8 @@ export const calculateZoomFit = (params: {
   const scaleY = availableHeight / contentHeight
   const scale = Math.min(scaleX, scaleY)
 
-  const offsetX =
-    viewportBounds.minX + padding - elementsBounds.minX * scale
-  const offsetY =
-    viewportBounds.minY + padding - elementsBounds.minY * scale
+  const offsetX = viewportBounds.minX + padding - elementsBounds.minX * scale
+  const offsetY = viewportBounds.minY + padding - elementsBounds.minY * scale
 
   return {
     scale,

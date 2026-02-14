@@ -1,9 +1,12 @@
 import type {
   ActiveSession,
-  SessionParticipant,
-  SessionState
+  SessionHandler,
+  SessionParticipant
 } from '../types/feature'
-import type { SystemContextSnapshot } from '@asyra/utils'
+import type {
+  SystemContextSnapshot,
+  SystemContextSnapshotWithDetail
+} from '@asyra/utils'
 import { startTransaction, endTransaction } from '@asyra/reactive-events'
 
 const DEFAULT_HANDLER_TIMEOUT_MS = 5000
@@ -23,8 +26,7 @@ export class SessionManager {
     signal?: AbortSignal
   ): SystemContextSnapshot {
     const existingDetail =
-      (snapshot as SystemContextSnapshot & { detail?: Record<string, unknown> })
-        .detail ?? {}
+      (snapshot as SystemContextSnapshotWithDetail).detail ?? {}
 
     return {
       ...snapshot,
@@ -81,7 +83,7 @@ export class SessionManager {
     featureName: string,
     priority: number,
     exclusive: boolean,
-    handler: any
+    handler: SessionHandler
   ): void {
     const participant: SessionParticipant = {
       featureName,
@@ -265,7 +267,7 @@ export class SessionManager {
    * Cancel all active sessions before starting a new action
    */
   async cancelActiveSessions(
-    snapshot: SystemContextSnapshot & { detail?: any }
+    snapshot: SystemContextSnapshotWithDetail
   ): Promise<void> {
     if (this.activeSessions.size === 0) {
       return
@@ -276,8 +278,7 @@ export class SessionManager {
       const session = this.activeSessions.get(sessionName)
       session?.abortController?.abort()
       const currentDetail =
-        (snapshot as SystemContextSnapshot & { detail?: Record<string, unknown> })
-          .detail ?? {}
+        (snapshot as SystemContextSnapshotWithDetail).detail ?? {}
       await this.handleEnd(
         sessionName,
         this.withDetail(snapshot, {

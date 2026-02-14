@@ -62,10 +62,7 @@ export const createSceneTreeAPIs = (
     getAllElementsBounds() {
       return sceneTreeRequests.getAllElementsBounds()
     },
-    changeComputedData(
-      elementIds: string[],
-      data: Record<string, DataTypes>
-    ) {
+    changeComputedData(elementIds: string[], data: Record<string, DataTypes>) {
       const entries = Object.entries(data ?? {})
       if (entries.length === 0) {
         return
