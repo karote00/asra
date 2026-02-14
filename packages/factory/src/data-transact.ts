@@ -1,10 +1,15 @@
 import * as Y from 'yjs'
 import type {
+  PropsChange,
   PropsYjsChange,
+  SceneTreeChange,
   SceneTreeYjsChange,
+  ElementSelectionChange,
   SelectionYjsChange
 } from '@asyra/utils'
 import { OWNER, UNDO } from '@asyra/utils'
+
+type TransactionPayload = PropsChange | SceneTreeChange | ElementSelectionChange
 import type { AllEvent, UpdateTransactionEvent } from '@asyra/reactive-events'
 import {
   endTransaction,
@@ -54,8 +59,9 @@ class DataTransact {
       return
     }
 
+    const payload = event.payload as TransactionPayload
     const newType = event.eventName as AllEvent['type']
-    const newPayload = JSON.parse(JSON.stringify(event.payload))
+    const newPayload = JSON.parse(JSON.stringify(payload))
     const newEvent: AllEvent = {
       type: newType,
       payload: newPayload
@@ -65,9 +71,10 @@ class DataTransact {
       this.changes.push(newEvent)
     }
 
-    const map = ChangesMaps[event.payload.owner as OWNER]
+    const map = ChangesMaps[payload.owner as OWNER]
     if (map instanceof Y.Array) {
-      map.push([event.payload])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      map.push([payload as any])
     }
   }
 
