@@ -1,7 +1,11 @@
-export enum IDTypes {
-  DEFAULT = 'default',
-  WORKSPACE = 'ws',
-  FRAME = 'fr',
-  ELEMENT = 'el',
-  PROPS = 'pp'
-}
+// Framework-first: Use string type instead of enum for extensibility
+export type IDType = string
+
+// Keep as constants for built-in types
+export const IDTypes = {
+  DEFAULT: 'default',
+  WORKSPACE: 'ws',
+  FRAME: 'fr',
+  ELEMENT: 'el',
+  PROPS: 'pp'
+} as const

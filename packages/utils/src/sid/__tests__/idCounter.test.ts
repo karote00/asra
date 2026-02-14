@@ -22,7 +22,7 @@ describe('idCounter', () => {
       expect(currentId).toBe(expectResult)
     })
 
-    it('should return undefined for an invalid type', () => {
+    it('should return undefined for an uninitialized type', () => {
       const type = 'UNKNOWN_TYPE'
 
       const currentId = idCounter.current(type)
@@ -52,12 +52,19 @@ describe('idCounter', () => {
       expect(newId).toBe(expectResult)
     })
 
-    it('should return an empty string for an invalid type', () => {
-      const type = 'UNKNOWN_TYPE'
+    it('should create and return a new id for a custom type', () => {
+      const type = 'CUSTOM_TEST_TYPE'
 
       const newId = idCounter.increase(type)
 
-      expect(newId).toBe('')
+      // First call initializes to 0 and increments to 1
+      const expectResult = `${type}${CODE_SPLIT}${addOne(FIRST_ID)}`
+      expect(newId).toBe(expectResult)
+
+      // Second call should increment to 2
+      const secondId = idCounter.increase(type)
+      const expectSecond = `${type}${CODE_SPLIT}${addOne(addOne(FIRST_ID))}`
+      expect(secondId).toBe(expectSecond)
     })
   })
 
@@ -86,13 +93,13 @@ describe('idCounter', () => {
       expect(result).toBe(true)
     })
 
-    it('should return false for an invalid type', () => {
+    it('should return true for a custom type', () => {
       const type = 'UNKNOWN'
       const testId = `${type}-8`
 
       const result = idCounter.valid(testId, type)
 
-      expect(result).toBe(false)
+      expect(result).toBe(true)
     })
 
     it('should return false if the numeric part of the id is not valid', () => {

@@ -2,8 +2,6 @@ import { NameTypes } from './enum'
 import { FIRST_NAME, CODE_SPLIT } from './constants'
 import { capitalizeFirstLetter, isNumber } from '../helpers'
 
-const AvaliableNameTypes = new Set<NameTypes | string>(Object.values(NameTypes))
-
 class NameCounter {
   counter: Record<string, string> = {}
 
@@ -14,11 +12,11 @@ class NameCounter {
     })
   }
 
-  current(type: NameTypes): string {
+  current(type: string): string {
     return this.counter[type]
   }
 
-  load(name: string, type: NameTypes) {
+  load(name: string, type: string) {
     const currentName = this.current(type)
     if (!currentName) {
       return ''
@@ -35,12 +33,17 @@ class NameCounter {
     }
   }
 
-  update(type: NameTypes, newName: string): void {
+  update(type: string, newName: string): void {
     this.counter[type] = newName
   }
 
-  increase(type: NameTypes): string {
-    const currentName = this.current(type)
+  increase(type: string): string {
+    // Initialize if not exists
+    if (!this.counter[type]) {
+      this.counter[type] = `${capitalizeFirstLetter(type)}${CODE_SPLIT}${FIRST_NAME}`
+    }
+
+    const currentName = this.counter[type]
     if (!currentName) {
       return ''
     }
@@ -55,8 +58,8 @@ class NameCounter {
     return newName
   }
 
-  valid(name: string, type: NameTypes): boolean {
-    if (!name || !type || !AvaliableNameTypes.has(type)) {
+  valid(name: string, type: string): boolean {
+    if (!name || !type) {
       return false
     }
 
