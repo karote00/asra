@@ -4,7 +4,12 @@
  */
 
 import { startTransaction, endTransaction } from '@asyra/reactive-events'
-import { DEFAULT_ELEMENT_SIZE, EntityTypes, DataTypes } from '@asyra/utils'
+import {
+  DEFAULT_ELEMENT_SIZE,
+  EntityTypes,
+  EntityType,
+  DataTypes
+} from '@asyra/utils'
 import { MOUSE_MOVEMENT_THRESHOLD } from '../constants'
 import core, { render } from '../contexts'
 
@@ -20,7 +25,10 @@ export const elementApis = {
     })
   },
 
-  createRectangleAtClientPos: (position: { x: number; y: number }) => {
+  createElementAtClientPos: (
+    position: { x: number; y: number },
+    type: EntityType
+  ) => {
     if (!render) {
       return null
     }
@@ -32,7 +40,7 @@ export const elementApis = {
 
     startTransaction()
     const elementId = core.createElement({
-      type: EntityTypes.RECTANGLE,
+      type,
       x: pos.x,
       y: pos.y
     })

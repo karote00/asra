@@ -15,8 +15,8 @@ export const createElementFeature = defineFeature(
     priority: 10,
     exclusive: true,
     api: {
-      createRectangle: (position: { x: number; y: number }) => {
-        return elementApis.createRectangleAtClientPos(position)
+      createElement: (position: { x: number; y: number }, type: string) => {
+        return elementApis.createElementAtClientPos(position, type)
       },
       updateElementSizeAndPosition: (
         elementId: string,
@@ -62,7 +62,10 @@ export const createElementFeature = defineFeature(
       start: (snapshot: SystemContextSnapshot) => {
         const { primaryTool } = snapshot
 
-        if (primaryTool !== PrimaryToolType.RECTANGLE) {
+        if (
+          primaryTool !== PrimaryToolType.RECTANGLE &&
+          primaryTool !== PrimaryToolType.OVAL
+        ) {
           return null
         }
 
@@ -75,7 +78,10 @@ export const createElementFeature = defineFeature(
           return null
         }
 
-        const elementId = api.createRectangle(snapshot.mouse.position)
+        const elementId = api.createElement(
+          snapshot.mouse.position,
+          primaryTool
+        )
         if (elementId) {
           selectionApis.selectElements([elementId])
         }

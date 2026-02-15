@@ -111,6 +111,23 @@ export async function createRectangle(
 }
 
 /**
+ * Create an oval at the given relative canvas position
+ */
+export async function createOval(page: Page, relativeX = 0.3, relativeY = 0.3) {
+  // Switch to Oval tool
+  await page.keyboard.press('o')
+  await page.waitForTimeout(100)
+
+  // Click to create oval
+  await clickCanvas(page, relativeX, relativeY)
+  await page.waitForTimeout(500)
+
+  // Switch back to Select tool
+  await page.keyboard.press('v')
+  await page.waitForTimeout(100)
+}
+
+/**
  * Perform an Undo operation
  */
 export async function undo(page: Page) {
@@ -194,15 +211,19 @@ export async function getZoomLevel(page: Page): Promise<number> {
  */
 export async function getActiveTool(
   page: Page
-): Promise<'select' | 'rectangle' | 'unknown'> {
+): Promise<'select' | 'rectangle' | 'oval' | 'unknown'> {
   const selectTool = page.getByTestId('tool-select')
   const rectangleTool = page.getByTestId('tool-rectangle')
+  const ovalTool = page.getByTestId('tool-oval')
 
   if ((await selectTool.getAttribute('data-active')) === 'true') {
     return 'select'
   }
   if ((await rectangleTool.getAttribute('data-active')) === 'true') {
     return 'rectangle'
+  }
+  if ((await ovalTool.getAttribute('data-active')) === 'true') {
+    return 'oval'
   }
 
   return 'unknown'

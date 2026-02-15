@@ -132,6 +132,12 @@ export const keyCombinations = {
       keys: [keyMap.keys.KeyV],
       detail: { primaryTool: PrimaryToolType.SELECT },
       callback: updateKeyState
+    },
+    {
+      type: InputType.KEYBOARD,
+      keys: [keyMap.keys.KeyO],
+      detail: { primaryTool: PrimaryToolType.OVAL },
+      callback: updateKeyState
     }
   ],
   [InputSystemEvents.INPUT_SHORTCUT_ARROW]: [

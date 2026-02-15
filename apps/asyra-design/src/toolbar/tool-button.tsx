@@ -15,6 +15,8 @@ const ToolButton = () => {
     primaryTool === PrimaryToolType.SELECT ? selectedStyle : normalStyle
   const rectangleToolStyle =
     primaryTool === PrimaryToolType.RECTANGLE ? selectedStyle : normalStyle
+  const ovalToolStyle =
+    primaryTool === PrimaryToolType.OVAL ? selectedStyle : normalStyle
 
   const handleReset = useCallback(() => {
     resetData()
@@ -26,6 +28,10 @@ const ToolButton = () => {
 
   const handleSwitchToRectangleTool = useCallback(() => {
     switchPrimaryTool(PrimaryToolType.RECTANGLE)
+  }, [])
+
+  const handleSwitchToOvalTool = useCallback(() => {
+    switchPrimaryTool(PrimaryToolType.OVAL)
   }, [])
 
   return (
@@ -52,6 +58,14 @@ const ToolButton = () => {
         data-active={primaryTool === PrimaryToolType.RECTANGLE}
       >
         <Icon name="Rectangle" />
+      </div>
+      <div
+        className={`flex align-middle ${ovalToolStyle}`}
+        onClick={handleSwitchToOvalTool}
+        data-testid="tool-oval"
+        data-active={primaryTool === PrimaryToolType.OVAL}
+      >
+        <Icon name="Oval" />
       </div>
     </div>
   )
