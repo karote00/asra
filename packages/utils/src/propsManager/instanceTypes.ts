@@ -12,20 +12,24 @@ export interface BasePropertyAttrs {
 export interface PositionAttrs extends BasePropertyAttrs, PositionData {
   xUnit: Unit
   yUnit: Unit
+  [key: string]: unknown
 }
 
 export interface DimensionAttrs extends BasePropertyAttrs, DimensionData {
   widthUnit: Unit
   heightUnit: Unit
+  [key: string]: unknown
 }
 
 export interface FillAttrs {
   color: number[]
   opacity: number
+  [key: string]: unknown
 }
 
-export interface IProperty<T extends BasePropertyAttrs = BasePropertyAttrs>
-  extends ISetter<T> {
+export interface IProperty<
+  T extends BasePropertyAttrs = BasePropertyAttrs
+> extends ISetter<T> {
   load(data: Partial<PropertyComponentRawData>): void
   save(): PropertyComponentRawData
   getValue(): Record<string, DataTypes>
@@ -34,8 +38,7 @@ export interface IProperty<T extends BasePropertyAttrs = BasePropertyAttrs>
 export interface Position extends IProperty {}
 export interface Dimension extends IProperty {}
 
-export interface PropertyComponentInstanceTypes
-  extends IProperty<PropertyComponentInstanceDataTypes> {}
+export interface PropertyComponentInstanceTypes extends IProperty<PropertyComponentInstanceDataTypes> {}
 export type PropertyComponentInstanceDataTypes = (
   | PositionAttrs
   | DimensionAttrs
