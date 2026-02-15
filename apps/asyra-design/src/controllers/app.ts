@@ -1,25 +1,7 @@
-import { app, setPixiApp } from '../states/app'
-import { CANVAS_BACKGROUND_COLOR, PrimaryToolType } from '../constants'
-import core from '../contexts'
-
 import { importFeature } from '@asyra/feature-system'
-
-export const initRenderApp = async (
-  container: HTMLDivElement,
-  width: number,
-  height: number
-) => {
-  const newApp = await core.initRender(width, height, CANVAS_BACKGROUND_COLOR)
-
-  if (newApp && newApp.canvas && !container.children.length) {
-    container.appendChild(newApp.canvas)
-    setPixiApp(newApp)
-
-    return newApp.canvas
-  }
-
-  return null
-}
+import { app, setPixiApp } from '../states/app'
+import { PrimaryToolType } from '../constants'
+import core from '../contexts'
 
 export const destroyRenderApp = () => {
   const renderApp = app.value
@@ -49,9 +31,11 @@ export const resetData = () => {
 
 export const switchPrimaryTool = (primaryTool: PrimaryToolType) => {
   try {
-    const switchPrimaryToolFeature = importFeature('switchPrimaryTool')
-    if (switchPrimaryToolFeature?.api?.switch) {
-      switchPrimaryToolFeature.api.switch(primaryTool)
+    const featureAPI = importFeature('switchPrimaryTool')
+
+    if (featureAPI?.switch) {
+      const switchFn = featureAPI.switch as (tool: string) => void
+      switchFn(primaryTool)
     }
   } catch (error) {
     console.error('[app.controller.switchPrimaryTool] Error:', error)

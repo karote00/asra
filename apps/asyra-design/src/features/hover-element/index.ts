@@ -14,7 +14,7 @@ export const hoverElementFeature = defineFeature(
         return null
       }
 
-      systemContextApis.updateHoveredElementId(detail.elementId)
+      systemContextApis.updateHoveredElementId(detail.elementId as string)
 
       return { hoveredId: detail.elementId }
     }
