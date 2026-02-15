@@ -19,7 +19,7 @@ defineComponent({
   ],
   renderStrategy: (graphic, data) => {
     graphic.clear()
-    graphic.rect(0, 0, data.width, data.height).fill(0xCCCCCC)
+    graphic.rect(0, 0, data.width, data.height).fill(0xcccccc)
     graphic.x = data.x
     graphic.y = data.y
   }

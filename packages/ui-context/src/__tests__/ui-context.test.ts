@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { UIContext } from '../ui-context'
+import { propertyRegistry } from '../property-registry'
 import { BehaviorSubject } from 'rxjs'
 import { ComputedAttrs, MIXED_STRING, EntityTypes } from '@asyra/utils'
 
@@ -8,6 +9,7 @@ describe('UIContext', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    propertyRegistry.clear()
 
     uiContext = new UIContext()
   })

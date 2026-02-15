@@ -1,4 +1,3 @@
-import type { IDType } from './enum'
 import { idCounter } from './idCounter'
 
 export const id = (type: string): string => idCounter.increase(type)

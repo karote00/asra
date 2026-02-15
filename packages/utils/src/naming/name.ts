@@ -1,4 +1,3 @@
-import type { NameType } from './enum'
 import { nameCounter } from './nameCounter'
 
 export const name = (type: string): string => nameCounter.increase(type)

@@ -1,6 +1,6 @@
 import { Container, Graphics, Point } from 'pixi.js'
 import { SceneElement, RenderContainerData, RenderElementData } from '../types'
-import { DataTypes, EntityTypes } from '@asyra/utils'
+import { DataTypes } from '@asyra/utils'
 import { ElementInteractionHandler } from './element-interaction-handler'
 import renderRegistry from '../render-registry'
 import { defaultStrategy } from '../strategies/default-strategy'
@@ -115,20 +115,20 @@ export class RenderLayer {
     // Handle children separately as it requires structural changes
     if (key === 'children') {
       const oldList = new Set(before as string[])
-      let deleteCount = 0
-        // Add element
-        ; (after as string[]).forEach((childId, index) => {
-          const child = this.getElementById(childId)
-          if (!child) {
-            return
-          }
+      const deleteCount = 0
+      // Add element
+      ;(after as string[]).forEach((childId, index) => {
+        const child = this.getElementById(childId)
+        if (!child) {
+          return
+        }
 
-          if (oldList.has(childId)) {
-            oldList.delete(childId)
-          } else {
-            element.addChildAt(child, index - deleteCount)
-          }
-        })
+        if (oldList.has(childId)) {
+          oldList.delete(childId)
+        } else {
+          element.addChildAt(child, index - deleteCount)
+        }
+      })
 
       // Remove element
       oldList.forEach((childId) => {
@@ -151,7 +151,9 @@ export class RenderLayer {
     }
 
     // For other properties, use strategy if available and it's a Graphics object
-    const strategy = data ? (renderRegistry.get(data.type) || defaultStrategy) : null
+    const strategy = data
+      ? renderRegistry.get(data.type) || defaultStrategy
+      : null
     if (strategy && element instanceof Graphics && data) {
       strategy(element, data)
     } else {

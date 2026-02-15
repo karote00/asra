@@ -1,4 +1,3 @@
-import type { IDType } from './enum'
 import { IDTypes } from './enum'
 import { DEFAULT_TYPE, FIRST_ID, CODE_SPLIT } from './constants'
 import { isNumber } from '../helpers'

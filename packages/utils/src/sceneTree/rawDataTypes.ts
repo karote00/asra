@@ -1,5 +1,5 @@
 import { DimensionData, PositionData } from '../types'
-import { EntityType, EntityTypes } from './enum'
+import { EntityType } from './enum'
 
 export interface BaseRawData {
   id: string

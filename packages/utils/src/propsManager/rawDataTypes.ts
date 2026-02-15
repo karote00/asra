@@ -1,5 +1,5 @@
 import { Unit } from '../constants'
-import { PropertyType, PropertyTypes } from './enum'
+import { PropertyType } from './enum'
 
 export interface PropertyRawData {
   id: string

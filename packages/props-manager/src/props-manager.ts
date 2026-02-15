@@ -1,4 +1,4 @@
-import { OWNER, PropertyType, PropertyTypes, PROPS_ACTIONS } from '@asyra/utils'
+import { OWNER, PropertyType, PROPS_ACTIONS } from '@asyra/utils'
 import type {
   PropertyComponentInstanceDataTypes,
   PropertyComponentInstanceTypes,

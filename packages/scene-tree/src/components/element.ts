@@ -29,7 +29,8 @@ const ElementProps: (keyof ElementAttrs)[] = ['id', 'name', 'visible', 'lock']
 
 class Element<T extends ElementAttrs = ElementAttrs>
   extends Setter<T>
-  implements IElement<T> {
+  implements IElement<T>
+{
   _idType!: string
   _nameType!: string
 
@@ -131,7 +132,10 @@ class Element<T extends ElementAttrs = ElementAttrs>
         this.props = new Props(elementId)
       }
 
-      this.computed = new Computed(elementId, this.props, ['position', 'dimension'])
+      this.computed = new Computed(elementId, this.props, [
+        'position',
+        'dimension'
+      ])
     }
   }
 

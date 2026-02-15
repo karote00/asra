@@ -40,7 +40,8 @@ class NameCounter {
   increase(type: string): string {
     // Initialize if not exists
     if (!this.counter[type]) {
-      this.counter[type] = `${capitalizeFirstLetter(type)}${CODE_SPLIT}${FIRST_NAME}`
+      this.counter[type] =
+        `${capitalizeFirstLetter(type)}${CODE_SPLIT}${FIRST_NAME}`
     }
 
     const currentName = this.counter[type]

@@ -4,41 +4,41 @@ import { renderRegistry, RenderStrategy } from '@asyra/render'
 import { createDynamicComponent } from '@asyra/scene-tree'
 
 export interface ComponentDefinition {
-    /**
-     * Unique type identifier for the component (e.g., 'star', 'polygon')
-     */
-    type: string
+  /**
+   * Unique type identifier for the component (e.g., 'star', 'polygon')
+   */
+  type: string
 
-    /**
-     * Prefix for ID generation (e.g., 'star' -> 'star-1', 'star-2')
-     */
-    idPrefix: string
+  /**
+   * Prefix for ID generation (e.g., 'star' -> 'star-1', 'star-2')
+   */
+  idPrefix: string
 
-    /**
-     * Prefix for name generation (e.g., 'Star' -> 'Star 1', 'Star 2')
-     */
-    namePrefix: string
+  /**
+   * Prefix for name generation (e.g., 'Star' -> 'Star 1', 'Star 2')
+   */
+  namePrefix: string
 
-    /**
-     * Properties that this component should have
-     */
-    properties: PropertyDefinition[]
+  /**
+   * Properties that this component should have
+   */
+  properties: PropertyDefinition[]
 
-    /**
-     * Optional render strategy for this component type
-     * If not provided, will use default rectangle rendering
-     */
-    renderStrategy?: RenderStrategy
+  /**
+   * Optional render strategy for this component type
+   * If not provided, will use default rectangle rendering
+   */
+  renderStrategy?: RenderStrategy
 
-    /**
-     * Whether this component acts as a container (can have children)
-     */
-    isContainer?: boolean
+  /**
+   * Whether this component acts as a container (can have children)
+   */
+  isContainer?: boolean
 }
 
 /**
  * Define a custom component type that can be used in the scene tree
- * 
+ *
  * @example
  * ```ts
  * defineComponent({
@@ -61,53 +61,67 @@ export interface ComponentDefinition {
  * ```
  */
 export function defineComponent(definition: ComponentDefinition): void {
-    const { type, idPrefix, namePrefix, properties, renderStrategy, isContainer } = definition
+  const {
+    type,
+    idPrefix,
+    namePrefix,
+    properties,
+    renderStrategy,
+    isContainer
+  } = definition
 
-    // 1. Register properties with PropertyRegistry
-    for (const prop of properties) {
-        propertyRegistry.register(prop, type)
+  // 1. Register properties with PropertyRegistry
+  for (const prop of properties) {
+    propertyRegistry.register(prop, type)
+  }
+
+  // 2. Build defaults object from properties
+  const defaults: Record<string, unknown> = {}
+  for (const prop of properties) {
+    if (prop.defaultValue !== undefined) {
+      defaults[prop.name] = prop.defaultValue
     }
+  }
 
-    // 2. Build defaults object from properties
-    const defaults: Record<string, unknown> = {}
-    for (const prop of properties) {
-        if (prop.defaultValue !== undefined) {
-            defaults[prop.name] = prop.defaultValue
-        }
-    }
+  // 3. Create dynamic component class
+  const ComponentClass = createDynamicComponent(
+    type,
+    idPrefix,
+    namePrefix,
+    properties,
+    defaults,
+    isContainer
+  )
 
-    // 3. Create dynamic component class
-    const ComponentClass = createDynamicComponent(type, idPrefix, namePrefix, properties, defaults, isContainer)
+  // 4. Register component with ComponentRegistry
+  componentRegistry.register({
+    type,
+    idPrefix,
+    namePrefix,
+    constructor: ComponentClass,
+    properties,
+    defaults,
+    isContainer
+  })
 
-    // 4. Register component with ComponentRegistry
-    componentRegistry.register({
-        type,
-        idPrefix,
-        namePrefix,
-        constructor: ComponentClass,
-        properties,
-        defaults,
-        isContainer
-    })
-
-    // 5. Register render strategy if provided
-    if (renderStrategy) {
-        renderRegistry.register(type, renderStrategy)
-    }
+  // 5. Register render strategy if provided
+  if (renderStrategy) {
+    renderRegistry.register(type, renderStrategy)
+  }
 }
 
 /**
  * Unregister a custom component type
  * This will remove the component from all registries
- * 
+ *
  * @param type - The component type to unregister
  * @returns true if component was unregistered, false if it didn't exist
  */
 export function unregisterComponent(type: string): boolean {
-    // Unregister from all registries
-    const componentUnregistered = componentRegistry.unregister(type)
-    propertyRegistry.unregisterComponent(type) // void return
-    const renderUnregistered = renderRegistry.unregister(type)
+  // Unregister from all registries
+  const componentUnregistered = componentRegistry.unregister(type)
+  propertyRegistry.unregisterComponent(type) // void return
+  const renderUnregistered = renderRegistry.unregister(type)
 
-    return componentUnregistered || renderUnregistered
+  return componentUnregistered || renderUnregistered
 }

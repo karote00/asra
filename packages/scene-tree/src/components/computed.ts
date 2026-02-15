@@ -1,19 +1,13 @@
 import propsManager from '@asyra/props-manager'
-import {
-  ComputedAttrs,
-  IComputed,
-  IDTypes,
-  IProps,
-  NameTypes,
-  Setter
-} from '@asyra/utils'
+import { ComputedAttrs, IComputed, IProps, Setter } from '@asyra/utils'
 import ElementChangeHandler from './element-change-handler'
 
 const elementChangeHandler = new ElementChangeHandler()
 
 class Computed<T extends ComputedAttrs>
   extends Setter<T>
-  implements IComputed<T> {
+  implements IComputed<T>
+{
   _idType!: string
   _nameType!: string
 

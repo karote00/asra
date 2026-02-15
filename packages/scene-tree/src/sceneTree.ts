@@ -1,7 +1,6 @@
 import type {
   ComputedAttrs,
   SceneTreeRawData,
-  WorkspaceRawData,
   ElementRawData,
   ElementInstanceTypes,
   GroupInstanceTypes,

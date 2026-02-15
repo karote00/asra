@@ -36,8 +36,12 @@ class Props implements IProps {
     }
   }
 
-  get position() { return this.propertyIds.get(PropertyTypes.POSITION) }
-  get dimension() { return this.propertyIds.get(PropertyTypes.DIMENSION) }
+  get position() {
+    return this.propertyIds.get(PropertyTypes.POSITION)
+  }
+  get dimension() {
+    return this.propertyIds.get(PropertyTypes.DIMENSION)
+  }
 
   getPropId(name: string): string | undefined {
     return this.propertyIds.get(name)
@@ -92,7 +96,7 @@ class Props implements IProps {
   save(): PropsRawData {
     const data = {} as PropsRawData
     this.propertyIds.forEach((id, propName) => {
-      (data as any)[propName] = id
+      ;(data as PropsRawData)[propName] = id
     })
     return data
   }

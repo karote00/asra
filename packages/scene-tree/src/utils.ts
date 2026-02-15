@@ -1,4 +1,9 @@
-import { ComputedAttrs, ElementInstanceTypes, ElementRawData, EntityTypes } from '@asyra/utils'
+import {
+  ComputedAttrs,
+  ElementInstanceTypes,
+  ElementRawData,
+  EntityTypes
+} from '@asyra/utils'
 import Workspace from './components/workspace'
 import componentRegistry from './component-registry'
 
@@ -19,7 +24,9 @@ export const isGroupEntity = (type: string): boolean => {
   return registration?.isContainer ?? false
 }
 
-export const createElement = (elementData: Partial<ElementRawData>): ElementInstanceTypes | null => {
+export const createElement = (
+  elementData: Partial<ElementRawData>
+): ElementInstanceTypes | null => {
   if (
     elementData.type === EntityTypes.WORKSPACE ||
     elementData.type === EntityTypes.ELEMENT ||
@@ -45,7 +52,9 @@ export const createElement = (elementData: Partial<ElementRawData>): ElementInst
   throw new Error(`No component registered for type: ${elementType}`)
 }
 
-export const createWorkspace = (workspaceData: Partial<ElementRawData> = initWorkspaceData): Workspace | null => {
+export const createWorkspace = (
+  workspaceData: Partial<ElementRawData> = initWorkspaceData
+): Workspace | null => {
   if (workspaceData.type !== EntityTypes.WORKSPACE) {
     return null
   }
@@ -54,8 +63,6 @@ export const createWorkspace = (workspaceData: Partial<ElementRawData> = initWor
   newWorkspace.load(workspaceData)
   return newWorkspace
 }
-
-type UnknownObject = Record<string, unknown>
 
 const DefaultRawKeys: (keyof ElementRawData)[] = ['id', 'type', 'name', 'props']
 

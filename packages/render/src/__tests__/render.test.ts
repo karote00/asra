@@ -129,7 +129,8 @@ describe('Render', () => {
       'el1',
       'x',
       before,
-      after
+      after,
+      undefined
     )
   })
 
