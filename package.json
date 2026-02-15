@@ -41,7 +41,8 @@
     "release:app": "node scripts/release-template.js",
     "release:app:verbose": "node scripts/release-template.js --verbose",
     "release:full": "node scripts/release-full.js",
-    "release:full:asyra-design": "node scripts/release-full.js --prod=asyra-design"
+    "release:full:asyra-design": "node scripts/release-full.js --prod=asyra-design",
+    "dev:description": "Run in watch mode: all packages including design-system, asyra-design app"
   },
   "workspaces": [
     "apps/*",

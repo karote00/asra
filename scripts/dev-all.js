@@ -13,7 +13,7 @@ async function getPackages() {
     .filter((dirent) => dirent.isDirectory())
     .map((dirent) => dirent.name)
 
-  // Map to {dir, cmd} array
+  // Map to {dir, cmd} array - all packages now use 'yarn dev'
   return packageDirs.map((pkgName) => ({
     dir: path.join('packages', pkgName),
     cmd: 'yarn dev'
