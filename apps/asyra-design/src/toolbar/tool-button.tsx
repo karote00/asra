@@ -67,6 +67,9 @@ const ToolButton = () => {
       >
         <Icon name="Oval" />
       </div>
+      <div className="flex align-middle" data-testid="tool-triangle">
+        <Icon name="Triangle" />
+      </div>
     </div>
   )
 }
