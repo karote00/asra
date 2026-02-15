@@ -54,16 +54,17 @@ class CustomComponent extends BaseComponent<PropertyComponentInstanceDataTypes> 
     this.data.id = data.id
     // Load implementation
     const dataObj = data as unknown as Record<string, unknown>
+    const dataRecord = this.data as unknown as Record<string, unknown>
     Object.keys(dataObj).forEach((key) => {
       if (this.isValidKey(key)) {
-        this.data[key] = dataObj[key]
+        dataRecord[key] = dataObj[key]
       }
     })
   }
 
   getValue(): Record<string, number> {
     const result: Record<string, number> = {}
-    const dataObj = this.data as Record<string, unknown>
+    const dataObj = this.data as unknown as Record<string, unknown>
     Object.keys(dataObj).forEach((key) => {
       if (this.isValidKey(key)) {
         const val = dataObj[key]
