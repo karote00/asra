@@ -16,7 +16,7 @@ export const selectionFeature = defineFeature('selection', 'input.drag', {
     }
   },
   session: {
-    start: (snapshot: SystemContextSnapshot) => {
+    onStart: (snapshot: SystemContextSnapshot) => {
       const { primaryTool } = snapshot
       const mouse = snapshot.mouse
 

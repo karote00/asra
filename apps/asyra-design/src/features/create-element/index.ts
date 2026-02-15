@@ -80,7 +80,7 @@ export const createElementFeature = defineFeature<
   exclusive: true,
   api,
   session: {
-    start: (snapshot: SystemContextSnapshot) => {
+    onStart: (snapshot: SystemContextSnapshot) => {
       const { primaryTool } = snapshot
 
       if (
@@ -108,7 +108,7 @@ export const createElementFeature = defineFeature<
         dragStartWorkspacePos: dragStartWorkspace
       } as CreateElementState
     },
-    update: (snapshot: SystemContextSnapshot, state: CreateElementState) => {
+    onUpdate: (snapshot: SystemContextSnapshot, state: CreateElementState) => {
       if (!state || state.elementId === null || !state.dragStartWorkspacePos) {
         return
       }
@@ -131,7 +131,7 @@ export const createElementFeature = defineFeature<
         currentWorkspacePos
       )
     },
-    end: (snapshot: SystemContextSnapshot, state: CreateElementState) => {
+    onEnd: (snapshot: SystemContextSnapshot, state: CreateElementState) => {
       if (!state || state.elementId === null) {
         return
       }

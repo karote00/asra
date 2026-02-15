@@ -20,9 +20,9 @@ export type SessionEndHandler<T = Record<string, unknown>> = (
 export type SessionState = Record<string, unknown>
 
 export interface SessionHandler<T = SessionState> {
-  start?: SessionStartHandler<T>
-  update?: SessionUpdateHandler<T>
-  end?: SessionEndHandler<T>
+  onStart?: SessionStartHandler<T>
+  onUpdate?: SessionUpdateHandler<T>
+  onEnd?: SessionEndHandler<T>
 }
 
 export interface ActiveSession {
