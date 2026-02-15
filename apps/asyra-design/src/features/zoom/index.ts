@@ -4,26 +4,29 @@ import { viewportApis } from '../../common-apis'
 import { InputSystemEvents } from '../../constants'
 import type { SystemContextSnapshot } from '@asyra/utils'
 
+interface ZoomAPI {
+  zoom: (deltaY: number, clientX: number, clientY: number) => void
+  [key: string]: unknown
+}
+
+const api: ZoomAPI = {
+  zoom: (deltaY: number, clientX: number, clientY: number) => {
+    const currentScale = viewportApis.getScale()
+    const newScale =
+      currentScale *
+      (deltaY < 0 ? 1 + ZOOM_SMOOTH_RATIO : 1 - ZOOM_SMOOTH_RATIO)
+    viewportApis.zoomToCenter(newScale, clientX, clientY)
+  }
+}
+
 export const zoomFeature = defineFeature(
   'zoom',
   InputSystemEvents.INPUT_WHEEL_SCROLL,
   {
     priority: 5,
     exclusive: true,
-    api: {
-      zoom: (deltaY: number, clientX: number, clientY: number) => {
-        const currentScale = viewportApis.getScale()
-        const newScale =
-          currentScale *
-          (deltaY < 0 ? 1 + ZOOM_SMOOTH_RATIO : 1 - ZOOM_SMOOTH_RATIO)
-        viewportApis.zoomToCenter(newScale, clientX, clientY)
-      }
-    },
+    api,
     execution: (snapshot: SystemContextSnapshot) => {
-      const api = zoomFeature.api as {
-        zoom: (deltaY: number, clientX: number, clientY: number) => void
-      }
-
       if (!snapshot.key.meta && !snapshot.key.ctrl) {
         return null
       }

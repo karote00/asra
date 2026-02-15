@@ -3,18 +3,27 @@ import { defineFeature } from '@asyra/feature-system'
 import { selectionApis, transactionApis } from '../../common-apis'
 import { PrimaryToolType } from '../../constants'
 
+interface SelectionAPI {
+  getSelectedIds: () => string[]
+  clearSelection: () => void
+  toggleSelection: (elementId: string) => void
+  [key: string]: unknown
+}
+
+const api: SelectionAPI = {
+  getSelectedIds: () => selectionApis.getSelectedIds(),
+  clearSelection: () => {
+    selectionApis.clearSelection()
+  },
+  toggleSelection: (elementId: string) => {
+    selectionApis.toggleSelection(elementId)
+  }
+}
+
 export const selectionFeature = defineFeature('selection', 'input.drag', {
   priority: 5,
   exclusive: false,
-  api: {
-    getSelectedIds: () => selectionApis.getSelectedIds(),
-    clearSelection: () => {
-      selectionApis.clearSelection()
-    },
-    toggleSelection: (elementId: string) => {
-      selectionApis.toggleSelection(elementId)
-    }
-  },
+  api,
   session: {
     onStart: (snapshot: SystemContextSnapshot) => {
       const { primaryTool } = snapshot
@@ -30,9 +39,6 @@ export const selectionFeature = defineFeature('selection', 'input.drag', {
       try {
         if (hoveredElementId) {
           if (snapshot.key.shift) {
-            const api = selectionFeature.api as {
-              toggleSelection: (elementId: string) => void
-            }
             api.toggleSelection(hoveredElementId)
           } else {
             selectionApis.selectElements([hoveredElementId])

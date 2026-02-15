@@ -3,26 +3,26 @@ import { viewportApis } from '../../common-apis'
 import { InputSystemEvents } from '../../constants'
 import type { SystemContextSnapshot } from '@asyra/utils'
 
+interface PanAPI {
+  pan: (deltaX: number, deltaY: number) => void
+  [key: string]: unknown
+}
+
+const api: PanAPI = {
+  pan: (deltaX: number, deltaY: number) => {
+    const currentPosition = viewportApis.getPosition()
+    viewportApis.panTo(currentPosition.x + deltaX, currentPosition.y + deltaY)
+  }
+}
+
 export const panFeature = defineFeature(
   'pan',
   InputSystemEvents.INPUT_WHEEL_SCROLL,
   {
     priority: 4,
     exclusive: false,
-    api: {
-      pan: (deltaX: number, deltaY: number) => {
-        const currentPosition = viewportApis.getPosition()
-        viewportApis.panTo(
-          currentPosition.x + deltaX,
-          currentPosition.y + deltaY
-        )
-      }
-    },
+    api,
     execution: (snapshot: SystemContextSnapshot) => {
-      const api = panFeature.api as {
-        pan: (deltaX: number, deltaY: number) => void
-      }
-
       if (snapshot.key.meta || snapshot.key.ctrl) {
         return null
       }

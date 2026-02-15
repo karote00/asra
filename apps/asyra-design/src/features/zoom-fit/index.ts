@@ -3,24 +3,26 @@ import { viewportApis } from '../../common-apis'
 import { InputSystemEvents } from '../../constants'
 import type { SystemContextSnapshot } from '@asyra/utils'
 
+interface ZoomFitAPI {
+  zoomFit: () => void
+  [key: string]: unknown
+}
+
+const api: ZoomFitAPI = {
+  zoomFit: () => {
+    viewportApis.zoomFit()
+  }
+}
+
 export const zoomFitFeature = defineFeature(
   'zoomFit',
   InputSystemEvents.INPUT_SHORTCUT_ZOOM_PRESET,
   {
     priority: 10,
     exclusive: true,
-    api: {
-      zoomFit: () => {
-        viewportApis.zoomFit()
-      }
-    },
+    api,
     execution: (snapshot: SystemContextSnapshot) => {
-      const api = zoomFitFeature.api as {
-        zoomFit: () => void
-      }
-
       api.zoomFit()
-
       return { zoomedToFit: true }
     }
   }
