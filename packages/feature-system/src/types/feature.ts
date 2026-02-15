@@ -20,9 +20,9 @@ export type SessionEndHandler<T = Record<string, unknown>> = (
 export type SessionState = Record<string, unknown>
 
 export interface SessionHandler<T = SessionState> {
-  onStart?: SessionStartHandler<T>
-  onUpdate?: SessionUpdateHandler<T>
-  onEnd?: SessionEndHandler<T>
+  start?: SessionStartHandler<T>
+  update?: SessionUpdateHandler<T>
+  end?: SessionEndHandler<T>
 }
 
 export interface ActiveSession {
@@ -44,15 +44,14 @@ export interface SessionParticipant {
   state: SessionState | null
 }
 
-export interface FeatureDefinition<API = Record<string, unknown>> {
+export interface FeatureDefinition<
+  API = Record<string, unknown>,
+  State = SessionState
+> {
   // Static configuration for feature registration
   api?: API
   execution?: ExecutionHandler
-  session?: {
-    start: (snapshot: SystemContextSnapshot) => SessionState | null
-    update?: (snapshot: SystemContextSnapshot, state: SessionState) => void
-    end?: (snapshot: SystemContextSnapshot, state: SessionState) => void
-  }
+  session?: SessionHandler<State>
   // Feature priority for session registration
   priority?: number
   // Whether feature blocks lower priority features

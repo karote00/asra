@@ -24,7 +24,10 @@ const registeredEvents = new Set<string>()
 const pendingRegistrations: {
   featureName: string
   keyConfig: FeatureKeyMap
-  definition: FeatureDefinition
+  definition: FeatureDefinition<
+    Record<string, unknown>,
+    Record<string, unknown>
+  >
 }[] = []
 
 function registerFeatureHandlers(
@@ -56,12 +59,13 @@ function registerFeatureHandlers(
   }
 
   if (hasSession && definition.session) {
-    const { start, update, end } = definition.session
-    sessionManager.registerSession(keyConfig, name, priority, exclusive, {
-      onStart: start,
-      onUpdate: update,
-      onEnd: end
-    })
+    sessionManager.registerSession(
+      keyConfig,
+      name,
+      priority,
+      exclusive,
+      definition.session
+    )
   }
 
   if (hasExecution && definition.execution) {
@@ -171,11 +175,12 @@ function registerFeatureHandlers(
 }
 
 export function defineFeature<
-  API extends Record<string, unknown> = Record<string, unknown>
+  API extends Record<string, unknown> = Record<string, unknown>,
+  State extends Record<string, unknown> = Record<string, unknown>
 >(
   name: string,
   keyConfig: FeatureKeyMap | undefined,
-  definition: FeatureDefinition<API>
+  definition: FeatureDefinition<API, State>
 ): { api: FeatureAPI<API> } {
   const api = featureRegistry.register(
     name,
@@ -196,7 +201,10 @@ export function defineFeature<
       pendingRegistrations.push({
         featureName: name,
         keyConfig,
-        definition: definition as FeatureDefinition<Record<string, unknown>>
+        definition: definition as FeatureDefinition<
+          Record<string, unknown>,
+          Record<string, unknown>
+        >
       })
     }
   }

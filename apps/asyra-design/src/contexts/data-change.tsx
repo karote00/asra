@@ -33,9 +33,10 @@ const DataContexts = () => {
     // Trigger zoom fit after file is loaded to show all content in viewport
     const fileLoadSubscription = subscribeToFileLoadComplete(() => {
       try {
-        const zoomFitFeature = importFeature('zoomFit')
-        if (zoomFitFeature?.zoomFit) {
-          zoomFitFeature.zoomFit()
+        const featureAPI = importFeature('zoomFit')
+        if (featureAPI?.zoomFit) {
+          const zoomFitFn = featureAPI.zoomFit as () => void
+          zoomFitFn()
         }
       } catch (error) {
         // Feature may not be available yet

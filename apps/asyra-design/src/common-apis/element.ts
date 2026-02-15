@@ -4,12 +4,7 @@
  */
 
 import { startTransaction, endTransaction } from '@asyra/reactive-events'
-import {
-  DEFAULT_ELEMENT_SIZE,
-  EntityTypes,
-  EntityType,
-  DataTypes
-} from '@asyra/utils'
+import { DEFAULT_ELEMENT_SIZE, EntityType, DataTypes } from '@asyra/utils'
 import { MOUSE_MOVEMENT_THRESHOLD } from '../constants'
 import core, { render } from '../contexts'
 

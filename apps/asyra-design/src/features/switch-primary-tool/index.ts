@@ -13,7 +13,7 @@ export const switchPrimaryToolFeature = defineFeature(
       }
     },
     execution: (snapshot: SystemContextSnapshotWithDetail) => {
-      const tool = snapshot.detail?.primaryTool
+      const tool = snapshot.detail?.primaryTool as string
       if (tool) {
         const api = switchPrimaryToolFeature.api as {
           switch: (tool: string) => void

@@ -136,10 +136,10 @@ export class SessionManager {
       if (exclusiveFound) break
 
       try {
-        // Call onStart handler
+        // Call start handler
         const state = await this.runWithTimeout(
-          () => participant.handler.onStart?.(snapshotWithSignal),
-          `${participant.featureName}.onStart`
+          () => participant.handler.start?.(snapshotWithSignal),
+          `${participant.featureName}.start`
         )
 
         if (state !== null && state !== undefined) {
@@ -156,7 +156,7 @@ export class SessionManager {
         }
       } catch (error) {
         console.error(
-          `Feature "${participant.featureName}" error in onStart:`,
+          `Feature "${participant.featureName}" error in start:`,
           error
         )
         // Continue with next feature on error
@@ -206,19 +206,19 @@ export class SessionManager {
       session.abortController?.signal
     )
 
-    // Call onUpdate for all participants (original priority order)
+    // Call update for all participants (original priority order)
     for (const participant of session.participants) {
       try {
         const state = session.states.get(participant.featureName)
         if (state !== undefined) {
           await this.runWithTimeout(
-            () => participant.handler.onUpdate?.(snapshotWithSignal, state),
-            `${participant.featureName}.onUpdate`
+            () => participant.handler.update?.(snapshotWithSignal, state),
+            `${participant.featureName}.update`
           )
         }
       } catch (error) {
         console.error(
-          `Feature "${participant.featureName}" error in onUpdate:`,
+          `Feature "${participant.featureName}" error in update:`,
           error
         )
       }
@@ -243,19 +243,19 @@ export class SessionManager {
       session.abortController?.signal
     )
 
-    // Call onEnd for all participants
+    // Call end for all participants
     for (const participant of session.participants) {
       try {
         const state = session.states.get(participant.featureName)
         if (state !== undefined) {
           await this.runWithTimeout(
-            () => participant.handler.onEnd?.(snapshotWithSignal, state),
-            `${participant.featureName}.onEnd`
+            () => participant.handler.end?.(snapshotWithSignal, state),
+            `${participant.featureName}.end`
           )
         }
       } catch (error) {
         console.error(
-          `Feature "${participant.featureName}" error in onEnd:`,
+          `Feature "${participant.featureName}" error in end:`,
           error
         )
       }

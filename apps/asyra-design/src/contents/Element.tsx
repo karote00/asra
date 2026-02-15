@@ -1,6 +1,6 @@
 import { MouseEvent, useCallback, useEffect, useRef } from 'react'
 import type { ElementRawData, ModifierKeys } from '@asyra/utils'
-import { capitalizeFirstLetter, EntityTypes } from '@asyra/utils'
+import { capitalizeFirstLetter, EntityType } from '@asyra/utils'
 import { Icon } from '@asyra/design-system'
 import { useElementData } from '../providers'
 import { selectElements } from '../controllers/element-selection'
@@ -74,7 +74,7 @@ const Element = ({ elementId, isSelected }: ElementData) => {
       <div className="flex items-center space-x-1 gap-1">
         <Icon
           showCursor={false}
-          name={capitalizeFirstLetter(type) as EntityTypes}
+          name={capitalizeFirstLetter(type) as EntityType}
         />
         {name}
       </div>
