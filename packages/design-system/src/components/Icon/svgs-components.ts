@@ -16,7 +16,7 @@ const Icons = {
   Lock,
   Unlock,
   Select
-} satisfies Record<string, React.FC<React.SVGProps<SVGElement>>>
+} as const
 
 export type IconName = keyof typeof Icons
 
