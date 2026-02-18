@@ -8,6 +8,7 @@ Users interact with the framework only through **Core APIs**:
 
 - `elementApis.*` - Create, read, update elements
 - `selectionApis.*` - Manage selection state
+- `defineComponent()` - Define custom component types
 - Other domain-specific Core APIs
 
 **Examples:**
@@ -17,6 +18,15 @@ Users interact with the framework only through **Core APIs**:
 elementApis.createElementAtClientPos(position, type)
 elementApis.changeComputedData([elementId], { x, y, width, height })
 selectionApis.selectElements([elementId])
+
+// User defines custom component
+defineComponent({
+  type: 'star',
+  idPrefix: 'star',
+  namePrefix: 'Star',
+  properties: [...],
+  renderStrategy: (graphic, data) => { /* custom drawing */ }
+})
 ```
 
 **Users can also:**
@@ -197,136 +207,49 @@ Who can do what?
 
 ---
 
-## Component Extensibility Pattern
+## Component Extensibility Architecture
 
 **Framework-First Philosophy: Users extend through APIs, not code modifications.**
 
-### User-Level Component Registration
+See `asyra-component-extensibility-pattern.md` for detailed documentation of the component extensibility pattern.
 
-When users create custom components (like `Oval`, `Rectangle`, etc.), they use `defineComponent()`:
+### Key Points
 
-```typescript
-// User code (no framework modifications!)
-defineComponent('OVAL', {
-  name: 'Oval',
-  char: 'O',
-  defaultPrefix: 'oval'
-  // ... other config
-})
-```
+1. **Registration APIs:**
+   - `nameCounter.registerType(type, namePrefix, initialValue?)`
+   - `idCounter.registerType(type, idPrefix, initialValue?)`
 
-### Auto-Registration Process
+2. **defineComponent Auto-Registration:**
+   - Automatically registers components with both counters
+   - No framework code modifications needed
 
-`defineComponent()` automatically registers the component with the framework's naming and ID systems:
+3. **Constructor Prefix Support:**
+   - `Element` constructor supports `idPrefix` and `namePrefix` parameters
+   - `Group` passes `IDTypes.GROUP` and `NameTypes.GROUP` to parent
+   - `Workspace` passes `IDTypes.WORKSPACE` and `NameTypes.WORKSPACE` to parent
 
-```typescript
-// define-component.ts (framework code)
-export function defineComponent<T extends Component>(
-  entityTypes: string,
-  config: ComponentConfig<T>
-): void {
-  const { name, char, defaultPrefix, ...restConfig } = config
+4. **Dynamic Component Type Propagation:**
+   - `createDynamicComponent` returns class that passes prefixes to parent constructor
+   - `_init()` method sets `this._idType` and `this._nameType` before calling `super._init()`
 
-  // Auto-register with nameCounter for human-readable names: "Oval 1", "Oval 2"
-  if (char && defaultPrefix) {
-    nameCounter.registerType(char, defaultPrefix)
-  }
+5. **Lifecycle Flow:**
 
-  // Auto-register with idCounter for stable IDs: "oval-1", "oval-2"
-  if (defaultPrefix) {
-    idCounter.registerType(defaultPrefix)
-  }
+   ```
+   defineComponent(...definition)
+     → nameCounter.registerType(type, namePrefix)
+     → idCounter.registerType(type, idPrefix)
+     → createDynamicComponent(type, idPrefix, namePrefix, ...)
 
-  // Rest of component registration...
-}
-```
-
-### Dynamic Component Type Propagation
-
-When elements are created dynamically via `createDynamicComponent`, the type information flows through:
-
-```typescript
-// create-dynamic-component.ts (framework code)
-class DynamicElementComponent extends Element {
-  private _idType!: string
-  private _nameType!: string
-
-  constructor(nameCounter, idCounter, data, sceneTreeRegistry) {
-    super(nameCounter, idCounter, data, sceneTreeRegistry)
-
-    // Set type BEFORE _init() (parent may call create() which uses it)
-    this._idType = data.type // e.g., "OVAL"
-    this._nameType = data.type // e.g., "OVAL"
-
-    this._init(data)
-  }
-
-  get idType(): string {
-    return this._idType
-  }
-  get nameType(): string {
-    return this._nameType
-  }
-}
-```
-
-### Element Creation with Correct Type
-
-Element.create() now respects the dynamic type instead of hardcoding "ELEMENT":
-
-```typescript
-// element.ts (framework code)
-create(data: any) {
-  const element = new Element(this.nameCounter, this.idCounter, {
-    type: this.data.type,  // Dynamic: "OVAL", "RECTANGLE", etc. (NOT hardcoded)
-    ...data
-  })
-
-  element.nameCounter.generateName(
-    element,
-    this.data.type || this.nameType,  // Uses element's type for naming
-    this.data.char
-  )
-
-  element.idCounter.generateId(
-    element.data.type || this.idType   // Uses element's type for ID
-  )
-}
-```
+   new Component(data)
+     → super(data, idPrefix, namePrefix)
+     → Element constructor: sets this._idType, this._nameType
+     → _init(): generates ID/Name using this._idType/this._nameType
+   ```
 
 ### Benefits
 
-- ✅ **No framework modifications** - Users define components at app level
-- ✅ **Consistent naming** - "Oval 1", "Rectangle 1", etc.
-- ✅ **Stable IDs** - "oval-1", "rectangle-1", etc.
-- ✅ **Extensibility** - New element types work automatically
-- ✅ **Framework-first** - APIs support user needs, not code changes
-
-### Example: Complete User Component
-
-```typescript
-// User code (app level)
-import { defineComponent } from '@asyra/core'
-import { Element } from '@asyra/scene-tree'
-
-defineComponent('OVAL', {
-  name: 'Oval',
-  char: 'O',
-  defaultPrefix: 'oval'
-  // Auto-registers: nameCounter('O', 'oval'), idCounter('oval')
-})
-
-export class Oval extends Element {
-  createPixiObject(options) {
-    const graphics = new PIXI.Graphics()
-    // ... oval drawing logic
-    return graphics
-  }
-}
-```
-
-Results:
-
-- Element displays as: "Oval 1", "Oval 2", etc.
-- Element ID: "oval-1", "oval-2", etc.
-- No framework code modified for this feature
+- ✅ No framework code modifications for app-level components
+- ✅ Consistent naming: "Oval 1", "Star 1", etc.
+- ✅ Stable IDs: "oval-1", "star-1", etc.
+- ✅ Extensible: new component types work automatically
+- ✅ Type-safe: constructor signatures maintain type information

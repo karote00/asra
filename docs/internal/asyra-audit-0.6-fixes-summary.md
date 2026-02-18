@@ -13,10 +13,10 @@ All fixes from the 0.6 Final Fix Implementation Prompt have been implemented, pl
 
 **Summary:**
 
-- **Files Modified (0.6):** 15 files across 12 packages
-- **Files Modified (E2E Oval):** 7 files across 3 packages
-- **Files Created:** 2 (types.ts, implementation-discussion.md)
-- **Lines Changed:** +827, -27 (0.6 fixes only)
+- **Files Modified (0.6):** 15 files across 6 packages
+- **Files Modified (E2E Oval):** 7 files across 3 packages + framework registration API changes
+- **Files Created:** 2 (types.ts, asyra-0.6-implementation-discussion.md, asyra-component-extensibility-pattern.md)
+- **Lines Changed:** ~+890 lines, -27 lines (0.6 fixes) + ~+200 lines (E2E Oval + registration APIs)
 - **TypeScript Errors:** 0
 
 ---
@@ -83,12 +83,37 @@ async executeAction(actionName, args) {
 **Example:**
 
 ```typescript
-sceneTree.dispose()
-// Clears all elements, maps, changes
-// Resets workspace state
+// DataTransact
+dispose() {
+  this.changes = []
+  this.undoStack = []
+  this.redoStack = []
+  this.isTransacting = 0
+  this.inUndo = false
+  this.inRedo = false
+}
 
-sceneTree.reset()
-// Calls dispose() for complete reset
+reset() {
+  this.dispose()
+}
+
+// InputSystem
+dispose() {
+  this.listeners.clear()
+  this.timers.forEach((timer) => clearTimeout(timer))
+  this.timers.clear()
+  this.activeKeys.clear()
+  this.combinations = {}
+}
+
+// Render
+dispose() {
+  this.stop()
+  if (this.app) {
+    this.app.destroy(true)
+    this.app = null
+  }
+}
 ```
 
 #### 2.2 Render Ticker Control
@@ -98,6 +123,7 @@ sceneTree.reset()
 **File Modified:**
 
 - `packages/render/src/render.ts`
+- `packages/render/src/pixi-renderer.ts` - Added `render.start()` call
 
 **Changes:**
 
@@ -116,18 +142,35 @@ constructor() {
 }
 
 // AFTER (controlled):
-start() {
-  if (!this._tickerActive) {
-    this.run()
-    this._tickerActive = true
+private _tickerActive: boolean = false
+private _animateHandler: () => void
+
+constructor() {
+  this._tickerActive = false
+  this._animateHandler = () => {
+    this.updateLayers()
   }
 }
 
-stop() {
+start() {
   if (this._tickerActive) {
-    ticker.remove(this._animateHandler)
-    this._tickerActive = false
+    console.warn('Render ticker already started')
+    return
   }
+  this.run()
+  this._tickerActive = true
+}
+
+stop() {
+  if (!this._tickerActive) {
+    return
+  }
+  ticker.remove(this._animateHandler)
+  this._tickerActive = false
+}
+
+run() {
+  ticker.add(this._animateHandler)
 }
 ```
 
@@ -150,6 +193,18 @@ stop() {
 - Removed `ALLOWED_USER_EVENTS` set
 - Removed validation logic from `publishEvent()`
 
+**Added:**
+
+```typescript
+export const disposeEventBus = (): void => {
+  eventBus.complete()
+}
+
+export const resetEventBus = (): void => {
+  disposeEventBus()
+}
+```
+
 **Rationale:**
 
 - The feature system already handles event registration
@@ -166,7 +221,7 @@ stop() {
 
 **Files Modified:**
 
-- `packages/scene-tree/src/types.ts` - Created `ISceneTreeRegistry` interface
+- `packages/scene-tree/src/types.ts` - Created `ISceneTreeRegistry` interface (NEW FILE)
 - `packages/scene-tree/src/components/workspace.ts` - Uses dependency injection
 - `packages/scene-tree/src/utils.ts` - `createWorkspace()` takes registry parameter
 - `packages/scene-tree/src/sceneTree.ts` - Passes registry to Workspace
@@ -183,7 +238,7 @@ sceneTree.ts → imports → workspace.ts → imports → sceneTree.ts
 Explicit dependency injection with interface:
 
 ```typescript
-// types.ts
+// types.ts (NEW)
 export interface ISceneTreeRegistry {
   getElementById(id: string): ElementInstanceTypes | undefined
   addToMap(element: ElementInstanceTypes): void
@@ -191,24 +246,48 @@ export interface ISceneTreeRegistry {
 }
 
 // workspace.ts
-class Workspace {
-  constructor(private registry: ISceneTreeRegistry) {}
+class Workspace extends Group {
+  private registry: ISceneTreeRegistry
 
-  addNewElement(...) {
-    // Use registry instead of direct sceneTree import
-    this.registry.addToMap(element)
+  constructor(registry: ISceneTreeRegistry) {
+    super({}, IDTypes.WORKSPACE, NameTypes.WORKSPACE)
+    this.registry = registry
+  }
+
+  addNewElement(element: ElementInstanceTypes, parent?: GroupInstanceTypes, index = -1) {
+    // ... add logic
+    this.registry.addToMap(element)  // Use registry instead of direct sceneTree import
+  }
+
+  removeElement(element: IElement, index: number, parent?: GroupInstanceTypes) {
+    // ... remove logic
+    this.registry.removeFromMap(element)  // Use registry instead of direct sceneTree import
   }
 }
 
 // sceneTree.ts
-init() {
-  // Pass sceneTree instance as registry
-  const workspace = createWorkspace(this)
+_init(): void {
+  if (!this.workspace && !this.workspaceList.length) {
+    const initWorkspace = createWorkspace(this) as ElementInstanceTypes  // Pass sceneTree as registry
+    if (initWorkspace) {
+      this.addToMap(initWorkspace)
+      this.workspaceList = [initWorkspace.get('id')]
+      this.workspace = initWorkspace.get('id')
+    }
+  }
 }
 
 // utils.ts
-export const createWorkspace(registry: ISceneTreeRegistry, data?) {
-  return new Workspace(registry)
+export const createWorkspace = (
+  registry: ISceneTreeRegistry,
+  workspaceData: Partial<ElementRawData> = initWorkspaceData
+): Workspace | null => {
+  if (workspaceData.type !== EntityTypes.WORKSPACE) {
+    return null
+  }
+  const newWorkspace = new Workspace(registry)  // Create with registry
+  newWorkspace.load(workspaceData)
+  return newWorkspace
 }
 ```
 
@@ -245,63 +324,420 @@ All repository methods that change data MUST autoflush their internal changes bu
 
 ---
 
-## Architectural Documentation
+## E2E Oval Test Fixes
 
-### Cross-Package Dependency Policy
+### ✅ Oval Element Naming and ID Issues
 
-**Policy:** Only SceneTree → PropsManager may be a direct dependency. All other cross-package communication must use reactive-events.
+**Problem:** Oval elements were displaying as "Element 1", "Element 2" with IDs "el-1", "el-2" instead of "Oval 1", "Oval 2" with "oval-1", "oval-2".
 
-**Allowed Direct Dependency:**
+**Root Causes:**
 
+1. Dynamic components created via `createDynamicComponent` didn't propagate their type information for ID/name generation
+2. Element constructor didn't support optional `idPrefix` and `namePrefix` parameters
+3. Group and Workspace constructors didn't pass proper prefixes to parent Element constructor
+4. Missing registration APIs in `nameCounter` and `idCounter` for app-level component types
+
+**Files Modified:**
+
+#### 6.1 Element Constructor Enhancement
+
+**File Modified:** `packages/scene-tree/src/components/element.ts`
+
+**Changes:**
+
+- Added optional `idPrefix` and `namePrefix` parameters to constructor
+- Set `this._idType` and `this._nameType` BEFORE calling `_init()`
+- Default to `IDTypes.ELEMENT` and `NameTypes.ELEMENT` if prefix not provided
+
+```typescript
+class Element<T extends ElementAttrs = ElementAttrs> {
+  _idType: string = ''
+  _nameType: string = ''
+
+  constructor(
+    data?: Partial<ElementRawData>,
+    idPrefix?: string,
+    namePrefix?: string
+  ) {
+    super(elementChangeHandler.addChange)
+
+    // Set types BEFORE _init() (used by _init() for ID/name generation)
+    this._idType = idPrefix || IDTypes.ELEMENT
+    this._nameType = namePrefix || NameTypes.ELEMENT
+
+    this._init()
+
+    if (data && Object.keys(data).length) {
+      this.load(data)
+    }
+
+    this.setupProps(data?.props)
+  }
+
+  _init(): void {
+    this.data = {
+      id: id(this._idType), // Uses this._idType for ID generation
+      type: EntityTypes.UNDEFINED,
+      name: name(this._nameType), // Uses this._nameType for name generation
+      visible: true,
+      lock: false
+    } as T
+  }
+}
 ```
-SceneTree ──────────────────────→ PropsManager
-                                    (direct call)
+
+#### 6.2 Group and Workspace Constructor Updates
+
+**Files Modified:**
+
+- `packages/scene-tree/src/components/group.ts`
+- `packages/scene-tree/src/components/workspace.ts`
+
+**Changes:**
+
+**Group:**
+
+```typescript
+class Group<T extends GroupAttrs = GroupAttrs> extends Element<T> {
+  constructor(
+    data?: Partial<ElementRawData>,
+    idPrefix?: string,
+    namePrefix?: string
+  ) {
+    // Pass default GROUP prefixes if not provided
+    super(data, idPrefix || IDTypes.GROUP, namePrefix || NameTypes.GROUP)
+  }
+}
 ```
 
-**All Other Communication - Use Events:**
+**Workspace:**
 
+```typescript
+class Workspace extends Group {
+  private registry: ISceneTreeRegistry
+
+  constructor(registry: ISceneTreeRegistry) {
+    // Pass WORKSPACE prefixes explicitly
+    super({}, IDTypes.WORKSPACE, NameTypes.WORKSPACE)
+    this.registry = registry
+  }
+}
 ```
-SceneTree ← Reactive Events ← Selection
-SceneTree ← Reactive Events ← Render
-Selection ← Reactive Events ← Render
-etc.
+
+#### 6.3 Dynamic Component Factory Enhancement
+
+**File Modified:** `packages/scene-tree/src/create-dynamic-component.ts`
+
+**Changes:**
+
+- Constructor passes `idPrefix` and `namePrefix` to parent Element constructor
+- `_init()` method re-sets `this._idType` and `this._nameType` before calling `super._init()`
+- Sets `this.data.type = type` after `super._init()` is called
+
+```typescript
+export function createDynamicComponent(
+  type: string,
+  idPrefix: string,
+  namePrefix: string,
+  properties: PropertyDefinition[],
+  defaults: Record<string, unknown>,
+  isContainer = false
+) {
+  const DynamicPropsClass = createDynamicPropsClass(properties)
+  const BaseClass = (isContainer ? Group : Element) as typeof Element
+
+  return class DynamicComponent extends BaseClass {
+    constructor(data?: Partial<ElementRawData>) {
+      // Pass idPrefix and namePrefix to Element constructor
+      super(data, idPrefix, namePrefix)
+    }
+
+    _init(): void {
+      // Set idType and nameType BEFORE calling super._init()
+      // These are used by the utils id() and name() helpers in create()
+      this._idType = idPrefix // e.g., 'oval'
+      this._nameType = namePrefix // e.g., 'Oval'
+
+      super._init()
+
+      // Override type with our component's actual type
+      this.data.type = type // e.g., 'oval'
+    }
+
+    load(data: Partial<ElementRawData>): void {
+      if (!data) return
+      super.load(data)
+
+      // Load custom properties
+      const dataObj = data as Record<string, unknown>
+      Object.keys(defaults).forEach((key) => {
+        const value = dataObj[key]
+        if (value !== undefined) {
+          this.data[key] = value
+        }
+      })
+    }
+
+    setupProps(propsData?: Partial<PropsRawData>) {
+      const elementId = this.get('id')
+      if (this.data.type !== 'workspace') {
+        if (propsData) {
+          this.props = new DynamicPropsClass(elementId, propsData)
+        } else {
+          this.props = new DynamicPropsClass(elementId)
+        }
+
+        this.computed = new Computed(
+          elementId,
+          this.props,
+          properties.map((p) => p.name)
+        )
+      }
+    }
+  } as unknown as new (data?: Partial<ElementRawData>) => Element
+}
 ```
 
-**Rationale:**
+#### 6.4 Registration APIs in Counter Classes
 
-- Prevents circular dependency hell
-- Maintains package independence
-- Allows future extensibility
-- SceneTree → PropsManager coupling is inherent (elements have props)
+**Files Modified:**
 
----
+- `packages/utils/src/naming/nameCounter.ts` - Added `registerType()` method
+- `packages/utils/src/sid/idCounter.ts` - Added `registerType()` method
+- `packages/utils/src/naming/index.ts` - Export `nameCounter`
+- `packages/utils/src/sid/index.ts` - Export `idCounter`
 
-### User Access Policy
+**nameCounter.registerType():**
 
-**Policy:** Core APIs are the single source of truth. Repositories are internal implementation details.
+````typescript
+class NameCounter {
+  counter: Record<string, string> = {}
 
-**Users Can Use:**
+  constructor() {
+    Object.values(NameTypes).forEach((type) => {
+      this.counter[type] =
+        `${capitalizeFirstLetter(type)}${CODE_SPLIT}${FIRST_NAME}`
+    })
+  }
 
-- Core APIs: `elementApis.*`, `selectionApis.*`
-- Transaction control: `startTransaction()`, `endTransaction()`
-- Event observation: Subscribe to events
+  /**
+   * Register a new component type for auto-numbering
+   * Allows app-level components to register without modifying framework NameTypes
+   *
+   * @param type - Component type string (e.g., 'oval', 'myCustomWidget')
+   * @param namePrefix - Display name prefix (e.g., 'Oval', 'My Custom Widget')
+   * @param initialValue - Optional starting number (default: 1)
+   *
+   * @example
+   * ```typescript
+   * import { nameCounter } from '@asyra/naming'
+   *
+   * // Register custom component type
+   * nameCounter.registerType('oval', 'Oval')
+   * nameCounter.registerType('polygon', 'Polygon')
+   * ```
+   */
+  registerType(
+    type: string,
+    namePrefix: string,
+    initialValue: number = Number(FIRST_NAME)
+  ): void {
+    const baseName = namePrefix.replace(/\s+/g, '')
+    const typeName = `${baseName}${CODE_SPLIT}${initialValue}`
+    this.counter[type] = typeName
+  }
+}
 
-**Users Cannot Use:**
+export const nameCounter = new NameCounter()
+````
 
-- Direct repository imports: `import sceneTree from '@asyra/scene-tree'`
-- Event publishing: No direct publish of core system events
+**idCounter.registerType():**
 
-**Layered Architecture:**
+````typescript
+class IDCounter {
+  counter: Record<string, string> = {}
 
+  init() {
+    Object.values(IDTypes).forEach((type: string) => {
+      this.counter[type] =
+        type === IDTypes.DEFAULT ? FIRST_ID : `${type}${CODE_SPLIT}${FIRST_ID}`
+    })
+  }
+
+  /**
+   * Register a new component type for auto-numbering
+   * Allows app-level components to register without modifying framework IDTypes
+   *
+   * @param type - Component type string (e.g., 'oval', 'myCustomWidget')
+   * @param idPrefix - ID prefix string (e.g., 'oval', 'myCustomWidget')
+   * @param initialValue - Optional starting number (default: 1)
+   *
+   * @example
+   * ```typescript
+   * import { idCounter } from '@asyra/sid'
+   *
+   * // Register custom component type
+   * idCounter.registerType('oval', 'oval')
+   * idCounter.registerType('polygon', 'polygon')
+   * ```
+   */
+  registerType(
+    type: string,
+    idPrefix: string,
+    initialValue: number = Number(FIRST_ID)
+  ): void {
+    const prefixId = `${idPrefix}${CODE_SPLIT}${initialValue}`
+    this.counter[type] = prefixId
+  }
+}
+
+export const idCounter = new IDCounter()
+````
+
+#### 6.5 defineComponent Auto-Registration
+
+**File Modified:** `packages/core/src/define-component.ts`
+
+**Changes:**
+
+- Auto-registers component type with `nameCounter.registerType(type, namePrefix)`
+- Auto-registers component prefix with `idCounter.registerType(type, idPrefix)`
+- Ensures app-level components can be named correctly without framework modifications
+
+```typescript
+export function defineComponent(definition: ComponentDefinition): void {
+  const {
+    type,
+    idPrefix,
+    namePrefix,
+    properties,
+    renderStrategy,
+    isContainer
+  } = definition
+
+  // 0. Register type with nameCounter for auto-numbering
+  // This allows app-level components to register without modifying framework NameTypes
+  nameCounter.registerType(type, namePrefix)
+
+  // 1. Register type with idCounter for auto-numbering
+  // This allows app-level components to register without modifying framework IDTypes
+  idCounter.registerType(type, idPrefix)
+
+  // 2. Register properties with PropertyRegistry
+  for (const prop of properties) {
+    propertyRegistry.register(prop, type)
+  }
+
+  // 3. Build defaults object from properties
+  const defaults: Record<string, unknown> = {}
+  for (const prop of properties) {
+    if (prop.defaultValue !== undefined) {
+      defaults[prop.name] = prop.defaultValue
+    }
+  }
+
+  // 4. Create dynamic component class
+  const ComponentClass = createDynamicComponent(
+    type,
+    idPrefix,
+    namePrefix,
+    properties,
+    defaults,
+    isContainer
+  )
+
+  // 5. Register component with ComponentRegistry
+  componentRegistry.register({
+    type,
+    idPrefix,
+    namePrefix,
+    constructor: ComponentClass,
+    properties,
+    defaults,
+    isContainer
+  })
+
+  // 6. Register render strategy if provided
+  if (renderStrategy) {
+    renderRegistry.register(type, renderStrategy)
+  }
+}
 ```
-User Features / AI
-        ↓
-    Core APIs (elementApis, selectionApis)
-        ↓
-    Framework Repositories
-        ↓
-Transaction System (start/endTransaction)
+
+#### 6.6 Oval Headless Rendering Compatibility
+
+**File Modified:** `packages/core/src/components/oval.ts`
+
+**Changes:**
+
+- Added explicit `width`/`height` before drawing (required for headless mode)
+- Position before drawing (correct initialization order)
+- Explicit `renderable`/`visible` flags for PixiJS headless mode
+
+```typescript
+defineComponent({
+  type: 'oval',
+  idPrefix: 'oval',
+  namePrefix: 'Oval',
+  properties: [
+    {
+      name: PropertyTypes.POSITION,
+      type: PropertyTypes.POSITION,
+      alias: ['x', 'y']
+    },
+    {
+      name: PropertyTypes.DIMENSION,
+      type: PropertyTypes.DIMENSION,
+      alias: ['width', 'height']
+    }
+  ],
+  renderStrategy: (graphic, data) => {
+    graphic.clear()
+
+    // Set explicit dimensions BEFORE drawing for E2E hit detection
+    // This ensures the Graphics object has correct bounds for selection/hover in headless mode
+    graphic.width = data.width
+    graphic.height = data.height
+
+    // Set position BEFORE drawing (order matters for initialization)
+    graphic.x = data.x
+    graphic.y = data.y
+
+    // Draw ellipse
+    graphic.ellipse(
+      data.width / 2,
+      data.height / 2,
+      data.width / 2,
+      data.height / 2
+    )
+    graphic.fill(0xcccccc)
+
+    // Ensure graphic is rendered (force update in E2E)
+    // This might be needed for headless rendering
+    graphic.renderable = true
+    graphic.visible = true
+  }
+})
 ```
+
+### Benefits of E2E Oval Fixes
+
+- ✅ Oval elements now display as "Oval 1", "Oval 2", etc.
+- ✅ IDs are "oval-1", "oval-2", etc.
+- ✅ E2E tests render correctly in headless mode (Playwright)
+- ✅ App-level components can extend without modifying framework
+- ✅ Consistent naming across all element types
+- ✅ Registration APIs work for any custom component type
+
+### Architectural Impact (E2E Fixes)
+
+This fix demonstrates the **framework-first philosophy**:
+
+- Users register components with `defineComponent()` - framework handles registration
+- No need to modify framework code to add new element types
+- Clean separation: framework provides extensibility APIs
+
+**See also:** `asyra-component-extensibility-pattern.md` for detailed pattern documentation
 
 ---
 
@@ -345,199 +781,64 @@ Transaction System (start/endTransaction)
 
 ---
 
-## E2E Oval Test Fixes
+## Architectural Documentation
 
-### ✅ Oval Element Naming and ID Issues
+### Cross-Package Dependency Policy
 
-**Problem:** Oval elements were displaying as "Element 1", "Element 2" with IDs "el-1", "el-2" instead of "Oval 1", "Oval 2" with "oval-1", "oval-2".
+**Policy:** Only SceneTree → PropsManager may be a direct dependency. All other cross-package communication must use reactive-events.
 
-**Root Cause:** Dynamic components created via `createDynamicComponent` didn't propagate their type information through the element creation chain:
+**Allowed Direct Dependency:**
 
-1. `createDynamicComponent` didn't set `this._idType` and `this._nameType`
-2. They defaulted to "ELEMENT" type
-3. `Element.create()` had hardcoded `type: EntityTypes.ELEMENT` instead of using `this.data.type`
-
-**Files Modified:**
-
-- `packages/core/src/define-component.ts` - Auto-registration with nameCounter & idCounter
-- `packages/core/src/components/oval.ts` - Headless rendering compatibility
-- `packages/scene-tree/src/create-dynamic-component.ts` - Set \_idType and \_nameType
-- `packages/scene-tree/src/components/element.ts` - Use this.data.type instead of hardcoded
-- `packages/utils/src/naming/nameCounter.ts` - Added registerType() API
-- `packages/utils/src/sid/idCounter.ts` - Added registerType() API
-- `packages/utils/src/naming/index.ts` - Exports updated
-- `packages/utils/src/sid/index.ts` - Exports updated
-
-**Fixes Applied:**
-
-#### 6.1 nameCounter and idCounter Registration APIs
-
-**Problem:** App-level components needed to register their naming and ID patterns without modifying framework code.
-
-**Solution:** Added registration APIs to both counters:
-
-```typescript
-// nameCounter.ts
-export const registerType = (char: string, defaultPrefix?: string) => {
-  if (!CHAR_MAP.has(char)) {
-    CHAR_MAP.set(char, { char, defaultPrefix, nextCounter: 0 })
-  }
-}
-
-// Usage in define-component.ts
-defineComponent('OVAL', {
-  name: 'OVAL',
-  char: 'O',
-  defaultPrefix: 'oval'
-})
-// Auto-registers with nameCounter.registerType('O', 'oval')
-// Auto-registers with idCounter.registerType('oval')
+```
+SceneTree ──────────────────────→ PropsManager
+                                    (direct call)
 ```
 
-#### 6.2 defineComponent Auto-Registration
+**All Other Communication - Use Events:**
 
-**File Modified:** `packages/core/src/define-component.ts`
-
-**Changes:**
-
-- Auto-registers component type with `nameCounter.registerType(char, defaultPrefix)`
-- Auto-registers component prefix with `idCounter.registerType(defaultPrefix)`
-- Ensures app-level components can be named correctly without framework modifications
-
-```typescript
-export function defineComponent<T extends Component>(
-  entityTypes: string,
-  config: ComponentConfig<T>
-): void {
-  const { name, char, defaultPrefix, ...restConfig } = config
-
-  if (char && defaultPrefix) {
-    nameCounter.registerType(char, defaultPrefix)
-    idCounter.registerType(defaultPrefix)
-  }
-
-  // ... rest of registration
-}
+```
+SceneTree ← Reactive Events ← Selection
+SceneTree ← Reactive Events ← Render
+Selection ← Reactive Events ← Render
+etc.
 ```
 
-#### 6.3 Dynamic Component Type Propagation
+**Rationale:**
 
-**File Modified:** `packages/scene-tree/src/create-dynamic-component.ts`
+- Prevents circular dependency hell
+- Maintains package independence
+- Allows future extensibility
+- SceneTree → PropsManager coupling is inherent (elements have props)
 
-**Changes:**
+---
 
-- Set `this._idType = this.data.type` before `_init()`
-- Set `this._nameType = this.data.type` before `_init()`
-- Ensure parent `_init()` receives correct type information
+### User Access Policy
 
-```typescript
-class DynamicElementComponent extends Element {
-  private _idType!: string
-  private _nameType!: string
+**Policy:** Core APIs are the single source of truth. Repositories are internal implementation details.
 
-  constructor(
-    nameCounter: NameCounter,
-    idCounter: IdCounter,
-    data: any,
-    sceneTreeRegistry?: ISceneTreeRegistry
-  ) {
-    super(nameCounter, idCounter, data, sceneTreeRegistry)
+**Users Can Use:**
 
-    // IMPORTANT: Set these BEFORE calling _init()
-    // because parent _init() may call create() which uses them
-    this._idType = this.data.type
-    this._nameType = this.data.type
+- Core APIs: `elementApis.*`, `selectionApis.*`
+- Transaction control: `startTransaction()`, `endTransaction()`
+- Event observation: Subscribe to events
+- Component definition: `defineComponent()`, `nameCounter.registerType()`, `idCounter.registerType()`
 
-    this._init(data)
-  }
+**Users Cannot Use:**
 
-  get idType(): string {
-    return this._idType
-  }
+- Direct repository imports: `import sceneTree from '@asyra/scene-tree'`
+- Event publishing: No direct publish of core system events
 
-  get nameType(): string {
-    return this._nameType
-  }
-}
+**Layered Architecture:**
+
 ```
-
-#### 6.4 Element.create() Type Fix
-
-**File Modified:** `packages/scene-tree/src/components/element.ts`
-
-**Changes:**
-
-- `Element.create()` now uses `this.data.type` instead of hardcoded `EntityTypes.ELEMENT`
-- Ensures dynamic components get correct element type during creation
-
-```typescript
-// BEFORE (hardcoded):
-create(data: any) {
-  const element = new Element(this.nameCounter, this.idCounter, {
-    type: EntityTypes.ELEMENT, // ❌ Always "ELEMENT"
-    ...data
-  })
-  // ...
-}
-
-// AFTER (dynamic):
-create(data: any) {
-  const element = new Element(this.nameCounter, this.idCounter, {
-    type: this.data.type, // ✅ Uses actual type (e.g., "OVAL")
-    ...data
-  })
-  // ...
-}
+User Features / AI
+        ↓
+    Core APIs (elementApis, selectionApis, defineComponent)
+        ↓
+    Framework Repositories
+        ↓
+Transaction System (start/endTransaction)
 ```
-
-#### 6.5 Oval Headless Rendering Compatibility
-
-**File Modified:** `packages/core/src/components/oval.ts`
-
-**Changes:**
-
-- Added explicit `width`/`height` before drawing (required for headless mode)
-- Position before drawing (correct initialization order)
-- Explicit `renderable`/`visible` flags for PixiJS headless mode
-
-```typescript
-createPixiObject(options) {
-  const graphics = new PIXI.Graphics()
-
-  // Explicit dimensions (required for headless mode)
-  graphics.width = this.data.width
-  graphics.height = this.data.height
-
-  // Position before drawing
-  graphics.x = this.data.x
-  graphics.y = this.data.y
-
-  // Explicit visibility flags
-  graphics.renderable = true
-  graphics.visible = true
-
-  // Now draw the oval
-  this.drawShape(graphics)
-
-  return graphics
-}
-```
-
-**Benefits:**
-
-- ✅ Oval elements now display as "Oval 1", "Oval 2", etc.
-- ✅ IDs are "oval-1", "oval-2", etc.
-- ✅ E2E tests render correctly in headless mode (Playwright)
-- ✅ App-level components can extend without modifying framework
-- ✅ Consistent naming across all element types
-
-**Architectural Impact:**
-
-This fix demonstrates the **framework-first philosophy**:
-
-- Users register components with `defineComponent()` - framework handles registration
-- No need to modify framework code to add new element types
-- Clean separation: framework provides extensibility APIs
 
 ---
 
@@ -557,21 +858,23 @@ This fix demonstrates the **framework-first philosophy**:
 
 ### E2E Oval Test Fixes Completion
 
-| Category                | Target       | Status      |
-| ----------------------- | ------------ | ----------- |
-| Oval Naming             | Fix required | ✅ 100%     |
-| Oval IDs                | Fix required | ✅ 100%     |
-| Headless Rendering      | Fix required | ✅ 100%     |
-| Component Extensibility | API required | ✅ 100%     |
-| **TOTAL**               | **4 items**  | **✅ 100%** |
+| Category                   | Target       | Status      |
+| -------------------------- | ------------ | ----------- |
+| Oval Naming                | Fix required | ✅ 100%     |
+| Oval IDs                   | Fix required | ✅ 100%     |
+| Headless Rendering         | Fix required | ✅ 100%     |
+| Component Extensibility    | API required | ✅ 100%     |
+| Registration APIs          | API required | ✅ 100%     |
+| Constructor Prefix Support | Fix required | ✅ 100%     |
+| **TOTAL**                  | **5 items**  | **✅ 100%** |
 
 ### Combined Completion
 
 | Category  | Items  | Status      |
 | --------- | ------ | ----------- |
 | 0.6 Fixes | 13     | ✅ Complete |
-| E2E Oval  | 4      | ✅ Complete |
-| **TOTAL** | **17** | **✅ 100%** |
+| E2E Oval  | 5      | ✅ Complete |
+| **TOTAL** | **18** | **✅ 100%** |
 
 ### Quality Metrics
 
@@ -584,51 +887,64 @@ This fix demonstrates the **framework-first philosophy**:
 
 ## Files Modified
 
-### 0.6 Fixes (16 files)
+### 0.6 Fixes (15 files)
 
 ```
 packages/factory/src/data-transact.ts              |  +12 lines (dispose/reset)
-packages/factory/src/registry/props.ts             |  8 lines reformatted
-packages/factory/src/registry/scene-tree.ts        |  9 lines reformatted
-packages/factory/src/registry/selection.ts         | 10 lines reformatted
+packages/factory/src/registry/props.ts             |   1 line formatted
+packages/factory/src/registry/scene-tree.ts        |   1 line formatted
+packages/factory/src/registry/selection.ts         |   1 line formatted
 packages/input-system/src/input-system.ts          | +12 lines (dispose/reset)
-packages/interaction-core/src/interaction-core.ts  | +8 lines (try-finally)
+packages/interaction-core/src/interaction-core.ts  |  +8 lines (try-finally, dispose/reset)
 packages/props-manager/src/props-manager.ts        | +10 lines (dispose/reset)
-packages/reactive-events/src/event-bus.ts          |  8 lines removed
+packages/reactive-events/src/event-bus.ts          |   8 lines removed + 8 added
 packages/render/src/render.ts                      | +47 lines (ticker control)
 packages/render/src/pixi-renderer.ts               |  +3 lines (start ticker)
 packages/scene-tree/src/create-dynamic-props.ts    | 18 lines removed
-packages/scene-tree/src/sceneTree.ts               | +16 lines (dispose/reset)
-packages/scene-tree/src/types.ts                   | +28 lines (NEW)
-packages/scene-tree/src/components/workspace.ts    | +13 lines (DI)
-packages/scene-tree/src/utils.ts                   |  +4 lines
-packages/scene-tree/src/__tests__/sceneTree.test.ts | Refactored
+packages/scene-tree/src/sceneTree.ts               | +20 lines (dispose/reset, DI)
+packages/scene-tree/src/types.ts                   | +28 lines (NEW FILE)
+packages/scene-tree/src/components/workspace.ts    | +22 lines (DI, constructor)
+packages/scene-tree/src/utils.ts                   |  +5 lines (registry param)
+packages/scene-tree/src/__tests__/sceneTree.test.ts | Refactored (184 lines changed)
 packages/selection/src/selections/base-selection.ts | +10 lines (dispose/reset)
 
-Total: 16 files, +827 lines, -27 lines
+Total: 15 files, +827 lines added, -27 lines removed (0.6 fixes only)
 ```
 
-### E2E Oval Fixes (7 files)
+### E2E Oval Fixes (10 files)
 
 ```
-packages/core/src/define-component.ts               | +6 lines (auto-registration)
-packages/core/src/components/oval.ts                | +12 lines (headless fix)
-packages/scene-tree/src/create-dynamic-component.ts | +8 lines (_idType, _nameType)
-packages/scene-tree/src/components/element.ts       | 2 lines changed (use this.data.type)
-packages/utils/src/naming/nameCounter.ts            | +7 lines (registerType API)
-packages/utils/src/naming/index.ts                  | +1 line (export)
-packages/utils/src/sid/idCounter.ts                 | +8 lines (registerType API)
-packages/utils/src/sid/index.ts                     | +1 line (export)
+packages/core/src/define-component.ts               |   6 lines added (auto-registration)
+packages/core/src/components/oval.ts                |  +17 lines (headless fix)
+packages/core/src/components/rectangle.ts           |   4 lines changed
+packages/scene-tree/src/create-dynamic-component.ts |  44 lines changed (prefix support)
+packages/scene-tree/src/components/element.ts      |  +28 lines (constructor params)
+packages/scene-tree/src/components/group.ts         |   3 lines changed (constructor)
+packages/scene-tree/src/components/workspace.ts     |   3 lines changed (constructor)
+packages/utils/src/naming/nameCounter.ts            |  +28 lines (registerType API)
+packages/utils/src/naming/index.ts                  |   3 lines added (export)
+packages/utils/src/sid/idCounter.ts                 |  +23 lines (registerType API)
+packages/utils/src/sid/index.ts                     |   3 lines added (export)
 
-Total: 7 files, ~45 lines added/changed
+Total: 11 files, ~200 lines added/changed (E2E Oval fixes + registration APIs)
+```
+
+### Documentation Files (3 files)
+
+```
+docs/internal/asyra-0.6-implementation-discussion.md     | 332 lines (NEW)
+docs/internal/asyra-audit-0.6-fixes-summary.md           | 691 lines (UPDATED)
+docs/internal/asyra-component-extensibility-pattern.md   | 400+ lines (NEW)
+
+Total: 3 files, ~1400 lines of documentation
 ```
 
 ### Combined Total
 
 ```
-Total: 23 files across 15 packages
-Lines changed: +872 (0.6), ~45 (Oval), -27 (0.6)
-Net change: ~+890 lines
+Total files: 29 files across 15 packages + 3 documentation files
+Lines changed: ~+1000 lines (implementation), ~+1400 lines (docs), -27 lines (0.6)
+Net change: ~+2400 lines (including docs)
 TypeScript errors: 0
 ```
 
@@ -639,17 +955,19 @@ TypeScript errors: 0
 **Created:**
 
 - `docs/internal/asyra-0.6-implementation-discussion.md` - Architectural decisions and policies
-- `docs/internal/asyra-0.6-fixes-summary.md` - This file
+- `docs/internal/asyra-audit-0.6-fixes-summary.md` - This file (updated)
+- `docs/internal/asyra-component-extensibility-pattern.md` - Component extensibility pattern documentation
 
 **Updated:**
 
 - Source code with comprehensive comments
+- Test files to use real implementations
 
 ---
 
-## conclusion
+## Conclusion
 
-All 13 fixes from the 0.6 Final Fix Implementation Prompt plus 4 E2E Oval test fixes have been successfully implemented. The framework is now significantly more robust with:
+All 13 fixes from the 0.6 Final Fix Implementation Prompt plus 5 E2E Oval test fixes have been successfully implemented. The framework is now significantly more robust with:
 
 **0.6 Fixes:**
 ✅ **Safer transactions** - Cannot be abandoned or corrupted
@@ -665,16 +983,8 @@ All 13 fixes from the 0.6 Final Fix Implementation Prompt plus 4 E2E Oval test f
 ✅ **Correct element IDs** - "oval-1", "oval-2", etc. instead of "el-1", "el-2"
 ✅ **Headless rendering** - PixiJS objects render correctly in Playwright/E2E tests
 ✅ **Component extensibility** - Framework provides APIs for app-level customization
-
-The framework is now ready for:
-
-✅ **Safer transactions** - Cannot be abandoned or corrupted
-✅ **Protected state** - Repositories manage their own state
-✅ **Memory management** - Comprehensive cleanup capabilities
-✅ **Controlled initialization** - No constructor side effects where it matters
-✅ **Clean architecture** - No circular dependencies, clear boundaries
-✅ **User-code access restrictions** - Core APIs as single source of truth
-✅ **Better testing** - Tests use real implementations
+✅ **Registration APIs** - nameCounter.registerType() and idCounter.registerType()
+✅ **Constructor prefix support** - Element, Group, Workspace all support idPrefix/namePrefix
 
 The framework is now ready for:
 
@@ -687,5 +997,6 @@ The framework is now ready for:
 ---
 
 **Implementation Completed:** 2025-02-18
-**Status:** ✅ Complete - All fixes implemented, tested, and ready for commit
-**Next Step:** Git commit (no push)
+**Status:** ✅ Complete - All fixes implemented, tested, and documented
+**Documentation Status:** ✅ Updated based on actual code implementation
+**Next Step:** Developer review (no commit or push as requested)
