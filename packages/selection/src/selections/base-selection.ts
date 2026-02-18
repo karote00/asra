@@ -54,4 +54,14 @@ export default class BaseSelection {
   cleanChanges() {
     this.changes = []
   }
+
+  dispose() {
+    this.selectedIds.clear()
+    this.prevSelectedIds.clear()
+    this.changes = []
+  }
+
+  reset() {
+    this.dispose()
+  }
 }

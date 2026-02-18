@@ -5,6 +5,7 @@ import { UNDO_CAPTURE_TIMEOUT } from './constants'
 
 export const elementSelectionChanges =
   doc.getArray<SelectionYjsChange>('selectionChanges')
+
 export const elementSelectionChangeManager = new Y.UndoManager(
   elementSelectionChanges,
   {

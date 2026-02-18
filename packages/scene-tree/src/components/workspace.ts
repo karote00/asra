@@ -7,24 +7,20 @@ import type {
 import { IDTypes, NameTypes, EntityTypes } from '@asyra/utils'
 import { isGroupEntity } from '../utils'
 import Group from './group'
-import sceneTree from '../sceneTree'
+import type { ISceneTreeRegistry } from '../types'
 
 type WorkspaceDataType = Partial<WorkspaceRawData>
 
 class Workspace extends Group {
-  constructor() {
-    super()
+  private registry: ISceneTreeRegistry
+
+  constructor(registry: ISceneTreeRegistry) {
+    super({}, IDTypes.WORKSPACE, NameTypes.WORKSPACE)
+    this.registry = registry
   }
 
   _init(): void {
-    this._idType = IDTypes.WORKSPACE
-    this._nameType = NameTypes.WORKSPACE
     super._init()
-    this.data.type = EntityTypes.WORKSPACE
-  }
-
-  create(): void {
-    super.create()
     this.data.type = EntityTypes.WORKSPACE
   }
 
@@ -37,7 +33,7 @@ class Workspace extends Group {
 
     const children = this.get('children')
     for (const childId of children) {
-      const child = sceneTree.getElementById(childId)
+      const child = this.registry.getElementById(childId)
       if (
         child &&
         isGroupEntity(child.get('type')) &&
@@ -78,7 +74,7 @@ class Workspace extends Group {
       originalChildrenList.splice(idx, 0, element.get('id'))
       this.set('children', originalChildrenList)
     }
-    sceneTree.addToMap(element)
+    this.registry.addToMap(element)
   }
 
   removeElement(element: IElement, index: number, parent?: GroupInstanceTypes) {
@@ -110,7 +106,7 @@ class Workspace extends Group {
     element.cleanup()
 
     // Remove element from Workspace
-    sceneTree.removeFromMap(element)
+    this.registry.removeFromMap(element)
   }
 }
 

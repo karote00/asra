@@ -9,6 +9,15 @@ const selectedStyle =
 const normalStyle =
   'hover:bg-gray-100 text-gray-500 dark:hover:bg-gray-800 dark:text-gray-400'
 
+/**
+ * Capitalize the first character of a string.
+ * Safely handles empty, null, or undefined input.
+ */
+const capitalizeFirst = (input?: string | null): string => {
+  if (!input) return ''
+  return input.replace(/^./u, (c) => c.toUpperCase())
+}
+
 const ToolButton = () => {
   const primaryTool = usePrimaryTool()
   const selectToolStyle =
@@ -49,7 +58,7 @@ const ToolButton = () => {
         data-testid="tool-select"
         data-active={primaryTool === PrimaryToolType.SELECT}
       >
-        <Icon name="Select" />
+        <Icon name={capitalizeFirst(PrimaryToolType.SELECT)} />
       </div>
       <div
         className={`flex align-middle ${rectangleToolStyle}`}
@@ -57,7 +66,7 @@ const ToolButton = () => {
         data-testid="tool-rectangle"
         data-active={primaryTool === PrimaryToolType.RECTANGLE}
       >
-        <Icon name="Rectangle" />
+        <Icon name={capitalizeFirst(PrimaryToolType.RECTANGLE)} />
       </div>
       <div
         className={`flex align-middle ${ovalToolStyle}`}
@@ -65,7 +74,7 @@ const ToolButton = () => {
         data-testid="tool-oval"
         data-active={primaryTool === PrimaryToolType.OVAL}
       >
-        <Icon name="Oval" />
+        <Icon name={capitalizeFirst(PrimaryToolType.OVAL)} />
       </div>
     </div>
   )

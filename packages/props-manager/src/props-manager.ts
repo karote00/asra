@@ -155,6 +155,16 @@ class PropsManager {
     })
     this.cleanChanges()
   }
+
+  dispose() {
+    this._components.clear()
+    this._deletedMap.clear()
+    this.changes = []
+  }
+
+  reset() {
+    this.dispose()
+  }
 }
 
 const propsManager = new PropsManager()

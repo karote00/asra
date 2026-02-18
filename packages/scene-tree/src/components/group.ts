@@ -5,35 +5,26 @@ import type {
   IGroupElement,
   ElementRawData
 } from '@asyra/utils'
-import { EntityTypes, NameTypes } from '@asyra/utils'
+import { EntityTypes, IDTypes, NameTypes } from '@asyra/utils'
 import Element from './element'
 
 type GroupDataType = Partial<GroupRawData>
 
 class Group<T extends GroupAttrs = GroupAttrs>
   extends Element<T>
-  implements IGroupElement<T>
-{
-  constructor(data?: Partial<ElementRawData>) {
-    super(data)
+  implements IGroupElement<T> {
+  constructor(data?: Partial<ElementRawData>, idPrefix?: string, namePrefix?: string) {
+    super(data, idPrefix || IDTypes.GROUP, namePrefix || NameTypes.GROUP)
   }
 
   _init(): void {
-    this._nameType ??= NameTypes.GROUP
     super._init()
-    this.data.type = EntityTypes.GROUP
     this.data.children = []
   }
 
   load(data: GroupDataType): void {
     super.load(data)
     this.data.children = (data.children as string[]) || []
-  }
-
-  create(): void {
-    super.create()
-    this.data.type = EntityTypes.GROUP
-    this.data.children = []
   }
 
   save(): GroupRawData {

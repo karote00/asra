@@ -5,6 +5,7 @@ export type IDType = string
 export const IDTypes = {
   DEFAULT: 'default',
   WORKSPACE: 'ws',
+  GROUP: 'gp',
   FRAME: 'fr',
   ELEMENT: 'el',
   PROPS: 'pp'

@@ -17,7 +17,7 @@ describe('Scene Tree Utils - Entity Type Classification', () => {
       // Demonstrates: Type safety - what happens with invalid input
       expect(isElementEntity('INVALID_TYPE' as EntityType)).toBe(false)
       // Values are not keys, so they're invalid
-      expect(isElementEntity(EntityTypes.RECTANGLE)).toBe(false) // 'rectangle' is not a key
+      expect(isElementEntity('rect')).toBe(false) // 'rectangle' is not a key
     })
   })
 
@@ -31,7 +31,7 @@ describe('Scene Tree Utils - Entity Type Classification', () => {
 
     it('should reject leaf entities that cannot contain other elements', () => {
       // Demonstrates: Which entities are leaf nodes (cannot have children)
-      expect(isGroupEntity(EntityTypes.RECTANGLE)).toBe(false)
+      expect(isGroupEntity('rect')).toBe(false)
     })
   })
 })

@@ -9,11 +9,7 @@ import {
   CreateElementData,
   DataTypes,
   GroupInstanceTypes,
-  IDTypes,
-  NameType,
-  NameTypes,
   SceneTreeRawData,
-  EntityType,
   EntityTypes,
   id,
   name
@@ -34,17 +30,15 @@ export const createSceneTreeAPIs = (
       parent?: GroupInstanceTypes,
       index?: number
     ) {
-      const elementId = data.id ?? id(IDTypes.ELEMENT)
       const elementType = data.type ?? EntityTypes.ELEMENT
-      const nameType = resolveNameType(elementType)
+      const elementId = data.id ?? id(elementType)
 
       addElement(
         {
           visible: true,
           lock: false,
           ...data,
-          id: elementId,
-          name: data.name ?? name(nameType)
+          id: elementId
         },
         index,
         parent
@@ -74,20 +68,5 @@ export const createSceneTreeAPIs = (
         changeComputedData(elementIds, key, value)
       })
     }
-  }
-}
-
-const resolveNameType = (type: EntityType): NameType => {
-  switch (type) {
-    case EntityTypes.FRAME:
-      return NameTypes.FRAME
-    case EntityTypes.GROUP:
-      return NameTypes.GROUP
-    case EntityTypes.RECTANGLE:
-      return NameTypes.RECTANGLE
-    case EntityTypes.WORKSPACE:
-      return NameTypes.WORKSPACE
-    default:
-      return NameTypes.ELEMENT
   }
 }

@@ -2,6 +2,7 @@ import { componentRegistry } from '@asyra/scene-tree'
 import { propertyRegistry, PropertyDefinition } from '@asyra/props-manager'
 import { renderRegistry, RenderStrategy } from '@asyra/render'
 import { createDynamicComponent } from '@asyra/scene-tree'
+import { nameCounter, idCounter } from '@asyra/utils'
 
 export interface ComponentDefinition {
   /**
@@ -70,7 +71,15 @@ export function defineComponent(definition: ComponentDefinition): void {
     isContainer
   } = definition
 
-  // 1. Register properties with PropertyRegistry
+  // 0. Register type with nameCounter for auto-numbering
+  // This allows app-level components to register without modifying framework NameTypes
+  nameCounter.registerType(type, namePrefix)
+
+  // 1. Register type with idCounter for auto-numbering
+  // This allows app-level components to register without modifying framework IDTypes
+  idCounter.registerType(type, idPrefix)
+
+  // 2. Register properties with PropertyRegistry
   for (const prop of properties) {
     propertyRegistry.register(prop, type)
   }

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Setter } from '../setter'
-import { EntityTypes } from '../sceneTree/enum'
 import type { ComputedAttrs } from '../sceneTree/instanceTypes'
+import { EntityTypes } from '../sceneTree'
 
 // Mock data structure representing an element with required ComputedAttrs
 interface MockElementData extends ComputedAttrs {
@@ -18,7 +18,7 @@ describe('Setter - Change Tracking System', () => {
 
       setter.data = {
         id: 'rect-1',
-        type: EntityTypes.RECTANGLE,
+        type: 'rect',
         name: 'Rectangle',
         x: 100,
         y: 200,
@@ -43,7 +43,7 @@ describe('Setter - Change Tracking System', () => {
       const setter = new Setter<MockElementData>(changeCallback)
       setter.data = {
         id: 'test',
-        type: EntityTypes.RECTANGLE,
+        type: 'rect',
         name: 'Test',
         x: 0,
         y: 0,
@@ -68,7 +68,7 @@ describe('Setter - Change Tracking System', () => {
 
       setter.data = {
         id: 'rect-1',
-        type: EntityTypes.RECTANGLE,
+        type: 'rect',
         name: 'Rectangle',
         x: 100,
         y: 200,
@@ -97,7 +97,7 @@ describe('Setter - Change Tracking System', () => {
 
       setter.data = {
         id: 'rect-1',
-        type: EntityTypes.RECTANGLE,
+        type: 'rect',
         name: 'Rectangle',
         x: 0,
         y: 0,

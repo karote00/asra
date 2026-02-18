@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { UIContext } from '../ui-context'
 import { propertyRegistry } from '../property-registry'
 import { BehaviorSubject } from 'rxjs'
-import { ComputedAttrs, MIXED_STRING, EntityTypes } from '@asyra/utils'
+import { ComputedAttrs, MIXED_STRING } from '@asyra/utils'
 
 describe('UIContext', () => {
   let uiContext: UIContext
@@ -44,13 +44,13 @@ describe('UIContext', () => {
       elements: [
         {
           id: '1',
-          type: EntityTypes.RECTANGLE,
+          type: 'rect',
           name: 'rect 1',
           x: 10
         } as ComputedAttrs,
         {
           id: '2',
-          type: EntityTypes.RECTANGLE,
+          type: 'rect',
           name: 'rect 2',
           x: 10
         } as ComputedAttrs
@@ -72,13 +72,13 @@ describe('UIContext', () => {
       elements: [
         {
           id: '1',
-          type: EntityTypes.RECTANGLE,
+          type: 'rect',
           name: 'rect 1',
           x: 10
         } as ComputedAttrs,
         {
           id: '2',
-          type: EntityTypes.RECTANGLE,
+          type: 'rect',
           name: 'rect 2',
           x: 15
         } as ComputedAttrs

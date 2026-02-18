@@ -29,43 +29,31 @@ const ElementProps: (keyof ElementAttrs)[] = ['id', 'name', 'visible', 'lock']
 
 class Element<T extends ElementAttrs = ElementAttrs>
   extends Setter<T>
-  implements IElement<T>
-{
-  _idType!: string
-  _nameType!: string
+  implements IElement<T> {
+  _idType: string = ''
+  _nameType: string = ''
 
   props!: IProps
   computed!: Computed<ComputedAttrs>
 
-  constructor(data?: Partial<ElementRawData>) {
+  constructor(data?: Partial<ElementRawData>, idPrefix?: string, namePrefix?: string) {
     super(elementChangeHandler.addChange)
+    this._idType = idPrefix || IDTypes.ELEMENT
+    this._nameType = namePrefix || NameTypes.ELEMENT
+
     this._init()
 
     if (data && Object.keys(data).length) {
       this.load(data)
-    } else {
-      this.create()
     }
 
     this.setupProps(data?.props)
   }
 
   _init(): void {
-    this._idType ??= IDTypes.ELEMENT
-    this._nameType ??= NameTypes.ELEMENT
-    this.data = {
-      id: '',
-      type: EntityTypes.UNDEFINED,
-      name: '',
-      visible: false,
-      lock: true
-    } as T
-  }
-
-  create(): void {
     this.data = {
       id: id(this._idType),
-      type: EntityTypes.ELEMENT,
+      type: EntityTypes.UNDEFINED,
       name: name(this._nameType),
       visible: true,
       lock: false

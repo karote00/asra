@@ -11,6 +11,8 @@ class Render {
   app: Application | null = null
   viewport: ViewportLayer
   selection: SelectionLayer
+  private _tickerActive: boolean = false
+  private _animateHandler: () => void
 
   constructor() {
     this.viewport = new ViewportLayer()
@@ -19,17 +21,34 @@ class Render {
       getHoverElement: () => null
     })
 
+    // Don't auto-start ticker in constructor to support controlled initialization
+    this._tickerActive = false
+    this._animateHandler = () => {
+      this.updateLayers()
+    }
+  }
+
+  start() {
+    if (this._tickerActive) {
+      console.warn('Render ticker already started')
+      return
+    }
+
     this.run()
+    this._tickerActive = true
+  }
+
+  stop() {
+    if (!this._tickerActive) {
+      return
+    }
+
+    ticker.remove(this._animateHandler)
+    this._tickerActive = false
   }
 
   run() {
-    ticker.add(() => {
-      const animate = (time: number) => {
-        this.updateLayers()
-      }
-
-      animate(performance.now())
-    })
+    ticker.add(this._animateHandler)
   }
 
   updateLayers() {
@@ -162,6 +181,20 @@ class Render {
 
   getMousePosInWorkspace(mousePos: MouseData) {
     return this.viewport.getMousePosInWorkspace(mousePos)
+  }
+
+  dispose() {
+    this.stop()
+
+    if (this.app) {
+      this.app.destroy(true)
+      this.app = null
+    }
+  }
+
+  reset() {
+    this.dispose()
+    this.app = null
   }
 }
 

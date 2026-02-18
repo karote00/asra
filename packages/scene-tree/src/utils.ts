@@ -6,6 +6,7 @@ import {
 } from '@asyra/utils'
 import Workspace from './components/workspace'
 import componentRegistry from './component-registry'
+import type { ISceneTreeRegistry } from './types'
 
 const initWorkspaceData = {
   type: EntityTypes.WORKSPACE
@@ -46,6 +47,7 @@ export const createElement = (
     // Original logic: delete elementData.type
     // We should follow that.
     delete elementData.type
+
     return new EntityClass(elementData)
   }
 
@@ -53,13 +55,14 @@ export const createElement = (
 }
 
 export const createWorkspace = (
+  registry: ISceneTreeRegistry,
   workspaceData: Partial<ElementRawData> = initWorkspaceData
 ): Workspace | null => {
   if (workspaceData.type !== EntityTypes.WORKSPACE) {
     return null
   }
 
-  const newWorkspace = new Workspace()
+  const newWorkspace = new Workspace(registry)
   newWorkspace.load(workspaceData)
   return newWorkspace
 }

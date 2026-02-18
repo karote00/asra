@@ -68,7 +68,6 @@ class IDCounter {
     const splits = currentId.split(CODE_SPLIT)
     const count = parseInt(splits[splits.length - 1])
     const next = count + 1
-
     const newId =
       type === DEFAULT_TYPE ? next.toString() : `${type}${CODE_SPLIT}${next}`
     this.update(type, newId)
@@ -92,6 +91,28 @@ class IDCounter {
     }
 
     return false
+  }
+
+  /**
+   * Register a new component type for auto-numbering
+   * Allows app-level components to register without modifying framework IDTypes
+   *
+   * @param type - Component type string (e.g., 'star', 'myCustomWidget')
+   * @param idPrefix - ID prefix string (e.g., 'star', 'myCustomWidget')
+   * @param initialValue - Optional starting number (default: 1)
+   *
+   * @example
+   * ```typescript
+   * import { idCounter } from '@asyra/sid'
+   *
+   * // Register custom component type
+   * idCounter.registerType('star', 'star')
+   * idCounter.registerType('polygon', 'polygon')
+   * ```
+   */
+  registerType(type: string, idPrefix: string, initialValue: number = Number(FIRST_ID)): void {
+    const prefixId = `${idPrefix}${CODE_SPLIT}${initialValue}`
+    this.counter[type] = prefixId
   }
 
   clear() {

@@ -25,7 +25,7 @@ class SceneTree {
 
   _init(): void {
     if (!this.workspace && !this.workspaceList.length) {
-      const initWorkspace = createWorkspace() as ElementInstanceTypes
+      const initWorkspace = createWorkspace(this) as ElementInstanceTypes
       if (initWorkspace) {
         this.addToMap(initWorkspace)
         this.workspaceList = [initWorkspace.get('id')]
@@ -46,7 +46,7 @@ class SceneTree {
         const elementData = data.elements[elementId]
         let element
         if (elementData.type === EntityTypes.WORKSPACE) {
-          element = createWorkspace(elementData)
+          element = createWorkspace(this, elementData)
         } else {
           element = createElement(elementData)
         }
@@ -189,7 +189,6 @@ class SceneTree {
     }
 
     if (newElement) {
-      // Override props after finish creating new instance
       Object.keys(propOverrides).forEach((propKey) => {
         newElement.updateComputedData(
           propKey as keyof ComputedAttrs,
@@ -199,6 +198,8 @@ class SceneTree {
       propsManager.commitChanges()
 
       workspace.addNewElement(newElement, parent, index)
+
+      this.addToMap(newElement)
 
       this.commitSceneTreeTransaction()
 
@@ -226,6 +227,7 @@ class SceneTree {
 
     this.addChangeForRemoveElement(element)
     workspace.removeElement(element, index, parent)
+    this.commitSceneTreeTransaction()
   }
 
   updateComputedData<K extends keyof ComputedAttrs>(
@@ -246,6 +248,18 @@ class SceneTree {
       updateTransaction(change.eventName, change, options)
     })
     this.cleanChanges()
+  }
+
+  dispose() {
+    this._elements.clear()
+    this._deletedMap.clear()
+    this.changes = []
+    this.workspace = ''
+    this.workspaceList = []
+  }
+
+  reset() {
+    this.dispose()
   }
 }
 

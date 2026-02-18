@@ -22,52 +22,24 @@ export function createDynamicComponent(
     ElementAttrs & Record<string, unknown>
   > {
     constructor(data?: Partial<ElementRawData>) {
-      super(data)
+      super(data, idPrefix, namePrefix)
     }
 
     _init(): void {
-      super._init() // Initialize base class first (Group sets up children)
+      // Set idType and nameType BEFORE calling super._init()
+      // These are used by the utils id() and name() helpers in create()
+      this._idType = idPrefix
+      this._nameType = namePrefix
 
-      // Override base initialization where needed
-      this.data = {
-        ...this.data,
-        id: '',
-        type,
-        name: '',
-        visible: false,
-        lock: true
-      }
-    }
+      super._init()
 
-    create(): void {
-      super.create() // Initialize base create
-
-      this.data = {
-        ...this.data,
-        id: id(idPrefix),
-        type,
-        name: name(namePrefix),
-        visible: true,
-        lock: false,
-        ...defaults
-      }
+      // Override type with our component's actual type
+      this.data.type = type
     }
 
     load(data: Partial<ElementRawData>): void {
       if (!data) return
       super.load(data) // Load base properties (including children for Group)
-
-      // Load id override if needed
-      if (data.id) {
-        this.data.id = data.id
-        loadId(data.id, idPrefix)
-      }
-
-      // Load name override
-      if (data.name) {
-        this.data.name = data.name
-        loadName(data.name, namePrefix)
-      }
 
       // Load added custom properties
       const dataObj = data as Record<string, unknown>

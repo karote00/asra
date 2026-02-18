@@ -99,6 +99,14 @@ class InteractionCore {
       result.handler(result.payload, result.options)
     }
   }
+
+  dispose() {
+    this._previousSession = null
+  }
+
+  reset() {
+    this.dispose()
+  }
 }
 
 export { InteractionCore }

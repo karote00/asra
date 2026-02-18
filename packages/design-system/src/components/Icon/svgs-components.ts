@@ -1,5 +1,5 @@
 import Group from './svgs/Group.svg?react'
-import Rectangle from './svgs/Rectangle.svg?react'
+import Rect from './svgs/Rect.svg?react'
 import Oval from './svgs/Oval.svg?react'
 import Visible from './svgs/Visible.svg?react'
 import Invisible from './svgs/Invisible.svg?react'
@@ -9,7 +9,7 @@ import Select from './svgs/Select.svg?react'
 
 const Icons = {
   Group,
-  Rectangle,
+  Rect,
   Oval,
   Visible,
   Invisible,

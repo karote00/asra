@@ -72,6 +72,34 @@ class NameCounter {
 
     return false
   }
+
+  /**
+   * Register a new component type for auto-numbering
+   * Allows app-level components to register without modifying framework NameTypes
+   *
+   * @param type - Component type string (e.g., 'star', 'myCustomWidget')
+   * @param namePrefix - Display name prefix (e.g., 'Star', 'My Custom Widget')
+   * @param initialValue - Optional starting number (default: 1)
+   *
+   * @example
+   * ```typescript
+   * import { nameCounter } from '@asyra/naming'
+   *
+   * // Register custom component type
+   * nameCounter.registerType('star', 'Star')
+   * nameCounter.registerType('polygon', 'Polygon')
+   * ```
+   */
+  registerType(
+    type: string,
+    namePrefix: string,
+    initialValue: number = Number(FIRST_NAME)
+  ): void {
+    const baseName = namePrefix.replace(/\s+/g, '')
+    const typeName = `${baseName}${CODE_SPLIT}${initialValue}`
+
+    this.counter[type] = typeName
+  }
 }
 
 export const nameCounter = new NameCounter()

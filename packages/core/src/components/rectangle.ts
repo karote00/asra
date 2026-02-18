@@ -1,8 +1,8 @@
 import { defineComponent } from '../define-component'
-import { EntityTypes, PropertyTypes } from '@asyra/utils'
+import { PropertyTypes } from '@asyra/utils'
 
 defineComponent({
-  type: EntityTypes.RECTANGLE,
+  type: 'rect',
   idPrefix: 'rect',
   namePrefix: 'Rectangle',
   properties: [

@@ -29,6 +29,9 @@ export class PixiJSRenderer implements IRenderer {
       container.appendChild(app.canvas)
     }
 
+    // Start the render ticker to update layers (selection boxes, etc.)
+    render.start()
+
     return {
       canvas: app.canvas,
       instance: app

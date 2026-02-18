@@ -6,7 +6,6 @@ import * as UIContextModule from '../../ui-context'
 import {
   SELECTION_TYPES,
   ComputedAttrs,
-  EntityTypes,
   ElementInstanceTypes
 } from '@asyra/utils'
 
@@ -64,7 +63,7 @@ describe('SelectionStore', () => {
         () =>
           ({
             id: 'elem-1',
-            type: EntityTypes.RECTANGLE,
+            type: 'rect',
             name: 'Element 1',
             x: 10,
             y: 20,
@@ -80,7 +79,7 @@ describe('SelectionStore', () => {
         () =>
           ({
             id: 'elem-2',
-            type: EntityTypes.RECTANGLE,
+            type: 'rect',
             name: 'Element 2',
             x: 10,
             y: 20,
@@ -111,7 +110,7 @@ describe('SelectionStore', () => {
       elements: [
         {
           id: 'elem-1',
-          type: EntityTypes.RECTANGLE,
+          type: 'rect',
           name: 'Element 1',
           x: 10,
           y: 20,
@@ -121,7 +120,7 @@ describe('SelectionStore', () => {
         },
         {
           id: 'elem-2',
-          type: EntityTypes.RECTANGLE,
+          type: 'rect',
           name: 'Element 2',
           x: 10,
           y: 20,

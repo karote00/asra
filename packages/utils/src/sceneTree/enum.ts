@@ -7,7 +7,5 @@ export const EntityTypes = {
   WORKSPACE: 'workspace',
   FRAME: 'frame',
   GROUP: 'group',
-  ELEMENT: 'element',
-  RECTANGLE: 'rectangle',
-  OVAL: 'oval'
+  ELEMENT: 'element'
 } as const

@@ -380,6 +380,18 @@ class InputSystem {
 
     return allModifiers
   }
+
+  dispose() {
+    this.listeners.clear()
+    this.timers.forEach((timer) => clearTimeout(timer))
+    this.timers.clear()
+    this.activeKeys.clear()
+    this.combinations = {}
+  }
+
+  reset() {
+    this.dispose()
+  }
 }
 
 export { InputSystem }

@@ -73,3 +73,11 @@ export const createEventStream = <T extends AllEvent>(
 
   return eventStream
 }
+
+export const disposeEventBus = (): void => {
+  eventBus.complete()
+}
+
+export const resetEventBus = (): void => {
+  disposeEventBus()
+}

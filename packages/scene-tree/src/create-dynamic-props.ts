@@ -3,7 +3,6 @@ import type {
   PropsRawData,
   IProps
 } from '@asyra/utils'
-import { removeProperty } from '@asyra/reactive-events'
 import propsManager from '@asyra/props-manager'
 import type { PropertyDefinition } from '@asyra/props-manager'
 
@@ -98,17 +97,12 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
     }
 
     cleanup() {
-      const removedPropertyIds = properties.reduce<{ id: string }[]>(
-        (acc, prop) => {
-          const id = this.getPropId(prop.name)
-          if (id) {
-            acc.push({ id })
-          }
-          return acc
-        },
-        []
-      )
-      removeProperty(removedPropertyIds)
+      properties.forEach((prop) => {
+        const propId = this.getPropId(prop.name)
+        if (propId) {
+          propsManager.removeProperty([propId])
+        }
+      })
     }
   } as unknown as new (
     elementId: string,

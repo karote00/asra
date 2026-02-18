@@ -170,6 +170,19 @@ class DataTransact {
   isInRedo() {
     return this.inRedo
   }
+
+  dispose() {
+    this.changes = []
+    this.undoStack = []
+    this.redoStack = []
+    this.isTransacting = 0
+    this.inUndo = false
+    this.inRedo = false
+  }
+
+  reset() {
+    this.dispose()
+  }
 }
 
 export default DataTransact
