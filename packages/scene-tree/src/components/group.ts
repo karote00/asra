@@ -12,8 +12,13 @@ type GroupDataType = Partial<GroupRawData>
 
 class Group<T extends GroupAttrs = GroupAttrs>
   extends Element<T>
-  implements IGroupElement<T> {
-  constructor(data?: Partial<ElementRawData>, idPrefix?: string, namePrefix?: string) {
+  implements IGroupElement<T>
+{
+  constructor(
+    data?: Partial<ElementRawData>,
+    idPrefix?: string,
+    namePrefix?: string
+  ) {
     super(data, idPrefix || IDTypes.GROUP, namePrefix || NameTypes.GROUP)
   }
 

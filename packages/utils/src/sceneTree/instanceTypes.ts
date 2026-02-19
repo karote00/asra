@@ -57,6 +57,6 @@ export interface IGroupElement<T extends GroupAttrs = GroupAttrs>
   removeElement(element: ElementInstanceTypes, index: number): void
 }
 
-export interface ElementInstanceTypes extends IElement { }
-export interface GroupInstanceTypes extends IGroupElement { }
+export interface ElementInstanceTypes extends IElement {}
+export interface GroupInstanceTypes extends IGroupElement {}
 export type ElementInstanceDataTypes = ComputedAttrs | GroupAttrs | ElementAttrs

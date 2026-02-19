@@ -110,7 +110,11 @@ class IDCounter {
    * idCounter.registerType('polygon', 'polygon')
    * ```
    */
-  registerType(type: string, idPrefix: string, initialValue: number = Number(FIRST_ID)): void {
+  registerType(
+    type: string,
+    idPrefix: string,
+    initialValue = Number(FIRST_ID)
+  ): void {
     const prefixId = `${idPrefix}${CODE_SPLIT}${initialValue}`
     this.counter[type] = prefixId
   }

@@ -29,14 +29,19 @@ const ElementProps: (keyof ElementAttrs)[] = ['id', 'name', 'visible', 'lock']
 
 class Element<T extends ElementAttrs = ElementAttrs>
   extends Setter<T>
-  implements IElement<T> {
+  implements IElement<T>
+{
   _idType: string = ''
   _nameType: string = ''
 
   props!: IProps
   computed!: Computed<ComputedAttrs>
 
-  constructor(data?: Partial<ElementRawData>, idPrefix?: string, namePrefix?: string) {
+  constructor(
+    data?: Partial<ElementRawData>,
+    idPrefix?: string,
+    namePrefix?: string
+  ) {
     super(elementChangeHandler.addChange)
     this._idType = idPrefix || IDTypes.ELEMENT
     this._nameType = namePrefix || NameTypes.ELEMENT

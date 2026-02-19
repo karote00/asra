@@ -20,7 +20,6 @@ defineComponent({
   renderStrategy: (graphic, data) => {
     graphic.clear()
 
-
     // Set explicit dimensions BEFORE drawing for E2E hit detection
     // This ensures the Graphics object has correct bounds for selection/hover in headless mode
     graphic.width = data.width

@@ -93,7 +93,7 @@ class NameCounter {
   registerType(
     type: string,
     namePrefix: string,
-    initialValue: number = Number(FIRST_NAME)
+    initialValue = Number(FIRST_NAME)
   ): void {
     const baseName = namePrefix.replace(/\s+/g, '')
     const typeName = `${baseName}${CODE_SPLIT}${initialValue}`

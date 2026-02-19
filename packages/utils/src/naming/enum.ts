@@ -6,5 +6,5 @@ export const NameTypes = {
   WORKSPACE: 'workspace',
   FRAME: 'frame',
   GROUP: 'group',
-  ELEMENT: 'element',
+  ELEMENT: 'element'
 } as const
