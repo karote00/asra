@@ -1,4 +1,5 @@
 import './rectangle'
 import './oval'
+import './vector'
 import './frame'
 import './group'
