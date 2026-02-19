@@ -10,7 +10,7 @@ interface RegisteredProperty {
   componentTypes: Set<string>
 }
 
-class PropertyRegistry {
+class UIPropertyRegistry {
   private registry = new Map<string, RegisteredProperty>()
 
   /**
@@ -77,6 +77,6 @@ class PropertyRegistry {
   }
 }
 
-export const propertyRegistry = new PropertyRegistry()
-export default propertyRegistry
+export const uiPropertyRegistry = new UIPropertyRegistry()
+export default uiPropertyRegistry
 export type { PropertyDefinition }

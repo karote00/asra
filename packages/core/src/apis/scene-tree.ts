@@ -11,8 +11,7 @@ import {
   GroupInstanceTypes,
   SceneTreeRawData,
   EntityTypes,
-  id,
-  name
+  id
 } from '@asyra/utils'
 import { SceneTreeAPIs } from '../types'
 

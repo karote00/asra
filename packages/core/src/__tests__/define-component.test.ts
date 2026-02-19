@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { defineComponent, unregisterComponent } from '../define-component'
 import { componentRegistry } from '@asyra/scene-tree'
-import { propertyRegistry } from '@asyra/props-manager'
+import { propertyRegistry, uiPropertyRegistry } from '@asyra/props-manager'
 import { renderRegistry } from '@asyra/render'
 import { PropertyTypes } from '@asyra/utils'
 import type { RenderStrategy } from '@asyra/render'
@@ -13,8 +13,8 @@ describe('defineComponent', () => {
     // Clean up registries before each test
     componentRegistry.unregister('star')
     componentRegistry.unregister('polygon')
-    propertyRegistry.unregisterComponent('star')
-    propertyRegistry.unregisterComponent('polygon')
+    uiPropertyRegistry.unregisterComponent('star')
+    uiPropertyRegistry.unregisterComponent('polygon')
     renderRegistry.unregister('star')
     renderRegistry.unregister('polygon')
   })

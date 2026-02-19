@@ -7,7 +7,9 @@ initDataContexts()
 export { IRenderer, RenderOptions, RenderResult } from './types/renderer'
 export { PixiJSRenderer }
 export { renderRegistry } from './render-registry'
-export { RenderStrategy } from './types/render-strategy'
+export { renderLayerRegistry } from './render-layer-registry'
+export { interactionHandlerRegistry } from './interaction-handler-registry'
+export type { RenderStrategy } from './types/render-strategy'
 export {
   defaultStrategy,
   defaultRectangleStrategy
