@@ -1,4 +1,5 @@
-import type { SystemContextSnapshot } from '@asyra/utils'
+import { idCounter, type SystemContextSnapshot } from '@asyra/utils'
+import type { VectorAnchorPoint } from '@asyra/core'
 import { defineFeature } from '@asyra/feature-system'
 import {
   elementApis,
@@ -7,25 +8,20 @@ import {
 } from '../../common-apis'
 import { PrimaryToolType, InputSystemEvents } from '../../constants'
 
-interface AnchorPoint {
-  id: string
-  x: number
-  y: number
-  type: 'smooth' | 'sharp'
-  inHandle: { x: number; y: number } | null
-  outHandle: { x: number; y: number } | null
-}
-
 interface PenState {
   elementId: string
 }
 
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 9)
-}
+const ANCHOR_ID_TYPE = 'vector-anchor'
+const ANCHOR_ID_PREFIX = 'anchor'
 
-const createAnchorPoint = (point: { x: number; y: number }): AnchorPoint => ({
-  id: `anchor-${generateId()}`,
+idCounter.registerType(ANCHOR_ID_TYPE, ANCHOR_ID_PREFIX)
+
+const createAnchorPoint = (point: {
+  x: number
+  y: number
+}): VectorAnchorPoint => ({
+  id: idCounter.increase(ANCHOR_ID_TYPE),
   x: point.x,
   y: point.y,
   type: 'sharp',
@@ -83,9 +79,10 @@ export const penFeature = defineFeature('pen', 'input.drag', {
         } as PenState
       }
 
-      const elementId = elementApis.createVector([
-        createAnchorPoint(dragStartWorkspace)
-      ])
+      const elementId = elementApis.createElement({
+        type: 'vector',
+        anchorPoints: [createAnchorPoint(dragStartWorkspace)]
+      })
       if (!elementId) {
         return null
       }
@@ -110,7 +107,7 @@ export const penFeature = defineFeature('pen', 'input.drag', {
 
 export const cancelPenEditingFeature = defineFeature(
   'cancelPenEditing',
-  InputSystemEvents.INPUT_SHORTCUT_CANCEL_PEN,
+  InputSystemEvents.INPUT_SHORTCUT_CANCEL,
   {
     priority: 100,
     exclusive: true,
@@ -132,7 +129,7 @@ export const cancelPenEditingFeature = defineFeature(
 
 export const enterPathEditingFeature = defineFeature(
   'enterPathEditing',
-  InputSystemEvents.INPUT_SHORTCUT_ENTER_PATH_EDIT,
+  InputSystemEvents.INPUT_SHORTCUT_ENTER,
   {
     priority: 100,
     exclusive: true,
@@ -164,6 +161,16 @@ export const enterPathEditingByDoubleClickFeature = defineFeature(
         return null
       }
 
+      const selectedIds = selectionApis.getSelectedIds()
+      if (selectedIds.length !== 1) {
+        return null
+      }
+
+      const selectedId = selectedIds[0]
+      if (elementApis.getElementType(selectedId) !== 'vector') {
+        return null
+      }
+
       const workspacePointerPos = elementApis.getMousePosInWorkspace({
         x: snapshot.mouse.position.x,
         y: snapshot.mouse.position.y
@@ -173,18 +180,18 @@ export const enterPathEditingByDoubleClickFeature = defineFeature(
         return null
       }
 
-      const vectorId = elementApis.findVectorAtPoint(
+      const isHitSelectedVector = elementApis.isPointInsideElement(
+        selectedId,
         workspacePointerPos,
         DOUBLE_CLICK_HIT_PADDING
       )
 
-      if (!vectorId) {
+      if (!isHitSelectedVector) {
         return null
       }
 
-      selectionApis.selectElements([vectorId])
-      systemContextApis.setPathEditingVectorId(vectorId)
-      return { pathEditingVectorId: vectorId, source: 'double-click' }
+      systemContextApis.setPathEditingVectorId(selectedId)
+      return { pathEditingVectorId: selectedId, source: 'double-click' }
     }
   }
 )

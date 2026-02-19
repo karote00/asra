@@ -5,8 +5,6 @@ import { ElementInteractionHandler } from './element-interaction-handler'
 import renderRegistry from '../render-registry'
 import { defaultStrategy } from '../strategies/default-strategy'
 
-const VECTOR_POINT_LABEL = '__vector-point__'
-
 export class RenderLayer {
   private currentWorkspace: Container
   private _elements: Map<string, SceneElement> = new Map()
@@ -185,25 +183,6 @@ export class RenderLayer {
       case 'height':
         element.height = after as number
         break
-    }
-  }
-
-  syncVectorPointScale(viewportScale: number) {
-    const safeScale = Math.max(viewportScale, 0.0001)
-
-    for (const [, element] of this._elements) {
-      const typedElement = element as SceneElement & { __asyraType?: string }
-      if (typedElement.__asyraType !== 'vector') {
-        continue
-      }
-
-      element.children.forEach((child) => {
-        if (child.label !== VECTOR_POINT_LABEL) {
-          return
-        }
-
-        child.scale.set(1 / safeScale)
-      })
     }
   }
 

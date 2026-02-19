@@ -163,14 +163,14 @@ export const keyCombinations = {
       callback: updateKeyState
     }
   ],
-  [InputSystemEvents.INPUT_SHORTCUT_CANCEL_PEN]: [
+  [InputSystemEvents.INPUT_SHORTCUT_CANCEL]: [
     {
       type: InputType.KEYBOARD,
       keys: [keyMap.keys.Escape],
       callback: updateKeyState
     }
   ],
-  [InputSystemEvents.INPUT_SHORTCUT_ENTER_PATH_EDIT]: [
+  [InputSystemEvents.INPUT_SHORTCUT_ENTER]: [
     {
       type: InputType.KEYBOARD,
       keys: [keyMap.keys.Enter],

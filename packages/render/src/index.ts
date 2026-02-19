@@ -14,6 +14,12 @@ export {
   defaultStrategy,
   defaultRectangleStrategy
 } from './strategies/default-strategy'
+export {
+  createOverlayLayerRegistration,
+  type OverlayCanvas,
+  type OverlayStrokeStyle,
+  type CreateOverlayLayerOptions
+} from './layers/overlay-layer'
 
 export default render
 export { Render }

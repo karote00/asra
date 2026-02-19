@@ -113,8 +113,17 @@ class IDCounter {
   registerType(
     type: string,
     idPrefix: string,
-    initialValue = Number(FIRST_ID)
+    initialValue = Number(FIRST_ID),
+    options: { override?: boolean } = {}
   ): void {
+    if (!type || !idPrefix) {
+      return
+    }
+
+    if (this.counter[type] && options.override !== true) {
+      return
+    }
+
     const prefixId = `${idPrefix}${CODE_SPLIT}${initialValue}`
     this.counter[type] = prefixId
   }

@@ -4,25 +4,15 @@
  */
 
 import { startTransaction, endTransaction } from '@asyra/reactive-events'
-import { DEFAULT_ELEMENT_SIZE, EntityType, DataTypes } from '@asyra/utils'
+import {
+  DEFAULT_ELEMENT_SIZE,
+  type EntityType,
+  type DataTypes,
+  type PositionData
+} from '@asyra/utils'
+import type { VectorAnchorPoint, VectorPathStyle } from '@asyra/core'
 import { MOUSE_MOVEMENT_THRESHOLD } from '../constants'
 import core, { render, sceneTree } from '../contexts'
-
-interface VectorAnchorPoint {
-  id: string
-  x: number
-  y: number
-  type: 'smooth' | 'sharp'
-  inHandle: { x: number; y: number } | null
-  outHandle: { x: number; y: number } | null
-}
-
-interface VectorStyle {
-  closed: boolean
-  fill: string
-  stroke: string
-  strokeWidth: number
-}
 
 interface ElementBounds {
   x: number
@@ -31,7 +21,13 @@ interface ElementBounds {
   height: number
 }
 
-const DEFAULT_VECTOR_STYLE: VectorStyle = {
+interface CreateElementOptions {
+  type: EntityType
+  clientPosition?: PositionData
+  anchorPoints?: VectorAnchorPoint[]
+}
+
+const DEFAULT_VECTOR_STYLE: VectorPathStyle = {
   closed: false,
   fill: 'none',
   stroke: '#cccccc',
@@ -96,13 +92,13 @@ const toWorkspaceAnchorPoint = (
   }
 }
 
-const getVectorStyle = (elementId: string): VectorStyle => {
+const getVectorStyle = (elementId: string): VectorPathStyle => {
   const element = sceneTree.getElementById(elementId)
   if (!element) {
     return DEFAULT_VECTOR_STYLE
   }
 
-  const computed = element.getAllComputedData() as Partial<VectorStyle>
+  const computed = element.getAllComputedData() as Partial<VectorPathStyle>
 
   return {
     closed:
@@ -122,6 +118,23 @@ const getVectorStyle = (elementId: string): VectorStyle => {
         ? computed.strokeWidth
         : DEFAULT_VECTOR_STYLE.strokeWidth
   }
+}
+
+const createElementAtWorkspacePos = (
+  type: EntityType,
+  workspacePos: PositionData,
+  extraData: Record<string, DataTypes> = {}
+): string => {
+  startTransaction()
+  const elementId = core.createElement({
+    type,
+    x: workspacePos.x,
+    y: workspacePos.y,
+    ...extraData
+  })
+  endTransaction()
+
+  return elementId
 }
 
 export const elementApis = {
@@ -170,37 +183,6 @@ export const elementApis = {
     )
   },
 
-  findVectorAtPoint: (
-    point: { x: number; y: number },
-    padding = 0
-  ): string | null => {
-    let matchedVectorId: string | null = null
-    let matchedArea = Number.POSITIVE_INFINITY
-
-    for (const [elementId, element] of sceneTree.getAllElements()) {
-      if (element.get('type') !== 'vector') {
-        continue
-      }
-
-      if (!elementApis.isPointInsideElement(elementId, point, padding)) {
-        continue
-      }
-
-      const bounds = elementApis.getElementBounds(elementId)
-      if (!bounds) {
-        continue
-      }
-
-      const area = bounds.width * bounds.height
-      if (area <= matchedArea) {
-        matchedArea = area
-        matchedVectorId = elementId
-      }
-    }
-
-    return matchedVectorId
-  },
-
   getVectorAnchorPoints: (elementId: string): VectorAnchorPoint[] => {
     const element = sceneTree.getElementById(elementId)
     if (!element) {
@@ -222,32 +204,6 @@ export const elementApis = {
     return computed.anchorPoints.map((point) =>
       toWorkspaceAnchorPoint(point, computed)
     )
-  },
-
-  createVector: (anchorPoints: VectorAnchorPoint[]) => {
-    const bounds = calculateVectorBounds(anchorPoints)
-    const style = DEFAULT_VECTOR_STYLE
-    const normalizedAnchorPoints = normalizeVectorAnchorPoints(
-      anchorPoints,
-      bounds
-    )
-
-    startTransaction()
-    const elementId = core.createElement({
-      type: 'vector',
-      x: bounds.x,
-      y: bounds.y,
-      width: bounds.width,
-      height: bounds.height,
-      anchorPoints: normalizedAnchorPoints,
-      closed: style.closed,
-      fill: style.fill,
-      stroke: style.stroke,
-      strokeWidth: style.strokeWidth
-    })
-    endTransaction()
-
-    return elementId
   },
 
   updateVectorPath: (elementId: string, anchorPoints: VectorAnchorPoint[]) => {
@@ -282,28 +238,39 @@ export const elementApis = {
     })
   },
 
-  createElementAtClientPos: (
-    position: { x: number; y: number },
-    type: EntityType
-  ) => {
-    if (!render) {
+  createElement: (options: CreateElementOptions): string | null => {
+    if (Array.isArray(options.anchorPoints)) {
+      const bounds = calculateVectorBounds(options.anchorPoints)
+      const normalizedAnchorPoints = normalizeVectorAnchorPoints(
+        options.anchorPoints,
+        bounds
+      )
+      const workspacePos: PositionData = {
+        x: bounds.x,
+        y: bounds.y
+      }
+
+      return createElementAtWorkspacePos(options.type, workspacePos, {
+        width: bounds.width,
+        height: bounds.height,
+        anchorPoints: normalizedAnchorPoints,
+        closed: DEFAULT_VECTOR_STYLE.closed,
+        fill: DEFAULT_VECTOR_STYLE.fill,
+        stroke: DEFAULT_VECTOR_STYLE.stroke,
+        strokeWidth: DEFAULT_VECTOR_STYLE.strokeWidth
+      })
+    }
+
+    if (!render || !options.clientPosition) {
       return null
     }
 
-    const pos = render.getMousePosInWorkspace({
-      clientX: position.x,
-      clientY: position.y
+    const workspacePos = render.getMousePosInWorkspace({
+      clientX: options.clientPosition.x,
+      clientY: options.clientPosition.y
     })
 
-    startTransaction()
-    const elementId = core.createElement({
-      type,
-      x: pos.x,
-      y: pos.y
-    })
-    endTransaction()
-
-    return elementId
+    return createElementAtWorkspacePos(options.type, workspacePos)
   },
 
   resetElementSize: (elementId: string) => {

@@ -15,6 +15,7 @@ import render, { Render, IRenderer, RenderOptions } from '@asyra/render'
 import { IPersistenceProvider, SaveHook, LoadHook } from '@asyra/persistence'
 import { EventTypes, subscribeToEvents } from '@asyra/reactive-events'
 import { initDataContexts } from '@asyra/ui-context'
+import { registerBuiltinRenderLayers } from './builtins'
 
 import {
   CoreAPIs,
@@ -54,6 +55,8 @@ class Core implements CoreAPIs {
 
   initRender!: RenderAPIs['initRender']
   renderIsReady!: RenderAPIs['renderIsReady']
+  registerRenderLayer!: RenderAPIs['registerRenderLayer']
+  unregisterRenderLayer!: RenderAPIs['unregisterRenderLayer']
 
   sceneTreeInit!: SceneTreeAPIs['sceneTreeInit']
   sceneTreeLoadData!: SceneTreeAPIs['sceneTreeLoadData']
@@ -130,6 +133,12 @@ class Core implements CoreAPIs {
     if (!renderer) {
       throw new Error('No renderer configured. Call core.setRenderer() first.')
     }
+
+    registerBuiltinRenderLayers(
+      (registration, options) =>
+        this.registerRenderLayer(registration, options),
+      this.deps.render
+    )
 
     // Phase 1: Initialize renderer
     const result = await renderer.init(container, renderOptions)

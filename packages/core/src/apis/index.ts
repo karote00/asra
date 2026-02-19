@@ -1,8 +1,8 @@
 import { SceneTree } from '@asyra/scene-tree'
-import { Render } from '@asyra/render'
+import { Render, renderLayerRegistry } from '@asyra/render'
 import { Bounds, EntityTypes, ComputedAttrs } from '@asyra/utils'
 
-import { createRenderAPIs } from './render'
+import { createRenderAPIs, type RenderRequests } from './render'
 import { createSceneTreeAPIs } from './scene-tree'
 import { createElementSelectionAPIs } from './element-selection'
 import { createInputSystemAPIs } from './input-system'
@@ -64,11 +64,15 @@ export const createAPIs = (sceneTree: SceneTree, render: Render): CoreAPIs => {
     }
   }
 
-  const renderRequests = {
+  const renderRequests: RenderRequests = {
     initRender: (width: number, height: number, color: number) =>
       render.init(width, height, color),
     getViewportPosition: () => render.getViewportPosition(),
-    getViewportScale: () => render.getViewportScale()
+    getViewportScale: () => render.getViewportScale(),
+    registerRenderLayer: (registration, options) =>
+      renderLayerRegistry.register(registration, options),
+    unregisterRenderLayer: (name: string) =>
+      renderLayerRegistry.unregister(name)
   }
 
   return {

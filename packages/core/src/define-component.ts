@@ -76,11 +76,11 @@ export function defineComponent(definition: ComponentDefinition): void {
 
   // 0. Register type with nameCounter for auto-numbering
   // This allows app-level components to register without modifying framework NameTypes
-  nameCounter.registerType(type, namePrefix)
+  nameCounter.registerType(type, namePrefix, undefined, { override: true })
 
   // 1. Register type with idCounter for auto-numbering
   // This allows app-level components to register without modifying framework IDTypes
-  idCounter.registerType(type, idPrefix)
+  idCounter.registerType(type, idPrefix, undefined, { override: true })
 
   // 2. Register properties with UIPropertyRegistry
   for (const prop of properties) {

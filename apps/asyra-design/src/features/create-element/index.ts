@@ -29,7 +29,10 @@ interface CreateElementAPI {
 
 const api: CreateElementAPI = {
   createElement: (position: { x: number; y: number }, type: string) => {
-    return elementApis.createElementAtClientPos(position, type)
+    return elementApis.createElement({
+      type,
+      clientPosition: position
+    })
   },
   updateElementSizeAndPosition: (
     elementId: string,

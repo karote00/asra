@@ -3,34 +3,15 @@ import { DataTypes, MouseData } from '@asyra/utils'
 import { RenderElementData, RenderContainerData, SceneElement } from './types'
 import { ViewportLayer } from './viewport-layer'
 import { SelectionLayer } from './selection-layer'
+import renderLayerRegistry from './render-layer-registry'
 import renderSelection from './stores/selection'
-import systemContext from '@asyra/system-context'
-import sceneTree from '@asyra/scene-tree'
 
 const ticker = Ticker.shared
-const PEN_PREVIEW_COLOR = 0x9ca3af
-const PEN_PREVIEW_WIDTH = 2
-
-interface AnchorPointLike {
-  x: number
-  y: number
-}
-
-interface WorkspacePoint {
-  x: number
-  y: number
-}
-
-interface PenPreviewSegment {
-  from: WorkspacePoint
-  to: WorkspacePoint
-}
 
 class Render {
   app: Application | null = null
   viewport: ViewportLayer
   selection: SelectionLayer
-  penPreview: Graphics
   private _tickerActive: boolean = false
   private _animateHandler: () => void
 
@@ -40,9 +21,6 @@ class Render {
       getSelectedElements: this.getSelectedElements.bind(this),
       getHoverElement: () => null
     })
-    this.penPreview = new Graphics()
-    this.penPreview.label = 'PenPreviewLayer'
-    this.selection.view.addChild(this.penPreview)
 
     // Don't auto-start ticker in constructor to support controlled initialization
     this._tickerActive = false
@@ -75,8 +53,9 @@ class Render {
   }
 
   updateLayers() {
-    this.updatePenPreview()
-    this.viewport.syncVectorPointScale()
+    renderLayerRegistry.getAll().forEach((registration) => {
+      registration.update?.()
+    })
     this.selection.update()
   }
 
@@ -109,6 +88,12 @@ class Render {
 
   private _setupStageLayers() {
     this.app?.stage.addChild(this.viewport.view)
+    renderLayerRegistry.getAll().forEach((registration) => {
+      const layer = registration.layer
+      if (layer instanceof Container) {
+        this.app?.stage.addChild(layer)
+      }
+    })
     this.app?.stage.addChild(this.selection.view)
   }
 
@@ -206,110 +191,6 @@ class Render {
 
   getMousePosInWorkspace(mousePos: MouseData) {
     return this.viewport.getMousePosInWorkspace(mousePos)
-  }
-
-  private toWorkspacePoint(
-    point: AnchorPointLike,
-    computed: {
-      x?: number
-      y?: number
-      width?: number
-      height?: number
-    }
-  ): WorkspacePoint {
-    const x = typeof computed.x === 'number' ? computed.x : 0
-    const y = typeof computed.y === 'number' ? computed.y : 0
-    const width = typeof computed.width === 'number' ? computed.width : 0
-    const height = typeof computed.height === 'number' ? computed.height : 0
-    const isLikelyLocal =
-      point.x >= -1 &&
-      point.x <= width + 1 &&
-      point.y >= -1 &&
-      point.y <= height + 1
-
-    if (!isLikelyLocal) {
-      return { x: point.x, y: point.y }
-    }
-
-    return { x: point.x + x, y: point.y + y }
-  }
-
-  private getPenPreviewSegment(): PenPreviewSegment | null {
-    const snapshot = systemContext.getSystemContextSnapshot()
-    if (snapshot.primaryTool !== 'pen') {
-      return null
-    }
-
-    const pathEditingVectorId = systemContext.getManagedProperty<string | null>(
-      'pathEditingVectorId'
-    )
-    if (!pathEditingVectorId) {
-      return null
-    }
-
-    const element = sceneTree.getElementById(pathEditingVectorId)
-    if (!element || element.get('type') !== 'vector') {
-      return null
-    }
-
-    const computed = element.getAllComputedData() as {
-      x?: number
-      y?: number
-      width?: number
-      height?: number
-      anchorPoints?: AnchorPointLike[]
-    }
-    const anchorPoints = computed.anchorPoints
-    if (!Array.isArray(anchorPoints) || anchorPoints.length === 0) {
-      return null
-    }
-
-    const lastPoint = this.toWorkspacePoint(
-      anchorPoints[anchorPoints.length - 1],
-      computed
-    )
-    const mouseWorkspacePos = this.viewport.getMousePosInWorkspace({
-      clientX: snapshot.mouse.position.x,
-      clientY: snapshot.mouse.position.y
-    })
-
-    return { from: lastPoint, to: mouseWorkspacePos }
-  }
-
-  private toScreenPoint(point: WorkspacePoint): WorkspacePoint {
-    const viewportScale = this.viewport.getScale()
-    const viewportPosition = this.viewport.getPosition()
-
-    return {
-      x: point.x * viewportScale + viewportPosition.x,
-      y: point.y * viewportScale + viewportPosition.y
-    }
-  }
-
-  private updatePenPreview() {
-    this.penPreview.clear()
-
-    const segment = this.getPenPreviewSegment()
-    if (!segment) {
-      return
-    }
-
-    const from = this.toScreenPoint(segment.from)
-    const to = this.toScreenPoint(segment.to)
-
-    this.penPreview.moveTo(from.x, from.y)
-    this.penPreview.lineTo(to.x, to.y)
-    if (
-      'stroke' in this.penPreview &&
-      typeof this.penPreview.stroke === 'function'
-    ) {
-      this.penPreview.stroke({
-        width: PEN_PREVIEW_WIDTH,
-        color: PEN_PREVIEW_COLOR,
-        cap: 'round',
-        join: 'round'
-      })
-    }
   }
 
   dispose() {

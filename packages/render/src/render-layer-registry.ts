@@ -3,11 +3,15 @@ import type { RenderLayerRegistration } from './types/render-layer'
 class RenderLayerRegistry {
   private layers = new Map<string, RenderLayerRegistration>()
 
-  register(registration: RenderLayerRegistration): void {
+  register(
+    registration: RenderLayerRegistration,
+    options: { override?: boolean } = {}
+  ): void {
     const { name } = registration
+    const shouldOverride = options.override ?? true
 
-    if (this.layers.has(name)) {
-      console.warn(`Render layer "${name}" already registered. Overwriting.`)
+    if (this.layers.has(name) && !shouldOverride) {
+      return
     }
 
     this.layers.set(name, registration)

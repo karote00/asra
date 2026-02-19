@@ -1,7 +1,6 @@
 import { signal } from '@preact/signals-react'
-import * as PIXI from 'pixi.js'
 
-type AppType = PIXI.Application | null
+type AppType = { destroy: (...args: unknown[]) => void } | null
 
 export const app = signal<AppType>(null)
 export const setPixiApp = (newApp: AppType): void => {
