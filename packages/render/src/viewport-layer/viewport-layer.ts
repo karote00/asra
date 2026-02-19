@@ -66,6 +66,10 @@ export class ViewportLayer {
     this.renderLayer.updateElementProperties(element, key, after)
   }
 
+  syncVectorPointScale() {
+    this.renderLayer.syncVectorPointScale(this.getScale())
+  }
+
   /**
    * Zoom to fit all elements within the specified UI bounds
    * @param uiBounds - The DOMRect representing the visible canvas area

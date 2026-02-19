@@ -13,6 +13,7 @@ import {
   DefaultPointerEventData
 } from '@asyra/utils'
 import { InputFieldsList } from '@asyra/utils'
+import { PointerKey } from '@asyra/utils'
 import { CLICK_THRESHOLD, CLEAR_KEY_TIME } from './constants'
 import { InputEventCombo } from './event-mappings'
 import { InputSystemRegistry } from './registry'
@@ -64,6 +65,7 @@ class InputSystem {
     window.addEventListener('mousedown', this.handleMouseDown)
     window.addEventListener('mouseup', this.handleMouseUp)
     window.addEventListener('mousemove', this.handleMouseMove)
+    window.addEventListener('dblclick', this.handleDoubleClick)
     window.addEventListener('wheel', this.handleWheel, WHEEL_EVENT_OPTIONS)
     window.addEventListener('contextmenu', (e: MouseEvent) =>
       e.preventDefault()
@@ -96,6 +98,10 @@ class InputSystem {
       this.handleMouseMove as EventListener
     )
     this._previousWatchedElement.removeEventListener(
+      'dblclick',
+      this.handleDoubleClick as EventListener
+    )
+    this._previousWatchedElement.removeEventListener(
       'wheel',
       this.handleWheel as EventListener,
       WHEEL_EVENT_OPTIONS
@@ -104,6 +110,7 @@ class InputSystem {
     watchedElement.addEventListener('mousedown', this.handleMouseDown)
     watchedElement.addEventListener('mouseup', this.handleMouseUp)
     watchedElement.addEventListener('mousemove', this.handleMouseMove)
+    watchedElement.addEventListener('dblclick', this.handleDoubleClick)
     watchedElement.addEventListener('wheel', this.handleWheel, {
       passive: false
     })
@@ -250,6 +257,20 @@ class InputSystem {
         this.activeKeys.delete(key)
       }
     }
+  }
+
+  private handleDoubleClick = (event: MouseEvent) => {
+    const button = getMouseButton(event.button)
+    this.activeKeys.add(PointerKey.MOUSE_DOUBLE_CLICK)
+
+    this.checkCombinations(InputType.POINTER, {
+      ...DefaultPointerEventData,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      button
+    })
+
+    this.activeKeys.delete(PointerKey.MOUSE_DOUBLE_CLICK)
   }
 
   private getMouseEventKey(

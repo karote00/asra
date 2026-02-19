@@ -1,6 +1,7 @@
 import type {
   IProperty,
   PositionAttrs,
+  DataTypes,
   PropertyComponentInstanceDataTypes,
   PropertyComponentRawData
 } from '@asyra/utils'
@@ -39,7 +40,7 @@ abstract class BaseComponent<
     })
   }
 
-  abstract getValue(): Record<string, number>
+  abstract getValue(): Record<string, DataTypes>
   abstract getUnit(): Record<string, Unit>
 
   protected isValidKey(key: keyof T) {

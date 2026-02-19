@@ -1,4 +1,5 @@
 import {
+  DataTypes,
   DefaultPositionData,
   PositionAttrs,
   PositionComponentRawData,
@@ -37,7 +38,7 @@ class PositionComponent extends BaseComponent<PositionAttrs> {
     this.data.yUnit = data.yUnit
   }
 
-  getValue(): Record<string, number> {
+  getValue(): Record<string, DataTypes> {
     return {
       x: this.data.x,
       y: this.data.y

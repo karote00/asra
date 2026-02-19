@@ -36,4 +36,7 @@ export const registerSystemProperties = () => {
     defaultValue: PrimaryToolType.SELECT,
     source$: primaryToolObservable
   })
+
+  // Path editing state for vector pen workflow (not exposed to UI)
+  core.registerSystemProperty<string | null>('pathEditingVectorId', null)
 }

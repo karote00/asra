@@ -1,9 +1,11 @@
 import type { SystemContextSnapshot } from '@asyra/utils'
 import { defineFeature } from '@asyra/feature-system'
-import { startTransaction, endTransaction } from '@asyra/reactive-events'
-import { elementApis, selectionApis } from '../../common-apis'
-import { PrimaryToolType, MOUSE_MOVEMENT_THRESHOLD } from '../../constants'
-import core from '../../contexts'
+import {
+  elementApis,
+  selectionApis,
+  systemContextApis
+} from '../../common-apis'
+import { PrimaryToolType, InputSystemEvents } from '../../constants'
 
 interface AnchorPoint {
   id: string
@@ -15,72 +17,45 @@ interface AnchorPoint {
 }
 
 interface PenState {
-  elementId: string | null
-  points: { x: number; y: number }[]
-  dragStartWorkspace: { x: number; y: number } | null
-  lastPoint: { x: number; y: number } | null
-  [key: string]: unknown
-}
-
-interface PenAPI {
-  addPoint: (point: { x: number; y: number }) => void
-  finishPath: (close: boolean) => string | null
-  cancelDrawing: () => void
-  calculateBounds: (points: { x: number; y: number }[]) => {
-    x: number
-    y: number
-    width: number
-    height: number
-  }
-  generateId: () => string
-  [key: string]: unknown
+  elementId: string
 }
 
 function generateId(): string {
   return Math.random().toString(36).substring(2, 9)
 }
 
-const api: PenAPI = {
-  generateId,
+const createAnchorPoint = (point: { x: number; y: number }): AnchorPoint => ({
+  id: `anchor-${generateId()}`,
+  x: point.x,
+  y: point.y,
+  type: 'sharp',
+  inHandle: null,
+  outHandle: null
+})
 
-  addPoint: (point: { x: number; y: number }) => {
-    return // Points are managed in state
-  },
+const DOUBLE_CLICK_HIT_PADDING = 8
 
-  calculateBounds: (
-    points: { x: number; y: number }[]
-  ): { x: number; y: number; width: number; height: number } => {
-    if (points.length === 0) return { x: 0, y: 0, width: 1, height: 1 }
-
-    const xs = points.map((p) => p.x)
-    const ys = points.map((p) => p.y)
-
-    return {
-      x: Math.min(...xs),
-      y: Math.min(...ys),
-      width: Math.max(...xs) - Math.min(...xs) || 1,
-      height: Math.max(...ys) - Math.min(...ys) || 1
-    }
-  },
-
-  finishPath: (close: boolean) => {
-    return null // This is handled in the feature's onEnd
-  },
-
-  cancelDrawing: () => {
-    return
+const isPathEditingVectorSelected = (
+  selectedIds: string[],
+  pathEditingVectorId: string | null
+): pathEditingVectorId is string => {
+  if (!pathEditingVectorId || selectedIds.length !== 1) {
+    return false
   }
+
+  if (selectedIds[0] !== pathEditingVectorId) {
+    return false
+  }
+
+  return elementApis.getElementType(pathEditingVectorId) === 'vector'
 }
 
-export const penFeature = defineFeature<PenAPI, PenState>('pen', 'input.drag', {
+export const penFeature = defineFeature('pen', 'input.drag', {
   priority: 15,
   exclusive: true,
-  api,
   session: {
     onStart: (snapshot: SystemContextSnapshot) => {
-      const { primaryTool } = snapshot
-
-      if (primaryTool !== PrimaryToolType.PEN) {
+      if (snapshot.primaryTool !== PrimaryToolType.PEN) {
         return null
       }
 
@@ -93,90 +68,123 @@ export const penFeature = defineFeature<PenAPI, PenState>('pen', 'input.drag', {
         return null
       }
 
+      const selectedIds = selectionApis.getSelectedIds()
+      const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
+
+      if (isPathEditingVectorSelected(selectedIds, pathEditingVectorId)) {
+        const anchorPoints =
+          elementApis.getVectorAnchorPoints(pathEditingVectorId)
+        anchorPoints.push(createAnchorPoint(dragStartWorkspace))
+        elementApis.updateVectorPath(pathEditingVectorId, anchorPoints)
+        selectionApis.selectElements([pathEditingVectorId])
+
+        return {
+          elementId: pathEditingVectorId
+        } as PenState
+      }
+
+      const elementId = elementApis.createVector([
+        createAnchorPoint(dragStartWorkspace)
+      ])
+      if (!elementId) {
+        return null
+      }
+
+      selectionApis.selectElements([elementId])
+      systemContextApis.setPathEditingVectorId(elementId)
+
       return {
-        elementId: null,
-        points: [dragStartWorkspace],
-        dragStartWorkspace,
-        lastPoint: dragStartWorkspace
+        elementId
       }
     },
 
-    onUpdate: (snapshot: SystemContextSnapshot, state: PenState) => {
-      if (!state || !state.dragStartWorkspace) {
-        return
+    // Reserved for bezier handle editing on drag.
+    onUpdate: (_snapshot: SystemContextSnapshot, _state: PenState) => {
+      return
+    },
+    onEnd: (_snapshot: SystemContextSnapshot, _state: PenState) => {
+      return
+    }
+  }
+})
+
+export const cancelPenEditingFeature = defineFeature(
+  'cancelPenEditing',
+  InputSystemEvents.INPUT_SHORTCUT_CANCEL_PEN,
+  {
+    priority: 100,
+    exclusive: true,
+    execution: (snapshot: SystemContextSnapshot) => {
+      if (snapshot.primaryTool !== PrimaryToolType.PEN) {
+        return null
       }
 
-      if (!snapshot.mouse.dragging) {
-        return
+      const editingVectorId = systemContextApis.getPathEditingVectorId()
+      if (!editingVectorId) {
+        return null
       }
 
-      const currentWorkspacePos = elementApis.getMousePosInWorkspace({
+      systemContextApis.setPathEditingVectorId(null)
+      return { cancelled: true, elementId: editingVectorId }
+    }
+  }
+)
+
+export const enterPathEditingFeature = defineFeature(
+  'enterPathEditing',
+  InputSystemEvents.INPUT_SHORTCUT_ENTER_PATH_EDIT,
+  {
+    priority: 100,
+    exclusive: true,
+    execution: () => {
+      const selectedIds = selectionApis.getSelectedIds()
+      if (selectedIds.length !== 1) {
+        return null
+      }
+
+      const selectedId = selectedIds[0]
+      if (elementApis.getElementType(selectedId) !== 'vector') {
+        return null
+      }
+
+      systemContextApis.setPathEditingVectorId(selectedId)
+      return { pathEditingVectorId: selectedId, source: 'enter' }
+    }
+  }
+)
+
+export const enterPathEditingByDoubleClickFeature = defineFeature(
+  'enterPathEditingByDoubleClick',
+  InputSystemEvents.INPUT_DOUBLE_CLICK,
+  {
+    priority: 90,
+    exclusive: true,
+    execution: (snapshot: SystemContextSnapshot) => {
+      if (snapshot.primaryTool === PrimaryToolType.PEN) {
+        return null
+      }
+
+      const workspacePointerPos = elementApis.getMousePosInWorkspace({
         x: snapshot.mouse.position.x,
         y: snapshot.mouse.position.y
       })
 
-      if (!currentWorkspacePos) {
-        return
-      }
-
-      const distance = Math.sqrt(
-        Math.pow(currentWorkspacePos.x - state.lastPoint!.x, 2) +
-          Math.pow(currentWorkspacePos.y - state.lastPoint!.y, 2)
-      )
-
-      if (distance > MOUSE_MOVEMENT_THRESHOLD) {
-        state.points.push(currentWorkspacePos)
-        return {
-          ...state,
-          lastPoint: currentWorkspacePos
-        }
-      }
-    },
-
-    onEnd: (snapshot: SystemContextSnapshot, state: PenState) => {
-      if (!state || state.points.length === 0) {
+      if (!workspacePointerPos) {
         return null
       }
 
-      const bounds = api.calculateBounds(state.points)
+      const vectorId = elementApis.findVectorAtPoint(
+        workspacePointerPos,
+        DOUBLE_CLICK_HIT_PADDING
+      )
 
-      const anchorPoints: AnchorPoint[] = state.points.map((p) => ({
-        id: `anchor-${generateId()}`,
-        x: p.x - bounds.x,
-        y: p.y - bounds.y,
-        type: 'sharp',
-        inHandle: null,
-        outHandle: null
-      }))
-
-      const shouldClose = state.points.length > 2
-
-      const vectorData = {
-        type: 'vector' as const,
-        x: bounds.x,
-        y: bounds.y,
-        width: bounds.width,
-        height: bounds.height,
-        anchorPoints,
-        closed: shouldClose,
-        fill: 'none',
-        stroke: '#ffffff',
-        strokeWidth: 2
+      if (!vectorId) {
+        return null
       }
 
-      startTransaction()
-      const elementId = core.createElement(vectorData)
-      endTransaction()
-
-      if (elementId) {
-        selectionApis.selectElements([elementId])
-      }
-
-      return {
-        elementId,
-        closed: shouldClose,
-        pointCount: state.points.length
-      }
+      selectionApis.selectElements([vectorId])
+      systemContextApis.setPathEditingVectorId(vectorId)
+      return { pathEditingVectorId: vectorId, source: 'double-click' }
     }
   }
-})
+)

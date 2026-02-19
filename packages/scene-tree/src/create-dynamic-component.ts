@@ -1,7 +1,6 @@
 import Element from './components/element'
 import Group from './components/group'
 import type { ElementRawData, ElementAttrs, PropsRawData } from '@asyra/utils'
-import { id, loadId, name, loadName } from '@asyra/utils'
 import type { PropertyDefinition } from '@asyra/props-manager'
 import { createDynamicPropsClass } from './create-dynamic-props'
 import Computed from './components/computed'
@@ -54,6 +53,8 @@ export function createDynamicComponent(
     setupProps(propsData?: Partial<PropsRawData>) {
       const elementId = this.get('id')
       if (this.data.type !== 'workspace') {
+        this.computedPropertyNames = properties.map((p) => p.name)
+
         if (propsData) {
           this.props = new DynamicPropsClass(elementId, propsData)
         } else {

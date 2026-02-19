@@ -4,7 +4,7 @@
  * Used in: features that need to update system state which uiContext then subscribes to
  */
 
-import { systemContext } from '../contexts'
+import core, { systemContext } from '../contexts'
 
 export const systemContextApis = {
   /**
@@ -26,5 +26,25 @@ export const systemContextApis = {
    */
   updateHoveredElementId: (elementId: string | null) => {
     systemContext.updateHoveredElementId(elementId)
+  },
+
+  /**
+   * Current vector being edited by pen tool
+   */
+  getPathEditingVectorId: (): string | null => {
+    return core.getSystemProperty<string | null>('pathEditingVectorId') ?? null
+  },
+
+  setPathEditingVectorId: (elementId: string | null) => {
+    core.setSystemProperty('pathEditingVectorId', elementId)
+  },
+
+  // Backward compatibility for in-progress refactor
+  getPenEditingVectorId: (): string | null => {
+    return systemContextApis.getPathEditingVectorId()
+  },
+
+  setPenEditingVectorId: (elementId: string | null) => {
+    systemContextApis.setPathEditingVectorId(elementId)
   }
 }

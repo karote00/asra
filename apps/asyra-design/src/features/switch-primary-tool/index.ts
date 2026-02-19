@@ -1,7 +1,7 @@
 import type { SystemContextSnapshotWithDetail } from '@asyra/utils'
 import { defineFeature } from '@asyra/feature-system'
 import { systemContextApis } from '../../common-apis'
-import { InputSystemEvents } from '../../constants'
+import { InputSystemEvents, PrimaryToolType } from '../../constants'
 
 interface SwitchPrimaryToolAPI {
   switch: (tool: string) => void
@@ -11,6 +11,9 @@ interface SwitchPrimaryToolAPI {
 const api: SwitchPrimaryToolAPI = {
   switch: (tool: string) => {
     systemContextApis.switchPrimaryTool(tool)
+    if (tool !== PrimaryToolType.PEN) {
+      systemContextApis.setPathEditingVectorId(null)
+    }
   }
 }
 

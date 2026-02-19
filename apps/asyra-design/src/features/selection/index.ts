@@ -1,6 +1,10 @@
 import type { SystemContextSnapshot } from '@asyra/utils'
 import { defineFeature } from '@asyra/feature-system'
-import { selectionApis, transactionApis } from '../../common-apis'
+import {
+  selectionApis,
+  systemContextApis,
+  transactionApis
+} from '../../common-apis'
 import { PrimaryToolType } from '../../constants'
 
 interface SelectionAPI {
@@ -18,6 +22,20 @@ const api: SelectionAPI = {
   toggleSelection: (elementId: string) => {
     selectionApis.toggleSelection(elementId)
   }
+}
+
+const clearPathEditingIfSelectionChanged = () => {
+  const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
+  if (!pathEditingVectorId) {
+    return
+  }
+
+  const selectedIds = selectionApis.getSelectedIds()
+  if (selectedIds.length === 1 && selectedIds[0] === pathEditingVectorId) {
+    return
+  }
+
+  systemContextApis.setPathEditingVectorId(null)
 }
 
 export const selectionFeature = defineFeature('selection', 'input.drag', {
@@ -47,6 +65,8 @@ export const selectionFeature = defineFeature('selection', 'input.drag', {
           // Click on empty space on canvas - deselect
           selectionApis.selectElements([])
         }
+
+        clearPathEditingIfSelectionChanged()
       } finally {
         transactionApis.endTransaction()
       }

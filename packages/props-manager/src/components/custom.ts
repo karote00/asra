@@ -1,4 +1,5 @@
 import {
+  DataTypes,
   PropertyTypes,
   Unit,
   PropertyComponentInstanceDataTypes,
@@ -62,14 +63,14 @@ class CustomComponent extends BaseComponent<PropertyComponentInstanceDataTypes> 
     })
   }
 
-  getValue(): Record<string, number> {
-    const result: Record<string, number> = {}
+  getValue(): Record<string, DataTypes> {
+    const result: Record<string, DataTypes> = {}
     const dataObj = this.data as unknown as Record<string, unknown>
     Object.keys(dataObj).forEach((key) => {
       if (this.isValidKey(key)) {
         const val = dataObj[key]
-        if (typeof val === 'number') {
-          result[key] = val
+        if (val !== undefined) {
+          result[key] = val as DataTypes
         }
       }
     })

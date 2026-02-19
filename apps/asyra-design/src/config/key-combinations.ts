@@ -87,6 +87,23 @@ export const keyCombinations = {
       }
     }
   ],
+  [InputSystemEvents.INPUT_DOUBLE_CLICK]: [
+    {
+      type: InputType.POINTER,
+      keys: [PointerKey.MOUSE_DOUBLE_CLICK],
+      callback: (raw: RawInputEvent) => {
+        const { clientX, clientY, button } = raw.pointer
+        updateMouseState({
+          position: { x: clientX, y: clientY },
+          delta: { x: 0, y: 0 },
+          button,
+          down: false,
+          dragging: false
+        })
+        updateKeyState(raw)
+      }
+    }
+  ],
   [InputSystemEvents.INPUT_MOUSE_MOVE]: [
     {
       type: InputType.POINTER,
@@ -143,6 +160,20 @@ export const keyCombinations = {
       type: InputType.KEYBOARD,
       keys: [keyMap.keys.KeyP],
       detail: { primaryTool: PrimaryToolType.PEN },
+      callback: updateKeyState
+    }
+  ],
+  [InputSystemEvents.INPUT_SHORTCUT_CANCEL_PEN]: [
+    {
+      type: InputType.KEYBOARD,
+      keys: [keyMap.keys.Escape],
+      callback: updateKeyState
+    }
+  ],
+  [InputSystemEvents.INPUT_SHORTCUT_ENTER_PATH_EDIT]: [
+    {
+      type: InputType.KEYBOARD,
+      keys: [keyMap.keys.Enter],
       callback: updateKeyState
     }
   ],

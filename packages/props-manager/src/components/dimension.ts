@@ -1,4 +1,5 @@
 import {
+  DataTypes,
   Unit,
   PropertyTypes,
   DefaultDimensionData,
@@ -38,7 +39,7 @@ class DimensionComponent extends BaseComponent<DimensionAttrs> {
     this.data.heightUnit = data.heightUnit
   }
 
-  getValue(): Record<string, number> {
+  getValue(): Record<string, DataTypes> {
     return {
       width: this.data.width,
       height: this.data.height

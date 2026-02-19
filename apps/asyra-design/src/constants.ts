@@ -7,12 +7,15 @@ export const InputSystemEvents = {
   INPUT_DRAG_START: 'input.drag.start',
   INPUT_DRAG_UPDATE: 'input.drag.update',
   INPUT_DRAG_END: 'input.drag.end',
+  INPUT_DOUBLE_CLICK: 'input.double.click',
   INPUT_MOUSE_MOVE: 'input.mouse.move',
   INPUT_WHEEL_SCROLL: 'input.wheel.scroll',
   INPUT_SHORTCUT_ARROW: 'input.shortcut.arrow',
   INPUT_SHORTCUT_UNDOREDO: 'input.shortcut.undoredo',
   INPUT_SHORTCUT_ZOOM_PRESET: 'input.shortcut.zoomPreset',
   INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL: 'input.shortcut.switchPrimaryTool',
+  INPUT_SHORTCUT_ENTER_PATH_EDIT: 'input.shortcut.enterPathEdit',
+  INPUT_SHORTCUT_CANCEL_PEN: 'input.shortcut.cancelPen',
   INPUT_SHORTCUT_SELECT_ELEMENTS: 'input.shortcut.selectElements'
 } as const
 

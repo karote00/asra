@@ -33,6 +33,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
 {
   _idType: string = ''
   _nameType: string = ''
+  protected computedPropertyNames: string[] = ['position', 'dimension']
 
   props!: IProps
   computed!: Computed<ComputedAttrs>
@@ -125,10 +126,11 @@ class Element<T extends ElementAttrs = ElementAttrs>
         this.props = new Props(elementId)
       }
 
-      this.computed = new Computed(elementId, this.props, [
-        'position',
-        'dimension'
-      ])
+      this.computed = new Computed(
+        elementId,
+        this.props,
+        this.computedPropertyNames
+      )
     }
   }
 
@@ -150,7 +152,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
 
   getAllComputedData() {
     if (this.get('type') !== EntityTypes.WORKSPACE) {
-      this.computed.setup(this.props, ['position', 'dimension'])
+      this.computed.setup(this.props, this.computedPropertyNames)
       return this.computed.save()
     }
 
