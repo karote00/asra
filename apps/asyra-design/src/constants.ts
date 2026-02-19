@@ -22,7 +22,8 @@ export type InputSystemEvents =
 export const PrimaryToolType = {
   SELECT: 'select',
   RECTANGLE: 'rect',
-  OVAL: 'oval'
+  OVAL: 'oval',
+  PEN: 'pen'
 } as const
 
 export type PrimaryToolType =

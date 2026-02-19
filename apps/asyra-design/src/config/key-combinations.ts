@@ -138,6 +138,12 @@ export const keyCombinations = {
       keys: [keyMap.keys.KeyO],
       detail: { primaryTool: PrimaryToolType.OVAL },
       callback: updateKeyState
+    },
+    {
+      type: InputType.KEYBOARD,
+      keys: [keyMap.keys.KeyP],
+      detail: { primaryTool: PrimaryToolType.PEN },
+      callback: updateKeyState
     }
   ],
   [InputSystemEvents.INPUT_SHORTCUT_ARROW]: [

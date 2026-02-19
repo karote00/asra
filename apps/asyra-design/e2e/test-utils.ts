@@ -211,10 +211,11 @@ export async function getZoomLevel(page: Page): Promise<number> {
  */
 export async function getActiveTool(
   page: Page
-): Promise<'select' | 'rectangle' | 'oval' | 'unknown'> {
+): Promise<'select' | 'rectangle' | 'oval' | 'pen' | 'unknown'> {
   const selectTool = page.getByTestId('tool-select')
   const rectangleTool = page.getByTestId('tool-rectangle')
   const ovalTool = page.getByTestId('tool-oval')
+  const penTool = page.getByTestId('tool-pen')
 
   if ((await selectTool.getAttribute('data-active')) === 'true') {
     return 'select'
@@ -225,6 +226,32 @@ export async function getActiveTool(
   if ((await ovalTool.getAttribute('data-active')) === 'true') {
     return 'oval'
   }
+  if ((await penTool.getAttribute('data-active')) === 'true') {
+    return 'pen'
+  }
 
   return 'unknown'
+}
+
+/**
+ * Create a vector path with the Pen tool
+ */
+export async function createVectorPath(
+  page: Page,
+  startX = 0.3,
+  startY = 0.3,
+  width = 0.2,
+  height = 0.2
+) {
+  // Switch to Pen tool
+  await page.keyboard.press('p')
+  await page.waitForTimeout(100)
+
+  // Perform a drag to create the vector path
+  await dragOnCanvas(page, startX, startY, startX + width, startY + height, 20)
+  await page.waitForTimeout(500)
+
+  // Switch back to Select tool
+  await page.keyboard.press('v')
+  await page.waitForTimeout(100)
 }
