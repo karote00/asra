@@ -5,6 +5,7 @@ import { ViewportLayer } from './viewport-layer'
 import { SelectionLayer } from './selection-layer'
 import renderLayerRegistry from './render-layer-registry'
 import renderSelection from './stores/selection'
+import type { RenderLayerRegistration } from './types/render-layer'
 
 const ticker = Ticker.shared
 
@@ -12,6 +13,7 @@ class Render {
   app: Application | null = null
   viewport: ViewportLayer
   selection: SelectionLayer
+  private customLayerContainers: Container[] = []
   private _tickerActive: boolean = false
   private _animateHandler: () => void
 
@@ -59,6 +61,22 @@ class Render {
     this.selection.update()
   }
 
+  registerLayer(
+    registration: RenderLayerRegistration,
+    options?: { override?: boolean }
+  ) {
+    renderLayerRegistry.register(registration, options)
+    this.syncCustomLayers()
+  }
+
+  unregisterLayer(name: string) {
+    const didUnregister = renderLayerRegistry.unregister(name)
+    if (didUnregister) {
+      this.syncCustomLayers()
+    }
+    return didUnregister
+  }
+
   private createApplication() {
     const app = new Application()
 
@@ -88,13 +106,35 @@ class Render {
 
   private _setupStageLayers() {
     this.app?.stage.addChild(this.viewport.view)
-    renderLayerRegistry.getAll().forEach((registration) => {
-      const layer = registration.layer
-      if (layer instanceof Container) {
-        this.app?.stage.addChild(layer)
-      }
-    })
+    this.syncCustomLayers()
     this.app?.stage.addChild(this.selection.view)
+  }
+
+  private syncCustomLayers() {
+    if (!this.app) {
+      return
+    }
+
+    const shouldRestoreSelection = this.selection.view.parent === this.app.stage
+    if (shouldRestoreSelection) {
+      this.app.stage.removeChild(this.selection.view)
+    }
+
+    this.customLayerContainers.forEach((layer) => {
+      this.app?.stage.removeChild(layer)
+    })
+    this.customLayerContainers = renderLayerRegistry
+      .getAll()
+      .map((registration) => registration.layer)
+      .filter((layer): layer is Container => layer instanceof Container)
+
+    this.customLayerContainers.forEach((layer) => {
+      this.app?.stage.addChild(layer)
+    })
+
+    if (shouldRestoreSelection) {
+      this.app.stage.addChild(this.selection.view)
+    }
   }
 
   getSelectedElements(): SceneElement[] {
@@ -195,6 +235,7 @@ class Render {
 
   dispose() {
     this.stop()
+    this.customLayerContainers = []
 
     if (this.app) {
       this.app.destroy(true)

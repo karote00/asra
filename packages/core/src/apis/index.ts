@@ -1,5 +1,5 @@
 import { SceneTree } from '@asyra/scene-tree'
-import { Render, renderLayerRegistry } from '@asyra/render'
+import { Render } from '@asyra/render'
 import { Bounds, EntityTypes, ComputedAttrs } from '@asyra/utils'
 
 import { createRenderAPIs, type RenderRequests } from './render'
@@ -70,9 +70,8 @@ export const createAPIs = (sceneTree: SceneTree, render: Render): CoreAPIs => {
     getViewportPosition: () => render.getViewportPosition(),
     getViewportScale: () => render.getViewportScale(),
     registerRenderLayer: (registration, options) =>
-      renderLayerRegistry.register(registration, options),
-    unregisterRenderLayer: (name: string) =>
-      renderLayerRegistry.unregister(name)
+      render.registerLayer(registration, options),
+    unregisterRenderLayer: (name: string) => render.unregisterLayer(name)
   }
 
   return {
