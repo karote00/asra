@@ -1,6 +1,7 @@
 import type { SystemContextSnapshot } from '@asyra/utils'
 import { defineFeature } from '@asyra/feature-system'
 import {
+  elementApis,
   selectionApis,
   systemContextApis,
   transactionApis
@@ -51,7 +52,9 @@ export const selectionFeature = defineFeature('selection', 'input.drag', {
         return null
       }
 
-      const hoveredElementId = snapshot.target?.hoveredElementId
+      const hoveredElementId =
+        elementApis.getElementIdAtClientPos(mouse.position) ??
+        snapshot.target?.hoveredElementId
 
       transactionApis.startTransaction()
       try {

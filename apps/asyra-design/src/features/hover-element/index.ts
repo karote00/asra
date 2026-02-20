@@ -1,38 +1,23 @@
-import type { SystemContextSnapshotWithDetail } from '@asyra/utils'
+import type { SystemContextSnapshot } from '@asyra/utils'
 import { defineFeature } from '@asyra/feature-system'
-import { systemContextApis } from '../../common-apis'
+import { elementApis, systemContextApis } from '../../common-apis'
 
 export const hoverElementFeature = defineFeature(
   'hoverElement',
-  'render.pointer.hover',
+  'input.mouse.move',
   {
     priority: 0,
     exclusive: false,
-    execution: (snapshot: SystemContextSnapshotWithDetail) => {
-      const { detail } = snapshot
-      if (!detail || !detail.elementId) {
+    execution: (snapshot: SystemContextSnapshot) => {
+      const mousePos = snapshot.mouse?.position
+      if (!mousePos) {
         return null
       }
 
-      systemContextApis.updateHoveredElementId(detail.elementId as string)
+      const hoveredId = elementApis.getElementIdAtClientPos(mousePos)
+      systemContextApis.updateHoveredElementId(hoveredId)
 
-      return { hoveredId: detail.elementId }
-    }
-  }
-)
-
-export const leaveElementFeature = defineFeature(
-  'leaveElement',
-  'render.pointer.leave',
-  {
-    priority: 0,
-    exclusive: false,
-    execution: (snapshot: SystemContextSnapshotWithDetail) => {
-      const { detail } = snapshot
-      if (detail?.elementId) {
-        systemContextApis.updateHoveredElementId(null)
-      }
-      return null
+      return { hoveredId }
     }
   }
 )

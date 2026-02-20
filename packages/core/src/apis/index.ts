@@ -1,4 +1,4 @@
-import { SceneTree } from '@asyra/scene-tree'
+import { SceneTree, componentRegistry } from '@asyra/scene-tree'
 import { Render } from '@asyra/render'
 import { Bounds, EntityTypes, ComputedAttrs } from '@asyra/utils'
 
@@ -14,6 +14,17 @@ import { CoreAPIs } from '../types'
 export const createAPIs = (sceneTree: SceneTree, render: Render): CoreAPIs => {
   const sceneTreeRequests = {
     sceneTreeSaveData: () => sceneTree.save(),
+    isContainerType: (type: string) => {
+      if (
+        type === EntityTypes.WORKSPACE ||
+        type === EntityTypes.FRAME ||
+        type === EntityTypes.GROUP
+      ) {
+        return true
+      }
+
+      return componentRegistry.get(type)?.isContainer ?? false
+    },
     getAllElementsBounds: () => {
       const bounds: Bounds = {
         minX: Infinity,

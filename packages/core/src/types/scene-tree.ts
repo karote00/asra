@@ -20,6 +20,7 @@ export interface SceneTreeRawAPIs {
     data: Record<string, DataTypes>
   ) => void
   getAllElementsBounds: () => Bounds | null
+  isContainerType: (type: string) => boolean
 }
 
 export type SceneTreeAPIs = SceneTreeRawAPIs

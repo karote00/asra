@@ -6,6 +6,7 @@
 import { startTransaction, endTransaction } from '@asyra/reactive-events'
 import {
   DEFAULT_ELEMENT_SIZE,
+  EntityTypes,
   type EntityType,
   type DataTypes,
   type PositionData
@@ -138,6 +139,80 @@ const createElementAtWorkspacePos = (
 }
 
 export const elementApis = {
+  isContainerType: (type: string): boolean => {
+    return core.isContainerType(type)
+  },
+
+  getElementIdAtWorkspacePos: (workspacePos: PositionData): string | null => {
+    const workspace =
+      sceneTree.currentWorkspace ??
+      sceneTree.getElementById(sceneTree.workspace)
+    if (!workspace) {
+      return null
+    }
+
+    const orderedIds: string[] = []
+    const visit = (elementId: string) => {
+      const element = sceneTree.getElementById(elementId)
+      if (!element) {
+        return
+      }
+
+      const elementType = element.get('type') as string
+      const isContainer = elementApis.isContainerType(elementType)
+
+      if (isContainer) {
+        const elementData = (element as { data?: Record<string, unknown> }).data
+        const canReadChildren =
+          elementData && Object.prototype.hasOwnProperty.call(elementData, 'children')
+        if (canReadChildren) {
+          const children = element.get('children') as string[] | undefined
+          if (Array.isArray(children) && children.length > 0) {
+            children.forEach((childId) => visit(childId))
+          }
+        }
+
+        orderedIds.push(elementId)
+        return
+      }
+
+      orderedIds.push(elementId)
+    }
+
+    const workspaceChildren = workspace.get('children') as string[] | undefined
+    if (Array.isArray(workspaceChildren)) {
+      workspaceChildren.forEach((childId) => visit(childId))
+    }
+
+    for (let i = orderedIds.length - 1; i >= 0; i -= 1) {
+      const elementId = orderedIds[i]
+      const element = sceneTree.getElementById(elementId)
+      if (!element) {
+        continue
+      }
+
+      const type = element.get('type')
+      if (type === EntityTypes.WORKSPACE) {
+        continue
+      }
+
+      if (elementApis.isPointInsideElement(elementId, workspacePos)) {
+        return elementId
+      }
+    }
+
+    return null
+  },
+
+  getElementIdAtClientPos: (clientPos: PositionData): string | null => {
+    const workspacePos = elementApis.getMousePosInWorkspace(clientPos)
+    if (!workspacePos) {
+      return null
+    }
+
+    return elementApis.getElementIdAtWorkspacePos(workspacePos)
+  },
+
   getElementType: (elementId: string): string | undefined => {
     return sceneTree.getElementById(elementId)?.get('type')
   },

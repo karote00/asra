@@ -18,6 +18,7 @@ import { SceneTreeAPIs } from '../types'
 export interface SceneTreeRequests {
   sceneTreeSaveData: () => SceneTreeRawData
   getAllElementsBounds: () => Bounds | null
+  isContainerType: (type: string) => boolean
 }
 
 export const createSceneTreeAPIs = (
@@ -66,6 +67,9 @@ export const createSceneTreeAPIs = (
       entries.forEach(([key, value]) => {
         changeComputedData(elementIds, key, value)
       })
+    },
+    isContainerType(type: string) {
+      return sceneTreeRequests.isContainerType(type)
     }
   }
 }

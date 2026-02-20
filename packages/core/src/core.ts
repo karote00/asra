@@ -64,6 +64,7 @@ class Core implements CoreAPIs {
   createElement!: SceneTreeAPIs['createElement']
   changeComputedData!: SceneTreeAPIs['changeComputedData']
   getAllElementsBounds!: SceneTreeAPIs['getAllElementsBounds']
+  isContainerType!: SceneTreeAPIs['isContainerType']
   selectElements!: ElementSelectionActionAPIs['selectElements']
 
   initFeatureSystem!: FeatureSystemAPIs['initFeatureSystem']
