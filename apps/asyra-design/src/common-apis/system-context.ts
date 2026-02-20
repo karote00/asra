@@ -39,6 +39,14 @@ export const systemContextApis = {
     core.setSystemProperty('pathEditingVectorId', elementId)
   },
 
+  getPathEditingStartNewSubpath: (): boolean => {
+    return core.getSystemProperty<boolean>('pathEditingStartNewSubpath') ?? false
+  },
+
+  setPathEditingStartNewSubpath: (value: boolean) => {
+    core.setSystemProperty('pathEditingStartNewSubpath', value)
+  },
+
   // Backward compatibility for in-progress refactor
   getPenEditingVectorId: (): string | null => {
     return systemContextApis.getPathEditingVectorId()

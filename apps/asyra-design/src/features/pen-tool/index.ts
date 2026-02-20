@@ -17,14 +17,15 @@ const ANCHOR_ID_PREFIX = 'anchor'
 
 idCounter.registerType(ANCHOR_ID_TYPE, ANCHOR_ID_PREFIX)
 
-const createAnchorPoint = (point: {
-  x: number
-  y: number
-}): VectorAnchorPoint => ({
+const createAnchorPoint = (
+  point: { x: number; y: number },
+  options?: { isMove?: boolean }
+): VectorAnchorPoint => ({
   id: idCounter.increase(ANCHOR_ID_TYPE),
   x: point.x,
   y: point.y,
   type: 'sharp',
+  isMove: options?.isMove,
   inHandle: null,
   outHandle: null
 })
@@ -66,13 +67,22 @@ export const penFeature = defineFeature('pen', 'input.drag', {
 
       const selectedIds = selectionApis.getSelectedIds()
       const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
+      const startNewSubpath =
+        systemContextApis.getPathEditingStartNewSubpath()
 
       if (isPathEditingVectorSelected(selectedIds, pathEditingVectorId)) {
         const anchorPoints =
           elementApis.getVectorAnchorPoints(pathEditingVectorId)
-        anchorPoints.push(createAnchorPoint(dragStartWorkspace))
+        anchorPoints.push(
+          createAnchorPoint(dragStartWorkspace, {
+            isMove: startNewSubpath
+          })
+        )
         elementApis.updateVectorPath(pathEditingVectorId, anchorPoints)
         selectionApis.selectElements([pathEditingVectorId])
+        if (startNewSubpath) {
+          systemContextApis.setPathEditingStartNewSubpath(false)
+        }
 
         return {
           elementId: pathEditingVectorId
@@ -89,6 +99,7 @@ export const penFeature = defineFeature('pen', 'input.drag', {
 
       selectionApis.selectElements([elementId])
       systemContextApis.setPathEditingVectorId(elementId)
+      systemContextApis.setPathEditingStartNewSubpath(false)
 
       return {
         elementId
@@ -112,16 +123,21 @@ export const cancelPenEditingFeature = defineFeature(
     priority: 100,
     exclusive: true,
     execution: (snapshot: SystemContextSnapshot) => {
-      if (snapshot.primaryTool !== PrimaryToolType.PEN) {
-        return null
-      }
-
       const editingVectorId = systemContextApis.getPathEditingVectorId()
       if (!editingVectorId) {
         return null
       }
 
+      const startNewSubpath =
+        systemContextApis.getPathEditingStartNewSubpath()
+      if (!startNewSubpath) {
+        systemContextApis.setPathEditingStartNewSubpath(true)
+        return { splitPath: true, elementId: editingVectorId }
+      }
+
       systemContextApis.setPathEditingVectorId(null)
+      systemContextApis.setPathEditingStartNewSubpath(false)
+      systemContextApis.switchPrimaryTool(PrimaryToolType.SELECT)
       return { cancelled: true, elementId: editingVectorId }
     }
   }
@@ -145,6 +161,7 @@ export const enterPathEditingFeature = defineFeature(
       }
 
       systemContextApis.setPathEditingVectorId(selectedId)
+      systemContextApis.setPathEditingStartNewSubpath(false)
       return { pathEditingVectorId: selectedId, source: 'enter' }
     }
   }
@@ -191,6 +208,7 @@ export const enterPathEditingByDoubleClickFeature = defineFeature(
       }
 
       systemContextApis.setPathEditingVectorId(selectedId)
+      systemContextApis.setPathEditingStartNewSubpath(false)
       return { pathEditingVectorId: selectedId, source: 'double-click' }
     }
   }

@@ -39,4 +39,5 @@ export const registerSystemProperties = () => {
 
   // Path editing state for vector pen workflow (not exposed to UI)
   core.registerSystemProperty<string | null>('pathEditingVectorId', null)
+  core.registerSystemProperty<boolean>('pathEditingStartNewSubpath', false)
 }

@@ -1,4 +1,5 @@
 import { Container, Graphics } from 'pixi.js'
+import systemContext from '@asyra/system-context'
 import { getSelectionLocalBounds } from './utils'
 import { SceneElement } from '../types'
 
@@ -54,6 +55,13 @@ export class SelectionLayer {
 
     this.selectedBox.clear()
     if (selectedElements.length === 0) return
+
+    const pathEditingVectorId =
+      systemContext.getManagedProperty<string | null>('pathEditingVectorId') ??
+      null
+    if (pathEditingVectorId) {
+      return
+    }
 
     if (selectedElements.length === 1) {
       const element = selectedElements[0]

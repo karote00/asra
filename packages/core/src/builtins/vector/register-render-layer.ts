@@ -22,6 +22,7 @@ const PREVIEW_WIDTH = 2
 interface VectorAnchorPointLike extends PositionData {
   id: string
   type: 'smooth' | 'sharp'
+  isMove?: boolean
   inHandle: PositionData | null
   outHandle: PositionData | null
 }
@@ -43,7 +44,7 @@ type RegisterRenderLayer = (
 const toWorkspacePoint = (
   point: VectorAnchorPointLike,
   computed: Pick<VectorComputedData, 'x' | 'y' | 'width' | 'height'>
-): PositionData => {
+): PositionData & { isMove?: boolean } => {
   const x = typeof computed.x === 'number' ? computed.x : 0
   const y = typeof computed.y === 'number' ? computed.y : 0
   const width = typeof computed.width === 'number' ? computed.width : 0
@@ -56,29 +57,31 @@ const toWorkspacePoint = (
     point.y <= height + 1
 
   if (!isLikelyLocal) {
-    return { x: point.x, y: point.y }
+    return { x: point.x, y: point.y, isMove: point.isMove }
   }
 
   return {
     x: point.x + x,
-    y: point.y + y
+    y: point.y + y,
+    isMove: point.isMove
   }
 }
 
 const toScreenPoint = (
-  point: PositionData,
+  point: PositionData & { isMove?: boolean },
   viewportPosition: PositionData,
   viewportScale: number
-): PositionData => {
+): PositionData & { isMove?: boolean } => {
   return {
     x: point.x * viewportScale + viewportPosition.x,
-    y: point.y * viewportScale + viewportPosition.y
+    y: point.y * viewportScale + viewportPosition.y,
+    isMove: point.isMove
   }
 }
 
 const getPathEditingVectorData = (): {
   closed: boolean
-  anchorPoints: PositionData[]
+  anchorPoints: Array<PositionData & { isMove?: boolean }>
 } | null => {
   const pathEditingVectorId = systemContext.getManagedProperty<string | null>(
     'pathEditingVectorId'
@@ -110,18 +113,26 @@ const getPathEditingVectorData = (): {
 
 const drawSegments = (
   canvas: OverlayCanvas,
-  points: PositionData[],
+  points: Array<PositionData & { isMove?: boolean }>,
   closed: boolean
 ) => {
   if (points.length < 2) {
     return
   }
 
+  let prev = points[0]
   for (let i = 1; i < points.length; i++) {
-    canvas.line(points[i - 1], points[i], {
+    const current = points[i]
+    if (current.isMove) {
+      prev = current
+      continue
+    }
+
+    canvas.line(prev, current, {
       width: SEGMENT_WIDTH,
       color: SEGMENT_COLOR
     })
+    prev = current
   }
 
   if (closed) {
@@ -144,10 +155,10 @@ const drawPoints = (canvas: OverlayCanvas, points: PositionData[]) => {
 const drawPreview = (
   canvas: OverlayCanvas,
   lastPoint: PositionData,
-  mouseScreenPos: PositionData
+  mouseScreenPos: PositionData,
+  shouldRender: boolean
 ) => {
-  const snapshot = systemContext.getSystemContextSnapshot()
-  if (snapshot.primaryTool !== 'pen') {
+  if (!shouldRender) {
     return
   }
 
@@ -174,23 +185,33 @@ export const registerVectorEditingRenderLayer = (
 
       const viewportPosition = render.getViewportPosition()
       const viewportScale = render.getViewportScale()
-      const mouseSnapshot = systemContext.getSystemContextSnapshot().mouse
+      const snapshot = systemContext.getSystemContextSnapshot()
+      const startNewSubpath =
+        systemContext.getManagedProperty<boolean>('pathEditingStartNewSubpath') ??
+        false
+      const shouldRenderPreview =
+        snapshot.primaryTool === 'pen' && !startNewSubpath
+
       const mouseWorkspacePos = render.getMousePosInWorkspace({
-        clientX: mouseSnapshot.position.x,
-        clientY: mouseSnapshot.position.y
+        clientX: snapshot.mouse.position.x,
+        clientY: snapshot.mouse.position.y
       })
       const mouseScreenPos = toScreenPoint(
         mouseWorkspacePos,
         viewportPosition,
         viewportScale
       )
-
       const screenPoints = data.anchorPoints.map((point) =>
         toScreenPoint(point, viewportPosition, viewportScale)
       )
 
       drawSegments(canvas, screenPoints, data.closed)
-      drawPreview(canvas, screenPoints[screenPoints.length - 1], mouseScreenPos)
+      drawPreview(
+        canvas,
+        screenPoints[screenPoints.length - 1],
+        mouseScreenPos,
+        shouldRenderPreview
+      )
       drawPoints(canvas, screenPoints)
     }
   })

@@ -37,6 +37,7 @@ const clearPathEditingIfSelectionChanged = () => {
   }
 
   systemContextApis.setPathEditingVectorId(null)
+  systemContextApis.setPathEditingStartNewSubpath(false)
 }
 
 export const selectionFeature = defineFeature('selection', 'input.drag', {

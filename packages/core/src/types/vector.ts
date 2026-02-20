@@ -5,6 +5,7 @@ export type VectorAnchorType = 'smooth' | 'sharp'
 export interface VectorAnchorPoint extends PositionData {
   id: string
   type: VectorAnchorType
+  isMove?: boolean
   inHandle: PositionData | null
   outHandle: PositionData | null
 }
