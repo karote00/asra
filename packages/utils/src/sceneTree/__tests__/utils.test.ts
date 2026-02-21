@@ -7,10 +7,11 @@ describe('Scene Tree Utils - Entity Type Classification', () => {
     it('should identify valid entity type keys', () => {
       // Demonstrates: Function checks if input is a KEY in EntityTypes enum
       // This is used for validating entity type strings from external sources
-      expect(isElementEntity('RECTANGLE' as EntityType)).toBe(true)
+      expect(isElementEntity('UNDEFINED' as EntityType)).toBe(true)
       expect(isElementEntity('WORKSPACE' as EntityType)).toBe(true)
       expect(isElementEntity('FRAME' as EntityType)).toBe(true)
       expect(isElementEntity('GROUP' as EntityType)).toBe(true)
+      expect(isElementEntity('ELEMENT' as EntityType)).toBe(true)
     })
 
     it('should reject invalid entity types', () => {

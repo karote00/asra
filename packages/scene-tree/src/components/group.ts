@@ -5,7 +5,7 @@ import type {
   IGroupElement,
   ElementRawData
 } from '@asyra/utils'
-import { EntityTypes, IDTypes, NameTypes } from '@asyra/utils'
+import { IDTypes, NameTypes } from '@asyra/utils'
 import Element from './element'
 
 type GroupDataType = Partial<GroupRawData>

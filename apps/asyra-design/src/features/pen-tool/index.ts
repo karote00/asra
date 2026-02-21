@@ -9,7 +9,7 @@ import {
 } from '../../common-apis'
 import { PrimaryToolType, InputSystemEvents } from '../../constants'
 
-interface PenState {
+interface PenState extends Record<string, unknown> {
   elementId: string
 }
 
@@ -53,41 +53,80 @@ const isPathEditingVectorSelected = (
   return elementApis.getElementType(pathEditingVectorId) === 'vector'
 }
 
-export const penFeature = defineFeature('pen', 'input.drag', {
-  priority: 15,
-  exclusive: true,
-  session: {
-    onStart: (snapshot: SystemContextSnapshot) => {
-      if (snapshot.primaryTool !== PrimaryToolType.PEN) {
-        return null
-      }
+export const penFeature = defineFeature<Record<string, unknown>, PenState>(
+  'pen',
+  'input.drag',
+  {
+    priority: 15,
+    exclusive: true,
+    session: {
+      onStart: (snapshot: SystemContextSnapshot) => {
+        if (snapshot.primaryTool !== PrimaryToolType.PEN) {
+          return null
+        }
 
-      const dragStartWorkspace = elementApis.getMousePosInWorkspace({
-        x: snapshot.mouse.position.x,
-        y: snapshot.mouse.position.y
-      })
-
-      if (!dragStartWorkspace) {
-        return null
-      }
-
-      const selectedIds = selectionApis.getSelectedIds()
-      const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
-      const startNewSubpath =
-        systemContextApis.getPathEditingStartNewSubpath()
-
-      if (isPathEditingVectorSelected(selectedIds, pathEditingVectorId)) {
-        const newPoint = createAnchorPoint(dragStartWorkspace, {
-          isMove: startNewSubpath
+        const dragStartWorkspace = elementApis.getMousePosInWorkspace({
+          x: snapshot.mouse.position.x,
+          y: snapshot.mouse.position.y
         })
-        const selectedPoint = elementApis.appendVectorAnchorPoint(
-          pathEditingVectorId,
-          newPoint
+
+        if (!dragStartWorkspace) {
+          return null
+        }
+
+        const selectedIds = selectionApis.getSelectedIds()
+        const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
+        const startNewSubpath =
+          systemContextApis.getPathEditingStartNewSubpath()
+
+        if (isPathEditingVectorSelected(selectedIds, pathEditingVectorId)) {
+          const newPoint = createAnchorPoint(dragStartWorkspace, {
+            isMove: startNewSubpath
+          })
+          const selectedPoint = elementApis.appendVectorAnchorPoint(
+            pathEditingVectorId,
+            newPoint
+          )
+          selectionApis.selectElements([pathEditingVectorId])
+          if (selectedPoint) {
+            systemContextApis.setSelectedVectorPoint({
+              elementId: pathEditingVectorId,
+              pointId: selectedPoint.point.id,
+              index: selectedPoint.index,
+              x: selectedPoint.point.x,
+              y: selectedPoint.point.y
+            })
+          } else {
+            systemContextApis.setSelectedVectorPoint(null)
+          }
+          if (startNewSubpath) {
+            systemContextApis.setPathEditingStartNewSubpath(false)
+          }
+          systemContextApis.setHoveredVectorPoint(null)
+
+          return {
+            elementId: pathEditingVectorId
+          } as PenState
+        }
+
+        const firstPoint = createAnchorPoint(dragStartWorkspace)
+        const elementId = elementApis.createElement({
+          type: 'vector',
+          anchorPoints: [firstPoint]
+        })
+        if (!elementId) {
+          return null
+        }
+
+        selectionApis.selectElements([elementId])
+        systemContextApis.enterPathEditingMode(elementId)
+        const selectedPoint = elementApis.getVectorAnchorPointById(
+          elementId,
+          firstPoint.id
         )
-        selectionApis.selectElements([pathEditingVectorId])
         if (selectedPoint) {
           systemContextApis.setSelectedVectorPoint({
-            elementId: pathEditingVectorId,
+            elementId,
             pointId: selectedPoint.point.id,
             index: selectedPoint.index,
             x: selectedPoint.point.x,
@@ -96,57 +135,22 @@ export const penFeature = defineFeature('pen', 'input.drag', {
         } else {
           systemContextApis.setSelectedVectorPoint(null)
         }
-        if (startNewSubpath) {
-          systemContextApis.setPathEditingStartNewSubpath(false)
-        }
-        systemContextApis.setHoveredVectorPoint(null)
 
         return {
-          elementId: pathEditingVectorId
-        } as PenState
-      }
+          elementId
+        }
+      },
 
-      const firstPoint = createAnchorPoint(dragStartWorkspace)
-      const elementId = elementApis.createElement({
-        type: 'vector',
-        anchorPoints: [firstPoint]
-      })
-      if (!elementId) {
-        return null
+      // Reserved for bezier handle editing on drag.
+      onUpdate: (_snapshot: SystemContextSnapshot, _state: PenState) => {
+        return
+      },
+      onEnd: (_snapshot: SystemContextSnapshot, _state: PenState) => {
+        return
       }
-
-      selectionApis.selectElements([elementId])
-      systemContextApis.enterPathEditingMode(elementId)
-      const selectedPoint = elementApis.getVectorAnchorPointById(
-        elementId,
-        firstPoint.id
-      )
-      if (selectedPoint) {
-        systemContextApis.setSelectedVectorPoint({
-          elementId,
-          pointId: selectedPoint.point.id,
-          index: selectedPoint.index,
-          x: selectedPoint.point.x,
-          y: selectedPoint.point.y
-        })
-      } else {
-        systemContextApis.setSelectedVectorPoint(null)
-      }
-
-      return {
-        elementId
-      }
-    },
-
-    // Reserved for bezier handle editing on drag.
-    onUpdate: (_snapshot: SystemContextSnapshot, _state: PenState) => {
-      return
-    },
-    onEnd: (_snapshot: SystemContextSnapshot, _state: PenState) => {
-      return
     }
   }
-})
+)
 
 export const selectVectorPointFeature = defineFeature(
   'selectVectorPoint',
@@ -237,8 +241,7 @@ export const cancelPenEditingFeature = defineFeature(
       }
 
       const anchorPoints = elementApis.getVectorAnchorPoints(editingVectorId)
-      const startNewSubpath =
-        systemContextApis.getPathEditingStartNewSubpath()
+      const startNewSubpath = systemContextApis.getPathEditingStartNewSubpath()
       if (!startNewSubpath) {
         const subpathStartIndex = getCurrentSubpathStartIndex(anchorPoints)
         const isSinglePointSubpath =

@@ -57,9 +57,9 @@ describe('StateRegistry', () => {
   })
 
   it('should handle warning when setting value without BehaviorSubject', () => {
-    const plainObservable = new Observable((subscriber: unknown) =>
-      (subscriber as any).next('value')
-    )
+    const plainObservable = new Observable<string>((subscriber) => {
+      subscriber.next('value')
+    })
 
     stateRegistry.register('readableState', 'initial', plainObservable)
 

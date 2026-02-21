@@ -194,10 +194,15 @@ const drawPoints = (
     return
   }
 
-  canvas.circle(selectedPoint, SELECTED_POINT_OUTLINE_RADIUS, POINT_FILL_COLOR, {
-    width: SELECTED_POINT_OUTLINE_WIDTH,
-    color: SELECTED_POINT_OUTLINE_COLOR
-  })
+  canvas.circle(
+    selectedPoint,
+    SELECTED_POINT_OUTLINE_RADIUS,
+    POINT_FILL_COLOR,
+    {
+      width: SELECTED_POINT_OUTLINE_WIDTH,
+      color: SELECTED_POINT_OUTLINE_COLOR
+    }
+  )
 }
 
 const drawPreview = (
@@ -235,15 +240,17 @@ export const registerVectorEditingRenderLayer = (
       const viewportScale = render.getViewportScale()
       const snapshot = systemContext.getSystemContextSnapshot()
       const pathEditingVectorId =
-        systemContext.getManagedProperty<string | null>('pathEditingVectorId') ??
-        null
+        systemContext.getManagedProperty<string | null>(
+          'pathEditingVectorId'
+        ) ?? null
       const selectedVectorPoint =
         systemContext.getManagedProperty<SelectedVectorPointState | null>(
           'selectedVectorPoint'
         ) ?? null
       const startNewSubpath =
-        systemContext.getManagedProperty<boolean>('pathEditingStartNewSubpath') ??
-        false
+        systemContext.getManagedProperty<boolean>(
+          'pathEditingStartNewSubpath'
+        ) ?? false
       const activeSelectedPointId =
         pathEditingVectorId &&
         selectedVectorPoint?.elementId === pathEditingVectorId &&

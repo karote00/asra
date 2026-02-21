@@ -1,6 +1,12 @@
-import { MouseEvent, useCallback, useEffect, useRef } from 'react'
+import {
+  type ComponentProps,
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useRef
+} from 'react'
 import type { ElementRawData, ModifierKeys } from '@asyra/utils'
-import { capitalizeFirstLetter, EntityType } from '@asyra/utils'
+import { EntityTypes } from '@asyra/utils'
 import { Icon } from '@asyra/design-system'
 import { useElementData } from '../providers'
 import { selectElements } from '../controllers/element-selection'
@@ -15,6 +21,21 @@ const INIT_MODIFIERS: ModifierKeys = {
   ctrl: false,
   alt: false,
   shift: false
+}
+
+type IconName = ComponentProps<typeof Icon>['name']
+
+const ELEMENT_ICON_MAP: Record<string, IconName> = {
+  [EntityTypes.GROUP]: 'Group',
+  [EntityTypes.FRAME]: 'Group',
+  [EntityTypes.WORKSPACE]: 'Group',
+  rect: 'Rect',
+  oval: 'Oval',
+  vector: 'Pen'
+}
+
+const getElementIconName = (type: string): IconName => {
+  return ELEMENT_ICON_MAP[type] ?? 'Rect'
 }
 
 const getModifierKeys = (e: KeyboardEvent): ModifierKeys => {
@@ -72,10 +93,7 @@ const Element = ({ elementId, isSelected }: ElementData) => {
       data-selected={isSelected}
     >
       <div className="flex items-center space-x-1 gap-1">
-        <Icon
-          showCursor={false}
-          name={capitalizeFirstLetter(type) as EntityType}
-        />
+        <Icon showCursor={false} name={getElementIconName(type)} />
         {name}
       </div>
 

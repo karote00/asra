@@ -79,7 +79,10 @@ const VectorPoint = () => {
 
   return (
     <>
-      <div className="px-3 pt-2 text-xs text-gray-400" data-testid="prop-point-id">
+      <div
+        className="px-3 pt-2 text-xs text-gray-400"
+        data-testid="prop-point-id"
+      >
         Point {index !== null ? index + 1 : '-'}
       </div>
       <div className="flex items-center gap-2 text-gray-200 w-full px-3 py-1">

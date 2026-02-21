@@ -38,10 +38,9 @@ export const registerSystemProperties = () => {
     source$: primaryToolObservable
   })
 
-  const pathEditingVectorObservable = core.registerSystemProperty<string | null>(
-    'pathEditingVectorId',
-    null
-  )
+  const pathEditingVectorObservable = core.registerSystemProperty<
+    string | null
+  >('pathEditingVectorId', null)
   core.registerSystemProperty<boolean>('pathEditingStartNewSubpath', false)
 
   const selectedPointObservable =

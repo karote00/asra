@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { type ComponentProps, useCallback } from 'react'
 import { Icon } from '@asyra/design-system'
 import { usePrimaryTool } from '../providers'
 import { resetData, switchPrimaryTool } from '../controllers/app'
@@ -9,9 +9,13 @@ const selectedStyle =
 const normalStyle =
   'hover:bg-gray-100 text-gray-500 dark:hover:bg-gray-800 dark:text-gray-400'
 
-const capitalizeFirst = (input?: string | null): string => {
-  if (!input) return ''
-  return input.replace(/^./u, (c) => c.toUpperCase())
+type IconName = ComponentProps<typeof Icon>['name']
+
+const PRIMARY_TOOL_ICON_MAP: Record<string, IconName> = {
+  [PrimaryToolType.SELECT]: 'Select',
+  [PrimaryToolType.RECTANGLE]: 'Rect',
+  [PrimaryToolType.OVAL]: 'Oval',
+  [PrimaryToolType.PEN]: 'Pen'
 }
 
 const ToolButton = () => {
@@ -60,7 +64,7 @@ const ToolButton = () => {
         data-testid="tool-select"
         data-active={primaryTool === PrimaryToolType.SELECT}
       >
-        <Icon name={capitalizeFirst(PrimaryToolType.SELECT)} />
+        <Icon name={PRIMARY_TOOL_ICON_MAP[PrimaryToolType.SELECT]} />
       </div>
       <div
         className={`flex align-middle ${rectangleToolStyle}`}
@@ -68,7 +72,7 @@ const ToolButton = () => {
         data-testid="tool-rectangle"
         data-active={primaryTool === PrimaryToolType.RECTANGLE}
       >
-        <Icon name={capitalizeFirst(PrimaryToolType.RECTANGLE)} />
+        <Icon name={PRIMARY_TOOL_ICON_MAP[PrimaryToolType.RECTANGLE]} />
       </div>
       <div
         className={`flex align-middle ${ovalToolStyle}`}
@@ -76,7 +80,7 @@ const ToolButton = () => {
         data-testid="tool-oval"
         data-active={primaryTool === PrimaryToolType.OVAL}
       >
-        <Icon name={capitalizeFirst(PrimaryToolType.OVAL)} />
+        <Icon name={PRIMARY_TOOL_ICON_MAP[PrimaryToolType.OVAL]} />
       </div>
       <div
         className={`flex align-middle ${penToolStyle}`}

@@ -125,6 +125,18 @@ const createVectorComputedPatch = (
   return patch
 }
 
+const getElementChildren = (element: unknown): string[] => {
+  const maybeGetter = element as { get?: (key: string) => unknown }
+  const value = maybeGetter.get?.('children')
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.filter(
+    (childId): childId is string => typeof childId === 'string'
+  )
+}
+
 const createElementAtWorkspacePos = (
   type: EntityType,
   workspacePos: PositionData,
@@ -168,10 +180,11 @@ export const elementApis = {
       if (isContainer) {
         const elementData = (element as { data?: Record<string, unknown> }).data
         const canReadChildren =
-          elementData && Object.prototype.hasOwnProperty.call(elementData, 'children')
+          elementData &&
+          Object.prototype.hasOwnProperty.call(elementData, 'children')
         if (canReadChildren) {
-          const children = element.get('children') as string[] | undefined
-          if (Array.isArray(children) && children.length > 0) {
+          const children = getElementChildren(element)
+          if (children.length > 0) {
             children.forEach((childId) => visit(childId))
           }
         }
@@ -183,8 +196,8 @@ export const elementApis = {
       orderedIds.push(elementId)
     }
 
-    const workspaceChildren = workspace.get('children') as string[] | undefined
-    if (Array.isArray(workspaceChildren)) {
+    const workspaceChildren = getElementChildren(workspace)
+    if (workspaceChildren.length > 0) {
       workspaceChildren.forEach((childId) => visit(childId))
     }
 
@@ -356,7 +369,10 @@ export const elementApis = {
     }
   },
 
-  updateVectorGeometry: (elementId: string, anchorPoints: VectorAnchorPoint[]) => {
+  updateVectorGeometry: (
+    elementId: string,
+    anchorPoints: VectorAnchorPoint[]
+  ) => {
     const bounds = calculateVectorBounds(anchorPoints)
     const normalizedAnchorPoints = normalizeVectorAnchorPoints(
       anchorPoints,

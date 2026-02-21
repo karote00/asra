@@ -6,7 +6,7 @@
 
 import core, { systemContext } from '../contexts'
 
-export interface SelectedVectorPointState {
+export interface SelectedVectorPointState extends Record<string, unknown> {
   elementId: string
   pointId: string
   index: number
@@ -48,7 +48,9 @@ export const systemContextApis = {
   },
 
   getPathEditingStartNewSubpath: (): boolean => {
-    return core.getSystemProperty<boolean>('pathEditingStartNewSubpath') ?? false
+    return (
+      core.getSystemProperty<boolean>('pathEditingStartNewSubpath') ?? false
+    )
   },
 
   setPathEditingStartNewSubpath: (value: boolean) => {

@@ -5,6 +5,14 @@ import { renderRegistry } from '@asyra/render'
 
 import '../components/vector'
 
+const runRenderStrategy = (
+  strategy: unknown,
+  graphic: unknown,
+  data: unknown
+) => {
+  ;(strategy as (graphic: unknown, data: unknown) => void)(graphic, data)
+}
+
 describe('Vector Component', () => {
   it('should register vector component in all registries', () => {
     expect(componentRegistry.has('vector')).toBe(true)
@@ -35,17 +43,17 @@ describe('Vector Component', () => {
   it('should register fill properties', () => {
     const properties = propertyRegistry.getPropertiesForComponent('vector')
     const fillProp = properties.find((p) => p.name === 'fill')
-    const strokeProp = properties.find((p) => p.name === 'stroke')
-    const strokeWidthProp = properties.find((p) => p.name === 'strokeWidth')
+    const strokeStyleProp = properties.find((p) => p.name === 'strokeStyle')
 
     expect(fillProp).toBeDefined()
     expect(fillProp?.defaultValue).toBe('none')
 
-    expect(strokeProp).toBeDefined()
-    expect(strokeProp?.defaultValue).toBe('#000000')
-
-    expect(strokeWidthProp).toBeDefined()
-    expect(strokeWidthProp?.defaultValue).toBe(2)
+    expect(strokeStyleProp).toBeDefined()
+    expect(strokeStyleProp?.alias).toEqual(['stroke', 'strokeWidth'])
+    expect(strokeStyleProp?.defaultValue).toEqual({
+      stroke: '#cccccc',
+      strokeWidth: 1
+    })
   })
 
   it('should have renderStrategy registered', () => {
@@ -62,12 +70,12 @@ describe('Vector Component', () => {
 
     const mockGraphic = {
       clear: vi.fn(),
-      setStrokeStyle: vi.fn(),
       moveTo: vi.fn(),
       lineTo: vi.fn(),
       bezierCurveTo: vi.fn(),
       closePath: vi.fn(),
-      fill: vi.fn()
+      fill: vi.fn(),
+      stroke: vi.fn()
     }
 
     const mockData = {
@@ -100,10 +108,15 @@ describe('Vector Component', () => {
       strokeWidth: 2
     }
 
-    renderStrategy(mockGraphic as any, mockData as any)
+    runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
     expect(mockGraphic.clear).toHaveBeenCalled()
-    expect(mockGraphic.setStrokeStyle).toHaveBeenCalled()
+    expect(mockGraphic.stroke).toHaveBeenCalledWith({
+      width: 2,
+      color: 0x000000,
+      cap: 'round',
+      join: 'round'
+    })
     expect(mockGraphic.moveTo).toHaveBeenCalledWith(0, 0)
     expect(mockGraphic.lineTo).toHaveBeenCalledWith(100, 0)
     expect(mockGraphic.lineTo).toHaveBeenCalledWith(100, 100)
@@ -118,12 +131,12 @@ describe('Vector Component', () => {
 
     const mockGraphic = {
       clear: vi.fn(),
-      setStrokeStyle: vi.fn(),
       moveTo: vi.fn(),
       lineTo: vi.fn(),
       bezierCurveTo: vi.fn(),
       closePath: vi.fn(),
-      fill: vi.fn()
+      fill: vi.fn(),
+      stroke: vi.fn()
     }
 
     const mockData = {
@@ -155,7 +168,7 @@ describe('Vector Component', () => {
       strokeWidth: 2
     }
 
-    renderStrategy(mockGraphic as any, mockData as any)
+    runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
     expect(mockGraphic.bezierCurveTo).toHaveBeenCalledWith(
       25,
@@ -175,12 +188,12 @@ describe('Vector Component', () => {
 
     const mockGraphic = {
       clear: vi.fn(),
-      setStrokeStyle: vi.fn(),
       moveTo: vi.fn(),
       lineTo: vi.fn(),
       bezierCurveTo: vi.fn(),
       closePath: vi.fn(),
-      fill: vi.fn()
+      fill: vi.fn(),
+      stroke: vi.fn()
     }
 
     const mockData = {
@@ -221,7 +234,7 @@ describe('Vector Component', () => {
       strokeWidth: 2
     }
 
-    renderStrategy(mockGraphic as any, mockData as any)
+    runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
     expect(mockGraphic.closePath).toHaveBeenCalled()
     expect(mockGraphic.fill).toHaveBeenCalledWith(0xff0000)
@@ -235,12 +248,12 @@ describe('Vector Component', () => {
 
     const mockGraphic = {
       clear: vi.fn(),
-      setStrokeStyle: vi.fn(),
       moveTo: vi.fn(),
       lineTo: vi.fn(),
       bezierCurveTo: vi.fn(),
       closePath: vi.fn(),
-      fill: vi.fn()
+      fill: vi.fn(),
+      stroke: vi.fn()
     }
 
     const mockData = {
@@ -257,10 +270,11 @@ describe('Vector Component', () => {
       strokeWidth: 2
     }
 
-    renderStrategy(mockGraphic as any, mockData as any)
+    runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
     expect(mockGraphic.clear).toHaveBeenCalled()
-    expect(mockGraphic.setStrokeStyle).not.toHaveBeenCalled()
-    expect(mockGraphic.moveTo).not.toHaveBeenCalled()
+    expect(mockGraphic.moveTo).toHaveBeenCalledWith(0, 0)
+    expect(mockGraphic.lineTo).not.toHaveBeenCalled()
+    expect(mockGraphic.stroke).toHaveBeenCalled()
   })
 })
