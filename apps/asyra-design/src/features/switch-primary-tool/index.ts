@@ -10,9 +10,11 @@ interface SwitchPrimaryToolAPI {
 
 const api: SwitchPrimaryToolAPI = {
   switch: (tool: string) => {
+    const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
     systemContextApis.switchPrimaryTool(tool)
-    if (tool !== PrimaryToolType.PEN) {
-      systemContextApis.setPathEditingVectorId(null)
+    if (tool === PrimaryToolType.PEN && pathEditingVectorId) {
+      systemContextApis.setPathEditingStartNewSubpath(true)
+      systemContextApis.clearVectorPointState()
     }
   }
 }

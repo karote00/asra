@@ -6,6 +6,14 @@
 
 import core, { systemContext } from '../contexts'
 
+export interface SelectedVectorPointState {
+  elementId: string
+  pointId: string
+  index: number
+  x: number
+  y: number
+}
+
 export const systemContextApis = {
   /**
    * Switch the primary tool
@@ -45,6 +53,47 @@ export const systemContextApis = {
 
   setPathEditingStartNewSubpath: (value: boolean) => {
     core.setSystemProperty('pathEditingStartNewSubpath', value)
+  },
+
+  getSelectedVectorPoint: (): SelectedVectorPointState | null => {
+    return (
+      core.getSystemProperty<SelectedVectorPointState | null>(
+        'selectedVectorPoint'
+      ) ?? null
+    )
+  },
+
+  setSelectedVectorPoint: (point: SelectedVectorPointState | null) => {
+    core.setSystemProperty('selectedVectorPoint', point)
+  },
+
+  getHoveredVectorPoint: (): SelectedVectorPointState | null => {
+    return (
+      core.getSystemProperty<SelectedVectorPointState | null>(
+        'hoveredVectorPoint'
+      ) ?? null
+    )
+  },
+
+  setHoveredVectorPoint: (point: SelectedVectorPointState | null) => {
+    core.setSystemProperty('hoveredVectorPoint', point)
+  },
+
+  clearVectorPointState: () => {
+    systemContextApis.setSelectedVectorPoint(null)
+    systemContextApis.setHoveredVectorPoint(null)
+  },
+
+  enterPathEditingMode: (elementId: string) => {
+    systemContextApis.setPathEditingVectorId(elementId)
+    systemContextApis.setPathEditingStartNewSubpath(false)
+    systemContextApis.clearVectorPointState()
+  },
+
+  exitPathEditingMode: () => {
+    systemContextApis.setPathEditingVectorId(null)
+    systemContextApis.setPathEditingStartNewSubpath(false)
+    systemContextApis.clearVectorPointState()
   },
 
   // Backward compatibility for in-progress refactor

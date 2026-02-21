@@ -1,5 +1,8 @@
 import type { PositionData } from '@asyra/utils'
 
+export const VECTOR_ANCHOR_ID_TYPE = 'vector-anchor'
+export const VECTOR_ANCHOR_ID_PREFIX = 'anchor'
+
 export type VectorAnchorType = 'smooth' | 'sharp'
 
 export interface VectorAnchorPoint extends PositionData {

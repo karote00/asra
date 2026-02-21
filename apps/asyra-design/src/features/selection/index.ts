@@ -36,8 +36,7 @@ const clearPathEditingIfSelectionChanged = () => {
     return
   }
 
-  systemContextApis.setPathEditingVectorId(null)
-  systemContextApis.setPathEditingStartNewSubpath(false)
+  systemContextApis.exitPathEditingMode()
 }
 
 export const selectionFeature = defineFeature('selection', 'input.drag', {
@@ -48,8 +47,14 @@ export const selectionFeature = defineFeature('selection', 'input.drag', {
     onStart: (snapshot: SystemContextSnapshot) => {
       const { primaryTool } = snapshot
       const mouse = snapshot.mouse
+      const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
 
       if (primaryTool !== PrimaryToolType.SELECT || !mouse.down) {
+        return null
+      }
+
+      // In path editing mode, keep focus on the current vector only.
+      if (pathEditingVectorId) {
         return null
       }
 

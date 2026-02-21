@@ -27,6 +27,11 @@ interface VectorAnchorPointLike extends PositionData {
   outHandle: PositionData | null
 }
 
+interface OverlayAnchorPoint extends PositionData {
+  id: string
+  isMove?: boolean
+}
+
 interface VectorComputedData {
   x?: number
   y?: number
@@ -34,6 +39,14 @@ interface VectorComputedData {
   height?: number
   closed?: boolean
   anchorPoints?: VectorAnchorPointLike[]
+}
+
+interface SelectedVectorPointState {
+  elementId: string
+  pointId: string
+  index: number
+  x: number
+  y: number
 }
 
 type RegisterRenderLayer = (
@@ -44,7 +57,7 @@ type RegisterRenderLayer = (
 const toWorkspacePoint = (
   point: VectorAnchorPointLike,
   computed: Pick<VectorComputedData, 'x' | 'y' | 'width' | 'height'>
-): PositionData & { isMove?: boolean } => {
+): OverlayAnchorPoint => {
   const x = typeof computed.x === 'number' ? computed.x : 0
   const y = typeof computed.y === 'number' ? computed.y : 0
   const width = typeof computed.width === 'number' ? computed.width : 0
@@ -57,31 +70,44 @@ const toWorkspacePoint = (
     point.y <= height + 1
 
   if (!isLikelyLocal) {
-    return { x: point.x, y: point.y, isMove: point.isMove }
+    return { id: point.id, x: point.x, y: point.y, isMove: point.isMove }
   }
 
   return {
+    id: point.id,
     x: point.x + x,
     y: point.y + y,
     isMove: point.isMove
   }
 }
 
-const toScreenPoint = (
-  point: PositionData & { isMove?: boolean },
+const toScreenAnchorPoint = (
+  point: OverlayAnchorPoint,
   viewportPosition: PositionData,
   viewportScale: number
-): PositionData & { isMove?: boolean } => {
+): OverlayAnchorPoint => {
   return {
+    id: point.id,
     x: point.x * viewportScale + viewportPosition.x,
     y: point.y * viewportScale + viewportPosition.y,
     isMove: point.isMove
   }
 }
 
+const toScreenPosition = (
+  point: PositionData,
+  viewportPosition: PositionData,
+  viewportScale: number
+): PositionData => {
+  return {
+    x: point.x * viewportScale + viewportPosition.x,
+    y: point.y * viewportScale + viewportPosition.y
+  }
+}
+
 const getPathEditingVectorData = (): {
   closed: boolean
-  anchorPoints: Array<PositionData & { isMove?: boolean }>
+  anchorPoints: OverlayAnchorPoint[]
 } | null => {
   const pathEditingVectorId = systemContext.getManagedProperty<string | null>(
     'pathEditingVectorId'
@@ -113,7 +139,7 @@ const getPathEditingVectorData = (): {
 
 const drawSegments = (
   canvas: OverlayCanvas,
-  points: Array<PositionData & { isMove?: boolean }>,
+  points: OverlayAnchorPoint[],
   closed: boolean
 ) => {
   if (points.length < 2) {
@@ -143,12 +169,34 @@ const drawSegments = (
   }
 }
 
-const drawPoints = (canvas: OverlayCanvas, points: PositionData[]) => {
+const SELECTED_POINT_OUTLINE_COLOR = 0x1e90ff
+const SELECTED_POINT_OUTLINE_WIDTH = 2
+const SELECTED_POINT_OUTLINE_RADIUS = POINT_RADIUS + 3
+
+const drawPoints = (
+  canvas: OverlayCanvas,
+  points: OverlayAnchorPoint[],
+  selectedPointId: string | null
+) => {
   points.forEach((point) => {
     canvas.circle(point, POINT_RADIUS, POINT_FILL_COLOR, {
       width: 1,
       color: POINT_STROKE_COLOR
     })
+  })
+
+  if (!selectedPointId) {
+    return
+  }
+
+  const selectedPoint = points.find((point) => point.id === selectedPointId)
+  if (!selectedPoint) {
+    return
+  }
+
+  canvas.circle(selectedPoint, SELECTED_POINT_OUTLINE_RADIUS, POINT_FILL_COLOR, {
+    width: SELECTED_POINT_OUTLINE_WIDTH,
+    color: SELECTED_POINT_OUTLINE_COLOR
   })
 }
 
@@ -186,9 +234,22 @@ export const registerVectorEditingRenderLayer = (
       const viewportPosition = render.getViewportPosition()
       const viewportScale = render.getViewportScale()
       const snapshot = systemContext.getSystemContextSnapshot()
+      const pathEditingVectorId =
+        systemContext.getManagedProperty<string | null>('pathEditingVectorId') ??
+        null
+      const selectedVectorPoint =
+        systemContext.getManagedProperty<SelectedVectorPointState | null>(
+          'selectedVectorPoint'
+        ) ?? null
       const startNewSubpath =
         systemContext.getManagedProperty<boolean>('pathEditingStartNewSubpath') ??
         false
+      const activeSelectedPointId =
+        pathEditingVectorId &&
+        selectedVectorPoint?.elementId === pathEditingVectorId &&
+        selectedVectorPoint?.pointId
+          ? selectedVectorPoint.pointId
+          : null
       const shouldRenderPreview =
         snapshot.primaryTool === 'pen' && !startNewSubpath
 
@@ -196,13 +257,13 @@ export const registerVectorEditingRenderLayer = (
         clientX: snapshot.mouse.position.x,
         clientY: snapshot.mouse.position.y
       })
-      const mouseScreenPos = toScreenPoint(
+      const mouseScreenPos = toScreenPosition(
         mouseWorkspacePos,
         viewportPosition,
         viewportScale
       )
       const screenPoints = data.anchorPoints.map((point) =>
-        toScreenPoint(point, viewportPosition, viewportScale)
+        toScreenAnchorPoint(point, viewportPosition, viewportScale)
       )
 
       drawSegments(canvas, screenPoints, data.closed)
@@ -212,7 +273,7 @@ export const registerVectorEditingRenderLayer = (
         mouseScreenPos,
         shouldRenderPreview
       )
-      drawPoints(canvas, screenPoints)
+      drawPoints(canvas, screenPoints, activeSelectedPointId)
     }
   })
 

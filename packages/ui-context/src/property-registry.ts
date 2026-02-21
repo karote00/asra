@@ -6,8 +6,10 @@ export type PropertyValue =
   | string
   | number
   | boolean
+  | null
   | Set<string>
   | string[]
+  | Record<string, unknown>
   | undefined
 
 export interface TriggerConfig {

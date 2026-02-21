@@ -7,6 +7,7 @@
 
 import core from '../contexts'
 import { PrimaryToolType } from '../constants'
+import type { SelectedVectorPointState } from '../common-apis/system-context'
 
 /**
  * Register system properties
@@ -37,7 +38,31 @@ export const registerSystemProperties = () => {
     source$: primaryToolObservable
   })
 
-  // Path editing state for vector pen workflow (not exposed to UI)
-  core.registerSystemProperty<string | null>('pathEditingVectorId', null)
+  const pathEditingVectorObservable = core.registerSystemProperty<string | null>(
+    'pathEditingVectorId',
+    null
+  )
   core.registerSystemProperty<boolean>('pathEditingStartNewSubpath', false)
+
+  const selectedPointObservable =
+    core.registerSystemProperty<SelectedVectorPointState | null>(
+      'selectedVectorPoint',
+      null
+    )
+  core.registerSystemProperty<SelectedVectorPointState | null>(
+    'hoveredVectorPoint',
+    null
+  )
+
+  core.registerUIProperty<string | null>('pathEditingVectorId', {
+    defaultValue: null,
+    source$: pathEditingVectorObservable
+  })
+  core.registerUIProperty<SelectedVectorPointState | null>(
+    'selectedVectorPoint',
+    {
+      defaultValue: null,
+      source$: selectedPointObservable
+    }
+  )
 }

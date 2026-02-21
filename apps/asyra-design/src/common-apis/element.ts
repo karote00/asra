@@ -12,6 +12,7 @@ import {
   type PositionData
 } from '@asyra/utils'
 import type { VectorAnchorPoint, VectorPathStyle } from '@asyra/core'
+import { isEqual } from 'lodash'
 import { MOUSE_MOVEMENT_THRESHOLD } from '../constants'
 import core, { render, sceneTree } from '../contexts'
 
@@ -20,6 +21,14 @@ interface ElementBounds {
   y: number
   width: number
   height: number
+}
+
+interface VectorComputedSnapshot extends Partial<VectorPathStyle> {
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  anchorPoints?: VectorAnchorPoint[]
 }
 
 interface CreateElementOptions {
@@ -35,6 +44,7 @@ const DEFAULT_VECTOR_STYLE: VectorPathStyle = {
   strokeWidth: 1
 }
 const MIN_VECTOR_SIZE = 0.1
+const VECTOR_POINT_HIT_RADIUS = 6
 
 const calculateVectorBounds = (anchorPoints: VectorAnchorPoint[]) => {
   if (anchorPoints.length === 0) {
@@ -93,32 +103,26 @@ const toWorkspaceAnchorPoint = (
   }
 }
 
-const getVectorStyle = (elementId: string): VectorPathStyle => {
+const createVectorComputedPatch = (
+  elementId: string,
+  nextData: Record<string, DataTypes>
+) => {
   const element = sceneTree.getElementById(elementId)
   if (!element) {
-    return DEFAULT_VECTOR_STYLE
+    return nextData
   }
 
-  const computed = element.getAllComputedData() as Partial<VectorPathStyle>
+  const computed = element.getAllComputedData() as VectorComputedSnapshot
+  const patch: Record<string, DataTypes> = {}
 
-  return {
-    closed:
-      typeof computed.closed === 'boolean'
-        ? computed.closed
-        : DEFAULT_VECTOR_STYLE.closed,
-    fill:
-      typeof computed.fill === 'string'
-        ? computed.fill
-        : DEFAULT_VECTOR_STYLE.fill,
-    stroke:
-      typeof computed.stroke === 'string'
-        ? computed.stroke
-        : DEFAULT_VECTOR_STYLE.stroke,
-    strokeWidth:
-      typeof computed.strokeWidth === 'number'
-        ? computed.strokeWidth
-        : DEFAULT_VECTOR_STYLE.strokeWidth
-  }
+  Object.entries(nextData).forEach(([key, value]) => {
+    const current = computed[key as keyof VectorComputedSnapshot]
+    if (!isEqual(current, value)) {
+      patch[key] = value
+    }
+  })
+
+  return patch
 }
 
 const createElementAtWorkspacePos = (
@@ -281,25 +285,144 @@ export const elementApis = {
     )
   },
 
-  updateVectorPath: (elementId: string, anchorPoints: VectorAnchorPoint[]) => {
+  getVectorAnchorPointAtWorkspacePos: (
+    elementId: string,
+    workspacePos: PositionData,
+    hitRadius?: number
+  ): { point: VectorAnchorPoint; index: number } | null => {
+    const anchorPoints = elementApis.getVectorAnchorPoints(elementId)
+    if (anchorPoints.length === 0) {
+      return null
+    }
+
+    const radius = hitRadius ?? VECTOR_POINT_HIT_RADIUS
+    const radiusSquared = radius * radius
+
+    let closestIndex = -1
+    let closestDist = Number.POSITIVE_INFINITY
+
+    anchorPoints.forEach((point, index) => {
+      const dx = point.x - workspacePos.x
+      const dy = point.y - workspacePos.y
+      const dist = dx * dx + dy * dy
+      if (dist <= radiusSquared && dist < closestDist) {
+        closestDist = dist
+        closestIndex = index
+      }
+    })
+
+    if (closestIndex === -1) {
+      return null
+    }
+
+    return { point: anchorPoints[closestIndex], index: closestIndex }
+  },
+
+  getVectorAnchorPointAtClientPos: (
+    elementId: string,
+    clientPos: PositionData
+  ): { point: VectorAnchorPoint; index: number } | null => {
+    if (!render) {
+      return null
+    }
+
+    const workspacePos = render.getMousePosInWorkspace({
+      clientX: clientPos.x,
+      clientY: clientPos.y
+    })
+    const viewportScale = render.getViewportScale() || 1
+    const hitRadius = VECTOR_POINT_HIT_RADIUS / viewportScale
+
+    return elementApis.getVectorAnchorPointAtWorkspacePos(
+      elementId,
+      workspacePos,
+      hitRadius
+    )
+  },
+
+  getVectorAnchorPointById: (
+    elementId: string,
+    pointId: string
+  ): { point: VectorAnchorPoint; index: number } | null => {
+    const anchorPoints = elementApis.getVectorAnchorPoints(elementId)
+    const index = anchorPoints.findIndex((point) => point.id === pointId)
+    if (index === -1) {
+      return null
+    }
+
+    return {
+      point: anchorPoints[index],
+      index
+    }
+  },
+
+  updateVectorGeometry: (elementId: string, anchorPoints: VectorAnchorPoint[]) => {
     const bounds = calculateVectorBounds(anchorPoints)
-    const style = getVectorStyle(elementId)
     const normalizedAnchorPoints = normalizeVectorAnchorPoints(
       anchorPoints,
       bounds
     )
-
-    elementApis.changeComputedData([elementId], {
+    const nextData: Record<string, DataTypes> = {
       x: bounds.x,
       y: bounds.y,
       width: bounds.width,
       height: bounds.height,
-      anchorPoints: normalizedAnchorPoints,
-      closed: style.closed,
-      fill: style.fill,
-      stroke: style.stroke,
-      strokeWidth: style.strokeWidth
+      anchorPoints: normalizedAnchorPoints
+    }
+
+    const patch = createVectorComputedPatch(elementId, nextData)
+    if (Object.keys(patch).length === 0) {
+      return
+    }
+
+    elementApis.changeComputedData([elementId], patch)
+  },
+
+  appendVectorAnchorPoint: (
+    elementId: string,
+    point: VectorAnchorPoint
+  ): { point: VectorAnchorPoint; index: number } | null => {
+    const currentAnchorPoints = elementApis.getVectorAnchorPoints(elementId)
+    const nextAnchorPoints = [...currentAnchorPoints, point]
+    elementApis.updateVectorGeometry(elementId, nextAnchorPoints)
+
+    return elementApis.getVectorAnchorPointById(elementId, point.id)
+  },
+
+  setVectorClosed: (elementId: string, closed: boolean) => {
+    const patch = createVectorComputedPatch(elementId, { closed })
+    if (Object.keys(patch).length === 0) {
+      return
+    }
+
+    elementApis.changeComputedData([elementId], patch)
+  },
+
+  updateVectorAnchorPointPosition: (
+    elementId: string,
+    pointId: string,
+    position: PositionData
+  ): { point: VectorAnchorPoint; index: number } | null => {
+    const anchorPoints = elementApis.getVectorAnchorPoints(elementId)
+    const index = anchorPoints.findIndex((point) => point.id === pointId)
+    if (index === -1) {
+      return null
+    }
+
+    const nextAnchorPoints = anchorPoints.map((point, pointIndex) => {
+      if (pointIndex !== index) {
+        return point
+      }
+
+      return {
+        ...point,
+        x: position.x,
+        y: position.y
+      }
     })
+
+    elementApis.updateVectorGeometry(elementId, nextAnchorPoints)
+    return elementApis.getVectorAnchorPointById(elementId, pointId)
   },
 
   getMousePosInWorkspace: (clientPos: { x: number; y: number }) => {

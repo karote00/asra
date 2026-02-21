@@ -13,9 +13,14 @@ import interactionCore, {
 import type { FeatureSystemAPIs } from './types/feature-system'
 import render, { Render, IRenderer, RenderOptions } from '@asyra/render'
 import { IPersistenceProvider, SaveHook, LoadHook } from '@asyra/persistence'
-import { EventTypes, subscribeToEvents } from '@asyra/reactive-events'
+import {
+  EventTypes,
+  subscribeToEvents,
+  subscribeToSceneTreeLoadComplete
+} from '@asyra/reactive-events'
 import { initDataContexts } from '@asyra/ui-context'
 import { registerBuiltinRenderLayers } from './builtins'
+import { hydrateVectorAnchorIdCounter } from './builtins/vector/hydrate-anchor-id-counter'
 
 import {
   CoreAPIs,
@@ -86,6 +91,7 @@ class Core implements CoreAPIs {
 
     // Subscribe to endTransaction for auto-save
     this.initAutoSave()
+    this.initBuiltinDataHydration()
   }
 
   /**
@@ -176,6 +182,12 @@ class Core implements CoreAPIs {
           console.error('[Core] Auto-save failed:', error)
         })
       }
+    })
+  }
+
+  private initBuiltinDataHydration(): void {
+    subscribeToSceneTreeLoadComplete(() => {
+      hydrateVectorAnchorIdCounter(this.deps.sceneTree)
     })
   }
 
