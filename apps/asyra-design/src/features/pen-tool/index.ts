@@ -240,6 +240,12 @@ export const cancelPenEditingFeature = defineFeature(
         return null
       }
 
+      if (snapshot.primaryTool !== PrimaryToolType.PEN) {
+        systemContextApis.exitPathEditingMode()
+        cursorApis.resetCanvasCursor()
+        return { cancelled: true, elementId: editingVectorId }
+      }
+
       const anchorPoints = elementApis.getVectorAnchorPoints(editingVectorId)
       const startNewSubpath = systemContextApis.getPathEditingStartNewSubpath()
       if (!startNewSubpath) {
