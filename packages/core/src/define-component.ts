@@ -1,6 +1,7 @@
 import { componentRegistry } from '@asyra/scene-tree'
 import {
-  uiPropertyRegistry,
+  propertyDefinitionRegistry,
+  registerPropertySchema,
   type PropertyDefinition
 } from '@asyra/props-manager'
 import { renderRegistry, RenderStrategy } from '@asyra/render'
@@ -82,9 +83,12 @@ export function defineComponent(definition: ComponentDefinition): void {
   // This allows app-level components to register without modifying framework IDTypes
   idCounter.registerType(type, idPrefix, undefined, { override: true })
 
-  // 2. Register properties with UIPropertyRegistry
+  // 2. Register properties with property definition registry
   for (const prop of properties) {
-    uiPropertyRegistry.register(prop, type)
+    propertyDefinitionRegistry.register(prop, type)
+    if (prop.schema) {
+      registerPropertySchema(prop.schema)
+    }
   }
 
   // 2. Build defaults object from properties
@@ -132,7 +136,7 @@ export function defineComponent(definition: ComponentDefinition): void {
 export function unregisterComponent(type: string): boolean {
   // Unregister from all registries
   const componentUnregistered = componentRegistry.unregister(type)
-  uiPropertyRegistry.unregisterComponent(type) // void return
+  propertyDefinitionRegistry.unregisterComponent(type) // void return
   const renderUnregistered = renderRegistry.unregister(type)
 
   return componentUnregistered || renderUnregistered

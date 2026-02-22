@@ -9,6 +9,9 @@ import type {
 import { EventTypes, updateTransaction } from '@asyra/reactive-events'
 import { createProperty } from './utils'
 import { setComponentAccessor } from './component-accessor'
+import { registerBuiltinPropertySchemas } from './builtin-property-schemas'
+
+registerBuiltinPropertySchemas()
 
 class PropsManager {
   _components: Map<string, PropertyComponentInstanceTypes> = new Map()

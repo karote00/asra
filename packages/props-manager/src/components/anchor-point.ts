@@ -6,8 +6,7 @@ import {
   AnchorPointTypes,
   DataTypes,
   PropertyTypes,
-  Unit,
-  isAnchorPointType
+  Unit
 } from '@asyra/utils'
 import BaseComponent from './base'
 
@@ -32,21 +31,12 @@ class AnchorPointComponent extends BaseComponent<AnchorPointAttrs> {
 
   load(data: AnchorPointComponentRawData): void {
     this.data.id = typeof data.id === 'string' ? data.id : this.data.id
-    this.data.x = typeof data.x === 'number' ? data.x : this.data.x
-    this.data.y = typeof data.y === 'number' ? data.y : this.data.y
-    this.data.pointType = isAnchorPointType(data.pointType)
-      ? data.pointType
-      : this.data.pointType
-    this.data.isMove =
-      typeof data.isMove === 'boolean' ? data.isMove : undefined
-    this.data.inHandle =
-      data.inHandle && typeof data.inHandle === 'object'
-        ? (data.inHandle as { x: number; y: number })
-        : null
-    this.data.outHandle =
-      data.outHandle && typeof data.outHandle === 'object'
-        ? (data.outHandle as { x: number; y: number })
-        : null
+    this.assignLoadedValue('x', data.x)
+    this.assignLoadedValue('y', data.y)
+    this.assignLoadedValue('pointType', data.pointType)
+    this.assignLoadedValue('isMove', data.isMove)
+    this.assignLoadedValue('inHandle', data.inHandle)
+    this.assignLoadedValue('outHandle', data.outHandle)
   }
 
   save(): AnchorPointComponentRawData {

@@ -359,4 +359,49 @@ describe('PropsManager', () => {
     )
     expect(propsManager.changes).toEqual([])
   })
+
+  it('should reject invalid numeric value by schema in updatePropsData', () => {
+    const positionData = {
+      id: 'pp-1',
+      type: PropertyTypes.POSITION,
+      x: 10,
+      y: 20,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }
+    const positionComponent = createProperty(
+      positionData
+    ) as PropertyComponentInstanceTypes
+    propsManager.addToMap(positionComponent)
+
+    propsManager.updatePropsData(
+      'pp-1',
+      'x' as unknown as keyof PropertyComponentInstanceDataTypes,
+      '中文' as unknown as PropertyComponentInstanceDataTypes[keyof PropertyComponentInstanceDataTypes]
+    )
+
+    const position = positionComponent as unknown as {
+      get: (key: string) => unknown
+    }
+    expect(position.get('x')).toBe(10)
+  })
+
+  it('should fallback to default value when loading invalid field data', () => {
+    const positionComponent = createProperty({
+      id: 'pp-1',
+      type: PropertyTypes.POSITION,
+      x: '中文',
+      y: null,
+      xUnit: 'invalid-unit',
+      yUnit: Unit.PERCENT
+    }) as PropertyComponentInstanceTypes
+
+    const position = positionComponent as unknown as {
+      get: (key: string) => unknown
+    }
+    expect(position.get('x')).toBe(0)
+    expect(position.get('y')).toBe(0)
+    expect(position.get('xUnit')).toBe(Unit.PX)
+    expect(position.get('yUnit')).toBe(Unit.PERCENT)
+  })
 })

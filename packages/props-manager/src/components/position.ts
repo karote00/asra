@@ -8,9 +8,6 @@ import {
 } from '@asyra/utils'
 import BaseComponent from './base'
 
-const isUnit = (value: unknown): value is Unit =>
-  value === Unit.PX || value === Unit.PERCENT
-
 class PositionComponent extends BaseComponent<PositionAttrs> {
   data: PositionAttrs = {
     id: '',
@@ -37,10 +34,10 @@ class PositionComponent extends BaseComponent<PositionAttrs> {
 
   load(data: PositionComponentRawData): void {
     this.data.id = typeof data.id === 'string' ? data.id : this.data.id
-    this.data.x = typeof data.x === 'number' ? data.x : this.data.x
-    this.data.y = typeof data.y === 'number' ? data.y : this.data.y
-    this.data.xUnit = isUnit(data.xUnit) ? data.xUnit : this.data.xUnit
-    this.data.yUnit = isUnit(data.yUnit) ? data.yUnit : this.data.yUnit
+    this.assignLoadedValue('x', data.x)
+    this.assignLoadedValue('y', data.y)
+    this.assignLoadedValue('xUnit', data.xUnit)
+    this.assignLoadedValue('yUnit', data.yUnit)
   }
 
   getValue(): Record<string, DataTypes> {

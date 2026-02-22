@@ -1,6 +1,6 @@
-export * from './ui-property-registry'
+export * from './property-definition-registry'
 export * from './state-registry'
 
 // Backward compatibility: Export as propertyRegistry (lowercase instance name)
-export { uiPropertyRegistry as propertyRegistry } from './ui-property-registry'
-export type { PropertyDefinition } from './ui-property-registry'
+export { propertyDefinitionRegistry as propertyRegistry } from './property-definition-registry'
+export type { PropertyDefinition } from './property-definition-registry'

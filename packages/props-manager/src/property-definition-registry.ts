@@ -1,8 +1,11 @@
+import type { PropertySchema } from '@asyra/utils'
+
 interface PropertyDefinition {
   name: string
   type: string
   alias?: string[]
   defaultValue?: unknown
+  schema?: PropertySchema
 }
 
 interface RegisteredProperty {
@@ -10,7 +13,7 @@ interface RegisteredProperty {
   componentTypes: Set<string>
 }
 
-class UIPropertyRegistry {
+class PropertyDefinitionRegistry {
   private registry = new Map<string, RegisteredProperty>()
 
   /**
@@ -77,6 +80,6 @@ class UIPropertyRegistry {
   }
 }
 
-export const uiPropertyRegistry = new UIPropertyRegistry()
-export default uiPropertyRegistry
+export const propertyDefinitionRegistry = new PropertyDefinitionRegistry()
+export default propertyDefinitionRegistry
 export type { PropertyDefinition }

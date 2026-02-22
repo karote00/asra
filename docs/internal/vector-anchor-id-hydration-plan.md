@@ -9,7 +9,7 @@ Target direction: move anchor-point ID hydration into the **props load phase**, 
 ## Current Conclusions
 
 1. Props "register" status
-- We have `uiPropertyRegistry.register(...)` in `@asyra/props-manager`.
+- We have `propertyDefinitionRegistry.register(...)` in `@asyra/props-manager`.
 - That registry is for property definition metadata (UI/introspection), not for load-time data hydration behavior.
 - We currently do **not** have a dedicated load-hydration extension point in props-manager.
 
