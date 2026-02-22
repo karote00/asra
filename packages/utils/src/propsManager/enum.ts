@@ -5,5 +5,7 @@ export type PropertyType = string
 export const PropertyTypes = {
   POSITION: 'position',
   DIMENSION: 'dimension',
-  CUSTOM: 'custom'
+  CUSTOM: 'custom',
+  ANCHOR_POINT: 'anchorPoint',
+  ANCHOR_POINTS: 'anchorPoints'
 } as const

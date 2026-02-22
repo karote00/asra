@@ -1,5 +1,6 @@
 import { Unit } from '../constants'
 import { PropertyType } from './enum'
+import type { AnchorPointType } from './constants'
 
 export interface PropertyRawData {
   id: string
@@ -20,8 +21,26 @@ export interface DimensionComponentRawData extends PropertyRawData {
   heightUnit: Unit
 }
 
+export interface AnchorPointComponentRawData extends PropertyRawData {
+  x: number
+  y: number
+  pointType: AnchorPointType
+  isMove?: boolean
+  inHandle: { x: number; y: number } | null
+  outHandle: { x: number; y: number } | null
+}
+
+export interface AnchorPointsComponentRawData extends PropertyRawData {
+  anchorPoints: string[]
+}
+
+export type CustomComponentRawData = PropertyRawData & Record<string, unknown>
+
 export type PropsComponentRawData = Record<string, PropertyComponentRawData>
 
 export type PropertyComponentRawData =
   | PositionComponentRawData
   | DimensionComponentRawData
+  | AnchorPointComponentRawData
+  | AnchorPointsComponentRawData
+  | CustomComponentRawData

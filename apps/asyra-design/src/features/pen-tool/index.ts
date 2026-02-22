@@ -1,5 +1,5 @@
-import { id, type SystemContextSnapshot } from '@asyra/utils'
-import { VECTOR_ANCHOR_ID_TYPE, type VectorAnchorPoint } from '@asyra/core'
+import { IDTypes, id, type SystemContextSnapshot } from '@asyra/utils'
+import { type VectorAnchorPoint } from '@asyra/core'
 import { defineFeature } from '@asyra/feature-system'
 import {
   cursorApis,
@@ -17,7 +17,7 @@ const createAnchorPoint = (
   point: { x: number; y: number },
   options?: { isMove?: boolean }
 ): VectorAnchorPoint => ({
-  id: id(VECTOR_ANCHOR_ID_TYPE),
+  id: id(IDTypes.PROPS),
   x: point.x,
   y: point.y,
   type: 'sharp',

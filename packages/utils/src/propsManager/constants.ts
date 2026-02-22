@@ -20,3 +20,16 @@ export const DefaultDimensionData = {
   widthUnit: Unit.PX,
   heightUnit: Unit.PX
 }
+
+export const AnchorPointTypes = {
+  SHARP: 'sharp',
+  SMOOTH: 'smooth'
+} as const
+
+export type AnchorPointType =
+  (typeof AnchorPointTypes)[keyof typeof AnchorPointTypes]
+
+export const isAnchorPointType = (
+  value: unknown
+): value is AnchorPointType =>
+  value === AnchorPointTypes.SHARP || value === AnchorPointTypes.SMOOTH

@@ -3,6 +3,7 @@ import type { PropertyComponentRawData } from './rawDataTypes'
 import type { ISetter } from '../setter'
 import { Unit } from '../constants'
 import { DataTypes, DimensionData, PositionData } from '../types'
+import type { AnchorPointType } from './constants'
 
 export interface BasePropertyAttrs {
   id: string
@@ -24,6 +25,19 @@ export interface FillAttrs {
   opacity: number
 }
 
+export interface AnchorPointAttrs extends BasePropertyAttrs {
+  x: number
+  y: number
+  pointType: AnchorPointType
+  isMove?: boolean
+  inHandle: PositionData | null
+  outHandle: PositionData | null
+}
+
+export interface AnchorPointsAttrs extends BasePropertyAttrs {
+  anchorPoints: string[]
+}
+
 export interface IProperty<T extends BasePropertyAttrs = BasePropertyAttrs>
   extends ISetter<T> {
   load(data: Partial<PropertyComponentRawData>): void
@@ -39,4 +53,6 @@ export interface PropertyComponentInstanceTypes
 export type PropertyComponentInstanceDataTypes =
   | PositionAttrs
   | DimensionAttrs
+  | AnchorPointAttrs
+  | AnchorPointsAttrs
   | BasePropertyAttrs

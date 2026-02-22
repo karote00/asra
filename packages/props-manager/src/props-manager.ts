@@ -8,11 +8,23 @@ import type {
 } from '@asyra/utils'
 import { EventTypes, updateTransaction } from '@asyra/reactive-events'
 import { createProperty } from './utils'
+import { setComponentAccessor } from './component-accessor'
 
 class PropsManager {
   _components: Map<string, PropertyComponentInstanceTypes> = new Map()
   _deletedMap: Map<string, PropertyComponentInstanceTypes> = new Map()
   changes: PropsChange[] = []
+
+  constructor() {
+    setComponentAccessor({
+      getComponentById: (componentId) => this.getComponentById(componentId),
+      addToMap: (component) => this.addToMap(component),
+      createComponent: (data) =>
+        createProperty(
+          data as Partial<PropertyComponentRawData>
+        ) as PropertyComponentInstanceTypes
+    })
+  }
 
   load(data: PropsComponentRawData) {
     Object.keys(data).forEach((componentId) => {

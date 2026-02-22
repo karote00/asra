@@ -1,11 +1,7 @@
-import { PropertyTypes, idCounter } from '@asyra/utils'
+import { PropertyTypes } from '@asyra/utils'
 import type { RenderStrategy } from '@asyra/render'
 import { defineComponent } from '../define-component'
-import {
-  VECTOR_ANCHOR_ID_PREFIX,
-  VECTOR_ANCHOR_ID_TYPE,
-  type VectorAnchorPoint
-} from '../types/vector'
+import { type VectorAnchorPoint } from '../types/vector'
 
 interface VectorComputedData {
   x: number
@@ -18,8 +14,6 @@ interface VectorComputedData {
   stroke: string
   strokeWidth: number
 }
-
-idCounter.registerType(VECTOR_ANCHOR_ID_TYPE, VECTOR_ANCHOR_ID_PREFIX)
 
 const getLocalPoint = (
   point: VectorAnchorPoint,
@@ -129,7 +123,7 @@ defineComponent({
     },
     {
       name: 'anchorPoints',
-      type: PropertyTypes.CUSTOM,
+      type: PropertyTypes.ANCHOR_POINTS,
       defaultValue: [] as VectorAnchorPoint[]
     },
     {

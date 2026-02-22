@@ -13,18 +13,24 @@ import {
   PositionComponent,
   DimensionComponent,
   CustomComponent,
+  AnchorPointComponent,
+  AnchorPointsComponent,
   PropertyComponentType
 } from './components'
 
 const PropClassMap: Record<string, PropertyComponentType> = {
   [PropertyTypes.POSITION]: PositionComponent,
   [PropertyTypes.DIMENSION]: DimensionComponent,
-  [PropertyTypes.CUSTOM]: CustomComponent
+  [PropertyTypes.CUSTOM]: CustomComponent,
+  [PropertyTypes.ANCHOR_POINT]: AnchorPointComponent,
+  [PropertyTypes.ANCHOR_POINTS]: AnchorPointsComponent
 }
 const DefaultDataMap: Record<string, object> = {
   [PropertyTypes.POSITION]: DefaultPositionData,
   [PropertyTypes.DIMENSION]: DefaultDimensionData,
-  [PropertyTypes.CUSTOM]: {}
+  [PropertyTypes.CUSTOM]: {},
+  [PropertyTypes.ANCHOR_POINT]: {},
+  [PropertyTypes.ANCHOR_POINTS]: {}
 }
 
 export const createProperty = (data: Partial<PropertyComponentRawData>) => {

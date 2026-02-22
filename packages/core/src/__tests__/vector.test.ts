@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { componentRegistry } from '@asyra/scene-tree'
 import { propertyRegistry } from '@asyra/props-manager'
 import { renderRegistry } from '@asyra/render'
+import { PropertyTypes } from '@asyra/utils'
 
 import '../components/vector'
 
@@ -27,7 +28,7 @@ describe('Vector Component', () => {
     const anchorPointsProp = properties.find((p) => p.name === 'anchorPoints')
 
     expect(anchorPointsProp).toBeDefined()
-    expect(anchorPointsProp?.type).toBe('custom')
+    expect(anchorPointsProp?.type).toBe(PropertyTypes.ANCHOR_POINTS)
     expect(anchorPointsProp?.defaultValue).toEqual([])
   })
 
