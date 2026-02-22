@@ -48,18 +48,25 @@ const Input: React.FC<InputProps> = ({
   const [data, setData] = useState<string>(value?.toString() ?? '')
 
   const handleKeydon = useCallback(
-    (e: KeyboardEvent) => {
+    (e: KeyboardEvent<HTMLInputElement>) => {
+      e.stopPropagation()
+
       if (!inputRef.current) {
         return
       }
 
       const input = inputRef.current as HTMLInputElement
       if (e.code === 'Enter') {
+        e.preventDefault()
         input.blur()
       }
     },
-    [inputRef.current]
+    [inputRef]
   )
+
+  const handleKeyup = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
+    e.stopPropagation()
+  }, [])
 
   const handleChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
@@ -95,6 +102,7 @@ const Input: React.FC<InputProps> = ({
         ref={inputRef}
         value={data}
         onKeyDown={handleKeydon}
+        onKeyUp={handleKeyup}
         onChange={handleChange}
         onBlur={handleBlur}
         placeholder={placeholder}
