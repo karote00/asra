@@ -2,6 +2,7 @@ import { Input } from '@asyra/design-system'
 import { useHeight, useWidth } from '../providers'
 import { useCallback } from 'react'
 import { changeElementComputedData } from '../controllers/scene-tree'
+import { parseFiniteInputNumber } from './number-input'
 
 const Dimension = () => {
   const width = useWidth()
@@ -9,14 +10,26 @@ const Dimension = () => {
 
   const handleChangeWidth = useCallback(
     (newValue: string) => {
-      changeElementComputedData('width', Number(newValue))
+      const nextValue = parseFiniteInputNumber(newValue)
+      if (nextValue === null) {
+        return false
+      }
+
+      changeElementComputedData('width', nextValue)
+      return true
     },
     [changeElementComputedData]
   )
 
   const handleChangeHeight = useCallback(
     (newValue: string) => {
-      changeElementComputedData('height', Number(newValue))
+      const nextValue = parseFiniteInputNumber(newValue)
+      if (nextValue === null) {
+        return false
+      }
+
+      changeElementComputedData('height', nextValue)
+      return true
     },
     [changeElementComputedData]
   )

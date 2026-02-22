@@ -2,13 +2,20 @@ import { Input } from '@asyra/design-system'
 import { useRotation } from '../providers'
 import { useCallback } from 'react'
 import { changeElementComputedData } from '../controllers/scene-tree'
+import { parseFiniteInputNumber } from './number-input'
 
 const Rotation = () => {
   const rotation = useRotation()
 
   const handleChangeRotation = useCallback(
     (newValue: string) => {
-      changeElementComputedData('rotation', Number(newValue))
+      const nextValue = parseFiniteInputNumber(newValue)
+      if (nextValue === null) {
+        return false
+      }
+
+      changeElementComputedData('rotation', nextValue)
+      return true
     },
     [changeElementComputedData]
   )

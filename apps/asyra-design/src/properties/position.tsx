@@ -2,6 +2,7 @@ import { Input } from '@asyra/design-system'
 import { useX, useY } from '../providers'
 import { useCallback } from 'react'
 import { changeElementComputedData } from '../controllers/scene-tree'
+import { parseFiniteInputNumber } from './number-input'
 
 const Position = () => {
   const x = useX()
@@ -9,14 +10,26 @@ const Position = () => {
 
   const handleChangeX = useCallback(
     (newValue: string) => {
-      changeElementComputedData('x', Number(newValue))
+      const nextValue = parseFiniteInputNumber(newValue)
+      if (nextValue === null) {
+        return false
+      }
+
+      changeElementComputedData('x', nextValue)
+      return true
     },
     [changeElementComputedData]
   )
 
   const handleChangeY = useCallback(
     (newValue: string) => {
-      changeElementComputedData('y', Number(newValue))
+      const nextValue = parseFiniteInputNumber(newValue)
+      if (nextValue === null) {
+        return false
+      }
+
+      changeElementComputedData('y', nextValue)
+      return true
     },
     [changeElementComputedData]
   )

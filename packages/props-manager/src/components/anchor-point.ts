@@ -25,7 +25,9 @@ class AnchorPointComponent extends BaseComponent<AnchorPointAttrs> {
 
   constructor(data: Partial<AnchorPointAttrs>) {
     super()
-    this._init(data)
+    this.data.id = typeof data.id === 'string' ? data.id : this.data.id
+    this.data.type = PropertyTypes.ANCHOR_POINT
+    this.load(data as AnchorPointComponentRawData)
   }
 
   load(data: AnchorPointComponentRawData): void {

@@ -25,7 +25,7 @@ interface InputProps
   /** Input size: small, medium, or large */
   size?: 'small' | 'medium' | 'large'
   /** Change event handler */
-  onChange: (newData: string) => void
+  onChange: (newData: string) => boolean | undefined
 }
 
 const sizeClasses = {
@@ -70,8 +70,11 @@ const Input: React.FC<InputProps> = ({
   )
 
   const handleBlur = useCallback(() => {
-    onChange(data)
-  }, [data, onChange])
+    const accepted = onChange(data)
+    if (accepted === false) {
+      setData(value?.toString() ?? '')
+    }
+  }, [data, onChange, value])
 
   useEffect(() => {
     setData(value?.toString() ?? '')

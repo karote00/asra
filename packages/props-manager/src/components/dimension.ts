@@ -8,6 +8,9 @@ import {
 } from '@asyra/utils'
 import BaseComponent from './base'
 
+const isUnit = (value: unknown): value is Unit =>
+  value === Unit.PX || value === Unit.PERCENT
+
 class DimensionComponent extends BaseComponent<DimensionAttrs> {
   data: DimensionAttrs = {
     id: '',
@@ -18,8 +21,9 @@ class DimensionComponent extends BaseComponent<DimensionAttrs> {
   constructor(data: Partial<DimensionAttrs>) {
     super()
 
+    this.data.id = typeof data.id === 'string' ? data.id : this.data.id
     this.data.type = PropertyTypes.DIMENSION
-    this._init(data)
+    this.load(data as DimensionComponentRawData)
   }
 
   save(): DimensionComponentRawData {
@@ -33,10 +37,17 @@ class DimensionComponent extends BaseComponent<DimensionAttrs> {
   }
 
   load(data: DimensionComponentRawData): void {
-    this.data.width = data.width
-    this.data.height = data.height
-    this.data.widthUnit = data.widthUnit
-    this.data.heightUnit = data.heightUnit
+    this.data.id = typeof data.id === 'string' ? data.id : this.data.id
+    this.data.width =
+      typeof data.width === 'number' ? data.width : this.data.width
+    this.data.height =
+      typeof data.height === 'number' ? data.height : this.data.height
+    this.data.widthUnit = isUnit(data.widthUnit)
+      ? data.widthUnit
+      : this.data.widthUnit
+    this.data.heightUnit = isUnit(data.heightUnit)
+      ? data.heightUnit
+      : this.data.heightUnit
   }
 
   getValue(): Record<string, DataTypes> {

@@ -18,7 +18,7 @@ class CustomComponent extends BaseComponent<PropertyComponentInstanceDataTypes> 
   constructor(data: Partial<PropertyComponentInstanceDataTypes>) {
     super()
     // Initialize data with id/type
-    this.data.id = data.id || ''
+    this.data.id = typeof data.id === 'string' ? data.id : ''
     this.data.type = PropertyTypes.CUSTOM
 
     // Load other data
@@ -52,13 +52,13 @@ class CustomComponent extends BaseComponent<PropertyComponentInstanceDataTypes> 
 
   load(data: PropertyComponentRawData): void {
     // Init reserved
-    this.data.id = data.id
+    this.data.id = typeof data.id === 'string' ? data.id : this.data.id
     // Load implementation
     const dataObj = data as unknown as Record<string, unknown>
     const dataRecord = this.data as unknown as Record<string, unknown>
     Object.keys(dataObj).forEach((key) => {
-      if (this.isValidKey(key)) {
-        dataRecord[key] = dataObj[key]
+      if (this.isValidKey(key) && dataObj[key] !== undefined) {
+        dataRecord[key] = dataObj[key] as DataTypes
       }
     })
   }

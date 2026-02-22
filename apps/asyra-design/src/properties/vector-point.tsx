@@ -2,6 +2,7 @@ import { Input } from '@asyra/design-system'
 import { useCallback } from 'react'
 import { elementApis, systemContextApis } from '../common-apis'
 import { useSelectedVectorPoint } from '../providers'
+import { parseFiniteInputNumber } from './number-input'
 
 const VectorPoint = () => {
   const selectedPoint = useSelectedVectorPoint()
@@ -14,12 +15,12 @@ const VectorPoint = () => {
   const handleChangeX = useCallback(
     (newValue: string) => {
       if (!elementId || !pointId || x === null || y === null) {
-        return
+        return false
       }
 
-      const nextX = Number(newValue)
-      if (Number.isNaN(nextX)) {
-        return
+      const nextX = parseFiniteInputNumber(newValue)
+      if (nextX === null) {
+        return false
       }
 
       const updatedPoint = elementApis.updateVectorAnchorPointPosition(
@@ -28,7 +29,7 @@ const VectorPoint = () => {
         { x: nextX, y }
       )
       if (!updatedPoint) {
-        return
+        return false
       }
 
       systemContextApis.setSelectedVectorPoint({
@@ -38,6 +39,7 @@ const VectorPoint = () => {
         x: updatedPoint.point.x,
         y: updatedPoint.point.y
       })
+      return true
     },
     [elementId, pointId, x, y]
   )
@@ -45,12 +47,12 @@ const VectorPoint = () => {
   const handleChangeY = useCallback(
     (newValue: string) => {
       if (!elementId || !pointId || x === null || y === null) {
-        return
+        return false
       }
 
-      const nextY = Number(newValue)
-      if (Number.isNaN(nextY)) {
-        return
+      const nextY = parseFiniteInputNumber(newValue)
+      if (nextY === null) {
+        return false
       }
 
       const updatedPoint = elementApis.updateVectorAnchorPointPosition(
@@ -59,7 +61,7 @@ const VectorPoint = () => {
         { x, y: nextY }
       )
       if (!updatedPoint) {
-        return
+        return false
       }
 
       systemContextApis.setSelectedVectorPoint({
@@ -69,6 +71,7 @@ const VectorPoint = () => {
         x: updatedPoint.point.x,
         y: updatedPoint.point.y
       })
+      return true
     },
     [elementId, pointId, x, y]
   )
