@@ -1,15 +1,17 @@
+import { MapRegistry } from '@asyra/utils'
 import type { RenderStrategy } from './types/render-strategy'
 
 class RenderRegistry {
-  private strategies = new Map<string, RenderStrategy>()
+  private strategies = new MapRegistry<string, RenderStrategy>()
 
   register(type: string, strategy: RenderStrategy): void {
-    if (this.strategies.has(type)) {
-      console.warn(
-        `Render strategy for "${type}" already registered. Overwriting.`
-      )
-    }
-    this.strategies.set(type, strategy)
+    this.strategies.set(type, strategy, {
+      onDuplicate: () => {
+        console.warn(
+          `Render strategy for "${type}" already registered. Overwriting.`
+        )
+      }
+    })
   }
 
   unregister(type: string): boolean {

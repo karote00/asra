@@ -1,4 +1,9 @@
-import { SystemContextSnapshot, DetailType, EVENT_OPTIONS } from '@asyra/utils'
+import {
+  SystemContextSnapshot,
+  DetailType,
+  EVENT_OPTIONS,
+  MapRegistry
+} from '@asyra/utils'
 
 /**
  * Decision Handler Function
@@ -24,7 +29,7 @@ export interface DecisionResult<TPayload = unknown> {
 }
 
 export class InteractionRegistry {
-  private handlers = new Map<string, DecisionHandler>()
+  private handlers = new MapRegistry<string, DecisionHandler>()
 
   register(eventName: string, handler: DecisionHandler) {
     this.handlers.set(eventName, handler)
@@ -40,6 +45,6 @@ export class InteractionRegistry {
   }
 
   getRegisteredEvents(): string[] {
-    return Array.from(this.handlers.keys())
+    return this.handlers.keys()
   }
 }

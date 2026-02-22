@@ -1,7 +1,8 @@
+import { MapRegistry } from '@asyra/utils'
 import { InputEventCombo } from './event-mappings'
 
 export class InputSystemRegistry {
-  private mappings: Map<string, InputEventCombo[]> = new Map()
+  private mappings = new MapRegistry<string, InputEventCombo[]>()
 
   /**
    * Register input event combinations for a given event name
@@ -28,7 +29,7 @@ export class InputSystemRegistry {
    * Get all registered event names
    */
   getEventNames(): string[] {
-    return Array.from(this.mappings.keys())
+    return this.mappings.keys()
   }
 
   /**

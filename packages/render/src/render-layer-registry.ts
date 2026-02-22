@@ -1,7 +1,8 @@
+import { MapRegistry } from '@asyra/utils'
 import type { RenderLayerRegistration } from './types/render-layer'
 
 class RenderLayerRegistry {
-  private layers = new Map<string, RenderLayerRegistration>()
+  private layers = new MapRegistry<string, RenderLayerRegistration>()
 
   register(
     registration: RenderLayerRegistration,
@@ -10,11 +11,7 @@ class RenderLayerRegistry {
     const { name } = registration
     const shouldOverride = options.override ?? true
 
-    if (this.layers.has(name) && !shouldOverride) {
-      return
-    }
-
-    this.layers.set(name, registration)
+    this.layers.set(name, registration, { override: shouldOverride })
   }
 
   unregister(name: string): boolean {
@@ -23,8 +20,7 @@ class RenderLayerRegistry {
       return false
     }
 
-    this.layers.delete(name)
-    return true
+    return this.layers.delete(name)
   }
 
   get(name: string): RenderLayerRegistration | undefined {
@@ -36,7 +32,7 @@ class RenderLayerRegistry {
   }
 
   getAll(): RenderLayerRegistration[] {
-    return Array.from(this.layers.values()).sort(
+    return this.layers.values().sort(
       (a, b) => (a.zIndex || 0) - (b.zIndex || 0)
     )
   }

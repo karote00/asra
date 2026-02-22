@@ -1,3 +1,4 @@
+import { MapRegistry } from '@asyra/utils'
 import type { PropertySchema } from '@asyra/utils'
 
 interface RegisterOptions {
@@ -5,19 +6,16 @@ interface RegisterOptions {
 }
 
 class PropertySchemaRegistry {
-  private registry = new Map<string, PropertySchema>()
+  private registry = new MapRegistry<string, PropertySchema>()
 
   register(schema: PropertySchema, options: RegisterOptions = {}) {
-    const shouldOverride = options.override === true
     if (!schema?.type) {
       return
     }
 
-    if (!shouldOverride && this.registry.has(schema.type)) {
-      return
-    }
-
-    this.registry.set(schema.type, schema)
+    this.registry.set(schema.type, schema, {
+      override: options.override === true
+    })
   }
 
   get(type: string): PropertySchema | undefined {

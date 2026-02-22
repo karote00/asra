@@ -1,3 +1,4 @@
+import { MapRegistry } from '@asyra/utils'
 import type { ElementRawData } from '@asyra/utils'
 import type Element from './components/element'
 import type { PropertyDefinition } from '@asyra/props-manager'
@@ -13,15 +14,16 @@ interface ComponentRegistration {
 }
 
 class ComponentRegistry {
-  private registry = new Map<string, ComponentRegistration>()
+  private registry = new MapRegistry<string, ComponentRegistration>()
 
   register(registration: ComponentRegistration): void {
-    if (this.registry.has(registration.type)) {
-      console.warn(
-        `Component "${registration.type}" already registered. Overwriting.`
-      )
-    }
-    this.registry.set(registration.type, registration)
+    this.registry.set(registration.type, registration, {
+      onDuplicate: () => {
+        console.warn(
+          `Component "${registration.type}" already registered. Overwriting.`
+        )
+      }
+    })
   }
 
   unregister(type: string): boolean {
@@ -37,7 +39,7 @@ class ComponentRegistry {
   }
 
   getAll(): Map<string, ComponentRegistration> {
-    return new Map(this.registry)
+    return this.registry.cloneMap()
   }
 }
 

@@ -1,3 +1,4 @@
+import { MapRegistry } from '@asyra/utils'
 import type { FeatureDefinition, FeatureAPI } from '../types/feature'
 import type { FeatureEntry } from '../types/registry'
 
@@ -6,7 +7,7 @@ import type { FeatureEntry } from '../types/registry'
  * Manages feature registration and API lookup
  */
 export class FeatureRegistry {
-  private registry = new Map<string, FeatureEntry>()
+  private registry = new MapRegistry<string, FeatureEntry>()
 
   /**
    * Register a feature
@@ -74,7 +75,7 @@ export class FeatureRegistry {
    * @returns Array of feature names
    */
   getFeatureNames(): string[] {
-    return Array.from(this.registry.keys())
+    return this.registry.keys()
   }
 
   /**
@@ -82,7 +83,7 @@ export class FeatureRegistry {
    * @returns Map of feature name to feature entry
    */
   getAll(): Map<string, FeatureEntry> {
-    return new Map(this.registry)
+    return this.registry.cloneMap()
   }
 
   /**
@@ -97,6 +98,6 @@ export class FeatureRegistry {
    * @returns Number of features
    */
   size(): number {
-    return this.registry.size
+    return this.registry.size()
   }
 }
