@@ -7,9 +7,9 @@ import type {
   PropsComponentRawData
 } from '@asyra/utils'
 import { EventTypes, updateTransaction } from '@asyra/reactive-events'
-import { createProperty } from './utils'
+import { createProperty } from '../factories/create-property'
 import { setComponentAccessor } from './component-accessor'
-import { registerBuiltinPropertySchemas } from './builtin-property-schemas'
+import { registerBuiltinPropertySchemas } from '../schemas/builtin'
 
 registerBuiltinPropertySchemas()
 

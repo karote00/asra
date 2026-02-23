@@ -1,8 +1,8 @@
-import { initPropXSubscribes } from './subscribes'
-import propsManager, { PropsManager } from './props-manager'
-import propertyDefinitionRegistry from './property-definition-registry'
-import stateRegistry from './state-registry'
-import { propertyRegistry } from './registry'
+import { initPropXSubscribes } from './manager/subscribes'
+import propsManager, { PropsManager } from './manager/props-manager'
+import propertyDefinitionRegistry from './registries/property-definition'
+import stateRegistry from './registries/state'
+import { propertyRegistry } from './registries'
 
 initPropXSubscribes()
 
@@ -13,10 +13,10 @@ export {
   stateRegistry,
   propertyRegistry
 }
-export type { PropertyDefinition } from './property-definition-registry'
+export type { PropertyDefinition } from './registries/property-definition'
 export {
   propertySchemaRegistry,
   registerPropertySchema,
   getPropertySchema
-} from './schema-registry'
-export type { RegisterPropertySchemaOptions } from './schema-registry'
+} from './registries/property-schema'
+export type { RegisterPropertySchemaOptions } from './registries/property-schema'

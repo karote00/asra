@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { stateRegistry } from '../state-registry'
+import { stateRegistry } from '../registries/state'
 import { BehaviorSubject, Observable } from 'rxjs'
 
 describe('StateRegistry', () => {

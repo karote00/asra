@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { propertyDefinitionRegistry } from '../property-definition-registry'
-import type { PropertyDefinition } from '../property-definition-registry'
+import { propertyDefinitionRegistry } from '../registries/property-definition'
+import type { PropertyDefinition } from '../registries/property-definition'
 
 describe('PropertyDefinitionRegistry', () => {
   beforeEach(() => {

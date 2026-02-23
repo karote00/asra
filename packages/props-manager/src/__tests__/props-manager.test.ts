@@ -8,8 +8,8 @@ import {
   Unit,
   PropsChange
 } from '@asyra/utils'
-import { PropsManager } from '../props-manager'
-import { createProperty } from '../utils'
+import { PropsManager } from '../manager/props-manager'
+import { createProperty } from '../factories/create-property'
 
 vi.mock('@asyra/reactive-events', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@asyra/reactive-events')>()

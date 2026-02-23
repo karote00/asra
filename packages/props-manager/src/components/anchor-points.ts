@@ -10,7 +10,7 @@ import {
   Unit,
   isAnchorPointType
 } from '@asyra/utils'
-import { getComponentAccessor } from '../component-accessor'
+import { getComponentAccessor } from '../manager/component-accessor'
 import BaseComponent from './base'
 
 interface AnchorPointLike {

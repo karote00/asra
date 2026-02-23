@@ -4,7 +4,7 @@ import {
   PropertyTypes,
   Unit
 } from '@asyra/utils'
-import { registerPropertySchema } from './schema-registry'
+import { registerPropertySchema } from '../registries/property-schema'
 
 const isUnit = (value: unknown) => value === Unit.PX || value === Unit.PERCENT
 const isFiniteNumber = (value: unknown) =>

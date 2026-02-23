@@ -10,7 +10,7 @@ import type {
   PropertyValueKind
 } from '@asyra/utils'
 import { Setter, Unit, isNil } from '@asyra/utils'
-import { getPropertySchema } from '../schema-registry'
+import { getPropertySchema } from '../registries/property-schema'
 import PropsChangeHandler from './props-change-handler'
 
 const propsChangeHandler = new PropsChangeHandler()

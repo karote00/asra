@@ -16,7 +16,7 @@ import {
   AnchorPointComponent,
   AnchorPointsComponent,
   PropertyComponentType
-} from './components'
+} from '../components'
 
 const PropClassMap: Record<string, PropertyComponentType> = {
   [PropertyTypes.POSITION]: PositionComponent,
