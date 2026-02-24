@@ -1,0 +1,21 @@
+Feature: Undo and Redo
+  As a user
+  I want to undo and redo actions
+  So that I can recover from mistakes
+
+  Scenario: Undo element creation
+    Given I created an element
+    When I trigger Undo
+    Then the created element should be removed
+
+  Scenario: Redo element creation
+    Given I created an element and then undid it
+    When I trigger Redo
+    Then the element should be restored
+
+  Scenario: Multi-step undo/redo
+    Given I created multiple elements
+    When I trigger Undo multiple times
+    Then element count should decrease step by step
+    When I trigger Redo multiple times
+    Then element count should increase step by step

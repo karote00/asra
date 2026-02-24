@@ -1,0 +1,26 @@
+# Feature: Hover Element
+
+## Sources
+
+- `src/features/hover-element/index.ts`
+- `src/common-apis/element.ts`
+- `src/common-apis/system-context.ts`
+
+## Trigger
+
+- event: `input.mouse.move`
+- mode: execution
+- priority: `0`
+- exclusive: `false`
+
+## Behavior
+
+1. Reads current client mouse position from system snapshot.
+2. Resolves hovered element by bounds hit-test (`getElementIdAtClientPos`).
+3. Writes hovered element id into system context (`hoveredElementId`).
+
+## Contract
+
+- Hover detection is bounds-based, not render-instance-event-based.
+- Empty canvas hover sets hovered id to `null`.
+- Hover state is app interaction state; UI may consume it or ignore it.

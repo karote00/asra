@@ -4,12 +4,20 @@
 
 ## Essential Reading (in order)
 
-1. **[docs/ai/project/AI_ESSENTIALS.md](docs/ai/project/AI_ESSENTIALS.md)** - Core rules and guidelines (READ FIRST)
-2. **[docs/ai/project/CODING_STANDARDS.md](docs/ai/project/CODING_STANDARDS.md)** - **MONOREPO IMPORT RULE** (READ SECOND - HIGHEST PRIORITY)
-3. **[docs/ai/project/ARCHITECTURE.md](docs/ai/project/ARCHITECTURE.md)** - Technical architecture details
-4. **[docs/ai/project/WORKFLOW.md](docs/ai/project/WORKFLOW.md)** - Development process phases
-5. **[docs/ai/skills/](docs/ai/skills/)** - Reusable AI agent capabilities and skills
-6. **[docs/ai/workflows/](docs/ai/workflows/)** - Universal workflows for guaranteed process execution
+1. **[docs/ai/framework/README.md](docs/ai/framework/README.md)** - Framework context index and read order (READ FIRST)
+2. **[docs/ai/framework/FRAMEWORK_ESSENTIALS.md](docs/ai/framework/FRAMEWORK_ESSENTIALS.md)** - Core framework rules and constraints
+3. **[docs/ai/framework/CODING_STANDARDS.md](docs/ai/framework/CODING_STANDARDS.md)** - **MONOREPO IMPORT RULE** and implementation standards
+4. **[docs/ai/framework/ARCHITECTURE.md](docs/ai/framework/ARCHITECTURE.md)** - Framework architecture contracts
+5. **[docs/ai/framework/WORKFLOW.md](docs/ai/framework/WORKFLOW.md)** - Framework execution workflow
+6. **[docs/ai/apps/README.md](docs/ai/apps/README.md)** - App-level context index (use when task is app-specific)
+7. **[docs/ai/skills/](docs/ai/skills/)** - Reusable AI agent capabilities and skills
+8. **[docs/ai/workflows/](docs/ai/workflows/)** - Universal workflows for guaranteed process execution
+
+## Context Routing
+
+- **Framework tasks**: follow `docs/ai/framework/*` as source-of-truth.
+- **App tasks**: follow `docs/ai/apps/<app>/*` as source-of-truth.
+- **Legacy reference only**: `docs/ai/project/*` (use for historical context, not primary contracts).
 
 ## Quick Reference
 
@@ -27,7 +35,7 @@ For guaranteed process execution, use these workflows:
 - **`/bugfix <description>`** - Systematic bug fixing with regression prevention
 - **`/docs <task>`** - Comprehensive documentation updates with quality standards
 
-Each workflow automatically loads appropriate skills and follows the complete development process from **[docs/ai/project/rules/request-handling-workflow.md](docs/ai/project/rules/request-handling-workflow.md)**.
+Each workflow automatically loads appropriate skills and should follow the active context contracts in `docs/ai/framework/*` and `docs/ai/apps/*`.
 
 ### Skills & Capabilities
 
@@ -92,10 +100,10 @@ yarn workspace @package/name build  # Package-specific build
 
 ## Critical Rules
 
-- **🚨 MONOREPO IMPORT RULE**: **ALWAYS** use `@asyra/package-name` for cross-package imports, NEVER use relative paths like `../../../other-package` (see `docs/ai/project/CODING_STANDARDS.md`)
+- **🚨 MONOREPO IMPORT RULE**: **ALWAYS** use `@asyra/package-name` for cross-package imports, NEVER use relative paths like `../../../other-package` (see `docs/ai/framework/CODING_STANDARDS.md`)
 - **🚨 MAIN BRANCH PROTECTION**: NEVER work on main branch - use feature branches only (see `docs/ai/project/rules/main-branch-protection.md`)
-- **Project Context**: Always read `docs/ai/project/` folder first for architecture patterns
+- **Context Priority**: Use `docs/ai/framework/*` and `docs/ai/apps/*` first; treat `docs/ai/project/*` as legacy reference
 - **External APIs**: Use Context7 MCP server for libraries/frameworks/APIs (see `.antigravity/rules.md`)
-- Read `docs/ai/project/AI_ESSENTIALS.md` before any work
+- Read `docs/ai/framework/FRAMEWORK_ESSENTIALS.md` before framework work
 - Use direct assignment for mocking dynamic methods: `instance.method = vi.fn()`
 - No commits without explicit user approval

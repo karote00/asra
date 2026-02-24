@@ -1,0 +1,31 @@
+Feature: Properties Panel
+  As a user
+  I want to view and edit selected target values
+  So that I can make precise adjustments
+
+  Scenario: Show layout properties for selected element
+    Given an element is selected
+    When I open the properties panel
+    Then I should see X, Y, W, H, and R fields
+
+  Scenario: Hide layout properties when nothing is selected
+    Given no element is selected
+    When I open the properties panel
+    Then layout fields should not be shown
+
+  Scenario: Update numeric layout property
+    Given an element is selected
+    When I input a valid number in a layout field
+    Then the element computed data should update
+
+  Scenario: Reject invalid numeric input
+    Given an element is selected
+    When I input a non-finite value in a numeric field
+    Then the update should be rejected
+    And previous valid value should remain effective
+
+  Scenario: Show vector point panel in path editing context
+    Given path editing mode is active for a vector
+    And a vector point is selected
+    When I open the properties panel
+    Then I should see point X/Y fields instead of layout fields
