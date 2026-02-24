@@ -1,0 +1,77 @@
+{
+  "index": {
+    "include": [
+      "docs/ai/framework/",
+      "docs/ai/apps/",
+      "docs/internal/",
+      "AGENTS.md",
+      "README.md",
+      "ARCHITECTURE.md"
+    ],
+    "exclude": [
+      "docs/ai/project/",
+      "node_modules/",
+      ".git/",
+      "dist/",
+      "build/"
+    ]
+  },
+  "embedder": {
+    "type": "nodejs",
+    "model": "fast-embedder"
+  },
+  "search": {
+    "engine": "javascript",
+    "top_k": 5
+  },
+  "storage": {
+    "type": "sqlite",
+    "path": ".context-rag/index.db"
+  },
+  "cache": {
+    "enabled": true,
+    "branch_aware": true,
+    "max_size": "1GB"
+  },
+  "context": {
+    "include": [
+      "docs/ai/framework/",
+      "docs/ai/apps/",
+      "docs/internal/",
+      "AGENTS.md",
+      "README.md",
+      "ARCHITECTURE.md"
+    ],
+    "exclude": [
+      "docs/ai/project/",
+      "node_modules/",
+      ".git/",
+      "dist/",
+      "build/"
+    ]
+  },
+  "specs": {
+    "include": [
+      "docs/ai/framework/",
+      "docs/ai/apps/",
+      "docs/internal/",
+      "AGENTS.md",
+      "README.md",
+      "ARCHITECTURE.md"
+    ],
+    "exclude": [
+      "docs/ai/project/",
+      "node_modules",
+      ".git",
+      "package-lock.json",
+      "*.log"
+    ],
+    "extensions": [
+      ".md",
+      ".txt",
+      ".yaml",
+      ".yml",
+      ".json"
+    ]
+  }
+}

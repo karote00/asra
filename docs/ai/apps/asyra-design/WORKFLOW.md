@@ -9,7 +9,12 @@ Read in order:
 1. `docs/ai/apps/asyra-design/APP_ESSENTIALS.md`
 2. `docs/ai/apps/asyra-design/CODING_STANDARDS.md`
 3. `docs/ai/apps/asyra-design/ARCHITECTURE.md`
-4. relevant `rules/*`, `modules/*`, and `features/*`
+4. `docs/ai/apps/asyra-design/REQUEST_ROUTING.md`
+5. relevant `rules/*`, `modules/*`, and `features/*`
+
+Optional retrieval accelerator:
+- `npx context-rag ai "<request summary>" --top-k 8`
+- Treat retrieval as lookup support; app docs remain source-of-truth.
 
 ## Phase 1: Scope
 
@@ -70,6 +75,7 @@ Update app docs when contracts change:
 - boundaries/rules -> `rules/*`
 - startup/module ownership -> `modules/*` or `ARCHITECTURE.md`
 - source-module mapping update -> `modules/source-coverage.md`
+- state ownership or key usage changes -> `modules/state-contracts.md`
 - behavior-level acceptance -> `bdd-features/*`
 - requirement-level intent -> `prd/*`
 - capability scope -> `epics/*`

@@ -8,17 +8,18 @@ This folder is the app-level implementation context for **Asyra Design**.
 2. `CODING_STANDARDS.md`
 3. `ARCHITECTURE.md`
 4. `WORKFLOW.md`
-5. `CONSTRAINTS.md`
-6. `rules/*`
-7. `modules/*`
-8. `features/*`
-9. `bdd-features/*`
-10. `prd/*`
-11. `epics/*`
-12. `golden-paths/*`
-13. `task-breakdowns/*`
-14. `BEST_PRACTICES.md`
-15. `PLANS.md`
+5. `REQUEST_ROUTING.md`
+6. `CONSTRAINTS.md`
+7. `rules/*`
+8. `modules/*`
+9. `features/*`
+10. `bdd-features/*`
+11. `prd/*`
+12. `epics/*`
+13. `golden-paths/*`
+14. `task-breakdowns/*`
+15. `BEST_PRACTICES.md`
+16. `PLANS.md`
 
 ## Interpretation Priority
 

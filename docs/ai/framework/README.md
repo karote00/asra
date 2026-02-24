@@ -15,12 +15,14 @@ Framework-first rules:
 2. `CODING_STANDARDS.md`
 3. `ARCHITECTURE.md`
 4. `WORKFLOW.md`
-5. `CONSTRAINTS.md`
-6. `rules/*`
-7. `packages/*`
-8. `golden-paths/*`
-9. `BEST_PRACTICES.md`
-10. `PLANS.md`
+5. `REQUEST_ROUTING.md`
+6. `RUNTIME_MATRICES.md`
+7. `CONSTRAINTS.md`
+8. `rules/*`
+9. `packages/*`
+10. `golden-paths/*`
+11. `BEST_PRACTICES.md`
+12. `PLANS.md`
 
 ## Interpretation Priority
 

@@ -34,3 +34,10 @@ dist
 # Test Repo or File
 count.bash
 chrome-dev-perf-trace.json
+
+# Context-RAG cache and data
+.context-rag/
+
+# Rust build artifacts (context-rag)
+target/
+Cargo.lock
