@@ -3,7 +3,6 @@
     "include": [
       "docs/ai/framework/",
       "docs/ai/apps/",
-      "docs/internal/",
       "AGENTS.md",
       "README.md",
       "ARCHITECTURE.md"
@@ -17,7 +16,7 @@
     ]
   },
   "embedder": {
-    "type": "nodejs",
+    "type": "python-fast",
     "model": "fast-embedder"
   },
   "search": {
@@ -37,7 +36,6 @@
     "include": [
       "docs/ai/framework/",
       "docs/ai/apps/",
-      "docs/internal/",
       "AGENTS.md",
       "README.md",
       "ARCHITECTURE.md"
@@ -54,7 +52,6 @@
     "include": [
       "docs/ai/framework/",
       "docs/ai/apps/",
-      "docs/internal/",
       "AGENTS.md",
       "README.md",
       "ARCHITECTURE.md"

@@ -1,0 +1,149 @@
+# Asyra Design API Surfaces
+
+This file is the app-level API contract map.
+
+## Common APIs (`src/common-apis/*`)
+
+Import boundary:
+- `import { ...Apis } from 'src/common-apis'`
+
+`elementApis` (`src/common-apis/element.ts`)
+- `isContainerType(type: string): boolean`
+- `getElementIdAtWorkspacePos(workspacePos: PositionData): string | null`
+- `getElementIdAtClientPos(clientPos: PositionData): string | null`
+- `getElementType(elementId: string): string | undefined`
+- `getElementBounds(elementId: string): { x: number; y: number; width: number; height: number } | null`
+- `isPointInsideElement(elementId: string, point: PositionData, padding?: number): boolean`
+- `getVectorAnchorPoints(elementId: string): VectorAnchorPoint[]`
+- `getVectorAnchorPointAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): { point: VectorAnchorPoint; index: number } | null`
+- `getVectorAnchorPointAtClientPos(elementId: string, clientPos: PositionData): { point: VectorAnchorPoint; index: number } | null`
+- `getVectorAnchorPointById(elementId: string, pointId: string): { point: VectorAnchorPoint; index: number } | null`
+- `updateVectorGeometry(elementId: string, anchorPoints: VectorAnchorPoint[]): void`
+- `appendVectorAnchorPoint(elementId: string, point: VectorAnchorPoint): { point: VectorAnchorPoint; index: number } | null`
+- `setVectorClosed(elementId: string, closed: boolean): void`
+- `updateVectorAnchorPointPosition(elementId: string, pointId: string, position: PositionData): { point: VectorAnchorPoint; index: number } | null`
+- `getMousePosInWorkspace(clientPos: PositionData): PositionData | null`
+- `createElement(options: { type: EntityType; clientPosition?: PositionData; anchorPoints?: VectorAnchorPoint[] }): string | null`
+- `resetElementSize(elementId: string): void`
+- `hasMovedBeyondThreshold(clientDragStart: PositionData, clientCurrentPos: PositionData, threshold?: number): boolean`
+- `changeComputedData(elementIds: string[], data: Record<string, DataTypes>): void`
+
+`selectionApis` (`src/common-apis/selection.ts`)
+- `getSelectedIds(): string[]`
+- `clearSelection(): void`
+- `toggleSelection(elementId: string): void`
+- `selectElements(elementIds: string[]): void`
+
+`systemContextApis` (`src/common-apis/system-context.ts`)
+- `switchPrimaryTool(tool: string): void`
+- `getSystemContextSnapshot(): SystemContextSnapshot`
+- `updateHoveredElementId(elementId: string | null): void`
+- `getPathEditingVectorId(): string | null`
+- `setPathEditingVectorId(elementId: string | null): void`
+- `getPathEditingStartNewSubpath(): boolean`
+- `setPathEditingStartNewSubpath(value: boolean): void`
+- `getSelectedVectorPoint(): SelectedVectorPointState | null`
+- `setSelectedVectorPoint(point: SelectedVectorPointState | null): void`
+- `getHoveredVectorPoint(): SelectedVectorPointState | null`
+- `setHoveredVectorPoint(point: SelectedVectorPointState | null): void`
+- `clearVectorPointState(): void`
+- `enterPathEditingMode(elementId: string): void`
+- `exitPathEditingMode(): void`
+- compatibility aliases:
+  - `getPenEditingVectorId()`
+  - `setPenEditingVectorId(...)`
+
+`viewportApis` (`src/common-apis/viewport.ts`)
+- `getScale(): number`
+- `getPosition(): PositionData`
+- `zoomToCenter(scale: number, centerX: number, centerY: number): void`
+- `panTo(x: number, y: number): void`
+- `zoomFit(): void`
+
+`historyApis` (`src/common-apis/history.ts`)
+- `undo(): void`
+- `redo(): void`
+
+`renderLayerApis` (`src/common-apis/render-layer.ts`)
+- `registerRenderLayer(registration: RenderLayerRegistration, options?: RegisterRenderLayerOptions): void`
+- `unregisterRenderLayer(name: string): boolean`
+
+`cursorApis` (`src/common-apis/cursor.ts`)
+- `setCanvasCursor(cursor: string): void`
+- `resetCanvasCursor(): void`
+
+`transactionApis` (`src/common-apis/transaction.ts`)
+- `startTransaction(): void`
+- `updateTransaction(): void`
+- `endTransaction(): void`
+
+## Controller APIs (`src/controllers/*`)
+
+`controllers/app.ts`
+- `destroyRenderApp(): void`
+- `setupInputSystem(canvas: HTMLElement): void`
+- `renderIsReady(): void`
+- `resetData(): void`
+- `switchPrimaryTool(primaryTool: PrimaryToolType): void`
+
+`controllers/element-selection.ts`
+- `selectElements(elementIds: string[]): void`
+
+`controllers/scene-tree.ts`
+- `changeElementComputedData(key: string, data: DataTypes): void`
+
+## Input and Feature Trigger Map
+
+Input constants (`src/constants.ts`):
+- drag: `input.drag.start`, `input.drag.update`, `input.drag.end`
+- pointer: `input.double.click`, `input.mouse.move`, `input.wheel.scroll`
+- shortcuts: `input.shortcut.switchPrimaryTool`, `input.shortcut.enter`, `input.shortcut.cancel`, `input.shortcut.undoredo`, `input.shortcut.zoomPreset`
+
+Feature registry (`src/features/index.ts`):
+- `switch-primary-tool`
+- `create-element`
+- `selection`
+- `hover-element`
+- `zoom`
+- `zoom-fit`
+- `pan`
+- `undo-redo`
+- `pen-tool`
+
+## Feature -> API Usage Matrix (Primary)
+
+- `switch-primary-tool`
+  - `systemContextApis.switchPrimaryTool`
+  - `systemContextApis.exitPathEditingMode`
+
+- `create-element`
+  - `elementApis.createElement`
+  - `elementApis.changeComputedData`
+  - `selectionApis.selectElements`
+
+- `selection`
+  - `elementApis.getElementIdAtClientPos`
+  - `selectionApis.toggleSelection` / `selectElements` / `clearSelection`
+
+- `hover-element`
+  - `elementApis.getElementIdAtClientPos`
+  - `systemContextApis.updateHoveredElementId`
+
+- `zoom` / `pan` / `zoom-fit`
+  - `viewportApis.zoomToCenter`
+  - `viewportApis.panTo`
+  - `viewportApis.zoomFit`
+
+- `undo-redo`
+  - `historyApis.undo` / `redo`
+
+- `pen-tool`
+  - `elementApis` vector APIs
+  - `systemContextApis` path-editing and point state APIs
+  - `cursorApis` for hover cursor feedback
+
+## Usage Rules
+
+- Feature files should call common APIs, not deep context/package internals.
+- UI should read via providers/hooks and write via controller/common API paths.
+- If API contract changes, update this file and the matching `features/*` doc in the same change.

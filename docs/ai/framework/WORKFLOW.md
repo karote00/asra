@@ -9,10 +9,12 @@ Read in order:
 1. `docs/ai/framework/FRAMEWORK_ESSENTIALS.md`
 2. `docs/ai/framework/CODING_STANDARDS.md`
 3. `docs/ai/framework/ARCHITECTURE.md`
-4. `docs/ai/framework/REQUEST_ROUTING.md`
-5. `docs/ai/framework/RUNTIME_MATRICES.md`
-6. relevant package docs in `docs/ai/framework/packages/`
-7. relevant rules in `docs/ai/framework/rules/`
+4. `docs/ai/framework/API_SURFACES.md`
+5. relevant principles in `docs/ai/framework/design-principles/`
+6. `docs/ai/framework/REQUEST_ROUTING.md`
+7. `docs/ai/framework/RUNTIME_MATRICES.md`
+8. relevant package docs in `docs/ai/framework/packages/`
+9. relevant rules in `docs/ai/framework/rules/`
 
 Optional retrieval accelerator:
 - `npx context-rag ai "<request summary>" --top-k 8`
@@ -102,6 +104,7 @@ Minimum updates:
 - architecture changes -> `docs/ai/framework/ARCHITECTURE.md`
 - request intent coverage changes -> `docs/ai/framework/REQUEST_ROUTING.md`
 - owner/flow changes -> `docs/ai/framework/RUNTIME_MATRICES.md`
+- rationale changes -> `docs/ai/framework/design-principles/*`
 - package behavior/structure changes -> relevant file in `docs/ai/framework/packages/`
 - rule changes -> `docs/ai/framework/rules/`
 - follow-up work -> `docs/ai/framework/PLANS.md`
