@@ -8,6 +8,7 @@ import {
 /**
  * Decision Handler Function
  * Maps input events to decision results
+ * @deprecated Use feature handlers in `@asyra/feature-system`.
  */
 export type DecisionHandler<TPayload = unknown> = (
   systemContextSnapshot: SystemContextSnapshot,
@@ -17,6 +18,7 @@ export type DecisionHandler<TPayload = unknown> = (
 /**
  * Decision Result Interface
  * Result from decide() - simple object with type, payload, options, and handler
+ * @deprecated Use feature-system handler contracts.
  */
 export interface DecisionResult<TPayload = unknown> {
   type: string
@@ -28,6 +30,9 @@ export interface DecisionResult<TPayload = unknown> {
   ) => void
 }
 
+/**
+ * @deprecated Use `@asyra/feature-system` registration/runtime flow.
+ */
 export class InteractionRegistry {
   private handlers = new MapRegistry<string, DecisionHandler>()
 

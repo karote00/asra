@@ -5,7 +5,7 @@ function warnDeprecated() {
   }
   hasWarned = true
   console.warn(
-    '[interaction-core] Deprecated: feature-system now manages input decisions and sessions.'
+    '[interaction-core] Deprecated (compatibility-only). Use @asyra/feature-system for execute/session/cancel runtime flow.'
   )
 }
 

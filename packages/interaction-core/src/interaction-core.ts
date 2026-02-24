@@ -2,6 +2,10 @@ import { SystemContextSnapshot, DetailType } from '@asyra/utils'
 import { InteractionRegistry, type DecisionResult } from './registry'
 import { startTransaction, endTransaction } from '@asyra/reactive-events'
 
+/**
+ * @deprecated Use `@asyra/feature-system` as the active runtime owner for execute/session/cancel.
+ * This package is kept for compatibility only.
+ */
 class InteractionCore {
   private _previousSession: DecisionResult | null = null
   public registry: InteractionRegistry
@@ -112,5 +116,8 @@ class InteractionCore {
 export { InteractionCore }
 export type { DecisionResult } from './registry'
 
+/**
+ * @deprecated Use `@asyra/feature-system` runtime APIs instead.
+ */
 const interactionCore = new InteractionCore()
 export default interactionCore

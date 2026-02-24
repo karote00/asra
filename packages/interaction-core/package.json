@@ -1,7 +1,7 @@
 {
   "name": "@asyra/interaction-core",
   "version": "0.2.5",
-  "description": "Determines interaction outcomes based on user input and system state.",
+  "description": "[DEPRECATED] Compatibility package. Use @asyra/feature-system for runtime interaction flow.",
   "author": "Asa Tsai",
   "license": "MIT",
   "packageManager": "yarn@4.3.1",
