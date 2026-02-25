@@ -5,9 +5,12 @@ This file is the app-level API contract map.
 ## Common APIs (`src/common-apis/*`)
 
 Import boundary:
+
 - `import { ...Apis } from 'src/common-apis'`
+- `import { defineFeature, importFeature, keyMap } from '@asyra/core'` for golden-path feature/input helpers
 
 `elementApis` (`src/common-apis/element.ts`)
+
 - `isContainerType(type: string): boolean`
 - `getElementIdAtWorkspacePos(workspacePos: PositionData): string | null`
 - `getElementIdAtClientPos(clientPos: PositionData): string | null`
@@ -29,12 +32,14 @@ Import boundary:
 - `changeComputedData(elementIds: string[], data: Record<string, DataTypes>): void`
 
 `selectionApis` (`src/common-apis/selection.ts`)
+
 - `getSelectedIds(): string[]`
 - `clearSelection(): void`
 - `toggleSelection(elementId: string): void`
 - `selectElements(elementIds: string[]): void`
 
 `systemContextApis` (`src/common-apis/system-context.ts`)
+
 - `switchPrimaryTool(tool: string): void`
 - `getSystemContextSnapshot(): SystemContextSnapshot`
 - `updateHoveredElementId(elementId: string | null): void`
@@ -54,6 +59,7 @@ Import boundary:
   - `setPenEditingVectorId(...)`
 
 `viewportApis` (`src/common-apis/viewport.ts`)
+
 - `getScale(): number`
 - `getPosition(): PositionData`
 - `zoomToCenter(scale: number, centerX: number, centerY: number): void`
@@ -61,18 +67,22 @@ Import boundary:
 - `zoomFit(): void`
 
 `historyApis` (`src/common-apis/history.ts`)
+
 - `undo(): void`
 - `redo(): void`
 
 `renderLayerApis` (`src/common-apis/render-layer.ts`)
+
 - `registerRenderLayer(registration: RenderLayerRegistration, options?: RegisterRenderLayerOptions): void`
 - `unregisterRenderLayer(name: string): boolean`
 
 `cursorApis` (`src/common-apis/cursor.ts`)
+
 - `setCanvasCursor(cursor: string): void`
 - `resetCanvasCursor(): void`
 
 `transactionApis` (`src/common-apis/transaction.ts`)
+
 - `startTransaction(): void`
 - `updateTransaction(): void`
 - `endTransaction(): void`
@@ -80,6 +90,7 @@ Import boundary:
 ## Controller APIs (`src/controllers/*`)
 
 `controllers/app.ts`
+
 - `destroyRenderApp(): void`
 - `setupInputSystem(canvas: HTMLElement): void`
 - `renderIsReady(): void`
@@ -87,19 +98,26 @@ Import boundary:
 - `switchPrimaryTool(primaryTool: PrimaryToolType): void`
 
 `controllers/element-selection.ts`
+
 - `selectElements(elementIds: string[]): void`
 
 `controllers/scene-tree.ts`
+
 - `changeElementComputedData(key: string, data: DataTypes): void`
 
 ## Input and Feature Trigger Map
 
-Input constants (`src/constants.ts`):
+Input constants (`src/constants/*`):
+
 - drag: `input.drag.start`, `input.drag.update`, `input.drag.end`
 - pointer: `input.double.click`, `input.mouse.move`, `input.wheel.scroll`
 - shortcuts: `input.shortcut.switchPrimaryTool`, `input.shortcut.enter`, `input.shortcut.cancel`, `input.shortcut.undoredo`, `input.shortcut.zoomPreset`
+- feature IDs:
+  - grouped source constants: `ToolFeatureNames`, `ElementFeatureNames`, `ViewportFeatureNames`, `HistoryFeatureNames`, `VectorPathFeatureNames`
+  - flattened source of truth for usage: `FeatureNames.*`
 
 Feature registry (`src/features/index.ts`):
+
 - `switch-primary-tool`
 - `create-element`
 - `selection`
@@ -113,28 +131,34 @@ Feature registry (`src/features/index.ts`):
 ## Feature -> API Usage Matrix (Primary)
 
 - `switch-primary-tool`
+
   - `systemContextApis.switchPrimaryTool`
   - `systemContextApis.exitPathEditingMode`
 
 - `create-element`
+
   - `elementApis.createElement`
   - `elementApis.changeComputedData`
   - `selectionApis.selectElements`
 
 - `selection`
+
   - `elementApis.getElementIdAtClientPos`
   - `selectionApis.toggleSelection` / `selectElements` / `clearSelection`
 
 - `hover-element`
+
   - `elementApis.getElementIdAtClientPos`
   - `systemContextApis.updateHoveredElementId`
 
 - `zoom` / `pan` / `zoom-fit`
+
   - `viewportApis.zoomToCenter`
   - `viewportApis.panTo`
   - `viewportApis.zoomFit`
 
 - `undo-redo`
+
   - `historyApis.undo` / `redo`
 
 - `pen-tool`
@@ -145,5 +169,6 @@ Feature registry (`src/features/index.ts`):
 ## Usage Rules
 
 - Feature files should call common APIs, not deep context/package internals.
+- Feature files should use `FeatureNames` constants, not ad-hoc string literals.
 - UI should read via providers/hooks and write via controller/common API paths.
 - If API contract changes, update this file and the matching `features/*` doc in the same change.

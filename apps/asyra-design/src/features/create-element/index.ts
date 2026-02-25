@@ -1,7 +1,11 @@
 import type { SystemContextSnapshot } from '@asyra/utils'
-import { defineFeature } from '@asyra/feature-system'
+import { defineFeature } from '@asyra/core'
 import { elementApis, selectionApis } from '../../common-apis'
-import { PrimaryToolType } from '../../constants'
+import {
+  FeatureNames,
+  InputSystemEvents,
+  PrimaryToolType
+} from '../../constants'
 
 interface CreateElementState {
   elementId: string | null
@@ -78,7 +82,7 @@ const api: CreateElementAPI = {
 export const createElementFeature = defineFeature<
   CreateElementAPI,
   CreateElementState
->('createElement', 'input.drag', {
+>(FeatureNames.CREATE_ELEMENT, InputSystemEvents.INPUT_DRAG, {
   priority: 10,
   exclusive: true,
   api,

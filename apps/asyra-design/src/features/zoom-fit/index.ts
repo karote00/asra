@@ -1,6 +1,6 @@
-import { defineFeature } from '@asyra/feature-system'
+import { defineFeature } from '@asyra/core'
 import { viewportApis } from '../../common-apis'
-import { InputSystemEvents } from '../../constants'
+import { FeatureNames, InputSystemEvents } from '../../constants'
 import type { SystemContextSnapshot } from '@asyra/utils'
 
 interface ZoomFitAPI {
@@ -15,7 +15,7 @@ const api: ZoomFitAPI = {
 }
 
 export const zoomFitFeature = defineFeature(
-  'zoomFit',
+  FeatureNames.ZOOM_FIT,
   InputSystemEvents.INPUT_SHORTCUT_ZOOM_PRESET,
   {
     priority: 10,

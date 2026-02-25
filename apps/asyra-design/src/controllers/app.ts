@@ -1,6 +1,6 @@
-import { importFeature } from '@asyra/feature-system'
+import { importFeature } from '@asyra/core'
 import { app, setPixiApp } from '../states/app'
-import { PrimaryToolType } from '../constants'
+import { FeatureNames, PrimaryToolType } from '../constants'
 import core from '../contexts'
 
 export const destroyRenderApp = () => {
@@ -31,7 +31,7 @@ export const resetData = () => {
 
 export const switchPrimaryTool = (primaryTool: PrimaryToolType) => {
   try {
-    const featureAPI = importFeature('switchPrimaryTool')
+    const featureAPI = importFeature(FeatureNames.SWITCH_PRIMARY_TOOL)
 
     if (featureAPI?.switch) {
       const switchFn = featureAPI.switch as (tool: string) => void

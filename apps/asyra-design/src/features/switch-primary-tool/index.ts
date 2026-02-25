@@ -1,7 +1,11 @@
 import type { SystemContextSnapshotWithDetail } from '@asyra/utils'
-import { defineFeature } from '@asyra/feature-system'
+import { defineFeature } from '@asyra/core'
 import { systemContextApis } from '../../common-apis'
-import { InputSystemEvents, PrimaryToolType } from '../../constants'
+import {
+  FeatureNames,
+  InputSystemEvents,
+  PrimaryToolType
+} from '../../constants'
 
 interface SwitchPrimaryToolAPI {
   switch: (tool: string) => void
@@ -21,9 +25,11 @@ const api: SwitchPrimaryToolAPI = {
 }
 
 export const switchPrimaryToolFeature = defineFeature(
-  'switchPrimaryTool',
+  FeatureNames.SWITCH_PRIMARY_TOOL,
   InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL,
   {
+    priority: 10,
+    exclusive: true,
     api,
     execution: (snapshot: SystemContextSnapshotWithDetail) => {
       const tool = snapshot.detail?.primaryTool as string

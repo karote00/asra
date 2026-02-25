@@ -28,6 +28,10 @@ Normalize raw keyboard/mouse/pointer input into framework input events.
 - input event mapping per app/runtime mode
 - optional app-level adapters for host environment differences
 
+## Facade Note
+
+- `keyMap` is also re-exported by `@asyra/core` for app-level convenience.
+
 ## Validation Checklist
 
 - Keyboard shortcuts resolve consistently across supported platforms.

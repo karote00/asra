@@ -13,7 +13,7 @@
 ### `controllers/app.ts`
 
 - delegates render lifecycle calls to core (`setupInputSystem`, `renderIsReady`)
-- delegates primary-tool change to feature API (`importFeature('switchPrimaryTool')`)
+- delegates primary-tool change to feature API (`importFeature(FeatureNames.SWITCH_PRIMARY_TOOL)`)
 - owns app reset utility (`resetData`)
 
 ### `controllers/scene-tree.ts`

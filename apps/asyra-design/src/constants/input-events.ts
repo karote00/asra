@@ -1,9 +1,5 @@
-export const CANVAS_BACKGROUND_COLOR = 0x141414
-export const ROW_HEIGHT = 8 // 32 / 4 = 8 for tailwind
-export const COLUMN_WIDTH = 60 // 240 / 4 = 60 for tailwind
-export const MOUSE_MOVEMENT_THRESHOLD = 3 // pixels - significant movement threshold for canvas operations
-
 export const InputSystemEvents = {
+  INPUT_DRAG: 'input.drag',
   INPUT_DRAG_START: 'input.drag.start',
   INPUT_DRAG_UPDATE: 'input.drag.update',
   INPUT_DRAG_END: 'input.drag.end',
@@ -21,13 +17,3 @@ export const InputSystemEvents = {
 
 export type InputSystemEvents =
   (typeof InputSystemEvents)[keyof typeof InputSystemEvents]
-
-export const PrimaryToolType = {
-  SELECT: 'select',
-  RECTANGLE: 'rect',
-  OVAL: 'oval',
-  PEN: 'pen'
-} as const
-
-export type PrimaryToolType =
-  (typeof PrimaryToolType)[keyof typeof PrimaryToolType]

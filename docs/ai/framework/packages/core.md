@@ -10,6 +10,7 @@ System orchestrator and lifecycle coordinator.
 - renderer/persistence integration entrypoints
 - load/save hooks
 - high-level API surface for apps
+- curated facade re-exports for high-value helpers
 - top-level registration entrypoints for framework extension
 - request API composition across packages
 
@@ -43,6 +44,7 @@ System orchestrator and lifecycle coordinator.
 ## App-Level Usage Rules
 
 - App should call framework via `core.xxx` and app-level wrappers.
+- App should prefer `@asyra/core` helper re-exports (`defineFeature`, `importFeature`, `keyMap`) for common feature/input authoring paths.
 - App should not import package internals when core API exists.
 - Cross-cutting domain logic belongs in app/common APIs, not core.
 

@@ -1,10 +1,11 @@
 import type { SystemContextSnapshot } from '@asyra/utils'
-import { defineFeature } from '@asyra/feature-system'
+import { defineFeature } from '@asyra/core'
 import { elementApis, systemContextApis } from '../../common-apis'
+import { FeatureNames, InputSystemEvents } from '../../constants'
 
 export const hoverElementFeature = defineFeature(
-  'hoverElement',
-  'input.mouse.move',
+  FeatureNames.HOVER_ELEMENT,
+  InputSystemEvents.INPUT_MOUSE_MOVE,
   {
     priority: 0,
     exclusive: false,

@@ -3,7 +3,7 @@
 ## Source
 
 - `src/config/key-combinations.ts`
-- `src/constants.ts` (`InputSystemEvents`)
+- `src/constants/*` (`InputSystemEvents`, `FeatureNames`)
 - `src/init/init-input-system.ts`
 
 ## Purpose
@@ -15,21 +15,26 @@ Define how raw keyboard/pointer/wheel input is normalized into app events and sy
 ### Pointer/Mouse
 
 - `input.drag.start`
+
   - keys: left mouse down
   - updates mouse `dragStart`, `position`, `down=true`, `dragging=false`
 
 - `input.drag.update`
+
   - keys: left mouse down + move
   - updates mouse delta from drag start, `dragging=true`
 
 - `input.drag.end`
+
   - keys: left mouse up
   - updates final delta, `down=false`
 
 - `input.double.click`
+
   - keys: mouse double click
 
 - `input.mouse.move`
+
   - keys: mouse move
   - updates hover pointer position
 
@@ -40,21 +45,26 @@ Define how raw keyboard/pointer/wheel input is normalized into app events and sy
 ### Keyboard Shortcuts
 
 - `input.shortcut.switchPrimaryTool`
+
   - `R` -> rectangle
   - `V` -> select
   - `O` -> oval
   - `P` -> pen
 
 - `input.shortcut.cancel`
+
   - `Escape`
 
 - `input.shortcut.enter`
+
   - `Enter`
 
 - `input.shortcut.arrow`
+
   - arrow keys (reserved/available)
 
 - `input.shortcut.undoredo`
+
   - `Meta+Z` or `Ctrl+Z`
 
 - `input.shortcut.zoomPreset`
@@ -70,9 +80,7 @@ Input mapping callbacks should:
 
 Business logic belongs to feature handlers.
 
-## Risk Note
+## Boundary Note
 
-Current file imports key map from internal path:
-- `@asyra/input-system/src/keymap`
-
-This is app-level coupling risk and tracked in app plans.
+Key mapping should use `@asyra/core` facade exports (e.g. `keyMap`)
+instead of internal package paths.

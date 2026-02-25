@@ -28,7 +28,7 @@
 - component exists but is hidden in current UI
 
 4. Keyboard mapping source
-- key map currently imports from `@asyra/input-system/src/keymap` (internal path coupling risk)
+- key map should be consumed from the `@asyra/core` facade (`keyMap` re-export)
 
 ## Testing Limitations
 

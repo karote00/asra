@@ -1,7 +1,7 @@
-import { defineFeature } from '@asyra/feature-system'
+import { defineFeature } from '@asyra/core'
 import { ZOOM_SMOOTH_RATIO } from '@asyra/utils'
 import { viewportApis } from '../../common-apis'
-import { InputSystemEvents } from '../../constants'
+import { FeatureNames, InputSystemEvents } from '../../constants'
 import type { SystemContextSnapshot } from '@asyra/utils'
 
 interface ZoomAPI {
@@ -20,7 +20,7 @@ const api: ZoomAPI = {
 }
 
 export const zoomFeature = defineFeature(
-  'zoom',
+  FeatureNames.ZOOM,
   InputSystemEvents.INPUT_WHEEL_SCROLL,
   {
     priority: 5,

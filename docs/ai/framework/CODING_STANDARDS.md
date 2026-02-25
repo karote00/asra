@@ -11,6 +11,7 @@
 
 3. App-level dependency rule
 - App code should call framework via exposed APIs (`core` and app wrappers).
+- Prefer `@asyra/core` facade re-exports for common feature/input helpers when available.
 - Avoid direct manipulation of package internals.
 
 ## Registry and Extension Standards

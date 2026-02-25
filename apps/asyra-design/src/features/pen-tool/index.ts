@@ -1,13 +1,16 @@
 import { IDTypes, id, type SystemContextSnapshot } from '@asyra/utils'
-import { type VectorAnchorPoint } from '@asyra/core'
-import { defineFeature } from '@asyra/feature-system'
+import { defineFeature, type VectorAnchorPoint } from '@asyra/core'
 import {
   cursorApis,
   elementApis,
   selectionApis,
   systemContextApis
 } from '../../common-apis'
-import { PrimaryToolType, InputSystemEvents } from '../../constants'
+import {
+  FeatureNames,
+  InputSystemEvents,
+  PrimaryToolType
+} from '../../constants'
 
 interface PenState extends Record<string, unknown> {
   elementId: string
@@ -54,8 +57,8 @@ const isPathEditingVectorSelected = (
 }
 
 export const penFeature = defineFeature<Record<string, unknown>, PenState>(
-  'pen',
-  'input.drag',
+  FeatureNames.PEN,
+  InputSystemEvents.INPUT_DRAG,
   {
     priority: 15,
     exclusive: true,
@@ -153,8 +156,8 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
 )
 
 export const selectVectorPointFeature = defineFeature(
-  'selectVectorPoint',
-  'input.drag',
+  FeatureNames.SELECT_VECTOR_POINT,
+  InputSystemEvents.INPUT_DRAG,
   {
     priority: 30,
     exclusive: true,
@@ -187,13 +190,19 @@ export const selectVectorPointFeature = defineFeature(
         return {
           pointId: hoveredPoint.pointId
         }
+      },
+      onUpdate: () => {
+        return
+      },
+      onEnd: () => {
+        return
       }
     }
   }
 )
 
 export const hoverVectorPointCursorFeature = defineFeature(
-  'hoverVectorPointCursor',
+  FeatureNames.HOVER_VECTOR_POINT_CURSOR,
   InputSystemEvents.INPUT_MOUSE_MOVE,
   {
     priority: 20,
@@ -228,7 +237,7 @@ export const hoverVectorPointCursorFeature = defineFeature(
 )
 
 export const cancelPenEditingFeature = defineFeature(
-  'cancelPenEditing',
+  FeatureNames.CANCEL_PEN_EDITING,
   InputSystemEvents.INPUT_SHORTCUT_CANCEL,
   {
     priority: 100,
@@ -276,7 +285,7 @@ export const cancelPenEditingFeature = defineFeature(
 )
 
 export const enterPathEditingFeature = defineFeature(
-  'enterPathEditing',
+  FeatureNames.ENTER_PATH_EDITING,
   InputSystemEvents.INPUT_SHORTCUT_ENTER,
   {
     priority: 100,
@@ -299,7 +308,7 @@ export const enterPathEditingFeature = defineFeature(
 )
 
 export const enterPathEditingByDoubleClickFeature = defineFeature(
-  'enterPathEditingByDoubleClick',
+  FeatureNames.ENTER_PATH_EDITING_BY_DOUBLE_CLICK,
   InputSystemEvents.INPUT_DOUBLE_CLICK,
   {
     priority: 90,

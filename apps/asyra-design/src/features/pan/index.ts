@@ -1,6 +1,6 @@
-import { defineFeature } from '@asyra/feature-system'
+import { defineFeature } from '@asyra/core'
 import { viewportApis } from '../../common-apis'
-import { InputSystemEvents } from '../../constants'
+import { FeatureNames, InputSystemEvents } from '../../constants'
 import type { SystemContextSnapshot } from '@asyra/utils'
 
 interface PanAPI {
@@ -16,7 +16,7 @@ const api: PanAPI = {
 }
 
 export const panFeature = defineFeature(
-  'pan',
+  FeatureNames.PAN,
   InputSystemEvents.INPUT_WHEEL_SCROLL,
   {
     priority: 4,

@@ -39,6 +39,7 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
 - Keep feature handlers focused on interaction logic.
 - Put data mutations in app/common APIs called by feature handlers.
 - Avoid direct context singletons in features when API wrapper exists.
+- For common app flows, `defineFeature` / `importFeature` can be imported from the `@asyra/core` facade.
 
 ## Validation Checklist
 

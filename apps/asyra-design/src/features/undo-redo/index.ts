@@ -1,10 +1,10 @@
-import { defineFeature } from '@asyra/feature-system'
+import { defineFeature } from '@asyra/core'
 import { historyApis } from '../../common-apis'
-import { InputSystemEvents } from '../../constants'
+import { FeatureNames, InputSystemEvents } from '../../constants'
 import type { SystemContextSnapshot } from '@asyra/utils'
 
 export const undoRedoFeature = defineFeature(
-  'undoRedo',
+  FeatureNames.UNDO_REDO,
   InputSystemEvents.INPUT_SHORTCUT_UNDOREDO,
   {
     priority: 100,

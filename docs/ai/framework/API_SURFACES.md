@@ -6,6 +6,7 @@ This file is the fast API map for framework-level implementation requests.
 
 Primary import:
 - `import core from '@asyra/core'`
+- `import { defineFeature, importFeature, unregisterFeature, keyMap } from '@asyra/core'`
 
 Lifecycle and integration:
 - `setRenderer(renderer: IRenderer): void`
@@ -53,6 +54,8 @@ Managed property bridges:
 - default `core` singleton, `Core` class
 - `defineComponent`, `unregisterComponent`
 - feature-system bridge exports: `initFeatureSystem`, `getFeatureRegistry`, `getSessionManager`
+- feature authoring helpers: `defineFeature`, `importFeature`, `unregisterFeature`
+- input mapping helper re-export: `keyMap`
 - vector types: `VectorAnchorPoint`, `VectorPathStyle`
 - render layer types: `RenderLayerRegistration`, `RegisterRenderLayerOptions`
 
@@ -127,6 +130,7 @@ Session mode:
 ## API Usage Rules
 
 - App-level code should prefer `core.xxx` when surface exists.
+- Prefer framework helper imports from `@asyra/core` when equivalent re-exports exist.
 - Non-render packages must not import Pixi directly.
 - Model mutation requests should be transaction-bounded by caller-side API boundaries.
 - Deprecated APIs stay callable during transition, but new behavior should be built on current owners.

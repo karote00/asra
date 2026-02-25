@@ -1,8 +1,8 @@
 import { InputType, ModifierKey, PointerKey, MouseButton } from '@asyra/utils'
 import type { RawInputEvent } from '@asyra/utils'
 import type { MouseSnapshot } from '@asyra/utils'
+import { keyMap } from '@asyra/core'
 import { systemContext } from '../contexts'
-import keyMap from '@asyra/input-system/src/keymap'
 import { InputSystemEvents } from '../constants'
 import { PrimaryToolType } from '../constants'
 

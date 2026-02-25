@@ -15,6 +15,15 @@ import { initInteractionCoreSubscribes } from './subscribes'
 initInteractionCoreSubscribes()
 warnDeprecated()
 
+/**
+ * @deprecated Use `@asyra/feature-system` as runtime owner for execute/session/cancel.
+ */
 export { InteractionCore }
+/**
+ * @deprecated Use `@asyra/feature-system` registration/runtime APIs.
+ */
 export * from './registry'
+/**
+ * @deprecated Use `@asyra/feature-system` as runtime owner for execute/session/cancel.
+ */
 export default interactionCore
