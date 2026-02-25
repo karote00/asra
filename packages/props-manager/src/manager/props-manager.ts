@@ -1,10 +1,12 @@
 import { OWNER, PropertyType, PROPS_ACTIONS } from '@asyra/utils'
 import type {
+  EVENT_OPTIONS,
   PropertyComponentInstanceDataTypes,
   PropertyComponentInstanceTypes,
   PropertyComponentRawData,
   PropsChange,
-  PropsComponentRawData
+  PropsComponentRawData,
+  EvnetOptions
 } from '@asyra/utils'
 import { EventTypes, updateTransaction } from '@asyra/reactive-events'
 import { createProperty } from '../factories/create-property'
@@ -145,7 +147,7 @@ class PropsManager {
     )
   }
 
-  removeProperty(propComponentIds: string[]) {
+  removeProperty(propComponentIds: string[], _options?: EVENT_OPTIONS) {
     propComponentIds.forEach((propComponentId) => {
       this.removeFromMap(propComponentId)
     })
@@ -154,18 +156,30 @@ class PropsManager {
   updatePropsData<K extends keyof PropertyComponentInstanceDataTypes>(
     componentId: string,
     key: K,
-    data: PropertyComponentInstanceDataTypes[K]
+    data: PropertyComponentInstanceDataTypes[K],
+    options?: EvnetOptions
   ) {
     const component = this.getComponentById(componentId)
     if (!component) {
       return
     }
 
+    if (options) {
+      component.set(key, data, options)
+      return
+    }
+
     component.set(key, data)
   }
 
-  commitChanges() {
+  commitChanges(options?: EVENT_OPTIONS) {
     this.changes.forEach((change) => {
+      const changeOptions = change.options ?? options
+      if (changeOptions) {
+        updateTransaction(change.eventName, change, changeOptions)
+        return
+      }
+
       updateTransaction(change.eventName, change)
     })
     this.cleanChanges()

@@ -3,7 +3,8 @@ import {
   CreateElementData,
   GroupInstanceTypes,
   SceneTreeRawData,
-  DataTypes
+  DataTypes,
+  EVENT_OPTIONS
 } from '@asyra/utils'
 
 export interface SceneTreeRawAPIs {
@@ -13,11 +14,13 @@ export interface SceneTreeRawAPIs {
   createElement: (
     data: CreateElementData,
     parent?: GroupInstanceTypes,
-    index?: number
+    index?: number,
+    options?: EVENT_OPTIONS
   ) => string
   changeComputedData: (
     elementIds: string[],
-    data: Record<string, DataTypes>
+    data: Record<string, DataTypes>,
+    options?: EVENT_OPTIONS
   ) => void
   getAllElementsBounds: () => Bounds | null
   isContainerType: (type: string) => boolean

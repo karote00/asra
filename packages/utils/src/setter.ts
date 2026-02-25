@@ -6,6 +6,7 @@ interface ChangeRecord {
   key: string
   before: DataTypes
   after: DataTypes
+  options?: EvnetOptions
 }
 import { isEqual, cloneDeep } from 'lodash'
 import { ElementInstanceDataTypes } from './sceneTree'
@@ -41,7 +42,8 @@ export class Setter<T extends InstanceDataType> {
           id: this.get('id'),
           key: key as string,
           before: before as DataTypes,
-          after: after as DataTypes
+          after: after as DataTypes,
+          options
         })
       }
     }
@@ -50,5 +52,5 @@ export class Setter<T extends InstanceDataType> {
 
 export interface ISetter<T> {
   get<K extends keyof T>(key: K): T[K]
-  set<K extends keyof T>(key: K, value: T[K]): void
+  set<K extends keyof T>(key: K, value: T[K], options?: EvnetOptions): void
 }

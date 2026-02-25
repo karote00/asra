@@ -8,6 +8,7 @@ import {
   Bounds,
   CreateElementData,
   DataTypes,
+  EVENT_OPTIONS,
   GroupInstanceTypes,
   SceneTreeRawData,
   EntityTypes,
@@ -28,7 +29,8 @@ export const createSceneTreeAPIs = (
     createElement(
       data: CreateElementData,
       parent?: GroupInstanceTypes,
-      index?: number
+      index?: number,
+      options?: EVENT_OPTIONS
     ) {
       const elementType = data.type ?? EntityTypes.ELEMENT
       const elementId = data.id ?? id(elementType)
@@ -41,7 +43,8 @@ export const createSceneTreeAPIs = (
           id: elementId
         },
         index,
-        parent
+        parent,
+        options
       )
 
       return elementId
@@ -58,14 +61,18 @@ export const createSceneTreeAPIs = (
     getAllElementsBounds() {
       return sceneTreeRequests.getAllElementsBounds()
     },
-    changeComputedData(elementIds: string[], data: Record<string, DataTypes>) {
+    changeComputedData(
+      elementIds: string[],
+      data: Record<string, DataTypes>,
+      options?: EVENT_OPTIONS
+    ) {
       const entries = Object.entries(data ?? {})
       if (entries.length === 0) {
         return
       }
 
       entries.forEach(([key, value]) => {
-        changeComputedData(elementIds, key, value)
+        changeComputedData(elementIds, key, value, options)
       })
     },
     isContainerType(type: string) {

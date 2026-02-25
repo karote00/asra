@@ -26,17 +26,17 @@ Import boundary:
 - `setVectorClosed(elementId: string, closed: boolean): void`
 - `updateVectorAnchorPointPosition(elementId: string, pointId: string, position: PositionData): { point: VectorAnchorPoint; index: number } | null`
 - `getMousePosInWorkspace(clientPos: PositionData): PositionData | null`
-- `createElement(options: { type: EntityType; clientPosition?: PositionData; anchorPoints?: VectorAnchorPoint[] }): string | null`
+- `createElement(options: { type: EntityType; clientPosition?: PositionData; anchorPoints?: VectorAnchorPoint[] }, mutationOptions?: { undoable: boolean }): string | null`
 - `resetElementSize(elementId: string): void`
 - `hasMovedBeyondThreshold(clientDragStart: PositionData, clientCurrentPos: PositionData, threshold?: number): boolean`
-- `changeComputedData(elementIds: string[], data: Record<string, DataTypes>): void`
+- `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: { undoable: boolean }): void`
 
 `selectionApis` (`src/common-apis/selection.ts`)
 
 - `getSelectedIds(): string[]`
-- `clearSelection(): void`
-- `toggleSelection(elementId: string): void`
-- `selectElements(elementIds: string[]): void`
+- `clearSelection(options?: { undoable: boolean }): void`
+- `toggleSelection(elementId: string, options?: { undoable: boolean }): void`
+- `selectElements(elementIds: string[], options?: { undoable: boolean }): void`
 
 `systemContextApis` (`src/common-apis/system-context.ts`)
 

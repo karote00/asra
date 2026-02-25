@@ -1,6 +1,7 @@
 import { OWNER, PROPS_ACTIONS } from '../constants'
 import { PropertyComponentRawData } from '../propsManager'
 import { DataTypes } from './constants'
+import type { MutationOptions } from './change'
 import type { YjsChange } from './yjs'
 
 export interface AddRemovePropertyChange {
@@ -11,6 +12,7 @@ export interface AddRemovePropertyChange {
   eventName: string
   data: PropertyComponentRawData[]
   parentId?: string
+  options?: MutationOptions
 }
 
 export interface UpdatePropertyChange {
@@ -21,6 +23,7 @@ export interface UpdatePropertyChange {
   key: string
   before: DataTypes
   after: DataTypes
+  options?: MutationOptions
 }
 
 export type PropsChange = AddRemovePropertyChange | UpdatePropertyChange

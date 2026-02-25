@@ -335,6 +335,32 @@ describe('PropsManager', () => {
     expect(positionComponent.set).toHaveBeenCalledWith('x', 100)
   })
 
+  it('should update props data with mutation options', () => {
+    const positionData = {
+      id: 'pp-1',
+      type: PropertyTypes.POSITION,
+      x: 0,
+      y: 0,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }
+    const positionComponent = createProperty(
+      positionData
+    ) as PropertyComponentInstanceTypes
+    vi.spyOn(positionComponent, 'set')
+
+    propsManager.addToMap(positionComponent)
+    propsManager.updatePropsData(
+      'pp-1',
+      'x' as unknown as keyof PropertyComponentInstanceDataTypes,
+      100 as unknown as PropertyComponentInstanceDataTypes[keyof PropertyComponentInstanceDataTypes],
+      { undoable: false }
+    )
+    expect(positionComponent.set).toHaveBeenCalledWith('x', 100, {
+      undoable: false
+    })
+  })
+
   // Test commitChanges
   it('should commit changes and clean the changes array', () => {
     const change1 = {
@@ -356,6 +382,23 @@ describe('PropsManager', () => {
     expect(ReactiveEventsModule.updateTransaction).toHaveBeenCalledWith(
       change2.eventName,
       change2
+    )
+    expect(propsManager.changes).toEqual([])
+  })
+
+  it('should commit per-change options to updateTransaction', () => {
+    const change = {
+      eventName: ReactiveEventsModule.EventTypes.UPDATE_PROPERTY,
+      options: { undoable: false }
+    } as unknown as PropsChange
+    propsManager.addChange(change)
+
+    propsManager.commitChanges()
+
+    expect(ReactiveEventsModule.updateTransaction).toHaveBeenCalledWith(
+      change.eventName,
+      change,
+      { undoable: false }
     )
     expect(propsManager.changes).toEqual([])
   })

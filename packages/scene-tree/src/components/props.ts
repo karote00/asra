@@ -1,4 +1,9 @@
-import { IProps, PropertyType, PropertyTypes } from '@asyra/utils'
+import {
+  IProps,
+  PropertyType,
+  PropertyTypes,
+  type EvnetOptions
+} from '@asyra/utils'
 import type {
   PropertyComponentInstanceDataTypes,
   PropsRawData
@@ -52,7 +57,6 @@ class Props implements IProps {
       propsManager.createProperty({ type: propName })
     )
     const propIdsMap = propsManager.addProperty(propertyComponents)
-    propsManager.commitChanges()
     if (!propIdsMap) {
       return
     }
@@ -103,7 +107,8 @@ class Props implements IProps {
 
   updateData<K extends keyof PropertyComponentInstanceDataTypes>(
     key: K,
-    data: PropertyComponentInstanceDataTypes[K]
+    data: PropertyComponentInstanceDataTypes[K],
+    options?: EvnetOptions
   ) {
     const propName = (PROP_ALIAS[key as AliasKeys] || key) as PropertyType
     const propComponentId = this.propertyIds.get(propName)
@@ -111,15 +116,15 @@ class Props implements IProps {
       return
     }
 
-    propsManager.updatePropsData(propComponentId, key, data)
+    propsManager.updatePropsData(propComponentId, key, data, options)
   }
 
-  cleanup() {
+  cleanup(options?: EvnetOptions) {
     const removedPropertyIds: { id: string }[] = []
     this.propertyIds.forEach((id) => {
       removedPropertyIds.push({ id })
     })
-    removeProperty(removedPropertyIds)
+    removeProperty(removedPropertyIds, options)
   }
 }
 

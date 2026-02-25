@@ -2,6 +2,7 @@ import { EntityType } from './enum'
 import type { ElementRawData, PropsRawData } from './rawDataTypes'
 import { ISetter } from '../setter'
 import { Style } from '../types'
+import type { EvnetOptions } from '../types/change'
 // import { FillAttrs } from '../propsManager'
 
 export interface ComputedAttrs extends Style {
@@ -28,13 +29,13 @@ export interface IProps {
   elementId: string
   load(data?: Partial<PropsRawData>): void
   save(): PropsRawData
-  updateData(key: string, data: unknown): void
-  cleanup(): void
+  updateData(key: string, data: unknown, options?: EvnetOptions): void
+  cleanup(options?: EvnetOptions): void
   getPropId(name: string): string | undefined
 }
 
 export interface IComputed<T extends ComputedAttrs> extends ISetter<T> {
-  set<K extends keyof T>(key: K, data: T[K]): void
+  set<K extends keyof T>(key: K, data: T[K], options?: EvnetOptions): void
 }
 
 export interface IElement<T extends ElementAttrs = ElementAttrs>
@@ -43,11 +44,12 @@ export interface IElement<T extends ElementAttrs = ElementAttrs>
   computed: IComputed<ComputedAttrs>
   load(data: Partial<ElementRawData>): void
   save(): ElementRawData
-  cleanup(): void
+  cleanup(options?: EvnetOptions): void
   getAllComputedData(): ComputedAttrs | {}
   updateComputedData<K extends keyof ComputedAttrs>(
     key: K,
-    data: ComputedAttrs[K]
+    data: ComputedAttrs[K],
+    options?: EvnetOptions
   ): void
 }
 

@@ -42,6 +42,7 @@
 
 ## Notable Behaviors
 
-- `elementApis.changeComputedData(...)` wraps write in start/end transaction.
+- `elementApis.changeComputedData(...)` wraps write in start/end transaction and forwards optional mutation options (for example, `undoable: false`) to core.
+- `elementApis.createElement(...)` and `selectionApis.selectElements(...)` also accept optional mutation options and forward them to core.
 - Vector geometry updates normalize anchor points against computed bounds.
 - Hit-testing is bounds-based (`isPointInsideElement`) for selection/hover behavior.

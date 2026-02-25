@@ -31,11 +31,11 @@ Scene/model bridge:
 - `sceneTreeInit(): void`
 - `sceneTreeLoadData(data: SceneTreeRawData): void`
 - `sceneTreeSaveData(): SceneTreeRawData`
-- `createElement(data: CreateElementData, parent?: GroupInstanceTypes, index?: number): string`
-- `changeComputedData(elementIds: string[], data: Record<string, DataTypes>): void`
+- `createElement(data: CreateElementData, parent?: GroupInstanceTypes, index?: number, options?: { undoable: boolean }): string`
+- `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: { undoable: boolean }): void`
 - `getAllElementsBounds(): Bounds | null`
 - `isContainerType(type: string): boolean`
-- `selectElements(elementIds: string[]): void`
+- `selectElements(elementIds: string[], options?: { undoable: boolean }): void`
 
 Managed property bridges:
 - `registerUIProperty<T>(key: string, config: PropertyRegistration<T>): void`

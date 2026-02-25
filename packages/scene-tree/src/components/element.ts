@@ -1,4 +1,5 @@
 import type {
+  EvnetOptions,
   ElementRawData,
   ElementAttrs,
   IElement,
@@ -136,16 +137,18 @@ class Element<T extends ElementAttrs = ElementAttrs>
 
   updateComputedData<K extends keyof ComputedAttrs>(
     key: K,
-    data: ComputedAttrs[K]
+    data: ComputedAttrs[K],
+    options?: EvnetOptions
   ) {
     if (!(key in this.data)) {
-      this.computed.set(key, data)
+      this.computed.set(key, data, options)
 
       // Convert data type from ComputedAttrs to PropertyComponentInstanceDataTypes
       type KEY = keyof PropertyComponentInstanceDataTypes
       this.props.updateData(
         key as KEY,
-        data as PropertyComponentInstanceDataTypes[KEY]
+        data as PropertyComponentInstanceDataTypes[KEY],
+        options
       )
     }
   }
@@ -159,8 +162,8 @@ class Element<T extends ElementAttrs = ElementAttrs>
     return {}
   }
 
-  cleanup() {
-    this.props.cleanup()
+  cleanup(options?: EvnetOptions) {
+    this.props.cleanup(options)
   }
 }
 

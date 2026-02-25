@@ -9,7 +9,8 @@ import {
   EntityTypes,
   type EntityType,
   type DataTypes,
-  type PositionData
+  type PositionData,
+  type EVENT_OPTIONS
 } from '@asyra/utils'
 import type { VectorAnchorPoint, VectorPathStyle } from '@asyra/core'
 import { isEqual } from 'lodash'
@@ -140,15 +141,21 @@ const getElementChildren = (element: unknown): string[] => {
 const createElementAtWorkspacePos = (
   type: EntityType,
   workspacePos: PositionData,
-  extraData: Record<string, DataTypes> = {}
+  extraData: Record<string, DataTypes> = {},
+  options?: EVENT_OPTIONS
 ): string => {
   startTransaction()
-  const elementId = core.createElement({
-    type,
-    x: workspacePos.x,
-    y: workspacePos.y,
-    ...extraData
-  })
+  const elementId = core.createElement(
+    {
+      type,
+      x: workspacePos.x,
+      y: workspacePos.y,
+      ...extraData
+    },
+    undefined,
+    undefined,
+    options
+  )
   endTransaction()
 
   return elementId
@@ -452,11 +459,14 @@ export const elementApis = {
     })
   },
 
-  createElement: (options: CreateElementOptions): string | null => {
-    if (Array.isArray(options.anchorPoints)) {
-      const bounds = calculateVectorBounds(options.anchorPoints)
+  createElement: (
+    createOptions: CreateElementOptions,
+    options?: EVENT_OPTIONS
+  ): string | null => {
+    if (Array.isArray(createOptions.anchorPoints)) {
+      const bounds = calculateVectorBounds(createOptions.anchorPoints)
       const normalizedAnchorPoints = normalizeVectorAnchorPoints(
-        options.anchorPoints,
+        createOptions.anchorPoints,
         bounds
       )
       const workspacePos: PositionData = {
@@ -464,27 +474,32 @@ export const elementApis = {
         y: bounds.y
       }
 
-      return createElementAtWorkspacePos(options.type, workspacePos, {
-        width: bounds.width,
-        height: bounds.height,
-        anchorPoints: normalizedAnchorPoints,
-        closed: DEFAULT_VECTOR_STYLE.closed,
-        fill: DEFAULT_VECTOR_STYLE.fill,
-        stroke: DEFAULT_VECTOR_STYLE.stroke,
-        strokeWidth: DEFAULT_VECTOR_STYLE.strokeWidth
-      })
+      return createElementAtWorkspacePos(
+        createOptions.type,
+        workspacePos,
+        {
+          width: bounds.width,
+          height: bounds.height,
+          anchorPoints: normalizedAnchorPoints,
+          closed: DEFAULT_VECTOR_STYLE.closed,
+          fill: DEFAULT_VECTOR_STYLE.fill,
+          stroke: DEFAULT_VECTOR_STYLE.stroke,
+          strokeWidth: DEFAULT_VECTOR_STYLE.strokeWidth
+        },
+        options
+      )
     }
 
-    if (!render || !options.clientPosition) {
+    if (!render || !createOptions.clientPosition) {
       return null
     }
 
     const workspacePos = render.getMousePosInWorkspace({
-      clientX: options.clientPosition.x,
-      clientY: options.clientPosition.y
+      clientX: createOptions.clientPosition.x,
+      clientY: createOptions.clientPosition.y
     })
 
-    return createElementAtWorkspacePos(options.type, workspacePos)
+    return createElementAtWorkspacePos(createOptions.type, workspacePos, {}, options)
   },
 
   resetElementSize: (elementId: string) => {
@@ -520,7 +535,8 @@ export const elementApis = {
 
   changeComputedData: (
     elementIds: string[],
-    data: Record<string, DataTypes>
+    data: Record<string, DataTypes>,
+    options?: EVENT_OPTIONS
   ) => {
     const entries = Object.entries(data ?? {})
     if (entries.length === 0) {
@@ -528,7 +544,7 @@ export const elementApis = {
     }
 
     startTransaction()
-    core.changeComputedData(elementIds, data)
+    core.changeComputedData(elementIds, data, options)
     endTransaction()
   }
 }

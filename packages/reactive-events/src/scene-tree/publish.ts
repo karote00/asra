@@ -1,6 +1,7 @@
 import type {
   CreateElementData,
   DataTypes,
+  EVENT_OPTIONS,
   ElementRawData,
   GroupInstanceTypes,
   SceneTreeRawData
@@ -32,7 +33,8 @@ export const sceneTreeLoadComplete = () => {
 export const addElement = (
   elementData: CreateElementData,
   index?: number,
-  parent?: GroupInstanceTypes
+  parent?: GroupInstanceTypes,
+  options?: EVENT_OPTIONS
 ) => {
   publishEvent({
     type: EventTypes.ADD_ELEMENT,
@@ -40,14 +42,16 @@ export const addElement = (
       data: elementData,
       parent,
       index
-    }
+    },
+    options
   })
 }
 
 export const removeElement = (
   elementData: ElementRawData,
   index: number,
-  parent?: GroupInstanceTypes
+  parent?: GroupInstanceTypes,
+  options?: EVENT_OPTIONS
 ) => {
   publishEvent({
     type: EventTypes.REMOVE_ELEMENT,
@@ -55,7 +59,8 @@ export const removeElement = (
       data: elementData,
       parent,
       index
-    }
+    },
+    options
   })
 }
 
@@ -80,7 +85,7 @@ export const changeComputedData = (
   elementIds: string[],
   key: string,
   data: DataTypes,
-  options = { undoable: true }
+  options: EVENT_OPTIONS = { undoable: true }
 ) => {
   publishEvent({
     type: EventTypes.CHANGE_COMPUTED_DATA,

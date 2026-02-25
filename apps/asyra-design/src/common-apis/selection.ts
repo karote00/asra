@@ -1,3 +1,5 @@
+import { type EVENT_OPTIONS } from '@asyra/utils'
+
 /**
  * Selection APIs - for managing element selection
  * Used in: selection, and future features like delete, copy, paste, move, resize
@@ -16,25 +18,25 @@ export const selectionApis = {
   /**
    * Clear all selections
    */
-  clearSelection: () => {
-    core.selectElements([])
+  clearSelection: (options?: EVENT_OPTIONS) => {
+    core.selectElements([], options)
   },
 
   /**
    * Toggle selection of an element
    */
-  toggleSelection: (elementId: string) => {
+  toggleSelection: (elementId: string, options?: EVENT_OPTIONS) => {
     const currentIds = selection.getElementSelectionIds()
     const newIds = currentIds.includes(elementId)
       ? currentIds.filter((id: string) => id !== elementId)
       : [...currentIds, elementId]
-    core.selectElements(newIds)
+    core.selectElements(newIds, options)
   },
 
   /**
    * Set selected elements (delegates to core)
    */
-  selectElements: (elementIds: string[]) => {
-    core.selectElements(elementIds)
+  selectElements: (elementIds: string[], options?: EVENT_OPTIONS) => {
+    core.selectElements(elementIds, options)
   }
 }

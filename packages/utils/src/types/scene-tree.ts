@@ -1,6 +1,7 @@
 import { OWNER, SCENE_TREE_ACTIONS } from '../constants'
 import type { ElementRawData } from '../sceneTree'
 import { DataTypes } from './constants'
+import type { MutationOptions } from './change'
 import type { YjsChange } from './yjs'
 
 export interface AddRemoveElementChange {
@@ -11,6 +12,7 @@ export interface AddRemoveElementChange {
   eventName: string
   data: ElementRawData
   parentId?: string
+  options?: MutationOptions
 }
 
 export interface UpdateElementChange {
@@ -21,6 +23,7 @@ export interface UpdateElementChange {
   key: string
   before: DataTypes
   after: DataTypes
+  options?: MutationOptions
 }
 
 export type SceneTreeChange = AddRemoveElementChange | UpdateElementChange

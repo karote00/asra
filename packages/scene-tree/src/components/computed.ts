@@ -1,5 +1,11 @@
 import propsManager from '@asyra/props-manager'
-import { ComputedAttrs, IComputed, IProps, Setter } from '@asyra/utils'
+import {
+  ComputedAttrs,
+  IComputed,
+  IProps,
+  Setter,
+  type EvnetOptions
+} from '@asyra/utils'
 import ElementChangeHandler from './element-change-handler'
 
 const elementChangeHandler = new ElementChangeHandler()
@@ -41,8 +47,8 @@ class Computed<T extends ComputedAttrs>
     })
   }
 
-  set<K extends keyof T>(key: K, data: T[K]) {
-    super.set(key, data)
+  set<K extends keyof T>(key: K, data: T[K], options?: EvnetOptions) {
+    super.set(key, data, options)
   }
 
   save() {

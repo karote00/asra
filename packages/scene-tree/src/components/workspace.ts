@@ -1,4 +1,5 @@
 import type {
+  EvnetOptions,
   WorkspaceRawData,
   ElementInstanceTypes,
   GroupInstanceTypes,
@@ -77,7 +78,12 @@ class Workspace extends Group {
     this.registry.addToMap(element)
   }
 
-  removeElement(element: IElement, index: number, parent?: GroupInstanceTypes) {
+  removeElement(
+    element: IElement,
+    index: number,
+    parent?: GroupInstanceTypes,
+    options?: EvnetOptions
+  ) {
     if (!element) {
       return
     }
@@ -103,7 +109,7 @@ class Workspace extends Group {
       this.set('children', originalChildrenList)
     }
 
-    element.cleanup()
+    element.cleanup(options)
 
     // Remove element from Workspace
     this.registry.removeFromMap(element)

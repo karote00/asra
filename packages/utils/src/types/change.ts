@@ -1,14 +1,17 @@
 import { DataTypes } from './constants'
 
+export interface MutationOptions {
+  undoable?: boolean
+}
+
 export interface ChangeHandler {
   addChange(data: {
     id: string
     key: string
     before: DataTypes
     after: DataTypes
+    options?: MutationOptions
   }): void
 }
 
-export interface EvnetOptions {
-  undoable?: boolean
-}
+export type EvnetOptions = MutationOptions

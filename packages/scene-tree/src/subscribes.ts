@@ -27,18 +27,14 @@ export const initSceneTreeSubscribes = () => {
     sceneTreeLoadComplete()
   })
 
-  subscribeToAddElement(({ payload }) => {
+  subscribeToAddElement(({ payload, options }) => {
     const { data, parent, index } = payload
-    sceneTree.addNewElement(data, parent, index, inUndoRedo)
-
-    sceneTree.commitSceneTreeTransaction()
+    sceneTree.addNewElement(data, parent, index, inUndoRedo, options)
   })
 
-  subscribeToRemoveElement(({ payload }) => {
+  subscribeToRemoveElement(({ payload, options }) => {
     const { data, parent, index } = payload
-    sceneTree.removeElement(data, index, parent)
-
-    sceneTree.commitSceneTreeTransaction()
+    sceneTree.removeElement(data, index, parent, options)
   })
 
   subscribeToChangeComputedData(async ({ payload, options }) => {
@@ -49,7 +45,8 @@ export const initSceneTreeSubscribes = () => {
       sceneTree.updateComputedData(
         elementId,
         key as KEY,
-        data as ComputedAttrs[KEY]
+        data as ComputedAttrs[KEY],
+        options
       )
     })
     sceneTree.commitSceneTreeTransaction(options)

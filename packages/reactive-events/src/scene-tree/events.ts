@@ -1,6 +1,7 @@
 import type {
   CreateElementData,
   DataTypes,
+  EVENT_OPTIONS,
   ElementRawData,
   GroupInstanceTypes,
   SceneTreeRawData
@@ -29,6 +30,7 @@ export interface AddElementEvent {
     parent?: GroupInstanceTypes
     index?: number
   }
+  options?: EVENT_OPTIONS
 }
 
 export interface RemoveElementEvent {
@@ -38,6 +40,7 @@ export interface RemoveElementEvent {
     parent?: GroupInstanceTypes
     index: number
   }
+  options?: EVENT_OPTIONS
 }
 
 export interface UpdateComputedDataEvent {
@@ -57,9 +60,7 @@ export interface ChangeComputedDataEvent {
     key: string
     data: DataTypes
   }
-  options: {
-    undoable: boolean
-  }
+  options: EVENT_OPTIONS
 }
 
 export type SceneTreeEvents =

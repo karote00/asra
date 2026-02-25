@@ -13,7 +13,7 @@ export const initPropXSubscribes = () => {
     inUndoRedo = payload.status !== UNDO.NONE
   })
 
-  subscribeToAddProperty(({ payload }) => {
+  subscribeToAddProperty(({ payload, options }) => {
     const propComponents = payload.data.map((propData) => {
       let newProperty
       if (inUndoRedo) {
@@ -32,20 +32,32 @@ export const initPropXSubscribes = () => {
     propsManager.addProperty(propComponents)
 
     propsManager.changes.forEach((change) => {
+      const changeOptions = change.options ?? options
+      if (changeOptions) {
+        updateTransaction(change.eventName, change, changeOptions)
+        return
+      }
+
       updateTransaction(change.eventName, change)
     })
 
     propsManager.cleanChanges()
   })
 
-  subscribeToRemoveProperty(({ payload }) => {
+  subscribeToRemoveProperty(({ payload, options }) => {
     const removedPropertyIds = payload.data.map(
       (propertyData) => propertyData.id as string
     )
 
-    propsManager.removeProperty(removedPropertyIds)
+    propsManager.removeProperty(removedPropertyIds, options)
 
     propsManager.changes.forEach((change) => {
+      const changeOptions = change.options ?? options
+      if (changeOptions) {
+        updateTransaction(change.eventName, change, changeOptions)
+        return
+      }
+
       updateTransaction(change.eventName, change)
     })
 

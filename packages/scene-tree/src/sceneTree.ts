@@ -6,6 +6,7 @@ import type {
   GroupInstanceTypes,
   SceneTreeChange,
   EVENT_OPTIONS,
+  EvnetOptions,
   CreateElementData
 } from '@asyra/utils'
 import { EntityTypes, OWNER, SCENE_TREE_ACTIONS } from '@asyra/utils'
@@ -172,7 +173,8 @@ class SceneTree {
     elementData: CreateElementData,
     parent?: GroupInstanceTypes,
     index = -1,
-    inUndoRedo = false
+    inUndoRedo = false,
+    options?: EVENT_OPTIONS
   ): string {
     const workspace = this.currentWorkspace as Workspace
     if (!workspace) {
@@ -195,13 +197,13 @@ class SceneTree {
           propOverrides[propKey]
         )
       })
-      propsManager.commitChanges()
+      propsManager.commitChanges(options)
 
       workspace.addNewElement(newElement, parent, index)
 
       this.addToMap(newElement)
 
-      this.commitSceneTreeTransaction()
+      this.commitSceneTreeTransaction(options)
 
       return newElement.get('id')
     }
@@ -212,7 +214,8 @@ class SceneTree {
   removeElement(
     data: Partial<ElementRawData>,
     index: number,
-    parent?: GroupInstanceTypes
+    parent?: GroupInstanceTypes,
+    options?: EVENT_OPTIONS
   ) {
     const workspace = this.currentWorkspace as Workspace
     if (!workspace) {
@@ -226,17 +229,23 @@ class SceneTree {
     }
 
     this.addChangeForRemoveElement(element)
-    workspace.removeElement(element, index, parent)
-    this.commitSceneTreeTransaction()
+    workspace.removeElement(element, index, parent, options)
+    this.commitSceneTreeTransaction(options)
   }
 
   updateComputedData<K extends keyof ComputedAttrs>(
     elementId: string,
     key: K,
-    data: ComputedAttrs[K]
+    data: ComputedAttrs[K],
+    options?: EvnetOptions
   ) {
     const element = this.getElementById(elementId)
     if (!element) {
+      return
+    }
+
+    if (options) {
+      element.updateComputedData(key, data, options)
       return
     }
 
@@ -245,7 +254,13 @@ class SceneTree {
 
   commitSceneTreeTransaction(options?: EVENT_OPTIONS) {
     this.changes.forEach((change) => {
-      updateTransaction(change.eventName, change, options)
+      const changeOptions = change.options ?? options
+      if (changeOptions) {
+        updateTransaction(change.eventName, change, changeOptions)
+        return
+      }
+
+      updateTransaction(change.eventName, change)
     })
     this.cleanChanges()
   }

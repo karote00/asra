@@ -1,4 +1,5 @@
 import type {
+  EvnetOptions,
   PropertyComponentInstanceDataTypes,
   PropsRawData,
   IProps
@@ -47,7 +48,6 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
         propsManager.addToMap(component)
         this[prop.name] = component.get('id')
       })
-      propsManager.commitChanges()
     }
 
     load(data: Partial<PropsRawData> = {}): void {
@@ -82,7 +82,8 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
 
     updateData<K extends keyof PropertyComponentInstanceDataTypes>(
       key: K,
-      data: PropertyComponentInstanceDataTypes[K]
+      data: PropertyComponentInstanceDataTypes[K],
+      options?: EvnetOptions
     ) {
       // Resolve alias to property name
       const propName = aliasToProperty.get(key as string) || (key as string)
@@ -93,14 +94,14 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
       }
 
       // Update the property component data
-      propsManager.updatePropsData(propId, key, data)
+      propsManager.updatePropsData(propId, key, data, options)
     }
 
-    cleanup() {
+    cleanup(options?: EvnetOptions) {
       properties.forEach((prop) => {
         const propId = this.getPropId(prop.name)
         if (propId) {
-          propsManager.removeProperty([propId])
+          propsManager.removeProperty([propId], options)
         }
       })
     }
