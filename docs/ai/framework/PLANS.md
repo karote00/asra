@@ -23,11 +23,6 @@ This file tracks framework planning topics and points to detailed internal refer
 - App-level registration remains first-class.
 - Reference: `docs/internal/property-schema-validation-integration-plan.md`
 
-5. Undoable mutation option support
-- Expose and propagate `options.undoable` through framework API boundaries.
-- Keep default behavior as undoable (`true`) for backward compatibility.
-- Reference: `docs/internal/undoable-option-support-plan.md`
-
 ## Mid-Term Plans
 
 1. Builtin extraction readiness
