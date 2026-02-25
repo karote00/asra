@@ -1,3 +1,9 @@
+---
+name: render-layer-registration-checker
+description: Validate render-layer registration path, z-order/update integration, and render-engine abstraction boundaries. Use when requests add/move overlays or custom render layers.
+---
+
+
 # Skill: render-layer-registration-checker
 
 ## Trigger Signals

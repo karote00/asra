@@ -303,7 +303,7 @@ AI Execution:
 
    - Run `npx openskills list` to verify installation
    - Check `docs/ai/skills/` directory contents
-   - Update skills catalog with `./scripts/update-skills.sh`
+   - Install project skills with `./scripts/install-skills.sh`
 
 3. **Process inconsistencies**
    - Verify AI_ESSENTIALS.md is current

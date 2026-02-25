@@ -1,3 +1,9 @@
+---
+name: docs-contract-sync
+description: Synchronize implementation changes with framework/app docs contracts across API surfaces, behavior specs, and constraints. Use when code changes must be reflected in docs.
+---
+
+
 # Skill: docs-contract-sync
 
 ## Trigger Signals

@@ -1,3 +1,9 @@
+---
+name: deprecation-lifecycle-enforcer
+description: Apply deprecation lifecycle rules while preserving compatibility and documenting replacement owners/paths. Use when requests deprecate packages/APIs or retire legacy runtimes.
+---
+
+
 # Skill: deprecation-lifecycle-enforcer
 
 ## Trigger Signals

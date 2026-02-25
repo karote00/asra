@@ -1,3 +1,9 @@
+---
+name: framework-import-boundary-auditor
+description: Audit and fix import-boundary violations with deterministic facade-first rewrites and explicit exceptions. Use when requests mention deep imports, boundary cleanup, or core-facade migration.
+---
+
+
 # Skill: framework-import-boundary-auditor
 
 ## Trigger Signals

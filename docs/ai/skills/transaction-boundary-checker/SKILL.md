@@ -1,3 +1,9 @@
+---
+name: transaction-boundary-checker
+description: Enforce one intended user action to one intended undo commit by auditing write timelines and transaction boundaries. Use when requests mention undo split/missing commits or transaction regressions.
+---
+
+
 # Skill: transaction-boundary-checker
 
 ## Trigger Signals

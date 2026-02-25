@@ -1,3 +1,9 @@
+---
+name: feature-authoring-guard
+description: Author or refactor features with explicit priority/exclusive/session semantics and boundary-safe common-API usage. Use when requests add/fix feature behavior or session flow.
+---
+
+
 # Skill: feature-authoring-guard
 
 ## Trigger Signals

@@ -45,16 +45,15 @@ For available AI agent skills and domain expertise, see **[docs/ai/skills/](docs
 
 - **List skills**: `npx openskills list`
 - **Load skill**: `npx openskills read <skill-name>`
-- **Update catalog**: `npx openskills sync -y --output docs/ai/skills/README.md`
+- **Install project skills to runtime**: `./scripts/install-skills.sh`
 
 > ⚠️ **Important**:
 >
 > - **For workflows**: Use `/feature`, `/refactor`, `/bugfix`, or `/docs` commands for guaranteed process execution
-> - **For skills catalog**: Always use:
+> - **For skill installation**: Use:
 >
 > ```bash
-> ./scripts/update-skills.sh
-> # or: npx openskills sync -y --output docs/ai/skills/README.md
+> ./scripts/install-skills.sh
 > ```
 >
 > Running `npx openskills sync` without output flag will overwrite AGENTS.md with skills data.

@@ -1,3 +1,9 @@
+---
+name: constants-registry-manager
+description: Centralize and refactor constants/events/feature IDs, replace ad-hoc string literals, and maintain grouped+flattened constants contracts. Use when requests mention adding events/tools/features or reorganizing constants.
+---
+
+
 # Skill: constants-registry-manager
 
 ## Trigger Signals

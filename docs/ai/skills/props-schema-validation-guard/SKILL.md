@@ -1,3 +1,9 @@
+---
+name: props-schema-validation-guard
+description: Enforce schema-based runtime/load validation with valid-write and invalid-fallback semantics for props data. Use when requests mention invalid property values, schema typing, or load safety.
+---
+
+
 # Skill: props-schema-validation-guard
 
 ## Trigger Signals
