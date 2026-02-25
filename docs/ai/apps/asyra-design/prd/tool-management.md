@@ -22,7 +22,10 @@ Users need quick, reliable switching between primary tools with clear active-sta
 1. Keyboard shortcuts switch primary tool.
 2. Toolbar button clicks switch primary tool.
 3. Active tool is reflected in toolbar state (`data-active`).
-4. Switching away from pen while in path-editing mode exits path editing.
+4. While in path-editing mode:
+   - switching to Select keeps path editing active and disconnects preview segment.
+   - switching to Pen keeps path editing active.
+   - switching to other tools exits path editing.
 5. Switching to pen does not automatically enter path editing.
 
 ## Non-Functional Requirements

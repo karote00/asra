@@ -17,10 +17,23 @@ const api: SwitchPrimaryToolAPI = {
     const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
     systemContextApis.switchPrimaryTool(tool)
 
-    // Tool switch cancels path-editing mode unless switching to Pen.
-    if (tool !== PrimaryToolType.PEN && pathEditingVectorId) {
-      systemContextApis.exitPathEditingMode()
+    if (!pathEditingVectorId) {
+      return
     }
+
+    // Keep path editing active for Select, but disconnect preview segment.
+    if (tool === PrimaryToolType.SELECT) {
+      systemContextApis.setPathEditingStartNewSubpath(true)
+      return
+    }
+
+    // Switching to Pen keeps current path-editing context.
+    if (tool === PrimaryToolType.PEN) {
+      return
+    }
+
+    // Other tools leave path-editing mode.
+    systemContextApis.exitPathEditingMode()
   }
 }
 

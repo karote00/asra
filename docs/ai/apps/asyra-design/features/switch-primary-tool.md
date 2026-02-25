@@ -18,8 +18,9 @@
 
 1. Reads `snapshot.detail.primaryTool`.
 2. Updates `primaryTool` through `systemContextApis.switchPrimaryTool`.
-3. If path editing mode is active and target tool is not `pen`, exits path editing mode.
+3. If path editing mode is active and target tool is `select`, keeps path editing mode and disconnects preview segment (`pathEditingStartNewSubpath = true`).
 4. If target tool is `pen`, keeps path editing mode unchanged.
+5. If target tool is neither `pen` nor `select`, exits path editing mode.
 
 ## UI Contract
 
@@ -28,4 +29,4 @@
 
 ## Notes
 
-- Tool switching is the canonical place where cross-tool path-editing cancellation is enforced.
+- Tool switching is the canonical place where cross-tool path-editing handling is enforced.
