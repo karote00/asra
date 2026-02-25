@@ -1,70 +1,41 @@
-# AI Skills & Capabilities
+# Skills
 
-This directory contains reusable AI agent skills and capabilities that can be loaded on-demand for specialized tasks.
+This folder is the project source-of-truth for reusable AI skills.
 
-## 🎯 Available Skills
+## What A Skill Must Contain
 
-### Core Development Skills
+Every `SKILL.md` must define these sections:
 
-- **refactor.md** - Systematic code refactoring with architecture patterns
-- **add-feature.md** - End-to-end feature development with CDD compliance
-- **review-pr.md** - Pull request review and quality assessment
+1. Trigger Signals
+2. Do Not Use When
+3. Required Inputs
+4. Preflight
+5. Deterministic Procedure
+6. Validation Matrix
+7. Required Output Format
+8. Guardrails
+9. Failure Policy
 
-### Specialized Skills
+Skills should be strict enough that two agents produce nearly the same process/output for the same request.
 
-- **git-operations** - Git/gh CLI separation and best practices
-- **frontend-design** - Production-grade UI component design
-- **webapp-testing** - Playwright-based application testing
-- **mcp-builder** - MCP server creation and integration
+## Available Skills
 
-## 🚀 Usage
+- `framework-import-boundary-auditor/SKILL.md`
+- `feature-authoring-guard/SKILL.md`
+- `transaction-boundary-checker/SKILL.md`
+- `constants-registry-manager/SKILL.md`
+- `deprecation-lifecycle-enforcer/SKILL.md`
+- `render-layer-registration-checker/SKILL.md`
+- `props-schema-validation-guard/SKILL.md`
+- `docs-contract-sync/SKILL.md`
 
-### Loading a Skill
+## Runtime vs Docs
 
-```bash
-# List available skills
-npx openskills list
+- This repo folder is documentation and collaboration source-of-truth.
+- To run skills in Codex runtime, install/copy to:
+  - `~/.codex/skills/<skill-name>/SKILL.md`
 
-# Load a specific skill
-npx openskills read <skill-name>
-```
+## Related Docs
 
-### Skill Integration
-
-Skills are designed to be:
-
-- **Modular**: Load only what you need
-- **Composable**: Combine multiple skills for complex tasks
-- **Reusable**: Cross-project compatible patterns
-- **Versioned**: Independent updates and maintenance
-
-## 📋 Skill Structure
-
-Each skill follows this pattern:
-
-- **Purpose**: Clear objective and domain
-- **Prerequisites**: Required tools or context
-- **Usage**: Step-by-step guidance
-- **Examples**: Practical implementation patterns
-- **Integration**: How to combine with other skills
-
-## 🔄 Management
-
-### Update Skills Catalog
-
-```bash
-./scripts/update-skills.sh
-```
-
-### Add New Skills
-
-1. Create skill file in this directory
-2. Follow the established structure
-3. Update this README
-4. Run skills catalog sync
-
-## 📚 Related Documentation
-
-- **[Project Architecture](../project/ARCHITECTURE.md)** - Technical context
-- **[Development Workflows](../workflows/)** - Process automation
-- **[AI Essentials](../project/AI_ESSENTIALS.md)** - Core guidelines
+- `docs/ai/framework/*`
+- `docs/ai/apps/asyra-design/*`
