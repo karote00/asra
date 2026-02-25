@@ -104,7 +104,7 @@ test.describe('Pen Tool - Editing Flow', () => {
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
   })
 
-  test('escape cancels pen editing so next click starts a new vector', async ({
+  test('escape uses split-then-exit semantics before creating a new vector', async ({
     page
   }) => {
     const initialCount = await getElementCount(page)
@@ -118,10 +118,18 @@ test.describe('Pen Tool - Editing Flow', () => {
     await clickCanvas(page, 0.45, 0.4)
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
 
+    // First escape: keep pen editing mode but start a new subpath in same vector.
     await page.keyboard.press('Escape')
     await page.waitForTimeout(150)
 
-    await clickCanvas(page, 0.55, 0.45)
+    // Second consecutive escape: exit path editing mode and switch to Select tool.
+    await page.keyboard.press('Escape')
+    await expect.poll(() => getActiveTool(page)).toBe('select')
+
+    // Switch back to pen and create a new vector.
+    await page.keyboard.press('p')
+    await expect.poll(() => getActiveTool(page)).toBe('pen')
+    await clickCanvas(page, 0.65, 0.5)
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 2)
   })
 })
