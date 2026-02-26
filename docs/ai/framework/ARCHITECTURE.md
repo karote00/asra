@@ -75,6 +75,7 @@ See:
 - `packages/core.md`
 - `packages/scene-tree.md`
 - `packages/system-context.md`
+- `packages/preset.md`
 - `packages/selection.md`
 - `packages/input-system.md`
 - `packages/reactive-events.md`

@@ -1,4 +1,5 @@
 export * from './property-definition'
+export * from './property-component'
 export * from './state'
 
 // Backward compatibility: Export as propertyRegistry (lowercase instance name)

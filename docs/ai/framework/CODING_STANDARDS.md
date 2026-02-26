@@ -43,3 +43,9 @@
 - Every architectural rule must have one source-of-truth doc in this folder.
 - Plans are concrete and implementation-ready after implementation is accepted.
 - Use consistent naming: Asyra (framework), Asyra Design (reference app).
+
+## Generated Output Standards
+
+- Treat `create-app/*` as generated output, not primary source code.
+- Do not apply manual feature/refactor fixes directly in `create-app/*`.
+- Make changes in source locations (`packages/*`, `apps/*`, and generation scripts), then regenerate.

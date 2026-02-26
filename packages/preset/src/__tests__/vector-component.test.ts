@@ -1,10 +1,42 @@
-import { describe, it, expect, vi } from 'vitest'
-import { componentRegistry } from '@asyra/scene-tree'
-import { propertyRegistry } from '@asyra/props-manager'
-import { renderRegistry } from '@asyra/render'
+import { beforeAll, describe, it, expect, vi } from 'vitest'
+import { componentRegistry, propertyRegistry, renderRegistry } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
+import { applyPreset } from '../preset'
 
-import '../components/vector'
+beforeAll(() => {
+  applyPreset({
+    registerRenderLayer: () => {
+      // no-op for this unit test; vector component registration is asserted via registries.
+    },
+    registerPropertySchema: () => {},
+    registerPropertyComponent: () => {},
+    registerSelection: () => {},
+    getSelection: () => undefined,
+    registerUIProperty: () => {
+      // no-op for this unit test.
+    },
+    registerSystemProperty: () => {
+      // return stub observable-like value for source$ wiring in preset.
+      return {}
+    }
+  }, {
+    sceneTree: {
+      getElementById: () => undefined
+    },
+    systemContext: {
+      getManagedProperty: () => undefined,
+      getSystemContextSnapshot: () => ({
+        primaryTool: 'select',
+        mouse: { position: { x: 0, y: 0 } }
+      })
+    },
+    render: {
+      getViewportPosition: () => ({ x: 0, y: 0 }),
+      getViewportScale: () => 1,
+      getMousePosInWorkspace: () => ({ x: 0, y: 0 })
+    }
+  })
+})
 
 const runRenderStrategy = (
   strategy: unknown,

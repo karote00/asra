@@ -1,4 +1,4 @@
-import { defineComponent } from '../define-component'
+import { defineComponent } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
 
 defineComponent({

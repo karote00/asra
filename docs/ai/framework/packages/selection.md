@@ -27,6 +27,12 @@ Own selection state for entities and selection-oriented queries.
 
 - app-level helpers that compose selection with domain modes
 - ui-context aggregate registration for selection-derived properties
+- selection type registration (for example element/vertex/custom selection channels)
+
+## Notes
+
+- This package does not auto-register builtin selection types by default.
+- Default selection registrations are preset-owned (`@asyra/preset`).
 
 ## Validation Checklist
 

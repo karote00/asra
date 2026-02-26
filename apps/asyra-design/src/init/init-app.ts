@@ -1,7 +1,8 @@
 import { initInputSystem } from './init-input-system'
 import { initFeatures } from './init-features'
-import { initPropertyRegistrations } from '../registrations'
 import { initLoadDiagnostics } from './init-load-diagnostics'
+import { applyPreset } from '@asyra/preset'
+import core from '../contexts'
 
 /**
  * Initializes all framework components and configurations.
@@ -25,8 +26,7 @@ import { initLoadDiagnostics } from './init-load-diagnostics'
  * ```
  */
 export const initApp = (): void => {
-  // Initialize property registry first (before features)
-  initPropertyRegistrations()
+  applyPreset(core)
 
   // Subscribe once to core load diagnostics and route reports to app-level handlers.
   initLoadDiagnostics()

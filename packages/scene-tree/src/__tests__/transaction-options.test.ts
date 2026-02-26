@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as ReactiveEventsModule from '@asyra/reactive-events'
+import type { UpdateTransactionEvent } from '@asyra/reactive-events'
 import {
   OWNER,
   SCENE_TREE_ACTIONS,
@@ -8,14 +9,18 @@ import {
 } from '@asyra/utils'
 import { SceneTree } from '../sceneTree'
 
-vi.mock('@asyra/reactive-events', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@asyra/reactive-events')>()
+const captureUpdateTransactionEvents = () => {
+  const events: UpdateTransactionEvent[] = []
+  const subscription = ReactiveEventsModule.subscribeToEvents((event) => {
+    if (event.type === ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION) {
+      events.push(event as UpdateTransactionEvent)
+    }
+  })
+  // ReplaySubject replays last event on subscribe; reset to current test scope.
+  events.length = 0
 
-  return {
-    ...actual,
-    updateTransaction: vi.fn()
-  }
-})
+  return { events, subscription }
+}
 
 const createUpdateChange = (
   overrides: Partial<SceneTreeChange> = {}
@@ -40,41 +45,57 @@ describe('SceneTree transaction options', () => {
   })
 
   it('forwards per-change options to updateTransaction', () => {
+    const { events, subscription } = captureUpdateTransactionEvents()
     const change = createUpdateChange({ options: { undoable: false } })
     sceneTree.addChange(change)
 
     sceneTree.commitSceneTreeTransaction()
 
-    expect(ReactiveEventsModule.updateTransaction).toHaveBeenCalledWith(
-      change.eventName,
-      change,
-      { undoable: false }
-    )
+    expect(events).toEqual([
+      expect.objectContaining({
+        type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
+        eventName: change.eventName,
+        payload: change,
+        options: { undoable: false }
+      })
+    ])
+    subscription.unsubscribe()
   })
 
   it('uses commit fallback options when change has none', () => {
+    const { events, subscription } = captureUpdateTransactionEvents()
     const change = createUpdateChange()
     sceneTree.addChange(change)
 
     sceneTree.commitSceneTreeTransaction({ undoable: false })
 
-    expect(ReactiveEventsModule.updateTransaction).toHaveBeenCalledWith(
-      change.eventName,
-      change,
-      { undoable: false }
-    )
+    expect(events).toEqual([
+      expect.objectContaining({
+        type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
+        eventName: change.eventName,
+        payload: change,
+        options: { undoable: false }
+      })
+    ])
+    subscription.unsubscribe()
   })
 
   it('calls updateTransaction without options when neither path provides options', () => {
+    const { events, subscription } = captureUpdateTransactionEvents()
     const change = createUpdateChange()
     sceneTree.addChange(change)
 
     sceneTree.commitSceneTreeTransaction()
 
-    expect(ReactiveEventsModule.updateTransaction).toHaveBeenCalledWith(
-      change.eventName,
-      change
-    )
+    expect(events).toEqual([
+      expect.objectContaining({
+        type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
+        eventName: change.eventName,
+        payload: change,
+        options: undefined
+      })
+    ])
+    subscription.unsubscribe()
   })
 
   it('passes options through updateComputedData to element level set flow', () => {

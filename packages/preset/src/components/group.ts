@@ -1,10 +1,11 @@
-import { defineComponent } from '../define-component'
-import { PropertyTypes } from '@asyra/utils'
+import { defineComponent } from '@asyra/core'
+import { EntityTypes, PropertyTypes } from '@asyra/utils'
 
 defineComponent({
-  type: 'rect',
-  idPrefix: 'rect',
-  namePrefix: 'Rectangle',
+  type: EntityTypes.GROUP,
+  idPrefix: 'grp',
+  namePrefix: 'Group',
+  isContainer: true,
   properties: [
     {
       name: PropertyTypes.POSITION,
@@ -19,7 +20,7 @@ defineComponent({
   ],
   renderStrategy: (graphic, data) => {
     graphic.clear()
-    graphic.rect(0, 0, data.width, data.height).fill(0xcccccc)
+    // No visual rendering for group itself besides updating position
     graphic.x = data.x
     graphic.y = data.y
   }

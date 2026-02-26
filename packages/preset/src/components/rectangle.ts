@@ -1,11 +1,10 @@
-import { defineComponent } from '../define-component'
-import { EntityTypes, PropertyTypes } from '@asyra/utils'
+import { defineComponent } from '@asyra/core'
+import { PropertyTypes } from '@asyra/utils'
 
 defineComponent({
-  type: EntityTypes.FRAME,
-  idPrefix: 'fr',
-  namePrefix: 'Frame',
-  isContainer: true,
+  type: 'rect',
+  idPrefix: 'rect',
+  namePrefix: 'Rectangle',
   properties: [
     {
       name: PropertyTypes.POSITION,
@@ -20,10 +19,7 @@ defineComponent({
   ],
   renderStrategy: (graphic, data) => {
     graphic.clear()
-    graphic
-      .rect(0, 0, data.width, data.height)
-      .fill(0xffffff)
-      .stroke({ color: 0x000000, width: 1 })
+    graphic.rect(0, 0, data.width, data.height).fill(0xcccccc)
     graphic.x = data.x
     graphic.y = data.y
   }

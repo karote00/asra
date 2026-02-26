@@ -57,5 +57,5 @@ System orchestrator and lifecycle coordinator.
 ## Validation Checklist
 
 - Core initialization works without UI framework assumptions.
-- Registering builtins/customs does not require package-internal mutation by app.
+- Preset/default registrations are explicit via `@asyra/preset`, not implicit core side effects.
 - Load/save flow executes in documented order.

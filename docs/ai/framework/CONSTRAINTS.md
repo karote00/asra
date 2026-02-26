@@ -38,6 +38,10 @@
 - Some package docs are evolving while framework contracts stabilize.
 - Use package files in `docs/ai/framework/packages/*` as the active reference set.
 
+6. Preset bootstrap requirement
+- Default builtins are not implicitly registered by core.
+- Consumers must explicitly apply `@asyra/preset` when default framework registrations are required.
+
 ## Documentation Rule
 
 - `docs/ai/framework/*` is the framework source-of-truth.

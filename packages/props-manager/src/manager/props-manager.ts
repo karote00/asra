@@ -11,9 +11,6 @@ import type {
 import { EventTypes, updateTransaction } from '@asyra/reactive-events'
 import { createProperty } from '../factories/create-property'
 import { setComponentAccessor } from './component-accessor'
-import { registerBuiltinPropertySchemas } from '../schemas/builtin'
-
-registerBuiltinPropertySchemas()
 
 export interface PropsLoadDiagnostic {
   path: string

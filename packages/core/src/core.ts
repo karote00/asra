@@ -1,11 +1,22 @@
-import type { SceneTreeRawData, CoreRawData } from '@asyra/utils'
+import type {
+  SceneTreeRawData,
+  CoreRawData,
+  PropertySchema
+} from '@asyra/utils'
 import { isRecord } from '@asyra/utils'
-import './components'
 import factory, { Factory } from '@asyra/factory'
 import inputSystem, { InputSystem } from '@asyra/input-system'
 import sceneTree, { SceneTree } from '@asyra/scene-tree'
-import props, { PropsManager } from '@asyra/props-manager'
-import selection, { SelectionManager } from '@asyra/selection'
+import props, {
+  PropsManager,
+  getPropertyComponent,
+  getPropertySchema,
+  registerPropertySchema,
+  registerPropertyComponent
+} from '@asyra/props-manager'
+import selection, {
+  SelectionManager
+} from '@asyra/selection'
 import systemContext, { SystemContext } from '@asyra/system-context'
 import interactionCore, {
   InteractionCore,
@@ -20,7 +31,6 @@ import {
   subscribeToEvents
 } from '@asyra/reactive-events'
 import { initDataContexts } from '@asyra/ui-context'
-import { registerBuiltinRenderLayers } from './builtins'
 
 import {
   CoreAPIs,
@@ -166,12 +176,6 @@ class Core implements CoreAPIs {
       throw new Error('No renderer configured. Call core.setRenderer() first.')
     }
 
-    registerBuiltinRenderLayers(
-      (registration, options) =>
-        this.registerRenderLayer(registration, options),
-      this.deps.render
-    )
-
     // Phase 1: Initialize renderer
     const result = await renderer.init(container, renderOptions)
 
@@ -248,6 +252,48 @@ class Core implements CoreAPIs {
 
   registerInteraction(eventName: string, handler: DecisionHandler) {
     this.deps.interactionCore.registry.register(eventName, handler)
+  }
+
+  registerPropertySchema(
+    schema: PropertySchema,
+    options?: { override?: boolean }
+  ): void {
+    registerPropertySchema(schema, options)
+  }
+
+  getPropertySchema(type: string) {
+    return getPropertySchema(type)
+  }
+
+  registerPropertyComponent(
+    type: string,
+    component: Parameters<typeof registerPropertyComponent>[1],
+    options?: Parameters<typeof registerPropertyComponent>[2]
+  ): void {
+    registerPropertyComponent(type, component, options)
+  }
+
+  getPropertyComponent(type: string) {
+    return getPropertyComponent(type)
+  }
+
+  registerSelection(
+    type: Parameters<SelectionManager['register']>[0],
+    selection: Parameters<SelectionManager['register']>[1]
+  ): void {
+    this.deps.selection.register(type, selection)
+  }
+
+  getSelection(type: Parameters<SelectionManager['get']>[0]) {
+    return this.deps.selection.get(type)
+  }
+
+  getPresetDependencies() {
+    return {
+      sceneTree: this.deps.sceneTree,
+      systemContext: this.deps.systemContext,
+      render: this.deps.render
+    }
   }
 
   load(data: CoreRawData): void {

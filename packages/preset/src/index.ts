@@ -1,0 +1,1 @@
+export { applyPreset } from './preset'

@@ -1,7 +1,7 @@
 import { PropertyTypes } from '@asyra/utils'
-import type { RenderStrategy } from '@asyra/render'
-import { defineComponent } from '../define-component'
-import { type VectorAnchorPoint } from '../types/vector'
+import type { RenderStrategy } from '@asyra/core'
+import { defineComponent } from '@asyra/core'
+import { type VectorAnchorPoint } from '@asyra/core'
 
 interface VectorComputedData {
   x: number

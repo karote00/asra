@@ -1,10 +1,10 @@
-import { defineComponent } from '../define-component'
+import { defineComponent } from '@asyra/core'
 import { EntityTypes, PropertyTypes } from '@asyra/utils'
 
 defineComponent({
-  type: EntityTypes.GROUP,
-  idPrefix: 'grp',
-  namePrefix: 'Group',
+  type: EntityTypes.FRAME,
+  idPrefix: 'fr',
+  namePrefix: 'Frame',
   isContainer: true,
   properties: [
     {
@@ -20,7 +20,10 @@ defineComponent({
   ],
   renderStrategy: (graphic, data) => {
     graphic.clear()
-    // No visual rendering for group itself besides updating position
+    graphic
+      .rect(0, 0, data.width, data.height)
+      .fill(0xffffff)
+      .stroke({ color: 0x000000, width: 1 })
     graphic.x = data.x
     graphic.y = data.y
   }

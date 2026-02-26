@@ -36,6 +36,7 @@
         "^build:core",
         "^build:design-system",
         "^build:feature-system",
+        "^build:preset",
         "^build:reactive-events",
         "^build:ui-context",
         "^build:utils"
@@ -121,6 +122,20 @@
         "^build:utils"
       ]
     },
+    "build:preset": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:core",
+        "^build:props-manager",
+        "^build:render",
+        "^build:scene-tree",
+        "^build:system-context",
+        "^build:utils"
+      ]
+    },
     "build:props-manager": {
       "cache": false,
       "outputs": [
@@ -149,9 +164,9 @@
       "dependsOn": [
         "^build:factory",
         "^build:reactive-events",
-        "^build:system-context",
         "^build:scene-tree",
         "^build:selection",
+        "^build:system-context",
         "^build:utils"
       ]
     },

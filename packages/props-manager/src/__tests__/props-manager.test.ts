@@ -1,30 +1,133 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as ReactiveEventsModule from '@asyra/reactive-events'
+import type { UpdateTransactionEvent } from '@asyra/reactive-events'
 import {
   PROPS_ACTIONS,
   PropertyComponentInstanceTypes,
   PropertyComponentInstanceDataTypes,
+  PropertySchema,
   PropertyTypes,
   Unit,
   PropsChange
 } from '@asyra/utils'
 import { PropsManager } from '../manager/props-manager'
 import { createProperty } from '../factories/create-property'
+import {
+  propertySchemaRegistry,
+  registerPropertySchema
+} from '../registries/property-schema'
+import {
+  propertyComponentRegistry,
+  registerPropertyComponent
+} from '../registries/property-component'
+import {
+  PositionComponent,
+  DimensionComponent,
+  CustomComponent,
+  AnchorPointComponent,
+  AnchorPointsComponent
+} from '../components'
 
-vi.mock('@asyra/reactive-events', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@asyra/reactive-events')>()
+const captureUpdateTransactionEvents = () => {
+  const events: UpdateTransactionEvent[] = []
+  const subscription = ReactiveEventsModule.subscribeToEvents((event) => {
+    if (event.type === ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION) {
+      events.push(event as UpdateTransactionEvent)
+    }
+  })
+  // ReplaySubject replays last event on subscribe; reset to current test scope.
+  events.length = 0
 
-  return {
-    ...actual,
-    updateTransaction: vi.fn()
+  return { events, subscription }
+}
+
+const isUnit = (value: unknown) => value === Unit.PX || value === Unit.PERCENT
+const isFiniteNumber = (value: unknown) =>
+  typeof value === 'number' && Number.isFinite(value)
+
+const registerTestSchemas = () => {
+  propertySchemaRegistry.clear()
+
+  const positionSchema: PropertySchema = {
+    type: PropertyTypes.POSITION,
+    fields: [
+      {
+        key: 'x',
+        kind: 'number',
+        validate: isFiniteNumber,
+        defaultValue: 0
+      },
+      {
+        key: 'y',
+        kind: 'number',
+        validate: isFiniteNumber,
+        defaultValue: 0
+      },
+      {
+        key: 'xUnit',
+        kind: 'string',
+        validate: isUnit,
+        defaultValue: Unit.PX
+      },
+      {
+        key: 'yUnit',
+        kind: 'string',
+        validate: isUnit,
+        defaultValue: Unit.PX
+      }
+    ]
   }
-})
+
+  const dimensionSchema: PropertySchema = {
+    type: PropertyTypes.DIMENSION,
+    fields: [
+      {
+        key: 'width',
+        kind: 'number',
+        validate: isFiniteNumber,
+        defaultValue: 0.1
+      },
+      {
+        key: 'height',
+        kind: 'number',
+        validate: isFiniteNumber,
+        defaultValue: 0.1
+      },
+      {
+        key: 'widthUnit',
+        kind: 'string',
+        validate: isUnit,
+        defaultValue: Unit.PX
+      },
+      {
+        key: 'heightUnit',
+        kind: 'string',
+        validate: isUnit,
+        defaultValue: Unit.PX
+      }
+    ]
+  }
+
+  registerPropertySchema(positionSchema)
+  registerPropertySchema(dimensionSchema)
+}
+
+const registerTestPropertyComponents = () => {
+  propertyComponentRegistry.clear()
+  registerPropertyComponent(PropertyTypes.POSITION, PositionComponent)
+  registerPropertyComponent(PropertyTypes.DIMENSION, DimensionComponent)
+  registerPropertyComponent(PropertyTypes.CUSTOM, CustomComponent)
+  registerPropertyComponent(PropertyTypes.ANCHOR_POINT, AnchorPointComponent)
+  registerPropertyComponent(PropertyTypes.ANCHOR_POINTS, AnchorPointsComponent)
+}
 
 describe('PropsManager', () => {
   let propsManager: PropsManager
 
   beforeEach(() => {
     vi.clearAllMocks()
+    registerTestPropertyComponents()
+    registerTestSchemas()
 
     propsManager = new PropsManager()
   })
@@ -363,6 +466,7 @@ describe('PropsManager', () => {
 
   // Test commitChanges
   it('should commit changes and clean the changes array', () => {
+    const { events, subscription } = captureUpdateTransactionEvents()
     const change1 = {
       eventName: ReactiveEventsModule.EventTypes.ADD_PROPERTY
     } as unknown as PropsChange
@@ -374,19 +478,29 @@ describe('PropsManager', () => {
 
     propsManager.commitChanges()
 
-    expect(ReactiveEventsModule.updateTransaction).toHaveBeenCalledTimes(2)
-    expect(ReactiveEventsModule.updateTransaction).toHaveBeenCalledWith(
-      change1.eventName,
-      change1
+    expect(events).toHaveLength(2)
+    expect(events[0]).toEqual(
+      expect.objectContaining({
+        type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
+        eventName: change1.eventName,
+        payload: change1,
+        options: undefined
+      })
     )
-    expect(ReactiveEventsModule.updateTransaction).toHaveBeenCalledWith(
-      change2.eventName,
-      change2
+    expect(events[1]).toEqual(
+      expect.objectContaining({
+        type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
+        eventName: change2.eventName,
+        payload: change2,
+        options: undefined
+      })
     )
     expect(propsManager.changes).toEqual([])
+    subscription.unsubscribe()
   })
 
   it('should commit per-change options to updateTransaction', () => {
+    const { events, subscription } = captureUpdateTransactionEvents()
     const change = {
       eventName: ReactiveEventsModule.EventTypes.UPDATE_PROPERTY,
       options: { undoable: false }
@@ -395,12 +509,16 @@ describe('PropsManager', () => {
 
     propsManager.commitChanges()
 
-    expect(ReactiveEventsModule.updateTransaction).toHaveBeenCalledWith(
-      change.eventName,
-      change,
-      { undoable: false }
-    )
+    expect(events).toEqual([
+      expect.objectContaining({
+        type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
+        eventName: change.eventName,
+        payload: change,
+        options: { undoable: false }
+      })
+    ])
     expect(propsManager.changes).toEqual([])
+    subscription.unsubscribe()
   })
 
   it('should reject invalid numeric value by schema in updatePropsData', () => {

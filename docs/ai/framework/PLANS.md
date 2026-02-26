@@ -23,26 +23,35 @@ This file tracks framework planning topics and points to detailed internal refer
 - App-level registration remains first-class.
 - Reference: `docs/internal/property-schema-validation-integration-plan.md`
 
-## Mid-Term Plans
+5. Property runtime genericization
+- Move from concrete builtin property classes toward schema-first runtime handlers.
+- Keep specialized behavior (for example anchor flows) as registered adapters.
+- Reference: `docs/internal/property-runtime-genericization-plan.md`
 
-1. Builtin extraction readiness
-- Keep builtins modular and relocatable.
+## Completed Plans
+
+1. Builtin decoupling to preset architecture
+- Completed on February 26, 2026.
+- `@asyra/preset` is introduced and app startup uses explicit preset apply.
+- Core implicit builtin auto-registration is removed.
 - Reference: `docs/internal/builtin-registry-consolidation-plan.md`
 
-2. Typed narrowing cleanup
+## Mid-Term Plans
+
+1. Typed narrowing cleanup
 - Replace structural casts with explicit guards.
 - Reference: `docs/internal/props-manager-typed-setter-refactor-plan.md`
 
-3. Render abstraction growth
+2. Render abstraction growth
 - Expand non-Pixi adapter guidance and examples.
 - Reference: `docs/internal/framework-enhancement-custom-graphics.md`
 
-4. Interaction-core retirement
+3. Interaction-core retirement
 - Keep compatibility only during transition.
 - Remove after all runtime decisions are feature-system-only.
 - Reference: `docs/internal/framework-audit.md`
 
-5. Cascade unregister orchestration
+4. Cascade unregister orchestration
 - Unregister parent registrations with safe owned sub-unregister behavior.
 - Protect shared resources via ownership/refcount model.
 - Reference: `docs/internal/cascade-unregister-plan.md`

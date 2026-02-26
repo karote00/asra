@@ -1,72 +1,114 @@
-# Builtin Registry Consolidation Plan (Core-Owned)
+# Builtin Decoupling and Preset Migration Plan
+
+## Status
+
+Completed on February 26, 2026.
 
 ## Context
 
-Some builtin registrations (including YJS-related registration/setup) are currently initialized in package-local paths (for example factory-level setup).
-This spreads bootstrap ownership and makes framework initialization harder to reason about.
+Asyra is now a framework. Kernel packages should not ship opinionated builtins as implicit defaults because consumer needs differ by app/runtime.
 
-## Goal
+Current progress:
+- package-local builtin ownership cleanup is already in progress.
+- core transitional orchestration path exists and can be used as migration source.
+- reactive-events audit: no builtin registration side effects were found; it remains event-contract infrastructure.
 
-Move builtin registration ownership to `@asyra/core` so all framework builtin registrations are coordinated in one place.
+Current registration-side-effect inventory (to be cleaned in direct cutover scope):
+- factory: `initFactorySubscribe()`
+- input-system: `initInputSystemSubscribe()`
+- props-manager: `initPropXSubscribes()`
+- scene-tree: `initSceneTreeSubscribes()`
+- selection: `initSelectionSubscribes()`
+- render: `initDataContexts()`
+- interaction-core (deprecated): `initInteractionCoreSubscribes()`
 
-## Principle
+## End-State Goal
 
-- Core owns framework bootstrap orchestration.
-- Domain packages expose registration functions, but do not self-own global builtin bootstrap policy.
-- App-level should not need to know where builtin registrations are scattered.
+1. Kernel packages (`props-manager`, `scene-tree`, `render`, etc.)
+- no builtin defaults and no module-load side-effect registration.
+- only primitives, registries, and explicit registration APIs.
+
+2. Core (`@asyra/core`)
+- framework lifecycle and orchestration only.
+- no hardcoded opinionated builtin payload by default.
+
+3. Preset package(s) (future)
+- optional preset package `@asyra/preset` provides bundled defaults.
+- app decides explicitly which preset(s) to apply.
+
+## Architecture Principle
+
+- Framework kernel must stay app-agnostic.
+- Default UX/data behavior should be opt-in, not hidden.
+- Backward compatibility is not a goal for this migration phase.
 
 ## Scope
 
 In scope:
-- identify all current builtin registrations (including YJS setup-related registration points)
-- move bootstrap invocation path into core startup
-- keep package-level registration functions callable by core
+- implement final-state path directly from current state
+- create `@asyra/preset` from current core transitional builtins
+- remove implicit core builtin auto-registration
 
-Out of scope (phase 1):
-- changing runtime behavior semantics
-- removing YJS usage itself
-- redesigning transaction model
+Out of scope:
+- redesigning transaction semantics
+- changing CRDT model
+- changing feature-system runtime authority
 
 ## Target Shape
 
-1. Package-level export
-- each package provides explicit `registerBuiltinXxx(...)` API
+### Transitional (short-term)
 
-2. Core bootstrap
-- core calls all builtin registration APIs in deterministic order during initialization
+- package exposes `registerXxx(...)`
+- core calls builtins in deterministic order while extraction is in progress
 
-3. Ownership clarity
-- docs show `core` as builtin registry owner
-- package docs describe only what they expose, not global bootstrap ownership
+### Final (framework-first)
 
-## Implementation Phases
+- package exposes `registerXxx(...)`
+- core does not auto-apply opinionated builtins
+- preset package applies builtins through explicit app call
 
-### Phase 1: Inventory
-- list every builtin register/setup call across packages
-- classify by owner package and dependency order
+## Implementation Phases (Direct Final-State)
 
-### Phase 2: Extract and Expose
-- ensure each package has explicit registration export(s)
-- remove implicit module-level registration side effects where possible
+Prerequisite status:
+- Phase 1/2 style cleanup work is sufficiently in place for direct cutover.
+- Do not spend additional cycles on transitional hardening beyond what is required for the final path.
 
-### Phase 3: Core Wiring
-- add centralized builtin registration pipeline in core initialization
-- enforce deterministic ordering and idempotent behavior
+### Phase 3: Preset Package Introduction
 
-### Phase 4: Validation
-- verify startup behavior remains equivalent
-- verify registration can be called once safely
-- verify no missing registration paths after consolidation
+- create `@asyra/preset`
+- move current core builtins into preset package
+- expose one explicit apply API:
+  - `applyPreset(core)` or `core.applyPreset(preset)`
+
+Exit criteria:
+- app can run by applying preset explicitly
+- preset has tests proving registration and startup equivalence
+
+### Phase 4: Direct Cutover
+
+- remove implicit core builtin auto-registration
+- keep core/preset contract stable
+
+Exit criteria:
+- core has no opinionated builtin payload by default
+- preset-based startup is official default path
 
 ## Risks
 
-1. Startup order regression if dependency ordering is wrong.
-2. Duplicate registration if old package-local side effects remain.
-3. Hidden runtime dependency on import side effects.
+1. startup order regressions when moving registrations into preset package
+2. hidden coupling where runtime currently depends on implicit core side effects
+3. incomplete app bootstrap updates after core implicit builtins are removed
+
+## Mitigation
+
+- maintain deterministic registration order tests
+- add idempotency assertions for register APIs
+- run cross-package startup verification after each phase
+- provide explicit bootstrap docs for preset-based startup
 
 ## Success Criteria
 
-- builtin registration entrypoint is centralized in core
-- package-local hidden bootstrap is removed or explicitly marked
-- startup remains deterministic and behavior-equivalent
-- docs clearly reflect core-owned builtin registration policy
+- kernel packages are builtin-free
+- core is orchestration-first and policy-light
+- default behavior is provided by optional `@asyra/preset`
+- core startup requires explicit preset apply for opinionated defaults

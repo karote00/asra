@@ -42,6 +42,7 @@ Any implementation decision must preserve:
 - No Pixi imports outside `@asyra/render`.
 - App-level should use `core.xxx`/approved app APIs, not internal package singletons.
 - Cross-package imports must use `@asyra/package-name`.
+- `create-app/*` is generated output; do not hand-edit it directly.
 
 ## Implementation Checklist (Every Change)
 

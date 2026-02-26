@@ -12,7 +12,6 @@ packages/props-manager/src/
   factories/      # component instance creation
   manager/        # runtime manager + subscribes + component accessor
   registries/     # property definition/schema/state registries
-  schemas/        # builtin schema registration
   index.ts        # public exports + bootstrap subscribe init
 ```
 
@@ -49,6 +48,7 @@ packages/props-manager/src/
 ## Current Extension Points
 
 - property definition registration
+- property component registration
 - property schema registration
 - state registry for UI/derived helpers
 
@@ -56,7 +56,9 @@ packages/props-manager/src/
 
 - `manager/props-manager.ts` is the runtime center for add/remove/update/load/save.
 - `registries/property-schema.ts` is the single schema entry point used by base component validation.
+- `registries/property-component.ts` is the component-constructor registration entry point used by property factory creation.
 - `factories/create-property.ts` is the only component creation path (id load/register included).
+- this package does not own builtin schema definitions or builtin property component mappings; builtin registration is handled by `@asyra/preset`.
 
 ## Validation Checklist
 

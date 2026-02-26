@@ -122,7 +122,10 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
         }
 
         selectionApis.selectElements([elementId])
-        systemContextApis.enterPathEditingMode(elementId)
+        // New vector creation should continue the same subpath immediately.
+        systemContextApis.enterPathEditingMode(elementId, {
+          startNewSubpath: false
+        })
         const selectedPoint = elementApis.getVectorAnchorPointById(
           elementId,
           firstPoint.id

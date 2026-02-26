@@ -83,6 +83,8 @@ Managed property bridges:
 - default `propsManager` singleton, `PropsManager` class
 - registries: `propertyRegistry`, `propertyDefinitionRegistry`, `stateRegistry`
 - schema APIs: `registerPropertySchema`, `getPropertySchema`, `propertySchemaRegistry`
+- property-component APIs: `registerPropertyComponent`, `getPropertyComponent`, `propertyComponentRegistry`
+- exported property component classes: `PositionComponent`, `DimensionComponent`, `CustomComponent`, `AnchorPointComponent`, `AnchorPointsComponent`
 
 `@asyra/scene-tree`
 - default scene tree singleton, `SceneTree` class
@@ -92,6 +94,7 @@ Managed property bridges:
 `@asyra/selection`
 - default selection manager singleton
 - `SelectionManager` class
+- `ElementSelection`, `VertexSelection` classes
 
 `@asyra/system-context`
 - default `systemContext` singleton
@@ -100,6 +103,9 @@ Managed property bridges:
 - managed-property `runtime` flag:
   - `runtime: true` (default) => runtime-only, excluded from save/load persistence
   - `runtime: false` => included in save/load persistence
+
+`@asyra/preset`
+- `applyPreset(core)` for explicit preset bootstrap registration (builtin components, property components, props schemas, render layers, selections, and default UI/system property wiring)
 
 `@asyra/ui-context`
 - default `uiContext` singleton
@@ -139,6 +145,7 @@ Session mode:
 
 - App-level code should prefer `core.xxx` when surface exists.
 - Prefer framework helper imports from `@asyra/core` when equivalent re-exports exist.
+- Framework defaults are preset-owned; call `applyPreset(core)` explicitly when default builtins are required.
 - Non-render packages must not import Pixi directly.
 - Model mutation requests should be transaction-bounded by caller-side API boundaries.
 - Deprecated APIs stay callable during transition, but new behavior should be built on current owners.

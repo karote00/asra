@@ -1,15 +1,10 @@
-import {
-  createOverlayLayerRegistration,
-  type OverlayCanvas
-} from '@asyra/render'
-import type { Render } from '@asyra/render'
-import sceneTree from '@asyra/scene-tree'
-import systemContext from '@asyra/system-context'
+import { createOverlayLayerRegistration, type OverlayCanvas } from '@asyra/core'
 import type { PositionData } from '@asyra/utils'
 import type {
   RegisterRenderLayerOptions,
   RenderLayerRegistration
-} from '../../types/render'
+} from '@asyra/core'
+import type { PresetDependencies } from '../types'
 
 const VECTOR_EDITING_LAYER_NAME = 'vector-editing-layer'
 const POINT_RADIUS = 6
@@ -105,18 +100,19 @@ const toScreenPosition = (
   }
 }
 
-const getPathEditingVectorData = (): {
+const getPathEditingVectorDataWithDeps = (
+  deps: Pick<PresetDependencies, 'sceneTree' | 'systemContext'>
+): {
   closed: boolean
   anchorPoints: OverlayAnchorPoint[]
 } | null => {
-  const pathEditingVectorId = systemContext.getManagedProperty<string | null>(
-    'pathEditingVectorId'
-  )
+  const pathEditingVectorId =
+    deps.systemContext.getManagedProperty<string | null>('pathEditingVectorId')
   if (!pathEditingVectorId) {
     return null
   }
 
-  const element = sceneTree.getElementById(pathEditingVectorId)
+  const element = deps.sceneTree.getElementById(pathEditingVectorId)
   if (!element || element.get('type') !== 'vector') {
     return null
   }
@@ -221,9 +217,9 @@ const drawPreview = (
   })
 }
 
-export const registerVectorEditingRenderLayer = (
+export const registerVectorPathEditingRenderLayer = (
   registerRenderLayer: RegisterRenderLayer,
-  render: Render
+  deps: Pick<PresetDependencies, 'render' | 'sceneTree' | 'systemContext'>
 ) => {
   const layerRegistration = createOverlayLayerRegistration({
     name: VECTOR_EDITING_LAYER_NAME,
@@ -231,24 +227,24 @@ export const registerVectorEditingRenderLayer = (
     update: (canvas: OverlayCanvas) => {
       canvas.clear()
 
-      const data = getPathEditingVectorData()
+      const data = getPathEditingVectorDataWithDeps(deps)
       if (!data || data.anchorPoints.length === 0) {
         return
       }
 
-      const viewportPosition = render.getViewportPosition()
-      const viewportScale = render.getViewportScale()
-      const snapshot = systemContext.getSystemContextSnapshot()
+      const viewportPosition = deps.render.getViewportPosition()
+      const viewportScale = deps.render.getViewportScale()
+      const snapshot = deps.systemContext.getSystemContextSnapshot()
       const pathEditingVectorId =
-        systemContext.getManagedProperty<string | null>(
+        deps.systemContext.getManagedProperty<string | null>(
           'pathEditingVectorId'
         ) ?? null
       const selectedVectorPoint =
-        systemContext.getManagedProperty<SelectedVectorPointState | null>(
+        deps.systemContext.getManagedProperty<SelectedVectorPointState | null>(
           'selectedVectorPoint'
         ) ?? null
       const startNewSubpath =
-        systemContext.getManagedProperty<boolean>(
+        deps.systemContext.getManagedProperty<boolean>(
           'pathEditingStartNewSubpath'
         ) ?? false
       const activeSelectedPointId =
@@ -257,10 +253,8 @@ export const registerVectorEditingRenderLayer = (
         selectedVectorPoint?.pointId
           ? selectedVectorPoint.pointId
           : null
-      const shouldRenderPreview =
-        snapshot.primaryTool === 'pen' && !startNewSubpath
 
-      const mouseWorkspacePos = render.getMousePosInWorkspace({
+      const mouseWorkspacePos = deps.render.getMousePosInWorkspace({
         clientX: snapshot.mouse.position.x,
         clientY: snapshot.mouse.position.y
       })
@@ -272,11 +266,20 @@ export const registerVectorEditingRenderLayer = (
       const screenPoints = data.anchorPoints.map((point) =>
         toScreenAnchorPoint(point, viewportPosition, viewportScale)
       )
+      const previewStartPoint =
+        activeSelectedPointId !== null
+          ? screenPoints.find((point) => point.id === activeSelectedPointId) ??
+            null
+          : null
+      const shouldRenderPreview =
+        snapshot.primaryTool === 'pen' &&
+        !startNewSubpath &&
+        previewStartPoint !== null
 
       drawSegments(canvas, screenPoints, data.closed)
       drawPreview(
         canvas,
-        screenPoints[screenPoints.length - 1],
+        previewStartPoint ?? screenPoints[screenPoints.length - 1],
         mouseScreenPos,
         shouldRenderPreview
       )

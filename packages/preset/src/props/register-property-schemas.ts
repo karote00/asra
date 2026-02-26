@@ -4,7 +4,7 @@ import {
   PropertyTypes,
   Unit
 } from '@asyra/utils'
-import { registerPropertySchema } from '../registries/property-schema'
+import type { PresetCoreAPIs } from '../types'
 
 const isUnit = (value: unknown) => value === Unit.PX || value === Unit.PERCENT
 const isFiniteNumber = (value: unknown) =>
@@ -133,9 +133,11 @@ const anchorPointsSchema: PropertySchema = {
   ]
 }
 
-export const registerBuiltinPropertySchemas = () => {
-  registerPropertySchema(positionSchema)
-  registerPropertySchema(dimensionSchema)
-  registerPropertySchema(anchorPointSchema)
-  registerPropertySchema(anchorPointsSchema)
+export const registerPropertySchemas = (
+  core: Pick<PresetCoreAPIs, 'registerPropertySchema'>
+) => {
+  core.registerPropertySchema(positionSchema)
+  core.registerPropertySchema(dimensionSchema)
+  core.registerPropertySchema(anchorPointSchema)
+  core.registerPropertySchema(anchorPointsSchema)
 }

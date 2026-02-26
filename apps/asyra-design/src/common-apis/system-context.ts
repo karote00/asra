@@ -14,6 +14,10 @@ export interface SelectedVectorPointState extends Record<string, unknown> {
   y: number
 }
 
+interface EnterPathEditingOptions {
+  startNewSubpath?: boolean
+}
+
 export const systemContextApis = {
   /**
    * Switch the primary tool
@@ -86,9 +90,14 @@ export const systemContextApis = {
     systemContextApis.setHoveredVectorPoint(null)
   },
 
-  enterPathEditingMode: (elementId: string) => {
+  enterPathEditingMode: (
+    elementId: string,
+    options: EnterPathEditingOptions = {}
+  ) => {
     systemContextApis.setPathEditingVectorId(elementId)
-    systemContextApis.setPathEditingStartNewSubpath(false)
+    systemContextApis.setPathEditingStartNewSubpath(
+      options.startNewSubpath ?? true
+    )
     systemContextApis.clearVectorPointState()
   },
 

@@ -31,12 +31,14 @@ Actions:
 - define owner per concern (core, feature-system, props-manager, render, app)
 - state what must stay unchanged
 - identify compatibility expectations (breaking vs non-breaking)
+- identify generated-output boundaries (`create-app/*`) and keep source-of-truth edits outside generated folders
 
 Checklist:
 
 - [ ] ownership boundaries are explicit
 - [ ] no app business logic leaks into framework packages
 - [ ] cross-package imports use `@asyra/package-name`
+- [ ] no manual edits are introduced in `create-app/*` unless explicitly generated/synced
 
 ## Phase 2: Design Before Code
 
