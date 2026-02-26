@@ -1,4 +1,5 @@
 import type { SceneTreeRawData, CoreRawData } from '@asyra/utils'
+import { isRecord } from '@asyra/utils'
 import './components'
 import factory, { Factory } from '@asyra/factory'
 import inputSystem, { InputSystem } from '@asyra/input-system'
@@ -13,7 +14,11 @@ import interactionCore, {
 import type { FeatureSystemAPIs } from './types/feature-system'
 import render, { Render, IRenderer, RenderOptions } from '@asyra/render'
 import { IPersistenceProvider, SaveHook, LoadHook } from '@asyra/persistence'
-import { EventTypes, subscribeToEvents } from '@asyra/reactive-events'
+import {
+  EventTypes,
+  fileLoadComplete,
+  subscribeToEvents
+} from '@asyra/reactive-events'
 import { initDataContexts } from '@asyra/ui-context'
 import { registerBuiltinRenderLayers } from './builtins'
 
@@ -27,6 +32,10 @@ import {
   SystemManagedPropertyAPIs
 } from './types'
 import { createAPIs } from './apis'
+import type {
+  LoadDiagnosticsHook,
+  LoadValidationDiagnostic
+} from './types/load-validation'
 
 interface CoreDeps {
   inputSystem: InputSystem
@@ -41,6 +50,11 @@ interface CoreDeps {
 
 const DEFAULT_VERSION = '1.0.0'
 const DATA_VERSION = '1.0.0'
+const EMPTY_SCENE_TREE_DATA: SceneTreeRawData = {
+  workspace: '',
+  workspaceList: [],
+  elements: {}
+}
 
 class Core implements CoreAPIs {
   version: string = DEFAULT_VERSION
@@ -49,6 +63,7 @@ class Core implements CoreAPIs {
   private persistence: IPersistenceProvider | null = null
   private saveHooks: SaveHook[] = []
   private loadHooks: LoadHook[] = []
+  private loadDiagnosticsHooks: LoadDiagnosticsHook[] = []
   private uiContextInitialized = false
 
   setupInputSystem!: InputSystemAPIs['setupInputSystem']
@@ -121,6 +136,22 @@ class Core implements CoreAPIs {
   }
 
   /**
+   * Register a hook to receive non-blocking load diagnostics.
+   * Hooks are called after load validation/apply finishes.
+   */
+  registerLoadDiagnosticsHook(hook: LoadDiagnosticsHook): () => void {
+    this.loadDiagnosticsHooks.push(hook)
+
+    return () => {
+      const hookIndex = this.loadDiagnosticsHooks.indexOf(hook)
+      if (hookIndex === -1) {
+        return
+      }
+      this.loadDiagnosticsHooks.splice(hookIndex, 1)
+    }
+  }
+
+  /**
    * Start the framework with a custom renderer
    * @param container - DOM element to attach canvas to
    * @param renderOptions - Options for renderer initialization
@@ -185,10 +216,15 @@ class Core implements CoreAPIs {
       return
     }
 
+    const systemContextData = this.deps.systemContext.saveManagedProperties()
+
     let data: CoreRawData = {
       version: this.version,
       sceneTree: await this.sceneTreeSaveData(),
       props: this.deps.props.save()
+    }
+    if (Object.keys(systemContextData).length > 0) {
+      data.systemContext = systemContextData
     }
 
     // Run before-save hooks (encryption, compression, metadata)
@@ -204,25 +240,9 @@ class Core implements CoreAPIs {
       return
     }
 
-    let data = await this.persistence.load()
+    const data = await this.persistence.load()
     if (data) {
-      // Run after-load hooks (decryption, decompression, migration)
-      for (const hook of this.loadHooks) {
-        data = hook(data)
-      }
-
-      this.version = data.version
-
-      // Load props first, then scene tree (they have dependencies)
-      if (data.props && Object.keys(data.props).length > 0) {
-        this.deps.props.load(data.props)
-      }
-
-      if (data.sceneTree) {
-        this.sceneTreeLoadData(data.sceneTree as SceneTreeRawData)
-      } else {
-        this.sceneTreeInit()
-      }
+      this.applyLoadedData(data)
     }
   }
 
@@ -235,30 +255,195 @@ class Core implements CoreAPIs {
       return
     }
 
-    this.version = data.version ?? DATA_VERSION
-
-    // Load props first, then scene tree (they have dependencies)
-    if (data.props && Object.keys(data.props).length > 0) {
-      this.deps.props.load(data.props)
-    }
-
-    if (data.sceneTree) {
-      this.sceneTreeLoadData(data.sceneTree as SceneTreeRawData)
-    } else {
-      this.sceneTreeInit()
-    }
+    this.applyLoadedData(data)
   }
 
   async save() {
     const sceneTreeData = await this.sceneTreeSaveData()
+    const systemContextData = this.deps.systemContext.saveManagedProperties()
 
     const data: CoreRawData = {
       version: this.version,
       sceneTree: sceneTreeData,
       props: this.deps.props.save()
     }
+    if (Object.keys(systemContextData).length > 0) {
+      data.systemContext = systemContextData
+    }
 
     return data
+  }
+
+  private normalizeLoadData(
+    rawData: unknown,
+    diagnostics: LoadValidationDiagnostic[],
+    pathPrefix = 'core'
+  ): CoreRawData {
+    if (!isRecord(rawData)) {
+      diagnostics.push({
+        scope: 'core',
+        path: pathPrefix,
+        message:
+          'Expected object payload for core load; fallback to safe defaults'
+      })
+      return {
+        version: DATA_VERSION,
+        sceneTree: EMPTY_SCENE_TREE_DATA,
+        props: {}
+      }
+    }
+
+    const version =
+      typeof rawData.version === 'string' ? rawData.version : DATA_VERSION
+    if (typeof rawData.version !== 'string') {
+      diagnostics.push({
+        scope: 'core',
+        path: `${pathPrefix}.version`,
+        message: 'Invalid version type; fallback to default version'
+      })
+    }
+
+    const sceneTree = isRecord(rawData.sceneTree)
+      ? (rawData.sceneTree as unknown as SceneTreeRawData)
+      : EMPTY_SCENE_TREE_DATA
+    if (!isRecord(rawData.sceneTree)) {
+      diagnostics.push({
+        scope: 'core',
+        path: `${pathPrefix}.sceneTree`,
+        message: 'Invalid sceneTree payload type; fallback to empty scene data'
+      })
+    }
+
+    const props = (
+      isRecord(rawData.props) ? rawData.props : {}
+    ) as CoreRawData['props']
+    if (!isRecord(rawData.props)) {
+      diagnostics.push({
+        scope: 'core',
+        path: `${pathPrefix}.props`,
+        message: 'Invalid props payload type; fallback to empty props map'
+      })
+    }
+
+    const normalized: CoreRawData = {
+      version,
+      sceneTree,
+      props
+    }
+
+    if ('systemContext' in rawData) {
+      normalized.systemContext = rawData.systemContext as Record<
+        string,
+        unknown
+      >
+    }
+
+    return normalized
+  }
+
+  private runLoadHooks(data: CoreRawData): CoreRawData {
+    let nextData = data
+    for (const hook of this.loadHooks) {
+      nextData = hook(nextData)
+    }
+
+    return nextData
+  }
+
+  private applyLoadedData(rawData: unknown): void {
+    const diagnostics: LoadValidationDiagnostic[] = []
+
+    const normalizedInput = this.normalizeLoadData(
+      rawData,
+      diagnostics,
+      'core.input'
+    )
+    const migrated = this.runLoadHooks(normalizedInput)
+    const normalizedAfterHooks = this.normalizeLoadData(
+      migrated,
+      diagnostics,
+      'core.hooks'
+    )
+
+    const propsValidation = this.deps.props.validateLoadData(
+      normalizedAfterHooks.props
+    )
+    diagnostics.push(
+      ...propsValidation.diagnostics.map((item) => ({
+        scope: 'props-manager' as const,
+        path: item.path,
+        message: item.message
+      }))
+    )
+
+    const sceneValidation = this.deps.sceneTree.validateLoadData(
+      normalizedAfterHooks.sceneTree
+    )
+    diagnostics.push(
+      ...sceneValidation.diagnostics.map((item) => ({
+        scope: 'scene-tree' as const,
+        path: item.path,
+        message: item.message
+      }))
+    )
+
+    this.version = normalizedAfterHooks.version
+    this.deps.props.load(propsValidation.data)
+    this.deps.sceneTree.load(sceneValidation.data)
+
+    const systemDiagnostics = this.deps.systemContext.loadManagedProperties(
+      normalizedAfterHooks.systemContext
+    )
+    diagnostics.push(
+      ...systemDiagnostics.map((item) => ({
+        scope: 'system-context' as const,
+        path: item.path,
+        message: item.message
+      }))
+    )
+
+    fileLoadComplete()
+
+    this.emitLoadDiagnostics(
+      diagnostics,
+      this.composeLoadedData(
+        normalizedAfterHooks.version,
+        sceneValidation.data,
+        propsValidation.data
+      )
+    )
+  }
+
+  private composeLoadedData(
+    version: string,
+    sceneTree: SceneTreeRawData,
+    props: CoreRawData['props']
+  ): CoreRawData {
+    const data: CoreRawData = {
+      version,
+      sceneTree,
+      props
+    }
+
+    const managedProperties = this.deps.systemContext.saveManagedProperties()
+    if (Object.keys(managedProperties).length > 0) {
+      data.systemContext = managedProperties
+    }
+
+    return data
+  }
+
+  private emitLoadDiagnostics(
+    diagnostics: LoadValidationDiagnostic[],
+    data: CoreRawData
+  ): void {
+    if (diagnostics.length === 0 || this.loadDiagnosticsHooks.length === 0) {
+      return
+    }
+
+    this.loadDiagnosticsHooks.forEach((hook) => {
+      hook(diagnostics, data)
+    })
   }
 }
 

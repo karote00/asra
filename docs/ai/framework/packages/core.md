@@ -26,6 +26,7 @@ System orchestrator and lifecycle coordinator.
 - register render layers
 - register UI/system managed properties
 - register load/save hooks
+- register load diagnostics hooks (with disposer return for app-level unsubscribe)
 
 ## Runtime Contracts
 
@@ -39,7 +40,12 @@ System orchestrator and lifecycle coordinator.
 
 3. Load/save contract
 - load: app migration hooks -> package validation/fallback -> apply state
+- `registerLoadHook` pipeline runs for both persistence load and `core.load(...)`
+- package validators (`props-manager`, `scene-tree`, `system-context`) run before state apply
+- diagnostics hooks receive non-blocking validation warnings after apply
 - save: collect package states -> compose persisted payload
+- save payload may include optional `systemContext` managed-property snapshot
+  - includes only managed properties registered with `runtime: false`
 
 ## App-Level Usage Rules
 

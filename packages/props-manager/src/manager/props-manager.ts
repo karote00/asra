@@ -1,4 +1,4 @@
-import { OWNER, PropertyType, PROPS_ACTIONS } from '@asyra/utils'
+import { OWNER, PropertyType, PROPS_ACTIONS, isRecord } from '@asyra/utils'
 import type {
   EVENT_OPTIONS,
   PropertyComponentInstanceDataTypes,
@@ -14,6 +14,11 @@ import { setComponentAccessor } from './component-accessor'
 import { registerBuiltinPropertySchemas } from '../schemas/builtin'
 
 registerBuiltinPropertySchemas()
+
+export interface PropsLoadDiagnostic {
+  path: string
+  message: string
+}
 
 class PropsManager {
   _components: Map<string, PropertyComponentInstanceTypes> = new Map()
@@ -31,10 +36,61 @@ class PropsManager {
     })
   }
 
-  load(data: PropsComponentRawData) {
-    Object.keys(data).forEach((componentId) => {
+  validateLoadData(data: unknown): {
+    data: PropsComponentRawData
+    diagnostics: PropsLoadDiagnostic[]
+  } {
+    const diagnostics: PropsLoadDiagnostic[] = []
+    const sanitized: PropsComponentRawData = {}
+
+    if (!isRecord(data)) {
+      diagnostics.push({
+        path: 'props',
+        message: 'Expected object map for props data'
+      })
+      return { data: sanitized, diagnostics }
+    }
+
+    Object.entries(data).forEach(([componentId, rawComponent]) => {
+      if (!isRecord(rawComponent)) {
+        diagnostics.push({
+          path: `props.${componentId}`,
+          message: 'Skipped non-object property component during load'
+        })
+        return
+      }
+
+      const rawType = rawComponent.type
+      if (typeof rawType !== 'string' || rawType.length === 0) {
+        diagnostics.push({
+          path: `props.${componentId}.type`,
+          message: 'Skipped property component with invalid type during load'
+        })
+        return
+      }
+
+      const normalizedId =
+        typeof rawComponent.id === 'string' && rawComponent.id.length > 0
+          ? rawComponent.id
+          : componentId
+
+      sanitized[normalizedId] = {
+        ...rawComponent,
+        id: normalizedId,
+        type: rawType
+      } as PropertyComponentRawData
+    })
+
+    return { data: sanitized, diagnostics }
+  }
+
+  load(data: PropsComponentRawData | unknown) {
+    const validated = this.validateLoadData(data).data
+    this.dispose()
+
+    Object.keys(validated).forEach((componentId) => {
       const newProperty = createProperty(
-        data[componentId]
+        validated[componentId]
       ) as PropertyComponentInstanceTypes
       this.addToMap(newProperty)
     })

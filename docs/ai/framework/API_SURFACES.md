@@ -13,9 +13,11 @@ Lifecycle and integration:
 - `setPersistence(provider: IPersistenceProvider): void`
 - `registerSaveHook(hook: SaveHook): void`
 - `registerLoadHook(hook: LoadHook): void`
+- `registerLoadDiagnosticsHook(hook: LoadDiagnosticsHook): () => void` (returns disposer/unsubscribe)
 - `start(container: HTMLElement, renderOptions: RenderOptions): Promise<void>`
 - `load(data: CoreRawData): void`
 - `save(): Promise<CoreRawData>`
+- `CoreRawData.systemContext?: Record<string, unknown>` (optional managed-property snapshot)
 
 Feature/runtime wiring:
 - `initFeatureSystem(packages: CorePackages): void`
@@ -44,6 +46,7 @@ Managed property bridges:
 - `getUIPropertySubject<T>(key: string): BehaviorSubject<T> | undefined`
 - `onUIPropertyChange<T>(key: string, callback: (value: T) => void): () => void`
 - `registerSystemProperty<T>(key: string, defaultValue: T): BehaviorSubject<T>`
+- `registerSystemProperty<T>(key: string, defaultValue: T, options?: { runtime?: boolean; silent?: boolean; validate?: (value: unknown) => value is T }): BehaviorSubject<T>`
 - `getSystemProperty<T>(key: string): T | undefined`
 - `setSystemProperty<T>(key: string, value: T): void`
 - `getSystemPropertyObservable<T>(key: string): BehaviorSubject<T> | undefined`
@@ -58,6 +61,7 @@ Managed property bridges:
 - input mapping helper re-export: `keyMap`
 - vector types: `VectorAnchorPoint`, `VectorPathStyle`
 - render layer types: `RenderLayerRegistration`, `RegisterRenderLayerOptions`
+- load validation types: `LoadValidationDiagnostic`, `LoadValidationScope`, `LoadDiagnosticsHook`
 
 `@asyra/feature-system`
 - `defineFeature(name, keyConfig, definition)`
@@ -92,6 +96,10 @@ Managed property bridges:
 `@asyra/system-context`
 - default `systemContext` singleton
 - `SystemContext` class
+- managed property load/save helpers: `loadManagedProperties`, `saveManagedProperties`
+- managed-property `runtime` flag:
+  - `runtime: true` (default) => runtime-only, excluded from save/load persistence
+  - `runtime: false` => included in save/load persistence
 
 `@asyra/ui-context`
 - default `uiContext` singleton

@@ -2,6 +2,7 @@ import type {
   ComputedAttrs,
   SceneTreeRawData,
   ElementRawData,
+  GroupRawData,
   ElementInstanceTypes,
   GroupInstanceTypes,
   SceneTreeChange,
@@ -9,13 +10,32 @@ import type {
   EvnetOptions,
   CreateElementData
 } from '@asyra/utils'
-import { EntityTypes, OWNER, SCENE_TREE_ACTIONS } from '@asyra/utils'
+import { EntityTypes, OWNER, SCENE_TREE_ACTIONS, isRecord } from '@asyra/utils'
 import { EventTypes, updateTransaction } from '@asyra/reactive-events'
 import propsManager from '@asyra/props-manager'
-import { createElement, createWorkspace, stripNonRawFields } from './utils'
+import componentRegistry from './component-registry'
+import {
+  createElement,
+  createWorkspace,
+  isGroupEntity,
+  stripNonRawFields
+} from './utils'
 import type Workspace from './components/workspace'
 
 type SceneTreeDataType = SceneTreeRawData
+
+export interface SceneTreeLoadDiagnostic {
+  path: string
+  message: string
+}
+
+const toStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.filter((entry): entry is string => typeof entry === 'string')
+}
 
 class SceneTree {
   _elements: Map<string, ElementInstanceTypes> = new Map()
@@ -39,12 +59,157 @@ class SceneTree {
     this._init()
   }
 
-  load(data: SceneTreeDataType) {
-    if (!data) return
+  validateLoadData(data: unknown): {
+    data: SceneTreeDataType
+    diagnostics: SceneTreeLoadDiagnostic[]
+  } {
+    const diagnostics: SceneTreeLoadDiagnostic[] = []
+    const fallback: SceneTreeDataType = {
+      workspace: '',
+      workspaceList: [],
+      elements: {}
+    }
 
-    if (data.elements) {
-      for (const elementId in data.elements) {
-        const elementData = data.elements[elementId]
+    if (!isRecord(data)) {
+      diagnostics.push({
+        path: 'sceneTree',
+        message: 'Expected object payload for scene tree load'
+      })
+      return { data: fallback, diagnostics }
+    }
+
+    const workspace = typeof data.workspace === 'string' ? data.workspace : ''
+    if (data.workspace !== undefined && typeof data.workspace !== 'string') {
+      diagnostics.push({
+        path: 'sceneTree.workspace',
+        message: 'Invalid workspace id type, fallback to empty workspace id'
+      })
+    }
+
+    const workspaceList = toStringArray(data.workspaceList)
+    if (
+      data.workspaceList !== undefined &&
+      !Array.isArray(data.workspaceList)
+    ) {
+      diagnostics.push({
+        path: 'sceneTree.workspaceList',
+        message: 'Invalid workspace list type, fallback to empty workspace list'
+      })
+    }
+
+    const elements: Record<string, ElementRawData | GroupRawData> = {}
+    if (data.elements === undefined) {
+      diagnostics.push({
+        path: 'sceneTree.elements',
+        message: 'Missing elements map, fallback to empty map'
+      })
+    } else if (!isRecord(data.elements)) {
+      diagnostics.push({
+        path: 'sceneTree.elements',
+        message: 'Invalid elements map type, fallback to empty map'
+      })
+    } else {
+      Object.entries(data.elements).forEach(([entryId, rawElement]) => {
+        if (!isRecord(rawElement)) {
+          diagnostics.push({
+            path: `sceneTree.elements.${entryId}`,
+            message: 'Skipped non-object element during load'
+          })
+          return
+        }
+
+        const rawType = rawElement.type
+        if (typeof rawType !== 'string' || rawType.length === 0) {
+          diagnostics.push({
+            path: `sceneTree.elements.${entryId}.type`,
+            message: 'Skipped element with invalid type during load'
+          })
+          return
+        }
+
+        if (
+          rawType !== EntityTypes.WORKSPACE &&
+          !componentRegistry.has(rawType)
+        ) {
+          diagnostics.push({
+            path: `sceneTree.elements.${entryId}.type`,
+            message: `Skipped unregistered element type "${rawType}" during load`
+          })
+          return
+        }
+
+        const normalizedId =
+          typeof rawElement.id === 'string' && rawElement.id.length > 0
+            ? rawElement.id
+            : entryId
+        const normalizedName =
+          typeof rawElement.name === 'string' && rawElement.name.length > 0
+            ? rawElement.name
+            : normalizedId
+        const visible =
+          typeof rawElement.visible === 'boolean' ? rawElement.visible : true
+        const lock =
+          typeof rawElement.lock === 'boolean' ? rawElement.lock : false
+
+        const normalized: Record<string, unknown> = {
+          ...rawElement,
+          id: normalizedId,
+          type: rawType,
+          name: normalizedName,
+          visible,
+          lock
+        }
+
+        if (isGroupEntity(rawType)) {
+          normalized.children = toStringArray(rawElement.children)
+        }
+
+        if (rawElement.props !== undefined) {
+          if (!isRecord(rawElement.props)) {
+            diagnostics.push({
+              path: `sceneTree.elements.${entryId}.props`,
+              message: 'Invalid props map type, fallback to empty props map'
+            })
+            normalized.props = {}
+          } else {
+            const propsMap: Record<string, string> = {}
+            Object.entries(rawElement.props).forEach(([key, value]) => {
+              if (typeof value === 'string') {
+                propsMap[key] = value
+              } else {
+                diagnostics.push({
+                  path: `sceneTree.elements.${entryId}.props.${key}`,
+                  message: 'Skipped non-string prop reference during load'
+                })
+              }
+            })
+            normalized.props = propsMap
+          }
+        }
+
+        elements[normalizedId] = normalized as unknown as
+          | ElementRawData
+          | GroupRawData
+      })
+    }
+
+    return {
+      data: {
+        workspace,
+        workspaceList,
+        elements
+      },
+      diagnostics
+    }
+  }
+
+  load(data: SceneTreeDataType | unknown) {
+    const validated = this.validateLoadData(data).data
+    this.dispose()
+
+    for (const elementId in validated.elements) {
+      const elementData = validated.elements[elementId]
+      try {
         let element
         if (elementData.type === EntityTypes.WORKSPACE) {
           element = createWorkspace(this, elementData)
@@ -52,17 +217,48 @@ class SceneTree {
           element = createElement(elementData)
         }
 
-        this.addToMap(element as ElementInstanceTypes)
+        if (element) {
+          this.addToMap(element as ElementInstanceTypes)
+        }
+      } catch {
+        // Validation should prevent this path. Keep safe fallback behavior if it happens.
       }
     }
 
-    if (data.workspace) {
-      this.workspace = data.workspace
+    const workspaceIds = Array.from(this._elements.entries())
+      .filter(([, element]) => element.get('type') === EntityTypes.WORKSPACE)
+      .map(([id]) => id)
+
+    const validWorkspaceList = validated.workspaceList.filter((workspaceId) =>
+      workspaceIds.includes(workspaceId)
+    )
+
+    const preferredWorkspace =
+      workspaceIds.includes(validated.workspace) &&
+      validated.workspace.length > 0
+        ? validated.workspace
+        : ''
+
+    if (
+      preferredWorkspace &&
+      !validWorkspaceList.includes(preferredWorkspace)
+    ) {
+      validWorkspaceList.unshift(preferredWorkspace)
     }
 
-    if (data.workspaceList) {
-      this.workspaceList = data.workspaceList
+    if (validWorkspaceList.length > 0) {
+      this.workspaceList = validWorkspaceList
+      this.workspace = validWorkspaceList[0]
+      return
     }
+
+    if (workspaceIds.length > 0) {
+      this.workspaceList = workspaceIds
+      this.workspace = workspaceIds[0]
+      return
+    }
+
+    this._init()
   }
 
   save() {

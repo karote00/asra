@@ -447,4 +447,56 @@ describe('PropsManager', () => {
     expect(position.get('xUnit')).toBe(Unit.PX)
     expect(position.get('yUnit')).toBe(Unit.PERCENT)
   })
+
+  it('load should replace the entire props snapshot and remove stale components', () => {
+    propsManager.load({
+      'pp-old': {
+        id: 'pp-old',
+        type: PropertyTypes.POSITION,
+        x: 0,
+        y: 0,
+        xUnit: Unit.PX,
+        yUnit: Unit.PX
+      }
+    })
+    expect(propsManager.getComponentById('pp-old')).toBeDefined()
+
+    // The second load is a new full snapshot. Old IDs not present in this payload
+    // must be removed from runtime state (replace semantics, not merge semantics).
+    propsManager.load({
+      'pp-new': {
+        id: 'pp-new',
+        type: PropertyTypes.DIMENSION,
+        width: 100,
+        height: 100,
+        widthUnit: Unit.PX,
+        heightUnit: Unit.PX
+      }
+    })
+
+    expect(propsManager.getComponentById('pp-old')).toBeUndefined()
+    expect(propsManager.getComponentById('pp-new')).toBeDefined()
+  })
+
+  it('validateLoadData should keep valid entries and report malformed props entries', () => {
+    const { data, diagnostics } = propsManager.validateLoadData({
+      'pp-valid': {
+        id: 'pp-valid',
+        type: PropertyTypes.POSITION,
+        x: 1,
+        y: 2,
+        xUnit: Unit.PX,
+        yUnit: Unit.PX
+      },
+      'pp-invalid-shape': 'invalid',
+      'pp-invalid-type': { id: 'pp-invalid-type', type: 123 }
+    })
+
+    expect(Object.keys(data)).toEqual(['pp-valid'])
+    expect(diagnostics).toHaveLength(2)
+    expect(diagnostics.map((item) => item.path)).toEqual([
+      'props.pp-invalid-shape',
+      'props.pp-invalid-type.type'
+    ])
+  })
 })

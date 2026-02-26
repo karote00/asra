@@ -38,10 +38,13 @@ packages/props-manager/src/
 2. Validation
 - base component applies schema validation for load/set/update behavior
 - package owns fallback/reject behavior for property data
+- manager-level `validateLoadData(...)` skips malformed entries before component creation
 
 3. Change tracking
 - manager records property changes for transaction integration
 - add/remove/update paths stay consistent with manager change tracking
+4. Load state application
+- `load(...)` is replace-style (clears previous runtime maps, then applies validated data)
 
 ## Current Extension Points
 

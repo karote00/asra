@@ -9,4 +9,5 @@ export interface CoreRawData {
   version: string
   sceneTree: SceneTreeRawData
   props: PropsComponentRawData
+  systemContext?: Record<string, unknown>
 }

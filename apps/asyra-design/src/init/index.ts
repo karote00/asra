@@ -17,3 +17,9 @@ export { initApp as bootstrap } from './init-app'
 
 // Export individual init functions for advanced use cases
 export { initInputSystem } from './init-input-system'
+export {
+  initLoadDiagnostics,
+  subscribeLoadDiagnostics,
+  destroyLoadDiagnostics,
+  formatLoadDiagnostics
+} from './init-load-diagnostics'

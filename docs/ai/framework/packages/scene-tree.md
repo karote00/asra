@@ -28,9 +28,11 @@ Own the document entity graph and computed entity data.
 
 - register component/entity definitions
 - register component-level computed defaults and normalization behavior
+- validate load payload via `validateLoadData(...)` before apply
 
 ## Validation Checklist
 
 - Entity creation updates graph + computed data consistently.
 - Entity removal cleans graph references.
 - Save/load round-trip preserves graph shape and computed data.
+- Load path skips malformed/unregistered elements and falls back to a safe workspace when metadata is invalid.

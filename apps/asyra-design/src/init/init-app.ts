@@ -1,6 +1,7 @@
 import { initInputSystem } from './init-input-system'
 import { initFeatures } from './init-features'
 import { initPropertyRegistrations } from '../registrations'
+import { initLoadDiagnostics } from './init-load-diagnostics'
 
 /**
  * Initializes all framework components and configurations.
@@ -26,6 +27,9 @@ import { initPropertyRegistrations } from '../registrations'
 export const initApp = (): void => {
   // Initialize property registry first (before features)
   initPropertyRegistrations()
+
+  // Subscribe once to core load diagnostics and route reports to app-level handlers.
+  initLoadDiagnostics()
 
   initInputSystem()
   // Initialize feature-system for application-level features

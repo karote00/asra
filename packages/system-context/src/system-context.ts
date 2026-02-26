@@ -41,6 +41,8 @@ export class SystemContext implements SystemContextAPIs {
   getManagedProperty!: ManagedPropertyStateAPIs['getManagedProperty']
   setManagedProperty!: ManagedPropertyStateAPIs['setManagedProperty']
   getManagedPropertyObservable!: ManagedPropertyStateAPIs['getManagedPropertyObservable']
+  loadManagedProperties!: ManagedPropertyStateAPIs['loadManagedProperties']
+  saveManagedProperties!: ManagedPropertyStateAPIs['saveManagedProperties']
 
   constructor(private deps: HandlerDeps) {
     const apis = createAllAPIs(deps)

@@ -1,4 +1,5 @@
 import { ManagedPropertyState } from '../states/managed-property-state'
+import type { ManagedPropertyRegistrationOptions } from '../states/managed-property-state'
 
 export const createManagedPropertyStateAPIs = (
   managedPropertyState: ManagedPropertyState
@@ -14,7 +15,7 @@ export const createManagedPropertyStateAPIs = (
   registerProperty: <T>(
     key: string,
     defaultValue: T,
-    options?: { silent?: boolean }
+    options?: ManagedPropertyRegistrationOptions<T>
   ) => {
     return managedPropertyState.register<T>(key, defaultValue, options)
   },
@@ -38,5 +39,20 @@ export const createManagedPropertyStateAPIs = (
    */
   getManagedPropertyObservable: <T>(key: string) => {
     return managedPropertyState.getObservable<T>(key)
+  },
+
+  /**
+   * Load managed properties with registration/type guards.
+   * Unknown keys and invalid values are ignored with diagnostics.
+   */
+  loadManagedProperties: (data: unknown) => {
+    return managedPropertyState.load(data)
+  },
+
+  /**
+   * Save currently registered managed properties as plain object data.
+   */
+  saveManagedProperties: () => {
+    return managedPropertyState.save()
   }
 })

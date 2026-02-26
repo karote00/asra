@@ -7,6 +7,11 @@ import { UIContextAPIs } from './ui-context'
 import { SystemManagedPropertyAPIs } from './system-properties'
 
 export { HandlerDeps } from './deps'
+export type {
+  LoadDiagnosticsHook,
+  LoadValidationDiagnostic,
+  LoadValidationScope
+} from './load-validation'
 
 export {
   InputSystemRawAPIs,

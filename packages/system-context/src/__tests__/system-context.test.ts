@@ -71,4 +71,68 @@ describe('SystemContext', () => {
     systemContext.updateKeyState(newKeySnapshot)
     expect(systemContext.getKeyState()).toEqual(newKeySnapshot)
   })
+
+  it('setManagedProperty should reject runtime values that fail registered type guard', () => {
+    systemContext.registerProperty('zoom', 100, { runtime: false })
+
+    systemContext.setManagedProperty('zoom', 120)
+    expect(systemContext.getManagedProperty('zoom')).toBe(120)
+
+    systemContext.setManagedProperty('zoom', 'invalid' as unknown as number)
+    expect(systemContext.getManagedProperty('zoom')).toBe(120)
+  })
+
+  it('loadManagedProperties should apply only valid registered keys and return diagnostics', () => {
+    systemContext.registerProperty('zoom', 100, { runtime: false })
+    systemContext.registerProperty('pathEditingVectorId', '', { runtime: false })
+
+    // zoom is valid and applied; other keys are ignored with diagnostics.
+    const diagnostics = systemContext.loadManagedProperties({
+      zoom: 240,
+      pathEditingVectorId: 123,
+      unknownKey: true
+    })
+
+    expect(systemContext.getManagedProperty('zoom')).toBe(240)
+    expect(systemContext.getManagedProperty('pathEditingVectorId')).toBe('')
+    expect(diagnostics).toHaveLength(2)
+    expect(diagnostics.map((item) => item.path)).toEqual([
+      'systemContext.pathEditingVectorId',
+      'systemContext.unknownKey'
+    ])
+  })
+
+  it('saveManagedProperties should serialize registered values as plain object data', () => {
+    systemContext.registerProperty('zoom', 100, { runtime: false })
+    systemContext.registerProperty('pathEditingVectorId', '', { runtime: false })
+    systemContext.setManagedProperty('zoom', 180)
+    systemContext.setManagedProperty('pathEditingVectorId', 'vector-1')
+
+    expect(systemContext.saveManagedProperties()).toEqual({
+      zoom: 180,
+      pathEditingVectorId: 'vector-1'
+    })
+  })
+
+  it('runtime-only managed properties should not be saved and should ignore load payload', () => {
+    systemContext.registerProperty('pathEditingVectorId', null)
+
+    systemContext.setManagedProperty('pathEditingVectorId', 'vector-1')
+    expect(systemContext.saveManagedProperties()).toEqual({})
+
+    const diagnostics = systemContext.loadManagedProperties({
+      pathEditingVectorId: 'vector-2'
+    })
+
+    expect(systemContext.getManagedProperty('pathEditingVectorId')).toBe(
+      'vector-1'
+    )
+    expect(diagnostics).toEqual([
+      {
+        key: 'pathEditingVectorId',
+        path: 'systemContext.pathEditingVectorId',
+        message: 'Ignored runtime-only managed property during load'
+      }
+    ])
+  })
 })

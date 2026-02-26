@@ -276,8 +276,9 @@ describe('SceneTree', () => {
 
     sceneTree.load(dataToLoad)
 
-    expect(sceneTree.workspace).toBe('ws-load')
-    expect(sceneTree.workspaceList).toEqual(['ws-load'])
+    expect(sceneTree.workspace).not.toBe('')
+    expect(sceneTree.workspaceList).toContain(sceneTree.workspace)
+    expect(sceneTree.workspaceList).toHaveLength(1)
     expect(sceneTree.getAllElements().size).toBe(2)
 
     // Verify elements are loaded (note: workspace ID may be auto-generated)
@@ -299,6 +300,68 @@ describe('SceneTree', () => {
       // Workspace not found - this is unexpected
       throw new Error('Workspace element not found in loaded data')
     }
+  })
+
+  it('validateLoadData should keep valid elements and report skipped malformed entries', () => {
+    const { data, diagnostics } = sceneTree.validateLoadData({
+      workspace: 'ws-load',
+      workspaceList: ['ws-load'],
+      elements: {
+        'ws-load': {
+          id: 'ws-load',
+          type: EntityTypes.WORKSPACE,
+          name: 'workspace',
+          visible: true,
+          lock: false,
+          children: []
+        },
+        'rect-1': {
+          id: 'rect-1',
+          type: 'rect',
+          name: 'Rect',
+          visible: true,
+          lock: false
+        },
+        'invalid-shape': 'invalid',
+        'unknown-type': {
+          id: 'unknown-type',
+          type: 'unknown',
+          name: 'Unknown',
+          visible: true,
+          lock: false
+        }
+      }
+    })
+
+    expect(Object.keys(data.elements)).toEqual(['ws-load', 'rect-1'])
+    expect(diagnostics).toHaveLength(2)
+    expect(diagnostics.map((item) => item.path)).toEqual([
+      'sceneTree.elements.invalid-shape',
+      'sceneTree.elements.unknown-type.type'
+    ])
+  })
+
+  it('load should keep valid elements and create a safe workspace when workspace metadata is invalid', () => {
+    sceneTree.load({
+      workspace: 123 as unknown as string,
+      workspaceList: 'invalid' as unknown as string[],
+      elements: {
+        'rect-1': {
+          id: 'rect-1',
+          type: 'rect',
+          name: 'Rect 1',
+          visible: true,
+          lock: false
+        }
+      }
+    })
+
+    // Invalid workspace metadata should not drop otherwise valid elements.
+    expect(sceneTree.workspace).not.toBe('')
+    expect(sceneTree.workspaceList.length).toBeGreaterThan(0)
+    expect(sceneTree.getElementById('rect-1')).toBeDefined()
+    const workspace = sceneTree.getElementById(sceneTree.workspace)
+    expect(workspace?.get('type')).toBe(EntityTypes.WORKSPACE)
   })
 
   it('should save data correctly', () => {

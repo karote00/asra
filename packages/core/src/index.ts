@@ -25,6 +25,11 @@ export type {
   RenderLayerRegistration,
   RegisterRenderLayerOptions
 } from './types/render'
+export type {
+  LoadDiagnosticsHook,
+  LoadValidationDiagnostic,
+  LoadValidationScope
+} from './types/load-validation'
 
 export { Core }
 export default core

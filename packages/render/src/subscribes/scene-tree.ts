@@ -5,7 +5,7 @@ import type {
 } from '@asyra/utils'
 import factory from '@asyra/factory'
 import { SCENE_TREE_ACTIONS } from '@asyra/utils'
-import { subscribeToSceneTreeLoadComplete } from '@asyra/reactive-events'
+import { subscribeToFileLoadComplete } from '@asyra/reactive-events'
 import renderSceneTree from '../stores/scene-tree'
 
 const updateRenderSceneTree = (change: SceneTreeYjsChange['payload']) => {
@@ -47,7 +47,7 @@ export const handleSceneTreeChange = (event) => {
 
 let hasInit = false
 
-let sceneTreeLoadCompleteSubscription = {
+let fileLoadCompleteSubscription = {
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   unsubscribe: () => {}
 }
@@ -57,7 +57,7 @@ export const initSceneTreeDataContext = () => {
     return
   }
 
-  sceneTreeLoadCompleteSubscription = subscribeToSceneTreeLoadComplete(() => {
+  fileLoadCompleteSubscription = subscribeToFileLoadComplete(() => {
     renderSceneTree.reload()
   })
 
@@ -68,5 +68,5 @@ export const initSceneTreeDataContext = () => {
 }
 
 export const renderSceneTreeClear = () => {
-  sceneTreeLoadCompleteSubscription.unsubscribe()
+  fileLoadCompleteSubscription.unsubscribe()
 }

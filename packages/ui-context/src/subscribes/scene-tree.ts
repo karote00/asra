@@ -8,7 +8,7 @@ import factory from '@asyra/factory'
 import sceneTree from '@asyra/scene-tree'
 import {
   subscribeToEndTransaction,
-  subscribeToSceneTreeLoadComplete
+  subscribeToFileLoadComplete
 } from '@asyra/reactive-events'
 import SceneTreeStore from '../stores/scene-tree'
 import uiContext from '../ui-context'
@@ -77,7 +77,7 @@ export const initSceneTreeDataSubscribe = () => {
   const sceneTreeArray = factory.sceneTreeMap
   sceneTreeArray.observe(collectSceneTreeChange)
 
-  subscribeToSceneTreeLoadComplete(() => {
+  subscribeToFileLoadComplete(() => {
     sceneTreeStore.reload()
     sceneTreeStore.fireChange()
   })

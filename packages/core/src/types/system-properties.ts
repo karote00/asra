@@ -3,7 +3,12 @@ import type { BehaviorSubject } from 'rxjs'
 export interface SystemManagedPropertyAPIs {
   registerSystemProperty: <T>(
     key: string,
-    defaultValue: T
+    defaultValue: T,
+    options?: {
+      runtime?: boolean
+      silent?: boolean
+      validate?: (value: unknown) => value is T
+    }
   ) => BehaviorSubject<T>
   getSystemProperty: <T>(key: string) => T | undefined
   setSystemProperty: <T>(key: string, value: T) => void

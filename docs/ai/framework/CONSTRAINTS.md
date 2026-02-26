@@ -28,7 +28,8 @@
 - API contracts are engine-agnostic, but only Pixi implementation is mature.
 
 3. Validation diagnostics
-- Basic validation is active; full cross-package diagnostic reporting is planned.
+- Package validation is active, and core can emit cross-package load diagnostics via hook.
+- Diagnostics are non-blocking and focused on load-time fallback/reject visibility.
 
 4. Registry consistency
 - Shared registry utility exists; some specialized registries may still require local behavior wrappers.

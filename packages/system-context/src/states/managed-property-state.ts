@@ -1,8 +1,68 @@
 import { BehaviorSubject } from 'rxjs'
+import { isRecord } from '@asyra/utils'
+
+export type ManagedPropertyValidator<T> = (value: unknown) => value is T
+
+export interface ManagedPropertyRegistrationOptions<T> {
+  silent?: boolean
+  validate?: ManagedPropertyValidator<T>
+  /**
+   * Runtime-only property flag.
+   * - true: property is not persisted by save()/load()
+   * - false: property is included in save()/load()
+   */
+  runtime?: boolean
+}
 
 export interface ManagedProperty<T> {
   key: string
   state: BehaviorSubject<T>
+  validate: (value: unknown) => boolean
+  runtime: boolean
+}
+
+export interface ManagedPropertyLoadDiagnostic {
+  key: string
+  path: string
+  message: string
+}
+
+const createValidatorFromDefault = <T>(
+  defaultValue: T
+): ManagedPropertyValidator<T> => {
+  if (Array.isArray(defaultValue)) {
+    return ((value: unknown): value is T => Array.isArray(value)) as
+      | ManagedPropertyValidator<T>
+      | never
+  }
+
+  if (defaultValue === null) {
+    // Null defaults cannot infer a stable runtime type. Keep permissive behavior
+    // unless a custom validator is explicitly provided by registration options.
+    return ((_: unknown): _ is T => true) as ManagedPropertyValidator<T>
+  }
+
+  if (defaultValue === undefined) {
+    return ((_: unknown): _ is T => true) as ManagedPropertyValidator<T>
+  }
+
+  if (typeof defaultValue === 'number') {
+    return ((value: unknown): value is T =>
+      typeof value === 'number' && Number.isFinite(value)) as
+      | ManagedPropertyValidator<T>
+      | never
+  }
+
+  if (typeof defaultValue === 'object') {
+    return ((value: unknown): value is T => isRecord(value)) as
+      | ManagedPropertyValidator<T>
+      | never
+  }
+
+  const expectedType = typeof defaultValue
+  return ((value: unknown): value is T => typeof value === expectedType) as
+    | ManagedPropertyValidator<T>
+    | never
 }
 
 export class ManagedPropertyState {
@@ -11,7 +71,7 @@ export class ManagedPropertyState {
   register<T>(
     key: string,
     defaultValue: T,
-    options?: { silent?: boolean }
+    options?: ManagedPropertyRegistrationOptions<T>
   ): BehaviorSubject<T> {
     if (this.properties.has(key)) {
       if (!options?.silent) {
@@ -26,7 +86,15 @@ export class ManagedPropertyState {
     }
 
     const state = new BehaviorSubject<T>(defaultValue)
-    this.properties.set(key, { key, state } as ManagedProperty<unknown>)
+    const validate =
+      options?.validate ?? createValidatorFromDefault(defaultValue)
+    const runtime = options?.runtime ?? true
+    this.properties.set(key, {
+      key,
+      state,
+      validate: (value: unknown) => validate(value),
+      runtime
+    } as ManagedProperty<unknown>)
 
     return state
   }
@@ -39,6 +107,12 @@ export class ManagedPropertyState {
   set<T>(key: string, value: T): void {
     const prop = this.properties.get(key)
     if (prop) {
+      if (!prop.validate(value)) {
+        console.warn(
+          `[ManagedPropertyState] Rejected invalid value for "${key}" during runtime set`
+        )
+        return
+      }
       prop.state.next(value)
     } else {
       console.warn(`[ManagedPropertyState] Property "${key}" not found`)
@@ -48,8 +122,85 @@ export class ManagedPropertyState {
   setIfRegistered<T>(key: string, value: T): void {
     const prop = this.properties.get(key)
     if (prop) {
+      if (!prop.validate(value)) {
+        return
+      }
       prop.state.next(value)
     }
+  }
+
+  validateLoadData(data: unknown): {
+    data: Record<string, unknown>
+    diagnostics: ManagedPropertyLoadDiagnostic[]
+  } {
+    const diagnostics: ManagedPropertyLoadDiagnostic[] = []
+    const sanitized: Record<string, unknown> = {}
+
+    if (data === undefined) {
+      return { data: sanitized, diagnostics }
+    }
+
+    if (!isRecord(data)) {
+      diagnostics.push({
+        key: '__root__',
+        path: 'systemContext',
+        message: 'Expected object map for managed properties'
+      })
+      return { data: sanitized, diagnostics }
+    }
+
+    Object.entries(data).forEach(([key, value]) => {
+      const prop = this.properties.get(key)
+      if (!prop) {
+        diagnostics.push({
+          key,
+          path: `systemContext.${key}`,
+          message: 'Ignored unregistered managed property during load'
+        })
+        return
+      }
+
+      if (prop.runtime) {
+        diagnostics.push({
+          key,
+          path: `systemContext.${key}`,
+          message: 'Ignored runtime-only managed property during load'
+        })
+        return
+      }
+
+      if (!prop.validate(value)) {
+        diagnostics.push({
+          key,
+          path: `systemContext.${key}`,
+          message: 'Ignored invalid managed property value during load'
+        })
+        return
+      }
+
+      sanitized[key] = value
+    })
+
+    return { data: sanitized, diagnostics }
+  }
+
+  load(data: unknown): ManagedPropertyLoadDiagnostic[] {
+    const { data: sanitized, diagnostics } = this.validateLoadData(data)
+    Object.entries(sanitized).forEach(([key, value]) => {
+      this.setIfRegistered(key, value)
+    })
+    return diagnostics
+  }
+
+  save(): Record<string, unknown> {
+    const result: Record<string, unknown> = {}
+    this.properties.forEach((property, key) => {
+      if (property.runtime) {
+        return
+      }
+      result[key] = property.state.getValue()
+    })
+    return result
   }
 
   getProperty<T>(key: string): ManagedProperty<T> | undefined {
