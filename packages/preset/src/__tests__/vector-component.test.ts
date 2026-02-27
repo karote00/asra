@@ -1,41 +1,47 @@
 import { beforeAll, describe, it, expect, vi } from 'vitest'
-import { componentRegistry, propertyRegistry, renderRegistry } from '@asyra/core'
+import {
+  componentRegistry,
+  elementPropertyRegistry,
+  renderRegistry
+} from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
 import { applyPreset } from '../preset'
 
 beforeAll(() => {
-  applyPreset({
-    registerRenderLayer: () => {
-      // no-op for this unit test; vector component registration is asserted via registries.
+  applyPreset(
+    {
+      registerRenderLayer: () => {
+        // no-op for this unit test; vector component registration is asserted via registries.
+      },
+      registerPropertySchema: () => {},
+      registerSelection: () => {},
+      getSelection: () => undefined,
+      registerUIProperty: () => {
+        // no-op for this unit test.
+      },
+      registerSystemProperty: () => {
+        // return stub observable-like value for source$ wiring in preset.
+        return {}
+      }
     },
-    registerPropertySchema: () => {},
-    registerPropertyComponent: () => {},
-    registerSelection: () => {},
-    getSelection: () => undefined,
-    registerUIProperty: () => {
-      // no-op for this unit test.
-    },
-    registerSystemProperty: () => {
-      // return stub observable-like value for source$ wiring in preset.
-      return {}
+    {
+      sceneTree: {
+        getElementById: () => undefined
+      },
+      systemContext: {
+        getManagedProperty: () => undefined,
+        getSystemContextSnapshot: () => ({
+          primaryTool: 'select',
+          mouse: { position: { x: 0, y: 0 } }
+        })
+      },
+      render: {
+        getViewportPosition: () => ({ x: 0, y: 0 }),
+        getViewportScale: () => 1,
+        getMousePosInWorkspace: () => ({ x: 0, y: 0 })
+      }
     }
-  }, {
-    sceneTree: {
-      getElementById: () => undefined
-    },
-    systemContext: {
-      getManagedProperty: () => undefined,
-      getSystemContextSnapshot: () => ({
-        primaryTool: 'select',
-        mouse: { position: { x: 0, y: 0 } }
-      })
-    },
-    render: {
-      getViewportPosition: () => ({ x: 0, y: 0 }),
-      getViewportScale: () => 1,
-      getMousePosInWorkspace: () => ({ x: 0, y: 0 })
-    }
-  })
+  )
 })
 
 const runRenderStrategy = (
@@ -50,13 +56,14 @@ describe('Vector Component', () => {
   it('should register vector component in all registries', () => {
     expect(componentRegistry.has('vector')).toBe(true)
     expect(
-      propertyRegistry.getPropertiesForComponent('vector').length
+      elementPropertyRegistry.getPropertiesForComponent('vector').length
     ).toBeGreaterThan(0)
     expect(renderRegistry.has('vector')).toBe(true)
   })
 
   it('should register anchorPoints property', () => {
-    const properties = propertyRegistry.getPropertiesForComponent('vector')
+    const properties =
+      elementPropertyRegistry.getPropertiesForComponent('vector')
     const anchorPointsProp = properties.find((p) => p.name === 'anchorPoints')
 
     expect(anchorPointsProp).toBeDefined()
@@ -65,7 +72,8 @@ describe('Vector Component', () => {
   })
 
   it('should register closed property', () => {
-    const properties = propertyRegistry.getPropertiesForComponent('vector')
+    const properties =
+      elementPropertyRegistry.getPropertiesForComponent('vector')
     const closedProp = properties.find((p) => p.name === 'closed')
 
     expect(closedProp).toBeDefined()
@@ -74,7 +82,8 @@ describe('Vector Component', () => {
   })
 
   it('should register fill properties', () => {
-    const properties = propertyRegistry.getPropertiesForComponent('vector')
+    const properties =
+      elementPropertyRegistry.getPropertiesForComponent('vector')
     const fillProp = properties.find((p) => p.name === 'fill')
     const strokeStyleProp = properties.find((p) => p.name === 'strokeStyle')
 

@@ -28,7 +28,6 @@ export interface PresetDependencies {
 export interface PresetCoreAPIs {
   registerRenderLayer: Core['registerRenderLayer']
   registerPropertySchema: Core['registerPropertySchema']
-  registerPropertyComponent: Core['registerPropertyComponent']
   registerSelection: Core['registerSelection']
   getSelection: Core['getSelection']
   registerUIProperty: <T>(

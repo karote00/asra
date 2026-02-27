@@ -23,11 +23,6 @@ This file tracks framework planning topics and points to detailed internal refer
 - App-level registration remains first-class.
 - Reference: `docs/internal/property-schema-validation-integration-plan.md`
 
-5. Property runtime genericization
-- Move from concrete builtin property classes toward schema-first runtime handlers.
-- Keep specialized behavior (for example anchor flows) as registered adapters.
-- Reference: `docs/internal/property-runtime-genericization-plan.md`
-
 ## Completed Plans
 
 1. Builtin decoupling to preset architecture
@@ -35,6 +30,12 @@ This file tracks framework planning topics and points to detailed internal refer
 - `@asyra/preset` is introduced and app startup uses explicit preset apply.
 - Core implicit builtin auto-registration is removed.
 - Reference: `docs/internal/builtin-registry-consolidation-plan.md`
+
+2. Property runtime genericization
+- Completed on February 27, 2026.
+- Property components are now primarily defined via `definePropertyComponent` config.
+- Element/property relationships are standardized around ID-based references.
+- Reference: `docs/internal/property-runtime-genericization-plan.md`
 
 ## Mid-Term Plans
 

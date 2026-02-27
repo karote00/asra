@@ -5,12 +5,24 @@ This file is the fast API map for framework-level implementation requests.
 ## Core Facade (`@asyra/core`)
 
 Primary import:
+
 - `import core from '@asyra/core'`
 - `import { defineFeature, importFeature, unregisterFeature, keyMap } from '@asyra/core'`
 
 Lifecycle and integration:
+
 - `setRenderer(renderer: IRenderer): void`
 - `setPersistence(provider: IPersistenceProvider): void`
+- `definePropertyComponent(definition: PropertyComponentDefinition): PropertyComponentConstructor`
+- `PropertyComponentDefinition` supports:
+  - constructor mode: `{ type, constructor, options? }`
+  - config mode: `{ type, defaults?, persistKeys?, valueKeys?, unitKeys?, allowDynamicKeys?, dynamicReservedKeys?, children?, options? }`
+  - config defaults:
+    - `persistKeys` defaults to `defaults` keys (plus `children.key` when provided)
+    - `unitKeys` defaults to `persistKeys` keys ending with `Unit`
+    - `valueKeys` defaults to `persistKeys - unitKeys`
+  - design contract: property components should remain data-focused; app-level business behavior (auto-layout, unit-conversion workflows) belongs in app APIs/features.
+- `unregisterPropertyComponent(type: string): boolean`
 - `registerSaveHook(hook: SaveHook): void`
 - `registerLoadHook(hook: LoadHook): void`
 - `registerLoadDiagnosticsHook(hook: LoadDiagnosticsHook): () => void` (returns disposer/unsubscribe)
@@ -20,16 +32,19 @@ Lifecycle and integration:
 - `CoreRawData.systemContext?: Record<string, unknown>` (optional managed-property snapshot)
 
 Feature/runtime wiring:
+
 - `initFeatureSystem(packages: CorePackages): void`
 - `setupInputSystem(watchedElement?: HTMLElement): void`
 - `registerInteraction(eventName: string, handler: DecisionHandler): void` (compatibility path)
 
 Render bridge:
+
 - `registerRenderLayer(registration: RenderLayerRegistration, options?: RegisterRenderLayerOptions): void`
 - `unregisterRenderLayer(name: string): boolean`
 - `renderIsReady(): void`
 
 Scene/model bridge:
+
 - `sceneTreeInit(): void`
 - `sceneTreeLoadData(data: SceneTreeRawData): void`
 - `sceneTreeSaveData(): SceneTreeRawData`
@@ -40,6 +55,7 @@ Scene/model bridge:
 - `selectElements(elementIds: string[], options?: { undoable: boolean }): void`
 
 Managed property bridges:
+
 - `registerUIProperty<T>(key: string, config: PropertyRegistration<T>): void`
 - `getUIProperty<T>(key: string): T | undefined`
 - `setUIProperty<T>(key: string, value: T): void`
@@ -54,8 +70,11 @@ Managed property bridges:
 ## Package Export Map
 
 `@asyra/core`
+
 - default `core` singleton, `Core` class
 - `defineComponent`, `unregisterComponent`
+- `definePropertyComponent`, `unregisterPropertyComponent`
+- props-manager registry re-export: `elementPropertyRegistry`
 - feature-system bridge exports: `initFeatureSystem`, `getFeatureRegistry`, `getSessionManager`
 - feature authoring helpers: `defineFeature`, `importFeature`, `unregisterFeature`
 - input mapping helper re-export: `keyMap`
@@ -64,6 +83,7 @@ Managed property bridges:
 - load validation types: `LoadValidationDiagnostic`, `LoadValidationScope`, `LoadDiagnosticsHook`
 
 `@asyra/feature-system`
+
 - `defineFeature(name, keyConfig, definition)`
 - `importFeature(featureName)`
 - `unregisterFeature(featureName)`
@@ -73,6 +93,7 @@ Managed property bridges:
 - runtime classes: `FeatureRegistry`, `SessionManager`
 
 `@asyra/render`
+
 - default `render` singleton, `Render` class
 - `PixiJSRenderer`
 - `renderRegistry`
@@ -80,23 +101,28 @@ Managed property bridges:
 - overlay helper: `createOverlayLayerRegistration(...)`
 
 `@asyra/props-manager`
+
 - default `propsManager` singleton, `PropsManager` class
-- registries: `propertyRegistry`, `propertyDefinitionRegistry`, `stateRegistry`
+- manager id-first helpers: `getPropertyById(propertyId)`, `updatePropertyById(propertyId, key, value, options?)`
+- registries: `elementPropertyRegistry`, `stateRegistry`
 - schema APIs: `registerPropertySchema`, `getPropertySchema`, `propertySchemaRegistry`
 - property-component APIs: `registerPropertyComponent`, `getPropertyComponent`, `propertyComponentRegistry`
-- exported property component classes: `PositionComponent`, `DimensionComponent`, `CustomComponent`, `AnchorPointComponent`, `AnchorPointsComponent`
+- runtime primitives: `BasePropertyComponent`, `getPropertyComponentAccessor`
 
 `@asyra/scene-tree`
+
 - default scene tree singleton, `SceneTree` class
 - `componentRegistry`
 - `createDynamicComponent`, `createDynamicPropsClass`, `createElement`
 
 `@asyra/selection`
+
 - default selection manager singleton
 - `SelectionManager` class
 - `ElementSelection`, `VertexSelection` classes
 
 `@asyra/system-context`
+
 - default `systemContext` singleton
 - `SystemContext` class
 - managed property load/save helpers: `loadManagedProperties`, `saveManagedProperties`
@@ -105,25 +131,30 @@ Managed property bridges:
   - `runtime: false` => included in save/load persistence
 
 `@asyra/preset`
+
 - `applyPreset(core)` for explicit preset bootstrap registration (builtin components, property components, props schemas, render layers, selections, and default UI/system property wiring)
 
 `@asyra/ui-context`
+
 - default `uiContext` singleton
 - `UIContext` class
-- `propertyRegistry`
+- `propertyRegistry` (ui-context derived UI property registry, unrelated to props-manager element property registry)
 - registration and compute types
 
 `@asyra/input-system`
+
 - default `inputSystem` singleton
 - `InputSystem`, `InputSystemRegistry`, `InputEventCombo`
 
 `@asyra/interaction-core` (deprecated)
+
 - still exported for compatibility
 - not runtime owner of execute/session/cancel
 
 ## `defineFeature` Contract (Authoritative)
 
 `defineFeature(name, keyConfig, definition)`
+
 - `name: string`
 - `keyConfig: string | undefined`
 - `definition.api?: API`
@@ -133,9 +164,11 @@ Managed property bridges:
 - `definition.exclusive?: boolean`
 
 Execution mode:
+
 - registers one-shot handlers for `keyConfig`
 
 Session mode:
+
 - uses event triplet:
   - `${keyConfig}.start`
   - `${keyConfig}.update`

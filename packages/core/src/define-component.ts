@@ -1,6 +1,6 @@
 import { componentRegistry } from '@asyra/scene-tree'
 import {
-  propertyDefinitionRegistry,
+  elementPropertyRegistry,
   registerPropertySchema,
   type PropertyDefinition
 } from '@asyra/props-manager'
@@ -85,7 +85,7 @@ export function defineComponent(definition: ComponentDefinition): void {
 
   // 2. Register properties with property definition registry
   for (const prop of properties) {
-    propertyDefinitionRegistry.register(prop, type)
+    elementPropertyRegistry.register(prop, type)
     if (prop.schema) {
       registerPropertySchema(prop.schema)
     }
@@ -136,7 +136,7 @@ export function defineComponent(definition: ComponentDefinition): void {
 export function unregisterComponent(type: string): boolean {
   // Unregister from all registries
   const componentUnregistered = componentRegistry.unregister(type)
-  propertyDefinitionRegistry.unregisterComponent(type) // void return
+  elementPropertyRegistry.unregisterComponent(type) // void return
   const renderUnregistered = renderRegistry.unregister(type)
 
   return componentUnregistered || renderUnregistered

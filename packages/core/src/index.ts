@@ -8,6 +8,11 @@ export {
 export { defineComponent, unregisterComponent } from './define-component'
 export type { ComponentDefinition } from './define-component'
 export {
+  definePropertyComponent,
+  unregisterPropertyComponent
+} from './define-property-component'
+export type { PropertyComponentDefinition } from './define-property-component'
+export {
   defineFeature,
   importFeature,
   unregisterFeature
@@ -17,14 +22,15 @@ export {
   getPropertySchema,
   registerPropertyComponent,
   getPropertyComponent,
-  propertyRegistry,
+  elementPropertyRegistry,
   propertySchemaRegistry,
   propertyComponentRegistry,
-  PositionComponent,
-  DimensionComponent,
-  CustomComponent,
-  AnchorPointComponent,
-  AnchorPointsComponent
+  BasePropertyComponent,
+  getPropertyComponentAccessor
+} from '@asyra/props-manager'
+export type {
+  PropertyComponentConstructor,
+  PropertyComponentAccessor
 } from '@asyra/props-manager'
 export { ElementSelection, VertexSelection } from '@asyra/selection'
 export { componentRegistry } from '@asyra/scene-tree'

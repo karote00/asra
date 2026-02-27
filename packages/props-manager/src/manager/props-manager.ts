@@ -24,7 +24,7 @@ class PropsManager {
 
   constructor() {
     setComponentAccessor({
-      getComponentById: (componentId) => this.getComponentById(componentId),
+      getPropertyById: (propertyId) => this.getPropertyById(propertyId),
       addToMap: (component) => this.addToMap(component),
       createComponent: (data) =>
         createProperty(
@@ -110,10 +110,10 @@ class PropsManager {
     this.changes = []
   }
 
-  getComponentById(
-    componentId: string
+  getPropertyById(
+    propertyId: string
   ): PropertyComponentInstanceTypes | undefined {
-    return this._components.get(componentId)
+    return this._components.get(propertyId)
   }
 
   addToMap(component: PropertyComponentInstanceTypes) {
@@ -127,7 +127,7 @@ class PropsManager {
   }
 
   removeFromMap(componentId: string) {
-    const component = this.getComponentById(componentId)
+    const component = this.getPropertyById(componentId)
     if (!component) {
       return
     }
@@ -212,7 +212,7 @@ class PropsManager {
     data: PropertyComponentInstanceDataTypes[K],
     options?: EvnetOptions
   ) {
-    const component = this.getComponentById(componentId)
+    const component = this.getPropertyById(componentId)
     if (!component) {
       return
     }
@@ -223,6 +223,15 @@ class PropsManager {
     }
 
     component.set(key, data)
+  }
+
+  updatePropertyById<K extends keyof PropertyComponentInstanceDataTypes>(
+    propertyId: string,
+    key: K,
+    data: PropertyComponentInstanceDataTypes[K],
+    options?: EvnetOptions
+  ) {
+    this.updatePropsData(propertyId, key, data, options)
   }
 
   commitChanges(options?: EVENT_OPTIONS) {

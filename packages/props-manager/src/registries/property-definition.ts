@@ -13,7 +13,7 @@ interface RegisteredProperty {
   componentTypes: Set<string>
 }
 
-class PropertyDefinitionRegistry {
+class ElementPropertyRegistry {
   private registry = new Map<string, RegisteredProperty>()
 
   /**
@@ -80,6 +80,6 @@ class PropertyDefinitionRegistry {
   }
 }
 
-export const propertyDefinitionRegistry = new PropertyDefinitionRegistry()
-export default propertyDefinitionRegistry
+export const elementPropertyRegistry = new ElementPropertyRegistry()
+export default elementPropertyRegistry
 export type { PropertyDefinition }

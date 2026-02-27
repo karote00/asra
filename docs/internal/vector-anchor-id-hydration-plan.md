@@ -9,13 +9,13 @@ Target direction: move anchor-point ID hydration into the **props load phase**, 
 ## Current Conclusions
 
 1. Props "register" status
-- We have `propertyDefinitionRegistry.register(...)` in `@asyra/props-manager`.
+- We have `elementPropertyRegistry.register(...)` in `@asyra/props-manager`.
 - That registry is for property definition metadata (UI/introspection), not for load-time data hydration behavior.
 - We currently do **not** have a dedicated load-hydration extension point in props-manager.
 
 2. Feasibility in current implementation
 - Yes, it is feasible to hydrate anchor point IDs during props loading.
-- `PropsManager.load(...)` -> `createProperty(...)` -> `CustomComponent.load(...)` already receives custom data (`anchorPoints` included).
+- `PropsManager.load(...)` -> `createProperty(...)` -> registered property component `load(...)` receives custom data (`anchorPoints` included).
 - Today, only prop-component IDs are loaded into `idCounter` (`IDTypes.PROPS`). Nested IDs (vector anchor IDs) are not.
 
 ## Proposed Future Direction

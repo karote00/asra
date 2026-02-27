@@ -29,7 +29,18 @@ export const AnchorPointTypes = {
 export type AnchorPointType =
   (typeof AnchorPointTypes)[keyof typeof AnchorPointTypes]
 
-export const isAnchorPointType = (
-  value: unknown
-): value is AnchorPointType =>
+export const DefaultAnchorPointData = {
+  x: 0,
+  y: 0,
+  pointType: AnchorPointTypes.SHARP,
+  isMove: undefined as boolean | undefined,
+  inHandle: null as { x: number; y: number } | null,
+  outHandle: null as { x: number; y: number } | null
+}
+
+export const createDefaultAnchorPointsData = () => ({
+  anchorPoints: [] as string[]
+})
+
+export const isAnchorPointType = (value: unknown): value is AnchorPointType =>
   value === AnchorPointTypes.SHARP || value === AnchorPointTypes.SMOOTH

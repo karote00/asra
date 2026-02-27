@@ -1,0 +1,5 @@
+import './position-component'
+import './dimension-component'
+import './custom-component'
+import './anchor-point-component'
+import './anchor-points-component'

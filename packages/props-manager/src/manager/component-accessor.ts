@@ -1,8 +1,8 @@
 import type { PropertyComponentInstanceTypes } from '@asyra/utils'
 
 interface ComponentAccessor {
-  getComponentById: (
-    componentId: string
+  getPropertyById: (
+    propertyId: string
   ) => PropertyComponentInstanceTypes | undefined
   addToMap: (component: PropertyComponentInstanceTypes) => void
   createComponent: (
@@ -11,7 +11,7 @@ interface ComponentAccessor {
 }
 
 const noopAccessor: ComponentAccessor = {
-  getComponentById: () => undefined,
+  getPropertyById: () => undefined,
   addToMap: () => undefined,
   createComponent: () => null
 }
@@ -22,4 +22,6 @@ export const setComponentAccessor = (nextAccessor: ComponentAccessor) => {
   accessor = nextAccessor
 }
 
-export const getComponentAccessor = () => accessor
+export const getPropertyComponentAccessor = () => accessor
+
+export type { ComponentAccessor as PropertyComponentAccessor }

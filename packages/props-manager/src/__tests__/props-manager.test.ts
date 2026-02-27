@@ -26,7 +26,7 @@ import {
   CustomComponent,
   AnchorPointComponent,
   AnchorPointsComponent
-} from '../components'
+} from './helpers/test-property-components'
 
 const captureUpdateTransactionEvents = () => {
   const events: UpdateTransactionEvent[] = []
@@ -155,8 +155,8 @@ describe('PropsManager', () => {
 
     propsManager.load(dataToLoad)
 
-    expect(propsManager.getComponentById('pp-1')?.get('id')).toBe('pp-1')
-    expect(propsManager.getComponentById('pp-2')?.get('id')).toBe('pp-2')
+    expect(propsManager.getPropertyById('pp-1')?.get('id')).toBe('pp-1')
+    expect(propsManager.getPropertyById('pp-2')?.get('id')).toBe('pp-2')
   })
 
   it('should save data correctly', () => {
@@ -244,7 +244,7 @@ describe('PropsManager', () => {
 
     propsManager.addToMap(p1Component)
 
-    expect(propsManager.getComponentById('pp-1')).toBe(p1Component)
+    expect(propsManager.getPropertyById('pp-1')).toBe(p1Component)
   })
 
   it('should add a component to the map', () => {
@@ -348,6 +348,19 @@ describe('PropsManager', () => {
 
   it('should throw error if type is not provided for createProperty', () => {
     expect(() => propsManager.createProperty({})).toThrow('Type is required!')
+  })
+
+  it('should throw if the property component type is not registered', () => {
+    propertyComponentRegistry.clear()
+
+    expect(() =>
+      createProperty({
+        id: 'pp-x',
+        type: PropertyTypes.POSITION
+      })
+    ).toThrow(
+      '[props-manager] Property component type "position" is not registered.'
+    )
   })
 
   // Test addProperty
@@ -577,7 +590,7 @@ describe('PropsManager', () => {
         yUnit: Unit.PX
       }
     })
-    expect(propsManager.getComponentById('pp-old')).toBeDefined()
+    expect(propsManager.getPropertyById('pp-old')).toBeDefined()
 
     // The second load is a new full snapshot. Old IDs not present in this payload
     // must be removed from runtime state (replace semantics, not merge semantics).
@@ -592,8 +605,8 @@ describe('PropsManager', () => {
       }
     })
 
-    expect(propsManager.getComponentById('pp-old')).toBeUndefined()
-    expect(propsManager.getComponentById('pp-new')).toBeDefined()
+    expect(propsManager.getPropertyById('pp-old')).toBeUndefined()
+    expect(propsManager.getPropertyById('pp-new')).toBeDefined()
   })
 
   it('validateLoadData should keep valid entries and report malformed props entries', () => {

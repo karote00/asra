@@ -73,9 +73,7 @@ class Props implements IProps {
     const dataObj = data as Record<string, string | undefined>
     const propertyComponents = PROP_NAMES.map((propName) => {
       const propId = dataObj[propName]
-      const propComponent = propId
-        ? propsManager.getComponentById(propId)
-        : null
+      const propComponent = propId ? propsManager.getPropertyById(propId) : null
       if (propComponent) {
         // Restore existing prop component
         return propComponent

@@ -1,10 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { defineComponent, unregisterComponent } from '../define-component'
 import { componentRegistry } from '@asyra/scene-tree'
-import {
-  propertyDefinitionRegistry,
-  propertyRegistry
-} from '@asyra/props-manager'
+import { elementPropertyRegistry } from '@asyra/props-manager'
 import { renderRegistry } from '@asyra/render'
 import { PropertyTypes } from '@asyra/utils'
 import type { RenderStrategy } from '@asyra/render'
@@ -16,8 +13,8 @@ describe('defineComponent', () => {
     // Clean up registries before each test
     componentRegistry.unregister('star')
     componentRegistry.unregister('polygon')
-    propertyDefinitionRegistry.unregisterComponent('star')
-    propertyDefinitionRegistry.unregisterComponent('polygon')
+    elementPropertyRegistry.unregisterComponent('star')
+    elementPropertyRegistry.unregisterComponent('polygon')
     renderRegistry.unregister('star')
     renderRegistry.unregister('polygon')
   })
@@ -41,7 +38,7 @@ describe('defineComponent', () => {
     expect(componentRegistry.has('star')).toBe(true)
 
     // Check property registry
-    const properties = propertyRegistry.getPropertiesForComponent('star')
+    const properties = elementPropertyRegistry.getPropertiesForComponent('star')
     expect(properties).toHaveLength(3)
     expect(properties.map((p) => p.name)).toEqual(['count', 'x', 'y'])
 
@@ -61,9 +58,9 @@ describe('defineComponent', () => {
     })
 
     expect(componentRegistry.has('polygon')).toBe(true)
-    expect(propertyRegistry.getPropertiesForComponent('polygon')).toHaveLength(
-      1
-    )
+    expect(
+      elementPropertyRegistry.getPropertiesForComponent('polygon')
+    ).toHaveLength(1)
     expect(renderRegistry.has('polygon')).toBe(false)
   })
 
@@ -97,7 +94,7 @@ describe('defineComponent', () => {
       ]
     })
 
-    const properties = propertyRegistry.getPropertiesForComponent('star')
+    const properties = elementPropertyRegistry.getPropertiesForComponent('star')
     expect(properties).toHaveLength(4)
     expect(properties.map((p) => p.name)).toEqual([
       'count',
@@ -118,7 +115,7 @@ describe('defineComponent', () => {
       ]
     })
 
-    const properties = propertyRegistry.getPropertiesForComponent('star')
+    const properties = elementPropertyRegistry.getPropertiesForComponent('star')
     expect(properties[0].type).toBe(PropertyTypes.CUSTOM)
     expect(properties[1].type).toBe(PropertyTypes.CUSTOM)
   })
@@ -150,7 +147,7 @@ describe('unregisterComponent', () => {
   beforeEach(() => {
     // Clean up registries before each test
     componentRegistry.unregister('star')
-    propertyRegistry.unregisterComponent('star')
+    elementPropertyRegistry.unregisterComponent('star')
     renderRegistry.unregister('star')
   })
 
@@ -168,14 +165,18 @@ describe('unregisterComponent', () => {
     })
 
     expect(componentRegistry.has('star')).toBe(true)
-    expect(propertyRegistry.getPropertiesForComponent('star')).toHaveLength(1)
+    expect(
+      elementPropertyRegistry.getPropertiesForComponent('star')
+    ).toHaveLength(1)
     expect(renderRegistry.has('star')).toBe(true)
 
     const result = unregisterComponent('star')
 
     expect(result).toBe(true)
     expect(componentRegistry.has('star')).toBe(false)
-    expect(propertyRegistry.getPropertiesForComponent('star')).toHaveLength(0)
+    expect(
+      elementPropertyRegistry.getPropertiesForComponent('star')
+    ).toHaveLength(0)
     expect(renderRegistry.has('star')).toBe(false)
   })
 

@@ -1,19 +1,19 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { propertyDefinitionRegistry } from '../registries/property-definition'
+import { elementPropertyRegistry } from '../registries/property-definition'
 import type { PropertyDefinition } from '../registries/property-definition'
 
-describe('PropertyDefinitionRegistry', () => {
+describe('ElementPropertyRegistry', () => {
   beforeEach(() => {
     // Clear registry by unregistering all component types
     const registry = (
-      propertyDefinitionRegistry as unknown as {
+      elementPropertyRegistry as unknown as {
         registry: Map<string, { componentTypes: Set<string> }>
       }
     ).registry
     const allProps = Array.from(registry.entries())
     allProps.forEach(([, registered]) => {
       Array.from(registered.componentTypes).forEach((type) => {
-        propertyDefinitionRegistry.unregisterComponent(type)
+        elementPropertyRegistry.unregisterComponent(type)
       })
     })
   })
@@ -25,10 +25,10 @@ describe('PropertyDefinitionRegistry', () => {
       defaultValue: 5
     }
 
-    propertyDefinitionRegistry.register(propDef, 'star')
+    elementPropertyRegistry.register(propDef, 'star')
 
-    expect(propertyDefinitionRegistry.has('count')).toBe(true)
-    const properties = propertyDefinitionRegistry.getPropertiesForComponent('star')
+    expect(elementPropertyRegistry.has('count')).toBe(true)
+    const properties = elementPropertyRegistry.getPropertiesForComponent('star')
     expect(properties).toHaveLength(1)
     expect(properties[0].name).toBe('count')
   })
@@ -40,11 +40,12 @@ describe('PropertyDefinitionRegistry', () => {
       alias: ['x', 'y']
     }
 
-    propertyDefinitionRegistry.register(propDef, 'star')
-    propertyDefinitionRegistry.register(propDef, 'polygon')
+    elementPropertyRegistry.register(propDef, 'star')
+    elementPropertyRegistry.register(propDef, 'polygon')
 
-    const starProps = propertyDefinitionRegistry.getPropertiesForComponent('star')
-    const polygonProps = propertyDefinitionRegistry.getPropertiesForComponent('polygon')
+    const starProps = elementPropertyRegistry.getPropertiesForComponent('star')
+    const polygonProps =
+      elementPropertyRegistry.getPropertiesForComponent('polygon')
 
     expect(starProps).toHaveLength(1)
     expect(polygonProps).toHaveLength(1)
@@ -59,9 +60,9 @@ describe('PropertyDefinitionRegistry', () => {
       defaultValue: 6
     }
 
-    propertyDefinitionRegistry.register(propDef, 'polygon')
+    elementPropertyRegistry.register(propDef, 'polygon')
 
-    const retrieved = propertyDefinitionRegistry.get('sides')
+    const retrieved = elementPropertyRegistry.get('sides')
     expect(retrieved).toBeDefined()
     expect(retrieved?.name).toBe('sides')
     expect(retrieved?.defaultValue).toBe(6)
@@ -74,14 +75,15 @@ describe('PropertyDefinitionRegistry', () => {
       defaultValue: 50
     }
 
-    propertyDefinitionRegistry.register(propDef, 'circle')
-    expect(propertyDefinitionRegistry.has('radius')).toBe(true)
+    elementPropertyRegistry.register(propDef, 'circle')
+    expect(elementPropertyRegistry.has('radius')).toBe(true)
 
-    propertyDefinitionRegistry.unregisterComponent('circle')
+    elementPropertyRegistry.unregisterComponent('circle')
 
-    const properties = propertyDefinitionRegistry.getPropertiesForComponent('circle')
+    const properties =
+      elementPropertyRegistry.getPropertiesForComponent('circle')
     expect(properties).toHaveLength(0)
-    expect(propertyDefinitionRegistry.has('radius')).toBe(false)
+    expect(elementPropertyRegistry.has('radius')).toBe(false)
   })
 
   it('should keep property if other components still use it', () => {
@@ -91,13 +93,13 @@ describe('PropertyDefinitionRegistry', () => {
       alias: ['width', 'height']
     }
 
-    propertyDefinitionRegistry.register(propDef, 'rectangle')
-    propertyDefinitionRegistry.register(propDef, 'oval')
+    elementPropertyRegistry.register(propDef, 'rectangle')
+    elementPropertyRegistry.register(propDef, 'oval')
 
-    propertyDefinitionRegistry.unregisterComponent('rectangle')
+    elementPropertyRegistry.unregisterComponent('rectangle')
 
-    expect(propertyDefinitionRegistry.has('dimension')).toBe(true)
-    const ovalProps = propertyDefinitionRegistry.getPropertiesForComponent('oval')
+    expect(elementPropertyRegistry.has('dimension')).toBe(true)
+    const ovalProps = elementPropertyRegistry.getPropertiesForComponent('oval')
     expect(ovalProps).toHaveLength(1)
   })
 
@@ -115,11 +117,11 @@ describe('PropertyDefinitionRegistry', () => {
       type: 'dimension'
     }
 
-    propertyDefinitionRegistry.register(prop1, 'star')
-    propertyDefinitionRegistry.register(prop2, 'star')
-    propertyDefinitionRegistry.register(prop3, 'star')
+    elementPropertyRegistry.register(prop1, 'star')
+    elementPropertyRegistry.register(prop2, 'star')
+    elementPropertyRegistry.register(prop3, 'star')
 
-    const properties = propertyDefinitionRegistry.getPropertiesForComponent('star')
+    const properties = elementPropertyRegistry.getPropertiesForComponent('star')
     expect(properties).toHaveLength(3)
   })
 })

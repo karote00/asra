@@ -36,7 +36,7 @@ class Computed<T extends ComputedAttrs>
       const propId = props.getPropId(propName)
       if (!propId) return
 
-      const propComponent = propsManager.getComponentById(propId)
+      const propComponent = propsManager.getPropertyById(propId)
       if (!propComponent) {
         return
       }

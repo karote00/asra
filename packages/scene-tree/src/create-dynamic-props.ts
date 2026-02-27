@@ -55,7 +55,7 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
       properties.forEach((prop) => {
         const propId = dataObj[prop.name]
         const propComponent = propId
-          ? propsManager.getComponentById(propId)
+          ? propsManager.getPropertyById(propId)
           : null
 
         if (propComponent) {

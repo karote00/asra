@@ -3,16 +3,22 @@ import {
   loadId,
   IDTypes,
   PropertyComponentRawData,
+  PropertyTypes,
   isNil
 } from '@asyra/utils'
 import type { PropertyComponentInstanceTypes } from '@asyra/utils'
-import CustomComponent from '../components/custom'
 import { getPropertyComponent } from '../registries/property-component'
 
 export const createProperty = (data: Partial<PropertyComponentRawData>) => {
   const type = data.type as string
-  // Uses registry-owned components. Fallback is generic custom component.
-  const PropClass = getPropertyComponent(type) ?? CustomComponent
+  const PropClass =
+    getPropertyComponent(type) ??
+    getPropertyComponent(PropertyTypes.CUSTOM)
+  if (!PropClass) {
+    throw new Error(
+      `[props-manager] Property component type "${type}" is not registered.`
+    )
+  }
 
   let comId = data.id
   if (isNil(comId)) {
