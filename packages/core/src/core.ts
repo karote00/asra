@@ -27,6 +27,7 @@ import render, { Render, IRenderer, RenderOptions } from '@asyra/render'
 import { IPersistenceProvider, SaveHook, LoadHook } from '@asyra/persistence'
 import {
   EventTypes,
+  eventRegistry,
   fileLoadComplete,
   subscribeToEvents
 } from '@asyra/reactive-events'
@@ -252,6 +253,10 @@ class Core implements CoreAPIs {
 
   registerInteraction(eventName: string, handler: DecisionHandler) {
     this.deps.interactionCore.registry.register(eventName, handler)
+  }
+
+  registerEvent(eventName: string) {
+    return eventRegistry.register(eventName)
   }
 
   registerPropertySchema(

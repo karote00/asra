@@ -1,8 +1,9 @@
+import { MapRegistry } from '@asyra/utils'
 import { publishEvent, subscribeToEvents } from './event-bus'
 import type { Subscription } from 'rxjs'
 import type { AllEvent } from './constants'
 
-interface EventRegistration {
+export interface EventRegistration {
   eventName: string
   publish: (payload?: unknown, options?: unknown) => void
   subscribe: (
@@ -36,7 +37,12 @@ interface CustomEventShape {
 
 export const eventRegistry = {
   register(eventName: string): EventRegistration {
-    return {
+    const existing = registry.get(eventName)
+    if (existing) {
+      return existing
+    }
+
+    const registration: EventRegistration = {
       eventName,
 
       publish(payload?: unknown, options?: unknown) {
@@ -61,5 +67,30 @@ export const eventRegistry = {
         })
       }
     }
+
+    registry.set(eventName, registration, { override: false })
+    return registration
+  },
+
+  get(eventName: string): EventRegistration | undefined {
+    return registry.get(eventName)
+  },
+
+  has(eventName: string): boolean {
+    return registry.has(eventName)
+  },
+
+  unregister(eventName: string): boolean {
+    return registry.delete(eventName)
+  },
+
+  getRegisteredEvents(): string[] {
+    return registry.keys()
+  },
+
+  clear(): void {
+    registry.clear()
   }
 }
+
+const registry = new MapRegistry<string, EventRegistration>()

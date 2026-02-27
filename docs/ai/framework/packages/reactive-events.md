@@ -26,6 +26,7 @@ Provide typed cross-package event communication.
 
 - add event module namespaces for new domains
 - add typed publish/subscribe helpers for new event families
+- register app/preset custom event names via `eventRegistry.register(eventName)`
 
 ## Validation Checklist
 

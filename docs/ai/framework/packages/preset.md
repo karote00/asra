@@ -8,6 +8,7 @@ Optional preset bootstrap for framework defaults.
 
 - explicit application of bundled default registrations
 - preset-level coordination across framework packages
+- builtin custom event-name registrations via core/reactive-events registry
 - builtin component registrations
 - builtin property-component registrations
 - builtin property-schema registrations
@@ -24,7 +25,7 @@ Optional preset bootstrap for framework defaults.
 
 - `applyPreset(core)` applies preset-provided registrations using explicit app call.
 - `applyPreset(core)` is the owner of framework default/builtin wiring that was previously implicit or app-local.
-- reactive-events remains infrastructure and does not require preset bootstrap registration.
+- preset registers default event namespaces through `core.registerEvent(...)` while `@asyra/reactive-events` continues to export typed publish/subscribe APIs.
 
 ## Validation Checklist
 

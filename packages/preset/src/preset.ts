@@ -1,5 +1,6 @@
 import './components'
 import './props/components'
+import { registerEvents } from './events/register-events'
 import { registerPropertySchemas } from './props/register-property-schemas'
 import { registerVectorPathEditingRenderLayer } from './render-layers'
 import { registerSelections } from './selection/register-default-selections'
@@ -29,6 +30,7 @@ export const applyPreset = (
 ): void => {
   const resolvedDeps = resolvePresetDependencies(core, deps)
 
+  registerEvents(core)
   registerSelections(core)
   registerPropertySchemas(core)
   registerProperties(core)

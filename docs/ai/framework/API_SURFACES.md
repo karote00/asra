@@ -36,6 +36,7 @@ Feature/runtime wiring:
 - `initFeatureSystem(packages: CorePackages): void`
 - `setupInputSystem(watchedElement?: HTMLElement): void`
 - `registerInteraction(eventName: string, handler: DecisionHandler): void` (compatibility path)
+- `registerEvent(eventName: string)` (register custom event namespace entries in `@asyra/reactive-events`)
 
 Render bridge:
 
@@ -133,6 +134,7 @@ Managed property bridges:
 `@asyra/preset`
 
 - `applyPreset(core)` for explicit preset bootstrap registration (builtin components, property components, props schemas, render layers, selections, and default UI/system property wiring)
+- exports `InputSystemEvents` and `PresetEventNames` constants for preset-owned event namespaces
 
 `@asyra/ui-context`
 

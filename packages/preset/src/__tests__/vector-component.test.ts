@@ -1,4 +1,5 @@
 import { beforeAll, describe, it, expect, vi } from 'vitest'
+import { Subscription } from 'rxjs'
 import {
   componentRegistry,
   elementPropertyRegistry,
@@ -10,6 +11,11 @@ import { applyPreset } from '../preset'
 beforeAll(() => {
   applyPreset(
     {
+      registerEvent: (eventName: string) => ({
+        eventName,
+        publish: () => {},
+        subscribe: () => new Subscription()
+      }),
       registerRenderLayer: () => {
         // no-op for this unit test; vector component registration is asserted via registries.
       },
