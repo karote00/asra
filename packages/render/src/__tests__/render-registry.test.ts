@@ -40,22 +40,15 @@ describe('RenderRegistry', () => {
     expect(result).toBe(false)
   })
 
-  it('should overwrite existing strategy with warning', () => {
-    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
-      // Mock implementation
-    })
+  it('should throw on duplicate strategy registration', () => {
     const strategy1: RenderStrategy = vi.fn()
     const strategy2: RenderStrategy = vi.fn()
 
     renderRegistry.register('test-type', strategy1)
-    renderRegistry.register('test-type', strategy2)
-
-    expect(renderRegistry.get('test-type')).toBe(strategy2)
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      'Render strategy for "test-type" already registered. Overwriting.'
+    expect(() => renderRegistry.register('test-type', strategy2)).toThrow(
+      'Render strategy for "test-type" is already registered'
     )
-
-    consoleWarnSpy.mockRestore()
+    expect(renderRegistry.get('test-type')).toBe(strategy1)
   })
 
   it('should execute registered strategy when retrieved', () => {

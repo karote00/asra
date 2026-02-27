@@ -10,7 +10,9 @@ export class InputSystemRegistry {
    * @param combos - Array of input combinations that trigger this event
    */
   register(eventName: string, combos: InputEventCombo[]): void {
-    this.mappings.set(eventName, combos)
+    this.mappings.register(eventName, combos, {
+      duplicateErrorMessage: `Input event "${eventName}" is already registered`
+    })
   }
 
   /**

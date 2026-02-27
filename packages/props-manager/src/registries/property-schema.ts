@@ -2,7 +2,7 @@ import { MapRegistry } from '@asyra/utils'
 import type { PropertySchema } from '@asyra/utils'
 
 interface RegisterOptions {
-  override?: boolean
+  duplicateErrorMessage?: string
 }
 
 class PropertySchemaRegistry {
@@ -13,8 +13,10 @@ class PropertySchemaRegistry {
       return
     }
 
-    this.registry.set(schema.type, schema, {
-      override: options.override === true
+    this.registry.register(schema.type, schema, {
+      duplicateErrorMessage:
+        options.duplicateErrorMessage ??
+        `Property schema "${schema.type}" is already registered`
     })
   }
 

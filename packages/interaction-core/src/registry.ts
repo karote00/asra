@@ -37,7 +37,9 @@ export class InteractionRegistry {
   private handlers = new MapRegistry<string, DecisionHandler>()
 
   register(eventName: string, handler: DecisionHandler) {
-    this.handlers.set(eventName, handler)
+    this.handlers.register(eventName, handler, {
+      duplicateErrorMessage: `Interaction "${eventName}" is already registered`
+    })
   }
 
   decide(

@@ -18,12 +18,12 @@ describe('eventRegistry', () => {
     expect(eventRegistry.getRegisteredEvents()).toEqual(['custom.event'])
   })
 
-  it('reuses existing registration for duplicate register calls', () => {
-    const first = eventRegistry.register('custom.event')
-    const second = eventRegistry.register('custom.event')
+  it('throws on duplicate register calls', () => {
+    eventRegistry.register('custom.event')
 
-    expect(first).toBe(second)
-    expect(eventRegistry.getRegisteredEvents()).toEqual(['custom.event'])
+    expect(() => eventRegistry.register('custom.event')).toThrow(
+      'Event "custom.event" is already registered'
+    )
   })
 
   it('publishes and subscribes using registration helpers', () => {

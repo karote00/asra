@@ -17,12 +17,8 @@ class ComponentRegistry {
   private registry = new MapRegistry<string, ComponentRegistration>()
 
   register(registration: ComponentRegistration): void {
-    this.registry.set(registration.type, registration, {
-      onDuplicate: () => {
-        console.warn(
-          `Component "${registration.type}" already registered. Overwriting.`
-        )
-      }
+    this.registry.register(registration.type, registration, {
+      duplicateErrorMessage: `Component "${registration.type}" is already registered`
     })
   }
 

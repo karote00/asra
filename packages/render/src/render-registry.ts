@@ -5,12 +5,8 @@ class RenderRegistry {
   private strategies = new MapRegistry<string, RenderStrategy>()
 
   register(type: string, strategy: RenderStrategy): void {
-    this.strategies.set(type, strategy, {
-      onDuplicate: () => {
-        console.warn(
-          `Render strategy for "${type}" already registered. Overwriting.`
-        )
-      }
+    this.strategies.register(type, strategy, {
+      duplicateErrorMessage: `Render strategy for "${type}" is already registered`
     })
   }
 

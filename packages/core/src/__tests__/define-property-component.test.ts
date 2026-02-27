@@ -50,8 +50,6 @@ class TestPropertyComponent extends BasePropertyComponent<PropertyComponentInsta
   }
 }
 
-class OverrideTestPropertyComponent extends TestPropertyComponent {}
-
 describe('definePropertyComponent', () => {
   beforeEach(() => {
     unregisterPropertyComponent(TEST_TYPE)
@@ -68,21 +66,18 @@ describe('definePropertyComponent', () => {
     expect(getPropertyComponent(TEST_TYPE)).toBe(TestPropertyComponent)
   })
 
-  it('should support override option', () => {
+  it('should throw on duplicate property component registration', () => {
     definePropertyComponent({
       type: TEST_TYPE,
       constructor: TestPropertyComponent
     })
 
-    definePropertyComponent({
-      type: TEST_TYPE,
-      constructor: OverrideTestPropertyComponent,
-      options: {
-        override: true
-      }
-    })
-
-    expect(getPropertyComponent(TEST_TYPE)).toBe(OverrideTestPropertyComponent)
+    expect(() =>
+      definePropertyComponent({
+        type: TEST_TYPE,
+        constructor: TestPropertyComponent
+      })
+    ).toThrow(`Property component "${TEST_TYPE}" is already registered`)
   })
 
   it('should support config-based property component definition', () => {

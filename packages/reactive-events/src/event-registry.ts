@@ -73,11 +73,6 @@ export const eventRegistry = {
     event: string | EventDefinition<TPayload, TOptions>
   ): EventRegistration<TPayload, TOptions> {
     const eventName = getEventName(event)
-    const existing = registry.get(eventName)
-    if (existing) {
-      return existing as EventRegistration<TPayload, TOptions>
-    }
-
     const registration: EventRegistration<TPayload, TOptions> = {
       eventName,
 
@@ -107,8 +102,7 @@ export const eventRegistry = {
       }
     }
 
-    registry.set(eventName, registration, { override: false })
-    return registration
+    return registerInRegistry(eventName, registration)
   },
 
   get<TPayload = unknown, TOptions = unknown>(
@@ -162,4 +156,14 @@ const getEventName = (event: string | EventDefinition): string => {
   return typeof event === 'string' ? event : event.eventName
 }
 
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous event payload/options */
 const registry = new MapRegistry<string, EventRegistration<any, any>>()
+
+const registerInRegistry = <TPayload, TOptions>(
+  eventName: string,
+  registration: EventRegistration<TPayload, TOptions>
+): EventRegistration<TPayload, TOptions> => {
+  return registry.register(eventName, registration, {
+    duplicateErrorMessage: `Event "${eventName}" is already registered`
+  }) as EventRegistration<TPayload, TOptions>
+}

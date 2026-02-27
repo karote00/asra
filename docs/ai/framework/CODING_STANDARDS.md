@@ -19,6 +19,8 @@
 - Prefer shared registry utility for map-like register/get/has/unregister behavior.
 - Registry names must reflect ownership, not UI assumptions.
 - If behavior is package-specific, wrap shared utility rather than forking patterns.
+- Duplicate keys are not allowed for `register(...)` flows.
+- Use shared `MapRegistry.register(...)` and fail fast on duplicate keys with explicit error messages.
 
 ## State and Mutation Standards
 

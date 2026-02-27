@@ -9,7 +9,7 @@ type PropertyComponentConstructor = new (
 ) => PropertyComponentInstanceTypes
 
 interface RegisterOptions {
-  override?: boolean
+  duplicateErrorMessage?: string
 }
 
 class PropertyComponentRegistry {
@@ -24,8 +24,10 @@ class PropertyComponentRegistry {
       return
     }
 
-    this.registry.set(type, component, {
-      override: options.override === true
+    this.registry.register(type, component, {
+      duplicateErrorMessage:
+        options.duplicateErrorMessage ??
+        `Property component "${type}" is already registered`
     })
   }
 

@@ -16,10 +16,6 @@ export class FeatureRegistry {
    * @returns Feature public API
    */
   register(name: string, definition: FeatureDefinition): FeatureAPI {
-    if (this.registry.has(name)) {
-      throw new Error(`Feature "${name}" is already registered`)
-    }
-
     const api = definition.api || {}
     const entry: FeatureEntry = {
       definition,
@@ -27,7 +23,9 @@ export class FeatureRegistry {
       registeredAt: Date.now()
     }
 
-    this.registry.set(name, entry)
+    this.registry.register(name, entry, {
+      duplicateErrorMessage: `Feature "${name}" is already registered`
+    })
 
     return api
   }

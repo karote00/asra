@@ -6,12 +6,12 @@ class RenderLayerRegistry {
 
   register(
     registration: RenderLayerRegistration,
-    options: { override?: boolean } = {}
+    _options: { override?: boolean } = {}
   ): void {
     const { name } = registration
-    const shouldOverride = options.override ?? true
-
-    this.layers.set(name, registration, { override: shouldOverride })
+    this.layers.register(name, registration, {
+      duplicateErrorMessage: `Render layer "${name}" is already registered`
+    })
   }
 
   unregister(name: string): boolean {

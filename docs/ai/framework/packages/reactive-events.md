@@ -21,12 +21,15 @@ Provide typed cross-package event communication.
 - Cross-package communication should use typed events or core request APIs.
 - Event names and payloads are framework contracts.
 - Avoid ad-hoc untyped payloads for core event channels.
+- Event registration storage should use shared `@asyra/utils` registry primitives (`MapRegistry`) instead of duplicating registry infrastructure.
 
 ## Extension Points
 
 - add event module namespaces for new domains
 - add typed publish/subscribe helpers for new event families
 - register app/preset custom events via `eventRegistry.register(event)` where `event` can be a name string or an `EventDefinition`
+- keep `eventRegistry.register(event)` as the reactive-events owned registration API; `@asyra/utils` provides storage primitives, not a separate event-level `register(...)` API
+- duplicate event registrations are rejected (event names must be unique)
 
 ## Validation Checklist
 

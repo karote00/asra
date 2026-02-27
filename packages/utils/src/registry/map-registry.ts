@@ -3,6 +3,11 @@ export interface RegistrySetOptions<K, V> {
   onDuplicate?: (key: K, current: V, next: V) => void
 }
 
+export interface RegistryRegisterOptions<K, V> {
+  onDuplicate?: (key: K, current: V, next: V) => void
+  duplicateErrorMessage?: string | ((key: K, current: V, next: V) => string)
+}
+
 export class MapRegistry<K, V> {
   private readonly map: Map<K, V>
 
@@ -25,6 +30,28 @@ export class MapRegistry<K, V> {
 
     this.map.set(key, value)
     return true
+  }
+
+  register(key: K, value: V, options: RegistryRegisterOptions<K, V> = {}): V {
+    const exists = this.map.has(key)
+
+    if (!exists) {
+      this.map.set(key, value)
+      return value
+    }
+
+    const current = this.map.get(key) as V
+    options.onDuplicate?.(key, current, value)
+    const message = (() => {
+      if (typeof options.duplicateErrorMessage === 'function') {
+        return options.duplicateErrorMessage(key, current, value)
+      }
+      return (
+        options.duplicateErrorMessage ??
+        `Registry key "${String(key)}" is already registered`
+      )
+    })()
+    throw new Error(message)
   }
 
   get(key: K): V | undefined {
@@ -51,7 +78,7 @@ export class MapRegistry<K, V> {
     return Array.from(this.map.values())
   }
 
-  entries(): Array<[K, V]> {
+  entries(): [K, V][] {
     return Array.from(this.map.entries())
   }
 

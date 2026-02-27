@@ -22,6 +22,9 @@ Provide shared types, ids, registry primitives, and low-level helpers.
 - Utils should stay pure and reusable across framework and apps.
 - Shared types should be canonical (avoid duplicated shape definitions across packages).
 - When a type is part of framework contract, define it here once.
+- `MapRegistry.register(key, value)` is the base registration primitive for map-like registries:
+  - duplicate keys are rejected by default (throws)
+  - optional duplicate hooks/messages are configured at call sites
 
 ## Extension Points
 

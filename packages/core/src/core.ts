@@ -264,7 +264,7 @@ class Core implements CoreAPIs {
 
   registerPropertySchema(
     schema: PropertySchema,
-    options?: { override?: boolean }
+    options?: Parameters<typeof registerPropertySchema>[1]
   ): void {
     registerPropertySchema(schema, options)
   }

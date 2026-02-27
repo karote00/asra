@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { componentRegistry } from '../component-registry'
 
 import { ComponentRegistration } from '../component-registry'
@@ -37,11 +37,7 @@ describe('ComponentRegistry', () => {
     expect(registration?.namePrefix).toBe('Test')
   })
 
-  it('should warn on duplicate registration', () => {
-    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
-      // Mock implementation
-    })
-
+  it('should throw on duplicate registration', () => {
     componentRegistry.register({
       type: 'duplicate',
       idPrefix: 'dup',
@@ -52,20 +48,17 @@ describe('ComponentRegistry', () => {
       defaults: {}
     })
 
-    componentRegistry.register({
-      type: 'duplicate',
-      idPrefix: 'dup2',
-      namePrefix: 'Duplicate2',
-      constructor:
-        MockComponent as unknown as ComponentRegistration['constructor'],
-      properties: [],
-      defaults: {}
-    })
-
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('already registered')
-    )
-    consoleSpy.mockRestore()
+    expect(() =>
+      componentRegistry.register({
+        type: 'duplicate',
+        idPrefix: 'dup2',
+        namePrefix: 'Duplicate2',
+        constructor:
+          MockComponent as unknown as ComponentRegistration['constructor'],
+        properties: [],
+        defaults: {}
+      })
+    ).toThrow('Component "duplicate" is already registered')
   })
 
   it('should unregister components', () => {
