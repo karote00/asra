@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   EventTypes,
-  CoreEventTypes,
   InteractionCoreEventTypes,
   SceneTreeEventTypes,
   TransactionEventTypes
@@ -9,14 +8,6 @@ import {
 
 describe('Event Types - System Communication Contract', () => {
   describe('event type definitions', () => {
-    it('should demonstrate core system events for orchestration', () => {
-      // Demonstrates: Core events that coordinate system-wide operations
-      expect(CoreEventTypes.CORE_ADD_ELEMENT).toBe('coreAddElement')
-
-      // Shows this is used for high-level element creation coordination
-      expect(EventTypes.CORE_ADD_ELEMENT).toBe(CoreEventTypes.CORE_ADD_ELEMENT)
-    })
-
     it('should demonstrate interaction events for user action processing', () => {
       // Demonstrates: How user interactions are communicated through the system
       const interactionEvents = [
@@ -89,12 +80,9 @@ describe('Event Types - System Communication Contract', () => {
       // Demonstrates: All event types are consolidated into single EventTypes object
       // This ensures type safety and prevents event name conflicts
 
-      // Core events
-      expect(EventTypes.CORE_ADD_ELEMENT).toBeDefined()
-
       // Interaction events
       expect(EventTypes.EXECUTE_ACTION).toBeDefined()
-      expect(EventTypes.DECIDE_TO_CREATE_ELEMENT).toBeDefined()
+      expect(EventTypes.START_SESSION).toBeDefined()
 
       // Scene tree events
       expect(EventTypes.SCENE_TREE_INIT).toBeDefined()

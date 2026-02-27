@@ -1,8 +1,8 @@
 import { Subscription } from 'rxjs'
 import { generateRequestId } from '@asyra/utils'
 import { FinishRequestCurrentPrimaryToolEvent } from './events'
-import { subscribeToFinishRequestCurrentPrimaryTool } from './subscribes'
 import { publishEvent } from '../../event-bus'
+import { subscribeToFinishRequestCurrentPrimaryTool } from './subscribes'
 import { EventTypes } from '../../types'
 
 export const requestCurrentPrimaryTool = () => {

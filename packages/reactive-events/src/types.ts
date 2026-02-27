@@ -1,8 +1,3 @@
-// Core
-export enum CoreEventTypes {
-  CORE_ADD_ELEMENT = 'coreAddElement'
-}
-
 // Render
 export enum RenderEventTypes {
   INIT_RENDER = 'initRender',
@@ -126,14 +121,7 @@ export enum InteractionCoreEventTypes {
   EXECUTE_ACTION = 'executeAction',
   START_SESSION = 'startSession',
   UPDATE_SESSION = 'updateSession',
-  END_SESSION = 'endSession',
-  DECIDE_TO_START_TRANSACTION = 'decideToStartTransaction',
-  DECIDE_TO_END_TRANSACTION = 'decideToEndTransaction',
-  DECIDE_TO_CREATE_ELEMENT = 'decideToCreateElement',
-  DECIDE_TO_RESIZE_ELEMENT = 'decideToResizeElement',
-  DECIDE_TO_END_RESIZE_ELEMENT = 'decideToEndResizeElement',
-  DECIDE_TO_RESET_ELEMENT_SIZE = 'decideToResetElementSize',
-  DECIDE_TO_UNDOREDO = 'decideToUndoRedo'
+  END_SESSION = 'endSession'
 }
 
 // SystemContext
@@ -148,7 +136,6 @@ export enum KeyStateEventTypes {
 }
 
 export const EventTypes = {
-  ...CoreEventTypes,
   ...RenderEventTypes,
   ...FileEventTypes,
   ...SceneTreeEventTypes,

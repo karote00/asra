@@ -1,6 +1,5 @@
 export * from './constants'
 export * from './types'
-export * from './core'
 export * from './app'
 export * from './event-bus'
 export * from './persistence'

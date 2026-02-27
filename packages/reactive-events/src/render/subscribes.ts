@@ -19,9 +19,6 @@ export const subscribeToInitRender = createSubscribeEvent<InitRenderEvent>(
   EventTypes.INIT_RENDER
 )
 
-export const subscribeToEmitInitRender =
-  createSubscribeEvent<EmitInitRenderEvent>(EventTypes.EMIT_INIT_RENDER)
-
 // export const subscribeToZoomFit = createSubscribeEvent<ZoomFitEvent>(
 //   EventTypes.ZOOM_FIT
 // )
@@ -65,3 +62,6 @@ export const subscribeToFinishRequestViewportScale =
   createSubscribeEvent<FinishRequestViewportScaleEvent>(
     EventTypes.FINISH_REQUEST_VIEWPORT_SCALE
   )
+
+export const subscribeToEmitInitRender =
+  createSubscribeEvent<EmitInitRenderEvent>(EventTypes.EMIT_INIT_RENDER)
