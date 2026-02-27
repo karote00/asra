@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { eventRegistry } from '../event-registry'
+import {
+  defineEvent,
+  eventRegistry,
+  registerEventDefinitions
+} from '../event-registry'
 
 describe('eventRegistry', () => {
   beforeEach(() => {
@@ -30,6 +34,21 @@ describe('eventRegistry', () => {
     registration.publish({ id: '123' }, { source: 'test' })
 
     expect(handler).toHaveBeenCalledWith({ id: '123' }, { source: 'test' })
+
+    subscription.unsubscribe()
+  })
+
+  it('registers definition maps and returns generated helpers', () => {
+    const definitions = {
+      CREATED: defineEvent<{ id: string }, { source: string }>('custom.created')
+    } as const
+    const registrations = registerEventDefinitions(definitions)
+    const handler = vi.fn()
+    const subscription = registrations.CREATED.subscribe(handler)
+
+    registrations.CREATED.publish({ id: '1' }, { source: 'test' })
+
+    expect(handler).toHaveBeenCalledWith({ id: '1' }, { source: 'test' })
 
     subscription.unsubscribe()
   })

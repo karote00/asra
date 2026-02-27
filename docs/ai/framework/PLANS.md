@@ -37,6 +37,12 @@ This file tracks framework planning topics and points to detailed internal refer
 - Element/property relationships are standardized around ID-based references.
 - Reference: `docs/internal/property-runtime-genericization-plan.md`
 
+3. Preset event-definition registration and reactive-events cleanup
+- Completed on February 27, 2026.
+- Preset now registers event definitions (name + generated publish/subscribe helpers) through core/reactive-events.
+- Removed unused request-response event flows and deprecated interaction-core reactive-event wiring.
+- Reference: `docs/internal/framework-audit.md`
+
 ## Mid-Term Plans
 
 1. Typed narrowing cleanup

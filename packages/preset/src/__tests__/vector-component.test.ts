@@ -11,8 +11,10 @@ import { applyPreset } from '../preset'
 beforeAll(() => {
   applyPreset(
     {
-      registerEvent: (eventName: string) => ({
-        eventName,
+      registerEvent: (
+        event: string | { eventName: string }
+      ) => ({
+        eventName: typeof event === 'string' ? event : event.eventName,
         publish: () => {},
         subscribe: () => new Subscription()
       }),

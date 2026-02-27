@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Subscription } from 'rxjs'
 import { applyPreset } from '../preset'
-import { PresetEventNames } from '../events'
+import { PresetEventDefinitions } from '../events'
 
 const createDeps = () => ({
   sceneTree: {
@@ -22,12 +22,14 @@ const createDeps = () => ({
 })
 
 describe('Preset Event Registration', () => {
-  it('registers preset event namespaces through core', () => {
-    const registerEvent = vi.fn((eventName: string) => ({
-      eventName,
+  it('registers preset event definitions through core', () => {
+    const registerEvent = vi.fn(
+      (event: string | { eventName: string }) => ({
+        eventName: typeof event === 'string' ? event : event.eventName,
       publish: () => {},
       subscribe: () => new Subscription()
-    }))
+      })
+    )
 
     applyPreset(
       {
@@ -43,6 +45,6 @@ describe('Preset Event Registration', () => {
     )
 
     const registeredEvents = registerEvent.mock.calls.map(([event]) => event)
-    expect(registeredEvents).toEqual(Object.values(PresetEventNames))
+    expect(registeredEvents).toEqual(Object.values(PresetEventDefinitions))
   })
 })

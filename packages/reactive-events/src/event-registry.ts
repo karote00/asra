@@ -3,12 +3,45 @@ import { publishEvent, subscribeToEvents } from './event-bus'
 import type { Subscription } from 'rxjs'
 import type { AllEvent } from './constants'
 
-export interface EventRegistration {
+export interface EventDefinition<
+  TPayload = unknown,
+  TOptions = unknown
+> {
   eventName: string
-  publish: (payload?: unknown, options?: unknown) => void
+}
+
+export interface EventRegistration<
+  TPayload = unknown,
+  TOptions = unknown
+> {
+  eventName: string
+  publish: (payload?: TPayload, options?: TOptions) => void
   subscribe: (
-    handler: (payload?: unknown, options?: unknown) => void
+    handler: (payload?: TPayload, options?: TOptions) => void
   ) => Subscription
+}
+
+type EventDefinitionsMap = Record<string, EventDefinition<unknown, unknown>>
+
+type ExtractPayload<TDefinition> = TDefinition extends EventDefinition<
+  infer TPayload,
+  unknown
+>
+  ? TPayload
+  : unknown
+
+type ExtractOptions<TDefinition> = TDefinition extends EventDefinition<
+  unknown,
+  infer TOptions
+>
+  ? TOptions
+  : unknown
+
+export type EventRegistrations<TDefinitions extends EventDefinitionsMap> = {
+  [K in keyof TDefinitions]: EventRegistration<
+    ExtractPayload<TDefinitions[K]>,
+    ExtractOptions<TDefinitions[K]>
+  >
 }
 
 /** Custom event shape - extends base for dynamic user events */
@@ -36,16 +69,19 @@ interface CustomEventShape {
  */
 
 export const eventRegistry = {
-  register(eventName: string): EventRegistration {
+  register<TPayload = unknown, TOptions = unknown>(
+    event: string | EventDefinition<TPayload, TOptions>
+  ): EventRegistration<TPayload, TOptions> {
+    const eventName = getEventName(event)
     const existing = registry.get(eventName)
     if (existing) {
-      return existing
+      return existing as EventRegistration<TPayload, TOptions>
     }
 
-    const registration: EventRegistration = {
+    const registration: EventRegistration<TPayload, TOptions> = {
       eventName,
 
-      publish(payload?: unknown, options?: unknown) {
+      publish(payload?: TPayload, options?: TOptions) {
         const event: Record<string, unknown> = { type: eventName }
         if (payload !== undefined) {
           event.payload = payload
@@ -57,12 +93,15 @@ export const eventRegistry = {
       },
 
       subscribe(
-        handler: (payload?: unknown, options?: unknown) => void
+        handler: (payload?: TPayload, options?: TOptions) => void
       ): Subscription {
         return subscribeToEvents((e: AllEvent) => {
           if (e.type === eventName) {
             const custom = e as CustomEventShape
-            handler(custom.payload, custom.options)
+            handler(
+              custom.payload as TPayload | undefined,
+              custom.options as TOptions | undefined
+            )
           }
         })
       }
@@ -72,15 +111,20 @@ export const eventRegistry = {
     return registration
   },
 
-  get(eventName: string): EventRegistration | undefined {
-    return registry.get(eventName)
+  get<TPayload = unknown, TOptions = unknown>(
+    event: string | EventDefinition<TPayload, TOptions>
+  ): EventRegistration<TPayload, TOptions> | undefined {
+    const eventName = getEventName(event)
+    return registry.get(eventName) as EventRegistration<TPayload, TOptions>
   },
 
-  has(eventName: string): boolean {
+  has(event: string | EventDefinition): boolean {
+    const eventName = getEventName(event)
     return registry.has(eventName)
   },
 
-  unregister(eventName: string): boolean {
+  unregister(event: string | EventDefinition): boolean {
+    const eventName = getEventName(event)
     return registry.delete(eventName)
   },
 
@@ -93,4 +137,29 @@ export const eventRegistry = {
   }
 }
 
-const registry = new MapRegistry<string, EventRegistration>()
+export const defineEvent = <TPayload = unknown, TOptions = unknown>(
+  eventName: string
+): EventDefinition<TPayload, TOptions> => ({ eventName })
+
+export const registerEventDefinitions = <
+  TDefinitions extends EventDefinitionsMap
+>(
+  definitions: TDefinitions,
+  register: (
+    definition: EventDefinition<unknown, unknown>
+  ) => EventRegistration<unknown, unknown> = (definition) =>
+    eventRegistry.register(definition)
+): EventRegistrations<TDefinitions> => {
+  const entries = Object.entries(definitions).map(([key, definition]) => [
+    key,
+    register(definition)
+  ])
+
+  return Object.fromEntries(entries) as EventRegistrations<TDefinitions>
+}
+
+const getEventName = (event: string | EventDefinition): string => {
+  return typeof event === 'string' ? event : event.eventName
+}
+
+const registry = new MapRegistry<string, EventRegistration<any, any>>()
