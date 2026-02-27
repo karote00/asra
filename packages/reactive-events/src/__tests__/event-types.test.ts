@@ -1,36 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import {
   EventTypes,
-  InteractionCoreEventTypes,
   SceneTreeEventTypes,
   TransactionEventTypes
 } from '../types'
 
 describe('Event Types - System Communication Contract', () => {
-  describe('event type definitions', () => {
-    it('should demonstrate interaction events for user action processing', () => {
-      // Demonstrates: How user interactions are communicated through the system
-      const interactionEvents = [
-        InteractionCoreEventTypes.EXECUTE_ACTION,
-        InteractionCoreEventTypes.START_SESSION,
-        InteractionCoreEventTypes.UPDATE_SESSION,
-        InteractionCoreEventTypes.END_SESSION
-      ]
-
-      // These events represent the interaction lifecycle
-      expect(interactionEvents).toEqual([
-        'executeAction',
-        'startSession',
-        'updateSession',
-        'endSession'
-      ])
-
-      // Shows how user interactions flow through the system
-      expect(EventTypes.EXECUTE_ACTION).toBe('executeAction')
-      expect(EventTypes.START_SESSION).toBe('startSession')
-    })
-  })
-
   describe('scene tree events', () => {
     it('should demonstrate document model communication events', () => {
       // Demonstrates: How document changes are communicated
@@ -79,10 +54,6 @@ describe('Event Types - System Communication Contract', () => {
     it('should demonstrate unified event type system', () => {
       // Demonstrates: All event types are consolidated into single EventTypes object
       // This ensures type safety and prevents event name conflicts
-
-      // Interaction events
-      expect(EventTypes.EXECUTE_ACTION).toBeDefined()
-      expect(EventTypes.START_SESSION).toBeDefined()
 
       // Scene tree events
       expect(EventTypes.SCENE_TREE_INIT).toBeDefined()

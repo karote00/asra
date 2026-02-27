@@ -5,7 +5,6 @@ import type { PropEvents } from './props-manager'
 import type { UIContextEvents } from './ui-context'
 import type { RenderEvents } from './render'
 import type { InputSystemEvents } from './input-system'
-import type { InteractionCoreEvents } from './interaction-core'
 import type { KeyStateEvents } from './system-context'
 
 export type AllEvent =
@@ -16,5 +15,4 @@ export type AllEvent =
   | UIContextEvents
   | RenderEvents
   | InputSystemEvents
-  | InteractionCoreEvents
   | KeyStateEvents

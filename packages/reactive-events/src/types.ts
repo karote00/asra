@@ -116,14 +116,6 @@ export enum InputSystemEventTypes {
   SWITCH_INPUT_SYSTEM_WATCHED_ELEMENT = 'switchInputSystemWatchedElement'
 }
 
-// InteractionCore
-export enum InteractionCoreEventTypes {
-  EXECUTE_ACTION = 'executeAction',
-  START_SESSION = 'startSession',
-  UPDATE_SESSION = 'updateSession',
-  END_SESSION = 'endSession'
-}
-
 // SystemContext
 export enum SystemContextEventTypes {
   REQUEST_SYSTEM_CONTEXT_SNAPSHOT = 'requestSystemContextSnapshot',
@@ -150,7 +142,6 @@ export const EventTypes = {
   ...MouseStateEventTypes,
   ...TargetStateEventTypes,
   ...InputSystemEventTypes,
-  ...InteractionCoreEventTypes,
   ...SystemContextEventTypes,
   ...KeyStateEventTypes,
   ...RendererEventTypes
