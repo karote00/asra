@@ -46,52 +46,6 @@ export interface EmitInitRenderEvent {
 //   }
 // }
 
-export interface RequestRenderZoomEvent {
-  type: EventTypes
-  payload: {
-    requestId: string
-  }
-}
-
-export interface FinishRequestRenderZoomEvent {
-  type: EventTypes
-  payload: {
-    zoom: number
-    requestId: string
-  }
-}
-
-export interface RequestViewportPositionEvent {
-  type: EventTypes
-  payload: {
-    requestId: string
-  }
-}
-
-export interface FinishRequestViewportPositionEvent {
-  type: EventTypes
-  payload: {
-    requestId: string
-    x: number
-    y: number
-  }
-}
-
-export interface RequestViewportScaleEvent {
-  type: EventTypes
-  payload: {
-    requestId: string
-  }
-}
-
-export interface FinishRequestViewportScaleEvent {
-  type: EventTypes
-  payload: {
-    requestId: string
-    scale: number
-  }
-}
-
 export type RenderEvents =
   | InitRenderEvent
   | EmitInitRenderEvent
@@ -99,9 +53,3 @@ export type RenderEvents =
   // | EmitZoomFitEvent
   // | PanToEvent
   // | ZoomToCenterEvent
-  | RequestRenderZoomEvent
-  | FinishRequestRenderZoomEvent
-  | RequestViewportPositionEvent
-  | FinishRequestViewportPositionEvent
-  | RequestViewportScaleEvent
-  | FinishRequestViewportScaleEvent

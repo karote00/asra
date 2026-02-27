@@ -10,9 +10,6 @@ function warnDeprecated() {
 }
 
 import interactionCore, { InteractionCore } from './interaction-core'
-import { initInteractionCoreSubscribes } from './subscribes'
-
-initInteractionCoreSubscribes()
 warnDeprecated()
 
 /**

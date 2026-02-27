@@ -58,28 +58,6 @@ export enum PropsEventTypes {
   UPDATE_PROPERTY = 'updateProperty'
 }
 
-// UI-Context
-export enum UIContextEventTypes {
-  REQUEST_ELEMENT_SELECTION = 'requestElementSelection',
-  FINISH_REQUEST_ELEMENT_SELECTION = 'finishRequestElementSelection'
-}
-
-// Viewport
-export enum ViewportEventTypes {
-  REQUEST_VIEWPORT_POSITION = 'requestViewportPosition',
-  FINISH_REQUEST_VIEWPORT_POSITION = 'finishRequestViewportPosition',
-  REQUEST_VIEWPORT_SCALE = 'requestViewportScale',
-  FINISH_REQUEST_VIEWPORT_SCALE = 'finishRequestViewportScale',
-  REQUEST_RENDER_ZOOM = 'requestRenderZoom',
-  FINISH_REQUEST_RENDER_ZOOM = 'finishRequestRenderZoom'
-}
-
-// PrimaryTool
-export enum PrimaryToolEventTypes {
-  REQUEST_CURRENT_PRIMARY_TOOL = 'requestCurrentPrimaryTool',
-  FINISH_REQUEST_CURRENT_PRIMARY_TOOL = 'finishRequestCurrentPrimaryTool'
-}
-
 // MouseState
 export enum MouseStateEventTypes {
   UPDATE_MOUSE_STATE = 'updateMouseState'
@@ -116,12 +94,6 @@ export enum InputSystemEventTypes {
   SWITCH_INPUT_SYSTEM_WATCHED_ELEMENT = 'switchInputSystemWatchedElement'
 }
 
-// SystemContext
-export enum SystemContextEventTypes {
-  REQUEST_SYSTEM_CONTEXT_SNAPSHOT = 'requestSystemContextSnapshot',
-  FINISH_REQUEST_SYSTEM_CONTEXT_SNAPSHOT = 'finishRequestSystemContextSnapshot'
-}
-
 // KeyState
 export enum KeyStateEventTypes {
   UPDATE_KEY_STATE = 'updateKeyState'
@@ -136,13 +108,9 @@ export const EventTypes = {
   ...UndoRedoEventTypes,
   ...TransactionEventTypes,
   ...PropsEventTypes,
-  ...UIContextEventTypes,
-  ...ViewportEventTypes,
-  ...PrimaryToolEventTypes,
   ...MouseStateEventTypes,
   ...TargetStateEventTypes,
   ...InputSystemEventTypes,
-  ...SystemContextEventTypes,
   ...KeyStateEventTypes,
   ...RendererEventTypes
 } as const

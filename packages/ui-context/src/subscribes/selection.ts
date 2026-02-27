@@ -1,12 +1,7 @@
 import type { SelectionYjsChange } from '@asyra/utils'
 import { SELECTION_ACTIONS, SELECTION_TYPES } from '@asyra/utils'
 import factory from '@asyra/factory'
-import {
-  finishRequestElementSelection,
-  subscribeToRequestElementSelection
-} from '@asyra/reactive-events'
 import SelectionStore from '../stores/selection'
-import uiContext from '../ui-context'
 
 export const selectionStore = new SelectionStore()
 
@@ -51,12 +46,6 @@ export const initSelectionDataSubscribe = () => {
 
   const elementSelectionArray = factory.elementSelectionMap
   elementSelectionArray.observe(collectElementSelectionChange)
-
-  subscribeToRequestElementSelection(() => {
-    const selection =
-      uiContext.get<Set<string>>('elementSelection') || new Set()
-    finishRequestElementSelection(selection)
-  })
 
   hasInit = true
 }

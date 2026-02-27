@@ -28,28 +28,12 @@ export const PresetEventNames = {
   REMOVE_PROPERTY: 'removeProperty',
   UPDATE_PROPERTY: 'updateProperty',
 
-  REQUEST_ELEMENT_SELECTION: 'requestElementSelection',
-  FINISH_REQUEST_ELEMENT_SELECTION: 'finishRequestElementSelection',
-
-  REQUEST_VIEWPORT_POSITION: 'requestViewportPosition',
-  FINISH_REQUEST_VIEWPORT_POSITION: 'finishRequestViewportPosition',
-  REQUEST_VIEWPORT_SCALE: 'requestViewportScale',
-  FINISH_REQUEST_VIEWPORT_SCALE: 'finishRequestViewportScale',
-  REQUEST_RENDER_ZOOM: 'requestRenderZoom',
-  FINISH_REQUEST_RENDER_ZOOM: 'finishRequestRenderZoom',
-
-  REQUEST_CURRENT_PRIMARY_TOOL: 'requestCurrentPrimaryTool',
-  FINISH_REQUEST_CURRENT_PRIMARY_TOOL: 'finishRequestCurrentPrimaryTool',
-
   UPDATE_MOUSE_STATE: 'updateMouseState',
   UPDATE_TARGET_STATE: 'updateTargetState',
   UPDATE_HOVERED_ELEMENT_ID: 'updateHoveredElementId',
   UPDATE_KEY_STATE: 'updateKeyState',
 
   SWITCH_INPUT_SYSTEM_WATCHED_ELEMENT: 'switchInputSystemWatchedElement',
-
-  REQUEST_SYSTEM_CONTEXT_SNAPSHOT: 'requestSystemContextSnapshot',
-  FINISH_REQUEST_SYSTEM_CONTEXT_SNAPSHOT: 'finishRequestSystemContextSnapshot',
 
   POINTER_HOVER: 'render.pointer.hover',
   POINTER_LEAVE: 'render.pointer.leave'
