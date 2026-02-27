@@ -36,7 +36,7 @@ Feature/runtime wiring:
 - `initFeatureSystem(packages: CorePackages): void`
 - `setupInputSystem(watchedElement?: HTMLElement): void`
 - `registerInteraction(eventName: string, handler: DecisionHandler): void` (compatibility path)
-- `registerEvent(eventName: string)` (register custom event namespace entries in `@asyra/reactive-events`)
+- `registerEvent(event: string | EventDefinition<TPayload, TOptions>): EventRegistration<TPayload, TOptions>` (register custom event channels in `@asyra/reactive-events` and get publish/subscribe handles)
 
 Render bridge:
 
