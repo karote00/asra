@@ -1,22 +1,35 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { defineComponent, unregisterComponent } from '../define-component'
-import { componentRegistry } from '@asyra/scene-tree'
+import sceneTree, { componentRegistry } from '@asyra/scene-tree'
 import { elementPropertyRegistry } from '@asyra/props-manager'
 import { renderRegistry } from '@asyra/render'
-import { PropertyTypes } from '@asyra/utils'
+import { PropertyTypes, idCounter, nameCounter } from '@asyra/utils'
 import type { RenderStrategy } from '@asyra/render'
+import type { ElementInstanceTypes } from '@asyra/utils'
 
 // Use actual package imports without mocks to source files
 
+const COMPONENT_TYPES = [
+  'star',
+  'polygon',
+  'container',
+  'shared-a',
+  'shared-b'
+]
+
+const cleanupType = (type: string) => {
+  unregisterComponent(type, { force: true })
+  componentRegistry.unregister(type)
+  elementPropertyRegistry.unregisterComponent(type)
+  renderRegistry.unregister(type)
+  idCounter.unregisterType(type)
+  nameCounter.unregisterType(type)
+}
+
 describe('defineComponent', () => {
   beforeEach(() => {
-    // Clean up registries before each test
-    componentRegistry.unregister('star')
-    componentRegistry.unregister('polygon')
-    elementPropertyRegistry.unregisterComponent('star')
-    elementPropertyRegistry.unregisterComponent('polygon')
-    renderRegistry.unregister('star')
-    renderRegistry.unregister('polygon')
+    sceneTree.dispose()
+    COMPONENT_TYPES.forEach((type) => cleanupType(type))
   })
 
   it('should register a component with all registries', () => {
@@ -145,10 +158,8 @@ describe('defineComponent', () => {
 
 describe('unregisterComponent', () => {
   beforeEach(() => {
-    // Clean up registries before each test
-    componentRegistry.unregister('star')
-    elementPropertyRegistry.unregisterComponent('star')
-    renderRegistry.unregister('star')
+    sceneTree.dispose()
+    COMPONENT_TYPES.forEach((type) => cleanupType(type))
   })
 
   it('should unregister component from all registries', () => {
@@ -169,6 +180,8 @@ describe('unregisterComponent', () => {
       elementPropertyRegistry.getPropertiesForComponent('star')
     ).toHaveLength(1)
     expect(renderRegistry.has('star')).toBe(true)
+    expect(idCounter.hasType('star')).toBe(true)
+    expect(nameCounter.hasType('star')).toBe(true)
 
     const result = unregisterComponent('star')
 
@@ -178,6 +191,8 @@ describe('unregisterComponent', () => {
       elementPropertyRegistry.getPropertiesForComponent('star')
     ).toHaveLength(0)
     expect(renderRegistry.has('star')).toBe(false)
+    expect(idCounter.hasType('star')).toBe(false)
+    expect(nameCounter.hasType('star')).toBe(false)
   })
 
   it('should return true when unregistering existing component', () => {
@@ -211,5 +226,90 @@ describe('unregisterComponent', () => {
 
     const result = unregisterComponent('star')
     expect(result).toBe(true) // Should still return true if any registry had it
+  })
+
+  it('should return detailed cascade result when requested', () => {
+    const mockRenderStrategy: RenderStrategy = vi.fn()
+
+    defineComponent({
+      type: 'star',
+      idPrefix: 'star',
+      namePrefix: 'Star',
+      properties: [
+        { name: 'count', type: PropertyTypes.CUSTOM, defaultValue: 5 }
+      ],
+      renderStrategy: mockRenderStrategy
+    })
+
+    const result = unregisterComponent('star', { detailed: true })
+
+    expect(result.ok).toBe(true)
+    expect(result.removed).toContain('component:star')
+    expect(result.removed).toContain('render:star')
+    expect(result.removed).toContain('id-counter:star')
+    expect(result.removed).toContain('name-counter:star')
+    expect(result.removed).toContain('property-owner:star.count')
+    expect(result.removed).toContain('property-definition:count')
+  })
+
+  it('should block unregister when active instances exist and force is false', () => {
+    defineComponent({
+      type: 'star',
+      idPrefix: 'star',
+      namePrefix: 'Star',
+      properties: []
+    })
+
+    const activeElement = {
+      get: vi.fn((key: string) => {
+        if (key === 'id') {
+          return 'star-active'
+        }
+        if (key === 'type') {
+          return 'star'
+        }
+        return undefined
+      })
+    } as unknown as ElementInstanceTypes
+    sceneTree.addToMap(activeElement)
+
+    const result = unregisterComponent('star', { detailed: true })
+
+    expect(result.ok).toBe(false)
+    expect(componentRegistry.has('star')).toBe(true)
+    expect(
+      result.skipped.some(
+        (entry) =>
+          entry.item === 'component:star' &&
+          entry.reason.includes('active scene instance')
+      )
+    ).toBe(true)
+  })
+
+  it('should allow force unregister when active instances exist', () => {
+    defineComponent({
+      type: 'star',
+      idPrefix: 'star',
+      namePrefix: 'Star',
+      properties: []
+    })
+
+    const activeElement = {
+      get: vi.fn((key: string) => {
+        if (key === 'id') {
+          return 'star-active'
+        }
+        if (key === 'type') {
+          return 'star'
+        }
+        return undefined
+      })
+    } as unknown as ElementInstanceTypes
+    sceneTree.addToMap(activeElement)
+
+    const result = unregisterComponent('star', { detailed: true, force: true })
+
+    expect(result.ok).toBe(true)
+    expect(componentRegistry.has('star')).toBe(false)
   })
 })

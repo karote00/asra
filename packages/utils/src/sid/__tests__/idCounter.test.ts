@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { idCounter } from '../idCounter'
 import { CODE_SPLIT, FIRST_ID } from '../constants'
 import { IDTypes } from '../enum'
@@ -6,6 +6,10 @@ import { IDTypes } from '../enum'
 const addOne = (str: string): string => (Number(str) + 1).toString()
 
 describe('idCounter', () => {
+  beforeEach(() => {
+    idCounter.clear()
+  })
+
   describe('check current max number of id', () => {
     it('should return the current default id if type is not provided', () => {
       const currentId = idCounter.current()
@@ -116,6 +120,24 @@ describe('idCounter', () => {
       const result = idCounter.valid(testId, IDTypes.WORKSPACE)
 
       expect(result).toBe(false)
+    })
+  })
+
+  describe('register/unregister type', () => {
+    it('should unregister a registered custom type', () => {
+      const type = 'CUSTOM_TEST_TYPE'
+      idCounter.registerType(type, type)
+      expect(idCounter.hasType(type)).toBe(true)
+
+      const result = idCounter.unregisterType(type)
+
+      expect(result).toBe(true)
+      expect(idCounter.hasType(type)).toBe(false)
+      expect(idCounter.current(type)).toBe(undefined)
+    })
+
+    it('should return false when unregistering unknown type', () => {
+      expect(idCounter.unregisterType('UNKNOWN_TYPE')).toBe(false)
     })
   })
 })

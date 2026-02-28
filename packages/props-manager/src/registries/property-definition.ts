@@ -66,6 +66,18 @@ class ElementPropertyRegistry {
   }
 
   /**
+   * Get component types that currently own a property definition.
+   */
+  getComponentTypesForProperty(name: string): string[] {
+    const registered = this.registry.get(name)
+    if (!registered) {
+      return []
+    }
+
+    return Array.from(registered.componentTypes)
+  }
+
+  /**
    * Unregister all properties for a component type
    */
   unregisterComponent(componentType: string): void {

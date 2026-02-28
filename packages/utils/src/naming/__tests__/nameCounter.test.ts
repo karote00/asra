@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { nameCounter } from '../nameCounter'
 import { CODE_SPLIT, FIRST_NAME } from '../constants'
 import { NameTypes } from '../enum'
@@ -7,6 +7,10 @@ import { capitalizeFirstLetter } from '../../helpers'
 const addOne = (str: string): string => (Number(str) + 1).toString()
 
 describe('nameCounter', () => {
+  beforeEach(() => {
+    nameCounter.clear()
+  })
+
   describe('check current max number of name', () => {
     it('should return the current name for the specific type', () => {
       const type = NameTypes.ELEMENT
@@ -54,6 +58,24 @@ describe('nameCounter', () => {
       const result = nameCounter.valid(testName, NameTypes.WORKSPACE)
 
       expect(result).toBe(false)
+    })
+  })
+
+  describe('register/unregister type', () => {
+    it('should unregister a registered custom type', () => {
+      const type = 'custom_name_type'
+      nameCounter.registerType(type, 'Custom')
+      expect(nameCounter.hasType(type)).toBe(true)
+
+      const result = nameCounter.unregisterType(type)
+
+      expect(result).toBe(true)
+      expect(nameCounter.hasType(type)).toBe(false)
+      expect(nameCounter.current(type)).toBe(undefined)
+    })
+
+    it('should return false when unregistering unknown type', () => {
+      expect(nameCounter.unregisterType('unknown_name_type')).toBe(false)
     })
   })
 })

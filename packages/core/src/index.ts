@@ -6,7 +6,12 @@ export {
 } from './feature-integration'
 
 export { defineComponent, unregisterComponent } from './define-component'
-export type { ComponentDefinition } from './define-component'
+export type {
+  ComponentDefinition,
+  UnregisterComponentOptions,
+  UnregisterComponentResult,
+  UnregisterComponentSkippedEntry
+} from './define-component'
 export {
   definePropertyComponent,
   unregisterPropertyComponent

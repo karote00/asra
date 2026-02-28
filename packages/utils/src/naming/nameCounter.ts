@@ -6,6 +6,10 @@ class NameCounter {
   counter: Record<string, string> = {}
 
   constructor() {
+    this.init()
+  }
+
+  init() {
     Object.values(NameTypes).forEach((type) => {
       this.counter[type] =
         `${capitalizeFirstLetter(type)}${CODE_SPLIT}${FIRST_NAME}`
@@ -108,6 +112,28 @@ class NameCounter {
     const typeName = `${baseName}${CODE_SPLIT}${initialValue}`
 
     this.counter[type] = typeName
+  }
+
+  hasType(type: string): boolean {
+    if (!type) {
+      return false
+    }
+
+    return Object.prototype.hasOwnProperty.call(this.counter, type)
+  }
+
+  unregisterType(type: string): boolean {
+    if (!this.hasType(type)) {
+      return false
+    }
+
+    delete this.counter[type]
+    return true
+  }
+
+  clear() {
+    this.counter = {}
+    this.init()
   }
 }
 

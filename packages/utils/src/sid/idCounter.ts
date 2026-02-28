@@ -128,6 +128,23 @@ class IDCounter {
     this.counter[type] = prefixId
   }
 
+  hasType(type: string): boolean {
+    if (!type) {
+      return false
+    }
+
+    return Object.prototype.hasOwnProperty.call(this.counter, type)
+  }
+
+  unregisterType(type: string): boolean {
+    if (!this.hasType(type)) {
+      return false
+    }
+
+    delete this.counter[type]
+    return true
+  }
+
   clear() {
     this.init()
   }
