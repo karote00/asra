@@ -461,3 +461,18 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - `docs/ai/framework/plans/completed/events-and-registry.md`
 - Related Commit(s):
   - `bc9b68e` (`refactor(events): align preset registration with reactive event types`)
+
+## 2026-02-28 - Core cascade unregister flow is declarative and owner-safe
+
+- Context:
+  - Unregistering components and dependent registrations needed deterministic ordering and stricter ownership boundaries to avoid partial cleanup drift.
+- Decision:
+  - Adopt declarative cascade unregister orchestration in core registration flow.
+  - Keep unregister responsibilities explicit per owner registry path instead of ad-hoc cross-calls.
+- Consequences:
+  - Component/property cleanup order is predictable and easier to reason about.
+  - Duplicate/stale registration cleanup regressions are less likely during refactors.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/events-and-registry.md`
+- Related Commit(s):
+  - `2ee5fdd` (`refactor(core): add declarative cascade unregister orchestration`)
