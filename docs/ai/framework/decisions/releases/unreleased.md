@@ -346,3 +346,48 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - `docs/ai/framework/PLANS.md`
 - Related Commit(s):
   - `449cb77` (`feat(framework): add load diagnostics pipeline and app-level reporting hook`)
+
+## 2026-02-28 - Reprioritize app-level migration plan to lowest priority
+
+- Context:
+  - App-level migration formalization is valuable but currently lower urgency than remaining near-term runtime contract work.
+- Decision:
+  - Move "App-level migration pipeline formalization" from near-term to deferred as the lowest-priority item.
+  - Set current pickup to "Unit-aware property model" after verification it is not fully implemented.
+- Consequences:
+  - Near-term focus stays on unfinished runtime/data semantics work.
+  - Migration formalization remains tracked without blocking higher-priority delivery.
+- Related Plan:
+  - `docs/ai/framework/PLANS.md`
+- Related Commit(s):
+  - pending
+
+## 2026-02-28 - Reprioritize unit-aware property model to lowest priority
+
+- Context:
+  - Unit-aware model work is closely tied to future auto-layout evolution and is lower urgency for current branch priorities.
+- Decision:
+  - Move "Unit-aware property model" from near-term to deferred as the lowest-priority item.
+  - Set current pickup to "UI aggregate helpers" as the next verified not-fully-implemented plan.
+- Consequences:
+  - Near-term plan queue focuses on non-auto-layout immediate UX/runtime hooks.
+  - Unit-aware work remains explicitly tracked for later auto-layout-aligned phase.
+- Related Plan:
+  - `docs/ai/framework/PLANS.md`
+- Related Commit(s):
+  - pending
+
+## 2026-02-28 - Reprioritize UI aggregate helpers to lowest priority and switch pickup
+
+- Context:
+  - UI aggregate helper expansion (especially mixed-unit handling) is also tied to auto-layout-related behavior and can wait behind immediate event/runtime hooks.
+- Decision:
+  - Move "UI aggregate helpers" from near-term to deferred as the lowest-priority item.
+  - Set current pickup to "User-action completion event after transaction undo-commit."
+- Consequences:
+  - Immediate focus shifts to deterministic post-action event signaling.
+  - Auto-layout-adjacent aggregation work remains tracked but deprioritized.
+- Related Plan:
+  - `docs/ai/framework/PLANS.md`
+- Related Commit(s):
+  - pending

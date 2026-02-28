@@ -4,21 +4,7 @@ This file tracks framework planning topics and points to detailed internal refer
 
 ## Near-Term Plans
 
-1. App-level migration pipeline formalization
-- Versioned hook chain and migration templates.
-- Reference: `docs/internal/props-manager-app-level-migration-plan.md`
-
-2. Unit-aware property model
-- Support value+unit semantics in schema/aggregates.
-- Keep auto-layout implementation out of this phase.
-- Reference: `docs/internal/property-schema-validation-integration-plan.md`
-
-3. UI aggregate helpers
-- Mixed values and mixed units (`MIX`) helpers.
-- App-level registration remains first-class.
-- Reference: `docs/internal/property-schema-validation-integration-plan.md`
-
-4. User-action completion event after transaction undo-commit
+1. User-action completion event after transaction undo-commit
 - After `DataTransact.commitUndo()` finalizes one user action unit, publish a completion event that indicates "this user action is done."
 - Keep event ownership in preset (event name/definition) while `@asyra/reactive-events` remains infra-only.
 - Expose app-facing subscribe path through `core.xxx` so app code can run post-action side effects deterministically.
@@ -26,9 +12,11 @@ This file tracks framework planning topics and points to detailed internal refer
 
 ## Current Pickup
 
-1. App-level migration pipeline formalization
-- First unfinished near-term item after archiving framework load validation pipeline.
-- Reference: `docs/internal/props-manager-app-level-migration-plan.md`
+1. User-action completion event after transaction undo-commit
+- Verified not fully implemented yet:
+  - `DataTransact.commitUndo()` currently only pushes undo/redo stacks and does not publish a dedicated completion event
+  - no preset/core subscribe helper exists yet for a post-action completion event stream
+- Reference: `docs/internal/user-action-completion-event-plan.md`
 
 ## Completed Plan Archive
 
@@ -74,3 +62,14 @@ When an item is moved to completed archive, add/update release rationale in:
  - Reference: `docs/internal/framework-enhancement-custom-graphics.md`
 3. Advanced collaborative conflict policies.
  - Reference: `docs/internal/asyra_audit/KernelRealityAudit_0.5.md`
+4. App-level migration pipeline formalization
+ - Versioned hook chain and migration templates.
+ - Reference: `docs/internal/props-manager-app-level-migration-plan.md`
+5. Unit-aware property model (auto-layout-oriented)
+ - Support value+unit semantics in schema/aggregates.
+ - Keep auto-layout implementation out of this phase.
+ - Reference: `docs/internal/property-schema-validation-integration-plan.md`
+6. UI aggregate helpers (lowest priority, auto-layout-related)
+ - Mixed values and mixed units (`MIX`) helpers.
+ - App-level registration remains first-class.
+ - Reference: `docs/internal/property-schema-validation-integration-plan.md`
