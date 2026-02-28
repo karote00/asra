@@ -49,6 +49,7 @@ Use this file to route a new framework request to the right docs first.
   - `packages/props-manager.md`
   - `PLANS.md`
   - `plans/completed/*` (for completed migration/validation history)
+  - `decisions/releases/*` (for release-scoped rationale history)
 
 - deprecated package behavior/removal timeline
   - `rules/deprecation-lifecycle.md`
@@ -61,3 +62,5 @@ If a request touches more than one owner package, treat it as cross-cutting:
 - update `ARCHITECTURE.md` if ownership or runtime flow changes
 - add follow-up items to `PLANS.md` for deferred work
 - move completed items into `plans/completed/*` by category
+- append rationale changes to `decisions/releases/unreleased.md`
+- if scope includes app impact, also append `docs/ai/decisions/releases/unreleased.md`

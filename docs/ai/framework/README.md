@@ -26,6 +26,7 @@ Framework-first rules:
 13. `BEST_PRACTICES.md`
 14. `PLANS.md`
 15. `plans/completed/*` (historical completed-plan archive)
+16. `decisions/releases/*` (framework decision history; global rules in `../decisions/README.md`)
 
 ## Interpretation Priority
 

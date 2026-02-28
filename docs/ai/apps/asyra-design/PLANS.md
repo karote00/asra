@@ -39,3 +39,8 @@
 
 1. Auto-layout app UX once framework support is ready
 2. Additional design-domain tools built on the same app architecture
+
+## Decision Logging Rule
+
+- When a plan item changes app contracts/runtime boundaries, append rationale to `decisions/releases/unreleased.md`.
+- If the decision is cross-cutting (framework + app), also append `docs/ai/decisions/releases/unreleased.md`.

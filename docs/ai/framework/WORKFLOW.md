@@ -111,6 +111,9 @@ Minimum updates:
 - rule changes -> `docs/ai/framework/rules/`
 - follow-up work -> `docs/ai/framework/PLANS.md`
 - completed plan records -> `docs/ai/framework/plans/completed/*`
+- decision rationale (pre-release) -> `docs/ai/framework/decisions/releases/unreleased.md`
+- decision snapshot at release -> `docs/ai/framework/decisions/releases/vX.Y.Z.md`
+- cross-cutting rationale (framework + app impact) -> `docs/ai/decisions/releases/unreleased.md`
 
 Checklist:
 

@@ -57,6 +57,10 @@ Use this file to quickly map a user request to app docs and source owners.
   - `modules/controllers-and-state.md`
   - `ARCHITECTURE.md`
 
+- app-level rationale history lookup
+  - `decisions/releases/*`
+  - `PLANS.md`
+
 - E2E or selector regressions
   - `modules/e2e.md`
   - `rules/testing-contracts.md`
@@ -68,3 +72,5 @@ If request spans multiple behaviors:
 - use the most specific `features/*` contract as primary
 - use `modules/*` for ownership and boundary checks
 - use `prd/*` for requirement intent and success criteria
+- append decision rationale to `decisions/releases/unreleased.md` when app contract/ownership changes
+- if decision is cross-cutting (framework + app), also append `docs/ai/decisions/releases/unreleased.md`

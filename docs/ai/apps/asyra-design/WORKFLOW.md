@@ -82,6 +82,8 @@ Update app docs when contracts change:
 - capability scope -> `epics/*`
 - implementation execution slices -> `task-breakdowns/*`
 - future work -> `PLANS.md`
+- app-level rationale history -> `decisions/releases/unreleased.md`
+- cross-cutting rationale (if framework+app impact) -> `docs/ai/decisions/releases/unreleased.md`
 
 ## Phase 6: Handoff
 

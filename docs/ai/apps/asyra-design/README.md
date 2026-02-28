@@ -21,6 +21,7 @@ This folder is the app-level implementation context for **Asyra Design**.
 15. `task-breakdowns/*`
 16. `BEST_PRACTICES.md`
 17. `PLANS.md`
+18. `decisions/releases/*` (app decision history by release timeline)
 
 ## Interpretation Priority
 
@@ -41,6 +42,7 @@ When docs overlap, follow this order:
 
 These docs are for **app-level behavior** only.
 Framework-level contracts belong to `docs/ai/framework/*`.
+Cross-cutting history rules come from `docs/ai/decisions/README.md`.
 
 ## Source-of-Truth Rule
 

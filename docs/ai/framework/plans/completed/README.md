@@ -17,3 +17,5 @@ This directory stores completed framework plans by category so `PLANS.md` stays 
 
 - When a plan is completed, move it from `docs/ai/framework/PLANS.md` into the appropriate category file in this directory.
 - Keep completion date, result summary, and reference links.
+- Also add/update a corresponding rationale entry in `docs/ai/framework/decisions/releases/unreleased.md`.
+- If completion impacts app contracts too, also add/update `docs/ai/decisions/releases/unreleased.md`.

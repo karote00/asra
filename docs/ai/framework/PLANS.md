@@ -38,6 +38,12 @@ Completed items are archived by category in:
 - `docs/ai/framework/plans/completed/property-runtime.md`
 - `docs/ai/framework/plans/completed/events-and-registry.md`
 
+When an item is moved to completed archive, add/update release rationale in:
+
+- `docs/ai/framework/decisions/releases/unreleased.md`
+- If scope crosses framework+app boundaries, also append:
+  - `docs/ai/decisions/releases/unreleased.md`
+
 ## Mid-Term Plans
 
 1. Typed narrowing cleanup
