@@ -391,3 +391,73 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - `docs/ai/framework/PLANS.md`
 - Related Commit(s):
   - pending
+
+## 2026-02-28 - Global decision-history standard established across framework/apps
+
+- Context:
+  - Decision history process needed one shared model spanning framework, app, and cross-cutting scopes.
+- Decision:
+  - Establish global governance docs in `docs/ai/decisions/*` and wire framework/app docs to this standard.
+- Consequences:
+  - Decision recording is consistent across scopes and scales with future framework-based products.
+- Related Plan:
+  - `docs/ai/framework/PLANS.md`
+- Related Commit(s):
+  - `4d0e3a3` (`docs(decisions): establish global decision-history standard`)
+
+## 2026-02-28 - Archive completed load-validation plan and keep active list focused
+
+- Context:
+  - Load-validation pipeline work was complete, but still listed as active.
+- Decision:
+  - Move load-validation plan from active to completed archive and keep active planning focused on unfinished work.
+- Consequences:
+  - `PLANS.md` remains concise and better reflects current execution priorities.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/load-and-migration.md`
+- Related Commit(s):
+  - `61fccfa` (`docs(plans): archive completed load validation pipeline`)
+
+## 2026-02-28 - Reprioritize auto-layout-related plan items
+
+- Context:
+  - Auto-layout-adjacent work needed lower urgency than immediate runtime/event boundary work.
+- Decision:
+  - Move auto-layout-related items to deferred lowest-priority positions.
+- Consequences:
+  - Near-term planning shifted toward event/runtime behavior that unblocks app-side integration.
+- Related Plan:
+  - `docs/ai/framework/PLANS.md`
+- Related Commit(s):
+  - `7a0237a` (`docs(plans): reprioritize auto-layout-related items`)
+
+## 2026-02-28 - User-action completion event shipped through reactive-events
+
+- Context:
+  - Apps needed deterministic post-action hooks when undo-commit finalizes one action unit.
+- Decision:
+  - Publish `userActionCompleted` from `DataTransact.commitUndo()` via `@asyra/reactive-events`.
+  - Keep app-facing subscription through core event APIs.
+- Consequences:
+  - Post-action integrations can subscribe without coupling to factory internals.
+  - Undo/redo transaction boundaries remain intact while exposing completion timing.
+- Related Plan:
+  - `docs/internal/user-action-completion-event-plan.md`
+- Related Commit(s):
+  - `8ef6935` (`feat(events): publish user-action completion via reactive-events`)
+
+## 2026-02-28 - Event boundary updated: reactive-events is canonical for common events
+
+- Context:
+  - Event ownership split between preset and reactive-events became inconsistent and hard to reason about.
+- Decision:
+  - Treat `@asyra/reactive-events` `EventTypes` as canonical names for common framework events.
+  - Keep `preset` registration-only and remove duplicated event-name declarations.
+  - Remove stale commented-out event placeholders.
+- Consequences:
+  - Event boundaries are clearer: shared contracts in reactive-events, bootstrap defaults in preset.
+  - Maintenance burden drops by avoiding duplicate event catalogs.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/events-and-registry.md`
+- Related Commit(s):
+  - `bc9b68e` (`refactor(events): align preset registration with reactive event types`)

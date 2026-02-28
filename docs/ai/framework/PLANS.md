@@ -4,35 +4,12 @@ This file tracks framework planning topics and points to detailed internal refer
 
 ## Near-Term Plans
 
-1. User-action completion event after transaction undo-commit
-- After `DataTransact.commitUndo()` finalizes one user action unit, publish a completion event that indicates "this user action is done."
-- Keep event ownership in preset (event name/definition) while `@asyra/reactive-events` remains infra-only.
-- Expose app-facing subscribe path through `core.xxx` so app code can run post-action side effects deterministically.
-- Reference: `docs/internal/user-action-completion-event-plan.md`
+1. No active near-term plans
 
 ## Current Pickup
 
-1. User-action completion event after transaction undo-commit
-- Verified not fully implemented yet:
-  - `DataTransact.commitUndo()` currently only pushes undo/redo stacks and does not publish a dedicated completion event
-  - no preset/core subscribe helper exists yet for a post-action completion event stream
-- Reference: `docs/internal/user-action-completion-event-plan.md`
-
-## Completed Plan Archive
-
-Completed items are archived by category in:
-
-- `docs/ai/framework/plans/completed/README.md`
-- `docs/ai/framework/plans/completed/architecture-and-bootstrap.md`
-- `docs/ai/framework/plans/completed/property-runtime.md`
-- `docs/ai/framework/plans/completed/events-and-registry.md`
-- `docs/ai/framework/plans/completed/load-and-migration.md`
-
-When an item is moved to completed archive, add/update release rationale in:
-
-- `docs/ai/framework/decisions/releases/unreleased.md`
-- If scope crosses framework+app boundaries, also append:
-  - `docs/ai/decisions/releases/unreleased.md`
+1. Pending next confirmation
+- Select next item from Mid-Term/Deferred lists based on priority.
 
 ## Mid-Term Plans
 
