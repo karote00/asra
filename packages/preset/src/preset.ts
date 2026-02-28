@@ -29,8 +29,8 @@ export const applyPreset = (
   deps?: PresetDependencies
 ): void => {
   const resolvedDeps = resolvePresetDependencies(core, deps)
-
   registerEvents(core)
+
   registerSelections(core)
   registerPropertySchemas(core)
   registerProperties(core)

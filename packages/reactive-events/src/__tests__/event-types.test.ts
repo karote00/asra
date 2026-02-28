@@ -35,18 +35,21 @@ describe('Event Types - System Communication Contract', () => {
       const transactionEvents = [
         TransactionEventTypes.START_TRANSACTION,
         TransactionEventTypes.UPDATE_TRANSACTION,
-        TransactionEventTypes.END_TRANSACTION
+        TransactionEventTypes.END_TRANSACTION,
+        TransactionEventTypes.USER_ACTION_COMPLETED
       ]
 
       expect(transactionEvents).toEqual([
         'startTransaction',
         'updateTransaction',
-        'endTransaction'
+        'endTransaction',
+        'userActionCompleted'
       ])
 
       // Critical for undo/redo system - shows transaction boundaries
       expect(EventTypes.START_TRANSACTION).toBe('startTransaction')
       expect(EventTypes.END_TRANSACTION).toBe('endTransaction')
+      expect(EventTypes.USER_ACTION_COMPLETED).toBe('userActionCompleted')
     })
   })
 

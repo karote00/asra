@@ -14,9 +14,7 @@ import props, {
   registerPropertySchema,
   registerPropertyComponent
 } from '@asyra/props-manager'
-import selection, {
-  SelectionManager
-} from '@asyra/selection'
+import selection, { SelectionManager } from '@asyra/selection'
 import systemContext, { SystemContext } from '@asyra/system-context'
 import interactionCore, {
   InteractionCore,
@@ -260,6 +258,22 @@ class Core implements CoreAPIs {
     event: string | EventDefinition<TPayload, TOptions>
   ) {
     return eventRegistry.register(event)
+  }
+
+  subscribeEvent<TPayload = unknown, TOptions = unknown>(
+    event: string | EventDefinition<TPayload, TOptions>,
+    handler: (payload?: TPayload, options?: TOptions) => void
+  ): () => void {
+    const eventName = typeof event === 'string' ? event : event.eventName
+    const registration = eventRegistry.get(event)
+    if (!registration) {
+      throw new Error(
+        `[Core] Event "${eventName}" is not registered. Register it before subscribing.`
+      )
+    }
+
+    const subscription = registration.subscribe(handler)
+    return () => subscription.unsubscribe()
   }
 
   registerPropertySchema(

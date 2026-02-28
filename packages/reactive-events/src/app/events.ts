@@ -24,6 +24,17 @@ export interface EndTransactionEvent {
   type: EventTypes
 }
 
+export interface UserActionCompletedPayload {
+  actionId: number
+  changeCount: number
+  timestamp: number
+}
+
+export interface UserActionCompletedEvent {
+  type: EventTypes
+  payload: UserActionCompletedPayload
+}
+
 export interface UpdateUndoRedoStatusEvent {
   type: EventTypes
   payload: {
@@ -59,6 +70,7 @@ export type AppEvent =
   | StartTransactionEvent
   | UpdateTransactionEvent
   | EndTransactionEvent
+  | UserActionCompletedEvent
   | UpdateUndoRedoStatusEvent
   | UndoEvent
   | RedoEvent

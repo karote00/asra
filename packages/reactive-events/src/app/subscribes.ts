@@ -3,6 +3,7 @@ import type {
   StartTransactionEvent,
   UpdateTransactionEvent,
   EndTransactionEvent,
+  UserActionCompletedEvent,
   UpdateUndoRedoStatusEvent,
   RenderIsReadyEvent,
   UndoEvent,
@@ -27,6 +28,11 @@ export const subscribeToUpdateTransaction =
 
 export const subscribeToEndTransaction =
   createSubscribeEvent<EndTransactionEvent>(EventTypes.END_TRANSACTION)
+
+export const subscribeToUserActionCompleted =
+  createSubscribeEvent<UserActionCompletedEvent>(
+    EventTypes.USER_ACTION_COMPLETED
+  )
 
 export const subscribeToUpdateUndoRedoStatus =
   createSubscribeEvent<UpdateUndoRedoStatusEvent>(

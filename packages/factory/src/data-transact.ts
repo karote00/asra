@@ -15,6 +15,7 @@ import {
   endTransaction,
   publishEvent,
   startTransaction,
+  userActionCompleted,
   updateUndoRedoStatus
 } from '@asyra/reactive-events'
 import {
@@ -44,6 +45,7 @@ class DataTransact {
   private isTransacting = 0
   private inUndo = false
   private inRedo = false
+  private actionId = 0
 
   start() {
     this.isTransacting++
@@ -94,9 +96,18 @@ class DataTransact {
   commitUndo() {
     // If changes are coming from Undo or Redo events, they should not push back to list again
     if (!this.isInUndo() && !this.isInRedo() && this.changes.length > 0) {
-      this.undoStack.push(this.changes)
+      const committedChanges = this.changes
+
+      this.undoStack.push(committedChanges)
       this.changes = []
       this.redoStack = []
+
+      this.actionId += 1
+      userActionCompleted({
+        actionId: this.actionId,
+        changeCount: committedChanges.length,
+        timestamp: Date.now()
+      })
     }
   }
 
@@ -178,6 +189,7 @@ class DataTransact {
     this.isTransacting = 0
     this.inUndo = false
     this.inRedo = false
+    this.actionId = 0
   }
 
   reset() {

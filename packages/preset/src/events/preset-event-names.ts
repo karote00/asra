@@ -1,4 +1,9 @@
-import { defineEvent, type EventDefinition } from '@asyra/reactive-events'
+import {
+  EventTypes,
+  defineEvent,
+  type EventDefinition,
+  type UserActionCompletedPayload
+} from '@asyra/reactive-events'
 import { InputSystemEvents } from './input-events'
 
 export const PresetEventNames = {
@@ -35,6 +40,8 @@ export const PresetEventNames = {
   UPDATE_KEY_STATE: 'updateKeyState',
 
   SWITCH_INPUT_SYSTEM_WATCHED_ELEMENT: 'switchInputSystemWatchedElement',
+
+  USER_ACTION_COMPLETED: EventTypes.USER_ACTION_COMPLETED,
 
   POINTER_HOVER: 'render.pointer.hover',
   POINTER_LEAVE: 'render.pointer.leave'
@@ -126,6 +133,12 @@ const InputSystemEventDefinitions = {
   )
 }
 
+const UserActionEventDefinitions = {
+  USER_ACTION_COMPLETED: defineEvent<UserActionCompletedPayload>(
+    PresetEventNames.USER_ACTION_COMPLETED
+  )
+}
+
 const RendererEventDefinitions = {
   POINTER_HOVER: defineEvent(PresetEventNames.POINTER_HOVER),
   POINTER_LEAVE: defineEvent(PresetEventNames.POINTER_LEAVE)
@@ -140,5 +153,6 @@ export const PresetEventDefinitions: PresetEventDefinitions = {
   ...PropertyEventDefinitions,
   ...SystemContextEventDefinitions,
   ...InputSystemEventDefinitions,
+  ...UserActionEventDefinitions,
   ...RendererEventDefinitions
 }

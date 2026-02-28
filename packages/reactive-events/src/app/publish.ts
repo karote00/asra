@@ -1,6 +1,7 @@
 import { EVENT_OPTIONS, UNDO } from '@asyra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
+import type { UserActionCompletedPayload } from './events'
 
 export const renderIsReady = () => {
   publishEvent({
@@ -36,6 +37,13 @@ export const updateTransaction = (
 export const endTransaction = () => {
   publishEvent({
     type: EventTypes.END_TRANSACTION
+  })
+}
+
+export const userActionCompleted = (payload: UserActionCompletedPayload) => {
+  publishEvent({
+    type: EventTypes.USER_ACTION_COMPLETED,
+    payload
   })
 }
 

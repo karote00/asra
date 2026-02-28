@@ -3,10 +3,13 @@ import type { PositionData } from '@asyra/utils'
 
 export interface PresetDependencies {
   sceneTree: {
-    getElementById: (id: string) => {
-      get: (key: string) => unknown
-      getAllComputedData: () => unknown
-    } | null | undefined
+    getElementById: (id: string) =>
+      | {
+          get: (key: string) => unknown
+          getAllComputedData: () => unknown
+        }
+      | null
+      | undefined
   }
   systemContext: {
     getManagedProperty: <T>(key: string) => T | undefined

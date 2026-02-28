@@ -45,7 +45,8 @@ export enum UndoRedoEventTypes {
 export enum TransactionEventTypes {
   START_TRANSACTION = 'startTransaction',
   UPDATE_TRANSACTION = 'updateTransaction',
-  END_TRANSACTION = 'endTransaction'
+  END_TRANSACTION = 'endTransaction',
+  USER_ACTION_COMPLETED = 'userActionCompleted'
 }
 
 // Properties

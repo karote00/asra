@@ -23,22 +23,20 @@ const createDeps = () => ({
 
 describe('Preset Event Registration', () => {
   it('registers preset event definitions through core', () => {
-    const registerEvent = vi.fn(
-      (event: string | { eventName: string }) => ({
-        eventName: typeof event === 'string' ? event : event.eventName,
-      publish: () => {},
+    const registerEvent = vi.fn((event: string | { eventName: string }) => ({
+      eventName: typeof event === 'string' ? event : event.eventName,
+      publish: vi.fn(),
       subscribe: () => new Subscription()
-      })
-    )
+    }))
 
     applyPreset(
       {
         registerEvent,
-        registerRenderLayer: () => {},
-        registerPropertySchema: () => {},
-        registerSelection: () => {},
+        registerRenderLayer: vi.fn(),
+        registerPropertySchema: vi.fn(),
+        registerSelection: vi.fn(),
         getSelection: () => undefined,
-        registerUIProperty: () => {},
+        registerUIProperty: vi.fn(),
         registerSystemProperty: () => ({})
       },
       createDeps()
