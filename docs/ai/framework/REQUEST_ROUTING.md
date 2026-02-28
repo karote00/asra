@@ -48,6 +48,7 @@ Use this file to route a new framework request to the right docs first.
   - `rules/load-validation-and-migration.md`
   - `packages/props-manager.md`
   - `PLANS.md`
+  - `plans/completed/*` (for completed migration/validation history)
 
 - deprecated package behavior/removal timeline
   - `rules/deprecation-lifecycle.md`
@@ -59,3 +60,4 @@ If a request touches more than one owner package, treat it as cross-cutting:
 - update all affected package docs in the same work
 - update `ARCHITECTURE.md` if ownership or runtime flow changes
 - add follow-up items to `PLANS.md` for deferred work
+- move completed items into `plans/completed/*` by category

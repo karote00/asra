@@ -110,6 +110,7 @@ Minimum updates:
 - package behavior/structure changes -> relevant file in `docs/ai/framework/packages/`
 - rule changes -> `docs/ai/framework/rules/`
 - follow-up work -> `docs/ai/framework/PLANS.md`
+- completed plan records -> `docs/ai/framework/plans/completed/*`
 
 Checklist:
 

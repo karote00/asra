@@ -25,6 +25,7 @@ Framework-first rules:
 12. `golden-paths/*`
 13. `BEST_PRACTICES.md`
 14. `PLANS.md`
+15. `plans/completed/*` (historical completed-plan archive)
 
 ## Interpretation Priority
 
