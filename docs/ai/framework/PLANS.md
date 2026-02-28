@@ -4,30 +4,31 @@ This file tracks framework planning topics and points to detailed internal refer
 
 ## Near-Term Plans
 
-1. Framework load validation pipeline
-- Core orchestrated validation across props/scene/system.
-- Optional diagnostics output.
-- Reference: `docs/internal/props-manager-file-load-validation-plan.md`
-
-2. App-level migration pipeline formalization
+1. App-level migration pipeline formalization
 - Versioned hook chain and migration templates.
 - Reference: `docs/internal/props-manager-app-level-migration-plan.md`
 
-3. Unit-aware property model
+2. Unit-aware property model
 - Support value+unit semantics in schema/aggregates.
 - Keep auto-layout implementation out of this phase.
 - Reference: `docs/internal/property-schema-validation-integration-plan.md`
 
-4. UI aggregate helpers
+3. UI aggregate helpers
 - Mixed values and mixed units (`MIX`) helpers.
 - App-level registration remains first-class.
 - Reference: `docs/internal/property-schema-validation-integration-plan.md`
 
-5. User-action completion event after transaction undo-commit
+4. User-action completion event after transaction undo-commit
 - After `DataTransact.commitUndo()` finalizes one user action unit, publish a completion event that indicates "this user action is done."
 - Keep event ownership in preset (event name/definition) while `@asyra/reactive-events` remains infra-only.
 - Expose app-facing subscribe path through `core.xxx` so app code can run post-action side effects deterministically.
 - Reference: `docs/internal/user-action-completion-event-plan.md`
+
+## Current Pickup
+
+1. App-level migration pipeline formalization
+- First unfinished near-term item after archiving framework load validation pipeline.
+- Reference: `docs/internal/props-manager-app-level-migration-plan.md`
 
 ## Completed Plan Archive
 
@@ -37,6 +38,7 @@ Completed items are archived by category in:
 - `docs/ai/framework/plans/completed/architecture-and-bootstrap.md`
 - `docs/ai/framework/plans/completed/property-runtime.md`
 - `docs/ai/framework/plans/completed/events-and-registry.md`
+- `docs/ai/framework/plans/completed/load-and-migration.md`
 
 When an item is moved to completed archive, add/update release rationale in:
 

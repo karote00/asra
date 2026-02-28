@@ -331,3 +331,18 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - `docs/ai/framework/PLANS.md`
 - Related Commit(s):
   - pending
+
+## 2026-02-28 - Framework load validation plan archived as completed
+
+- Context:
+  - Load validation pipeline was still listed in near-term plans, but implementation and tests already cover core orchestration + package validation + diagnostics.
+- Decision:
+  - Move "Framework load validation pipeline" from active near-term plans to completed archive (`plans/completed/load-and-migration.md`).
+  - Set next unfinished near-term plan as current pickup: app-level migration pipeline formalization.
+- Consequences:
+  - Active plan list better reflects remaining work.
+  - Load validation work is preserved as completed history with references.
+- Related Plan:
+  - `docs/ai/framework/PLANS.md`
+- Related Commit(s):
+  - `449cb77` (`feat(framework): add load diagnostics pipeline and app-level reporting hook`)

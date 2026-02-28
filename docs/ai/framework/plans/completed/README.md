@@ -13,6 +13,9 @@ This directory stores completed framework plans by category so `PLANS.md` stays 
 3. `events-and-registry.md`
 - Event registration/ownership, reactive-events updates, and shared registry contract work.
 
+4. `load-and-migration.md`
+- Core-orchestrated load validation pipeline and migration-related completion records.
+
 ## Update Rule
 
 - When a plan is completed, move it from `docs/ai/framework/PLANS.md` into the appropriate category file in this directory.
