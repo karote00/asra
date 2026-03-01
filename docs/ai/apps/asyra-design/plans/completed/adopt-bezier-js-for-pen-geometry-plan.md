@@ -1,18 +1,5 @@
 # Plan: Adopt `bezier-js` for Pen Geometry
 
-## Status (2026-03-01)
-
-- state: in progress
-- completed:
-  - dependency added (`bezier-js` + `@types/bezier-js`)
-  - adapter boundary added (`apps/asyra-design/src/common-apis/element/bezier-adapter.ts`)
-  - cubic segment bounds in `vector-geometry` switched to adapter-backed `bezier-js` bbox
-  - curve proximity hit-test support added in `elementApis` and wired to pen double-click path-entry check
-- pending:
-  - expand adapter-backed operations beyond current bounds/proximity needs when required
-  - E2E additions for curve-path proximity entry behavior
-  - docs sync in feature/prd/state modules once behavior scope is finalized
-
 ## Scope
 
 Adopt `bezier-js` as the geometry engine for pen/path-editing math while preserving current app behavior contracts and API boundaries.

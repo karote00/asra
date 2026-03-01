@@ -7,31 +7,25 @@
 - refine point/subpath visual feedback consistency
 - plan reference: `docs/internal/pen-bezier-drag-controls-plan.md`
 
-2. Adopt `bezier-js` for pen geometry calculations
-- status: in progress (adapter + bounds + path proximity hit-test integrated)
-- standardize cubic segment math (projection/extrema/splitting) behind app geometry adapters
-- keep `elementApis` as the only mutation boundary; no direct library usage in feature handlers/render layers
-- plan reference: `docs/internal/adopt-bezier-js-for-pen-geometry-plan.md`
-
-3. Explicit sub-path data model for vector anchor points
+2. Explicit sub-path data model for vector anchor points
 - evaluate and migrate from flat `anchorPoints: VectorAnchorPoint[]` (+ `isMove`) to `anchorPoints: VectorAnchorPoint[][]`
 - simplify pen subpath append/escape logic and reduce scan-by-flag operations
 - plan reference: `docs/internal/vector-subpath-array-model-plan.md`
 
-4. Expand E2E coverage for vector editing
+3. Expand E2E coverage for vector editing
 - path-editing enter/exit edge cases
 - point selection/editing scenarios
 - plan reference: `docs/internal/e2e-coverage-update-plan.md`
 
-5. Reduce app-level internal coupling
+4. Reduce app-level internal coupling
 - remove internal-path imports (for example keymap source path)
 
-6. Delete key support: single selected element
+5. Delete key support: single selected element
 - support Delete/Backspace to remove one selected element
 - include path-editing cleanup and undo/redo validation
 - Reference: `docs/internal/delete-key-single-element-plan.md`
 
-7. Delete key support: single selected vector point
+6. Delete key support: single selected vector point
 - support Delete/Backspace to remove one selected vector point in path-editing mode
 - include geometry recompute and point-state cleanup
 - Reference: `docs/internal/delete-key-single-vector-point-plan.md`

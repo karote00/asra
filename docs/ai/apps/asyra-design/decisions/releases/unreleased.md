@@ -14,11 +14,8 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Consequences:
   - App rationale can be tracked independently from framework rationale.
   - Cross-cutting decisions can reference both app and framework streams.
-- Related Scope Docs:
-  - `docs/ai/decisions/README.md`
-  - `docs/ai/decisions/releases/unreleased.md`
 - Related Commit(s):
-  - pending
+  - `4d0e3a3` (`docs(decisions): establish global decision-history standard`)
 
 ## 2026-03-01 - Pen path-editing target model expanded to anchor + handle selection
 
@@ -33,12 +30,8 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Consequences:
   - Curve controls become first-class selectable targets with property-panel data flow.
   - Pen tool behavior moves closer to professional vector tooling expectations while preserving existing subpath semantics.
-- Related Scope Docs:
-  - `docs/ai/apps/asyra-design/features/pen-tool.md`
-  - `docs/ai/apps/asyra-design/prd/pen-tool.md`
-  - `docs/ai/apps/asyra-design/API_SURFACES.md`
 - Related Commit(s):
-  - pending
+  - `2eafe38` (`feat(asyra-design): stabilize pen bezier flow and sync planning docs`)
 
 ## 2026-03-01 - Pen second-point drag switched to figma-style `P1/P2` coefficients
 
@@ -55,11 +48,8 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Consequences:
   - During first-segment drag, `P1` and `P2` now update per drag frame using stable coefficients.
   - Normal add+drag remains unchanged: connected `P1` is preserved.
-- Related Scope Docs:
-  - `docs/ai/apps/asyra-design/features/pen-tool.md`
-  - `docs/ai/apps/asyra-design/prd/pen-tool.md`
 - Related Commit(s):
-  - pending
+  - `2eafe38` (`feat(asyra-design): stabilize pen bezier flow and sync planning docs`)
 
 ## 2026-03-01 - Vector segment rendering now chooses bezier by handle presence
 
@@ -74,11 +64,8 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Consequences:
   - Editing and final rendering now match bezier intent without duplicate/contradictory straight segments.
   - Curve display no longer depends on `point.type` classification.
-- Related Scope Docs:
-  - `docs/ai/apps/asyra-design/features/pen-tool.md`
-  - `docs/ai/apps/asyra-design/prd/pen-tool.md`
 - Related Commit(s):
-  - pending
+  - `2eafe38` (`feat(asyra-design): stabilize pen bezier flow and sync planning docs`)
 
 ## 2026-03-01 - Pen virtual preview segment aligned with real segment rendering
 
@@ -92,11 +79,8 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Consequences:
   - Pen hover preview now matches final committed segment behavior for curve vs line.
   - Visual editing feedback is consistent between preview and committed path.
-- Related Scope Docs:
-  - `docs/ai/apps/asyra-design/features/pen-tool.md`
-  - `docs/ai/apps/asyra-design/prd/pen-tool.md`
 - Related Commit(s):
-  - pending
+  - `2eafe38` (`feat(asyra-design): stabilize pen bezier flow and sync planning docs`)
 
 ## 2026-03-01 - Drag-end selection stays on new anchor (no auto handle selection)
 
@@ -108,12 +92,8 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Consequences:
   - Pen interaction matches previous selection behavior while preserving bezier handle creation.
   - Handle selection remains explicit via normal hover/click selection flow.
-- Related Scope Docs:
-  - `docs/ai/apps/asyra-design/features/pen-tool.md`
-  - `docs/ai/apps/asyra-design/prd/pen-tool.md`
-  - `docs/ai/apps/asyra-design/bdd-features/pen-tool.feature`
 - Related Commit(s):
-  - pending
+  - `2eafe38` (`feat(asyra-design): stabilize pen bezier flow and sync planning docs`)
 
 ## 2026-03-01 - Vector bounds updated to use bezier segment extrema
 
@@ -127,11 +107,8 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Consequences:
   - Curved vectors now produce bounds that follow actual bezier shape extents.
   - Hit/bounds-dependent behaviors align better with rendered curve geometry.
-- Related Scope Docs:
-  - `docs/ai/apps/asyra-design/API_SURFACES.md`
-  - `docs/ai/apps/asyra-design/features/pen-tool.md`
 - Related Commit(s):
-  - pending
+  - `2eafe38` (`feat(asyra-design): stabilize pen bezier flow and sync planning docs`)
 
 ## 2026-03-01 - Compact property-key naming and reuse-first type policy
 
@@ -144,8 +121,20 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Consequences:
   - Smaller model payloads and reduced duplication across framework/app contracts.
   - Better consistency in schema evolution and review expectations.
-- Related Scope Docs:
-  - `docs/ai/framework/CODING_STANDARDS.md`
-  - `docs/ai/apps/asyra-design/CONSTRAINTS.md`
 - Related Commit(s):
-  - pending
+  - `acc6cc4` (`docs(standards): add compact key naming and reuse-first policy`)
+
+## 2026-03-01 - `bezier-js` geometry adoption plan completed and archived
+
+- Context:
+  - The near-term app plan for `bezier-js` adoption was executed: dependency integration, adapter boundary, cubic bounds migration, and curve proximity hit-testing wiring.
+- Decision:
+  - Archive completed `bezier-js` adoption plan:
+    - `docs/ai/apps/asyra-design/plans/completed/adopt-bezier-js-for-pen-geometry-plan.md`
+  - Remove the completed `bezier-js` item from active near-term planning list.
+  - Keep future geometry expansion work in separate active plans (sub-path model, geometry domain model).
+- Consequences:
+  - Active app plans remain focused on unfinished work only.
+  - Completed `bezier-js` adoption remains discoverable through archive + decision history.
+- Related Commit(s):
+  - `13ee980` (`feat(asyra-design): integrate bezier-js geometry adapter and path proximity checks`)
