@@ -8,6 +8,7 @@
 - plan reference: `docs/internal/pen-bezier-drag-controls-plan.md`
 
 2. Adopt `bezier-js` for pen geometry calculations
+- status: in progress (adapter + bounds + path proximity hit-test integrated)
 - standardize cubic segment math (projection/extrema/splitting) behind app geometry adapters
 - keep `elementApis` as the only mutation boundary; no direct library usage in feature handlers/render layers
 - plan reference: `docs/internal/adopt-bezier-js-for-pen-geometry-plan.md`

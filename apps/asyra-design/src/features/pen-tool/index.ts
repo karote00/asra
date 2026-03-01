@@ -548,8 +548,14 @@ export const enterPathEditingByDoubleClickFeature = defineFeature(
         workspacePointerPos,
         DOUBLE_CLICK_HIT_PADDING
       )
+      const isNearSelectedVectorPath =
+        elementApis.isPointNearVectorPathAtWorkspacePos(
+          selectedId,
+          workspacePointerPos,
+          DOUBLE_CLICK_HIT_PADDING
+        )
 
-      if (!isHitSelectedVector) {
+      if (!isHitSelectedVector && !isNearSelectedVectorPath) {
         return null
       }
 

@@ -21,6 +21,7 @@ import {
   normalizeVectorAnchorPoints,
   toWorkspaceAnchorPoint
 } from './vector-geometry'
+import { getClosestPointOnCubicBezier } from './bezier-adapter'
 import type {
   CreateElementOptions,
   ElementBounds,
@@ -37,6 +38,39 @@ const DEFAULT_VECTOR_STYLE: VectorPathStyle = {
   strokeWidth: 1
 }
 const VECTOR_POINT_HIT_RADIUS = 6
+const VECTOR_SEGMENT_HIT_RADIUS = 8
+
+const getDistanceSquared = (a: PositionData, b: PositionData) => {
+  const dx = a.x - b.x
+  const dy = a.y - b.y
+  return dx * dx + dy * dy
+}
+
+const getClosestPointOnLineSegment = (
+  from: PositionData,
+  to: PositionData,
+  point: PositionData
+): PositionData => {
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  const lenSquared = dx * dx + dy * dy
+  if (lenSquared === 0) {
+    return { x: from.x, y: from.y }
+  }
+
+  const t = Math.max(
+    0,
+    Math.min(
+      1,
+      ((point.x - from.x) * dx + (point.y - from.y) * dy) / lenSquared
+    )
+  )
+
+  return {
+    x: from.x + dx * t,
+    y: from.y + dy * t
+  }
+}
 
 const createVectorComputedPatch = (
   elementId: string,
@@ -354,6 +388,74 @@ export const elementApis = {
     )
   },
 
+  isPointNearVectorPathAtWorkspacePos: (
+    elementId: string,
+    workspacePos: PositionData,
+    hitRadius = VECTOR_SEGMENT_HIT_RADIUS
+  ): boolean => {
+    const anchorPoints = elementApis.getVectorAnchorPoints(elementId)
+    if (anchorPoints.length < 2) {
+      return false
+    }
+
+    const radiusSquared = hitRadius * hitRadius
+    let prev = anchorPoints[0]
+
+    for (let i = 1; i < anchorPoints.length; i += 1) {
+      const current = anchorPoints[i]
+      if (current.isMove) {
+        prev = current
+        continue
+      }
+
+      const hasCurve = !!prev.outHandle || !!current.inHandle
+      const closest = hasCurve
+        ? getClosestPointOnCubicBezier(
+            { x: prev.x, y: prev.y },
+            prev.outHandle ?? { x: prev.x, y: prev.y },
+            current.inHandle ?? { x: current.x, y: current.y },
+            { x: current.x, y: current.y },
+            workspacePos
+          )
+        : getClosestPointOnLineSegment(
+            { x: prev.x, y: prev.y },
+            { x: current.x, y: current.y },
+            workspacePos
+          )
+
+      if (getDistanceSquared(closest, workspacePos) <= radiusSquared) {
+        return true
+      }
+
+      prev = current
+    }
+
+    return false
+  },
+
+  isPointNearVectorPathAtClientPos: (
+    elementId: string,
+    clientPos: PositionData,
+    hitRadius = VECTOR_SEGMENT_HIT_RADIUS
+  ): boolean => {
+    if (!render) {
+      return false
+    }
+
+    const workspacePos = render.getMousePosInWorkspace({
+      clientX: clientPos.x,
+      clientY: clientPos.y
+    })
+    const viewportScale = render.getViewportScale() || 1
+    const scaledHitRadius = hitRadius / viewportScale
+
+    return elementApis.isPointNearVectorPathAtWorkspacePos(
+      elementId,
+      workspacePos,
+      scaledHitRadius
+    )
+  },
+
   getVectorAnchorPointById: (
     elementId: string,
     pointId: string
@@ -489,24 +591,26 @@ export const elementApis = {
       return null
     }
 
-    const nextAnchorPoints = anchorPoints.map((point, pointIndex) => {
-      if (pointIndex !== index) {
-        return point
-      }
+    const nextAnchorPoints: VectorAnchorPoint[] = anchorPoints.map(
+      (point, pointIndex): VectorAnchorPoint => {
+        if (pointIndex !== index) {
+          return point
+        }
 
-      return {
-        ...point,
-        type: 'smooth',
-        inHandle:
-          target === 'inHandle'
-            ? { x: position.x, y: position.y }
-            : point.inHandle,
-        outHandle:
-          target === 'outHandle'
-            ? { x: position.x, y: position.y }
-            : point.outHandle
+        return {
+          ...point,
+          type: 'smooth' as const,
+          inHandle:
+            target === 'inHandle'
+              ? { x: position.x, y: position.y }
+              : point.inHandle,
+          outHandle:
+            target === 'outHandle'
+              ? { x: position.x, y: position.y }
+              : point.outHandle
+        }
       }
-    })
+    )
 
     elementApis.updateVectorGeometry(elementId, nextAnchorPoints)
     return elementApis.getVectorAnchorPointById(elementId, pointId)
