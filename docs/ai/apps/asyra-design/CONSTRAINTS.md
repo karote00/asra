@@ -16,13 +16,18 @@
 - panel shows element layout properties for element selection
 - panel shows vector point properties only when point is selected in path-editing context
 
+5. Property key naming
+- persisted/high-frequency model keys should favor compact naming by default
+- when adding new app schema keys/types, existing shared contracts must be checked and reused first when equivalent
+
 ## Current Functional Limitations
 
 1. Auto-layout
 - not implemented in app behavior
 
 2. Pen tool advanced controls
-- bezier handle editing is reserved/not implemented yet
+- drag-to-bezier handle creation is supported for connected points
+- advanced per-handle constraint modes (for example locked-angle/length variants) remain future work
 
 3. Theme toggle
 - component exists but is hidden in current UI
