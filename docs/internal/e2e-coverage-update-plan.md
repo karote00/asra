@@ -1,4 +1,4 @@
-# Task Breakdown 004: Add or Update E2E Coverage
+# Plan: Add or Update E2E Coverage
 
 ## Scope
 

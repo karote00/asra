@@ -6,10 +6,13 @@
 
 import core, { systemContext } from '../contexts'
 
+export type VectorPointTarget = 'anchor' | 'inHandle' | 'outHandle'
+
 export interface SelectedVectorPointState extends Record<string, unknown> {
   elementId: string
   pointId: string
   index: number
+  target: VectorPointTarget
   x: number
   y: number
 }
