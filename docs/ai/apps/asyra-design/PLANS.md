@@ -51,6 +51,10 @@
 
 1. Auto-layout app UX once framework support is ready
 2. Additional design-domain tools built on the same app architecture
+3. Geometry domain model for vector editing (lowest priority)
+- define a dedicated geometry layer to manage points (anchors/handles), segments, and path networks (including closed paths)
+- keep this as a future architecture option; do not block current pen/tool delivery
+- plan reference: `docs/internal/vector-geometry-domain-model-plan.md`
 
 ## Decision Logging Rule
 

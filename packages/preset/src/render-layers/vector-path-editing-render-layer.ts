@@ -10,9 +10,14 @@ const VECTOR_EDITING_LAYER_NAME = 'vector-editing-layer'
 const POINT_RADIUS = 6
 const POINT_FILL_COLOR = 0x9ca3af
 const POINT_STROKE_COLOR = 0x4b5563
+const HANDLE_STROKE_COLOR = 0xffffff
 const SEGMENT_COLOR = 0x9ca3af
 const SEGMENT_WIDTH = 1
 const PREVIEW_WIDTH = 2
+
+const SELECTED_POINT_OUTLINE_COLOR = 0x1e90ff
+const SELECTED_POINT_OUTLINE_WIDTH = 2
+const SELECTED_POINT_OUTLINE_RADIUS = POINT_RADIUS + 3
 
 interface VectorAnchorPointLike extends PositionData {
   id: string
@@ -22,9 +27,13 @@ interface VectorAnchorPointLike extends PositionData {
   outHandle: PositionData | null
 }
 
+type VectorPointTarget = 'anchor' | 'inHandle' | 'outHandle'
+
 interface OverlayAnchorPoint extends PositionData {
   id: string
   isMove?: boolean
+  inHandle: PositionData | null
+  outHandle: PositionData | null
 }
 
 interface VectorComputedData {
@@ -40,6 +49,7 @@ interface SelectedVectorPointState {
   elementId: string
   pointId: string
   index: number
+  target: VectorPointTarget
   x: number
   y: number
 }
@@ -64,28 +74,39 @@ const toWorkspacePoint = (
     point.y >= -1 &&
     point.y <= height + 1
 
+  const toWorkspaceHandle = (handle: PositionData | null) => {
+    if (!handle) {
+      return null
+    }
+
+    if (!isLikelyLocal) {
+      return handle
+    }
+
+    return {
+      x: handle.x + x,
+      y: handle.y + y
+    }
+  }
+
   if (!isLikelyLocal) {
-    return { id: point.id, x: point.x, y: point.y, isMove: point.isMove }
+    return {
+      id: point.id,
+      x: point.x,
+      y: point.y,
+      isMove: point.isMove,
+      inHandle: toWorkspaceHandle(point.inHandle),
+      outHandle: toWorkspaceHandle(point.outHandle)
+    }
   }
 
   return {
     id: point.id,
     x: point.x + x,
     y: point.y + y,
-    isMove: point.isMove
-  }
-}
-
-const toScreenAnchorPoint = (
-  point: OverlayAnchorPoint,
-  viewportPosition: PositionData,
-  viewportScale: number
-): OverlayAnchorPoint => {
-  return {
-    id: point.id,
-    x: point.x * viewportScale + viewportPosition.x,
-    y: point.y * viewportScale + viewportPosition.y,
-    isMove: point.isMove
+    isMove: point.isMove,
+    inHandle: toWorkspaceHandle(point.inHandle),
+    outHandle: toWorkspaceHandle(point.outHandle)
   }
 }
 
@@ -100,14 +121,34 @@ const toScreenPosition = (
   }
 }
 
+const toScreenAnchorPoint = (
+  point: OverlayAnchorPoint,
+  viewportPosition: PositionData,
+  viewportScale: number
+): OverlayAnchorPoint => {
+  return {
+    id: point.id,
+    x: point.x * viewportScale + viewportPosition.x,
+    y: point.y * viewportScale + viewportPosition.y,
+    isMove: point.isMove,
+    inHandle: point.inHandle
+      ? toScreenPosition(point.inHandle, viewportPosition, viewportScale)
+      : null,
+    outHandle: point.outHandle
+      ? toScreenPosition(point.outHandle, viewportPosition, viewportScale)
+      : null
+  }
+}
+
 const getPathEditingVectorDataWithDeps = (
   deps: Pick<PresetDependencies, 'sceneTree' | 'systemContext'>
 ): {
   closed: boolean
   anchorPoints: OverlayAnchorPoint[]
 } | null => {
-  const pathEditingVectorId =
-    deps.systemContext.getManagedProperty<string | null>('pathEditingVectorId')
+  const pathEditingVectorId = deps.systemContext.getManagedProperty<
+    string | null
+  >('pathEditingVectorId')
   if (!pathEditingVectorId) {
     return null
   }
@@ -133,6 +174,18 @@ const getPathEditingVectorDataWithDeps = (
   }
 }
 
+const getDiamondPoints = (
+  center: PositionData,
+  radius: number
+): PositionData[] => {
+  return [
+    { x: center.x, y: center.y - radius },
+    { x: center.x + radius, y: center.y },
+    { x: center.x, y: center.y + radius },
+    { x: center.x - radius, y: center.y }
+  ]
+}
+
 const drawSegments = (
   canvas: OverlayCanvas,
   points: OverlayAnchorPoint[],
@@ -140,6 +193,22 @@ const drawSegments = (
 ) => {
   if (points.length < 2) {
     return
+  }
+
+  const drawSegment = (from: OverlayAnchorPoint, to: OverlayAnchorPoint) => {
+    const hasCurve = !!from.outHandle || !!to.inHandle
+    if (!hasCurve) {
+      canvas.line(from, to, {
+        width: SEGMENT_WIDTH,
+        color: SEGMENT_COLOR
+      })
+      return
+    }
+
+    canvas.bezierCurve(from, from.outHandle ?? from, to.inHandle ?? to, to, {
+      width: SEGMENT_WIDTH,
+      color: SEGMENT_COLOR
+    })
   }
 
   let prev = points[0]
@@ -150,29 +219,43 @@ const drawSegments = (
       continue
     }
 
-    canvas.line(prev, current, {
-      width: SEGMENT_WIDTH,
-      color: SEGMENT_COLOR
-    })
+    drawSegment(prev, current)
     prev = current
   }
 
-  if (closed) {
-    canvas.line(points[points.length - 1], points[0], {
-      width: SEGMENT_WIDTH,
-      color: SEGMENT_COLOR
-    })
+  const first = points[0]
+  const last = points[points.length - 1]
+  if (closed && !first.isMove && !last.isMove) {
+    drawSegment(last, first)
   }
 }
 
-const SELECTED_POINT_OUTLINE_COLOR = 0x1e90ff
-const SELECTED_POINT_OUTLINE_WIDTH = 2
-const SELECTED_POINT_OUTLINE_RADIUS = POINT_RADIUS + 3
+const drawHandleLines = (
+  canvas: OverlayCanvas,
+  points: OverlayAnchorPoint[]
+) => {
+  points.forEach((point) => {
+    if (point.inHandle) {
+      canvas.line(point, point.inHandle, {
+        width: SEGMENT_WIDTH,
+        color: SEGMENT_COLOR
+      })
+    }
 
-const drawPoints = (
+    if (point.outHandle) {
+      canvas.line(point, point.outHandle, {
+        width: SEGMENT_WIDTH,
+        color: SEGMENT_COLOR
+      })
+    }
+  })
+}
+
+const drawAnchorPoints = (
   canvas: OverlayCanvas,
   points: OverlayAnchorPoint[],
-  selectedPointId: string | null
+  selectedPointId: string | null,
+  selectedTarget: VectorPointTarget | null
 ) => {
   points.forEach((point) => {
     canvas.circle(point, POINT_RADIUS, POINT_FILL_COLOR, {
@@ -181,7 +264,7 @@ const drawPoints = (
     })
   })
 
-  if (!selectedPointId) {
+  if (!selectedPointId || selectedTarget !== 'anchor') {
     return
   }
 
@@ -201,9 +284,52 @@ const drawPoints = (
   )
 }
 
+const drawHandlePoints = (
+  canvas: OverlayCanvas,
+  points: OverlayAnchorPoint[],
+  selectedPointId: string | null,
+  selectedTarget: VectorPointTarget | null
+) => {
+  points.forEach((point) => {
+    const handles: {
+      target: Exclude<VectorPointTarget, 'anchor'>
+      position: PositionData | null
+    }[] = [
+      { target: 'inHandle', position: point.inHandle },
+      { target: 'outHandle', position: point.outHandle }
+    ]
+
+    handles.forEach(({ target, position }) => {
+      if (!position) {
+        return
+      }
+
+      canvas.polygon(
+        getDiamondPoints(position, POINT_RADIUS),
+        POINT_FILL_COLOR,
+        {
+          width: 1,
+          color: HANDLE_STROKE_COLOR
+        }
+      )
+
+      if (selectedPointId === point.id && selectedTarget === target) {
+        canvas.polygon(
+          getDiamondPoints(position, SELECTED_POINT_OUTLINE_RADIUS),
+          POINT_FILL_COLOR,
+          {
+            width: SELECTED_POINT_OUTLINE_WIDTH,
+            color: SELECTED_POINT_OUTLINE_COLOR
+          }
+        )
+      }
+    })
+  })
+}
+
 const drawPreview = (
   canvas: OverlayCanvas,
-  lastPoint: PositionData,
+  lastPoint: OverlayAnchorPoint,
   mouseScreenPos: PositionData,
   shouldRender: boolean
 ) => {
@@ -211,10 +337,25 @@ const drawPreview = (
     return
   }
 
-  canvas.line(lastPoint, mouseScreenPos, {
-    width: PREVIEW_WIDTH,
-    color: SEGMENT_COLOR
-  })
+  const hasCurve = !!lastPoint.outHandle
+  if (!hasCurve) {
+    canvas.line(lastPoint, mouseScreenPos, {
+      width: PREVIEW_WIDTH,
+      color: SEGMENT_COLOR
+    })
+    return
+  }
+
+  canvas.bezierCurve(
+    lastPoint,
+    lastPoint.outHandle ?? lastPoint,
+    mouseScreenPos,
+    mouseScreenPos,
+    {
+      width: PREVIEW_WIDTH,
+      color: SEGMENT_COLOR
+    }
+  )
 }
 
 export const registerVectorPathEditingRenderLayer = (
@@ -247,11 +388,11 @@ export const registerVectorPathEditingRenderLayer = (
         deps.systemContext.getManagedProperty<boolean>(
           'pathEditingStartNewSubpath'
         ) ?? false
-      const activeSelectedPointId =
+      const activeSelectedPoint =
         pathEditingVectorId &&
         selectedVectorPoint?.elementId === pathEditingVectorId &&
         selectedVectorPoint?.pointId
-          ? selectedVectorPoint.pointId
+          ? selectedVectorPoint
           : null
 
       const mouseWorkspacePos = deps.render.getMousePosInWorkspace({
@@ -267,9 +408,10 @@ export const registerVectorPathEditingRenderLayer = (
         toScreenAnchorPoint(point, viewportPosition, viewportScale)
       )
       const previewStartPoint =
-        activeSelectedPointId !== null
-          ? screenPoints.find((point) => point.id === activeSelectedPointId) ??
-            null
+        activeSelectedPoint !== null
+          ? (screenPoints.find(
+              (point) => point.id === activeSelectedPoint.pointId
+            ) ?? null)
           : null
       const shouldRenderPreview =
         snapshot.primaryTool === 'pen' &&
@@ -277,13 +419,25 @@ export const registerVectorPathEditingRenderLayer = (
         previewStartPoint !== null
 
       drawSegments(canvas, screenPoints, data.closed)
+      drawHandleLines(canvas, screenPoints)
       drawPreview(
         canvas,
         previewStartPoint ?? screenPoints[screenPoints.length - 1],
         mouseScreenPos,
         shouldRenderPreview
       )
-      drawPoints(canvas, screenPoints, activeSelectedPointId)
+      drawAnchorPoints(
+        canvas,
+        screenPoints,
+        activeSelectedPoint?.pointId ?? null,
+        activeSelectedPoint?.target ?? null
+      )
+      drawHandlePoints(
+        canvas,
+        screenPoints,
+        activeSelectedPoint?.pointId ?? null,
+        activeSelectedPoint?.target ?? null
+      )
     }
   })
 

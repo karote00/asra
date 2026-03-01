@@ -38,11 +38,13 @@ This file defines app-level state keys, owners, and primary consumers.
   - owner: system-context
   - writers: pen and select-vector-point flow
   - readers: vector-point property panel
+  - state shape includes target type: `anchor` | `inHandle` | `outHandle`
 
 - `hoveredVectorPoint`
   - owner: system-context
   - writers: hover-vector-point flow
   - readers: vector-point selection and cursor behavior
+  - state shape includes target type: `anchor` | `inHandle` | `outHandle`
 
 ## UI Context Keys (App Registered)
 

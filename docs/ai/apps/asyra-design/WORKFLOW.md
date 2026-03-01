@@ -16,6 +16,7 @@ Read in order:
 Optional retrieval accelerator:
 - `npx context-rag ai "<request summary>" --top-k 8`
 - Treat retrieval as lookup support; app docs remain source-of-truth.
+- Follow global retrieval/search policy: `docs/ai/workflows/README.md` -> "Shared Retrieval and Search Policy (Global)".
 
 ## Phase 1: Scope
 

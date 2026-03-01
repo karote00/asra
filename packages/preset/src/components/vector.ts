@@ -62,6 +62,23 @@ const vectorRenderStrategy: RenderStrategy = (graphic, data) => {
   const firstPoint = localAnchorPoints[0]
   graphic.moveTo(firstPoint.x, firstPoint.y)
 
+  const drawSegment = (from: VectorAnchorPoint, to: VectorAnchorPoint) => {
+    const hasCurve = !!from.outHandle || !!to.inHandle
+    if (!hasCurve) {
+      graphic.lineTo(to.x, to.y)
+      return
+    }
+
+    graphic.bezierCurveTo(
+      from.outHandle?.x ?? from.x,
+      from.outHandle?.y ?? from.y,
+      to.inHandle?.x ?? to.x,
+      to.inHandle?.y ?? to.y,
+      to.x,
+      to.y
+    )
+  }
+
   let prevPoint = firstPoint
   for (let i = 1; i < localAnchorPoints.length; i++) {
     const current = localAnchorPoints[i]
@@ -72,18 +89,7 @@ const vectorRenderStrategy: RenderStrategy = (graphic, data) => {
       continue
     }
 
-    if (current.type === 'smooth' && current.inHandle && prevPoint.outHandle) {
-      graphic.bezierCurveTo(
-        prevPoint.outHandle.x,
-        prevPoint.outHandle.y,
-        current.inHandle.x,
-        current.inHandle.y,
-        current.x,
-        current.y
-      )
-    } else {
-      graphic.lineTo(current.x, current.y)
-    }
+    drawSegment(prevPoint, current)
 
     prevPoint = current
   }

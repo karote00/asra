@@ -11,18 +11,16 @@ import { applyPreset } from '../preset'
 beforeAll(() => {
   applyPreset(
     {
-      registerEvent: (
-        event: string | { eventName: string }
-      ) => ({
+      registerEvent: (event: string | { eventName: string }) => ({
         eventName: typeof event === 'string' ? event : event.eventName,
-        publish: () => {},
+        publish: () => undefined,
         subscribe: () => new Subscription()
       }),
       registerRenderLayer: () => {
         // no-op for this unit test; vector component registration is asserted via registries.
       },
-      registerPropertySchema: () => {},
-      registerSelection: () => {},
+      registerPropertySchema: () => undefined,
+      registerSelection: () => undefined,
       getSelection: () => undefined,
       registerUIProperty: () => {
         // no-op for this unit test.
@@ -228,6 +226,64 @@ describe('Vector Component', () => {
       100,
       100
     )
+  })
+
+  it('should render bezier curves when either handle exists', () => {
+    const renderStrategy = renderRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) return
+
+    const mockGraphic = {
+      clear: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      bezierCurveTo: vi.fn(),
+      closePath: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn()
+    }
+
+    const mockData = {
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 200,
+      anchorPoints: [
+        {
+          id: '1',
+          x: 0,
+          y: 0,
+          type: 'sharp',
+          inHandle: null,
+          outHandle: { x: 50, y: 0 }
+        },
+        {
+          id: '2',
+          x: 100,
+          y: 100,
+          type: 'sharp',
+          inHandle: null,
+          outHandle: null
+        }
+      ],
+      closed: false,
+      fill: 'none',
+      stroke: '#000000',
+      strokeWidth: 2
+    }
+
+    runRenderStrategy(renderStrategy, mockGraphic, mockData)
+
+    expect(mockGraphic.bezierCurveTo).toHaveBeenCalledWith(
+      50,
+      0,
+      100,
+      100,
+      100,
+      100
+    )
+    expect(mockGraphic.lineTo).not.toHaveBeenCalledWith(100, 100)
   })
 
   it('should close path and fill when closed is true', () => {

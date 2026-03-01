@@ -16,9 +16,21 @@ export interface OverlayCanvas {
     to: PositionData,
     stroke: OverlayStrokeStyle
   ) => void
+  bezierCurve: (
+    from: PositionData,
+    control1: PositionData,
+    control2: PositionData,
+    to: PositionData,
+    stroke: OverlayStrokeStyle
+  ) => void
   circle: (
     center: PositionData,
     radius: number,
+    fillColor: number,
+    stroke?: OverlayStrokeStyle
+  ) => void
+  polygon: (
+    points: PositionData[],
     fillColor: number,
     stroke?: OverlayStrokeStyle
   ) => void
@@ -58,8 +70,50 @@ export const createOverlayLayerRegistration = (
         })
       }
     },
+    bezierCurve: (from, control1, control2, to, stroke) => {
+      graphics.moveTo(from.x, from.y)
+      graphics.bezierCurveTo(
+        control1.x,
+        control1.y,
+        control2.x,
+        control2.y,
+        to.x,
+        to.y
+      )
+      if ('stroke' in graphics && typeof graphics.stroke === 'function') {
+        graphics.stroke({
+          width: stroke.width,
+          color: stroke.color,
+          cap: stroke.cap || 'round',
+          join: stroke.join || 'round'
+        })
+      }
+    },
     circle: (center, radius, fillColor, stroke) => {
       graphics.circle(center.x, center.y, radius).fill(fillColor)
+      if (
+        stroke &&
+        'stroke' in graphics &&
+        typeof graphics.stroke === 'function'
+      ) {
+        graphics.stroke({
+          width: stroke.width,
+          color: stroke.color,
+          cap: stroke.cap || 'round',
+          join: stroke.join || 'round'
+        })
+      }
+    },
+    polygon: (points, fillColor, stroke) => {
+      if (points.length < 3) {
+        return
+      }
+
+      graphics.moveTo(points[0].x, points[0].y)
+      for (let i = 1; i < points.length; i += 1) {
+        graphics.lineTo(points[i].x, points[i].y)
+      }
+      graphics.closePath().fill(fillColor)
       if (
         stroke &&
         'stroke' in graphics &&

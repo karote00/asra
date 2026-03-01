@@ -9,7 +9,7 @@ Import boundary:
 - `import { ...Apis } from 'src/common-apis'`
 - `import { defineFeature, importFeature, keyMap } from '@asyra/core'` for golden-path feature/input helpers
 
-`elementApis` (`src/common-apis/element.ts`)
+`elementApis` (`src/common-apis/element/index.ts`)
 
 - `isContainerType(type: string): boolean`
 - `getElementIdAtWorkspacePos(workspacePos: PositionData): string | null`
@@ -20,11 +20,16 @@ Import boundary:
 - `getVectorAnchorPoints(elementId: string): VectorAnchorPoint[]`
 - `getVectorAnchorPointAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): { point: VectorAnchorPoint; index: number } | null`
 - `getVectorAnchorPointAtClientPos(elementId: string, clientPos: PositionData): { point: VectorAnchorPoint; index: number } | null`
+- `getVectorEditablePointAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): { point: VectorAnchorPoint; index: number; target: 'anchor' | 'inHandle' | 'outHandle'; position: PositionData } | null`
+- `getVectorEditablePointAtClientPos(elementId: string, clientPos: PositionData): { point: VectorAnchorPoint; index: number; target: 'anchor' | 'inHandle' | 'outHandle'; position: PositionData } | null`
 - `getVectorAnchorPointById(elementId: string, pointId: string): { point: VectorAnchorPoint; index: number } | null`
 - `updateVectorGeometry(elementId: string, anchorPoints: VectorAnchorPoint[]): void`
+  - recomputes vector `x/y/width/height` from rendered segment geometry (straight + cubic bezier extrema), not anchor positions alone
 - `appendVectorAnchorPoint(elementId: string, point: VectorAnchorPoint): { point: VectorAnchorPoint; index: number } | null`
 - `setVectorClosed(elementId: string, closed: boolean): void`
 - `updateVectorAnchorPointPosition(elementId: string, pointId: string, position: PositionData): { point: VectorAnchorPoint; index: number } | null`
+- `updateVectorAnchorPointType(elementId: string, pointId: string, type: 'smooth' | 'sharp'): { point: VectorAnchorPoint; index: number } | null`
+- `updateVectorAnchorPointHandlePosition(elementId: string, pointId: string, target: 'inHandle' | 'outHandle', position: PositionData): { point: VectorAnchorPoint; index: number } | null`
 - `getMousePosInWorkspace(clientPos: PositionData): PositionData | null`
 - `createElement(options: { type: EntityType; clientPosition?: PositionData; anchorPoints?: VectorAnchorPoint[] }, mutationOptions?: { undoable: boolean }): string | null`
 - `resetElementSize(elementId: string): void`
@@ -51,6 +56,8 @@ Import boundary:
 - `setSelectedVectorPoint(point: SelectedVectorPointState | null): void`
 - `getHoveredVectorPoint(): SelectedVectorPointState | null`
 - `setHoveredVectorPoint(point: SelectedVectorPointState | null): void`
+- `SelectedVectorPointState` target contract:
+  - `target: 'anchor' | 'inHandle' | 'outHandle'`
 - `clearVectorPointState(): void`
 - `enterPathEditingMode(elementId: string): void`
 - `exitPathEditingMode(): void`

@@ -7,6 +7,7 @@ interface SelectedVectorPointState extends Record<string, unknown> {
   elementId: string
   pointId: string
   index: number
+  target: 'anchor' | 'inHandle' | 'outHandle'
   x: number
   y: number
 }

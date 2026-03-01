@@ -3,7 +3,7 @@
 ## Sources
 
 - `src/features/hover-element/index.ts`
-- `src/common-apis/element.ts`
+- `src/common-apis/element/index.ts`
 - `src/common-apis/system-context.ts`
 
 ## Trigger

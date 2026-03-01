@@ -20,6 +20,7 @@ Optional retrieval accelerator:
 - `npx context-rag ai "<request summary>" --top-k 8`
 - Context-rag scope should exclude `docs/ai/project/*`.
 - Use retrieved results as navigation hints, then confirm against source-of-truth docs.
+- Follow global retrieval/search policy: `docs/ai/workflows/README.md` -> "Shared Retrieval and Search Policy (Global)".
 
 ## Phase 1: Scope and Ownership
 

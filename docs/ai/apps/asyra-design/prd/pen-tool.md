@@ -2,26 +2,47 @@
 
 ## Problem
 
-Users need a vector path workflow that supports creating vectors, appending points, selecting points, and controlled exit behavior.
+Users need a vector path workflow that supports creating vectors, appending points, drag-to-curve editing, selecting anchor/handle targets, and controlled exit behavior.
 
 ## Goals
 
 - create vector on first pen action when not editing
 - append points to active editing vector
+- support drag-to-bezier while adding connected points
 - support subpath split/exit semantics with Escape
-- allow point hover/selection and point property editing
+- allow anchor/handle hover+selection and point-target property editing
 
 ## Functional Requirements
 
 1. Pen + mouse down outside active edit context creates new vector with first point.
 2. Pen + mouse down in active path edit context appends point to current vector.
-3. Enter key starts path editing when exactly one vector is selected.
-4. Double click enters path editing only when selected vector is hit.
-5. Escape in pen mode:
+3. Pen + mouse move while mouse is held on a newly appended connected point updates bezier handles for:
+- connected point (`outHandle`) with conditional update:
+  - default: preserve existing `p1` (`outHandle`) if present; otherwise anchor fallback
+  - special case (dragging second point of subpath, and connected first point has no user-defined handle): compute
+    - `p2 = B - 0.8 * (M - B)` (new point `inHandle`)
+    - `p1.x = A.x - 0.334 * (M.x - B.x)` and `p1.y = A.y + 0.327 * (B.y - A.y)` (connected point `outHandle`)
+    - new point `outHandle = M`
+- new point (`inHandle` and `outHandle`)
+4. On drag end, selected point target remains the newly added anchor point (no auto-switch to out-handle).
+5. Pen drag on first point of a subpath (no connected point) must not create bezier handles.
+6. Curve handles render as diamond controls with:
+- same size/fill color as anchor point controls
+- white 1px stroke
+- same selected blue outline style as selected anchor controls
+7. Segment rendering must follow handle presence:
+- if either adjacent handle exists, render cubic bezier for that segment
+- if neither handle exists, render straight segment
+8. Vector bounds (`x/y/width/height`) must be derived from rendered segment geometry (including cubic bezier extrema), not only anchor coordinates.
+9. Virtual preview segment (pen hover before point commit) must follow the same rule as committed segments.
+10. Non-pen in path-editing mode can select both anchor points and curve handle targets.
+11. Properties panel shows selected point target data (`anchor` / `inHandle` / `outHandle`) and supports coordinate edits through app APIs.
+12. Enter key starts path editing when exactly one vector is selected.
+13. Double click enters path editing only when selected vector is hit.
+14. Escape in pen mode:
 - first press splits to new subpath state
 - second press exits path editing and switches tool to Select
-6. Non-pen in path-editing mode can select points.
-7. Point hover changes cursor to pointer and updates hovered point state.
+15. Point/handle hover changes cursor to pointer and updates hovered point state.
 
 ## State Model
 
@@ -34,12 +55,12 @@ System properties:
 ## Success Criteria
 
 - `pen-tool.spec.ts` passes
-- point panel shows selected point data in path editing context
+- point panel shows selected point target data in path editing context
 - no duplicate point-id collisions during normal point creation flow
 
 ## References
 
 - `apps/asyra-design/src/features/pen-tool/index.ts`
-- `apps/asyra-design/src/common-apis/element.ts`
+- `apps/asyra-design/src/common-apis/element/index.ts`
 - `apps/asyra-design/src/common-apis/system-context.ts`
 - `apps/asyra-design/src/properties/vector-point.tsx`

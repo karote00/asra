@@ -32,6 +32,8 @@
 
 - `pen-tool.spec.ts`
   - pen tool and path-editing core flow
+  - drag-to-bezier handle creation
+  - curve-handle selection and point-target property visibility
 
 ## Contract Notes
 

@@ -14,6 +14,9 @@ import {
 
 interface PenState extends Record<string, unknown> {
   elementId: string
+  pointId: string
+  connectedPointId: string | null
+  autoUpdateConnectedHandle: boolean
 }
 
 const createAnchorPoint = (
@@ -40,6 +43,190 @@ const getCurrentSubpathStartIndex = (anchorPoints: VectorAnchorPoint[]) => {
 }
 
 const DOUBLE_CLICK_HIT_PADDING = 8
+
+interface Vec2 {
+  x: number
+  y: number
+}
+
+const add = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x + b.x, y: a.y + b.y })
+const sub = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x - b.x, y: a.y - b.y })
+const scale = (v: Vec2, k: number): Vec2 => ({ x: v.x * k, y: v.y * k })
+
+const computeSymmetricHandles = (
+  anchor: Vec2,
+  mouse: Vec2
+): { inHandle: Vec2; outHandle: Vec2; dragVector: Vec2 } => {
+  const dragVector = sub(mouse, anchor)
+  return {
+    inHandle: add(anchor, scale(dragVector, -1)),
+    outHandle: add(anchor, dragVector),
+    dragVector
+  }
+}
+
+const getSubpathStartIndexByPointIndex = (
+  anchorPoints: VectorAnchorPoint[],
+  pointIndex: number
+) => {
+  for (let i = pointIndex; i >= 0; i -= 1) {
+    if (anchorPoints[i].isMove) {
+      return i
+    }
+  }
+
+  return 0
+}
+
+const shouldAutoUpdateConnectedHandle = (
+  anchorPoints: VectorAnchorPoint[],
+  connectedIndex: number
+) => {
+  const connectedPoint = anchorPoints[connectedIndex]
+  if (!connectedPoint) {
+    return false
+  }
+
+  const hasUserDefinedHandle = connectedPoint.outHandle !== null
+  if (hasUserDefinedHandle) {
+    return false
+  }
+
+  const subpathStartIndex = getSubpathStartIndexByPointIndex(
+    anchorPoints,
+    connectedIndex
+  )
+  const isFirstPointOfSubpath = connectedIndex === subpathStartIndex
+  const subpathPointCountBeforeAppend = anchorPoints.length - subpathStartIndex
+  const isAppendingSecondPointOfSubpath = subpathPointCountBeforeAppend === 1
+
+  return isFirstPointOfSubpath && isAppendingSecondPointOfSubpath
+}
+
+const computeConnectedOutHandle = (connectedPoint: VectorAnchorPoint): Vec2 => {
+  return connectedPoint.outHandle ?? connectedPoint
+}
+
+const computeFigmaStyleHandles = (
+  connectedPoint: VectorAnchorPoint,
+  currentPoint: VectorAnchorPoint,
+  mouse: Vec2
+): {
+  connectedOutHandle: Vec2
+  currentInHandle: Vec2
+  currentOutHandle: Vec2
+} => {
+  const vx = mouse.x - currentPoint.x
+  const vy = mouse.y - currentPoint.y
+
+  const p2 = {
+    x: currentPoint.x - vx * 0.8,
+    y: currentPoint.y - vy * 0.8
+  }
+
+  const p1 = {
+    x: connectedPoint.x - vx * 0.334,
+    y: connectedPoint.y + (currentPoint.y - connectedPoint.y) * 0.327
+  }
+
+  return {
+    connectedOutHandle: p1,
+    currentInHandle: p2,
+    currentOutHandle: { x: mouse.x, y: mouse.y }
+  }
+}
+
+const setSelectedAnchorPoint = (
+  elementId: string,
+  selectedPoint: { point: VectorAnchorPoint; index: number } | null
+) => {
+  if (!selectedPoint) {
+    systemContextApis.setSelectedVectorPoint(null)
+    return
+  }
+
+  systemContextApis.setSelectedVectorPoint({
+    elementId,
+    pointId: selectedPoint.point.id,
+    index: selectedPoint.index,
+    target: 'anchor',
+    x: selectedPoint.point.x,
+    y: selectedPoint.point.y
+  })
+}
+
+const applyBezierDragForNewPoint = (
+  state: PenState,
+  mouseWorkspacePos: { x: number; y: number }
+) => {
+  if (!state.connectedPointId) {
+    return false
+  }
+
+  const anchorPoints = elementApis.getVectorAnchorPoints(state.elementId)
+  const newPoint = anchorPoints.find((point) => point.id === state.pointId)
+  const connectedPoint = anchorPoints.find(
+    (point) => point.id === state.connectedPointId
+  )
+  if (!newPoint || !connectedPoint) {
+    return false
+  }
+
+  const symmetric = computeSymmetricHandles(newPoint, mouseWorkspacePos)
+  const dragHandles = state.autoUpdateConnectedHandle
+    ? computeFigmaStyleHandles(connectedPoint, newPoint, mouseWorkspacePos)
+    : {
+        connectedOutHandle: computeConnectedOutHandle(connectedPoint),
+        currentInHandle: symmetric.inHandle,
+        currentOutHandle: symmetric.outHandle
+      }
+
+  const nextAnchorPoints = anchorPoints.map((point) => {
+    if (point.id === state.connectedPointId) {
+      return {
+        ...point,
+        outHandle: {
+          x: dragHandles.connectedOutHandle.x,
+          y: dragHandles.connectedOutHandle.y
+        }
+      }
+    }
+
+    if (point.id === state.pointId) {
+      return {
+        ...point,
+        type: 'smooth' as const,
+        inHandle: {
+          x: dragHandles.currentInHandle.x,
+          y: dragHandles.currentInHandle.y
+        },
+        outHandle: {
+          x: dragHandles.currentOutHandle.x,
+          y: dragHandles.currentOutHandle.y
+        }
+      }
+    }
+
+    return point
+  })
+
+  elementApis.updateVectorGeometry(state.elementId, nextAnchorPoints)
+
+  const selectedTarget = systemContextApis.getSelectedVectorPoint()
+  if (
+    selectedTarget?.elementId === state.elementId &&
+    selectedTarget.pointId === state.pointId &&
+    selectedTarget.target === 'outHandle'
+  ) {
+    systemContextApis.setSelectedVectorPoint({
+      ...selectedTarget,
+      x: mouseWorkspacePos.x,
+      y: mouseWorkspacePos.y
+    })
+  }
+
+  return true
+}
 
 const isPathEditingVectorSelected = (
   selectedIds: string[],
@@ -83,6 +270,20 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
           systemContextApis.getPathEditingStartNewSubpath()
 
         if (isPathEditingVectorSelected(selectedIds, pathEditingVectorId)) {
+          const currentAnchorPoints =
+            elementApis.getVectorAnchorPoints(pathEditingVectorId)
+          const connectedPointId =
+            !startNewSubpath && currentAnchorPoints.length > 0
+              ? currentAnchorPoints[currentAnchorPoints.length - 1].id
+              : null
+          const connectedIndex = connectedPointId
+            ? currentAnchorPoints.findIndex(
+                (point) => point.id === connectedPointId
+              )
+            : -1
+          const autoUpdateConnectedHandle =
+            connectedIndex !== -1 &&
+            shouldAutoUpdateConnectedHandle(currentAnchorPoints, connectedIndex)
           const newPoint = createAnchorPoint(dragStartWorkspace, {
             isMove: startNewSubpath
           })
@@ -91,24 +292,17 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
             newPoint
           )
           selectionApis.selectElements([pathEditingVectorId])
-          if (selectedPoint) {
-            systemContextApis.setSelectedVectorPoint({
-              elementId: pathEditingVectorId,
-              pointId: selectedPoint.point.id,
-              index: selectedPoint.index,
-              x: selectedPoint.point.x,
-              y: selectedPoint.point.y
-            })
-          } else {
-            systemContextApis.setSelectedVectorPoint(null)
-          }
+          setSelectedAnchorPoint(pathEditingVectorId, selectedPoint)
           if (startNewSubpath) {
             systemContextApis.setPathEditingStartNewSubpath(false)
           }
           systemContextApis.setHoveredVectorPoint(null)
 
           return {
-            elementId: pathEditingVectorId
+            elementId: pathEditingVectorId,
+            pointId: newPoint.id,
+            connectedPointId,
+            autoUpdateConnectedHandle
           } as PenState
         }
 
@@ -130,28 +324,35 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
           elementId,
           firstPoint.id
         )
-        if (selectedPoint) {
-          systemContextApis.setSelectedVectorPoint({
-            elementId,
-            pointId: selectedPoint.point.id,
-            index: selectedPoint.index,
-            x: selectedPoint.point.x,
-            y: selectedPoint.point.y
-          })
-        } else {
-          systemContextApis.setSelectedVectorPoint(null)
-        }
+        setSelectedAnchorPoint(elementId, selectedPoint)
 
         return {
-          elementId
+          elementId,
+          pointId: firstPoint.id,
+          connectedPointId: null,
+          autoUpdateConnectedHandle: false
         }
       },
 
-      // Reserved for bezier handle editing on drag.
-      onUpdate: (_snapshot: SystemContextSnapshot, _state: PenState) => {
+      onUpdate: (snapshot: SystemContextSnapshot, state: PenState) => {
+        const mouseWorkspacePos = elementApis.getMousePosInWorkspace({
+          x: snapshot.mouse.position.x,
+          y: snapshot.mouse.position.y
+        })
+        if (!mouseWorkspacePos) {
+          return
+        }
+
+        applyBezierDragForNewPoint(state, mouseWorkspacePos)
+
         return
       },
-      onEnd: (_snapshot: SystemContextSnapshot, _state: PenState) => {
+      onEnd: (_snapshot: SystemContextSnapshot, state: PenState) => {
+        const selectedPoint = elementApis.getVectorAnchorPointById(
+          state.elementId,
+          state.pointId
+        )
+        setSelectedAnchorPoint(state.elementId, selectedPoint)
         return
       }
     }
@@ -186,6 +387,7 @@ export const selectVectorPointFeature = defineFeature(
           elementId: hoveredPoint.elementId,
           pointId: hoveredPoint.pointId,
           index: hoveredPoint.index,
+          target: hoveredPoint.target,
           x: hoveredPoint.x,
           y: hoveredPoint.y
         })
@@ -218,7 +420,7 @@ export const hoverVectorPointCursorFeature = defineFeature(
         return null
       }
 
-      const hoveredPoint = elementApis.getVectorAnchorPointAtClientPos(
+      const hoveredPoint = elementApis.getVectorEditablePointAtClientPos(
         pathEditingVectorId,
         snapshot.mouse.position
       )
@@ -228,8 +430,9 @@ export const hoverVectorPointCursorFeature = defineFeature(
               elementId: pathEditingVectorId,
               pointId: hoveredPoint.point.id,
               index: hoveredPoint.index,
-              x: hoveredPoint.point.x,
-              y: hoveredPoint.point.y
+              target: hoveredPoint.target,
+              x: hoveredPoint.position.x,
+              y: hoveredPoint.position.y
             }
           : null
       )

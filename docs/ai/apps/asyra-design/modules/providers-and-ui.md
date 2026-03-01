@@ -42,6 +42,8 @@ Primary files:
 - `header.tsx`: section header renderer
 - `position.tsx`, `dimension.tsx`, `rotation.tsx`: layout fields
 - `vector-point.tsx`: point editing panel in path editing mode
+  - supports selected target (`anchor` / `inHandle` / `outHandle`) coordinate editing
+  - supports anchor point type control (`sharp` / `smooth`)
 - `number-input.ts`: finite-number parser for layout edits
 
 ## Rules

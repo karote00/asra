@@ -36,6 +36,7 @@ Reusable AI capabilities and domain skills.
 ### **[workflows/](./workflows/)**
 
 Executable development workflows (`/feature`, `/refactor`, `/bugfix`, `/docs`).
+Includes the shared global retrieval/search policy used by all workflows.
 
 ### **[project/](./project/)**
 
