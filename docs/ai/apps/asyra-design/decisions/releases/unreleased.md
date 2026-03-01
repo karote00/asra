@@ -138,3 +138,17 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
   - Completed `bezier-js` adoption remains discoverable through archive + decision history.
 - Related Commit(s):
   - `13ee980` (`feat(asyra-design): integrate bezier-js geometry adapter and path proximity checks`)
+
+## 2026-03-01 - Pen editing UX plan completed and archived
+
+- Context:
+  - The pen editing UX scope (bezier drag handles, handle selection targets, render consistency, and related panel/doc/test sync) is implemented.
+- Decision:
+  - Archive completed plan:
+    - `docs/ai/apps/asyra-design/plans/completed/pen-bezier-drag-controls-plan.md`
+  - Remove the completed pen-editing UX item from active near-term planning list.
+- Consequences:
+  - Active app plans remain focused on unfinished items.
+  - Completed pen-editing UX scope is retained in app completed-plan archive.
+- Related Commit(s):
+  - `2eafe38` (`feat(asyra-design): stabilize pen bezier flow and sync planning docs`)

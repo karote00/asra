@@ -2,30 +2,25 @@
 
 ## Near-Term
 
-1. Strengthen pen tool editing UX
-- add bezier handle editing flow
-- refine point/subpath visual feedback consistency
-- plan reference: `docs/internal/pen-bezier-drag-controls-plan.md`
-
-2. Explicit sub-path data model for vector anchor points
+1. Explicit sub-path data model for vector anchor points
 - evaluate and migrate from flat `anchorPoints: VectorAnchorPoint[]` (+ `isMove`) to `anchorPoints: VectorAnchorPoint[][]`
 - simplify pen subpath append/escape logic and reduce scan-by-flag operations
 - plan reference: `docs/internal/vector-subpath-array-model-plan.md`
 
-3. Expand E2E coverage for vector editing
+2. Expand E2E coverage for vector editing
 - path-editing enter/exit edge cases
 - point selection/editing scenarios
 - plan reference: `docs/internal/e2e-coverage-update-plan.md`
 
-4. Reduce app-level internal coupling
+3. Reduce app-level internal coupling
 - remove internal-path imports (for example keymap source path)
 
-5. Delete key support: single selected element
+4. Delete key support: single selected element
 - support Delete/Backspace to remove one selected element
 - include path-editing cleanup and undo/redo validation
 - Reference: `docs/internal/delete-key-single-element-plan.md`
 
-6. Delete key support: single selected vector point
+5. Delete key support: single selected vector point
 - support Delete/Backspace to remove one selected vector point in path-editing mode
 - include geometry recompute and point-state cleanup
 - Reference: `docs/internal/delete-key-single-vector-point-plan.md`
