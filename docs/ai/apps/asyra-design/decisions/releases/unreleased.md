@@ -184,4 +184,20 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
   - Tiny cursor jitter no longer promotes the first segment into a curve.
   - Threshold tuning can differ by feature without changing shared runtime behavior.
 - Related Commit(s):
-  - pending
+  - `2a8a8e8` (`refactor(vector): formalize topology props and feature-scoped drag thresholds`)
+
+## 2026-03-02 - Pen handle controls render only around selected anchor neighborhood
+
+- Context:
+  - Path-editing overlay rendered all handle controls for the entire vector, which added visual noise while editing dense paths.
+  - Requested UX is focused local editing visibility around the active anchor.
+- Decision:
+  - Render handle lines and handle points only for selected-anchor neighborhood in the same subpath (`n-1`, `n`, `n+1`).
+  - Keep full anchor rendering and segment/preview rendering behavior unchanged.
+  - Archive plan:
+    - `docs/ai/apps/asyra-design/plans/completed/pen-handle-visibility-neighbor-window-plan.md`
+- Consequences:
+  - Handle editing focus is localized around current selection.
+  - Overlay clarity improves without changing curve geometry semantics.
+- Related Commit(s):
+  - `5933af4` (`feat(pen): show curve handles only around selected anchor neighborhood`)

@@ -492,7 +492,7 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - Framework has a reusable pattern for other map-of-child property structures.
   - App/vector code can rely on shared compact topology id contracts.
 - Related Commit(s):
-  - pending
+  - `2a8a8e8` (`refactor(vector): formalize topology props and feature-scoped drag thresholds`)
 
 ## 2026-03-02 - Input-system drag move button detection now uses `event.buttons`
 
@@ -503,4 +503,16 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
 - Consequences:
   - Drag move key matching is more consistent across browsers/events while preserving fallback behavior.
 - Related Commit(s):
-  - pending
+  - `2a8a8e8` (`refactor(vector): formalize topology props and feature-scoped drag thresholds`)
+
+## 2026-03-02 - Preset vector editing overlay shows localized handle controls
+
+- Context:
+  - The preset vector path-editing overlay previously rendered all handle controls for all anchors, which reduced editing clarity on dense vectors.
+- Decision:
+  - Restrict overlay handle rendering to selected-anchor neighborhood (`n-1`, `n`, `n+1`) within the same subpath.
+  - Keep anchor/segment/preview rendering behavior unchanged.
+- Consequences:
+  - Preset overlay behavior is more focused for active point editing while preserving existing curve draw semantics.
+- Related Commit(s):
+  - `5933af4` (`feat(pen): show curve handles only around selected anchor neighborhood`)
