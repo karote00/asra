@@ -10,7 +10,19 @@ export default class BaseSelection {
     this.prevSelectedIds = new Set(this.selectedIds)
   }
 
+  private hasSameSelection(nextIds: string[]): boolean {
+    if (nextIds.length !== this.selectedIds.size) {
+      return false
+    }
+
+    return nextIds.every((id) => this.selectedIds.has(id))
+  }
+
   select(ids: string[], options?: EvnetOptions): void {
+    if (this.hasSameSelection(ids)) {
+      return
+    }
+
     const before = [...this.getSelectedIds()]
     this._updatePrevSelectedIds()
     this.selectedIds = new Set(ids)
@@ -18,15 +30,33 @@ export default class BaseSelection {
   }
 
   deselect(ids: string[], options?: EvnetOptions): void {
+    const nextSelectedIds = new Set(this.selectedIds)
+    ids.forEach((id) => {
+      nextSelectedIds.delete(id)
+    })
+    if (
+      nextSelectedIds.size === this.selectedIds.size &&
+      [...nextSelectedIds].every((id) => this.selectedIds.has(id))
+    ) {
+      return
+    }
+
     const before = [...this.getSelectedIds()]
     this._updatePrevSelectedIds()
-    ids.forEach((id) => {
-      this.selectedIds.delete(id)
-    })
-    this.addChange(SELECTION_ACTIONS.SELECT_ELEMENTS, before, [...ids], options)
+    this.selectedIds = nextSelectedIds
+    this.addChange(
+      SELECTION_ACTIONS.SELECT_ELEMENTS,
+      before,
+      [...this.selectedIds],
+      options
+    )
   }
 
   clear(options?: EvnetOptions): void {
+    if (this.selectedIds.size === 0) {
+      return
+    }
+
     const before = [...this.getSelectedIds()]
     this._updatePrevSelectedIds()
     this.selectedIds.clear()

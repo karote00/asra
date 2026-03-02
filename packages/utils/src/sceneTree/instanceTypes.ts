@@ -17,6 +17,7 @@ export interface ElementAttrs {
   id: string
   type: EntityType
   name: string
+  parentId: string
   visible: boolean
   lock: boolean
 }
@@ -56,7 +57,7 @@ export interface IElement<T extends ElementAttrs = ElementAttrs>
 export interface IGroupElement<T extends GroupAttrs = GroupAttrs>
   extends IElement<T> {
   addElement(element: ElementInstanceTypes, index?: number): void
-  removeElement(element: ElementInstanceTypes, index: number): void
+  removeElement(element: ElementInstanceTypes): void
 }
 
 export interface ElementInstanceTypes extends IElement {}

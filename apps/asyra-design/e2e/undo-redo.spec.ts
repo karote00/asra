@@ -4,6 +4,7 @@ import {
   resetCanvas,
   createRectangle,
   getElementCount,
+  dragOnCanvas,
   undo,
   redo
 } from './test-utils'
@@ -101,5 +102,56 @@ test.describe('Undo/Redo Actions', () => {
     await expect(async () => {
       expect(await getElementCount(page)).toBe(2)
     }).toPass({ timeout: 2000 })
+  })
+
+  test('drag-create uses a compact undo commit without move spam', async ({
+    page
+  }) => {
+    await page.keyboard.press('r')
+    await page.waitForTimeout(100)
+
+    const beforeSummary = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const stack = core?.deps?.factory?.transact?.undoStack ?? []
+      return { count: stack.length }
+    })
+
+    await dragOnCanvas(page, 0.2, 0.2, 0.55, 0.42, 40)
+    await expect(async () => {
+      expect(await getElementCount(page)).toBe(1)
+    }).toPass({ timeout: 2000 })
+
+    const commitSummary = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const stack = core?.deps?.factory?.transact?.undoStack ?? []
+      const last = stack[stack.length - 1] ?? []
+      const updateComputedDataEvents = last.filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (event: any) => event?.type === 'updateComputedData'
+      )
+      const noOpSelectionEvents = last.filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (event: any) =>
+          event?.type === 'selectElements' &&
+          Array.isArray(event?.payload?.before) &&
+          Array.isArray(event?.payload?.after) &&
+          event.payload.before.length === 0 &&
+          event.payload.after.length === 0
+      )
+
+      return {
+        stackCount: stack.length,
+        changeCount: last.length,
+        updateComputedDataCount: updateComputedDataEvents.length,
+        noOpSelectionCount: noOpSelectionEvents.length
+      }
+    })
+
+    expect(commitSummary.stackCount).toBe(beforeSummary.count + 1)
+    expect(commitSummary.noOpSelectionCount).toBe(0)
+    expect(commitSummary.updateComputedDataCount).toBeLessThanOrEqual(8)
+    expect(commitSummary.changeCount).toBeLessThanOrEqual(12)
   })
 })

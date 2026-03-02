@@ -48,8 +48,7 @@ export const addElement = (
 }
 
 export const removeElement = (
-  elementData: ElementRawData,
-  index: number,
+  elementData: Partial<ElementRawData>,
   parent?: GroupInstanceTypes,
   options?: EVENT_OPTIONS
 ) => {
@@ -57,8 +56,7 @@ export const removeElement = (
     type: EventTypes.REMOVE_ELEMENT,
     payload: {
       data: elementData,
-      parent,
-      index
+      parent
     },
     options
   })

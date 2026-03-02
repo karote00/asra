@@ -27,12 +27,12 @@
 2. Update
 - while dragging, compute width/height from drag delta
 - handle negative drag by flipping origin
-- apply geometry updates via `elementApis.changeComputedData`
+- apply geometry updates via `elementApis.changeComputedData` with `undoable: false` for continuous drag frames
 
 3. End
 - if drag movement is below threshold, reset to default element size
 
 ## Notes
 
-- intended undo grouping is per API call path currently used by element common APIs
+- intended undo grouping is one create action unit; continuous drag-frame geometry updates are excluded from undo stack
 - movement threshold is app-owned and feature-level via `FEATURE_MOVEMENT_THRESHOLD.createElement`

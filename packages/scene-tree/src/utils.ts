@@ -67,7 +67,15 @@ export const createWorkspace = (
   return newWorkspace
 }
 
-const DefaultRawKeys: (keyof ElementRawData)[] = ['id', 'type', 'name', 'props']
+const DefaultRawKeys: (keyof ElementRawData)[] = [
+  'id',
+  'type',
+  'name',
+  'parentId',
+  'visible',
+  'lock',
+  'props'
+]
 
 /**
  * Removes non-raw fields from an element object and returns the stripped fields.

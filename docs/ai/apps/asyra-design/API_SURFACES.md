@@ -40,6 +40,7 @@ Import boundary:
 - `getMousePosInWorkspace(clientPos: PositionData): PositionData | null`
 - `createElement(options: { type: EntityType; clientPosition?: PositionData; points?: Record<string, VectorPointNode>; segments?: Record<string, VectorSegment>; networks?: Record<string, VectorNetwork>; closed?: boolean }, mutationOptions?: { undoable: boolean }): string | null`
 - `createVectorElementFromSinglePoint(pointId: string, position: PositionData, mutationOptions?: { undoable: boolean }): string | null`
+- `deleteElement(elementId: string, options?: { undoable: boolean }): boolean`
 - `resetElementSize(elementId: string): void`
 - `hasMovedBeyondThreshold(clientDragStart: PositionData, clientCurrentPos: PositionData, threshold?: number): boolean`
 - `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: { undoable: boolean }): void`
@@ -126,7 +127,7 @@ Input constants (`src/constants/*`):
 
 - drag: `input.drag.start`, `input.drag.update`, `input.drag.end`
 - pointer: `input.double.click`, `input.mouse.move`, `input.wheel.scroll`
-- shortcuts: `input.shortcut.switchPrimaryTool`, `input.shortcut.enter`, `input.shortcut.cancel`, `input.shortcut.undoredo`, `input.shortcut.zoomPreset`
+- shortcuts: `input.shortcut.switchPrimaryTool`, `input.shortcut.enter`, `input.shortcut.cancel`, `input.shortcut.delete`, `input.shortcut.undoredo`, `input.shortcut.zoomPreset`
 - feature IDs:
   - grouped source constants: `ToolFeatureNames`, `ElementFeatureNames`, `ViewportFeatureNames`, `HistoryFeatureNames`, `VectorPathFeatureNames`
   - flattened source of truth for usage: `FeatureNames.*`
@@ -136,6 +137,7 @@ Feature registry (`src/features/index.ts`):
 - `switch-primary-tool`
 - `create-element`
 - `selection`
+- `delete-element`
 - `hover-element`
 - `zoom`
 - `zoom-fit`
@@ -160,6 +162,13 @@ Feature registry (`src/features/index.ts`):
 
   - `elementApis.getElementIdAtClientPos`
   - `selectionApis.toggleSelection` / `selectElements` / `clearSelection`
+
+- `delete-element`
+
+  - `selectionApis.getSelectedIds` / `selectElements`
+  - `elementApis.deleteElement`
+  - `systemContextApis.exitPathEditingMode`
+  - `systemContextApis.updateHoveredElementId`
 
 - `hover-element`
 

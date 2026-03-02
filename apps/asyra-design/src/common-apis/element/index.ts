@@ -10,7 +10,8 @@ import {
   type EntityType,
   type DataTypes,
   type PositionData,
-  type EVENT_OPTIONS
+  type EVENT_OPTIONS,
+  type GroupInstanceTypes
 } from '@asyra/utils'
 import type {
   VectorAnchorPoint,
@@ -859,6 +860,32 @@ export const elementApis = {
       },
       options
     )
+  },
+
+  deleteElement: (elementId: string, options?: EVENT_OPTIONS): boolean => {
+    const element = sceneTree.getElementById(elementId)
+    if (!element || element.get('type') === EntityTypes.WORKSPACE) {
+      return false
+    }
+
+    const parentId = element.get('parentId') as string
+    if (!parentId) {
+      return false
+    }
+
+    const parent = sceneTree.getElementById(parentId) as
+      | GroupInstanceTypes
+      | undefined
+    if (!parent) {
+      return false
+    }
+
+    startTransaction()
+    try {
+      return sceneTree.removeElement({ id: elementId }, parent, options)
+    } finally {
+      endTransaction()
+    }
   },
 
   resetElementSize: (elementId: string) => {

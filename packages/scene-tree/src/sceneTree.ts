@@ -150,14 +150,27 @@ class SceneTree {
           typeof rawElement.visible === 'boolean' ? rawElement.visible : true
         const lock =
           typeof rawElement.lock === 'boolean' ? rawElement.lock : false
+        const parentId =
+          typeof rawElement.parentId === 'string' ? rawElement.parentId : ''
 
         const normalized: Record<string, unknown> = {
           ...rawElement,
           id: normalizedId,
           type: rawType,
           name: normalizedName,
+          parentId,
           visible,
           lock
+        }
+
+        if (
+          rawElement.parentId !== undefined &&
+          typeof rawElement.parentId !== 'string'
+        ) {
+          diagnostics.push({
+            path: `sceneTree.elements.${entryId}.parentId`,
+            message: 'Invalid parent id type, fallback to empty parent id'
+          })
         }
 
         if (isGroupEntity(rawType)) {
@@ -342,6 +355,7 @@ class SceneTree {
     this.addChange({
       eventName: EventTypes.REMOVE_ELEMENT,
       data: element.save(),
+      parentId: element.get('parentId') as string,
       action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
       owner: OWNER.SCENE_TREE,
       undoType: EventTypes.ADD_ELEMENT,
@@ -409,24 +423,42 @@ class SceneTree {
 
   removeElement(
     data: Partial<ElementRawData>,
-    index: number,
     parent?: GroupInstanceTypes,
     options?: EVENT_OPTIONS
-  ) {
+  ): boolean {
     const workspace = this.currentWorkspace as Workspace
     if (!workspace) {
-      return
+      return false
     }
 
     const elementId = data.id as string
     const element = this.getElementById(elementId)
     if (!element) {
-      return
+      return false
+    }
+
+    const resolvedParentId =
+      parent?.get('id') ??
+      (data.parentId as string | undefined) ??
+      (element.get('parentId') as string)
+    const resolvedParent = resolvedParentId
+      ? (this.getElementById(resolvedParentId) as GroupInstanceTypes)
+      : undefined
+    const container = resolvedParent ?? workspace
+
+    if (!isGroupEntity(container.get('type'))) {
+      return false
+    }
+
+    const children = (container.get('children') as string[]) ?? []
+    if (!children.includes(elementId)) {
+      return false
     }
 
     this.addChangeForRemoveElement(element)
-    workspace.removeElement(element, index, parent, options)
+    workspace.removeElement(element, resolvedParent, options)
     this.commitSceneTreeTransaction(options)
+    return true
   }
 
   updateComputedData<K extends keyof ComputedAttrs>(

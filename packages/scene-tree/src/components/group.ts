@@ -44,23 +44,26 @@ class Group<T extends GroupAttrs = GroupAttrs>
     }
 
     const children = [...this.get('children')]
-    const idx = index ?? children.length
+    const idx = index > -1 ? index : children.length
     children.splice(idx, 0, element.get('id'))
     this.set('children', children)
+    element.set('parentId', this.get('id'), { undoable: false })
   }
 
-  removeElement(element: ElementInstanceTypes, index: number) {
+  removeElement(element: ElementInstanceTypes) {
     if (!element) {
       return
     }
 
     const children = [...this.get('children')]
-    if (children.indexOf(element.get('id')) !== index) {
+    const index = children.indexOf(element.get('id'))
+    if (index < 0) {
       return
     }
 
     children.splice(index, 1)
     this.set('children', children)
+    element.set('parentId', '', { undoable: false })
   }
 }
 

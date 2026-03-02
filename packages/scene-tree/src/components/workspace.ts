@@ -70,17 +70,13 @@ class Workspace extends Group {
       avaliableParent.addElement(element, index)
     } else {
       // Add new element to Workspace
-      const originalChildrenList = [...this.get('children')]
-      const idx = index > -1 ? index : this.get('children').length
-      originalChildrenList.splice(idx, 0, element.get('id'))
-      this.set('children', originalChildrenList)
+      super.addElement(element, index)
     }
     this.registry.addToMap(element)
   }
 
   removeElement(
     element: IElement,
-    index: number,
     parent?: GroupInstanceTypes,
     options?: EvnetOptions
   ) {
@@ -88,25 +84,19 @@ class Workspace extends Group {
       return
     }
 
-    let avaliableParent = parent
-    if (!avaliableParent) {
-      const firstFrame = this.firstFrame
-      if (firstFrame) {
-        avaliableParent = this.firstFrame as GroupInstanceTypes
-      }
-    }
-
     const elementId = element.get('id')
-    if (avaliableParent && avaliableParent.get('children')) {
+    if (parent && parent.get('children')) {
       // Remove element from Group type instance
-      const idx = index ?? avaliableParent?.get('children').indexOf(elementId)
-      avaliableParent.removeElement(element, idx)
+      if (parent.get('children').indexOf(elementId) < 0) {
+        return
+      }
+      parent.removeElement(element)
     } else {
-      // Add new element to Workspace
-      const originalChildrenList = [...this.get('children')]
-      const idx = index ?? this.get('children').indexOf(elementId)
-      originalChildrenList.splice(idx, 1)
-      this.set('children', originalChildrenList)
+      // Remove element from Workspace
+      if (this.get('children').indexOf(elementId) < 0) {
+        return
+      }
+      super.removeElement(element)
     }
 
     element.cleanup(options)

@@ -5,18 +5,16 @@
 1. Expand E2E coverage for vector editing
 - path-editing enter/exit edge cases
 - point selection/editing scenarios
-- progress: pen second-point micro-drag threshold regression is covered in `e2e/pen-tool.spec.ts`; continue with broader path-editing edge cases
+- progress:
+  - pen second-point micro-drag threshold regression is covered in `e2e/pen-tool.spec.ts`
+  - delete/undo regression coverage now includes selection restore, redo crash guard, and undo-commit compactness checks
+  - continue with broader path-editing edge cases
 - plan reference: `docs/internal/e2e-coverage-update-plan.md`
 
 2. Reduce app-level internal coupling
 - remove internal-path imports (for example keymap source path)
 
-3. Delete key support: single selected element
-- support Delete/Backspace to remove one selected element
-- include path-editing cleanup and undo/redo validation
-- Reference: `docs/internal/delete-key-single-element-plan.md`
-
-4. Delete key support: single selected vector point
+3. Delete key support: single selected vector point
 - support Delete/Backspace to remove one selected vector point in path-editing mode
 - include geometry recompute and point-state cleanup
 - Reference: `docs/internal/delete-key-single-vector-point-plan.md`

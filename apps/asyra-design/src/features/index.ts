@@ -2,6 +2,7 @@
 import './switch-primary-tool'
 import './create-element'
 import './selection'
+import './delete-element'
 import './hover-element'
 import './zoom'
 import './zoom-fit'

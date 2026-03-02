@@ -64,7 +64,7 @@ const api: CreateElementAPI = {
       y,
       width,
       height
-    })
+    }, { undoable: false })
   },
   resetElementSize: (elementId: string) => {
     elementApis.resetElementSize(elementId)

@@ -38,7 +38,6 @@ export interface RemoveElementEvent {
   payload: {
     data: Partial<ElementRawData>
     parent?: GroupInstanceTypes
-    index: number
   }
   options?: EVENT_OPTIONS
 }

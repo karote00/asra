@@ -14,6 +14,7 @@ export interface PropsRawData {
 
 export interface ElementRawData extends BaseRawData {
   type: EntityType
+  parentId?: string
   visible: boolean
   lock: boolean
   props?: PropsRawData

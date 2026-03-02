@@ -26,7 +26,13 @@ const elementChangeHandler = new ElementChangeHandler()
 
 type ElementDataType = Partial<ElementRawData>
 
-const ElementProps: (keyof ElementAttrs)[] = ['id', 'name', 'visible', 'lock']
+const ElementProps: (keyof ElementAttrs)[] = [
+  'id',
+  'name',
+  'parentId',
+  'visible',
+  'lock'
+]
 
 class Element<T extends ElementAttrs = ElementAttrs>
   extends Setter<T>
@@ -62,6 +68,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
       id: id(this._idType),
       type: EntityTypes.UNDEFINED,
       name: name(this._nameType),
+      parentId: '',
       visible: true,
       lock: false
     } as T
@@ -108,6 +115,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
     data.id = this.get('id')
     data.type = this.get('type')
     data.name = this.get('name')
+    data.parentId = this.get('parentId')
     data.visible = this.get('visible')
     data.lock = this.get('lock')
 

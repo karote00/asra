@@ -528,3 +528,23 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
 - Consequences:
   - Pending property change buffers no longer persist across action boundaries.
   - Transaction history remains single-source without duplicate write emission.
+
+## 2026-03-02 - Scene-tree removal contract moved to parentId-driven internal routing
+
+- Context:
+  - Element deletion flow required app-side parent/index lookup, which leaked tree-structure details outside scene-tree and increased stale-index risk.
+  - Undo/delete regressions exposed coupling between app preflight checks and scene-tree structural operations.
+- Decision:
+  - Persist `parentId` on scene-tree elements as part of element attrs/raw data contract.
+  - Move remove routing ownership into scene-tree:
+    - remove API resolves parent/container internally
+    - validates membership internally
+    - no longer requires caller-provided `index`
+  - Update remove event payload contract to drop `index` and keep `data` + optional `parent`.
+  - Remove load-time parent resync pass and trust persisted `parentId` during load.
+- Consequences:
+  - App/common APIs no longer compute parent index for removal.
+  - Remove flow is less error-prone and easier to maintain across undo/redo paths.
+  - Scene-tree load path remains deterministic without post-load parent mutation side effects.
+- Related Commit(s):
+  - pending (current working tree)

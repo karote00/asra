@@ -177,6 +177,18 @@ export const keyCombinations = {
       callback: updateKeyState
     }
   ],
+  [InputSystemEvents.INPUT_SHORTCUT_DELETE]: [
+    {
+      type: InputType.KEYBOARD,
+      keys: [keyMap.keys.Delete],
+      callback: updateKeyState
+    },
+    {
+      type: InputType.KEYBOARD,
+      keys: [keyMap.keys.Backspace],
+      callback: updateKeyState
+    }
+  ],
   [InputSystemEvents.INPUT_SHORTCUT_ARROW]: [
     {
       type: InputType.KEYBOARD,

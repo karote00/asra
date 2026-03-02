@@ -33,8 +33,8 @@ export const initSceneTreeSubscribes = () => {
   })
 
   subscribeToRemoveElement(({ payload, options }) => {
-    const { data, parent, index } = payload
-    sceneTree.removeElement(data, index, parent, options)
+    const { data, parent } = payload
+    sceneTree.removeElement(data, parent, options)
   })
 
   subscribeToChangeComputedData(async ({ payload, options }) => {

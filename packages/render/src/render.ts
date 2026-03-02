@@ -138,9 +138,9 @@ class Render {
   }
 
   getSelectedElements(): SceneElement[] {
-    return [...renderSelection.elementSelection].map((elementId) =>
-      this.viewport.getElementById(elementId)
-    ) as SceneElement[]
+    return [...renderSelection.elementSelection]
+      .map((elementId) => this.viewport.getElementById(elementId))
+      .filter((element): element is SceneElement => !!element)
   }
 
   getAllElementsBounds() {

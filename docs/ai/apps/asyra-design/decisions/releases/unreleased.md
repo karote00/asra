@@ -214,3 +214,20 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Consequences:
   - Pen subpath continuation is now explicit and endpoint-driven in split mode.
   - Users can resume and append from the intended subpath instead of defaulting to latest-tail behavior.
+
+## 2026-03-02 - Delete-key element removal finalized with undo-safe selection and hover re-evaluation
+
+- Context:
+  - Single-element delete by shortcut needed production-safe behavior across undo/redo, path-editing boundaries, and hover/selection state.
+  - Recent regressions included redo errors, non-restored selection on undo, and noisy undo commits during drag-create flows.
+- Decision:
+  - Finalize `Delete` / `Backspace` feature for one selected element with path-editing guard.
+  - Keep delete and selection clear in one undoable transaction so undo restores selection with the element.
+  - Re-evaluate hovered target after delete by calling hover feature API via `importFeature(FeatureNames.HOVER_ELEMENT)`.
+  - Expand E2E coverage for delete flow regressions and undo-commit quality (including compact drag-create commit assertions).
+- Consequences:
+  - Delete flow behavior is deterministic for undo/redo and mode boundaries.
+  - Hover/selection state is no longer stale after delete.
+  - Regression coverage now guards the previously reported delete/undo issues.
+- Related Commit(s):
+  - pending (current working tree)

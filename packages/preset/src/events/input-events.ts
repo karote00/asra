@@ -12,6 +12,7 @@ export const InputSystemEvents = {
   INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL: 'input.shortcut.switchPrimaryTool',
   INPUT_SHORTCUT_ENTER: 'input.shortcut.enter',
   INPUT_SHORTCUT_CANCEL: 'input.shortcut.cancel',
+  INPUT_SHORTCUT_DELETE: 'input.shortcut.delete',
   INPUT_SHORTCUT_SELECT_ELEMENTS: 'input.shortcut.selectElements'
 } as const
 
