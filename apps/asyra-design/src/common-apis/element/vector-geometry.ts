@@ -1,130 +1,118 @@
-import type { VectorAnchorPoint } from '@asyra/core'
-import type { PositionData } from '@asyra/utils'
+import type { VectorPointNode, VectorTopology } from '@asyra/core'
 import { getCubicBezierSegmentBounds } from './bezier-adapter'
 
 const MIN_VECTOR_SIZE = 0.1
 
-export const calculateVectorBounds = (anchorPoints: VectorAnchorPoint[]) => {
-  if (anchorPoints.length === 0) {
-    return { x: 0, y: 0, width: MIN_VECTOR_SIZE, height: MIN_VECTOR_SIZE }
-  }
+const isAnchorNode = (
+  point: VectorPointNode | undefined
+): point is VectorPointNode & { kind: 'anchor' } =>
+  !!point && point.kind === 'anchor'
 
-  let minX = anchorPoints[0].x
-  let minY = anchorPoints[0].y
-  let maxX = anchorPoints[0].x
-  let maxY = anchorPoints[0].y
+const includePoint = (
+  point: VectorPointNode,
+  bounds: { minX: number; minY: number; maxX: number; maxY: number }
+) => {
+  bounds.minX = Math.min(bounds.minX, point.x)
+  bounds.minY = Math.min(bounds.minY, point.y)
+  bounds.maxX = Math.max(bounds.maxX, point.x)
+  bounds.maxY = Math.max(bounds.maxY, point.y)
+}
 
-  const includePoint = (point: PositionData) => {
-    minX = Math.min(minX, point.x)
-    minY = Math.min(minY, point.y)
-    maxX = Math.max(maxX, point.x)
-    maxY = Math.max(maxY, point.y)
-  }
-
-  const includeSegmentBounds = (segmentBounds: {
+const includeSegmentBounds = (
+  segmentBounds: {
     minX: number
     maxX: number
     minY: number
     maxY: number
-  }) => {
-    minX = Math.min(minX, segmentBounds.minX)
-    minY = Math.min(minY, segmentBounds.minY)
-    maxX = Math.max(maxX, segmentBounds.maxX)
-    maxY = Math.max(maxY, segmentBounds.maxY)
+  },
+  bounds: { minX: number; minY: number; maxX: number; maxY: number }
+) => {
+  bounds.minX = Math.min(bounds.minX, segmentBounds.minX)
+  bounds.minY = Math.min(bounds.minY, segmentBounds.minY)
+  bounds.maxX = Math.max(bounds.maxX, segmentBounds.maxX)
+  bounds.maxY = Math.max(bounds.maxY, segmentBounds.maxY)
+}
+
+export const calculateVectorBounds = (topology: VectorTopology) => {
+  const anchorNodes = Object.values(topology.points).filter(
+    (point): point is VectorPointNode & { kind: 'anchor' } =>
+      point.kind === 'anchor'
+  )
+  if (anchorNodes.length === 0) {
+    return { x: 0, y: 0, width: MIN_VECTOR_SIZE, height: MIN_VECTOR_SIZE }
   }
 
-  let prev = anchorPoints[0]
-  for (let i = 1; i < anchorPoints.length; i += 1) {
-    const current = anchorPoints[i]
-    includePoint(current)
+  const bounds = {
+    minX: anchorNodes[0].x,
+    minY: anchorNodes[0].y,
+    maxX: anchorNodes[0].x,
+    maxY: anchorNodes[0].y
+  }
 
-    if (current.isMove) {
-      prev = current
-      continue
+  anchorNodes.forEach((point) => includePoint(point, bounds))
+
+  Object.values(topology.segments).forEach((segment) => {
+    const start = topology.points[segment.startId]
+    const end = topology.points[segment.endId]
+    if (!isAnchorNode(start) || !isAnchorNode(end)) {
+      return
     }
 
-    const hasCurve = !!prev.outHandle || !!current.inHandle
+    const outControl = segment.outControlId
+      ? topology.points[segment.outControlId]
+      : undefined
+    const inControl = segment.inControlId
+      ? topology.points[segment.inControlId]
+      : undefined
+
+    const p1 =
+      outControl && outControl.kind === 'control'
+        ? { x: outControl.x, y: outControl.y }
+        : { x: start.x, y: start.y }
+    const p2 =
+      inControl && inControl.kind === 'control'
+        ? { x: inControl.x, y: inControl.y }
+        : { x: end.x, y: end.y }
+
+    const hasCurve = !!(segment.outControlId || segment.inControlId)
     if (!hasCurve) {
-      prev = current
-      continue
+      return
     }
 
     includeSegmentBounds(
-      getCubicBezierSegmentBounds(
-        { x: prev.x, y: prev.y },
-        prev.outHandle ?? { x: prev.x, y: prev.y },
-        current.inHandle ?? { x: current.x, y: current.y },
-        { x: current.x, y: current.y }
-      )
+      getCubicBezierSegmentBounds({ x: start.x, y: start.y }, p1, p2, {
+        x: end.x,
+        y: end.y
+      }),
+      bounds
     )
-
-    prev = current
-  }
+  })
 
   return {
-    x: minX,
-    y: minY,
-    width: maxX - minX || MIN_VECTOR_SIZE,
-    height: maxY - minY || MIN_VECTOR_SIZE
+    x: bounds.minX,
+    y: bounds.minY,
+    width: bounds.maxX - bounds.minX || MIN_VECTOR_SIZE,
+    height: bounds.maxY - bounds.minY || MIN_VECTOR_SIZE
   }
 }
 
-export const normalizeVectorAnchorPoints = (
-  anchorPoints: VectorAnchorPoint[],
+export const normalizeVectorTopology = (
+  topology: VectorTopology,
   bounds: { x: number; y: number }
-): VectorAnchorPoint[] =>
-  anchorPoints.map((point) => ({
-    ...point,
-    x: point.x - bounds.x,
-    y: point.y - bounds.y,
-    inHandle: point.inHandle
-      ? {
-          x: point.inHandle.x - bounds.x,
-          y: point.inHandle.y - bounds.y
-        }
-      : null,
-    outHandle: point.outHandle
-      ? {
-          x: point.outHandle.x - bounds.x,
-          y: point.outHandle.y - bounds.y
-        }
-      : null
-  }))
+): VectorTopology => {
+  const normalizedPoints: Record<string, VectorPointNode> = {}
 
-export const toWorkspaceAnchorPoint = (
-  point: VectorAnchorPoint,
-  computed: { x?: number; y?: number; width?: number; height?: number }
-): VectorAnchorPoint => {
-  const offsetX = typeof computed.x === 'number' ? computed.x : 0
-  const offsetY = typeof computed.y === 'number' ? computed.y : 0
-  const width = typeof computed.width === 'number' ? computed.width : 0
-  const height = typeof computed.height === 'number' ? computed.height : 0
-
-  const isLikelyLocal =
-    point.x >= -1 &&
-    point.x <= width + 1 &&
-    point.y >= -1 &&
-    point.y <= height + 1
-
-  if (!isLikelyLocal) {
-    return { ...point }
-  }
+  Object.entries(topology.points).forEach(([pointId, point]) => {
+    normalizedPoints[pointId] = {
+      ...point,
+      x: point.x - bounds.x,
+      y: point.y - bounds.y
+    }
+  })
 
   return {
-    ...point,
-    x: point.x + offsetX,
-    y: point.y + offsetY,
-    inHandle: point.inHandle
-      ? {
-          x: point.inHandle.x + offsetX,
-          y: point.inHandle.y + offsetY
-        }
-      : null,
-    outHandle: point.outHandle
-      ? {
-          x: point.outHandle.x + offsetX,
-          y: point.outHandle.y + offsetY
-        }
-      : null
+    points: normalizedPoints,
+    segments: { ...topology.segments },
+    networks: { ...topology.networks }
   }
 }

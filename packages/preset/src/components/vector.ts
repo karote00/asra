@@ -1,40 +1,20 @@
 import { PropertyTypes } from '@asyra/utils'
 import type { RenderStrategy } from '@asyra/core'
 import { defineComponent } from '@asyra/core'
-import { type VectorAnchorPoint } from '@asyra/core'
+import type { VectorNetwork, VectorPointNode, VectorSegment } from '@asyra/core'
 
 interface VectorComputedData {
   x: number
   y: number
   width: number
   height: number
-  anchorPoints: VectorAnchorPoint[]
+  points: Record<string, VectorPointNode>
+  segments: Record<string, VectorSegment>
+  networks: Record<string, VectorNetwork>
   closed: boolean
   fill: string
   stroke: string
   strokeWidth: number
-}
-
-const getLocalPoint = (
-  point: VectorAnchorPoint,
-  data: Pick<VectorComputedData, 'x' | 'y' | 'width' | 'height'>
-) => {
-  // Supports both local-point data and legacy absolute-point data.
-  const isLikelyLocal =
-    point.x >= -1 &&
-    point.x <= data.width + 1 &&
-    point.y >= -1 &&
-    point.y <= data.height + 1
-
-  if (isLikelyLocal) {
-    return point
-  }
-
-  return {
-    ...point,
-    x: point.x - data.x,
-    y: point.y - data.y
-  }
 }
 
 const parseHexColor = (color: string, fallback: number) => {
@@ -42,12 +22,44 @@ const parseHexColor = (color: string, fallback: number) => {
   return Number.isNaN(parsed) ? fallback : parsed
 }
 
+const getNumericSuffix = (value: string) => {
+  const match = value.match(/_(\d+)$/)
+  if (!match) {
+    return Number.NaN
+  }
+
+  return Number.parseInt(match[1], 10)
+}
+
+const sortByStableId = <T extends { id: string }>(items: T[]): T[] =>
+  [...items].sort((a, b) => {
+    const aRank = getNumericSuffix(a.id)
+    const bRank = getNumericSuffix(b.id)
+    if (!Number.isNaN(aRank) && !Number.isNaN(bRank)) {
+      return aRank - bRank
+    }
+
+    return a.id.localeCompare(b.id)
+  })
+
 const vectorRenderStrategy: RenderStrategy = (graphic, data) => {
   graphic.clear()
 
   const typedData = data as typeof data & VectorComputedData
-  const { anchorPoints, closed, fill, stroke, strokeWidth, x, y } = typedData
-  if (!Array.isArray(anchorPoints) || anchorPoints.length === 0) {
+  const {
+    closed,
+    fill,
+    stroke,
+    strokeWidth,
+    x,
+    y,
+    points,
+    segments,
+    networks
+  } = typedData
+
+  const orderedNetworks = sortByStableId(Object.values(networks))
+  if (orderedNetworks.length === 0) {
     return
   }
 
@@ -55,48 +67,56 @@ const vectorRenderStrategy: RenderStrategy = (graphic, data) => {
   graphic.y = y
 
   const strokeColor = parseHexColor(stroke, 0xcccccc)
-  const localAnchorPoints = anchorPoints.map((point) =>
-    getLocalPoint(point, typedData)
-  )
 
-  const firstPoint = localAnchorPoints[0]
-  graphic.moveTo(firstPoint.x, firstPoint.y)
-
-  const drawSegment = (from: VectorAnchorPoint, to: VectorAnchorPoint) => {
-    const hasCurve = !!from.outHandle || !!to.inHandle
-    if (!hasCurve) {
-      graphic.lineTo(to.x, to.y)
+  orderedNetworks.forEach((network) => {
+    const firstId = network.pointIds[0]
+    const first = firstId ? points[firstId] : undefined
+    if (!first || first.kind !== 'anchor') {
       return
     }
 
-    graphic.bezierCurveTo(
-      from.outHandle?.x ?? from.x,
-      from.outHandle?.y ?? from.y,
-      to.inHandle?.x ?? to.x,
-      to.inHandle?.y ?? to.y,
-      to.x,
-      to.y
-    )
-  }
+    graphic.moveTo(first.x, first.y)
 
-  let prevPoint = firstPoint
-  for (let i = 1; i < localAnchorPoints.length; i++) {
-    const current = localAnchorPoints[i]
+    network.segmentIds.forEach((segmentId) => {
+      const segment = segments[segmentId]
+      if (!segment) {
+        return
+      }
 
-    if (current.isMove) {
-      graphic.moveTo(current.x, current.y)
-      prevPoint = current
-      continue
+      const start = points[segment.startId]
+      const end = points[segment.endId]
+      if (!start || !end || start.kind !== 'anchor' || end.kind !== 'anchor') {
+        return
+      }
+
+      const outControl =
+        segment.outControlId && points[segment.outControlId]?.kind === 'control'
+          ? points[segment.outControlId]
+          : null
+      const inControl =
+        segment.inControlId && points[segment.inControlId]?.kind === 'control'
+          ? points[segment.inControlId]
+          : null
+
+      if (!outControl && !inControl) {
+        graphic.lineTo(end.x, end.y)
+        return
+      }
+
+      graphic.bezierCurveTo(
+        outControl?.x ?? start.x,
+        outControl?.y ?? start.y,
+        inControl?.x ?? end.x,
+        inControl?.y ?? end.y,
+        end.x,
+        end.y
+      )
+    })
+
+    if (network.closed) {
+      graphic.closePath()
     }
-
-    drawSegment(prevPoint, current)
-
-    prevPoint = current
-  }
-
-  if (closed) {
-    graphic.closePath()
-  }
+  })
 
   if (closed && fill !== 'none') {
     graphic.fill(parseHexColor(fill, 0x000000))
@@ -128,9 +148,19 @@ defineComponent({
       alias: ['width', 'height']
     },
     {
-      name: 'anchorPoints',
-      type: PropertyTypes.ANCHOR_POINTS,
-      defaultValue: [] as VectorAnchorPoint[]
+      name: 'points',
+      type: PropertyTypes.CUSTOM,
+      defaultValue: {} as Record<string, VectorPointNode>
+    },
+    {
+      name: 'segments',
+      type: PropertyTypes.CUSTOM,
+      defaultValue: {} as Record<string, VectorSegment>
+    },
+    {
+      name: 'networks',
+      type: PropertyTypes.CUSTOM,
+      defaultValue: {} as Record<string, VectorNetwork>
     },
     {
       name: 'closed',

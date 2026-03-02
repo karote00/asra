@@ -19,28 +19,18 @@ interface PenState extends Record<string, unknown> {
   autoUpdateConnectedHandle: boolean
 }
 
-const createAnchorPoint = (
-  point: { x: number; y: number },
-  options?: { isMove?: boolean }
-): VectorAnchorPoint => ({
+const createAnchorPoint = (point: {
+  x: number
+  y: number
+}): VectorAnchorPoint => ({
   id: id(IDTypes.PROPS),
   x: point.x,
   y: point.y,
   type: 'sharp',
-  isMove: options?.isMove,
+  isMove: undefined,
   inHandle: null,
   outHandle: null
 })
-
-const getCurrentSubpathStartIndex = (anchorPoints: VectorAnchorPoint[]) => {
-  for (let i = anchorPoints.length - 1; i >= 0; i -= 1) {
-    if (anchorPoints[i].isMove) {
-      return i
-    }
-  }
-
-  return 0
-}
 
 const DOUBLE_CLICK_HIT_PADDING = 8
 
@@ -63,44 +53,6 @@ const computeSymmetricHandles = (
     outHandle: add(anchor, dragVector),
     dragVector
   }
-}
-
-const getSubpathStartIndexByPointIndex = (
-  anchorPoints: VectorAnchorPoint[],
-  pointIndex: number
-) => {
-  for (let i = pointIndex; i >= 0; i -= 1) {
-    if (anchorPoints[i].isMove) {
-      return i
-    }
-  }
-
-  return 0
-}
-
-const shouldAutoUpdateConnectedHandle = (
-  anchorPoints: VectorAnchorPoint[],
-  connectedIndex: number
-) => {
-  const connectedPoint = anchorPoints[connectedIndex]
-  if (!connectedPoint) {
-    return false
-  }
-
-  const hasUserDefinedHandle = connectedPoint.outHandle !== null
-  if (hasUserDefinedHandle) {
-    return false
-  }
-
-  const subpathStartIndex = getSubpathStartIndexByPointIndex(
-    anchorPoints,
-    connectedIndex
-  )
-  const isFirstPointOfSubpath = connectedIndex === subpathStartIndex
-  const subpathPointCountBeforeAppend = anchorPoints.length - subpathStartIndex
-  const isAppendingSecondPointOfSubpath = subpathPointCountBeforeAppend === 1
-
-  return isFirstPointOfSubpath && isAppendingSecondPointOfSubpath
 }
 
 const computeConnectedOutHandle = (connectedPoint: VectorAnchorPoint): Vec2 => {
@@ -181,36 +133,34 @@ const applyBezierDragForNewPoint = (
         currentOutHandle: symmetric.outHandle
       }
 
-  const nextAnchorPoints = anchorPoints.map((point) => {
-    if (point.id === state.connectedPointId) {
-      return {
-        ...point,
-        outHandle: {
-          x: dragHandles.connectedOutHandle.x,
-          y: dragHandles.connectedOutHandle.y
-        }
+  elementApis.updateVectorAnchorPointHandles(state.elementId, [
+    {
+      pointId: state.connectedPointId,
+      target: 'outHandle',
+      position: {
+        x: dragHandles.connectedOutHandle.x,
+        y: dragHandles.connectedOutHandle.y
       }
+    },
+    {
+      pointId: state.pointId,
+      target: 'inHandle',
+      position: {
+        x: dragHandles.currentInHandle.x,
+        y: dragHandles.currentInHandle.y
+      },
+      forceSmooth: true
+    },
+    {
+      pointId: state.pointId,
+      target: 'outHandle',
+      position: {
+        x: dragHandles.currentOutHandle.x,
+        y: dragHandles.currentOutHandle.y
+      },
+      forceSmooth: true
     }
-
-    if (point.id === state.pointId) {
-      return {
-        ...point,
-        type: 'smooth' as const,
-        inHandle: {
-          x: dragHandles.currentInHandle.x,
-          y: dragHandles.currentInHandle.y
-        },
-        outHandle: {
-          x: dragHandles.currentOutHandle.x,
-          y: dragHandles.currentOutHandle.y
-        }
-      }
-    }
-
-    return point
-  })
-
-  elementApis.updateVectorGeometry(state.elementId, nextAnchorPoints)
+  ])
 
   const selectedTarget = systemContextApis.getSelectedVectorPoint()
   if (
@@ -270,26 +220,23 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
           systemContextApis.getPathEditingStartNewSubpath()
 
         if (isPathEditingVectorSelected(selectedIds, pathEditingVectorId)) {
-          const currentAnchorPoints =
-            elementApis.getVectorAnchorPoints(pathEditingVectorId)
-          const connectedPointId =
-            !startNewSubpath && currentAnchorPoints.length > 0
-              ? currentAnchorPoints[currentAnchorPoints.length - 1].id
+          const subpaths =
+            elementApis.getVectorAnchorSubpaths(pathEditingVectorId)
+          const currentSubpath = subpaths[subpaths.length - 1]
+          const connectedPoint =
+            !startNewSubpath && currentSubpath && currentSubpath.length > 0
+              ? currentSubpath[currentSubpath.length - 1]
               : null
-          const connectedIndex = connectedPointId
-            ? currentAnchorPoints.findIndex(
-                (point) => point.id === connectedPointId
-              )
-            : -1
+          const connectedPointId = connectedPoint?.id ?? null
           const autoUpdateConnectedHandle =
-            connectedIndex !== -1 &&
-            shouldAutoUpdateConnectedHandle(currentAnchorPoints, connectedIndex)
-          const newPoint = createAnchorPoint(dragStartWorkspace, {
-            isMove: startNewSubpath
-          })
+            !!connectedPoint &&
+            currentSubpath.length === 1 &&
+            connectedPoint.outHandle === null
+          const newPoint = createAnchorPoint(dragStartWorkspace)
           const selectedPoint = elementApis.appendVectorAnchorPoint(
             pathEditingVectorId,
-            newPoint
+            newPoint,
+            { startNewSubpath }
           )
           selectionApis.selectElements([pathEditingVectorId])
           setSelectedAnchorPoint(pathEditingVectorId, selectedPoint)
@@ -307,10 +254,10 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
         }
 
         const firstPoint = createAnchorPoint(dragStartWorkspace)
-        const elementId = elementApis.createElement({
-          type: 'vector',
-          anchorPoints: [firstPoint]
-        })
+        const elementId = elementApis.createVectorElementFromSinglePoint(
+          firstPoint.id,
+          dragStartWorkspace
+        )
         if (!elementId) {
           return null
         }
@@ -461,17 +408,11 @@ export const cancelPenEditingFeature = defineFeature(
         return { cancelled: true, elementId: editingVectorId }
       }
 
-      const anchorPoints = elementApis.getVectorAnchorPoints(editingVectorId)
       const startNewSubpath = systemContextApis.getPathEditingStartNewSubpath()
       if (!startNewSubpath) {
-        const subpathStartIndex = getCurrentSubpathStartIndex(anchorPoints)
-        const isSinglePointSubpath =
-          subpathStartIndex > 0 &&
-          anchorPoints.length - subpathStartIndex === 1 &&
-          !!anchorPoints[subpathStartIndex]?.isMove
-        if (isSinglePointSubpath) {
-          const nextAnchorPoints = anchorPoints.slice(0, subpathStartIndex)
-          elementApis.updateVectorGeometry(editingVectorId, nextAnchorPoints)
+        const removed =
+          elementApis.removeLastSinglePointSubpath(editingVectorId)
+        if (removed) {
           systemContextApis.setPathEditingStartNewSubpath(true)
           systemContextApis.clearVectorPointState()
           return { splitPath: true, removedSinglePointSubpath: true }

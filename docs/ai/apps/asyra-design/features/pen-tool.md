@@ -15,6 +15,15 @@
 
 ## Pen Session (`pen`)
 
+### Vector Data Contract
+
+- vector path runtime data is topology-native:
+  - `points` (anchors + controls)
+  - `segments` (edge linkage + optional control refs)
+  - `networks` (ordered subpaths + closed state)
+- pen add/drag/escape mutations update topology data directly through `elementApis` vector APIs
+- no runtime conversion layer from legacy `anchorPoints` array models
+
 ### Trigger
 
 - event: `input.drag`

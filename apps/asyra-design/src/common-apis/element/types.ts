@@ -1,4 +1,10 @@
-import type { VectorAnchorPoint, VectorPathStyle } from '@asyra/core'
+import type {
+  VectorAnchorPoint,
+  VectorPathStyle,
+  VectorNetwork,
+  VectorPointNode,
+  VectorSegment
+} from '@asyra/core'
 import type { EntityType, PositionData, Rect } from '@asyra/utils'
 
 export type ElementBounds = Rect
@@ -8,13 +14,18 @@ export interface VectorComputedSnapshot extends Partial<VectorPathStyle> {
   y?: number
   width?: number
   height?: number
-  anchorPoints?: VectorAnchorPoint[]
+  points: Record<string, VectorPointNode>
+  segments: Record<string, VectorSegment>
+  networks: Record<string, VectorNetwork>
 }
 
 export interface CreateElementOptions {
   type: EntityType
   clientPosition?: PositionData
-  anchorPoints?: VectorAnchorPoint[]
+  points?: Record<string, VectorPointNode>
+  segments?: Record<string, VectorSegment>
+  networks?: Record<string, VectorNetwork>
+  closed?: boolean
 }
 
 export type VectorPointTarget = 'anchor' | 'inHandle' | 'outHandle'

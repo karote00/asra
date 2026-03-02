@@ -3,7 +3,10 @@ import { Subscription } from 'rxjs'
 import {
   componentRegistry,
   elementPropertyRegistry,
-  renderRegistry
+  renderRegistry,
+  type VectorNetwork,
+  type VectorPointNode,
+  type VectorSegment
 } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
 import { applyPreset } from '../preset'
@@ -58,6 +61,90 @@ const runRenderStrategy = (
   ;(strategy as (graphic: unknown, data: unknown) => void)(graphic, data)
 }
 
+interface TestAnchorPoint {
+  id: string
+  x: number
+  y: number
+  inHandle?: { x: number; y: number } | null
+  outHandle?: { x: number; y: number } | null
+}
+
+const toVectorData = (anchors: TestAnchorPoint[], closed: boolean) => {
+  const points: Record<string, VectorPointNode> = {}
+  const segments: Record<string, VectorSegment> = {}
+  const networks: Record<string, VectorNetwork> = {
+    network_0: {
+      id: 'network_0',
+      pointIds: anchors.map((anchor) => anchor.id),
+      segmentIds: [],
+      closed
+    }
+  }
+
+  anchors.forEach((anchor, index) => {
+    points[anchor.id] = {
+      id: anchor.id,
+      kind: 'anchor',
+      anchorType: 'sharp',
+      x: anchor.x,
+      y: anchor.y
+    }
+
+    if (anchor.inHandle) {
+      points[`${anchor.id}:in`] = {
+        id: `${anchor.id}:in`,
+        kind: 'control',
+        controlForId: anchor.id,
+        controlRole: 'in',
+        x: anchor.inHandle.x,
+        y: anchor.inHandle.y
+      }
+    }
+
+    if (anchor.outHandle) {
+      points[`${anchor.id}:out`] = {
+        id: `${anchor.id}:out`,
+        kind: 'control',
+        controlForId: anchor.id,
+        controlRole: 'out',
+        x: anchor.outHandle.x,
+        y: anchor.outHandle.y
+      }
+    }
+
+    if (index === 0) {
+      return
+    }
+
+    const prev = anchors[index - 1]
+    const segmentId = `segment_${index - 1}`
+    segments[segmentId] = {
+      id: segmentId,
+      startId: prev.id,
+      endId: anchor.id,
+      outControlId: prev.outHandle ? `${prev.id}:out` : null,
+      inControlId: anchor.inHandle ? `${anchor.id}:in` : null
+    }
+    networks.network_0.segmentIds.push(segmentId)
+  })
+
+  if (closed && anchors.length > 1) {
+    const first = anchors[0]
+    const last = anchors[anchors.length - 1]
+    const segmentId = 'segment_close'
+    segments[segmentId] = {
+      id: segmentId,
+      startId: last.id,
+      endId: first.id,
+      outControlId: last.outHandle ? `${last.id}:out` : null,
+      inControlId: first.inHandle ? `${first.id}:in` : null
+    }
+    networks.network_0.segmentIds.push(segmentId)
+  }
+
+  return { points, segments, networks }
+}
+
 describe('Vector Component', () => {
   it('should register vector component in all registries', () => {
     expect(componentRegistry.has('vector')).toBe(true)
@@ -67,14 +154,21 @@ describe('Vector Component', () => {
     expect(renderRegistry.has('vector')).toBe(true)
   })
 
-  it('should register anchorPoints property', () => {
+  it('should register topology properties', () => {
     const properties =
       elementPropertyRegistry.getPropertiesForComponent('vector')
+    const pointsProp = properties.find((p) => p.name === 'points')
+    const segmentsProp = properties.find((p) => p.name === 'segments')
+    const networksProp = properties.find((p) => p.name === 'networks')
     const anchorPointsProp = properties.find((p) => p.name === 'anchorPoints')
 
-    expect(anchorPointsProp).toBeDefined()
-    expect(anchorPointsProp?.type).toBe(PropertyTypes.ANCHOR_POINTS)
-    expect(anchorPointsProp?.defaultValue).toEqual([])
+    expect(pointsProp?.type).toBe(PropertyTypes.CUSTOM)
+    expect(pointsProp?.defaultValue).toEqual({})
+    expect(segmentsProp?.type).toBe(PropertyTypes.CUSTOM)
+    expect(segmentsProp?.defaultValue).toEqual({})
+    expect(networksProp?.type).toBe(PropertyTypes.CUSTOM)
+    expect(networksProp?.defaultValue).toEqual({})
+    expect(anchorPointsProp).toBeUndefined()
   })
 
   it('should register closed property', () => {
@@ -131,25 +225,14 @@ describe('Vector Component', () => {
       y: 0,
       width: 100,
       height: 100,
-      anchorPoints: [
-        { id: '1', x: 0, y: 0, type: 'sharp', inHandle: null, outHandle: null },
-        {
-          id: '2',
-          x: 100,
-          y: 0,
-          type: 'sharp',
-          inHandle: null,
-          outHandle: null
-        },
-        {
-          id: '3',
-          x: 100,
-          y: 100,
-          type: 'sharp',
-          inHandle: null,
-          outHandle: null
-        }
-      ],
+      ...toVectorData(
+        [
+          { id: '1', x: 0, y: 0 },
+          { id: '2', x: 100, y: 0 },
+          { id: '3', x: 100, y: 100 }
+        ],
+        false
+      ),
       closed: false,
       fill: 'none',
       stroke: '#000000',
@@ -192,24 +275,13 @@ describe('Vector Component', () => {
       y: 0,
       width: 100,
       height: 100,
-      anchorPoints: [
-        {
-          id: '1',
-          x: 0,
-          y: 0,
-          type: 'smooth',
-          inHandle: null,
-          outHandle: { x: 25, y: 0 }
-        },
-        {
-          id: '2',
-          x: 100,
-          y: 100,
-          type: 'smooth',
-          inHandle: { x: 75, y: 100 },
-          outHandle: null
-        }
-      ],
+      ...toVectorData(
+        [
+          { id: '1', x: 0, y: 0, outHandle: { x: 25, y: 0 } },
+          { id: '2', x: 100, y: 100, inHandle: { x: 75, y: 100 } }
+        ],
+        false
+      ),
       closed: false,
       fill: 'none',
       stroke: '#000000',
@@ -249,24 +321,13 @@ describe('Vector Component', () => {
       y: 0,
       width: 200,
       height: 200,
-      anchorPoints: [
-        {
-          id: '1',
-          x: 0,
-          y: 0,
-          type: 'sharp',
-          inHandle: null,
-          outHandle: { x: 50, y: 0 }
-        },
-        {
-          id: '2',
-          x: 100,
-          y: 100,
-          type: 'sharp',
-          inHandle: null,
-          outHandle: null
-        }
-      ],
+      ...toVectorData(
+        [
+          { id: '1', x: 0, y: 0, outHandle: { x: 50, y: 0 } },
+          { id: '2', x: 100, y: 100 }
+        ],
+        false
+      ),
       closed: false,
       fill: 'none',
       stroke: '#000000',
@@ -307,33 +368,15 @@ describe('Vector Component', () => {
       y: 0,
       width: 100,
       height: 100,
-      anchorPoints: [
-        { id: '1', x: 0, y: 0, type: 'sharp', inHandle: null, outHandle: null },
-        {
-          id: '2',
-          x: 100,
-          y: 0,
-          type: 'sharp',
-          inHandle: null,
-          outHandle: null
-        },
-        {
-          id: '3',
-          x: 100,
-          y: 100,
-          type: 'sharp',
-          inHandle: null,
-          outHandle: null
-        },
-        {
-          id: '4',
-          x: 0,
-          y: 100,
-          type: 'sharp',
-          inHandle: null,
-          outHandle: null
-        }
-      ],
+      ...toVectorData(
+        [
+          { id: '1', x: 0, y: 0 },
+          { id: '2', x: 100, y: 0 },
+          { id: '3', x: 100, y: 100 },
+          { id: '4', x: 0, y: 100 }
+        ],
+        true
+      ),
       closed: true,
       fill: '#ff0000',
       stroke: '#000000',
@@ -346,7 +389,7 @@ describe('Vector Component', () => {
     expect(mockGraphic.fill).toHaveBeenCalledWith(0xff0000)
   })
 
-  it('should not render if anchor points less than 2', () => {
+  it('should not render path segments when only one point exists', () => {
     const renderStrategy = renderRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -367,9 +410,7 @@ describe('Vector Component', () => {
       y: 0,
       width: 100,
       height: 100,
-      anchorPoints: [
-        { id: '1', x: 0, y: 0, type: 'sharp', inHandle: null, outHandle: null }
-      ],
+      ...toVectorData([{ id: '1', x: 0, y: 0 }], false),
       closed: false,
       fill: 'none',
       stroke: '#000000',

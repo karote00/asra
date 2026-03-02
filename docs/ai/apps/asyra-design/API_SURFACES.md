@@ -17,21 +17,29 @@ Import boundary:
 - `getElementType(elementId: string): string | undefined`
 - `getElementBounds(elementId: string): { x: number; y: number; width: number; height: number } | null`
 - `isPointInsideElement(elementId: string, point: PositionData, padding?: number): boolean`
+- vector topology contract:
+  - canonical runtime/persistence model is `points` + `segments` + `networks`
+  - no runtime geometry conversion from legacy `anchorPoints` shapes
 - `getVectorAnchorPoints(elementId: string): VectorAnchorPoint[]`
+- `getVectorAnchorSubpaths(elementId: string): VectorAnchorPoint[][]`
+- `getVectorTopology(elementId: string): { points: Record<string, VectorPointNode>; segments: Record<string, VectorSegment>; networks: Record<string, VectorNetwork> }`
 - `getVectorAnchorPointAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): { point: VectorAnchorPoint; index: number } | null`
 - `getVectorAnchorPointAtClientPos(elementId: string, clientPos: PositionData): { point: VectorAnchorPoint; index: number } | null`
 - `getVectorEditablePointAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): { point: VectorAnchorPoint; index: number; target: 'anchor' | 'inHandle' | 'outHandle'; position: PositionData } | null`
 - `getVectorEditablePointAtClientPos(elementId: string, clientPos: PositionData): { point: VectorAnchorPoint; index: number; target: 'anchor' | 'inHandle' | 'outHandle'; position: PositionData } | null`
+- `isPointNearVectorPathAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): boolean`
+- `isPointNearVectorPathAtClientPos(elementId: string, clientPos: PositionData, hitRadius?: number): boolean`
 - `getVectorAnchorPointById(elementId: string, pointId: string): { point: VectorAnchorPoint; index: number } | null`
-- `updateVectorGeometry(elementId: string, anchorPoints: VectorAnchorPoint[]): void`
-  - recomputes vector `x/y/width/height` from rendered segment geometry (straight + cubic bezier extrema), not anchor positions alone
-- `appendVectorAnchorPoint(elementId: string, point: VectorAnchorPoint): { point: VectorAnchorPoint; index: number } | null`
+- `appendVectorAnchorPoint(elementId: string, point: VectorAnchorPoint, options?: { startNewSubpath?: boolean }): { point: VectorAnchorPoint; index: number } | null`
+- `removeLastSinglePointSubpath(elementId: string): boolean`
 - `setVectorClosed(elementId: string, closed: boolean): void`
 - `updateVectorAnchorPointPosition(elementId: string, pointId: string, position: PositionData): { point: VectorAnchorPoint; index: number } | null`
 - `updateVectorAnchorPointType(elementId: string, pointId: string, type: 'smooth' | 'sharp'): { point: VectorAnchorPoint; index: number } | null`
 - `updateVectorAnchorPointHandlePosition(elementId: string, pointId: string, target: 'inHandle' | 'outHandle', position: PositionData): { point: VectorAnchorPoint; index: number } | null`
+- `updateVectorAnchorPointHandles(elementId: string, updates: { pointId: string; target: 'inHandle' | 'outHandle'; position: PositionData | null; forceSmooth?: boolean }[]): void`
 - `getMousePosInWorkspace(clientPos: PositionData): PositionData | null`
-- `createElement(options: { type: EntityType; clientPosition?: PositionData; anchorPoints?: VectorAnchorPoint[] }, mutationOptions?: { undoable: boolean }): string | null`
+- `createElement(options: { type: EntityType; clientPosition?: PositionData; points?: Record<string, VectorPointNode>; segments?: Record<string, VectorSegment>; networks?: Record<string, VectorNetwork>; closed?: boolean }, mutationOptions?: { undoable: boolean }): string | null`
+- `createVectorElementFromSinglePoint(pointId: string, position: PositionData, mutationOptions?: { undoable: boolean }): string | null`
 - `resetElementSize(elementId: string): void`
 - `hasMovedBeyondThreshold(clientDragStart: PositionData, clientCurrentPos: PositionData, threshold?: number): boolean`
 - `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: { undoable: boolean }): void`

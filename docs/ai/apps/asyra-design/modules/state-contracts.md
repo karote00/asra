@@ -64,6 +64,23 @@ This file defines app-level state keys, owners, and primary consumers.
   - source: system context subscription
   - consumers: toolbar and path-editing UI
 
+## Vector Computed Geometry Keys
+
+- `points`
+  - owner: vector element computed data
+  - writers: `elementApis` topology mutation helpers
+  - readers: vector render strategy, vector path-editing render layer, pen/path editing queries
+
+- `segments`
+  - owner: vector element computed data
+  - writers: `elementApis` topology mutation helpers
+  - readers: vector render strategy, path hit-testing, vector path-editing render layer
+
+- `networks`
+  - owner: vector element computed data
+  - writers: `elementApis` topology mutation helpers
+  - readers: vector render strategy, path-editing subpath flow, vector path-editing render layer
+
 ## Contract Rules
 
 - state owner writes state; consumers must not mutate owner internals

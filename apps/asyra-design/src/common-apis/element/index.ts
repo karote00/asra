@@ -12,15 +12,38 @@ import {
   type PositionData,
   type EVENT_OPTIONS
 } from '@asyra/utils'
-import type { VectorAnchorPoint, VectorPathStyle } from '@asyra/core'
+import type {
+  VectorAnchorPoint,
+  VectorNetwork,
+  VectorPathStyle,
+  VectorPointNode,
+  VectorSegment,
+  VectorTopology
+} from '@asyra/core'
 import { isEqual } from 'lodash'
 import { MOUSE_MOVEMENT_THRESHOLD } from '../../constants'
 import core, { render, sceneTree } from '../../contexts'
 import {
   calculateVectorBounds,
-  normalizeVectorAnchorPoints,
-  toWorkspaceAnchorPoint
+  normalizeVectorTopology
 } from './vector-geometry'
+import {
+  appendAnchorPointToTopology,
+  createEmptyVectorTopology,
+  createVectorTopologyFromSinglePoint,
+  getOrderedNetworks,
+  hasVectorTopologyData,
+  isClosedVectorTopology,
+  isVectorTopology,
+  removeLastSinglePointSubpath,
+  setAnchorHandleInTopology,
+  setAnchorTypeInTopology,
+  setTopologyClosed,
+  toWorkspaceTopology,
+  updateAnchorPositionInTopology,
+  vectorTopologyToAnchorPoints,
+  vectorTopologyToAnchorSubpaths
+} from './vector-topology'
 import { getClosestPointOnCubicBezier } from './bezier-adapter'
 import type {
   CreateElementOptions,
@@ -39,6 +62,15 @@ const DEFAULT_VECTOR_STYLE: VectorPathStyle = {
 }
 const VECTOR_POINT_HIT_RADIUS = 6
 const VECTOR_SEGMENT_HIT_RADIUS = 8
+
+interface VectorComputedData {
+  x?: number
+  y?: number
+  closed?: boolean
+  points: Record<string, VectorPointNode>
+  segments: Record<string, VectorSegment>
+  networks: Record<string, VectorNetwork>
+}
 
 const getDistanceSquared = (a: PositionData, b: PositionData) => {
   const dx = a.x - b.x
@@ -127,6 +159,99 @@ const createElementAtWorkspacePos = (
   endTransaction()
 
   return elementId
+}
+
+const getVectorComputed = (elementId: string): VectorComputedData | null => {
+  const element = sceneTree.getElementById(elementId)
+  if (!element) {
+    return null
+  }
+
+  const computed = element.getAllComputedData() as Partial<VectorComputedData>
+  if (!hasVectorTopologyData(computed)) {
+    return null
+  }
+
+  return {
+    x: computed.x,
+    y: computed.y,
+    closed: computed.closed,
+    points: computed.points,
+    segments: computed.segments,
+    networks: computed.networks
+  }
+}
+
+const getVectorOffset = (computed: Pick<VectorComputedData, 'x' | 'y'>) => ({
+  x: typeof computed.x === 'number' ? computed.x : 0,
+  y: typeof computed.y === 'number' ? computed.y : 0
+})
+
+const getVectorTopologyLocal = (elementId: string): VectorTopology => {
+  const computed = getVectorComputed(elementId)
+  if (!computed) {
+    return createEmptyVectorTopology()
+  }
+
+  return {
+    points: computed.points,
+    segments: computed.segments,
+    networks: computed.networks
+  }
+}
+
+const getVectorTopologyWorkspace = (elementId: string): VectorTopology => {
+  const computed = getVectorComputed(elementId)
+  if (!computed) {
+    return createEmptyVectorTopology()
+  }
+
+  return toWorkspaceTopology(
+    {
+      points: computed.points,
+      segments: computed.segments,
+      networks: computed.networks
+    },
+    getVectorOffset(computed)
+  )
+}
+
+const commitVectorTopology = (
+  elementId: string,
+  topologyInWorkspace: VectorTopology,
+  options?: {
+    closed?: boolean
+  }
+) => {
+  const bounds = calculateVectorBounds(topologyInWorkspace)
+  const normalizedTopology = normalizeVectorTopology(
+    topologyInWorkspace,
+    bounds
+  )
+  const computed = getVectorComputed(elementId)
+  const nextClosed =
+    options?.closed ??
+    (typeof computed?.closed === 'boolean'
+      ? computed.closed
+      : isClosedVectorTopology(normalizedTopology))
+
+  const nextData: Record<string, DataTypes> = {
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    points: normalizedTopology.points,
+    segments: normalizedTopology.segments,
+    networks: normalizedTopology.networks,
+    closed: nextClosed
+  }
+
+  const patch = createVectorComputedPatch(elementId, nextData)
+  if (Object.keys(patch).length === 0) {
+    return
+  }
+
+  elementApis.changeComputedData([elementId], patch)
 }
 
 export const elementApis = {
@@ -251,26 +376,25 @@ export const elementApis = {
   },
 
   getVectorAnchorPoints: (elementId: string): VectorAnchorPoint[] => {
-    const element = sceneTree.getElementById(elementId)
-    if (!element) {
+    const topology = getVectorTopologyWorkspace(elementId)
+    if (Object.keys(topology.points).length === 0) {
       return []
     }
 
-    const computed = element.getAllComputedData() as {
-      x?: number
-      y?: number
-      width?: number
-      height?: number
-      anchorPoints?: VectorAnchorPoint[]
-    }
+    return vectorTopologyToAnchorPoints(topology)
+  },
 
-    if (!Array.isArray(computed.anchorPoints)) {
+  getVectorAnchorSubpaths: (elementId: string) => {
+    const topology = getVectorTopologyWorkspace(elementId)
+    if (Object.keys(topology.points).length === 0) {
       return []
     }
 
-    return computed.anchorPoints.map((point) =>
-      toWorkspaceAnchorPoint(point, computed)
-    )
+    return vectorTopologyToAnchorSubpaths(topology)
+  },
+
+  getVectorTopology: (elementId: string) => {
+    return getVectorTopologyLocal(elementId)
   },
 
   getVectorAnchorPointAtWorkspacePos: (
@@ -393,41 +517,65 @@ export const elementApis = {
     workspacePos: PositionData,
     hitRadius = VECTOR_SEGMENT_HIT_RADIUS
   ): boolean => {
-    const anchorPoints = elementApis.getVectorAnchorPoints(elementId)
-    if (anchorPoints.length < 2) {
+    const topology = getVectorTopologyWorkspace(elementId)
+    if (Object.keys(topology.segments).length === 0) {
       return false
     }
 
     const radiusSquared = hitRadius * hitRadius
-    let prev = anchorPoints[0]
+    const orderedNetworks = getOrderedNetworks(topology)
+    for (const network of orderedNetworks) {
+      for (const segmentId of network.segmentIds) {
+        const segment = topology.segments[segmentId]
+        if (!segment) {
+          continue
+        }
 
-    for (let i = 1; i < anchorPoints.length; i += 1) {
-      const current = anchorPoints[i]
-      if (current.isMove) {
-        prev = current
-        continue
+        const start = topology.points[segment.startId]
+        const end = topology.points[segment.endId]
+        if (
+          !start ||
+          !end ||
+          start.kind !== 'anchor' ||
+          end.kind !== 'anchor'
+        ) {
+          continue
+        }
+
+        const outControl =
+          segment.outControlId &&
+          topology.points[segment.outControlId]?.kind === 'control'
+            ? topology.points[segment.outControlId]
+            : null
+        const inControl =
+          segment.inControlId &&
+          topology.points[segment.inControlId]?.kind === 'control'
+            ? topology.points[segment.inControlId]
+            : null
+
+        const hasCurve = !!outControl || !!inControl
+        const closest = hasCurve
+          ? getClosestPointOnCubicBezier(
+              { x: start.x, y: start.y },
+              outControl
+                ? { x: outControl.x, y: outControl.y }
+                : { x: start.x, y: start.y },
+              inControl
+                ? { x: inControl.x, y: inControl.y }
+                : { x: end.x, y: end.y },
+              { x: end.x, y: end.y },
+              workspacePos
+            )
+          : getClosestPointOnLineSegment(
+              { x: start.x, y: start.y },
+              { x: end.x, y: end.y },
+              workspacePos
+            )
+
+        if (getDistanceSquared(closest, workspacePos) <= radiusSquared) {
+          return true
+        }
       }
-
-      const hasCurve = !!prev.outHandle || !!current.inHandle
-      const closest = hasCurve
-        ? getClosestPointOnCubicBezier(
-            { x: prev.x, y: prev.y },
-            prev.outHandle ?? { x: prev.x, y: prev.y },
-            current.inHandle ?? { x: current.x, y: current.y },
-            { x: current.x, y: current.y },
-            workspacePos
-          )
-        : getClosestPointOnLineSegment(
-            { x: prev.x, y: prev.y },
-            { x: current.x, y: current.y },
-            workspacePos
-          )
-
-      if (getDistanceSquared(closest, workspacePos) <= radiusSquared) {
-        return true
-      }
-
-      prev = current
     }
 
     return false
@@ -472,49 +620,41 @@ export const elementApis = {
     }
   },
 
-  updateVectorGeometry: (
-    elementId: string,
-    anchorPoints: VectorAnchorPoint[]
-  ) => {
-    const bounds = calculateVectorBounds(anchorPoints)
-    const normalizedAnchorPoints = normalizeVectorAnchorPoints(
-      anchorPoints,
-      bounds
-    )
-    const nextData: Record<string, DataTypes> = {
-      x: bounds.x,
-      y: bounds.y,
-      width: bounds.width,
-      height: bounds.height,
-      anchorPoints: normalizedAnchorPoints
-    }
-
-    const patch = createVectorComputedPatch(elementId, nextData)
-    if (Object.keys(patch).length === 0) {
-      return
-    }
-
-    elementApis.changeComputedData([elementId], patch)
-  },
-
   appendVectorAnchorPoint: (
     elementId: string,
-    point: VectorAnchorPoint
+    point: VectorAnchorPoint,
+    options?: { startNewSubpath?: boolean }
   ): { point: VectorAnchorPoint; index: number } | null => {
-    const currentAnchorPoints = elementApis.getVectorAnchorPoints(elementId)
-    const nextAnchorPoints = [...currentAnchorPoints, point]
-    elementApis.updateVectorGeometry(elementId, nextAnchorPoints)
+    const topology = getVectorTopologyWorkspace(elementId)
+    const nextTopology = appendAnchorPointToTopology(
+      topology,
+      point.id,
+      { x: point.x, y: point.y },
+      {
+        startNewSubpath: options?.startNewSubpath,
+        anchorType: point.type
+      }
+    )
 
+    commitVectorTopology(elementId, nextTopology)
     return elementApis.getVectorAnchorPointById(elementId, point.id)
   },
 
-  setVectorClosed: (elementId: string, closed: boolean) => {
-    const patch = createVectorComputedPatch(elementId, { closed })
-    if (Object.keys(patch).length === 0) {
-      return
+  removeLastSinglePointSubpath: (elementId: string): boolean => {
+    const topology = getVectorTopologyWorkspace(elementId)
+    const nextTopology = removeLastSinglePointSubpath(topology)
+    if (!nextTopology) {
+      return false
     }
 
-    elementApis.changeComputedData([elementId], patch)
+    commitVectorTopology(elementId, nextTopology)
+    return true
+  },
+
+  setVectorClosed: (elementId: string, closed: boolean) => {
+    const topology = getVectorTopologyWorkspace(elementId)
+    const nextTopology = setTopologyClosed(topology, closed)
+    commitVectorTopology(elementId, nextTopology, { closed })
   },
 
   updateVectorAnchorPointPosition: (
@@ -522,25 +662,13 @@ export const elementApis = {
     pointId: string,
     position: PositionData
   ): { point: VectorAnchorPoint; index: number } | null => {
-    const anchorPoints = elementApis.getVectorAnchorPoints(elementId)
-    const index = anchorPoints.findIndex((point) => point.id === pointId)
-    if (index === -1) {
-      return null
-    }
-
-    const nextAnchorPoints = anchorPoints.map((point, pointIndex) => {
-      if (pointIndex !== index) {
-        return point
-      }
-
-      return {
-        ...point,
-        x: position.x,
-        y: position.y
-      }
-    })
-
-    elementApis.updateVectorGeometry(elementId, nextAnchorPoints)
+    const topology = getVectorTopologyWorkspace(elementId)
+    const nextTopology = updateAnchorPositionInTopology(
+      topology,
+      pointId,
+      position
+    )
+    commitVectorTopology(elementId, nextTopology)
     return elementApis.getVectorAnchorPointById(elementId, pointId)
   },
 
@@ -549,33 +677,9 @@ export const elementApis = {
     pointId: string,
     type: 'smooth' | 'sharp'
   ): { point: VectorAnchorPoint; index: number } | null => {
-    const anchorPoints = elementApis.getVectorAnchorPoints(elementId)
-    const index = anchorPoints.findIndex((point) => point.id === pointId)
-    if (index === -1) {
-      return null
-    }
-
-    const nextAnchorPoints = anchorPoints.map((point, pointIndex) => {
-      if (pointIndex !== index) {
-        return point
-      }
-
-      if (type === 'sharp') {
-        return {
-          ...point,
-          type,
-          inHandle: null,
-          outHandle: null
-        }
-      }
-
-      return {
-        ...point,
-        type
-      }
-    })
-
-    elementApis.updateVectorGeometry(elementId, nextAnchorPoints)
+    const topology = getVectorTopologyWorkspace(elementId)
+    const nextTopology = setAnchorTypeInTopology(topology, pointId, type)
+    commitVectorTopology(elementId, nextTopology)
     return elementApis.getVectorAnchorPointById(elementId, pointId)
   },
 
@@ -585,35 +689,47 @@ export const elementApis = {
     target: Exclude<VectorPointTarget, 'anchor'>,
     position: PositionData
   ): { point: VectorAnchorPoint; index: number } | null => {
-    const anchorPoints = elementApis.getVectorAnchorPoints(elementId)
-    const index = anchorPoints.findIndex((point) => point.id === pointId)
-    if (index === -1) {
-      return null
-    }
-
-    const nextAnchorPoints: VectorAnchorPoint[] = anchorPoints.map(
-      (point, pointIndex): VectorAnchorPoint => {
-        if (pointIndex !== index) {
-          return point
-        }
-
-        return {
-          ...point,
-          type: 'smooth' as const,
-          inHandle:
-            target === 'inHandle'
-              ? { x: position.x, y: position.y }
-              : point.inHandle,
-          outHandle:
-            target === 'outHandle'
-              ? { x: position.x, y: position.y }
-              : point.outHandle
-        }
-      }
+    const topology = getVectorTopologyWorkspace(elementId)
+    let nextTopology = setAnchorTypeInTopology(topology, pointId, 'smooth')
+    nextTopology = setAnchorHandleInTopology(
+      nextTopology,
+      pointId,
+      target === 'inHandle' ? 'in' : 'out',
+      position
     )
 
-    elementApis.updateVectorGeometry(elementId, nextAnchorPoints)
+    commitVectorTopology(elementId, nextTopology)
     return elementApis.getVectorAnchorPointById(elementId, pointId)
+  },
+
+  updateVectorAnchorPointHandles: (
+    elementId: string,
+    updates: {
+      pointId: string
+      target: Exclude<VectorPointTarget, 'anchor'>
+      position: PositionData | null
+      forceSmooth?: boolean
+    }[]
+  ) => {
+    if (updates.length === 0) {
+      return
+    }
+
+    let topology = getVectorTopologyWorkspace(elementId)
+    updates.forEach((update) => {
+      if (update.forceSmooth) {
+        topology = setAnchorTypeInTopology(topology, update.pointId, 'smooth')
+      }
+
+      topology = setAnchorHandleInTopology(
+        topology,
+        update.pointId,
+        update.target === 'inHandle' ? 'in' : 'out',
+        update.position
+      )
+    })
+
+    commitVectorTopology(elementId, topology)
   },
 
   getMousePosInWorkspace: (clientPos: { x: number; y: number }) => {
@@ -631,25 +747,31 @@ export const elementApis = {
     createOptions: CreateElementOptions,
     options?: EVENT_OPTIONS
   ): string | null => {
-    if (Array.isArray(createOptions.anchorPoints)) {
-      const bounds = calculateVectorBounds(createOptions.anchorPoints)
-      const normalizedAnchorPoints = normalizeVectorAnchorPoints(
-        createOptions.anchorPoints,
-        bounds
-      )
-      const workspacePos: PositionData = {
-        x: bounds.x,
-        y: bounds.y
+    if (createOptions.type === 'vector') {
+      if (!isVectorTopology(createOptions)) {
+        return null
       }
+
+      const topology: VectorTopology = {
+        points: createOptions.points,
+        segments: createOptions.segments,
+        networks: createOptions.networks
+      }
+      const bounds = calculateVectorBounds(topology)
+      const normalizedTopology = normalizeVectorTopology(topology, bounds)
+      const closed =
+        createOptions.closed ?? isClosedVectorTopology(normalizedTopology)
 
       return createElementAtWorkspacePos(
         createOptions.type,
-        workspacePos,
+        { x: bounds.x, y: bounds.y },
         {
           width: bounds.width,
           height: bounds.height,
-          anchorPoints: normalizedAnchorPoints,
-          closed: DEFAULT_VECTOR_STYLE.closed,
+          points: normalizedTopology.points,
+          segments: normalizedTopology.segments,
+          networks: normalizedTopology.networks,
+          closed,
           fill: DEFAULT_VECTOR_STYLE.fill,
           stroke: DEFAULT_VECTOR_STYLE.stroke,
           strokeWidth: DEFAULT_VECTOR_STYLE.strokeWidth
@@ -671,6 +793,28 @@ export const elementApis = {
       createOptions.type,
       workspacePos,
       {},
+      options
+    )
+  },
+
+  createVectorElementFromSinglePoint: (
+    pointId: string,
+    position: PositionData,
+    options?: EVENT_OPTIONS
+  ): string | null => {
+    const topology = createVectorTopologyFromSinglePoint(
+      pointId,
+      position,
+      'sharp'
+    )
+    return elementApis.createElement(
+      {
+        type: 'vector',
+        points: topology.points,
+        segments: topology.segments,
+        networks: topology.networks,
+        closed: false
+      },
       options
     )
   },

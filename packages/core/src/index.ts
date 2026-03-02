@@ -54,7 +54,15 @@ export {
 } from '@asyra/render'
 export type { RenderStrategy } from '@asyra/render'
 export { VECTOR_ANCHOR_ID_PREFIX, VECTOR_ANCHOR_ID_TYPE } from './types/vector'
-export type { VectorAnchorPoint, VectorPathStyle } from './types/vector'
+export type {
+  VectorAnchorPoint,
+  VectorAnchorType,
+  VectorPathStyle,
+  VectorPointNode,
+  VectorSegment,
+  VectorNetwork,
+  VectorTopology
+} from './types/vector'
 export type {
   RenderLayerRegistration,
   RegisterRenderLayerOptions

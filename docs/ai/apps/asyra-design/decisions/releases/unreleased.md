@@ -152,3 +152,20 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
   - Completed pen-editing UX scope is retained in app completed-plan archive.
 - Related Commit(s):
   - `2eafe38` (`feat(asyra-design): stabilize pen bezier flow and sync planning docs`)
+
+## 2026-03-02 - Vector geometry runtime moved to topology-native model
+
+- Context:
+  - Vector editing flow and rendering still depended on runtime conversion between multiple `anchorPoints` shapes.
+  - Direct point/segment/network mutation was required for simpler and more deterministic pen/path editing updates.
+- Decision:
+  - Make `points` / `segments` / `networks` the canonical vector runtime model for Asyra Design.
+  - Remove runtime conversion helpers based on `anchorPoints` and subpath marker scanning.
+  - Route point add/remove/move/type/handle/close operations through topology-native `elementApis` mutation methods.
+  - Keep vector render strategy and vector path-editing overlay driven by topology data directly.
+- Consequences:
+  - Pen/path editing updates geometry state in one model without conversion churn.
+  - Vector bounds/hit/render logic now traverse topology segments/controls directly.
+  - Active plan item for sub-path model is completed and archived as topology-native completion.
+- Related Commit(s):
+  - pending
