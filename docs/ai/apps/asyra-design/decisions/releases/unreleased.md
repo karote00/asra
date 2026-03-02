@@ -168,4 +168,4 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
   - Vector bounds/hit/render logic now traverse topology segments/controls directly.
   - Active plan item for sub-path model is completed and archived as topology-native completion.
 - Related Commit(s):
-  - pending
+  - `206285e` (`refactor(vector): switch pen/runtime to topology-native geometry model`)
