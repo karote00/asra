@@ -1,8 +1,8 @@
 import {
   subscribeToUpdateUndoRedoStatus,
+  subscribeToEndTransaction,
   subscribeToAddProperty,
-  subscribeToRemoveProperty,
-  updateTransaction
+  subscribeToRemoveProperty
 } from '@asyra/reactive-events'
 import { UNDO } from '@asyra/utils'
 import propsManager from './props-manager'
@@ -30,18 +30,7 @@ export const initPropXSubscribes = () => {
     })
 
     propsManager.addProperty(propComponents)
-
-    propsManager.changes.forEach((change) => {
-      const changeOptions = change.options ?? options
-      if (changeOptions) {
-        updateTransaction(change.eventName, change, changeOptions)
-        return
-      }
-
-      updateTransaction(change.eventName, change)
-    })
-
-    propsManager.cleanChanges()
+    propsManager.commitChanges(options)
   })
 
   subscribeToRemoveProperty(({ payload, options }) => {
@@ -50,17 +39,12 @@ export const initPropXSubscribes = () => {
     )
 
     propsManager.removeProperty(removedPropertyIds, options)
+    propsManager.commitChanges(options)
+  })
 
-    propsManager.changes.forEach((change) => {
-      const changeOptions = change.options ?? options
-      if (changeOptions) {
-        updateTransaction(change.eventName, change, changeOptions)
-        return
-      }
-
-      updateTransaction(change.eventName, change)
-    })
-
+  // Property updates can be tracked via scene-tree transaction commits.
+  // Ensure stale pending props changes never leak across action boundaries.
+  subscribeToEndTransaction(() => {
     propsManager.cleanChanges()
   })
 }

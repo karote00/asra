@@ -47,6 +47,7 @@ packages/props-manager/src/
 
 - manager records property changes for transaction integration
 - add/remove/update paths stay consistent with manager change tracking
+- pending change buffer is cleaned at transaction end to prevent cross-action leakage
 
 4. Load state application
 

@@ -516,3 +516,15 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - Preset overlay behavior is more focused for active point editing while preserving existing curve draw semantics.
 - Related Commit(s):
   - `5933af4` (`feat(pen): show curve handles only around selected anchor neighborhood`)
+
+## 2026-03-02 - Props-manager pending change buffer is cleaned at transaction end
+
+- Context:
+  - Property updates can enqueue `propsManager.changes` even when scene-tree transaction commits are the active write path for the same action.
+  - Without boundary cleanup, stale pending changes can leak into later actions.
+- Decision:
+  - Clean `propsManager.changes` on `endTransaction` in props-manager subscribe initialization.
+  - Route add/remove property subscribe commit path through `propsManager.commitChanges(options)` to keep commit + cleanup behavior consistent.
+- Consequences:
+  - Pending property change buffers no longer persist across action boundaries.
+  - Transaction history remains single-source without duplicate write emission.
