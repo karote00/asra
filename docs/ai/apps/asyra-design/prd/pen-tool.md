@@ -47,6 +47,7 @@ Users need a vector path workflow that supports creating vectors, appending poin
 ## State Model
 
 System properties:
+- `pathEditingMode`
 - `pathEditingVectorId`
 - `pathEditingStartNewSubpath`
 - `selectedVectorPoint`

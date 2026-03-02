@@ -4,6 +4,7 @@
 - `switch-primary-tool.md`
 - `selection.md`
 - `delete-element.md`
+- `delete-vector-point.md`
 - `hover-element.md`
 - `pen-tool.md`
 - `viewport.md`

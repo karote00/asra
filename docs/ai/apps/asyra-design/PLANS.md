@@ -14,11 +14,6 @@
 2. Reduce app-level internal coupling
 - remove internal-path imports (for example keymap source path)
 
-3. Delete key support: single selected vector point
-- support Delete/Backspace to remove one selected vector point in path-editing mode
-- include geometry recompute and point-state cleanup
-- Reference: `docs/internal/delete-key-single-vector-point-plan.md`
-
 ## Mid-Term
 
 1. Advanced selection workflows
@@ -44,3 +39,13 @@
 
 - When a plan item changes app contracts/runtime boundaries, append rationale to `decisions/releases/unreleased.md`.
 - If the decision is cross-cutting (framework + app), also append `docs/ai/decisions/releases/unreleased.md`.
+
+## Recently Completed
+
+1. Delete key support: single selected vector point
+- completed and archived at:
+  - `docs/ai/apps/asyra-design/plans/completed/delete-key-single-vector-point-plan.md`
+
+2. SelectionManager multi-channel selection architecture
+- completed and archived at:
+  - `docs/ai/apps/asyra-design/plans/completed/selection-manager-multi-channel-plan.md`

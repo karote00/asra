@@ -13,5 +13,20 @@ export const useRotation = (): MixedNumber =>
 
 export const usePathEditingVectorId = (): string | null =>
   useProperty<string | null>('pathEditingVectorId')
+
+export const useVectorPointSelection = (): Set<string> =>
+  useProperty<Set<string>>('vectorPointSelection')
+
+export const useVectorSegmentSelection = (): Set<string> =>
+  useProperty<Set<string>>('vectorSegmentSelection')
+
+interface SelectedVectorSegmentState extends Record<string, unknown> {
+  elementId: string
+  segmentId: string
+}
+
 export const useSelectedVectorPoint = (): SelectedVectorPointState | null =>
   useProperty<SelectedVectorPointState | null>('selectedVectorPoint')
+
+export const useSelectedVectorSegment = (): SelectedVectorSegmentState | null =>
+  useProperty<SelectedVectorSegmentState | null>('selectedVectorSegment')

@@ -231,3 +231,50 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
   - Regression coverage now guards the previously reported delete/undo issues.
 - Related Commit(s):
   - `5e3296d` (`feat(asyra-design): finalize delete flow and scene-tree remove contracts`)
+
+## 2026-03-02 - Delete key supports anchor-point removal in path-editing mode
+
+- Context:
+  - Path-editing mode previously blocked delete entirely, so selected vector anchors could not be removed by shortcut.
+  - Topology-native vector data requires deterministic split behavior for interior-point deletion.
+- Decision:
+  - Extend delete shortcut behavior to remove selected anchor point when:
+    - `pathEditingVectorId` is active
+    - selected vector point exists on that vector
+    - selected target is `anchor`
+  - For interior anchor deletion on open subpaths, split into two open subpaths and regenerate affected segment ids.
+  - Keep element deletion blocked while path-editing is active and no valid selected anchor is present.
+- Consequences:
+  - Delete/Backspace now supports point-level editing without leaving path-editing mode.
+  - Segment identity for affected split path portions is intentionally regenerated to avoid stale topology references.
+  - Existing element-delete shortcut behavior remains unchanged outside path-editing mode.
+
+## 2026-03-03 - SelectionManager channel ownership expanded to vector points and segments
+
+- Context:
+  - Element selection already used SelectionManager, but vector point selection still depended on app-owned `selectedVectorPoint` state in system-context.
+  - Multi-channel selection architecture required point and segment channels to be first-class and subscribe-driven across app/runtime layers.
+- Decision:
+  - Move point-selection read/write flow in features and property panel to SelectionManager channels via `selectionApis` (`VECTOR_POINT`, `VECTOR_SEGMENT`).
+  - Add canonical encoded ID contracts for vector point/segment selection in app common-apis.
+  - Add segment hit-selection foundation in path-editing point-selection flow (`getVectorSegmentAtClientPos` + `selectVectorSegment`).
+  - Keep `selectedVectorPoint` as compatibility mirror derived from `vectorPointSelection` via app init subscription bridge.
+- Consequences:
+  - Selection ownership is now channel-first for element/point/segment while preserving existing UI/render compatibility paths.
+  - Path-editing delete logic consumes selected point from selection channel instead of app-owned state.
+  - Segment selection channel is wired for follow-up multi-selection UX without changing global channel concurrency behavior.
+
+## 2026-03-03 - Delete shortcut guard is mode-driven and regression-covered
+
+- Context:
+  - Delete behavior had risk of coupling to `pathEditingVectorId` presence instead of explicit path-editing mode state.
+  - This can produce incorrect blocking/allowing behavior when mode/id state is temporarily out of sync.
+- Decision:
+  - Treat `pathEditingMode` as the authoritative guard for element delete branching.
+  - Keep vector-point delete as a separate higher-priority feature branch for path-editing mode.
+  - Add E2E coverage for mode/id mismatch cases:
+    - mode `true` + no vector id => delete blocked
+    - mode `false` + vector id present => delete allowed
+- Consequences:
+  - Delete routing follows explicit mode semantics, not implicit id presence checks.
+  - Regression coverage now protects this guard boundary from future drift.

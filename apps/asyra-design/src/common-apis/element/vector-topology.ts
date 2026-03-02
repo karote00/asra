@@ -24,10 +24,18 @@ export interface VectorTopologyEndpoint {
   side: VectorTopologyEndpointSide
 }
 
-type VectorTopologyLike = Pick<
+export const VECTOR_TOPOLOGY_DATA_KEYS = [
+  'points',
+  'segments',
+  'networks'
+] as const
+
+export type VectorTopologyData = Pick<
   VectorTopology,
-  'points' | 'segments' | 'networks'
+  (typeof VECTOR_TOPOLOGY_DATA_KEYS)[number]
 >
+
+type VectorTopologyLike = VectorTopologyData
 
 const hasObjectValue = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
@@ -70,6 +78,12 @@ const isAnchorNode = (
 ): node is VectorPointNode & { kind: typeof VECTOR_TOKENS.POINT.KIND.ANCHOR } =>
   !!node && node.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
 
+const isControlNode = (
+  node: VectorPointNode | undefined
+): node is VectorPointNode & {
+  kind: typeof VECTOR_TOKENS.POINT.KIND.CONTROL
+} => !!node && node.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
+
 export const getControlId = (anchorId: string, role: VectorControlRole) =>
   `${anchorId}:${role}`
 
@@ -81,7 +95,7 @@ export const createEmptyVectorTopology = (): VectorTopology => ({
 
 export const isVectorTopology = (
   value: unknown
-): value is Pick<VectorTopology, 'points' | 'segments' | 'networks'> => {
+): value is VectorTopologyData => {
   if (!hasObjectValue(value)) {
     return false
   }
@@ -95,7 +109,7 @@ export const isVectorTopology = (
 
 export const hasVectorTopologyData = (
   value: unknown
-): value is Pick<VectorTopology, 'points' | 'segments' | 'networks'> => {
+): value is VectorTopologyData => {
   if (!isVectorTopology(value)) {
     return false
   }
@@ -161,12 +175,10 @@ const getAnchorViewFromTopology = (
     return null
   }
 
-  const inHandleNode = topology.points[
-    getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN)
-  ]
-  const outHandleNode = topology.points[
-    getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.OUT)
-  ]
+  const inHandleNode =
+    topology.points[getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN)]
+  const outHandleNode =
+    topology.points[getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.OUT)]
 
   return {
     id: pointId,
@@ -340,9 +352,7 @@ export const appendAnchorPointToTopology = (
 
   const continuation = options?.continuation
   const resolvedContinuation =
-    continuation && nextNetworks[continuation.networkId]
-      ? continuation
-      : null
+    continuation && nextNetworks[continuation.networkId] ? continuation : null
   const targetNetwork = resolvedContinuation
     ? nextNetworks[resolvedContinuation.networkId]
     : networks[networks.length - 1]
@@ -354,9 +364,13 @@ export const appendAnchorPointToTopology = (
       : targetNetwork.pointIds[targetNetwork.pointIds.length - 1]
   const segmentId = id(VECTOR_TOPOLOGY_SEGMENT_ID_TYPE)
   const segmentStartId =
-    continuationSide === VECTOR_TOKENS.ENDPOINT.SIDE.START ? pointId : connectedPointId
+    continuationSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
+      ? pointId
+      : connectedPointId
   const segmentEndId =
-    continuationSide === VECTOR_TOKENS.ENDPOINT.SIDE.START ? connectedPointId : pointId
+    continuationSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
+      ? connectedPointId
+      : pointId
 
   nextSegments[segmentId] = {
     id: segmentId,
@@ -485,7 +499,10 @@ export const setAnchorHandleInTopology = (
   }
 
   Object.entries(topology.segments).forEach(([segmentId, segment]) => {
-    if (role === VECTOR_TOKENS.CONTROL.ROLE.OUT && segment.startId === pointId) {
+    if (
+      role === VECTOR_TOKENS.CONTROL.ROLE.OUT &&
+      segment.startId === pointId
+    ) {
       nextSegments[segmentId] = {
         ...segment,
         outControlId: position ? controlId : null
@@ -539,6 +556,205 @@ export const removeLastSinglePointSubpath = (
   return {
     points: nextPoints,
     segments: { ...topology.segments },
+    networks: nextNetworks
+  }
+}
+
+const createSegmentChain = (
+  points: Record<string, VectorPointNode>,
+  pointIds: string[],
+  closed: boolean
+): {
+  segments: Record<string, VectorSegment>
+  segmentIds: string[]
+} => {
+  if (pointIds.length < 2) {
+    return {
+      segments: {},
+      segmentIds: []
+    }
+  }
+
+  const segmentPairs: { startId: string; endId: string }[] = []
+  for (let i = 1; i < pointIds.length; i += 1) {
+    segmentPairs.push({
+      startId: pointIds[i - 1],
+      endId: pointIds[i]
+    })
+  }
+
+  if (closed && pointIds.length > 1) {
+    segmentPairs.push({
+      startId: pointIds[pointIds.length - 1],
+      endId: pointIds[0]
+    })
+  }
+
+  const segments: Record<string, VectorSegment> = {}
+  const segmentIds: string[] = []
+
+  segmentPairs.forEach(({ startId, endId }) => {
+    const segmentId = id(VECTOR_TOPOLOGY_SEGMENT_ID_TYPE)
+    const outControlId = getControlId(startId, VECTOR_TOKENS.CONTROL.ROLE.OUT)
+    const inControlId = getControlId(endId, VECTOR_TOKENS.CONTROL.ROLE.IN)
+    const outControl = points[outControlId]
+    const inControl = points[inControlId]
+
+    segments[segmentId] = {
+      id: segmentId,
+      startId,
+      endId,
+      outControlId: isControlNode(outControl) ? outControlId : null,
+      inControlId: isControlNode(inControl) ? inControlId : null
+    }
+    segmentIds.push(segmentId)
+  })
+
+  return {
+    segments,
+    segmentIds
+  }
+}
+
+const pruneUnusedControls = (
+  points: Record<string, VectorPointNode>,
+  segments: Record<string, VectorSegment>
+) => {
+  const usedControlIds = new Set<string>()
+
+  Object.values(segments).forEach((segment) => {
+    if (segment.outControlId) {
+      usedControlIds.add(segment.outControlId)
+    }
+    if (segment.inControlId) {
+      usedControlIds.add(segment.inControlId)
+    }
+  })
+
+  const nextPoints: Record<string, VectorPointNode> = {}
+  Object.entries(points).forEach(([pointId, point]) => {
+    if (
+      point.kind === VECTOR_TOKENS.POINT.KIND.CONTROL &&
+      !usedControlIds.has(pointId)
+    ) {
+      return
+    }
+
+    nextPoints[pointId] = point
+  })
+
+  return nextPoints
+}
+
+export const removeAnchorPointFromTopology = (
+  topology: VectorTopologyLike,
+  pointId: string
+): VectorTopology | null => {
+  const point = topology.points[pointId]
+  if (!isAnchorNode(point)) {
+    return null
+  }
+
+  const sourceNetworks = getOrderedNetworks(topology)
+  const targetNetwork = sourceNetworks.find((network) =>
+    network.pointIds.includes(pointId)
+  )
+  if (!targetNetwork) {
+    return null
+  }
+
+  const inControlId = getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN)
+  const outControlId = getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.OUT)
+  let nextPoints = omitKeys({ ...topology.points }, [
+    pointId,
+    inControlId,
+    outControlId
+  ])
+  const nextSegments: Record<string, VectorSegment> = {}
+  const nextNetworks: Record<string, VectorNetwork> = {}
+
+  const addRebuiltNetwork = (
+    networkId: string,
+    pointIds: string[],
+    closed: boolean
+  ) => {
+    const normalizedClosed = closed && pointIds.length > 2
+    const rebuilt = createSegmentChain(nextPoints, pointIds, normalizedClosed)
+
+    nextNetworks[networkId] = {
+      id: networkId,
+      pointIds,
+      segmentIds: rebuilt.segmentIds,
+      closed: normalizedClosed
+    }
+    Object.assign(nextSegments, rebuilt.segments)
+  }
+
+  sourceNetworks.forEach((network) => {
+    if (network.id !== targetNetwork.id) {
+      nextNetworks[network.id] = {
+        ...network,
+        pointIds: [...network.pointIds],
+        segmentIds: [...network.segmentIds]
+      }
+
+      network.segmentIds.forEach((segmentId) => {
+        const segment = topology.segments[segmentId]
+        if (!segment) {
+          return
+        }
+        nextSegments[segmentId] = segment
+      })
+      return
+    }
+
+    const pointIndex = network.pointIds.indexOf(pointId)
+    if (pointIndex === -1) {
+      return
+    }
+
+    if (network.closed) {
+      const remainingPointIds = network.pointIds.filter((id) => id !== pointId)
+      if (remainingPointIds.length === 0) {
+        return
+      }
+
+      addRebuiltNetwork(network.id, remainingPointIds, true)
+      return
+    }
+
+    const isEndpoint =
+      pointIndex === 0 || pointIndex === network.pointIds.length - 1
+    if (isEndpoint) {
+      const remainingPointIds = network.pointIds.filter((id) => id !== pointId)
+      if (remainingPointIds.length === 0) {
+        return
+      }
+
+      addRebuiltNetwork(network.id, remainingPointIds, false)
+      return
+    }
+
+    const leftPointIds = network.pointIds.slice(0, pointIndex)
+    const rightPointIds = network.pointIds.slice(pointIndex + 1)
+
+    if (leftPointIds.length > 0) {
+      addRebuiltNetwork(network.id, leftPointIds, false)
+    }
+    if (rightPointIds.length > 0) {
+      addRebuiltNetwork(
+        id(VECTOR_TOPOLOGY_NETWORK_ID_TYPE),
+        rightPointIds,
+        false
+      )
+    }
+  })
+
+  nextPoints = pruneUnusedControls(nextPoints, nextSegments)
+
+  return {
+    points: nextPoints,
+    segments: nextSegments,
     networks: nextNetworks
   }
 }

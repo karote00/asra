@@ -37,7 +37,11 @@ export type {
   PropertyComponentConstructor,
   PropertyComponentAccessor
 } from '@asyra/props-manager'
-export { ElementSelection, VertexSelection } from '@asyra/selection'
+export {
+  ElementSelection,
+  VectorPointSelection,
+  VectorSegmentSelection
+} from '@asyra/selection'
 export { componentRegistry } from '@asyra/scene-tree'
 export type {
   FeatureDefinition,

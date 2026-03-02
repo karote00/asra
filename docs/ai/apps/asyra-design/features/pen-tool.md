@@ -38,7 +38,7 @@
 - select that anchor first (no point is added on that click)
 - if the clicked anchor is a subpath endpoint, exit split mode and resume continuation from that endpoint
 4. If not editing selected vector -> create new vector with first point.
-5. New/updated point becomes selected vector point state.
+5. New/updated point is selected through `selectionApis.selectVectorPoint(...)` (SelectionManager `VECTOR_POINT` channel).
 
 ### Update/End
 
@@ -61,6 +61,7 @@
 
 - hover feature updates `hoveredVectorPoint` target (`anchor`, `inHandle`, `outHandle`) and cursor (`pointer`/`default`).
 - select-point feature selects hovered point target when in path-editing mode and non-pen tool.
+- when point hit is absent but path segment hit is present, feature selects the segment through `selectionApis.selectVectorSegment(...)` (SelectionManager `VECTOR_SEGMENT` channel).
 
 ## Curve Handle Visual/Selection Contract
 
@@ -102,7 +103,8 @@ Handled by `cancelPenEditing`:
 
 - `pathEditingVectorId`
 - `pathEditingStartNewSubpath`
-- `selectedVectorPoint`
+- `vectorPointSelection` / `vectorSegmentSelection` (selection channels)
+- `selectedVectorPoint` (compatibility mirror derived from `vectorPointSelection`)
 - `hoveredVectorPoint`
 
 These are managed through `systemContextApis` helpers.

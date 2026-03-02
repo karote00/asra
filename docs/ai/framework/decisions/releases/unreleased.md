@@ -548,3 +548,18 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - Scene-tree load path remains deterministic without post-load parent mutation side effects.
 - Related Commit(s):
   - `5e3296d` (`feat(asyra-design): finalize delete flow and scene-tree remove contracts`)
+
+## 2026-03-03 - Selection runtime generalized to channel-first vector point/segment ownership
+
+- Context:
+  - Selection runtime was still element-biased while vector selection needs independent channels with concurrent selection support.
+  - Legacy `VertexSelection` naming/contract no longer matched current vector point/segment architecture.
+- Decision:
+  - Extend framework selection contracts/events/core APIs to first-class `VECTOR_POINT` and `VECTOR_SEGMENT` channels.
+  - Implement dedicated selection classes/subscribes for point/segment channels in `@asyra/selection`.
+  - Remove legacy `VertexSelection` path with no backward-compat compatibility layer.
+  - Keep channel updates independent so element/point/segment can coexist for future multi-selection behavior.
+- Consequences:
+  - SelectionManager now scales as a true multi-channel owner instead of element-only specialization.
+  - App/ui/render integrations consume the same channelized selection event model.
+  - Legacy vertex naming is eliminated, reducing contract ambiguity.

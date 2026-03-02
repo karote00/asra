@@ -12,9 +12,13 @@ const updateUIElementSelection = (change: SelectionYjsChange['payload']) => {
     case SELECTION_ACTIONS.DESELECT_ELEMENTS:
       renderSelection.updateSelection(SELECTION_TYPES.ELEMENT)
       break
-    case SELECTION_ACTIONS.SELECT_VERTICES:
-    case SELECTION_ACTIONS.DESELECT_VERTICES:
-      renderSelection.updateSelection(SELECTION_TYPES.VERTEX)
+    case SELECTION_ACTIONS.SELECT_VECTOR_POINTS:
+    case SELECTION_ACTIONS.DESELECT_VECTOR_POINTS:
+      renderSelection.updateSelection(SELECTION_TYPES.VECTOR_POINT)
+      break
+    case SELECTION_ACTIONS.SELECT_VECTOR_SEGMENTS:
+    case SELECTION_ACTIONS.DESELECT_VECTOR_SEGMENTS:
+      renderSelection.updateSelection(SELECTION_TYPES.VECTOR_SEGMENT)
       break
   }
 }

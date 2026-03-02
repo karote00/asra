@@ -27,11 +27,14 @@ Import boundary:
 - `getVectorAnchorPointAtClientPos(elementId: string, clientPos: PositionData): { point: VectorAnchorPoint; index: number } | null`
 - `getVectorEditablePointAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): { point: VectorAnchorPoint; index: number; target: 'anchor' | 'inHandle' | 'outHandle'; position: PositionData } | null`
 - `getVectorEditablePointAtClientPos(elementId: string, clientPos: PositionData): { point: VectorAnchorPoint; index: number; target: 'anchor' | 'inHandle' | 'outHandle'; position: PositionData } | null`
+- `getVectorSegmentAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): string | null`
+- `getVectorSegmentAtClientPos(elementId: string, clientPos: PositionData, hitRadius?: number): string | null`
 - `isPointNearVectorPathAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): boolean`
 - `isPointNearVectorPathAtClientPos(elementId: string, clientPos: PositionData, hitRadius?: number): boolean`
 - `getVectorAnchorPointById(elementId: string, pointId: string): { point: VectorAnchorPoint; index: number } | null`
 - `appendVectorAnchorPoint(elementId: string, point: VectorAnchorPoint, options?: { startNewSubpath?: boolean }): { point: VectorAnchorPoint; index: number } | null`
 - `removeLastSinglePointSubpath(elementId: string): boolean`
+- `removeVectorAnchorPoint(elementId: string, pointId: string): boolean`
 - `setVectorClosed(elementId: string, closed: boolean): void`
 - `updateVectorAnchorPointPosition(elementId: string, pointId: string, position: PositionData): { point: VectorAnchorPoint; index: number } | null`
 - `updateVectorAnchorPointType(elementId: string, pointId: string, type: 'smooth' | 'sharp'): { point: VectorAnchorPoint; index: number } | null`
@@ -48,9 +51,21 @@ Import boundary:
 `selectionApis` (`src/common-apis/selection.ts`)
 
 - `getSelectedIds(): string[]`
+- `getVectorPointSelectionIds(): string[]`
+- `getVectorSegmentSelectionIds(): string[]`
+- `getSelectedVectorPoints(): { elementId: string; pointId: string; target: 'anchor' | 'inHandle' | 'outHandle' }[]`
+- `getSelectedVectorSegments(): { elementId: string; segmentId: string }[]`
 - `clearSelection(options?: { undoable: boolean }): void`
 - `toggleSelection(elementId: string, options?: { undoable: boolean }): void`
 - `selectElements(elementIds: string[], options?: { undoable: boolean }): void`
+- `selectVectorPoints(pointIds: string[], options?: { undoable: boolean }): void`
+- `selectVectorPoint(point: { elementId: string; pointId: string; target: 'anchor' | 'inHandle' | 'outHandle' }, options?: { undoable: boolean }): void`
+- `clearVectorPointSelection(options?: { undoable: boolean }): void`
+- `selectVectorSegments(segmentIds: string[], options?: { undoable: boolean }): void`
+- `selectVectorSegment(segment: { elementId: string; segmentId: string }, options?: { undoable: boolean }): void`
+- `clearVectorSegmentSelection(options?: { undoable: boolean }): void`
+- `encodeVectorPointSelectionId(...)` / `decodeVectorPointSelectionId(...)`
+- `encodeVectorSegmentSelectionId(...)` / `decodeVectorSegmentSelectionId(...)`
 
 `systemContextApis` (`src/common-apis/system-context.ts`)
 
@@ -58,6 +73,8 @@ Import boundary:
 - `getSystemContextSnapshot(): SystemContextSnapshot`
 - `updateHoveredElementId(elementId: string | null): void`
 - `getPathEditingVectorId(): string | null`
+- `getPathEditingMode(): boolean`
+- `setPathEditingMode(enabled: boolean): void`
 - `setPathEditingVectorId(elementId: string | null): void`
 - `getPathEditingStartNewSubpath(): boolean`
 - `setPathEditingStartNewSubpath(value: boolean): void`
@@ -68,6 +85,9 @@ Import boundary:
 - `SelectedVectorPointState` target contract:
   - `target: 'anchor' | 'inHandle' | 'outHandle'`
 - `clearVectorPointState(): void`
+- selection ownership note:
+  - `selectedVectorPoint` is compatibility mirror state derived from `vectorPointSelection`
+  - source-of-truth for selected vector points/segments is SelectionManager channel state
 - `enterPathEditingMode(elementId: string): void`
 - `exitPathEditingMode(): void`
 - compatibility aliases:
@@ -138,6 +158,7 @@ Feature registry (`src/features/index.ts`):
 - `create-element`
 - `selection`
 - `delete-element`
+- `delete-vector-point`
 - `hover-element`
 - `zoom`
 - `zoom-fit`
@@ -166,9 +187,16 @@ Feature registry (`src/features/index.ts`):
 - `delete-element`
 
   - `selectionApis.getSelectedIds` / `selectElements`
+  - `systemContextApis.getPathEditingMode`
   - `elementApis.deleteElement`
-  - `systemContextApis.exitPathEditingMode`
   - `systemContextApis.updateHoveredElementId`
+
+- `delete-vector-point`
+  - `systemContextApis.getPathEditingVectorId` / `clearVectorPointState`
+  - `selectionApis.getSelectedVectorPoints`
+  - `selectionApis.clearVectorPointSelection` / `clearVectorSegmentSelection`
+  - `elementApis.removeVectorAnchorPoint`
+  - `selectionApis.selectElements`
 
 - `hover-element`
 
@@ -187,7 +215,8 @@ Feature registry (`src/features/index.ts`):
 
 - `pen-tool`
   - `elementApis` vector APIs
-  - `systemContextApis` path-editing and point state APIs
+  - `selectionApis.selectVectorPoint` / `selectVectorSegment` and channel readers
+  - `systemContextApis` path-editing, hover point, and compatibility point-state APIs
   - `cursorApis` for hover cursor feedback
 
 ## Usage Rules

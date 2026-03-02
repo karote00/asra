@@ -1,5 +1,8 @@
 # Delete Key Plan: Single Selected Vector Point
 
+> Completed on 2026-03-03.
+> Archive: `docs/ai/apps/asyra-design/plans/completed/delete-key-single-vector-point-plan.md`.
+
 ## Goal
 
 Support Delete/Backspace key to remove the selected vector point when in path-editing mode and exactly one point is selected.

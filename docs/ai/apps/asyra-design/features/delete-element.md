@@ -13,16 +13,16 @@
 
 ## Behavior
 
-1. If exactly one element is selected:
+1. If path-editing mode is active:
+- no-op for element deletion.
+- See `delete-vector-point.md` for point-level delete behavior in path-editing mode.
+
+2. If exactly one element is selected (and path-editing mode is not active):
 - Delete/Backspace removes that element.
 - Selection is cleared after deletion.
 
-2. If no element is selected, or more than one is selected:
+3. If no element is selected, or more than one is selected:
 - no-op.
-
-3. If path-editing mode is active:
-- no-op (element deletion is blocked)
-- vector-specific delete behavior is handled by vector-editing flow, not this feature
 
 4. If deleted element is currently hovered target:
 - trigger hover-element feature API (`importFeature(FeatureNames.HOVER_ELEMENT).reEvaluate(...)`)

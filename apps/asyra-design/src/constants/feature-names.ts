@@ -21,6 +21,7 @@ export const HistoryFeatureNames = {
 
 export const VectorPathFeatureNames = {
   PEN: 'pen',
+  DELETE_VECTOR_POINT: 'deleteVectorPoint',
   SELECT_VECTOR_POINT: 'selectVectorPoint',
   HOVER_VECTOR_POINT_CURSOR: 'hoverVectorPointCursor',
   CANCEL_PEN_EDITING: 'cancelPenEditing',

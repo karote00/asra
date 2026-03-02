@@ -9,4 +9,23 @@ export interface SelectElementsEvent {
   options?: EVENT_OPTIONS
 }
 
-export type SelectionEvents = SelectElementsEvent
+export interface SelectVectorPointsEvent {
+  type: EventTypes
+  payload: {
+    after: string[]
+  }
+  options?: EVENT_OPTIONS
+}
+
+export interface SelectVectorSegmentsEvent {
+  type: EventTypes
+  payload: {
+    after: string[]
+  }
+  options?: EVENT_OPTIONS
+}
+
+export type SelectionEvents =
+  | SelectElementsEvent
+  | SelectVectorPointsEvent
+  | SelectVectorSegmentsEvent

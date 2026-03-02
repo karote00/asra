@@ -91,6 +91,8 @@ class Core implements CoreAPIs {
   getAllElementsBounds!: SceneTreeAPIs['getAllElementsBounds']
   isContainerType!: SceneTreeAPIs['isContainerType']
   selectElements!: ElementSelectionActionAPIs['selectElements']
+  selectVectorPoints!: ElementSelectionActionAPIs['selectVectorPoints']
+  selectVectorSegments!: ElementSelectionActionAPIs['selectVectorSegments']
 
   initFeatureSystem!: FeatureSystemAPIs['initFeatureSystem']
   registerUIProperty!: UIContextAPIs['registerUIProperty']

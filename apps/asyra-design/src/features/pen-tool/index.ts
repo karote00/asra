@@ -13,6 +13,7 @@ import {
   selectionApis,
   systemContextApis
 } from '../../common-apis'
+import type { SelectedVectorPointState } from '../../common-apis/system-context'
 import {
   FEATURE_MOVEMENT_THRESHOLD,
   FeatureNames,
@@ -111,18 +112,28 @@ const setSelectedAnchorPoint = (
   selectedPoint: { point: VectorAnchorPoint; index: number } | null
 ) => {
   if (!selectedPoint) {
+    selectionApis.clearVectorPointSelection()
     systemContextApis.setSelectedVectorPoint(null)
     return
   }
 
-  systemContextApis.setSelectedVectorPoint({
+  const selectedState: SelectedVectorPointState = {
     elementId,
     pointId: selectedPoint.point.id,
     index: selectedPoint.index,
     target: VECTOR_TOKENS.POINT.TARGET.ANCHOR,
     x: selectedPoint.point.x,
     y: selectedPoint.point.y
+  }
+
+  selectionApis.clearVectorSegmentSelection()
+  selectionApis.selectVectorPoint({
+    elementId,
+    pointId: selectedState.pointId,
+    target: selectedState.target
   })
+  // Compatibility mirror during SelectionManager migration.
+  systemContextApis.setSelectedVectorPoint(selectedState)
 }
 
 const getCurrentMouseWorkspacePos = () => {
@@ -239,19 +250,6 @@ const applyBezierDragForNewPoint = (
     }
   ])
 
-  const selectedTarget = systemContextApis.getSelectedVectorPoint()
-  if (
-    selectedTarget?.elementId === state.elementId &&
-    selectedTarget.pointId === state.pointId &&
-    selectedTarget.target === currentOppositeTarget
-  ) {
-    systemContextApis.setSelectedVectorPoint({
-      ...selectedTarget,
-      x: mouseWorkspacePos.x,
-      y: mouseWorkspacePos.y
-    })
-  }
-
   return true
 }
 
@@ -354,7 +352,9 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
             return null
           }
 
-          const selectedPoint = systemContextApis.getSelectedVectorPoint()
+          const selectedPoint = selectionApis
+            .getSelectedVectorPoints()
+            .find((selection) => selection.elementId === pathEditingVectorId)
           const selectedEndpoint =
             !startNewSubpath &&
             selectedPoint?.elementId === pathEditingVectorId &&
@@ -366,7 +366,8 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
             !startNewSubpath && currentSubpath && currentSubpath.length > 0
               ? currentSubpath[currentSubpath.length - 1]
               : null
-          const connectedPoint = selectedEndpoint?.point ?? fallbackConnectedPoint
+          const connectedPoint =
+            selectedEndpoint?.point ?? fallbackConnectedPoint
           const connectedPointId = connectedPoint?.id ?? null
           const continuation =
             !startNewSubpath && connectedPointId
@@ -496,11 +497,35 @@ export const selectVectorPointFeature = defineFeature(
         }
 
         const hoveredPoint = systemContextApis.getHoveredVectorPoint()
+        const hoveredSegmentId = elementApis.getVectorSegmentAtClientPos(
+          pathEditingVectorId,
+          snapshot.mouse.position
+        )
         if (!hoveredPoint || hoveredPoint.elementId !== pathEditingVectorId) {
+          if (hoveredSegmentId) {
+            selectionApis.selectVectorSegment({
+              elementId: pathEditingVectorId,
+              segmentId: hoveredSegmentId
+            })
+            selectionApis.clearVectorPointSelection()
+            systemContextApis.setSelectedVectorPoint(null)
+            return {
+              segmentId: hoveredSegmentId
+            }
+          }
+
+          selectionApis.clearVectorPointSelection()
+          selectionApis.clearVectorSegmentSelection()
           systemContextApis.setSelectedVectorPoint(null)
           return null
         }
 
+        selectionApis.clearVectorSegmentSelection()
+        selectionApis.selectVectorPoint({
+          elementId: hoveredPoint.elementId,
+          pointId: hoveredPoint.pointId,
+          target: hoveredPoint.target
+        })
         systemContextApis.setSelectedVectorPoint({
           elementId: hoveredPoint.elementId,
           pointId: hoveredPoint.pointId,
@@ -585,11 +610,15 @@ export const cancelPenEditingFeature = defineFeature(
           elementApis.removeLastSinglePointSubpath(editingVectorId)
         if (removed) {
           systemContextApis.setPathEditingStartNewSubpath(true)
+          selectionApis.clearVectorPointSelection({ undoable: false })
+          selectionApis.clearVectorSegmentSelection({ undoable: false })
           systemContextApis.clearVectorPointState()
           return { splitPath: true, removedSinglePointSubpath: true }
         }
 
         systemContextApis.setPathEditingStartNewSubpath(true)
+        selectionApis.clearVectorPointSelection({ undoable: false })
+        selectionApis.clearVectorSegmentSelection({ undoable: false })
         systemContextApis.clearVectorPointState()
         return { splitPath: true, elementId: editingVectorId }
       }

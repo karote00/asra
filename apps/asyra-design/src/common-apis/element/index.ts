@@ -38,12 +38,14 @@ import {
   hasVectorTopologyData,
   isClosedVectorTopology,
   isVectorTopology,
+  removeAnchorPointFromTopology,
   removeLastSinglePointSubpath,
   setAnchorHandleInTopology,
   setAnchorTypeInTopology,
   setTopologyClosed,
   toWorkspaceTopology,
   updateAnchorPositionInTopology,
+  type VectorTopologyData,
   vectorTopologyToAnchorPoints,
   vectorTopologyToAnchorSubpaths
 } from './vector-topology'
@@ -170,13 +172,13 @@ const getVectorComputed = (elementId: string): VectorComputedData | null => {
     return null
   }
 
-  const computedRaw = element.getAllComputedData() as Partial<VectorComputedData>
+  const computedRaw =
+    element.getAllComputedData() as Partial<VectorComputedData>
   if (!hasVectorTopologyData(computedRaw)) {
     return null
   }
-  const computed =
-    computedRaw as Partial<VectorComputedData> &
-      Pick<VectorComputedData, 'points' | 'segments' | 'networks'>
+  const computed = computedRaw as Partial<VectorComputedData> &
+    VectorTopologyData
 
   return {
     x: computed.x,
@@ -413,7 +415,10 @@ export const elementApis = {
       workspacePos,
       hitRadius
     )
-    if (!editablePoint || editablePoint.target !== VECTOR_TOKENS.POINT.TARGET.ANCHOR) {
+    if (
+      !editablePoint ||
+      editablePoint.target !== VECTOR_TOKENS.POINT.TARGET.ANCHOR
+    ) {
       return null
     }
 
@@ -531,18 +536,21 @@ export const elementApis = {
     )
   },
 
-  isPointNearVectorPathAtWorkspacePos: (
+  getVectorSegmentAtWorkspacePos: (
     elementId: string,
     workspacePos: PositionData,
     hitRadius = VECTOR_SEGMENT_HIT_RADIUS
-  ): boolean => {
+  ): string | null => {
     const topology = getVectorTopologyWorkspace(elementId)
     if (Object.keys(topology.segments).length === 0) {
-      return false
+      return null
     }
 
     const radiusSquared = hitRadius * hitRadius
     const orderedNetworks = getOrderedNetworks(topology)
+    let nearestSegmentId: string | null = null
+    let nearestDistanceSquared = Number.POSITIVE_INFINITY
+
     for (const network of orderedNetworks) {
       for (const segmentId of network.segmentIds) {
         const segment = topology.segments[segmentId]
@@ -591,13 +599,55 @@ export const elementApis = {
               workspacePos
             )
 
-        if (getDistanceSquared(closest, workspacePos) <= radiusSquared) {
-          return true
+        const distanceSquared = getDistanceSquared(closest, workspacePos)
+        if (
+          distanceSquared <= radiusSquared &&
+          distanceSquared < nearestDistanceSquared
+        ) {
+          nearestDistanceSquared = distanceSquared
+          nearestSegmentId = segmentId
         }
       }
     }
 
-    return false
+    return nearestSegmentId
+  },
+
+  getVectorSegmentAtClientPos: (
+    elementId: string,
+    clientPos: PositionData,
+    hitRadius = VECTOR_SEGMENT_HIT_RADIUS
+  ): string | null => {
+    if (!render) {
+      return null
+    }
+
+    const workspacePos = render.getMousePosInWorkspace({
+      clientX: clientPos.x,
+      clientY: clientPos.y
+    })
+    const viewportScale = render.getViewportScale() || 1
+    const scaledHitRadius = hitRadius / viewportScale
+
+    return elementApis.getVectorSegmentAtWorkspacePos(
+      elementId,
+      workspacePos,
+      scaledHitRadius
+    )
+  },
+
+  isPointNearVectorPathAtWorkspacePos: (
+    elementId: string,
+    workspacePos: PositionData,
+    hitRadius = VECTOR_SEGMENT_HIT_RADIUS
+  ): boolean => {
+    return (
+      elementApis.getVectorSegmentAtWorkspacePos(
+        elementId,
+        workspacePos,
+        hitRadius
+      ) !== null
+    )
   },
 
   isPointNearVectorPathAtClientPos: (
@@ -690,6 +740,19 @@ export const elementApis = {
     return true
   },
 
+  removeVectorAnchorPoint: (elementId: string, pointId: string): boolean => {
+    const topology = getVectorTopologyWorkspace(elementId)
+    const nextTopology = removeAnchorPointFromTopology(topology, pointId)
+    if (!nextTopology) {
+      return false
+    }
+
+    commitVectorTopology(elementId, nextTopology, {
+      closed: isClosedVectorTopology(nextTopology)
+    })
+    return true
+  },
+
   setVectorClosed: (elementId: string, closed: boolean) => {
     const topology = getVectorTopologyWorkspace(elementId)
     const nextTopology = setTopologyClosed(topology, closed)
@@ -725,7 +788,10 @@ export const elementApis = {
   updateVectorAnchorPointHandlePosition: (
     elementId: string,
     pointId: string,
-    target: Exclude<VectorPointTarget, typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR>,
+    target: Exclude<
+      VectorPointTarget,
+      typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR
+    >,
     position: PositionData
   ): { point: VectorAnchorPoint; index: number } | null => {
     const topology = getVectorTopologyWorkspace(elementId)
@@ -747,7 +813,10 @@ export const elementApis = {
     elementId: string,
     updates: {
       pointId: string
-      target: Exclude<VectorPointTarget, typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR>
+      target: Exclude<
+        VectorPointTarget,
+        typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR
+      >
       position: PositionData | null
       forceSmooth?: boolean
     }[]

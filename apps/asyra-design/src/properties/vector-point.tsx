@@ -1,10 +1,7 @@
 import { Input } from '@asyra/design-system'
 import { useCallback } from 'react'
-import {
-  VECTOR_TOKENS,
-  type VectorPointTarget
-} from '@asyra/core'
-import { elementApis, systemContextApis } from '../common-apis'
+import { VECTOR_TOKENS, type VectorPointTarget } from '@asyra/core'
+import { elementApis, selectionApis, systemContextApis } from '../common-apis'
 import { useSelectedVectorPoint } from '../providers'
 import { parseFiniteInputNumber } from './number-input'
 
@@ -63,6 +60,12 @@ const VectorPoint = () => {
         return false
       }
 
+      selectionApis.selectVectorPoint({
+        elementId,
+        pointId,
+        target: nextTarget
+      })
+      // Compatibility mirror during SelectionManager migration.
       systemContextApis.setSelectedVectorPoint({
         elementId,
         pointId,

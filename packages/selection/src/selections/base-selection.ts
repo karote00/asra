@@ -1,10 +1,23 @@
-import { OWNER, SELECTION_ACTIONS, type EvnetOptions } from '@asyra/utils'
+import {
+  OWNER,
+  SELECTION_ACTIONS,
+  SELECTION_TYPES,
+  type EvnetOptions
+} from '@asyra/utils'
 import type { SelectionChange } from '@asyra/utils'
+
+interface SelectionMetadata {
+  selectionType: SELECTION_TYPES
+  selectAction: SELECTION_ACTIONS
+  eventName: string
+}
 
 export default class BaseSelection {
   protected selectedIds: Set<string> = new Set()
   protected prevSelectedIds: Set<string> = new Set()
   changes: SelectionChange[] = []
+
+  constructor(private readonly metadata: SelectionMetadata) {}
 
   private _updatePrevSelectedIds(): void {
     this.prevSelectedIds = new Set(this.selectedIds)
@@ -26,7 +39,7 @@ export default class BaseSelection {
     const before = [...this.getSelectedIds()]
     this._updatePrevSelectedIds()
     this.selectedIds = new Set(ids)
-    this.addChange(SELECTION_ACTIONS.SELECT_ELEMENTS, before, [...ids], options)
+    this.addChange(this.metadata.selectAction, before, [...ids], options)
   }
 
   deselect(ids: string[], options?: EvnetOptions): void {
@@ -45,7 +58,7 @@ export default class BaseSelection {
     this._updatePrevSelectedIds()
     this.selectedIds = nextSelectedIds
     this.addChange(
-      SELECTION_ACTIONS.SELECT_ELEMENTS,
+      this.metadata.selectAction,
       before,
       [...this.selectedIds],
       options
@@ -60,7 +73,7 @@ export default class BaseSelection {
     const before = [...this.getSelectedIds()]
     this._updatePrevSelectedIds()
     this.selectedIds.clear()
-    this.addChange(SELECTION_ACTIONS.SELECT_ELEMENTS, before, [], options)
+    this.addChange(this.metadata.selectAction, before, [], options)
   }
 
   getSelectedIds(): Set<string> {
@@ -78,9 +91,10 @@ export default class BaseSelection {
     options?: EvnetOptions
   ) {
     this.changes.push({
+      selectionType: this.metadata.selectionType,
       action,
       owner: OWNER.ELEMENT_SELECTION,
-      eventName: 'selectElements',
+      eventName: this.metadata.eventName,
       before,
       after,
       options

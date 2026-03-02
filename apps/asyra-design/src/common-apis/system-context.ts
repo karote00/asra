@@ -6,6 +6,7 @@
 
 import core, { systemContext } from '../contexts'
 import type { VectorPointTarget as CoreVectorPointTarget } from '@asyra/core'
+import { selectionApis } from './selection'
 
 export type VectorPointTarget = CoreVectorPointTarget
 
@@ -51,8 +52,22 @@ export const systemContextApis = {
     return core.getSystemProperty<string | null>('pathEditingVectorId') ?? null
   },
 
+  getPathEditingMode: (): boolean => {
+    const mode = core.getSystemProperty<boolean | undefined>('pathEditingMode')
+    if (typeof mode === 'boolean') {
+      return mode
+    }
+
+    return systemContextApis.getPathEditingVectorId() !== null
+  },
+
+  setPathEditingMode: (enabled: boolean) => {
+    core.setSystemProperty('pathEditingMode', enabled)
+  },
+
   setPathEditingVectorId: (elementId: string | null) => {
     core.setSystemProperty('pathEditingVectorId', elementId)
+    systemContextApis.setPathEditingMode(elementId !== null)
   },
 
   getPathEditingStartNewSubpath: (): boolean => {
@@ -98,16 +113,22 @@ export const systemContextApis = {
     elementId: string,
     options: EnterPathEditingOptions = {}
   ) => {
+    systemContextApis.setPathEditingMode(true)
     systemContextApis.setPathEditingVectorId(elementId)
     systemContextApis.setPathEditingStartNewSubpath(
       options.startNewSubpath ?? true
     )
+    selectionApis.clearVectorPointSelection({ undoable: false })
+    selectionApis.clearVectorSegmentSelection({ undoable: false })
     systemContextApis.clearVectorPointState()
   },
 
   exitPathEditingMode: () => {
+    systemContextApis.setPathEditingMode(false)
     systemContextApis.setPathEditingVectorId(null)
     systemContextApis.setPathEditingStartNewSubpath(false)
+    selectionApis.clearVectorPointSelection({ undoable: false })
+    selectionApis.clearVectorSegmentSelection({ undoable: false })
     systemContextApis.clearVectorPointState()
   },
 

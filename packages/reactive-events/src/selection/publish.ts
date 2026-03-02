@@ -14,3 +14,29 @@ export const selectElements = (
     options
   })
 }
+
+export const selectVectorPoints = (
+  pointIds: string[],
+  options?: EVENT_OPTIONS
+) => {
+  publishEvent({
+    type: EventTypes.SELECT_VECTOR_POINTS,
+    payload: {
+      after: pointIds
+    },
+    options
+  })
+}
+
+export const selectVectorSegments = (
+  segmentIds: string[],
+  options?: EVENT_OPTIONS
+) => {
+  publishEvent({
+    type: EventTypes.SELECT_VECTOR_SEGMENTS,
+    payload: {
+      after: segmentIds
+    },
+    options
+  })
+}

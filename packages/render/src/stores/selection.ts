@@ -4,10 +4,14 @@ import { SELECTION_TYPES } from '@asyra/utils'
 class RenderSelection {
   selectionManager: SelectionManager
   elementSelection: Set<string>
+  vectorPointSelection: Set<string>
+  vectorSegmentSelection: Set<string>
 
   constructor() {
     this.selectionManager = selectionManager
     this.elementSelection = new Set()
+    this.vectorPointSelection = new Set()
+    this.vectorSegmentSelection = new Set()
   }
 
   getElementSelection() {
@@ -28,7 +32,11 @@ class RenderSelection {
         this.elementSelection = new Set(selectedIds)
         break
       }
-      case SELECTION_TYPES.VERTEX:
+      case SELECTION_TYPES.VECTOR_POINT:
+        this.vectorPointSelection = new Set(selectedIds)
+        break
+      case SELECTION_TYPES.VECTOR_SEGMENT:
+        this.vectorSegmentSelection = new Set(selectedIds)
         break
     }
   }

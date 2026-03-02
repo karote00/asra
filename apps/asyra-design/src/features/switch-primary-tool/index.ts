@@ -14,10 +14,10 @@ interface SwitchPrimaryToolAPI {
 
 const api: SwitchPrimaryToolAPI = {
   switch: (tool: string) => {
-    const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
+    const pathEditingMode = systemContextApis.getPathEditingMode()
     systemContextApis.switchPrimaryTool(tool)
 
-    if (!pathEditingVectorId) {
+    if (!pathEditingMode) {
       return
     }
 

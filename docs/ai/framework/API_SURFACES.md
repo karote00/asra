@@ -120,7 +120,7 @@ Managed property bridges:
 
 - default selection manager singleton
 - `SelectionManager` class
-- `ElementSelection`, `VertexSelection` classes
+- `ElementSelection`, `VectorPointSelection`, `VectorSegmentSelection` classes
 
 `@asyra/system-context`
 

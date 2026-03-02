@@ -4,7 +4,9 @@ This file tracks framework planning topics and points to detailed internal refer
 
 ## Near-Term Plans
 
-1. No active near-term plans
+1. Render YJS change registration
+- Make render YJS observe wiring registration-driven instead of hardcoded package subscriptions.
+- Reference: `docs/internal/render-yjs-change-registration-plan.md`
 
 ## Mid-Term Plans
 

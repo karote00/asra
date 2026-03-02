@@ -29,6 +29,11 @@ This file defines app-level state keys, owners, and primary consumers.
   - writers: pen/enter/cancel/switch-tool features
   - readers: pen feature, properties panel visibility logic
 
+- `pathEditingMode`
+  - owner: system-context
+  - writers: pen/enter/cancel/switch-tool features
+  - readers: delete/selection/switch-tool mode guards
+
 - `pathEditingStartNewSubpath`
   - owner: system-context
   - writers: pen cancel and append-point flow
@@ -36,9 +41,10 @@ This file defines app-level state keys, owners, and primary consumers.
 
 - `selectedVectorPoint`
   - owner: system-context
-  - writers: pen and select-vector-point flow
+  - writers: selection compatibility init bridge (`init-selection-compatibility`)
   - readers: vector-point property panel
   - state shape includes target type: `anchor` | `inHandle` | `outHandle`
+  - source-of-truth: derived compatibility mirror from `vectorPointSelection` selection channel
 
 - `hoveredVectorPoint`
   - owner: system-context
@@ -51,6 +57,14 @@ This file defines app-level state keys, owners, and primary consumers.
 - `elementSelection`
   - source: selection state
   - consumers: properties panel, content panel logic
+
+- `vectorPointSelection`
+  - source: selection state (`SelectionManager` `VECTOR_POINT` channel)
+  - consumers: vector point/segment property and path-editing UI adapters
+
+- `vectorSegmentSelection`
+  - source: selection state (`SelectionManager` `VECTOR_SEGMENT` channel)
+  - consumers: vector point/segment property and path-editing UI adapters
 
 - `flattenedElementIds`
   - source: scene-tree

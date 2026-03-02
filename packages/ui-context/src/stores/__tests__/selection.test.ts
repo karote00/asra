@@ -162,19 +162,19 @@ describe('SelectionStore', () => {
     })
   })
 
-  // Test updateSelection for VERTEX type
-  it('should update vertex selection when vertices are selected', () => {
+  // Test updateSelection for VECTOR_POINT type
+  it('should update vector point selection when vector points are selected', () => {
     mockSelection.getSelectedIds = vi.fn(
       () => new Set(['vertex-1', 'vertex-2'])
     )
 
-    selectionStore.updateSelection(SELECTION_TYPES.VERTEX)
+    selectionStore.updateSelection(SELECTION_TYPES.VECTOR_POINT)
 
     expect(mockSelectionManager.get).toHaveBeenCalledWith(
-      SELECTION_TYPES.VERTEX
+      SELECTION_TYPES.VECTOR_POINT
     )
     expect(UIContextModule.default.set).toHaveBeenCalledWith(
-      'vertexSelection',
+      'vectorPointSelection',
       new Set(['vertex-1', 'vertex-2'])
     )
     expect(

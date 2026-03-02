@@ -1,6 +1,10 @@
 import { defineFeature, importFeature } from '@asyra/core'
 import { endTransaction, startTransaction } from '@asyra/reactive-events'
-import { elementApis, selectionApis, systemContextApis } from '../../common-apis'
+import {
+  elementApis,
+  selectionApis,
+  systemContextApis
+} from '../../common-apis'
 import { FeatureNames, InputSystemEvents } from '../../constants'
 import type { SystemContextSnapshot } from '@asyra/utils'
 
@@ -27,7 +31,7 @@ export const deleteElementFeature = defineFeature(
     priority: 100,
     exclusive: true,
     execution: (snapshot: SystemContextSnapshot) => {
-      if (systemContextApis.getPathEditingVectorId()) {
+      if (systemContextApis.getPathEditingMode()) {
         return null
       }
 

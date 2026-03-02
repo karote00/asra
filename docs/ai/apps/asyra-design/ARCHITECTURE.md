@@ -55,14 +55,16 @@ Input -> Feature -> Common API/Controller -> Core/Framework State -> Render/UI-c
 System properties used by app:
 - `zoom`
 - `primaryTool`
+- `pathEditingMode`
 - `pathEditingVectorId`
 - `pathEditingStartNewSubpath`
-- `selectedVectorPoint`
+- `selectedVectorPoint` (compatibility mirror derived from selection channel)
 - `hoveredVectorPoint`
 
 UI properties used by app:
 - `elementSelection`
-- `vertexSelection`
+- `vectorPointSelection`
+- `vectorSegmentSelection`
 - `flattenedElementIds`
 - aggregate props: `x`, `y`, `width`, `height`, `rotation`
 - mirrored system props for UI: `zoom`, `primaryTool`, path-editing point props

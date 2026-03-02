@@ -27,8 +27,11 @@ export default class SelectionStore {
         )
         break
       }
-      case SELECTION_TYPES.VERTEX:
-        uiContext.set('vertexSelection', selectedIds)
+      case SELECTION_TYPES.VECTOR_POINT:
+        uiContext.set('vectorPointSelection', selectedIds)
+        break
+      case SELECTION_TYPES.VECTOR_SEGMENT:
+        uiContext.set('vectorSegmentSelection', selectedIds)
         break
     }
   }

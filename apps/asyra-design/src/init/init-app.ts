@@ -1,6 +1,7 @@
 import { initInputSystem } from './init-input-system'
 import { initFeatures } from './init-features'
 import { initLoadDiagnostics } from './init-load-diagnostics'
+import { initSelectionCompatibility } from './init-selection-compatibility'
 import { applyPreset } from '@asyra/preset'
 import core from '../contexts'
 
@@ -30,6 +31,8 @@ export const initApp = (): void => {
 
   // Subscribe once to core load diagnostics and route reports to app-level handlers.
   initLoadDiagnostics()
+  // Keep legacy selectedVectorPoint mirrored from SelectionManager-driven UI state.
+  initSelectionCompatibility()
 
   initInputSystem()
   // Initialize feature-system for application-level features

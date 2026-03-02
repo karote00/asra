@@ -13,12 +13,21 @@ interface SelectedVectorPointState extends Record<string, unknown> {
   y: number
 }
 
+interface SelectedVectorSegmentState extends Record<string, unknown> {
+  elementId: string
+  segmentId: string
+}
+
 export const registerProperties = (core: PresetCoreAPIs): void => {
   core.registerUIProperty<Set<string>>('elementSelection', {
     defaultValue: new Set()
   })
 
-  core.registerUIProperty<Set<string>>('vertexSelection', {
+  core.registerUIProperty<Set<string>>('vectorPointSelection', {
+    defaultValue: new Set()
+  })
+
+  core.registerUIProperty<Set<string>>('vectorSegmentSelection', {
     defaultValue: new Set()
   })
 
@@ -104,6 +113,10 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     silent: true,
     runtime: true
   })
+  core.registerSystemProperty<boolean>('pathEditingMode', false, {
+    silent: true,
+    runtime: true
+  })
   core.registerSystemProperty<boolean>('pathEditingStartNewSubpath', false, {
     silent: true,
     runtime: true
@@ -136,6 +149,12 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     {
       defaultValue: null,
       source$: selectedPointObservable
+    }
+  )
+  core.registerUIProperty<SelectedVectorSegmentState | null>(
+    'selectedVectorSegment',
+    {
+      defaultValue: null
     }
   )
 }

@@ -30,8 +30,14 @@ const api: SelectionAPI = {
 }
 
 const clearPathEditingIfSelectionChanged = () => {
+  const pathEditingMode = systemContextApis.getPathEditingMode()
+  if (!pathEditingMode) {
+    return
+  }
+
   const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
   if (!pathEditingVectorId) {
+    systemContextApis.exitPathEditingMode()
     return
   }
 
@@ -54,14 +60,14 @@ export const selectionFeature = defineFeature(
       onStart: (snapshot: SystemContextSnapshot) => {
         const { primaryTool } = snapshot
         const mouse = snapshot.mouse
-        const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
+        const pathEditingMode = systemContextApis.getPathEditingMode()
 
         if (primaryTool !== PrimaryToolType.SELECT || !mouse.down) {
           return null
         }
 
         // In path editing mode, keep focus on the current vector only.
-        if (pathEditingVectorId) {
+        if (pathEditingMode) {
           return null
         }
 

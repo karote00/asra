@@ -31,7 +31,9 @@ export enum ElementEventTypes {
 
 // Selection
 export enum SelectionEventTypes {
-  SELECT_ELEMENTS = 'selectElements'
+  SELECT_ELEMENTS = 'selectElements',
+  SELECT_VECTOR_POINTS = 'selectVectorPoints',
+  SELECT_VECTOR_SEGMENTS = 'selectVectorSegments'
 }
 
 // Undo
