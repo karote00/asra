@@ -400,6 +400,61 @@ test.describe('Pen Tool - Editing Flow', () => {
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
   })
 
+  test('split mode click on endpoint selects it before continuing subpath append', async ({
+    page
+  }) => {
+    const initialCount = await getElementCount(page)
+
+    await page.keyboard.press('p')
+    await expect.poll(() => getActiveTool(page)).toBe('pen')
+    await clickCanvas(page, 0.3, 0.3)
+    const firstPointId = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selected = core?.getSystemProperty?.('selectedVectorPoint')
+      return selected?.pointId ?? null
+    })
+    expect(firstPointId).not.toBeNull()
+    if (!firstPointId) {
+      return
+    }
+
+    await clickCanvas(page, 0.45, 0.4)
+    await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
+
+    // Enter split/new-subpath mode.
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(80)
+
+    const firstPointPos = await getCanvasPosition(page, 0.3, 0.3)
+    await page.mouse.click(firstPointPos.x, firstPointPos.y)
+
+    // Click-on-anchor should only select anchor, not create a new point.
+    await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const selected = core?.getSystemProperty?.('selectedVectorPoint')
+          const split = core?.getSystemProperty?.('pathEditingStartNewSubpath')
+          return {
+            pointId: selected?.pointId ?? null,
+            target: selected?.target ?? null,
+            split
+          }
+        })
+      })
+      .toMatchObject({
+        pointId: firstPointId,
+        target: 'anchor',
+        split: false
+      })
+
+    await clickCanvas(page, 0.22, 0.22)
+    await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
+  })
+
   test('escape uses split-then-exit semantics before creating a new vector', async ({
     page
   }) => {

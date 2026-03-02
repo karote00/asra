@@ -34,8 +34,11 @@
 
 1. If primary tool is not pen -> no-op.
 2. If selected vector is active path-editing target -> append anchor point.
-3. If not editing selected vector -> create new vector with first point.
-4. New/updated point becomes selected vector point state.
+3. If active vector is in split/new-subpath mode and user clicks an existing anchor:
+- select that anchor first (no point is added on that click)
+- if the clicked anchor is a subpath endpoint, exit split mode and resume continuation from that endpoint
+4. If not editing selected vector -> create new vector with first point.
+5. New/updated point becomes selected vector point state.
 
 ### Update/End
 

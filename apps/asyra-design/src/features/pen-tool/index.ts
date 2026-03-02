@@ -1,8 +1,11 @@
 import { id, type SystemContextSnapshot } from '@asyra/utils'
 import {
+  VECTOR_TOKENS,
   defineFeature,
   VECTOR_TOPOLOGY_POINT_ID_TYPE,
-  type VectorAnchorPoint
+  type VectorAnchorPoint,
+  type VectorEndpointSide,
+  type VectorPointTarget
 } from '@asyra/core'
 import {
   cursorApis,
@@ -21,7 +24,13 @@ interface PenState extends Record<string, unknown> {
   elementId: string
   pointId: string
   connectedPointId: string | null
+  connectionSide: VectorEndpointSide
   autoUpdateConnectedHandle: boolean
+}
+
+interface SubpathEndpoint {
+  point: VectorAnchorPoint
+  side: VectorEndpointSide
 }
 
 const createAnchorPoint = (point: {
@@ -62,6 +71,10 @@ const computeSymmetricHandles = (
 
 const computeConnectedOutHandle = (connectedPoint: VectorAnchorPoint): Vec2 => {
   return connectedPoint.outHandle ?? connectedPoint
+}
+
+const computeConnectedInHandle = (connectedPoint: VectorAnchorPoint): Vec2 => {
+  return connectedPoint.inHandle ?? connectedPoint
 }
 
 const computeFigmaStyleHandles = (
@@ -106,7 +119,7 @@ const setSelectedAnchorPoint = (
     elementId,
     pointId: selectedPoint.point.id,
     index: selectedPoint.index,
-    target: 'anchor',
+    target: VECTOR_TOKENS.POINT.TARGET.ANCHOR,
     x: selectedPoint.point.x,
     y: selectedPoint.point.y
   })
@@ -153,38 +166,74 @@ const applyBezierDragForNewPoint = (
   }
 
   const symmetric = computeSymmetricHandles(newPoint, mouseWorkspacePos)
-  const dragHandles = state.autoUpdateConnectedHandle
-    ? computeFigmaStyleHandles(connectedPoint, newPoint, mouseWorkspacePos)
-    : {
-        connectedOutHandle: computeConnectedOutHandle(connectedPoint),
-        currentInHandle: symmetric.inHandle,
-        currentOutHandle: symmetric.outHandle
-      }
+  const connectedTarget: Exclude<
+    VectorPointTarget,
+    typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR
+  > =
+    state.connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
+      ? VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
+      : VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE
+  const currentSegmentTarget: Exclude<
+    VectorPointTarget,
+    typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR
+  > =
+    state.connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
+      ? VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE
+      : VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
+  const currentOppositeTarget: Exclude<
+    VectorPointTarget,
+    typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR
+  > =
+    state.connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
+      ? VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
+      : VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE
+
+  const figmaHandles =
+    state.autoUpdateConnectedHandle &&
+    state.connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.END
+      ? computeFigmaStyleHandles(connectedPoint, newPoint, mouseWorkspacePos)
+      : null
+
+  const connectedHandle = figmaHandles
+    ? figmaHandles.connectedOutHandle
+    : state.connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
+      ? computeConnectedInHandle(connectedPoint)
+      : computeConnectedOutHandle(connectedPoint)
+  const currentSegmentHandle = figmaHandles
+    ? figmaHandles.currentInHandle
+    : state.connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
+      ? symmetric.outHandle
+      : symmetric.inHandle
+  const currentOppositeHandle = figmaHandles
+    ? figmaHandles.currentOutHandle
+    : state.connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
+      ? symmetric.inHandle
+      : symmetric.outHandle
 
   elementApis.updateVectorAnchorPointHandles(state.elementId, [
     {
       pointId: state.connectedPointId,
-      target: 'outHandle',
+      target: connectedTarget,
       position: {
-        x: dragHandles.connectedOutHandle.x,
-        y: dragHandles.connectedOutHandle.y
+        x: connectedHandle.x,
+        y: connectedHandle.y
       }
     },
     {
       pointId: state.pointId,
-      target: 'inHandle',
+      target: currentSegmentTarget,
       position: {
-        x: dragHandles.currentInHandle.x,
-        y: dragHandles.currentInHandle.y
+        x: currentSegmentHandle.x,
+        y: currentSegmentHandle.y
       },
       forceSmooth: true
     },
     {
       pointId: state.pointId,
-      target: 'outHandle',
+      target: currentOppositeTarget,
       position: {
-        x: dragHandles.currentOutHandle.x,
-        y: dragHandles.currentOutHandle.y
+        x: currentOppositeHandle.x,
+        y: currentOppositeHandle.y
       },
       forceSmooth: true
     }
@@ -194,7 +243,7 @@ const applyBezierDragForNewPoint = (
   if (
     selectedTarget?.elementId === state.elementId &&
     selectedTarget.pointId === state.pointId &&
-    selectedTarget.target === 'outHandle'
+    selectedTarget.target === currentOppositeTarget
   ) {
     systemContextApis.setSelectedVectorPoint({
       ...selectedTarget,
@@ -219,6 +268,33 @@ const isPathEditingVectorSelected = (
   }
 
   return elementApis.getElementType(pathEditingVectorId) === 'vector'
+}
+
+const getSubpathEndpoint = (
+  subpaths: VectorAnchorPoint[][],
+  pointId: string
+): SubpathEndpoint | null => {
+  for (const subpath of subpaths) {
+    if (subpath.length === 0) {
+      continue
+    }
+
+    const firstPoint = subpath[0]
+    const lastPoint = subpath[subpath.length - 1]
+
+    if (firstPoint.id === pointId && lastPoint.id === pointId) {
+      return { point: lastPoint, side: VECTOR_TOKENS.ENDPOINT.SIDE.END }
+    }
+
+    if (firstPoint.id === pointId) {
+      return { point: subpath[0], side: VECTOR_TOKENS.ENDPOINT.SIDE.START }
+    }
+    if (lastPoint.id === pointId) {
+      return { point: lastPoint, side: VECTOR_TOKENS.ENDPOINT.SIDE.END }
+    }
+  }
+
+  return null
 }
 
 export const penFeature = defineFeature<Record<string, unknown>, PenState>(
@@ -250,24 +326,74 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
         if (isPathEditingVectorSelected(selectedIds, pathEditingVectorId)) {
           const subpaths =
             elementApis.getVectorAnchorSubpaths(pathEditingVectorId)
+          const clickedPoint =
+            startNewSubpath &&
+            elementApis.getVectorEditablePointAtClientPos(
+              pathEditingVectorId,
+              snapshot.mouse.position
+            )
+
+          if (
+            clickedPoint &&
+            clickedPoint.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
+          ) {
+            const selectedPoint = elementApis.getVectorAnchorPointById(
+              pathEditingVectorId,
+              clickedPoint.point.id
+            )
+            setSelectedAnchorPoint(pathEditingVectorId, selectedPoint)
+
+            const selectedEndpoint = getSubpathEndpoint(
+              subpaths,
+              clickedPoint.point.id
+            )
+            if (startNewSubpath && selectedEndpoint) {
+              systemContextApis.setPathEditingStartNewSubpath(false)
+            }
+
+            return null
+          }
+
+          const selectedPoint = systemContextApis.getSelectedVectorPoint()
+          const selectedEndpoint =
+            !startNewSubpath &&
+            selectedPoint?.elementId === pathEditingVectorId &&
+            selectedPoint.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
+              ? getSubpathEndpoint(subpaths, selectedPoint.pointId)
+              : null
           const currentSubpath = subpaths[subpaths.length - 1]
-          const connectedPoint =
+          const fallbackConnectedPoint =
             !startNewSubpath && currentSubpath && currentSubpath.length > 0
               ? currentSubpath[currentSubpath.length - 1]
               : null
+          const connectedPoint = selectedEndpoint?.point ?? fallbackConnectedPoint
           const connectedPointId = connectedPoint?.id ?? null
+          const continuation =
+            !startNewSubpath && connectedPointId
+              ? elementApis.getVectorAnchorEndpoint(
+                  pathEditingVectorId,
+                  connectedPointId
+                )
+              : null
+          const connectionSide =
+            continuation?.side ?? VECTOR_TOKENS.ENDPOINT.SIDE.END
           const autoUpdateConnectedHandle =
             !!connectedPoint &&
+            connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.END &&
+            !!currentSubpath &&
             currentSubpath.length === 1 &&
             connectedPoint.outHandle === null
           const newPoint = createAnchorPoint(dragStartWorkspace)
-          const selectedPoint = elementApis.appendVectorAnchorPoint(
+          const newSelectedPoint = elementApis.appendVectorAnchorPoint(
             pathEditingVectorId,
             newPoint,
-            { startNewSubpath }
+            {
+              startNewSubpath,
+              continuation
+            }
           )
           selectionApis.selectElements([pathEditingVectorId])
-          setSelectedAnchorPoint(pathEditingVectorId, selectedPoint)
+          setSelectedAnchorPoint(pathEditingVectorId, newSelectedPoint)
           if (startNewSubpath) {
             systemContextApis.setPathEditingStartNewSubpath(false)
           }
@@ -277,6 +403,7 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
             elementId: pathEditingVectorId,
             pointId: newPoint.id,
             connectedPointId,
+            connectionSide,
             autoUpdateConnectedHandle
           } as PenState
         }
@@ -305,6 +432,7 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
           elementId,
           pointId: firstPoint.id,
           connectedPointId: null,
+          connectionSide: VECTOR_TOKENS.ENDPOINT.SIDE.END,
           autoUpdateConnectedHandle: false
         }
       },

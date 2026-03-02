@@ -1,8 +1,13 @@
-import { createOverlayLayerRegistration, type OverlayCanvas } from '@asyra/core'
+import {
+  VECTOR_TOKENS,
+  createOverlayLayerRegistration,
+  type OverlayCanvas
+} from '@asyra/core'
 import type {
   RegisterRenderLayerOptions,
   RenderLayerRegistration,
   VectorNetwork,
+  VectorPointTarget,
   VectorPointNode,
   VectorSegment
 } from '@asyra/core'
@@ -21,8 +26,6 @@ const PREVIEW_WIDTH = 2
 const SELECTED_POINT_OUTLINE_COLOR = 0x1e90ff
 const SELECTED_POINT_OUTLINE_WIDTH = 2
 const SELECTED_POINT_OUTLINE_RADIUS = POINT_RADIUS + 3
-
-type VectorPointTarget = 'anchor' | 'inHandle' | 'outHandle'
 
 interface OverlayAnchorPoint extends PositionData {
   id: string
@@ -77,7 +80,12 @@ const sortByStableId = <T extends { id: string }>(items: T[]): T[] =>
     return a.id.localeCompare(b.id)
   })
 
-const getControlId = (anchorId: string, role: 'in' | 'out') =>
+const getControlId = (
+  anchorId: string,
+  role:
+    | typeof VECTOR_TOKENS.CONTROL.ROLE.IN
+    | typeof VECTOR_TOKENS.CONTROL.ROLE.OUT
+) =>
   `${anchorId}:${role}`
 
 const toScreenPosition = (
@@ -118,23 +126,27 @@ const getPathEditingVectorDataWithDeps = (
     const points: OverlayAnchorPoint[] = []
     network.pointIds.forEach((pointId) => {
       const anchor = computed.points?.[pointId]
-      if (!anchor || anchor.kind !== 'anchor') {
+      if (!anchor || anchor.kind !== VECTOR_TOKENS.POINT.KIND.ANCHOR) {
         return
       }
 
-      const inHandle = computed.points?.[getControlId(pointId, 'in')]
-      const outHandle = computed.points?.[getControlId(pointId, 'out')]
+      const inHandle = computed.points?.[
+        getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN)
+      ]
+      const outHandle = computed.points?.[
+        getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.OUT)
+      ]
 
       points.push({
         id: pointId,
         x: anchor.x + offsetX,
         y: anchor.y + offsetY,
         inHandle:
-          inHandle && inHandle.kind === 'control'
+          inHandle && inHandle.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
             ? { x: inHandle.x + offsetX, y: inHandle.y + offsetY }
             : null,
         outHandle:
-          outHandle && outHandle.kind === 'control'
+          outHandle && outHandle.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
             ? { x: outHandle.x + offsetX, y: outHandle.y + offsetY }
             : null
       })
@@ -231,7 +243,7 @@ const drawAnchorPoints = (
     })
   })
 
-  if (!selectedPointId || selectedTarget !== 'anchor') {
+  if (!selectedPointId || selectedTarget !== VECTOR_TOKENS.POINT.TARGET.ANCHOR) {
     return
   }
 
@@ -264,11 +276,11 @@ const drawHandlePoints = (
     }
 
     const handles: {
-      target: Exclude<VectorPointTarget, 'anchor'>
+      target: Exclude<VectorPointTarget, typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR>
       position: PositionData | null
     }[] = [
-      { target: 'inHandle', position: point.inHandle },
-      { target: 'outHandle', position: point.outHandle }
+      { target: VECTOR_TOKENS.POINT.TARGET.IN_HANDLE, position: point.inHandle },
+      { target: VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE, position: point.outHandle }
     ]
 
     handles.forEach(({ target, position }) => {

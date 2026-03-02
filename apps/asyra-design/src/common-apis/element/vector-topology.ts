@@ -1,18 +1,28 @@
 import type {
   VectorAnchorPoint,
   VectorAnchorType,
+  VectorControlRole,
+  VectorEndpointSide,
   VectorNetwork,
   VectorPointNode,
   VectorSegment,
   VectorTopology
 } from '@asyra/core'
 import {
+  VECTOR_TOKENS,
   VECTOR_TOPOLOGY_NETWORK_ID_TYPE,
   VECTOR_TOPOLOGY_SEGMENT_ID_TYPE
 } from '@asyra/core'
 import { id, type PositionData } from '@asyra/utils'
 
 export type VectorAnchorSubpaths = VectorAnchorPoint[][]
+export type VectorTopologyEndpointSide = VectorEndpointSide
+
+export interface VectorTopologyEndpoint {
+  networkId: string
+  pointId: string
+  side: VectorTopologyEndpointSide
+}
 
 type VectorTopologyLike = Pick<
   VectorTopology,
@@ -57,10 +67,10 @@ const omitKeys = <T extends Record<string, unknown>>(
 
 const isAnchorNode = (
   node: VectorPointNode | undefined
-): node is VectorPointNode & { kind: 'anchor' } =>
-  !!node && node.kind === 'anchor'
+): node is VectorPointNode & { kind: typeof VECTOR_TOKENS.POINT.KIND.ANCHOR } =>
+  !!node && node.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
 
-export const getControlId = (anchorId: string, role: 'in' | 'out') =>
+export const getControlId = (anchorId: string, role: VectorControlRole) =>
   `${anchorId}:${role}`
 
 export const createEmptyVectorTopology = (): VectorTopology => ({
@@ -102,6 +112,45 @@ export const getOrderedNetworks = (
   topology: VectorTopologyLike
 ): VectorNetwork[] => sortByStableId(Object.values(topology.networks))
 
+export const getAnchorEndpointInTopology = (
+  topology: VectorTopologyLike,
+  pointId: string
+): VectorTopologyEndpoint | null => {
+  const networks = getOrderedNetworks(topology)
+  for (const network of networks) {
+    if (network.closed || network.pointIds.length === 0) {
+      continue
+    }
+
+    const firstPointId = network.pointIds[0]
+    const lastPointId = network.pointIds[network.pointIds.length - 1]
+    if (firstPointId === pointId && lastPointId === pointId) {
+      return {
+        networkId: network.id,
+        pointId,
+        side: VECTOR_TOKENS.ENDPOINT.SIDE.END
+      }
+    }
+
+    if (firstPointId === pointId) {
+      return {
+        networkId: network.id,
+        pointId,
+        side: VECTOR_TOKENS.ENDPOINT.SIDE.START
+      }
+    }
+    if (lastPointId === pointId) {
+      return {
+        networkId: network.id,
+        pointId,
+        side: VECTOR_TOKENS.ENDPOINT.SIDE.END
+      }
+    }
+  }
+
+  return null
+}
+
 const getAnchorViewFromTopology = (
   topology: VectorTopologyLike,
   pointId: string,
@@ -112,8 +161,12 @@ const getAnchorViewFromTopology = (
     return null
   }
 
-  const inHandleNode = topology.points[getControlId(pointId, 'in')]
-  const outHandleNode = topology.points[getControlId(pointId, 'out')]
+  const inHandleNode = topology.points[
+    getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN)
+  ]
+  const outHandleNode = topology.points[
+    getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.OUT)
+  ]
 
   return {
     id: pointId,
@@ -227,7 +280,7 @@ export const createVectorTopologyFromSinglePoint = (
     points: {
       [pointId]: {
         id: pointId,
-        kind: 'anchor',
+        kind: VECTOR_TOKENS.POINT.KIND.ANCHOR,
         anchorType,
         x: position.x,
         y: position.y
@@ -252,13 +305,14 @@ export const appendAnchorPointToTopology = (
   options?: {
     startNewSubpath?: boolean
     anchorType?: VectorAnchorType
+    continuation?: VectorTopologyEndpoint | null
   }
 ): VectorTopology => {
   const nextPoints: Record<string, VectorPointNode> = {
     ...topology.points,
     [pointId]: {
       id: pointId,
-      kind: 'anchor',
+      kind: VECTOR_TOKENS.POINT.KIND.ANCHOR,
       anchorType: options?.anchorType ?? 'sharp',
       x: position.x,
       y: position.y
@@ -284,26 +338,52 @@ export const appendAnchorPointToTopology = (
     }
   }
 
-  const targetNetwork = networks[networks.length - 1]
-  const lastPointId = targetNetwork.pointIds[targetNetwork.pointIds.length - 1]
+  const continuation = options?.continuation
+  const resolvedContinuation =
+    continuation && nextNetworks[continuation.networkId]
+      ? continuation
+      : null
+  const targetNetwork = resolvedContinuation
+    ? nextNetworks[resolvedContinuation.networkId]
+    : networks[networks.length - 1]
+  const continuationSide: VectorTopologyEndpointSide =
+    resolvedContinuation?.side ?? VECTOR_TOKENS.ENDPOINT.SIDE.END
+  const connectedPointId =
+    continuationSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
+      ? targetNetwork.pointIds[0]
+      : targetNetwork.pointIds[targetNetwork.pointIds.length - 1]
   const segmentId = id(VECTOR_TOPOLOGY_SEGMENT_ID_TYPE)
+  const segmentStartId =
+    continuationSide === VECTOR_TOKENS.ENDPOINT.SIDE.START ? pointId : connectedPointId
+  const segmentEndId =
+    continuationSide === VECTOR_TOKENS.ENDPOINT.SIDE.START ? connectedPointId : pointId
 
   nextSegments[segmentId] = {
     id: segmentId,
-    startId: lastPointId,
-    endId: pointId,
-    outControlId: nextPoints[getControlId(lastPointId, 'out')]
-      ? getControlId(lastPointId, 'out')
+    startId: segmentStartId,
+    endId: segmentEndId,
+    outControlId: nextPoints[
+      getControlId(segmentStartId, VECTOR_TOKENS.CONTROL.ROLE.OUT)
+    ]
+      ? getControlId(segmentStartId, VECTOR_TOKENS.CONTROL.ROLE.OUT)
       : null,
-    inControlId: nextPoints[getControlId(pointId, 'in')]
-      ? getControlId(pointId, 'in')
+    inControlId: nextPoints[
+      getControlId(segmentEndId, VECTOR_TOKENS.CONTROL.ROLE.IN)
+    ]
+      ? getControlId(segmentEndId, VECTOR_TOKENS.CONTROL.ROLE.IN)
       : null
   }
 
   nextNetworks[targetNetwork.id] = {
     ...targetNetwork,
-    pointIds: [...targetNetwork.pointIds, pointId],
-    segmentIds: [...targetNetwork.segmentIds, segmentId]
+    pointIds:
+      continuationSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
+        ? [pointId, ...targetNetwork.pointIds]
+        : [...targetNetwork.pointIds, pointId],
+    segmentIds:
+      continuationSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
+        ? [segmentId, ...targetNetwork.segmentIds]
+        : [...targetNetwork.segmentIds, segmentId]
   }
 
   return { points: nextPoints, segments: nextSegments, networks: nextNetworks }
@@ -364,8 +444,18 @@ export const setAnchorTypeInTopology = (
   }
 
   if (type === 'sharp') {
-    nextTopology = setAnchorHandleInTopology(nextTopology, pointId, 'in', null)
-    nextTopology = setAnchorHandleInTopology(nextTopology, pointId, 'out', null)
+    nextTopology = setAnchorHandleInTopology(
+      nextTopology,
+      pointId,
+      VECTOR_TOKENS.CONTROL.ROLE.IN,
+      null
+    )
+    nextTopology = setAnchorHandleInTopology(
+      nextTopology,
+      pointId,
+      VECTOR_TOKENS.CONTROL.ROLE.OUT,
+      null
+    )
   }
 
   return nextTopology
@@ -374,7 +464,7 @@ export const setAnchorTypeInTopology = (
 export const setAnchorHandleInTopology = (
   topology: VectorTopologyLike,
   pointId: string,
-  role: 'in' | 'out',
+  role: VectorControlRole,
   position: PositionData | null
 ): VectorTopology => {
   const controlId = getControlId(pointId, role)
@@ -384,7 +474,7 @@ export const setAnchorHandleInTopology = (
   if (position) {
     nextPoints[controlId] = {
       id: controlId,
-      kind: 'control',
+      kind: VECTOR_TOKENS.POINT.KIND.CONTROL,
       controlForId: pointId,
       controlRole: role,
       x: position.x,
@@ -395,7 +485,7 @@ export const setAnchorHandleInTopology = (
   }
 
   Object.entries(topology.segments).forEach(([segmentId, segment]) => {
-    if (role === 'out' && segment.startId === pointId) {
+    if (role === VECTOR_TOKENS.CONTROL.ROLE.OUT && segment.startId === pointId) {
       nextSegments[segmentId] = {
         ...segment,
         outControlId: position ? controlId : null
@@ -403,7 +493,7 @@ export const setAnchorHandleInTopology = (
       return
     }
 
-    if (role === 'in' && segment.endId === pointId) {
+    if (role === VECTOR_TOKENS.CONTROL.ROLE.IN && segment.endId === pointId) {
       nextSegments[segmentId] = {
         ...segment,
         inControlId: position ? controlId : null
@@ -435,8 +525,8 @@ export const removeLastSinglePointSubpath = (
   }
 
   const pointId = lastNetwork.pointIds[0]
-  const inControlId = getControlId(pointId, 'in')
-  const outControlId = getControlId(pointId, 'out')
+  const inControlId = getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN)
+  const outControlId = getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.OUT)
 
   const nextPoints = omitKeys({ ...topology.points }, [
     pointId,
@@ -488,11 +578,15 @@ export const setTopologyClosed = (
         id: segmentId,
         startId,
         endId,
-        outControlId: topology.points[getControlId(startId, 'out')]
-          ? getControlId(startId, 'out')
+        outControlId: topology.points[
+          getControlId(startId, VECTOR_TOKENS.CONTROL.ROLE.OUT)
+        ]
+          ? getControlId(startId, VECTOR_TOKENS.CONTROL.ROLE.OUT)
           : null,
-        inControlId: topology.points[getControlId(endId, 'in')]
-          ? getControlId(endId, 'in')
+        inControlId: topology.points[
+          getControlId(endId, VECTOR_TOKENS.CONTROL.ROLE.IN)
+        ]
+          ? getControlId(endId, VECTOR_TOKENS.CONTROL.ROLE.IN)
           : null
       }
       nextSegmentIds.push(segmentId)

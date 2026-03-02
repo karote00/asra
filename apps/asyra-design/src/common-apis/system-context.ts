@@ -5,8 +5,9 @@
  */
 
 import core, { systemContext } from '../contexts'
+import type { VectorPointTarget as CoreVectorPointTarget } from '@asyra/core'
 
-export type VectorPointTarget = 'anchor' | 'inHandle' | 'outHandle'
+export type VectorPointTarget = CoreVectorPointTarget
 
 export interface SelectedVectorPointState extends Record<string, unknown> {
   elementId: string

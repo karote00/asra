@@ -1,4 +1,8 @@
-import { VECTOR_TOPOLOGY_POINT_ID_TYPE } from '@asyra/core'
+import {
+  VECTOR_TOKENS,
+  VECTOR_TOPOLOGY_POINT_ID_TYPE
+} from '@asyra/core'
+import type { VectorControlRole, VectorPointKind } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
 import { defineChildrenMapPropertyComponent } from './children-map-property-component'
 
@@ -8,11 +12,13 @@ const toNumber = (value: unknown, fallback = 0) =>
 const toAnchorType = (value: unknown): 'smooth' | 'sharp' =>
   value === 'smooth' ? 'smooth' : 'sharp'
 
-const toPointKind = (value: unknown): 'anchor' | 'control' =>
-  value === 'control' ? 'control' : 'anchor'
+const toPointKind = (value: unknown): VectorPointKind =>
+  value === VECTOR_TOKENS.POINT.KIND.CONTROL
+    ? VECTOR_TOKENS.POINT.KIND.CONTROL
+    : VECTOR_TOKENS.POINT.KIND.ANCHOR
 
-const toControlRole = (value: unknown): 'in' | 'out' | undefined => {
-  if (value === 'in' || value === 'out') {
+const toControlRole = (value: unknown): VectorControlRole | undefined => {
+  if (value === VECTOR_TOKENS.CONTROL.ROLE.IN || value === VECTOR_TOKENS.CONTROL.ROLE.OUT) {
     return value
   }
 
@@ -30,7 +36,7 @@ defineChildrenMapPropertyComponent({
   toChildData: (item) => {
     const kind = toPointKind(item.kind)
 
-    if (kind === 'control') {
+    if (kind === VECTOR_TOKENS.POINT.KIND.CONTROL) {
       return {
         kind,
         x: toNumber(item.x),
@@ -52,7 +58,7 @@ defineChildrenMapPropertyComponent({
     const x = toNumber(child.get('x'))
     const y = toNumber(child.get('y'))
 
-    if (kind === 'control') {
+    if (kind === VECTOR_TOKENS.POINT.KIND.CONTROL) {
       return {
         id: childId,
         kind,

@@ -1,5 +1,6 @@
 import type {
   VectorAnchorPoint,
+  VectorPointTarget as CoreVectorPointTarget,
   VectorPathStyle,
   VectorNetwork,
   VectorPointNode,
@@ -28,7 +29,7 @@ export interface CreateElementOptions {
   closed?: boolean
 }
 
-export type VectorPointTarget = 'anchor' | 'inHandle' | 'outHandle'
+export type VectorPointTarget = CoreVectorPointTarget
 
 export interface VectorEditablePointHit {
   point: VectorAnchorPoint

@@ -201,3 +201,16 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
   - Overlay clarity improves without changing curve geometry semantics.
 - Related Commit(s):
   - `5933af4` (`feat(pen): show curve handles only around selected anchor neighborhood`)
+
+## 2026-03-02 - Pen split-mode can resume continuation from clicked endpoint anchor
+
+- Context:
+  - In split/new-subpath pen mode, clicking an existing anchor immediately created a new point, which prevented explicit continuation control from an existing subpath endpoint.
+- Decision:
+  - In split/new-subpath mode, clicking an existing anchor selects that anchor without creating a new point on that click.
+  - If the clicked anchor is a valid endpoint (`start`/`end`) of an open subpath, resume pen continuation from that endpoint for preview and next append.
+  - Archive completed plan:
+    - `docs/ai/apps/asyra-design/plans/completed/pen-resume-subpath-from-point-plan.md`
+- Consequences:
+  - Pen subpath continuation is now explicit and endpoint-driven in split mode.
+  - Users can resume and append from the intended subpath instead of defaulting to latest-tail behavior.

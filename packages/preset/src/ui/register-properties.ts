@@ -1,4 +1,5 @@
 import { SCENE_TREE_ACTIONS } from '@asyra/utils'
+import type { VectorPointTarget } from '@asyra/core'
 import type { PresetCoreAPIs } from '../types'
 
 const DEFAULT_PRIMARY_TOOL = 'select'
@@ -7,7 +8,7 @@ interface SelectedVectorPointState extends Record<string, unknown> {
   elementId: string
   pointId: string
   index: number
-  target: 'anchor' | 'inHandle' | 'outHandle'
+  target: VectorPointTarget
   x: number
   y: number
 }

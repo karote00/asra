@@ -1,12 +1,13 @@
 import type { VectorPointNode, VectorTopology } from '@asyra/core'
+import { VECTOR_TOKENS } from '@asyra/core'
 import { getCubicBezierSegmentBounds } from './bezier-adapter'
 
 const MIN_VECTOR_SIZE = 0.1
 
 const isAnchorNode = (
   point: VectorPointNode | undefined
-): point is VectorPointNode & { kind: 'anchor' } =>
-  !!point && point.kind === 'anchor'
+): point is VectorPointNode & { kind: typeof VECTOR_TOKENS.POINT.KIND.ANCHOR } =>
+  !!point && point.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
 
 const includePoint = (
   point: VectorPointNode,
@@ -35,8 +36,8 @@ const includeSegmentBounds = (
 
 export const calculateVectorBounds = (topology: VectorTopology) => {
   const anchorNodes = Object.values(topology.points).filter(
-    (point): point is VectorPointNode & { kind: 'anchor' } =>
-      point.kind === 'anchor'
+    (point): point is VectorPointNode & { kind: typeof VECTOR_TOKENS.POINT.KIND.ANCHOR } =>
+      point.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
   )
   if (anchorNodes.length === 0) {
     return { x: 0, y: 0, width: MIN_VECTOR_SIZE, height: MIN_VECTOR_SIZE }
@@ -66,11 +67,11 @@ export const calculateVectorBounds = (topology: VectorTopology) => {
       : undefined
 
     const p1 =
-      outControl && outControl.kind === 'control'
+      outControl && outControl.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
         ? { x: outControl.x, y: outControl.y }
         : { x: start.x, y: start.y }
     const p2 =
-      inControl && inControl.kind === 'control'
+      inControl && inControl.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
         ? { x: inControl.x, y: inControl.y }
         : { x: end.x, y: end.y }
 

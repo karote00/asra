@@ -14,12 +14,14 @@ import {
 } from '@asyra/utils'
 import type {
   VectorAnchorPoint,
+  VectorEndpointSide,
   VectorNetwork,
   VectorPathStyle,
   VectorPointNode,
   VectorSegment,
   VectorTopology
 } from '@asyra/core'
+import { VECTOR_TOKENS } from '@asyra/core'
 import { isEqual } from 'lodash'
 import core, { render, sceneTree } from '../../contexts'
 import {
@@ -30,6 +32,7 @@ import {
   appendAnchorPointToTopology,
   createEmptyVectorTopology,
   createVectorTopologyFromSinglePoint,
+  getAnchorEndpointInTopology,
   getOrderedNetworks,
   hasVectorTopologyData,
   isClosedVectorTopology,
@@ -166,10 +169,13 @@ const getVectorComputed = (elementId: string): VectorComputedData | null => {
     return null
   }
 
-  const computed = element.getAllComputedData() as Partial<VectorComputedData>
-  if (!hasVectorTopologyData(computed)) {
+  const computedRaw = element.getAllComputedData() as Partial<VectorComputedData>
+  if (!hasVectorTopologyData(computedRaw)) {
     return null
   }
+  const computed =
+    computedRaw as Partial<VectorComputedData> &
+      Pick<VectorComputedData, 'points' | 'segments' | 'networks'>
 
   return {
     x: computed.x,
@@ -406,7 +412,7 @@ export const elementApis = {
       workspacePos,
       hitRadius
     )
-    if (!editablePoint || editablePoint.target !== 'anchor') {
+    if (!editablePoint || editablePoint.target !== VECTOR_TOKENS.POINT.TARGET.ANCHOR) {
       return null
     }
 
@@ -459,9 +465,22 @@ export const elementApis = {
     }
 
     anchorPoints.forEach((point, index) => {
-      checkTarget(point, index, 'inHandle', point.inHandle)
-      checkTarget(point, index, 'outHandle', point.outHandle)
-      checkTarget(point, index, 'anchor', { x: point.x, y: point.y })
+      checkTarget(
+        point,
+        index,
+        VECTOR_TOKENS.POINT.TARGET.IN_HANDLE,
+        point.inHandle
+      )
+      checkTarget(
+        point,
+        index,
+        VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE,
+        point.outHandle
+      )
+      checkTarget(point, index, VECTOR_TOKENS.POINT.TARGET.ANCHOR, {
+        x: point.x,
+        y: point.y
+      })
     })
 
     return closestHit
@@ -535,8 +554,8 @@ export const elementApis = {
         if (
           !start ||
           !end ||
-          start.kind !== 'anchor' ||
-          end.kind !== 'anchor'
+          start.kind !== VECTOR_TOKENS.POINT.KIND.ANCHOR ||
+          end.kind !== VECTOR_TOKENS.POINT.KIND.ANCHOR
         ) {
           continue
         }
@@ -622,7 +641,14 @@ export const elementApis = {
   appendVectorAnchorPoint: (
     elementId: string,
     point: VectorAnchorPoint,
-    options?: { startNewSubpath?: boolean }
+    options?: {
+      startNewSubpath?: boolean
+      continuation?: {
+        networkId: string
+        pointId: string
+        side: VectorEndpointSide
+      } | null
+    }
   ): { point: VectorAnchorPoint; index: number } | null => {
     const topology = getVectorTopologyWorkspace(elementId)
     const nextTopology = appendAnchorPointToTopology(
@@ -631,12 +657,25 @@ export const elementApis = {
       { x: point.x, y: point.y },
       {
         startNewSubpath: options?.startNewSubpath,
-        anchorType: point.type
+        anchorType: point.type,
+        continuation: options?.continuation
       }
     )
 
     commitVectorTopology(elementId, nextTopology)
     return elementApis.getVectorAnchorPointById(elementId, point.id)
+  },
+
+  getVectorAnchorEndpoint: (
+    elementId: string,
+    pointId: string
+  ): {
+    networkId: string
+    pointId: string
+    side: VectorEndpointSide
+  } | null => {
+    const topology = getVectorTopologyWorkspace(elementId)
+    return getAnchorEndpointInTopology(topology, pointId)
   },
 
   removeLastSinglePointSubpath: (elementId: string): boolean => {
@@ -685,7 +724,7 @@ export const elementApis = {
   updateVectorAnchorPointHandlePosition: (
     elementId: string,
     pointId: string,
-    target: Exclude<VectorPointTarget, 'anchor'>,
+    target: Exclude<VectorPointTarget, typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR>,
     position: PositionData
   ): { point: VectorAnchorPoint; index: number } | null => {
     const topology = getVectorTopologyWorkspace(elementId)
@@ -693,7 +732,9 @@ export const elementApis = {
     nextTopology = setAnchorHandleInTopology(
       nextTopology,
       pointId,
-      target === 'inHandle' ? 'in' : 'out',
+      target === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
+        ? VECTOR_TOKENS.CONTROL.ROLE.IN
+        : VECTOR_TOKENS.CONTROL.ROLE.OUT,
       position
     )
 
@@ -705,7 +746,7 @@ export const elementApis = {
     elementId: string,
     updates: {
       pointId: string
-      target: Exclude<VectorPointTarget, 'anchor'>
+      target: Exclude<VectorPointTarget, typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR>
       position: PositionData | null
       forceSmooth?: boolean
     }[]
@@ -723,7 +764,9 @@ export const elementApis = {
       topology = setAnchorHandleInTopology(
         topology,
         update.pointId,
-        update.target === 'inHandle' ? 'in' : 'out',
+        update.target === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
+          ? VECTOR_TOKENS.CONTROL.ROLE.IN
+          : VECTOR_TOKENS.CONTROL.ROLE.OUT,
         update.position
       )
     })

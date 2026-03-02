@@ -1,16 +1,19 @@
 import { Input } from '@asyra/design-system'
 import { useCallback } from 'react'
+import {
+  VECTOR_TOKENS,
+  type VectorPointTarget
+} from '@asyra/core'
 import { elementApis, systemContextApis } from '../common-apis'
 import { useSelectedVectorPoint } from '../providers'
 import { parseFiniteInputNumber } from './number-input'
-import type { VectorPointTarget } from '../common-apis/system-context'
 
 const getTargetLabel = (target: VectorPointTarget) => {
-  if (target === 'inHandle') {
+  if (target === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE) {
     return 'In Handle'
   }
 
-  if (target === 'outHandle') {
+  if (target === VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE) {
     return 'Out Handle'
   }
 
@@ -22,7 +25,7 @@ const VectorPoint = () => {
   const elementId = selectedPoint?.elementId ?? null
   const pointId = selectedPoint?.pointId ?? null
   const index = selectedPoint?.index ?? null
-  const target = selectedPoint?.target ?? 'anchor'
+  const target = selectedPoint?.target ?? VECTOR_TOKENS.POINT.TARGET.ANCHOR
   const x = selectedPoint?.x ?? null
   const y = selectedPoint?.y ?? null
   const anchorPoint =
@@ -50,9 +53,9 @@ const VectorPoint = () => {
       }
 
       const targetPosition =
-        nextTarget === 'anchor'
+        nextTarget === VECTOR_TOKENS.POINT.TARGET.ANCHOR
           ? { x: updatedPoint.point.x, y: updatedPoint.point.y }
-          : nextTarget === 'inHandle'
+          : nextTarget === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
             ? updatedPoint.point.inHandle
             : updatedPoint.point.outHandle
 
@@ -85,7 +88,7 @@ const VectorPoint = () => {
       }
 
       const updatedPoint =
-        target === 'anchor'
+        target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
           ? elementApis.updateVectorAnchorPointPosition(elementId, pointId, {
               x: nextX,
               y
@@ -116,7 +119,7 @@ const VectorPoint = () => {
       }
 
       const updatedPoint =
-        target === 'anchor'
+        target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
           ? elementApis.updateVectorAnchorPointPosition(elementId, pointId, {
               x,
               y: nextY
@@ -146,7 +149,7 @@ const VectorPoint = () => {
         pointId,
         newType
       )
-      applyTargetSelection(updatedPoint, 'anchor')
+      applyTargetSelection(updatedPoint, VECTOR_TOKENS.POINT.TARGET.ANCHOR)
     },
     [elementId, pointId, applyTargetSelection]
   )
@@ -169,7 +172,7 @@ const VectorPoint = () => {
       >
         Target: {getTargetLabel(target)}
       </div>
-      {target === 'anchor' && (
+      {target === VECTOR_TOKENS.POINT.TARGET.ANCHOR && (
         <div className="px-3 pt-2 pb-1">
           <label
             className="block text-[11px] text-gray-400 pb-1"

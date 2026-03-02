@@ -1,4 +1,7 @@
 import {
+  VECTOR_TOKENS
+} from '@asyra/core'
+import {
   AnchorPointTypes,
   PropertySchema,
   PropertyTypes,
@@ -141,8 +144,10 @@ const vectorPointSchema: PropertySchema = {
     {
       key: 'kind',
       kind: 'string',
-      validate: (value) => value === 'anchor' || value === 'control',
-      defaultValue: 'anchor'
+      validate: (value) =>
+        value === VECTOR_TOKENS.POINT.KIND.ANCHOR ||
+        value === VECTOR_TOKENS.POINT.KIND.CONTROL,
+      defaultValue: VECTOR_TOKENS.POINT.KIND.ANCHOR
     },
     {
       key: 'x',
@@ -170,7 +175,9 @@ const vectorPointSchema: PropertySchema = {
     {
       key: 'controlRole',
       kind: 'string',
-      validate: (value) => value === 'in' || value === 'out'
+      validate: (value) =>
+        value === VECTOR_TOKENS.CONTROL.ROLE.IN ||
+        value === VECTOR_TOKENS.CONTROL.ROLE.OUT
     }
   ]
 }

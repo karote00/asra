@@ -1,6 +1,9 @@
 import { PropertyTypes } from '@asyra/utils'
 import type { RenderStrategy } from '@asyra/core'
-import { defineComponent } from '@asyra/core'
+import {
+  VECTOR_TOKENS,
+  defineComponent,
+} from '@asyra/core'
 import type { VectorNetwork, VectorPointNode, VectorSegment } from '@asyra/core'
 
 interface VectorComputedData {
@@ -71,7 +74,7 @@ const vectorRenderStrategy: RenderStrategy = (graphic, data) => {
   orderedNetworks.forEach((network) => {
     const firstId = network.pointIds[0]
     const first = firstId ? points[firstId] : undefined
-    if (!first || first.kind !== 'anchor') {
+    if (!first || first.kind !== VECTOR_TOKENS.POINT.KIND.ANCHOR) {
       return
     }
 
@@ -85,16 +88,23 @@ const vectorRenderStrategy: RenderStrategy = (graphic, data) => {
 
       const start = points[segment.startId]
       const end = points[segment.endId]
-      if (!start || !end || start.kind !== 'anchor' || end.kind !== 'anchor') {
+      if (
+        !start ||
+        !end ||
+        start.kind !== VECTOR_TOKENS.POINT.KIND.ANCHOR ||
+        end.kind !== VECTOR_TOKENS.POINT.KIND.ANCHOR
+      ) {
         return
       }
 
       const outControl =
-        segment.outControlId && points[segment.outControlId]?.kind === 'control'
+        segment.outControlId &&
+        points[segment.outControlId]?.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
           ? points[segment.outControlId]
           : null
       const inControl =
-        segment.inControlId && points[segment.inControlId]?.kind === 'control'
+        segment.inControlId &&
+        points[segment.inControlId]?.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
           ? points[segment.inControlId]
           : null
 
