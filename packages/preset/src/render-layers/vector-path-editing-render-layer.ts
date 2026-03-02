@@ -194,9 +194,14 @@ const drawSubpathSegments = (
 
 const drawHandleLines = (
   canvas: OverlayCanvas,
-  points: OverlayAnchorPoint[]
+  points: OverlayAnchorPoint[],
+  visibleAnchorIds: Set<string>
 ) => {
   points.forEach((point) => {
+    if (!visibleAnchorIds.has(point.id)) {
+      return
+    }
+
     if (point.inHandle) {
       canvas.line(point, point.inHandle, {
         width: SEGMENT_WIDTH,
@@ -249,10 +254,15 @@ const drawAnchorPoints = (
 const drawHandlePoints = (
   canvas: OverlayCanvas,
   points: OverlayAnchorPoint[],
+  visibleAnchorIds: Set<string>,
   selectedPointId: string | null,
   selectedTarget: VectorPointTarget | null
 ) => {
   points.forEach((point) => {
+    if (!visibleAnchorIds.has(point.id)) {
+      return
+    }
+
     const handles: {
       target: Exclude<VectorPointTarget, 'anchor'>
       position: PositionData | null
@@ -287,6 +297,36 @@ const drawHandlePoints = (
       }
     })
   })
+}
+
+const getVisibleHandleAnchorIds = (
+  subpaths: OverlaySubpath[],
+  selectedAnchorId: string | null
+): Set<string> => {
+  if (!selectedAnchorId) {
+    return new Set()
+  }
+
+  for (const subpath of subpaths) {
+    const index = subpath.points.findIndex((point) => point.id === selectedAnchorId)
+    if (index === -1) {
+      continue
+    }
+
+    const visibleIds = new Set<string>()
+    const indexes = [index - 1, index, index + 1]
+    indexes.forEach((targetIndex) => {
+      if (targetIndex < 0 || targetIndex >= subpath.points.length) {
+        return
+      }
+
+      visibleIds.add(subpath.points[targetIndex].id)
+    })
+
+    return visibleIds
+  }
+
+  return new Set()
 }
 
 const drawPreview = (
@@ -398,9 +438,13 @@ export const registerVectorPathEditingRenderLayer = (
         snapshot.primaryTool === 'pen' &&
         !startNewSubpath &&
         previewStartPoint !== null
+      const visibleHandleAnchorIds = getVisibleHandleAnchorIds(
+        screenSubpaths,
+        activeSelectedPoint?.pointId ?? null
+      )
 
       screenSubpaths.forEach((subpath) => drawSubpathSegments(canvas, subpath))
-      drawHandleLines(canvas, flatScreenPoints)
+      drawHandleLines(canvas, flatScreenPoints, visibleHandleAnchorIds)
       if (previewStartPoint) {
         drawPreview(
           canvas,
@@ -418,6 +462,7 @@ export const registerVectorPathEditingRenderLayer = (
       drawHandlePoints(
         canvas,
         flatScreenPoints,
+        visibleHandleAnchorIds,
         activeSelectedPoint?.pointId ?? null,
         activeSelectedPoint?.target ?? null
       )

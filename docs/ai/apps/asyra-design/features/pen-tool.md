@@ -62,6 +62,9 @@
 ## Curve Handle Visual/Selection Contract
 
 - curve handles render as diamonds in vector path-editing overlay
+- handle visibility is selection-window based:
+  - only show handles for selected anchor `n` and its immediate neighbors (`n-1`, `n+1`) in the same subpath
+  - when no anchor is selected, hide handle controls
 - path-editing segment rendering rule:
   - if either adjacent handle exists (`prev.outHandle` or `current.inHandle`), render that segment as cubic bezier
   - if no adjacent handles exist, render as straight line
