@@ -547,4 +547,4 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - Remove flow is less error-prone and easier to maintain across undo/redo paths.
   - Scene-tree load path remains deterministic without post-load parent mutation side effects.
 - Related Commit(s):
-  - pending (current working tree)
+  - `5e3296d` (`feat(asyra-design): finalize delete flow and scene-tree remove contracts`)

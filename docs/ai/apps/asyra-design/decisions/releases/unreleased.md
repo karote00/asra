@@ -230,4 +230,4 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
   - Hover/selection state is no longer stale after delete.
   - Regression coverage now guards the previously reported delete/undo issues.
 - Related Commit(s):
-  - pending (current working tree)
+  - `5e3296d` (`feat(asyra-design): finalize delete flow and scene-tree remove contracts`)
