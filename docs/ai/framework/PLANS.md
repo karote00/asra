@@ -6,11 +6,6 @@ This file tracks framework planning topics and points to detailed internal refer
 
 1. No active near-term plans
 
-## Current Pickup
-
-1. Pending next confirmation
-- Select next item from Mid-Term/Deferred lists based on priority.
-
 ## Mid-Term Plans
 
 1. Typed narrowing cleanup
@@ -50,3 +45,8 @@ This file tracks framework planning topics and points to detailed internal refer
  - Mixed values and mixed units (`MIX`) helpers.
  - App-level registration remains first-class.
  - Reference: `docs/internal/property-schema-validation-integration-plan.md`
+
+## Decision Logging Rule
+
+- When a plan item changes app contracts/runtime boundaries, append rationale to `decisions/releases/unreleased.md`.
+- If the decision is cross-cutting (framework + app), also append `docs/ai/decisions/releases/unreleased.md`.
