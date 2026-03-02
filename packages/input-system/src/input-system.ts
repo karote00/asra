@@ -37,6 +37,22 @@ const getMouseButton = (button: number): MouseButton => {
   }
 }
 
+const getMouseButtonFromButtonsMask = (buttons: number): MouseButton => {
+  if ((buttons & 1) === 1) {
+    return MouseButton.LEFT
+  }
+
+  if ((buttons & 4) === 4) {
+    return MouseButton.MIDDLE
+  }
+
+  if ((buttons & 2) === 2) {
+    return MouseButton.RIGHT
+  }
+
+  return MouseButton.NONE
+}
+
 class InputSystem {
   private _previousWatchedElement: Window | HTMLElement
   private combinations: Combinations = {}
@@ -228,7 +244,11 @@ class InputSystem {
   }
 
   private handleMouseMove = (event: MouseEvent) => {
-    const button = getMouseButton(event.button)
+    const buttonFromMask = getMouseButtonFromButtonsMask(event.buttons)
+    const button =
+      buttonFromMask !== MouseButton.NONE
+        ? buttonFromMask
+        : getMouseButton(event.button)
     const key = this.getMouseEventKey(button, 'Move')
 
     if (key) {

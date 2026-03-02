@@ -40,6 +40,7 @@
 ### Update/End
 
 - while mouse remains down, if new point has a connected previous point in the same subpath:
+  - ignore micro pointer movement below pen feature drag threshold (`3` client px); no bezier handles are created in that case
   - drag motion updates bezier handles for both points
   - connected point `outHandle` update rule:
     - default (majority): preserve existing `p1` (`outHandle`) if present; otherwise use anchor fallback

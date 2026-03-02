@@ -35,4 +35,4 @@
 ## Notes
 
 - intended undo grouping is per API call path currently used by element common APIs
-- movement threshold uses `MOUSE_MOVEMENT_THRESHOLD`
+- movement threshold is app-owned and feature-level via `FEATURE_MOVEMENT_THRESHOLD.createElement`

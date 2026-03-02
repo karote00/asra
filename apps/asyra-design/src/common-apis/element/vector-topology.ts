@@ -6,7 +6,11 @@ import type {
   VectorSegment,
   VectorTopology
 } from '@asyra/core'
-import type { PositionData } from '@asyra/utils'
+import {
+  VECTOR_TOPOLOGY_NETWORK_ID_TYPE,
+  VECTOR_TOPOLOGY_SEGMENT_ID_TYPE
+} from '@asyra/core'
+import { id, type PositionData } from '@asyra/utils'
 
 export type VectorAnchorSubpaths = VectorAnchorPoint[][]
 
@@ -19,7 +23,7 @@ const hasObjectValue = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
 
 const getNumericSuffix = (value: string) => {
-  const match = value.match(/_(\d+)$/)
+  const match = value.match(/[-_](\d+)$/)
   if (!match) {
     return Number.NaN
   }
@@ -97,19 +101,6 @@ export const isClosedVectorTopology = (
 export const getOrderedNetworks = (
   topology: VectorTopologyLike
 ): VectorNetwork[] => sortByStableId(Object.values(topology.networks))
-
-const getNextNumericId = (prefix: string, ids: string[]): string => {
-  const max = ids.reduce((currentMax, id) => {
-    const rank = getNumericSuffix(id)
-    if (Number.isNaN(rank)) {
-      return currentMax
-    }
-
-    return Math.max(currentMax, rank)
-  }, -1)
-
-  return `${prefix}_${max + 1}`
-}
 
 const getAnchorViewFromTopology = (
   topology: VectorTopologyLike,
@@ -231,7 +222,7 @@ export const createVectorTopologyFromSinglePoint = (
   position: PositionData,
   anchorType: VectorAnchorType = 'sharp'
 ): VectorTopology => {
-  const networkId = 'network_0'
+  const networkId = id(VECTOR_TOPOLOGY_NETWORK_ID_TYPE)
   return {
     points: {
       [pointId]: {
@@ -278,7 +269,7 @@ export const appendAnchorPointToTopology = (
   const networks = getOrderedNetworks(topology)
 
   if (options?.startNewSubpath || networks.length === 0) {
-    const networkId = getNextNumericId('network', Object.keys(nextNetworks))
+    const networkId = id(VECTOR_TOPOLOGY_NETWORK_ID_TYPE)
     nextNetworks[networkId] = {
       id: networkId,
       pointIds: [pointId],
@@ -295,7 +286,7 @@ export const appendAnchorPointToTopology = (
 
   const targetNetwork = networks[networks.length - 1]
   const lastPointId = targetNetwork.pointIds[targetNetwork.pointIds.length - 1]
-  const segmentId = getNextNumericId('segment', Object.keys(nextSegments))
+  const segmentId = id(VECTOR_TOPOLOGY_SEGMENT_ID_TYPE)
 
   nextSegments[segmentId] = {
     id: segmentId,
@@ -490,7 +481,7 @@ export const setTopologyClosed = (
     })
 
     if (closed && network.pointIds.length > 1) {
-      const segmentId = getNextNumericId('segment', Object.keys(nextSegments))
+      const segmentId = id(VECTOR_TOPOLOGY_SEGMENT_ID_TYPE)
       const startId = network.pointIds[network.pointIds.length - 1]
       const endId = network.pointIds[0]
       nextSegments[segmentId] = {

@@ -7,5 +7,11 @@ export const PropertyTypes = {
   DIMENSION: 'dimension',
   CUSTOM: 'custom',
   ANCHOR_POINT: 'anchorPoint',
-  ANCHOR_POINTS: 'anchorPoints'
+  ANCHOR_POINTS: 'anchorPoints',
+  VECTOR_POINT: 'vectorPoint',
+  VECTOR_POINTS: 'vectorPoints',
+  VECTOR_SEGMENT: 'vectorSegment',
+  VECTOR_SEGMENTS: 'vectorSegments',
+  VECTOR_NETWORK: 'vectorNetwork',
+  VECTOR_NETWORKS: 'vectorNetworks'
 } as const

@@ -169,3 +169,19 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
   - Active plan item for sub-path model is completed and archived as topology-native completion.
 - Related Commit(s):
   - `206285e` (`refactor(vector): switch pen/runtime to topology-native geometry model`)
+
+## 2026-03-02 - Pen curve drag now uses feature-scoped move threshold
+
+- Context:
+  - Second-point add+drag could create handles from micro pointer jitter, causing the first segment to become curved even when user intent was a click.
+  - App behavior needed per-feature threshold control instead of shared global/default threshold coupling.
+- Decision:
+  - Add app-owned feature thresholds via `FEATURE_MOVEMENT_THRESHOLD`.
+  - Gate pen handle creation/update on `FEATURE_MOVEMENT_THRESHOLD.penCurveDrag` for both drag update and drag end.
+  - Keep threshold configuration in app feature flow; do not move it into core/global runtime defaults.
+  - Add E2E regression coverage for second-point micro drag staying straight.
+- Consequences:
+  - Tiny cursor jitter no longer promotes the first segment into a curve.
+  - Threshold tuning can differ by feature without changing shared runtime behavior.
+- Related Commit(s):
+  - pending

@@ -188,6 +188,83 @@ test.describe('Pen Tool - Editing Flow', () => {
       })
   })
 
+  test('second-point micro drag below threshold keeps first segment straight', async ({
+    page
+  }) => {
+    const initialCount = await getElementCount(page)
+
+    const firstClientPos = await getCanvasPosition(page, 0.3, 0.3)
+    const secondClientPos = await getCanvasPosition(page, 0.45, 0.4)
+    const microDragClientPos = {
+      x: secondClientPos.x + 1,
+      y: secondClientPos.y + 1
+    }
+
+    await page.keyboard.press('p')
+    await expect.poll(() => getActiveTool(page)).toBe('pen')
+    await page.mouse.click(firstClientPos.x, firstClientPos.y)
+    await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
+
+    await page.mouse.move(secondClientPos.x, secondClientPos.y)
+    await page.mouse.down()
+    await page.mouse.move(microDragClientPos.x, microDragClientPos.y, {
+      steps: 2
+    })
+    await page.mouse.up()
+
+    const runtime = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selected = core?.getSystemProperty?.('selectedVectorPoint')
+      const zoom = core?.getSystemProperty?.('zoom') ?? 1
+      const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
+        x: 0,
+        y: 0
+      }
+
+      return {
+        zoom,
+        viewport,
+        selectedTarget: selected?.target ?? null
+      }
+    })
+
+    expect(runtime.selectedTarget).toBe('anchor')
+
+    const toWorkspace = (point: { x: number; y: number }) => ({
+      x: (point.x - runtime.viewport.x) / runtime.zoom,
+      y: (point.y - runtime.viewport.y) / runtime.zoom
+    })
+
+    const toClient = (point: { x: number; y: number }) => ({
+      x: point.x * runtime.zoom + runtime.viewport.x,
+      y: point.y * runtime.zoom + runtime.viewport.y
+    })
+
+    const A = toWorkspace(firstClientPos)
+    const B = toWorkspace(secondClientPos)
+    const M = toWorkspace(microDragClientPos)
+    const vx = M.x - B.x
+
+    const expectedP1 = {
+      x: A.x - vx * 0.334,
+      y: A.y + (B.y - A.y) * 0.327
+    }
+    const expectedP1Client = toClient(expectedP1)
+
+    await page.mouse.move(expectedP1Client.x, expectedP1Client.y)
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const hovered = core?.getSystemProperty?.('hoveredVectorPoint')
+          return hovered?.target ?? null
+        })
+      })
+      .not.toBe('outHandle')
+  })
+
   test('dragging first point of a subpath does not create bezier handles', async ({
     page
   }) => {

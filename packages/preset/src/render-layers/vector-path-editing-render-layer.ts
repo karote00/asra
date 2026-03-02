@@ -58,7 +58,7 @@ type RegisterRenderLayer = (
 ) => void
 
 const getNumericSuffix = (value: string) => {
-  const match = value.match(/_(\d+)$/)
+  const match = value.match(/[-_](\d+)$/)
   if (!match) {
     return Number.NaN
   }

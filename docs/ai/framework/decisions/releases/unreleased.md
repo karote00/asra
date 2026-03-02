@@ -476,3 +476,31 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - `docs/ai/framework/plans/completed/events-and-registry.md`
 - Related Commit(s):
   - `2ee5fdd` (`refactor(core): add declarative cascade unregister orchestration`)
+
+## 2026-03-02 - Vector topology persistence formalized as typed children properties
+
+- Context:
+  - Topology runtime data (`points/segments/networks`) was being stored as generic custom blobs, which bypassed typed property-component validation/load behavior.
+  - App topology refactor required stable id-type tracking and consistent load-safe behavior for child geometry records.
+- Decision:
+  - Add dedicated property types for vector topology (`vectorPoint(s)`, `vectorSegment(s)`, `vectorNetwork(s)`).
+  - Register schemas for these property types in preset property schema registration.
+  - Introduce a reusable children-map property-component base and use it for vector topology collection properties.
+  - Export shared topology id types from core (`tp`/`ts`/`tn`) and use them in property component id handling.
+- Consequences:
+  - Vector topology data is now schema-validated and load-safe through first-class property components.
+  - Framework has a reusable pattern for other map-of-child property structures.
+  - App/vector code can rely on shared compact topology id contracts.
+- Related Commit(s):
+  - pending
+
+## 2026-03-02 - Input-system drag move button detection now uses `event.buttons`
+
+- Context:
+  - Pointer move handling could lose active button identity during drag when relying only on `event.button`, causing inconsistent move-key matching.
+- Decision:
+  - Resolve move button from `event.buttons` bitmask first, with fallback to `event.button`.
+- Consequences:
+  - Drag move key matching is more consistent across browsers/events while preserving fallback behavior.
+- Related Commit(s):
+  - pending

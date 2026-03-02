@@ -53,7 +53,13 @@ export {
   type CreateOverlayLayerOptions
 } from '@asyra/render'
 export type { RenderStrategy } from '@asyra/render'
-export { VECTOR_ANCHOR_ID_PREFIX, VECTOR_ANCHOR_ID_TYPE } from './types/vector'
+export {
+  VECTOR_ANCHOR_ID_PREFIX,
+  VECTOR_ANCHOR_ID_TYPE,
+  VECTOR_TOPOLOGY_NETWORK_ID_TYPE,
+  VECTOR_TOPOLOGY_SEGMENT_ID_TYPE,
+  VECTOR_TOPOLOGY_POINT_ID_TYPE
+} from './types/vector'
 export type {
   VectorAnchorPoint,
   VectorAnchorType,

@@ -21,7 +21,6 @@ import type {
   VectorTopology
 } from '@asyra/core'
 import { isEqual } from 'lodash'
-import { MOUSE_MOVEMENT_THRESHOLD } from '../../constants'
 import core, { render, sceneTree } from '../../contexts'
 import {
   calculateVectorBounds,
@@ -829,7 +828,7 @@ export const elementApis = {
   hasMovedBeyondThreshold: (
     clientDragStart: { x: number; y: number },
     clientCurrentPos: { x: number; y: number },
-    threshold = MOUSE_MOVEMENT_THRESHOLD
+    threshold: number
   ) => {
     if (!render) {
       return false

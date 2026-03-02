@@ -1,5 +1,9 @@
-import { IDTypes, id, type SystemContextSnapshot } from '@asyra/utils'
-import { defineFeature, type VectorAnchorPoint } from '@asyra/core'
+import { id, type SystemContextSnapshot } from '@asyra/utils'
+import {
+  defineFeature,
+  VECTOR_TOPOLOGY_POINT_ID_TYPE,
+  type VectorAnchorPoint
+} from '@asyra/core'
 import {
   cursorApis,
   elementApis,
@@ -7,6 +11,7 @@ import {
   systemContextApis
 } from '../../common-apis'
 import {
+  FEATURE_MOVEMENT_THRESHOLD,
   FeatureNames,
   InputSystemEvents,
   PrimaryToolType
@@ -23,7 +28,7 @@ const createAnchorPoint = (point: {
   x: number
   y: number
 }): VectorAnchorPoint => ({
-  id: id(IDTypes.PROPS),
+  id: id(VECTOR_TOPOLOGY_POINT_ID_TYPE),
   x: point.x,
   y: point.y,
   type: 'sharp',
@@ -105,6 +110,29 @@ const setSelectedAnchorPoint = (
     x: selectedPoint.point.x,
     y: selectedPoint.point.y
   })
+}
+
+const getCurrentMouseWorkspacePos = () => {
+  const snapshot = systemContextApis.getSystemContextSnapshot()
+  return elementApis.getMousePosInWorkspace({
+    x: snapshot.mouse.position.x,
+    y: snapshot.mouse.position.y
+  })
+}
+
+const hasMovedBeyondPenCurveThreshold = (
+  snapshot: SystemContextSnapshot
+): boolean => {
+  const dragStart = snapshot.mouse.dragStart
+  if (!dragStart) {
+    return false
+  }
+
+  return elementApis.hasMovedBeyondThreshold(
+    dragStart,
+    snapshot.mouse.position,
+    FEATURE_MOVEMENT_THRESHOLD.penCurveDrag
+  )
 }
 
 const applyBezierDragForNewPoint = (
@@ -282,10 +310,11 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
       },
 
       onUpdate: (snapshot: SystemContextSnapshot, state: PenState) => {
-        const mouseWorkspacePos = elementApis.getMousePosInWorkspace({
-          x: snapshot.mouse.position.x,
-          y: snapshot.mouse.position.y
-        })
+        if (!hasMovedBeyondPenCurveThreshold(snapshot)) {
+          return
+        }
+
+        const mouseWorkspacePos = getCurrentMouseWorkspacePos()
         if (!mouseWorkspacePos) {
           return
         }
@@ -294,7 +323,21 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
 
         return
       },
-      onEnd: (_snapshot: SystemContextSnapshot, state: PenState) => {
+      onEnd: (snapshot: SystemContextSnapshot, state: PenState) => {
+        if (!hasMovedBeyondPenCurveThreshold(snapshot)) {
+          const selectedPoint = elementApis.getVectorAnchorPointById(
+            state.elementId,
+            state.pointId
+          )
+          setSelectedAnchorPoint(state.elementId, selectedPoint)
+          return
+        }
+
+        const mouseWorkspacePos = getCurrentMouseWorkspacePos()
+        if (mouseWorkspacePos) {
+          applyBezierDragForNewPoint(state, mouseWorkspacePos)
+        }
+
         const selectedPoint = elementApis.getVectorAnchorPointById(
           state.elementId,
           state.pointId

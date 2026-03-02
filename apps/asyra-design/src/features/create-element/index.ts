@@ -2,6 +2,7 @@ import type { SystemContextSnapshot } from '@asyra/utils'
 import { defineFeature } from '@asyra/core'
 import { elementApis, selectionApis } from '../../common-apis'
 import {
+  FEATURE_MOVEMENT_THRESHOLD,
   FeatureNames,
   InputSystemEvents,
   PrimaryToolType
@@ -74,7 +75,8 @@ const api: CreateElementAPI = {
   ) => {
     return elementApis.hasMovedBeyondThreshold(
       clientDragStart,
-      clientCurrentPos
+      clientCurrentPos,
+      FEATURE_MOVEMENT_THRESHOLD.createElement
     )
   }
 }

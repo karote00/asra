@@ -73,8 +73,8 @@ const toVectorData = (anchors: TestAnchorPoint[], closed: boolean) => {
   const points: Record<string, VectorPointNode> = {}
   const segments: Record<string, VectorSegment> = {}
   const networks: Record<string, VectorNetwork> = {
-    network_0: {
-      id: 'network_0',
+    'tn-0': {
+      id: 'tn-0',
       pointIds: anchors.map((anchor) => anchor.id),
       segmentIds: [],
       closed
@@ -117,7 +117,7 @@ const toVectorData = (anchors: TestAnchorPoint[], closed: boolean) => {
     }
 
     const prev = anchors[index - 1]
-    const segmentId = `segment_${index - 1}`
+    const segmentId = `ts-${index - 1}`
     segments[segmentId] = {
       id: segmentId,
       startId: prev.id,
@@ -125,13 +125,13 @@ const toVectorData = (anchors: TestAnchorPoint[], closed: boolean) => {
       outControlId: prev.outHandle ? `${prev.id}:out` : null,
       inControlId: anchor.inHandle ? `${anchor.id}:in` : null
     }
-    networks.network_0.segmentIds.push(segmentId)
+    networks['tn-0'].segmentIds.push(segmentId)
   })
 
   if (closed && anchors.length > 1) {
     const first = anchors[0]
     const last = anchors[anchors.length - 1]
-    const segmentId = 'segment_close'
+    const segmentId = 'ts-close'
     segments[segmentId] = {
       id: segmentId,
       startId: last.id,
@@ -139,7 +139,7 @@ const toVectorData = (anchors: TestAnchorPoint[], closed: boolean) => {
       outControlId: last.outHandle ? `${last.id}:out` : null,
       inControlId: first.inHandle ? `${first.id}:in` : null
     }
-    networks.network_0.segmentIds.push(segmentId)
+    networks['tn-0'].segmentIds.push(segmentId)
   }
 
   return { points, segments, networks }
@@ -162,11 +162,11 @@ describe('Vector Component', () => {
     const networksProp = properties.find((p) => p.name === 'networks')
     const anchorPointsProp = properties.find((p) => p.name === 'anchorPoints')
 
-    expect(pointsProp?.type).toBe(PropertyTypes.CUSTOM)
+    expect(pointsProp?.type).toBe(PropertyTypes.VECTOR_POINTS)
     expect(pointsProp?.defaultValue).toEqual({})
-    expect(segmentsProp?.type).toBe(PropertyTypes.CUSTOM)
+    expect(segmentsProp?.type).toBe(PropertyTypes.VECTOR_SEGMENTS)
     expect(segmentsProp?.defaultValue).toEqual({})
-    expect(networksProp?.type).toBe(PropertyTypes.CUSTOM)
+    expect(networksProp?.type).toBe(PropertyTypes.VECTOR_NETWORKS)
     expect(networksProp?.defaultValue).toEqual({})
     expect(anchorPointsProp).toBeUndefined()
   })

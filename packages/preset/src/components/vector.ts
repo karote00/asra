@@ -23,7 +23,7 @@ const parseHexColor = (color: string, fallback: number) => {
 }
 
 const getNumericSuffix = (value: string) => {
-  const match = value.match(/_(\d+)$/)
+  const match = value.match(/[-_](\d+)$/)
   if (!match) {
     return Number.NaN
   }
@@ -149,17 +149,17 @@ defineComponent({
     },
     {
       name: 'points',
-      type: PropertyTypes.CUSTOM,
+      type: PropertyTypes.VECTOR_POINTS,
       defaultValue: {} as Record<string, VectorPointNode>
     },
     {
       name: 'segments',
-      type: PropertyTypes.CUSTOM,
+      type: PropertyTypes.VECTOR_SEGMENTS,
       defaultValue: {} as Record<string, VectorSegment>
     },
     {
       name: 'networks',
-      type: PropertyTypes.CUSTOM,
+      type: PropertyTypes.VECTOR_NETWORKS,
       defaultValue: {} as Record<string, VectorNetwork>
     },
     {

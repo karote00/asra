@@ -40,3 +40,5 @@ Completed on 2026-03-02.
 - vector runtime is topology-native (`points/segments/networks`)
 - point add/remove/update operations mutate topology directly
 - `anchorPoints` runtime conversion paths and subpath conversion helper were removed
+- topology persistence now uses dedicated children-based property components (`vectorPoints`/`vectorSegments`/`vectorNetworks`)
+- topology id generation is standardized with compact prefixes (`tp` / `ts` / `tn`) via shared id counters

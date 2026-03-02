@@ -2,6 +2,9 @@ import type { PositionData } from '@asyra/utils'
 
 export const VECTOR_ANCHOR_ID_TYPE = 'vector-anchor'
 export const VECTOR_ANCHOR_ID_PREFIX = 'anchor'
+export const VECTOR_TOPOLOGY_NETWORK_ID_TYPE = 'tn'
+export const VECTOR_TOPOLOGY_SEGMENT_ID_TYPE = 'ts'
+export const VECTOR_TOPOLOGY_POINT_ID_TYPE = 'tp'
 
 export type VectorAnchorType = 'smooth' | 'sharp'
 export type VectorPointKind = 'anchor' | 'control'

@@ -5,6 +5,7 @@
 1. Expand E2E coverage for vector editing
 - path-editing enter/exit edge cases
 - point selection/editing scenarios
+- progress: pen second-point micro-drag threshold regression is covered in `e2e/pen-tool.spec.ts`; continue with broader path-editing edge cases
 - plan reference: `docs/internal/e2e-coverage-update-plan.md`
 
 2. Reduce app-level internal coupling
