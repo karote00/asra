@@ -100,14 +100,14 @@ export const createElementFeature = defineFeature<
       }
 
       const dragStartWorkspace = elementApis.getMousePosInWorkspace({
-        x: snapshot.mouse.position.x,
-        y: snapshot.mouse.position.y
+        x: snapshot.mousePosition.x,
+        y: snapshot.mousePosition.y
       })
       if (!dragStartWorkspace) {
         return null
       }
 
-      const elementId = api.createElement(snapshot.mouse.position, primaryTool)
+      const elementId = api.createElement(snapshot.mousePosition, primaryTool)
       if (elementId) {
         selectionApis.selectElements([elementId])
       }
@@ -122,13 +122,13 @@ export const createElementFeature = defineFeature<
         return
       }
 
-      if (!snapshot.mouse.dragging) {
+      if (!snapshot.mouseDragging) {
         return
       }
 
       const currentWorkspacePos = elementApis.getMousePosInWorkspace({
-        x: snapshot.mouse.position.x,
-        y: snapshot.mouse.position.y
+        x: snapshot.mousePosition.x,
+        y: snapshot.mousePosition.y
       })
       if (!currentWorkspacePos) {
         return
@@ -148,8 +148,8 @@ export const createElementFeature = defineFeature<
       // If user just clicked without significant drag, reset to default size
       // This handles accidental movements (hand tremors, etc.)
       const hasSignificantMove = api.hasMovedBeyondThreshold(
-        snapshot.mouse.dragStart || snapshot.mouse.position,
-        snapshot.mouse.position
+        snapshot.mouseDragStart || snapshot.mousePosition,
+        snapshot.mousePosition
       )
 
       if (!hasSignificantMove) {

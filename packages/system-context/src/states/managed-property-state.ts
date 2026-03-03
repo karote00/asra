@@ -73,8 +73,10 @@ export class ManagedPropertyState {
     defaultValue: T,
     options?: ManagedPropertyRegistrationOptions<T>
   ): BehaviorSubject<T> {
+    const silent = options?.silent ?? true
+
     if (this.properties.has(key)) {
-      if (!options?.silent) {
+      if (!silent) {
         console.warn(
           `[ManagedPropertyState] Property "${key}" already registered, returning existing`
         )

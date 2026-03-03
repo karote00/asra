@@ -1,54 +1,119 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { SystemContext } from '../system-context'
-import { KeyState } from '../states/key-state'
-import { MouseState } from '../states/mouse-state'
-import { PrimaryToolState } from '../states/primary-tool-state'
-import { SystemState } from '../states/system-state'
-import { TargetState } from '../states/target-state'
 import { ManagedPropertyState } from '../states/managed-property-state'
-import { DefaultKeySnapshot, DefaultPosition, MouseButton } from '@asyra/utils'
+import {
+  DefaultKeySnapshot,
+  DefaultMoseSnapshot,
+  DefaultPosition,
+  DefaultPrimaryTool,
+  DefaultSystemSnapshot,
+  DefaultTargetSnapshot,
+  MouseButton
+} from '@asyra/utils'
 
 describe('SystemContext', () => {
   let systemContext: SystemContext
-  let keyState: KeyState
-  let mouseState: MouseState
-  let primaryToolState: PrimaryToolState
-  let systemState: SystemState
-  let targetState: TargetState
   let managedPropertyState: ManagedPropertyState
 
   beforeEach(() => {
-    keyState = new KeyState()
-    mouseState = new MouseState()
-    primaryToolState = new PrimaryToolState()
-    systemState = new SystemState()
-    targetState = new TargetState()
     managedPropertyState = new ManagedPropertyState()
 
     systemContext = new SystemContext({
-      keyState,
-      mouseState,
-      primaryToolState,
-      systemState,
-      targetState,
       managedPropertyState
     })
+
+    systemContext.registerProperty('primaryTool', DefaultPrimaryTool, {
+      runtime: true
+    })
+    systemContext.registerProperty('systemMode', DefaultSystemSnapshot.mode, {
+      runtime: true
+    })
+    systemContext.registerProperty(
+      'systemFeatureFlags',
+      DefaultSystemSnapshot.featureFlags,
+      {
+        runtime: true
+      }
+    )
+    systemContext.registerProperty(
+      'systemPermissions',
+      DefaultSystemSnapshot.permissions,
+      {
+        runtime: true
+      }
+    )
+
+    systemContext.registerProperty('mouseDragStart', DefaultMoseSnapshot.dragStart, {
+      runtime: true
+    })
+    systemContext.registerProperty('mousePosition', DefaultMoseSnapshot.position, {
+      runtime: true
+    })
+    systemContext.registerProperty('mouseDelta', DefaultMoseSnapshot.delta, {
+      runtime: true
+    })
+    systemContext.registerProperty('mouseButton', DefaultMoseSnapshot.button, {
+      runtime: true
+    })
+    systemContext.registerProperty('mouseDown', DefaultMoseSnapshot.down, {
+      runtime: true
+    })
+    systemContext.registerProperty('mouseDragging', DefaultMoseSnapshot.dragging, {
+      runtime: true
+    })
+
+    systemContext.registerProperty('keyShift', DefaultKeySnapshot.shift, {
+      runtime: true
+    })
+    systemContext.registerProperty('keyCtrl', DefaultKeySnapshot.ctrl, {
+      runtime: true
+    })
+    systemContext.registerProperty('keyAlt', DefaultKeySnapshot.alt, {
+      runtime: true
+    })
+    systemContext.registerProperty('keyMeta', DefaultKeySnapshot.meta, {
+      runtime: true
+    })
+
+    systemContext.registerProperty(
+      'hoveredElementId',
+      DefaultTargetSnapshot.hoveredElementId,
+      {
+        runtime: true
+      }
+    )
+    systemContext.registerProperty(
+      'selectedElementIds',
+      DefaultTargetSnapshot.selectedElementIds,
+      {
+        runtime: true
+      }
+    )
+    systemContext.registerProperty(
+      'activeElementId',
+      DefaultTargetSnapshot.activeElementId,
+      {
+        runtime: true
+      }
+    )
   })
 
   it('should initialize with the correct default state', () => {
-    expect(systemContext.getKeyState()).toEqual(DefaultKeySnapshot)
-    expect(systemContext.getMouseState()).toEqual({
-      dragStart: DefaultPosition,
-      position: DefaultPosition,
-      delta: DefaultPosition,
-      button: MouseButton.NONE,
-      down: false,
-      dragging: false
-    })
-    expect(systemContext.getCurrentPrimaryTool()).toEqual('select')
+    const snapshot = systemContext.getSystemContextSnapshot()
+    expect(snapshot.keyShift).toEqual(DefaultKeySnapshot.shift)
+    expect(snapshot.keyCtrl).toEqual(DefaultKeySnapshot.ctrl)
+    expect(snapshot.keyAlt).toEqual(DefaultKeySnapshot.alt)
+    expect(snapshot.keyMeta).toEqual(DefaultKeySnapshot.meta)
+    expect(snapshot.mouseDragStart).toEqual(DefaultMoseSnapshot.dragStart)
+    expect(snapshot.mousePosition).toEqual(DefaultPosition)
+    expect(snapshot.mouseDelta).toEqual(DefaultPosition)
+    expect(snapshot.mouseButton).toEqual(MouseButton.NONE)
+    expect(snapshot.mouseDown).toEqual(false)
+    expect(snapshot.mouseDragging).toEqual(false)
+    expect(snapshot.primaryTool).toEqual('select')
   })
 
-  it('should update mouse state correctly', () => {
+  it('should update mouse state correctly via managed properties', () => {
     const newMouseSnapshot = {
       position: { x: 100, y: 200 },
       delta: { x: 1, y: 1 },
@@ -57,19 +122,55 @@ describe('SystemContext', () => {
       dragging: true,
       dragStart: { x: 99, y: 199 }
     }
-    systemContext.updateMouseState(newMouseSnapshot)
-    expect(systemContext.getMouseState()).toEqual(newMouseSnapshot)
+    systemContext.setManagedProperty('mouseDragStart', newMouseSnapshot.dragStart)
+    systemContext.setManagedProperty('mousePosition', newMouseSnapshot.position)
+    systemContext.setManagedProperty('mouseDelta', newMouseSnapshot.delta)
+    systemContext.setManagedProperty('mouseButton', newMouseSnapshot.button)
+    systemContext.setManagedProperty('mouseDown', newMouseSnapshot.down)
+    systemContext.setManagedProperty('mouseDragging', newMouseSnapshot.dragging)
+    expect(systemContext.getManagedProperty('mouseDragStart')).toEqual(
+      newMouseSnapshot.dragStart
+    )
+    expect(systemContext.getManagedProperty('mousePosition')).toEqual(
+      newMouseSnapshot.position
+    )
+    expect(systemContext.getManagedProperty('mouseDelta')).toEqual(
+      newMouseSnapshot.delta
+    )
+    expect(systemContext.getManagedProperty('mouseButton')).toEqual(
+      newMouseSnapshot.button
+    )
+    expect(systemContext.getManagedProperty('mouseDown')).toEqual(
+      newMouseSnapshot.down
+    )
+    expect(systemContext.getManagedProperty('mouseDragging')).toEqual(
+      newMouseSnapshot.dragging
+    )
   })
 
-  it('should update tool state correctly', () => {
-    systemContext.switchPrimaryTool('rectangle')
-    expect(systemContext.getCurrentPrimaryTool()).toEqual('rectangle')
+  it('should update tool state correctly via managed properties', () => {
+    systemContext.setManagedProperty('primaryTool', 'rectangle')
+    expect(systemContext.getManagedProperty('primaryTool')).toEqual('rectangle')
   })
 
-  it('should update key state correctly', () => {
+  it('should update key state correctly via managed properties', () => {
     const newKeySnapshot = { ...DefaultKeySnapshot, shift: true }
-    systemContext.updateKeyState(newKeySnapshot)
-    expect(systemContext.getKeyState()).toEqual(newKeySnapshot)
+    systemContext.setManagedProperty('keyShift', newKeySnapshot.shift)
+    systemContext.setManagedProperty('keyCtrl', newKeySnapshot.ctrl)
+    systemContext.setManagedProperty('keyAlt', newKeySnapshot.alt)
+    systemContext.setManagedProperty('keyMeta', newKeySnapshot.meta)
+    expect(systemContext.getManagedProperty('keyShift')).toEqual(
+      newKeySnapshot.shift
+    )
+    expect(systemContext.getManagedProperty('keyCtrl')).toEqual(
+      newKeySnapshot.ctrl
+    )
+    expect(systemContext.getManagedProperty('keyAlt')).toEqual(
+      newKeySnapshot.alt
+    )
+    expect(systemContext.getManagedProperty('keyMeta')).toEqual(
+      newKeySnapshot.meta
+    )
   })
 
   it('setManagedProperty should reject runtime values that fail registered type guard', () => {

@@ -27,12 +27,12 @@ export const zoomFeature = defineFeature(
     exclusive: true,
     api,
     execution: (snapshot: SystemContextSnapshot) => {
-      if (!snapshot.key.meta && !snapshot.key.ctrl) {
+      if (!snapshot.keyMeta && !snapshot.keyCtrl) {
         return null
       }
 
-      const { y: deltaY } = snapshot.mouse.delta
-      const { x: clientX, y: clientY } = snapshot.mouse.position
+      const { y: deltaY } = snapshot.mouseDelta
+      const { x: clientX, y: clientY } = snapshot.mousePosition
 
       api.zoom(deltaY, clientX, clientY)
 

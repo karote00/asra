@@ -623,3 +623,20 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - No external API behavior change from this reorganization.
 - Related Plan:
   - `docs/ai/framework/plans/completed/render-folder-structure-reorganization.md`
+
+## 2026-03-04 - System-context runtime unified on managed properties with flattened snapshot contract
+
+- Context:
+  - System-context still had duplicated legacy state holders and grouped snapshot semantics while preset/app integrations were moving to managed-property ownership.
+  - Event/state flows required one storage model and one snapshot contract to reduce ambiguity.
+- Decision:
+  - Remove legacy per-category state files/APIs from `@asyra/system-context` and keep managed-property APIs as the only get/set path.
+  - Register builtin system properties in preset defaults using flattened keys (for example `mousePosition`, `keyShift`, `systemMode`).
+  - Define `getSystemContextSnapshot` as key-collection aggregation over registered managed properties (no hardcoded grouped shape).
+  - Keep duplicate-register behavior quiet by default (`silent` default true), with persistence opt-in via `runtime: false`.
+- Consequences:
+  - Framework boundary is clearer: `system-context` is managed-property runtime storage, preset owns default key registration.
+  - App/preset consumers now use flattened snapshot/property keys consistently.
+  - Save/load behavior remains explicit through managed-property runtime flags.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/system-context-builtin-state-registration.md`

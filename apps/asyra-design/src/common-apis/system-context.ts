@@ -28,7 +28,7 @@ export const systemContextApis = {
    * Switch the primary tool
    */
   switchPrimaryTool: (tool: string) => {
-    systemContext.switchPrimaryTool(tool)
+    core.setSystemProperty('primaryTool', tool)
   },
 
   /**
@@ -42,7 +42,7 @@ export const systemContextApis = {
    * Update the hovered element ID in system state
    */
   updateHoveredElementId: (elementId: string | null) => {
-    systemContext.updateHoveredElementId(elementId)
+    core.setSystemProperty('hoveredElementId', elementId)
   },
 
   /**
@@ -53,12 +53,7 @@ export const systemContextApis = {
   },
 
   getPathEditingMode: (): boolean => {
-    const mode = core.getSystemProperty<boolean | undefined>('pathEditingMode')
-    if (typeof mode === 'boolean') {
-      return mode
-    }
-
-    return systemContextApis.getPathEditingVectorId() !== null
+    return core.getSystemProperty<boolean>('pathEditingMode') ?? false
   },
 
   setPathEditingMode: (enabled: boolean) => {
@@ -130,14 +125,5 @@ export const systemContextApis = {
     selectionApis.clearVectorPointSelection({ undoable: false })
     selectionApis.clearVectorSegmentSelection({ undoable: false })
     systemContextApis.clearVectorPointState()
-  },
-
-  // Backward compatibility for in-progress refactor
-  getPenEditingVectorId: (): string | null => {
-    return systemContextApis.getPathEditingVectorId()
-  },
-
-  setPenEditingVectorId: (elementId: string | null) => {
-    systemContextApis.setPathEditingVectorId(elementId)
   }
 }

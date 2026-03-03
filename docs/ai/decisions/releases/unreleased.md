@@ -37,3 +37,16 @@ Append-only rule: do not edit/delete prior entries; add a superseding entry when
 - Consequences:
   - Framework/app boundaries are clearer: selection state ownership is unified in SelectionManager channels.
   - Feature/UI/render state propagation now follows one subscription model across packages.
+
+## 2026-03-04 - Cross-scope alignment on flattened managed system-context properties
+
+- Context:
+  - Framework and Asyra Design app were transitioning from grouped system-context snapshots to managed-property ownership.
+  - The same behavior needed consistent contracts across framework packages, preset defaults, and app feature consumers.
+- Decision:
+  - Adopt flattened managed system property keys as the shared contract across framework/preset/app.
+  - Use managed-property APIs for system-context mutations at app level (`core.setSystemProperty` / `core.getSystemProperty` paths).
+  - Keep snapshot generation generic (registered-key aggregation) rather than framework-hardcoded grouped fields.
+- Consequences:
+  - App and framework now share one deterministic system property contract.
+  - Startup defaults remain preset-owned while runtime mutation paths remain explicit and consistent in app/common APIs.

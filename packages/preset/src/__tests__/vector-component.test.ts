@@ -13,6 +13,7 @@ import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
 
 beforeAll(() => {
+  const systemPropertyMap = new Map<string, BehaviorSubject<unknown>>()
   applyPreset(
     {
       registerEvent: (event: string | { eventName: string }) => ({
@@ -29,8 +30,18 @@ beforeAll(() => {
       registerUIProperty: () => {
         // no-op for this unit test.
       },
-      registerSystemProperty: <T>(_: string, defaultValue: T) =>
-        new BehaviorSubject<T>(defaultValue)
+      registerSystemProperty: <T>(key: string, defaultValue: T) => {
+        const existing = systemPropertyMap.get(key)
+        if (existing) {
+          return existing as BehaviorSubject<T>
+        }
+
+        const state = new BehaviorSubject<T>(defaultValue)
+        systemPropertyMap.set(key, state as BehaviorSubject<unknown>)
+        return state
+      },
+      getSystemPropertyObservable: <T>(key: string) =>
+        systemPropertyMap.get(key) as BehaviorSubject<T> | undefined
     },
     ({
       sceneTree: {
@@ -40,7 +51,7 @@ beforeAll(() => {
         getManagedProperty: () => undefined,
         getSystemContextSnapshot: () => ({
           primaryTool: 'select',
-          mouse: { position: { x: 0, y: 0 } }
+          mousePosition: { x: 0, y: 0 }
         })
       },
       render: {

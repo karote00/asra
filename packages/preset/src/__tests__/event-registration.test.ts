@@ -13,7 +13,7 @@ const createDeps = (): PresetDependencies =>
       getManagedProperty: () => undefined,
       getSystemContextSnapshot: () => ({
         primaryTool: 'select',
-        mouse: { position: { x: 0, y: 0 } }
+        mousePosition: { x: 0, y: 0 }
       })
     },
     render: {
@@ -27,6 +27,7 @@ const createDeps = (): PresetDependencies =>
 
 describe('Preset Event Registration', () => {
   it('registers preset event definitions through core', () => {
+    const systemPropertyMap = new Map<string, BehaviorSubject<unknown>>()
     const registerEvent = vi.fn((event: string | { eventName: string }) => ({
       eventName: typeof event === 'string' ? event : event.eventName,
       publish: vi.fn(),
@@ -43,8 +44,18 @@ describe('Preset Event Registration', () => {
         registerSelection: vi.fn(),
         getSelection: () => undefined,
         registerUIProperty: vi.fn(),
-        registerSystemProperty: <T>(_: string, defaultValue: T) =>
-          new BehaviorSubject<T>(defaultValue)
+        registerSystemProperty: <T>(key: string, defaultValue: T) => {
+          const existing = systemPropertyMap.get(key)
+          if (existing) {
+            return existing as BehaviorSubject<T>
+          }
+
+          const state = new BehaviorSubject<T>(defaultValue)
+          systemPropertyMap.set(key, state as BehaviorSubject<unknown>)
+          return state
+        },
+        getSystemPropertyObservable: <T>(key: string) =>
+          systemPropertyMap.get(key) as BehaviorSubject<T> | undefined
       },
       createDeps()
     )

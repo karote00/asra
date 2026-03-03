@@ -10,7 +10,7 @@ export const undoRedoFeature = defineFeature(
     priority: 100,
     exclusive: true,
     execution: (snapshot: SystemContextSnapshot) => {
-      if (snapshot.key.shift) {
+      if (snapshot.keyShift) {
         historyApis.redo()
         return { redid: true }
       } else {

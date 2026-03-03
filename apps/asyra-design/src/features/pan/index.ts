@@ -23,11 +23,11 @@ export const panFeature = defineFeature(
     exclusive: false,
     api,
     execution: (snapshot: SystemContextSnapshot) => {
-      if (snapshot.key.meta || snapshot.key.ctrl) {
+      if (snapshot.keyMeta || snapshot.keyCtrl) {
         return null
       }
 
-      const { x: deltaX, y: deltaY } = snapshot.mouse.delta
+      const { x: deltaX, y: deltaY } = snapshot.mouseDelta
 
       api.pan(-deltaX, -deltaY)
 

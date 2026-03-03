@@ -12,5 +12,6 @@ export interface PresetCoreAPIs {
   getSelection: Core['getSelection']
   registerUIProperty: Core['registerUIProperty']
   registerSystemProperty: Core['registerSystemProperty']
+  getSystemPropertyObservable: Core['getSystemPropertyObservable']
   getPresetDependencies?: () => PresetDependencies
 }

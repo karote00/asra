@@ -7,8 +7,8 @@ export const reEvaluateHoveredElement = (
   snapshot?: SystemContextSnapshot
 ) => {
   const mousePos =
-    snapshot?.mouse?.position ??
-    systemContextApis.getSystemContextSnapshot().mouse?.position
+    snapshot?.mousePosition ??
+    systemContextApis.getSystemContextSnapshot().mousePosition
   if (!mousePos) {
     systemContextApis.updateHoveredElementId(null)
     return null

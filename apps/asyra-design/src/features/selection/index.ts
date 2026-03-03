@@ -59,7 +59,10 @@ export const selectionFeature = defineFeature(
     session: {
       onStart: (snapshot: SystemContextSnapshot) => {
         const { primaryTool } = snapshot
-        const mouse = snapshot.mouse
+        const mouse = {
+          position: snapshot.mousePosition,
+          down: snapshot.mouseDown
+        }
         const pathEditingMode = systemContextApis.getPathEditingMode()
 
         if (primaryTool !== PrimaryToolType.SELECT || !mouse.down) {
@@ -73,12 +76,12 @@ export const selectionFeature = defineFeature(
 
         const hoveredElementId =
           elementApis.getElementIdAtClientPos(mouse.position) ??
-          snapshot.target?.hoveredElementId
+          snapshot.hoveredElementId
 
         transactionApis.startTransaction()
         try {
           if (hoveredElementId) {
-            if (snapshot.key.shift) {
+            if (snapshot.keyShift) {
               api.toggleSelection(hoveredElementId)
             } else {
               selectionApis.selectElements([hoveredElementId])

@@ -139,22 +139,22 @@ const setSelectedAnchorPoint = (
 const getCurrentMouseWorkspacePos = () => {
   const snapshot = systemContextApis.getSystemContextSnapshot()
   return elementApis.getMousePosInWorkspace({
-    x: snapshot.mouse.position.x,
-    y: snapshot.mouse.position.y
+    x: snapshot.mousePosition.x,
+    y: snapshot.mousePosition.y
   })
 }
 
 const hasMovedBeyondPenCurveThreshold = (
   snapshot: SystemContextSnapshot
 ): boolean => {
-  const dragStart = snapshot.mouse.dragStart
+  const dragStart = snapshot.mouseDragStart
   if (!dragStart) {
     return false
   }
 
   return elementApis.hasMovedBeyondThreshold(
     dragStart,
-    snapshot.mouse.position,
+    snapshot.mousePosition,
     FEATURE_MOVEMENT_THRESHOLD.penCurveDrag
   )
 }
@@ -304,8 +304,8 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
         }
 
         const dragStartWorkspace = elementApis.getMousePosInWorkspace({
-          x: snapshot.mouse.position.x,
-          y: snapshot.mouse.position.y
+          x: snapshot.mousePosition.x,
+          y: snapshot.mousePosition.y
         })
 
         if (!dragStartWorkspace) {
@@ -324,7 +324,7 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
             startNewSubpath &&
             elementApis.getVectorEditablePointAtClientPos(
               pathEditingVectorId,
-              snapshot.mouse.position
+              snapshot.mousePosition
             )
 
           if (
@@ -495,7 +495,7 @@ export const selectVectorPointFeature = defineFeature(
         const hoveredPoint = systemContextApis.getHoveredVectorPoint()
         const hoveredSegmentId = elementApis.getVectorSegmentAtClientPos(
           pathEditingVectorId,
-          snapshot.mouse.position
+          snapshot.mousePosition
         )
         if (!hoveredPoint || hoveredPoint.elementId !== pathEditingVectorId) {
           if (hoveredSegmentId) {
@@ -561,7 +561,7 @@ export const hoverVectorPointCursorFeature = defineFeature(
 
       const hoveredPoint = elementApis.getVectorEditablePointAtClientPos(
         pathEditingVectorId,
-        snapshot.mouse.position
+        snapshot.mousePosition
       )
       systemContextApis.setHoveredVectorPoint(
         hoveredPoint
@@ -672,8 +672,8 @@ export const enterPathEditingByDoubleClickFeature = defineFeature(
       }
 
       const workspacePointerPos = elementApis.getMousePosInWorkspace({
-        x: snapshot.mouse.position.x,
-        y: snapshot.mouse.position.y
+        x: snapshot.mousePosition.x,
+        y: snapshot.mousePosition.y
       })
 
       if (!workspacePointerPos) {

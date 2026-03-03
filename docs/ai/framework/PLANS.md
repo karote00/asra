@@ -4,7 +4,11 @@ This file tracks framework planning topics and points to detailed references.
 
 ## Near-Term Plans
 
-- None currently.
+1. System-context event-to-property update ownership
+- Decide where event subscriptions that update system properties should live.
+- Target: remove reactive-event subscribe wiring from `@asyra/system-context`, or make core orchestrate updates through system-context APIs.
+- This plan is discussion-first before implementation.
+- Reference: `docs/ai/framework/plans/system-context-event-to-property-update-ownership.md`
 
 ## Mid-Term Plans
 

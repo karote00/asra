@@ -1,34 +1,40 @@
-import { KeySnapshot, MouseSnapshot } from '@asyra/utils'
-import { initPrimaryToolStateSubscribe } from './primary-tool-state'
-import { initMouseStateSubscribe } from './mouse-state'
-import { initSystemStateSubscribe } from './system-state'
-import { initKeyStateSubscribe } from './key-state'
-import { initTargetStateSubscribe } from './target-state'
+import {
+  DefaultKeySnapshot,
+  DefaultMoseSnapshot
+} from '@asyra/utils'
+import {
+  subscribeToUpdateHoveredElementId,
+  subscribeToUpdateKeyState,
+  subscribeToUpdateMouseState
+} from '@asyra/reactive-events'
 import { SystemContextAPIs } from '../types'
 
 export const initSystemContextSubscribe = (apis: SystemContextAPIs) => {
-  initSystemStateSubscribe()
+  subscribeToUpdateMouseState(({ payload }) => {
+    const currentDragStart =
+      apis.getManagedProperty<typeof payload.dragStart>('mouseDragStart') ??
+      DefaultMoseSnapshot.dragStart
 
-  initPrimaryToolStateSubscribe({
-    getCurrentPrimaryTool: () => apis.getCurrentPrimaryTool(),
-    switchPrimaryTool: (tool: string) => apis.switchPrimaryTool(tool)
+    apis.setManagedProperty(
+      'mouseDragStart',
+      payload.dragStart ? { ...payload.dragStart } : currentDragStart
+    )
+    apis.setManagedProperty('mousePosition', { ...payload.position })
+    apis.setManagedProperty('mouseDelta', { ...payload.delta })
+    apis.setManagedProperty('mouseButton', payload.button)
+    apis.setManagedProperty('mouseDown', payload.down)
+    apis.setManagedProperty('mouseDragging', payload.dragging)
   })
 
-  initMouseStateSubscribe({
-    getMouseState: () => apis.getMouseState(),
-    updateMouseState: (mouseSnapshot: MouseSnapshot) =>
-      apis.updateMouseState(mouseSnapshot)
+  subscribeToUpdateKeyState(({ payload }) => {
+    const nextKeyState = { ...DefaultKeySnapshot, ...payload }
+    apis.setManagedProperty('keyShift', nextKeyState.shift)
+    apis.setManagedProperty('keyCtrl', nextKeyState.ctrl)
+    apis.setManagedProperty('keyAlt', nextKeyState.alt)
+    apis.setManagedProperty('keyMeta', nextKeyState.meta)
   })
 
-  initKeyStateSubscribe({
-    getKeyState: () => apis.getKeyState(),
-    updateKeyState: (keySnapshot: KeySnapshot) =>
-      apis.updateKeyState(keySnapshot)
-  })
-
-  initTargetStateSubscribe({
-    getTargetState: () => apis.getTargetState(),
-    updateHoveredElementId: (elementId: string | null) =>
-      apis.updateHoveredElementId(elementId)
+  subscribeToUpdateHoveredElementId(({ payload }) => {
+    apis.setManagedProperty('hoveredElementId', payload.elementId)
   })
 }

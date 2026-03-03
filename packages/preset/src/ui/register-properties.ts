@@ -1,4 +1,10 @@
-import { SCENE_TREE_ACTIONS } from '@asyra/utils'
+import {
+  SCENE_TREE_ACTIONS,
+  DefaultMoseSnapshot,
+  DefaultSystemSnapshot,
+  DefaultTargetSnapshot,
+  DefaultKeySnapshot
+} from '@asyra/utils'
 import type { VectorPointTarget } from '@asyra/core'
 import type { PresetCoreAPIs } from '../types'
 
@@ -85,10 +91,7 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     }
   })
 
-  const zoomObservable = core.registerSystemProperty<number>('zoom', 1, {
-    silent: true,
-    runtime: true
-  })
+  const zoomObservable = core.registerSystemProperty<number>('zoom', 1)
   core.registerUIProperty<number>('zoom', {
     defaultValue: 1,
     source$: zoomObservable
@@ -96,48 +99,62 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
 
   const primaryToolObservable = core.registerSystemProperty<string>(
     'primaryTool',
-    DEFAULT_PRIMARY_TOOL,
-    {
-      silent: true,
-      runtime: true
-    }
+    DEFAULT_PRIMARY_TOOL
   )
   core.registerUIProperty<string>('primaryTool', {
     defaultValue: DEFAULT_PRIMARY_TOOL,
     source$: primaryToolObservable
   })
 
+  core.registerSystemProperty('systemMode', DefaultSystemSnapshot.mode)
+  core.registerSystemProperty(
+    'systemFeatureFlags',
+    DefaultSystemSnapshot.featureFlags
+  )
+  core.registerSystemProperty(
+    'systemPermissions',
+    DefaultSystemSnapshot.permissions
+  )
+
+  core.registerSystemProperty('mouseDragStart', DefaultMoseSnapshot.dragStart)
+  core.registerSystemProperty('mousePosition', DefaultMoseSnapshot.position)
+  core.registerSystemProperty('mouseDelta', DefaultMoseSnapshot.delta)
+  core.registerSystemProperty('mouseButton', DefaultMoseSnapshot.button)
+  core.registerSystemProperty('mouseDown', DefaultMoseSnapshot.down)
+  core.registerSystemProperty('mouseDragging', DefaultMoseSnapshot.dragging)
+
+  core.registerSystemProperty('keyShift', DefaultKeySnapshot.shift)
+  core.registerSystemProperty('keyCtrl', DefaultKeySnapshot.ctrl)
+  core.registerSystemProperty('keyAlt', DefaultKeySnapshot.alt)
+  core.registerSystemProperty('keyMeta', DefaultKeySnapshot.meta)
+
+  core.registerSystemProperty(
+    'hoveredElementId',
+    DefaultTargetSnapshot.hoveredElementId
+  )
+  core.registerSystemProperty(
+    'selectedElementIds',
+    DefaultTargetSnapshot.selectedElementIds
+  )
+  core.registerSystemProperty(
+    'activeElementId',
+    DefaultTargetSnapshot.activeElementId
+  )
+
   const pathEditingVectorObservable = core.registerSystemProperty<
     string | null
-  >('pathEditingVectorId', null, {
-    silent: true,
-    runtime: true
-  })
-  core.registerSystemProperty<boolean>('pathEditingMode', false, {
-    silent: true,
-    runtime: true
-  })
-  core.registerSystemProperty<boolean>('pathEditingStartNewSubpath', false, {
-    silent: true,
-    runtime: true
-  })
+  >('pathEditingVectorId', null)
+  core.registerSystemProperty<boolean>('pathEditingMode', false)
+  core.registerSystemProperty<boolean>('pathEditingStartNewSubpath', false)
 
   const selectedPointObservable =
     core.registerSystemProperty<SelectedVectorPointState | null>(
       'selectedVectorPoint',
-      null,
-      {
-        silent: true,
-        runtime: true
-      }
+      null
     )
   core.registerSystemProperty<SelectedVectorPointState | null>(
     'hoveredVectorPoint',
-    null,
-    {
-      silent: true,
-      runtime: true
-    }
+    null
   )
 
   core.registerUIProperty<string | null>('pathEditingVectorId', {

@@ -410,8 +410,8 @@ export const registerVectorPathEditingRenderLayer = (
           : null
 
       const mouseWorkspacePos = deps.render.getMousePosInWorkspace({
-        clientX: snapshot.mouse.position.x,
-        clientY: snapshot.mouse.position.y
+        clientX: snapshot.mousePosition.x,
+        clientY: snapshot.mousePosition.y
       })
       const mouseScreenPos = toScreenPosition(
         mouseWorkspacePos,
