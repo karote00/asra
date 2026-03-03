@@ -286,21 +286,6 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
 - Related Commit(s):
   - `960e663` (`refactor(registry): enforce strict duplicate-key registration`)
 
-## 2026-02-28 - Completed plans moved to categorized archive
-
-- Context:
-  - `PLANS.md` would keep growing and lose focus if completed items remained inline.
-- Decision:
-  - Keep `PLANS.md` for active/deferred work.
-  - Move completed items into `docs/ai/framework/plans/completed/*` by category.
-- Consequences:
-  - Active planning stays concise.
-  - Historical implementation outcomes remain searchable by category.
-- Related Plan:
-  - `docs/ai/framework/plans/completed/README.md`
-- Related Commit(s):
-  - `9dedb25` (`docs(framework): archive completed plans by category`)
-
 ## 2026-02-28 - Add post-action completion event plan
 
 - Context:
@@ -331,21 +316,6 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - `docs/ai/framework/PLANS.md`
 - Related Commit(s):
   - pending
-
-## 2026-02-28 - Framework load validation plan archived as completed
-
-- Context:
-  - Load validation pipeline was still listed in near-term plans, but implementation and tests already cover core orchestration + package validation + diagnostics.
-- Decision:
-  - Move "Framework load validation pipeline" from active near-term plans to completed archive (`plans/completed/load-and-migration.md`).
-  - Set next unfinished near-term plan as current pickup: app-level migration pipeline formalization.
-- Consequences:
-  - Active plan list better reflects remaining work.
-  - Load validation work is preserved as completed history with references.
-- Related Plan:
-  - `docs/ai/framework/PLANS.md`
-- Related Commit(s):
-  - `449cb77` (`feat(framework): add load diagnostics pipeline and app-level reporting hook`)
 
 ## 2026-02-28 - Reprioritize app-level migration plan to lowest priority
 
@@ -404,19 +374,6 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - `docs/ai/framework/PLANS.md`
 - Related Commit(s):
   - `4d0e3a3` (`docs(decisions): establish global decision-history standard`)
-
-## 2026-02-28 - Archive completed load-validation plan and keep active list focused
-
-- Context:
-  - Load-validation pipeline work was complete, but still listed as active.
-- Decision:
-  - Move load-validation plan from active to completed archive and keep active planning focused on unfinished work.
-- Consequences:
-  - `PLANS.md` remains concise and better reflects current execution priorities.
-- Related Plan:
-  - `docs/ai/framework/plans/completed/load-and-migration.md`
-- Related Commit(s):
-  - `61fccfa` (`docs(plans): archive completed load validation pipeline`)
 
 ## 2026-02-28 - Reprioritize auto-layout-related plan items
 
@@ -619,15 +576,3 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
 - Consequences:
   - Channel access follows explicit getter intent similar to feature API access patterns.
   - Preset/ui-context can retrieve channels without raw instance export surface.
-
-## 2026-03-03 - Render data-channel shared routing plan marked complete
-
-- Context:
-  - Render data-channel shared routing had been tracked as an in-progress framework plan while implementation landed incrementally.
-  - Current code/docs now reflect local-first transaction flow, `options.shared` routing, preset-owned default channel/observer wiring, and render package subscribe cleanup.
-- Decision:
-  - Mark `docs/ai/framework/plans/render-data-channel-shared-routing.md` status as completed.
-  - Keep `ui-context` subscriber registration as a separate new plan item, not part of this completed render plan.
-- Consequences:
-  - Framework plan tracking now matches implemented runtime behavior.
-  - Follow-up scope for `ui-context` remains explicit and independently trackable.

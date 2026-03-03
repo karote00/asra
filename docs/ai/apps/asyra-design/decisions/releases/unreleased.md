@@ -124,32 +124,30 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Related Commit(s):
   - `acc6cc4` (`docs(standards): add compact key naming and reuse-first policy`)
 
-## 2026-03-01 - `bezier-js` geometry adoption plan completed and archived
+## 2026-03-01 - `bezier-js` geometry adoption finalized
 
 - Context:
-  - The near-term app plan for `bezier-js` adoption was executed: dependency integration, adapter boundary, cubic bounds migration, and curve proximity hit-testing wiring.
+  - Curve editing/runtime geometry needed deterministic cubic bounds and proximity behavior backed by a stable geometry library.
 - Decision:
-  - Archive completed `bezier-js` adoption plan:
-    - `docs/ai/apps/asyra-design/plans/completed/adopt-bezier-js-for-pen-geometry-plan.md`
-  - Remove the completed `bezier-js` item from active near-term planning list.
-  - Keep future geometry expansion work in separate active plans (sub-path model, geometry domain model).
+  - Integrate `bezier-js` through a geometry adapter boundary.
+  - Migrate cubic bounds and curve proximity hit-testing to the adapter-backed geometry path.
+  - Keep future geometry expansion work as separate follow-up scope (sub-path model, geometry domain model).
 - Consequences:
-  - Active app plans remain focused on unfinished work only.
-  - Completed `bezier-js` adoption remains discoverable through archive + decision history.
+  - Curve geometry and hit-testing behavior are more consistent and maintainable.
+  - Future geometry model expansion remains decoupled from the current runtime path.
 - Related Commit(s):
   - `13ee980` (`feat(asyra-design): integrate bezier-js geometry adapter and path proximity checks`)
 
-## 2026-03-01 - Pen editing UX plan completed and archived
+## 2026-03-01 - Pen editing UX scope finalized
 
 - Context:
   - The pen editing UX scope (bezier drag handles, handle selection targets, render consistency, and related panel/doc/test sync) is implemented.
 - Decision:
-  - Archive completed plan:
-    - `docs/ai/apps/asyra-design/plans/completed/pen-bezier-drag-controls-plan.md`
-  - Remove the completed pen-editing UX item from active near-term planning list.
+  - Finalize bezier drag-handle interactions, handle target selection, and render consistency contracts.
+  - Keep docs/tests aligned with finalized pen editing interaction behavior.
 - Consequences:
-  - Active app plans remain focused on unfinished items.
-  - Completed pen-editing UX scope is retained in app completed-plan archive.
+  - Pen editing behavior is stable across interaction, render, and panel flows.
+  - Regression risk for pen-handle interaction changes is reduced through synchronized docs/tests.
 - Related Commit(s):
   - `2eafe38` (`feat(asyra-design): stabilize pen bezier flow and sync planning docs`)
 
@@ -166,7 +164,6 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Consequences:
   - Pen/path editing updates geometry state in one model without conversion churn.
   - Vector bounds/hit/render logic now traverse topology segments/controls directly.
-  - Active plan item for sub-path model is completed and archived as topology-native completion.
 - Related Commit(s):
   - `206285e` (`refactor(vector): switch pen/runtime to topology-native geometry model`)
 
@@ -194,8 +191,6 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Decision:
   - Render handle lines and handle points only for selected-anchor neighborhood in the same subpath (`n-1`, `n`, `n+1`).
   - Keep full anchor rendering and segment/preview rendering behavior unchanged.
-  - Archive plan:
-    - `docs/ai/apps/asyra-design/plans/completed/pen-handle-visibility-neighbor-window-plan.md`
 - Consequences:
   - Handle editing focus is localized around current selection.
   - Overlay clarity improves without changing curve geometry semantics.
@@ -209,8 +204,6 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Decision:
   - In split/new-subpath mode, clicking an existing anchor selects that anchor without creating a new point on that click.
   - If the clicked anchor is a valid endpoint (`start`/`end`) of an open subpath, resume pen continuation from that endpoint for preview and next append.
-  - Archive completed plan:
-    - `docs/ai/apps/asyra-design/plans/completed/pen-resume-subpath-from-point-plan.md`
 - Consequences:
   - Pen subpath continuation is now explicit and endpoint-driven in split mode.
   - Users can resume and append from the intended subpath instead of defaulting to latest-tail behavior.
