@@ -4,10 +4,7 @@ This file tracks framework planning topics and points to detailed references.
 
 ## Near-Term Plans
 
-1. UI-context data-channel subscriber registration
-- Apply render-side data-channel observer pattern to `ui-context`.
-- Move default `ui-context` YJS subscribe wiring into preset-owned registration modules.
-- Reference: `docs/ai/framework/plans/ui-context-data-channel-subscriber-registration.md`
+- None currently.
 
 ## Mid-Term Plans
 

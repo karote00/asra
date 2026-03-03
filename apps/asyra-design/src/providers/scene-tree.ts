@@ -1,5 +1,5 @@
 import { BehaviorSubject } from 'rxjs'
-import { sceneTreeStore } from '@asyra/ui-context'
+import { uiContextSceneTreeStore } from '@asyra/ui-context'
 import { useProperty } from '../hooks'
 import { ElementRawData } from '@asyra/utils'
 
@@ -9,7 +9,7 @@ export const useFlattenedIdsData = (): string[] =>
   useProperty<string[]>('flattenedElementIds')
 
 export const useElementData = (elementId: string): Partial<ElementRawData> => {
-  const subject = sceneTreeStore.getElement(
+  const subject = uiContextSceneTreeStore.getElement(
     elementId
   ) as BehaviorSubject<ElementRawData>
 

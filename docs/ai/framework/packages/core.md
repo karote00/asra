@@ -38,7 +38,7 @@ System orchestrator and lifecycle coordinator.
 2. Registration contract
 - registration calls should be idempotent where possible
 - registration errors should fail fast with clear messages
-- render observer registration resolves shared data by channel name, not raw YJS object instances
+- data-channel observer registration resolves shared data by channel name, not raw YJS object instances
 - default shared data-channel registration lifecycle is preset-owned (core/factory provide APIs only)
 
 3. Load/save contract

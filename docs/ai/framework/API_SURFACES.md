@@ -42,9 +42,9 @@ Render bridge:
 
 - `registerRenderLayer(registration: RenderLayerRegistration, options?: RegisterRenderLayerOptions): void`
 - `unregisterRenderLayer(name: string): boolean`
-- `registerRenderYjsChangeObserver(registration: RenderYjsChangeObserverRegistration): void`
+- `registerDataChannelObserver(registration: DataChannelObserverRegistration): void`
   - registration shape: `{ name: string; channel: string; onChange: (change) => void }`
-- `unregisterRenderYjsChangeObserver(name: string): boolean`
+- `unregisterDataChannelObserver(name: string): boolean`
 - `renderIsReady(): void`
 
 Scene/model bridge:
@@ -84,10 +84,10 @@ Managed property bridges:
 - input mapping helper re-export: `keyMap`
 - vector types: `VectorAnchorPoint`, `VectorPathStyle`
 - render layer types: `RenderLayerRegistration`, `RegisterRenderLayerOptions`
-- render YJS observer helpers:
-  - `defineRenderYjsChangeObserver(...)`
-  - `registerRenderYjsChangeObserver(...)`
-  - `unregisterRenderYjsChangeObserver(...)`
+- data-channel observer helpers:
+  - `defineDataChannelObserver(...)`
+  - `registerDataChannelObserver(...)`
+  - `unregisterDataChannelObserver(...)`
 - load validation types: `LoadValidationDiagnostic`, `LoadValidationScope`, `LoadDiagnosticsHook`
 
 `@asyra/feature-system`

@@ -1,24 +1,24 @@
 import factory from '@asyra/factory'
 
-export type RenderYjsObserverCleanup = () => void
+export type DataChannelObserverCleanup = () => void
 
-export interface RenderYjsChangeObserverRegistration<TChange = unknown> {
+export interface DataChannelObserverRegistration<TChange = unknown> {
   name: string
   channel: string
   onChange: (change: TChange) => void
 }
 
-export const defineRenderYjsChangeObserver = <TChange>(
-  registration: RenderYjsChangeObserverRegistration<TChange>
-): RenderYjsChangeObserverRegistration<TChange> => {
+export const defineDataChannelObserver = <TChange>(
+  registration: DataChannelObserverRegistration<TChange>
+): DataChannelObserverRegistration<TChange> => {
   if (!registration.name.trim()) {
-    throw new Error('[core] Render YJS observer name is required')
+    throw new Error('[core] Data channel observer name is required')
   }
   if (!registration.channel.trim()) {
-    throw new Error('[core] Render YJS observer channel is required')
+    throw new Error('[core] Data channel observer channel is required')
   }
   if (typeof registration.onChange !== 'function') {
-    throw new Error('[core] Render YJS observer onChange handler is required')
+    throw new Error('[core] Data channel observer onChange handler is required')
   }
 
   return registration
@@ -26,14 +26,14 @@ export const defineRenderYjsChangeObserver = <TChange>(
 
 const observerRegistrations = new Map<
   string,
-  RenderYjsChangeObserverRegistration<any>
+  DataChannelObserverRegistration<any>
 >()
-const activeObserverCleanups = new Map<string, RenderYjsObserverCleanup>()
+const activeObserverCleanups = new Map<string, DataChannelObserverCleanup>()
 
 let hasInit = false
 
 const activateObserver = (
-  registration: RenderYjsChangeObserverRegistration<any>
+  registration: DataChannelObserverRegistration<any>
 ): void => {
   const cleanup = factory.observeSharedDataChannel(
     registration.channel,
@@ -48,12 +48,12 @@ const deactivateObserver = (name: string): void => {
   activeObserverCleanups.delete(name)
 }
 
-export const registerRenderYjsObserverRegistration = (
-  registration: RenderYjsChangeObserverRegistration<any>
+export const registerDataChannelObserver = (
+  registration: DataChannelObserverRegistration<any>
 ): void => {
   if (observerRegistrations.has(registration.name)) {
     throw new Error(
-      `[core] Render YJS observer "${registration.name}" is already registered`
+      `[core] Data channel observer "${registration.name}" is already registered`
     )
   }
 
@@ -64,7 +64,7 @@ export const registerRenderYjsObserverRegistration = (
   }
 }
 
-export const unregisterRenderYjsObserverRegistration = (
+export const unregisterDataChannelObserver = (
   name: string
 ): boolean => {
   const hasRegistration = observerRegistrations.has(name)
@@ -78,7 +78,7 @@ export const unregisterRenderYjsObserverRegistration = (
   return true
 }
 
-export const initRegisteredRenderYjsChangeObservers = (): void => {
+export const initRegisteredDataChannelObservers = (): void => {
   if (hasInit) {
     return
   }
@@ -89,7 +89,7 @@ export const initRegisteredRenderYjsChangeObservers = (): void => {
   hasInit = true
 }
 
-export const disposeRegisteredRenderYjsChangeObservers = (): void => {
+export const disposeRegisteredDataChannelObservers = (): void => {
   if (!hasInit) {
     return
   }

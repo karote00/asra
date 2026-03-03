@@ -30,7 +30,6 @@ import {
   fileLoadComplete,
   subscribeToEvents
 } from '@asyra/reactive-events'
-import { initDataContexts } from '@asyra/ui-context'
 
 import {
   CoreAPIs,
@@ -46,12 +45,8 @@ import type {
   LoadDiagnosticsHook,
   LoadValidationDiagnostic
 } from './types/load-validation'
-import type { RenderYjsChangeObserverRegistration } from './render-yjs-change-observer'
-import {
-  initRegisteredRenderYjsChangeObservers,
-  registerRenderYjsObserverRegistration,
-  unregisterRenderYjsObserverRegistration
-} from './render-yjs-change-observer'
+import type { DataChannelObserverRegistration } from './data-channel-observer'
+import * as dataChannelObserver from './data-channel-observer'
 
 interface CoreDeps {
   inputSystem: InputSystem
@@ -80,7 +75,6 @@ class Core implements CoreAPIs {
   private saveHooks: SaveHook[] = []
   private loadHooks: LoadHook[] = []
   private loadDiagnosticsHooks: LoadDiagnosticsHook[] = []
-  private uiContextInitialized = false
 
   setupInputSystem!: InputSystemAPIs['setupInputSystem']
 
@@ -129,14 +123,14 @@ class Core implements CoreAPIs {
     this.customRenderer = renderer
   }
 
-  registerRenderYjsChangeObserver(
-    registration: RenderYjsChangeObserverRegistration<any>
+  registerDataChannelObserver(
+    registration: DataChannelObserverRegistration<any>
   ): void {
-    registerRenderYjsObserverRegistration(registration)
+    dataChannelObserver.registerDataChannelObserver(registration)
   }
 
-  unregisterRenderYjsChangeObserver(name: string): boolean {
-    return unregisterRenderYjsObserverRegistration(name)
+  unregisterDataChannelObserver(name: string): boolean {
+    return dataChannelObserver.unregisterDataChannelObserver(name)
   }
 
   /**
@@ -203,12 +197,7 @@ class Core implements CoreAPIs {
       this.setupInputSystem(result.canvas)
     }
 
-    if (!this.uiContextInitialized) {
-      initDataContexts()
-      this.uiContextInitialized = true
-    }
-
-    initRegisteredRenderYjsChangeObservers()
+    dataChannelObserver.initRegisteredDataChannelObservers()
 
     // Phase 2: Load data from persistence
     await this.loadFromPersistence()

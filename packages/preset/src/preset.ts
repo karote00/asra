@@ -4,10 +4,10 @@ import { registerEvents } from './events/register-events'
 import { registerPropertySchemas } from './props/register-property-schemas'
 import { registerVectorPathEditingRenderLayer } from './render-layers'
 import {
+  registerDefaultDataChannelObservers,
   registerDefaultRenderSystemSubscriptions,
-  registerDefaultSharedDataChannels,
-  registerDefaultRenderYjsChangeObservers
-} from './render-observers'
+  registerDefaultSharedDataChannels
+} from './subscriptions'
 import { registerSelections } from './selection/register-default-selections'
 import { registerProperties } from './ui/register-properties'
 import type { PresetCoreAPIs, PresetDependencies } from './types'
@@ -41,7 +41,7 @@ export const applyPreset = (
   registerProperties(core)
   registerDefaultSharedDataChannels()
   registerDefaultRenderSystemSubscriptions(core, resolvedDeps)
-  registerDefaultRenderYjsChangeObservers(core)
+  registerDefaultDataChannelObservers(core)
   registerVectorPathEditingRenderLayer(
     (registration, options) => core.registerRenderLayer(registration, options),
     {

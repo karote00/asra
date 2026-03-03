@@ -5,8 +5,8 @@ export type PresetDependencies = ReturnType<Core['getPresetDependencies']>
 export interface PresetCoreAPIs {
   registerEvent: Core['registerEvent']
   registerRenderLayer: Core['registerRenderLayer']
-  registerRenderYjsChangeObserver?: Core['registerRenderYjsChangeObserver']
-  unregisterRenderYjsChangeObserver?: Core['unregisterRenderYjsChangeObserver']
+  registerDataChannelObserver?: Core['registerDataChannelObserver']
+  unregisterDataChannelObserver?: Core['unregisterDataChannelObserver']
   registerPropertySchema: Core['registerPropertySchema']
   registerSelection: Core['registerSelection']
   getSelection: Core['getSelection']

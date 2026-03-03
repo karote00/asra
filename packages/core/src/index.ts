@@ -1,4 +1,10 @@
 import core, { Core } from './core'
+import uiContext, {
+  UIContext,
+  propertyRegistry,
+  uiContextSceneTreeStore,
+  uiContextSelectionStore
+} from '@asyra/ui-context'
 export {
   initFeatureSystem,
   getFeatureRegistry,
@@ -68,15 +74,23 @@ export {
   EventTypes,
   defineEvent,
   registerEventDefinitions,
-  subscribeToFileLoadComplete
+  subscribeToFileLoadComplete,
+  subscribeToEndTransaction
 } from '@asyra/reactive-events'
 export type { EventDefinition } from '@asyra/reactive-events'
 export {
-  defineRenderYjsChangeObserver,
-  registerRenderYjsObserverRegistration,
-  unregisterRenderYjsObserverRegistration
-} from './render-yjs-change-observer'
-export type { RenderYjsChangeObserverRegistration } from './render-yjs-change-observer'
+  defineDataChannelObserver,
+  registerDataChannelObserver,
+  unregisterDataChannelObserver
+} from './data-channel-observer'
+export type { DataChannelObserverRegistration } from './data-channel-observer'
+export {
+  uiContext,
+  UIContext,
+  propertyRegistry,
+  uiContextSceneTreeStore,
+  uiContextSelectionStore
+}
 export {
   VECTOR_TOKENS,
   VECTOR_ANCHOR_ID_PREFIX,

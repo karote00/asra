@@ -32,10 +32,12 @@ describe('Preset Event Registration', () => {
       publish: vi.fn(),
       subscribe: () => new Subscription()
     }))
+    const registerDataChannelObserver = vi.fn()
 
     applyPreset(
       {
         registerEvent,
+        registerDataChannelObserver,
         registerRenderLayer: vi.fn(),
         registerPropertySchema: vi.fn(),
         registerSelection: vi.fn(),
@@ -49,5 +51,15 @@ describe('Preset Event Registration', () => {
 
     const registeredEvents = registerEvent.mock.calls.map(([event]) => event)
     expect(registeredEvents).toEqual(Object.values(PresetEventDefinitions))
+
+    const registeredObserverNames = registerDataChannelObserver.mock.calls.map(
+      ([registration]) => registration.name
+    )
+    expect(registeredObserverNames).toEqual([
+      'preset.render.sceneTree',
+      'preset.render.selection',
+      'preset.uiContext.sceneTree',
+      'preset.uiContext.selection'
+    ])
   })
 })

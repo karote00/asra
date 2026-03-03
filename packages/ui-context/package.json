@@ -24,13 +24,10 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
-    "@asyra/factory": "workspace:*",
-    "@asyra/reactive-events": "workspace:*",
     "@asyra/scene-tree": "workspace:*",
     "@asyra/selection": "workspace:*",
     "@asyra/utils": "workspace:*",
     "lodash": "^4.17.21",
-    "rxjs": "^7.8.1",
-    "yjs": "13.6.20"
+    "rxjs": "^7.8.1"
   }
 }

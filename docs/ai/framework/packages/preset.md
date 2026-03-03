@@ -22,7 +22,7 @@ Preset role contract:
 - builtin selection registrations
 - builtin base/system/aggregate UI-property registrations
 - default shared data-channel registration (`sceneTree`, `selection`, `props`)
-- default render observer/subscription registration (for quick-start behavior)
+- default data-channel observer/subscription registration (render + ui-context quick-start behavior)
 
 ## Must Not Own
 
@@ -35,7 +35,7 @@ Preset role contract:
 - `applyPreset(core)` applies preset-provided registrations using explicit app call.
 - `applyPreset(core)` is the owner of framework default/builtin wiring that was previously implicit or app-local.
 - preset owns default event names/definitions and registers them through `core.registerEvent(...)` while `@asyra/reactive-events` provides event infra (registry + publish/subscribe wiring).
-- preset registers default shared-channel render observers (scene-tree, selection) by channel name instead of touching YJS instances directly.
+- preset registers default shared-channel observers (render + ui-context scene-tree/selection) by channel name instead of touching YJS instances directly.
 
 ## Validation Checklist
 

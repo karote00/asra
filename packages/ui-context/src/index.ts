@@ -1,6 +1,6 @@
 import uiContext, { UIContext } from './ui-context'
 
-export * from './subscribes'
+export * from './stores'
 export { UIContext }
 export { propertyRegistry } from './property-registry'
 export type {

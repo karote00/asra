@@ -3,7 +3,13 @@
 ## Status
 
 - Accepted on March 3, 2026.
-- Planned (not started).
+- Completed on March 3, 2026.
+- Delivered:
+  - Removed YJS subscribe bootstrap from `@asyra/ui-context`; package now exports stores/derivation primitives only.
+  - Preset owns default `ui-context` data-channel observers together with render defaults.
+  - Preset observer modules moved under `packages/preset/src/subscriptions/*` with shorter file names.
+  - Core exposes channel observer registration APIs and ui-context primitives needed by preset wiring.
+  - App/provider imports updated to new ui-context store export names.
 
 ## Goal
 

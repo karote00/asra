@@ -590,3 +590,20 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - No runtime behavior change; this is an API/documentation clarity improvement.
 - Related Plan:
   - `docs/ai/framework/plans/completed/render-strategy-registry-naming.md`
+
+## 2026-03-03 - UI-context YJS subscription ownership moved to preset subscriptions
+
+- Context:
+  - `@asyra/ui-context` still kept YJS change subscribe handlers internally while render-side registration had already moved to preset-driven channel observers.
+  - Keeping two ownership styles caused inconsistent extension/customization paths.
+- Decision:
+  - Remove YJS subscribe handler ownership from `@asyra/ui-context` package internals.
+  - Keep `ui-context` focused on stores/property derivation primitives.
+  - Register default ui-context channel observers in preset subscription modules alongside render defaults.
+  - Rename preset observer folder to `subscriptions` and shorten file names (`data-channel.ts`, `render-system.ts`, `shared-channels.ts`) while keeping exported API names stable.
+- Consequences:
+  - Render and ui-context now follow the same preset-owned observer registration model.
+  - Users can override/default-wire channel observers without touching framework package internals.
+  - Preset remains the default-settings layer for observer/process wiring.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/ui-context-data-channel-subscriber-registration.md`
