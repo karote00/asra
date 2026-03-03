@@ -50,7 +50,7 @@ export type {
 } from '@asyra/feature-system'
 export { keyMap } from '@asyra/input-system'
 export {
-  renderRegistry,
+  renderStrategyRegistry,
   createOverlayLayerRegistration,
   renderSceneTreeStore,
   renderSelectionStore,

@@ -2,7 +2,7 @@ import { Container, Graphics, Point } from 'pixi.js'
 import { SceneElement, RenderContainerData, RenderElementData } from '../types'
 import { DataTypes } from '@asyra/utils'
 import { ElementInteractionHandler } from './element-interaction-handler'
-import renderRegistry from '../render-registry'
+import renderStrategyRegistry from '../render-strategy-registry'
 import { defaultStrategy } from '../strategies/default-strategy'
 
 export class RenderLayer {
@@ -82,7 +82,7 @@ export class RenderLayer {
       data.type
 
     // Use registry to get render strategy, fallback to default
-    const strategy = renderRegistry.get(data.type) || defaultStrategy
+    const strategy = renderStrategyRegistry.get(data.type) || defaultStrategy
     strategy(graphic, data)
 
     this.addToMap(data.id, graphic)
@@ -156,7 +156,7 @@ export class RenderLayer {
 
     // For other properties, use strategy if available and it's a Graphics object
     const strategy = data
-      ? renderRegistry.get(data.type) || defaultStrategy
+      ? renderStrategyRegistry.get(data.type) || defaultStrategy
       : null
     if (strategy && element instanceof Graphics && data) {
       strategy(element, data)

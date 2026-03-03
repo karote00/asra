@@ -27,7 +27,7 @@ Based on the investigation of Pen Tool (Vector Path) and Boolean Operations feat
 #### 1. Render Strategy Registration
 
 ```typescript
-import { renderRegistry } from '@asyra/render'
+import { renderStrategyRegistry } from '@asyra/render'
 import type { RenderStrategy } from '@asyra/render'
 
 // Custom render strategy works perfectly
@@ -41,7 +41,7 @@ const myRenderStrategy: RenderStrategy = (
 }
 
 // Register it
-renderRegistry.register('vector-path', myRenderStrategy)
+renderStrategyRegistry.register('vector-path', myRenderStrategy)
 ```
 
 **Status:** ✅ Fully supported, works as-is
@@ -510,7 +510,7 @@ interactionHandlerRegistry.register('handle-in-*', {
 
 ### ✅ 4. Render Logic Registration (Already Works)
 
-**Status:** No enhancement needed. renderRegistry provides everything needed.
+**Status:** No enhancement needed. renderStrategyRegistry provides everything needed.
 
 ---
 
@@ -662,7 +662,7 @@ stateRegistry.register(
 | 1. Render Layer Registration   | ❌ Not supported     | Medium | HIGH     | For overlays (anchor points, handles, previews)                           |
 | 2. Custom State Management     | ❌ Not supported     | Low    | HIGH     | StateRegistry for feature state machines (SEPARATE from PropertyRegistry) |
 | 3. Custom Interaction Handlers | ❌ Not supported     | Medium | HIGH     | For custom element interactions (anchor/handle dragging)                  |
-| 4. Render Logic Registration   | ✅ Already supported | None   | N/A      | RenderRegistry works as-is                                                |
+| 4. Render Logic Registration   | ✅ Already supported | None   | N/A      | RenderStrategyRegistry works as-is                                                |
 
 **Total Implementation Effort:** ~300-500 lines across 5 new files + modifications to 2 existing files
 

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { defineComponent, unregisterComponent } from '../define-component'
 import sceneTree, { componentRegistry } from '@asyra/scene-tree'
 import { elementPropertyRegistry } from '@asyra/props-manager'
-import { renderRegistry } from '@asyra/render'
+import { renderStrategyRegistry } from '@asyra/render'
 import { PropertyTypes, idCounter, nameCounter } from '@asyra/utils'
 import type { RenderStrategy } from '@asyra/render'
 import type { ElementInstanceTypes } from '@asyra/utils'
@@ -21,7 +21,7 @@ const cleanupType = (type: string) => {
   unregisterComponent(type, { force: true })
   componentRegistry.unregister(type)
   elementPropertyRegistry.unregisterComponent(type)
-  renderRegistry.unregister(type)
+  renderStrategyRegistry.unregister(type)
   idCounter.unregisterType(type)
   nameCounter.unregisterType(type)
 }
@@ -56,8 +56,8 @@ describe('defineComponent', () => {
     expect(properties.map((p) => p.name)).toEqual(['count', 'x', 'y'])
 
     // Check render registry
-    expect(renderRegistry.has('star')).toBe(true)
-    expect(renderRegistry.get('star')).toBe(mockRenderStrategy)
+    expect(renderStrategyRegistry.has('star')).toBe(true)
+    expect(renderStrategyRegistry.get('star')).toBe(mockRenderStrategy)
   })
 
   it('should register component without render strategy', () => {
@@ -74,7 +74,7 @@ describe('defineComponent', () => {
     expect(
       elementPropertyRegistry.getPropertiesForComponent('polygon')
     ).toHaveLength(1)
-    expect(renderRegistry.has('polygon')).toBe(false)
+    expect(renderStrategyRegistry.has('polygon')).toBe(false)
   })
 
   it('should create component with correct ID and name prefixes', () => {
@@ -179,7 +179,7 @@ describe('unregisterComponent', () => {
     expect(
       elementPropertyRegistry.getPropertiesForComponent('star')
     ).toHaveLength(1)
-    expect(renderRegistry.has('star')).toBe(true)
+    expect(renderStrategyRegistry.has('star')).toBe(true)
     expect(idCounter.hasType('star')).toBe(true)
     expect(nameCounter.hasType('star')).toBe(true)
 
@@ -190,7 +190,7 @@ describe('unregisterComponent', () => {
     expect(
       elementPropertyRegistry.getPropertiesForComponent('star')
     ).toHaveLength(0)
-    expect(renderRegistry.has('star')).toBe(false)
+    expect(renderStrategyRegistry.has('star')).toBe(false)
     expect(idCounter.hasType('star')).toBe(false)
     expect(nameCounter.hasType('star')).toBe(false)
   })
@@ -222,7 +222,7 @@ describe('unregisterComponent', () => {
     })
 
     // Manually unregister from render registry (simulating partial state)
-    renderRegistry.unregister('star')
+    renderStrategyRegistry.unregister('star')
 
     const result = unregisterComponent('star')
     expect(result).toBe(true) // Should still return true if any registry had it

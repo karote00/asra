@@ -979,7 +979,7 @@ defineComponent(definition) {
   componentRegistry.register({ type, constructor: ComponentClass, ... })
 
   // 4. Register render strategy if provided
-  if (renderStrategy) renderRegistry.register(type, renderStrategy)
+  if (renderStrategy) renderStrategyRegistry.register(type, renderStrategy)
 }
 ```
 
@@ -1702,7 +1702,7 @@ Other Subscribers (render updates, persistence save, etc.)
    ```typescript
    class Render {
      renderElement(graphic: PixiGraphic, data: ElementData, type: string) {
-       const strategy = this.renderRegistry.get(type)
+       const strategy = this.renderStrategyRegistry.get(type)
        try {
          strategy(graphic, data)
        } catch (error) {

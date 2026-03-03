@@ -104,7 +104,7 @@ Managed property bridges:
 
 - default `render` singleton, `Render` class
 - `PixiJSRenderer`
-- `renderRegistry`
+- `renderStrategyRegistry`
 - `interactionHandlerRegistry`
 - overlay helper: `createOverlayLayerRegistration(...)`
 - render stores (for default/preset wiring):

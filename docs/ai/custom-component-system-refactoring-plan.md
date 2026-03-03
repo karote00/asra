@@ -754,12 +754,12 @@ export type RenderStrategy = (
 
 #### 5.2 Create Render Registry
 
-**File:** `packages/render/src/render-registry.ts`
+**File:** `packages/render/src/render-strategy-registry.ts`
 
 ```typescript
 import type { RenderStrategy } from './types/render-strategy'
 
-class RenderRegistry {
+class RenderStrategyRegistry {
   private strategies = new Map<string, RenderStrategy>()
   
   register(type: string, strategy: RenderStrategy): void {
@@ -782,8 +782,8 @@ class RenderRegistry {
   }
 }
 
-export const renderRegistry = new RenderRegistry()
-export default renderRegistry
+export const renderStrategyRegistry = new RenderStrategyRegistry()
+export default renderStrategyRegistry
 ```
 
 #### 5.3 Create Default Render Strategy
@@ -818,7 +818,7 @@ export const defaultStrategy = defaultRectangleStrategy
 **File:** `packages/render/src/render-layer/render-layer.ts`
 
 ```typescript
-import renderRegistry from '../render-registry'
+import renderStrategyRegistry from '../render-strategy-registry'
 import { defaultStrategy } from '../strategies/default-strategy'
 
 // In RenderLayer class, update addElement method:
@@ -834,7 +834,7 @@ addElement(data: RenderElementData) {
   graphic.label = data.id
 
   // Use registry to get render strategy, fallback to default
-  const strategy = renderRegistry.get(data.type) || defaultStrategy
+  const strategy = renderStrategyRegistry.get(data.type) || defaultStrategy
   strategy(graphic, data)
 
   this.addToMap(data.id, graphic)
@@ -849,7 +849,7 @@ addElement(data: RenderElementData) {
 
 ```typescript
 // Existing exports...
-export { renderRegistry } from './render-registry'
+export { renderStrategyRegistry } from './render-strategy-registry'
 export type { RenderStrategy } from './types/render-strategy'
 export { defaultStrategy } from './strategies/default-strategy'
 ```
@@ -896,7 +896,7 @@ export interface ComponentAPI {
 ```typescript
 import type { ComponentDefinition, ComponentAPI, PropertyDefinition } from './types/component-definition'
 import { componentRegistry, createDynamicComponent } from '@asyra/scene-tree'
-import { renderRegistry } from '@asyra/render'
+import { renderStrategyRegistry } from '@asyra/render'
 import { propertyRegistry } from '@asyra/props-manager'
 import { capitalizeFirstLetter } from '@asyra/utils'
 
@@ -964,7 +964,7 @@ function registerComponent(definition: ComponentDefinition): void {
 
   // 3. Register render strategy in render package
   if (renderStrategy) {
-    renderRegistry.register(type, renderStrategy)
+    renderStrategyRegistry.register(type, renderStrategy)
   }
   // If no render strategy provided, will fallback to default rectangle
 
@@ -997,7 +997,7 @@ export function initComponentSystem(): void {
  */
 export function unregisterComponent(type: string): boolean {
   const sceneTreeResult = componentRegistry.unregister(type)
-  const renderResult = renderRegistry.unregister(type)
+  const renderResult = renderStrategyRegistry.unregister(type)
   propertyRegistry.unregisterComponent(type)
   
   return sceneTreeResult || renderResult
@@ -1189,7 +1189,7 @@ describe('PropertyRegistry', () => {
 import { describe, it, expect, beforeEach } from 'vitest'
 import { defineComponent, initComponentSystem, unregisterComponent } from '../component-integration'
 import { componentRegistry } from '@asyra/scene-tree'
-import { renderRegistry } from '@asyra/render'
+import { renderStrategyRegistry } from '@asyra/render'
 import { propertyRegistry } from '@asyra/props-manager'
 import { Graphics } from 'pixi.js'
 
@@ -1216,7 +1216,7 @@ describe('defineComponent Integration', () => {
 
     expect(api.type).toBe('star')
     expect(componentRegistry.has('star')).toBe(true)
-    expect(renderRegistry.has('star')).toBe(true)
+    expect(renderStrategyRegistry.has('star')).toBe(true)
     
     const properties = propertyRegistry.getPropertiesForComponent('star')
     expect(properties).toHaveLength(1)
@@ -1229,7 +1229,7 @@ describe('defineComponent Integration', () => {
     })
 
     expect(componentRegistry.has('simple-box')).toBe(true)
-    expect(renderRegistry.has('simple-box')).toBe(false)
+    expect(renderStrategyRegistry.has('simple-box')).toBe(false)
   })
 
   it('should unregister component completely', () => {
@@ -1678,7 +1678,7 @@ This is a **framework refactoring** - breaking changes are expected and acceptab
 
 **Phase 5: Render Strategy Registry** ✅
 - Created RenderStrategy type definition
-- Created RenderRegistry class for managing render strategies
+- Created RenderStrategyRegistry class for managing render strategies
 - Created default rectangle strategy with fallback
 - Updated RenderLayer.addElement() to use registry
 - All tests passing (6 test cases)
@@ -1701,7 +1701,7 @@ This is a **framework refactoring** - breaking changes are expected and acceptab
 - **@asyra/utils**: 34 tests passing
 - **@asyra/props-manager**: 24 tests passing (6 new for PropertyRegistry)
 - **@asyra/scene-tree**: 23 tests passing (5 new for ComponentRegistry)
-- **@asyra/render**: 22 tests passing (6 new for RenderRegistry)
+- **@asyra/render**: 22 tests passing (6 new for RenderStrategyRegistry)
 - **@asyra/core**: 9 tests passing (all new for defineComponent)
 
 **Total: 112 tests passing**
@@ -1716,9 +1716,9 @@ This is a **framework refactoring** - breaking changes are expected and acceptab
 - `packages/scene-tree/src/create-dynamic-props.ts`
 - `packages/scene-tree/src/__tests__/component-registry.test.ts`
 - `packages/render/src/types/render-strategy.ts`
-- `packages/render/src/render-registry.ts`
+- `packages/render/src/render-strategy-registry.ts`
 - `packages/render/src/strategies/default-strategy.ts`
-- `packages/render/src/__tests__/render-registry.test.ts`
+- `packages/render/src/__tests__/render-strategy-registry.test.ts`
 - `packages/core/src/define-component.ts`
 - `packages/core/src/__tests__/define-component.test.ts`
 - `docs/ai/custom-component-usage-guide.md`

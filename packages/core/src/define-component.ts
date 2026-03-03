@@ -8,7 +8,7 @@ import {
   registerPropertySchema,
   type PropertyDefinition
 } from '@asyra/props-manager'
-import { renderRegistry, type RenderStrategy } from '@asyra/render'
+import { renderStrategyRegistry, type RenderStrategy } from '@asyra/render'
 import { nameCounter, idCounter } from '@asyra/utils'
 
 export interface ComponentDefinition {
@@ -80,7 +80,7 @@ const ensureRegistrationPreconditions = (
     throw new Error(`Component "${type}" is already registered`)
   }
 
-  if (renderStrategy && renderRegistry.has(type)) {
+  if (renderStrategy && renderStrategyRegistry.has(type)) {
     throw new Error(`Render strategy for "${type}" is already registered`)
   }
 
@@ -226,7 +226,7 @@ export function defineComponent(definition: ComponentDefinition): void {
 
   // Phase E: optional render strategy registration.
   if (renderStrategy) {
-    renderRegistry.register(type, renderStrategy)
+    renderStrategyRegistry.register(type, renderStrategy)
   }
 }
 
@@ -265,7 +265,7 @@ export function unregisterComponent(
   }
 
   const hasComponentRegistration = componentRegistry.has(type)
-  const hasRenderRegistration = renderRegistry.has(type)
+  const hasRenderRegistration = renderStrategyRegistry.has(type)
   const hasPropertyRegistration =
     elementPropertyRegistry.getPropertiesForComponent(type).length > 0
   const hasCounterRegistration =
@@ -371,7 +371,7 @@ export function unregisterComponent(
     })
   }
 
-  if (renderRegistry.unregister(type)) {
+  if (renderStrategyRegistry.unregister(type)) {
     didMutate = true
     addUniqueRemoved(result, removedSet, `render:${type}`)
   } else if (hasRenderRegistration) {

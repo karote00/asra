@@ -3,7 +3,7 @@ import { BehaviorSubject, Subscription } from 'rxjs'
 import {
   componentRegistry,
   elementPropertyRegistry,
-  renderRegistry,
+  renderStrategyRegistry,
   type VectorNetwork,
   type VectorPointNode,
   type VectorSegment
@@ -152,7 +152,7 @@ describe('Vector Component', () => {
     expect(
       elementPropertyRegistry.getPropertiesForComponent('vector').length
     ).toBeGreaterThan(0)
-    expect(renderRegistry.has('vector')).toBe(true)
+    expect(renderStrategyRegistry.has('vector')).toBe(true)
   })
 
   it('should register topology properties', () => {
@@ -200,13 +200,13 @@ describe('Vector Component', () => {
   })
 
   it('should have renderStrategy registered', () => {
-    expect(renderRegistry.has('vector')).toBe(true)
-    const renderStrategy = renderRegistry.get('vector')
+    expect(renderStrategyRegistry.has('vector')).toBe(true)
+    const renderStrategy = renderStrategyRegistry.get('vector')
     expect(typeof renderStrategy).toBe('function')
   })
 
   it('should render straight lines for sharp anchor points', () => {
-    const renderStrategy = renderRegistry.get('vector')
+    const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
     if (!renderStrategy) return
@@ -256,7 +256,7 @@ describe('Vector Component', () => {
   })
 
   it('should render bezier curves for smooth anchor points', () => {
-    const renderStrategy = renderRegistry.get('vector')
+    const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
     if (!renderStrategy) return
@@ -302,7 +302,7 @@ describe('Vector Component', () => {
   })
 
   it('should render bezier curves when either handle exists', () => {
-    const renderStrategy = renderRegistry.get('vector')
+    const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
     if (!renderStrategy) return
@@ -349,7 +349,7 @@ describe('Vector Component', () => {
   })
 
   it('should close path and fill when closed is true', () => {
-    const renderStrategy = renderRegistry.get('vector')
+    const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
     if (!renderStrategy) return
@@ -391,7 +391,7 @@ describe('Vector Component', () => {
   })
 
   it('should not render path segments when only one point exists', () => {
-    const renderStrategy = renderRegistry.get('vector')
+    const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
     if (!renderStrategy) return

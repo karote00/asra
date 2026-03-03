@@ -1,42 +1,42 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderRegistry } from '../render-registry'
+import { renderStrategyRegistry } from '../render-strategy-registry'
 import type { RenderStrategy } from '../types/render-strategy'
 import type { Graphics } from 'pixi.js'
 import type { RenderElementData } from '../types'
 
-describe('RenderRegistry', () => {
+describe('RenderStrategyRegistry', () => {
   beforeEach(() => {
     // Clear registry before each test
     const types = ['test-type', 'another-type', 'star']
     types.forEach((type) => {
-      renderRegistry.unregister(type)
+      renderStrategyRegistry.unregister(type)
     })
   })
 
   it('should register a render strategy', () => {
     const mockStrategy: RenderStrategy = vi.fn()
 
-    renderRegistry.register('test-type', mockStrategy)
+    renderStrategyRegistry.register('test-type', mockStrategy)
 
-    expect(renderRegistry.has('test-type')).toBe(true)
-    expect(renderRegistry.get('test-type')).toBe(mockStrategy)
+    expect(renderStrategyRegistry.has('test-type')).toBe(true)
+    expect(renderStrategyRegistry.get('test-type')).toBe(mockStrategy)
   })
 
   it('should unregister a render strategy', () => {
     const mockStrategy: RenderStrategy = vi.fn()
 
-    renderRegistry.register('test-type', mockStrategy)
-    expect(renderRegistry.has('test-type')).toBe(true)
+    renderStrategyRegistry.register('test-type', mockStrategy)
+    expect(renderStrategyRegistry.has('test-type')).toBe(true)
 
-    const result = renderRegistry.unregister('test-type')
+    const result = renderStrategyRegistry.unregister('test-type')
 
     expect(result).toBe(true)
-    expect(renderRegistry.has('test-type')).toBe(false)
-    expect(renderRegistry.get('test-type')).toBeUndefined()
+    expect(renderStrategyRegistry.has('test-type')).toBe(false)
+    expect(renderStrategyRegistry.get('test-type')).toBeUndefined()
   })
 
   it('should return false when unregistering non-existent strategy', () => {
-    const result = renderRegistry.unregister('non-existent')
+    const result = renderStrategyRegistry.unregister('non-existent')
     expect(result).toBe(false)
   })
 
@@ -44,11 +44,11 @@ describe('RenderRegistry', () => {
     const strategy1: RenderStrategy = vi.fn()
     const strategy2: RenderStrategy = vi.fn()
 
-    renderRegistry.register('test-type', strategy1)
-    expect(() => renderRegistry.register('test-type', strategy2)).toThrow(
+    renderStrategyRegistry.register('test-type', strategy1)
+    expect(() => renderStrategyRegistry.register('test-type', strategy2)).toThrow(
       'Render strategy for "test-type" is already registered'
     )
-    expect(renderRegistry.get('test-type')).toBe(strategy1)
+    expect(renderStrategyRegistry.get('test-type')).toBe(strategy1)
   })
 
   it('should execute registered strategy when retrieved', () => {
@@ -70,9 +70,9 @@ describe('RenderRegistry', () => {
       // Strategy implementation
     })
 
-    renderRegistry.register('star', mockStrategy)
+    renderStrategyRegistry.register('star', mockStrategy)
 
-    const strategy = renderRegistry.get('star')
+    const strategy = renderStrategyRegistry.get('star')
     expect(strategy).toBeDefined()
 
     if (strategy) {
@@ -86,12 +86,12 @@ describe('RenderRegistry', () => {
     const strategy1: RenderStrategy = vi.fn()
     const strategy2: RenderStrategy = vi.fn()
 
-    renderRegistry.register('type-1', strategy1)
-    renderRegistry.register('type-2', strategy2)
+    renderStrategyRegistry.register('type-1', strategy1)
+    renderStrategyRegistry.register('type-2', strategy2)
 
-    expect(renderRegistry.has('type-1')).toBe(true)
-    expect(renderRegistry.has('type-2')).toBe(true)
-    expect(renderRegistry.get('type-1')).toBe(strategy1)
-    expect(renderRegistry.get('type-2')).toBe(strategy2)
+    expect(renderStrategyRegistry.has('type-1')).toBe(true)
+    expect(renderStrategyRegistry.has('type-2')).toBe(true)
+    expect(renderStrategyRegistry.get('type-1')).toBe(strategy1)
+    expect(renderStrategyRegistry.get('type-2')).toBe(strategy2)
   })
 })

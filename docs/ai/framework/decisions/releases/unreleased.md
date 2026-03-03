@@ -576,3 +576,17 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
 - Consequences:
   - Channel access follows explicit getter intent similar to feature API access patterns.
   - Preset/ui-context can retrieve channels without raw instance export surface.
+
+## 2026-03-03 - Render strategy registry naming clarified against render-layer registry
+
+- Context:
+  - `renderRegistry` name was ambiguous next to `renderLayerRegistry` and did not clearly express that it stores component render strategies.
+- Decision:
+  - Rename strategy registry surface to `renderStrategyRegistry`.
+  - Rename implementation file from `render-registry.ts` to `render-strategy-registry.ts`.
+  - Keep `render-layer-registry` naming unchanged for layer registration semantics.
+- Consequences:
+  - Framework extension points are easier to understand (`strategy` vs `layer` registration roles).
+  - No runtime behavior change; this is an API/documentation clarity improvement.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/render-strategy-registry-naming.md`

@@ -1,7 +1,7 @@
 import { MapRegistry } from '@asyra/utils'
 import type { RenderStrategy } from './types/render-strategy'
 
-class RenderRegistry {
+class RenderStrategyRegistry {
   private strategies = new MapRegistry<string, RenderStrategy>()
 
   register(type: string, strategy: RenderStrategy): void {
@@ -23,5 +23,5 @@ class RenderRegistry {
   }
 }
 
-export const renderRegistry = new RenderRegistry()
-export default renderRegistry
+export const renderStrategyRegistry = new RenderStrategyRegistry()
+export default renderStrategyRegistry

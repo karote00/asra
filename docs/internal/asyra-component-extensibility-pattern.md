@@ -68,7 +68,7 @@ export function defineComponent(definition: ComponentDefinition): void {
 
   // 5. Register render strategy if provided
   if (renderStrategy) {
-    renderRegistry.register(type, renderStrategy)
+    renderStrategyRegistry.register(type, renderStrategy)
   }
 }
 ```

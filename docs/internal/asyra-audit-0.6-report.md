@@ -318,7 +318,7 @@ systemContext (depends on ALL state singletons)
 | Module imports successfully      | ✅ PASS | defineComponent loaded       |
 | Calls propertyRegistry           | ✅ PASS | Properties registered        |
 | Calls componentRegistry          | ✅ PASS | Components registered        |
-| Calls renderRegistry             | ✅ PASS | Render strategies registered |
+| Calls renderStrategyRegistry             | ✅ PASS | Render strategies registered |
 | Multi-registry pattern confirmed | ✅ PASS | All 3 registries called      |
 
 **Validation:** Component registration flow works as designed

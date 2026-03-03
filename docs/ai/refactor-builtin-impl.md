@@ -28,8 +28,8 @@ Refactor `scene-tree`, `props-manager`, and `render` to remove hardcoded compone
 - Updated `createProperty` in `utils.ts` to fallback to `CustomComponent` for any unmapped property type, enabling extensibility.
 
 ### 4. Render Refactoring
-- Verified `render-layer.ts` uses `renderRegistry` to look up render strategies.
-- Built-in components now register their strategies via `defineComponent`, which populate `renderRegistry`.
+- Verified `render-layer.ts` uses `renderStrategyRegistry` to look up render strategies.
+- Built-in components now register their strategies via `defineComponent`, which populate `renderStrategyRegistry`.
 
 ## Verification
 - Usage of `Rectangle` class removed from codebase.
