@@ -1,9 +1,9 @@
 import { Application, Container, Graphics, Ticker } from 'pixi.js'
 import { DataTypes, MouseData } from '@asyra/utils'
 import { RenderElementData, RenderContainerData, SceneElement } from './types'
-import { ViewportLayer } from './viewport-layer'
-import { SelectionLayer } from './selection-layer'
-import renderLayerRegistry from './render-layer-registry'
+import { ViewportLayer } from './layers/viewport'
+import { SelectionLayer } from './layers/selection'
+import renderLayerRegistry from './registries/render-layer'
 import renderSelection from './stores/selection'
 import type { RenderLayerRegistration } from './types/render-layer'
 

@@ -1,4 +1,4 @@
-import type { InteractionRegistration } from './types/interaction-handler'
+import type { InteractionRegistration } from '../types/interaction-handler'
 
 type InteractionHandlerMap = Record<string, InteractionRegistration[]>
 

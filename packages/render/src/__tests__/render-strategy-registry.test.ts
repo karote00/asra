@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderStrategyRegistry } from '../render-strategy-registry'
+import { renderStrategyRegistry } from '../registries/render-strategy'
 import type { RenderStrategy } from '../types/render-strategy'
 import type { Graphics } from 'pixi.js'
 import type { RenderElementData } from '../types'

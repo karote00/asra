@@ -265,6 +265,60 @@ test.describe('Pen Tool - Editing Flow', () => {
       .not.toBe('outHandle')
   })
 
+  test('prepend-point drag in path editing places new in-handle at drag direction', async ({
+    page
+  }) => {
+    const initialCount = await getElementCount(page)
+
+    await page.keyboard.press('p')
+    await expect.poll(() => getActiveTool(page)).toBe('pen')
+    await clickCanvas(page, 0.3, 0.3)
+    await clickCanvas(page, 0.45, 0.4)
+    await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
+
+    // Enter split mode, then click endpoint to continue from start side.
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(80)
+    const firstPointPos = await getCanvasPosition(page, 0.3, 0.3)
+    await page.mouse.click(firstPointPos.x, firstPointPos.y)
+
+    const dragEndPos = await getCanvasPosition(page, 0.1, 0.25)
+    await dragOnCanvas(page, 0.18, 0.32, 0.1, 0.25, 8)
+
+    const selectedPointId = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selected = core?.getSystemProperty?.('selectedVectorPoint')
+      return selected?.pointId ?? null
+    })
+    expect(selectedPointId).not.toBeNull()
+    if (!selectedPointId) {
+      return
+    }
+
+    await page.mouse.move(dragEndPos.x, dragEndPos.y)
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const hovered = core?.getSystemProperty?.('hoveredVectorPoint')
+          if (!hovered) {
+            return null
+          }
+
+          return {
+            pointId: hovered.pointId,
+            target: hovered.target
+          }
+        })
+      })
+      .toMatchObject({
+        pointId: selectedPointId,
+        target: 'inHandle'
+      })
+  })
+
   test('dragging first point of a subpath does not create bezier handles', async ({
     page
   }) => {

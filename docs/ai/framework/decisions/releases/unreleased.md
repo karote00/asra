@@ -607,3 +607,19 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - Preset remains the default-settings layer for observer/process wiring.
 - Related Plan:
   - `docs/ai/framework/plans/completed/ui-context-data-channel-subscriber-registration.md`
+
+## 2026-03-04 - Render package folder layout standardized by role
+
+- Context:
+  - Render internals were split across mixed folder names (`render-layer`, `selection-layer`, `viewport-layer`) and top-level registry files.
+  - This made ownership and extension points harder to scan when adding new layers/registries.
+- Decision:
+  - Consolidate layer modules under `packages/render/src/layers/{scene,selection,viewport}`.
+  - Consolidate registries under `packages/render/src/registries`.
+  - Keep `@asyra/render` public exports stable while updating only internal paths and tests.
+- Consequences:
+  - Render internals now follow a consistent role-based structure.
+  - New layer/registry additions can follow one predictable placement pattern.
+  - No external API behavior change from this reorganization.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/render-folder-structure-reorganization.md`

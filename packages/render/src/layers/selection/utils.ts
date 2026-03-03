@@ -1,5 +1,5 @@
 import { Rectangle } from 'pixi.js'
-import { SceneElement } from '../types'
+import { SceneElement } from '../../types'
 
 /**
  * Calculate the world bounds that cover all given elements.

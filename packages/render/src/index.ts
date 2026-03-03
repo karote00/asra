@@ -5,8 +5,8 @@ import renderSelectionStore from './stores/selection'
 
 export { IRenderer, RenderOptions, RenderResult } from './types/renderer'
 export { PixiJSRenderer }
-export { renderStrategyRegistry } from './render-strategy-registry'
-export { interactionHandlerRegistry } from './interaction-handler-registry'
+export { renderStrategyRegistry } from './registries/render-strategy'
+export { interactionHandlerRegistry } from './registries/interaction-handler'
 export type { RenderStrategy } from './types/render-strategy'
 export {
   defaultStrategy,

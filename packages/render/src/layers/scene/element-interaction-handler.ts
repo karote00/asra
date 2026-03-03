@@ -1,5 +1,5 @@
 import { Container, Graphics, FederatedPointerEvent } from 'pixi.js'
-import { ElementInteractionHandlers } from '../handlers'
+import { ElementInteractionHandlers } from '../../handlers'
 
 /**
  * Element Interaction Handler

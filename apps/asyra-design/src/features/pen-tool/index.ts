@@ -212,14 +212,10 @@ const applyBezierDragForNewPoint = (
       : computeConnectedOutHandle(connectedPoint)
   const currentSegmentHandle = figmaHandles
     ? figmaHandles.currentInHandle
-    : state.connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
-      ? symmetric.outHandle
-      : symmetric.inHandle
+    : symmetric.inHandle
   const currentOppositeHandle = figmaHandles
     ? figmaHandles.currentOutHandle
-    : state.connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
-      ? symmetric.inHandle
-      : symmetric.outHandle
+    : symmetric.outHandle
 
   elementApis.updateVectorAnchorPointHandles(state.elementId, [
     {

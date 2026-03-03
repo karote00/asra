@@ -1,7 +1,7 @@
 import { Container, Graphics } from 'pixi.js'
 import systemContext from '@asyra/system-context'
 import { getSelectionLocalBounds } from './utils'
-import { SceneElement } from '../types'
+import { SceneElement } from '../../types'
 
 interface SelectionLayerOptions {
   getSelectedElements: () => SceneElement[]
