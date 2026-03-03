@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as ReactiveEventsModule from '@asyra/reactive-events'
-import type { UpdateTransactionEvent } from '@asyra/reactive-events'
 import {
   PROPS_ACTIONS,
   PropertyComponentInstanceTypes,
@@ -8,6 +7,7 @@ import {
   PropertySchema,
   PropertyTypes,
   Unit,
+  SharedDataChannelNames,
   PropsChange
 } from '@asyra/utils'
 import { PropsManager } from '../manager/props-manager'
@@ -27,6 +27,16 @@ import {
   AnchorPointComponent,
   AnchorPointsComponent
 } from './helpers/test-property-components'
+
+interface UpdateTransactionEvent {
+  type: string
+  eventName: string
+  payload: unknown
+  options?: {
+    undoable?: boolean
+    shared?: string
+  }
+}
 
 const captureUpdateTransactionEvents = () => {
   const events: UpdateTransactionEvent[] = []
@@ -497,7 +507,7 @@ describe('PropsManager', () => {
         type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
         eventName: change1.eventName,
         payload: change1,
-        options: undefined
+        options: { shared: SharedDataChannelNames.PROPS }
       })
     )
     expect(events[1]).toEqual(
@@ -505,7 +515,7 @@ describe('PropsManager', () => {
         type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
         eventName: change2.eventName,
         payload: change2,
-        options: undefined
+        options: { shared: SharedDataChannelNames.PROPS }
       })
     )
     expect(propsManager.changes).toEqual([])
@@ -527,7 +537,10 @@ describe('PropsManager', () => {
         type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
         eventName: change.eventName,
         payload: change,
-        options: { undoable: false }
+        options: {
+          undoable: false,
+          shared: SharedDataChannelNames.PROPS
+        }
       })
     ])
     expect(propsManager.changes).toEqual([])

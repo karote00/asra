@@ -24,6 +24,7 @@ System orchestrator and lifecycle coordinator.
 
 - register component definitions
 - register render layers
+- register render YJS change observers (`name + channel + onChange`)
 - register UI/system managed properties
 - register load/save hooks
 - register load diagnostics hooks (with disposer return for app-level unsubscribe)
@@ -37,6 +38,8 @@ System orchestrator and lifecycle coordinator.
 2. Registration contract
 - registration calls should be idempotent where possible
 - registration errors should fail fast with clear messages
+- render observer registration resolves shared data by channel name, not raw YJS object instances
+- default shared data-channel registration lifecycle is preset-owned (core/factory provide APIs only)
 
 3. Load/save contract
 - load: app migration hooks -> package validation/fallback -> apply state
@@ -50,7 +53,7 @@ System orchestrator and lifecycle coordinator.
 ## App-Level Usage Rules
 
 - App should call framework via `core.xxx` and app-level wrappers.
-- App should prefer `@asyra/core` helper re-exports (`defineFeature`, `importFeature`, `keyMap`) for common feature/input authoring paths.
+- App should prefer `@asyra/core` helper re-exports (`defineFeature`, `getFeature`, `keyMap`) for common feature/input authoring paths.
 - App should not import package internals when core API exists.
 - Cross-cutting domain logic belongs in app/common APIs, not core.
 

@@ -3,8 +3,8 @@ import type {
   AddRemoveElementChange,
   UpdateElementChange
 } from '@asyra/utils'
-import { SCENE_TREE_ACTIONS } from '@asyra/utils'
-import factory from '@asyra/factory'
+import { SCENE_TREE_ACTIONS, SharedDataChannelNames } from '@asyra/utils'
+import { getSharedDataChannel } from '@asyra/factory'
 import sceneTree from '@asyra/scene-tree'
 import {
   subscribeToEndTransaction,
@@ -74,8 +74,13 @@ export const initSceneTreeDataSubscribe = () => {
     return
   }
 
-  const sceneTreeArray = factory.sceneTreeMap
-  sceneTreeArray.observe(collectSceneTreeChange)
+  const sceneTreeChanges = getSharedDataChannel(
+    SharedDataChannelNames.SCENE_TREE
+  )
+  if (!sceneTreeChanges) {
+    return
+  }
+  sceneTreeChanges.observe(collectSceneTreeChange)
 
   subscribeToFileLoadComplete(() => {
     sceneTreeStore.reload()

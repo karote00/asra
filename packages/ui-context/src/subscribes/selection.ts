@@ -1,6 +1,10 @@
 import type { SelectionYjsChange } from '@asyra/utils'
-import { SELECTION_ACTIONS, SELECTION_TYPES } from '@asyra/utils'
-import factory from '@asyra/factory'
+import {
+  SELECTION_ACTIONS,
+  SELECTION_TYPES,
+  SharedDataChannelNames
+} from '@asyra/utils'
+import { getSharedDataChannel } from '@asyra/factory'
 import SelectionStore from '../stores/selection'
 
 export const selectionStore = new SelectionStore()
@@ -48,8 +52,13 @@ export const initSelectionDataSubscribe = () => {
     return
   }
 
-  const elementSelectionArray = factory.elementSelectionMap
-  elementSelectionArray.observe(collectElementSelectionChange)
+  const elementSelectionChanges = getSharedDataChannel(
+    SharedDataChannelNames.SELECTION
+  )
+  if (!elementSelectionChanges) {
+    return
+  }
+  elementSelectionChanges.observe(collectElementSelectionChange)
 
   hasInit = true
 }

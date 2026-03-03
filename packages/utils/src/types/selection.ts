@@ -1,11 +1,10 @@
-import { OWNER, SELECTION_ACTIONS, SELECTION_TYPES } from '../constants'
+import { SELECTION_ACTIONS, SELECTION_TYPES } from '../constants'
 import type { MutationOptions } from './change'
 import type { YjsChange } from './yjs'
 
 export interface SelectionChangePayload {
   selectionType: SELECTION_TYPES
   action: SELECTION_ACTIONS
-  owner: OWNER
   eventName: string
   before: string[]
   after: string[]

@@ -10,7 +10,12 @@ import type {
   EvnetOptions,
   CreateElementData
 } from '@asyra/utils'
-import { EntityTypes, OWNER, SCENE_TREE_ACTIONS, isRecord } from '@asyra/utils'
+import {
+  EntityTypes,
+  SCENE_TREE_ACTIONS,
+  SharedDataChannelNames,
+  isRecord
+} from '@asyra/utils'
 import { EventTypes, updateTransaction } from '@asyra/reactive-events'
 import propsManager from '@asyra/props-manager'
 import componentRegistry from './component-registry'
@@ -345,7 +350,6 @@ class SceneTree {
       eventName: EventTypes.ADD_ELEMENT,
       data: element.save(),
       action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-      owner: OWNER.SCENE_TREE,
       undoType: EventTypes.REMOVE_ELEMENT,
       undoAction: EventTypes.REMOVE_ELEMENT
     })
@@ -357,7 +361,6 @@ class SceneTree {
       data: element.save(),
       parentId: element.get('parentId') as string,
       action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
-      owner: OWNER.SCENE_TREE,
       undoType: EventTypes.ADD_ELEMENT,
       undoAction: EventTypes.ADD_ELEMENT
     })
@@ -483,12 +486,11 @@ class SceneTree {
   commitSceneTreeTransaction(options?: EVENT_OPTIONS) {
     this.changes.forEach((change) => {
       const changeOptions = change.options ?? options
-      if (changeOptions) {
-        updateTransaction(change.eventName, change, changeOptions)
-        return
+      const routedOptions: EVENT_OPTIONS = {
+        ...(changeOptions ?? {}),
+        shared: changeOptions?.shared ?? SharedDataChannelNames.SCENE_TREE
       }
-
-      updateTransaction(change.eventName, change)
+      updateTransaction(change.eventName, change, routedOptions)
     })
     this.cleanChanges()
   }

@@ -430,7 +430,7 @@ const packageB = new PackageB(events)
 **Location:** `packages/feature-system/src/types/feature.ts`
 
 **Why Dangerous:**
-The `defineFeature` function accepts generic API types but **immediately erases them**. When you call `importFeature()`, it returns `Record<string, unknown>` instead of the strongly-typed API you defined. This defeats the entire purpose of TypeScript in the feature system.
+The `defineFeature` function accepts generic API types but **immediately erases them**. When you call `getFeature()`, it returns `Record<string, unknown>` instead of the strongly-typed API you defined. This defeats the entire purpose of TypeScript in the feature system.
 
 **Code:**
 
@@ -442,7 +442,7 @@ export function defineFeature<Config, State, API>(
 }
 
 // Result: All type information lost at runtime
-const feature = importFeature('my-feature')
+const feature = getFeature('my-feature')
 // ❌ feature.api is Record<string, unknown> - no type safety!
 feature.api.doSomething() // Error: Property 'doSomething' does not exist
 ```
@@ -1816,7 +1816,7 @@ const featureSystem = createFeatureSystem({ sceneTree, factory, events })
 
 2. **Implement type-preserving feature registry** (3-5 days)
    - Store generic type metadata
-   - Preserve type information through `importFeature()`
+   - Preserve type information through `getFeature()`
 
 3. **Create type-safe component registry** (3-5 days)
    - Remove `AnyComponent` type

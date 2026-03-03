@@ -7,7 +7,7 @@ This file is the fast API map for framework-level implementation requests.
 Primary import:
 
 - `import core from '@asyra/core'`
-- `import { defineFeature, importFeature, unregisterFeature, keyMap } from '@asyra/core'`
+- `import { defineFeature, getFeature, unregisterFeature, keyMap } from '@asyra/core'`
 
 Lifecycle and integration:
 
@@ -42,6 +42,9 @@ Render bridge:
 
 - `registerRenderLayer(registration: RenderLayerRegistration, options?: RegisterRenderLayerOptions): void`
 - `unregisterRenderLayer(name: string): boolean`
+- `registerRenderYjsChangeObserver(registration: RenderYjsChangeObserverRegistration): void`
+  - registration shape: `{ name: string; channel: string; onChange: (change) => void }`
+- `unregisterRenderYjsChangeObserver(name: string): boolean`
 - `renderIsReady(): void`
 
 Scene/model bridge:
@@ -49,11 +52,11 @@ Scene/model bridge:
 - `sceneTreeInit(): void`
 - `sceneTreeLoadData(data: SceneTreeRawData): void`
 - `sceneTreeSaveData(): SceneTreeRawData`
-- `createElement(data: CreateElementData, parent?: GroupInstanceTypes, index?: number, options?: { undoable: boolean }): string`
-- `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: { undoable: boolean }): void`
+- `createElement(data: CreateElementData, parent?: GroupInstanceTypes, index?: number, options?: { undoable?: boolean; shared?: string }): string`
+- `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: { undoable?: boolean; shared?: string }): void`
 - `getAllElementsBounds(): Bounds | null`
 - `isContainerType(type: string): boolean`
-- `selectElements(elementIds: string[], options?: { undoable: boolean }): void`
+- `selectElements(elementIds: string[], options?: { undoable?: boolean; shared?: string }): void`
 
 Managed property bridges:
 
@@ -77,16 +80,20 @@ Managed property bridges:
 - `definePropertyComponent`, `unregisterPropertyComponent`
 - props-manager registry re-export: `elementPropertyRegistry`
 - feature-system bridge exports: `initFeatureSystem`, `getFeatureRegistry`, `getSessionManager`
-- feature authoring helpers: `defineFeature`, `importFeature`, `unregisterFeature`
+- feature authoring helpers: `defineFeature`, `getFeature`, `unregisterFeature`
 - input mapping helper re-export: `keyMap`
 - vector types: `VectorAnchorPoint`, `VectorPathStyle`
 - render layer types: `RenderLayerRegistration`, `RegisterRenderLayerOptions`
+- render YJS observer helpers:
+  - `defineRenderYjsChangeObserver(...)`
+  - `registerRenderYjsChangeObserver(...)`
+  - `unregisterRenderYjsChangeObserver(...)`
 - load validation types: `LoadValidationDiagnostic`, `LoadValidationScope`, `LoadDiagnosticsHook`
 
 `@asyra/feature-system`
 
 - `defineFeature(name, keyConfig, definition)`
-- `importFeature(featureName)`
+- `getFeature(featureName)`
 - `unregisterFeature(featureName)`
 - `getFeatureRegistry()`
 - `getSessionManager()`
@@ -100,6 +107,26 @@ Managed property bridges:
 - `renderRegistry`
 - `interactionHandlerRegistry`
 - overlay helper: `createOverlayLayerRegistration(...)`
+- render stores (for default/preset wiring):
+  - `renderSceneTreeStore`
+  - `renderSelectionStore`
+
+`@asyra/factory`
+
+- default `factory` singleton, `Factory` class
+- transaction runtime bridge:
+  - `startTransaction()`
+  - `updateTransaction(event)`
+  - `endTransaction()`
+  - `undo()`, `redo()`
+- shared data channel APIs:
+  - `registerSharedDataChannel(name, yArray)`
+  - `unregisterSharedDataChannel(name)`
+  - `hasSharedDataChannel(name)`
+  - `observeSharedDataChannel(name, handler)`
+  - `getYjsDataChannel(name)` (returns YJS array for a channel name from factory doc)
+  - `getSharedDataChannelStrict(name)` (strict accessor; throws if not registered)
+  - `getSharedDataChannel(name)` (safe accessor; returns `undefined` when missing)
 
 `@asyra/props-manager`
 
@@ -134,6 +161,9 @@ Managed property bridges:
 `@asyra/preset`
 
 - `applyPreset(core)` for explicit preset bootstrap registration (builtin components, property components, props schemas, render layers, selections, and default UI/system property wiring)
+- default render wiring lives here:
+  - register default render YJS observers (scene-tree + selection)
+  - register default render system subscriptions (`zoom`, `viewportPosition`)
 - exports `InputSystemEvents` and `PresetEventNames` constants for preset-owned event namespaces
 
 `@asyra/ui-context`
@@ -183,4 +213,5 @@ Session mode:
 - Framework defaults are preset-owned; call `applyPreset(core)` explicitly when default builtins are required.
 - Non-render packages must not import Pixi directly.
 - Model mutation requests should be transaction-bounded by caller-side API boundaries.
+- Transaction mutations are local by default; shared YJS append only happens when `options.shared` matches a registered data channel.
 - Deprecated APIs stay callable during transition, but new behavior should be built on current owners.

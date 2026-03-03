@@ -1,13 +1,20 @@
 import * as Y from 'yjs'
-import type { SceneTreeYjsChange, SelectionYjsChange } from '@asyra/utils'
 import type { UpdateTransactionEvent } from '@asyra/reactive-events'
 import DataTransact from './data-transact'
-import { sceneTreeChanges, elementSelectionChanges } from './registry'
+import doc from './data'
+import {
+  SharedDataChannelRegistry,
+  type SharedDataChannelChangeHandler,
+  type SharedDataChannelName
+} from './shared-data-channel'
 
 class Factory {
-  sceneTreeMap: Y.Array<SceneTreeYjsChange> = sceneTreeChanges
-  elementSelectionMap: Y.Array<SelectionYjsChange> = elementSelectionChanges
-  transact: DataTransact = new DataTransact()
+  private readonly sharedDataChannels = new SharedDataChannelRegistry()
+  transact: DataTransact
+
+  constructor() {
+    this.transact = new DataTransact(this.sharedDataChannels)
+  }
 
   startTransaction() {
     this.transact.start()
@@ -31,6 +38,40 @@ class Factory {
 
   isInUndoRedo() {
     return this.transact.isInUndo() || this.transact.isInRedo()
+  }
+
+  registerSharedDataChannel(
+    name: SharedDataChannelName,
+    channel: Y.Array<any>
+  ): void {
+    this.sharedDataChannels.register(name, channel)
+  }
+
+  unregisterSharedDataChannel(name: SharedDataChannelName): boolean {
+    return this.sharedDataChannels.unregister(name)
+  }
+
+  hasSharedDataChannel(name: SharedDataChannelName): boolean {
+    return this.sharedDataChannels.has(name)
+  }
+
+  getYjsDataChannel(name: SharedDataChannelName): Y.Array<any> {
+    return doc.getArray(name)
+  }
+
+  getSharedDataChannel(name: SharedDataChannelName): Y.Array<any> | undefined {
+    return this.sharedDataChannels.get(name)
+  }
+
+  getSharedDataChannelStrict(name: SharedDataChannelName): Y.Array<any> {
+    return this.sharedDataChannels.import(name)
+  }
+
+  observeSharedDataChannel<TChange = unknown>(
+    name: SharedDataChannelName,
+    handler: SharedDataChannelChangeHandler<TChange>
+  ): () => void {
+    return this.sharedDataChannels.observe(name, handler)
   }
 }
 

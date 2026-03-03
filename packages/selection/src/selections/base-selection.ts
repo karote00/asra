@@ -1,5 +1,4 @@
 import {
-  OWNER,
   SELECTION_ACTIONS,
   SELECTION_TYPES,
   type EvnetOptions
@@ -93,7 +92,6 @@ export default class BaseSelection {
     this.changes.push({
       selectionType: this.metadata.selectionType,
       action,
-      owner: OWNER.ELEMENT_SELECTION,
       eventName: this.metadata.eventName,
       before,
       after,

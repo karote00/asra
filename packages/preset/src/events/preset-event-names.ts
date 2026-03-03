@@ -2,7 +2,7 @@ import {
   EventTypes,
   defineEvent,
   type EventDefinition
-} from '@asyra/reactive-events'
+} from '@asyra/core'
 import { InputSystemEvents } from './input-events'
 
 type EventNamesMap = Record<string, string>

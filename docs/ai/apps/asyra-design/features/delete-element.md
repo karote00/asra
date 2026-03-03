@@ -25,7 +25,7 @@
 - no-op.
 
 4. If deleted element is currently hovered target:
-- trigger hover-element feature API (`importFeature(FeatureNames.HOVER_ELEMENT).reEvaluate(...)`)
+- trigger hover-element feature API (`getFeature(FeatureNames.HOVER_ELEMENT).reEvaluate(...)`)
 - re-evaluate hover target from current mouse position using hover-element logic
 - update hovered element id to the top-most remaining element under cursor, or `null` if none
 

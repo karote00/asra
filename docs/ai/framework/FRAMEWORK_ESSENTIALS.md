@@ -15,6 +15,7 @@ Any implementation decision must preserve:
 1. Framework Core vs App Domain
 - Framework packages provide orchestration and primitives.
 - App-level defines domain behavior, aggregation, and workflows.
+- Preset provides default bootstrap settings only (not app-domain owner, not framework-runtime owner).
 
 2. Deterministic Data Flow
 - Inputs trigger features.
@@ -47,6 +48,8 @@ Any implementation decision must preserve:
 ## Implementation Checklist (Every Change)
 
 - confirm ownership boundary first (framework vs app)
+- run ownership triage: user customization vs preset default vs framework runtime owner
+- if placed in preset, confirm it is optional default wiring that helps users start quickly
 - keep runtime flow deterministic
 - expose extension via registration, not branching
 - preserve load validation/fallback semantics

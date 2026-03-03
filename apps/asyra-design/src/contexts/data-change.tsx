@@ -4,7 +4,7 @@ import {
   subscribeToFileLoadComplete,
   fileLoadComplete
 } from '@asyra/reactive-events'
-import { importFeature } from '@asyra/core'
+import { getFeature } from '@asyra/core'
 import { FeatureNames } from '../constants'
 
 const DataContexts = () => {
@@ -34,7 +34,7 @@ const DataContexts = () => {
     // Trigger zoom fit after file is loaded to show all content in viewport
     const fileLoadSubscription = subscribeToFileLoadComplete(() => {
       try {
-        const featureAPI = importFeature(FeatureNames.ZOOM_FIT)
+        const featureAPI = getFeature(FeatureNames.ZOOM_FIT)
         if (featureAPI?.zoomFit) {
           const zoomFitFn = featureAPI.zoomFit as () => void
           zoomFitFn()

@@ -1,12 +1,18 @@
 # Framework Plans
 
-This file tracks framework planning topics and points to detailed internal references.
+This file tracks framework planning topics and points to detailed references.
 
 ## Near-Term Plans
 
-1. Render YJS change registration
-- Make render YJS observe wiring registration-driven instead of hardcoded package subscriptions.
-- Reference: `docs/internal/render-yjs-change-registration-plan.md`
+1. Render data-channel shared routing (Completed on March 3, 2026)
+- Move render subscription ownership to preset defaults + core channel registration lifecycle.
+- Keep transaction semantics local-by-default with optional shared routing metadata (`shared` channel name).
+- Reference: `docs/ai/framework/plans/render-data-channel-shared-routing.md`
+
+2. UI-context data-channel subscriber registration
+- Apply render-side data-channel observer pattern to `ui-context`.
+- Move default `ui-context` YJS subscribe wiring into preset-owned registration modules.
+- Reference: `docs/ai/framework/plans/ui-context-data-channel-subscriber-registration.md`
 
 ## Mid-Term Plans
 

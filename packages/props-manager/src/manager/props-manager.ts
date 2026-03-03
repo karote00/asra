@@ -1,4 +1,9 @@
-import { OWNER, PropertyType, PROPS_ACTIONS, isRecord } from '@asyra/utils'
+import {
+  PropertyType,
+  PROPS_ACTIONS,
+  SharedDataChannelNames,
+  isRecord
+} from '@asyra/utils'
 import type {
   EVENT_OPTIONS,
   PropertyComponentInstanceDataTypes,
@@ -153,7 +158,6 @@ class PropsManager {
       eventName: EventTypes.ADD_PROPERTY,
       data: [property.save()],
       action: PROPS_ACTIONS.ADD_PROPERTY,
-      owner: OWNER.PROPS,
       undoType: EventTypes.REMOVE_PROPERTY,
       undoAction: EventTypes.REMOVE_PROPERTY
     })
@@ -164,7 +168,6 @@ class PropsManager {
       eventName: EventTypes.REMOVE_PROPERTY,
       data: [property.save()],
       action: PROPS_ACTIONS.REMOVE_PROPERTY,
-      owner: OWNER.PROPS,
       undoType: EventTypes.ADD_PROPERTY,
       undoAction: EventTypes.ADD_PROPERTY
     })
@@ -237,12 +240,11 @@ class PropsManager {
   commitChanges(options?: EVENT_OPTIONS) {
     this.changes.forEach((change) => {
       const changeOptions = change.options ?? options
-      if (changeOptions) {
-        updateTransaction(change.eventName, change, changeOptions)
-        return
+      const routedOptions: EVENT_OPTIONS = {
+        ...(changeOptions ?? {}),
+        shared: changeOptions?.shared ?? SharedDataChannelNames.PROPS
       }
-
-      updateTransaction(change.eventName, change)
+      updateTransaction(change.eventName, change, routedOptions)
     })
     this.cleanChanges()
   }

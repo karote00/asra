@@ -1,5 +1,5 @@
 import { beforeAll, describe, it, expect, vi } from 'vitest'
-import { Subscription } from 'rxjs'
+import { BehaviorSubject, Subscription } from 'rxjs'
 import {
   componentRegistry,
   elementPropertyRegistry,
@@ -10,6 +10,7 @@ import {
 } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
 import { applyPreset } from '../preset'
+import type { PresetDependencies } from '../types'
 
 beforeAll(() => {
   applyPreset(
@@ -28,12 +29,10 @@ beforeAll(() => {
       registerUIProperty: () => {
         // no-op for this unit test.
       },
-      registerSystemProperty: () => {
-        // return stub observable-like value for source$ wiring in preset.
-        return {}
-      }
+      registerSystemProperty: <T>(_: string, defaultValue: T) =>
+        new BehaviorSubject<T>(defaultValue)
     },
-    {
+    ({
       sceneTree: {
         getElementById: () => undefined
       },
@@ -47,9 +46,11 @@ beforeAll(() => {
       render: {
         getViewportPosition: () => ({ x: 0, y: 0 }),
         getViewportScale: () => 1,
-        getMousePosInWorkspace: () => ({ x: 0, y: 0 })
+        getMousePosInWorkspace: () => ({ x: 0, y: 0 }),
+        zoomTo: () => undefined,
+        panTo: () => undefined
       }
-    }
+    }) as unknown as PresetDependencies
   )
 })
 

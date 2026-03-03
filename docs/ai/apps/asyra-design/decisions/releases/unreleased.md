@@ -223,7 +223,7 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Decision:
   - Finalize `Delete` / `Backspace` feature for one selected element with path-editing guard.
   - Keep delete and selection clear in one undoable transaction so undo restores selection with the element.
-  - Re-evaluate hovered target after delete by calling hover feature API via `importFeature(FeatureNames.HOVER_ELEMENT)`.
+  - Re-evaluate hovered target after delete by calling hover feature API via `getFeature(FeatureNames.HOVER_ELEMENT)`.
   - Expand E2E coverage for delete flow regressions and undo-commit quality (including compact drag-create commit assertions).
 - Consequences:
   - Delete flow behavior is deterministic for undo/redo and mode boundaries.

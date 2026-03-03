@@ -1,4 +1,4 @@
-import { OWNER, SCENE_TREE_ACTIONS } from '../constants'
+import { SCENE_TREE_ACTIONS } from '../constants'
 import type { ElementRawData } from '../sceneTree'
 import { DataTypes } from './constants'
 import type { MutationOptions } from './change'
@@ -6,7 +6,6 @@ import type { YjsChange } from './yjs'
 
 export interface AddRemoveElementChange {
   action: SCENE_TREE_ACTIONS
-  owner: OWNER
   undoType: string
   undoAction: string
   eventName: string
@@ -17,7 +16,6 @@ export interface AddRemoveElementChange {
 
 export interface UpdateElementChange {
   action: SCENE_TREE_ACTIONS
-  owner: OWNER
   eventName: string
   id: string
   key: string

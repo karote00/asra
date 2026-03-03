@@ -1,4 +1,4 @@
-import { registerEventDefinitions } from '@asyra/reactive-events'
+import { registerEventDefinitions } from '@asyra/core'
 import {
   PresetEventDefinitions,
   type PresetEventDefinitions as PresetEventDefinitionsType

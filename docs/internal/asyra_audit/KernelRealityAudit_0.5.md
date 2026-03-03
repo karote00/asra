@@ -1034,7 +1034,7 @@ interface FeatureDefinition<API, State> {
 
 **What Users Can Do:**
 
-1. Define public API methods that can be imported via `importFeature('name')`
+1. Define public API methods that can be accessed via `getFeature('name')`
 2. Register execution handlers for one-time events (keyboard shortcuts, clicks)
 3. Register session handlers for multi-step interactions (drag, scroll)
 4. Import other features and call their APIs
@@ -1262,7 +1262,7 @@ Other Subscribers (render updates, persistence save, etc.)
 | Synchronous handlers       | inputSystem.listeners   | Infinite loops, blocking  | ⚠️ Limited - no try-catch   | **Unsafe**           |
 | Feature onStart/update/end | sessionManager          | Long-running ops block UI | ✅ 5-second timeout         | **Safe**             |
 | Render strategies          | defineComponent render  | Infinite loops, errors    | ⚠️ No wrapping              | **Unsafe**           |
-| Feature API methods        | importFeature() calls   | Errors propagate          | ✅ Callers can wrap         | **Safe** (by design) |
+| Feature API methods        | getFeature() calls   | Errors propagate          | ✅ Callers can wrap         | **Safe** (by design) |
 | Component class methods    | Dynamic component class | Errors in getters/setters | ⚠️ No wrapping              | **Unsafe**           |
 | Session handlers           | sessionManager          | Errors in user code       | ✅ Try-catch with isolation | **Safe**             |
 | Execution handlers         | executionRegistry       | Errors in user code       | ✅ Try-catch with isolation | **Safe**             |

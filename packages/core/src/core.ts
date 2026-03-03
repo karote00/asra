@@ -46,6 +46,12 @@ import type {
   LoadDiagnosticsHook,
   LoadValidationDiagnostic
 } from './types/load-validation'
+import type { RenderYjsChangeObserverRegistration } from './render-yjs-change-observer'
+import {
+  initRegisteredRenderYjsChangeObservers,
+  registerRenderYjsObserverRegistration,
+  unregisterRenderYjsObserverRegistration
+} from './render-yjs-change-observer'
 
 interface CoreDeps {
   inputSystem: InputSystem
@@ -123,6 +129,16 @@ class Core implements CoreAPIs {
     this.customRenderer = renderer
   }
 
+  registerRenderYjsChangeObserver(
+    registration: RenderYjsChangeObserverRegistration<any>
+  ): void {
+    registerRenderYjsObserverRegistration(registration)
+  }
+
+  unregisterRenderYjsChangeObserver(name: string): boolean {
+    return unregisterRenderYjsObserverRegistration(name)
+  }
+
   /**
    * Set a persistence provider (LocalStorage, IndexedDB, custom)
    * @param provider - Persistence provider implementation
@@ -191,6 +207,8 @@ class Core implements CoreAPIs {
       initDataContexts()
       this.uiContextInitialized = true
     }
+
+    initRegisteredRenderYjsChangeObservers()
 
     // Phase 2: Load data from persistence
     await this.loadFromPersistence()

@@ -1,25 +1,29 @@
 import { describe, it, expect, vi } from 'vitest'
-import { Subscription } from 'rxjs'
+import { BehaviorSubject, Subscription } from 'rxjs'
 import { applyPreset } from '../preset'
 import { PresetEventDefinitions } from '../events'
+import type { PresetDependencies } from '../types'
 
-const createDeps = () => ({
-  sceneTree: {
-    getElementById: () => undefined
-  },
-  systemContext: {
-    getManagedProperty: () => undefined,
-    getSystemContextSnapshot: () => ({
-      primaryTool: 'select',
-      mouse: { position: { x: 0, y: 0 } }
-    })
-  },
-  render: {
-    getViewportPosition: () => ({ x: 0, y: 0 }),
-    getViewportScale: () => 1,
-    getMousePosInWorkspace: () => ({ x: 0, y: 0 })
-  }
-})
+const createDeps = (): PresetDependencies =>
+  ({
+    sceneTree: {
+      getElementById: () => undefined
+    },
+    systemContext: {
+      getManagedProperty: () => undefined,
+      getSystemContextSnapshot: () => ({
+        primaryTool: 'select',
+        mouse: { position: { x: 0, y: 0 } }
+      })
+    },
+    render: {
+      getViewportPosition: () => ({ x: 0, y: 0 }),
+      getViewportScale: () => 1,
+      getMousePosInWorkspace: () => ({ x: 0, y: 0 }),
+      zoomTo: () => undefined,
+      panTo: () => undefined
+    }
+  }) as unknown as PresetDependencies
 
 describe('Preset Event Registration', () => {
   it('registers preset event definitions through core', () => {
@@ -37,7 +41,8 @@ describe('Preset Event Registration', () => {
         registerSelection: vi.fn(),
         getSelection: () => undefined,
         registerUIProperty: vi.fn(),
-        registerSystemProperty: () => ({})
+        registerSystemProperty: <T>(_: string, defaultValue: T) =>
+          new BehaviorSubject<T>(defaultValue)
       },
       createDeps()
     )

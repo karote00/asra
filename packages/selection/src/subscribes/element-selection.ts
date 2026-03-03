@@ -3,7 +3,11 @@ import {
   subscribeToRemoveElement,
   updateTransaction
 } from '@asyra/reactive-events'
-import { SELECTION_TYPES, type EVENT_OPTIONS } from '@asyra/utils'
+import {
+  SELECTION_TYPES,
+  SharedDataChannelNames,
+  type EVENT_OPTIONS
+} from '@asyra/utils'
 import selectionManager from '../selection-manager-instance'
 
 const commitSelectionChanges = (options?: EVENT_OPTIONS) => {
@@ -14,12 +18,11 @@ const commitSelectionChanges = (options?: EVENT_OPTIONS) => {
 
   elementSelection.changes.forEach((change) => {
     const changeOptions = change.options ?? options
-    if (changeOptions) {
-      updateTransaction(change.eventName, change, changeOptions)
-      return
+    const routedOptions: EVENT_OPTIONS = {
+      ...(changeOptions ?? {}),
+      shared: changeOptions?.shared ?? SharedDataChannelNames.SELECTION
     }
-
-    updateTransaction(change.eventName, change)
+    updateTransaction(change.eventName, change, routedOptions)
   })
   elementSelection.cleanChanges()
 }

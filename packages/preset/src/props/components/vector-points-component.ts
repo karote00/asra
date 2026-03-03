@@ -2,9 +2,11 @@ import {
   VECTOR_TOKENS,
   VECTOR_TOPOLOGY_POINT_ID_TYPE
 } from '@asyra/core'
-import type { VectorControlRole, VectorPointKind } from '@asyra/core'
+import type { VectorControlRole, VectorPointNode } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
 import { defineChildrenMapPropertyComponent } from './children-map-property-component'
+
+type VectorPointKind = VectorPointNode['kind']
 
 const toNumber = (value: unknown, fallback = 0) =>
   typeof value === 'number' ? value : fallback

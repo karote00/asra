@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as ReactiveEventsModule from '@asyra/reactive-events'
 import type { UpdateTransactionEvent } from '@asyra/reactive-events'
 import {
-  OWNER,
   SCENE_TREE_ACTIONS,
+  SharedDataChannelNames,
   type SceneTreeChange,
   type ElementInstanceTypes
 } from '@asyra/utils'
@@ -27,7 +27,6 @@ const createUpdateChange = (
 ): SceneTreeChange =>
   ({
     action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
-    owner: OWNER.SCENE_TREE,
     eventName: ReactiveEventsModule.EventTypes.UPDATE_COMPUTED_DATA,
     id: 'element-1',
     key: 'x',
@@ -56,7 +55,10 @@ describe('SceneTree transaction options', () => {
         type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
         eventName: change.eventName,
         payload: change,
-        options: { undoable: false }
+        options: {
+          undoable: false,
+          shared: SharedDataChannelNames.SCENE_TREE
+        }
       })
     ])
     subscription.unsubscribe()
@@ -74,7 +76,10 @@ describe('SceneTree transaction options', () => {
         type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
         eventName: change.eventName,
         payload: change,
-        options: { undoable: false }
+        options: {
+          undoable: false,
+          shared: SharedDataChannelNames.SCENE_TREE
+        }
       })
     ])
     subscription.unsubscribe()
@@ -92,7 +97,9 @@ describe('SceneTree transaction options', () => {
         type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
         eventName: change.eventName,
         payload: change,
-        options: undefined
+        options: {
+          shared: SharedDataChannelNames.SCENE_TREE
+        }
       })
     ])
     subscription.unsubscribe()

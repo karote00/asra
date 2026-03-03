@@ -563,3 +563,71 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - SelectionManager now scales as a true multi-channel owner instead of element-only specialization.
   - App/ui/render integrations consume the same channelized selection event model.
   - Legacy vertex naming is eliminated, reducing contract ambiguity.
+
+## 2026-03-03 - Render subscription ownership moved out of `@asyra/render` into preset defaults
+
+- Context:
+  - Render-side YJS/system subscriptions were hardcoded in render package internals.
+  - This reduced user ability to customize observer flow without editing framework package code.
+- Decision:
+  - Remove render package `subscribes` initialization ownership.
+  - Move render YJS observer registration lifecycle to core (`define/register/unregister` observer APIs).
+  - Move default scene-tree/selection YJS observer definitions and default render system subscriptions (`zoom`, `viewportPosition`) into preset initialization.
+  - Keep render package focused on rendering/stores and expose store-level update surfaces for external registration wiring.
+- Consequences:
+  - Users can redefine render subscription flow through preset/core registration APIs without touching render internals.
+  - Preset remains the default-settings layer for quick-start behavior while preserving override paths.
+
+## 2026-03-03 - Shared data-channel routing standardized to explicit `options.shared`
+
+- Context:
+  - Transaction shared-write routing previously depended on payload `owner`, which coupled shared behavior to event payload internals.
+  - Render observers needed channel-name registration without direct YJS instance usage.
+- Decision:
+  - Treat transaction writes as local by default.
+  - Append shared YJS changes only when `updateTransaction` options provide `shared` channel name.
+  - Register built-in shared channels in factory (`sceneTree`, `selection`, `props`) and route default scene-tree/selection/props commits with explicit shared channel metadata.
+  - Move render observer binding to channel-based contract (`name + channel + onChange`) so preset/app code registers handlers by channel name only.
+  - No backward-compat owner-based shared routing path.
+- Consequences:
+  - Shared/local behavior is explicit and configurable through channel registration.
+  - Render/preset integrations no longer require direct YJS array access.
+  - Unknown shared channel names safely remain local-only.
+
+## 2026-03-03 - Default shared data-channel registration ownership moved to preset
+
+- Context:
+  - Initial shared-channel implementation registered default channels inside factory constructor.
+  - This blurred ownership between runtime registry infra and default initialization policy.
+- Decision:
+  - Keep factory as shared-channel registry/runtime owner only.
+  - Move default channel registration (`sceneTree`, `selection`, `props`) to preset initialization.
+- Consequences:
+  - Preset cleanly owns default startup wiring.
+  - Framework users can choose preset defaults or register channels explicitly without constructor side effects.
+
+## 2026-03-03 - Shared channel access moved to import/get APIs (no direct YJS instance exports)
+
+- Context:
+  - Directly exporting built-in YJS instances from factory made ownership and access boundaries too implicit.
+- Decision:
+  - Remove direct built-in channel instance exports.
+  - Expose accessor APIs instead:
+    - strict `getSharedDataChannelStrict(name)`
+    - safe `getSharedDataChannel(name)`
+    - channel-instance accessor `getYjsDataChannel(name)` for preset/default wiring
+- Consequences:
+  - Channel access follows explicit getter intent similar to feature API access patterns.
+  - Preset/ui-context can retrieve channels without raw instance export surface.
+
+## 2026-03-03 - Render data-channel shared routing plan marked complete
+
+- Context:
+  - Render data-channel shared routing had been tracked as an in-progress framework plan while implementation landed incrementally.
+  - Current code/docs now reflect local-first transaction flow, `options.shared` routing, preset-owned default channel/observer wiring, and render package subscribe cleanup.
+- Decision:
+  - Mark `docs/ai/framework/plans/render-data-channel-shared-routing.md` status as completed.
+  - Keep `ui-context` subscriber registration as a separate new plan item, not part of this completed render plan.
+- Consequences:
+  - Framework plan tracking now matches implemented runtime behavior.
+  - Follow-up scope for `ui-context` remains explicit and independently trackable.

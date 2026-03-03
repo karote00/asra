@@ -5,6 +5,7 @@ import {
   UpdateTransactionEvent,
   TransactionEventTypes
 } from '@asyra/reactive-events'
+import { SharedDataChannelNames } from '@asyra/utils'
 
 describe('Factory', () => {
   let factory: Factory
@@ -50,5 +51,44 @@ describe('Factory', () => {
   it('should call DataTransact.redo when redo is called', () => {
     factory.redo()
     expect(factory.transact.redo).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not register shared data channels implicitly', () => {
+    expect(factory.hasSharedDataChannel(SharedDataChannelNames.SCENE_TREE)).toBe(
+      false
+    )
+    expect(factory.hasSharedDataChannel(SharedDataChannelNames.SELECTION)).toBe(
+      false
+    )
+    expect(factory.hasSharedDataChannel(SharedDataChannelNames.PROPS)).toBe(
+      false
+    )
+  })
+
+  it('notifies channel observers when shared transaction changes are appended', () => {
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      factory.getYjsDataChannel(SharedDataChannelNames.SCENE_TREE)
+    )
+
+    const handler = vi.fn()
+    const dispose = factory.observeSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      handler
+    )
+    const sharedEvent: UpdateTransactionEvent = {
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: 'test-event',
+      payload: { id: 'test-event' },
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    }
+
+    factory.startTransaction()
+    factory.updateTransaction(sharedEvent)
+    factory.endTransaction()
+
+    expect(handler).toHaveBeenCalledWith(expect.objectContaining({ id: 'test-event' }))
+
+    dispose()
   })
 })

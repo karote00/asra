@@ -12,7 +12,7 @@
 // Main API
 export {
   defineFeature,
-  importFeature,
+  getFeature,
   unregisterFeature,
   getFeatureRegistry,
   getSessionManager,

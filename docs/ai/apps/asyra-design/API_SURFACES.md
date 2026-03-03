@@ -7,7 +7,7 @@ This file is the app-level API contract map.
 Import boundary:
 
 - `import { ...Apis } from 'src/common-apis'`
-- `import { defineFeature, importFeature, keyMap } from '@asyra/core'` for golden-path feature/input helpers
+- `import { defineFeature, getFeature, keyMap } from '@asyra/core'` for golden-path feature/input helpers
 
 `elementApis` (`src/common-apis/element/index.ts`)
 

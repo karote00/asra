@@ -792,7 +792,7 @@ export function BooleanButton() {
   const { selectedIds } = useSelection()
 
   // Import feature
-  const createBooleanGroupFeature = FeatureSystem.importFeature('createBooleanGroup')
+  const createBooleanGroupFeature = FeatureSystem.getFeature('createBooleanGroup')
 
   // Show button only when 2+ elements selected
   const showButton = selectedIds.size >= 2

@@ -1,13 +1,9 @@
-import * as Y from 'yjs'
 import type {
   PropsChange,
-  PropsYjsChange,
   SceneTreeChange,
-  SceneTreeYjsChange,
-  ElementSelectionChange,
-  SelectionYjsChange
+  ElementSelectionChange
 } from '@asyra/utils'
-import { OWNER, UNDO } from '@asyra/utils'
+import { UNDO } from '@asyra/utils'
 
 type TransactionPayload = PropsChange | SceneTreeChange | ElementSelectionChange
 import type { AllEvent, UpdateTransactionEvent } from '@asyra/reactive-events'
@@ -18,25 +14,7 @@ import {
   userActionCompleted,
   updateUndoRedoStatus
 } from '@asyra/reactive-events'
-import {
-  sceneTreeChanges,
-  elementSelectionChanges,
-  propsChanges
-} from './registry'
-
-type YMapOrArray<T = unknown> = Y.Array<T> | Y.Map<T>
-
-interface ChangesTypeMap {
-  [OWNER.SCENE_TREE]: YMapOrArray<SceneTreeYjsChange>
-  [OWNER.ELEMENT_SELECTION]: YMapOrArray<SelectionYjsChange>
-  [OWNER.PROPS]: YMapOrArray<PropsYjsChange>
-}
-
-const ChangesMaps: ChangesTypeMap = {
-  [OWNER.SCENE_TREE]: sceneTreeChanges,
-  [OWNER.ELEMENT_SELECTION]: elementSelectionChanges,
-  [OWNER.PROPS]: propsChanges
-}
+import type { SharedDataChannelRegistry } from './shared-data-channel'
 
 class DataTransact {
   private changes: AllEvent[] = []
@@ -46,6 +24,21 @@ class DataTransact {
   private inUndo = false
   private inRedo = false
   private actionId = 0
+  private readonly sharedDataChannelRegistry: Pick<
+    SharedDataChannelRegistry,
+    'pushToSharedChannel'
+  >
+
+  constructor(
+    sharedDataChannelRegistry?: Pick<
+      SharedDataChannelRegistry,
+      'pushToSharedChannel'
+    >
+  ) {
+    this.sharedDataChannelRegistry = sharedDataChannelRegistry ?? {
+      pushToSharedChannel: () => false
+    }
+  }
 
   start() {
     this.isTransacting++
@@ -69,14 +62,16 @@ class DataTransact {
       payload: newPayload
     }
 
-    if (!(event.options && !event.options.undoable)) {
+    if (event.options?.undoable !== false) {
       this.changes.push(newEvent)
     }
 
-    const map = ChangesMaps[payload.owner as OWNER]
-    if (map instanceof Y.Array) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      map.push([payload as any])
+    const sharedChannelName = event.options?.shared
+    if (sharedChannelName) {
+      this.sharedDataChannelRegistry.pushToSharedChannel(
+        sharedChannelName,
+        payload
+      )
     }
   }
 

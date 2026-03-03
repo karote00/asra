@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   ElementInstanceTypes,
   EntityTypes,
-  OWNER,
   SCENE_TREE_ACTIONS,
   SceneTreeChange,
   resetIdCounter,
@@ -89,7 +88,6 @@ describe('SceneTree', () => {
       eventName: EventTypes.ADD_ELEMENT,
       data: expect.any(Object),
       action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-      owner: OWNER.SCENE_TREE,
       undoType: EventTypes.REMOVE_ELEMENT,
       undoAction: EventTypes.REMOVE_ELEMENT
     })

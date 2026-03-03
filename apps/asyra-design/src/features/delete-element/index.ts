@@ -1,4 +1,4 @@
-import { defineFeature, importFeature } from '@asyra/core'
+import { defineFeature, getFeature } from '@asyra/core'
 import { endTransaction, startTransaction } from '@asyra/reactive-events'
 import {
   elementApis,
@@ -14,7 +14,7 @@ interface HoverElementFeatureApi {
 
 const reEvaluateHoverAfterDelete = (snapshot: SystemContextSnapshot) => {
   try {
-    const hoverApi = importFeature(
+    const hoverApi = getFeature(
       FeatureNames.HOVER_ELEMENT
     ) as HoverElementFeatureApi
 

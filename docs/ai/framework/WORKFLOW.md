@@ -29,6 +29,10 @@ Goal: avoid mixed ownership and hidden coupling.
 Actions:
 
 - classify the request as framework, app-level, or cross-cutting
+- classify ownership bucket for each concern:
+  - user customization
+  - preset default setting
+  - framework runtime owner
 - define owner per concern (core, feature-system, props-manager, render, app)
 - state what must stay unchanged
 - identify compatibility expectations (breaking vs non-breaking)
@@ -37,6 +41,8 @@ Actions:
 Checklist:
 
 - [ ] ownership boundaries are explicit
+- [ ] preset usage is justified as default initialization (not runtime/domain ownership)
+- [ ] change improves quick-start functionality without blocking user override paths
 - [ ] no app business logic leaks into framework packages
 - [ ] cross-package imports use `@asyra/package-name`
 - [ ] no manual edits are introduced in `create-app/*` unless explicitly generated/synced

@@ -41,9 +41,9 @@ export const initApp = () => {
 ### Transaction Feature
 
 ```typescript
-import { importFeature } from '@asyra/feature-system'
+import { getFeature } from '@asyra/feature-system'
 
-const transaction = importFeature('transaction')
+const transaction = getFeature('transaction')
 
 // Wrap operations in transaction
 transaction.wrap(() => {
@@ -63,7 +63,7 @@ transaction.redo()
 ### Selection Feature
 
 ```typescript
-const selection = importFeature('selection')
+const selection = getFeature('selection')
 
 // Select elements
 selection.selectElements(['element-1', 'element-2'])
@@ -87,16 +87,16 @@ selection.clearSelection()
 ```typescript
 // apps/asyra-design/src/features/delete/index.ts
 import core from '../../contexts'
-import { defineFeature, importFeature } from '@asyra/feature-system'
+import { defineFeature, getFeature } from '@asyra/feature-system'
 
 const packages = core.deps
 
 export const deleteFeature = defineFeature(
   'delete',
-  ({ packages, importFeature }: any) => ({
+  ({ packages, getFeature }: any) => ({
     api: {
       delete: (ids: string[]) => {
-        const txn = importFeature('transaction')
+        const txn = getFeature('transaction')
         txn.start()
         packages.sceneTree.deleteElements(ids)
         txn.end()
@@ -121,10 +121,10 @@ export default deleteFeature
 ## Step 4: Use Feature in UI Component
 
 ```typescript
-import { importFeature } from '@asyra/feature-system'
+import { getFeature } from '@asyra/feature-system'
 
 export function DeleteButton({ selectedElements }: { selectedElements: string[] }) {
-  const deleteFeature = importFeature('delete')
+  const deleteFeature = getFeature('delete')
 
   return (
     <button
@@ -241,14 +241,14 @@ export const deleteFeature = transactionalTemplate({
 ```typescript
 // apps/asyra-design/src/features/delete/index.ts
 import core from '../../contexts'
-import { defineFeature, importFeature } from '@asyra/feature-system'
+import { defineFeature, getFeature } from '@asyra/feature-system'
 
 const packages = core.deps
 
-const deleteFeature = defineFeature('delete', ({ packages, importFeature }: any) => ({
+const deleteFeature = defineFeature('delete', ({ packages, getFeature }: any) => ({
   api: {
     delete: (ids: string[]) => {
-      const txn = importFeature('transaction')
+      const txn = getFeature('transaction')
       txn.start()
       packages.sceneTree.deleteElements(ids)
       txn.end()
@@ -260,10 +260,10 @@ const deleteFeature = defineFeature('delete', ({ packages, importFeature }: any)
 }))
 
 // apps/asyra-design/src/components/DeleteButton.tsx
-import { importFeature } from '@asyra/feature-system'
+import { getFeature } from '@asyra/feature-system'
 
 export function DeleteButton({ selected }: { selected: string[] }) {
-  const deleteFeature = importFeature('delete')
+  const deleteFeature = getFeature('delete')
 
   return (
     <button
@@ -285,7 +285,7 @@ export function DeleteButton({ selected }: { selected: string[] }) {
 // Test file
 import {
   defineFeature,
-  importFeature,
+  getFeature,
   getFeatureRegistry
 } from '@asyra/feature-system'
 
@@ -296,7 +296,7 @@ defineFeature('test', ({ packages }: any) => ({
 }))
 
 // 2. Test import
-const testFeature = importFeature('test')
+const testFeature = getFeature('test')
 console.log(testFeature.value) // 42
 
 // 3. Test registry
@@ -310,7 +310,7 @@ console.log('Features:', registry.getFeatureNames())
 
 1. **Initialize once** - Call `initFeatureSystem()` during app startup
 2. **Features auto-register** - Call `defineFeature()` anywhere to register
-3. **Import features** - Use `importFeature('name')` to get feature API
+3. **Get features** - Use `getFeature('name')` to access feature API
 4. **Use APIs** - Call `feature.api.method()` to execute
 5. **Priority sessions** - Higher priority runs first, exclusive stops lower
 

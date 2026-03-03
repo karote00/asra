@@ -10,7 +10,6 @@ describe('props-manager subscribes', () => {
 
   it('clears pending property changes on endTransaction', () => {
     const pendingChange = {
-      owner: 'props',
       action: 'updateProperty',
       eventName: EventTypes.UPDATE_PROPERTY,
       id: 'pp-1',

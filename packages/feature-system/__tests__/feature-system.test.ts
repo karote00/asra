@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   defineFeature,
-  importFeature,
+  getFeature,
   getFeatureRegistry,
   getSessionManager
 } from '../src'
@@ -20,19 +20,19 @@ describe('Feature System', () => {
     expect(feature.api.add(1, 2)).toBe(3)
   })
 
-  it('should import feature API', () => {
+  it('should get feature API', () => {
     defineFeature('import-test', undefined, {
       api: {
         value: 42
       }
     })
 
-    const api = importFeature('import-test')
+    const api = getFeature('import-test')
     expect(api.value).toBe(42)
   })
 
-  it('should throw error when importing non-existent feature', () => {
-    expect(() => importFeature('non-existent')).toThrowError(
+  it('should throw error when getting non-existent feature', () => {
+    expect(() => getFeature('non-existent')).toThrowError(
       'Feature "non-existent" not found'
     )
   })

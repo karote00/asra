@@ -10,6 +10,7 @@ Rendering runtime and engine abstraction boundary.
 - Other packages consume render abstractions only.
 - Render should react to state changes, not become source-of-truth.
 - Render mutations should reflect state/system updates, not drive them.
+- Default subscription wiring is not owned here; preset/core registration flow owns channel observer setup.
 
 ## Extension Points
 
@@ -17,6 +18,7 @@ Rendering runtime and engine abstraction boundary.
 - render layer registry
 - interaction handler registry
 - custom renderer integration via core
+- render-side update stores (`renderSceneTreeStore`, `renderSelectionStore`) for external registration wiring
 
 ## Runtime Contracts
 

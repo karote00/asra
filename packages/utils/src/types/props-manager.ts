@@ -1,4 +1,4 @@
-import { OWNER, PROPS_ACTIONS } from '../constants'
+import { PROPS_ACTIONS } from '../constants'
 import { PropertyComponentRawData } from '../propsManager'
 import { DataTypes } from './constants'
 import type { MutationOptions } from './change'
@@ -6,7 +6,6 @@ import type { YjsChange } from './yjs'
 
 export interface AddRemovePropertyChange {
   action: PROPS_ACTIONS
-  owner: OWNER
   undoType: string
   undoAction: string
   eventName: string
@@ -17,7 +16,6 @@ export interface AddRemovePropertyChange {
 
 export interface UpdatePropertyChange {
   action: PROPS_ACTIONS
-  owner: OWNER
   eventName: string
   id: string
   key: string

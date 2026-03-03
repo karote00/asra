@@ -1,8 +1,7 @@
 import render, { Render } from './render'
-import { initDataContexts } from './subscribes'
 import PixiJSRenderer from './pixi-renderer'
-
-initDataContexts()
+import renderSceneTreeStore from './stores/scene-tree'
+import renderSelectionStore from './stores/selection'
 
 export { IRenderer, RenderOptions, RenderResult } from './types/renderer'
 export { PixiJSRenderer }
@@ -19,6 +18,7 @@ export {
   type OverlayStrokeStyle,
   type CreateOverlayLayerOptions
 } from './layers/overlay-layer'
+export { renderSceneTreeStore, renderSelectionStore }
 
 export default render
 export { Render }

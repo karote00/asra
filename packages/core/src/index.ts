@@ -19,7 +19,7 @@ export {
 export type { PropertyComponentDefinition } from './define-property-component'
 export {
   defineFeature,
-  importFeature,
+  getFeature,
   unregisterFeature
 } from '@asyra/feature-system'
 export {
@@ -52,11 +52,31 @@ export { keyMap } from '@asyra/input-system'
 export {
   renderRegistry,
   createOverlayLayerRegistration,
+  renderSceneTreeStore,
+  renderSelectionStore,
   type OverlayCanvas,
   type OverlayStrokeStyle,
   type CreateOverlayLayerOptions
 } from '@asyra/render'
 export type { RenderStrategy } from '@asyra/render'
+export {
+  getYjsDataChannel,
+  registerSharedDataChannel,
+  hasSharedDataChannel
+} from '@asyra/factory'
+export {
+  EventTypes,
+  defineEvent,
+  registerEventDefinitions,
+  subscribeToFileLoadComplete
+} from '@asyra/reactive-events'
+export type { EventDefinition } from '@asyra/reactive-events'
+export {
+  defineRenderYjsChangeObserver,
+  registerRenderYjsObserverRegistration,
+  unregisterRenderYjsObserverRegistration
+} from './render-yjs-change-observer'
+export type { RenderYjsChangeObserverRegistration } from './render-yjs-change-observer'
 export {
   VECTOR_TOKENS,
   VECTOR_ANCHOR_ID_PREFIX,

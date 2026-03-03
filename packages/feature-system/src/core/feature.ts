@@ -233,7 +233,7 @@ export function setCorePackages(packages: CorePackages) {
   pendingRegistrations.length = 0
 }
 
-export function importFeature(featureName: string): FeatureAPI {
+export function getFeature(featureName: string): FeatureAPI {
   if (!featureRegistry.has(featureName)) {
     throw new Error(`Feature "${featureName}" not found`)
   }
