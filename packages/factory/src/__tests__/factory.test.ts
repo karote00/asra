@@ -54,9 +54,9 @@ describe('Factory', () => {
   })
 
   it('does not register shared data channels implicitly', () => {
-    expect(factory.hasSharedDataChannel(SharedDataChannelNames.SCENE_TREE)).toBe(
-      false
-    )
+    expect(
+      factory.hasSharedDataChannel(SharedDataChannelNames.SCENE_TREE)
+    ).toBe(false)
     expect(factory.hasSharedDataChannel(SharedDataChannelNames.SELECTION)).toBe(
       false
     )
@@ -87,7 +87,9 @@ describe('Factory', () => {
     factory.updateTransaction(sharedEvent)
     factory.endTransaction()
 
-    expect(handler).toHaveBeenCalledWith(expect.objectContaining({ id: 'test-event' }))
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'test-event' })
+    )
 
     dispose()
   })

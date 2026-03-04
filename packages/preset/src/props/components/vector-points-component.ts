@@ -1,7 +1,4 @@
-import {
-  VECTOR_TOKENS,
-  VECTOR_TOPOLOGY_POINT_ID_TYPE
-} from '@asyra/core'
+import { VECTOR_TOKENS, VECTOR_TOPOLOGY_POINT_ID_TYPE } from '@asyra/core'
 import type { VectorControlRole, VectorPointNode } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
 import { defineChildrenMapPropertyComponent } from './children-map-property-component'
@@ -20,7 +17,10 @@ const toPointKind = (value: unknown): VectorPointKind =>
     : VECTOR_TOKENS.POINT.KIND.ANCHOR
 
 const toControlRole = (value: unknown): VectorControlRole | undefined => {
-  if (value === VECTOR_TOKENS.CONTROL.ROLE.IN || value === VECTOR_TOKENS.CONTROL.ROLE.OUT) {
+  if (
+    value === VECTOR_TOKENS.CONTROL.ROLE.IN ||
+    value === VECTOR_TOKENS.CONTROL.ROLE.OUT
+  ) {
     return value
   }
 

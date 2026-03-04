@@ -32,9 +32,9 @@ class RenderLayerRegistry {
   }
 
   getAll(): RenderLayerRegistration[] {
-    return this.layers.values().sort(
-      (a, b) => (a.zIndex || 0) - (b.zIndex || 0)
-    )
+    return this.layers
+      .values()
+      .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0))
   }
 
   clear(): void {

@@ -7,11 +7,17 @@ export type SharedDataChannelChangeHandler<TChange = unknown> = (
   change: TChange
 ) => void
 
-// Y.Array is invariant in T, so we store channels as Y.Array<any> in registry.
+// Y.Array is invariant in T, so we store channels as Y.Array<unknown> in registry.
 // Actual payload typing is handled by observer registration sites.
-type SharedDataChannel = Y.Array<any>
+type SharedDataChannel = Y.Array<unknown>
 
-const noop = () => {}
+const noop = (): void => undefined
+
+interface YObservedItemLike {
+  content?: {
+    getContent?: () => unknown
+  }
+}
 
 const processObservedItems = (
   items: Iterable<unknown>,
@@ -19,8 +25,7 @@ const processObservedItems = (
 ): void => {
   for (const item of items) {
     // YJS internals expose inserted/deleted content through item.content.getContent().
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const contents = (item as any).content?.getContent?.()
+    const contents = (item as YObservedItemLike).content?.getContent?.()
     if (!Array.isArray(contents)) {
       continue
     }
@@ -32,7 +37,10 @@ const processObservedItems = (
 }
 
 export class SharedDataChannelRegistry {
-  private readonly channels = new MapRegistry<SharedDataChannelName, SharedDataChannel>()
+  private readonly channels = new MapRegistry<
+    SharedDataChannelName,
+    SharedDataChannel
+  >()
 
   register(name: SharedDataChannelName, channel: SharedDataChannel): void {
     this.channels.register(name, channel, {
@@ -81,7 +89,10 @@ export class SharedDataChannelRegistry {
     }
 
     const observer = (event: Y.YArrayEvent<unknown>) => {
-      processObservedItems(event.changes.added, handler as SharedDataChannelChangeHandler)
+      processObservedItems(
+        event.changes.added,
+        handler as SharedDataChannelChangeHandler
+      )
       processObservedItems(
         event.changes.deleted,
         handler as SharedDataChannelChangeHandler

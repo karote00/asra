@@ -4,4 +4,3 @@ export const FEATURE_MOVEMENT_THRESHOLD = {
   createElement: 3,
   penCurveDrag: 3
 } as const
-

@@ -123,8 +123,8 @@ class Core implements CoreAPIs {
     this.customRenderer = renderer
   }
 
-  registerDataChannelObserver(
-    registration: DataChannelObserverRegistration<any>
+  registerDataChannelObserver<TChange = unknown>(
+    registration: DataChannelObserverRegistration<TChange>
   ): void {
     dataChannelObserver.registerDataChannelObserver(registration)
   }

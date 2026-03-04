@@ -45,9 +45,9 @@ describe('RenderStrategyRegistry', () => {
     const strategy2: RenderStrategy = vi.fn()
 
     renderStrategyRegistry.register('test-type', strategy1)
-    expect(() => renderStrategyRegistry.register('test-type', strategy2)).toThrow(
-      'Render strategy for "test-type" is already registered'
-    )
+    expect(() =>
+      renderStrategyRegistry.register('test-type', strategy2)
+    ).toThrow('Render strategy for "test-type" is already registered')
     expect(renderStrategyRegistry.get('test-type')).toBe(strategy1)
   })
 

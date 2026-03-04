@@ -59,12 +59,16 @@ const api: CreateElementAPI = {
       y = currentPos.y
     }
 
-    elementApis.changeComputedData([elementId], {
-      x,
-      y,
-      width,
-      height
-    }, { undoable: false })
+    elementApis.changeComputedData(
+      [elementId],
+      {
+        x,
+        y,
+        width,
+        height
+      },
+      { undoable: false }
+    )
   },
   resetElementSize: (elementId: string) => {
     elementApis.resetElementSize(elementId)

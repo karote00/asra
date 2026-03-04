@@ -85,8 +85,7 @@ const getControlId = (
   role:
     | typeof VECTOR_TOKENS.CONTROL.ROLE.IN
     | typeof VECTOR_TOKENS.CONTROL.ROLE.OUT
-) =>
-  `${anchorId}:${role}`
+) => `${anchorId}:${role}`
 
 const toScreenPosition = (
   point: PositionData,
@@ -130,12 +129,10 @@ const getPathEditingVectorDataWithDeps = (
         return
       }
 
-      const inHandle = computed.points?.[
-        getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN)
-      ]
-      const outHandle = computed.points?.[
-        getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.OUT)
-      ]
+      const inHandle =
+        computed.points?.[getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN)]
+      const outHandle =
+        computed.points?.[getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.OUT)]
 
       points.push({
         id: pointId,
@@ -243,7 +240,10 @@ const drawAnchorPoints = (
     })
   })
 
-  if (!selectedPointId || selectedTarget !== VECTOR_TOKENS.POINT.TARGET.ANCHOR) {
+  if (
+    !selectedPointId ||
+    selectedTarget !== VECTOR_TOKENS.POINT.TARGET.ANCHOR
+  ) {
     return
   }
 
@@ -276,11 +276,20 @@ const drawHandlePoints = (
     }
 
     const handles: {
-      target: Exclude<VectorPointTarget, typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR>
+      target: Exclude<
+        VectorPointTarget,
+        typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR
+      >
       position: PositionData | null
     }[] = [
-      { target: VECTOR_TOKENS.POINT.TARGET.IN_HANDLE, position: point.inHandle },
-      { target: VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE, position: point.outHandle }
+      {
+        target: VECTOR_TOKENS.POINT.TARGET.IN_HANDLE,
+        position: point.inHandle
+      },
+      {
+        target: VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE,
+        position: point.outHandle
+      }
     ]
 
     handles.forEach(({ target, position }) => {
@@ -320,7 +329,9 @@ const getVisibleHandleAnchorIds = (
   }
 
   for (const subpath of subpaths) {
-    const index = subpath.points.findIndex((point) => point.id === selectedAnchorId)
+    const index = subpath.points.findIndex(
+      (point) => point.id === selectedAnchorId
+    )
     if (index === -1) {
       continue
     }

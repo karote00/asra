@@ -24,7 +24,9 @@ import type { PresetCoreAPIs } from '../types'
 const updateRenderSceneTree = (change: SceneTreeChange) => {
   switch (change.action) {
     case SCENE_TREE_ACTIONS.ADD_ELEMENT: {
-      renderSceneTreeStore.addElementById((change as AddRemoveElementChange).data.id)
+      renderSceneTreeStore.addElementById(
+        (change as AddRemoveElementChange).data.id
+      )
       break
     }
     case SCENE_TREE_ACTIONS.REMOVE_ELEMENT: {

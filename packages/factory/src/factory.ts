@@ -42,7 +42,7 @@ class Factory {
 
   registerSharedDataChannel(
     name: SharedDataChannelName,
-    channel: Y.Array<any>
+    channel: Y.Array<unknown>
   ): void {
     this.sharedDataChannels.register(name, channel)
   }
@@ -55,15 +55,17 @@ class Factory {
     return this.sharedDataChannels.has(name)
   }
 
-  getYjsDataChannel(name: SharedDataChannelName): Y.Array<any> {
+  getYjsDataChannel(name: SharedDataChannelName): Y.Array<unknown> {
     return doc.getArray(name)
   }
 
-  getSharedDataChannel(name: SharedDataChannelName): Y.Array<any> | undefined {
+  getSharedDataChannel(
+    name: SharedDataChannelName
+  ): Y.Array<unknown> | undefined {
     return this.sharedDataChannels.get(name)
   }
 
-  getSharedDataChannelStrict(name: SharedDataChannelName): Y.Array<any> {
+  getSharedDataChannelStrict(name: SharedDataChannelName): Y.Array<unknown> {
     return this.sharedDataChannels.import(name)
   }
 

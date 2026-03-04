@@ -238,11 +238,14 @@ export function defineComponent(definition: ComponentDefinition): void {
  * @param options - Optional cascade/force/detailed controls
  * @returns boolean compatibility result, or detailed result when `detailed: true`
  */
-export function unregisterComponent(type: string): boolean
 export function unregisterComponent(
   type: string,
   options: UnregisterComponentOptions & { detailed: true }
 ): UnregisterComponentResult
+export function unregisterComponent(
+  type: string,
+  options?: UnregisterComponentOptions
+): boolean
 export function unregisterComponent(
   type: string,
   options: UnregisterComponentOptions = {}
@@ -311,9 +314,8 @@ export function unregisterComponent(
     if (!propertyName) {
       continue
     }
-    const owners = elementPropertyRegistry.getComponentTypesForProperty(
-      propertyName
-    )
+    const owners =
+      elementPropertyRegistry.getComponentTypesForProperty(propertyName)
     if (owners.includes(type)) {
       ownedPropertyNames.push(propertyName)
     }

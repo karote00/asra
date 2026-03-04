@@ -26,14 +26,14 @@ export const defineDataChannelObserver = <TChange>(
 
 const observerRegistrations = new Map<
   string,
-  DataChannelObserverRegistration<any>
+  DataChannelObserverRegistration<unknown>
 >()
 const activeObserverCleanups = new Map<string, DataChannelObserverCleanup>()
 
 let hasInit = false
 
 const activateObserver = (
-  registration: DataChannelObserverRegistration<any>
+  registration: DataChannelObserverRegistration<unknown>
 ): void => {
   const cleanup = factory.observeSharedDataChannel(
     registration.channel,
@@ -48,8 +48,8 @@ const deactivateObserver = (name: string): void => {
   activeObserverCleanups.delete(name)
 }
 
-export const registerDataChannelObserver = (
-  registration: DataChannelObserverRegistration<any>
+export const registerDataChannelObserver = <TChange = unknown>(
+  registration: DataChannelObserverRegistration<TChange>
 ): void => {
   if (observerRegistrations.has(registration.name)) {
     throw new Error(
@@ -57,16 +57,17 @@ export const registerDataChannelObserver = (
     )
   }
 
-  observerRegistrations.set(registration.name, registration)
+  observerRegistrations.set(
+    registration.name,
+    registration as DataChannelObserverRegistration<unknown>
+  )
 
   if (hasInit) {
-    activateObserver(registration)
+    activateObserver(registration as DataChannelObserverRegistration<unknown>)
   }
 }
 
-export const unregisterDataChannelObserver = (
-  name: string
-): boolean => {
+export const unregisterDataChannelObserver = (name: string): boolean => {
   const hasRegistration = observerRegistrations.has(name)
   if (!hasRegistration) {
     return false

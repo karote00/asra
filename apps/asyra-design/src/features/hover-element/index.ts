@@ -3,9 +3,7 @@ import { defineFeature } from '@asyra/core'
 import { elementApis, systemContextApis } from '../../common-apis'
 import { FeatureNames, InputSystemEvents } from '../../constants'
 
-export const reEvaluateHoveredElement = (
-  snapshot?: SystemContextSnapshot
-) => {
+export const reEvaluateHoveredElement = (snapshot?: SystemContextSnapshot) => {
   const mousePos =
     snapshot?.mousePosition ??
     systemContextApis.getSystemContextSnapshot().mousePosition

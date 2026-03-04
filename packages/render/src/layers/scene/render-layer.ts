@@ -1,5 +1,9 @@
 import { Container, Graphics, Point } from 'pixi.js'
-import { SceneElement, RenderContainerData, RenderElementData } from '../../types'
+import {
+  SceneElement,
+  RenderContainerData,
+  RenderElementData
+} from '../../types'
 import { DataTypes } from '@asyra/utils'
 import { ElementInteractionHandler } from './element-interaction-handler'
 import renderStrategyRegistry from '../../registries/render-strategy'

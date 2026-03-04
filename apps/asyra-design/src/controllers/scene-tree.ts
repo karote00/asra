@@ -1,13 +1,7 @@
 import { DataTypes } from '@asyra/utils'
 import { elementApis, selectionApis } from '../common-apis'
 
-const NUMERIC_COMPUTED_KEYS = new Set([
-  'x',
-  'y',
-  'width',
-  'height',
-  'rotation'
-])
+const NUMERIC_COMPUTED_KEYS = new Set(['x', 'y', 'width', 'height', 'rotation'])
 
 export const changeElementComputedData = (key: string, data: DataTypes) => {
   if (NUMERIC_COMPUTED_KEYS.has(key)) {

@@ -2,7 +2,4 @@ import managedPropertyState, {
   ManagedPropertyState
 } from './managed-property-state'
 
-export {
-  managedPropertyState,
-  ManagedPropertyState
-}
+export { managedPropertyState, ManagedPropertyState }

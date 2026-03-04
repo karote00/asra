@@ -1,7 +1,4 @@
-import {
-  DefaultKeySnapshot,
-  DefaultMoseSnapshot
-} from '@asyra/utils'
+import { DefaultKeySnapshot, DefaultMoseSnapshot } from '@asyra/utils'
 import {
   subscribeToUpdateHoveredElementId,
   subscribeToUpdateKeyState,

@@ -6,8 +6,9 @@ const MIN_VECTOR_SIZE = 0.1
 
 const isAnchorNode = (
   point: VectorPointNode | undefined
-): point is VectorPointNode & { kind: typeof VECTOR_TOKENS.POINT.KIND.ANCHOR } =>
-  !!point && point.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
+): point is VectorPointNode & {
+  kind: typeof VECTOR_TOKENS.POINT.KIND.ANCHOR
+} => !!point && point.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
 
 const includePoint = (
   point: VectorPointNode,
@@ -36,8 +37,11 @@ const includeSegmentBounds = (
 
 export const calculateVectorBounds = (topology: VectorTopology) => {
   const anchorNodes = Object.values(topology.points).filter(
-    (point): point is VectorPointNode & { kind: typeof VECTOR_TOKENS.POINT.KIND.ANCHOR } =>
-      point.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
+    (
+      point
+    ): point is VectorPointNode & {
+      kind: typeof VECTOR_TOKENS.POINT.KIND.ANCHOR
+    } => point.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
   )
   if (anchorNodes.length === 0) {
     return { x: 0, y: 0, width: MIN_VECTOR_SIZE, height: MIN_VECTOR_SIZE }

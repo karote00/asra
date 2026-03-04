@@ -1,8 +1,4 @@
-import {
-  EventTypes,
-  defineEvent,
-  type EventDefinition
-} from '@asyra/core'
+import { EventTypes, defineEvent, type EventDefinition } from '@asyra/core'
 import { InputSystemEvents } from './input-events'
 
 type EventNamesMap = Record<string, string>

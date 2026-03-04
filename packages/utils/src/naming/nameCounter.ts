@@ -127,7 +127,8 @@ class NameCounter {
       return false
     }
 
-    delete this.counter[type]
+    const { [type]: _removed, ...nextCounter } = this.counter
+    this.counter = nextCounter
     return true
   }
 

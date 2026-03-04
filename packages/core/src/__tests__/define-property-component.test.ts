@@ -12,7 +12,6 @@ import {
   type DataTypes,
   type PropertyComponentInstanceDataTypes,
   type PropertyComponentRawData,
-  PropertyTypes,
   Unit
 } from '@asyra/utils'
 
@@ -243,7 +242,7 @@ describe('definePropertyComponent', () => {
     } as unknown as Partial<PropertyComponentRawData>)
 
     const value = parent.getValue() as unknown as {
-      childIds: Array<{ id: string; x: number; y: number }>
+      childIds: { id: string; x: number; y: number }[]
     }
 
     expect(value.childIds).toHaveLength(1)

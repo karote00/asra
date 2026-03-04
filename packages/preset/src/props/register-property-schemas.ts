@@ -1,6 +1,4 @@
-import {
-  VECTOR_TOKENS
-} from '@asyra/core'
+import { VECTOR_TOKENS } from '@asyra/core'
 import {
   AnchorPointTypes,
   PropertySchema,

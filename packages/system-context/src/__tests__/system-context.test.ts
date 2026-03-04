@@ -43,12 +43,20 @@ describe('SystemContext', () => {
       }
     )
 
-    systemContext.registerProperty('mouseDragStart', DefaultMoseSnapshot.dragStart, {
-      runtime: true
-    })
-    systemContext.registerProperty('mousePosition', DefaultMoseSnapshot.position, {
-      runtime: true
-    })
+    systemContext.registerProperty(
+      'mouseDragStart',
+      DefaultMoseSnapshot.dragStart,
+      {
+        runtime: true
+      }
+    )
+    systemContext.registerProperty(
+      'mousePosition',
+      DefaultMoseSnapshot.position,
+      {
+        runtime: true
+      }
+    )
     systemContext.registerProperty('mouseDelta', DefaultMoseSnapshot.delta, {
       runtime: true
     })
@@ -58,9 +66,13 @@ describe('SystemContext', () => {
     systemContext.registerProperty('mouseDown', DefaultMoseSnapshot.down, {
       runtime: true
     })
-    systemContext.registerProperty('mouseDragging', DefaultMoseSnapshot.dragging, {
-      runtime: true
-    })
+    systemContext.registerProperty(
+      'mouseDragging',
+      DefaultMoseSnapshot.dragging,
+      {
+        runtime: true
+      }
+    )
 
     systemContext.registerProperty('keyShift', DefaultKeySnapshot.shift, {
       runtime: true
@@ -122,7 +134,10 @@ describe('SystemContext', () => {
       dragging: true,
       dragStart: { x: 99, y: 199 }
     }
-    systemContext.setManagedProperty('mouseDragStart', newMouseSnapshot.dragStart)
+    systemContext.setManagedProperty(
+      'mouseDragStart',
+      newMouseSnapshot.dragStart
+    )
     systemContext.setManagedProperty('mousePosition', newMouseSnapshot.position)
     systemContext.setManagedProperty('mouseDelta', newMouseSnapshot.delta)
     systemContext.setManagedProperty('mouseButton', newMouseSnapshot.button)
@@ -185,7 +200,9 @@ describe('SystemContext', () => {
 
   it('loadManagedProperties should apply only valid registered keys and return diagnostics', () => {
     systemContext.registerProperty('zoom', 100, { runtime: false })
-    systemContext.registerProperty('pathEditingVectorId', '', { runtime: false })
+    systemContext.registerProperty('pathEditingVectorId', '', {
+      runtime: false
+    })
 
     // zoom is valid and applied; other keys are ignored with diagnostics.
     const diagnostics = systemContext.loadManagedProperties({
@@ -205,7 +222,9 @@ describe('SystemContext', () => {
 
   it('saveManagedProperties should serialize registered values as plain object data', () => {
     systemContext.registerProperty('zoom', 100, { runtime: false })
-    systemContext.registerProperty('pathEditingVectorId', '', { runtime: false })
+    systemContext.registerProperty('pathEditingVectorId', '', {
+      runtime: false
+    })
     systemContext.setManagedProperty('zoom', 180)
     systemContext.setManagedProperty('pathEditingVectorId', 'vector-1')
 

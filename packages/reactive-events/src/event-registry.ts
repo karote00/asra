@@ -3,17 +3,15 @@ import { publishEvent, subscribeToEvents } from './event-bus'
 import type { Subscription } from 'rxjs'
 import type { AllEvent } from './constants'
 
-export interface EventDefinition<
-  TPayload = unknown,
-  TOptions = unknown
-> {
+export interface EventDefinition<TPayload = unknown, TOptions = unknown> {
   eventName: string
+  readonly __types?: {
+    payload?: TPayload
+    options?: TOptions
+  }
 }
 
-export interface EventRegistration<
-  TPayload = unknown,
-  TOptions = unknown
-> {
+export interface EventRegistration<TPayload = unknown, TOptions = unknown> {
   eventName: string
   publish: (payload?: TPayload, options?: TOptions) => void
   subscribe: (
@@ -23,19 +21,15 @@ export interface EventRegistration<
 
 type EventDefinitionsMap = Record<string, EventDefinition<unknown, unknown>>
 
-type ExtractPayload<TDefinition> = TDefinition extends EventDefinition<
-  infer TPayload,
-  unknown
->
-  ? TPayload
-  : unknown
+type ExtractPayload<TDefinition> =
+  TDefinition extends EventDefinition<infer TPayload, unknown>
+    ? TPayload
+    : unknown
 
-type ExtractOptions<TDefinition> = TDefinition extends EventDefinition<
-  unknown,
-  infer TOptions
->
-  ? TOptions
-  : unknown
+type ExtractOptions<TDefinition> =
+  TDefinition extends EventDefinition<unknown, infer TOptions>
+    ? TOptions
+    : unknown
 
 export type EventRegistrations<TDefinitions extends EventDefinitionsMap> = {
   [K in keyof TDefinitions]: EventRegistration<

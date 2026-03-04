@@ -1,7 +1,4 @@
-import {
-  VECTOR_TOKENS,
-  definePropertyComponent
-} from '@asyra/core'
+import { VECTOR_TOKENS, definePropertyComponent } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
 
 definePropertyComponent({

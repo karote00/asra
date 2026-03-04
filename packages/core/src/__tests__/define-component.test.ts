@@ -9,13 +9,7 @@ import type { ElementInstanceTypes } from '@asyra/utils'
 
 // Use actual package imports without mocks to source files
 
-const COMPONENT_TYPES = [
-  'star',
-  'polygon',
-  'container',
-  'shared-a',
-  'shared-b'
-]
+const COMPONENT_TYPES = ['star', 'polygon', 'container', 'shared-a', 'shared-b']
 
 const cleanupType = (type: string) => {
   unregisterComponent(type, { force: true })

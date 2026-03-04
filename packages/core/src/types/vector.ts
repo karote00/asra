@@ -33,13 +33,13 @@ export const VECTOR_TOKENS = {
 
 export type VectorAnchorType = 'smooth' | 'sharp'
 export type VectorPointKind =
-  | (typeof VECTOR_TOKENS.POINT.KIND)[keyof typeof VECTOR_TOKENS.POINT.KIND]
+  (typeof VECTOR_TOKENS.POINT.KIND)[keyof typeof VECTOR_TOKENS.POINT.KIND]
 export type VectorControlRole =
-  | (typeof VECTOR_TOKENS.CONTROL.ROLE)[keyof typeof VECTOR_TOKENS.CONTROL.ROLE]
+  (typeof VECTOR_TOKENS.CONTROL.ROLE)[keyof typeof VECTOR_TOKENS.CONTROL.ROLE]
 export type VectorEndpointSide =
-  | (typeof VECTOR_TOKENS.ENDPOINT.SIDE)[keyof typeof VECTOR_TOKENS.ENDPOINT.SIDE]
+  (typeof VECTOR_TOKENS.ENDPOINT.SIDE)[keyof typeof VECTOR_TOKENS.ENDPOINT.SIDE]
 export type VectorPointTarget =
-  | (typeof VECTOR_TOKENS.POINT.TARGET)[keyof typeof VECTOR_TOKENS.POINT.TARGET]
+  (typeof VECTOR_TOKENS.POINT.TARGET)[keyof typeof VECTOR_TOKENS.POINT.TARGET]
 
 export interface VectorAnchorPoint extends PositionData {
   id: string

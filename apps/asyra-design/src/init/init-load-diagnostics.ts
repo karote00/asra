@@ -8,9 +8,7 @@ export interface LoadDiagnosticsReport {
   data: CoreRawData
 }
 
-export type LoadDiagnosticsSubscriber = (
-  report: LoadDiagnosticsReport
-) => void
+export type LoadDiagnosticsSubscriber = (report: LoadDiagnosticsReport) => void
 
 export interface LoadDiagnosticsInitOptions {
   logger?: (message: string) => void

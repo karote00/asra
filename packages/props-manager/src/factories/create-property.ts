@@ -12,8 +12,7 @@ import { getPropertyComponent } from '../registries/property-component'
 export const createProperty = (data: Partial<PropertyComponentRawData>) => {
   const type = data.type as string
   const PropClass =
-    getPropertyComponent(type) ??
-    getPropertyComponent(PropertyTypes.CUSTOM)
+    getPropertyComponent(type) ?? getPropertyComponent(PropertyTypes.CUSTOM)
   if (!PropClass) {
     throw new Error(
       `[props-manager] Property component type "${type}" is not registered.`

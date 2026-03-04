@@ -1,9 +1,6 @@
 import { PropertyTypes } from '@asyra/utils'
 import type { RenderStrategy } from '@asyra/core'
-import {
-  VECTOR_TOKENS,
-  defineComponent,
-} from '@asyra/core'
+import { VECTOR_TOKENS, defineComponent } from '@asyra/core'
 import type { VectorNetwork, VectorPointNode, VectorSegment } from '@asyra/core'
 
 interface VectorComputedData {

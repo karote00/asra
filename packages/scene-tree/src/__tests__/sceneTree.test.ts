@@ -1,9 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
+  BasePropertyComponent,
+  propertyComponentRegistry,
+  registerPropertyComponent
+} from '@asyra/props-manager'
+import propsManager from '@asyra/props-manager'
+import {
+  DataTypes,
+  DefaultDimensionData,
+  DefaultPositionData,
+  DimensionAttrs,
+  DimensionComponentRawData,
   ElementInstanceTypes,
   EntityTypes,
+  PositionAttrs,
+  PositionComponentRawData,
+  PropertyTypes,
   SCENE_TREE_ACTIONS,
   SceneTreeChange,
+  Unit,
   resetIdCounter,
   type ElementRawData
 } from '@asyra/utils'
@@ -21,6 +36,73 @@ class MockRectangle extends Element {
   }
 }
 
+class TestPositionComponent extends BasePropertyComponent<PositionAttrs> {
+  data: PositionAttrs = {
+    id: '',
+    type: PropertyTypes.POSITION,
+    ...DefaultPositionData
+  }
+
+  constructor(data: Partial<PositionAttrs>) {
+    super()
+    this.load(data as PositionComponentRawData)
+  }
+
+  load(data: PositionComponentRawData): void {
+    this.data.id = typeof data.id === 'string' ? data.id : this.data.id
+    this.assignLoadedValue('x', data.x)
+    this.assignLoadedValue('y', data.y)
+    this.assignLoadedValue('xUnit', data.xUnit)
+    this.assignLoadedValue('yUnit', data.yUnit)
+  }
+
+  getValue(): Record<string, DataTypes> {
+    return { x: this.data.x, y: this.data.y }
+  }
+
+  getUnit(): Record<string, Unit> {
+    return {
+      xUnit: this.data.xUnit,
+      yUnit: this.data.yUnit
+    }
+  }
+}
+
+class TestDimensionComponent extends BasePropertyComponent<DimensionAttrs> {
+  data: DimensionAttrs = {
+    id: '',
+    type: PropertyTypes.DIMENSION,
+    ...DefaultDimensionData
+  }
+
+  constructor(data: Partial<DimensionAttrs>) {
+    super()
+    this.load(data as DimensionComponentRawData)
+  }
+
+  load(data: DimensionComponentRawData): void {
+    this.data.id = typeof data.id === 'string' ? data.id : this.data.id
+    this.assignLoadedValue('width', data.width)
+    this.assignLoadedValue('height', data.height)
+    this.assignLoadedValue('widthUnit', data.widthUnit)
+    this.assignLoadedValue('heightUnit', data.heightUnit)
+  }
+
+  getValue(): Record<string, DataTypes> {
+    return {
+      width: this.data.width,
+      height: this.data.height
+    }
+  }
+
+  getUnit(): Record<string, Unit> {
+    return {
+      widthUnit: this.data.widthUnit,
+      heightUnit: this.data.heightUnit
+    }
+  }
+}
+
 describe('SceneTree', () => {
   let sceneTree: SceneTree
 
@@ -29,6 +111,10 @@ describe('SceneTree', () => {
 
     resetIdCounter()
     sceneTree = new SceneTree()
+    propsManager.reset()
+    propertyComponentRegistry.clear()
+    registerPropertyComponent(PropertyTypes.POSITION, TestPositionComponent)
+    registerPropertyComponent(PropertyTypes.DIMENSION, TestDimensionComponent)
 
     // Clear any existing registrations before adding our test component
     componentRegistry.getAll().forEach((_, type) => {

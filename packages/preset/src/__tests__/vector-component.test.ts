@@ -43,7 +43,7 @@ beforeAll(() => {
       getSystemPropertyObservable: <T>(key: string) =>
         systemPropertyMap.get(key) as BehaviorSubject<T> | undefined
     },
-    ({
+    {
       sceneTree: {
         getElementById: () => undefined
       },
@@ -61,7 +61,7 @@ beforeAll(() => {
         zoomTo: () => undefined,
         panTo: () => undefined
       }
-    }) as unknown as PresetDependencies
+    } as unknown as PresetDependencies
   )
 })
 
