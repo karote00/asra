@@ -650,3 +650,29 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - Save/load behavior remains explicit through managed-property runtime flags.
 - Related Plan:
   - `docs/ai/framework/plans/completed/system-context-builtin-state-registration.md`
+
+## 2026-03-04 - UI-context scene/selection stores removed from package surface
+
+- Context:
+  - `@asyra/ui-context` still exposed scene-tree and selection store singletons after subscription ownership had moved to preset.
+  - This kept default aggregation wiring coupled to package-local stores and leaked store-level APIs into app/provider code.
+- Decision:
+  - Remove ui-context store exports (`uiContextSceneTreeStore`, `uiContextSelectionStore`) from `@asyra/ui-context` and `@asyra/core`.
+  - Keep `@asyra/ui-context` focused on property registration/aggregation primitives (`uiContext`, `propertyRegistry`).
+  - Move default selection-context building and flattened-element-id derivation into preset subscription wiring using `sceneTree` + `selection` runtime reads.
+  - Update app providers to subscribe through core/events and query `sceneTree` directly instead of ui-context stores.
+- Consequences:
+  - Preset/app own subscription and derivation context wiring; ui-context remains a pure derived-property runtime.
+  - App-layer dependency on ui-context store internals is removed.
+  - Future custom apps can wire aggregation from any subscribable context without introducing new ui-context-owned stores.
+
+## 2026-03-04 - Preset publishes `elementDataMap` as ui-context-facing element snapshot contract
+
+- Context:
+  - After removing ui-context scene/selection stores, app providers still needed per-element UI data without reading scene-tree directly.
+- Decision:
+  - Add preset-owned `elementDataMap` UI property and keep it synchronized from scene-tree channel updates and transaction/load boundaries.
+  - Treat `elementDataMap` + `flattenedElementIds` as default UI-facing snapshot/index pair for element list reads.
+- Consequences:
+  - App UI can remain bounded to `core`/`ui-context` property subscriptions.
+  - Scene-tree traversal and publish timing stay in preset default wiring instead of app providers.

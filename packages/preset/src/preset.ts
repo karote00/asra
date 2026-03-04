@@ -41,7 +41,7 @@ export const applyPreset = (
   registerProperties(core)
   registerDefaultSharedDataChannels()
   registerDefaultRenderSystemSubscriptions(core, resolvedDeps)
-  registerDefaultDataChannelObservers(core)
+  registerDefaultDataChannelObservers(core, resolvedDeps)
   registerVectorPathEditingRenderLayer(
     (registration, options) => core.registerRenderLayer(registration, options),
     {

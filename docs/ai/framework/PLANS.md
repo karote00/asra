@@ -21,6 +21,11 @@ This file tracks framework planning topics and points to detailed references.
 - Removed runtime/compatibility wiring and completed package retirement.
 - Reference: `docs/ai/framework/plans/completed/interaction-core-retirement-plan.md`
 
+2. UI-context store surface removal (Completed: 2026-03-04)
+- Removed ui-context scene/selection store exports and moved default aggregation wiring to preset observers.
+- App provider now consumes ui-context published properties only.
+- Reference: `docs/ai/framework/plans/completed/ui-context-store-surface-removal-plan.md`
+
 ## Deferred Plans
 
 1. Auto-layout behavior engine.

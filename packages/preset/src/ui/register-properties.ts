@@ -24,6 +24,14 @@ interface SelectedVectorSegmentState extends Record<string, unknown> {
   segmentId: string
 }
 
+interface ElementPanelData extends Record<string, unknown> {
+  id: string
+  name: string
+  type: string
+  lock: boolean
+  visible: boolean
+}
+
 export const registerProperties = (core: PresetCoreAPIs): void => {
   core.registerUIProperty<Set<string>>('elementSelection', {
     defaultValue: new Set()
@@ -39,6 +47,10 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
 
   core.registerUIProperty<string[]>('flattenedElementIds', {
     defaultValue: []
+  })
+
+  core.registerUIProperty<Record<string, ElementPanelData>>('elementDataMap', {
+    defaultValue: {}
   })
 
   core.registerUIProperty<number | string>('x', {

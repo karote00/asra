@@ -1,10 +1,5 @@
 import core, { Core } from './core'
-import uiContext, {
-  UIContext,
-  propertyRegistry,
-  uiContextSceneTreeStore,
-  uiContextSelectionStore
-} from '@asyra/ui-context'
+import uiContext, { UIContext, propertyRegistry } from '@asyra/ui-context'
 export {
   initFeatureSystem,
   getFeatureRegistry,
@@ -84,13 +79,7 @@ export {
   unregisterDataChannelObserver
 } from './data-channel-observer'
 export type { DataChannelObserverRegistration } from './data-channel-observer'
-export {
-  uiContext,
-  UIContext,
-  propertyRegistry,
-  uiContextSceneTreeStore,
-  uiContextSelectionStore
-}
+export { uiContext, UIContext, propertyRegistry }
 export {
   VECTOR_TOKENS,
   VECTOR_ANCHOR_ID_PREFIX,

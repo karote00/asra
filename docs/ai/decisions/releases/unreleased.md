@@ -50,3 +50,15 @@ Append-only rule: do not edit/delete prior entries; add a superseding entry when
 - Consequences:
   - App and framework now share one deterministic system property contract.
   - Startup defaults remain preset-owned while runtime mutation paths remain explicit and consistent in app/common APIs.
+
+## 2026-03-04 - Cross-scope UI data boundary set to ui-context published properties
+
+- Context:
+  - ui-context scene/selection store surfaces were removed at framework level to keep ui-context focused on derived-property runtime.
+  - App-level UI providers still required per-element UI data without crossing into scene-tree runtime internals.
+- Decision:
+  - Preset publishes default UI-facing element snapshot/index properties (`elementDataMap`, `flattenedElementIds`) through ui-context.
+  - App providers consume ui-context properties only for element list/read models.
+- Consequences:
+  - Framework/preset/app now share one consistent UI data flow boundary (`core`/`ui-context` subscriptions).
+  - UI data aggregation ownership stays in preset/app wiring layers, not in ui-context package internals.

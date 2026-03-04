@@ -1,19 +1,12 @@
-import { BehaviorSubject } from 'rxjs'
-import { uiContextSceneTreeStore } from '@asyra/ui-context'
 import { useProperty } from '../hooks'
-import { ElementRawData } from '@asyra/utils'
-
-import { createStore } from './utils'
+import type { ElementRawData } from '@asyra/utils'
 
 export const useFlattenedIdsData = (): string[] =>
   useProperty<string[]>('flattenedElementIds')
 
+type ElementDataMap = Record<string, Partial<ElementRawData>>
+
 export const useElementData = (elementId: string): Partial<ElementRawData> => {
-  const subject = uiContextSceneTreeStore.getElement(
-    elementId
-  ) as BehaviorSubject<ElementRawData>
-
-  if (!subject) return {}
-
-  return createStore(subject)
+  const elementDataMap = useProperty<ElementDataMap>('elementDataMap') ?? {}
+  return elementDataMap[elementId] ?? {}
 }

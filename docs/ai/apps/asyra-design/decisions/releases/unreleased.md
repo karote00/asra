@@ -271,3 +271,15 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Consequences:
   - Delete routing follows explicit mode semantics, not implicit id presence checks.
   - Regression coverage now protects this guard boundary from future drift.
+
+## 2026-03-04 - Contents provider reads element rows from ui-context `elementDataMap`
+
+- Context:
+  - Contents row rendering previously relied on a ui-context store path that was removed as part of boundary cleanup.
+  - App boundary policy requires UI providers to consume `core`/`ui-context` surfaces instead of framework runtime internals.
+- Decision:
+  - Update `useElementData` provider to read from `ui-context` property `elementDataMap` keyed by element id.
+  - Keep `flattenedElementIds` as the list index source and pair it with `elementDataMap` for row lookups.
+- Consequences:
+  - App provider no longer depends on scene-tree runtime reads for list rows.
+  - UI data flow stays consistent with ui-context subscription model.

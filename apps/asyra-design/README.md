@@ -47,7 +47,7 @@ This will launch a development server and open the Asyra Design UI.
 
 - `src/` — main UI source code  
 - `components/` — reusable UI components  
-- `stores/` — internal state management using `ui-context`  
+- `providers/` — app-level subscriptions/derived reads from core and `ui-context` properties  
 - `renderer/` — interface to render engine (Pixi.js by default)  
 - `utils/` — shared utility functions
 

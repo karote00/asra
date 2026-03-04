@@ -2,7 +2,7 @@
 
 ## Responsibility
 
-Derived UI state aggregation and subscription optimization.
+Derived UI-property registration and aggregation runtime.
 
 ## Position in Framework
 
@@ -15,7 +15,8 @@ Derived UI state aggregation and subscription optimization.
 - Aggregation logic may be framework-default or app-custom.
 - Mixed selections should be handled with explicit aggregate policies.
 - Register UI properties only when UI needs them.
-- UI-context recomputation should subscribe to data/system changes, not poll.
+- `ui-context` does not own scene-tree/selection mirror stores.
+- Recompute triggers come from preset/app subscriptions, not polling.
 
 ## App Flexibility
 
