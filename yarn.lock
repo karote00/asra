@@ -89,7 +89,6 @@ __metadata:
     "@asyra/factory": "workspace:*"
     "@asyra/feature-system": "workspace:*"
     "@asyra/input-system": "workspace:*"
-    "@asyra/interaction-core": "workspace:*"
     "@asyra/persistence": "workspace:*"
     "@asyra/props-manager": "workspace:*"
     "@asyra/reactive-events": "workspace:*"
@@ -168,19 +167,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asyra/input-system@workspace:packages/input-system"
   dependencies:
-    "@asyra/reactive-events": "workspace:*"
-    "@asyra/utils": "workspace:*"
-    "@vitest/coverage-v8": "npm:^2.1.8"
-    typescript: "npm:^5.7.2"
-    vitest: "npm:^2.1.8"
-  languageName: unknown
-  linkType: soft
-
-"@asyra/interaction-core@workspace:*, @asyra/interaction-core@workspace:packages/interaction-core":
-  version: 0.0.0-use.local
-  resolution: "@asyra/interaction-core@workspace:packages/interaction-core"
-  dependencies:
-    "@asyra/input-system": "workspace:*"
     "@asyra/reactive-events": "workspace:*"
     "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
@@ -300,8 +286,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asyra/ui-context@workspace:packages/ui-context"
   dependencies:
-    "@asyra/factory": "workspace:*"
-    "@asyra/reactive-events": "workspace:*"
     "@asyra/scene-tree": "workspace:*"
     "@asyra/selection": "workspace:*"
     "@asyra/utils": "workspace:*"
@@ -311,7 +295,6 @@ __metadata:
     rxjs: "npm:^7.8.1"
     typescript: "npm:^5.7.2"
     vitest: "npm:^2.1.8"
-    yjs: "npm:13.6.20"
   languageName: unknown
   linkType: soft
 

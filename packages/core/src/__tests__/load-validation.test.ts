@@ -46,12 +46,7 @@ const createCoreForTest = () => {
     } as never,
     sceneTree: sceneTree as never,
     selection: {} as never,
-    systemContext: systemContext as never,
-    interactionCore: {
-      registry: {
-        register: vi.fn()
-      }
-    } as never
+    systemContext: systemContext as never
   })
 
   return {

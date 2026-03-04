@@ -4,7 +4,6 @@
 
 - Input -> Feature -> API -> State -> Render/UI
 - Feature-system is the only runtime owner for execute/session/cancel.
-- `interaction-core` is compatibility-only (deprecated), not a second runtime owner.
 
 ## Transaction Rule
 

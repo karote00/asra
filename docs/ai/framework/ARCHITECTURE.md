@@ -18,7 +18,6 @@ Asyra architecture is designed around deterministic execution over declarative i
 - `@asyra/feature-system`
 - `@asyra/input-system`
 - `@asyra/reactive-events`
-- `@asyra/interaction-core` (deprecated compatibility)
 
 4. Output Layer
 - `@asyra/render`
@@ -40,14 +39,12 @@ Asyra architecture is designed around deterministic execution over declarative i
 ## Architecture Invariants
 
 - Single runtime owner for user-action execution/session/cancel: `feature-system`.
-- `interaction-core` remains deprecated compatibility, not a parallel decision runtime.
 - State ownership stays split by package boundaries (scene-tree, props-manager, system-context, selection).
 - Render and UI are downstream consumers of state.
 
 ## Ownership Rules
 
 - Feature-system owns execute/session/cancel runtime decisions.
-- Interaction-core is compatibility-only and should not own runtime decisions.
 - Scene-tree owns entity graph.
 - Props-manager owns property component values and schema validation.
 - System-context owns app/system mode flags.
@@ -84,4 +81,3 @@ See:
 - `packages/ui-context.md`
 - `packages/render.md`
 - `packages/feature-system.md`
-- `packages/interaction-core.md`

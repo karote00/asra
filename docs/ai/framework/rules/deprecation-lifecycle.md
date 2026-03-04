@@ -28,5 +28,4 @@
 
 ## Framework Application
 
-- `@asyra/interaction-core` is currently deprecated compatibility-only.
 - New runtime flows should be implemented in `@asyra/feature-system`.

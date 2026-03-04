@@ -15,7 +15,6 @@ Keep user-action execution deterministic with one runtime owner.
 - `@asyra/feature-system` is runtime owner for execute/session/cancel
 - priority and exclusivity are explicit per feature
 - active session cancellation happens before conflicting next action
-- `@asyra/interaction-core` remains compatibility-only
 
 ## Anti-Patterns
 

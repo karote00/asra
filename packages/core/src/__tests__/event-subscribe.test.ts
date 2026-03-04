@@ -16,12 +16,7 @@ const createCoreForTest = () =>
     } as never,
     sceneTree: {} as never,
     selection: {} as never,
-    systemContext: {} as never,
-    interactionCore: {
-      registry: {
-        register: vi.fn()
-      }
-    } as never
+    systemContext: {} as never
   })
 
 describe('Core subscribeEvent', () => {

@@ -13,4 +13,3 @@ This folder describes framework package responsibilities, boundaries, and extens
 - `ui-context.md`
 - `render.md`
 - `feature-system.md`
-- `interaction-core.md` (deprecated)

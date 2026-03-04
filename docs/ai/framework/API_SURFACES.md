@@ -35,7 +35,6 @@ Feature/runtime wiring:
 
 - `initFeatureSystem(packages: CorePackages): void`
 - `setupInputSystem(watchedElement?: HTMLElement): void`
-- `registerInteraction(eventName: string, handler: DecisionHandler): void` (compatibility path)
 - `registerEvent(event: string | EventDefinition<TPayload, TOptions>): EventRegistration<TPayload, TOptions>` (register custom event channels in `@asyra/reactive-events` and get publish/subscribe handles)
 
 Render bridge:
@@ -178,11 +177,6 @@ Managed property bridges:
 - default `inputSystem` singleton
 - `InputSystem`, `InputSystemRegistry`, `InputEventCombo`
 
-`@asyra/interaction-core` (deprecated)
-
-- still exported for compatibility
-- not runtime owner of execute/session/cancel
-
 ## `defineFeature` Contract (Authoritative)
 
 `defineFeature(name, keyConfig, definition)`
@@ -214,4 +208,3 @@ Session mode:
 - Non-render packages must not import Pixi directly.
 - Model mutation requests should be transaction-bounded by caller-side API boundaries.
 - Transaction mutations are local by default; shared YJS append only happens when `options.shared` matches a registered data channel.
-- Deprecated APIs stay callable during transition, but new behavior should be built on current owners.

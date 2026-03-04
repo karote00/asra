@@ -5,6 +5,16 @@ Decision log for branch-level and post-release work not yet shipped in a tagged 
 Append-only rule: do not edit/delete prior entries; add a new superseding entry when decisions change.
 Backfilled entries use decision dates inferred from related commit dates/ranges.
 
+## 2026-03-04 - Interaction-core retirement completed
+
+- Decision:
+  - Mark interaction-core retirement as completed and move the plan into completed plan records.
+- Outcome:
+  - Runtime and compatibility wiring through interaction-core has been removed.
+  - Feature-system is the only execution/session runtime path.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/interaction-core-retirement-plan.md`
+
 ## 2026-01-29..2026-02-02 - Branch backfill: app-layer owns interaction policy
 
 - Context:

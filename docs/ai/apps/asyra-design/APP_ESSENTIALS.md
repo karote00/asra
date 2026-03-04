@@ -36,7 +36,6 @@ App code should:
 ## Current App Runtime Position
 
 - Primary interaction runtime: `@asyra/feature-system`
-- `@asyra/interaction-core` is compatibility-only in framework; app behavior should not depend on it as active decider.
 - Pen/path editing is stateful via system properties.
 
 ## Non-Negotiable App Constraints

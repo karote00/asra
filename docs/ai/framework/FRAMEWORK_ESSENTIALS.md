@@ -35,7 +35,6 @@ Any implementation decision must preserve:
 ## Current System Position
 
 - `feature-system` is active decision/session runtime.
-- `interaction-core` is deprecated and retained for compatibility only.
 - `ui-context` is a convenience layer in core startup, not mandatory for custom apps.
 
 ## Non-negotiable Constraints

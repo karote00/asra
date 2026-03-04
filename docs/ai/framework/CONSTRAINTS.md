@@ -15,8 +15,8 @@
 4. Feature decision runtime
 - Feature-system is primary runtime for execute/session flow.
 
-5. Deprecated runtime path
-- `@asyra/interaction-core` is compatibility-only and should not receive new runtime flows.
+5. Runtime owner guardrail
+- `@asyra/feature-system` is the only runtime owner for execute/session/cancel flow.
 
 ## Current Functional Limitations
 

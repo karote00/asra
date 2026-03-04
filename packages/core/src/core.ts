@@ -16,10 +16,6 @@ import props, {
 } from '@asyra/props-manager'
 import selection, { SelectionManager } from '@asyra/selection'
 import systemContext, { SystemContext } from '@asyra/system-context'
-import interactionCore, {
-  InteractionCore,
-  DecisionHandler
-} from '@asyra/interaction-core'
 import type { FeatureSystemAPIs } from './types/feature-system'
 import render, { Render, IRenderer, RenderOptions } from '@asyra/render'
 import { IPersistenceProvider, SaveHook, LoadHook } from '@asyra/persistence'
@@ -56,7 +52,6 @@ interface CoreDeps {
   sceneTree: SceneTree
   selection: SelectionManager
   systemContext: SystemContext
-  interactionCore: InteractionCore
 }
 
 const DEFAULT_VERSION = '1.0.0'
@@ -205,8 +200,7 @@ class Core implements CoreAPIs {
     // Phase 3: Initialize features
     this.initFeatureSystem({
       inputSystem: this.deps.inputSystem,
-      systemContext: this.deps.systemContext,
-      interactionCore: this.deps.interactionCore
+      systemContext: this.deps.systemContext
     })
 
     // Phase 4: Notify ready
@@ -257,10 +251,6 @@ class Core implements CoreAPIs {
     if (data) {
       this.applyLoadedData(data)
     }
-  }
-
-  registerInteraction(eventName: string, handler: DecisionHandler) {
-    this.deps.interactionCore.registry.register(eventName, handler)
   }
 
   registerEvent<TPayload = unknown, TOptions = unknown>(
@@ -533,7 +523,6 @@ const core = new Core({
   render,
   sceneTree,
   selection,
-  systemContext,
-  interactionCore
+  systemContext
 })
 export default core

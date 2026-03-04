@@ -26,7 +26,6 @@
     "@asyra/factory": "workspace:*",
     "@asyra/feature-system": "workspace:*",
     "@asyra/input-system": "workspace:*",
-    "@asyra/interaction-core": "workspace:*",
     "@asyra/persistence": "workspace:*",
     "@asyra/props-manager": "workspace:*",
     "@asyra/reactive-events": "workspace:*",

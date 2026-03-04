@@ -51,7 +51,6 @@
         "^build:factory",
         "^build:feature-system",
         "^build:input-system",
-        "^build:interaction-core",
         "^build:persistence",
         "^build:props-manager",
         "^build:reactive-events",
@@ -98,17 +97,6 @@
         "dist/**"
       ],
       "dependsOn": [
-        "^build:reactive-events",
-        "^build:utils"
-      ]
-    },
-    "build:interaction-core": {
-      "cache": false,
-      "outputs": [
-        "dist/**"
-      ],
-      "dependsOn": [
-        "^build:input-system",
         "^build:reactive-events",
         "^build:utils"
       ]

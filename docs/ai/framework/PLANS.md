@@ -15,12 +15,11 @@ This file tracks framework planning topics and points to detailed references.
 - Keep deterministic fallback path: `unregister -> redefine` when extension points are unavailable.
 - Reference: `docs/ai/framework/plans/extendable-preset-plan.md`
 
-## Mid-Term Plans
+## Recently Completed
 
-1. Interaction-core retirement
-- Keep compatibility only during transition.
-- Remove after all runtime decisions are feature-system-only.
-- Reference: `docs/ai/framework/plans/interaction-core-retirement-plan.md`
+1. Interaction-core retirement (Completed: 2026-03-04)
+- Removed runtime/compatibility wiring and completed package retirement.
+- Reference: `docs/ai/framework/plans/completed/interaction-core-retirement-plan.md`
 
 ## Deferred Plans
 

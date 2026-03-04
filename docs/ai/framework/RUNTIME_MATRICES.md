@@ -12,7 +12,6 @@ Use these matrices for deterministic ownership and flow decisions.
 - app/system mode owner: `@asyra/system-context`
 - render engine owner: `@asyra/render`
 - derived UI state owner: `@asyra/ui-context` (optional)
-- compatibility-only legacy runtime: `@asyra/interaction-core` (deprecated)
 
 ## Mutation Boundary Matrix
 
@@ -53,11 +52,6 @@ Use these matrices for deterministic ownership and flow decisions.
 7. app UI consumes derived values
 
 ## Compatibility Matrix
-
-- `@asyra/interaction-core`
-  - status: deprecated
-  - usage: compatibility only
-  - runtime authority: none
 
 - builtin defaults
   - status: optional

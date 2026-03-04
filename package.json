@@ -33,7 +33,6 @@
     "reinstall": "yarn clean && rm -rf node_modules .turbo && yarn && yarn react:build",
     "gen:turbo": "node scripts/gen-turbo.js && yarn install",
     "gen:event": "yarn workspace @asyra/reactive-events add-event",
-    "gen:interaction": "yarn workspace @asyra/reactive-events add-interaction",
     "predev": "yarn gen:turbo",
     "deps:validate": "node scripts/deps-validate.js",
     "deps:validate:verbose": "node scripts/deps-validate.js --verbose",
