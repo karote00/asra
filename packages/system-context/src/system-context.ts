@@ -1,6 +1,5 @@
 import { createAllAPIs } from './apis'
 import { managedPropertyState } from './states'
-import { initSystemContextSubscribe } from './subscribe'
 import {
   HandlerDeps,
   SystemContextAPIs,
@@ -20,8 +19,6 @@ export class SystemContext implements SystemContextAPIs {
 
   constructor(deps: HandlerDeps) {
     const apis = createAllAPIs(deps)
-
-    initSystemContextSubscribe(apis)
 
     Object.assign(this, apis)
   }

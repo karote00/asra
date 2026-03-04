@@ -22,10 +22,15 @@ Use these matrices for deterministic ownership and flow decisions.
 - app/common APIs
   - can: orchestrate transactions and package calls
   - must not: bypass validation contracts
+  - should: update system-context state through managed-property APIs rather than framework-level key-specific events
 
 - package internals
   - can: enforce invariants and validation semantics
   - must not: assume app UI framework
+
+- framework event layer
+  - can: define transport/event contracts for shared framework domains
+  - must not: hardcode preset/app-specific system-context key mappings
 
 ## Validation Semantics Matrix
 

@@ -20,13 +20,7 @@ const resolvePresetDependencies = (
     return deps
   }
 
-  if (core.getPresetDependencies) {
-    return core.getPresetDependencies()
-  }
-
-  throw new Error(
-    '[preset] Missing preset dependencies. Provide deps argument or core.getPresetDependencies().'
-  )
+  return core.getPresetDependencies()
 }
 
 export const applyPreset = (

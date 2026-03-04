@@ -39,6 +39,7 @@ describe('Preset Event Registration', () => {
       {
         registerEvent,
         registerDataChannelObserver,
+        getPresetDependencies: createDeps,
         registerRenderLayer: vi.fn(),
         registerPropertySchema: vi.fn(),
         registerSelection: vi.fn(),

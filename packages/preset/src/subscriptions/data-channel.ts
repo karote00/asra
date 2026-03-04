@@ -265,10 +265,6 @@ export const registerDefaultDataChannelObservers = (
     return
   }
 
-  if (!core.registerDataChannelObserver) {
-    return
-  }
-
   const uiContextSceneTreeDataChannelObserver = defineDataChannelObserver({
     name: 'preset.uiContext.sceneTree',
     channel: SharedDataChannelNames.SCENE_TREE,

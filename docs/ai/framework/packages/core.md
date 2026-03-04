@@ -29,6 +29,13 @@ System orchestrator and lifecycle coordinator.
 - register load/save hooks
 - register load diagnostics hooks (with disposer return for app-level unsubscribe)
 
+## API Tier Contract
+
+- `CoreBasicAPIs` are concrete, always-available core facade methods and must not rely on optional registration checks.
+- `CoreExtensionAPIs` are concrete registration/bridge APIs exposed by core for package/preset/app extensions.
+- `CoreConcreteAPIs = CoreBasicAPIs + CoreExtensionAPIs`.
+- `CorePresetInstallAPIs` is the strict preset-facing subset used by `@asyra/preset` bootstrapping.
+
 ## Runtime Contracts
 
 1. Startup contract

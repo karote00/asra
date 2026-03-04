@@ -154,14 +154,12 @@ test.describe('Delete Selected Element', () => {
       ({ deletedId, x, y }) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const core = (window as any).__Core__
-        core?.deps?.systemContext?.updateMouseState?.({
-          position: { x, y },
-          delta: { x: 0, y: 0 },
-          button: 'none',
-          down: false,
-          dragging: false
-        })
-        core?.setSystemProperty?.('hoveredElementId', deletedId)
+        core.setSystemProperty('mousePosition', { x, y })
+        core.setSystemProperty('mouseDelta', { x: 0, y: 0 })
+        core.setSystemProperty('mouseButton', 'none')
+        core.setSystemProperty('mouseDown', false)
+        core.setSystemProperty('mouseDragging', false)
+        core.setSystemProperty('hoveredElementId', deletedId)
       },
       {
         deletedId: runtime.selectedId,
@@ -360,8 +358,8 @@ test.describe('Delete Selected Element', () => {
     await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__
-      core?.setSystemProperty?.('pathEditingVectorId', null)
-      core?.setSystemProperty?.('pathEditingMode', true)
+      core.setSystemProperty('pathEditingVectorId', null)
+      core.setSystemProperty('pathEditingMode', true)
     })
 
     await page.keyboard.press('Delete')
@@ -380,8 +378,8 @@ test.describe('Delete Selected Element', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__
       const id = core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
-      core?.setSystemProperty?.('pathEditingVectorId', id)
-      core?.setSystemProperty?.('pathEditingMode', false)
+      core.setSystemProperty('pathEditingVectorId', id)
+      core.setSystemProperty('pathEditingMode', false)
       return id
     })
 

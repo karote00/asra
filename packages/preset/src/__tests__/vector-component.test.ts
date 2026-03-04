@@ -14,6 +14,26 @@ import type { PresetDependencies } from '../types'
 
 beforeAll(() => {
   const systemPropertyMap = new Map<string, BehaviorSubject<unknown>>()
+  const presetDeps = {
+    sceneTree: {
+      getElementById: () => undefined
+    },
+    systemContext: {
+      getManagedProperty: () => undefined,
+      getSystemContextSnapshot: () => ({
+        primaryTool: 'select',
+        mousePosition: { x: 0, y: 0 }
+      })
+    },
+    render: {
+      getViewportPosition: () => ({ x: 0, y: 0 }),
+      getViewportScale: () => 1,
+      getMousePosInWorkspace: () => ({ x: 0, y: 0 }),
+      zoomTo: () => undefined,
+      panTo: () => undefined
+    }
+  } as unknown as PresetDependencies
+
   applyPreset(
     {
       registerEvent: (event: string | { eventName: string }) => ({
@@ -21,6 +41,8 @@ beforeAll(() => {
         publish: () => undefined,
         subscribe: () => new Subscription()
       }),
+      registerDataChannelObserver: () => undefined,
+      getPresetDependencies: () => presetDeps,
       registerRenderLayer: () => {
         // no-op for this unit test; vector component registration is asserted via registries.
       },
@@ -43,25 +65,7 @@ beforeAll(() => {
       getSystemPropertyObservable: <T>(key: string) =>
         systemPropertyMap.get(key) as BehaviorSubject<T> | undefined
     },
-    {
-      sceneTree: {
-        getElementById: () => undefined
-      },
-      systemContext: {
-        getManagedProperty: () => undefined,
-        getSystemContextSnapshot: () => ({
-          primaryTool: 'select',
-          mousePosition: { x: 0, y: 0 }
-        })
-      },
-      render: {
-        getViewportPosition: () => ({ x: 0, y: 0 }),
-        getViewportScale: () => 1,
-        getMousePosInWorkspace: () => ({ x: 0, y: 0 }),
-        zoomTo: () => undefined,
-        panTo: () => undefined
-      }
-    } as unknown as PresetDependencies
+    presetDeps
   )
 })
 

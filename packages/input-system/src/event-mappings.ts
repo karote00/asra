@@ -25,7 +25,7 @@ import type { RawInputEvent } from '@asyra/utils'
  *   type: InputType.POINTER,
  *   keys: [PointerKey.LEFT_MOUSE_DOWN],
  *   callback: (raw: RawInputEvent) => {
- *     core.deps.systemContext.updateMouseState({...})
+ *     core.setSystemProperty('mousePosition', { x: raw.pointer.clientX, y: raw.pointer.clientY })
  *   }
  * }
  *

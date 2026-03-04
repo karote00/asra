@@ -109,6 +109,76 @@ export type {
   LoadValidationDiagnostic,
   LoadValidationScope
 } from './types/load-validation'
+type CoreBasicApiKeys =
+  | 'setRenderer'
+  | 'setPersistence'
+  | 'registerSaveHook'
+  | 'registerLoadHook'
+  | 'registerLoadDiagnosticsHook'
+  | 'start'
+  | 'load'
+  | 'save'
+  | 'getPresetDependencies'
+
+type CoreExtensionApiKeys =
+  | 'setupInputSystem'
+  | 'initRender'
+  | 'renderIsReady'
+  | 'registerRenderLayer'
+  | 'unregisterRenderLayer'
+  | 'sceneTreeInit'
+  | 'sceneTreeLoadData'
+  | 'sceneTreeSaveData'
+  | 'createElement'
+  | 'changeComputedData'
+  | 'getAllElementsBounds'
+  | 'isContainerType'
+  | 'selectElements'
+  | 'selectVectorPoints'
+  | 'selectVectorSegments'
+  | 'initFeatureSystem'
+  | 'registerUIProperty'
+  | 'getUIProperty'
+  | 'setUIProperty'
+  | 'getUIPropertySubject'
+  | 'onUIPropertyChange'
+  | 'registerSystemProperty'
+  | 'getSystemProperty'
+  | 'setSystemProperty'
+  | 'getSystemPropertyObservable'
+  | 'registerEvent'
+  | 'subscribeEvent'
+  | 'registerPropertySchema'
+  | 'getPropertySchema'
+  | 'registerPropertyComponent'
+  | 'getPropertyComponent'
+  | 'registerSelection'
+  | 'getSelection'
+  | 'registerDataChannelObserver'
+  | 'unregisterDataChannelObserver'
+
+type CorePresetInstallApiKeys =
+  | 'registerEvent'
+  | 'registerRenderLayer'
+  | 'registerDataChannelObserver'
+  | 'registerPropertySchema'
+  | 'registerSelection'
+  | 'getSelection'
+  | 'registerUIProperty'
+  | 'registerSystemProperty'
+  | 'getSystemPropertyObservable'
+  | 'getPresetDependencies'
+
+export type CoreBasicAPIs = Pick<Core, CoreBasicApiKeys>
+export type CoreExtensionAPIs = Pick<Core, CoreExtensionApiKeys>
+export type CoreConcreteAPIs = CoreBasicAPIs & CoreExtensionAPIs
+export type CorePresetInstallAPIs = Pick<
+  CoreConcreteAPIs,
+  CorePresetInstallApiKeys
+>
+export type CorePresetDependencies = ReturnType<
+  CorePresetInstallAPIs['getPresetDependencies']
+>
 
 export { Core }
 export default core

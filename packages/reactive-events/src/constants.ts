@@ -4,7 +4,6 @@ import type { SelectionEvents } from './selection'
 import type { PropEvents } from './props-manager'
 import type { RenderEvents } from './render'
 import type { InputSystemEvents } from './input-system'
-import type { KeyStateEvents } from './system-context'
 
 export type AllEvent =
   | AppEvent
@@ -13,4 +12,3 @@ export type AllEvent =
   | PropEvents
   | RenderEvents
   | InputSystemEvents
-  | KeyStateEvents

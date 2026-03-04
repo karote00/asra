@@ -9,6 +9,14 @@ Primary import:
 - `import core from '@asyra/core'`
 - `import { defineFeature, getFeature, unregisterFeature, keyMap } from '@asyra/core'`
 
+Core API tier types (explicit ownership contract):
+
+- `CoreBasicAPIs`: always-concrete lifecycle/persistence facade methods on `core` (no registration prerequisite)
+- `CoreExtensionAPIs`: registration/bridge APIs exposed by `core` for framework extension
+- `CoreConcreteAPIs`: `CoreBasicAPIs + CoreExtensionAPIs`
+- `CorePresetInstallAPIs`: strict subset required by `applyPreset(core, deps?)` (no optional `core?.api` checks)
+- `CorePresetDependencies`: concrete dependency bundle returned by `core.getPresetDependencies()`
+
 Lifecycle and integration:
 
 - `setRenderer(renderer: IRenderer): void`
@@ -88,6 +96,12 @@ Managed property bridges:
   - `registerDataChannelObserver(...)`
   - `unregisterDataChannelObserver(...)`
 - load validation types: `LoadValidationDiagnostic`, `LoadValidationScope`, `LoadDiagnosticsHook`
+- core API tier types:
+  - `CoreBasicAPIs`
+  - `CoreExtensionAPIs`
+  - `CoreConcreteAPIs`
+  - `CorePresetInstallAPIs`
+  - `CorePresetDependencies`
 
 `@asyra/feature-system`
 
@@ -153,6 +167,7 @@ Managed property bridges:
 - default `systemContext` singleton
 - `SystemContext` class
 - managed property load/save helpers: `loadManagedProperties`, `saveManagedProperties`
+- package boundary is storage/validation only; default event-to-property subscription wiring is preset-owned
 - managed-property `runtime` flag:
   - `runtime: true` (default) => runtime-only, excluded from save/load persistence
   - `runtime: false` => included in save/load persistence

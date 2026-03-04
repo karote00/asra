@@ -14,6 +14,7 @@ This folder defines command entrypoints. These files should stay lightweight and
 - `/deprecate-package <package>`
 - `/golden-path-enforcement <scope>`
 - `/docs-reality-check <scope>`
+- `/plan-done-closeout <plan>`
 
 ## Authoring Rule
 

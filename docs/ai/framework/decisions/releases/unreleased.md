@@ -676,3 +676,51 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
 - Consequences:
   - App UI can remain bounded to `core`/`ui-context` property subscriptions.
   - Scene-tree traversal and publish timing stay in preset default wiring instead of app providers.
+
+## 2026-03-05 - System-context event-to-property update ownership moved out of system-context package
+
+- Context:
+  - `@asyra/system-context` still subscribed to legacy reactive-events channels and performed event-to-property mapping internally.
+  - This mixed runtime storage ownership with default wiring policy and duplicated update paths with app/core direct managed-property writes.
+- Decision:
+  - Remove reactive-event subscribe ownership from `@asyra/system-context`.
+  - Keep `@asyra/system-context` as managed-property storage/validation only.
+  - Move default compatibility mapping for legacy system-context update events (`updateMouseState`, `updateKeyState`, `updateHoveredElementId`) into preset subscriptions, routed through core system-property APIs.
+- Consequences:
+  - Ownership is explicit: storage belongs to system-context, default mapping/wiring belongs to preset.
+  - Legacy event publishers remain compatible when preset defaults are applied.
+  - App/framework code can standardize on direct core system-property updates without hidden package-level subscribe side effects.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/system-context-event-to-property-update-ownership.md`
+
+## 2026-03-05 - Framework retired system-context-specific reactive event channels
+
+- Context:
+  - The earlier March 5 compatibility step moved system-context event mapping out of `@asyra/system-context` into preset wiring.
+  - That still left framework-level event names tied to specific system-context keys, which conflicts with framework-agnostic managed-property registration.
+- Decision:
+  - Remove framework event channels `updateMouseState`, `updateKeyState`, and `updateHoveredElementId` from `@asyra/reactive-events`.
+  - Remove preset compatibility subscriptions for those channels.
+  - Keep system-context updates on direct managed-property APIs (`core.setSystemProperty` / `core.getSystemProperty`).
+- Consequences:
+  - Framework event contracts no longer assume any specific system-context key set.
+  - Preset/app remain free to define and register domain-specific events when needed.
+  - The previous March 5 compatibility mapping entry is superseded by this final boundary.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/system-context-event-to-property-update-ownership.md`
+
+## 2026-03-05 - Core concrete API tiers defined; preset moved to strict required core contract
+
+- Context:
+  - Preset integration still depended on optional capability checks (`core?.api`) despite core exposing concrete methods in runtime.
+  - This weakened framework contracts and caused optional-call usage to persist in tests/e2e flows for concrete APIs such as `setSystemProperty`.
+- Decision:
+  - Define and export core API tier types (`CoreBasicAPIs`, `CoreExtensionAPIs`, `CoreConcreteAPIs`, `CorePresetInstallAPIs`).
+  - Treat `setSystemProperty` as concrete core API and call directly where this contract applies.
+  - Make preset consume strict required install APIs (`CorePresetInstallAPIs`) without optional guards.
+- Consequences:
+  - Framework contracts are explicit about concrete vs extension surfaces.
+  - Preset bootstrapping behavior is deterministic and type-enforced.
+  - Optional core capability probing is removed from concrete API call paths.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/core-concrete-api-contract-and-preset-strict-surface.md`

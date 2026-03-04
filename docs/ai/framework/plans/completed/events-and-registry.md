@@ -35,3 +35,11 @@
 - `preset` is reduced to registration/bootstrap behavior and no longer duplicates framework event-name declarations.
 - Removed obsolete commented-out render event placeholders in `@asyra/reactive-events`.
 - Reference: `packages/preset/src/events/preset-event-names.ts`, `packages/reactive-events/src/types.ts`
+
+## 6. System-context event-to-property update ownership
+
+- Completed on March 5, 2026.
+- Removed reactive-event subscribe wiring from `@asyra/system-context`.
+- Removed framework-level system-context-specific update channels from `@asyra/reactive-events`.
+- Standardized system-context updates on direct managed-property APIs (`core.setSystemProperty` / `core.getSystemProperty`).
+- Reference: `docs/ai/framework/plans/completed/system-context-event-to-property-update-ownership.md`

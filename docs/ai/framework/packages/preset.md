@@ -33,6 +33,7 @@ Preset role contract:
 ## Current Contract
 
 - `applyPreset(core)` applies preset-provided registrations using explicit app call.
+- `applyPreset(core)` expects `CorePresetInstallAPIs` (concrete required APIs, no optional capability probing).
 - `applyPreset(core)` is the owner of framework default/builtin wiring that was previously implicit or app-local.
 - preset owns default event names/definitions and registers them through `core.registerEvent(...)` while `@asyra/reactive-events` provides event infra (registry + publish/subscribe wiring).
 - preset registers default shared-channel observers (render + ui-context scene-tree/selection) by channel name instead of touching YJS instances directly.

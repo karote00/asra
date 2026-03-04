@@ -16,6 +16,7 @@ Own global runtime state for modes and interaction/system flags.
 - entity graph data
 - property component data
 - UI framework binding logic
+- reactive-event subscribe wiring for default event-to-property mappings
 
 ## Rules
 

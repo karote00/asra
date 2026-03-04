@@ -61,17 +61,6 @@ export enum PropsEventTypes {
   UPDATE_PROPERTY = 'updateProperty'
 }
 
-// MouseState
-export enum MouseStateEventTypes {
-  UPDATE_MOUSE_STATE = 'updateMouseState'
-}
-
-// TargetState
-export enum TargetStateEventTypes {
-  UPDATE_TARGET_STATE = 'updateTargetState',
-  UPDATE_HOVERED_ELEMENT_ID = 'updateHoveredElementId'
-}
-
 /**
  * Renderer Events
  *
@@ -97,11 +86,6 @@ export enum InputSystemEventTypes {
   SWITCH_INPUT_SYSTEM_WATCHED_ELEMENT = 'switchInputSystemWatchedElement'
 }
 
-// KeyState
-export enum KeyStateEventTypes {
-  UPDATE_KEY_STATE = 'updateKeyState'
-}
-
 export const EventTypes = {
   ...RenderEventTypes,
   ...FileEventTypes,
@@ -111,10 +95,7 @@ export const EventTypes = {
   ...UndoRedoEventTypes,
   ...TransactionEventTypes,
   ...PropsEventTypes,
-  ...MouseStateEventTypes,
-  ...TargetStateEventTypes,
   ...InputSystemEventTypes,
-  ...KeyStateEventTypes,
   ...RendererEventTypes
 } as const
 

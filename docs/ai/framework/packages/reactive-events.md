@@ -22,6 +22,8 @@ Provide typed cross-package event communication.
 - Event names and payloads are framework contracts.
 - Avoid ad-hoc untyped payloads for core event channels.
 - Event registration storage should use shared `@asyra/utils` registry primitives (`MapRegistry`) instead of duplicating registry infrastructure.
+- Framework-level event modules must not encode preset/app-specific system-context key mappings.
+- Preset/app may register their own domain events through event registration APIs when opinionated behavior is needed.
 
 ## Extension Points
 
