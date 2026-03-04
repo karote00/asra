@@ -1,6 +1,6 @@
 # Plan: Vertex Selection as Single Source of Truth
 
-> Superseded by `docs/internal/selection-manager-multi-channel-plan.md`.
+> Superseded by `docs/ai/apps/asyra-design/plans/completed/selection-manager-multi-channel-plan.md`.
 > Keep this file for historical context only.
 
 ## Goal

@@ -1,5 +1,9 @@
 # User-Action Completion Event Plan
 
+## Status
+
+Completed on February 28, 2026.
+
 ## Goal
 
 Provide a deterministic "user action completed" event that is emitted when one undoable action unit is finalized in factory transaction flow.

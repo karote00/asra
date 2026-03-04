@@ -5,7 +5,7 @@
 - Completed on February 27, 2026.
 - Preset now registers event definitions (name + generated publish/subscribe helpers) through core/reactive-events.
 - Removed unused request-response event flows and deprecated interaction-core reactive-event wiring.
-- Reference: `docs/internal/framework-audit.md`
+- Reference: `docs/ai/framework/audits/framework-audit.md`
 
 ## 2. Reactive-events register/base-registry verification
 
@@ -26,7 +26,7 @@
 - Completed on February 28, 2026.
 - `DataTransact.commitUndo()` now publishes a deterministic `userActionCompleted` event when one non-empty action unit is finalized.
 - App-facing event subscription is exposed through `core.subscribeEvent(...)`.
-- Reference: `docs/internal/user-action-completion-event-plan.md`
+- Reference: `docs/ai/framework/plans/completed/user-action-completion-event-plan.md`
 
 ## 5. Event boundary alignment: reactive-events canonical, preset registration-only
 

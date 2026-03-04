@@ -1,5 +1,9 @@
 # Cascade Unregister Plan (Framework)
 
+## Status
+
+Completed on February 28, 2026.
+
 ## Context
 
 Current `unregister` flows mostly remove only direct registrations.

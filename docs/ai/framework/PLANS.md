@@ -10,45 +10,35 @@ This file tracks framework planning topics and points to detailed references.
 - This plan is discussion-first before implementation.
 - Reference: `docs/ai/framework/plans/system-context-event-to-property-update-ownership.md`
 
+2. Extendable preset
+- Allow users to extend preset feature/property behavior through explicit extension points.
+- Keep deterministic fallback path: `unregister -> redefine` when extension points are unavailable.
+- Reference: `docs/ai/framework/plans/extendable-preset-plan.md`
+
 ## Mid-Term Plans
 
-1. Typed narrowing cleanup
-- Replace structural casts with explicit guards.
-- Reference: `docs/internal/props-manager-typed-setter-refactor-plan.md`
-
-2. Render abstraction growth
-- Expand non-Pixi adapter guidance and examples.
-- Reference: `docs/internal/framework-enhancement-custom-graphics.md`
-
-3. Interaction-core retirement
+1. Interaction-core retirement
 - Keep compatibility only during transition.
 - Remove after all runtime decisions are feature-system-only.
-- Reference: `docs/internal/framework-audit.md`
-
-4. Cascade unregister orchestration
-- Unregister parent registrations with safe owned sub-unregister behavior.
-- Protect shared resources via ownership/refcount model.
-- Reference: `docs/internal/cascade-unregister-plan.md`
+- Reference: `docs/ai/framework/plans/interaction-core-retirement-plan.md`
 
 ## Deferred Plans
 
 1. Auto-layout behavior engine.
- - Reference: `docs/internal/property-schema-validation-integration-plan.md`
-2. Multi-engine reference implementations.
- - Reference: `docs/internal/framework-enhancement-custom-graphics.md`
-3. Advanced collaborative conflict policies.
- - Reference: `docs/internal/asyra_audit/KernelRealityAudit_0.5.md`
-4. App-level migration pipeline formalization
+ - Reference: `docs/ai/framework/plans/unit-conversion-and-ui-aggregation-plan.md`
+2. Advanced collaborative conflict policies.
+ - Reference: `docs/ai/framework/plans/collaborative-conflict-policies-plan.md`
+3. App-level migration pipeline formalization
  - Versioned hook chain and migration templates.
- - Reference: `docs/internal/props-manager-app-level-migration-plan.md`
-5. Unit-aware property model (auto-layout-oriented)
+ - Reference: `docs/ai/framework/plans/props-manager-app-level-migration-plan.md`
+4. Unit-aware property model (auto-layout-oriented)
  - Support value+unit semantics in schema/aggregates.
  - Keep auto-layout implementation out of this phase.
- - Reference: `docs/internal/property-schema-validation-integration-plan.md`
-6. UI aggregate helpers (lowest priority, auto-layout-related)
+ - Reference: `docs/ai/framework/plans/unit-conversion-and-ui-aggregation-plan.md`
+5. UI aggregate helpers (lowest priority, auto-layout-related)
  - Mixed values and mixed units (`MIX`) helpers.
  - App-level registration remains first-class.
- - Reference: `docs/internal/property-schema-validation-integration-plan.md`
+ - Reference: `docs/ai/framework/plans/unit-conversion-and-ui-aggregation-plan.md`
 
 ## Decision Logging Rule
 

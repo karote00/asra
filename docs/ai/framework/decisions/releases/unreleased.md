@@ -70,7 +70,7 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - Undo/redo and change tracking paths became more consistent.
   - Persistence integration moved toward replaceable provider architecture.
 - Related Plan:
-  - `docs/internal/undoable-option-support-plan.md`
+- `docs/ai/framework/plans/completed/undoable-option-support-plan.md`
 - Related Commit(s):
   - `4aa7a6d` (`fix: transactionApis should call startTransaction/endTransaction, not subscribe`)
   - `9fd9fbe` (`fix: add transaction publishing to interaction-core for proper undo stack`)
@@ -109,7 +109,7 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - Vector editing became a first-class workflow with clearer render-layer ownership boundaries.
   - Non-core callers rely more on core/render registration surfaces instead of engine-coupled paths.
 - Related Plan:
-  - `docs/internal/framework-enhancement-custom-graphics.md`
+- `docs/ai/framework/plans/completed/framework-enhancement-custom-graphics.md`
 - Related Commit(s):
   - `de58ee6` (`feat(Phase 2): Add Vector (Pen Tool) component with support for anchor points and bezier curves`)
   - `760baa5` (`feat(Phase 3): Implement full Pen Tool feature with E2E tests`)
@@ -126,7 +126,7 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
 - Consequences:
   - Vector/path-editing runtime gained more explicit data/state paths for feature logic and rendering.
 - Related Plan:
-  - `docs/internal/props-manager-typed-setter-refactor-plan.md`
+- `docs/ai/framework/plans/completed/props-manager-typed-setter-refactor-plan.md`
 - Related Commit(s):
   - `d1e4653` (`refactor(vector): move anchor points to props components`)
   - `5d7af5d` (`feat: multi-path vector editing`)
@@ -140,7 +140,7 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
 - Consequences:
   - Reduced ambiguous hover/selection behavior and improved safety for numeric property writes/loads.
 - Related Plan:
-  - `docs/internal/hover-hit-test-performance-plan.md`
+- `docs/ai/framework/plans/completed/hover-hit-test-performance-plan.md`
 - Related Commit(s):
   - `9dfbf54` (`fix: hover hit-test via bounds and core container api`)
   - `ae79c0c` (`fix(props): validate numeric edits and harden component loads`)
@@ -197,7 +197,7 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
 - Consequences:
   - Transaction/undo behavior can be controlled consistently at API call boundaries.
 - Related Plan:
-  - `docs/internal/undoable-option-support-plan.md`
+- `docs/ai/framework/plans/completed/undoable-option-support-plan.md`
 - Related Commit(s):
   - `3628d3e` (`feat(framework): propagate mutation options through mutation pipeline`)
 
@@ -210,7 +210,7 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
 - Consequences:
   - Load safety remains validator-owned while app receives actionable diagnostics after apply.
 - Related Plan:
-  - `docs/internal/props-manager-file-load-validation-plan.md`
+- `docs/ai/framework/plans/completed/props-manager-file-load-validation-plan.md`
 - Related Commit(s):
   - `449cb77` (`feat(framework): add load diagnostics pipeline and app-level reporting hook`)
 
@@ -297,7 +297,7 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - Enables deterministic post-action side effects from app layer.
   - Keeps runtime transaction boundary semantics explicit.
 - Related Plan:
-  - `docs/internal/user-action-completion-event-plan.md`
+- `docs/ai/framework/plans/completed/user-action-completion-event-plan.md`
 - Related Commit(s):
   - `6843da6` (`docs(plans): add user-action completion event plan`)
 
@@ -399,7 +399,7 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - Post-action integrations can subscribe without coupling to factory internals.
   - Undo/redo transaction boundaries remain intact while exposing completion timing.
 - Related Plan:
-  - `docs/internal/user-action-completion-event-plan.md`
+- `docs/ai/framework/plans/completed/user-action-completion-event-plan.md`
 - Related Commit(s):
   - `8ef6935` (`feat(events): publish user-action completion via reactive-events`)
 
@@ -430,7 +430,7 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - Component/property cleanup order is predictable and easier to reason about.
   - Duplicate/stale registration cleanup regressions are less likely during refactors.
 - Related Plan:
-  - `docs/ai/framework/plans/completed/events-and-registry.md`
+  - `docs/ai/framework/plans/completed/cascade-unregister-plan.md`
 - Related Commit(s):
   - `2ee5fdd` (`refactor(core): add declarative cascade unregister orchestration`)
 

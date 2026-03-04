@@ -1,5 +1,12 @@
 # Property Schema Validation Plan
 
+## Status
+
+Completed on March 4, 2026 for schema validation integration scope.
+
+Remaining auto-layout-oriented follow-up work is tracked in:
+- `docs/ai/framework/plans/unit-conversion-and-ui-aggregation-plan.md`
+
 ## Goal
 
 Move numeric/type validation from UI handlers into system-level schema rules, so invalid input cannot corrupt data even if UI forgets to validate.

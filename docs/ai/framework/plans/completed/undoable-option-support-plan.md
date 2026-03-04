@@ -1,5 +1,9 @@
 # Undoable Option Support Plan (Framework)
 
+## Status
+
+Completed on February 25, 2026.
+
 ## Context
 
 In v0.2.5 event flow, mutation events can carry:

@@ -1,5 +1,12 @@
 # Plan: Vector Geometry Domain Model
 
+## Status
+
+Completed on 2026-03-02.
+
+This plan is fulfilled/superseded by:
+- `docs/ai/apps/asyra-design/plans/completed/explicit-vector-topology-model-plan.md`
+
 ## Context
 
 Current vector editing behavior stores geometry directly on element computed data and applies tool-specific logic across feature/render/property layers.

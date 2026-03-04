@@ -1,6 +1,10 @@
 # Task Breakdowns (Asyra Design)
 
-This folder contains implementation-ready task slices for recurring app work.
+This folder contains task decomposition docs for execution work.
+Use task breakdowns when one request needs to be split into smaller implementation units for:
+- multi-agent execution
+- human/agent collaboration
+- parallel or staged delivery
 
 ## Current Breakdowns
 
@@ -8,6 +12,7 @@ This folder contains implementation-ready task slices for recurring app work.
 - `002-extend-pen-path-editing.md`
 - `003-add-property-panel-section.md`
 
-## Plan References
+## Scope Boundary
 
-- Pending/planning-only items are tracked under `docs/internal/*-plan.md`.
+- Task breakdowns are execution slices.
+- Plans are tracked separately under `docs/ai/apps/asyra-design/plans/`.

@@ -1,5 +1,9 @@
 # Hover Hit-Test Performance Plan
 
+## Status
+
+Completed on February 22, 2026 (archived branch-backfill reference).
+
 ## Goal
 Define when and how to scale hover hit-testing beyond the current O(N) bounds scan.
 

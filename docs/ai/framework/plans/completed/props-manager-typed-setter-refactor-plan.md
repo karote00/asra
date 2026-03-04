@@ -1,5 +1,9 @@
 # Props Manager Typed Setter Refactor Plan
 
+## Status
+
+Completed on February 22, 2026 (archived branch-backfill reference).
+
 ## Context
 
 In `@asyra/props-manager`, some code paths use structural casts like:

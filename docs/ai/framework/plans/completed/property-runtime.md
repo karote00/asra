@@ -5,7 +5,7 @@
 - Completed on February 27, 2026.
 - Property components are now primarily defined via `definePropertyComponent` config.
 - Element/property relationships are standardized around ID-based references.
-- Reference: `docs/internal/property-runtime-genericization-plan.md`
+- Reference: `docs/ai/framework/plans/completed/property-runtime-genericization-plan.md`
 
 ## 2. Props-manager pending change cleanup at transaction boundary
 
