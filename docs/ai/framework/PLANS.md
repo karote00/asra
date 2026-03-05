@@ -14,51 +14,6 @@ This file tracks framework planning topics and points to detailed references.
 - Keep Pixi as default engine via preset wiring while enabling engine swap for future domains.
 - Reference: `docs/ai/framework/plans/render-engine-boundary-plan.md`
 
-## Recently Completed
-
-1. Selection subscription ownership to preset (Completed: 2026-03-05)
-- Removed selection package subscribe side effects and kept default runtime apply wiring in preset observers.
-- Reference: `docs/ai/framework/plans/completed/selection-subscription-ownership-plan.md`
-
-2. Preset selection profile ownership (Completed: 2026-03-05)
-- Selection profile/channel ownership moved to preset defaults while core/selection runtime remained generic.
-- Reference: `docs/ai/framework/plans/completed/preset-selection-profile-plan.md`
-
-3. Define selection contract (Completed: 2026-03-05)
-- `defineSelection` became the primary declaration API with `registerSelection` retained as compatibility alias.
-- Reference: `docs/ai/framework/plans/completed/define-selection-contract-plan.md`
-
-4. Define naming aliases for UI/system properties (Completed: 2026-03-05)
-- `defineUIProperty` / `defineSystemProperty` became primary declaration names with register aliases preserved.
-- Reference: `docs/ai/framework/plans/completed/define-naming-alias-plan.md`
-
-5. Preset selection profile naming cleanup (Completed: 2026-03-05)
-- Dropped `Preset*` prefixes from selection profile exports (`SelectionChannels`, `SelectionActions`, etc.).
-- Reference: `docs/ai/framework/plans/completed/preset-selection-profile-naming-plan.md`
-
-6. Selection concrete class removal (Completed: 2026-03-05)
-- Removed concrete selection classes from `@asyra/selection`; preset now defines defaults via metadata and `BaseSelection`.
-- Reference: `docs/ai/framework/plans/completed/selection-concrete-class-removal-plan.md`
-
-7. System-context event-to-property update ownership (Completed: 2026-03-05)
-- `system-context` is storage-only; framework-level system-context-specific event channels were removed.
-- System-context updates are direct managed-property writes (`core.setSystemProperty` / `core.getSystemProperty`).
-- Reference: `docs/ai/framework/plans/completed/system-context-event-to-property-update-ownership.md`
-
-8. Core concrete API tiers and preset strict contract (Completed: 2026-03-05)
-- Added explicit core API tier types and made preset depend on strict required core APIs (no optional `core?.api` probing).
-- E2E/tests now call concrete `core.setSystemProperty(...)` directly where appropriate.
-- Reference: `docs/ai/framework/plans/completed/core-concrete-api-contract-and-preset-strict-surface.md`
-
-9. Interaction-core retirement (Completed: 2026-03-04)
-- Removed runtime/compatibility wiring and completed package retirement.
-- Reference: `docs/ai/framework/plans/completed/interaction-core-retirement-plan.md`
-
-10. UI-context store surface removal (Completed: 2026-03-04)
-- Removed ui-context scene/selection store exports and moved default aggregation wiring to preset observers.
-- App provider now consumes ui-context published properties only.
-- Reference: `docs/ai/framework/plans/completed/ui-context-store-surface-removal-plan.md`
-
 ## Deferred Plans
 
 1. Auto-layout behavior engine.
@@ -81,3 +36,7 @@ This file tracks framework planning topics and points to detailed references.
 
 - When a plan item changes app contracts/runtime boundaries, append rationale to `decisions/releases/unreleased.md`.
 - If the decision is cross-cutting (framework + app), also append `docs/ai/decisions/releases/unreleased.md`.
+
+## Completed Plans
+
+- Completed plan records live in `docs/ai/framework/plans/completed/`.
