@@ -4,12 +4,17 @@ This file tracks framework planning topics and points to detailed references.
 
 ## Near-Term Plans
 
-1. Extendable preset
+1. Preset 2D/3D init profiles
+- Provide explicit preset init profiles (`2d`, `3d`, `hybrid`) for fast product bootstrap.
+- Preserve deterministic composition (`shared -> profile -> app override`) and backward-compatible default path.
+- Reference: `docs/ai/framework/plans/preset-2d-3d-init-profile-plan.md`
+
+2. Extendable preset
 - Allow users to extend preset feature/property behavior through explicit extension points.
 - Keep deterministic fallback path: `unregister -> redefine` when extension points are unavailable.
 - Reference: `docs/ai/framework/plans/extendable-preset-plan.md`
 
-2. Render-engine boundary
+3. Render-engine boundary
 - Split render orchestration from concrete engine implementation.
 - Keep Pixi as default engine via preset wiring while enabling engine swap for future domains.
 - Reference: `docs/ai/framework/plans/render-engine-boundary-plan.md`
