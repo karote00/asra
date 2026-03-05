@@ -301,3 +301,22 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
   - Delete undo/redo selection restoration is stable again under the new overlay architecture.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/hover-state-and-hover-selection-box-plan.md`
+
+## 2026-03-06 - Path-editing vector target hover/selection parity finalized
+
+- Context:
+  - Path-editing target feedback needed explicit distinction between hover and selected states for anchors, curve controls, and segments.
+  - Segment interactions needed first-class hover/selection parity with existing point-target behavior.
+  - During path editing, users requested strict focus on the editing vector only.
+- Decision:
+  - Finalize path-editing overlay visuals for vector targets with distinct hover and selected states for anchors, handles, and segments.
+  - Use deterministic precedence: point target hover/selection overrides segment target when both are near pointer.
+  - Restrict hover/selection during path editing to `pathEditingVectorId`; non-editing elements are ignored for hover/selection updates.
+  - Add compatibility mirror and runtime states for segment flow (`selectedVectorSegment`, `hoveredVectorSegment`) and sync them through existing selection compatibility wiring.
+  - Align vector target outline color with the normal element selection outline color.
+- Consequences:
+  - Vector editing feedback is consistent and deterministic across point/control/segment targets.
+  - Path-editing interactions stay focused on the active vector and avoid accidental cross-element hover/selection changes.
+  - E2E coverage now guards segment hover/selection behavior and path-editing lock semantics.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/vector-target-hover-and-selection-plan.md`

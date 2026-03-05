@@ -17,6 +17,8 @@
 
 1. Reads current client mouse position from system snapshot.
 2. Resolves hovered element by bounds hit-test (`getElementIdAtClientPos`).
+   - when path editing mode is active, only the current `pathEditingVectorId` can remain hovered
+   - non-editing elements are forced to `null` hover state
 3. Writes hovered element id into system context (`hoveredElementId`).
 
 ## Contract

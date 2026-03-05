@@ -166,7 +166,15 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
       null
     )
   core.defineSystemProperty<SelectedVectorPointState | null>(
-    'hoveredVectorPoint',
+      'hoveredVectorPoint',
+      null
+  )
+  core.defineSystemProperty<SelectedVectorSegmentState | null>(
+    'selectedVectorSegment',
+    null
+  )
+  core.defineSystemProperty<SelectedVectorSegmentState | null>(
+    'hoveredVectorSegment',
     null
   )
 

@@ -82,12 +82,17 @@ Import boundary:
 - `setSelectedVectorPoint(point: SelectedVectorPointState | null): void`
 - `getHoveredVectorPoint(): SelectedVectorPointState | null`
 - `setHoveredVectorPoint(point: SelectedVectorPointState | null): void`
+- `getSelectedVectorSegment(): { elementId: string; segmentId: string } | null`
+- `setSelectedVectorSegment(segment: { elementId: string; segmentId: string } | null): void`
+- `getHoveredVectorSegment(): { elementId: string; segmentId: string } | null`
+- `setHoveredVectorSegment(segment: { elementId: string; segmentId: string } | null): void`
 - `SelectedVectorPointState` target contract:
   - `target: 'anchor' | 'inHandle' | 'outHandle'`
 - `clearVectorPointState(): void`
 - selection ownership note:
   - `selectedVectorPoint` is compatibility mirror state derived from `vectorPointSelection`
-  - source-of-truth for selected vector points/segments is SelectionManager channel state
+  - `selectedVectorSegment` is compatibility mirror state derived from `vectorSegmentSelection`
+- source-of-truth for selected vector points/segments is SelectionManager channel state
 - `enterPathEditingMode(elementId: string): void`
 - `exitPathEditingMode(): void`
 - compatibility aliases:

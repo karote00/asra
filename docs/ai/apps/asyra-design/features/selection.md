@@ -17,6 +17,7 @@
 
 - active only when primary tool is `select`
 - if path editing mode is active, selection by drag start is blocked
+  - this prevents selecting non-editing elements while path editing is active
 - resolves hovered element id from bounds hit-test
 - with Shift: toggle selection
 - without Shift: replace selection

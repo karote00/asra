@@ -95,6 +95,10 @@ const syncDerivedVectorSelectionProperties = () => {
     'selectedVectorSegment',
     toSelectedVectorSegmentState(vectorSegmentSelection, pathEditingVectorId)
   )
+  core.setSystemProperty(
+    'selectedVectorSegment',
+    toSelectedVectorSegmentState(vectorSegmentSelection, pathEditingVectorId)
+  )
 
   core.setSystemProperty(
     'selectedVectorPoint',

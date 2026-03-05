@@ -52,6 +52,17 @@ This file defines app-level state keys, owners, and primary consumers.
   - readers: vector-point selection and cursor behavior
   - state shape includes target type: `anchor` | `inHandle` | `outHandle`
 
+- `selectedVectorSegment`
+  - owner: system-context
+  - writers: selection compatibility init bridge (`init-selection-compatibility`)
+  - readers: vector path-editing render layer
+  - source-of-truth: derived compatibility mirror from `vectorSegmentSelection` selection channel
+
+- `hoveredVectorSegment`
+  - owner: system-context
+  - writers: hover-vector-point flow (segment hit fallback)
+  - readers: vector path-editing render layer
+
 ## UI Context Keys (App Registered)
 
 - `elementSelection`

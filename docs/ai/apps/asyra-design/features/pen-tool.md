@@ -60,8 +60,12 @@
 ## Point Hover/Selection
 
 - hover feature updates `hoveredVectorPoint` target (`anchor`, `inHandle`, `outHandle`) and cursor (`pointer`/`default`).
+- if no point target is hovered, hover feature resolves segment hover into `hoveredVectorSegment`.
+- point target hover takes precedence over segment hover when both are near the pointer.
 - select-point feature selects hovered point target when in path-editing mode and non-pen tool.
 - when point hit is absent but path segment hit is present, feature selects the segment through `selectionApis.selectVectorSegment(...)` (SelectionManager `VECTOR_SEGMENT` channel).
+- point target selection takes precedence over segment selection.
+- in path editing mode, hover/selection targets are restricted to the current `pathEditingVectorId` vector; other elements are ignored.
 
 ## Curve Handle Visual/Selection Contract
 
@@ -105,6 +109,8 @@ Handled by `cancelPenEditing`:
 - `pathEditingStartNewSubpath`
 - `vectorPointSelection` / `vectorSegmentSelection` (selection channels)
 - `selectedVectorPoint` (compatibility mirror derived from `vectorPointSelection`)
+- `selectedVectorSegment` (compatibility mirror derived from `vectorSegmentSelection`)
 - `hoveredVectorPoint`
+- `hoveredVectorSegment`
 
 These are managed through `systemContextApis` helpers.

@@ -13,7 +13,10 @@ import {
   selectionApis,
   systemContextApis
 } from '../../common-apis'
-import type { SelectedVectorPointState } from '../../common-apis/system-context'
+import type {
+  SelectedVectorPointState,
+  SelectedVectorSegmentState
+} from '../../common-apis/system-context'
 import {
   FEATURE_MOVEMENT_THRESHOLD,
   FeatureNames,
@@ -493,30 +496,41 @@ export const selectVectorPointFeature = defineFeature(
         }
 
         const hoveredPoint = systemContextApis.getHoveredVectorPoint()
-        const hoveredSegmentId = elementApis.getVectorSegmentAtClientPos(
-          pathEditingVectorId,
-          snapshot.mousePosition
-        )
+        const hoveredSegment = systemContextApis.getHoveredVectorSegment()
         if (!hoveredPoint || hoveredPoint.elementId !== pathEditingVectorId) {
-          if (hoveredSegmentId) {
+          const activeHoveredSegmentId =
+            hoveredSegment?.elementId === pathEditingVectorId
+              ? hoveredSegment.segmentId
+              : elementApis.getVectorSegmentAtClientPos(
+                  pathEditingVectorId,
+                  snapshot.mousePosition
+                )
+
+          if (activeHoveredSegmentId) {
             selectionApis.selectVectorSegment({
               elementId: pathEditingVectorId,
-              segmentId: hoveredSegmentId
+              segmentId: activeHoveredSegmentId
             })
             selectionApis.clearVectorPointSelection()
             systemContextApis.setSelectedVectorPoint(null)
+            systemContextApis.setSelectedVectorSegment({
+              elementId: pathEditingVectorId,
+              segmentId: activeHoveredSegmentId
+            })
             return {
-              segmentId: hoveredSegmentId
+              segmentId: activeHoveredSegmentId
             }
           }
 
           selectionApis.clearVectorPointSelection()
           selectionApis.clearVectorSegmentSelection()
           systemContextApis.setSelectedVectorPoint(null)
+          systemContextApis.setSelectedVectorSegment(null)
           return null
         }
 
         selectionApis.clearVectorSegmentSelection()
+        systemContextApis.setSelectedVectorSegment(null)
         selectionApis.selectVectorPoint({
           elementId: hoveredPoint.elementId,
           pointId: hoveredPoint.pointId,
@@ -556,6 +570,7 @@ export const hoverVectorPointCursorFeature = defineFeature(
       if (!pathEditingVectorId) {
         cursorApis.resetCanvasCursor()
         systemContextApis.setHoveredVectorPoint(null)
+        systemContextApis.setHoveredVectorSegment(null)
         return null
       }
 
@@ -563,19 +578,34 @@ export const hoverVectorPointCursorFeature = defineFeature(
         pathEditingVectorId,
         snapshot.mousePosition
       )
-      systemContextApis.setHoveredVectorPoint(
-        hoveredPoint
-          ? {
-              elementId: pathEditingVectorId,
-              pointId: hoveredPoint.point.id,
-              index: hoveredPoint.index,
-              target: hoveredPoint.target,
-              x: hoveredPoint.position.x,
-              y: hoveredPoint.position.y
-            }
-          : null
+      if (hoveredPoint) {
+        systemContextApis.setHoveredVectorPoint({
+          elementId: pathEditingVectorId,
+          pointId: hoveredPoint.point.id,
+          index: hoveredPoint.index,
+          target: hoveredPoint.target,
+          x: hoveredPoint.position.x,
+          y: hoveredPoint.position.y
+        })
+        systemContextApis.setHoveredVectorSegment(null)
+        cursorApis.setCanvasCursor('pointer')
+        return null
+      }
+
+      const hoveredSegmentId = elementApis.getVectorSegmentAtClientPos(
+        pathEditingVectorId,
+        snapshot.mousePosition
       )
-      cursorApis.setCanvasCursor(hoveredPoint ? 'pointer' : 'default')
+      const hoveredSegment: SelectedVectorSegmentState | null = hoveredSegmentId
+        ? {
+            elementId: pathEditingVectorId,
+            segmentId: hoveredSegmentId
+          }
+        : null
+
+      systemContextApis.setHoveredVectorPoint(null)
+      systemContextApis.setHoveredVectorSegment(hoveredSegment)
+      cursorApis.setCanvasCursor(hoveredSegment ? 'pointer' : 'default')
       return null
     }
   }

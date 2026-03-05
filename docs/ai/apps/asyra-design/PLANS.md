@@ -33,7 +33,13 @@
 
 ## Recently Completed
 
-1. Hover state and selection overlay unification (completed 2026-03-06)
+1. Vector target hover/selection parity (completed 2026-03-06)
+- added explicit hover and normal selection visuals for vector points, curve controls, and segments
+- restricted path-editing hover/selection to current editing vector
+- aligned vector outline color with normal selection outline style
+- completed plan: `docs/ai/apps/asyra-design/plans/completed/vector-target-hover-and-selection-plan.md`
+
+2. Hover state and selection overlay unification (completed 2026-03-06)
 - synced hovered target across canvas and content panel
 - moved selection/hover overlay drawing to registered app/preset render layer
 - hover outline now follows geometry for vector/oval/rect (with fallback bounds for unsupported types)

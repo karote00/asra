@@ -381,6 +381,146 @@ test.describe('Pen Tool - Editing Flow', () => {
     )
   })
 
+  test('segment hover/selection works with point-target precedence', async ({
+    page
+  }) => {
+    const initialCount = await getElementCount(page)
+
+    await page.keyboard.press('p')
+    await expect.poll(() => getActiveTool(page)).toBe('pen')
+    await clickCanvas(page, 0.3, 0.3)
+    await clickCanvas(page, 0.45, 0.4)
+    await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
+
+    await page.keyboard.press('v')
+    await expect.poll(() => getActiveTool(page)).toBe('select')
+
+    const anchorClientPos = await getCanvasPosition(page, 0.3, 0.3)
+    await page.mouse.move(anchorClientPos.x, anchorClientPos.y)
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
+          const hoveredSegment =
+            core?.getSystemProperty?.('hoveredVectorSegment')
+          return {
+            hoveredPointTarget: hoveredPoint?.target ?? null,
+            hoveredSegmentId: hoveredSegment?.segmentId ?? null
+          }
+        })
+      })
+      .toMatchObject({
+        hoveredPointTarget: 'anchor',
+        hoveredSegmentId: null
+      })
+
+    const segmentClientPos = await getCanvasPosition(page, 0.375, 0.35)
+    await page.mouse.move(segmentClientPos.x, segmentClientPos.y)
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
+          const hoveredSegment =
+            core?.getSystemProperty?.('hoveredVectorSegment')
+          const pathEditingVectorId =
+            core?.getSystemProperty?.('pathEditingVectorId') ?? null
+
+          return {
+            hoveredPointTarget: hoveredPoint?.target ?? null,
+            hoveredSegmentId: hoveredSegment?.segmentId ?? null,
+            hoveredSegmentElementId: hoveredSegment?.elementId ?? null,
+            pathEditingVectorId,
+            isHoveredSegmentOnEditingVector:
+              !!hoveredSegment?.segmentId &&
+              !!pathEditingVectorId &&
+              hoveredSegment?.elementId === pathEditingVectorId
+          }
+        })
+      })
+      .toMatchObject({
+        hoveredPointTarget: null,
+        isHoveredSegmentOnEditingVector: true
+      })
+
+    await page.mouse.click(segmentClientPos.x, segmentClientPos.y)
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const selectedPoint = core?.getSystemProperty?.('selectedVectorPoint')
+          const selectedSegment =
+            core?.getSystemProperty?.('selectedVectorSegment')
+          const pathEditingVectorId =
+            core?.getSystemProperty?.('pathEditingVectorId') ?? null
+
+          return {
+            selectedPointTarget: selectedPoint?.target ?? null,
+            selectedSegmentId: selectedSegment?.segmentId ?? null,
+            selectedSegmentElementId: selectedSegment?.elementId ?? null,
+            pathEditingVectorId,
+            isSelectedSegmentOnEditingVector:
+              !!selectedSegment?.segmentId &&
+              !!pathEditingVectorId &&
+              selectedSegment?.elementId === pathEditingVectorId
+          }
+        })
+      })
+      .toMatchObject({
+        selectedPointTarget: null,
+        isSelectedSegmentOnEditingVector: true
+      })
+  })
+
+  test('path editing blocks hover/selection on non-editing elements', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.72, 0.28)
+    const initialCount = await getElementCount(page)
+
+    await page.keyboard.press('p')
+    await expect.poll(() => getActiveTool(page)).toBe('pen')
+    await clickCanvas(page, 0.3, 0.3)
+    await clickCanvas(page, 0.45, 0.4)
+    await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
+
+    await page.keyboard.press('v')
+    await expect.poll(() => getActiveTool(page)).toBe('select')
+
+    const rectanglePos = await getCanvasPosition(page, 0.72, 0.28)
+    await page.mouse.move(rectanglePos.x, rectanglePos.y)
+    await page.mouse.click(rectanglePos.x, rectanglePos.y)
+
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const hoveredElementId =
+            core?.getSystemProperty?.('hoveredElementId') ?? null
+          const pathEditingVectorId =
+            core?.getSystemProperty?.('pathEditingVectorId') ?? null
+          const selectedIds = Array.from(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ((core?.getUIProperty?.('elementSelection') as any) ??
+              new Set<string>()) as Set<string>
+          )
+
+          return (
+            !!pathEditingVectorId &&
+            hoveredElementId === null &&
+            selectedIds.length === 1 &&
+            selectedIds[0] === pathEditingVectorId
+          )
+        })
+      })
+      .toBe(true)
+  })
+
   test('keeps editing the newly created vector until Escape', async ({
     page
   }) => {

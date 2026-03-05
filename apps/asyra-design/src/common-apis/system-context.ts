@@ -19,6 +19,11 @@ export interface SelectedVectorPointState extends Record<string, unknown> {
   y: number
 }
 
+export interface SelectedVectorSegmentState extends Record<string, unknown> {
+  elementId: string
+  segmentId: string
+}
+
 interface EnterPathEditingOptions {
   startNewSubpath?: boolean
 }
@@ -99,9 +104,35 @@ export const systemContextApis = {
     core.setSystemProperty('hoveredVectorPoint', point)
   },
 
+  getSelectedVectorSegment: (): SelectedVectorSegmentState | null => {
+    return (
+      core.getSystemProperty<SelectedVectorSegmentState | null>(
+        'selectedVectorSegment'
+      ) ?? null
+    )
+  },
+
+  setSelectedVectorSegment: (segment: SelectedVectorSegmentState | null) => {
+    core.setSystemProperty('selectedVectorSegment', segment)
+  },
+
+  getHoveredVectorSegment: (): SelectedVectorSegmentState | null => {
+    return (
+      core.getSystemProperty<SelectedVectorSegmentState | null>(
+        'hoveredVectorSegment'
+      ) ?? null
+    )
+  },
+
+  setHoveredVectorSegment: (segment: SelectedVectorSegmentState | null) => {
+    core.setSystemProperty('hoveredVectorSegment', segment)
+  },
+
   clearVectorPointState: () => {
     systemContextApis.setSelectedVectorPoint(null)
     systemContextApis.setHoveredVectorPoint(null)
+    systemContextApis.setSelectedVectorSegment(null)
+    systemContextApis.setHoveredVectorSegment(null)
   },
 
   enterPathEditingMode: (

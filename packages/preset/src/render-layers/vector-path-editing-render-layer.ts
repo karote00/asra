@@ -1,7 +1,8 @@
 import {
   VECTOR_TOKENS,
   createOverlayLayerRegistration,
-  type OverlayCanvas
+  type OverlayCanvas,
+  type OverlayStrokeStyle
 } from '@asyra/core'
 import type {
   RegisterRenderLayerOptions,
@@ -23,9 +24,22 @@ const SEGMENT_COLOR = 0x9ca3af
 const SEGMENT_WIDTH = 1
 const PREVIEW_WIDTH = 2
 
-const SELECTED_POINT_OUTLINE_COLOR = 0x1e90ff
+const SELECTION_OUTLINE_COLOR = 0x157ae7
+const HOVER_COLOR = SELECTION_OUTLINE_COLOR
+const HOVER_OUTLINE_WIDTH = 2
+const HOVER_OUTLINE_RADIUS = POINT_RADIUS + 2
+const HOVER_SEGMENT_STROKE: OverlayStrokeStyle = {
+  width: 2,
+  color: HOVER_COLOR
+}
+
+const SELECTED_POINT_OUTLINE_COLOR = SELECTION_OUTLINE_COLOR
 const SELECTED_POINT_OUTLINE_WIDTH = 2
 const SELECTED_POINT_OUTLINE_RADIUS = POINT_RADIUS + 3
+const SELECTED_SEGMENT_STROKE: OverlayStrokeStyle = {
+  width: 3,
+  color: SELECTED_POINT_OUTLINE_COLOR
+}
 
 interface OverlayAnchorPoint extends PositionData {
   id: string
@@ -36,6 +50,19 @@ interface OverlayAnchorPoint extends PositionData {
 interface OverlaySubpath {
   points: OverlayAnchorPoint[]
   closed: boolean
+}
+
+interface OverlaySegmentGeometry {
+  id: string
+  from: PositionData
+  to: PositionData
+  outHandle: PositionData | null
+  inHandle: PositionData | null
+}
+
+interface OverlayVectorData {
+  subpaths: OverlaySubpath[]
+  segmentsById: Record<string, OverlaySegmentGeometry>
 }
 
 interface VectorComputedData {
@@ -53,6 +80,11 @@ interface SelectedVectorPointState {
   target: VectorPointTarget
   x: number
   y: number
+}
+
+interface SelectedVectorSegmentState {
+  elementId: string
+  segmentId: string
 }
 
 type RegisterRenderLayer = (
@@ -98,7 +130,7 @@ const toScreenPosition = (
 
 const getPathEditingVectorDataWithDeps = (
   deps: Pick<PresetDependencies, 'sceneTree' | 'systemContext'>
-): OverlaySubpath[] | null => {
+): OverlayVectorData | null => {
   const pathEditingVectorId = deps.systemContext.getManagedProperty<
     string | null
   >('pathEditingVectorId')
@@ -120,9 +152,11 @@ const getPathEditingVectorDataWithDeps = (
   const offsetY = typeof computed.y === 'number' ? computed.y : 0
   const orderedNetworks = sortByStableId(Object.values(computed.networks))
   const subpaths: OverlaySubpath[] = []
+  const segmentsById: Record<string, OverlaySegmentGeometry> = {}
 
   orderedNetworks.forEach((network) => {
     const points: OverlayAnchorPoint[] = []
+
     network.pointIds.forEach((pointId) => {
       const anchor = computed.points?.[pointId]
       if (!anchor || anchor.kind !== VECTOR_TOKENS.POINT.KIND.ANCHOR) {
@@ -149,12 +183,62 @@ const getPathEditingVectorDataWithDeps = (
       })
     })
 
+    network.segmentIds.forEach((segmentId) => {
+      const segment = computed.segments?.[segmentId]
+      if (!segment) {
+        return
+      }
+
+      const start = computed.points?.[segment.startId]
+      const end = computed.points?.[segment.endId]
+      if (
+        !start ||
+        !end ||
+        start.kind !== VECTOR_TOKENS.POINT.KIND.ANCHOR ||
+        end.kind !== VECTOR_TOKENS.POINT.KIND.ANCHOR
+      ) {
+        return
+      }
+
+      const outControl =
+        segment.outControlId &&
+        computed.points?.[segment.outControlId]?.kind ===
+          VECTOR_TOKENS.POINT.KIND.CONTROL
+          ? computed.points[segment.outControlId]
+          : null
+      const inControl =
+        segment.inControlId &&
+        computed.points?.[segment.inControlId]?.kind ===
+          VECTOR_TOKENS.POINT.KIND.CONTROL
+          ? computed.points[segment.inControlId]
+          : null
+
+      segmentsById[segmentId] = {
+        id: segmentId,
+        from: { x: start.x + offsetX, y: start.y + offsetY },
+        to: { x: end.x + offsetX, y: end.y + offsetY },
+        outHandle: outControl
+          ? { x: outControl.x + offsetX, y: outControl.y + offsetY }
+          : null,
+        inHandle: inControl
+          ? { x: inControl.x + offsetX, y: inControl.y + offsetY }
+          : null
+      }
+    })
+
     if (points.length > 0) {
       subpaths.push({ points, closed: network.closed })
     }
   })
 
-  return subpaths.length > 0 ? subpaths : null
+  if (subpaths.length === 0) {
+    return null
+  }
+
+  return {
+    subpaths,
+    segmentsById
+  }
 }
 
 const getDiamondPoints = (
@@ -167,6 +251,26 @@ const getDiamondPoints = (
   { x: center.x - radius, y: center.y }
 ]
 
+const drawSegment = (
+  canvas: OverlayCanvas,
+  segment: Pick<OverlaySegmentGeometry, 'from' | 'to' | 'outHandle' | 'inHandle'>,
+  stroke: OverlayStrokeStyle
+) => {
+  const hasCurve = !!segment.outHandle || !!segment.inHandle
+  if (!hasCurve) {
+    canvas.line(segment.from, segment.to, stroke)
+    return
+  }
+
+  canvas.bezierCurve(
+    segment.from,
+    segment.outHandle ?? segment.from,
+    segment.inHandle ?? segment.to,
+    segment.to,
+    stroke
+  )
+}
+
 const drawSubpathSegments = (
   canvas: OverlayCanvas,
   subpath: OverlaySubpath
@@ -176,29 +280,56 @@ const drawSubpathSegments = (
     return
   }
 
-  const drawSegment = (from: OverlayAnchorPoint, to: OverlayAnchorPoint) => {
-    const hasCurve = !!from.outHandle || !!to.inHandle
-    if (!hasCurve) {
-      canvas.line(from, to, {
-        width: SEGMENT_WIDTH,
-        color: SEGMENT_COLOR
-      })
-      return
-    }
+  const stroke: OverlayStrokeStyle = {
+    width: SEGMENT_WIDTH,
+    color: SEGMENT_COLOR
+  }
 
-    canvas.bezierCurve(from, from.outHandle ?? from, to.inHandle ?? to, to, {
-      width: SEGMENT_WIDTH,
-      color: SEGMENT_COLOR
-    })
+  const drawFromAnchors = (from: OverlayAnchorPoint, to: OverlayAnchorPoint) => {
+    drawSegment(
+      canvas,
+      {
+        from,
+        to,
+        outHandle: from.outHandle,
+        inHandle: to.inHandle
+      },
+      stroke
+    )
   }
 
   for (let i = 1; i < points.length; i += 1) {
-    drawSegment(points[i - 1], points[i])
+    drawFromAnchors(points[i - 1], points[i])
   }
 
   if (subpath.closed) {
-    drawSegment(points[points.length - 1], points[0])
+    drawFromAnchors(points[points.length - 1], points[0])
   }
+}
+
+const drawHighlightedSegments = (
+  canvas: OverlayCanvas,
+  segmentsById: Record<string, OverlaySegmentGeometry>,
+  selectedSegmentId: string | null,
+  hoveredSegmentId: string | null
+) => {
+  if (selectedSegmentId) {
+    const selectedSegment = segmentsById[selectedSegmentId]
+    if (selectedSegment) {
+      drawSegment(canvas, selectedSegment, SELECTED_SEGMENT_STROKE)
+    }
+  }
+
+  if (!hoveredSegmentId || hoveredSegmentId === selectedSegmentId) {
+    return
+  }
+
+  const hoveredSegment = segmentsById[hoveredSegmentId]
+  if (!hoveredSegment) {
+    return
+  }
+
+  drawSegment(canvas, hoveredSegment, HOVER_SEGMENT_STROKE)
 }
 
 const drawHandleLines = (
@@ -231,36 +362,43 @@ const drawAnchorPoints = (
   canvas: OverlayCanvas,
   points: OverlayAnchorPoint[],
   selectedPointId: string | null,
-  selectedTarget: VectorPointTarget | null
+  selectedTarget: VectorPointTarget | null,
+  hoveredPointId: string | null,
+  hoveredTarget: VectorPointTarget | null
 ) => {
   points.forEach((point) => {
     canvas.circle(point, POINT_RADIUS, POINT_FILL_COLOR, {
       width: 1,
       color: POINT_STROKE_COLOR
     })
-  })
 
-  if (
-    !selectedPointId ||
-    selectedTarget !== VECTOR_TOKENS.POINT.TARGET.ANCHOR
-  ) {
-    return
-  }
+    const isSelectedAnchor =
+      selectedPointId === point.id &&
+      selectedTarget === VECTOR_TOKENS.POINT.TARGET.ANCHOR
+    const isHoveredAnchor =
+      !isSelectedAnchor &&
+      hoveredPointId === point.id &&
+      hoveredTarget === VECTOR_TOKENS.POINT.TARGET.ANCHOR
 
-  const selectedPoint = points.find((point) => point.id === selectedPointId)
-  if (!selectedPoint) {
-    return
-  }
-
-  canvas.circle(
-    selectedPoint,
-    SELECTED_POINT_OUTLINE_RADIUS,
-    POINT_FILL_COLOR,
-    {
-      width: SELECTED_POINT_OUTLINE_WIDTH,
-      color: SELECTED_POINT_OUTLINE_COLOR
+    if (isHoveredAnchor) {
+      canvas.circle(point, HOVER_OUTLINE_RADIUS, POINT_FILL_COLOR, {
+        width: HOVER_OUTLINE_WIDTH,
+        color: HOVER_COLOR
+      })
     }
-  )
+
+    if (isSelectedAnchor) {
+      canvas.circle(
+        point,
+        SELECTED_POINT_OUTLINE_RADIUS,
+        POINT_FILL_COLOR,
+        {
+          width: SELECTED_POINT_OUTLINE_WIDTH,
+          color: SELECTED_POINT_OUTLINE_COLOR
+        }
+      )
+    }
+  })
 }
 
 const drawHandlePoints = (
@@ -268,7 +406,9 @@ const drawHandlePoints = (
   points: OverlayAnchorPoint[],
   visibleAnchorIds: Set<string>,
   selectedPointId: string | null,
-  selectedTarget: VectorPointTarget | null
+  selectedTarget: VectorPointTarget | null,
+  hoveredPointId: string | null,
+  hoveredTarget: VectorPointTarget | null
 ) => {
   points.forEach((point) => {
     if (!visibleAnchorIds.has(point.id)) {
@@ -306,7 +446,23 @@ const drawHandlePoints = (
         }
       )
 
-      if (selectedPointId === point.id && selectedTarget === target) {
+      const isSelectedHandle =
+        selectedPointId === point.id && selectedTarget === target
+      const isHoveredHandle =
+        !isSelectedHandle && hoveredPointId === point.id && hoveredTarget === target
+
+      if (isHoveredHandle) {
+        canvas.polygon(
+          getDiamondPoints(position, HOVER_OUTLINE_RADIUS),
+          POINT_FILL_COLOR,
+          {
+            width: HOVER_OUTLINE_WIDTH,
+            color: HOVER_COLOR
+          }
+        )
+      }
+
+      if (isSelectedHandle) {
         canvas.polygon(
           getDiamondPoints(position, SELECTED_POINT_OUTLINE_RADIUS),
           POINT_FILL_COLOR,
@@ -329,9 +485,7 @@ const getVisibleHandleAnchorIds = (
   }
 
   for (const subpath of subpaths) {
-    const index = subpath.points.findIndex(
-      (point) => point.id === selectedAnchorId
-    )
+    const index = subpath.points.findIndex((point) => point.id === selectedAnchorId)
     if (index === -1) {
       continue
     }
@@ -393,8 +547,8 @@ export const registerVectorPathEditingRenderLayer = (
     update: (canvas: OverlayCanvas) => {
       canvas.clear()
 
-      const subpaths = getPathEditingVectorDataWithDeps(deps)
-      if (!subpaths || subpaths.length === 0) {
+      const vectorData = getPathEditingVectorDataWithDeps(deps)
+      if (!vectorData) {
         return
       }
 
@@ -409,6 +563,18 @@ export const registerVectorPathEditingRenderLayer = (
         deps.systemContext.getManagedProperty<SelectedVectorPointState | null>(
           'selectedVectorPoint'
         ) ?? null
+      const hoveredVectorPoint =
+        deps.systemContext.getManagedProperty<SelectedVectorPointState | null>(
+          'hoveredVectorPoint'
+        ) ?? null
+      const selectedVectorSegment =
+        deps.systemContext.getManagedProperty<SelectedVectorSegmentState | null>(
+          'selectedVectorSegment'
+        ) ?? null
+      const hoveredVectorSegment =
+        deps.systemContext.getManagedProperty<SelectedVectorSegmentState | null>(
+          'hoveredVectorSegment'
+        ) ?? null
       const startNewSubpath =
         deps.systemContext.getManagedProperty<boolean>(
           'pathEditingStartNewSubpath'
@@ -419,6 +585,25 @@ export const registerVectorPathEditingRenderLayer = (
         selectedVectorPoint?.pointId
           ? selectedVectorPoint
           : null
+      const activeHoveredPoint =
+        pathEditingVectorId &&
+        hoveredVectorPoint?.elementId === pathEditingVectorId &&
+        hoveredVectorPoint?.pointId
+          ? hoveredVectorPoint
+          : null
+      const activeSelectedSegmentId =
+        pathEditingVectorId &&
+        selectedVectorSegment?.elementId === pathEditingVectorId &&
+        selectedVectorSegment?.segmentId
+          ? selectedVectorSegment.segmentId
+          : null
+      const activeHoveredSegmentId =
+        activeHoveredPoint ||
+        !pathEditingVectorId ||
+        hoveredVectorSegment?.elementId !== pathEditingVectorId ||
+        !hoveredVectorSegment.segmentId
+          ? null
+          : hoveredVectorSegment.segmentId
 
       const mouseWorkspacePos = deps.render.getMousePosInWorkspace({
         clientX: snapshot.mousePosition.x,
@@ -430,7 +615,7 @@ export const registerVectorPathEditingRenderLayer = (
         viewportScale
       )
 
-      const screenSubpaths = subpaths.map((subpath) => ({
+      const screenSubpaths = vectorData.subpaths.map((subpath) => ({
         closed: subpath.closed,
         points: subpath.points.map((point) => ({
           id: point.id,
@@ -444,6 +629,22 @@ export const registerVectorPathEditingRenderLayer = (
             : null
         }))
       }))
+      const screenSegmentsById = Object.fromEntries(
+        Object.entries(vectorData.segmentsById).map(([segmentId, segment]) => [
+          segmentId,
+          {
+            ...segment,
+            from: toScreenPosition(segment.from, viewportPosition, viewportScale),
+            to: toScreenPosition(segment.to, viewportPosition, viewportScale),
+            inHandle: segment.inHandle
+              ? toScreenPosition(segment.inHandle, viewportPosition, viewportScale)
+              : null,
+            outHandle: segment.outHandle
+              ? toScreenPosition(segment.outHandle, viewportPosition, viewportScale)
+              : null
+          }
+        ])
+      ) as Record<string, OverlaySegmentGeometry>
 
       const flatScreenPoints = screenSubpaths.flatMap(
         (subpath) => subpath.points
@@ -467,6 +668,12 @@ export const registerVectorPathEditingRenderLayer = (
       )
 
       screenSubpaths.forEach((subpath) => drawSubpathSegments(canvas, subpath))
+      drawHighlightedSegments(
+        canvas,
+        screenSegmentsById,
+        activeSelectedSegmentId,
+        activeHoveredSegmentId
+      )
       drawHandleLines(canvas, flatScreenPoints, visibleHandleAnchorIds)
       if (previewStartPoint) {
         drawPreview(
@@ -480,14 +687,18 @@ export const registerVectorPathEditingRenderLayer = (
         canvas,
         flatScreenPoints,
         activeSelectedPoint?.pointId ?? null,
-        activeSelectedPoint?.target ?? null
+        activeSelectedPoint?.target ?? null,
+        activeHoveredPoint?.pointId ?? null,
+        activeHoveredPoint?.target ?? null
       )
       drawHandlePoints(
         canvas,
         flatScreenPoints,
         visibleHandleAnchorIds,
         activeSelectedPoint?.pointId ?? null,
-        activeSelectedPoint?.target ?? null
+        activeSelectedPoint?.target ?? null,
+        activeHoveredPoint?.pointId ?? null,
+        activeHoveredPoint?.target ?? null
       )
     }
   })

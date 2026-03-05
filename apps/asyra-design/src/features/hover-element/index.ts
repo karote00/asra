@@ -12,7 +12,16 @@ export const reEvaluateHoveredElement = (snapshot?: SystemContextSnapshot) => {
     return null
   }
 
-  const hoveredId = elementApis.getElementIdAtClientPos(mousePos)
+  const pathEditingMode = systemContextApis.getPathEditingMode()
+  const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
+  const rawHoveredId = elementApis.getElementIdAtClientPos(mousePos)
+  const hoveredId =
+    pathEditingMode && pathEditingVectorId
+      ? rawHoveredId === pathEditingVectorId
+        ? rawHoveredId
+        : null
+      : rawHoveredId
+
   systemContextApis.updateHoveredElementId(hoveredId)
 
   return hoveredId

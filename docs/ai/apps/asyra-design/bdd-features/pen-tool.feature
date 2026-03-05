@@ -60,3 +60,19 @@ Feature: Pen Tool and Path Editing
     When I click on a hovered out-handle
     Then that out-handle should become selected point target state
     And properties panel should show the selected handle target and coordinates
+
+  Scenario: Segment hover/selection in path editing mode
+    Given path editing mode is active for one vector
+    And primary tool is not pen
+    When I hover a segment away from anchor/control points
+    Then segment hover state should be set for that editing vector
+    When I click that hovered segment
+    Then segment selection state should be set for that editing vector
+
+  Scenario: Path editing blocks other-element hover and selection
+    Given path editing mode is active for one vector
+    And primary tool is Select
+    When I move pointer over a different element
+    Then hovered element id should stay null for that non-editing element
+    When I click that different element
+    Then element selection should remain on the editing vector
