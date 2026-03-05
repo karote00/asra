@@ -740,3 +740,140 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - No runtime contract break is introduced yet; this entry records direction and guardrails.
 - Related Plan:
   - `docs/ai/framework/plans/render-engine-boundary-plan.md`
+
+## 2026-03-05 - Selection subscribe ownership moved to preset default wiring
+
+- Context:
+  - `@asyra/selection` initialized reactive-event subscribe handlers as package side effects.
+  - This mixed selection state ownership with default wiring ownership.
+- Decision:
+  - Remove selection subscribe bootstrap side effects from `@asyra/selection`.
+  - Move default selection event routing to preset-owned subscriptions.
+  - Apply selection runtime state from shared `selection` data-channel observer in preset.
+- Consequences:
+  - Selection package is state/query-focused only.
+  - Default behavior remains available via explicit `applyPreset(core)` wiring.
+  - Ownership aligns with preset-managed default subscriptions used in other framework areas.
+- Related Plan:
+  - `docs/ai/framework/plans/selection-subscription-ownership-plan.md`
+
+## 2026-03-05 - Selection ownership refinement (supersedes prior same-day routing detail)
+
+- Context:
+  - Implementation refinement removed the need for preset-level reactive-event subscriptions for selection routing.
+- Decision:
+  - Keep selection transaction publishing in core selection APIs (`core.selectElements`, `core.selectVectorPoints`, `core.selectVectorSegments`) via transaction updates to shared `selection` channel.
+  - Keep preset responsible for default selection shared-channel apply wiring and scene-tree remove-element cleanup.
+- Consequences:
+  - `@asyra/preset` no longer depends on `@asyra/reactive-events` for selection flow.
+  - Ownership is cleaner: core publishes selection mutations; preset applies default observer-driven runtime wiring.
+- Related Plan:
+  - `docs/ai/framework/plans/selection-subscription-ownership-plan.md`
+
+## 2026-03-05 - Selection flow moved to registration-driven channel/action metadata
+
+- Context:
+  - Selection flow still depended on shared enum constants (`SELECTION_TYPES`, `SELECTION_ACTIONS`) in core/preset paths.
+  - Goal is channel/action ownership by registration/profile, not framework-global constants.
+- Decision:
+  - Core selection APIs now build transaction payloads from registered selection metadata (`selectionType`, `action`, `eventName`) and expose generic `selectByChannel(...)`.
+  - Preset defines concrete canvas selection profile constants (`SelectionChannels`, `SelectionActions`) and uses them in default wiring.
+  - Selection change contracts use string channel/action types.
+- Consequences:
+  - Core/preset no longer require `SELECTION_TYPES` / `SELECTION_ACTIONS`.
+  - Compatibility wrapper APIs remain (`selectElements`, `selectVectorPoints`, `selectVectorSegments`) and resolve channels through registered selection metadata.
+  - Concrete channel identity is explicit in preset profile exports for app usage.
+- Related Plan:
+  - `docs/ai/framework/plans/preset-selection-profile-plan.md`
+
+## 2026-03-05 - `defineSelection` became primary declaration API with register compatibility alias
+
+- Context:
+  - Selection channel registration was still framed as `registerSelection` even after shifting to registration-driven metadata/channel ownership.
+  - Framework naming direction is define-first for declaration contracts.
+- Decision:
+  - Promote `core.defineSelection(...)` as the primary selection declaration API.
+  - Keep `core.registerSelection(...)` as a compatibility alias in this phase.
+  - Migrate preset default selection declarations to `defineSelection`.
+- Consequences:
+  - Selection declaration naming is aligned with define-first framework contracts.
+  - Existing callers using `registerSelection` remain compatible.
+- Related Plan:
+  - `docs/ai/framework/plans/define-selection-contract-plan.md`
+
+## 2026-03-05 - UI/system managed-property declarations moved to define-first naming
+
+- Context:
+  - Core/preset contracts still used `registerUIProperty` / `registerSystemProperty` as primary naming.
+  - This conflicted with define-first declaration naming used in other framework extension surfaces.
+- Decision:
+  - Add and use `core.defineUIProperty(...)` and `core.defineSystemProperty(...)` as primary declaration APIs.
+  - Keep `registerUIProperty(...)` / `registerSystemProperty(...)` as compatibility aliases in core.
+  - Update preset default property registration flow to use define names.
+- Consequences:
+  - Declaration naming across components, selections, and managed properties is now consistent.
+  - Compatibility is preserved for existing integrations using register names.
+- Related Plan:
+  - `docs/ai/framework/plans/define-naming-alias-plan.md`
+
+## 2026-03-05 - Preset selection profile exports dropped `Preset*` prefixes
+
+- Context:
+  - Preset selection profile exports (`PresetSelectionChannels`, `PresetSelectionActions`) carried explicit ownership prefixes.
+  - For preset consumers, these prefixes added call-site noise without meaningful disambiguation.
+- Decision:
+  - Rename preset selection profile exports to concise names:
+    - `SelectionChannels`
+    - `SelectionActions`
+    - `SelectionChannel`
+    - `SelectionAction`
+    - `SelectionChannelList`
+  - Keep runtime behavior and channel values unchanged.
+- Consequences:
+  - Preset API usage is cleaner and more aligned with common framework/library defaults naming.
+  - Internal preset wiring, tests, app usage, and docs now use the concise names.
+- Related Plan:
+  - `docs/ai/framework/plans/preset-selection-profile-naming-plan.md`
+
+## 2026-03-05 - Core selection wrappers removed legacy channel fallbacks
+
+- Context:
+  - Core wrapper APIs (`selectElements`, `selectVectorPoints`, `selectVectorSegments`) still had legacy fallback channel defaults when action-to-channel mapping was missing.
+- Decision:
+  - Remove fallback defaults and require wrapper channel resolution through registered selection metadata only.
+  - Throw explicit errors when wrappers are called before corresponding selection channels are registered.
+- Consequences:
+  - Selection flow is strictly registration-driven end-to-end.
+  - Missing preset/custom selection registration fails fast instead of silently routing to implicit defaults.
+
+## 2026-03-05 - Concrete default selection classes removed from `@asyra/selection`
+
+- Context:
+  - `@asyra/selection` still shipped concrete canvas-default classes (`element`, `vectorPoint`, `vectorSegment`), while ownership direction is generic runtime in selection and concrete defaults in preset.
+- Decision:
+  - Remove concrete default selection classes from `@asyra/selection`.
+  - Keep `@asyra/selection` surface as generic runtime primitives (`BaseSelection`, `SelectionManager`).
+  - Build default canvas selection instances in preset registration from explicit metadata definitions.
+- Consequences:
+  - Selection package is domain-agnostic and no longer encodes preset-specific defaults.
+  - Default selection behavior is preserved through preset-owned registration definitions.
+- Related Plan:
+  - `docs/ai/framework/plans/selection-concrete-class-removal-plan.md`
+
+## 2026-03-05 - Selection/API naming plan records closed and moved to completed
+
+- Context:
+  - Selection ownership/profile/naming refactors were implemented and validated, but plan records still lived under active near-term paths.
+- Decision:
+  - Close out and archive completed plan records under `docs/ai/framework/plans/completed/`.
+  - Keep near-term list focused on unfinished items only.
+  - Treat earlier same-day decision references to non-completed paths as superseded by the completed canonical references below.
+- Consequences:
+  - Active plan index is cleaner and no longer points to finished selection refactor work.
+  - Canonical completed records now live at:
+    - `docs/ai/framework/plans/completed/selection-subscription-ownership-plan.md`
+    - `docs/ai/framework/plans/completed/preset-selection-profile-plan.md`
+    - `docs/ai/framework/plans/completed/define-selection-contract-plan.md`
+    - `docs/ai/framework/plans/completed/define-naming-alias-plan.md`
+    - `docs/ai/framework/plans/completed/preset-selection-profile-naming-plan.md`
+    - `docs/ai/framework/plans/completed/selection-concrete-class-removal-plan.md`

@@ -33,27 +33,27 @@ interface ElementPanelData extends Record<string, unknown> {
 }
 
 export const registerProperties = (core: PresetCoreAPIs): void => {
-  core.registerUIProperty<Set<string>>('elementSelection', {
+  core.defineUIProperty<Set<string>>('elementSelection', {
     defaultValue: new Set()
   })
 
-  core.registerUIProperty<Set<string>>('vectorPointSelection', {
+  core.defineUIProperty<Set<string>>('vectorPointSelection', {
     defaultValue: new Set()
   })
 
-  core.registerUIProperty<Set<string>>('vectorSegmentSelection', {
+  core.defineUIProperty<Set<string>>('vectorSegmentSelection', {
     defaultValue: new Set()
   })
 
-  core.registerUIProperty<string[]>('flattenedElementIds', {
+  core.defineUIProperty<string[]>('flattenedElementIds', {
     defaultValue: []
   })
 
-  core.registerUIProperty<Record<string, ElementPanelData>>('elementDataMap', {
+  core.defineUIProperty<Record<string, ElementPanelData>>('elementDataMap', {
     defaultValue: {}
   })
 
-  core.registerUIProperty<number | string>('x', {
+  core.defineUIProperty<number | string>('x', {
     defaultValue: 0,
     aggregate: true,
     triggers: {
@@ -63,7 +63,7 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     }
   })
 
-  core.registerUIProperty<number | string>('y', {
+  core.defineUIProperty<number | string>('y', {
     defaultValue: 0,
     aggregate: true,
     triggers: {
@@ -73,7 +73,7 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     }
   })
 
-  core.registerUIProperty<number | string>('width', {
+  core.defineUIProperty<number | string>('width', {
     defaultValue: 0,
     aggregate: true,
     triggers: {
@@ -83,7 +83,7 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     }
   })
 
-  core.registerUIProperty<number | string>('height', {
+  core.defineUIProperty<number | string>('height', {
     defaultValue: 0,
     aggregate: true,
     triggers: {
@@ -93,7 +93,7 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     }
   })
 
-  core.registerUIProperty<number | string>('rotation', {
+  core.defineUIProperty<number | string>('rotation', {
     defaultValue: 0,
     aggregate: true,
     triggers: {
@@ -103,84 +103,85 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     }
   })
 
-  const zoomObservable = core.registerSystemProperty<number>('zoom', 1)
-  core.registerUIProperty<number>('zoom', {
+  const zoomObservable = core.defineSystemProperty<number>('zoom', 1)
+  core.defineUIProperty<number>('zoom', {
     defaultValue: 1,
     source$: zoomObservable
   })
 
-  const primaryToolObservable = core.registerSystemProperty<string>(
+  const primaryToolObservable = core.defineSystemProperty<string>(
     'primaryTool',
     DEFAULT_PRIMARY_TOOL
   )
-  core.registerUIProperty<string>('primaryTool', {
+  core.defineUIProperty<string>('primaryTool', {
     defaultValue: DEFAULT_PRIMARY_TOOL,
     source$: primaryToolObservable
   })
 
-  core.registerSystemProperty('systemMode', DefaultSystemSnapshot.mode)
-  core.registerSystemProperty(
+  core.defineSystemProperty('systemMode', DefaultSystemSnapshot.mode)
+  core.defineSystemProperty(
     'systemFeatureFlags',
     DefaultSystemSnapshot.featureFlags
   )
-  core.registerSystemProperty(
+  core.defineSystemProperty(
     'systemPermissions',
     DefaultSystemSnapshot.permissions
   )
 
-  core.registerSystemProperty('mouseDragStart', DefaultMoseSnapshot.dragStart)
-  core.registerSystemProperty('mousePosition', DefaultMoseSnapshot.position)
-  core.registerSystemProperty('mouseDelta', DefaultMoseSnapshot.delta)
-  core.registerSystemProperty('mouseButton', DefaultMoseSnapshot.button)
-  core.registerSystemProperty('mouseDown', DefaultMoseSnapshot.down)
-  core.registerSystemProperty('mouseDragging', DefaultMoseSnapshot.dragging)
+  core.defineSystemProperty('mouseDragStart', DefaultMoseSnapshot.dragStart)
+  core.defineSystemProperty('mousePosition', DefaultMoseSnapshot.position)
+  core.defineSystemProperty('mouseDelta', DefaultMoseSnapshot.delta)
+  core.defineSystemProperty('mouseButton', DefaultMoseSnapshot.button)
+  core.defineSystemProperty('mouseDown', DefaultMoseSnapshot.down)
+  core.defineSystemProperty('mouseDragging', DefaultMoseSnapshot.dragging)
 
-  core.registerSystemProperty('keyShift', DefaultKeySnapshot.shift)
-  core.registerSystemProperty('keyCtrl', DefaultKeySnapshot.ctrl)
-  core.registerSystemProperty('keyAlt', DefaultKeySnapshot.alt)
-  core.registerSystemProperty('keyMeta', DefaultKeySnapshot.meta)
+  core.defineSystemProperty('keyShift', DefaultKeySnapshot.shift)
+  core.defineSystemProperty('keyCtrl', DefaultKeySnapshot.ctrl)
+  core.defineSystemProperty('keyAlt', DefaultKeySnapshot.alt)
+  core.defineSystemProperty('keyMeta', DefaultKeySnapshot.meta)
 
-  core.registerSystemProperty(
+  core.defineSystemProperty(
     'hoveredElementId',
     DefaultTargetSnapshot.hoveredElementId
   )
-  core.registerSystemProperty(
+  core.defineSystemProperty(
     'selectedElementIds',
     DefaultTargetSnapshot.selectedElementIds
   )
-  core.registerSystemProperty(
+  core.defineSystemProperty(
     'activeElementId',
     DefaultTargetSnapshot.activeElementId
   )
 
-  const pathEditingVectorObservable = core.registerSystemProperty<
-    string | null
-  >('pathEditingVectorId', null)
-  core.registerSystemProperty<boolean>('pathEditingMode', false)
-  core.registerSystemProperty<boolean>('pathEditingStartNewSubpath', false)
+  const pathEditingVectorObservable = core.defineSystemProperty<string | null>(
+    'pathEditingVectorId',
+    null
+  )
+  core.defineSystemProperty<boolean>('pathEditingMode', false)
+  core.defineSystemProperty<boolean>('pathEditingStartNewSubpath', false)
 
   const selectedPointObservable =
-    core.registerSystemProperty<SelectedVectorPointState | null>(
+    core.defineSystemProperty<SelectedVectorPointState | null>(
       'selectedVectorPoint',
       null
     )
-  core.registerSystemProperty<SelectedVectorPointState | null>(
+  core.defineSystemProperty<SelectedVectorPointState | null>(
     'hoveredVectorPoint',
     null
   )
 
-  core.registerUIProperty<string | null>('pathEditingVectorId', {
+  core.defineUIProperty<string | null>('pathEditingVectorId', {
     defaultValue: null,
     source$: pathEditingVectorObservable
   })
-  core.registerUIProperty<SelectedVectorPointState | null>(
+  core.defineUIProperty<SelectedVectorPointState | null>(
     'selectedVectorPoint',
     {
       defaultValue: null,
       source$: selectedPointObservable
     }
   )
-  core.registerUIProperty<SelectedVectorSegmentState | null>(
+  core.defineUIProperty<SelectedVectorSegmentState | null>(
     'selectedVectorSegment',
     {
       defaultValue: null

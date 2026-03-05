@@ -47,12 +47,12 @@ beforeAll(() => {
         // no-op for this unit test; vector component registration is asserted via registries.
       },
       registerPropertySchema: () => undefined,
-      registerSelection: () => undefined,
+      defineSelection: () => undefined,
       getSelection: () => undefined,
-      registerUIProperty: () => {
+      defineUIProperty: () => {
         // no-op for this unit test.
       },
-      registerSystemProperty: <T>(key: string, defaultValue: T) => {
+      defineSystemProperty: <T>(key: string, defaultValue: T) => {
         const existing = systemPropertyMap.get(key)
         if (existing) {
           return existing as BehaviorSubject<T>

@@ -2,6 +2,10 @@ import type { BehaviorSubject } from 'rxjs'
 import type { PropertyRegistration, PropertyValue } from '@asyra/ui-context'
 
 export interface UIContextAPIs {
+  defineUIProperty: <T extends PropertyValue>(
+    key: string,
+    config: PropertyRegistration<T>
+  ) => void
   registerUIProperty: <T extends PropertyValue>(
     key: string,
     config: PropertyRegistration<T>

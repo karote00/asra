@@ -22,6 +22,7 @@ Own selection state for entities and selection-oriented queries.
 - Selection operations should be explicit (replace/add/remove/clear).
 - Multi-selection behavior should be deterministic.
 - Selection APIs are read/write boundary for selection data.
+- Selection metadata (`selectionType`, `action`, `eventName`) is string-based and registration-driven.
 
 ## Extension Points
 
@@ -32,7 +33,11 @@ Own selection state for entities and selection-oriented queries.
 ## Notes
 
 - This package does not auto-register builtin selection types by default.
+- This package does not ship concrete default selection classes; defaults are constructed by preset registration.
 - Default selection registrations are preset-owned (`@asyra/preset`).
+- This package does not own default reactive-event/data-channel subscription wiring.
+- Default selection shared-channel apply wiring is preset-owned.
+- Selection transaction publishing for core selection APIs is core-owned.
 
 ## Validation Checklist
 

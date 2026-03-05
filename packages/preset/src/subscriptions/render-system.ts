@@ -12,7 +12,7 @@ export const registerDefaultRenderSystemSubscriptions = (
   }
 
   const zoomObservable = core.getSystemPropertyObservable<number>('zoom')
-  const viewportPositionObservable = core.registerSystemProperty<PositionData>(
+  const viewportPositionObservable = core.defineSystemProperty<PositionData>(
     'viewportPosition',
     { x: 0, y: 0 }
   )

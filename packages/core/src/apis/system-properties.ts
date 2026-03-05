@@ -1,6 +1,18 @@
 import systemContext from '@asyra/system-context'
 
 export const createSystemPropertyAPIs = () => ({
+  defineSystemProperty: <T>(
+    key: string,
+    defaultValue: T,
+    options?: {
+      runtime?: boolean
+      silent?: boolean
+      validate?: (value: unknown) => value is T
+    }
+  ) => {
+    return systemContext.registerProperty<T>(key, defaultValue, options)
+  },
+
   registerSystemProperty: <T>(
     key: string,
     defaultValue: T,

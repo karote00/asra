@@ -2,6 +2,13 @@ import uiContext from '@asyra/ui-context'
 import type { PropertyRegistration, PropertyValue } from '@asyra/ui-context'
 
 export const createUIContextAPIs = () => ({
+  defineUIProperty: <T extends PropertyValue>(
+    key: string,
+    config: PropertyRegistration<T>
+  ) => {
+    uiContext.registerProperty<T>(key, config)
+  },
+
   registerUIProperty: <T extends PropertyValue>(
     key: string,
     config: PropertyRegistration<T>

@@ -1,5 +1,6 @@
 import { SceneTree, componentRegistry } from '@asyra/scene-tree'
 import { Render } from '@asyra/render'
+import type { SelectionManager } from '@asyra/selection'
 import { Bounds, EntityTypes, ComputedAttrs } from '@asyra/utils'
 
 import { createRenderAPIs, type RenderRequests } from './render'
@@ -11,7 +12,11 @@ import { createUIContextAPIs } from './ui-context'
 import { createSystemPropertyAPIs } from './system-properties'
 import { CoreAPIs } from '../types'
 
-export const createAPIs = (sceneTree: SceneTree, render: Render): CoreAPIs => {
+export const createAPIs = (
+  sceneTree: SceneTree,
+  render: Render,
+  selection: SelectionManager
+): CoreAPIs => {
   const sceneTreeRequests = {
     sceneTreeSaveData: () => sceneTree.save(),
     isContainerType: (type: string) => {
@@ -90,7 +95,7 @@ export const createAPIs = (sceneTree: SceneTree, render: Render): CoreAPIs => {
     ...createFeatureSystemAPIs(),
     ...createRenderAPIs(renderRequests),
     ...createSceneTreeAPIs(sceneTreeRequests),
-    ...createElementSelectionAPIs(),
+    ...createElementSelectionAPIs(selection),
     ...createUIContextAPIs(),
     ...createSystemPropertyAPIs()
   }

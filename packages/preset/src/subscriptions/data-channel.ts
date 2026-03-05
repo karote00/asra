@@ -10,8 +10,6 @@ import {
 import {
   EntityTypes,
   SCENE_TREE_ACTIONS,
-  SELECTION_ACTIONS,
-  SELECTION_TYPES,
   SharedDataChannelNames,
   type AddRemoveElementChange,
   type ComputedAttrs,
@@ -22,6 +20,11 @@ import {
   type WorkspaceRawData
 } from '@asyra/utils'
 import type { PresetCoreAPIs, PresetDependencies } from '../types'
+import {
+  SelectionActions,
+  SelectionChannels,
+  type SelectionChannel
+} from '../selection/channels'
 
 // Render observers keep render-internal stores in sync with shared channel changes.
 const updateRenderSceneTree = (change: SceneTreeChange) => {
@@ -48,17 +51,17 @@ const updateRenderSceneTree = (change: SceneTreeChange) => {
 // Render selection mirror used by overlay/render behavior.
 const updateRenderSelection = (change: SelectionChange) => {
   switch (change.action) {
-    case SELECTION_ACTIONS.SELECT_ELEMENTS:
-    case SELECTION_ACTIONS.DESELECT_ELEMENTS:
-      renderSelectionStore.updateSelection(SELECTION_TYPES.ELEMENT)
+    case SelectionActions.SELECT_ELEMENTS:
+    case SelectionActions.DESELECT_ELEMENTS:
+      renderSelectionStore.updateSelection(SelectionChannels.ELEMENT)
       break
-    case SELECTION_ACTIONS.SELECT_VECTOR_POINTS:
-    case SELECTION_ACTIONS.DESELECT_VECTOR_POINTS:
-      renderSelectionStore.updateSelection(SELECTION_TYPES.VECTOR_POINT)
+    case SelectionActions.SELECT_VECTOR_POINTS:
+    case SelectionActions.DESELECT_VECTOR_POINTS:
+      renderSelectionStore.updateSelection(SelectionChannels.VECTOR_POINT)
       break
-    case SELECTION_ACTIONS.SELECT_VECTOR_SEGMENTS:
-    case SELECTION_ACTIONS.DESELECT_VECTOR_SEGMENTS:
-      renderSelectionStore.updateSelection(SELECTION_TYPES.VECTOR_SEGMENT)
+    case SelectionActions.SELECT_VECTOR_SEGMENTS:
+    case SelectionActions.DESELECT_VECTOR_SEGMENTS:
+      renderSelectionStore.updateSelection(SelectionChannels.VECTOR_SEGMENT)
       break
   }
 }
@@ -79,7 +82,7 @@ const renderSelectionDataChannelObserver = defineDataChannelObserver({
 // Read current selected IDs from selection runtime (single source of truth).
 const getSelectedIds = (
   core: PresetCoreAPIs,
-  type: SELECTION_TYPES
+  type: SelectionChannel
 ): Set<string> => {
   const selection = core.getSelection(type)
   return selection ? selection.getSelectedIds() : new Set<string>()
@@ -112,22 +115,41 @@ const syncElementSelectionAndDerived = (
   core: PresetCoreAPIs,
   deps: PresetDependencies
 ) => {
-  const selectedIds = getSelectedIds(core, SELECTION_TYPES.ELEMENT)
+  const selectedIds = getSelectedIds(core, SelectionChannels.ELEMENT)
   uiContext.set('elementSelection', selectedIds)
   uiContext.recomputeSelectionProperties(
     buildSelectionContext(deps, selectedIds)
   )
 }
 
+const syncSelectionOnElementRemoval = (
+  core: PresetCoreAPIs,
+  removedId: string
+) => {
+  const selection = core.getSelection(SelectionChannels.ELEMENT)
+  if (!selection) {
+    return
+  }
+
+  const current = Array.from(selection.getSelectedIds())
+  if (!current.includes(removedId)) {
+    return
+  }
+
+  selection.select(current.filter((id) => id !== removedId))
+  selection.cleanChanges()
+  renderSelectionStore.updateSelection(SelectionChannels.ELEMENT)
+}
+
 // Sync vector point/segment selection mirrors for UI consumers.
 const syncVectorSelections = (core: PresetCoreAPIs) => {
   uiContext.set(
     'vectorPointSelection',
-    getSelectedIds(core, SELECTION_TYPES.VECTOR_POINT)
+    getSelectedIds(core, SelectionChannels.VECTOR_POINT)
   )
   uiContext.set(
     'vectorSegmentSelection',
-    getSelectedIds(core, SELECTION_TYPES.VECTOR_SEGMENT)
+    getSelectedIds(core, SelectionChannels.VECTOR_SEGMENT)
   )
 }
 
@@ -199,22 +221,22 @@ const updateUIContextSelection = (
   deps: PresetDependencies
 ) => {
   switch (change.action) {
-    case SELECTION_ACTIONS.SELECT_ELEMENTS:
-    case SELECTION_ACTIONS.DESELECT_ELEMENTS:
+    case SelectionActions.SELECT_ELEMENTS:
+    case SelectionActions.DESELECT_ELEMENTS:
       syncElementSelectionAndDerived(core, deps)
       break
-    case SELECTION_ACTIONS.SELECT_VECTOR_POINTS:
-    case SELECTION_ACTIONS.DESELECT_VECTOR_POINTS:
+    case SelectionActions.SELECT_VECTOR_POINTS:
+    case SelectionActions.DESELECT_VECTOR_POINTS:
       uiContext.set(
         'vectorPointSelection',
-        getSelectedIds(core, SELECTION_TYPES.VECTOR_POINT)
+        getSelectedIds(core, SelectionChannels.VECTOR_POINT)
       )
       break
-    case SELECTION_ACTIONS.SELECT_VECTOR_SEGMENTS:
-    case SELECTION_ACTIONS.DESELECT_VECTOR_SEGMENTS:
+    case SelectionActions.SELECT_VECTOR_SEGMENTS:
+    case SelectionActions.DESELECT_VECTOR_SEGMENTS:
       uiContext.set(
         'vectorSegmentSelection',
-        getSelectedIds(core, SELECTION_TYPES.VECTOR_SEGMENT)
+        getSelectedIds(core, SelectionChannels.VECTOR_SEGMENT)
       )
       break
   }
@@ -230,10 +252,18 @@ const handleUIContextSceneTreeChange = (
 
   switch (change.action) {
     case SCENE_TREE_ACTIONS.ADD_ELEMENT:
-    case SCENE_TREE_ACTIONS.REMOVE_ELEMENT:
       syncFlattenedElementIds(deps)
       syncElementDataMap(deps)
       break
+    case SCENE_TREE_ACTIONS.REMOVE_ELEMENT: {
+      const removedId = (change as AddRemoveElementChange).data.id
+      if (typeof removedId === 'string' && removedId.length > 0) {
+        syncSelectionOnElementRemoval(core, removedId)
+      }
+      syncFlattenedElementIds(deps)
+      syncElementDataMap(deps)
+      break
+    }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA: {
       syncElementDataMap(deps)
       const { key } = change as UpdateElementChange
@@ -246,12 +276,25 @@ const handleUIContextSceneTreeChange = (
 
   if (updatedPropertyKeys.length > 0) {
     // Recompute only properties whose trigger matches this scene-tree change.
-    const selectedIds = getSelectedIds(core, SELECTION_TYPES.ELEMENT)
+    const selectedIds = getSelectedIds(core, SelectionChannels.ELEMENT)
     uiContext.recomputeProperties(
       updatedPropertyKeys,
       buildSelectionContext(deps, selectedIds)
     )
   }
+}
+
+const applySelectionChangeToRuntime = (
+  core: PresetCoreAPIs,
+  change: SelectionChange
+) => {
+  const selection = core.getSelection(change.selectionType)
+  if (!selection) {
+    return
+  }
+
+  selection.select(change.after, change.options)
+  selection.cleanChanges()
 }
 
 let hasRegistered = false
@@ -279,6 +322,13 @@ export const registerDefaultDataChannelObservers = (
       updateUIContextSelection(change, core, deps)
   })
 
+  const selectionRuntimeDataChannelObserver = defineDataChannelObserver({
+    name: 'preset.selection.runtime',
+    channel: SharedDataChannelNames.SELECTION,
+    onChange: (change: SelectionChange) =>
+      applySelectionChangeToRuntime(core, change)
+  })
+
   subscribeToFileLoadComplete(() => {
     renderSceneTreeStore.reload()
     syncFlattenedElementIds(deps)
@@ -295,6 +345,7 @@ export const registerDefaultDataChannelObservers = (
   })
 
   core.registerDataChannelObserver(renderSceneTreeDataChannelObserver)
+  core.registerDataChannelObserver(selectionRuntimeDataChannelObserver)
   core.registerDataChannelObserver(renderSelectionDataChannelObserver)
   core.registerDataChannelObserver(uiContextSceneTreeDataChannelObserver)
   core.registerDataChannelObserver(uiContextSelectionDataChannelObserver)

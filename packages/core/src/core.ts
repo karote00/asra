@@ -85,24 +85,27 @@ class Core implements CoreAPIs {
   changeComputedData!: SceneTreeAPIs['changeComputedData']
   getAllElementsBounds!: SceneTreeAPIs['getAllElementsBounds']
   isContainerType!: SceneTreeAPIs['isContainerType']
+  selectByChannel!: ElementSelectionActionAPIs['selectByChannel']
   selectElements!: ElementSelectionActionAPIs['selectElements']
   selectVectorPoints!: ElementSelectionActionAPIs['selectVectorPoints']
   selectVectorSegments!: ElementSelectionActionAPIs['selectVectorSegments']
 
   initFeatureSystem!: FeatureSystemAPIs['initFeatureSystem']
+  defineUIProperty!: UIContextAPIs['defineUIProperty']
   registerUIProperty!: UIContextAPIs['registerUIProperty']
   getUIProperty!: UIContextAPIs['getUIProperty']
   setUIProperty!: UIContextAPIs['setUIProperty']
   getUIPropertySubject!: UIContextAPIs['getUIPropertySubject']
   onUIPropertyChange!: UIContextAPIs['onUIPropertyChange']
 
+  defineSystemProperty!: SystemManagedPropertyAPIs['defineSystemProperty']
   registerSystemProperty!: SystemManagedPropertyAPIs['registerSystemProperty']
   getSystemProperty!: SystemManagedPropertyAPIs['getSystemProperty']
   setSystemProperty!: SystemManagedPropertyAPIs['setSystemProperty']
   getSystemPropertyObservable!: SystemManagedPropertyAPIs['getSystemPropertyObservable']
 
   constructor(readonly deps: CoreDeps) {
-    const apis = createAPIs(deps.sceneTree, deps.render)
+    const apis = createAPIs(deps.sceneTree, deps.render, deps.selection)
 
     Object.assign(this, apis as CoreAPIs)
 
@@ -298,11 +301,18 @@ class Core implements CoreAPIs {
     return getPropertyComponent(type)
   }
 
-  registerSelection(
+  defineSelection(
     type: Parameters<SelectionManager['register']>[0],
     selection: Parameters<SelectionManager['register']>[1]
   ): void {
     this.deps.selection.register(type, selection)
+  }
+
+  registerSelection(
+    type: Parameters<SelectionManager['register']>[0],
+    selection: Parameters<SelectionManager['register']>[1]
+  ): void {
+    this.defineSelection(type, selection)
   }
 
   getSelection(type: Parameters<SelectionManager['get']>[0]) {

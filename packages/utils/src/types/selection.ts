@@ -1,10 +1,12 @@
-import { SELECTION_ACTIONS, SELECTION_TYPES } from '../constants'
 import type { MutationOptions } from './change'
 import type { YjsChange } from './yjs'
 
+export type SelectionChannel = string
+export type SelectionAction = string
+
 export interface SelectionChangePayload {
-  selectionType: SELECTION_TYPES
-  action: SELECTION_ACTIONS
+  selectionType: SelectionChannel
+  action: SelectionAction
   eventName: string
   before: string[]
   after: string[]

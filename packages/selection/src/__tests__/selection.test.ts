@@ -1,11 +1,15 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import Selection from '../selections/element-selection'
+import BaseSelection from '../selections/base-selection'
 
 describe('Selection', () => {
-  let selection: Selection
+  let selection: BaseSelection
 
   beforeEach(() => {
-    selection = new Selection()
+    selection = new BaseSelection({
+      selectionType: 'element',
+      selectAction: 'selectElements',
+      eventName: 'selectElements'
+    })
   })
 
   it('should initialize with no selected ids', () => {

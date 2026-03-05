@@ -1,16 +1,7 @@
 import SelectionManager from './selection-manager'
-import ElementSelection from './selections/element-selection'
-import VectorPointSelection from './selections/vector-point-selection'
-import VectorSegmentSelection from './selections/vector-segment-selection'
-import { initSelectionSubscribes } from './subscribes'
+import BaseSelection from './selections/base-selection'
 import selectionManager from './selection-manager-instance'
 
-initSelectionSubscribes()
-
-export {
-  SelectionManager,
-  ElementSelection,
-  VectorPointSelection,
-  VectorSegmentSelection
-}
+export { SelectionManager, BaseSelection }
+export type { SelectionDefinition } from './selections/base-selection'
 export default selectionManager

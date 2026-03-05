@@ -23,6 +23,7 @@ Preset role contract:
 - builtin base/system/aggregate UI-property registrations
 - default shared data-channel registration (`sceneTree`, `selection`, `props`)
 - default data-channel observer/subscription registration (render + ui-context quick-start behavior)
+- default selection shared-channel apply wiring and scene-tree-driven selection cleanup
 
 ## Must Not Own
 
@@ -38,6 +39,11 @@ Preset role contract:
 - preset owns default event names/definitions and registers them through `core.registerEvent(...)` while `@asyra/reactive-events` provides event infra (registry + publish/subscribe wiring).
 - preset registers default shared-channel observers (render + ui-context scene-tree/selection) by channel name instead of touching YJS instances directly.
 - preset computes default ui-context aggregates from `sceneTree` + `selection` subscriptions (no ui-context-owned scene/selection stores).
+- preset applies selection changes from the shared `selection` channel to selection runtime state and handles default cleanup for removed elements.
+- preset defines concrete canvas selection channel profile constants (element/vector point/vector segment) for default channel identity.
+- preset exports canvas selection profile constants for app usage (`SelectionChannels`, `SelectionActions`).
+- preset declares default selections via `core.defineSelection(...)` (with `registerSelection` compatibility retained in core).
+- preset declares default UI/system properties via `core.defineUIProperty(...)` and `core.defineSystemProperty(...)` (register aliases remain compatibility-only).
 
 ## Validation Checklist
 

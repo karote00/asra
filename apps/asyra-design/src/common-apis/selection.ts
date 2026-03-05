@@ -1,4 +1,5 @@
-import { type EVENT_OPTIONS, SELECTION_TYPES } from '@asyra/utils'
+import { type EVENT_OPTIONS } from '@asyra/utils'
+import { SelectionChannels } from '@asyra/preset'
 import { VECTOR_TOKENS, type VectorPointTarget } from '@asyra/core'
 
 /**
@@ -96,7 +97,7 @@ export const decodeVectorSegmentSelectionId = (
   }
 }
 
-const getSelectionIds = (selectionType: SELECTION_TYPES): string[] => {
+const getSelectionIds = (selectionType: string): string[] => {
   const selectionState = core.getSelection(selectionType)
   if (selectionState) {
     return [...selectionState.getSelectedIds()]
@@ -114,11 +115,11 @@ export const selectionApis = {
   },
 
   getVectorPointSelectionIds: () => {
-    return getSelectionIds(SELECTION_TYPES.VECTOR_POINT)
+    return getSelectionIds(SelectionChannels.VECTOR_POINT)
   },
 
   getVectorSegmentSelectionIds: () => {
-    return getSelectionIds(SELECTION_TYPES.VECTOR_SEGMENT)
+    return getSelectionIds(SelectionChannels.VECTOR_SEGMENT)
   },
 
   getSelectedVectorPoints: (): VectorPointSelectionRef[] => {

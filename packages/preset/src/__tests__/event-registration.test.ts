@@ -42,10 +42,10 @@ describe('Preset Event Registration', () => {
         getPresetDependencies: createDeps,
         registerRenderLayer: vi.fn(),
         registerPropertySchema: vi.fn(),
-        registerSelection: vi.fn(),
+        defineSelection: vi.fn(),
         getSelection: () => undefined,
-        registerUIProperty: vi.fn(),
-        registerSystemProperty: <T>(key: string, defaultValue: T) => {
+        defineUIProperty: vi.fn(),
+        defineSystemProperty: <T>(key: string, defaultValue: T) => {
           const existing = systemPropertyMap.get(key)
           if (existing) {
             return existing as BehaviorSubject<T>
@@ -69,6 +69,7 @@ describe('Preset Event Registration', () => {
     )
     expect(registeredObserverNames).toEqual([
       'preset.render.sceneTree',
+      'preset.selection.runtime',
       'preset.render.selection',
       'preset.uiContext.sceneTree',
       'preset.uiContext.selection'

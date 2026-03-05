@@ -38,11 +38,8 @@ export type {
   PropertyComponentConstructor,
   PropertyComponentAccessor
 } from '@asyra/props-manager'
-export {
-  ElementSelection,
-  VectorPointSelection,
-  VectorSegmentSelection
-} from '@asyra/selection'
+export { BaseSelection } from '@asyra/selection'
+export type { SelectionDefinition } from '@asyra/selection'
 export { componentRegistry } from '@asyra/scene-tree'
 export type {
   FeatureDefinition,
@@ -133,15 +130,18 @@ type CoreExtensionApiKeys =
   | 'changeComputedData'
   | 'getAllElementsBounds'
   | 'isContainerType'
+  | 'selectByChannel'
   | 'selectElements'
   | 'selectVectorPoints'
   | 'selectVectorSegments'
   | 'initFeatureSystem'
+  | 'defineUIProperty'
   | 'registerUIProperty'
   | 'getUIProperty'
   | 'setUIProperty'
   | 'getUIPropertySubject'
   | 'onUIPropertyChange'
+  | 'defineSystemProperty'
   | 'registerSystemProperty'
   | 'getSystemProperty'
   | 'setSystemProperty'
@@ -152,6 +152,7 @@ type CoreExtensionApiKeys =
   | 'getPropertySchema'
   | 'registerPropertyComponent'
   | 'getPropertyComponent'
+  | 'defineSelection'
   | 'registerSelection'
   | 'getSelection'
   | 'registerDataChannelObserver'
@@ -162,10 +163,10 @@ type CorePresetInstallApiKeys =
   | 'registerRenderLayer'
   | 'registerDataChannelObserver'
   | 'registerPropertySchema'
-  | 'registerSelection'
+  | 'defineSelection'
   | 'getSelection'
-  | 'registerUIProperty'
-  | 'registerSystemProperty'
+  | 'defineUIProperty'
+  | 'defineSystemProperty'
   | 'getSystemPropertyObservable'
   | 'getPresetDependencies'
 

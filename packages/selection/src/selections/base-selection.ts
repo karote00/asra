@@ -1,13 +1,13 @@
 import {
-  SELECTION_ACTIONS,
-  SELECTION_TYPES,
-  type EvnetOptions
+  type EvnetOptions,
+  type SelectionAction,
+  type SelectionChannel
 } from '@asyra/utils'
 import type { SelectionChange } from '@asyra/utils'
 
-interface SelectionMetadata {
-  selectionType: SELECTION_TYPES
-  selectAction: SELECTION_ACTIONS
+export interface SelectionDefinition {
+  selectionType: SelectionChannel
+  selectAction: SelectionAction
   eventName: string
 }
 
@@ -16,7 +16,7 @@ export default class BaseSelection {
   protected prevSelectedIds: Set<string> = new Set()
   changes: SelectionChange[] = []
 
-  constructor(private readonly metadata: SelectionMetadata) {}
+  constructor(private readonly metadata: SelectionDefinition) {}
 
   private _updatePrevSelectedIds(): void {
     this.prevSelectedIds = new Set(this.selectedIds)
@@ -83,8 +83,20 @@ export default class BaseSelection {
     return this.prevSelectedIds
   }
 
+  getSelectionType(): SelectionChannel {
+    return this.metadata.selectionType
+  }
+
+  getSelectAction(): SelectionAction {
+    return this.metadata.selectAction
+  }
+
+  getEventName(): string {
+    return this.metadata.eventName
+  }
+
   addChange(
-    action: SELECTION_ACTIONS,
+    action: SelectionAction,
     before: string[],
     after: string[],
     options?: EvnetOptions

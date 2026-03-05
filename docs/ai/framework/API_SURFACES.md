@@ -44,6 +44,9 @@ Feature/runtime wiring:
 - `initFeatureSystem(packages: CorePackages): void`
 - `setupInputSystem(watchedElement?: HTMLElement): void`
 - `registerEvent(event: string | EventDefinition<TPayload, TOptions>): EventRegistration<TPayload, TOptions>` (register custom event channels in `@asyra/reactive-events` and get publish/subscribe handles)
+- `defineSelection(type: string, selection: Selection): void` (primary declaration API for selection channel registration)
+- `registerSelection(type: string, selection: Selection): void` (compatibility alias of `defineSelection`)
+- `getSelection(type: string): Selection | undefined`
 
 Render bridge:
 
@@ -63,17 +66,24 @@ Scene/model bridge:
 - `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: { undoable?: boolean; shared?: string }): void`
 - `getAllElementsBounds(): Bounds | null`
 - `isContainerType(type: string): boolean`
+- `selectByChannel(channel: string, ids: string[], options?: { undoable?: boolean; shared?: string }): void`
 - `selectElements(elementIds: string[], options?: { undoable?: boolean; shared?: string }): void`
+- `selectVectorPoints(pointIds: string[], options?: { undoable?: boolean; shared?: string }): void`
+- `selectVectorSegments(segmentIds: string[], options?: { undoable?: boolean; shared?: string }): void`
+  - wrapper contract: channel must be resolvable from registered selection metadata (`action`/`eventName`); no built-in fallback channel defaults
 
 Managed property bridges:
 
-- `registerUIProperty<T>(key: string, config: PropertyRegistration<T>): void`
+- `defineUIProperty<T>(key: string, config: PropertyRegistration<T>): void` (primary declaration API)
+- `registerUIProperty<T>(key: string, config: PropertyRegistration<T>): void` (compatibility alias of `defineUIProperty`)
 - `getUIProperty<T>(key: string): T | undefined`
 - `setUIProperty<T>(key: string, value: T): void`
 - `getUIPropertySubject<T>(key: string): BehaviorSubject<T> | undefined`
 - `onUIPropertyChange<T>(key: string, callback: (value: T) => void): () => void`
-- `registerSystemProperty<T>(key: string, defaultValue: T): BehaviorSubject<T>`
-- `registerSystemProperty<T>(key: string, defaultValue: T, options?: { runtime?: boolean; silent?: boolean; validate?: (value: unknown) => value is T }): BehaviorSubject<T>`
+- `defineSystemProperty<T>(key: string, defaultValue: T): BehaviorSubject<T>` (primary declaration API)
+- `defineSystemProperty<T>(key: string, defaultValue: T, options?: { runtime?: boolean; silent?: boolean; validate?: (value: unknown) => value is T }): BehaviorSubject<T>`
+- `registerSystemProperty<T>(key: string, defaultValue: T): BehaviorSubject<T>` (compatibility alias of `defineSystemProperty`)
+- `registerSystemProperty<T>(key: string, defaultValue: T, options?: { runtime?: boolean; silent?: boolean; validate?: (value: unknown) => value is T }): BehaviorSubject<T>` (compatibility alias)
 - `getSystemProperty<T>(key: string): T | undefined`
 - `setSystemProperty<T>(key: string, value: T): void`
 - `getSystemPropertyObservable<T>(key: string): BehaviorSubject<T> | undefined`
@@ -160,7 +170,7 @@ Managed property bridges:
 
 - default selection manager singleton
 - `SelectionManager` class
-- `ElementSelection`, `VectorPointSelection`, `VectorSegmentSelection` classes
+- `BaseSelection` class (generic metadata-driven selection runtime)
 
 `@asyra/system-context`
 
@@ -179,6 +189,7 @@ Managed property bridges:
   - register default render YJS observers (scene-tree + selection)
   - register default render system subscriptions (`zoom`, `viewportPosition`)
 - exports `InputSystemEvents` and `PresetEventNames` constants for preset-owned event namespaces
+- exports `SelectionChannels` and `SelectionActions` for default canvas selection profile contracts
 
 `@asyra/ui-context`
 

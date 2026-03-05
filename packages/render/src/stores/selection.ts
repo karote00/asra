@@ -1,5 +1,4 @@
 import selectionManager, { SelectionManager } from '@asyra/selection'
-import { SELECTION_TYPES } from '@asyra/utils'
 
 class RenderSelection {
   selectionManager: SelectionManager
@@ -15,11 +14,11 @@ class RenderSelection {
   }
 
   getElementSelection() {
-    const selection = this.selectionManager.get(SELECTION_TYPES.ELEMENT)
+    const selection = this.selectionManager.get('element')
     return selection ? [...selection.getSelectedIds()] : []
   }
 
-  updateSelection(type: SELECTION_TYPES) {
+  updateSelection(type: string) {
     const selection = this.selectionManager.get(type)
     if (!selection) {
       return
@@ -28,14 +27,14 @@ class RenderSelection {
     const selectedIds = selection.getSelectedIds()
 
     switch (type) {
-      case SELECTION_TYPES.ELEMENT: {
+      case 'element': {
         this.elementSelection = new Set(selectedIds)
         break
       }
-      case SELECTION_TYPES.VECTOR_POINT:
+      case 'vectorPoint':
         this.vectorPointSelection = new Set(selectedIds)
         break
-      case SELECTION_TYPES.VECTOR_SEGMENT:
+      case 'vectorSegment':
         this.vectorSegmentSelection = new Set(selectedIds)
         break
     }
