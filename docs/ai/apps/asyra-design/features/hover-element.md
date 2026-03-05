@@ -23,4 +23,5 @@
 
 - Hover detection is bounds-based, not render-instance-event-based.
 - Empty canvas hover sets hovered id to `null`.
-- Hover state is app interaction state; UI may consume it or ignore it.
+- Hover state is app interaction state mirrored into UI context (`hoveredElementId`) for UI consumers (for example, content panel row hover sync).
+- Canvas hover outline rendering is handled by the registered selection overlay render layer (selected + hover visuals).

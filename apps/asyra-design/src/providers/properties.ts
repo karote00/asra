@@ -30,3 +30,6 @@ export const useSelectedVectorPoint = (): SelectedVectorPointState | null =>
 
 export const useSelectedVectorSegment = (): SelectedVectorSegmentState | null =>
   useProperty<SelectedVectorSegmentState | null>('selectedVectorSegment')
+
+export const useHoveredElementId = (): string | null =>
+  useProperty<string | null>('hoveredElementId')

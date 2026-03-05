@@ -30,6 +30,7 @@ Primary files:
 - `src/contents/*`
   - scene list virtualization
   - element selection from content panel
+  - hovered row follows app hover target (`hoveredElementId`)
 
 - `src/properties/*`
   - element layout editing

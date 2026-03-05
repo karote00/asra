@@ -43,13 +43,14 @@ export const deleteElementFeature = defineFeature(
       const elementId = selectedIds[0]
       startTransaction()
       try {
+        selectionApis.selectElements([])
+
         const deleted = elementApis.deleteElement(elementId)
         if (!deleted) {
           return null
         }
 
         reEvaluateHoverAfterDelete(snapshot)
-        selectionApis.selectElements([])
 
         return { deletedElementId: elementId }
       } finally {

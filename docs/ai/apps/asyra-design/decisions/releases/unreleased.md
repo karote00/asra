@@ -283,3 +283,21 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Consequences:
   - App provider no longer depends on scene-tree runtime reads for list rows.
   - UI data flow stays consistent with ui-context subscription model.
+
+## 2026-03-06 - Hover/selection overlay unified and geometry-driven across canvas + contents panel
+
+- Context:
+  - Hover state was visible in contents panel but not consistently reflected in canvas overlay when hover originated from panel rows.
+  - Selection/hover visuals were split between render package built-ins and app-level behavior needs.
+  - Delete undo/redo path surfaced a selection-restore regression during overlay migration.
+- Decision:
+  - Finalize hover/selection overlay as registered app/preset render layer ownership, including both selected and hovered outlines.
+  - Make hover outlines geometry-driven for vector/oval/rect, with bounds fallback for unsupported types.
+  - Mirror and consume `hoveredElementId` through ui-context/providers and content-panel hover handlers.
+  - Restore selection runtime deterministically on undo/redo by applying selection events back into selection channels.
+- Consequences:
+  - Canvas and contents panel now share one hover source-of-truth (`hoveredElementId`) and visual result.
+  - Overlay behavior is app-controlled and no longer tied to render package built-in selection layer behavior.
+  - Delete undo/redo selection restoration is stable again under the new overlay architecture.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/hover-state-and-hover-selection-box-plan.md`

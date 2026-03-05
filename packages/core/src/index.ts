@@ -67,7 +67,10 @@ export {
   defineEvent,
   registerEventDefinitions,
   subscribeToFileLoadComplete,
-  subscribeToEndTransaction
+  subscribeToEndTransaction,
+  subscribeToSelectElements,
+  subscribeToSelectVectorPoints,
+  subscribeToSelectVectorSegments
 } from '@asyra/reactive-events'
 export type { EventDefinition } from '@asyra/reactive-events'
 export {

@@ -10,10 +10,12 @@ import { EntityTypes } from '@asyra/utils'
 import { Icon } from '@asyra/design-system'
 import { useElementData } from '../providers'
 import { selectElements } from '../controllers/element-selection'
+import { setHoveredElementId } from '../controllers/hovered-element'
 
 interface ElementData {
   elementId: string
   isSelected: boolean
+  isHovered: boolean
 }
 
 const INIT_MODIFIERS: ModifierKeys = {
@@ -47,7 +49,7 @@ const getModifierKeys = (e: KeyboardEvent): ModifierKeys => {
   }
 }
 
-const Element = ({ elementId, isSelected }: ElementData) => {
+const Element = ({ elementId, isSelected, isHovered }: ElementData) => {
   const elementData = useElementData(elementId)
   if (!elementData) return null
 
@@ -61,6 +63,12 @@ const Element = ({ elementId, isSelected }: ElementData) => {
     },
     [selectElements]
   )
+  const handleElementMouseEnter = useCallback(() => {
+    setHoveredElementId(id)
+  }, [id])
+  const handleElementMouseLeave = useCallback(() => {
+    setHoveredElementId(null)
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -79,7 +87,11 @@ const Element = ({ elementId, isSelected }: ElementData) => {
     }
   }, [])
 
-  const bgColor = isSelected ? 'bg-panel-lighter' : ''
+  const bgColor = isSelected
+    ? 'bg-panel-lighter'
+    : isHovered
+      ? 'bg-panel-light'
+      : ''
   const hoverBgColor = isSelected
     ? 'hover:bg-panel-lighter'
     : 'hover:bg-panel-light'
@@ -88,6 +100,8 @@ const Element = ({ elementId, isSelected }: ElementData) => {
     <div
       className={`flex items-center justify-between p-2 ${bgColor} ${hoverBgColor} text-gray-200`}
       onClick={handleElementClick}
+      onMouseEnter={handleElementMouseEnter}
+      onMouseLeave={handleElementMouseLeave}
       data-testid={`element-item-${id}`}
       data-layer-element="true"
       data-selected={isSelected}

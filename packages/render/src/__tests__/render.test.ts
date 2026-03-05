@@ -3,8 +3,6 @@ import { Application, Container } from 'pixi.js'
 import { MouseData } from '@asyra/utils'
 import { Render } from '../render'
 import * as ViewportLayerModule from '../layers/viewport'
-import * as SelectionLayerModule from '../layers/selection'
-import * as RenderSelectionStore from '../stores/selection'
 import { RenderContainerData, RenderElementData, SceneElement } from '../types'
 
 describe('Render', () => {
@@ -17,9 +15,8 @@ describe('Render', () => {
   })
 
   // Test constructor
-  it('should instantiate ViewportLayer and SelectionLayer', () => {
+  it('should instantiate ViewportLayer', () => {
     expect(render.viewport).toBeInstanceOf(ViewportLayerModule.ViewportLayer)
-    expect(render.selection).toBeInstanceOf(SelectionLayerModule.SelectionLayer)
   })
 
   // Test init method
@@ -40,28 +37,8 @@ describe('Render', () => {
     await render.init(width, height, backgroundColor)
 
     expect(render.app).toBe(mockApp)
-    expect(mockApp.stage.addChild).toHaveBeenCalledTimes(2)
+    expect(mockApp.stage.addChild).toHaveBeenCalledTimes(1)
     expect(mockApp.stage.addChild).toHaveBeenCalledWith(render.viewport.view)
-    expect(mockApp.stage.addChild).toHaveBeenCalledWith(render.selection.view)
-  })
-
-  // Test getSelectedElements
-  it('should get selected elements from renderSelection and viewport', () => {
-    const mockSceneElements = [new Container(), new Container()]
-    mockSceneElements[0].label = 'el1'
-    mockSceneElements[1].label = 'el2'
-    vi.spyOn(render.viewport, 'getElementById').mockImplementation((id) => {
-      return mockSceneElements.find((el) => el.label === id) as SceneElement
-    })
-    vi.mocked(RenderSelectionStore.default.elementSelection).add('el1')
-    vi.mocked(RenderSelectionStore.default.elementSelection).add('el2')
-
-    const result = render.getSelectedElements()
-
-    expect(render.viewport.getElementById).toHaveBeenCalledTimes(2)
-    expect(render.viewport.getElementById).toHaveBeenCalledWith('el1')
-    expect(render.viewport.getElementById).toHaveBeenCalledWith('el2')
-    expect(result).toEqual(mockSceneElements)
   })
 
   // Test delegation methods to viewport
@@ -206,5 +183,15 @@ describe('Render', () => {
     expect(render.viewport.getMousePosInWorkspace).toHaveBeenCalledWith(
       mouseData
     )
+  })
+
+  it('should delegate getElementById to viewport', () => {
+    const element = new Container() as SceneElement
+    vi.spyOn(render.viewport, 'getElementById').mockReturnValue(element)
+
+    const result = render.getElementById('el1')
+
+    expect(render.viewport.getElementById).toHaveBeenCalledWith('el1')
+    expect(result).toBe(element)
   })
 })

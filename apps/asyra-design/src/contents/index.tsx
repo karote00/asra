@@ -4,12 +4,14 @@ import Element from './Element'
 import { useFlattenedIdsData } from '../providers'
 import { COLUMN_WIDTH, ROW_HEIGHT } from '../constants'
 import { selectElements } from '../controllers/element-selection'
-import { useElementSelection } from '../providers'
+import { setHoveredElementId } from '../controllers/hovered-element'
+import { useElementSelection, useHoveredElementId } from '../providers'
 
 const Contents: React.FC = () => {
   const parentRef = useRef<HTMLDivElement>(null)
   const flattenedIds = useFlattenedIdsData()
   const elementSelection = useElementSelection()
+  const hoveredElementId = useHoveredElementId()
   const rowVirtualizer = useVirtualizer({
     count: flattenedIds.length,
     getScrollElement: () => parentRef.current,
@@ -20,6 +22,9 @@ const Contents: React.FC = () => {
   const handleContentsPanelClick = useCallback(() => {
     selectElements([])
   }, [])
+  const handleContentsPanelMouseLeave = useCallback(() => {
+    setHoveredElementId(null)
+  }, [])
 
   return (
     <div
@@ -27,6 +32,7 @@ const Contents: React.FC = () => {
       className={`w-${COLUMN_WIDTH} z-10 dark:bg-panel-darker dark:border-r dark:border-border-dark overflow-y-auto`}
       style={{ gridArea: 'left-sidebar' }}
       onClick={handleContentsPanelClick}
+      onMouseLeave={handleContentsPanelMouseLeave}
       data-testid="contents-panel"
     >
       <div
@@ -55,6 +61,7 @@ const Contents: React.FC = () => {
               <Element
                 elementId={elementId}
                 isSelected={elementSelection.has(elementId)}
+                isHovered={hoveredElementId === elementId}
               />
             </div>
           )

@@ -140,7 +140,7 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
   core.defineSystemProperty('keyAlt', DefaultKeySnapshot.alt)
   core.defineSystemProperty('keyMeta', DefaultKeySnapshot.meta)
 
-  core.defineSystemProperty(
+  const hoveredElementObservable = core.defineSystemProperty(
     'hoveredElementId',
     DefaultTargetSnapshot.hoveredElementId
   )
@@ -173,6 +173,10 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
   core.defineUIProperty<string | null>('pathEditingVectorId', {
     defaultValue: null,
     source$: pathEditingVectorObservable
+  })
+  core.defineUIProperty<string | null>('hoveredElementId', {
+    defaultValue: null,
+    source$: hoveredElementObservable
   })
   core.defineUIProperty<SelectedVectorPointState | null>(
     'selectedVectorPoint',

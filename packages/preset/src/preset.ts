@@ -2,7 +2,10 @@ import './components'
 import './props/components'
 import { registerEvents } from './events/register-events'
 import { registerPropertySchemas } from './props/register-property-schemas'
-import { registerVectorPathEditingRenderLayer } from './render-layers'
+import {
+  registerSelectionOverlayRenderLayer,
+  registerVectorPathEditingRenderLayer
+} from './render-layers'
 import {
   registerDefaultDataChannelObservers,
   registerDefaultRenderSystemSubscriptions,
@@ -36,6 +39,14 @@ export const applyPreset = (
   registerDefaultSharedDataChannels()
   registerDefaultRenderSystemSubscriptions(core, resolvedDeps)
   registerDefaultDataChannelObservers(core, resolvedDeps)
+  registerSelectionOverlayRenderLayer(
+    (registration, options) => core.registerRenderLayer(registration, options),
+    {
+      render: resolvedDeps.render,
+      sceneTree: resolvedDeps.sceneTree,
+      systemContext: resolvedDeps.systemContext
+    }
+  )
   registerVectorPathEditingRenderLayer(
     (registration, options) => core.registerRenderLayer(registration, options),
     {

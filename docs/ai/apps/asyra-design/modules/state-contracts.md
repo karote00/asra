@@ -22,7 +22,7 @@ This file defines app-level state keys, owners, and primary consumers.
 - `hoveredElementId`
   - owner: system-context
   - writers: hover-element feature
-  - readers: selection feature (hit target)
+  - readers: selection feature (hit target), content panel hover row state, selection overlay render layer
 
 - `pathEditingVectorId`
   - owner: system-context

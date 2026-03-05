@@ -3,12 +3,16 @@ import {
   propertyRegistry,
   renderSceneTreeStore,
   renderSelectionStore,
+  subscribeToSelectElements,
+  subscribeToSelectVectorPoints,
+  subscribeToSelectVectorSegments,
   uiContext,
   subscribeToEndTransaction,
   subscribeToFileLoadComplete
 } from '@asyra/core'
 import {
   EntityTypes,
+  type EVENT_OPTIONS,
   SCENE_TREE_ACTIONS,
   SharedDataChannelNames,
   type AddRemoveElementChange,
@@ -297,6 +301,21 @@ const applySelectionChangeToRuntime = (
   selection.cleanChanges()
 }
 
+const applySelectionIdsToRuntime = (
+  core: PresetCoreAPIs,
+  selectionType: SelectionChannel,
+  after: string[],
+  options?: EVENT_OPTIONS
+) => {
+  const selection = core.getSelection(selectionType)
+  if (!selection) {
+    return
+  }
+
+  selection.select(after, options)
+  selection.cleanChanges()
+}
+
 let hasRegistered = false
 
 // Register preset default shared-channel observers once.
@@ -342,6 +361,33 @@ export const registerDefaultDataChannelObservers = (
     syncElementDataMap(deps)
     syncElementSelectionAndDerived(core, deps)
     syncVectorSelections(core)
+  })
+
+  // Undo/redo publishes selection events directly from transaction history.
+  // Apply those payloads to runtime so selection state is restored correctly.
+  subscribeToSelectElements((event) => {
+    applySelectionIdsToRuntime(
+      core,
+      SelectionChannels.ELEMENT,
+      event.payload.after,
+      event.options
+    )
+  })
+  subscribeToSelectVectorPoints((event) => {
+    applySelectionIdsToRuntime(
+      core,
+      SelectionChannels.VECTOR_POINT,
+      event.payload.after,
+      event.options
+    )
+  })
+  subscribeToSelectVectorSegments((event) => {
+    applySelectionIdsToRuntime(
+      core,
+      SelectionChannels.VECTOR_SEGMENT,
+      event.payload.after,
+      event.options
+    )
   })
 
   core.registerDataChannelObserver(renderSceneTreeDataChannelObserver)

@@ -62,3 +62,18 @@ Append-only rule: do not edit/delete prior entries; add a superseding entry when
 - Consequences:
   - Framework/preset/app now share one consistent UI data flow boundary (`core`/`ui-context` subscriptions).
   - UI data aggregation ownership stays in preset/app wiring layers, not in ui-context package internals.
+
+## 2026-03-06 - Cross-scope overlay ownership moved to registered layer architecture
+
+- Context:
+  - Selection/hover overlay rendering behavior needed app-controlled geometry semantics and panel-originated hover parity.
+  - Existing built-in render selection layer ownership conflicted with app-level hover/selection evolution.
+- Decision:
+  - Shift selection/hover overlay behavior to preset/app registered render layer ownership.
+  - Keep `@asyra/render` focused on scene/viewport primitives and external layer registration APIs.
+  - Align selection runtime restoration by subscribing to selection events during undo/redo flows.
+- Consequences:
+  - Framework/app boundary is cleaner: render core provides primitives, app/preset define overlay behavior.
+  - Cross-scope hover/selection behavior is now deterministic across canvas interaction, content-panel interaction, and history replay.
+- Related App Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/hover-state-and-hover-selection-box-plan.md`

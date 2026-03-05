@@ -31,6 +31,14 @@
 1. Auto-layout app UX once framework support is ready
 2. Additional design-domain tools built on the same app architecture
 
+## Recently Completed
+
+1. Hover state and selection overlay unification (completed 2026-03-06)
+- synced hovered target across canvas and content panel
+- moved selection/hover overlay drawing to registered app/preset render layer
+- hover outline now follows geometry for vector/oval/rect (with fallback bounds for unsupported types)
+- completed plan: `docs/ai/apps/asyra-design/plans/completed/hover-state-and-hover-selection-box-plan.md`
+
 ## Decision Logging Rule
 
 - When a plan item changes app contracts/runtime boundaries, append rationale to `decisions/releases/unreleased.md`.

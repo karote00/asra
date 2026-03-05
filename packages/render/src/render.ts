@@ -1,10 +1,8 @@
 import { Application, Container, Graphics, Ticker } from 'pixi.js'
 import { DataTypes, MouseData } from '@asyra/utils'
-import { RenderElementData, RenderContainerData, SceneElement } from './types'
+import { RenderElementData, RenderContainerData } from './types'
 import { ViewportLayer } from './layers/viewport'
-import { SelectionLayer } from './layers/selection'
 import renderLayerRegistry from './registries/render-layer'
-import renderSelection from './stores/selection'
 import type { RenderLayerRegistration } from './types/render-layer'
 
 const ticker = Ticker.shared
@@ -12,17 +10,12 @@ const ticker = Ticker.shared
 class Render {
   app: Application | null = null
   viewport: ViewportLayer
-  selection: SelectionLayer
   private customLayerContainers: Container[] = []
   private _tickerActive: boolean = false
   private _animateHandler: () => void
 
   constructor() {
     this.viewport = new ViewportLayer()
-    this.selection = new SelectionLayer({
-      getSelectedElements: this.getSelectedElements.bind(this),
-      getHoverElement: () => null
-    })
 
     // Don't auto-start ticker in constructor to support controlled initialization
     this._tickerActive = false
@@ -58,7 +51,6 @@ class Render {
     renderLayerRegistry.getAll().forEach((registration) => {
       registration.update?.()
     })
-    this.selection.update()
   }
 
   registerLayer(
@@ -107,17 +99,11 @@ class Render {
   private _setupStageLayers() {
     this.app?.stage.addChild(this.viewport.view)
     this.syncCustomLayers()
-    this.app?.stage.addChild(this.selection.view)
   }
 
   private syncCustomLayers() {
     if (!this.app) {
       return
-    }
-
-    const shouldRestoreSelection = this.selection.view.parent === this.app.stage
-    if (shouldRestoreSelection) {
-      this.app.stage.removeChild(this.selection.view)
     }
 
     this.customLayerContainers.forEach((layer) => {
@@ -131,16 +117,6 @@ class Render {
     this.customLayerContainers.forEach((layer) => {
       this.app?.stage.addChild(layer)
     })
-
-    if (shouldRestoreSelection) {
-      this.app.stage.addChild(this.selection.view)
-    }
-  }
-
-  getSelectedElements(): SceneElement[] {
-    return [...renderSelection.elementSelection]
-      .map((elementId) => this.viewport.getElementById(elementId))
-      .filter((element): element is SceneElement => !!element)
   }
 
   getAllElementsBounds() {
@@ -231,6 +207,10 @@ class Render {
 
   getMousePosInWorkspace(mousePos: MouseData) {
     return this.viewport.getMousePosInWorkspace(mousePos)
+  }
+
+  getElementById(elementId: string) {
+    return this.viewport.getElementById(elementId)
   }
 
   dispose() {
