@@ -9,6 +9,11 @@ This file tracks framework planning topics and points to detailed references.
 - Keep deterministic fallback path: `unregister -> redefine` when extension points are unavailable.
 - Reference: `docs/ai/framework/plans/extendable-preset-plan.md`
 
+2. Render-engine boundary
+- Split render orchestration from concrete engine implementation.
+- Keep Pixi as default engine via preset wiring while enabling engine swap for future domains.
+- Reference: `docs/ai/framework/plans/render-engine-boundary-plan.md`
+
 ## Recently Completed
 
 1. System-context event-to-property update ownership (Completed: 2026-03-05)

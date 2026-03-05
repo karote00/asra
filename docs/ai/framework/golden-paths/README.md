@@ -8,3 +8,4 @@ If a golden path exists for a topic, follow it before `BEST_PRACTICES.md`.
 - `register-property-component.md`
 - `register-feature.md`
 - `load-save-migration.md`
+- `feature-acceptance-checklist.md`

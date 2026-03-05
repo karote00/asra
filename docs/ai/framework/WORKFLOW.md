@@ -57,6 +57,7 @@ Actions:
 - define transaction boundaries (`start/update/end`) for state mutations
 - define extension surface changes (register APIs, schemas, hooks, adapters)
 - define deprecation impact if replacing old behavior
+- for new feature contracts, run `golden-paths/feature-acceptance-checklist.md`
 
 Checklist:
 

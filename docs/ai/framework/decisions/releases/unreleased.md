@@ -724,3 +724,19 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - Optional core capability probing is removed from concrete API call paths.
 - Related Plan:
   - `docs/ai/framework/plans/completed/core-concrete-api-contract-and-preset-strict-surface.md`
+
+## 2026-03-05 - Render-engine boundary formalized as framework direction
+
+- Context:
+  - Framework docs still referenced Pixi-centric constraints in acceptance guidance while the architecture direction is engine-swappable rendering.
+  - New near-term planning now targets separation between render orchestration and concrete engine implementation.
+- Decision:
+  - Formalize render-engine boundary direction in framework planning.
+  - Keep Pixi as default engine through preset wiring, but treat it as one concrete engine implementation, not framework-wide render ownership.
+  - Update acceptance checklist language to require engine-specific imports stay inside render boundary packages (engine-agnostic wording).
+- Consequences:
+  - Framework guidance is aligned with the swappable renderer goal.
+  - Future render-engine package extraction has an explicit planning reference and decision rationale trail.
+  - No runtime contract break is introduced yet; this entry records direction and guardrails.
+- Related Plan:
+  - `docs/ai/framework/plans/render-engine-boundary-plan.md`
