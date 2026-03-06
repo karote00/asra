@@ -11,9 +11,11 @@ import type {
 import {
   VECTOR_TOKENS,
   VECTOR_TOPOLOGY_NETWORK_ID_TYPE,
+  VECTOR_TOPOLOGY_POINT_ID_TYPE,
   VECTOR_TOPOLOGY_SEGMENT_ID_TYPE
 } from '@asyra/core'
 import { id, type PositionData } from '@asyra/utils'
+import { splitCubicBezierAtT } from './bezier-adapter'
 
 export type VectorAnchorSubpaths = VectorAnchorPoint[][]
 export type VectorTopologyEndpointSide = VectorEndpointSide
@@ -417,15 +419,43 @@ export const updateAnchorPositionInTopology = (
     }
   }
 
-  return {
-    points: {
-      ...topology.points,
-      [pointId]: {
-        ...point,
-        x: position.x,
-        y: position.y
+  const dx = position.x - point.x
+  const dy = position.y - point.y
+
+  const nextPoints: Record<string, VectorPointNode> = {
+    ...topology.points,
+    [pointId]: {
+      ...point,
+      x: position.x,
+      y: position.y
+    }
+  }
+
+  if (dx !== 0 || dy !== 0) {
+    const inControlId = getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN)
+    const outControlId = getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.OUT)
+    const inControl = topology.points[inControlId]
+    const outControl = topology.points[outControlId]
+
+    if (isControlNode(inControl)) {
+      nextPoints[inControlId] = {
+        ...inControl,
+        x: inControl.x + dx,
+        y: inControl.y + dy
       }
-    },
+    }
+
+    if (isControlNode(outControl)) {
+      nextPoints[outControlId] = {
+        ...outControl,
+        x: outControl.x + dx,
+        y: outControl.y + dy
+      }
+    }
+  }
+
+  return {
+    points: nextPoints,
     segments: { ...topology.segments },
     networks: { ...topology.networks }
   }
@@ -644,6 +674,216 @@ const pruneUnusedControls = (
   })
 
   return nextPoints
+}
+
+const SPLIT_T_EPSILON = 1e-6
+const CONTROL_POINT_EPSILON_SQUARED = 1e-8
+
+const clampUnit = (value: number) => Math.max(0, Math.min(1, value))
+
+const isNonDegenerateControl = (
+  control: PositionData,
+  anchor: PositionData
+): boolean => {
+  const dx = control.x - anchor.x
+  const dy = control.y - anchor.y
+  return dx * dx + dy * dy > CONTROL_POINT_EPSILON_SQUARED
+}
+
+const upsertControlPoint = (
+  points: Record<string, VectorPointNode>,
+  anchorId: string,
+  role: VectorControlRole,
+  controlPosition: PositionData | null,
+  anchorPosition: PositionData
+): string | null => {
+  const controlId = getControlId(anchorId, role)
+  if (!controlPosition || !isNonDegenerateControl(controlPosition, anchorPosition)) {
+    delete points[controlId]
+    return null
+  }
+
+  points[controlId] = {
+    id: controlId,
+    kind: VECTOR_TOKENS.POINT.KIND.CONTROL,
+    controlForId: anchorId,
+    controlRole: role,
+    x: controlPosition.x,
+    y: controlPosition.y
+  }
+
+  return controlId
+}
+
+export const splitSegmentInTopology = (
+  topology: VectorTopologyLike,
+  segmentId: string,
+  split: { t: number }
+): { topology: VectorTopology; pointId: string } | null => {
+  const segment = topology.segments[segmentId]
+  if (!segment) {
+    return null
+  }
+
+  const startAnchor = topology.points[segment.startId]
+  const endAnchor = topology.points[segment.endId]
+  if (!isAnchorNode(startAnchor) || !isAnchorNode(endAnchor)) {
+    return null
+  }
+
+  const t = clampUnit(split.t)
+  if (t <= SPLIT_T_EPSILON || t >= 1 - SPLIT_T_EPSILON) {
+    return null
+  }
+
+  const orderedNetworks = getOrderedNetworks(topology)
+  const targetNetwork = orderedNetworks.find((network) =>
+    network.segmentIds.includes(segmentId)
+  )
+  if (!targetNetwork) {
+    return null
+  }
+
+  const startIndex = targetNetwork.pointIds.indexOf(segment.startId)
+  const endIndex = targetNetwork.pointIds.indexOf(segment.endId)
+  if (startIndex === -1 || endIndex === -1) {
+    return null
+  }
+
+  const isSequential = endIndex === startIndex + 1
+  const isClosingSegment =
+    targetNetwork.closed &&
+    startIndex === targetNetwork.pointIds.length - 1 &&
+    endIndex === 0
+  if (!isSequential && !isClosingSegment) {
+    return null
+  }
+
+  const outControl =
+    segment.outControlId &&
+    isControlNode(topology.points[segment.outControlId])
+      ? topology.points[segment.outControlId]
+      : null
+  const inControl =
+    segment.inControlId &&
+    isControlNode(topology.points[segment.inControlId])
+      ? topology.points[segment.inControlId]
+      : null
+  const splitGeometry = splitCubicBezierAtT(
+    { x: startAnchor.x, y: startAnchor.y },
+    outControl ? { x: outControl.x, y: outControl.y } : { x: startAnchor.x, y: startAnchor.y },
+    inControl ? { x: inControl.x, y: inControl.y } : { x: endAnchor.x, y: endAnchor.y },
+    { x: endAnchor.x, y: endAnchor.y },
+    t
+  )
+  const hasCurve = !!(outControl || inControl)
+
+  const splitPointId = id(VECTOR_TOPOLOGY_POINT_ID_TYPE)
+  const splitPointPosition = splitGeometry.splitPoint
+  const nextPoints: Record<string, VectorPointNode> = {
+    ...topology.points,
+    [splitPointId]: {
+      id: splitPointId,
+      kind: VECTOR_TOKENS.POINT.KIND.ANCHOR,
+      anchorType: hasCurve ? 'smooth' : 'sharp',
+      x: splitPointPosition.x,
+      y: splitPointPosition.y
+    }
+  }
+
+  const nextSegments: Record<string, VectorSegment> = {
+    ...topology.segments
+  }
+  delete nextSegments[segmentId]
+
+  const firstSegmentId = id(VECTOR_TOPOLOGY_SEGMENT_ID_TYPE)
+  const secondSegmentId = id(VECTOR_TOPOLOGY_SEGMENT_ID_TYPE)
+
+  const startOutControlId = hasCurve
+    ? upsertControlPoint(
+        nextPoints,
+        segment.startId,
+        VECTOR_TOKENS.CONTROL.ROLE.OUT,
+        splitGeometry.startOutControl,
+        { x: startAnchor.x, y: startAnchor.y }
+      )
+    : null
+  const splitInControlId = hasCurve
+    ? upsertControlPoint(
+        nextPoints,
+        splitPointId,
+        VECTOR_TOKENS.CONTROL.ROLE.IN,
+        splitGeometry.splitInControl,
+        splitPointPosition
+      )
+    : null
+  const splitOutControlId = hasCurve
+    ? upsertControlPoint(
+        nextPoints,
+        splitPointId,
+        VECTOR_TOKENS.CONTROL.ROLE.OUT,
+        splitGeometry.splitOutControl,
+        splitPointPosition
+      )
+    : null
+  const endInControlId = hasCurve
+    ? upsertControlPoint(
+        nextPoints,
+        segment.endId,
+        VECTOR_TOKENS.CONTROL.ROLE.IN,
+        splitGeometry.endInControl,
+        { x: endAnchor.x, y: endAnchor.y }
+      )
+    : null
+
+  nextSegments[firstSegmentId] = {
+    id: firstSegmentId,
+    startId: segment.startId,
+    endId: splitPointId,
+    outControlId: startOutControlId,
+    inControlId: splitInControlId
+  }
+  nextSegments[secondSegmentId] = {
+    id: secondSegmentId,
+    startId: splitPointId,
+    endId: segment.endId,
+    outControlId: splitOutControlId,
+    inControlId: endInControlId
+  }
+
+  const networkSegmentIndex = targetNetwork.segmentIds.indexOf(segmentId)
+  if (networkSegmentIndex === -1) {
+    return null
+  }
+
+  const insertPointIndex = isClosingSegment
+    ? targetNetwork.pointIds.length
+    : endIndex
+  const nextPointIds = [...targetNetwork.pointIds]
+  nextPointIds.splice(insertPointIndex, 0, splitPointId)
+
+  const nextSegmentIds = [...targetNetwork.segmentIds]
+  nextSegmentIds.splice(networkSegmentIndex, 1, firstSegmentId, secondSegmentId)
+
+  const nextNetworks: Record<string, VectorNetwork> = {
+    ...topology.networks,
+    [targetNetwork.id]: {
+      ...targetNetwork,
+      pointIds: nextPointIds,
+      segmentIds: nextSegmentIds
+    }
+  }
+
+  const prunedPoints = pruneUnusedControls(nextPoints, nextSegments)
+
+  return {
+    topology: {
+      points: prunedPoints,
+      segments: nextSegments,
+      networks: nextNetworks
+    },
+    pointId: splitPointId
+  }
 }
 
 export const removeAnchorPointFromTopology = (

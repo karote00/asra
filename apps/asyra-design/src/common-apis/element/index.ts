@@ -42,6 +42,7 @@ import {
   removeLastSinglePointSubpath,
   setAnchorHandleInTopology,
   setAnchorTypeInTopology,
+  splitSegmentInTopology,
   setTopologyClosed,
   toWorkspaceTopology,
   updateAnchorPositionInTopology,
@@ -49,10 +50,11 @@ import {
   vectorTopologyToAnchorPoints,
   vectorTopologyToAnchorSubpaths
 } from './vector-topology'
-import { getClosestPointOnCubicBezier } from './bezier-adapter'
+import { projectPointToCubicBezier } from './bezier-adapter'
 import type {
   CreateElementOptions,
   ElementBounds,
+  VectorSegmentHit,
   VectorComputedSnapshot,
   VectorEditablePointHit,
   VectorPointTarget
@@ -83,16 +85,19 @@ const getDistanceSquared = (a: PositionData, b: PositionData) => {
   return dx * dx + dy * dy
 }
 
-const getClosestPointOnLineSegment = (
+const getProjectedPointOnLineSegment = (
   from: PositionData,
   to: PositionData,
   point: PositionData
-): PositionData => {
+): { position: PositionData; t: number } => {
   const dx = to.x - from.x
   const dy = to.y - from.y
   const lenSquared = dx * dx + dy * dy
   if (lenSquared === 0) {
-    return { x: from.x, y: from.y }
+    return {
+      position: { x: from.x, y: from.y },
+      t: 0
+    }
   }
 
   const t = Math.max(
@@ -104,8 +109,11 @@ const getClosestPointOnLineSegment = (
   )
 
   return {
-    x: from.x + dx * t,
-    y: from.y + dy * t
+    position: {
+      x: from.x + dx * t,
+      y: from.y + dy * t
+    },
+    t
   }
 }
 
@@ -260,6 +268,98 @@ const commitVectorTopology = (
   }
 
   elementApis.changeComputedData([elementId], patch)
+}
+
+const getVectorSegmentProjection = (
+  topology: VectorTopology,
+  segmentId: string,
+  workspacePos: PositionData
+): VectorSegmentHit | null => {
+  const segment = topology.segments[segmentId]
+  if (!segment) {
+    return null
+  }
+
+  const start = topology.points[segment.startId]
+  const end = topology.points[segment.endId]
+  if (
+    !start ||
+    !end ||
+    start.kind !== VECTOR_TOKENS.POINT.KIND.ANCHOR ||
+    end.kind !== VECTOR_TOKENS.POINT.KIND.ANCHOR
+  ) {
+    return null
+  }
+
+  const outControl =
+    segment.outControlId &&
+    topology.points[segment.outControlId]?.kind === 'control'
+      ? topology.points[segment.outControlId]
+      : null
+  const inControl =
+    segment.inControlId &&
+    topology.points[segment.inControlId]?.kind === 'control'
+      ? topology.points[segment.inControlId]
+      : null
+
+  const projected = outControl || inControl
+    ? projectPointToCubicBezier(
+        { x: start.x, y: start.y },
+        outControl
+          ? { x: outControl.x, y: outControl.y }
+          : { x: start.x, y: start.y },
+        inControl
+          ? { x: inControl.x, y: inControl.y }
+          : { x: end.x, y: end.y },
+        { x: end.x, y: end.y },
+        workspacePos
+      )
+    : getProjectedPointOnLineSegment(
+        { x: start.x, y: start.y },
+        { x: end.x, y: end.y },
+        workspacePos
+      )
+
+  return {
+    segmentId,
+    position: projected.position,
+    t: projected.t
+  }
+}
+
+const getNearestVectorSegmentHit = (
+  topology: VectorTopology,
+  workspacePos: PositionData,
+  hitRadius: number
+): VectorSegmentHit | null => {
+  if (Object.keys(topology.segments).length === 0) {
+    return null
+  }
+
+  const radiusSquared = hitRadius * hitRadius
+  const orderedNetworks = getOrderedNetworks(topology)
+  let nearestHit: VectorSegmentHit | null = null
+  let nearestDistanceSquared = Number.POSITIVE_INFINITY
+
+  for (const network of orderedNetworks) {
+    for (const segmentId of network.segmentIds) {
+      const hit = getVectorSegmentProjection(topology, segmentId, workspacePos)
+      if (!hit) {
+        continue
+      }
+
+      const distanceSquared = getDistanceSquared(hit.position, workspacePos)
+      if (
+        distanceSquared <= radiusSquared &&
+        distanceSquared < nearestDistanceSquared
+      ) {
+        nearestDistanceSquared = distanceSquared
+        nearestHit = hit
+      }
+    }
+  }
+
+  return nearestHit
 }
 
 export const elementApis = {
@@ -541,76 +641,22 @@ export const elementApis = {
     workspacePos: PositionData,
     hitRadius = VECTOR_SEGMENT_HIT_RADIUS
   ): string | null => {
+    return (
+      elementApis.getVectorSegmentHitAtWorkspacePos(
+        elementId,
+        workspacePos,
+        hitRadius
+      )?.segmentId ?? null
+    )
+  },
+
+  getVectorSegmentHitAtWorkspacePos: (
+    elementId: string,
+    workspacePos: PositionData,
+    hitRadius = VECTOR_SEGMENT_HIT_RADIUS
+  ): VectorSegmentHit | null => {
     const topology = getVectorTopologyWorkspace(elementId)
-    if (Object.keys(topology.segments).length === 0) {
-      return null
-    }
-
-    const radiusSquared = hitRadius * hitRadius
-    const orderedNetworks = getOrderedNetworks(topology)
-    let nearestSegmentId: string | null = null
-    let nearestDistanceSquared = Number.POSITIVE_INFINITY
-
-    for (const network of orderedNetworks) {
-      for (const segmentId of network.segmentIds) {
-        const segment = topology.segments[segmentId]
-        if (!segment) {
-          continue
-        }
-
-        const start = topology.points[segment.startId]
-        const end = topology.points[segment.endId]
-        if (
-          !start ||
-          !end ||
-          start.kind !== VECTOR_TOKENS.POINT.KIND.ANCHOR ||
-          end.kind !== VECTOR_TOKENS.POINT.KIND.ANCHOR
-        ) {
-          continue
-        }
-
-        const outControl =
-          segment.outControlId &&
-          topology.points[segment.outControlId]?.kind === 'control'
-            ? topology.points[segment.outControlId]
-            : null
-        const inControl =
-          segment.inControlId &&
-          topology.points[segment.inControlId]?.kind === 'control'
-            ? topology.points[segment.inControlId]
-            : null
-
-        const hasCurve = !!outControl || !!inControl
-        const closest = hasCurve
-          ? getClosestPointOnCubicBezier(
-              { x: start.x, y: start.y },
-              outControl
-                ? { x: outControl.x, y: outControl.y }
-                : { x: start.x, y: start.y },
-              inControl
-                ? { x: inControl.x, y: inControl.y }
-                : { x: end.x, y: end.y },
-              { x: end.x, y: end.y },
-              workspacePos
-            )
-          : getClosestPointOnLineSegment(
-              { x: start.x, y: start.y },
-              { x: end.x, y: end.y },
-              workspacePos
-            )
-
-        const distanceSquared = getDistanceSquared(closest, workspacePos)
-        if (
-          distanceSquared <= radiusSquared &&
-          distanceSquared < nearestDistanceSquared
-        ) {
-          nearestDistanceSquared = distanceSquared
-          nearestSegmentId = segmentId
-        }
-      }
-    }
-
-    return nearestSegmentId
+    return getNearestVectorSegmentHit(topology, workspacePos, hitRadius)
   },
 
   getVectorSegmentAtClientPos: (
@@ -629,7 +675,32 @@ export const elementApis = {
     const viewportScale = render.getViewportScale() || 1
     const scaledHitRadius = hitRadius / viewportScale
 
-    return elementApis.getVectorSegmentAtWorkspacePos(
+    return (
+      elementApis.getVectorSegmentHitAtWorkspacePos(
+        elementId,
+        workspacePos,
+        scaledHitRadius
+      )?.segmentId ?? null
+    )
+  },
+
+  getVectorSegmentHitAtClientPos: (
+    elementId: string,
+    clientPos: PositionData,
+    hitRadius = VECTOR_SEGMENT_HIT_RADIUS
+  ): VectorSegmentHit | null => {
+    if (!render) {
+      return null
+    }
+
+    const workspacePos = render.getMousePosInWorkspace({
+      clientX: clientPos.x,
+      clientY: clientPos.y
+    })
+    const viewportScale = render.getViewportScale() || 1
+    const scaledHitRadius = hitRadius / viewportScale
+
+    return elementApis.getVectorSegmentHitAtWorkspacePos(
       elementId,
       workspacePos,
       scaledHitRadius
@@ -751,6 +822,32 @@ export const elementApis = {
       closed: isClosedVectorTopology(nextTopology)
     })
     return true
+  },
+
+  splitVectorSegmentAtWorkspacePos: (
+    elementId: string,
+    segmentId: string,
+    workspacePos: PositionData
+  ): { point: VectorAnchorPoint; index: number } | null => {
+    const topology = getVectorTopologyWorkspace(elementId)
+    const projectedHit = getVectorSegmentProjection(
+      topology,
+      segmentId,
+      workspacePos
+    )
+    if (!projectedHit) {
+      return null
+    }
+
+    const splitResult = splitSegmentInTopology(topology, segmentId, {
+      t: projectedHit.t
+    })
+    if (!splitResult) {
+      return null
+    }
+
+    commitVectorTopology(elementId, splitResult.topology)
+    return elementApis.getVectorAnchorPointById(elementId, splitResult.pointId)
   },
 
   setVectorClosed: (elementId: string, closed: boolean) => {

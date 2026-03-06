@@ -61,9 +61,12 @@
 
 - hover feature updates `hoveredVectorPoint` target (`anchor`, `inHandle`, `outHandle`) and cursor (`pointer`/`default`).
 - if no point target is hovered, hover feature resolves segment hover into `hoveredVectorSegment`.
+- segment hover resolves `hoveredVectorSegmentInsertPoint` (projected workspace point on that segment) only when pen tool is active, for overlay ghost-point rendering.
 - point target hover takes precedence over segment hover when both are near the pointer.
-- select-point feature selects hovered point target when in path-editing mode and non-pen tool.
-- when point hit is absent but path segment hit is present, feature selects the segment through `selectionApis.selectVectorSegment(...)` (SelectionManager `VECTOR_SEGMENT` channel).
+- select-point feature (non-pen mode) selects hovered point target when in path-editing mode.
+- when point hit is absent but path segment hit is present in non-pen mode, select-point feature selects the segment through `selectionApis.selectVectorSegment(...)`.
+- pen session (pen mode) splits the hovered segment at the projected pointer position and selects the inserted anchor point.
+- split preserves curve geometry by recomputing segment controls from cubic split math (`t`-based de Casteljau split) before committing topology.
 - point target selection takes precedence over segment selection.
 - in path editing mode, hover/selection targets are restricted to the current `pathEditingVectorId` vector; other elements are ignored.
 
@@ -74,8 +77,9 @@
   - only show handles for selected anchor `n` and its immediate neighbors (`n-1`, `n+1`) in the same subpath
   - when no anchor is selected, hide handle controls
 - path-editing segment rendering rule:
-  - if either adjacent handle exists (`prev.outHandle` or `current.inHandle`), render that segment as cubic bezier
-  - if no adjacent handles exist, render as straight line
+  - segment rendering follows topology segment ids/control refs (`segments[*].outControlId/inControlId`) so path-editing overlay matches base vector render after load/refresh
+  - if either referenced control exists, render that segment as cubic bezier
+  - if no referenced controls exist, render as straight line
 - vector geometry bounds are computed from segment geometry (including cubic bezier extrema), not anchor coordinates only
 - virtual preview segment (pen hover before commit) follows the same rule:
   - if preview start point has `outHandle`, render bezier preview
@@ -85,6 +89,7 @@
   - white 1px stroke
   - selected target uses same blue selection outline style as selected anchor points
 - curve handles are selectable targets and feed point target data to the property panel
+- moving an anchor point translates that anchor's `inHandle` and `outHandle` by the same delta (handle geometry follows anchor translation)
 
 ## Enter Path Editing
 
@@ -112,5 +117,6 @@ Handled by `cancelPenEditing`:
 - `selectedVectorSegment` (compatibility mirror derived from `vectorSegmentSelection`)
 - `hoveredVectorPoint`
 - `hoveredVectorSegment`
+- `hoveredVectorSegmentInsertPoint`
 
 These are managed through `systemContextApis` helpers.

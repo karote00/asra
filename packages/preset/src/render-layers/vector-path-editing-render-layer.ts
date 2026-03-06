@@ -23,6 +23,9 @@ const HANDLE_STROKE_COLOR = 0xffffff
 const SEGMENT_COLOR = 0x9ca3af
 const SEGMENT_WIDTH = 1
 const PREVIEW_WIDTH = 2
+const GHOST_POINT_FILL_COLOR = 0xffffff
+const GHOST_POINT_STROKE_COLOR = 0x157ae7
+const GHOST_POINT_STROKE_WIDTH = 2
 
 const SELECTION_OUTLINE_COLOR = 0x157ae7
 const HOVER_COLOR = SELECTION_OUTLINE_COLOR
@@ -49,6 +52,7 @@ interface OverlayAnchorPoint extends PositionData {
 
 interface OverlaySubpath {
   points: OverlayAnchorPoint[]
+  segmentIds: string[]
   closed: boolean
 }
 
@@ -85,6 +89,13 @@ interface SelectedVectorPointState {
 interface SelectedVectorSegmentState {
   elementId: string
   segmentId: string
+}
+
+interface HoveredVectorSegmentInsertPointState {
+  elementId: string
+  segmentId: string
+  x: number
+  y: number
 }
 
 type RegisterRenderLayer = (
@@ -227,7 +238,11 @@ const getPathEditingVectorDataWithDeps = (
     })
 
     if (points.length > 0) {
-      subpaths.push({ points, closed: network.closed })
+      subpaths.push({
+        points,
+        segmentIds: [...network.segmentIds],
+        closed: network.closed
+      })
     }
   })
 
@@ -273,10 +288,10 @@ const drawSegment = (
 
 const drawSubpathSegments = (
   canvas: OverlayCanvas,
-  subpath: OverlaySubpath
+  subpath: OverlaySubpath,
+  segmentsById: Record<string, OverlaySegmentGeometry>
 ) => {
-  const points = subpath.points
-  if (points.length < 2) {
+  if (subpath.segmentIds.length === 0) {
     return
   }
 
@@ -285,26 +300,13 @@ const drawSubpathSegments = (
     color: SEGMENT_COLOR
   }
 
-  const drawFromAnchors = (from: OverlayAnchorPoint, to: OverlayAnchorPoint) => {
-    drawSegment(
-      canvas,
-      {
-        from,
-        to,
-        outHandle: from.outHandle,
-        inHandle: to.inHandle
-      },
-      stroke
-    )
-  }
-
-  for (let i = 1; i < points.length; i += 1) {
-    drawFromAnchors(points[i - 1], points[i])
-  }
-
-  if (subpath.closed) {
-    drawFromAnchors(points[points.length - 1], points[0])
-  }
+  subpath.segmentIds.forEach((segmentId) => {
+    const segment = segmentsById[segmentId]
+    if (!segment) {
+      return
+    }
+    drawSegment(canvas, segment, stroke)
+  })
 }
 
 const drawHighlightedSegments = (
@@ -537,6 +539,20 @@ const drawPreview = (
   )
 }
 
+const drawGhostInsertPoint = (
+  canvas: OverlayCanvas,
+  point: PositionData | null
+) => {
+  if (!point) {
+    return
+  }
+
+  canvas.circle(point, POINT_RADIUS, GHOST_POINT_FILL_COLOR, {
+    width: GHOST_POINT_STROKE_WIDTH,
+    color: GHOST_POINT_STROKE_COLOR
+  })
+}
+
 export const registerVectorPathEditingRenderLayer = (
   registerRenderLayer: RegisterRenderLayer,
   deps: Pick<PresetDependencies, 'render' | 'sceneTree' | 'systemContext'>
@@ -575,6 +591,10 @@ export const registerVectorPathEditingRenderLayer = (
         deps.systemContext.getManagedProperty<SelectedVectorSegmentState | null>(
           'hoveredVectorSegment'
         ) ?? null
+      const hoveredVectorSegmentInsertPoint =
+        deps.systemContext.getManagedProperty<
+          HoveredVectorSegmentInsertPointState | null
+        >('hoveredVectorSegmentInsertPoint') ?? null
       const startNewSubpath =
         deps.systemContext.getManagedProperty<boolean>(
           'pathEditingStartNewSubpath'
@@ -604,6 +624,22 @@ export const registerVectorPathEditingRenderLayer = (
         !hoveredVectorSegment.segmentId
           ? null
           : hoveredVectorSegment.segmentId
+      const activeGhostInsertPoint =
+        activeHoveredPoint ||
+        snapshot.primaryTool !== 'pen' ||
+        !pathEditingVectorId ||
+        !activeHoveredSegmentId ||
+        hoveredVectorSegmentInsertPoint?.elementId !== pathEditingVectorId ||
+        hoveredVectorSegmentInsertPoint?.segmentId !== activeHoveredSegmentId
+          ? null
+          : toScreenPosition(
+              {
+                x: hoveredVectorSegmentInsertPoint.x,
+                y: hoveredVectorSegmentInsertPoint.y
+              },
+              viewportPosition,
+              viewportScale
+            )
 
       const mouseWorkspacePos = deps.render.getMousePosInWorkspace({
         clientX: snapshot.mousePosition.x,
@@ -617,6 +653,7 @@ export const registerVectorPathEditingRenderLayer = (
 
       const screenSubpaths = vectorData.subpaths.map((subpath) => ({
         closed: subpath.closed,
+        segmentIds: [...subpath.segmentIds],
         points: subpath.points.map((point) => ({
           id: point.id,
           x: point.x * viewportScale + viewportPosition.x,
@@ -667,7 +704,9 @@ export const registerVectorPathEditingRenderLayer = (
         activeSelectedPoint?.pointId ?? null
       )
 
-      screenSubpaths.forEach((subpath) => drawSubpathSegments(canvas, subpath))
+      screenSubpaths.forEach((subpath) =>
+        drawSubpathSegments(canvas, subpath, screenSegmentsById)
+      )
       drawHighlightedSegments(
         canvas,
         screenSegmentsById,
@@ -683,6 +722,7 @@ export const registerVectorPathEditingRenderLayer = (
           shouldRenderPreview
         )
       }
+      drawGhostInsertPoint(canvas, activeGhostInsertPoint)
       drawAnchorPoints(
         canvas,
         flatScreenPoints,

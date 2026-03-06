@@ -381,7 +381,135 @@ test.describe('Pen Tool - Editing Flow', () => {
     )
   })
 
-  test('segment hover/selection works with point-target precedence', async ({
+  test('moving selected anchor point also translates its curve handles', async ({
+    page
+  }) => {
+    const initialCount = await getElementCount(page)
+
+    await page.keyboard.press('p')
+    await expect.poll(() => getActiveTool(page)).toBe('pen')
+    await clickCanvas(page, 0.3, 0.3)
+    await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
+    await dragOnCanvas(page, 0.45, 0.4, 0.55, 0.32, 8)
+
+    await page.keyboard.press('v')
+    await expect.poll(() => getActiveTool(page)).toBe('select')
+
+    const beforeMove = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const pathEditingVectorId =
+        core?.getSystemProperty?.('pathEditingVectorId') ?? null
+      const selected = core?.getSystemProperty?.('selectedVectorPoint')
+      if (!pathEditingVectorId || !selected?.pointId) {
+        return null
+      }
+
+      const element =
+        core?.deps?.sceneTree?.getElementById?.(pathEditingVectorId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      const offsetX = typeof computed.x === 'number' ? computed.x : 0
+      const offsetY = typeof computed.y === 'number' ? computed.y : 0
+      const pointId = selected.pointId as string
+      const anchor = computed.points?.[pointId]
+      const inHandle = computed.points?.[`${pointId}:in`]
+      const outHandle = computed.points?.[`${pointId}:out`]
+
+      if (!anchor || anchor.kind !== 'anchor') {
+        return null
+      }
+
+      return {
+        pointId,
+        anchorX: anchor.x + offsetX,
+        anchorY: anchor.y + offsetY,
+        inHandle:
+          inHandle && inHandle.kind === 'control'
+            ? { x: inHandle.x + offsetX, y: inHandle.y + offsetY }
+            : null,
+        outHandle:
+          outHandle && outHandle.kind === 'control'
+            ? { x: outHandle.x + offsetX, y: outHandle.y + offsetY }
+            : null
+      }
+    })
+
+    expect(beforeMove).not.toBeNull()
+    if (!beforeMove) {
+      return
+    }
+
+    const deltaX = 40
+    const nextX = Math.round(beforeMove.anchorX + deltaX)
+    const xInput = page.getByTestId('prop-point-x')
+    await xInput.click()
+    await xInput.fill(String(nextX))
+    await xInput.press('Enter')
+
+    await expect
+      .poll(async () => {
+        return page.evaluate(
+          ({ pointId, anchorX, inHandle, outHandle, expectedDeltaX }) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const core = (window as any).__Core__
+            const pathEditingVectorId =
+              core?.getSystemProperty?.('pathEditingVectorId') ?? null
+            if (!pathEditingVectorId) {
+              return null
+            }
+
+            const element =
+              core?.deps?.sceneTree?.getElementById?.(pathEditingVectorId)
+            const computed = element?.getAllComputedData?.() ?? {}
+            const offsetX = typeof computed.x === 'number' ? computed.x : 0
+            const offsetY = typeof computed.y === 'number' ? computed.y : 0
+            const anchorAfter = computed.points?.[pointId]
+            const inHandleAfter = computed.points?.[`${pointId}:in`]
+            const outHandleAfter = computed.points?.[`${pointId}:out`]
+            if (!anchorAfter || anchorAfter.kind !== 'anchor') {
+              return null
+            }
+
+            const actualAnchorX = anchorAfter.x + offsetX
+            const actualDeltaX = actualAnchorX - anchorX
+            const epsilon = 0.001
+            const inHandleFollowed =
+              !inHandle ||
+              (inHandleAfter?.kind === 'control' &&
+                Math.abs(inHandleAfter.x + offsetX - inHandle.x - actualDeltaX) <
+                  epsilon &&
+                Math.abs(inHandleAfter.y + offsetY - inHandle.y) < epsilon)
+            const outHandleFollowed =
+              !outHandle ||
+              (outHandleAfter?.kind === 'control' &&
+                Math.abs(outHandleAfter.x + offsetX - outHandle.x - actualDeltaX) <
+                  epsilon &&
+                Math.abs(outHandleAfter.y + offsetY - outHandle.y) < epsilon)
+
+            return {
+              anchorMovedAsExpected:
+                Math.abs(actualDeltaX - expectedDeltaX) < epsilon,
+              inHandleFollowed,
+              outHandleFollowed
+            }
+          },
+          {
+            pointId: beforeMove.pointId,
+            anchorX: beforeMove.anchorX,
+            inHandle: beforeMove.inHandle,
+            outHandle: beforeMove.outHandle,
+            expectedDeltaX: nextX - beforeMove.anchorX
+          }
+        )
+      })
+      .toMatchObject({
+        anchorMovedAsExpected: true,
+        inHandleFollowed: true,
+        outHandleFollowed: true
+      })
+  })
+
+  test('pen mode segment click splits in-place and inserted point is shared by two segments', async ({
     page
   }) => {
     const initialCount = await getElementCount(page)
@@ -391,9 +519,6 @@ test.describe('Pen Tool - Editing Flow', () => {
     await clickCanvas(page, 0.3, 0.3)
     await clickCanvas(page, 0.45, 0.4)
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
-
-    await page.keyboard.press('v')
-    await expect.poll(() => getActiveTool(page)).toBe('select')
 
     const anchorClientPos = await getCanvasPosition(page, 0.3, 0.3)
     await page.mouse.move(anchorClientPos.x, anchorClientPos.y)
@@ -426,13 +551,18 @@ test.describe('Pen Tool - Editing Flow', () => {
           const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
           const hoveredSegment =
             core?.getSystemProperty?.('hoveredVectorSegment')
+          const hoveredInsertPoint =
+            core?.getSystemProperty?.('hoveredVectorSegmentInsertPoint')
           const pathEditingVectorId =
             core?.getSystemProperty?.('pathEditingVectorId') ?? null
 
           return {
             hoveredPointTarget: hoveredPoint?.target ?? null,
             hoveredSegmentId: hoveredSegment?.segmentId ?? null,
-            hoveredSegmentElementId: hoveredSegment?.elementId ?? null,
+            hoveredInsertPointX: hoveredInsertPoint?.x ?? null,
+            hoveredInsertPointY: hoveredInsertPoint?.y ?? null,
+            hoveredInsertPointSegmentId:
+              hoveredInsertPoint?.segmentId ?? null,
             pathEditingVectorId,
             isHoveredSegmentOnEditingVector:
               !!hoveredSegment?.segmentId &&
@@ -443,8 +573,37 @@ test.describe('Pen Tool - Editing Flow', () => {
       })
       .toMatchObject({
         hoveredPointTarget: null,
-        isHoveredSegmentOnEditingVector: true
+        isHoveredSegmentOnEditingVector: true,
+        hoveredInsertPointSegmentId: expect.any(String)
       })
+
+    const beforeSplit = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const pathEditingVectorId =
+        core?.getSystemProperty?.('pathEditingVectorId') ?? null
+      const element =
+        pathEditingVectorId &&
+        core?.deps?.sceneTree?.getElementById?.(pathEditingVectorId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      const networks = Object.values(computed.networks ?? {}) as {
+        pointIds?: string[]
+        segmentIds?: string[]
+      }[]
+      const primaryNetwork = networks[0]
+      return {
+        pathEditingVectorId,
+        networkCount: networks.length,
+        pointCount: (primaryNetwork?.pointIds ?? []).length,
+        segmentCount: (primaryNetwork?.segmentIds ?? []).length
+      }
+    })
+
+    expect(beforeSplit).toMatchObject({
+      networkCount: 1,
+      pointCount: 2,
+      segmentCount: 1
+    })
 
     await page.mouse.click(segmentClientPos.x, segmentClientPos.y)
     await expect
@@ -457,12 +616,37 @@ test.describe('Pen Tool - Editing Flow', () => {
             core?.getSystemProperty?.('selectedVectorSegment')
           const pathEditingVectorId =
             core?.getSystemProperty?.('pathEditingVectorId') ?? null
+          const element =
+            pathEditingVectorId &&
+            core?.deps?.sceneTree?.getElementById?.(pathEditingVectorId)
+          const computed = element?.getAllComputedData?.() ?? {}
+          const networks = Object.values(computed.networks ?? {}) as {
+            pointIds?: string[]
+            segmentIds?: string[]
+          }[]
+          const primaryNetwork = networks[0]
+          const selectedPointId = selectedPoint?.pointId ?? null
+          const segmentIds = primaryNetwork?.segmentIds ?? []
+          const segments = computed.segments ?? {}
+          const selectedPointSegmentDegree = segmentIds.filter((segmentId) => {
+            const segment = segments[segmentId] as
+              | { startId?: string; endId?: string }
+              | undefined
+            return (
+              !!selectedPointId &&
+              (segment?.startId === selectedPointId ||
+                segment?.endId === selectedPointId)
+            )
+          }).length
 
           return {
             selectedPointTarget: selectedPoint?.target ?? null,
             selectedSegmentId: selectedSegment?.segmentId ?? null,
-            selectedSegmentElementId: selectedSegment?.elementId ?? null,
             pathEditingVectorId,
+            networkCount: networks.length,
+            pointCount: (primaryNetwork?.pointIds ?? []).length,
+            segmentCount: segmentIds.length,
+            selectedPointSegmentDegree,
             isSelectedSegmentOnEditingVector:
               !!selectedSegment?.segmentId &&
               !!pathEditingVectorId &&
@@ -471,8 +655,13 @@ test.describe('Pen Tool - Editing Flow', () => {
         })
       })
       .toMatchObject({
-        selectedPointTarget: null,
-        isSelectedSegmentOnEditingVector: true
+        selectedPointTarget: 'anchor',
+        selectedSegmentId: null,
+        isSelectedSegmentOnEditingVector: false,
+        networkCount: 1,
+        pointCount: 3,
+        segmentCount: 2,
+        selectedPointSegmentDegree: 2
       })
   })
 
@@ -676,5 +865,101 @@ test.describe('Pen Tool - Editing Flow', () => {
     await expect.poll(() => getActiveTool(page)).toBe('pen')
     await clickCanvas(page, 0.65, 0.5)
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 2)
+  })
+
+  test('refresh keeps one render object per vector element id', async ({
+    page
+  }) => {
+    const initialCount = await getElementCount(page)
+
+    await page.keyboard.press('p')
+    await expect.poll(() => getActiveTool(page)).toBe('pen')
+    await clickCanvas(page, 0.3, 0.3)
+    await clickCanvas(page, 0.45, 0.4)
+    await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
+
+    const beforeReload = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const elements = core?.deps?.sceneTree?.getAllElements?.()
+      let vectorId: string | null = null
+      elements?.forEach?.((element: any, id: string) => {
+        if (element?.get?.('type') === 'vector') {
+          vectorId = id
+        }
+      })
+
+      const root = core?.deps?.render?.viewport?.view
+      if (!vectorId || !root) {
+        return null
+      }
+
+      let renderItemCount = 0
+      const stack = [root]
+      while (stack.length > 0) {
+        const current = stack.pop() as any
+        if (!current) {
+          continue
+        }
+        if (current.label === vectorId) {
+          renderItemCount += 1
+        }
+        const children = current.children ?? []
+        children.forEach((child: any) => stack.push(child))
+      }
+
+      return {
+        vectorId,
+        renderItemCount
+      }
+    })
+
+    expect(beforeReload).toMatchObject({
+      renderItemCount: 1
+    })
+
+    await page.reload()
+    await waitForAppReady(page)
+
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const elements = core?.deps?.sceneTree?.getAllElements?.()
+          let vectorId: string | null = null
+          elements?.forEach?.((element: any, id: string) => {
+            if (element?.get?.('type') === 'vector') {
+              vectorId = id
+            }
+          })
+
+          const root = core?.deps?.render?.viewport?.view
+          if (!vectorId || !root) {
+            return null
+          }
+
+          let renderItemCount = 0
+          const stack = [root]
+          while (stack.length > 0) {
+            const current = stack.pop() as any
+            if (!current) {
+              continue
+            }
+            if (current.label === vectorId) {
+              renderItemCount += 1
+            }
+            const children = current.children ?? []
+            children.forEach((child: any) => stack.push(child))
+          }
+
+          return {
+            renderItemCount
+          }
+        })
+      })
+      .toMatchObject({
+        renderItemCount: 1
+      })
   })
 })

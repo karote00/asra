@@ -37,3 +37,9 @@ export interface VectorEditablePointHit {
   target: VectorPointTarget
   position: PositionData
 }
+
+export interface VectorSegmentHit {
+  segmentId: string
+  position: PositionData
+  t: number
+}

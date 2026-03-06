@@ -71,10 +71,33 @@ export class RenderLayer {
   }
 
   addElement(data: RenderElementData) {
+    const existingElement = this.getElementById(data.id)
+    if (existingElement) {
+      ;(existingElement as SceneElement & { __asyraType?: string }).__asyraType =
+        data.type
+
+      const strategy = renderStrategyRegistry.get(data.type) || defaultStrategy
+      if (existingElement instanceof Graphics) {
+        strategy(existingElement, data)
+      }
+
+      if (existingElement.parent !== this.currentWorkspace) {
+        this.currentWorkspace.addChild(existingElement)
+      }
+
+      return existingElement
+    }
+
     const element = this.getRestoreElement(data.id)
     if (element) {
       ;(element as SceneElement & { __asyraType?: string }).__asyraType =
         data.type
+
+      const strategy = renderStrategyRegistry.get(data.type) || defaultStrategy
+      if (element instanceof Graphics) {
+        strategy(element, data)
+      }
+
       this.addToMap(data.id, element)
       this.currentWorkspace.addChild(element)
       return element

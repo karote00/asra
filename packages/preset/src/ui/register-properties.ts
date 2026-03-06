@@ -24,6 +24,13 @@ interface SelectedVectorSegmentState extends Record<string, unknown> {
   segmentId: string
 }
 
+interface HoveredVectorSegmentInsertPointState extends Record<string, unknown> {
+  elementId: string
+  segmentId: string
+  x: number
+  y: number
+}
+
 interface ElementPanelData extends Record<string, unknown> {
   id: string
   name: string
@@ -175,6 +182,10 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
   )
   core.defineSystemProperty<SelectedVectorSegmentState | null>(
     'hoveredVectorSegment',
+    null
+  )
+  core.defineSystemProperty<HoveredVectorSegmentInsertPointState | null>(
+    'hoveredVectorSegmentInsertPoint',
     null
   )
 

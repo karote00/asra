@@ -24,6 +24,14 @@ export interface SelectedVectorSegmentState extends Record<string, unknown> {
   segmentId: string
 }
 
+export interface HoveredVectorSegmentInsertPointState
+  extends Record<string, unknown> {
+  elementId: string
+  segmentId: string
+  x: number
+  y: number
+}
+
 interface EnterPathEditingOptions {
   startNewSubpath?: boolean
 }
@@ -128,11 +136,27 @@ export const systemContextApis = {
     core.setSystemProperty('hoveredVectorSegment', segment)
   },
 
+  getHoveredVectorSegmentInsertPoint:
+    (): HoveredVectorSegmentInsertPointState | null => {
+      return (
+        core.getSystemProperty<HoveredVectorSegmentInsertPointState | null>(
+          'hoveredVectorSegmentInsertPoint'
+        ) ?? null
+      )
+    },
+
+  setHoveredVectorSegmentInsertPoint: (
+    point: HoveredVectorSegmentInsertPointState | null
+  ) => {
+    core.setSystemProperty('hoveredVectorSegmentInsertPoint', point)
+  },
+
   clearVectorPointState: () => {
     systemContextApis.setSelectedVectorPoint(null)
     systemContextApis.setHoveredVectorPoint(null)
     systemContextApis.setSelectedVectorSegment(null)
     systemContextApis.setHoveredVectorSegment(null)
+    systemContextApis.setHoveredVectorSegmentInsertPoint(null)
   },
 
   enterPathEditingMode: (

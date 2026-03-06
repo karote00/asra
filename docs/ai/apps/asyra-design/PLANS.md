@@ -2,16 +2,7 @@
 
 ## Near-Term
 
-1. Expand E2E coverage for vector editing
-- path-editing enter/exit edge cases
-- point selection/editing scenarios
-- progress:
-  - pen second-point micro-drag threshold regression is covered in `e2e/pen-tool.spec.ts`
-  - delete/undo regression coverage now includes selection restore, redo crash guard, and undo-commit compactness checks
-  - continue with broader path-editing edge cases
-- plan reference: `docs/ai/apps/asyra-design/plans/e2e-coverage-update-plan.md`
-
-2. Reduce app-level internal coupling
+1. Reduce app-level internal coupling
 - remove internal-path imports (for example keymap source path)
 
 ## Mid-Term
@@ -33,13 +24,18 @@
 
 ## Recently Completed
 
-1. Vector target hover/selection parity (completed 2026-03-06)
+1. Vector editing E2E coverage expansion (completed 2026-03-06)
+- expanded `pen-tool` regression scenarios for segment insert/split, path-editing guards, anchor-handle translation, and refresh consistency
+- established focused vector-editing regression gate via `e2e/pen-tool.spec.ts`
+- completed plan: `docs/ai/apps/asyra-design/plans/completed/e2e-coverage-update-plan.md`
+
+2. Vector target hover/selection parity (completed 2026-03-06)
 - added explicit hover and normal selection visuals for vector points, curve controls, and segments
 - restricted path-editing hover/selection to current editing vector
 - aligned vector outline color with normal selection outline style
 - completed plan: `docs/ai/apps/asyra-design/plans/completed/vector-target-hover-and-selection-plan.md`
 
-2. Hover state and selection overlay unification (completed 2026-03-06)
+3. Hover state and selection overlay unification (completed 2026-03-06)
 - synced hovered target across canvas and content panel
 - moved selection/hover overlay drawing to registered app/preset render layer
 - hover outline now follows geometry for vector/oval/rect (with fallback bounds for unsupported types)

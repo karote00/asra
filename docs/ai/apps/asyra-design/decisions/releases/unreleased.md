@@ -320,3 +320,21 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
   - E2E coverage now guards segment hover/selection behavior and path-editing lock semantics.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/vector-target-hover-and-selection-plan.md`
+
+## 2026-03-06 - Vector editing E2E coverage plan closed with split/refresh regression guards
+
+- Context:
+  - Recent vector path-editing fixes included segment split insertion behavior, handle-follow-on-anchor-move, and refresh-time render consistency.
+  - These regressions needed durable coverage in one focused suite tied to the active vector-editing workflow.
+- Decision:
+  - Close the active E2E coverage plan after expanding `e2e/pen-tool.spec.ts` with:
+    - pen/path-editing-only segment ghost insert visibility and click split behavior
+    - inserted-point topology assertions (shared split anchor between two segments)
+    - anchor-move handle translation assertions
+    - refresh regression assertion to keep one render object per vector element id
+  - Treat focused `pen-tool` E2E as a required regression gate for vector path-editing changes.
+- Consequences:
+  - Vector-editing behavior changes now have targeted regression protection for both interaction and reload consistency paths.
+  - Plan tracking for this E2E expansion is now moved to completed records with canonical reference.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/e2e-coverage-update-plan.md`

@@ -29,12 +29,15 @@ Import boundary:
 - `getVectorEditablePointAtClientPos(elementId: string, clientPos: PositionData): { point: VectorAnchorPoint; index: number; target: 'anchor' | 'inHandle' | 'outHandle'; position: PositionData } | null`
 - `getVectorSegmentAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): string | null`
 - `getVectorSegmentAtClientPos(elementId: string, clientPos: PositionData, hitRadius?: number): string | null`
+- `getVectorSegmentHitAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): { segmentId: string; position: PositionData; t: number } | null`
+- `getVectorSegmentHitAtClientPos(elementId: string, clientPos: PositionData, hitRadius?: number): { segmentId: string; position: PositionData; t: number } | null`
 - `isPointNearVectorPathAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): boolean`
 - `isPointNearVectorPathAtClientPos(elementId: string, clientPos: PositionData, hitRadius?: number): boolean`
 - `getVectorAnchorPointById(elementId: string, pointId: string): { point: VectorAnchorPoint; index: number } | null`
 - `appendVectorAnchorPoint(elementId: string, point: VectorAnchorPoint, options?: { startNewSubpath?: boolean }): { point: VectorAnchorPoint; index: number } | null`
 - `removeLastSinglePointSubpath(elementId: string): boolean`
 - `removeVectorAnchorPoint(elementId: string, pointId: string): boolean`
+- `splitVectorSegmentAtWorkspacePos(elementId: string, segmentId: string, workspacePos: PositionData): { point: VectorAnchorPoint; index: number } | null`
 - `setVectorClosed(elementId: string, closed: boolean): void`
 - `updateVectorAnchorPointPosition(elementId: string, pointId: string, position: PositionData): { point: VectorAnchorPoint; index: number } | null`
 - `updateVectorAnchorPointType(elementId: string, pointId: string, type: 'smooth' | 'sharp'): { point: VectorAnchorPoint; index: number } | null`
@@ -86,6 +89,8 @@ Import boundary:
 - `setSelectedVectorSegment(segment: { elementId: string; segmentId: string } | null): void`
 - `getHoveredVectorSegment(): { elementId: string; segmentId: string } | null`
 - `setHoveredVectorSegment(segment: { elementId: string; segmentId: string } | null): void`
+- `getHoveredVectorSegmentInsertPoint(): { elementId: string; segmentId: string; x: number; y: number } | null`
+- `setHoveredVectorSegmentInsertPoint(point: { elementId: string; segmentId: string; x: number; y: number } | null): void`
 - `SelectedVectorPointState` target contract:
   - `target: 'anchor' | 'inHandle' | 'outHandle'`
 - `clearVectorPointState(): void`
