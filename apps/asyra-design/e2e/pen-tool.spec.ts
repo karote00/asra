@@ -969,6 +969,214 @@ test.describe('Pen Tool - Editing Flow', () => {
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
   })
 
+  test('connected endpoint click merges two subpaths into one subpath', async ({
+    page
+  }) => {
+    const initialCount = await getElementCount(page)
+
+    await page.keyboard.press('p')
+    await expect.poll(() => getActiveTool(page)).toBe('pen')
+    await clickCanvas(page, 0.3, 0.3)
+    await clickCanvas(page, 0.42, 0.35)
+    await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
+
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(80)
+    await clickCanvas(page, 0.66, 0.5)
+    await clickCanvas(page, 0.78, 0.56)
+
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const pathEditingVectorId =
+            core?.getSystemProperty?.('pathEditingVectorId') ?? null
+          const element =
+            pathEditingVectorId &&
+            core?.deps?.sceneTree?.getElementById?.(pathEditingVectorId)
+          const computed = element?.getAllComputedData?.() ?? {}
+          const networks = Object.values(computed.networks ?? {}) as {
+            pointIds?: string[]
+            segmentIds?: string[]
+          }[]
+
+          return {
+            networkCount: networks.length,
+            totalPointCount: networks.reduce(
+              (sum, network) => sum + (network.pointIds?.length ?? 0),
+              0
+            ),
+            totalSegmentCount: networks.reduce(
+              (sum, network) => sum + (network.segmentIds?.length ?? 0),
+              0
+            ),
+            startNewSubpath:
+              core?.getSystemProperty?.('pathEditingStartNewSubpath') ?? null
+          }
+        })
+      })
+      .toMatchObject({
+        networkCount: 2,
+        totalPointCount: 4,
+        totalSegmentCount: 2,
+        startNewSubpath: false
+      })
+
+    const firstEndpointPos = await getCanvasPosition(page, 0.3, 0.3)
+    await page.mouse.move(firstEndpointPos.x, firstEndpointPos.y)
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
+          const hoveredInsertPoint =
+            core?.getSystemProperty?.('hoveredVectorSegmentInsertPoint')
+
+          return {
+            hoveredTarget: hoveredPoint?.target ?? null,
+            hoveredInsertPointSegmentId:
+              hoveredInsertPoint?.segmentId ?? null
+          }
+        })
+      })
+      .toMatchObject({
+        hoveredTarget: 'anchor',
+        hoveredInsertPointSegmentId: null
+      })
+
+    await page.mouse.click(firstEndpointPos.x, firstEndpointPos.y)
+
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const pathEditingVectorId =
+            core?.getSystemProperty?.('pathEditingVectorId') ?? null
+          const element =
+            pathEditingVectorId &&
+            core?.deps?.sceneTree?.getElementById?.(pathEditingVectorId)
+          const computed = element?.getAllComputedData?.() ?? {}
+          const networks = Object.values(computed.networks ?? {}) as {
+            pointIds?: string[]
+            segmentIds?: string[]
+            closed?: boolean
+          }[]
+          const selectedPoint = core?.getSystemProperty?.('selectedVectorPoint')
+
+          return {
+            networkCount: networks.length,
+            totalPointCount: networks.reduce(
+              (sum, network) => sum + (network.pointIds?.length ?? 0),
+              0
+            ),
+            totalSegmentCount: networks.reduce(
+              (sum, network) => sum + (network.segmentIds?.length ?? 0),
+              0
+            ),
+            closedCount: networks.filter((network) => network.closed).length,
+            startNewSubpath:
+              core?.getSystemProperty?.('pathEditingStartNewSubpath') ?? null,
+            selectedTarget: selectedPoint?.target ?? null
+          }
+        })
+      })
+      .toMatchObject({
+        networkCount: 1,
+        totalPointCount: 4,
+        totalSegmentCount: 3,
+        closedCount: 0,
+        startNewSubpath: true,
+        selectedTarget: 'anchor'
+      })
+  })
+
+  test('connected endpoint click on opposite side closes current subpath', async ({
+    page
+  }) => {
+    const initialCount = await getElementCount(page)
+
+    await page.keyboard.press('p')
+    await expect.poll(() => getActiveTool(page)).toBe('pen')
+    await clickCanvas(page, 0.3, 0.3)
+    await clickCanvas(page, 0.45, 0.4)
+    await clickCanvas(page, 0.58, 0.48)
+    await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
+
+    const firstEndpointPos = await getCanvasPosition(page, 0.3, 0.3)
+    await page.mouse.move(firstEndpointPos.x, firstEndpointPos.y)
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
+          const hoveredInsertPoint =
+            core?.getSystemProperty?.('hoveredVectorSegmentInsertPoint')
+
+          return {
+            hoveredTarget: hoveredPoint?.target ?? null,
+            hoveredInsertPointSegmentId:
+              hoveredInsertPoint?.segmentId ?? null
+          }
+        })
+      })
+      .toMatchObject({
+        hoveredTarget: 'anchor',
+        hoveredInsertPointSegmentId: null
+      })
+
+    await page.mouse.click(firstEndpointPos.x, firstEndpointPos.y)
+
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const pathEditingVectorId =
+            core?.getSystemProperty?.('pathEditingVectorId') ?? null
+          const element =
+            pathEditingVectorId &&
+            core?.deps?.sceneTree?.getElementById?.(pathEditingVectorId)
+          const computed = element?.getAllComputedData?.() ?? {}
+          const networks = Object.values(computed.networks ?? {}) as {
+            pointIds?: string[]
+            segmentIds?: string[]
+            closed?: boolean
+          }[]
+          const selectedPoint = core?.getSystemProperty?.('selectedVectorPoint')
+
+          return {
+            networkCount: networks.length,
+            totalPointCount: networks.reduce(
+              (sum, network) => sum + (network.pointIds?.length ?? 0),
+              0
+            ),
+            totalSegmentCount: networks.reduce(
+              (sum, network) => sum + (network.segmentIds?.length ?? 0),
+              0
+            ),
+            closedCount: networks.filter((network) => network.closed).length,
+            computedClosed: computed.closed ?? null,
+            startNewSubpath:
+              core?.getSystemProperty?.('pathEditingStartNewSubpath') ?? null,
+            selectedTarget: selectedPoint?.target ?? null
+          }
+        })
+      })
+      .toMatchObject({
+        networkCount: 1,
+        totalPointCount: 3,
+        totalSegmentCount: 3,
+        closedCount: 1,
+        computedClosed: true,
+        startNewSubpath: true,
+        selectedTarget: 'anchor'
+      })
+  })
+
   test('escape uses split-then-exit semantics before creating a new vector', async ({
     page
   }) => {

@@ -37,8 +37,13 @@
 3. If active vector is in split/new-subpath mode and user clicks an existing anchor:
 - select that anchor first (no point is added on that click)
 - if the clicked anchor is a subpath endpoint, exit split mode and resume continuation from that endpoint
-4. If not editing selected vector -> create new vector with first point.
-5. New/updated point is selected through `selectionApis.selectVectorPoint(...)` (SelectionManager `VECTOR_POINT` channel).
+4. If active vector is in connected add mode and user clicks an endpoint anchor:
+- connect current continuation endpoint to the clicked endpoint (no new point is created on that click)
+- if clicked endpoint is on another open subpath, both subpaths are merged into one open subpath
+- if clicked endpoint is the opposite endpoint of the current open subpath, that subpath is closed (`networks[*].closed=true`)
+- after endpoint connect commit (merge or close), pen enters split/new-subpath mode (`pathEditingStartNewSubpath=true`) so connected ghost-segment preview does not continue automatically
+5. If not editing selected vector -> create new vector with first point.
+6. New/updated point is selected through `selectionApis.selectVectorPoint(...)` (SelectionManager `VECTOR_POINT` channel).
 
 ### Update/End
 
@@ -83,6 +88,7 @@
 - curve handles render as diamonds in vector path-editing overlay
 - handle visibility is selection-window based:
   - only show handles for selected anchor `n` and its immediate neighbors (`n-1`, `n+1`) in the same subpath
+  - for closed subpaths, neighbor window wraps around endpoints (for example selected first point includes last point as `n-1`)
   - when no anchor is selected, hide handle controls
 - path-editing segment rendering rule:
   - segment rendering follows topology segment ids/control refs (`segments[*].outControlId/inControlId`) so path-editing overlay matches base vector render after load/refresh

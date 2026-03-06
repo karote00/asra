@@ -368,10 +368,6 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
             clickedPoint &&
             clickedPoint.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
           ) {
-            if (!startNewSubpath && !clickedEndpoint) {
-              return null
-            }
-
             if (startNewSubpath && clickedEndpoint) {
               const selectedPoint = elementApis.getVectorAnchorPointById(
                 pathEditingVectorId,
@@ -382,6 +378,57 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
               return null
             }
 
+            if (!clickedEndpoint) {
+              return null
+            }
+
+            const selectedPoint = selectionApis
+              .getSelectedVectorPoints()
+              .find((selection) => selection.elementId === pathEditingVectorId)
+            const selectedEndpoint =
+              selectedPoint?.elementId === pathEditingVectorId &&
+              selectedPoint.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
+                ? getSubpathEndpoint(subpaths, selectedPoint.pointId)
+                : null
+            const currentSubpath = subpaths[subpaths.length - 1]
+            const fallbackEndpoint =
+              currentSubpath && currentSubpath.length > 0
+                ? getSubpathEndpoint(
+                    subpaths,
+                    currentSubpath[currentSubpath.length - 1].id
+                  )
+                : null
+            const sourceEndpoint = selectedEndpoint ?? fallbackEndpoint
+
+            if (
+              !sourceEndpoint ||
+              sourceEndpoint.point.id === clickedEndpoint.point.id
+            ) {
+              return null
+            }
+
+            const connected = elementApis.connectVectorAnchorEndpoints(
+              pathEditingVectorId,
+              sourceEndpoint.point.id,
+              clickedEndpoint.point.id
+            )
+            if (!connected) {
+              return null
+            }
+
+            selectionApis.selectElements([pathEditingVectorId])
+            const nextSelectedPoint = elementApis.getVectorAnchorPointById(
+              pathEditingVectorId,
+              clickedEndpoint.point.id
+            )
+            setSelectedAnchorPoint(pathEditingVectorId, nextSelectedPoint)
+            systemContextApis.setSelectedVectorSegment(null)
+            systemContextApis.setHoveredVectorSegment(null)
+            systemContextApis.setHoveredVectorSegmentInsertPoint(null)
+            systemContextApis.setHoveredVectorPoint(null)
+            // After endpoint-connect commit (merge/close), stay in split mode
+            // so connected append preview does not auto-continue unexpectedly.
+            systemContextApis.setPathEditingStartNewSubpath(true)
             return null
           }
 

@@ -389,3 +389,49 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
   - Pen add mode no longer suggests/accepts non-endpoint continuation paths before network feature support.
   - Segment split now remains a dedicated split action and does not auto-transition into connected append preview.
   - Hover/preview intent is clearer and aligned with current topology capabilities.
+
+## 2026-03-06 - Pen endpoint-click now supports subpath merge and close
+
+- Context:
+  - In connected pen add mode, endpoint hover already exposed a continuation ghost segment, but clicking endpoints only selected points and never committed endpoint-to-endpoint connection intent.
+  - Users need deterministic endpoint connect behavior for both cross-subpath linking and same-subpath closure.
+- Decision:
+  - Add topology/common-API endpoint connection flow that:
+    - merges two open subpaths when clicking an endpoint on another subpath
+    - closes the current open subpath when clicking its opposite endpoint
+    - preserves source-subpath orientation during merge; only target reversal is allowed when needed, with in/out handle-role swap to preserve curve geometry
+  - Wire pen `onStart` endpoint-click handling in connected mode to call the shared endpoint-connect API instead of creating a new point.
+  - Keep split/new-subpath semantics explicit after endpoint-connect commit (merge or close) by setting `pathEditingStartNewSubpath = true`.
+- Consequences:
+  - Endpoint click in connected pen mode is now a first-class topology mutation rather than a selection-only action.
+  - Network data now reflects merge/close intent directly through `networks[*].closed` and rebuilt segment linkage.
+  - E2E now guards both merge and close endpoint-click behaviors.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/connect-point-subpath-merge-close-plan.md`
+
+## 2026-03-06 - Closed-subpath handle visibility wraps neighbor window
+
+- Context:
+  - After closing a subpath, selecting an endpoint anchor should expose handle controls for `n-1`, `n`, `n+1`.
+  - Existing handle-window logic only used linear neighbor indexes and did not wrap at closed-subpath boundaries.
+- Decision:
+  - Update vector path-editing handle-visibility window to wrap neighbor indices when `subpath.closed=true`.
+  - Keep open-subpath behavior unchanged (no wrap).
+  - Add a focused preset unit test for closed-path wrap behavior.
+- Consequences:
+  - Closed-path endpoint selection now shows both adjacent neighbors' handles as expected.
+  - Handle visibility behavior is regression-guarded at unit level.
+
+## 2026-03-06 - Connect-point plan closed out and archived to completed records
+
+- Context:
+  - Endpoint connect/merge/close behavior and closed-path handle-window regressions are implemented and validated.
+  - The corresponding plan record still needed closeout from active planning into completed archive.
+- Decision:
+  - Mark the connect-point plan as DONE and move it under completed app plans.
+  - Keep interim same-day implementation decision entries append-only; closeout adds canonical completed-plan linkage.
+- Consequences:
+  - `PLANS.md` no longer has a stale active reference for connect-point work.
+  - Completed-plan archive now contains final completion metadata, decision, and exit criteria for this scope.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/connect-point-subpath-merge-close-plan.md`

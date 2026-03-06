@@ -44,13 +44,13 @@ const SELECTED_SEGMENT_STROKE: OverlayStrokeStyle = {
   color: SELECTED_POINT_OUTLINE_COLOR
 }
 
-interface OverlayAnchorPoint extends PositionData {
+export interface OverlayAnchorPoint extends PositionData {
   id: string
   inHandle: PositionData | null
   outHandle: PositionData | null
 }
 
-interface OverlaySubpath {
+export interface OverlaySubpath {
   points: OverlayAnchorPoint[]
   segmentIds: string[]
   closed: boolean
@@ -486,7 +486,7 @@ const drawHandlePoints = (
   })
 }
 
-const getVisibleHandleAnchorIds = (
+export const getVisibleHandleAnchorIds = (
   subpaths: OverlaySubpath[],
   selectedAnchorId: string | null
 ): Set<string> => {
@@ -501,13 +501,21 @@ const getVisibleHandleAnchorIds = (
     }
 
     const visibleIds = new Set<string>()
-    const indexes = [index - 1, index, index + 1]
-    indexes.forEach((targetIndex) => {
-      if (targetIndex < 0 || targetIndex >= subpath.points.length) {
+    const pointCount = subpath.points.length
+    const offsets = [-1, 0, 1]
+    offsets.forEach((offset) => {
+      const rawIndex = index + offset
+      if (!subpath.closed) {
+        if (rawIndex < 0 || rawIndex >= pointCount) {
+          return
+        }
+
+        visibleIds.add(subpath.points[rawIndex].id)
         return
       }
 
-      visibleIds.add(subpath.points[targetIndex].id)
+      const wrappedIndex = ((rawIndex % pointCount) + pointCount) % pointCount
+      visibleIds.add(subpath.points[wrappedIndex].id)
     })
 
     return visibleIds

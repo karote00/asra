@@ -61,6 +61,11 @@ Feature: Pen Tool and Path Editing
     Then that out-handle should become selected point target state
     And properties panel should show the selected handle target and coordinates
 
+  Scenario: Closed subpath handle visibility wraps around selected endpoint
+    Given path editing mode is active for a closed subpath
+    And an endpoint anchor is selected
+    Then curve handles for `n-1`, `n`, and `n+1` anchors should all be visible
+
   Scenario: Segment hover/selection in path editing mode
     Given path editing mode is active for one vector
     And primary tool is not pen
@@ -86,6 +91,22 @@ Feature: Pen Tool and Path Editing
     Then hovered vector point state should stay empty
     When I hover a valid endpoint anchor
     Then hovered vector point state should target that anchor
+
+  Scenario: Connected endpoint click merges two subpaths
+    Given I have the "Pen" tool selected in path editing mode
+    And continuation preview segment is connected
+    And there are at least two open subpaths in the editing vector
+    When I click an endpoint anchor on a different subpath
+    Then no new anchor point should be created by that click
+    And those two subpaths should merge into one open subpath
+    And split/new-subpath mode should become active
+
+  Scenario: Connected endpoint click closes current subpath
+    Given I have the "Pen" tool selected in path editing mode
+    And continuation preview segment is connected
+    When I click the opposite endpoint of the current open subpath
+    Then that subpath should become closed in network data
+    And split/new-subpath mode should become active
 
   Scenario: Segment split keeps split/new-subpath mode
     Given I have the "Pen" tool selected in path editing mode

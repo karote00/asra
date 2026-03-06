@@ -1061,3 +1061,207 @@ export const setTopologyClosed = (
     networks: nextNetworks
   }
 }
+
+const swapAnchorHandleRolesForPoints = (
+  points: Record<string, VectorPointNode>,
+  pointIds: string[]
+): Record<string, VectorPointNode> => {
+  const nextPoints = { ...points }
+
+  pointIds.forEach((pointId) => {
+    const anchor = nextPoints[pointId]
+    if (!isAnchorNode(anchor)) {
+      return
+    }
+
+    const inControlId = getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN)
+    const outControlId = getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.OUT)
+    const inControl = isControlNode(nextPoints[inControlId])
+      ? nextPoints[inControlId]
+      : null
+    const outControl = isControlNode(nextPoints[outControlId])
+      ? nextPoints[outControlId]
+      : null
+
+    if (outControl) {
+      nextPoints[inControlId] = {
+        ...outControl,
+        id: inControlId,
+        controlForId: pointId,
+        controlRole: VECTOR_TOKENS.CONTROL.ROLE.IN
+      }
+    } else {
+      delete nextPoints[inControlId]
+    }
+
+    if (inControl) {
+      nextPoints[outControlId] = {
+        ...inControl,
+        id: outControlId,
+        controlForId: pointId,
+        controlRole: VECTOR_TOKENS.CONTROL.ROLE.OUT
+      }
+    } else {
+      delete nextPoints[outControlId]
+    }
+  })
+
+  return nextPoints
+}
+
+export const connectAnchorEndpointsInTopology = (
+  topology: VectorTopologyLike,
+  sourceEndpoint: VectorTopologyEndpoint,
+  targetEndpoint: VectorTopologyEndpoint
+): { topology: VectorTopology; closed: boolean } | null => {
+  const sourceNetwork = topology.networks[sourceEndpoint.networkId]
+  const targetNetwork = topology.networks[targetEndpoint.networkId]
+  if (!sourceNetwork || !targetNetwork) {
+    return null
+  }
+
+  if (sourceNetwork.closed || targetNetwork.closed) {
+    return null
+  }
+
+  if (sourceEndpoint.networkId === targetEndpoint.networkId) {
+    if (sourceEndpoint.pointId === targetEndpoint.pointId) {
+      return null
+    }
+
+    if (sourceEndpoint.side === targetEndpoint.side) {
+      return null
+    }
+
+    const nextSegments: Record<string, VectorSegment> = {}
+    const nextNetworks: Record<string, VectorNetwork> = {}
+
+    getOrderedNetworks(topology).forEach((network) => {
+      if (network.id === sourceNetwork.id) {
+        return
+      }
+
+      nextNetworks[network.id] = {
+        ...network,
+        pointIds: [...network.pointIds],
+        segmentIds: [...network.segmentIds]
+      }
+
+      network.segmentIds.forEach((segmentId) => {
+        const segment = topology.segments[segmentId]
+        if (segment) {
+          nextSegments[segmentId] = segment
+        }
+      })
+    })
+
+    const rebuilt = createSegmentChain(
+      topology.points,
+      [...sourceNetwork.pointIds],
+      true
+    )
+
+    nextNetworks[sourceNetwork.id] = {
+      ...sourceNetwork,
+      pointIds: [...sourceNetwork.pointIds],
+      segmentIds: rebuilt.segmentIds,
+      closed: true
+    }
+    Object.assign(nextSegments, rebuilt.segments)
+
+    const nextPoints = pruneUnusedControls({ ...topology.points }, nextSegments)
+
+    return {
+      topology: {
+        points: nextPoints,
+        segments: nextSegments,
+        networks: nextNetworks
+      },
+      closed: true
+    }
+  }
+
+  const sourcePointIds = [...sourceNetwork.pointIds]
+  const targetPointIds = [...targetNetwork.pointIds]
+  if (sourcePointIds.length === 0 || targetPointIds.length === 0) {
+    return null
+  }
+
+  let reverseTarget = false
+  let mergedPointIds: string[] | null = null
+
+  if (
+    sourceEndpoint.side === VECTOR_TOKENS.ENDPOINT.SIDE.END &&
+    targetEndpoint.side === VECTOR_TOKENS.ENDPOINT.SIDE.START
+  ) {
+    mergedPointIds = [...sourcePointIds, ...targetPointIds]
+  } else if (
+    sourceEndpoint.side === VECTOR_TOKENS.ENDPOINT.SIDE.START &&
+    targetEndpoint.side === VECTOR_TOKENS.ENDPOINT.SIDE.END
+  ) {
+    mergedPointIds = [...targetPointIds, ...sourcePointIds]
+  } else if (
+    sourceEndpoint.side === VECTOR_TOKENS.ENDPOINT.SIDE.END &&
+    targetEndpoint.side === VECTOR_TOKENS.ENDPOINT.SIDE.END
+  ) {
+    reverseTarget = true
+    mergedPointIds = [...sourcePointIds, ...[...targetPointIds].reverse()]
+  } else if (
+    sourceEndpoint.side === VECTOR_TOKENS.ENDPOINT.SIDE.START &&
+    targetEndpoint.side === VECTOR_TOKENS.ENDPOINT.SIDE.START
+  ) {
+    reverseTarget = true
+    mergedPointIds = [...[...targetPointIds].reverse(), ...sourcePointIds]
+  }
+
+  if (!mergedPointIds || mergedPointIds.length < 2) {
+    return null
+  }
+
+  const nextPoints = reverseTarget
+    ? swapAnchorHandleRolesForPoints(
+        { ...topology.points },
+        targetNetwork.pointIds
+      )
+    : { ...topology.points }
+
+  const nextSegments: Record<string, VectorSegment> = {}
+  const nextNetworks: Record<string, VectorNetwork> = {}
+  getOrderedNetworks(topology).forEach((network) => {
+    if (network.id === sourceNetwork.id || network.id === targetNetwork.id) {
+      return
+    }
+
+    nextNetworks[network.id] = {
+      ...network,
+      pointIds: [...network.pointIds],
+      segmentIds: [...network.segmentIds]
+    }
+
+    network.segmentIds.forEach((segmentId) => {
+      const segment = topology.segments[segmentId]
+      if (segment) {
+        nextSegments[segmentId] = segment
+      }
+    })
+  })
+
+  const rebuilt = createSegmentChain(nextPoints, mergedPointIds, false)
+  nextNetworks[sourceNetwork.id] = {
+    id: sourceNetwork.id,
+    pointIds: mergedPointIds,
+    segmentIds: rebuilt.segmentIds,
+    closed: false
+  }
+  Object.assign(nextSegments, rebuilt.segments)
+  const prunedPoints = pruneUnusedControls(nextPoints, nextSegments)
+
+  return {
+    topology: {
+      points: prunedPoints,
+      segments: nextSegments,
+      networks: nextNetworks
+    },
+    closed: false
+  }
+}

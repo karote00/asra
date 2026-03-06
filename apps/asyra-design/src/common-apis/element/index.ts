@@ -31,6 +31,7 @@ import {
 } from './vector-geometry'
 import {
   appendAnchorPointToTopology,
+  connectAnchorEndpointsInTopology,
   createEmptyVectorTopology,
   createVectorTopologyFromSinglePoint,
   getAnchorEndpointInTopology,
@@ -798,6 +799,35 @@ export const elementApis = {
   } | null => {
     const topology = getVectorTopologyWorkspace(elementId)
     return getAnchorEndpointInTopology(topology, pointId)
+  },
+
+  connectVectorAnchorEndpoints: (
+    elementId: string,
+    sourcePointId: string,
+    targetPointId: string
+  ): { closed: boolean } | null => {
+    const topology = getVectorTopologyWorkspace(elementId)
+    const sourceEndpoint = getAnchorEndpointInTopology(topology, sourcePointId)
+    const targetEndpoint = getAnchorEndpointInTopology(topology, targetPointId)
+    if (!sourceEndpoint || !targetEndpoint) {
+      return null
+    }
+
+    const connected = connectAnchorEndpointsInTopology(
+      topology,
+      sourceEndpoint,
+      targetEndpoint
+    )
+    if (!connected) {
+      return null
+    }
+
+    commitVectorTopology(elementId, connected.topology, {
+      closed: isClosedVectorTopology(connected.topology)
+    })
+    return {
+      closed: connected.closed
+    }
   },
 
   removeLastSinglePointSubpath: (elementId: string): boolean => {
