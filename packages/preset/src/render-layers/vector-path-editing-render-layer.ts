@@ -98,6 +98,14 @@ interface HoveredVectorSegmentInsertPointState {
   y: number
 }
 
+const PenPreviewMode = {
+  NONE: 'none',
+  CONNECTED_SEGMENT_PREVIEW: 'connected-segment-preview',
+  SEGMENT_INSERT_PREVIEW: 'segment-insert-preview'
+} as const
+
+type PenPreviewMode = (typeof PenPreviewMode)[keyof typeof PenPreviewMode]
+
 type RegisterRenderLayer = (
   registration: RenderLayerRegistration,
   options?: RegisterRenderLayerOptions
@@ -508,6 +516,17 @@ const getVisibleHandleAnchorIds = (
   return new Set()
 }
 
+const isSubpathEndpoint = (subpaths: OverlaySubpath[], pointId: string): boolean =>
+  subpaths.some((subpath) => {
+    if (subpath.points.length === 0) {
+      return false
+    }
+
+    const firstPoint = subpath.points[0]
+    const lastPoint = subpath.points[subpath.points.length - 1]
+    return firstPoint.id === pointId || lastPoint.id === pointId
+  })
+
 const drawPreview = (
   canvas: OverlayCanvas,
   lastPoint: OverlayAnchorPoint,
@@ -624,22 +643,6 @@ export const registerVectorPathEditingRenderLayer = (
         !hoveredVectorSegment.segmentId
           ? null
           : hoveredVectorSegment.segmentId
-      const activeGhostInsertPoint =
-        activeHoveredPoint ||
-        snapshot.primaryTool !== 'pen' ||
-        !pathEditingVectorId ||
-        !activeHoveredSegmentId ||
-        hoveredVectorSegmentInsertPoint?.elementId !== pathEditingVectorId ||
-        hoveredVectorSegmentInsertPoint?.segmentId !== activeHoveredSegmentId
-          ? null
-          : toScreenPosition(
-              {
-                x: hoveredVectorSegmentInsertPoint.x,
-                y: hoveredVectorSegmentInsertPoint.y
-              },
-              viewportPosition,
-              viewportScale
-            )
 
       const mouseWorkspacePos = deps.render.getMousePosInWorkspace({
         clientX: snapshot.mousePosition.x,
@@ -689,16 +692,43 @@ export const registerVectorPathEditingRenderLayer = (
       const lastSubpath = screenSubpaths[screenSubpaths.length - 1]
       const fallbackPreviewStartPoint =
         lastSubpath.points[lastSubpath.points.length - 1]
-      const previewStartPoint =
+      const selectedPreviewPoint =
         activeSelectedPoint !== null
-          ? (flatScreenPoints.find(
+          ? flatScreenPoints.find(
               (point) => point.id === activeSelectedPoint.pointId
-            ) ?? fallbackPreviewStartPoint)
+            ) ?? null
+          : null
+      const previewStartPoint =
+        selectedPreviewPoint &&
+        isSubpathEndpoint(screenSubpaths, selectedPreviewPoint.id)
+          ? selectedPreviewPoint
           : fallbackPreviewStartPoint
       const shouldRenderPreview =
         snapshot.primaryTool === 'pen' &&
         !startNewSubpath &&
         previewStartPoint !== null
+      const previewMode: PenPreviewMode =
+        snapshot.primaryTool !== 'pen'
+          ? PenPreviewMode.NONE
+          : shouldRenderPreview
+            ? PenPreviewMode.CONNECTED_SEGMENT_PREVIEW
+            : PenPreviewMode.SEGMENT_INSERT_PREVIEW
+      const activeGhostInsertPoint =
+        activeHoveredPoint ||
+        previewMode !== PenPreviewMode.SEGMENT_INSERT_PREVIEW ||
+        !pathEditingVectorId ||
+        !activeHoveredSegmentId ||
+        hoveredVectorSegmentInsertPoint?.elementId !== pathEditingVectorId ||
+        hoveredVectorSegmentInsertPoint?.segmentId !== activeHoveredSegmentId
+          ? null
+          : toScreenPosition(
+              {
+                x: hoveredVectorSegmentInsertPoint.x,
+                y: hoveredVectorSegmentInsertPoint.y
+              },
+              viewportPosition,
+              viewportScale
+            )
       const visibleHandleAnchorIds = getVisibleHandleAnchorIds(
         screenSubpaths,
         activeSelectedPoint?.pointId ?? null

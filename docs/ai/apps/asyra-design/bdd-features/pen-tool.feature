@@ -69,6 +69,30 @@ Feature: Pen Tool and Path Editing
     When I click that hovered segment
     Then segment selection state should be set for that editing vector
 
+  Scenario: Pen preview mode controls ghost insert point visibility
+    Given I have the "Pen" tool selected in path editing mode
+    And continuation preview segment is connected
+    When I hover a segment away from anchor/control points
+    Then ghost insert point preview should stay hidden
+    When split/new-subpath mode is active and I hover the segment again
+    Then ghost insert point preview should be visible
+
+  Scenario: Pen add mode only allows endpoint anchor hover
+    Given I have the "Pen" tool selected in path editing mode
+    And continuation preview segment is connected
+    When I hover a non-endpoint anchor on the editing path
+    Then hovered vector point state should stay empty
+    When I hover an endpoint curve control point
+    Then hovered vector point state should stay empty
+    When I hover a valid endpoint anchor
+    Then hovered vector point state should target that anchor
+
+  Scenario: Segment split keeps split/new-subpath mode
+    Given I have the "Pen" tool selected in path editing mode
+    And I split a segment by clicking its insert preview point
+    Then split/new-subpath mode should remain active
+    And connected append preview segment should stay hidden
+
   Scenario: Path editing blocks other-element hover and selection
     Given path editing mode is active for one vector
     And primary tool is Select

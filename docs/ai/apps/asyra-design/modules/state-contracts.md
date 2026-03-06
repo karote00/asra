@@ -51,6 +51,7 @@ This file defines app-level state keys, owners, and primary consumers.
   - writers: hover-vector-point flow
   - readers: vector-point selection and cursor behavior
   - state shape includes target type: `anchor` | `inHandle` | `outHandle`
+  - pen-mode contract: only endpoint anchors are hoverable in connected-preview mode; split-preview mode suppresses point hover
 
 - `selectedVectorSegment`
   - owner: system-context
@@ -62,6 +63,12 @@ This file defines app-level state keys, owners, and primary consumers.
   - owner: system-context
   - writers: hover-vector-point flow (segment hit fallback)
   - readers: vector path-editing render layer
+
+- `hoveredVectorSegmentInsertPoint`
+  - owner: system-context
+  - writers: hover-vector-point flow (only in pen `segment-insert-preview` mode)
+  - readers: vector path-editing render layer ghost insert-point preview
+  - visibility rule: hidden while pen connected preview segment is active
 
 ## UI Context Keys (App Registered)
 

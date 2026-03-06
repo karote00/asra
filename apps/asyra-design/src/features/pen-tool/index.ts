@@ -37,6 +37,15 @@ interface SubpathEndpoint {
   side: VectorEndpointSide
 }
 
+const PenHoverPreviewMode = {
+  NONE: 'none',
+  CONNECTED_SEGMENT_PREVIEW: 'connected-segment-preview',
+  SEGMENT_INSERT_PREVIEW: 'segment-insert-preview'
+} as const
+
+type PenHoverPreviewMode =
+  (typeof PenHoverPreviewMode)[keyof typeof PenHoverPreviewMode]
+
 const createAnchorPoint = (point: {
   x: number
   y: number
@@ -294,6 +303,24 @@ const getSubpathEndpoint = (
   return null
 }
 
+const resolvePenHoverPreviewMode = (
+  snapshot: SystemContextSnapshot,
+  pathEditingVectorId: string | null
+): PenHoverPreviewMode => {
+  if (
+    snapshot.primaryTool !== PrimaryToolType.PEN ||
+    !pathEditingVectorId
+  ) {
+    return PenHoverPreviewMode.NONE
+  }
+
+  if (systemContextApis.getPathEditingStartNewSubpath()) {
+    return PenHoverPreviewMode.SEGMENT_INSERT_PREVIEW
+  }
+
+  return PenHoverPreviewMode.CONNECTED_SEGMENT_PREVIEW
+}
+
 export const penFeature = defineFeature<Record<string, unknown>, PenState>(
   FeatureNames.PEN,
   InputSystemEvents.INPUT_DRAG,
@@ -323,33 +350,36 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
         if (isPathEditingVectorSelected(selectedIds, pathEditingVectorId)) {
           const subpaths =
             elementApis.getVectorAnchorSubpaths(pathEditingVectorId)
+          const clickedPoint = elementApis.getVectorEditablePointAtClientPos(
+            pathEditingVectorId,
+            snapshot.mousePosition
+          )
+          const clickedEndpoint =
+            clickedPoint &&
+            clickedPoint.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
+              ? getSubpathEndpoint(subpaths, clickedPoint.point.id)
+              : null
           const hoveredPoint = systemContextApis.getHoveredVectorPoint()
           const hoveredSegment = systemContextApis.getHoveredVectorSegment()
           const hoveredSegmentInsertPoint =
             systemContextApis.getHoveredVectorSegmentInsertPoint()
-          const clickedPoint =
-            startNewSubpath &&
-            elementApis.getVectorEditablePointAtClientPos(
-              pathEditingVectorId,
-              snapshot.mousePosition
-            )
 
           if (
             clickedPoint &&
             clickedPoint.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
           ) {
-            const selectedPoint = elementApis.getVectorAnchorPointById(
-              pathEditingVectorId,
-              clickedPoint.point.id
-            )
-            setSelectedAnchorPoint(pathEditingVectorId, selectedPoint)
+            if (!startNewSubpath && !clickedEndpoint) {
+              return null
+            }
 
-            const selectedEndpoint = getSubpathEndpoint(
-              subpaths,
-              clickedPoint.point.id
-            )
-            if (startNewSubpath && selectedEndpoint) {
+            if (startNewSubpath && clickedEndpoint) {
+              const selectedPoint = elementApis.getVectorAnchorPointById(
+                pathEditingVectorId,
+                clickedPoint.point.id
+              )
+              setSelectedAnchorPoint(pathEditingVectorId, selectedPoint)
               systemContextApis.setPathEditingStartNewSubpath(false)
+              return null
             }
 
             return null
@@ -375,13 +405,14 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
                   }
                 }
               : null
-          const activeHoveredSegmentHit = isHoveringAnchorOnEditingVector
-            ? null
-            : stateHoveredSegmentHit ??
-              elementApis.getVectorSegmentHitAtClientPos(
-                pathEditingVectorId,
-                snapshot.mousePosition
-              )
+          const activeHoveredSegmentHit =
+            startNewSubpath && !isHoveringAnchorOnEditingVector
+              ? stateHoveredSegmentHit ??
+                elementApis.getVectorSegmentHitAtClientPos(
+                  pathEditingVectorId,
+                  snapshot.mousePosition
+                )
+              : null
 
           if (activeHoveredSegmentHit) {
             const insertedPoint = elementApis.splitVectorSegmentAtWorkspacePos(
@@ -396,7 +427,9 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
               systemContextApis.setSelectedVectorSegment(null)
               systemContextApis.setHoveredVectorSegment(null)
               systemContextApis.setHoveredVectorSegmentInsertPoint(null)
-              systemContextApis.setPathEditingStartNewSubpath(false)
+              // Keep split mode active after split actions. Non-endpoint
+              // continuation is intentionally deferred to network editing.
+              systemContextApis.setPathEditingStartNewSubpath(true)
             }
 
             return null
@@ -627,10 +660,38 @@ export const hoverVectorPointCursorFeature = defineFeature(
         return null
       }
 
-      const hoveredPoint = elementApis.getVectorEditablePointAtClientPos(
-        pathEditingVectorId,
-        snapshot.mousePosition
+      const previewMode = resolvePenHoverPreviewMode(
+        snapshot,
+        pathEditingVectorId
       )
+      const hoveredPoint =
+        (() => {
+          const rawHoveredPoint = elementApis.getVectorEditablePointAtClientPos(
+            pathEditingVectorId,
+            snapshot.mousePosition
+          )
+          if (!rawHoveredPoint) {
+            return null
+          }
+
+          if (snapshot.primaryTool !== PrimaryToolType.PEN) {
+            return rawHoveredPoint
+          }
+
+          if (previewMode !== PenHoverPreviewMode.CONNECTED_SEGMENT_PREVIEW) {
+            return null
+          }
+
+          if (rawHoveredPoint.target !== VECTOR_TOKENS.POINT.TARGET.ANCHOR) {
+            return null
+          }
+
+          const subpaths = elementApis.getVectorAnchorSubpaths(
+            pathEditingVectorId
+          )
+          const endpoint = getSubpathEndpoint(subpaths, rawHoveredPoint.point.id)
+          return endpoint ? rawHoveredPoint : null
+        })()
       if (hoveredPoint) {
         systemContextApis.setHoveredVectorPoint({
           elementId: pathEditingVectorId,
@@ -651,16 +712,20 @@ export const hoverVectorPointCursorFeature = defineFeature(
         snapshot.mousePosition
       )
       const hoveredSegment: SelectedVectorSegmentState | null = hoveredSegmentHit
-        ? {
-            elementId: pathEditingVectorId,
-            segmentId: hoveredSegmentHit.segmentId
-          }
+        ? snapshot.primaryTool === PrimaryToolType.PEN &&
+          previewMode === PenHoverPreviewMode.CONNECTED_SEGMENT_PREVIEW
+          ? null
+          : {
+              elementId: pathEditingVectorId,
+              segmentId: hoveredSegmentHit.segmentId
+            }
         : null
 
       systemContextApis.setHoveredVectorPoint(null)
       systemContextApis.setHoveredVectorSegment(hoveredSegment)
       systemContextApis.setHoveredVectorSegmentInsertPoint(
-        snapshot.primaryTool === PrimaryToolType.PEN && hoveredSegmentHit
+        previewMode === PenHoverPreviewMode.SEGMENT_INSERT_PREVIEW &&
+          hoveredSegmentHit
           ? {
               elementId: pathEditingVectorId,
               segmentId: hoveredSegmentHit.segmentId,

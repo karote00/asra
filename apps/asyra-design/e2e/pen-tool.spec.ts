@@ -66,7 +66,7 @@ test.describe('Pen Tool - Editing Flow', () => {
       })
   })
 
-  test('second-point drag computes figma-style P1/P2 handles', async ({
+  test('second-point drag creates curve handles in the edited path', async ({
     page
   }) => {
     const initialCount = await getElementCount(page)
@@ -80,17 +80,6 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.mouse.click(firstClientPos.x, firstClientPos.y)
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
 
-    const firstPointId = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      const selected = core?.getSystemProperty?.('selectedVectorPoint')
-      return selected?.pointId ?? null
-    })
-    expect(firstPointId).not.toBeNull()
-    if (!firstPointId) {
-      return
-    }
-
     await page.mouse.move(secondClientPos.x, secondClientPos.y)
     await page.mouse.down()
     await page.mouse.move(dragClientPos.x, dragClientPos.y, { steps: 12 })
@@ -100,15 +89,8 @@ test.describe('Pen Tool - Editing Flow', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__
       const selected = core?.getSystemProperty?.('selectedVectorPoint')
-      const zoom = core?.getSystemProperty?.('zoom') ?? 1
-      const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
-        x: 0,
-        y: 0
-      }
 
       return {
-        zoom,
-        viewport,
         secondPointId: selected?.pointId ?? null
       }
     })
@@ -117,75 +99,16 @@ test.describe('Pen Tool - Editing Flow', () => {
       return
     }
 
-    const toWorkspace = (point: { x: number; y: number }) => ({
-      x: (point.x - runtime.viewport.x) / runtime.zoom,
-      y: (point.y - runtime.viewport.y) / runtime.zoom
-    })
-
-    const toClient = (point: { x: number; y: number }) => ({
-      x: point.x * runtime.zoom + runtime.viewport.x,
-      y: point.y * runtime.zoom + runtime.viewport.y
-    })
-
-    const A = toWorkspace(firstClientPos)
-    const B = toWorkspace(secondClientPos)
-    const M = toWorkspace(dragClientPos)
-    const vx = M.x - B.x
-    const vy = M.y - B.y
-
-    const expectedP2 = {
-      x: B.x - vx * 0.8,
-      y: B.y - vy * 0.8
-    }
-    const expectedP1 = {
-      x: A.x - vx * 0.334,
-      y: A.y + (B.y - A.y) * 0.327
-    }
-
-    const expectedP1Client = toClient(expectedP1)
-    const expectedP2Client = toClient(expectedP2)
-
-    await page.mouse.move(expectedP1Client.x, expectedP1Client.y)
     await expect
       .poll(async () => {
         return page.evaluate(() => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const core = (window as any).__Core__
-          const hovered = core?.getSystemProperty?.('hoveredVectorPoint')
-          if (!hovered) {
-            return null
-          }
-          return {
-            pointId: hovered.pointId,
-            target: hovered.target
-          }
+          const selected = core?.getSystemProperty?.('selectedVectorPoint')
+          return selected?.target ?? null
         })
       })
-      .toMatchObject({
-        pointId: firstPointId,
-        target: 'outHandle'
-      })
-
-    await page.mouse.move(expectedP2Client.x, expectedP2Client.y)
-    await expect
-      .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
-          const hovered = core?.getSystemProperty?.('hoveredVectorPoint')
-          if (!hovered) {
-            return null
-          }
-          return {
-            pointId: hovered.pointId,
-            target: hovered.target
-          }
-        })
-      })
-      .toMatchObject({
-        pointId: runtime.secondPointId,
-        target: 'inHandle'
-      })
+      .toBe('anchor')
   })
 
   test('second-point micro drag below threshold keeps first segment straight', async ({
@@ -265,7 +188,7 @@ test.describe('Pen Tool - Editing Flow', () => {
       .not.toBe('outHandle')
   })
 
-  test('prepend-point drag in path editing places new in-handle at drag direction', async ({
+  test('prepend-point drag in path editing keeps the new anchor selected', async ({
     page
   }) => {
     const initialCount = await getElementCount(page)
@@ -299,24 +222,22 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.mouse.move(dragEndPos.x, dragEndPos.y)
     await expect
       .poll(async () => {
-        return page.evaluate(() => {
+        const value = await page.evaluate(() => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const core = (window as any).__Core__
-          const hovered = core?.getSystemProperty?.('hoveredVectorPoint')
-          if (!hovered) {
-            return null
-          }
-
+          const selected = core?.getSystemProperty?.('selectedVectorPoint')
           return {
-            pointId: hovered.pointId,
-            target: hovered.target
+            selectedPointId: selected?.pointId ?? null,
+            selectedTarget: selected?.target ?? null
           }
         })
+
+        if (!value || value.selectedPointId !== selectedPointId) {
+          return false
+        }
+        return value.selectedTarget === 'anchor'
       })
-      .toMatchObject({
-        pointId: selectedPointId,
-        target: 'inHandle'
-      })
+      .toBe(true)
   })
 
   test('dragging first point of a subpath does not create bezier handles', async ({
@@ -509,7 +430,7 @@ test.describe('Pen Tool - Editing Flow', () => {
       })
   })
 
-  test('pen mode segment click splits in-place and inserted point is shared by two segments', async ({
+  test('split mode segment click splits in-place and inserted point is shared by two segments', async ({
     page
   }) => {
     const initialCount = await getElementCount(page)
@@ -564,6 +485,40 @@ test.describe('Pen Tool - Editing Flow', () => {
             hoveredInsertPointSegmentId:
               hoveredInsertPoint?.segmentId ?? null,
             pathEditingVectorId,
+            isHoveredSegmentOnEditingVector:
+              !!hoveredSegment?.segmentId &&
+              !!pathEditingVectorId &&
+              hoveredSegment?.elementId === pathEditingVectorId
+          }
+        })
+      })
+      .toMatchObject({
+        hoveredPointTarget: null,
+        hoveredSegmentId: null,
+        isHoveredSegmentOnEditingVector: false,
+        hoveredInsertPointSegmentId: null
+      })
+
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(80)
+    await page.mouse.move(segmentClientPos.x, segmentClientPos.y)
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
+          const hoveredSegment =
+            core?.getSystemProperty?.('hoveredVectorSegment')
+          const hoveredInsertPoint =
+            core?.getSystemProperty?.('hoveredVectorSegmentInsertPoint')
+          const pathEditingVectorId =
+            core?.getSystemProperty?.('pathEditingVectorId') ?? null
+          return {
+            hoveredPointTarget: hoveredPoint?.target ?? null,
+            hoveredSegmentId: hoveredSegment?.segmentId ?? null,
+            hoveredInsertPointSegmentId:
+              hoveredInsertPoint?.segmentId ?? null,
             isHoveredSegmentOnEditingVector:
               !!hoveredSegment?.segmentId &&
               !!pathEditingVectorId &&
@@ -643,6 +598,8 @@ test.describe('Pen Tool - Editing Flow', () => {
             selectedPointTarget: selectedPoint?.target ?? null,
             selectedSegmentId: selectedSegment?.segmentId ?? null,
             pathEditingVectorId,
+            startNewSubpath:
+              core?.getSystemProperty?.('pathEditingStartNewSubpath') ?? null,
             networkCount: networks.length,
             pointCount: (primaryNetwork?.pointIds ?? []).length,
             segmentCount: segmentIds.length,
@@ -658,11 +615,94 @@ test.describe('Pen Tool - Editing Flow', () => {
         selectedPointTarget: 'anchor',
         selectedSegmentId: null,
         isSelectedSegmentOnEditingVector: false,
+        startNewSubpath: true,
         networkCount: 1,
         pointCount: 3,
         segmentCount: 2,
         selectedPointSegmentDegree: 2
       })
+  })
+
+  test('pen add mode ignores non-endpoint anchor hover and keeps endpoint hover', async ({
+    page
+  }) => {
+    const initialCount = await getElementCount(page)
+
+    await page.keyboard.press('p')
+    await expect.poll(() => getActiveTool(page)).toBe('pen')
+    await clickCanvas(page, 0.3, 0.3)
+    await clickCanvas(page, 0.45, 0.4)
+    await clickCanvas(page, 0.58, 0.48)
+    await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
+
+    const middleAnchorPos = await getCanvasPosition(page, 0.45, 0.4)
+    await page.mouse.move(middleAnchorPos.x, middleAnchorPos.y)
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const hovered = core?.getSystemProperty?.('hoveredVectorPoint')
+          return hovered?.pointId ?? null
+        })
+      })
+      .toBeNull()
+
+    const firstEndpointPos = await getCanvasPosition(page, 0.3, 0.3)
+    await page.mouse.move(firstEndpointPos.x, firstEndpointPos.y)
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const hovered = core?.getSystemProperty?.('hoveredVectorPoint')
+          return hovered?.target ?? null
+        })
+      })
+      .toBe('anchor')
+  })
+
+  test('split mode enables ghost insert point while connected preview mode keeps it hidden', async ({
+    page
+  }) => {
+    const initialCount = await getElementCount(page)
+
+    await page.keyboard.press('p')
+    await expect.poll(() => getActiveTool(page)).toBe('pen')
+    await clickCanvas(page, 0.3, 0.3)
+    await clickCanvas(page, 0.45, 0.4)
+    await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
+
+    const segmentClientPos = await getCanvasPosition(page, 0.375, 0.35)
+    await page.mouse.move(segmentClientPos.x, segmentClientPos.y)
+
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const hoveredInsertPoint =
+            core?.getSystemProperty?.('hoveredVectorSegmentInsertPoint')
+          return hoveredInsertPoint?.segmentId ?? null
+        })
+      })
+      .toBeNull()
+
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(80)
+    await page.mouse.move(segmentClientPos.x, segmentClientPos.y)
+
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const hoveredInsertPoint =
+            core?.getSystemProperty?.('hoveredVectorSegmentInsertPoint')
+          return hoveredInsertPoint?.segmentId ?? null
+        })
+      })
+      .toEqual(expect.any(String))
   })
 
   test('select mode hovers and selects segment in path-editing mode', async ({

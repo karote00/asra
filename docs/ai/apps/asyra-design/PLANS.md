@@ -24,20 +24,26 @@
 
 ## Recently Completed
 
-1. Vector editing E2E coverage expansion (completed 2026-03-06)
+1. Pen hover preview state machine (completed 2026-03-06)
+- added app-level pen preview mode semantics to enforce mutual exclusivity between connected preview segment and ghost insert point
+- connected preview mode now suppresses `hoveredVectorSegmentInsertPoint`; split/new-subpath mode enables it
+- synced pen feature/BDD/state-contract docs and expanded `e2e/pen-tool.spec.ts` coverage for mode-dependent ghost-point behavior
+- completed plan: `docs/ai/apps/asyra-design/plans/completed/pen-hover-preview-state-machine-plan.md`
+
+2. Vector editing E2E coverage expansion (completed 2026-03-06)
 - expanded `pen-tool` regression scenarios for segment insert/split, path-editing guards, anchor-handle translation, and refresh consistency
 - added direct `hoveredElementId` set/clear assertions in `selection.spec.ts`
 - added select-mode segment hover/selection assertions while path editing in `pen-tool.spec.ts`
 - established focused vector-editing regression gate via `e2e/pen-tool.spec.ts`
 - completed plan: `docs/ai/apps/asyra-design/plans/completed/e2e-coverage-update-plan.md`
 
-2. Vector target hover/selection parity (completed 2026-03-06)
+3. Vector target hover/selection parity (completed 2026-03-06)
 - added explicit hover and normal selection visuals for vector points, curve controls, and segments
 - restricted path-editing hover/selection to current editing vector
 - aligned vector outline color with normal selection outline style
 - completed plan: `docs/ai/apps/asyra-design/plans/completed/vector-target-hover-and-selection-plan.md`
 
-3. Hover state and selection overlay unification (completed 2026-03-06)
+4. Hover state and selection overlay unification (completed 2026-03-06)
 - synced hovered target across canvas and content panel
 - moved selection/hover overlay drawing to registered app/preset render layer
 - hover outline now follows geometry for vector/oval/rect (with fallback bounds for unsupported types)

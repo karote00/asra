@@ -61,12 +61,20 @@
 
 - hover feature updates `hoveredVectorPoint` target (`anchor`, `inHandle`, `outHandle`) and cursor (`pointer`/`default`).
 - if no point target is hovered, hover feature resolves segment hover into `hoveredVectorSegment`.
-- segment hover resolves `hoveredVectorSegmentInsertPoint` (projected workspace point on that segment) only when pen tool is active, for overlay ghost-point rendering.
+- pen hover flow resolves an explicit preview mode:
+  - `connected-segment-preview` when pen has a connected append preview segment
+  - `segment-insert-preview` when no connected append preview segment is available
+- segment hover resolves `hoveredVectorSegmentInsertPoint` (projected workspace point on that segment) only in `segment-insert-preview`.
+- while in `connected-segment-preview`, ghost insert point is hidden (segment split point preview is suppressed).
+- in pen mode, point-target hover is allowed only in `connected-segment-preview` and only for endpoint anchors of the editing subpath.
+- in pen `segment-insert-preview`, point hover is suppressed.
+- in pen `connected-segment-preview`, segment hover is suppressed.
 - point target hover takes precedence over segment hover when both are near the pointer.
 - select-point feature (non-pen mode) selects hovered point target when in path-editing mode.
 - when point hit is absent but path segment hit is present in non-pen mode, select-point feature selects the segment through `selectionApis.selectVectorSegment(...)`.
 - pen session (pen mode) splits the hovered segment at the projected pointer position and selects the inserted anchor point.
 - split preserves curve geometry by recomputing segment controls from cubic split math (`t`-based de Casteljau split) before committing topology.
+- after segment split, pen keeps `pathEditingStartNewSubpath = true` (split mode), so connected append preview stays hidden until user explicitly resumes from a valid endpoint.
 - point target selection takes precedence over segment selection.
 - in path editing mode, hover/selection targets are restricted to the current `pathEditingVectorId` vector; other elements are ignored.
 

@@ -354,3 +354,38 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
   - Vector segment targeting behavior is protected in both pen and non-pen interaction modes.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/e2e-coverage-update-plan.md`
+
+## 2026-03-06 - Pen hover preview mode model enforces ghost-point/preview mutual exclusivity
+
+- Context:
+  - In pen path-editing flow, segment hover could show ghost insert point even while connected append preview segment was active.
+  - This created conflicting visual cues for append-vs-split intent.
+- Decision:
+  - Introduce explicit pen preview intent modes in hover/render flow:
+    - `none`
+    - `connected-segment-preview`
+    - `segment-insert-preview`
+  - Allow `hoveredVectorSegmentInsertPoint` only in `segment-insert-preview`.
+  - Suppress ghost insert point in `connected-segment-preview`.
+- Consequences:
+  - Pen hover feedback now deterministically shows one preview intent at a time.
+  - Connected append preview and segment split ghost point no longer appear together.
+  - Split/new-subpath mode remains the only path where ghost insert point is shown in pen mode.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/pen-hover-preview-state-machine-plan.md`
+
+## 2026-03-06 - Pen split/add boundaries tightened before network editing support
+
+- Context:
+  - Pen add flow still allowed ambiguous interior-anchor interaction while network continuation from non-endpoints is not supported yet.
+  - After segment split, pen immediately re-entered connected append preview, which blurred split-vs-add intent.
+- Decision:
+  - In pen mode, allow point hover only for endpoint anchors while connected preview is active.
+  - In connected add-preview mode, suppress segment hover and segment insert-preview state.
+  - Suppress pen point hover in split-preview mode.
+  - Keep split-preview mode active after segment split (`pathEditingStartNewSubpath = true`) until explicit endpoint resume.
+  - Ignore pen add-click on non-endpoint anchors in connected add mode.
+- Consequences:
+  - Pen add mode no longer suggests/accepts non-endpoint continuation paths before network feature support.
+  - Segment split now remains a dedicated split action and does not auto-transition into connected append preview.
+  - Hover/preview intent is clearer and aligned with current topology capabilities.
