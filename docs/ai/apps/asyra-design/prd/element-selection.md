@@ -7,6 +7,7 @@ Users need predictable single-selection behavior from both canvas and layer/cont
 ## Goals
 
 - reliable select/deselect behavior
+- direct drag-to-move for selected canvas elements
 - consistent panel updates from selection state
 - stable behavior with path editing context
 
@@ -19,11 +20,15 @@ Users need predictable single-selection behavior from both canvas and layer/cont
 5. Shift-modified selection toggles element membership.
 6. Path editing mode should keep focus and block regular selection start logic where applicable.
 7. Hover state should resolve by element bounds hit-test on mouse move.
+8. Drag start on an already selected element in select mode should move selected element(s).
+9. Drag move should ignore micro pointer jitter below app-defined movement threshold.
+10. Drag start on an unselected unlocked element in select mode should select and move that element.
 
 ## Constraints
 
 - bounds-based hit testing used by app (`elementApis.getElementIdAtClientPos`)
 - selection feature wraps selection mutations in transaction boundary
+- move behavior owns drag-to-position updates through `move-elements` feature and `elementApis.setElementPositions(...)`
 
 ## Success Criteria
 

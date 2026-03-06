@@ -4,6 +4,7 @@ export const ToolFeatureNames = {
 
 export const ElementFeatureNames = {
   CREATE_ELEMENT: 'createElement',
+  MOVE_ELEMENTS: 'moveElements',
   HOVER_ELEMENT: 'hoverElement',
   SELECTION: 'selection',
   DELETE_SELECTED_ELEMENT: 'deleteSelectedElement'

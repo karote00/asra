@@ -15,7 +15,9 @@ Import boundary:
 - `getElementIdAtWorkspacePos(workspacePos: PositionData): string | null`
 - `getElementIdAtClientPos(clientPos: PositionData): string | null`
 - `getElementType(elementId: string): string | undefined`
+- `isElementLocked(elementId: string): boolean`
 - `getElementBounds(elementId: string): { x: number; y: number; width: number; height: number } | null`
+- `getElementPosition(elementId: string): { x: number; y: number } | null`
 - `isPointInsideElement(elementId: string, point: PositionData, padding?: number): boolean`
 - vector topology contract:
   - canonical runtime/persistence model is `points` + `segments` + `networks`
@@ -49,6 +51,7 @@ Import boundary:
 - `createVectorElementFromSinglePoint(pointId: string, position: PositionData, mutationOptions?: { undoable: boolean }): string | null`
 - `deleteElement(elementId: string, options?: { undoable: boolean }): boolean`
 - `resetElementSize(elementId: string): void`
+- `setElementPositions(positionsById: Record<string, PositionData>, options?: { undoable: boolean }): void`
 - `hasMovedBeyondThreshold(clientDragStart: PositionData, clientCurrentPos: PositionData, threshold?: number): boolean`
 - `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: { undoable: boolean }): void`
 
@@ -167,6 +170,7 @@ Feature registry (`src/features/index.ts`):
 
 - `switch-primary-tool`
 - `create-element`
+- `move-elements`
 - `selection`
 - `delete-element`
 - `delete-vector-point`
@@ -195,6 +199,13 @@ Feature registry (`src/features/index.ts`):
   - `elementApis.getElementIdAtClientPos`
   - `selectionApis.toggleSelection` / `selectElements` / `clearSelection`
 
+- `move-elements`
+
+  - `selectionApis.getSelectedIds`
+  - `systemContextApis.getPathEditingMode`
+  - `elementApis.getElementIdAtClientPos` / `getMousePosInWorkspace` / `isElementLocked`
+  - `elementApis.getElementPosition` / `setElementPositions` / `hasMovedBeyondThreshold`
+
 - `delete-element`
 
   - `selectionApis.getSelectedIds` / `selectElements`
@@ -203,6 +214,7 @@ Feature registry (`src/features/index.ts`):
   - `systemContextApis.updateHoveredElementId`
 
 - `delete-vector-point`
+
   - `systemContextApis.getPathEditingVectorId` / `clearVectorPointState`
   - `selectionApis.getSelectedVectorPoints`
   - `selectionApis.clearVectorPointSelection` / `clearVectorSegmentSelection`

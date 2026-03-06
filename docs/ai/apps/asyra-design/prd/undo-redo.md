@@ -17,6 +17,7 @@ Users must be able to recover from mistakes through reliable undo and redo behav
 3. Multiple undo/redo operations maintain correct order.
 4. History shortcuts are available from keyboard.
 5. Drag-create interactions must commit as a compact single intended action (no move-spam history entries).
+6. Drag-move interactions must undo/redo element position deterministically as one intended action.
 
 ## Constraints
 

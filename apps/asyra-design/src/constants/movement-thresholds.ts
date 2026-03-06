@@ -2,5 +2,6 @@
 // Keep these app-owned and tune per feature behavior.
 export const FEATURE_MOVEMENT_THRESHOLD = {
   createElement: 3,
+  moveElement: 3,
   penCurveDrag: 3
 } as const

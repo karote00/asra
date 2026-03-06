@@ -15,6 +15,7 @@ Asyra Design needs a predictable, fast canvas interaction model for shape creati
 
 - rectangle/oval creation
 - single selection and deselection
+- drag move for selected element(s)
 - delete selected element / selected vector anchor behavior
 - viewport zoom/pan/zoom-fit
 - pen tool path editing core behavior
@@ -31,10 +32,11 @@ Asyra Design needs a predictable, fast canvas interaction model for shape creati
 1. Input-to-feature routing must be deterministic via feature priorities/exclusive rules.
 2. Shape creation supports click default size and drag dynamic size.
 3. Selection works from canvas and contents panel.
-4. Delete shortcuts remove selected element in standard mode and route to selected anchor-point delete in path-editing mode.
-5. Path editing mode allows vector point-centric workflows.
-6. Viewport supports zoom (modifier wheel), pan (plain wheel), zoom-fit shortcut.
-7. Undo/redo reflects intended interaction unit boundaries.
+4. Select mode supports drag-to-move for already selected element(s).
+5. Delete shortcuts remove selected element in standard mode and route to selected anchor-point delete in path-editing mode.
+6. Path editing mode allows vector point-centric workflows.
+7. Viewport supports zoom (modifier wheel), pan (plain wheel), zoom-fit shortcut.
+8. Undo/redo reflects intended interaction unit boundaries.
 
 ## Non-Functional Requirements
 

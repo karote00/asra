@@ -14,6 +14,17 @@ Feature: Element Selection
     When I click empty canvas area
     Then no element should remain selected
 
+  Scenario: Drag selected element to move
+    Given an element is selected on canvas
+    When I drag from the selected element to a new position
+    Then the selected element should update its canvas position
+
+  Scenario: Drag unselected unlocked element to move
+    Given an unlocked element exists on canvas and is not selected
+    When I drag from that unlocked element to a new position
+    Then that element should become selected
+    And that element should update its canvas position
+
   Scenario: Select from contents panel
     Given an element exists in the contents panel
     When I click the element row

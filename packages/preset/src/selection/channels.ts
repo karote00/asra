@@ -1,3 +1,5 @@
+import { EventTypes } from '@asyra/core'
+
 export const SelectionChannels = {
   ELEMENT: 'element',
   VECTOR_POINT: 'vectorPoint',
@@ -24,3 +26,12 @@ export const SelectionActions = {
 
 export type SelectionAction =
   (typeof SelectionActions)[keyof typeof SelectionActions]
+
+export const SelectionEventNames = {
+  SELECT_ELEMENTS: EventTypes.SELECT_ELEMENTS,
+  SELECT_VECTOR_POINTS: EventTypes.SELECT_VECTOR_POINTS,
+  SELECT_VECTOR_SEGMENTS: EventTypes.SELECT_VECTOR_SEGMENTS
+} as const
+
+export type SelectionEventName =
+  (typeof SelectionEventNames)[keyof typeof SelectionEventNames]

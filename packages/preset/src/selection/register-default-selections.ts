@@ -3,6 +3,7 @@ import type { PresetCoreAPIs } from '../types'
 import {
   SelectionActions,
   SelectionChannels,
+  SelectionEventNames,
   type SelectionChannel
 } from './channels'
 
@@ -15,17 +16,17 @@ const DEFAULT_SELECTION_DEFINITIONS: Record<
   [SelectionChannels.ELEMENT]: {
     selectionType: SelectionChannels.ELEMENT,
     selectAction: SelectionActions.SELECT_ELEMENTS,
-    eventName: SelectionActions.SELECT_ELEMENTS
+    eventName: SelectionEventNames.SELECT_ELEMENTS
   },
   [SelectionChannels.VECTOR_POINT]: {
     selectionType: SelectionChannels.VECTOR_POINT,
     selectAction: SelectionActions.SELECT_VECTOR_POINTS,
-    eventName: SelectionActions.SELECT_VECTOR_POINTS
+    eventName: SelectionEventNames.SELECT_VECTOR_POINTS
   },
   [SelectionChannels.VECTOR_SEGMENT]: {
     selectionType: SelectionChannels.VECTOR_SEGMENT,
     selectAction: SelectionActions.SELECT_VECTOR_SEGMENTS,
-    eventName: SelectionActions.SELECT_VECTOR_SEGMENTS
+    eventName: SelectionEventNames.SELECT_VECTOR_SEGMENTS
   }
 }
 

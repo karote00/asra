@@ -40,6 +40,7 @@ Preset role contract:
 - preset registers default shared-channel observers (render + ui-context scene-tree/selection) by channel name instead of touching YJS instances directly.
 - preset computes default ui-context aggregates from `sceneTree` + `selection` subscriptions (no ui-context-owned scene/selection stores).
 - preset applies selection changes from the shared `selection` channel to selection runtime state and handles default cleanup for removed elements.
+- preset mirrors direct selection events (for example undo/redo replay path) to selection runtime, render selection store, and ui-context selection state so visual selection stays in sync even when changes bypass shared-channel observers.
 - preset defines concrete canvas selection channel profile constants (element/vector point/vector segment) for default channel identity.
 - preset exports canvas selection profile constants for app usage (`SelectionChannels`, `SelectionActions`).
 - preset declares default selections via `core.defineSelection(...)` (with `registerSelection` compatibility retained in core).

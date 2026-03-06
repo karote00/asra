@@ -128,6 +128,92 @@ export async function createOval(page: Page, relativeX = 0.3, relativeY = 0.3) {
 }
 
 /**
+ * Get selected element computed position and size from core.
+ */
+export async function getSelectedElementRect(page: Page): Promise<{
+  id: string
+  x: number
+  y: number
+  width: number
+  height: number
+} | null> {
+  return page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+    if (!selectedId) {
+      return null
+    }
+
+    const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+    const computed = element?.getAllComputedData?.() ?? {}
+    const x = typeof computed.x === 'number' ? computed.x : null
+    const y = typeof computed.y === 'number' ? computed.y : null
+    const width = typeof computed.width === 'number' ? computed.width : null
+    const height = typeof computed.height === 'number' ? computed.height : null
+
+    if (x === null || y === null || width === null || height === null) {
+      return null
+    }
+
+    return {
+      id: selectedId,
+      x,
+      y,
+      width,
+      height
+    }
+  })
+}
+
+/**
+ * Resolve selected element center in client-space.
+ */
+export async function getSelectedElementClientCenter(
+  page: Page
+): Promise<{ x: number; y: number } | null> {
+  const rect = await getSelectedElementRect(page)
+  if (!rect) {
+    return null
+  }
+
+  return page.evaluate(({ x, y, width, height }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const zoom = core?.getSystemProperty?.('zoom') ?? 1
+    const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
+      x: 0,
+      y: 0
+    }
+
+    return {
+      x: (x + width / 2) * zoom + viewport.x,
+      y: (y + height / 2) * zoom + viewport.y
+    }
+  }, rect)
+}
+
+/**
+ * Drag the selected element by a client-space delta.
+ */
+export async function dragSelectedElementBy(
+  page: Page,
+  deltaX: number,
+  deltaY: number,
+  steps = 20
+) {
+  const center = await getSelectedElementClientCenter(page)
+  if (!center) {
+    throw new Error('No selected element center available for drag')
+  }
+
+  await page.mouse.move(center.x, center.y)
+  await page.mouse.down()
+  await page.mouse.move(center.x + deltaX, center.y + deltaY, { steps })
+  await page.mouse.up()
+}
+
+/**
  * Perform an Undo operation
  */
 export async function undo(page: Page) {

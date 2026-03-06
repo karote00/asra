@@ -435,3 +435,65 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
   - Completed-plan archive now contains final completion metadata, decision, and exit criteria for this scope.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/connect-point-subpath-merge-close-plan.md`
+
+## 2026-03-06 - Select-mode drag now repositions selected element(s) with undo-safe commit
+
+- Context:
+  - Canvas interactions lacked direct drag-to-move for selected elements in select mode.
+  - Drag-move behavior needed explicit feature ownership separate from selection start/toggle flow.
+- Decision:
+  - Add app feature `move-elements` on `input.drag` (priority `8`, exclusive) to own selected-element drag sessions.
+  - Start move only when drag begins on an already selected element, primary tool is `select`, Shift is not held, and path-editing mode is inactive.
+  - Add common-API element position helpers (`getElementPosition`, `setElementPositions`) and route move writes through that boundary.
+  - Apply drag-frame updates as `undoable: false`, then finalize drag end as one intended undoable position commit.
+- Consequences:
+  - Select-mode drag now updates selected element position directly on canvas.
+  - Selection/toggle behavior stays deterministic and separate from move ownership.
+  - Undo/redo now restores drag-moved positions as one interaction unit.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/drag-element-position-plan.md`
+
+## 2026-03-06 - Drag-move start now allows hovered unlocked element (not only preselected)
+
+- Context:
+  - Initial drag-move implementation only started when pointer-down happened on an already selected element.
+  - Expected canvas behavior is to drag the element under pointer when it is unlocked, even if it is not preselected.
+- Decision:
+  - Update `move-elements` start gate to allow hovered unlocked element as drag source.
+  - When hovered unlocked element is not in current selection, set selection to that element first (`undoable: false`) and start move session.
+  - Keep locked elements blocked from move start and excluded from batch move updates.
+- Consequences:
+  - Users can drag-move an element directly from pointer hover without preselecting first.
+  - Locked elements remain non-draggable in drag-move flow.
+  - Selection and move ownership stay centralized in `move-elements` for this pointer-down path.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/drag-element-position-plan.md`
+
+## 2026-03-06 - Drag-start selection switch is now undoable within move action
+
+- Context:
+  - Dragging an unselected unlocked element correctly switched selection and moved position, but undo only restored position.
+  - Expected undo contract is to restore both moved position and prior selection.
+- Decision:
+  - Make drag-start auto-selection (when source is unselected unlocked element) undoable inside the same move session commit.
+  - Keep drag-frame position updates non-undoable and final move commit undoable.
+- Consequences:
+  - One undo now restores both the element position and the previous selection state for unselected-target drag moves.
+  - Drag session remains compact while preserving expected interaction rollback semantics.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/drag-element-position-plan.md`
+
+## 2026-03-06 - Drag-element reposition plan closed out and archived to completed records
+
+- Context:
+  - Drag-to-move implementation and undo/selection regressions are resolved and documented.
+  - The drag-element plan still referenced an active-plan path.
+- Decision:
+  - Mark the drag-element reposition plan as DONE and move it to completed plan records.
+  - Keep same-day implementation decisions append-only; add this closeout entry as the canonical completed-plan linkage.
+- Consequences:
+  - `PLANS.md` no longer references an active drag-element plan.
+  - Canonical plan reference for drag-move behavior now points to completed records.
+  - Earlier same-day `Related Plan` references to the active path are superseded by the completed path below.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/drag-element-position-plan.md`

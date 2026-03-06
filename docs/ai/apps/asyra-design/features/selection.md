@@ -18,6 +18,7 @@
 - active only when primary tool is `select`
 - if path editing mode is active, selection by drag start is blocked
   - this prevents selecting non-editing elements while path editing is active
+- if drag start is on an unlocked element (selected or not), move ownership is handled by `move-elements` (higher-priority exclusive feature)
 - resolves hovered element id from bounds hit-test
 - with Shift: toggle selection
 - without Shift: replace selection

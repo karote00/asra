@@ -1,6 +1,7 @@
 # Feature Contracts
 
 - `create-element.md`
+- `move-elements.md`
 - `switch-primary-tool.md`
 - `selection.md`
 - `delete-element.md`

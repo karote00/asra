@@ -1,10 +1,15 @@
 import { BehaviorSubject, Subscription } from 'rxjs'
 import { describe, expect, it, vi } from 'vitest'
-import { BaseSelection } from '@asyra/core'
+import { BaseSelection, renderSelectionStore } from '@asyra/core'
 import { SCENE_TREE_ACTIONS, type SelectionChange } from '@asyra/utils'
+import { EventTypes, publishEvent } from '@asyra/reactive-events'
 import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
-import { SelectionActions, SelectionChannels } from '../selection/channels'
+import {
+  SelectionActions,
+  SelectionChannels,
+  SelectionEventNames
+} from '../selection/channels'
 
 const createDeps = (): PresetDependencies =>
   ({
@@ -74,7 +79,7 @@ describe('Preset Selection Subscriptions', () => {
     selectionRuntimeObserver?.onChange({
       selectionType: SelectionChannels.ELEMENT,
       action: SelectionActions.SELECT_ELEMENTS,
-      eventName: 'selectElements',
+      eventName: SelectionEventNames.SELECT_ELEMENTS,
       before: [],
       after: ['rect-1', 'oval-1']
     } satisfies SelectionChange)
@@ -88,7 +93,7 @@ describe('Preset Selection Subscriptions', () => {
     selectionRuntimeObserver?.onChange({
       selectionType: SelectionChannels.VECTOR_POINT,
       action: SelectionActions.SELECT_VECTOR_POINTS,
-      eventName: 'selectVectorPoints',
+      eventName: SelectionEventNames.SELECT_VECTOR_POINTS,
       before: [],
       after: ['point-1']
     } satisfies SelectionChange)
@@ -102,7 +107,7 @@ describe('Preset Selection Subscriptions', () => {
     selectionRuntimeObserver?.onChange({
       selectionType: SelectionChannels.VECTOR_SEGMENT,
       action: SelectionActions.SELECT_VECTOR_SEGMENTS,
-      eventName: 'selectVectorSegments',
+      eventName: SelectionEventNames.SELECT_VECTOR_SEGMENTS,
       before: [],
       after: ['segment-1']
     } satisfies SelectionChange)
@@ -126,5 +131,27 @@ describe('Preset Selection Subscriptions', () => {
         selections.get(SelectionChannels.ELEMENT)?.getSelectedIds() ?? []
       )
     ).toEqual(['rect-1'])
+
+    const renderSelectionSpy = vi.spyOn(renderSelectionStore, 'updateSelection')
+
+    // Undo/redo path publishes direct selection events (not shared-channel updates).
+    // Ensure those events still refresh render selection mirrors.
+    publishEvent({
+      type: EventTypes.SELECT_ELEMENTS,
+      payload: {
+        selectionType: SelectionChannels.ELEMENT,
+        action: SelectionActions.SELECT_ELEMENTS,
+        eventName: SelectionEventNames.SELECT_ELEMENTS,
+        before: ['rect-1'],
+        after: ['rect-1', 'vector-1']
+      }
+    })
+
+    expect(
+      Array.from(
+        selections.get(SelectionChannels.ELEMENT)?.getSelectedIds() ?? []
+      )
+    ).toEqual(['rect-1', 'vector-1'])
+    expect(renderSelectionSpy).toHaveBeenCalledWith(SelectionChannels.ELEMENT)
   })
 })

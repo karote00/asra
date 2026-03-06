@@ -303,23 +303,37 @@ const getVectorSegmentProjection = (
       ? topology.points[segment.inControlId]
       : null
 
-  const projected = outControl || inControl
-    ? projectPointToCubicBezier(
-        { x: start.x, y: start.y },
-        outControl
-          ? { x: outControl.x, y: outControl.y }
-          : { x: start.x, y: start.y },
-        inControl
-          ? { x: inControl.x, y: inControl.y }
-          : { x: end.x, y: end.y },
-        { x: end.x, y: end.y },
-        workspacePos
-      )
-    : getProjectedPointOnLineSegment(
-        { x: start.x, y: start.y },
-        { x: end.x, y: end.y },
-        workspacePos
-      )
+  const startPosition = { x: start.x, y: start.y }
+  const endPosition = { x: end.x, y: end.y }
+
+  if (outControl || inControl) {
+    const firstControl = outControl
+      ? { x: outControl.x, y: outControl.y }
+      : startPosition
+    const secondControl = inControl
+      ? { x: inControl.x, y: inControl.y }
+      : endPosition
+
+    const projected = projectPointToCubicBezier(
+      startPosition,
+      firstControl,
+      secondControl,
+      endPosition,
+      workspacePos
+    )
+
+    return {
+      segmentId,
+      position: projected.position,
+      t: projected.t
+    }
+  }
+
+  const projected = getProjectedPointOnLineSegment(
+    startPosition,
+    endPosition,
+    workspacePos
+  )
 
   return {
     segmentId,
@@ -443,6 +457,11 @@ export const elementApis = {
     return sceneTree.getElementById(elementId)?.get('type')
   },
 
+  isElementLocked: (elementId: string): boolean => {
+    const lockValue = sceneTree.getElementById(elementId)?.get('lock')
+    return lockValue === true
+  },
+
   getElementBounds: (elementId: string): ElementBounds | null => {
     const element = sceneTree.getElementById(elementId)
     if (!element) {
@@ -462,6 +481,18 @@ export const elementApis = {
     }
 
     return { x, y, width, height }
+  },
+
+  getElementPosition: (elementId: string): PositionData | null => {
+    const bounds = elementApis.getElementBounds(elementId)
+    if (!bounds) {
+      return null
+    }
+
+    return {
+      x: bounds.x,
+      y: bounds.y
+    }
   },
 
   isPointInsideElement: (
@@ -1089,6 +1120,51 @@ export const elementApis = {
       width: DEFAULT_ELEMENT_SIZE,
       height: DEFAULT_ELEMENT_SIZE
     })
+  },
+
+  setElementPositions: (
+    positionsById: Record<string, PositionData>,
+    options?: EVENT_OPTIONS
+  ) => {
+    const entries = Object.entries(positionsById ?? {})
+    if (entries.length === 0) {
+      return
+    }
+
+    startTransaction()
+    try {
+      entries.forEach(([elementId, position]) => {
+        if (
+          typeof position?.x !== 'number' ||
+          typeof position?.y !== 'number'
+        ) {
+          return
+        }
+
+        const currentPosition = elementApis.getElementPosition(elementId)
+        if (!currentPosition) {
+          return
+        }
+
+        if (
+          currentPosition.x === position.x &&
+          currentPosition.y === position.y
+        ) {
+          return
+        }
+
+        core.changeComputedData(
+          [elementId],
+          {
+            x: position.x,
+            y: position.y
+          },
+          options
+        )
+      })
+    } finally {
+      endTransaction()
+    }
   },
 
   hasMovedBeyondThreshold: (

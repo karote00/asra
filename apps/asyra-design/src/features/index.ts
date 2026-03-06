@@ -1,6 +1,7 @@
 // Import features to register them via defineFeature()
 import './switch-primary-tool'
 import './create-element'
+import './move-elements'
 import './selection'
 import './delete-element'
 import './delete-vector-point'
@@ -10,4 +11,3 @@ import './zoom-fit'
 import './pan'
 import './undo-redo'
 import './pen-tool'
-// import './move-elements'

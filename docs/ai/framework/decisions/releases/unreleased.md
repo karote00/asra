@@ -877,3 +877,18 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
     - `docs/ai/framework/plans/completed/define-naming-alias-plan.md`
     - `docs/ai/framework/plans/completed/preset-selection-profile-naming-plan.md`
     - `docs/ai/framework/plans/completed/selection-concrete-class-removal-plan.md`
+
+## 2026-03-06 - Preset direct selection events now sync render/ui mirrors on undo/redo replay
+
+- Context:
+  - Undo/redo replays selection events directly from transaction history (`selectElements`/vector variants), bypassing shared-channel observer callbacks.
+  - Runtime selection could be restored while render selection mirrors stayed stale, causing visual selection mismatch.
+- Decision:
+  - In preset selection-event subscriptions (`subscribeToSelectElements` / vector variants), normalize direct selection payloads and mirror them to:
+    - selection runtime state
+    - render selection store update
+    - ui-context selection mirrors
+  - Keep shared-channel observer flow unchanged for normal transaction updates.
+- Consequences:
+  - Selection visuals and ui-context now stay aligned with runtime during undo/redo replay paths.
+  - Drag-move undo can restore both position and prior selection with consistent visual feedback.

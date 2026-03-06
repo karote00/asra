@@ -6,7 +6,9 @@ import {
   hasSelectedElement,
   clickCanvas,
   getContentsPanel,
-  getCanvasPosition
+  getCanvasPosition,
+  getSelectedElementRect,
+  dragSelectedElementBy
 } from './test-utils'
 
 /**
@@ -78,6 +80,77 @@ test.describe('Element Selection', () => {
     // Verify element is now deselected
     isSelected = await hasSelectedElement(page)
     expect(isSelected).toBe(false)
+  })
+
+  test('should drag selected element to a new position', async ({ page }) => {
+    await createRectangle(page, 0.35, 0.35)
+
+    const before = await getSelectedElementRect(page)
+    expect(before).not.toBeNull()
+    if (!before) {
+      return
+    }
+
+    await dragSelectedElementBy(page, 120, 80, 24)
+    await page.waitForTimeout(150)
+
+    const after = await getSelectedElementRect(page)
+    expect(after).not.toBeNull()
+    if (!after) {
+      return
+    }
+
+    expect(after.id).toBe(before.id)
+    expect(after.x).toBeGreaterThan(before.x)
+    expect(after.y).toBeGreaterThan(before.y)
+  })
+
+  test('should drag hovered unlocked element even when not preselected', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.35, 0.35)
+
+    const before = await getSelectedElementRect(page)
+    expect(before).not.toBeNull()
+    if (!before) {
+      return
+    }
+
+    await clickCanvas(page, 0.9, 0.9)
+    await page.waitForTimeout(120)
+    expect(await hasSelectedElement(page)).toBe(false)
+
+    const startClient = await page.evaluate(({ x, y, width, height }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const zoom = core?.getSystemProperty?.('zoom') ?? 1
+      const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
+        x: 0,
+        y: 0
+      }
+      return {
+        x: (x + width / 2) * zoom + viewport.x,
+        y: (y + height / 2) * zoom + viewport.y
+      }
+    }, before)
+
+    await page.mouse.move(startClient.x, startClient.y)
+    await page.mouse.down()
+    await page.mouse.move(startClient.x + 100, startClient.y + 70, {
+      steps: 20
+    })
+    await page.mouse.up()
+    await page.waitForTimeout(150)
+
+    const after = await getSelectedElementRect(page)
+    expect(after).not.toBeNull()
+    if (!after) {
+      return
+    }
+
+    expect(after.id).toBe(before.id)
+    expect(after.x).toBeGreaterThan(before.x)
+    expect(after.y).toBeGreaterThan(before.y)
   })
 
   test('should update hovered element id when moving over element bounds', async ({
