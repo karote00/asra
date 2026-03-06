@@ -16,6 +16,7 @@ Users must be able to recover from mistakes through reliable undo and redo behav
 2. Redo reapplies last undone action.
 3. Multiple undo/redo operations maintain correct order.
 4. History shortcuts are available from keyboard.
+5. Drag-create interactions must commit as a compact single intended action (no move-spam history entries).
 
 ## Constraints
 
@@ -26,6 +27,7 @@ Users must be able to recover from mistakes through reliable undo and redo behav
 
 - `undo-redo.spec.ts` passes
 - creation workflows produce expected reversible history
+- drag-create undo behavior remains compact and deterministic
 
 ## References
 

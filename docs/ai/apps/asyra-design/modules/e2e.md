@@ -21,6 +21,9 @@
 - `selection.spec.ts`
   - select/deselect via canvas and contents panel
 
+- `delete-element.spec.ts`
+  - Delete/Backspace behavior for selected element and path-editing point delete branch
+
 - `properties.spec.ts`
   - property panel visibility/editing
 

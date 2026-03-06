@@ -16,6 +16,7 @@ App interaction behavior is complex and regression-prone without stable end-to-e
 - tool switching
 - rectangle/oval creation
 - selection
+- delete behavior
 - property editing
 - viewport zoom
 - undo/redo

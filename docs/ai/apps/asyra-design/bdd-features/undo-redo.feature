@@ -19,3 +19,9 @@ Feature: Undo and Redo
     Then element count should decrease step by step
     When I trigger Redo multiple times
     Then element count should increase step by step
+
+  Scenario: Drag-create commits one compact undo step
+    Given I create an element by dragging on canvas
+    When I trigger Undo once
+    Then that drag-created element should be removed
+    And no extra drag-move history step should remain to undo

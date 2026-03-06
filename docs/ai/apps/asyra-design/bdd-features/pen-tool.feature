@@ -24,11 +24,29 @@ Feature: Pen Tool and Path Editing
     Then bezier handles should be created for both the connected point and the new point
     And the selected point target should remain the new point anchor
 
+  Scenario: Second-point micro drag below threshold keeps first segment straight
+    Given I have the "Pen" tool selected
+    And path editing mode is active for one selected vector
+    When I create the second point with movement below drag threshold
+    Then the first segment should remain straight
+    And no unintended connected-point bezier handle should be created
+
   Scenario: Drag on first point of a subpath does not create bezier handles
     Given I have the "Pen" tool selected
     And I am adding the first point of a subpath
     When I mouse down and drag on canvas
     Then no bezier handle should be created for that first point
+
+  Scenario: Moving selected anchor also translates its curve handles
+    Given path editing mode is active with a selected anchor that has curve handles
+    When I drag the selected anchor to a new position
+    Then the connected curve handles should move with that anchor
+
+  Scenario: Prepend-point drag keeps new anchor selected
+    Given I have the "Pen" tool selected in path editing mode
+    And split/new-subpath mode is active with a valid endpoint continuation source
+    When I drag to prepend a new connected point
+    Then the newly inserted anchor should remain selected after drag end
 
   Scenario: Enter path editing mode with Enter key
     Given exactly one vector element is selected
@@ -113,6 +131,15 @@ Feature: Pen Tool and Path Editing
     And I split a segment by clicking its insert preview point
     Then split/new-subpath mode should remain active
     And connected append preview segment should stay hidden
+    And the inserted anchor should be shared by the two resulting segments
+
+  Scenario: Split mode endpoint click sets continuation source before append
+    Given I have the "Pen" tool selected in path editing mode
+    And split/new-subpath mode is active
+    When I click an endpoint anchor of the editing path
+    Then that endpoint should become the selected continuation source
+    When I add the next point
+    Then append should continue from that selected endpoint
 
   Scenario: Path editing blocks other-element hover and selection
     Given path editing mode is active for one vector
@@ -121,3 +148,21 @@ Feature: Pen Tool and Path Editing
     Then hovered element id should stay null for that non-editing element
     When I click that different element
     Then element selection should remain on the editing vector
+
+  Scenario: Pen session keeps editing the new vector until Escape completion
+    Given I create a new vector with the Pen tool
+    When I continue clicking with Pen active
+    Then additional points should keep appending to that same editing vector
+    When I complete Escape split-then-exit behavior
+    Then path editing should exit
+
+  Scenario: Pen action creates new vector when current selection is non-vector
+    Given a non-vector element is selected
+    And I have the "Pen" tool selected
+    When I click on canvas
+    Then a new vector should be created for pen editing
+
+  Scenario: Refresh keeps one render object per vector element id
+    Given a vector exists on canvas
+    When the page is refreshed
+    Then each vector element id should map to exactly one render object

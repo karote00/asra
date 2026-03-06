@@ -11,6 +11,7 @@ Users need a vector path workflow that supports creating vectors, appending poin
 - support drag-to-bezier while adding connected points
 - support subpath split/exit semantics with Escape
 - allow anchor/handle hover+selection and point-target property editing
+- keep pen editing session continuity and render consistency during refresh
 
 ## Functional Requirements
 
@@ -43,6 +44,16 @@ Users need a vector path workflow that supports creating vectors, appending poin
 - first press splits to new subpath state
 - second press exits path editing and switches tool to Select
 15. Point/handle hover changes cursor to pointer and updates hovered point state.
+16. Micro drag below handle-creation threshold on second-point creation should keep the first segment straight (no unintended connected-point bezier handle creation).
+17. Moving a selected anchor point in path-editing mode must translate its connected curve handles with the anchor.
+18. Pen session continuity:
+- after creating a new vector with pen, path editing remains on that vector until explicit Escape exit semantics complete
+- when current selection is non-vector, pen action creates a new vector instead of entering invalid vector-editing state
+19. In split/new-subpath mode, clicking an endpoint selects that endpoint as the continuation source before the next append action.
+20. Segment split via insert preview creates one inserted anchor shared by the two resulting segments.
+21. After refresh/reload, each vector element id maps to exactly one render object (no duplicate render instances).
+22. Prepend-point drag in path-editing mode keeps the newly inserted anchor as selected target after drag completion.
+23. In non-pen path-editing mode, segment hover and segment selection should target only segments of the active editing vector.
 
 ## State Model
 
@@ -58,6 +69,7 @@ System properties:
 - `pen-tool.spec.ts` passes
 - point panel shows selected point target data in path editing context
 - no duplicate point-id collisions during normal point creation flow
+- no duplicate render-object mapping per vector element after refresh/reload
 
 ## References
 
@@ -65,3 +77,4 @@ System properties:
 - `apps/asyra-design/src/common-apis/element/index.ts`
 - `apps/asyra-design/src/common-apis/system-context.ts`
 - `apps/asyra-design/src/properties/vector-point.tsx`
+- `apps/asyra-design/e2e/pen-tool.spec.ts`

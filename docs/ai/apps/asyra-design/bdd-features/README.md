@@ -11,6 +11,7 @@ References:
 - `tool-switching.feature`
 - `element-creation.feature`
 - `selection.feature`
+- `delete-element.feature`
 - `properties.feature`
 - `viewport-navigation.feature`
 - `pen-tool.feature`

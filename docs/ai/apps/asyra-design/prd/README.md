@@ -12,6 +12,7 @@ References:
 - `tool-management.md`
 - `element-creation.md`
 - `element-selection.md`
+- `delete-element.md`
 - `properties-panel.md`
 - `viewport-navigation.md`
 - `pen-tool.md`
