@@ -26,6 +26,8 @@
 
 1. Vector editing E2E coverage expansion (completed 2026-03-06)
 - expanded `pen-tool` regression scenarios for segment insert/split, path-editing guards, anchor-handle translation, and refresh consistency
+- added direct `hoveredElementId` set/clear assertions in `selection.spec.ts`
+- added select-mode segment hover/selection assertions while path editing in `pen-tool.spec.ts`
 - established focused vector-editing regression gate via `e2e/pen-tool.spec.ts`
 - completed plan: `docs/ai/apps/asyra-design/plans/completed/e2e-coverage-update-plan.md`
 

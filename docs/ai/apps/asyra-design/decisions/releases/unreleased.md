@@ -338,3 +338,19 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
   - Plan tracking for this E2E expansion is now moved to completed records with canonical reference.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/e2e-coverage-update-plan.md`
+
+## 2026-03-06 - E2E closeout expanded with hover baseline and select-mode segment targeting
+
+- Context:
+  - The earlier same-day E2E closeout emphasized pen split/refresh regressions but did not explicitly capture baseline element-hover assertions.
+  - Path-editing segment-target behavior in non-pen mode also needed an explicit regression assertion in addition to pen-mode split flow checks.
+- Decision:
+  - Extend completed E2E coverage with:
+    - `e2e/selection.spec.ts`: direct `hoveredElementId` set/clear checks from canvas hover movement.
+    - `e2e/pen-tool.spec.ts`: select-mode segment hover and segment selection checks while path editing is active.
+  - Keep this as an append-only superseding closeout note for the same completed plan scope.
+- Consequences:
+  - Hover-element contract now has direct E2E coverage instead of indirect regression assertions only.
+  - Vector segment targeting behavior is protected in both pen and non-pen interaction modes.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/e2e-coverage-update-plan.md`

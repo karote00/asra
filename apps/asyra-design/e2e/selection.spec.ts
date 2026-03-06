@@ -5,7 +5,8 @@ import {
   createRectangle,
   hasSelectedElement,
   clickCanvas,
-  getContentsPanel
+  getContentsPanel,
+  getCanvasPosition
 } from './test-utils'
 
 /**
@@ -77,6 +78,77 @@ test.describe('Element Selection', () => {
     // Verify element is now deselected
     isSelected = await hasSelectedElement(page)
     expect(isSelected).toBe(false)
+  })
+
+  test('should update hovered element id when moving over element bounds', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.32, 0.34)
+
+    const selectedId = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+    })
+
+    expect(selectedId).not.toBeNull()
+    if (!selectedId) {
+      return
+    }
+
+    const elementPos = await page.evaluate((elementId) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const element = core?.deps?.sceneTree?.getElementById?.(elementId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      const x = typeof computed.x === 'number' ? computed.x : null
+      const y = typeof computed.y === 'number' ? computed.y : null
+      const width = typeof computed.width === 'number' ? computed.width : null
+      const height =
+        typeof computed.height === 'number' ? computed.height : null
+      const zoom = core?.getSystemProperty?.('zoom') ?? 1
+      const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
+        x: 0,
+        y: 0
+      }
+
+      if (x === null || y === null || width === null || height === null) {
+        return null
+      }
+
+      return {
+        x: (x + width / 2) * zoom + viewport.x,
+        y: (y + height / 2) * zoom + viewport.y
+      }
+    }, selectedId)
+
+    expect(elementPos).not.toBeNull()
+    if (!elementPos) {
+      return
+    }
+
+    await page.mouse.move(elementPos.x, elementPos.y)
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          return core?.getSystemProperty?.('hoveredElementId') ?? null
+        })
+      })
+      .toBe(selectedId)
+
+    const emptyPos = await getCanvasPosition(page, 0.9, 0.9)
+    await page.mouse.move(emptyPos.x, emptyPos.y)
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          return core?.getSystemProperty?.('hoveredElementId') ?? null
+        })
+      })
+      .toBeNull()
   })
 
   /**

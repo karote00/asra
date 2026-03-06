@@ -665,6 +665,97 @@ test.describe('Pen Tool - Editing Flow', () => {
       })
   })
 
+  test('select mode hovers and selects segment in path-editing mode', async ({
+    page
+  }) => {
+    const initialCount = await getElementCount(page)
+
+    await page.keyboard.press('p')
+    await expect.poll(() => getActiveTool(page)).toBe('pen')
+    await clickCanvas(page, 0.3, 0.3)
+    await clickCanvas(page, 0.45, 0.4)
+    await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
+
+    await page.keyboard.press('v')
+    await expect.poll(() => getActiveTool(page)).toBe('select')
+
+    const segmentClientPos = await getCanvasPosition(page, 0.375, 0.35)
+    await page.mouse.move(segmentClientPos.x, segmentClientPos.y)
+
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
+          const hoveredSegment =
+            core?.getSystemProperty?.('hoveredVectorSegment')
+          const hoveredInsertPoint =
+            core?.getSystemProperty?.('hoveredVectorSegmentInsertPoint')
+          const pathEditingVectorId =
+            core?.getSystemProperty?.('pathEditingVectorId') ?? null
+
+          return {
+            hoveredPointTarget: hoveredPoint?.target ?? null,
+            hoveredSegmentId: hoveredSegment?.segmentId ?? null,
+            hoveredInsertPointSegmentId:
+              hoveredInsertPoint?.segmentId ?? null,
+            isHoveredSegmentOnEditingVector:
+              !!hoveredSegment?.segmentId &&
+              !!pathEditingVectorId &&
+              hoveredSegment?.elementId === pathEditingVectorId
+          }
+        })
+      })
+      .toMatchObject({
+        hoveredPointTarget: null,
+        hoveredSegmentId: expect.any(String),
+        hoveredInsertPointSegmentId: null,
+        isHoveredSegmentOnEditingVector: true
+      })
+
+    const hoveredSegmentId = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const hoveredSegment = core?.getSystemProperty?.('hoveredVectorSegment')
+      return hoveredSegment?.segmentId ?? null
+    })
+
+    expect(hoveredSegmentId).not.toBeNull()
+    if (!hoveredSegmentId) {
+      return
+    }
+
+    await page.mouse.click(segmentClientPos.x, segmentClientPos.y)
+
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const selectedPoint = core?.getSystemProperty?.('selectedVectorPoint')
+          const selectedSegment =
+            core?.getSystemProperty?.('selectedVectorSegment')
+          const pathEditingVectorId =
+            core?.getSystemProperty?.('pathEditingVectorId') ?? null
+
+          return {
+            selectedPointTarget: selectedPoint?.target ?? null,
+            selectedSegmentId: selectedSegment?.segmentId ?? null,
+            isSelectedSegmentOnEditingVector:
+              !!selectedSegment?.segmentId &&
+              !!pathEditingVectorId &&
+              selectedSegment?.elementId === pathEditingVectorId
+          }
+        })
+      })
+      .toMatchObject({
+        selectedPointTarget: null,
+        selectedSegmentId: hoveredSegmentId,
+        isSelectedSegmentOnEditingVector: true
+      })
+  })
+
   test('path editing blocks hover/selection on non-editing elements', async ({
     page
   }) => {
