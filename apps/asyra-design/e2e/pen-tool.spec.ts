@@ -322,6 +322,11 @@ test.describe('Pen Tool - Editing Flow', () => {
       const pathEditingVectorId =
         core?.getSystemProperty?.('pathEditingVectorId') ?? null
       const selected = core?.getSystemProperty?.('selectedVectorPoint')
+      const zoom = core?.getSystemProperty?.('zoom') ?? 1
+      const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
+        x: 0,
+        y: 0
+      }
       if (!pathEditingVectorId || !selected?.pointId) {
         return null
       }
@@ -351,7 +356,9 @@ test.describe('Pen Tool - Editing Flow', () => {
         outHandle:
           outHandle && outHandle.kind === 'control'
             ? { x: outHandle.x + offsetX, y: outHandle.y + offsetY }
-            : null
+            : null,
+        zoom,
+        viewport
       }
     })
 
@@ -361,11 +368,17 @@ test.describe('Pen Tool - Editing Flow', () => {
     }
 
     const deltaX = 40
-    const nextX = Math.round(beforeMove.anchorX + deltaX)
-    const xInput = page.getByTestId('prop-point-x')
-    await xInput.click()
-    await xInput.fill(String(nextX))
-    await xInput.press('Enter')
+    const anchorClient = {
+      x: beforeMove.anchorX * beforeMove.zoom + beforeMove.viewport.x,
+      y: beforeMove.anchorY * beforeMove.zoom + beforeMove.viewport.y
+    }
+
+    await page.mouse.move(anchorClient.x, anchorClient.y)
+    await page.mouse.down()
+    await page.mouse.move(anchorClient.x + deltaX, anchorClient.y, {
+      steps: 12
+    })
+    await page.mouse.up()
 
     await expect
       .poll(async () => {
@@ -397,14 +410,16 @@ test.describe('Pen Tool - Editing Flow', () => {
             const inHandleFollowed =
               !inHandle ||
               (inHandleAfter?.kind === 'control' &&
-                Math.abs(inHandleAfter.x + offsetX - inHandle.x - actualDeltaX) <
-                  epsilon &&
+                Math.abs(
+                  inHandleAfter.x + offsetX - inHandle.x - actualDeltaX
+                ) < epsilon &&
                 Math.abs(inHandleAfter.y + offsetY - inHandle.y) < epsilon)
             const outHandleFollowed =
               !outHandle ||
               (outHandleAfter?.kind === 'control' &&
-                Math.abs(outHandleAfter.x + offsetX - outHandle.x - actualDeltaX) <
-                  epsilon &&
+                Math.abs(
+                  outHandleAfter.x + offsetX - outHandle.x - actualDeltaX
+                ) < epsilon &&
                 Math.abs(outHandleAfter.y + offsetY - outHandle.y) < epsilon)
 
             return {
@@ -419,7 +434,7 @@ test.describe('Pen Tool - Editing Flow', () => {
             anchorX: beforeMove.anchorX,
             inHandle: beforeMove.inHandle,
             outHandle: beforeMove.outHandle,
-            expectedDeltaX: nextX - beforeMove.anchorX
+            expectedDeltaX: deltaX
           }
         )
       })
@@ -427,6 +442,161 @@ test.describe('Pen Tool - Editing Flow', () => {
         anchorMovedAsExpected: true,
         inHandleFollowed: true,
         outHandleFollowed: true
+      })
+  })
+
+  test('dragging selected out-handle updates handle position and keeps target selected', async ({
+    page
+  }) => {
+    const initialCount = await getElementCount(page)
+
+    await page.keyboard.press('p')
+    await expect.poll(() => getActiveTool(page)).toBe('pen')
+    await clickCanvas(page, 0.3, 0.3)
+    await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
+    await dragOnCanvas(page, 0.45, 0.4, 0.55, 0.32, 8)
+
+    await page.keyboard.press('v')
+    await expect.poll(() => getActiveTool(page)).toBe('select')
+
+    const beforeMove = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const pathEditingVectorId =
+        core?.getSystemProperty?.('pathEditingVectorId') ?? null
+      const selected = core?.getSystemProperty?.('selectedVectorPoint')
+      const zoom = core?.getSystemProperty?.('zoom') ?? 1
+      const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
+        x: 0,
+        y: 0
+      }
+      if (!pathEditingVectorId || !selected?.pointId) {
+        return null
+      }
+
+      const element =
+        core?.deps?.sceneTree?.getElementById?.(pathEditingVectorId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      const offsetX = typeof computed.x === 'number' ? computed.x : 0
+      const offsetY = typeof computed.y === 'number' ? computed.y : 0
+      const pointId = selected.pointId as string
+      const anchor = computed.points?.[pointId]
+      const outHandle = computed.points?.[`${pointId}:out`]
+      if (!anchor || anchor.kind !== 'anchor') {
+        return null
+      }
+
+      if (!outHandle || outHandle.kind !== 'control') {
+        return null
+      }
+
+      return {
+        pointId,
+        anchorX: anchor.x + offsetX,
+        anchorY: anchor.y + offsetY,
+        outHandleX: outHandle.x + offsetX,
+        outHandleY: outHandle.y + offsetY,
+        zoom,
+        viewport
+      }
+    })
+
+    expect(beforeMove).not.toBeNull()
+    if (!beforeMove) {
+      return
+    }
+
+    const handleClient = {
+      x: beforeMove.outHandleX * beforeMove.zoom + beforeMove.viewport.x,
+      y: beforeMove.outHandleY * beforeMove.zoom + beforeMove.viewport.y
+    }
+
+    await page.mouse.move(handleClient.x, handleClient.y)
+    await page.mouse.click(handleClient.x, handleClient.y)
+
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const selected = core?.getSystemProperty?.('selectedVectorPoint')
+          return selected?.target ?? null
+        })
+      })
+      .toBe('outHandle')
+
+    const delta = { x: 30, y: -20 }
+    await page.mouse.move(handleClient.x, handleClient.y)
+    await page.mouse.down()
+    await page.mouse.move(handleClient.x + delta.x, handleClient.y + delta.y, {
+      steps: 12
+    })
+    await page.mouse.up()
+
+    await expect
+      .poll(async () => {
+        return page.evaluate(
+          ({ pointId, anchorX, anchorY, outHandleX, outHandleY, delta }) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const core = (window as any).__Core__
+            const pathEditingVectorId =
+              core?.getSystemProperty?.('pathEditingVectorId') ?? null
+            const selected = core?.getSystemProperty?.('selectedVectorPoint')
+            if (!pathEditingVectorId) {
+              return null
+            }
+
+            const element =
+              core?.deps?.sceneTree?.getElementById?.(pathEditingVectorId)
+            const computed = element?.getAllComputedData?.() ?? {}
+            const offsetX = typeof computed.x === 'number' ? computed.x : 0
+            const offsetY = typeof computed.y === 'number' ? computed.y : 0
+            const anchorAfter = computed.points?.[pointId]
+            const outHandleAfter = computed.points?.[`${pointId}:out`]
+            if (!anchorAfter || anchorAfter.kind !== 'anchor') {
+              return null
+            }
+
+            if (!outHandleAfter || outHandleAfter.kind !== 'control') {
+              return null
+            }
+
+            const epsilon = 0.001
+            const anchorStable =
+              Math.abs(anchorAfter.x + offsetX - anchorX) < epsilon &&
+              Math.abs(anchorAfter.y + offsetY - anchorY) < epsilon
+            const outHandleMoved =
+              Math.abs(outHandleAfter.x + offsetX - outHandleX - delta.x) <
+                epsilon &&
+              Math.abs(outHandleAfter.y + offsetY - outHandleY - delta.y) <
+                epsilon
+
+            return {
+              selectedTarget: selected?.target ?? null,
+              selectedMatchesOutHandle:
+                typeof selected?.x === 'number' &&
+                typeof selected?.y === 'number' &&
+                Math.abs(selected.x - (outHandleAfter.x + offsetX)) < epsilon &&
+                Math.abs(selected.y - (outHandleAfter.y + offsetY)) < epsilon,
+              anchorStable,
+              outHandleMoved
+            }
+          },
+          {
+            pointId: beforeMove.pointId,
+            anchorX: beforeMove.anchorX,
+            anchorY: beforeMove.anchorY,
+            outHandleX: beforeMove.outHandleX,
+            outHandleY: beforeMove.outHandleY,
+            delta
+          }
+        )
+      })
+      .toMatchObject({
+        selectedTarget: 'outHandle',
+        selectedMatchesOutHandle: true,
+        anchorStable: true,
+        outHandleMoved: true
       })
   })
 
@@ -449,8 +619,9 @@ test.describe('Pen Tool - Editing Flow', () => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const core = (window as any).__Core__
           const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
-          const hoveredSegment =
-            core?.getSystemProperty?.('hoveredVectorSegment')
+          const hoveredSegment = core?.getSystemProperty?.(
+            'hoveredVectorSegment'
+          )
           return {
             hoveredPointTarget: hoveredPoint?.target ?? null,
             hoveredSegmentId: hoveredSegment?.segmentId ?? null
@@ -470,10 +641,12 @@ test.describe('Pen Tool - Editing Flow', () => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const core = (window as any).__Core__
           const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
-          const hoveredSegment =
-            core?.getSystemProperty?.('hoveredVectorSegment')
-          const hoveredInsertPoint =
-            core?.getSystemProperty?.('hoveredVectorSegmentInsertPoint')
+          const hoveredSegment = core?.getSystemProperty?.(
+            'hoveredVectorSegment'
+          )
+          const hoveredInsertPoint = core?.getSystemProperty?.(
+            'hoveredVectorSegmentInsertPoint'
+          )
           const pathEditingVectorId =
             core?.getSystemProperty?.('pathEditingVectorId') ?? null
 
@@ -482,8 +655,7 @@ test.describe('Pen Tool - Editing Flow', () => {
             hoveredSegmentId: hoveredSegment?.segmentId ?? null,
             hoveredInsertPointX: hoveredInsertPoint?.x ?? null,
             hoveredInsertPointY: hoveredInsertPoint?.y ?? null,
-            hoveredInsertPointSegmentId:
-              hoveredInsertPoint?.segmentId ?? null,
+            hoveredInsertPointSegmentId: hoveredInsertPoint?.segmentId ?? null,
             pathEditingVectorId,
             isHoveredSegmentOnEditingVector:
               !!hoveredSegment?.segmentId &&
@@ -508,17 +680,18 @@ test.describe('Pen Tool - Editing Flow', () => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const core = (window as any).__Core__
           const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
-          const hoveredSegment =
-            core?.getSystemProperty?.('hoveredVectorSegment')
-          const hoveredInsertPoint =
-            core?.getSystemProperty?.('hoveredVectorSegmentInsertPoint')
+          const hoveredSegment = core?.getSystemProperty?.(
+            'hoveredVectorSegment'
+          )
+          const hoveredInsertPoint = core?.getSystemProperty?.(
+            'hoveredVectorSegmentInsertPoint'
+          )
           const pathEditingVectorId =
             core?.getSystemProperty?.('pathEditingVectorId') ?? null
           return {
             hoveredPointTarget: hoveredPoint?.target ?? null,
             hoveredSegmentId: hoveredSegment?.segmentId ?? null,
-            hoveredInsertPointSegmentId:
-              hoveredInsertPoint?.segmentId ?? null,
+            hoveredInsertPointSegmentId: hoveredInsertPoint?.segmentId ?? null,
             isHoveredSegmentOnEditingVector:
               !!hoveredSegment?.segmentId &&
               !!pathEditingVectorId &&
@@ -567,8 +740,9 @@ test.describe('Pen Tool - Editing Flow', () => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const core = (window as any).__Core__
           const selectedPoint = core?.getSystemProperty?.('selectedVectorPoint')
-          const selectedSegment =
-            core?.getSystemProperty?.('selectedVectorSegment')
+          const selectedSegment = core?.getSystemProperty?.(
+            'selectedVectorSegment'
+          )
           const pathEditingVectorId =
             core?.getSystemProperty?.('pathEditingVectorId') ?? null
           const element =
@@ -681,8 +855,9 @@ test.describe('Pen Tool - Editing Flow', () => {
         return page.evaluate(() => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const core = (window as any).__Core__
-          const hoveredInsertPoint =
-            core?.getSystemProperty?.('hoveredVectorSegmentInsertPoint')
+          const hoveredInsertPoint = core?.getSystemProperty?.(
+            'hoveredVectorSegmentInsertPoint'
+          )
           return hoveredInsertPoint?.segmentId ?? null
         })
       })
@@ -697,8 +872,9 @@ test.describe('Pen Tool - Editing Flow', () => {
         return page.evaluate(() => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const core = (window as any).__Core__
-          const hoveredInsertPoint =
-            core?.getSystemProperty?.('hoveredVectorSegmentInsertPoint')
+          const hoveredInsertPoint = core?.getSystemProperty?.(
+            'hoveredVectorSegmentInsertPoint'
+          )
           return hoveredInsertPoint?.segmentId ?? null
         })
       })
@@ -728,18 +904,19 @@ test.describe('Pen Tool - Editing Flow', () => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const core = (window as any).__Core__
           const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
-          const hoveredSegment =
-            core?.getSystemProperty?.('hoveredVectorSegment')
-          const hoveredInsertPoint =
-            core?.getSystemProperty?.('hoveredVectorSegmentInsertPoint')
+          const hoveredSegment = core?.getSystemProperty?.(
+            'hoveredVectorSegment'
+          )
+          const hoveredInsertPoint = core?.getSystemProperty?.(
+            'hoveredVectorSegmentInsertPoint'
+          )
           const pathEditingVectorId =
             core?.getSystemProperty?.('pathEditingVectorId') ?? null
 
           return {
             hoveredPointTarget: hoveredPoint?.target ?? null,
             hoveredSegmentId: hoveredSegment?.segmentId ?? null,
-            hoveredInsertPointSegmentId:
-              hoveredInsertPoint?.segmentId ?? null,
+            hoveredInsertPointSegmentId: hoveredInsertPoint?.segmentId ?? null,
             isHoveredSegmentOnEditingVector:
               !!hoveredSegment?.segmentId &&
               !!pathEditingVectorId &&
@@ -774,8 +951,9 @@ test.describe('Pen Tool - Editing Flow', () => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const core = (window as any).__Core__
           const selectedPoint = core?.getSystemProperty?.('selectedVectorPoint')
-          const selectedSegment =
-            core?.getSystemProperty?.('selectedVectorSegment')
+          const selectedSegment = core?.getSystemProperty?.(
+            'selectedVectorSegment'
+          )
           const pathEditingVectorId =
             core?.getSystemProperty?.('pathEditingVectorId') ?? null
 
@@ -1031,13 +1209,13 @@ test.describe('Pen Tool - Editing Flow', () => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const core = (window as any).__Core__
           const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
-          const hoveredInsertPoint =
-            core?.getSystemProperty?.('hoveredVectorSegmentInsertPoint')
+          const hoveredInsertPoint = core?.getSystemProperty?.(
+            'hoveredVectorSegmentInsertPoint'
+          )
 
           return {
             hoveredTarget: hoveredPoint?.target ?? null,
-            hoveredInsertPointSegmentId:
-              hoveredInsertPoint?.segmentId ?? null
+            hoveredInsertPointSegmentId: hoveredInsertPoint?.segmentId ?? null
           }
         })
       })
@@ -1113,13 +1291,13 @@ test.describe('Pen Tool - Editing Flow', () => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const core = (window as any).__Core__
           const hoveredPoint = core?.getSystemProperty?.('hoveredVectorPoint')
-          const hoveredInsertPoint =
-            core?.getSystemProperty?.('hoveredVectorSegmentInsertPoint')
+          const hoveredInsertPoint = core?.getSystemProperty?.(
+            'hoveredVectorSegmentInsertPoint'
+          )
 
           return {
             hoveredTarget: hoveredPoint?.target ?? null,
-            hoveredInsertPointSegmentId:
-              hoveredInsertPoint?.segmentId ?? null
+            hoveredInsertPointSegmentId: hoveredInsertPoint?.segmentId ?? null
           }
         })
       })
@@ -1222,21 +1400,28 @@ test.describe('Pen Tool - Editing Flow', () => {
       const core = (window as any).__Core__
       const elements = core?.deps?.sceneTree?.getAllElements?.()
       let vectorId: string | null = null
-      elements?.forEach?.((element: any, id: string) => {
-        if (element?.get?.('type') === 'vector') {
-          vectorId = id
+      elements?.forEach?.(
+        (
+          element: { get?: (key: string) => unknown } | undefined,
+          id: string
+        ) => {
+          if (element?.get?.('type') === 'vector') {
+            vectorId = id
+          }
         }
-      })
+      )
 
-      const root = core?.deps?.render?.viewport?.view
+      const root = core?.deps?.render?.viewport?.view as
+        | { label?: string; children?: unknown[] }
+        | undefined
       if (!vectorId || !root) {
         return null
       }
 
       let renderItemCount = 0
-      const stack = [root]
+      const stack: { label?: string; children?: unknown[] }[] = [root]
       while (stack.length > 0) {
-        const current = stack.pop() as any
+        const current = stack.pop()
         if (!current) {
           continue
         }
@@ -1244,7 +1429,9 @@ test.describe('Pen Tool - Editing Flow', () => {
           renderItemCount += 1
         }
         const children = current.children ?? []
-        children.forEach((child: any) => stack.push(child))
+        children.forEach((child: unknown) =>
+          stack.push(child as { label?: string; children?: unknown[] })
+        )
       }
 
       return {
@@ -1267,21 +1454,28 @@ test.describe('Pen Tool - Editing Flow', () => {
           const core = (window as any).__Core__
           const elements = core?.deps?.sceneTree?.getAllElements?.()
           let vectorId: string | null = null
-          elements?.forEach?.((element: any, id: string) => {
-            if (element?.get?.('type') === 'vector') {
-              vectorId = id
+          elements?.forEach?.(
+            (
+              element: { get?: (key: string) => unknown } | undefined,
+              id: string
+            ) => {
+              if (element?.get?.('type') === 'vector') {
+                vectorId = id
+              }
             }
-          })
+          )
 
-          const root = core?.deps?.render?.viewport?.view
+          const root = core?.deps?.render?.viewport?.view as
+            | { label?: string; children?: unknown[] }
+            | undefined
           if (!vectorId || !root) {
             return null
           }
 
           let renderItemCount = 0
-          const stack = [root]
+          const stack: { label?: string; children?: unknown[] }[] = [root]
           while (stack.length > 0) {
-            const current = stack.pop() as any
+            const current = stack.pop()
             if (!current) {
               continue
             }
@@ -1289,7 +1483,9 @@ test.describe('Pen Tool - Editing Flow', () => {
               renderItemCount += 1
             }
             const children = current.children ?? []
-            children.forEach((child: any) => stack.push(child))
+            children.forEach((child: unknown) =>
+              stack.push(child as { label?: string; children?: unknown[] })
+            )
           }
 
           return {

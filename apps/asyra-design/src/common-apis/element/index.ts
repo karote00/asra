@@ -236,7 +236,7 @@ const getVectorTopologyWorkspace = (elementId: string): VectorTopology => {
 const commitVectorTopology = (
   elementId: string,
   topologyInWorkspace: VectorTopology,
-  options?: {
+  options?: EVENT_OPTIONS & {
     closed?: boolean
   }
 ) => {
@@ -245,12 +245,8 @@ const commitVectorTopology = (
     topologyInWorkspace,
     bounds
   )
-  const computed = getVectorComputed(elementId)
   const nextClosed =
-    options?.closed ??
-    (typeof computed?.closed === 'boolean'
-      ? computed.closed
-      : isClosedVectorTopology(normalizedTopology))
+    options?.closed ?? isClosedVectorTopology(normalizedTopology)
 
   const nextData: Record<string, DataTypes> = {
     x: bounds.x,
@@ -268,7 +264,7 @@ const commitVectorTopology = (
     return
   }
 
-  elementApis.changeComputedData([elementId], patch)
+  elementApis.changeComputedData([elementId], patch, options)
 }
 
 const getVectorSegmentProjection = (
@@ -920,7 +916,8 @@ export const elementApis = {
   updateVectorAnchorPointPosition: (
     elementId: string,
     pointId: string,
-    position: PositionData
+    position: PositionData,
+    options?: EVENT_OPTIONS
   ): { point: VectorAnchorPoint; index: number } | null => {
     const topology = getVectorTopologyWorkspace(elementId)
     const nextTopology = updateAnchorPositionInTopology(
@@ -928,7 +925,7 @@ export const elementApis = {
       pointId,
       position
     )
-    commitVectorTopology(elementId, nextTopology)
+    commitVectorTopology(elementId, nextTopology, options)
     return elementApis.getVectorAnchorPointById(elementId, pointId)
   },
 
@@ -950,7 +947,8 @@ export const elementApis = {
       VectorPointTarget,
       typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR
     >,
-    position: PositionData
+    position: PositionData,
+    options?: EVENT_OPTIONS
   ): { point: VectorAnchorPoint; index: number } | null => {
     const topology = getVectorTopologyWorkspace(elementId)
     let nextTopology = setAnchorTypeInTopology(topology, pointId, 'smooth')
@@ -963,7 +961,7 @@ export const elementApis = {
       position
     )
 
-    commitVectorTopology(elementId, nextTopology)
+    commitVectorTopology(elementId, nextTopology, options)
     return elementApis.getVectorAnchorPointById(elementId, pointId)
   },
 

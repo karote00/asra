@@ -497,3 +497,20 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
   - Earlier same-day `Related Plan` references to the active path are superseded by the completed path below.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/drag-element-position-plan.md`
+
+## 2026-03-06 - Non-pen path editing now supports drag updates for point targets
+
+- Context:
+  - Path-editing non-pen mode supported selecting anchors/handles but did not mutate their positions via pointer drag.
+  - Point-target drag needed deterministic undo behavior consistent with other drag interactions.
+- Decision:
+  - Extend `selectVectorPoint` (`input.drag`, priority `30`, exclusive) with point-target drag session state.
+  - Add threshold-gated drag handling (`FEATURE_MOVEMENT_THRESHOLD.moveVectorPoint`) for anchor and handle targets.
+  - Apply frame-by-frame point-target updates as `undoable: false`, then commit drag-end final position as one intended undoable action.
+  - Extend element common APIs to accept optional mutation options for anchor/handle position updates.
+- Consequences:
+  - Dragging a selected anchor now updates anchor position directly and translates connected handles with the anchor.
+  - Dragging a selected `inHandle`/`outHandle` now updates that handle position while preserving handle-target selection.
+  - Point-target drag now preserves compact undo semantics and is covered by pen-tool E2E regression tests.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/drag-vector-point-and-handle-plan.md`

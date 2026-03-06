@@ -42,6 +42,12 @@ Feature: Pen Tool and Path Editing
     When I drag the selected anchor to a new position
     Then the connected curve handles should move with that anchor
 
+  Scenario: Dragging selected handle updates handle position and keeps handle target
+    Given path editing mode is active with a selected out-handle target
+    When I drag that selected out-handle to a new position
+    Then that out-handle position should update
+    And the selected point target should remain out-handle
+
   Scenario: Prepend-point drag keeps new anchor selected
     Given I have the "Pen" tool selected in path editing mode
     And split/new-subpath mode is active with a valid endpoint continuation source

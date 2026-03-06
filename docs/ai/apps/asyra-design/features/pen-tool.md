@@ -35,13 +35,17 @@
 1. If primary tool is not pen -> no-op.
 2. If selected vector is active path-editing target -> append anchor point.
 3. If active vector is in split/new-subpath mode and user clicks an existing anchor:
+
 - select that anchor first (no point is added on that click)
 - if the clicked anchor is a subpath endpoint, exit split mode and resume continuation from that endpoint
+
 4. If active vector is in connected add mode and user clicks an endpoint anchor:
+
 - connect current continuation endpoint to the clicked endpoint (no new point is created on that click)
 - if clicked endpoint is on another open subpath, both subpaths are merged into one open subpath
 - if clicked endpoint is the opposite endpoint of the current open subpath, that subpath is closed (`networks[*].closed=true`)
 - after endpoint connect commit (merge or close), pen enters split/new-subpath mode (`pathEditingStartNewSubpath=true`) so connected ghost-segment preview does not continue automatically
+
 5. If not editing selected vector -> create new vector with first point.
 6. New/updated point is selected through `selectionApis.selectVectorPoint(...)` (SelectionManager `VECTOR_POINT` channel).
 
@@ -76,6 +80,11 @@
 - in pen `connected-segment-preview`, segment hover is suppressed.
 - point target hover takes precedence over segment hover when both are near the pointer.
 - select-point feature (non-pen mode) selects hovered point target when in path-editing mode.
+- select-point feature (non-pen mode) owns point-target drag editing:
+  - drag start snapshots selected target position and drag-start workspace position
+  - drag update applies target position with `undoable: false`
+  - drag end restores initial target position (`undoable: false`) then commits final target position as one intended undoable action
+  - movement below `FEATURE_MOVEMENT_THRESHOLD.moveVectorPoint` (`3` client px) is treated as click-only selection (no geometry mutation)
 - when point hit is absent but path segment hit is present in non-pen mode, select-point feature selects the segment through `selectionApis.selectVectorSegment(...)`.
 - pen session (pen mode) splits the hovered segment at the projected pointer position and selects the inserted anchor point.
 - split preserves curve geometry by recomputing segment controls from cubic split math (`t`-based de Casteljau split) before committing topology.
@@ -104,6 +113,7 @@
   - selected target uses same blue selection outline style as selected anchor points
 - curve handles are selectable targets and feed point target data to the property panel
 - moving an anchor point translates that anchor's `inHandle` and `outHandle` by the same delta (handle geometry follows anchor translation)
+- dragging a selected `inHandle`/`outHandle` updates only that handle position and keeps the handle target selected
 
 ## Enter Path Editing
 
@@ -117,9 +127,12 @@ Handled by `cancelPenEditing`:
 1. no editing vector -> cursor reset only
 2. editing vector + non-pen tool -> exit path editing directly
 3. editing vector + pen tool + connected subpath
+
 - first escape marks new-subpath split state
 - if current subpath has one move-point only, that subpath point is removed
+
 4. editing vector + pen tool + already split/new-subpath state
+
 - second escape exits path editing and switches primary tool to select
 
 ## Path Editing State Keys

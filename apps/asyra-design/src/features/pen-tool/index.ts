@@ -32,6 +32,21 @@ interface PenState extends Record<string, unknown> {
   autoUpdateConnectedHandle: boolean
 }
 
+interface VectorPointDragTargetState extends Record<string, unknown> {
+  elementId: string
+  pointId: string
+  index: number
+  target: VectorPointTarget
+  dragStartWorkspacePos: { x: number; y: number }
+  initialTargetPos: { x: number; y: number }
+  hasMoved: boolean
+}
+
+interface SelectVectorPointState extends Record<string, unknown> {
+  segmentId?: string
+  dragTarget: VectorPointDragTargetState | null
+}
+
 interface SubpathEndpoint {
   point: VectorAnchorPoint
   side: VectorEndpointSide
@@ -171,6 +186,81 @@ const hasMovedBeyondPenCurveThreshold = (
   )
 }
 
+const hasMovedBeyondVectorPointDragThreshold = (
+  snapshot: SystemContextSnapshot
+): boolean => {
+  const dragStart = snapshot.mouseDragStart ?? snapshot.mousePosition
+  return elementApis.hasMovedBeyondThreshold(
+    dragStart,
+    snapshot.mousePosition,
+    FEATURE_MOVEMENT_THRESHOLD.moveVectorPoint
+  )
+}
+
+const getPointTargetPosition = (
+  point: VectorAnchorPoint,
+  target: VectorPointTarget
+) => {
+  if (target === VECTOR_TOKENS.POINT.TARGET.ANCHOR) {
+    return { x: point.x, y: point.y }
+  }
+
+  if (target === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE) {
+    return point.inHandle
+  }
+
+  return point.outHandle
+}
+
+const syncSelectedVectorPointMirror = (
+  elementId: string,
+  selectedPoint: { point: VectorAnchorPoint; index: number } | null,
+  target: VectorPointTarget
+) => {
+  if (!selectedPoint) {
+    return false
+  }
+
+  const targetPosition = getPointTargetPosition(selectedPoint.point, target)
+  if (!targetPosition) {
+    return false
+  }
+
+  systemContextApis.setSelectedVectorPoint({
+    elementId,
+    pointId: selectedPoint.point.id,
+    index: selectedPoint.index,
+    target,
+    x: targetPosition.x,
+    y: targetPosition.y
+  })
+
+  return true
+}
+
+const updateVectorPointTargetPosition = (
+  targetState: VectorPointDragTargetState,
+  position: { x: number; y: number },
+  options?: { undoable: boolean }
+) => {
+  if (targetState.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR) {
+    return elementApis.updateVectorAnchorPointPosition(
+      targetState.elementId,
+      targetState.pointId,
+      position,
+      options
+    )
+  }
+
+  return elementApis.updateVectorAnchorPointHandlePosition(
+    targetState.elementId,
+    targetState.pointId,
+    targetState.target,
+    position,
+    options
+  )
+}
+
 const applyBezierDragForNewPoint = (
   state: PenState,
   mouseWorkspacePos: { x: number; y: number }
@@ -307,10 +397,7 @@ const resolvePenHoverPreviewMode = (
   snapshot: SystemContextSnapshot,
   pathEditingVectorId: string | null
 ): PenHoverPreviewMode => {
-  if (
-    snapshot.primaryTool !== PrimaryToolType.PEN ||
-    !pathEditingVectorId
-  ) {
+  if (snapshot.primaryTool !== PrimaryToolType.PEN || !pathEditingVectorId) {
     return PenHoverPreviewMode.NONE
   }
 
@@ -454,11 +541,11 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
               : null
           const activeHoveredSegmentHit =
             startNewSubpath && !isHoveringAnchorOnEditingVector
-              ? stateHoveredSegmentHit ??
+              ? (stateHoveredSegmentHit ??
                 elementApis.getVectorSegmentHitAtClientPos(
                   pathEditingVectorId,
                   snapshot.mousePosition
-                )
+                ))
               : null
 
           if (activeHoveredSegmentHit) {
@@ -608,88 +695,223 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
   }
 )
 
-export const selectVectorPointFeature = defineFeature(
-  FeatureNames.SELECT_VECTOR_POINT,
-  InputSystemEvents.INPUT_DRAG,
-  {
-    priority: 30,
-    exclusive: true,
-    session: {
-      onStart: (snapshot: SystemContextSnapshot) => {
-        if (snapshot.primaryTool === PrimaryToolType.PEN) {
-          return null
-        }
+export const selectVectorPointFeature = defineFeature<
+  Record<string, unknown>,
+  SelectVectorPointState
+>(FeatureNames.SELECT_VECTOR_POINT, InputSystemEvents.INPUT_DRAG, {
+  priority: 30,
+  exclusive: true,
+  session: {
+    onStart: (snapshot: SystemContextSnapshot) => {
+      if (snapshot.primaryTool === PrimaryToolType.PEN) {
+        return null
+      }
 
-        const selectedIds = selectionApis.getSelectedIds()
-        const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
-        if (!isPathEditingVectorSelected(selectedIds, pathEditingVectorId)) {
-          return null
-        }
+      const selectedIds = selectionApis.getSelectedIds()
+      const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
+      if (!isPathEditingVectorSelected(selectedIds, pathEditingVectorId)) {
+        return null
+      }
 
-        const hoveredPoint = systemContextApis.getHoveredVectorPoint()
-        const hoveredSegment = systemContextApis.getHoveredVectorSegment()
-        if (!hoveredPoint || hoveredPoint.elementId !== pathEditingVectorId) {
-          const activeHoveredSegmentId =
-            hoveredSegment?.elementId === pathEditingVectorId &&
-            hoveredSegment.segmentId
-              ? hoveredSegment.segmentId
-              : elementApis.getVectorSegmentAtClientPos(
-                  pathEditingVectorId,
-                  snapshot.mousePosition
-                )
+      const hoveredPoint = systemContextApis.getHoveredVectorPoint()
+      const hoveredSegment = systemContextApis.getHoveredVectorSegment()
+      const activeHoveredPoint =
+        hoveredPoint?.elementId === pathEditingVectorId
+          ? hoveredPoint
+          : (() => {
+              const hit = elementApis.getVectorEditablePointAtClientPos(
+                pathEditingVectorId,
+                snapshot.mousePosition
+              )
+              if (!hit) {
+                return null
+              }
 
-          if (activeHoveredSegmentId) {
-            selectionApis.selectVectorSegment({
-              elementId: pathEditingVectorId,
-              segmentId: activeHoveredSegmentId
-            })
-            selectionApis.clearVectorPointSelection()
-            systemContextApis.setSelectedVectorPoint(null)
-            systemContextApis.setSelectedVectorSegment({
-              elementId: pathEditingVectorId,
-              segmentId: activeHoveredSegmentId
-            })
-            return {
-              segmentId: activeHoveredSegmentId
-            }
-          }
+              return {
+                elementId: pathEditingVectorId,
+                pointId: hit.point.id,
+                index: hit.index,
+                target: hit.target,
+                x: hit.position.x,
+                y: hit.position.y
+              } as SelectedVectorPointState
+            })()
 
+      if (!activeHoveredPoint) {
+        const activeHoveredSegmentId =
+          hoveredSegment?.elementId === pathEditingVectorId &&
+          hoveredSegment.segmentId
+            ? hoveredSegment.segmentId
+            : elementApis.getVectorSegmentAtClientPos(
+                pathEditingVectorId,
+                snapshot.mousePosition
+              )
+
+        if (activeHoveredSegmentId) {
+          selectionApis.selectVectorSegment({
+            elementId: pathEditingVectorId,
+            segmentId: activeHoveredSegmentId
+          })
           selectionApis.clearVectorPointSelection()
-          selectionApis.clearVectorSegmentSelection()
           systemContextApis.setSelectedVectorPoint(null)
-          systemContextApis.setSelectedVectorSegment(null)
-          return null
+          systemContextApis.setSelectedVectorSegment({
+            elementId: pathEditingVectorId,
+            segmentId: activeHoveredSegmentId
+          })
+          return {
+            segmentId: activeHoveredSegmentId,
+            dragTarget: null
+          }
         }
 
+        selectionApis.clearVectorPointSelection()
         selectionApis.clearVectorSegmentSelection()
+        systemContextApis.setSelectedVectorPoint(null)
         systemContextApis.setSelectedVectorSegment(null)
-        selectionApis.selectVectorPoint({
-          elementId: hoveredPoint.elementId,
-          pointId: hoveredPoint.pointId,
-          target: hoveredPoint.target
-        })
-        systemContextApis.setSelectedVectorPoint({
-          elementId: hoveredPoint.elementId,
-          pointId: hoveredPoint.pointId,
-          index: hoveredPoint.index,
-          target: hoveredPoint.target,
-          x: hoveredPoint.x,
-          y: hoveredPoint.y
-        })
+        return null
+      }
 
-        return {
-          pointId: hoveredPoint.pointId
-        }
-      },
-      onUpdate: () => {
-        return
-      },
-      onEnd: () => {
+      selectionApis.clearVectorSegmentSelection()
+      systemContextApis.setSelectedVectorSegment(null)
+      selectionApis.selectVectorPoint({
+        elementId: activeHoveredPoint.elementId,
+        pointId: activeHoveredPoint.pointId,
+        target: activeHoveredPoint.target
+      })
+      systemContextApis.setSelectedVectorPoint({
+        elementId: activeHoveredPoint.elementId,
+        pointId: activeHoveredPoint.pointId,
+        index: activeHoveredPoint.index,
+        target: activeHoveredPoint.target,
+        x: activeHoveredPoint.x,
+        y: activeHoveredPoint.y
+      })
+
+      const dragStartWorkspacePos = elementApis.getMousePosInWorkspace(
+        snapshot.mousePosition
+      )
+      const selectedPoint = elementApis.getVectorAnchorPointById(
+        activeHoveredPoint.elementId,
+        activeHoveredPoint.pointId
+      )
+      const initialTargetPos =
+        selectedPoint &&
+        getPointTargetPosition(selectedPoint.point, activeHoveredPoint.target)
+
+      return {
+        dragTarget:
+          dragStartWorkspacePos && selectedPoint && initialTargetPos
+            ? {
+                elementId: activeHoveredPoint.elementId,
+                pointId: activeHoveredPoint.pointId,
+                index: activeHoveredPoint.index,
+                target: activeHoveredPoint.target,
+                dragStartWorkspacePos,
+                initialTargetPos: {
+                  x: initialTargetPos.x,
+                  y: initialTargetPos.y
+                },
+                hasMoved: false
+              }
+            : null
+      }
+    },
+    onUpdate: (
+      snapshot: SystemContextSnapshot,
+      state: SelectVectorPointState
+    ) => {
+      const dragTarget = state.dragTarget
+      if (!dragTarget) {
         return
       }
+
+      if (
+        !snapshot.mouseDragging ||
+        !hasMovedBeyondVectorPointDragThreshold(snapshot)
+      ) {
+        return
+      }
+
+      const currentWorkspacePos = elementApis.getMousePosInWorkspace(
+        snapshot.mousePosition
+      )
+      if (!currentWorkspacePos) {
+        return
+      }
+
+      const dx = currentWorkspacePos.x - dragTarget.dragStartWorkspacePos.x
+      const dy = currentWorkspacePos.y - dragTarget.dragStartWorkspacePos.y
+      const targetPos = {
+        x: dragTarget.initialTargetPos.x + dx,
+        y: dragTarget.initialTargetPos.y + dy
+      }
+
+      const updatedPoint = updateVectorPointTargetPosition(
+        dragTarget,
+        targetPos,
+        {
+          undoable: false
+        }
+      )
+      if (!updatedPoint) {
+        return
+      }
+
+      syncSelectedVectorPointMirror(
+        dragTarget.elementId,
+        updatedPoint,
+        dragTarget.target
+      )
+      dragTarget.hasMoved = true
+      return
+    },
+    onEnd: (snapshot: SystemContextSnapshot, state: SelectVectorPointState) => {
+      const dragTarget = state.dragTarget
+      if (!dragTarget) {
+        return
+      }
+
+      if (
+        !dragTarget.hasMoved &&
+        !hasMovedBeyondVectorPointDragThreshold(snapshot)
+      ) {
+        return
+      }
+
+      const currentWorkspacePos = elementApis.getMousePosInWorkspace(
+        snapshot.mousePosition
+      )
+      if (!currentWorkspacePos) {
+        return
+      }
+
+      const dx = currentWorkspacePos.x - dragTarget.dragStartWorkspacePos.x
+      const dy = currentWorkspacePos.y - dragTarget.dragStartWorkspacePos.y
+      const targetPos = {
+        x: dragTarget.initialTargetPos.x + dx,
+        y: dragTarget.initialTargetPos.y + dy
+      }
+
+      updateVectorPointTargetPosition(dragTarget, dragTarget.initialTargetPos, {
+        undoable: false
+      })
+      const committedPoint = updateVectorPointTargetPosition(
+        dragTarget,
+        targetPos
+      )
+      if (!committedPoint) {
+        return
+      }
+
+      syncSelectedVectorPointMirror(
+        dragTarget.elementId,
+        committedPoint,
+        dragTarget.target
+      )
+      return
     }
   }
-)
+})
 
 export const hoverVectorPointCursorFeature = defineFeature(
   FeatureNames.HOVER_VECTOR_POINT_CURSOR,
@@ -711,34 +933,32 @@ export const hoverVectorPointCursorFeature = defineFeature(
         snapshot,
         pathEditingVectorId
       )
-      const hoveredPoint =
-        (() => {
-          const rawHoveredPoint = elementApis.getVectorEditablePointAtClientPos(
-            pathEditingVectorId,
-            snapshot.mousePosition
-          )
-          if (!rawHoveredPoint) {
-            return null
-          }
+      const hoveredPoint = (() => {
+        const rawHoveredPoint = elementApis.getVectorEditablePointAtClientPos(
+          pathEditingVectorId,
+          snapshot.mousePosition
+        )
+        if (!rawHoveredPoint) {
+          return null
+        }
 
-          if (snapshot.primaryTool !== PrimaryToolType.PEN) {
-            return rawHoveredPoint
-          }
+        if (snapshot.primaryTool !== PrimaryToolType.PEN) {
+          return rawHoveredPoint
+        }
 
-          if (previewMode !== PenHoverPreviewMode.CONNECTED_SEGMENT_PREVIEW) {
-            return null
-          }
+        if (previewMode !== PenHoverPreviewMode.CONNECTED_SEGMENT_PREVIEW) {
+          return null
+        }
 
-          if (rawHoveredPoint.target !== VECTOR_TOKENS.POINT.TARGET.ANCHOR) {
-            return null
-          }
+        if (rawHoveredPoint.target !== VECTOR_TOKENS.POINT.TARGET.ANCHOR) {
+          return null
+        }
 
-          const subpaths = elementApis.getVectorAnchorSubpaths(
-            pathEditingVectorId
-          )
-          const endpoint = getSubpathEndpoint(subpaths, rawHoveredPoint.point.id)
-          return endpoint ? rawHoveredPoint : null
-        })()
+        const subpaths =
+          elementApis.getVectorAnchorSubpaths(pathEditingVectorId)
+        const endpoint = getSubpathEndpoint(subpaths, rawHoveredPoint.point.id)
+        return endpoint ? rawHoveredPoint : null
+      })()
       if (hoveredPoint) {
         systemContextApis.setHoveredVectorPoint({
           elementId: pathEditingVectorId,
@@ -758,15 +978,16 @@ export const hoverVectorPointCursorFeature = defineFeature(
         pathEditingVectorId,
         snapshot.mousePosition
       )
-      const hoveredSegment: SelectedVectorSegmentState | null = hoveredSegmentHit
-        ? snapshot.primaryTool === PrimaryToolType.PEN &&
-          previewMode === PenHoverPreviewMode.CONNECTED_SEGMENT_PREVIEW
-          ? null
-          : {
-              elementId: pathEditingVectorId,
-              segmentId: hoveredSegmentHit.segmentId
-            }
-        : null
+      const hoveredSegment: SelectedVectorSegmentState | null =
+        hoveredSegmentHit
+          ? snapshot.primaryTool === PrimaryToolType.PEN &&
+            previewMode === PenHoverPreviewMode.CONNECTED_SEGMENT_PREVIEW
+            ? null
+            : {
+                elementId: pathEditingVectorId,
+                segmentId: hoveredSegmentHit.segmentId
+              }
+          : null
 
       systemContextApis.setHoveredVectorPoint(null)
       systemContextApis.setHoveredVectorSegment(hoveredSegment)

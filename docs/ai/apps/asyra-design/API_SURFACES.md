@@ -42,9 +42,9 @@ Import boundary:
 - `removeVectorAnchorPoint(elementId: string, pointId: string): boolean`
 - `splitVectorSegmentAtWorkspacePos(elementId: string, segmentId: string, workspacePos: PositionData): { point: VectorAnchorPoint; index: number } | null`
 - `setVectorClosed(elementId: string, closed: boolean): void`
-- `updateVectorAnchorPointPosition(elementId: string, pointId: string, position: PositionData): { point: VectorAnchorPoint; index: number } | null`
+- `updateVectorAnchorPointPosition(elementId: string, pointId: string, position: PositionData, options?: { undoable: boolean }): { point: VectorAnchorPoint; index: number } | null`
 - `updateVectorAnchorPointType(elementId: string, pointId: string, type: 'smooth' | 'sharp'): { point: VectorAnchorPoint; index: number } | null`
-- `updateVectorAnchorPointHandlePosition(elementId: string, pointId: string, target: 'inHandle' | 'outHandle', position: PositionData): { point: VectorAnchorPoint; index: number } | null`
+- `updateVectorAnchorPointHandlePosition(elementId: string, pointId: string, target: 'inHandle' | 'outHandle', position: PositionData, options?: { undoable: boolean }): { point: VectorAnchorPoint; index: number } | null`
 - `updateVectorAnchorPointHandles(elementId: string, updates: { pointId: string; target: 'inHandle' | 'outHandle'; position: PositionData | null; forceSmooth?: boolean }[]): void`
 - `getMousePosInWorkspace(clientPos: PositionData): PositionData | null`
 - `createElement(options: { type: EntityType; clientPosition?: PositionData; points?: Record<string, VectorPointNode>; segments?: Record<string, VectorSegment>; networks?: Record<string, VectorNetwork>; closed?: boolean }, mutationOptions?: { undoable: boolean }): string | null`
