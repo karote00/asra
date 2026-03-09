@@ -1,11 +1,13 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import {
   waitForAppReady,
   resetCanvas,
   createRectangle,
+  createVectorPath,
   clickCanvas,
   getPropertiesPanel,
-  getContentsPanel
+  getContentsPanel,
+  undo
 } from './test-utils'
 
 /**
@@ -19,6 +21,52 @@ import {
  */
 
 test.describe('Property Management', () => {
+  const getSelectedFillColor = async (page: Page) =>
+    page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+      if (!selectedId) {
+        return null
+      }
+
+      const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      if (!Array.isArray(computed.fills) || !computed.fills[0]) {
+        return null
+      }
+
+      return computed.fills[0].color ?? null
+    })
+
+  const getSelectedGradientStopColor = async (page: Page, stopIndex: number) =>
+    page.evaluate((targetStopIndex) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+      if (!selectedId) {
+        return null
+      }
+
+      const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      const gradient = computed?.fills?.[0]?.gradient
+      const stop = gradient?.gradientStops?.[targetStopIndex]
+      return stop?.color ?? null
+    }, stopIndex)
+
+  const getTransactionSnapshot = async (page: Page) =>
+    page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const transact = core?.deps?.factory?.transact
+      const undoStack = transact?.undoStack ?? []
+      return {
+        undoCount: undoStack.length,
+        isTransacting: transact?.isTransacting ?? 0
+      }
+    })
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
     await waitForAppReady(page)
@@ -179,6 +227,246 @@ test.describe('Property Management', () => {
     // Verify Height value was updated
     const newHeightValue = await heightInput.inputValue()
     expect(newHeightValue).toBe('250')
+  })
+
+  test('should show fills section for selected element', async ({ page }) => {
+    await createRectangle(page, 0.3, 0.3)
+
+    const propertiesPanel = getPropertiesPanel(page)
+    await expect(
+      propertiesPanel.getByTestId('prop-fills-section')
+    ).toBeVisible()
+    await expect(propertiesPanel.getByTestId('prop-fill-add')).toBeVisible()
+    await expect(
+      propertiesPanel.getByTestId('prop-fill-color-picker-0')
+    ).toBeVisible()
+  })
+
+  test('should show fills section for selected vector element', async ({
+    page
+  }) => {
+    await createVectorPath(page, 0.3, 0.3, 0.2, 0.2)
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      core.setSystemProperty('selectedVectorPoint', null)
+      core.setSystemProperty('pathEditingVectorId', null)
+      core.setSystemProperty('pathEditingMode', false)
+    })
+    await page.waitForTimeout(120)
+
+    const propertiesPanel = getPropertiesPanel(page)
+    await expect(
+      propertiesPanel.getByTestId('prop-fills-section')
+    ).toBeVisible()
+  })
+
+  test('should update fill color via properties panel color picker', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+
+    const initialFillColor = await getSelectedFillColor(page)
+    expect(initialFillColor).not.toBeNull()
+
+    const propertiesPanel = getPropertiesPanel(page)
+    await propertiesPanel
+      .getByTestId('prop-fill-color-picker-0-trigger')
+      .click()
+    const colorHexInput = page.getByTestId('prop-fill-color-picker-0-hex')
+    await colorHexInput.fill('FF0000')
+    await colorHexInput.press('Enter')
+    await page.waitForTimeout(200)
+
+    const selectedFillColor = await getSelectedFillColor(page)
+    expect(selectedFillColor).toBe('#ff0000')
+
+    await undo(page)
+    await page.waitForTimeout(200)
+
+    const fillColorAfterUndo = await getSelectedFillColor(page)
+    expect(fillColorAfterUndo).toBe(initialFillColor)
+  })
+
+  test('color picker drag keeps one active transaction and commits on mouse up', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+
+    const initialFillColor = await getSelectedFillColor(page)
+    expect(initialFillColor).not.toBeNull()
+
+    const before = await getTransactionSnapshot(page)
+
+    const propertiesPanel = getPropertiesPanel(page)
+    await propertiesPanel
+      .getByTestId('prop-fill-color-picker-0-trigger')
+      .click()
+    const palette = page.getByTestId('prop-fill-color-picker-0-saturation')
+    const paletteBox = await palette.boundingBox()
+    expect(paletteBox).not.toBeNull()
+    if (!paletteBox) {
+      return
+    }
+
+    await page.mouse.move(paletteBox.x + 24, paletteBox.y + 18)
+    await page.mouse.down()
+    await page.mouse.move(
+      paletteBox.x + paletteBox.width - 24,
+      paletteBox.y + 28,
+      {
+        steps: 1
+      }
+    )
+    await page.waitForTimeout(120)
+
+    const duringFirstInput = await getTransactionSnapshot(page)
+    expect(duringFirstInput.undoCount).toBe(before.undoCount)
+    expect(duringFirstInput.isTransacting).toBeGreaterThan(0)
+    const colorDuringDrag = await getSelectedFillColor(page)
+    expect(colorDuringDrag).not.toBe(initialFillColor)
+
+    await page.mouse.move(
+      paletteBox.x + paletteBox.width - 18,
+      paletteBox.y + paletteBox.height - 18,
+      {
+        steps: 8
+      }
+    )
+    await page.waitForTimeout(120)
+
+    const duringDragUpdates = await getTransactionSnapshot(page)
+    expect(duringDragUpdates.undoCount).toBe(before.undoCount)
+    expect(duringDragUpdates.isTransacting).toBeGreaterThan(0)
+    const finalColor = await getSelectedFillColor(page)
+    expect(finalColor).not.toBe(initialFillColor)
+
+    await page.mouse.up()
+    await page.waitForTimeout(200)
+
+    const afterMouseUp = await getTransactionSnapshot(page)
+    expect(afterMouseUp.undoCount).toBe(before.undoCount + 1)
+    expect(afterMouseUp.isTransacting).toBe(0)
+    expect(await getSelectedFillColor(page)).toBe(finalColor)
+
+    await undo(page)
+    await page.waitForTimeout(200)
+
+    const fillColorAfterUndo = await getSelectedFillColor(page)
+    expect(fillColorAfterUndo).toBe(initialFillColor)
+  })
+
+  test('should edit gradient stops in properties panel', async ({ page }) => {
+    await createRectangle(page, 0.3, 0.3)
+
+    const propertiesPanel = getPropertiesPanel(page)
+    await propertiesPanel
+      .getByTestId('prop-fill-color-picker-0-trigger')
+      .click()
+    await page.getByTestId('prop-fill-mode-gradient-0').click()
+    await page.waitForTimeout(120)
+
+    await expect(page.getByTestId('prop-fill-gradient-editor-0')).toBeVisible()
+
+    await page
+      .getByTestId('prop-fill-gradient-stop-color-picker-0-1-trigger')
+      .click()
+
+    const stopHexInput = page.getByTestId(
+      'prop-fill-gradient-stop-color-picker-0-1-hex'
+    )
+    await stopHexInput.fill('00FF00')
+    await stopHexInput.press('Enter')
+    await page.waitForTimeout(200)
+
+    expect(await getSelectedGradientStopColor(page, 1)).toBe('#00ff00')
+  })
+
+  test('gradient stop color picker drag keeps one active transaction and commits on mouse up', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+
+    const propertiesPanel = getPropertiesPanel(page)
+    await propertiesPanel
+      .getByTestId('prop-fill-color-picker-0-trigger')
+      .click()
+    await page.getByTestId('prop-fill-mode-gradient-0').click()
+    await page.waitForTimeout(120)
+
+    const initialStopColor = await getSelectedGradientStopColor(page, 1)
+    expect(initialStopColor).not.toBeNull()
+
+    await page
+      .getByTestId('prop-fill-gradient-stop-color-picker-0-1-trigger')
+      .click()
+
+    const before = await getTransactionSnapshot(page)
+    const palette = page.getByTestId(
+      'prop-fill-gradient-stop-color-picker-0-1-saturation'
+    )
+    const paletteBox = await palette.boundingBox()
+    expect(paletteBox).not.toBeNull()
+    if (!paletteBox) {
+      return
+    }
+
+    await page.mouse.move(paletteBox.x + 24, paletteBox.y + 18)
+    await page.mouse.down()
+    await page.mouse.move(
+      paletteBox.x + paletteBox.width - 22,
+      paletteBox.y + paletteBox.height - 24,
+      {
+        steps: 6
+      }
+    )
+    await page.waitForTimeout(120)
+
+    const duringDrag = await getTransactionSnapshot(page)
+    expect(duringDrag.undoCount).toBe(before.undoCount)
+    expect(duringDrag.isTransacting).toBeGreaterThan(0)
+    const colorDuringDrag = await getSelectedGradientStopColor(page, 1)
+    expect(colorDuringDrag).not.toBe(initialStopColor)
+
+    await page.mouse.up()
+    await page.waitForTimeout(200)
+
+    const afterMouseUp = await getTransactionSnapshot(page)
+    expect(afterMouseUp.undoCount).toBe(before.undoCount + 1)
+    expect(afterMouseUp.isTransacting).toBe(0)
+
+    await undo(page)
+    await page.waitForTimeout(200)
+
+    expect(await getSelectedGradientStopColor(page, 1)).toBe(initialStopColor)
+  })
+
+  test('should keep gradient stop color picker open when switching stops', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+
+    const propertiesPanel = getPropertiesPanel(page)
+    await propertiesPanel
+      .getByTestId('prop-fill-color-picker-0-trigger')
+      .click()
+    await page.getByTestId('prop-fill-mode-gradient-0').click()
+    await page.waitForTimeout(120)
+
+    await page
+      .getByTestId('prop-fill-gradient-stop-color-picker-0-1-trigger')
+      .click()
+    await expect(
+      page.getByTestId('prop-fill-gradient-stop-color-picker-0-1-hex')
+    ).toBeVisible()
+
+    await page.getByTestId('prop-fill-gradient-stop-0-0').click()
+
+    const firstStopHexInput = page.getByTestId(
+      'prop-fill-gradient-stop-color-picker-0-0-hex'
+    )
+    await expect(firstStopHexInput).toBeVisible()
+    await expect(firstStopHexInput).toHaveValue('CCCCCC')
   })
 
   /**

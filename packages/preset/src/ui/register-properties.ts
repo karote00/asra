@@ -3,9 +3,14 @@ import {
   DefaultMoseSnapshot,
   DefaultSystemSnapshot,
   DefaultTargetSnapshot,
-  DefaultKeySnapshot
+  DefaultKeySnapshot,
+  MIXED_STRING,
+  createDefaultFill,
+  type FillAttrs,
+  type FillRowAttrs
 } from '@asyra/utils'
 import type { VectorPointTarget } from '@asyra/core'
+import type { PropertyComputeContext } from '@asyra/ui-context'
 import type { PresetCoreAPIs } from '../types'
 
 const DEFAULT_PRIMARY_TOOL = 'select'
@@ -37,6 +42,41 @@ interface ElementPanelData extends Record<string, unknown> {
   type: string
   lock: boolean
   visible: boolean
+}
+
+const isFillArray = (value: unknown): value is FillAttrs[] =>
+  Array.isArray(value)
+
+const toFillRows = (fills: FillAttrs[]): FillRowAttrs[] =>
+  fills.reduce<FillRowAttrs[]>((rows, fill) => {
+    if (typeof fill?.id !== 'string' || fill.id.length === 0) {
+      return rows
+    }
+
+    rows.push({
+      ...createDefaultFill(),
+      ...fill,
+      ids: [fill.id]
+    })
+
+    return rows
+  }, [])
+
+const computeFillsValue = ({
+  selectedIds,
+  elements
+}: PropertyComputeContext): FillRowAttrs[] | typeof MIXED_STRING => {
+  if (selectedIds.size === 0) {
+    return []
+  }
+
+  if (selectedIds.size !== 1) {
+    return MIXED_STRING
+  }
+
+  const fills = (elements[0] as unknown as Record<string, unknown> | undefined)
+    ?.fills
+  return toFillRows(isFillArray(fills) ? fills : [])
 }
 
 export const registerProperties = (core: PresetCoreAPIs): void => {
@@ -110,6 +150,18 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     }
   })
 
+  core.defineUIProperty<FillRowAttrs[] | typeof MIXED_STRING>('fills', {
+    defaultValue: [],
+    aggregate: true,
+    triggers: {
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+      key: 'fills',
+      onSelectionChange: true
+    },
+    emptyValue: [],
+    compute: computeFillsValue
+  })
+
   const zoomObservable = core.defineSystemProperty<number>('zoom', 1)
   core.defineUIProperty<number>('zoom', {
     defaultValue: 1,
@@ -173,8 +225,8 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
       null
     )
   core.defineSystemProperty<SelectedVectorPointState | null>(
-      'hoveredVectorPoint',
-      null
+    'hoveredVectorPoint',
+    null
   )
   core.defineSystemProperty<SelectedVectorSegmentState | null>(
     'selectedVectorSegment',

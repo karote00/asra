@@ -77,12 +77,16 @@ class Core implements CoreAPIs {
   renderIsReady!: RenderAPIs['renderIsReady']
   registerRenderLayer!: RenderAPIs['registerRenderLayer']
   unregisterRenderLayer!: RenderAPIs['unregisterRenderLayer']
+  createRenderGradientFillStyle!: RenderAPIs['createRenderGradientFillStyle']
+  updatePropertyById!: CoreAPIs['updatePropertyById']
+  commitPropertyChanges!: CoreAPIs['commitPropertyChanges']
 
   sceneTreeInit!: SceneTreeAPIs['sceneTreeInit']
   sceneTreeLoadData!: SceneTreeAPIs['sceneTreeLoadData']
   sceneTreeSaveData!: SceneTreeAPIs['sceneTreeSaveData']
   createElement!: SceneTreeAPIs['createElement']
   changeComputedData!: SceneTreeAPIs['changeComputedData']
+  refreshComputedDataFromProperty!: SceneTreeAPIs['refreshComputedDataFromProperty']
   getAllElementsBounds!: SceneTreeAPIs['getAllElementsBounds']
   isContainerType!: SceneTreeAPIs['isContainerType']
   selectByChannel!: ElementSelectionActionAPIs['selectByChannel']
@@ -105,7 +109,12 @@ class Core implements CoreAPIs {
   getSystemPropertyObservable!: SystemManagedPropertyAPIs['getSystemPropertyObservable']
 
   constructor(readonly deps: CoreDeps) {
-    const apis = createAPIs(deps.sceneTree, deps.render, deps.selection)
+    const apis = createAPIs(
+      deps.sceneTree,
+      deps.render,
+      deps.selection,
+      deps.props
+    )
 
     Object.assign(this, apis as CoreAPIs)
 

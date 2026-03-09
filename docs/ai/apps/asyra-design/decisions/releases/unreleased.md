@@ -4,6 +4,69 @@ Decision log for app-scoped changes not yet captured in a release snapshot.
 
 Append-only rule: do not edit/delete prior entries; add superseding entries when decisions change.
 
+## 2026-03-09 - Fill common-api no longer decides transaction ownership
+
+- Context:
+  - `fillApis.updateFill(...)` was reading runtime transaction depth and conditionally opening/closing transactions as a safety fallback.
+  - That mixed behavior policy into a mutation API and relied on internal transaction state.
+- Decision:
+  - Make `fillApis.updateFill(...)` mutation-only.
+  - Move discrete fill transaction ownership into properties-panel UI handlers.
+  - Keep color-picker drag transaction ownership in the picker interaction flow.
+- Consequences:
+  - App/common API no longer inspects transaction internals.
+  - Transaction boundaries now live at the UI-behavior layer where the user action is known.
+
+## 2026-03-09 - Color-picker drag uses live non-undoable writes and one finalize commit
+
+- Context:
+  - Direct child-property fill editing exposed a drag regression: palette/slider frames were being added into undo history, and gradient-stop render refresh also depended on the correct scene-tree publish channel after committed props writes.
+- Decision:
+  - Keep preview open/close UI-local.
+  - During color-picker and gradient-stop drags, apply live fill writes with `undoable: false`.
+  - On drag finalize, replay one undoable fill write before ending the outer transaction.
+  - Refresh owner computed `fills` through the committed props bridge, but publish the resulting scene-tree transaction on the scene-tree shared channel instead of inheriting the props shared channel.
+- Consequences:
+  - Drag sessions produce one undoable color action instead of one commit per frame.
+  - Gradient stop edits update both the properties preview and render subscribers consistently.
+
+## 2026-03-09 - Fills panel ownership moved to ui-context compute with row-based contract
+
+- Context:
+  - Fills panel state was still partially owned by provider-local effects/subscriptions, even though the selected-fill value is selection-derived UI state.
+  - The old contracts/docs also still described vector elements as hiding fills, which no longer matched the implemented properties panel behavior.
+- Decision:
+  - Make ui-context `fills` the selection-derived source for the properties panel via custom `compute`.
+  - Define the current `fills` UI value as `FillRowAttrs[]` for single selection, where each row carries underlying `ids`.
+  - Keep non-single selection on top-level `MIX` until row-level multi-selection aggregation/edit fanout is implemented.
+  - Keep vector elements editable through the normal fills section in element-properties mode; only vector point editing routes away from the element panel.
+- Consequences:
+  - `useFills()` / `useFill()` become thin selectors instead of hooks that manage selection changes themselves.
+  - Fills panel behavior and docs now align around one owner boundary.
+  - The row contract is ready for future multi-selection fanout because each visible row already carries underlying fill ids.
+
+## 2026-03-09 - Single-fill edits now patch child property ids instead of rewriting full fills array
+
+- Context:
+  - Per-fill edits were still reading the entire resolved `fills` array, replacing one entry, and writing the full array back through `changeComputedData('fills', ...)`.
+- Decision:
+  - Keep add/remove on the top-level `fills` list.
+  - Route single-fill field edits through direct child-property updates by `fillId`, then refresh the owner element computed `fills` once.
+- Consequences:
+  - One fill edit no longer requires rebuilding and writing every fill entry.
+  - Repeatable child-property patterns now have a cleaner path for future fills/strokes/shadows work.
+
+## 2026-03-09 - Fills panel commits discrete fill edits as their own transactions
+
+- Context:
+  - Direct child-property writes fixed the fill-write boundary, but discrete properties-panel edits such as hex-entry, mode toggle, and visibility/opacity changes still needed their own user-action transaction boundary.
+- Decision:
+  - Let fill common-apis start/end a transaction when no outer transaction is active, while color-picker drag keeps using its explicit outer transaction session.
+  - Commit direct fill child-property changes through `core.commitPropertyChanges(...)` with owner metadata so scene-tree recompute follows the committed props bridge.
+- Consequences:
+  - One discrete fill edit now maps to one undoable action.
+  - Drag sessions still stay grouped under their existing outer color-picker transaction.
+
 ## 2026-02-28 - Initialize app decision-history stream
 
 - Context:
@@ -514,3 +577,82 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
   - Point-target drag now preserves compact undo semantics and is covered by pen-tool E2E regression tests.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/drag-vector-point-and-handle-plan.md`
+
+## 2026-03-07 - Repeatable fills property model and properties-panel editing adopted
+
+- Context:
+  - The app only supported a single vector `fill` string and fixed hard-coded fills for other shapes.
+  - Properties panel `fills/*` UI was placeholder-only and not connected to app runtime writes.
+- Decision:
+  - Adopt repeatable `fills` model (`fills[]`) backed by typed `fill` child components with schema validation.
+  - Register `fill`/`fills` property schemas with runtime/load guard semantics:
+    - runtime invalid writes are rejected
+    - invalid loaded values fallback to deterministic defaults
+  - Add `fills` to drawable component contracts and UI-context aggregate registration.
+  - Implement properties-panel fills editor with repeatable rows, visibility toggle, opacity, color format, canonical color write, add/remove, and color picker.
+  - Keep vector legacy `fill` property as compatibility fallback for rendering existing saved data.
+- Consequences:
+  - Element appearance editing is now state-driven and persisted through property components instead of hard-coded render defaults.
+  - Multi-selection now receives aggregate `fills` behavior (including mixed sentinel handling).
+  - Existing saved vector documents with legacy `fill` continue rendering while new edits use `fills`.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/repeatable-fills-properties-plan.md`
+
+## 2026-03-07 - Fills panel editing constrained by element type and color-picker drag history policy
+
+- Context:
+  - Fills editor was shown for all selected element types, including vectors.
+  - Color picker changes could create excessive undo history when dragging.
+- Decision:
+  - Hide fills panel section when selected set includes a vector element.
+  - Keep vector `fills` in runtime model/render path, but disallow panel edits for vector selections.
+  - Route color-picker drag writes with `undoable: false` to prevent per-drag undo commits, then apply one undoable commit when picker interaction finalizes.
+- Consequences:
+  - Vector appearance remains data-driven but not editable through current properties panel fills UI.
+  - Color picker interactions no longer flood history during drag.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/repeatable-fills-properties-plan.md`
+
+## 2026-03-07 - Fills color picker moved to custom design-system control with picker-owned drag transactions
+
+- Context:
+  - Native browser color input coupled undo behavior to browser open/close/change sequencing instead of actual palette drag sessions.
+  - Drag interactions need deterministic pointer-owned transaction boundaries: preview opens/closes the picker, palette/slider drags own undo grouping.
+- Decision:
+  - Replace native fill color input with a custom `@asyra/design-system` color picker using app-owned preview, palette, hue, and alpha controls.
+  - Keep preview-block pointer interaction UI-local for picker open/close only.
+  - Start one outer transaction on picker palette/slider pointer-down and end it on pointer-up/pointer-cancel, while drag-frame fill writes remain inside that transaction.
+- Consequences:
+  - One picker drag now maps to one undoable color change commit.
+  - Color picker behavior is no longer dependent on browser-native color input event sequencing.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/repeatable-fills-properties-plan.md`
+
+## 2026-03-07 - Gradient fills panel upgraded from metadata display to stop editor
+
+- Context:
+  - Gradient fills in the properties panel only exposed type selection and stop/handle counts, which was insufficient for real gradient authoring.
+- Decision:
+  - Add a panel gradient editor with Figma-style stop strip, stop selection, stop add/remove, stop position editing, and stop color editing through the shared custom color picker.
+  - Keep fill-level opacity separate from gradient-stop opacity, matching the existing fill data contract.
+- Consequences:
+  - Gradient fill authoring is now possible directly in the properties panel instead of being metadata-only.
+  - Gradient stop color/position changes are covered by properties E2E.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/repeatable-fills-properties-plan.md`
+
+## 2026-03-09 - Repeatable fills properties finalized on child-property model
+
+- Context:
+  - Repeatable fills shipped across preset, render, scene-tree, props-manager, ui-context, and properties-panel flows.
+  - The implementation needed a stable ownership rule for fill item edits, color-picker drag transactions, and current computed refresh behavior.
+- Decision:
+  - Finalize fills as a repeatable child-property model where top-level `fills` owns row membership and each fill item is edited through direct child-property updates by `fillId`.
+  - Keep fills panel state owned by ui-context row data.
+  - Treat `refreshComputedDataFromProperty(...)` as the current bridge for prop-originated computed refresh until framework property-driven computed sync replaces the broad recompute path.
+- Consequences:
+  - Single-fill edits no longer rewrite the whole fills array.
+  - Color/gradient editing keeps one intended undoable action per drag session.
+  - Follow-up framework work is now explicitly tracked under `docs/ai/framework/plans/property-driven-computed-sync-plan.md`.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/repeatable-fills-properties-plan.md`

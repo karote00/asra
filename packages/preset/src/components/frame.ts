@@ -1,5 +1,6 @@
 import { defineComponent } from '@asyra/core'
 import { EntityTypes, PropertyTypes } from '@asyra/utils'
+import { applyRenderableFill, DEFAULT_FRAME_FILLS } from './fills'
 
 defineComponent({
   type: EntityTypes.FRAME,
@@ -16,14 +17,18 @@ defineComponent({
       name: PropertyTypes.DIMENSION,
       type: PropertyTypes.DIMENSION,
       alias: ['width', 'height']
+    },
+    {
+      name: 'fills',
+      type: PropertyTypes.FILLS,
+      defaultValue: DEFAULT_FRAME_FILLS
     }
   ],
   renderStrategy: (graphic, data) => {
     graphic.clear()
-    graphic
-      .rect(0, 0, data.width, data.height)
-      .fill(0xffffff)
-      .stroke({ color: 0x000000, width: 1 })
+    graphic.rect(0, 0, data.width, data.height)
+    applyRenderableFill(graphic, data.fills)
+    graphic.stroke({ color: 0x000000, width: 1 })
     graphic.x = data.x
     graphic.y = data.y
   }

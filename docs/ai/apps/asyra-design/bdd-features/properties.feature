@@ -29,3 +29,27 @@ Feature: Properties Panel
     And a vector point is selected
     When I open the properties panel
     Then I should see point X/Y fields instead of layout fields
+
+  Scenario: Show fills section for selected element
+    Given an element is selected
+    When I open the properties panel
+    Then I should see the fills section
+    And at least one editable fill row
+
+  Scenario: Show fills section for selected vector element
+    Given a vector element is selected
+    When I open the properties panel
+    Then I should see the fills section
+    And at least one editable fill row
+
+  Scenario: Update fill color via color picker
+    Given an element is selected
+    And the fills section is visible
+    When I change a fill color from the color picker
+    Then the selected element computed `fills` color should update
+
+  Scenario: Seed gradient metadata when switching fill type
+    Given an element is selected
+    And the fills section is visible
+    When I switch a fill type from solid to gradient
+    Then that fill entry should include gradientType, gradientStops, and gradientHandles data

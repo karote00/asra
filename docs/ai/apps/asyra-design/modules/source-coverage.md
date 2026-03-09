@@ -50,8 +50,6 @@ Purpose: keep app docs aligned with implemented source modules.
 
 ## Known Placeholder or Infra Files
 
-- `src/properties/fills/fill.tsx`, `src/properties/fills/list.tsx`
-  - placeholder UI, not yet wired to app domain behavior
 - `src/animation/*`
   - placeholder panels, no runtime contract yet
 - `src/app/App.test.tsx`, `src/setupTests.ts`, `src/reportWebVitals.ts`, `src/react-app-env.d.ts`, `src/types.d.ts`

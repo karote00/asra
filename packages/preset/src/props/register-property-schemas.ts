@@ -1,8 +1,11 @@
 import { VECTOR_TOKENS } from '@asyra/core'
 import {
   AnchorPointTypes,
+  FillColorFormats,
+  FillKinds,
   PropertySchema,
   PropertyTypes,
+  createDefaultFill,
   Unit
 } from '@asyra/utils'
 import type { PresetCoreAPIs } from '../types'
@@ -12,6 +15,126 @@ const isFiniteNumber = (value: unknown) =>
   typeof value === 'number' && Number.isFinite(value)
 const isStringArray = (value: unknown) =>
   Array.isArray(value) && value.every((item) => typeof item === 'string')
+const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+const isOpacity = (value: unknown) =>
+  isFiniteNumber(value) && value >= 0 && value <= 1
+
+const COLOR_FORMAT_SET = new Set(Object.values(FillColorFormats))
+const isFillColorFormat = (value: unknown) =>
+  typeof value === 'string' && COLOR_FORMAT_SET.has(value)
+
+const isGradientStop = (value: unknown): boolean => {
+  if (!isObjectRecord(value)) {
+    return false
+  }
+
+  const position = value.position
+  const color = value.color
+  const opacity = value.opacity
+
+  return (
+    isFiniteNumber(position) &&
+    position >= 0 &&
+    position <= 1 &&
+    typeof color === 'string' &&
+    color.length > 0 &&
+    isOpacity(opacity)
+  )
+}
+
+const isGradientHandle = (value: unknown): boolean => {
+  if (!isObjectRecord(value)) {
+    return false
+  }
+
+  return isFiniteNumber(value.x) && isFiniteNumber(value.y)
+}
+
+const isGradientData = (value: unknown): boolean => {
+  if (value === null) {
+    return true
+  }
+
+  if (!isObjectRecord(value)) {
+    return false
+  }
+
+  const gradientType = value.gradientType
+  const gradientStops = value.gradientStops
+  const gradientHandles = value.gradientHandles
+
+  return (
+    typeof gradientType === 'string' &&
+    gradientType.length > 0 &&
+    Array.isArray(gradientStops) &&
+    gradientStops.every(isGradientStop) &&
+    Array.isArray(gradientHandles) &&
+    gradientHandles.every(isGradientHandle)
+  )
+}
+
+const fillDefaults = createDefaultFill()
+
+const fillSchema: PropertySchema = {
+  type: PropertyTypes.FILL,
+  fields: [
+    {
+      key: 'kind',
+      kind: 'string',
+      validate: (value) =>
+        value === FillKinds.SOLID || value === FillKinds.GRADIENT,
+      defaultValue: fillDefaults.kind
+    },
+    {
+      key: 'defaultColorFormat',
+      kind: 'string',
+      validate: isFillColorFormat,
+      defaultValue: fillDefaults.defaultColorFormat
+    },
+    {
+      key: 'colorFormat',
+      kind: 'string',
+      validate: isFillColorFormat,
+      defaultValue: fillDefaults.colorFormat
+    },
+    {
+      key: 'color',
+      kind: 'string',
+      validate: (value) => typeof value === 'string' && value.length > 0,
+      defaultValue: fillDefaults.color
+    },
+    {
+      key: 'opacity',
+      kind: 'number',
+      validate: isOpacity,
+      defaultValue: fillDefaults.opacity
+    },
+    {
+      key: 'visible',
+      kind: 'boolean',
+      defaultValue: fillDefaults.visible
+    },
+    {
+      key: 'gradient',
+      kind: 'object',
+      validate: isGradientData,
+      defaultValue: fillDefaults.gradient
+    }
+  ]
+}
+
+const fillsSchema: PropertySchema = {
+  type: PropertyTypes.FILLS,
+  fields: [
+    {
+      key: 'fills',
+      kind: 'array',
+      validate: isStringArray,
+      defaultValue: []
+    }
+  ]
+}
 
 const positionSchema: PropertySchema = {
   type: PropertyTypes.POSITION,
@@ -270,6 +393,8 @@ const vectorNetworksSchema: PropertySchema = {
 export const registerPropertySchemas = (
   core: Pick<PresetCoreAPIs, 'registerPropertySchema'>
 ) => {
+  core.registerPropertySchema(fillSchema)
+  core.registerPropertySchema(fillsSchema)
   core.registerPropertySchema(positionSchema)
   core.registerPropertySchema(dimensionSchema)
   core.registerPropertySchema(anchorPointSchema)

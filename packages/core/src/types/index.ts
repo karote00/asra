@@ -1,4 +1,5 @@
 import { InputSystemAPIs, InputSystemRawAPIs } from './input-system'
+import { PropertyOwnerRef, PropsAPIs } from './props'
 import { RenderAPIs } from './render'
 import { SceneTreeAPIs } from './scene-tree'
 import { ElementSelectionActionAPIs } from './element-selection'
@@ -14,8 +15,10 @@ export type {
 } from './load-validation'
 
 export {
+  PropertyOwnerRef,
   InputSystemRawAPIs,
   InputSystemAPIs,
+  PropsAPIs,
   RenderAPIs,
   SceneTreeAPIs,
   ElementSelectionActionAPIs,
@@ -25,6 +28,7 @@ export {
 }
 
 export type CoreAPIs = InputSystemAPIs &
+  PropsAPIs &
   RenderAPIs &
   SceneTreeAPIs &
   ElementSelectionActionAPIs &

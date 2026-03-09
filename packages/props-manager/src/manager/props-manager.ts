@@ -6,6 +6,7 @@ import {
 } from '@asyra/utils'
 import type {
   EVENT_OPTIONS,
+  UpdatePropertyChange,
   PropertyComponentInstanceDataTypes,
   PropertyComponentInstanceTypes,
   PropertyComponentRawData,
@@ -232,9 +233,29 @@ class PropsManager {
     propertyId: string,
     key: K,
     data: PropertyComponentInstanceDataTypes[K],
+    owner?: {
+      ownerElementId: string
+      ownerPropertyName: string
+    },
     options?: EvnetOptions
   ) {
+    const previousChangeCount = this.changes.length
     this.updatePropsData(propertyId, key, data, options)
+
+    if (!owner || this.changes.length <= previousChangeCount) {
+      return
+    }
+
+    const nextChange = this.changes[this.changes.length - 1]
+    if (
+      nextChange?.action !== PROPS_ACTIONS.UPDATE_PROPERTY ||
+      nextChange.id !== propertyId ||
+      nextChange.key !== key
+    ) {
+      return
+    }
+
+    Object.assign(nextChange as UpdatePropertyChange, owner)
   }
 
   commitChanges(options?: EVENT_OPTIONS) {

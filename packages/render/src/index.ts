@@ -7,6 +7,13 @@ export { IRenderer, RenderOptions, RenderResult } from './types/renderer'
 export { PixiJSRenderer }
 export { renderStrategyRegistry } from './registries/render-strategy'
 export { interactionHandlerRegistry } from './registries/interaction-handler'
+export {
+  createRenderGradientFillStyle,
+  type CreateRenderGradientFillOptions,
+  type RenderGradientColorStop,
+  type RenderGradientPoint,
+  type RenderFillStyle
+} from './fills/gradient-fill'
 export type { RenderStrategy } from './types/render-strategy'
 export {
   defaultStrategy,

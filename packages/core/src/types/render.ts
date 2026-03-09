@@ -1,3 +1,8 @@
+import type {
+  CreateRenderGradientFillOptions,
+  RenderFillStyle
+} from '@asyra/render'
+
 export interface RenderLayerRegistration {
   name: string
   layer: unknown
@@ -17,6 +22,9 @@ export interface RenderRawAPIs {
     options?: RegisterRenderLayerOptions
   ) => void
   unregisterRenderLayer: (name: string) => boolean
+  createRenderGradientFillStyle: (
+    options: CreateRenderGradientFillOptions
+  ) => RenderFillStyle
 }
 
 export type RenderAPIs = RenderRawAPIs

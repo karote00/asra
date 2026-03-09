@@ -21,6 +21,8 @@ export interface UpdatePropertyChange {
   key: string
   before: DataTypes
   after: DataTypes
+  ownerElementId?: string
+  ownerPropertyName?: string
   options?: MutationOptions
 }
 

@@ -1,6 +1,10 @@
 import { renderIsReady } from '@asyra/reactive-events'
 import type { PositionData } from '@asyra/utils'
 import type {
+  CreateRenderGradientFillOptions,
+  RenderFillStyle
+} from '@asyra/render'
+import type {
   RegisterRenderLayerOptions,
   RenderLayerRegistration
 } from '../types/render'
@@ -14,6 +18,9 @@ export interface RenderRequests {
     options?: RegisterRenderLayerOptions
   ) => void
   unregisterRenderLayer: (name: string) => boolean
+  createRenderGradientFillStyle: (
+    options: CreateRenderGradientFillOptions
+  ) => RenderFillStyle
 }
 
 export const createRenderAPIs = (requests: RenderRequests) => {
@@ -32,6 +39,9 @@ export const createRenderAPIs = (requests: RenderRequests) => {
     },
     unregisterRenderLayer(name: string) {
       return requests.unregisterRenderLayer(name)
+    },
+    createRenderGradientFillStyle(options: CreateRenderGradientFillOptions) {
+      return requests.createRenderGradientFillStyle(options)
     }
   }
 }

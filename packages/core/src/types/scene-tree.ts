@@ -22,6 +22,11 @@ export interface SceneTreeRawAPIs {
     data: Record<string, DataTypes>,
     options?: EVENT_OPTIONS
   ) => void
+  refreshComputedDataFromProperty: (
+    elementId: string,
+    propertyName: string,
+    options?: EVENT_OPTIONS
+  ) => void
   getAllElementsBounds: () => Bounds | null
   isContainerType: (type: string) => boolean
 }

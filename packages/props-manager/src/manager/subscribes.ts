@@ -2,10 +2,28 @@ import {
   subscribeToUpdateUndoRedoStatus,
   subscribeToEndTransaction,
   subscribeToAddProperty,
-  subscribeToRemoveProperty
+  subscribeToRemoveProperty,
+  subscribeToUpdateProperty
 } from '@asyra/reactive-events'
 import { UNDO } from '@asyra/utils'
 import propsManager from './props-manager'
+
+const isUpdatePropertyChangePayload = (
+  payload: unknown
+): payload is {
+  id: string
+  key: string
+  after: unknown
+  ownerElementId?: string
+  ownerPropertyName?: string
+} =>
+  typeof payload === 'object' &&
+  payload !== null &&
+  'id' in payload &&
+  typeof payload.id === 'string' &&
+  'key' in payload &&
+  typeof payload.key === 'string' &&
+  'after' in payload
 
 export const initPropXSubscribes = () => {
   let inUndoRedo = false
@@ -39,6 +57,26 @@ export const initPropXSubscribes = () => {
     )
 
     propsManager.removeProperty(removedPropertyIds, options)
+    propsManager.commitChanges(options)
+  })
+
+  subscribeToUpdateProperty(({ payload, options }) => {
+    if (!isUpdatePropertyChangePayload(payload)) {
+      return
+    }
+
+    propsManager.updatePropertyById(
+      payload.id,
+      payload.key,
+      payload.after,
+      payload.ownerElementId && payload.ownerPropertyName
+        ? {
+            ownerElementId: payload.ownerElementId,
+            ownerPropertyName: payload.ownerPropertyName
+          }
+        : undefined,
+      options
+    )
     propsManager.commitChanges(options)
   })
 

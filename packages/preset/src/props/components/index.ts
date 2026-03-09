@@ -1,6 +1,8 @@
 import './position-component'
 import './dimension-component'
 import './custom-component'
+import './fill-component'
+import './fills-component'
 import './anchor-point-component'
 import './anchor-points-component'
 import './vector-point-component'

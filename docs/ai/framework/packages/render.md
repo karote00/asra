@@ -8,6 +8,8 @@ Rendering runtime and engine abstraction boundary.
 
 - Engine-specific imports (Pixi) must stay here.
 - Other packages consume render abstractions only.
+- Public exports from `@asyra/render` must not directly re-export concrete engine classes from `pixi.js`.
+- When a render abstraction is intended for preset/app consumption, surface it through `@asyra/core` facade APIs instead of requiring direct `@asyra/render` imports in those packages.
 - Render should react to state changes, not become source-of-truth.
 - Render mutations should reflect state/system updates, not drive them.
 - Default subscription wiring is not owned here; preset/core registration flow owns channel observer setup.

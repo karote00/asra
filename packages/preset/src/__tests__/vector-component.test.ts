@@ -8,7 +8,7 @@ import {
   type VectorPointNode,
   type VectorSegment
 } from '@asyra/core'
-import { PropertyTypes } from '@asyra/utils'
+import { FillColorFormats, FillKinds, PropertyTypes } from '@asyra/utils'
 import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
 
@@ -161,6 +161,16 @@ const toVectorData = (anchors: TestAnchorPoint[], closed: boolean) => {
   return { points, segments, networks }
 }
 
+const createSolidFill = (color: string) => ({
+  kind: FillKinds.SOLID,
+  defaultColorFormat: FillColorFormats.HEX,
+  colorFormat: FillColorFormats.HEX,
+  color,
+  opacity: 1,
+  visible: true,
+  gradient: null
+})
+
 describe('Vector Component', () => {
   it('should register vector component in all registries', () => {
     expect(componentRegistry.has('vector')).toBe(true)
@@ -200,8 +210,13 @@ describe('Vector Component', () => {
   it('should register fill properties', () => {
     const properties =
       elementPropertyRegistry.getPropertiesForComponent('vector')
+    const fillsProp = properties.find((p) => p.name === 'fills')
     const fillProp = properties.find((p) => p.name === 'fill')
     const strokeStyleProp = properties.find((p) => p.name === 'strokeStyle')
+
+    expect(fillsProp).toBeDefined()
+    expect(fillsProp?.type).toBe(PropertyTypes.FILLS)
+    expect(Array.isArray(fillsProp?.defaultValue)).toBe(true)
 
     expect(fillProp).toBeDefined()
     expect(fillProp?.defaultValue).toBe('none')
@@ -250,7 +265,7 @@ describe('Vector Component', () => {
         false
       ),
       closed: false,
-      fill: 'none',
+      fills: [],
       stroke: '#000000',
       strokeWidth: 2
     }
@@ -299,7 +314,7 @@ describe('Vector Component', () => {
         false
       ),
       closed: false,
-      fill: 'none',
+      fills: [],
       stroke: '#000000',
       strokeWidth: 2
     }
@@ -345,7 +360,7 @@ describe('Vector Component', () => {
         false
       ),
       closed: false,
-      fill: 'none',
+      fills: [],
       stroke: '#000000',
       strokeWidth: 2
     }
@@ -394,7 +409,7 @@ describe('Vector Component', () => {
         true
       ),
       closed: true,
-      fill: '#ff0000',
+      fills: [createSolidFill('#ff0000')],
       stroke: '#000000',
       strokeWidth: 2
     }
@@ -428,7 +443,7 @@ describe('Vector Component', () => {
       height: 100,
       ...toVectorData([{ id: '1', x: 0, y: 0 }], false),
       closed: false,
-      fill: 'none',
+      fills: [],
       stroke: '#000000',
       strokeWidth: 2
     }

@@ -1,7 +1,9 @@
 import { PropertyTypes } from '@asyra/utils'
+import type { FillAttrs } from '@asyra/utils'
 import type { RenderStrategy } from '@asyra/core'
 import { VECTOR_TOKENS, defineComponent } from '@asyra/core'
 import type { VectorNetwork, VectorPointNode, VectorSegment } from '@asyra/core'
+import { applyRenderableFill, DEFAULT_VECTOR_FILLS } from './fills'
 
 interface VectorComputedData {
   x: number
@@ -12,7 +14,8 @@ interface VectorComputedData {
   segments: Record<string, VectorSegment>
   networks: Record<string, VectorNetwork>
   closed: boolean
-  fill: string
+  fills: FillAttrs[]
+  fill?: string
   stroke: string
   strokeWidth: number
 }
@@ -48,6 +51,7 @@ const vectorRenderStrategy: RenderStrategy = (graphic, data) => {
   const typedData = data as typeof data & VectorComputedData
   const {
     closed,
+    fills,
     fill,
     stroke,
     strokeWidth,
@@ -125,8 +129,11 @@ const vectorRenderStrategy: RenderStrategy = (graphic, data) => {
     }
   })
 
-  if (closed && fill !== 'none') {
-    graphic.fill(parseHexColor(fill, 0x000000))
+  if (closed) {
+    const hasRenderedFill = applyRenderableFill(graphic, fills)
+    if (!hasRenderedFill && typeof fill === 'string' && fill !== 'none') {
+      graphic.fill(parseHexColor(fill, 0x000000))
+    }
   }
 
   if ('stroke' in graphic && typeof graphic.stroke === 'function') {
@@ -173,6 +180,11 @@ defineComponent({
       name: 'closed',
       type: PropertyTypes.CUSTOM,
       defaultValue: false
+    },
+    {
+      name: 'fills',
+      type: PropertyTypes.FILLS,
+      defaultValue: DEFAULT_VECTOR_FILLS
     },
     {
       name: 'fill',

@@ -18,6 +18,7 @@ import {
 } from '@asyra/utils'
 import { EventTypes, updateTransaction } from '@asyra/reactive-events'
 import propsManager from '@asyra/props-manager'
+import { isEqual } from 'lodash'
 import componentRegistry from './component-registry'
 import {
   createElement,
@@ -481,6 +482,50 @@ class SceneTree {
     }
 
     element.updateComputedData(key, data)
+  }
+
+  refreshComputedDataFromProperty(
+    elementId: string,
+    propertyName: string,
+    options?: EvnetOptions
+  ) {
+    const element = this.getElementById(elementId)
+    if (!element || element.get('type') === EntityTypes.WORKSPACE) {
+      return
+    }
+
+    const propId = element.props.getPropId(propertyName)
+    if (!propId) {
+      return
+    }
+
+    const propComponent = propsManager.getPropertyById(propId)
+    if (!propComponent) {
+      return
+    }
+
+    const nextValues = propComponent.getValue() as Partial<ComputedAttrs>
+    Object.entries(nextValues).forEach(([key, value]) => {
+      const computedKey = key as keyof ComputedAttrs
+      const currentValue = element.computed.get(computedKey)
+      if (isEqual(currentValue, value)) {
+        return
+      }
+
+      if (options) {
+        element.computed.set(
+          computedKey,
+          value as ComputedAttrs[keyof ComputedAttrs],
+          options
+        )
+        return
+      }
+
+      element.computed.set(
+        computedKey,
+        value as ComputedAttrs[keyof ComputedAttrs]
+      )
+    })
   }
 
   commitSceneTreeTransaction(options?: EVENT_OPTIONS) {

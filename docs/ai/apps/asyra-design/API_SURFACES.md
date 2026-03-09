@@ -48,6 +48,7 @@ Import boundary:
 - `updateVectorAnchorPointHandles(elementId: string, updates: { pointId: string; target: 'inHandle' | 'outHandle'; position: PositionData | null; forceSmooth?: boolean }[]): void`
 - `getMousePosInWorkspace(clientPos: PositionData): PositionData | null`
 - `createElement(options: { type: EntityType; clientPosition?: PositionData; points?: Record<string, VectorPointNode>; segments?: Record<string, VectorSegment>; networks?: Record<string, VectorNetwork>; closed?: boolean }, mutationOptions?: { undoable: boolean }): string | null`
+  - initializes default `fills` payload by element type
 - `createVectorElementFromSinglePoint(pointId: string, position: PositionData, mutationOptions?: { undoable: boolean }): string | null`
 - `deleteElement(elementId: string, options?: { undoable: boolean }): boolean`
 - `resetElementSize(elementId: string): void`
@@ -153,7 +154,9 @@ Import boundary:
 
 `controllers/scene-tree.ts`
 
-- `changeElementComputedData(key: string, data: DataTypes): void`
+- `changeElementComputedData(key: string, data: DataTypes, options?: EVENT_OPTIONS): void`
+  - numeric keys (`x`, `y`, `width`, `height`, `rotation`) reject non-finite values
+  - structured keys (for example `fills`) route as-is to runtime schema validation
 
 ## Input and Feature Trigger Map
 

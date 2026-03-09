@@ -6,6 +6,8 @@ export const PropertyTypes = {
   POSITION: 'position',
   DIMENSION: 'dimension',
   CUSTOM: 'custom',
+  FILL: 'fill',
+  FILLS: 'fills',
   ANCHOR_POINT: 'anchorPoint',
   ANCHOR_POINTS: 'anchorPoints',
   VECTOR_POINT: 'vectorPoint',

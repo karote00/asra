@@ -6,7 +6,10 @@ export const useFlattenedIdsData = (): string[] =>
 
 type ElementDataMap = Record<string, Partial<ElementRawData>>
 
+export const useElementDataMap = (): ElementDataMap =>
+  useProperty<ElementDataMap>('elementDataMap') ?? {}
+
 export const useElementData = (elementId: string): Partial<ElementRawData> => {
-  const elementDataMap = useProperty<ElementDataMap>('elementDataMap') ?? {}
+  const elementDataMap = useElementDataMap()
   return elementDataMap[elementId] ?? {}
 }

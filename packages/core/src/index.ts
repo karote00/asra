@@ -50,11 +50,16 @@ export { keyMap } from '@asyra/input-system'
 export {
   renderStrategyRegistry,
   createOverlayLayerRegistration,
+  createRenderGradientFillStyle,
   renderSceneTreeStore,
   renderSelectionStore,
   type OverlayCanvas,
   type OverlayStrokeStyle,
-  type CreateOverlayLayerOptions
+  type CreateOverlayLayerOptions,
+  type CreateRenderGradientFillOptions,
+  type RenderGradientColorStop,
+  type RenderGradientPoint,
+  type RenderFillStyle
 } from '@asyra/render'
 export type { RenderStrategy } from '@asyra/render'
 export {
@@ -122,15 +127,19 @@ type CoreBasicApiKeys =
 
 type CoreExtensionApiKeys =
   | 'setupInputSystem'
+  | 'updatePropertyById'
+  | 'commitPropertyChanges'
   | 'initRender'
   | 'renderIsReady'
   | 'registerRenderLayer'
   | 'unregisterRenderLayer'
+  | 'createRenderGradientFillStyle'
   | 'sceneTreeInit'
   | 'sceneTreeLoadData'
   | 'sceneTreeSaveData'
   | 'createElement'
   | 'changeComputedData'
+  | 'refreshComputedDataFromProperty'
   | 'getAllElementsBounds'
   | 'isContainerType'
   | 'selectByChannel'
@@ -164,6 +173,7 @@ type CoreExtensionApiKeys =
 type CorePresetInstallApiKeys =
   | 'registerEvent'
   | 'registerRenderLayer'
+  | 'createRenderGradientFillStyle'
   | 'registerDataChannelObserver'
   | 'registerPropertySchema'
   | 'defineSelection'

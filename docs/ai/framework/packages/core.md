@@ -62,6 +62,9 @@ System orchestrator and lifecycle coordinator.
 - App should call framework via `core.xxx` and app-level wrappers.
 - App should prefer `@asyra/core` helper re-exports (`defineFeature`, `getFeature`, `keyMap`) for common feature/input authoring paths.
 - App should not import package internals when core API exists.
+- Preset/app code should consume render abstractions through `core.xxx` when core exposes them, rather than importing `@asyra/render` directly.
+- Child-property edits that must refresh computed/render state should go through core props bridge APIs (`updatePropertyById` + `commitPropertyChanges`) with owner metadata rather than rewriting parent computed arrays in app code.
+- Core/scene-tree bridge rule: scene-tree recompute should react to committed props transactions, not be manually duplicated in app handlers.
 - Cross-cutting domain logic belongs in app/common APIs, not core.
 
 ## Validation Checklist

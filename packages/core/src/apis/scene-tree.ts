@@ -18,6 +18,11 @@ import { SceneTreeAPIs } from '../types'
 
 export interface SceneTreeRequests {
   sceneTreeSaveData: () => SceneTreeRawData
+  refreshComputedDataFromProperty: (
+    elementId: string,
+    propertyName: string,
+    options?: EVENT_OPTIONS
+  ) => void
   getAllElementsBounds: () => Bounds | null
   isContainerType: (type: string) => boolean
 }
@@ -74,6 +79,17 @@ export const createSceneTreeAPIs = (
       entries.forEach(([key, value]) => {
         changeComputedData(elementIds, key, value, options)
       })
+    },
+    refreshComputedDataFromProperty(
+      elementId: string,
+      propertyName: string,
+      options?: EVENT_OPTIONS
+    ) {
+      sceneTreeRequests.refreshComputedDataFromProperty(
+        elementId,
+        propertyName,
+        options
+      )
     },
     isContainerType(type: string) {
       return sceneTreeRequests.isContainerType(type)

@@ -19,6 +19,11 @@ This file tracks framework planning topics and points to detailed references.
 - Keep Pixi as default engine via preset wiring while enabling engine swap for future domains.
 - Reference: `docs/ai/framework/plans/render-engine-boundary-plan.md`
 
+4. Property-driven computed sync
+- Replace generic property-to-computed refresh with explicit property-owned sync wiring.
+- Keep `element -> computed -> props` flow, and add the symmetric `props -> computed` path without broad recomputation.
+- Reference: `docs/ai/framework/plans/property-driven-computed-sync-plan.md`
+
 ## Deferred Plans
 
 1. Auto-layout behavior engine.

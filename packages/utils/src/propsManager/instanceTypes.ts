@@ -4,6 +4,7 @@ import type { ISetter } from '../setter'
 import { Unit } from '../constants'
 import { DataTypes, DimensionData, PositionData } from '../types'
 import type { AnchorPointType } from './constants'
+import type { FillAttrs, FillsAttrs } from './fills'
 
 export interface BasePropertyAttrs {
   id: string
@@ -18,11 +19,6 @@ export interface PositionAttrs extends BasePropertyAttrs, PositionData {
 export interface DimensionAttrs extends BasePropertyAttrs, DimensionData {
   widthUnit: Unit
   heightUnit: Unit
-}
-
-export interface FillAttrs {
-  color: number[]
-  opacity: number
 }
 
 export interface AnchorPointAttrs extends BasePropertyAttrs {
@@ -53,6 +49,8 @@ export interface PropertyComponentInstanceTypes
 export type PropertyComponentInstanceDataTypes =
   | PositionAttrs
   | DimensionAttrs
+  | FillAttrs
+  | FillsAttrs
   | AnchorPointAttrs
   | AnchorPointsAttrs
   | BasePropertyAttrs

@@ -92,6 +92,18 @@ This file defines app-level state keys, owners, and primary consumers.
   - source: aggregate registration over selected elements
   - consumers: property panel inputs
 
+- `fills`
+  - source: app-registered ui-context `compute` over selected elements (`computed.fills`)
+  - consumers: property panel fills section via `useFills()` / `useFill()`
+  - value contract:
+    - no selection -> `[]`
+    - single selection -> `FillRowAttrs[]` (`ids: string[]` + resolved fill values)
+    - non-single selection -> `MIX`
+  - write path:
+    - add/remove fill rows -> `changeElementComputedData('fills', Array<string | FillAttrs>)`
+    - single-fill field edits -> `core.updatePropertyById(fillId, ..., { ownerElementId, ownerPropertyName: 'fills' })` + `core.commitPropertyChanges(...)`
+  - boundary rule: selection-change handling belongs to ui-context compute, not provider-local effects/subscriptions
+
 - mirrored system keys: `zoom`, `primaryTool`, path-editing keys
   - source: system context subscription
   - consumers: toolbar and path-editing UI
@@ -112,6 +124,11 @@ This file defines app-level state keys, owners, and primary consumers.
   - owner: vector element computed data
   - writers: `elementApis` topology mutation helpers
   - readers: vector render strategy, path-editing subpath flow, vector path-editing render layer
+
+- `fills`
+  - owner: element computed data (via `fills` property component)
+  - writers: properties panel through `changeElementComputedData`
+  - readers: preset render strategies (rect/oval/frame/vector)
 
 ## Contract Rules
 

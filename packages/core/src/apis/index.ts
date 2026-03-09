@@ -1,8 +1,10 @@
 import { SceneTree, componentRegistry } from '@asyra/scene-tree'
-import { Render } from '@asyra/render'
+import { Render, createRenderGradientFillStyle } from '@asyra/render'
+import type { PropsManager } from '@asyra/props-manager'
 import type { SelectionManager } from '@asyra/selection'
 import { Bounds, EntityTypes, ComputedAttrs } from '@asyra/utils'
 
+import { createPropsAPIs, type PropsRequests } from './props'
 import { createRenderAPIs, type RenderRequests } from './render'
 import { createSceneTreeAPIs } from './scene-tree'
 import { createElementSelectionAPIs } from './element-selection'
@@ -15,10 +17,24 @@ import { CoreAPIs } from '../types'
 export const createAPIs = (
   sceneTree: SceneTree,
   render: Render,
-  selection: SelectionManager
+  selection: SelectionManager,
+  props: PropsManager
 ): CoreAPIs => {
   const sceneTreeRequests = {
     sceneTreeSaveData: () => sceneTree.save(),
+    refreshComputedDataFromProperty: (
+      elementId: string,
+      propertyName: string,
+      options
+    ) => {
+      sceneTree.refreshComputedDataFromProperty(
+        elementId,
+        propertyName,
+        options
+      )
+      props.commitChanges(options)
+      sceneTree.commitSceneTreeTransaction(options)
+    },
     isContainerType: (type: string) => {
       if (
         type === EntityTypes.WORKSPACE ||
@@ -87,12 +103,20 @@ export const createAPIs = (
     getViewportScale: () => render.getViewportScale(),
     registerRenderLayer: (registration, options) =>
       render.registerLayer(registration, options),
-    unregisterRenderLayer: (name: string) => render.unregisterLayer(name)
+    unregisterRenderLayer: (name: string) => render.unregisterLayer(name),
+    createRenderGradientFillStyle
+  }
+
+  const propsRequests: PropsRequests = {
+    updatePropertyById: (propertyId, key, data, owner, options) =>
+      props.updatePropertyById(propertyId, key, data, owner, options),
+    commitPropertyChanges: (options) => props.commitChanges(options)
   }
 
   return {
     ...createInputSystemAPIs(),
     ...createFeatureSystemAPIs(),
+    ...createPropsAPIs(propsRequests),
     ...createRenderAPIs(renderRequests),
     ...createSceneTreeAPIs(sceneTreeRequests),
     ...createElementSelectionAPIs(selection),

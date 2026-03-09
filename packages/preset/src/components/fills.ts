@@ -1,0 +1,209 @@
+import {
+  FillKinds,
+  FillGradientTypes,
+  clampOpacity,
+  parseColor,
+  rgbaToColorInt,
+  rgbaToCssColor,
+  rgbaToHex,
+  type FillAttrs,
+  createDefaultFills,
+  createDefaultFill
+} from '@asyra/utils'
+import {
+  default as core,
+  type CreateRenderGradientFillOptions,
+  type RenderFillStyle
+} from '@asyra/core'
+
+type RenderableFill =
+  | {
+      kind: 'solid'
+      color: number
+      alpha: number
+    }
+  | {
+      kind: 'gradient'
+      style: RenderFillStyle
+    }
+
+const normalizeFillEntry = (value: unknown): FillAttrs | null => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null
+  }
+
+  return {
+    ...createDefaultFill(),
+    ...(value as Partial<FillAttrs>)
+  }
+}
+
+const sortGradientStops = (
+  stops: NonNullable<FillAttrs['gradient']>['gradientStops']
+) => [...stops].sort((a, b) => a.position - b.position)
+
+const toGradientStopColor = (color: string, opacity: number): string | null => {
+  const parsed = parseColor(color)
+  if (!parsed) {
+    return null
+  }
+
+  return rgbaToCssColor(parsed, parsed.a * opacity)
+}
+
+const toRenderableGradient = (entry: FillAttrs): RenderFillStyle | null => {
+  if (entry.kind !== FillKinds.GRADIENT || !entry.gradient) {
+    return null
+  }
+
+  const stops = sortGradientStops(entry.gradient.gradientStops)
+  if (!stops.length) {
+    return null
+  }
+
+  const colorStops = stops
+    .map((stop) => ({
+      offset: clampOpacity(stop.position),
+      color: toGradientStopColor(stop.color, stop.opacity * entry.opacity)
+    }))
+    .filter(
+      (stop): stop is { offset: number; color: string } => stop.color !== null
+    )
+
+  if (!colorStops.length) {
+    return null
+  }
+
+  const [startHandle, endHandle] = entry.gradient.gradientHandles
+  const start = startHandle ?? { x: 0, y: 0 }
+  const end = endHandle ?? { x: 1, y: 0 }
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  const distance = Math.max(0.001, Math.sqrt(dx * dx + dy * dy))
+
+  if (entry.gradient.gradientType === FillGradientTypes.RADIAL) {
+    const radialOptions: CreateRenderGradientFillOptions = {
+      type: 'radial',
+      center: start,
+      outerCenter: end,
+      innerRadius: 0,
+      outerRadius: distance,
+      colorStops,
+      textureSpace: 'local'
+    }
+
+    return core.createRenderGradientFillStyle(radialOptions)
+  }
+
+  // Pixi graphics only exposes linear/radial gradients. Unsupported kinds
+  // fall back to linear so stop colors still render and stay in sync.
+  const linearOptions: CreateRenderGradientFillOptions = {
+    type: 'linear',
+    start,
+    end,
+    colorStops,
+    textureSpace: 'local'
+  }
+
+  return core.createRenderGradientFillStyle(linearOptions)
+}
+
+const getRenderableFillFromEntry = (
+  entry: FillAttrs
+): RenderableFill | null => {
+  if (!entry.visible) {
+    return null
+  }
+
+  if (entry.kind === FillKinds.GRADIENT && entry.gradient) {
+    const renderableGradient = toRenderableGradient(entry)
+    if (!renderableGradient) {
+      return null
+    }
+
+    return {
+      kind: 'gradient',
+      style: renderableGradient
+    }
+  }
+
+  const parsed = parseColor(entry.color)
+  if (!parsed) {
+    return null
+  }
+
+  return {
+    kind: 'solid',
+    color: rgbaToColorInt(parsed),
+    alpha: clampOpacity(parsed.a * entry.opacity)
+  }
+}
+
+export const getRenderableFill = (fills: unknown): RenderableFill | null => {
+  if (!Array.isArray(fills)) {
+    return null
+  }
+
+  for (const rawFill of fills) {
+    const fill = normalizeFillEntry(rawFill)
+    if (!fill) {
+      continue
+    }
+
+    const renderableFill = getRenderableFillFromEntry(fill)
+    if (renderableFill) {
+      return renderableFill
+    }
+  }
+
+  return null
+}
+
+export const applyRenderableFill = (
+  graphic: { fill: unknown },
+  fills: unknown
+): boolean => {
+  const renderableFill = getRenderableFill(fills)
+  if (!renderableFill) {
+    return false
+  }
+
+  const applyFill = (value: unknown) =>
+    (graphic.fill as (this: typeof graphic, value: unknown) => unknown).call(
+      graphic,
+      value
+    )
+
+  if (renderableFill.kind === 'gradient') {
+    applyFill(renderableFill.style)
+    return true
+  }
+
+  if (renderableFill.alpha >= 1) {
+    applyFill(renderableFill.color)
+    return true
+  }
+
+  applyFill({
+    color: renderableFill.color,
+    alpha: renderableFill.alpha
+  })
+  return true
+}
+
+export const fillColorToHex = (value: string): string => {
+  const parsed = parseColor(value)
+  if (!parsed) {
+    return '#000000'
+  }
+
+  return rgbaToHex(parsed)
+}
+
+export const DEFAULT_RECTANGLE_FILLS = createDefaultFills({ color: '#cccccc' })
+export const DEFAULT_OVAL_FILLS = createDefaultFills({ color: '#cccccc' })
+export const DEFAULT_FRAME_FILLS = createDefaultFills({ color: '#ffffff' })
+export const DEFAULT_VECTOR_FILLS = createDefaultFills({
+  color: '#000000',
+  visible: false
+})

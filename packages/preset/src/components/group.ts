@@ -1,5 +1,5 @@
 import { defineComponent } from '@asyra/core'
-import { EntityTypes, PropertyTypes } from '@asyra/utils'
+import { EntityTypes, PropertyTypes, createDefaultFills } from '@asyra/utils'
 
 defineComponent({
   type: EntityTypes.GROUP,
@@ -16,6 +16,11 @@ defineComponent({
       name: PropertyTypes.DIMENSION,
       type: PropertyTypes.DIMENSION,
       alias: ['width', 'height']
+    },
+    {
+      name: 'fills',
+      type: PropertyTypes.FILLS,
+      defaultValue: createDefaultFills({ color: '#cccccc', visible: false })
     }
   ],
   renderStrategy: (graphic, data) => {

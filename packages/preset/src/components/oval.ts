@@ -1,5 +1,6 @@
 import { defineComponent } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
+import { applyRenderableFill, DEFAULT_OVAL_FILLS } from './fills'
 
 defineComponent({
   type: 'oval',
@@ -15,6 +16,11 @@ defineComponent({
       name: PropertyTypes.DIMENSION,
       type: PropertyTypes.DIMENSION,
       alias: ['width', 'height']
+    },
+    {
+      name: 'fills',
+      type: PropertyTypes.FILLS,
+      defaultValue: DEFAULT_OVAL_FILLS
     }
   ],
   renderStrategy: (graphic, data) => {
@@ -36,7 +42,7 @@ defineComponent({
       data.width / 2,
       data.height / 2
     )
-    graphic.fill(0xcccccc)
+    applyRenderableFill(graphic, data.fills)
 
     // Ensure graphic is rendered (force update in E2E)
     // This might be needed for headless rendering

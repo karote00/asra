@@ -11,6 +11,7 @@
 export { transactionApis } from './transaction'
 export { selectionApis } from './selection'
 export { elementApis } from './element'
+export { fillApis, type FillPatch } from './fills'
 export { viewportApis } from './viewport'
 export { systemContextApis } from './system-context'
 export { historyApis } from './history'

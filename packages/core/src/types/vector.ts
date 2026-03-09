@@ -1,4 +1,5 @@
 import type { PositionData } from '@asyra/utils'
+import type { FillAttrs } from '@asyra/utils'
 
 export const VECTOR_ANCHOR_ID_TYPE = 'vector-anchor'
 export const VECTOR_ANCHOR_ID_PREFIX = 'anchor'
@@ -85,5 +86,6 @@ export interface VectorStrokeStyle {
 
 export interface VectorPathStyle extends VectorStrokeStyle {
   closed: boolean
-  fill: string
+  fill?: string
+  fills?: FillAttrs[]
 }

@@ -7,6 +7,7 @@ import { startTransaction, endTransaction } from '@asyra/reactive-events'
 import {
   DEFAULT_ELEMENT_SIZE,
   EntityTypes,
+  createDefaultFills,
   type EntityType,
   type DataTypes,
   type PositionData,
@@ -25,6 +26,12 @@ import type {
 import { VECTOR_TOKENS } from '@asyra/core'
 import { isEqual } from 'lodash'
 import core, { render, sceneTree } from '../../contexts'
+import {
+  DEFAULT_ELEMENT_FILL_COLOR,
+  DEFAULT_FRAME_FILL_COLOR,
+  DEFAULT_VECTOR_FILL_COLOR,
+  DEFAULT_VECTOR_STROKE_COLOR
+} from '../../constants'
 import {
   calculateVectorBounds,
   normalizeVectorTopology
@@ -64,9 +71,33 @@ export type { VectorPointTarget } from './types'
 
 const DEFAULT_VECTOR_STYLE: VectorPathStyle = {
   closed: false,
-  fill: 'none',
-  stroke: '#cccccc',
+  fills: createDefaultFills({
+    color: DEFAULT_VECTOR_FILL_COLOR,
+    visible: false
+  }),
+  stroke: DEFAULT_VECTOR_STROKE_COLOR,
   strokeWidth: 1
+}
+
+const getDefaultFillsForType = (type: EntityType) => {
+  switch (type) {
+    case 'frame':
+      return createDefaultFills({ color: DEFAULT_FRAME_FILL_COLOR })
+    case 'group':
+      return createDefaultFills({
+        color: DEFAULT_ELEMENT_FILL_COLOR,
+        visible: false
+      })
+    case 'vector':
+      return createDefaultFills({
+        color: DEFAULT_VECTOR_FILL_COLOR,
+        visible: false
+      })
+    case 'rect':
+    case 'oval':
+    default:
+      return createDefaultFills({ color: DEFAULT_ELEMENT_FILL_COLOR })
+  }
 }
 const VECTOR_POINT_HIT_RADIUS = 6
 const VECTOR_SEGMENT_HIT_RADIUS = 8
@@ -1040,7 +1071,7 @@ export const elementApis = {
           segments: normalizedTopology.segments,
           networks: normalizedTopology.networks,
           closed,
-          fill: DEFAULT_VECTOR_STYLE.fill,
+          fills: getDefaultFillsForType('vector'),
           stroke: DEFAULT_VECTOR_STYLE.stroke,
           strokeWidth: DEFAULT_VECTOR_STYLE.strokeWidth
         },
@@ -1060,7 +1091,9 @@ export const elementApis = {
     return createElementAtWorkspacePos(
       createOptions.type,
       workspacePos,
-      {},
+      {
+        fills: getDefaultFillsForType(createOptions.type)
+      },
       options
     )
   },

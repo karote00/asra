@@ -1,8 +1,8 @@
-import Core from '@asyra/core'
+import core from '../contexts'
 
 // For local debug
 declare global {
   interface Window {
-    __Core__: Core
+    __Core__: core
   }
 }

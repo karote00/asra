@@ -1,5 +1,6 @@
 export * from './enum'
 export * from './constants'
+export * from './fills'
 export * from './schema'
 export * from './instanceTypes'
 export * from './rawDataTypes'

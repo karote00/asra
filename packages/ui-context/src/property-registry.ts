@@ -9,6 +9,7 @@ export type PropertyValue =
   | null
   | Set<string>
   | string[]
+  | Record<string, unknown>[]
   | Record<string, unknown>
   | undefined
 

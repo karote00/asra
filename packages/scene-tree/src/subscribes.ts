@@ -5,11 +5,35 @@ import {
   subscribeToSceneTreeInit,
   subscribeToSceneTreeLoadData,
   subscribeToAddElement,
+  subscribeToUpdateTransaction,
   subscribeToUpdateUndoRedoStatus,
   sceneTreeLoadComplete
 } from '@asyra/reactive-events'
-import { UNDO, type ComputedAttrs } from '@asyra/utils'
+import propsManager from '@asyra/props-manager'
+import { PROPS_ACTIONS, UNDO, type ComputedAttrs } from '@asyra/utils'
 import sceneTree from './sceneTree'
+
+const isOwnedUpdatePropertyChange = (
+  payload: unknown
+): payload is {
+  action: string
+  id: string
+  key: string
+  ownerElementId: string
+  ownerPropertyName: string
+} =>
+  typeof payload === 'object' &&
+  payload !== null &&
+  'action' in payload &&
+  payload.action === PROPS_ACTIONS.UPDATE_PROPERTY &&
+  'id' in payload &&
+  typeof payload.id === 'string' &&
+  'key' in payload &&
+  typeof payload.key === 'string' &&
+  'ownerElementId' in payload &&
+  typeof payload.ownerElementId === 'string' &&
+  'ownerPropertyName' in payload &&
+  typeof payload.ownerPropertyName === 'string'
 
 export const initSceneTreeSubscribes = () => {
   let inUndoRedo = false
@@ -49,17 +73,41 @@ export const initSceneTreeSubscribes = () => {
         options
       )
     })
+    propsManager.commitChanges(options)
     sceneTree.commitSceneTreeTransaction(options)
   })
 
-  subscribeToUpdateComputedData(({ payload }) => {
+  subscribeToUpdateComputedData(({ payload, options }) => {
     const { id, key, after } = payload
 
     sceneTree.updateComputedData(
       id,
       key as keyof ComputedAttrs,
-      after as ComputedAttrs[keyof ComputedAttrs]
+      after as ComputedAttrs[keyof ComputedAttrs],
+      options
     )
-    sceneTree.commitSceneTreeTransaction()
+    propsManager.commitChanges(options)
+    sceneTree.commitSceneTreeTransaction(options)
+  })
+
+  subscribeToUpdateTransaction(({ payload, options }) => {
+    if (!isOwnedUpdatePropertyChange(payload)) {
+      return
+    }
+
+    const sceneTreeOptions =
+      options?.shared === undefined
+        ? options
+        : {
+            ...options,
+            shared: undefined
+          }
+
+    sceneTree.refreshComputedDataFromProperty(
+      payload.ownerElementId,
+      payload.ownerPropertyName,
+      sceneTreeOptions
+    )
+    sceneTree.commitSceneTreeTransaction(sceneTreeOptions)
   })
 }

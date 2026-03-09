@@ -52,6 +52,7 @@ Render bridge:
 
 - `registerRenderLayer(registration: RenderLayerRegistration, options?: RegisterRenderLayerOptions): void`
 - `unregisterRenderLayer(name: string): boolean`
+- `createRenderGradientFillStyle(options: CreateRenderGradientFillOptions): RenderFillStyle`
 - `registerDataChannelObserver(registration: DataChannelObserverRegistration): void`
   - registration shape: `{ name: string; channel: string; onChange: (change) => void }`
 - `unregisterDataChannelObserver(name: string): boolean`
@@ -64,6 +65,7 @@ Scene/model bridge:
 - `sceneTreeSaveData(): SceneTreeRawData`
 - `createElement(data: CreateElementData, parent?: GroupInstanceTypes, index?: number, options?: { undoable?: boolean; shared?: string }): string`
 - `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: { undoable?: boolean; shared?: string }): void`
+- `refreshComputedDataFromProperty(elementId: string, propertyName: string, options?: EVENT_OPTIONS): void`
 - `getAllElementsBounds(): Bounds | null`
 - `isContainerType(type: string): boolean`
 - `selectByChannel(channel: string, ids: string[], options?: { undoable?: boolean; shared?: string }): void`
@@ -80,6 +82,8 @@ Managed property bridges:
 - `setUIProperty<T>(key: string, value: T): void`
 - `getUIPropertySubject<T>(key: string): BehaviorSubject<T> | undefined`
 - `onUIPropertyChange<T>(key: string, callback: (value: T) => void): () => void`
+- `updatePropertyById(propertyId: string, key: string, value: unknown, owner?: { ownerElementId: string; ownerPropertyName: string }, options?: EVENT_OPTIONS): void`
+- `commitPropertyChanges(options?: EVENT_OPTIONS): void`
 - `defineSystemProperty<T>(key: string, defaultValue: T): BehaviorSubject<T>` (primary declaration API)
 - `defineSystemProperty<T>(key: string, defaultValue: T, options?: { runtime?: boolean; silent?: boolean; validate?: (value: unknown) => value is T }): BehaviorSubject<T>`
 - `registerSystemProperty<T>(key: string, defaultValue: T): BehaviorSubject<T>` (compatibility alias of `defineSystemProperty`)
