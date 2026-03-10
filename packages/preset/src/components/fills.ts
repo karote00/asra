@@ -84,21 +84,54 @@ export const toRenderableGradient = (
   const distance = Math.max(0.001, Math.sqrt(dx * dx + dy * dy))
 
   if (entry.gradient.gradientType === FillGradientTypes.RADIAL) {
+    const sideHandle = entry.gradient.gradientHandles[2] ?? null
+    const radiusY =
+      sideHandle !== null
+        ? Math.max(
+            0.001,
+            Math.sqrt(
+              (sideHandle.x - start.x) ** 2 + (sideHandle.y - start.y) ** 2
+            )
+          )
+        : undefined
+
     const radialOptions: CreateRenderGradientFillOptions = {
       type: 'radial',
-      center: start,
-      outerCenter: end,
-      innerRadius: 0,
-      outerRadius: distance,
+      start,
+      end,
       colorStops,
-      textureSpace: 'local'
+      textureSpace: 'local',
+      ...(radiusY !== undefined ? { radiusY } : {})
     }
 
     return core.createRenderGradientFillStyle(radialOptions)
   }
 
-  // Pixi graphics only exposes linear/radial gradients. Unsupported kinds
-  // fall back to linear so stop colors still render and stay in sync.
+  if (entry.gradient.gradientType === FillGradientTypes.ANGULAR) {
+    const angularOptions: CreateRenderGradientFillOptions = {
+      type: 'angular',
+      start,
+      end,
+      colorStops,
+      textureSpace: 'local'
+    }
+
+    return core.createRenderGradientFillStyle(angularOptions)
+  }
+
+  if (entry.gradient.gradientType === FillGradientTypes.DIAMOND) {
+    const diamondOptions: CreateRenderGradientFillOptions = {
+      type: 'diamond',
+      start,
+      end,
+      colorStops,
+      textureSpace: 'local'
+    }
+
+    return core.createRenderGradientFillStyle(diamondOptions)
+  }
+
+  // Default: linear gradient
   const linearOptions: CreateRenderGradientFillOptions = {
     type: 'linear',
     start,

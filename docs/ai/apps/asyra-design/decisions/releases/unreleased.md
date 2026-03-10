@@ -4,6 +4,19 @@ Decision log for app-scoped changes not yet captured in a release snapshot.
 
 Append-only rule: do not edit/delete prior entries; add superseding entries when decisions change.
 
+## 2026-03-11 - Canvas gradient handles plan closed out
+
+- Context:
+  - Canvas gradient handle editing now has overlay, drag feature flow, and linear gradient render stability for day-to-day editing.
+- Decision:
+  - Mark the canvas gradient handles plan complete and move it to completed plan records.
+  - Track radial and other gradient type rendering as follow-up scope.
+- Consequences:
+  - Canvas handle editing is treated as finished behavior for linear gradients.
+  - Remaining gradient type rendering work proceeds under a new follow-up scope.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/canvas-gradient-handles-plan.md`
+
 ## 2026-03-10 - Linear gradient render mapping stabilized in preset
 
 - Context:

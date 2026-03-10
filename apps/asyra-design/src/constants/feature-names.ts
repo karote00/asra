@@ -32,7 +32,9 @@ export const VectorPathFeatureNames = {
 
 export const GradientFeatureNames = {
   HOVER_GRADIENT_HANDLE: 'hoverGradientHandle',
-  DRAG_GRADIENT_HANDLE: 'dragGradientHandle'
+  DRAG_GRADIENT_HANDLE: 'dragGradientHandle',
+  HOVER_GRADIENT_STOP: 'hoverGradientStop',
+  DRAG_GRADIENT_STOP: 'dragGradientStop'
 } as const
 
 type AssertNoOverlap<A, B> =

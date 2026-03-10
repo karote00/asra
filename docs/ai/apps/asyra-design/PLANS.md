@@ -6,11 +6,6 @@
 
 - remove internal-path imports (for example keymap source path)
 
-2. Canvas gradient handles editing
-
-- app plan: `docs/ai/apps/asyra-design/plans/canvas-gradient-handles-plan.md`
-- status: linear gradient render stabilized; radial/other gradient types pending
-
 ## Mid-Term
 
 1. Advanced selection workflows
@@ -92,6 +87,12 @@
 - moved selection/hover overlay drawing to registered app/preset render layer
 - hover outline now follows geometry for vector/oval/rect (with fallback bounds for unsupported types)
 - completed plan: `docs/ai/apps/asyra-design/plans/completed/hover-state-and-hover-selection-box-plan.md`
+
+9. Canvas gradient handles editing (completed 2026-03-11)
+
+- added gradient handle overlay state, render layer, and drag feature flow
+- stabilized linear gradient render mapping for on-canvas editing
+- completed plan: `docs/ai/apps/asyra-design/plans/completed/canvas-gradient-handles-plan.md`
 
 ## Decision Logging Rule
 

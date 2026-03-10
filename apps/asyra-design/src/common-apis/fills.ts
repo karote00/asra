@@ -230,6 +230,65 @@ export const fillApis = {
     return null
   },
 
+  getGradientStopHitAtClientPos: (
+    elementId: string,
+    fillId: string,
+    clientPos: PositionData,
+    hitSize = 16
+  ): { stopIndex: number } | null => {
+    const geometry = fillApis.getGradientHandleGeometry(elementId, fillId)
+    if (!geometry?.fill.gradient) {
+      return null
+    }
+
+    const canvasPos = getCanvasPositionFromClient(clientPos)
+    const start = geometry.canvasHandles[0]
+    const end = geometry.canvasHandles[1]
+
+    // Perpendicular offset direction (same as render layer)
+    const ldx = end.x - start.x
+    const ldy = end.y - start.y
+    const dist = Math.max(0.001, Math.sqrt(ldx * ldx + ldy * ldy))
+    const ux = ldx / dist
+    const uy = ldy / dist
+    const px = -uy
+    const py = ux
+
+    const stopOffsetFromLine = 8 // STOP_TRIANGLE_HEIGHT(6) + 2
+    const rectHalf = hitSize / 2
+    const offsetDist = stopOffsetFromLine + rectHalf
+
+    const stops = geometry.fill.gradient.gradientStops
+    for (let i = 0; i < stops.length; i++) {
+      const stop = stops[i]
+
+      // Position on the gradient line
+      const lineX = start.x + (end.x - start.x) * stop.position
+      const lineY = start.y + (end.y - start.y) * stop.position
+
+      // Center of the indicator rectangle (offset perpendicular)
+      const cx = lineX + px * offsetDist
+      const cy = lineY + py * offsetDist
+
+      // Hit-test using rotated rectangle: project click into the rect's local space
+      const relX = canvasPos.x - cx
+      const relY = canvasPos.y - cy
+
+      // Rotate into the gradient-aligned coordinate system
+      const localAlongLine = relX * ux + relY * uy
+      const localPerpLine = relX * px + relY * py
+
+      if (
+        Math.abs(localAlongLine) <= rectHalf &&
+        Math.abs(localPerpLine) <= rectHalf
+      ) {
+        return { stopIndex: i }
+      }
+    }
+
+    return null
+  },
+
   updateGradientHandleAtClientPosition: (
     elementId: string,
     fillId: string,

@@ -12,11 +12,11 @@ Behavior targets:
 - drag updates stay grouped into one intended undoable action
 - overlay registration stays behind the render-layer contract
 
-## Status (2026-03-10)
+## Completion (2026-03-11)
 
-- completed: linear gradient render path stabilized (local-space mapping + stop ordering), plus unit coverage in preset gradient tests
-- in progress: radial gradient render mapping (handle semantics + render transform)
-- remaining: support other gradient types on canvas (angular/diamond) after radial is stable
+- outcome: canvas gradient handle overlay and drag session flow now update fill `gradientHandles` directly by `fillId` with one intended undo commit
+- outcome: linear gradient rendering is stabilized for on-canvas editing workflows
+- follow-up: radial and other gradient type rendering remains pending and should be addressed as a separate plan
 
 ## Steps
 

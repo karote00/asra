@@ -340,7 +340,7 @@ describe('toRenderableGradient', () => {
     })
   })
 
-  it('maps radial gradients with handle distance as outer radius', () => {
+  it('maps radial gradients with start as center and end as extent', () => {
     const fill = createGradientFill({
       gradient: {
         gradientType: FillGradientTypes.RADIAL,
@@ -374,10 +374,8 @@ describe('toRenderableGradient', () => {
 
     expect(createRenderGradientFillStyle).toHaveBeenCalledWith({
       type: 'radial',
-      center: { x: 0.5, y: 0.25 },
-      outerCenter: { x: 0.5, y: 0.75 },
-      innerRadius: 0,
-      outerRadius: 0.5,
+      start: { x: 0.5, y: 0.25 },
+      end: { x: 0.5, y: 0.75 },
       colorStops: [
         { offset: 0, color: 'rgba(255, 255, 255, 1)' },
         { offset: 1, color: 'rgba(0, 0, 0, 1)' }
@@ -386,10 +384,147 @@ describe('toRenderableGradient', () => {
     })
   })
 
-  it('falls back to linear for unsupported gradient kinds', () => {
+  it('maps elliptical radial gradients with 3rd handle as radiusY', () => {
+    const fill = createGradientFill({
+      gradient: {
+        gradientType: FillGradientTypes.RADIAL,
+        gradientStops: [
+          {
+            position: 0,
+            color: '#ffffff',
+            opacity: 1
+          },
+          {
+            position: 1,
+            color: '#000000',
+            opacity: 1
+          }
+        ],
+        gradientHandles: [
+          {
+            x: 0.5,
+            y: 0.5
+          },
+          {
+            x: 1.0,
+            y: 0.5
+          },
+          {
+            x: 0.5,
+            y: 0.75
+          }
+        ],
+        metadata: {}
+      }
+    })
+
+    toRenderableGradient(fill)
+
+    expect(createRenderGradientFillStyle).toHaveBeenCalledWith({
+      type: 'radial',
+      start: { x: 0.5, y: 0.5 },
+      end: { x: 1.0, y: 0.5 },
+      colorStops: [
+        { offset: 0, color: 'rgba(255, 255, 255, 1)' },
+        { offset: 1, color: 'rgba(0, 0, 0, 1)' }
+      ],
+      textureSpace: 'local',
+      radiusY: 0.25
+    })
+  })
+
+  it('maps angular gradients with start as center and end as direction', () => {
     const fill = createGradientFill({
       gradient: {
         gradientType: FillGradientTypes.ANGULAR,
+        gradientStops: [
+          {
+            position: 0,
+            color: '#ffffff',
+            opacity: 1
+          },
+          {
+            position: 1,
+            color: '#000000',
+            opacity: 1
+          }
+        ],
+        gradientHandles: [
+          {
+            x: 0.5,
+            y: 0
+          },
+          {
+            x: 0.5,
+            y: 1
+          }
+        ],
+        metadata: {}
+      }
+    })
+
+    toRenderableGradient(fill)
+
+    expect(createRenderGradientFillStyle).toHaveBeenCalledWith({
+      type: 'angular',
+      start: { x: 0.5, y: 0 },
+      end: { x: 0.5, y: 1 },
+      colorStops: [
+        { offset: 0, color: 'rgba(255, 255, 255, 1)' },
+        { offset: 1, color: 'rgba(0, 0, 0, 1)' }
+      ],
+      textureSpace: 'local'
+    })
+  })
+
+  it('maps diamond gradients with start as center and end as direction', () => {
+    const fill = createGradientFill({
+      gradient: {
+        gradientType: FillGradientTypes.DIAMOND,
+        gradientStops: [
+          {
+            position: 0,
+            color: '#ffffff',
+            opacity: 1
+          },
+          {
+            position: 1,
+            color: '#000000',
+            opacity: 1
+          }
+        ],
+        gradientHandles: [
+          {
+            x: 0.5,
+            y: 0.25
+          },
+          {
+            x: 0.5,
+            y: 0.75
+          }
+        ],
+        metadata: {}
+      }
+    })
+
+    toRenderableGradient(fill)
+
+    expect(createRenderGradientFillStyle).toHaveBeenCalledWith({
+      type: 'diamond',
+      start: { x: 0.5, y: 0.25 },
+      end: { x: 0.5, y: 0.75 },
+      colorStops: [
+        { offset: 0, color: 'rgba(255, 255, 255, 1)' },
+        { offset: 1, color: 'rgba(0, 0, 0, 1)' }
+      ],
+      textureSpace: 'local'
+    })
+  })
+
+  it('falls back to linear for unknown gradient types', () => {
+    const fill = createGradientFill({
+      gradient: {
+        gradientType: 'some-future-type',
         gradientStops: [
           {
             position: 0,
