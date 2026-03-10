@@ -32,6 +32,19 @@ export interface HoveredVectorSegmentInsertPointState
   y: number
 }
 
+export interface ActiveGradientFillState extends Record<string, unknown> {
+  elementId: string
+  fillId: string
+}
+
+export type GradientHandleIndex = 0 | 1
+
+export interface GradientHandleState extends Record<string, unknown> {
+  elementId: string
+  fillId: string
+  handleIndex: GradientHandleIndex
+}
+
 interface EnterPathEditingOptions {
   startNewSubpath?: boolean
 }
@@ -157,6 +170,56 @@ export const systemContextApis = {
     systemContextApis.setSelectedVectorSegment(null)
     systemContextApis.setHoveredVectorSegment(null)
     systemContextApis.setHoveredVectorSegmentInsertPoint(null)
+  },
+
+  getActiveGradientFill: (): ActiveGradientFillState | null => {
+    return (
+      core.getSystemProperty<ActiveGradientFillState | null>(
+        'activeGradientFill'
+      ) ?? null
+    )
+  },
+
+  setActiveGradientFill: (fill: ActiveGradientFillState | null) => {
+    const current = systemContextApis.getActiveGradientFill()
+    const hasChanged =
+      current?.elementId !== fill?.elementId || current?.fillId !== fill?.fillId
+
+    core.setSystemProperty('activeGradientFill', fill)
+    if (hasChanged) {
+      systemContextApis.setHoveredGradientHandle(null)
+      systemContextApis.setSelectedGradientHandle(null)
+    }
+  },
+
+  getHoveredGradientHandle: (): GradientHandleState | null => {
+    return (
+      core.getSystemProperty<GradientHandleState | null>(
+        'hoveredGradientHandle'
+      ) ?? null
+    )
+  },
+
+  setHoveredGradientHandle: (handle: GradientHandleState | null) => {
+    core.setSystemProperty('hoveredGradientHandle', handle)
+  },
+
+  getSelectedGradientHandle: (): GradientHandleState | null => {
+    return (
+      core.getSystemProperty<GradientHandleState | null>(
+        'selectedGradientHandle'
+      ) ?? null
+    )
+  },
+
+  setSelectedGradientHandle: (handle: GradientHandleState | null) => {
+    core.setSystemProperty('selectedGradientHandle', handle)
+  },
+
+  clearGradientFillEditingState: () => {
+    systemContextApis.setActiveGradientFill(null)
+    systemContextApis.setHoveredGradientHandle(null)
+    systemContextApis.setSelectedGradientHandle(null)
   },
 
   enterPathEditingMode: (

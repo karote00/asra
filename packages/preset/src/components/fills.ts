@@ -51,7 +51,9 @@ const toGradientStopColor = (color: string, opacity: number): string | null => {
   return rgbaToCssColor(parsed, parsed.a * opacity)
 }
 
-const toRenderableGradient = (entry: FillAttrs): RenderFillStyle | null => {
+export const toRenderableGradient = (
+  entry: FillAttrs
+): RenderFillStyle | null => {
   if (entry.kind !== FillKinds.GRADIENT || !entry.gradient) {
     return null
   }

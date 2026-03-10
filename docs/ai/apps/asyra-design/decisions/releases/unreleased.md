@@ -4,6 +4,19 @@ Decision log for app-scoped changes not yet captured in a release snapshot.
 
 Append-only rule: do not edit/delete prior entries; add superseding entries when decisions change.
 
+## 2026-03-10 - Linear gradient render mapping stabilized in preset
+
+- Context:
+  - Linear gradient rendering on canvas was unstable under handle reversal/out-of-bounds and did not consistently respect local-space bounds.
+  - Radial gradients still showed incorrect output, so only linear was stabilized in this pass.
+- Decision:
+  - Map gradient handles into local pixel space before building render gradients.
+  - Keep linear gradient stop ordering stable under Pixi's internal flip behavior.
+  - Defer radial/other gradient type fixes to the next increment.
+- Consequences:
+  - Linear gradient rendering on canvas is now consistent with handle geometry.
+  - Radial and other gradient types remain pending and tracked under the canvas-gradient-handles plan.
+
 ## 2026-03-09 - Fill common-api no longer decides transaction ownership
 
 - Context:
@@ -653,6 +666,22 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Consequences:
   - Single-fill edits no longer rewrite the whole fills array.
   - Color/gradient editing keeps one intended undoable action per drag session.
-  - Follow-up framework work is now explicitly tracked under `docs/ai/framework/plans/property-driven-computed-sync-plan.md`.
+- Follow-up framework work is now explicitly tracked under `docs/ai/framework/plans/property-driven-computed-sync-plan.md`.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/completed/repeatable-fills-properties-plan.md`
+
+## 2026-03-09 - Active gradient fills use canvas handle overlay editing
+
+- Context:
+  - Gradient stop editing existed in the properties panel, but gradient handle geometry was not visible or editable on canvas.
+  - The requested UX is closer to professional design tools: panel editing activates direct on-canvas handle manipulation.
+- Decision:
+  - Add app-owned gradient editing system state (`activeGradientFill`, hovered/selected gradient handle).
+  - Register a dedicated gradient-handles render layer for the overlay.
+  - Route canvas handle drag through an app feature that updates fill child-property `gradientHandles` directly by `fillId`.
+  - Keep drag-frame writes non-undoable and finalize with one intended undoable commit.
+- Consequences:
+  - Active gradient fills can now be manipulated on canvas without rewriting the whole fills array.
+  - Gradient editing now spans panel state, app feature flow, and a dedicated overlay layer under explicit ownership.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/canvas-gradient-handles-plan.md`

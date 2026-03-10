@@ -5,6 +5,19 @@ Decision log for branch-level and post-release work not yet shipped in a tagged 
 Append-only rule: do not edit/delete prior entries; add a new superseding entry when decisions change.
 Backfilled entries use decision dates inferred from related commit dates/ranges.
 
+## 2026-03-10 - Preset linear gradient render mapping stabilized
+
+- Context:
+  - Linear gradient rendering in preset used normalized handle coordinates without local-space mapping, leading to inconsistent output across element sizes.
+  - Radial gradient output remained incorrect and required separate handling.
+- Decision:
+  - Map gradient handles into local pixel space before creating render gradients.
+  - Keep linear gradient stop ordering stable under Pixi internal flip behavior.
+  - Defer radial/other gradient render fixes to the next iteration.
+- Consequences:
+  - Linear gradient rendering is consistent across element sizes.
+  - Radial/other gradient types remain pending and tracked under the app canvas-gradient-handles plan.
+
 ## 2026-03-09 - Scene-tree recompute bridge must publish on scene-tree shared channel
 
 - Context:

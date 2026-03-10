@@ -11,7 +11,7 @@ Purpose: keep app docs aligned with implemented source modules.
 
 - Initialization and runtime wiring
 
-  - `src/init/index.ts`, `src/init/init-app.ts`, `src/init/init-input-system.ts`, `src/init/init-features.ts`
+  - `src/init/index.ts`, `src/init/init-app.ts`, `src/init/init-input-system.ts`, `src/init/init-features.ts`, `src/init/init-gradient-fill-editing.ts`
   - docs: `modules/init-and-startup.md`, `modules/input-mapping.md`
 
 - Input/event mapping
@@ -23,6 +23,11 @@ Purpose: keep app docs aligned with implemented source modules.
 
   - `src/features/*`
   - docs: `features/*`, `bdd-features/*`, `prd/*`
+
+- Canvas overlay render layers
+
+  - `src/render-layers/*`
+  - docs: `modules/state-contracts.md`, `prd/properties-panel.md`
 
 - App mutation/query boundary
 

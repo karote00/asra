@@ -26,6 +26,8 @@ Users need precise property editing that reflects current selection/mode state w
 11. Gradient fill entries carry descriptive metadata (`gradientType`, `gradientStops`, `gradientHandles`) and can be seeded/edited from the panel through a gradient-stop editor.
 12. Successful edits update canvas state immediately.
 13. `fills` panel data is selection-derived in ui-context; providers only select from the computed `fills` value and do not manage selection subscriptions themselves.
+14. When a gradient fill is active for editing, the canvas should show gradient handles and allow direct handle dragging to update `gradientHandles`.
+15. One canvas gradient-handle drag session must produce exactly one undo commit even if many drag-frame geometry updates occur.
 
 ## Data Flow
 

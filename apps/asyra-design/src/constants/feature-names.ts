@@ -30,6 +30,11 @@ export const VectorPathFeatureNames = {
   ENTER_PATH_EDITING_BY_DOUBLE_CLICK: 'enterPathEditingByDoubleClick'
 } as const
 
+export const GradientFeatureNames = {
+  HOVER_GRADIENT_HANDLE: 'hoverGradientHandle',
+  DRAG_GRADIENT_HANDLE: 'dragGradientHandle'
+} as const
+
 type AssertNoOverlap<A, B> =
   Extract<keyof A, keyof B> extends never
     ? true
@@ -67,6 +72,21 @@ type _ViewportVsVectorPath = EnsureTrue<
 type _HistoryVsVectorPath = EnsureTrue<
   AssertNoOverlap<typeof HistoryFeatureNames, typeof VectorPathFeatureNames>
 >
+type _ToolVsGradient = EnsureTrue<
+  AssertNoOverlap<typeof ToolFeatureNames, typeof GradientFeatureNames>
+>
+type _ElementVsGradient = EnsureTrue<
+  AssertNoOverlap<typeof ElementFeatureNames, typeof GradientFeatureNames>
+>
+type _ViewportVsGradient = EnsureTrue<
+  AssertNoOverlap<typeof ViewportFeatureNames, typeof GradientFeatureNames>
+>
+type _HistoryVsGradient = EnsureTrue<
+  AssertNoOverlap<typeof HistoryFeatureNames, typeof GradientFeatureNames>
+>
+type _VectorPathVsGradient = EnsureTrue<
+  AssertNoOverlap<typeof VectorPathFeatureNames, typeof GradientFeatureNames>
+>
 
 export type FeatureNameOverlapChecks = [
   _ToolVsElement,
@@ -78,7 +98,12 @@ export type FeatureNameOverlapChecks = [
   _ElementVsVectorPath,
   _ViewportVsHistory,
   _ViewportVsVectorPath,
-  _HistoryVsVectorPath
+  _HistoryVsVectorPath,
+  _ToolVsGradient,
+  _ElementVsGradient,
+  _ViewportVsGradient,
+  _HistoryVsGradient,
+  _VectorPathVsGradient
 ]
 
 export const FeatureNames = {
@@ -86,7 +111,8 @@ export const FeatureNames = {
   ...ElementFeatureNames,
   ...ViewportFeatureNames,
   ...HistoryFeatureNames,
-  ...VectorPathFeatureNames
+  ...VectorPathFeatureNames,
+  ...GradientFeatureNames
 } as const
 
 export type FeatureName = (typeof FeatureNames)[keyof typeof FeatureNames]

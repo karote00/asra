@@ -9,6 +9,7 @@ import { isEqual } from 'lodash'
 import { useEffect, useMemo, useRef } from 'react'
 import { fillApis, transactionApis, type FillPatch } from '../../common-apis'
 import { ALLOWED_COLOR_FORMATS, FILL_PATCH_KEYS } from '../../constants'
+import { systemContextApis } from '../../common-apis'
 import {
   convertStoredColorToFormat,
   convertUserColorToDefault
@@ -138,6 +139,7 @@ export const useFillInteractions = ({
   fillId,
   ownerElementId
 }: UseFillInteractionsArgs) => {
+  const isColorPickerOpenRef = useRef(false)
   const colorPickerTransactionRef = useRef(false)
   const pickerFillRef = useRef<FillAttrs | null>(fill)
   const pickerStartFillRef = useRef<FillAttrs | null>(null)
@@ -146,6 +148,40 @@ export const useFillInteractions = ({
   useEffect(() => {
     pickerFillRef.current = fill
   }, [fill])
+
+  useEffect(() => {
+    const activeGradientFill = systemContextApis.getActiveGradientFill()
+    if (!activeGradientFill) {
+      return
+    }
+
+    const isCurrentFillActive =
+      activeGradientFill.elementId === ownerElementId &&
+      activeGradientFill.fillId === fillId
+
+    if (!isCurrentFillActive) {
+      return
+    }
+
+    if (fill?.kind === FillKinds.GRADIENT) {
+      return
+    }
+
+    systemContextApis.clearGradientFillEditingState()
+  }, [fill, fillId, ownerElementId])
+
+  useEffect(
+    () => () => {
+      const activeGradientFill = systemContextApis.getActiveGradientFill()
+      if (
+        activeGradientFill?.elementId === ownerElementId &&
+        activeGradientFill.fillId === fillId
+      ) {
+        systemContextApis.clearGradientFillEditingState()
+      }
+    },
+    [fillId, ownerElementId]
+  )
 
   const gradientData = useMemo(() => {
     if (!fill || fill.kind !== FillKinds.GRADIENT || !fill.gradient) {
@@ -256,6 +292,27 @@ export const useFillInteractions = ({
     }
 
     commitFillInteractionPatch(createKindPatch(fill, nextKind))
+
+    if (
+      nextKind === FillKinds.GRADIENT &&
+      isColorPickerOpenRef.current &&
+      ownerElementId
+    ) {
+      systemContextApis.setActiveGradientFill({
+        elementId: ownerElementId,
+        fillId
+      })
+      return
+    }
+
+    const activeGradientFill = systemContextApis.getActiveGradientFill()
+    if (
+      nextKind !== FillKinds.GRADIENT &&
+      activeGradientFill?.elementId === ownerElementId &&
+      activeGradientFill.fillId === fillId
+    ) {
+      systemContextApis.clearGradientFillEditingState()
+    }
   }
 
   const handleVisibleChange = (nextVisible: boolean) => {
@@ -383,6 +440,26 @@ export const useFillInteractions = ({
     commitFillInteractionPatch(patch, options, sourceFill)
   }
 
+  const handleGradientEditorOpenChange = (open: boolean) => {
+    isColorPickerOpenRef.current = open
+
+    if (open && fill?.kind === FillKinds.GRADIENT && ownerElementId) {
+      systemContextApis.setActiveGradientFill({
+        elementId: ownerElementId,
+        fillId
+      })
+      return
+    }
+
+    const activeGradientFill = systemContextApis.getActiveGradientFill()
+    if (
+      activeGradientFill?.elementId === ownerElementId &&
+      activeGradientFill.fillId === fillId
+    ) {
+      systemContextApis.clearGradientFillEditingState()
+    }
+  }
+
   return {
     displayColor,
     gradientData,
@@ -396,6 +473,7 @@ export const useFillInteractions = ({
     handleColorPickerChangeStart,
     handleColorPickerChangeEnd,
     handleGradientFillChange,
+    handleGradientEditorOpenChange,
     startFillInteractionTransaction,
     endFillInteractionTransaction
   }

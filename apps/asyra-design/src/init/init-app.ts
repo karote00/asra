@@ -1,5 +1,6 @@
 import { initInputSystem } from './init-input-system'
 import { initFeatures } from './init-features'
+import { initGradientFillEditing } from './init-gradient-fill-editing'
 import { initLoadDiagnostics } from './init-load-diagnostics'
 import { initSelectionCompatibility } from './init-selection-compatibility'
 import { applyPreset } from '@asyra/preset'
@@ -33,6 +34,7 @@ export const initApp = (): void => {
   initLoadDiagnostics()
   // Keep legacy selectedVectorPoint mirrored from SelectionManager-driven UI state.
   initSelectionCompatibility()
+  initGradientFillEditing()
 
   initInputSystem()
   // Initialize feature-system for application-level features

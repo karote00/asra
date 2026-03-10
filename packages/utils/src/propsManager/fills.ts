@@ -1,3 +1,5 @@
+import type { BasePropertyAttrs } from './instanceTypes'
+
 export const FillColorFormats = {
   HEX: 'hex',
   RGB: 'rgb',
@@ -46,8 +48,7 @@ export interface FillGradientData {
   metadata?: Record<string, unknown>
 }
 
-export interface FillAttrs {
-  id?: string
+export interface FillAttrs extends BasePropertyAttrs {
   kind: FillKind
   defaultColorFormat: FillColorFormat
   colorFormat: FillColorFormat
@@ -70,6 +71,8 @@ export interface FillsAttrs {
 export const createDefaultFill = (
   overrides: Partial<FillAttrs> = {}
 ): FillAttrs => ({
+  id: '',
+  type: 'fill',
   kind: FillKinds.SOLID,
   defaultColorFormat: FillColorFormats.HEX,
   colorFormat: FillColorFormats.HEX,
@@ -96,12 +99,12 @@ export const createDefaultGradientData = (): FillGradientData => ({
   ],
   gradientHandles: [
     {
-      x: 0,
+      x: 0.5,
       y: 0
     },
     {
-      x: 1,
-      y: 0
+      x: 0.5,
+      y: 1
     }
   ],
   metadata: {}

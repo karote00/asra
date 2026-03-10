@@ -32,6 +32,7 @@ const FillItem = ({
     handleColorPickerChangeStart,
     handleColorPickerChangeEnd,
     handleGradientFillChange,
+    handleGradientEditorOpenChange,
     startFillInteractionTransaction,
     endFillInteractionTransaction
   } = useFillInteractions({
@@ -79,6 +80,7 @@ const FillItem = ({
         onColorPickerChange={handleColorPickerChange}
         onColorPickerChangeStart={handleColorPickerChangeStart}
         onColorPickerChangeEnd={handleColorPickerChangeEnd}
+        onGradientEditorOpenChange={handleGradientEditorOpenChange}
         onGradientFillChange={handleGradientFillChange}
         onStartInteraction={startFillInteractionTransaction}
         onEndInteraction={endFillInteractionTransaction}

@@ -70,6 +70,24 @@ This file defines app-level state keys, owners, and primary consumers.
   - readers: vector path-editing render layer ghost insert-point preview
   - visibility rule: hidden while pen connected preview segment is active
 
+- `activeGradientFill`
+  - owner: system-context
+  - writers: fills properties-panel editing flow
+  - readers: gradient-handles render layer, gradient-handle hover/drag features
+  - value contract: `{ elementId, fillId } | null`
+
+- `hoveredGradientHandle`
+  - owner: system-context
+  - writers: gradient-handle hover feature
+  - readers: gradient-handles render layer
+  - value contract: `{ elementId, fillId, handleIndex } | null`
+
+- `selectedGradientHandle`
+  - owner: system-context
+  - writers: gradient-handle drag feature
+  - readers: gradient-handles render layer
+  - value contract: `{ elementId, fillId, handleIndex } | null`
+
 ## UI Context Keys (App Registered)
 
 - `elementSelection`
@@ -127,8 +145,11 @@ This file defines app-level state keys, owners, and primary consumers.
 
 - `fills`
   - owner: element computed data (via `fills` property component)
-  - writers: properties panel through `changeElementComputedData`
-  - readers: preset render strategies (rect/oval/frame/vector)
+  - writers:
+    - add/remove fill rows through `changeElementComputedData`
+    - single-fill edits through child-property updates by `fillId`
+    - active gradient-handle drag through child-property `gradient` updates by `fillId`
+  - readers: preset render strategies (rect/oval/frame/vector), gradient-handles render layer
 
 ## Contract Rules
 

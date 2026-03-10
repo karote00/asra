@@ -76,6 +76,7 @@ interface FillColorControlsProps {
   onColorPickerChange: (next: { color: string; opacity: number }) => void
   onColorPickerChangeStart: () => void
   onColorPickerChangeEnd: (next: { color: string; opacity: number }) => void
+  onGradientEditorOpenChange: (open: boolean) => void
   onGradientFillChange: (
     patch: FillPatch,
     options?: EVENT_OPTIONS,
@@ -96,10 +97,14 @@ const FillColorControls = ({
   onColorPickerChange,
   onColorPickerChangeStart,
   onColorPickerChangeEnd,
+  onGradientEditorOpenChange,
   onGradientFillChange,
   onStartInteraction,
   onEndInteraction
 }: FillColorControlsProps) => {
+  const shouldIgnoreOutsidePointerDown = (target: Node) =>
+    fill.kind === FillKinds.GRADIENT && target instanceof HTMLCanvasElement
+
   const pickerHeader: ReactNode = (
     <div className="flex items-center gap-2">
       <FillModeButton
@@ -127,6 +132,8 @@ const FillColorControls = ({
         onChange={onColorPickerChange}
         onChangeStart={onColorPickerChangeStart}
         onChangeEnd={onColorPickerChangeEnd}
+        onOpenChange={onGradientEditorOpenChange}
+        shouldIgnoreOutsidePointerDown={shouldIgnoreOutsidePointerDown}
         header={pickerHeader}
         hideDefaultPanel={fill.kind === FillKinds.GRADIENT}
         swatchStyle={previewSwatchStyle}

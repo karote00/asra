@@ -28,6 +28,7 @@ interface ColorPickerProps {
   disabled?: boolean
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  shouldIgnoreOutsidePointerDown?: (target: Node) => boolean
   onChange: (next: ColorPickerChange) => void
   onChangeStart?: () => void
   onChangeEnd?: (next: ColorPickerChange) => void
@@ -96,6 +97,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
   disabled = false,
   open,
   onOpenChange,
+  shouldIgnoreOutsidePointerDown,
   onChange,
   onChangeStart,
   onChangeEnd,
@@ -124,6 +126,9 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
   const onChangeStartRef = useRef(onChangeStart)
   const onChangeEndRef = useRef(onChangeEnd)
   const onOpenChangeRef = useRef(onOpenChange)
+  const shouldIgnoreOutsidePointerDownRef = useRef(
+    shouldIgnoreOutsidePointerDown
+  )
   const lastEmittedRef = useRef<EmittedValue | null>(null)
   const isOpen = open ?? internalIsOpen
 
@@ -155,7 +160,14 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
     onChangeStartRef.current = onChangeStart
     onChangeEndRef.current = onChangeEnd
     onOpenChangeRef.current = onOpenChange
-  }, [onChange, onChangeStart, onChangeEnd, onOpenChange])
+    shouldIgnoreOutsidePointerDownRef.current = shouldIgnoreOutsidePointerDown
+  }, [
+    onChange,
+    onChangeStart,
+    onChangeEnd,
+    onOpenChange,
+    shouldIgnoreOutsidePointerDown
+  ])
 
   useEffect(() => {
     setPortalRoot(ensurePopupRoot())
@@ -176,6 +188,10 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
 
     const handlePointerDownOutside = (event: PointerEvent) => {
       const target = event.target as Node
+      if (shouldIgnoreOutsidePointerDownRef.current?.(target)) {
+        return
+      }
+
       if (
         !rootRef.current?.contains(target) &&
         !panelRef.current?.contains(target)

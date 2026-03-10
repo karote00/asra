@@ -96,6 +96,13 @@ Import boundary:
 - `setHoveredVectorSegment(segment: { elementId: string; segmentId: string } | null): void`
 - `getHoveredVectorSegmentInsertPoint(): { elementId: string; segmentId: string; x: number; y: number } | null`
 - `setHoveredVectorSegmentInsertPoint(point: { elementId: string; segmentId: string; x: number; y: number } | null): void`
+- `getActiveGradientFill(): { elementId: string; fillId: string } | null`
+- `setActiveGradientFill(fill: { elementId: string; fillId: string } | null): void`
+- `getHoveredGradientHandle(): { elementId: string; fillId: string; handleIndex: 0 | 1 } | null`
+- `setHoveredGradientHandle(handle: { elementId: string; fillId: string; handleIndex: 0 | 1 } | null): void`
+- `getSelectedGradientHandle(): { elementId: string; fillId: string; handleIndex: 0 | 1 } | null`
+- `setSelectedGradientHandle(handle: { elementId: string; fillId: string; handleIndex: 0 | 1 } | null): void`
+- `clearGradientFillEditingState(): void`
 - `SelectedVectorPointState` target contract:
   - `target: 'anchor' | 'inHandle' | 'outHandle'`
 - `clearVectorPointState(): void`
@@ -132,6 +139,15 @@ Import boundary:
 - `setCanvasCursor(cursor: string): void`
 - `resetCanvasCursor(): void`
 
+`fillApis` (`src/common-apis/fills.ts`)
+
+- `getFillById(elementId: string, fillId: string): FillAttrs | null`
+- `getGradientHandleGeometry(elementId: string, fillId: string): { elementId: string; fillId: string; fill: FillAttrs; width: number; height: number; canvasHandles: [PositionData, PositionData] } | null`
+- `getGradientHandleHitAtClientPos(elementId: string, fillId: string, clientPos: PositionData, hitRadius?: number): { handleIndex: 0 | 1 } | null`
+- `getNextGradientForHandleAtClientPosition(elementId: string, fillId: string, handleIndex: 0 | 1, clientPos: PositionData): FillGradientData | null`
+- `updateGradientHandleAtClientPosition(elementId: string, fillId: string, handleIndex: 0 | 1, clientPos: PositionData, options?: { undoable: boolean }): FillGradientData | null`
+- `updateFillFields(...)` / `updateFillField(...)`
+
 `transactionApis` (`src/common-apis/transaction.ts`)
 
 - `startTransaction(): void`
@@ -166,7 +182,7 @@ Input constants (`src/constants/*`):
 - pointer: `input.double.click`, `input.mouse.move`, `input.wheel.scroll`
 - shortcuts: `input.shortcut.switchPrimaryTool`, `input.shortcut.enter`, `input.shortcut.cancel`, `input.shortcut.delete`, `input.shortcut.undoredo`, `input.shortcut.zoomPreset`
 - feature IDs:
-  - grouped source constants: `ToolFeatureNames`, `ElementFeatureNames`, `ViewportFeatureNames`, `HistoryFeatureNames`, `VectorPathFeatureNames`
+  - grouped source constants: `ToolFeatureNames`, `ElementFeatureNames`, `ViewportFeatureNames`, `HistoryFeatureNames`, `VectorPathFeatureNames`, `GradientFeatureNames`
   - flattened source of truth for usage: `FeatureNames.*`
 
 Feature registry (`src/features/index.ts`):
@@ -183,6 +199,7 @@ Feature registry (`src/features/index.ts`):
 - `pan`
 - `undo-redo`
 - `pen-tool`
+- `gradient-fill-handles`
 
 ## Feature -> API Usage Matrix (Primary)
 
@@ -244,6 +261,12 @@ Feature registry (`src/features/index.ts`):
   - `selectionApis.selectVectorPoint` / `selectVectorSegment` and channel readers
   - `systemContextApis` path-editing, hover point, and compatibility point-state APIs
   - `cursorApis` for hover cursor feedback
+
+- `gradient-fill-handles`
+  - `fillApis.getGradientHandleHitAtClientPos` / `getNextGradientForHandleAtClientPosition` / `updateGradientHandleAtClientPosition`
+  - `systemContextApis` active/hovered/selected gradient-handle state
+  - `selectionApis.getSelectedIds`
+  - `cursorApis` for gradient-handle hover/drag cursor feedback
 
 ## Usage Rules
 

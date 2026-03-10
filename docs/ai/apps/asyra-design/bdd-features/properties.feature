@@ -53,3 +53,10 @@ Feature: Properties Panel
     And the fills section is visible
     When I switch a fill type from solid to gradient
     Then that fill entry should include gradientType, gradientStops, and gradientHandles data
+
+  Scenario: Drag active gradient handles on canvas
+    Given an element is selected
+    And a gradient fill is active for editing
+    When I drag a gradient handle on canvas
+    Then the selected element computed `fills` gradientHandles should update
+    And the drag should produce one undoable action

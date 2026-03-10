@@ -262,7 +262,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asyra/selection@workspace:packages/selection"
   dependencies:
-    "@asyra/reactive-events": "workspace:*"
     "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
@@ -274,7 +273,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asyra/system-context@workspace:packages/system-context"
   dependencies:
-    "@asyra/reactive-events": "workspace:*"
     "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"

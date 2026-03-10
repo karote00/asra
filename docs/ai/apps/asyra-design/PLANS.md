@@ -6,6 +6,11 @@
 
 - remove internal-path imports (for example keymap source path)
 
+2. Canvas gradient handles editing
+
+- app plan: `docs/ai/apps/asyra-design/plans/canvas-gradient-handles-plan.md`
+- status: linear gradient render stabilized; radial/other gradient types pending
+
 ## Mid-Term
 
 1. Advanced selection workflows
