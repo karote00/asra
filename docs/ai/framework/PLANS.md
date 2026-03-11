@@ -2,6 +2,10 @@
 
 This file tracks framework planning topics and points to detailed references.
 
+## In Progress
+
+- None.
+
 ## Near-Term Plans
 
 1. Preset 2D/3D init profiles
@@ -41,12 +45,3 @@ This file tracks framework planning topics and points to detailed references.
  - Mixed values and mixed units (`MIX`) helpers.
  - App-level registration remains first-class.
  - Reference: `docs/ai/framework/plans/unit-conversion-and-ui-aggregation-plan.md`
-
-## Decision Logging Rule
-
-- When a plan item changes app contracts/runtime boundaries, append rationale to `decisions/releases/unreleased.md`.
-- If the decision is cross-cutting (framework + app), also append `docs/ai/decisions/releases/unreleased.md`.
-
-## Completed Plans
-
-- Completed plan records live in `docs/ai/framework/plans/completed/`.
