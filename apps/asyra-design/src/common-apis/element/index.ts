@@ -30,7 +30,8 @@ import {
   DEFAULT_ELEMENT_FILL_COLOR,
   DEFAULT_FRAME_FILL_COLOR,
   DEFAULT_VECTOR_FILL_COLOR,
-  DEFAULT_VECTOR_STROKE_COLOR
+  DEFAULT_VECTOR_STROKE_COLOR,
+  type VectorHandleMode
 } from '../../constants'
 import {
   calculateVectorBounds,
@@ -58,6 +59,12 @@ import {
   vectorTopologyToAnchorPoints,
   vectorTopologyToAnchorSubpaths
 } from './vector-topology'
+import {
+  getVectorHandleMode,
+  resolveHandleModeDragUpdate,
+  resolveHandleModeSwitchUpdate,
+  setVectorHandleMode
+} from './handle-mode'
 import { projectPointToCubicBezier } from './bezier-adapter'
 import type {
   CreateElementOptions,
@@ -971,6 +978,50 @@ export const elementApis = {
     return elementApis.getVectorAnchorPointById(elementId, pointId)
   },
 
+  getVectorAnchorPointHandleMode: (
+    elementId: string,
+    pointId: string
+  ): VectorHandleMode => getVectorHandleMode(elementId, pointId),
+
+  setVectorAnchorPointHandleMode: (
+    elementId: string,
+    pointId: string,
+    mode: VectorHandleMode
+  ): { point: VectorAnchorPoint; index: number } | null => {
+    setVectorHandleMode(elementId, pointId, mode)
+    const anchorPoint = elementApis.getVectorAnchorPointById(elementId, pointId)
+    if (!anchorPoint) {
+      return null
+    }
+
+    const nextHandles = resolveHandleModeSwitchUpdate({
+      anchor: { x: anchorPoint.point.x, y: anchorPoint.point.y },
+      inHandle: anchorPoint.point.inHandle,
+      outHandle: anchorPoint.point.outHandle,
+      mode
+    })
+    if (!nextHandles) {
+      return anchorPoint
+    }
+
+    elementApis.updateVectorAnchorPointHandles(elementId, [
+      {
+        pointId,
+        target: VECTOR_TOKENS.POINT.TARGET.IN_HANDLE,
+        position: nextHandles.inHandle,
+        forceSmooth: true
+      },
+      {
+        pointId,
+        target: VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE,
+        position: nextHandles.outHandle,
+        forceSmooth: true
+      }
+    ])
+
+    return elementApis.getVectorAnchorPointById(elementId, pointId)
+  },
+
   updateVectorAnchorPointHandlePosition: (
     elementId: string,
     pointId: string,
@@ -982,15 +1033,38 @@ export const elementApis = {
     options?: EVENT_OPTIONS
   ): { point: VectorAnchorPoint; index: number } | null => {
     const topology = getVectorTopologyWorkspace(elementId)
+    const anchorPoint = elementApis.getVectorAnchorPointById(elementId, pointId)
+    if (!anchorPoint) {
+      return null
+    }
+
+    const handleMode = getVectorHandleMode(elementId, pointId)
+    const handleUpdates = resolveHandleModeDragUpdate({
+      anchor: { x: anchorPoint.point.x, y: anchorPoint.point.y },
+      inHandle: anchorPoint.point.inHandle,
+      outHandle: anchorPoint.point.outHandle,
+      target,
+      position,
+      mode: handleMode
+    })
+
     let nextTopology = setAnchorTypeInTopology(topology, pointId, 'smooth')
-    nextTopology = setAnchorHandleInTopology(
-      nextTopology,
-      pointId,
-      target === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
-        ? VECTOR_TOKENS.CONTROL.ROLE.IN
-        : VECTOR_TOKENS.CONTROL.ROLE.OUT,
-      position
-    )
+    if (handleUpdates.nextIn !== undefined) {
+      nextTopology = setAnchorHandleInTopology(
+        nextTopology,
+        pointId,
+        VECTOR_TOKENS.CONTROL.ROLE.IN,
+        handleUpdates.nextIn
+      )
+    }
+    if (handleUpdates.nextOut !== undefined) {
+      nextTopology = setAnchorHandleInTopology(
+        nextTopology,
+        pointId,
+        VECTOR_TOKENS.CONTROL.ROLE.OUT,
+        handleUpdates.nextOut
+      )
+    }
 
     commitVectorTopology(elementId, nextTopology, options)
     return elementApis.getVectorAnchorPointById(elementId, pointId)

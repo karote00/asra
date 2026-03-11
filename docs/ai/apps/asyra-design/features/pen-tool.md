@@ -114,6 +114,8 @@
 - curve handles are selectable targets and feed point target data to the property panel
 - moving an anchor point translates that anchor's `inHandle` and `outHandle` by the same delta (handle geometry follows anchor translation)
 - dragging a selected `inHandle`/`outHandle` updates only that handle position and keeps the handle target selected
+- when handle mode is `mirror-angle`, dragging a handle mirrors the opposite handle angle while preserving its original length
+- when handle mode is `mirror-angle-length`, dragging a handle mirrors both angle and length of the opposite handle
 
 ## Enter Path Editing
 

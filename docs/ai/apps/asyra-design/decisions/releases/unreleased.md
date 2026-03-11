@@ -698,3 +698,27 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
   - Gradient editing now spans panel state, app feature flow, and a dedicated overlay layer under explicit ownership.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/canvas-gradient-handles-plan.md`
+
+## 2026-03-11 - Vector handle modes for path editing
+
+- Context:
+  - Handle drag and panel coordinate edits were independent with no way to enforce mirrored angle/length constraints.
+- Decision:
+  - Add vector handle mode selection (`none`, `mirror-angle`, `mirror-angle-length`) in the point properties panel.
+  - Apply handle mode constraints when dragging handles on canvas and when editing handle coordinates in the panel.
+- Consequences:
+  - Handle behavior now mirrors angle and/or length based on the selected mode while defaulting to independent handles.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/vector-handle-mode-plan.md`
+
+## 2026-03-11 - Vector handle mode plan closeout
+
+- Context:
+  - Handle mode behavior shipped and the plan record moved to completed.
+- Decision:
+  - Close out the vector handle mode plan and reference the completed plan record.
+  - Supersedes the plan-path reference in the earlier 2026-03-11 handle mode decision entry.
+- Consequences:
+  - Plan references now resolve to the completed record.
+- Related Plan:
+  - `/Users/asa/Desktop/workspace/asra/docs/ai/apps/asyra-design/plans/completed/vector-handle-mode-plan.md`

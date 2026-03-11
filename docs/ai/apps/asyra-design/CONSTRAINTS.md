@@ -27,7 +27,8 @@
 
 2. Pen tool advanced controls
 - drag-to-bezier handle creation is supported for connected points
-- advanced per-handle constraint modes (for example locked-angle/length variants) remain future work
+- handle-mode constraints support `mirror-angle` and `mirror-angle-length`
+- additional constraint variants beyond mirror modes remain future work
 
 3. Theme toggle
 - component exists but is hidden in current UI

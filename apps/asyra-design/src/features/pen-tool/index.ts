@@ -150,7 +150,11 @@ const setSelectedAnchorPoint = (
     index: selectedPoint.index,
     target: VECTOR_TOKENS.POINT.TARGET.ANCHOR,
     x: selectedPoint.point.x,
-    y: selectedPoint.point.y
+    y: selectedPoint.point.y,
+    handleMode: elementApis.getVectorAnchorPointHandleMode(
+      elementId,
+      selectedPoint.point.id
+    )
   }
 
   selectionApis.clearVectorSegmentSelection()
@@ -232,7 +236,11 @@ const syncSelectedVectorPointMirror = (
     index: selectedPoint.index,
     target,
     x: targetPosition.x,
-    y: targetPosition.y
+    y: targetPosition.y,
+    handleMode: elementApis.getVectorAnchorPointHandleMode(
+      elementId,
+      selectedPoint.point.id
+    )
   })
 
   return true
@@ -778,13 +786,18 @@ export const selectVectorPointFeature = defineFeature<
         pointId: activeHoveredPoint.pointId,
         target: activeHoveredPoint.target
       })
+      const handleMode = elementApis.getVectorAnchorPointHandleMode(
+        activeHoveredPoint.elementId,
+        activeHoveredPoint.pointId
+      )
       systemContextApis.setSelectedVectorPoint({
         elementId: activeHoveredPoint.elementId,
         pointId: activeHoveredPoint.pointId,
         index: activeHoveredPoint.index,
         target: activeHoveredPoint.target,
         x: activeHoveredPoint.x,
-        y: activeHoveredPoint.y
+        y: activeHoveredPoint.y,
+        handleMode
       })
 
       const dragStartWorkspacePos = elementApis.getMousePosInWorkspace(

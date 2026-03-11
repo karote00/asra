@@ -55,17 +55,18 @@ Users need a vector path workflow that supports creating vectors, appending poin
 16. Micro drag below handle-creation threshold on second-point creation should keep the first segment straight (no unintended connected-point bezier handle creation).
 17. Moving a selected anchor point in path-editing mode must translate its connected curve handles with the anchor.
 18. In non-pen path-editing mode, dragging a selected `inHandle`/`outHandle` must update that handle position while keeping the same handle target selected.
-19. Non-pen point-target drag should keep click-only selection semantics for micro movement below the point-drag threshold.
-20. Pen session continuity:
+19. Handle drag must respect handle mode constraints (`none`, `mirror-angle`, `mirror-angle-length`) and update the opposite handle accordingly.
+20. Non-pen point-target drag should keep click-only selection semantics for micro movement below the point-drag threshold.
+21. Pen session continuity:
 
 - after creating a new vector with pen, path editing remains on that vector until explicit Escape exit semantics complete
 - when current selection is non-vector, pen action creates a new vector instead of entering invalid vector-editing state
 
-21. In split/new-subpath mode, clicking an endpoint selects that endpoint as the continuation source before the next append action.
-22. Segment split via insert preview creates one inserted anchor shared by the two resulting segments.
-23. After refresh/reload, each vector element id maps to exactly one render object (no duplicate render instances).
-24. Prepend-point drag in path-editing mode keeps the newly inserted anchor as selected target after drag completion.
-25. In non-pen path-editing mode, segment hover and segment selection should target only segments of the active editing vector.
+22. In split/new-subpath mode, clicking an endpoint selects that endpoint as the continuation source before the next append action.
+23. Segment split via insert preview creates one inserted anchor shared by the two resulting segments.
+24. After refresh/reload, each vector element id maps to exactly one render object (no duplicate render instances).
+25. Prepend-point drag in path-editing mode keeps the newly inserted anchor as selected target after drag completion.
+26. In non-pen path-editing mode, segment hover and segment selection should target only segments of the active editing vector.
 
 ## State Model
 

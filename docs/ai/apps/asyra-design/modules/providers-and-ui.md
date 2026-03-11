@@ -52,6 +52,7 @@ Primary files:
 - `vector-point.tsx`: point editing panel in path editing mode
   - supports selected target (`anchor` / `inHandle` / `outHandle`) coordinate editing
   - supports anchor point type control (`sharp` / `smooth`)
+  - supports handle mode control (`none` / `mirror-angle` / `mirror-angle-length`)
 - `number-input.ts`: finite-number parser for layout edits
 
 ## Rules

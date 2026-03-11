@@ -1,6 +1,10 @@
 import { Input } from '@asyra/design-system'
 import { useCallback } from 'react'
 import { VECTOR_TOKENS, type VectorPointTarget } from '@asyra/core'
+import {
+  VectorHandleModes,
+  type VectorHandleMode
+} from '../constants'
 import { elementApis, selectionApis, systemContextApis } from '../common-apis'
 import { useSelectedVectorPoint } from '../providers'
 import { parseFiniteInputNumber } from './number-input'
@@ -17,6 +21,125 @@ const getTargetLabel = (target: VectorPointTarget) => {
   return 'Anchor'
 }
 
+const getTargetPosition = (
+  point: {
+    x: number
+    y: number
+    inHandle: { x: number; y: number } | null
+    outHandle: { x: number; y: number } | null
+  },
+  target: VectorPointTarget
+) => {
+  if (target === VECTOR_TOKENS.POINT.TARGET.ANCHOR) {
+    return { x: point.x, y: point.y }
+  }
+
+  if (target === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE) {
+    return point.inHandle
+  }
+
+  return point.outHandle
+}
+
+const TargetHeader = ({
+  index,
+  target
+}: {
+  index: number | null
+  target: VectorPointTarget
+}) => (
+  <>
+    <div className="px-3 pt-2 text-xs text-gray-400" data-testid="prop-point-id">
+      Point {index !== null ? index + 1 : '-'} - {getTargetLabel(target)}
+    </div>
+    <div
+      className="px-3 pt-1 text-[11px] text-gray-400"
+      data-testid="prop-point-target"
+    >
+      Target: {getTargetLabel(target)}
+    </div>
+  </>
+)
+
+const AnchorControls = ({
+  pointType,
+  handleMode,
+  onChangePointType,
+  onChangeHandleMode
+}: {
+  pointType: 'smooth' | 'sharp'
+  handleMode: VectorHandleMode
+  onChangePointType: (value: 'smooth' | 'sharp') => void
+  onChangeHandleMode: (value: VectorHandleMode) => void
+}) => (
+  <>
+    <div className="px-3 pt-2 pb-1">
+      <label
+        className="block text-[11px] text-gray-400 pb-1"
+        htmlFor="point-type"
+      >
+        Point Type
+      </label>
+      <select
+        id="point-type"
+        value={pointType}
+        onChange={(event) =>
+          onChangePointType(event.target.value as 'smooth' | 'sharp')
+        }
+        className="w-full bg-transparent border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 outline-none focus:border-blue-400"
+        data-testid="prop-point-type"
+      >
+        <option value="sharp">Sharp</option>
+        <option value="smooth">Smooth</option>
+      </select>
+    </div>
+    <div className="px-3 pt-2 pb-1">
+      <label
+        className="block text-[11px] text-gray-400 pb-1"
+        htmlFor="handle-mode"
+      >
+        Handle Mode
+      </label>
+      <select
+        id="handle-mode"
+        value={handleMode}
+        onChange={(event) =>
+          onChangeHandleMode(event.target.value as VectorHandleMode)
+        }
+        className="w-full bg-transparent border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 outline-none focus:border-blue-400"
+        data-testid="prop-handle-mode"
+      >
+        <option value={VectorHandleModes.NONE}>None</option>
+        <option value={VectorHandleModes.MIRROR_ANGLE}>Mirror Angle</option>
+        <option value={VectorHandleModes.MIRROR_ANGLE_LENGTH}>
+          Mirror Angle + Length
+        </option>
+      </select>
+    </div>
+  </>
+)
+
+const CoordinateInputs = ({
+  x,
+  y,
+  onChangeX,
+  onChangeY
+}: {
+  x: number
+  y: number
+  onChangeX: (value: string) => boolean
+  onChangeY: (value: string) => boolean
+}) => (
+  <div className="flex items-center gap-2 text-gray-200 w-full px-3 py-1">
+    <div className="w-1/2">
+      <Input value={x} prefix="X" onChange={onChangeX} data-testid="prop-point-x" />
+    </div>
+    <div className="w-1/2">
+      <Input value={y} prefix="Y" onChange={onChangeY} data-testid="prop-point-y" />
+    </div>
+  </div>
+)
+
 const VectorPoint = () => {
   const selectedPoint = useSelectedVectorPoint()
   const elementId = selectedPoint?.elementId ?? null
@@ -31,6 +154,11 @@ const VectorPoint = () => {
         null)
       : null
   const pointType = anchorPoint?.type ?? 'sharp'
+  const handleMode =
+    selectedPoint?.handleMode ??
+    (elementId && pointId
+      ? elementApis.getVectorAnchorPointHandleMode(elementId, pointId)
+      : VectorHandleModes.NONE)
 
   const applyTargetSelection = useCallback(
     (
@@ -49,12 +177,7 @@ const VectorPoint = () => {
         return false
       }
 
-      const targetPosition =
-        nextTarget === VECTOR_TOKENS.POINT.TARGET.ANCHOR
-          ? { x: updatedPoint.point.x, y: updatedPoint.point.y }
-          : nextTarget === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
-            ? updatedPoint.point.inHandle
-            : updatedPoint.point.outHandle
+      const targetPosition = getTargetPosition(updatedPoint.point, nextTarget)
 
       if (!targetPosition) {
         return false
@@ -72,7 +195,11 @@ const VectorPoint = () => {
         index: updatedPoint.index,
         target: nextTarget,
         x: targetPosition.x,
-        y: targetPosition.y
+        y: targetPosition.y,
+        handleMode: elementApis.getVectorAnchorPointHandleMode(
+          elementId,
+          pointId
+        )
       })
       return true
     },
@@ -157,64 +284,47 @@ const VectorPoint = () => {
     [elementId, pointId, applyTargetSelection]
   )
 
+  const handleChangeHandleMode = useCallback(
+    (newMode: VectorHandleMode) => {
+      if (!elementId || !pointId) {
+        return
+      }
+
+      const updatedPoint = elementApis.setVectorAnchorPointHandleMode(
+        elementId,
+        pointId,
+        newMode
+      )
+      if (!updatedPoint) {
+        return
+      }
+
+      applyTargetSelection(updatedPoint, target)
+    },
+    [elementId, pointId, applyTargetSelection, target]
+  )
+
   if (!elementId || !pointId || x === null || y === null || !anchorPoint) {
     return null
   }
 
   return (
     <>
-      <div
-        className="px-3 pt-2 text-xs text-gray-400"
-        data-testid="prop-point-id"
-      >
-        Point {index !== null ? index + 1 : '-'} - {getTargetLabel(target)}
-      </div>
-      <div
-        className="px-3 pt-1 text-[11px] text-gray-400"
-        data-testid="prop-point-target"
-      >
-        Target: {getTargetLabel(target)}
-      </div>
+      <TargetHeader index={index} target={target} />
       {target === VECTOR_TOKENS.POINT.TARGET.ANCHOR && (
-        <div className="px-3 pt-2 pb-1">
-          <label
-            className="block text-[11px] text-gray-400 pb-1"
-            htmlFor="point-type"
-          >
-            Point Type
-          </label>
-          <select
-            id="point-type"
-            value={pointType}
-            onChange={(event) =>
-              handleChangePointType(event.target.value as 'smooth' | 'sharp')
-            }
-            className="w-full bg-transparent border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 outline-none focus:border-blue-400"
-            data-testid="prop-point-type"
-          >
-            <option value="sharp">Sharp</option>
-            <option value="smooth">Smooth</option>
-          </select>
-        </div>
+        <AnchorControls
+          pointType={pointType}
+          handleMode={handleMode}
+          onChangePointType={handleChangePointType}
+          onChangeHandleMode={handleChangeHandleMode}
+        />
       )}
-      <div className="flex items-center gap-2 text-gray-200 w-full px-3 py-1">
-        <div className="w-1/2">
-          <Input
-            value={x}
-            prefix="X"
-            onChange={handleChangeX}
-            data-testid="prop-point-x"
-          />
-        </div>
-        <div className="w-1/2">
-          <Input
-            value={y}
-            prefix="Y"
-            onChange={handleChangeY}
-            data-testid="prop-point-y"
-          />
-        </div>
-      </div>
+      <CoordinateInputs
+        x={x}
+        y={y}
+        onChangeX={handleChangeX}
+        onChangeY={handleChangeY}
+      />
     </>
   )
 }

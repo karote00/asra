@@ -6,6 +6,7 @@
 
 import core, { systemContext } from '../contexts'
 import type { VectorPointTarget as CoreVectorPointTarget } from '@asyra/core'
+import type { VectorHandleMode } from '../constants'
 import { selectionApis } from './selection'
 
 export type VectorPointTarget = CoreVectorPointTarget
@@ -17,6 +18,7 @@ export interface SelectedVectorPointState extends Record<string, unknown> {
   target: VectorPointTarget
   x: number
   y: number
+  handleMode?: VectorHandleMode
 }
 
 export interface SelectedVectorSegmentState extends Record<string, unknown> {

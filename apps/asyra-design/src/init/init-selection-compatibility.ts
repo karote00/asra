@@ -58,7 +58,11 @@ const toSelectedVectorPointState = (
     index: anchorPoint.index,
     target: selected.target,
     x: targetPosition.x,
-    y: targetPosition.y
+    y: targetPosition.y,
+    handleMode: elementApis.getVectorAnchorPointHandleMode(
+      selected.elementId,
+      selected.pointId
+    )
   }
 }
 

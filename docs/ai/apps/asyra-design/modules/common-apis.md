@@ -55,3 +55,4 @@
 - `elementApis.createElement(...)` and `selectionApis.selectElements(...)` also accept optional mutation options and forward them to core.
 - Vector geometry updates normalize anchor points against computed bounds.
 - Hit-testing is bounds-based (`isPointInsideElement`) for selection/hover behavior.
+- Vector handle mode helpers track per-point handle constraints (`none`, `mirror-angle`, `mirror-angle-length`) for drag and panel edits.
