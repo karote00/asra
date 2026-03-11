@@ -57,6 +57,7 @@ packages/props-manager/src/
 
 - element property registration
 - property component registration
+- property component change subscriptions (Setter.on)
 - property schema registration
 - state registry for UI/derived helpers
 

@@ -23,6 +23,7 @@ Own the document entity graph and computed entity data.
 - Data changes must go through framework APIs, not direct map mutation.
 - Scene-tree can expose read APIs freely; writes should stay behind controlled APIs.
 - App-level domain behavior can orchestrate scene-tree writes, but should not bypass core/app API wrappers.
+- Computed updates from property changes are driven by property-component subscriptions in `Computed`.
 
 ## Extension Points
 

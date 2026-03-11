@@ -1,5 +1,15 @@
 # Property-Driven Computed Sync Plan
 
+## Status
+
+Completed on March 11, 2026.
+
+## Outcome Summary
+
+- Computed now subscribes to property component changes via `Setter.on`.
+- Parent property components re-emit changes from child components to keep computed in sync for nested updates.
+- Render and scene-tree update flow remain unchanged; no explicit refresh calls needed in normal runtime flow.
+
 ## Goal
 
 Replace broad `refreshComputedDataFromProperty(...)` recomputation with direct property-to-computed synchronization.
@@ -20,16 +30,16 @@ This works as a fallback bridge, but it is broader than necessary and does not m
 
 ## Target Principle
 
-- Property components should declare how their writes affect computed data.
+- Property components should expose change subscriptions so computed can react directly.
 - Element-owned prop updates stay incremental and key-scoped where possible.
 - Scene-tree should not need a generic "pull all computed values from one prop" path for normal runtime updates.
-- The sync contract should live with property registration/runtime wiring, not be inferred later by a transaction replay helper.
+- The sync contract should live with property runtime wiring, not be inferred later by a transaction replay helper.
 
 ## Scope
 
 In scope:
-- define a framework contract for property-to-computed sync registration
-- wire prop updates so computed data is updated from property changes directly
+- add property component change subscriptions (Setter.on)
+- wire computed so it updates from property changes directly
 - preserve transaction and undo semantics
 - preserve load/runtime validation behavior
 
@@ -40,13 +50,12 @@ Out of scope:
 
 ## Implementation Slices
 
-1. Define sync contract
-- Add an explicit registration surface for "property change -> computed key update" behavior.
-- Support single-key and multi-key property outputs.
+1. Add change subscriptions
+- Expose property component change subscriptions via `Setter.on`.
 
 2. Move runtime sync closer to property ownership
-- Trigger computed updates from the property component update path or registered property handlers.
-- Keep owner element and property name explicit in the contract.
+- Trigger computed updates from property component change handlers.
+- Keep owner element and property name explicit in the runtime wiring.
 
 3. Narrow the scene-tree bridge
 - Reduce `refreshComputedDataFromProperty(...)` to fallback/debug/migration use only.
@@ -66,3 +75,9 @@ Out of scope:
 - Computed updates caused by property writes are explicit and property-owned.
 - Existing element-originated flow remains unchanged and deterministic.
 - Undo/redo and collaborative replay do not duplicate or miss computed updates.
+
+## Exit Criteria
+
+1. Property component changes trigger computed updates without explicit refresh calls.
+2. Nested property updates re-emit through parent property components.
+3. Scene-tree transaction flow continues to publish render-facing updates.

@@ -334,6 +334,22 @@ describe('SceneTree', () => {
     expect(element.updateComputedData).toHaveBeenCalledWith('x', 100)
   })
 
+  it('updates computed data when a property component changes', () => {
+    const element = new MockRectangle()
+    sceneTree.addToMap(element)
+
+    const positionId = element.props.getPropId(PropertyTypes.POSITION)
+    if (!positionId) {
+      throw new Error('Position property component was not created.')
+    }
+
+    propsManager.updatePropsData(positionId, 'x', 120)
+    expect(element.computed.get('x')).toBe(120)
+
+    propsManager.updatePropsData(positionId, 'xUnit', Unit.PERCENT)
+    expect(element.computed.get('x')).toBe(120)
+  })
+
   // Test load and save
   it('should load data correctly', () => {
     const dataToLoad = {

@@ -172,6 +172,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
 
   cleanup(options?: EvnetOptions) {
     this.props.cleanup(options)
+    this.computed.dispose()
   }
 }
 

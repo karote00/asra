@@ -206,6 +206,7 @@ const createPropertyComponentFromConfig = (
 
   class ConfiguredPropertyComponent extends BasePropertyComponent<PropertyComponentInstanceDataTypes> {
     data!: PropertyComponentInstanceDataTypes
+    private childSubscriptions = new Map<string, () => void>()
 
     constructor(data: Partial<PropertyComponentRawData>) {
       super()
@@ -217,15 +218,57 @@ const createPropertyComponentFromConfig = (
       this.load(data as PropertyComponentRawData)
     }
 
+    private syncChildSubscriptions(childIds: string[]) {
+      if (!children) {
+        return
+      }
+
+      const nextIds = new Set(childIds.filter(isString))
+      this.childSubscriptions.forEach((unsubscribe, childId) => {
+        if (nextIds.has(childId)) {
+          return
+        }
+
+        unsubscribe()
+        this.childSubscriptions.delete(childId)
+      })
+
+      const accessor = getPropertyComponentAccessor()
+      nextIds.forEach((childId) => {
+        if (this.childSubscriptions.has(childId)) {
+          return
+        }
+
+        const child = accessor.getPropertyById(childId)
+        if (!child || child.get('type') !== children.childType) {
+          return
+        }
+
+        const unsubscribe = child.on((change) => {
+          this.emitChange({
+            id: this.get('id'),
+            key: children.key,
+            before: change.before,
+            after: change.after,
+            options: change.options
+          })
+        })
+
+        this.childSubscriptions.set(childId, unsubscribe)
+      })
+    }
+
     load(data: PropertyComponentRawData): void {
       this.data.id = typeof data.id === 'string' ? data.id : this.data.id
       const rawData = toRecord(data)
+      let nextChildIds: string[] | null = null
       persistKeys.forEach((key) => {
         if (children && key === children.key) {
           const normalized = normalizeChildrenValue(rawData[key])
           if (normalized) {
             this.data[key as keyof PropertyComponentInstanceDataTypes] =
               normalized as never
+            nextChildIds = normalized
           }
           return
         }
@@ -239,6 +282,16 @@ const createPropertyComponentFromConfig = (
           rawData[key]
         )
       })
+
+      if (children) {
+        const fallbackIds =
+          nextChildIds ??
+          ((this.data as unknown as Record<string, unknown>)[children.key] as
+            | string[]
+            | undefined) ??
+          []
+        this.syncChildSubscriptions(Array.isArray(fallbackIds) ? fallbackIds : [])
+      }
 
       if (!allowDynamicKeys) {
         return
@@ -317,6 +370,7 @@ const createPropertyComponentFromConfig = (
           normalized as unknown as PropertyComponentInstanceDataTypes[K],
           options
         )
+        this.syncChildSubscriptions(normalized)
         return
       }
 

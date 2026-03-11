@@ -5,6 +5,18 @@ Decision log for branch-level and post-release work not yet shipped in a tagged 
 Append-only rule: do not edit/delete prior entries; add a new superseding entry when decisions change.
 Backfilled entries use decision dates inferred from related commit dates/ranges.
 
+## 2026-03-11 - Computed subscribes to property component changes
+
+- Context:
+  - Property updates should update computed data without explicit refresh calls and live closer to property ownership.
+- Decision:
+  - `Computed` subscribes to property component change events (`Setter.on`) and updates computed values directly from property component state.
+- Consequences:
+  - Prop-originated updates keep computed data in sync without calling `refreshComputedDataFromProperty(...)` in normal runtime flow.
+  - `refreshComputedDataFromProperty(...)` remains available for fallback/diagnostic use.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/property-driven-computed-sync-plan.md`
+
 ## 2026-03-10 - Preset linear gradient render mapping stabilized
 
 - Context:

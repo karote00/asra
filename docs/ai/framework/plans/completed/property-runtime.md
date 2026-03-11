@@ -13,3 +13,10 @@
 - Added transaction-end cleanup for pending `propsManager.changes` to prevent cross-action leakage.
 - Unified add/remove property subscribe paths to use `propsManager.commitChanges(options)` for consistent commit+cleanup behavior.
 - Added regression test coverage for transaction-end cleanup behavior.
+
+## 3. Property-driven computed sync
+
+- Completed on March 11, 2026.
+- Computed now subscribes to property component changes via `Setter.on`.
+- Parent property components re-emit child updates so nested edits keep computed in sync.
+- Reference: `docs/ai/framework/plans/completed/property-driven-computed-sync-plan.md`

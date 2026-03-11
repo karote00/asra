@@ -679,7 +679,7 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Consequences:
   - Single-fill edits no longer rewrite the whole fills array.
   - Color/gradient editing keeps one intended undoable action per drag session.
-- Follow-up framework work is now explicitly tracked under `docs/ai/framework/plans/property-driven-computed-sync-plan.md`.
+- Follow-up framework work is now explicitly tracked under `docs/ai/framework/plans/completed/property-driven-computed-sync-plan.md`.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/completed/repeatable-fills-properties-plan.md`
 

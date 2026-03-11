@@ -1,7 +1,7 @@
 import type { DataTypes, EvnetOptions } from './types'
 
 /** Change record passed to Setter callback */
-interface ChangeRecord {
+export interface SetterChangeRecord {
   id: string
   key: string
   before: DataTypes
@@ -18,10 +18,22 @@ type InstanceDataType =
 
 export class Setter<T extends InstanceDataType> {
   data!: T
-  private addChangeCallback: (data: ChangeRecord) => void
+  private addChangeCallback: (data: SetterChangeRecord) => void
+  private listeners = new Set<(data: SetterChangeRecord) => void>()
 
-  constructor(addChangeCallback: (data: ChangeRecord) => void) {
+  constructor(addChangeCallback: (data: SetterChangeRecord) => void) {
     this.addChangeCallback = addChangeCallback
+  }
+
+  on(listener: (data: SetterChangeRecord) => void): () => void {
+    this.listeners.add(listener)
+    return () => {
+      this.listeners.delete(listener)
+    }
+  }
+
+  emitChange(change: SetterChangeRecord): void {
+    this.listeners.forEach((listener) => listener(change))
   }
 
   get<K extends keyof T>(key: K): T[K] {
@@ -38,13 +50,15 @@ export class Setter<T extends InstanceDataType> {
       const after = cloneDeep(value)
 
       if (!isEqual(before, after)) {
-        this.addChangeCallback({
+        const change: SetterChangeRecord = {
           id: this.get('id'),
           key: key as string,
           before: before as DataTypes,
           after: after as DataTypes,
           options
-        })
+        }
+        this.addChangeCallback(change)
+        this.listeners.forEach((listener) => listener(change))
       }
     }
   }
@@ -53,4 +67,6 @@ export class Setter<T extends InstanceDataType> {
 export interface ISetter<T> {
   get<K extends keyof T>(key: K): T[K]
   set<K extends keyof T>(key: K, value: T[K], options?: EvnetOptions): void
+  on(listener: (data: SetterChangeRecord) => void): () => void
+  emitChange(change: SetterChangeRecord): void
 }

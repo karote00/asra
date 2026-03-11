@@ -19,12 +19,7 @@ This file tracks framework planning topics and points to detailed references.
 - Keep Pixi as default engine via preset wiring while enabling engine swap for future domains.
 - Reference: `docs/ai/framework/plans/render-engine-boundary-plan.md`
 
-4. Property-driven computed sync
-- Replace generic property-to-computed refresh with explicit property-owned sync wiring.
-- Keep `element -> computed -> props` flow, and add the symmetric `props -> computed` path without broad recomputation.
-- Reference: `docs/ai/framework/plans/property-driven-computed-sync-plan.md`
-
-5. Canvas debugger
+4. Canvas debugger
 - Add a framework-owned debugging surface to verify render output, render-layer output, and coordinate-space correctness.
 - Keep it optional, deterministic, and renderer-boundary-safe so apps can opt in without coupling domain logic to Pixi internals.
 - Reference: `docs/ai/framework/plans/canvas-debugger-plan.md`

@@ -10,17 +10,17 @@ import {
   sceneTreeLoadComplete
 } from '@asyra/reactive-events'
 import propsManager from '@asyra/props-manager'
-import { PROPS_ACTIONS, UNDO, type ComputedAttrs } from '@asyra/utils'
+import { PROPS_ACTIONS, UNDO, type ComputedAttrs, DataTypes } from '@asyra/utils'
 import sceneTree from './sceneTree'
 
-const isOwnedUpdatePropertyChange = (
+const isUpdatePropertyChange = (
   payload: unknown
 ): payload is {
   action: string
   id: string
   key: string
-  ownerElementId: string
-  ownerPropertyName: string
+  before: unknown
+  after: unknown
 } =>
   typeof payload === 'object' &&
   payload !== null &&
@@ -30,10 +30,8 @@ const isOwnedUpdatePropertyChange = (
   typeof payload.id === 'string' &&
   'key' in payload &&
   typeof payload.key === 'string' &&
-  'ownerElementId' in payload &&
-  typeof payload.ownerElementId === 'string' &&
-  'ownerPropertyName' in payload &&
-  typeof payload.ownerPropertyName === 'string'
+  'before' in payload &&
+  'after' in payload
 
 export const initSceneTreeSubscribes = () => {
   let inUndoRedo = false
@@ -91,7 +89,7 @@ export const initSceneTreeSubscribes = () => {
   })
 
   subscribeToUpdateTransaction(({ payload, options }) => {
-    if (!isOwnedUpdatePropertyChange(payload)) {
+    if (!isUpdatePropertyChange(payload)) {
       return
     }
 
@@ -103,11 +101,35 @@ export const initSceneTreeSubscribes = () => {
             shared: undefined
           }
 
-    sceneTree.refreshComputedDataFromProperty(
-      payload.ownerElementId,
-      payload.ownerPropertyName,
-      sceneTreeOptions
-    )
+    const ownerElementId =
+      typeof (payload as { ownerElementId?: unknown }).ownerElementId ===
+      'string'
+        ? (payload as { ownerElementId: string }).ownerElementId
+        : ''
+    const ownerPropertyName =
+      typeof (payload as { ownerPropertyName?: unknown }).ownerPropertyName ===
+      'string'
+        ? (payload as { ownerPropertyName: string }).ownerPropertyName
+        : ''
+
+    if (ownerElementId && ownerPropertyName) {
+      const ownerElement = sceneTree.getElementById(ownerElementId)
+      const ownerPropId = ownerElement?.props.getPropId(ownerPropertyName)
+      const ownerPropComponent = ownerPropId
+        ? propsManager.getPropertyById(ownerPropId)
+        : undefined
+
+      if (ownerPropComponent) {
+        ownerPropComponent.emitChange({
+          id: ownerPropId,
+          key: payload.key,
+          before: payload.before as DataTypes,
+          after: payload.after as DataTypes,
+          options: sceneTreeOptions
+        })
+      }
+    }
+
     sceneTree.commitSceneTreeTransaction(sceneTreeOptions)
   })
 }
