@@ -29,43 +29,62 @@ const Contents: React.FC = () => {
   return (
     <div
       ref={parentRef}
-      className={`w-${COLUMN_WIDTH} z-10 dark:bg-panel-darker dark:border-r dark:border-border-dark overflow-y-auto`}
-      style={{ gridArea: 'left-sidebar' }}
+      className={`w-${COLUMN_WIDTH} z-10 overflow-y-auto flex flex-col`}
+      style={{
+        gridArea: 'left-sidebar',
+        background: '#252525',
+        borderRight: '1px solid #1a1a1a'
+      }}
       onClick={handleContentsPanelClick}
       onMouseLeave={handleContentsPanelMouseLeave}
       data-testid="contents-panel"
     >
+      {/* Panel header */}
       <div
+        className="flex items-center px-3 flex-shrink-0"
         style={{
-          height: rowVirtualizer.getTotalSize(),
-          position: 'relative'
+          height: '40px',
+          minHeight: '40px',
+          borderBottom: '1px solid #2c2c2c'
         }}
       >
-        {rowVirtualizer.getVirtualItems().map((virtualRow, index) => {
-          const elementId = flattenedIds[virtualRow.index]
+        <span className="text-[11px] font-medium text-[#999]">Layers</span>
+      </div>
 
-          return (
-            <div
-              key={elementId}
-              data-index={index}
-              ref={rowVirtualizer.measureElement}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: `${virtualRow.size}px`,
-                transform: `translateY(${virtualRow.start}px)`
-              }}
-            >
-              <Element
-                elementId={elementId}
-                isSelected={elementSelection.has(elementId)}
-                isHovered={hoveredElementId === elementId}
-              />
-            </div>
-          )
-        })}
+      {/* Layers list */}
+      <div className="flex-1 overflow-y-auto">
+        <div
+          style={{
+            height: rowVirtualizer.getTotalSize(),
+            position: 'relative'
+          }}
+        >
+          {rowVirtualizer.getVirtualItems().map((virtualRow, index) => {
+            const elementId = flattenedIds[virtualRow.index]
+
+            return (
+              <div
+                key={elementId}
+                data-index={index}
+                ref={rowVirtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: `${virtualRow.size}px`,
+                  transform: `translateY(${virtualRow.start}px)`
+                }}
+              >
+                <Element
+                  elementId={elementId}
+                  isSelected={elementSelection.has(elementId)}
+                  isHovered={hoveredElementId === elementId}
+                />
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

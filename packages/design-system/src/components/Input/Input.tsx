@@ -7,9 +7,7 @@ import React, {
   useRef
 } from 'react'
 import { MIXED_STRING } from '@asyra/utils'
-import { Text } from '../Text'
 
-// InputProps Interface
 // InputProps Interface
 interface InputProps
   extends Omit<
@@ -26,22 +24,31 @@ interface InputProps
   size?: 'small' | 'medium' | 'large'
   /** Change event handler */
   onChange: (newData: string) => boolean | undefined
+  /** Additional class name for the container div */
+  containerClassName?: string
+  /** Additional styles for the container div */
+  containerStyle?: React.CSSProperties
+  /** Whether to hide the outline rings on hover and focus */
+  noOutline?: boolean
 }
 
 const sizeClasses = {
-  small: 'h-4 text-sm',
-  medium: 'h-6 text-base',
-  large: 'h-8 text-lg'
+  small: 'text-[10px]',
+  medium: 'text-[11px]',
+  large: 'text-[12px]'
 }
 
 const Input: React.FC<InputProps> = ({
   value,
-  placeholder = 'Enter text...',
+  placeholder = '',
   disabled = false,
   prefix,
   suffix,
   size = 'medium',
   onChange,
+  containerClassName,
+  containerStyle,
+  noOutline = false,
   ...rest
 }) => {
   const inputRef = useRef(null)
@@ -89,12 +96,16 @@ const Input: React.FC<InputProps> = ({
 
   return (
     <div
-      className={`group flex items-center transition-colors rounded focus-within:ring-1 focus-within:ring-inset focus-within:ring-blue-400
-      bg-transparent text-white ${sizeClasses[size]} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      className={`group flex items-center h-full bg-transparent transition-all
+      ${!noOutline ? 'hover:ring-1 hover:ring-border-hover focus-within:ring-1 focus-within:ring-border-focus' : ''}
+      ${sizeClasses[size]} ${disabled ? 'opacity-40 cursor-not-allowed' : ''} ${containerClassName ?? 'rounded'}`}
+      style={containerStyle}
     >
       {prefix && (
-        <div className="w-6 text-center">
-          <Text label={prefix} classNames="text-gray-400" />
+        <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center">
+          <span className="text-[10px] font-medium text-text-primary">
+            {prefix}
+          </span>
         </div>
       )}
       <input
@@ -104,15 +115,20 @@ const Input: React.FC<InputProps> = ({
         onKeyDown={handleKeydon}
         onKeyUp={handleKeyup}
         onChange={handleChange}
-        onBlur={handleBlur}
+        onBlur={(e) => {
+          handleBlur()
+        }}
+        onFocus={(e) => {
+          e.currentTarget.select()
+        }}
         placeholder={placeholder}
         disabled={disabled}
         {...rest}
-        className="bg-transparent w-full px-1 outline-none placeholder-gray-500"
+        className="bg-transparent w-full h-full pr-1 outline-none text-text-primary caret-accent text-[11px]"
       />
       {suffix && (
-        <div className="w-6 text-center">
-          <Text label={suffix} classNames="text-gray-400" />
+        <div className="pr-1.5 flex-shrink-0">
+          <span className="text-[10px] text-text-tertiary">{suffix}</span>
         </div>
       )}
     </div>

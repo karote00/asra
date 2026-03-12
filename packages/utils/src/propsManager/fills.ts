@@ -64,7 +64,7 @@ export interface FillRowAttrs
   ids: string[]
 }
 
-export interface FillsAttrs {
+export interface FillsAttrs extends BasePropertyAttrs {
   fills: string[]
 }
 

@@ -698,7 +698,10 @@ const upsertControlPoint = (
   anchorPosition: PositionData
 ): string | null => {
   const controlId = getControlId(anchorId, role)
-  if (!controlPosition || !isNonDegenerateControl(controlPosition, anchorPosition)) {
+  if (
+    !controlPosition ||
+    !isNonDegenerateControl(controlPosition, anchorPosition)
+  ) {
     delete points[controlId]
     return null
   }
@@ -760,19 +763,21 @@ export const splitSegmentInTopology = (
   }
 
   const outControl =
-    segment.outControlId &&
-    isControlNode(topology.points[segment.outControlId])
+    segment.outControlId && isControlNode(topology.points[segment.outControlId])
       ? topology.points[segment.outControlId]
       : null
   const inControl =
-    segment.inControlId &&
-    isControlNode(topology.points[segment.inControlId])
+    segment.inControlId && isControlNode(topology.points[segment.inControlId])
       ? topology.points[segment.inControlId]
       : null
   const splitGeometry = splitCubicBezierAtT(
     { x: startAnchor.x, y: startAnchor.y },
-    outControl ? { x: outControl.x, y: outControl.y } : { x: startAnchor.x, y: startAnchor.y },
-    inControl ? { x: inControl.x, y: inControl.y } : { x: endAnchor.x, y: endAnchor.y },
+    outControl
+      ? { x: outControl.x, y: outControl.y }
+      : { x: startAnchor.x, y: startAnchor.y },
+    inControl
+      ? { x: inControl.x, y: inControl.y }
+      : { x: endAnchor.x, y: endAnchor.y },
     { x: endAnchor.x, y: endAnchor.y },
     t
   )

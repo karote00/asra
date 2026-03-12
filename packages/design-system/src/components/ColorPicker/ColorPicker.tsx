@@ -33,9 +33,12 @@ interface ColorPickerProps {
   onChangeStart?: () => void
   onChangeEnd?: (next: ColorPickerChange) => void
   header?: React.ReactNode
+  footer?: React.ReactNode
   hideDefaultPanel?: boolean
   children?: React.ReactNode
   swatchStyle?: CSSProperties
+  triggerClassName?: string
+  triggerStyle?: CSSProperties
   'data-testid'?: string
 }
 
@@ -102,9 +105,12 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
   onChangeStart,
   onChangeEnd,
   header,
+  footer,
   hideDefaultPanel = false,
   children,
   swatchStyle,
+  triggerClassName,
+  triggerStyle,
   'data-testid': dataTestId
 }) => {
   const [internalIsOpen, setInternalIsOpen] = useState(false)
@@ -456,15 +462,19 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
 
           setPickerOpen(!isOpen)
         }}
-        className="group relative h-7 w-10 overflow-hidden rounded border border-[#4A4A4A] bg-[#2B2B2B] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-colors hover:border-[#6A6A6A] disabled:cursor-not-allowed disabled:opacity-50"
+        className={
+          triggerClassName ??
+          'group relative flex h-7 w-10 items-center justify-center overflow-hidden rounded bg-[#2B2B2B] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] disabled:cursor-not-allowed disabled:opacity-50'
+        }
+        style={triggerStyle}
         data-testid={dataTestId ? `${dataTestId}-trigger` : undefined}
         aria-label="Toggle color picker"
       >
-        <span className="absolute inset-0" style={CHECKERBOARD_BACKGROUND} />
-        <span
-          className="absolute inset-[2px] rounded-[3px]"
+        <div
+          className="rounded-[3px]"
           style={{
             backgroundColor: swatchColor,
+            flexShrink: 0,
             ...swatchStyle
           }}
         />
@@ -626,6 +636,12 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
 
               {children ? (
                 <div className={hideDefaultPanel ? '' : 'mt-3'}>{children}</div>
+              ) : null}
+
+              {footer ? (
+                <div className={hideDefaultPanel && !children ? '' : 'mt-2'}>
+                  {footer}
+                </div>
               ) : null}
             </div>,
             portalRoot

@@ -29,3 +29,8 @@
 
 1. Auto-layout app UX once framework support is ready
 2. Additional design-domain tools built on the same app architecture
+
+## Completed
+
+1. Properties panel header + vector UI polish
+- Reference: `docs/ai/apps/asyra-design/plans/completed/properties-panel-header-vector-ui-polish-plan.md`

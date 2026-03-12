@@ -411,13 +411,12 @@ class SceneTree {
           propOverrides[propKey]
         )
       })
-      propsManager.commitChanges(options)
-
       workspace.addNewElement(newElement, parent, index)
 
       this.addToMap(newElement)
 
       this.commitSceneTreeTransaction(options)
+      propsManager.commitChanges(options)
 
       return newElement.get('id')
     }

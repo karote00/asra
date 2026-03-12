@@ -1166,6 +1166,8 @@ export const elementApis = {
       createOptions.type,
       workspacePos,
       {
+        width: 0,
+        height: 0,
         fills: getDefaultFillsForType(createOptions.type)
       },
       options

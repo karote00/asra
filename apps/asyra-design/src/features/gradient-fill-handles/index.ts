@@ -393,10 +393,7 @@ export const dragGradientStopFeature = defineFeature<
       state.isDragging = true
     },
 
-    onEnd: (
-      snapshot: SystemContextSnapshot,
-      state: GradientStopDragState
-    ) => {
+    onEnd: (snapshot: SystemContextSnapshot, state: GradientStopDragState) => {
       cursorApis.setCanvasCursor('grab')
 
       if (!state.isDragging) {

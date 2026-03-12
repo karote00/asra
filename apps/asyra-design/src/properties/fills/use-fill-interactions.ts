@@ -1,4 +1,5 @@
 import {
+  FillColorFormats,
   FillKinds,
   createDefaultGradientData,
   type FillAttrs,
@@ -192,8 +193,20 @@ export const useFillInteractions = ({
   }, [fill])
 
   const displayColor = useMemo(
-    () =>
-      fill ? convertStoredColorToFormat(fill.color, fill.colorFormat) : '',
+    () => {
+      if (!fill) {
+        return ''
+      }
+
+      const formatted = convertStoredColorToFormat(
+        fill.color,
+        fill.colorFormat
+      )
+
+      return fill.colorFormat === FillColorFormats.HEX
+        ? formatted.replace(/^#/, '')
+        : formatted
+    },
     [fill]
   )
 

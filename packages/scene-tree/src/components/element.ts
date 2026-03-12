@@ -40,7 +40,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
 {
   _idType: string = ''
   _nameType: string = ''
-  protected computedPropertyNames: string[] = ['position', 'dimension']
+  protected computedPropertyNames: string[] = ['position', 'dimension', 'fills']
 
   props!: IProps
   computed!: Computed<ComputedAttrs>

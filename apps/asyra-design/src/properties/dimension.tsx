@@ -1,8 +1,8 @@
-import { Input } from '@asyra/design-system'
+import { Input, PropertyControl } from '@asyra/design-system'
 import { useHeight, useWidth } from '../providers'
 import { useCallback } from 'react'
 import { changeElementComputedData } from '../controllers/scene-tree'
-import { parseFiniteInputNumber } from './number-input'
+import { formatInputNumber, parseFiniteInputNumber } from './number-input'
 
 const Dimension = () => {
   const width = useWidth()
@@ -35,23 +35,25 @@ const Dimension = () => {
   )
 
   return (
-    <div className="flex items-center gap-2 text-gray-200 w-full px-3 py-1">
-      <div className="w-1/2">
+    <div className="grid grid-cols-2 items-center gap-2 pl-4 pr-2 h-8 min-h-8">
+      <PropertyControl>
         <Input
-          value={width}
+          value={formatInputNumber(width)}
           prefix="W"
           onChange={handleChangeWidth}
+          noOutline
           data-testid="prop-width"
         />
-      </div>
-      <div className="w-1/2">
+      </PropertyControl>
+      <PropertyControl>
         <Input
-          value={height}
+          value={formatInputNumber(height)}
           prefix="H"
           onChange={handleChangeHeight}
+          noOutline
           data-testid="prop-height"
         />
-      </div>
+      </PropertyControl>
     </div>
   )
 }

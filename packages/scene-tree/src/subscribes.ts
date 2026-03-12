@@ -10,7 +10,12 @@ import {
   sceneTreeLoadComplete
 } from '@asyra/reactive-events'
 import propsManager from '@asyra/props-manager'
-import { PROPS_ACTIONS, UNDO, type ComputedAttrs, DataTypes } from '@asyra/utils'
+import {
+  PROPS_ACTIONS,
+  UNDO,
+  type ComputedAttrs,
+  DataTypes
+} from '@asyra/utils'
 import sceneTree from './sceneTree'
 
 const isUpdatePropertyChange = (
@@ -75,8 +80,9 @@ export const initSceneTreeSubscribes = () => {
     sceneTree.commitSceneTreeTransaction(options)
   })
 
-  subscribeToUpdateComputedData(({ payload, options }) => {
+  subscribeToUpdateComputedData(({ payload, ...rest }) => {
     const { id, key, after } = payload
+    const options = (rest as any).options
 
     sceneTree.updateComputedData(
       id,
@@ -119,10 +125,10 @@ export const initSceneTreeSubscribes = () => {
         ? propsManager.getPropertyById(ownerPropId)
         : undefined
 
-      if (ownerPropComponent) {
+      if (ownerPropComponent && ownerPropId) {
         ownerPropComponent.emitChange({
           id: ownerPropId,
-          key: payload.key,
+          key: payload.key as any,
           before: payload.before as DataTypes,
           after: payload.after as DataTypes,
           options: sceneTreeOptions

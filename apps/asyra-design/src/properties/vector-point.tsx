@@ -1,13 +1,10 @@
-import { Input } from '@asyra/design-system'
-import { useCallback } from 'react'
+import { Input, PropertyControl } from '@asyra/design-system'
+import { type ReactNode, useCallback } from 'react'
 import { VECTOR_TOKENS, type VectorPointTarget } from '@asyra/core'
-import {
-  VectorHandleModes,
-  type VectorHandleMode
-} from '../constants'
+import { VectorHandleModes, type VectorHandleMode, ROW_HEIGHT } from '../constants'
 import { elementApis, selectionApis, systemContextApis } from '../common-apis'
 import { useSelectedVectorPoint } from '../providers'
-import { parseFiniteInputNumber } from './number-input'
+import { formatInputNumber, parseFiniteInputNumber } from './number-input'
 
 const getTargetLabel = (target: VectorPointTarget) => {
   if (target === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE) {
@@ -48,17 +45,143 @@ const TargetHeader = ({
   index: number | null
   target: VectorPointTarget
 }) => (
-  <>
-    <div className="px-3 pt-2 text-xs text-gray-400" data-testid="prop-point-id">
-      Point {index !== null ? index + 1 : '-'} - {getTargetLabel(target)}
-    </div>
-    <div
-      className="px-3 pt-1 text-[11px] text-gray-400"
-      data-testid="prop-point-target"
+  <div className="flex items-center justify-between h-10 pl-4 pr-2 text-[#ebebeb]">
+    <span
+      className="text-[11px] font-medium opacity-60 uppercase tracking-wider"
+      data-testid="prop-point-id"
     >
-      Target: {getTargetLabel(target)}
+      Point {index !== null ? index + 1 : '-'}
+    </span>
+    <span className="text-[10px] text-[#777]" data-testid="prop-point-target">
+      {getTargetLabel(target)}
+    </span>
+  </div>
+)
+
+const IconToggleButton = ({
+  active,
+  testId,
+  onClick,
+  children
+}: {
+  active: boolean
+  testId: string
+  onClick: () => void
+  children: ReactNode
+}) => (
+  <button
+    type="button"
+    className={`flex flex-1 items-center justify-center h-6 rounded-[6px] border transition-colors
+    ${active ? 'bg-panel border-border-hover text-text-primary' : 'border-transparent text-text-secondary'}`}
+    onClick={onClick}
+    data-testid={testId}
+    aria-pressed={active}
+  >
+    {children}
+  </button>
+)
+
+const ToggleGroup = ({
+  options
+}: {
+  options: Array<{
+    value: string
+    label: string
+    active: boolean
+    onSelect: () => void
+    icon: ReactNode
+    testId: string
+  }>
+}) => (
+  <div className={`flex items-center pl-4 pr-2 h-${ROW_HEIGHT} min-h-${ROW_HEIGHT}`}>
+    <div className="flex w-full h-6 items-center gap-1 rounded-[6px] bg-panel-surface border border-border-subtle">
+      {options.map((option) => (
+        <IconToggleButton
+          key={option.value}
+          active={option.active}
+          testId={option.testId}
+          onClick={option.onSelect}
+        >
+          {option.icon}
+        </IconToggleButton>
+      ))}
     </div>
-  </>
+  </div>
+)
+
+const SharpIcon = () => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M6 18 L6 6 L18 6" />
+  </svg>
+)
+
+const SmoothIcon = () => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M4 16 C8 6 16 6 20 16" />
+  </svg>
+)
+
+const HandleNoneIcon = () => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+  >
+    <circle cx="12" cy="12" r="3.2" />
+  </svg>
+)
+
+const HandleMirrorAngleIcon = () => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M6 18 L12 12 L18 9" />
+    <circle cx="12" cy="12" r="2.2" />
+  </svg>
+)
+
+const HandleMirrorAngleLengthIcon = () => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M5 12 L19 12" />
+    <circle cx="12" cy="12" r="2.2" />
+  </svg>
 )
 
 const AnchorControls = ({
@@ -72,51 +195,57 @@ const AnchorControls = ({
   onChangePointType: (value: 'smooth' | 'sharp') => void
   onChangeHandleMode: (value: VectorHandleMode) => void
 }) => (
-  <>
-    <div className="px-3 pt-2 pb-1">
-      <label
-        className="block text-[11px] text-gray-400 pb-1"
-        htmlFor="point-type"
-      >
-        Point Type
-      </label>
-      <select
-        id="point-type"
-        value={pointType}
-        onChange={(event) =>
-          onChangePointType(event.target.value as 'smooth' | 'sharp')
+  <div className="grid grid-cols-1 w-full">
+    <ToggleGroup
+      options={[
+        {
+          value: 'sharp',
+          label: 'Sharp',
+          active: pointType === 'sharp',
+          onSelect: () => onChangePointType('sharp'),
+          icon: <SharpIcon />,
+          testId: 'prop-point-type-sharp'
+        },
+        {
+          value: 'smooth',
+          label: 'Smooth',
+          active: pointType === 'smooth',
+          onSelect: () => onChangePointType('smooth'),
+          icon: <SmoothIcon />,
+          testId: 'prop-point-type-smooth'
         }
-        className="w-full bg-transparent border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 outline-none focus:border-blue-400"
-        data-testid="prop-point-type"
-      >
-        <option value="sharp">Sharp</option>
-        <option value="smooth">Smooth</option>
-      </select>
-    </div>
-    <div className="px-3 pt-2 pb-1">
-      <label
-        className="block text-[11px] text-gray-400 pb-1"
-        htmlFor="handle-mode"
-      >
-        Handle Mode
-      </label>
-      <select
-        id="handle-mode"
-        value={handleMode}
-        onChange={(event) =>
-          onChangeHandleMode(event.target.value as VectorHandleMode)
+      ]}
+    />
+    <ToggleGroup
+      options={[
+        {
+          value: VectorHandleModes.NONE,
+          label: 'None',
+          active: handleMode === VectorHandleModes.NONE,
+          onSelect: () => onChangeHandleMode(VectorHandleModes.NONE),
+          icon: <HandleNoneIcon />,
+          testId: 'prop-handle-mode-none'
+        },
+        {
+          value: VectorHandleModes.MIRROR_ANGLE,
+          label: 'Mirror Angle',
+          active: handleMode === VectorHandleModes.MIRROR_ANGLE,
+          onSelect: () => onChangeHandleMode(VectorHandleModes.MIRROR_ANGLE),
+          icon: <HandleMirrorAngleIcon />,
+          testId: 'prop-handle-mode-mirror-angle'
+        },
+        {
+          value: VectorHandleModes.MIRROR_ANGLE_LENGTH,
+          label: 'Mirror Angle + Length',
+          active: handleMode === VectorHandleModes.MIRROR_ANGLE_LENGTH,
+          onSelect: () =>
+            onChangeHandleMode(VectorHandleModes.MIRROR_ANGLE_LENGTH),
+          icon: <HandleMirrorAngleLengthIcon />,
+          testId: 'prop-handle-mode-mirror-angle-length'
         }
-        className="w-full bg-transparent border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 outline-none focus:border-blue-400"
-        data-testid="prop-handle-mode"
-      >
-        <option value={VectorHandleModes.NONE}>None</option>
-        <option value={VectorHandleModes.MIRROR_ANGLE}>Mirror Angle</option>
-        <option value={VectorHandleModes.MIRROR_ANGLE_LENGTH}>
-          Mirror Angle + Length
-        </option>
-      </select>
-    </div>
-  </>
+      ]}
+    />
+  </div>
 )
 
 const CoordinateInputs = ({
@@ -130,13 +259,25 @@ const CoordinateInputs = ({
   onChangeX: (value: string) => boolean
   onChangeY: (value: string) => boolean
 }) => (
-  <div className="flex items-center gap-2 text-gray-200 w-full px-3 py-1">
-    <div className="w-1/2">
-      <Input value={x} prefix="X" onChange={onChangeX} data-testid="prop-point-x" />
-    </div>
-    <div className="w-1/2">
-      <Input value={y} prefix="Y" onChange={onChangeY} data-testid="prop-point-y" />
-    </div>
+  <div className="grid grid-cols-2 items-center gap-2 pl-4 pr-2 h-8 min-h-8">
+    <PropertyControl>
+      <Input
+        value={formatInputNumber(x)}
+        prefix="X"
+        onChange={onChangeX}
+        noOutline
+        data-testid="prop-vector-point-x"
+      />
+    </PropertyControl>
+    <PropertyControl>
+      <Input
+        value={formatInputNumber(y)}
+        prefix="Y"
+        onChange={onChangeY}
+        noOutline
+        data-testid="prop-vector-point-y"
+      />
+    </PropertyControl>
   </div>
 )
 
@@ -220,18 +361,18 @@ const VectorPoint = () => {
       const updatedPoint =
         target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
           ? elementApis.updateVectorAnchorPointPosition(elementId, pointId, {
+            x: nextX,
+            y
+          })
+          : elementApis.updateVectorAnchorPointHandlePosition(
+            elementId,
+            pointId,
+            target,
+            {
               x: nextX,
               y
-            })
-          : elementApis.updateVectorAnchorPointHandlePosition(
-              elementId,
-              pointId,
-              target,
-              {
-                x: nextX,
-                y
-              }
-            )
+            }
+          )
       return applyTargetSelection(updatedPoint, target)
     },
     [elementId, pointId, x, y, target, applyTargetSelection]
@@ -251,18 +392,18 @@ const VectorPoint = () => {
       const updatedPoint =
         target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
           ? elementApis.updateVectorAnchorPointPosition(elementId, pointId, {
+            x,
+            y: nextY
+          })
+          : elementApis.updateVectorAnchorPointHandlePosition(
+            elementId,
+            pointId,
+            target,
+            {
               x,
               y: nextY
-            })
-          : elementApis.updateVectorAnchorPointHandlePosition(
-              elementId,
-              pointId,
-              target,
-              {
-                x,
-                y: nextY
-              }
-            )
+            }
+          )
       return applyTargetSelection(updatedPoint, target)
     },
     [elementId, pointId, x, y, target, applyTargetSelection]

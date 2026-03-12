@@ -133,13 +133,9 @@ export const resolveHandleModeDragUpdate = (params: {
 
     return {
       nextIn:
-        target === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
-          ? position
-          : opposite,
+        target === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE ? position : opposite,
       nextOut:
-        target === VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE
-          ? position
-          : opposite
+        target === VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE ? position : opposite
     }
   }
 
@@ -178,7 +174,10 @@ export const resolveHandleModeSwitchUpdate = (params: {
   inHandle: PositionData | null
   outHandle: PositionData | null
   mode: VectorHandleMode
-}): { inHandle: PositionData | null; outHandle: PositionData | null } | null => {
+}): {
+  inHandle: PositionData | null
+  outHandle: PositionData | null
+} | null => {
   const { anchor, inHandle, outHandle, mode } = params
 
   if (mode === VectorHandleModes.NONE) {

@@ -67,8 +67,8 @@ export const initPropXSubscribes = () => {
 
     propsManager.updatePropertyById(
       payload.id,
-      payload.key,
-      payload.after,
+      payload.key as any,
+      payload.after as any,
       payload.ownerElementId && payload.ownerPropertyName
         ? {
             ownerElementId: payload.ownerElementId,

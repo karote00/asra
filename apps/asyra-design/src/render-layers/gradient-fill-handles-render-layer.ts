@@ -96,10 +96,22 @@ const drawStopIndicator = (
 
   // Rectangle corners (rotated to align with gradient direction)
   const rectPoints: PositionData[] = [
-    { x: cx - ux * STOP_RECT_HALF - px * STOP_RECT_HALF, y: cy - uy * STOP_RECT_HALF - py * STOP_RECT_HALF },
-    { x: cx + ux * STOP_RECT_HALF - px * STOP_RECT_HALF, y: cy + uy * STOP_RECT_HALF - py * STOP_RECT_HALF },
-    { x: cx + ux * STOP_RECT_HALF + px * STOP_RECT_HALF, y: cy + uy * STOP_RECT_HALF + py * STOP_RECT_HALF },
-    { x: cx - ux * STOP_RECT_HALF + px * STOP_RECT_HALF, y: cy - uy * STOP_RECT_HALF + py * STOP_RECT_HALF }
+    {
+      x: cx - ux * STOP_RECT_HALF - px * STOP_RECT_HALF,
+      y: cy - uy * STOP_RECT_HALF - py * STOP_RECT_HALF
+    },
+    {
+      x: cx + ux * STOP_RECT_HALF - px * STOP_RECT_HALF,
+      y: cy + uy * STOP_RECT_HALF - py * STOP_RECT_HALF
+    },
+    {
+      x: cx + ux * STOP_RECT_HALF + px * STOP_RECT_HALF,
+      y: cy + uy * STOP_RECT_HALF + py * STOP_RECT_HALF
+    },
+    {
+      x: cx - ux * STOP_RECT_HALF + px * STOP_RECT_HALF,
+      y: cy - uy * STOP_RECT_HALF + py * STOP_RECT_HALF
+    }
   ]
 
   canvas.polygon(rectPoints, fillColor, {
@@ -177,19 +189,19 @@ export const registerGradientFillHandlesRenderLayer = (
       const end = geometry.canvasHandles[1]
 
       geometry.fill.gradient?.gradientStops.forEach((stop) => {
-          const linePos = {
-            x: start.x + (end.x - start.x) * stop.position,
-            y: start.y + (end.y - start.y) * stop.position
-          }
+        const linePos = {
+          x: start.x + (end.x - start.x) * stop.position,
+          y: start.y + (end.y - start.y) * stop.position
+        }
 
-          drawStopIndicator(
-            canvas,
-            linePos,
-            start,
-            end,
-            hexToColorInt(stop.color)
-          )
-        })
+        drawStopIndicator(
+          canvas,
+          linePos,
+          start,
+          end,
+          hexToColorInt(stop.color)
+        )
+      })
 
       // Draw start/end handle circles
       geometry.canvasHandles.forEach((position, handleIndex) => {

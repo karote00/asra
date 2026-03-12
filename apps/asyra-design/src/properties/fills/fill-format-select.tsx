@@ -13,17 +13,11 @@ const FillFormatSelect = ({
   onChange
 }: FillFormatSelectProps) => (
   <div className="flex items-center gap-2 w-full">
-    <label
-      className="text-xs text-gray-400 w-11"
-      htmlFor={`fill-format-${index}`}
-    >
-      Format
-    </label>
     <select
       id={`fill-format-${index}`}
       value={value}
       onChange={(event) => onChange(event.target.value as FillColorFormat)}
-      className="bg-transparent text-white border border-border-dark rounded px-2 py-1 text-xs flex-1"
+      className="w-full rounded-md border border-[#3a3a3a] bg-transparent px-2 py-1.5 text-[11px] text-[#ccc] outline-none transition-colors hover:border-[#555] focus:border-[#0d99ff]"
       data-testid={`prop-fill-format-${index}`}
     >
       {ALLOWED_COLOR_FORMATS.map((format) => (

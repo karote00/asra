@@ -1,7 +1,13 @@
 import { ColorPicker, Input } from '@asyra/design-system'
-import { FillKinds, type EVENT_OPTIONS, type FillAttrs } from '@asyra/utils'
+import {
+  FillKinds,
+  type EVENT_OPTIONS,
+  type FillAttrs,
+  type FillColorFormat
+} from '@asyra/utils'
 import type { CSSProperties, ReactNode } from 'react'
 import type { FillPatch } from '../../common-apis'
+import { ALLOWED_COLOR_FORMATS } from '../../constants'
 import GradientEditor from './gradient-editor'
 
 const FillModeIcon = ({ kind }: { kind: FillAttrs['kind'] }) => {
@@ -52,11 +58,10 @@ const FillModeButton = ({
   <button
     type="button"
     onClick={onClick}
-    className={`inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
-      active
-        ? 'border-[#4c95ff] bg-[#224c88] text-white'
-        : 'border-[#434445] bg-[#1d1e1f] text-[#c7ccd1] hover:border-[#626467] hover:text-white'
-    }`}
+    className={`inline-flex h-6 w-6 items-center justify-center rounded transition-colors ${active
+      ? 'bg-accent text-white'
+      : 'bg-transparent text-text-secondary hover:bg-panel-surface-hover hover:text-text-primary'
+      }`}
     data-testid={testId}
     aria-label={label}
     title={label}
@@ -71,6 +76,7 @@ interface FillColorControlsProps {
   displayColor: string
   gradientData: FillAttrs['gradient']
   previewSwatchStyle?: CSSProperties
+  colorFormat: FillColorFormat
   onKindChange: (nextKind: FillAttrs['kind']) => void
   onColorValueChange: (value: string) => boolean
   onColorPickerChange: (next: { color: string; opacity: number }) => void
@@ -84,6 +90,7 @@ interface FillColorControlsProps {
   ) => void
   onStartInteraction: () => void
   onEndInteraction: () => void
+  onFormatChange: (nextFormat: FillColorFormat) => void
 }
 
 const FillColorControls = ({
@@ -92,6 +99,7 @@ const FillColorControls = ({
   displayColor,
   gradientData,
   previewSwatchStyle,
+  colorFormat,
   onKindChange,
   onColorValueChange,
   onColorPickerChange,
@@ -100,7 +108,8 @@ const FillColorControls = ({
   onGradientEditorOpenChange,
   onGradientFillChange,
   onStartInteraction,
-  onEndInteraction
+  onEndInteraction,
+  onFormatChange
 }: FillColorControlsProps) => {
   const shouldIgnoreOutsidePointerDown = (target: Node) =>
     fill.kind === FillKinds.GRADIENT && target instanceof HTMLCanvasElement
@@ -124,51 +133,96 @@ const FillColorControls = ({
     </div>
   )
 
-  return (
-    <div className="flex items-center gap-2 w-full">
-      <ColorPicker
-        color={fill.color}
-        opacity={fill.opacity}
-        onChange={onColorPickerChange}
-        onChangeStart={onColorPickerChangeStart}
-        onChangeEnd={onColorPickerChangeEnd}
-        onOpenChange={onGradientEditorOpenChange}
-        shouldIgnoreOutsidePointerDown={shouldIgnoreOutsidePointerDown}
-        header={pickerHeader}
-        hideDefaultPanel={fill.kind === FillKinds.GRADIENT}
-        swatchStyle={previewSwatchStyle}
-        data-testid={`prop-fill-color-picker-${index}`}
+  // Format selector that goes inside the color picker popup (footer)
+  const pickerFooter: ReactNode = (
+    <div className="flex items-center gap-2 pt-2">
+      <span className="text-[10px] text-text-tertiary">Format</span>
+      <select
+        value={colorFormat}
+        onChange={(event) =>
+          onFormatChange(event.target.value as FillColorFormat)
+        }
+        className="flex-1 rounded border border-border-input bg-transparent px-2 py-1 text-[11px] text-text-primary outline-none transition-colors hover:border-border-subtle focus:border-border-focus"
+        data-testid={`prop-fill-format-${index}`}
       >
-        {gradientData ? (
-          <GradientEditor
-            index={index}
-            fill={fill}
-            gradient={gradientData}
-            onChangeFill={onGradientFillChange}
-            onStartInteraction={onStartInteraction}
-            onEndInteraction={onEndInteraction}
-            embedded
-          />
-        ) : null}
-      </ColorPicker>
-      <div className="flex-1">
-        {gradientData ? (
-          <div
-            className="flex h-8 items-center justify-between rounded-md border border-border-dark bg-[#1d1e1f] px-3 text-[11px] uppercase tracking-[0.08em] text-gray-300"
-            data-testid={`prop-fill-gradient-summary-${index}`}
-          >
-            <span>{gradientData.gradientType}</span>
-            <span className="text-gray-500">
-              {gradientData.gradientStops.length} stops
-            </span>
-          </div>
-        ) : (
-          <Input
-            value={displayColor}
-            onChange={onColorValueChange}
-            data-testid={`prop-fill-color-${index}`}
-          />
-        )}
+        {ALLOWED_COLOR_FORMATS.map((format) => (
+          <option key={format} value={format}>
+            {format}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+
+  return (
+    <div className="flex items-center flex-1 min-w-0 h-full">
+      {/* Group: swatch + hex input (left-rounded) */}
+      <div className="flex items-center flex-1 min-w-0 h-full">
+        <ColorPicker
+          color={fill.color}
+          opacity={fill.opacity}
+          onChange={onColorPickerChange}
+          onChangeStart={onColorPickerChangeStart}
+          onChangeEnd={onColorPickerChangeEnd}
+          onOpenChange={onGradientEditorOpenChange}
+          shouldIgnoreOutsidePointerDown={shouldIgnoreOutsidePointerDown}
+          header={pickerHeader}
+          footer={pickerFooter}
+          hideDefaultPanel={fill.kind === FillKinds.GRADIENT}
+          swatchStyle={{
+            position: 'static',
+            width: '14px',
+            height: '14px',
+            borderRadius: '2px',
+            ...previewSwatchStyle
+          }}
+          triggerClassName="group flex h-6 w-6 items-center justify-center flex-shrink-0 rounded-l-[3px] transition-all text-text-secondary hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+          triggerStyle={{
+            borderRadius: '3px 0 0 3px',
+            borderRight: 'none'
+          }}
+          data-testid={`prop-fill-color-picker-${index}`}
+        >
+          {gradientData ? (
+            <GradientEditor
+              index={index}
+              fill={fill}
+              gradient={gradientData}
+              onChangeFill={onGradientFillChange}
+              onStartInteraction={onStartInteraction}
+              onEndInteraction={onEndInteraction}
+              embedded
+            />
+          ) : null}
+        </ColorPicker>
+        <div className="flex-1 min-w-0 h-full flex items-center">
+          {gradientData ? (
+            <div
+              className="flex h-full items-center px-1.5 text-[11px] text-text-secondary truncate"
+              style={{
+                background: 'transparent',
+                borderRadius: 0
+              }}
+              data-testid={`prop-fill-gradient-summary-${index}`}
+            >
+              {gradientData.gradientType}
+            </div>
+          ) : (
+            <Input
+              value={displayColor}
+              size="small"
+              containerClassName=""
+              containerStyle={{
+                borderRadius: 0,
+                background: 'transparent',
+                border: 'none'
+              }}
+              noOutline
+              onChange={onColorValueChange}
+              data-testid={`prop-fill-color-${index}`}
+            />
+          )}
+        </div>
       </div>
     </div>
   )

@@ -210,10 +210,10 @@ class PropsManager {
     })
   }
 
-  updatePropsData<K extends keyof PropertyComponentInstanceDataTypes>(
+  updatePropsData<K extends string>(
     componentId: string,
     key: K,
-    data: PropertyComponentInstanceDataTypes[K],
+    data: any,
     options?: EvnetOptions
   ) {
     const component = this.getPropertyById(componentId)
@@ -221,15 +221,16 @@ class PropsManager {
       return
     }
 
+    const comp = component as any
     if (options) {
-      component.set(key, data, options)
+      comp.set(key, data, options)
       return
     }
 
-    component.set(key, data)
+    comp.set(key, data)
   }
 
-  updatePropertyById<K extends keyof PropertyComponentInstanceDataTypes>(
+  updatePropertyById<K extends string>(
     propertyId: string,
     key: K,
     data: PropertyComponentInstanceDataTypes[K],
@@ -247,15 +248,16 @@ class PropsManager {
     }
 
     const nextChange = this.changes[this.changes.length - 1]
-    if (
-      nextChange?.action !== PROPS_ACTIONS.UPDATE_PROPERTY ||
-      nextChange.id !== propertyId ||
-      nextChange.key !== key
-    ) {
+    if (nextChange?.action !== PROPS_ACTIONS.UPDATE_PROPERTY) {
       return
     }
 
-    Object.assign(nextChange as UpdatePropertyChange, owner)
+    const updateChange = nextChange as UpdatePropertyChange
+    if (updateChange.id !== propertyId || updateChange.key !== key) {
+      return
+    }
+
+    Object.assign(updateChange, owner)
   }
 
   commitChanges(options?: EVENT_OPTIONS) {

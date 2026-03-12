@@ -17,6 +17,19 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/completed/canvas-gradient-handles-plan.md`
 
+## 2026-03-13 - Properties panel header and vector UI polish closed out
+
+- Context:
+  - Properties panel header/title behavior, vector point controls, and vector icon rendering needed alignment with the new vector topology and panel UI styling.
+- Decision:
+  - Complete the properties panel header and vector UI polish plan and record the updated UI behavior as app-level scope.
+- Consequences:
+  - Panel headers now track selection type or path-editing mode with consistent row alignment.
+  - Vector point controls and fill header styling align with the updated panel conventions.
+  - Vector icon row rendering is stable and no longer reacts to unrelated vector edits.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/properties-panel-header-vector-ui-polish-plan.md`
+
 ## 2026-03-10 - Linear gradient render mapping stabilized in preset
 
 - Context:

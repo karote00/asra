@@ -1,4 +1,10 @@
-import { CanvasSource, FillGradient, FillPattern, Matrix, Texture } from 'pixi.js'
+import {
+  CanvasSource,
+  FillGradient,
+  FillPattern,
+  Matrix,
+  Texture
+} from 'pixi.js'
 
 export interface RenderGradientPoint {
   x: number
@@ -82,10 +88,7 @@ const prepareGradientStops = (
  * Interpolate between pre-parsed gradient color stops at a given normalized position (0..1).
  * Uses only numeric arrays — no CSS parsing in the hot path.
  */
-const sampleGradientColor = (
-  stops: ParsedGradientStop[],
-  t: number
-): RGBA => {
+const sampleGradientColor = (stops: ParsedGradientStop[], t: number): RGBA => {
   const clamped = Math.max(0, Math.min(1, t))
 
   if (stops.length === 0) {
@@ -352,28 +355,20 @@ export const createRenderGradientFillStyle = (
   if (options.type === 'angular') {
     const center = options.start ?? { x: 0.5, y: 0.5 }
     const end = options.end ?? { x: 0.5, y: 0 }
-    const texture = buildAngularGradientTexture(
-      options.colorStops,
-      center,
-      end
-    )
+    const texture = buildAngularGradientTexture(options.colorStops, center, end)
     return createPatternFill(texture)
   }
 
   if (options.type === 'diamond') {
     const center = options.start ?? { x: 0.5, y: 0.5 }
     const end = options.end ?? { x: 0.5, y: 0 }
-    const texture = buildDiamondGradientTexture(
-      options.colorStops,
-      center,
-      end
-    )
+    const texture = buildDiamondGradientTexture(options.colorStops, center, end)
     return createPatternFill(texture)
   }
 
   // Linear gradient (default)
   // Create a perfectly normalized 0->1 horizontal unit gradient.
-  // This physically bypasses PixiJS's buggy internal dx<0||dy<0 coordinate flipping 
+  // This physically bypasses PixiJS's buggy internal dx<0||dy<0 coordinate flipping
   // algorithm, because it is strictly positive on exactly one axis.
   const gradient = new FillGradient({
     type: 'linear',
@@ -384,7 +379,7 @@ export const createRenderGradientFillStyle = (
   })
 
   // Manually build an affine matrix to map this unit gradient texture to the
-  // user's requested `start` -> `end` vector! 
+  // user's requested `start` -> `end` vector!
   const sx = options.start?.x ?? 0
   const sy = options.start?.y ?? 0
   const ex = options.end?.x ?? 1

@@ -3,14 +3,14 @@ import type { ElementRawData, PropsRawData } from './rawDataTypes'
 import { ISetter } from '../setter'
 import { Style } from '../types'
 import type { EvnetOptions } from '../types/change'
-// import { FillAttrs } from '../propsManager'
+import { FillAttrs } from '../propsManager'
 
 export interface ComputedAttrs extends Style {
   id: string
   type: EntityType
   name: string
   rotation: number
-  // fills: FillAttrs[]
+  fills: FillAttrs[]
 }
 
 export interface ElementAttrs {

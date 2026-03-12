@@ -17,6 +17,7 @@ export { initApp as bootstrap } from './init-app'
 
 // Export individual init functions for advanced use cases
 export { initInputSystem } from './init-input-system'
+export { initVectorIconData } from './init-vector-icon-data'
 export {
   initLoadDiagnostics,
   subscribeLoadDiagnostics,

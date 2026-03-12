@@ -1,8 +1,8 @@
-import { Input } from '@asyra/design-system'
+import { Input, PropertyControl } from '@asyra/design-system'
 import { useRotation } from '../providers'
 import { useCallback } from 'react'
 import { changeElementComputedData } from '../controllers/scene-tree'
-import { parseFiniteInputNumber } from './number-input'
+import { formatInputNumber, parseFiniteInputNumber } from './number-input'
 
 const Rotation = () => {
   const rotation = useRotation()
@@ -21,15 +21,19 @@ const Rotation = () => {
   )
 
   return (
-    <div className="flex items-center gap-2 text-gray-200 w-full px-3 py-1">
-      <div className="w-full">
+    <div className="grid grid-cols-2 items-center gap-2 pl-4 pr-2 h-8 min-h-8">
+      <PropertyControl>
         <Input
-          value={rotation}
+          value={formatInputNumber(rotation)}
           prefix="R"
+          suffix="°"
           onChange={handleChangeRotation}
+          noOutline
           data-testid="prop-rotation"
         />
-      </div>
+      </PropertyControl>
+      {/* Spacer for alignment with 2-column rows above */}
+      <div />
     </div>
   )
 }

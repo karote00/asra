@@ -73,8 +73,9 @@ export class RenderLayer {
   addElement(data: RenderElementData) {
     const existingElement = this.getElementById(data.id)
     if (existingElement) {
-      ;(existingElement as SceneElement & { __asyraType?: string }).__asyraType =
-        data.type
+      ;(
+        existingElement as SceneElement & { __asyraType?: string }
+      ).__asyraType = data.type
 
       const strategy = renderStrategyRegistry.get(data.type) || defaultStrategy
       if (existingElement instanceof Graphics) {

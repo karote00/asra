@@ -4,11 +4,6 @@ import { usePrimaryTool } from '../providers'
 import { resetData, switchPrimaryTool } from '../controllers/app'
 import { PrimaryToolType } from '../constants'
 
-const selectedStyle =
-  'bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-white'
-const normalStyle =
-  'hover:bg-gray-100 text-gray-500 dark:hover:bg-gray-800 dark:text-gray-400'
-
 type IconName = ComponentProps<typeof Icon>['name']
 
 const PRIMARY_TOOL_ICON_MAP: Record<string, IconName> = {
@@ -20,14 +15,6 @@ const PRIMARY_TOOL_ICON_MAP: Record<string, IconName> = {
 
 const ToolButton = () => {
   const primaryTool = usePrimaryTool()
-  const selectToolStyle =
-    primaryTool === PrimaryToolType.SELECT ? selectedStyle : normalStyle
-  const rectangleToolStyle =
-    primaryTool === PrimaryToolType.RECTANGLE ? selectedStyle : normalStyle
-  const ovalToolStyle =
-    primaryTool === PrimaryToolType.OVAL ? selectedStyle : normalStyle
-  const penToolStyle =
-    primaryTool === PrimaryToolType.PEN ? selectedStyle : normalStyle
 
   const handleReset = useCallback(() => {
     resetData()
@@ -50,46 +37,67 @@ const ToolButton = () => {
   }, [])
 
   return (
-    <div className="flex text-white">
-      <div
-        className="pr-4 cursor-pointer"
+    <div className="flex items-center gap-1">
+      <button
+        className="tool-btn mr-2"
         onClick={handleReset}
         data-testid="reset-button"
+        title="Reset"
       >
-        Reset
-      </div>
-      <div
-        className={`flex align-middle ${selectToolStyle}`}
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M2.5 2.5v4h4" />
+          <path d="M2.75 9.5a5.25 5.25 0 1 0 1.18-3.75L2.5 6.5" />
+        </svg>
+      </button>
+
+      {/* Separator */}
+      <div className="w-px h-5 bg-[#333] mx-1" />
+
+      <button
+        className={`tool-btn ${primaryTool === PrimaryToolType.SELECT ? 'active' : ''}`}
         onClick={handleSwitchToSelectTool}
         data-testid="tool-select"
         data-active={primaryTool === PrimaryToolType.SELECT}
+        title="Select (V)"
       >
         <Icon name={PRIMARY_TOOL_ICON_MAP[PrimaryToolType.SELECT]} />
-      </div>
-      <div
-        className={`flex align-middle ${rectangleToolStyle}`}
+      </button>
+      <button
+        className={`tool-btn ${primaryTool === PrimaryToolType.RECTANGLE ? 'active' : ''}`}
         onClick={handleSwitchToRectangleTool}
         data-testid="tool-rectangle"
         data-active={primaryTool === PrimaryToolType.RECTANGLE}
+        title="Rectangle (R)"
       >
         <Icon name={PRIMARY_TOOL_ICON_MAP[PrimaryToolType.RECTANGLE]} />
-      </div>
-      <div
-        className={`flex align-middle ${ovalToolStyle}`}
+      </button>
+      <button
+        className={`tool-btn ${primaryTool === PrimaryToolType.OVAL ? 'active' : ''}`}
         onClick={handleSwitchToOvalTool}
         data-testid="tool-oval"
         data-active={primaryTool === PrimaryToolType.OVAL}
+        title="Oval (O)"
       >
         <Icon name={PRIMARY_TOOL_ICON_MAP[PrimaryToolType.OVAL]} />
-      </div>
-      <div
-        className={`flex align-middle ${penToolStyle}`}
+      </button>
+      <button
+        className={`tool-btn ${primaryTool === PrimaryToolType.PEN ? 'active' : ''}`}
         onClick={handleSwitchToPenTool}
         data-testid="tool-pen"
         data-active={primaryTool === PrimaryToolType.PEN}
+        title="Pen (P)"
       >
         <Icon name="Pen" />
-      </div>
+      </button>
     </div>
   )
 }

@@ -290,7 +290,9 @@ const createPropertyComponentFromConfig = (
             | string[]
             | undefined) ??
           []
-        this.syncChildSubscriptions(Array.isArray(fallbackIds) ? fallbackIds : [])
+        this.syncChildSubscriptions(
+          Array.isArray(fallbackIds) ? fallbackIds : []
+        )
       }
 
       if (!allowDynamicKeys) {

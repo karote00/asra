@@ -1,16 +1,10 @@
-import {
-  type ComponentProps,
-  type MouseEvent,
-  useCallback,
-  useEffect,
-  useRef
-} from 'react'
+import { type MouseEvent, useCallback, useEffect, useRef } from 'react'
 import type { ElementRawData, ModifierKeys } from '@asyra/utils'
-import { EntityTypes } from '@asyra/utils'
-import { Icon } from '@asyra/design-system'
 import { useElementData } from '../providers'
 import { selectElements } from '../controllers/element-selection'
 import { setHoveredElementId } from '../controllers/hovered-element'
+import { ElementIcon } from './ElementIcon'
+import { ElementRowActions } from './ElementRowActions'
 
 interface ElementData {
   elementId: string
@@ -23,21 +17,6 @@ const INIT_MODIFIERS: ModifierKeys = {
   ctrl: false,
   alt: false,
   shift: false
-}
-
-type IconName = ComponentProps<typeof Icon>['name']
-
-const ELEMENT_ICON_MAP: Record<string, IconName> = {
-  [EntityTypes.GROUP]: 'Group',
-  [EntityTypes.FRAME]: 'Group',
-  [EntityTypes.WORKSPACE]: 'Group',
-  rect: 'Rect',
-  oval: 'Oval',
-  vector: 'Pen'
-}
-
-const getElementIconName = (type: string): IconName => {
-  return ELEMENT_ICON_MAP[type] ?? 'Rect'
 }
 
 const getModifierKeys = (e: KeyboardEvent): ModifierKeys => {
@@ -61,7 +40,7 @@ const Element = ({ elementId, isSelected, isHovered }: ElementData) => {
 
       selectElements([id])
     },
-    [selectElements]
+    [selectElements, id]
   )
   const handleElementMouseEnter = useCallback(() => {
     setHoveredElementId(id)
@@ -87,18 +66,23 @@ const Element = ({ elementId, isSelected, isHovered }: ElementData) => {
     }
   }, [])
 
-  const bgColor = isSelected
-    ? 'bg-panel-lighter'
+  const bgStyle = isSelected
+    ? 'background: #0d99ff22'
     : isHovered
-      ? 'bg-panel-light'
+      ? 'background: rgba(255,255,255,0.04)'
       : ''
-  const hoverBgColor = isSelected
-    ? 'hover:bg-panel-lighter'
-    : 'hover:bg-panel-light'
 
   return (
     <div
-      className={`flex items-center justify-between p-2 ${bgColor} ${hoverBgColor} text-gray-200`}
+      className="layer-item flex items-center justify-between px-3 cursor-default"
+      style={{
+        height: '32px',
+        ...(isSelected
+          ? { background: 'rgba(13,153,255,0.15)' }
+          : isHovered
+            ? { background: 'rgba(255,255,255,0.04)' }
+            : {})
+      }}
       onClick={handleElementClick}
       onMouseEnter={handleElementMouseEnter}
       onMouseLeave={handleElementMouseLeave}
@@ -106,15 +90,24 @@ const Element = ({ elementId, isSelected, isHovered }: ElementData) => {
       data-layer-element="true"
       data-selected={isSelected}
     >
-      <div className="flex items-center space-x-1 gap-1">
-        <Icon showCursor={false} name={getElementIconName(type)} />
-        {name}
+      <div className="flex items-center gap-2 min-w-0">
+        <div
+          className={`flex items-center flex-shrink-0 ${isSelected ? 'text-[#4db3ff]' : 'text-[#999]'}`}
+        >
+          <ElementIcon elementId={id} type={type} />
+        </div>
+        <span
+          className={`text-[11px] truncate ${isSelected ? 'text-[#e5e5e5] font-medium' : 'text-[#ccc]'}`}
+        >
+          {name}
+        </span>
       </div>
-
-      <div className="flex items-center space-x-1">
-        <Icon name={lock ? 'Lock' : 'Unlock'} />
-        <Icon name={visible ? 'Visible' : 'Invisible'} />
-      </div>
+      <ElementRowActions
+        isHovered={isHovered}
+        isSelected={isSelected}
+        lock={lock}
+        visible={visible}
+      />
     </div>
   )
 }

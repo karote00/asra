@@ -5,7 +5,9 @@ import Rotation from '../rotation'
 import Fills from '../fills'
 import { useElementSelection } from '../../providers'
 
-const ElementPropertiesPanel = () => {
+const SectionDivider = () => <div className="h-[1px] bg-white/5 my-1" />
+
+const ElementPropertiesPanel = ({ title }: { title: string }) => {
   const elementSelection = useElementSelection()
 
   if (!elementSelection.size) {
@@ -13,16 +15,20 @@ const ElementPropertiesPanel = () => {
   }
 
   return (
-    <>
-      <Header label="Layout" />
-      <Position />
-      <Dimension />
-      <Rotation />
-      <>
-        <Header label="Appearance" />
-        <Fills />
-      </>
-    </>
+    <div className="flex flex-col">
+      {/* Design section: Position, Dimension, Rotation */}
+      <Header label={title} />
+      <div className="grid grid-cols-1 w-full pb-2">
+        <Position />
+        <Dimension />
+        <Rotation />
+      </div>
+
+      <SectionDivider />
+
+      {/* Fill section */}
+      <Fills />
+    </div>
   )
 }
 

@@ -276,7 +276,10 @@ const getDiamondPoints = (
 
 const drawSegment = (
   canvas: OverlayCanvas,
-  segment: Pick<OverlaySegmentGeometry, 'from' | 'to' | 'outHandle' | 'inHandle'>,
+  segment: Pick<
+    OverlaySegmentGeometry,
+    'from' | 'to' | 'outHandle' | 'inHandle'
+  >,
   stroke: OverlayStrokeStyle
 ) => {
   const hasCurve = !!segment.outHandle || !!segment.inHandle
@@ -398,15 +401,10 @@ const drawAnchorPoints = (
     }
 
     if (isSelectedAnchor) {
-      canvas.circle(
-        point,
-        SELECTED_POINT_OUTLINE_RADIUS,
-        POINT_FILL_COLOR,
-        {
-          width: SELECTED_POINT_OUTLINE_WIDTH,
-          color: SELECTED_POINT_OUTLINE_COLOR
-        }
-      )
+      canvas.circle(point, SELECTED_POINT_OUTLINE_RADIUS, POINT_FILL_COLOR, {
+        width: SELECTED_POINT_OUTLINE_WIDTH,
+        color: SELECTED_POINT_OUTLINE_COLOR
+      })
     }
   })
 }
@@ -459,7 +457,9 @@ const drawHandlePoints = (
       const isSelectedHandle =
         selectedPointId === point.id && selectedTarget === target
       const isHoveredHandle =
-        !isSelectedHandle && hoveredPointId === point.id && hoveredTarget === target
+        !isSelectedHandle &&
+        hoveredPointId === point.id &&
+        hoveredTarget === target
 
       if (isHoveredHandle) {
         canvas.polygon(
@@ -495,7 +495,9 @@ export const getVisibleHandleAnchorIds = (
   }
 
   for (const subpath of subpaths) {
-    const index = subpath.points.findIndex((point) => point.id === selectedAnchorId)
+    const index = subpath.points.findIndex(
+      (point) => point.id === selectedAnchorId
+    )
     if (index === -1) {
       continue
     }
@@ -524,7 +526,10 @@ export const getVisibleHandleAnchorIds = (
   return new Set()
 }
 
-const isSubpathEndpoint = (subpaths: OverlaySubpath[], pointId: string): boolean =>
+const isSubpathEndpoint = (
+  subpaths: OverlaySubpath[],
+  pointId: string
+): boolean =>
   subpaths.some((subpath) => {
     if (subpath.points.length === 0) {
       return false
@@ -619,9 +624,9 @@ export const registerVectorPathEditingRenderLayer = (
           'hoveredVectorSegment'
         ) ?? null
       const hoveredVectorSegmentInsertPoint =
-        deps.systemContext.getManagedProperty<
-          HoveredVectorSegmentInsertPointState | null
-        >('hoveredVectorSegmentInsertPoint') ?? null
+        deps.systemContext.getManagedProperty<HoveredVectorSegmentInsertPointState | null>(
+          'hoveredVectorSegmentInsertPoint'
+        ) ?? null
       const startNewSubpath =
         deps.systemContext.getManagedProperty<boolean>(
           'pathEditingStartNewSubpath'
@@ -682,13 +687,25 @@ export const registerVectorPathEditingRenderLayer = (
           segmentId,
           {
             ...segment,
-            from: toScreenPosition(segment.from, viewportPosition, viewportScale),
+            from: toScreenPosition(
+              segment.from,
+              viewportPosition,
+              viewportScale
+            ),
             to: toScreenPosition(segment.to, viewportPosition, viewportScale),
             inHandle: segment.inHandle
-              ? toScreenPosition(segment.inHandle, viewportPosition, viewportScale)
+              ? toScreenPosition(
+                  segment.inHandle,
+                  viewportPosition,
+                  viewportScale
+                )
               : null,
             outHandle: segment.outHandle
-              ? toScreenPosition(segment.outHandle, viewportPosition, viewportScale)
+              ? toScreenPosition(
+                  segment.outHandle,
+                  viewportPosition,
+                  viewportScale
+                )
               : null
           }
         ])
@@ -702,9 +719,9 @@ export const registerVectorPathEditingRenderLayer = (
         lastSubpath.points[lastSubpath.points.length - 1]
       const selectedPreviewPoint =
         activeSelectedPoint !== null
-          ? flatScreenPoints.find(
+          ? (flatScreenPoints.find(
               (point) => point.id === activeSelectedPoint.pointId
-            ) ?? null
+            ) ?? null)
           : null
       const previewStartPoint =
         selectedPreviewPoint &&

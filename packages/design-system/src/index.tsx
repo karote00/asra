@@ -4,6 +4,7 @@ export { Icon } from './components/Icon'
 export { Button } from './components/Button'
 export { Input } from './components/Input'
 export { ColorPicker } from './components/ColorPicker'
+export { PropertyControl } from './components/PropertyControl'
 export type {
   ColorPickerChange,
   ColorPickerProps
