@@ -9,7 +9,7 @@ Users need a vector path workflow that supports creating vectors, appending poin
 - create vector on first pen action when not editing
 - append points to active editing vector
 - support drag-to-bezier while adding connected points
-- support subpath split/exit semantics with Escape
+- support Escape cancel behavior for vector selection and path editing
 - allow anchor/handle hover+selection and point-target property editing
 - keep pen editing session continuity and render consistency during refresh
 
@@ -46,10 +46,11 @@ Users need a vector path workflow that supports creating vectors, appending poin
 11. Properties panel shows selected point target data (`anchor` / `inHandle` / `outHandle`) and supports coordinate edits through app APIs.
 12. Enter key starts path editing when exactly one vector is selected.
 13. Double click enters path editing only when selected vector is hit.
-14. Escape in pen mode:
+14. Escape cancel behavior:
 
-- first press splits to new subpath state
-- second press exits path editing and switches tool to Select
+- if path editing mode has vector point/segment selection, Escape clears that selection
+- if path editing mode has no vector point/segment selection, Escape exits path editing
+- if not in path editing mode and elements are selected, Escape clears element selection
 
 15. Point/handle hover changes cursor to pointer and updates hovered point state.
 16. Micro drag below handle-creation threshold on second-point creation should keep the first segment straight (no unintended connected-point bezier handle creation).
@@ -59,7 +60,7 @@ Users need a vector path workflow that supports creating vectors, appending poin
 20. Non-pen point-target drag should keep click-only selection semantics for micro movement below the point-drag threshold.
 21. Pen session continuity:
 
-- after creating a new vector with pen, path editing remains on that vector until explicit Escape exit semantics complete
+- after creating a new vector with pen, path editing remains on that vector until Escape exits path editing
 - when current selection is non-vector, pen action creates a new vector instead of entering invalid vector-editing state
 
 22. In split/new-subpath mode, clicking an endpoint selects that endpoint as the continuation source before the next append action.

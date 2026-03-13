@@ -932,7 +932,7 @@ export const hoverVectorPointCursorFeature = defineFeature(
   {
     priority: 20,
     exclusive: false,
-    execution: (snapshot: SystemContextSnapshot) => {
+    execution: (_snapshot: SystemContextSnapshot) => {
       const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
       if (!pathEditingVectorId) {
         cursorApis.resetCanvasCursor()
@@ -1028,41 +1028,41 @@ export const cancelPenEditingFeature = defineFeature(
     priority: 100,
     exclusive: true,
     execution: (snapshot: SystemContextSnapshot) => {
+      const pathEditingMode = systemContextApis.getPathEditingMode()
       const editingVectorId = systemContextApis.getPathEditingVectorId()
-      if (!editingVectorId) {
-        cursorApis.resetCanvasCursor()
-        return null
-      }
 
-      if (snapshot.primaryTool !== PrimaryToolType.PEN) {
+      if (pathEditingMode) {
+        const hasVectorPointSelection =
+          selectionApis.getVectorPointSelectionIds().length > 0
+        const hasVectorSegmentSelection =
+          selectionApis.getVectorSegmentSelectionIds().length > 0
+
+        if (hasVectorPointSelection || hasVectorSegmentSelection) {
+          selectionApis.clearVectorPointSelection({ undoable: false })
+          selectionApis.clearVectorSegmentSelection({ undoable: false })
+          systemContextApis.clearVectorPointState()
+          cursorApis.resetCanvasCursor()
+          return {
+            cancelled: true,
+            selection: 'vector',
+            elementId: editingVectorId
+          }
+        }
+
         systemContextApis.exitPathEditingMode()
         cursorApis.resetCanvasCursor()
         return { cancelled: true, elementId: editingVectorId }
       }
 
-      const startNewSubpath = systemContextApis.getPathEditingStartNewSubpath()
-      if (!startNewSubpath) {
-        const removed =
-          elementApis.removeLastSinglePointSubpath(editingVectorId)
-        if (removed) {
-          systemContextApis.setPathEditingStartNewSubpath(true)
-          selectionApis.clearVectorPointSelection({ undoable: false })
-          selectionApis.clearVectorSegmentSelection({ undoable: false })
-          systemContextApis.clearVectorPointState()
-          return { splitPath: true, removedSinglePointSubpath: true }
-        }
-
-        systemContextApis.setPathEditingStartNewSubpath(true)
-        selectionApis.clearVectorPointSelection({ undoable: false })
-        selectionApis.clearVectorSegmentSelection({ undoable: false })
-        systemContextApis.clearVectorPointState()
-        return { splitPath: true, elementId: editingVectorId }
+      const selectedIds = selectionApis.getSelectedIds()
+      if (selectedIds.length > 0) {
+        selectionApis.clearSelection({ undoable: false })
+        cursorApis.resetCanvasCursor()
+        return { cancelled: true, selection: 'element' }
       }
 
-      systemContextApis.exitPathEditingMode()
-      systemContextApis.switchPrimaryTool(PrimaryToolType.SELECT)
       cursorApis.resetCanvasCursor()
-      return { cancelled: true, elementId: editingVectorId }
+      return null
     }
   }
 )

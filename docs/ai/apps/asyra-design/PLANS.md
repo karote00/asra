@@ -37,3 +37,5 @@
 - Reference: `docs/ai/apps/asyra-design/plans/completed/auto-switch-to-select-after-create-plan.md`
 3. Vector geometry consistency helper
 - Reference: `docs/ai/apps/asyra-design/plans/completed/vector-geometry-consistency-plan.md`
+4. Escape key cancel behavior alignment
+- Reference: `docs/ai/apps/asyra-design/plans/completed/escape-key-cancel-behavior-plan.md`

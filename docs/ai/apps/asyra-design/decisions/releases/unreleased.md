@@ -759,3 +759,15 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Vector icon row rendering is stable and no longer reacts to unrelated vector edits.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/completed/properties-panel-header-vector-ui-polish-plan.md`
+
+## 2026-03-13 - Escape key cancel behavior alignment closeout
+
+- Context:
+  - Escape previously drove split/new-subpath and tool-switch logic that no longer matched the desired cancel semantics for selection vs path editing.
+- Decision:
+  - Close out the Escape key cancel behavior plan after aligning Escape to clear vector selection first, exit path editing when no vector selection exists, and clear element selection when not editing.
+- Consequences:
+  - Escape now follows a single deterministic cancel flow across path-editing and element selection states.
+  - No tool switching or geometry edits occur on Escape.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/escape-key-cancel-behavior-plan.md`

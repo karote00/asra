@@ -36,8 +36,8 @@ This file defines app-level state keys, owners, and primary consumers.
 
 - `pathEditingStartNewSubpath`
   - owner: system-context
-  - writers: pen cancel and append-point flow
-  - readers: pen feature escape/subpath logic
+  - writers: pen append/connect flow and enter/exit path editing helpers
+  - readers: pen feature subpath/preview logic
 
 - `selectedVectorPoint`
   - owner: system-context

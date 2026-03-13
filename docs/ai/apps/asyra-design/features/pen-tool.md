@@ -128,16 +128,18 @@
 
 Handled by `cancelPenEditing`:
 
-1. no editing vector -> cursor reset only
-2. editing vector + non-pen tool -> exit path editing directly
-3. editing vector + pen tool + connected subpath
+1. path editing mode + vector point/segment selection
 
-- first escape marks new-subpath split state
-- if current subpath has one move-point only, that subpath point is removed
+- clear vector point/segment selection
+- clear compatibility vector point/segment state
 
-4. editing vector + pen tool + already split/new-subpath state
+2. path editing mode + no vector point/segment selection
 
-- second escape exits path editing and switches primary tool to select
+- exit path editing mode
+
+3. not in path editing mode + element selection
+
+- clear element selection
 
 ## Path Editing State Keys
 

@@ -64,13 +64,18 @@ Feature: Pen Tool and Path Editing
     When I double click within that vector bounds
     Then path editing mode should start for that vector
 
-  Scenario: Escape behavior in pen path editing
-    Given I am in path editing mode with pen active
-    When I press Escape once
-    Then current virtual connection should split to new subpath state
-    When I press Escape again
+  Scenario: Escape clears vector selection in path editing
+    Given path editing mode is active
+    And a vector point or segment is selected
+    When I press Escape
+    Then vector point and segment selection should be cleared
+    And path editing mode should remain active
+
+  Scenario: Escape exits path editing when no vector selection exists
+    Given path editing mode is active
+    And no vector point or segment is selected
+    When I press Escape
     Then path editing mode should exit
-    And primary tool should switch to Select
 
   Scenario: Point selection in path editing mode
     Given path editing mode is active
@@ -155,11 +160,11 @@ Feature: Pen Tool and Path Editing
     When I click that different element
     Then element selection should remain on the editing vector
 
-  Scenario: Pen session keeps editing the new vector until Escape completion
+  Scenario: Pen session keeps editing the new vector until Escape exit
     Given I create a new vector with the Pen tool
     When I continue clicking with Pen active
     Then additional points should keep appending to that same editing vector
-    When I complete Escape split-then-exit behavior
+    When I press Escape with no vector point or segment selection
     Then path editing should exit
 
   Scenario: Pen action creates new vector when current selection is non-vector
