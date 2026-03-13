@@ -2,133 +2,7 @@
 
 Decision log for app-scoped changes not yet captured in a release snapshot.
 
-Append-only rule: do not edit/delete prior entries; add superseding entries when decisions change.
-
-## 2026-03-13 - Vector geometry consistency helper closeout
-
-- Context:
-  - Vector edits needed a centralized topology repair + computed-patch path to keep handles, segments, and networks consistent across mutations.
-- Decision:
-  - Close out the vector geometry consistency helper plan after adding the helper and routing vector mutation commits through the shared patch builder.
-- Consequences:
-  - Vector edits now use a single topology repair + patch flow for add/move/split/update/remove/connect.
-  - The helper can be reused by future modules (for example, animation) without reimplementing geometry consistency logic.
-- Related Plan:
-  - `docs/ai/apps/asyra-design/plans/completed/vector-geometry-consistency-plan.md`
-
-## 2026-03-13 - Create tool resets to Select after shape creation
-
-- Context:
-  - Rectangle/oval creation left the primary tool set to a create tool, causing accidental repeated element creation after the initial drag.
-- Decision:
-  - Switch the primary tool back to Select at the end of the create-element session for rectangle and oval tools.
-- Consequences:
-  - After a single create action, the canvas returns to selection behavior by default.
-  - Users can re-enter shape creation explicitly via toolbar or shortcut when desired.
-- Related Plan:
-  - `docs/ai/apps/asyra-design/plans/completed/auto-switch-to-select-after-create-plan.md`
-
-## 2026-03-11 - Canvas gradient handles plan closed out
-
-- Context:
-  - Canvas gradient handle editing now has overlay, drag feature flow, and linear gradient render stability for day-to-day editing.
-- Decision:
-  - Mark the canvas gradient handles plan complete and move it to completed plan records.
-  - Track radial and other gradient type rendering as follow-up scope.
-- Consequences:
-  - Canvas handle editing is treated as finished behavior for linear gradients.
-  - Remaining gradient type rendering work proceeds under a new follow-up scope.
-- Related Plan:
-  - `docs/ai/apps/asyra-design/plans/completed/canvas-gradient-handles-plan.md`
-
-## 2026-03-13 - Properties panel header and vector UI polish closed out
-
-- Context:
-  - Properties panel header/title behavior, vector point controls, and vector icon rendering needed alignment with the new vector topology and panel UI styling.
-- Decision:
-  - Complete the properties panel header and vector UI polish plan and record the updated UI behavior as app-level scope.
-- Consequences:
-  - Panel headers now track selection type or path-editing mode with consistent row alignment.
-  - Vector point controls and fill header styling align with the updated panel conventions.
-  - Vector icon row rendering is stable and no longer reacts to unrelated vector edits.
-- Related Plan:
-  - `docs/ai/apps/asyra-design/plans/completed/properties-panel-header-vector-ui-polish-plan.md`
-
-## 2026-03-10 - Linear gradient render mapping stabilized in preset
-
-- Context:
-  - Linear gradient rendering on canvas was unstable under handle reversal/out-of-bounds and did not consistently respect local-space bounds.
-  - Radial gradients still showed incorrect output, so only linear was stabilized in this pass.
-- Decision:
-  - Map gradient handles into local pixel space before building render gradients.
-  - Keep linear gradient stop ordering stable under Pixi's internal flip behavior.
-  - Defer radial/other gradient type fixes to the next increment.
-- Consequences:
-  - Linear gradient rendering on canvas is now consistent with handle geometry.
-  - Radial and other gradient types remain pending and tracked under the canvas-gradient-handles plan.
-
-## 2026-03-09 - Fill common-api no longer decides transaction ownership
-
-- Context:
-  - `fillApis.updateFill(...)` was reading runtime transaction depth and conditionally opening/closing transactions as a safety fallback.
-  - That mixed behavior policy into a mutation API and relied on internal transaction state.
-- Decision:
-  - Make `fillApis.updateFill(...)` mutation-only.
-  - Move discrete fill transaction ownership into properties-panel UI handlers.
-  - Keep color-picker drag transaction ownership in the picker interaction flow.
-- Consequences:
-  - App/common API no longer inspects transaction internals.
-  - Transaction boundaries now live at the UI-behavior layer where the user action is known.
-
-## 2026-03-09 - Color-picker drag uses live non-undoable writes and one finalize commit
-
-- Context:
-  - Direct child-property fill editing exposed a drag regression: palette/slider frames were being added into undo history, and gradient-stop render refresh also depended on the correct scene-tree publish channel after committed props writes.
-- Decision:
-  - Keep preview open/close UI-local.
-  - During color-picker and gradient-stop drags, apply live fill writes with `undoable: false`.
-  - On drag finalize, replay one undoable fill write before ending the outer transaction.
-  - Refresh owner computed `fills` through the committed props bridge, but publish the resulting scene-tree transaction on the scene-tree shared channel instead of inheriting the props shared channel.
-- Consequences:
-  - Drag sessions produce one undoable color action instead of one commit per frame.
-  - Gradient stop edits update both the properties preview and render subscribers consistently.
-
-## 2026-03-09 - Fills panel ownership moved to ui-context compute with row-based contract
-
-- Context:
-  - Fills panel state was still partially owned by provider-local effects/subscriptions, even though the selected-fill value is selection-derived UI state.
-  - The old contracts/docs also still described vector elements as hiding fills, which no longer matched the implemented properties panel behavior.
-- Decision:
-  - Make ui-context `fills` the selection-derived source for the properties panel via custom `compute`.
-  - Define the current `fills` UI value as `FillRowAttrs[]` for single selection, where each row carries underlying `ids`.
-  - Keep non-single selection on top-level `MIX` until row-level multi-selection aggregation/edit fanout is implemented.
-  - Keep vector elements editable through the normal fills section in element-properties mode; only vector point editing routes away from the element panel.
-- Consequences:
-  - `useFills()` / `useFill()` become thin selectors instead of hooks that manage selection changes themselves.
-  - Fills panel behavior and docs now align around one owner boundary.
-  - The row contract is ready for future multi-selection fanout because each visible row already carries underlying fill ids.
-
-## 2026-03-09 - Single-fill edits now patch child property ids instead of rewriting full fills array
-
-- Context:
-  - Per-fill edits were still reading the entire resolved `fills` array, replacing one entry, and writing the full array back through `changeComputedData('fills', ...)`.
-- Decision:
-  - Keep add/remove on the top-level `fills` list.
-  - Route single-fill field edits through direct child-property updates by `fillId`, then refresh the owner element computed `fills` once.
-- Consequences:
-  - One fill edit no longer requires rebuilding and writing every fill entry.
-  - Repeatable child-property patterns now have a cleaner path for future fills/strokes/shadows work.
-
-## 2026-03-09 - Fills panel commits discrete fill edits as their own transactions
-
-- Context:
-  - Direct child-property writes fixed the fill-write boundary, but discrete properties-panel edits such as hex-entry, mode toggle, and visibility/opacity changes still needed their own user-action transaction boundary.
-- Decision:
-  - Let fill common-apis start/end a transaction when no outer transaction is active, while color-picker drag keeps using its explicit outer transaction session.
-  - Commit direct fill child-property changes through `core.commitPropertyChanges(...)` with owner metadata so scene-tree recompute follows the committed props bridge.
-- Consequences:
-  - One discrete fill edit now maps to one undoable action.
-  - Drag sessions still stay grouped under their existing outer color-picker transaction.
+Append-only rule: only append new entries at the end; do not edit/delete or insert in the middle. Add superseding entries when decisions change.
 
 ## 2026-02-28 - Initialize app decision-history stream
 
@@ -704,6 +578,69 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/repeatable-fills-properties-plan.md`
 
+## 2026-03-09 - Fill common-api no longer decides transaction ownership
+
+- Context:
+  - `fillApis.updateFill(...)` was reading runtime transaction depth and conditionally opening/closing transactions as a safety fallback.
+  - That mixed behavior policy into a mutation API and relied on internal transaction state.
+- Decision:
+  - Make `fillApis.updateFill(...)` mutation-only.
+  - Move discrete fill transaction ownership into properties-panel UI handlers.
+  - Keep color-picker drag transaction ownership in the picker interaction flow.
+- Consequences:
+  - App/common API no longer inspects transaction internals.
+  - Transaction boundaries now live at the UI-behavior layer where the user action is known.
+
+## 2026-03-09 - Color-picker drag uses live non-undoable writes and one finalize commit
+
+- Context:
+  - Direct child-property fill editing exposed a drag regression: palette/slider frames were being added into undo history, and gradient-stop render refresh also depended on the correct scene-tree publish channel after committed props writes.
+- Decision:
+  - Keep preview open/close UI-local.
+  - During color-picker and gradient-stop drags, apply live fill writes with `undoable: false`.
+  - On drag finalize, replay one undoable fill write before ending the outer transaction.
+  - Refresh owner computed `fills` through the committed props bridge, but publish the resulting scene-tree transaction on the scene-tree shared channel instead of inheriting the props shared channel.
+- Consequences:
+  - Drag sessions produce one undoable color action instead of one commit per frame.
+  - Gradient stop edits update both the properties preview and render subscribers consistently.
+
+## 2026-03-09 - Fills panel ownership moved to ui-context compute with row-based contract
+
+- Context:
+  - Fills panel state was still partially owned by provider-local effects/subscriptions, even though the selected-fill value is selection-derived UI state.
+  - The old contracts/docs also still described vector elements as hiding fills, which no longer matched the implemented properties panel behavior.
+- Decision:
+  - Make ui-context `fills` the selection-derived source for the properties panel via custom `compute`.
+  - Define the current `fills` UI value as `FillRowAttrs[]` for single selection, where each row carries underlying `ids`.
+  - Keep non-single selection on top-level `MIX` until row-level multi-selection aggregation/edit fanout is implemented.
+  - Keep vector elements editable through the normal fills section in element-properties mode; only vector point editing routes away from the element panel.
+- Consequences:
+  - `useFills()` / `useFill()` become thin selectors instead of hooks that manage selection changes themselves.
+  - Fills panel behavior and docs now align around one owner boundary.
+  - The row contract is ready for future multi-selection fanout because each visible row already carries underlying fill ids.
+
+## 2026-03-09 - Single-fill edits now patch child property ids instead of rewriting full fills array
+
+- Context:
+  - Per-fill edits were still reading the entire resolved `fills` array, replacing one entry, and writing the full array back through `changeComputedData('fills', ...)`.
+- Decision:
+  - Keep add/remove on the top-level `fills` list.
+  - Route single-fill field edits through direct child-property updates by `fillId`, then refresh the owner element computed `fills` once.
+- Consequences:
+  - One fill edit no longer requires rebuilding and writing every fill entry.
+  - Repeatable child-property patterns now have a cleaner path for future fills/strokes/shadows work.
+
+## 2026-03-09 - Fills panel commits discrete fill edits as their own transactions
+
+- Context:
+  - Direct child-property writes fixed the fill-write boundary, but discrete properties-panel edits such as hex-entry, mode toggle, and visibility/opacity changes still needed their own user-action transaction boundary.
+- Decision:
+  - Let fill common-apis start/end a transaction when no outer transaction is active, while color-picker drag keeps using its explicit outer transaction session.
+  - Commit direct fill child-property changes through `core.commitPropertyChanges(...)` with owner metadata so scene-tree recompute follows the committed props bridge.
+- Consequences:
+  - One discrete fill edit now maps to one undoable action.
+  - Drag sessions still stay grouped under their existing outer color-picker transaction.
+
 ## 2026-03-09 - Repeatable fills properties finalized on child-property model
 
 - Context:
@@ -736,6 +673,32 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/canvas-gradient-handles-plan.md`
 
+## 2026-03-10 - Linear gradient render mapping stabilized in preset
+
+- Context:
+  - Linear gradient rendering on canvas was unstable under handle reversal/out-of-bounds and did not consistently respect local-space bounds.
+  - Radial gradients still showed incorrect output, so only linear was stabilized in this pass.
+- Decision:
+  - Map gradient handles into local pixel space before building render gradients.
+  - Keep linear gradient stop ordering stable under Pixi's internal flip behavior.
+  - Defer radial/other gradient type fixes to the next increment.
+- Consequences:
+  - Linear gradient rendering on canvas is now consistent with handle geometry.
+  - Radial and other gradient types remain pending and tracked under the canvas-gradient-handles plan.
+
+## 2026-03-11 - Canvas gradient handles plan closed out
+
+- Context:
+  - Canvas gradient handle editing now has overlay, drag feature flow, and linear gradient render stability for day-to-day editing.
+- Decision:
+  - Mark the canvas gradient handles plan complete and move it to completed plan records.
+  - Track radial and other gradient type rendering as follow-up scope.
+- Consequences:
+  - Canvas handle editing is treated as finished behavior for linear gradients.
+  - Remaining gradient type rendering work proceeds under a new follow-up scope.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/canvas-gradient-handles-plan.md`
+
 ## 2026-03-11 - Vector handle modes for path editing
 
 - Context:
@@ -759,3 +722,40 @@ Append-only rule: do not edit/delete prior entries; add superseding entries when
   - Plan references now resolve to the completed record.
 - Related Plan:
   - `/Users/asa/Desktop/workspace/asra/docs/ai/apps/asyra-design/plans/completed/vector-handle-mode-plan.md`
+
+## 2026-03-13 - Vector geometry consistency helper closeout
+
+- Context:
+  - Vector edits needed a centralized topology repair + computed-patch path to keep handles, segments, and networks consistent across mutations.
+- Decision:
+  - Close out the vector geometry consistency helper plan after adding the helper and routing vector mutation commits through the shared patch builder.
+- Consequences:
+  - Vector edits now use a single topology repair + patch flow for add/move/split/update/remove/connect.
+  - The helper can be reused by future modules (for example, animation) without reimplementing geometry consistency logic.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/vector-geometry-consistency-plan.md`
+
+## 2026-03-13 - Create tool resets to Select after shape creation
+
+- Context:
+  - Rectangle/oval creation left the primary tool set to a create tool, causing accidental repeated element creation after the initial drag.
+- Decision:
+  - Switch the primary tool back to Select at the end of the create-element session for rectangle and oval tools.
+- Consequences:
+  - After a single create action, the canvas returns to selection behavior by default.
+  - Users can re-enter shape creation explicitly via toolbar or shortcut when desired.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/auto-switch-to-select-after-create-plan.md`
+
+## 2026-03-13 - Properties panel header and vector UI polish closed out
+
+- Context:
+  - Properties panel header/title behavior, vector point controls, and vector icon rendering needed alignment with the new vector topology and panel UI styling.
+- Decision:
+  - Complete the properties panel header and vector UI polish plan and record the updated UI behavior as app-level scope.
+- Consequences:
+  - Panel headers now track selection type or path-editing mode with consistent row alignment.
+  - Vector point controls and fill header styling align with the updated panel conventions.
+  - Vector icon row rendering is stable and no longer reacts to unrelated vector edits.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/properties-panel-header-vector-ui-polish-plan.md`

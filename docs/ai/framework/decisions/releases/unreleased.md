@@ -2,89 +2,8 @@
 
 Decision log for branch-level and post-release work not yet shipped in a tagged framework release.
 
-Append-only rule: do not edit/delete prior entries; add a new superseding entry when decisions change.
+Append-only rule: only append new entries at the end; do not edit/delete or insert in the middle. Add a superseding entry when decisions change.
 Backfilled entries use decision dates inferred from related commit dates/ranges.
-
-## 2026-03-11 - Computed subscribes to property component changes
-
-- Context:
-  - Property updates should update computed data without explicit refresh calls and live closer to property ownership.
-- Decision:
-  - `Computed` subscribes to property component change events (`Setter.on`) and updates computed values directly from property component state.
-- Consequences:
-  - Prop-originated updates keep computed data in sync without calling `refreshComputedDataFromProperty(...)` in normal runtime flow.
-  - `refreshComputedDataFromProperty(...)` remains available for fallback/diagnostic use.
-- Related Plan:
-  - `docs/ai/framework/plans/completed/property-driven-computed-sync-plan.md`
-
-## 2026-03-10 - Preset linear gradient render mapping stabilized
-
-- Context:
-  - Linear gradient rendering in preset used normalized handle coordinates without local-space mapping, leading to inconsistent output across element sizes.
-  - Radial gradient output remained incorrect and required separate handling.
-- Decision:
-  - Map gradient handles into local pixel space before creating render gradients.
-  - Keep linear gradient stop ordering stable under Pixi internal flip behavior.
-  - Defer radial/other gradient render fixes to the next iteration.
-- Consequences:
-  - Linear gradient rendering is consistent across element sizes.
-  - Radial/other gradient types remain pending and tracked under the app canvas-gradient-handles plan.
-
-## 2026-03-09 - Scene-tree recompute bridge must publish on scene-tree shared channel
-
-- Context:
-  - Owner-property recompute from committed props updates reused the props transaction options wholesale.
-  - When those options carried `shared: PROPS`, downstream render subscribers listening on the scene-tree shared channel missed the recomputed element updates.
-- Decision:
-  - Keep the committed props bridge for owner recompute, but clear inherited `shared` routing before the scene-tree transaction commit so scene-tree changes publish on the default scene-tree shared channel.
-- Consequences:
-  - Direct child-property edits remain bridge-driven without leaking props-channel routing into render-facing scene-tree updates.
-  - Render and other scene-tree subscribers stay in sync after committed property edits.
-
-## 2026-03-09 - Render public surface no longer re-exports Pixi classes
-
-- Context:
-  - `@asyra/render` directly re-exported Pixi `FillGradient`, which let non-render packages construct engine-specific classes through the render facade.
-  - This conflicts with the render-engine boundary direction and future `render` / `render-engine` split.
-- Decision:
-  - Remove direct Pixi class re-exports from `@asyra/render`.
-  - Expose render-owned gradient fill factory/types instead of the concrete `FillGradient` class.
-  - Surface preset/app-facing render fill factory access through `core.createRenderGradientFillStyle(...)`.
-- Consequences:
-  - Non-render packages consume render abstractions only.
-  - Concrete engine names no longer leak through the public render package surface.
-
-## 2026-03-09 - Core adds property-id update and computed-refresh bridge for child property edits
-
-- Context:
-  - Child property edits such as fill-row updates needed a framework path that avoids rewriting the full parent computed array for each small change.
-- Decision:
-  - Add `core.updatePropertyById(...)` for direct property-component mutation by id.
-  - Add `core.refreshComputedDataFromProperty(elementId, propertyName, ...)` to recompute one owner element property from props and publish one scene-tree update path.
-- Consequences:
-  - App/common APIs can patch repeatable child properties directly while keeping render/ui-context in sync.
-  - Parent computed-array rewrites are no longer required for single-child edits.
-
-## 2026-03-09 - Child-property owner recompute moved to committed props bridge
-
-- Context:
-  - Manual app-side `refreshComputedDataFromProperty(...)` calls fixed forward child-property edits but duplicated the refresh rule outside the props transaction boundary and did not define the replay path clearly.
-- Decision:
-  - Keep direct child-property writes via `core.updatePropertyById(...)`, but add owner metadata and batch them with `core.commitPropertyChanges(...)`.
-  - Refresh owner scene-tree computed data from committed props update transactions, so forward writes and undo/redo replay use the same bridge.
-- Consequences:
-  - App handlers no longer need to manually refresh owner computed state after each child-property write.
-  - Direct child-property patterns remain transaction-safe and replay-safe.
-
-## 2026-03-04 - Interaction-core retirement completed
-
-- Decision:
-  - Mark interaction-core retirement as completed and move the plan into completed plan records.
-- Outcome:
-  - Runtime and compatibility wiring through interaction-core has been removed.
-  - Feature-system is the only execution/session runtime path.
-- Related Plan:
-  - `docs/ai/framework/plans/completed/interaction-core-retirement-plan.md`
 
 ## 2026-01-29..2026-02-02 - Branch backfill: app-layer owns interaction policy
 
@@ -689,6 +608,16 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
 - Related Plan:
   - `docs/ai/framework/plans/completed/ui-context-data-channel-subscriber-registration.md`
 
+## 2026-03-04 - Interaction-core retirement completed
+
+- Decision:
+  - Mark interaction-core retirement as completed and move the plan into completed plan records.
+- Outcome:
+  - Runtime and compatibility wiring through interaction-core has been removed.
+  - Feature-system is the only execution/session runtime path.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/interaction-core-retirement-plan.md`
+
 ## 2026-03-04 - Render package folder layout standardized by role
 
 - Context:
@@ -963,3 +892,74 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
 - Consequences:
   - Selection visuals and ui-context now stay aligned with runtime during undo/redo replay paths.
   - Drag-move undo can restore both position and prior selection with consistent visual feedback.
+
+## 2026-03-09 - Scene-tree recompute bridge must publish on scene-tree shared channel
+
+- Context:
+  - Owner-property recompute from committed props updates reused the props transaction options wholesale.
+  - When those options carried `shared: PROPS`, downstream render subscribers listening on the scene-tree shared channel missed the recomputed element updates.
+- Decision:
+  - Keep the committed props bridge for owner recompute, but clear inherited `shared` routing before the scene-tree transaction commit so scene-tree changes publish on the default scene-tree shared channel.
+- Consequences:
+  - Direct child-property edits remain bridge-driven without leaking props-channel routing into render-facing scene-tree updates.
+  - Render and other scene-tree subscribers stay in sync after committed property edits.
+
+## 2026-03-09 - Render public surface no longer re-exports Pixi classes
+
+- Context:
+  - `@asyra/render` directly re-exported Pixi `FillGradient`, which let non-render packages construct engine-specific classes through the render facade.
+  - This conflicts with the render-engine boundary direction and future `render` / `render-engine` split.
+- Decision:
+  - Remove direct Pixi class re-exports from `@asyra/render`.
+  - Expose render-owned gradient fill factory/types instead of the concrete `FillGradient` class.
+  - Surface preset/app-facing render fill factory access through `core.createRenderGradientFillStyle(...)`.
+- Consequences:
+  - Non-render packages consume render abstractions only.
+  - Concrete engine names no longer leak through the public render package surface.
+
+## 2026-03-09 - Core adds property-id update and computed-refresh bridge for child property edits
+
+- Context:
+  - Child property edits such as fill-row updates needed a framework path that avoids rewriting the full parent computed array for each small change.
+- Decision:
+  - Add `core.updatePropertyById(...)` for direct property-component mutation by id.
+  - Add `core.refreshComputedDataFromProperty(elementId, propertyName, ...)` to recompute one owner element property from props and publish one scene-tree update path.
+- Consequences:
+  - App/common APIs can patch repeatable child properties directly while keeping render/ui-context in sync.
+  - Parent computed-array rewrites are no longer required for single-child edits.
+
+## 2026-03-09 - Child-property owner recompute moved to committed props bridge
+
+- Context:
+  - Manual app-side `refreshComputedDataFromProperty(...)` calls fixed forward child-property edits but duplicated the refresh rule outside the props transaction boundary and did not define the replay path clearly.
+- Decision:
+  - Keep direct child-property writes via `core.updatePropertyById(...)`, but add owner metadata and batch them with `core.commitPropertyChanges(...)`.
+  - Refresh owner scene-tree computed data from committed props update transactions, so forward writes and undo/redo replay use the same bridge.
+- Consequences:
+  - App handlers no longer need to manually refresh owner computed state after each child-property write.
+  - Direct child-property patterns remain transaction-safe and replay-safe.
+
+## 2026-03-10 - Preset linear gradient render mapping stabilized
+
+- Context:
+  - Linear gradient rendering in preset used normalized handle coordinates without local-space mapping, leading to inconsistent output across element sizes.
+  - Radial gradient output remained incorrect and required separate handling.
+- Decision:
+  - Map gradient handles into local pixel space before creating render gradients.
+  - Keep linear gradient stop ordering stable under Pixi internal flip behavior.
+  - Defer radial/other gradient render fixes to the next iteration.
+- Consequences:
+  - Linear gradient rendering is consistent across element sizes.
+  - Radial/other gradient types remain pending and tracked under the app canvas-gradient-handles plan.
+
+## 2026-03-11 - Computed subscribes to property component changes
+
+- Context:
+  - Property updates should update computed data without explicit refresh calls and live closer to property ownership.
+- Decision:
+  - `Computed` subscribes to property component change events (`Setter.on`) and updates computed values directly from property component state.
+- Consequences:
+  - Prop-originated updates keep computed data in sync without calling `refreshComputedDataFromProperty(...)` in normal runtime flow.
+  - `refreshComputedDataFromProperty(...)` remains available for fallback/diagnostic use.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/property-driven-computed-sync-plan.md`
