@@ -932,7 +932,7 @@ export const hoverVectorPointCursorFeature = defineFeature(
   {
     priority: 20,
     exclusive: false,
-    execution: (_snapshot: SystemContextSnapshot) => {
+    execution: (snapshot: SystemContextSnapshot) => {
       const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
       if (!pathEditingVectorId) {
         cursorApis.resetCanvasCursor()
@@ -1041,6 +1041,7 @@ export const cancelPenEditingFeature = defineFeature(
           selectionApis.clearVectorPointSelection({ undoable: false })
           selectionApis.clearVectorSegmentSelection({ undoable: false })
           systemContextApis.clearVectorPointState()
+          systemContextApis.setPathEditingStartNewSubpath(true)
           cursorApis.resetCanvasCursor()
           return {
             cancelled: true,

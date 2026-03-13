@@ -1,7 +1,11 @@
 import { Input, PropertyControl } from '@asyra/design-system'
 import { type ReactNode, useCallback } from 'react'
 import { VECTOR_TOKENS, type VectorPointTarget } from '@asyra/core'
-import { VectorHandleModes, type VectorHandleMode, ROW_HEIGHT } from '../constants'
+import {
+  VectorHandleModes,
+  type VectorHandleMode,
+  ROW_HEIGHT
+} from '../constants'
 import { elementApis, selectionApis, systemContextApis } from '../common-apis'
 import { useSelectedVectorPoint } from '../providers'
 import { formatInputNumber, parseFiniteInputNumber } from './number-input'
@@ -84,16 +88,18 @@ const IconToggleButton = ({
 const ToggleGroup = ({
   options
 }: {
-  options: Array<{
+  options: {
     value: string
     label: string
     active: boolean
     onSelect: () => void
     icon: ReactNode
     testId: string
-  }>
+  }[]
 }) => (
-  <div className={`flex items-center pl-4 pr-2 h-${ROW_HEIGHT} min-h-${ROW_HEIGHT}`}>
+  <div
+    className={`flex items-center pl-4 pr-2 h-${ROW_HEIGHT} min-h-${ROW_HEIGHT}`}
+  >
     <div className="flex w-full h-6 items-center gap-1 rounded-[6px] bg-panel-surface border border-border-subtle">
       {options.map((option) => (
         <IconToggleButton
@@ -361,18 +367,18 @@ const VectorPoint = () => {
       const updatedPoint =
         target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
           ? elementApis.updateVectorAnchorPointPosition(elementId, pointId, {
-            x: nextX,
-            y
-          })
-          : elementApis.updateVectorAnchorPointHandlePosition(
-            elementId,
-            pointId,
-            target,
-            {
               x: nextX,
               y
-            }
-          )
+            })
+          : elementApis.updateVectorAnchorPointHandlePosition(
+              elementId,
+              pointId,
+              target,
+              {
+                x: nextX,
+                y
+              }
+            )
       return applyTargetSelection(updatedPoint, target)
     },
     [elementId, pointId, x, y, target, applyTargetSelection]
@@ -392,18 +398,18 @@ const VectorPoint = () => {
       const updatedPoint =
         target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
           ? elementApis.updateVectorAnchorPointPosition(elementId, pointId, {
-            x,
-            y: nextY
-          })
-          : elementApis.updateVectorAnchorPointHandlePosition(
-            elementId,
-            pointId,
-            target,
-            {
               x,
               y: nextY
-            }
-          )
+            })
+          : elementApis.updateVectorAnchorPointHandlePosition(
+              elementId,
+              pointId,
+              target,
+              {
+                x,
+                y: nextY
+              }
+            )
       return applyTargetSelection(updatedPoint, target)
     },
     [elementId, pointId, x, y, target, applyTargetSelection]

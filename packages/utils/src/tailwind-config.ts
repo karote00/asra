@@ -1,3 +1,9 @@
+interface TailwindPluginApi {
+  addBase: (styles: Record<string, unknown>) => void
+  addComponents: (styles: Record<string, unknown>) => void
+  theme: (path: string) => string
+}
+
 export const TailwindConfig = {
   darkMode: 'class',
   theme: {
@@ -57,7 +63,7 @@ export const TailwindConfig = {
     }
   },
   plugins: [
-    function ({ addBase, addComponents, theme }: any) {
+    function ({ addBase, addComponents, theme }: TailwindPluginApi) {
       addBase({
         '::-webkit-scrollbar': {
           width: '6px',

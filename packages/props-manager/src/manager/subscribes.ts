@@ -5,18 +5,20 @@ import {
   subscribeToRemoveProperty,
   subscribeToUpdateProperty
 } from '@asyra/reactive-events'
-import { UNDO } from '@asyra/utils'
+import { UNDO, type PropertyComponentInstanceDataTypes } from '@asyra/utils'
 import propsManager from './props-manager'
+
+interface UpdatePropertyChangePayload {
+  id: string
+  key: keyof PropertyComponentInstanceDataTypes
+  after: PropertyComponentInstanceDataTypes[keyof PropertyComponentInstanceDataTypes]
+  ownerElementId?: string
+  ownerPropertyName?: string
+}
 
 const isUpdatePropertyChangePayload = (
   payload: unknown
-): payload is {
-  id: string
-  key: string
-  after: unknown
-  ownerElementId?: string
-  ownerPropertyName?: string
-} =>
+): payload is UpdatePropertyChangePayload =>
   typeof payload === 'object' &&
   payload !== null &&
   'id' in payload &&
@@ -67,8 +69,8 @@ export const initPropXSubscribes = () => {
 
     propsManager.updatePropertyById(
       payload.id,
-      payload.key as any,
-      payload.after as any,
+      payload.key,
+      payload.after,
       payload.ownerElementId && payload.ownerPropertyName
         ? {
             ownerElementId: payload.ownerElementId,

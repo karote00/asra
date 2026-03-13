@@ -80,9 +80,9 @@ export const initSceneTreeSubscribes = () => {
     sceneTree.commitSceneTreeTransaction(options)
   })
 
-  subscribeToUpdateComputedData(({ payload, ...rest }) => {
+  subscribeToUpdateComputedData(({ payload }) => {
     const { id, key, after } = payload
-    const options = (rest as any).options
+    const options = undefined
 
     sceneTree.updateComputedData(
       id,
@@ -128,7 +128,7 @@ export const initSceneTreeSubscribes = () => {
       if (ownerPropComponent && ownerPropId) {
         ownerPropComponent.emitChange({
           id: ownerPropId,
-          key: payload.key as any,
+          key: payload.key,
           before: payload.before as DataTypes,
           after: payload.after as DataTypes,
           options: sceneTreeOptions

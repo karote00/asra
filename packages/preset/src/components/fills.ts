@@ -79,9 +79,6 @@ export const toRenderableGradient = (
   const [startHandle, endHandle] = entry.gradient.gradientHandles
   const start = startHandle ?? { x: 0, y: 0 }
   const end = endHandle ?? { x: 1, y: 0 }
-  const dx = end.x - start.x
-  const dy = end.y - start.y
-  const distance = Math.max(0.001, Math.sqrt(dx * dx + dy * dy))
 
   if (entry.gradient.gradientType === FillGradientTypes.RADIAL) {
     const sideHandle = entry.gradient.gradientHandles[2] ?? null

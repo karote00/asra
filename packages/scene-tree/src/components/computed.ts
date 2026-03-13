@@ -6,7 +6,6 @@ import {
   IProps,
   PropertyComponentInstanceTypes,
   Setter,
-  SetterChangeRecord,
   type EvnetOptions
 } from '@asyra/utils'
 import ElementChangeHandler from './element-change-handler'

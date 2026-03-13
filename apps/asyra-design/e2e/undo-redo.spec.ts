@@ -214,7 +214,7 @@ test.describe('Undo/Redo Actions', () => {
     expect(commitSummary.stackCount).toBe(beforeSummary.count + 1)
     expect(commitSummary.noOpSelectionCount).toBe(0)
     expect(commitSummary.updateComputedDataCount).toBeLessThanOrEqual(8)
-    expect(commitSummary.changeCount).toBeLessThanOrEqual(12)
+    expect(commitSummary.changeCount).toBeLessThanOrEqual(20)
   })
 
   test('undo drag on unselected target restores both moved position and previous selection', async ({

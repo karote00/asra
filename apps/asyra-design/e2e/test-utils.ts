@@ -249,8 +249,8 @@ export async function redo(page: Page) {
  */
 export async function hasSelectedElement(page: Page): Promise<boolean> {
   const propertiesPanel = getPropertiesPanel(page)
-  const layoutHeader = propertiesPanel.locator('text=Layout')
-  return await layoutHeader.isVisible()
+  const positionInput = propertiesPanel.getByTestId('prop-x')
+  return await positionInput.isVisible()
 }
 
 /**

@@ -40,8 +40,7 @@ const getElementSelectionLabel = (
 
   if (types.size === 1) {
     const type = types.values().next().value as string
-    const rawLabel =
-      ELEMENT_TYPE_LABELS[type] ?? type.replace(/[-_]/g, ' ')
+    const rawLabel = ELEMENT_TYPE_LABELS[type] ?? type.replace(/[-_]/g, ' ')
     return toSentenceCase(rawLabel)
   }
 

@@ -66,12 +66,6 @@ const Element = ({ elementId, isSelected, isHovered }: ElementData) => {
     }
   }, [])
 
-  const bgStyle = isSelected
-    ? 'background: #0d99ff22'
-    : isHovered
-      ? 'background: rgba(255,255,255,0.04)'
-      : ''
-
   return (
     <div
       className="layer-item flex items-center justify-between px-3 cursor-default"

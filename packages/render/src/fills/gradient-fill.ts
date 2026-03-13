@@ -59,12 +59,19 @@ let _colorCtx: OffscreenCanvasRenderingContext2D | null = null
 const parseCssColor = (color: string): RGBA => {
   if (!_colorCanvas) {
     _colorCanvas = new OffscreenCanvas(1, 1)
-    _colorCtx = _colorCanvas.getContext('2d', {
+    const context = _colorCanvas.getContext('2d', {
       willReadFrequently: true
-    })!
+    })
+    if (!context) {
+      throw new Error('Failed to acquire 2d context for color parsing.')
+    }
+    _colorCtx = context
   }
 
-  const ctx = _colorCtx!
+  const ctx = _colorCtx
+  if (!ctx) {
+    throw new Error('Color parsing context is unavailable.')
+  }
   ctx.clearRect(0, 0, 1, 1)
   ctx.fillStyle = color
   ctx.fillRect(0, 0, 1, 1)
@@ -140,7 +147,10 @@ const buildAngularGradientTexture = (
 ): Texture => {
   const size = GRADIENT_TEXTURE_SIZE
   const canvas = new OffscreenCanvas(size, size)
-  const ctx = canvas.getContext('2d')!
+  const ctx = canvas.getContext('2d')
+  if (!ctx) {
+    throw new Error('Failed to acquire 2d context for angular gradient.')
+  }
   const imageData = ctx.createImageData(size, size)
   const data = imageData.data
   const parsedStops = prepareGradientStops(colorStops)
@@ -201,7 +211,10 @@ const buildRadialGradientTexture = (
 ): Texture => {
   const size = GRADIENT_TEXTURE_SIZE
   const canvas = new OffscreenCanvas(size, size)
-  const ctx = canvas.getContext('2d')!
+  const ctx = canvas.getContext('2d')
+  if (!ctx) {
+    throw new Error('Failed to acquire 2d context for radial gradient.')
+  }
   const imageData = ctx.createImageData(size, size)
   const data = imageData.data
   const parsedStops = prepareGradientStops(colorStops)
@@ -271,7 +284,10 @@ const buildDiamondGradientTexture = (
 ): Texture => {
   const size = GRADIENT_TEXTURE_SIZE
   const canvas = new OffscreenCanvas(size, size)
-  const ctx = canvas.getContext('2d')!
+  const ctx = canvas.getContext('2d')
+  if (!ctx) {
+    throw new Error('Failed to acquire 2d context for diamond gradient.')
+  }
   const imageData = ctx.createImageData(size, size)
   const data = imageData.data
   const parsedStops = prepareGradientStops(colorStops)

@@ -152,7 +152,9 @@ const GradientStopsList = ({
           </div>
           <div className="h-6 min-w-0 bg-panel-surface rounded transition-all hover:ring-1 hover:ring-white/10 focus-within:ring-1 focus-within:ring-border-focus">
             <Input
-              value={formatInputNumber(Math.round(clampUnit(stop.opacity) * 100))}
+              value={formatInputNumber(
+                Math.round(clampUnit(stop.opacity) * 100)
+              )}
               suffix="%"
               onChange={(value) => onStopOpacityChange(stopIndex, value)}
               containerClassName="rounded !bg-transparent"

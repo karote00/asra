@@ -192,23 +192,17 @@ export const useFillInteractions = ({
     return fill.gradient
   }, [fill])
 
-  const displayColor = useMemo(
-    () => {
-      if (!fill) {
-        return ''
-      }
+  const displayColor = useMemo(() => {
+    if (!fill) {
+      return ''
+    }
 
-      const formatted = convertStoredColorToFormat(
-        fill.color,
-        fill.colorFormat
-      )
+    const formatted = convertStoredColorToFormat(fill.color, fill.colorFormat)
 
-      return fill.colorFormat === FillColorFormats.HEX
-        ? formatted.replace(/^#/, '')
-        : formatted
-    },
-    [fill]
-  )
+    return fill.colorFormat === FillColorFormats.HEX
+      ? formatted.replace(/^#/, '')
+      : formatted
+  }, [fill])
 
   const previewSwatchStyle = useMemo(
     () =>

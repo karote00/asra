@@ -58,10 +58,11 @@ const FillModeButton = ({
   <button
     type="button"
     onClick={onClick}
-    className={`inline-flex h-6 w-6 items-center justify-center rounded transition-colors ${active
-      ? 'bg-accent text-white'
-      : 'bg-transparent text-text-secondary hover:bg-panel-surface-hover hover:text-text-primary'
-      }`}
+    className={`inline-flex h-6 w-6 items-center justify-center rounded transition-colors ${
+      active
+        ? 'bg-accent text-white'
+        : 'bg-transparent text-text-secondary hover:bg-panel-surface-hover hover:text-text-primary'
+    }`}
     data-testid={testId}
     aria-label={label}
     title={label}

@@ -210,10 +210,10 @@ class PropsManager {
     })
   }
 
-  updatePropsData<K extends string>(
+  updatePropsData<K extends keyof PropertyComponentInstanceDataTypes>(
     componentId: string,
     key: K,
-    data: any,
+    data: PropertyComponentInstanceDataTypes[K],
     options?: EvnetOptions
   ) {
     const component = this.getPropertyById(componentId)
@@ -221,13 +221,12 @@ class PropsManager {
       return
     }
 
-    const comp = component as any
     if (options) {
-      comp.set(key, data, options)
+      component.set(key, data, options)
       return
     }
 
-    comp.set(key, data)
+    component.set(key, data)
   }
 
   updatePropertyById<K extends string>(

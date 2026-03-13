@@ -32,7 +32,7 @@ import {
   resolveHandleModeSwitchUpdate
 } from './handle-mode'
 
-type AnchorHandleSnapshot = {
+interface AnchorHandleSnapshot {
   anchor: PositionData
   inHandle: PositionData | null
   outHandle: PositionData | null
@@ -360,10 +360,14 @@ export const connectEndpointsAndRepair = (
     return null
   }
 
-  return connectAnchorEndpointsInTopology(topology, sourceEndpoint, targetEndpoint)
+  return connectAnchorEndpointsInTopology(
+    topology,
+    sourceEndpoint,
+    targetEndpoint
+  )
 }
 
-export type VectorPointUpdate = {
+export interface VectorPointUpdate {
   position?: PositionData
   type?: VectorAnchorType
   handleMode?: VectorHandleMode
@@ -382,7 +386,11 @@ export const updatePoint = (
   let nextTopology = topology
 
   if (update.position) {
-    const moved = translateAnchorAndHandles(nextTopology, pointId, update.position)
+    const moved = translateAnchorAndHandles(
+      nextTopology,
+      pointId,
+      update.position
+    )
     if (!moved) {
       return null
     }
@@ -394,7 +402,11 @@ export const updatePoint = (
   }
 
   if (update.handleMode) {
-    const repaired = setHandleModeAndRepair(nextTopology, pointId, update.handleMode)
+    const repaired = setHandleModeAndRepair(
+      nextTopology,
+      pointId,
+      update.handleMode
+    )
     if (!repaired) {
       return null
     }
@@ -424,7 +436,10 @@ export const buildVectorComputedPatch = (
     closed?: boolean
   }
 ): Record<string, DataTypes> => {
-  assertVectorTopologyConsistency(topologyInWorkspace, 'buildVectorComputedPatch')
+  assertVectorTopologyConsistency(
+    topologyInWorkspace,
+    'buildVectorComputedPatch'
+  )
   const bounds = calculateVectorBounds(topologyInWorkspace)
   const normalizedTopology = normalizeVectorTopology(
     topologyInWorkspace,
@@ -445,7 +460,7 @@ export const buildVectorComputedPatch = (
   } satisfies Record<string, DataTypes>
 }
 
-export type VectorComputedData = {
+export interface VectorComputedData {
   x?: number
   y?: number
   closed?: boolean

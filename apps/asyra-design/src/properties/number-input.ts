@@ -8,9 +8,7 @@ export const parseFiniteInputNumber = (value: string): number | null => {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-export const formatInputNumber = (
-  value: number | string
-): number | string => {
+export const formatInputNumber = (value: number | string): number | string => {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return value
   }

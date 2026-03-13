@@ -1373,13 +1373,20 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.keyboard.press('Escape')
     await page.waitForTimeout(150)
 
-    // Second consecutive escape: exit path editing mode and switch to Select tool.
+    // Second consecutive escape: exit path editing mode while staying in pen tool.
     await page.keyboard.press('Escape')
-    await expect.poll(() => getActiveTool(page)).toBe('select')
-
-    // Switch back to pen and create a new vector.
-    await page.keyboard.press('p')
     await expect.poll(() => getActiveTool(page)).toBe('pen')
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          return core?.getSystemProperty?.('pathEditingVectorId') ?? null
+        })
+      })
+      .toBeNull()
+
+    // Create a new vector while pen tool stays active.
     await clickCanvas(page, 0.65, 0.5)
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 2)
   })

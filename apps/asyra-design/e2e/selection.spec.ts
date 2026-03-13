@@ -302,12 +302,10 @@ test.describe('Element Selection', () => {
     // Find the element in the Contents Panel
     const contentsPanel = getContentsPanel(page)
     const rectangleItem = contentsPanel
-      .locator('[class*="flex items-center justify-between"]')
+      .locator('[data-layer-element="true"]')
       .first()
 
-    // Check if the item has the selected background style
-    const itemClass = (await rectangleItem.getAttribute('class')) ?? ''
-    // Selected items should have 'bg-panel-lighter' class
-    expect(itemClass).toContain('bg-panel-lighter')
+    // Selected items should expose data-selected
+    await expect(rectangleItem).toHaveAttribute('data-selected', 'true')
   })
 })

@@ -696,26 +696,32 @@ const upsertControlPoint = (
   role: VectorControlRole,
   controlPosition: PositionData | null,
   anchorPosition: PositionData
-): string | null => {
+): { points: Record<string, VectorPointNode>; controlId: string | null } => {
   const controlId = getControlId(anchorId, role)
   if (
     !controlPosition ||
     !isNonDegenerateControl(controlPosition, anchorPosition)
   ) {
-    delete points[controlId]
-    return null
+    return {
+      points: omitKey(points, controlId) as Record<string, VectorPointNode>,
+      controlId: null
+    }
   }
 
-  points[controlId] = {
-    id: controlId,
-    kind: VECTOR_TOKENS.POINT.KIND.CONTROL,
-    controlForId: anchorId,
-    controlRole: role,
-    x: controlPosition.x,
-    y: controlPosition.y
+  return {
+    points: {
+      ...points,
+      [controlId]: {
+        id: controlId,
+        kind: VECTOR_TOKENS.POINT.KIND.CONTROL,
+        controlForId: anchorId,
+        controlRole: role,
+        x: controlPosition.x,
+        y: controlPosition.y
+      }
+    },
+    controlId
   }
-
-  return controlId
 }
 
 export const splitSegmentInTopology = (
@@ -796,50 +802,60 @@ export const splitSegmentInTopology = (
     }
   }
 
-  const nextSegments: Record<string, VectorSegment> = {
-    ...topology.segments
-  }
-  delete nextSegments[segmentId]
+  const nextSegments = omitKey(topology.segments, segmentId) as Record<
+    string,
+    VectorSegment
+  >
 
   const firstSegmentId = id(VECTOR_TOPOLOGY_SEGMENT_ID_TYPE)
   const secondSegmentId = id(VECTOR_TOPOLOGY_SEGMENT_ID_TYPE)
 
-  const startOutControlId = hasCurve
-    ? upsertControlPoint(
-        nextPoints,
-        segment.startId,
-        VECTOR_TOKENS.CONTROL.ROLE.OUT,
-        splitGeometry.startOutControl,
-        { x: startAnchor.x, y: startAnchor.y }
-      )
-    : null
-  const splitInControlId = hasCurve
-    ? upsertControlPoint(
-        nextPoints,
-        splitPointId,
-        VECTOR_TOKENS.CONTROL.ROLE.IN,
-        splitGeometry.splitInControl,
-        splitPointPosition
-      )
-    : null
-  const splitOutControlId = hasCurve
-    ? upsertControlPoint(
-        nextPoints,
-        splitPointId,
-        VECTOR_TOKENS.CONTROL.ROLE.OUT,
-        splitGeometry.splitOutControl,
-        splitPointPosition
-      )
-    : null
-  const endInControlId = hasCurve
-    ? upsertControlPoint(
-        nextPoints,
-        segment.endId,
-        VECTOR_TOKENS.CONTROL.ROLE.IN,
-        splitGeometry.endInControl,
-        { x: endAnchor.x, y: endAnchor.y }
-      )
-    : null
+  let startOutControlId: string | null = null
+  let splitInControlId: string | null = null
+  let splitOutControlId: string | null = null
+  let endInControlId: string | null = null
+
+  if (hasCurve) {
+    const startOutResult = upsertControlPoint(
+      nextPoints,
+      segment.startId,
+      VECTOR_TOKENS.CONTROL.ROLE.OUT,
+      splitGeometry.startOutControl,
+      { x: startAnchor.x, y: startAnchor.y }
+    )
+    nextPoints = startOutResult.points
+    startOutControlId = startOutResult.controlId
+
+    const splitInResult = upsertControlPoint(
+      nextPoints,
+      splitPointId,
+      VECTOR_TOKENS.CONTROL.ROLE.IN,
+      splitGeometry.splitInControl,
+      splitPointPosition
+    )
+    nextPoints = splitInResult.points
+    splitInControlId = splitInResult.controlId
+
+    const splitOutResult = upsertControlPoint(
+      nextPoints,
+      splitPointId,
+      VECTOR_TOKENS.CONTROL.ROLE.OUT,
+      splitGeometry.splitOutControl,
+      splitPointPosition
+    )
+    nextPoints = splitOutResult.points
+    splitOutControlId = splitOutResult.controlId
+
+    const endInResult = upsertControlPoint(
+      nextPoints,
+      segment.endId,
+      VECTOR_TOKENS.CONTROL.ROLE.IN,
+      splitGeometry.endInControl,
+      { x: endAnchor.x, y: endAnchor.y }
+    )
+    nextPoints = endInResult.points
+    endInControlId = endInResult.controlId
+  }
 
   nextSegments[firstSegmentId] = {
     id: firstSegmentId,
@@ -1071,7 +1087,7 @@ const swapAnchorHandleRolesForPoints = (
   points: Record<string, VectorPointNode>,
   pointIds: string[]
 ): Record<string, VectorPointNode> => {
-  const nextPoints = { ...points }
+  let nextPoints = { ...points }
 
   pointIds.forEach((pointId) => {
     const anchor = nextPoints[pointId]
@@ -1096,7 +1112,10 @@ const swapAnchorHandleRolesForPoints = (
         controlRole: VECTOR_TOKENS.CONTROL.ROLE.IN
       }
     } else {
-      delete nextPoints[inControlId]
+      nextPoints = omitKey(nextPoints, inControlId) as Record<
+        string,
+        VectorPointNode
+      >
     }
 
     if (inControl) {
@@ -1107,7 +1126,10 @@ const swapAnchorHandleRolesForPoints = (
         controlRole: VECTOR_TOKENS.CONTROL.ROLE.OUT
       }
     } else {
-      delete nextPoints[outControlId]
+      nextPoints = omitKey(nextPoints, outControlId) as Record<
+        string,
+        VectorPointNode
+      >
     }
   })
 

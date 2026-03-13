@@ -1,6 +1,10 @@
 import type { SystemContextSnapshot } from '@asyra/utils'
 import { defineFeature } from '@asyra/core'
-import { elementApis, selectionApis, systemContextApis } from '../../common-apis'
+import {
+  elementApis,
+  selectionApis,
+  systemContextApis
+} from '../../common-apis'
 import {
   FEATURE_MOVEMENT_THRESHOLD,
   FeatureNames,

@@ -87,20 +87,16 @@ test.describe('Property Management', () => {
     // Get the Properties Panel
     const propertiesPanel = getPropertiesPanel(page)
 
-    // Verify the Layout header is visible (indicates properties are shown)
-    const layoutHeader = propertiesPanel.locator('text=Layout')
-    await expect(layoutHeader).toBeVisible()
-
     // Verify position inputs are visible (X and Y)
-    const xInput = propertiesPanel.locator('input').first()
-    const yInput = propertiesPanel.locator('input').nth(1)
+    const xInput = propertiesPanel.getByTestId('prop-x')
+    const yInput = propertiesPanel.getByTestId('prop-y')
 
     await expect(xInput).toBeVisible()
     await expect(yInput).toBeVisible()
 
     // Verify dimension inputs are visible (W and H)
-    const widthInput = propertiesPanel.locator('input').nth(2)
-    const heightInput = propertiesPanel.locator('input').nth(3)
+    const widthInput = propertiesPanel.getByTestId('prop-width')
+    const heightInput = propertiesPanel.getByTestId('prop-height')
 
     await expect(widthInput).toBeVisible()
     await expect(heightInput).toBeVisible()
@@ -137,14 +133,12 @@ test.describe('Property Management', () => {
     // Get the Properties Panel
     const propertiesPanel = getPropertiesPanel(page)
 
-    // Verify the Layout header is NOT visible (empty state)
-    const layoutHeader = propertiesPanel.locator('text=Layout')
-    await expect(layoutHeader).not.toBeVisible()
+    // Verify the empty state is visible
+    const emptyState = propertiesPanel.locator('text=No selection')
+    await expect(emptyState).toBeVisible()
 
     // Verify no property inputs are visible
-    const inputs = propertiesPanel.locator('input')
-    const inputCount = await inputs.count()
-    expect(inputCount).toBe(0)
+    await expect(propertiesPanel.getByTestId('prop-x')).not.toBeVisible()
   })
 
   /**
@@ -164,7 +158,7 @@ test.describe('Property Management', () => {
     const propertiesPanel = getPropertiesPanel(page)
 
     // Find and update the X input
-    const xInput = propertiesPanel.locator('input').first()
+    const xInput = propertiesPanel.getByTestId('prop-x')
 
     // Clear the current value and type new value
     await xInput.click()
@@ -177,7 +171,7 @@ test.describe('Property Management', () => {
     expect(newXValue).toBe('200')
 
     // Update Y position as well
-    const yInput = propertiesPanel.locator('input').nth(1)
+    const yInput = propertiesPanel.getByTestId('prop-y')
     await yInput.click()
     await yInput.fill('300')
     await yInput.press('Enter')
@@ -205,7 +199,7 @@ test.describe('Property Management', () => {
     const propertiesPanel = getPropertiesPanel(page)
 
     // Find and update the Width input (3rd input after X, Y)
-    const widthInput = propertiesPanel.locator('input').nth(2)
+    const widthInput = propertiesPanel.getByTestId('prop-width')
 
     // Clear the current value and type new value
     await widthInput.click()
@@ -218,7 +212,7 @@ test.describe('Property Management', () => {
     expect(newWidthValue).toBe('300')
 
     // Update Height as well (4th input)
-    const heightInput = propertiesPanel.locator('input').nth(3)
+    const heightInput = propertiesPanel.getByTestId('prop-height')
     await heightInput.click()
     await heightInput.fill('250')
     await heightInput.press('Enter')
@@ -480,7 +474,7 @@ test.describe('Property Management', () => {
 
     // Get initial X value
     const propertiesPanel = getPropertiesPanel(page)
-    const xInput = propertiesPanel.locator('input').first()
+    const xInput = propertiesPanel.getByTestId('prop-x')
     const firstRectX = await xInput.inputValue()
 
     // Create second rectangle at different position
@@ -489,7 +483,7 @@ test.describe('Property Management', () => {
     // Select first rectangle via Contents Panel to verify properties update
     const contentsPanel = getContentsPanel(page)
     const firstElement = contentsPanel
-      .locator('[class*="flex items-center justify-between"]')
+      .locator('[data-layer-element="true"]')
       .first()
     await firstElement.click()
     await page.waitForTimeout(200)
@@ -515,14 +509,14 @@ test.describe('Property Management', () => {
     const propertiesPanel = getPropertiesPanel(page)
 
     // Focus on X input
-    const xInput = propertiesPanel.locator('input').first()
+    const xInput = propertiesPanel.getByTestId('prop-x')
     await xInput.focus()
 
     // Press Tab to move to Y input
     await page.keyboard.press('Tab')
 
     // Verify Y input is now focused
-    const yInput = propertiesPanel.locator('input').nth(1)
+    const yInput = propertiesPanel.getByTestId('prop-y')
     await expect(yInput).toBeFocused()
   })
 })

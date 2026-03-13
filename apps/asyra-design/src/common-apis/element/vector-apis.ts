@@ -135,7 +135,8 @@ const getVectorComputed = (elementId: string) => {
     return null
   }
 
-  const computedRaw = element.getAllComputedData() as Partial<VectorComputedData>
+  const computedRaw =
+    element.getAllComputedData() as Partial<VectorComputedData>
   if (!isVectorComputedData(computedRaw)) {
     return null
   }
@@ -179,13 +180,15 @@ const getVectorTopologyWorkspace = (elementId: string): VectorTopology => {
 
 const isAnchorNode = (
   point: VectorPointNode | undefined
-): point is VectorPointNode & { kind: typeof VECTOR_TOKENS.POINT.KIND.ANCHOR } =>
-  !!point && point.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
+): point is VectorPointNode & {
+  kind: typeof VECTOR_TOKENS.POINT.KIND.ANCHOR
+} => !!point && point.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
 
 const isControlNode = (
   point: VectorPointNode | undefined
-): point is VectorPointNode & { kind: typeof VECTOR_TOKENS.POINT.KIND.CONTROL } =>
-  !!point && point.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
+): point is VectorPointNode & {
+  kind: typeof VECTOR_TOKENS.POINT.KIND.CONTROL
+} => !!point && point.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
 
 const hasHandleTarget = (
   topology: VectorTopology,

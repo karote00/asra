@@ -51,7 +51,7 @@ export class Setter<T extends InstanceDataType> {
 
       if (!isEqual(before, after)) {
         const change: SetterChangeRecord = {
-          id: this.get('id' as any) as string,
+          id: this.get('id' as keyof T) as string,
           key: key as string,
           before: before as DataTypes,
           after: after as DataTypes,
