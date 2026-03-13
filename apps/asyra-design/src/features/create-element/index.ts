@@ -1,6 +1,6 @@
 import type { SystemContextSnapshot } from '@asyra/utils'
 import { defineFeature } from '@asyra/core'
-import { elementApis, selectionApis } from '../../common-apis'
+import { elementApis, selectionApis, systemContextApis } from '../../common-apis'
 import {
   FEATURE_MOVEMENT_THRESHOLD,
   FeatureNames,
@@ -158,6 +158,13 @@ export const createElementFeature = defineFeature<
 
       if (!hasSignificantMove) {
         api.resetElementSize(state.elementId)
+      }
+
+      if (
+        snapshot.primaryTool === PrimaryToolType.RECTANGLE ||
+        snapshot.primaryTool === PrimaryToolType.OVAL
+      ) {
+        systemContextApis.switchPrimaryTool(PrimaryToolType.SELECT)
       }
     }
   }

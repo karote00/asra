@@ -31,6 +31,7 @@
 
 3. End
 - if drag movement is below threshold, reset to default element size
+- switch primary tool back to select after creation completes
 
 ## Notes
 

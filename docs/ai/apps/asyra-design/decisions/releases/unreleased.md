@@ -4,6 +4,18 @@ Decision log for app-scoped changes not yet captured in a release snapshot.
 
 Append-only rule: do not edit/delete prior entries; add superseding entries when decisions change.
 
+## 2026-03-13 - Create tool resets to Select after shape creation
+
+- Context:
+  - Rectangle/oval creation left the primary tool set to a create tool, causing accidental repeated element creation after the initial drag.
+- Decision:
+  - Switch the primary tool back to Select at the end of the create-element session for rectangle and oval tools.
+- Consequences:
+  - After a single create action, the canvas returns to selection behavior by default.
+  - Users can re-enter shape creation explicitly via toolbar or shortcut when desired.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/auto-switch-to-select-after-create-plan.md`
+
 ## 2026-03-11 - Canvas gradient handles plan closed out
 
 - Context:
