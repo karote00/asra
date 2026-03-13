@@ -771,3 +771,17 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - No tool switching or geometry edits occur on Escape.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/completed/escape-key-cancel-behavior-plan.md`
+
+## 2026-03-14 - Multi-fill rendering replays shape paths per fill
+
+- Context:
+  - Adding multiple fills rendered only the first visible fill because the render path was consumed on the first `fill` call.
+  - Visual stacking needed to match the fills list order used in the properties panel.
+- Decision:
+  - Replay the element path before each additional fill so every fill renders.
+  - Keep fill stacking in list order (later fills draw on top).
+- Consequences:
+  - Solid and gradient fills now composite correctly across multiple fills.
+  - Fill list order in the UI corresponds to visual stacking on canvas.
+- Related Commit(s):
+  - pending

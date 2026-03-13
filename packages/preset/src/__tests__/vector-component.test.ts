@@ -161,12 +161,12 @@ const toVectorData = (anchors: TestAnchorPoint[], closed: boolean) => {
   return { points, segments, networks }
 }
 
-const createSolidFill = (color: string) => ({
+const createSolidFill = (color: string, opacity = 1) => ({
   kind: FillKinds.SOLID,
   defaultColorFormat: FillColorFormats.HEX,
   colorFormat: FillColorFormats.HEX,
   color,
-  opacity: 1,
+  opacity,
   visible: true,
   gradient: null
 })
@@ -418,6 +418,55 @@ describe('Vector Component', () => {
 
     expect(mockGraphic.closePath).toHaveBeenCalled()
     expect(mockGraphic.fill).toHaveBeenCalledWith(0xff0000)
+  })
+
+  it('should render multiple fills in order', () => {
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) return
+
+    const mockGraphic = {
+      clear: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      bezierCurveTo: vi.fn(),
+      closePath: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn()
+    }
+
+    const mockData = {
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      ...toVectorData(
+        [
+          { id: '1', x: 0, y: 0 },
+          { id: '2', x: 100, y: 0 },
+          { id: '3', x: 100, y: 100 },
+          { id: '4', x: 0, y: 100 }
+        ],
+        true
+      ),
+      closed: true,
+      fills: [createSolidFill('#ffffff', 0.6), createSolidFill('#ff0000', 0.3)],
+      stroke: '#000000',
+      strokeWidth: 2
+    }
+
+    runRenderStrategy(renderStrategy, mockGraphic, mockData)
+
+    expect(mockGraphic.fill).toHaveBeenCalledTimes(2)
+    expect(mockGraphic.fill.mock.calls[0]?.[0]).toEqual({
+      color: 0xffffff,
+      alpha: 0.6
+    })
+    expect(mockGraphic.fill.mock.calls[1]?.[0]).toEqual({
+      color: 0xff0000,
+      alpha: 0.3
+    })
   })
 
   it('should not render path segments when only one point exists', () => {

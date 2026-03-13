@@ -171,34 +171,48 @@ const getRenderableFillFromEntry = (
   }
 }
 
-export const getRenderableFill = (fills: unknown): RenderableFill | null => {
+export const getRenderableFills = (fills: unknown): RenderableFill[] => {
   if (!Array.isArray(fills)) {
-    return null
+    return []
   }
 
-  for (const rawFill of fills) {
+  return fills.reduce<RenderableFill[]>((result, rawFill) => {
     const fill = normalizeFillEntry(rawFill)
     if (!fill) {
-      continue
+      return result
     }
 
     const renderableFill = getRenderableFillFromEntry(fill)
     if (renderableFill) {
-      return renderableFill
+      result.push(renderableFill)
     }
-  }
 
-  return null
+    return result
+  }, [])
+}
+
+export const getRenderableFill = (fills: unknown): RenderableFill | null => {
+  const renderableFills = getRenderableFills(fills)
+  return renderableFills[0] ?? null
 }
 
 export const applyRenderableFill = (
   graphic: { fill: unknown },
-  fills: unknown
+  fills: unknown,
+  options?: {
+    replayPath?: () => void
+    order?: 'forward' | 'reverse'
+  }
 ): boolean => {
-  const renderableFill = getRenderableFill(fills)
-  if (!renderableFill) {
+  const renderableFills = getRenderableFills(fills)
+  if (renderableFills.length === 0) {
     return false
   }
+
+  const orderedFills =
+    options?.order === 'reverse'
+      ? [...renderableFills].reverse()
+      : renderableFills
 
   const applyFill = (value: unknown) =>
     (graphic.fill as (this: typeof graphic, value: unknown) => unknown).call(
@@ -206,19 +220,25 @@ export const applyRenderableFill = (
       value
     )
 
-  if (renderableFill.kind === 'gradient') {
-    applyFill(renderableFill.style)
-    return true
-  }
+  orderedFills.forEach((renderableFill, index) => {
+    if (index > 0) {
+      options?.replayPath?.()
+    }
 
-  if (renderableFill.alpha >= 1) {
-    applyFill(renderableFill.color)
-    return true
-  }
+    if (renderableFill.kind === 'gradient') {
+      applyFill(renderableFill.style)
+      return
+    }
 
-  applyFill({
-    color: renderableFill.color,
-    alpha: renderableFill.alpha
+    if (renderableFill.alpha >= 1) {
+      applyFill(renderableFill.color)
+      return
+    }
+
+    applyFill({
+      color: renderableFill.color,
+      alpha: renderableFill.alpha
+    })
   })
   return true
 }

@@ -26,14 +26,17 @@ defineComponent({
   renderStrategy: (graphic, data) => {
     graphic.clear()
 
-    // Draw ellipse
-    graphic.ellipse(
-      data.width / 2,
-      data.height / 2,
-      data.width / 2,
-      data.height / 2
-    )
-    applyRenderableFill(graphic, data.fills)
+    const replayPath = () => {
+      // Draw ellipse
+      graphic.ellipse(
+        data.width / 2,
+        data.height / 2,
+        data.width / 2,
+        data.height / 2
+      )
+    }
+    replayPath()
+    applyRenderableFill(graphic, data.fills, { replayPath })
 
     graphic.x = data.x
     graphic.y = data.y

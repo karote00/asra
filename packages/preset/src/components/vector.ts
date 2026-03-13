@@ -45,33 +45,12 @@ const sortByStableId = <T extends { id: string }>(items: T[]): T[] =>
     return a.id.localeCompare(b.id)
   })
 
-const vectorRenderStrategy: RenderStrategy = (graphic, data) => {
-  graphic.clear()
-
-  const typedData = data as typeof data & VectorComputedData
-  const {
-    closed,
-    fills,
-    fill,
-    stroke,
-    strokeWidth,
-    x,
-    y,
-    points,
-    segments,
-    networks
-  } = typedData
-
-  const orderedNetworks = sortByStableId(Object.values(networks))
-  if (orderedNetworks.length === 0) {
-    return
-  }
-
-  graphic.x = x
-  graphic.y = y
-
-  const strokeColor = parseHexColor(stroke, 0xcccccc)
-
+const drawVectorPath = (
+  graphic: Parameters<RenderStrategy>[0],
+  orderedNetworks: VectorNetwork[],
+  points: Record<string, VectorPointNode>,
+  segments: Record<string, VectorSegment>
+) => {
   orderedNetworks.forEach((network) => {
     const firstId = network.pointIds[0]
     const first = firstId ? points[firstId] : undefined
@@ -128,9 +107,41 @@ const vectorRenderStrategy: RenderStrategy = (graphic, data) => {
       graphic.closePath()
     }
   })
+}
+
+const vectorRenderStrategy: RenderStrategy = (graphic, data) => {
+  graphic.clear()
+
+  const typedData = data as typeof data & VectorComputedData
+  const {
+    closed,
+    fills,
+    fill,
+    stroke,
+    strokeWidth,
+    x,
+    y,
+    points,
+    segments,
+    networks
+  } = typedData
+
+  const orderedNetworks = sortByStableId(Object.values(networks))
+  if (orderedNetworks.length === 0) {
+    return
+  }
+
+  graphic.x = x
+  graphic.y = y
+
+  const strokeColor = parseHexColor(stroke, 0xcccccc)
+
+  drawVectorPath(graphic, orderedNetworks, points, segments)
 
   if (closed) {
-    const hasRenderedFill = applyRenderableFill(graphic, fills)
+    const hasRenderedFill = applyRenderableFill(graphic, fills, {
+      replayPath: () => drawVectorPath(graphic, orderedNetworks, points, segments)
+    })
     if (!hasRenderedFill && typeof fill === 'string' && fill !== 'none') {
       graphic.fill(parseHexColor(fill, 0x000000))
     }

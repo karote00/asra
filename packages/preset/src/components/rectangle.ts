@@ -25,8 +25,11 @@ defineComponent({
   ],
   renderStrategy: (graphic, data) => {
     graphic.clear()
-    graphic.rect(0, 0, data.width, data.height)
-    applyRenderableFill(graphic, data.fills)
+    const replayPath = () => {
+      graphic.rect(0, 0, data.width, data.height)
+    }
+    replayPath()
+    applyRenderableFill(graphic, data.fills, { replayPath })
     graphic.x = data.x
     graphic.y = data.y
   }
