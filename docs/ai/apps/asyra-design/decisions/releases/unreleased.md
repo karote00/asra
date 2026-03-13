@@ -4,6 +4,18 @@ Decision log for app-scoped changes not yet captured in a release snapshot.
 
 Append-only rule: do not edit/delete prior entries; add superseding entries when decisions change.
 
+## 2026-03-13 - Vector geometry consistency helper closeout
+
+- Context:
+  - Vector edits needed a centralized topology repair + computed-patch path to keep handles, segments, and networks consistent across mutations.
+- Decision:
+  - Close out the vector geometry consistency helper plan after adding the helper and routing vector mutation commits through the shared patch builder.
+- Consequences:
+  - Vector edits now use a single topology repair + patch flow for add/move/split/update/remove/connect.
+  - The helper can be reused by future modules (for example, animation) without reimplementing geometry consistency logic.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/vector-geometry-consistency-plan.md`
+
 ## 2026-03-13 - Create tool resets to Select after shape creation
 
 - Context:

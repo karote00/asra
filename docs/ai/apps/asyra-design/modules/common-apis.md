@@ -56,3 +56,5 @@
 - Vector geometry updates normalize anchor points against computed bounds.
 - Hit-testing is bounds-based (`isPointInsideElement`) for selection/hover behavior.
 - Vector handle mode helpers track per-point handle constraints (`none`, `mirror-angle`, `mirror-angle-length`) for drag and panel edits.
+- Vector topology commits validate segment/network consistency and fail fast on invalid references.
+- Vector geometry helper (`vectorGeometry.*`) centralizes topology repairs for add/move/split/update flows and builds computed-data patches.

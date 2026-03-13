@@ -91,6 +91,7 @@
 - after segment split, pen keeps `pathEditingStartNewSubpath = true` (split mode), so connected append preview stays hidden until user explicitly resumes from a valid endpoint.
 - point target selection takes precedence over segment selection.
 - in path editing mode, hover/selection targets are restricted to the current `pathEditingVectorId` vector; other elements are ignored.
+- if a selected or hovered point/segment is removed by topology edits, the selection/hover state is cleared deterministically.
 
 ## Curve Handle Visual/Selection Contract
 
@@ -114,6 +115,7 @@
 - curve handles are selectable targets and feed point target data to the property panel
 - moving an anchor point translates that anchor's `inHandle` and `outHandle` by the same delta (handle geometry follows anchor translation)
 - dragging a selected `inHandle`/`outHandle` updates only that handle position and keeps the handle target selected
+- switching handle mode to `none` removes existing handle nodes deterministically
 - when handle mode is `mirror-angle`, dragging a handle mirrors the opposite handle angle while preserving its original length
 - when handle mode is `mirror-angle-length`, dragging a handle mirrors both angle and length of the opposite handle
 

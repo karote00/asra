@@ -57,6 +57,10 @@ Import boundary:
 - `setElementPositions(positionsById: Record<string, PositionData>, options?: { undoable: boolean }): void`
 - `hasMovedBeyondThreshold(clientDragStart: PositionData, clientCurrentPos: PositionData, threshold?: number): boolean`
 - `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: { undoable: boolean }): void`
+  - `vectorGeometry` helper (exported from `src/common-apis/element`):
+    - `validate(topology, label?)`
+    - `addPoint(...)`, `movePoint(...)`, `splitSegment(...)`, `updatePoint(...)`, `removePoint(...)`, `connectEndpoints(...)`
+    - `setHandleMode(...)`, `updateHandle(...)`, `buildPatch(topology, options?)`
 
 `selectionApis` (`src/common-apis/selection.ts`)
 

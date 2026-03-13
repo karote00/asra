@@ -1,5 +1,11 @@
 # Plan: Vector Geometry Consistency Helper
 
+## Status
+
+- Completed: 2026-03-13
+- Outcome: Added vector topology consistency helpers + patch builder and routed vector mutations through the centralized helper path.
+- Canonical: `docs/ai/apps/asyra-design/plans/completed/vector-geometry-consistency-plan.md`
+
 ## Goal
 
 Introduce a geometry helper that keeps vector topology and curve control relationships consistent during all vector edits.

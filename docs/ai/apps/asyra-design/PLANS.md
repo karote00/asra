@@ -9,12 +9,6 @@
 1. Reduce app-level internal coupling
 
 - remove internal-path imports (for example keymap source path)
-
-2. Vector geometry consistency helper
-
-- keep handle/segment/network relationships consistent during vector edits
-- Reference: `docs/ai/apps/asyra-design/plans/vector-geometry-consistency-plan.md`
-
 ## Mid-Term
 
 1. Advanced selection workflows
@@ -41,3 +35,5 @@
 - Reference: `docs/ai/apps/asyra-design/plans/completed/properties-panel-header-vector-ui-polish-plan.md`
 2. Auto-switch to Select after create
 - Reference: `docs/ai/apps/asyra-design/plans/completed/auto-switch-to-select-after-create-plan.md`
+3. Vector geometry consistency helper
+- Reference: `docs/ai/apps/asyra-design/plans/completed/vector-geometry-consistency-plan.md`
