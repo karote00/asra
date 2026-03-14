@@ -89,3 +89,38 @@ export interface VectorPathStyle extends VectorStrokeStyle {
   fill?: string
   fills?: FillAttrs[]
 }
+
+export interface VectorSelectionRef {
+  elementId: string
+  pointId: string
+  target: VectorPointTarget
+}
+
+export interface VectorEditingContinuation {
+  networkId: string
+  pointId: string
+  side: VectorEndpointSide
+}
+
+export interface SelectedVectorPointState extends Record<string, unknown> {
+  elementId: string
+  pointId: string
+  index: number
+  target: VectorPointTarget
+  x: number
+  y: number
+  handleMode?: string
+}
+
+export interface SelectedVectorSegmentState extends Record<string, unknown> {
+  elementId: string
+  segmentId: string
+}
+
+export interface HoveredVectorSegmentInsertPointState
+  extends Record<string, unknown> {
+  elementId: string
+  segmentId: string
+  x: number
+  y: number
+}

@@ -109,7 +109,12 @@ export type {
   VectorControlRole,
   VectorSegment,
   VectorNetwork,
-  VectorTopology
+  VectorTopology,
+  VectorSelectionRef,
+  VectorEditingContinuation,
+  SelectedVectorPointState,
+  SelectedVectorSegmentState,
+  HoveredVectorSegmentInsertPointState
 } from './types/vector'
 export type {
   RenderLayerRegistration,

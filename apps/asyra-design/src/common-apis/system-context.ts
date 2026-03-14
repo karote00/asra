@@ -8,35 +8,22 @@ import core, { systemContext } from '../contexts'
 import {
   VECTOR_TOKENS,
   type VectorPointTarget as CoreVectorPointTarget,
-  type VectorEndpointSide
+  type VectorEndpointSide,
+  type VectorAnchorPoint,
+  type SelectedVectorPointState as CoreSelectedVectorPointState,
+  type VectorEditingContinuation as CoreVectorEditingContinuation,
+  type SelectedVectorSegmentState as CoreSelectedVectorSegmentState,
+  type HoveredVectorSegmentInsertPointState as CoreHoveredVectorSegmentInsertPointState
 } from '@asyra/core'
 import type { VectorHandleMode } from '../constants'
 import { selectionApis } from './selection'
+import { elementApis } from './element'
 
 export type VectorPointTarget = CoreVectorPointTarget
+export type SelectedVectorPointState = CoreSelectedVectorPointState
 
-export interface SelectedVectorPointState extends Record<string, unknown> {
-  elementId: string
-  pointId: string
-  index: number
-  target: VectorPointTarget
-  x: number
-  y: number
-  handleMode?: VectorHandleMode
-}
-
-export interface SelectedVectorSegmentState extends Record<string, unknown> {
-  elementId: string
-  segmentId: string
-}
-
-export interface HoveredVectorSegmentInsertPointState
-  extends Record<string, unknown> {
-  elementId: string
-  segmentId: string
-  x: number
-  y: number
-}
+export type SelectedVectorSegmentState = CoreSelectedVectorSegmentState
+export type HoveredVectorSegmentInsertPointState = CoreHoveredVectorSegmentInsertPointState
 
 export interface ActiveGradientFillState extends Record<string, unknown> {
   elementId: string
@@ -49,6 +36,10 @@ export interface GradientHandleState extends Record<string, unknown> {
   elementId: string
   fillId: string
   handleIndex: GradientHandleIndex
+}
+
+export type PathEditingContinuationState = CoreVectorEditingContinuation & {
+  elementId: string
 }
 
 interface EnterPathEditingOptions {
@@ -249,5 +240,19 @@ export const systemContextApis = {
     selectionApis.clearVectorPointSelection({ undoable: false })
     selectionApis.clearVectorSegmentSelection({ undoable: false })
     systemContextApis.clearVectorPointState()
+  },
+
+  getPathEditingContinuation: (): PathEditingContinuationState | null => {
+    return (
+      core.getSystemProperty<PathEditingContinuationState | null>(
+        'pathEditingContinuation'
+      ) ?? null
+    )
+  },
+
+  setPathEditingContinuation: (
+    continuation: PathEditingContinuationState | null
+  ) => {
+    core.setSystemProperty('pathEditingContinuation', continuation)
   }
 }

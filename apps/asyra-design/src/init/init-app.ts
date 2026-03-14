@@ -4,6 +4,7 @@ import { initGradientFillEditing } from './init-gradient-fill-editing'
 import { initLoadDiagnostics } from './init-load-diagnostics'
 import { initSelectionCompatibility } from './init-selection-compatibility'
 import { initVectorIconData } from './init-vector-icon-data'
+import { initPathEditingContinuation } from './init-path-editing-continuation'
 import { applyPreset } from '@asyra/preset'
 import core from '../contexts'
 
@@ -37,6 +38,7 @@ export const initApp = (): void => {
   initSelectionCompatibility()
   initGradientFillEditing()
   initVectorIconData()
+  initPathEditingContinuation()
 
   initInputSystem()
   // Initialize feature-system for application-level features

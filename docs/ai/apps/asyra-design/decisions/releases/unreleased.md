@@ -831,3 +831,20 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - ID collisions between new and old elements are prevented.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/vector-id-sync-fix.md`
+
+## 2026-03-15 - Refactor Path Editing Continuation State
+
+- Context:
+  - Path editing continuation logic (determining which endpoint to continue from) was manually calculated in the pen tool during every drag start.
+  - This duplication led to high computational overhead and inconsistent state management between the pen tool and other vector-editing features.
+- Decision:
+  - Centralize path editing continuation logic in the `systemContext` with a dedicated property `pathEditingContinuation`.
+  - Define a standardized `PathEditingContinuationState` interface in `@asyra/core` and export it as part of the core vector contract.
+  - Implement reactive synchronization in a new app-level initialization module that updates the continuation state based on selection, edited vector, and topology changes.
+  - Refactor the pen tool to consume the centralized state instead of calculating it internally.
+- Consequences:
+  - Pen tool implementation is simplified and more performant.
+  - Continuation state is now consistently available to the UI and other features through the standard property system.
+  - Data flow is more deterministic and follows the framework's reactive principles.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/refactor-path-editing-continuation-state.md`

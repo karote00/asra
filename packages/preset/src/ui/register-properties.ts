@@ -9,31 +9,23 @@ import {
   type FillAttrs,
   type FillRowAttrs
 } from '@asyra/utils'
-import type { VectorPointTarget } from '@asyra/core'
+import {
+  VECTOR_TOKENS,
+  type VectorPointTarget,
+  type SelectedVectorPointState,
+  type VectorEditingContinuation,
+  type SelectedVectorSegmentState,
+  type HoveredVectorSegmentInsertPointState
+} from '@asyra/core'
 import type { PropertyComputeContext } from '@asyra/ui-context'
 import type { PresetCoreAPIs } from '../types'
 
 const DEFAULT_PRIMARY_TOOL = 'select'
 
-interface SelectedVectorPointState extends Record<string, unknown> {
+export interface PathEditingContinuationState
+  extends VectorEditingContinuation,
+    Record<string, unknown> {
   elementId: string
-  pointId: string
-  index: number
-  target: VectorPointTarget
-  x: number
-  y: number
-}
-
-interface SelectedVectorSegmentState extends Record<string, unknown> {
-  elementId: string
-  segmentId: string
-}
-
-interface HoveredVectorSegmentInsertPointState extends Record<string, unknown> {
-  elementId: string
-  segmentId: string
-  x: number
-  y: number
 }
 
 interface ElementPanelData extends Record<string, unknown> {
@@ -241,6 +233,12 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     null
   )
 
+  const pathEditingContinuationObservable =
+    core.defineSystemProperty<PathEditingContinuationState | null>(
+      'pathEditingContinuation',
+      null
+    )
+
   core.defineUIProperty<string | null>('pathEditingVectorId', {
     defaultValue: null,
     source$: pathEditingVectorObservable
@@ -260,6 +258,14 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     'selectedVectorSegment',
     {
       defaultValue: null
+    }
+  )
+
+  core.defineUIProperty<PathEditingContinuationState | null>(
+    'pathEditingContinuation',
+    {
+      defaultValue: null,
+      source$: pathEditingContinuationObservable
     }
   )
 }

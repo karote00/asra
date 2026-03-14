@@ -6,7 +6,6 @@
 
 ## Near-Term
 
-1. [Refactor Path Editing Continuation State](plans/refactor-path-editing-continuation-state.md) (Architectural optimization)
 
 2. Reduce app-level internal coupling
 

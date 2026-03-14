@@ -502,24 +502,10 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
             clickedPoint &&
             clickedPoint.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
           ) {
-            const previouslySelectedPoint = selectionApis
-              .getSelectedVectorPoints()
-              .find((selection) => selection.elementId === pathEditingVectorId)
-            const previousEndpoint =
-              previouslySelectedPoint?.elementId === pathEditingVectorId &&
-              previouslySelectedPoint.target ===
-                VECTOR_TOKENS.POINT.TARGET.ANCHOR
-                ? getSubpathEndpoint(subpaths, previouslySelectedPoint.pointId)
-                : null
-            const currentSubpath = subpaths[subpaths.length - 1]
-            const fallbackEndpoint =
-              currentSubpath && currentSubpath.length > 0
-                ? getSubpathEndpoint(
-                    subpaths,
-                    currentSubpath[currentSubpath.length - 1].id
-                  )
-                : null
-            const sourceEndpoint = previousEndpoint ?? fallbackEndpoint
+            const sourceEndpoint = systemContextApis.getPathEditingContinuation()
+            if (!sourceEndpoint) {
+              return null
+            }
 
             if (clickedEndpoint) {
               const selectedPoint = elementApis.getVectorAnchorPointById(
@@ -541,13 +527,13 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
               return null
             }
 
-            if (sourceEndpoint.point.id === clickedEndpoint.point.id) {
+            if (sourceEndpoint.pointId === clickedEndpoint.point.id) {
               return null
             }
 
             const connected = elementApis.connectVectorAnchorEndpoints(
               pathEditingVectorId,
-              sourceEndpoint.point.id,
+              sourceEndpoint.pointId,
               clickedEndpoint.point.id
             )
             if (!connected) {
@@ -620,30 +606,15 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
             return null
           }
 
-          const selectedPoint = selectionApis
-            .getSelectedVectorPoints()
-            .find((selection) => selection.elementId === pathEditingVectorId)
-          const selectedEndpoint =
-            !startNewSubpath &&
-            selectedPoint?.elementId === pathEditingVectorId &&
-            selectedPoint.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
-              ? getSubpathEndpoint(subpaths, selectedPoint.pointId)
-              : null
+          const continuation = systemContextApis.getPathEditingContinuation()
+          const connectedPointId = continuation?.pointId ?? null
+          const anchorPoints =
+            elementApis.getVectorAnchorPoints(pathEditingVectorId)
+          const connectedPoint = connectedPointId
+            ? anchorPoints.find((p) => p.id === connectedPointId)
+            : null
+
           const currentSubpath = subpaths[subpaths.length - 1]
-          const fallbackConnectedPoint =
-            !startNewSubpath && currentSubpath && currentSubpath.length > 0
-              ? currentSubpath[currentSubpath.length - 1]
-              : null
-          const connectedPoint =
-            selectedEndpoint?.point ?? fallbackConnectedPoint
-          const connectedPointId = connectedPoint?.id ?? null
-          const continuation =
-            !startNewSubpath && connectedPointId
-              ? elementApis.getVectorAnchorEndpoint(
-                  pathEditingVectorId,
-                  connectedPointId
-                )
-              : null
           const connectionSide =
             continuation?.side ?? VECTOR_TOKENS.ENDPOINT.SIDE.END
           const autoUpdateConnectedHandle =
