@@ -233,7 +233,6 @@ __metadata:
   resolution: "@asyra/render@workspace:packages/render"
   dependencies:
     "@asyra/factory": "workspace:*"
-    "@asyra/preset": "workspace:*"
     "@asyra/reactive-events": "workspace:*"
     "@asyra/scene-tree": "workspace:*"
     "@asyra/selection": "workspace:*"

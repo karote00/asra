@@ -27,8 +27,8 @@ export function createDynamicComponent(
     _init(): void {
       // Set idType and nameType BEFORE calling super._init()
       // These are used by the utils id() and name() helpers in create()
-      this._idType = idPrefix
-      this._nameType = namePrefix
+      this._idType = type
+      this._nameType = type
 
       super._init()
 

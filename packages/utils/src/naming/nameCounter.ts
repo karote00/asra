@@ -21,6 +21,12 @@ class NameCounter {
   }
 
   load(name: string, type: string) {
+    // Initialize if not exists
+    if (!this.counter[type]) {
+      this.counter[type] =
+        `${capitalizeFirstLetter(type)}${CODE_SPLIT}${FIRST_NAME}`
+    }
+
     const currentName = this.current(type)
     if (!currentName) {
       return ''
@@ -57,7 +63,8 @@ class NameCounter {
     const count = parseInt(splits[splits.length - 1])
     const next = count + 1
 
-    const newName = `${capitalizeFirstLetter(type)}${CODE_SPLIT}${next}`
+    const prefix = splits.slice(0, -1).join(CODE_SPLIT)
+    const newName = `${prefix}${CODE_SPLIT}${next}`
     this.update(type, newName)
 
     return newName
@@ -68,9 +75,14 @@ class NameCounter {
       return false
     }
 
+    const currentName = this.counter[type]
+    const expectedPrefix = currentName
+      ? currentName.split(CODE_SPLIT).slice(0, -1).join(CODE_SPLIT)
+      : capitalizeFirstLetter(type)
+
     const splits = name.split(CODE_SPLIT)
     if (splits.length !== 2) return false
-    if (splits[0] === capitalizeFirstLetter(type)) {
+    if (splits[0] === expectedPrefix) {
       return isNumber(splits[1])
     }
 

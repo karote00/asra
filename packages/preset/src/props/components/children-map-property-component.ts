@@ -4,7 +4,9 @@ import {
   getPropertyComponentAccessor
 } from '@asyra/core'
 import {
+  id,
   loadId,
+  IDTypes,
   type DataTypes,
   type PropertyComponentRawData,
   type Unit
@@ -178,6 +180,7 @@ export const defineChildrenMapPropertyComponent = (
                 ...entry.data
               }
             : {
+                id: id(config.childIdType || IDTypes.PROPS),
                 type: config.childType,
                 ...entry.data
               }

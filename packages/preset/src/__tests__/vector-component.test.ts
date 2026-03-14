@@ -68,7 +68,8 @@ beforeAll(() => {
         return state
       },
       getSystemPropertyObservable: <T>(key: string) =>
-        systemPropertyMap.get(key) as BehaviorSubject<T> | undefined
+        systemPropertyMap.get(key) as BehaviorSubject<T> | undefined,
+      createRenderGradientFillStyle: () => null as never
     },
     presetDeps
   )
@@ -185,78 +186,6 @@ const createSolidFill = (color: string, opacity = 1) => ({
   visible: true,
   gradient: null
 })
-
-const createSquareNetwork = (
-  suffix: string,
-  minX: number,
-  minY: number,
-  maxX: number,
-  maxY: number
-) => {
-  const pointIds = [
-    `p-${suffix}-0`,
-    `p-${suffix}-1`,
-    `p-${suffix}-2`,
-    `p-${suffix}-3`
-  ]
-
-  const points: Record<string, VectorPointNode> = {
-    [pointIds[0]]: {
-      id: pointIds[0],
-      kind: 'anchor',
-      anchorType: 'sharp',
-      x: minX,
-      y: minY
-    },
-    [pointIds[1]]: {
-      id: pointIds[1],
-      kind: 'anchor',
-      anchorType: 'sharp',
-      x: maxX,
-      y: minY
-    },
-    [pointIds[2]]: {
-      id: pointIds[2],
-      kind: 'anchor',
-      anchorType: 'sharp',
-      x: maxX,
-      y: maxY
-    },
-    [pointIds[3]]: {
-      id: pointIds[3],
-      kind: 'anchor',
-      anchorType: 'sharp',
-      x: minX,
-      y: maxY
-    }
-  }
-
-  const segments: Record<string, VectorSegment> = {}
-  const segmentIds: string[] = []
-
-  for (let i = 0; i < pointIds.length; i += 1) {
-    const startId = pointIds[i]
-    const endId = pointIds[(i + 1) % pointIds.length]
-    const segmentId = `ts-${suffix}-${i}`
-    segments[segmentId] = {
-      id: segmentId,
-      startId,
-      endId,
-      outControlId: null,
-      inControlId: null
-    }
-    segmentIds.push(segmentId)
-  }
-
-  const network: VectorNetwork = {
-    id: `tn-${suffix}`,
-    pointIds,
-    segmentIds,
-    closed: true
-  }
-
-  return { points, segments, network }
-}
 
 describe('Vector Component', () => {
   it('should register vector component in all registries', () => {

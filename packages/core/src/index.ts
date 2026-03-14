@@ -140,6 +140,7 @@ type CoreExtensionApiKeys =
   | 'registerRenderLayer'
   | 'unregisterRenderLayer'
   | 'createRenderGradientFillStyle'
+  | 'createEvenOddFillStyle'
   | 'sceneTreeInit'
   | 'sceneTreeLoadData'
   | 'sceneTreeSaveData'

@@ -3,7 +3,7 @@ import { PropertyTypes, createDefaultFill } from '@asyra/utils'
 
 definePropertyComponent({
   type: PropertyTypes.FILL,
-  defaults: createDefaultFill(),
+  defaults: createDefaultFill() as unknown as Record<string, unknown>,
   persistKeys: [
     'kind',
     'defaultColorFormat',

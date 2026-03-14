@@ -7,7 +7,6 @@ import {
 import type {
   EVENT_OPTIONS,
   UpdatePropertyChange,
-  PropertyComponentInstanceDataTypes,
   PropertyComponentInstanceTypes,
   PropertyComponentRawData,
   PropsChange,
@@ -210,10 +209,10 @@ class PropsManager {
     })
   }
 
-  updatePropsData<K extends keyof PropertyComponentInstanceDataTypes>(
+  updatePropsData(
     componentId: string,
-    key: K,
-    data: PropertyComponentInstanceDataTypes[K],
+    key: string,
+    data: unknown,
     options?: EvnetOptions
   ) {
     const component = this.getPropertyById(componentId)
@@ -222,17 +221,19 @@ class PropsManager {
     }
 
     if (options) {
-      component.set(key, data, options)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      component.set(key as any, data as any, options)
       return
     }
 
-    component.set(key, data)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    component.set(key as any, data as any)
   }
 
-  updatePropertyById<K extends string>(
+  updatePropertyById(
     propertyId: string,
-    key: K,
-    data: PropertyComponentInstanceDataTypes[K],
+    key: string,
+    data: unknown,
     owner?: {
       ownerElementId: string
       ownerPropertyName: string

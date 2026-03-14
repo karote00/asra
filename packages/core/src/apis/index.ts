@@ -1,8 +1,18 @@
 import { SceneTree, componentRegistry } from '@asyra/scene-tree'
-import { Render, createRenderGradientFillStyle } from '@asyra/render'
+import {
+  Render,
+  createRenderGradientFillStyle,
+  createEvenOddFillStyle
+} from '@asyra/render'
 import type { PropsManager } from '@asyra/props-manager'
 import type { SelectionManager } from '@asyra/selection'
-import { Bounds, EntityTypes, ComputedAttrs } from '@asyra/utils'
+import {
+  Bounds,
+  EntityTypes,
+  ComputedAttrs,
+  PropsComponentRawData,
+  EVENT_OPTIONS
+} from '@asyra/utils'
 
 import { createPropsAPIs, type PropsRequests } from './props'
 import { createRenderAPIs, type RenderRequests } from './render'
@@ -25,7 +35,7 @@ export const createAPIs = (
     refreshComputedDataFromProperty: (
       elementId: string,
       propertyName: string,
-      options
+      options?: EVENT_OPTIONS
     ) => {
       sceneTree.refreshComputedDataFromProperty(
         elementId,
@@ -104,13 +114,17 @@ export const createAPIs = (
     registerRenderLayer: (registration, options) =>
       render.registerLayer(registration, options),
     unregisterRenderLayer: (name: string) => render.unregisterLayer(name),
-    createRenderGradientFillStyle
+    createRenderGradientFillStyle,
+    createEvenOddFillStyle
   }
 
   const propsRequests: PropsRequests = {
     updatePropertyById: (propertyId, key, data, owner, options) =>
       props.updatePropertyById(propertyId, key, data, owner, options),
-    commitPropertyChanges: (options) => props.commitChanges(options)
+    commitPropertyChanges: (options) => props.commitChanges(options),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    propsLoadData: (data: unknown) => props.load(data as any),
+    propsSaveData: () => props.save() as PropsComponentRawData
   }
 
   return {

@@ -33,6 +33,18 @@ describe('nameCounter', () => {
       const expectResult = `${capitalizeFirstLetter(type)}${CODE_SPLIT}${next}`
       expect(newName).toBe(expectResult)
     })
+
+    it('should initialize and synchronize an uninitialized type when load is called', () => {
+      const type = 'new_type'
+      const testName = `New_type${CODE_SPLIT}10`
+
+      nameCounter.load(testName, type)
+
+      expect(nameCounter.current(type)).toBe(testName)
+
+      const newName = nameCounter.increase(type)
+      expect(newName).toBe(`New_type${CODE_SPLIT}11`)
+    })
   })
 
   describe('valid name', () => {

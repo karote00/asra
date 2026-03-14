@@ -56,7 +56,8 @@ describe('Preset Event Registration', () => {
           return state
         },
         getSystemPropertyObservable: <T>(key: string) =>
-          systemPropertyMap.get(key) as BehaviorSubject<T> | undefined
+          systemPropertyMap.get(key) as BehaviorSubject<T> | undefined,
+        createRenderGradientFillStyle: () => null as never
       },
       createDeps()
     )

@@ -92,7 +92,15 @@ class RenderSceneTree {
       ids.forEach((id) => {
         const data = this._getRenderData(id)
         if (data) {
-          render.updateElement(id, 'computed', undefined as DataTypes, undefined as DataTypes, data)
+          render.updateElement(
+            id,
+            'computed',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            undefined as any as DataTypes,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            undefined as any as DataTypes,
+            data
+          )
         }
       })
     })

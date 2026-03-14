@@ -108,14 +108,16 @@ export const initSceneTreeSubscribes = () => {
           }
 
     const ownerElementId =
-      typeof (payload as { ownerElementId?: unknown }).ownerElementId ===
-      'string'
-        ? (payload as { ownerElementId: string }).ownerElementId
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      typeof (payload as any).ownerElementId === 'string'
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (payload as any).ownerElementId
         : ''
     const ownerPropertyName =
-      typeof (payload as { ownerPropertyName?: unknown }).ownerPropertyName ===
-      'string'
-        ? (payload as { ownerPropertyName: string }).ownerPropertyName
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      typeof (payload as any).ownerPropertyName === 'string'
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (payload as any).ownerPropertyName
         : ''
 
     if (ownerElementId && ownerPropertyName) {

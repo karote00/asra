@@ -8,9 +8,65 @@ import core, {
   type VectorSegment
 } from '@asyra/core'
 import { createDefaultFill } from '@asyra/utils'
-import '@asyra/preset'
+import { BehaviorSubject, Subscription } from 'rxjs'
+import { applyPreset } from '../preset'
+import type { PresetDependencies } from '../types'
 
-type Vec2 = { x: number; y: number }
+const systemPropertyMap = new Map<string, BehaviorSubject<unknown>>()
+const presetDeps = {
+  sceneTree: {
+    getElementById: () => undefined
+  },
+  systemContext: {
+    getManagedProperty: () => undefined,
+    getSystemContextSnapshot: () => ({
+      primaryTool: 'select',
+      mousePosition: { x: 0, y: 0 }
+    })
+  },
+  render: {
+    getViewportPosition: () => ({ x: 0, y: 0 }),
+    getViewportScale: () => 1,
+    getMousePosInWorkspace: () => ({ x: 0, y: 0 }),
+    zoomTo: () => undefined,
+    panTo: () => undefined
+  }
+} as unknown as PresetDependencies
+
+applyPreset(
+  {
+    registerEvent: (event: string | { eventName: string }) => ({
+      eventName: typeof event === 'string' ? event : event.eventName,
+      publish: () => undefined,
+      subscribe: () => new Subscription()
+    }),
+    registerDataChannelObserver: () => undefined,
+    getPresetDependencies: () => presetDeps,
+    registerRenderLayer: () => undefined,
+    registerPropertySchema: () => undefined,
+    defineSelection: () => undefined,
+    getSelection: () => undefined,
+    defineUIProperty: () => undefined,
+    defineSystemProperty: <T>(key: string, defaultValue: T) => {
+      const existing = systemPropertyMap.get(key)
+      if (existing) {
+        return existing as BehaviorSubject<T>
+      }
+
+      const state = new BehaviorSubject<T>(defaultValue)
+      systemPropertyMap.set(key, state as BehaviorSubject<unknown>)
+      return state
+    },
+    getSystemPropertyObservable: <T>(key: string) =>
+      systemPropertyMap.get(key) as BehaviorSubject<T> | undefined,
+    createRenderGradientFillStyle: () => null as never
+  },
+  presetDeps
+)
+interface Vec2 {
+  x: number
+  y: number
+}
 
 const ensureSystemProperty = <T>(key: string, defaultValue: T) => {
   const existing = core.getSystemProperty<T>(key)
@@ -80,6 +136,11 @@ const createVectorData = (id: string, points: Vec2[]) => {
 
   return {
     id,
+    type: 'vector',
+    name: 'Vector',
+    visible: true,
+    lock: false,
+    rotation: 0,
     x: 0,
     y: 0,
     width: 200,
@@ -94,10 +155,10 @@ const createVectorData = (id: string, points: Vec2[]) => {
 }
 
 const getFillPathInstructions = (graphic: Graphics) => {
-  const instructions = graphic.context.instructions as Array<{
+  const instructions = graphic.context.instructions as {
     action: string
-    data: { path: { instructions: Array<{ action: string; data: number[] }> } }
-  }>
+    data: { path: { instructions: { action: string; data: number[] }[] } }
+  }[]
 
   const fillInstruction = instructions.find(
     (instruction) => instruction.action === 'fill'
@@ -107,7 +168,7 @@ const getFillPathInstructions = (graphic: Graphics) => {
 }
 
 const pathContainsPoint = (
-  instructions: Array<{ action: string; data: number[] }>,
+  instructions: { action: string; data: number[] }[],
   point: Vec2
 ) =>
   instructions.some((instruction) => {
@@ -155,7 +216,12 @@ describe('vector preview fill during drag', () => {
     ]
 
     const movedPoint = { x: 180, y: 20 }
-    const updatedPoints = [movedPoint, basePoints[1], basePoints[2], basePoints[3]]
+    const updatedPoints = [
+      movedPoint,
+      basePoints[1],
+      basePoints[2],
+      basePoints[3]
+    ]
 
     const initialData = createVectorData(vectorId, basePoints)
     const updatedData = createVectorData(vectorId, updatedPoints)

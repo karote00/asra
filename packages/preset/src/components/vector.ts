@@ -51,9 +51,12 @@ const sortByStableId = <T extends { id: string }>(items: T[]): T[] =>
     return a.id.localeCompare(b.id)
   })
 
-type Vec2 = { x: number; y: number }
+interface Vec2 {
+  x: number
+  y: number
+}
 
-type FillFaceCache = {
+interface FillFaceCache {
   faces: Vec2[][]
   lastRebuildAt: number
   lastRenderAt: number
@@ -112,7 +115,13 @@ const FILL_RAPID_RENDER_THRESHOLD_MS = 40
 const FILL_DEFERRED_REBUILD_MS = 140
 const FILL_HEAVY_COMPLEXITY_THRESHOLD = 320
 
-const cubicBezierPoint = (p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: number) => {
+const cubicBezierPoint = (
+  p0: Vec2,
+  p1: Vec2,
+  p2: Vec2,
+  p3: Vec2,
+  t: number
+) => {
   const u = 1 - t
   const tt = t * t
   const uu = u * u
@@ -137,9 +146,7 @@ const getFlattenSteps = (p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2) => {
 }
 
 const toSegmentKeyCoord = (value: number | null | undefined) =>
-  value === null || value === undefined
-    ? 'n'
-    : `${value}`
+  value === null || value === undefined ? 'n' : `${value}`
 
 const buildSegmentKey = (
   start: Vec2,
@@ -239,9 +246,14 @@ const uniqueSorted = (values: number[]) => {
 const toNodeKey = (point: Vec2) =>
   `${Math.round(point.x / NODE_KEY_EPS)},${Math.round(point.y / NODE_KEY_EPS)}`
 
-type LineSegment = { start: Vec2; end: Vec2 }
+interface LineSegment {
+  start: Vec2
+  end: Vec2
+}
 
-const splitSegmentsByIntersections = (segments: LineSegment[]): LineSegment[] => {
+const splitSegmentsByIntersections = (
+  segments: LineSegment[]
+): LineSegment[] => {
   const splitParams = segments.map(() => [0, 1])
   if (segments.length < 2) {
     return segments
@@ -358,9 +370,7 @@ const splitSegmentsByIntersections = (segments: LineSegment[]): LineSegment[] =>
         x: segment.start.x + (segment.end.x - segment.start.x) * t1,
         y: segment.start.y + (segment.end.y - segment.start.y) * t1
       }
-      if (
-        Math.hypot(end.x - start.x, end.y - start.y) <= INTERSECTION_EPS
-      ) {
+      if (Math.hypot(end.x - start.x, end.y - start.y) <= INTERSECTION_EPS) {
         continue
       }
       result.push({ start, end })
@@ -370,14 +380,14 @@ const splitSegmentsByIntersections = (segments: LineSegment[]): LineSegment[] =>
   return result
 }
 
-type DirectedEdge = {
+interface DirectedEdge {
   from: number
   to: number
   angle: number
   rev: number
 }
 
-type DirectedSegment = {
+interface DirectedSegment {
   start: Vec2
   end: Vec2
 }
@@ -414,9 +424,7 @@ const buildFlattenedSegmentsWithCache = (
       const outControlPos = outControl
         ? { x: outControl.x, y: outControl.y }
         : null
-      const inControlPos = inControl
-        ? { x: inControl.x, y: inControl.y }
-        : null
+      const inControlPos = inControl ? { x: inControl.x, y: inControl.y } : null
       const key = buildSegmentKey(startPos, endPos, outControlPos, inControlPos)
 
       let lines = prevLinesMap[segmentId]
@@ -487,7 +495,8 @@ const polygonCentroid = (points: Vec2[]) => {
   let cy = 0
   for (let i = 0; i < points.length; i += 1) {
     const next = (i + 1) % points.length
-    const crossValue = points[i].x * points[next].y - points[next].x * points[i].y
+    const crossValue =
+      points[i].x * points[next].y - points[next].x * points[i].y
     cx += (points[i].x + points[next].x) * crossValue
     cy += (points[i].y + points[next].y) * crossValue
   }
@@ -504,7 +513,7 @@ const evenOddContains = (point: Vec2, segments: DirectedSegment[]) => {
     const p1 = segment.start
     const p2 = segment.end
 
-    if ((p1.y > y) === (p2.y > y)) {
+    if (p1.y > y === p2.y > y) {
       return
     }
 
@@ -655,6 +664,61 @@ const buildFillFaces = (
   })
 }
 
+import { type EvenOddShape, type EvenOddSegment } from '@asyra/core'
+
+const buildEvenOddShape = (
+  orderedNetworks: VectorNetwork[],
+  points: Record<string, VectorPointNode>,
+  segments: Record<string, VectorSegment>
+): EvenOddShape => {
+  const shape: EvenOddShape = { paths: [] }
+  orderedNetworks.forEach((network) => {
+    const segmentsList: EvenOddSegment[] = []
+    network.segmentIds.forEach((segmentId) => {
+      const segment = segments[segmentId]
+      if (!segment) {
+        return
+      }
+
+      const start = getAnchorNode(points, segment.startId)
+      const end = getAnchorNode(points, segment.endId)
+      if (!start || !end) {
+        return
+      }
+
+      const outControl = getControlNode(points, segment.outControlId)
+      const inControl = getControlNode(points, segment.inControlId)
+
+      if (!outControl && !inControl) {
+        segmentsList.push({
+          type: 'line',
+          points: [start.x, start.y, end.x, end.y]
+        })
+      } else {
+        segmentsList.push({
+          type: 'cubicBezier',
+          points: [
+            start.x,
+            start.y,
+            outControl?.x ?? start.x,
+            outControl?.y ?? start.y,
+            inControl?.x ?? end.x,
+            inControl?.y ?? end.y,
+            end.x,
+            end.y
+          ]
+        })
+      }
+    })
+
+    if (segmentsList.length > 0) {
+      shape.paths.push({ segments: segmentsList })
+    }
+  })
+
+  return shape
+}
+
 const estimateFlattenedSegmentComplexity = (
   orderedNetworks: VectorNetwork[],
   points: Record<string, VectorPointNode>,
@@ -788,17 +852,8 @@ const renderVectorGraphic = (
 ) => {
   graphic.clear()
 
-  const {
-    fills,
-    fill,
-    stroke,
-    strokeWidth,
-    x,
-    y,
-    points,
-    segments,
-    networks
-  } = data
+  const { fills, fill, stroke, strokeWidth, x, y, points, segments, networks } =
+    data
 
   const orderedNetworks = sortByStableId(Object.values(networks))
   if (orderedNetworks.length === 0) {
@@ -818,84 +873,72 @@ const renderVectorGraphic = (
       (network) => network.closed && network.pointIds.length > 2
     )
 
+  const hasGradient = fillPayload.some((f) => f.kind === 'gradient')
+
+  const graphicCache = graphic as typeof graphic & {
+    __asyraVectorFillCache?: FillFaceCache
+    __asyraEvenOddFillDispose?: () => void
+  }
+
   if (fillPayload.length > 0) {
-    const graphicCache = graphic as typeof graphic & {
-      __asyraVectorFillCache?: FillFaceCache
-    }
-    const now = getNow()
-    const cache = graphicCache.__asyraVectorFillCache ?? {
-      faces: [],
-      lastRebuildAt: 0,
-      lastRenderAt: 0,
-      revision: 0
-    }
-    const lastRenderAt = cache.lastRenderAt
-    const complexity = estimateFlattenedSegmentComplexity(
-      orderedNetworks,
-      points,
-      segments
-    )
-    const heavy = complexity >= FILL_HEAVY_COMPLEXITY_THRESHOLD
-    const dragSuppressed = isVectorEditingDrag(data.id)
-    const dragReleased = cache.dragSuppressed === true && !dragSuppressed
-    const rebuildInterval = heavy
-      ? FILL_HEAVY_REBUILD_MIN_INTERVAL_MS
-      : FILL_REBUILD_MIN_INTERVAL_MS
-    const rapidRender = now - lastRenderAt < FILL_RAPID_RENDER_THRESHOLD_MS
-    const shouldRebuild =
-      options.forceFillRebuild ||
-      dragReleased ||
-      (dragSuppressed
-        ? true
-        : !rapidRender && now - cache.lastRebuildAt >= rebuildInterval)
+    if (hasGradient) {
+      if (graphicCache.__asyraEvenOddFillDispose) {
+        graphicCache.__asyraEvenOddFillDispose()
+        graphicCache.__asyraEvenOddFillDispose = undefined
+      }
 
-    if (cache.pendingTimerId) {
-      clearTimeout(cache.pendingTimerId)
-      cache.pendingTimerId = undefined
-    }
+      const shape = buildEvenOddShape(orderedNetworks, points, segments)
+      const evenOddFill = core.createEvenOddFillStyle({
+        width: data.width,
+        height: data.height,
+        offsetX: 0,
+        offsetY: 0,
+        shape,
+        fills: fillPayload
+      })
 
-    let fillFaces = cache.faces
-    if (shouldRebuild) {
-      const {
-        flattenedSegments,
-        directedSegments,
-        segmentKeyMap,
-        segmentLinesMap
-      } = buildFlattenedSegmentsWithCache(
+      if (evenOddFill) {
+        graphicCache.__asyraEvenOddFillDispose = evenOddFill.dispose
+        graphic.rect(0, 0, data.width, data.height)
+        ;(graphic as { fill: (style: unknown) => void }).fill(evenOddFill.style)
+      } else if (hasClosedNetwork) {
+        previewFill = true
+      }
+    } else {
+      const now = getNow()
+      const cache = graphicCache.__asyraVectorFillCache ?? {
+        faces: [],
+        lastRebuildAt: 0,
+        lastRenderAt: 0,
+        revision: 0
+      }
+      const lastRenderAt = cache.lastRenderAt
+      const complexity = estimateFlattenedSegmentComplexity(
         orderedNetworks,
         points,
-        segments,
-        cache
+        segments
       )
-      fillFaces = buildFillFaces(flattenedSegments, directedSegments)
-      cache.faces = fillFaces
-      cache.lastRebuildAt = now
-      cache.segmentKeyMap = segmentKeyMap
-      cache.segmentLinesMap = segmentLinesMap
-    }
+      const heavy = complexity >= FILL_HEAVY_COMPLEXITY_THRESHOLD
+      const dragSuppressed = isVectorEditingDrag(data.id)
+      const dragReleased = cache.dragSuppressed === true && !dragSuppressed
+      const rebuildInterval = heavy
+        ? FILL_HEAVY_REBUILD_MIN_INTERVAL_MS
+        : FILL_REBUILD_MIN_INTERVAL_MS
+      const rapidRender = now - lastRenderAt < FILL_RAPID_RENDER_THRESHOLD_MS
+      const shouldRebuild =
+        options.forceFillRebuild ||
+        dragReleased ||
+        (dragSuppressed
+          ? true
+          : !rapidRender && now - cache.lastRebuildAt >= rebuildInterval)
 
-    cache.lastRenderAt = now
-    cache.revision += 1
-    cache.dragSuppressed = dragSuppressed
-    graphicCache.__asyraVectorFillCache = cache
+      if (cache.pendingTimerId) {
+        clearTimeout(cache.pendingTimerId)
+        cache.pendingTimerId = undefined
+      }
 
-    if (
-      !dragSuppressed &&
-      !shouldRebuild &&
-      options.allowDeferredFill !== false
-    ) {
-      const scheduledRevision = cache.revision
-      const deferredDelay = heavy
-        ? FILL_DEFERRED_REBUILD_MS * 2
-        : FILL_DEFERRED_REBUILD_MS
-      cache.pendingTimerId = setTimeout(() => {
-        const activeCache = graphicCache.__asyraVectorFillCache
-        if (!activeCache || activeCache.revision !== scheduledRevision) {
-          return
-        }
-        if ('destroyed' in graphic && graphic.destroyed) {
-          return
-        }
+      let fillFaces = cache.faces
+      if (shouldRebuild) {
         const {
           flattenedSegments,
           directedSegments,
@@ -905,32 +948,74 @@ const renderVectorGraphic = (
           orderedNetworks,
           points,
           segments,
-          activeCache
+          cache
         )
-        const deferredFaces = buildFillFaces(
-          flattenedSegments,
-          directedSegments
-        )
-        activeCache.faces = deferredFaces
-        activeCache.lastRebuildAt = getNow()
-        activeCache.pendingTimerId = undefined
-        activeCache.segmentKeyMap = segmentKeyMap
-        activeCache.segmentLinesMap = segmentLinesMap
-        renderVectorGraphic(graphic, data, { allowDeferredFill: false })
-      }, deferredDelay)
-    }
+        fillFaces = buildFillFaces(flattenedSegments, directedSegments)
+        cache.faces = fillFaces
+        cache.lastRebuildAt = now
+        cache.segmentKeyMap = segmentKeyMap
+        cache.segmentLinesMap = segmentLinesMap
+      }
 
-    if (fillFaces.length > 0) {
-      drawFillFaces(graphic, fillFaces)
-      applyRenderableFill(graphic as { fill: unknown }, fillPayload, {
-        replayPath: () => drawFillFaces(graphic, fillFaces)
-      })
-    } else if (hasClosedNetwork) {
-      previewFill = true
+      cache.lastRenderAt = now
+      cache.revision += 1
+      cache.dragSuppressed = dragSuppressed
+      graphicCache.__asyraVectorFillCache = cache
+
+      if (
+        !dragSuppressed &&
+        !shouldRebuild &&
+        options.allowDeferredFill !== false
+      ) {
+        const scheduledRevision = cache.revision
+        const deferredDelay = heavy
+          ? FILL_DEFERRED_REBUILD_MS * 2
+          : FILL_DEFERRED_REBUILD_MS
+        cache.pendingTimerId = setTimeout(() => {
+          const activeCache = graphicCache.__asyraVectorFillCache
+          if (!activeCache || activeCache.revision !== scheduledRevision) {
+            return
+          }
+          if ('destroyed' in graphic && graphic.destroyed) {
+            return
+          }
+          const {
+            flattenedSegments,
+            directedSegments,
+            segmentKeyMap,
+            segmentLinesMap
+          } = buildFlattenedSegmentsWithCache(
+            orderedNetworks,
+            points,
+            segments,
+            activeCache
+          )
+          const deferredFaces = buildFillFaces(
+            flattenedSegments,
+            directedSegments
+          )
+          activeCache.faces = deferredFaces
+          activeCache.lastRebuildAt = getNow()
+          activeCache.pendingTimerId = undefined
+          activeCache.segmentKeyMap = segmentKeyMap
+          activeCache.segmentLinesMap = segmentLinesMap
+          renderVectorGraphic(graphic, data, { allowDeferredFill: false })
+        }, deferredDelay)
+      }
+
+      if (fillFaces.length > 0) {
+        drawFillFaces(graphic, fillFaces)
+        applyRenderableFill(graphic as { fill: unknown }, fillPayload, {
+          replayPath: () => drawFillFaces(graphic, fillFaces)
+        })
+      } else if (hasClosedNetwork) {
+        previewFill = true
+      }
     }
   } else {
-    const graphicCache = graphic as typeof graphic & {
-      __asyraVectorFillCache?: FillFaceCache
+    if (graphicCache.__asyraEvenOddFillDispose) {
+      graphicCache.__asyraEvenOddFillDispose()
+      graphicCache.__asyraEvenOddFillDispose = undefined
     }
     if (graphicCache.__asyraVectorFillCache?.pendingTimerId) {
       clearTimeout(graphicCache.__asyraVectorFillCache.pendingTimerId)
@@ -957,7 +1042,7 @@ const renderVectorGraphic = (
 }
 
 const vectorRenderStrategy: RenderStrategy = (graphic, data) => {
-  renderVectorGraphic(graphic, data as VectorComputedData)
+  renderVectorGraphic(graphic, data as unknown as VectorComputedData)
 }
 
 defineComponent({

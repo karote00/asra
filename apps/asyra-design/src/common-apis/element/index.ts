@@ -17,8 +17,7 @@ import {
 import core, { render, sceneTree } from '../../contexts'
 import {
   DEFAULT_ELEMENT_FILL_COLOR,
-  DEFAULT_FRAME_FILL_COLOR,
-  DEFAULT_VECTOR_FILL_COLOR
+  DEFAULT_FRAME_FILL_COLOR
 } from '../../constants'
 import type { CreateElementOptions, ElementBounds } from './types'
 import { vectorApis } from './vector-apis'

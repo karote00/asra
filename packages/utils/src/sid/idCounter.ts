@@ -25,6 +25,12 @@ class IDCounter {
   }
 
   load(id: string, type: string) {
+    // Initialize if not exists
+    if (!this.counter[type]) {
+      this.counter[type] =
+        type === DEFAULT_TYPE ? FIRST_ID : `${type}${CODE_SPLIT}${FIRST_ID}`
+    }
+
     const currentId = this.current(type)
     if (!currentId) {
       return ''
@@ -68,8 +74,10 @@ class IDCounter {
     const splits = currentId.split(CODE_SPLIT)
     const count = parseInt(splits[splits.length - 1])
     const next = count + 1
+
+    const prefix = splits.slice(0, -1).join(CODE_SPLIT)
     const newId =
-      type === DEFAULT_TYPE ? next.toString() : `${type}${CODE_SPLIT}${next}`
+      prefix === '' ? next.toString() : `${prefix}${CODE_SPLIT}${next}`
     this.update(type, newId)
 
     return newId
@@ -84,9 +92,12 @@ class IDCounter {
       return isNumber(id)
     }
 
+    const currentId = this.counter[type]
+    const expectedPrefix = currentId ? currentId.split(CODE_SPLIT)[0] : type
+
     const splits = id.split(CODE_SPLIT)
     if (splits.length !== 2) return false
-    if (splits[0] === type) {
+    if (splits[0] === expectedPrefix) {
       return isNumber(splits[1])
     }
 

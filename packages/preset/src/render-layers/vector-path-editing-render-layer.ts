@@ -551,8 +551,7 @@ const drawPreview = (
     return
   }
 
-  const handle =
-    handleSide === 'in' ? lastPoint.inHandle : lastPoint.outHandle
+  const handle = handleSide === 'in' ? lastPoint.inHandle : lastPoint.outHandle
   const hasCurve = !!handle
   if (!hasCurve) {
     canvas.line(lastPoint, mouseScreenPos, {

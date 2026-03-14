@@ -5,7 +5,11 @@
  */
 
 import core, { systemContext } from '../contexts'
-import type { VectorPointTarget as CoreVectorPointTarget } from '@asyra/core'
+import {
+  VECTOR_TOKENS,
+  type VectorPointTarget as CoreVectorPointTarget,
+  type VectorEndpointSide
+} from '@asyra/core'
 import type { VectorHandleMode } from '../constants'
 import { selectionApis } from './selection'
 

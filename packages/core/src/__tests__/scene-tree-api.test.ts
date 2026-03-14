@@ -8,6 +8,7 @@ import { createSceneTreeAPIs, type SceneTreeRequests } from '../apis/scene-tree'
 
 const createRequests = (): SceneTreeRequests => ({
   sceneTreeSaveData: () => ({ workspace: '', workspaceList: [], elements: {} }),
+  refreshComputedDataFromProperty: () => undefined,
   getAllElementsBounds: () => null,
   isContainerType: () => false
 })

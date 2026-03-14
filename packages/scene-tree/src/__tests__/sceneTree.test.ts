@@ -343,10 +343,12 @@ describe('SceneTree', () => {
       throw new Error('Position property component was not created.')
     }
 
-    propsManager.updatePropsData(positionId, 'x', 120)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    propsManager.updatePropsData(positionId, 'x' as any, 120)
     expect(element.computed.get('x')).toBe(120)
 
-    propsManager.updatePropsData(positionId, 'xUnit', Unit.PERCENT)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    propsManager.updatePropsData(positionId, 'xUnit' as any, Unit.PERCENT)
     expect(element.computed.get('x')).toBe(120)
   })
 

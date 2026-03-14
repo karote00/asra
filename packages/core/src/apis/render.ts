@@ -4,6 +4,7 @@ import type {
   CreateRenderGradientFillOptions,
   RenderFillStyle
 } from '@asyra/render'
+import type { EvenOddFillOptions, EvenOddFillResult } from '@asyra/render'
 import type {
   RegisterRenderLayerOptions,
   RenderLayerRegistration
@@ -21,6 +22,9 @@ export interface RenderRequests {
   createRenderGradientFillStyle: (
     options: CreateRenderGradientFillOptions
   ) => RenderFillStyle
+  createEvenOddFillStyle: (
+    options: EvenOddFillOptions
+  ) => EvenOddFillResult | null
 }
 
 export const createRenderAPIs = (requests: RenderRequests) => {
@@ -42,6 +46,9 @@ export const createRenderAPIs = (requests: RenderRequests) => {
     },
     createRenderGradientFillStyle(options: CreateRenderGradientFillOptions) {
       return requests.createRenderGradientFillStyle(options)
+    },
+    createEvenOddFillStyle(options: EvenOddFillOptions) {
+      return requests.createEvenOddFillStyle(options)
     }
   }
 }

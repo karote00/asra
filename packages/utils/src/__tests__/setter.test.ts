@@ -25,6 +25,7 @@ describe('Setter - Change Tracking System', () => {
         width: 50,
         height: 30,
         rotation: 0,
+        fills: [],
         children: [],
         metadata: { name: 'Rectangle', visible: true }
       }
@@ -50,6 +51,7 @@ describe('Setter - Change Tracking System', () => {
         width: 0,
         height: 0,
         rotation: 0,
+        fills: [],
         children: [],
         metadata: { name: 'Test', visible: true }
       } as MockElementData
@@ -75,6 +77,7 @@ describe('Setter - Change Tracking System', () => {
         width: 50,
         height: 30,
         rotation: 0,
+        fills: [],
         children: [],
         metadata: { name: 'Rectangle', visible: true }
       }
@@ -104,6 +107,7 @@ describe('Setter - Change Tracking System', () => {
         width: 0,
         height: 0,
         rotation: 0,
+        fills: [],
         children: ['child-1', 'child-2'],
         metadata: { name: 'Rectangle', visible: true }
       }
@@ -133,6 +137,7 @@ describe('Setter - Change Tracking System', () => {
         width: 0,
         height: 0,
         rotation: 0,
+        fills: [],
         children: ['child-1'],
         metadata: { name: 'Group', visible: true }
       }

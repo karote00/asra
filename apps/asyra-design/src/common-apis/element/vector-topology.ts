@@ -791,7 +791,7 @@ export const splitSegmentInTopology = (
 
   const splitPointId = id(VECTOR_TOPOLOGY_POINT_ID_TYPE)
   const splitPointPosition = splitGeometry.splitPoint
-  const nextPoints: Record<string, VectorPointNode> = {
+  let nextPoints: Record<string, VectorPointNode> = {
     ...topology.points,
     [splitPointId]: {
       id: splitPointId,

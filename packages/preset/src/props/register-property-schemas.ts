@@ -18,11 +18,12 @@ const isStringArray = (value: unknown) =>
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 const isOpacity = (value: unknown) =>
-  isFiniteNumber(value) && value >= 0 && value <= 1
+  isFiniteNumber(value) && (value as number) >= 0 && (value as number) <= 1
 
 const COLOR_FORMAT_SET = new Set(Object.values(FillColorFormats))
 const isFillColorFormat = (value: unknown) =>
-  typeof value === 'string' && COLOR_FORMAT_SET.has(value)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  typeof value === 'string' && COLOR_FORMAT_SET.has(value as any)
 
 const isGradientStop = (value: unknown): boolean => {
   if (!isObjectRecord(value)) {
@@ -35,8 +36,8 @@ const isGradientStop = (value: unknown): boolean => {
 
   return (
     isFiniteNumber(position) &&
-    position >= 0 &&
-    position <= 1 &&
+    (position as number) >= 0 &&
+    (position as number) <= 1 &&
     typeof color === 'string' &&
     color.length > 0 &&
     isOpacity(opacity)

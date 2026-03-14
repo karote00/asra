@@ -1,6 +1,7 @@
 import type {
   EVENT_OPTIONS,
-  PropertyComponentInstanceDataTypes
+  PropertyComponentInstanceDataTypes,
+  PropsComponentRawData
 } from '@asyra/utils'
 import type { PropertyOwnerRef } from '../types/props'
 
@@ -13,6 +14,8 @@ export interface PropsRequests {
     options?: EVENT_OPTIONS
   ) => void
   commitPropertyChanges: (options?: EVENT_OPTIONS) => void
+  propsLoadData: (data: unknown) => void
+  propsSaveData: () => PropsComponentRawData
 }
 
 export const createPropsAPIs = (requests: PropsRequests) => ({
@@ -27,5 +30,11 @@ export const createPropsAPIs = (requests: PropsRequests) => ({
   },
   commitPropertyChanges(options?: EVENT_OPTIONS) {
     requests.commitPropertyChanges(options)
+  },
+  propsLoadData(data: unknown) {
+    requests.propsLoadData(data)
+  },
+  propsSaveData() {
+    return requests.propsSaveData()
   }
 })

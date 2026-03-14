@@ -66,7 +66,10 @@ const expectLinearGradientCall = (options: {
   end: { x: number; y: number }
   colorStops: { offset: number; color: string }[]
 }) => {
-  const actual = createRenderGradientFillStyle.mock.calls.at(-1)?.[0]
+  const actual =
+    createRenderGradientFillStyle.mock.calls[
+      createRenderGradientFillStyle.mock.calls.length - 1
+    ]?.[0]
   expect(actual).toMatchObject({
     type: 'linear',
     start: options.start,

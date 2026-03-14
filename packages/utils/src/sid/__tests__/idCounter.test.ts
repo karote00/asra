@@ -70,6 +70,18 @@ describe('idCounter', () => {
       const expectSecond = `${type}${CODE_SPLIT}${addOne(addOne(FIRST_ID))}`
       expect(secondId).toBe(expectSecond)
     })
+
+    it('should initialize and synchronize an uninitialized type when load is called', () => {
+      const type = 'NEW_TYPE'
+      const testId = `${type}${CODE_SPLIT}10`
+
+      idCounter.load(testId, type)
+
+      expect(idCounter.current(type)).toBe(testId)
+
+      const newId = idCounter.increase(type)
+      expect(newId).toBe(`${type}${CODE_SPLIT}11`)
+    })
   })
 
   describe('valid id', () => {

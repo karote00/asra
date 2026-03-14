@@ -22,7 +22,7 @@ const isVectorElement = (elementId: string): boolean => {
 
 let iconPathMap: VectorIconPathMap = {}
 const pendingElementIds = new Set<string>()
-let pendingFlushHandle: number | null = null
+let pendingFlushHandle: number | ReturnType<typeof setTimeout> | null = null
 let pendingRebuildAfterEdit = false
 
 const isPathEditingActive = () =>
@@ -57,17 +57,17 @@ const scheduleFlush = () => {
       pendingElementIds.delete(elementId)
       if (!isVectorElement(elementId)) {
         if (elementId in nextMap) {
+          // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
           delete nextMap[elementId]
           changed = true
         }
         return
       }
 
-      const path = buildVectorIconPath(
-        elementApis.getVectorTopology(elementId)
-      )
+      const path = buildVectorIconPath(elementApis.getVectorTopology(elementId))
       if (path === null) {
         if (elementId in nextMap) {
+          // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
           delete nextMap[elementId]
           changed = true
         }
@@ -89,39 +89,6 @@ const scheduleFlush = () => {
 const setIconPathMap = (next: VectorIconPathMap) => {
   iconPathMap = next
   core.setUIProperty(UI_PROPERTIES.VECTOR_ICON_PATH_MAP, next)
-}
-
-const updateElementIconPath = (elementId: string) => {
-  if (isPathEditingActive()) {
-    pendingRebuildAfterEdit = true
-    return
-  }
-
-  if (!isVectorElement(elementId)) {
-    if (elementId in iconPathMap) {
-      const { [elementId]: _, ...rest } = iconPathMap
-      setIconPathMap(rest)
-    }
-    return
-  }
-
-  const path = buildVectorIconPath(elementApis.getVectorTopology(elementId))
-  if (path === null) {
-    if (elementId in iconPathMap) {
-      const { [elementId]: _, ...rest } = iconPathMap
-      setIconPathMap(rest)
-    }
-    return
-  }
-
-  if (iconPathMap[elementId] === path) {
-    return
-  }
-
-  setIconPathMap({
-    ...iconPathMap,
-    [elementId]: path
-  })
 }
 
 const enqueueElementIconPathUpdate = (elementId: string) => {

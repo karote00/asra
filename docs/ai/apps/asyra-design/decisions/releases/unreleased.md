@@ -814,3 +814,20 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Correct even-odd fill rendering and subpath behaviors are preserved.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/completed/vector-editing-performance-plan.md`
+
+## 2026-03-15 - Vector ID and Name Synchronization Fix
+
+- Context:
+  - Users reported that creating new vector points after a page reload would sometimes affect or overwrite old vector elements.
+  - This was caused by ID collisions because `idCounter` and `nameCounter` were not always synchronized with existing data when types were encountered for the first time during load.
+- Decision:
+  - Modify `idCounter` and `nameCounter` `load` logic to automatically initialize and synchronize counters for any unencountered types.
+  - Standardize type-to-prefix mapping in counters to use the registered prefix rather than deriving it from the type string.
+  - Ensure `DynamicComponent` uses the component's `type` as the counter key for consistency.
+  - Fix child component ID generation in `children-map-property-component` by correctly passing `childIdType`.
+- Consequences:
+  - Vector point and segment IDs are guaranteed to be unique and correctly prefixed even after page reloads.
+  - Counter synchronization is more robust and resilient to initial data loading.
+  - ID collisions between new and old elements are prevented.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/vector-id-sync-fix.md`

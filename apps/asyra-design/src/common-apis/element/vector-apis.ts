@@ -6,13 +6,11 @@ import type {
   VectorPointNode
 } from '@asyra/core'
 import { VECTOR_TOKENS } from '@asyra/core'
-import { createDefaultFills } from '@asyra/utils'
 import type { DataTypes, PositionData, EVENT_OPTIONS } from '@asyra/utils'
 import { startTransaction, endTransaction } from '@asyra/reactive-events'
 import { isEqual } from 'lodash'
 import core, { render, sceneTree } from '../../contexts'
 import {
-  DEFAULT_VECTOR_FILL_COLOR,
   DEFAULT_VECTOR_STROKE_COLOR,
   type VectorHandleMode
 } from '../../constants'
@@ -989,7 +987,7 @@ export const vectorApis = {
         segments: normalizedTopology.segments,
         networks: normalizedTopology.networks,
         closed,
-        fills: DEFAULT_VECTOR_STYLE.fills,
+        fills: DEFAULT_VECTOR_STYLE.fills ?? [],
         stroke: DEFAULT_VECTOR_STYLE.stroke,
         strokeWidth: DEFAULT_VECTOR_STYLE.strokeWidth
       },

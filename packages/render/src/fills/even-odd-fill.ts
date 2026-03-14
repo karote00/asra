@@ -36,9 +36,17 @@ export interface EvenOddFillResult {
   dispose: () => void
 }
 
-type Vec2 = { x: number; y: number }
+interface Vec2 {
+  x: number
+  y: number
+}
 
-type RGBA = { r: number; g: number; b: number; a: number }
+interface RGBA {
+  r: number
+  g: number
+  b: number
+  a: number
+}
 
 interface PreparedSegment {
   type: 'line' | 'cubicBezier'
@@ -55,12 +63,10 @@ const DEFAULT_MAX_RASTER_PIXELS = 400_000
 const getCanvasContext = (
   width: number,
   height: number
-):
-  | {
-      canvas: HTMLCanvasElement | OffscreenCanvas
-      ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
-    }
-  | null => {
+): {
+  canvas: HTMLCanvasElement | OffscreenCanvas
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
+} | null => {
   if (width <= 0 || height <= 0) {
     return null
   }
@@ -107,7 +113,9 @@ const toRGBA = (value: string, opacity: number): RGBA | null => {
   }
 }
 
-const createSolidSampler = (fill: FillAttrs): ((x: number, y: number) => RGBA) | null => {
+const createSolidSampler = (
+  fill: FillAttrs
+): ((x: number, y: number) => RGBA) | null => {
   const color = toRGBA(fill.color, fill.opacity)
   if (!color) {
     return null
@@ -154,10 +162,7 @@ const createGradientSampler = (
         const dy = end.y - start.y
         const radiusX = Math.max(Math.hypot(dx, dy), EPSILON)
         const radiusY = side
-          ? Math.max(
-              Math.hypot(side.x - start.x, side.y - start.y),
-              EPSILON
-            )
+          ? Math.max(Math.hypot(side.x - start.x, side.y - start.y), EPSILON)
           : radiusX
         const nx = (x - start.x) / radiusX
         const ny = (y - start.y) / radiusY
@@ -176,10 +181,7 @@ const createGradientSampler = (
         const dy = end.y - start.y
         const radiusX = Math.max(Math.hypot(dx, dy), EPSILON)
         const radiusY = side
-          ? Math.max(
-              Math.hypot(side.x - start.x, side.y - start.y),
-              EPSILON
-            )
+          ? Math.max(Math.hypot(side.x - start.x, side.y - start.y), EPSILON)
           : radiusX
         const nx = Math.abs(x - start.x) / radiusX
         const ny = Math.abs(y - start.y) / radiusY
@@ -223,7 +225,9 @@ const createGradientSampler = (
       return upper.color
     }
 
-    const ratio = clamp01((t - lower.position) / (upper.position - lower.position))
+    const ratio = clamp01(
+      (t - lower.position) / (upper.position - lower.position)
+    )
     return {
       r: lower.color.r + (upper.color.r - lower.color.r) * ratio,
       g: lower.color.g + (upper.color.g - lower.color.g) * ratio,
@@ -426,9 +430,7 @@ export const createEvenOddFillStyle = (
 
   const samplers = preparedFills
     .map((fill) => createFillSampler(fill))
-    .filter(
-      (sampler): sampler is ((x: number, y: number) => RGBA) => !!sampler
-    )
+    .filter((sampler): sampler is (x: number, y: number) => RGBA => !!sampler)
 
   if (samplers.length === 0) {
     return null

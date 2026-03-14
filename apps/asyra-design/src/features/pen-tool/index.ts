@@ -502,6 +502,25 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
             clickedPoint &&
             clickedPoint.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
           ) {
+            const previouslySelectedPoint = selectionApis
+              .getSelectedVectorPoints()
+              .find((selection) => selection.elementId === pathEditingVectorId)
+            const previousEndpoint =
+              previouslySelectedPoint?.elementId === pathEditingVectorId &&
+              previouslySelectedPoint.target ===
+                VECTOR_TOKENS.POINT.TARGET.ANCHOR
+                ? getSubpathEndpoint(subpaths, previouslySelectedPoint.pointId)
+                : null
+            const currentSubpath = subpaths[subpaths.length - 1]
+            const fallbackEndpoint =
+              currentSubpath && currentSubpath.length > 0
+                ? getSubpathEndpoint(
+                    subpaths,
+                    currentSubpath[currentSubpath.length - 1].id
+                  )
+                : null
+            const sourceEndpoint = previousEndpoint ?? fallbackEndpoint
+
             if (clickedEndpoint) {
               const selectedPoint = elementApis.getVectorAnchorPointById(
                 pathEditingVectorId,
@@ -517,24 +536,6 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
             if (!clickedEndpoint) {
               return null
             }
-
-            const selectedPoint = selectionApis
-              .getSelectedVectorPoints()
-              .find((selection) => selection.elementId === pathEditingVectorId)
-            const selectedEndpoint =
-              selectedPoint?.elementId === pathEditingVectorId &&
-              selectedPoint.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
-                ? getSubpathEndpoint(subpaths, selectedPoint.pointId)
-                : null
-            const currentSubpath = subpaths[subpaths.length - 1]
-            const fallbackEndpoint =
-              currentSubpath && currentSubpath.length > 0
-                ? getSubpathEndpoint(
-                    subpaths,
-                    currentSubpath[currentSubpath.length - 1].id
-                  )
-                : null
-            const sourceEndpoint = selectedEndpoint ?? fallbackEndpoint
 
             if (!sourceEndpoint) {
               return null

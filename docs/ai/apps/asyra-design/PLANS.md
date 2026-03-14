@@ -6,9 +6,13 @@
 
 ## Near-Term
 
-1. Reduce app-level internal coupling
+1. [Refactor Path Editing Continuation State](plans/refactor-path-editing-continuation-state.md) (Architectural optimization)
+
+2. Reduce app-level internal coupling
 
 - remove internal-path imports (for example keymap source path)
+
+## Completed
 
 ## Mid-Term
 

@@ -78,8 +78,11 @@ class Core implements CoreAPIs {
   registerRenderLayer!: RenderAPIs['registerRenderLayer']
   unregisterRenderLayer!: RenderAPIs['unregisterRenderLayer']
   createRenderGradientFillStyle!: RenderAPIs['createRenderGradientFillStyle']
+  createEvenOddFillStyle!: RenderAPIs['createEvenOddFillStyle']
   updatePropertyById!: CoreAPIs['updatePropertyById']
   commitPropertyChanges!: CoreAPIs['commitPropertyChanges']
+  propsLoadData!: CoreAPIs['propsLoadData']
+  propsSaveData!: CoreAPIs['propsSaveData']
 
   sceneTreeInit!: SceneTreeAPIs['sceneTreeInit']
   sceneTreeLoadData!: SceneTreeAPIs['sceneTreeLoadData']
