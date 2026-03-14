@@ -463,14 +463,16 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
             clickedPoint &&
             clickedPoint.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
           ) {
-            if (startNewSubpath && clickedEndpoint) {
+            if (clickedEndpoint) {
               const selectedPoint = elementApis.getVectorAnchorPointById(
                 pathEditingVectorId,
                 clickedPoint.point.id
               )
               setSelectedAnchorPoint(pathEditingVectorId, selectedPoint)
-              systemContextApis.setPathEditingStartNewSubpath(false)
-              return null
+              if (startNewSubpath) {
+                systemContextApis.setPathEditingStartNewSubpath(false)
+                return null
+              }
             }
 
             if (!clickedEndpoint) {
@@ -495,10 +497,11 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
                 : null
             const sourceEndpoint = selectedEndpoint ?? fallbackEndpoint
 
-            if (
-              !sourceEndpoint ||
-              sourceEndpoint.point.id === clickedEndpoint.point.id
-            ) {
+            if (!sourceEndpoint) {
+              return null
+            }
+
+            if (sourceEndpoint.point.id === clickedEndpoint.point.id) {
               return null
             }
 
@@ -1051,6 +1054,7 @@ export const cancelPenEditingFeature = defineFeature(
         }
 
         systemContextApis.exitPathEditingMode()
+        systemContextApis.switchPrimaryTool(PrimaryToolType.SELECT)
         cursorApis.resetCanvasCursor()
         return { cancelled: true, elementId: editingVectorId }
       }

@@ -51,6 +51,7 @@ export {
   renderStrategyRegistry,
   createOverlayLayerRegistration,
   createRenderGradientFillStyle,
+  createEvenOddFillStyle,
   renderSceneTreeStore,
   renderSelectionStore,
   type OverlayCanvas,
@@ -59,7 +60,12 @@ export {
   type CreateRenderGradientFillOptions,
   type RenderGradientColorStop,
   type RenderGradientPoint,
-  type RenderFillStyle
+  type RenderFillStyle,
+  type EvenOddSegment,
+  type EvenOddPath,
+  type EvenOddShape,
+  type EvenOddFillOptions,
+  type EvenOddFillResult
 } from '@asyra/render'
 export type { RenderStrategy } from '@asyra/render'
 export {

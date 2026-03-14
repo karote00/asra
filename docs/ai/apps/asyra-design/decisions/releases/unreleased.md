@@ -785,3 +785,19 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Fill list order in the UI corresponds to visual stacking on canvas.
 - Related Commit(s):
   - pending
+
+## 2026-03-14 - Vector even-odd fill + editing stability baseline
+
+- Context:
+  - Vector fills must respect even-odd semantics for intersecting paths.
+  - Path-editing continuation and cancel behaviors needed stability fixes.
+- Decision:
+  - Adopt even-odd fill semantics for vector rendering.
+  - Remove default vector fills so new vectors start empty.
+  - Stabilize path-editing preview handle direction, endpoint selection after refresh, and cancel-to-select tool switch.
+- Consequences:
+  - Self-intersecting paths fill expected odd regions.
+  - New vectors do not auto-fill without explicit fill entries.
+  - Path editing is more predictable when continuing or canceling edits.
+- Related Commit(s):
+  - pending

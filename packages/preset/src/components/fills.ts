@@ -254,8 +254,5 @@ export const fillColorToHex = (value: string): string => {
 
 export const DEFAULT_RECTANGLE_FILLS = createDefaultFills({ color: '#cccccc' })
 export const DEFAULT_OVAL_FILLS = createDefaultFills({ color: '#cccccc' })
-export const DEFAULT_FRAME_FILLS = createDefaultFills({ color: '#ffffff' })
-export const DEFAULT_VECTOR_FILLS = createDefaultFills({
-  color: '#000000',
-  visible: false
-})
+export const DEFAULT_FRAME_FILLS = createDefaultFills({ color: '#cccccc' })
+export const DEFAULT_VECTOR_FILLS: FillAttrs[] = []

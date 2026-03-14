@@ -58,10 +58,7 @@ import { systemContextApis } from '../system-context'
 
 const DEFAULT_VECTOR_STYLE: VectorPathStyle = {
   closed: false,
-  fills: createDefaultFills({
-    color: DEFAULT_VECTOR_FILL_COLOR,
-    visible: false
-  }),
+  fills: [],
   stroke: DEFAULT_VECTOR_STROKE_COLOR,
   strokeWidth: 1
 }

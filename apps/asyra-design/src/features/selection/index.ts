@@ -38,6 +38,7 @@ const clearPathEditingIfSelectionChanged = () => {
   const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
   if (!pathEditingVectorId) {
     systemContextApis.exitPathEditingMode()
+    systemContextApis.switchPrimaryTool(PrimaryToolType.SELECT)
     return
   }
 
@@ -47,6 +48,7 @@ const clearPathEditingIfSelectionChanged = () => {
   }
 
   systemContextApis.exitPathEditingMode()
+  systemContextApis.switchPrimaryTool(PrimaryToolType.SELECT)
 }
 
 export const selectionFeature = defineFeature(

@@ -544,13 +544,16 @@ const drawPreview = (
   canvas: OverlayCanvas,
   lastPoint: OverlayAnchorPoint,
   mouseScreenPos: PositionData,
-  shouldRender: boolean
+  shouldRender: boolean,
+  handleSide: 'in' | 'out'
 ) => {
   if (!shouldRender) {
     return
   }
 
-  const hasCurve = !!lastPoint.outHandle
+  const handle =
+    handleSide === 'in' ? lastPoint.inHandle : lastPoint.outHandle
+  const hasCurve = !!handle
   if (!hasCurve) {
     canvas.line(lastPoint, mouseScreenPos, {
       width: PREVIEW_WIDTH,
@@ -561,7 +564,7 @@ const drawPreview = (
 
   canvas.bezierCurve(
     lastPoint,
-    lastPoint.outHandle ?? lastPoint,
+    handle ?? lastPoint,
     mouseScreenPos,
     mouseScreenPos,
     {
@@ -728,6 +731,34 @@ export const registerVectorPathEditingRenderLayer = (
         isSubpathEndpoint(screenSubpaths, selectedPreviewPoint.id)
           ? selectedPreviewPoint
           : fallbackPreviewStartPoint
+      const previewHandleSide: 'in' | 'out' = (() => {
+        if (!previewStartPoint) {
+          return 'out'
+        }
+
+        const matchingSubpath = screenSubpaths.find((subpath) => {
+          if (subpath.points.length === 0) {
+            return false
+          }
+          const firstPoint = subpath.points[0]
+          const lastPoint = subpath.points[subpath.points.length - 1]
+          return (
+            firstPoint.id === previewStartPoint.id ||
+            lastPoint.id === previewStartPoint.id
+          )
+        })
+
+        if (!matchingSubpath || matchingSubpath.points.length === 0) {
+          return 'out'
+        }
+
+        const firstPoint = matchingSubpath.points[0]
+        if (firstPoint.id === previewStartPoint.id) {
+          return 'in'
+        }
+
+        return 'out'
+      })()
       const shouldRenderPreview =
         snapshot.primaryTool === 'pen' &&
         !startNewSubpath &&
@@ -774,7 +805,8 @@ export const registerVectorPathEditingRenderLayer = (
           canvas,
           previewStartPoint,
           mouseScreenPos,
-          shouldRenderPreview
+          shouldRenderPreview,
+          previewHandleSide
         )
       }
       drawGhostInsertPoint(canvas, activeGhostInsertPoint)

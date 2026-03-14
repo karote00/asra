@@ -37,10 +37,7 @@ const getDefaultFillsForType = (type: EntityType) => {
         visible: false
       })
     case 'vector':
-      return createDefaultFills({
-        color: DEFAULT_VECTOR_FILL_COLOR,
-        visible: false
-      })
+      return []
     case 'rect':
     case 'oval':
     default:

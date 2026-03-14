@@ -9,6 +9,9 @@
 1. Reduce app-level internal coupling
 
 - remove internal-path imports (for example keymap source path)
+2. Vector editing performance remediation
+
+- Reference: `docs/ai/apps/asyra-design/plans/vector-editing-performance-plan.md`
 ## Mid-Term
 
 1. Advanced selection workflows
@@ -39,3 +42,5 @@
 - Reference: `docs/ai/apps/asyra-design/plans/completed/vector-geometry-consistency-plan.md`
 4. Escape key cancel behavior alignment
 - Reference: `docs/ai/apps/asyra-design/plans/completed/escape-key-cancel-behavior-plan.md`
+5. Vector even-odd fill + editing stability
+- Reference: `docs/ai/apps/asyra-design/plans/completed/vector-even-odd-fill-editing-stability-plan.md`

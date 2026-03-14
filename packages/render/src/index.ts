@@ -14,6 +14,16 @@ export {
   type RenderGradientPoint,
   type RenderFillStyle
 } from './fills/gradient-fill'
+export {
+  createEvenOddFillStyle
+} from './fills/even-odd-fill'
+export type {
+  EvenOddSegment,
+  EvenOddPath,
+  EvenOddShape,
+  EvenOddFillOptions,
+  EvenOddFillResult
+} from './fills/even-odd-fill'
 export type { RenderStrategy } from './types/render-strategy'
 export {
   defaultStrategy,
