@@ -28,6 +28,11 @@ This file tracks framework planning topics and points to detailed references.
 - Keep it optional, deterministic, and renderer-boundary-safe so apps can opt in without coupling domain logic to Pixi internals.
 - Reference: `docs/ai/framework/plans/canvas-debugger-plan.md`
 
+5. Render delta update pipeline
+- Apply data-channel deltas directly in render update flow to avoid full computed-data rehydrate.
+- Use render-side cached snapshots + key-based invalidation for heavy geometry.
+- Reference: `docs/ai/framework/plans/render-delta-update-plan.md`
+
 ## Deferred Plans
 
 1. Auto-layout behavior engine.

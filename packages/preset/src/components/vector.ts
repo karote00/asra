@@ -1,11 +1,12 @@
 import { PropertyTypes, createDefaultFill } from '@asyra/utils'
 import type { FillAttrs } from '@asyra/utils'
+import core, { VECTOR_TOKENS, defineComponent } from '@asyra/core'
 import type { RenderStrategy } from '@asyra/core'
-import { VECTOR_TOKENS, defineComponent } from '@asyra/core'
 import type { VectorNetwork, VectorPointNode, VectorSegment } from '@asyra/core'
 import { DEFAULT_VECTOR_FILLS, applyRenderableFill } from './fills'
 
 interface VectorComputedData {
+  id: string
   x: number
   y: number
   width: number
@@ -58,6 +59,9 @@ type FillFaceCache = {
   lastRenderAt: number
   revision: number
   pendingTimerId?: ReturnType<typeof setTimeout>
+  dragSuppressed?: boolean
+  segmentKeyMap?: Record<string, string>
+  segmentLinesMap?: Record<string, LineSegment[]>
 }
 
 const isAnchorNode = (
@@ -131,6 +135,28 @@ const getFlattenSteps = (p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2) => {
   const steps = Math.ceil(length / 12)
   return Math.max(MIN_FLATTEN_STEPS, Math.min(MAX_FLATTEN_STEPS, steps))
 }
+
+const toSegmentKeyCoord = (value: number | null | undefined) =>
+  value === null || value === undefined
+    ? 'n'
+    : `${value}`
+
+const buildSegmentKey = (
+  start: Vec2,
+  end: Vec2,
+  outControl: Vec2 | null,
+  inControl: Vec2 | null
+) =>
+  [
+    toSegmentKeyCoord(start.x),
+    toSegmentKeyCoord(start.y),
+    toSegmentKeyCoord(end.x),
+    toSegmentKeyCoord(end.y),
+    toSegmentKeyCoord(outControl?.x),
+    toSegmentKeyCoord(outControl?.y),
+    toSegmentKeyCoord(inControl?.x),
+    toSegmentKeyCoord(inControl?.y)
+  ].join('|')
 
 const polygonArea = (points: Vec2[]): number => {
   if (points.length < 3) {
@@ -217,9 +243,90 @@ type LineSegment = { start: Vec2; end: Vec2 }
 
 const splitSegmentsByIntersections = (segments: LineSegment[]): LineSegment[] => {
   const splitParams = segments.map(() => [0, 1])
+  if (segments.length < 2) {
+    return segments
+  }
+
+  const bounds = segments.map((segment) => {
+    const minX = Math.min(segment.start.x, segment.end.x)
+    const maxX = Math.max(segment.start.x, segment.end.x)
+    const minY = Math.min(segment.start.y, segment.end.y)
+    const maxY = Math.max(segment.start.y, segment.end.y)
+    return { minX, maxX, minY, maxY }
+  })
+
+  const avgLength =
+    segments.reduce(
+      (sum, segment) =>
+        sum +
+        Math.hypot(
+          segment.end.x - segment.start.x,
+          segment.end.y - segment.start.y
+        ),
+      0
+    ) / segments.length
+  const cellSize = Math.max(12, Math.min(64, avgLength || 12))
+  const toCell = (value: number) => Math.floor(value / cellSize)
+  const cellMap = new Map<string, number[]>()
+
+  bounds.forEach((box, index) => {
+    const startX = toCell(box.minX)
+    const endX = toCell(box.maxX)
+    const startY = toCell(box.minY)
+    const endY = toCell(box.maxY)
+    for (let x = startX; x <= endX; x += 1) {
+      for (let y = startY; y <= endY; y += 1) {
+        const key = `${x},${y}`
+        const list = cellMap.get(key)
+        if (list) {
+          list.push(index)
+        } else {
+          cellMap.set(key, [index])
+        }
+      }
+    }
+  })
+
+  const seen = new Int32Array(segments.length)
+  let stamp = 0
 
   for (let i = 0; i < segments.length; i += 1) {
-    for (let j = i + 1; j < segments.length; j += 1) {
+    stamp += 1
+    const candidateIndices: number[] = []
+    const box = bounds[i]
+    const startX = toCell(box.minX)
+    const endX = toCell(box.maxX)
+    const startY = toCell(box.minY)
+    const endY = toCell(box.maxY)
+    for (let x = startX; x <= endX; x += 1) {
+      for (let y = startY; y <= endY; y += 1) {
+        const list = cellMap.get(`${x},${y}`)
+        if (!list) {
+          continue
+        }
+        for (const j of list) {
+          if (j <= i) {
+            continue
+          }
+          if (seen[j] === stamp) {
+            continue
+          }
+          seen[j] = stamp
+          candidateIndices.push(j)
+        }
+      }
+    }
+
+    for (const j of candidateIndices) {
+      const other = bounds[j]
+      if (
+        box.maxX < other.minX - INTERSECTION_EPS ||
+        box.minX > other.maxX + INTERSECTION_EPS ||
+        box.maxY < other.minY - INTERSECTION_EPS ||
+        box.minY > other.maxY + INTERSECTION_EPS
+      ) {
+        continue
+      }
       const hit = segmentIntersection(
         segments[i].start,
         segments[i].end,
@@ -275,12 +382,17 @@ type DirectedSegment = {
   end: Vec2
 }
 
-const buildDirectedSegments = (
+const buildFlattenedSegmentsWithCache = (
   orderedNetworks: VectorNetwork[],
   points: Record<string, VectorPointNode>,
-  segments: Record<string, VectorSegment>
-): DirectedSegment[] => {
-  const directedSegments: DirectedSegment[] = []
+  segments: Record<string, VectorSegment>,
+  cache?: Pick<FillFaceCache, 'segmentKeyMap' | 'segmentLinesMap'>
+) => {
+  const prevKeyMap = cache?.segmentKeyMap ?? {}
+  const prevLinesMap = cache?.segmentLinesMap ?? {}
+  const nextKeyMap: Record<string, string> = {}
+  const nextLinesMap: Record<string, LineSegment[]> = {}
+  const flattenedSegments: LineSegment[] = []
 
   orderedNetworks.forEach((network) => {
     network.segmentIds.forEach((segmentId) => {
@@ -297,37 +409,65 @@ const buildDirectedSegments = (
 
       const outControl = getControlNode(points, segment.outControlId)
       const inControl = getControlNode(points, segment.inControlId)
+      const startPos = { x: start.x, y: start.y }
+      const endPos = { x: end.x, y: end.y }
+      const outControlPos = outControl
+        ? { x: outControl.x, y: outControl.y }
+        : null
+      const inControlPos = inControl
+        ? { x: inControl.x, y: inControl.y }
+        : null
+      const key = buildSegmentKey(startPos, endPos, outControlPos, inControlPos)
 
-      if (!outControl && !inControl) {
-        directedSegments.push({
-          start: { x: start.x, y: start.y },
-          end: { x: end.x, y: end.y }
-        })
+      let lines = prevLinesMap[segmentId]
+      if (!lines || prevKeyMap[segmentId] !== key) {
+        if (!outControlPos && !inControlPos) {
+          lines = [{ start: startPos, end: endPos }]
+        } else {
+          const p0 = startPos
+          const p1 = outControlPos ?? p0
+          const p3 = endPos
+          const p2 = inControlPos ?? p3
+          const pointsOnCurve = flattenCubic(
+            p0,
+            p1,
+            p2,
+            p3,
+            getFlattenSteps(p0, p1, p2, p3)
+          )
+          lines = []
+          for (let i = 0; i < pointsOnCurve.length - 1; i += 1) {
+            lines.push({
+              start: pointsOnCurve[i],
+              end: pointsOnCurve[i + 1]
+            })
+          }
+        }
+      }
+
+      if (!lines) {
         return
       }
 
-      const p0 = { x: start.x, y: start.y }
-      const p1 = outControl ? { x: outControl.x, y: outControl.y } : p0
-      const p3 = { x: end.x, y: end.y }
-      const p2 = inControl ? { x: inControl.x, y: inControl.y } : p3
-      const pointsOnCurve = flattenCubic(
-        p0,
-        p1,
-        p2,
-        p3,
-        getFlattenSteps(p0, p1, p2, p3)
-      )
-
-      for (let i = 0; i < pointsOnCurve.length - 1; i += 1) {
-        directedSegments.push({
-          start: pointsOnCurve[i],
-          end: pointsOnCurve[i + 1]
-        })
-      }
+      nextKeyMap[segmentId] = key
+      nextLinesMap[segmentId] = lines
+      flattenedSegments.push(...lines)
     })
   })
 
-  return directedSegments
+  const directedSegments: DirectedSegment[] = flattenedSegments.map(
+    (segment) => ({
+      start: segment.start,
+      end: segment.end
+    })
+  )
+
+  return {
+    flattenedSegments,
+    directedSegments,
+    segmentKeyMap: nextKeyMap,
+    segmentLinesMap: nextLinesMap
+  }
 }
 
 const polygonCentroid = (points: Vec2[]) => {
@@ -383,57 +523,9 @@ const evenOddContains = (point: Vec2, segments: DirectedSegment[]) => {
 }
 
 const buildFillFaces = (
-  orderedNetworks: VectorNetwork[],
-  points: Record<string, VectorPointNode>,
-  segments: Record<string, VectorSegment>
+  flattenedSegments: LineSegment[],
+  directedSegments: DirectedSegment[]
 ): Vec2[][] => {
-  const flattenedSegments: LineSegment[] = []
-
-  orderedNetworks.forEach((network) => {
-    network.segmentIds.forEach((segmentId) => {
-      const segment = segments[segmentId]
-      if (!segment) {
-        return
-      }
-
-      const start = getAnchorNode(points, segment.startId)
-      const end = getAnchorNode(points, segment.endId)
-      if (!start || !end) {
-        return
-      }
-
-      const outControl = getControlNode(points, segment.outControlId)
-      const inControl = getControlNode(points, segment.inControlId)
-
-      if (!outControl && !inControl) {
-        flattenedSegments.push({
-          start: { x: start.x, y: start.y },
-          end: { x: end.x, y: end.y }
-        })
-        return
-      }
-
-      const p0 = { x: start.x, y: start.y }
-      const p1 = outControl ? { x: outControl.x, y: outControl.y } : p0
-      const p3 = { x: end.x, y: end.y }
-      const p2 = inControl ? { x: inControl.x, y: inControl.y } : p3
-      const pointsOnCurve = flattenCubic(
-        p0,
-        p1,
-        p2,
-        p3,
-        getFlattenSteps(p0, p1, p2, p3)
-      )
-
-      for (let i = 0; i < pointsOnCurve.length - 1; i += 1) {
-        flattenedSegments.push({
-          start: pointsOnCurve[i],
-          end: pointsOnCurve[i + 1]
-        })
-      }
-    })
-  })
-
   if (flattenedSegments.length > MAX_OPEN_SEGMENTS) {
     return []
   }
@@ -553,11 +645,6 @@ const buildFillFaces = (
     return []
   }
 
-  const directedSegments = buildDirectedSegments(
-    orderedNetworks,
-    points,
-    segments
-  )
   if (directedSegments.length === 0) {
     return []
   }
@@ -675,6 +762,25 @@ const getFillPayload = (fills: FillAttrs[], fill?: string): FillAttrs[] => {
   return []
 }
 
+const isVectorEditingDrag = (vectorId: string): boolean => {
+  const pathEditingVectorId =
+    core.getSystemProperty<string | null>('pathEditingVectorId') ?? null
+  if (!pathEditingVectorId || pathEditingVectorId !== vectorId) {
+    return false
+  }
+
+  const pathEditingMode =
+    core.getSystemProperty<boolean>('pathEditingMode') ?? false
+  if (!pathEditingMode) {
+    return false
+  }
+
+  const mouseDragging =
+    core.getSystemProperty<boolean>('mouseDragging') ?? false
+  const mouseDown = core.getSystemProperty<boolean>('mouseDown') ?? false
+  return mouseDragging || mouseDown
+}
+
 const renderVectorGraphic = (
   graphic: Parameters<RenderStrategy>[0],
   data: VectorComputedData,
@@ -704,6 +810,13 @@ const renderVectorGraphic = (
 
   const strokeColor = parseHexColor(stroke, 0xcccccc)
   const fillPayload = getFillPayload(fills, fill)
+  let previewFill = false
+
+  const hasClosedNetwork =
+    data.closed === true ||
+    orderedNetworks.some(
+      (network) => network.closed && network.pointIds.length > 2
+    )
 
   if (fillPayload.length > 0) {
     const graphicCache = graphic as typeof graphic & {
@@ -723,13 +836,18 @@ const renderVectorGraphic = (
       segments
     )
     const heavy = complexity >= FILL_HEAVY_COMPLEXITY_THRESHOLD
+    const dragSuppressed = isVectorEditingDrag(data.id)
+    const dragReleased = cache.dragSuppressed === true && !dragSuppressed
     const rebuildInterval = heavy
       ? FILL_HEAVY_REBUILD_MIN_INTERVAL_MS
       : FILL_REBUILD_MIN_INTERVAL_MS
     const rapidRender = now - lastRenderAt < FILL_RAPID_RENDER_THRESHOLD_MS
     const shouldRebuild =
       options.forceFillRebuild ||
-      (!rapidRender && now - cache.lastRebuildAt >= rebuildInterval)
+      dragReleased ||
+      (dragSuppressed
+        ? true
+        : !rapidRender && now - cache.lastRebuildAt >= rebuildInterval)
 
     if (cache.pendingTimerId) {
       clearTimeout(cache.pendingTimerId)
@@ -738,16 +856,34 @@ const renderVectorGraphic = (
 
     let fillFaces = cache.faces
     if (shouldRebuild) {
-      fillFaces = buildFillFaces(orderedNetworks, points, segments)
+      const {
+        flattenedSegments,
+        directedSegments,
+        segmentKeyMap,
+        segmentLinesMap
+      } = buildFlattenedSegmentsWithCache(
+        orderedNetworks,
+        points,
+        segments,
+        cache
+      )
+      fillFaces = buildFillFaces(flattenedSegments, directedSegments)
       cache.faces = fillFaces
       cache.lastRebuildAt = now
+      cache.segmentKeyMap = segmentKeyMap
+      cache.segmentLinesMap = segmentLinesMap
     }
 
     cache.lastRenderAt = now
     cache.revision += 1
+    cache.dragSuppressed = dragSuppressed
     graphicCache.__asyraVectorFillCache = cache
 
-    if (!shouldRebuild && options.allowDeferredFill !== false) {
+    if (
+      !dragSuppressed &&
+      !shouldRebuild &&
+      options.allowDeferredFill !== false
+    ) {
       const scheduledRevision = cache.revision
       const deferredDelay = heavy
         ? FILL_DEFERRED_REBUILD_MS * 2
@@ -760,10 +896,26 @@ const renderVectorGraphic = (
         if ('destroyed' in graphic && graphic.destroyed) {
           return
         }
-        const deferredFaces = buildFillFaces(orderedNetworks, points, segments)
+        const {
+          flattenedSegments,
+          directedSegments,
+          segmentKeyMap,
+          segmentLinesMap
+        } = buildFlattenedSegmentsWithCache(
+          orderedNetworks,
+          points,
+          segments,
+          activeCache
+        )
+        const deferredFaces = buildFillFaces(
+          flattenedSegments,
+          directedSegments
+        )
         activeCache.faces = deferredFaces
         activeCache.lastRebuildAt = getNow()
         activeCache.pendingTimerId = undefined
+        activeCache.segmentKeyMap = segmentKeyMap
+        activeCache.segmentLinesMap = segmentLinesMap
         renderVectorGraphic(graphic, data, { allowDeferredFill: false })
       }, deferredDelay)
     }
@@ -773,6 +925,8 @@ const renderVectorGraphic = (
       applyRenderableFill(graphic as { fill: unknown }, fillPayload, {
         replayPath: () => drawFillFaces(graphic, fillFaces)
       })
+    } else if (hasClosedNetwork) {
+      previewFill = true
     }
   } else {
     const graphicCache = graphic as typeof graphic & {
@@ -785,6 +939,12 @@ const renderVectorGraphic = (
   }
 
   drawVectorPath(graphic, orderedNetworks, points, segments)
+  if (previewFill) {
+    applyRenderableFill(graphic as { fill: unknown }, fillPayload, {
+      replayPath: () =>
+        drawVectorPath(graphic, orderedNetworks, points, segments)
+    })
+  }
 
   if ('stroke' in graphic && typeof graphic.stroke === 'function') {
     graphic.stroke({

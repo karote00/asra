@@ -8,11 +8,16 @@ import {
   type VectorPointNode,
   type VectorSegment
 } from '@asyra/core'
+import core from '@asyra/core'
 import { FillColorFormats, FillKinds, PropertyTypes } from '@asyra/utils'
 import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
 
 beforeAll(() => {
+  core.defineSystemProperty<string | null>('pathEditingVectorId', null)
+  core.defineSystemProperty<boolean>('pathEditingMode', false)
+  core.defineSystemProperty<boolean>('mouseDragging', false)
+
   const systemPropertyMap = new Map<string, BehaviorSubject<unknown>>()
   const presetDeps = {
     sceneTree: {
@@ -68,6 +73,16 @@ beforeAll(() => {
     presetDeps
   )
 })
+
+const setPathEditingState = (state: {
+  vectorId: string | null
+  mode: boolean
+  dragging: boolean
+}) => {
+  core.setSystemProperty('pathEditingVectorId', state.vectorId)
+  core.setSystemProperty('pathEditingMode', state.mode)
+  core.setSystemProperty('mouseDragging', state.dragging)
+}
 
 const runRenderStrategy = (
   strategy: unknown,
@@ -544,6 +559,99 @@ describe('Vector Component', () => {
       color: 0xff0000,
       alpha: 0.3
     })
+  })
+
+  it('should preview fill during path-editing drag for closed paths', () => {
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) return
+
+    setPathEditingState({ vectorId: 'vector-1', mode: true, dragging: true })
+
+    const mockGraphic = {
+      clear: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      bezierCurveTo: vi.fn(),
+      closePath: vi.fn(),
+      cut: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn()
+    }
+
+    const mockData = {
+      id: 'vector-1',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      ...toVectorData(
+        [
+          { id: '1', x: 0, y: 0 },
+          { id: '2', x: 100, y: 0 },
+          { id: '3', x: 100, y: 100 },
+          { id: '4', x: 0, y: 100 }
+        ],
+        true
+      ),
+      closed: true,
+      fills: [createSolidFill('#ff0000')],
+      stroke: '#000000',
+      strokeWidth: 2
+    }
+
+    runRenderStrategy(renderStrategy, mockGraphic, mockData)
+
+    expect(mockGraphic.fill).toHaveBeenCalled()
+
+    setPathEditingState({ vectorId: null, mode: false, dragging: false })
+  })
+
+  it('should not preview fill during drag for open paths', () => {
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) return
+
+    setPathEditingState({ vectorId: 'vector-2', mode: true, dragging: true })
+
+    const mockGraphic = {
+      clear: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      bezierCurveTo: vi.fn(),
+      closePath: vi.fn(),
+      cut: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn()
+    }
+
+    const mockData = {
+      id: 'vector-2',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      ...toVectorData(
+        [
+          { id: '1', x: 0, y: 0 },
+          { id: '2', x: 100, y: 0 },
+          { id: '3', x: 100, y: 100 }
+        ],
+        false
+      ),
+      closed: false,
+      fills: [createSolidFill('#ff0000')],
+      stroke: '#000000',
+      strokeWidth: 2
+    }
+
+    runRenderStrategy(renderStrategy, mockGraphic, mockData)
+
+    expect(mockGraphic.fill).not.toHaveBeenCalled()
+
+    setPathEditingState({ vectorId: null, mode: false, dragging: false })
   })
 
   it('should not render path segments when only one point exists', () => {

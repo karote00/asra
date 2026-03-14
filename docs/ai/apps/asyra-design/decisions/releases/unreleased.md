@@ -801,3 +801,16 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Path editing is more predictable when continuing or canceling edits.
 - Related Commit(s):
   - pending
+
+## 2026-03-14 - Vector editing performance remediation closeout
+
+- Context:
+  - Vector drag and edit interactions for dense vectors were sluggish (dropping frames) due to heavy even-odd fill recalculations, overlapping rendering paths, and curve flattening during every drag point.
+- Decision:
+  - Close out the vector editing performance remediation plan after successfully deferring and optimizing real-time geometry changes.
+  - Implement geometry caches and defer full fill rebuilds until editing release.
+- Consequences:
+  - Dense vector point dragging stays responsive at 60 FPS without multi-frame stalls.
+  - Correct even-odd fill rendering and subpath behaviors are preserved.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/vector-editing-performance-plan.md`

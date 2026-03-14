@@ -105,6 +105,38 @@ const computeConnectedInHandle = (connectedPoint: VectorAnchorPoint): Vec2 => {
   return connectedPoint.inHandle ?? connectedPoint
 }
 
+let pendingSelectedPointMirror: SelectedVectorPointState | null | undefined
+let pendingSelectedPointTimer: ReturnType<typeof setTimeout> | null = null
+
+const scheduleSelectedVectorPointMirror = (
+  next: SelectedVectorPointState | null
+) => {
+  pendingSelectedPointMirror = next
+  if (pendingSelectedPointTimer) {
+    return
+  }
+
+  pendingSelectedPointTimer = setTimeout(() => {
+    pendingSelectedPointTimer = null
+    if (pendingSelectedPointMirror === undefined) {
+      return
+    }
+    systemContextApis.setSelectedVectorPoint(pendingSelectedPointMirror)
+    pendingSelectedPointMirror = undefined
+  }, 0)
+}
+
+const flushSelectedVectorPointMirror = (
+  next: SelectedVectorPointState | null
+) => {
+  if (pendingSelectedPointTimer) {
+    clearTimeout(pendingSelectedPointTimer)
+    pendingSelectedPointTimer = null
+  }
+  pendingSelectedPointMirror = undefined
+  systemContextApis.setSelectedVectorPoint(next)
+}
+
 const computeFigmaStyleHandles = (
   connectedPoint: VectorAnchorPoint,
   currentPoint: VectorAnchorPoint,
@@ -219,7 +251,8 @@ const getPointTargetPosition = (
 const syncSelectedVectorPointMirror = (
   elementId: string,
   selectedPoint: { point: VectorAnchorPoint; index: number } | null,
-  target: VectorPointTarget
+  target: VectorPointTarget,
+  options?: { deferred?: boolean }
 ) => {
   if (!selectedPoint) {
     return false
@@ -230,7 +263,7 @@ const syncSelectedVectorPointMirror = (
     return false
   }
 
-  systemContextApis.setSelectedVectorPoint({
+  const nextState: SelectedVectorPointState = {
     elementId,
     pointId: selectedPoint.point.id,
     index: selectedPoint.index,
@@ -241,7 +274,13 @@ const syncSelectedVectorPointMirror = (
       elementId,
       selectedPoint.point.id
     )
-  })
+  }
+
+  if (options?.deferred) {
+    scheduleSelectedVectorPointMirror(nextState)
+  } else {
+    flushSelectedVectorPointMirror(nextState)
+  }
 
   return true
 }
@@ -876,7 +915,8 @@ export const selectVectorPointFeature = defineFeature<
       syncSelectedVectorPointMirror(
         dragTarget.elementId,
         updatedPoint,
-        dragTarget.target
+        dragTarget.target,
+        { deferred: true }
       )
       dragTarget.hasMoved = true
       return

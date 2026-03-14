@@ -21,6 +21,70 @@ const isVectorElement = (elementId: string): boolean => {
 }
 
 let iconPathMap: VectorIconPathMap = {}
+const pendingElementIds = new Set<string>()
+let pendingFlushHandle: number | null = null
+let pendingRebuildAfterEdit = false
+
+const isPathEditingActive = () =>
+  (core.getSystemProperty<boolean>('pathEditingMode') ?? false) === true
+
+const scheduleFlush = () => {
+  if (pendingFlushHandle !== null) {
+    return
+  }
+
+  const schedule =
+    typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame
+      : (callback: FrameRequestCallback) =>
+          setTimeout(() => callback(Date.now()), 16)
+
+  pendingFlushHandle = schedule(() => {
+    pendingFlushHandle = null
+    if (isPathEditingActive()) {
+      pendingElementIds.clear()
+      pendingRebuildAfterEdit = true
+      return
+    }
+
+    if (pendingElementIds.size === 0) {
+      return
+    }
+
+    let changed = false
+    const nextMap = { ...iconPathMap }
+    pendingElementIds.forEach((elementId) => {
+      pendingElementIds.delete(elementId)
+      if (!isVectorElement(elementId)) {
+        if (elementId in nextMap) {
+          delete nextMap[elementId]
+          changed = true
+        }
+        return
+      }
+
+      const path = buildVectorIconPath(
+        elementApis.getVectorTopology(elementId)
+      )
+      if (path === null) {
+        if (elementId in nextMap) {
+          delete nextMap[elementId]
+          changed = true
+        }
+        return
+      }
+
+      if (nextMap[elementId] !== path) {
+        nextMap[elementId] = path
+        changed = true
+      }
+    })
+
+    if (changed) {
+      setIconPathMap(nextMap)
+    }
+  })
+}
 
 const setIconPathMap = (next: VectorIconPathMap) => {
   iconPathMap = next
@@ -28,6 +92,11 @@ const setIconPathMap = (next: VectorIconPathMap) => {
 }
 
 const updateElementIconPath = (elementId: string) => {
+  if (isPathEditingActive()) {
+    pendingRebuildAfterEdit = true
+    return
+  }
+
   if (!isVectorElement(elementId)) {
     if (elementId in iconPathMap) {
       const { [elementId]: _, ...rest } = iconPathMap
@@ -53,6 +122,16 @@ const updateElementIconPath = (elementId: string) => {
     ...iconPathMap,
     [elementId]: path
   })
+}
+
+const enqueueElementIconPathUpdate = (elementId: string) => {
+  if (isPathEditingActive()) {
+    pendingRebuildAfterEdit = true
+    return
+  }
+
+  pendingElementIds.add(elementId)
+  scheduleFlush()
 }
 
 const rebuildIconPathMap = () => {
@@ -88,17 +167,34 @@ export const initVectorIconData = (): void => {
     rebuildIconPathMap()
   })
 
+  const pathEditingObservable =
+    core.getSystemPropertyObservable<boolean>('pathEditingMode')
+  if (pathEditingObservable) {
+    let previous = pathEditingObservable.getValue()
+    pathEditingObservable.subscribe((next) => {
+      const wasEditing = previous === true
+      previous = next
+      if (wasEditing && next === false) {
+        if (pendingRebuildAfterEdit) {
+          pendingRebuildAfterEdit = false
+          pendingElementIds.clear()
+          rebuildIconPathMap()
+        }
+      }
+    })
+  }
+
   subscribeToAddElement((event) => {
     const elementId = event.payload.data.id
     if (typeof elementId === 'string' && elementId.length > 0) {
-      updateElementIconPath(elementId)
+      enqueueElementIconPathUpdate(elementId)
     }
   })
 
   subscribeToRemoveElement((event) => {
     const elementId = event.payload.data.id
     if (typeof elementId === 'string' && elementId.length > 0) {
-      updateElementIconPath(elementId)
+      enqueueElementIconPathUpdate(elementId)
     }
   })
 
@@ -107,7 +203,7 @@ export const initVectorIconData = (): void => {
       return
     }
 
-    updateElementIconPath(event.payload.id)
+    enqueueElementIconPathUpdate(event.payload.id)
   })
 
   subscribeToChangeComputedData((event) => {
@@ -116,7 +212,7 @@ export const initVectorIconData = (): void => {
     }
 
     event.payload.elementIds.forEach((elementId) => {
-      updateElementIconPath(elementId)
+      enqueueElementIconPathUpdate(elementId)
     })
   })
 }

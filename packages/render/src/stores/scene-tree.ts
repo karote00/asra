@@ -7,6 +7,8 @@ import render from '../render'
 
 class RenderSceneTree {
   private _workspace: WorkspaceRawData | null
+  private pendingElementUpdates = new Set<string>()
+  private pendingFlush = false
 
   constructor() {
     this._workspace = null
@@ -69,10 +71,31 @@ class RenderSceneTree {
     before: DataTypes,
     after: DataTypes
   ) {
-    const data = this._getRenderData(elementId)
-    if (data) {
-      render.updateElement(elementId, key, before, after, data)
+    // Computed data updates arrive per-key; coalesce into a single render pass.
+    this.pendingElementUpdates.add(elementId)
+    if (this.pendingFlush) {
+      return
     }
+
+    this.pendingFlush = true
+    const schedule =
+      typeof queueMicrotask === 'function'
+        ? queueMicrotask
+        : (callback: () => void) => {
+            Promise.resolve().then(callback)
+          }
+
+    schedule(() => {
+      this.pendingFlush = false
+      const ids = Array.from(this.pendingElementUpdates)
+      this.pendingElementUpdates.clear()
+      ids.forEach((id) => {
+        const data = this._getRenderData(id)
+        if (data) {
+          render.updateElement(id, 'computed', undefined as DataTypes, undefined as DataTypes, data)
+        }
+      })
+    })
   }
 }
 
