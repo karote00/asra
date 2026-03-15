@@ -8,21 +8,6 @@ import {
 import { FeatureNames, InputSystemEvents } from '../../constants'
 import type { SystemContextSnapshot } from '@asyra/utils'
 
-interface HoverElementFeatureApi {
-  reEvaluate?: (snapshot?: SystemContextSnapshot) => string | null
-}
-
-const reEvaluateHoverAfterDelete = (snapshot: SystemContextSnapshot) => {
-  try {
-    const hoverApi = getFeature(
-      FeatureNames.HOVER_ELEMENT
-    ) as HoverElementFeatureApi
-
-    hoverApi.reEvaluate?.(snapshot)
-  } catch {
-    // Hover feature may not be available yet; keep current state as-is.
-  }
-}
 
 export const deleteElementFeature = defineFeature(
   FeatureNames.DELETE_SELECTED_ELEMENT,
@@ -49,8 +34,6 @@ export const deleteElementFeature = defineFeature(
         if (!deleted) {
           return null
         }
-
-        reEvaluateHoverAfterDelete(snapshot)
 
         return { deletedElementId: elementId }
       } finally {

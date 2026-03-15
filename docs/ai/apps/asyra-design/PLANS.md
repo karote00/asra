@@ -11,7 +11,6 @@
 
 - remove internal-path imports (for example keymap source path)
 
-## Completed
 
 ## Mid-Term
 

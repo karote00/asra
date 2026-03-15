@@ -848,3 +848,17 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Data flow is more deterministic and follows the framework's reactive principles.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/refactor-path-editing-continuation-state.md`
+## 2026-03-15 - Hover detection switched from bounds to render item
+
+- Context:
+  - Previously, hover detection used element bounding boxes, preventing selection of elements behind opaque shapes even if the pointer was not over the visible pixels (e.g., in the corner of an Oval's bounds).
+- Decision:
+  - Leverage `FeatureSystem`'s native support for `render.*` events to implement hover detection.
+  - Listen to `render.pointer.hover` and `render.pointer.leave` events in the `hover-element` feature.
+  - Remove manual polling and hit-testing logic from `elementApis` for hover detection.
+- Consequences:
+  - Hover detection is now fully event-driven and geometry-precise (handled by the PixiJS hit-test system).
+  - Reduced CPU overhead by removing mouse-move polling for hover checks.
+  - Better alignment with the framework's reactive and event-driven architecture.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/hover-on-render-item.md`

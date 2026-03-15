@@ -1,48 +1,61 @@
-import type { SystemContextSnapshot } from '@asyra/utils'
-import { defineFeature } from '@asyra/core'
-import { elementApis, systemContextApis } from '../../common-apis'
+import { defineFeature, EventTypes } from '@asyra/core'
+import { systemContextApis } from '../../common-apis'
 import { FeatureNames, InputSystemEvents } from '../../constants'
 
-export const reEvaluateHoveredElement = (snapshot?: SystemContextSnapshot) => {
-  const mousePos =
-    snapshot?.mousePosition ??
-    systemContextApis.getSystemContextSnapshot().mousePosition
-  if (!mousePos) {
-    systemContextApis.updateHoveredElementId(null)
-    return null
-  }
-
-  const pathEditingMode = systemContextApis.getPathEditingMode()
-  const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
-  const rawHoveredId = elementApis.getElementIdAtClientPos(mousePos)
-  const hoveredId =
-    pathEditingMode && pathEditingVectorId
-      ? rawHoveredId === pathEditingVectorId
-        ? rawHoveredId
-        : null
-      : rawHoveredId
-
-  systemContextApis.updateHoveredElementId(hoveredId)
-
-  return hoveredId
-}
-
+/**
+ * Hover Element Feature
+ * Coordinates hover state across the system.
+ *
+ * This feature now relies exclusively on renderer feedback (render.* events)
+ * for precise, geometry-aware hover detection.
+ */
 export const hoverElementFeature = defineFeature(
   FeatureNames.HOVER_ELEMENT,
   InputSystemEvents.INPUT_MOUSE_MOVE,
   {
-    api: {
-      reEvaluate: reEvaluateHoveredElement
-    },
     priority: 0,
+    exclusive: false
+  }
+)
+
+/**
+ * Passive Render Hover - Precise hit testing from Pixi.js
+ * Triggered automatically by the feature system for 'render.*' events.
+ */
+export const hoverElementRenderHoverFeature = defineFeature(
+  FeatureNames.HOVER_ELEMENT + '.render.hover',
+  EventTypes.POINTER_HOVER,
+  {
+    priority: 10,
     exclusive: false,
-    execution: (snapshot: SystemContextSnapshot) => {
-      const hoveredId = reEvaluateHoveredElement(snapshot)
-      if (hoveredId === null) {
-        return null
+    execution: (snapshot) => {
+      const payload = (snapshot.detail ?? snapshot.payload) as {
+        elementId: string
+      }
+      const elementId = payload?.elementId
+
+      if (elementId) {
+        systemContextApis.updateHoveredElementId(elementId)
       }
 
-      return { hoveredId }
+      return { hoveredId: elementId }
+    }
+  }
+)
+
+/**
+ * Passive Render Leave - Precise hit testing from Pixi.js
+ * Triggered automatically by the feature system for 'render.*' events.
+ */
+export const hoverElementRenderLeaveFeature = defineFeature(
+  FeatureNames.HOVER_ELEMENT + '.render.leave',
+  EventTypes.POINTER_LEAVE,
+  {
+    priority: 10,
+    exclusive: false,
+    execution: () => {
+      systemContextApis.updateHoveredElementId(null)
+      return { hoveredId: null }
     }
   }
 )
