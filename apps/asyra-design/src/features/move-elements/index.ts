@@ -48,8 +48,8 @@ const api: MoveElementsApi = {
     }
 
     const hoveredElementId =
-      elementApis.getElementIdAtClientPos(snapshot.mousePosition) ??
-      snapshot.hoveredElementId
+      snapshot.hoveredElementId ??
+      elementApis.getElementIdAtClientPos(snapshot.mousePosition)
     if (!hoveredElementId) {
       return null
     }

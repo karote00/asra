@@ -194,4 +194,54 @@ describe('Render', () => {
     expect(render.viewport.getElementById).toHaveBeenCalledWith('el1')
     expect(result).toBe(element)
   })
+
+  it('should use Pixi v8 rootBoundary for hit testing in getElementIdAtClientPos', () => {
+    const mockHit = { label: 'el1' }
+    const mockHitTest = vi.fn().mockReturnValue(mockHit)
+    const mockApp = {
+      renderer: {
+        events: {
+          rootBoundary: {
+            hitTest: mockHitTest
+          }
+        }
+      }
+    }
+    render.app = mockApp as any
+
+    const result = render.getElementIdAtClientPos({ x: 10, y: 20 })
+
+    expect(mockHitTest).toHaveBeenCalledWith(10, 20)
+    expect(result).toBe('el1')
+  })
+
+  it('should handle cases where rootBoundary hitTest returns an object without a label', () => {
+    const mockHit = { parent: { label: 'parentEl' } }
+    const mockHitTest = vi.fn().mockReturnValue(mockHit)
+    const mockApp = {
+      renderer: {
+        events: {
+          rootBoundary: {
+            hitTest: mockHitTest
+          }
+        }
+      }
+    }
+    render.app = mockApp as any
+
+    const result = render.getElementIdAtClientPos({ x: 10, y: 20 })
+
+    expect(result).toBe('parentEl')
+  })
+
+  it('should return null if Pixi v8 events system is not available', () => {
+    const mockApp = {
+      renderer: {}
+    }
+    render.app = mockApp as any
+
+    const result = render.getElementIdAtClientPos({ x: 10, y: 20 })
+
+    expect(result).toBeNull()
+  })
 })

@@ -862,3 +862,18 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Better alignment with the framework's reactive and event-driven architecture.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/completed/hover-on-render-item.md`
+
+## 2026-03-15 - Geometry-accurate element selection and move start
+
+- Context:
+  - Element selection and movement start previously relied on bounding box checks in `elementApis`, which often selected the wrong element (e.g., the parent Oval instead of a child nested in its corner).
+- Decision:
+  - Implement `getElementIdAtClientPos` in the `@asyra/render` package using PixiJS v8's `rootBoundary.hitTest` for geometry-precise detection.
+  - Update `elementApis.getElementIdAtClientPos` to leverage this new renderer-level accurate hit testing.
+  - Refactor `selection` and `move-elements` features to use the current `hoveredElementId` from the system context as the primary target, falling back to the accurate manual hit test.
+- Consequences:
+  - Elements can now be selected and moved with pixel precision, ignoring transparent areas or corners of bounding boxes.
+  - Interactions correctly prioritize the visually hovered element, even in complex overlapping scenarios.
+  - Resolved a `TypeError` regarding `hitTest` by correctly accessing the PixiJS v8 `EventBoundary`.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/select-element-by-hover-target-plan.md`

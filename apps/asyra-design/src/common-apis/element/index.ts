@@ -147,12 +147,11 @@ export const elementApis = {
   },
 
   getElementIdAtClientPos: (clientPos: PositionData): string | null => {
-    const workspacePos = elementApis.getMousePosInWorkspace(clientPos)
-    if (!workspacePos) {
+    if (!render) {
       return null
     }
 
-    return elementApis.getElementIdAtWorkspacePos(workspacePos)
+    return render.getElementIdAtClientPos(clientPos)
   },
 
   getElementType: (elementId: string): string | undefined => {

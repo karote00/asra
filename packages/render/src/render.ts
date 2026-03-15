@@ -209,6 +209,33 @@ class Render {
     return this.viewport.getMousePosInWorkspace(mousePos)
   }
 
+  getElementIdAtClientPos(clientPos: { x: number; y: number }): string | null {
+    if (!this.app) {
+      return null
+    }
+
+    // @ts-ignore - Pixi v8 internal API access
+    const events = this.app.renderer.events
+    if (!events || !events.rootBoundary) {
+      return null
+    }
+
+    // Use Pixi's internal hit testing for precise geometry-aware detection
+    // In Pixi v8, manual hit testing is done via rootBoundary.hitTest(x, y)
+    const hit = events.rootBoundary.hitTest(clientPos.x, clientPos.y)
+
+    if (hit) {
+      // Traverse up to find an object with a label (elementId)
+      let target: any = hit
+      while (target && !target.label && target.parent) {
+        target = target.parent
+      }
+      return (target?.label as string) ?? null
+    }
+
+    return null
+  }
+
   getElementById(elementId: string) {
     return this.viewport.getElementById(elementId)
   }

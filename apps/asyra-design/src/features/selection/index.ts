@@ -77,8 +77,8 @@ export const selectionFeature = defineFeature(
         }
 
         const hoveredElementId =
-          elementApis.getElementIdAtClientPos(mouse.position) ??
-          snapshot.hoveredElementId
+          snapshot.hoveredElementId ??
+          elementApis.getElementIdAtClientPos(mouse.position)
 
         transactionApis.startTransaction()
         try {
