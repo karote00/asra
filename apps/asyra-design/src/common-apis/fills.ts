@@ -1,4 +1,5 @@
 import {
+  FillGradientTypes,
   PropertyTypes,
   type EVENT_OPTIONS,
   type FillAttrs,
@@ -33,6 +34,52 @@ export interface GradientHandleGeometry {
   canvasHandles: [PositionData, PositionData]
 }
 
+const isNonLinearGradient = (gradientType: FillGradientData['gradientType']) =>
+  gradientType !== FillGradientTypes.LINEAR
+
+const getDisplayStartHandle = (
+  gradient: FillGradientData
+): FillGradientData['gradientHandles'][number] => {
+  const [startHandle, endHandle] = gradient.gradientHandles
+  if (!startHandle || !endHandle) {
+    return startHandle
+  }
+
+  if (!isNonLinearGradient(gradient.gradientType)) {
+    return startHandle
+  }
+
+  return {
+    x: (startHandle.x + endHandle.x) / 2,
+    y: (startHandle.y + endHandle.y) / 2
+  }
+}
+
+const getStoredHandleFromDisplay = (
+  gradient: FillGradientData,
+  handleIndex: GradientHandleIndex,
+  displayHandle: { x: number; y: number }
+) => {
+  if (handleIndex !== 0 || !isNonLinearGradient(gradient.gradientType)) {
+    return displayHandle
+  }
+
+  const endHandle = gradient.gradientHandles[1]
+  if (!endHandle) {
+    return displayHandle
+  }
+
+  return {
+    x: displayHandle.x * 2 - endHandle.x,
+    y: displayHandle.y * 2 - endHandle.y
+  }
+}
+
+const getHandleDeltaScale = (
+  gradient: FillGradientData,
+  handleIndex: GradientHandleIndex
+) => (handleIndex === 0 && isNonLinearGradient(gradient.gradientType) ? 2 : 1)
+
 const getNextGradientForHandleWithDelta = (
   baseGradient: FillGradientData,
   handleIndex: GradientHandleIndex,
@@ -41,14 +88,15 @@ const getNextGradientForHandleWithDelta = (
   delta: PositionData
 ): FillGradientData => {
   const currentHandle = baseGradient.gradientHandles[handleIndex]
+  const deltaScale = getHandleDeltaScale(baseGradient, handleIndex)
 
   return {
     ...baseGradient,
     gradientHandles: baseGradient.gradientHandles.map((handle, index) =>
       index === handleIndex
         ? {
-            x: currentHandle.x + delta.x / width,
-            y: currentHandle.y + delta.y / height
+            x: currentHandle.x + (delta.x / width) * deltaScale,
+            y: currentHandle.y + (delta.y / height) * deltaScale
           }
         : handle
     )
@@ -147,16 +195,22 @@ export const fillApis = {
       clientY: clientPos.y
     })
     const localPos = renderElement.toLocal(workspacePos, renderElement.parent)
+    const displayHandle = {
+      x: localPos.x / geometry.width,
+      y: localPos.y / geometry.height
+    }
+    const nextHandle = getStoredHandleFromDisplay(
+      geometry.fill.gradient,
+      handleIndex,
+      displayHandle
+    )
 
     return {
       ...geometry.fill.gradient,
       gradientHandles: geometry.fill.gradient.gradientHandles.map(
         (handle, index) =>
           index === handleIndex
-            ? {
-                x: localPos.x / geometry.width,
-                y: localPos.y / geometry.height
-              }
+            ? nextHandle
             : handle
       )
     }
@@ -181,11 +235,12 @@ export const fillApis = {
       return null
     }
 
-    const [startHandle, endHandle] = fillData.fill.gradient.gradientHandles
+    const [, endHandle] = fillData.fill.gradient.gradientHandles
+    const displayStartHandle = getDisplayStartHandle(fillData.fill.gradient)
     const canvasHandles: [PositionData, PositionData] = [
       renderElement.toGlobal({
-        x: startHandle.x * fillData.width,
-        y: startHandle.y * fillData.height
+        x: displayStartHandle.x * fillData.width,
+        y: displayStartHandle.y * fillData.height
       }),
       renderElement.toGlobal({
         x: endHandle.x * fillData.width,

@@ -924,3 +924,17 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - UI consistency is improved with standardized white icons and text.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/color-picker-generalization-plan.md`
+
+## 2026-03-16 - Non-linear gradient start handle display mapping
+
+- Context:
+  - Switching gradient types between linear and non-linear kept the same stored handle data, but the on-canvas start handle did not visually reposition to match expected non-linear editing behavior.
+  - This made the gradient start handle feel inconsistent when toggling between linear and non-linear modes.
+- Decision:
+  - Derive the non-linear start handle display position as the midpoint between stored start/end handles while keeping stored data unchanged.
+  - Map start-handle drag updates back to stored data so the visual handle remains aligned with cursor movement under non-linear types.
+- Consequences:
+  - Gradient type switching now repositions the on-canvas start handle without mutating stored gradient data.
+  - Handle hit-testing and drag interactions remain consistent with the displayed handle position.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/non-linear-gradient-handle-display-plan.md`
