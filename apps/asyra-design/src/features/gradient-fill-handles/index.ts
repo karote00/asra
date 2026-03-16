@@ -162,9 +162,14 @@ export const hoverGradientStopFeature = defineFeature(
         snapshot.mousePosition
       )
       if (!hit) {
+        systemContextApis.setHoveredGradientStop(null)
         return null
       }
 
+      systemContextApis.setHoveredGradientStop({
+        ...activeGradientFill,
+        stopIndex: hit.stopIndex
+      })
       cursorApis.setCanvasCursor('grab')
       return { ...activeGradientFill, stopIndex: hit.stopIndex }
     }
@@ -334,6 +339,20 @@ export const dragGradientStopFeature = defineFeature<
       if (!fill?.gradient) {
         return null
       }
+
+      if (!hit) {
+        systemContextApis.setSelectedGradientStop(null)
+        return null
+      }
+
+      systemContextApis.setSelectedGradientStop({
+        ...activeGradientFill,
+        stopIndex: hit.stopIndex
+      })
+      systemContextApis.setHoveredGradientStop({
+        ...activeGradientFill,
+        stopIndex: hit.stopIndex
+      })
 
       cursorApis.setCanvasCursor('grabbing')
 

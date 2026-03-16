@@ -20,10 +20,9 @@ const calculateContinuation = (
     return null
   }
 
-  const selectedPoint =
-    core.getSystemProperty<SelectedVectorPointState | null>(
-      'selectedVectorPoint'
-    )
+  const selectedPoint = core.getSystemProperty<SelectedVectorPointState | null>(
+    'selectedVectorPoint'
+  )
   const subpaths = elementApis.getVectorAnchorSubpaths(vectorId)
 
   if (subpaths.length === 0) {

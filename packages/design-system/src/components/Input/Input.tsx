@@ -30,6 +30,8 @@ interface InputProps
   containerStyle?: React.CSSProperties
   /** Whether to hide the outline rings on hover and focus */
   noOutline?: boolean
+  /** Additional class name for the internal input element */
+  inputClassName?: string
 }
 
 const sizeClasses = {
@@ -49,6 +51,7 @@ const Input: React.FC<InputProps> = ({
   containerClassName,
   containerStyle,
   noOutline = false,
+  inputClassName,
   ...rest
 }) => {
   const inputRef = useRef(null)
@@ -103,9 +106,7 @@ const Input: React.FC<InputProps> = ({
     >
       {prefix && (
         <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center">
-          <span className="text-[10px] font-medium text-text-primary">
-            {prefix}
-          </span>
+          <span className="text-[10px] font-medium text-white">{prefix}</span>
         </div>
       )}
       <input
@@ -124,11 +125,11 @@ const Input: React.FC<InputProps> = ({
         placeholder={placeholder}
         disabled={disabled}
         {...rest}
-        className="bg-transparent w-full h-full pr-1 outline-none text-text-primary caret-accent text-[11px]"
+        className={`bg-transparent w-full h-full pr-1 outline-none text-text-primary caret-accent text-[11px] ${!prefix ? 'pl-2' : ''} ${inputClassName ?? ''}`}
       />
       {suffix && (
         <div className="pr-1.5 flex-shrink-0">
-          <span className="text-[10px] text-text-tertiary">{suffix}</span>
+          <span className="text-[10px] text-white">{suffix}</span>
         </div>
       )}
     </div>

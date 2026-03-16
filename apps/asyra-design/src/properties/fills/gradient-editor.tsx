@@ -14,6 +14,8 @@ import { useGradientInteractions } from './use-gradient-interactions'
 interface GradientEditorProps {
   index: number
   fill: FillAttrs
+  fillId: string
+  ownerElementId: string | null
   gradient: FillGradientData
   onChangeFill: (
     patch: FillPatch,
@@ -35,6 +37,8 @@ const GRADIENT_TYPE_OPTIONS: FillGradientType[] = [
 const GradientEditor = ({
   index,
   fill,
+  fillId,
+  ownerElementId,
   gradient,
   onChangeFill,
   onStartInteraction,
@@ -63,6 +67,8 @@ const GradientEditor = ({
     handleOpenStopChange
   } = useGradientInteractions({
     fill,
+    fillId,
+    ownerElementId,
     gradient,
     onChangeFill,
     onStartInteraction,

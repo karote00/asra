@@ -877,3 +877,50 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Resolved a `TypeError` regarding `hitTest` by correctly accessing the PixiJS v8 `EventBoundary`.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/select-element-by-hover-target-plan.md`
+
+## 2026-03-16 - ColorPicker state synchronization and editing refinements
+
+- Context:
+  - The `ColorPicker` component had several interaction and state synchronization issues:
+    - Undo/Redo operations did not always trigger a picker update because emitted values were cached incorrectly.
+    - Advanced color formats like HWB, OKLCH, and CSS were non-editable or reverted to HEX immediately upon typing.
+    - HSB inputs exhibited value "jumping" during focus/blur cycles.
+    - The UI lacked a native eye dropper tool and had inconsistent label/icon colors.
+- Decision:
+  - Implement a mismatch-detecting cache invalidation strategy in the `ColorPicker` sync effect to ensure Undo/Redo always restores picker state.
+  - Standardize emitted color string formatting in `emitChange` to match the active `colorFormat`, preventing guard mismatches that caused draft resets.
+  - Add `draftCss` and `draftHsbS` states to handle direct text entry for CSS strings and stable HSB saturation values.
+  - Reorganize the picker internal layout to include a native EyeDropper API tool alongside hue and opacity sliders.
+  - Standardize all picker UI text and icons to full white and expand the format selector width to 66px.
+  - Ensure all internal conversions (HSVA, RGBA, HSLA) are consistent across the app and design system.
+- Consequences:
+  - `ColorPicker` state is now perfectly synchronized with the application's undo/redo history.
+  - All color formats are fully editable, including CSS color strings and advanced formats like OKLCH.
+  - The eye dropper provides a professional-grade sampling tool directly integrated into the palette.
+  - UI consistency and legibility are improved through standardized styling and spacing.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/color-picker-fix-plan.md`
+
+## 2026-03-16 - ColorPicker generalized with app-level format configuration
+
+- Context:
+  - The `ColorPicker` component was tightly coupled to hardcoded color format definitions in the design system, making it difficult for applications to define custom formats or input behaviors.
+  - Supporting new formats (e.g., HWB, OKLCH) required changing the design system's core component logic.
+  - State management for different color channels (HEX, RGBA, HSLA) was fragmented across multiple local states, leading to synchronization complexities.
+- Decision:
+  - Refactor `ColorPicker` to accept a `formatDefinitions: ColorFormatDefinition[]` prop, decoupling it from specific format implementations.
+  - Move all color format definitions (HEX, RGB, HSL, HSB, HWB, OKLCH, CSS) to the application level (`apps/asyra-design/src/properties/fills/color-picker-config.ts`).
+  - Standardize format definitions using a common `ColorFormatDefinition` interface that defines:
+    - `toValues(hsva)`: Converts HSVA to an array of string values for inputs.
+    - `fromValues(values, current)`: Converts input values back to HSVA.
+    - `formatInput(val, index)`: Optional sanitization/formatting logic for each input field.
+  - Consolidate individual draft states in `ColorPicker` into a single `draftValues: string[]` array driven by the active format definition.
+  - Add native `EyeDropper` API support directly within the picker UI.
+  - Export all necessary color utilities (`hsvaToHwb`, `hwbToHsva`, `hsvaToOklch`, `oklchToHsva`) and types from `@asyra/design-system` to support app-level configuration.
+- Consequences:
+  - `ColorPicker` is now a truly generic and extensible component that can support any color format without internal modifications.
+  - Application developers have full control over the available formats, input order, and validation logic.
+  - Design system complexity is reduced, and state synchronization is more robust.
+  - UI consistency is improved with standardized white icons and text.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/color-picker-generalization-plan.md`

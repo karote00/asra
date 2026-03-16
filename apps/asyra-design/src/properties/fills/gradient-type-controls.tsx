@@ -32,12 +32,12 @@ const GradientTypeControls = ({
   onChange,
   onFlip
 }: GradientTypeControlsProps) => (
-  <div className="flex items-center gap-2">
+  <div className="flex items-center gap-2 px-3">
     <div className="flex flex-1 items-center gap-2">
       <select
         value={value}
         onChange={(event) => onChange(event.target.value as FillGradientType)}
-        className="min-w-24 flex-1 rounded-md border border-[#3a3a3a] bg-transparent px-2 py-1.5 text-[10px] uppercase tracking-[0.08em] text-[#ccc] outline-none transition-colors hover:border-[#555] focus:border-[#0d99ff]"
+        className="min-w-24 flex-1 rounded-md border border-[#3a3a3a] bg-transparent px-2 py-1.5 text-[10px] uppercase tracking-[0.08em] text-white outline-none transition-colors hover:border-[#555] focus:border-[#0d99ff]"
         data-testid={`prop-fill-gradient-type-${index}`}
       >
         {options.map((gradientType) => (
@@ -49,7 +49,7 @@ const GradientTypeControls = ({
       <button
         type="button"
         onClick={onFlip}
-        className="icon-btn"
+        className="icon-btn text-white"
         data-testid={`prop-fill-gradient-flip-${index}`}
         aria-label="Flip gradient"
         title="Flip gradient"

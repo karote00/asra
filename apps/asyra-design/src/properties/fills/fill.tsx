@@ -1,9 +1,7 @@
 import { type FillAttrs } from '@asyra/utils'
-import { Input, PropertyControl } from '@asyra/design-system'
 import { useFill } from '../../providers'
-import FillColorControls from './fill-color-controls'
+import FillColorRow from './fill-color-row'
 import { useFillInteractions } from './use-fill-interactions'
-import { formatInputNumber } from '../number-input'
 
 interface FillItemProps {
   index: number
@@ -45,8 +43,7 @@ const EyeClosedIcon = () => (
     <path d="M9.8 8.9c1-1 1.7-2.4 1.7-2.4S9.5 3 7 3c-.4 0-.8 0-1.2.2" />
   </svg>
 )
-
-const MinusIcon = () => (
+export const MinusIcon = () => (
   <svg
     width="10"
     height="10"
@@ -56,7 +53,7 @@ const MinusIcon = () => (
     strokeWidth="1.5"
     strokeLinecap="round"
   >
-    <path d="M2 5h6" />
+    <path d="M1 5h8" />
   </svg>
 )
 
@@ -99,54 +96,35 @@ const FillItem = ({
       data-testid={`prop-fill-${index}`}
     >
       {/* Group: Swatch/Hex + Opacity */}
-      <PropertyControl className="flex-1 gap-[1px]">
-        {/* Swatch + Hex container */}
-        <div className="flex-1 min-w-0">
-          <FillColorControls
-            index={index}
-            fill={fill as unknown as FillAttrs}
-            displayColor={displayColor}
-            gradientData={gradientData}
-            previewSwatchStyle={previewSwatchStyle}
-            colorFormat={fill.colorFormat}
-            onKindChange={handleKindChange}
-            onColorValueChange={handleColorValueChange}
-            onColorPickerChange={handleColorPickerChange}
-            onColorPickerChangeStart={handleColorPickerChangeStart}
-            onColorPickerChangeEnd={handleColorPickerChangeEnd}
-            onGradientEditorOpenChange={handleGradientEditorOpenChange}
-            onGradientFillChange={handleGradientFillChange}
-            onStartInteraction={startFillInteractionTransaction}
-            onEndInteraction={endFillInteractionTransaction}
-            onFormatChange={handleFormatChange}
-          />
-        </div>
-
-        {/* Divider line for visual separation if needed */}
-        <div className="w-[1px] h-3 bg-divider mx-[2px] opacity-50" />
-
-        {/* Opacity container */}
-        <div style={{ width: '48px' }}>
-          <Input
-            value={formatInputNumber(Math.round(fill.opacity * 100))}
-            suffix="%"
-            size="small"
-            containerClassName="!bg-transparent !px-0"
-            containerStyle={{
-              border: 'none'
-            }}
-            noOutline
-            onChange={handleOpacityChange}
-            data-testid={`prop-fill-opacity-${index}`}
-          />
-        </div>
-      </PropertyControl>
+      <FillColorRow
+        index={index}
+        fill={fill as unknown as FillAttrs}
+        fillId={fillId}
+        ownerElementId={ownerElementId}
+        displayColor={displayColor}
+        gradientData={gradientData}
+        previewSwatchStyle={previewSwatchStyle}
+        colorFormat={fill.colorFormat}
+        onKindChange={handleKindChange}
+        onColorValueChange={handleColorValueChange}
+        onColorPickerChange={handleColorPickerChange}
+        onColorPickerChangeStart={handleColorPickerChangeStart}
+        onColorPickerChangeEnd={handleColorPickerChangeEnd}
+        onGradientEditorOpenChange={handleGradientEditorOpenChange}
+        onGradientFillChange={handleGradientFillChange}
+        onStartInteraction={startFillInteractionTransaction}
+        onEndInteraction={endFillInteractionTransaction}
+        onFormatChange={handleFormatChange}
+        opacity={fill.opacity}
+        onOpacityChange={handleOpacityChange}
+        opacityTestId={`prop-fill-opacity-${index}`}
+      />
 
       {/* Visibility eye icon */}
       <button
         type="button"
         onClick={() => handleVisibleChange(!fill.visible)}
-        className="flex items-center justify-center h-6 w-6 rounded hover:bg-panel-surface-hover text-text-secondary hover:text-text-primary transition-colors"
+        className="flex items-center justify-center h-6 w-6 rounded hover:bg-panel-surface-hover text-white/60 hover:text-white transition-colors"
         data-testid={`prop-fill-visible-${index}`}
         title={fill.visible ? 'Hide fill' : 'Show fill'}
         style={{ width: '24px', height: '24px' }}
@@ -157,10 +135,10 @@ const FillItem = ({
       <button
         type="button"
         onClick={onRemove}
-        className="flex items-center justify-center h-6 w-6 rounded hover:bg-panel-surface-hover text-text-secondary hover:text-text-primary transition-colors"
+        className="flex items-center justify-center h-6 w-6 rounded hover:bg-panel-surface-hover text-white disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
         data-testid={`prop-fill-remove-${index}`}
         title="Remove fill"
-        style={{ width: '24px', height: '24px' }}
+        aria-label="Remove fill"
       >
         <MinusIcon />
       </button>

@@ -8,7 +8,8 @@ import { parseColor, rgbaToColorInt, type PositionData } from '@asyra/utils'
 import { fillApis, type GradientHandleIndex } from '../common-apis/fills'
 import type {
   ActiveGradientFillState,
-  GradientHandleState
+  GradientHandleState,
+  GradientStopState
 } from '../common-apis/system-context'
 
 const GRADIENT_FILL_HANDLES_LAYER_NAME = 'gradient-fill-handles-layer'
@@ -26,6 +27,7 @@ const STOP_RECT_HALF = STOP_RECT_SIZE / 2
 /** Height of the triangle pointer from rectangle edge to the gradient line. */
 const STOP_TRIANGLE_HEIGHT = 6
 const STOP_STROKE_COLOR = 0xffffff
+const STOP_ACTIVE_STROKE_COLOR = 0x4c95ff
 const STOP_STROKE_WIDTH = 2
 /** Gap between the gradient line and the rectangle edge. */
 const STOP_OFFSET_FROM_LINE = STOP_TRIANGLE_HEIGHT + 2
@@ -48,6 +50,16 @@ const isHandleActive = (
   handleState.elementId === fillState.elementId &&
   handleState.fillId === fillState.fillId &&
   handleState.handleIndex === handleIndex
+
+const isStopActive = (
+  stopState: GradientStopState | null,
+  fillState: ActiveGradientFillState,
+  stopIndex: number
+) =>
+  !!stopState &&
+  stopState.elementId === fillState.elementId &&
+  stopState.fillId === fillState.fillId &&
+  stopState.stopIndex === stopIndex
 
 /**
  * Convert a CSS hex color string to a numeric color int for the overlay canvas.
@@ -85,7 +97,8 @@ const drawStopIndicator = (
   linePos: PositionData,
   start: PositionData,
   end: PositionData,
-  fillColor: number
+  fillColor: number,
+  strokeColor: number = STOP_STROKE_COLOR
 ) => {
   const { ux, uy, px, py } = getLineVectors(start, end)
 
@@ -116,7 +129,7 @@ const drawStopIndicator = (
 
   canvas.polygon(rectPoints, fillColor, {
     width: STOP_STROKE_WIDTH,
-    color: STOP_STROKE_COLOR
+    color: strokeColor
   })
 
   // Triangle pointer: from the edge of the rectangle toward the gradient line
@@ -137,7 +150,7 @@ const drawStopIndicator = (
 
   canvas.polygon([triTip, triLeft, triRight], fillColor, {
     width: STOP_STROKE_WIDTH,
-    color: STOP_STROKE_COLOR
+    color: strokeColor
   })
 }
 
@@ -177,6 +190,14 @@ export const registerGradientFillHandlesRenderLayer = (
         deps.systemContext.getManagedProperty<GradientHandleState | null>(
           'selectedGradientHandle'
         ) ?? null
+      const hoveredStop =
+        deps.systemContext.getManagedProperty<GradientStopState | null>(
+          'hoveredGradientStop'
+        ) ?? null
+      const selectedStop =
+        deps.systemContext.getManagedProperty<GradientStopState | null>(
+          'selectedGradientStop'
+        ) ?? null
 
       // Draw the gradient line
       canvas.line(geometry.canvasHandles[0], geometry.canvasHandles[1], {
@@ -188,18 +209,23 @@ export const registerGradientFillHandlesRenderLayer = (
       const start = geometry.canvasHandles[0]
       const end = geometry.canvasHandles[1]
 
-      geometry.fill.gradient?.gradientStops.forEach((stop) => {
+      geometry.fill.gradient?.gradientStops.forEach((stop, stopIndex) => {
         const linePos = {
           x: start.x + (end.x - start.x) * stop.position,
           y: start.y + (end.y - start.y) * stop.position
         }
+
+        const active =
+          isStopActive(selectedStop, activeGradientFill, stopIndex) ||
+          isStopActive(hoveredStop, activeGradientFill, stopIndex)
 
         drawStopIndicator(
           canvas,
           linePos,
           start,
           end,
-          hexToColorInt(stop.color)
+          hexToColorInt(stop.color),
+          active ? STOP_ACTIVE_STROKE_COLOR : STOP_STROKE_COLOR
         )
       })
 

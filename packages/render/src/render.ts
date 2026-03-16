@@ -214,7 +214,6 @@ class Render {
       return null
     }
 
-    // @ts-ignore - Pixi v8 internal API access
     const events = this.app.renderer.events
     if (!events || !events.rootBoundary) {
       return null
@@ -226,9 +225,9 @@ class Render {
 
     if (hit) {
       // Traverse up to find an object with a label (elementId)
-      let target: any = hit
+      let target: Container | null = hit as Container
       while (target && !target.label && target.parent) {
-        target = target.parent
+        target = target.parent as Container
       }
       return (target?.label as string) ?? null
     }

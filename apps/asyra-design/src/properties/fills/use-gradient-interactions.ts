@@ -2,13 +2,15 @@ import {
   type EVENT_OPTIONS,
   type FillAttrs,
   type FillGradientData,
-  type FillGradientStop
+  type FillGradientStop,
+  type FillGradientType
 } from '@asyra/utils'
 import { isEqual } from 'lodash'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type React from 'react'
 import type { FillPatch } from '../../common-apis'
 import { FILL_PATCH_KEYS } from '../../constants'
+import { systemContextApis } from '../../common-apis'
 import { convertUserColorToDefault } from './color-format'
 
 const clampUnit = (value: number) => Math.max(0, Math.min(1, value))
@@ -25,8 +27,9 @@ const getChangedFillPatch = (
   nextFill: FillAttrs
 ): FillPatch =>
   FILL_PATCH_KEYS.reduce<FillPatch>((patch, key) => {
-    if (!isEqual(sourceFill[key], nextFill[key])) {
-      patch[key] = nextFill[key]
+    const nextValue = nextFill[key]
+    if (!isEqual(sourceFill[key], nextValue)) {
+      Object.assign(patch, { [key]: nextValue })
     }
 
     return patch
@@ -39,6 +42,8 @@ const sortStopsForPreview = (stops: FillGradientStop[]) =>
 
 interface UseGradientInteractionsArgs {
   fill: FillAttrs
+  fillId: string
+  ownerElementId: string | null
   gradient: FillGradientData
   onChangeFill: (
     patch: FillPatch,
@@ -51,6 +56,8 @@ interface UseGradientInteractionsArgs {
 
 export const useGradientInteractions = ({
   fill,
+  fillId,
+  ownerElementId,
   gradient,
   onChangeFill,
   onStartInteraction,
@@ -64,6 +71,7 @@ export const useGradientInteractions = ({
   const fillRef = useRef(fill)
   const interactionStartFillRef = useRef<FillAttrs | null>(null)
   const interactionLatestFillRef = useRef<FillAttrs | null>(null)
+  const lastStopsRef = useRef(gradient.gradientStops)
 
   const orderedStops = useMemo(
     () => sortStopsForPreview(gradient.gradientStops),
@@ -73,6 +81,32 @@ export const useGradientInteractions = ({
   useEffect(() => {
     fillRef.current = fill
   }, [fill])
+
+  useEffect(() => {
+    const prevStops = lastStopsRef.current
+    lastStopsRef.current = gradient.gradientStops
+
+    // Find if a stop was re-added (e.g. Redo) or added
+    if (gradient.gradientStops.length > prevStops.length) {
+      if (isDraggingRef.current) return
+
+      // Find the first index where they differ or the first added index
+      let addedIndex = -1
+      for (let i = 0; i < gradient.gradientStops.length; i++) {
+        if (
+          i >= prevStops.length ||
+          !isEqual(gradient.gradientStops[i], prevStops[i])
+        ) {
+          addedIndex = i
+          break
+        }
+      }
+
+      if (addedIndex !== -1) {
+        setSelectedStopIndex(addedIndex)
+      }
+    }
+  }, [gradient.gradientStops])
 
   useEffect(() => {
     if (selectedStopIndex < gradient.gradientStops.length) {
@@ -97,6 +131,22 @@ export const useGradientInteractions = ({
         : null
     )
   }, [gradient.gradientStops.length, openStopIndex])
+
+  useEffect(() => {
+    if (ownerElementId) {
+      systemContextApis.setSelectedGradientStop({
+        elementId: ownerElementId,
+        fillId: fillId,
+        stopIndex: selectedStopIndex
+      })
+    }
+
+    return () => {
+      if (ownerElementId) {
+        systemContextApis.setSelectedGradientStop(null)
+      }
+    }
+  }, [fillId, ownerElementId, selectedStopIndex])
 
   const startInteractionSession = () => {
     const currentFill = fillRef.current

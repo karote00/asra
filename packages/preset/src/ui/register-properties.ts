@@ -10,8 +10,6 @@ import {
   type FillRowAttrs
 } from '@asyra/utils'
 import {
-  VECTOR_TOKENS,
-  type VectorPointTarget,
   type SelectedVectorPointState,
   type VectorEditingContinuation,
   type SelectedVectorSegmentState,

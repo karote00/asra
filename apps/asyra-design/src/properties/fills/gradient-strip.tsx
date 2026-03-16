@@ -28,7 +28,7 @@ const GradientStrip = ({
   onSelectStop,
   onStopPointerDown
 }: GradientStripProps) => (
-  <div className="mt-2">
+  <div className="mt-2 px-3">
     <div
       ref={stripRef}
       onClick={(event) => onAddStopFromStrip(event.clientX)}
@@ -48,7 +48,7 @@ const GradientStrip = ({
           className={`absolute top-full mt-1 h-4 w-4 -translate-x-1/2 rounded-sm border-2 ${
             stopIndex === selectedStopIndex
               ? 'border-white shadow-[0_0_0_1px_rgba(10,10,10,0.55)]'
-              : 'border-[#d0d3d6]'
+              : 'border-[#555]'
           }`}
           style={{
             left: `${clampUnit(stop.position) * 100}%`,

@@ -3,11 +3,11 @@ import type { BasePropertyAttrs } from './instanceTypes'
 export const FillColorFormats = {
   HEX: 'hex',
   RGB: 'rgb',
-  RGBA: 'rgba',
   HSL: 'hsl',
-  HSLA: 'hsla',
   HWB: 'hwb',
-  OKLCH: 'oklch'
+  OKLCH: 'oklch',
+  HSB: 'hsb',
+  CSS: 'css'
 } as const
 
 export type FillColorFormat =

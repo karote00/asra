@@ -9,6 +9,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import type { FillPatch } from '../../common-apis'
 import { ALLOWED_COLOR_FORMATS } from '../../constants'
 import GradientEditor from './gradient-editor'
+import { COLOR_PICKER_FORMAT_DEFINITIONS } from './color-picker-config'
 
 const FillModeIcon = ({ kind }: { kind: FillAttrs['kind'] }) => {
   if (kind === FillKinds.GRADIENT) {
@@ -61,7 +62,7 @@ const FillModeButton = ({
     className={`inline-flex h-6 w-6 items-center justify-center rounded transition-colors ${
       active
         ? 'bg-accent text-white'
-        : 'bg-transparent text-text-secondary hover:bg-panel-surface-hover hover:text-text-primary'
+        : 'bg-transparent text-white/60 hover:bg-panel-surface-hover hover:text-white'
     }`}
     data-testid={testId}
     aria-label={label}
@@ -74,6 +75,8 @@ const FillModeButton = ({
 interface FillColorControlsProps {
   index: number
   fill: FillAttrs
+  fillId: string
+  ownerElementId: string | null
   displayColor: string
   gradientData: FillAttrs['gradient']
   previewSwatchStyle?: CSSProperties
@@ -97,6 +100,8 @@ interface FillColorControlsProps {
 const FillColorControls = ({
   index,
   fill,
+  fillId,
+  ownerElementId,
   displayColor,
   gradientData,
   previewSwatchStyle,
@@ -134,26 +139,7 @@ const FillColorControls = ({
     </div>
   )
 
-  // Format selector that goes inside the color picker popup (footer)
-  const pickerFooter: ReactNode = (
-    <div className="flex items-center gap-2 pt-2">
-      <span className="text-[10px] text-text-tertiary">Format</span>
-      <select
-        value={colorFormat}
-        onChange={(event) =>
-          onFormatChange(event.target.value as FillColorFormat)
-        }
-        className="flex-1 rounded border border-border-input bg-transparent px-2 py-1 text-[11px] text-text-primary outline-none transition-colors hover:border-border-subtle focus:border-border-focus"
-        data-testid={`prop-fill-format-${index}`}
-      >
-        {ALLOWED_COLOR_FORMATS.map((format) => (
-          <option key={format} value={format}>
-            {format}
-          </option>
-        ))}
-      </select>
-    </div>
-  )
+  const pickerFooter: ReactNode = null
 
   return (
     <div className="flex items-center flex-1 min-w-0 h-full">
@@ -169,6 +155,13 @@ const FillColorControls = ({
           shouldIgnoreOutsidePointerDown={shouldIgnoreOutsidePointerDown}
           header={pickerHeader}
           footer={pickerFooter}
+          colorFormat={colorFormat}
+          onFormatChange={(format: string) =>
+            onFormatChange(format as FillColorFormat)
+          }
+          formatOptions={ALLOWED_COLOR_FORMATS}
+          formatDefinitions={COLOR_PICKER_FORMAT_DEFINITIONS}
+          showAlpha={true}
           hideDefaultPanel={fill.kind === FillKinds.GRADIENT}
           swatchStyle={{
             position: 'static',
@@ -188,6 +181,8 @@ const FillColorControls = ({
             <GradientEditor
               index={index}
               fill={fill}
+              fillId={fillId}
+              ownerElementId={ownerElementId}
               gradient={gradientData}
               onChangeFill={onGradientFillChange}
               onStartInteraction={onStartInteraction}
@@ -199,7 +194,7 @@ const FillColorControls = ({
         <div className="flex-1 min-w-0 h-full flex items-center">
           {gradientData ? (
             <div
-              className="flex h-full items-center px-1.5 text-[11px] text-text-secondary truncate"
+              className="flex h-full items-center pl-0 text-[11px] text-white uppercase truncate font-medium"
               style={{
                 background: 'transparent',
                 borderRadius: 0
@@ -219,6 +214,7 @@ const FillColorControls = ({
                 border: 'none'
               }}
               noOutline
+              inputClassName="!pl-0"
               onChange={onColorValueChange}
               data-testid={`prop-fill-color-${index}`}
             />

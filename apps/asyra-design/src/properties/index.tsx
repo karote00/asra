@@ -68,7 +68,7 @@ const Properties: React.FC = () => {
 
   return (
     <div
-      className={`w-${COLUMN_WIDTH} z-10 overflow-y-auto`}
+      className={`w-${COLUMN_WIDTH} z-10 overflow-y-auto text-white`}
       style={{
         gridArea: 'right-sidebar',
         background: '#252525',

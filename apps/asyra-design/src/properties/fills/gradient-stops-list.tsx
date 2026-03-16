@@ -1,10 +1,10 @@
-import { ColorPicker, Input } from '@asyra/design-system'
-import { type FillAttrs, type FillGradientStop } from '@asyra/utils'
+import { Input, PropertyControl } from '@asyra/design-system'
+import { FillKinds, type FillAttrs, type FillGradientStop } from '@asyra/utils'
 import type React from 'react'
-import { convertStoredColorToFormat } from './color-format'
+import { convertToHexUpper } from './color-format'
+import { MinusIcon } from './fill'
+import FillColorRow from './fill-color-row'
 import { formatInputNumber } from '../number-input'
-
-const clampUnit = (value: number) => Math.max(0, Math.min(1, value))
 
 const AddIcon = () => (
   <svg
@@ -15,22 +15,6 @@ const AddIcon = () => (
   >
     <path
       d="M8 3.25v9.5M3.25 8h9.5"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-    />
-  </svg>
-)
-
-const RemoveIcon = () => (
-  <svg
-    aria-hidden="true"
-    viewBox="0 0 16 16"
-    className="h-3.5 w-3.5"
-    fill="none"
-  >
-    <path
-      d="M4 4l8 8M12 4l-8 8"
       stroke="currentColor"
       strokeWidth="1.5"
       strokeLinecap="round"
@@ -86,14 +70,14 @@ const GradientStopsList = ({
   onColorPickerEnd
 }: GradientStopsListProps) => (
   <>
-    <div className="flex items-center justify-between h-8 pl-4 pr-2 mt-4">
-      <span className="text-[10px] uppercase tracking-[0.08em] text-text-tertiary font-bold">
+    <div className="flex items-center justify-between h-8 px-3 mt-4">
+      <span className="text-[10px] uppercase tracking-[0.08em] text-white font-bold">
         Stops
       </span>
       <button
         type="button"
         onClick={onAddStop}
-        className="flex items-center justify-center w-5 h-5 rounded hover:bg-panel-surface-hover text-text-secondary hover:text-text-primary transition-colors"
+        className="flex items-center justify-center w-5 h-5 rounded hover:bg-panel-surface-hover text-white transition-colors"
         data-testid={`prop-fill-gradient-add-stop-${index}`}
         aria-label="Add gradient stop"
         title="Add gradient stop"
@@ -102,65 +86,76 @@ const GradientStopsList = ({
       </button>
     </div>
 
-    <div className="flex flex-col">
+    <div className="flex flex-col text-white">
       {orderedStops.map(({ stop, index: stopIndex }, orderIndex) => (
         <div
           key={stopIndex}
-          className={`grid grid-cols-[60px_1fr_60px_28px] items-center gap-2 pl-4 pr-2 h-8 min-h-8 transition-colors ${
-            stopIndex === selectedStopIndex
-              ? 'bg-[rgba(13,153,255,0.08)]'
-              : 'hover:bg-panel-surface-hover'
+          className={`grid grid-cols-[54px_1fr_28px] items-center gap-2 h-8 min-h-8 px-3 transition-colors ${
+            stopIndex === selectedStopIndex ? 'bg-[rgba(13,153,255,0.08)]' : ''
           }`}
           data-testid={`prop-fill-gradient-stop-row-${index}-${stopIndex}`}
           onPointerDown={(event) => onRowPointerDown(stopIndex, event)}
           onClick={() => onSelectStop(stopIndex)}
         >
-          <div className="flex-1 min-w-0 h-6 bg-panel-surface rounded transition-all hover:ring-1 hover:ring-white/10 focus-within:ring-1 focus-within:ring-border-focus">
+          <PropertyControl className="w-[54px]">
             <Input
               value={formatInputNumber(Math.round(stop.position * 100))}
               suffix="%"
               size="small"
-              onChange={(value) => onStopPositionChange(stopIndex, value)}
-              containerClassName="rounded !bg-transparent"
+              onChange={(value: string) =>
+                onStopPositionChange(stopIndex, value)
+              }
+              noOutline
               data-testid={`prop-fill-gradient-stop-position-${index}-${stopIndex}`}
             />
-          </div>
-          <div className="flex items-center gap-1 h-6 min-w-0">
-            <ColorPicker
-              color={stop.color}
-              opacity={stop.opacity}
-              open={openStopIndex === stopIndex}
-              onOpenChange={(nextOpen) => onOpenStopChange(stopIndex, nextOpen)}
-              onChange={(next) => onStopColorChange(stopIndex, next)}
-              onChangeStart={onColorPickerStart}
-              onChangeEnd={onColorPickerEnd}
-              data-testid={`prop-fill-gradient-stop-color-picker-${index}-${stopIndex}`}
-              triggerStyle={{
-                width: '22px',
-                height: '22px',
-                borderRadius: '3px'
-              }}
-            />
-            <div className="flex-1 h-6 min-w-0 bg-panel-surface rounded transition-all hover:ring-1 hover:ring-white/10 focus-within:ring-1 focus-within:ring-border-focus">
-              <Input
-                value={convertStoredColorToFormat(stop.color, fillColorFormat)}
-                onChange={(value) => onStopColorTextChange(stopIndex, value)}
-                containerClassName="rounded !bg-transparent"
-                data-testid={`prop-fill-gradient-stop-color-${index}-${stopIndex}`}
-              />
-            </div>
-          </div>
-          <div className="h-6 min-w-0 bg-panel-surface rounded transition-all hover:ring-1 hover:ring-white/10 focus-within:ring-1 focus-within:ring-border-focus">
-            <Input
-              value={formatInputNumber(
-                Math.round(clampUnit(stop.opacity) * 100)
-              )}
-              suffix="%"
-              onChange={(value) => onStopOpacityChange(stopIndex, value)}
-              containerClassName="rounded !bg-transparent"
-              data-testid={`prop-fill-gradient-stop-opacity-${index}-${stopIndex}`}
-            />
-          </div>
+          </PropertyControl>
+          <FillColorRow
+            index={stopIndex}
+            fill={
+              {
+                kind: FillKinds.SOLID,
+                color: stop.color,
+                opacity: stop.opacity,
+                visible: true,
+                colorFormat: fillColorFormat,
+                defaultColorFormat: fillColorFormat,
+                gradient: null
+              } as FillAttrs
+            }
+            displayColor={convertToHexUpper(stop.color)}
+            gradientData={null}
+            colorFormat={fillColorFormat}
+            onKindChange={() => {
+              /* stops are always solid */
+            }}
+            onColorValueChange={(value: string) =>
+              onStopColorTextChange(stopIndex, value)
+            }
+            onColorPickerChange={(next: { color: string; opacity: number }) =>
+              onStopColorChange(stopIndex, next)
+            }
+            onColorPickerChangeStart={onColorPickerStart}
+            onColorPickerChangeEnd={(next: {
+              color: string
+              opacity: number
+            }) => onStopColorChange(stopIndex, next)}
+            onGradientEditorOpenChange={(open: boolean) =>
+              onOpenStopChange(stopIndex, open)
+            }
+            onGradientFillChange={() => {
+              /* stops don't have gradients */
+            }}
+            onStartInteraction={onColorPickerStart}
+            onEndInteraction={onColorPickerEnd}
+            onFormatChange={() => {
+              /* stops follow main fill format */
+            }}
+            opacity={stop.opacity}
+            onOpacityChange={(value: string) =>
+              onStopOpacityChange(stopIndex, value)
+            }
+            opacityTestId={`prop-fill-gradient-stop-opacity-${index}-${stopIndex}`}
+          />
           <button
             type="button"
             onClick={(event) => {
@@ -168,12 +163,12 @@ const GradientStopsList = ({
               onRemoveStop(stopIndex)
             }}
             disabled={totalStopCount <= 2}
-            className="flex items-center justify-center w-6 h-6 rounded hover:bg-panel-surface-hover text-text-secondary hover:text-text-primary disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center justify-center w-6 h-6 rounded hover:bg-panel-surface-hover text-white disabled:opacity-20 disabled:cursor-not-allowed transition-colors text-[14px]"
             data-testid={`prop-fill-gradient-stop-remove-${index}-${stopIndex}`}
             aria-label={`Remove gradient stop ${orderIndex + 1}`}
             title="Remove gradient stop"
           >
-            <RemoveIcon />
+            <MinusIcon />
           </button>
         </div>
       ))}

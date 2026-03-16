@@ -9,20 +9,32 @@ import { createPortal } from 'react-dom'
 import {
   clampUnit,
   createHsvaColor,
-  formatHexValue,
   hsvaToRgba,
   parseColor,
   rgbaToHex,
   rgbaToHsva,
+  hsvaToHsla,
+  formatColor,
   type HSVAColor
 } from './color-utils'
+import { ColorPickerSaturation } from './ColorPickerSaturation'
+import { ColorPickerSliders } from './ColorPickerSliders'
+import { ColorPickerInputGroup } from './ColorPickerInputGroup'
 
-interface ColorPickerChange {
+export interface ColorFormatDefinition {
+  id: string
+  label: string
+  toValues: (hsva: HSVAColor) => string[]
+  fromValues: (values: string[], currentHsva: HSVAColor) => HSVAColor | null
+  formatInput?: (value: string, index: number) => string
+}
+
+export interface ColorPickerChange {
   color: string
   opacity: number
 }
 
-interface ColorPickerProps {
+export interface ColorPickerProps {
   color: string
   opacity?: number
   disabled?: boolean
@@ -34,11 +46,16 @@ interface ColorPickerProps {
   onChangeEnd?: (next: ColorPickerChange) => void
   header?: React.ReactNode
   footer?: React.ReactNode
+  colorFormat?: string
   hideDefaultPanel?: boolean
   children?: React.ReactNode
   swatchStyle?: CSSProperties
   triggerClassName?: string
   triggerStyle?: CSSProperties
+  onFormatChange?: (format: string) => void
+  formatOptions?: readonly string[]
+  formatDefinitions?: ColorFormatDefinition[]
+  showAlpha?: boolean
   'data-testid'?: string
 }
 
@@ -63,13 +80,6 @@ const SLIDER_THUMB_RADIUS = SLIDER_THUMB_SIZE / 2
 const POPUP_ROOT_ID = 'asyra-color-picker-popup-root'
 
 const normalizeColorToken = (value: string) => value.trim().toLowerCase()
-
-const CHECKERBOARD_BACKGROUND = {
-  backgroundImage:
-    'linear-gradient(45deg, #5C5C5C 25%, transparent 25%), linear-gradient(-45deg, #5C5C5C 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #5C5C5C 75%), linear-gradient(-45deg, transparent 75%, #5C5C5C 75%)',
-  backgroundSize: '8px 8px',
-  backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0'
-} as const
 
 const toPointerPosition = (event: PointerEvent | React.PointerEvent) => ({
   x: event.clientX,
@@ -111,11 +121,15 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
   swatchStyle,
   triggerClassName,
   triggerStyle,
+  colorFormat = 'hex',
+  onFormatChange,
+  formatOptions = [],
+  formatDefinitions = [],
+  showAlpha = true,
   'data-testid': dataTestId
 }) => {
   const [internalIsOpen, setInternalIsOpen] = useState(false)
-  const [draftHex, setDraftHex] = useState('')
-  const [draftOpacity, setDraftOpacity] = useState('')
+  const [draftValues, setDraftValues] = useState<string[]>([])
   const [hsva, setHsva] = useState(() => createHsvaColor(color, opacity))
   const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(null)
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null)
@@ -154,12 +168,23 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
       return
     }
 
+    lastEmittedRef.current = null
     const next = createHsvaColor(color, opacity)
     setHsva(next)
     hsvaRef.current = next
-    setDraftHex(rgbaToHex({ ...hsvaToRgba(next), a: 1 }).replace('#', ''))
-    setDraftOpacity(String(Math.round(next.a * 100)))
-  }, [color, opacity])
+
+    const currentDef = formatDefinitions.find((d) => d.id === colorFormat)
+    if (!currentDef) {
+      setDraftValues([])
+      return
+    }
+    const baseValues = currentDef.toValues(next)
+    if (showAlpha && colorFormat !== 'css') {
+      setDraftValues([...baseValues, String(Math.round(next.a * 100))])
+    } else {
+      setDraftValues(baseValues)
+    }
+  }, [color, opacity, colorFormat, showAlpha, formatDefinitions])
 
   useEffect(() => {
     onChangeRef.current = onChange
@@ -271,11 +296,22 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
   }, [])
 
   const emitChange = (next: HSVAColor) => {
-    const nextColor = rgbaToHex({ ...hsvaToRgba(next), a: 1 })
+    const rgba = hsvaToRgba(next)
+    const hsla = hsvaToHsla(next)
+    const nextColor = formatColor(rgba, hsla, colorFormat)
     setHsva(next)
     hsvaRef.current = next
-    setDraftHex(nextColor.replace('#', ''))
-    setDraftOpacity(String(Math.round(next.a * 100)))
+
+    const currentDef = formatDefinitions.find((d) => d.id === colorFormat)
+    if (currentDef) {
+      const baseValues = currentDef.toValues(next)
+      if (showAlpha && colorFormat !== 'css') {
+        setDraftValues([...baseValues, String(Math.round(next.a * 100))])
+      } else {
+        setDraftValues(baseValues)
+      }
+    }
+
     lastEmittedRef.current = {
       color: nextColor,
       opacity: next.a
@@ -399,34 +435,89 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
     }
   }
 
-  const commitHex = () => {
-    const parsed = parseColor(`#${formatHexValue(draftHex)}`)
-    if (!parsed) {
-      setDraftHex(
-        rgbaToHex({ ...hsvaToRgba(hsvaRef.current), a: 1 }).replace('#', '')
-      )
+  const handleEyeDropper = async () => {
+    if (!('EyeDropper' in window)) {
       return
     }
 
-    const next = {
-      ...rgbaToHsva(parsed),
-      a: hsvaRef.current.a
+    try {
+      // @ts-expect-error EyeDropper is not yet in standard TS libs
+      const eyeDropper = new window.EyeDropper()
+      const result = await eyeDropper.open()
+      const parsed = parseColor(result.sRGBHex)
+      if (parsed) {
+        emitChange({
+          ...rgbaToHsva(parsed),
+          a: hsvaRef.current.a
+        })
+      }
+    } catch (e) {
+      // Ignore errors (user cancel or failure)
     }
-    emitChange(next)
   }
 
-  const commitOpacity = () => {
-    const parsed = Number.parseFloat(draftOpacity)
-    if (!Number.isFinite(parsed)) {
-      setDraftOpacity(String(Math.round(hsvaRef.current.a * 100)))
+  const handleInputChange = (value: string, index: number) => {
+    const currentDef = formatDefinitions.find((d) => d.id === colorFormat)
+    if (!currentDef) return
+
+    const nextDrafts = [...draftValues]
+
+    if (
+      showAlpha &&
+      colorFormat !== 'css' &&
+      index === draftValues.length - 1
+    ) {
+      nextDrafts[index] = value.replace(/[^0-9.]/g, '')
+    } else if (currentDef.formatInput) {
+      nextDrafts[index] = currentDef.formatInput(value, index)
+    } else {
+      nextDrafts[index] = value
+    }
+
+    setDraftValues(nextDrafts)
+  }
+
+  const handleInputBlur = (index: number) => {
+    const currentDef = formatDefinitions.find((d) => d.id === colorFormat)
+    if (!currentDef) return
+
+    if (
+      showAlpha &&
+      colorFormat !== 'css' &&
+      index === draftValues.length - 1
+    ) {
+      const parsed = Number.parseFloat(draftValues[index])
+      if (Number.isFinite(parsed)) {
+        emitChange({ ...hsvaRef.current, a: clampUnit(parsed / 100) })
+      } else {
+        syncDraftsFromHsva(hsvaRef.current)
+      }
       return
     }
 
-    const next = {
-      ...hsvaRef.current,
-      a: clampUnit(parsed / 100)
+    const colorPart =
+      showAlpha && colorFormat !== 'css'
+        ? draftValues.slice(0, -1)
+        : draftValues
+
+    const nextHsva = currentDef.fromValues(colorPart, hsvaRef.current)
+    if (nextHsva) {
+      emitChange(nextHsva)
+    } else {
+      syncDraftsFromHsva(hsvaRef.current)
     }
-    emitChange(next)
+  }
+
+  const syncDraftsFromHsva = (current: HSVAColor) => {
+    const currentDef = formatDefinitions.find((d) => d.id === colorFormat)
+    if (!currentDef) return
+
+    const base = currentDef.toValues(current)
+    if (showAlpha && colorFormat !== 'css') {
+      setDraftValues([...base, String(Math.round(current.a * 100))])
+    } else {
+      setDraftValues(base)
+    }
   }
 
   const currentRgba = hsvaToRgba(hsva)
@@ -484,7 +575,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
         ? createPortal(
             <div
               ref={panelRef}
-              className="fixed z-50 w-[256px] overflow-y-auto rounded-xl border border-[#3E3E3E] bg-[#252627] p-3 text-white shadow-[0_20px_50px_rgba(0,0,0,0.45)]"
+              className="fixed z-50 w-[256px] overflow-y-auto rounded-xl border border-[#3E3E3E] bg-[#252627] text-white shadow-[0_20px_50px_rgba(0,0,0,0.45)]"
               style={{
                 left: panelPosition?.left ?? -9999,
                 top: panelPosition?.top ?? -9999,
@@ -493,153 +584,55 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
               }}
               data-testid={dataTestId ? `${dataTestId}-panel` : undefined}
             >
-              {header ? <div className="mb-3">{header}</div> : null}
+              {header ? <div className="px-3 pt-3 mb-3">{header}</div> : null}
 
               {!hideDefaultPanel ? (
                 <>
-                  <div>
-                    <div
-                      ref={saturationRef}
-                      className="relative h-40 w-full cursor-crosshair rounded-lg border border-[#4B4B4B]"
-                      style={{
-                        backgroundColor: hueColor,
-                        backgroundImage:
-                          'linear-gradient(to top, #000, transparent), linear-gradient(to right, #FFF, transparent)',
-                        overflow: 'clip'
-                      }}
+                  <div className={`${header ? '' : 'pt-3'} pb-3`}>
+                    <ColorPickerSaturation
+                      hsva={hsva}
+                      hueColor={hueColor}
                       onPointerDown={(event) => beginDrag('saturation', event)}
+                      saturationRef={saturationRef}
                       data-testid={
                         dataTestId ? `${dataTestId}-saturation` : undefined
                       }
-                    >
-                      <div
-                        className="pointer-events-none absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.45)]"
-                        style={{
-                          left: `${hsva.s * 100}%`,
-                          top: `${(1 - hsva.v) * 100}%`
-                        }}
-                      />
-                    </div>
+                    />
 
-                    <div className="mt-3 space-y-2">
-                      <div
-                        ref={hueRef}
-                        className="relative h-4 w-full cursor-ew-resize rounded-full border border-[#4B4B4B]"
-                        style={{
-                          background:
-                            'linear-gradient(90deg, #FF3B30 0%, #FFC700 17%, #34C759 34%, #00C7BE 51%, #0A84FF 68%, #AF52DE 85%, #FF3B30 100%)'
-                        }}
-                        onPointerDown={(event) => beginDrag('hue', event)}
-                        data-testid={
-                          dataTestId ? `${dataTestId}-hue` : undefined
-                        }
-                      >
-                        <div
-                          className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-transparent shadow-[0_0_0_1px_rgba(0,0,0,0.55)]"
-                          style={{
-                            left: `calc(${SLIDER_THUMB_RADIUS}px + ${hsva.h / 360} * (100% - ${SLIDER_THUMB_SIZE}px))`
-                          }}
-                        />
-                      </div>
+                    <ColorPickerSliders
+                      hsva={hsva}
+                      currentRgba={currentRgba}
+                      hueRef={hueRef}
+                      alphaRef={alphaRef}
+                      onEyeDropper={handleEyeDropper}
+                      onSliderPointerDown={(type, event) =>
+                        beginDrag(type, event)
+                      }
+                      data-testid={dataTestId}
+                    />
 
-                      <div
-                        ref={alphaRef}
-                        className="relative h-4 w-full cursor-ew-resize rounded-full border border-[#4B4B4B]"
-                        style={CHECKERBOARD_BACKGROUND}
-                        onPointerDown={(event) => beginDrag('alpha', event)}
-                        data-testid={
-                          dataTestId ? `${dataTestId}-alpha` : undefined
-                        }
-                      >
-                        <div
-                          className="absolute inset-0"
-                          style={{
-                            background: `linear-gradient(90deg, rgba(${Math.round(
-                              currentRgba.r
-                            )}, ${Math.round(currentRgba.g)}, ${Math.round(
-                              currentRgba.b
-                            )}, 0) 0%, rgba(${Math.round(
-                              currentRgba.r
-                            )}, ${Math.round(currentRgba.g)}, ${Math.round(
-                              currentRgba.b
-                            )}, 1) 100%)`
-                          }}
-                        />
-                        <div
-                          className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-transparent shadow-[0_0_0_1px_rgba(0,0,0,0.55)]"
-                          style={{
-                            left: `calc(${SLIDER_THUMB_RADIUS}px + ${hsva.a} * (100% - ${SLIDER_THUMB_SIZE}px))`
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 grid grid-cols-[1fr_76px] gap-2">
-                    <label className="flex items-center rounded-md border border-[#434445] bg-[#1D1E1F] px-2 text-[11px] text-[#AEB3B7]">
-                      <span className="mr-2 text-[10px] uppercase tracking-[0.08em]">
-                        Hex
-                      </span>
-                      <input
-                        type="text"
-                        value={draftHex}
-                        onChange={(event) =>
-                          setDraftHex(formatHexValue(event.target.value))
-                        }
-                        onBlur={commitHex}
-                        onKeyDown={(event) => {
-                          event.stopPropagation()
-                          if (event.key === 'Enter') {
-                            event.preventDefault()
-                            commitHex()
-                            ;(event.target as HTMLInputElement).blur()
-                          }
-                        }}
-                        className="w-full bg-transparent text-right text-[12px] text-white outline-none"
-                        data-testid={
-                          dataTestId ? `${dataTestId}-hex` : undefined
-                        }
-                      />
-                    </label>
-
-                    <label className="flex items-center rounded-md border border-[#434445] bg-[#1D1E1F] px-2 text-[11px] text-[#AEB3B7]">
-                      <span className="mr-2 text-[10px] uppercase tracking-[0.08em]">
-                        Op
-                      </span>
-                      <input
-                        type="text"
-                        value={draftOpacity}
-                        onChange={(event) =>
-                          setDraftOpacity(
-                            event.target.value.replace(/[^0-9.]/g, '')
-                          )
-                        }
-                        onBlur={commitOpacity}
-                        onKeyDown={(event) => {
-                          event.stopPropagation()
-                          if (event.key === 'Enter') {
-                            event.preventDefault()
-                            commitOpacity()
-                            ;(event.target as HTMLInputElement).blur()
-                          }
-                        }}
-                        className="w-full bg-transparent text-right text-[12px] text-white outline-none"
-                        data-testid={
-                          dataTestId ? `${dataTestId}-opacity` : undefined
-                        }
-                      />
-                      <span className="ml-1 text-[11px] text-[#8A8E92]">%</span>
-                    </label>
+                    <ColorPickerInputGroup
+                      colorFormat={colorFormat}
+                      formatOptions={formatOptions as string[]}
+                      onFormatChange={onFormatChange}
+                      values={draftValues}
+                      onChange={handleInputChange}
+                      onBlur={handleInputBlur}
+                      showAlpha={showAlpha && colorFormat !== 'css'}
+                      data-testid={dataTestId}
+                    />
                   </div>
                 </>
               ) : null}
 
               {children ? (
-                <div className={hideDefaultPanel ? '' : 'mt-3'}>{children}</div>
+                <div className={hideDefaultPanel ? '' : 'mt-2'}>{children}</div>
               ) : null}
 
               {footer ? (
-                <div className={hideDefaultPanel && !children ? '' : 'mt-2'}>
+                <div
+                  className={`px-3 pb-3 ${hideDefaultPanel && !children ? 'pt-3' : 'mt-2'}`}
+                >
                   {footer}
                 </div>
               ) : null}
@@ -651,5 +644,4 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
   )
 }
 
-export type { ColorPickerChange, ColorPickerProps }
 export default ColorPicker

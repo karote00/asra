@@ -6,24 +6,20 @@
 
 import core, { systemContext } from '../contexts'
 import {
-  VECTOR_TOKENS,
   type VectorPointTarget as CoreVectorPointTarget,
-  type VectorEndpointSide,
-  type VectorAnchorPoint,
   type SelectedVectorPointState as CoreSelectedVectorPointState,
   type VectorEditingContinuation as CoreVectorEditingContinuation,
   type SelectedVectorSegmentState as CoreSelectedVectorSegmentState,
   type HoveredVectorSegmentInsertPointState as CoreHoveredVectorSegmentInsertPointState
 } from '@asyra/core'
-import type { VectorHandleMode } from '../constants'
 import { selectionApis } from './selection'
-import { elementApis } from './element'
 
 export type VectorPointTarget = CoreVectorPointTarget
 export type SelectedVectorPointState = CoreSelectedVectorPointState
 
 export type SelectedVectorSegmentState = CoreSelectedVectorSegmentState
-export type HoveredVectorSegmentInsertPointState = CoreHoveredVectorSegmentInsertPointState
+export type HoveredVectorSegmentInsertPointState =
+  CoreHoveredVectorSegmentInsertPointState
 
 export interface ActiveGradientFillState extends Record<string, unknown> {
   elementId: string
@@ -36,6 +32,12 @@ export interface GradientHandleState extends Record<string, unknown> {
   elementId: string
   fillId: string
   handleIndex: GradientHandleIndex
+}
+
+export interface GradientStopState extends Record<string, unknown> {
+  elementId: string
+  fillId: string
+  stopIndex: number
 }
 
 export type PathEditingContinuationState = CoreVectorEditingContinuation & {
@@ -184,8 +186,9 @@ export const systemContextApis = {
 
     core.setSystemProperty('activeGradientFill', fill)
     if (hasChanged) {
-      systemContextApis.setHoveredGradientHandle(null)
       systemContextApis.setSelectedGradientHandle(null)
+      systemContextApis.setHoveredGradientStop(null)
+      systemContextApis.setSelectedGradientStop(null)
     }
   },
 
@@ -213,10 +216,34 @@ export const systemContextApis = {
     core.setSystemProperty('selectedGradientHandle', handle)
   },
 
+  getHoveredGradientStop: (): GradientStopState | null => {
+    return (
+      core.getSystemProperty<GradientStopState | null>('hoveredGradientStop') ??
+      null
+    )
+  },
+
+  setHoveredGradientStop: (stop: GradientStopState | null) => {
+    core.setSystemProperty('hoveredGradientStop', stop)
+  },
+
+  getSelectedGradientStop: (): GradientStopState | null => {
+    return (
+      core.getSystemProperty<GradientStopState | null>(
+        'selectedGradientStop'
+      ) ?? null
+    )
+  },
+
+  setSelectedGradientStop: (stop: GradientStopState | null) => {
+    core.setSystemProperty('selectedGradientStop', stop)
+  },
+
   clearGradientFillEditingState: () => {
     systemContextApis.setActiveGradientFill(null)
-    systemContextApis.setHoveredGradientHandle(null)
     systemContextApis.setSelectedGradientHandle(null)
+    systemContextApis.setHoveredGradientStop(null)
+    systemContextApis.setSelectedGradientStop(null)
   },
 
   enterPathEditingMode: (

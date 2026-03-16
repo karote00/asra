@@ -1,4 +1,4 @@
-import { defineFeature, getFeature } from '@asyra/core'
+import { defineFeature } from '@asyra/core'
 import { endTransaction, startTransaction } from '@asyra/reactive-events'
 import {
   elementApis,
@@ -7,7 +7,6 @@ import {
 } from '../../common-apis'
 import { FeatureNames, InputSystemEvents } from '../../constants'
 import type { SystemContextSnapshot } from '@asyra/utils'
-
 
 export const deleteElementFeature = defineFeature(
   FeatureNames.DELETE_SELECTED_ELEMENT,

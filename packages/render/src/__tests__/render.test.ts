@@ -207,7 +207,7 @@ describe('Render', () => {
         }
       }
     }
-    render.app = mockApp as any
+    render.app = mockApp as unknown as Application
 
     const result = render.getElementIdAtClientPos({ x: 10, y: 20 })
 
@@ -227,7 +227,7 @@ describe('Render', () => {
         }
       }
     }
-    render.app = mockApp as any
+    render.app = mockApp as unknown as Application
 
     const result = render.getElementIdAtClientPos({ x: 10, y: 20 })
 
@@ -238,7 +238,7 @@ describe('Render', () => {
     const mockApp = {
       renderer: {}
     }
-    render.app = mockApp as any
+    render.app = mockApp as unknown as Application
 
     const result = render.getElementIdAtClientPos({ x: 10, y: 20 })
 

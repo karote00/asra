@@ -34,7 +34,7 @@ const PropertyControl: React.FC<PropertyControlProps> = ({
     none: 'rounded-none'
   }
 
-  // Base state: bg-panel-surface-hover with a transparent border placeholder
+  // Base state: transparent background with a transparent border placeholder
   // Hover: #5c5c5c outline via border
   // Focus: Blue outline via border
   const interactionClasses = group
@@ -43,7 +43,7 @@ const PropertyControl: React.FC<PropertyControlProps> = ({
 
   return (
     <div
-      className={`group/prop-control flex items-center h-6 min-w-0 transition-all 
+      className={`group/prop-control flex items-center h-6 min-w-0 transition-all text-white
       ${interactionClasses}
       ${roundedClasses[rounded]} ${className}`}
       style={style}

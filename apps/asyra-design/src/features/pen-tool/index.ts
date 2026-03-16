@@ -502,7 +502,8 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
             clickedPoint &&
             clickedPoint.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
           ) {
-            const sourceEndpoint = systemContextApis.getPathEditingContinuation()
+            const sourceEndpoint =
+              systemContextApis.getPathEditingContinuation()
             if (!sourceEndpoint) {
               return null
             }

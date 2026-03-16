@@ -6,7 +6,8 @@
 
 ## Completed
 
-- None.
+- Generalized ColorPicker with app-level format configuration
+  - Reference: `docs/ai/apps/asyra-design/plans/completed/color-picker-generalization-plan.md`
 
 ## Near-Term
 

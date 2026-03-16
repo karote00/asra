@@ -1,5 +1,4 @@
 import {
-  FillColorFormats,
   FillKinds,
   createDefaultGradientData,
   type FillAttrs,
@@ -11,10 +10,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { fillApis, transactionApis, type FillPatch } from '../../common-apis'
 import { ALLOWED_COLOR_FORMATS, FILL_PATCH_KEYS } from '../../constants'
 import { systemContextApis } from '../../common-apis'
-import {
-  convertStoredColorToFormat,
-  convertUserColorToDefault
-} from './color-format'
+import { convertUserColorToDefault, convertToHexUpper } from './color-format'
 import { toGradientPreviewCss } from './gradient-preview'
 
 const hasFillPatch = (patch: FillPatch) => Object.keys(patch).length > 0
@@ -32,8 +28,9 @@ const getChangedFillPatch = (
   nextFill: FillAttrs
 ): FillPatch =>
   FILL_PATCH_KEYS.reduce<FillPatch>((patch, key) => {
-    if (!isEqual(sourceFill[key], nextFill[key])) {
-      patch[key] = nextFill[key]
+    const nextValue = nextFill[key]
+    if (!isEqual(sourceFill[key], nextValue)) {
+      Object.assign(patch, { [key]: nextValue })
     }
 
     return patch
@@ -197,11 +194,7 @@ export const useFillInteractions = ({
       return ''
     }
 
-    const formatted = convertStoredColorToFormat(fill.color, fill.colorFormat)
-
-    return fill.colorFormat === FillColorFormats.HEX
-      ? formatted.replace(/^#/, '')
-      : formatted
+    return convertToHexUpper(fill.color)
   }, [fill])
 
   const previewSwatchStyle = useMemo(

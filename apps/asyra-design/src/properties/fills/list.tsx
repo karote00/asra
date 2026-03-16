@@ -35,15 +35,14 @@ const FillList = ({
       className="grid grid-cols-1 w-full pb-2"
       data-testid="prop-fills-section"
     >
-      {/* Section header with add button */}
-      <div className="group flex items-center justify-between h-10 pl-4 pr-2 text-[#ebebeb] hover:text-white">
-        <span className="text-[11px] font-medium opacity-60 tracking-wider group-hover:text-white group-hover:opacity-100">
+      <div className="group flex items-center justify-between h-10 pl-4 pr-2 text-white">
+        <span className="text-[11px] font-medium opacity-60 tracking-wider">
           Fill
         </span>
         <button
           type="button"
           onClick={onAdd}
-          className="flex items-center justify-center w-5 h-5 rounded hover:bg-panel-surface-hover text-text-secondary group-hover:text-white transition-colors"
+          className="flex items-center justify-center w-5 h-5 rounded hover:bg-panel-surface-hover text-white/60 hover:text-white transition-colors"
           data-testid="prop-fill-add"
           title="Add fill"
         >
@@ -53,7 +52,7 @@ const FillList = ({
 
       {mixed && (
         <div
-          className="pl-4 pr-2 py-2 text-[11px] text-[#999]"
+          className="pl-4 pr-2 py-2 text-[11px] text-white/50"
           data-testid="prop-fills-mixed"
         >
           Mixed fills across current selection.
@@ -62,7 +61,7 @@ const FillList = ({
 
       {!fills.length && (
         <div
-          className="pl-4 pr-2 py-3 text-[11px] text-[#666]"
+          className="pl-4 pr-2 py-3 text-[11px] text-white/40"
           data-testid="prop-fills-empty"
         >
           No fills yet.

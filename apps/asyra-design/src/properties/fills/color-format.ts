@@ -56,16 +56,12 @@ const rgbaToFormat = (color: RGBAColor, format: FillColorFormat): string => {
       return rgbaToHex(color)
     case FillColorFormats.RGB:
       return `rgb(${Math.round(color.r)} ${Math.round(color.g)} ${Math.round(color.b)})`
-    case FillColorFormats.RGBA:
-      return `rgba(${Math.round(color.r)} ${Math.round(color.g)} ${Math.round(color.b)} / ${roundTo(color.a, 3)})`
     case FillColorFormats.HSL: {
       const hsl = rgbToHsl(color)
       return `hsl(${hsl.h} ${hsl.s}% ${hsl.l}%)`
     }
-    case FillColorFormats.HSLA: {
-      const hsl = rgbToHsl(color)
-      return `hsla(${hsl.h} ${hsl.s}% ${hsl.l}% / ${roundTo(color.a, 3)})`
-    }
+    case FillColorFormats.CSS:
+      return rgbaToCssColor(color)
     case FillColorFormats.HWB:
     case FillColorFormats.OKLCH:
     default:
@@ -118,4 +114,13 @@ export const toColorPickerHex = (value: string): string => {
   }
 
   return rgbaToHex(parsed)
+}
+
+export const convertToHexUpper = (color: string): string => {
+  const parsed = parseColor(color, { allowBrowser: true })
+  if (!parsed) {
+    return color.replace('#', '').toUpperCase()
+  }
+
+  return rgbaToHex(parsed, { uppercase: true }).replace('#', '')
 }
