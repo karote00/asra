@@ -1,15 +1,11 @@
+Never record completed plans here.
+
 # App Plans
 
 ## In Progress
 
 - None.
 
-## Completed
-
-- Non-linear gradient start handle display mapping
-  - Reference: `docs/ai/apps/asyra-design/plans/completed/non-linear-gradient-handle-display-plan.md`
-- Generalized ColorPicker with app-level format configuration
-  - Reference: `docs/ai/apps/asyra-design/plans/completed/color-picker-generalization-plan.md`
 
 ## Near-Term
 

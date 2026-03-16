@@ -1,3 +1,5 @@
+Never record completed plans here.
+
 # Framework Plans
 
 This file tracks framework planning topics and points to detailed references.
