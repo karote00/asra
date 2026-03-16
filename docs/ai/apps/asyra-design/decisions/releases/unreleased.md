@@ -938,3 +938,19 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Handle hit-testing and drag interactions remain consistent with the displayed handle position.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/non-linear-gradient-handle-display-plan.md`
+
+## 2026-03-17 - Gradient editing drag performance remediation
+
+- Context:
+  - Dragging gradient handles/stops on canvas and in the properties panel exhibited visible lag due to per-move geometry recompute and unthrottled writes.
+  - Overlay rendering re-parsed stop colors each frame and hover/selection writes were redundant.
+- Decision:
+  - Throttle gradient drag writes to animation frames and reuse cached geometry during drag.
+  - Throttle properties-panel stop drag updates to animation frames.
+  - Cache stop color parsing in the overlay render layer and avoid redundant hover/selection system property writes.
+  - Add movement thresholds for handle/stop drags to reduce jittery updates.
+- Consequences:
+  - Gradient dragging is responsive without changing undo semantics (single commit per drag).
+  - Overlay visuals remain accurate with reduced per-frame overhead.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/gradient-editing-performance-plan.md`

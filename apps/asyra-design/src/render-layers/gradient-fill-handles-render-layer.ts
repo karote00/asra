@@ -61,15 +61,28 @@ const isStopActive = (
   stopState.fillId === fillState.fillId &&
   stopState.stopIndex === stopIndex
 
+const stopColorCache = new Map<string, number>()
+
 /**
  * Convert a CSS hex color string to a numeric color int for the overlay canvas.
  */
 const hexToColorInt = (hex: string): number => {
+  const cached = stopColorCache.get(hex)
+  if (cached !== undefined) {
+    return cached
+  }
+
   const parsed = parseColor(hex)
   if (!parsed) {
     return 0xffffff
   }
-  return rgbaToColorInt(parsed)
+
+  const colorInt = rgbaToColorInt(parsed)
+  stopColorCache.set(hex, colorInt)
+  if (stopColorCache.size > 256) {
+    stopColorCache.clear()
+  }
+  return colorInt
 }
 
 /**
@@ -95,12 +108,11 @@ const getLineVectors = (
 const drawStopIndicator = (
   canvas: OverlayCanvas,
   linePos: PositionData,
-  start: PositionData,
-  end: PositionData,
+  vectors: { ux: number; uy: number; px: number; py: number },
   fillColor: number,
   strokeColor: number = STOP_STROKE_COLOR
 ) => {
-  const { ux, uy, px, py } = getLineVectors(start, end)
+  const { ux, uy, px, py } = vectors
 
   // Center of the rectangle, offset perpendicular to the line
   const offsetDist = STOP_OFFSET_FROM_LINE + STOP_RECT_HALF
@@ -209,6 +221,7 @@ export const registerGradientFillHandlesRenderLayer = (
       const start = geometry.canvasHandles[0]
       const end = geometry.canvasHandles[1]
 
+      const lineVectors = getLineVectors(start, end)
       geometry.fill.gradient?.gradientStops.forEach((stop, stopIndex) => {
         const linePos = {
           x: start.x + (end.x - start.x) * stop.position,
@@ -222,8 +235,7 @@ export const registerGradientFillHandlesRenderLayer = (
         drawStopIndicator(
           canvas,
           linePos,
-          start,
-          end,
+          lineVectors,
           hexToColorInt(stop.color),
           active ? STOP_ACTIVE_STROKE_COLOR : STOP_STROKE_COLOR
         )

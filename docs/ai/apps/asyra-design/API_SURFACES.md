@@ -147,10 +147,13 @@ Import boundary:
 
 `fillApis` (`src/common-apis/fills.ts`)
 
+- `getCanvasBounds(): DOMRect | null`
+- `getCanvasPositionFromClient(clientPos: PositionData, canvasBounds?: DOMRect | null): PositionData`
 - `getFillById(elementId: string, fillId: string): FillAttrs | null`
 - `getGradientHandleGeometry(elementId: string, fillId: string): { elementId: string; fillId: string; fill: FillAttrs; width: number; height: number; canvasHandles: [PositionData, PositionData] } | null`
 - `getGradientHandleHitAtClientPos(elementId: string, fillId: string, clientPos: PositionData, hitRadius?: number): { handleIndex: 0 | 1 } | null`
 - `getNextGradientForHandleAtClientPosition(elementId: string, fillId: string, handleIndex: 0 | 1, clientPos: PositionData): FillGradientData | null`
+- `getNextGradientForHandleWithDelta(baseGradient: FillGradientData, handleIndex: 0 | 1, width: number, height: number, delta: PositionData): FillGradientData`
 - `updateGradientHandleAtClientPosition(elementId: string, fillId: string, handleIndex: 0 | 1, clientPos: PositionData, options?: { undoable: boolean }): FillGradientData | null`
 - `updateFillFields(...)` / `updateFillField(...)`
 

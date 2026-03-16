@@ -15,6 +15,7 @@ import { convertUserColorToDefault } from './color-format'
 
 const clampUnit = (value: number) => Math.max(0, Math.min(1, value))
 const hasFillPatch = (patch: FillPatch) => Object.keys(patch).length > 0
+const DRAG_EPSILON = 0.0001
 const applyFillPatch = (
   sourceFill: FillAttrs,
   patch: FillPatch
@@ -72,6 +73,9 @@ export const useGradientInteractions = ({
   const interactionStartFillRef = useRef<FillAttrs | null>(null)
   const interactionLatestFillRef = useRef<FillAttrs | null>(null)
   const lastStopsRef = useRef(gradient.gradientStops)
+  const dragFrameRef = useRef<number | null>(null)
+  const pendingClientXRef = useRef<number | null>(null)
+  const dragRectRef = useRef<{ left: number; width: number } | null>(null)
 
   const orderedStops = useMemo(
     () => sortStopsForPreview(gradient.gradientStops),
@@ -439,13 +443,21 @@ export const useGradientInteractions = ({
   }
 
   const updateStopPositionFromClientX = (clientX: number) => {
-    const rect = stripRef.current?.getBoundingClientRect()
     const draggingIndex = draggingStopIndexRef.current
+    const rect = dragRectRef.current ?? stripRef.current?.getBoundingClientRect()
     if (!rect || draggingIndex === null) {
       return
     }
 
     const position = clampUnit((clientX - rect.left) / rect.width)
+    const currentStop = gradient.gradientStops[draggingIndex]
+    if (
+      currentStop &&
+      Math.abs(currentStop.position - position) <= DRAG_EPSILON
+    ) {
+      return
+    }
+
     const nextStops = gradient.gradientStops.map((stop, currentIndex) =>
       currentIndex === draggingIndex
         ? {
@@ -457,6 +469,35 @@ export const useGradientInteractions = ({
     applyGradientStops(nextStops)
   }
 
+  const scheduleStopPositionUpdate = (clientX: number) => {
+    pendingClientXRef.current = clientX
+    if (dragFrameRef.current !== null) {
+      return
+    }
+
+    dragFrameRef.current = requestAnimationFrame(() => {
+      dragFrameRef.current = null
+      const pending = pendingClientXRef.current
+      pendingClientXRef.current = null
+      if (pending === null) {
+        return
+      }
+      updateStopPositionFromClientX(pending)
+    })
+  }
+
+  const flushStopPositionUpdate = () => {
+    if (dragFrameRef.current !== null) {
+      cancelAnimationFrame(dragFrameRef.current)
+      dragFrameRef.current = null
+    }
+    const pending = pendingClientXRef.current
+    pendingClientXRef.current = null
+    if (pending !== null) {
+      updateStopPositionFromClientX(pending)
+    }
+  }
+
   const beginStopDrag = (
     stopIndex: number,
     event: React.PointerEvent<HTMLButtonElement>
@@ -465,6 +506,8 @@ export const useGradientInteractions = ({
     event.stopPropagation()
     setSelectedStopIndex(stopIndex)
     draggingStopIndexRef.current = stopIndex
+    const rect = stripRef.current?.getBoundingClientRect()
+    dragRectRef.current = rect ? { left: rect.left, width: rect.width } : null
 
     if (!isDraggingRef.current) {
       startInteractionSession()
@@ -473,7 +516,7 @@ export const useGradientInteractions = ({
     updateStopPositionFromClientX(event.clientX)
 
     const handlePointerMove = (pointerEvent: PointerEvent) => {
-      updateStopPositionFromClientX(pointerEvent.clientX)
+      scheduleStopPositionUpdate(pointerEvent.clientX)
     }
 
     const handlePointerUp = () => {
@@ -481,6 +524,8 @@ export const useGradientInteractions = ({
       window.removeEventListener('pointerup', handlePointerUp)
       window.removeEventListener('pointercancel', handlePointerUp)
       draggingStopIndexRef.current = null
+      dragRectRef.current = null
+      flushStopPositionUpdate()
 
       endInteractionSession()
     }

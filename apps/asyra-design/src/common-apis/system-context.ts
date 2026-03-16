@@ -40,6 +40,22 @@ export interface GradientStopState extends Record<string, unknown> {
   stopIndex: number
 }
 
+const gradientHandleEquals = (
+  current: GradientHandleState | null,
+  next: GradientHandleState | null
+) =>
+  current?.elementId === next?.elementId &&
+  current?.fillId === next?.fillId &&
+  current?.handleIndex === next?.handleIndex
+
+const gradientStopEquals = (
+  current: GradientStopState | null,
+  next: GradientStopState | null
+) =>
+  current?.elementId === next?.elementId &&
+  current?.fillId === next?.fillId &&
+  current?.stopIndex === next?.stopIndex
+
 export type PathEditingContinuationState = CoreVectorEditingContinuation & {
   elementId: string
 }
@@ -201,6 +217,10 @@ export const systemContextApis = {
   },
 
   setHoveredGradientHandle: (handle: GradientHandleState | null) => {
+    const current = systemContextApis.getHoveredGradientHandle()
+    if (gradientHandleEquals(current, handle)) {
+      return
+    }
     core.setSystemProperty('hoveredGradientHandle', handle)
   },
 
@@ -213,6 +233,10 @@ export const systemContextApis = {
   },
 
   setSelectedGradientHandle: (handle: GradientHandleState | null) => {
+    const current = systemContextApis.getSelectedGradientHandle()
+    if (gradientHandleEquals(current, handle)) {
+      return
+    }
     core.setSystemProperty('selectedGradientHandle', handle)
   },
 
@@ -224,6 +248,10 @@ export const systemContextApis = {
   },
 
   setHoveredGradientStop: (stop: GradientStopState | null) => {
+    const current = systemContextApis.getHoveredGradientStop()
+    if (gradientStopEquals(current, stop)) {
+      return
+    }
     core.setSystemProperty('hoveredGradientStop', stop)
   },
 
@@ -236,6 +264,10 @@ export const systemContextApis = {
   },
 
   setSelectedGradientStop: (stop: GradientStopState | null) => {
+    const current = systemContextApis.getSelectedGradientStop()
+    if (gradientStopEquals(current, stop)) {
+      return
+    }
     core.setSystemProperty('selectedGradientStop', stop)
   },
 

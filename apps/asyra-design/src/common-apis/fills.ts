@@ -80,7 +80,7 @@ const getHandleDeltaScale = (
   handleIndex: GradientHandleIndex
 ) => (handleIndex === 0 && isNonLinearGradient(gradient.gradientType) ? 2 : 1)
 
-const getNextGradientForHandleWithDelta = (
+const computeNextGradientForHandleWithDelta = (
   baseGradient: FillGradientData,
   handleIndex: GradientHandleIndex,
   width: number,
@@ -168,8 +168,44 @@ const getCanvasPositionFromClient = (clientPos: PositionData): PositionData => {
 }
 
 export const fillApis = {
+  getCanvasBounds: (): DOMRect | null => {
+    return render.app?.canvas?.getBoundingClientRect() ?? null
+  },
+
+  getCanvasPositionFromClient: (
+    clientPos: PositionData,
+    canvasBounds?: DOMRect | null
+  ): PositionData => {
+    const resolvedBounds =
+      canvasBounds ?? fillApis.getCanvasBounds()
+    if (!resolvedBounds) {
+      return clientPos
+    }
+
+    return {
+      x: clientPos.x - resolvedBounds.left,
+      y: clientPos.y - resolvedBounds.top
+    }
+  },
+
   getFillById: (elementId: string, fillId: string): FillAttrs | null => {
     return getElementFill(elementId, fillId)?.fill ?? null
+  },
+
+  getNextGradientForHandleWithDelta: (
+    baseGradient: FillGradientData,
+    handleIndex: GradientHandleIndex,
+    width: number,
+    height: number,
+    delta: PositionData
+  ): FillGradientData => {
+    return computeNextGradientForHandleWithDelta(
+      baseGradient,
+      handleIndex,
+      width,
+      height,
+      delta
+    )
   },
 
   getNextGradientForHandleAtClientPosition: (
@@ -386,7 +422,7 @@ export const fillApis = {
       return null
     }
 
-    return getNextGradientForHandleWithDelta(
+    return computeNextGradientForHandleWithDelta(
       baseGradient,
       handleIndex,
       fillData.width,
@@ -408,7 +444,7 @@ export const fillApis = {
       return null
     }
 
-    const nextGradient = getNextGradientForHandleWithDelta(
+    const nextGradient = computeNextGradientForHandleWithDelta(
       baseGradient,
       handleIndex,
       fillData.width,
