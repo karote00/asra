@@ -117,6 +117,23 @@ const drawElementBoundsOutline = (
   drawOutline(canvas, getBoundsCorners(element), color, width)
 }
 
+const drawBoundsOutline = (
+  canvas: OverlayCanvas,
+  bounds: LocalBounds,
+  color: number,
+  width: number
+) => {
+  const topLeft = { x: bounds.x, y: bounds.y }
+  const topRight = { x: bounds.x + bounds.width, y: bounds.y }
+  const bottomRight = {
+    x: bounds.x + bounds.width,
+    y: bounds.y + bounds.height
+  }
+  const bottomLeft = { x: bounds.x, y: bounds.y + bounds.height }
+
+  drawOutline(canvas, [topLeft, topRight, bottomRight, bottomLeft], color, width)
+}
+
 const getElementType = (
   deps: Pick<PresetDependencies, 'sceneTree'>,
   elementId: string
@@ -342,6 +359,46 @@ const getSingleSelectedElementId = (): string | null => {
   return selected[0]
 }
 
+const getMultiSelectionBounds = (
+  deps: Pick<PresetDependencies, 'render'>,
+  selectedIds: string[]
+): LocalBounds | null => {
+  if (selectedIds.length === 0) {
+    return null
+  }
+
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  selectedIds.forEach((elementId) => {
+    const element = deps.render.getElementById(
+      elementId
+    ) as RenderElementShape | null
+    if (!element) {
+      return
+    }
+
+    const bounds = element.getBounds()
+    minX = Math.min(minX, bounds.x)
+    minY = Math.min(minY, bounds.y)
+    maxX = Math.max(maxX, bounds.x + bounds.width)
+    maxY = Math.max(maxY, bounds.y + bounds.height)
+  })
+
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+    return null
+  }
+
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY
+  }
+}
+
 export const registerSelectionOverlayRenderLayer = (
   registerRenderLayer: RegisterRenderLayer,
   deps: Pick<PresetDependencies, 'render' | 'sceneTree' | 'systemContext'>
@@ -357,19 +414,32 @@ export const registerSelectionOverlayRenderLayer = (
           'pathEditingVectorId'
         ) ?? null
 
-      const selectedElementId = getSingleSelectedElementId()
-      if (!pathEditingVectorId && selectedElementId) {
-        const selectedElement = deps.render.getElementById(
-          selectedElementId
-        ) as RenderElementShape | null
+      const selectedIds = [...renderSelectionStore.elementSelection]
+      const selectedElementId = selectedIds.length === 1 ? selectedIds[0] : null
+      if (!pathEditingVectorId && selectedIds.length > 0) {
+        if (selectedElementId) {
+          const selectedElement = deps.render.getElementById(
+            selectedElementId
+          ) as RenderElementShape | null
 
-        if (selectedElement) {
-          drawElementBoundsOutline(
-            canvas,
-            selectedElement,
-            SELECTION_STROKE_COLOR,
-            STROKE_WIDTH
-          )
+          if (selectedElement) {
+            drawElementBoundsOutline(
+              canvas,
+              selectedElement,
+              SELECTION_STROKE_COLOR,
+              STROKE_WIDTH
+            )
+          }
+        } else {
+          const bounds = getMultiSelectionBounds(deps, selectedIds)
+          if (bounds) {
+            drawBoundsOutline(
+              canvas,
+              bounds,
+              SELECTION_STROKE_COLOR,
+              STROKE_WIDTH
+            )
+          }
         }
       }
 
@@ -377,7 +447,11 @@ export const registerSelectionOverlayRenderLayer = (
         deps.systemContext.getManagedProperty<string | null>(
           'hoveredElementId'
         ) ?? null
-      if (!hoveredElementId || hoveredElementId === selectedElementId) {
+      if (
+        !hoveredElementId ||
+        hoveredElementId === selectedElementId ||
+        selectedIds.includes(hoveredElementId)
+      ) {
         return
       }
 

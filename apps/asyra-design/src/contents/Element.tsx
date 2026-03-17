@@ -1,7 +1,6 @@
-import { type MouseEvent, useCallback, useEffect, useRef } from 'react'
-import type { ElementRawData, ModifierKeys } from '@asyra/utils'
+import { type MouseEvent, useCallback } from 'react'
+import type { ElementRawData } from '@asyra/utils'
 import { useElementData } from '../providers'
-import { selectElements } from '../controllers/element-selection'
 import { setHoveredElementId } from '../controllers/hovered-element'
 import { ElementIcon } from './ElementIcon'
 import { ElementRowActions } from './ElementRowActions'
@@ -10,60 +9,31 @@ interface ElementData {
   elementId: string
   isSelected: boolean
   isHovered: boolean
+  onSelect: (event: MouseEvent<HTMLDivElement>, elementId: string) => void
 }
 
-const INIT_MODIFIERS: ModifierKeys = {
-  meta: false,
-  ctrl: false,
-  alt: false,
-  shift: false
-}
-
-const getModifierKeys = (e: KeyboardEvent): ModifierKeys => {
-  return {
-    meta: e.metaKey,
-    ctrl: e.ctrlKey,
-    alt: e.altKey,
-    shift: e.shiftKey
-  }
-}
-
-const Element = ({ elementId, isSelected, isHovered }: ElementData) => {
+const Element = ({
+  elementId,
+  isSelected,
+  isHovered,
+  onSelect
+}: ElementData) => {
   const elementData = useElementData(elementId)
   if (!elementData) return null
 
   const { id, name, type, lock, visible } = elementData as ElementRawData
-  const modifierKeys = useRef<ModifierKeys>(INIT_MODIFIERS)
   const handleElementClick = useCallback(
     (e: MouseEvent<HTMLDivElement>) => {
       e.stopPropagation()
-
-      selectElements([id])
+      onSelect(e, id)
     },
-    [selectElements, id]
+    [id, onSelect]
   )
   const handleElementMouseEnter = useCallback(() => {
     setHoveredElementId(id)
   }, [id])
   const handleElementMouseLeave = useCallback(() => {
     setHoveredElementId(null)
-  }, [])
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      modifierKeys.current = getModifierKeys(e)
-    }
-    const handleKeyUp = (e: KeyboardEvent) => {
-      modifierKeys.current = getModifierKeys(e)
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
-    }
   }, [])
 
   return (

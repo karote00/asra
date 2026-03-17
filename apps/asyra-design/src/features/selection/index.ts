@@ -80,6 +80,10 @@ export const selectionFeature = defineFeature(
           snapshot.hoveredElementId ??
           elementApis.getElementIdAtClientPos(mouse.position)
 
+        if (!hoveredElementId && snapshot.keyShift) {
+          return null
+        }
+
         transactionApis.startTransaction()
         try {
           if (hoveredElementId) {

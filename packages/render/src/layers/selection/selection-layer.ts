@@ -1,6 +1,6 @@
 import { Container, Graphics } from 'pixi.js'
 import systemContext from '@asyra/system-context'
-import { getSelectionLocalBounds } from './utils'
+import { getSelectionLocalBounds, getSelectionWorldBounds } from './utils'
 import { SceneElement } from '../../types'
 
 interface SelectionLayerOptions {
@@ -74,7 +74,20 @@ export class SelectionLayer {
 
       this.selectedBox.x = bounds.x
       this.selectedBox.y = bounds.y
+      return
     }
+
+    const multiBounds = getSelectionWorldBounds(selectedElements)
+    if (!multiBounds) {
+      return
+    }
+
+    this.selectedBox.rect(0, 0, multiBounds.width, multiBounds.height).stroke({
+      width: 1,
+      color: 0x1e90ff
+    })
+    this.selectedBox.x = multiBounds.x
+    this.selectedBox.y = multiBounds.y
   }
 
   private updateHoverBox() {

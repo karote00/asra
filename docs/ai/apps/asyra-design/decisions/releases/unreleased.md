@@ -1011,3 +1011,25 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Drag FPS is improved but still below 120 FPS for dense gradients; a separate multi-selection plan tracks the 120 FPS target.
 - Related Plan(s):
   - `docs/ai/apps/asyra-design/plans/completed/vector-gradient-move-performance-plan.md`
+
+## 2026-03-17 - Multi-selection behavior parity across content panel and canvas
+
+- Context:
+  - Shift-click in the contents panel only toggled a single item and shift-click
+    empty canvas cleared selection, which made multi-selection inconsistent.
+  - Selection visuals only rendered for single selection.
+  - Fills panel treated multi-selection as fully mixed without checking for
+    identical fills.
+- Decision:
+  - Implement shift-range selection in the contents panel without removing
+    existing selections.
+  - Ignore shift-click on empty canvas to keep the current selection.
+  - Render a single bounding selection box around all selected elements.
+  - Aggregate fills by matching fill counts and values (including gradient
+    stops and handles), otherwise report MIXED.
+- Consequences:
+  - Multi-selection behavior is consistent across panel and canvas.
+  - Selection visuals reflect the full group selection.
+  - Fills panel only shows concrete values when all selected fills match.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/multi-selection-elements-plan.md`

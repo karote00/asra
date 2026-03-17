@@ -308,4 +308,35 @@ test.describe('Element Selection', () => {
     // Selected items should expose data-selected
     await expect(rectangleItem).toHaveAttribute('data-selected', 'true')
   })
+
+  test('should multi-select elements via Contents Panel with shift', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.25, 0.3)
+    await createRectangle(page, 0.45, 0.4)
+
+    const contentsPanel = getContentsPanel(page)
+    const firstRow = contentsPanel
+      .locator('[data-layer-element="true"]')
+      .nth(0)
+    const secondRow = contentsPanel
+      .locator('[data-layer-element="true"]')
+      .nth(1)
+
+    await firstRow.click()
+    await page.keyboard.down('Shift')
+    await secondRow.click()
+    await page.keyboard.up('Shift')
+    await page.waitForTimeout(200)
+
+    const selectedIds = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core?.deps?.selection?.getElementSelectionIds?.() ?? []
+    })
+
+    expect(selectedIds.length).toBe(2)
+    await expect(firstRow).toHaveAttribute('data-selected', 'true')
+    await expect(secondRow).toHaveAttribute('data-selected', 'true')
+  })
 })

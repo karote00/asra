@@ -52,6 +52,78 @@ const toFillRows = (fills: FillAttrs[]): FillRowAttrs[] =>
     return rows
   }, [])
 
+const areGradientStopsEqual = (
+  a: NonNullable<FillAttrs['gradient']>['gradientStops'],
+  b: NonNullable<FillAttrs['gradient']>['gradientStops']
+) => {
+  if (a.length !== b.length) {
+    return false
+  }
+
+  for (let i = 0; i < a.length; i += 1) {
+    if (
+      a[i].position !== b[i].position ||
+      a[i].color !== b[i].color ||
+      a[i].opacity !== b[i].opacity
+    ) {
+      return false
+    }
+  }
+
+  return true
+}
+
+const areGradientHandlesEqual = (
+  a: NonNullable<FillAttrs['gradient']>['gradientHandles'],
+  b: NonNullable<FillAttrs['gradient']>['gradientHandles']
+) => {
+  if (a.length !== b.length) {
+    return false
+  }
+
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i].x !== b[i].x || a[i].y !== b[i].y) {
+      return false
+    }
+  }
+
+  return true
+}
+
+const areGradientsEqual = (
+  a: FillAttrs['gradient'],
+  b: FillAttrs['gradient']
+) => {
+  if (!a || !b) {
+    return false
+  }
+
+  if (a.gradientType !== b.gradientType) {
+    return false
+  }
+
+  return (
+    areGradientStopsEqual(a.gradientStops, b.gradientStops) &&
+    areGradientHandlesEqual(a.gradientHandles, b.gradientHandles)
+  )
+}
+
+const areFillsEqual = (a: FillAttrs, b: FillAttrs) => {
+  if (a.kind !== b.kind) {
+    return false
+  }
+
+  if (a.color !== b.color || a.opacity !== b.opacity) {
+    return false
+  }
+
+  if (a.kind === 'gradient') {
+    return areGradientsEqual(a.gradient, b.gradient)
+  }
+
+  return true
+}
+
 const computeFillsValue = ({
   selectedIds,
   elements
@@ -60,13 +132,33 @@ const computeFillsValue = ({
     return []
   }
 
-  if (selectedIds.size !== 1) {
+  const elementFills = elements.map((element) => {
+    const fills = (element as Record<string, unknown> | undefined)?.fills
+    return isFillArray(fills) ? fills : []
+  })
+
+  if (elementFills.length === 0) {
+    return []
+  }
+
+  const baseFills = elementFills[0]
+
+  if (!elementFills.every((fills) => fills.length === baseFills.length)) {
     return MIXED_STRING
   }
 
-  const fills = (elements[0] as unknown as Record<string, unknown> | undefined)
-    ?.fills
-  return toFillRows(isFillArray(fills) ? fills : [])
+  for (let i = 0; i < baseFills.length; i += 1) {
+    const baseFill = baseFills[i]
+    const allMatch = elementFills.every((fills) =>
+      areFillsEqual(baseFill, fills[i])
+    )
+
+    if (!allMatch) {
+      return MIXED_STRING
+    }
+  }
+
+  return toFillRows(baseFills)
 }
 
 export const registerProperties = (core: PresetCoreAPIs): void => {
