@@ -9,6 +9,13 @@ export interface OverlayStrokeStyle {
   join?: 'round' | 'bevel' | 'miter'
 }
 
+export interface OverlayFillStyle {
+  color: number
+  alpha?: number
+}
+
+type OverlayFill = number | OverlayFillStyle
+
 export interface OverlayCanvas {
   clear: () => void
   line: (
@@ -26,12 +33,12 @@ export interface OverlayCanvas {
   circle: (
     center: PositionData,
     radius: number,
-    fillColor: number,
+    fillColor: OverlayFill,
     stroke?: OverlayStrokeStyle
   ) => void
   polygon: (
     points: PositionData[],
-    fillColor: number,
+    fillColor: OverlayFill,
     stroke?: OverlayStrokeStyle
   ) => void
 }
@@ -90,7 +97,15 @@ export const createOverlayLayerRegistration = (
       }
     },
     circle: (center, radius, fillColor, stroke) => {
-      graphics.circle(center.x, center.y, radius).fill(fillColor)
+      graphics.circle(center.x, center.y, radius)
+      if (typeof fillColor === 'number') {
+        graphics.fill(fillColor)
+      } else {
+        graphics.fill({
+          color: fillColor.color,
+          alpha: fillColor.alpha
+        })
+      }
       if (
         stroke &&
         'stroke' in graphics &&
@@ -113,7 +128,15 @@ export const createOverlayLayerRegistration = (
       for (let i = 1; i < points.length; i += 1) {
         graphics.lineTo(points[i].x, points[i].y)
       }
-      graphics.closePath().fill(fillColor)
+      graphics.closePath()
+      if (typeof fillColor === 'number') {
+        graphics.fill(fillColor)
+      } else {
+        graphics.fill({
+          color: fillColor.color,
+          alpha: fillColor.alpha
+        })
+      }
       if (
         stroke &&
         'stroke' in graphics &&

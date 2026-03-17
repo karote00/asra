@@ -33,6 +33,19 @@ export const viewportApis = {
   },
 
   /**
+   * Convert a workspace position into canvas coordinates.
+   */
+  getCanvasPositionFromWorkspace: (workspacePos: PositionData): PositionData => {
+    const scale = viewportApis.getScale()
+    const position = viewportApis.getPosition()
+
+    return {
+      x: workspacePos.x * scale + position.x,
+      y: workspacePos.y * scale + position.y
+    }
+  },
+
+  /**
    * Zoom to a specific scale centered on a point
    */
   zoomToCenter: (scale: number, centerX: number, centerY: number) => {

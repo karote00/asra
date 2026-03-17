@@ -15,14 +15,16 @@ Users need predictable single-selection behavior from both canvas and layer/cont
 
 1. Click element on canvas -> select element.
 2. Click empty canvas -> clear selection.
-3. Click element row in contents panel -> select that element.
-4. Click empty area in contents panel -> clear selection.
-5. Shift-modified selection toggles element membership.
-6. Path editing mode should keep focus and block regular selection start logic where applicable.
-7. Hover state should resolve by element bounds hit-test on mouse move.
-8. Drag start on an already selected element in select mode should move selected element(s).
-9. Drag move should ignore micro pointer jitter below app-defined movement threshold.
-10. Drag start on an unselected unlocked element in select mode should select and move that element.
+3. Drag empty canvas -> area-select intersecting elements.
+4. Click element row in contents panel -> select that element.
+5. Click empty area in contents panel -> clear selection.
+6. Shift-modified selection toggles element membership.
+7. Path editing mode should keep focus and block regular selection start logic where applicable.
+8. Hover state should resolve by element bounds hit-test on mouse move.
+9. Drag start on an already selected element in select mode should move selected element(s).
+10. Drag move should ignore micro pointer jitter below app-defined movement threshold.
+11. Drag start on an unselected unlocked element in select mode should select and move that element.
+12. Shift-drag on empty canvas adds area selection to existing selection.
 
 ## Constraints
 

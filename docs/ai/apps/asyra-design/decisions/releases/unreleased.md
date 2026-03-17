@@ -1033,3 +1033,18 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Fills panel only shows concrete values when all selected fills match.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/multi-selection-elements-plan.md`
+
+## 2026-03-17 - Area selection on canvas
+
+- Context:
+  - Dragging on empty canvas cleared selection without any marquee feedback.
+  - Users needed a predictable box-select workflow that works with shift toggling.
+- Decision:
+  - Add an area selection session that renders a marquee overlay and updates
+    selection in real time while dragging on empty canvas.
+  - Shift-drag toggles membership for elements inside the dragged area.
+- Consequences:
+  - Box selection now provides immediate visual feedback and selection updates.
+  - Shift area selection mirrors the toggle semantics of shift-click.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/area-selection-on-canvas-plan.md`

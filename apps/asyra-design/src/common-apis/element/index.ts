@@ -44,6 +44,10 @@ const getDefaultFillsForType = (type: EntityType) => {
   }
 }
 
+const isContainerType = (type: string): boolean => {
+  return core.isContainerType(type)
+}
+
 const getElementChildren = (element: unknown): string[] => {
   const maybeGetter = element as { get?: (key: string) => unknown }
   const value = maybeGetter.get?.('children')
@@ -54,6 +58,60 @@ const getElementChildren = (element: unknown): string[] => {
   return value.filter(
     (childId): childId is string => typeof childId === 'string'
   )
+}
+
+const getWorkspaceOrderedElementIds = (): string[] => {
+  const workspace =
+    sceneTree.currentWorkspace ??
+    sceneTree.getElementById(sceneTree.workspace)
+  if (!workspace) {
+    return []
+  }
+
+  const orderedIds: string[] = []
+  const visit = (elementId: string) => {
+    const element = sceneTree.getElementById(elementId)
+    if (!element) {
+      return
+    }
+
+    const elementType = element.get('type') as string
+    const isContainer = isContainerType(elementType)
+
+    if (isContainer) {
+      const elementData = (element as { data?: Record<string, unknown> }).data
+      const canReadChildren =
+        elementData &&
+        Object.prototype.hasOwnProperty.call(elementData, 'children')
+      if (canReadChildren) {
+        const children = getElementChildren(element)
+        if (children.length > 0) {
+          children.forEach((childId) => visit(childId))
+        }
+      }
+
+      orderedIds.push(elementId)
+      return
+    }
+
+    orderedIds.push(elementId)
+  }
+
+  const workspaceChildren = getElementChildren(workspace)
+  if (workspaceChildren.length > 0) {
+    workspaceChildren.forEach((childId) => visit(childId))
+  }
+
+  return orderedIds
+}
+
+const boundsIntersect = (a: ElementBounds, b: ElementBounds): boolean => {
+  const aMaxX = a.x + a.width
+  const aMaxY = a.y + a.height
+  const bMaxX = b.x + b.width
+  const bMaxY = b.y + b.height
+
+  return a.x <= bMaxX && aMaxX >= b.x && a.y <= bMaxY && aMaxY >= b.y
 }
 
 const createElementAtWorkspacePos = (
@@ -81,51 +139,11 @@ const createElementAtWorkspacePos = (
 
 export const elementApis = {
   isContainerType: (type: string): boolean => {
-    return core.isContainerType(type)
+    return isContainerType(type)
   },
 
   getElementIdAtWorkspacePos: (workspacePos: PositionData): string | null => {
-    const workspace =
-      sceneTree.currentWorkspace ??
-      sceneTree.getElementById(sceneTree.workspace)
-    if (!workspace) {
-      return null
-    }
-
-    const orderedIds: string[] = []
-    const visit = (elementId: string) => {
-      const element = sceneTree.getElementById(elementId)
-      if (!element) {
-        return
-      }
-
-      const elementType = element.get('type') as string
-      const isContainer = elementApis.isContainerType(elementType)
-
-      if (isContainer) {
-        const elementData = (element as { data?: Record<string, unknown> }).data
-        const canReadChildren =
-          elementData &&
-          Object.prototype.hasOwnProperty.call(elementData, 'children')
-        if (canReadChildren) {
-          const children = getElementChildren(element)
-          if (children.length > 0) {
-            children.forEach((childId) => visit(childId))
-          }
-        }
-
-        orderedIds.push(elementId)
-        return
-      }
-
-      orderedIds.push(elementId)
-    }
-
-    const workspaceChildren = getElementChildren(workspace)
-    if (workspaceChildren.length > 0) {
-      workspaceChildren.forEach((childId) => visit(childId))
-    }
-
+    const orderedIds = getWorkspaceOrderedElementIds()
     for (let i = orderedIds.length - 1; i >= 0; i -= 1) {
       const elementId = orderedIds[i]
       const element = sceneTree.getElementById(elementId)
@@ -144,6 +162,31 @@ export const elementApis = {
     }
 
     return null
+  },
+
+  getElementIdsInBounds: (bounds: ElementBounds): string[] => {
+    if (!bounds) {
+      return []
+    }
+
+    const orderedIds = getWorkspaceOrderedElementIds()
+    return orderedIds.filter((elementId) => {
+      const element = sceneTree.getElementById(elementId)
+      if (!element) {
+        return false
+      }
+
+      if (element.get('type') === EntityTypes.WORKSPACE) {
+        return false
+      }
+
+      const elementBounds = elementApis.getElementBounds(elementId)
+      if (!elementBounds) {
+        return false
+      }
+
+      return boundsIntersect(elementBounds, bounds)
+    })
   },
 
   getElementIdAtClientPos: (clientPos: PositionData): string | null => {

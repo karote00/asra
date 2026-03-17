@@ -22,7 +22,10 @@
 - resolves hovered element id from bounds hit-test
 - with Shift: toggle selection
 - without Shift: replace selection
-- empty hit: clear selection
+- drag start on empty canvas: begin area selection session
+- drag update on empty canvas: update area selection bounds and selection set
+- drag end on empty canvas: select elements intersecting bounds (Shift toggles membership)
+- click-only empty hit: clear selection
 
 ### Transaction handling
 

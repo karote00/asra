@@ -17,6 +17,7 @@ Import boundary:
 - `getElementType(elementId: string): string | undefined`
 - `isElementLocked(elementId: string): boolean`
 - `getElementBounds(elementId: string): { x: number; y: number; width: number; height: number } | null`
+- `getElementIdsInBounds(bounds: { x: number; y: number; width: number; height: number }): string[]`
 - `getElementPosition(elementId: string): { x: number; y: number } | null`
 - `isPointInsideElement(elementId: string, point: PositionData, padding?: number): boolean`
 - vector topology contract:
@@ -86,6 +87,9 @@ Import boundary:
 - `switchPrimaryTool(tool: string): void`
 - `getSystemContextSnapshot(): SystemContextSnapshot`
 - `updateHoveredElementId(elementId: string | null): void`
+- `getAreaSelection(): { dragStart: PositionData; dragCurrent: PositionData; additive: boolean } | null`
+- `setAreaSelection(selection: { dragStart: PositionData; dragCurrent: PositionData; additive: boolean } | null): void`
+- `clearAreaSelection(): void`
 - `getPathEditingVectorId(): string | null`
 - `getPathEditingMode(): boolean`
 - `setPathEditingMode(enabled: boolean): void`

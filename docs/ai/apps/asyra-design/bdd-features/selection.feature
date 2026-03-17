@@ -14,6 +14,12 @@ Feature: Element Selection
     When I click empty canvas area
     Then no element should remain selected
 
+  Scenario: Drag empty canvas to area select
+    Given there are elements on canvas
+    And I have the "Select" tool selected
+    When I drag an empty canvas area covering the elements
+    Then the elements inside the dragged area should be selected
+
   Scenario: Drag selected element to move
     Given an element is selected on canvas
     When I drag from the selected element to a new position

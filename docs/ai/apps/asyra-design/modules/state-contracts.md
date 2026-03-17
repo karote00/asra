@@ -24,6 +24,12 @@ This file defines app-level state keys, owners, and primary consumers.
   - writers: hover-element feature
   - readers: selection feature (hit target), content panel hover row state, selection overlay render layer
 
+- `areaSelection`
+  - owner: system-context
+  - writers: selection feature (empty-canvas drag)
+  - readers: area selection render layer
+  - value contract: `{ dragStart, dragCurrent, additive } | null`
+
 - `pathEditingVectorId`
   - owner: system-context
   - writers: pen/enter/cancel/switch-tool features

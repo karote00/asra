@@ -1,5 +1,6 @@
 import { initInputSystem } from './init-input-system'
 import { initFeatures } from './init-features'
+import { initAreaSelection } from './init-area-selection'
 import { initGradientFillEditing } from './init-gradient-fill-editing'
 import { initLoadDiagnostics } from './init-load-diagnostics'
 import { initSelectionCompatibility } from './init-selection-compatibility'
@@ -36,6 +37,7 @@ export const initApp = (): void => {
   initLoadDiagnostics()
   // Keep legacy selectedVectorPoint mirrored from SelectionManager-driven UI state.
   initSelectionCompatibility()
+  initAreaSelection()
   initGradientFillEditing()
   initVectorIconData()
   initPathEditingContinuation()

@@ -1,4 +1,4 @@
-import type { SystemContextSnapshot } from '@asyra/utils'
+import type { PositionData, SystemContextSnapshot } from '@asyra/utils'
 import { defineFeature } from '@asyra/core'
 import {
   elementApis,
@@ -7,6 +7,7 @@ import {
   transactionApis
 } from '../../common-apis'
 import {
+  FEATURE_MOVEMENT_THRESHOLD,
   FeatureNames,
   InputSystemEvents,
   PrimaryToolType
@@ -18,6 +19,23 @@ interface SelectionAPI {
   toggleSelection: (elementId: string) => void
   [key: string]: unknown
 }
+
+interface SelectionClickState {
+  mode: 'click'
+  [key: string]: unknown
+}
+
+interface SelectionAreaState {
+  mode: 'area'
+  dragStartClientPos: PositionData
+  dragStartWorkspacePos: PositionData
+  additive: boolean
+  initialSelectionIds: string[]
+  hasMoved: boolean
+  [key: string]: unknown
+}
+
+type SelectionSessionState = SelectionClickState | SelectionAreaState
 
 const api: SelectionAPI = {
   getSelectedIds: () => selectionApis.getSelectedIds(),
@@ -51,7 +69,39 @@ const clearPathEditingIfSelectionChanged = () => {
   systemContextApis.switchPrimaryTool(PrimaryToolType.SELECT)
 }
 
-export const selectionFeature = defineFeature(
+const getSelectionBounds = (
+  start: PositionData,
+  current: PositionData
+): { x: number; y: number; width: number; height: number } => ({
+  x: Math.min(start.x, current.x),
+  y: Math.min(start.y, current.y),
+  width: Math.abs(current.x - start.x),
+  height: Math.abs(current.y - start.y)
+})
+
+const resolveSelectionIds = (
+  selectionBounds: { x: number; y: number; width: number; height: number },
+  baseSelectionIds: string[],
+  mode: 'replace' | 'toggle'
+) => {
+  const areaSelectionIds = elementApis.getElementIdsInBounds(selectionBounds)
+  if (mode === 'replace' || baseSelectionIds.length === 0) {
+    return areaSelectionIds
+  }
+
+  const baseSet = new Set(baseSelectionIds)
+  const result = new Set(baseSelectionIds)
+  areaSelectionIds.forEach((id) => {
+    if (baseSet.has(id)) {
+      result.delete(id)
+    } else {
+      result.add(id)
+    }
+  })
+  return Array.from(result)
+}
+
+export const selectionFeature = defineFeature<SelectionAPI, SelectionSessionState>(
   FeatureNames.SELECTION,
   InputSystemEvents.INPUT_DRAG,
   {
@@ -80,35 +130,142 @@ export const selectionFeature = defineFeature(
           snapshot.hoveredElementId ??
           elementApis.getElementIdAtClientPos(mouse.position)
 
-        if (!hoveredElementId && snapshot.keyShift) {
-          return null
-        }
+        systemContextApis.clearAreaSelection()
 
-        transactionApis.startTransaction()
-        try {
-          if (hoveredElementId) {
+        if (hoveredElementId) {
+          transactionApis.startTransaction()
+          try {
             if (snapshot.keyShift) {
               api.toggleSelection(hoveredElementId)
             } else {
               selectionApis.selectElements([hoveredElementId])
             }
-          } else {
-            // Click on empty space on canvas - deselect
-            selectionApis.selectElements([])
+
+            clearPathEditingIfSelectionChanged()
+          } finally {
+            transactionApis.endTransaction()
           }
 
+          return { mode: 'click' }
+        }
+
+        const dragStartWorkspacePos = elementApis.getMousePosInWorkspace(
+          mouse.position
+        )
+        if (!dragStartWorkspacePos) {
+          return null
+        }
+
+        return {
+          mode: 'area',
+          dragStartClientPos: mouse.position,
+          dragStartWorkspacePos,
+          additive: snapshot.keyShift,
+          initialSelectionIds: snapshot.keyShift
+            ? selectionApis.getSelectedIds()
+            : [],
+          hasMoved: false
+        }
+      },
+      onUpdate: (
+        snapshot: SystemContextSnapshot,
+        state: SelectionSessionState
+      ) => {
+        if (state.mode !== 'area') {
+          return
+        }
+
+        if (!snapshot.mouseDragging) {
+          return
+        }
+
+        const hasMoved =
+          state.hasMoved ||
+          elementApis.hasMovedBeyondThreshold(
+            state.dragStartClientPos,
+            snapshot.mousePosition,
+            FEATURE_MOVEMENT_THRESHOLD.areaSelection
+          )
+        if (!hasMoved) {
+          return
+        }
+
+        const currentWorkspacePos = elementApis.getMousePosInWorkspace(
+          snapshot.mousePosition
+        )
+        if (!currentWorkspacePos) {
+          return
+        }
+
+        state.hasMoved = true
+
+        const selectionBounds = getSelectionBounds(
+          state.dragStartWorkspacePos,
+          currentWorkspacePos
+        )
+        const nextSelectionIds = resolveSelectionIds(
+          selectionBounds,
+          state.additive ? state.initialSelectionIds : [],
+          state.additive ? 'toggle' : 'replace'
+        )
+
+        selectionApis.selectElements(nextSelectionIds, { undoable: false })
+
+        systemContextApis.setAreaSelection({
+          dragStart: state.dragStartWorkspacePos,
+          dragCurrent: currentWorkspacePos,
+          additive: state.additive
+        })
+      },
+      onEnd: (
+        snapshot: SystemContextSnapshot,
+        state: SelectionSessionState
+      ) => {
+        if (state.mode !== 'area') {
+          return
+        }
+
+        systemContextApis.clearAreaSelection()
+
+        if (!state.hasMoved) {
+          if (state.additive) {
+            return
+          }
+
+          transactionApis.startTransaction()
+          try {
+            selectionApis.selectElements([])
+            clearPathEditingIfSelectionChanged()
+          } finally {
+            transactionApis.endTransaction()
+          }
+          return
+        }
+
+        const currentWorkspacePos = elementApis.getMousePosInWorkspace(
+          snapshot.mousePosition
+        )
+        if (!currentWorkspacePos) {
+          return
+        }
+
+        const selectionBounds = getSelectionBounds(
+          state.dragStartWorkspacePos,
+          currentWorkspacePos
+        )
+        const nextSelectionIds = resolveSelectionIds(
+          selectionBounds,
+          state.additive ? state.initialSelectionIds : [],
+          state.additive ? 'toggle' : 'replace'
+        )
+
+        transactionApis.startTransaction()
+        try {
+          selectionApis.selectElements(nextSelectionIds)
           clearPathEditingIfSelectionChanged()
         } finally {
           transactionApis.endTransaction()
         }
-
-        return { action: 'selection-updated' }
-      },
-      onUpdate: () => {
-        return
-      },
-      onEnd: () => {
-        return
       }
     }
   }

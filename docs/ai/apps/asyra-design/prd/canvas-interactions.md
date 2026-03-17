@@ -15,6 +15,7 @@ Asyra Design needs a predictable, fast canvas interaction model for shape creati
 
 - rectangle/oval creation
 - single selection and deselection
+- area (marquee) selection
 - drag move for selected element(s)
 - delete selected element / selected vector anchor behavior
 - viewport zoom/pan/zoom-fit
@@ -24,7 +25,7 @@ Asyra Design needs a predictable, fast canvas interaction model for shape creati
 ## Out of Scope (Current)
 
 - advanced bezier handles
-- lasso/marquee selection
+- lasso (freeform) selection
 - auto-layout behavior UX
 
 ## Functional Requirements

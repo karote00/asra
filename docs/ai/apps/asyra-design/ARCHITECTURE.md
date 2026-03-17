@@ -67,6 +67,7 @@ System properties used by app:
 - `pathEditingMode`
 - `pathEditingVectorId`
 - `pathEditingStartNewSubpath`
+- `areaSelection`
 - `selectedVectorPoint` (compatibility mirror derived from selection channel)
 - `hoveredVectorPoint`
 

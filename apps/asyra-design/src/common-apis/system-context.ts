@@ -12,6 +12,7 @@ import {
   type SelectedVectorSegmentState as CoreSelectedVectorSegmentState,
   type HoveredVectorSegmentInsertPointState as CoreHoveredVectorSegmentInsertPointState
 } from '@asyra/core'
+import type { PositionData } from '@asyra/utils'
 import { selectionApis } from './selection'
 
 export type VectorPointTarget = CoreVectorPointTarget
@@ -38,6 +39,12 @@ export interface GradientStopState extends Record<string, unknown> {
   elementId: string
   fillId: string
   stopIndex: number
+}
+
+export interface AreaSelectionState extends Record<string, unknown> {
+  dragStart: PositionData
+  dragCurrent: PositionData
+  additive: boolean
 }
 
 const gradientHandleEquals = (
@@ -84,6 +91,20 @@ export const systemContextApis = {
    */
   updateHoveredElementId: (elementId: string | null) => {
     core.setSystemProperty('hoveredElementId', elementId)
+  },
+
+  getAreaSelection: (): AreaSelectionState | null => {
+    return (
+      core.getSystemProperty<AreaSelectionState | null>('areaSelection') ?? null
+    )
+  },
+
+  setAreaSelection: (selection: AreaSelectionState | null) => {
+    core.setSystemProperty('areaSelection', selection)
+  },
+
+  clearAreaSelection: () => {
+    systemContextApis.setAreaSelection(null)
   },
 
   /**
