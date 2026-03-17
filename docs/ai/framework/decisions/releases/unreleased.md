@@ -963,3 +963,17 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - `refreshComputedDataFromProperty(...)` remains available for fallback/diagnostic use.
 - Related Plan:
   - `docs/ai/framework/plans/completed/property-driven-computed-sync-plan.md`
+
+## 2026-03-17 - Render overlay interaction bridge added
+
+- Context:
+  - Overlay interactions relied on app-side hit testing and input events, causing drag conflicts and render-engine coupling.
+- Decision:
+  - Add render-owned interaction target registry + bridge that emits `render.pointer.*` and capture events.
+  - Provide core facade APIs for registering overlay targets and handlers.
+  - Allow capture mode to block input-system pointer combinations during overlay drag.
+- Consequences:
+  - Overlay tools can implement hit-testing and drag flows without Pixi coupling.
+  - Input-system avoids element drag conflicts during overlay capture.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/interactive-overlay-input-plan.md`

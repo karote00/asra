@@ -115,7 +115,18 @@ export const createAPIs = (
       render.registerLayer(registration, options),
     unregisterRenderLayer: (name: string) => render.unregisterLayer(name),
     createRenderGradientFillStyle,
-    createEvenOddFillStyle
+    createEvenOddFillStyle,
+    registerRenderInteractionTargets: (targets, options) =>
+      render.registerInteractionTargets(targets, options),
+    updateRenderInteractionTarget: (targetId, patch) =>
+      render.updateInteractionTarget(targetId, patch),
+    unregisterRenderInteractionTarget: (targetId) =>
+      render.unregisterInteractionTarget(targetId),
+    clearRenderInteractionTargets: () => render.clearInteractionTargets(),
+    registerRenderInteractionHandler: (targetId, registration) =>
+      render.registerInteractionHandler(targetId, registration),
+    unregisterRenderInteractionHandler: (targetId, eventType) =>
+      render.unregisterInteractionHandler(targetId, eventType)
   }
 
   const propsRequests: PropsRequests = {

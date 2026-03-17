@@ -2,7 +2,10 @@ import { renderIsReady } from '@asyra/reactive-events'
 import type { PositionData } from '@asyra/utils'
 import type {
   CreateRenderGradientFillOptions,
-  RenderFillStyle
+  RenderFillStyle,
+  RenderInteractionTarget,
+  RenderInteractionHandlerRegistration,
+  RenderInteractionEventType
 } from '@asyra/render'
 import type { EvenOddFillOptions, EvenOddFillResult } from '@asyra/render'
 import type {
@@ -25,6 +28,26 @@ export interface RenderRequests {
   createEvenOddFillStyle: (
     options: EvenOddFillOptions
   ) => EvenOddFillResult | null
+  registerRenderInteractionTargets: (
+    targets: RenderInteractionTarget | RenderInteractionTarget[],
+    options?: { override?: boolean }
+  ) => void
+  updateRenderInteractionTarget: (
+    targetId: string,
+    patch:
+      | Partial<RenderInteractionTarget>
+      | ((current: RenderInteractionTarget) => Partial<RenderInteractionTarget>)
+  ) => void
+  unregisterRenderInteractionTarget: (targetId: string) => boolean
+  clearRenderInteractionTargets: () => void
+  registerRenderInteractionHandler: (
+    targetId: string | RegExp,
+    registration: RenderInteractionHandlerRegistration
+  ) => void
+  unregisterRenderInteractionHandler: (
+    targetId: string,
+    eventType?: RenderInteractionEventType
+  ) => void
 }
 
 export const createRenderAPIs = (requests: RenderRequests) => {
@@ -49,6 +72,40 @@ export const createRenderAPIs = (requests: RenderRequests) => {
     },
     createEvenOddFillStyle(options: EvenOddFillOptions) {
       return requests.createEvenOddFillStyle(options)
+    },
+    registerRenderInteractionTargets(
+      targets: RenderInteractionTarget | RenderInteractionTarget[],
+      options?: { override?: boolean }
+    ) {
+      requests.registerRenderInteractionTargets(targets, options)
+    },
+    updateRenderInteractionTarget(
+      targetId: string,
+      patch:
+        | Partial<RenderInteractionTarget>
+        | ((
+            current: RenderInteractionTarget
+          ) => Partial<RenderInteractionTarget>)
+    ) {
+      requests.updateRenderInteractionTarget(targetId, patch)
+    },
+    unregisterRenderInteractionTarget(targetId: string) {
+      return requests.unregisterRenderInteractionTarget(targetId)
+    },
+    clearRenderInteractionTargets() {
+      requests.clearRenderInteractionTargets()
+    },
+    registerRenderInteractionHandler(
+      targetId: string | RegExp,
+      registration: RenderInteractionHandlerRegistration
+    ) {
+      requests.registerRenderInteractionHandler(targetId, registration)
+    },
+    unregisterRenderInteractionHandler(
+      targetId: string,
+      eventType?: RenderInteractionEventType
+    ) {
+      requests.unregisterRenderInteractionHandler(targetId, eventType)
     }
   }
 }

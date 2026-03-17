@@ -1,4 +1,8 @@
 import { EVENT_OPTIONS, UNDO } from '@asyra/utils'
+import type {
+  RenderPointerPayload,
+  RenderPointerCapturePayload
+} from '@asyra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
 import type { UserActionCompletedPayload } from './events'
@@ -69,20 +73,77 @@ export const redo = () => {
 }
 
 // Renderer events - published by render engine adapter
-export const renderPointerHover = (elementId: string) => {
+export const renderPointerHover = (
+  payload: string | RenderPointerPayload
+) => {
+  const resolved: RenderPointerPayload =
+    typeof payload === 'string'
+      ? {
+          targetId: payload,
+          targetType: 'element',
+          targetKind: 'element',
+          elementId: payload
+        }
+      : payload
   publishEvent({
     type: EventTypes.POINTER_HOVER,
-    payload: {
-      elementId
-    }
+    payload: resolved
   })
 }
 
-export const renderPointerLeave = (elementId: string) => {
+export const renderPointerLeave = (
+  payload: string | RenderPointerPayload
+) => {
+  const resolved: RenderPointerPayload =
+    typeof payload === 'string'
+      ? {
+          targetId: payload,
+          targetType: 'element',
+          targetKind: 'element',
+          elementId: payload
+        }
+      : payload
   publishEvent({
     type: EventTypes.POINTER_LEAVE,
-    payload: {
-      elementId
-    }
+    payload: resolved
+  })
+}
+
+export const renderPointerDown = (payload: RenderPointerPayload) => {
+  publishEvent({
+    type: EventTypes.POINTER_DOWN,
+    payload
+  })
+}
+
+export const renderPointerMove = (payload: RenderPointerPayload) => {
+  publishEvent({
+    type: EventTypes.POINTER_MOVE,
+    payload
+  })
+}
+
+export const renderPointerUp = (payload: RenderPointerPayload) => {
+  publishEvent({
+    type: EventTypes.POINTER_UP,
+    payload
+  })
+}
+
+export const renderPointerCaptureStart = (
+  payload: RenderPointerCapturePayload
+) => {
+  publishEvent({
+    type: EventTypes.POINTER_CAPTURE_START,
+    payload
+  })
+}
+
+export const renderPointerCaptureEnd = (
+  payload: RenderPointerCapturePayload
+) => {
+  publishEvent({
+    type: EventTypes.POINTER_CAPTURE_END,
+    payload
   })
 }

@@ -1,5 +1,16 @@
 # Plan: Interactive Overlay Input Bridge
 
+## Status
+
+- Accepted on March 17, 2026.
+- Completed on March 17, 2026.
+- Delivered:
+  - render interaction target registry with hit-testing helpers and z-ordering.
+  - render interaction bridge publishing `render.pointer.*` and capture events.
+  - pointer capture blocks input-system pointer combinations when configured.
+  - core facade APIs for registering overlay targets/handlers.
+  - docs updates + initial registry/input-system coverage.
+
 ## Goal
 
 Provide a framework-level, easy-to-use interaction workflow for render overlays

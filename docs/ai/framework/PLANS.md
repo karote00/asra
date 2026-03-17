@@ -35,11 +35,6 @@ This file tracks framework planning topics and points to detailed references.
 - Use render-side cached snapshots + key-based invalidation for heavy geometry.
 - Reference: `docs/ai/framework/plans/render-delta-update-plan.md`
 
-6. Interactive overlay input bridge
-- Provide a framework-owned render interaction bridge with pointer capture and `render.*` events.
-- Expose core facade APIs for registering overlay targets and handlers.
-- Reference: `docs/ai/framework/plans/interactive-overlay-input-plan.md`
-
 ## Deferred Plans
 
 1. Auto-layout behavior engine.

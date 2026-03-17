@@ -78,7 +78,12 @@ export enum PropsEventTypes {
  */
 export enum RendererEventTypes {
   POINTER_HOVER = 'render.pointer.hover',
-  POINTER_LEAVE = 'render.pointer.leave'
+  POINTER_LEAVE = 'render.pointer.leave',
+  POINTER_DOWN = 'render.pointer.down',
+  POINTER_MOVE = 'render.pointer.move',
+  POINTER_UP = 'render.pointer.up',
+  POINTER_CAPTURE_START = 'render.pointer.capture.start',
+  POINTER_CAPTURE_END = 'render.pointer.capture.end'
 }
 
 // InputSystem

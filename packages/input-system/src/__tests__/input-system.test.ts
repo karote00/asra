@@ -160,6 +160,32 @@ describe('InputSystem', () => {
     expect(inputSystem['_startPos']).toEqual({ clientX: 10, clientY: 20 })
   })
 
+  it('should skip pointer combinations when pointer capture is blocked', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const checkSpy = vi.spyOn(inputSystem as any, 'checkCombinations')
+    inputSystem.setPointerCaptureBlock(true, 'capture-1')
+
+    const event = new MouseEvent('mousedown', {
+      button: 0,
+      clientX: 10,
+      clientY: 20
+    })
+    Object.defineProperty(event, 'target', { value: mockHTMLElement })
+    inputSystem['handleMouseDown'](event)
+
+    expect(checkSpy).not.toHaveBeenCalled()
+  })
+
+  it('should clear pointer state when pointer capture is blocked', () => {
+    inputSystem['activeKeys'].add('leftMouseDown')
+    inputSystem['_startPos'] = { clientX: 5, clientY: 6 }
+
+    inputSystem.setPointerCaptureBlock(true, 'capture-2')
+
+    expect(inputSystem['activeKeys'].has('leftMouseDown')).toBe(false)
+    expect(inputSystem['_startPos']).toBe(null)
+  })
+
   // Test handleMouseUp
   it('should add mouse up key, remove mouse down key, and trigger checkCombinations', () => {
     inputSystem['activeKeys'].add('leftMouseDown')

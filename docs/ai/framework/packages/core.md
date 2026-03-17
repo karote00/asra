@@ -24,6 +24,7 @@ System orchestrator and lifecycle coordinator.
 
 - register component definitions
 - register render layers
+- register render interaction targets + handlers
 - register render YJS change observers (`name + channel + onChange`)
 - register UI/system managed properties
 - register load/save hooks

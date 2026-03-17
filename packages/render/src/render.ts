@@ -1,9 +1,18 @@
 import { Application, Container, Graphics, Ticker } from 'pixi.js'
 import { DataTypes, MouseData } from '@asyra/utils'
+import type { RenderPointerPositions } from '@asyra/utils'
 import { RenderElementData, RenderContainerData } from './types'
 import { ViewportLayer } from './layers/viewport'
 import renderLayerRegistry from './registries/render-layer'
 import type { RenderLayerRegistration } from './types/render-layer'
+import RenderInteractionBridge from './interaction/interaction-bridge'
+import interactionTargetRegistry from './registries/interaction-target'
+import renderInteractionHandlerRegistry from './registries/render-interaction-handler'
+import type {
+  RenderInteractionTarget,
+  RenderInteractionHandlerRegistration,
+  RenderInteractionEventType
+} from './types/render-interaction'
 
 const ticker = Ticker.shared
 
@@ -13,6 +22,7 @@ class Render {
   private customLayerContainers: Container[] = []
   private _tickerActive: boolean = false
   private _animateHandler: () => void
+  private interactionBridge: RenderInteractionBridge
 
   constructor() {
     this.viewport = new ViewportLayer()
@@ -22,6 +32,9 @@ class Render {
     this._animateHandler = () => {
       this.updateLayers()
     }
+    this.interactionBridge = new RenderInteractionBridge(
+      (event) => this.getPointerPositions(event)
+    )
   }
 
   start() {
@@ -92,6 +105,9 @@ class Render {
     this.app.stage.eventMode = 'static'
 
     this._setupStageLayers()
+    if (this.app.canvas) {
+      this.interactionBridge.attach(this.app.canvas)
+    }
 
     return this.app
   }
@@ -242,6 +258,7 @@ class Render {
   dispose() {
     this.stop()
     this.customLayerContainers = []
+    this.interactionBridge.detach()
 
     if (this.app) {
       this.app.destroy(true)
@@ -252,6 +269,78 @@ class Render {
   reset() {
     this.dispose()
     this.app = null
+  }
+
+  registerInteractionTargets(
+    targets: RenderInteractionTarget | RenderInteractionTarget[],
+    options?: { override?: boolean }
+  ) {
+    if (Array.isArray(targets)) {
+      interactionTargetRegistry.registerMany(targets, options)
+    } else {
+      interactionTargetRegistry.register(targets, options)
+    }
+  }
+
+  updateInteractionTarget(
+    targetId: string,
+    patch:
+      | Partial<RenderInteractionTarget>
+      | ((current: RenderInteractionTarget) => Partial<RenderInteractionTarget>)
+  ) {
+    interactionTargetRegistry.update(targetId, patch)
+  }
+
+  unregisterInteractionTarget(targetId: string) {
+    return interactionTargetRegistry.unregister(targetId)
+  }
+
+  clearInteractionTargets() {
+    interactionTargetRegistry.clear()
+  }
+
+  registerInteractionHandler(
+    targetId: string | RegExp,
+    registration: RenderInteractionHandlerRegistration
+  ) {
+    renderInteractionHandlerRegistry.register(targetId, registration)
+  }
+
+  unregisterInteractionHandler(
+    targetId: string,
+    eventType?: RenderInteractionEventType
+  ) {
+    renderInteractionHandlerRegistry.unregister(targetId, eventType)
+  }
+
+  private getPointerPositions(
+    event: PointerEvent
+  ): RenderPointerPositions | null {
+    if (!this.app?.canvas) {
+      return null
+    }
+
+    const client = {
+      x: event.clientX,
+      y: event.clientY
+    }
+    const bounds = this.app.canvas.getBoundingClientRect()
+    const canvas = bounds
+      ? { x: client.x - bounds.left, y: client.y - bounds.top }
+      : client
+    const workspacePoint = this.viewport.view.toLocal({
+      x: canvas.x,
+      y: canvas.y
+    })
+
+    return {
+      client,
+      canvas,
+      workspace: {
+        x: workspacePoint.x,
+        y: workspacePoint.y
+      }
+    }
   }
 }
 

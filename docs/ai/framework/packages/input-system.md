@@ -21,6 +21,7 @@ Normalize raw keyboard/mouse/pointer input into framework input events.
 - Input-system publishes normalized events; it does not choose business outcomes.
 - Key maps should be configurable by app domain.
 - Event contracts must stay stable and typed.
+- Pointer input can be temporarily blocked when render interaction capture is active.
 
 ## Extension Points
 

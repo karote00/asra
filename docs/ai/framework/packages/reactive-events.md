@@ -9,6 +9,7 @@ Provide typed cross-package event communication.
 - event type definitions
 - publish/subscribe APIs
 - typed payload contracts for shared events
+- render pointer event contracts (`render.pointer.*`, `render.pointer.capture.*`)
 
 ## Must Not Own
 

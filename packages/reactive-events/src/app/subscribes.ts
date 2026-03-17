@@ -9,7 +9,12 @@ import type {
   UndoEvent,
   RedoEvent,
   RenderPointerHoverEvent,
-  RenderPointerLeaveEvent
+  RenderPointerLeaveEvent,
+  RenderPointerDownEvent,
+  RenderPointerMoveEvent,
+  RenderPointerUpEvent,
+  RenderPointerCaptureStartEvent,
+  RenderPointerCaptureEndEvent
 } from './events'
 import { createSubscribeEvent } from '../event-bus'
 import { EventTypes } from '../types'
@@ -48,3 +53,22 @@ export const subscribeToRenderPointerHover =
 
 export const subscribeToRenderPointerLeave =
   createSubscribeEvent<RenderPointerLeaveEvent>(EventTypes.POINTER_LEAVE)
+
+export const subscribeToRenderPointerDown =
+  createSubscribeEvent<RenderPointerDownEvent>(EventTypes.POINTER_DOWN)
+
+export const subscribeToRenderPointerMove =
+  createSubscribeEvent<RenderPointerMoveEvent>(EventTypes.POINTER_MOVE)
+
+export const subscribeToRenderPointerUp =
+  createSubscribeEvent<RenderPointerUpEvent>(EventTypes.POINTER_UP)
+
+export const subscribeToRenderPointerCaptureStart =
+  createSubscribeEvent<RenderPointerCaptureStartEvent>(
+    EventTypes.POINTER_CAPTURE_START
+  )
+
+export const subscribeToRenderPointerCaptureEnd =
+  createSubscribeEvent<RenderPointerCaptureEndEvent>(
+    EventTypes.POINTER_CAPTURE_END
+  )

@@ -61,6 +61,8 @@ class InputSystem {
   private listeners: Map<string, Callback[]>
   private timers: Map<string, NodeJS.Timeout>
   private _startPos: MouseData | null
+  private pointerInputBlocked: boolean
+  private pointerCaptureId: string | null
   public registry: InputSystemRegistry
 
   constructor() {
@@ -70,6 +72,8 @@ class InputSystem {
     this.listeners = new Map()
     this.timers = new Map()
     this._startPos = null
+    this.pointerInputBlocked = false
+    this.pointerCaptureId = null
     this.registry = new InputSystemRegistry()
 
     this.setupListeners()
@@ -205,6 +209,10 @@ class InputSystem {
   }
 
   private handleMouseDown = (event: MouseEvent) => {
+    if (this.pointerInputBlocked) {
+      return
+    }
+
     const button = getMouseButton(event.button)
     const key = this.getMouseEventKey(button, 'Down')
 
@@ -224,6 +232,10 @@ class InputSystem {
   }
 
   private handleMouseUp = (event: MouseEvent) => {
+    if (this.pointerInputBlocked) {
+      return
+    }
+
     const button = getMouseButton(event.button)
     const key = this.getMouseEventKey(button, 'Up')
 
@@ -244,6 +256,10 @@ class InputSystem {
   }
 
   private handleMouseMove = (event: MouseEvent) => {
+    if (this.pointerInputBlocked) {
+      return
+    }
+
     const buttonFromMask = getMouseButtonFromButtonsMask(event.buttons)
     const button =
       buttonFromMask !== MouseButton.NONE
@@ -280,6 +296,10 @@ class InputSystem {
   }
 
   private handleDoubleClick = (event: MouseEvent) => {
+    if (this.pointerInputBlocked) {
+      return
+    }
+
     const button = getMouseButton(event.button)
     this.activeKeys.add(PointerKey.MOUSE_DOUBLE_CLICK)
 
@@ -405,6 +425,42 @@ class InputSystem {
     })
 
     return modifiers
+  }
+
+  setPointerCaptureBlock(active: boolean, captureId?: string | null) {
+    if (active) {
+      this.pointerInputBlocked = true
+      this.pointerCaptureId = captureId ?? null
+      this.clearPointerState()
+      return
+    }
+
+    if (this.pointerCaptureId && captureId && this.pointerCaptureId !== captureId) {
+      return
+    }
+
+    this.pointerInputBlocked = false
+    this.pointerCaptureId = null
+    this.clearPointerState()
+  }
+
+  private clearPointerState() {
+    this._startPos = null
+
+    for (const key of Array.from(this.activeKeys)) {
+      if (this.isPointerKey(key)) {
+        this.activeKeys.delete(key)
+        this.clearTimer(key)
+      }
+    }
+  }
+
+  private isPointerKey(key: string) {
+    if (key === PointerKey.WHEEL) {
+      return true
+    }
+
+    return key.toLowerCase().includes('mouse')
   }
 
   getAllModifiers(modifiers: ModifierKey[]): ModifierKeys {

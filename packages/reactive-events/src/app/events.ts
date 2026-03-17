@@ -1,4 +1,8 @@
 import { EVENT_OPTIONS, UNDO } from '@asyra/utils'
+import type {
+  RenderPointerPayload,
+  RenderPointerCapturePayload
+} from '@asyra/utils'
 import type { EventTypes } from '../types'
 
 export interface RenderIsReadyEvent {
@@ -52,16 +56,37 @@ export interface RedoEvent {
 
 export interface RenderPointerHoverEvent {
   type: EventTypes
-  payload: {
-    elementId: string
-  }
+  payload: RenderPointerPayload
 }
 
 export interface RenderPointerLeaveEvent {
   type: EventTypes
-  payload: {
-    elementId: string
-  }
+  payload: RenderPointerPayload
+}
+
+export interface RenderPointerDownEvent {
+  type: EventTypes
+  payload: RenderPointerPayload
+}
+
+export interface RenderPointerMoveEvent {
+  type: EventTypes
+  payload: RenderPointerPayload
+}
+
+export interface RenderPointerUpEvent {
+  type: EventTypes
+  payload: RenderPointerPayload
+}
+
+export interface RenderPointerCaptureStartEvent {
+  type: EventTypes
+  payload: RenderPointerCapturePayload
+}
+
+export interface RenderPointerCaptureEndEvent {
+  type: EventTypes
+  payload: RenderPointerCapturePayload
 }
 
 export type AppEvent =
@@ -76,3 +101,8 @@ export type AppEvent =
   | RedoEvent
   | RenderPointerHoverEvent
   | RenderPointerLeaveEvent
+  | RenderPointerDownEvent
+  | RenderPointerMoveEvent
+  | RenderPointerUpEvent
+  | RenderPointerCaptureStartEvent
+  | RenderPointerCaptureEndEvent

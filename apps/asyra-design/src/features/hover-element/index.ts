@@ -1,4 +1,5 @@
 import { defineFeature, EventTypes } from '@asyra/core'
+import type { RenderPointerPayload } from '@asyra/utils'
 import { systemContextApis } from '../../common-apis'
 import { FeatureNames, InputSystemEvents } from '../../constants'
 
@@ -29,8 +30,11 @@ export const hoverElementRenderHoverFeature = defineFeature(
     priority: 10,
     exclusive: false,
     execution: (snapshot) => {
-      const payload = (snapshot.detail ?? snapshot.payload) as {
-        elementId: string
+      const payload = (snapshot.detail ?? snapshot.payload) as
+        | RenderPointerPayload
+        | undefined
+      if (payload?.targetKind && payload.targetKind !== 'element') {
+        return null
       }
       const elementId = payload?.elementId
 
@@ -53,7 +57,13 @@ export const hoverElementRenderLeaveFeature = defineFeature(
   {
     priority: 10,
     exclusive: false,
-    execution: () => {
+    execution: (snapshot) => {
+      const payload = (snapshot.detail ?? snapshot.payload) as
+        | RenderPointerPayload
+        | undefined
+      if (payload?.targetKind && payload.targetKind !== 'element') {
+        return null
+      }
       systemContextApis.updateHoveredElementId(null)
       return { hoveredId: null }
     }

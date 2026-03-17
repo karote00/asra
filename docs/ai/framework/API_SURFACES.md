@@ -53,6 +53,12 @@ Render bridge:
 - `registerRenderLayer(registration: RenderLayerRegistration, options?: RegisterRenderLayerOptions): void`
 - `unregisterRenderLayer(name: string): boolean`
 - `createRenderGradientFillStyle(options: CreateRenderGradientFillOptions): RenderFillStyle`
+- `registerRenderInteractionTargets(targets: RenderInteractionTarget | RenderInteractionTarget[], options?: { override?: boolean }): void`
+- `updateRenderInteractionTarget(targetId: string, patch: Partial<RenderInteractionTarget> | ((current: RenderInteractionTarget) => Partial<RenderInteractionTarget>)): void`
+- `unregisterRenderInteractionTarget(targetId: string): boolean`
+- `clearRenderInteractionTargets(): void`
+- `registerRenderInteractionHandler(targetId: string | RegExp, registration: RenderInteractionHandlerRegistration): void`
+- `unregisterRenderInteractionHandler(targetId: string, eventType?: RenderInteractionEventType): void`
 - `registerDataChannelObserver(registration: DataChannelObserverRegistration): void`
   - registration shape: `{ name: string; channel: string; onChange: (change) => void }`
 - `unregisterDataChannelObserver(name: string): boolean`
@@ -134,6 +140,14 @@ Managed property bridges:
 - `renderStrategyRegistry`
 - `interactionHandlerRegistry`
 - overlay helper: `createOverlayLayerRegistration(...)`
+- overlay interaction helpers:
+  - `createRenderInteractionPointTarget(...)`
+  - `createRenderInteractionCircleTarget(...)`
+  - `createRenderInteractionSegmentTarget(...)`
+  - `createRenderInteractionPolylineTarget(...)`
+- interaction registries:
+  - `interactionTargetRegistry`
+  - `renderInteractionHandlerRegistry`
 - render stores (for default/preset wiring):
   - `renderSceneTreeStore`
   - `renderSelectionStore`

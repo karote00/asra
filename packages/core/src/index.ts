@@ -50,6 +50,10 @@ export { keyMap } from '@asyra/input-system'
 export {
   renderStrategyRegistry,
   createOverlayLayerRegistration,
+  createRenderInteractionPointTarget,
+  createRenderInteractionCircleTarget,
+  createRenderInteractionSegmentTarget,
+  createRenderInteractionPolylineTarget,
   createRenderGradientFillStyle,
   createEvenOddFillStyle,
   renderSceneTreeStore,
@@ -61,6 +65,12 @@ export {
   type RenderGradientColorStop,
   type RenderGradientPoint,
   type RenderFillStyle,
+  type RenderInteractionTarget,
+  type RenderInteractionTargetBounds,
+  type RenderInteractionTargetSpace,
+  type RenderInteractionHandlerRegistration,
+  type RenderInteractionEventType,
+  type RenderInteractionEvent,
   type EvenOddSegment,
   type EvenOddPath,
   type EvenOddShape,
@@ -146,6 +156,12 @@ type CoreExtensionApiKeys =
   | 'unregisterRenderLayer'
   | 'createRenderGradientFillStyle'
   | 'createEvenOddFillStyle'
+  | 'registerRenderInteractionTargets'
+  | 'updateRenderInteractionTarget'
+  | 'unregisterRenderInteractionTarget'
+  | 'clearRenderInteractionTargets'
+  | 'registerRenderInteractionHandler'
+  | 'unregisterRenderInteractionHandler'
   | 'sceneTreeInit'
   | 'sceneTreeLoadData'
   | 'sceneTreeSaveData'

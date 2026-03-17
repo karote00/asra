@@ -7,6 +7,8 @@ export { IRenderer, RenderOptions, RenderResult } from './types/renderer'
 export { PixiJSRenderer }
 export { renderStrategyRegistry } from './registries/render-strategy'
 export { interactionHandlerRegistry } from './registries/interaction-handler'
+export { interactionTargetRegistry } from './registries/interaction-target'
+export { renderInteractionHandlerRegistry } from './registries/render-interaction-handler'
 export {
   createRenderGradientFillStyle,
   type CreateRenderGradientFillOptions,
@@ -33,6 +35,20 @@ export {
   type OverlayStrokeStyle,
   type CreateOverlayLayerOptions
 } from './layers/overlay-layer'
+export {
+  createRenderInteractionPointTarget,
+  createRenderInteractionCircleTarget,
+  createRenderInteractionSegmentTarget,
+  createRenderInteractionPolylineTarget
+} from './interaction/target-helpers'
+export type {
+  RenderInteractionTarget,
+  RenderInteractionTargetBounds,
+  RenderInteractionTargetSpace,
+  RenderInteractionHandlerRegistration,
+  RenderInteractionEventType,
+  RenderInteractionEvent
+} from './types/render-interaction'
 export { renderSceneTreeStore, renderSelectionStore }
 
 export default render
