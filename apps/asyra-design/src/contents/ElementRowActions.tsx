@@ -1,17 +1,24 @@
+import type { MouseEvent } from 'react'
 import { Icon } from '@asyra/design-system'
 
 interface ElementRowActionsProps {
+  elementId: string
   isHovered: boolean
   isSelected: boolean
   lock: boolean
   visible: boolean
+  onToggleLock: (event: MouseEvent<HTMLButtonElement>) => void
+  onToggleVisible: (event: MouseEvent<HTMLButtonElement>) => void
 }
 
 export const ElementRowActions = ({
+  elementId,
   isHovered,
   isSelected,
   lock,
-  visible
+  visible,
+  onToggleLock,
+  onToggleVisible
 }: ElementRowActionsProps) => {
   return (
     <div
@@ -21,12 +28,32 @@ export const ElementRowActions = ({
         transition: 'opacity 0.12s ease'
       }}
     >
-      <div className="flex items-center text-[#777]">
+      <button
+        type="button"
+        className={`flex items-center justify-center w-5 h-5 ${
+          lock ? 'text-[#e5e5e5]' : 'text-[#777]'
+        } hover:text-[#e5e5e5]`}
+        onClick={onToggleLock}
+        title={lock ? 'Unlock element' : 'Lock element'}
+        aria-pressed={lock}
+        aria-label={lock ? 'Unlock element' : 'Lock element'}
+        data-testid={`content-element-lock-${elementId}`}
+      >
         <Icon name={lock ? 'Lock' : 'Unlock'} />
-      </div>
-      <div className="flex items-center text-[#777]">
+      </button>
+      <button
+        type="button"
+        className={`flex items-center justify-center w-5 h-5 ${
+          visible ? 'text-[#e5e5e5]' : 'text-[#555]'
+        } hover:text-[#e5e5e5]`}
+        onClick={onToggleVisible}
+        title={visible ? 'Hide element' : 'Show element'}
+        aria-pressed={visible}
+        aria-label={visible ? 'Hide element' : 'Show element'}
+        data-testid={`content-element-visible-${elementId}`}
+      >
         <Icon name={visible ? 'Visible' : 'Invisible'} />
-      </div>
+      </button>
     </div>
   )
 }

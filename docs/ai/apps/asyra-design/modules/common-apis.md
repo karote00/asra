@@ -14,7 +14,8 @@
 
   - create element
   - hit-test by bounds
-  - element lock/position query + batch move helper
+  - element lock/visible query + toggle helpers
+  - element position query + batch move helper
   - vector anchor point queries and updates
   - computed data mutation helper (`changeComputedData`)
 

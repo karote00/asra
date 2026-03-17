@@ -80,6 +80,7 @@ export class RenderLayer {
       const strategy = renderStrategyRegistry.get(data.type) || defaultStrategy
       if (existingElement instanceof Graphics) {
         strategy(existingElement, data)
+        existingElement.visible = data.visible !== false
       }
 
       if (existingElement.parent !== this.currentWorkspace) {
@@ -97,6 +98,7 @@ export class RenderLayer {
       const strategy = renderStrategyRegistry.get(data.type) || defaultStrategy
       if (element instanceof Graphics) {
         strategy(element, data)
+        element.visible = data.visible !== false
       }
 
       this.addToMap(data.id, element)
@@ -112,6 +114,7 @@ export class RenderLayer {
     // Use registry to get render strategy, fallback to default
     const strategy = renderStrategyRegistry.get(data.type) || defaultStrategy
     strategy(graphic, data)
+    graphic.visible = data.visible !== false
 
     this.addToMap(data.id, graphic)
     this.currentWorkspace.addChild(graphic)
@@ -210,6 +213,9 @@ export class RenderLayer {
         break
       case 'height':
         element.height = after as number
+        break
+      case 'visible':
+        element.visible = Boolean(after)
         break
     }
   }

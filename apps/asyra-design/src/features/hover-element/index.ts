@@ -1,6 +1,6 @@
 import { defineFeature, EventTypes } from '@asyra/core'
 import type { RenderPointerPayload } from '@asyra/utils'
-import { systemContextApis } from '../../common-apis'
+import { elementApis, systemContextApis } from '../../common-apis'
 import { FeatureNames, InputSystemEvents } from '../../constants'
 
 /**
@@ -39,10 +39,20 @@ export const hoverElementRenderHoverFeature = defineFeature(
       const elementId = payload?.elementId
 
       if (elementId) {
+        if (
+          elementApis.isElementLocked(elementId) ||
+          !elementApis.isElementVisible(elementId)
+        ) {
+          systemContextApis.updateHoveredElementId(null)
+          return { hoveredId: null }
+        }
+
         systemContextApis.updateHoveredElementId(elementId)
+        return { hoveredId: elementId }
       }
 
-      return { hoveredId: elementId }
+      systemContextApis.updateHoveredElementId(null)
+      return { hoveredId: null }
     }
   }
 )

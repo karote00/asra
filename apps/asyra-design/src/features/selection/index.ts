@@ -84,7 +84,11 @@ const resolveSelectionIds = (
   baseSelectionIds: string[],
   mode: 'replace' | 'toggle'
 ) => {
-  const areaSelectionIds = elementApis.getElementIdsInBounds(selectionBounds)
+  const areaSelectionIds = elementApis
+    .getElementIdsInBounds(selectionBounds)
+    .filter(
+      (id) => !elementApis.isElementLocked(id) && elementApis.isElementVisible(id)
+    )
   if (mode === 'replace' || baseSelectionIds.length === 0) {
     return areaSelectionIds
   }
@@ -133,6 +137,12 @@ export const selectionFeature = defineFeature<SelectionAPI, SelectionSessionStat
         systemContextApis.clearAreaSelection()
 
         if (hoveredElementId) {
+          if (
+            elementApis.isElementLocked(hoveredElementId) ||
+            !elementApis.isElementVisible(hoveredElementId)
+          ) {
+            return null
+          }
           transactionApis.startTransaction()
           try {
             if (snapshot.keyShift) {

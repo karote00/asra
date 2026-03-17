@@ -36,6 +36,7 @@ Primary files:
   - scene list virtualization
   - element selection from content panel
   - hovered row follows app hover target (`hoveredElementId`)
+  - row action toggles for element `lock` and `visible`
 
 - `src/properties/*`
   - element layout editing

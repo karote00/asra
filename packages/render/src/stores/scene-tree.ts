@@ -71,6 +71,11 @@ class RenderSceneTree {
     before: DataTypes,
     after: DataTypes
   ) {
+    if (key === 'visible') {
+      render.updateElement(elementId, key, before, after)
+      return
+    }
+
     // Computed data updates arrive per-key; coalesce into a single render pass.
     this.pendingElementUpdates.add(elementId)
     if (this.pendingFlush) {

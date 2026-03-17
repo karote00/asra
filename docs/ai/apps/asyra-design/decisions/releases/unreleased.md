@@ -1048,3 +1048,29 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Shift area selection mirrors the toggle semantics of shift-click.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/area-selection-on-canvas-plan.md`
+
+## 2026-03-17 - Content panel lock/visible toggles with persistent visibility
+
+- Context:
+  - The contents panel needed direct lock/visible toggles per element row.
+  - Visibility changes were not reflected after reload without render-level support.
+- Decision:
+  - Add row action toggles for lock/visible that write through common APIs.
+  - Apply element `visible` state on render add/update so hidden elements persist across reload.
+- Consequences:
+  - Lock/visible can be toggled from the contents panel with undo support.
+  - Hidden elements remain hidden after reload and do not render on canvas.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/content-panel-lock-visible-toggle-plan.md`
+
+## 2026-03-17 - Canvas selection ignores locked or hidden elements
+
+- Context:
+  - Locked or hidden elements should not be targetable by canvas selection or hover state.
+- Decision:
+  - Filter hover updates and canvas selection (click + area) to ignore locked/hidden elements.
+- Consequences:
+  - Locked/hidden elements no longer become hover targets or canvas selections.
+  - Contents panel selection remains available for administrative changes.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/locked-elements-canvas-selection-plan.md`

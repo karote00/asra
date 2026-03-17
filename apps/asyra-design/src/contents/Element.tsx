@@ -2,6 +2,10 @@ import { type MouseEvent, useCallback } from 'react'
 import type { ElementRawData } from '@asyra/utils'
 import { useElementData } from '../providers'
 import { setHoveredElementId } from '../controllers/hovered-element'
+import {
+  toggleElementLock,
+  toggleElementVisible
+} from '../controllers/element-row-actions'
 import { ElementIcon } from './ElementIcon'
 import { ElementRowActions } from './ElementRowActions'
 
@@ -35,6 +39,20 @@ const Element = ({
   const handleElementMouseLeave = useCallback(() => {
     setHoveredElementId(null)
   }, [])
+  const handleToggleLock = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation()
+      toggleElementLock(id)
+    },
+    [id]
+  )
+  const handleToggleVisible = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation()
+      toggleElementVisible(id)
+    },
+    [id]
+  )
 
   return (
     <div
@@ -67,10 +85,13 @@ const Element = ({
         </span>
       </div>
       <ElementRowActions
+        elementId={id}
         isHovered={isHovered}
         isSelected={isSelected}
         lock={lock}
         visible={visible}
+        onToggleLock={handleToggleLock}
+        onToggleVisible={handleToggleVisible}
       />
     </div>
   )

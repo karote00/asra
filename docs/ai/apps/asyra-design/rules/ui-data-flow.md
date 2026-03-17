@@ -30,6 +30,7 @@
 - Contents list should read flattened ids + selection state from providers.
 - Row click writes selection through controller/common API boundary.
 - Empty-area click in contents panel should clear selection explicitly.
+- Row action toggles (`lock`, `visible`) write through controller/common APIs and must not trigger row selection.
 
 ## Toolbar Rule
 

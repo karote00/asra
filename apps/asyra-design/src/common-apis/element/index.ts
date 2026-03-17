@@ -26,6 +26,42 @@ import { changeComputedData as applyComputedDataChange } from './change-computed
 export type { VectorPointTarget } from './types'
 export { vectorGeometry, type VectorPointUpdate } from './vector-apis'
 
+const resolveEventOptions = (options?: EVENT_OPTIONS): EVENT_OPTIONS => {
+  if (options) {
+    return options
+  }
+
+  return { undoable: true }
+}
+
+const setElementFlag = (
+  elementId: string,
+  key: 'lock' | 'visible',
+  value: boolean,
+  options?: EVENT_OPTIONS
+): boolean => {
+  const element = sceneTree.getElementById(elementId)
+  if (!element || element.get('type') === EntityTypes.WORKSPACE) {
+    return false
+  }
+
+  if (element.get(key) === value) {
+    return false
+  }
+
+  const resolvedOptions = resolveEventOptions(options)
+
+  startTransaction()
+  try {
+    element.set(key, value, resolvedOptions)
+    sceneTree.commitSceneTreeTransaction(resolvedOptions)
+  } finally {
+    endTransaction()
+  }
+
+  return true
+}
+
 const getDefaultFillsForType = (type: EntityType) => {
   switch (type) {
     case 'frame':
@@ -204,6 +240,56 @@ export const elementApis = {
   isElementLocked: (elementId: string): boolean => {
     const lockValue = sceneTree.getElementById(elementId)?.get('lock')
     return lockValue === true
+  },
+
+  isElementVisible: (elementId: string): boolean => {
+    const visibleValue = sceneTree.getElementById(elementId)?.get('visible')
+    return visibleValue !== false
+  },
+
+  setElementLock: (
+    elementId: string,
+    lock: boolean,
+    options?: EVENT_OPTIONS
+  ): boolean => {
+    return setElementFlag(elementId, 'lock', lock, options)
+  },
+
+  setElementVisible: (
+    elementId: string,
+    visible: boolean,
+    options?: EVENT_OPTIONS
+  ): boolean => {
+    return setElementFlag(elementId, 'visible', visible, options)
+  },
+
+  toggleElementLock: (
+    elementId: string,
+    options?: EVENT_OPTIONS
+  ): boolean => {
+    const element = sceneTree.getElementById(elementId)
+    if (!element || element.get('type') === EntityTypes.WORKSPACE) {
+      return false
+    }
+
+    return setElementFlag(elementId, 'lock', !element.get('lock'), options)
+  },
+
+  toggleElementVisible: (
+    elementId: string,
+    options?: EVENT_OPTIONS
+  ): boolean => {
+    const element = sceneTree.getElementById(elementId)
+    if (!element || element.get('type') === EntityTypes.WORKSPACE) {
+      return false
+    }
+
+    return setElementFlag(
+      elementId,
+      'visible',
+      !element.get('visible'),
+      options
+    )
   },
 
   getElementBounds: (elementId: string): ElementBounds | null => {
