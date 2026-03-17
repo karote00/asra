@@ -67,6 +67,11 @@ interface FillFaceCache {
   segmentLinesMap?: Record<string, LineSegment[]>
 }
 
+interface EvenOddFillCache {
+  fill: { style: unknown; dispose: () => void } | null
+  dragSuppressed?: boolean
+}
+
 const isAnchorNode = (
   node: VectorPointNode | undefined
 ): node is VectorPointNode & { kind: typeof VECTOR_TOKENS.POINT.KIND.ANCHOR } =>
@@ -114,6 +119,7 @@ const FILL_HEAVY_REBUILD_MIN_INTERVAL_MS = 260
 const FILL_RAPID_RENDER_THRESHOLD_MS = 40
 const FILL_DEFERRED_REBUILD_MS = 140
 const FILL_HEAVY_COMPLEXITY_THRESHOLD = 320
+const EVEN_ODD_DRAG_MAX_RASTER_PIXELS = 160_000
 
 const cubicBezierPoint = (
   p0: Vec2,
@@ -874,17 +880,21 @@ const renderVectorGraphic = (
     )
 
   const hasGradient = fillPayload.some((f) => f.kind === 'gradient')
+  const dragSuppressed = isVectorEditingDrag(data.id)
 
   const graphicCache = graphic as typeof graphic & {
     __asyraVectorFillCache?: FillFaceCache
-    __asyraEvenOddFillDispose?: () => void
+    __asyraEvenOddFillCache?: EvenOddFillCache
   }
 
   if (fillPayload.length > 0) {
     if (hasGradient) {
-      if (graphicCache.__asyraEvenOddFillDispose) {
-        graphicCache.__asyraEvenOddFillDispose()
-        graphicCache.__asyraEvenOddFillDispose = undefined
+      const evenOddCache = graphicCache.__asyraEvenOddFillCache ?? {
+        fill: null
+      }
+      if (evenOddCache.fill) {
+        evenOddCache.fill.dispose()
+        evenOddCache.fill = null
       }
 
       const shape = buildEvenOddShape(orderedNetworks, points, segments)
@@ -894,17 +904,32 @@ const renderVectorGraphic = (
         offsetX: 0,
         offsetY: 0,
         shape,
-        fills: fillPayload
+        fills: fillPayload,
+        ...(dragSuppressed
+          ? { maxRasterPixels: EVEN_ODD_DRAG_MAX_RASTER_PIXELS }
+          : {})
       })
 
       if (evenOddFill) {
-        graphicCache.__asyraEvenOddFillDispose = evenOddFill.dispose
+        evenOddCache.fill = evenOddFill
+      }
+
+      evenOddCache.dragSuppressed = dragSuppressed
+      graphicCache.__asyraEvenOddFillCache = evenOddCache
+
+      if (evenOddCache.fill) {
         graphic.rect(0, 0, data.width, data.height)
-        ;(graphic as { fill: (style: unknown) => void }).fill(evenOddFill.style)
+        ;(graphic as { fill: (style: unknown) => void }).fill(
+          evenOddCache.fill.style
+        )
       } else if (hasClosedNetwork) {
         previewFill = true
       }
     } else {
+      if (graphicCache.__asyraEvenOddFillCache?.fill) {
+        graphicCache.__asyraEvenOddFillCache.fill.dispose()
+        graphicCache.__asyraEvenOddFillCache = undefined
+      }
       const now = getNow()
       const cache = graphicCache.__asyraVectorFillCache ?? {
         faces: [],
@@ -919,7 +944,6 @@ const renderVectorGraphic = (
         segments
       )
       const heavy = complexity >= FILL_HEAVY_COMPLEXITY_THRESHOLD
-      const dragSuppressed = isVectorEditingDrag(data.id)
       const dragReleased = cache.dragSuppressed === true && !dragSuppressed
       const rebuildInterval = heavy
         ? FILL_HEAVY_REBUILD_MIN_INTERVAL_MS
@@ -1013,9 +1037,9 @@ const renderVectorGraphic = (
       }
     }
   } else {
-    if (graphicCache.__asyraEvenOddFillDispose) {
-      graphicCache.__asyraEvenOddFillDispose()
-      graphicCache.__asyraEvenOddFillDispose = undefined
+    if (graphicCache.__asyraEvenOddFillCache?.fill) {
+      graphicCache.__asyraEvenOddFillCache.fill.dispose()
+      graphicCache.__asyraEvenOddFillCache = undefined
     }
     if (graphicCache.__asyraVectorFillCache?.pendingTimerId) {
       clearTimeout(graphicCache.__asyraVectorFillCache.pendingTimerId)

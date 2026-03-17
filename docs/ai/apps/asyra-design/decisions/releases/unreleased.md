@@ -968,3 +968,18 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Linear gradients and start-handle drag behavior remain unchanged.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/non-linear-gradient-end-handle-drag-plan.md`
+
+## 2026-03-17 - Vector gradient fill updates render immediately during drag
+
+- Context:
+  - Gradient-filled vectors regressed in drag responsiveness after even-odd gradient fill rendering was introduced.
+  - Skipping even-odd fills during drag broke fill-rule accuracy, so correctness needed to remain intact.
+- Decision:
+  - Keep even-odd gradient fill rendering active during vector point/handle drag.
+  - Rebuild even-odd fills every render while dragging for immediate updates.
+  - Reduce drag-time rasterization budget to keep interaction responsive, restoring full quality after drag end.
+- Consequences:
+  - Fill rule accuracy is preserved during drag with immediate visual updates.
+  - Drag-time fill quality is slightly reduced to cap cost, with full-quality rendering after drag end.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/vector-gradient-drag-performance-plan.md`
