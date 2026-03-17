@@ -89,14 +89,56 @@ const computeNextGradientForHandleWithDelta = (
 ): FillGradientData => {
   const currentHandle = baseGradient.gradientHandles[handleIndex]
   const deltaScale = getHandleDeltaScale(baseGradient, handleIndex)
+  const deltaX = (delta.x / width) * deltaScale
+  const deltaY = (delta.y / height) * deltaScale
+
+  if (!currentHandle) {
+    return baseGradient
+  }
+
+  if (handleIndex === 1 && isNonLinearGradient(baseGradient.gradientType)) {
+    const [startHandle, endHandle] = baseGradient.gradientHandles
+    if (!startHandle || !endHandle) {
+      return {
+        ...baseGradient,
+        gradientHandles: baseGradient.gradientHandles.map((handle, index) =>
+          index === handleIndex
+            ? {
+                x: currentHandle.x + deltaX,
+                y: currentHandle.y + deltaY
+              }
+            : handle
+        )
+      }
+    }
+
+    return {
+      ...baseGradient,
+      gradientHandles: baseGradient.gradientHandles.map((handle, index) => {
+        if (index === 0) {
+          return {
+            x: startHandle.x - deltaX,
+            y: startHandle.y - deltaY
+          }
+        }
+        if (index === 1) {
+          return {
+            x: endHandle.x + deltaX,
+            y: endHandle.y + deltaY
+          }
+        }
+        return handle
+      })
+    }
+  }
 
   return {
     ...baseGradient,
     gradientHandles: baseGradient.gradientHandles.map((handle, index) =>
       index === handleIndex
         ? {
-            x: currentHandle.x + (delta.x / width) * deltaScale,
-            y: currentHandle.y + (delta.y / height) * deltaScale
+            x: currentHandle.x + deltaX,
+            y: currentHandle.y + deltaY
           }
         : handle
     )
@@ -235,6 +277,34 @@ export const fillApis = {
       x: localPos.x / geometry.width,
       y: localPos.y / geometry.height
     }
+    if (
+      handleIndex === 1 &&
+      isNonLinearGradient(geometry.fill.gradient.gradientType)
+    ) {
+      const displayStartHandle = getDisplayStartHandle(geometry.fill.gradient)
+      const nextStartHandle = displayStartHandle
+        ? {
+            x: displayStartHandle.x * 2 - displayHandle.x,
+            y: displayStartHandle.y * 2 - displayHandle.y
+          }
+        : geometry.fill.gradient.gradientHandles[0]
+
+      return {
+        ...geometry.fill.gradient,
+        gradientHandles: geometry.fill.gradient.gradientHandles.map(
+          (handle, index) => {
+            if (index === 0) {
+              return nextStartHandle ?? handle
+            }
+            if (index === 1) {
+              return displayHandle
+            }
+            return handle
+          }
+        )
+      }
+    }
+
     const nextHandle = getStoredHandleFromDisplay(
       geometry.fill.gradient,
       handleIndex,

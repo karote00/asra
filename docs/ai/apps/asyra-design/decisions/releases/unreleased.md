@@ -954,3 +954,17 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Overlay visuals remain accurate with reduced per-frame overhead.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/gradient-editing-performance-plan.md`
+
+## 2026-03-17 - Non-linear gradient end-handle drag anchoring
+
+- Context:
+  - Non-linear gradients display the start handle at the midpoint between stored handles without mutating stored data.
+  - Dragging the end handle updated only the stored end handle, which shifted the display midpoint and made the start handle move unexpectedly.
+- Decision:
+  - When dragging the non-linear end handle, offset the stored start handle to keep the display midpoint fixed.
+  - Apply the same mapping for both delta-based and absolute-position handle updates.
+- Consequences:
+  - Non-linear end-handle drags keep the start handle visually anchored.
+  - Linear gradients and start-handle drag behavior remain unchanged.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/non-linear-gradient-end-handle-drag-plan.md`
