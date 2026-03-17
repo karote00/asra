@@ -6,10 +6,10 @@ import {
   subscribeToSceneTreeLoadComplete,
   subscribeToUpdateComputedData
 } from '@asyra/reactive-events'
-import core, { sceneTree } from '../contexts'
-import { elementApis } from '../common-apis'
-import { UI_PROPERTIES } from '../constants'
-import { buildVectorIconPath } from '../utils/vector-icon-path'
+import core, { sceneTree } from '../../contexts'
+import { elementApis } from '../../common-apis'
+import { UI_PROPERTIES } from '../../constants'
+import { buildVectorIconPath } from '../../utils/vector-icon-path'
 
 type VectorIconPathMap = Record<string, string>
 

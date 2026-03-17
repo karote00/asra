@@ -1,9 +1,9 @@
-import core, { render, systemContext, sceneTree } from '../contexts'
+import core, { render, systemContext, sceneTree } from '../../contexts'
 import type {
   ActiveGradientFillState,
   GradientHandleState
-} from '../common-apis/system-context'
-import { registerGradientFillHandlesRenderLayer } from '../render-layers/gradient-fill-handles-render-layer'
+} from '../../common-apis/system-context'
+import { registerGradientFillHandlesRenderLayer } from '../../render-layers/gradient-fill-handles-render-layer'
 
 let hasInit = false
 

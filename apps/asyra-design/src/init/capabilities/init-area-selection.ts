@@ -1,7 +1,7 @@
-import core, { systemContext } from '../contexts'
-import type { AreaSelectionState } from '../common-apis/system-context'
-import { viewportApis } from '../common-apis/viewport'
-import { registerAreaSelectionRenderLayer } from '../render-layers/area-selection-render-layer'
+import core, { systemContext } from '../../contexts'
+import type { AreaSelectionState } from '../../common-apis/system-context'
+import { viewportApis } from '../../common-apis/viewport'
+import { registerAreaSelectionRenderLayer } from '../../render-layers/area-selection-render-layer'
 
 let hasInit = false
 

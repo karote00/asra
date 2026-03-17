@@ -9,7 +9,7 @@ This tutorial shows how to use the new Feature System in `@asyra/asyra-design`.
 Add this to your app initialization:
 
 ```typescript
-// apps/asyra-design/src/init/init-features.ts
+// apps/asyra-design/src/init/foundation/init-features.ts
 import { initFeatureSystem } from '@asyra/core'
 import core from './contexts'
 
@@ -26,7 +26,7 @@ Then call it in your main init:
 
 ```typescript
 // apps/asyra-design/src/init/index.ts
-import { initFeatures } from './init-features'
+import { initFeatures } from './foundation/init-features'
 
 export const initApp = () => {
   // ... your existing initialization

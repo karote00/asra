@@ -1,6 +1,6 @@
 import type { LoadValidationDiagnostic } from '@asyra/core'
 import type { CoreRawData } from '@asyra/utils'
-import core from '../contexts'
+import core from '../../contexts'
 
 export interface LoadDiagnosticsReport {
   timestamp: number

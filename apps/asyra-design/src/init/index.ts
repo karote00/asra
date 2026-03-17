@@ -1,7 +1,8 @@
 /**
  * App initialization exports
  *
- * This folder contains all initialization logic for the Asyra framework.
+ * This folder contains all initialization logic for the Asyra framework,
+ * grouped by foundation, capability, derived-state, and diagnostics concerns.
  * The main entry point is `initApp()` which sets up all framework components.
  *
  * Usage:
@@ -16,11 +17,11 @@ export { initApp } from './init-app'
 export { initApp as bootstrap } from './init-app'
 
 // Export individual init functions for advanced use cases
-export { initInputSystem } from './init-input-system'
-export { initVectorIconData } from './init-vector-icon-data'
+export { initInputSystem } from './foundation/init-input-system'
+export { initVectorIconData } from './capabilities/init-vector-icon-data'
 export {
   initLoadDiagnostics,
   subscribeLoadDiagnostics,
   destroyLoadDiagnostics,
   formatLoadDiagnostics
-} from './init-load-diagnostics'
+} from './diagnostics/init-load-diagnostics'

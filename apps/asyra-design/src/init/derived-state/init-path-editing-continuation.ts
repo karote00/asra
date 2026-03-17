@@ -3,12 +3,12 @@ import {
   subscribeToUpdateComputedData
 } from '@asyra/reactive-events'
 import { VECTOR_TOKENS } from '@asyra/core'
-import core from '../contexts'
-import { elementApis } from '../common-apis'
+import core from '../../contexts'
+import { elementApis } from '../../common-apis'
 import type {
   PathEditingContinuationState,
   SelectedVectorPointState
-} from '../common-apis/system-context'
+} from '../../common-apis/system-context'
 
 const VECTOR_TOPOLOGY_KEYS = new Set(['points', 'segments', 'networks'])
 

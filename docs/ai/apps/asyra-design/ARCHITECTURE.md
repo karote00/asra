@@ -31,9 +31,11 @@
 
 2. `src/init/init-app.ts`
 
-- `initPropertyRegistrations()`
-- `initInputSystem()`
-- `initFeatures()`
+- `applyPreset(core)`
+- diagnostics: `initLoadDiagnostics()`
+- derived-state sync: `initSelectionCompatibility()`, `initPathEditingContinuation()`
+- capability init: `initAreaSelection()`, `initGradientFillEditing()`, `initVectorIconData()`
+- foundation: `initInputSystem()`, `initFeatures()`
 
 3. `src/render-app/index.tsx`
 
@@ -55,7 +57,7 @@ Input -> Feature -> Common API/Controller -> Core/Framework State -> Render/UI-c
 - `features/*`: interaction behavior and session logic
 - `common-apis/*`: reusable app mutation/query operations
 - `controllers/*`: UI-triggered orchestration helpers
-- `registrations/*`: app-managed ui/system property registrations
+- `init/*`: app startup, capability init, and property/derived-state wiring
 - `providers/*`: UI consumption adapters from ui-context/scene data
 
 ## Key App State Surfaces

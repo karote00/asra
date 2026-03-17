@@ -1091,3 +1091,17 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Clicks inside selection bounds now behave like a direct selection update.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/selection-box-drag-move-plan.md`
+
+## 2026-03-17 - Init organization rules and grouping
+
+- Context:
+  - App init folder was growing without clear ownership boundaries.
+  - Startup wiring needed a consistent structure for required vs optional init.
+- Decision:
+  - Group app init modules into `foundation`, `capabilities`, `derived-state`, and `diagnostics`.
+  - Document init-category rules and keep startup order explicit in app docs.
+- Consequences:
+  - Init modules are easier to locate by intent and less likely to mix feature logic.
+  - App docs now reflect required vs optional init responsibilities.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/init-reorganization-plan.md`

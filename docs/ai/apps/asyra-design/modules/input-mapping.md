@@ -4,7 +4,7 @@
 
 - `src/config/key-combinations.ts`
 - `src/constants/*` (`InputSystemEvents`, `FeatureNames`)
-- `src/init/init-input-system.ts`
+- `src/init/foundation/init-input-system.ts`
 
 ## Purpose
 

@@ -1,13 +1,13 @@
-import { initInputSystem } from './init-input-system'
-import { initFeatures } from './init-features'
-import { initAreaSelection } from './init-area-selection'
-import { initGradientFillEditing } from './init-gradient-fill-editing'
-import { initLoadDiagnostics } from './init-load-diagnostics'
-import { initSelectionCompatibility } from './init-selection-compatibility'
-import { initVectorIconData } from './init-vector-icon-data'
-import { initPathEditingContinuation } from './init-path-editing-continuation'
 import { applyPreset } from '@asyra/preset'
 import core from '../contexts'
+import { initAreaSelection } from './capabilities/init-area-selection'
+import { initGradientFillEditing } from './capabilities/init-gradient-fill-editing'
+import { initVectorIconData } from './capabilities/init-vector-icon-data'
+import { initLoadDiagnostics } from './diagnostics/init-load-diagnostics'
+import { initSelectionCompatibility } from './derived-state/init-selection-compatibility'
+import { initPathEditingContinuation } from './derived-state/init-path-editing-continuation'
+import { initFeatures } from './foundation/init-features'
+import { initInputSystem } from './foundation/init-input-system'
 
 /**
  * Initializes all framework components and configurations.
@@ -33,15 +33,20 @@ import core from '../contexts'
 export const initApp = (): void => {
   applyPreset(core)
 
-  // Subscribe once to core load diagnostics and route reports to app-level handlers.
+  // Diagnostics: subscribe once to core load diagnostics and route reports to app-level handlers.
   initLoadDiagnostics()
+
+  // Derived-state syncs.
   // Keep legacy selectedVectorPoint mirrored from SelectionManager-driven UI state.
   initSelectionCompatibility()
+  initPathEditingContinuation()
+
+  // Capability init.
   initAreaSelection()
   initGradientFillEditing()
   initVectorIconData()
-  initPathEditingContinuation()
 
+  // Foundation init.
   initInputSystem()
   // Initialize feature-system for application-level features
   initFeatures()

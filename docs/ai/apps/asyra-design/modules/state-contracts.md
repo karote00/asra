@@ -47,7 +47,7 @@ This file defines app-level state keys, owners, and primary consumers.
 
 - `selectedVectorPoint`
   - owner: system-context
-  - writers: selection compatibility init bridge (`init-selection-compatibility`)
+  - writers: selection compatibility init bridge (`init/derived-state/init-selection-compatibility`)
   - readers: vector-point property panel
   - state shape includes target type: `anchor` | `inHandle` | `outHandle`
   - source-of-truth: derived compatibility mirror from `vectorPointSelection` selection channel
@@ -61,7 +61,7 @@ This file defines app-level state keys, owners, and primary consumers.
 
 - `selectedVectorSegment`
   - owner: system-context
-  - writers: selection compatibility init bridge (`init-selection-compatibility`)
+  - writers: selection compatibility init bridge (`init/derived-state/init-selection-compatibility`)
   - readers: vector path-editing render layer
   - source-of-truth: derived compatibility mirror from `vectorSegmentSelection` selection channel
 

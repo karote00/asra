@@ -11,7 +11,7 @@ Purpose: keep app docs aligned with implemented source modules.
 
 - Initialization and runtime wiring
 
-  - `src/init/index.ts`, `src/init/init-app.ts`, `src/init/init-input-system.ts`, `src/init/init-features.ts`, `src/init/init-gradient-fill-editing.ts`
+  - `src/init/index.ts`, `src/init/init-app.ts`, `src/init/foundation/*`, `src/init/capabilities/*`, `src/init/derived-state/*`, `src/init/diagnostics/*`
   - docs: `modules/init-and-startup.md`, `modules/input-mapping.md`
 
 - Input/event mapping
@@ -39,10 +39,10 @@ Purpose: keep app docs aligned with implemented source modules.
   - `src/controllers/*`, `src/states/app.ts`, `src/contexts/*`
   - docs: `modules/controllers-and-state.md`
 
-- UI-context/system property registrations
+- UI-context/system property wiring
 
-  - `src/registrations/*`
-  - docs: `modules/registrations.md`
+  - `src/init/capabilities/*`, `src/init/derived-state/*`
+  - docs: `modules/state-contracts.md`, `modules/init-and-startup.md`
 
 - Provider and UI consumption
 

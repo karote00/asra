@@ -1,12 +1,12 @@
-import core from '../contexts'
-import { elementApis } from '../common-apis/element'
+import core from '../../contexts'
+import { elementApis } from '../../common-apis/element'
 import {
   type VectorPointSelectionRef,
   type VectorSegmentSelectionRef,
   decodeVectorPointSelectionId,
   decodeVectorSegmentSelectionId
-} from '../common-apis/selection'
-import type { SelectedVectorPointState } from '../common-apis/system-context'
+} from '../../common-apis/selection'
+import type { SelectedVectorPointState } from '../../common-apis/system-context'
 
 let hasInit = false
 
