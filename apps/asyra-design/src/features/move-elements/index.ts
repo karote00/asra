@@ -3,7 +3,8 @@ import { defineFeature } from '@asyra/core'
 import {
   elementApis,
   selectionApis,
-  systemContextApis
+  systemContextApis,
+  transactionApis
 } from '../../common-apis'
 import {
   FEATURE_MOVEMENT_THRESHOLD,
@@ -16,13 +17,22 @@ interface MoveElementsState {
   dragStartWorkspacePos: PositionData
   initialPositions: Record<string, PositionData>
   isMoving: boolean
+  startedFromSelectionBounds: boolean
   [key: string]: unknown
+}
+
+interface Bounds {
+  x: number
+  y: number
+  width: number
+  height: number
 }
 
 interface MoveElementsApi {
   resolveInitialPositions: (snapshot: SystemContextSnapshot) => {
     dragStartWorkspacePos: PositionData
     initialPositions: Record<string, PositionData>
+    startedFromSelectionBounds: boolean
   } | null
   hasMovedBeyondThreshold: (snapshot: SystemContextSnapshot) => boolean
   calculateTargetPositions: (
@@ -37,6 +47,82 @@ interface MoveElementsApi {
   [key: string]: unknown
 }
 
+const getSelectionBounds = (elementIds: string[]): Bounds | null => {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  elementIds.forEach((elementId) => {
+    if (elementApis.isElementLocked(elementId)) {
+      return
+    }
+
+    const bounds = elementApis.getElementBounds(elementId)
+    if (!bounds) {
+      return
+    }
+
+    minX = Math.min(minX, bounds.x)
+    minY = Math.min(minY, bounds.y)
+    maxX = Math.max(maxX, bounds.x + bounds.width)
+    maxY = Math.max(maxY, bounds.y + bounds.height)
+  })
+
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+    return null
+  }
+
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY
+  }
+}
+
+const isPointInsideBounds = (point: PositionData, bounds: Bounds): boolean => {
+  return (
+    point.x >= bounds.x &&
+    point.x <= bounds.x + bounds.width &&
+    point.y >= bounds.y &&
+    point.y <= bounds.y + bounds.height
+  )
+}
+
+const resolveInitialPositions = (
+  dragStartWorkspacePos: PositionData,
+  selectedElementIds: string[]
+): {
+  dragStartWorkspacePos: PositionData
+  initialPositions: Record<string, PositionData>
+} | null => {
+  const initialPositions = selectedElementIds.reduce<
+    Record<string, PositionData>
+  >((acc, elementId) => {
+    if (elementApis.isElementLocked(elementId)) {
+      return acc
+    }
+
+    const position = elementApis.getElementPosition(elementId)
+    if (!position) {
+      return acc
+    }
+
+    acc[elementId] = position
+    return acc
+  }, {})
+
+  if (Object.keys(initialPositions).length === 0) {
+    return null
+  }
+
+  return {
+    dragStartWorkspacePos,
+    initialPositions
+  }
+}
+
 const api: MoveElementsApi = {
   resolveInitialPositions: (snapshot: SystemContextSnapshot) => {
     if (snapshot.primaryTool !== PrimaryToolType.SELECT || snapshot.keyShift) {
@@ -45,6 +131,33 @@ const api: MoveElementsApi = {
 
     if (systemContextApis.getPathEditingMode()) {
       return null
+    }
+
+    const dragStartWorkspacePos = elementApis.getMousePosInWorkspace(
+      snapshot.mousePosition
+    )
+    if (!dragStartWorkspacePos) {
+      return null
+    }
+
+    const selectedElementIds = selectionApis.getSelectedIds()
+    if (selectedElementIds.length > 0) {
+      const selectionBounds = getSelectionBounds(selectedElementIds)
+      if (
+        selectionBounds &&
+        isPointInsideBounds(dragStartWorkspacePos, selectionBounds)
+      ) {
+        const selectionInitial = resolveInitialPositions(
+          dragStartWorkspacePos,
+          selectedElementIds
+        )
+        if (selectionInitial) {
+          return {
+            ...selectionInitial,
+            startedFromSelectionBounds: true
+          }
+        }
+      }
     }
 
     const hoveredElementId =
@@ -58,42 +171,23 @@ const api: MoveElementsApi = {
       return null
     }
 
-    let selectedElementIds = selectionApis.getSelectedIds()
-    if (!selectedElementIds.includes(hoveredElementId)) {
+    let hoveredSelectionIds = selectedElementIds
+    if (!hoveredSelectionIds.includes(hoveredElementId)) {
       selectionApis.selectElements([hoveredElementId])
-      selectedElementIds = [hoveredElementId]
+      hoveredSelectionIds = [hoveredElementId]
     }
 
-    const dragStartWorkspacePos = elementApis.getMousePosInWorkspace(
-      snapshot.mousePosition
+    const hoveredInitial = resolveInitialPositions(
+      dragStartWorkspacePos,
+      hoveredSelectionIds
     )
-    if (!dragStartWorkspacePos) {
-      return null
-    }
-
-    const initialPositions = selectedElementIds.reduce<
-      Record<string, PositionData>
-    >((acc, elementId) => {
-      if (elementApis.isElementLocked(elementId)) {
-        return acc
-      }
-
-      const position = elementApis.getElementPosition(elementId)
-      if (!position) {
-        return acc
-      }
-
-      acc[elementId] = position
-      return acc
-    }, {})
-
-    if (Object.keys(initialPositions).length === 0) {
+    if (!hoveredInitial) {
       return null
     }
 
     return {
-      dragStartWorkspacePos,
-      initialPositions
+      ...hoveredInitial,
+      startedFromSelectionBounds: false
     }
   },
 
@@ -177,6 +271,37 @@ export const moveElementsFeature = defineFeature<
 
     onEnd: (snapshot: SystemContextSnapshot, state: MoveElementsState) => {
       if (!state.isMoving) {
+        if (!state.startedFromSelectionBounds) {
+          return
+        }
+
+        const hoveredElementId =
+          snapshot.hoveredElementId ??
+          elementApis.getElementIdAtClientPos(snapshot.mousePosition)
+        const hoveredSelectionId =
+          hoveredElementId &&
+          !elementApis.isElementLocked(hoveredElementId) &&
+          elementApis.isElementVisible(hoveredElementId)
+            ? hoveredElementId
+            : null
+
+        const nextSelectionIds = hoveredSelectionId ? [hoveredSelectionId] : []
+        const currentSelectionIds = selectionApis.getSelectedIds()
+
+        if (
+          nextSelectionIds.length === currentSelectionIds.length &&
+          nextSelectionIds.every((id) => currentSelectionIds.includes(id))
+        ) {
+          return
+        }
+
+        transactionApis.startTransaction()
+        try {
+          selectionApis.selectElements(nextSelectionIds)
+        } finally {
+          transactionApis.endTransaction()
+        }
+
         return
       }
 

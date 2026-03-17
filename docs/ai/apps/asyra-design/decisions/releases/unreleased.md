@@ -1074,3 +1074,20 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Contents panel selection remains available for administrative changes.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/locked-elements-canvas-selection-plan.md`
+
+## 2026-03-17 - Selection-bounds drag and click ownership
+
+- Context:
+  - Dragging inside selection bounds could trigger selection replace/clear even
+    when the user intended to move the existing selection.
+  - Clicking inside selection bounds without movement needed deterministic
+    selection ownership.
+- Decision:
+  - Treat drag start inside selection bounds as move-elements ownership.
+  - If no movement occurs after starting inside selection bounds, select the
+    hovered element on mouse up or clear selection when nothing is hovered.
+- Consequences:
+  - Dragging within the selection box reliably moves the current selection.
+  - Clicks inside selection bounds now behave like a direct selection update.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/selection-box-drag-move-plan.md`
