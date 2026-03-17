@@ -3,7 +3,11 @@ import type { FillAttrs } from '@asyra/utils'
 import core, { VECTOR_TOKENS, defineComponent } from '@asyra/core'
 import type { RenderStrategy } from '@asyra/core'
 import type { VectorNetwork, VectorPointNode, VectorSegment } from '@asyra/core'
-import { DEFAULT_VECTOR_FILLS, applyRenderableFill } from './fills'
+import {
+  DEFAULT_VECTOR_FILLS,
+  applyRenderableFill,
+  getRenderableFills
+} from './fills'
 
 interface VectorComputedData {
   id: string
@@ -70,6 +74,11 @@ interface FillFaceCache {
 interface EvenOddFillCache {
   fill: { style: unknown; dispose: () => void } | null
   dragSuppressed?: boolean
+}
+
+interface VectorHitCache {
+  segmentKeyMap?: Record<string, string>
+  segmentLinesMap?: Record<string, LineSegment[]>
 }
 
 const isAnchorNode = (
@@ -537,6 +546,47 @@ const evenOddContains = (point: Vec2, segments: DirectedSegment[]) => {
   return inside
 }
 
+const distanceSquaredToSegment = (point: Vec2, start: Vec2, end: Vec2) => {
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  const lenSquared = dx * dx + dy * dy
+  if (lenSquared === 0) {
+    const sx = point.x - start.x
+    const sy = point.y - start.y
+    return sx * sx + sy * sy
+  }
+
+  const t = Math.max(
+    0,
+    Math.min(
+      1,
+      ((point.x - start.x) * dx + (point.y - start.y) * dy) / lenSquared
+    )
+  )
+  const projX = start.x + dx * t
+  const projY = start.y + dy * t
+  const px = point.x - projX
+  const py = point.y - projY
+  return px * px + py * py
+}
+
+const isPointNearSegments = (
+  point: Vec2,
+  segments: LineSegment[],
+  radius: number
+) => {
+  if (radius <= 0) {
+    return false
+  }
+
+  const radiusSquared = radius * radius
+  return segments.some(
+    (segment) =>
+      distanceSquaredToSegment(point, segment.start, segment.end) <=
+      radiusSquared
+  )
+}
+
 const buildFillFaces = (
   flattenedSegments: LineSegment[],
   directedSegments: DirectedSegment[]
@@ -857,6 +907,7 @@ const renderVectorGraphic = (
   options: { forceFillRebuild?: boolean; allowDeferredFill?: boolean } = {}
 ) => {
   graphic.clear()
+  ;(graphic as { hitArea: unknown | null }).hitArea = null
 
   const { fills, fill, stroke, strokeWidth, x, y, points, segments, networks } =
     data
@@ -885,6 +936,7 @@ const renderVectorGraphic = (
   const graphicCache = graphic as typeof graphic & {
     __asyraVectorFillCache?: FillFaceCache
     __asyraEvenOddFillCache?: EvenOddFillCache
+    __asyraVectorHitCache?: VectorHitCache
   }
 
   if (fillPayload.length > 0) {
@@ -924,6 +976,59 @@ const renderVectorGraphic = (
         )
       } else if (hasClosedNetwork) {
         previewFill = true
+      }
+
+      if (evenOddCache.fill) {
+        const hitCache: VectorHitCache =
+          graphicCache.__asyraVectorHitCache ?? {}
+        const {
+          flattenedSegments,
+          directedSegments,
+          segmentKeyMap,
+          segmentLinesMap
+        } = buildFlattenedSegmentsWithCache(
+          orderedNetworks,
+          points,
+          segments,
+          hitCache
+        )
+        hitCache.segmentKeyMap = segmentKeyMap
+        hitCache.segmentLinesMap = segmentLinesMap
+        graphicCache.__asyraVectorHitCache = hitCache
+
+        const hasVisibleFill = getRenderableFills(fillPayload).length > 0
+        const hasStroke = typeof strokeWidth === 'number' && strokeWidth > 0
+        const strokeRadius = hasStroke ? strokeWidth / 2 : 0
+
+        if (
+          (hasVisibleFill || hasStroke) &&
+          (flattenedSegments.length > 0 || directedSegments.length > 0)
+        ) {
+          const hitArea = {
+            contains: (x: number, y: number) => {
+              const point = { x, y }
+              if (
+                hasVisibleFill &&
+                directedSegments.length > 0 &&
+                evenOddContains(point, directedSegments)
+              ) {
+                return true
+              }
+
+              if (
+                hasStroke &&
+                flattenedSegments.length > 0 &&
+                isPointNearSegments(point, flattenedSegments, strokeRadius)
+              ) {
+                return true
+              }
+
+              return false
+            }
+          }
+
+          ;(graphic as { hitArea: typeof hitArea | null }).hitArea = hitArea
+        }
       }
     } else {
       if (graphicCache.__asyraEvenOddFillCache?.fill) {

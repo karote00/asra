@@ -983,3 +983,17 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Drag-time fill quality is slightly reduced to cap cost, with full-quality rendering after drag end.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/vector-gradient-drag-performance-plan.md`
+
+## 2026-03-17 - Gradient vector hover hit testing aligned to geometry
+
+- Context:
+  - Gradient-filled vectors were rendered with a rasterized rectangle for even-odd fills, causing Pixi hit testing to treat the full bounds as interactive.
+  - Hover feedback was firing outside of visible fill/stroke geometry, diverging from selection accuracy.
+- Decision:
+  - Provide a geometry-aware hit area for gradient-filled vectors so hover uses vector fill/stroke geometry rather than the bounding rectangle.
+  - Cache flattened segment data to keep hit testing efficient during pointer movement.
+- Consequences:
+  - Hover/leave events now reflect actual vector geometry for gradient fills.
+  - Non-gradient vectors continue to rely on default Pixi hit testing.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/vector-gradient-hover-hit-test-plan.md`
