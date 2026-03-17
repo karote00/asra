@@ -74,11 +74,24 @@ interface FillFaceCache {
 interface EvenOddFillCache {
   fill: { style: unknown; dispose: () => void } | null
   dragSuppressed?: boolean
+  width?: number
+  height?: number
+  fillId?: string
+  fillPayload?: FillAttrs[]
+  points?: Record<string, VectorPointNode>
+  segments?: Record<string, VectorSegment>
+  networks?: Record<string, VectorNetwork>
 }
 
 interface VectorHitCache {
   segmentKeyMap?: Record<string, string>
   segmentLinesMap?: Record<string, LineSegment[]>
+  hitArea?: { contains: (x: number, y: number) => boolean }
+  points?: Record<string, VectorPointNode>
+  segments?: Record<string, VectorSegment>
+  networks?: Record<string, VectorNetwork>
+  hasVisibleFill?: boolean
+  strokeRadius?: number
 }
 
 const isAnchorNode = (
@@ -901,6 +914,21 @@ const isVectorEditingDrag = (vectorId: string): boolean => {
   return mouseDragging || mouseDown
 }
 
+const isSelectToolDrag = (): boolean => {
+  const primaryTool = core.getSystemProperty<string>('primaryTool') ?? ''
+  if (primaryTool !== 'select') {
+    return false
+  }
+
+  const pathEditingMode =
+    core.getSystemProperty<boolean>('pathEditingMode') ?? false
+  if (pathEditingMode) {
+    return false
+  }
+
+  return core.getSystemProperty<boolean>('mouseDragging') ?? false
+}
+
 const renderVectorGraphic = (
   graphic: Parameters<RenderStrategy>[0],
   data: VectorComputedData,
@@ -931,7 +959,8 @@ const renderVectorGraphic = (
     )
 
   const hasGradient = fillPayload.some((f) => f.kind === 'gradient')
-  const dragSuppressed = isVectorEditingDrag(data.id)
+  const dragSuppressed =
+    isVectorEditingDrag(data.id) || isSelectToolDrag()
 
   const graphicCache = graphic as typeof graphic & {
     __asyraVectorFillCache?: FillFaceCache
@@ -944,30 +973,53 @@ const renderVectorGraphic = (
       const evenOddCache = graphicCache.__asyraEvenOddFillCache ?? {
         fill: null
       }
-      if (evenOddCache.fill) {
-        evenOddCache.fill.dispose()
-        evenOddCache.fill = null
+      const reuseEvenOddFill =
+        evenOddCache.fill &&
+        evenOddCache.dragSuppressed === dragSuppressed &&
+        evenOddCache.width === data.width &&
+        evenOddCache.height === data.height &&
+        evenOddCache.fillId === fill &&
+        evenOddCache.fillPayload === fillPayload &&
+        evenOddCache.points === points &&
+        evenOddCache.segments === segments &&
+        evenOddCache.networks === networks
+
+      if (!reuseEvenOddFill) {
+        if (evenOddCache.fill) {
+          evenOddCache.fill.dispose()
+          evenOddCache.fill = null
+        }
+
+        const shape = buildEvenOddShape(orderedNetworks, points, segments)
+        const evenOddFill = core.createEvenOddFillStyle({
+          width: data.width,
+          height: data.height,
+          offsetX: 0,
+          offsetY: 0,
+          shape,
+          fills: fillPayload,
+          ...(dragSuppressed
+            ? { maxRasterPixels: EVEN_ODD_DRAG_MAX_RASTER_PIXELS }
+            : {})
+        })
+
+        if (evenOddFill) {
+          evenOddCache.fill = evenOddFill
+        }
+
+        evenOddCache.dragSuppressed = dragSuppressed
+        evenOddCache.width = data.width
+        evenOddCache.height = data.height
+        evenOddCache.fillId = fill
+        evenOddCache.fillPayload = fillPayload
+        evenOddCache.points = points
+        evenOddCache.segments = segments
+        evenOddCache.networks = networks
+        graphicCache.__asyraEvenOddFillCache = evenOddCache
+      } else {
+        evenOddCache.dragSuppressed = dragSuppressed
+        graphicCache.__asyraEvenOddFillCache = evenOddCache
       }
-
-      const shape = buildEvenOddShape(orderedNetworks, points, segments)
-      const evenOddFill = core.createEvenOddFillStyle({
-        width: data.width,
-        height: data.height,
-        offsetX: 0,
-        offsetY: 0,
-        shape,
-        fills: fillPayload,
-        ...(dragSuppressed
-          ? { maxRasterPixels: EVEN_ODD_DRAG_MAX_RASTER_PIXELS }
-          : {})
-      })
-
-      if (evenOddFill) {
-        evenOddCache.fill = evenOddFill
-      }
-
-      evenOddCache.dragSuppressed = dragSuppressed
-      graphicCache.__asyraEvenOddFillCache = evenOddCache
 
       if (evenOddCache.fill) {
         graphic.rect(0, 0, data.width, data.height)
@@ -981,54 +1033,76 @@ const renderVectorGraphic = (
       if (evenOddCache.fill) {
         const hitCache: VectorHitCache =
           graphicCache.__asyraVectorHitCache ?? {}
-        const {
-          flattenedSegments,
-          directedSegments,
-          segmentKeyMap,
-          segmentLinesMap
-        } = buildFlattenedSegmentsWithCache(
-          orderedNetworks,
-          points,
-          segments,
-          hitCache
-        )
-        hitCache.segmentKeyMap = segmentKeyMap
-        hitCache.segmentLinesMap = segmentLinesMap
-        graphicCache.__asyraVectorHitCache = hitCache
-
         const hasVisibleFill = getRenderableFills(fillPayload).length > 0
         const hasStroke = typeof strokeWidth === 'number' && strokeWidth > 0
         const strokeRadius = hasStroke ? strokeWidth / 2 : 0
 
-        if (
-          (hasVisibleFill || hasStroke) &&
-          (flattenedSegments.length > 0 || directedSegments.length > 0)
-        ) {
-          const hitArea = {
-            contains: (x: number, y: number) => {
-              const point = { x, y }
-              if (
-                hasVisibleFill &&
-                directedSegments.length > 0 &&
-                evenOddContains(point, directedSegments)
-              ) {
-                return true
-              }
+        const reuseHitArea =
+          hitCache.hitArea &&
+          hitCache.points === points &&
+          hitCache.segments === segments &&
+          hitCache.networks === networks &&
+          hitCache.hasVisibleFill === hasVisibleFill &&
+          hitCache.strokeRadius === strokeRadius
 
-              if (
-                hasStroke &&
-                flattenedSegments.length > 0 &&
-                isPointNearSegments(point, flattenedSegments, strokeRadius)
-              ) {
-                return true
-              }
+        if (reuseHitArea) {
+          ;(graphic as { hitArea: typeof hitCache.hitArea | null }).hitArea =
+            hitCache.hitArea
+        } else {
+          const {
+            flattenedSegments,
+            directedSegments,
+            segmentKeyMap,
+            segmentLinesMap
+          } = buildFlattenedSegmentsWithCache(
+            orderedNetworks,
+            points,
+            segments,
+            hitCache
+          )
+          hitCache.segmentKeyMap = segmentKeyMap
+          hitCache.segmentLinesMap = segmentLinesMap
+          hitCache.points = points
+          hitCache.segments = segments
+          hitCache.networks = networks
+          hitCache.hasVisibleFill = hasVisibleFill
+          hitCache.strokeRadius = strokeRadius
 
-              return false
+          if (
+            (hasVisibleFill || hasStroke) &&
+            (flattenedSegments.length > 0 || directedSegments.length > 0)
+          ) {
+            const hitArea = {
+              contains: (x: number, y: number) => {
+                const point = { x, y }
+                if (
+                  hasVisibleFill &&
+                  directedSegments.length > 0 &&
+                  evenOddContains(point, directedSegments)
+                ) {
+                  return true
+                }
+
+                if (
+                  hasStroke &&
+                  flattenedSegments.length > 0 &&
+                  isPointNearSegments(point, flattenedSegments, strokeRadius)
+                ) {
+                  return true
+                }
+
+                return false
+              }
             }
-          }
 
-          ;(graphic as { hitArea: typeof hitArea | null }).hitArea = hitArea
+            hitCache.hitArea = hitArea
+            ;(graphic as { hitArea: typeof hitArea | null }).hitArea = hitArea
+          } else {
+            hitCache.hitArea = undefined
+          }
         }
+
+        graphicCache.__asyraVectorHitCache = hitCache
       }
     } else {
       if (graphicCache.__asyraEvenOddFillCache?.fill) {

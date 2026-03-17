@@ -997,3 +997,17 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Non-gradient vectors continue to rely on default Pixi hit testing.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/completed/vector-gradient-hover-hit-test-plan.md`
+
+## 2026-03-17 - Gradient vector move drag performance stabilized
+
+- Context:
+  - Drag-moving gradient-filled vectors caused visible stalls during continuous drag.
+  - The goal was to keep fill correctness while removing stutters.
+- Decision:
+  - Reuse even-odd gradient fill and hit-area caches when topology and fill data are unchanged.
+  - Keep drag-time raster budget suppression without changing final fill fidelity.
+- Consequences:
+  - Drag movement no longer stalls while gradient fills remain correct during drag.
+  - Drag FPS is improved but still below 120 FPS for dense gradients; a separate multi-selection plan tracks the 120 FPS target.
+- Related Plan(s):
+  - `docs/ai/apps/asyra-design/plans/completed/vector-gradient-move-performance-plan.md`

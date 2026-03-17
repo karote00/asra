@@ -4,7 +4,7 @@ Never record completed plans here.
 
 ## In Progress
 
-- None.
+None.
 
 
 ## Near-Term
@@ -13,6 +13,10 @@ Never record completed plans here.
 2. Reduce app-level internal coupling
 
 - remove internal-path imports (for example keymap source path)
+
+3. Gradient move drag 120 FPS (multi-selection)
+
+- plan: `docs/ai/apps/asyra-design/plans/vector-gradient-move-120fps-plan.md`
 
 
 ## Mid-Term
