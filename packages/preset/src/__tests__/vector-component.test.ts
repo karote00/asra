@@ -9,7 +9,13 @@ import {
   type VectorSegment
 } from '@asyra/core'
 import core from '@asyra/core'
-import { FillColorFormats, FillKinds, PropertyTypes } from '@asyra/utils'
+import {
+  FillColorFormats,
+  FillGradientTypes,
+  FillKinds,
+  PropertyTypes,
+  StrokePositions
+} from '@asyra/utils'
 import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
 
@@ -625,5 +631,96 @@ describe('Vector Component', () => {
     expect(mockGraphic.moveTo).toHaveBeenCalledWith(0, 0)
     expect(mockGraphic.lineTo).not.toHaveBeenCalled()
     expect(mockGraphic.stroke).toHaveBeenCalled()
+  })
+
+  it('should hit outside rendered stroke pixels for gradient-filled vectors', () => {
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) return
+
+    const createEvenOddFillStyleMock = vi
+      .spyOn(core, 'createEvenOddFillStyle')
+      .mockReturnValue({
+        style: {},
+        dispose: () => undefined
+      } as never)
+
+    const mockGraphic = {
+      clear: vi.fn(),
+      rect: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      bezierCurveTo: vi.fn(),
+      closePath: vi.fn(),
+      cut: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn(),
+      beginPath: vi.fn(),
+      hitArea: null as { contains: (x: number, y: number) => boolean } | null
+    }
+
+    const mockData = {
+      id: 'vector-gradient-stroke',
+      x: 0,
+      y: 0,
+      width: 60,
+      height: 60,
+      ...toVectorData(
+        [
+          { id: '1', x: 0, y: 0 },
+          { id: '2', x: 60, y: 0 },
+          { id: '3', x: 60, y: 60 },
+          { id: '4', x: 0, y: 60 }
+        ],
+        true
+      ),
+      closed: true,
+      fills: [
+        {
+          ...createSolidFill('#ffffff'),
+          kind: FillKinds.GRADIENT,
+          gradient: {
+            gradientType: FillGradientTypes.LINEAR,
+            gradientStops: [
+              { position: 0, color: '#ffffff', opacity: 1 },
+              { position: 1, color: '#000000', opacity: 1 }
+            ],
+            gradientHandles: [
+              { x: 0.5, y: 0 },
+              { x: 0.5, y: 1 }
+            ],
+            metadata: {}
+          }
+        }
+      ],
+      strokes: [
+        {
+          id: '',
+          type: 'stroke',
+          style: 'solid',
+          position: StrokePositions.OUTSIDE,
+          width: 20,
+          dash: 20,
+          gap: 20,
+          defaultColorFormat: FillColorFormats.HEX,
+          colorFormat: FillColorFormats.HEX,
+          color: '#ff0055',
+          opacity: 1,
+          visible: true,
+          joinType: 'miter',
+          miterAngle: 28.96
+        }
+      ],
+      stroke: '#ff0055',
+      strokeWidth: 20
+    }
+
+    runRenderStrategy(renderStrategy, mockGraphic, mockData)
+
+    expect(mockGraphic.hitArea?.contains(-15, 30)).toBe(true)
+    expect(mockGraphic.hitArea?.contains(-25, 30)).toBe(false)
+
+    createEvenOddFillStyleMock.mockRestore()
   })
 })

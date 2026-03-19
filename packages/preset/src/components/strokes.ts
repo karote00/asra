@@ -15,6 +15,12 @@ interface Vec2 {
   y: number
 }
 
+export interface StrokeHitSegment {
+  start: Vec2
+  end: Vec2
+  radius: number
+}
+
 interface StrokeDrawGraphic {
   moveTo: (x: number, y: number) => void
   lineTo: (x: number, y: number) => void
@@ -552,6 +558,93 @@ const buildDashedParts = (
   }
 
   return parts
+}
+
+const buildHitSegments = (
+  points: Vec2[],
+  closed: boolean,
+  radius: number
+): StrokeHitSegment[] => {
+  if (points.length < 2 || radius <= 0) {
+    return []
+  }
+
+  const segments: StrokeHitSegment[] = []
+  for (let i = 0; i < points.length - 1; i += 1) {
+    segments.push({
+      start: points[i],
+      end: points[i + 1],
+      radius
+    })
+  }
+
+  if (closed && points.length > 2) {
+    segments.push({
+      start: points[points.length - 1],
+      end: points[0],
+      radius
+    })
+  }
+
+  return segments
+}
+
+export const buildStrokeHitSegments = (
+  polylines: { points: Vec2[]; closed: boolean }[],
+  strokes: unknown
+): StrokeHitSegment[] => {
+  const renderableStrokes = getRenderableStrokes(strokes)
+  if (renderableStrokes.length === 0) {
+    return []
+  }
+
+  const hitSegments: StrokeHitSegment[] = []
+
+  renderableStrokes.forEach((stroke) => {
+    const radius = stroke.width / 2
+    if (radius <= 0) {
+      return
+    }
+
+    polylines.forEach(({ points, closed }) => {
+      const strokePoints = closed ? normalizeClosedPoints(points) : [...points]
+      if (strokePoints.length < 2) {
+        return
+      }
+
+      const centerlineOffset = getStrokeCenterlineOffset(
+        strokePoints,
+        closed,
+        stroke
+      )
+      const validateIntersection =
+        closed && stroke.position === StrokePositions.INSIDE
+
+      if (stroke.style === StrokeStyles.DASHED) {
+        const dashParts = buildDashedParts(strokePoints, closed, stroke)
+        dashParts.forEach((part) => {
+          const renderPoints = offsetPolyline(
+            part,
+            centerlineOffset,
+            false,
+            validateIntersection
+          )
+          hitSegments.push(...buildHitSegments(renderPoints, false, radius))
+        })
+        return
+      }
+
+      const renderPoints = offsetPolyline(
+        strokePoints,
+        centerlineOffset,
+        closed,
+        validateIntersection
+      )
+      hitSegments.push(...buildHitSegments(renderPoints, closed, radius))
+    })
+  })
+
+  return hitSegments
 }
 
 const createGraphicsChild = (

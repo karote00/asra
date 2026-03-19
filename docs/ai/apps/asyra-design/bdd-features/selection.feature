@@ -43,5 +43,5 @@ Feature: Element Selection
 
   Scenario: Hover element on canvas
     Given there is an element on canvas
-    When I move mouse over the element bounds
+    When I move mouse over the element's visible geometry
     Then that element should become the hovered target

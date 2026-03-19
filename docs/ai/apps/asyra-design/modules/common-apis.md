@@ -13,7 +13,7 @@
 - `element.ts`
 
   - create element
-  - hit-test by bounds
+  - renderer-backed geometry hit-test for canvas targeting
   - element lock/visible query + toggle helpers
   - element position query + batch move helper
   - vector anchor point queries and updates
@@ -55,7 +55,9 @@
 - `elementApis.setElementPositions(...)` applies per-element `x/y` updates in one common-API transaction and forwards mutation options (for example, `undoable: false` for drag-frame updates).
 - `elementApis.createElement(...)` and `selectionApis.selectElements(...)` also accept optional mutation options and forward them to core.
 - Vector geometry updates normalize anchor points against computed bounds.
-- Hit-testing is bounds-based (`isPointInsideElement`) for selection/hover behavior.
+- Canvas hit-testing uses renderer geometry (`getElementIdAtClientPos`) so
+  hover/selection follow visible element fill or stroke geometry.
+- Bounds utilities remain in use for area selection and intersection queries.
 - Vector handle mode helpers track per-point handle constraints (`none`, `mirror-angle`, `mirror-angle-length`) for drag and panel edits.
 - Vector topology commits validate segment/network consistency and fail fast on invalid references.
 - Vector geometry helper (`vectorGeometry.*`) centralizes topology repairs for add/move/split/update flows and builds computed-data patches.

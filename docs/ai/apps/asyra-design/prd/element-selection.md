@@ -22,7 +22,8 @@ Users need predictable single-selection behavior from both canvas and layer/cont
 7. Click empty area in contents panel -> clear selection.
 8. Shift-modified selection toggles element membership.
 9. Path editing mode should keep focus and block regular selection start logic where applicable.
-10. Hover state should resolve by element bounds hit-test on mouse move.
+10. Hover state should resolve by visible element geometry hit-test on mouse
+    move.
 11. Drag start on an already selected element in select mode should move selected element(s).
 12. Drag move should ignore micro pointer jitter below app-defined movement threshold.
 13. Drag start on an unselected unlocked element in select mode should select and move that element.
@@ -31,7 +32,7 @@ Users need predictable single-selection behavior from both canvas and layer/cont
 
 ## Constraints
 
-- bounds-based hit testing used by app (`elementApis.getElementIdAtClientPos`)
+- renderer geometry hit testing used by app (`elementApis.getElementIdAtClientPos`)
 - selection feature wraps selection mutations in transaction boundary
 - move behavior owns drag-to-position updates through `move-elements` feature and `elementApis.setElementPositions(...)`
 

@@ -1127,3 +1127,42 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     centerline-first rendering rule.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/repeatable-strokes-and-stroke-rendering-plan.md`
+
+## 2026-03-19 - Gradient vector stroke hit testing follows rendered stroke geometry
+
+- Context:
+  - Gradient-filled vectors use a custom hit area because the rasterized
+    even-odd fill path would otherwise hit across the whole bounds.
+  - That custom hit area only used a max-width centerline band for strokes, so
+    `inside`, `outside`, and dashed stroke variants could miss visibly rendered
+    stroke pixels or hit empty space.
+- Decision:
+  - Build stroke hit geometry from the same offset and dashed stroke rules used
+    by vector stroke rendering.
+  - Use those rendered stroke segments inside the vector custom hit area
+    instead of a single max-width centerline approximation.
+- Consequences:
+  - Gradient vector hover/selection can target visibly rendered stroke pixels,
+    including outside-offset strokes.
+  - Dashed stroke gaps no longer count as stroke hits in the custom vector hit
+    path.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/vector-stroke-hit-test-plan.md`
+
+## 2026-03-19 - Vector stroke hit-test plan closed out
+
+- Context:
+  - The vector stroke hit-test implementation is complete and the app plan
+    should move from active tracking into the completed archive.
+  - The earlier 2026-03-19 decision entry referenced the active-plan path
+    before closeout.
+- Decision:
+  - Close out the app plan and treat the completed-plan record as the canonical
+    reference for this work.
+  - Supersede the earlier active-plan link with the completed-plan path below.
+- Consequences:
+  - `PLANS.md` no longer lists this work as in progress.
+  - The canonical plan reference for this change is now the completed-plan
+    archive entry.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/vector-stroke-hit-test-plan.md`

@@ -4,7 +4,10 @@ import {
   StrokeStyles,
   createDefaultStroke
 } from '@asyra/utils'
-import { renderPolylineStrokes } from '../components/strokes'
+import {
+  buildStrokeHitSegments,
+  renderPolylineStrokes
+} from '../components/strokes'
 
 type Instruction =
   | { action: 'beginPath' }
@@ -215,5 +218,62 @@ describe('stroke renderer', () => {
       }
     ])
     expect(outsideGraphic.instructions).toEqual(insideGraphic.instructions)
+  })
+
+  it('builds hit segments from the rendered outside stroke geometry', () => {
+    const hitSegments = buildStrokeHitSegments(
+      [
+        {
+          points: [
+            { x: 0, y: 0 },
+            { x: 20, y: 0 },
+            { x: 20, y: 20 },
+            { x: 0, y: 20 }
+          ],
+          closed: true
+        }
+      ],
+      [
+        createDefaultStroke({
+          position: StrokePositions.OUTSIDE,
+          width: 10
+        })
+      ]
+    )
+
+    expect(hitSegments).toEqual([
+      { start: { x: -5, y: -5 }, end: { x: 25, y: -5 }, radius: 5 },
+      { start: { x: 25, y: -5 }, end: { x: 25, y: 25 }, radius: 5 },
+      { start: { x: 25, y: 25 }, end: { x: -5, y: 25 }, radius: 5 },
+      { start: { x: -5, y: 25 }, end: { x: -5, y: -5 }, radius: 5 }
+    ])
+  })
+
+  it('builds hit segments only for rendered dashed stroke parts', () => {
+    const hitSegments = buildStrokeHitSegments(
+      [
+        {
+          points: [
+            { x: 0, y: 0 },
+            { x: 10, y: 0 },
+            { x: 10, y: 10 }
+          ],
+          closed: false
+        }
+      ],
+      [
+        createDefaultStroke({
+          style: StrokeStyles.DASHED,
+          width: 2,
+          dash: 12,
+          gap: 100
+        })
+      ]
+    )
+
+    expect(hitSegments).toEqual([
+      { start: { x: 0, y: 0 }, end: { x: 10, y: 0 }, radius: 1 },
+      { start: { x: 10, y: 0 }, end: { x: 10, y: 2 }, radius: 1 }
+    ])
   })
 })

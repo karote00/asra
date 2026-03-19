@@ -16,8 +16,9 @@ import {
 import {
   applyStrokeStyle,
   beginStrokePath,
+  buildStrokeHitSegments,
   getRenderableStrokes,
-  getStrokeHitWidth,
+  type StrokeHitSegment,
   renderPolylineStrokes
 } from './strokes'
 
@@ -99,12 +100,13 @@ interface EvenOddFillCache {
 interface VectorHitCache {
   segmentKeyMap?: Record<string, string>
   segmentLinesMap?: Record<string, LineSegment[]>
+  strokeHitSegments?: StrokeHitSegment[]
+  strokeHitSignature?: string
   hitArea?: { contains: (x: number, y: number) => boolean }
   points?: Record<string, VectorPointNode>
   segments?: Record<string, VectorSegment>
   networks?: Record<string, VectorNetwork>
   hasVisibleFill?: boolean
-  strokeRadius?: number
 }
 
 const isAnchorNode = (
@@ -612,6 +614,16 @@ const isPointNearSegments = (
       radiusSquared
   )
 }
+
+const isPointNearStrokeHitSegments = (
+  point: Vec2,
+  segments: StrokeHitSegment[]
+) =>
+  segments.some(
+    (segment) =>
+      distanceSquaredToSegment(point, segment.start, segment.end) <=
+      segment.radius * segment.radius
+  )
 
 const buildFillFaces = (
   flattenedSegments: LineSegment[],
@@ -1131,9 +1143,7 @@ const renderVectorGraphic = (
         const hitCache: VectorHitCache =
           graphicCache.__asyraVectorHitCache ?? {}
         const hasVisibleFill = getRenderableFills(fillPayload).length > 0
-        const strokeHitWidth = getStrokeHitWidth(strokePayload)
-        const hasStroke = strokeHitWidth > 0
-        const strokeRadius = hasStroke ? strokeHitWidth / 2 : 0
+        const strokeHitSignature = JSON.stringify(strokePayload)
 
         const reuseHitArea =
           hitCache.hitArea &&
@@ -1141,7 +1151,7 @@ const renderVectorGraphic = (
           hitCache.segments === segments &&
           hitCache.networks === networks &&
           hitCache.hasVisibleFill === hasVisibleFill &&
-          hitCache.strokeRadius === strokeRadius
+          hitCache.strokeHitSignature === strokeHitSignature
 
         if (reuseHitArea) {
           ;(graphic as { hitArea: typeof hitCache.hitArea | null }).hitArea =
@@ -1164,11 +1174,24 @@ const renderVectorGraphic = (
           hitCache.segments = segments
           hitCache.networks = networks
           hitCache.hasVisibleFill = hasVisibleFill
-          hitCache.strokeRadius = strokeRadius
+          hitCache.strokeHitSignature = strokeHitSignature
+
+          const strokeHitSegments = buildStrokeHitSegments(
+            orderedNetworks
+              .map((network) => ({
+                points: buildVectorNetworkPolyline(network, points, segments),
+                closed: network.closed
+              }))
+              .filter((path) => path.points.length > 1),
+            strokePayload
+          )
+          hitCache.strokeHitSegments = strokeHitSegments
 
           if (
-            (hasVisibleFill || hasStroke) &&
-            (flattenedSegments.length > 0 || directedSegments.length > 0)
+            (hasVisibleFill || strokeHitSegments.length > 0) &&
+            (flattenedSegments.length > 0 ||
+              directedSegments.length > 0 ||
+              strokeHitSegments.length > 0)
           ) {
             const hitArea = {
               contains: (x: number, y: number) => {
@@ -1182,9 +1205,8 @@ const renderVectorGraphic = (
                 }
 
                 if (
-                  hasStroke &&
-                  flattenedSegments.length > 0 &&
-                  isPointNearSegments(point, flattenedSegments, strokeRadius)
+                  strokeHitSegments.length > 0 &&
+                  isPointNearStrokeHitSegments(point, strokeHitSegments)
                 ) {
                   return true
                 }
