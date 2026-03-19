@@ -1,5 +1,6 @@
 import { Container, Graphics } from 'pixi.js'
 import systemContext from '@asyra/system-context'
+import { getElementGeometryWorldBounds } from '@asyra/utils'
 import { getSelectionLocalBounds, getSelectionWorldBounds } from './utils'
 import { SceneElement } from '../../types'
 
@@ -65,7 +66,7 @@ export class SelectionLayer {
 
     if (selectedElements.length === 1) {
       const element = selectedElements[0]
-      const bounds = element.getBounds()
+      const bounds = getElementGeometryWorldBounds(element)
 
       this.selectedBox.rect(0, 0, bounds.width, bounds.height).stroke({
         width: 1,

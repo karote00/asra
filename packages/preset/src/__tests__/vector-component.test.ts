@@ -14,7 +14,8 @@ import {
   FillGradientTypes,
   FillKinds,
   PropertyTypes,
-  StrokePositions
+  StrokePositions,
+  createDefaultStroke
 } from '@asyra/utils'
 import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
@@ -313,6 +314,78 @@ describe('Vector Component', () => {
     expect(mockGraphic.lineTo).toHaveBeenCalledWith(100, 0)
     expect(mockGraphic.lineTo).toHaveBeenCalledWith(100, 100)
     expect(mockGraphic.bezierCurveTo).not.toHaveBeenCalled()
+  })
+
+  it('should publish geometry bounds without stroke expansion', () => {
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) return
+
+    const mockGraphic = {
+      clear: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      bezierCurveTo: vi.fn(),
+      closePath: vi.fn(),
+      cut: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn()
+    }
+
+    const mockData = {
+      id: 'vector-geometry-bounds',
+      x: 24,
+      y: 32,
+      width: 100,
+      height: 100,
+      ...toVectorData(
+        [
+          { id: '1', x: 0, y: 0 },
+          { id: '2', x: 100, y: 0 },
+          { id: '3', x: 100, y: 100 }
+        ],
+        false
+      ),
+      closed: false,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          id: 'stroke-1',
+          color: '#ff0055',
+          width: 24,
+          position: StrokePositions.OUTSIDE
+        }),
+        createDefaultStroke({
+          id: 'stroke-2',
+          color: '#0055ff',
+          width: 40,
+          position: StrokePositions.INSIDE
+        })
+      ],
+      stroke: '#000000',
+      strokeWidth: 40
+    }
+
+    runRenderStrategy(renderStrategy, mockGraphic, mockData)
+
+    expect(
+      (
+        mockGraphic as {
+          __asyraGeometryLocalBounds?: {
+            x: number
+            y: number
+            width: number
+            height: number
+          } | null
+        }
+      ).__asyraGeometryLocalBounds
+    ).toEqual({
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100
+    })
   })
 
   it('should render bezier curves for smooth anchor points', () => {

@@ -1,4 +1,8 @@
 import { Rectangle } from 'pixi.js'
+import {
+  getElementGeometryLocalBounds,
+  getElementGeometryWorldBounds
+} from '@asyra/utils'
 import { SceneElement } from '../../types'
 
 /**
@@ -16,7 +20,7 @@ export function getSelectionWorldBounds(
     maxY = -Infinity
 
   for (const el of elements) {
-    const bounds = el.getBounds()
+    const bounds = getElementGeometryWorldBounds(el)
 
     minX = Math.min(minX, bounds.x)
     minY = Math.min(minY, bounds.y)
@@ -32,6 +36,6 @@ export function getSelectionWorldBounds(
  * Used for single-selection bounding box.
  */
 export const getSelectionLocalBounds = (element: SceneElement): Rectangle => {
-  const bounds = element.getLocalBounds()
+  const bounds = getElementGeometryLocalBounds(element)
   return new Rectangle(bounds.x, bounds.y, bounds.width, bounds.height)
 }

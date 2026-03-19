@@ -11,7 +11,7 @@ import type {
   VectorPointNode,
   VectorSegment
 } from '@asyra/core'
-import type { PositionData } from '@asyra/utils'
+import { getElementGeometryWorldBounds, type PositionData } from '@asyra/utils'
 import type { PresetDependencies } from '../types'
 
 const SELECTION_OVERLAY_LAYER_NAME = 'selection-overlay-layer'
@@ -84,7 +84,7 @@ const transformPoint = (
 const getBoundsCorners = (
   element: RenderElementShape
 ): [PositionData, PositionData, PositionData, PositionData] => {
-  const bounds = element.getBounds()
+  const bounds = getElementGeometryWorldBounds(element)
   const topLeft = { x: bounds.x, y: bounds.y }
   const topRight = { x: bounds.x + bounds.width, y: bounds.y }
   const bottomRight = {
@@ -131,7 +131,12 @@ const drawBoundsOutline = (
   }
   const bottomLeft = { x: bounds.x, y: bounds.y + bounds.height }
 
-  drawOutline(canvas, [topLeft, topRight, bottomRight, bottomLeft], color, width)
+  drawOutline(
+    canvas,
+    [topLeft, topRight, bottomRight, bottomLeft],
+    color,
+    width
+  )
 }
 
 const getElementType = (
@@ -350,15 +355,6 @@ const drawHoverGeometryOutline = (
   )
 }
 
-const getSingleSelectedElementId = (): string | null => {
-  const selected = [...renderSelectionStore.elementSelection]
-  if (selected.length !== 1) {
-    return null
-  }
-
-  return selected[0]
-}
-
 const getMultiSelectionBounds = (
   deps: Pick<PresetDependencies, 'render'>,
   selectedIds: string[]
@@ -380,11 +376,11 @@ const getMultiSelectionBounds = (
       return
     }
 
-    const bounds = element.getBounds()
-    minX = Math.min(minX, bounds.x)
-    minY = Math.min(minY, bounds.y)
-    maxX = Math.max(maxX, bounds.x + bounds.width)
-    maxY = Math.max(maxY, bounds.y + bounds.height)
+    const geometryBounds = getElementGeometryWorldBounds(element)
+    minX = Math.min(minX, geometryBounds.x)
+    minY = Math.min(minY, geometryBounds.y)
+    maxX = Math.max(maxX, geometryBounds.x + geometryBounds.width)
+    maxY = Math.max(maxY, geometryBounds.y + geometryBounds.height)
   })
 
   if (!Number.isFinite(minX) || !Number.isFinite(minY)) {

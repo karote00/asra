@@ -2,7 +2,8 @@ import {
   PropertyTypes,
   StrokeJoinTypes,
   createDefaultFill,
-  createDefaultStroke
+  createDefaultStroke,
+  setElementGeometryLocalBounds
 } from '@asyra/utils'
 import type { FillAttrs, StrokeAttrs } from '@asyra/utils'
 import core, { VECTOR_TOKENS, defineComponent } from '@asyra/core'
@@ -604,7 +605,12 @@ const prepareEvenOddHitSegments = (
         prepared.push({
           type: 'cubicBezier',
           points: pointList,
-          minY: Math.min(pointList[1], pointList[3], pointList[5], pointList[7]),
+          minY: Math.min(
+            pointList[1],
+            pointList[3],
+            pointList[5],
+            pointList[7]
+          ),
           maxY: Math.max(pointList[1], pointList[3], pointList[5], pointList[7])
         })
       }
@@ -750,7 +756,10 @@ const isPointInsidePreparedEvenOddShape = (
   for (let i = 0; i + 1 < intersections.length; i += 2) {
     const startX = intersections[i]
     const endX = intersections[i + 1]
-    if (point.x >= startX - INTERSECTION_EPS && point.x <= endX + INTERSECTION_EPS) {
+    if (
+      point.x >= startX - INTERSECTION_EPS &&
+      point.x <= endX + INTERSECTION_EPS
+    ) {
       return true
     }
   }
@@ -780,23 +789,6 @@ const distanceSquaredToSegment = (point: Vec2, start: Vec2, end: Vec2) => {
   const px = point.x - projX
   const py = point.y - projY
   return px * px + py * py
-}
-
-const isPointNearSegments = (
-  point: Vec2,
-  segments: LineSegment[],
-  radius: number
-) => {
-  if (radius <= 0) {
-    return false
-  }
-
-  const radiusSquared = radius * radius
-  return segments.some(
-    (segment) =>
-      distanceSquaredToSegment(point, segment.start, segment.end) <=
-      radiusSquared
-  )
 }
 
 const isPointNearStrokeHitSegments = (
@@ -1229,6 +1221,10 @@ const renderVectorGraphic = (
 ) => {
   graphic.clear()
   ;(graphic as { hitArea: unknown | null }).hitArea = null
+  setElementGeometryLocalBounds(
+    graphic as Parameters<typeof setElementGeometryLocalBounds>[0],
+    null
+  )
 
   const { fills, fill, stroke, strokeWidth, x, y, points, segments, networks } =
     data
@@ -1240,6 +1236,10 @@ const renderVectorGraphic = (
 
   graphic.x = x
   graphic.y = y
+  setElementGeometryLocalBounds(
+    graphic as Parameters<typeof setElementGeometryLocalBounds>[0],
+    { x: 0, y: 0, width: data.width, height: data.height }
+  )
 
   const strokeColor = parseHexColor(stroke, 0xcccccc)
   const fillPayload = getFillPayload(fills, fill)
@@ -1261,9 +1261,7 @@ const renderVectorGraphic = (
     }
     return evenOddShapeCache
   }
-  let strokePolylinesCache:
-    | { points: Vec2[]; closed: boolean }[]
-    | null = null
+  let strokePolylinesCache: { points: Vec2[]; closed: boolean }[] | null = null
   const getStrokePolylines = () => {
     if (!strokePolylinesCache) {
       strokePolylinesCache = orderedNetworks
@@ -1316,10 +1314,7 @@ const renderVectorGraphic = (
     )
     hitCache.strokeHitSegments = strokeHitSegments
 
-    if (
-      hasVisibleFill ||
-      strokeHitSegments.length > 0
-    ) {
+    if (hasVisibleFill || strokeHitSegments.length > 0) {
       const hitArea = {
         contains: (x: number, y: number) => {
           const point = { x, y }

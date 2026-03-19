@@ -4,7 +4,7 @@ import {
   RenderContainerData,
   RenderElementData
 } from '../../types'
-import { DataTypes } from '@asyra/utils'
+import { DataTypes, getElementGeometryLocalBounds } from '@asyra/utils'
 import { ElementInteractionHandler } from './element-interaction-handler'
 import renderStrategyRegistry from '../../registries/render-strategy'
 import { defaultStrategy } from '../../strategies/default-strategy'
@@ -245,8 +245,8 @@ export class RenderLayer {
 
     for (const [, element] of this._elements) {
       if (element instanceof Graphics && element.visible) {
-        // Get the element's local bounds (before transform)
-        const localBounds = element.getLocalBounds()
+        // Prefer authored geometry bounds so vector layout does not expand with stroke rendering.
+        const localBounds = getElementGeometryLocalBounds(element)
 
         // Update corner points only when necessary
         topLeft.set(localBounds.x, localBounds.y)
