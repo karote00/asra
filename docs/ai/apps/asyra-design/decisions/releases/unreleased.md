@@ -1128,7 +1128,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/repeatable-strokes-and-stroke-rendering-plan.md`
 
-## 2026-03-19 - Gradient vector stroke hit testing follows rendered stroke geometry
+## 2026-03-19 - Gradient vector hover hit testing follows rendered stroke geometry
 
 - Context:
   - Gradient-filled vectors use a custom hit area because the rasterized
@@ -1142,9 +1142,9 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Use those rendered stroke segments inside the vector custom hit area
     instead of a single max-width centerline approximation.
 - Consequences:
-  - Gradient vector hover/selection can target visibly rendered stroke pixels,
-    including outside-offset strokes.
-  - Dashed stroke gaps no longer count as stroke hits in the custom vector hit
+  - Gradient vector hover can target visibly rendered stroke pixels, including
+    outside-offset strokes.
+  - Dashed stroke gaps no longer count as hover hits in the custom vector hit
     path.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/vector-stroke-hit-test-plan.md`
@@ -1164,5 +1164,27 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - `PLANS.md` no longer lists this work as in progress.
   - The canonical plan reference for this change is now the completed-plan
     archive entry.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/vector-stroke-hit-test-plan.md`
+
+## 2026-03-19 - Vector hover hit follow-up clarified as hover-only
+
+- Context:
+  - The follow-up fix expanded vector hover hit geometry beyond the original
+    gradient-only path so self-intersecting non-gradient vectors can resolve
+    internal stroke segments.
+  - The implementation and docs also needed to stay explicit that this work is
+    hover-target correctness, not a separate selection-ownership change.
+- Decision:
+  - Apply the custom vector hover hit area to the general vector render path,
+    not only the gradient raster branch.
+  - Treat `hoveredElementId` as the selection gate and frame this work as
+    hover-only in plan/docs language.
+  - Supersede the earlier active-plan reference with the completed-plan path
+    below as the canonical record for the whole change set.
+- Consequences:
+  - Internal star/self-intersection stroke segments can become hover targets.
+  - Render hover remains the single source of truth for pointer targeting, and
+    selection continues to consume that hover target.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/vector-stroke-hit-test-plan.md`

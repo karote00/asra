@@ -102,6 +102,7 @@ interface VectorHitCache {
   segmentLinesMap?: Record<string, LineSegment[]>
   strokeHitSegments?: StrokeHitSegment[]
   strokeHitSignature?: string
+  preparedFillSegments?: PreparedEvenOddHitSegment[]
   hitArea?: { contains: (x: number, y: number) => boolean }
   points?: Record<string, VectorPointNode>
   segments?: Record<string, VectorSegment>
@@ -435,6 +436,13 @@ interface DirectedSegment {
   end: Vec2
 }
 
+interface PreparedEvenOddHitSegment {
+  type: 'line' | 'cubicBezier'
+  points: number[]
+  minY: number
+  maxY: number
+}
+
 const buildFlattenedSegmentsWithCache = (
   orderedNetworks: VectorNetwork[],
   points: Record<string, VectorPointNode>,
@@ -572,6 +580,182 @@ const evenOddContains = (point: Vec2, segments: DirectedSegment[]) => {
   })
 
   return inside
+}
+
+const prepareEvenOddHitSegments = (
+  shape: EvenOddShape
+): PreparedEvenOddHitSegment[] => {
+  const prepared: PreparedEvenOddHitSegment[] = []
+
+  shape.paths.forEach((path) => {
+    path.segments.forEach((segment) => {
+      const pointList = segment.points
+      if (segment.type === 'line' && pointList.length === 4) {
+        prepared.push({
+          type: 'line',
+          points: pointList,
+          minY: Math.min(pointList[1], pointList[3]),
+          maxY: Math.max(pointList[1], pointList[3])
+        })
+        return
+      }
+
+      if (segment.type === 'cubicBezier' && pointList.length === 8) {
+        prepared.push({
+          type: 'cubicBezier',
+          points: pointList,
+          minY: Math.min(pointList[1], pointList[3], pointList[5], pointList[7]),
+          maxY: Math.max(pointList[1], pointList[3], pointList[5], pointList[7])
+        })
+      }
+    })
+  })
+
+  return prepared
+}
+
+const collectLineIntersectionsAtY = (
+  y: number,
+  p1: Vec2,
+  p2: Vec2,
+  intersections: number[]
+) => {
+  if (Math.abs(p1.y - p2.y) <= INTERSECTION_EPS) {
+    return
+  }
+
+  const minY = Math.min(p1.y, p2.y)
+  const maxY = Math.max(p1.y, p2.y)
+  if (y < minY || y >= maxY) {
+    return
+  }
+
+  const t = (y - p1.y) / (p2.y - p1.y)
+  const x = p1.x + (p2.x - p1.x) * t
+  intersections.push(x)
+}
+
+const distanceToLine = (point: Vec2, a: Vec2, b: Vec2) => {
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const denom = Math.hypot(dx, dy)
+  if (denom <= INTERSECTION_EPS) {
+    return Math.hypot(point.x - a.x, point.y - a.y)
+  }
+
+  return Math.abs(dy * point.x - dx * point.y + b.x * a.y - b.y * a.x) / denom
+}
+
+const subdivideCubic = (p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2) => {
+  const p01 = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 }
+  const p12 = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
+  const p23 = { x: (p2.x + p3.x) / 2, y: (p2.y + p3.y) / 2 }
+
+  const p012 = { x: (p01.x + p12.x) / 2, y: (p01.y + p12.y) / 2 }
+  const p123 = { x: (p12.x + p23.x) / 2, y: (p12.y + p23.y) / 2 }
+
+  const p0123 = { x: (p012.x + p123.x) / 2, y: (p012.y + p123.y) / 2 }
+
+  return {
+    left: [p0, p01, p012, p0123] as const,
+    right: [p0123, p123, p23, p3] as const
+  }
+}
+
+const collectCubicIntersectionsAtY = (
+  y: number,
+  p0: Vec2,
+  p1: Vec2,
+  p2: Vec2,
+  p3: Vec2,
+  intersections: number[],
+  depth = 0
+) => {
+  const minY = Math.min(p0.y, p1.y, p2.y, p3.y)
+  const maxY = Math.max(p0.y, p1.y, p2.y, p3.y)
+  if (y < minY || y >= maxY) {
+    return
+  }
+
+  const flatness =
+    Math.max(distanceToLine(p1, p0, p3), distanceToLine(p2, p0, p3)) || 0
+  if (depth >= 12 || flatness <= 0.2) {
+    collectLineIntersectionsAtY(y, p0, p3, intersections)
+    return
+  }
+
+  const { left, right } = subdivideCubic(p0, p1, p2, p3)
+  collectCubicIntersectionsAtY(
+    y,
+    left[0],
+    left[1],
+    left[2],
+    left[3],
+    intersections,
+    depth + 1
+  )
+  collectCubicIntersectionsAtY(
+    y,
+    right[0],
+    right[1],
+    right[2],
+    right[3],
+    intersections,
+    depth + 1
+  )
+}
+
+const isPointInsidePreparedEvenOddShape = (
+  point: Vec2,
+  preparedSegments: PreparedEvenOddHitSegment[]
+) => {
+  if (preparedSegments.length === 0) {
+    return false
+  }
+
+  const intersections: number[] = []
+  preparedSegments.forEach((segment) => {
+    if (point.y < segment.minY || point.y >= segment.maxY) {
+      return
+    }
+
+    if (segment.type === 'line') {
+      const [x1, y1, x2, y2] = segment.points
+      collectLineIntersectionsAtY(
+        point.y,
+        { x: x1, y: y1 },
+        { x: x2, y: y2 },
+        intersections
+      )
+      return
+    }
+
+    const [x1, y1, cx1, cy1, cx2, cy2, x2, y2] = segment.points
+    collectCubicIntersectionsAtY(
+      point.y,
+      { x: x1, y: y1 },
+      { x: cx1, y: cy1 },
+      { x: cx2, y: cy2 },
+      { x: x2, y: y2 },
+      intersections
+    )
+  })
+
+  if (intersections.length === 0) {
+    return false
+  }
+
+  intersections.sort((a, b) => a - b)
+
+  for (let i = 0; i + 1 < intersections.length; i += 2) {
+    const startX = intersections[i]
+    const endX = intersections[i + 1]
+    if (point.x >= startX - INTERSECTION_EPS && point.x <= endX + INTERSECTION_EPS) {
+      return true
+    }
+  }
+
+  return false
 }
 
 const distanceSquaredToSegment = (point: Vec2, start: Vec2, end: Vec2) => {
@@ -1070,11 +1254,103 @@ const renderVectorGraphic = (
 
   const hasGradient = fillPayload.some((f) => f.kind === 'gradient')
   const dragSuppressed = isVectorEditingDrag(data.id) || isSelectToolDrag()
+  let evenOddShapeCache: EvenOddShape | null = null
+  const getEvenOddShape = () => {
+    if (!evenOddShapeCache) {
+      evenOddShapeCache = buildEvenOddShape(orderedNetworks, points, segments)
+    }
+    return evenOddShapeCache
+  }
+  let strokePolylinesCache:
+    | { points: Vec2[]; closed: boolean }[]
+    | null = null
+  const getStrokePolylines = () => {
+    if (!strokePolylinesCache) {
+      strokePolylinesCache = orderedNetworks
+        .map((network) => ({
+          points: buildVectorNetworkPolyline(network, points, segments),
+          closed: network.closed
+        }))
+        .filter((path) => path.points.length > 1)
+    }
+    return strokePolylinesCache
+  }
 
   const graphicCache = graphic as typeof graphic & {
     __asyraVectorFillCache?: FillFaceCache
     __asyraEvenOddFillCache?: EvenOddFillCache
     __asyraVectorHitCache?: VectorHitCache
+  }
+  const applyVectorHoverHitArea = () => {
+    const hitCache: VectorHitCache = graphicCache.__asyraVectorHitCache ?? {}
+    const hasVisibleFill =
+      hasClosedNetwork && getRenderableFills(fillPayload).length > 0
+    const strokeHitSignature = JSON.stringify(strokePayload)
+
+    const reuseHitArea =
+      hitCache.hitArea &&
+      hitCache.points === points &&
+      hitCache.segments === segments &&
+      hitCache.networks === networks &&
+      hitCache.hasVisibleFill === hasVisibleFill &&
+      hitCache.strokeHitSignature === strokeHitSignature
+
+    if (reuseHitArea) {
+      ;(graphic as { hitArea: typeof hitCache.hitArea | null }).hitArea =
+        hitCache.hitArea
+      return
+    }
+
+    hitCache.points = points
+    hitCache.segments = segments
+    hitCache.networks = networks
+    hitCache.hasVisibleFill = hasVisibleFill
+    hitCache.strokeHitSignature = strokeHitSignature
+    hitCache.preparedFillSegments = hasVisibleFill
+      ? prepareEvenOddHitSegments(getEvenOddShape())
+      : []
+
+    const strokeHitSegments = buildStrokeHitSegments(
+      getStrokePolylines(),
+      strokePayload
+    )
+    hitCache.strokeHitSegments = strokeHitSegments
+
+    if (
+      hasVisibleFill ||
+      strokeHitSegments.length > 0
+    ) {
+      const hitArea = {
+        contains: (x: number, y: number) => {
+          const point = { x, y }
+          if (
+            hasVisibleFill &&
+            isPointInsidePreparedEvenOddShape(
+              point,
+              hitCache.preparedFillSegments ?? []
+            )
+          ) {
+            return true
+          }
+
+          if (
+            strokeHitSegments.length > 0 &&
+            isPointNearStrokeHitSegments(point, strokeHitSegments)
+          ) {
+            return true
+          }
+
+          return false
+        }
+      }
+
+      hitCache.hitArea = hitArea
+      ;(graphic as { hitArea: typeof hitArea | null }).hitArea = hitArea
+    } else {
+      hitCache.hitArea = undefined
+    }
+
+    graphicCache.__asyraVectorHitCache = hitCache
   }
 
   if (fillPayload.length > 0) {
@@ -1099,7 +1375,7 @@ const renderVectorGraphic = (
           evenOddCache.fill = null
         }
 
-        const shape = buildEvenOddShape(orderedNetworks, points, segments)
+        const shape = getEvenOddShape()
         const evenOddFill = core.createEvenOddFillStyle({
           width: data.width,
           height: data.height,
@@ -1137,92 +1413,6 @@ const renderVectorGraphic = (
         )
       } else if (hasClosedNetwork) {
         previewFill = true
-      }
-
-      if (evenOddCache.fill) {
-        const hitCache: VectorHitCache =
-          graphicCache.__asyraVectorHitCache ?? {}
-        const hasVisibleFill = getRenderableFills(fillPayload).length > 0
-        const strokeHitSignature = JSON.stringify(strokePayload)
-
-        const reuseHitArea =
-          hitCache.hitArea &&
-          hitCache.points === points &&
-          hitCache.segments === segments &&
-          hitCache.networks === networks &&
-          hitCache.hasVisibleFill === hasVisibleFill &&
-          hitCache.strokeHitSignature === strokeHitSignature
-
-        if (reuseHitArea) {
-          ;(graphic as { hitArea: typeof hitCache.hitArea | null }).hitArea =
-            hitCache.hitArea
-        } else {
-          const {
-            flattenedSegments,
-            directedSegments,
-            segmentKeyMap,
-            segmentLinesMap
-          } = buildFlattenedSegmentsWithCache(
-            orderedNetworks,
-            points,
-            segments,
-            hitCache
-          )
-          hitCache.segmentKeyMap = segmentKeyMap
-          hitCache.segmentLinesMap = segmentLinesMap
-          hitCache.points = points
-          hitCache.segments = segments
-          hitCache.networks = networks
-          hitCache.hasVisibleFill = hasVisibleFill
-          hitCache.strokeHitSignature = strokeHitSignature
-
-          const strokeHitSegments = buildStrokeHitSegments(
-            orderedNetworks
-              .map((network) => ({
-                points: buildVectorNetworkPolyline(network, points, segments),
-                closed: network.closed
-              }))
-              .filter((path) => path.points.length > 1),
-            strokePayload
-          )
-          hitCache.strokeHitSegments = strokeHitSegments
-
-          if (
-            (hasVisibleFill || strokeHitSegments.length > 0) &&
-            (flattenedSegments.length > 0 ||
-              directedSegments.length > 0 ||
-              strokeHitSegments.length > 0)
-          ) {
-            const hitArea = {
-              contains: (x: number, y: number) => {
-                const point = { x, y }
-                if (
-                  hasVisibleFill &&
-                  directedSegments.length > 0 &&
-                  evenOddContains(point, directedSegments)
-                ) {
-                  return true
-                }
-
-                if (
-                  strokeHitSegments.length > 0 &&
-                  isPointNearStrokeHitSegments(point, strokeHitSegments)
-                ) {
-                  return true
-                }
-
-                return false
-              }
-            }
-
-            hitCache.hitArea = hitArea
-            ;(graphic as { hitArea: typeof hitArea | null }).hitArea = hitArea
-          } else {
-            hitCache.hitArea = undefined
-          }
-        }
-
-        graphicCache.__asyraVectorHitCache = hitCache
       }
     } else {
       if (graphicCache.__asyraEvenOddFillCache?.fill) {
@@ -1346,6 +1536,8 @@ const renderVectorGraphic = (
     }
   }
 
+  applyVectorHoverHitArea()
+
   drawVectorPath(graphic, orderedNetworks, points, segments)
   if (previewFill) {
     applyRenderableFill(graphic as { fill: unknown }, fillPayload, {
@@ -1372,14 +1564,7 @@ const renderVectorGraphic = (
   )
 
   if (specialStrokePayload.length > 0) {
-    const strokePolylines = orderedNetworks
-      .map((network) => ({
-        points: buildVectorNetworkPolyline(network, points, segments),
-        closed: network.closed
-      }))
-      .filter((path) => path.points.length > 1)
-
-    renderPolylineStrokes(graphic, strokePolylines, specialStrokePayload)
+    renderPolylineStrokes(graphic, getStrokePolylines(), specialStrokePayload)
   }
 
   if (

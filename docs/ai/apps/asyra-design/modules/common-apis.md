@@ -56,7 +56,7 @@
 - `elementApis.createElement(...)` and `selectionApis.selectElements(...)` also accept optional mutation options and forward them to core.
 - Vector geometry updates normalize anchor points against computed bounds.
 - Canvas hit-testing uses renderer geometry (`getElementIdAtClientPos`) so
-  hover/selection follow visible element fill or stroke geometry.
+  hover targeting follows visible element fill or stroke geometry.
 - Bounds utilities remain in use for area selection and intersection queries.
 - Vector handle mode helpers track per-point handle constraints (`none`, `mirror-angle`, `mirror-angle-length`) for drag and panel edits.
 - Vector topology commits validate segment/network consistency and fail fast on invalid references.

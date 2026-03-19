@@ -633,7 +633,7 @@ describe('Vector Component', () => {
     expect(mockGraphic.stroke).toHaveBeenCalled()
   })
 
-  it('should hit outside rendered stroke pixels for gradient-filled vectors', () => {
+  it('should hover-hit outside rendered stroke pixels for gradient-filled vectors', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -722,5 +722,146 @@ describe('Vector Component', () => {
     expect(mockGraphic.hitArea?.contains(-25, 30)).toBe(false)
 
     createEvenOddFillStyleMock.mockRestore()
+  })
+
+  it('should use even-odd fill hover logic for self-intersecting gradient vectors', () => {
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) return
+
+    const createEvenOddFillStyleMock = vi
+      .spyOn(core, 'createEvenOddFillStyle')
+      .mockReturnValue({
+        style: {},
+        dispose: () => undefined
+      } as never)
+
+    const mockGraphic = {
+      clear: vi.fn(),
+      rect: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      bezierCurveTo: vi.fn(),
+      closePath: vi.fn(),
+      cut: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn(),
+      beginPath: vi.fn(),
+      hitArea: null as { contains: (x: number, y: number) => boolean } | null
+    }
+
+    const mockData = {
+      id: 'vector-gradient-evenodd',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      ...toVectorData(
+        [
+          { id: '1', x: 50, y: 0 },
+          { id: '2', x: 79, y: 90 },
+          { id: '3', x: 2, y: 35 },
+          { id: '4', x: 98, y: 35 },
+          { id: '5', x: 21, y: 90 }
+        ],
+        true
+      ),
+      closed: true,
+      fills: [
+        {
+          ...createSolidFill('#ffffff'),
+          kind: FillKinds.GRADIENT,
+          gradient: {
+            gradientType: FillGradientTypes.LINEAR,
+            gradientStops: [
+              { position: 0, color: '#ffffff', opacity: 1 },
+              { position: 1, color: '#000000', opacity: 1 }
+            ],
+            gradientHandles: [
+              { x: 0.5, y: 0 },
+              { x: 0.5, y: 1 }
+            ],
+            metadata: {}
+          }
+        }
+      ],
+      strokes: [],
+      stroke: '#000000',
+      strokeWidth: 0
+    }
+
+    runRenderStrategy(renderStrategy, mockGraphic, mockData)
+
+    expect(mockGraphic.hitArea?.contains(50, 18)).toBe(true)
+    expect(mockGraphic.hitArea?.contains(50, 52)).toBe(false)
+
+    createEvenOddFillStyleMock.mockRestore()
+  })
+
+  it('should hover-hit internal self-intersecting star segments on non-gradient vectors', () => {
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) return
+
+    const mockGraphic = {
+      clear: vi.fn(),
+      rect: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      bezierCurveTo: vi.fn(),
+      closePath: vi.fn(),
+      cut: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn(),
+      beginPath: vi.fn(),
+      hitArea: null as { contains: (x: number, y: number) => boolean } | null
+    }
+
+    const mockData = {
+      id: 'vector-star-stroke',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      ...toVectorData(
+        [
+          { id: '1', x: 50, y: 0 },
+          { id: '2', x: 79, y: 90 },
+          { id: '3', x: 2, y: 35 },
+          { id: '4', x: 98, y: 35 },
+          { id: '5', x: 21, y: 90 }
+        ],
+        true
+      ),
+      closed: true,
+      fills: [],
+      strokes: [
+        {
+          id: '',
+          type: 'stroke',
+          style: 'solid',
+          position: StrokePositions.CENTER,
+          width: 12,
+          dash: 20,
+          gap: 20,
+          defaultColorFormat: FillColorFormats.HEX,
+          colorFormat: FillColorFormats.HEX,
+          color: '#ff0055',
+          opacity: 1,
+          visible: true,
+          joinType: 'round',
+          miterAngle: 28.96
+        }
+      ],
+      stroke: '#ff0055',
+      strokeWidth: 12
+    }
+
+    runRenderStrategy(renderStrategy, mockGraphic, mockData)
+
+    expect(mockGraphic.hitArea?.contains(50, 35)).toBe(true)
+    expect(mockGraphic.hitArea?.contains(50, 52)).toBe(false)
   })
 })

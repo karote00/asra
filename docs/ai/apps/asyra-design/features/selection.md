@@ -39,5 +39,3 @@
 
 - selection flow calls path-editing cleanup when selection no longer matches editing vector
 - keeps editing focus when selected vector remains the same single selection
-- vector selection targeting follows visible rendered stroke/fill geometry, not
-  raw bounds

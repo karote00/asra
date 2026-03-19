@@ -23,7 +23,7 @@ Users need predictable single-selection behavior from both canvas and layer/cont
 8. Shift-modified selection toggles element membership.
 9. Path editing mode should keep focus and block regular selection start logic where applicable.
 10. Hover state should resolve by visible element geometry hit-test on mouse
-    move.
+    move, and selection should consume that hover target.
 11. Drag start on an already selected element in select mode should move selected element(s).
 12. Drag move should ignore micro pointer jitter below app-defined movement threshold.
 13. Drag start on an unselected unlocked element in select mode should select and move that element.
