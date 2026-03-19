@@ -1,0 +1,39 @@
+import { definePropertyComponent } from '@asyra/core'
+import { PropertyTypes, createDefaultStroke } from '@asyra/utils'
+
+definePropertyComponent({
+  type: PropertyTypes.STROKES,
+  defaults: { strokes: [] as string[] },
+  persistKeys: ['strokes'],
+  valueKeys: ['strokes'],
+  children: {
+    key: 'strokes',
+    childType: PropertyTypes.STROKE,
+    mode: 'ids-or-objects',
+    toChildData: (item) => {
+      if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+        return null
+      }
+
+      return {
+        ...createDefaultStroke(),
+        ...item
+      }
+    },
+    toValue: (child, childId) => ({
+      id: childId,
+      style: child.get('style'),
+      position: child.get('position'),
+      width: child.get('width'),
+      dash: child.get('dash'),
+      gap: child.get('gap'),
+      defaultColorFormat: child.get('defaultColorFormat'),
+      colorFormat: child.get('colorFormat'),
+      color: child.get('color'),
+      opacity: child.get('opacity'),
+      visible: child.get('visible'),
+      joinType: child.get('joinType'),
+      miterAngle: child.get('miterAngle')
+    })
+  }
+})

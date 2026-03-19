@@ -5,6 +5,7 @@ import { Unit } from '../constants'
 import { DataTypes, DimensionData, PositionData } from '../types'
 import type { AnchorPointType } from './constants'
 import type { FillAttrs, FillsAttrs } from './fills'
+import type { StrokeAttrs, StrokesAttrs } from './strokes'
 
 export interface BasePropertyAttrs {
   id: string
@@ -51,6 +52,8 @@ export type PropertyComponentInstanceDataTypes =
   | DimensionAttrs
   | FillAttrs
   | FillsAttrs
+  | StrokeAttrs
+  | StrokesAttrs
   | AnchorPointAttrs
   | AnchorPointsAttrs
   | BasePropertyAttrs

@@ -1,5 +1,10 @@
-import { PropertyTypes, createDefaultFill } from '@asyra/utils'
-import type { FillAttrs } from '@asyra/utils'
+import {
+  PropertyTypes,
+  StrokeJoinTypes,
+  createDefaultFill,
+  createDefaultStroke
+} from '@asyra/utils'
+import type { FillAttrs, StrokeAttrs } from '@asyra/utils'
 import core, { VECTOR_TOKENS, defineComponent } from '@asyra/core'
 import type { RenderStrategy } from '@asyra/core'
 import type { VectorNetwork, VectorPointNode, VectorSegment } from '@asyra/core'
@@ -8,6 +13,13 @@ import {
   applyRenderableFill,
   getRenderableFills
 } from './fills'
+import {
+  applyStrokeStyle,
+  beginStrokePath,
+  getRenderableStrokes,
+  getStrokeHitWidth,
+  renderPolylineStrokes
+} from './strokes'
 
 interface VectorComputedData {
   id: string
@@ -21,6 +33,7 @@ interface VectorComputedData {
   closed: boolean
   fills: FillAttrs[]
   fill?: string
+  strokes?: StrokeAttrs[]
   stroke: string
   strokeWidth: number
 }
@@ -867,6 +880,62 @@ const drawVectorPath = (
   )
 }
 
+const buildVectorNetworkPolyline = (
+  network: VectorNetwork,
+  points: Record<string, VectorPointNode>,
+  segments: Record<string, VectorSegment>
+): Vec2[] => {
+  const first = getAnchorNode(points, network.pointIds[0])
+  if (!first) {
+    return []
+  }
+
+  const polyline: Vec2[] = [{ x: first.x, y: first.y }]
+
+  network.segmentIds.forEach((segmentId) => {
+    const segment = segments[segmentId]
+    if (!segment) {
+      return
+    }
+
+    const start = getAnchorNode(points, segment.startId)
+    const end = getAnchorNode(points, segment.endId)
+    if (!start || !end) {
+      return
+    }
+
+    const outControl = getControlNode(points, segment.outControlId)
+    const inControl = getControlNode(points, segment.inControlId)
+    if (!outControl && !inControl) {
+      polyline.push({ x: end.x, y: end.y })
+      return
+    }
+
+    const flattenedCurve = flattenCubic(
+      { x: start.x, y: start.y },
+      outControl
+        ? { x: outControl.x, y: outControl.y }
+        : { x: start.x, y: start.y },
+      inControl ? { x: inControl.x, y: inControl.y } : { x: end.x, y: end.y },
+      { x: end.x, y: end.y },
+      getFlattenSteps(
+        { x: start.x, y: start.y },
+        outControl
+          ? { x: outControl.x, y: outControl.y }
+          : { x: start.x, y: start.y },
+        inControl ? { x: inControl.x, y: inControl.y } : { x: end.x, y: end.y },
+        { x: end.x, y: end.y }
+      )
+    )
+
+    flattenedCurve.slice(1).forEach((point) => {
+      polyline.push(point)
+    })
+  })
+
+  return polyline
+}
+
 const drawFillFaces = (
   graphic: Parameters<RenderStrategy>[0],
   faces: Vec2[][]
@@ -890,6 +959,34 @@ const getFillPayload = (fills: FillAttrs[], fill?: string): FillAttrs[] => {
 
   if (typeof fill === 'string' && fill !== 'none') {
     return [createDefaultFill({ color: fill, visible: true })]
+  }
+
+  return []
+}
+
+const getStrokePayload = (
+  strokes: StrokeAttrs[] | undefined,
+  stroke?: string,
+  strokeWidth?: number
+): StrokeAttrs[] => {
+  if (Array.isArray(strokes) && strokes.length > 0) {
+    return strokes
+  }
+
+  if (
+    typeof stroke === 'string' &&
+    typeof strokeWidth === 'number' &&
+    Number.isFinite(strokeWidth) &&
+    strokeWidth > 0
+  ) {
+    return [
+      createDefaultStroke({
+        color: stroke,
+        width: strokeWidth,
+        visible: true,
+        joinType: StrokeJoinTypes.ROUND
+      })
+    ]
   }
 
   return []
@@ -950,6 +1047,7 @@ const renderVectorGraphic = (
 
   const strokeColor = parseHexColor(stroke, 0xcccccc)
   const fillPayload = getFillPayload(fills, fill)
+  const strokePayload = getStrokePayload(data.strokes, stroke, strokeWidth)
   let previewFill = false
 
   const hasClosedNetwork =
@@ -959,8 +1057,7 @@ const renderVectorGraphic = (
     )
 
   const hasGradient = fillPayload.some((f) => f.kind === 'gradient')
-  const dragSuppressed =
-    isVectorEditingDrag(data.id) || isSelectToolDrag()
+  const dragSuppressed = isVectorEditingDrag(data.id) || isSelectToolDrag()
 
   const graphicCache = graphic as typeof graphic & {
     __asyraVectorFillCache?: FillFaceCache
@@ -1034,8 +1131,9 @@ const renderVectorGraphic = (
         const hitCache: VectorHitCache =
           graphicCache.__asyraVectorHitCache ?? {}
         const hasVisibleFill = getRenderableFills(fillPayload).length > 0
-        const hasStroke = typeof strokeWidth === 'number' && strokeWidth > 0
-        const strokeRadius = hasStroke ? strokeWidth / 2 : 0
+        const strokeHitWidth = getStrokeHitWidth(strokePayload)
+        const hasStroke = strokeHitWidth > 0
+        const strokeRadius = hasStroke ? strokeHitWidth / 2 : 0
 
         const reuseHitArea =
           hitCache.hitArea &&
@@ -1234,7 +1332,42 @@ const renderVectorGraphic = (
     })
   }
 
-  if ('stroke' in graphic && typeof graphic.stroke === 'function') {
+  const directStrokePayload = strokePayload.filter(
+    (entry) => entry.style !== 'dashed' && entry.position === 'center'
+  )
+  const directRenderableStrokes = getRenderableStrokes(directStrokePayload)
+
+  directRenderableStrokes.forEach((renderableStroke) => {
+    beginStrokePath(graphic)
+    drawVectorPath(graphic, orderedNetworks, points, segments)
+    if ('stroke' in graphic && typeof graphic.stroke === 'function') {
+      applyStrokeStyle(graphic, renderableStroke)
+    }
+  })
+
+  const specialStrokePayload = strokePayload.filter(
+    (entry) => entry.style === 'dashed' || entry.position !== 'center'
+  )
+
+  if (specialStrokePayload.length > 0) {
+    const strokePolylines = orderedNetworks
+      .map((network) => ({
+        points: buildVectorNetworkPolyline(network, points, segments),
+        closed: network.closed
+      }))
+      .filter((path) => path.points.length > 1)
+
+    renderPolylineStrokes(graphic, strokePolylines, specialStrokePayload)
+  }
+
+  if (
+    directRenderableStrokes.length === 0 &&
+    specialStrokePayload.length === 0 &&
+    typeof strokeWidth === 'number' &&
+    strokeWidth > 0 &&
+    'stroke' in graphic &&
+    typeof graphic.stroke === 'function'
+  ) {
     graphic.stroke({
       width: strokeWidth,
       color: strokeColor,
@@ -1287,6 +1420,17 @@ defineComponent({
       name: 'fills',
       type: PropertyTypes.FILLS,
       defaultValue: DEFAULT_VECTOR_FILLS
+    },
+    {
+      name: 'strokes',
+      type: PropertyTypes.STROKES,
+      defaultValue: [
+        createDefaultStroke({
+          color: '#cccccc',
+          visible: true,
+          joinType: StrokeJoinTypes.ROUND
+        })
+      ]
     },
     {
       name: 'fill',

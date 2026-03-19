@@ -55,6 +55,20 @@ test.describe('Property Management', () => {
       return stop?.color ?? null
     }, stopIndex)
 
+  const getSelectedStrokeCount = async (page: Page) =>
+    page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+      if (!selectedId) {
+        return 0
+      }
+
+      const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      return Array.isArray(computed.strokes) ? computed.strokes.length : 0
+    })
+
   const getTransactionSnapshot = async (page: Page) =>
     page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -234,6 +248,43 @@ test.describe('Property Management', () => {
     await expect(
       propertiesPanel.getByTestId('prop-fill-color-picker-0')
     ).toBeVisible()
+  })
+
+  test('should show strokes section for selected element', async ({ page }) => {
+    await createRectangle(page, 0.3, 0.3)
+
+    const propertiesPanel = getPropertiesPanel(page)
+    await expect(
+      propertiesPanel.getByTestId('prop-strokes-section')
+    ).toBeVisible()
+    await expect(propertiesPanel.getByTestId('prop-stroke-add')).toBeVisible()
+    await expect(
+      propertiesPanel.getByTestId('prop-strokes-empty')
+    ).toBeVisible()
+  })
+
+  test('should add and remove repeatable strokes from properties panel', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+
+    const propertiesPanel = getPropertiesPanel(page)
+    await propertiesPanel.getByTestId('prop-stroke-add').click()
+    await page.waitForTimeout(120)
+    await propertiesPanel.getByTestId('prop-stroke-add').click()
+    await page.waitForTimeout(120)
+
+    expect(await getSelectedStrokeCount(page)).toBe(2)
+    await expect(
+      propertiesPanel.getByTestId('prop-stroke-color-picker-0')
+    ).toBeVisible()
+    await expect(
+      propertiesPanel.getByTestId('prop-stroke-color-picker-1')
+    ).toBeVisible()
+
+    await propertiesPanel.getByTestId('prop-stroke-remove-0').click()
+    await page.waitForTimeout(120)
+    expect(await getSelectedStrokeCount(page)).toBe(1)
   })
 
   test('should show fills section for selected vector element', async ({

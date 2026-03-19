@@ -1105,3 +1105,25 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - App docs now reflect required vs optional init responsibilities.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/completed/init-reorganization-plan.md`
+
+## 2026-03-19 - Repeatable strokes and closed-path stroke positioning
+
+- Context:
+  - The properties panel supported repeatable fills but not repeatable strokes.
+  - Closed-path dashed stroke rendering diverged from expected `inside`,
+    `center`, and `outside` semantics and needed deterministic behavior.
+- Decision:
+  - Add repeatable `strokes` contracts, schema registration, ui-context
+    aggregation, and properties-panel stroke controls using the same
+    child-property ownership model as fills.
+  - Keep dash allocation on the original centerline.
+  - Render `inside` strokes with inward offset plus inside clipping, render
+    `center` strokes as explicit inside/outside halves, and render `outside`
+    strokes from outward-offset geometry.
+- Consequences:
+  - Stroke editing is now first-class in the properties panel with persisted
+    repeatable stroke rows.
+  - Closed-path stroke positions are visually distinct and match the finalized
+    centerline-first rendering rule.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/repeatable-strokes-and-stroke-rendering-plan.md`

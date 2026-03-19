@@ -3,7 +3,7 @@ import type { ElementRawData, PropsRawData } from './rawDataTypes'
 import { ISetter } from '../setter'
 import { Style } from '../types'
 import type { EvnetOptions } from '../types/change'
-import { FillAttrs } from '../propsManager'
+import { FillAttrs, StrokeAttrs } from '../propsManager'
 
 export interface ComputedAttrs extends Style {
   id: string
@@ -11,6 +11,7 @@ export interface ComputedAttrs extends Style {
   name: string
   rotation: number
   fills: FillAttrs[]
+  strokes: StrokeAttrs[]
 }
 
 export interface ElementAttrs {

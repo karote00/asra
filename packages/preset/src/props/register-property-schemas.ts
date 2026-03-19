@@ -5,7 +5,11 @@ import {
   FillKinds,
   PropertySchema,
   PropertyTypes,
+  StrokeJoinTypes,
+  StrokePositions,
+  StrokeStyles,
   createDefaultFill,
+  createDefaultStroke,
   Unit
 } from '@asyra/utils'
 import type { PresetCoreAPIs } from '../types'
@@ -76,6 +80,7 @@ const isGradientData = (value: unknown): boolean => {
 }
 
 const fillDefaults = createDefaultFill()
+const strokeDefaults = createDefaultStroke()
 
 const fillSchema: PropertySchema = {
   type: PropertyTypes.FILL,
@@ -130,6 +135,105 @@ const fillsSchema: PropertySchema = {
   fields: [
     {
       key: 'fills',
+      kind: 'array',
+      validate: isStringArray,
+      defaultValue: []
+    }
+  ]
+}
+
+const strokeSchema: PropertySchema = {
+  type: PropertyTypes.STROKE,
+  fields: [
+    {
+      key: 'style',
+      kind: 'string',
+      validate: (value) =>
+        value === StrokeStyles.SOLID || value === StrokeStyles.DASHED,
+      defaultValue: strokeDefaults.style
+    },
+    {
+      key: 'position',
+      kind: 'string',
+      validate: (value) =>
+        value === StrokePositions.CENTER ||
+        value === StrokePositions.INSIDE ||
+        value === StrokePositions.OUTSIDE,
+      defaultValue: strokeDefaults.position
+    },
+    {
+      key: 'width',
+      kind: 'number',
+      validate: (value) => isFiniteNumber(value) && (value as number) >= 0,
+      defaultValue: strokeDefaults.width
+    },
+    {
+      key: 'dash',
+      kind: 'number',
+      validate: (value) => isFiniteNumber(value) && (value as number) >= 0,
+      defaultValue: strokeDefaults.dash
+    },
+    {
+      key: 'gap',
+      kind: 'number',
+      validate: (value) => isFiniteNumber(value) && (value as number) >= 0,
+      defaultValue: strokeDefaults.gap
+    },
+    {
+      key: 'defaultColorFormat',
+      kind: 'string',
+      validate: isFillColorFormat,
+      defaultValue: strokeDefaults.defaultColorFormat
+    },
+    {
+      key: 'colorFormat',
+      kind: 'string',
+      validate: isFillColorFormat,
+      defaultValue: strokeDefaults.colorFormat
+    },
+    {
+      key: 'color',
+      kind: 'string',
+      validate: (value) => typeof value === 'string' && value.length > 0,
+      defaultValue: strokeDefaults.color
+    },
+    {
+      key: 'opacity',
+      kind: 'number',
+      validate: isOpacity,
+      defaultValue: strokeDefaults.opacity
+    },
+    {
+      key: 'visible',
+      kind: 'boolean',
+      defaultValue: strokeDefaults.visible
+    },
+    {
+      key: 'joinType',
+      kind: 'string',
+      validate: (value) =>
+        value === StrokeJoinTypes.MITER ||
+        value === StrokeJoinTypes.BEVEL ||
+        value === StrokeJoinTypes.ROUND,
+      defaultValue: strokeDefaults.joinType
+    },
+    {
+      key: 'miterAngle',
+      kind: 'number',
+      validate: (value) =>
+        isFiniteNumber(value) &&
+        (value as number) >= 0 &&
+        (value as number) <= 180,
+      defaultValue: strokeDefaults.miterAngle
+    }
+  ]
+}
+
+const strokesSchema: PropertySchema = {
+  type: PropertyTypes.STROKES,
+  fields: [
+    {
+      key: 'strokes',
       kind: 'array',
       validate: isStringArray,
       defaultValue: []
@@ -396,6 +500,8 @@ export const registerPropertySchemas = (
 ) => {
   core.registerPropertySchema(fillSchema)
   core.registerPropertySchema(fillsSchema)
+  core.registerPropertySchema(strokeSchema)
+  core.registerPropertySchema(strokesSchema)
   core.registerPropertySchema(positionSchema)
   core.registerPropertySchema(dimensionSchema)
   core.registerPropertySchema(anchorPointSchema)

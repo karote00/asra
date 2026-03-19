@@ -3,6 +3,7 @@ import Position from '../position'
 import Dimension from '../dimension'
 import Rotation from '../rotation'
 import Fills from '../fills'
+import Strokes from '../strokes'
 import { useElementSelection } from '../../providers'
 
 const SectionDivider = () => <div className="h-[1px] bg-white/5 my-1" />
@@ -28,6 +29,11 @@ const ElementPropertiesPanel = ({ title }: { title: string }) => {
 
       {/* Fill section */}
       <Fills />
+
+      <SectionDivider />
+
+      {/* Stroke section */}
+      <Strokes />
     </div>
   )
 }

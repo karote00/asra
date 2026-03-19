@@ -6,8 +6,11 @@ import {
   DefaultKeySnapshot,
   MIXED_STRING,
   createDefaultFill,
+  createDefaultStroke,
   type FillAttrs,
-  type FillRowAttrs
+  type FillRowAttrs,
+  type StrokeAttrs,
+  type StrokeRowAttrs
 } from '@asyra/utils'
 import {
   type SelectedVectorPointState,
@@ -47,6 +50,21 @@ const toFillRows = (fills: FillAttrs[]): FillRowAttrs[] =>
       ...createDefaultFill(),
       ...fill,
       ids: [fill.id]
+    })
+
+    return rows
+  }, [])
+
+const toStrokeRows = (strokes: StrokeAttrs[]): StrokeRowAttrs[] =>
+  strokes.reduce<StrokeRowAttrs[]>((rows, stroke) => {
+    if (typeof stroke?.id !== 'string' || stroke.id.length === 0) {
+      return rows
+    }
+
+    rows.push({
+      ...createDefaultStroke(),
+      ...stroke,
+      ids: [stroke.id]
     })
 
     return rows
@@ -124,6 +142,23 @@ const areFillsEqual = (a: FillAttrs, b: FillAttrs) => {
   return true
 }
 
+const isStrokeArray = (value: unknown): value is StrokeAttrs[] =>
+  Array.isArray(value)
+
+const areStrokesEqual = (a: StrokeAttrs, b: StrokeAttrs) =>
+  a.style === b.style &&
+  a.position === b.position &&
+  a.width === b.width &&
+  a.dash === b.dash &&
+  a.gap === b.gap &&
+  a.defaultColorFormat === b.defaultColorFormat &&
+  a.colorFormat === b.colorFormat &&
+  a.color === b.color &&
+  a.opacity === b.opacity &&
+  a.visible === b.visible &&
+  a.joinType === b.joinType &&
+  a.miterAngle === b.miterAngle
+
 const computeFillsValue = ({
   selectedIds,
   elements
@@ -133,7 +168,8 @@ const computeFillsValue = ({
   }
 
   const elementFills = elements.map((element) => {
-    const fills = (element as Record<string, unknown> | undefined)?.fills
+    const fills = (element as unknown as Record<string, unknown> | undefined)
+      ?.fills
     return isFillArray(fills) ? fills : []
   })
 
@@ -159,6 +195,46 @@ const computeFillsValue = ({
   }
 
   return toFillRows(baseFills)
+}
+
+const computeStrokesValue = ({
+  selectedIds,
+  elements
+}: PropertyComputeContext): StrokeRowAttrs[] | typeof MIXED_STRING => {
+  if (selectedIds.size === 0) {
+    return []
+  }
+
+  const elementStrokes = elements.map((element) => {
+    const strokes = (element as unknown as Record<string, unknown> | undefined)
+      ?.strokes
+    return isStrokeArray(strokes) ? strokes : []
+  })
+
+  if (elementStrokes.length === 0) {
+    return []
+  }
+
+  const baseStrokes = elementStrokes[0]
+
+  if (
+    !elementStrokes.every((strokes) => strokes.length === baseStrokes.length)
+  ) {
+    return MIXED_STRING
+  }
+
+  for (let i = 0; i < baseStrokes.length; i += 1) {
+    const baseStroke = baseStrokes[i]
+    const allMatch = elementStrokes.every((strokes) =>
+      areStrokesEqual(baseStroke, strokes[i])
+    )
+
+    if (!allMatch) {
+      return MIXED_STRING
+    }
+  }
+
+  return toStrokeRows(baseStrokes)
 }
 
 export const registerProperties = (core: PresetCoreAPIs): void => {
@@ -242,6 +318,18 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     },
     emptyValue: [],
     compute: computeFillsValue
+  })
+
+  core.defineUIProperty<StrokeRowAttrs[] | typeof MIXED_STRING>('strokes', {
+    defaultValue: [],
+    aggregate: true,
+    triggers: {
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+      key: 'strokes',
+      onSelectionChange: true
+    },
+    emptyValue: [],
+    compute: computeStrokesValue
   })
 
   const zoomObservable = core.defineSystemProperty<number>('zoom', 1)

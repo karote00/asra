@@ -1,5 +1,6 @@
 import { defineComponent } from '@asyra/core'
 import { EntityTypes, PropertyTypes, createDefaultFills } from '@asyra/utils'
+import { DEFAULT_GROUP_STROKES } from './strokes'
 
 defineComponent({
   type: EntityTypes.GROUP,
@@ -21,6 +22,11 @@ defineComponent({
       name: 'fills',
       type: PropertyTypes.FILLS,
       defaultValue: createDefaultFills({ color: '#cccccc', visible: false })
+    },
+    {
+      name: 'strokes',
+      type: PropertyTypes.STROKES,
+      defaultValue: DEFAULT_GROUP_STROKES
     }
   ],
   renderStrategy: (graphic, data) => {

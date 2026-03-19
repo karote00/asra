@@ -1,6 +1,7 @@
 export * from './layout'
 export * from './color'
 export * from './fills'
+export * from './strokes'
 export * from './input-events'
 export * from './feature-names'
 export * from './tools'

@@ -1,5 +1,5 @@
 import type { PositionData } from '@asyra/utils'
-import type { FillAttrs } from '@asyra/utils'
+import type { FillAttrs, StrokeAttrs } from '@asyra/utils'
 
 export const VECTOR_ANCHOR_ID_TYPE = 'vector-anchor'
 export const VECTOR_ANCHOR_ID_PREFIX = 'anchor'
@@ -82,6 +82,7 @@ export interface VectorTopology {
 export interface VectorStrokeStyle {
   stroke: string
   strokeWidth: number
+  strokes?: StrokeAttrs[]
 }
 
 export interface VectorPathStyle extends VectorStrokeStyle {

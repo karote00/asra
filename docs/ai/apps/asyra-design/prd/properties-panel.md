@@ -9,6 +9,7 @@ Users need precise property editing that reflects current selection/mode state w
 - show correct panel content based on context
 - support numeric editing for layout and vector points
 - support repeatable fill editing for selected elements
+- support repeatable stroke editing for selected elements
 - prevent invalid numeric updates
 
 ## Functional Requirements
@@ -29,11 +30,16 @@ Users need precise property editing that reflects current selection/mode state w
 14. `fills` panel data is selection-derived in ui-context; providers only select from the computed `fills` value and do not manage selection subscriptions themselves.
 15. When a gradient fill is active for editing, the canvas should show gradient handles and allow direct handle dragging to update `gradientHandles`.
 16. One canvas gradient-handle drag session must produce exactly one undo commit even if many drag-frame geometry updates occur.
+17. Selected element in element-properties mode shows a repeatable `strokes` section below fills.
+18. Stroke row supports `visible`, `opacity`, `colorFormat`, `color`, `width`, `style`, `position`, `dash`, `gap`, `joinType`, and `miterAngle`.
+19. Stroke add/remove writes may replace the top-level `strokes` list through the computed/property runtime.
+20. Single-stroke field edits update the child `STROKE` property directly through the core props bridge with owner metadata.
+21. One stroke color-picker drag session must produce exactly one undo commit even if many drag-frame color updates occur.
 
 ## Data Flow
 
-- UI reads from providers (`useX`, `useY`, `useFills`, `useFill`, `useSelectedVectorPoint`, etc.)
-- UI writes through controllers/common APIs (`changeElementComputedData`, `updateVectorAnchorPointPosition`, direct fill child update helpers)
+- UI reads from providers (`useX`, `useY`, `useFills`, `useFill`, `useStrokes`, `useStroke`, `useSelectedVectorPoint`, etc.)
+- UI writes through controllers/common APIs (`changeElementComputedData`, `updateVectorAnchorPointPosition`, direct fill/stroke child update helpers)
 
 ## Success Criteria
 

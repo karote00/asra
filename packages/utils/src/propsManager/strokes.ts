@@ -1,0 +1,76 @@
+import type { BasePropertyAttrs } from './instanceTypes'
+import { FillColorFormats, type FillColorFormat } from './fills'
+
+export const StrokeStyles = {
+  SOLID: 'solid',
+  DASHED: 'dashed'
+} as const
+
+export type StrokeStyle = (typeof StrokeStyles)[keyof typeof StrokeStyles]
+
+export const StrokePositions = {
+  CENTER: 'center',
+  INSIDE: 'inside',
+  OUTSIDE: 'outside'
+} as const
+
+export type StrokePosition =
+  (typeof StrokePositions)[keyof typeof StrokePositions]
+
+export const StrokeJoinTypes = {
+  MITER: 'miter',
+  BEVEL: 'bevel',
+  ROUND: 'round'
+} as const
+
+export type StrokeJoinType =
+  (typeof StrokeJoinTypes)[keyof typeof StrokeJoinTypes]
+
+export interface StrokeAttrs extends BasePropertyAttrs {
+  style: StrokeStyle
+  position: StrokePosition
+  width: number
+  dash: number
+  gap: number
+  defaultColorFormat: FillColorFormat
+  colorFormat: FillColorFormat
+  color: string
+  opacity: number
+  visible: boolean
+  joinType: StrokeJoinType
+  miterAngle: number
+}
+
+export interface StrokeRowAttrs
+  extends Omit<StrokeAttrs, 'id'>,
+    Record<string, unknown> {
+  ids: string[]
+}
+
+export interface StrokesAttrs extends BasePropertyAttrs {
+  strokes: string[]
+}
+
+export const createDefaultStroke = (
+  overrides: Partial<StrokeAttrs> = {}
+): StrokeAttrs => ({
+  id: '',
+  type: 'stroke',
+  style: StrokeStyles.SOLID,
+  position: StrokePositions.CENTER,
+  width: 1,
+  dash: 20,
+  gap: 20,
+  defaultColorFormat: FillColorFormats.HEX,
+  colorFormat: FillColorFormats.HEX,
+  color: '#000000',
+  opacity: 1,
+  visible: true,
+  joinType: StrokeJoinTypes.MITER,
+  miterAngle: 28.96,
+  ...overrides
+})
+
+export const createDefaultStrokes = (
+  strokeOverrides: Partial<StrokeAttrs> = {}
+): StrokeAttrs[] => [createDefaultStroke(strokeOverrides)]

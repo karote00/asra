@@ -227,12 +227,17 @@ describe('Vector Component', () => {
     const properties =
       elementPropertyRegistry.getPropertiesForComponent('vector')
     const fillsProp = properties.find((p) => p.name === 'fills')
+    const strokesProp = properties.find((p) => p.name === 'strokes')
     const fillProp = properties.find((p) => p.name === 'fill')
     const strokeStyleProp = properties.find((p) => p.name === 'strokeStyle')
 
     expect(fillsProp).toBeDefined()
     expect(fillsProp?.type).toBe(PropertyTypes.FILLS)
     expect(Array.isArray(fillsProp?.defaultValue)).toBe(true)
+
+    expect(strokesProp).toBeDefined()
+    expect(strokesProp?.type).toBe(PropertyTypes.STROKES)
+    expect(Array.isArray(strokesProp?.defaultValue)).toBe(true)
 
     expect(fillProp).toBeDefined()
     expect(fillProp?.defaultValue).toBe('none')
@@ -290,12 +295,14 @@ describe('Vector Component', () => {
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
     expect(mockGraphic.clear).toHaveBeenCalled()
-    expect(mockGraphic.stroke).toHaveBeenCalledWith({
-      width: 2,
-      color: 0x000000,
-      cap: 'round',
-      join: 'round'
-    })
+    expect(mockGraphic.stroke).toHaveBeenCalledWith(
+      expect.objectContaining({
+        width: 2,
+        color: 0x000000,
+        cap: 'round',
+        join: 'round'
+      })
+    )
     expect(mockGraphic.moveTo).toHaveBeenCalledWith(0, 0)
     expect(mockGraphic.lineTo).toHaveBeenCalledWith(100, 0)
     expect(mockGraphic.lineTo).toHaveBeenCalledWith(100, 100)

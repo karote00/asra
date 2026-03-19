@@ -1,6 +1,7 @@
 import { defineComponent } from '@asyra/core'
 import { EntityTypes, PropertyTypes } from '@asyra/utils'
 import { applyRenderableFill, DEFAULT_FRAME_FILLS } from './fills'
+import { DEFAULT_FRAME_STROKES, renderPolylineStrokes } from './strokes'
 
 defineComponent({
   type: EntityTypes.FRAME,
@@ -22,6 +23,11 @@ defineComponent({
       name: 'fills',
       type: PropertyTypes.FILLS,
       defaultValue: DEFAULT_FRAME_FILLS
+    },
+    {
+      name: 'strokes',
+      type: PropertyTypes.STROKES,
+      defaultValue: DEFAULT_FRAME_STROKES
     }
   ],
   renderStrategy: (graphic, data) => {
@@ -31,7 +37,21 @@ defineComponent({
     }
     replayPath()
     applyRenderableFill(graphic, data.fills, { replayPath })
-    graphic.stroke({ color: 0x000000, width: 1 })
+    renderPolylineStrokes(
+      graphic,
+      [
+        {
+          points: [
+            { x: 0, y: 0 },
+            { x: data.width, y: 0 },
+            { x: data.width, y: data.height },
+            { x: 0, y: data.height }
+          ],
+          closed: true
+        }
+      ],
+      data.strokes
+    )
     graphic.x = data.x
     graphic.y = data.y
   }

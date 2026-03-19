@@ -7,6 +7,7 @@ import type {
 } from '@asyra/core'
 import { VECTOR_TOKENS } from '@asyra/core'
 import type { DataTypes, PositionData, EVENT_OPTIONS } from '@asyra/utils'
+import { StrokeJoinTypes, createDefaultStrokes } from '@asyra/utils'
 import { startTransaction, endTransaction } from '@asyra/reactive-events'
 import { isEqual } from 'lodash'
 import core, { render, sceneTree } from '../../contexts'
@@ -57,6 +58,10 @@ import { systemContextApis } from '../system-context'
 const DEFAULT_VECTOR_STYLE: VectorPathStyle = {
   closed: false,
   fills: [],
+  strokes: createDefaultStrokes({
+    color: DEFAULT_VECTOR_STROKE_COLOR,
+    joinType: StrokeJoinTypes.ROUND
+  }),
   stroke: DEFAULT_VECTOR_STROKE_COLOR,
   strokeWidth: 1
 }
@@ -988,6 +993,7 @@ export const vectorApis = {
         networks: normalizedTopology.networks,
         closed,
         fills: DEFAULT_VECTOR_STYLE.fills ?? [],
+        strokes: DEFAULT_VECTOR_STYLE.strokes ?? [],
         stroke: DEFAULT_VECTOR_STYLE.stroke,
         strokeWidth: DEFAULT_VECTOR_STYLE.strokeWidth
       },

@@ -8,6 +8,8 @@ export const PropertyTypes = {
   CUSTOM: 'custom',
   FILL: 'fill',
   FILLS: 'fills',
+  STROKE: 'stroke',
+  STROKES: 'strokes',
   ANCHOR_POINT: 'anchorPoint',
   ANCHOR_POINTS: 'anchorPoints',
   VECTOR_POINT: 'vectorPoint',
