@@ -79,6 +79,7 @@ class Core implements CoreAPIs {
   unregisterRenderLayer!: RenderAPIs['unregisterRenderLayer']
   createRenderGradientFillStyle!: RenderAPIs['createRenderGradientFillStyle']
   createEvenOddFillStyle!: RenderAPIs['createEvenOddFillStyle']
+  createMeshProjection!: RenderAPIs['createMeshProjection']
   registerRenderInteractionTargets!: RenderAPIs['registerRenderInteractionTargets']
   updateRenderInteractionTarget!: RenderAPIs['updateRenderInteractionTarget']
   unregisterRenderInteractionTarget!: RenderAPIs['unregisterRenderInteractionTarget']

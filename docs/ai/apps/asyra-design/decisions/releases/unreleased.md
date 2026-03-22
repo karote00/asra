@@ -259,6 +259,33 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 
 ## 2026-03-03 - Delete shortcut guard is mode-driven and regression-covered
 
+## 2026-03-21 - Dashed stroke recovery finalized on GeometryModel -> MeshProjection path
+
+- Context:
+  - Earlier dashed-stroke recovery work chose the correct geometry-first
+    direction but still allowed renderer-path drift and workaround-style
+    geometry repair.
+  - The reported self-intersecting `inside` dashed sample exposed that single
+    outline polygons could collapse visually after projection/triangulation.
+- Decision:
+  - Treat `GeometryModel` as the canonical dashed-stroke geometry output and
+    `MeshProjection` as the Pixi-specific projection layer.
+  - Keep dash allocation on authored path distance and generate local subpath
+    geometry from authored bezier segments.
+  - Replace single dash outline contours with simple non-self-intersecting
+    patch polygons (segment quads, join patches, round-cap patches) before mesh
+    projection.
+  - Route dashed vector rendering and dashed hit-testing through the same
+    geometry-derived path instead of mixing correctness between `Graphics`
+    stroke commands and post-hoc repair.
+- Consequences:
+  - Dashed vector geometry is now future-compatible with gradient stroke fill
+    and other stroke-derived mesh features.
+  - The reported sample is guarded by executable algorithm and projection
+    rasterization checks rather than local reasoning alone.
+  - Non-dashed stroke modes remain on their previous rendering path until the
+    future stroke/gradient expansion plan widens the geometry model scope.
+
 - Context:
   - Delete behavior had risk of coupling to `pathEditingVectorId` presence instead of explicit path-editing mode state.
   - This can produce incorrect blocking/allowing behavior when mode/id state is temporarily out of sync.
@@ -1178,6 +1205,32 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 - Decision:
   - Apply the custom vector hover hit area to the general vector render path,
     not only the gradient raster branch.
+
+## 2026-03-21 - Dashed stroke corners moved to geometry-first rendering
+
+- Context:
+  - Closed-path dashed strokes still relied on stroked centerline pieces for
+    rendering, which allowed semi-transparent corner-spanning dashes to darken
+    from overlap.
+  - `inside` dashed corners could also remain inside the overall shape mask
+    while escaping the true segment-bounded wedge at acute corners.
+  - Future gradient stroke fill needs dashed stroke rendering to behave as
+    visible geometry plus paint, not as a stroke-command composition artifact.
+- Decision:
+  - Replace dashed stroke rendering with explicit visible polygon geometry and
+    render those dashed parts through fill semantics.
+  - Clip acute `inside` dashed corners against the original segment half-planes
+    so the visible geometry stays inside the true wedge.
+  - Expose polygon hit primitives for dashed stroke parts and consume the same
+    geometry in vector hover hit testing.
+- Consequences:
+  - Semi-transparent dashed corners preserve authored color without overlap
+    darkening.
+  - `inside` dashed corners stay within the intended segment-bounded region.
+  - Dashed stroke rendering now has one geometry-first model that future
+    gradient stroke fill can build on.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/stroke-geometry-first-corner-correctness-plan.md`
   - Treat `hoveredElementId` as the selection gate and frame this work as
     hover-only in plan/docs language.
   - Supersede the earlier active-plan reference with the completed-plan path
@@ -1188,3 +1241,132 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     selection continues to consume that hover target.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/vector-stroke-hit-test-plan.md`
+
+## 2026-03-21 - Geometry-first dashed stroke closeout finalized from sample regressions
+
+- Context:
+  - The initial geometry-first dashed stroke conversion established the right
+    rendering direction, but sample-based regressions still exposed three
+    remaining correctness gaps:
+    - short dashes on bezier segments could flatten too coarsely and drift at
+      both ends
+    - closed-path corner-adjacent dashes still lacked enough local context at
+      path-start and sharp-corner boundaries
+    - translucent dashed polygons needed to render as one filled stroke path to
+      avoid repeated alpha darkening across overlapping dash regions
+- Decision:
+  - Finalize the geometry-first dashed stroke path with:
+    - stroke-specific bezier flattening density for stroke polylines
+    - dash-part endpoint context plus full closed-path `inside` half-plane
+      clipping for corner correctness
+    - one filled path per dashed stroke/polyline to preserve authored alpha
+      without fallback re-stroking of clipped-away inside dashes
+- Consequences:
+  - The reported sample corner cases at the third point, the penultimate/last
+    segment join, and the closed-path start are covered by renderer regression
+    tests.
+  - Dashed stroke correctness and translucent overlap behavior now resolve in
+    the same geometry-first pipeline that future gradient stroke fill can
+    extend.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/stroke-geometry-first-corner-correctness-plan.md`
+
+## 2026-03-21 - Solid dashed stroke projection composes canonical geometry in one fill pass
+
+- Context:
+  - `GeometryModel` now emits canonical dashed stroke patch polygons and uses
+    local inside-corner constraints to keep acute `inside` dashes within the
+    intended wedge.
+  - Those patch polygons can still overlap where separate dash regions become
+    spatially close, which is acceptable geometry-wise but darkens
+    semi-transparent output if the renderer paints each polygon independently.
+  - The product requirement is that translucent dashed strokes preserve authored
+    color even when geometry patches overlap.
+- Decision:
+  - Keep `GeometryModel` as the canonical algorithm/hit-test layer.
+  - Change `MeshProjection` solid-paint rendering to compose all polygons in a
+    single compound fill pass instead of triangulating and alpha-blending each
+    polygon independently.
+  - Validate geometry correctness and render composition separately:
+    - geometry tests use acute-corner oracles on canonical fixtures
+    - render tests assert a single fill pass per projection update
+- Consequences:
+  - `inside` dashed corner correctness remains geometry-driven and testable.
+  - Semi-transparent dashed strokes no longer darken from repeated per-polygon
+    paint accumulation in the solid projection path.
+  - Future gradient stroke fill can reuse the same `GeometryModel` contract
+    while introducing its own projection-specific paint path.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-stroke-correctness-recovery-plan.md`
+
+## 2026-03-23 - Dashed stroke corner alpha-union workaround approach rejected
+
+- Context:
+  - A plan to use mask-plus-rectangle workarounds for `inside` dashed corner
+    rendering was proposed to handle edge cases in corner geometry.
+  - App policy prohibits workaround approaches; geometry-first rendering is the
+    only valid path forward.
+  - The workaround plan included mask composition, fill-rule fallbacks, and
+    local rectangle compensation at corners—all runtime patches rather than
+    algorithmic correctness.
+- Decision:
+  - Reject the dashed-stroke-corner-alpha-union (workaround) plan.
+  - Supersede it with a comprehensive 2-phase geometry-and-dash-gap completion
+    plan that addresses all remaining geometry bugs and gap specifications
+    through oracle-driven validation rather than workarounds.
+  - Move the rejected workaround plan to the completed-plans archive with a
+    REJECTED status record.
+- Consequences:
+  - Geometry-first rendering remains the single authorized path.
+  - No workarounds allowed; all fixes must improve the canonical algorithm.
+  - The comprehensive 2-phase plan provides executable oracle gates at both
+    geometry and gap layers, preventing workaround temptation from incomplete
+    fixes.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/dashed-stroke-corner-alpha-union-plan.md`
+
+## 2026-03-23 - Geometry-and-dash-gap completion plan adopted with oracle gates
+
+- Context:
+  - Dashed stroke rendering is partially implemented but has known bugs in
+    5 areas: sharp corner wedge clipping, dash sizing inconsistency, polygon
+    connectivity, self-intersection detection, and coverage density.
+  - Gap size rules are undefined; gap calculation logic is broken.
+  - Future gradient stroke fill is blocked until both geometry and gap layers
+    are verified correct through oracle validation.
+  - The previous workaround plan was rejected; geometry-first requires a
+    systematic 2-phase approach with executable exit gates.
+- Decision:
+  - Adopt the comprehensive `geometry-and-dash-gap-completion` plan as the
+    canonical path forward.
+  - Phase 1 (Geometry: Days 1–3):
+    - Fix all 5 geometry bugs to satisfy oracle validation:
+      1. Dash interval monotonicity (intervals in increasing distance order)
+      2. Sharp corner wedge clipping (inside-corner vertices stay within
+         segment half-plane bounds)
+      3. Polygon connectivity (no duplicate vertices, degenerate edges; min 3
+         vertices per polygon)
+      4. Self-intersection absence (polygons must not self-cross)
+      5. Coverage density (rasterized polygon coverage > 70% of target dash
+         length)
+    - Expand test fixtures: right-triangle corner case, reported 5-anchor
+      sample, edge cases (very short dashes, curved segments)
+    - Exit gate checklist: 7 executable validation items covering all oracles
+  - Phase 2 (Gap Specification & Implementation: Days 4–5):
+    - Define gap size rules with worked examples
+    - Implement gap calculation in getDashPattern logic
+    - Add gap proportion oracle tests
+    - Exit gate checklist: 5 executable implementation + gap-oracle items
+  - Blocking rule: Phase 2 only starts after Phase 1 exit gate passes. Gradient
+    stroke fill only proceeds after both phases complete. No workarounds
+    allowed to skip oracle validation at any phase.
+- Consequences:
+  - Dashed stroke rendering now has an explicit 2-phase completion roadmap with
+    binary oracle gates.
+  - No phase proceeds until exit criteria are satisfied; no workarounds allowed.
+  - Phase 1 completion unblocks gap implementation and gradient stroke fill
+    development.
+  - Target sample (5-anchor closed path with inside dashed stroke) is the
+    recurring validation fixture for both phases.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/geometry-and-dash-gap-completion.md`

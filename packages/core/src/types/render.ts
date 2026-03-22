@@ -3,6 +3,8 @@ import type {
   RenderFillStyle,
   EvenOddFillOptions,
   EvenOddFillResult,
+  CreateMeshProjectionOptions,
+  MeshProjection,
   RenderInteractionTarget,
   RenderInteractionHandlerRegistration,
   RenderInteractionEventType
@@ -33,6 +35,7 @@ export interface RenderRawAPIs {
   createEvenOddFillStyle: (
     options: EvenOddFillOptions
   ) => EvenOddFillResult | null
+  createMeshProjection: (options: CreateMeshProjectionOptions) => MeshProjection
   registerRenderInteractionTargets: (
     targets: RenderInteractionTarget | RenderInteractionTarget[],
     options?: { override?: boolean }

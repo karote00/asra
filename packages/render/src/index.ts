@@ -17,6 +17,14 @@ export {
   type RenderFillStyle
 } from './fills/gradient-fill'
 export { createEvenOddFillStyle } from './fills/even-odd-fill'
+export {
+  createMeshProjection,
+  type GeometryPoint,
+  type GeometryModel,
+  type MeshProjectionPaint,
+  type CreateMeshProjectionOptions,
+  type MeshProjection
+} from './projections/mesh-projection'
 export type {
   EvenOddSegment,
   EvenOddPath,

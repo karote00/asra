@@ -56,6 +56,7 @@ export {
   createRenderInteractionPolylineTarget,
   createRenderGradientFillStyle,
   createEvenOddFillStyle,
+  createMeshProjection,
   renderSceneTreeStore,
   renderSelectionStore,
   type OverlayCanvas,
@@ -75,7 +76,12 @@ export {
   type EvenOddPath,
   type EvenOddShape,
   type EvenOddFillOptions,
-  type EvenOddFillResult
+  type EvenOddFillResult,
+  type GeometryPoint,
+  type GeometryModel,
+  type MeshProjectionPaint,
+  type CreateMeshProjectionOptions,
+  type MeshProjection
 } from '@asyra/render'
 export type { RenderStrategy } from '@asyra/render'
 export {
@@ -156,6 +162,7 @@ type CoreExtensionApiKeys =
   | 'unregisterRenderLayer'
   | 'createRenderGradientFillStyle'
   | 'createEvenOddFillStyle'
+  | 'createMeshProjection'
   | 'registerRenderInteractionTargets'
   | 'updateRenderInteractionTarget'
   | 'unregisterRenderInteractionTarget'

@@ -4,11 +4,24 @@ Never record completed plans here.
 
 ## In Progress
 
-None.
-
+None
 
 ## Near-Term
 
+1. Geometry Layer and Dash Gap Completion
+
+- **Phase 1:** Geometry correctness (Oracle validation)
+  - Issue: Sharp corners escape segment wedge; dash sizing inconsistent
+  - Exit gate: All geometry oracles pass + complete test coverage
+- **Phase 2:** Dash gap fixes (Depends on Phase 1 ✓)
+  - Issue: Gap size rules undefined; calculation broken
+  - Depends on: Phase 1 oracle gates
+- plan: `docs/ai/apps/asyra-design/plans/geometry-and-dash-gap-completion.md`
+
+2. Gradient stroke fill
+
+- Depends on: Geometry Layer and Dash Gap Completion
+- plan: `docs/ai/apps/asyra-design/plans/gradient-stroke-fill-plan.md`
 
 2. Reduce app-level internal coupling
 

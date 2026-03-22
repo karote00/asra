@@ -194,6 +194,24 @@ const createSolidFill = (color: string, opacity = 1) => ({
   gradient: null
 })
 
+const getPolygonBounds = (polygons: { x: number; y: number }[][]) => {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  polygons.forEach((polygon) =>
+    polygon.forEach((point) => {
+      minX = Math.min(minX, point.x)
+      minY = Math.min(minY, point.y)
+      maxX = Math.max(maxX, point.x)
+      maxY = Math.max(maxY, point.y)
+    })
+  )
+
+  return { minX, minY, maxX, maxY }
+}
+
 describe('Vector Component', () => {
   it('should register vector component in all registries', () => {
     expect(componentRegistry.has('vector')).toBe(true)
@@ -936,5 +954,228 @@ describe('Vector Component', () => {
 
     expect(mockGraphic.hitArea?.contains(50, 35)).toBe(true)
     expect(mockGraphic.hitArea?.contains(50, 52)).toBe(false)
+  })
+
+  it('should project broad dashed mesh geometry for the reported inside-stroke sample', () => {
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) return
+
+    const originalCreateMeshProjection = core.createMeshProjection
+    const createMeshProjectionMock = vi.fn((options) => ({
+      attach: () => true,
+      update: () => undefined,
+      setVisible: () => undefined,
+      dispose: () => undefined,
+      options
+    }))
+    core.createMeshProjection =
+      createMeshProjectionMock as typeof core.createMeshProjection
+
+    try {
+      const mockGraphic = {
+        clear: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        bezierCurveTo: vi.fn(),
+        closePath: vi.fn(),
+        cut: vi.fn(),
+        fill: vi.fn(),
+        stroke: vi.fn(),
+        addChild: vi.fn()
+      }
+
+      const mockData = {
+        id: 'vector-6',
+        x: 1231.1319171817522,
+        y: 1023.4799823051757,
+        width: 394.8221120690488,
+        height: 388.6103087915773,
+        points: {
+          'tp-17': {
+            id: 'tp-17',
+            kind: 'anchor',
+            x: 274.2719180151795,
+            y: 0,
+            anchorType: 'smooth'
+          },
+          'tp-18': {
+            id: 'tp-18',
+            kind: 'anchor',
+            x: 82.52429391607177,
+            y: 338.18779271488194,
+            anchorType: 'smooth'
+          },
+          'tp-17:out': {
+            id: 'tp-17:out',
+            kind: 'control',
+            x: 271.4660920220331,
+            y: 111.39323367600485,
+            controlForId: 'tp-17',
+            controlRole: 'out'
+          },
+          'tp-18:in': {
+            id: 'tp-18:in',
+            kind: 'control',
+            x: -48.2200776215476,
+            y: 322.0065586136914,
+            controlForId: 'tp-18',
+            controlRole: 'in'
+          },
+          'tp-18:out': {
+            id: 'tp-18:out',
+            kind: 'control',
+            x: 245.95475833809598,
+            y: 358.4143353413701,
+            controlForId: 'tp-18',
+            controlRole: 'out'
+          },
+          'tp-19': {
+            id: 'tp-19',
+            kind: 'anchor',
+            x: 394.8221120690488,
+            y: 194.98387091934586,
+            anchorType: 'smooth'
+          },
+          'tp-19:in': {
+            id: 'tp-19:in',
+            kind: 'control',
+            x: 279.12628824553656,
+            y: 217.63759866101265,
+            controlForId: 'tp-19',
+            controlRole: 'in'
+          },
+          'tp-19:out': {
+            id: 'tp-19:out',
+            kind: 'control',
+            x: 338.99685441994154,
+            y: 194.98387091934586,
+            controlForId: 'tp-19',
+            controlRole: 'out'
+          },
+          'tp-20': {
+            id: 'tp-20',
+            kind: 'anchor',
+            x: 0,
+            y: 123.78644087410754,
+            anchorType: 'sharp'
+          },
+          'tp-21': {
+            id: 'tp-21',
+            kind: 'anchor',
+            x: 379.4499396729178,
+            y: 377.8318162627988,
+            anchorType: 'smooth'
+          },
+          'tp-20:out': {
+            id: 'tp-20:out',
+            kind: 'control',
+            x: 0,
+            y: 123.78644087410754,
+            controlForId: 'tp-20',
+            controlRole: 'out'
+          },
+          'tp-21:in': {
+            id: 'tp-21:in',
+            kind: 'control',
+            x: 362.45964386666776,
+            y: 451.45643142321575,
+            controlForId: 'tp-21',
+            controlRole: 'in'
+          },
+          'tp-21:out': {
+            id: 'tp-21:out',
+            kind: 'control',
+            x: 396.4402354791679,
+            y: 304.2072011023818,
+            controlForId: 'tp-21',
+            controlRole: 'out'
+          }
+        } satisfies Record<string, VectorPointNode>,
+        segments: {
+          'ts-32': {
+            id: 'ts-32',
+            startId: 'tp-17',
+            endId: 'tp-18',
+            outControlId: 'tp-17:out',
+            inControlId: 'tp-18:in'
+          },
+          'ts-33': {
+            id: 'ts-33',
+            startId: 'tp-18',
+            endId: 'tp-19',
+            outControlId: 'tp-18:out',
+            inControlId: 'tp-19:in'
+          },
+          'ts-34': {
+            id: 'ts-34',
+            startId: 'tp-19',
+            endId: 'tp-20',
+            outControlId: 'tp-19:out',
+            inControlId: null
+          },
+          'ts-35': {
+            id: 'ts-35',
+            startId: 'tp-20',
+            endId: 'tp-21',
+            outControlId: 'tp-20:out',
+            inControlId: 'tp-21:in'
+          },
+          'ts-36': {
+            id: 'ts-36',
+            startId: 'tp-21',
+            endId: 'tp-17',
+            outControlId: 'tp-21:out',
+            inControlId: null
+          }
+        } satisfies Record<string, VectorSegment>,
+        networks: {
+          'tn-5': {
+            id: 'tn-5',
+            pointIds: ['tp-17', 'tp-18', 'tp-19', 'tp-20', 'tp-21'],
+            segmentIds: ['ts-32', 'ts-33', 'ts-34', 'ts-35', 'ts-36'],
+            closed: true
+          }
+        } satisfies Record<string, VectorNetwork>,
+        closed: true,
+        fills: [],
+        strokes: [
+          createDefaultStroke({
+            id: 'pp-89',
+            style: 'dashed',
+            position: 'inside',
+            width: 10,
+            dash: 27,
+            gap: 20,
+            color: '#0fd123',
+            opacity: 0.5,
+            visible: true,
+            joinType: 'miter',
+            miterAngle: 28.96
+          })
+        ],
+        stroke: '#cccccc',
+        strokeWidth: 1
+      }
+
+      runRenderStrategy(renderStrategy, mockGraphic, mockData)
+
+      expect(createMeshProjectionMock).toHaveBeenCalledTimes(1)
+      const [{ model, paint }] = createMeshProjectionMock.mock.calls[0]
+      expect(paint).toEqual(
+        expect.objectContaining({
+          kind: 'solid',
+          alpha: 0.5
+        })
+      )
+      expect(model.polygons.length).toBeGreaterThan(20)
+
+      const bounds = getPolygonBounds(model.polygons)
+      expect(bounds.maxX - bounds.minX).toBeGreaterThan(300)
+      expect(bounds.maxY - bounds.minY).toBeGreaterThan(300)
+    } finally {
+      core.createMeshProjection = originalCreateMeshProjection
+    }
   })
 })

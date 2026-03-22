@@ -8,17 +8,27 @@ import {
 import type { FillAttrs, StrokeAttrs } from '@asyra/utils'
 import core, { VECTOR_TOKENS, defineComponent } from '@asyra/core'
 import type { RenderStrategy } from '@asyra/core'
-import type { VectorNetwork, VectorPointNode, VectorSegment } from '@asyra/core'
+import type {
+  MeshProjection,
+  VectorNetwork,
+  VectorPointNode,
+  VectorSegment
+} from '@asyra/core'
 import {
   DEFAULT_VECTOR_FILLS,
   applyRenderableFill,
   getRenderableFills
 } from './fills'
 import {
+  buildVectorGeometryModelPath,
+  createDashedGeometryModel
+} from './geometry-model'
+import {
   applyStrokeStyle,
   beginStrokePath,
   buildStrokeHitSegments,
   getRenderableStrokes,
+  type RenderableStroke,
   type StrokeHitSegment,
   renderPolylineStrokes
 } from './strokes'
@@ -98,6 +108,10 @@ interface EvenOddFillCache {
   networks?: Record<string, VectorNetwork>
 }
 
+interface MeshProjectionCache {
+  projections: MeshProjection[]
+}
+
 interface VectorHitCache {
   segmentKeyMap?: Record<string, string>
   segmentLinesMap?: Record<string, LineSegment[]>
@@ -150,6 +164,10 @@ const getControlNode = (
 
 const MIN_FLATTEN_STEPS = 12
 const MAX_FLATTEN_STEPS = 64
+const STROKE_MIN_FLATTEN_STEPS = 24
+const STROKE_MAX_FLATTEN_STEPS = 256
+const DEFAULT_FLATTEN_SEGMENT_LENGTH = 12
+const STROKE_FLATTEN_SEGMENT_LENGTH = 4
 const INTERSECTION_EPS = 1e-6
 const NODE_KEY_EPS = 1e-4
 const MAX_OPEN_SEGMENTS = 1200
@@ -184,11 +202,30 @@ const estimateCurveLength = (p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2) =>
   Math.hypot(p2.x - p1.x, p2.y - p1.y) +
   Math.hypot(p3.x - p2.x, p3.y - p2.y)
 
-const getFlattenSteps = (p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2) => {
+const getFlattenStepsForTarget = (
+  p0: Vec2,
+  p1: Vec2,
+  p2: Vec2,
+  p3: Vec2,
+  targetSegmentLength: number,
+  minSteps: number,
+  maxSteps: number
+) => {
   const length = estimateCurveLength(p0, p1, p2, p3)
-  const steps = Math.ceil(length / 12)
-  return Math.max(MIN_FLATTEN_STEPS, Math.min(MAX_FLATTEN_STEPS, steps))
+  const steps = Math.ceil(length / targetSegmentLength)
+  return Math.max(minSteps, Math.min(maxSteps, steps))
 }
+
+const getFlattenSteps = (p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2) =>
+  getFlattenStepsForTarget(
+    p0,
+    p1,
+    p2,
+    p3,
+    DEFAULT_FLATTEN_SEGMENT_LENGTH,
+    MIN_FLATTEN_STEPS,
+    MAX_FLATTEN_STEPS
+  )
 
 const toSegmentKeyCoord = (value: number | null | undefined) =>
   value === null || value === undefined ? 'n' : `${value}`
@@ -795,11 +832,41 @@ const isPointNearStrokeHitSegments = (
   point: Vec2,
   segments: StrokeHitSegment[]
 ) =>
-  segments.some(
-    (segment) =>
+  segments.some((segment) => {
+    if (segment.kind === 'polygon') {
+      const polygon = segment.points ?? []
+      if (polygon.length < 3) {
+        return false
+      }
+
+      let inside = false
+      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const pi = polygon[i]
+        const pj = polygon[j]
+        const intersects =
+          pi.y > point.y !== pj.y > point.y &&
+          point.x <
+            ((pj.x - pi.x) * (point.y - pi.y)) /
+              (pj.y - pi.y + Number.EPSILON) +
+              pi.x
+
+        if (intersects) {
+          inside = !inside
+        }
+      }
+
+      return inside
+    }
+
+    if (!segment.start || !segment.end || !segment.radius) {
+      return false
+    }
+
+    return (
       distanceSquaredToSegment(point, segment.start, segment.end) <=
       segment.radius * segment.radius
-  )
+    )
+  })
 
 const buildFillFaces = (
   flattenedSegments: LineSegment[],
@@ -1219,6 +1286,12 @@ const renderVectorGraphic = (
   data: VectorComputedData,
   options: { forceFillRebuild?: boolean; allowDeferredFill?: boolean } = {}
 ) => {
+  const graphicCache = graphic as typeof graphic & {
+    __asyraVectorFillCache?: FillFaceCache
+    __asyraEvenOddFillCache?: EvenOddFillCache
+    __asyraVectorHitCache?: VectorHitCache
+  }
+
   graphic.clear()
   ;(graphic as { hitArea: unknown | null }).hitArea = null
   setElementGeometryLocalBounds(
@@ -1274,11 +1347,6 @@ const renderVectorGraphic = (
     return strokePolylinesCache
   }
 
-  const graphicCache = graphic as typeof graphic & {
-    __asyraVectorFillCache?: FillFaceCache
-    __asyraEvenOddFillCache?: EvenOddFillCache
-    __asyraVectorHitCache?: VectorHitCache
-  }
   const applyVectorHoverHitArea = () => {
     const hitCache: VectorHitCache = graphicCache.__asyraVectorHitCache ?? {}
     const hasVisibleFill =
@@ -1308,10 +1376,11 @@ const renderVectorGraphic = (
       ? prepareEvenOddHitSegments(getEvenOddShape())
       : []
 
-    const strokeHitSegments = buildStrokeHitSegments(
-      getStrokePolylines(),
-      strokePayload
-    )
+    const strokeHitSegments = 
+      buildStrokeHitSegments(
+        getStrokePolylines(),
+        strokePayload
+      )
     hitCache.strokeHitSegments = strokeHitSegments
 
     if (hasVisibleFill || strokeHitSegments.length > 0) {
@@ -1559,7 +1628,11 @@ const renderVectorGraphic = (
   )
 
   if (specialStrokePayload.length > 0) {
-    renderPolylineStrokes(graphic, getStrokePolylines(), specialStrokePayload)
+    renderPolylineStrokes(
+      graphic,
+      getStrokePolylines(),
+      specialStrokePayload
+    )
   }
 
   if (

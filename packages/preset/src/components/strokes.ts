@@ -16,9 +16,11 @@ interface Vec2 {
 }
 
 export interface StrokeHitSegment {
-  start: Vec2
-  end: Vec2
-  radius: number
+  kind: 'segment' | 'polygon'
+  start?: Vec2
+  end?: Vec2
+  radius?: number
+  points?: Vec2[]
 }
 
 interface StrokeDrawGraphic {
@@ -62,6 +64,19 @@ export interface RenderableStroke {
   cap: 'round'
   color: number
   alpha: number
+}
+
+export interface DashedStrokeDebugPart {
+  sourcePoints: Vec2[]
+  clipPoints: Vec2[]
+  renderPoints: Vec2[]
+  polygons: Vec2[][]
+}
+
+interface DashedStrokePart {
+  sourcePoints: Vec2[]
+  clipPoints: Vec2[]
+  clipStartIndex: number
 }
 
 const DASH_LENGTH_FACTOR = 4
@@ -128,7 +143,8 @@ const getRenderableStroke = (stroke: StrokeAttrs): RenderableStroke | null => {
     miterLimit: getStrokeMiterLimit(stroke.miterAngle),
     cap: 'round',
     color: rgbaToColorInt(parsed),
-    alpha: clampOpacity(parsed.a * stroke.opacity)
+    alpha: clampOpacity(parsed.a * stroke.opacity),
+    paint: (stroke as any).paint
   }
 }
 
@@ -279,6 +295,7 @@ interface ShiftedSegment {
   start: Vec2
   end: Vec2
   direction: Vec2
+  leftNormal: Vec2
 }
 
 const createShiftedSegment = (
@@ -304,8 +321,491 @@ const createShiftedSegment = (
     direction: {
       x: delta.x / len,
       y: delta.y / len
+    },
+    leftNormal: normal
+  }
+}
+
+const dedupeAdjacentPoints = (points: Vec2[]): Vec2[] => {
+  if (points.length <= 1) {
+    return [...points]
+  }
+
+  const result = [points[0]]
+  for (let i = 1; i < points.length; i += 1) {
+    if (distance(result[result.length - 1], points[i]) > EPS) {
+      result.push(points[i])
     }
   }
+
+  return result
+}
+
+const dedupeClosedPolygonPoints = (points: Vec2[]): Vec2[] => {
+  const deduped = dedupeAdjacentPoints(points)
+  if (
+    deduped.length > 2 &&
+    distance(deduped[0], deduped[deduped.length - 1]) <= EPS
+  ) {
+    deduped.pop()
+  }
+
+  return deduped
+}
+
+const getArcStepAngle = (radius: number): number => {
+  if (!Number.isFinite(radius) || radius <= EPS) {
+    return Math.PI / 8
+  }
+
+  if (radius <= 0.5) {
+    return Math.PI / 8
+  }
+
+  const cosine = 1 - 0.5 / radius
+  const step = 2 * Math.acos(Math.max(-1, Math.min(1, cosine)))
+  if (!Number.isFinite(step) || step <= EPS) {
+    return Math.PI / 8
+  }
+
+  return step
+}
+
+const buildArcPoints = (
+  center: Vec2,
+  fromAngle: number,
+  toAngle: number,
+  radius: number,
+  clockwise: boolean
+): Vec2[] => {
+  let endAngle = toAngle
+  if (clockwise) {
+    while (endAngle >= fromAngle - EPS) {
+      endAngle -= Math.PI * 2
+    }
+  } else {
+    while (endAngle <= fromAngle + EPS) {
+      endAngle += Math.PI * 2
+    }
+  }
+
+  const sweep = endAngle - fromAngle
+  const stepAngle = getArcStepAngle(radius)
+  const steps = Math.max(1, Math.ceil(Math.abs(sweep) / stepAngle))
+  const points: Vec2[] = []
+
+  for (let i = 1; i <= steps; i += 1) {
+    const t = i / steps
+    const angle = fromAngle + sweep * t
+    points.push({
+      x: center.x + Math.cos(angle) * radius,
+      y: center.y + Math.sin(angle) * radius
+    })
+  }
+
+  return points
+}
+
+const buildRoundCapPoints = (
+  center: Vec2,
+  startPoint: Vec2,
+  endPoint: Vec2,
+  radius: number
+) =>
+  buildArcPoints(
+    center,
+    Math.atan2(startPoint.y - center.y, startPoint.x - center.x),
+    Math.atan2(endPoint.y - center.y, endPoint.x - center.x),
+    radius,
+    true
+  )
+
+export const buildOneSidedStrokeShapePolygon = (
+  outerBoundary: Vec2[],
+  innerBoundary: Vec2[],
+  centerlinePoints: Vec2[],
+  stroke: Pick<RenderableStroke, 'width' | 'cap'>,
+  options: {
+    includeStartCap?: boolean
+    includeEndCap?: boolean
+  } = {}
+): Vec2[][] => {
+  const outer = dedupeAdjacentPoints(outerBoundary)
+  const inner = dedupeAdjacentPoints(innerBoundary)
+  const centerline = dedupeAdjacentPoints(centerlinePoints)
+  if (outer.length < 2 || inner.length < 2 || centerline.length < 2) {
+    return []
+  }
+
+  const radius = stroke.width / 2
+  const firstCenter = centerline[0]
+  const lastCenter = centerline[centerline.length - 1]
+  const firstOuter = outer[0]
+  const firstInner = inner[0]
+  const lastOuter = outer[outer.length - 1]
+  const lastInner = inner[inner.length - 1]
+
+  const startCapPoints =
+    stroke.cap === 'round' && options.includeStartCap !== false
+      ? [
+          firstInner,
+          ...buildRoundCapPoints(firstCenter, firstInner, firstOuter, radius),
+          firstOuter
+        ]
+      : []
+  const endCapPoints =
+    stroke.cap === 'round' && options.includeEndCap !== false
+      ? [
+          lastOuter,
+          ...buildRoundCapPoints(lastCenter, lastOuter, lastInner, radius),
+          lastInner
+        ]
+      : []
+
+  const polygon = dedupeClosedPolygonPoints([
+    ...outer,
+    ...(endCapPoints.length > 0 ? endCapPoints.slice(1) : [lastInner]),
+    ...inner.slice(0, -1).reverse(),
+    ...(startCapPoints.length > 0
+      ? startCapPoints.slice(1, Math.max(1, startCapPoints.length - 1))
+      : [])
+  ])
+
+  return polygon.length >= 3 ? [polygon] : []
+}
+
+const buildStrokeShapePolygons = (
+  points: Vec2[],
+  stroke: Pick<RenderableStroke, 'width' | 'join' | 'miterLimit' | 'cap'>,
+  options: {
+    includeStartCap?: boolean
+    includeEndCap?: boolean
+    contextStartIndex?: number
+    contextPointCount?: number
+  } = {}
+): Vec2[][] => {
+  const normalizedPoints =
+    options.contextStartIndex !== undefined ||
+    options.contextPointCount !== undefined
+      ? [...points]
+      : dedupeAdjacentPoints(points)
+  if (normalizedPoints.length < 2) {
+    return []
+  }
+
+  const radius = stroke.width / 2
+  if (radius <= EPS) {
+    return []
+  }
+
+  const leftBoundary = offsetPolyline(normalizedPoints, radius, false, false)
+  const rightBoundary = offsetPolyline(normalizedPoints, -radius, false, false)
+  if (
+    leftBoundary.length !== normalizedPoints.length ||
+    rightBoundary.length !== normalizedPoints.length
+  ) {
+    return []
+  }
+
+  const contextStartIndex = Math.max(0, options.contextStartIndex ?? 0)
+  const contextPointCount =
+    options.contextPointCount ?? normalizedPoints.length - contextStartIndex
+  const renderPoints = normalizedPoints.slice(
+    contextStartIndex,
+    contextStartIndex + contextPointCount
+  )
+  const renderLeftBoundary = dedupeAdjacentPoints(
+    leftBoundary.slice(contextStartIndex, contextStartIndex + contextPointCount)
+  )
+  const renderRightBoundary = dedupeAdjacentPoints(
+    rightBoundary.slice(
+      contextStartIndex,
+      contextStartIndex + contextPointCount
+    )
+  )
+  const renderCenterlinePoints = dedupeAdjacentPoints(renderPoints)
+  if (
+    renderCenterlinePoints.length < 2 ||
+    renderLeftBoundary.length !== renderCenterlinePoints.length ||
+    renderRightBoundary.length !== renderCenterlinePoints.length
+  ) {
+    return []
+  }
+
+  const firstPoint = renderCenterlinePoints[0]
+  const lastPoint = renderCenterlinePoints[renderCenterlinePoints.length - 1]
+  const startLeft = renderLeftBoundary[0]
+  const startRight = renderRightBoundary[0]
+  const endLeft = renderLeftBoundary[renderLeftBoundary.length - 1]
+  const endRight = renderRightBoundary[renderRightBoundary.length - 1]
+
+  const polygon = dedupeClosedPolygonPoints([
+    ...renderLeftBoundary,
+    ...(stroke.cap === 'round' && options.includeEndCap !== false
+      ? buildRoundCapPoints(lastPoint, endLeft, endRight, radius)
+      : [endRight]),
+    ...renderRightBoundary.slice(0, -1).reverse(),
+    ...(stroke.cap === 'round' && options.includeStartCap !== false
+      ? buildRoundCapPoints(firstPoint, startRight, startLeft, radius)
+      : [])
+  ])
+
+  return polygon.length >= 3 ? [polygon] : []
+}
+
+const clipPolygonAgainstHalfPlane = (
+  points: Vec2[],
+  linePoint: Vec2,
+  inwardNormal: Vec2
+): Vec2[] => {
+  if (points.length < 3) {
+    return []
+  }
+
+  const clipped: Vec2[] = []
+
+  for (let i = 0; i < points.length; i += 1) {
+    const current = points[i]
+    const previous = points[(i - 1 + points.length) % points.length]
+    const currentDistance = dotVec2(
+      subtractVec2(current, linePoint),
+      inwardNormal
+    )
+    const previousDistance = dotVec2(
+      subtractVec2(previous, linePoint),
+      inwardNormal
+    )
+    const currentInside = currentDistance >= -EPS
+    const previousInside = previousDistance >= -EPS
+
+    if (currentInside !== previousInside) {
+      const delta = subtractVec2(current, previous)
+      const denominator = dotVec2(delta, inwardNormal)
+      if (Math.abs(denominator) > EPS) {
+        const t =
+          dotVec2(subtractVec2(linePoint, previous), inwardNormal) / denominator
+        clipped.push({
+          x: previous.x + delta.x * t,
+          y: previous.y + delta.y * t
+        })
+      }
+    }
+
+    if (currentInside) {
+      clipped.push(current)
+    }
+  }
+
+  return dedupeClosedPolygonPoints(clipped)
+}
+
+const clipInsideDashPolygon = (
+  polygon: Vec2[],
+  originalPoints: Vec2[],
+  orientation: 1 | -1
+): Vec2[] => {
+  let clipped = dedupeClosedPolygonPoints(polygon)
+  const normalizedPoints = dedupeAdjacentPoints(originalPoints)
+
+  for (let pass = 0; pass < 3 && clipped.length >= 3; pass += 1) {
+    const beforePass = clipped
+    for (
+      let i = 0;
+      i < normalizedPoints.length - 1 && clipped.length >= 3;
+      i += 1
+    ) {
+      const normal = createUnitLeftNormal(
+        normalizedPoints[i],
+        normalizedPoints[i + 1]
+      )
+      if (!normal) {
+        continue
+      }
+
+      clipped = clipPolygonAgainstHalfPlane(
+        clipped,
+        normalizedPoints[i],
+        scaleVec2(normal, orientation)
+      )
+    }
+
+    if (
+      clipped.length === beforePass.length &&
+      clipped.every(
+        (point, index) =>
+          distance(
+            point,
+            beforePass[index] ?? { x: Number.NaN, y: Number.NaN }
+          ) <= EPS
+      )
+    ) {
+      break
+    }
+  }
+
+  return clipped
+}
+
+export const buildExactDashPartPolygons = (
+  originalPoints: Vec2[],
+  renderPoints: Vec2[],
+  stroke: RenderableStroke,
+  options?: {
+    insideOrientation?: 1 | -1 | 0
+    includeStartCap?: boolean
+    includeEndCap?: boolean
+    skipInsideClip?: boolean
+    contextStartIndex?: number
+    contextPointCount?: number
+  }
+): Vec2[][] => {
+  const insideOrientation = options?.insideOrientation ?? 0
+  const outlines =
+    insideOrientation !== 0
+      ? buildOneSidedStrokeShapePolygon(
+          originalPoints.slice(
+            Math.max(0, options?.contextStartIndex ?? 0),
+            Math.max(0, options?.contextStartIndex ?? 0) +
+              (options?.contextPointCount ??
+                Math.max(
+                  0,
+                  originalPoints.length -
+                    Math.max(0, options?.contextStartIndex ?? 0)
+                ))
+          ),
+          offsetPolyline(
+            originalPoints,
+            stroke.width * insideOrientation,
+            false,
+            true
+          ).slice(
+            Math.max(0, options?.contextStartIndex ?? 0),
+            Math.max(0, options?.contextStartIndex ?? 0) +
+              (options?.contextPointCount ??
+                Math.max(
+                  0,
+                  originalPoints.length -
+                    Math.max(0, options?.contextStartIndex ?? 0)
+                ))
+          ),
+          renderPoints,
+          stroke,
+          {
+            includeStartCap: options?.includeStartCap,
+            includeEndCap: options?.includeEndCap
+          }
+        )
+      : buildStrokeShapePolygons(renderPoints, stroke, {
+          includeStartCap: options?.includeStartCap,
+          includeEndCap: options?.includeEndCap,
+          contextStartIndex: options?.contextStartIndex,
+          contextPointCount: options?.contextPointCount
+        })
+  if (outlines.length === 0) {
+    return []
+  }
+
+  if (insideOrientation === 0 || options?.skipInsideClip) {
+    return outlines
+  }
+
+  return outlines
+    .map((outline) =>
+      clipInsideDashPolygon(outline, originalPoints, insideOrientation)
+    )
+    .filter((outline) => outline.length >= 3)
+}
+
+export const buildDashedStrokeDebugParts = (
+  points: Vec2[],
+  closed: boolean,
+  stroke: RenderableStroke
+): DashedStrokeDebugPart[] => {
+  const strokePoints = closed ? normalizeClosedPoints(points) : [...points]
+  if (strokePoints.length < 2 || stroke.style !== StrokeStyles.DASHED) {
+    return []
+  }
+
+  const centerlineOffset = getStrokeCenterlineOffset(
+    strokePoints,
+    closed,
+    stroke
+  )
+  const insideOrientation =
+    closed && stroke.position === StrokePositions.INSIDE
+      ? polygonArea(normalizeClosedPoints(strokePoints)) >= 0
+        ? 1
+        : -1
+      : 0
+  const validateIntersection =
+    closed && stroke.position === StrokePositions.INSIDE
+
+  return buildDashedParts(strokePoints, closed, stroke).map((part) => {
+    const renderPoints = buildDashedRenderPoints(
+      part,
+      centerlineOffset,
+      validateIntersection
+    )
+
+    return {
+      sourcePoints: part.sourcePoints,
+      clipPoints: part.clipPoints,
+      renderPoints,
+      polygons: buildExactDashPartPolygons(
+        part.clipPoints,
+        renderPoints,
+        stroke,
+        {
+          insideOrientation,
+          contextStartIndex: part.clipStartIndex,
+          contextPointCount: part.sourcePoints.length
+        }
+      )
+    }
+  })
+}
+
+const applyStrokeFillStyle = (
+  graphic: Pick<StrokeDrawGraphic, 'fill'>,
+  stroke: RenderableStroke
+) => {
+  const fill = graphic.fill
+  if (typeof fill !== 'function') {
+    return
+  }
+
+  if (stroke.alpha >= 1) {
+    fill.call(graphic, stroke.color)
+    return
+  }
+
+  fill.call(graphic, {
+    color: stroke.color,
+    alpha: stroke.alpha
+  })
+}
+
+const fillStrokePolygons = (
+  graphic: StrokeDrawGraphic,
+  polygons: Vec2[][],
+  stroke: RenderableStroke
+) => {
+  if (typeof graphic.fill !== 'function') {
+    return false
+  }
+
+  const drawablePolygons = polygons.filter((polygon) => polygon.length >= 3)
+  if (drawablePolygons.length === 0) {
+    return false
+  }
+
+  graphic.beginPath?.()
+  drawablePolygons.forEach((polygon) => {
+    drawPolyline(graphic, polygon, true)
+  })
+  applyStrokeFillStyle(graphic, stroke)
+
+  return true
 }
 
 const getJoinedOffsetPoint = (
@@ -355,7 +855,7 @@ const getJoinedOffsetPoint = (
   return scaleVec2(addVec2(prevSegment.end, nextSegment.start), 0.5)
 }
 
-const offsetPolyline = (
+export const offsetPolyline = (
   points: Vec2[],
   signedDistance: number,
   closed: boolean,
@@ -419,7 +919,7 @@ const offsetPolyline = (
   return offsetPoints
 }
 
-const getStrokeCenterlineOffset = (
+export const getStrokeCenterlineOffset = (
   points: Vec2[],
   closed: boolean,
   stroke: RenderableStroke
@@ -504,13 +1004,13 @@ const pointAtDistance = (
   return path[path.length - 1]
 }
 
-const extractPolylineSegment = (
-  points: Vec2[],
-  closed: boolean,
+const extractPolylineSegmentFromPath = (
+  path: Vec2[],
+  distances: number[],
+  totalLength: number,
   startDistance: number,
   endDistance: number
 ): Vec2[] => {
-  const { path, distances, totalLength } = buildSegmentDistances(points, closed)
   if (path.length < 2 || totalLength <= EPS || endDistance <= startDistance) {
     return []
   }
@@ -529,6 +1029,130 @@ const extractPolylineSegment = (
   return segmentPoints
 }
 
+const mergePolylineSegments = (head: Vec2[], tail: Vec2[]): Vec2[] => {
+  if (head.length === 0) {
+    return [...tail]
+  }
+  if (tail.length === 0) {
+    return [...head]
+  }
+
+  const merged = [...head]
+  const startIndex = distance(head[head.length - 1], tail[0]) <= EPS ? 1 : 0
+  for (let i = startIndex; i < tail.length; i += 1) {
+    merged.push(tail[i])
+  }
+  return dedupeAdjacentPoints(merged)
+}
+
+const extractPolylineSegmentWithContext = (
+  points: Vec2[],
+  closed: boolean,
+  startDistance: number,
+  endDistance: number
+): Vec2[] => {
+  const { path, distances, totalLength } = buildSegmentDistances(points, closed)
+  if (path.length < 2 || totalLength <= EPS || endDistance <= startDistance) {
+    return []
+  }
+
+  if (!closed || (startDistance >= 0 && endDistance <= totalLength)) {
+    return extractPolylineSegmentFromPath(
+      path,
+      distances,
+      totalLength,
+      Math.max(0, startDistance),
+      Math.min(totalLength, endDistance)
+    )
+  }
+
+  if (startDistance < 0) {
+    return mergePolylineSegments(
+      extractPolylineSegmentFromPath(
+        path,
+        distances,
+        totalLength,
+        totalLength + startDistance,
+        totalLength
+      ),
+      extractPolylineSegmentFromPath(
+        path,
+        distances,
+        totalLength,
+        0,
+        Math.min(totalLength, endDistance)
+      )
+    )
+  }
+
+  return mergePolylineSegments(
+    extractPolylineSegmentFromPath(
+      path,
+      distances,
+      totalLength,
+      Math.max(0, startDistance),
+      totalLength
+    ),
+    extractPolylineSegmentFromPath(
+      path,
+      distances,
+      totalLength,
+      0,
+      endDistance - totalLength
+    )
+  )
+}
+
+const findPointSequenceStart = (points: Vec2[], sequence: Vec2[]): number => {
+  if (sequence.length === 0 || points.length < sequence.length) {
+    return -1
+  }
+
+  for (let i = 0; i <= points.length - sequence.length; i += 1) {
+    let matched = true
+    for (let j = 0; j < sequence.length; j += 1) {
+      if (distance(points[i + j], sequence[j]) > EPS) {
+        matched = false
+        break
+      }
+    }
+    if (matched) {
+      return i
+    }
+  }
+
+  return -1
+}
+
+const createDashedPartWithContext = (
+  points: Vec2[],
+  closed: boolean,
+  stroke: RenderableStroke,
+  startDistance: number,
+  endDistance: number
+): DashedStrokePart => {
+  const sourcePoints = extractPolylineSegmentWithContext(
+    points,
+    closed,
+    startDistance,
+    endDistance
+  )
+  const contextPadding = Math.max(stroke.width, stroke.width / 2 + 1)
+  const clipPoints = extractPolylineSegmentWithContext(
+    points,
+    closed,
+    startDistance - contextPadding,
+    endDistance + contextPadding
+  )
+  const clipStartIndex = findPointSequenceStart(clipPoints, sourcePoints)
+
+  return {
+    sourcePoints,
+    clipPoints,
+    clipStartIndex: clipStartIndex >= 0 ? clipStartIndex : 0
+  }
+}
+
 const buildDashedParts = (
   points: Vec2[],
   closed: boolean,
@@ -540,24 +1164,41 @@ const buildDashedParts = (
   }
 
   const { dash, gap } = getDashPattern(stroke)
-  const parts: Vec2[][] = []
+  const parts: DashedStrokePart[] = []
   let cursor = 0
   const cycleLength = dash + gap
 
   while (cursor < totalLength - EPS) {
-    const part = extractPolylineSegment(
+    const endDistance = Math.min(totalLength, cursor + dash)
+    const part = createDashedPartWithContext(
       points,
       closed,
+      stroke,
       cursor,
-      Math.min(totalLength, cursor + dash)
+      endDistance
     )
-    if (part.length >= 2) {
+    if (part.sourcePoints.length >= 2) {
       parts.push(part)
     }
     cursor += cycleLength
   }
 
   return parts
+}
+
+const buildDashedRenderPoints = (
+  part: DashedStrokePart,
+  centerlineOffset: number,
+  validateIntersection: boolean
+): Vec2[] => {
+  const clippedOffsetPoints = offsetPolyline(
+    part.clipPoints,
+    centerlineOffset,
+    false,
+    validateIntersection
+  )
+
+  return clippedOffsetPoints
 }
 
 const buildHitSegments = (
@@ -572,6 +1213,7 @@ const buildHitSegments = (
   const segments: StrokeHitSegment[] = []
   for (let i = 0; i < points.length - 1; i += 1) {
     segments.push({
+      kind: 'segment',
       start: points[i],
       end: points[i + 1],
       radius
@@ -580,6 +1222,7 @@ const buildHitSegments = (
 
   if (closed && points.length > 2) {
     segments.push({
+      kind: 'segment',
       start: points[points.length - 1],
       end: points[0],
       radius
@@ -617,19 +1260,41 @@ export const buildStrokeHitSegments = (
         closed,
         stroke
       )
+      const insideOrientation =
+        closed && stroke.position === StrokePositions.INSIDE
+          ? polygonArea(normalizeClosedPoints(strokePoints)) >= 0
+            ? 1
+            : -1
+          : 0
       const validateIntersection =
         closed && stroke.position === StrokePositions.INSIDE
 
       if (stroke.style === StrokeStyles.DASHED) {
         const dashParts = buildDashedParts(strokePoints, closed, stroke)
         dashParts.forEach((part) => {
-          const renderPoints = offsetPolyline(
+          const renderPoints = buildDashedRenderPoints(
             part,
             centerlineOffset,
-            false,
             validateIntersection
           )
-          hitSegments.push(...buildHitSegments(renderPoints, false, radius))
+          const polygons = buildExactDashPartPolygons(
+            part.clipPoints,
+            renderPoints,
+            stroke,
+            {
+              insideOrientation,
+              contextStartIndex: part.clipStartIndex,
+              contextPointCount: part.sourcePoints.length
+            }
+          )
+          polygons.forEach((polygon) => {
+            if (polygon.length >= 3) {
+              hitSegments.push({
+                kind: 'polygon',
+                points: polygon
+              })
+            }
+          })
         })
         return
       }
@@ -838,6 +1503,12 @@ export const renderPolylineStrokes = (
         closed,
         stroke
       )
+      const insideOrientation =
+        closed && stroke.position === StrokePositions.INSIDE
+          ? polygonArea(normalizeClosedPoints(strokePoints)) >= 0
+            ? 1
+            : -1
+          : 0
       const validateIntersection =
         closed && stroke.position === StrokePositions.INSIDE
 
@@ -850,17 +1521,48 @@ export const renderPolylineStrokes = (
 
       if (stroke.style === StrokeStyles.DASHED) {
         const dashParts = buildDashedParts(strokePoints, closed, stroke)
-        dashParts.forEach((part) => {
-          const renderPoints = offsetPolyline(
+        const dashedGeometries = dashParts.map((part) => {
+          const renderPoints = buildDashedRenderPoints(
             part,
             centerlineOffset,
-            false,
             validateIntersection
           )
-          targetGraphics.forEach((targetGraphic) => {
-            beginStrokePath(targetGraphic)
-            drawPolyline(targetGraphic, renderPoints, false)
-            applyStrokeStyle(targetGraphic, stroke)
+          return {
+            renderPoints,
+            polygons: buildExactDashPartPolygons(
+              part.clipPoints,
+              renderPoints,
+              stroke,
+              {
+                insideOrientation,
+                contextStartIndex: part.clipStartIndex,
+                contextPointCount: part.sourcePoints.length
+              }
+            )
+          }
+        })
+
+        targetGraphics.forEach((targetGraphic) => {
+          const strokePolygons = dashedGeometries.flatMap(
+            ({ polygons }) => polygons
+          )
+          if (strokePolygons.length > 0) {
+            const filled = fillStrokePolygons(
+              targetGraphic,
+              strokePolygons,
+              stroke
+            )
+            if (filled) {
+              return
+            }
+          }
+
+          dashedGeometries.forEach(({ renderPoints, polygons }) => {
+            if (polygons.length > 0) {
+              beginStrokePath(targetGraphic)
+              drawPolyline(targetGraphic, renderPoints, false)
+              applyStrokeStyle(targetGraphic, stroke)
+            }
           })
         })
         return

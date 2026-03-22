@@ -3,6 +3,8 @@ import type { PositionData } from '@asyra/utils'
 import type {
   CreateRenderGradientFillOptions,
   RenderFillStyle,
+  CreateMeshProjectionOptions,
+  MeshProjection,
   RenderInteractionTarget,
   RenderInteractionHandlerRegistration,
   RenderInteractionEventType
@@ -28,6 +30,7 @@ export interface RenderRequests {
   createEvenOddFillStyle: (
     options: EvenOddFillOptions
   ) => EvenOddFillResult | null
+  createMeshProjection: (options: CreateMeshProjectionOptions) => MeshProjection
   registerRenderInteractionTargets: (
     targets: RenderInteractionTarget | RenderInteractionTarget[],
     options?: { override?: boolean }
@@ -72,6 +75,9 @@ export const createRenderAPIs = (requests: RenderRequests) => {
     },
     createEvenOddFillStyle(options: EvenOddFillOptions) {
       return requests.createEvenOddFillStyle(options)
+    },
+    createMeshProjection(options: CreateMeshProjectionOptions) {
+      return requests.createMeshProjection(options)
     },
     registerRenderInteractionTargets(
       targets: RenderInteractionTarget | RenderInteractionTarget[],

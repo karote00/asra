@@ -2,7 +2,8 @@ import { SceneTree, componentRegistry } from '@asyra/scene-tree'
 import {
   Render,
   createRenderGradientFillStyle,
-  createEvenOddFillStyle
+  createEvenOddFillStyle,
+  createMeshProjection
 } from '@asyra/render'
 import type { PropsManager } from '@asyra/props-manager'
 import type { SelectionManager } from '@asyra/selection'
@@ -116,6 +117,7 @@ export const createAPIs = (
     unregisterRenderLayer: (name: string) => render.unregisterLayer(name),
     createRenderGradientFillStyle,
     createEvenOddFillStyle,
+    createMeshProjection,
     registerRenderInteractionTargets: (targets, options) =>
       render.registerInteractionTargets(targets, options),
     updateRenderInteractionTarget: (targetId, patch) =>
