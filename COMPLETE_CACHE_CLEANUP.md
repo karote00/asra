@@ -1,91 +1,94 @@
-# 完整快取清理步驟
+# Complete Cache Cleanup Steps
 
-當代碼改變後，但視覺上沒有變化時，需要清除以下所有快取：
+When the code changes but the visuals do not, clear all of the caches below.
 
-## 步驟 1: 殺死開發伺服器
+## Step 1: Stop the Development Server
 
 ```bash
-# 找到所有 Node 進程並殺死
-pkill -f "yarn\|node\|vite"
+# Find and stop all Node processes
+pkill -f "yarn|node|vite"
 sleep 2
 ```
 
-## 步驟 2: 清除編譯快取
+## Step 2: Clear Build Caches
 
 ```bash
 cd /Users/asa/Desktop/workspace/asra
 
-# 清除所有編譯的 dist 文件夾
+# Remove all compiled dist folders
 rm -rf packages/*/dist
 rm -rf apps/*/dist
 rm -rf .turbo/turbo-build-*.log
 
-# 清除 TypeScript 快取
+# Remove TypeScript caches
 find . -name "*.tsbuildinfo" -delete
 
-# 清除 node_modules 中的 @asyra 快取
+# Remove cached @asyra packages from node_modules
 rm -rf node_modules/@asyra
 ```
 
-## 步驟 3: 清除瀏覽器快取
+## Step 3: Clear Browser Cache
 
-### 選項 A: 硬刷新 (Cmd+Shift+R on Mac)
-- 在瀏覽器開發工具中選中 "Disable cache (while DevTools is open)"
+### Option A: Hard Refresh (`Cmd+Shift+R` on macOS)
 
-### 選項 B: 完全清除本地存儲
+- Enable `Disable cache (while DevTools is open)` in the browser devtools.
+
+### Option B: Fully Clear Local Storage
+
 ```javascript
-// 在瀏覽器控制台中執行：
+// Run in the browser console:
 localStorage.clear()
 sessionStorage.clear()
-// 然後重新整理頁面 (Cmd+R)
+// Then refresh the page (`Cmd+R`)
 ```
 
-## 步驟 4: 重新安裝依賴
+## Step 4: Reinstall Dependencies
 
 ```bash
 yarn install
 ```
 
-## 步驟 5: 重新構建
+## Step 5: Rebuild
 
 ```bash
-# 設定依賴並編譯
+# Install dependencies and rebuild
 yarn workspace @asyra/preset build:preset
 ```
 
-## 步驟 6: 重啟開發伺服器
+## Step 6: Restart the Development Server
 
 ```bash
-# 在新終端中啟動開發伺服器
+# Start the development server in a new terminal
 yarn workspace @asyra/design dev
 ```
 
-## 步驟 7: 在新瀏覽器標籤中測試
+## Step 7: Re-test in a Fresh Browser Tab
 
-1. 打開 http://localhost:5173 (或你的應用 URL)
-2. 打開設計編輯器
-3. 選擇三角形向量
-4. 改變 stroke 設定 (e.g., dash 長度)
-5. **觀察 dash stroke 是否正確更新**
-
----
-
-## 驗證點檢表
-
-完成後，確認以下幾點：
-
-- [ ] Dash 長度現在是 ~30px (不是 ~15px)
-- [ ] Dash 與曲線完美對齐 (沒有 2-3px 偏移)
-- [ ] Dash 沿著 bezier 曲線平順流動
-- [ ] 曲線端點是光滑的 (不是粗糙的三角形)
-- [ ] 改變 dash/gap 設定時立即看到更新
+1. Open `http://localhost:5173` or your app URL.
+2. Open the design editor.
+3. Select the triangle vector.
+4. Change a stroke setting, for example the dash length.
+5. Confirm that the dashed stroke updates correctly.
 
 ---
 
-## 如果仍然沒有變化
+## Verification Checklist
 
-如果完成以上步驟後仍然沒有變化，說明：
-1. 代號流程中仍有舊代碼被使用
-2. 需要進一步的代碼審計
+After the cleanup, verify the following:
 
-請讓我知道清理後的結果！
+- [ ] Dash length is now about `30px` instead of `15px`
+- [ ] Dashes align with the curve without a `2-3px` offset
+- [ ] Dashes flow smoothly along the bezier curve
+- [ ] Curve endpoints are smooth instead of jagged triangles
+- [ ] Changing dash/gap settings updates immediately
+
+---
+
+## If Nothing Still Changes
+
+If the visuals still do not change after the steps above, it usually means:
+
+1. Some old code path is still being used at runtime.
+2. The code path needs deeper auditing.
+
+Record the result after the cleanup before moving on to further debugging.

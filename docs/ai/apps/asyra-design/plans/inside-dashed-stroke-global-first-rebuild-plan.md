@@ -16,7 +16,7 @@ Completed:
 
 - Step 2 baseline interval allocation is now first-class via
   `DashIntervalAllocation`
-- dash/gap 分散區間 is no longer inferred only from `debugParts`
+- dash/gap interval allocation is no longer inferred only from `debugParts`
 - Step 3 `dash subpath -> stroke-to-outline` is now the active Phase 2 path
 - candidate preview is now product-facing through
   `createDashedGeometryModel(...).model.polygons`
@@ -109,7 +109,7 @@ This step does **not**:
 - resolve overlaps
 - assign ownership
 
-### Step 2. Build Full `dash/gap` 分散區間
+### Step 2. Build Full `dash/gap` Interval Allocation
 
 Along the full path arc length, compute the complete interval allocation:
 
@@ -429,7 +429,7 @@ The rebuild should introduce explicit phase data.
 
 Goal:
 
-- stabilize `dash/gap 分散區間`
+- stabilize `dash/gap` interval allocation
 
 Output:
 

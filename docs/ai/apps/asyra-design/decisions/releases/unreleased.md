@@ -1406,7 +1406,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Visible render correctness stayed wrong even while many intermediate
     contracts passed.
   - The rebuild direction changed to `global-first`:
-    - full `dash/gap` 分散區間 first
+    - full `dash/gap` interval allocation first
     - full dash candidate generation from true path slices first
     - global overlap/component analysis after all candidates exist
     - ownership/clipping only after full candidate visibility
@@ -1445,7 +1445,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Keep decision history in docs, not as executable runtime authority.
 - Consequences:
   - Default inside-dashed rendering now stops at:
-    - first-class `dash/gap` 分散區間
+    - first-class `dash/gap` interval allocation
     - first-class candidate geometry preview
   - Old `remote-pollution`, `local-gap`, `scenario-owned`, and runtime-adoption
     execution no longer consumes default render/runtime cost.

@@ -53,7 +53,7 @@ No later phase may be used to pretend an earlier phase is complete.
 
 ### Output Under Test
 
-- full `dash/gap 分散區間`
+- full `dash/gap interval allocation`
 
 ### Tests To Write First
 

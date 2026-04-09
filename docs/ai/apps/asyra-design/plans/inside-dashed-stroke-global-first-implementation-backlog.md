@@ -518,7 +518,7 @@ E2E must eventually hard-gate:
 
 Deliver:
 
-- full `dash/gap 分散區間`
+- full `dash/gap interval allocation`
 - full dash candidates
 - generic cap generator
 - candidate preview
