@@ -79,16 +79,10 @@ export interface VectorTopology {
   networks: Record<string, VectorNetwork>
 }
 
-export interface VectorStrokeStyle {
-  stroke: string
-  strokeWidth: number
-  strokes?: StrokeAttrs[]
-}
-
-export interface VectorPathStyle extends VectorStrokeStyle {
+export interface VectorPathStyle {
   closed: boolean
-  fill?: string
   fills?: FillAttrs[]
+  strokes?: StrokeAttrs[]
 }
 
 export interface VectorSelectionRef {

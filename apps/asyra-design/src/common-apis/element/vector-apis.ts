@@ -61,9 +61,7 @@ const DEFAULT_VECTOR_STYLE: VectorPathStyle = {
   strokes: createDefaultStrokes({
     color: DEFAULT_VECTOR_STROKE_COLOR,
     joinType: StrokeJoinTypes.ROUND
-  }),
-  stroke: DEFAULT_VECTOR_STROKE_COLOR,
-  strokeWidth: 1
+  })
 }
 
 const VECTOR_POINT_HIT_RADIUS = 6
@@ -993,9 +991,7 @@ export const vectorApis = {
         networks: normalizedTopology.networks,
         closed,
         fills: DEFAULT_VECTOR_STYLE.fills ?? [],
-        strokes: DEFAULT_VECTOR_STYLE.strokes ?? [],
-        stroke: DEFAULT_VECTOR_STYLE.stroke,
-        strokeWidth: DEFAULT_VECTOR_STYLE.strokeWidth
+        strokes: DEFAULT_VECTOR_STYLE.strokes ?? []
       },
       options
     )

@@ -1,0 +1,1911 @@
+{
+  "dash": 27,
+  "gap": 20,
+  "metrics": {
+    "firstDashStartDistance": 0,
+    "fullDashCount": 44,
+    "fullGapCount": 43,
+    "intervalLengthSpan": 0,
+    "gapLengthSpan": 0,
+    "minDashCoverageRatio": 0.5679012345679012,
+    "minFinalDashCoverageRatio": 1,
+    "minGapClearRatio": 0.5333333333333333,
+    "minFinalGapClearRatio": 0.06666666666666665,
+    "minLocalFinalGapClearRatio": 0.4666666666666667,
+    "worstDashIndex": 25,
+    "worstFinalDashIndex": 0,
+    "worstGapIndex": 15,
+    "worstFinalGapIndex": 5,
+    "worstLocalFinalGapIndex": 8,
+    "worstDashCoverageRatio": 0.5679012345679012,
+    "worstFinalDashCoverageRatio": 1,
+    "worstGapClearRatio": 0.5333333333333333,
+    "worstFinalGapClearRatio": 0.06666666666666665,
+    "worstLocalFinalGapClearRatio": 0.4666666666666667,
+    "dashCoverageRatios": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0.5679012345679012,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "finalDashCoverageRatios": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "gapClearRatios": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      0.8333333333333334,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0.5333333333333333,
+      0.9833333333333333,
+      0.75,
+      1,
+      1,
+      1,
+      0.8,
+      1,
+      1,
+      1,
+      0.7333333333333334,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0.9833333333333333,
+      1,
+      1,
+      1
+    ],
+    "finalGapClearRatios": [
+      0.5833333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.06666666666666665,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.4666666666666667,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.31666666666666665,
+      0.5833333333333333,
+      0.5166666666666666,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.7333333333333334,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5166666666666666,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333
+    ],
+    "localFinalGapClearRatios": [
+      0.5833333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.4666666666666667,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5666666666666667,
+      0.5833333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.7333333333333334,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5166666666666666,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.5333333333333333
+    ],
+    "intervalLengths": [
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27,
+      27
+    ],
+    "gapLengths": [
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20
+    ]
+  },
+  "worstDash": {
+    "startDistance": 1175,
+    "endDistance": 1202,
+    "touchedSegmentIndices": [
+      2,
+      3
+    ],
+    "boundarySourceKind": "exact-cubic",
+    "preConstraintPolygonCount": 2,
+    "rawPolygonCount": 2,
+    "wedgePolygonCount": 2,
+    "ownershipPolygonCount": 2,
+    "finalPolygonCount": 2,
+    "bodyOnlyPolygonCount": 1,
+    "faceRegions": {
+      "bodyRegionCount": 1,
+      "startTerminalRegionCount": 1,
+      "endTerminalRegionCount": 1,
+      "mergedFinalRegionCount": 2
+    },
+    "bodyOnlyVsFinal": {
+      "expectedSamples": 81,
+      "bodyOnlyCoveredSamples": 46,
+      "finalCoveredSamples": 81,
+      "missingFromFinalSamples": 0,
+      "extraFinalSamples": 35,
+      "edgeExpectedSamples": 27,
+      "bodyOnlyEdgeCoveredSamples": 5,
+      "finalEdgeCoveredSamples": 27,
+      "bodyOnlyCoverageRatio": 0.5679012345679012,
+      "finalCoverageRatio": 1,
+      "missingFromFinalRatio": 0,
+      "extraFinalRatio": 0.43209876543209874,
+      "bodyOnlyEdgeCoverageRatio": 0.18518518518518517,
+      "finalEdgeCoverageRatio": 1,
+      "missingFinalEdgeDistances": []
+    },
+    "cornerSplit": {
+      "cornerDistance": 1190.8722031523725,
+      "preCornerStartDistance": 1175,
+      "preCornerEndDistance": 1190.3722031523725,
+      "postCornerStartDistance": 1191.3722031523725,
+      "postCornerEndDistance": 1202,
+      "preCornerBodyCoverageRatio": 0.6222222222222222,
+      "postCornerBodyCoverageRatio": 0.4666666666666667,
+      "preCornerFinalCoverageRatio": 1,
+      "postCornerFinalCoverageRatio": 1,
+      "preConstraintPreCornerSpecCoverageRatio": 1,
+      "preCornerRawSpecCoverageRatio": 1,
+      "preCornerWedgeSpecCoverageRatio": 1,
+      "preCornerSpecCoverageRatio": 0.3333333333333333,
+      "preConstraintPostCornerSpecCoverageRatio": 1,
+      "postCornerRawSpecCoverageRatio": 1,
+      "postCornerWedgeSpecCoverageRatio": 1,
+      "postCornerSpecCoverageRatio": 1
+    },
+    "preConstraintSpecEntries": [
+      {
+        "rawPolygonCount": 1,
+        "wedgePolygonCount": 1,
+        "polygonCount": 1,
+        "includeStartCap": true,
+        "includeEndCap": false,
+        "wedgeConstraintDistances": [],
+        "ownershipOwners": [
+          "prev"
+        ]
+      },
+      {
+        "rawPolygonCount": 1,
+        "wedgePolygonCount": 1,
+        "polygonCount": 1,
+        "includeStartCap": false,
+        "includeEndCap": true,
+        "wedgeConstraintDistances": [],
+        "ownershipOwners": []
+      }
+    ],
+    "specEntries": [
+      {
+        "rawPolygonCount": 1,
+        "wedgePolygonCount": 1,
+        "polygonCount": 1,
+        "includeStartCap": true,
+        "includeEndCap": false,
+        "wedgeConstraintDistances": [],
+        "ownershipOwners": [
+          "prev"
+        ]
+      },
+      {
+        "rawPolygonCount": 1,
+        "wedgePolygonCount": 1,
+        "polygonCount": 1,
+        "includeStartCap": false,
+        "includeEndCap": true,
+        "wedgeConstraintDistances": [],
+        "ownershipOwners": []
+      }
+    ],
+    "pairDecompositionCandidate": {
+      "polygonCount": 2,
+      "coverageRatio": 1,
+      "preCornerCoverageRatio": 1,
+      "maxRasterCoverage": 2,
+      "mergedPolygonCount": 2,
+      "mergedCoverageRatio": 1,
+      "mergedPreCornerCoverageRatio": 1,
+      "mergedMaxRasterCoverage": 2,
+      "partitionPolygonCount": 2,
+      "partitionCoverageRatio": 0.8148148148148148,
+      "partitionPreCornerCoverageRatio": 1,
+      "partitionMaxRasterCoverage": 1,
+      "mergedSingleFacePolygonCount": 3,
+      "mergedSingleFaceCoverageRatio": 0.5679012345679012,
+      "mergedSingleFacePreCornerCoverageRatio": 0.6222222222222222,
+      "mergedSingleFaceMaxRasterCoverage": 2,
+      "threeRegionPolygonCount": 3,
+      "threeRegionCoverageRatio": 0.8148148148148148,
+      "threeRegionPreCornerCoverageRatio": 1,
+      "threeRegionMaxRasterCoverage": 2,
+      "cornerBridgeQuadPolygonCount": 3,
+      "cornerBridgeQuadCoverageRatio": 0.8765432098765432,
+      "cornerBridgeQuadPreCornerCoverageRatio": 1,
+      "cornerBridgeQuadMaxRasterCoverage": 2,
+      "cornerBridgeHullPolygonCount": 3,
+      "cornerBridgeHullCoverageRatio": 0.8765432098765432,
+      "cornerBridgeHullPreCornerCoverageRatio": 1,
+      "cornerBridgeHullMaxRasterCoverage": 2,
+      "cornerLensOwnershipPolygonCount": 4,
+      "cornerLensOwnershipCoverageRatio": 0.8765432098765432,
+      "cornerLensOwnershipPreCornerCoverageRatio": 1,
+      "cornerLensOwnershipMaxRasterCoverage": 1,
+      "cornerSampledLensOwnershipPolygonCount": 2,
+      "cornerSampledLensOwnershipCoverageRatio": 1,
+      "cornerSampledLensOwnershipPreCornerCoverageRatio": 1,
+      "cornerSampledLensOwnershipMaxRasterCoverage": 1,
+      "trimStart": {
+        "x": 8.286199866195176,
+        "y": 131.21251055228586
+      },
+      "trimEnd": {
+        "x": 14.94242492718315,
+        "y": 123.74962451955861
+      },
+      "trimNormal": {
+        "x": -0.7462886032727257,
+        "y": -0.6656225060987977
+      }
+    }
+  },
+  "worstFinalDash": {
+    "startDistance": 0,
+    "endDistance": 27,
+    "touchedSegmentIndices": [
+      0
+    ],
+    "boundarySourceKind": "exact-cubic",
+    "finalCoverageRatio": 1
+  },
+  "worstGap": {
+    "startDistance": 732,
+    "endDistance": 752,
+    "gapLength": 20
+  },
+  "worstFinalGap": {
+    "startDistance": 262,
+    "endDistance": 282,
+    "gapLength": 20
+  },
+  "worstLocalFinalGap": {
+    "startDistance": 403,
+    "endDistance": 423,
+    "gapLength": 20
+  },
+  "worstGapNeighbors": {
+    "leadingDashIndex": 15,
+    "trailingDashIndex": 16,
+    "leadingDashBoundarySourceKind": "exact-cubic",
+    "trailingDashBoundarySourceKind": "exact-cubic",
+    "leadingDashTouchedSegmentIndices": [
+      1
+    ],
+    "trailingDashTouchedSegmentIndices": [
+      1
+    ],
+    "leadingDashIncludeEndCap": true,
+    "trailingDashIncludeStartCap": true,
+    "leadingDashSplitConstraintDistances": [],
+    "trailingDashSplitConstraintDistances": [],
+    "leadingDashWedgeConstraintDistances": [],
+    "trailingDashWedgeConstraintDistances": []
+  },
+  "worstFinalGapNeighbors": {
+    "leadingDashIndex": 5,
+    "trailingDashIndex": 6,
+    "leadingDashBoundarySourceKind": "exact-cubic",
+    "trailingDashBoundarySourceKind": "exact-cubic",
+    "leadingDashTouchedSegmentIndices": [
+      0
+    ],
+    "trailingDashTouchedSegmentIndices": [
+      0
+    ],
+    "leadingDashIncludeEndCap": true,
+    "trailingDashIncludeStartCap": true,
+    "leadingDashSplitConstraintDistances": [],
+    "trailingDashSplitConstraintDistances": [],
+    "leadingDashWedgeConstraintDistances": [],
+    "trailingDashWedgeConstraintDistances": []
+  },
+  "worstLocalFinalGapNeighbors": {
+    "leadingDashIndex": 8,
+    "trailingDashIndex": 9,
+    "leadingDashBoundarySourceKind": "exact-cubic",
+    "trailingDashBoundarySourceKind": "exact-cubic",
+    "leadingDashTouchedSegmentIndices": [
+      0
+    ],
+    "trailingDashTouchedSegmentIndices": [
+      0,
+      1
+    ],
+    "leadingDashIncludeEndCap": true,
+    "trailingDashIncludeStartCap": true,
+    "leadingDashSplitConstraintDistances": [],
+    "trailingDashSplitConstraintDistances": [],
+    "leadingDashWedgeConstraintDistances": [],
+    "trailingDashWedgeConstraintDistances": []
+  },
+  "worstLocalFinalGapCapContribution": {
+    "clearRatioWithAllCaps": 0.4666666666666667,
+    "leadingNoEndCapClearRatio": 0.75,
+    "trailingNoStartCapClearRatio": 0.7166666666666667,
+    "bothNoCapsClearRatio": 1,
+    "leadingBodyOnlyClearRatio": 1,
+    "trailingBodyOnlyClearRatio": 1,
+    "leadingCapOnlyClearRatio": 0.7166666666666667,
+    "trailingCapOnlyClearRatio": 0.75,
+    "bothCapsOnlyClearRatio": 0.4666666666666667,
+    "leadingSpecClearRatio": 0.7166666666666667,
+    "leadingPreCornerSpecClearRatio": 0.7166666666666667,
+    "leadingPostCornerSpecClearRatio": 1,
+    "leadingSpecEdgeClearRatio": 0.85,
+    "edgeClearRatioWithAllCaps": 0.75,
+    "bothNoCapsEdgeClearRatio": 1,
+    "leadingBodyOnlyEdgeClearRatio": 1,
+    "trailingBodyOnlyEdgeClearRatio": 1
+  },
+  "worstLocalFinalGapCapDiagnostics": {
+    "centerGapDistance": 16.1718180068199,
+    "leadingEndCapForwardExtent": 4.995617701927841,
+    "trailingStartCapBackwardExtent": 4.998004822707008,
+    "remainingAxisGap": 6.1781954821850515,
+    "leadingEndCapArea": 39.20685613182286,
+    "trailingStartCapArea": 39.20685613182286,
+    "leadingEndCapVertexCount": 33,
+    "trailingStartCapVertexCount": 33,
+    "leadingEndTangentDotGapAxis": 0.9018679340635871,
+    "trailingStartTangentDotGapAxis": 0.9637314813428006
+  },
+  "worstLocalFinalGapCrossSectionDiagnostics": {
+    "centerGapDistance": 16.1718180068199,
+    "leadingEndCrossSectionForwardExtent": 2.1051021254400517,
+    "trailingStartCrossSectionBackwardExtent": 1.3156891665779293,
+    "remainingAxisGap": 12.75102671480192,
+    "leadingEndCrossSectionLength": 9.999999999999998,
+    "trailingStartCrossSectionLength": 9.999999999999991,
+    "leadingEndCrossSectionDotGapAxis": 0.4210204250880098,
+    "trailingStartCrossSectionDotGapAxis": 0.26313783331558194
+  },
+  "worstLocalFinalGapClassification": {
+    "classification": "scenario-owned-gap",
+    "reasons": [
+      "scenario-owned-terminal"
+    ],
+    "remoteContributorCount": 0,
+    "localGapWindowVertexCount": 6
+  },
+  "worstFinalGapCapContribution": {
+    "clearRatioWithAllCaps": 0.06666666666666665,
+    "leadingNoEndCapClearRatio": 0.30000000000000004,
+    "trailingNoStartCapClearRatio": 0.2833333333333333,
+    "bothNoCapsClearRatio": 0.5166666666666666,
+    "leadingBodyOnlyClearRatio": 0.5166666666666666,
+    "trailingBodyOnlyClearRatio": 0.5166666666666666,
+    "leadingCapOnlyClearRatio": 0.2833333333333333,
+    "trailingCapOnlyClearRatio": 0.30000000000000004,
+    "bothCapsOnlyClearRatio": 0.06666666666666665
+  },
+  "worstFinalGapIsolation": {
+    "otherPolygonsOnlyClearRatio": 0.5166666666666666,
+    "neighborPairOnlyClearRatio": 0.5333333333333333,
+    "neighborPairNoCapsOnlyClearRatio": 1
+  },
+  "worstFinalGapBranchDecomposition": {
+    "neighboringPair": {
+      "leadingDashIndex": 5,
+      "trailingDashIndex": 6,
+      "clearRatio": 0.5333333333333333,
+      "noCapsClearRatio": 1
+    },
+    "remoteContributor": {
+      "dashIndex": 28,
+      "intrusionRatio": 0.4833333333333334,
+      "bodyOnlyClearRatio": 0.8333333333333334,
+      "capOnlyClearRatio": 0.6833333333333333
+    },
+    "allContributors": {
+      "clearRatio": 0.06666666666666665,
+      "nonNeighborOnlyClearRatio": 0.5166666666666666
+    }
+  },
+  "worstFinalGapExplicitSelfOverlapDecomposition": {
+    "neighboringWindowPolygonCount": 2,
+    "remoteWindowPolygonCount": 1,
+    "neighboringExclusivePolygonCount": 8,
+    "remoteExclusivePolygonCount": 8,
+    "overlapPolygonCount": 1,
+    "maxRasterCoverage": 1
+  },
+  "worstFinalGapNonNeighborContributors": [
+    {
+      "dashIndex": 28,
+      "intrusionRatio": 0.4833333333333334,
+      "boundarySourceKind": "exact-cubic",
+      "touchedSegmentIndices": [
+        3
+      ]
+    }
+  ],
+  "worstFinalGapClassification": {
+    "classification": "remote-pollution",
+    "reasons": [
+      "non-neighbor-intrusion"
+    ],
+    "remoteContributorCount": 1,
+    "localGapWindowVertexCount": 6
+  },
+  "worstFinalGapRemoteFamilyDecision": {
+    "decision": "diagnostic-only",
+    "reasons": [
+      "neighbor-pair-is-not-the-primary-gap-problem",
+      "remote-intrudes-at-raw",
+      "remote-intrudes-at-wedge",
+      "remote-intrudes-at-ownership",
+      "remote-is-already-a-valid-single-face-branch"
+    ]
+  },
+  "worstFinalGapFamilyPrototypeComparison": {
+    "globalOverlapOwnership": {
+      "family": "family-a-global-overlap-ownership",
+      "viable": false,
+      "reasons": [
+        "prototype-needs-priority-rule",
+        "prototype-discards-remote-contributor-family",
+        "overlap-is-real-not-noise"
+      ],
+      "selectedAuthority": "neighboring-pair",
+      "neighboringWindowArea": 164.94197592874661,
+      "remoteWindowArea": 64.58767007564165,
+      "overlapArea": 1.0857238860098732,
+      "preservedContributorFamilies": 1,
+      "maxRasterCoverage": 1
+    },
+    "explicitSelfOverlapDecomposition": {
+      "family": "family-b-explicit-self-overlap-decomposition",
+      "viable": true,
+      "reasons": [
+        "preserves-neighboring-and-remote-contributors",
+        "keeps-explicit-overlap-region"
+      ],
+      "selectedAuthority": null,
+      "neighboringWindowArea": 164.94197592874661,
+      "remoteWindowArea": 64.58767007564165,
+      "overlapArea": 1.0857238860098732,
+      "preservedContributorFamilies": 2,
+      "maxRasterCoverage": 1
+    },
+    "authoritativeBranchProjection": {
+      "family": "family-c-authoritative-branch-projection",
+      "viable": false,
+      "reasons": [
+        "single-branch-authority-erases-competing-contributor",
+        "shared-overlap-still-needs-explicit-region-contract"
+      ],
+      "selectedAuthority": "neighboring-pair",
+      "neighboringWindowArea": 164.94197592874661,
+      "remoteWindowArea": 64.58767007564165,
+      "overlapArea": 1.0857238860098732,
+      "preservedContributorFamilies": 1,
+      "maxRasterCoverage": 1
+    }
+  },
+  "worstFinalGapArtifactFamilySelection": {
+    "selectedFamily": "family-b-explicit-self-overlap-decomposition",
+    "runtimeReady": false,
+    "reasons": [
+      "artifact-family-selected-from-family-prototype-comparison",
+      "explicit-self-overlap-is-the-only-currently-viable-family",
+      "runtime-ownership-contract-still-unselected"
+    ]
+  },
+  "worstFinalGapExplicitDecompositionContract": {
+    "artifactReady": true,
+    "reasons": [
+      "neighboring-exclusive-region-present",
+      "remote-exclusive-region-present",
+      "shared-overlap-region-present",
+      "recomposed-union-matches-source-contributors",
+      "decomposition-has-no-raster-overcoverage"
+    ],
+    "neighboringExclusiveArea": 163.8562514855239,
+    "remoteExclusiveArea": 63.50194618962814,
+    "overlapArea": 1.0857238860098732,
+    "contributorUnionMismatchRatio": 0,
+    "sourceContributorMaxRasterCoverage": 2,
+    "decompositionMaxRasterCoverage": 1
+  },
+  "worstFinalGapExplicitDecompositionVariants": {
+    "retainOverlap": {
+      "variant": "retain-overlap",
+      "contributorUnionMismatchRatio": 0,
+      "maxRasterCoverage": 1
+    },
+    "excludeOverlap": {
+      "variant": "exclude-overlap",
+      "contributorUnionMismatchRatio": 0.003782258299147537,
+      "maxRasterCoverage": 1
+    }
+  },
+  "worstFinalGapOwnershipPolicyPrototypes": {
+    "retainSharedOverlap": {
+      "policy": "retain-shared-overlap",
+      "contributorUnionMismatchRatio": 0,
+      "maxRasterCoverage": 1,
+      "viable": true
+    },
+    "neighboringPriority": {
+      "policy": "neighboring-priority",
+      "contributorUnionMismatchRatio": 0,
+      "maxRasterCoverage": 1,
+      "viable": true
+    },
+    "remotePriority": {
+      "policy": "remote-priority",
+      "contributorUnionMismatchRatio": 0,
+      "maxRasterCoverage": 1,
+      "viable": true
+    }
+  },
+  "worstFinalGapOwnershipPolicySelection": {
+    "selectedPolicy": null,
+    "reasons": [
+      "multiple-runtime-ownership-policies-remain-viable"
+    ]
+  },
+  "worstFinalGapOwnershipPolicyGeometryComparison": {
+    "priorityPoliciesAreGeometricallyIndistinguishable": true,
+    "reasons": [
+      "priority-policies-match-on-union-and-raster-metrics"
+    ]
+  },
+  "worstFinalGapRuleSelection": {
+    "route": "overlap-owner-first",
+    "reasons": [
+      "excluding-overlap-regresses-contributor-union-fidelity",
+      "priority-policies-cannot-be-chosen-from-current-geometry"
+    ]
+  },
+  "worstFinalGapOverlapOwnerSemantics": {
+    "currentState": "owner-unresolved",
+    "requiresExplicitOwnerSemantics": true,
+    "silentOverlapDeletionForbidden": true,
+    "geometryOnlyPriorityAssignmentForbidden": true,
+    "allowedDirections": [
+      "define-explicit-overlap-owner-semantics",
+      "defer-branch-priority-until-it-is-geometry-derived"
+    ],
+    "forbiddenDirections": [
+      "delete-overlap-without-owner-rule",
+      "pick-neighboring-priority-from-current-geometry-alone",
+      "pick-remote-priority-from-current-geometry-alone"
+    ],
+    "reasons": [
+      "rule-selection-prefers-overlap-owner-before-priority-rule",
+      "silent-overlap-deletion-breaks-contributor-union-fidelity",
+      "current-geometry-cannot-justify-priority-owner-selection"
+    ]
+  },
+  "worstFinalGapRetainedSharedOverlapCandidate": {
+    "candidate": "retained-shared-region",
+    "artifactCompatible": true,
+    "runtimeEligible": false,
+    "reasons": [
+      "candidate-preserves-shared-overlap-geometry",
+      "candidate-preserves-contributor-union-fidelity",
+      "shared-region-owner-remains-unresolved",
+      "candidate-still-needs-explicit-owner-semantics",
+      "runtime-promotion-remains-rejected"
+    ]
+  },
+  "worstFinalGapOverlapOwnerCandidateSelection": {
+    "selectedCandidate": "retained-shared-region",
+    "reasons": [
+      "retained-shared-region-is-artifact-compatible",
+      "retained-shared-region-best-preserves-contributor-union",
+      "rule-selection-prefers-overlap-owner-first",
+      "priority-policies-remain-underdetermined"
+    ]
+  },
+  "worstFinalGapRetainedSharedOverlapAdmissibility": {
+    "candidate": "retained-shared-region",
+    "artifactAdmissible": true,
+    "admissibilityReasons": [
+      "shared-overlap-geometry-is-preserved",
+      "contributor-union-fidelity-is-preserved",
+      "current-rule-selection-prefers-this-candidate"
+    ],
+    "mustRejectRuntimePromotion": true,
+    "rejectReasons": [
+      "shared-region-owner-is-still-unresolved",
+      "explicit-owner-semantics-are-still-required",
+      "current-runtime-contract-still-rejects-promotion"
+    ]
+  },
+  "worstFinalGapRetainedSharedOverlapOwnerObligations": {
+    "obligations": {
+      "defineSharedRegionOwnerSemantics": {
+        "required": true,
+        "currentlySatisfied": false,
+        "reasons": [
+          "shared-region-owner-is-still-unresolved"
+        ]
+      },
+      "preserveSharedOverlapGeometry": {
+        "required": true,
+        "currentlySatisfied": true,
+        "reasons": [
+          "shared-overlap-geometry-is-preserved"
+        ]
+      },
+      "preserveContributorUnionFidelity": {
+        "required": true,
+        "currentlySatisfied": true,
+        "reasons": [
+          "contributor-union-fidelity-is-preserved"
+        ]
+      },
+      "avoidGeometryOnlyPriorityAssignment": {
+        "required": true,
+        "currentlySatisfied": true,
+        "reasons": [
+          "geometry-only-priority-assignment-remains-forbidden"
+        ]
+      },
+      "keepExclusiveRegionsIntact": {
+        "required": true,
+        "currentlySatisfied": true,
+        "reasons": [
+          "neighboring-and-remote-exclusive-regions-remain-intact"
+        ]
+      }
+    }
+  },
+  "worstFinalGapRetainedSharedOverlapRuntimeReadiness": {
+    "runtimeReady": false,
+    "readySignals": [
+      "preserveSharedOverlapGeometry",
+      "preserveContributorUnionFidelity",
+      "avoidGeometryOnlyPriorityAssignment",
+      "keepExclusiveRegionsIntact",
+      "artifact-admissibility-established"
+    ],
+    "blockers": [
+      "shared-region-owner-is-still-unresolved",
+      "explicit-owner-semantics-are-still-required",
+      "current-runtime-contract-still-rejects-promotion",
+      "family-decision-remains-diagnostic-only",
+      "artifact-family-selection-does-not-define-runtime-ownership",
+      "artifact-ready-decomposition-still-needs-ownership-rule",
+      "shared-overlap-region-still-requires-runtime-policy",
+      "multiple-contributor-families-remain-active",
+      "multiple-runtime-ownership-policies-remain-viable",
+      "geometry-comparison-cannot-choose-between-priority-policies"
+    ]
+  },
+  "worstFinalGapRetainedSharedRegionSemanticsProposal": {
+    "proposal": "retained-shared-region-v1",
+    "adoptionStatus": "proposed-not-adopted",
+    "sharedRegionSemanticRole": "shared-non-exclusive-retained-region",
+    "neighboringExclusiveRegionRole": "neighboring-exclusive-owned-region",
+    "remoteExclusiveRegionRole": "remote-exclusive-owned-region",
+    "allowedTransformations": [
+      "preserve-neighboring-exclusive-as-neighboring-owned",
+      "preserve-remote-exclusive-as-remote-owned",
+      "preserve-overlap-as-shared-non-exclusive-region"
+    ],
+    "forbiddenTransformations": [
+      "collapse-overlap-into-neighboring-priority",
+      "collapse-overlap-into-remote-priority",
+      "delete-overlap-during-runtime-projection"
+    ],
+    "adoptionBlockers": [
+      "shared-region-owner-is-still-unresolved",
+      "explicit-owner-semantics-are-still-required",
+      "current-runtime-contract-still-rejects-promotion",
+      "family-decision-remains-diagnostic-only",
+      "artifact-family-selection-does-not-define-runtime-ownership",
+      "artifact-ready-decomposition-still-needs-ownership-rule",
+      "shared-overlap-region-still-requires-runtime-policy",
+      "multiple-contributor-families-remain-active",
+      "multiple-runtime-ownership-policies-remain-viable",
+      "geometry-comparison-cannot-choose-between-priority-policies"
+    ],
+    "reasons": [
+      "current-candidate-selection-already-points-to-this-proposal",
+      "proposal-defines-the-missing-owner-semantics-shape",
+      "proposal-is-defined-before-runtime-adoption"
+    ]
+  },
+  "worstFinalGapRetainedSharedRegionProjectionRule": {
+    "rule": "retained-shared-region-projection-v1",
+    "status": "proposed-not-adopted",
+    "neighboringExclusiveProjection": "retain-as-neighboring-exclusive-owned",
+    "sharedOverlapProjection": "retain-as-shared-non-exclusive-region",
+    "remoteExclusiveProjection": "retain-as-remote-exclusive-owned",
+    "deterministicOrdering": "neighboring-exclusive -> shared-overlap -> remote-exclusive",
+    "deterministicBoundaryPolicy": "preserve-decomposition-boundaries-without-priority-collapse",
+    "forbiddenProjectionMutations": [
+      "merge-shared-overlap-into-neighboring-exclusive",
+      "merge-shared-overlap-into-remote-exclusive",
+      "delete-shared-overlap-during-projection"
+    ],
+    "blockers": [
+      "projection-rule-is-proposed-but-not-adopted",
+      "shared-region-owner-binding-is-still-unresolved"
+    ],
+    "reasons": [
+      "projection-rule-aligns-with-shared-region-semantics-proposal",
+      "projection-rule-preserves-the-existing-three-region-partition"
+    ]
+  },
+  "worstFinalGapRetainedSharedRegionBindingRule": {
+    "rule": "retained-shared-region-binding-v1",
+    "status": "proposed-not-adopted",
+    "neighboringExclusiveBinding": "neighboring-exclusive-owner",
+    "sharedOverlapBinding": "shared-overlap-owner-class",
+    "remoteExclusiveBinding": "remote-exclusive-owner",
+    "forbiddenBindings": [
+      "bind-shared-overlap-to-neighboring-exclusive-owner",
+      "bind-shared-overlap-to-remote-exclusive-owner",
+      "leave-shared-overlap-owner-implicit"
+    ],
+    "blockers": [
+      "binding-rule-is-proposed-but-not-adopted",
+      "shared-owner-class-is-not-yet-declared"
+    ],
+    "reasons": [
+      "binding-rule-aligns-with-shared-region-semantics-proposal",
+      "binding-rule-aligns-with-shared-region-projection-rule"
+    ]
+  },
+  "worstFinalGapSharedOverlapOwnerClass": {
+    "ownerClass": "shared-overlap-owner-class-v1",
+    "status": "proposed-not-adopted",
+    "semanticRole": "shared-non-exclusive-owner-class",
+    "allowedResponsibilities": [
+      "retain-shared-overlap-as-explicit-shared-region",
+      "preserve-non-exclusive-shared-membership",
+      "require-explicit-owner-class-declaration"
+    ],
+    "forbiddenResponsibilities": [
+      "collapse-shared-region-into-neighboring-exclusive-owner",
+      "collapse-shared-region-into-remote-exclusive-owner",
+      "allow-implicit-shared-owner-resolution"
+    ],
+    "blockers": [
+      "owner-class-is-proposed-but-not-adopted"
+    ],
+    "reasons": [
+      "owner-class-aligns-with-shared-region-semantics-proposal",
+      "owner-class-aligns-with-binding-rule"
+    ]
+  },
+  "worstFinalGapSharedOverlapOwnerRuntimeSurface": {
+    "surface": "shared-overlap-owner-runtime-surface-v1",
+    "status": "declared-conditional-consumer",
+    "ownerClassId": "shared-overlap-owner-class-v1",
+    "ownershipKind": "shared-non-exclusive",
+    "requiredFields": [
+      "ownerClassId",
+      "ownershipKind",
+      "gapIndex",
+      "trailingIndex",
+      "remoteContributorCount",
+      "localGapWindowPresent"
+    ],
+    "forbiddenFields": [
+      "priorityWinner",
+      "exclusiveOwnerIndex"
+    ],
+    "blockers": [
+      "projection-rule-is-proposed-but-not-adopted",
+      "binding-rule-is-proposed-but-not-adopted",
+      "owner-class-is-proposed-but-not-adopted"
+    ],
+    "reasons": [
+      "runtime-surface-aligns-with-owner-class-proposal",
+      "runtime-surface-aligns-with-shared-owner-class-role"
+    ]
+  },
+  "worstFinalGapOwnerProjectionPreconditions": {
+    "input": "retained-shared-region-projection-input-v1",
+    "status": "projection-ready-but-adoption-blocked",
+    "projectionPreconditionsSatisfied": true,
+    "satisfiedConditions": [
+      "runtime-surface-is-declared",
+      "local-gap-window-precondition-is-declared",
+      "remote-contributor-precondition-is-declared",
+      "shared-owner-class-id-is-declared",
+      "shared-ownership-kind-is-declared"
+    ],
+    "blockers": [
+      "projection-rule-is-proposed-but-not-adopted",
+      "binding-rule-is-proposed-but-not-adopted",
+      "owner-class-is-proposed-but-not-adopted"
+    ],
+    "reasons": [
+      "owner-projection-input-shape-is-declared",
+      "owner-projection-preconditions-are-ready-before-adoption"
+    ]
+  },
+  "worstFinalGapOwnerProjectionPayload": {
+    "payload": "retained-shared-region-projection-payload-v1",
+    "status": "payload-ready-for-application",
+    "payloadReady": true,
+    "projectionOrdering": "neighboring-exclusive -> shared-overlap -> remote-exclusive",
+    "boundaryPolicy": "preserve-decomposition-boundaries-without-priority-collapse",
+    "blockers": [],
+    "reasons": [
+      "owner-projection-payload-shape-is-declared",
+      "owner-projection-payload-is-ready-for-runtime-application"
+    ]
+  },
+  "worstFinalGapOwnerProjectionSemantics": {
+    "consumer": "retained-shared-region-projection-semantics-v1",
+    "status": "consumed-and-applied",
+    "payloadConsumed": true,
+    "semanticsApplied": true,
+    "blockers": [],
+    "reasons": [
+      "projection-payload-is-consumed-by-runtime-application",
+      "projection-semantics-apply-explicit-self-overlap-decomposition"
+    ]
+  },
+  "worstFinalGapOwnerProjectionOutput": {
+    "output": "retained-shared-region-projection-output-v1",
+    "status": "output-applied",
+    "outputReady": true,
+    "outputShape": "neighboring-exclusive + shared-overlap + remote-exclusive",
+    "blockers": [],
+    "reasons": [
+      "projection-output-contract-is-declared",
+      "projection-output-is-applied-by-runtime-explicit-self-overlap-decomposition"
+    ]
+  },
+  "worstFinalGapRetainedSharedRegionAdoptionContract": {
+    "adoptable": false,
+    "requiredGuarantees": {
+      "explicitSharedRegionOwnerSemantics": {
+        "required": true,
+        "currentlySatisfied": false,
+        "reasons": [
+          "binding-rule-is-proposed-but-not-adopted",
+          "shared-owner-class-is-not-yet-declared",
+          "owner-class-is-proposed-but-not-adopted"
+        ]
+      },
+      "deterministicSharedRegionProjection": {
+        "required": true,
+        "currentlySatisfied": false,
+        "reasons": [
+          "projection-rule-is-proposed-but-not-adopted",
+          "shared-region-owner-binding-is-still-unresolved"
+        ]
+      },
+      "declaredOwnerClassRuntimeSurface": {
+        "required": true,
+        "currentlySatisfied": true,
+        "reasons": [
+          "owner-class-runtime-surface-is-declared-for-conditional-consumption"
+        ]
+      },
+      "noImplicitPriorityFallback": {
+        "required": true,
+        "currentlySatisfied": true,
+        "reasons": [
+          "implicit-priority-fallback-is-forbidden-by-proposal"
+        ]
+      },
+      "preserveThreeRegionPartition": {
+        "required": true,
+        "currentlySatisfied": true,
+        "reasons": [
+          "neighboring-and-remote-exclusive-regions-remain-intact"
+        ]
+      },
+      "preserveContributorUnionAtRuntime": {
+        "required": true,
+        "currentlySatisfied": true,
+        "reasons": [
+          "contributor-union-fidelity-is-preserved"
+        ]
+      }
+    },
+    "blockers": [
+      "binding-rule-is-proposed-but-not-adopted",
+      "shared-owner-class-is-not-yet-declared",
+      "owner-class-is-proposed-but-not-adopted",
+      "projection-rule-is-proposed-but-not-adopted",
+      "shared-region-owner-binding-is-still-unresolved",
+      "shared-region-owner-is-still-unresolved",
+      "explicit-owner-semantics-are-still-required",
+      "current-runtime-contract-still-rejects-promotion",
+      "family-decision-remains-diagnostic-only",
+      "artifact-family-selection-does-not-define-runtime-ownership",
+      "artifact-ready-decomposition-still-needs-ownership-rule",
+      "shared-overlap-region-still-requires-runtime-policy",
+      "multiple-contributor-families-remain-active",
+      "multiple-runtime-ownership-policies-remain-viable",
+      "geometry-comparison-cannot-choose-between-priority-policies"
+    ],
+    "reasons": [
+      "proposal-is-defined-but-not-yet-adopted",
+      "non-priority-shared-region-shape-is-stable-at-artifact-level",
+      "runtime-projection-proposal-exists-but-is-not-yet-adopted",
+      "owner-binding-proposal-exists-but-is-not-yet-adopted",
+      "owner-class-proposal-exists-but-is-not-yet-adopted",
+      "runtime-surface-is-declared-for-conditional-consumption",
+      "owner-projection-preconditions-are-ready",
+      "owner-projection-payload-is-ready",
+      "owner-projection-semantics-consumer-has-consumed-payload",
+      "owner-projection-output-contract-is-ready"
+    ]
+  },
+  "worstFinalGapOwnershipPolicyRuleComparison": {
+    "entries": {
+      "retain-shared-overlap": {
+        "violatesCurrentRuleSelection": true,
+        "reasons": [
+          "shared-overlap-owner-still-unassigned"
+        ]
+      },
+      "neighboring-priority": {
+        "violatesCurrentRuleSelection": true,
+        "reasons": [
+          "priority-rule-is-not-yet-geometry-derived"
+        ]
+      },
+      "remote-priority": {
+        "violatesCurrentRuleSelection": true,
+        "reasons": [
+          "priority-rule-is-not-yet-geometry-derived"
+        ]
+      }
+    }
+  },
+  "worstFinalGapRuntimeRejectContract": {
+    "mustRejectRuntimePromotion": true,
+    "reasons": [
+      "family-decision-remains-diagnostic-only",
+      "artifact-family-selection-does-not-define-runtime-ownership",
+      "artifact-ready-decomposition-still-needs-ownership-rule",
+      "shared-overlap-region-still-requires-runtime-policy",
+      "multiple-contributor-families-remain-active",
+      "multiple-runtime-ownership-policies-remain-viable",
+      "geometry-comparison-cannot-choose-between-priority-policies"
+    ]
+  },
+  "worstFinalGapGateMatrix": {
+    "entries": {
+      "remotePollutionClassification": {
+        "layer": "production-hard-gate",
+        "status": "pass",
+        "reason": "remote case must stay classified as remote-pollution",
+        "value": {
+          "classification": "remote-pollution",
+          "remoteContributorCount": 1
+        }
+      },
+      "contributorIdentityPreserved": {
+        "layer": "production-hard-gate",
+        "status": "pass",
+        "reason": "active remote contributor identity must remain recoverable",
+        "value": {
+          "dashIndex": 28,
+          "boundarySourceKind": "exact-cubic",
+          "touchedSegmentIndices": [
+            3
+          ]
+        }
+      },
+      "familyBArtifactReadiness": {
+        "layer": "artifact-gate",
+        "status": "pass",
+        "reason": "Family B may be artifact-ready without being runtime-ready",
+        "value": {
+          "artifactReady": true,
+          "reasons": [
+            "neighboring-exclusive-region-present",
+            "remote-exclusive-region-present",
+            "shared-overlap-region-present",
+            "recomposed-union-matches-source-contributors",
+            "decomposition-has-no-raster-overcoverage"
+          ],
+          "neighboringExclusiveArea": 163.8562514855239,
+          "remoteExclusiveArea": 63.50194618962814,
+          "overlapArea": 1.0857238860098732,
+          "contributorUnionMismatchRatio": 0,
+          "sourceContributorMaxRasterCoverage": 2,
+          "decompositionMaxRasterCoverage": 1
+        }
+      },
+      "familyBRuntimeReject": {
+        "layer": "artifact-gate",
+        "status": "pass",
+        "reason": "artifact-ready decomposition must still reject runtime promotion without ownership policy",
+        "value": {
+          "mustRejectRuntimePromotion": true,
+          "reasons": [
+            "family-decision-remains-diagnostic-only",
+            "artifact-family-selection-does-not-define-runtime-ownership",
+            "artifact-ready-decomposition-still-needs-ownership-rule",
+            "shared-overlap-region-still-requires-runtime-policy",
+            "multiple-contributor-families-remain-active",
+            "multiple-runtime-ownership-policies-remain-viable",
+            "geometry-comparison-cannot-choose-between-priority-policies"
+          ]
+        }
+      },
+      "retainedSharedOverlapArtifactAdmissibility": {
+        "layer": "artifact-gate",
+        "status": "pass",
+        "reason": "retained shared overlap may be admitted as an artifact candidate before runtime selection",
+        "value": {
+          "candidate": "retained-shared-region",
+          "artifactAdmissible": true,
+          "admissibilityReasons": [
+            "shared-overlap-geometry-is-preserved",
+            "contributor-union-fidelity-is-preserved",
+            "current-rule-selection-prefers-this-candidate"
+          ],
+          "mustRejectRuntimePromotion": true,
+          "rejectReasons": [
+            "shared-region-owner-is-still-unresolved",
+            "explicit-owner-semantics-are-still-required",
+            "current-runtime-contract-still-rejects-promotion"
+          ]
+        }
+      },
+      "retainedSharedOverlapRuntimeBlocked": {
+        "layer": "artifact-gate",
+        "status": "pass",
+        "reason": "retained shared overlap must stay runtime-blocked until owner obligations are fully satisfied",
+        "value": {
+          "runtimeReady": false,
+          "readySignals": [
+            "preserveSharedOverlapGeometry",
+            "preserveContributorUnionFidelity",
+            "avoidGeometryOnlyPriorityAssignment",
+            "keepExclusiveRegionsIntact",
+            "artifact-admissibility-established"
+          ],
+          "blockers": [
+            "shared-region-owner-is-still-unresolved",
+            "explicit-owner-semantics-are-still-required",
+            "current-runtime-contract-still-rejects-promotion",
+            "family-decision-remains-diagnostic-only",
+            "artifact-family-selection-does-not-define-runtime-ownership",
+            "artifact-ready-decomposition-still-needs-ownership-rule",
+            "shared-overlap-region-still-requires-runtime-policy",
+            "multiple-contributor-families-remain-active",
+            "multiple-runtime-ownership-policies-remain-viable",
+            "geometry-comparison-cannot-choose-between-priority-policies"
+          ]
+        }
+      },
+      "retainedSharedRegionProposalNotYetAdoptable": {
+        "layer": "artifact-gate",
+        "status": "pass",
+        "reason": "retained shared region proposal must remain non-adoptable until runtime guarantees are complete",
+        "value": {
+          "adoptable": false,
+          "requiredGuarantees": {
+            "explicitSharedRegionOwnerSemantics": {
+              "required": true,
+              "currentlySatisfied": false,
+              "reasons": [
+                "binding-rule-is-proposed-but-not-adopted",
+                "shared-owner-class-is-not-yet-declared",
+                "owner-class-is-proposed-but-not-adopted"
+              ]
+            },
+            "deterministicSharedRegionProjection": {
+              "required": true,
+              "currentlySatisfied": false,
+              "reasons": [
+                "projection-rule-is-proposed-but-not-adopted",
+                "shared-region-owner-binding-is-still-unresolved"
+              ]
+            },
+            "declaredOwnerClassRuntimeSurface": {
+              "required": true,
+              "currentlySatisfied": true,
+              "reasons": [
+                "owner-class-runtime-surface-is-declared-for-conditional-consumption"
+              ]
+            },
+            "noImplicitPriorityFallback": {
+              "required": true,
+              "currentlySatisfied": true,
+              "reasons": [
+                "implicit-priority-fallback-is-forbidden-by-proposal"
+              ]
+            },
+            "preserveThreeRegionPartition": {
+              "required": true,
+              "currentlySatisfied": true,
+              "reasons": [
+                "neighboring-and-remote-exclusive-regions-remain-intact"
+              ]
+            },
+            "preserveContributorUnionAtRuntime": {
+              "required": true,
+              "currentlySatisfied": true,
+              "reasons": [
+                "contributor-union-fidelity-is-preserved"
+              ]
+            }
+          },
+          "blockers": [
+            "binding-rule-is-proposed-but-not-adopted",
+            "shared-owner-class-is-not-yet-declared",
+            "owner-class-is-proposed-but-not-adopted",
+            "projection-rule-is-proposed-but-not-adopted",
+            "shared-region-owner-binding-is-still-unresolved",
+            "shared-region-owner-is-still-unresolved",
+            "explicit-owner-semantics-are-still-required",
+            "current-runtime-contract-still-rejects-promotion",
+            "family-decision-remains-diagnostic-only",
+            "artifact-family-selection-does-not-define-runtime-ownership",
+            "artifact-ready-decomposition-still-needs-ownership-rule",
+            "shared-overlap-region-still-requires-runtime-policy",
+            "multiple-contributor-families-remain-active",
+            "multiple-runtime-ownership-policies-remain-viable",
+            "geometry-comparison-cannot-choose-between-priority-policies"
+          ],
+          "reasons": [
+            "proposal-is-defined-but-not-yet-adopted",
+            "non-priority-shared-region-shape-is-stable-at-artifact-level",
+            "runtime-projection-proposal-exists-but-is-not-yet-adopted",
+            "owner-binding-proposal-exists-but-is-not-yet-adopted",
+            "owner-class-proposal-exists-but-is-not-yet-adopted",
+            "runtime-surface-is-declared-for-conditional-consumption",
+            "owner-projection-preconditions-are-ready",
+            "owner-projection-payload-is-ready",
+            "owner-projection-semantics-consumer-has-consumed-payload",
+            "owner-projection-output-contract-is-ready"
+          ]
+        }
+      },
+      "retainedSharedRegionProjectionRuleNotYetAdopted": {
+        "layer": "artifact-gate",
+        "status": "pass",
+        "reason": "deterministic shared-region projection may be proposed before it is adopted",
+        "value": {
+          "rule": "retained-shared-region-projection-v1",
+          "status": "proposed-not-adopted",
+          "neighboringExclusiveProjection": "retain-as-neighboring-exclusive-owned",
+          "sharedOverlapProjection": "retain-as-shared-non-exclusive-region",
+          "remoteExclusiveProjection": "retain-as-remote-exclusive-owned",
+          "deterministicOrdering": "neighboring-exclusive -> shared-overlap -> remote-exclusive",
+          "deterministicBoundaryPolicy": "preserve-decomposition-boundaries-without-priority-collapse",
+          "forbiddenProjectionMutations": [
+            "merge-shared-overlap-into-neighboring-exclusive",
+            "merge-shared-overlap-into-remote-exclusive",
+            "delete-shared-overlap-during-projection"
+          ],
+          "blockers": [
+            "projection-rule-is-proposed-but-not-adopted",
+            "shared-region-owner-binding-is-still-unresolved"
+          ],
+          "reasons": [
+            "projection-rule-aligns-with-shared-region-semantics-proposal",
+            "projection-rule-preserves-the-existing-three-region-partition"
+          ]
+        }
+      },
+      "retainedSharedRegionBindingRuleNotYetAdopted": {
+        "layer": "artifact-gate",
+        "status": "pass",
+        "reason": "shared-region owner binding may be proposed before it is adopted",
+        "value": {
+          "rule": "retained-shared-region-binding-v1",
+          "status": "proposed-not-adopted",
+          "neighboringExclusiveBinding": "neighboring-exclusive-owner",
+          "sharedOverlapBinding": "shared-overlap-owner-class",
+          "remoteExclusiveBinding": "remote-exclusive-owner",
+          "forbiddenBindings": [
+            "bind-shared-overlap-to-neighboring-exclusive-owner",
+            "bind-shared-overlap-to-remote-exclusive-owner",
+            "leave-shared-overlap-owner-implicit"
+          ],
+          "blockers": [
+            "binding-rule-is-proposed-but-not-adopted",
+            "shared-owner-class-is-not-yet-declared"
+          ],
+          "reasons": [
+            "binding-rule-aligns-with-shared-region-semantics-proposal",
+            "binding-rule-aligns-with-shared-region-projection-rule"
+          ]
+        }
+      },
+      "sharedOverlapOwnerClassNotYetAdopted": {
+        "layer": "artifact-gate",
+        "status": "pass",
+        "reason": "shared overlap owner class may be proposed before it is adopted",
+        "value": {
+          "ownerClass": "shared-overlap-owner-class-v1",
+          "status": "proposed-not-adopted",
+          "semanticRole": "shared-non-exclusive-owner-class",
+          "allowedResponsibilities": [
+            "retain-shared-overlap-as-explicit-shared-region",
+            "preserve-non-exclusive-shared-membership",
+            "require-explicit-owner-class-declaration"
+          ],
+          "forbiddenResponsibilities": [
+            "collapse-shared-region-into-neighboring-exclusive-owner",
+            "collapse-shared-region-into-remote-exclusive-owner",
+            "allow-implicit-shared-owner-resolution"
+          ],
+          "blockers": [
+            "owner-class-is-proposed-but-not-adopted"
+          ],
+          "reasons": [
+            "owner-class-aligns-with-shared-region-semantics-proposal",
+            "owner-class-aligns-with-binding-rule"
+          ]
+        }
+      },
+      "sharedOverlapOwnerRuntimeSurfaceDeclared": {
+        "layer": "artifact-gate",
+        "status": "pass",
+        "reason": "shared overlap owner runtime surface may be declared before consumer adoption",
+        "value": {
+          "surface": "shared-overlap-owner-runtime-surface-v1",
+          "status": "declared-conditional-consumer",
+          "ownerClassId": "shared-overlap-owner-class-v1",
+          "ownershipKind": "shared-non-exclusive",
+          "requiredFields": [
+            "ownerClassId",
+            "ownershipKind",
+            "gapIndex",
+            "trailingIndex",
+            "remoteContributorCount",
+            "localGapWindowPresent"
+          ],
+          "forbiddenFields": [
+            "priorityWinner",
+            "exclusiveOwnerIndex"
+          ],
+          "blockers": [
+            "projection-rule-is-proposed-but-not-adopted",
+            "binding-rule-is-proposed-but-not-adopted",
+            "owner-class-is-proposed-but-not-adopted"
+          ],
+          "reasons": [
+            "runtime-surface-aligns-with-owner-class-proposal",
+            "runtime-surface-aligns-with-shared-owner-class-role"
+          ]
+        }
+      },
+      "ownerProjectionPreconditionsReady": {
+        "layer": "artifact-gate",
+        "status": "pass",
+        "reason": "owner projection inputs may become projection-ready before adoption blockers are cleared",
+        "value": {
+          "input": "retained-shared-region-projection-input-v1",
+          "status": "projection-ready-but-adoption-blocked",
+          "projectionPreconditionsSatisfied": true,
+          "satisfiedConditions": [
+            "runtime-surface-is-declared",
+            "local-gap-window-precondition-is-declared",
+            "remote-contributor-precondition-is-declared",
+            "shared-owner-class-id-is-declared",
+            "shared-ownership-kind-is-declared"
+          ],
+          "blockers": [
+            "projection-rule-is-proposed-but-not-adopted",
+            "binding-rule-is-proposed-but-not-adopted",
+            "owner-class-is-proposed-but-not-adopted"
+          ],
+          "reasons": [
+            "owner-projection-input-shape-is-declared",
+            "owner-projection-preconditions-are-ready-before-adoption"
+          ]
+        }
+      },
+      "ownerProjectionPayloadReady": {
+        "layer": "artifact-gate",
+        "status": "pass",
+        "reason": "owner projection payload may become ready before projection semantics are adopted",
+        "value": {
+          "payload": "retained-shared-region-projection-payload-v1",
+          "status": "payload-ready-for-application",
+          "payloadReady": true,
+          "projectionOrdering": "neighboring-exclusive -> shared-overlap -> remote-exclusive",
+          "boundaryPolicy": "preserve-decomposition-boundaries-without-priority-collapse",
+          "blockers": [],
+          "reasons": [
+            "owner-projection-payload-shape-is-declared",
+            "owner-projection-payload-is-ready-for-runtime-application"
+          ]
+        }
+      },
+      "ownerProjectionSemanticsConsumed": {
+        "layer": "artifact-gate",
+        "status": "pass",
+        "reason": "owner projection semantics should consume payload and apply explicit self-overlap decomposition",
+        "value": {
+          "consumer": "retained-shared-region-projection-semantics-v1",
+          "status": "consumed-and-applied",
+          "payloadConsumed": true,
+          "semanticsApplied": true,
+          "blockers": [],
+          "reasons": [
+            "projection-payload-is-consumed-by-runtime-application",
+            "projection-semantics-apply-explicit-self-overlap-decomposition"
+          ]
+        }
+      },
+      "ownerProjectionOutputReady": {
+        "layer": "artifact-gate",
+        "status": "pass",
+        "reason": "owner projection output may be declared before projection application is adopted",
+        "value": {
+          "output": "retained-shared-region-projection-output-v1",
+          "status": "output-applied",
+          "outputReady": true,
+          "outputShape": "neighboring-exclusive + shared-overlap + remote-exclusive",
+          "blockers": [],
+          "reasons": [
+            "projection-output-contract-is-declared",
+            "projection-output-is-applied-by-runtime-explicit-self-overlap-decomposition"
+          ]
+        }
+      },
+      "bodyOnlyIntrusionSignal": {
+        "layer": "diagnostic-only",
+        "status": "informational",
+        "reason": "body-only intrusion helps classify the failure stage",
+        "value": 0.8333333333333334
+      },
+      "artifactReadyMeansRuntimeReady": {
+        "layer": "rejected-target",
+        "status": "pass",
+        "reason": "artifact-ready must not be interpreted as automatic runtime readiness",
+        "value": {
+          "artifactReady": true,
+          "mustRejectRuntimePromotion": true
+        }
+      }
+    }
+  },
+  "worstFinalGapRemoteContributor": {
+    "dashIndex": 28,
+    "intrusionRatio": 0.4833333333333334,
+    "startDistance": 1316,
+    "endDistance": 1343,
+    "touchedSegmentIndices": [
+      3
+    ],
+    "boundarySourceKind": "exact-cubic",
+    "bodyOnlyClearRatio": 0.8333333333333334,
+    "capOnlyClearRatio": 0.6833333333333333,
+    "preConstraintPolygonCount": 1,
+    "rawPolygonCount": 1,
+    "wedgePolygonCount": 1,
+    "ownershipPolygonCount": 1,
+    "specEntries": [
+      {
+        "rawPolygonCount": 1,
+        "wedgePolygonCount": 1,
+        "polygonCount": 1,
+        "includeStartCap": true,
+        "includeEndCap": true,
+        "wedgeConstraintDistances": [],
+        "ownershipOwners": []
+      }
+    ]
+  },
+  "worstFinalGapCapDiagnostics": {
+    "centerGapDistance": 19.943170231810107,
+    "leadingEndCapForwardExtent": 4.995485807443752,
+    "trailingStartCapBackwardExtent": 4.999902533241579,
+    "remainingAxisGap": 9.947781891124775,
+    "leadingEndCapArea": 39.210617862974686,
+    "trailingStartCapArea": 39.20685613182468,
+    "leadingEndCapVertexCount": 34,
+    "trailingStartCapVertexCount": 33,
+    "leadingEndTangentDotGapAxis": 0.9999864779834581,
+    "trailingStartTangentDotGapAxis": 0.999979270220429
+  },
+  "worstFinalGapCrossSectionDiagnostics": {
+    "centerGapDistance": 19.943170231810107,
+    "leadingEndCrossSectionForwardExtent": 0.025517051443166405,
+    "trailingStartCrossSectionBackwardExtent": 0.03121951447984328,
+    "remainingAxisGap": 19.886433665887097,
+    "leadingEndCrossSectionLength": 9.999999999999986,
+    "trailingStartCrossSectionLength": 9.999999999999995,
+    "leadingEndCrossSectionDotGapAxis": 0.005103410288633259,
+    "trailingStartCrossSectionDotGapAxis": 0.006243902895965547
+  },
+  "healthyFinalGapPair": {
+    "gapIndex": 0,
+    "clearRatio": 0.5833333333333333,
+    "leadingDashIndex": 0,
+    "trailingDashIndex": 1,
+    "leadingDashTouchedSegmentIndices": [
+      0
+    ],
+    "trailingDashTouchedSegmentIndices": [
+      0
+    ],
+    "leadingDashBoundarySourceKind": "exact-cubic",
+    "trailingDashBoundarySourceKind": "exact-cubic",
+    "capDiagnostics": {
+      "centerGapDistance": 20.638042445218794,
+      "leadingEndCapForwardExtent": 4.998051470164685,
+      "trailingStartCapBackwardExtent": 4.996408558237431,
+      "remainingAxisGap": 10.643582416816677,
+      "leadingEndCapArea": 39.2068561318265,
+      "trailingStartCapArea": 39.2068561318265,
+      "leadingEndCapVertexCount": 33,
+      "trailingStartCapVertexCount": 33,
+      "leadingEndTangentDotGapAxis": 0.9973748671169276,
+      "trailingStartTangentDotGapAxis": 0.998112145569058
+    },
+    "crossSectionDiagnostics": {
+      "centerGapDistance": 20.638042445218794,
+      "leadingEndCrossSectionForwardExtent": 0.3509906598662711,
+      "trailingStartCrossSectionBackwardExtent": 0.3011691000448853,
+      "remainingAxisGap": 19.98588268530764,
+      "leadingEndCrossSectionLength": 9.999999999999998,
+      "trailingStartCrossSectionLength": 9.999999999999991,
+      "leadingEndCrossSectionDotGapAxis": 0.07019813197325397,
+      "trailingStartCrossSectionDotGapAxis": 0.060233820008977035
+    },
+    "classification": {
+      "classification": "remote-pollution",
+      "reasons": [
+        "non-neighbor-intrusion"
+      ],
+      "remoteContributorCount": 1,
+      "localGapWindowVertexCount": 6
+    },
+    "retainedRegion": null,
+    "capContribution": {
+      "clearRatioWithAllCaps": 0.5833333333333333,
+      "leadingNoEndCapClearRatio": 0.7833333333333333,
+      "trailingNoStartCapClearRatio": 0.8,
+      "bothNoCapsClearRatio": 1,
+      "bothCapsOnlyClearRatio": 0.5833333333333333
+    }
+  },
+  "localAdjacentGapPair": {
+    "gapIndex": 1,
+    "clearRatio": 0.5333333333333333,
+    "leadingDashIndex": 1,
+    "trailingDashIndex": 2,
+    "leadingDashTouchedSegmentIndices": [
+      0
+    ],
+    "trailingDashTouchedSegmentIndices": [
+      0
+    ],
+    "leadingDashBoundarySourceKind": "exact-cubic",
+    "trailingDashBoundarySourceKind": "exact-cubic",
+    "classification": {
+      "classification": "local-adjacent-pair",
+      "reasons": [
+        "adjacent-unconstrained-pair"
+      ],
+      "remoteContributorCount": 0,
+      "localGapWindowVertexCount": 6
+    },
+    "promotionEligibility": "promotable-local-gap",
+    "capDiagnostics": {
+      "centerGapDistance": 20.252654796135747,
+      "leadingEndCapForwardExtent": 4.998929232883425,
+      "trailingStartCapBackwardExtent": 4.998615759566416,
+      "remainingAxisGap": 10.255109803685906,
+      "leadingEndCapArea": 39.21061786297287,
+      "trailingStartCapArea": 39.210617862978324,
+      "leadingEndCapVertexCount": 34,
+      "trailingStartCapVertexCount": 34,
+      "leadingEndTangentDotGapAxis": 0.9996167950822563,
+      "trailingStartTangentDotGapAxis": 0.9996979462704132
+    },
+    "crossSectionDiagnostics": {
+      "centerGapDistance": 20.252654796135747,
+      "leadingEndCrossSectionForwardExtent": 0.13450349155041463,
+      "trailingStartCrossSectionBackwardExtent": 0.12033136255998489,
+      "remainingAxisGap": 19.997819942025348,
+      "leadingEndCrossSectionLength": 10,
+      "trailingStartCrossSectionLength": 9.999999999999995,
+      "leadingEndCrossSectionDotGapAxis": 0.02690069831008407,
+      "trailingStartCrossSectionDotGapAxis": 0.0240662725119985
+    },
+    "retainedRegion": {
+      "polygonCount": 8,
+      "leadingRetainedPolygonCount": 4,
+      "trailingRetainedPolygonCount": 4,
+      "clearRatio": 1
+    },
+    "faceRegions": {
+      "leading": {
+        "bodyRegionCount": 1,
+        "startTerminalRegionCount": 1,
+        "endTerminalRegionCount": 1,
+        "mergedFinalRegionCount": 1
+      },
+      "trailing": {
+        "bodyRegionCount": 1,
+        "startTerminalRegionCount": 1,
+        "endTerminalRegionCount": 1,
+        "mergedFinalRegionCount": 1
+      }
+    },
+    "capContribution": {
+      "clearRatioWithAllCaps": 0.5333333333333333,
+      "leadingNoEndCapClearRatio": 0.7666666666666666,
+      "trailingNoStartCapClearRatio": 0.7666666666666666,
+      "bothNoCapsClearRatio": 1,
+      "bothCapsOnlyClearRatio": 0.5333333333333333
+    }
+  },
+  "bestLocalAdjacentGapPair": {
+    "gapIndex": 1,
+    "clearRatio": 0.5333333333333333,
+    "leadingDashIndex": 1,
+    "trailingDashIndex": 2,
+    "leadingDashTouchedSegmentIndices": [
+      0
+    ],
+    "trailingDashTouchedSegmentIndices": [
+      0
+    ],
+    "leadingDashBoundarySourceKind": "exact-cubic",
+    "trailingDashBoundarySourceKind": "exact-cubic",
+    "classification": {
+      "classification": "local-adjacent-pair",
+      "reasons": [
+        "adjacent-unconstrained-pair"
+      ],
+      "remoteContributorCount": 0,
+      "localGapWindowVertexCount": 6
+    },
+    "capDiagnostics": {
+      "centerGapDistance": 20.252654796135747,
+      "leadingEndCapForwardExtent": 4.998929232883425,
+      "trailingStartCapBackwardExtent": 4.998615759566416,
+      "remainingAxisGap": 10.255109803685906,
+      "leadingEndCapArea": 39.21061786297287,
+      "trailingStartCapArea": 39.210617862978324,
+      "leadingEndCapVertexCount": 34,
+      "trailingStartCapVertexCount": 34,
+      "leadingEndTangentDotGapAxis": 0.9996167950822563,
+      "trailingStartTangentDotGapAxis": 0.9996979462704132
+    },
+    "crossSectionDiagnostics": {
+      "centerGapDistance": 20.252654796135747,
+      "leadingEndCrossSectionForwardExtent": 0.13450349155041463,
+      "trailingStartCrossSectionBackwardExtent": 0.12033136255998489,
+      "remainingAxisGap": 19.997819942025348,
+      "leadingEndCrossSectionLength": 10,
+      "trailingStartCrossSectionLength": 9.999999999999995,
+      "leadingEndCrossSectionDotGapAxis": 0.02690069831008407,
+      "trailingStartCrossSectionDotGapAxis": 0.0240662725119985
+    },
+    "retainedRegion": {
+      "polygonCount": 8,
+      "leadingRetainedPolygonCount": 4,
+      "trailingRetainedPolygonCount": 4,
+      "clearRatio": 1
+    }
+  },
+  "canonicalRectangleLocalGapPair": {
+    "gapIndex": 1,
+    "clearRatio": 0.5333333333333333,
+    "leadingDashIndex": 1,
+    "trailingDashIndex": 2,
+    "leadingDashTouchedSegmentIndices": [
+      0
+    ],
+    "trailingDashTouchedSegmentIndices": [
+      0
+    ],
+    "leadingDashBoundarySourceKind": "sampled",
+    "trailingDashBoundarySourceKind": "sampled",
+    "classification": {
+      "classification": "local-adjacent-pair",
+      "reasons": [
+        "adjacent-unconstrained-pair"
+      ],
+      "remoteContributorCount": 0,
+      "localGapWindowVertexCount": 4
+    },
+    "promotionEligibility": "round-cap-canonical-gap",
+    "capDiagnostics": {
+      "centerGapDistance": 20,
+      "leadingEndCapForwardExtent": 5,
+      "trailingStartCapBackwardExtent": 5,
+      "remainingAxisGap": 10,
+      "leadingEndCapArea": 39.20685613182428,
+      "trailingStartCapArea": 39.206856131824395,
+      "leadingEndCapVertexCount": 33,
+      "trailingStartCapVertexCount": 33,
+      "leadingEndTangentDotGapAxis": 1,
+      "trailingStartTangentDotGapAxis": 1
+    },
+    "crossSectionDiagnostics": {
+      "centerGapDistance": 20,
+      "leadingEndCrossSectionForwardExtent": 0,
+      "trailingStartCrossSectionBackwardExtent": 0,
+      "remainingAxisGap": 20,
+      "leadingEndCrossSectionLength": 10,
+      "trailingStartCrossSectionLength": 10,
+      "leadingEndCrossSectionDotGapAxis": 0,
+      "trailingStartCrossSectionDotGapAxis": 0
+    },
+    "retainedRegion": null,
+    "faceRegions": {
+      "leading": {
+        "bodyRegionCount": 1,
+        "startTerminalRegionCount": 1,
+        "endTerminalRegionCount": 1,
+        "mergedFinalRegionCount": 1
+      },
+      "trailing": {
+        "bodyRegionCount": 1,
+        "startTerminalRegionCount": 1,
+        "endTerminalRegionCount": 1,
+        "mergedFinalRegionCount": 1
+      }
+    },
+    "accumulatedRetained": {
+      "appliedPairIndices": [],
+      "clearRatio": 0.5333333333333333,
+      "invalidPartCount": 0,
+      "invalidParts": []
+    }
+  },
+  "crossingReference": {
+    "artifactPath": "packages/preset/test-results/crossing-dash-artifacts/crossing-dash-metrics.json"
+  }
+}

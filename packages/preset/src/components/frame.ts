@@ -1,7 +1,24 @@
 import { defineComponent } from '@asyra/core'
 import { EntityTypes, PropertyTypes } from '@asyra/utils'
 import { applyRenderableFill, DEFAULT_FRAME_FILLS } from './fills'
-import { DEFAULT_FRAME_STROKES, renderPolylineStrokes } from './strokes'
+import {
+  DEFAULT_FRAME_STROKES,
+  buildPolylineStrokePathSources,
+  renderStrokeSources
+} from './strokes'
+
+const buildFrameStrokeSources = (width: number, height: number) =>
+  buildPolylineStrokePathSources([
+    {
+      points: [
+        { x: 0, y: 0 },
+        { x: width, y: 0 },
+        { x: width, y: height },
+        { x: 0, y: height }
+      ],
+      closed: true
+    }
+  ])
 
 defineComponent({
   type: EntityTypes.FRAME,
@@ -37,19 +54,9 @@ defineComponent({
     }
     replayPath()
     applyRenderableFill(graphic, data.fills, { replayPath })
-    renderPolylineStrokes(
+    renderStrokeSources(
       graphic,
-      [
-        {
-          points: [
-            { x: 0, y: 0 },
-            { x: data.width, y: 0 },
-            { x: data.width, y: data.height },
-            { x: 0, y: data.height }
-          ],
-          closed: true
-        }
-      ],
+      buildFrameStrokeSources(data.width, data.height),
       data.strokes
     )
     graphic.x = data.x

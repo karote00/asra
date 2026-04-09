@@ -259,6 +259,29 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 
 ## 2026-03-03 - Delete shortcut guard is mode-driven and regression-covered
 
+## 2026-04-02 - Inside dashed stroke Phase 2 switched to mature stroker candidate geometry
+
+- Context:
+  - Inside dashed stroke had already been reduced to Phase 1 interval allocation only.
+  - The approved architecture direction required `dash subpath extraction -> stroke-to-outline` and explicitly rejected returning to polygon stitching / local-first repair paths.
+- Decision:
+  - Complete Phase 2 on the product path by generating dashed candidate polygons from authored dash subpaths and one open-subpath stroker.
+  - Keep Phase 2 focused on candidate generation only:
+    - allow overlap
+    - allow out-of-range geometry
+    - defer ownership / clipping / conflict analysis to later phases
+  - Support generic candidate cap modes on the mature stroker path:
+    - `none`
+    - `square`
+    - `round`
+  - Keep the product/runtime integration surface minimal:
+    - `createDashedGeometryModel(...).model.polygons`
+    - `createDashedGeometryModel(...).dashIntervalAllocation`
+- Consequences:
+  - Dashed render and dashed hit-testing now both consume the same Phase 2 candidate outline polygons.
+  - Open-dash round caps now render as half-circles on the mature candidate path.
+  - No legacy dashed debug/hit compatibility surfaces are reintroduced.
+
 ## 2026-03-21 - Dashed stroke recovery finalized on GeometryModel -> MeshProjection path
 
 - Context:
@@ -1370,3 +1393,129 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     recurring validation fixture for both phases.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/geometry-and-dash-gap-completion.md`
+
+## 2026-04-01 - Inside dashed stroke local-first repair stack downgraded for global-first rebuild
+
+- Context:
+  - Inside dashed stroke work accumulated a large local-first repair/runtime
+    stack:
+    - local-gap promotion
+    - scenario-owned facing-terminal retention
+    - remote-pollution runtime adoption layering
+    - stage-specific wedge/ownership artifact families
+  - Visible render correctness stayed wrong even while many intermediate
+    contracts passed.
+  - The rebuild direction changed to `global-first`:
+    - full `dash/gap` 分散區間 first
+    - full dash candidate generation from true path slices first
+    - global overlap/component analysis after all candidates exist
+    - ownership/clipping only after full candidate visibility
+- Decision:
+  - Remove the old local-first artifact family suite from the default blocking
+    path.
+  - Downgrade old local-gap/scenario-owned/remote-pollution runtime tests to
+    legacy diagnostic status.
+  - Preserve the historical path in explicit removal/triage documents instead of
+    silently deleting that history.
+- Consequences:
+  - Default blocking tests no longer force the rebuild to preserve the old
+    local-first runtime skeleton.
+  - Historical diagnostics remain available, but no longer define correctness
+    for the rebuild.
+  - The rebuild can start from `DashIntervalRecord` and `DashCandidateGeometry`
+    without old runtime-adoption layers acting as architectural anchors.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-removal-log.md`
+  - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-legacy-test-inventory.md`
+  - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-rebuild-plan.md`
+
+## 2026-04-01 - Inside dashed stroke local-first runtime stack physically removed
+
+- Context:
+  - Bypassing the old inside-dashed local-first runtime stack was not enough,
+    because shared helpers and artifact-heavy tests kept reintroducing that
+    skeleton into active code.
+  - Phase 1 / Phase 2 needed to become the only default product path, not just
+    the preferred path.
+- Decision:
+  - Physically delete the old Phase 3+ local-first runtime execution from
+    `packages/preset/src/components/geometry-model.ts`.
+  - Delete old inside-dashed artifact-heavy test files instead of preserving
+    them as runnable suites.
+  - Keep decision history in docs, not as executable runtime authority.
+- Consequences:
+  - Default inside-dashed rendering now stops at:
+    - first-class `dash/gap` 分散區間
+    - first-class candidate geometry preview
+  - Old `remote-pollution`, `local-gap`, `scenario-owned`, and runtime-adoption
+    execution no longer consumes default render/runtime cost.
+  - Historical path remains recorded in removal logs and plans, but no longer
+    survives as code that can silently affect the product path.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-removal-log.md`
+  - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-implementation-backlog.md`
+
+## 2026-04-02 - Transitional Phase 2 polygon-splicing path deleted before stroker rewrite
+
+- Context:
+  - After architecture review sign-off, the active rebuild direction for Phase 2
+    became `dash subpath -> stroke-to-outline`.
+  - The existing product-facing Phase 2 code was still a polygon-splicing
+    candidate preview path rather than a mature stroker.
+  - Keeping that transitional Phase 2 path alive would preserve rejected
+    behavior and continue to blur the boundary between accepted architecture and
+    temporary implementation.
+- Decision:
+  - Delete the existing Phase 2 candidate preview / polygon stitching code from
+    `packages/preset/src/components/geometry-model.ts`.
+  - Delete Phase 2 tests that asserted on `DashCandidateGeometry`,
+    `DashCandidatePreview`, and candidate polygon stitching behavior.
+  - Keep `Phase 1` interval allocation active and expose only empty dashed
+    polygons on the default runtime path until the stroker rewrite is ready.
+  - Delete dashed-only compatibility surfaces (`hitPolygons`, `debugParts`,
+    `GeometryModelDebugPart`) instead of preserving empty placeholders for the
+    removed Phase 2 path.
+- Consequences:
+  - Default dashed rendering no longer produces transitional geometry that could
+    be mistaken for accepted architecture.
+  - Product-facing dashed output is intentionally empty between the deletion of
+    the polygon-splicing Phase 2 path and the introduction of the mature
+    stroker rewrite.
+  - Dashed hit-testing now reads directly from `model.polygons`; there is no
+    separate dashed-only hit/debug surface left to accidentally preserve the
+    deleted architecture.
+  - Historical context remains in docs, but the rejected Phase 2 path no longer
+    survives in executable code or blocking tests.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-implementation-backlog.md`
+  - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-removal-log.md`
+
+## 2026-04-09 - Inside dashed stroke active baseline kept global-first with seam-overlap recovery and clipping still pending
+
+- Context:
+  - The current inside-dashed runtime no longer follows the removed
+    local-first repair stack, but recent work restored the active product path
+    and exposed new seam-overlap regressions at ownership assembly boundaries.
+  - The project needs a commit-safe baseline before starting the next clipping
+    / cutting pass, while preserving the full decision and plan history that
+    led to the current shape.
+- Decision:
+  - Keep the global-first rebuild documents as active in-progress plans instead
+    of closing them out.
+  - Accept the current runtime baseline as the pre-clipping commit point:
+    ownership-assembly seam overlaps are recovered on the active product path,
+    but final clipping / cutting remains unfinished and stays explicitly in
+    progress.
+  - Preserve the accumulated plan documents as decision history rather than
+    pruning them from the repository.
+- Consequences:
+  - The repository now has a recoverable baseline that can be restored before
+    the next clipping / cutting iteration.
+  - Global-first Phase 3+ work remains active and must not be misread as
+    complete.
+  - Historical plan accumulation remains intentional project memory, not stray
+    documentation noise.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-rebuild-plan.md`
+  - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-implementation-backlog.md`
+  - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-tdd-plan.md`

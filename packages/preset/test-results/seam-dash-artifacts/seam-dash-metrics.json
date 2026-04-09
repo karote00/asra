@@ -1,0 +1,70 @@
+{
+  "dash": 12,
+  "gap": 20,
+  "seamDash": {
+    "startDistance": 32,
+    "endDistance": 44,
+    "touchedSegmentIndices": [
+      0,
+      3
+    ],
+    "boundarySourceKind": "sampled",
+    "includeStartCap": false,
+    "includeEndCap": false,
+    "preSeamStartDistance": 32,
+    "preSeamEndDistance": 40,
+    "postSeamStartDistance": 0,
+    "postSeamEndDistance": 4,
+    "preSeamCoverage": {
+      "raw": 1,
+      "wedge": 1,
+      "ownership": 0.8125,
+      "bodyOnly": 0.7291666666666666,
+      "final": 1
+    },
+    "postSeamCoverage": {
+      "raw": 1,
+      "wedge": 1,
+      "ownership": 1,
+      "bodyOnly": 1,
+      "final": 1
+    },
+    "polygonCount": 2,
+    "polygonVertexCounts": [
+      4,
+      4
+    ],
+    "specDebugEntries": [
+      {
+        "rawPolygonCount": 1,
+        "wedgePolygonCount": 1,
+        "ownershipPolygonCount": 1,
+        "includeStartCap": false,
+        "includeEndCap": false,
+        "wedgeConstraintDistances": [
+          10,
+          20,
+          30,
+          0
+        ],
+        "ownershipOwners": [
+          "prev"
+        ]
+      },
+      {
+        "rawPolygonCount": 1,
+        "wedgePolygonCount": 1,
+        "ownershipPolygonCount": 1,
+        "includeStartCap": false,
+        "includeEndCap": false,
+        "wedgeConstraintDistances": [
+          10,
+          20,
+          30,
+          0
+        ],
+        "ownershipOwners": []
+      }
+    ]
+  }
+}

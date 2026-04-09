@@ -148,10 +148,7 @@ const createVectorData = (id: string, points: Vec2[]) => {
     ...polygon,
     closed: true,
     fills: [createDefaultFill({ color: '#ff3355', visible: true })],
-    strokes: [],
-    fill: 'none',
-    stroke: '#000000',
-    strokeWidth: 0
+    strokes: []
   }
 }
 

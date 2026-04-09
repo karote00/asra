@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Container, Mesh, Sprite } from 'pixi.js'
+import { Container, Mesh } from 'pixi.js'
 import {
   buildProjectionMeshData,
   createMeshProjection
@@ -67,15 +67,12 @@ describe('mesh projection', () => {
     expect(host.children[0]).toBeInstanceOf(Container)
 
     const root = host.children[0] as Container
-    expect(root.children).toHaveLength(2)
-    expect(root.children[0]).toBeInstanceOf(Sprite)
-    expect(root.children[1]).toBeInstanceOf(Mesh)
+    expect(root.children).toHaveLength(1)
+    expect(root.children[0]).toBeInstanceOf(Mesh)
 
-    const paintSprite = root.children[0] as Sprite
-    const mesh = root.children[1] as Mesh
-    expect(paintSprite.tint).toBe(0x00ff00)
-    expect(paintSprite.alpha).toBe(0.5)
-    expect(paintSprite.mask).toBe(mesh)
+    const mesh = root.children[0] as Mesh
+    expect(mesh.tint).toBe(0x00ff00)
+    expect(mesh.alpha).toBe(0.5)
     expect(mesh.geometry.getBuffer('aPosition').data.length).toBe(16)
     expect(mesh.geometry.getIndex().data.length).toBe(12)
 
@@ -97,8 +94,8 @@ describe('mesh projection', () => {
       }
     })
 
-    expect(paintSprite.tint).toBe(0xff0000)
-    expect(paintSprite.alpha).toBe(1)
+    expect(mesh.tint).toBe(0xff0000)
+    expect(mesh.alpha).toBe(1)
     expect(mesh.geometry.getBuffer('aPosition').data.length).toBe(8)
     expect(mesh.geometry.getIndex().data.length).toBe(6)
 

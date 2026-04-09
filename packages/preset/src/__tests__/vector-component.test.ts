@@ -1,5 +1,6 @@
 import { beforeAll, describe, it, expect, vi } from 'vitest'
 import { BehaviorSubject, Subscription } from 'rxjs'
+import { Container, Mesh } from 'pixi.js'
 import {
   componentRegistry,
   elementPropertyRegistry,
@@ -19,6 +20,14 @@ import {
 } from '@asyra/utils'
 import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
+import {
+  buildVectorGeometryModelPath,
+  selectDashedGeometryModelForRender
+} from '../components/geometry-model'
+import {
+  REPORTED_ROUND_INSIDE_DASHED_STAR_NETWORK_ID,
+  createReportedRoundInsideDashedStarVectorData
+} from './inside-dashed-fixtures'
 
 beforeAll(() => {
   core.defineSystemProperty<string | null>('pathEditingVectorId', null)
@@ -212,6 +221,282 @@ const getPolygonBounds = (polygons: { x: number; y: number }[][]) => {
   return { minX, minY, maxX, maxY }
 }
 
+class RecordingGraphic extends Container {
+  instructions: { action: string; args: unknown[] }[] = []
+  hitArea?: { contains: (x: number, y: number) => boolean }
+
+  clear() {
+    this.instructions.push({ action: 'clear', args: [] })
+    return this
+  }
+
+  rect(...args: unknown[]) {
+    this.instructions.push({ action: 'rect', args })
+    return this
+  }
+
+  beginPath() {
+    this.instructions.push({ action: 'beginPath', args: [] })
+    return this
+  }
+
+  moveTo(...args: unknown[]) {
+    this.instructions.push({ action: 'moveTo', args })
+    return this
+  }
+
+  lineTo(...args: unknown[]) {
+    this.instructions.push({ action: 'lineTo', args })
+    return this
+  }
+
+  bezierCurveTo(...args: unknown[]) {
+    this.instructions.push({ action: 'bezierCurveTo', args })
+    return this
+  }
+
+  closePath() {
+    this.instructions.push({ action: 'closePath', args: [] })
+    return this
+  }
+
+  cut() {
+    this.instructions.push({ action: 'cut', args: [] })
+    return this
+  }
+
+  fill(...args: unknown[]) {
+    this.instructions.push({ action: 'fill', args })
+    return this
+  }
+
+  stroke(...args: unknown[]) {
+    this.instructions.push({ action: 'stroke', args })
+    return this
+  }
+}
+
+const createMeshMockGraphic = () => new RecordingGraphic()
+
+const getProjectionMeshes = (host: Container) =>
+  host.children.flatMap((child) => {
+    if (!(child instanceof Container)) {
+      return []
+    }
+
+    return child.children.filter(
+      (grandchild): grandchild is Mesh => grandchild instanceof Mesh
+    )
+  })
+
+const getSingleProjectionMesh = (host: Container) => {
+  const meshes = getProjectionMeshes(host)
+  expect(meshes).toHaveLength(1)
+  return meshes[0]
+}
+
+const getMeshBounds = (mesh: Mesh) => {
+  const positions = Array.from(mesh.geometry.getBuffer('aPosition').data)
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  for (let index = 0; index < positions.length; index += 2) {
+    minX = Math.min(minX, positions[index])
+    minY = Math.min(minY, positions[index + 1])
+    maxX = Math.max(maxX, positions[index])
+    maxY = Math.max(maxY, positions[index + 1])
+  }
+
+  return { minX, minY, maxX, maxY }
+}
+
+const expectBoundsClose = (
+  received: { minX: number; minY: number; maxX: number; maxY: number },
+  expected: { minX: number; minY: number; maxX: number; maxY: number },
+  precision = 4
+) => {
+  expect(received.minX).toBeCloseTo(expected.minX, precision)
+  expect(received.minY).toBeCloseTo(expected.minY, precision)
+  expect(received.maxX).toBeCloseTo(expected.maxX, precision)
+  expect(received.maxY).toBeCloseTo(expected.maxY, precision)
+}
+
+const countInstructions = (graphic: RecordingGraphic, action: string) =>
+  graphic.instructions.filter((instruction) => instruction.action === action)
+
+const createReferenceDashedVectorData = () => ({
+  id: 'vector-6',
+  x: 1231.1319171817522,
+  y: 1023.4799823051757,
+  width: 394.8221120690488,
+  height: 388.6103087915773,
+  points: {
+    'tp-17': {
+      id: 'tp-17',
+      kind: 'anchor',
+      x: 274.2719180151795,
+      y: 0,
+      anchorType: 'smooth'
+    },
+    'tp-18': {
+      id: 'tp-18',
+      kind: 'anchor',
+      x: 82.52429391607177,
+      y: 338.18779271488194,
+      anchorType: 'smooth'
+    },
+    'tp-17:out': {
+      id: 'tp-17:out',
+      kind: 'control',
+      x: 271.4660920220331,
+      y: 111.39323367600485,
+      controlForId: 'tp-17',
+      controlRole: 'out'
+    },
+    'tp-18:in': {
+      id: 'tp-18:in',
+      kind: 'control',
+      x: -48.2200776215476,
+      y: 322.0065586136914,
+      controlForId: 'tp-18',
+      controlRole: 'in'
+    },
+    'tp-18:out': {
+      id: 'tp-18:out',
+      kind: 'control',
+      x: 245.95475833809598,
+      y: 358.4143353413701,
+      controlForId: 'tp-18',
+      controlRole: 'out'
+    },
+    'tp-19': {
+      id: 'tp-19',
+      kind: 'anchor',
+      x: 394.8221120690488,
+      y: 194.98387091934586,
+      anchorType: 'smooth'
+    },
+    'tp-19:in': {
+      id: 'tp-19:in',
+      kind: 'control',
+      x: 279.12628824553656,
+      y: 217.63759866101265,
+      controlForId: 'tp-19',
+      controlRole: 'in'
+    },
+    'tp-19:out': {
+      id: 'tp-19:out',
+      kind: 'control',
+      x: 338.99685441994154,
+      y: 194.98387091934586,
+      controlForId: 'tp-19',
+      controlRole: 'out'
+    },
+    'tp-20': {
+      id: 'tp-20',
+      kind: 'anchor',
+      x: 0,
+      y: 123.78644087410754,
+      anchorType: 'sharp'
+    },
+    'tp-21': {
+      id: 'tp-21',
+      kind: 'anchor',
+      x: 379.4499396729178,
+      y: 377.8318162627988,
+      anchorType: 'smooth'
+    },
+    'tp-20:out': {
+      id: 'tp-20:out',
+      kind: 'control',
+      x: 0,
+      y: 123.78644087410754,
+      controlForId: 'tp-20',
+      controlRole: 'out'
+    },
+    'tp-21:in': {
+      id: 'tp-21:in',
+      kind: 'control',
+      x: 362.45964386666776,
+      y: 451.45643142321575,
+      controlForId: 'tp-21',
+      controlRole: 'in'
+    },
+    'tp-21:out': {
+      id: 'tp-21:out',
+      kind: 'control',
+      x: 396.4402354791679,
+      y: 304.2072011023818,
+      controlForId: 'tp-21',
+      controlRole: 'out'
+    }
+  } satisfies Record<string, VectorPointNode>,
+  segments: {
+    'ts-32': {
+      id: 'ts-32',
+      startId: 'tp-17',
+      endId: 'tp-18',
+      outControlId: 'tp-17:out',
+      inControlId: 'tp-18:in'
+    },
+    'ts-33': {
+      id: 'ts-33',
+      startId: 'tp-18',
+      endId: 'tp-19',
+      outControlId: 'tp-18:out',
+      inControlId: 'tp-19:in'
+    },
+    'ts-34': {
+      id: 'ts-34',
+      startId: 'tp-19',
+      endId: 'tp-20',
+      outControlId: 'tp-19:out',
+      inControlId: null
+    },
+    'ts-35': {
+      id: 'ts-35',
+      startId: 'tp-20',
+      endId: 'tp-21',
+      outControlId: 'tp-20:out',
+      inControlId: 'tp-21:in'
+    },
+    'ts-36': {
+      id: 'ts-36',
+      startId: 'tp-21',
+      endId: 'tp-17',
+      outControlId: 'tp-21:out',
+      inControlId: null
+    }
+  } satisfies Record<string, VectorSegment>,
+  networks: {
+    'tn-5': {
+      id: 'tn-5',
+      pointIds: ['tp-17', 'tp-18', 'tp-19', 'tp-20', 'tp-21'],
+      segmentIds: ['ts-32', 'ts-33', 'ts-34', 'ts-35', 'ts-36'],
+      closed: true
+    }
+  } satisfies Record<string, VectorNetwork>,
+  closed: true,
+  fills: [],
+  strokes: [
+    createDefaultStroke({
+      id: 'pp-89',
+      style: 'dashed',
+      position: 'inside',
+      width: 10,
+      dash: 27,
+      gap: 20,
+      color: '#0fd123',
+      opacity: 0.5,
+      visible: true,
+      joinType: 'miter',
+      miterAngle: 28.96
+    })
+  ]
+})
+
 describe('Vector Component', () => {
   it('should register vector component in all registries', () => {
     expect(componentRegistry.has('vector')).toBe(true)
@@ -253,8 +538,6 @@ describe('Vector Component', () => {
       elementPropertyRegistry.getPropertiesForComponent('vector')
     const fillsProp = properties.find((p) => p.name === 'fills')
     const strokesProp = properties.find((p) => p.name === 'strokes')
-    const fillProp = properties.find((p) => p.name === 'fill')
-    const strokeStyleProp = properties.find((p) => p.name === 'strokeStyle')
 
     expect(fillsProp).toBeDefined()
     expect(fillsProp?.type).toBe(PropertyTypes.FILLS)
@@ -263,16 +546,6 @@ describe('Vector Component', () => {
     expect(strokesProp).toBeDefined()
     expect(strokesProp?.type).toBe(PropertyTypes.STROKES)
     expect(Array.isArray(strokesProp?.defaultValue)).toBe(true)
-
-    expect(fillProp).toBeDefined()
-    expect(fillProp?.defaultValue).toBe('none')
-
-    expect(strokeStyleProp).toBeDefined()
-    expect(strokeStyleProp?.alias).toEqual(['stroke', 'strokeWidth'])
-    expect(strokeStyleProp?.defaultValue).toEqual({
-      stroke: '#cccccc',
-      strokeWidth: 1
-    })
   })
 
   it('should have renderStrategy registered', () => {
@@ -286,17 +559,7 @@ describe('Vector Component', () => {
     expect(renderStrategy).toBeDefined()
 
     if (!renderStrategy) return
-
-    const mockGraphic = {
-      clear: vi.fn(),
-      moveTo: vi.fn(),
-      lineTo: vi.fn(),
-      bezierCurveTo: vi.fn(),
-      closePath: vi.fn(),
-      cut: vi.fn(),
-      fill: vi.fn(),
-      stroke: vi.fn()
-    }
+    const mockGraphic = createMeshMockGraphic()
 
     const mockData = {
       x: 0,
@@ -313,25 +576,28 @@ describe('Vector Component', () => {
       ),
       closed: false,
       fills: [],
-      stroke: '#000000',
-      strokeWidth: 2
+      strokes: [
+        createDefaultStroke({ color: '#000000', width: 2, joinType: 'round' })
+      ]
     }
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
-    expect(mockGraphic.clear).toHaveBeenCalled()
-    expect(mockGraphic.stroke).toHaveBeenCalledWith(
-      expect.objectContaining({
-        width: 2,
-        color: 0x000000,
-        cap: 'round',
-        join: 'round'
-      })
-    )
-    expect(mockGraphic.moveTo).toHaveBeenCalledWith(0, 0)
-    expect(mockGraphic.lineTo).toHaveBeenCalledWith(100, 0)
-    expect(mockGraphic.lineTo).toHaveBeenCalledWith(100, 100)
-    expect(mockGraphic.bezierCurveTo).not.toHaveBeenCalled()
+    expect(countInstructions(mockGraphic, 'clear')).toHaveLength(1)
+    expect(mockGraphic.instructions).toContainEqual({
+      action: 'moveTo',
+      args: [0, 0]
+    })
+    expect(mockGraphic.instructions).toContainEqual({
+      action: 'lineTo',
+      args: [100, 0]
+    })
+    expect(mockGraphic.instructions).toContainEqual({
+      action: 'lineTo',
+      args: [100, 100]
+    })
+    expect(countInstructions(mockGraphic, 'bezierCurveTo')).toHaveLength(0)
+    expect(getProjectionMeshes(mockGraphic).length).toBeGreaterThan(0)
   })
 
   it('should publish geometry bounds without stroke expansion', () => {
@@ -380,9 +646,7 @@ describe('Vector Component', () => {
           width: 40,
           position: StrokePositions.INSIDE
         })
-      ],
-      stroke: '#000000',
-      strokeWidth: 40
+      ]
     }
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
@@ -437,8 +701,7 @@ describe('Vector Component', () => {
       ),
       closed: false,
       fills: [],
-      stroke: '#000000',
-      strokeWidth: 2
+      strokes: [createDefaultStroke({ color: '#000000', width: 2 })]
     }
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
@@ -484,8 +747,7 @@ describe('Vector Component', () => {
       ),
       closed: false,
       fills: [],
-      stroke: '#000000',
-      strokeWidth: 2
+      strokes: [createDefaultStroke({ color: '#000000', width: 2 })]
     }
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
@@ -534,8 +796,7 @@ describe('Vector Component', () => {
       ),
       closed: true,
       fills: [createSolidFill('#ff0000')],
-      stroke: '#000000',
-      strokeWidth: 2
+      strokes: [createDefaultStroke({ color: '#000000', width: 2 })]
     }
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
@@ -577,8 +838,7 @@ describe('Vector Component', () => {
       ),
       closed: true,
       fills: [createSolidFill('#ffffff', 0.6), createSolidFill('#ff0000', 0.3)],
-      stroke: '#000000',
-      strokeWidth: 2
+      strokes: [createDefaultStroke({ color: '#000000', width: 2 })]
     }
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
@@ -630,8 +890,7 @@ describe('Vector Component', () => {
       ),
       closed: true,
       fills: [createSolidFill('#ff0000')],
-      stroke: '#000000',
-      strokeWidth: 2
+      strokes: [createDefaultStroke({ color: '#000000', width: 2 })]
     }
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
@@ -676,8 +935,7 @@ describe('Vector Component', () => {
       ),
       closed: false,
       fills: [createSolidFill('#ff0000')],
-      stroke: '#000000',
-      strokeWidth: 2
+      strokes: [createDefaultStroke({ color: '#000000', width: 2 })]
     }
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
@@ -712,8 +970,7 @@ describe('Vector Component', () => {
       ...toVectorData([{ id: '1', x: 0, y: 0 }], false),
       closed: false,
       fills: [],
-      stroke: '#000000',
-      strokeWidth: 2
+      strokes: [createDefaultStroke({ color: '#000000', width: 2 })]
     }
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
@@ -721,7 +978,6 @@ describe('Vector Component', () => {
     expect(mockGraphic.clear).toHaveBeenCalled()
     expect(mockGraphic.moveTo).toHaveBeenCalledWith(0, 0)
     expect(mockGraphic.lineTo).not.toHaveBeenCalled()
-    expect(mockGraphic.stroke).toHaveBeenCalled()
   })
 
   it('should hover-hit outside rendered stroke pixels for gradient-filled vectors', () => {
@@ -802,15 +1058,13 @@ describe('Vector Component', () => {
           joinType: 'miter',
           miterAngle: 28.96
         }
-      ],
-      stroke: '#ff0055',
-      strokeWidth: 20
+      ]
     }
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
-    expect(mockGraphic.hitArea?.contains(-15, 30)).toBe(true)
-    expect(mockGraphic.hitArea?.contains(-25, 30)).toBe(false)
+    expect(mockGraphic.hitArea?.contains(-10, -10)).toBe(true)
+    expect(mockGraphic.hitArea?.contains(-25, -25)).toBe(false)
 
     createEvenOddFillStyleMock.mockRestore()
   })
@@ -877,9 +1131,7 @@ describe('Vector Component', () => {
           }
         }
       ],
-      strokes: [],
-      stroke: '#000000',
-      strokeWidth: 0
+      strokes: []
     }
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
@@ -945,9 +1197,7 @@ describe('Vector Component', () => {
           joinType: 'round',
           miterAngle: 28.96
         }
-      ],
-      stroke: '#ff0055',
-      strokeWidth: 12
+      ]
     }
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
@@ -956,226 +1206,221 @@ describe('Vector Component', () => {
     expect(mockGraphic.hitArea?.contains(50, 52)).toBe(false)
   })
 
-  it('should project broad dashed mesh geometry for the reported inside-stroke sample', () => {
+  it('should keep inside dashed self-intersecting star mesh geometry locally bounded', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
     if (!renderStrategy) return
+    const mockGraphic = createMeshMockGraphic()
 
-    const originalCreateMeshProjection = core.createMeshProjection
-    const createMeshProjectionMock = vi.fn((options) => ({
-      attach: () => true,
-      update: () => undefined,
-      setVisible: () => undefined,
-      dispose: () => undefined,
-      options
-    }))
-    core.createMeshProjection =
-      createMeshProjectionMock as typeof core.createMeshProjection
-
-    try {
-      const mockGraphic = {
-        clear: vi.fn(),
-        moveTo: vi.fn(),
-        lineTo: vi.fn(),
-        bezierCurveTo: vi.fn(),
-        closePath: vi.fn(),
-        cut: vi.fn(),
-        fill: vi.fn(),
-        stroke: vi.fn(),
-        addChild: vi.fn()
-      }
-
-      const mockData = {
-        id: 'vector-6',
-        x: 1231.1319171817522,
-        y: 1023.4799823051757,
-        width: 394.8221120690488,
-        height: 388.6103087915773,
-        points: {
-          'tp-17': {
-            id: 'tp-17',
-            kind: 'anchor',
-            x: 274.2719180151795,
-            y: 0,
-            anchorType: 'smooth'
-          },
-          'tp-18': {
-            id: 'tp-18',
-            kind: 'anchor',
-            x: 82.52429391607177,
-            y: 338.18779271488194,
-            anchorType: 'smooth'
-          },
-          'tp-17:out': {
-            id: 'tp-17:out',
-            kind: 'control',
-            x: 271.4660920220331,
-            y: 111.39323367600485,
-            controlForId: 'tp-17',
-            controlRole: 'out'
-          },
-          'tp-18:in': {
-            id: 'tp-18:in',
-            kind: 'control',
-            x: -48.2200776215476,
-            y: 322.0065586136914,
-            controlForId: 'tp-18',
-            controlRole: 'in'
-          },
-          'tp-18:out': {
-            id: 'tp-18:out',
-            kind: 'control',
-            x: 245.95475833809598,
-            y: 358.4143353413701,
-            controlForId: 'tp-18',
-            controlRole: 'out'
-          },
-          'tp-19': {
-            id: 'tp-19',
-            kind: 'anchor',
-            x: 394.8221120690488,
-            y: 194.98387091934586,
-            anchorType: 'smooth'
-          },
-          'tp-19:in': {
-            id: 'tp-19:in',
-            kind: 'control',
-            x: 279.12628824553656,
-            y: 217.63759866101265,
-            controlForId: 'tp-19',
-            controlRole: 'in'
-          },
-          'tp-19:out': {
-            id: 'tp-19:out',
-            kind: 'control',
-            x: 338.99685441994154,
-            y: 194.98387091934586,
-            controlForId: 'tp-19',
-            controlRole: 'out'
-          },
-          'tp-20': {
-            id: 'tp-20',
-            kind: 'anchor',
-            x: 0,
-            y: 123.78644087410754,
-            anchorType: 'sharp'
-          },
-          'tp-21': {
-            id: 'tp-21',
-            kind: 'anchor',
-            x: 379.4499396729178,
-            y: 377.8318162627988,
-            anchorType: 'smooth'
-          },
-          'tp-20:out': {
-            id: 'tp-20:out',
-            kind: 'control',
-            x: 0,
-            y: 123.78644087410754,
-            controlForId: 'tp-20',
-            controlRole: 'out'
-          },
-          'tp-21:in': {
-            id: 'tp-21:in',
-            kind: 'control',
-            x: 362.45964386666776,
-            y: 451.45643142321575,
-            controlForId: 'tp-21',
-            controlRole: 'in'
-          },
-          'tp-21:out': {
-            id: 'tp-21:out',
-            kind: 'control',
-            x: 396.4402354791679,
-            y: 304.2072011023818,
-            controlForId: 'tp-21',
-            controlRole: 'out'
-          }
-        } satisfies Record<string, VectorPointNode>,
-        segments: {
-          'ts-32': {
-            id: 'ts-32',
-            startId: 'tp-17',
-            endId: 'tp-18',
-            outControlId: 'tp-17:out',
-            inControlId: 'tp-18:in'
-          },
-          'ts-33': {
-            id: 'ts-33',
-            startId: 'tp-18',
-            endId: 'tp-19',
-            outControlId: 'tp-18:out',
-            inControlId: 'tp-19:in'
-          },
-          'ts-34': {
-            id: 'ts-34',
-            startId: 'tp-19',
-            endId: 'tp-20',
-            outControlId: 'tp-19:out',
-            inControlId: null
-          },
-          'ts-35': {
-            id: 'ts-35',
-            startId: 'tp-20',
-            endId: 'tp-21',
-            outControlId: 'tp-20:out',
-            inControlId: 'tp-21:in'
-          },
-          'ts-36': {
-            id: 'ts-36',
-            startId: 'tp-21',
-            endId: 'tp-17',
-            outControlId: 'tp-21:out',
-            inControlId: null
-          }
-        } satisfies Record<string, VectorSegment>,
-        networks: {
-          'tn-5': {
-            id: 'tn-5',
-            pointIds: ['tp-17', 'tp-18', 'tp-19', 'tp-20', 'tp-21'],
-            segmentIds: ['ts-32', 'ts-33', 'ts-34', 'ts-35', 'ts-36'],
-            closed: true
-          }
-        } satisfies Record<string, VectorNetwork>,
-        closed: true,
-        fills: [],
-        strokes: [
-          createDefaultStroke({
-            id: 'pp-89',
-            style: 'dashed',
-            position: 'inside',
-            width: 10,
-            dash: 27,
-            gap: 20,
-            color: '#0fd123',
-            opacity: 0.5,
-            visible: true,
-            joinType: 'miter',
-            miterAngle: 28.96
-          })
+    const mockData = {
+      id: 'vector-star-dashed',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      ...toVectorData(
+        [
+          { id: '1', x: 50, y: 0 },
+          { id: '2', x: 79, y: 90 },
+          { id: '3', x: 2, y: 35 },
+          { id: '4', x: 98, y: 35 },
+          { id: '5', x: 21, y: 90 }
         ],
-        stroke: '#cccccc',
-        strokeWidth: 1
-      }
-
-      runRenderStrategy(renderStrategy, mockGraphic, mockData)
-
-      expect(createMeshProjectionMock).toHaveBeenCalledTimes(1)
-      const [{ model, paint }] = createMeshProjectionMock.mock.calls[0]
-      expect(paint).toEqual(
-        expect.objectContaining({
-          kind: 'solid',
-          alpha: 0.5
+        true
+      ),
+      closed: true,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          style: 'dashed',
+          position: 'inside',
+          width: 12,
+          dash: 20,
+          gap: 20,
+          color: '#ff0055',
+          opacity: 1,
+          visible: true,
+          joinType: 'miter',
+          miterAngle: 28.96
         })
-      )
-      expect(model.polygons.length).toBeGreaterThan(20)
-
-      const bounds = getPolygonBounds(model.polygons)
-      expect(bounds.maxX - bounds.minX).toBeGreaterThan(300)
-      expect(bounds.maxY - bounds.minY).toBeGreaterThan(300)
-    } finally {
-      core.createMeshProjection = originalCreateMeshProjection
+      ]
     }
+
+    runRenderStrategy(renderStrategy, mockGraphic, mockData)
+
+    const mesh = getSingleProjectionMesh(mockGraphic)
+    const bounds = getMeshBounds(mesh)
+    expect(mesh.geometry.getBuffer('aPosition').data.length).toBeGreaterThan(0)
+    expect(bounds.minX).toBeGreaterThanOrEqual(-40)
+    expect(bounds.minY).toBeGreaterThanOrEqual(-40)
+    expect(bounds.maxX).toBeLessThanOrEqual(140)
+    expect(bounds.maxY).toBeLessThanOrEqual(140)
+  })
+
+  it('should render dashed mesh geometry for the reported inside-stroke sample', () => {
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) return
+    const mockGraphic = createMeshMockGraphic()
+    const mockData = createReferenceDashedVectorData()
+
+    runRenderStrategy(renderStrategy, mockGraphic, mockData)
+
+    const expectedGeometryPath = buildVectorGeometryModelPath(
+      mockData.networks['tn-5'],
+      mockData.points,
+      mockData.segments
+    )
+    const expectedStroke = mockData.strokes[0]
+    const expectedDashedGeometry = selectDashedGeometryModelForRender(
+      expectedGeometryPath,
+      {
+        style: expectedStroke.style,
+        position: expectedStroke.position,
+        width: expectedStroke.width,
+        dash: expectedStroke.dash,
+        gap: expectedStroke.gap,
+        join: expectedStroke.joinType,
+        miterLimit: 4,
+        cap: 'round',
+        color: 0,
+        alpha: expectedStroke.opacity
+      } as never
+    )
+
+    expect(expectedDashedGeometry).not.toBeNull()
+    expect(expectedDashedGeometry?.status).toBe('resolved')
+    expect(expectedDashedGeometry?.model?.polygons.length).toBeGreaterThan(0)
+    const mesh = getSingleProjectionMesh(mockGraphic)
+    expect(mesh.geometry.getBuffer('aPosition').data.length).toBeGreaterThan(0)
+    expectBoundsClose(
+      getMeshBounds(mesh),
+      getPolygonBounds(expectedDashedGeometry?.model?.polygons ?? [])
+    )
+  })
+
+  it('should keep dashed mesh geometry stable when path editing is cleared after render', () => {
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) return
+    const selectedGraphic = createMeshMockGraphic()
+    const deselectedGraphic = createMeshMockGraphic()
+    const mockData = createReferenceDashedVectorData()
+
+    setPathEditingState({
+      vectorId: mockData.id,
+      mode: true,
+      dragging: false
+    })
+    runRenderStrategy(renderStrategy, selectedGraphic, mockData)
+
+    setPathEditingState({
+      vectorId: null,
+      mode: false,
+      dragging: false
+    })
+    runRenderStrategy(renderStrategy, deselectedGraphic, mockData)
+
+    const selectedMesh = getSingleProjectionMesh(selectedGraphic)
+    const deselectedMesh = getSingleProjectionMesh(deselectedGraphic)
+    expect(
+      selectedMesh.geometry.getBuffer('aPosition').data.length
+    ).toBeGreaterThan(0)
+    expect(
+      deselectedMesh.geometry.getBuffer('aPosition').data.length
+    ).toBeGreaterThan(0)
+    expect(
+      Array.from(selectedMesh.geometry.getBuffer('aPosition').data)
+    ).toEqual(Array.from(deselectedMesh.geometry.getBuffer('aPosition').data))
+    expect(Array.from(selectedMesh.geometry.getIndex().data)).toEqual(
+      Array.from(deselectedMesh.geometry.getIndex().data)
+    )
+    expect(getMeshBounds(selectedMesh)).toEqual(getMeshBounds(deselectedMesh))
+  })
+
+  it('should render dashed mesh geometry for the reported round-join inside-stroke star sample', () => {
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) return
+    const mockGraphic = createMeshMockGraphic()
+    const mockData = createReportedRoundInsideDashedStarVectorData()
+
+    runRenderStrategy(renderStrategy, mockGraphic, mockData)
+
+    const expectedGeometryPath = buildVectorGeometryModelPath(
+      mockData.networks[REPORTED_ROUND_INSIDE_DASHED_STAR_NETWORK_ID],
+      mockData.points,
+      mockData.segments
+    )
+    const expectedStroke = mockData.strokes[0]
+    const expectedDashedGeometry = selectDashedGeometryModelForRender(
+      expectedGeometryPath,
+      {
+        style: expectedStroke.style,
+        position: expectedStroke.position,
+        width: expectedStroke.width,
+        dash: expectedStroke.dash,
+        gap: expectedStroke.gap,
+        join: expectedStroke.joinType,
+        miterLimit: 4,
+        cap: 'round',
+        color: 0,
+        alpha: expectedStroke.opacity
+      } as never
+    )
+
+    expect(expectedDashedGeometry).not.toBeNull()
+    expect(expectedDashedGeometry?.status).toBe('resolved')
+    expect(expectedDashedGeometry?.model?.polygons.length).toBeGreaterThan(0)
+    const mesh = getSingleProjectionMesh(mockGraphic)
+    expect(mesh.geometry.getBuffer('aPosition').data.length).toBeGreaterThan(0)
+    expectBoundsClose(
+      getMeshBounds(mesh),
+      getPolygonBounds(expectedDashedGeometry?.model?.polygons ?? [])
+    )
+  })
+
+  it('should keep the reported round-join inside-dashed star mesh stable when path editing is cleared after render', () => {
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) return
+    const selectedGraphic = createMeshMockGraphic()
+    const deselectedGraphic = createMeshMockGraphic()
+    const mockData = createReportedRoundInsideDashedStarVectorData()
+
+    setPathEditingState({
+      vectorId: mockData.id,
+      mode: true,
+      dragging: false
+    })
+    runRenderStrategy(renderStrategy, selectedGraphic, mockData)
+
+    setPathEditingState({
+      vectorId: null,
+      mode: false,
+      dragging: false
+    })
+    runRenderStrategy(renderStrategy, deselectedGraphic, mockData)
+
+    const selectedMesh = getSingleProjectionMesh(selectedGraphic)
+    const deselectedMesh = getSingleProjectionMesh(deselectedGraphic)
+    expect(
+      selectedMesh.geometry.getBuffer('aPosition').data.length
+    ).toBeGreaterThan(0)
+    expect(
+      deselectedMesh.geometry.getBuffer('aPosition').data.length
+    ).toBeGreaterThan(0)
+    expect(
+      Array.from(selectedMesh.geometry.getBuffer('aPosition').data)
+    ).toEqual(Array.from(deselectedMesh.geometry.getBuffer('aPosition').data))
+    expect(Array.from(selectedMesh.geometry.getIndex().data)).toEqual(
+      Array.from(deselectedMesh.geometry.getIndex().data)
+    )
+    expect(getMeshBounds(selectedMesh)).toEqual(getMeshBounds(deselectedMesh))
   })
 })

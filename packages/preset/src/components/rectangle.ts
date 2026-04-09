@@ -1,7 +1,24 @@
 import { defineComponent } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
 import { applyRenderableFill, DEFAULT_RECTANGLE_FILLS } from './fills'
-import { DEFAULT_RECTANGLE_STROKES, renderPolylineStrokes } from './strokes'
+import {
+  DEFAULT_RECTANGLE_STROKES,
+  buildPolylineStrokePathSources,
+  renderStrokeSources
+} from './strokes'
+
+const buildRectangleStrokeSources = (width: number, height: number) =>
+  buildPolylineStrokePathSources([
+    {
+      points: [
+        { x: 0, y: 0 },
+        { x: width, y: 0 },
+        { x: width, y: height },
+        { x: 0, y: height }
+      ],
+      closed: true
+    }
+  ])
 
 defineComponent({
   type: 'rect',
@@ -36,19 +53,9 @@ defineComponent({
     }
     replayPath()
     applyRenderableFill(graphic, data.fills, { replayPath })
-    renderPolylineStrokes(
+    renderStrokeSources(
       graphic,
-      [
-        {
-          points: [
-            { x: 0, y: 0 },
-            { x: data.width, y: 0 },
-            { x: data.width, y: data.height },
-            { x: 0, y: data.height }
-          ],
-          closed: true
-        }
-      ],
+      buildRectangleStrokeSources(data.width, data.height),
       data.strokes
     )
     graphic.x = data.x

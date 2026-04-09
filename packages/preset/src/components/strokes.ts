@@ -9,6 +9,17 @@ import {
   rgbaToColorInt,
   type StrokeAttrs
 } from '@asyra/utils'
+import {
+  createMeshProjection,
+  type GeometryModel,
+  type MeshProjection
+} from '@asyra/render'
+import {
+  type PathGeometry,
+  buildPolylineGeometryModelPath,
+  createDashedGeometryModel,
+  selectDashedGeometryModelForRender
+} from './geometry-model'
 
 interface Vec2 {
   x: number
@@ -16,41 +27,43 @@ interface Vec2 {
 }
 
 export interface StrokeHitSegment {
-  kind: 'segment' | 'polygon'
-  start?: Vec2
-  end?: Vec2
-  radius?: number
-  points?: Vec2[]
+  kind: 'polygon'
+  points: Vec2[]
+}
+
+export interface StrokeBandBoundaries {
+  outerBoundary: Vec2[]
+  innerBoundary: Vec2[]
+  centerlinePoints: Vec2[]
+  collapsedTailStartIndex?: number | null
+}
+
+export interface StrokePathSource {
+  geometry: PathGeometry
+  sampledPoints: Vec2[]
+  closed: boolean
+}
+
+export interface ResolvedStrokeGeometryEntry {
+  cacheKey: string
+  stroke: RenderableStroke
+  polygons: Vec2[][]
 }
 
 interface StrokeDrawGraphic {
-  moveTo: (x: number, y: number) => void
-  lineTo: (x: number, y: number) => void
-  closePath?: () => void
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  stroke: (...args: any[]) => unknown
-  beginPath?: () => void
-  clear?: () => void
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  fill?: (...args: any[]) => unknown
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   addChild?: (...args: any[]) => unknown
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  setMask?: (options: any) => unknown
-  mask?: unknown
-  children?: unknown[]
-  visible?: boolean
-  renderable?: boolean
 }
 
-interface StrokeOverlayCache {
-  mask: StrokeDrawGraphic
-  inside: StrokeDrawGraphic
-  outside: StrokeDrawGraphic
+interface MeshProjectionCache {
+  projection: MeshProjection
+  color: number
+  alpha: number
+  signature: string
 }
 
 interface StrokeOverlayHost extends StrokeDrawGraphic {
-  __asyraStrokeOverlayCache?: StrokeOverlayCache
+  __asyraMeshProjectionCache?: Map<string, MeshProjectionCache>
 }
 
 export interface RenderableStroke {
@@ -61,28 +74,15 @@ export interface RenderableStroke {
   gap: number
   join: 'miter' | 'bevel' | 'round'
   miterLimit: number
-  cap: 'round'
+  cap: 'round' | 'square' | 'none'
   color: number
   alpha: number
 }
 
-export interface DashedStrokeDebugPart {
-  sourcePoints: Vec2[]
-  clipPoints: Vec2[]
-  renderPoints: Vec2[]
-  polygons: Vec2[][]
-}
-
-interface DashedStrokePart {
-  sourcePoints: Vec2[]
-  clipPoints: Vec2[]
-  clipStartIndex: number
-}
-
-const DASH_LENGTH_FACTOR = 4
-const DASH_GAP_FACTOR = 2
-const MIN_DASH_LENGTH = 0.1
 const EPS = 1e-6
+const MIN_RENDERABLE_POLYGON_AREA = 1e-3
+const ROUND_CAP_MAX_SAGITTA = 0.05
+const MIN_ROUND_CAP_STEP_ANGLE = Math.PI / 32
 
 const normalizeStrokeEntry = (value: unknown): StrokeAttrs | null => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -143,8 +143,7 @@ const getRenderableStroke = (stroke: StrokeAttrs): RenderableStroke | null => {
     miterLimit: getStrokeMiterLimit(stroke.miterAngle),
     cap: 'round',
     color: rgbaToColorInt(parsed),
-    alpha: clampOpacity(parsed.a * stroke.opacity),
-    paint: (stroke as any).paint
+    alpha: clampOpacity(parsed.a * stroke.opacity)
   }
 }
 
@@ -176,40 +175,14 @@ export const getStrokeHitWidth = (strokes: unknown): number => {
   )
 }
 
-export const applyStrokeStyle = (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  graphic: { stroke: (...args: any[]) => unknown },
-  stroke: RenderableStroke
-) => {
-  graphic.stroke({
-    width: stroke.width,
-    color: stroke.color,
-    alpha: stroke.alpha,
-    cap: stroke.cap,
-    join: stroke.join,
-    miterLimit: stroke.miterLimit
-  })
-}
-
-export const beginStrokePath = (graphic: { beginPath?: () => void }) => {
-  graphic.beginPath?.()
-}
-
-const getDashPattern = (
-  stroke: Pick<RenderableStroke, 'width' | 'dash' | 'gap'>
-) => {
-  const base = Math.max(1, stroke.width)
-  return {
-    dash: Math.max(
-      MIN_DASH_LENGTH,
-      Number.isFinite(stroke.dash) ? stroke.dash : base * DASH_LENGTH_FACTOR
-    ),
-    gap: Math.max(
-      MIN_DASH_LENGTH,
-      Number.isFinite(stroke.gap) ? stroke.gap : base * DASH_GAP_FACTOR
-    )
-  }
-}
+export const buildPolylineStrokePathSources = (
+  polylines: { points: Vec2[]; closed: boolean }[]
+): StrokePathSource[] =>
+  polylines.map(({ points, closed }) => ({
+    geometry: buildPolylineGeometryModelPath(points, closed),
+    sampledPoints: closed ? normalizeClosedPoints(points) : [...points],
+    closed
+  }))
 
 const distance = (from: Vec2, to: Vec2) =>
   Math.hypot(to.x - from.x, to.y - from.y)
@@ -252,6 +225,108 @@ const scaleVec2 = (point: Vec2, scalar: number): Vec2 => ({
 })
 
 const dotVec2 = (a: Vec2, b: Vec2): number => a.x * b.x + a.y * b.y
+
+const distancePointToSegment = (point: Vec2, start: Vec2, end: Vec2) => {
+  const segment = subtractVec2(end, start)
+  const lengthSquared = dotVec2(segment, segment)
+  if (lengthSquared <= EPS) {
+    return distance(point, start)
+  }
+
+  const projection = Math.max(
+    dotVec2(subtractVec2(point, start), segment) / lengthSquared,
+    0
+  )
+  const clampedProjection = Math.min(projection, 1)
+  const closest = addVec2(start, scaleVec2(segment, clampedProjection))
+  return distance(point, closest)
+}
+
+const pointInPolygon = (point: Vec2, polygon: Vec2[]) => {
+  let inside = false
+
+  for (
+    let index = 0, previous = polygon.length - 1;
+    index < polygon.length;
+    previous = index++
+  ) {
+    const current = polygon[index]
+    const prev = polygon[previous]
+    const intersects =
+      current.y > point.y !== prev.y > point.y &&
+      point.x <
+        ((prev.x - current.x) * (point.y - current.y)) /
+          (prev.y - current.y || Number.EPSILON) +
+          current.x
+
+    if (intersects) {
+      inside = !inside
+    }
+  }
+
+  return inside
+}
+
+const pointNearPolygonBoundary = (
+  point: Vec2,
+  polygon: Vec2[],
+  tolerance: number
+) =>
+  polygon.some((start, index) => {
+    const end = polygon[(index + 1) % polygon.length]
+    return distancePointToSegment(point, start, end) <= tolerance
+  })
+
+const isPointInsideClosedShape = (
+  point: Vec2,
+  polygon: Vec2[],
+  tolerance = 1e-3
+) =>
+  pointInPolygon(point, polygon) ||
+  pointNearPolygonBoundary(point, polygon, tolerance)
+
+const constrainOffsetPointToClosedShape = (
+  originalPoint: Vec2,
+  offsetPoint: Vec2,
+  polygon: Vec2[]
+) => {
+  if (isPointInsideClosedShape(offsetPoint, polygon)) {
+    return offsetPoint
+  }
+
+  let low = 0
+  let high = 1
+  let best = originalPoint
+
+  for (let iteration = 0; iteration < 24; iteration += 1) {
+    const mid = (low + high) / 2
+    const candidate = addVec2(
+      originalPoint,
+      scaleVec2(subtractVec2(offsetPoint, originalPoint), mid)
+    )
+
+    if (isPointInsideClosedShape(candidate, polygon)) {
+      best = candidate
+      low = mid
+    } else {
+      high = mid
+    }
+  }
+
+  return best
+}
+
+const normalizeVector = (point: Vec2): Vec2 | null => {
+  const len = Math.hypot(point.x, point.y)
+  if (len <= EPS) {
+    return null
+  }
+
+  return {
+    x: point.x / len,
+    y: point.y / len
+  }
+}
 
 const createUnitLeftNormal = (from: Vec2, to: Vec2): Vec2 | null => {
   const delta = subtractVec2(to, from)
@@ -353,22 +428,100 @@ const dedupeClosedPolygonPoints = (points: Vec2[]): Vec2[] => {
   return deduped
 }
 
+const pointOnSegment = (
+  point: Vec2,
+  start: Vec2,
+  end: Vec2,
+  tolerance = EPS
+) => {
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  const lengthSquared = dx * dx + dy * dy
+  if (lengthSquared <= tolerance * tolerance) {
+    return distance(point, start) <= tolerance
+  }
+
+  const t =
+    ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared
+  if (t < -tolerance || t > 1 + tolerance) {
+    return false
+  }
+
+  const projected = {
+    x: start.x + dx * Math.max(0, Math.min(1, t)),
+    y: start.y + dy * Math.max(0, Math.min(1, t))
+  }
+  return distance(point, projected) <= tolerance
+}
+
+const orientation = (a: Vec2, b: Vec2, c: Vec2) =>
+  (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
+
+const segmentsTouchOrIntersect = (a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) => {
+  const o1 = orientation(a1, a2, b1)
+  const o2 = orientation(a1, a2, b2)
+  const o3 = orientation(b1, b2, a1)
+  const o4 = orientation(b1, b2, a2)
+
+  if (
+    ((o1 > EPS && o2 < -EPS) || (o1 < -EPS && o2 > EPS)) &&
+    ((o3 > EPS && o4 < -EPS) || (o3 < -EPS && o4 > EPS))
+  ) {
+    return true
+  }
+
+  return (
+    (Math.abs(o1) <= EPS && pointOnSegment(b1, a1, a2)) ||
+    (Math.abs(o2) <= EPS && pointOnSegment(b2, a1, a2)) ||
+    (Math.abs(o3) <= EPS && pointOnSegment(a1, b1, b2)) ||
+    (Math.abs(o4) <= EPS && pointOnSegment(a2, b1, b2))
+  )
+}
+
+const isSimplePolygon = (polygon: Vec2[]) => {
+  if (polygon.length < 3) {
+    return false
+  }
+
+  for (let i = 0; i < polygon.length; i += 1) {
+    const aStart = polygon[i]
+    const aEnd = polygon[(i + 1) % polygon.length]
+    for (let j = i + 1; j < polygon.length; j += 1) {
+      const bStart = polygon[j]
+      const bEnd = polygon[(j + 1) % polygon.length]
+      const areAdjacent =
+        j === i ||
+        (j + 1) % polygon.length === i ||
+        (i + 1) % polygon.length === j
+      if (areAdjacent) {
+        continue
+      }
+
+      if (segmentsTouchOrIntersect(aStart, aEnd, bStart, bEnd)) {
+        return false
+      }
+    }
+  }
+
+  return true
+}
+
 const getArcStepAngle = (radius: number): number => {
   if (!Number.isFinite(radius) || radius <= EPS) {
-    return Math.PI / 8
+    return MIN_ROUND_CAP_STEP_ANGLE
   }
 
   if (radius <= 0.5) {
-    return Math.PI / 8
+    return MIN_ROUND_CAP_STEP_ANGLE
   }
 
-  const cosine = 1 - 0.5 / radius
+  const cosine = 1 - ROUND_CAP_MAX_SAGITTA / radius
   const step = 2 * Math.acos(Math.max(-1, Math.min(1, cosine)))
   if (!Number.isFinite(step) || step <= EPS) {
-    return Math.PI / 8
+    return MIN_ROUND_CAP_STEP_ANGLE
   }
 
-  return step
+  return Math.min(step, MIN_ROUND_CAP_STEP_ANGLE)
 }
 
 const buildArcPoints = (
@@ -406,19 +559,170 @@ const buildArcPoints = (
   return points
 }
 
-const buildRoundCapPoints = (
+const getArcSweep = (
+  fromAngle: number,
+  toAngle: number,
+  clockwise: boolean
+) => {
+  let endAngle = toAngle
+  if (clockwise) {
+    while (endAngle >= fromAngle - EPS) {
+      endAngle -= Math.PI * 2
+    }
+  } else {
+    while (endAngle <= fromAngle + EPS) {
+      endAngle += Math.PI * 2
+    }
+  }
+
+  return endAngle - fromAngle
+}
+
+const getBoundaryCapDirection = (
+  boundary: Vec2[],
+  fallback: Vec2,
+  atStart: boolean
+) => {
+  if (boundary.length < 2) {
+    return fallback
+  }
+
+  return atStart
+    ? subtractVec2(boundary[0], boundary[1])
+    : subtractVec2(boundary[boundary.length - 1], boundary[boundary.length - 2])
+}
+
+export const chooseStrokeCapArcClockwise = (
   center: Vec2,
   startPoint: Vec2,
   endPoint: Vec2,
-  radius: number
+  capDirection: Vec2
+) => {
+  const startAngle = Math.atan2(
+    startPoint.y - center.y,
+    startPoint.x - center.x
+  )
+  const endAngle = Math.atan2(endPoint.y - center.y, endPoint.x - center.x)
+  const targetDirection = normalizeVector(capDirection)
+  if (!targetDirection) {
+    return false
+  }
+
+  const ccwSweep = getArcSweep(startAngle, endAngle, false)
+  const cwSweep = getArcSweep(startAngle, endAngle, true)
+  const ccwMidAngle = startAngle + ccwSweep / 2
+  const cwMidAngle = startAngle + cwSweep / 2
+  const ccwDot =
+    Math.cos(ccwMidAngle) * targetDirection.x +
+    Math.sin(ccwMidAngle) * targetDirection.y
+  const cwDot =
+    Math.cos(cwMidAngle) * targetDirection.x +
+    Math.sin(cwMidAngle) * targetDirection.y
+
+  return cwDot > ccwDot
+}
+
+export const buildStrokeCapArcPoints = (
+  center: Vec2,
+  startPoint: Vec2,
+  endPoint: Vec2,
+  radius: number,
+  options?: {
+    clockwise?: boolean
+  }
 ) =>
   buildArcPoints(
     center,
     Math.atan2(startPoint.y - center.y, startPoint.x - center.x),
     Math.atan2(endPoint.y - center.y, endPoint.x - center.x),
     radius,
-    true
+    options?.clockwise ?? false
   )
+
+export const buildStrokeStartCapPolygon = (
+  outerBoundary: Vec2[],
+  innerBoundary: Vec2[],
+  centerlinePoints: Vec2[],
+  stroke: Pick<RenderableStroke, 'width' | 'cap'>
+) => {
+  if (stroke.cap !== 'round') {
+    return null
+  }
+
+  const radius = stroke.width / 2
+  const firstCenter = centerlinePoints[0]
+  const firstOuter = outerBoundary[0]
+  const firstInner = innerBoundary[0]
+
+  const startCap = dedupeClosedPolygonPoints([
+    firstInner,
+    ...buildStrokeCapArcPoints(firstCenter, firstInner, firstOuter, radius, {
+      clockwise: chooseStrokeCapArcClockwise(
+        firstCenter,
+        firstInner,
+        firstOuter,
+        getBoundaryCapDirection(
+          outerBoundary,
+          subtractVec2(firstCenter, centerlinePoints[1] ?? firstCenter),
+          true
+        )
+      )
+    }),
+    firstOuter
+  ])
+
+  return startCap.length >= 3 ? startCap : null
+}
+
+export const buildStrokeEndCapPolygon = (
+  outerBoundary: Vec2[],
+  innerBoundary: Vec2[],
+  centerlinePoints: Vec2[],
+  stroke: Pick<RenderableStroke, 'width' | 'cap'>
+) => {
+  if (stroke.cap !== 'round') {
+    return null
+  }
+
+  const radius = stroke.width / 2
+  const lastCenter = centerlinePoints[centerlinePoints.length - 1]
+  const lastOuter = outerBoundary[outerBoundary.length - 1]
+  const lastInner = innerBoundary[innerBoundary.length - 1]
+
+  const endCap = dedupeClosedPolygonPoints([
+    lastOuter,
+    ...buildStrokeCapArcPoints(lastCenter, lastOuter, lastInner, radius, {
+      clockwise: chooseStrokeCapArcClockwise(
+        lastCenter,
+        lastOuter,
+        lastInner,
+        getBoundaryCapDirection(
+          outerBoundary,
+          subtractVec2(
+            lastCenter,
+            centerlinePoints[centerlinePoints.length - 2] ?? lastCenter
+          ),
+          false
+        )
+      )
+    }),
+    lastInner
+  ])
+
+  return endCap.length >= 3 ? endCap : null
+}
+
+export const buildStrokeStripPolygon = (
+  outerBoundary: Vec2[],
+  innerBoundary: Vec2[]
+) => {
+  const stripPolygon = dedupeClosedPolygonPoints([
+    ...outerBoundary,
+    ...[...innerBoundary].reverse()
+  ])
+
+  return stripPolygon.length >= 3 ? stripPolygon : null
+}
 
 export const buildOneSidedStrokeShapePolygon = (
   outerBoundary: Vec2[],
@@ -429,73 +733,204 @@ export const buildOneSidedStrokeShapePolygon = (
     includeStartCap?: boolean
     includeEndCap?: boolean
   } = {}
+): Vec2[][] =>
+  buildStrokeBandPolygon(
+    outerBoundary,
+    innerBoundary,
+    centerlinePoints,
+    stroke,
+    options
+  )
+
+export const buildStrokeBandConvexPolygons = (
+  outerBoundary: Vec2[],
+  innerBoundary: Vec2[],
+  centerlinePoints: Vec2[],
+  stroke: Pick<RenderableStroke, 'width' | 'cap'>,
+  options: {
+    includeStartCap?: boolean
+    includeEndCap?: boolean
+  } = {}
 ): Vec2[][] => {
-  const outer = dedupeAdjacentPoints(outerBoundary)
-  const inner = dedupeAdjacentPoints(innerBoundary)
-  const centerline = dedupeAdjacentPoints(centerlinePoints)
+  const outer = [...outerBoundary]
+  const inner = [...innerBoundary]
+  const centerline = [...centerlinePoints]
+  if (
+    outer.length < 2 ||
+    inner.length < 2 ||
+    centerline.length < 2 ||
+    outer.length !== inner.length ||
+    outer.length !== centerline.length
+  ) {
+    return []
+  }
+
+  const polygons: Vec2[][] = []
+
+  for (let index = 0; index < outer.length - 1; index += 1) {
+    const firstTriangle = dedupeClosedPolygonPoints([
+      outer[index],
+      outer[index + 1],
+      inner[index + 1]
+    ])
+    if (firstTriangle.length >= 3) {
+      polygons.push(firstTriangle)
+    }
+
+    const secondTriangle = dedupeClosedPolygonPoints([
+      outer[index],
+      inner[index + 1],
+      inner[index]
+    ])
+    if (secondTriangle.length >= 3) {
+      polygons.push(secondTriangle)
+    }
+  }
+
+  if (stroke.cap === 'round') {
+    if (options.includeStartCap !== false) {
+      const startCap = buildStrokeStartCapPolygon(
+        outer,
+        inner,
+        centerline,
+        stroke
+      )
+      if (startCap) {
+        polygons.push(startCap)
+      }
+    }
+
+    if (options.includeEndCap !== false) {
+      const endCap = buildStrokeEndCapPolygon(outer, inner, centerline, stroke)
+      if (endCap) {
+        polygons.push(endCap)
+      }
+    }
+  }
+
+  return polygons
+}
+
+const normalizeStrokeBandSamples = (
+  outerBoundary: Vec2[],
+  innerBoundary: Vec2[],
+  centerlinePoints: Vec2[]
+) => {
+  return {
+    outer: dedupeAdjacentPoints(outerBoundary),
+    inner: dedupeAdjacentPoints(innerBoundary),
+    centerline: dedupeAdjacentPoints(centerlinePoints)
+  }
+}
+
+export const buildStrokeBandPolygon = (
+  outerBoundary: Vec2[],
+  innerBoundary: Vec2[],
+  centerlinePoints: Vec2[],
+  stroke: Pick<RenderableStroke, 'width' | 'cap'>,
+  options: {
+    includeStartCap?: boolean
+    includeEndCap?: boolean
+  } = {}
+): Vec2[][] => {
+  const { outer, inner, centerline } = normalizeStrokeBandSamples(
+    outerBoundary,
+    innerBoundary,
+    centerlinePoints
+  )
   if (outer.length < 2 || inner.length < 2 || centerline.length < 2) {
     return []
   }
 
-  const radius = stroke.width / 2
-  const firstCenter = centerline[0]
-  const lastCenter = centerline[centerline.length - 1]
-  const firstOuter = outer[0]
-  const firstInner = inner[0]
-  const lastOuter = outer[outer.length - 1]
-  const lastInner = inner[inner.length - 1]
-
-  const startCapPoints =
+  const includeStartCap =
     stroke.cap === 'round' && options.includeStartCap !== false
-      ? [
-          firstInner,
-          ...buildRoundCapPoints(firstCenter, firstInner, firstOuter, radius),
-          firstOuter
-        ]
-      : []
-  const endCapPoints =
+  const includeEndCap =
     stroke.cap === 'round' && options.includeEndCap !== false
-      ? [
-          lastOuter,
-          ...buildRoundCapPoints(lastCenter, lastOuter, lastInner, radius),
-          lastInner
-        ]
-      : []
+  const polygons: Vec2[][] = []
+  const mergedRing: Vec2[] = []
 
-  const polygon = dedupeClosedPolygonPoints([
-    ...outer,
-    ...(endCapPoints.length > 0 ? endCapPoints.slice(1) : [lastInner]),
-    ...inner.slice(0, -1).reverse(),
-    ...(startCapPoints.length > 0
-      ? startCapPoints.slice(1, Math.max(1, startCapPoints.length - 1))
-      : [])
-  ])
+  if (includeStartCap) {
+    const startCap = buildStrokeStartCapPolygon(
+      outer,
+      inner,
+      centerline,
+      stroke
+    )
+    if (startCap) {
+      mergedRing.push(...startCap.slice(0, -1))
+    }
+    mergedRing.push(...outer.slice(1))
+  } else {
+    mergedRing.push(...outer)
+  }
 
-  return polygon.length >= 3 ? [polygon] : []
+  if (includeEndCap) {
+    const endCap = buildStrokeEndCapPolygon(outer, inner, centerline, stroke)
+    if (endCap) {
+      mergedRing.push(...endCap.slice(1))
+    }
+    mergedRing.push(...[...inner.slice(0, -1)].reverse())
+  } else {
+    mergedRing.push(...[...inner].reverse())
+  }
+
+  const mergedPolygon = dedupeClosedPolygonPoints(mergedRing)
+  if (
+    mergedPolygon.length >= 3 &&
+    Math.abs(polygonArea(mergedPolygon)) > EPS &&
+    isSimplePolygon(mergedPolygon)
+  ) {
+    return [mergedPolygon]
+  }
+
+  const stripPolygon = buildStrokeStripPolygon(outer, inner)
+
+  if (stripPolygon) {
+    polygons.push(stripPolygon)
+  }
+
+  if (includeStartCap) {
+    const startCap = buildStrokeStartCapPolygon(
+      outer,
+      inner,
+      centerline,
+      stroke
+    )
+    if (startCap) {
+      polygons.push(startCap)
+    }
+  }
+
+  if (includeEndCap) {
+    const endCap = buildStrokeEndCapPolygon(outer, inner, centerline, stroke)
+    if (endCap) {
+      polygons.push(endCap)
+    }
+  }
+
+  return polygons
 }
 
-const buildStrokeShapePolygons = (
+export const buildCenteredStrokeBandBoundaries = (
   points: Vec2[],
-  stroke: Pick<RenderableStroke, 'width' | 'join' | 'miterLimit' | 'cap'>,
+  stroke: Pick<RenderableStroke, 'width'>,
   options: {
-    includeStartCap?: boolean
-    includeEndCap?: boolean
     contextStartIndex?: number
     contextPointCount?: number
   } = {}
-): Vec2[][] => {
+): StrokeBandBoundaries | null => {
   const normalizedPoints =
     options.contextStartIndex !== undefined ||
     options.contextPointCount !== undefined
       ? [...points]
       : dedupeAdjacentPoints(points)
   if (normalizedPoints.length < 2) {
-    return []
+    return null
   }
 
   const radius = stroke.width / 2
   if (radius <= EPS) {
-    return []
+    return null
   }
 
   const leftBoundary = offsetPolyline(normalizedPoints, radius, false, false)
@@ -504,7 +939,7 @@ const buildStrokeShapePolygons = (
     leftBoundary.length !== normalizedPoints.length ||
     rightBoundary.length !== normalizedPoints.length
   ) {
-    return []
+    return null
   }
 
   const contextStartIndex = Math.max(0, options.contextStartIndex ?? 0)
@@ -529,282 +964,160 @@ const buildStrokeShapePolygons = (
     renderLeftBoundary.length !== renderCenterlinePoints.length ||
     renderRightBoundary.length !== renderCenterlinePoints.length
   ) {
-    return []
+    return null
   }
 
-  const firstPoint = renderCenterlinePoints[0]
-  const lastPoint = renderCenterlinePoints[renderCenterlinePoints.length - 1]
-  const startLeft = renderLeftBoundary[0]
-  const startRight = renderRightBoundary[0]
-  const endLeft = renderLeftBoundary[renderLeftBoundary.length - 1]
-  const endRight = renderRightBoundary[renderRightBoundary.length - 1]
-
-  const polygon = dedupeClosedPolygonPoints([
-    ...renderLeftBoundary,
-    ...(stroke.cap === 'round' && options.includeEndCap !== false
-      ? buildRoundCapPoints(lastPoint, endLeft, endRight, radius)
-      : [endRight]),
-    ...renderRightBoundary.slice(0, -1).reverse(),
-    ...(stroke.cap === 'round' && options.includeStartCap !== false
-      ? buildRoundCapPoints(firstPoint, startRight, startLeft, radius)
-      : [])
-  ])
-
-  return polygon.length >= 3 ? [polygon] : []
+  return {
+    outerBoundary: renderLeftBoundary,
+    innerBoundary: renderRightBoundary,
+    centerlinePoints: renderCenterlinePoints
+  }
 }
 
-const clipPolygonAgainstHalfPlane = (
+const buildStrokeShapePolygons = (
   points: Vec2[],
-  linePoint: Vec2,
-  inwardNormal: Vec2
-): Vec2[] => {
-  if (points.length < 3) {
-    return []
-  }
-
-  const clipped: Vec2[] = []
-
-  for (let i = 0; i < points.length; i += 1) {
-    const current = points[i]
-    const previous = points[(i - 1 + points.length) % points.length]
-    const currentDistance = dotVec2(
-      subtractVec2(current, linePoint),
-      inwardNormal
-    )
-    const previousDistance = dotVec2(
-      subtractVec2(previous, linePoint),
-      inwardNormal
-    )
-    const currentInside = currentDistance >= -EPS
-    const previousInside = previousDistance >= -EPS
-
-    if (currentInside !== previousInside) {
-      const delta = subtractVec2(current, previous)
-      const denominator = dotVec2(delta, inwardNormal)
-      if (Math.abs(denominator) > EPS) {
-        const t =
-          dotVec2(subtractVec2(linePoint, previous), inwardNormal) / denominator
-        clipped.push({
-          x: previous.x + delta.x * t,
-          y: previous.y + delta.y * t
-        })
-      }
-    }
-
-    if (currentInside) {
-      clipped.push(current)
-    }
-  }
-
-  return dedupeClosedPolygonPoints(clipped)
-}
-
-const clipInsideDashPolygon = (
-  polygon: Vec2[],
-  originalPoints: Vec2[],
-  orientation: 1 | -1
-): Vec2[] => {
-  let clipped = dedupeClosedPolygonPoints(polygon)
-  const normalizedPoints = dedupeAdjacentPoints(originalPoints)
-
-  for (let pass = 0; pass < 3 && clipped.length >= 3; pass += 1) {
-    const beforePass = clipped
-    for (
-      let i = 0;
-      i < normalizedPoints.length - 1 && clipped.length >= 3;
-      i += 1
-    ) {
-      const normal = createUnitLeftNormal(
-        normalizedPoints[i],
-        normalizedPoints[i + 1]
-      )
-      if (!normal) {
-        continue
-      }
-
-      clipped = clipPolygonAgainstHalfPlane(
-        clipped,
-        normalizedPoints[i],
-        scaleVec2(normal, orientation)
-      )
-    }
-
-    if (
-      clipped.length === beforePass.length &&
-      clipped.every(
-        (point, index) =>
-          distance(
-            point,
-            beforePass[index] ?? { x: Number.NaN, y: Number.NaN }
-          ) <= EPS
-      )
-    ) {
-      break
-    }
-  }
-
-  return clipped
-}
-
-export const buildExactDashPartPolygons = (
-  originalPoints: Vec2[],
-  renderPoints: Vec2[],
-  stroke: RenderableStroke,
-  options?: {
-    insideOrientation?: 1 | -1 | 0
+  stroke: Pick<RenderableStroke, 'width' | 'join' | 'miterLimit' | 'cap'>,
+  options: {
     includeStartCap?: boolean
     includeEndCap?: boolean
-    skipInsideClip?: boolean
     contextStartIndex?: number
     contextPointCount?: number
-  }
+  } = {}
 ): Vec2[][] => {
-  const insideOrientation = options?.insideOrientation ?? 0
-  const outlines =
-    insideOrientation !== 0
-      ? buildOneSidedStrokeShapePolygon(
-          originalPoints.slice(
-            Math.max(0, options?.contextStartIndex ?? 0),
-            Math.max(0, options?.contextStartIndex ?? 0) +
-              (options?.contextPointCount ??
-                Math.max(
-                  0,
-                  originalPoints.length -
-                    Math.max(0, options?.contextStartIndex ?? 0)
-                ))
-          ),
-          offsetPolyline(
-            originalPoints,
-            stroke.width * insideOrientation,
-            false,
-            true
-          ).slice(
-            Math.max(0, options?.contextStartIndex ?? 0),
-            Math.max(0, options?.contextStartIndex ?? 0) +
-              (options?.contextPointCount ??
-                Math.max(
-                  0,
-                  originalPoints.length -
-                    Math.max(0, options?.contextStartIndex ?? 0)
-                ))
-          ),
-          renderPoints,
-          stroke,
-          {
-            includeStartCap: options?.includeStartCap,
-            includeEndCap: options?.includeEndCap
-          }
-        )
-      : buildStrokeShapePolygons(renderPoints, stroke, {
-          includeStartCap: options?.includeStartCap,
-          includeEndCap: options?.includeEndCap,
-          contextStartIndex: options?.contextStartIndex,
-          contextPointCount: options?.contextPointCount
-        })
-  if (outlines.length === 0) {
+  const boundaries = buildCenteredStrokeBandBoundaries(points, stroke, {
+    contextStartIndex: options.contextStartIndex,
+    contextPointCount: options.contextPointCount
+  })
+  if (!boundaries) {
     return []
   }
 
-  if (insideOrientation === 0 || options?.skipInsideClip) {
-    return outlines
-  }
-
-  return outlines
-    .map((outline) =>
-      clipInsideDashPolygon(outline, originalPoints, insideOrientation)
-    )
-    .filter((outline) => outline.length >= 3)
-}
-
-export const buildDashedStrokeDebugParts = (
-  points: Vec2[],
-  closed: boolean,
-  stroke: RenderableStroke
-): DashedStrokeDebugPart[] => {
-  const strokePoints = closed ? normalizeClosedPoints(points) : [...points]
-  if (strokePoints.length < 2 || stroke.style !== StrokeStyles.DASHED) {
-    return []
-  }
-
-  const centerlineOffset = getStrokeCenterlineOffset(
-    strokePoints,
-    closed,
-    stroke
+  return buildStrokeBandPolygon(
+    boundaries.outerBoundary,
+    boundaries.innerBoundary,
+    boundaries.centerlinePoints,
+    stroke,
+    options
   )
-  const insideOrientation =
-    closed && stroke.position === StrokePositions.INSIDE
-      ? polygonArea(normalizeClosedPoints(strokePoints)) >= 0
-        ? 1
-        : -1
-      : 0
-  const validateIntersection =
-    closed && stroke.position === StrokePositions.INSIDE
+}
 
-  return buildDashedParts(strokePoints, closed, stroke).map((part) => {
-    const renderPoints = buildDashedRenderPoints(
-      part,
-      centerlineOffset,
-      validateIntersection
-    )
+const createGeometryModelFromPolygons = (polygons: Vec2[][]): GeometryModel => {
+  // Convert Vec2[] to GeometryPoint[] format expected by mesh projection
+  const geometryPolygons = polygons.map((polygon) =>
+    polygon.map((point) => ({
+      x: point.x,
+      y: point.y
+    }))
+  )
 
-    return {
-      sourcePoints: part.sourcePoints,
-      clipPoints: part.clipPoints,
-      renderPoints,
-      polygons: buildExactDashPartPolygons(
-        part.clipPoints,
-        renderPoints,
-        stroke,
-        {
-          insideOrientation,
-          contextStartIndex: part.clipStartIndex,
-          contextPointCount: part.sourcePoints.length
+  // Calculate bounds
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  geometryPolygons.forEach((polygon) =>
+    polygon.forEach((point) => {
+      minX = Math.min(minX, point.x)
+      minY = Math.min(minY, point.y)
+      maxX = Math.max(maxX, point.x)
+      maxY = Math.max(maxY, point.y)
+    })
+  )
+
+  return {
+    polygons: geometryPolygons,
+    bounds: Number.isFinite(minX)
+      ? {
+          minX,
+          minY,
+          maxX,
+          maxY
         }
-      )
-    }
-  })
+      : undefined
+  }
 }
 
-const applyStrokeFillStyle = (
-  graphic: Pick<StrokeDrawGraphic, 'fill'>,
-  stroke: RenderableStroke
-) => {
-  const fill = graphic.fill
-  if (typeof fill !== 'function') {
-    return
-  }
-
-  if (stroke.alpha >= 1) {
-    fill.call(graphic, stroke.color)
-    return
-  }
-
-  fill.call(graphic, {
-    color: stroke.color,
-    alpha: stroke.alpha
-  })
-}
-
-const fillStrokePolygons = (
-  graphic: StrokeDrawGraphic,
+const fillStrokePolygonsWithMesh = (
+  host: StrokeOverlayHost,
   polygons: Vec2[][],
-  stroke: RenderableStroke
-) => {
-  if (typeof graphic.fill !== 'function') {
-    return false
-  }
-
+  stroke: RenderableStroke,
+  cacheKey: string,
+  activeMeshKeys: Set<string>
+): boolean => {
   const drawablePolygons = polygons.filter((polygon) => polygon.length >= 3)
   if (drawablePolygons.length === 0) {
     return false
   }
 
-  graphic.beginPath?.()
-  drawablePolygons.forEach((polygon) => {
-    drawPolyline(graphic, polygon, true)
-  })
-  applyStrokeFillStyle(graphic, stroke)
+  if (typeof host.addChild !== 'function') {
+    return false
+  }
 
+  if (!host.__asyraMeshProjectionCache) {
+    host.__asyraMeshProjectionCache = new Map()
+  }
+
+  const cache = host.__asyraMeshProjectionCache
+  const signature = drawablePolygons
+    .map((polygon) =>
+      polygon
+        .map((point) => `${point.x.toFixed(3)},${point.y.toFixed(3)}`)
+        .join(';')
+    )
+    .join('|')
+
+  let projectionCache = cache.get(cacheKey)
+  const modelChanged =
+    !projectionCache || projectionCache.signature !== signature
+  const paintChanged =
+    !projectionCache ||
+    projectionCache.color !== stroke.color ||
+    projectionCache.alpha !== stroke.alpha
+
+  if (!projectionCache) {
+    const geometryModel = createGeometryModelFromPolygons(drawablePolygons)
+    const projection = createMeshProjection({
+      model: geometryModel,
+      paint: {
+        kind: 'solid',
+        color: stroke.color,
+        alpha: stroke.alpha
+      }
+    })
+
+    projectionCache = {
+      projection,
+      color: stroke.color,
+      alpha: stroke.alpha,
+      signature
+    }
+    cache.set(cacheKey, projectionCache)
+
+    const attachSuccess = projection.attach(host)
+    if (!attachSuccess) {
+      cache.delete(cacheKey)
+      projection.dispose()
+      return false
+    }
+  } else if (modelChanged || paintChanged) {
+    projectionCache.projection.update({
+      model: createGeometryModelFromPolygons(drawablePolygons),
+      paint: {
+        kind: 'solid',
+        color: stroke.color,
+        alpha: stroke.alpha
+      }
+    })
+    projectionCache.signature = signature
+    projectionCache.color = stroke.color
+    projectionCache.alpha = stroke.alpha
+    projectionCache.projection.setVisible(true)
+  } else {
+    projectionCache.projection.setVisible(true)
+  }
+
+  activeMeshKeys.add(cacheKey)
   return true
 }
 
@@ -835,6 +1148,16 @@ const getJoinedOffsetPoint = (
 
   if (intersection) {
     if (!validateIntersection) {
+      return intersection
+    }
+
+    // Special handling for acute angles: use the intersection directly
+    // Compute angle between the two segment directions
+    const cosAngle = dotVec2(prevSegment.direction, nextSegment.direction)
+    // If angle < ~30 degrees (cosAngle > 0.866), treat as acute and use intersection
+    const isAcuteAngle = cosAngle > 0.87
+
+    if (isAcuteAngle) {
       return intersection
     }
 
@@ -941,647 +1264,289 @@ export const getStrokeCenterlineOffset = (
     : -halfWidth * orientation
 }
 
-const buildSegmentDistances = (points: Vec2[], closed: boolean) => {
-  if (points.length < 2) {
-    return {
-      path: points,
-      distances: [0],
-      totalLength: 0
-    }
-  }
-
-  const path = closed
-    ? [...normalizeClosedPoints(points), points[0]]
-    : [...points]
-  const distances = [0]
-  let totalLength = 0
-
-  for (let i = 0; i < path.length - 1; i += 1) {
-    totalLength += distance(path[i], path[i + 1])
-    distances.push(totalLength)
-  }
-
-  return {
-    path,
-    distances,
-    totalLength
-  }
-}
-
-const pointAtDistance = (
-  path: Vec2[],
-  distances: number[],
-  targetDistance: number
-): Vec2 => {
-  if (targetDistance <= 0) {
-    return path[0]
-  }
-
-  const totalLength = distances[distances.length - 1] ?? 0
-  if (targetDistance >= totalLength) {
-    return path[path.length - 1]
-  }
-
-  for (let i = 0; i < distances.length - 1; i += 1) {
-    const startDistance = distances[i]
-    const endDistance = distances[i + 1]
-    if (targetDistance > endDistance) {
-      continue
-    }
-
-    const segmentLength = endDistance - startDistance
-    if (segmentLength <= EPS) {
-      return path[i]
-    }
-
-    const t = (targetDistance - startDistance) / segmentLength
-    return {
-      x: path[i].x + (path[i + 1].x - path[i].x) * t,
-      y: path[i].y + (path[i + 1].y - path[i].y) * t
-    }
-  }
-
-  return path[path.length - 1]
-}
-
-const extractPolylineSegmentFromPath = (
-  path: Vec2[],
-  distances: number[],
-  totalLength: number,
-  startDistance: number,
-  endDistance: number
-): Vec2[] => {
-  if (path.length < 2 || totalLength <= EPS || endDistance <= startDistance) {
-    return []
-  }
-
-  const segmentPoints: Vec2[] = [
-    pointAtDistance(path, distances, startDistance)
-  ]
-
-  for (let i = 1; i < distances.length - 1; i += 1) {
-    if (distances[i] > startDistance && distances[i] < endDistance) {
-      segmentPoints.push(path[i])
-    }
-  }
-
-  segmentPoints.push(pointAtDistance(path, distances, endDistance))
-  return segmentPoints
-}
-
-const mergePolylineSegments = (head: Vec2[], tail: Vec2[]): Vec2[] => {
-  if (head.length === 0) {
-    return [...tail]
-  }
-  if (tail.length === 0) {
-    return [...head]
-  }
-
-  const merged = [...head]
-  const startIndex = distance(head[head.length - 1], tail[0]) <= EPS ? 1 : 0
-  for (let i = startIndex; i < tail.length; i += 1) {
-    merged.push(tail[i])
-  }
-  return dedupeAdjacentPoints(merged)
-}
-
-const extractPolylineSegmentWithContext = (
-  points: Vec2[],
-  closed: boolean,
-  startDistance: number,
-  endDistance: number
-): Vec2[] => {
-  const { path, distances, totalLength } = buildSegmentDistances(points, closed)
-  if (path.length < 2 || totalLength <= EPS || endDistance <= startDistance) {
-    return []
-  }
-
-  if (!closed || (startDistance >= 0 && endDistance <= totalLength)) {
-    return extractPolylineSegmentFromPath(
-      path,
-      distances,
-      totalLength,
-      Math.max(0, startDistance),
-      Math.min(totalLength, endDistance)
-    )
-  }
-
-  if (startDistance < 0) {
-    return mergePolylineSegments(
-      extractPolylineSegmentFromPath(
-        path,
-        distances,
-        totalLength,
-        totalLength + startDistance,
-        totalLength
-      ),
-      extractPolylineSegmentFromPath(
-        path,
-        distances,
-        totalLength,
-        0,
-        Math.min(totalLength, endDistance)
-      )
-    )
-  }
-
-  return mergePolylineSegments(
-    extractPolylineSegmentFromPath(
-      path,
-      distances,
-      totalLength,
-      Math.max(0, startDistance),
-      totalLength
-    ),
-    extractPolylineSegmentFromPath(
-      path,
-      distances,
-      totalLength,
-      0,
-      endDistance - totalLength
-    )
-  )
-}
-
-const findPointSequenceStart = (points: Vec2[], sequence: Vec2[]): number => {
-  if (sequence.length === 0 || points.length < sequence.length) {
-    return -1
-  }
-
-  for (let i = 0; i <= points.length - sequence.length; i += 1) {
-    let matched = true
-    for (let j = 0; j < sequence.length; j += 1) {
-      if (distance(points[i + j], sequence[j]) > EPS) {
-        matched = false
-        break
-      }
-    }
-    if (matched) {
-      return i
-    }
-  }
-
-  return -1
-}
-
-const createDashedPartWithContext = (
-  points: Vec2[],
-  closed: boolean,
-  stroke: RenderableStroke,
-  startDistance: number,
-  endDistance: number
-): DashedStrokePart => {
-  const sourcePoints = extractPolylineSegmentWithContext(
-    points,
-    closed,
-    startDistance,
-    endDistance
-  )
-  const contextPadding = Math.max(stroke.width, stroke.width / 2 + 1)
-  const clipPoints = extractPolylineSegmentWithContext(
-    points,
-    closed,
-    startDistance - contextPadding,
-    endDistance + contextPadding
-  )
-  const clipStartIndex = findPointSequenceStart(clipPoints, sourcePoints)
-
-  return {
-    sourcePoints,
-    clipPoints,
-    clipStartIndex: clipStartIndex >= 0 ? clipStartIndex : 0
-  }
-}
-
-const buildDashedParts = (
-  points: Vec2[],
-  closed: boolean,
-  stroke: RenderableStroke
-) => {
-  const { totalLength } = buildSegmentDistances(points, closed)
-  if (totalLength <= EPS) {
-    return []
-  }
-
-  const { dash, gap } = getDashPattern(stroke)
-  const parts: DashedStrokePart[] = []
-  let cursor = 0
-  const cycleLength = dash + gap
-
-  while (cursor < totalLength - EPS) {
-    const endDistance = Math.min(totalLength, cursor + dash)
-    const part = createDashedPartWithContext(
-      points,
-      closed,
-      stroke,
-      cursor,
-      endDistance
-    )
-    if (part.sourcePoints.length >= 2) {
-      parts.push(part)
-    }
-    cursor += cycleLength
-  }
-
-  return parts
-}
-
-const buildDashedRenderPoints = (
-  part: DashedStrokePart,
-  centerlineOffset: number,
-  validateIntersection: boolean
-): Vec2[] => {
-  const clippedOffsetPoints = offsetPolyline(
-    part.clipPoints,
-    centerlineOffset,
-    false,
-    validateIntersection
-  )
-
-  return clippedOffsetPoints
-}
-
-const buildHitSegments = (
-  points: Vec2[],
-  closed: boolean,
-  radius: number
-): StrokeHitSegment[] => {
-  if (points.length < 2 || radius <= 0) {
-    return []
-  }
-
-  const segments: StrokeHitSegment[] = []
-  for (let i = 0; i < points.length - 1; i += 1) {
-    segments.push({
-      kind: 'segment',
-      start: points[i],
-      end: points[i + 1],
-      radius
-    })
-  }
-
-  if (closed && points.length > 2) {
-    segments.push({
-      kind: 'segment',
-      start: points[points.length - 1],
-      end: points[0],
-      radius
-    })
-  }
-
-  return segments
-}
-
 export const buildStrokeHitSegments = (
   polylines: { points: Vec2[]; closed: boolean }[],
   strokes: unknown
-): StrokeHitSegment[] => {
+): StrokeHitSegment[] =>
+  buildStrokeHitSegmentsFromResolvedGeometry(
+    buildResolvedStrokeGeometryFromSources(
+      buildPolylineStrokePathSources(polylines),
+      strokes
+    )
+  )
+
+export const buildStrokeHitSegmentsFromResolvedGeometry = (
+  geometryEntries: ResolvedStrokeGeometryEntry[]
+): StrokeHitSegment[] =>
+  geometryEntries.flatMap((entry) =>
+    entry.polygons.flatMap((polygon) =>
+      polygon.length >= 3
+        ? [
+            {
+              kind: 'polygon' as const,
+              points: polygon
+            }
+          ]
+        : []
+    )
+  )
+
+export const buildResolvedStrokeGeometryFromSources = (
+  sources: StrokePathSource[],
+  strokes: unknown
+): ResolvedStrokeGeometryEntry[] => {
   const renderableStrokes = getRenderableStrokes(strokes)
   if (renderableStrokes.length === 0) {
     return []
   }
 
-  const hitSegments: StrokeHitSegment[] = []
+  const geometryEntries: ResolvedStrokeGeometryEntry[] = []
 
-  renderableStrokes.forEach((stroke) => {
-    const radius = stroke.width / 2
-    if (radius <= 0) {
+  renderableStrokes.forEach((stroke, strokeIndex) => {
+    if (stroke.width <= 0) {
       return
     }
 
-    polylines.forEach(({ points, closed }) => {
-      const strokePoints = closed ? normalizeClosedPoints(points) : [...points]
+    sources.forEach(({ geometry, sampledPoints, closed }, sourceIndex) => {
+      const strokePoints = closed
+        ? normalizeClosedPoints(sampledPoints)
+        : [...sampledPoints]
       if (strokePoints.length < 2) {
         return
       }
 
-      const centerlineOffset = getStrokeCenterlineOffset(
-        strokePoints,
-        closed,
-        stroke
-      )
-      const insideOrientation =
-        closed && stroke.position === StrokePositions.INSIDE
-          ? polygonArea(normalizeClosedPoints(strokePoints)) >= 0
-            ? 1
-            : -1
-          : 0
-      const validateIntersection =
-        closed && stroke.position === StrokePositions.INSIDE
-
       if (stroke.style === StrokeStyles.DASHED) {
-        const dashParts = buildDashedParts(strokePoints, closed, stroke)
-        dashParts.forEach((part) => {
-          const renderPoints = buildDashedRenderPoints(
-            part,
-            centerlineOffset,
-            validateIntersection
-          )
-          const polygons = buildExactDashPartPolygons(
-            part.clipPoints,
-            renderPoints,
-            stroke,
-            {
-              insideOrientation,
-              contextStartIndex: part.clipStartIndex,
-              contextPointCount: part.sourcePoints.length
-            }
-          )
-          polygons.forEach((polygon) => {
-            if (polygon.length >= 3) {
-              hitSegments.push({
-                kind: 'polygon',
-                points: polygon
-              })
-            }
-          })
+        const dashedGeometry =
+          selectDashedGeometryModelForRender(geometry, stroke) ??
+          createDashedGeometryModel(geometry, stroke)
+        geometryEntries.push({
+          cacheKey: `dashed_${strokeIndex}_${sourceIndex}`,
+          stroke,
+          polygons: dashedGeometry?.model?.polygons ?? []
         })
         return
       }
 
-      const renderPoints = offsetPolyline(
-        strokePoints,
-        centerlineOffset,
-        closed,
-        validateIntersection
-      )
-      hitSegments.push(...buildHitSegments(renderPoints, closed, radius))
+      geometryEntries.push({
+        cacheKey: `solid_${strokeIndex}_${sourceIndex}`,
+        stroke,
+        polygons: buildSolidStrokePolygons(strokePoints, closed, stroke)
+      })
     })
   })
 
-  return hitSegments
+  return geometryEntries
 }
 
-const createGraphicsChild = (
-  graphic: StrokeDrawGraphic
-): StrokeDrawGraphic | null => {
-  if (typeof graphic.addChild !== 'function') {
-    return null
-  }
+export const buildStrokeHitSegmentsFromSources = (
+  sources: StrokePathSource[],
+  strokes: unknown
+): StrokeHitSegment[] =>
+  buildStrokeHitSegmentsFromResolvedGeometry(
+    buildResolvedStrokeGeometryFromSources(sources, strokes)
+  )
 
-  try {
-    const GraphicCtor = (
-      graphic as StrokeDrawGraphic & {
-        constructor?: new () => StrokeDrawGraphic
-      }
-    ).constructor
-
-    if (typeof GraphicCtor !== 'function') {
-      return null
-    }
-
-    const child = new GraphicCtor()
-    if (
-      typeof child.moveTo !== 'function' ||
-      typeof child.lineTo !== 'function' ||
-      typeof child.stroke !== 'function'
-    ) {
-      return null
-    }
-
-    graphic.addChild(child)
-    return child
-  } catch {
-    return null
-  }
-}
-
-const getStrokeOverlayCache = (
-  graphic: StrokeOverlayHost
-): StrokeOverlayCache | null => {
-  if (graphic.__asyraStrokeOverlayCache) {
-    return graphic.__asyraStrokeOverlayCache
-  }
-
-  const mask = createGraphicsChild(graphic)
-  const inside = createGraphicsChild(graphic)
-  const outside = createGraphicsChild(graphic)
-
-  if (!mask || !inside || !outside) {
-    return null
-  }
-
-  if (typeof inside.setMask === 'function') {
-    inside.setMask({ mask })
-  } else {
-    inside.mask = mask
-  }
-
-  if (typeof outside.setMask === 'function') {
-    outside.setMask({ mask, inverse: true })
-  }
-
-  const cache = { mask, inside, outside }
-  graphic.__asyraStrokeOverlayCache = cache
-  return cache
-}
-
-const resetOverlayGraphic = (graphic: StrokeDrawGraphic) => {
-  graphic.clear?.()
-  if ('visible' in graphic) {
-    graphic.visible = true
-  }
-  if ('renderable' in graphic) {
-    graphic.renderable = true
-  }
-}
-
-const clearStrokeOverlayCache = (graphic: StrokeOverlayHost) => {
-  const overlayCache = graphic.__asyraStrokeOverlayCache
-  if (!overlayCache) {
-    return
-  }
-
-  resetOverlayGraphic(overlayCache.mask)
-  resetOverlayGraphic(overlayCache.inside)
-  resetOverlayGraphic(overlayCache.outside)
-}
-
-const drawFillMask = (
-  graphic: StrokeDrawGraphic,
-  polylines: { points: Vec2[]; closed: boolean }[]
-) => {
-  const fill = graphic.fill
-  if (typeof fill !== 'function') {
-    return
-  }
-
-  polylines.forEach(({ points, closed }) => {
-    if (!closed) {
-      return
-    }
-
-    const normalized = normalizeClosedPoints(points)
-    if (normalized.length < 3) {
-      return
-    }
-
-    graphic.beginPath?.()
-    drawPolyline(graphic, normalized, true)
-    fill.call(graphic, 0xffffff)
-  })
-}
-
-const getStrokeTargetGraphics = (
-  graphic: StrokeDrawGraphic,
-  overlayCache: StrokeOverlayCache | null,
-  stroke: RenderableStroke,
-  closed: boolean
-): StrokeDrawGraphic[] => {
-  if (!closed || !overlayCache) {
-    return [graphic]
-  }
-
-  if (stroke.position === StrokePositions.INSIDE) {
-    return [overlayCache.inside]
-  }
-
-  if (stroke.position === StrokePositions.CENTER) {
-    return [overlayCache.inside, overlayCache.outside]
-  }
-
-  return [graphic]
-}
-
-const drawPolyline = (
-  graphic: Pick<StrokeDrawGraphic, 'moveTo' | 'lineTo' | 'closePath'>,
+function buildClosedStrokePolygons(
   points: Vec2[],
-  closed: boolean
-) => {
-  if (points.length < 2) {
-    return
+  stroke: Pick<RenderableStroke, 'width'>
+): Vec2[][] {
+  const normalizedPoints = normalizeClosedPoints(points)
+  if (normalizedPoints.length < 3) {
+    return []
   }
 
-  graphic.moveTo(points[0].x, points[0].y)
-  for (let i = 1; i < points.length; i += 1) {
-    graphic.lineTo(points[i].x, points[i].y)
+  const radius = stroke.width / 2
+  if (radius <= EPS) {
+    return []
   }
 
-  if (closed) {
-    graphic.closePath?.()
+  const outerBoundary = offsetPolyline(normalizedPoints, radius, true, false)
+  const innerBoundary = offsetPolyline(normalizedPoints, -radius, true, false)
+  if (
+    outerBoundary.length !== normalizedPoints.length ||
+    innerBoundary.length !== normalizedPoints.length
+  ) {
+    return []
   }
+
+  const polygon = dedupeClosedPolygonPoints([
+    ...outerBoundary,
+    ...[...innerBoundary].reverse()
+  ])
+
+  return polygon.length >= 3 ? [polygon] : []
+}
+
+function buildClosedInsideSolidStrokePolygons(
+  points: Vec2[],
+  stroke: RenderableStroke,
+  insideOrientation: 1 | -1
+): Vec2[][] {
+  const normalizedPoints = normalizeClosedPoints(points)
+  if (normalizedPoints.length < 3) {
+    return []
+  }
+
+  const innerBoundary = offsetPolyline(
+    normalizedPoints,
+    stroke.width * insideOrientation,
+    true,
+    true
+  )
+  if (innerBoundary.length !== normalizedPoints.length) {
+    return []
+  }
+  const constrainedInnerBoundary = innerBoundary.map((point, index) =>
+    constrainOffsetPointToClosedShape(
+      normalizedPoints[index],
+      point,
+      normalizedPoints
+    )
+  )
+
+  const directRing = dedupeClosedPolygonPoints([
+    ...normalizedPoints,
+    ...[...constrainedInnerBoundary].reverse()
+  ])
+  if (
+    directRing.length >= 3 &&
+    Math.abs(polygonArea(directRing)) > EPS &&
+    isSimplePolygon(directRing)
+  ) {
+    return [directRing]
+  }
+
+  const centerlinePoints = offsetPolyline(
+    normalizedPoints,
+    (stroke.width / 2) * insideOrientation,
+    true,
+    true
+  )
+  if (centerlinePoints.length !== normalizedPoints.length) {
+    return []
+  }
+
+  const fallbackPolygons = buildStrokeBandConvexPolygons(
+    normalizedPoints,
+    constrainedInnerBoundary,
+    centerlinePoints,
+    stroke,
+    {
+      includeStartCap: false,
+      includeEndCap: false
+    }
+  ).filter(
+    (polygon) =>
+      polygon.length >= 3 &&
+      Math.abs(polygonArea(polygon)) >= MIN_RENDERABLE_POLYGON_AREA
+  )
+  return fallbackPolygons
+}
+
+function buildSolidStrokePolygons(
+  points: Vec2[],
+  closed: boolean,
+  stroke: RenderableStroke
+): Vec2[][] {
+  const strokePoints = closed ? normalizeClosedPoints(points) : [...points]
+  if (strokePoints.length < 2) {
+    return []
+  }
+
+  const centerlineOffset = getStrokeCenterlineOffset(
+    strokePoints,
+    closed,
+    stroke
+  )
+  const insideOrientation =
+    closed && stroke.position === StrokePositions.INSIDE
+      ? polygonArea(normalizeClosedPoints(strokePoints)) >= 0
+        ? 1
+        : -1
+      : 0
+  if (insideOrientation !== 0) {
+    return buildClosedInsideSolidStrokePolygons(
+      strokePoints,
+      stroke,
+      insideOrientation
+    )
+  }
+
+  const validateIntersection =
+    closed && stroke.position === StrokePositions.INSIDE
+  const renderPoints = offsetPolyline(
+    strokePoints,
+    centerlineOffset,
+    closed,
+    validateIntersection
+  )
+
+  const polygons = closed
+    ? buildClosedStrokePolygons(renderPoints, stroke)
+    : buildStrokeShapePolygons(renderPoints, stroke)
+  return polygons
 }
 
 export const renderPolylineStrokes = (
   graphic: StrokeDrawGraphic,
   polylines: { points: Vec2[]; closed: boolean }[],
   strokes: unknown
-) => {
-  const renderableStrokes = getRenderableStrokes(strokes)
-  clearStrokeOverlayCache(graphic as StrokeOverlayHost)
+) =>
+  renderResolvedStrokeGeometry(
+    graphic,
+    buildResolvedStrokeGeometryFromSources(
+      buildPolylineStrokePathSources(polylines),
+      strokes
+    )
+  )
 
-  if (renderableStrokes.length === 0) {
+export const renderResolvedStrokeGeometry = (
+  graphic: StrokeDrawGraphic,
+  geometryEntries: ResolvedStrokeGeometryEntry[]
+) => {
+  const graphicHost = graphic as StrokeOverlayHost
+
+  if (!graphicHost.__asyraMeshProjectionCache) {
+    graphicHost.__asyraMeshProjectionCache = new Map()
+  }
+  const activeMeshKeys = new Set<string>()
+
+  if (geometryEntries.length === 0) {
+    graphicHost.__asyraMeshProjectionCache.forEach((projectionCache) => {
+      projectionCache.projection.dispose()
+    })
+    graphicHost.__asyraMeshProjectionCache.clear()
     return
   }
 
-  const needsMaskedOverlay =
-    polylines.some((polyline) => polyline.closed) &&
-    renderableStrokes.some(
-      (stroke) => stroke.position !== StrokePositions.OUTSIDE
+  geometryEntries.forEach((entry) => {
+    fillStrokePolygonsWithMesh(
+      graphicHost,
+      entry.polygons,
+      entry.stroke,
+      entry.cacheKey,
+      activeMeshKeys
     )
+  })
 
-  const overlayCache = needsMaskedOverlay
-    ? getStrokeOverlayCache(graphic as StrokeOverlayHost)
-    : null
-
-  if (overlayCache) {
-    resetOverlayGraphic(overlayCache.mask)
-    resetOverlayGraphic(overlayCache.inside)
-    resetOverlayGraphic(overlayCache.outside)
-    drawFillMask(overlayCache.mask, polylines)
-  }
-
-  renderableStrokes.forEach((stroke) => {
-    polylines.forEach(({ points, closed }) => {
-      const strokePoints = closed ? normalizeClosedPoints(points) : [...points]
-      if (strokePoints.length < 2) {
-        return
-      }
-
-      const centerlineOffset = getStrokeCenterlineOffset(
-        strokePoints,
-        closed,
-        stroke
-      )
-      const insideOrientation =
-        closed && stroke.position === StrokePositions.INSIDE
-          ? polygonArea(normalizeClosedPoints(strokePoints)) >= 0
-            ? 1
-            : -1
-          : 0
-      const validateIntersection =
-        closed && stroke.position === StrokePositions.INSIDE
-
-      const targetGraphics = getStrokeTargetGraphics(
-        graphic,
-        overlayCache,
-        stroke,
-        closed
-      )
-
-      if (stroke.style === StrokeStyles.DASHED) {
-        const dashParts = buildDashedParts(strokePoints, closed, stroke)
-        const dashedGeometries = dashParts.map((part) => {
-          const renderPoints = buildDashedRenderPoints(
-            part,
-            centerlineOffset,
-            validateIntersection
-          )
-          return {
-            renderPoints,
-            polygons: buildExactDashPartPolygons(
-              part.clipPoints,
-              renderPoints,
-              stroke,
-              {
-                insideOrientation,
-                contextStartIndex: part.clipStartIndex,
-                contextPointCount: part.sourcePoints.length
-              }
-            )
-          }
-        })
-
-        targetGraphics.forEach((targetGraphic) => {
-          const strokePolygons = dashedGeometries.flatMap(
-            ({ polygons }) => polygons
-          )
-          if (strokePolygons.length > 0) {
-            const filled = fillStrokePolygons(
-              targetGraphic,
-              strokePolygons,
-              stroke
-            )
-            if (filled) {
-              return
-            }
-          }
-
-          dashedGeometries.forEach(({ renderPoints, polygons }) => {
-            if (polygons.length > 0) {
-              beginStrokePath(targetGraphic)
-              drawPolyline(targetGraphic, renderPoints, false)
-              applyStrokeStyle(targetGraphic, stroke)
-            }
-          })
-        })
-        return
-      }
-
-      const renderPoints = offsetPolyline(
-        strokePoints,
-        centerlineOffset,
-        closed,
-        validateIntersection
-      )
-      targetGraphics.forEach((targetGraphic) => {
-        beginStrokePath(targetGraphic)
-        drawPolyline(targetGraphic, renderPoints, closed)
-        applyStrokeStyle(targetGraphic, stroke)
-      })
-    })
+  graphicHost.__asyraMeshProjectionCache.forEach((projectionCache, key) => {
+    if (activeMeshKeys.has(key)) {
+      return
+    }
+    projectionCache.projection.dispose()
+    graphicHost.__asyraMeshProjectionCache?.delete(key)
   })
 }
+
+export const renderStrokeSources = (
+  graphic: StrokeDrawGraphic,
+  sources: StrokePathSource[],
+  strokes: unknown
+) =>
+  renderResolvedStrokeGeometry(
+    graphic,
+    buildResolvedStrokeGeometryFromSources(sources, strokes)
+  )
 
 export const DEFAULT_RECTANGLE_STROKES: StrokeAttrs[] = []
 export const DEFAULT_OVAL_STROKES: StrokeAttrs[] = []

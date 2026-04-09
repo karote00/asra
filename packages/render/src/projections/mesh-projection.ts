@@ -1,4 +1,4 @@
-import { Container, Mesh, MeshGeometry, Sprite, Texture, earcut } from 'pixi.js'
+import { Container, Mesh, MeshGeometry, Texture, earcut } from 'pixi.js'
 
 export interface GeometryPoint {
   x: number
@@ -172,26 +172,12 @@ export const createMeshProjection = (
       }),
     texture: Texture.WHITE
   })
-  const paintSprite = new Sprite(Texture.WHITE)
-  root.addChild(paintSprite)
   root.addChild(mesh)
-  paintSprite.mask = mesh
 
   const applyPaint = (paint: MeshProjectionPaint) => {
     const solid = paint as MeshProjectionPaintSolid
-    paintSprite.texture = Texture.WHITE
-    paintSprite.tint = solid.color
-    paintSprite.alpha = solid.alpha
-  }
-
-  const applyBounds = (model: GeometryModel) => {
-    const bounds = getModelBounds(model)
-    const width = Math.max(1e-6, bounds.maxX - bounds.minX)
-    const height = Math.max(1e-6, bounds.maxY - bounds.minY)
-    paintSprite.x = bounds.minX
-    paintSprite.y = bounds.minY
-    paintSprite.width = width
-    paintSprite.height = height
+    mesh.tint = solid.color
+    mesh.alpha = solid.alpha
   }
 
   const update = (next: CreateMeshProjectionOptions) => {
@@ -207,7 +193,6 @@ export const createMeshProjection = (
     mesh.geometry = nextGeometry
     root.visible = true
     applyPaint(next.paint)
-    applyBounds(next.model)
 
     if (previousGeometry !== nextGeometry) {
       previousGeometry.destroy()
@@ -215,9 +200,6 @@ export const createMeshProjection = (
   }
 
   applyPaint(options.paint)
-  if (initialGeometry) {
-    applyBounds(options.model)
-  }
   root.visible = !!initialGeometry
 
   return {
