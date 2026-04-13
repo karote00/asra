@@ -269,13 +269,25 @@ This step must decide:
 
 Only after ownership is resolved:
 
-- clip against final inside shape limits
-- apply final seam / corner legality clipping
+- build the legal owner domain for each resolved dash owner from the true
+  segment-owned dash pieces
+- extract only the actual overflow fragments that lie outside that legal owner
+  domain
+- remove only those overflow fragments from the final result
 
 This step is intentionally late.
 
 It must not be mixed into candidate generation, or dash length and cap shape
 will be corrupted before global conflict resolution is even possible.
+
+Hard rule:
+
+- this stage must not be implemented as generic `seam legality` or `corner
+  legality` passes over all inside geometry
+- seam, acute, high-curvature, and segment-transition behavior must all emerge
+  from the same legal-domain / overflow-fragment definition
+- final clipping is allowed to touch only geometry proven to be outside the
+  legal owner domain
 
 ### Step 9. Emit Final Render Polygons
 
@@ -421,6 +433,28 @@ The rebuild should introduce explicit phase data.
 - shared regions
 - final owner assignment per region
 
+### G. `DashPiece`
+
+- owner dash id
+- source segment index
+- piece `startDistance`
+- piece `endDistance`
+- piece-local true path slice
+- piece-local candidate polygons
+
+### H. `LegalOwnerDomain`
+
+- owner dash id
+- union of legal segment-piece domains
+- provenance of contributing segment pieces
+
+### I. `OverflowFragmentSet`
+
+- owner dash id
+- source region id / polygon id
+- polygons outside the legal owner domain
+- proof that each fragment came from `actual geometry - legal owner domain`
+
 ---
 
 ## 6. Phases
@@ -474,6 +508,8 @@ Goal:
 Goal:
 
 - apply final inside legality after ownership is known
+- define legality from exact owner segment-piece domains, not heuristic windows
+- remove only actual overflow fragments
 
 ### Phase 7. Render Hard Gates
 
@@ -492,6 +528,77 @@ Not only intermediate debug stages.
 
 ---
 
+## 6A. Execution Safety Gates
+
+The rebuild is not allowed to advance only because a later stage appears to
+look better.
+
+### Mid-Phase Regression Protocol
+
+If any current-phase contract test turns red:
+
+- do not continue implementing later work on top of that red state
+- either revert the current change or isolate it behind a non-authoritative
+  experiment path
+- if immediate revert is not possible, record:
+  - which contract turned red
+  - why it turned red
+  - what must be fixed before work continues
+- notify lead review before continuing phase advancement
+
+### Milestone Rollback Checkpoints
+
+Every major milestone must keep a rollback-safe checkpoint containing:
+
+- the accepted runtime baseline
+- the accepted scenario matrix state
+- the accepted performance numbers for that milestone
+
+The rebuild must be able to return to the last accepted checkpoint without
+carrying intermediate heuristic work forward.
+
+### Production vs Debug Surface Rule
+
+- candidate preview is debug-only
+- overlap / partition / ownership debug surfaces are debug-only
+- production render may consume only the highest fully accepted phase output
+- incomplete phase output must not silently replace production render
+
+### Merge Gate Rule
+
+No phase output may be treated as accepted until all of these are green:
+
+- phase oracle tests
+- helper `should run` / `should not run` contracts
+- permanent scenario matrix relevant to the change
+- performance guards relevant to the change
+- readable debug output for the current phase
+
+### Helper Activation Rule
+
+Helpers are not generic phase checkpoints.
+
+The system must treat helpers as local processors with explicit entry
+conditions.
+
+Meaning:
+
+- normal solid stroke geometry must not be routed through inside-dashed
+  ownership or clipping helpers
+- normal dashed geometry must not be routed through ownership or clipping
+  helpers unless a phase contract explicitly requires it
+- no helper may process every dash, every segment, or every path by default and
+  then decide later whether to no-op
+
+The allowed default flow is:
+
+- all geometry may participate in core modeling stages such as interval
+  allocation and candidate generation
+- only eligible conflict components may enter ownership stages
+- only eligible overflow fragments may enter final clipping stages
+
+---
+
 ## 7. What Must Be De-Emphasized Or Disabled
 
 The rebuild should stop treating these as the main production path:
@@ -506,9 +613,80 @@ The rebuild should stop treating these as the main production path:
 
 These may remain as diagnostics, but not as the main algorithm skeleton.
 
+Also forbidden as the main clipping algorithm skeleton:
+
+- touched-segment heuristics by themselves
+- bounds-overlap heuristics by themselves
+- seam-radius or corner-radius windows as final legality definitions
+- helper no-op decisions based only on unchanged polygon signatures
+- blanket `phase6` processing over all closed paths, all inside strokes, or all
+  passthrough geometry
+
+These may be used only for debugging or for narrowing search cost after the
+true legal-domain contract has already been defined.
+
 ---
 
-## 8. First Visual Milestone
+## 8. Formal Geometry Definitions For Final Clipping
+
+Phase 6 is not considered implementation-ready until these definitions are
+treated as source-of-truth.
+
+### `dash_piece`
+
+One authored dash interval may cross multiple source segments.
+
+For clipping purposes, that dash must be decomposed into segment-owned pieces:
+
+- one piece per touched segment
+- each piece follows the true segment slice for that owned range
+- each piece has its own start/end cross-sections derived from the same true
+  slice
+
+This decomposition is required because clipping legality is segment-owned, not
+whole-dash-owned.
+
+### `legal_segment_piece_domain(piece)`
+
+The legal geometry region for one segment-owned dash piece is:
+
+- the inside-stroke band traced by that exact piece on its exact source segment
+- bounded by the piece start cross-section and piece end cross-section
+- with any selected cap shape attached only where the authored dash interval
+  truly terminates
+
+This domain must be derived from the true path slice, not tangent projection
+and not local visual position assumptions.
+
+### `legal_owner_domain(dash)`
+
+The legal owner domain for one resolved dash owner is the union of all
+`legal_segment_piece_domain(piece)` values that belong to that authored dash.
+
+### `actual_overflow_fragment(region, owner)`
+
+For a resolved region or final polygon owned by a dash:
+
+- `actual_overflow_fragment = region - legal_owner_domain(owner)`
+
+Only a non-empty `actual_overflow_fragment` is eligible for final clipping.
+
+### Explicit Non-Rules
+
+The following are not valid definitions of legality by themselves:
+
+- `touchedSegmentIndices`
+- local seam/corner influence windows
+- polygon bounds overlap
+- first/last dash identity
+- screenshot position
+- unchanged polygon signature
+
+They may help find candidate work, but they do not define legality.
+
+---
+
+## 9. First Visual Milestone
 
 The first milestone is intentionally narrow:
 

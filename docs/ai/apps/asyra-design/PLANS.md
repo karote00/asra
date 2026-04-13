@@ -65,17 +65,17 @@ Never record completed plans here.
 
 11. Inside dashed stroke global-first rebuild
 
-- active rebuild baseline for the current runtime path; Phase 1 and Phase 2 are product-integrated, while Phase 3 remains in progress because ownership/cutting still has unfinished work
+- active rebuild baseline for the current runtime path; the design/contracts are now locked for execution, Phase 1 and Phase 2 remain product-integrated, and implementation resumes from Phase 3 under the approved global-first pipeline
 - plan: `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-rebuild-plan.md`
 
 12. Inside dashed stroke global-first implementation backlog
 
-- active execution backlog for the rebuild; current baseline includes overlap seam recovery, but final clipping/cutting follow-up is still pending
+- active execution backlog for the rebuild; ownership policy, complexity bounds, clipping routing, cache/reuse, bailout, and merge-gate rules are now fixed as execution constraints for the remaining Phase 3+ work
 - plan: `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-implementation-backlog.md`
 
 13. Inside dashed stroke global-first TDD plan
 
-- active phase-by-phase test contract for the rebuild; current runtime is past Phase 2 and still needs Phase 3+ clipping/cutting completion
+- active phase-by-phase test contract for the rebuild; scenario permanence, helper `should run` / `should not run`, performance guards, and rollback rules are now locked before Phase 3+ implementation proceeds
 - plan: `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-tdd-plan.md`
 
 ## Near-Term

@@ -8,6 +8,7 @@ Fix incorrect behavior with minimal safe change and prevent regression.
 
 - If bug is a docs/code contract mismatch, combine with `/docs-reality-check`.
 - If bug exposes runtime ownership problem, combine with `/runtime-refactor` as needed.
+- If bug is geometry/clipping related, combine with `/geometry-clipping-bugfix`.
 
 ## Required Inputs
 

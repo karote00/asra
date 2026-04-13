@@ -4,3 +4,4 @@
 - `feature-authoring.md`
 - `ui-data-flow.md`
 - `testing-contracts.md`
+- `geometry-clipping-regression-contract.md`

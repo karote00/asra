@@ -1519,3 +1519,82 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-rebuild-plan.md`
   - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-implementation-backlog.md`
   - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-tdd-plan.md`
+
+## 2026-04-14 - Inside dashed stroke execution model locked to contract-first global-first pipeline
+
+- Context:
+  - The inside-dashed clipping effort repeatedly regressed because runtime work
+    was attempted before helper boundaries, scenario permanence, and
+    performance/rollback gates were fully specified.
+  - Design review is now considered complete enough to stop further
+    architecture iteration and resume implementation from the approved
+    global-first pipeline.
+- Decision:
+  - Treat the global-first rebuild, implementation backlog, and TDD plan as the
+    locked execution contracts for the remaining inside-dashed work.
+  - Keep the pipeline order fixed as:
+    - interval
+    - candidate
+    - overlap graph
+    - component
+    - partition
+    - ownership
+    - clipping
+    - render
+  - Require helper activation to remain explicit:
+    - core modeling helpers may define normal phase output
+    - ownership helpers may run only on eligible conflict components
+    - clipping helpers may run only on eligible overflow fragments
+  - Keep candidate preview and other phase debug surfaces debug-only until the
+    corresponding phase is fully accepted.
+- Consequences:
+  - Future implementation work is now judged against a locked contract set
+    rather than against evolving heuristic repairs.
+  - Further design iteration is no longer the primary work item; execution
+    discipline is.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-rebuild-plan.md`
+  - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-implementation-backlog.md`
+  - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-tdd-plan.md`
+
+## 2026-04-14 - Inside dashed final clipping contract locked to overflow-only processing
+
+- Context:
+  - Prior clipping attempts widened scope by routing legal geometry through
+    ownership/clipping helpers, causing correctness and performance regressions.
+  - Review convergence established that seam, acute, high-curvature, and
+    segment-transition cases must not become separate runtime legality
+    algorithms.
+- Decision:
+  - Lock the final clipping definition to:
+    - `legal_segment_piece_domain(piece)`
+    - `legal_owner_domain(dash)`
+    - `actual_overflow_fragment = actual geometry - legal_owner_domain`
+  - Forbid proxy conditions from acting as primary legality definitions,
+    including:
+    - touched-segment heuristics by themselves
+    - bounds-overlap heuristics by themselves
+    - seam/corner radius windows by themselves
+    - dash-position identity shortcuts
+    - unchanged-signature shortcuts
+  - Lock ownership determinism and safety controls to the documented policy:
+    - same-dash continuity
+    - exclusive preservation
+    - centerline support distance
+    - authored interval order
+    - stable dash id
+  - Lock clipping runtime safety to the documented controls:
+    - structured benchmark storage inside the repo
+    - piece/owner cache and dirty-owner reuse model
+    - component-local bailout to candidate-preview passthrough
+    - merge/CI enforcement for helper contracts, scenario permanence, and
+      performance guards
+- Consequences:
+  - Final clipping is now contractually defined as overflow-only processing
+    rather than as broad phase-wide legality cleanup.
+  - Performance, rollback, and enforcement requirements are now part of the
+    accepted inside-dashed design contract.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-rebuild-plan.md`
+  - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-implementation-backlog.md`
+  - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-tdd-plan.md`

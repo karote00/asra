@@ -11,6 +11,7 @@ This folder defines command entrypoints. These files should stay lightweight and
 - `/framework-api-change <scope>`
 - `/app-feature <feature-name>`
 - `/runtime-refactor <area>`
+- `/geometry-clipping-bugfix <scope>`
 - `/deprecate-package <package>`
 - `/golden-path-enforcement <scope>`
 - `/docs-reality-check <scope>`

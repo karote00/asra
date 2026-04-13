@@ -27,6 +27,24 @@ This plan requires each phase to have:
 
 No later phase may be used to pretend an earlier phase is complete.
 
+## Phase Mapping
+
+This TDD plan groups rebuild-plan steps into broader test phases.
+
+- TDD Phase 1
+  - rebuild plan Phase 1
+- TDD Phase 2
+  - rebuild plan Phase 2
+- TDD Phase 3
+  - rebuild plan Phase 3
+- TDD Phase 4
+  - rebuild plan Phases 4 and 5
+- TDD Phase 5
+  - rebuild plan Phases 6 and 7
+
+When discussing phase numbers in review, always state whether the number comes
+from the rebuild plan or the TDD plan.
+
 ---
 
 ## Core TDD Rules
@@ -44,6 +62,35 @@ No later phase may be used to pretend an earlier phase is complete.
 6. If product is intentionally rendering an intermediate phase output:
    - blocking tests must target that phase output
    - later-phase correctness tests must be downgraded to legacy/diagnostic
+
+7. Every clipping helper must have:
+   - one `should run` contract
+   - one `should not run` contract
+   before it is allowed onto the main runtime path
+
+8. Scenario tests used to approve a geometry fix are permanent repo tests.
+   They must not remain temporary diagnostics.
+
+9. If a geometry rule changes runtime cost, a performance guard is mandatory
+   before the rule is allowed into the main runtime path.
+
+10. If any current-phase contract test turns red, work must not continue into a
+    later phase until the change is reverted or isolated away from the main
+    runtime path.
+
+11. If a red state cannot be reverted immediately, the issue must record:
+    - which contract turned red
+    - why it turned red
+    - the required fix before phase advancement
+    and must be escalated for lead review.
+
+12. Helper routing must stay explicit:
+    - core modeling helpers may run on all geometry only when they define the
+      normal phase output
+    - ownership helpers may run only on eligible conflict components
+    - clipping helpers may run only on eligible overflow fragments
+    - normal solid stroke and normal dashed stroke geometry must not be routed
+      through ownership/clipping helpers by default
 
 ---
 
@@ -237,6 +284,14 @@ own explicit phase-level oracle
 - bbox candidates include all true overlaps
 - confirmed overlap stage removes false positives
 
+4. Graph symmetry tests
+- if `A-B` is a confirmed overlap, the graph encodes the relation symmetrically
+- graph traversal order does not change edge presence
+
+5. Product/debug surface tests
+- overlap graph debug output is readable
+- conflict component output is product-checkable for the current phase
+
 ### Oracles
 
 - graph structure
@@ -250,12 +305,19 @@ Phase 3 is done only if:
 - all true overlaps are discovered
 - component grouping is deterministic
 - no pairwise local trimming is needed to explain the overlap topology
+- debug output for overlap graph / components is readable
+- current phase output is visibly inspectable without borrowing later-stage
+  correctness
+- spatial-index / confirmed-edge performance guard remains green
 
 ### Not Allowed In Phase 3
 
 - partition ownership
 - clipping decisions
 - render-time repair patches
+- heuristic edge creation from local seam/corner windows
+- primary graph construction driven by proxy windows instead of confirmed
+  polygon overlap
 
 ---
 
@@ -289,6 +351,22 @@ Phase 3 is done only if:
 5. Order independence tests
 - changing candidate traversal order must not change final ownership result
 
+6. Ownership policy tests
+- same-dash continuity rule has explicit priority over foreign-dash conflict
+- exclusive-region preservation is explicit
+- shared-region retention policy is explicit
+- multi-dash tie-break policy is deterministic and documented
+
+7. Product/debug surface tests
+- ownership labeling debug output is readable
+- atomic region overlay is inspectable as the active phase output
+
+8. Performance / bailout tests
+- atomic-region growth stays within the accepted complexity envelope
+- split depth stays within the accepted complexity envelope
+- component bailout, when triggered, falls back to preview geometry and records
+  the bailout event
+
 ### Oracles
 
 - region decomposition
@@ -302,11 +380,19 @@ Phase 4 is done only if:
 - overlap is solved per component
 - result is deterministic
 - same-dash continuity survives the resolution step
+- tie-break policy is explicit and tested
+- debug output for atomic regions / ownership labels is readable
+- current phase output is visibly inspectable without borrowing Phase 5
+  clipping
+- atomic-region / split-depth performance guard remains green
+- bailout fallback behavior is explicit and tested
 
 ### Not Allowed In Phase 4
 
 - final inside clipping as a substitute for ownership
 - pair-by-pair mutation of already-resolved candidates
+- implicit ownership winners caused by traversal order or proxy windows
+- unbounded region splitting without a recorded complexity envelope
 
 ---
 
@@ -320,23 +406,51 @@ Phase 4 is done only if:
 
 ### Tests To Write First
 
-1. Final inside legality tests
-- final polygons stay inside the valid shape
-- seam/corner legality is satisfied
+1. Formal legality-definition tests
+- `legal_segment_piece_domain(piece)` is derived from the exact piece slice, not
+  tangent projection
+- `legal_owner_domain(dash)` is the union of segment-owned piece domains
+- `actual_overflow_fragment = actual geometry - legal_owner_domain`
+- seam, acute, high-curvature, and segment-transition cases are expressed as
+  scenarios of the same legality definition
 
-2. Non-regression tests
+2. Helper entry-condition tests
+- `should run`: the helper runs only when actual geometry exists outside the
+  legal owner domain
+- `should not run`: the helper no-ops when geometry is fully inside the legal
+  owner domain
+- `owned` and `passthrough` routing are both explicitly covered
+
+3. Scenario family tests
+- closed seam return-to-origin scenario clips only true overflow
+- left acute scenario clips only true overflow
+- right acute scenario clips only true overflow
+- segment-transition scenario preserves legal geometry
+- smooth high-curvature scenario preserves legal geometry
+
+4. Non-regression tests
 - dash length remains correct after final clipping
 - selected cap mode remains visible after final clipping
 - cross-segment continuity is preserved after final clipping
 
-3. Render agreement tests
+5. Render agreement tests
 - final polygons and mesh agree
 - mesh and screenshot agree
 
-4. Visible terminal tests
+6. Visible terminal tests
 - visible round caps exist when `round cap` is selected
 - visible square caps exist when `square cap` is selected
 - no caps exist when `no cap` is selected
+
+7. Performance tests
+- final clipping does not introduce blanket phase-wide processing
+- reported sample runtime stays within the agreed budget
+- polygon-count growth stays bounded after final clipping
+
+8. Cache / reuse tests
+- unchanged owners reuse cached legal domains
+- only dirty owners / dirty pieces trigger recomputation
+- cache invalidation follows the written dirty-condition contract
 
 ### Oracles
 
@@ -351,6 +465,23 @@ Phase 5 is done only if:
 - final visible render is correct
 - cap presence is visible in the actual render
 - authored dash/gap lengths survive to the final render
+- all clipping helpers have passing `should run` / `should not run` contracts
+- all permanent scenario families relevant to the change remain green
+- performance guards remain green
+- legal-domain cache / reuse behavior is tested and green
+
+### Explicit Phase 5 Non-Rules
+
+The following are invalid as primary clipping proofs:
+
+- `touchedSegmentIndices` by itself
+- seam/corner radius windows by themselves
+- local bounds overlap by itself
+- dash index identity (`first`, `last`, etc.)
+- unchanged polygon signature
+- temporary diagnostic tests that are not promoted into repo tests
+- routing all stroke geometry through clipping helpers just because the phase is
+  active
 
 ---
 
@@ -372,6 +503,7 @@ Use for:
 
 - final polygon handoff to render
 - mesh input correctness
+- helper routing verification for owned vs passthrough geometry
 
 ### E2E / Screenshot
 
@@ -380,8 +512,13 @@ Use only for:
 - final visible correctness
 - actual cap visibility
 - final dash/gap correctness in the real app
+- permanent hotspot scenario approval after runtime wiring
 
 E2E must not be treated as a substitute for earlier phase geometry tests.
+
+E2E must also not be the first place where a scenario family becomes permanent.
+The permanent scenario must exist at lower layers before E2E is used as the
+final approval surface.
 
 ---
 
@@ -412,6 +549,10 @@ Each phase must expose a readable debug output.
 
 - final mesh mask
 - final screenshot probes
+- final owner-domain debug output
+- actual-overflow-fragment debug output
+- bailout event output when a component exceeds the accepted envelope
+- cache / dirty-owner debug output for final clipping
 
 If a phase has passing tests but no readable debug output, the phase is not
 considered safely complete.
@@ -431,6 +572,13 @@ Examples:
 - do not solve overlap if candidate geometry is still tangent-driven
 - do not hard-gate screenshots if final mesh input is not yet trustworthy
 - do not use clipping to hide wrong candidate dash length
+- do not wire a clipping helper if its `should not run` contract does not yet
+  exist
+- do not promote a diagnostic hotspot into approval evidence unless it has been
+  converted into a permanent scenario test
+- do not continue implementing Phase 4 or Phase 5 on top of a red Phase 3
+  contract
+- do not continue implementing Phase 5 on top of a red Phase 4 contract
 
 ---
 
@@ -446,6 +594,17 @@ When implementation starts, the first TDD sequence should be:
 
 Only after those five steps are stable should overlap work begin.
 
+When Phase 3-5 work begins, the execution order must be:
+
+1. write Phase 3 graph + symmetry + performance tests
+2. implement overlap graph and component extraction
+3. write Phase 4 ownership policy + complexity tests
+4. implement overlay partition and ownership resolution
+5. write Phase 5 legality-definition + helper-boundary + scenario + performance
+   tests
+6. implement final clipping and render handoff
+7. run permanent scenario matrix, visual validation, and performance guards
+
 ---
 
 ## Success Definition
@@ -459,3 +618,10 @@ This TDD plan is successful only if it makes this impossible:
 
 The new TDD workflow must force correctness to become progressively visible,
 not merely progressively explainable.
+
+For final clipping specifically, success must also make this impossible:
+
+- helper entry conditions stay implicit
+- scenario tests exist only in temp form
+- a rule fixes one hotspot by processing nearby legal geometry
+- correctness improves while runtime cost silently explodes
