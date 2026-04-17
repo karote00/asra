@@ -1,5 +1,6 @@
 import { Input, PropertyControl } from '@asyra/design-system'
 import {
+  StrokeCapTypes,
   StrokeJoinTypes,
   StrokePositions,
   StrokeStyles,
@@ -83,6 +84,12 @@ const JOIN_OPTIONS = [
   { value: StrokeJoinTypes.ROUND, label: 'Round' }
 ] as const
 
+const CAP_OPTIONS = [
+  { value: StrokeCapTypes.BUTT, label: 'Butt' },
+  { value: StrokeCapTypes.SQUARE, label: 'Square' },
+  { value: StrokeCapTypes.ROUND, label: 'Round' }
+] as const
+
 const strokeSelectWrapperClassName =
   'h-6 flex items-center rounded-[3px] bg-panel-surface-hover border border-transparent hover:border-[#5c5c5c] focus-within:border-border-focus transition-all overflow-hidden text-white'
 
@@ -117,6 +124,7 @@ const StrokeItem = ({
     handleDashChange,
     handleGapChange,
     handleJoinTypeChange,
+    handleCapTypeChange,
     handleMiterAngleChange
   } = useStrokeInteractions({
     stroke: stroke as StrokeAttrs | null,
@@ -172,7 +180,7 @@ const StrokeItem = ({
         </button>
       </div>
 
-      <div className="grid grid-cols-[72px_minmax(0,1fr)_60px] items-center gap-2 pl-4 pr-2 h-8 min-h-8">
+      <div className="grid grid-cols-[72px_minmax(0,1fr)_minmax(0,1fr)_60px] items-center gap-2 pl-4 pr-2 h-8 min-h-8">
         <div className={`${strokeSelectWrapperClassName} w-[72px]`}>
           <select
             value={stroke.position}
@@ -210,6 +218,30 @@ const StrokeItem = ({
             data-testid={`prop-stroke-join-${index}`}
           >
             {JOIN_OPTIONS.map((option) => (
+              <option
+                key={option.value}
+                value={option.value}
+                className="bg-[#1f2022] text-white"
+              >
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className={strokeSelectWrapperClassName}>
+          <select
+            value={stroke.capType}
+            onChange={(event) =>
+              handleCapTypeChange(
+                event.target.value as StrokeAttrs['capType']
+              )
+            }
+            className={strokeSelectClassName}
+            style={strokeSelectStyle}
+            data-testid={`prop-stroke-cap-${index}`}
+          >
+            {CAP_OPTIONS.map((option) => (
               <option
                 key={option.value}
                 value={option.value}

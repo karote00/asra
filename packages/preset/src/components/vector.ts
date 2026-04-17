@@ -13,14 +13,14 @@ import {
   applyRenderableFill,
   getRenderableFills
 } from './fills'
-import { buildVectorGeometryModelPath } from './geometry-model'
+import { buildVectorGeometryModelPath } from './stroke-render/path-geometry'
+import { renderSolidCenterStrokeEntries } from './stroke-render/solid-center-stroke-render'
 import {
-  buildResolvedStrokeGeometryFromSources,
-  buildStrokeHitSegmentsFromResolvedGeometry,
-  type ResolvedStrokeGeometryEntry,
-  type StrokeHitSegment,
-  renderResolvedStrokeGeometry
-} from './strokes'
+  applySolidCenterStrokeExportPackets,
+  buildSolidCenterStrokeResolvedPackets,
+  createSolidCenterStrokeHitArea
+} from './stroke-render/solid-center-stroke-packets'
+import { toSolidCenterStrokeRenderEntries } from './stroke-render/solid-center-stroke-packets'
 
 interface VectorComputedData {
   id: string
@@ -92,23 +92,12 @@ interface EvenOddFillCache {
 interface VectorHitCache {
   segmentKeyMap?: Record<string, string>
   segmentLinesMap?: Record<string, LineSegment[]>
-  strokeHitSegments?: StrokeHitSegment[]
-  strokeHitSignature?: string
   preparedFillSegments?: PreparedEvenOddHitSegment[]
   hitArea?: { contains: (x: number, y: number) => boolean }
   points?: Record<string, VectorPointNode>
   segments?: Record<string, VectorSegment>
   networks?: Record<string, VectorNetwork>
   hasVisibleFill?: boolean
-}
-
-interface VectorStrokeGeometryCache {
-  entries: ResolvedStrokeGeometryEntry[]
-  hitSegments: StrokeHitSegment[]
-  strokePayload?: StrokeAttrs[]
-  points?: Record<string, VectorPointNode>
-  segments?: Record<string, VectorSegment>
-  networks?: Record<string, VectorNetwork>
 }
 
 const isAnchorNode = (
@@ -787,37 +776,6 @@ const isPointInsidePreparedEvenOddShape = (
   return false
 }
 
-const isPointNearStrokeHitSegments = (
-  point: Vec2,
-  segments: StrokeHitSegment[]
-) =>
-  segments.some((segment) => {
-    if (segment.kind === 'polygon') {
-      const polygon = segment.points ?? []
-      if (polygon.length < 3) {
-        return false
-      }
-
-      let inside = false
-      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-        const pi = polygon[i]
-        const pj = polygon[j]
-        const intersects =
-          pi.y > point.y !== pj.y > point.y &&
-          point.x <
-            ((pj.x - pi.x) * (point.y - pi.y)) /
-              (pj.y - pi.y + Number.EPSILON) +
-              pi.x
-
-        if (intersects) {
-          inside = !inside
-        }
-      }
-
-      return inside
-    }
-  })
-
 const buildFillFaces = (
   flattenedSegments: LineSegment[],
   directedSegments: DirectedSegment[]
@@ -1104,9 +1062,6 @@ const drawFillFaces = (
 const getFillPayload = (fills: FillAttrs[]): FillAttrs[] =>
   Array.isArray(fills) && fills.length > 0 ? fills : []
 
-const getStrokePayload = (strokes: StrokeAttrs[] | undefined): StrokeAttrs[] =>
-  Array.isArray(strokes) && strokes.length > 0 ? strokes : []
-
 const isVectorEditingDrag = (vectorId: string): boolean => {
   const pathEditingVectorId =
     core.getSystemProperty<string | null>('pathEditingVectorId') ?? null
@@ -1150,7 +1105,6 @@ const renderVectorGraphic = (
     __asyraVectorFillCache?: FillFaceCache
     __asyraEvenOddFillCache?: EvenOddFillCache
     __asyraVectorHitCache?: VectorHitCache
-    __asyraVectorStrokeGeometryCache?: VectorStrokeGeometryCache
   }
 
   graphic.clear()
@@ -1175,6 +1129,8 @@ const renderVectorGraphic = (
 
   const orderedNetworks = sortByStableId(Object.values(networks))
   if (orderedNetworks.length === 0) {
+    applySolidCenterStrokeExportPackets(graphic, [])
+    renderSolidCenterStrokeEntries(graphic, [])
     return
   }
 
@@ -1186,7 +1142,6 @@ const renderVectorGraphic = (
   )
 
   const fillPayload = getFillPayload(fills)
-  const strokePayload = getStrokePayload(data.strokes)
   let previewFill = false
 
   const hasClosedNetwork =
@@ -1204,75 +1159,29 @@ const renderVectorGraphic = (
     }
     return evenOddShapeCache
   }
-  let strokePathSourcesCache:
-    | {
-        geometry: ReturnType<typeof buildVectorGeometryModelPath>
-        sampledPoints: Vec2[]
-        closed: boolean
-      }[]
-    | null = null
-  const getStrokePathSources = () => {
-    if (!strokePathSourcesCache) {
-      strokePathSourcesCache = orderedNetworks
-        .map((network) => {
-          const geometry = buildVectorGeometryModelPath(
-            network,
-            points,
-            segments
-          )
-          return {
-            geometry,
-            sampledPoints: geometry.sampledPoints,
-            closed: geometry.closed
-          }
-        })
-        .filter((path) => path.sampledPoints.length > 1)
-    }
-    return strokePathSourcesCache
-  }
-  const getResolvedStrokeGeometry = () => {
-    const strokeGeometryCache =
-      graphicCache.__asyraVectorStrokeGeometryCache ?? null
-    const reuseResolvedStrokeGeometry =
-      strokeGeometryCache &&
-      strokeGeometryCache.strokePayload === strokePayload &&
-      strokeGeometryCache.points === points &&
-      strokeGeometryCache.segments === segments &&
-      strokeGeometryCache.networks === networks
 
-    if (reuseResolvedStrokeGeometry) {
-      return strokeGeometryCache
-    }
-
-    const entries = buildResolvedStrokeGeometryFromSources(
-      getStrokePathSources(),
-      strokePayload
+  const solidCenterPackets = orderedNetworks.flatMap((network) => {
+    const path = buildVectorGeometryModelPath(network, points, segments)
+    return buildSolidCenterStrokeResolvedPackets(
+      `vector:${data.id}:${network.id}`,
+      path.sampledPoints,
+      path.closed,
+      data.strokes
     )
-    const nextCache: VectorStrokeGeometryCache = {
-      entries,
-      hitSegments: buildStrokeHitSegmentsFromResolvedGeometry(entries),
-      strokePayload,
-      points,
-      segments,
-      networks
-    }
-    graphicCache.__asyraVectorStrokeGeometryCache = nextCache
-    return nextCache
-  }
+  })
 
   const applyVectorHoverHitArea = () => {
     const hitCache: VectorHitCache = graphicCache.__asyraVectorHitCache ?? {}
     const hasVisibleFill =
       hasClosedNetwork && getRenderableFills(fillPayload).length > 0
-    const strokeHitSignature = JSON.stringify(strokePayload)
+    const strokeHitArea = createSolidCenterStrokeHitArea(solidCenterPackets)
 
     const reuseHitArea =
       hitCache.hitArea &&
       hitCache.points === points &&
       hitCache.segments === segments &&
       hitCache.networks === networks &&
-      hitCache.hasVisibleFill === hasVisibleFill &&
-      hitCache.strokeHitSignature === strokeHitSignature
+      hitCache.hasVisibleFill === hasVisibleFill
 
     if (reuseHitArea) {
       ;(graphic as { hitArea: typeof hitCache.hitArea | null }).hitArea =
@@ -1284,43 +1193,28 @@ const renderVectorGraphic = (
     hitCache.segments = segments
     hitCache.networks = networks
     hitCache.hasVisibleFill = hasVisibleFill
-    hitCache.strokeHitSignature = strokeHitSignature
     hitCache.preparedFillSegments = hasVisibleFill
       ? prepareEvenOddHitSegments(getEvenOddShape())
       : []
 
-    const strokeHitSegments = getResolvedStrokeGeometry().hitSegments
-    hitCache.strokeHitSegments = strokeHitSegments
+    if (hasVisibleFill) {
+      const fillContains = (x: number, y: number) =>
+        isPointInsidePreparedEvenOddShape(
+          { x, y },
+          hitCache.preparedFillSegments ?? []
+        )
 
-    if (hasVisibleFill || strokeHitSegments.length > 0) {
       const hitArea = {
-        contains: (x: number, y: number) => {
-          const point = { x, y }
-          if (
-            hasVisibleFill &&
-            isPointInsidePreparedEvenOddShape(
-              point,
-              hitCache.preparedFillSegments ?? []
-            )
-          ) {
-            return true
-          }
-
-          if (
-            strokeHitSegments.length > 0 &&
-            isPointNearStrokeHitSegments(point, strokeHitSegments)
-          ) {
-            return true
-          }
-
-          return false
-        }
+        contains: (x: number, y: number) =>
+          fillContains(x, y) || strokeHitArea?.contains(x, y) === true
       }
 
       hitCache.hitArea = hitArea
       ;(graphic as { hitArea: typeof hitArea | null }).hitArea = hitArea
     } else {
-      hitCache.hitArea = undefined
+      hitCache.hitArea = strokeHitArea ?? undefined
+      ;(graphic as { hitArea: typeof hitCache.hitArea | null }).hitArea =
+        strokeHitArea ?? null
     }
 
     graphicCache.__asyraVectorHitCache = hitCache
@@ -1508,6 +1402,11 @@ const renderVectorGraphic = (
   }
 
   applyVectorHoverHitArea()
+  applySolidCenterStrokeExportPackets(graphic, solidCenterPackets)
+  renderSolidCenterStrokeEntries(
+    graphic,
+    toSolidCenterStrokeRenderEntries(solidCenterPackets)
+  )
 
   drawVectorPath(graphic, orderedNetworks, points, segments)
   if (previewFill) {
@@ -1516,10 +1415,8 @@ const renderVectorGraphic = (
         drawVectorPath(graphic, orderedNetworks, points, segments)
     })
   }
-
-  if (strokePayload.length > 0) {
-    renderResolvedStrokeGeometry(graphic, getResolvedStrokeGeometry().entries)
-  }
+  // Owner: stroke-render canonical rollout.
+  // Remove when canonical vector stroke render and hit paths are introduced.
 }
 
 const vectorRenderStrategy: RenderStrategy = (graphic, data) => {

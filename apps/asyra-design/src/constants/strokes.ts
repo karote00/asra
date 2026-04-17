@@ -14,5 +14,6 @@ export const STROKE_PATCH_KEYS = [
   'opacity',
   'visible',
   'joinType',
+  'capType',
   'miterAngle'
 ] as const satisfies readonly StrokeWritableKey[]

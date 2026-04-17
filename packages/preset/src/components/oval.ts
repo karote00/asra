@@ -1,27 +1,16 @@
 import { defineComponent } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
-import { applyRenderableFill, DEFAULT_OVAL_FILLS } from './fills'
+import { applyRenderableFill, DEFAULT_OVAL_FILLS, getRenderableFills } from './fills'
+import { createEllipseHitArea, mergeHitAreas } from './shape-hit-area'
+import { DEFAULT_OVAL_STROKES } from './stroke-render/constants'
+import { renderSolidCenterStrokeEntries } from './stroke-render/solid-center-stroke-render'
+import { buildEllipseLoop } from './stroke-render/ellipse-path'
 import {
-  DEFAULT_OVAL_STROKES,
-  buildPolylineStrokePathSources,
-  renderStrokeSources
-} from './strokes'
-
-const OVAL_STROKE_SEGMENTS = 48
-
-const buildOvalStrokeSources = (width: number, height: number) =>
-  buildPolylineStrokePathSources([
-    {
-      points: Array.from({ length: OVAL_STROKE_SEGMENTS }, (_, index) => {
-        const angle = (index / OVAL_STROKE_SEGMENTS) * Math.PI * 2
-        return {
-          x: width / 2 + Math.cos(angle) * (width / 2),
-          y: height / 2 + Math.sin(angle) * (height / 2)
-        }
-      }),
-      closed: true
-    }
-  ])
+  applySolidCenterStrokeExportPackets,
+  buildSolidCenterStrokeResolvedPackets,
+  createSolidCenterStrokeHitArea,
+  toSolidCenterStrokeRenderEntries
+} from './stroke-render/solid-center-stroke-packets'
 
 defineComponent({
   type: 'oval',
@@ -51,6 +40,26 @@ defineComponent({
   ],
   renderStrategy: (graphic, data) => {
     graphic.clear()
+    const solidCenterPackets = buildSolidCenterStrokeResolvedPackets(
+      `oval:${data.id ?? 'anonymous'}`,
+      buildEllipseLoop(data.width, data.height),
+      true,
+      data.strokes
+    )
+    applySolidCenterStrokeExportPackets(graphic, solidCenterPackets)
+    const fillHitArea =
+      getRenderableFills(data.fills).length > 0
+        ? createEllipseHitArea(data.width, data.height)
+        : null
+    ;(graphic as { hitArea: ReturnType<typeof createSolidCenterStrokeHitArea> | null })
+      .hitArea = mergeHitAreas(
+      fillHitArea,
+      createSolidCenterStrokeHitArea(solidCenterPackets)
+    )
+    renderSolidCenterStrokeEntries(
+      graphic,
+      toSolidCenterStrokeRenderEntries(solidCenterPackets)
+    )
 
     const replayPath = () => {
       // Draw ellipse
@@ -63,11 +72,6 @@ defineComponent({
     }
     replayPath()
     applyRenderableFill(graphic, data.fills, { replayPath })
-    renderStrokeSources(
-      graphic,
-      buildOvalStrokeSources(data.width, data.height),
-      data.strokes
-    )
 
     graphic.x = data.x
     graphic.y = data.y

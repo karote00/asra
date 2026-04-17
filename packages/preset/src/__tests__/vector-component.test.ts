@@ -21,11 +21,6 @@ import {
 import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
 import {
-  buildVectorGeometryModelPath,
-  selectDashedGeometryModelForRender
-} from '../components/geometry-model'
-import {
-  REPORTED_ROUND_INSIDE_DASHED_STAR_NETWORK_ID,
   createReportedRoundInsideDashedStarVectorData
 } from './inside-dashed-fixtures'
 
@@ -203,25 +198,8 @@ const createSolidFill = (color: string, opacity = 1) => ({
   gradient: null
 })
 
-const getPolygonBounds = (polygons: { x: number; y: number }[][]) => {
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-
-  polygons.forEach((polygon) =>
-    polygon.forEach((point) => {
-      minX = Math.min(minX, point.x)
-      minY = Math.min(minY, point.y)
-      maxX = Math.max(maxX, point.x)
-      maxY = Math.max(maxY, point.y)
-    })
-  )
-
-  return { minX, minY, maxX, maxY }
-}
-
 class RecordingGraphic extends Container {
+  __asyraSolidCenterStrokeExportPackets?: unknown[]
   instructions: { action: string; args: unknown[] }[] = []
   hitArea?: { contains: (x: number, y: number) => boolean }
 
@@ -289,38 +267,8 @@ const getProjectionMeshes = (host: Container) =>
     )
   })
 
-const getSingleProjectionMesh = (host: Container) => {
-  const meshes = getProjectionMeshes(host)
-  expect(meshes).toHaveLength(1)
-  return meshes[0]
-}
-
-const getMeshBounds = (mesh: Mesh) => {
-  const positions = Array.from(mesh.geometry.getBuffer('aPosition').data)
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-
-  for (let index = 0; index < positions.length; index += 2) {
-    minX = Math.min(minX, positions[index])
-    minY = Math.min(minY, positions[index + 1])
-    maxX = Math.max(maxX, positions[index])
-    maxY = Math.max(maxY, positions[index + 1])
-  }
-
-  return { minX, minY, maxX, maxY }
-}
-
-const expectBoundsClose = (
-  received: { minX: number; minY: number; maxX: number; maxY: number },
-  expected: { minX: number; minY: number; maxX: number; maxY: number },
-  precision = 4
-) => {
-  expect(received.minX).toBeCloseTo(expected.minX, precision)
-  expect(received.minY).toBeCloseTo(expected.minY, precision)
-  expect(received.maxX).toBeCloseTo(expected.maxX, precision)
-  expect(received.maxY).toBeCloseTo(expected.maxY, precision)
+const expectNoProjectionMeshes = (host: Container) => {
+  expect(getProjectionMeshes(host)).toHaveLength(0)
 }
 
 const countInstructions = (graphic: RecordingGraphic, action: string) =>
@@ -597,7 +545,7 @@ describe('Vector Component', () => {
       args: [100, 100]
     })
     expect(countInstructions(mockGraphic, 'bezierCurveTo')).toHaveLength(0)
-    expect(getProjectionMeshes(mockGraphic).length).toBeGreaterThan(0)
+    expectNoProjectionMeshes(mockGraphic)
   })
 
   it('should publish geometry bounds without stroke expansion', () => {
@@ -980,7 +928,7 @@ describe('Vector Component', () => {
     expect(mockGraphic.lineTo).not.toHaveBeenCalled()
   })
 
-  it('should hover-hit outside rendered stroke pixels for gradient-filled vectors', () => {
+  it('should not expand gradient vector hover hit outside fill bounds during legacy stroke runtime removal', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1063,7 +1011,8 @@ describe('Vector Component', () => {
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
-    expect(mockGraphic.hitArea?.contains(-10, -10)).toBe(true)
+    expect(mockGraphic.hitArea?.contains(30, 30)).toBe(true)
+    expect(mockGraphic.hitArea?.contains(-10, -10)).toBe(false)
     expect(mockGraphic.hitArea?.contains(-25, -25)).toBe(false)
 
     createEvenOddFillStyleMock.mockRestore()
@@ -1142,7 +1091,7 @@ describe('Vector Component', () => {
     createEvenOddFillStyleMock.mockRestore()
   })
 
-  it('should hover-hit internal self-intersecting star segments on non-gradient vectors', () => {
+  it('should not expose stroke-only hover hit on non-gradient vectors during legacy stroke runtime removal', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1202,11 +1151,10 @@ describe('Vector Component', () => {
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
-    expect(mockGraphic.hitArea?.contains(50, 35)).toBe(true)
-    expect(mockGraphic.hitArea?.contains(50, 52)).toBe(false)
+    expect(mockGraphic.hitArea ?? null).toBeNull()
   })
 
-  it('should keep inside dashed self-intersecting star mesh geometry locally bounded', () => {
+  it('should not render legacy dashed stroke mesh for self-intersecting stars during runtime removal', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1249,16 +1197,97 @@ describe('Vector Component', () => {
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
-    const mesh = getSingleProjectionMesh(mockGraphic)
-    const bounds = getMeshBounds(mesh)
-    expect(mesh.geometry.getBuffer('aPosition').data.length).toBeGreaterThan(0)
-    expect(bounds.minX).toBeGreaterThanOrEqual(-40)
-    expect(bounds.minY).toBeGreaterThanOrEqual(-40)
-    expect(bounds.maxX).toBeLessThanOrEqual(140)
-    expect(bounds.maxY).toBeLessThanOrEqual(140)
+    expectNoProjectionMeshes(mockGraphic)
   })
 
-  it('should render dashed mesh geometry for the reported inside-stroke sample', () => {
+  it('should run: render solid-center mesh for supported vector strokes', () => {
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) return
+    const mockGraphic = createMeshMockGraphic()
+
+    const mockData = {
+      id: 'vector-solid-center-1',
+      x: 0,
+      y: 0,
+      width: 80,
+      height: 40,
+      ...toVectorData(
+        [
+          { id: '1', x: 0, y: 0 },
+          { id: '2', x: 80, y: 0 },
+          { id: '3', x: 80, y: 40 },
+          { id: '4', x: 0, y: 40 }
+        ],
+        true
+      ),
+      closed: true,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          style: 'solid',
+          position: 'center',
+          width: 6,
+          color: '#3366ff',
+          visible: true,
+          joinType: 'miter',
+          miterAngle: 28.96
+        })
+      ]
+    }
+
+    runRenderStrategy(renderStrategy, mockGraphic, mockData)
+
+    expect(getProjectionMeshes(mockGraphic)).toHaveLength(1)
+    expect(mockGraphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+  })
+
+  it('should run: expose stroke hit from the same final geometry family for supported solid-center vectors', () => {
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) return
+    const mockGraphic = createMeshMockGraphic()
+
+    const mockData = {
+      id: 'vector-solid-center-hit-1',
+      x: 0,
+      y: 0,
+      width: 80,
+      height: 40,
+      ...toVectorData(
+        [
+          { id: '1', x: 0, y: 0 },
+          { id: '2', x: 80, y: 0 },
+          { id: '3', x: 80, y: 40 },
+          { id: '4', x: 0, y: 40 }
+        ],
+        true
+      ),
+      closed: true,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          style: 'solid',
+          position: 'center',
+          width: 6,
+          color: '#3366ff',
+          visible: true,
+          joinType: 'miter',
+          miterAngle: 28.96
+        })
+      ]
+    }
+
+    runRenderStrategy(renderStrategy, mockGraphic, mockData)
+
+    expect(mockGraphic.hitArea?.contains(1, 1)).toBe(true)
+    expect(mockGraphic.hitArea?.contains(40, 20)).toBe(false)
+    expect(mockGraphic.hitArea?.contains(-10, -10)).toBe(false)
+  })
+
+  it('should not render legacy dashed stroke mesh for the reported inside-stroke sample during runtime removal', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1268,40 +1297,67 @@ describe('Vector Component', () => {
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
-    const expectedGeometryPath = buildVectorGeometryModelPath(
-      mockData.networks['tn-5'],
-      mockData.points,
-      mockData.segments
-    )
-    const expectedStroke = mockData.strokes[0]
-    const expectedDashedGeometry = selectDashedGeometryModelForRender(
-      expectedGeometryPath,
-      {
-        style: expectedStroke.style,
-        position: expectedStroke.position,
-        width: expectedStroke.width,
-        dash: expectedStroke.dash,
-        gap: expectedStroke.gap,
-        join: expectedStroke.joinType,
-        miterLimit: 4,
-        cap: 'round',
-        color: 0,
-        alpha: expectedStroke.opacity
-      } as never
-    )
-
-    expect(expectedDashedGeometry).not.toBeNull()
-    expect(expectedDashedGeometry?.status).toBe('resolved')
-    expect(expectedDashedGeometry?.model?.polygons.length).toBeGreaterThan(0)
-    const mesh = getSingleProjectionMesh(mockGraphic)
-    expect(mesh.geometry.getBuffer('aPosition').data.length).toBeGreaterThan(0)
-    expectBoundsClose(
-      getMeshBounds(mesh),
-      getPolygonBounds(expectedDashedGeometry?.model?.polygons ?? [])
-    )
+    expectNoProjectionMeshes(mockGraphic)
   })
 
-  it('should keep dashed mesh geometry stable when path editing is cleared after render', () => {
+  it('should not run: clear solid-center vector mesh when rerendered with unsupported constrained strokes', () => {
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) return
+    const mockGraphic = createMeshMockGraphic()
+    const supportedData = {
+      id: 'vector-solid-center-2',
+      x: 0,
+      y: 0,
+      width: 80,
+      height: 40,
+      ...toVectorData(
+        [
+          { id: '1', x: 0, y: 0 },
+          { id: '2', x: 80, y: 0 },
+          { id: '3', x: 80, y: 40 },
+          { id: '4', x: 0, y: 40 }
+        ],
+        true
+      ),
+      closed: true,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          style: 'solid',
+          position: 'center',
+          width: 6,
+          color: '#3366ff',
+          visible: true,
+          joinType: 'miter',
+          miterAngle: 28.96
+        })
+      ]
+    }
+
+    runRenderStrategy(renderStrategy, mockGraphic, supportedData)
+    expect(getProjectionMeshes(mockGraphic)).toHaveLength(1)
+
+    runRenderStrategy(renderStrategy, mockGraphic, {
+      ...supportedData,
+      strokes: [
+        createDefaultStroke({
+          style: 'solid',
+          position: 'inside',
+          width: 6,
+          color: '#3366ff',
+          visible: true,
+          joinType: 'miter',
+          miterAngle: 28.96
+        })
+      ]
+    })
+
+    expectNoProjectionMeshes(mockGraphic)
+  })
+
+  it('should keep vector stroke mesh absent when path editing is toggled during runtime removal', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1324,24 +1380,11 @@ describe('Vector Component', () => {
     })
     runRenderStrategy(renderStrategy, deselectedGraphic, mockData)
 
-    const selectedMesh = getSingleProjectionMesh(selectedGraphic)
-    const deselectedMesh = getSingleProjectionMesh(deselectedGraphic)
-    expect(
-      selectedMesh.geometry.getBuffer('aPosition').data.length
-    ).toBeGreaterThan(0)
-    expect(
-      deselectedMesh.geometry.getBuffer('aPosition').data.length
-    ).toBeGreaterThan(0)
-    expect(
-      Array.from(selectedMesh.geometry.getBuffer('aPosition').data)
-    ).toEqual(Array.from(deselectedMesh.geometry.getBuffer('aPosition').data))
-    expect(Array.from(selectedMesh.geometry.getIndex().data)).toEqual(
-      Array.from(deselectedMesh.geometry.getIndex().data)
-    )
-    expect(getMeshBounds(selectedMesh)).toEqual(getMeshBounds(deselectedMesh))
+    expectNoProjectionMeshes(selectedGraphic)
+    expectNoProjectionMeshes(deselectedGraphic)
   })
 
-  it('should render dashed mesh geometry for the reported round-join inside-stroke star sample', () => {
+  it('should not render legacy dashed stroke mesh for the reported round-join inside-stroke star sample during runtime removal', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1351,40 +1394,10 @@ describe('Vector Component', () => {
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
-    const expectedGeometryPath = buildVectorGeometryModelPath(
-      mockData.networks[REPORTED_ROUND_INSIDE_DASHED_STAR_NETWORK_ID],
-      mockData.points,
-      mockData.segments
-    )
-    const expectedStroke = mockData.strokes[0]
-    const expectedDashedGeometry = selectDashedGeometryModelForRender(
-      expectedGeometryPath,
-      {
-        style: expectedStroke.style,
-        position: expectedStroke.position,
-        width: expectedStroke.width,
-        dash: expectedStroke.dash,
-        gap: expectedStroke.gap,
-        join: expectedStroke.joinType,
-        miterLimit: 4,
-        cap: 'round',
-        color: 0,
-        alpha: expectedStroke.opacity
-      } as never
-    )
-
-    expect(expectedDashedGeometry).not.toBeNull()
-    expect(expectedDashedGeometry?.status).toBe('resolved')
-    expect(expectedDashedGeometry?.model?.polygons.length).toBeGreaterThan(0)
-    const mesh = getSingleProjectionMesh(mockGraphic)
-    expect(mesh.geometry.getBuffer('aPosition').data.length).toBeGreaterThan(0)
-    expectBoundsClose(
-      getMeshBounds(mesh),
-      getPolygonBounds(expectedDashedGeometry?.model?.polygons ?? [])
-    )
+    expectNoProjectionMeshes(mockGraphic)
   })
 
-  it('should keep the reported round-join inside-dashed star mesh stable when path editing is cleared after render', () => {
+  it('should keep the reported round-join inside-dashed star mesh absent when path editing is cleared during runtime removal', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1407,20 +1420,7 @@ describe('Vector Component', () => {
     })
     runRenderStrategy(renderStrategy, deselectedGraphic, mockData)
 
-    const selectedMesh = getSingleProjectionMesh(selectedGraphic)
-    const deselectedMesh = getSingleProjectionMesh(deselectedGraphic)
-    expect(
-      selectedMesh.geometry.getBuffer('aPosition').data.length
-    ).toBeGreaterThan(0)
-    expect(
-      deselectedMesh.geometry.getBuffer('aPosition').data.length
-    ).toBeGreaterThan(0)
-    expect(
-      Array.from(selectedMesh.geometry.getBuffer('aPosition').data)
-    ).toEqual(Array.from(deselectedMesh.geometry.getBuffer('aPosition').data))
-    expect(Array.from(selectedMesh.geometry.getIndex().data)).toEqual(
-      Array.from(deselectedMesh.geometry.getIndex().data)
-    )
-    expect(getMeshBounds(selectedMesh)).toEqual(getMeshBounds(deselectedMesh))
+    expectNoProjectionMeshes(selectedGraphic)
+    expectNoProjectionMeshes(deselectedGraphic)
   })
 })

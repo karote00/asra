@@ -60,7 +60,7 @@ const DEFAULT_VECTOR_STYLE: VectorPathStyle = {
   fills: [],
   strokes: createDefaultStrokes({
     color: DEFAULT_VECTOR_STROKE_COLOR,
-    joinType: StrokeJoinTypes.ROUND
+    joinType: StrokeJoinTypes.MITER
   })
 }
 

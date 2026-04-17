@@ -371,6 +371,16 @@ export const useStrokeInteractions = ({
     })
   }
 
+  const handleCapTypeChange = (nextCap: StrokeAttrs['capType']) => {
+    if (!stroke || isEqual(stroke.capType, nextCap)) {
+      return
+    }
+
+    commitStrokeInteractionPatch({
+      capType: nextCap
+    })
+  }
+
   const handleMiterAngleChange = (value: string): boolean => {
     const parsed = parseFiniteInputNumber(value)
     if (parsed === null) {
@@ -403,6 +413,7 @@ export const useStrokeInteractions = ({
     handleDashChange,
     handleGapChange,
     handleJoinTypeChange,
+    handleCapTypeChange,
     handleMiterAngleChange
   }
 }

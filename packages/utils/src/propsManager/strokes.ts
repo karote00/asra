@@ -26,6 +26,14 @@ export const StrokeJoinTypes = {
 export type StrokeJoinType =
   (typeof StrokeJoinTypes)[keyof typeof StrokeJoinTypes]
 
+export const StrokeCapTypes = {
+  BUTT: 'butt',
+  SQUARE: 'square',
+  ROUND: 'round'
+} as const
+
+export type StrokeCapType = (typeof StrokeCapTypes)[keyof typeof StrokeCapTypes]
+
 export interface StrokeAttrs extends BasePropertyAttrs {
   style: StrokeStyle
   position: StrokePosition
@@ -38,6 +46,7 @@ export interface StrokeAttrs extends BasePropertyAttrs {
   opacity: number
   visible: boolean
   joinType: StrokeJoinType
+  capType: StrokeCapType
   miterAngle: number
 }
 
@@ -67,6 +76,7 @@ export const createDefaultStroke = (
   opacity: 1,
   visible: true,
   joinType: StrokeJoinTypes.MITER,
+  capType: StrokeCapTypes.BUTT,
   miterAngle: 28.96,
   ...overrides
 })

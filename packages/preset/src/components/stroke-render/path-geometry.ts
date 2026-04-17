@@ -1,0 +1,434 @@
+import { Bezier } from 'bezier-js'
+import type { GeometryPoint } from '@asyra/core'
+import type {
+  VectorAnchorType,
+  VectorNetwork,
+  VectorPointNode,
+  VectorSegment
+} from '@asyra/core'
+
+export interface Vec2 extends GeometryPoint {}
+
+export type PathSegment =
+  | {
+      type: 'line'
+      start: Vec2
+      end: Vec2
+      length: number
+      startAnchorType?: VectorAnchorType
+      endAnchorType?: VectorAnchorType
+    }
+  | {
+      type: 'cubic'
+      start: Vec2
+      control1: Vec2
+      control2: Vec2
+      end: Vec2
+      curve: Bezier
+      length: number
+      startAnchorType?: VectorAnchorType
+      endAnchorType?: VectorAnchorType
+    }
+
+export interface PathGeometry {
+  segments: PathSegment[]
+  closed: boolean
+  totalLength: number
+  sampledPoints: Vec2[]
+}
+
+interface PathSampleFrame {
+  point: Vec2
+  tangent: Vec2
+}
+
+const EPS = 1e-6
+const CURVE_TESSELLATION_TOLERANCE = 0.5
+
+const distance = (from: Vec2, to: Vec2) =>
+  Math.hypot(to.x - from.x, to.y - from.y)
+
+const samePoint = (a: Vec2, b: Vec2, tolerance = EPS) =>
+  distance(a, b) <= tolerance
+
+const dedupeAdjacentPoints = (points: Vec2[]) => {
+  if (points.length <= 1) {
+    return [...points]
+  }
+
+  const result = [points[0]]
+  for (let i = 1; i < points.length; i += 1) {
+    if (distance(result[result.length - 1], points[i]) > EPS) {
+      result.push(points[i])
+    }
+  }
+  return result
+}
+
+const dedupeClosedPolygonPoints = (points: Vec2[]) => {
+  const deduped = dedupeAdjacentPoints(points)
+  if (
+    deduped.length > 2 &&
+    distance(deduped[0], deduped[deduped.length - 1]) <= EPS
+  ) {
+    deduped.pop()
+  }
+  return deduped
+}
+
+const normalizeVector = (vector: Vec2): Vec2 | null => {
+  const length = Math.hypot(vector.x, vector.y)
+  if (length <= EPS) {
+    return null
+  }
+
+  return {
+    x: vector.x / length,
+    y: vector.y / length
+  }
+}
+
+const getSegmentStartTangent = (segment: PathSegment): Vec2 | null => {
+  if (segment.type === 'line') {
+    return normalizeVector({
+      x: segment.end.x - segment.start.x,
+      y: segment.end.y - segment.start.y
+    })
+  }
+
+  return (
+    normalizeVector({
+      x: segment.control1.x - segment.start.x,
+      y: segment.control1.y - segment.start.y
+    }) ??
+    normalizeVector({
+      x: segment.control2.x - segment.start.x,
+      y: segment.control2.y - segment.start.y
+    }) ??
+    normalizeVector({
+      x: segment.end.x - segment.start.x,
+      y: segment.end.y - segment.start.y
+    })
+  )
+}
+
+const mergePointLists = (head: Vec2[], tail: Vec2[]) => {
+  if (head.length === 0) {
+    return [...tail]
+  }
+  if (tail.length === 0) {
+    return [...head]
+  }
+
+  if (samePoint(head[head.length - 1], tail[0])) {
+    return [...head, ...tail.slice(1)]
+  }
+
+  return [...head, ...tail]
+}
+
+const toBezier = (segment: Extract<PathSegment, { type: 'cubic' }>) =>
+  segment.curve
+
+const getCurveLengthAtT = (
+  segment: Extract<PathSegment, { type: 'cubic' }>,
+  t: number
+) => {
+  if (t <= EPS) {
+    return 0
+  }
+  if (t >= 1 - EPS) {
+    return segment.length
+  }
+
+  return toBezier(segment).split(0, t).length()
+}
+
+const getCurveTAtLength = (
+  segment: Extract<PathSegment, { type: 'cubic' }>,
+  targetLength: number
+) => {
+  if (targetLength <= EPS) {
+    return 0
+  }
+  if (targetLength >= segment.length - EPS) {
+    return 1
+  }
+
+  let low = 0
+  let high = 1
+  for (let index = 0; index < 24; index += 1) {
+    const mid = (low + high) / 2
+    if (getCurveLengthAtT(segment, mid) < targetLength) {
+      low = mid
+    } else {
+      high = mid
+    }
+  }
+  return (low + high) / 2
+}
+
+const sampleLineSegmentFrames = (
+  segment: Extract<PathSegment, { type: 'line' }>,
+  startLength: number,
+  endLength: number
+): PathSampleFrame[] => {
+  const total = Math.max(EPS, segment.length)
+  const t0 = Math.max(0, Math.min(1, startLength / total))
+  const t1 = Math.max(0, Math.min(1, endLength / total))
+  const tangent = normalizeVector({
+    x: segment.end.x - segment.start.x,
+    y: segment.end.y - segment.start.y
+  }) ?? { x: 1, y: 0 }
+
+  return dedupeAdjacentPoints([
+    {
+      x: segment.start.x + (segment.end.x - segment.start.x) * t0,
+      y: segment.start.y + (segment.end.y - segment.start.y) * t0
+    },
+    {
+      x: segment.start.x + (segment.end.x - segment.start.x) * t1,
+      y: segment.start.y + (segment.end.y - segment.start.y) * t1
+    }
+  ]).map((point) => ({
+    point,
+    tangent
+  }))
+}
+
+const sampleCubicSegmentFrames = (
+  segment: Extract<PathSegment, { type: 'cubic' }>,
+  startLength: number,
+  endLength: number,
+  tolerance: number
+): PathSampleFrame[] => {
+  const t0 = getCurveTAtLength(segment, startLength)
+  const t1 = getCurveTAtLength(segment, endLength)
+  const splitCurve = toBezier(segment).split(t0, t1)
+  const sampleCount = Math.max(
+    8,
+    Math.min(256, Math.ceil(splitCurve.length() / Math.max(0.2, tolerance)))
+  )
+  const frames: PathSampleFrame[] = []
+
+  for (let index = 0; index <= sampleCount; index += 1) {
+    const t = index / sampleCount
+    const point = splitCurve.get(t) as { x: number; y: number }
+    const derivative = splitCurve.derivative(t) as { x: number; y: number }
+    const tangent = normalizeVector({
+      x: derivative.x,
+      y: derivative.y
+    }) ??
+      (index > 0 ? (frames[index - 1]?.tangent ?? null) : null) ?? {
+        x: 1,
+        y: 0
+      }
+
+    frames.push({
+      point: { x: point.x, y: point.y },
+      tangent
+    })
+  }
+
+  const fallbackStartTangent = frames.find((frame) => frame.tangent)?.tangent ??
+    getSegmentStartTangent(segment) ?? { x: 1, y: 0 }
+
+  for (let index = 0; index < frames.length; index += 1) {
+    if (!frames[index].tangent) {
+      frames[index] = {
+        point: frames[index].point,
+        tangent:
+          (index > 0 ? (frames[index - 1]?.tangent ?? null) : null) ??
+          fallbackStartTangent
+      }
+    }
+  }
+
+  return frames
+}
+
+const slicePathSegmentFrames = (
+  segment: PathSegment,
+  startLength: number,
+  endLength: number,
+  tolerance: number
+): PathSampleFrame[] => {
+  if (endLength - startLength <= EPS) {
+    return []
+  }
+
+  return segment.type === 'line'
+    ? sampleLineSegmentFrames(segment, startLength, endLength)
+    : sampleCubicSegmentFrames(segment, startLength, endLength, tolerance)
+}
+
+const samplePathSegment = (segment: PathSegment, tolerance: number): Vec2[] =>
+  slicePathSegmentFrames(segment, 0, segment.length, tolerance).map(
+    (frame) => frame.point
+  )
+
+const getAnchorNode = (
+  points: Record<string, VectorPointNode>,
+  pointId: string | undefined
+) => {
+  if (!pointId) {
+    return null
+  }
+  const point = points[pointId]
+  if (!point || point.kind !== 'anchor') {
+    return null
+  }
+  return point
+}
+
+const getControlNode = (
+  points: Record<string, VectorPointNode>,
+  pointId?: string | null
+) => {
+  if (!pointId) {
+    return null
+  }
+  const point = points[pointId]
+  if (!point || point.kind !== 'control') {
+    return null
+  }
+  return point
+}
+
+const buildPathGeometry = (
+  network: VectorNetwork,
+  points: Record<string, VectorPointNode>,
+  segments: Record<string, VectorSegment>
+): PathGeometry => {
+  const pathSegments: PathSegment[] = []
+  let totalLength = 0
+
+  network.segmentIds.forEach((segmentId) => {
+    const segment = segments[segmentId]
+    if (!segment) {
+      return
+    }
+
+    const start = getAnchorNode(points, segment.startId)
+    const end = getAnchorNode(points, segment.endId)
+    if (!start || !end) {
+      return
+    }
+
+    const outControl = getControlNode(points, segment.outControlId)
+    const inControl = getControlNode(points, segment.inControlId)
+    if (!outControl && !inControl) {
+      const lineSegment: PathSegment = {
+        type: 'line',
+        start: { x: start.x, y: start.y },
+        end: { x: end.x, y: end.y },
+        length: Math.hypot(end.x - start.x, end.y - start.y),
+        startAnchorType: start.anchorType ?? 'sharp',
+        endAnchorType: end.anchorType ?? 'sharp'
+      }
+      totalLength += lineSegment.length
+      pathSegments.push(lineSegment)
+      return
+    }
+
+    const cubicSegment: Extract<PathSegment, { type: 'cubic' }> = {
+      type: 'cubic',
+      start: { x: start.x, y: start.y },
+      control1: outControl
+        ? { x: outControl.x, y: outControl.y }
+        : { x: start.x, y: start.y },
+      control2: inControl
+        ? { x: inControl.x, y: inControl.y }
+        : { x: end.x, y: end.y },
+      end: { x: end.x, y: end.y },
+      curve: new Bezier(
+        { x: start.x, y: start.y },
+        outControl
+          ? { x: outControl.x, y: outControl.y }
+          : { x: start.x, y: start.y },
+        inControl ? { x: inControl.x, y: inControl.y } : { x: end.x, y: end.y },
+        { x: end.x, y: end.y }
+      ),
+      length: 0,
+      startAnchorType: start.anchorType ?? 'sharp',
+      endAnchorType: end.anchorType ?? 'sharp'
+    }
+    cubicSegment.length = cubicSegment.curve.length()
+    totalLength += cubicSegment.length
+    pathSegments.push(cubicSegment)
+  })
+
+  const sampledPoints = dedupeAdjacentPoints(
+    pathSegments.reduce<Vec2[]>((result, segment, index) => {
+      const sampled = samplePathSegment(segment, CURVE_TESSELLATION_TOLERANCE)
+      if (index === 0) {
+        return sampled
+      }
+      return mergePointLists(result, sampled)
+    }, [])
+  )
+
+  return {
+    segments: pathSegments,
+    closed: network.closed,
+    totalLength,
+    sampledPoints
+  }
+}
+
+export const buildVectorGeometryModelPath = buildPathGeometry
+
+export const buildPolylineGeometryModelPath = (
+  points: Vec2[],
+  closed: boolean
+): PathGeometry => {
+  const sampledPoints = closed ? dedupeClosedPolygonPoints(points) : [...points]
+  if (sampledPoints.length < 2) {
+    return {
+      segments: [],
+      closed,
+      totalLength: 0,
+      sampledPoints
+    }
+  }
+
+  const segments: PathSegment[] = []
+  let totalLength = 0
+
+  for (let i = 0; i < sampledPoints.length - 1; i += 1) {
+    const start = sampledPoints[i]
+    const end = sampledPoints[i + 1]
+    const length = distance(start, end)
+    totalLength += length
+    segments.push({
+      type: 'line',
+      start,
+      end,
+      length,
+      startAnchorType: 'sharp',
+      endAnchorType: 'sharp'
+    })
+  }
+
+  if (closed && sampledPoints.length > 2) {
+    const start = sampledPoints[sampledPoints.length - 1]
+    const end = sampledPoints[0]
+    const length = distance(start, end)
+    totalLength += length
+    segments.push({
+      type: 'line',
+      start,
+      end,
+      length,
+      startAnchorType: 'sharp',
+      endAnchorType: 'sharp'
+    })
+  }
+
+  return {
+    segments,
+    closed,
+    totalLength,
+    sampledPoints
+  }
+}

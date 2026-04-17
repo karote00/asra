@@ -1,24 +1,15 @@
 import { defineComponent } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
-import { applyRenderableFill, DEFAULT_RECTANGLE_FILLS } from './fills'
+import { applyRenderableFill, DEFAULT_RECTANGLE_FILLS, getRenderableFills } from './fills'
+import { createRectangleHitArea, mergeHitAreas } from './shape-hit-area'
+import { DEFAULT_RECTANGLE_STROKES } from './stroke-render/constants'
+import { renderSolidCenterStrokeEntries } from './stroke-render/solid-center-stroke-render'
 import {
-  DEFAULT_RECTANGLE_STROKES,
-  buildPolylineStrokePathSources,
-  renderStrokeSources
-} from './strokes'
-
-const buildRectangleStrokeSources = (width: number, height: number) =>
-  buildPolylineStrokePathSources([
-    {
-      points: [
-        { x: 0, y: 0 },
-        { x: width, y: 0 },
-        { x: width, y: height },
-        { x: 0, y: height }
-      ],
-      closed: true
-    }
-  ])
+  applySolidCenterStrokeExportPackets,
+  buildSolidCenterStrokeResolvedPackets,
+  createSolidCenterStrokeHitArea,
+  toSolidCenterStrokeRenderEntries
+} from './stroke-render/solid-center-stroke-packets'
 
 defineComponent({
   type: 'rect',
@@ -48,16 +39,36 @@ defineComponent({
   ],
   renderStrategy: (graphic, data) => {
     graphic.clear()
+    const solidCenterPackets = buildSolidCenterStrokeResolvedPackets(
+      `rect:${data.id ?? 'anonymous'}`,
+      [
+        { x: 0, y: 0 },
+        { x: data.width, y: 0 },
+        { x: data.width, y: data.height },
+        { x: 0, y: data.height }
+      ],
+      true,
+      data.strokes
+    )
+    applySolidCenterStrokeExportPackets(graphic, solidCenterPackets)
+    const fillHitArea =
+      getRenderableFills(data.fills).length > 0
+        ? createRectangleHitArea(data.width, data.height)
+        : null
+    ;(graphic as { hitArea: ReturnType<typeof createSolidCenterStrokeHitArea> | null })
+      .hitArea = mergeHitAreas(
+      fillHitArea,
+      createSolidCenterStrokeHitArea(solidCenterPackets)
+    )
+    renderSolidCenterStrokeEntries(
+      graphic,
+      toSolidCenterStrokeRenderEntries(solidCenterPackets)
+    )
     const replayPath = () => {
       graphic.rect(0, 0, data.width, data.height)
     }
     replayPath()
     applyRenderableFill(graphic, data.fills, { replayPath })
-    renderStrokeSources(
-      graphic,
-      buildRectangleStrokeSources(data.width, data.height),
-      data.strokes
-    )
     graphic.x = data.x
     graphic.y = data.y
   }

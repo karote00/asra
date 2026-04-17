@@ -33,6 +33,7 @@ definePropertyComponent({
       opacity: child.get('opacity'),
       visible: child.get('visible'),
       joinType: child.get('joinType'),
+      capType: child.get('capType'),
       miterAngle: child.get('miterAngle')
     })
   }

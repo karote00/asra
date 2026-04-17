@@ -16,6 +16,7 @@ definePropertyComponent({
     'opacity',
     'visible',
     'joinType',
+    'capType',
     'miterAngle'
   ],
   valueKeys: [
@@ -30,6 +31,7 @@ definePropertyComponent({
     'opacity',
     'visible',
     'joinType',
+    'capType',
     'miterAngle'
   ]
 })

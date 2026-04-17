@@ -6,6 +6,7 @@ import {
   PropertySchema,
   PropertyTypes,
   StrokeJoinTypes,
+  StrokeCapTypes,
   StrokePositions,
   StrokeStyles,
   createDefaultFill,
@@ -216,6 +217,15 @@ const strokeSchema: PropertySchema = {
         value === StrokeJoinTypes.BEVEL ||
         value === StrokeJoinTypes.ROUND,
       defaultValue: strokeDefaults.joinType
+    },
+    {
+      key: 'capType',
+      kind: 'string',
+      validate: (value) =>
+        value === StrokeCapTypes.BUTT ||
+        value === StrokeCapTypes.SQUARE ||
+        value === StrokeCapTypes.ROUND,
+      defaultValue: strokeDefaults.capType
     },
     {
       key: 'miterAngle',

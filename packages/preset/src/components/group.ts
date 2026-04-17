@@ -1,6 +1,6 @@
 import { defineComponent } from '@asyra/core'
 import { EntityTypes, PropertyTypes, createDefaultFills } from '@asyra/utils'
-import { DEFAULT_GROUP_STROKES } from './strokes'
+import { DEFAULT_GROUP_STROKES } from './stroke-render/constants'
 
 defineComponent({
   type: EntityTypes.GROUP,
