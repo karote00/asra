@@ -4,76 +4,95 @@ Never record completed plans here.
 
 ## In Progress
 
-1. Inside dashed stroke priority recovery
+1. Professional stroke engine architecture
+
+- umbrella architecture plan for a professional-grade stroke system covering canonical geometry, paint separation, render/hit/export unification, and dirty-graph performance rules
+- establishes the required pipeline and data contracts for solid/dashed, inside/center/outside, joins/caps, dash-gap, and solid/gradient stroke paint
+- plan: `docs/ai/apps/asyra-design/plans/professional-stroke-engine-plan.md`
+
+2. Professional stroke engine execution
+
+- implementation-ready rollout plan for the canonical stroke architecture, with hard phase gates, supported/unsupported matrices, decision tables, debug deliverables, and migration rules
+- Phase 1 (`solid + center + uniform width + solid paint`) is now product-promoted for `rect`, `oval`, and `vector`; next execution target is Phase 2 constrained solid geometry
+- plan: `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+3. Legacy stroke code removal
+
+- formal removal plan for old stroke runtime, adapter, authored-model, and documentation paths; defines slice-based deletion, comparison shutdown, cutover gates, and lock checks
+- Phase 1 legacy center-solid removal is complete: old `strokes.ts` / `geometry-model.ts` runtime paths are gone, and retained foundation has been extracted into `stroke-render/`
+- inventory source: `docs/ai/apps/asyra-design/reports/legacy-stroke-inventory-2026-04-15.md`
+- plan: `docs/ai/apps/asyra-design/plans/legacy-stroke-code-removal-plan.md`
+
+4. Inside dashed stroke priority recovery
 
 - phase-driven execution order for scenario matrix, unit-first coverage, final-face ownership, projection stability, and overlay hygiene
 - plan: `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-priority-plan.md`
 
-2. Inside dashed stroke flow-first recovery
+5. Inside dashed stroke flow-first recovery
 
 - requirements-first rewrite of the dashed-stroke computation flow
 - focuses on step ownership, legal scenarios, and benchmark mapping
 - plan: `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-flow-first-plan.md`
 
-3. Inside dashed stroke gap-local cap rules
+6. Inside dashed stroke gap-local cap rules
 
 - defines the local ownership rules between adjacent dash caps and authored gap windows
 - scope is contract/spec only; not a runtime patch by itself
 - plan: `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-gap-local-cap-rules.md`
 
-4. Inside dashed stroke final-face algorithm rules
+7. Inside dashed stroke final-face algorithm rules
 
 - algorithm-first contract for the full inside-dashed pipeline, with explicit final-face decomposition rules and unit-test mapping
 - scope is pure algorithm/spec, intended to guide future runtime changes and debugging
 - plan: `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-final-face-algorithm-rules.md`
 
-5. Inside dashed stroke split-pair pseudo algorithm
+8. Inside dashed stroke split-pair pseudo algorithm
 
 - implementable pseudo-algorithm for the same-corner split-pair three-region method, including feasibility assessment and next unresolved design choices
 - scope is algorithm design only; no runtime patch by itself
 - plan: `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-split-pair-pseudo-algorithm.md`
 
-6. Inside dashed stroke split-pair lens window rules
+9. Inside dashed stroke split-pair lens window rules
 
 - defines how to build the local shared lens window and bridge lens region for the split-pair decomposition
 - scope is algorithm design only; no runtime patch by itself
 - plan: `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-split-pair-lens-window-rules.md`
 
-7. Inside dashed stroke gap-local cap pseudo algorithm
+10. Inside dashed stroke gap-local cap pseudo algorithm
 
 - implementable pseudo-algorithm for local gap ownership between adjacent dash terminals, with explicit separation between local pair bugs and remote self-overlap pollution
 - scope is algorithm design only; no runtime patch by itself
 - plan: `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-gap-local-cap-pseudo-algorithm.md`
 
-8. Inside dashed stroke gap-local implementation spec
+11. Inside dashed stroke gap-local implementation spec
 
 - adopted implementation spec for local gap classification, gap-window construction, and retained-region subtraction, consolidated from current project findings plus external design suggestions
 - scope is algorithm design only; intended to guide the next runtime pass
 - plan: `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-gap-local-implementation-spec.md`
 
-9. Inside dashed stroke outlineshape adaptation
+12. Inside dashed stroke outlineshape adaptation
 
 - maps the current dash debug/final-face model onto an outlineshape-style region model inspired by Bezier.js, to guide terminal-owned ownership and gap-local work
 - scope is representation design only; intended to replace whole-dash subtraction with named terminal/body regions
 - plan: `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-outlineshape-adaptation.md`
 
-10. Inside dashed stroke remote-pollution spec
+13. Inside dashed stroke remote-pollution spec
 
 - defines the next algorithm-first path for non-neighbor self-overlap inside authored gap windows, explicitly separating remote pollution from local adjacent-gap repair
 - scope is algorithm design only; intended to guide the next blocker after narrow local-gap promotion
 - plan: `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-remote-pollution-spec.md`
 
-11. Inside dashed stroke global-first rebuild
+14. Inside dashed stroke global-first rebuild
 
 - active rebuild baseline for the current runtime path; the design/contracts are now locked for execution, Phase 1 and Phase 2 remain product-integrated, and implementation resumes from Phase 3 under the approved global-first pipeline
 - plan: `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-rebuild-plan.md`
 
-12. Inside dashed stroke global-first implementation backlog
+15. Inside dashed stroke global-first implementation backlog
 
 - active execution backlog for the rebuild; ownership policy, complexity bounds, clipping routing, cache/reuse, bailout, and merge-gate rules are now fixed as execution constraints for the remaining Phase 3+ work
 - plan: `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-implementation-backlog.md`
 
-13. Inside dashed stroke global-first TDD plan
+16. Inside dashed stroke global-first TDD plan
 
 - active phase-by-phase test contract for the rebuild; scenario permanence, helper `should run` / `should not run`, performance guards, and rollback rules are now locked before Phase 3+ implementation proceeds
 - plan: `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-tdd-plan.md`

@@ -259,6 +259,35 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 
 ## 2026-03-03 - Delete shortcut guard is mode-driven and regression-covered
 
+## 2026-04-17 - Professional stroke engine Phase 1 promoted and legacy center-solid runtime removed
+
+- Context:
+  - The new stroke engine architecture, execution plan, and legacy-removal plan
+    were approved for implementation.
+  - The first promoted slice had to be product-facing, use no legacy stroke
+    runtime, and keep render / hit-test / export on one canonical final
+    geometry family.
+- Decision:
+  - Promote Phase 1 `solid + center + uniform width + solid paint` for
+    `rect`, `oval`, and `vector`.
+  - Make `frame` stroke-free instead of treating it as part of the Phase 1
+    slice.
+  - Remove legacy product-facing stroke runtime modules
+    `packages/preset/src/components/strokes.ts` and
+    `packages/preset/src/components/geometry-model.ts`.
+  - Extract retained stroke foundation into
+    `packages/preset/src/components/stroke-render/`.
+  - Add authored `capType` as a real runtime-configurable field so Phase 1
+    supported caps (`butt`, `square`) are product-addressable rather than
+    helper-only.
+- Consequences:
+  - The app now renders the first supported stroke slice through a fresh engine
+    with no legacy fallback.
+  - Hover / selection hit areas for primitive shapes are composed from fill and
+    stroke instead of being overwritten by stroke-only hit logic.
+  - Phase 2 can start from a clean constrained-solid baseline instead of a
+    mixed legacy/new runtime path.
+
 ## 2026-04-02 - Inside dashed stroke Phase 2 switched to mature stroker candidate geometry
 
 - Context:
