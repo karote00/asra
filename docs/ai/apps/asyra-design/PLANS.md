@@ -13,7 +13,7 @@ Never record completed plans here.
 2. Professional stroke engine execution
 
 - implementation-ready rollout plan for the canonical stroke architecture, with hard phase gates, supported/unsupported matrices, decision tables, debug deliverables, and migration rules
-- Phase 1 (`solid + center + uniform width + solid paint`) is now product-promoted for `rect`, `oval`, and `vector`; next execution target is Phase 2 constrained solid geometry
+- Phase 1 (`solid + center + uniform width + solid paint`) and Phase 2 (`solid + inside/outside + uniform width + solid paint`) are now product-promoted for `rect`, `oval`, and closed non-self-intersecting `vector` paths; Phase 2 closeout is locked by `solid-constrained-stroke-visual.spec.ts` + `@asyra/preset test:local` + `react:build`, and the next execution target is Phase 3 dashed center geometry
 - plan: `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
 
 3. Legacy stroke code removal

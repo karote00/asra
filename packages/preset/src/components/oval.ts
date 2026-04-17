@@ -1,8 +1,9 @@
 import { defineComponent } from '@asyra/core'
-import { PropertyTypes } from '@asyra/utils'
+import { PropertyTypes, setElementGeometryLocalBounds } from '@asyra/utils'
 import { applyRenderableFill, DEFAULT_OVAL_FILLS, getRenderableFills } from './fills'
 import { createEllipseHitArea, mergeHitAreas } from './shape-hit-area'
 import { DEFAULT_OVAL_STROKES } from './stroke-render/constants'
+import { buildConstrainedSolidStrokeResolvedPackets } from './stroke-render/constrained-solid-stroke-packets'
 import { renderSolidCenterStrokeEntries } from './stroke-render/solid-center-stroke-render'
 import { buildEllipseLoop } from './stroke-render/ellipse-path'
 import {
@@ -40,13 +41,28 @@ defineComponent({
   ],
   renderStrategy: (graphic, data) => {
     graphic.clear()
-    const solidCenterPackets = buildSolidCenterStrokeResolvedPackets(
-      `oval:${data.id ?? 'anonymous'}`,
-      buildEllipseLoop(data.width, data.height),
-      true,
-      data.strokes
-    )
-    applySolidCenterStrokeExportPackets(graphic, solidCenterPackets)
+    setElementGeometryLocalBounds(graphic, {
+      x: 0,
+      y: 0,
+      width: data.width,
+      height: data.height
+    })
+    const pathPoints = buildEllipseLoop(data.width, data.height)
+    const strokePackets = [
+      ...buildSolidCenterStrokeResolvedPackets(
+        `oval:${data.id ?? 'anonymous'}:center`,
+        pathPoints,
+        true,
+        data.strokes
+      ),
+      ...buildConstrainedSolidStrokeResolvedPackets(
+        `oval:${data.id ?? 'anonymous'}:constrained`,
+        pathPoints,
+        true,
+        data.strokes
+      )
+    ]
+    applySolidCenterStrokeExportPackets(graphic, strokePackets)
     const fillHitArea =
       getRenderableFills(data.fills).length > 0
         ? createEllipseHitArea(data.width, data.height)
@@ -54,11 +70,11 @@ defineComponent({
     ;(graphic as { hitArea: ReturnType<typeof createSolidCenterStrokeHitArea> | null })
       .hitArea = mergeHitAreas(
       fillHitArea,
-      createSolidCenterStrokeHitArea(solidCenterPackets)
+      createSolidCenterStrokeHitArea(strokePackets)
     )
     renderSolidCenterStrokeEntries(
       graphic,
-      toSolidCenterStrokeRenderEntries(solidCenterPackets)
+      toSolidCenterStrokeRenderEntries(strokePackets)
     )
 
     const replayPath = () => {

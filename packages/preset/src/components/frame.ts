@@ -1,5 +1,5 @@
 import { defineComponent } from '@asyra/core'
-import { EntityTypes, PropertyTypes } from '@asyra/utils'
+import { EntityTypes, PropertyTypes, setElementGeometryLocalBounds } from '@asyra/utils'
 import { applyRenderableFill, DEFAULT_FRAME_FILLS } from './fills'
 
 defineComponent({
@@ -26,6 +26,12 @@ defineComponent({
   ],
   renderStrategy: (graphic, data) => {
     graphic.clear()
+    setElementGeometryLocalBounds(graphic, {
+      x: 0,
+      y: 0,
+      width: data.width,
+      height: data.height
+    })
     const replayPath = () => {
       graphic.rect(0, 0, data.width, data.height)
     }

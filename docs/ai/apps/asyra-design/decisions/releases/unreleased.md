@@ -288,6 +288,37 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Phase 2 can start from a clean constrained-solid baseline instead of a
     mixed legacy/new runtime path.
 
+## 2026-04-17 - Professional stroke engine Phase 2 promoted for constrained solid geometry
+
+- Context:
+  - Phase 1 had already promoted `solid + center + uniform width + solid paint`
+    on the fresh stroke engine with no legacy fallback.
+  - The next approved execution target was constrained solid geometry:
+    `solid + inside/outside + uniform width + solid paint`.
+- Decision:
+  - Promote Phase 2 constrained solid geometry for:
+    - `rect`
+    - `oval`
+    - closed non-self-intersecting `vector` paths
+  - Keep open constrained paths and self-intersecting constrained paths
+    rejected deterministically instead of routing them through temporary
+    clipping fallbacks.
+  - Keep `round` joins / caps, dashed, gradient stroke paint, and variable
+    width blocked at this phase boundary.
+- Consequences:
+  - Inside / outside stroke render, hit-test, and export now all consume the
+    same canonical constrained final geometry packets.
+  - Rectangle legality preservation is now covered by exact polygon contracts,
+    not only bounds assertions.
+  - Screenshot-level constrained-solid visual benchmarks now define done for
+    supported `rect`, `oval`, and closed `vector` slices, and explicitly gate
+    unsupported `round` join / cap behavior.
+  - Phase 2 closeout now requires all three gates to stay green together:
+    `apps/asyra-design/e2e/solid-constrained-stroke-visual.spec.ts`,
+    `yarn workspace @asyra/preset test:local`, and `yarn react:build`.
+  - Phase 3 can start from a clean dashed-center baseline without reopening
+    constrained-solid fallback logic.
+
 ## 2026-04-02 - Inside dashed stroke Phase 2 switched to mature stroker candidate geometry
 
 - Context:

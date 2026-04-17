@@ -95,6 +95,8 @@ Meaning:
     uniform width.
 12. Dash semantics must support pattern arrays and offset without splitting the
     engine into special paths.
+13. Every product-facing stroke behavior must be covered by visual tests.
+14. Every stroke algorithm must be covered by unit tests.
 
 ## Geometry / Paint Separation Rule
 

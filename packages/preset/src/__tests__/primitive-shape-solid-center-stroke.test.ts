@@ -71,6 +71,12 @@ beforeAll(() => {
 
 class RecordingShapeGraphic extends Container {
   __asyraSolidCenterStrokeExportPackets?: unknown[]
+  __asyraGeometryLocalBounds?: {
+    x: number
+    y: number
+    width: number
+    height: number
+  } | null
   hitArea?: { contains: (x: number, y: number) => boolean } | null
 
   clear() {
@@ -168,6 +174,31 @@ describe('primitive shape solid-center stroke wiring', () => {
     expect(graphic.hitArea?.contains(100, 100)).toBe(false)
   })
 
+  it('should run: rectangle geometry bounds stay on element bounds even when stroke expands visually', () => {
+    const graphic = runRenderStrategy('rect', {
+      id: 'rect-geometry-bounds',
+      x: 12,
+      y: 18,
+      width: 80,
+      height: 40,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          width: 12,
+          position: StrokePositions.OUTSIDE,
+          style: StrokeStyles.SOLID
+        })
+      ]
+    })
+
+    expect(graphic.__asyraGeometryLocalBounds).toEqual({
+      x: 0,
+      y: 0,
+      width: 80,
+      height: 40
+    })
+  })
+
   it('should not run: rectangle render strategy ignores unsupported dashed stroke slices', () => {
     const graphic = runRenderStrategy('rect', {
       id: 'rect-1',
@@ -253,6 +284,31 @@ describe('primitive shape solid-center stroke wiring', () => {
     expect(graphic.hitArea?.contains(80, 24)).toBe(false)
   })
 
+  it('should run: oval geometry bounds stay on element bounds even when stroke expands visually', () => {
+    const graphic = runRenderStrategy('oval', {
+      id: 'oval-geometry-bounds',
+      x: 8,
+      y: 10,
+      width: 72,
+      height: 48,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          width: 12,
+          position: StrokePositions.OUTSIDE,
+          style: StrokeStyles.SOLID
+        })
+      ]
+    })
+
+    expect(graphic.__asyraGeometryLocalBounds).toEqual({
+      x: 0,
+      y: 0,
+      width: 72,
+      height: 48
+    })
+  })
+
   it('should not run: frame render strategy keeps no stroke mesh after rerender with any stroke payload', () => {
     const graphic = runRenderStrategy('frame', {
       id: 'frame-1',
@@ -297,9 +353,15 @@ describe('primitive shape solid-center stroke wiring', () => {
     )
 
     expect(getProjectionMeshes(graphic)).toHaveLength(0)
+    expect(graphic.__asyraGeometryLocalBounds).toEqual({
+      x: 0,
+      y: 0,
+      width: 120,
+      height: 64
+    })
   })
 
-  it('should not run: oval render strategy ignores unsupported constrained stroke slices', () => {
+  it('should not run: oval render strategy ignores unsupported constrained stroke slices with round joins', () => {
     const graphic = runRenderStrategy('oval', {
       id: 'oval-1',
       x: 8,
@@ -311,7 +373,8 @@ describe('primitive shape solid-center stroke wiring', () => {
         createDefaultStroke({
           width: 5,
           position: StrokePositions.INSIDE,
-          style: StrokeStyles.SOLID
+          style: StrokeStyles.SOLID,
+          joinType: 'round'
         })
       ]
     })

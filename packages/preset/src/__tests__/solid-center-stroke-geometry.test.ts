@@ -42,6 +42,15 @@ const getBounds = (polygon: Vec2[]) => {
   return { minX, minY, maxX, maxY }
 }
 
+const hasPoint = (polygon: Vec2[], expected: Vec2) =>
+  polygon.some(
+    (point) =>
+      Math.abs(point.x - expected.x) < 1e-6 && Math.abs(point.y - expected.y) < 1e-6
+  )
+
+const hasPolygonWithPoints = (polygons: Vec2[][], expected: Vec2[]) =>
+  polygons.some((polygon) => expected.every((point) => hasPoint(polygon, point)))
+
 describe('solid center stroke geometry', () => {
   it('should run: accept the supported solid-center stroke slice', () => {
     expect(
@@ -131,5 +140,56 @@ describe('solid center stroke geometry', () => {
     expect(allPoints).toContainEqual({ x: 22, y: -2 })
     expect(allPoints).toContainEqual({ x: 22, y: 22 })
     expect(allPoints).toContainEqual({ x: -2, y: 22 })
+  })
+
+  it('should run: decompose closed bevel rectangles into edge quads plus inner/outer corner bevel polygons', () => {
+    const polygons = buildSolidCenterStrokePolygons(
+      [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 20 },
+        { x: 0, y: 20 }
+      ],
+      true,
+      createStroke({
+        join: 'bevel',
+        cap: 'butt'
+      })
+    )
+
+    expect(polygons).toHaveLength(12)
+
+    expect(
+      hasPolygonWithPoints(polygons, [
+        { x: 0, y: 2 },
+        { x: 20, y: 2 },
+        { x: 20, y: -2 },
+        { x: 0, y: -2 }
+      ])
+    ).toBe(true)
+
+    expect(
+      hasPolygonWithPoints(polygons, [
+        { x: -2, y: 0 },
+        { x: 0, y: -2 },
+        { x: 0, y: 0 }
+      ])
+    ).toBe(true)
+
+    expect(
+      hasPolygonWithPoints(polygons, [
+        { x: 20, y: -2 },
+        { x: 22, y: 0 },
+        { x: 20, y: 0 }
+      ])
+    ).toBe(true)
+
+    expect(
+      hasPolygonWithPoints(polygons, [
+        { x: 0, y: 2 },
+        { x: 2, y: 0 },
+        { x: 0, y: 0 }
+      ])
+    ).toBe(true)
   })
 })

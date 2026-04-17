@@ -928,7 +928,7 @@ describe('Vector Component', () => {
     expect(mockGraphic.lineTo).not.toHaveBeenCalled()
   })
 
-  it('should not expand gradient vector hover hit outside fill bounds during legacy stroke runtime removal', () => {
+  it('should run: expand gradient vector hover hit to include supported outside solid stroke', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1012,7 +1012,7 @@ describe('Vector Component', () => {
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
     expect(mockGraphic.hitArea?.contains(30, 30)).toBe(true)
-    expect(mockGraphic.hitArea?.contains(-10, -10)).toBe(false)
+    expect(mockGraphic.hitArea?.contains(-10, -10)).toBe(true)
     expect(mockGraphic.hitArea?.contains(-25, -25)).toBe(false)
 
     createEvenOddFillStyleMock.mockRestore()
@@ -1348,7 +1348,7 @@ describe('Vector Component', () => {
           width: 6,
           color: '#3366ff',
           visible: true,
-          joinType: 'miter',
+          joinType: 'round',
           miterAngle: 28.96
         })
       ]

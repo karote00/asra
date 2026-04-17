@@ -24,6 +24,24 @@ Companion architecture spec:
 7. Variable width may be deferred in rollout, but the data model may not be
    rewritten later to make room for it.
 
+## Verification Rules
+
+These verification rules apply to every phase in this execution plan.
+
+1. Every product-facing supported slice must have at least one visual test that
+   runs through the real app/runtime path.
+2. Every geometry / legality / ownership / paint algorithm introduced in a
+   phase must have unit tests at the package level.
+3. Visual tests define what the user must actually see.
+4. Unit tests define what the algorithm must actually compute.
+5. A phase is not DONE if only one side exists:
+   - visual coverage without algorithm coverage is incomplete
+   - algorithm coverage without visual coverage is incomplete
+6. Visual tests may not rely on mocked stroke pipelines.
+7. Unit tests should prefer real geometry helpers and canonical data contracts;
+   mocks are only allowed for framework boundaries that are not part of the
+   stroke algorithm itself.
+
 ## Implementation Order Constraints
 
 The implementation order is constrained so later-stage work cannot backfill
@@ -110,6 +128,8 @@ Forbidden temporary approximations:
 
 - canonical final geometry is the only source for render / hit-test / export
 - mesh and polygons agree on golden fixtures
+- screenshot-level visual benchmarks verify `rect center miter` keeps the
+  outer corner square filled while `rect center bevel` cuts that square away
 - no legacy fallback is used on the supported slice
 
 ### Current Status
@@ -129,6 +149,8 @@ Forbidden temporary approximations:
     runtime normalization
   - render, hit-test, and export all derive from the same canonical final
     geometry packets
+  - screenshot-level visual benchmarks now gate `rect center miter/bevel`
+    behavior via `apps/asyra-design/e2e/solid-center-stroke-visual.spec.ts`
   - no legacy stroke runtime is used for the promoted slice
 
 ## Phase 2. Constrained Solid Geometry
@@ -157,6 +179,69 @@ Forbidden temporary approximations:
 - open-path constrained strokes are rejected deterministically
 - no unconstrained geometry is routed through clipping helpers
 - legality clipping preserves non-overflow geometry byte-for-byte
+- supported visual benchmarks keep constrained band coverage above the defined
+  probe thresholds for:
+  - `rect inside/outside bevel`
+  - `oval inside bevel`
+  - closed non-self-intersecting `vector inside bevel`
+- unsupported `round` join / cap constrained slices remain visually absent
+- closed constrained `butt` / `square` cap variants stay visually equivalent
+
+### Done Definition
+
+Phase 2 is only DONE when all of the following are true at the same time:
+
+- `apps/asyra-design/e2e/solid-constrained-stroke-visual.spec.ts` is green
+- supported visual benchmarks are green for:
+  - `rect inside bevel`
+  - `rect outside bevel`
+  - `rect inside miter`
+  - `rect outside miter`
+  - `oval inside bevel`
+  - `oval outside bevel`
+  - `oval inside miter`
+  - `oval outside miter`
+  - closed non-self-intersecting `vector inside bevel`
+  - closed non-self-intersecting `vector outside bevel`
+  - closed non-self-intersecting `vector inside miter`
+  - closed non-self-intersecting `vector outside miter`
+- unsupported visual benchmarks are green for:
+  - constrained `round` join remains absent
+  - constrained `round` cap remains absent
+  - open constrained vector paths remain absent
+  - self-intersecting constrained vector paths remain absent
+- closed constrained `butt` / `square` caps remain visually equivalent within
+  the benchmark tolerance
+- `yarn workspace @asyra/preset test:local` is green
+- `yarn react:build` is green
+
+### Current Status
+
+- completed on `2026-04-17`
+- promoted product-facing slice:
+  - `rect`
+  - `oval`
+  - closed non-self-intersecting `vector`
+- explicit non-slice behavior:
+  - open constrained paths are rejected deterministically
+  - self-intersecting constrained paths are rejected deterministically
+  - `frame` does not expose stroke
+  - `round` joins / caps remain blocked
+  - `dashed`, gradient paint, and variable width remain blocked
+- completion notes:
+  - constrained solid geometry now derives from fresh legality-bounded
+    polygons instead of any legacy stroke runtime
+  - inside / outside render, hit-test, and export all consume the same
+    canonical final geometry packets
+  - promoted constrained slices do not route through legacy fallback or
+    unconstrained clipping helpers
+  - screenshot-level visual benchmarks now gate `rect`, `oval`, and closed
+    `vector` constrained solid behavior via
+    `apps/asyra-design/e2e/solid-constrained-stroke-visual.spec.ts`
+  - current closeout validation commands:
+    - `yarn workspace @asyra/asyra-design test:e2e e2e/solid-constrained-stroke-visual.spec.ts`
+    - `yarn workspace @asyra/preset test:local`
+    - `yarn react:build`
 
 ## Phase 3. Dashed Center Geometry
 

@@ -13,6 +13,7 @@ import {
   applyRenderableFill,
   getRenderableFills
 } from './fills'
+import { buildConstrainedSolidStrokeResolvedPackets } from './stroke-render/constrained-solid-stroke-packets'
 import { buildVectorGeometryModelPath } from './stroke-render/path-geometry'
 import { renderSolidCenterStrokeEntries } from './stroke-render/solid-center-stroke-render'
 import {
@@ -1160,21 +1161,29 @@ const renderVectorGraphic = (
     return evenOddShapeCache
   }
 
-  const solidCenterPackets = orderedNetworks.flatMap((network) => {
+  const strokePackets = orderedNetworks.flatMap((network) => {
     const path = buildVectorGeometryModelPath(network, points, segments)
-    return buildSolidCenterStrokeResolvedPackets(
-      `vector:${data.id}:${network.id}`,
-      path.sampledPoints,
-      path.closed,
-      data.strokes
-    )
+    return [
+      ...buildSolidCenterStrokeResolvedPackets(
+        `vector:${data.id}:${network.id}:center`,
+        path.sampledPoints,
+        path.closed,
+        data.strokes
+      ),
+      ...buildConstrainedSolidStrokeResolvedPackets(
+        `vector:${data.id}:${network.id}:constrained`,
+        path.sampledPoints,
+        path.closed,
+        data.strokes
+      )
+    ]
   })
 
   const applyVectorHoverHitArea = () => {
     const hitCache: VectorHitCache = graphicCache.__asyraVectorHitCache ?? {}
     const hasVisibleFill =
       hasClosedNetwork && getRenderableFills(fillPayload).length > 0
-    const strokeHitArea = createSolidCenterStrokeHitArea(solidCenterPackets)
+    const strokeHitArea = createSolidCenterStrokeHitArea(strokePackets)
 
     const reuseHitArea =
       hitCache.hitArea &&
@@ -1402,10 +1411,10 @@ const renderVectorGraphic = (
   }
 
   applyVectorHoverHitArea()
-  applySolidCenterStrokeExportPackets(graphic, solidCenterPackets)
+  applySolidCenterStrokeExportPackets(graphic, strokePackets)
   renderSolidCenterStrokeEntries(
     graphic,
-    toSolidCenterStrokeRenderEntries(solidCenterPackets)
+    toSolidCenterStrokeRenderEntries(strokePackets)
   )
 
   drawVectorPath(graphic, orderedNetworks, points, segments)
