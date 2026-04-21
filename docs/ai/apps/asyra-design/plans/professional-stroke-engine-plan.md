@@ -97,6 +97,11 @@ Meaning:
     engine into special paths.
 13. Every product-facing stroke behavior must be covered by visual tests.
 14. Every stroke algorithm must be covered by unit tests.
+15. Scenario-family matrices define the primary stroke test structure; incident
+    regressions are secondary and must map back to explicit families.
+16. Every rendering issue review must explicitly check whether the current
+    product semantics are intended before classifying the issue as a geometry
+    or runtime bug.
 
 ## Geometry / Paint Separation Rule
 

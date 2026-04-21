@@ -41,6 +41,17 @@ These verification rules apply to every phase in this execution plan.
 7. Unit tests should prefer real geometry helpers and canonical data contracts;
    mocks are only allowed for framework boundaries that are not part of the
    stroke algorithm itself.
+8. Stroke testing must be scenario-matrix-first:
+   - define scenario families first
+   - define unit contracts from those families
+   - define visual benchmarks from those families
+   - map later regressions back to those families instead of letting bug
+     reports become the main test taxonomy
+9. Every new rendering or layout feature must ship a Scenario Axis Document
+   before algorithm implementation begins.
+10. Before a reported rendering issue is classified as a bug, the phase owner
+    must check whether the observed result matches the intended product
+    semantics for that scenario family.
 
 ## Implementation Order Constraints
 
@@ -274,6 +285,52 @@ Phase 2 is only DONE when all of the following are true at the same time:
 - variable-width probe fixtures demonstrate that interval slicing, candidate
   band construction, and ownership-precondition data do not assume uniform width
 
+### Done Definition
+
+Phase 3 is only DONE when all of the following are true at the same time:
+
+- `apps/asyra-design/e2e/dashed-center-stroke-visual.spec.ts` is green
+- supported visual benchmarks are green for:
+  - `rect center dashed` visible/gap probes
+  - `rect center dashed` offset shift
+  - `rect center dashed miter` corner silhouette
+  - `rect center dashed bevel` corner silhouette
+  - `oval center dashed` promoted-path coverage
+  - closed `vector center dashed` promoted path
+  - open `vector center dashed` promoted path
+  - open `vector center dashed` `butt/square` cap distinction
+- unsupported visual benchmarks are green for:
+  - constrained dashed stroke remains absent
+  - dashed `round` join remains absent
+  - dashed `round` cap remains absent
+- `yarn workspace @asyra/preset test:local` is green
+- `yarn react:build` is green
+
+### Current Status
+
+- completed on `2026-04-18`
+- promoted product-facing slice:
+  - `rect`
+  - `oval`
+  - `vector`
+- explicit non-slice behavior:
+  - constrained dashed legality remains blocked
+  - `round` joins / caps remain blocked
+  - gradient paint and variable width remain blocked
+- completion notes:
+  - authored dashed strokes now normalize through canonical `dashPattern` and
+    `dashOffset` data instead of scalar `dash/gap` runtime assumptions
+  - center dashed packets now derive from fresh interval allocation and shared
+    sliced-frame helpers, with no legacy dashed runtime reuse
+  - a full-loop closed dash interval now preserves seam join continuity instead
+    of degrading into open caps at the seam
+  - offset changes are unit-guarded against rebuilding unrelated dashed packet
+    geometry
+  - minimal variable-width probe fixtures now verify the shared dashed frame
+    slicer preserves asymmetric width probes without uniform-width assumptions
+  - screenshot-level visual benchmarks now gate dashed center behavior via
+    `apps/asyra-design/e2e/dashed-center-stroke-visual.spec.ts`
+
 ## Phase 4A. Overlap And Ownership On Center Dashed Geometry
 
 ### Deliverables
@@ -304,6 +361,9 @@ Phase 2 is only DONE when all of the following are true at the same time:
 - ownership tie-breaks are deterministic
 - ownership classification rules pass before priority rules run
 - bailout preserves preview geometry and never leaks partial corruption
+- closeout is locked by:
+  - `apps/asyra-design/e2e/center-dashed-overlap-visual.spec.ts`
+  - `yarn workspace @asyra/preset test:local`
 
 ## Phase 4B. Constrained Ownership And Legality On Solid Geometry
 
@@ -334,6 +394,120 @@ Phase 2 is only DONE when all of the following are true at the same time:
   Stage 9
 - only eligible overflow enters clipping helpers
 - legality clipping preserves non-overflow geometry byte-for-byte
+- current groundwork visual closeout is locked by:
+  - `apps/asyra-design/e2e/constrained-solid-legality-visual.spec.ts`
+  - `yarn workspace @asyra/preset test:local`
+- current groundwork runtime route must pass through the ownership-aware
+  legality clipping helper even when the promoted slice results in no-op
+  clipping preservation
+- multi-network vector constrained ownership diagnostics must merge into one
+  graphic-local namespace without deterministic id collisions
+- current helper-level clipping support may expand incrementally, but any
+  promoted outside clipping sub-slice must declare its complement-domain scope
+  explicitly instead of implying full outside-domain clipping
+- current outside complement groundwork now includes convex corner-overflow
+  partitioning into disjoint sectors; broader non-convex or general owner-domain
+  subtraction remains future work
+- current ownership-region groundwork now promotes canonical shared overlap
+  polygons for two-candidate convex components
+- current ownership-region groundwork now also supports exact candidate-set
+  regions for convex multi-candidate components in:
+  - nested shared-overlap cases
+  - partial-overlap cases without a shared all-candidate region
+  - deterministic four-candidate chain components
+  - deterministic four-candidate branch components
+  - mixed-topology multi-polygon candidates composed from convex packet pieces
+  - orthogonal non-convex single-polygon candidates after deterministic
+    canonical rectangle decomposition
+  - non-orthogonal non-convex single-polygon candidates after deterministic
+    bounded ear decomposition
+  - mixed-topology candidates that include orthogonal non-convex packet pieces
+    after that same deterministic canonical rectangle decomposition
+  - mixed-topology candidates that include non-orthogonal non-convex packet
+    pieces after deterministic bounded ear decomposition
+  - mixed-topology candidates that include multiple non-orthogonal non-convex
+    packet pieces after deterministic bounded ear decomposition
+- current 4B owner-domain clipping support now includes:
+  - exact foreign-owned polygon removal
+  - convex partial foreign-owned region subtraction that preserves the
+    owner-domain remainder
+  - orthogonal non-convex packet subtraction after deterministic canonical
+    rectangle decomposition, preserving disconnected local remainders
+  - non-orthogonal non-convex packet whole-drop when exact foreign-owned
+    regions cover the whole non-owner packet after deterministic bounded ear
+    decomposition
+  - mixed-topology packet subtraction when the non-owner packet includes
+    orthogonal non-convex pieces, still bounded by that same canonical
+    rectangle decomposition path
+  - mixed-topology packet whole-drop when the non-owner packet includes
+    non-orthogonal non-convex pieces and exact foreign-owned regions cover all
+    packet pieces on that same bounded ear-decomposition path
+  - mixed-topology packet subtraction when the non-owner packet includes
+    non-orthogonal non-convex pieces, still bounded by that same
+    ear-decomposition path
+  - mixed-topology packet subtraction when the non-owner packet includes
+    multiple non-orthogonal non-convex pieces, still bounded by that same
+    ear-decomposition path
+  - multi-polygon packets composed entirely of orthogonal non-convex pieces
+    when exact foreign-owned regions cover the whole non-owner packet
+  broader mixed-topology or general non-convex owner-domain subtraction
+  remains future work beyond the bounded orthogonal decomposition slice
+- current 4B closeout also requires a real app-path visual benchmark proving
+  owner-domain clipping keeps the owner stroke visible while exact
+  foreign-owned outside polygons remain absent
+- current 4B bounded expansion must stop once the next uncovered family
+  requires:
+  - broader mixed-topology subtraction beyond the declared bounded paths
+  - broader general non-convex owner-domain construction
+  - general polygon-boolean semantics
+  at that point a new plan or explicit next-phase algorithm is required
+  instead of further micro-slice expansion under 4B
+- the current handoff target for that broader algorithm class is:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
+- the first promoted broader scenario on that path is nested five-candidate
+  exact candidate-set ownership beyond the former four-candidate cap
+- the second promoted broader scenario on that path is nested six-candidate
+  exact candidate-set ownership beyond the former five-candidate cap
+- the third promoted broader scenario on that path is nested seven-candidate
+  exact candidate-set ownership beyond the former six-candidate cap
+- the fourth promoted broader scenario on that path is nested eight-candidate
+  exact candidate-set ownership beyond the former seven-candidate cap
+- the fifth promoted broader scenario on that path is nested nine-candidate
+  exact candidate-set ownership beyond the former eight-candidate cap
+- the sixth promoted broader scenario on that path replaces the artificial
+  nested-convex candidate cap with a subset-budget gate, proven by ten nested
+  constrained solid components on the same exact candidate-set path
+- the seventh promoted broader scenario on that path is mixed-topology
+  five-candidate exact candidate-set ownership across disconnected
+  multi-polygon sub-packets, with vector-generated app-path visual coverage
+  and vector constrained render/export now routed through ownership-clipped
+  constrained packets instead of raw constrained packets
+- the eighth promoted broader scenario on that path is mixed-topology
+  six-candidate exact candidate-set ownership across disconnected
+  multi-polygon sub-packets, with vector-generated app-path visual coverage
+- the ninth promoted broader scenario on that path is broader mixed-topology
+  subtraction that preserves local miter remainders when a bevel owner clips
+  disconnected vector-generated sub-packets, with app-path visual coverage on a
+  multi-network vector-generated path
+- the tenth promoted broader scenario on that path is shape/vector
+  equivalence on that broader subtraction family, proving shape-generated and
+  vector-generated closed rectangles keep equivalent local miter remainders
+  with matching unit and app-path visual coverage
+- the eleventh promoted broader scenario on that path extends the broader
+  mixed-topology subtraction family to a disconnected vector-generated path
+  where one sub-packet is a non-orthogonal non-convex piece, while the local
+  miter remainder still remains visible with matching unit and app-path
+  visual coverage
+- the twelfth promoted broader scenario on that path closes the first Family B
+  equivalence gate for non-orthogonal non-convex mixed-topology input, proving
+  equivalent vector-generated paths keep deterministic owner-domain
+  construction and equivalent local miter remainders with matching unit and
+  app-path visual coverage
+- the thirteenth promoted broader scenario on that path extends the broader
+  mixed-topology subtraction family to vector-generated paths where multiple
+  disconnected sub-packets are non-orthogonal non-convex pieces, while the
+  local miter remainders still remain visible with matching product-path and
+  app-path visual coverage
 
 ## Phase 4C. Dashed Constrained Geometry
 

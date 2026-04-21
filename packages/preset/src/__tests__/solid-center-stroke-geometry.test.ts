@@ -16,8 +16,8 @@ const createStroke = (
   style: 'solid',
   position: 'center',
   width: 4,
-  dash: 20,
-  gap: 20,
+  dashPattern: [20, 20],
+  dashOffset: 0,
   join: 'miter',
   miterLimit: 4,
   cap: 'square',
@@ -50,6 +50,30 @@ const hasPoint = (polygon: Vec2[], expected: Vec2) =>
 
 const hasPolygonWithPoints = (polygons: Vec2[][], expected: Vec2[]) =>
   polygons.some((polygon) => expected.every((point) => hasPoint(polygon, point)))
+
+const isPointInPolygon = (point: Vec2, polygon: Vec2[]) => {
+  let inside = false
+
+  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index, index += 1) {
+    const current = polygon[index]
+    const prior = polygon[previous]
+    const intersects =
+      current.y > point.y !== prior.y > point.y &&
+      point.x <
+        ((prior.x - current.x) * (point.y - current.y)) /
+          (prior.y - current.y) +
+          current.x
+
+    if (intersects) {
+      inside = !inside
+    }
+  }
+
+  return inside
+}
+
+const isPointInPolygons = (point: Vec2, polygons: Vec2[][]) =>
+  polygons.some((polygon) => isPointInPolygon(point, polygon))
 
 describe('solid center stroke geometry', () => {
   it('should run: accept the supported solid-center stroke slice', () => {
@@ -116,6 +140,50 @@ describe('solid center stroke geometry', () => {
       maxX: 12,
       maxY: 2
     })
+  })
+
+  it('should run: build open bevel turns with explicit diagonal corner points instead of midpoint joins', () => {
+    const polygons = buildSolidCenterStrokePolygons(
+      [
+        { x: 0, y: 0 },
+        { x: 80, y: 0 },
+        { x: 80, y: 7 }
+      ],
+      false,
+      createStroke({
+        width: 10,
+        join: 'bevel',
+        cap: 'butt'
+      })
+    )
+
+    expect(polygons).toHaveLength(1)
+    expect(hasPoint(polygons[0], { x: 80, y: 5 })).toBe(true)
+    expect(hasPoint(polygons[0], { x: 75, y: 0 })).toBe(true)
+    expect(hasPoint(polygons[0], { x: 85, y: 0 })).toBe(true)
+    expect(hasPoint(polygons[0], { x: 80, y: -5 })).toBe(true)
+    expect(hasPoint(polygons[0], { x: 77.5, y: 2.5 })).toBe(false)
+    expect(hasPoint(polygons[0], { x: 82.5, y: -2.5 })).toBe(false)
+  })
+
+  it('should run: keep the inner turn corridor filled for open miter turns with a short post-turn remainder', () => {
+    const polygons = buildSolidCenterStrokePolygons(
+      [
+        { x: 329, y: 0 },
+        { x: 353.09, y: 0 },
+        { x: 353.09, y: 2.91 }
+      ],
+      false,
+      createStroke({
+        width: 10,
+        join: 'miter',
+        cap: 'butt'
+      })
+    )
+
+    expect(isPointInPolygons({ x: 349, y: 4 }, polygons)).toBe(true)
+    expect(isPointInPolygons({ x: 353, y: 4 }, polygons)).toBe(true)
+    expect(isPointInPolygons({ x: 356, y: -2 }, polygons)).toBe(true)
   })
 
   it('should run: decompose closed solid rectangles into non-self-intersecting segment polygons', () => {

@@ -121,8 +121,8 @@ const StrokeItem = ({
     handleStyleChange,
     handlePositionChange,
     handleWidthChange,
-    handleDashChange,
-    handleGapChange,
+    handleDashPatternChange,
+    handleDashOffsetChange,
     handleJoinTypeChange,
     handleCapTypeChange,
     handleMiterAngleChange
@@ -273,11 +273,10 @@ const StrokeItem = ({
       </div>
 
       <div
-        className={`grid items-center gap-2 pl-4 pr-2 h-8 min-h-8 ${
-          stroke.style === StrokeStyles.DASHED
-            ? 'grid-cols-[40px_minmax(0,1fr)_40px_40px]'
+        className={`grid items-center gap-2 pl-4 pr-2 h-8 min-h-8 ${stroke.style === StrokeStyles.DASHED
+            ? 'grid-cols-[40px_minmax(0,1fr)_96px_52px]'
             : 'grid-cols-[40px_minmax(0,1fr)]'
-        }`}
+          }`}
       >
         <PropertyControl>
           <div style={{ width: '40px' }}>
@@ -320,9 +319,9 @@ const StrokeItem = ({
 
         {stroke.style === StrokeStyles.DASHED && (
           <PropertyControl>
-            <div style={{ width: '40px' }}>
+            <div style={{ width: '96px' }}>
               <Input
-                value={formatInputNumber(stroke.dash)}
+                value={stroke.dashPattern.join(', ')}
                 size="small"
                 containerClassName="!bg-transparent !px-0"
                 containerStyle={{
@@ -330,8 +329,8 @@ const StrokeItem = ({
                 }}
                 noOutline
                 inputClassName="!pl-[0.5em]"
-                onChange={handleDashChange}
-                data-testid={`prop-stroke-dash-${index}`}
+                onChange={handleDashPatternChange}
+                data-testid={`prop-stroke-pattern-${index}`}
               />
             </div>
           </PropertyControl>
@@ -339,9 +338,9 @@ const StrokeItem = ({
 
         {stroke.style === StrokeStyles.DASHED && (
           <PropertyControl>
-            <div style={{ width: '40px' }}>
+            <div style={{ width: '52px' }}>
               <Input
-                value={formatInputNumber(stroke.gap)}
+                value={formatInputNumber(stroke.dashOffset)}
                 size="small"
                 containerClassName="!bg-transparent !px-0"
                 containerStyle={{
@@ -349,8 +348,8 @@ const StrokeItem = ({
                 }}
                 noOutline
                 inputClassName="!pl-[0.5em]"
-                onChange={handleGapChange}
-                data-testid={`prop-stroke-gap-${index}`}
+                onChange={handleDashOffsetChange}
+                data-testid={`prop-stroke-offset-${index}`}
               />
             </div>
           </PropertyControl>

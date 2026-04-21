@@ -327,36 +327,42 @@ export const useStrokeInteractions = ({
     return true
   }
 
-  const handleDashChange = (value: string): boolean => {
-    const parsed = parseFiniteInputNumber(value)
-    if (parsed === null) {
+  const handleDashPatternChange = (value: string): boolean => {
+    if (!stroke) {
       return false
     }
 
-    const nextDash = Math.max(0, parsed)
-    if (!stroke || isEqual(stroke.dash, nextDash)) {
+    const nextPattern = value
+      .split(',')
+      .map((entry) => parseFiniteInputNumber(entry.trim()))
+      .filter((entry): entry is number => entry !== null)
+
+    if (nextPattern.length === 0 || nextPattern.some((entry) => entry <= 0)) {
+      return false
+    }
+
+    if (isEqual(stroke.dashPattern, nextPattern)) {
       return false
     }
 
     commitStrokeInteractionPatch({
-      dash: nextDash
+      dashPattern: nextPattern
     })
     return true
   }
 
-  const handleGapChange = (value: string): boolean => {
+  const handleDashOffsetChange = (value: string): boolean => {
     const parsed = parseFiniteInputNumber(value)
     if (parsed === null) {
       return false
     }
 
-    const nextGap = Math.max(0, parsed)
-    if (!stroke || isEqual(stroke.gap, nextGap)) {
+    if (!stroke || isEqual(stroke.dashOffset, parsed)) {
       return false
     }
 
     commitStrokeInteractionPatch({
-      gap: nextGap
+      dashOffset: parsed
     })
     return true
   }
@@ -410,8 +416,8 @@ export const useStrokeInteractions = ({
     handleStyleChange,
     handlePositionChange,
     handleWidthChange,
-    handleDashChange,
-    handleGapChange,
+    handleDashPatternChange,
+    handleDashOffsetChange,
     handleJoinTypeChange,
     handleCapTypeChange,
     handleMiterAngleChange

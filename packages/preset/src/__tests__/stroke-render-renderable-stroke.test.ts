@@ -27,8 +27,8 @@ describe('stroke renderable normalization', () => {
       style: 'solid',
       position: 'center',
       width: 6,
-      dash: 20,
-      gap: 20,
+      dashPattern: [20, 20],
+      dashOffset: 0,
       join: 'bevel',
       cap: 'square',
       color: 0x3366ff,
@@ -36,6 +36,22 @@ describe('stroke renderable normalization', () => {
     })
     expect(stroke.miterLimit).toBeGreaterThan(3.9)
     expect(stroke.miterLimit).toBeLessThan(4.1)
+  })
+
+  it('should run: normalize dashed pattern arrays and offset into canonical renderable strokes', () => {
+    const [stroke] = getRenderableStrokes([
+      createDefaultStroke({
+        style: 'dashed',
+        dashPattern: [12, 6, 3],
+        dashOffset: 48
+      })
+    ])
+
+    expect(stroke).toMatchObject({
+      style: 'dashed',
+      dashPattern: [12, 6, 3, 12, 6, 3],
+      dashOffset: 6
+    })
   })
 
   it('should not run: reject invalid or non-renderable entries from normalization output', () => {

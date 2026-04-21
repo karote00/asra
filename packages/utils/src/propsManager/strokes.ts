@@ -38,8 +38,12 @@ export interface StrokeAttrs extends BasePropertyAttrs {
   style: StrokeStyle
   position: StrokePosition
   width: number
-  dash: number
-  gap: number
+  dashPattern: number[]
+  dashOffset: number
+  /** @deprecated Compatibility only. Use dashPattern. */
+  dash?: number
+  /** @deprecated Compatibility only. Use dashPattern. */
+  gap?: number
   defaultColorFormat: FillColorFormat
   colorFormat: FillColorFormat
   color: string
@@ -68,6 +72,8 @@ export const createDefaultStroke = (
   style: StrokeStyles.SOLID,
   position: StrokePositions.CENTER,
   width: 1,
+  dashPattern: [20, 20],
+  dashOffset: 0,
   dash: 20,
   gap: 20,
   defaultColorFormat: FillColorFormats.HEX,

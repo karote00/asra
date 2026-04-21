@@ -169,16 +169,21 @@ const strokeSchema: PropertySchema = {
       defaultValue: strokeDefaults.width
     },
     {
-      key: 'dash',
-      kind: 'number',
-      validate: (value) => isFiniteNumber(value) && (value as number) >= 0,
-      defaultValue: strokeDefaults.dash
+      key: 'dashPattern',
+      kind: 'array',
+      validate: (value) =>
+        Array.isArray(value) &&
+        value.length > 0 &&
+        value.every(
+          (entry) => isFiniteNumber(entry) && (entry as number) > 0
+        ),
+      defaultValue: strokeDefaults.dashPattern
     },
     {
-      key: 'gap',
+      key: 'dashOffset',
       kind: 'number',
-      validate: (value) => isFiniteNumber(value) && (value as number) >= 0,
-      defaultValue: strokeDefaults.gap
+      validate: (value) => isFiniteNumber(value),
+      defaultValue: strokeDefaults.dashOffset
     },
     {
       key: 'defaultColorFormat',

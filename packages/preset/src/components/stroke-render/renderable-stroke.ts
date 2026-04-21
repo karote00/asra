@@ -12,8 +12,8 @@ export interface RenderableStroke {
   style: StrokeAttrs['style']
   position: StrokeAttrs['position']
   width: number
-  dash: number
-  gap: number
+  dashPattern: number[]
+  dashOffset: number
   join: 'miter' | 'bevel' | 'round'
   miterLimit: number
   cap: 'butt' | 'square' | 'round' | 'none'
@@ -30,6 +30,38 @@ const normalizeStrokeEntry = (value: unknown): StrokeAttrs | null => {
     ...createDefaultStroke(),
     ...(value as Partial<StrokeAttrs>)
   }
+}
+
+const normalizeDashPattern = (stroke: StrokeAttrs): number[] => {
+  const sourcePattern = Array.isArray(stroke.dashPattern)
+    ? stroke.dashPattern
+    : Number.isFinite(stroke.dash) && Number.isFinite(stroke.gap)
+      ? [stroke.dash ?? 0, stroke.gap ?? 0]
+      : []
+
+  const normalized = sourcePattern
+    .map((entry) => (Number.isFinite(entry) ? entry : 0))
+    .filter((entry) => entry > 0)
+
+  if (normalized.length === 0) {
+    return []
+  }
+
+  if (normalized.length % 2 === 1) {
+    return [...normalized, ...normalized]
+  }
+
+  return normalized
+}
+
+const normalizeDashOffset = (offset: number, pattern: number[]) => {
+  const patternLength = pattern.reduce((sum, entry) => sum + entry, 0)
+  if (!Number.isFinite(offset) || patternLength <= 0) {
+    return 0
+  }
+
+  const normalized = offset % patternLength
+  return normalized >= 0 ? normalized : normalized + patternLength
 }
 
 const getStrokeJoin = (
@@ -70,12 +102,14 @@ const getRenderableStroke = (stroke: StrokeAttrs): RenderableStroke | null => {
     return null
   }
 
+  const dashPattern = normalizeDashPattern(stroke)
+
   return {
     style: stroke.style,
     position: stroke.position,
     width: stroke.width,
-    dash: stroke.dash,
-    gap: stroke.gap,
+    dashPattern,
+    dashOffset: normalizeDashOffset(stroke.dashOffset, dashPattern),
     join: getStrokeJoin(stroke.joinType),
     miterLimit: getStrokeMiterLimit(stroke.miterAngle),
     cap:

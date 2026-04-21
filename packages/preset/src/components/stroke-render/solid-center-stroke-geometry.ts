@@ -6,6 +6,7 @@ import {
   extendForCap,
   normalizeClosed,
   offsetPath,
+  subtract,
   polygonArea,
   type Vec2
 } from './solid-stroke-geometry-core'
@@ -44,6 +45,110 @@ export const buildSolidCenterStrokePolygons = (
   }
 
   const halfWidth = stroke.width / 2
+
+  if (!closed && stroke.join === 'bevel') {
+    const leftSegments = buildOffsetSegments(source, false, halfWidth)
+    const rightSegments = buildOffsetSegments(source, false, -halfWidth)
+    if (leftSegments.length === 0 || rightSegments.length === 0) {
+      return []
+    }
+
+    const flattenSegmentPath = (
+      segments: Array<{ start: Vec2; end: Vec2 } | null>
+    ) => {
+      const path: Vec2[] = []
+
+      segments.forEach((segment, index) => {
+        if (!segment) {
+          return
+        }
+
+        if (path.length === 0) {
+          path.push(segment.start)
+        }
+
+        path.push(segment.end)
+
+        const nextSegment = segments[index + 1]
+        if (nextSegment) {
+          path.push(nextSegment.start)
+        }
+      })
+
+      return path
+    }
+
+    const polygon = dedupeClosed([
+      ...flattenSegmentPath(leftSegments),
+      ...flattenSegmentPath(rightSegments).reverse()
+    ])
+    return polygon.length >= 3 ? [polygon] : []
+  }
+
+  if (!closed && stroke.join === 'miter') {
+    const leftSegments = buildOffsetSegments(source, false, halfWidth)
+    const rightSegments = buildOffsetSegments(source, false, -halfWidth)
+    const leftPath = offsetPath(source, false, halfWidth, stroke)
+    const rightPath = offsetPath(source, false, -halfWidth, stroke)
+    if (
+      leftSegments.length === 0 ||
+      rightSegments.length === 0 ||
+      leftPath.length === 0 ||
+      rightPath.length === 0
+    ) {
+      return []
+    }
+
+    const polygons: Vec2[][] = []
+    const pushPolygon = (points: Vec2[]) => {
+      const polygon = dedupeClosed(points)
+      return polygon.length >= 3 ? polygons.push(polygon) : undefined
+    }
+    const cross = (a: Vec2, b: Vec2) => a.x * b.y - a.y * b.x
+
+    leftSegments.forEach((leftSegment, index) => {
+      const rightSegment = rightSegments[index]
+      if (!leftSegment || !rightSegment) {
+        return
+      }
+
+      pushPolygon([
+        leftSegment.start,
+        leftSegment.end,
+        rightSegment.end,
+        rightSegment.start
+      ])
+    })
+
+    for (let index = 1; index < source.length - 1; index += 1) {
+      const point = source[index]
+      const previousPoint = source[index - 1]
+      const nextPoint = source[index + 1]
+      const turn = cross(subtract(point, previousPoint), subtract(nextPoint, point))
+      if (Math.abs(turn) <= 1e-6) {
+        continue
+      }
+
+      const outerSegments = turn > 0 ? rightSegments : leftSegments
+      const innerSegments = turn > 0 ? leftSegments : rightSegments
+      const outerPath = turn > 0 ? rightPath : leftPath
+      const previousOuter = outerSegments[index - 1]
+      const nextOuter = outerSegments[index]
+      const previousInner = innerSegments[index - 1]
+      const nextInner = innerSegments[index]
+      const outerJoinPoint = outerPath[index]
+
+      if (previousInner && nextInner) {
+        pushPolygon([previousInner.end, point, nextInner.start])
+      }
+
+      if (previousOuter && nextOuter && outerJoinPoint) {
+        pushPolygon([previousOuter.end, outerJoinPoint, nextOuter.start, point])
+      }
+    }
+
+    return polygons
+  }
 
   if (closed) {
     if (stroke.join === 'bevel') {

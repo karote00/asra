@@ -26,12 +26,15 @@ defineComponent({
   ],
   renderStrategy: (graphic, data) => {
     graphic.clear()
-    setElementGeometryLocalBounds(graphic, {
-      x: 0,
-      y: 0,
-      width: data.width,
-      height: data.height
-    })
+    setElementGeometryLocalBounds(
+      graphic as Parameters<typeof setElementGeometryLocalBounds>[0],
+      {
+        x: 0,
+        y: 0,
+        width: data.width,
+        height: data.height
+      }
+    )
     const replayPath = () => {
       graphic.rect(0, 0, data.width, data.height)
     }

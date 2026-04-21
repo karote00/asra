@@ -21,6 +21,7 @@ export interface SolidCenterStrokeGeometryPacket {
   geometryId: string
   polygons: Vec2[][]
   bounds: Bounds
+  debugMeta?: SolidCenterStrokeGeometryDebugMeta
 }
 
 export interface SolidCenterStrokePaintPacket {
@@ -44,6 +45,17 @@ export interface SolidCenterStrokeExportPacket {
 export interface SolidCenterStrokeResolvedPacket {
   geometry: SolidCenterStrokeGeometryPacket
   paint: SolidCenterStrokePaintPacket
+}
+
+export interface SolidCenterStrokeGeometryDebugMeta {
+  strokeId?: string
+  intervalId?: string
+  authoredVisibleIntervalIndex?: number
+  startDistance?: number
+  endDistance?: number
+  wrapsSeam?: boolean
+  previousVisibleIntervalId?: string | null
+  nextVisibleIntervalId?: string | null
 }
 
 export interface SolidCenterStrokeRuntimeGraphic {

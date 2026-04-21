@@ -13,7 +13,12 @@ import {
   applyRenderableFill,
   getRenderableFills
 } from './fills'
+import { applyCenterDashedOverlapDiagnostics } from './stroke-render/center-dashed-overlap-diagnostics'
+import { buildConstrainedSolidLegalityClippingResult } from './stroke-render/constrained-solid-legality-clipping'
+import { setConstrainedSolidLegalityDiagnostics } from './stroke-render/constrained-solid-legality-diagnostics'
+import { setConstrainedSolidOwnershipDiagnostics } from './stroke-render/constrained-solid-ownership-diagnostics'
 import { buildConstrainedSolidStrokeResolvedPackets } from './stroke-render/constrained-solid-stroke-packets'
+import { buildDashedCenterStrokeResolvedPackets } from './stroke-render/dashed-center-stroke-packets'
 import { buildVectorGeometryModelPath } from './stroke-render/path-geometry'
 import { renderSolidCenterStrokeEntries } from './stroke-render/solid-center-stroke-render'
 import {
@@ -62,9 +67,93 @@ const sortByStableId = <T extends { id: string }>(items: T[]): T[] =>
     return a.id.localeCompare(b.id)
   })
 
+const mergeConstrainedSolidOwnershipDiagnostics = (
+  entries: {
+    networkId: string
+    ownershipDiagnostics: ConstrainedSolidOwnershipDiagnosticsShape
+  }[]
+): ConstrainedSolidOwnershipDiagnosticsShape => {
+  const candidates: ConstrainedSolidOwnershipDiagnosticsShape['candidates'] = []
+  const edges: ConstrainedSolidOwnershipDiagnosticsShape['edges'] = []
+  const components: ConstrainedSolidOwnershipDiagnosticsShape['components'] = []
+  const ownedRegions: ConstrainedSolidOwnershipDiagnosticsShape['ownedRegions'] = []
+
+  entries.forEach(({ networkId, ownershipDiagnostics }) => {
+    const scope = `network:${networkId}`
+    const candidateIdMap = new Map<string, string>()
+
+    ownershipDiagnostics.candidates.forEach((candidate) => {
+      const candidateId = `${scope}:${candidate.candidateId}`
+      candidateIdMap.set(candidate.candidateId, candidateId)
+      candidates.push({
+        ...candidate,
+        candidateId
+      })
+    })
+
+    ownershipDiagnostics.edges.forEach(([left, right]) => {
+      const remappedLeft = candidateIdMap.get(left)
+      const remappedRight = candidateIdMap.get(right)
+      if (!remappedLeft || !remappedRight) {
+        return
+      }
+      edges.push([remappedLeft, remappedRight])
+    })
+
+    ownershipDiagnostics.components.forEach((component) => {
+      components.push({
+        ...component,
+        componentId: `${scope}:${component.componentId}`,
+        candidateIds: component.candidateIds.map(
+          (candidateId) => candidateIdMap.get(candidateId) ?? candidateId
+        )
+      })
+    })
+
+    ownershipDiagnostics.ownedRegions.forEach((region) => {
+      ownedRegions.push({
+        ...region,
+        regionId: `${scope}:${region.regionId}`,
+        candidateIds: region.candidateIds.map(
+          (candidateId) => candidateIdMap.get(candidateId) ?? candidateId
+        )
+      })
+    })
+  })
+
+  return {
+    candidates,
+    edges,
+    components,
+    ownedRegions
+  }
+}
+
 interface Vec2 {
   x: number
   y: number
+}
+
+interface ConstrainedSolidOwnershipDiagnosticsShape {
+  candidates: {
+    candidateId: string
+    strokeId: string
+    polygons: Vec2[][]
+  }[]
+  edges: [string, string][]
+  components: {
+    componentId: string
+    candidateIds: string[]
+    bounds: { minX: number; minY: number; maxX: number; maxY: number }
+    polygons: Vec2[][]
+  }[]
+  ownedRegions: {
+    regionId: string
+    candidateIds: string[]
+    ownerStrokeId: string
+    bounds: { minX: number; minY: number; maxX: number; maxY: number }
+    polygon: Vec2[]
+  }[]
 }
 
 interface FillFaceCache {
@@ -1161,8 +1250,44 @@ const renderVectorGraphic = (
     return evenOddShapeCache
   }
 
+  const dashedCenterPackets = orderedNetworks.flatMap((network) => {
+    const path = buildVectorGeometryModelPath(network, points, segments)
+    return buildDashedCenterStrokeResolvedPackets(
+      `vector:${data.id}:${network.id}:dashed-center`,
+      path.sampledPoints,
+      path.closed,
+      data.strokes
+    )
+  })
+
+  const constrainedSolidDiagnostics = orderedNetworks.flatMap((network) => {
+    const path = buildVectorGeometryModelPath(network, points, segments)
+    const result = buildConstrainedSolidLegalityClippingResult(
+      [{ points: path.sampledPoints, closed: path.closed }],
+      data.strokes,
+      buildConstrainedSolidStrokeResolvedPackets(
+        `vector:${data.id}:${network.id}:constrained`,
+        path.sampledPoints,
+        path.closed,
+        data.strokes
+      )
+    )
+
+    return {
+      networkId: network.id,
+      points: path.sampledPoints,
+      closed: path.closed,
+      packets: result.packets,
+      legalityDiagnostics: result.legalityDiagnostics,
+      ownershipDiagnostics: result.ownershipDiagnostics
+    }
+  })
+
   const strokePackets = orderedNetworks.flatMap((network) => {
     const path = buildVectorGeometryModelPath(network, points, segments)
+    const constrainedNetworkDiagnostics = constrainedSolidDiagnostics.find(
+      (entry) => entry.networkId === network.id
+    )
     return [
       ...buildSolidCenterStrokeResolvedPackets(
         `vector:${data.id}:${network.id}:center`,
@@ -1170,12 +1295,19 @@ const renderVectorGraphic = (
         path.closed,
         data.strokes
       ),
-      ...buildConstrainedSolidStrokeResolvedPackets(
-        `vector:${data.id}:${network.id}:constrained`,
+      ...buildDashedCenterStrokeResolvedPackets(
+        `vector:${data.id}:${network.id}:dashed-center`,
         path.sampledPoints,
         path.closed,
         data.strokes
-      )
+      ),
+      ...(constrainedNetworkDiagnostics?.packets ??
+        buildConstrainedSolidStrokeResolvedPackets(
+          `vector:${data.id}:${network.id}:constrained`,
+          path.sampledPoints,
+          path.closed,
+          data.strokes
+        ))
     ]
   })
 
@@ -1412,6 +1544,24 @@ const renderVectorGraphic = (
 
   applyVectorHoverHitArea()
   applySolidCenterStrokeExportPackets(graphic, strokePackets)
+  applyCenterDashedOverlapDiagnostics(graphic, dashedCenterPackets)
+  setConstrainedSolidLegalityDiagnostics(graphic, {
+    domains: constrainedSolidDiagnostics.flatMap(
+      ({ legalityDiagnostics }) => legalityDiagnostics.domains
+    ),
+    acceptedGeometryIds: constrainedSolidDiagnostics.flatMap(
+      ({ legalityDiagnostics }) => legalityDiagnostics.acceptedGeometryIds
+    )
+  })
+  setConstrainedSolidOwnershipDiagnostics(
+    graphic,
+    mergeConstrainedSolidOwnershipDiagnostics(
+      constrainedSolidDiagnostics.map(({ networkId, ownershipDiagnostics }) => ({
+        networkId,
+        ownershipDiagnostics
+      }))
+    )
+  )
   renderSolidCenterStrokeEntries(
     graphic,
     toSolidCenterStrokeRenderEntries(strokePackets)

@@ -3,7 +3,12 @@ import { PropertyTypes, setElementGeometryLocalBounds } from '@asyra/utils'
 import { applyRenderableFill, DEFAULT_OVAL_FILLS, getRenderableFills } from './fills'
 import { createEllipseHitArea, mergeHitAreas } from './shape-hit-area'
 import { DEFAULT_OVAL_STROKES } from './stroke-render/constants'
+import { applyCenterDashedOverlapDiagnostics } from './stroke-render/center-dashed-overlap-diagnostics'
+import { buildConstrainedSolidLegalityClippingResult } from './stroke-render/constrained-solid-legality-clipping'
+import { setConstrainedSolidLegalityDiagnostics } from './stroke-render/constrained-solid-legality-diagnostics'
+import { setConstrainedSolidOwnershipDiagnostics } from './stroke-render/constrained-solid-ownership-diagnostics'
 import { buildConstrainedSolidStrokeResolvedPackets } from './stroke-render/constrained-solid-stroke-packets'
+import { buildDashedCenterStrokeResolvedPackets } from './stroke-render/dashed-center-stroke-packets'
 import { renderSolidCenterStrokeEntries } from './stroke-render/solid-center-stroke-render'
 import { buildEllipseLoop } from './stroke-render/ellipse-path'
 import {
@@ -41,13 +46,33 @@ defineComponent({
   ],
   renderStrategy: (graphic, data) => {
     graphic.clear()
-    setElementGeometryLocalBounds(graphic, {
-      x: 0,
-      y: 0,
-      width: data.width,
-      height: data.height
-    })
+    setElementGeometryLocalBounds(
+      graphic as Parameters<typeof setElementGeometryLocalBounds>[0],
+      {
+        x: 0,
+        y: 0,
+        width: data.width,
+        height: data.height
+      }
+    )
     const pathPoints = buildEllipseLoop(data.width, data.height)
+    const dashedCenterPackets = buildDashedCenterStrokeResolvedPackets(
+      `oval:${data.id ?? 'anonymous'}:dashed-center`,
+      pathPoints,
+      true,
+      data.strokes
+    )
+    const constrainedResult = buildConstrainedSolidLegalityClippingResult(
+      [{ points: pathPoints, closed: true }],
+      data.strokes,
+      buildConstrainedSolidStrokeResolvedPackets(
+        `oval:${data.id ?? 'anonymous'}:constrained`,
+        pathPoints,
+        true,
+        data.strokes
+      )
+    )
+    const constrainedPackets = constrainedResult.packets
     const strokePackets = [
       ...buildSolidCenterStrokeResolvedPackets(
         `oval:${data.id ?? 'anonymous'}:center`,
@@ -55,14 +80,19 @@ defineComponent({
         true,
         data.strokes
       ),
-      ...buildConstrainedSolidStrokeResolvedPackets(
-        `oval:${data.id ?? 'anonymous'}:constrained`,
-        pathPoints,
-        true,
-        data.strokes
-      )
+      ...dashedCenterPackets,
+      ...constrainedPackets
     ]
     applySolidCenterStrokeExportPackets(graphic, strokePackets)
+    applyCenterDashedOverlapDiagnostics(graphic, dashedCenterPackets)
+    setConstrainedSolidLegalityDiagnostics(
+      graphic,
+      constrainedResult.legalityDiagnostics
+    )
+    setConstrainedSolidOwnershipDiagnostics(
+      graphic,
+      constrainedResult.ownershipDiagnostics
+    )
     const fillHitArea =
       getRenderableFills(data.fills).length > 0
         ? createEllipseHitArea(data.width, data.height)

@@ -1580,6 +1580,66 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-implementation-backlog.md`
   - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-tdd-plan.md`
 
+## 2026-04-18 - Professional stroke engine Phase 3 dashed center geometry promoted
+
+- Context:
+  - Phase 1 (`solid + center`) and Phase 2 (`solid + inside/outside`) were
+    already promoted, but dashed center rendering still depended on unfinished
+    legacy assumptions and lacked full visual closeout.
+  - The execution plan requires every supported slice to ship with both unit
+    tests and visual tests through the real app/runtime path.
+- Decision:
+  - Promote Phase 3 `dashed + center + uniform width + solid paint` for
+    supported `rect`, `oval`, and `vector` paths.
+  - Adopt canonical authored dashed data as `dashPattern` + `dashOffset` and
+    stop relying on scalar `dash/gap` runtime assumptions for the promoted
+    slice.
+  - Route center dashed rendering through fresh interval allocation,
+    shared frame slicing, and fresh final packet generation; do not reuse the
+    legacy dashed runtime.
+  - Require the screenshot-level gate
+    `apps/asyra-design/e2e/dashed-center-stroke-visual.spec.ts` plus
+    `yarn workspace @asyra/preset test:local` and `yarn react:build` for
+    Phase 3 closeout.
+- Consequences:
+  - Dashed center rendering now has a product-promoted fresh runtime with
+    visual and unit contracts, including offset behavior, open/closed vector
+    coverage, supported cap distinctions, unsupported round absence, and seam
+    continuity for full-loop closed dash intervals.
+  - Phase 4A overlap/ownership work can proceed without reopening legacy
+    dashed runtime paths.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-19 - Professional stroke engine Phase 4A overlap and ownership debug surface promoted
+
+- Context:
+  - Phase 4A needed to bring overlap graphing, deterministic ownership, and
+    bailout visibility onto the real `dashed + center` runtime path before
+    constrained legality work could begin.
+  - The accepted Phase 4A scope was limited to center-mode overlap/ownership
+    debug surfaces and component-local bailout visibility, not full legality
+    hardening.
+- Decision:
+  - Promote Phase 4A overlap/ownership support for the current
+    `dashed + center + uniform width + solid paint` matrix.
+  - Attach interval metadata to promoted dashed-center packets so overlap and
+    ownership diagnostics stay on the same runtime path as the shipped render
+    geometry.
+  - Ship overlap, ownership, and bailout overlays through the preset
+    render-layer registration path behind the explicit
+    `__ASYRA_PHASE4A_STROKE_DEBUG__` flag.
+  - Require `apps/asyra-design/e2e/center-dashed-overlap-visual.spec.ts` plus
+    `yarn workspace @asyra/preset test:local` for Phase 4A closeout.
+- Consequences:
+  - Phase 4A now has deterministic overlap components, deterministic ownership
+    winners for the promoted packet-level debug slice, and component-local
+    bailout visualization on the real app/runtime path.
+  - Phase 4B constrained ownership and legality work can begin without
+    reopening legacy dashed routing or inventing a parallel overlap debug path.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
 ## 2026-04-14 - Inside dashed stroke execution model locked to contract-first global-first pipeline
 
 - Context:
@@ -1658,3 +1718,854 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-rebuild-plan.md`
   - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-implementation-backlog.md`
   - `docs/ai/apps/asyra-design/plans/inside-dashed-stroke-global-first-tdd-plan.md`
+
+## 2026-04-19 - Stroke engine Phase 4 debug surfaces extended on real runtime paths
+
+- Context:
+  - Phase 4A overlap/ownership debug work is accepted and Phase 4B groundwork
+    is moving from legality-only viewing toward ownership-aware legality on
+    constrained solid geometry.
+  - The selected-element debug surfaces need to stay attached to the real
+    promoted runtime packets so future ownership/clipping work can be judged on
+    live geometry instead of helper-only snapshots.
+- Decision:
+  - Keep Phase 4A accepted with real `dashed + center` overlap/ownership/bailout
+    overlays on the selected-element render-layer path.
+  - Extend Phase 4B groundwork to include:
+    - canonical legality-domain viewer for constrained solid geometry
+    - packet-level constrained solid ownership overlay on the same selected
+      element path
+    - ownership-aware legality clipping helper routing for constrained solid
+      packets, with the current promoted slice preserving packets byte-for-byte
+      when no overflow is eligible
+  - Lock the current groundwork closeout to:
+    - `apps/asyra-design/e2e/center-dashed-overlap-visual.spec.ts`
+    - `apps/asyra-design/e2e/constrained-solid-legality-visual.spec.ts`
+    - `yarn workspace @asyra/preset test:local`
+- Consequences:
+  - Phase 4 debug inspection now covers both promoted dashed-center overlap work
+    and the current constrained-solid legality groundwork on real runtime
+    packets.
+  - Ownership-aware legality/clipping implementation can build on the same
+    debug surfaces without introducing helper-only viewer paths.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/center-dashed-overlap-ownership-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-ownership-legality-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-19 - Phase 4B vector ownership diagnostics require graphic-local id stability
+
+- Context:
+  - Phase 4B groundwork now merges constrained solid legality/ownership
+    diagnostics from multiple vector networks onto one selected graphic.
+  - Per-network ownership diagnostics reused local ids such as `candidate:0`
+    and `component:0`, which caused collisions after graphic-level merge even
+    though each network was deterministic in isolation.
+- Decision:
+  - Treat multi-network vector ownership diagnostics as one graphic-local
+    namespace.
+  - Re-id merged constrained ownership diagnostics deterministically with a
+    network-scoped prefix before attaching them to the runtime graphic.
+  - Add package-level tests that fail when candidate/component/region ids
+    collide after merge.
+- Consequences:
+  - Phase 4B ownership/clipping work can build on merged vector diagnostics
+    without ambiguous ids.
+  - Future ownership-aware clipping and debug overlays no longer depend on
+    accidental per-network id separation.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-ownership-legality-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-20 - Phase 4B exact owner-domain groundwork now supports orthogonal non-convex single-polygon candidates
+
+- Problem:
+  - Phase 4B exact candidate-set ownership regions already handled convex
+    components and mixed-topology candidates built from multiple convex packet
+    polygons.
+  - That still left a bounded but important gap: a single orthogonal
+    non-convex packet polygon could overlap a convex packet, but the ownership
+    path collapsed the shared region into one surrogate polygon instead of the
+    deterministic exact rectangles implied by the orthogonal shape.
+- Decision:
+  - Add a bounded normalization step in
+    `constrained-solid-ownership-diagnostics.ts`:
+    orthogonal non-convex single-polygon candidates are decomposed into
+    deterministic canonical rectangles before exact candidate-set intersection
+    runs.
+  - Keep this explicitly scoped to orthogonal single-polygon candidates;
+    broader general non-convex boolean support is still future work.
+- Impact:
+  - Exact owner-domain regions for orthogonal non-convex packets now remain on
+    the same exact-subset path as convex candidates.
+  - Clipping can subtract foreign-owned exact regions from convex packets while
+    preserving the correct local remainder, instead of relying on surrogate
+    whole-polygon ownership.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-ownership-legality-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-20 - Phase 4B clipping now supports orthogonal non-convex packet subtraction in a bounded slice
+
+- Problem:
+  - After exact candidate-set ownership regions were available for orthogonal
+    non-convex single-polygon candidates, clipping still treated the packet
+    polygon as one non-convex minuend.
+  - That preserved incorrect non-convex remainders instead of the canonical
+    disconnected local sectors implied by the exact shared regions.
+- Decision:
+  - Reuse the same bounded normalization strategy in
+    `constrained-solid-legality-clipping.ts`:
+    orthogonal non-convex packet polygons are decomposed into deterministic
+    canonical rectangles before foreign-owned exact candidate-set subtraction.
+  - Keep this scoped to orthogonal packets only; broader general non-convex
+    polygon subtraction remains out of scope.
+- Impact:
+  - Orthogonal non-convex outside packets can now subtract foreign-owned exact
+    regions while preserving disconnected local remainders.
+  - This extends the exact-subset owner-domain clipping path without claiming
+    general polygon-boolean support.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-ownership-legality-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-20 - Phase 4B exact owner-domain groundwork now covers mixed-topology candidates with orthogonal non-convex packet pieces
+
+- Problem:
+  - Phase 4B exact candidate-set ownership regions already covered:
+    - convex multi-candidate components
+    - mixed-topology candidates built from multiple convex packet polygons
+    - orthogonal non-convex single-polygon candidates
+  - The remaining bounded gap was the combined case: one mixed-topology
+    candidate containing both convex packet polygons and orthogonal non-convex
+    packet pieces.
+- Decision:
+  - Formalize this combination on the same exact candidate-set owner-domain
+    path.
+  - Reuse the existing orthogonal non-convex canonical rectangle
+    decomposition per packet piece rather than introducing broader boolean
+    ownership logic.
+- Impact:
+  - Mixed-topology candidates with orthogonal non-convex pieces now have an
+    explicit deterministic ownership contract.
+  - This extends the owner-domain groundwork without claiming general
+    mixed-topology subtraction or general non-convex clipping support.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-ownership-legality-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-20 - Phase 4B clipping now covers mixed-topology packets whose non-owner packet includes orthogonal non-convex pieces
+
+- Problem:
+  - Phase 4B clipping already supported:
+    - convex packet subtraction
+    - orthogonal non-convex packet subtraction
+    - mixed-topology packets composed from convex packet polygons
+  - The next bounded gap was the combination of the last two: a mixed-topology
+    packet where the non-owner side includes an orthogonal non-convex piece.
+- Decision:
+  - Keep the clipping path bounded and reuse the same orthogonal canonical
+    rectangle decomposition already used for non-convex packet subtraction.
+  - Do not expand this into broader mixed-topology boolean subtraction or
+    general non-convex polygon support.
+- Impact:
+  - Mixed-topology packet subtraction now stays on the exact candidate-set
+    owner-domain path even when the non-owner packet includes an orthogonal
+    non-convex piece.
+  - This advances 4B clipping without changing the declared limit that broader
+    mixed-topology / general non-convex subtraction is still future work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-ownership-legality-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-19 - Phase 4B convex outside corner-overflow clipping now partitions complement sectors without overlap
+
+- Context:
+  - Helper-level outside clipping already handled convex single-edge overflow,
+    but corner overflow still decomposed into overlapping outside polygons.
+  - That preserved acceptable opaque output in narrow cases while still
+    violating canonical packet structure through duplicate coverage inside the
+    same packet.
+- Decision:
+  - Extend the convex outside complement helper so corner overflow is emitted as
+    deterministic disjoint sectors rather than overlapping outside polygons.
+  - Keep this scoped to convex canonical boundaries; do not imply broader
+    non-convex or general owner-domain subtraction support.
+- Consequences:
+  - Phase 4B outside groundwork now has a cleaner canonical packet form for
+    corner overflow before broader owner-domain subtraction is attempted.
+  - This remains a helper-level complement partition slice, not full outside
+    complement clipping closeout.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-ownership-legality-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-19 - Phase 4B two-candidate convex ownership components now emit canonical shared overlap regions
+
+- Context:
+  - Ownership diagnostics originally emitted surrogate regions by reusing full
+    candidate polygons whenever packets overlapped.
+  - That was sufficient for early overlays, but it did not satisfy Phase 4B's
+    owner-domain intent for simple two-candidate convex overlap components.
+- Decision:
+  - Promote a bounded ownership-region slice:
+    - when a component contains exactly two convex candidates, emit canonical
+      shared overlap polygons from their geometric intersections
+    - keep multi-candidate components on the existing surrogate fallback for now
+- Consequences:
+  - Phase 4B now has a more faithful owner-domain basis for simple two-stroke
+    convex overlaps without overstating support for general multi-candidate
+    region construction.
+  - This remains incremental groundwork, not full owner-domain closeout.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-ownership-legality-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-19 - Phase 4B nested convex multi-candidate ownership components now collapse to canonical all-candidate shared regions
+
+- Context:
+  - Two-candidate convex overlap components were already upgraded from
+    surrogate owner polygons to canonical shared overlap regions.
+  - Nested three-stroke outside overlaps still emitted one surrogate region per
+    candidate polygon, even when all candidates shared the same common overlap
+    corridor.
+- Decision:
+  - Extend the canonical overlap-region slice so nested convex multi-candidate
+    components emit shared all-candidate overlap polygons whenever a common
+    intersection exists across the whole component.
+  - Keep broader non-nested or mixed-topology multi-candidate ownership-region
+    construction as future work.
+- Consequences:
+  - Phase 4B now has a cleaner owner-domain basis for nested concentric
+    constrained solid overlaps before general owner-domain subtraction is
+    attempted.
+  - This remains incremental groundwork, not final multi-candidate ownership
+    closeout.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-ownership-legality-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-19 - Phase 4B clipping helper expanded with explicit outside sub-slice
+
+- Context:
+  - Phase 4B constrained packets already route through the ownership-aware
+    legality clipping helper, but outside-mode clipping remained an implicit
+    no-op with no declared intermediate support boundary.
+  - The groundwork needs an explicit small-scope step forward without implying
+    that full complement-domain clipping is solved.
+- Decision:
+  - Keep inside overflow clipping enabled at helper level.
+  - Add one declared outside clipping sub-slice at helper level:
+    - convex canonical legality boundary
+    - single-edge overflow semantics
+    - boundary-touching legal outside packets remain unchanged
+  - Record this as incremental helper support, not as full promoted outside
+    clipping.
+- Consequences:
+  - Phase 4B can continue advancing clipping semantics in bounded slices rather
+    than jumping directly from no-op outside routing to full complement-domain
+    clipping.
+  - Future outside clipping work must declare broader topology/complement scope
+    explicitly before claiming promotion.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-ownership-legality-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-19 - Phase 4B owner-domain clipping entered final packets in a narrow slice
+
+- Context:
+  - Phase 4B had legality diagnostics, ownership diagnostics, and helper-level
+    overflow clipping, but ownership had not yet changed final constrained
+    packets.
+  - Full polygon subtraction is still too broad to promote safely in one step.
+- Decision:
+  - Introduce the first narrow owner-domain clipping slice:
+    - if an outside constrained packet polygon is exactly matched by a foreign-
+      owned ownership region, drop that polygon from the final packet
+    - keep this limited to exact polygon matches; do not imply general polygon
+      subtraction yet
+- Consequences:
+  - Ownership now affects final constrained geometry in a bounded, testable
+    way.
+  - Phase 4B still does not claim full owner-domain clipping; broader
+    subtraction remains future work.
+  - A real app-path visual benchmark now locks the visible consequence:
+    owner stroke remains visible while exact foreign-owned outside polygons
+    remain absent from the final render.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-ownership-legality-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-19 - Phase 4B convex multi-candidate owner domains gained exact subset regions
+
+- Context:
+  - Phase 4B ownership diagnostics already emitted canonical shared overlap
+    polygons for two-candidate convex components.
+  - Nested three-candidate convex components had partial support, but broader
+    multi-candidate exact-subset ownership was not yet stated clearly.
+  - Clipping could drop exact foreign-owned polygons, but it could not yet
+    subtract foreign-owned convex subregions while preserving the owner-domain
+    remainder.
+- Decision:
+  - Promote convex multi-candidate ownership diagnostics to exact
+    candidate-set semantics for:
+    - nested shared-overlap cases
+    - partial-overlap cases without a shared all-candidate region
+  - Upgrade constrained outside clipping so convex packets can subtract
+    foreign-owned exact candidate-set subregions and preserve the remaining
+    owner-domain polygons.
+- Consequences:
+  - Phase 4B can now express and clip convex owner domains beyond exact
+    whole-polygon removal.
+  - The same exact-subset path now stays deterministic through four-candidate
+    partial-overlap chain and branch components, not only nested
+    three-candidate cases.
+  - Mixed-topology candidates composed from multiple convex packet polygons
+    can now remain on the same exact-subset owner-domain path without
+    collapsing back to surrogate full-owner regions.
+  - Broader mixed-topology or non-convex owner-domain subtraction remains
+    future work and is still out of scope for the current groundwork slice.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-ownership-legality-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-20 - Phase 4B bounded support now covers non-orthogonal non-convex single-polygon owner domains
+
+- Context:
+  - Phase 4B already supported convex exact candidate-set regions, orthogonal
+    non-convex single-polygon candidates via canonical rectangle decomposition,
+    and mixed-topology packets that still stayed on that bounded orthogonal
+    path.
+  - The remaining bounded single-polygon gap was a simple non-orthogonal
+    non-convex packet, which still fell back to the generic surrogate path
+    because it could not enter the existing convex intersection/subtraction
+    route deterministically.
+- Decision:
+  - Add deterministic bounded ear decomposition for non-orthogonal simple
+    non-convex single polygons so they can enter the same exact candidate-set
+    ownership path as convex pieces.
+  - Keep the scope narrow:
+    - single-polygon non-orthogonal non-convex candidates
+    - deterministic convex-triangle decomposition only
+    - no claim of general polygon-boolean support
+  - Formalize the matching clipping sub-slice only for the bounded case where
+    exact foreign-owned regions cover the whole non-owner packet, allowing a
+    full packet drop on that same ear-decomposition path.
+- Consequences:
+  - Phase 4B now formally supports deterministic exact ownership regions for
+    bounded non-orthogonal non-convex single polygons.
+  - The matching bounded clipping path can now drop a non-owner packet
+    wholesale when exact foreign-owned regions cover the entire packet.
+  - Broader mixed-topology subtraction and broader general non-convex
+    owner-domain construction remain future work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-ownership-legality-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-20 - Phase 4B bounded support now covers mixed-topology packets with non-orthogonal non-convex pieces
+
+- Context:
+  - Phase 4B already had bounded support for:
+    - mixed-topology packets with orthogonal non-convex pieces
+    - non-orthogonal non-convex single-polygon packets via deterministic
+      ear decomposition
+  - The remaining nearby gap was the combination of the two: a mixed-topology
+    packet containing both convex pieces and non-orthogonal non-convex pieces.
+- Decision:
+  - Reuse the same bounded ear-decomposition path for non-orthogonal
+    non-convex pieces inside a mixed-topology packet.
+  - Keep the supported clipping slice narrow:
+    - exact candidate-set ownership only
+    - whole-packet drop only when exact foreign-owned regions cover all packet
+      pieces
+    - no claim of broader mixed-topology boolean subtraction
+- Consequences:
+  - Mixed-topology packets that include non-orthogonal non-convex pieces now
+    have deterministic exact ownership regions on the same bounded
+    ear-decomposition path.
+  - The matching bounded clipping path can now:
+    - subtract foreign-owned exact candidate-set regions while preserving
+      disconnected owner-domain remainders
+    - drop a non-owner mixed-topology packet wholesale when those exact
+      foreign-owned regions cover every packet piece
+  - Broader mixed-topology subtraction and broader general non-convex
+    owner-domain construction remain future work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-ownership-legality-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-20 - Phase 4B bounded support now covers mixed-topology packets with multiple non-orthogonal non-convex pieces
+
+- Context:
+  - Phase 4B already supported mixed-topology packets with a single
+    non-orthogonal non-convex piece on the bounded ear-decomposition path.
+  - The remaining nearby bounded gap was the same topology class but with
+    multiple non-orthogonal non-convex pieces inside one packet.
+- Decision:
+  - Reuse the same deterministic bounded ear-decomposition path per piece.
+  - Promote bounded support for:
+    - deterministic exact ownership regions across all packet pieces
+    - partial foreign-owned subtraction while preserving disconnected
+      owner-domain remainders
+  - Keep this explicitly out of general polygon-boolean territory.
+- Consequences:
+  - Mixed-topology packets with multiple non-orthogonal non-convex pieces now
+    stay on the same bounded exact candidate-set owner-domain route.
+  - The matching clipping path can now subtract foreign-owned exact
+    candidate-set regions while preserving disconnected owner-domain
+    remainders across all such packet pieces.
+  - Broader mixed-topology subtraction and broader general non-convex
+    owner-domain construction remain future work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-ownership-legality-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-20 - Bounded expansion stop rule adopted for scenario-matrix rollout work
+
+- Context:
+  - Bounded slice expansion is useful for safe rollout, but if left unchecked
+    it can degrade into endless micro-slice growth without ever declaring the
+    algorithm-class boundary explicitly.
+  - Phase 4B is already close to the point where the remaining gaps are no
+    longer bounded-normalization work and instead point toward broader general
+    boolean-style algorithms.
+- Decision:
+  - Adopt a bounded expansion stop rule at the platform rule level and in the
+    Phase 4B scenario/execution docs.
+  - Allow bounded expansion only while the next slice still fits the declared
+    algorithm class and meaningfully reduces the unsupported scenario frontier.
+  - Require a new plan or explicit next-phase algorithm once the remaining
+    work crosses into broader mixed-topology subtraction, broader general
+    non-convex owner-domain construction, or general polygon-boolean
+    semantics.
+- Consequences:
+  - Future rollout work has an explicit stop condition instead of open-ended
+    micro-slice growth.
+  - Phase 4B can continue safely up to its declared bounded frontier, but it
+    may not silently absorb a new algorithm class.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/rules/scenario-matrix-testing.md`
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-ownership-legality-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-20 - Constrained solid broader owner-domain work split into a new algorithm-class plan
+
+- Context:
+  - Phase 4B bounded expansion now has an explicit stop rule.
+  - The remaining unsupported constrained solid legality work is no longer a
+    bounded extension of the current convex / rectangle-decomposition /
+    bounded-ear-decomposition class.
+  - Continuing under Phase 4B would blur the boundary between bounded support
+    and broader polygon-boolean-class work.
+- Decision:
+  - Create a new next-phase algorithm plan:
+    - `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
+  - Define broader mixed-topology subtraction, broader general non-convex
+    owner-domain construction, and broader product-facing visual gates there
+    instead of continuing Phase 4B micro-slice expansion.
+- Consequences:
+  - Phase 4B remains the bounded groundwork and bounded-support plan.
+  - Further constrained solid ownership / legality rollout must hand off to
+    the new broader algorithm-class plan once the bounded stop condition is
+    reached.
+  - Future work is now tracked without pretending that broader boolean-class
+    support is merely another 4B bounded slice.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-ownership-legality-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-20 - First broader constrained-solid owner-domain scenario promoted beyond the former four-candidate cap
+
+- Context:
+  - The new broader constrained-solid owner-domain plan had been created, but
+    no promoted scenario had yet crossed the former `<=4` exact candidate-set
+    boundary in runtime-backed tests.
+  - The clearest explicit algorithm boundary in code was the
+    `componentCandidates.length <= 4` gate inside constrained solid ownership
+    diagnostics.
+- Decision:
+  - Promote the first broader scenario under the new plan:
+    - deterministic exact candidate-set ownership for nested five-candidate
+      constrained solid components
+  - Keep the expansion narrow:
+    - nested convex component
+    - exact candidate-set owner-domain only
+    - no claim of broader mixed-topology or general polygon-boolean support
+- Consequences:
+  - The new algorithm-class plan now has a real promoted scenario with both
+    unit and app-path visual coverage.
+  - The first broader owner-domain slice is no longer only a document stub;
+    runtime-backed tests now prove behavior beyond the former four-candidate
+    cap.
+  - Broader mixed-topology subtraction and broader non-convex owner-domain
+    construction remain future work under the same new plan.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-21 - Broader mixed-topology subtraction now covers multiple non-orthogonal disconnected pieces
+
+- Context:
+  - The broader constrained-solid owner-domain plan already promoted
+    mixed-topology subtraction on disconnected vector-generated sub-packets,
+    and later extended that family to the case where one disconnected
+    sub-packet is a non-orthogonal non-convex piece.
+  - A remaining broader-family gap was the same subtraction behavior when
+    multiple disconnected sub-packets are non-orthogonal non-convex pieces.
+- Decision:
+  - Promote a new broader mixed-topology subtraction scenario covering
+    multiple disconnected non-orthogonal non-convex pieces on the
+    vector-generated product path.
+  - Add product-path and app-path benchmarks that require:
+    - visible ownership coverage
+    - visible primary-owner coverage
+    - retained local `miter` remainder coverage on the non-owner stroke
+- Consequences:
+  - The broader subtraction frontier now expands by scenario family instead of
+    repeating candidate-count growth.
+  - Mixed-topology subtraction support is wider while still respecting the
+    bounded-expansion stop rule already declared for this plan.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-21 - Broader mixed-topology subtraction now covers a non-orthogonal non-convex disconnected sub-packet
+
+- Context:
+  - The broader constrained-solid owner-domain plan already promoted one
+    subtraction scenario where a `bevel` owner left local `miter` remainders
+    on disconnected vector-generated sub-packets.
+  - That benchmark still used only rectangular disconnected pieces, so the
+    broader mixed-topology subtraction family was not yet proven on a path
+    where one disconnected sub-packet was a non-orthogonal non-convex piece.
+- Decision:
+  - Promote the next broader mixed-topology subtraction scenario under the
+    same algorithm-class plan:
+    - one disconnected vector-generated sub-packet is a non-orthogonal
+      non-convex piece
+    - the `bevel` owner still clips the `miter` non-owner without erasing the
+      local remainder completely
+    - the scenario is now gated by both product-path export-packet assertions
+      and app-path visual coverage
+- Consequences:
+  - The broader mixed-topology subtraction family is no longer validated only
+    on rectangular disconnected pieces.
+  - This round did not require a new runtime patch; the existing broader
+    subtraction path already satisfied the scenario once the unit and visual
+    contracts were promoted and synced.
+  - Broader mixed-topology subtraction beyond the currently promoted families,
+    and broader general non-convex owner-domain construction, remain future
+    work under the same plan.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-21 - Broader owner-domain plan now has a first Family B equivalence gate for non-orthogonal mixed-topology input
+
+- Context:
+  - The broader constrained-solid owner-domain plan already had:
+    - a mixed-topology subtraction scenario on a disconnected vector-generated
+      path where one sub-packet was a non-orthogonal non-convex piece
+    - a Family D equivalence gate on the broader subtraction path for a
+      shape-generated rectangle and a vector-generated closed rectangle
+  - It still lacked a promoted Family B scenario proving that broader
+    non-convex owner-domain construction stays deterministic across equivalent
+    vector-generated inputs on the same mixed-topology subtraction family.
+- Decision:
+  - Promote the first Family B equivalence scenario under the broader
+    constrained-solid owner-domain plan:
+    - two equivalent vector-generated mixed-topology paths
+    - one disconnected sub-packet is a non-orthogonal non-convex piece
+    - both must keep deterministic owner-domain construction and equivalent
+      local `miter` remainders on the broader subtraction path
+    - the scenario is now gated by both product-path packet/region equality
+      and app-path visual coverage
+- Consequences:
+  - The broader owner-domain plan is no longer missing a promoted Family B
+    equivalence gate for non-orthogonal non-convex mixed-topology input.
+  - This round did not require a new runtime patch; the existing broader
+    owner-domain and subtraction path already satisfied the scenario once the
+    unit and visual contracts were promoted and synced.
+  - Broader mixed-topology subtraction beyond the currently promoted
+    scenarios, and broader general non-convex owner-domain construction,
+    remain future work under the same plan.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-21 - Broader nested-convex exact owner-domain path now uses a subset-budget gate instead of a hard candidate cap
+
+- Context:
+  - The broader constrained-solid owner-domain plan had already promoted
+    nested five through nine-candidate exact candidate-set ownership
+    scenarios.
+  - Continuing with `10`, `11`, `12` as separate micro-slices would violate
+    the bounded-expansion rule we explicitly adopted to avoid infinite
+    frontier growth.
+- Decision:
+  - Replace the artificial hard candidate-count cap on the broader
+    nested-convex exact candidate-set path with a **subset-budget gate**.
+  - Promote ten nested constrained solid components as the first proof
+    scenario under that new gate.
+  - The exact path now stays enabled while the total subset count remains
+    within the declared budget, instead of requiring one new promotion per
+    additional candidate count.
+- Consequences:
+  - This removes the need to keep extending the same nested-convex family
+    through `10`, `11`, `12` as separate status bullets.
+  - The broader owner-domain plan now advances by changing the algorithm gate,
+    not by continuing an unbounded candidate-count frontier.
+  - Broader mixed-topology subtraction and broader general non-convex
+    owner-domain construction still remain future work under the same plan.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-21 - Broader constrained-solid subtraction now has a first shape/vector equivalence gate
+
+- Context:
+  - The broader constrained-solid owner-domain plan had already promoted local
+    `miter` remainder subtraction on the broader mixed-topology path, but the
+    new algorithm-class plan still lacked a declared `Family D` equivalence
+    gate.
+  - A package-level comparison and app-path benchmark now both showed the same
+    promoted subtraction semantics on:
+    - one shape-generated closed rectangle
+    - one vector-generated closed rectangle
+    - `stroke:0` outside `bevel`
+    - `stroke:1` outside `miter`
+- Decision:
+  - Promote the first shape/vector equivalence scenario under the broader
+    constrained-solid owner-domain plan:
+    - shape-generated and vector-generated closed rectangles must keep
+      equivalent local `miter` remainders on the broader subtraction path
+    - the scenario is now gated by both package-level export-packet equality
+      and app-path visual coverage
+- Consequences:
+  - The broader owner-domain plan is no longer missing an explicit `Family D`
+    gate for its first promoted subtraction family.
+  - This round did not require a new runtime patch; the existing broader
+    subtraction path already satisfied the equivalence scenario once the unit
+    and visual benchmarks were promoted and the docs were synced.
+  - Broader mixed-topology subtraction beyond the promoted local-remainder
+    scenario, and broader general non-convex owner-domain construction, remain
+    future work under the same plan.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-20 - Broader constrained-solid owner-domain path now extends beyond the former five-candidate cap
+
+- Context:
+  - The first broader constrained-solid owner-domain scenario had already
+    promoted deterministic exact candidate-set ownership for nested
+    five-candidate components.
+  - The next explicit algorithm boundary in code was still a hard cap:
+    exact candidate-set regions were only built when
+    `componentCandidates.length <= 5`.
+- Decision:
+  - Promote the next broader scenario under the same new algorithm-class plan:
+    - deterministic exact candidate-set ownership for nested six-candidate
+      constrained solid components
+  - Keep the expansion narrow:
+    - nested convex component only
+    - exact candidate-set owner-domain only
+    - no claim of broader mixed-topology or general polygon-boolean support
+- Consequences:
+  - The broader owner-domain path is now runtime-backed beyond the former
+    five-candidate cap with matching unit and app-path visual coverage.
+  - The new algorithm-class plan now has two concrete promoted broader
+    scenarios instead of a single cap-break.
+  - Broader mixed-topology subtraction and broader non-convex owner-domain
+    construction still remain future work under the same plan.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-20 - Broader constrained-solid owner-domain path now extends beyond the former six-candidate cap
+
+- Context:
+  - The broader constrained-solid owner-domain path already supported nested
+    five-candidate and six-candidate exact candidate-set ownership.
+  - The next explicit algorithm boundary in code was still a hard cap:
+    exact candidate-set regions were only built when
+    `componentCandidates.length <= 6`.
+- Decision:
+  - Promote the next broader scenario under the same algorithm-class plan:
+    - deterministic exact candidate-set ownership for nested seven-candidate
+      constrained solid components
+  - Keep the expansion narrow:
+    - nested convex component only
+    - exact candidate-set owner-domain only
+    - no claim of broader mixed-topology or general polygon-boolean support
+- Consequences:
+  - The broader owner-domain path is now runtime-backed beyond the former
+    six-candidate cap with matching unit and app-path visual coverage.
+  - The new algorithm-class plan now has three concrete promoted broader
+    scenarios, all on the same exact candidate-set path.
+  - Broader mixed-topology subtraction and broader non-convex owner-domain
+    construction still remain future work under the same plan.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-20 - Broader constrained-solid owner-domain path now extends beyond the former seven-candidate cap
+
+- Context:
+  - The broader constrained-solid owner-domain path already supported nested
+    five-candidate, six-candidate, and seven-candidate exact candidate-set
+    ownership.
+  - The next explicit algorithm boundary in code was still a hard cap:
+    exact candidate-set regions were only built when
+    `componentCandidates.length <= 7`.
+- Decision:
+  - Promote the next broader scenario under the same algorithm-class plan:
+    - deterministic exact candidate-set ownership for nested eight-candidate
+      constrained solid components
+  - Keep the expansion narrow:
+    - nested convex component only
+    - exact candidate-set owner-domain only
+    - no claim of broader mixed-topology or general polygon-boolean support
+- Consequences:
+  - The broader owner-domain path is now runtime-backed beyond the former
+    seven-candidate cap with matching unit and app-path visual coverage.
+  - The new algorithm-class plan now has four concrete promoted broader
+    scenarios, all on the same exact candidate-set path.
+  - Broader mixed-topology subtraction and broader non-convex owner-domain
+    construction still remain future work under the same plan.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-20 - Broader constrained-solid owner-domain path now extends beyond the former eight-candidate cap
+
+- Context:
+  - The broader constrained-solid owner-domain path already supported nested
+    five-candidate through eight-candidate exact candidate-set ownership.
+  - The next explicit algorithm boundary in code was still a hard cap:
+    exact candidate-set regions were only built when
+    `componentCandidates.length <= 8`.
+- Decision:
+  - Promote the next broader scenario under the same algorithm-class plan:
+    - deterministic exact candidate-set ownership for nested nine-candidate
+      constrained solid components
+  - Keep the expansion narrow:
+    - nested convex component only
+    - exact candidate-set owner-domain only
+    - no claim of broader mixed-topology or general polygon-boolean support
+- Consequences:
+  - The broader owner-domain path is now runtime-backed beyond the former
+    eight-candidate cap with matching unit and app-path visual coverage.
+  - The new algorithm-class plan now has five concrete promoted broader
+    scenarios, all on the same exact candidate-set path.
+  - Broader mixed-topology subtraction and broader non-convex owner-domain
+    construction still remain future work under the same plan.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-20 - Broader constrained-solid owner-domain path now includes the first mixed-topology promoted scenario
+
+- Context:
+  - The broader constrained-solid owner-domain plan already had nested
+    five-through-nine-candidate exact candidate-set scenarios, but they all
+    stayed on the same nested convex family.
+  - The first real broader-family gap was mixed-topology exact candidate-set
+    ownership across disconnected multi-polygon sub-packets.
+  - A new mixed-topology five-candidate unit contract exposed two concrete
+    issues:
+    - `constrained-solid-ownership-diagnostics.ts` still compared polygons by
+      fixed start index / winding, so exact-subset subtraction missed
+      equivalent superset polygons and emitted impossible subset regions.
+    - `vector.ts` still built its final constrained render/export path from
+      raw constrained packets, instead of the legality-clipped
+      `result.packets`, so a multi-network vector could reintroduce
+      foreign-owned geometry that helper-level clipping had already removed.
+- Decision:
+  - Promote the first mixed-topology broader scenario under the new
+    algorithm-class plan:
+    - deterministic exact candidate-set ownership for mixed-topology
+      five-candidate constrained solid components across disconnected
+      multi-polygon sub-packets
+    - app-path visual coverage on a multi-network vector-generated path
+  - Strengthen polygon equality inside
+    `constrained-solid-ownership-diagnostics.ts` to accept equivalent
+    polygons across rotation and reversed winding.
+  - Route vector constrained render/export packets through the ownership-clipped
+    legality result packets instead of raw constrained packets.
+- Consequences:
+  - The broader owner-domain path is no longer only a nested candidate-count
+    frontier; it now has a promoted mixed-topology family with matching unit
+    and app-path visual coverage.
+  - Mixed-topology exact-subset ownership no longer emits impossible subset
+    regions just because two equivalent polygons disagree on start index or
+    winding.
+  - Multi-network vector constrained solid rendering now stays aligned with
+    helper-level legality/ownership clipping on the final render/export path.
+  - Broader mixed-topology subtraction and broader general non-convex
+    owner-domain construction still remain future work under the same plan.
+
+## 2026-04-21 - Broader constrained-solid owner-domain path now includes the second mixed-topology promoted scenario
+
+- Context:
+  - The broader constrained-solid owner-domain plan already had a first
+    promoted mixed-topology five-candidate scenario on disconnected
+    multi-polygon sub-packets.
+  - The next meaningful frontier was not another nested convex count bump; it
+    was proving that the same mixed-topology broader family stays deterministic
+    when the disconnected sub-packets grow to six candidates on the same
+    vector-generated product path.
+- Decision:
+  - Promote the second mixed-topology broader scenario under the same
+    algorithm-class plan:
+    - deterministic exact candidate-set ownership for mixed-topology
+      six-candidate constrained solid components across disconnected
+      multi-polygon sub-packets
+    - app-path visual coverage on a multi-network vector-generated path
+- Consequences:
+  - The broader owner-domain path now has more than one promoted
+    mixed-topology scenario, so the new algorithm class is no longer validated
+    by a single disconnected-subpacket example.
+  - No new runtime patch was required for this promotion; the existing broader
+    mixed-topology path already satisfied the six-candidate contract once the
+    unit and visual benchmarks were made explicit.
+  - Broader mixed-topology subtraction and broader general non-convex
+    owner-domain construction still remain future work under the same plan.
+
+## 2026-04-21 - Broader constrained-solid subtraction path now includes retained local miter remainders on mixed-topology vector sub-packets
+
+- Context:
+  - The broader constrained-solid owner-domain plan already had mixed-topology
+    ownership scenarios on disconnected multi-polygon vector sub-packets, but
+    it still lacked an app-path benchmark for the subtraction side where a
+    non-owner stroke should remain partially visible rather than disappear
+    completely.
+  - A package-level probe showed a concrete supported case:
+    - `stroke:0` outside `bevel`
+    - `stroke:1` outside `miter`
+    - two disconnected vector-generated rectangle networks
+    - the non-owner `miter` stroke keeps local corner remainders after
+      ownership clipping
+- Decision:
+  - Promote the first broader mixed-topology subtraction scenario under the new
+    algorithm-class plan:
+    - preserved local `miter` remainders when a `bevel` owner clips
+      disconnected vector-generated sub-packets
+    - app-path visual coverage on a multi-network vector-generated path
+  - Add a matching package-level clipping contract that requires the non-owner
+    packets to retain their local remainder polygons instead of dropping to
+    zero.
+- Consequences:
+  - The broader mixed-topology path is now promoted on both sides:
+    - exact candidate-set ownership
+    - local-remainder subtraction
+  - This round did not need a new runtime patch; the existing broader
+    mixed-topology clipping path already satisfied the promoted subtraction
+    scenario once the unit and visual benchmarks were made explicit.
+  - Broader mixed-topology subtraction beyond this declared scenario, and
+    broader general non-convex owner-domain construction, still remain future
+    work under the same plan.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`

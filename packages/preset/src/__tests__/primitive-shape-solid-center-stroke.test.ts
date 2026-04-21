@@ -199,7 +199,7 @@ describe('primitive shape solid-center stroke wiring', () => {
     })
   })
 
-  it('should not run: rectangle render strategy ignores unsupported dashed stroke slices', () => {
+  it('should run: rectangle render strategy emits dashed-center mesh for supported dashed stroke slices', () => {
     const graphic = runRenderStrategy('rect', {
       id: 'rect-1',
       x: 12,
@@ -211,12 +211,15 @@ describe('primitive shape solid-center stroke wiring', () => {
         createDefaultStroke({
           width: 6,
           position: StrokePositions.CENTER,
-          style: StrokeStyles.DASHED
+          style: StrokeStyles.DASHED,
+          dashPattern: [20, 20],
+          dashOffset: 0
         })
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(0)
+    expect(getProjectionMeshes(graphic)).toHaveLength(6)
+    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(6)
   })
 
   it('should not run: frame render strategy does not emit stroke mesh even when strokes are provided', () => {

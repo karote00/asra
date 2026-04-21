@@ -59,7 +59,10 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
         geometry: {
           geometryId,
           polygons,
-          bounds: getBounds(polygons)
+          bounds: getBounds(polygons),
+          debugMeta: {
+            strokeId: `stroke:${index}`
+          }
         },
         paint: {
           geometryId,
