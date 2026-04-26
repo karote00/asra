@@ -12,6 +12,59 @@ Companion architecture spec:
 
 - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-plan.md`
 
+Canonical algorithm flow contract:
+
+- `docs/ai/apps/asyra-design/plans/professional-stroke-engine-algorithm-flow.md`
+
+Current rollout control documents:
+
+- `docs/ai/apps/asyra-design/plans/stroke-engine-doc-source-of-truth.md`
+- `docs/ai/apps/asyra-design/plans/stroke-engine-support-matrix.md`
+- `docs/ai/apps/asyra-design/plans/stroke-engine-promotion-ledger.md`
+- `docs/ai/apps/asyra-design/plans/stroke-engine-failure-triage.md`
+- `docs/ai/apps/asyra-design/plans/stroke-engine-manual-qa-checklist.md`
+
+Companion handoff file for fast resume in a new conversation:
+
+- `docs/ai/apps/asyra-design/plans/professional-stroke-engine-handoff.md`
+
+## Current Execution Focus
+
+The active execution scope is now intentionally narrower than the full
+architecture, but it is still a formal product plan.
+
+The current delivery target is Figma-like uniform-width stroke completion for
+the supported Asyra Design shape/vector model. The plan may use bounded slices
+to reach that target, but the target itself is not a representative-only demo.
+
+Current rollout priority:
+
+- uniform-width stroke only
+- `inside` / `outside` / `center`
+- `solid` / `dashed`
+- `miter` / `bevel` / `round` joins
+- `butt` / `square` / `round` caps
+- dash pattern and dash offset behavior for the supported uniform-width path
+  families
+- render / hit-test / export parity for promoted geometry packets
+
+Deferred to future-feature work, not the current execution critical path:
+
+- paint/color expansion beyond already-recorded historical probes, including
+  broader gradient-paint rollout
+- variable-width product rollout
+
+Interpretation rule:
+
+- existing Phase 6 / Phase 7 notes remain as architecture-compatible backlog
+  and historical evidence
+- they do not outrank unfinished uniform-width stroke behavior
+- downstream slice selection must prefer the next user-facing
+  uniform-width stroke blocker first
+- "good enough to move downstream" means good enough inside the formal
+  uniform-width product target; it must not be used to permanently defer a
+  baseline Figma-like stroke behavior that users expect in manual testing
+
 ## Execution Rules
 
 1. No phase may bypass the architecture stage boundaries.
@@ -21,8 +74,29 @@ Companion architecture spec:
    it enables.
 5. If a phase gate turns red, later phases stop.
 6. Temporary rollout limits must be declared explicitly in this document.
-7. Variable width may be deferred in rollout, but the data model may not be
-   rewritten later to make room for it.
+7. Future features such as gradient expansion and variable width may be
+   deferred in rollout, but the data model must stay extensible enough that
+   later work does not require a contract reset.
+8. Before any scope expansion, the owner must run the mandatory three-question
+   self-review:
+   - which later phase is blocked if this case is deferred now
+   - whether the case would change any externally exposed interface
+   - whether the added work exceeds `20%` of the current phase scope
+9. If the answer to the first question is "no later phase is blocked", the
+   case goes to backlog and downstream work continues.
+10. If the answer to the second question is "yes", interface changes must stop
+    for explicit approval instead of being decided inside the phase.
+11. If the answer to the third question is "more than 20%", expansion must
+    stop for approval instead of being absorbed silently into the phase.
+12. Every phase optimizes for "good enough to move downstream" rather than
+    perfect edge-case coverage; deferred work must be recorded explicitly in
+    backlog or blocked lists.
+13. Algorithm work must follow the canonical flow contract before runtime
+    implementation. If a helper/API sequence changes, update
+    `professional-stroke-engine-algorithm-flow.md` before changing code.
+14. Stroke work must use `stroke-engine-doc-source-of-truth.md` for document
+    routing. Deprecated stroke manuals and legacy inside-dashed plans are not
+    implementation authority.
 
 ## Verification Rules
 
@@ -126,13 +200,15 @@ Forbidden temporary approximations:
 - open and closed paths
 - joins: `miter`, `bevel`
 - caps: `butt`, `square`
+- Phase 5 shared centerline geometry now also promotes:
+  - `round` join on closed center geometry
+  - `round` cap on open center geometry
 
 ### Unsupported
 
 - constrained legality
 - dash patterns
 - gradient paint
-- round joins / round caps
 - variable width
 
 ### Gate
@@ -187,7 +263,8 @@ Forbidden temporary approximations:
 
 ### Gate
 
-- open-path constrained strokes are rejected deterministically
+- open-path constrained strokes do not enter constrained clipping; authored
+  `inside` / `outside` vector strokes render through the center fallback path
 - no unconstrained geometry is routed through clipping helpers
 - legality clipping preserves non-overflow geometry byte-for-byte
 - supported visual benchmarks keep constrained band coverage above the defined
@@ -219,7 +296,8 @@ Phase 2 is only DONE when all of the following are true at the same time:
 - unsupported visual benchmarks are green for:
   - constrained `round` join remains absent
   - constrained `round` cap remains absent
-  - open constrained vector paths remain absent
+  - open constrained vector clipping remains absent while authored
+    `inside/outside` vector strokes render through centered fallback
   - self-intersecting constrained vector paths remain absent
 - closed constrained `butt` / `square` caps remain visually equivalent within
   the benchmark tolerance
@@ -274,7 +352,7 @@ Phase 2 is only DONE when all of the following are true at the same time:
 
 - constrained dashed legality
 - gradient paint
-- round joins / round caps
+- constrained round joins / round caps
 - variable width
 
 ### Gate
@@ -299,10 +377,13 @@ Phase 3 is only DONE when all of the following are true at the same time:
   - closed `vector center dashed` promoted path
   - open `vector center dashed` promoted path
   - open `vector center dashed` `butt/square` cap distinction
+  - closed `vector center dashed` `round` join curvature without miter overfill
+  - open `vector center dashed` `round` cap terminal curvature without square
+    overfill
 - unsupported visual benchmarks are green for:
   - constrained dashed stroke remains absent
-  - dashed `round` join remains absent
-  - dashed `round` cap remains absent
+  - constrained round join / cap slices remain absent from the center dashed
+    contract
 - `yarn workspace @asyra/preset test:local` is green
 - `yarn react:build` is green
 
@@ -328,6 +409,17 @@ Phase 3 is only DONE when all of the following are true at the same time:
     geometry
   - minimal variable-width probe fixtures now verify the shared dashed frame
     slicer preserves asymmetric width probes without uniform-width assumptions
+    across:
+    - seam-wrap dashed-path slicing
+    - acute-join interval slicing
+  - minimal variable-width probe fixtures now verify dashed overlap-component
+    detection stays deterministic on asymmetric, non-rectangular overlap bands
+  - minimal variable-width probe fixtures now verify constrained inside legality
+    clipping preserves asymmetric non-overflow geometry byte-for-byte on the
+    shared clipping path
+  - minimal variable-width probe fixtures now verify constrained outside
+    legality clipping preserves asymmetric non-overflow geometry byte-for-byte
+    on the shared clipping path
   - screenshot-level visual benchmarks now gate dashed center behavior via
     `apps/asyra-design/e2e/dashed-center-stroke-visual.spec.ts`
 
@@ -344,14 +436,13 @@ Phase 3 is only DONE when all of the following are true at the same time:
 
 - `dashed + center + uniform width + solid paint`
 - open and closed paths
-- joins: `miter`, `bevel`
-- caps: `butt`, `square`
+- joins: `miter`, `bevel`, plus Phase 5 promoted `round`
+- caps: `butt`, `square`, plus Phase 5 promoted `round`
 
 ### Unsupported
 
 - constrained legality
 - self-intersecting ownership hardening
-- round joins / round caps
 - gradient paint
 - variable width
 
@@ -462,8 +553,9 @@ Phase 3 is only DONE when all of the following are true at the same time:
   - general polygon-boolean semantics
   at that point a new plan or explicit next-phase algorithm is required
   instead of further micro-slice expansion under 4B
-- the current handoff target for that broader algorithm class is:
-  - `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
+- broader algorithm work must now route through:
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-algorithm-flow.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-promotion-ledger.md`
 - the first promoted broader scenario on that path is nested five-candidate
   exact candidate-set ownership beyond the former four-candidate cap
 - the second promoted broader scenario on that path is nested six-candidate
@@ -537,6 +629,404 @@ Phase 3 is only DONE when all of the following are true at the same time:
 - bailout preserves preview geometry and never leaks partial corruption
 - only eligible overflow enters clipping helpers
 
+### Current Status
+
+- started on `2026-04-21`
+- first declared Phase 4C contract now lives in:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+- current helper-level entry slice:
+  - full-loop visible constrained dashed intervals on closed paths
+  - repeated non-full-loop constrained dashed intervals on valid closed
+    legality domains
+- helper-level groundwork now exists for:
+  - constrained dashed packet derivation on full-loop visible intervals
+  - open-path constrained rejection with vector app-path center fallback for
+    authored `inside` / `outside`
+  - constrained dashed packet derivation for repeated non-full-loop intervals
+    on valid closed legality domains
+- first promoted product-facing slice now exists for:
+  - shape-generated `rect`
+  - `position: inside`
+  - one full-loop visible constrained dashed interval on a closed path
+- next promoted product-facing slice now extends the same Family A path to:
+  - shape-generated `rect`
+  - `position: outside`
+  - one full-loop visible constrained dashed interval on a closed path
+- next promoted shape-generated slice now exists for:
+  - `oval`
+  - `position: inside`
+  - `position: outside`
+  - one full-loop visible constrained dashed interval on a closed path
+- first promoted vector-generated slice now exists for:
+  - closed single-network rectangle-equivalent `vector`
+  - `position: inside`
+  - `position: outside`
+  - one full-loop visible constrained dashed interval on a closed path
+- first broader vector-generated slice now exists for:
+  - closed single-network non-rectangle-equivalent quadrilateral `vector`
+  - `position: inside`
+  - `position: outside`
+  - one full-loop visible constrained dashed interval on a closed path
+- first Family D equivalence gate is now closed for:
+  - shape-generated `rect`
+  - vector-generated closed single-network rectangle-equivalent `vector`
+  - matching `inside/outside` full-loop constrained dashed coverage
+- first Family B product-facing slice now exists for:
+  - shape-generated `rect`
+  - `position: inside`
+  - `position: outside`
+  - one single-edge visible constrained dashed interval on a closed path
+- next Family B product-facing slice now exists for:
+  - vector-generated closed single-network rectangle-equivalent `vector`
+  - `position: inside`
+  - `position: outside`
+  - one single-edge visible constrained dashed interval on a closed path
+- next broader Family B product-facing slice now exists for:
+  - vector-generated closed single-network non-rectangle-equivalent
+    quadrilateral `vector`
+  - `position: inside`
+  - `position: outside`
+  - one single-edge visible constrained dashed interval on a closed path
+- first Family C product-facing slice now exists for:
+  - shape-generated `rect`
+  - `position: inside`
+  - `join: bevel`
+  - `join: miter`
+  - one corner-spanning visible constrained dashed interval on a closed path
+- next bounded Family C product-facing slice now exists for:
+  - shape-generated `rect`
+  - `position: outside`
+  - `join: bevel`
+  - `join: miter`
+  - one corner-spanning visible constrained dashed interval on a closed path
+- first vector-generated Family C product-facing slice now exists for:
+  - closed single-network rectangle-equivalent `vector`
+  - `position: inside`
+  - `join: bevel`
+  - `join: miter`
+  - one corner-spanning visible constrained dashed interval on a closed path
+- next bounded vector-generated Family C product-facing slice now exists for:
+  - closed single-network rectangle-equivalent `vector`
+  - `position: outside`
+  - `join: bevel`
+  - `join: miter`
+  - one corner-spanning visible constrained dashed interval on a closed path
+- first broader vector-generated Family C product-facing slice now exists for:
+  - closed single-network non-rectangle-equivalent quadrilateral `vector`
+  - `position: inside`
+  - `join: bevel`
+  - `join: miter`
+  - `position: outside`
+  - `join: bevel`
+  - `join: miter`
+  - one corner-spanning visible constrained dashed interval on a closed path
+- first Family B and Family D crossover gate is now closed for:
+  - shape-generated `rect`
+  - vector-generated closed single-network rectangle-equivalent `vector`
+  - matching `inside/outside` single-edge constrained dashed coverage
+- first Family E blocked-behavior visual gate now exists for:
+  - shape-generated `rect`
+  - multiple eligible constrained dashed strokes remain visually absent until
+    4C ownership is promoted
+- next Family E blocked-behavior visual gate now exists for:
+  - self-intersecting constrained dashed full-loop `vector`
+  - the unsupported exact constrained topology remains visually absent on the
+    app path
+- third Family E blocked-behavior visual gate now exists for:
+  - multi-network constrained dashed `vector`
+  - the ownership-blocked topology remains visually absent on the app path
+- fourth Family E visual gate is now corrected for:
+  - open-path constrained dashed `vector`
+  - authored `inside` / `outside` remains stored in scene data
+  - the unsupported constrained topology does not enter constrained clipping
+  - the app path renders the open stroke as centered fallback instead of
+    disappearing
+- constrained dashed multi-interval placement now covers:
+  - real-created simple closed single-network `vector`
+  - closed cubic single-network `vector` when the sampled closed legality
+    domain is valid
+  - the reported closed star-like single-network `vector` when the sampled
+    closed legality domain is valid
+  - repeated dashed interval pattern such as `20,20`
+  - switching the same stroke row from `center` to authored `inside` /
+    `outside`
+- product-facing visibility fallback remains limited to:
+  - real-created open single-network `vector`
+  - repeated dashed interval pattern such as `20,20`
+  - switching the same stroke row from `center` to authored `inside` /
+    `outside`
+  - open-path constrained inside/outside geometry remains unpromoted; the
+    fallback is centered visibility only
+- first Phase 5 promoted representative now exists for:
+  - shape-generated `rect`
+  - constrained dashed `full-loop + inside + round join`
+  - the bounded app path now renders through the first round-join slice
+- next Phase 5 promoted representative now exists for:
+  - shape-generated `rect`
+  - constrained dashed `full-loop + outside + round join`
+  - the bounded app path now renders through the next outside round-join slice
+- next vector-generated Phase 5 promoted representative now exists for:
+  - closed single-network rectangle-equivalent `vector`
+  - constrained dashed `full-loop + outside + round join`
+  - the bounded app path now renders through the next vector outside
+    round-join slice
+- next broader vector-generated Phase 5 promoted representative now exists for:
+  - closed single-network non-rectangle-equivalent quadrilateral `vector`
+  - constrained dashed `full-loop + outside + round join`
+  - the bounded app path now renders through the next broader vector outside
+    round-join slice
+- next Phase 5 promoted representative now exists for:
+  - shape-generated `rect`
+  - constrained dashed `corner-spanning + inside + round join`
+  - the bounded app path now renders the first legal-turn round-join partial
+    dash without dropping the interval
+- next Phase 5 promoted representative now exists for:
+  - shape-generated `rect`
+  - constrained dashed `corner-spanning + outside + round join`
+  - the bounded app path now renders the matching exterior legal-turn
+    round-join partial dash
+- next vector-generated Phase 5 promoted representative now exists for:
+  - closed single-network rectangle-equivalent `vector`
+  - constrained dashed `corner-spanning + inside + round join`
+  - the bounded app path now renders the first vector legal-turn round-join
+    partial dash
+- next vector-generated Phase 5 promoted representative now exists for:
+  - closed single-network rectangle-equivalent `vector`
+  - constrained dashed `corner-spanning + outside + round join`
+  - the bounded app path now renders the matching vector exterior legal-turn
+    round-join partial dash
+- next Phase 5 promoted representative now exists for:
+  - shape-generated `rect`
+  - constrained dashed `single-edge + inside + round cap`
+  - the bounded app path now renders through the next round-cap slice
+- next Phase 5 promoted representative now exists for:
+  - shape-generated `rect`
+  - constrained dashed `single-edge + outside + round cap`
+  - the bounded app path now renders through the next outside round-cap slice
+- next vector-generated Phase 5 promoted representative now exists for:
+  - closed single-network rectangle-equivalent `vector`
+  - constrained dashed `single-edge + outside + round cap`
+  - the bounded app path now renders through the next vector outside round-cap slice
+- next broader vector-generated Phase 5 promoted representative now exists for:
+  - closed single-network non-rectangle-equivalent quadrilateral `vector`
+  - constrained dashed `single-edge + outside + round cap`
+  - the bounded app path now renders through the next broader vector outside
+    round-cap slice
+- first vector-generated Phase 5 promoted representative now exists for:
+  - closed single-network rectangle-equivalent `vector`
+  - constrained dashed `full-loop + inside + round join`
+  - the bounded app path now renders through the first vector round-join slice
+- next vector-generated Phase 5 promoted representative now exists for:
+  - closed single-network rectangle-equivalent `vector`
+  - constrained dashed `single-edge + inside + round cap`
+  - the bounded app path now renders through the first vector round-cap slice
+- next broader vector-generated Phase 5 promoted representative now exists for:
+  - closed single-network non-rectangle-equivalent quadrilateral `vector`
+  - constrained dashed `single-edge + inside + round cap`
+  - the bounded app path now renders through the first broader vector round-cap slice
+- next broader vector-generated Phase 5 promoted representative now exists for:
+  - closed single-network non-rectangle-equivalent quadrilateral `vector`
+  - constrained dashed `full-loop + inside + round join`
+  - the bounded app path now renders through the first broader vector round-join slice
+- first Phase 5 Family D equivalence gate is now closed for:
+  - shape-generated `rect`
+  - closed single-network rectangle-equivalent `vector`
+  - matching `full-loop + inside + round join` constrained dashed coverage
+- next Phase 5 Family D equivalence gate is now closed for:
+  - shape-generated `rect`
+  - closed single-network rectangle-equivalent `vector`
+  - matching `full-loop + outside + round join` constrained dashed coverage
+- next Phase 5 Family D equivalence gate is now closed for:
+  - shape-generated `rect`
+  - closed single-network rectangle-equivalent `vector`
+  - matching `single-edge + inside + round cap` constrained dashed coverage
+- next Phase 5 Family D equivalence gate is now closed for:
+  - shape-generated `rect`
+  - closed single-network rectangle-equivalent `vector`
+  - matching `single-edge + outside + round cap` constrained dashed coverage
+- first Phase 6 promoted representative now exists for:
+  - shape-generated `rect`
+  - constrained dashed `full-loop + inside + local-bounds linear gradient paint`
+  - the bounded app/runtime path now swaps paint without changing the promoted
+    constrained dashed geometry packet
+- next Phase 6 promoted representative now exists for:
+  - shape-generated `rect`
+  - constrained dashed `full-loop + outside + local-bounds linear gradient paint`
+  - the bounded app/runtime path now swaps paint without changing the promoted
+    outside constrained dashed geometry packet
+- next vector-generated Phase 6 promoted representative now exists for:
+  - closed single-network rectangle-equivalent `vector`
+  - constrained dashed `full-loop + inside + local-bounds linear gradient paint`
+  - the bounded app/runtime path now reuses the same constrained dashed
+    geometry packet on the first vector-generated gradient slice
+- next vector-generated Phase 6 promoted representative now exists for:
+  - closed single-network rectangle-equivalent `vector`
+  - constrained dashed `full-loop + outside + local-bounds linear gradient paint`
+  - the bounded app/runtime path now reuses the same constrained dashed
+    geometry packet on the first vector-generated outside-gradient slice
+- next broader vector-generated Phase 6 promoted representative now exists for:
+  - closed single-network non-rectangle-equivalent quadrilateral `vector`
+  - constrained dashed `full-loop + inside + local-bounds linear gradient paint`
+  - the bounded app/runtime path now reuses the same constrained dashed
+    geometry packet on the first broader vector-generated gradient slice
+- next broader vector-generated Phase 6 promoted representative now exists for:
+  - closed single-network non-rectangle-equivalent quadrilateral `vector`
+  - constrained dashed `full-loop + outside + local-bounds linear gradient paint`
+  - the bounded app/runtime path now reuses the same constrained dashed
+    geometry packet on the first broader vector-generated outside-gradient slice
+- next Phase 6 promoted representative now exists for:
+  - shape-generated `rect`
+  - constrained dashed `single-edge + inside + local-bounds linear gradient paint`
+  - the bounded app/runtime path now swaps paint without changing the promoted
+    single-edge constrained dashed geometry packet
+- next Phase 6 promoted representative now exists for:
+  - shape-generated `rect`
+  - constrained dashed `single-edge + outside + local-bounds linear gradient paint`
+  - the bounded app/runtime path now swaps paint without changing the promoted
+    exterior single-edge constrained dashed geometry packet
+- next vector-generated Phase 6 promoted representative now exists for:
+  - closed single-network rectangle-equivalent `vector`
+  - constrained dashed `single-edge + inside + local-bounds linear gradient paint`
+  - the bounded app/runtime path now swaps paint without changing the promoted
+    single-edge constrained dashed geometry packet on the first vector-generated
+    interval-local gradient slice
+- next vector-generated Phase 6 promoted representative now exists for:
+  - closed single-network rectangle-equivalent `vector`
+  - constrained dashed `single-edge + outside + local-bounds linear gradient paint`
+  - the bounded app/runtime path now swaps paint without changing the promoted
+    exterior single-edge constrained dashed geometry packet on the first
+    vector-generated outside interval-local gradient slice
+- next broader vector-generated Phase 6 promoted representative now exists for:
+  - closed single-network non-rectangle-equivalent quadrilateral `vector`
+  - constrained dashed `single-edge + inside + local-bounds linear gradient paint`
+  - the bounded app/runtime path now swaps paint without changing the promoted
+    single-edge constrained dashed geometry packet on the first broader
+    vector-generated interval-local gradient slice
+- next broader vector-generated Phase 6 promoted representative now exists for:
+  - closed single-network non-rectangle-equivalent quadrilateral `vector`
+  - constrained dashed `single-edge + outside + local-bounds linear gradient paint`
+  - the bounded app/runtime path now swaps paint without changing the promoted
+    exterior single-edge constrained dashed geometry packet on the first
+    broader vector-generated outside interval-local gradient slice
+- next Phase 6 promoted representative now exists for:
+  - shape-generated `rect`
+  - constrained dashed `inside + bevel + corner-spanning + local-bounds linear gradient paint`
+  - the bounded app/runtime path now swaps paint without changing the promoted
+    corner-spanning constrained dashed geometry packet on the first legal-turn
+    gradient slice
+- next vector-generated Phase 6 promoted representative now exists for:
+  - closed single-network rectangle-equivalent `vector`
+  - constrained dashed `inside + bevel + corner-spanning + local-bounds linear gradient paint`
+  - the bounded app/runtime path now swaps paint without changing the promoted
+    corner-spanning constrained dashed geometry packet on the first vector-generated
+    legal-turn gradient slice
+- next broader vector-generated Phase 6 promoted representative now exists for:
+  - closed single-network non-rectangle-equivalent quadrilateral `vector`
+  - constrained dashed `inside + bevel + corner-spanning + local-bounds linear gradient paint`
+  - the bounded app/runtime path now swaps paint without changing the promoted
+    corner-spanning constrained dashed geometry packet on the first broader
+    vector-generated legal-turn gradient slice
+- next Phase 6 promoted representative now exists for:
+  - shape-generated `rect`
+  - constrained dashed `outside + bevel + corner-spanning + local-bounds linear gradient paint`
+  - the bounded app/runtime path now swaps paint without changing the promoted
+    exterior corner-spanning constrained dashed geometry packet on the first
+    outside legal-turn gradient slice
+- next vector-generated Phase 6 promoted representative now exists for:
+  - closed single-network rectangle-equivalent `vector`
+  - constrained dashed `outside + bevel + corner-spanning + local-bounds linear gradient paint`
+  - the bounded app/runtime path now swaps paint without changing the promoted
+    exterior corner-spanning constrained dashed geometry packet on the first
+    vector-generated outside legal-turn gradient slice
+  - constrained dashed `outside + bevel + corner-spanning + local-bounds linear gradient paint`
+  - the bounded app/runtime path now swaps paint without changing the promoted
+    exterior corner-spanning constrained dashed geometry packet on the first
+    outside legal-turn gradient slice
+- first Phase 6 Family D equivalence gate is now closed for:
+  - shape-generated `rect`
+  - closed single-network rectangle-equivalent `vector`
+  - constrained dashed `full-loop + inside + local-bounds linear gradient paint`
+  - the bounded app/runtime path now keeps matching inner-band gradient paint
+    coverage on the same promoted geometry packet across the first
+    shape/vector Phase 6 source pair
+- first product-path unit contract now lives in:
+  - `packages/preset/src/__tests__/primitive-shape-constrained-dashed-stroke.test.ts`
+- first app-path visual benchmark contract now lives in:
+  - `apps/asyra-design/e2e/constrained-dashed-stroke-visual.spec.ts`
+  - `apps/asyra-design/e2e/definitions/constrained-dashed-stroke-visual.definition.md`
+- explicit non-slice behavior on the current promoted path:
+  - corner-spanning constrained dashed intervals beyond the currently promoted
+    representatives remain blocked:
+    - shape-generated `rect`
+      - `inside + bevel`
+      - `inside + miter`
+      - `outside + bevel`
+      - `outside + miter`
+    - vector-generated closed single-network rectangle-equivalent `vector`
+      - `inside + bevel`
+      - `inside + miter`
+      - `outside + bevel`
+      - `outside + miter`
+    - vector-generated closed single-network non-rectangle-equivalent
+      quadrilateral `vector`
+      - `inside + bevel`
+      - `inside + miter`
+      - `outside + bevel`
+      - `outside + miter`
+  - vector-generated and shape-generated non-rect corner-spanning constrained
+    dashed intervals beyond the first broader vector-generated
+    non-rectangle-equivalent `inside + bevel/miter` plus
+    `outside + bevel/miter` representatives remain blocked
+  - broader constrained dashed intervals beyond:
+    - the shape-generated `rect` single-edge slice
+    - the first vector-generated rectangle-equivalent single-edge slice
+    - the first broader vector-generated non-rectangle-equivalent single-edge
+      slice
+    remain blocked
+  - round joins / caps beyond the first promoted Phase 5 representatives remain
+    blocked:
+    - `rect + full-loop + inside + round join`
+    - `rect + full-loop + outside + round join`
+    - `rect + single-edge + inside + round cap`
+    - `rect + single-edge + outside + round cap`
+    - `vector rectangle-equivalent + full-loop + inside + round join`
+    - `vector rectangle-equivalent + full-loop + outside + round join`
+    - `vector rectangle-equivalent + single-edge + inside + round cap`
+    - `vector rectangle-equivalent + single-edge + outside + round cap`
+    - `broader vector non-rectangle-equivalent + single-edge + inside + round cap`
+    - `broader vector non-rectangle-equivalent + single-edge + outside + round cap`
+    - `broader vector non-rectangle-equivalent + full-loop + inside + round join`
+    - `broader vector non-rectangle-equivalent + full-loop + outside + round join`
+  - constrained dashed gradient paint beyond the current promoted Phase 6
+    representatives remain blocked:
+    - only these representatives are promoted:
+      - `rect + full-loop + inside + local-bounds linear gradient paint`
+      - `rect + full-loop + outside + local-bounds linear gradient paint`
+      - `rect + single-edge + inside + local-bounds linear gradient paint`
+      - `rect + single-edge + outside + local-bounds linear gradient paint`
+      - `vector rectangle-equivalent + full-loop + inside + local-bounds linear gradient paint`
+      - `vector rectangle-equivalent + full-loop + outside + local-bounds linear gradient paint`
+      - `vector rectangle-equivalent + single-edge + inside + local-bounds linear gradient paint`
+      - `vector rectangle-equivalent + single-edge + outside + local-bounds linear gradient paint`
+      - `vector rectangle-equivalent + inside + bevel + corner-spanning + local-bounds linear gradient paint`
+      - `broader vector non-rectangle-equivalent + full-loop + inside + local-bounds linear gradient paint`
+      - `broader vector non-rectangle-equivalent + full-loop + outside + local-bounds linear gradient paint`
+      - `broader vector non-rectangle-equivalent + single-edge + inside + local-bounds linear gradient paint`
+      - `broader vector non-rectangle-equivalent + single-edge + outside + local-bounds linear gradient paint`
+      - `broader vector non-rectangle-equivalent + inside + bevel + corner-spanning + local-bounds linear gradient paint`
+      - `rect + inside + bevel + corner-spanning + local-bounds linear gradient paint`
+      - `rect + outside + bevel + corner-spanning + local-bounds linear gradient paint`
+    - only the first rectangle-equivalent Phase 6 Family D equivalence gate is closed
+    - broader gradient-paint slices beyond these first vector-generated representatives remain blocked
+    - corner-spanning constrained dashed gradient paint beyond the first
+      promoted `inside/outside + bevel` shape representatives plus the first
+      rectangle-equivalent and broader-vector `inside + bevel`
+      representatives remains blocked
+  - open constrained dashed paths remain blocked
+  - multiple eligible constrained dashed strokes remain blocked until 4C
+    ownership is promoted
+  - multi-network constrained dashed `vector` promotion has not happened yet
+
 ## Phase 5. Round Geometry And Visual Fidelity
 
 ### Deliverables
@@ -550,6 +1040,14 @@ Phase 3 is only DONE when all of the following are true at the same time:
 
 - all Phase 4 slices plus round joins / caps
 
+### Current Priority
+
+- Phase 5 is the active execution frontier until the uniform-width round /
+  dashed matrix is complete enough for manual product testing.
+- The center-placement dashed baseline now includes:
+  - `center + dashed + round join` on a closed orthogonal vector representative
+  - `center + dashed + round cap` on an open vector representative
+
 ### Unsupported
 
 - gradient paint
@@ -562,13 +1060,36 @@ Phase 3 is only DONE when all of the following are true at the same time:
 - golden polygon, mesh, and screenshot fixtures pass on the supported matrix
 - no corner-family-specific workaround remains
 
-## Phase 6. Gradient Paint
+## Phase 6. Gradient Paint (Future Feature For Current Execution)
 
 ### Deliverables
 
 - solid and gradient paint over final stroke geometry
 - local-bounds and object-space gradient sampling
 - paint-only dirty path
+
+### Responsibility Boundary
+
+Stroke geometry remains responsible only for:
+
+- producing the correct visible stroke region for `inside` / `outside` /
+  `center`
+- enforcing geometry-side constraints such as miter limits and high-curvature
+  turn handling
+- exposing the geometry-space data required by paint, such as final bounds and
+  UV inputs
+
+Gradient paint remains responsible only for:
+
+- applying paint over the final geometry packet
+- color evaluation and stop interpolation
+- gradient sampling behavior
+
+Forbidden responsibility drift:
+
+- geometry must not own gradient application logic
+- geometry must not own color calculation
+- geometry must not own gradient sampling policy
 
 ### Supported
 
@@ -586,7 +1107,7 @@ Phase 3 is only DONE when all of the following are true at the same time:
 - gradient and solid paints share the same geometry packets
 - render and export paint parity pass on golden fixtures
 
-## Phase 7. Variable Width
+## Phase 7. Variable Width (Future Feature For Current Execution)
 
 ### Deliverables
 
@@ -700,8 +1221,10 @@ Required thresholds:
 
 ### Required Rejections
 
-- open path `inside`
-- open path `outside`
+- open path `inside` / `outside` constrained clipping, with app-path vector
+  render fallback to `center`
+- true self-intersecting vector constrained dashed multi-interval placement,
+  until the closed fill-rule legality domain is declared and promoted
 - constrained path with unstable orientation
 - constrained path with invalid fill-rule evaluation
 

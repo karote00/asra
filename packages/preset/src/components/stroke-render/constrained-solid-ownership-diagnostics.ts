@@ -451,7 +451,7 @@ const polygonsEqual = (left: Vec2[], right: Vec2[]) => {
       return true
     }
 
-    const reversed = rotated.toReversed()
+    const reversed = [...rotated].reverse()
     if (matchesAtRotation(reversed)) {
       return true
     }

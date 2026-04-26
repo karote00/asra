@@ -82,10 +82,25 @@ class RecordingVectorGraphic extends Container {
     bounds: { minX: number; minY: number; maxX: number; maxY: number }
   }[]
   __asyraConstrainedSolidOwnershipDiagnostics?: {
-    candidates: { candidateId: string }[]
+    candidates: {
+      candidateId: string
+      strokeId: string
+      polygons: { x: number; y: number }[][]
+    }[]
     edges: [string, string][]
-    components: { componentId: string; candidateIds: string[] }[]
-    ownedRegions: { regionId: string; candidateIds: string[] }[]
+    components: {
+      componentId: string
+      candidateIds: string[]
+      bounds: { minX: number; minY: number; maxX: number; maxY: number }
+      polygons: { x: number; y: number }[][]
+    }[]
+    ownedRegions: {
+      regionId: string
+      candidateIds: string[]
+      ownerStrokeId: string
+      bounds: { minX: number; minY: number; maxX: number; maxY: number }
+      polygon: { x: number; y: number }[]
+    }[]
   }
   hitArea?: { contains: (x: number, y: number) => boolean } | null
 
@@ -365,34 +380,46 @@ describe('vector constrained solid stroke product wiring', () => {
     expect(graphic.hitArea?.contains(-1, -1)).toBe(false)
   })
 
-  it('should not run: reject open-path constrained vectors deterministically on the main render path', () => {
-    const graphic = runVectorRenderStrategy({
-      id: 'vector-open-inside',
-      x: 0,
-      y: 0,
-      width: 40,
-      height: 20,
-      ...toVectorData(
-        [
-          { id: 'a', x: 0, y: 10 },
-          { id: 'b', x: 40, y: 10 }
-        ],
-        false
-      ),
-      closed: false,
-      fills: [],
-      strokes: [
-        createDefaultStroke({
-          width: 4,
-          style: StrokeStyles.SOLID,
-          position: StrokePositions.INSIDE
-        })
-      ]
-    })
+  ;[
+    { label: 'inside', position: StrokePositions.INSIDE },
+    { label: 'outside', position: StrokePositions.OUTSIDE }
+  ].forEach(({ label, position }) => {
+    it(`should run: render open-path solid ${label} vectors as centered fallback on the main render path`, () => {
+      const graphic = runVectorRenderStrategy({
+        id: `vector-open-${label}`,
+        x: 0,
+        y: 0,
+        width: 40,
+        height: 20,
+        ...toVectorData(
+          [
+            { id: 'a', x: 0, y: 10 },
+            { id: 'b', x: 40, y: 10 }
+          ],
+          false
+        ),
+        closed: false,
+        fills: [],
+        strokes: [
+          createDefaultStroke({
+            width: 4,
+            style: StrokeStyles.SOLID,
+            position
+          })
+        ]
+      })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(0)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toEqual([])
-    expect(graphic.hitArea).toBeNull()
+      expect(getProjectionMeshes(graphic)).toHaveLength(1)
+      expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+      expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual({
+        minX: 0,
+        minY: 8,
+        maxX: 40,
+        maxY: 12
+      })
+      expect(graphic.hitArea?.contains(20, 10)).toBe(true)
+      expect(graphic.hitArea?.contains(20, 16)).toBe(false)
+    })
   })
 
   it('should not run: reject self-intersecting constrained vectors deterministically on the main render path', () => {

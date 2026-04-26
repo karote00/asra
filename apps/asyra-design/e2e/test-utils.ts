@@ -335,6 +335,16 @@ export async function createVectorPath(
 
   // Perform a drag to create the vector path
   await dragOnCanvas(page, startX, startY, startX + width, startY + height, 20)
+  await page.waitForFunction(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const elements = core?.deps?.sceneTree?.getAllElements?.()
+    if (!(elements instanceof Map)) {
+      return false
+    }
+
+    return Array.from(elements.keys()).some((id) => id !== 'workspace')
+  })
   await page.waitForTimeout(500)
 
   // Switch back to Select tool

@@ -21,8 +21,11 @@ const createStroke = (
   join: 'miter',
   miterLimit: 4,
   cap: 'square',
+  kind: 'solid',
   color: 0x3366ff,
   alpha: 1,
+  gradientStyle: null,
+  paintKey: 'solid:3366ff:1',
   ...overrides
 })
 
@@ -110,7 +113,7 @@ describe('solid center stroke geometry', () => {
           join: 'round'
         })
       )
-    ).toBe(false)
+    ).toBe(true)
 
     expect(
       supportsSolidCenterStroke(
@@ -118,7 +121,7 @@ describe('solid center stroke geometry', () => {
           cap: 'round'
         })
       )
-    ).toBe(false)
+    ).toBe(true)
   })
 
   it('should run: build square-capped open-path polygons for the supported slice', () => {
@@ -140,6 +143,25 @@ describe('solid center stroke geometry', () => {
       maxX: 12,
       maxY: 2
     })
+  })
+
+  it('should run: build round-capped open-path polygons for the uniform-width slice', () => {
+    const polygons = buildSolidCenterStrokePolygons(
+      [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 }
+      ],
+      false,
+      createStroke({
+        cap: 'round'
+      })
+    )
+
+    expect(polygons).toHaveLength(3)
+    expect(isPointInPolygons({ x: -1.8, y: 0 }, polygons)).toBe(true)
+    expect(isPointInPolygons({ x: -1.8, y: -1.8 }, polygons)).toBe(false)
+    expect(isPointInPolygons({ x: 11.8, y: 0 }, polygons)).toBe(true)
+    expect(isPointInPolygons({ x: 11.8, y: 1.8 }, polygons)).toBe(false)
   })
 
   it('should run: build open bevel turns with explicit diagonal corner points instead of midpoint joins', () => {

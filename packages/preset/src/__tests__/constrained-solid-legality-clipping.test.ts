@@ -81,6 +81,90 @@ describe('constrained solid legality clipping', () => {
     expect(result.packets[0]?.geometry.polygons).toBe(packets[0]?.geometry.polygons)
   })
 
+  it('should run: preserve asymmetric-width inside probe polygons byte-for-byte when legality clipping sees no true overflow', () => {
+    const strokes = [
+      createDefaultStroke({
+        style: StrokeStyles.SOLID,
+        position: StrokePositions.INSIDE,
+        width: 10
+      })
+    ]
+    const packet = createSyntheticPacket(
+      'rect:inside:asymmetric-probe',
+      'stroke:0',
+      [
+        { x: 8, y: 6 },
+        { x: 70, y: 4 },
+        { x: 66, y: 15 },
+        { x: 12, y: 18 }
+      ]
+    )
+
+    const result = buildConstrainedSolidLegalityClippingResult(
+      [
+        {
+          points: [
+            { x: 0, y: 0 },
+            { x: 80, y: 0 },
+            { x: 80, y: 40 },
+            { x: 0, y: 40 }
+          ],
+          closed: true
+        }
+      ],
+      strokes,
+      [packet]
+    )
+
+    expect(result.eligibleOverflowGeometryIds).toEqual([])
+    expect(result.preservedGeometryIds).toEqual(['rect:inside:asymmetric-probe'])
+    expect(result.packets[0]).toBe(packet)
+    expect(result.packets[0]?.geometry.polygons).toBe(packet.geometry.polygons)
+    expect(result.packets[0]?.geometry.bounds).toEqual(packet.geometry.bounds)
+  })
+
+  it('should run: preserve asymmetric-width outside probe polygons byte-for-byte when legality clipping sees no true overflow', () => {
+    const strokes = [
+      createDefaultStroke({
+        style: StrokeStyles.SOLID,
+        position: StrokePositions.OUTSIDE,
+        width: 10
+      })
+    ]
+    const packet = createSyntheticPacket(
+      'rect:outside:asymmetric-probe',
+      'stroke:0',
+      [
+        { x: -6, y: -4 },
+        { x: 86, y: -8 },
+        { x: 92, y: 8 },
+        { x: -2, y: 10 }
+      ]
+    )
+
+    const result = buildConstrainedSolidLegalityClippingResult(
+      [
+        {
+          points: [
+            { x: 0, y: 0 },
+            { x: 80, y: 0 },
+            { x: 80, y: 40 },
+            { x: 0, y: 40 }
+          ],
+          closed: true
+        }
+      ],
+      strokes,
+      [packet]
+    )
+
+    expect(result.eligibleOverflowGeometryIds).toEqual([])
+    expect(result.preservedGeometryIds).toEqual(['rect:outside:asymmetric-probe'])
+    expect(result.packets[0]).toBe(packet)
+    expect(result.packets[0]?.geometry.polygons).toBe(packet.geometry.polygons)
+    expect(result.packets[0]?.geometry.bounds).toEqual(packet.geometry.bounds)
+  })
+
   it('should run: drop exact foreign-owned outside polygons while ownership-aware legality diagnostics remain available', () => {
     const strokes = [
       createDefaultStroke({
@@ -180,7 +264,14 @@ describe('constrained solid legality clipping', () => {
       )
     )
 
-    const result = buildConstrainedSolidLegalityClippingResult(groups, strokes, packets)
+    const result = buildConstrainedSolidLegalityClippingResult(
+      groups.map((group) => ({
+        points: [...group.points],
+        closed: group.closed
+      })),
+      strokes,
+      packets
+    )
     const strokeOnePackets = result.packets.filter(
       (packet) => packet.geometry.debugMeta?.strokeId === 'stroke:1'
     )

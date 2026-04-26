@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Container, Mesh } from 'pixi.js'
+import { Container, Graphics, Mesh } from 'pixi.js'
 import { renderSolidCenterStrokeEntries } from '../components/stroke-render/solid-center-stroke-render'
 
 class MeshTestHost extends Container {}
@@ -12,6 +12,17 @@ const getProjectionMeshes = (host: Container) =>
 
     return child.children.filter(
       (grandchild): grandchild is Mesh => grandchild instanceof Mesh
+    )
+  })
+
+const getProjectionGraphics = (host: Container) =>
+  host.children.flatMap((child) => {
+    if (!(child instanceof Container)) {
+      return []
+    }
+
+    return child.children.filter(
+      (grandchild): grandchild is Graphics => grandchild instanceof Graphics
     )
   })
 
@@ -90,6 +101,63 @@ describe('solid center stroke render', () => {
 
     expect(getProjectionMeshes(host)).toHaveLength(1)
     expect(getProjectionMeshes(host)[0]).toBe(mesh)
+  })
+
+  it('should run: reuse the same graphics projection when only gradient paint changes', () => {
+    const host = new MeshTestHost()
+    const entry = {
+      cacheKey: 'solid_center_gradient_0',
+      stroke: {
+        kind: 'gradient' as const,
+        color: 0x000000,
+        alpha: 1,
+        gradientStyle: {
+          fill: {
+            mocked: true,
+            options: {
+              type: 'linear',
+              start: { x: 0, y: 0.5 },
+              end: { x: 1, y: 0.5 }
+            }
+          }
+        },
+        paintKey: 'gradient:red-blue'
+      },
+      polygons: [
+        [
+          { x: 0, y: 0 },
+          { x: 10, y: 0 },
+          { x: 10, y: 4 },
+          { x: 0, y: 4 }
+        ]
+      ]
+    }
+
+    renderSolidCenterStrokeEntries(host, [entry])
+    const graphics = getProjectionGraphics(host)[0]
+
+    renderSolidCenterStrokeEntries(host, [
+      {
+        ...entry,
+        stroke: {
+          ...entry.stroke,
+          gradientStyle: {
+            fill: {
+              mocked: true,
+              options: {
+                type: 'linear',
+                start: { x: 0, y: 0.5 },
+                end: { x: 1, y: 0.5 }
+              }
+            }
+          },
+          paintKey: 'gradient:blue-red'
+        }
+      }
+    ])
+
+    expect(getProjectionGraphics(host)).toHaveLength(1)
+    expect(getProjectionGraphics(host)[0]).toBe(graphics)
   })
 
   it('should run: render multiple closed solid-center polygons without dropping corner coverage', () => {

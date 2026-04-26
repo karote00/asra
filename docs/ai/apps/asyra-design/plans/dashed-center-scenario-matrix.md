@@ -216,8 +216,7 @@ Reference shape:
 Required semantics:
 
 - unsupported dashed constrained slices remain absent
-- unsupported dashed `round` join remains absent
-- unsupported dashed `round` cap remains absent
+- unsupported constrained round join / cap slices remain absent
 
 Required tests:
 
@@ -225,6 +224,22 @@ Required tests:
   - unsupported slice packet builders emit no packets
 - visual:
   - absence benchmarks for all unsupported promoted-path cases
+
+## Promoted Round Baseline
+
+The center dashed uniform-width baseline now includes the first promoted round
+geometry representatives:
+
+- `center + dashed + round join` on a closed orthogonal vector fixture:
+  - visible corner curvature is present
+  - the miter-corner probe remains absent
+- `center + dashed + round cap` on an open vector fixture:
+  - terminal half-circle coverage is present at each visible dash end
+  - square-cap corner overfill remains absent
+
+This closes the former center dashed unsupported-round gap only for the
+center-placement contract. Constrained `inside` / `outside` round geometry stays
+owned by the constrained dashed matrix.
 
 ## Pattern Set Policy
 

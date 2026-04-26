@@ -1100,28 +1100,30 @@ test.describe('Dashed Center Stroke Visual Benchmarks', () => {
     expect(cornerCoverage).toBeLessThan(MAX_GAP_COVERAGE)
   })
 
-  test('benchmark: unsupported dashed round join remains visually absent', async ({
+  test('benchmark: dashed center round join renders visible corner curvature without miter fill', async ({
     page
   }) => {
-    await createRectangle(page, 0.3, 0.3)
+    await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
+    await clearVectorOverlayState(page)
+    await ensureElementSelected(page)
+    await patchSelectedVectorToClosedRectangle(page)
     await configureDashedCenterStroke(page, {
       join: 'round',
-      pattern: '20, 20',
+      pattern: '87, 20',
       offset: '0'
     })
 
     const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-    const coverage = await getGreenCoverage(page, raster, {
-      x: raster.padding - 2,
-      y: raster.padding - 2,
-      width: raster.elementWidth + 4,
-      height: Math.max(8, raster.strokeWidthPx)
-    })
+    const [roundArc, miterCorner] = await Promise.all([
+      getGreenCoverage(page, raster, getLocalPointProbe(raster, { x: 83, y: -3 })),
+      getGreenCoverage(page, raster, getLocalPointProbe(raster, { x: 85, y: -5 }, 2))
+    ])
 
-    expect(coverage).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(roundArc).toBeGreaterThan(0.2)
+    expect(miterCorner).toBeLessThan(MAX_GAP_COVERAGE)
   })
 
-  test('benchmark: unsupported dashed round cap remains visually absent', async ({
+  test('benchmark: dashed center round cap renders visible terminal curvature without square corners', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -1135,13 +1137,12 @@ test.describe('Dashed Center Stroke Visual Benchmarks', () => {
     })
 
     const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-    const coverage = await getGreenCoverage(page, raster, {
-      x: raster.padding - 2,
-      y: raster.padding - raster.strokeWidthPx / 2 + 1,
-      width: raster.elementWidth + 4,
-      height: raster.strokeWidthPx
-    })
+    const [roundTerminal, squareCorner] = await Promise.all([
+      getGreenCoverage(page, raster, getLocalPointProbe(raster, { x: -4, y: 0 }, 4)),
+      getGreenCoverage(page, raster, getLocalPointProbe(raster, { x: -5, y: -5 }, 2))
+    ])
 
-    expect(coverage).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(roundTerminal).toBeGreaterThan(0.2)
+    expect(squareCorner).toBeLessThan(MAX_GAP_COVERAGE)
   })
 })

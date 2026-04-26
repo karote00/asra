@@ -16,8 +16,11 @@ const createStroke = (
   join: 'miter',
   miterLimit: 4,
   cap: 'butt',
+  kind: 'solid',
   color: 0x3366ff,
   alpha: 1,
+  gradientStyle: null,
+  paintKey: 'solid:3366ff:1',
   ...overrides
 })
 

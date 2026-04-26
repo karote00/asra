@@ -22,6 +22,7 @@ definePropertyComponent({
     },
     toValue: (child, childId) => ({
       id: childId,
+      kind: child.get('kind'),
       style: child.get('style'),
       position: child.get('position'),
       width: child.get('width'),
@@ -32,6 +33,7 @@ definePropertyComponent({
       color: child.get('color'),
       opacity: child.get('opacity'),
       visible: child.get('visible'),
+      gradient: child.get('gradient'),
       joinType: child.get('joinType'),
       capType: child.get('capType'),
       miterAngle: child.get('miterAngle')

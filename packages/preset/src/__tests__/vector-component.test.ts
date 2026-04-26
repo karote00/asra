@@ -545,7 +545,7 @@ describe('Vector Component', () => {
       args: [100, 100]
     })
     expect(countInstructions(mockGraphic, 'bezierCurveTo')).toHaveLength(0)
-    expectNoProjectionMeshes(mockGraphic)
+    expect(getProjectionMeshes(mockGraphic)).toHaveLength(1)
   })
 
   it('should publish geometry bounds without stroke expansion', () => {
@@ -1091,7 +1091,7 @@ describe('Vector Component', () => {
     createEvenOddFillStyleMock.mockRestore()
   })
 
-  it('should not expose stroke-only hover hit on non-gradient vectors during legacy stroke runtime removal', () => {
+  it('should expose canonical stroke hover hit on non-gradient vectors after legacy stroke runtime removal', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1130,28 +1130,20 @@ describe('Vector Component', () => {
       closed: true,
       fills: [],
       strokes: [
-        {
-          id: '',
-          type: 'stroke',
+        createDefaultStroke({
           style: 'solid',
           position: StrokePositions.CENTER,
           width: 12,
-          dash: 20,
-          gap: 20,
-          defaultColorFormat: FillColorFormats.HEX,
-          colorFormat: FillColorFormats.HEX,
           color: '#ff0055',
           opacity: 1,
-          visible: true,
-          joinType: 'round',
-          miterAngle: 28.96
-        }
+          joinType: 'round'
+        })
       ]
     }
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
-    expect(mockGraphic.hitArea ?? null).toBeNull()
+    expect(mockGraphic.hitArea?.contains(50, 6)).toBe(true)
   })
 
   it('should not render legacy dashed stroke mesh for self-intersecting stars during runtime removal', () => {

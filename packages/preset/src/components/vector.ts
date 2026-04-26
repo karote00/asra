@@ -1,6 +1,8 @@
 import {
   PropertyTypes,
   StrokeJoinTypes,
+  StrokePositions,
+  StrokeStyles,
   createDefaultStroke,
   setElementGeometryLocalBounds
 } from '@asyra/utils'
@@ -17,6 +19,7 @@ import { applyCenterDashedOverlapDiagnostics } from './stroke-render/center-dash
 import { buildConstrainedSolidLegalityClippingResult } from './stroke-render/constrained-solid-legality-clipping'
 import { setConstrainedSolidLegalityDiagnostics } from './stroke-render/constrained-solid-legality-diagnostics'
 import { setConstrainedSolidOwnershipDiagnostics } from './stroke-render/constrained-solid-ownership-diagnostics'
+import { buildConstrainedDashedStrokeResolvedPackets } from './stroke-render/constrained-dashed-stroke-packets'
 import { buildConstrainedSolidStrokeResolvedPackets } from './stroke-render/constrained-solid-stroke-packets'
 import { buildDashedCenterStrokeResolvedPackets } from './stroke-render/dashed-center-stroke-packets'
 import { buildVectorGeometryModelPath } from './stroke-render/path-geometry'
@@ -66,6 +69,180 @@ const sortByStableId = <T extends { id: string }>(items: T[]): T[] =>
 
     return a.id.localeCompare(b.id)
   })
+
+const getOpenPathRenderStrokes = (
+  strokes: StrokeAttrs[] | undefined,
+  closed: boolean
+) => {
+  if (closed || !strokes) {
+    return strokes
+  }
+
+  return strokes.map((stroke) =>
+    stroke.position === StrokePositions.CENTER
+      ? stroke
+      : { ...stroke, position: StrokePositions.CENTER }
+  )
+}
+
+const getPositiveDashPattern = (stroke: StrokeAttrs) => {
+  const pattern = Array.isArray(stroke.dashPattern) ? stroke.dashPattern : []
+  const positivePattern = pattern.filter(
+    (entry) => Number.isFinite(entry) && entry > 0
+  )
+
+  if (positivePattern.length % 2 === 1) {
+    return [...positivePattern, ...positivePattern]
+  }
+
+  return positivePattern
+}
+
+const getNormalizedDashOffset = (stroke: StrokeAttrs, pattern: number[]) => {
+  const patternLength = pattern.reduce((total, entry) => total + entry, 0)
+  if (!Number.isFinite(stroke.dashOffset) || patternLength <= 0) {
+    return 0
+  }
+
+  const offset = stroke.dashOffset % patternLength
+  return offset >= 0 ? offset : offset + patternLength
+}
+
+const isFullLoopVisibleDash = (stroke: StrokeAttrs, totalLength: number) => {
+  const pattern = getPositiveDashPattern(stroke)
+  if (pattern.length === 0 || totalLength <= 0) {
+    return false
+  }
+
+  const offset = getNormalizedDashOffset(stroke, pattern)
+  return offset === 0 && pattern[0] >= totalLength
+}
+
+const hasClosedDashedVisibilityFallbackStroke = (
+  strokes: StrokeAttrs[] | undefined,
+  totalLength: number
+) =>
+  strokes?.some(
+    (stroke) =>
+      stroke.style === StrokeStyles.DASHED &&
+      stroke.position !== StrokePositions.CENTER &&
+      !isFullLoopVisibleDash(stroke, totalLength)
+  ) === true
+
+const getDashedCenterRenderStrokes = (
+  strokes: StrokeAttrs[] | undefined,
+  closed: boolean,
+  hasConstrainedDashedPacket: boolean,
+  allowClosedVisibilityFallback = false
+) => {
+  if (!strokes) {
+    return strokes
+  }
+
+  if (!closed) {
+    return getOpenPathRenderStrokes(strokes, closed)
+  }
+
+  if (hasConstrainedDashedPacket) {
+    return strokes
+  }
+
+  if (!allowClosedVisibilityFallback) {
+    return strokes
+  }
+
+  return strokes.map((stroke) =>
+    stroke.style === StrokeStyles.DASHED &&
+    stroke.position !== StrokePositions.CENTER
+      ? { ...stroke, position: StrokePositions.CENTER }
+      : stroke
+  )
+}
+
+const getSegmentOrientation = (a: Vec2, b: Vec2, c: Vec2) => {
+  const cross = (b.y - a.y) * (c.x - b.x) - (b.x - a.x) * (c.y - b.y)
+  if (Math.abs(cross) <= INTERSECTION_EPS) {
+    return 0
+  }
+
+  return cross > 0 ? 1 : 2
+}
+
+const isPointOnSegment = (a: Vec2, b: Vec2, c: Vec2) =>
+  b.x <= Math.max(a.x, c.x) + INTERSECTION_EPS &&
+  b.x + INTERSECTION_EPS >= Math.min(a.x, c.x) &&
+  b.y <= Math.max(a.y, c.y) + INTERSECTION_EPS &&
+  b.y + INTERSECTION_EPS >= Math.min(a.y, c.y)
+
+const pathSegmentsIntersect = (a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) => {
+  const o1 = getSegmentOrientation(a1, a2, b1)
+  const o2 = getSegmentOrientation(a1, a2, b2)
+  const o3 = getSegmentOrientation(b1, b2, a1)
+  const o4 = getSegmentOrientation(b1, b2, a2)
+
+  if (o1 !== o2 && o3 !== o4) {
+    return true
+  }
+
+  return (
+    (o1 === 0 && isPointOnSegment(a1, b1, a2)) ||
+    (o2 === 0 && isPointOnSegment(a1, b2, a2)) ||
+    (o3 === 0 && isPointOnSegment(b1, a1, b2)) ||
+    (o4 === 0 && isPointOnSegment(b1, a2, b2))
+  )
+}
+
+const isSimpleClosedPath = (points: Vec2[]) => {
+  const lastPoint = points[points.length - 1]
+  const firstPoint = points[0]
+  const normalizedPoints =
+    firstPoint &&
+    lastPoint &&
+    Math.abs(firstPoint.x - lastPoint.x) <= INTERSECTION_EPS &&
+    Math.abs(firstPoint.y - lastPoint.y) <= INTERSECTION_EPS
+      ? points.slice(0, -1)
+      : points
+
+  if (normalizedPoints.length < 3) {
+    return false
+  }
+
+  for (let leftIndex = 0; leftIndex < normalizedPoints.length; leftIndex += 1) {
+    const leftNextIndex = (leftIndex + 1) % normalizedPoints.length
+    const leftStart = normalizedPoints[leftIndex]
+    const leftEnd = normalizedPoints[leftNextIndex]
+
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < normalizedPoints.length;
+      rightIndex += 1
+    ) {
+      const rightNextIndex = (rightIndex + 1) % normalizedPoints.length
+      const sharesEndpoint =
+        leftIndex === rightIndex ||
+        leftIndex === rightNextIndex ||
+        leftNextIndex === rightIndex ||
+        leftNextIndex === rightNextIndex
+
+      if (sharesEndpoint) {
+        continue
+      }
+
+      if (
+        pathSegmentsIntersect(
+          leftStart,
+          leftEnd,
+          normalizedPoints[rightIndex],
+          normalizedPoints[rightNextIndex]
+        )
+      ) {
+        return false
+      }
+    }
+  }
+
+  return true
+}
 
 const mergeConstrainedSolidOwnershipDiagnostics = (
   entries: {
@@ -1252,13 +1429,56 @@ const renderVectorGraphic = (
 
   const dashedCenterPackets = orderedNetworks.flatMap((network) => {
     const path = buildVectorGeometryModelPath(network, points, segments)
+    const openPathRenderStrokes = getOpenPathRenderStrokes(
+      data.strokes,
+      path.closed
+    )
     return buildDashedCenterStrokeResolvedPackets(
       `vector:${data.id}:${network.id}:dashed-center`,
       path.sampledPoints,
       path.closed,
-      data.strokes
+      openPathRenderStrokes
     )
   })
+  const constrainedDashedCandidatePackets = orderedNetworks.flatMap((network) => {
+    const path = buildVectorGeometryModelPath(network, points, segments)
+    return buildConstrainedDashedStrokeResolvedPackets(
+      `vector:${data.id}:${network.id}:constrained-dashed`,
+      path.sampledPoints,
+      path.closed,
+      data.strokes,
+      {
+        allowVectorRectEquivalentFullLoopInsideRoundJoin: true,
+        allowVectorRectEquivalentFullLoopOutsideRoundJoin: true,
+        allowFirstBroaderVectorFullLoopInsideRoundJoin: true,
+        allowFirstBroaderVectorFullLoopOutsideRoundJoin: true,
+        allowVectorRectEquivalentSingleEdgeInsideRoundCap: true,
+        allowVectorRectEquivalentSingleEdgeOutsideRoundCap: true,
+        allowFirstBroaderVectorSingleEdgeInsideRoundCap: true,
+        allowFirstBroaderVectorSingleEdgeOutsideRoundCap: true,
+        allowRectCornerSpanningInsideBevel: true,
+        allowRectCornerSpanningInsideMiter: true,
+        allowRectCornerSpanningOutsideBevel: true,
+        allowRectCornerSpanningOutsideMiter: true,
+        allowFirstBroaderVectorCornerSpanningInsideBevel: true,
+        allowFirstBroaderVectorCornerSpanningInsideMiter: true,
+        allowFirstBroaderVectorCornerSpanningOutsideBevel: true,
+        allowFirstBroaderVectorCornerSpanningOutsideMiter: true
+      }
+    )
+  })
+  const constrainedDashedPacketOwners = new Set(
+    constrainedDashedCandidatePackets.flatMap((packet) => {
+      const [networkPrefix, strokeAndInterval] =
+        packet.geometry.geometryId.split(':constrained-dashed:')
+      const strokeIndex = strokeAndInterval?.split(':')[0]
+      return networkPrefix && strokeIndex !== undefined
+        ? [`${networkPrefix}:stroke:${strokeIndex}`]
+        : []
+    })
+  )
+  const constrainedDashedPackets =
+    constrainedDashedPacketOwners.size === 1 ? constrainedDashedCandidatePackets : []
 
   const constrainedSolidDiagnostics = orderedNetworks.flatMap((network) => {
     const path = buildVectorGeometryModelPath(network, points, segments)
@@ -1285,6 +1505,24 @@ const renderVectorGraphic = (
 
   const strokePackets = orderedNetworks.flatMap((network) => {
     const path = buildVectorGeometryModelPath(network, points, segments)
+    const openPathRenderStrokes = getOpenPathRenderStrokes(
+      data.strokes,
+      path.closed
+    )
+    const hasConstrainedDashedPacket = constrainedDashedPackets.some((packet) =>
+      packet.geometry.geometryId.startsWith(
+        `vector:${data.id}:${network.id}:constrained-dashed`
+      )
+    )
+    const dashedCenterRenderStrokes = getDashedCenterRenderStrokes(
+      data.strokes,
+      path.closed,
+      hasConstrainedDashedPacket,
+      orderedNetworks.length === 1 &&
+        path.closed &&
+        (isSimpleClosedPath(path.sampledPoints) ||
+          hasClosedDashedVisibilityFallbackStroke(data.strokes, path.totalLength))
+    )
     const constrainedNetworkDiagnostics = constrainedSolidDiagnostics.find(
       (entry) => entry.networkId === network.id
     )
@@ -1293,13 +1531,18 @@ const renderVectorGraphic = (
         `vector:${data.id}:${network.id}:center`,
         path.sampledPoints,
         path.closed,
-        data.strokes
+        openPathRenderStrokes
       ),
       ...buildDashedCenterStrokeResolvedPackets(
         `vector:${data.id}:${network.id}:dashed-center`,
         path.sampledPoints,
         path.closed,
-        data.strokes
+        dashedCenterRenderStrokes
+      ),
+      ...constrainedDashedPackets.filter((packet) =>
+        packet.geometry.geometryId.startsWith(
+          `vector:${data.id}:${network.id}:constrained-dashed`
+        )
       ),
       ...(constrainedNetworkDiagnostics?.packets ??
         buildConstrainedSolidStrokeResolvedPackets(

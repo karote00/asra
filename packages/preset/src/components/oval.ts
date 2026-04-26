@@ -4,6 +4,7 @@ import { applyRenderableFill, DEFAULT_OVAL_FILLS, getRenderableFills } from './f
 import { createEllipseHitArea, mergeHitAreas } from './shape-hit-area'
 import { DEFAULT_OVAL_STROKES } from './stroke-render/constants'
 import { applyCenterDashedOverlapDiagnostics } from './stroke-render/center-dashed-overlap-diagnostics'
+import { buildConstrainedDashedStrokeResolvedPackets } from './stroke-render/constrained-dashed-stroke-packets'
 import { buildConstrainedSolidLegalityClippingResult } from './stroke-render/constrained-solid-legality-clipping'
 import { setConstrainedSolidLegalityDiagnostics } from './stroke-render/constrained-solid-legality-diagnostics'
 import { setConstrainedSolidOwnershipDiagnostics } from './stroke-render/constrained-solid-ownership-diagnostics'
@@ -62,6 +63,16 @@ defineComponent({
       true,
       data.strokes
     )
+    const constrainedDashedCandidatePackets = buildConstrainedDashedStrokeResolvedPackets(
+      `oval:${data.id ?? 'anonymous'}:constrained-dashed`,
+      pathPoints,
+      true,
+      data.strokes
+    )
+    const constrainedDashedPackets =
+      constrainedDashedCandidatePackets.length === 1
+        ? constrainedDashedCandidatePackets
+        : []
     const constrainedResult = buildConstrainedSolidLegalityClippingResult(
       [{ points: pathPoints, closed: true }],
       data.strokes,
@@ -81,6 +92,7 @@ defineComponent({
         data.strokes
       ),
       ...dashedCenterPackets,
+      ...constrainedDashedPackets,
       ...constrainedPackets
     ]
     applySolidCenterStrokeExportPackets(graphic, strokePackets)

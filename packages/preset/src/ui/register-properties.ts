@@ -153,11 +153,13 @@ const areStrokesEqual = (a: StrokeAttrs, b: StrokeAttrs) =>
   a.gap === b.gap &&
   a.defaultColorFormat === b.defaultColorFormat &&
   a.colorFormat === b.colorFormat &&
+  a.kind === b.kind &&
   a.color === b.color &&
   a.opacity === b.opacity &&
   a.visible === b.visible &&
   a.joinType === b.joinType &&
-  a.miterAngle === b.miterAngle
+  a.miterAngle === b.miterAngle &&
+  (a.kind === 'gradient' ? areGradientsEqual(a.gradient, b.gradient) : true)
 
 const computeFillsValue = ({
   selectedIds,

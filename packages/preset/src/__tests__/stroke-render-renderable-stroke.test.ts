@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  FillKinds,
   StrokeJoinTypes,
   StrokeCapTypes,
   createDefaultStroke,
+  createDefaultGradientData,
   FillColorFormats
 } from '@asyra/utils'
 import {
@@ -10,7 +12,26 @@ import {
   getStrokeHitWidth
 } from '../components/stroke-render/renderable-stroke'
 
+const { createRenderGradientFillStyle } = vi.hoisted(() => ({
+  createRenderGradientFillStyle: vi.fn((options) => ({
+    fill: {
+      mocked: true,
+      options
+    }
+  }))
+}))
+
+vi.mock('@asyra/core', () => ({
+  default: {
+    createRenderGradientFillStyle
+  }
+}))
+
 describe('stroke renderable normalization', () => {
+  beforeEach(() => {
+    createRenderGradientFillStyle.mockClear()
+  })
+
   it('should run: normalize visible stroke entries into canonical renderable strokes', () => {
     const [stroke] = getRenderableStrokes([
       createDefaultStroke({
@@ -36,6 +57,44 @@ describe('stroke renderable normalization', () => {
     })
     expect(stroke.miterLimit).toBeGreaterThan(3.9)
     expect(stroke.miterLimit).toBeLessThan(4.1)
+  })
+
+  it('should run: normalize gradient stroke entries into canonical renderable paints without changing geometry fields', () => {
+    const [stroke] = getRenderableStrokes([
+      createDefaultStroke({
+        style: 'dashed',
+        width: 6,
+        kind: FillKinds.GRADIENT,
+        gradient: {
+          ...createDefaultGradientData(),
+          gradientHandles: [
+            { x: 0, y: 0.5 },
+            { x: 1, y: 0.5 }
+          ]
+        }
+      })
+    ])
+
+    expect(stroke).toMatchObject({
+      style: 'dashed',
+      width: 6,
+      kind: 'gradient',
+      dashPattern: [20, 20],
+      dashOffset: 0,
+      gradientStyle: {
+        fill: {
+          mocked: true,
+          options: {
+            type: 'linear',
+            start: { x: 0, y: 0.5 },
+            end: { x: 1, y: 0.5 },
+            textureSpace: 'local'
+          }
+        }
+      }
+    })
+    expect(stroke.paintKey).toContain('"kind":"gradient"')
+    expect(createRenderGradientFillStyle).toHaveBeenCalledTimes(1)
   })
 
   it('should run: normalize dashed pattern arrays and offset into canonical renderable strokes', () => {

@@ -62,4 +62,35 @@ describe('dashed center stroke frame slicing', () => {
       frames.some((frame) => Math.abs(frame.widthLeft - frame.widthRight) > 1e-6)
     ).toBe(true)
   })
+
+  it('should run: preserve asymmetric variable-width probe data when one visible interval crosses an acute join', () => {
+    const frames = sliceDashedCenterStrokeFrames(
+      [
+        { x: 0, y: 0, widthLeft: 2, widthRight: 5 },
+        { x: 60, y: 0, widthLeft: 4, widthRight: 7 },
+        { x: 90, y: 30, widthLeft: 8, widthRight: 11 }
+      ],
+      false,
+      40,
+      80,
+      false
+    )
+
+    expect(frames).toHaveLength(3)
+    expect(frames[0]?.x).toBe(40)
+    expect(frames[0]?.y).toBe(0)
+    expect(frames[0]?.widthLeft).toBeCloseTo(3.333333333333333)
+    expect(frames[0]?.widthRight).toBeCloseTo(6.333333333333333)
+    expect(frames[1]?.x).toBe(60)
+    expect(frames[1]?.y).toBe(0)
+    expect(frames[1]?.widthLeft).toBe(4)
+    expect(frames[1]?.widthRight).toBe(7)
+    expect(frames[2]?.x).toBeGreaterThan(74)
+    expect(frames[2]?.y).toBeGreaterThan(14)
+    expect(frames[2]?.widthLeft).toBeGreaterThan(5.8)
+    expect(frames[2]?.widthRight).toBeGreaterThan(8.8)
+    expect(
+      frames.every((frame) => Math.abs(frame.widthLeft - frame.widthRight) > 1e-6)
+    ).toBe(true)
+  })
 })

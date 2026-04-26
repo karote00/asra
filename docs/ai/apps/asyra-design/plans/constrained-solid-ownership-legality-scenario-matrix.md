@@ -73,7 +73,9 @@ Reference geometry:
 
 Required semantics:
 
-- open paths reject constrained legality deterministically
+- open paths reject constrained legality deterministically, while
+  product-facing vector render falls back to centered placement for authored
+  `inside` / `outside`
 - self-intersecting paths reject constrained legality deterministically for the
   currently supported slice
 - supported simple closed paths build legality diagnostics successfully
@@ -82,6 +84,8 @@ Required tests:
 
 - unit:
   - open path returns no legality domain
+  - open vector authored `inside` / `outside` remains visible through centered
+    fallback on the render path
   - self-intersecting path returns no legality domain
   - supported closed path returns one legality domain
 
@@ -312,7 +316,8 @@ algorithm, rather than continuing to add more micro-slices under Phase 4B.
 
 Current handoff target:
 
-- `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
+- `docs/ai/apps/asyra-design/plans/professional-stroke-engine-algorithm-flow.md`
+- `docs/ai/apps/asyra-design/plans/stroke-engine-promotion-ledger.md`
 
 ## Done Rule For Phase 4B Groundwork
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createDefaultStroke } from '@asyra/utils'
 import { buildDashedCenterStrokeResolvedPackets } from '../components/stroke-render/dashed-center-stroke-packets'
 import { buildCenterDashedOverlapCandidatesFromResolvedPackets } from '../components/stroke-render/center-dashed-overlap-candidates'
 import {
@@ -16,7 +17,7 @@ describe('center dashed overlap integration', () => {
       ],
       false,
       [
-        {
+        createDefaultStroke({
           visible: true,
           style: 'dashed',
           position: 'center',
@@ -28,8 +29,8 @@ describe('center dashed overlap integration', () => {
           miterAngle: 28.96,
           dashPattern: [30, 12],
           dashOffset: 0
-        },
-        {
+        }),
+        createDefaultStroke({
           visible: true,
           style: 'dashed',
           position: 'center',
@@ -41,7 +42,7 @@ describe('center dashed overlap integration', () => {
           miterAngle: 28.96,
           dashPattern: [30, 12],
           dashOffset: 8
-        }
+        })
       ]
     )
 
@@ -65,7 +66,7 @@ describe('center dashed overlap integration', () => {
       ],
       false,
       [
-        {
+        createDefaultStroke({
           visible: true,
           style: 'dashed',
           position: 'center',
@@ -77,7 +78,7 @@ describe('center dashed overlap integration', () => {
           miterAngle: 28.96,
           dashPattern: [20, 10],
           dashOffset: 0
-        }
+        })
       ]
     )
 

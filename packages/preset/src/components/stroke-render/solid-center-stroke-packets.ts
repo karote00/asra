@@ -1,4 +1,5 @@
 import type { StrokeAttrs } from '@asyra/utils'
+import type { RenderFillStyle } from '@asyra/core'
 import {
   buildSolidCenterStrokePolygons,
   supportsSolidCenterStroke
@@ -26,8 +27,11 @@ export interface SolidCenterStrokeGeometryPacket {
 
 export interface SolidCenterStrokePaintPacket {
   geometryId: string
+  kind?: 'solid' | 'gradient'
   color: number
   alpha: number
+  gradientStyle?: RenderFillStyle | null
+  paintKey?: string
 }
 
 export interface SolidCenterStrokeHitTestPacket {
@@ -128,8 +132,11 @@ export const buildSolidCenterStrokeResolvedPackets = (
         },
         paint: {
           geometryId,
+          kind: stroke.kind,
           color: stroke.color,
-          alpha: stroke.alpha
+          alpha: stroke.alpha,
+          gradientStyle: stroke.gradientStyle,
+          paintKey: stroke.paintKey
         }
       }
     ]
@@ -159,8 +166,11 @@ export const toSolidCenterStrokeRenderEntries = (
   packets.map((packet) => ({
     cacheKey: packet.geometry.geometryId,
     stroke: {
+      kind: packet.paint.kind,
       color: packet.paint.color,
-      alpha: packet.paint.alpha
+      alpha: packet.paint.alpha,
+      gradientStyle: packet.paint.gradientStyle ?? null,
+      paintKey: packet.paint.paintKey ?? `solid:${packet.paint.color}:${packet.paint.alpha}`
     },
     polygons: packet.geometry.polygons
   }))

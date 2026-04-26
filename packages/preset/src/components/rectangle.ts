@@ -3,6 +3,7 @@ import { PropertyTypes, setElementGeometryLocalBounds } from '@asyra/utils'
 import { applyRenderableFill, DEFAULT_RECTANGLE_FILLS, getRenderableFills } from './fills'
 import { createRectangleHitArea, mergeHitAreas } from './shape-hit-area'
 import { DEFAULT_RECTANGLE_STROKES } from './stroke-render/constants'
+import { buildConstrainedDashedStrokeResolvedPackets } from './stroke-render/constrained-dashed-stroke-packets'
 import { applyCenterDashedOverlapDiagnostics } from './stroke-render/center-dashed-overlap-diagnostics'
 import { buildConstrainedSolidLegalityClippingResult } from './stroke-render/constrained-solid-legality-clipping'
 import { setConstrainedSolidLegalityDiagnostics } from './stroke-render/constrained-solid-legality-diagnostics'
@@ -66,6 +67,26 @@ defineComponent({
       true,
       data.strokes
     )
+    const constrainedDashedCandidatePackets = buildConstrainedDashedStrokeResolvedPackets(
+      `rect:${data.id ?? 'anonymous'}:constrained-dashed`,
+      pathPoints,
+      true,
+      data.strokes,
+      {
+        allowRectFullLoopInsideRoundJoin: true,
+        allowRectFullLoopOutsideRoundJoin: true,
+        allowRectSingleEdgeInsideRoundCap: true,
+        allowRectSingleEdgeOutsideRoundCap: true,
+        allowRectCornerSpanningInsideBevel: true,
+        allowRectCornerSpanningInsideMiter: true,
+        allowRectCornerSpanningOutsideBevel: true,
+        allowRectCornerSpanningOutsideMiter: true
+      }
+    )
+    const constrainedDashedPackets =
+      constrainedDashedCandidatePackets.length === 1
+        ? constrainedDashedCandidatePackets
+        : []
     const constrainedResult = buildConstrainedSolidLegalityClippingResult(
       [{ points: pathPoints, closed: true }],
       data.strokes,
@@ -85,6 +106,7 @@ defineComponent({
         data.strokes
       ),
       ...dashedCenterPackets,
+      ...constrainedDashedPackets,
       ...constrainedPackets
     ]
     applySolidCenterStrokeExportPackets(graphic, strokePackets)

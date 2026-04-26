@@ -1,7 +1,9 @@
+import { Container, Graphics } from 'pixi.js'
 import {
   createMeshProjection,
   type GeometryModel,
-  type MeshProjection
+  type MeshProjection,
+  type RenderFillStyle
 } from '@asyra/render'
 import type { RenderableStroke } from './renderable-stroke'
 
@@ -12,8 +14,26 @@ interface Vec2 {
 
 export interface SolidCenterStrokeRenderEntry {
   cacheKey: string
-  stroke: Pick<RenderableStroke, 'color' | 'alpha'>
+  stroke: Pick<
+    RenderableStroke,
+    'kind' | 'color' | 'alpha' | 'gradientStyle' | 'paintKey'
+  >
   polygons: Vec2[][]
+}
+
+interface SolidStrokeCacheSolidEntry {
+  kind: 'solid'
+  projection: MeshProjection
+  signature: string
+  paintKey: string
+}
+
+interface SolidStrokeCacheGradientEntry {
+  kind: 'gradient'
+  container: Container
+  graphics: Graphics
+  signature: string
+  paintKey: string
 }
 
 interface SolidCenterStrokeRenderGraphic {
@@ -21,12 +41,7 @@ interface SolidCenterStrokeRenderGraphic {
   addChild?: (...args: any[]) => unknown
   __asyraPhase1MeshCache?: Map<
     string,
-    {
-      projection: MeshProjection
-      signature: string
-      color: number
-      alpha: number
-    }
+    SolidStrokeCacheSolidEntry | SolidStrokeCacheGradientEntry
   >
 }
 
@@ -71,6 +86,35 @@ const getSignature = (polygons: Vec2[][]) =>
     )
     .join('|')
 
+const drawPolygons = (graphics: Graphics, polygons: Vec2[][]) => {
+  polygons.forEach((polygon) => {
+    const flatPolygon = polygon.flatMap((point) => [point.x, point.y])
+    graphics.poly(flatPolygon)
+  })
+}
+
+const applyGradientPaint = (
+  graphics: Graphics,
+  polygons: Vec2[][],
+  style: RenderFillStyle
+) => {
+  graphics.clear()
+  drawPolygons(graphics, polygons)
+  graphics.fill(style as Parameters<Graphics['fill']>[0])
+}
+
+const disposeCacheEntry = (
+  entry: SolidStrokeCacheSolidEntry | SolidStrokeCacheGradientEntry
+) => {
+  if (entry.kind === 'solid') {
+    entry.projection.dispose()
+    return
+  }
+
+  entry.graphics.destroy()
+  entry.container.destroy()
+}
+
 export const renderSolidCenterStrokeEntries = (
   graphic: SolidCenterStrokeRenderGraphic,
   entries: SolidCenterStrokeRenderEntry[]
@@ -82,9 +126,7 @@ export const renderSolidCenterStrokeEntries = (
   const active = new Set<string>()
 
   if (entries.length === 0) {
-    graphic.__asyraPhase1MeshCache.forEach(({ projection }) => {
-      projection.dispose()
-    })
+    graphic.__asyraPhase1MeshCache.forEach((entry) => disposeCacheEntry(entry))
     graphic.__asyraPhase1MeshCache.clear()
     return
   }
@@ -98,8 +140,66 @@ export const renderSolidCenterStrokeEntries = (
     const signature = getSignature(polygons)
     const existing = graphic.__asyraPhase1MeshCache?.get(entry.cacheKey)
     const geometryModel = buildGeometryModel(polygons)
+    const strokeKind = entry.stroke.kind ?? 'solid'
+    const paintKey =
+      entry.stroke.paintKey ??
+      `solid:${entry.stroke.color}:${entry.stroke.alpha}`
 
-    if (!existing) {
+    if (existing && existing.kind !== strokeKind) {
+      disposeCacheEntry(existing)
+      graphic.__asyraPhase1MeshCache?.delete(entry.cacheKey)
+    }
+
+    const compatibleEntry = graphic.__asyraPhase1MeshCache?.get(entry.cacheKey)
+
+    if (strokeKind === 'gradient') {
+      const gradientStyle = entry.stroke.gradientStyle
+      if (!gradientStyle) {
+        return
+      }
+
+      if (
+        compatibleEntry &&
+        compatibleEntry.kind === 'gradient' &&
+        compatibleEntry.signature === signature &&
+        compatibleEntry.paintKey === paintKey
+      ) {
+        compatibleEntry.container.visible = true
+        active.add(entry.cacheKey)
+        return
+      }
+
+      if (compatibleEntry && compatibleEntry.kind === 'gradient') {
+        applyGradientPaint(compatibleEntry.graphics, polygons, gradientStyle)
+        compatibleEntry.signature = signature
+        compatibleEntry.paintKey = paintKey
+        compatibleEntry.container.visible = true
+        active.add(entry.cacheKey)
+        return
+      }
+
+      const container = new Container()
+      const gradientGraphic = new Graphics()
+      container.addChild(gradientGraphic)
+      applyGradientPaint(gradientGraphic, polygons, gradientStyle)
+
+      if (!graphic.addChild(container)) {
+        container.destroy()
+        return
+      }
+
+      graphic.__asyraPhase1MeshCache?.set(entry.cacheKey, {
+        kind: 'gradient',
+        container,
+        graphics: gradientGraphic,
+        signature,
+        paintKey
+      })
+      active.add(entry.cacheKey)
+      return
+    }
+
+    if (!compatibleEntry) {
       const projection = createMeshProjection({
         model: geometryModel,
         paint: {
@@ -115,21 +215,21 @@ export const renderSolidCenterStrokeEntries = (
       }
 
       graphic.__asyraPhase1MeshCache?.set(entry.cacheKey, {
+        kind: 'solid',
         projection,
         signature,
-        color: entry.stroke.color,
-        alpha: entry.stroke.alpha
+        paintKey
       })
       active.add(entry.cacheKey)
       return
     }
 
     if (
-      existing.signature !== signature ||
-      existing.color !== entry.stroke.color ||
-      existing.alpha !== entry.stroke.alpha
+      compatibleEntry.kind === 'solid' &&
+      (compatibleEntry.signature !== signature ||
+        compatibleEntry.paintKey !== paintKey)
     ) {
-      existing.projection.update({
+      compatibleEntry.projection.update({
         model: geometryModel,
         paint: {
           kind: 'solid',
@@ -137,12 +237,13 @@ export const renderSolidCenterStrokeEntries = (
           alpha: entry.stroke.alpha
         }
       })
-      existing.signature = signature
-      existing.color = entry.stroke.color
-      existing.alpha = entry.stroke.alpha
+      compatibleEntry.signature = signature
+      compatibleEntry.paintKey = paintKey
     }
 
-    existing.projection.setVisible(true)
+    if (compatibleEntry.kind === 'solid') {
+      compatibleEntry.projection.setVisible(true)
+    }
     active.add(entry.cacheKey)
   })
 
@@ -151,7 +252,7 @@ export const renderSolidCenterStrokeEntries = (
       return
     }
 
-    entry.projection.dispose()
+    disposeCacheEntry(entry)
     graphic.__asyraPhase1MeshCache?.delete(key)
   })
 }

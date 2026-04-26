@@ -66,8 +66,11 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
         },
         paint: {
           geometryId,
+          kind: stroke.kind,
           color: stroke.color,
-          alpha: stroke.alpha
+          alpha: stroke.alpha,
+          gradientStyle: stroke.gradientStyle,
+          paintKey: stroke.paintKey
         }
       }
     ]

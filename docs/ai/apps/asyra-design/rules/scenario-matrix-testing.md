@@ -84,6 +84,36 @@ When bounded expansion stops, the owner must not keep adding more micro-slices
 under the old phase. A new plan or sub-plan must be opened explicitly for the
 new algorithm class.
 
+## Mandatory Self-Review Before Expansion
+
+Whenever the owner is about to handle an edge case or expand the current
+scenario scope, the owner must stop and answer these three questions first:
+
+1. If this case is not handled now, which later phase would be blocked?
+   - if no later phase is blocked, move the case to backlog and keep moving
+     downstream
+2. Would handling this case now change any externally exposed interface?
+   - if yes, stop and ask for an explicit decision instead of changing the
+     interface unilaterally
+3. How much extra work does this case add relative to the current phase?
+   - if the added work is greater than `20%` of the current phase scope, stop
+     and ask for approval before expanding
+
+This self-review is mandatory even when the owner believes the next slice is
+small. It is the standard procedure before every scope expansion, not a
+special-case escalation path.
+
+## Phase Discipline
+
+Every phase must follow these discipline rules:
+
+- run the mandatory self-review before any scope expansion
+- stop and ask before changing externally exposed interfaces
+- optimize for "good enough to move downstream", not perfect coverage of every
+  edge case
+- backlog is a valid outcome; deferred work must be recorded explicitly, not
+  silently ignored
+
 ## Scenario Modeling
 
 ### Core Scenario Axes (Universal)

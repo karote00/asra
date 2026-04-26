@@ -1,5 +1,11 @@
 import type { BasePropertyAttrs } from './instanceTypes'
-import { FillColorFormats, type FillColorFormat } from './fills'
+import {
+  FillColorFormats,
+  FillKinds,
+  type FillColorFormat,
+  type FillGradientData,
+  type FillKind
+} from './fills'
 
 export const StrokeStyles = {
   SOLID: 'solid',
@@ -46,9 +52,11 @@ export interface StrokeAttrs extends BasePropertyAttrs {
   gap?: number
   defaultColorFormat: FillColorFormat
   colorFormat: FillColorFormat
+  kind: FillKind
   color: string
   opacity: number
   visible: boolean
+  gradient: FillGradientData | null
   joinType: StrokeJoinType
   capType: StrokeCapType
   miterAngle: number
@@ -78,9 +86,11 @@ export const createDefaultStroke = (
   gap: 20,
   defaultColorFormat: FillColorFormats.HEX,
   colorFormat: FillColorFormats.HEX,
+  kind: FillKinds.SOLID,
   color: '#000000',
   opacity: 1,
   visible: true,
+  gradient: null,
   joinType: StrokeJoinTypes.MITER,
   capType: StrokeCapTypes.BUTT,
   miterAngle: 28.96,

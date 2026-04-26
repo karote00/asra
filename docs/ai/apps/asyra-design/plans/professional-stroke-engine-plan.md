@@ -18,6 +18,20 @@ The implementation sequence, phase gates, and temporary rollout limits live in:
 
 - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
 
+## Scope Discipline
+
+This architecture is intentionally broader than any one rollout phase.
+
+Execution work must therefore follow these discipline rules:
+
+- run the mandatory expansion self-review before taking any edge-case or scope
+  expansion slice
+- do not change externally exposed interfaces without explicit approval
+- prefer "good enough to move downstream" over perfect edge-case completion
+- record deferred work in backlog or blocked lists explicitly
+- for the current execution window, prioritize uniform-width user-facing stroke
+  completion before returning to paint/color or variable-width expansion
+
 ## Scope
 
 Define the full stroke architecture required for a professional design tool.
@@ -45,6 +59,19 @@ This architecture covers:
 - cache / dirty propagation and runtime performance
 - debug / observability tooling
 - migration from legacy stroke paths
+
+Current rollout note:
+
+- this architecture still defines the full end-state for uniform width,
+  paint/color, and variable width
+- the active execution plan is intentionally narrower:
+  - complete Figma-like uniform-width stroke behavior first for the supported
+    Asyra Design shape/vector model
+  - include `inside` / `outside` / `center`, `solid` / `dashed`, width,
+    dash pattern/offset, `miter` / `bevel` / `round` joins, and `butt` /
+    `square` / `round` caps in that formal target
+  - treat paint/color expansion, including broader gradient rollout, and
+    variable-width rollout as future-feature work
 
 This is an umbrella architecture spec.
 
@@ -335,7 +362,15 @@ type StrokePlacementDomain = OpenPlacementDomain | ClosedPlacementDomain
 Rules:
 
 - `inside` and `outside` require a valid closed-shape constraint
-- open paths do not support `inside` or `outside`
+- open paths do not support constrained `inside` or `outside`; authored open
+  vector `inside` / `outside` renders through center-placement fallback
+- simple closed single-network vectors with valid closed legality domains route
+  repeated dashed multi-interval `inside` / `outside` placement through
+  constrained dashed packets after switching from `center`
+- open-path constrained vector strokes may render through centered visibility
+  fallback so switching from `center` to `inside` / `outside` does not make the
+  stroke disappear; this fallback is not exact constrained inside/outside
+  geometry
 - self-intersecting closed paths must declare the fill rule used to derive
   legality
 - `orientation === 0` may not produce `inside` or `outside` legality
@@ -626,6 +661,24 @@ Rules:
 - gradient sampling uses the authored paint field and the final visible geometry
   only
 
+Geometry responsibilities stop at:
+
+- final visible stroke-region production
+- geometry-side legality and turn handling
+- exposing paint inputs such as bounds and UV data
+
+Paint responsibilities start at:
+
+- applying solid or gradient paint over the final geometry
+- color evaluation
+- gradient sampling behavior
+
+Forbidden:
+
+- geometry-owned gradient application policy
+- geometry-owned color calculation
+- geometry-owned gradient sampling strategy
+
 ### Stage 11. Triangulation And Render Packet Build
 
 Build GPU-ready packets from final visible geometry plus paint.
@@ -766,7 +819,9 @@ Stage 9 must follow one fixed rule table.
 ### Open Path Rule
 
 - open paths support `center` only
-- open paths reject `inside` and `outside` during Stage 3 normalization
+- open paths reject constrained `inside` and `outside` during Stage 3
+  normalization, but product-facing open vector rendering must fall back to
+  centered placement rather than disappearing
 
 ### Self-Intersection Rule
 
@@ -1076,7 +1131,10 @@ The forbidden difference is:
 
 ### Degenerate Contracts
 
-- invalid open-path constrained strokes are rejected deterministically
+- invalid open-path constrained strokes are rejected deterministically and may
+  render through product-facing center fallback when authored from the UI
+- invalid self-intersecting constrained dashed multi-interval strokes may only
+  promote after the closed fill-rule legality domain is declared and tested
 - unstable closed legality states bail out deterministically
 - degenerate path inputs do not produce undefined geometry
 

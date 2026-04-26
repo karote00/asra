@@ -1,4 +1,5 @@
 import {
+  FillKinds,
   StrokeJoinTypes,
   StrokeCapTypes,
   clampOpacity,
@@ -7,6 +8,8 @@ import {
   rgbaToColorInt,
   type StrokeAttrs
 } from '@asyra/utils'
+import type { RenderFillStyle } from '@asyra/core'
+import { toRenderableGradient } from '../fills'
 
 export interface RenderableStroke {
   style: StrokeAttrs['style']
@@ -17,8 +20,11 @@ export interface RenderableStroke {
   join: 'miter' | 'bevel' | 'round'
   miterLimit: number
   cap: 'butt' | 'square' | 'round' | 'none'
+  kind?: 'solid' | 'gradient'
   color: number
   alpha: number
+  gradientStyle?: RenderFillStyle | null
+  paintKey?: string
 }
 
 const normalizeStrokeEntry = (value: unknown): StrokeAttrs | null => {
@@ -103,6 +109,35 @@ const getRenderableStroke = (stroke: StrokeAttrs): RenderableStroke | null => {
   }
 
   const dashPattern = normalizeDashPattern(stroke)
+  const gradientStyle =
+    stroke.kind === FillKinds.GRADIENT && stroke.gradient
+      ? toRenderableGradient({
+          id: stroke.id,
+          type: 'fill',
+          kind: FillKinds.GRADIENT,
+          defaultColorFormat: stroke.defaultColorFormat,
+          colorFormat: stroke.colorFormat,
+          color: stroke.color,
+          opacity: stroke.opacity,
+          visible: stroke.visible,
+          gradient: stroke.gradient
+        })
+      : null
+
+  if (stroke.kind === FillKinds.GRADIENT && !gradientStyle) {
+    return null
+  }
+
+  const paintKey =
+    stroke.kind === FillKinds.GRADIENT && stroke.gradient
+      ? JSON.stringify({
+          kind: stroke.kind,
+          opacity: stroke.opacity,
+          gradientType: stroke.gradient.gradientType,
+          gradientStops: stroke.gradient.gradientStops,
+          gradientHandles: stroke.gradient.gradientHandles
+        })
+      : `solid:${rgbaToColorInt(parsed)}:${clampOpacity(parsed.a * stroke.opacity)}`
 
   return {
     style: stroke.style,
@@ -118,8 +153,11 @@ const getRenderableStroke = (stroke: StrokeAttrs): RenderableStroke | null => {
         : stroke.capType === StrokeCapTypes.ROUND
           ? 'round'
           : 'butt',
+    kind: stroke.kind === FillKinds.GRADIENT ? 'gradient' : 'solid',
     color: rgbaToColorInt(parsed),
-    alpha: clampOpacity(parsed.a * stroke.opacity)
+    alpha: clampOpacity(parsed.a * stroke.opacity),
+    gradientStyle,
+    paintKey
   }
 }
 

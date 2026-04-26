@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { StrokeJoinTypes, createDefaultStroke } from '@asyra/utils'
+import {
+  StrokeCapTypes,
+  StrokeJoinTypes,
+  createDefaultStroke
+} from '@asyra/utils'
 import { allocateDashedCenterStrokeIntervals } from '../components/stroke-render/dashed-center-stroke-intervals'
 import { buildDashedCenterStrokeResolvedPackets } from '../components/stroke-render/dashed-center-stroke-packets'
 
@@ -113,6 +117,62 @@ describe('dashed center stroke scenarios', () => {
 
     const polygons = packets[0]?.geometry.polygons ?? []
     expect(isPointInPolygons({ x: 84, y: -2 }, polygons)).toBe(false)
+  })
+
+  it('should run: right-angle turn on a closed rectangle keeps round join curvature without miter corner fill', () => {
+    const packets = buildDashedCenterStrokeResolvedPackets(
+      'scenario:right-angle:round',
+      [
+        { x: 0, y: 0 },
+        { x: 80, y: 0 },
+        { x: 80, y: 40 },
+        { x: 0, y: 40 }
+      ],
+      true,
+      [
+        createDefaultStroke({
+          style: 'dashed',
+          position: 'center',
+          width: 10,
+          joinType: StrokeJoinTypes.ROUND,
+          dashPattern: [87, 20],
+          dashOffset: 0
+        })
+      ]
+    )
+
+    const polygons = packets[0]?.geometry.polygons ?? []
+    expect(packets).toHaveLength(2)
+    expect(isPointInPolygons({ x: 83, y: -3 }, polygons)).toBe(true)
+    expect(isPointInPolygons({ x: 84, y: -4 }, polygons)).toBe(false)
+  })
+
+  it('should run: open vector center dashed round caps extend each visible dash terminal without square corners', () => {
+    const packets = buildDashedCenterStrokeResolvedPackets(
+      'scenario:open:round-cap',
+      [
+        { x: 0, y: 0 },
+        { x: 80, y: 0 }
+      ],
+      false,
+      [
+        createDefaultStroke({
+          style: 'dashed',
+          position: 'center',
+          width: 10,
+          capType: StrokeCapTypes.ROUND,
+          dashPattern: [20, 20],
+          dashOffset: 0
+        })
+      ]
+    )
+
+    const polygons = packets[0]?.geometry.polygons ?? []
+    expect(packets).toHaveLength(2)
+    expect(isPointInPolygons({ x: -4, y: 0 }, polygons)).toBe(true)
+    expect(isPointInPolygons({ x: -4, y: -4 }, polygons)).toBe(false)
+    expect(isPointInPolygons({ x: 24, y: 0 }, polygons)).toBe(true)
+    expect(isPointInPolygons({ x: 24, y: 4 }, polygons)).toBe(false)
   })
 
   it('should run: right-angle turn on a vector-generated rectangle matches the shape-generated bevel corner topology', () => {

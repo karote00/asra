@@ -38,6 +38,7 @@ This definition file describes the screenshot-level oracle for
 - `oval inside/outside miter`
 - closed non-self-intersecting `vector inside/outside bevel`
 - closed non-self-intersecting `vector inside/outside miter`
+- open `vector inside/outside` authored placement through centered fallback
 
 These supported slices must visibly render the constrained stroke band on the
 expected side of the source shape while keeping the opposite side mostly clean.
@@ -46,11 +47,12 @@ expected side of the source shape while keeping the opposite side mostly clean.
 
 - constrained `round` join
 - constrained `round` cap
-- open constrained vector paths
+- open constrained vector clipping
 - self-intersecting constrained vector paths
 
-These slices must remain visually absent. They may not render a partial or
-fallback constrained stroke band.
+These slices must not render a partial constrained stroke band. Open vectors
+are the exception at the product render layer: authored `inside` / `outside`
+must stay stored, but visible stroke placement falls back to centered rendering.
 
 ### Closed constrained cap equivalence
 

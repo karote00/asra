@@ -5,6 +5,7 @@ definePropertyComponent({
   type: PropertyTypes.STROKE,
   defaults: createDefaultStroke() as unknown as Record<string, unknown>,
   persistKeys: [
+    'kind',
     'style',
     'position',
     'width',
@@ -15,11 +16,13 @@ definePropertyComponent({
     'color',
     'opacity',
     'visible',
+    'gradient',
     'joinType',
     'capType',
     'miterAngle'
   ],
   valueKeys: [
+    'kind',
     'style',
     'position',
     'width',
@@ -30,6 +33,7 @@ definePropertyComponent({
     'color',
     'opacity',
     'visible',
+    'gradient',
     'joinType',
     'capType',
     'miterAngle'

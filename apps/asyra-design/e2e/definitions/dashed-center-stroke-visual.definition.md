@@ -7,7 +7,7 @@ It answers:
 
 > When a supported element uses center dashed stroke rendering, does the real
 > app output show alternating visible bands and gaps at the authored pattern
-> positions, while unsupported slices remain absent?
+> positions, while non-promoted constrained slices remain absent?
 
 ## Required supported behavior
 
@@ -24,16 +24,20 @@ It answers:
   carried remainder remains visibly filled
 - rectangle center dashed `bevel` cuts that outer corner square away while
   preserving diagonal bevel coverage
+- center dashed `round` join renders visible corner curvature on a promoted
+  closed orthogonal vector path without filling the miter corner probe
 - closed non-self-intersecting vector center dashed stroke renders through the
   same promoted path
 - open vector `butt` and `square` caps remain visually distinguishable on the
   promoted path
+- open vector center dashed `round` cap renders half-circle dash terminals
+  without filling square-cap corner probes
 
 ## Required unsupported behavior
 
 - constrained dashed stroke remains absent
-- `round` join dashed center stroke remains absent
-- `round` cap dashed center stroke remains absent
+- constrained `inside` / `outside` round geometry remains outside this center
+  dashed visual contract
 
 ## Pass rule
 
@@ -43,4 +47,6 @@ The spec passes only when:
 2. offset probes show a deterministic shift
 3. supported join probes show the expected `miter` vs `bevel` corner
    silhouettes
-4. unsupported probes remain below the absence threshold
+4. supported `round` join and `round` cap probes show curved coverage without
+   square or miter overfill
+5. unsupported constrained probes remain below the absence threshold

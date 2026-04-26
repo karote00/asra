@@ -13,7 +13,6 @@ This definition file describes the screenshot-level oracle for
 - Supported joins under this benchmark:
   - `miter`
   - `bevel`
-- Unsupported join under this benchmark:
   - `round`
 
 ## Visual Contract
@@ -32,10 +31,12 @@ This definition file describes the screenshot-level oracle for
 - The outer top-left corner square must be mostly absent, because the bevel
   join cuts that square corner away with a diagonal edge.
 
-### Unsupported Round
+### Round
 
-- No visible stroke band should appear in the sampled top / left / outer-corner
-  probes, because `round` join is not supported in the current phase boundary.
+- The center stroke band must remain visible across the top and left samples.
+- The fill interior must remain empty at the center probe.
+- The extreme miter-tip probe must remain absent, because the promoted round
+  join follows curved corner coverage instead of filling the miter spike.
 
 ## Measured Observables
 
@@ -46,6 +47,8 @@ the selected rectangle.
 - `leftBand`: verifies visible center-stroke band at the left edge
 - `center`: verifies the interior fill area remains stroke-free
 - `outerCornerSquare`: distinguishes `miter` vs `bevel`
+  / `round`
+- `miterTip`: verifies `round` does not overfill the miter spike
 
 ## Pass Conditions
 
@@ -60,7 +63,10 @@ the selected rectangle.
   - `center < 0.03`
   - `outerCornerSquare < 0.18`
 - `round`
-  - all sampled stroke probes stay `< 0.03`
+  - `topBand > 0.6`
+  - `leftBand > 0.6`
+  - `center < 0.03`
+  - `miterTip < 0.03`
 
 ## Failure Meaning
 
@@ -70,4 +76,5 @@ the selected rectangle.
   square/miter join instead of a bevel cut.
 - If either supported join fails the band assertions, the rendered stroke width
   or placement is visually incorrect.
-- If `round` appears in the probes, the unsupported join gate has been broken.
+- If `round` fills the miter-tip probe like a miter join, the curved
+  corner semantics have regressed.

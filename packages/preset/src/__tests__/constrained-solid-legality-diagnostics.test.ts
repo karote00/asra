@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createDefaultStroke } from '@asyra/utils'
 import { buildConstrainedSolidLegalityDiagnostics } from '../components/stroke-render/constrained-solid-legality-diagnostics'
 import { buildConstrainedSolidStrokeResolvedPackets } from '../components/stroke-render/constrained-solid-stroke-packets'
 
@@ -14,7 +15,7 @@ describe('constrained solid legality diagnostics', () => {
       ],
       true,
       [
-        {
+        createDefaultStroke({
           visible: true,
           style: 'solid',
           position: 'inside',
@@ -24,7 +25,7 @@ describe('constrained solid legality diagnostics', () => {
           joinType: 'miter',
           capType: 'butt',
           miterAngle: 28.96
-        }
+        })
       ]
     )
 
@@ -41,7 +42,7 @@ describe('constrained solid legality diagnostics', () => {
         }
       ],
       [
-        {
+        createDefaultStroke({
           visible: true,
           style: 'solid',
           position: 'inside',
@@ -51,7 +52,7 @@ describe('constrained solid legality diagnostics', () => {
           joinType: 'miter',
           capType: 'butt',
           miterAngle: 28.96
-        }
+        })
       ],
       packets
     )
@@ -78,17 +79,17 @@ describe('constrained solid legality diagnostics', () => {
         ],
         true,
         [
-          {
-            visible: true,
-            style: 'solid',
+            createDefaultStroke({
+              visible: true,
+              style: 'solid',
             position: 'inside',
             width: 6,
             color: '#00ff00',
             opacity: 1,
-            joinType: 'miter',
-            capType: 'butt',
-            miterAngle: 28.96
-          }
+              joinType: 'miter',
+              capType: 'butt',
+              miterAngle: 28.96
+            })
         ]
       )[0]?.geometry.polygons
     )

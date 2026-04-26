@@ -2204,6 +2204,962 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
   - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
 
+## 2026-04-22 - Phase 4C closes the bounded Family C outside representative pair with `rect + outside + miter`
+
+- Context:
+  - Phase 4C had already promoted the bounded Family C exterior representative
+    for `rect + outside + bevel`.
+  - The next smallest uncovered slice in the same algorithm class was the
+    matching `rect + outside + miter` representative on the same orthogonal
+    corner-spanning fixture.
+- Decision:
+  - Promote the next bounded Family C constrained dashed product slice for:
+    - shape-generated `rect`
+    - `position: outside`
+    - `join: miter`
+    - one corner-spanning visible constrained dashed interval on a closed path
+  - Keep this promotion runtime-local to the `rect` path through the same
+    constrained dashed helper opt-in pattern.
+  - Keep the remaining Family C frontier blocked:
+    - vector/oval corner-spanning remains blocked
+- Consequences:
+  - Phase 4C now closes the current bounded exterior representative pair for
+    shape-generated `rect`:
+    - `outside + bevel`
+    - `outside + miter`
+  - This still does not claim that generic non-rect or vector-generated
+    corner-spanning ownership is complete.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-26 - Stroke engine plan targets formal Figma-like uniform-width completion
+
+- Context:
+  - The product expectation for the current stroke-engine plan is not a
+    representative-only demo matrix.
+  - Variable width and broader paint/color rollout are intentionally excluded
+    from the current execution target, but uniform-width stroke behavior should
+    converge toward the baseline users expect from tools such as Figma.
+- Decision:
+  - Treat the current formal target as Figma-like uniform-width stroke
+    completion for supported Asyra Design shape/vector paths.
+  - Keep the plan focused on:
+    - `inside` / `outside` / `center`
+    - `solid` / `dashed`
+    - stroke width
+    - dash pattern and dash offset
+    - `miter` / `bevel` / `round` joins
+    - `butt` / `square` / `round` caps
+    - render / hit-test / export parity for promoted geometry packets
+  - Keep paint/color expansion, including broader gradient rollout, and
+    variable-width rollout as future-feature work.
+- Consequences:
+  - Bounded slices are still the implementation method, but they cannot be used
+    to permanently defer a baseline uniform-width stroke behavior.
+  - Open gaps in round joins, caps, dash positioning, or constrained placement
+    remain active product gaps until completed or explicitly re-scoped by the
+    user.
+  - The self-review and bounded expansion rules still apply before expanding
+    an edge case beyond the declared uniform-width target.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-plan.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-26 - Closed single-network repeated dashed vectors promote from visibility fallback to constrained placement
+
+- Context:
+  - Manual testing confirmed that switching a closed vector from `center`
+    dashed stroke to `inside` / `outside` no longer disappeared, but the
+    visible stroke stayed in the centered position.
+  - The plan had incorrectly treated simple closed repeated-dash switching as
+    a visibility fallback, while the product expectation is that closed-path
+    `inside` / `outside` changes placement.
+  - Runtime also had a second gate that discarded constrained dashed packets
+    whenever more than one visible interval was produced.
+- Decision:
+  - Allow multiple constrained dashed packets when they belong to the same
+    network and the same stroke row.
+  - Keep multi-network / multi-stroke constrained dashed ownership blocked.
+  - Promote simple closed single-network repeated dashed vectors to constrained
+    `inside` / `outside` placement when the closed legality domain is valid.
+  - Keep open-path switching on centered visibility fallback.
+  - Keep true self-intersecting fill-rule constrained legality blocked until
+    that domain is declared and tested explicitly.
+- Consequences:
+  - Closed vector repeated dashed `inside` / `outside` no longer silently falls
+    back to center when constrained packets are available.
+  - Product-path unit tests now assert constrained packet routing, and the
+    rectangle representative asserts inside/outside bounds rather than mere
+    visibility.
+  - App-path visual coverage now checks that the repeated dash lands on the
+    correct inside/outside side for a closed rectangle vector.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-26 - Phase 5 promotes corner-spanning round joins for uniform-width constrained dashed rectangles
+
+- Context:
+  - Phase 5 had already promoted round joins on full-loop constrained dashed
+    strokes and round caps on single-edge constrained dashed strokes.
+  - A common manual-testing path still remained blocked: a visible dashed
+    interval crossing a rectangle corner while `joinType: round` is selected.
+  - Expanding broader equivalence gates first would not unblock that product
+    path.
+- Decision:
+  - Add helper, product-path, and app-path contracts for:
+    - shape-generated `rect`
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `corner-spanning + inside + round join`
+    - constrained dashed `corner-spanning + outside + round join`
+  - Promote the path by allowing the existing corner-spanning legality route to
+    accept `round` joins.
+  - Add open-interval round-join polygon fan generation to the shared
+    solid-center geometry builder so the partial dash emits visible round join
+    geometry instead of an empty packet.
+  - Keep the scope narrow:
+    - uniform-width only
+    - shape-generated `rect` and rectangle-equivalent `vector` app-path visual
+      representatives only
+    - no gradient, variable-width, self-intersecting, or multi-network rollout
+- Consequences:
+  - The common uniform-width dashed rectangle path now covers:
+    - inside/outside placement
+    - full-loop round joins
+    - single-edge round caps
+    - corner-spanning round joins
+  - App-path runtime was synchronized in `packages/preset/dist` to avoid
+    source/dist drift.
+  - Broader non-rectangle-equivalent source equivalence for corner-spanning
+    round joins remains backlog unless manual testing exposes a product blocker.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-26 - Phase 5 closes the outside round-cap shape/vector equivalence gate for uniform-width constrained dashed strokes
+
+- Context:
+  - Phase 5 had already promoted the bounded `single-edge + outside + round
+    cap` constrained dashed product path across:
+    - shape-generated `rect`
+    - closed single-network rectangle-equivalent `vector`
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+  - The next honest work item was the matching Family D closeout for the
+    rectangle-equivalent shape/vector source pair.
+- Decision:
+  - Add product-path and app-path contracts for:
+    - shape-generated `rect`
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `single-edge + outside + round cap`
+  - Keep the gate narrow:
+    - rectangle-equivalent source pair only
+    - uniform-width only
+    - single-edge only
+    - outside position only
+    - round cap only
+    - no gradient or variable-width rollout
+- Consequences:
+  - Phase 5 now has matching Family D evidence for both inside and outside
+    round-cap single-edge constrained dashed coverage.
+  - The active plan remains focused on the common uniform-width dashed / round
+    matrix.
+  - Gradient expansion and variable-width product rollout remain future-feature
+    work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-25 - Phase 5 adds the first shape-generated outside round-cap constrained dashed representative on the bounded product path
+
+- Context:
+  - Active execution was narrowed to uniform-width stroke completion, with
+    `dashed`, `inside` / `outside`, and `round` joins / caps as the next
+    user-facing priority.
+  - The next missing user-facing slice was not another `inside` closeout, but
+    the first honest `outside + round` representative on the shape-generated
+    path.
+  - `outside + round join` would have required a larger geometry expansion
+    because the current bounded helper only promotes inside full-loop round
+    joins through a temporary miter-backed path.
+  - The narrower and more honest next slice was:
+    - shape-generated `rect`
+    - constrained dashed `single-edge + outside + round cap`
+- Decision:
+  - Promote the next Phase 5 representative with helper-level, product-path,
+    and app-path contracts for:
+    - shape-generated `rect`
+    - constrained dashed `single-edge + outside + round cap`
+  - Keep this promotion narrow:
+    - shape-generated `rect` only
+    - `single-edge` only
+    - `position: outside` only
+    - `cap: round` only
+    - no vector-generated `outside + round cap` claim
+    - no `outside + round join` claim
+- Consequences:
+  - Phase 5 now reaches the first user-facing `outside + dashed + round`
+    representative on the bounded product path without expanding the geometry
+    engine into a broader round-join frontier.
+  - This confirms that the existing clipped center-cap path already supports
+    the first outside round-cap slice on the shape-generated path.
+  - Vector-generated outside round caps and outside round joins remain blocked
+    pending later bounded promotion.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+  - `docs/ai/apps/asyra-design/PLANS.md`
+
+## 2026-04-25 - Uniform-width stroke completion becomes the active rollout priority, while gradient and variable width move to future-feature status
+
+- Context:
+  - The execution plan had already accumulated exploratory Phase 6 gradient
+    slices and Phase 7 pre-promotion probes.
+  - Product priority was then narrowed explicitly:
+    - finish uniform-width stroke behavior first
+    - prioritize `dashed`, `inside` / `outside`, and `round` joins / caps
+    - stop spending the current execution window on gradient expansion or
+      variable-width rollout
+  - The architecture still needs to remain extensible for later gradient and
+    variable-width work, but those phases no longer define the active critical
+    path.
+- Decision:
+  - Re-scope the active rollout to uniform-width stroke completion only.
+  - Treat paint/color expansion, including broader gradient rollout, and
+    variable-width rollout as future-feature work for the current plan.
+  - Keep the already-recorded Phase 6 / Phase 7 notes as historical evidence
+    and backlog, but do not let them outrank unfinished user-facing
+    uniform-width round / dashed work.
+  - Use Figma-like uniform-width stroke behavior as the formal
+    slice-selection target:
+    - `inside` / `outside` / `center`
+    - `solid` / `dashed`
+    - dash pattern and dash offset
+    - `miter` / `bevel` / `round` joins
+    - `butt` / `square` / `round` caps
+- Consequences:
+  - The plan is now smaller than the full architecture because the active
+    frontier no longer includes paint/color expansion or variable-width
+    promotion, but it remains a formal uniform-width completion plan.
+  - Future scope decisions must prefer unfinished uniform-width user-facing
+    blockers before returning to gradient or width expansion.
+  - Variable width still requires an extensible contract later, but it is no
+    longer a current-phase deliverable.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-plan.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+  - `docs/ai/apps/asyra-design/PLANS.md`
+
+## 2026-04-25 - Phase 5 adds the first rectangle-equivalent vector outside round-cap constrained dashed representative on the bounded product path
+
+- Context:
+  - Active execution now prioritizes uniform-width user-facing stroke
+    completion, especially `dashed`, `inside` / `outside`, and `round`.
+  - The shape-generated `rect + single-edge + outside + round cap`
+    representative had already been promoted.
+  - The next honest downstream move was not to widen the family to broader
+    vectors or outside round joins, but to carry the same slice onto the first
+    rectangle-equivalent vector source frontier.
+- Decision:
+  - Promote the next Phase 5 representative with helper-level, product-path,
+    and app-path contracts for:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `single-edge + outside + round cap`
+  - Keep this promotion narrow:
+    - rectangle-equivalent `vector` only
+    - `single-edge` only
+    - `position: outside` only
+    - `cap: round` only
+    - no broader non-rectangle-equivalent vector claim
+    - no `outside + round join` claim
+- Consequences:
+  - Phase 5 now extends the first user-facing outside round-cap slice onto the
+    first vector-generated source frontier instead of staying on shape-only
+    rollout.
+  - This confirms that the existing clipped center-cap path already supports
+    the first rectangle-equivalent vector outside round-cap slice without a
+    new geometry branch.
+  - Broader vector outside round caps and outside round joins remain blocked
+    pending later bounded promotion.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+  - `docs/ai/apps/asyra-design/PLANS.md`
+
+## 2026-04-25 - Phase 5 adds the first broader vector outside round-cap constrained dashed representative on the bounded product path
+
+- Context:
+  - Uniform-width rollout continues to prioritize user-facing `dashed`,
+    `inside` / `outside`, and `round`.
+  - The shape-generated and rectangle-equivalent vector
+    `single-edge + outside + round cap` representatives were already
+    promoted.
+  - The next honest downstream move was not to widen into `outside + round
+    join`, but to carry the same outside round-cap slice onto the first
+    broader non-rectangle-equivalent vector source frontier.
+- Decision:
+  - Promote the next broader Phase 5 representative with helper-level,
+    product-path, and app-path contracts for:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - constrained dashed `single-edge + outside + round cap`
+  - Keep this promotion narrow:
+    - broader non-rectangle-equivalent `vector` only
+    - `single-edge` only
+    - `position: outside` only
+    - `cap: round` only
+    - no `outside + round join` claim
+    - no broader equivalence gate claim
+- Consequences:
+  - Phase 5 now carries the outside round-cap slice through the first broader
+    vector-generated source frontier instead of stopping at the
+    rectangle-equivalent vector pair.
+  - This confirms that the same clipped center-cap path remains valid on the
+    first broader outside interval without introducing a new geometry branch.
+  - `outside + round join` and broader round equivalence gates remain blocked
+    pending later bounded promotion.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+  - `docs/ai/apps/asyra-design/PLANS.md`
+
+## 2026-04-25 - Phase 5 adds the first shape-generated outside round-join constrained dashed representative on the bounded product path
+
+- Context:
+  - Uniform-width rollout is still prioritizing user-facing `dashed`,
+    `inside` / `outside`, and `round`.
+  - Outside round caps had already been promoted across:
+    - shape-generated `rect`
+    - rectangle-equivalent `vector`
+    - broader non-rectangle-equivalent `vector`
+  - The next honest missing round slice on the common design-tool matrix was
+    not another cap expansion, but the first shape-generated
+    `full-loop + outside + round join` representative.
+- Decision:
+  - Promote the next Phase 5 representative with helper-level, product-path,
+    and app-path contracts for:
+    - shape-generated `rect`
+    - constrained dashed `full-loop + outside + round join`
+  - Keep this promotion narrow:
+    - shape-generated `rect` only
+    - `full-loop` only
+    - `position: outside` only
+    - `join: round` only
+    - no vector-generated outside round-join claim
+    - no outside round-join equivalence gate claim
+- Consequences:
+  - Phase 5 now reaches the first user-facing `outside + dashed + round join`
+    representative on the bounded product path.
+  - This confirms that the current bounded full-loop round-join path can carry
+    the first outside shape slice without introducing a new public interface.
+  - Vector-generated outside round joins and broader round equivalence gates
+    remain blocked pending later bounded promotion.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+  - `docs/ai/apps/asyra-design/PLANS.md`
+
+## 2026-04-25 - Phase 5 adds the first rectangle-equivalent vector outside round-join constrained dashed representative on the bounded product path
+
+- Context:
+  - Uniform-width rollout continues to prioritize the common design-tool stroke
+    matrix over deeper future-feature work.
+  - The shape-generated `rect + full-loop + outside + round join`
+    representative had already been promoted.
+  - The next honest downstream move was not to jump to broader vectors, but to
+    carry the same outside round-join slice onto the first
+    rectangle-equivalent vector source frontier.
+- Decision:
+  - Promote the next Phase 5 representative with helper-level, product-path,
+    and app-path contracts for:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `full-loop + outside + round join`
+  - Keep this promotion narrow:
+    - rectangle-equivalent `vector` only
+    - `full-loop` only
+    - `position: outside` only
+    - `join: round` only
+    - no broader vector outside round-join claim
+    - no outside round-join equivalence gate claim
+- Consequences:
+  - Phase 5 now extends the first outside round-join slice onto the first
+    vector-generated source frontier instead of stopping at shape-only
+    coverage.
+  - This confirms that the bounded full-loop round-join path survives the
+    first rectangle-equivalent vector outside slice without a new public
+    interface or new geometry engine.
+  - Broader vector outside round joins and round equivalence gates remain
+    blocked pending later bounded promotion.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+  - `docs/ai/apps/asyra-design/PLANS.md`
+
+## 2026-04-25 - Phase 5 adds the first broader vector outside round-join constrained dashed representative on the bounded product path
+
+- Context:
+  - Uniform-width rollout is still converging on the common design-tool stroke
+    matrix.
+  - Outside round joins had already been promoted on:
+    - shape-generated `rect`
+    - rectangle-equivalent `vector`
+  - The next honest downstream move was not an equivalence gate, but carrying
+    the same outside round-join slice onto the first broader
+    non-rectangle-equivalent vector source frontier.
+- Decision:
+  - Promote the next broader Phase 5 representative with helper-level,
+    product-path, and app-path contracts for:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - constrained dashed `full-loop + outside + round join`
+  - Keep this promotion narrow:
+    - broader non-rectangle-equivalent `vector` only
+    - `full-loop` only
+    - `position: outside` only
+    - `join: round` only
+    - no equivalence gate claim
+    - no additional topology expansion claim
+- Consequences:
+  - Phase 5 now carries the outside round-join slice through the first broader
+    vector-generated source frontier instead of stopping at the
+    rectangle-equivalent pair.
+  - This confirms that the same bounded full-loop round-join path survives the
+    first broader outside slice without a new geometry engine.
+  - Round-join equivalence gates beyond the existing inside gate remain
+    blocked pending later bounded promotion.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+  - `docs/ai/apps/asyra-design/PLANS.md`
+
+## 2026-04-25 - Stroke rollout adopts mandatory pre-expansion self-review and clarifies gradient responsibility boundaries
+
+- Context:
+  - Repeated bounded rollout work had already shown that the real failure mode
+    was not missing micro-slices by itself, but expanding the current phase
+    without re-checking whether the expansion actually unblocked downstream
+    phases.
+  - Phase 6 gradient work also needed an explicit responsibility boundary so
+    stroke geometry would not start absorbing paint behavior.
+- Decision:
+  - Make the following self-review mandatory before every edge-case or scope
+    expansion:
+    - if this case is not handled now, which later phase would be blocked
+    - whether handling the case would change any externally exposed interface
+    - whether the added work exceeds `20%` of the current phase scope
+  - Enforce the resulting discipline:
+    - if no later phase is blocked, move the case to backlog and keep moving
+      downstream
+    - if an externally exposed interface would change, stop for approval
+    - if the added work exceeds `20%`, stop for approval
+  - Clarify the geometry / paint boundary for gradient stroke work:
+    - geometry owns final stroke-region output, geometry-side turn handling,
+      and paint inputs such as bounds / UV data
+    - gradient paint owns paint application, color evaluation, and sampling
+      behavior
+    - geometry must not absorb gradient application or color logic
+- Consequences:
+  - Later work is now explicitly optimized for "good enough to move
+    downstream" instead of perfect edge-case completion.
+  - Backlog becomes a required and valid output when a case does not block a
+    later phase.
+  - Phase 6 and later paint work now have a clearer boundary that keeps stroke
+    geometry reusable and prevents paint-specific responsibility drift.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/rules/scenario-matrix-testing.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-plan.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-25 - Phase 7 pre-promotion work adds the first asymmetric-width acute-join probe on the shared dashed slicer
+
+- Context:
+  - The new self-review gate showed that continuing to expand Phase 6 gradient
+    representatives would not directly block later phases, because gradient is
+    now explicitly paint-only.
+  - Phase 7 promotion, however, is blocked until the required variable-width
+    probe families exist on the shared pipeline.
+  - One probe family already existed for asymmetric seam-wrap dashed slicing,
+    but the required `asymmetric width + acute join` family was still missing.
+- Decision:
+  - Add the next smallest Phase 7 pre-promotion probe fixture on the shared
+    dashed frame slicer for:
+    - asymmetric width
+    - one visible interval that crosses an acute join
+  - Keep this work narrow:
+    - probe fixture only
+    - shared slicing helper only
+    - no variable-width runtime promotion claim
+    - no interface change
+- Consequences:
+  - Phase 7 preconditions now advance on the geometry side without reopening
+    more Phase 6 paint expansion.
+  - The shared dashed slicer is now explicitly guarded against assuming uniform
+    width across both seam-wrap and acute-join interval slicing.
+  - Variable-width runtime promotion, ownership probes, and constrained
+    `inside` / `outside` asymmetric-width probes remain future work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-25 - Phase 7 pre-promotion work adds the first asymmetric-width dashed-overlap probe on the shared overlap graph
+
+- Context:
+  - The mandatory self-review showed that more Phase 6 gradient expansion would
+    not directly unblock later phases, while Phase 7 is still blocked on its
+    required variable-width probe families.
+  - After adding seam-wrap and acute-join slicer probes, the next missing
+    family in the execution plan was:
+    - asymmetric width + dashed overlap
+- Decision:
+  - Add the next smallest Phase 7 pre-promotion probe fixture on the shared
+    center-dashed overlap graph for:
+    - asymmetric-width, non-rectangular overlap bands
+    - deterministic overlap-component extraction independent of candidate order
+  - Keep this work narrow:
+    - probe fixture only
+    - overlap graph only
+    - no variable-width runtime promotion claim
+    - no interface change
+- Consequences:
+  - Phase 7 preconditions now advance on the overlap side without reopening
+    more Phase 6 paint work.
+  - The shared dashed overlap graph is now explicitly guarded against assuming
+    rectangular uniform-width bands when extracting overlap components.
+  - Variable-width ownership, constrained `inside` / `outside`, and runtime
+    promotion remain future work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-25 - Phase 7 pre-promotion work adds the first asymmetric-width inside probe on the shared legality path
+
+- Context:
+  - The mandatory self-review still pointed to Phase 7 preconditions as the
+    real blocker, not further Phase 6 paint expansion.
+  - After seam-wrap slicing, acute-join slicing, and dashed-overlap probes,
+    the next missing required family in the execution plan was:
+    - asymmetric width + `inside`
+- Decision:
+  - Add the next smallest Phase 7 pre-promotion probe fixture on the shared
+    constrained legality path for:
+    - asymmetric-width inside geometry
+    - no-op legality clipping on non-overflow geometry
+  - Keep this work narrow:
+    - synthetic probe packet only
+    - shared legality-clipping helper only
+    - no variable-width runtime promotion claim
+    - no interface change
+- Consequences:
+  - Phase 7 preconditions now advance on the constrained-inside legality side
+    without starting variable-width runtime rollout.
+  - The shared inside legality path is now explicitly guarded against erasing
+    asymmetric non-overflow geometry just because the probe is not a uniform
+    band.
+  - Asymmetric-width `outside`, ownership/runtime promotion, and wider Phase 7
+    rollout remain future work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-25 - Phase 7 pre-promotion work adds the first asymmetric-width outside probe on the shared legality path
+
+- Context:
+  - The mandatory self-review still pointed to Phase 7 preconditions as the
+    real blocker, not further Phase 6 paint expansion.
+  - After adding seam-wrap, acute-join, dashed-overlap, and asymmetric
+    `inside` probes, the next missing required family in the execution plan
+    was:
+    - asymmetric width + `outside`
+- Decision:
+  - Add the next smallest Phase 7 pre-promotion probe fixture on the shared
+    constrained legality path for:
+    - asymmetric-width outside geometry
+    - no-op legality clipping on non-overflow geometry
+  - Keep this work narrow:
+    - synthetic probe packet only
+    - shared legality-clipping helper only
+    - no variable-width runtime promotion claim
+    - no interface change
+- Consequences:
+  - Phase 7 preconditions now advance on the constrained-outside legality side
+    without starting variable-width runtime rollout.
+  - The shared outside legality path is now explicitly guarded against erasing
+    asymmetric non-overflow geometry just because the probe is not a uniform
+    outer band.
+  - Variable-width ownership/runtime promotion remains future work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-24 - Phase 6 adds the first vector-generated outside corner-spanning constrained dashed gradient-paint representative on the bounded product path
+
+- Context:
+  - Phase 6 had already promoted:
+    - shape-generated `rect + outside + bevel + corner-spanning + local-bounds linear gradient paint`
+    - closed single-network rectangle-equivalent `vector + inside + bevel + corner-spanning + local-bounds linear gradient paint`
+  - Returning to `miter` on the same shape family would have kept the rollout
+    on an already-sufficient geometry branch.
+  - The next honest downstream source frontier was:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `outside + bevel + corner-spanning + local-bounds linear gradient paint`
+- Decision:
+  - Promote the next vector-generated Phase 6 representative with product-path
+    and app-path contracts for:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `outside + bevel + corner-spanning + local-bounds linear gradient paint`
+  - Keep this promotion narrow:
+    - rectangle-equivalent `vector` only
+    - corner-spanning only
+    - `position: outside` only
+    - `join: bevel` only
+    - local-bounds linear gradient paint only
+    - no broader vector-generated `outside` corner-spanning gradient claim
+    - no `miter` corner-spanning gradient claim
+    - no corner-spanning gradient equivalence gate claim
+- Consequences:
+  - Phase 6 now moves the exterior legal-turn gradient slice onto the first
+    vector-generated source frontier instead of returning to more shape-side
+    closure.
+  - This confirms that the same paint-only gradient path survives the first
+    rectangle-equivalent vector outside corner packet without adding a runtime
+    branch.
+  - Broader vector-generated `outside`, `miter`, corner-spanning gradient
+    equivalence, and gradient-plus-variable-width slices remain blocked.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-24 - Phase 6 adds the first vector-generated single-edge constrained dashed gradient-paint representative
+
+- Context:
+  - Phase 6 had already promoted bounded `full-loop` local-bounds linear
+    gradient paint on:
+    - shape-generated `rect` inside/outside
+    - closed single-network rectangle-equivalent `vector` inside/outside
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+      inside/outside
+  - Phase 6 had also already promoted the first bounded interval-local
+    single-edge gradient slice on:
+    - shape-generated `rect`
+    - constrained dashed `single-edge + inside + local-bounds linear gradient
+      paint`
+  - The next honest move was to advance to the next source frontier instead of
+    staying on the same shape-generated single-edge slice.
+- Decision:
+  - Promote the next Phase 6 representative with product-path and app-path
+    contracts for:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `single-edge + inside + local-bounds linear gradient
+      paint`
+  - Keep this promotion narrow:
+    - rectangle-equivalent `vector` only
+    - single-edge only
+    - `position: inside` only
+    - local-bounds linear gradient paint only
+    - no broader vector single-edge gradient claim
+    - no `outside` single-edge gradient claim
+    - no corner-spanning gradient claim
+- Consequences:
+  - Phase 6 now reaches its first vector-generated interval-local single-edge
+    gradient-paint slice instead of returning to the same shape-only frontier.
+  - This confirms the existing paint-only gradient path survives the first
+    bounded vector-generated single-edge representative without adding a new
+    stroke-runtime branch.
+  - Broader vector-generated and `outside` single-edge gradient paint,
+    corner-spanning gradient paint, broader gradient equivalence gates, and
+    gradient-plus-variable-width slices remain blocked.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-24 - Phase 6 adds the first broader vector-generated single-edge constrained dashed gradient-paint representative
+
+- Context:
+  - Phase 6 had already promoted bounded `full-loop` local-bounds linear
+    gradient paint on:
+    - shape-generated `rect` inside/outside
+    - closed single-network rectangle-equivalent `vector` inside/outside
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+      inside/outside
+  - Phase 6 had also already promoted bounded interval-local single-edge
+    gradient paint on:
+    - shape-generated `rect`
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `single-edge + inside + local-bounds linear gradient paint`
+  - The next honest move was to advance to the next broader source frontier
+    instead of stopping on the rectangle-equivalent vector pair.
+- Decision:
+  - Promote the next broader Phase 6 representative with product-path and
+    app-path contracts for:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - constrained dashed `single-edge + inside + local-bounds linear gradient
+      paint`
+  - Keep this promotion narrow:
+    - broader non-rectangle-equivalent quadrilateral `vector` only
+    - single-edge only
+    - `position: inside` only
+    - local-bounds linear gradient paint only
+    - no `outside` single-edge gradient claim
+    - no corner-spanning gradient claim
+- Consequences:
+  - Phase 6 now reaches its first broader vector-generated interval-local
+    single-edge gradient-paint slice instead of stopping on the
+    rectangle-equivalent vector source family.
+  - This confirms the existing paint-only gradient path survives the first
+    broader non-rectangle-equivalent single-edge representative without adding
+    a new stroke-runtime branch.
+  - `Outside` single-edge gradient paint, corner-spanning gradient paint,
+    broader gradient equivalence gates, and gradient-plus-variable-width
+    slices remain blocked.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-24 - Phase 6 adds the first outside single-edge constrained dashed gradient-paint representative
+
+- Context:
+  - Phase 6 had already promoted bounded single-edge local-bounds linear
+    gradient paint on:
+    - shape-generated `rect + inside`
+    - closed single-network rectangle-equivalent `vector + inside`
+    - closed single-network non-rectangle-equivalent quadrilateral `vector + inside`
+  - The next honest move was not to close a single-edge gradient equivalence
+    gate on the same `inside` family.
+  - The next downstream geometry frontier on the same paint-only path was:
+    - shape-generated `rect`
+    - constrained dashed `single-edge + outside + local-bounds linear gradient paint`
+- Decision:
+  - Promote the next Phase 6 representative with product-path and app-path
+    contracts for:
+    - shape-generated `rect`
+    - constrained dashed `single-edge + outside + local-bounds linear gradient paint`
+  - Keep this promotion narrow:
+    - shape-generated `rect` only
+    - single-edge only
+    - `position: outside` only
+    - local-bounds linear gradient paint only
+    - no vector-generated `outside` single-edge gradient claim
+    - no corner-spanning gradient claim
+- Consequences:
+  - Phase 6 now reaches its first exterior interval-local single-edge
+    gradient-paint slice instead of staying on the same `inside` source family.
+  - This confirms the existing paint-only gradient path survives the first
+    bounded outside single-edge representative without adding a new stroke-runtime
+    branch.
+  - Vector-generated `outside` single-edge gradient paint, corner-spanning
+    gradient paint, broader gradient equivalence gates, and gradient-plus-
+    variable-width slices remain blocked.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-24 - Phase 6 adds the first vector-generated outside single-edge constrained dashed gradient-paint representative
+
+- Context:
+  - Phase 6 had already promoted bounded single-edge local-bounds linear
+    gradient paint on:
+    - shape-generated `rect + inside/outside`
+    - closed single-network rectangle-equivalent `vector + inside`
+    - closed single-network non-rectangle-equivalent quadrilateral `vector + inside`
+  - The next honest move was not to close a single-edge gradient equivalence
+    gate on the same source family.
+  - The next downstream source frontier on the same exterior interval-local
+    paint-only path was:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `single-edge + outside + local-bounds linear gradient paint`
+- Decision:
+  - Promote the next Phase 6 representative with product-path and app-path
+    contracts for:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `single-edge + outside + local-bounds linear gradient
+      paint`
+  - Keep this promotion narrow:
+    - rectangle-equivalent `vector` only
+    - single-edge only
+    - `position: outside` only
+    - local-bounds linear gradient paint only
+    - no broader vector-generated `outside` single-edge gradient claim
+    - no corner-spanning gradient claim
+- Consequences:
+  - Phase 6 now reaches its first vector-generated exterior interval-local
+    single-edge gradient-paint slice instead of stopping on the shape-generated
+    outside family.
+  - This confirms the existing paint-only gradient path survives the first
+    rectangle-equivalent vector outside single-edge representative without
+    adding a new stroke-runtime branch.
+  - Broader vector-generated `outside` single-edge gradient paint,
+    corner-spanning gradient paint, broader gradient equivalence gates, and
+    gradient-plus-variable-width slices remain blocked.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-24 - Phase 6 adds the first broader vector-generated outside single-edge constrained dashed gradient-paint representative
+
+- Context:
+  - Phase 6 had already promoted bounded single-edge local-bounds linear
+    gradient paint on:
+    - shape-generated `rect + inside/outside`
+    - closed single-network rectangle-equivalent `vector + inside/outside`
+    - closed single-network non-rectangle-equivalent quadrilateral `vector + inside`
+  - The next honest move was not to stop on the rectangle-equivalent outside
+    source family.
+  - The next downstream source frontier on the same exterior interval-local
+    paint-only path was:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - constrained dashed `single-edge + outside + local-bounds linear gradient paint`
+- Decision:
+  - Promote the next broader Phase 6 representative with product-path and
+    app-path contracts for:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - constrained dashed `single-edge + outside + local-bounds linear gradient
+      paint`
+  - Keep this promotion narrow:
+    - broader non-rectangle-equivalent quadrilateral `vector` only
+    - single-edge only
+    - `position: outside` only
+    - local-bounds linear gradient paint only
+    - no corner-spanning gradient claim
+- Consequences:
+  - Phase 6 now reaches its first broader vector-generated exterior
+    interval-local single-edge gradient-paint slice instead of stopping on the
+    rectangle-equivalent outside source family.
+  - This confirms the existing paint-only gradient path survives the first
+    broader non-rectangle-equivalent outside single-edge representative without
+    adding a new stroke-runtime branch.
+  - Corner-spanning gradient paint, broader gradient equivalence gates, and
+    gradient-plus-variable-width slices remain blocked.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C promotes the first vector-generated Family C corner-spanning representative
+
+- Context:
+  - Phase 4C had already closed the bounded shape-generated `rect` Family C
+    representatives for:
+    - `inside + bevel/miter`
+    - `outside + bevel/miter`
+  - The next smallest uncovered source frontier was not `oval` or broader
+    vector topology. It was one explicit closed single-network
+    rectangle-equivalent `vector` representative on the same corner-spanning
+    family.
+  - The initial product unit failed because the vector geometry model emits a
+    duplicate seam endpoint on closed loops, which caused the rect-loop
+    classifier to reject a rectangle-equivalent vector path.
+- Decision:
+  - Promote the first vector-generated Family C constrained dashed product
+    slice for:
+    - closed single-network rectangle-equivalent `vector`
+    - `position: inside`
+    - `join: bevel`
+    - one corner-spanning visible constrained dashed interval on a closed path
+  - Fix the helper classifier so a closed loop with a duplicated terminal seam
+    point is canonicalized before rectangle-equivalent classification.
+  - Keep the rest of this frontier blocked:
+    - vector `inside + miter` corner-spanning remains blocked
+    - vector `outside` corner-spanning remains blocked
+    - broader non-rectangle-equivalent vector corner-spanning remains blocked
+- Consequences:
+  - Phase 4C now proves the first vector-generated Family C representative on
+    the product path without silently widening to generic vector
+    corner-spanning support.
+  - The classifier fix is an implementation correction, not a scenario-model
+    expansion; it aligns vector rectangle-equivalent loops with the already
+    declared shape/vector equivalence intent.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C closes the bounded vector Family C inside representative pair with `inside + miter`
+
+- Context:
+  - Phase 4C had already promoted the first vector-generated Family C
+    representative for:
+    - closed single-network rectangle-equivalent `vector`
+    - `position: inside`
+    - `join: bevel`
+  - The next smallest uncovered slice in the same source/topology frontier was
+    the matching `inside + miter` representative on that same
+    rectangle-equivalent vector path.
+- Decision:
+  - Promote the next bounded vector Family C constrained dashed product slice
+    for:
+    - closed single-network rectangle-equivalent `vector`
+    - `position: inside`
+    - `join: miter`
+    - one corner-spanning visible constrained dashed interval on a closed path
+  - Keep the remaining vector Family C frontier blocked:
+    - vector `outside` corner-spanning remains blocked
+    - broader non-rectangle-equivalent vector corner-spanning remains blocked
+- Consequences:
+  - Phase 4C now closes the current vector-generated inside representative pair
+    for the rectangle-equivalent Family C path:
+    - `inside + bevel`
+    - `inside + miter`
+  - This still does not claim that generic vector exterior or broader vector
+    corner-spanning ownership is complete.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C promotes the next bounded vector Family C outside bevel representative
+
+- Context:
+  - Phase 4C had already closed the bounded vector-generated Family C inside
+    representative pair for the closed single-network rectangle-equivalent
+    `vector` path:
+    - `inside + bevel`
+    - `inside + miter`
+  - The next smallest uncovered slice on that same source/topology frontier
+    was the matching exterior `outside + bevel` representative.
+  - The first app-path failure on this slice was a false negative caused by
+    Playwright reusing an older Vite dev server bundle; a fresh `127.0.0.1`
+    server confirmed the current runtime already produced the expected packet
+    and visual coverage.
+- Decision:
+  - Promote the next bounded vector Family C constrained dashed product slice
+    for:
+    - closed single-network rectangle-equivalent `vector`
+    - `position: outside`
+    - `join: bevel`
+    - one corner-spanning visible constrained dashed interval on a closed path
+  - Keep the remaining vector Family C frontier blocked:
+    - vector `outside + miter` corner-spanning remains blocked
+    - broader non-rectangle-equivalent vector corner-spanning remains blocked
+- Consequences:
+  - Phase 4C now extends the rectangle-equivalent vector Family C product path
+    to the first exterior representative without widening to generic vector
+    corner-spanning support.
+  - The app-path mismatch diagnosis is recorded as server-cache drift, not as a
+    constrained dashed runtime regression.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C closes the bounded vector Family C outside representative pair with `outside + miter`
+
+- Context:
+  - Phase 4C had already promoted the first bounded vector-generated Family C
+    exterior representative for the closed single-network rectangle-equivalent
+    `vector` path:
+    - `outside + bevel`
+  - The next smallest uncovered slice on that same source/topology frontier
+    was the matching `outside + miter` representative.
+- Decision:
+  - Promote the next bounded vector Family C constrained dashed product slice
+    for:
+    - closed single-network rectangle-equivalent `vector`
+    - `position: outside`
+    - `join: miter`
+    - one corner-spanning visible constrained dashed interval on a closed path
+  - Keep the remaining vector Family C frontier blocked:
+    - broader non-rectangle-equivalent vector corner-spanning remains blocked
+- Consequences:
+  - Phase 4C now closes the current vector-generated exterior representative
+    pair for the rectangle-equivalent Family C path:
+    - `outside + bevel`
+    - `outside + miter`
+  - This still does not claim that broader vector corner-spanning ownership or
+    oval corner-spanning promotion is complete.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
 ## 2026-04-21 - Broader mixed-topology subtraction now covers multiple non-orthogonal disconnected pieces
 
 - Context:
@@ -2228,6 +3184,714 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     bounded-expansion stop rule already declared for this plan.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-21 - Phase 4C started with a full-loop constrained dashed helper slice
+
+- Context:
+  - Phase 4B bounded groundwork is already committed at its declared stop
+    boundary.
+  - The next execution target is Phase 4C dashed constrained geometry, but no
+    dedicated 4C scenario contract or runtime entry slice existed yet.
+- Decision:
+  - Start Phase 4C with a new scenario-matrix document dedicated to dashed
+    constrained legality and ownership.
+  - Promote one deliberately narrow helper-level slice first:
+    - full-loop visible constrained dashed intervals on closed paths
+  - Keep non-full-loop constrained dashed intervals explicitly blocked on this
+    phase-start helper path until a later promoted slice declares them.
+- Consequences:
+  - Phase 4C now has a formal contract and a real executable entry slice
+    without pretending the full product path is already promoted.
+  - Further 4C work can now extend from a declared scenario family instead of
+    ad hoc absent/present toggles.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-21 - Phase 4C first product promotion is limited to rectangle inside full-loop constrained dashed
+
+- Context:
+  - Phase 4C already had a scenario-matrix contract plus a helper-level
+    full-loop constrained dashed packet builder.
+  - No real product path had been promoted yet, so constrained dashed still
+    had no package-level product contract or app-path benchmark.
+  - Promoting both `inside` and `outside`, or promoting `vector` together with
+    `rect`, would widen the supported frontier without first proving the
+    smallest honest product slice.
+- Decision:
+  - Promote the first Phase 4C product slice only for:
+    - shape-generated `rect`
+    - `position: inside`
+    - one full-loop visible constrained dashed interval on a closed path
+  - Keep `outside` blocked on this first promoted path, because the `inside`
+    slice stays on the legality-preservation route and does not pretend that
+    exterior overflow or broader owner-domain clipping semantics are already
+    productized.
+  - Add a product-path unit contract and a dedicated app-path visual benchmark
+    contract for that exact slice before widening Phase 4C further.
+- Consequences:
+  - Phase 4C now has its first real product-facing entry point without
+    pretending that the whole constrained dashed matrix is already supported.
+  - The bounded stop boundary stays explicit:
+    - `outside` remains blocked
+    - `oval` and `vector` remain unpromoted
+    - non-full-loop constrained dashed intervals remain blocked
+    - open constrained dashed paths remain blocked
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-21 - Phase 4C next Family A promotion extends rectangle full-loop constrained dashed to outside, while multi-stroke ownership stays blocked
+
+- Context:
+  - The first Phase 4C promotion already proved the narrowest honest product
+    slice on shape-generated `rect inside` full-loop constrained dashed.
+  - The next uncovered gap in the same declared algorithm class was the
+    matching `rect outside` full-loop slice.
+  - Simply wiring all constrained dashed rectangle strokes through the product
+    path would have falsely implied that multiple eligible constrained dashed
+    strokes already had 4C ownership/overlap semantics.
+- Decision:
+  - Promote the next Family A product slice for:
+    - shape-generated `rect`
+    - `position: outside`
+    - one full-loop visible constrained dashed interval on a closed path
+  - Narrow the rectangle runtime path so constrained dashed only renders when
+    exactly one eligible constrained dashed packet survives the helper path.
+  - Keep multiple eligible constrained dashed strokes explicitly blocked until
+    Phase 4C ownership is promoted on the real product path.
+- Consequences:
+  - Phase 4C now covers the first honest `rect inside/outside` pair without
+    pretending that broader dashed constrained ownership is already complete.
+  - The bounded frontier remains explicit:
+    - `oval` and `vector` remain unpromoted
+    - non-full-loop constrained dashed intervals remain blocked
+    - open constrained dashed paths remain blocked
+    - multi-stroke constrained dashed ownership remains blocked
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C first vector-generated promotion is limited to a closed single-network rectangle-equivalent full-loop pair
+
+- Context:
+  - Phase 4C already had promoted shape-generated `rect inside/outside`
+    full-loop constrained dashed slices.
+  - The next smallest uncovered gap in the same Family A algorithm class was
+    the first vector-generated full-loop constrained dashed slice.
+  - Promoting generic multi-network vectors at the same time would have
+    overclaimed ownership behavior that Phase 4C still blocks on the product
+    path.
+- Decision:
+  - Promote the first vector-generated Family A slice only for:
+    - closed single-network rectangle-equivalent `vector`
+    - `position: inside`
+    - `position: outside`
+    - one full-loop visible constrained dashed interval on a closed path
+  - Narrow the vector runtime path so constrained dashed only renders when the
+    total eligible constrained dashed packet count across all vector networks
+    is exactly one.
+  - Keep multi-network constrained dashed vectors explicitly blocked until the
+    vector ownership path is promoted.
+- Consequences:
+  - Phase 4C now covers the first shape/vector promotion pair for the same
+    full-loop constrained dashed family without pretending that broader vector
+    topology or multi-network ownership is already complete.
+  - The bounded frontier remains explicit:
+    - `oval` remains unpromoted
+    - non-full-loop constrained dashed intervals remain blocked
+    - open constrained dashed paths remain blocked
+    - multiple eligible constrained dashed strokes remain blocked
+    - multi-network constrained dashed vectors remain blocked
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C closes the first shape/vector equivalence gate without widening the runtime frontier
+
+- Context:
+  - Phase 4C already promoted shape-generated `rect` and the first
+    vector-generated closed single-network rectangle-equivalent full-loop
+    constrained dashed slices.
+  - The next real scenario-family gap was Family D equivalence:
+    proving those two sources keep matching product output instead of merely
+    coexisting as separate promoted fixtures.
+- Decision:
+  - Add a package-level equivalence contract that compares shape-generated and
+    vector-generated full-loop constrained dashed export packets for both
+    `inside` and `outside`.
+  - Add app-path visual equivalence benchmarks that compare the same
+    shape/vector probe coverage deltas for both `inside` and `outside`.
+  - Do not widen runtime support while closing this gate; this is a test/docs
+    promotion only.
+- Consequences:
+  - Phase 4C now has its first explicit Family D equivalence coverage for the
+    promoted full-loop constrained dashed path.
+  - The supported frontier does not widen past the already promoted `rect` and
+    first vector-generated pair.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C next shape-generated promotion extends full-loop constrained dashed to oval
+
+- Context:
+  - Phase 4C already promoted the first shape-generated `rect` pair plus the
+    first vector-generated closed rectangle-equivalent pair on the same
+    full-loop constrained dashed path.
+  - The next smallest uncovered Family A gap that did not widen the algorithm
+    class was the second shape-generated member: `oval`.
+- Decision:
+  - Promote the next shape-generated full-loop constrained dashed slice for:
+    - `oval`
+    - `position: inside`
+    - `position: outside`
+    - one full-loop visible constrained dashed interval on a closed path
+  - Keep the same narrow runtime rule used by the current promoted shape path:
+    constrained dashed renders only when exactly one eligible packet survives
+    the helper path.
+- Consequences:
+  - Phase 4C now covers both promoted primitive shape families on the current
+    full-loop constrained dashed path.
+  - The bounded frontier remains explicit:
+    - non-full-loop constrained dashed intervals remain blocked
+    - open constrained dashed paths remain blocked
+    - multiple eligible constrained dashed strokes remain blocked
+    - broader vector and multi-network constrained dashed paths remain blocked
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C first broader vector-generated promotion extends beyond the rectangle-equivalent fixture
+
+- Context:
+  - Phase 4C already promoted:
+    - shape-generated `rect`
+    - shape-generated `oval`
+    - the first vector-generated closed single-network rectangle-equivalent
+      fixture
+  - The next smallest uncovered vector gap in the same Family A full-loop
+    algorithm class was a closed single-network vector that is not
+    rectangle-equivalent.
+- Decision:
+  - Promote the first broader vector-generated full-loop constrained dashed
+    slice for:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - `position: inside`
+    - `position: outside`
+    - one full-loop visible constrained dashed interval on a closed path
+  - Keep the same runtime frontier:
+    - exactly one eligible constrained dashed packet
+    - no multi-network promotion
+    - no multi-stroke ownership promotion
+- Consequences:
+  - Phase 4C now proves the current vector product path is not limited only to
+    rectangle-equivalent fixtures.
+  - The bounded frontier still stays explicit:
+    - non-full-loop constrained dashed intervals remain blocked
+    - open constrained dashed paths remain blocked
+    - multiple eligible constrained dashed strokes remain blocked
+    - multi-network constrained dashed vectors remain blocked
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C enters Family B with the first promoted single-edge constrained dashed slice
+
+- Context:
+  - Phase 4C Family A already had the current bounded frontier:
+    - shape-generated `rect` and `oval` full-loop constrained dashed slices
+    - vector-generated rectangle-equivalent and first broader non-rectangle-
+      equivalent full-loop constrained dashed slices
+    - the first Family D shape/vector equivalence gate
+  - Staying on that same Family A path any longer would have violated the
+    bounded expansion stop rule.
+  - The next smallest honest family entry was Family B:
+    - shape-generated `rect`
+    - one single-edge visible interval on a closed path
+- Decision:
+  - Promote the first Family B constrained dashed product slice for:
+    - shape-generated `rect`
+    - `position: inside`
+    - `position: outside`
+    - one single-edge visible constrained dashed interval on a closed path
+  - Implement it by:
+    - keeping the helper frontier at exactly one visible interval
+    - requiring that the visible interval stays within one source edge
+    - materializing a doubled-width center-dashed packet and clipping it back
+      to the constrained legality domain
+  - Keep the next broader families explicitly blocked:
+    - corner-spanning constrained dashed intervals
+    - broader non-full-loop constrained dashed intervals
+    - open constrained dashed paths
+    - multi-stroke ownership / multi-network vector constrained dashed paths
+- Consequences:
+  - Phase 4C now has its first honest non-full-loop product promotion without
+    pretending that Family C corner behavior or broader interval ownership is
+    complete.
+  - The app-path benchmark had to use a fixture whose perimeter still yields
+    exactly one visible interval; otherwise the helper correctly keeps the path
+    blocked.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C extends Family B to the first vector rectangle-equivalent slice and closes the first Family B/Family D crossover gate
+
+- Context:
+  - Phase 4C Family B already had the first promoted shape-generated slice:
+    - `rect`
+    - `position: inside`
+    - `position: outside`
+    - one single-edge visible constrained dashed interval
+  - The next smallest uncovered slice was not `oval` or corner-spanning
+    behavior. It was the same rectangle-equivalent topology represented by a
+    vector source.
+- Decision:
+  - Promote the next Family B constrained dashed product slice for:
+    - vector-generated closed single-network rectangle-equivalent `vector`
+    - `position: inside`
+    - `position: outside`
+    - one single-edge visible constrained dashed interval on a closed path
+  - Close the first Family B / Family D crossover gate by proving:
+    - shape-generated `rect`
+    - vector-generated closed single-network rectangle-equivalent `vector`
+    - keep matching `inside/outside` single-edge constrained dashed coverage
+  - Keep the bounded frontier explicit:
+    - shape-generated `oval` single-edge slices are still pending
+    - corner-spanning constrained dashed intervals are still blocked
+    - broader non-full-loop constrained dashed intervals remain blocked
+- Consequences:
+  - Phase 4C now proves the same single-edge constrained dashed semantics do
+    not depend on a shape-only private product branch.
+  - The app-path equivalence gate uses matched `80x40` fixtures so the probe
+    compares one canonical perimeter instead of different authored lengths.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C extends Family B to the first broader non-rectangle-equivalent vector single-edge slice
+
+- Context:
+  - Phase 4C Family B already promoted:
+    - shape-generated `rect` single-edge `inside/outside`
+    - vector-generated rectangle-equivalent single-edge `inside/outside`
+    - the first Family B / Family D crossover gate on the matched
+      rectangle-equivalent topology
+  - The next smallest uncovered Family B slice was the same broader vector
+    topology that had already been promoted on Family A full-loop:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+- Decision:
+  - Promote the next broader Family B constrained dashed product slice for:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - `position: inside`
+    - `position: outside`
+    - one single-edge visible constrained dashed interval on a closed path
+  - Reuse the same bounded interval fixture as the rectangle-equivalent
+    vector slice:
+    - one visible interval
+    - interval stays on the horizontal top edge
+    - no corner-spanning promotion
+- Consequences:
+  - Phase 4C now proves the current Family B vector path is not restricted to
+    rectangle-equivalent topology only.
+  - The bounded frontier still stays explicit:
+    - corner-spanning constrained dashed intervals remain blocked
+    - broader non-full-loop interval families remain blocked
+    - there is still no Family B shape/vector equivalence gate for
+      non-rectangle-equivalent topology
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C enters Family C with the first inside corner-spanning constrained dashed representative pair
+
+- Context:
+  - Phase 4C had already exhausted the honest bounded Family B expansions for:
+    - shape-generated `rect`
+    - vector-generated rectangle-equivalent `vector`
+    - vector-generated first broader non-rectangle-equivalent quadrilateral
+  - Promoting `oval` single-edge next would have been misleading because the
+    current helper semantics classify interval locality by source edges rather
+    than curve spans.
+  - The next smallest honest move was to enter Family C with one explicit
+    corner-spanning representative.
+- Decision:
+  - Promote the first Family C constrained dashed product slices for:
+    - shape-generated `rect`
+    - `position: inside`
+    - `join: bevel`
+    - `join: miter`
+    - one corner-spanning visible constrained dashed interval on a closed path
+  - Keep this promotion explicitly runtime-local to the `rect` path by adding
+    an opt-in on the constrained dashed helper.
+  - Keep the rest of Family C blocked:
+    - `outside` corner-spanning remains blocked
+    - vector/oval corner-spanning remains blocked
+- Consequences:
+  - Phase 4C now proves the current constrained dashed runtime can preserve an
+    inside corner remainder for both supported join silhouettes on the current
+    bounded path:
+    - `bevel`
+    - `miter`
+  - The frontier remains honest; this does not claim that generic corner-
+    spanning or curve-spanning ownership is complete.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C promotes the next bounded Family C outside bevel representative
+
+- Context:
+  - Phase 4C had already promoted the first Family C representative pair for
+    `rect + inside + bevel/miter`.
+  - The next smallest uncovered corner-spanning slice was not `vector`,
+    `oval`, or generic outside support; it was one explicit shape-generated
+    `rect + outside + bevel` representative on the same orthogonal fixture.
+- Decision:
+  - Promote the next bounded Family C constrained dashed product slice for:
+    - shape-generated `rect`
+    - `position: outside`
+    - `join: bevel`
+    - one corner-spanning visible constrained dashed interval on a closed path
+  - Keep this promotion runtime-local to the `rect` path through the same
+    constrained dashed helper opt-in pattern.
+  - Keep the rest of this frontier blocked:
+    - `outside + miter` corner-spanning remains blocked
+    - vector/oval corner-spanning remains blocked
+- Consequences:
+  - Phase 4C now proves the current bounded runtime can preserve one exterior
+    corner-spanning remainder for a shape-generated `rect` without claiming
+    that generic outside corner-spanning ownership is complete.
+  - The bounded Family C frontier remains explicit and testable rather than
+    widening silently into broader topology support.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C promotes the first broader non-rectangle-equivalent vector Family C representative
+
+- Context:
+  - Phase 4C Family C already promoted the bounded orthogonal corner-spanning
+    representatives for:
+    - shape-generated `rect`
+    - vector-generated closed single-network rectangle-equivalent `vector`
+  - The next uncovered choice had to stay within the same corner-spanning
+    algorithm class.
+  - Promoting `oval` here would have been misleading because the current
+    bounded helper still classifies Family C by discrete edge/corner ownership
+    rather than curve-span semantics, so an oval "corner-spanning"
+    representative would have been a product-semantics mismatch.
+- Decision:
+  - Promote the first broader Family C constrained dashed product slice for:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - `position: inside`
+    - `join: bevel`
+    - one corner-spanning visible constrained dashed interval on a closed path
+  - Keep the runtime opt-in narrow on the constrained dashed helper:
+    - inside only
+    - bevel only
+    - one bounded non-rectangle-equivalent quadrilateral loop class
+  - Keep the rest of this frontier blocked:
+    - broader vector `miter` corner-spanning remains blocked
+    - broader vector `outside` corner-spanning remains blocked
+    - `oval` corner/curve-spanning remains blocked
+- Consequences:
+  - Phase 4C now proves the bounded corner-spanning product path is not
+    restricted to rectangle-equivalent topology only.
+  - The frontier stays honest: this does not claim generic non-rect
+    corner-spanning ownership or curve-spanning semantics are complete.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C extends the first broader vector Family C slice to the matching inside miter representative
+
+- Context:
+  - Phase 4C already promoted the first broader non-rectangle-equivalent
+    vector Family C representative for:
+    - `position: inside`
+    - `join: bevel`
+  - The next smallest uncovered move stayed on that same bounded path:
+    - same non-rectangle-equivalent quadrilateral loop class
+    - same `inside` ownership path
+    - matching `miter` join silhouette
+  - Jumping to `outside` or `oval` here would have widened either ownership
+    scope or semantics class before finishing the current bounded representative
+    pair.
+- Decision:
+  - Promote the matching broader Family C constrained dashed product slice for:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - `position: inside`
+    - `join: miter`
+    - one corner-spanning visible constrained dashed interval on a closed path
+  - Keep the helper opt-in narrow on the same bounded loop class:
+    - inside only
+    - bevel/miter only
+    - no outside broader-vector promotion yet
+  - Keep the rest of this frontier blocked:
+    - broader vector `outside` corner-spanning remains blocked
+    - `oval` corner/curve-spanning remains blocked
+- Consequences:
+  - Phase 4C now closes the first honest broader-vector Family C inside
+    representative pair without pretending that broader outside ownership or
+    curve-spanning semantics are done.
+  - The next step can be evaluated explicitly from a narrower, documented
+    frontier instead of re-opening the same inside join family again.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C extends the broader vector Family C frontier to the first outside bevel representative
+
+- Context:
+  - Phase 4C already closed the broader non-rectangle-equivalent vector
+    Family C inside representative pair for:
+    - `inside + bevel`
+    - `inside + miter`
+  - The next smallest uncovered move on that same bounded loop class was not
+    `outside + miter` or `oval`; it was the first outside ownership
+    representative with the simpler supported join silhouette:
+    - `outside + bevel`
+  - The only failing signal during implementation was an over-eager slanted
+    outside probe point on the product-path unit test; helper-level and
+    product-path geometry were already correct, so the issue was a benchmark
+    probe mismatch rather than a runtime bug.
+- Decision:
+  - Promote the next broader Family C constrained dashed product slice for:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - `position: outside`
+    - `join: bevel`
+    - one corner-spanning visible constrained dashed interval on a closed path
+  - Keep the helper opt-in narrow on the same bounded loop class:
+    - `outside` only for `bevel`
+    - no broader-vector `outside + miter` promotion yet
+    - no `oval` corner/curve-spanning promotion yet
+- Consequences:
+  - Phase 4C now proves the broader vector Family C path can preserve the
+    first outside corner-spanning remainder without claiming that broader
+    outside join coverage is complete.
+  - The remaining frontier is narrower and explicit:
+    - broader vector `outside + miter`
+    - `oval` corner/curve-spanning
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C closes the broader vector Family C representative set with the matching outside miter slice
+
+- Context:
+  - Phase 4C already promoted the broader non-rectangle-equivalent vector
+    Family C representatives for:
+    - `inside + bevel`
+    - `inside + miter`
+    - `outside + bevel`
+  - The next smallest uncovered move on the same bounded quadrilateral loop
+    class was the matching outside join silhouette:
+    - `outside + miter`
+  - This slice stayed within the same algorithm class, same topology, and same
+    outside ownership path. It did not require any new scenario family.
+- Decision:
+  - Promote the matching broader Family C constrained dashed product slice for:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - `position: outside`
+    - `join: miter`
+    - one corner-spanning visible constrained dashed interval on a closed path
+  - Keep the helper opt-in narrow on the same bounded loop class:
+    - no broader-vector topology expansion beyond this quadrilateral class
+    - no `oval` corner/curve-spanning promotion
+- Consequences:
+  - Phase 4C now closes the first honest broader-vector Family C
+    representative set without reopening the same family again.
+  - The remaining frontier should now be evaluated outside this completed
+    broader-vector representative set, rather than continuing to micro-expand
+    the same family.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C adds the first blocked-behavior app-path gate for multiple eligible constrained dashed strokes
+
+- Context:
+  - Phase 4C already had a product-path unit contract proving shape-generated
+    `rect` keeps multiple eligible constrained dashed strokes blocked until 4C
+    ownership is promoted.
+  - After closing the broader vector Family C representative set, the next
+    honest move was not another promoted geometry slice. It was to lock one
+    explicit Family E blocked frontier on the real app path.
+- Decision:
+  - Add the first Family E blocked-behavior visual benchmark for:
+    - shape-generated `rect`
+    - two eligible constrained dashed strokes on the same element
+    - expected result: both constrained dashed bands remain visually absent
+      until 4C ownership is promoted
+  - Reuse the existing product-path unit contract instead of inventing a new
+    scenario taxonomy or widening runtime scope.
+- Consequences:
+  - Phase 4C now has its first explicit app-path absence gate for the
+    multiple-eligible ownership frontier.
+  - This keeps the phase honest: unsupported multi-stroke ownership is now
+    blocked by both product-path and app-path evidence rather than only by a
+    unit assertion.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C adds the next blocked-behavior app-path gate for self-intersecting constrained dashed vectors
+
+- Context:
+  - Phase 4C already had a product-path unit contract proving
+    self-intersecting constrained dashed `vector` paths are rejected
+    deterministically on the main render path.
+  - After locking the first Family E blocked frontier for multiple eligible
+    constrained dashed strokes, the next honest move was still not a new
+    promoted geometry slice. It was the narrower unsupported-topology frontier
+    on the same bounded app path.
+- Decision:
+  - Add the next Family E blocked-behavior visual benchmark for:
+    - one self-intersecting closed constrained dashed `vector`
+    - expected result: constrained dashed coverage remains visually absent on
+      the app path until that unsupported topology is promoted
+  - Reuse the existing product-path unit contract instead of widening runtime
+    scope or inventing a new scenario family.
+- Consequences:
+  - Phase 4C now has a second explicit app-path absence gate for Family E
+    blocked behavior.
+  - This keeps the phase honest: unsupported self-intersecting topology is now
+    blocked by both product-path and app-path evidence rather than only by a
+    unit assertion.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C adds the third blocked-behavior app-path gate for multi-network constrained dashed vectors
+
+- Context:
+  - Phase 4C already had a product-path unit contract proving multi-network
+    constrained dashed `vector` paths stay blocked until the vector ownership
+    path is promoted.
+  - After locking the first two Family E blocked frontiers for
+    multiple-eligible and self-intersecting constrained dashed paths, the next
+    honest move was still not a new promoted geometry slice. It was the
+    disconnected multi-network ownership frontier on the same bounded app path.
+- Decision:
+  - Add the third Family E blocked-behavior visual benchmark for:
+    - one constrained dashed `vector` patched to two disconnected closed
+      rectangle networks
+    - expected result: constrained dashed coverage remains visually absent on
+      both disconnected networks and in the inter-network gap until that
+      ownership path is promoted
+  - Reuse the existing product-path unit contract instead of widening runtime
+    scope or inventing a new scenario family.
+- Consequences:
+  - Phase 4C now has a third explicit app-path absence gate for Family E
+    blocked behavior.
+  - This keeps the phase honest: unsupported multi-network ownership is now
+    blocked by both product-path and app-path evidence rather than only by a
+    unit assertion.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 4C adds the fourth blocked-behavior app-path gate for open-path constrained dashed vectors
+
+- Context:
+  - Phase 4C already had a product-path unit contract proving open-path
+    constrained dashed `vector` paths are rejected deterministically on the
+    main render path.
+  - After locking the first three Family E blocked frontiers for
+    multiple-eligible, self-intersecting, and multi-network constrained dashed
+    paths, the next honest move was still not a new promoted geometry slice.
+    It was the simpler open-path topology frontier on the same bounded app
+    path.
+- Decision:
+  - Add the fourth Family E blocked-behavior visual benchmark for:
+    - one constrained dashed `vector` patched to an open horizontal line
+    - expected result: constrained dashed coverage remains visually absent on
+      the authored line span and nearby line-adjacent bands until that
+      topology is promoted
+  - Reuse the existing product-path unit contract instead of widening runtime
+    scope or inventing a new scenario family.
+- Consequences:
+  - Phase 4C now has a fourth explicit app-path absence gate for Family E
+    blocked behavior.
+  - This keeps the phase honest: unsupported open-path constrained dashed
+    topology is now blocked by both product-path and app-path evidence rather
+    than only by a unit assertion.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-26 - Open vector authored inside/outside strokes render through center fallback
+
+- Context:
+  - Manual testing showed open `vector` strokes were visible with `center` but
+    disappeared when the same stroke row was switched to `inside` or `outside`.
+  - Follow-up manual testing showed the same user-facing disappearance on
+    simple closed single-network vectors when a repeated dashed pattern such
+    as `20,20` was switched from `center` to `inside` / `outside`; the
+    constrained dashed helper was correctly not promoting arbitrary
+    multi-interval constrained geometry, but the product path should not drop
+    visible stroke output.
+  - The visual contracts were connected to the app path, but they encoded the
+    wrong product semantics by expecting open-path constrained solid/dashed
+    vectors to stay absent. The stroke UI manual already states that open paths
+    treat placement as `center` regardless of the authored UI value.
+- Decision:
+  - Keep constrained clipping blocked for open paths.
+  - Preserve authored `inside` / `outside` in scene data.
+  - Normalize only the open-vector render path to centered placement for solid
+    / dashed center stroke packet generation.
+  - For simple closed single-network non-self-intersecting vectors, when an
+    authored constrained dashed stroke does not enter a promoted constrained
+    packet path, render a centered visibility fallback instead of disappearing.
+    This does not promote exact constrained multi-interval inside/outside
+    geometry.
+  - Add no-mock app-path visual contracts that set stroke controls through the
+    properties panel, read the stored stroke row, and verify both patched
+    topology, real two-point pen-created open vectors, and real pen-created
+    closed vectors with repeated dash intervals remain visibly centered.
+- Consequences:
+  - This fixes the manual disappearing-stroke failure without widening the
+    constrained-geometry algorithm class.
+  - Self-intersecting and multi-network constrained dashed vectors remain
+    absent until their scenario families are explicitly promoted.
+  - Round cap / join behavior on open-path center strokes remains a separate
+    uniform-width backlog slice.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 5 starts with the first constrained dashed round-join representative on the bounded product path
+
+- Context:
+  - Phase 4C had already reached a point where more blocked-behavior gates were
+    no longer the main downstream blocker for launch sequencing.
+  - The next meaningful move was to start Phase 5 with the narrowest promoted
+    round-join representative instead of continuing to widen Family E blocked
+    coverage.
+  - The narrowest honest move was not `round caps`, because that would couple a
+    join-family gap to open-path topology. It was the first closed-path
+    representative:
+    - shape-generated `rect`
+    - constrained dashed `inside + round join`
+- Decision:
+  - Promote the first Phase 5 representative with matching helper-level,
+    product-path, and app-path coverage for:
+    - shape-generated `rect`
+    - constrained dashed `inside + round join`
+    - expected result: constrained dashed coverage now renders on the bounded
+      path without altering the already-approved Phase 4 `miter` / `bevel`
+      slices
+- Consequences:
+  - The stroke engine has now moved beyond Phase 4C-only blocked coverage and
+    into the first concrete Phase 5 round-join slice.
+  - Bounded expansion remains intact: only `rect + full-loop + inside + round
+    join` is promoted here; broader round joins and all round caps remain
+    future work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
   - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
 
 ## 2026-04-21 - Broader mixed-topology subtraction now covers a non-orthogonal non-convex disconnected sub-packet
@@ -2568,4 +4232,955 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     work under the same plan.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/constrained-solid-general-owner-domain-plan.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-22 - Phase 5 adds the next constrained dashed round-cap representative on the bounded product path
+
+- Context:
+  - Phase 5 had already promoted the first constrained dashed round-join
+    representative on the bounded product path:
+    - shape-generated `rect`
+    - constrained dashed `full-loop + inside + round join`
+  - The next narrowest honest move was not broader round joins or broader round
+    caps. It was the matching single-edge representative that stays on the
+    same bounded shape-generated path without coupling to open-path topology:
+    - shape-generated `rect`
+    - constrained dashed `single-edge + inside + round cap`
+- Decision:
+  - Promote the next Phase 5 representative with matching helper-level,
+    product-path, and app-path coverage for:
+    - shape-generated `rect`
+    - constrained dashed `single-edge + inside + round cap`
+  - Keep the runtime opt-in narrow:
+    - one single-edge visible interval
+    - `position: inside`
+    - `cap: round`
+    - no claim of broader round-cap or broader round-join completion
+- Consequences:
+  - Phase 5 now has a second concrete promoted slice on the bounded product
+    path:
+    - `rect + full-loop + inside + round join`
+    - `rect + single-edge + inside + round cap`
+  - Helper, product-path, and app-path contracts now exist for the first
+    round-cap representative without pretending that generic round caps or
+    generic round joins are complete.
+  - Broader round caps, broader round joins, and later paint/width phases
+    remain future work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-23 - Phase 5 adds the first vector-generated round-join representative on the bounded product path
+
+- Context:
+  - Phase 5 had already promoted two narrow shape-generated representatives on
+    the bounded product path:
+    - `rect + full-loop + inside + round join`
+    - `rect + single-edge + inside + round cap`
+  - The next narrowest honest move was not another shape-generated `rect`
+    variant. That would only micro-expand the same source frontier.
+  - The narrower downstream move was the first vector-generated representative
+    on the already-proven rectangle-equivalent full-loop family:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `full-loop + inside + round join`
+- Decision:
+  - Promote the first vector-generated Phase 5 representative with matching
+    helper-level, product-path, and app-path coverage for:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `full-loop + inside + round join`
+  - Keep the runtime opt-in narrow:
+    - rectangle-equivalent loop only
+    - `position: inside`
+    - one full-loop visible interval
+    - `join: round`
+    - no broader vector round-join or round-cap completion claim
+- Consequences:
+  - Phase 5 now extends from shape-generated-only representatives to the first
+    vector-generated round-join slice on the same bounded product path.
+  - Shape/vector parity now exists for the first full-loop round-join
+    representative without pretending that broader vector round joins, vector
+    round caps, or non-rectangle-equivalent round families are complete.
+  - Broader round joins, broader round caps, and later paint/width phases
+    remain future work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-23 - Phase 5 adds the first vector-generated round-cap representative on the bounded product path
+
+- Context:
+  - Phase 5 had already promoted the first vector-generated round-join
+    representative on the bounded product path:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `full-loop + inside + round join`
+  - The next narrowest honest move was not a broader vector round-join variant
+    and not a non-rectangle-equivalent round family. It was the matching cap
+    representative on the already-proven rectangle-equivalent single-edge
+    family:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `single-edge + inside + round cap`
+- Decision:
+  - Promote the next vector-generated Phase 5 representative with matching
+    helper-level, product-path, and app-path coverage for:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `single-edge + inside + round cap`
+  - Keep the runtime opt-in narrow:
+    - rectangle-equivalent loop only
+    - `position: inside`
+    - one single-edge visible interval
+    - `cap: round`
+    - no broader vector round-cap or generic round-family completion claim
+- Consequences:
+  - Phase 5 now has the first vector-generated representative on both round
+    sub-axes of the bounded product path:
+    - `full-loop + inside + round join`
+    - `single-edge + inside + round cap`
+  - Shape/vector parity now extends to the first bounded round-cap
+    representative without pretending that broader vector round caps, broader
+    vector round joins, or non-rectangle-equivalent round families are
+    complete.
+  - Broader round joins, broader round caps, and later paint/width phases
+    remain future work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-23 - Phase 5 adds the first broader vector-generated round-cap representative on the bounded product path
+
+- Context:
+  - Phase 5 had already promoted the first vector-generated round-cap
+    representative on the bounded product path:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `single-edge + inside + round cap`
+  - The next narrowest honest move was not to widen the same
+    rectangle-equivalent source frontier. It was to step into the already
+    proven broader non-rectangle-equivalent quadrilateral source family while
+    staying on the same single-edge round-cap algorithm class:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - constrained dashed `single-edge + inside + round cap`
+- Decision:
+  - Promote the next broader vector-generated Phase 5 representative with
+    matching helper-level, product-path, and app-path coverage for:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - constrained dashed `single-edge + inside + round cap`
+  - Keep the runtime opt-in narrow:
+    - first broader single-oblique quadrilateral loop class only
+    - `position: inside`
+    - one single-edge visible interval
+    - `cap: round`
+    - no broader round-cap family completion claim
+- Consequences:
+  - Phase 5 now reaches the first broader vector-generated cap slice instead of
+    stalling on rectangle-equivalent variants.
+  - The bounded product path now has broader vector evidence on both the
+    supported non-round Family B/C frontier and the first round-cap frontier.
+  - Broader round joins, broader round caps beyond this first broader vector
+    representative, and later paint/width phases remain future work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-23 - Phase 5 adds the first broader vector-generated round-join representative on the bounded product path
+
+- Context:
+  - Phase 5 had already promoted the first broader vector-generated round-cap
+    representative on the bounded product path:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - constrained dashed `single-edge + inside + round cap`
+  - The next narrowest honest move was not to stay on another cap-only variant.
+    It was the matching full-loop round-join representative on the same
+    broader non-rectangle-equivalent source family:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - constrained dashed `full-loop + inside + round join`
+- Decision:
+  - Promote the next broader vector-generated Phase 5 representative with
+    matching helper-level, product-path, and app-path coverage for:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - constrained dashed `full-loop + inside + round join`
+  - Keep the runtime opt-in narrow:
+    - first broader single-oblique quadrilateral loop class only
+    - `position: inside`
+    - one full-loop visible interval
+    - `join: round`
+    - no broader round-join family completion claim
+- Consequences:
+  - Phase 5 now reaches the first broader vector-generated representative on
+    both bounded round sub-axes:
+    - `single-edge + inside + round cap`
+    - `full-loop + inside + round join`
+  - This moves the rollout forward on the broader source frontier instead of
+    reworking rectangle-equivalent variants.
+  - Broader round joins, broader round caps beyond these first broader vector
+    representatives, and later paint/width phases remain future work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-23 - Phase 5 closes the first round-join shape/vector equivalence gate on the bounded product path
+
+- Context:
+  - Phase 5 had already promoted the first bounded round-join representative on
+    both sides of the shape/vector source split:
+    - shape-generated `rect`
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `full-loop + inside + round join`
+  - The next higher-value frontier was no longer another narrow round runtime
+    slice on the same source family.
+  - The more honest next move was to close the first Phase 5 Family D
+    equivalence gate on that already-promoted bounded round-join path.
+- Decision:
+  - Add product-path and app-path equivalence contracts for:
+    - shape-generated `rect`
+    - closed single-network rectangle-equivalent `vector`
+    - matching constrained dashed `full-loop + inside + round join` coverage
+  - Keep this gate narrow:
+    - full-loop only
+    - `position: inside`
+    - `join: round`
+    - rectangle-equivalent vector only
+    - no round-cap equivalence completion claim
+    - no broader round equivalence completion claim
+- Consequences:
+  - Phase 5 now has its first round-join shape/vector equivalence proof on the
+    bounded product path instead of only parallel shape-side and vector-side
+    promoted representatives.
+  - This closes the first bounded round-join crossover gate without pretending
+    that round-cap equivalence, broader vector equivalence, or curve-spanning
+    round semantics are complete.
+  - The next downstream move can advance to a new representative frontier
+    instead of reopening the same bounded round-join source pair.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-23 - Phase 5 closes the first round-cap shape/vector equivalence gate on the bounded product path
+
+- Context:
+  - After the first bounded round-join crossover gate closed, the next
+    downstream move was not to widen broader-vector round reps again.
+  - Phase 5 already had the matching bounded round-cap representatives on both
+    sides of the shape/vector source split:
+    - shape-generated `rect`
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `single-edge + inside + round cap`
+  - That made the next honest frontier the matching Phase 5 Family D
+    equivalence gate on the same bounded single-edge path.
+- Decision:
+  - Add product-path and app-path equivalence contracts for:
+    - shape-generated `rect`
+    - closed single-network rectangle-equivalent `vector`
+    - matching constrained dashed `single-edge + inside + round cap` coverage
+  - Keep this gate narrow:
+    - single-edge only
+    - `position: inside`
+    - `cap: round`
+    - rectangle-equivalent vector only
+    - no broader round-cap equivalence completion claim
+    - no broader round-family equivalence completion claim
+- Consequences:
+  - Phase 5 now has the first bounded round-cap shape/vector equivalence proof
+    on the same promoted product path that already carried the initial round
+    representatives.
+  - This lets the rollout move forward without pretending that broader vector
+    round-cap equivalence, broader round-join equivalence, or curve-spanning
+    round semantics are complete.
+  - The next step can move to a new representative frontier instead of staying
+    on the same rectangle-equivalent round-cap source pair.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-23 - Phase 6 starts with the first constrained dashed gradient-paint representative on the bounded product path
+
+- Context:
+  - Phase 5 had already reached a point where the next valuable move was no
+    longer another bounded round-family micro-slice.
+  - The narrowest downstream Phase 6 frontier was the first paint-only
+    promotion on an already supported constrained dashed geometry path:
+    - shape-generated `rect`
+    - constrained dashed `full-loop + inside`
+    - local-bounds linear gradient paint
+  - The first red e2e signal was not a probe mismatch:
+    - the selected element computed stroke row already carried `kind: gradient`
+      and the authored gradient payload
+    - the real app/runtime path still rendered the old solid stroke because the
+      benchmark harness had patched computed data without explicitly syncing the
+      selected render element, and the inspector does not yet expose
+      user-facing stroke-gradient authoring for this slice
+- Decision:
+  - Promote the first Phase 6 representative with matching helper-level,
+    product-path, and app-path contracts for:
+    - shape-generated `rect`
+    - constrained dashed `full-loop + inside + local-bounds linear gradient paint`
+  - Extend the stroke product/property schema so stroke rows preserve:
+    - `kind`
+    - `gradient`
+  - Keep this promotion narrow:
+    - shape-generated `rect` only
+    - full-loop only
+    - `position: inside` only
+    - local-bounds linear gradient paint only
+    - no vector-generated constrained dashed gradient promotion claim
+    - no `outside`, single-edge, or corner-spanning gradient promotion claim
+    - no claim that inspector-facing stroke-gradient authoring is complete
+- Consequences:
+  - Phase 6 now has its first concrete promoted paint slice on top of the
+    existing constrained dashed geometry path instead of remaining entirely
+    blocked behind Phase 5.
+  - This proves that the stroke engine can swap constrained dashed paint from
+    solid to gradient without forking geometry ownership/clipping packets.
+  - The current app-path benchmark stays honest by explicitly syncing render
+    data from the patched computed snapshot, because that harness gap is not
+    the same thing as shipping full stroke-gradient editing UI.
+  - All broader constrained dashed gradient paint slices remain blocked:
+    - vector-generated gradient paint
+    - `outside` gradient paint
+    - single-edge / corner-spanning gradient paint
+    - gradient + variable-width combined slices
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-23 - Phase 6 adds the first vector-generated constrained dashed gradient-paint representative on the bounded product path
+
+- Context:
+  - Phase 6 had already promoted the first paint-only slice on the bounded
+    shape-generated path:
+    - shape-generated `rect`
+    - constrained dashed `full-loop + inside + local-bounds linear gradient paint`
+  - The next more valuable move was not another `rect`-side paint variant.
+    The next honest frontier was the first vector-generated gradient-paint
+    representative on an already promoted geometry class:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `full-loop + inside + local-bounds linear gradient paint`
+  - The only failures on the way were contract-level, not runtime regressions:
+    - unit initially lacked the same jsdom `canvas.getContext` shim already
+      needed by the shape-side Phase 6 contract
+    - the first visual oracle incorrectly assumed the vector center should stay
+      fill-colored like the `rect` fixture, but this vector fixture has no fill
+- Decision:
+  - Promote the next Phase 6 representative with product-path and app-path
+    contracts for:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `full-loop + inside + local-bounds linear gradient paint`
+  - Keep this promotion narrow:
+    - rectangle-equivalent vector only
+    - full-loop only
+    - `position: inside` only
+    - local-bounds linear gradient paint only
+    - no broader vector-generated gradient claim
+    - no `outside`, single-edge, or corner-spanning gradient claim
+- Consequences:
+  - Phase 6 now reaches its first vector-generated gradient-paint slice instead
+    of stalling on the shape-generated source frontier.
+  - This confirms that gradient paint stays paint-only across the first
+    shape/vector source split on the constrained dashed full-loop path.
+  - Broader vector-generated gradient paint, `outside` gradient paint,
+    single-edge gradient paint, corner-spanning gradient paint, and all
+    gradient-plus-variable-width slices remain blocked.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-23 - Phase 6 adds the first broader vector-generated constrained dashed gradient-paint representative on the bounded product path
+
+- Context:
+  - Phase 6 had already crossed the first shape/vector source boundary for
+    constrained dashed gradient paint:
+    - shape-generated `rect`
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `full-loop + inside + local-bounds linear gradient paint`
+  - The next valuable move was not to go back to another rectangle-equivalent
+    or shape-side paint variant.
+  - The next honest frontier was the first broader vector-generated gradient
+    representative on an already promoted geometry class:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - constrained dashed `full-loop + inside + local-bounds linear gradient paint`
+- Decision:
+  - Promote the next broader vector-generated Phase 6 representative with
+    product-path and app-path contracts for:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - constrained dashed `full-loop + inside + local-bounds linear gradient paint`
+  - Keep this promotion narrow:
+    - broader non-rectangle-equivalent quadrilateral vector only
+    - full-loop only
+    - `position: inside` only
+    - local-bounds linear gradient paint only
+    - no `outside`, single-edge, or corner-spanning gradient claim
+- Consequences:
+  - Phase 6 now reaches the first broader vector-generated gradient-paint slice
+    instead of stopping at rectangle-equivalent vectors.
+  - This confirms that the current paint-only path survives the first broader
+    vector source frontier without requiring new runtime branches.
+  - `outside` gradient paint, single-edge gradient paint, corner-spanning
+    gradient paint, broader equivalence gates, and all gradient-plus-variable-
+    width slices remain blocked.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-23 - Phase 6 closes the first gradient shape/vector equivalence gate on the bounded product path
+
+- Context:
+  - Phase 6 had already promoted the first bounded gradient-paint source pair
+    on the same constrained dashed geometry class:
+    - shape-generated `rect`
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `full-loop + inside + local-bounds linear gradient paint`
+  - The next honest move was not another gradient geometry variant on the same
+    source frontier.
+  - The remaining gap on that bounded slice was the matching Phase 6 Family D
+    equivalence gate for the first shape/vector source pair.
+  - The app-path benchmark could not reuse the old center-leak oracle:
+    - the rectangle fixture keeps fill color in its center
+    - the vector fixture has no fill, so its center stays absent
+- Decision:
+  - Add product-path and app-path equivalence contracts for:
+    - shape-generated `rect`
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `full-loop + inside + local-bounds linear gradient paint`
+  - Keep this gate narrow:
+    - rectangle-equivalent source pair only
+    - full-loop only
+    - `position: inside` only
+    - local-bounds linear gradient paint only
+    - compare the shared inner-band gradient probes
+    - do not claim center-pixel equivalence across mismatched fill semantics
+    - no broader vector-generated gradient equivalence claim
+    - no `outside`, single-edge, or corner-spanning gradient equivalence claim
+- Consequences:
+  - Phase 6 now has its first explicit shape/vector gradient equivalence proof
+    on the bounded constrained dashed product path.
+  - This closes the first Phase 6 Family D checkpoint without pretending that
+    broader gradient equivalence, `outside` gradient paint, single-edge
+    gradient paint, or corner-spanning gradient paint are complete.
+  - The benchmark stays honest by comparing only the shared stroke-band
+    gradient probes on the matched `80x40` fixtures, instead of folding the
+    rectangle fill center and vector no-fill center into the same oracle.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-23 - Phase 6 adds the first outside constrained dashed gradient-paint representative on the bounded product path
+
+- Context:
+  - The first Phase 6 Family D checkpoint had already closed for the bounded
+    `inside + full-loop` gradient source pair.
+  - The next valuable move was not another equivalence closeout on the same
+    bounded inner-band source pair, and it was not yet honest to jump into
+    Phase 7 variable width.
+  - The next narrowest downstream geometry frontier on the same paint-only path
+    was:
+    - shape-generated `rect`
+    - constrained dashed `full-loop + outside + local-bounds linear gradient paint`
+- Decision:
+  - Promote the next Phase 6 representative with helper-level, product-path,
+    and app-path contracts for:
+    - shape-generated `rect`
+    - constrained dashed `full-loop + outside + local-bounds linear gradient paint`
+  - Keep this promotion narrow:
+    - shape-generated `rect` only
+    - full-loop only
+    - `position: outside` only
+    - local-bounds linear gradient paint only
+    - no vector-generated `outside` gradient promotion claim
+    - no single-edge or corner-spanning gradient claim
+- Consequences:
+  - Phase 6 now reaches its first `outside` gradient-paint slice instead of
+    staying on the same bounded `inside` gradient family.
+  - This confirms that the paint-only path also survives the first promoted
+    exterior-band geometry slice without changing constrained dashed packet
+    ownership/clipping behavior.
+  - Vector-generated and broader `outside` gradient paint, single-edge
+    gradient paint, corner-spanning gradient paint, and gradient-plus-variable-
+    width slices remain blocked.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-24 - Phase 6 adds the first vector-generated outside constrained dashed gradient-paint representative on the bounded product path
+
+- Context:
+  - Phase 6 had already promoted:
+    - shape-generated `rect + full-loop + outside + local-bounds linear gradient paint`
+    - closed single-network rectangle-equivalent `vector + full-loop + inside + local-bounds linear gradient paint`
+  - The next honest move was not another bounded `inside` closeout on the same
+    source pair.
+  - It was also not yet honest to jump into Phase 7 variable width.
+  - The next narrowest downstream gradient frontier on the existing paint-only
+    path was:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `full-loop + outside + local-bounds linear gradient paint`
+- Decision:
+  - Promote the next vector-generated Phase 6 representative with product-path
+    and app-path contracts for:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `full-loop + outside + local-bounds linear gradient paint`
+  - Keep this promotion narrow:
+    - rectangle-equivalent vector only
+    - full-loop only
+    - `position: outside` only
+    - local-bounds linear gradient paint only
+    - no broader non-rectangle-equivalent `outside` gradient claim
+    - no single-edge or corner-spanning gradient claim
+- Consequences:
+  - Phase 6 now reaches the first vector-generated `outside` gradient-paint
+    slice instead of staying on the same shape-side exterior-band path.
+  - This confirms that the paint-only gradient path survives the first vector
+    `outside` source frontier without adding a new runtime branch.
+  - Broader non-rectangle-equivalent `outside` gradient paint, single-edge
+    gradient paint, corner-spanning gradient paint, and gradient-plus-variable-
+    width slices remain blocked.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-24 - Phase 6 adds the first broader vector-generated outside constrained dashed gradient-paint representative on the bounded product path
+
+- Context:
+  - Phase 6 had already crossed the first exterior-band gradient source
+    frontier:
+    - shape-generated `rect + full-loop + outside + local-bounds linear gradient paint`
+    - closed single-network rectangle-equivalent `vector + full-loop + outside + local-bounds linear gradient paint`
+  - The next honest move was not to return to another `inside` gradient closeout
+    on the same bounded source family.
+  - It was also not yet honest to jump into Phase 7 variable width.
+  - The next narrowest downstream gradient frontier on the same paint-only path
+    was:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - constrained dashed `full-loop + outside + local-bounds linear gradient paint`
+- Decision:
+  - Promote the next broader vector-generated Phase 6 representative with
+    product-path and app-path contracts for:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - constrained dashed `full-loop + outside + local-bounds linear gradient paint`
+  - Keep this promotion narrow:
+    - broader non-rectangle-equivalent quadrilateral vector only
+    - full-loop only
+    - `position: outside` only
+    - local-bounds linear gradient paint only
+    - no `outside` gradient equivalence gate claim
+    - no single-edge or corner-spanning gradient claim
+- Consequences:
+  - Phase 6 now reaches the first broader vector-generated `outside`
+    gradient-paint slice instead of stopping at the rectangle-equivalent
+    exterior-band path.
+  - This confirms that the paint-only gradient path survives the first broader
+    non-rectangle-equivalent exterior-band source frontier without adding a new
+    runtime branch.
+  - Single-edge gradient paint, corner-spanning gradient paint, broader
+    gradient equivalence gates, and gradient-plus-variable-width slices remain
+    blocked.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-24 - Phase 6 adds the first single-edge constrained dashed gradient-paint representative on the bounded product path
+
+- Context:
+  - Phase 6 had already pushed the full-loop gradient source frontier through:
+    - shape-generated `rect` inside/outside
+    - closed single-network rectangle-equivalent `vector` inside/outside
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+      inside/outside
+  - The next honest move was not another full-loop gradient equivalence
+    closeout on the same source family.
+  - It was also not yet honest to jump into Phase 7 variable width.
+  - The next narrowest downstream geometry frontier on the same paint-only path
+    was:
+    - shape-generated `rect`
+    - constrained dashed `single-edge + inside + local-bounds linear gradient paint`
+- Decision:
+  - Promote the next Phase 6 representative with helper-level, product-path,
+    and app-path contracts for:
+    - shape-generated `rect`
+    - constrained dashed `single-edge + inside + local-bounds linear gradient paint`
+  - Keep this promotion narrow:
+    - shape-generated `rect` only
+    - single-edge only
+    - `position: inside` only
+    - local-bounds linear gradient paint only
+    - no vector-generated single-edge gradient claim
+    - no `outside` single-edge gradient claim
+    - no corner-spanning gradient claim
+- Consequences:
+  - Phase 6 now reaches its first single-edge gradient-paint slice instead of
+    staying on the same full-loop gradient family.
+  - This confirms that the paint-only gradient path also survives the first
+    bounded interval-local single-edge geometry slice without changing
+    constrained dashed packet ownership/clipping behavior.
+  - Vector-generated and `outside` single-edge gradient paint, corner-spanning
+    gradient paint, broader gradient equivalence gates, and gradient-plus-
+    variable-width slices remain blocked.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-24 - Phase 6 adds the first corner-spanning constrained dashed gradient-paint representative on the bounded product path
+
+- Context:
+  - Phase 6 had already pushed constrained dashed gradient paint through:
+    - full-loop `inside/outside`
+    - single-edge `inside/outside`
+    - shape-generated `rect`
+    - closed single-network rectangle-equivalent `vector`
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+  - That meant the single-edge gradient family had reached a point where
+    further closeout would no longer unblock later work.
+  - The next honest downstream geometry frontier on the same paint-only path
+    was the first legal-turn interval:
+    - shape-generated `rect`
+    - constrained dashed `inside + bevel + corner-spanning + local-bounds linear gradient paint`
+- Decision:
+  - Promote the first corner-spanning Phase 6 representative with helper-level,
+    product-path, and app-path contracts for:
+    - shape-generated `rect`
+    - constrained dashed `inside + bevel + corner-spanning + local-bounds linear gradient paint`
+  - Keep this promotion narrow:
+    - shape-generated `rect` only
+    - corner-spanning only
+    - `position: inside` only
+    - `join: bevel` only
+    - local-bounds linear gradient paint only
+    - no vector-generated corner-spanning gradient claim
+    - no `miter` corner-spanning gradient claim
+    - no `outside` corner-spanning gradient claim
+- Consequences:
+  - Phase 6 now reaches its first corner-spanning gradient-paint slice instead
+    of staying on the already-sufficient single-edge gradient family.
+  - This confirms that the paint-only gradient path survives the first legal
+    turn on the promoted constrained dashed corner packet without changing
+    ownership or legality geometry.
+  - Vector-generated, `miter`, and `outside` corner-spanning gradient paint
+    slices remain blocked, along with broader gradient equivalence gates and
+    gradient-plus-variable-width slices.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-24 - Phase 6 adds the first vector-generated corner-spanning constrained dashed gradient-paint representative on the bounded product path
+
+- Context:
+  - Phase 6 had already promoted the first shape-generated legal-turn gradient
+    slice:
+    - shape-generated `rect + inside + bevel + corner-spanning + local-bounds linear gradient paint`
+  - The next honest move was not to stay on the same shape family and close
+    out `miter` immediately.
+  - The narrower downstream source frontier was:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `inside + bevel + corner-spanning + local-bounds linear gradient paint`
+- Decision:
+  - Promote the next vector-generated Phase 6 representative with product-path
+    and app-path contracts for:
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `inside + bevel + corner-spanning + local-bounds linear gradient paint`
+  - Keep this promotion narrow:
+    - rectangle-equivalent `vector` only
+    - corner-spanning only
+    - `position: inside` only
+    - `join: bevel` only
+    - local-bounds linear gradient paint only
+    - no `miter` corner-spanning gradient claim
+    - no `outside` corner-spanning gradient claim
+    - no broader non-rectangle-equivalent vector corner-spanning gradient claim
+- Consequences:
+  - Phase 6 now moves the first corner-spanning gradient slice onto the first
+    vector-generated source frontier instead of staying on the same
+    shape-generated family.
+  - This confirms that the paint-only gradient path survives the first
+    rectangle-equivalent vector legal-turn packet without adding a new runtime
+    branch.
+  - `miter`, `outside`, broader vector corner-spanning gradient slices,
+    gradient equivalence gates, and gradient-plus-variable-width slices remain
+    blocked.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-24 - Phase 6 adds the first broader vector-generated corner-spanning constrained dashed gradient-paint representative on the bounded product path
+
+- Context:
+  - Phase 6 had already promoted:
+    - shape-generated `rect + inside + bevel + corner-spanning + local-bounds linear gradient paint`
+    - closed single-network rectangle-equivalent `vector + inside + bevel + corner-spanning + local-bounds linear gradient paint`
+  - The next honest move was not to return to `miter` on the same source
+    family.
+  - The narrower downstream source frontier was:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - constrained dashed `inside + bevel + corner-spanning + local-bounds linear gradient paint`
+- Decision:
+  - Promote the next broader vector-generated Phase 6 representative with
+    product-path and app-path contracts for:
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+    - constrained dashed `inside + bevel + corner-spanning + local-bounds linear gradient paint`
+  - Keep this promotion narrow:
+    - broader non-rectangle-equivalent `vector` only
+    - corner-spanning only
+    - `position: inside` only
+    - `join: bevel` only
+    - local-bounds linear gradient paint only
+    - no `miter` corner-spanning gradient claim
+    - no `outside` corner-spanning gradient claim
+    - no corner-spanning gradient equivalence gate claim
+- Consequences:
+  - Phase 6 now pushes the first corner-spanning gradient slice through the
+    next broader vector-generated source frontier instead of staying on the
+    earlier shape/rectangle-equivalent pair.
+  - This confirms that the same paint-only gradient path survives the first
+    broader legal-turn packet without adding a runtime branch.
+  - `miter`, `outside`, corner-spanning gradient equivalence, and gradient-plus-
+    variable-width slices remain blocked.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-24 - Phase 6 adds the first outside corner-spanning constrained dashed gradient-paint representative on the bounded product path
+
+- Context:
+  - Phase 6 had already promoted the first corner-spanning gradient source
+    frontier for `inside + bevel` across:
+    - shape-generated `rect`
+    - closed single-network rectangle-equivalent `vector`
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+  - Returning to `inside + miter` would have kept work on the same geometry
+    family without moving the gradient rollout to the exterior legal-turn path.
+  - The next honest downstream geometry frontier was:
+    - shape-generated `rect`
+    - constrained dashed `outside + bevel + corner-spanning + local-bounds linear gradient paint`
+- Decision:
+  - Promote the next Phase 6 representative with helper-level, product-path,
+    and app-path contracts for:
+    - shape-generated `rect`
+    - constrained dashed `outside + bevel + corner-spanning + local-bounds linear gradient paint`
+  - Keep this promotion narrow:
+    - shape-generated `rect` only
+    - corner-spanning only
+    - `position: outside` only
+    - `join: bevel` only
+    - local-bounds linear gradient paint only
+    - no `miter` corner-spanning gradient claim
+    - no vector-generated `outside` corner-spanning gradient claim
+- Consequences:
+  - Phase 6 now reaches the first exterior legal-turn gradient slice instead of
+    staying on the already-sufficient `inside` corner-spanning family.
+  - This confirms that the paint-only gradient path survives the first outside
+    corner packet without changing ownership or legality geometry.
+  - `miter`, vector-generated `outside` corner-spanning gradient slices,
+    corner-spanning gradient equivalence, and gradient-plus-variable-width
+    slices remain blocked.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+## 2026-04-26 - Professional stroke engine execution now has a dedicated handoff file for new conversations and agent transfer
+
+- Context:
+  - the active stroke-engine rollout now spans a long execution history with
+    repeated source-of-truth updates across:
+    - execution plan
+    - architecture plan
+    - scenario matrix
+    - app plans
+    - unreleased decision history
+  - the user requested a single file that a new conversation or another AI
+    agent can read first to know:
+    - current execution scope
+    - what not to reopen
+    - the last green checkpoint
+    - the next honest slice
+- Decision:
+  - add a dedicated handoff file:
+    - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-handoff.md`
+  - treat it as a resume guide, not a replacement for the existing
+    source-of-truth plans
+  - keep the handoff file focused on:
+    - active rollout scope
+    - mandatory expansion discipline
+    - latest green baseline
+    - next recommended slice
+    - known traps such as `src/dist` drift on the preset runtime
+- Consequences:
+  - future conversations can resume stroke-engine execution from one stable
+    entrypoint instead of reconstructing the current state from the full plan
+    history
+  - other agents now have an explicit file that says what to do next and what
+    not to reopen
+  - the canonical contract still remains in the execution plan, architecture
+    plan, scenario matrix, and app plans
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-handoff.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-26 - Phase 5 closes the outside round-join shape/vector equivalence gate for uniform-width constrained dashed strokes
+
+- Context:
+  - Phase 5 had already promoted the bounded `full-loop + outside + round
+    join` constrained dashed product path across:
+    - shape-generated `rect`
+    - closed single-network rectangle-equivalent `vector`
+    - closed single-network non-rectangle-equivalent quadrilateral `vector`
+  - The next honest work item was not another source expansion, but a Family D
+    closeout proving the rectangle-equivalent shape/vector pair stays
+    equivalent for the exterior round-join path.
+- Decision:
+  - Add product-path and app-path contracts for:
+    - shape-generated `rect`
+    - closed single-network rectangle-equivalent `vector`
+    - constrained dashed `full-loop + outside + round join`
+  - Keep the gate narrow:
+    - rectangle-equivalent source pair only
+    - uniform-width only
+    - full-loop only
+    - outside position only
+    - round join only
+    - no gradient or variable-width rollout
+- Consequences:
+  - Phase 5 now has matching Family D evidence for both inside and outside
+    round-join full-loop constrained dashed coverage.
+  - The current active plan remains focused on uniform-width dashed / round
+    completion.
+  - Gradient expansion and variable-width product rollout remain future-feature
+    work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-26 - Center-to-constrained dashed vector switching gets explicit app-path visibility guards
+
+- Context:
+  - Manual testing reported that a vector with visible `center` dashed stroke
+    appeared to disappear after switching the same stroke row to `inside` or
+    `outside`, then became visible again when switched back to `center`.
+  - Existing app-path coverage already proved the real-created straight open
+    vector and simple closed vector paths stayed visible, but it did not cover
+    the common repeated-dash switch cycle or a smooth cubic closed-vector
+    representative explicitly.
+  - A later manual computed-data sample showed the missing case was a closed
+    star-like self-intersecting single-network vector with `dashPattern:
+    [20,20]`.
+- Decision:
+  - Add product-path and app-path guards for:
+    - real-created open single-network vector
+    - real-created simple closed single-network vector
+    - simple closed cubic single-network vector
+    - the reported closed star-like self-intersecting single-network vector
+    - repeated dashed interval pattern such as `20,20`
+    - switching the same stroke row from `center` to authored `inside` /
+      `outside`
+  - Keep open-path switching as a visibility fallback contract only:
+    - authored `inside` / `outside` remains in scene data
+    - open vectors continue through centered dashed packets because constrained
+      open-path semantics are not promoted
+    - closed single-network vectors with valid closed legality domains now
+      route repeated dashed intervals through constrained dashed packets
+    - no new external interface is introduced
+- Consequences:
+  - The tested app/runtime path no longer depends on a mock or source-only
+    assertion for this reported switching flow.
+  - Exact constrained open-path, true self-intersecting fill-rule, and
+    multi-network dashed geometry remain backlog instead of being promoted by
+    this guard.
+  - Self-intersecting full-loop constrained dashed absence remains covered;
+    repeated multi-interval single-network placement is promoted only when the
+    sampled closed legality domain is valid.
+  - Chrome DevTools MCP could not be used in this session because the managed
+    DevTools browser profile was already locked by an existing process; the
+    validation used E2E instead.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-26 - Phase 5 promotes shared center round geometry for uniform-width solid and dashed strokes
+
+- Context:
+  - The formal stroke-engine target is now Figma-like uniform-width behavior
+    before returning to paint/color or variable-width work.
+  - Center dashed round join/cap support depends on the canonical
+    `solid-center` polygon builder because dashed intervals reuse the same
+    per-interval geometry path.
+  - Keeping `solid-center` round joins/caps marked unsupported while enabling
+    dashed round geometry would create a false runtime/documentation split.
+- Decision:
+  - Promote shared centerline round geometry for:
+    - `solid + center + round join`
+    - `solid + center + round cap`
+    - `dashed + center + round join`
+    - `dashed + center + round cap`
+  - Keep the slice bounded:
+    - uniform width only
+    - center placement only
+    - no paint/color expansion
+    - no variable-width rollout
+    - constrained `inside` / `outside` round geometry remains owned by the
+      constrained dashed/solid matrices
+- Consequences:
+  - Center dashed no longer treats round join/cap as unsupported.
+  - Center solid rectangle visuals now verify round joins as curved corner
+    coverage without miter overfill.
+  - Open-vector product wiring now verifies round caps as visible terminal
+    geometry without square-corner hit coverage.
+  - The active plan can continue toward the remaining uniform-width
+    inside/outside and constrained round baseline instead of re-entering
+    gradient or variable-width work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-center-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-26 - Stroke engine rollout adds a canonical algorithm flow contract
+
+- Context:
+  - The professional stroke engine plan had phase gates and scenario matrices,
+    but it did not yet have one canonical step-by-step flow contract mapping
+    shape/vector render strategies to packet builders, geometry helpers,
+    clipping helpers, render, hit-test, and export outputs.
+  - Without that document, future work could keep fixing local visual failures
+    without first proving the helper/API sequence and ownership boundary.
+- Decision:
+  - Add `docs/ai/apps/asyra-design/plans/professional-stroke-engine-algorithm-flow.md`
+    as the canonical algorithm-flow contract for the current rollout.
+  - Require stroke algorithm changes to update that flow first when helper/API
+    sequencing changes.
+  - Keep render, hit-test, and export parity anchored on the same
+    `SolidCenterStrokeResolvedPacket[]` contract.
+- Consequences:
+  - Future stroke work must start from scenario family plus flow ownership,
+    not screenshot-specific patching.
+  - Older stroke manuals remain useful historical references but cannot
+    override the professional stroke engine flow contract during this rollout.
+  - This does not change runtime behavior by itself; it constrains future
+    implementation order and review criteria.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-algorithm-flow.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-26 - Stroke engine rollout adds source-of-truth control docs and retires stale stroke docs
+
+- Context:
+  - The professional stroke engine rollout now needs stable development
+    controls beyond phase plans:
+    - support status
+    - temporary promotion flags
+    - failure triage
+    - manual QA
+    - document source-of-truth routing
+  - Older stroke manuals and legacy inside-dashed plans can mislead future
+    agents because they describe superseded flow, runtime, or priorities.
+- Decision:
+  - Add current rollout control documents:
+    - `docs/ai/apps/asyra-design/plans/stroke-engine-doc-source-of-truth.md`
+    - `docs/ai/apps/asyra-design/plans/stroke-engine-support-matrix.md`
+    - `docs/ai/apps/asyra-design/plans/stroke-engine-promotion-ledger.md`
+    - `docs/ai/apps/asyra-design/plans/stroke-engine-failure-triage.md`
+    - `docs/ai/apps/asyra-design/plans/stroke-engine-manual-qa-checklist.md`
+  - Retire non-decision-history legacy stroke documents from active authority.
+  - Keep decision history append-only; superseded decisions remain in place.
+- Consequences:
+  - Future stroke work should route through the new source-of-truth document
+    before inspecting old search results.
+  - Support questions should be answered from the support matrix, not from
+    memory or older manual pages.
+  - Promotion flags must be tracked in the promotion ledger until replaced by a
+    general owner/domain classifier.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-doc-source-of-truth.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-support-matrix.md`
   - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`

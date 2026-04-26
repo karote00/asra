@@ -147,6 +147,13 @@ const strokeSchema: PropertySchema = {
   type: PropertyTypes.STROKE,
   fields: [
     {
+      key: 'kind',
+      kind: 'string',
+      validate: (value) =>
+        value === FillKinds.SOLID || value === FillKinds.GRADIENT,
+      defaultValue: strokeDefaults.kind
+    },
+    {
       key: 'style',
       kind: 'string',
       validate: (value) =>
@@ -213,6 +220,12 @@ const strokeSchema: PropertySchema = {
       key: 'visible',
       kind: 'boolean',
       defaultValue: strokeDefaults.visible
+    },
+    {
+      key: 'gradient',
+      kind: 'object',
+      validate: isGradientData,
+      defaultValue: strokeDefaults.gradient
     },
     {
       key: 'joinType',

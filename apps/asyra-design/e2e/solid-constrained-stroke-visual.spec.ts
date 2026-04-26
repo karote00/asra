@@ -4,6 +4,7 @@ import {
   createOval,
   createRectangle,
   createVectorPath,
+  getCanvasPosition,
   getPropertiesPanel,
   getSelectedElementRect,
   resetCanvas,
@@ -208,6 +209,41 @@ const getRectProbeRegions = (raster: RasterCapture) => {
   }
 }
 
+const getOpenPolylineProbeRegions = (raster: RasterCapture) => {
+  const bandWidth = 4
+  const bandHeight = Math.max(2, raster.strokeWidthPx - 2)
+
+  return {
+    topLine: {
+      x: raster.padding + raster.elementWidth / 2 - bandWidth / 2,
+      y: raster.padding - bandHeight / 2,
+      width: bandWidth,
+      height: bandHeight
+    },
+    rightLine: {
+      x: raster.padding + raster.elementWidth - bandHeight / 2,
+      y: raster.padding + raster.elementHeight / 2 - bandWidth / 2,
+      width: bandHeight,
+      height: bandWidth
+    },
+    centerGap: {
+      x: raster.padding + raster.elementWidth / 2 - 4,
+      y: raster.padding + raster.elementHeight / 2 - 4,
+      width: 8,
+      height: 8
+    }
+  }
+}
+
+const getOpenDiagonalProbeRegions = (raster: RasterCapture) => ({
+  strokeEnvelope: {
+    x: raster.padding,
+    y: raster.padding,
+    width: raster.elementWidth,
+    height: raster.elementHeight
+  }
+})
+
 const getOvalProbeRegions = (raster: RasterCapture) => {
   const centerColumn = raster.padding + raster.elementWidth / 2 - 2
   const centerRow = raster.padding + raster.elementHeight / 2 - 2
@@ -287,6 +323,48 @@ const configureSelectedStroke = async (
   await propertiesPanel.getByTestId('prop-stroke-color-0').press('Enter')
   await page.waitForTimeout(180)
 }
+
+const createTwoPointVectorPath = async (page: Page) => {
+  const first = await getCanvasPosition(page, 0.3, 0.3)
+  const second = await getCanvasPosition(page, 0.42, 0.38)
+
+  await page.keyboard.press('p')
+  await page.waitForTimeout(100)
+  await page.mouse.click(first.x, first.y)
+  await page.waitForTimeout(120)
+  await page.mouse.click(second.x, second.y)
+  await page.waitForTimeout(240)
+  await page.keyboard.press('v')
+  await page.waitForTimeout(120)
+}
+
+const getSelectedStrokeRowSnapshot = async (page: Page, strokeIndex: number) =>
+  page.evaluate((index) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+    if (!selectedId) {
+      throw new Error('No selected element for stroke snapshot')
+    }
+
+    const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+    const computed = element?.getAllComputedData?.() ?? {}
+    const stroke = Array.isArray(computed.strokes)
+      ? computed.strokes[index]
+      : undefined
+
+    if (!stroke) {
+      throw new Error(`Missing selected stroke row ${index}`)
+    }
+
+    return {
+      style: stroke.style,
+      position: stroke.position,
+      width: stroke.width,
+      joinType: stroke.joinType,
+      capType: stroke.capType
+    }
+  }, strokeIndex)
 
 const patchSelectedVectorToClosedRectangle = async (page: Page) => {
   await page.evaluate(() => {
@@ -949,34 +1027,81 @@ test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
     expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
   })
 
-  test('benchmark: open constrained vector stroke remains visually absent', async ({
-    page
-  }) => {
-    await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-    await clearVectorOverlayState(page)
-    await ensureElementSelected(page, 'vector')
-    await patchSelectedVectorToOpenPolyline(page)
-    await ensureElementSelected(page, 'vector')
-    await configureSelectedStroke(page, {
-      elementType: 'vector',
-      position: 'inside',
-      join: 'bevel',
-      cap: 'butt',
-      width: 8
+  ;(['inside', 'outside'] as const).forEach((position) => {
+    test(`benchmark: open constrained vector ${position} stroke renders as centered fallback`, async ({
+      page
+    }) => {
+      await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
+      await clearVectorOverlayState(page)
+      await ensureElementSelected(page, 'vector')
+      await patchSelectedVectorToOpenPolyline(page)
+      await ensureElementSelected(page, 'vector')
+      await configureSelectedStroke(page, {
+        elementType: 'vector',
+        position,
+        join: 'bevel',
+        cap: 'butt',
+        width: 8
+      })
+
+      const authoredStroke = await getSelectedStrokeRowSnapshot(page, 0)
+      expect(authoredStroke).toMatchObject({
+        style: 'solid',
+        position,
+        width: 8,
+        joinType: 'bevel',
+        capType: 'butt'
+      })
+
+      const raster = await captureSelectedElementRaster(page, 8)
+      const probes = getOpenPolylineProbeRegions(raster)
+
+      const [topLine, rightLine, centerGap] = await Promise.all([
+        getGreenCoverage(page, raster, probes.topLine),
+        getGreenCoverage(page, raster, probes.rightLine),
+        getGreenCoverage(page, raster, probes.centerGap)
+      ])
+
+      expect(topLine).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+      expect(rightLine).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+      expect(centerGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
     })
+  })
 
-    const raster = await captureSelectedElementRaster(page, 8)
-    const probes = getRectProbeRegions(raster)
+  ;(['inside', 'outside'] as const).forEach((position) => {
+    test(`benchmark: real-created two-point open vector ${position} stroke remains visible through centered fallback`, async ({
+      page
+    }) => {
+      await createTwoPointVectorPath(page)
+      await clearVectorOverlayState(page)
+      await ensureElementSelected(page, 'vector')
+      await configureSelectedStroke(page, {
+        elementType: 'vector',
+        position,
+        join: 'bevel',
+        cap: 'butt',
+        width: 8
+      })
 
-    const [topInside, leftInside, center] = await Promise.all([
-      getGreenCoverage(page, raster, probes.topInside),
-      getGreenCoverage(page, raster, probes.leftInside),
-      getGreenCoverage(page, raster, probes.center)
-    ])
+      const authoredStroke = await getSelectedStrokeRowSnapshot(page, 0)
+      expect(authoredStroke).toMatchObject({
+        style: 'solid',
+        position,
+        width: 8,
+        joinType: 'bevel',
+        capType: 'butt'
+      })
 
-    expect(topInside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(leftInside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+      const raster = await captureSelectedElementRaster(page, 8)
+      const probes = getOpenDiagonalProbeRegions(raster)
+      const strokeEnvelope = await getGreenCoverage(
+        page,
+        raster,
+        probes.strokeEnvelope
+      )
+
+      expect(strokeEnvelope).toBeGreaterThan(0.08)
+    })
   })
 
   test('benchmark: self-intersecting constrained vector stroke remains visually absent', async ({

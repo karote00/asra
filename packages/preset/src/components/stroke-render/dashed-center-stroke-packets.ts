@@ -72,9 +72,11 @@ export const supportsDashedCenterStroke = (
   stroke.position === 'center' &&
   stroke.width > 0 &&
   stroke.dashPattern.length > 0 &&
-  (stroke.join === 'miter' || stroke.join === 'bevel') &&
+  (stroke.join === 'miter' ||
+    stroke.join === 'bevel' ||
+    stroke.join === 'round') &&
   stroke.miterLimit >= 1 &&
-  (stroke.cap === 'butt' || stroke.cap === 'square')
+  (stroke.cap === 'butt' || stroke.cap === 'square' || stroke.cap === 'round')
 
 export const buildDashedCenterStrokeResolvedPackets = (
   cachePrefix: string,
@@ -155,8 +157,11 @@ export const buildDashedCenterStrokeResolvedPackets = (
           },
           paint: {
             geometryId,
+            kind: stroke.kind,
             color: stroke.color,
-            alpha: stroke.alpha
+            alpha: stroke.alpha,
+            gradientStyle: stroke.gradientStyle,
+            paintKey: stroke.paintKey
           }
         }
       ]

@@ -235,6 +235,12 @@ const getCenterRectProbeRegions = (raster: RasterCapture) => {
       width: cornerProbe,
       height: cornerProbe
     },
+    miterTip: {
+      x: raster.padding - outerHalf,
+      y: raster.padding - outerHalf,
+      width: 2,
+      height: 2
+    },
     bevelDiagonal: {
       x: raster.padding - outerHalf + 1,
       y: raster.padding - outerHalf + 1,
@@ -337,7 +343,7 @@ test.describe('Solid Center Stroke Visual Benchmarks', () => {
     )
   })
 
-  test('benchmark: unsupported round join remains visually absent on center solid rectangles', async ({
+  test('benchmark: rectangle center round keeps curved corner coverage without miter fill', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -349,14 +355,16 @@ test.describe('Solid Center Stroke Visual Benchmarks', () => {
     const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
     const probes = getCenterRectProbeRegions(raster)
 
-    const [topBand, leftBand, outerCornerSquare] = await Promise.all([
+    const [topBand, leftBand, center, miterTip] = await Promise.all([
       getGreenCoverage(page, raster, probes.topBand),
       getGreenCoverage(page, raster, probes.leftBand),
-      getGreenCoverage(page, raster, probes.outerCornerSquare)
+      getGreenCoverage(page, raster, probes.center),
+      getGreenCoverage(page, raster, probes.miterTip)
     ])
 
-    expect(topBand).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(leftBand).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(outerCornerSquare).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topBand).toBeGreaterThan(MIN_BAND_COVERAGE)
+    expect(leftBand).toBeGreaterThan(MIN_BAND_COVERAGE)
+    expect(center).toBeLessThan(MAX_CENTER_COVERAGE)
+    expect(miterTip).toBeLessThan(MAX_CENTER_COVERAGE)
   })
 })
