@@ -80,6 +80,27 @@ const isGradientData = (value: unknown): boolean => {
   )
 }
 
+const isFillPayload = (value: unknown): boolean => {
+  if (value === null) {
+    return true
+  }
+
+  if (!isObjectRecord(value)) {
+    return false
+  }
+
+  return (
+    (value.kind === FillKinds.SOLID || value.kind === FillKinds.GRADIENT) &&
+    isFillColorFormat(value.defaultColorFormat) &&
+    isFillColorFormat(value.colorFormat) &&
+    typeof value.color === 'string' &&
+    value.color.length > 0 &&
+    isOpacity(value.opacity) &&
+    typeof value.visible === 'boolean' &&
+    isGradientData(value.gradient)
+  )
+}
+
 const fillDefaults = createDefaultFill()
 const strokeDefaults = createDefaultStroke()
 
@@ -181,9 +202,7 @@ const strokeSchema: PropertySchema = {
       validate: (value) =>
         Array.isArray(value) &&
         value.length > 0 &&
-        value.every(
-          (entry) => isFiniteNumber(entry) && (entry as number) > 0
-        ),
+        value.every((entry) => isFiniteNumber(entry) && (entry as number) > 0),
       defaultValue: strokeDefaults.dashPattern
     },
     {
@@ -191,6 +210,12 @@ const strokeSchema: PropertySchema = {
       kind: 'number',
       validate: (value) => isFiniteNumber(value),
       defaultValue: strokeDefaults.dashOffset
+    },
+    {
+      key: 'fill',
+      kind: 'object',
+      validate: isFillPayload,
+      defaultValue: strokeDefaults.fill
     },
     {
       key: 'defaultColorFormat',

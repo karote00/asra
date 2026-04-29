@@ -233,9 +233,7 @@ const StrokeItem = ({
           <select
             value={stroke.capType}
             onChange={(event) =>
-              handleCapTypeChange(
-                event.target.value as StrokeAttrs['capType']
-              )
+              handleCapTypeChange(event.target.value as StrokeAttrs['capType'])
             }
             className={strokeSelectClassName}
             style={strokeSelectStyle}
@@ -273,10 +271,11 @@ const StrokeItem = ({
       </div>
 
       <div
-        className={`grid items-center gap-2 pl-4 pr-2 h-8 min-h-8 ${stroke.style === StrokeStyles.DASHED
+        className={`grid items-center gap-2 pl-4 pr-2 h-8 min-h-8 ${
+          stroke.style === StrokeStyles.DASHED
             ? 'grid-cols-[40px_minmax(0,1fr)_96px_52px]'
             : 'grid-cols-[40px_minmax(0,1fr)]'
-          }`}
+        }`}
       >
         <PropertyControl>
           <div style={{ width: '40px' }}>

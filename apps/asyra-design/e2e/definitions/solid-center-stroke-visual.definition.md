@@ -35,7 +35,7 @@ This definition file describes the screenshot-level oracle for
 
 - The center stroke band must remain visible across the top and left samples.
 - The fill interior must remain empty at the center probe.
-- The extreme miter-tip probe must remain absent, because the promoted round
+- The extreme miter-tip probe must remain absent, because the supported round
   join follows curved corner coverage instead of filling the miter spike.
 
 ## Measured Observables

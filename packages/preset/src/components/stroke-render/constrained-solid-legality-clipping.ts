@@ -7,8 +7,7 @@ import {
 } from './constrained-solid-legality-diagnostics'
 import {
   buildConstrainedSolidOwnershipDiagnostics,
-  type ConstrainedSolidOwnershipDiagnostics,
-  type ConstrainedSolidOwnershipRegionDiagnostic
+  type ConstrainedSolidOwnershipDiagnostics
 } from './constrained-solid-ownership-diagnostics'
 import type { SolidCenterStrokeGeometryPacket } from './solid-center-stroke-packets'
 
@@ -167,10 +166,8 @@ const lineIntersection = (
   const determinant2 = x3 * y4 - y3 * x4
 
   return {
-    x:
-      (determinant1 * (x3 - x4) - (x1 - x2) * determinant2) / denominator,
-    y:
-      (determinant1 * (y3 - y4) - (y1 - y2) * determinant2) / denominator
+    x: (determinant1 * (x3 - x4) - (x1 - x2) * determinant2) / denominator,
+    y: (determinant1 * (y3 - y4) - (y1 - y2) * determinant2) / denominator
   }
 }
 
@@ -218,7 +215,9 @@ const polygonsEqual = (left: Vec2[], right: Vec2[]) => {
     left.every((point, index) => pointsEqual(point, candidate[index]))
 
   for (let offset = 0; offset < right.length; offset += 1) {
-    const rotated = right.map((_, index) => right[(index + offset) % right.length])
+    const rotated = right.map(
+      (_, index) => right[(index + offset) % right.length]
+    )
     if (matchesAtRotation(rotated)) {
       return true
     }
@@ -238,7 +237,10 @@ const polygonListContains = (polygons: Vec2[][], candidate: Vec2[]) =>
 const isOrthogonalPolygon = (polygon: Vec2[]) =>
   polygon.every((point, index) => {
     const next = polygon[(index + 1) % polygon.length]
-    return Math.abs(point.x - next.x) <= EPSILON || Math.abs(point.y - next.y) <= EPSILON
+    return (
+      Math.abs(point.x - next.x) <= EPSILON ||
+      Math.abs(point.y - next.y) <= EPSILON
+    )
   })
 
 const isConvexPolygon = (polygon: Vec2[]) => {
@@ -379,7 +381,9 @@ const decomposeOrthogonalPolygonToRectangles = (polygon: Vec2[]) => {
         const minY = Math.min(point.y, next.y)
         const maxY = Math.max(point.y, next.y)
 
-        return sampleY > minY + EPSILON && sampleY < maxY - EPSILON ? [point.x] : []
+        return sampleY > minY + EPSILON && sampleY < maxY - EPSILON
+          ? [point.x]
+          : []
       })
       .sort((left, right) => left - right)
 
@@ -391,7 +395,11 @@ const decomposeOrthogonalPolygonToRectangles = (polygon: Vec2[]) => {
       const left = intersections[intersectionIndex]
       const right = intersections[intersectionIndex + 1]
 
-      if (left === undefined || right === undefined || right - left <= EPSILON) {
+      if (
+        left === undefined ||
+        right === undefined ||
+        right - left <= EPSILON
+      ) {
         continue
       }
 
@@ -441,8 +449,10 @@ const subtractConvexPolygon = (minuend: Vec2[], subtrahend: Vec2[]) => {
   const hasStrictInteriorPoint =
     minuend.some((point) => isPointStrictlyInsidePolygon(point, subtrahend)) ||
     subtrahend.some((point) => isPointStrictlyInsidePolygon(point, minuend))
-  const subtrahendIsInsideOrOnMinuend = subtrahend.every((point) =>
-    isPointOnBoundary(point, minuend) || isPointStrictlyInsidePolygon(point, minuend)
+  const subtrahendIsInsideOrOnMinuend = subtrahend.every(
+    (point) =>
+      isPointOnBoundary(point, minuend) ||
+      isPointStrictlyInsidePolygon(point, minuend)
   )
 
   if (
@@ -471,8 +481,7 @@ const subtractConvexPolygon = (minuend: Vec2[], subtrahend: Vec2[]) => {
       }
 
       const previousStart = subtrahend[previousIndex]
-      const previousEnd =
-        subtrahend[(previousIndex + 1) % subtrahend.length]
+      const previousEnd = subtrahend[(previousIndex + 1) % subtrahend.length]
       clipped = clipPolygonToInsideHalfPlane(
         clipped,
         previousStart,
@@ -504,22 +513,22 @@ const clipForeignOwnedPolygons = (
     }
 
     const packetCandidateId = `candidate:${packetIndex}`
-    const foreignOwnedRegions = ownershipDiagnostics.ownedRegions.filter(
-      (region) =>
-        region.ownerStrokeId !== strokeId &&
-        region.candidateIds.includes(packetCandidateId)
+    const foreignOwnedFaces = ownershipDiagnostics.arrangementFaces.filter(
+      (face) =>
+        face.ownerStrokeId !== strokeId &&
+        face.candidateIds.includes(packetCandidateId)
     )
 
-    if (foreignOwnedRegions.length === 0) {
+    if (foreignOwnedFaces.length === 0) {
       return packet
     }
 
     const polygons = packet.geometry.polygons.flatMap((polygon) => {
       let remainingPolygons = normalizePolygonToConvexPieces(polygon)
 
-      foreignOwnedRegions.forEach((foreignOwnedRegion) => {
+      foreignOwnedFaces.forEach((foreignOwnedFace) => {
         remainingPolygons = remainingPolygons.flatMap((remainingPolygon) =>
-          subtractConvexPolygon(remainingPolygon, foreignOwnedRegion.polygon)
+          subtractConvexPolygon(remainingPolygon, foreignOwnedFace.polygon)
         )
       })
 
@@ -569,10 +578,20 @@ const clipPolygonToConvexBoundary = (
     }
 
     let previous = input[input.length - 1]
-    let previousInside = isInsideHalfPlane(previous, clipStart, clipEnd, orientation)
+    let previousInside = isInsideHalfPlane(
+      previous,
+      clipStart,
+      clipEnd,
+      orientation
+    )
 
     input.forEach((current) => {
-      const currentInside = isInsideHalfPlane(current, clipStart, clipEnd, orientation)
+      const currentInside = isInsideHalfPlane(
+        current,
+        clipStart,
+        clipEnd,
+        orientation
+      )
 
       if (currentInside) {
         if (!previousInside) {
@@ -688,12 +707,16 @@ const clipGeometryPacketToInsideDomain = (
     .map((polygon) =>
       clipPolygonToConvexBoundary(polygon, boundaryPolygon, orientation)
     )
-    .filter((polygon) => polygon.length >= 3 && Math.abs(signedArea(polygon)) > EPSILON)
+    .filter(
+      (polygon) =>
+        polygon.length >= 3 && Math.abs(signedArea(polygon)) > EPSILON
+    )
 
   const changed =
     clippedPolygons.length !== geometry.polygons.length ||
     clippedPolygons.some(
-      (polygon, index) => !polygonsEqual(polygon, geometry.polygons[index] ?? [])
+      (polygon, index) =>
+        !polygonsEqual(polygon, geometry.polygons[index] ?? [])
     )
 
   if (!changed) {
@@ -719,7 +742,9 @@ const clipGeometryPacketToOutsideDomain = (
   orientation: 'cw' | 'ccw'
 ) => {
   const hasStrictInteriorPoint = geometry.polygons.some((polygon) =>
-    polygon.some((point) => isPointStrictlyInsidePolygon(point, boundaryPolygon))
+    polygon.some((point) =>
+      isPointStrictlyInsidePolygon(point, boundaryPolygon)
+    )
   )
 
   if (!hasStrictInteriorPoint) {
@@ -773,7 +798,8 @@ const clipGeometryPacketToOutsideDomain = (
   const changed =
     clippedPolygons.length !== geometry.polygons.length ||
     clippedPolygons.some(
-      (polygon, index) => !polygonsEqual(polygon, geometry.polygons[index] ?? [])
+      (polygon, index) =>
+        !polygonsEqual(polygon, geometry.polygons[index] ?? [])
     )
 
   if (!changed) {
@@ -804,7 +830,9 @@ export const buildConstrainedSolidLegalityClippingResult = (
     packets
   )
   const domainsByGeometryId = new Map(
-    initialLegalityDiagnostics.domains.map((domain) => [domain.geometryId, domain] as const)
+    initialLegalityDiagnostics.domains.map(
+      (domain) => [domain.geometryId, domain] as const
+    )
   )
 
   const eligibleOverflowGeometryIds: string[] = []
@@ -838,7 +866,8 @@ export const buildConstrainedSolidLegalityClippingResult = (
     }
   })
 
-  const ownershipDiagnostics = buildConstrainedSolidOwnershipDiagnostics(clippedPackets)
+  const ownershipDiagnostics =
+    buildConstrainedSolidOwnershipDiagnostics(clippedPackets)
   const ownerClippedPackets = clipForeignOwnedPolygons(
     clippedPackets,
     ownershipDiagnostics
@@ -853,7 +882,9 @@ export const buildConstrainedSolidLegalityClippingResult = (
   return {
     packets: ownerClippedPackets,
     eligibleOverflowGeometryIds,
-    preservedGeometryIds: ownerClippedPackets.map((packet) => packet.geometry.geometryId),
+    preservedGeometryIds: ownerClippedPackets.map(
+      (packet) => packet.geometry.geometryId
+    ),
     legalityDiagnostics,
     ownershipDiagnostics
   }

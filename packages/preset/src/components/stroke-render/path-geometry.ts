@@ -230,7 +230,7 @@ const sampleCubicSegmentFrames = (
     })
   }
 
-  const fallbackStartTangent = frames.find((frame) => frame.tangent)?.tangent ??
+  const defaultStartTangent = frames.find((frame) => frame.tangent)?.tangent ??
     getSegmentStartTangent(segment) ?? { x: 1, y: 0 }
 
   for (let index = 0; index < frames.length; index += 1) {
@@ -239,7 +239,7 @@ const sampleCubicSegmentFrames = (
         point: frames[index].point,
         tangent:
           (index > 0 ? (frames[index - 1]?.tangent ?? null) : null) ??
-          fallbackStartTangent
+          defaultStartTangent
       }
     }
   }

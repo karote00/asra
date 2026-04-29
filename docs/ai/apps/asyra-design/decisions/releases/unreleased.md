@@ -5184,3 +5184,1073 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - `docs/ai/apps/asyra-design/plans/stroke-engine-doc-source-of-truth.md`
   - `docs/ai/apps/asyra-design/plans/stroke-engine-support-matrix.md`
   - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
+## 2026-04-27 - Constrained dashed promotion topology moves behind classifiers
+
+- Context:
+  - The constrained dashed packet builder had accumulated separate bounded
+    promotion checks for full-loop round joins, single-edge round caps, and
+    corner-spanning joins across rectangle-equivalent and first broader vector
+    sources.
+  - Adding another source-specific flag would violate the promotion ledger stop
+    rule because the current blocker is duplicated topology ownership, not one
+    missing representative.
+- Decision:
+  - Add `classifyConstrainedDashedSource(points, closed)` for the currently
+    distinguishable product-path source topology.
+  - Add `classifyConstrainedDashedInterval(points, closed, interval, stroke, options)`
+    to centralize the existing promotion option checks for:
+    - full-loop round joins
+    - single-edge round caps
+    - corner-spanning joins
+  - Keep the existing promotion option names as compatibility opt-ins for the
+    current rectangle/oval/vector render strategies.
+- Consequences:
+  - Packet-building runtime branches must consume classifier output instead of
+    duplicating source/interval topology checks.
+  - This is a structural refactor, not a new product-surface promotion.
+  - Ownership classification and legality-status outputs remain pending before
+    constrained dashed can be treated as fully generalized.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-algorithm-flow.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-promotion-ledger.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-support-matrix.md`
+
+## 2026-04-27 - Sampled smooth constrained dashed full-loop round joins are supported
+
+- Context:
+  - The constrained dashed matrix supported oval full-loop `inside` /
+    `outside` baseline geometry, but the support matrix still treated oval
+    round joins as partial.
+  - Oval paths are sampled smooth closed loops, so full-loop round joins can be
+    accepted without promoting sharp arbitrary vector round joins.
+- Decision:
+  - Allow `classifyConstrainedDashedInterval` to accept full-loop round joins
+    on sampled smooth closed loops.
+  - Keep sharp sampled-simple closed loops unpromoted for round joins.
+  - Add product-path unit and visual contracts for oval `inside` / `outside`
+    constrained dashed full-loop round joins.
+- Consequences:
+  - `oval` constrained dashed `inside/outside + full-loop + round join` now
+    renders through the real app path.
+  - This is not arbitrary-vector round-join promotion.
+  - The next Figma-like geometry work should still treat sharp joins as their
+    own bounded family.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-support-matrix.md`
+
+## 2026-04-27 - Constrained dashed runtime status becomes explicit
+
+- Context:
+  - Constrained dashed product wiring needed one place to distinguish exact
+    constrained geometry from center fallback and unsupported blocked cases.
+  - Before this change, rectangle/oval/vector wiring still inferred that state
+    from candidate packet counts and local fallback conditions.
+- Decision:
+  - Add `classifyConstrainedDashedRuntimeStatus(input)` in
+    `packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts`.
+  - Return explicit statuses:
+    - `accepted`
+    - `fallback-to-center`
+    - `blocked`
+  - Include source topology and ownership classification in the result.
+  - Route rectangle, oval, and vector constrained dashed product wiring through
+    this status classifier before accepting packets or allowing center
+    fallback.
+- Consequences:
+  - Open-path `inside` / `outside` constrained dashed remains center visibility
+    fallback, not exact constrained geometry.
+  - Closed-path center fallback must be explicit and bounded.
+  - Blocked constrained dashed cases are no longer hidden behind packet-count
+    checks.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-algorithm-flow.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-promotion-ledger.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-support-matrix.md`
+
+## 2026-04-27 - Constrained dashed packet ownership moves behind a classifier
+
+- Context:
+  - Rectangle and oval constrained dashed wiring accepted candidates only when
+    exactly one packet was produced.
+  - Vector constrained dashed wiring had its own owner parsing logic based on
+    `geometryId`.
+  - That split meant repeated visible intervals from one stroke could be
+    blocked by packet count, while vector ownership semantics lived outside
+    the packet classifier path.
+- Decision:
+  - Add `classifyConstrainedDashedOwnership(packets)` in
+    `packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts`.
+  - Accept candidate packets when all constrained dashed packets resolve to one
+    owner key.
+  - Block no-packet, unparseable-owner, and multiple-owner candidate sets.
+  - Route rectangle, oval, and vector constrained dashed product wiring through
+    the same ownership classifier.
+- Consequences:
+  - Repeated constrained dashed intervals from one stroke can render through
+    the app path.
+  - Multiple constrained dashed stroke owners and multi-network owners remain
+    blocked until explicitly promoted.
+  - Ownership classification is centralized, but final legality status output
+    remains pending.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-algorithm-flow.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-promotion-ledger.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-support-matrix.md`
+
+## 2026-04-27 - Promoted constrained round joins use bounded round geometry
+
+- Context:
+  - Phase 5 promotes uniform-width round behavior for supported constrained
+    stroke paths.
+  - Some constrained dashed full-loop round representatives still reused miter
+    geometry as a temporary proxy, which created the wrong product contract
+    and could preserve miter spikes where round joins were requested.
+  - Manual testing needs supported `inside` / `outside` round joins to be
+    visibly correct before broader stroke QA starts.
+- Decision:
+  - Promote closed constrained solid `round` joins on supported simple paths
+    through bounded arc geometry and legality clipping.
+  - Treat closed-path `round` caps as terminal no-ops equivalent to other
+    closed-loop cap variants.
+  - Route promoted constrained dashed full-loop round joins through the same
+    constrained round geometry path instead of substituting miter geometry.
+  - Keep open-path exact `inside` / `outside` constrained semantics blocked;
+    open vectors may still use explicit center visibility fallback.
+  - Keep self-intersecting exact constrained legality unpromoted while
+    preserving the existing repeated-dash visibility path for reported closed
+    star vectors.
+- Consequences:
+  - Supported closed `solid + inside/outside + round join` paths now have
+    product-path unit and visual contracts.
+  - Promoted `dashed + full-loop + inside/outside + round join` paths no
+    longer rely on miter proxy bounds.
+  - Runtime round arc subdivision remains bounded to preserve the `120fps`
+    target and `60fps` floor.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-algorithm-flow.md`
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-support-matrix.md`
+
+## 2026-04-27 - Unpromoted sampled repeated dashed intervals stop using doubled-width constrained clipping
+
+- Context:
+  - Manual testing found that a closed star-like vector with repeated dashed `inside` / `outside` stroke rendered at roughly double the authored width.
+  - The constrained dashed non-full-loop path generated center geometry with `stroke.width * 2` and then relied on constrained clipping.
+  - That clipping contract is only valid for promoted source/interval families; sampled star-like intervals had no promoted exact constrained topology.
+- Decision:
+  - Gate constrained dashed non-full-loop packet generation behind the interval classifier.
+  - Keep rectangle-equivalent and first promoted broader simple closed single-edge / corner-spanning families on the constrained path.
+  - Keep unpromoted sampled closed non-full-loop intervals, including cubic/star-like vectors, on explicit authored-width center fallback instead of entering doubled-width constrained clipping.
+  - Keep self-intersecting exact constrained dashed semantics blocked until fill-rule topology is promoted.
+- Consequences:
+  - Unsupported star-like repeated dashed `inside` / `outside` vectors remain visible without doubling the stroke width.
+  - This is not exact Figma-like inside/outside placement for arbitrary sampled paths; that remains a future promoted topology.
+  - The guard prevents a false-success constrained rendering path from masking missing topology coverage during manual QA.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+  - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-support-matrix.md`
+
+## 2026-04-28 - Deleted legacy stroke plan files after final package promotion
+
+- Context:
+  - The final stroke package is now the only active stroke-engine planning
+    authority.
+  - Keeping earlier rollout plans, support matrices, scenario matrices,
+    promotion ledgers, manual QA checklists, handoff notes, and failure-triage
+    files made search results ambiguous and let reviewers treat old assumptions
+    as current implementation contracts.
+- Decision:
+  - Delete legacy stroke planning files outside
+    `docs/ai/apps/asyra-design/plans/stroke-engine-final/`.
+  - Keep historical reasoning only in app decision history and the final
+    analysis report.
+  - Update `PLANS.md`, source-of-truth routing, migration rules, phase gates,
+    and self-review rules so future stroke docs cannot recreate a second
+    archive authority.
+- Consequences:
+  - Reviewers and implementers have one active stroke entrypoint.
+  - Deleted legacy plan names may remain in this append-only decision history,
+    but they are no longer valid file references for current behavior.
+  - Any still-relevant legacy rationale must be restated in the final package
+    before it can affect implementation.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/source-of-truth.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/migration-and-archive-plan.md`
+  - `docs/ai/apps/asyra-design/reports/stroke-engine-final-analysis-report.md`
+
+## 2026-04-28 - Closed stroke Phase 1 typed packet and dirty-key foundation
+
+- Context:
+  - The final stroke plan requires typed packet metadata and explicit dirty
+    keys before shared topology work starts.
+  - A pure dirty-key helper was insufficient because runtime packets did not
+    yet emit revision sets from real stroke inputs.
+  - Constrained dashed packets still had one owner fallback path derived from
+    cache-prefix structure, which could recreate the same ambiguity as parsing
+    semantic fields from `geometryId`.
+- Decision:
+  - Add stroke packet revision sets derived from source path points, stroke
+    spec, interval allocation, topology classification, ownership metadata,
+    legality metadata, paint payload, and preview/exact mode.
+  - Preserve revision sets through render, hit-test, export, and debug metadata
+    packet families.
+  - Integrate `computeStrokeDirtyKeys` into the stroke render cache so cached
+    entries record which stages were dirtied by the latest packet revision
+    comparison.
+  - Require constrained dashed owner identity to come from typed metadata; shape
+    callers now pass explicit owner prefixes, and helper fallback no longer
+    parses cache prefixes.
+- Consequences:
+  - Phase 1 can close without claiming Phase 2 shared topology exists yet.
+  - Future Phase 2 work can replace the current revision signatures with
+    canonical `PathTopologyModel` revisions without changing packet consumers.
+  - Product-visible geometry is unchanged; this is a contract and invalidation
+    foundation change.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/phase-execution-plan.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/performance-and-dirty-graph.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/function-contracts.md`
+
+## 2026-04-28 - Closed stroke Phase 2 shared PathTopologyModel foundation
+
+- Context:
+  - The final stroke plan requires one canonical path-topology object per
+    source/network revision before exact one-sided geometry can be promoted.
+  - Shape and vector stroke packet helpers still had private topology or
+    path-length decisions, which made interval allocation and support
+    classification harder to reason about across render, hit-test, export, and
+    diagnostics.
+  - Compound closed support cannot be promoted if shell/hole behavior is
+    inferred from contour orientation alone.
+- Decision:
+  - Add a shared `PathTopologyModel` builder with stable source/network ids,
+    topology family, canonical arc-length basis, contours, legal-domain
+    descriptors, and intersection metadata.
+  - Route rectangle, oval, and vector render strategies through one shared
+    topology object and pass it into center, constrained solid, constrained
+    dashed, diagnostics, render, hit-test, and export packet construction.
+  - Move dashed interval allocation to topology length and closure state through
+    `allocateDashedIntervalsForTopology`.
+  - Add compound legal-domain classification based on containment depth, with a
+    regression fixture proving same-orientation nested rectangles still classify
+    as shell plus hole.
+  - Expose a vector path-topology model counter alongside the existing path
+    geometry model counter.
+- Consequences:
+  - Phase 2 can close with shared topology and topology-driven interval
+    allocation in place.
+  - Packet helpers may keep compatibility fallbacks that self-build topology
+    only when older callers do not supply it; render strategies are required to
+    supply the shared topology object.
+  - Exact high-curvature, acute-corner, and miter one-sided geometry remain
+    Phase 3/4 work; Phase 2 only establishes the reusable topology foundation.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/phase-execution-plan.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/target-architecture.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/geometry-pipeline.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/performance-and-dirty-graph.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/function-contracts.md`
+
+## 2026-04-28 - Closed stroke Phase 3 final one-sided solid geometry slice
+
+- Context:
+  - The final stroke plan requires constrained solid `inside` / `outside`
+    geometry to be selected-side geometry, not doubled-width center geometry
+    clipped after the fact.
+  - Closed inside bevel joins still reused miter geometry, and miter-limit
+    exceedance needed to be asserted as supported bevel resolution rather than
+    fallback behavior.
+  - Constrained solid packets needed typed contour and legal-domain metadata so
+    render, hit-test, and export could preserve the same semantic packet truth.
+- Decision:
+  - Keep constrained solid off the doubled-width center-band product route.
+  - Build closed inside constrained solid from selected-side candidates clipped
+    to the source legal domain.
+  - Emit explicit bevel join geometry for closed inside bevel joins and for
+    miter-limit exceedance.
+  - Preserve exact supported runtime metadata for miter-limit bevel resolution.
+  - Keep compact exact outside miter/bevel emission where adjacent selected-side
+    body faces do not overlap; outside round remains on explicit one-sided arc
+    construction.
+  - Add typed `contourId`, `legalDomainId`, `sourceTopology`, and
+    `topologyFamily` metadata to constrained solid packets and verify parity
+    through render, hit-test, and export packet derivation.
+- Consequences:
+  - Phase 3 can close for the promoted simple constrained solid family.
+  - High-curvature candidate self-overlap, true self-intersection, and broader
+    arrangement promotion remain governed by later exact-correct gates.
+  - Phase 4 can reuse the constrained solid full-loop geometry path for dashed
+    exact support without inheriting a doubled-width constrained solid route.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/phase-execution-plan.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/exact-correct-path-algorithm.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/geometry-pipeline.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/function-contracts.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-28 - Closed stroke Phase 4 final one-sided dashed geometry slice
+
+- Context:
+  - The final stroke plan requires constrained dashed `inside` / `outside`
+    support to allocate intervals before geometry and build selected-side
+    interval geometry, not widened center packets.
+  - Full-loop constrained dashed support already reused constrained solid
+    geometry, but interval-local packets needed stronger metadata parity and
+    proof that accepted product packets carry topology/legal-domain identity.
+  - Runtime accepted/blocked/fallback decisions must remain typed and must not
+    infer support from packet ids.
+- Decision:
+  - Keep full-loop constrained dashed slices on the exact constrained solid
+    selected-side geometry path.
+  - Keep promoted non-full-loop constrained dashed slices on interval-first
+    one-sided construction from the visible source fragment.
+  - Keep closed inside interval-local legality clipping on the one-sided
+    candidate, not on a doubled-width center packet.
+  - Add constrained dashed contour, legal-domain, source-topology,
+    topology-family, and interval-topology metadata to full-loop and
+    interval-local packets.
+  - Verify constrained dashed render, hit-test, and export metadata parity after
+    accepted runtime metadata is attached.
+- Consequences:
+  - Phase 4 can close for promoted constrained dashed slices.
+  - Unsupported seam-wrapping, multi-corner, self-intersecting, and
+    overlap-heavy exact dashed families remain gated for arrangement and
+    ownership hardening.
+  - Phase 5 can focus on face partition, ownership, legality, and robustness
+    without carrying a widened-center dashed product route.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/phase-execution-plan.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/exact-correct-path-algorithm.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/geometry-pipeline.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/function-contracts.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-28 - Stroke Phase 5 arrangement and ownership hardening
+
+- Context:
+  - The final stroke plan requires overlap-heavy constrained geometry to pass
+    through explicit arrangement faces before ownership and legality.
+  - Previous diagnostics exposed owned regions but did not make the arrangement
+    policy or per-face partition method first-class.
+  - Legality clipping must subtract foreign-owned face regions, not packet
+    groups, to avoid duplicate overlap layers.
+- Decision:
+  - Add an explicit constrained solid arrangement policy named
+    `bounded-convex-subset-arrangement`.
+  - Publish numeric robustness settings for epsilon, rounding factor,
+    max exact subset count, zero-area threshold, tangential-touch handling, and
+    coincident-edge dedupe.
+  - Emit typed `arrangementFaces` before compatibility `ownedRegions`.
+  - Mark exact face regions with
+    `partitionMethod: "exact-subset-intersection"` and budget fallback regions
+    with `partitionMethod: "fallback-overlap-polygon"`.
+  - Route constrained solid legality clipping through foreign-owned
+    arrangement faces instead of foreign-owned packet groups.
+- Consequences:
+  - Phase 5 closes for the current constrained solid overlap/legality slice.
+  - `ownedRegions` remain available as compatibility diagnostics, but
+    arrangement faces are the stronger ownership input.
+  - Broader self-intersection and multi-network semantics remain gated until
+    their exact arrangement rules and fixtures are promoted.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/phase-execution-plan.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/geometry-pipeline.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/function-contracts.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/target-architecture.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-28 - Stroke Phase 6 open-path exact constrained semantics
+
+- Context:
+  - The final stroke plan requires promoted open-path `inside` / `outside`
+    strokes to be exact one-sided geometry, not center fallback visibility.
+  - Simple open constrained solid and dashed geometry existed, but solid
+    packet/runtime tests needed stronger proof that center/native packets are
+    replaced by exact constrained packets during parameter changes.
+  - Open self-intersecting constrained paths must remain blocked instead of
+    silently rendering center fallback.
+- Decision:
+  - Close Phase 6 for the promoted simple open constrained solid/dashed slice.
+  - Keep open constrained solid on selected-side segment, join, and cap
+    construction with exact accepted metadata.
+  - Keep open constrained dashed on interval-first selected-side geometry with
+    accepted open runtime diagnostics.
+  - Add solid open center-to-constrained transition coverage so packet family
+    and hit geometry change from native center to exact constrained output.
+  - Keep open self-intersecting constrained solid/dashed paths blocked with no
+    visible fallback packets.
+- Consequences:
+  - Simple open constrained solid/dashed support is distinguishable from center
+    fallback in render, hit-test, export, and diagnostics.
+  - Broader open self-intersecting and ambiguous-turn semantics remain gated
+    until their arrangement/face rules are promoted.
+  - Phase 7 can focus on self-intersection and overlapping multi-network
+    semantics rather than simple open-path exactness.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/phase-execution-plan.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/geometry-pipeline.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/function-contracts.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/target-architecture.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-28 - Stroke Phase 7 self-intersection and multi-network gating
+
+- Context:
+  - The final stroke plan requires exact self-intersection and overlapping
+    multi-network support only after face semantics and ownership rules are
+    defined.
+  - Disjoint multi-network constrained dashed support is already accepted
+    through typed per-network ownership diagnostics.
+  - Overlapping or boundary-touching networks can require shared-face
+    ownership arbitration that is not yet promoted.
+- Decision:
+  - Close Phase 7 as a gating phase, not as a broad support promotion.
+  - Keep self-intersecting constrained solid/dashed paths blocked or
+    research-gated.
+  - Keep disjoint multi-network constrained dashed vectors accepted per typed
+    network owner.
+  - Block overlapping or boundary-touching multi-network constrained solid and
+    constrained dashed exact packets before product emission.
+  - Emit blocked runtime diagnostics for overlapping multi-network constrained
+    dashed attempts with zero candidate packets.
+- Consequences:
+  - Unsupported exact families are no longer allowed to look supported through
+    plausible duplicate rendering or fallback visibility.
+  - Multi-network overlap ownership remains a future promotion that must define
+    face-level ownership before exact support can be claimed.
+  - Phase 8 can evaluate performance only against supported or explicitly
+    blocked semantic families.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/phase-execution-plan.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/topology-and-product-semantics.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-28 - Stroke Phase 8 baseline animation performance contract
+
+- Context:
+  - The final stroke plan requires performance targets to be executable gates,
+    not aspirational documentation.
+  - Current supported CPU geometry slices need a declared baseline benchmark
+    before broader animation work can be evaluated honestly.
+  - Browser/GPU product performance still requires a separate declared browser
+    benchmark suite.
+- Decision:
+  - Add `packages/preset/src/__tests__/stroke-performance-contract.test.ts` as
+    the baseline CPU geometry benchmark suite.
+  - Measure 100 moving open points, one high-curvature cubic edit loop, and one
+    disjoint multi-network update path across 300 frames.
+  - Use 20 warmup frames, average fps `>= 120`, and p95 frame time `<= 16.67ms`
+    as the current pass rule.
+  - Assert one topology build per network per frame on the multi-network
+    workload.
+- Consequences:
+  - Phase 8 can close for the declared CPU geometry baseline.
+  - The benchmark does not claim browser GPU or full product animation
+    performance; those require additional declared workloads.
+  - Future performance failures must inspect dirty keys, topology reuse,
+    interval reuse, and renderer CPU rebuild before changing semantics.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/performance-and-dirty-graph.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/phase-execution-plan.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-28 - Removed constrained dashed center fallback and added solid blocked diagnostics
+
+- Context:
+  - Final stroke routing must not let unsupported constrained `inside` /
+    `outside` cases look supported through legacy center fallback packets.
+  - Users switching from center to inside/outside could see a silent
+    disappearance because solid constrained unsupported cases emitted no
+    product packets and no runtime reason.
+  - Existing tests still treated center fallback as a valid migration path for
+    reported dashed star/cubic fixtures, which conflicted with the final
+    source-of-truth.
+- Decision:
+  - Remove vector constrained dashed center fallback emission for unsupported
+    constrained dashed cases.
+  - Remove fallback provenance fields from active stroke packet metadata and
+    dirty-key inputs.
+  - Add constrained solid runtime diagnostics with typed `accepted` / `blocked`
+    status and explicit reasons such as `self-intersecting-blocked`,
+    `overlapping-multi-network-blocked`, and `no-packets`.
+  - Update tests so unsupported constrained dashed star/cubic fixtures are
+    blocked with diagnostics instead of rendered through dashed-center packets.
+- Consequences:
+  - Unsupported constrained paths may still emit no product geometry, but they
+    no longer disappear without a typed runtime reason.
+  - Center stroke remains a native `center` alignment feature, not a fallback
+    substitute for constrained `inside` / `outside` support.
+  - Full product visibility for arbitrary inside/outside paths still requires
+    implementing the remaining exact one-sided arrangement families rather than
+    reintroducing fallback visibility.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/source-of-truth.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/runtime-data-representation.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-28 - Enforced final stroke routing without legacy constrained substitutes
+
+- Context:
+  - Final stroke implementation must prefer the new source-of-truth over old
+    helper-level opt-ins, fallback counters, and migration compatibility flags.
+  - Unsupported constrained paths need typed blocked diagnostics, not
+    substitute geometry that makes product support ambiguous.
+  - Self-intersecting and degenerate topology must remain visible as typed
+    topology state instead of being collapsed into sampled simple-closed
+    diagnostics.
+- Decision:
+  - Remove constrained dashed helper promotion option flags from the active API
+    and route support strictly from topology, interval classification, and
+    typed ownership.
+  - Remove `fallbackCount` and fallback provenance from active constrained
+    dashed diagnostics.
+  - Add explicit dashed blocked reason `overlapping-multi-network-blocked`.
+  - Preserve dashed `self-intersecting` and `degenerate` topology as typed
+    metadata and report them as `unsupported-topology`.
+  - Update active plans, BDD wording, and tests so blocked constrained paths
+    cannot be described as supported through center-derived substitute geometry.
+- Consequences:
+  - Inside/outside constrained strokes now have only two valid runtime outcomes:
+    accepted exact constrained geometry, or typed blocked diagnostics.
+  - Remaining unsupported exact families must be implemented through the final
+    one-sided/arrangement plan; they cannot be made visible by reusing old
+    center-derived paths.
+  - Reviewers can audit unsupported visibility by scanning for removed fallback
+    contracts and by checking runtime diagnostics.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/source-of-truth.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/runtime-data-representation.md`
+
+## 2026-04-28 - Accepted interval-local self-intersecting dashed visibility
+
+- Context:
+  - Runtime inspection showed that reported self-intersecting repeated dashed
+    `inside` / `outside` vectors still disappeared because candidate packet
+    construction was blocked before any one-sided interval geometry could be
+    emitted.
+  - The blocked tests asserted absence as success, which hid the product issue
+    even though users need at least visible interval-local geometry for common
+    repeated dashed edits.
+  - The final plan still forbids center-derived fallback geometry; visibility
+    must come from authored source intervals and selected-side faces.
+- Decision:
+  - Allow closed self-intersecting constrained dashed non-full-loop intervals to
+    emit direct interval-local one-sided packets.
+  - Keep self-intersecting full-loop constrained solid/dashed semantics gated
+    until face-arrangement ownership is implemented.
+  - Keep packet metadata explicit with `sourceTopology: "self-intersecting"` so
+    reviewers do not mistake interval-local visibility for completed full-loop
+    exact ownership.
+  - Render stroke mesh after fill/path drawing in primitive and vector render
+    strategies so resolved stroke geometry remains the top visible product
+    geometry.
+- Consequences:
+  - Reported repeated dashed self-intersecting vectors no longer disappear when
+    switched to constrained `inside` / `outside`.
+  - This is not a center fallback and does not claim full Figma-like
+    self-intersection arrangement support.
+  - Full-loop self-intersecting support and overlapping multi-network ownership
+    remain separate exactness gates.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/geometry-pipeline.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/topology-and-product-semantics.md`
+
+## 2026-04-28 - Demoted compound product stroke support to gated
+
+- Context:
+  - The active support table implied compound closed legal-domain product stroke support was available when explicit legal-region / winding-rule metadata exists.
+  - The runtime currently has a containment-depth legal-domain classification helper and regression fixture, but render / hit-test / export packets do not yet consume multi-contour legal domains as product stroke geometry.
+  - Claiming product support from classification-only metadata would let implementers skip the exact compound packet path.
+- Decision:
+  - Keep compound closed legal-domain classification as supported topology metadata.
+  - Demote compound closed product stroke geometry with holes to research-gated until product packets consume multi-contour legal domains directly.
+  - Update active support, topology semantics, phase notes, and benchmark case wording so no document claims compound product support prematurely.
+- Consequences:
+  - Current supported-now claims match the implementation surface.
+  - Compound hole behavior remains a future exactness gate instead of a hidden false-positive support claim.
+  - Reviewers must reject any compound product stroke support claim that lacks render / hit-test / export packet parity over the declared legal domain.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/topology-and-product-semantics.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-28 - Promoted basic compound-hole constrained solid slice
+
+- Context:
+  - The Figma reference fixture for compound closed paths shows inside stroke behavior is defined against the legal filled region, not raw contour orientation.
+  - The outer shell must inset for inside stroke, while the hole contour must invert the selected side so stroke geometry expands into the filled region around the hole.
+  - The previous runtime had containment-depth classification but still blocked all overlapping multi-network constrained solid packets.
+- Decision:
+  - Promote only the basic constrained solid compound slice: exactly one simple closed shell plus one simple closed hole in a containment-only vector.
+  - Keep compound dashed, nested ownership chains, intersecting contours, shared edges, and overlapping multi-network ownership blocked or research-gated.
+  - Emit one shared compound legal-domain id through render, hit-test, and export packets for the promoted solid slice.
+  - Invert authored inside/outside position for the hole contour before building one-sided geometry.
+- Consequences:
+  - The Q6 donut-like Figma reference behavior now has a product-path implementation and regression coverage.
+  - Q5 nested ownership remains blocked by an explicit regression so the basic compound slice cannot accidentally promote nested chains.
+  - Compound dashed remains blocked by overlapping-network diagnostics until a dashed legal-domain implementation is explicitly added.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/topology-and-product-semantics.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-28 - Promoted Q4/Q5/Q8 Figma SVG fixture slices
+
+- Context:
+  - User-supplied Figma SVG exports for Q4, Q5, and Q8 were available after
+    MCP quota was exhausted.
+  - Q4 outlined SVG showed overlapping solid strokes resolve into compound
+    filled geometry and overlapping dashed strokes resolve into filled dash
+    subpaths, so source-bounds overlap cannot remain an automatic product
+    blocker.
+  - Q5 outlined SVG showed nested compound output with containment-depth
+    alternation, supporting parity-based shell/hole role assignment.
+  - Q8 original/outlined SVGs define a concrete performance fixture family.
+- Decision:
+  - Promote overlapping simple closed multi-network constrained solid/dashed
+    visibility to supported product behavior when typed packets and diagnostics
+    are emitted.
+  - Promote containment-depth compound constrained solid/dashed vectors,
+    including nested parity chains, with odd-depth contours inverting the
+    selected constrained side.
+  - Add the Q8 reference workload to the CPU performance contract.
+  - Keep exact boolean-union minimization for overlapping solid export packets
+    as a later optimization, not a visibility blocker.
+- Consequences:
+  - Inside/outside strokes no longer disappear solely because source bounds
+    overlap.
+  - Compound dashed and nested containment chains now have product-path
+    render/hit/export regression coverage.
+  - The supported performance benchmark now covers a denser Figma-derived
+    source family.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/reference-research-findings.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-28 - Promoted typed-owner constrained dashed multi-stroke diagnostics
+
+- Context:
+  - After Q4/Q5/Q8 promotion, the remaining constrained dashed blocker was not
+    geometry construction but ownership classification.
+  - The runtime still treated multiple parsed owner keys as
+    `blocked/multiple-owners`, causing multiple constrained dashed stroke
+    layers on one source to disappear even though every packet carried typed
+    metadata.
+  - The runtime also still exposed old blocked reason names from earlier
+    overlap/open-path gating work.
+- Decision:
+  - Accept multiple constrained dashed owners when every packet carries typed
+    owner metadata.
+  - Use runtime reason `typed-owners` for accepted multi-layer constrained
+    dashed output.
+  - Replace stale product-path reason names with explicit unsupported or
+    no-candidate reasons.
+  - Attach candidate arrangement diagnostics to constrained dashed runtime
+    diagnostics so Q4/Q5 and multi-stroke slices expose candidates, overlap
+    edges, components, and owned regions when available.
+- Consequences:
+  - Multiple inside/outside constrained dashed stroke layers no longer disappear
+    solely because more than one `strokeId` exists.
+  - Disjoint and overlapping multi-network constrained dashed slices keep typed
+    accepted diagnostics while arrangement metadata remains inspectable.
+  - Legacy blocked reason names remain only in historical decision entries and
+    must not be reintroduced into product code.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/target-architecture.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-29 - Active reaffirmation for self-intersecting constrained dashed blocking
+
+- Context:
+  - This entry is appended after the historical 2026-04-28 promotions so the
+    active state is unambiguous without rewriting decision history.
+  - The 2026-04-29 reported larger curved self-intersecting vector demonstrated
+    that constrained dashed local-side packets are unsafe as product render
+    geometry.
+- Decision:
+  - The active product rule is: self-intersecting constrained dashed
+    `inside/outside` strokes are blocked until exact arrangement, legal-domain
+    face ownership, and overlap collapse are implemented.
+  - Historical local-side constrained dashed promotions remain archived context
+    only and must not be used as active implementation authority.
+- Consequences:
+  - Renderer, hit-test, export, docs, and tests must all treat this slice as
+    unsupported/blocked instead of partially rendered.
+  - The next implementation slice for this family must start from the final
+    stroke-engine plan's arrangement/ownership stages, not from doubled-width
+    clipping or local-side interval packet rendering.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/geometry-pipeline.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-29 - Blocked self-intersecting constrained dashed product geometry until exact arrangement exists
+
+- Context:
+  - A larger user-reported closed self-intersecting curved vector with
+    `inside` dashed stroke exposed that local-side constrained dashed packets
+    are not safe product geometry.
+  - The emitted red dash packets were segment-local strips that ignored the
+    final legal face domain at intersections and could overdraw with opacity.
+  - The issue is not just overlap; it also affects paint application, hit-test,
+    export parity, first-interval visibility, and future image/gradient stroke
+    paints.
+  - The earlier 2026-04-28 local-side promotion is preserved as historical
+    context, but it is no longer the active product decision for constrained
+    dashed self-intersecting paths.
+- Decision:
+  - Block closed and open self-intersecting constrained dashed `inside/outside`
+    product packets until exact planar arrangement, face ownership, legality
+    clipping, and duplicate/overlap collapse are implemented.
+  - Keep constrained solid self-intersecting local-side candidates as a separate
+    supported slice, because they do not allocate repeated dash intervals or
+    paint multiple interval faces over the same unresolved legal domain.
+  - Treat `dashPattern` and `dashOffset` as the only canonical runtime dash
+    fields; legacy `dash` / `gap` fields must not drive runtime geometry.
+  - Treat stroke color as a paint/fill payload attached after canonical
+    geometry; `kind` remains only a compatibility field until the persisted
+    stroke payload schema is migrated.
+- Consequences:
+  - The reported self-intersecting inside dashed figure no longer renders wrong
+    red packets; it is blocked consistently with typed diagnostics.
+  - Simple and non-self-intersecting constrained dashed strokes continue using
+    the supported one-sided geometry path.
+  - Exact Figma-like self-intersecting constrained dashed rendering now has a
+    clear prerequisite instead of relying on local-side heuristic packets.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/geometry-pipeline.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/reference-research-findings.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/runtime-data-representation.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-28 - Cleared remaining active legacy stroke naming and stale report wording
+
+- Context:
+  - The final stroke implementation must not leave searchable active artifacts
+    that imply the old stroke engine remains available.
+  - The shared interval-frame helper had already replaced the old
+    `dashed-center-stroke-frames` helper, but the test filename still used the
+    removed helper name.
+  - The final analysis report is a baseline assessment, but some wording still
+    read as if old reset-time risks were current runtime facts.
+- Decision:
+  - Rename the interval slicing test to
+    `packages/preset/src/__tests__/stroke-interval-frames.test.ts`.
+  - Keep the test coverage but align the suite name with the shared runtime
+    helper.
+  - Clarify the final analysis report as a reset-time risk baseline and route
+    current authority to the final spec package.
+  - Preserve old rollout references only in append-only decision history,
+    final-package deletion rules, and report context.
+- Consequences:
+  - Active code and tests no longer reference the deleted
+    `dashed-center-stroke-frames` helper.
+  - Reviewers should not infer current runtime state from reset-time risk
+    wording in the report.
+  - Decision history remains append-only and continues to preserve historical
+    rollout references.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/source-of-truth.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/migration-and-archive-plan.md`
+  - `docs/ai/apps/asyra-design/reports/stroke-engine-final-analysis-report.md`
+
+## 2026-04-28 - Hardened tangential overlap diagnostics and dash offset normalization tests
+
+- Context:
+  - The final stroke spec requires arrangement robustness to treat tangential
+    touch as boundary adjacency, not as a zero-area ownership face.
+  - Constrained solid ownership diagnostics declared this policy but lacked an
+    explicit tangential-touch fixture.
+  - Center dashed overlap diagnostics are diagnostic-only, but false owned
+    regions can still mislead QA and reviewers.
+  - Dash offset normalization is a required test group and negative offsets must
+    resolve to the equivalent positive pattern-cycle position.
+- Decision:
+  - Require constrained solid ownership diagnostics to emit no arrangement face
+    or owned region for edge-touch and point-touch fixtures.
+  - Keep tangential candidates connected in the diagnostic graph while
+    suppressing zero-area ownership output.
+  - Apply the same positive-area overlap guard to center dashed ownership
+    diagnostics so bounds-only adjacency cannot become an owned region.
+  - Add a negative dash-offset interval allocation regression.
+- Consequences:
+  - Tangential adjacency remains inspectable without producing duplicate or
+    zero-area semantic faces.
+  - Center dashed debug overlays no longer imply ownership where only boundary
+    contact exists.
+  - Dash interval allocation has direct coverage for negative offset
+    normalization.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/geometry-pipeline.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-28 - Added intra-candidate self-overlap arrangement diagnostics
+
+- Context:
+  - The self-intersecting local-side candidate path emitted multiple polygons
+    inside a single candidate.
+  - Ownership diagnostics previously emitted owned regions only for overlap
+    between different candidates, leaving single-candidate self-overlap as a
+    diagnostics blind spot.
+  - Full legal-domain face arrangement still requires future reference-backed
+    ownership and duplicate-collapse rules.
+- Decision:
+  - Add an `intra-candidate-intersection` arrangement face partition method.
+  - Emit positive-area intersections between polygons inside the same candidate
+    as arrangement faces and owned regions.
+  - Keep the resulting regions scoped to the same candidate id and owner stroke
+    id; do not reinterpret them as final legal-domain faces.
+- Consequences:
+  - Closed self-intersecting constrained solid/dashed candidates now expose
+    candidate-local overlap faces in diagnostics.
+  - Future face ownership work has observable intermediate geometry instead of
+    having to rediscover candidate-local overlaps from packet polygons.
+  - Product render visibility remains unchanged; this is a diagnostics and
+    arrangement-foundation slice.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/target-architecture.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-28 - Added duplicate polygon normalization before packet emission
+
+- Context:
+  - Self-intersecting local-side candidates can contain multiple polygons inside
+    one resolved packet.
+  - Full partial-overlap boolean collapse is not ready, but exact duplicate
+    polygons can create unnecessary overdraw and duplicated export/hit data.
+  - Render / hit-test / export must still derive from the same resolved
+    geometry family and must not lose reference stability when no normalization
+    is needed.
+- Decision:
+  - Add resolved stroke packet geometry normalization for duplicate polygon
+    signatures.
+  - Treat forward and reversed point order as the same polygon signature.
+  - Apply normalization before render entry, hit packet, and export packet
+    emission.
+  - Preserve original geometry references when no duplicate polygon exists.
+- Consequences:
+  - Exact duplicate overdraw is removed from render / hit-test / export.
+  - Partial-overlap subtraction and full boolean union remain future slices.
+  - Existing render / hit / export parity remains intact for packets without
+    duplicate polygons.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/target-architecture.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-28 - Promoted round self-intersecting constrained dashed local-side visibility
+
+- Context:
+  - The previous self-intersecting local-side promotion kept round full-loop
+    constrained dashed joins gated.
+  - The constrained solid local-side builder already produces deterministic
+    round join faces for closed self-intersecting paths.
+  - Keeping dashed round joins blocked would preserve a disappearance path even
+    though the geometry source is available.
+- Decision:
+  - Accept closed self-intersecting constrained dashed full-loop round joins as
+    local-side candidate visibility.
+  - Preserve `sourceTopology = self-intersecting` and avoid claiming completed
+    legal-domain face arrangement.
+- Consequences:
+  - Closed bow-tie constrained dashed strokes with round joins no longer
+    disappear.
+  - Full Figma-like face ownership, duplicate collapse, and overlap removal for
+    self-intersections remain future arrangement work.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/target-architecture.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-28 - Promoted closed self-intersecting constrained solid local-side candidates
+
+- Context:
+  - Closed self-intersecting constrained solid paths were blocked at the
+    geometry-builder entry point because closed constrained solid required
+    `isSimpleClosedPolygon`.
+  - This caused the full stroke to disappear even though the engine can build
+    deterministic one-sided segment and join faces directly from the authored
+    local side.
+  - Full legal-domain face ownership for self-intersections is still a larger
+    arrangement problem and should not be claimed by this slice.
+- Decision:
+  - Promote closed self-intersecting constrained solid paths to local-side
+    candidate visibility.
+  - Keep `sourceTopology` and `topologyFamily` as `self-intersecting` in packet
+    metadata and runtime diagnostics.
+  - Do not clip inside self-intersecting candidates to the raw source boundary,
+    because the source boundary is not a simple legal region.
+  - Promote supported non-round self-intersecting constrained dashed full-loop
+    strokes through the same local-side candidate geometry.
+  - Keep round-join self-intersecting constrained dashed full-loop and full
+    legal-domain face semantics research-gated.
+- Consequences:
+  - Closed bow-tie constrained solid and non-round full-loop dashed strokes no
+    longer disappear on the product render path.
+  - The promoted slice is deterministic and test-covered, but it is explicitly
+    not the final Figma-like self-intersection face arrangement.
+  - Future arrangement work must replace or refine these local-side candidates
+    only after reference-backed face ownership rules are available.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/target-architecture.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-29 - Final active reaffirmation for self-intersecting constrained dashed blocking
+
+- Context:
+  - This entry is appended after all historical 2026-04-28 promotions so the
+    active state is unambiguous without rewriting earlier decision history.
+  - The 2026-04-29 larger curved self-intersecting vector showed that
+    constrained dashed local-side packets are unsafe product geometry.
+- Decision:
+  - The active rule is: self-intersecting constrained dashed `inside/outside`
+    strokes are blocked until exact arrangement, legal-domain face ownership,
+    and overlap collapse are implemented.
+  - Historical local-side constrained dashed promotions remain decision history
+    only and must not be used as current implementation authority.
+- Consequences:
+  - Renderer, hit-test, export, docs, and tests must treat this slice as
+    unsupported/blocked instead of partially rendered.
+  - The next implementation slice for this family must start from the final
+    stroke-engine plan's arrangement/ownership stages, not doubled-width
+    clipping or local-side interval packet rendering.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/geometry-pipeline.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-29 - Replaced self-intersecting constrained dashed blocking with local-side approximation visibility
+
+- Context:
+  - Product review rejected both disappearance and center fallback for authored
+    `inside/outside` strokes.
+  - If a user selects `inside` or `outside`, the product render path must keep
+    the constrained side even when exact self-intersection face arrangement is
+    not implemented.
+  - Center fallback changes the user's requested stroke semantics and is not an
+    acceptable safety path.
+- Decision:
+  - Emit self-intersecting constrained dashed `inside/outside` strokes as
+    local-side approximation product geometry.
+  - Mark those packets with `geometryFamily: "constrained-dashed"`,
+    `sourceTopology: "self-intersecting"`, and
+    `resolutionStatus: "local-side-approximation"`.
+  - Keep exact legal-domain face arrangement, duplicate collapse, and overlap
+    semantics as future exactness work.
+  - Forbid center-derived substitute packets for authored constrained strokes.
+- Consequences:
+  - Self-intersecting dashed `inside/outside` strokes stay visible instead of
+    disappearing.
+  - Render, hit-test, and export preserve the authored constrained stroke
+    family and expose approximation status through typed metadata.
+  - Tests must assert constrained local-side geometry, not blocked output and
+    not center fallback.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/geometry-pipeline.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/runtime-data-representation.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-29 - Removed stroke visibility blockers that acted like hidden fallbacks
+
+- Context:
+  - A follow-up audit checked for fallback behavior that changes or erases the
+    user's authored stroke parameters.
+  - The active product rule is that authored `style`, `position`, `join`, `cap`,
+    `dashPattern`, and `dashOffset` must be rendered on their own semantic path.
+  - Miter-limit exceedance remains the one accepted join fallback, because the
+    user-facing behavior matches Figma's bevel-like limit handling.
+- Decision:
+  - Keep sharp sampled full-loop constrained dashed round joins visible through
+    selected-side constrained geometry instead of blocking them.
+  - Keep seam-wrapping constrained dashed intervals visible and preserve
+    `wrapsSeam` metadata instead of dropping the authored dash interval.
+  - Keep open non-simple constrained solid strokes visible as local-side
+    approximation packets, matching the constrained dashed visibility policy.
+  - Do not introduce center fallback or parameter rewriting for these cases.
+- Consequences:
+  - More edge cases may show approximation artifacts, but users see the stroke
+    they asked for instead of losing the whole stroke.
+  - Exact reference parity for these slices remains future work, but runtime
+    packets now expose approximation status where applicable.
+  - Tests now assert visible constrained packets for these cases.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/function-contracts.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-29 - Open path stroke alignment is center-equivalent
+
+- Context:
+  - Product review clarified that open paths have no inside/outside domain from
+    the user's point of view.
+  - Changing an open path from `center` to `inside` or `outside` must not move
+    the stroke, remove the stroke, or enter a constrained geometry fallback.
+  - Earlier local-side open-path decisions remain historical context, but they
+    no longer describe the active product behavior.
+- Decision:
+  - Treat authored `inside` and `outside` stroke positions on open paths as
+    center-equivalent for render, hit-test, and export.
+  - Preserve the authored UI value in stroke data, but normalize the per-network
+    geometry input to `center` before product packet construction.
+  - Do not emit constrained solid or constrained dashed runtime diagnostics for
+    open paths solely because the authored position is `inside` or `outside`.
+- Consequences:
+  - Open solid strokes emit `solid-center` packets with
+    `resolutionStatus: "native-center"` and
+    `runtimeStatus: "not-applicable"`.
+  - Open dashed strokes emit `dashed-center` packets with
+    `resolutionStatus: "native-center"` and
+    `runtimeStatus: "not-applicable"`.
+  - Position changes on open paths must not dirty constrained geometry families;
+    they only affect authored state unless another geometry-affecting parameter
+    also changes.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/geometry-pipeline.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/topology-and-product-semantics.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-04-29 - Applied official Figma stroke reference findings to active contracts
+
+- Context:
+  - Figma official documentation defines `strokeAlign` containment semantics,
+    documents line-default center behavior, and states SVG export only supports
+    center strokes while preserving inside/outside appearance through
+    simplification.
+  - Figma node APIs expose `strokeGeometry` as center-based regardless of
+    `strokeAlign`; outline-style geometry is the appropriate visual reference
+    for constrained appearance.
+  - Figma REST exposes `strokeMiterAngle` with default `28.96` degrees, which
+    maps to SVG miter limit `4`.
+- Decision:
+  - Keep Asyra's active open-path product contract center-equivalent for
+    authored `inside` / `outside`; this is an explicit product simplification,
+    not a fallback.
+  - Treat center stroke packets as analogous to Figma's center-based
+    `strokeGeometry` view, not as proof of closed constrained appearance.
+  - Normalize authored `miterAngle` into SVG-style `miterLimit` with
+    `miterLimit = 1 / sin(miterAngle / 2)`.
+  - Treat `miterAngle = 0` as infinite miter limit instead of resetting to the
+    default `28.96` degree threshold.
+- Consequences:
+  - Closed constrained strokes still require resolved one-sided or arrangement
+    geometry for product appearance.
+  - Open paths remain center-equivalent in render, hit-test, and export.
+  - Miter threshold normalization now has explicit edge-case coverage for `0`,
+    `28.96`, and `180` degrees.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/reference-research-findings.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/runtime-data-representation.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/topology-and-product-semantics.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`

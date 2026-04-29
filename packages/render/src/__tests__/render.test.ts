@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Application, Container } from 'pixi.js'
+import { Application, Container, Graphics } from 'pixi.js'
 import { MouseData } from '@asyra/utils'
 import { Render } from '../render'
 import * as ViewportLayerModule from '../layers/viewport'
 import { RenderContainerData, RenderElementData, SceneElement } from '../types'
+import renderStrategyRegistry from '../registries/render-strategy'
 
 describe('Render', () => {
   let render: Render
@@ -85,6 +86,115 @@ describe('Render', () => {
     render.addElement(data)
 
     expect(render.viewport.addElement).toHaveBeenCalledWith(data)
+  })
+
+  it('should keep the scene renderable when one element strategy receives invalid data', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    render.switchWorkspace({
+      id: 'workspace',
+      type: 'WORKSPACE',
+      label: 'workspace',
+      x: 0,
+      y: 0
+    } as unknown as RenderContainerData)
+
+    renderStrategyRegistry.register('throwing-test-vector', () => {
+      throw new Error('invalid vector topology')
+    })
+    renderStrategyRegistry.register('safe-test-rect', (graphic, data) => {
+      graphic.rect(0, 0, data.width, data.height).fill(0xff00ff)
+    })
+
+    expect(() =>
+      render.addElement({
+        id: 'bad-vector',
+        type: 'throwing-test-vector',
+        visible: true,
+        name: 'Bad Vector',
+        lock: false
+      } as unknown as RenderElementData)
+    ).not.toThrow()
+    expect(() =>
+      render.addElement({
+        id: 'good-rect',
+        type: 'safe-test-rect',
+        visible: true,
+        name: 'Good Rect',
+        lock: false,
+        width: 24,
+        height: 24
+      } as unknown as RenderElementData)
+    ).not.toThrow()
+
+    expect(render.getElementById('bad-vector')?.visible).toBe(false)
+    expect(render.getElementById('good-rect')?.visible).toBe(true)
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+
+    renderStrategyRegistry.unregister('throwing-test-vector')
+    renderStrategyRegistry.unregister('safe-test-rect')
+    errorSpy.mockRestore()
+  })
+
+  it('should not poison Pixi transforms when direct property updates receive invalid values', () => {
+    const element = new Graphics()
+    element.rect(0, 0, 24, 28).fill(0xffffff)
+    element.x = 12
+    element.y = 16
+
+    render.updateElementProperties(
+      element,
+      'x',
+      Number.NaN as unknown as RenderElementData['x']
+    )
+    render.updateElementProperties(
+      element,
+      'y',
+      undefined as unknown as RenderElementData['y']
+    )
+    render.updateElementProperties(
+      element,
+      'width',
+      -1 as unknown as RenderElementData['width']
+    )
+    render.updateElementProperties(
+      element,
+      'height',
+      Number.POSITIVE_INFINITY as unknown as RenderElementData['height']
+    )
+
+    expect(element.x).toBe(12)
+    expect(element.y).toBe(16)
+    expect(element.width).toBe(24)
+    expect(element.height).toBe(28)
+  })
+
+  it('should render unknown element types with safe fallback dimensions', () => {
+    render.switchWorkspace({
+      id: 'workspace',
+      type: 'WORKSPACE',
+      label: 'workspace',
+      x: 0,
+      y: 0
+    } as unknown as RenderContainerData)
+
+    expect(() =>
+      render.addElement({
+        id: 'unknown-invalid',
+        type: 'unknown-invalid-type',
+        visible: true,
+        name: 'Unknown Invalid',
+        lock: false,
+        x: Number.NaN,
+        y: undefined,
+        width: undefined,
+        height: Number.POSITIVE_INFINITY
+      } as unknown as RenderElementData)
+    ).not.toThrow()
+
+    const element = render.getElementById('unknown-invalid')
+    expect(element?.visible).toBe(true)
+    expect(element?.x).toBe(0)
+    expect(element?.y).toBe(0)
   })
 
   it('should delegate removeElement to viewport', () => {

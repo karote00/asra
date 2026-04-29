@@ -98,8 +98,7 @@ const getElementChildren = (element: unknown): string[] => {
 
 const getWorkspaceOrderedElementIds = (): string[] => {
   const workspace =
-    sceneTree.currentWorkspace ??
-    sceneTree.getElementById(sceneTree.workspace)
+    sceneTree.currentWorkspace ?? sceneTree.getElementById(sceneTree.workspace)
   if (!workspace) {
     return []
   }
@@ -263,10 +262,7 @@ export const elementApis = {
     return setElementFlag(elementId, 'visible', visible, options)
   },
 
-  toggleElementLock: (
-    elementId: string,
-    options?: EVENT_OPTIONS
-  ): boolean => {
+  toggleElementLock: (elementId: string, options?: EVENT_OPTIONS): boolean => {
     const element = sceneTree.getElementById(elementId)
     if (!element || element.get('type') === EntityTypes.WORKSPACE) {
       return false

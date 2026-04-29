@@ -4,6 +4,7 @@ import {
   StrokeJoinTypes,
   StrokeCapTypes,
   createDefaultStroke,
+  createDefaultFill,
   createDefaultGradientData,
   FillColorFormats
 } from '@asyra/utils'
@@ -97,6 +98,26 @@ describe('stroke renderable normalization', () => {
     expect(createRenderGradientFillStyle).toHaveBeenCalledTimes(1)
   })
 
+  it('should run: prefer stroke fill payload over legacy flat paint fields', () => {
+    const [stroke] = getRenderableStrokes([
+      createDefaultStroke({
+        color: '#000000',
+        opacity: 1,
+        fill: createDefaultFill({
+          color: '#ff3300',
+          opacity: 0.25
+        })
+      })
+    ])
+
+    expect(stroke).toMatchObject({
+      kind: 'solid',
+      color: 0xff3300,
+      alpha: 0.25
+    })
+    expect(stroke.paintKey).toBe('solid:16724736:0.25')
+  })
+
   it('should run: normalize dashed pattern arrays and offset into canonical renderable strokes', () => {
     const [stroke] = getRenderableStrokes([
       createDefaultStroke({
@@ -111,6 +132,32 @@ describe('stroke renderable normalization', () => {
       dashPattern: [12, 6, 3, 12, 6, 3],
       dashOffset: 6
     })
+  })
+
+  it('should run: normalize Figma-style miter angle thresholds into SVG miter limits', () => {
+    const [defaultAngleStroke] = getRenderableStrokes([
+      createDefaultStroke({
+        joinType: StrokeJoinTypes.MITER,
+        miterAngle: 28.96
+      })
+    ])
+    const [zeroAngleStroke] = getRenderableStrokes([
+      createDefaultStroke({
+        joinType: StrokeJoinTypes.MITER,
+        miterAngle: 0
+      })
+    ])
+    const [fullAngleStroke] = getRenderableStrokes([
+      createDefaultStroke({
+        joinType: StrokeJoinTypes.MITER,
+        miterAngle: 180
+      })
+    ])
+
+    expect(defaultAngleStroke.miterLimit).toBeGreaterThan(3.9)
+    expect(defaultAngleStroke.miterLimit).toBeLessThan(4.1)
+    expect(zeroAngleStroke.miterLimit).toBe(Number.POSITIVE_INFINITY)
+    expect(fullAngleStroke.miterLimit).toBe(1)
   })
 
   it('should not run: reject invalid or non-renderable entries from normalization output', () => {

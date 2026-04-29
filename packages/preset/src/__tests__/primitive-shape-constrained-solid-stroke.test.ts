@@ -73,6 +73,12 @@ class RecordingShapeGraphic extends Container {
   __asyraSolidCenterStrokeExportPackets?: {
     bounds: { minX: number; minY: number; maxX: number; maxY: number }
   }[]
+  __asyraConstrainedSolidOwnershipDiagnostics?: {
+    candidates: {
+      strokeId: string
+      ownerKey?: string
+    }[]
+  }
   hitArea?: { contains: (x: number, y: number) => boolean } | null
 
   clear() {
@@ -116,10 +122,7 @@ const runRenderStrategy = (
       graphic: RecordingShapeGraphic,
       data: Record<string, unknown>
     ) => void
-  )(
-    graphic,
-    data
-  )
+  )(graphic, data)
 
   return graphic
 }
@@ -152,6 +155,12 @@ describe('primitive shape constrained solid stroke wiring', () => {
     })
     expect(graphic.hitArea?.contains(1, 1)).toBe(true)
     expect(graphic.hitArea?.contains(-2, 1)).toBe(false)
+    expect(
+      graphic.__asyraConstrainedSolidOwnershipDiagnostics?.candidates[0]
+    ).toMatchObject({
+      strokeId: 'stroke:0',
+      ownerKey: 'rect:rect-inside:stroke:0'
+    })
   })
 
   it('should run: rectangle outside stroke stays outside the legal owner domain on the main render path', () => {
@@ -211,5 +220,11 @@ describe('primitive shape constrained solid stroke wiring', () => {
     })
     expect(graphic.hitArea?.contains(2, 24)).toBe(true)
     expect(graphic.hitArea?.contains(-2, 24)).toBe(false)
+    expect(
+      graphic.__asyraConstrainedSolidOwnershipDiagnostics?.candidates[0]
+    ).toMatchObject({
+      strokeId: 'stroke:0',
+      ownerKey: 'oval:oval-inside:stroke:0'
+    })
   })
 })

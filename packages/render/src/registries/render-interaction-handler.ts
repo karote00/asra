@@ -3,7 +3,10 @@ import type {
   RenderInteractionEventType
 } from '../types/render-interaction'
 
-type InteractionHandlerMap = Record<string, RenderInteractionHandlerRegistration[]>
+type InteractionHandlerMap = Record<
+  string,
+  RenderInteractionHandlerRegistration[]
+>
 
 class RenderInteractionHandlerRegistry {
   private handlers: InteractionHandlerMap = {}

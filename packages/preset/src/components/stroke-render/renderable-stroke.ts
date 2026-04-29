@@ -3,9 +3,11 @@ import {
   StrokeJoinTypes,
   StrokeCapTypes,
   clampOpacity,
+  createDefaultFill,
   createDefaultStroke,
   parseColor,
   rgbaToColorInt,
+  type FillAttrs,
   type StrokeAttrs
 } from '@asyra/utils'
 import type { RenderFillStyle } from '@asyra/core'
@@ -32,18 +34,24 @@ const normalizeStrokeEntry = (value: unknown): StrokeAttrs | null => {
     return null
   }
 
-  return {
+  const rawStroke = value as Partial<StrokeAttrs>
+  const normalizedStroke = {
     ...createDefaultStroke(),
-    ...(value as Partial<StrokeAttrs>)
+    ...rawStroke
+  }
+  if (!Array.isArray(rawStroke.dashPattern)) {
+    normalizedStroke.dashPattern = []
+  }
+
+  return {
+    ...normalizedStroke
   }
 }
 
 const normalizeDashPattern = (stroke: StrokeAttrs): number[] => {
   const sourcePattern = Array.isArray(stroke.dashPattern)
     ? stroke.dashPattern
-    : Number.isFinite(stroke.dash) && Number.isFinite(stroke.gap)
-      ? [stroke.dash ?? 0, stroke.gap ?? 0]
-      : []
+    : []
 
   const normalized = sourcePattern
     .map((entry) => (Number.isFinite(entry) ? entry : 0))
@@ -70,6 +78,27 @@ const normalizeDashOffset = (offset: number, pattern: number[]) => {
   return normalized >= 0 ? normalized : normalized + patternLength
 }
 
+const isStrokeFillPayload = (value: unknown): value is Partial<FillAttrs> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const resolveStrokePaint = (stroke: StrokeAttrs): FillAttrs =>
+  isStrokeFillPayload(stroke.fill)
+    ? createDefaultFill({
+        ...stroke.fill,
+        id: stroke.id,
+        type: 'fill'
+      })
+    : createDefaultFill({
+        id: stroke.id,
+        kind: stroke.kind,
+        defaultColorFormat: stroke.defaultColorFormat,
+        colorFormat: stroke.colorFormat,
+        color: stroke.color,
+        opacity: stroke.opacity,
+        visible: stroke.visible,
+        gradient: stroke.gradient
+      })
+
 const getStrokeJoin = (
   joinType: StrokeAttrs['joinType']
 ): RenderableStroke['join'] => {
@@ -85,14 +114,18 @@ const getStrokeJoin = (
 }
 
 const getStrokeMiterLimit = (angle: number): number => {
-  if (!Number.isFinite(angle) || angle <= 0) {
+  if (!Number.isFinite(angle)) {
     return 4
+  }
+
+  if (angle <= 0) {
+    return Number.POSITIVE_INFINITY
   }
 
   const radians = (angle * Math.PI) / 180
   const sinHalf = Math.sin(radians / 2)
   if (sinHalf <= 0) {
-    return 4
+    return Number.POSITIVE_INFINITY
   }
 
   return Math.max(1, 1 / sinHalf)
@@ -103,41 +136,46 @@ const getRenderableStroke = (stroke: StrokeAttrs): RenderableStroke | null => {
     return null
   }
 
-  const parsed = parseColor(stroke.color)
+  const paint = resolveStrokePaint(stroke)
+  if (!paint.visible) {
+    return null
+  }
+
+  const parsed = parseColor(paint.color)
   if (!parsed) {
     return null
   }
 
   const dashPattern = normalizeDashPattern(stroke)
   const gradientStyle =
-    stroke.kind === FillKinds.GRADIENT && stroke.gradient
+    paint.kind === FillKinds.GRADIENT && paint.gradient
       ? toRenderableGradient({
-          id: stroke.id,
+          id: paint.id,
           type: 'fill',
           kind: FillKinds.GRADIENT,
-          defaultColorFormat: stroke.defaultColorFormat,
-          colorFormat: stroke.colorFormat,
-          color: stroke.color,
-          opacity: stroke.opacity,
+          defaultColorFormat: paint.defaultColorFormat,
+          colorFormat: paint.colorFormat,
+          color: paint.color,
+          opacity: paint.opacity,
           visible: stroke.visible,
-          gradient: stroke.gradient
+          gradient: paint.gradient
         })
       : null
 
-  if (stroke.kind === FillKinds.GRADIENT && !gradientStyle) {
+  if (paint.kind === FillKinds.GRADIENT && !gradientStyle) {
     return null
   }
 
   const paintKey =
-    stroke.kind === FillKinds.GRADIENT && stroke.gradient
+    paint.kind === FillKinds.GRADIENT && paint.gradient
       ? JSON.stringify({
-          kind: stroke.kind,
-          opacity: stroke.opacity,
-          gradientType: stroke.gradient.gradientType,
-          gradientStops: stroke.gradient.gradientStops,
-          gradientHandles: stroke.gradient.gradientHandles
+          kind: paint.kind,
+          opacity: paint.opacity,
+          gradientType: paint.gradient.gradientType,
+          gradientStops: paint.gradient.gradientStops,
+          gradientHandles: paint.gradient.gradientHandles
         })
-      : `solid:${rgbaToColorInt(parsed)}:${clampOpacity(parsed.a * stroke.opacity)}`
+      : `solid:${rgbaToColorInt(parsed)}:${clampOpacity(parsed.a * paint.opacity)}`
 
   return {
     style: stroke.style,
@@ -153,9 +191,9 @@ const getRenderableStroke = (stroke: StrokeAttrs): RenderableStroke | null => {
         : stroke.capType === StrokeCapTypes.ROUND
           ? 'round'
           : 'butt',
-    kind: stroke.kind === FillKinds.GRADIENT ? 'gradient' : 'solid',
+    kind: paint.kind === FillKinds.GRADIENT ? 'gradient' : 'solid',
     color: rgbaToColorInt(parsed),
-    alpha: clampOpacity(parsed.a * stroke.opacity),
+    alpha: clampOpacity(parsed.a * paint.opacity),
     gradientStyle,
     paintKey
   }

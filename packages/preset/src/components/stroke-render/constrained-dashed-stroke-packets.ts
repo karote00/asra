@@ -1,17 +1,23 @@
+import type { StrokeAttrs } from '@asyra/utils'
 import {
-  createDefaultStroke,
-  type StrokeAttrs
-} from '@asyra/utils'
-import { getRenderableStrokes, type RenderableStroke } from './renderable-stroke'
-import { allocateDashedCenterStrokeIntervals } from './dashed-center-stroke-intervals'
-import { sliceDashedCenterStrokeFrames } from './dashed-center-stroke-frames'
-import { buildConstrainedSolidLegalityClippingResult } from './constrained-solid-legality-clipping'
+  getRenderableStrokes,
+  type RenderableStroke
+} from './renderable-stroke'
+import type { allocateDashedCenterStrokeIntervals } from './dashed-center-stroke-intervals'
+import { createStrokeIntervalPointSlicer } from './stroke-interval-frames'
 import { buildConstrainedSolidStrokePolygons } from './constrained-solid-stroke-geometry'
-import { buildSolidCenterStrokePolygons } from './solid-center-stroke-geometry'
+import { polygonArea } from './solid-stroke-geometry-core'
 import type {
   SolidCenterStrokeGeometryDebugMeta,
   SolidCenterStrokeResolvedPacket
 } from './solid-center-stroke-packets'
+import { buildStrokeRuntimeRevisionSet } from './stroke-dirty-keys'
+import {
+  allocateDashedIntervalsForTopology,
+  buildPathTopologyModel,
+  type PathTopologyModel,
+  type PathTopologyFamily
+} from './path-topology-model'
 
 interface Vec2 {
   x: number
@@ -25,49 +31,109 @@ interface Bounds {
   maxY: number
 }
 
-export interface ConstrainedDashedStrokePromotionOptions {
-  allowRectFullLoopInsideRoundJoin?: boolean
-  allowRectFullLoopOutsideRoundJoin?: boolean
-  allowVectorRectEquivalentFullLoopInsideRoundJoin?: boolean
-  allowVectorRectEquivalentFullLoopOutsideRoundJoin?: boolean
-  allowFirstBroaderVectorFullLoopInsideRoundJoin?: boolean
-  allowFirstBroaderVectorFullLoopOutsideRoundJoin?: boolean
-  allowRectSingleEdgeInsideRoundCap?: boolean
-  allowRectSingleEdgeOutsideRoundCap?: boolean
-  allowVectorRectEquivalentSingleEdgeInsideRoundCap?: boolean
-  allowVectorRectEquivalentSingleEdgeOutsideRoundCap?: boolean
-  allowFirstBroaderVectorSingleEdgeInsideRoundCap?: boolean
-  allowFirstBroaderVectorSingleEdgeOutsideRoundCap?: boolean
-  allowRectCornerSpanningInsideBevel?: boolean
-  allowRectCornerSpanningInsideMiter?: boolean
-  allowRectCornerSpanningOutsideBevel?: boolean
-  allowRectCornerSpanningOutsideMiter?: boolean
-  allowFirstBroaderVectorCornerSpanningInsideBevel?: boolean
-  allowFirstBroaderVectorCornerSpanningInsideMiter?: boolean
-  allowFirstBroaderVectorCornerSpanningOutsideBevel?: boolean
-  allowFirstBroaderVectorCornerSpanningOutsideMiter?: boolean
+export interface ConstrainedDashedStrokeOptions {
+  metadata?: {
+    ownerKeyPrefix?: string
+    networkId?: string
+    contourId?: string
+    legalDomainId?: string | null
+  }
+  topology?: PathTopologyModel
+}
+
+export type ConstrainedDashedSourceTopology =
+  | 'rectangle-equivalent'
+  | 'broader-simple-closed'
+  | 'sampled-simple-closed'
+  | 'self-intersecting'
+  | 'degenerate'
+  | 'open'
+
+export type ConstrainedDashedIntervalTopology =
+  | 'full-loop'
+  | 'single-edge'
+  | 'corner-spanning'
+  | 'seam-wrapping'
+  | 'multi-corner'
+  | 'other'
+
+export interface ConstrainedDashedIntervalDescriptor {
+  startDistance: number
+  endDistance: number
+  totalLength: number
+  wrapsSeam: boolean
+}
+
+export interface ConstrainedDashedIntervalClassification {
+  sourceTopology: ConstrainedDashedSourceTopology
+  intervalTopology: ConstrainedDashedIntervalTopology
+  acceptsFullLoopRoundJoin: boolean
+  acceptsSingleEdgeRoundCap: boolean
+  acceptsCornerSpanningJoin: boolean
+}
+
+export type ConstrainedDashedOwnershipStatus = 'accepted' | 'blocked'
+
+export type ConstrainedDashedOwnershipReason =
+  | 'single-owner'
+  | 'typed-owners'
+  | 'missing-owner-metadata'
+  | 'no-packets'
+
+export interface ConstrainedDashedOwnershipClassification {
+  status: ConstrainedDashedOwnershipStatus
+  reason: ConstrainedDashedOwnershipReason
+  ownerKeys: string[]
+  packetCount: number
+}
+
+export type ConstrainedDashedRuntimeStatus = 'accepted' | 'blocked'
+
+export type ConstrainedDashedRuntimeReason =
+  | 'single-owner'
+  | 'typed-owners'
+  | 'no-candidate-packets'
+  | 'unsupported-open-topology'
+  | 'unsupported-overlap-ownership'
+  | 'unsupported-topology'
+  | ConstrainedDashedOwnershipReason
+
+export interface ConstrainedDashedRuntimeStatusInput {
+  points: Vec2[]
+  closed: boolean
+  topology?: PathTopologyModel
+  candidatePackets: Pick<SolidCenterStrokeResolvedPacket, 'geometry'>[]
+  blockedReason?: Exclude<ConstrainedDashedRuntimeReason, 'single-owner'>
+}
+
+export interface ConstrainedDashedRuntimeStatusClassification {
+  status: ConstrainedDashedRuntimeStatus
+  reason: ConstrainedDashedRuntimeReason
+  sourceTopology: ConstrainedDashedSourceTopology
+  ownership: ConstrainedDashedOwnershipClassification
 }
 
 const EPSILON = 1e-6
 
+const buildVisibleIntervalSignature = (
+  intervals: ReturnType<typeof allocateDashedCenterStrokeIntervals>
+) =>
+  intervals
+    .map((interval) =>
+      [
+        interval.kind,
+        interval.intervalId,
+        interval.authoredIndex,
+        interval.startDistance.toFixed(6),
+        interval.endDistance.toFixed(6),
+        interval.wrapsSeam ? 'wrap' : 'nowrap',
+        interval.previousVisibleIntervalId ?? 'none',
+        interval.nextVisibleIntervalId ?? 'none'
+      ].join(':')
+    )
+    .join('|')
+
 const distanceBetween = (a: Vec2, b: Vec2) => Math.hypot(b.x - a.x, b.y - a.y)
-
-const getPathLength = (points: Vec2[], closed: boolean) => {
-  if (points.length < 2) {
-    return 0
-  }
-
-  let length = 0
-  for (let index = 1; index < points.length; index += 1) {
-    length += distanceBetween(points[index - 1], points[index])
-  }
-
-  if (closed) {
-    length += distanceBetween(points[points.length - 1], points[0])
-  }
-
-  return length
-}
 
 const getBounds = (polygons: Vec2[][]): Bounds => {
   let minX = Infinity
@@ -90,18 +156,45 @@ const getBounds = (polygons: Vec2[][]): Bounds => {
 export const supportsConstrainedDashedStroke = (
   stroke: Pick<
     RenderableStroke,
-    'style' | 'position' | 'width' | 'join' | 'miterLimit' | 'cap' | 'dashPattern'
+    | 'style'
+    | 'position'
+    | 'width'
+    | 'join'
+    | 'miterLimit'
+    | 'cap'
+    | 'dashPattern'
   >,
-  closed: boolean
+  _closed: boolean
 ) =>
-  closed &&
   stroke.style === 'dashed' &&
   (stroke.position === 'inside' || stroke.position === 'outside') &&
   stroke.width > 0 &&
   stroke.dashPattern.length > 0 &&
-  (stroke.join === 'miter' || stroke.join === 'bevel' || stroke.join === 'round') &&
+  (stroke.join === 'miter' ||
+    stroke.join === 'bevel' ||
+    stroke.join === 'round') &&
   stroke.miterLimit >= 1 &&
   (stroke.cap === 'butt' || stroke.cap === 'square' || stroke.cap === 'round')
+
+const hasPositiveRawDashPattern = (stroke: StrokeAttrs) => {
+  const sourcePattern = Array.isArray(stroke.dashPattern)
+    ? stroke.dashPattern
+    : []
+
+  return sourcePattern.some((entry) => Number.isFinite(entry) && entry > 0)
+}
+
+export const hasConstrainedDashedStrokeIntent = (
+  strokes: StrokeAttrs[] | undefined
+) =>
+  strokes?.some(
+    (stroke) =>
+      stroke.visible !== false &&
+      stroke.style === 'dashed' &&
+      (stroke.position === 'inside' || stroke.position === 'outside') &&
+      stroke.width > 0 &&
+      hasPositiveRawDashPattern(stroke)
+  ) === true
 
 const isFullLoopVisibleInterval = (
   startDistance: number,
@@ -148,6 +241,13 @@ const findClosedSegmentIndexForDistance = (
       distance < segment.endDistance - EPSILON
   )
 
+const isDistanceWithinClosedSegmentRange = (
+  segment: ReturnType<typeof getClosedSegmentRanges>[number],
+  distance: number
+) =>
+  distance >= segment.startDistance - EPSILON &&
+  distance <= segment.endDistance + EPSILON
+
 const isSingleEdgeVisibleInterval = (
   points: Vec2[],
   closed: boolean,
@@ -159,16 +259,11 @@ const isSingleEdgeVisibleInterval = (
     return false
   }
 
-  const startSegmentIndex = findClosedSegmentIndexForDistance(
-    segmentRanges,
-    startDistance
+  return segmentRanges.some(
+    (segment) =>
+      isDistanceWithinClosedSegmentRange(segment, startDistance) &&
+      isDistanceWithinClosedSegmentRange(segment, endDistance)
   )
-  const endSegmentIndex = findClosedSegmentIndexForDistance(
-    segmentRanges,
-    endDistance
-  )
-
-  return startSegmentIndex >= 0 && startSegmentIndex === endSegmentIndex
 }
 
 const getCanonicalClosedLoopPoints = (points: Vec2[], closed: boolean) => {
@@ -274,19 +369,364 @@ const isSingleCornerSpanningVisibleInterval = (
   )
 }
 
-const toSyntheticStrokeAttrs = (
-  stroke: RenderableStroke,
-  overrides: Partial<StrokeAttrs> = {}
-): StrokeAttrs => createDefaultStroke({
-  color: `#${stroke.color.toString(16).padStart(6, '0')}`,
-  opacity: stroke.alpha,
-  width: stroke.width,
-  style: stroke.style,
-  position: stroke.position,
-  dashPattern: stroke.dashPattern,
-  dashOffset: stroke.dashOffset,
-  ...overrides
-})
+const isSmoothSampledClosedLoop = (points: Vec2[], closed: boolean) => {
+  const loopPoints = getCanonicalClosedLoopPoints(points, closed)
+  if (!closed || loopPoints.length < 12) {
+    return false
+  }
+
+  return loopPoints.every((point, index) => {
+    const previous =
+      loopPoints[(index - 1 + loopPoints.length) % loopPoints.length]
+    const next = loopPoints[(index + 1) % loopPoints.length]
+    const incoming = normalizeVector({
+      x: point.x - previous.x,
+      y: point.y - previous.y
+    })
+    const outgoing = normalizeVector({
+      x: next.x - point.x,
+      y: next.y - point.y
+    })
+
+    if (!incoming || !outgoing) {
+      return false
+    }
+
+    const dot = Math.max(
+      -1,
+      Math.min(1, incoming.x * outgoing.x + incoming.y * outgoing.y)
+    )
+    return Math.acos(dot) <= Math.PI / 4
+  })
+}
+
+export const classifyConstrainedDashedSource = (
+  points: Vec2[],
+  closed: boolean,
+  topology?: PathTopologyModel
+): ConstrainedDashedSourceTopology => {
+  if (topology) {
+    return mapPathTopologyFamilyToConstrainedDashedSource(
+      topology.topologyFamily
+    )
+  }
+
+  if (!closed) {
+    return 'open'
+  }
+
+  if (isOrthogonalRectLoop(points, closed)) {
+    return 'rectangle-equivalent'
+  }
+
+  if (isSingleObliqueQuadrilateralLoop(points, closed)) {
+    return 'broader-simple-closed'
+  }
+
+  return 'sampled-simple-closed'
+}
+
+const mapPathTopologyFamilyToConstrainedDashedSource = (
+  topologyFamily: PathTopologyFamily
+): ConstrainedDashedSourceTopology => {
+  return topologyFamily
+}
+
+const classifyConstrainedDashedIntervalTopology = (
+  points: Vec2[],
+  closed: boolean,
+  interval: ConstrainedDashedIntervalDescriptor
+): ConstrainedDashedIntervalTopology =>
+  classifyConstrainedDashedIntervalTopologyFromRanges(
+    points,
+    closed,
+    interval,
+    getClosedSegmentRanges(points, closed)
+  )
+
+const classifyConstrainedDashedIntervalTopologyFromRanges = (
+  points: Vec2[],
+  closed: boolean,
+  interval: ConstrainedDashedIntervalDescriptor,
+  segmentRanges: ReturnType<typeof getClosedSegmentRanges>
+): ConstrainedDashedIntervalTopology => {
+  if (
+    isFullLoopVisibleInterval(
+      interval.startDistance,
+      interval.endDistance,
+      interval.totalLength,
+      interval.wrapsSeam
+    )
+  ) {
+    return 'full-loop'
+  }
+
+  if (interval.wrapsSeam) {
+    return 'seam-wrapping'
+  }
+
+  if (
+    segmentRanges.length > 0 &&
+    segmentRanges.some(
+      (segment) =>
+        isDistanceWithinClosedSegmentRange(segment, interval.startDistance) &&
+        isDistanceWithinClosedSegmentRange(segment, interval.endDistance)
+    )
+  ) {
+    return 'single-edge'
+  }
+
+  if (
+    !interval.wrapsSeam &&
+    (() => {
+      const startSegmentIndex = findClosedSegmentIndexForDistance(
+        segmentRanges,
+        interval.startDistance
+      )
+      const endSegmentIndex = findClosedSegmentIndexForDistance(
+        segmentRanges,
+        interval.endDistance
+      )
+
+      return (
+        startSegmentIndex >= 0 &&
+        endSegmentIndex >= 0 &&
+        endSegmentIndex === startSegmentIndex + 1
+      )
+    })()
+  ) {
+    return 'corner-spanning'
+  }
+
+  const startSegmentIndex = findClosedSegmentIndexForDistance(
+    segmentRanges,
+    interval.startDistance
+  )
+  const endSegmentIndex = findClosedSegmentIndexForDistance(
+    segmentRanges,
+    interval.endDistance
+  )
+
+  if (
+    startSegmentIndex >= 0 &&
+    endSegmentIndex >= 0 &&
+    endSegmentIndex > startSegmentIndex + 1
+  ) {
+    return 'multi-corner'
+  }
+
+  return 'other'
+}
+
+const acceptsFullLoopRoundJoin = (
+  sourceTopology: ConstrainedDashedSourceTopology,
+  points: Vec2[],
+  closed: boolean,
+  stroke: Pick<RenderableStroke, 'join'>
+) => {
+  if (stroke.join !== 'round') {
+    return false
+  }
+
+  if (
+    sourceTopology === 'rectangle-equivalent' ||
+    sourceTopology === 'broader-simple-closed' ||
+    sourceTopology === 'self-intersecting'
+  ) {
+    return true
+  }
+
+  if (sourceTopology === 'sampled-simple-closed') {
+    return isSmoothSampledClosedLoop(points, closed)
+  }
+
+  return false
+}
+
+const acceptsSingleEdgeRoundCap = (
+  sourceTopology: ConstrainedDashedSourceTopology,
+  stroke: Pick<RenderableStroke, 'cap'>
+) => {
+  if (stroke.cap !== 'round') {
+    return false
+  }
+
+  return (
+    sourceTopology === 'rectangle-equivalent' ||
+    sourceTopology === 'broader-simple-closed'
+  )
+}
+
+const acceptsCornerSpanningJoin = (
+  sourceTopology: ConstrainedDashedSourceTopology,
+  stroke: Pick<RenderableStroke, 'join'>
+) => {
+  const acceptsBevelFamily = stroke.join === 'bevel' || stroke.join === 'round'
+  const acceptsMiterFamily = stroke.join === 'miter'
+  const supportedSource =
+    sourceTopology === 'rectangle-equivalent' ||
+    sourceTopology === 'broader-simple-closed'
+
+  return supportedSource && (acceptsBevelFamily || acceptsMiterFamily)
+}
+
+export const classifyConstrainedDashedInterval = (
+  points: Vec2[],
+  closed: boolean,
+  interval: ConstrainedDashedIntervalDescriptor,
+  stroke: Pick<RenderableStroke, 'position' | 'join' | 'cap'>,
+  options: ConstrainedDashedStrokeOptions = {}
+): ConstrainedDashedIntervalClassification => {
+  const sourceTopology = classifyConstrainedDashedSource(
+    points,
+    closed,
+    options.topology
+  )
+  const intervalTopology = classifyConstrainedDashedIntervalTopology(
+    points,
+    closed,
+    interval
+  )
+
+  return {
+    sourceTopology,
+    intervalTopology,
+    acceptsFullLoopRoundJoin:
+      intervalTopology === 'full-loop' &&
+      acceptsFullLoopRoundJoin(sourceTopology, points, closed, stroke),
+    acceptsSingleEdgeRoundCap:
+      intervalTopology === 'single-edge' &&
+      acceptsSingleEdgeRoundCap(sourceTopology, stroke),
+    acceptsCornerSpanningJoin:
+      intervalTopology === 'corner-spanning' &&
+      acceptsCornerSpanningJoin(sourceTopology, stroke)
+  }
+}
+
+const classifyConstrainedDashedIntervalWithContext = (
+  points: Vec2[],
+  closed: boolean,
+  interval: ConstrainedDashedIntervalDescriptor,
+  stroke: Pick<RenderableStroke, 'position' | 'join' | 'cap'>,
+  sourceTopology: ConstrainedDashedSourceTopology,
+  segmentRanges: ReturnType<typeof getClosedSegmentRanges>
+): ConstrainedDashedIntervalClassification => {
+  const intervalTopology =
+    sourceTopology === 'open'
+      ? 'other'
+      : classifyConstrainedDashedIntervalTopologyFromRanges(
+          points,
+          closed,
+          interval,
+          segmentRanges
+        )
+
+  return {
+    sourceTopology,
+    intervalTopology,
+    acceptsFullLoopRoundJoin:
+      intervalTopology === 'full-loop' &&
+      acceptsFullLoopRoundJoin(sourceTopology, points, closed, stroke),
+    acceptsSingleEdgeRoundCap:
+      intervalTopology === 'single-edge' &&
+      acceptsSingleEdgeRoundCap(sourceTopology, stroke),
+    acceptsCornerSpanningJoin:
+      intervalTopology === 'corner-spanning' &&
+      acceptsCornerSpanningJoin(sourceTopology, stroke)
+  }
+}
+
+const getConstrainedDashedPacketOwnerKey = (
+  packet: Pick<SolidCenterStrokeResolvedPacket, 'geometry'>
+) => packet.geometry.debugMeta?.ownerKey ?? null
+
+export const classifyConstrainedDashedOwnership = (
+  packets: Pick<SolidCenterStrokeResolvedPacket, 'geometry'>[]
+): ConstrainedDashedOwnershipClassification => {
+  if (packets.length === 0) {
+    return {
+      status: 'blocked',
+      reason: 'no-packets',
+      ownerKeys: [],
+      packetCount: 0
+    }
+  }
+
+  const parsedOwnerKeys = packets.map(getConstrainedDashedPacketOwnerKey)
+  const ownerKeys = parsedOwnerKeys.filter(
+    (ownerKey): ownerKey is string => ownerKey !== null
+  )
+
+  if (ownerKeys.length !== packets.length) {
+    return {
+      status: 'blocked',
+      reason: 'missing-owner-metadata',
+      ownerKeys,
+      packetCount: packets.length
+    }
+  }
+
+  const uniqueOwnerKeys = [...new Set(ownerKeys)]
+
+  return {
+    status: 'accepted',
+    reason: uniqueOwnerKeys.length === 1 ? 'single-owner' : 'typed-owners',
+    ownerKeys: uniqueOwnerKeys,
+    packetCount: packets.length
+  }
+}
+
+export const classifyConstrainedDashedRuntimeStatus = ({
+  points,
+  closed,
+  topology,
+  candidatePackets,
+  blockedReason
+}: ConstrainedDashedRuntimeStatusInput): ConstrainedDashedRuntimeStatusClassification => {
+  const sourceTopology = classifyConstrainedDashedSource(
+    points,
+    closed,
+    topology
+  )
+  const ownership = classifyConstrainedDashedOwnership(candidatePackets)
+
+  if (ownership.status === 'accepted') {
+    return {
+      status: 'accepted',
+      reason: ownership.reason,
+      sourceTopology,
+      ownership
+    }
+  }
+
+  if (sourceTopology === 'open') {
+    return {
+      status: 'blocked',
+      reason: blockedReason ?? 'no-candidate-packets',
+      sourceTopology,
+      ownership
+    }
+  }
+
+  if (
+    sourceTopology === 'self-intersecting' ||
+    sourceTopology === 'degenerate'
+  ) {
+    return {
+      status: 'blocked',
+      reason: blockedReason ?? 'unsupported-topology',
+      sourceTopology,
+      ownership
+    }
+  }
+
+  return {
+    status: 'blocked',
+    reason: blockedReason ?? ownership.reason,
+    sourceTopology,
+    ownership
+  }
+}
 
 const normalizeVector = (point: Vec2) => {
   const length = Math.hypot(point.x, point.y)
@@ -300,94 +740,208 @@ const normalizeVector = (point: Vec2) => {
   }
 }
 
-const sampleArcPoints = (
-  center: Vec2,
-  radius: number,
-  startAngle: number,
-  endAngle: number,
-  steps: number
+const isSupportedConstrainedDashedInterval = (
+  classification: ConstrainedDashedIntervalClassification,
+  stroke: RenderableStroke
 ) => {
-  const points: Vec2[] = []
+  if (classification.sourceTopology === 'open') {
+    return true
+  }
 
-  for (let index = 1; index < steps; index += 1) {
-    const t = index / steps
-    const angle = startAngle + (endAngle - startAngle) * t
-    points.push({
-      x: center.x + Math.cos(angle) * radius,
-      y: center.y + Math.sin(angle) * radius
+  if (classification.sourceTopology === 'degenerate') {
+    return false
+  }
+
+  if (classification.sourceTopology === 'self-intersecting') {
+    return true
+  }
+
+  if (classification.sourceTopology === 'sampled-simple-closed') {
+    return classification.intervalTopology !== 'full-loop'
+  }
+
+  if (classification.intervalTopology === 'single-edge') {
+    return stroke.cap === 'round'
+      ? classification.acceptsSingleEdgeRoundCap
+      : classification.sourceTopology === 'rectangle-equivalent' ||
+          classification.sourceTopology === 'broader-simple-closed'
+  }
+
+  if (classification.intervalTopology === 'corner-spanning') {
+    return classification.acceptsCornerSpanningJoin
+  }
+
+  return (
+    classification.sourceTopology === 'rectangle-equivalent' ||
+    classification.sourceTopology === 'broader-simple-closed' ||
+    classification.sourceTopology === 'self-intersecting'
+  )
+}
+
+const getConstrainedDashedResolutionStatus = (
+  sourceTopology: ConstrainedDashedSourceTopology,
+  forceLocalSideApproximation = false
+): Exclude<SolidCenterStrokeGeometryDebugMeta['resolutionStatus'], undefined> =>
+  sourceTopology === 'self-intersecting' || forceLocalSideApproximation
+    ? 'local-side-approximation'
+    : 'exact-constrained'
+
+const getIntervalStrokeForSourceDirection = (
+  points: Vec2[],
+  closed: boolean,
+  stroke: RenderableStroke
+): Pick<
+  RenderableStroke,
+  'style' | 'position' | 'width' | 'join' | 'miterLimit' | 'cap'
+> => {
+  if (!closed) {
+    return {
+      ...stroke,
+      style: 'solid'
+    }
+  }
+
+  const loopArea = polygonArea(getCanonicalClosedLoopPoints(points, closed))
+  const position =
+    loopArea >= 0
+      ? stroke.position
+      : stroke.position === 'inside'
+        ? 'outside'
+        : 'inside'
+
+  return {
+    ...stroke,
+    style: 'solid',
+    position
+  }
+}
+
+const normalizePoint = (point: Vec2): Vec2 => ({
+  x: Math.abs(point.x) <= EPSILON ? 0 : point.x,
+  y: Math.abs(point.y) <= EPSILON ? 0 : point.y
+})
+
+interface ClipEdge {
+  start: Vec2
+  end: Vec2
+  dx: number
+  dy: number
+}
+
+const buildClipEdges = (boundary: Vec2[]): ClipEdge[] =>
+  boundary.map((start, index) => {
+    const end = boundary[(index + 1) % boundary.length]
+    return {
+      start,
+      end,
+      dx: end.x - start.x,
+      dy: end.y - start.y
+    }
+  })
+
+const isInsideHalfPlane = (
+  point: Vec2,
+  edge: ClipEdge,
+  orientation: number
+) => {
+  const cross =
+    edge.dx * (point.y - edge.start.y) -
+    edge.dy * (point.x - edge.start.x)
+  return orientation > 0 ? cross >= -EPSILON : cross <= EPSILON
+}
+
+const lineIntersection = (
+  segmentStart: Vec2,
+  segmentEnd: Vec2,
+  edgeStart: Vec2,
+  edgeEnd: Vec2
+): Vec2 => {
+  const x1 = segmentStart.x
+  const y1 = segmentStart.y
+  const x2 = segmentEnd.x
+  const y2 = segmentEnd.y
+  const x3 = edgeStart.x
+  const y3 = edgeStart.y
+  const x4 = edgeEnd.x
+  const y4 = edgeEnd.y
+
+  const denominator = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+  if (Math.abs(denominator) <= EPSILON) {
+    return normalizePoint(segmentEnd)
+  }
+
+  const determinant1 = x1 * y2 - y1 * x2
+  const determinant2 = x3 * y4 - y3 * x4
+
+  return normalizePoint({
+    x: (determinant1 * (x3 - x4) - (x1 - x2) * determinant2) / denominator,
+    y: (determinant1 * (y3 - y4) - (y1 - y2) * determinant2) / denominator
+  })
+}
+
+const clipPolygonToClosedLegalDomain = (
+  polygon: Vec2[],
+  boundary: ClipEdge[],
+  orientation: number
+) => {
+  let output = polygon.map(normalizePoint)
+
+  for (const edge of boundary) {
+    const input = output
+    output = []
+    if (input.length === 0) {
+      break
+    }
+
+    input.forEach((current, currentIndex) => {
+      const previous = input[(currentIndex - 1 + input.length) % input.length]
+      const currentInside = isInsideHalfPlane(current, edge, orientation)
+      const previousInside = isInsideHalfPlane(
+        previous,
+        edge,
+        orientation
+      )
+
+      if (currentInside) {
+        if (!previousInside) {
+          output.push(lineIntersection(previous, current, edge.start, edge.end))
+        }
+        output.push(current)
+        return
+      }
+
+      if (previousInside) {
+        output.push(lineIntersection(previous, current, edge.start, edge.end))
+      }
     })
   }
 
-  return points
+  return output
 }
 
-const buildRoundCapSingleSegmentPolygons = (
+const applyClosedIntervalLegality = (
+  polygons: Vec2[][],
   points: Vec2[],
-  radius: number
-): Vec2[][] => {
-  if (points.length !== 2 || radius <= EPSILON) {
+  closed: boolean,
+  stroke: RenderableStroke
+) => {
+  if (!closed || stroke.position !== 'inside') {
+    return polygons
+  }
+
+  const boundary = getCanonicalClosedLoopPoints(points, closed)
+  const orientationArea = polygonArea(boundary)
+  if (boundary.length < 3 || Math.abs(orientationArea) <= EPSILON) {
     return []
   }
 
-  const [start, end] = points
-  const direction = normalizeVector({
-    x: end.x - start.x,
-    y: end.y - start.y
-  })
-
-  if (!direction) {
-    return []
-  }
-
-  const normal = {
-    x: -direction.y,
-    y: direction.x
-  }
-
-  const leftStart = {
-    x: start.x + normal.x * radius,
-    y: start.y + normal.y * radius
-  }
-  const leftEnd = {
-    x: end.x + normal.x * radius,
-    y: end.y + normal.y * radius
-  }
-  const rightEnd = {
-    x: end.x - normal.x * radius,
-    y: end.y - normal.y * radius
-  }
-  const rightStart = {
-    x: start.x - normal.x * radius,
-    y: start.y - normal.y * radius
-  }
-
-  const directionAngle = Math.atan2(direction.y, direction.x)
-  const arcSteps = 8
-  const endArc = sampleArcPoints(
-    end,
-    radius,
-    directionAngle + Math.PI / 2,
-    directionAngle - Math.PI / 2,
-    arcSteps
-  )
-  const startArc = sampleArcPoints(
-    start,
-    radius,
-    directionAngle - Math.PI / 2,
-    directionAngle + Math.PI / 2 - Math.PI * 2,
-    arcSteps
-  )
-
-  const polygon = [
-    leftStart,
-    leftEnd,
-    ...endArc,
-    rightEnd,
-    rightStart,
-    ...startArc
-  ]
-
-  return [polygon]
+  const orientation = orientationArea > 0 ? 1 : -1
+  const clipEdges = buildClipEdges(boundary)
+  return polygons
+    .map((polygon) =>
+      clipPolygonToClosedLegalDomain(polygon, clipEdges, orientation)
+    )
+    .filter((polygon) => polygon.length >= 3)
 }
 
 export const buildConstrainedDashedStrokeResolvedPackets = (
@@ -395,30 +949,100 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
   points: Vec2[],
   closed: boolean,
   strokes: StrokeAttrs[] | undefined,
-  options: ConstrainedDashedStrokePromotionOptions = {}
+  options: ConstrainedDashedStrokeOptions = {}
 ): SolidCenterStrokeResolvedPacket[] => {
-  const totalLength = getPathLength(points, closed)
+  const topology =
+    options.topology ??
+    buildPathTopologyModel({
+      pathId: cachePrefix,
+      networkId: options.metadata?.networkId,
+      points,
+      closed
+    })
+  const topologyPoints = topology.normalizedPoints
+  const totalLength = topology.totalLength
+  const ownerPrefix =
+    options.metadata?.ownerKeyPrefix ?? 'anonymous-constrained-dashed-source'
+  const primaryContour = topology.contours[0]
+  const contourId = options.metadata?.contourId ?? primaryContour?.contourId
+  const legalDomainId =
+    options.metadata?.legalDomainId ?? primaryContour?.legalDomainId
+  const sourceTopology = classifyConstrainedDashedSource(
+    topologyPoints,
+    topology.closed,
+    topology
+  )
+  const segmentRanges = getClosedSegmentRanges(topologyPoints, topology.closed)
+  const intervalPointSlicer = createStrokeIntervalPointSlicer(
+    topologyPoints,
+    topology.closed
+  )
 
   return getRenderableStrokes(strokes).flatMap((stroke, strokeIndex) => {
-    if (!supportsConstrainedDashedStroke(stroke, closed)) {
+    if (!supportsConstrainedDashedStroke(stroke, topology.closed)) {
       return []
     }
 
-    const visibleIntervals = allocateDashedCenterStrokeIntervals(
-      totalLength,
+    const visibleIntervals = allocateDashedIntervalsForTopology(
+      topology,
       stroke.dashPattern,
-      stroke.dashOffset,
-      closed
+      stroke.dashOffset
     ).filter((interval) => interval.kind === 'visible')
+    const intervalSignature = buildVisibleIntervalSignature(visibleIntervals)
 
     if (visibleIntervals.length === 0) {
       return []
     }
 
+    const intervalStroke = getIntervalStrokeForSourceDirection(
+      topologyPoints,
+      topology.closed,
+      stroke
+    )
+    const revisionSetByClassification = new Map<
+      string,
+      SolidCenterStrokeGeometryDebugMeta['revisionSet']
+    >()
+    const getRevisionSet = (
+      classification: Pick<
+        ConstrainedDashedIntervalClassification,
+        'sourceTopology' | 'intervalTopology'
+      >
+    ) => {
+      const revisionKey = [
+        classification.sourceTopology,
+        classification.intervalTopology
+      ].join(':')
+      const existing = revisionSetByClassification.get(revisionKey)
+      if (existing) {
+        return existing
+      }
+
+      const revisionSet = buildStrokeRuntimeRevisionSet({
+        points: topologyPoints,
+        closed: topology.closed,
+        stroke,
+        geometryFamily: 'constrained-dashed',
+        resolutionStatus: getConstrainedDashedResolutionStatus(
+          classification.sourceTopology,
+          !topology.closed && !topology.isSimpleOpen
+        ),
+        runtimeStatus: 'candidate',
+        ownerKey: `${ownerPrefix}:stroke:${strokeIndex}`,
+        networkId: options.metadata?.networkId,
+        strokeId: `stroke:${strokeIndex}`,
+        intervalSignature,
+        sourceTopology: classification.sourceTopology,
+        intervalTopology: classification.intervalTopology
+      })
+      revisionSetByClassification.set(revisionKey, revisionSet)
+      return revisionSet
+    }
     const [fullLoopInterval] =
       visibleIntervals.length === 1 ? visibleIntervals : []
 
     if (
+      topology.closed &&
       fullLoopInterval &&
       isFullLoopVisibleInterval(
         fullLoopInterval.startDistance,
@@ -427,50 +1051,32 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
         fullLoopInterval.wrapsSeam
       )
     ) {
-      const promotedFullLoopInsideRoundJoin =
-        options.allowRectFullLoopInsideRoundJoin === true &&
-        stroke.position === 'inside' &&
-        stroke.join === 'round' &&
-        isOrthogonalRectLoop(points, closed)
-      const promotedFullLoopOutsideRoundJoin =
-        options.allowRectFullLoopOutsideRoundJoin === true &&
-        stroke.position === 'outside' &&
-        stroke.join === 'round' &&
-        isOrthogonalRectLoop(points, closed)
-      const promotedVectorRectEquivalentFullLoopInsideRoundJoin =
-        options.allowVectorRectEquivalentFullLoopInsideRoundJoin === true &&
-        stroke.position === 'inside' &&
-        stroke.join === 'round' &&
-        isOrthogonalRectLoop(points, closed)
-      const promotedVectorRectEquivalentFullLoopOutsideRoundJoin =
-        options.allowVectorRectEquivalentFullLoopOutsideRoundJoin === true &&
-        stroke.position === 'outside' &&
-        stroke.join === 'round' &&
-        isOrthogonalRectLoop(points, closed)
-      const promotedBroaderVectorFullLoopInsideRoundJoin =
-        options.allowFirstBroaderVectorFullLoopInsideRoundJoin === true &&
-        stroke.position === 'inside' &&
-        stroke.join === 'round' &&
-        isSingleObliqueQuadrilateralLoop(points, closed)
-      const promotedBroaderVectorFullLoopOutsideRoundJoin =
-        options.allowFirstBroaderVectorFullLoopOutsideRoundJoin === true &&
-        stroke.position === 'outside' &&
-        stroke.join === 'round' &&
-        isSingleObliqueQuadrilateralLoop(points, closed)
+      const classification = classifyConstrainedDashedIntervalWithContext(
+        topologyPoints,
+        topology.closed,
+        {
+          startDistance: fullLoopInterval.startDistance,
+          endDistance: fullLoopInterval.endDistance,
+          totalLength,
+          wrapsSeam: fullLoopInterval.wrapsSeam
+        },
+        stroke,
+        sourceTopology,
+        segmentRanges
+      )
 
-      const polygons = buildConstrainedSolidStrokePolygons(points, true, {
-        ...stroke,
-        style: 'solid',
-        join:
-          promotedFullLoopInsideRoundJoin ||
-          promotedFullLoopOutsideRoundJoin ||
-          promotedVectorRectEquivalentFullLoopInsideRoundJoin ||
-          promotedVectorRectEquivalentFullLoopOutsideRoundJoin ||
-          promotedBroaderVectorFullLoopInsideRoundJoin ||
-          promotedBroaderVectorFullLoopOutsideRoundJoin
-            ? 'miter'
-            : stroke.join
-      })
+      const polygons = buildConstrainedSolidStrokePolygons(
+        topologyPoints,
+        true,
+        {
+          ...stroke,
+          style: 'solid'
+        },
+        {
+          assumeSimpleOpen: undefined,
+          assumeSimpleClosed: topology.isSimpleClosed
+        }
+      )
 
       if (polygons.length === 0) {
         return []
@@ -478,14 +1084,30 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
 
       const geometryId = `${cachePrefix}:${strokeIndex}:${fullLoopInterval.intervalId}`
       const debugMeta: SolidCenterStrokeGeometryDebugMeta = {
+        sourcePathId: cachePrefix,
+        ownerKey: `${ownerPrefix}:stroke:${strokeIndex}`,
+        networkId: options.metadata?.networkId,
         strokeId: `stroke:${strokeIndex}`,
+        strokeIndex,
+        contourId,
+        legalDomainId,
         intervalId: fullLoopInterval.intervalId,
         authoredVisibleIntervalIndex: fullLoopInterval.authoredIndex,
         startDistance: fullLoopInterval.startDistance,
         endDistance: fullLoopInterval.endDistance,
         wrapsSeam: fullLoopInterval.wrapsSeam,
         previousVisibleIntervalId: fullLoopInterval.previousVisibleIntervalId,
-        nextVisibleIntervalId: fullLoopInterval.nextVisibleIntervalId
+        nextVisibleIntervalId: fullLoopInterval.nextVisibleIntervalId,
+        geometryFamily: 'constrained-dashed',
+        resolutionStatus: getConstrainedDashedResolutionStatus(
+          classification.sourceTopology,
+          !topology.closed && !topology.isSimpleOpen
+        ),
+        runtimeStatus: 'candidate',
+        sourceTopology: classification.sourceTopology,
+        topologyFamily: topology.topologyFamily,
+        intervalTopology: classification.intervalTopology,
+        revisionSet: getRevisionSet(classification)
       }
 
       return [
@@ -509,228 +1131,106 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
     }
 
     return visibleIntervals.flatMap((interval) => {
-      const promotedSingleEdge = isSingleEdgeVisibleInterval(
-        points,
-        closed,
-        interval.startDistance,
-        interval.endDistance
-      )
-      const promotedRectCornerSpanning =
-        ((stroke.position === 'inside' &&
-          ((options.allowRectCornerSpanningInsideBevel === true &&
-            (stroke.join === 'bevel' || stroke.join === 'round')) ||
-            (options.allowRectCornerSpanningInsideMiter === true &&
-              stroke.join === 'miter'))) ||
-          (stroke.position === 'outside' &&
-            ((options.allowRectCornerSpanningOutsideBevel === true &&
-              (stroke.join === 'bevel' || stroke.join === 'round')) ||
-              (options.allowRectCornerSpanningOutsideMiter === true &&
-                stroke.join === 'miter')))) &&
-        isOrthogonalRectLoop(points, closed) &&
-        isSingleCornerSpanningVisibleInterval(
-          points,
-          closed,
-          interval.startDistance,
-          interval.endDistance,
-          interval.wrapsSeam
-        )
-
-      const promotedBroaderVectorCornerSpanning =
-        ((stroke.position === 'inside' &&
-          ((options.allowFirstBroaderVectorCornerSpanningInsideBevel === true &&
-            (stroke.join === 'bevel' || stroke.join === 'round')) ||
-            (options.allowFirstBroaderVectorCornerSpanningInsideMiter === true &&
-              stroke.join === 'miter'))) ||
-          (stroke.position === 'outside' &&
-            ((options.allowFirstBroaderVectorCornerSpanningOutsideBevel === true &&
-              (stroke.join === 'bevel' || stroke.join === 'round')) ||
-              (options.allowFirstBroaderVectorCornerSpanningOutsideMiter ===
-                true &&
-                stroke.join === 'miter')))) &&
-        isSingleObliqueQuadrilateralLoop(points, closed) &&
-        isSingleCornerSpanningVisibleInterval(
-          points,
-          closed,
-          interval.startDistance,
-          interval.endDistance,
-          interval.wrapsSeam
-        )
-
-      const promotedRectSingleEdgeInsideRoundCap =
-        promotedSingleEdge &&
-        options.allowRectSingleEdgeInsideRoundCap === true &&
-        stroke.position === 'inside' &&
-        stroke.cap === 'round' &&
-        isOrthogonalRectLoop(points, closed)
-      const promotedRectSingleEdgeOutsideRoundCap =
-        promotedSingleEdge &&
-        options.allowRectSingleEdgeOutsideRoundCap === true &&
-        stroke.position === 'outside' &&
-        stroke.cap === 'round' &&
-        isOrthogonalRectLoop(points, closed)
-      const promotedVectorRectEquivalentSingleEdgeInsideRoundCap =
-        promotedSingleEdge &&
-        options.allowVectorRectEquivalentSingleEdgeInsideRoundCap === true &&
-        stroke.position === 'inside' &&
-        stroke.cap === 'round' &&
-        isOrthogonalRectLoop(points, closed)
-      const promotedVectorRectEquivalentSingleEdgeOutsideRoundCap =
-        promotedSingleEdge &&
-        options.allowVectorRectEquivalentSingleEdgeOutsideRoundCap === true &&
-        stroke.position === 'outside' &&
-        stroke.cap === 'round' &&
-        isOrthogonalRectLoop(points, closed)
-      const promotedBroaderVectorSingleEdgeInsideRoundCap =
-        promotedSingleEdge &&
-        options.allowFirstBroaderVectorSingleEdgeInsideRoundCap === true &&
-        stroke.position === 'inside' &&
-        stroke.cap === 'round' &&
-        isSingleObliqueQuadrilateralLoop(points, closed)
-      const promotedBroaderVectorSingleEdgeOutsideRoundCap =
-        promotedSingleEdge &&
-        options.allowFirstBroaderVectorSingleEdgeOutsideRoundCap === true &&
-        stroke.position === 'outside' &&
-        stroke.cap === 'round' &&
-        isSingleObliqueQuadrilateralLoop(points, closed)
-
-      if (
-        promotedRectSingleEdgeInsideRoundCap ||
-        promotedRectSingleEdgeOutsideRoundCap ||
-        promotedVectorRectEquivalentSingleEdgeInsideRoundCap ||
-        promotedVectorRectEquivalentSingleEdgeOutsideRoundCap ||
-        promotedBroaderVectorSingleEdgeInsideRoundCap ||
-        promotedBroaderVectorSingleEdgeOutsideRoundCap
-      ) {
-        const centerWidth = stroke.width * 2
-        const halfWidthFrames = points.map((point) => ({
-          x: point.x,
-          y: point.y,
-          widthLeft: centerWidth / 2,
-          widthRight: centerWidth / 2
-        }))
-        const intervalFrames = sliceDashedCenterStrokeFrames(
-          halfWidthFrames,
-          closed,
-          interval.startDistance,
-          interval.endDistance,
-          interval.wrapsSeam
-        )
-        const intervalPoints = intervalFrames.map(({ x, y }) => ({ x, y }))
-        const centerPolygons = buildRoundCapSingleSegmentPolygons(
-          intervalPoints,
-          centerWidth / 2
-        )
-
-        if (centerPolygons.length === 0) {
-          return []
-        }
-
-        const geometryId = `${cachePrefix}:${strokeIndex}:${interval.intervalId}`
-        const debugMeta: SolidCenterStrokeGeometryDebugMeta = {
-          strokeId: `stroke:${strokeIndex}`,
-          intervalId: interval.intervalId,
-          authoredVisibleIntervalIndex: interval.authoredIndex,
+      const classification = classifyConstrainedDashedIntervalWithContext(
+        topologyPoints,
+        topology.closed,
+        {
           startDistance: interval.startDistance,
           endDistance: interval.endDistance,
-          wrapsSeam: interval.wrapsSeam,
-          previousVisibleIntervalId: interval.previousVisibleIntervalId,
-          nextVisibleIntervalId: interval.nextVisibleIntervalId
-        }
+          totalLength,
+          wrapsSeam: interval.wrapsSeam
+        },
+        stroke,
+        sourceTopology,
+        segmentRanges
+      )
 
-        return buildConstrainedSolidLegalityClippingResult(
-          [{ points, closed }],
-          [
-            toSyntheticStrokeAttrs(stroke, {
-              style: 'solid'
-            })
-          ],
-          [
-            {
-              geometry: {
-                geometryId,
-                polygons: centerPolygons,
-                bounds: getBounds(centerPolygons),
-                debugMeta
-              },
-              paint: {
-                geometryId,
-                kind: stroke.kind,
-                color: stroke.color,
-                alpha: stroke.alpha,
-                gradientStyle: stroke.gradientStyle,
-                paintKey: stroke.paintKey
-              }
-            }
-          ]
-        ).packets
+      if (!isSupportedConstrainedDashedInterval(classification, stroke)) {
+        return []
       }
 
-      const centerWidth = stroke.width * 2
-      const halfWidthFrames = points.map((point) => ({
-        x: point.x,
-        y: point.y,
-        widthLeft: centerWidth / 2,
-        widthRight: centerWidth / 2
-      }))
-      const intervalFrames = sliceDashedCenterStrokeFrames(
-        halfWidthFrames,
-        closed,
+      const intervalPoints = intervalPointSlicer.slice(
         interval.startDistance,
         interval.endDistance,
         interval.wrapsSeam
       )
-      const intervalPoints = intervalFrames.map(({ x, y }) => ({ x, y }))
-      const centerPolygons = buildSolidCenterStrokePolygons(intervalPoints, false, {
-        style: 'solid',
-        position: 'center',
-        width: centerWidth,
-        join: stroke.join,
-        miterLimit: stroke.miterLimit,
-        cap: stroke.cap
-      })
+      const intervalPolygons = buildConstrainedSolidStrokePolygons(
+        intervalPoints,
+        false,
+        intervalStroke,
+        {
+          assumeSimpleOpen:
+            stroke.cap !== 'square' &&
+            (!topology.closed ||
+              topology.isSimpleClosed ||
+              topology.topologyFamily === 'self-intersecting')
+              ? true
+              : undefined,
+          assumeSimpleClosed: topology.closed
+            ? topology.isSimpleClosed
+            : undefined,
+          assumeNormalizedOpen: true
+        }
+      )
+      const polygons = topology.isSimpleClosed
+        ? applyClosedIntervalLegality(
+            intervalPolygons,
+            topologyPoints,
+            topology.closed,
+            stroke
+          )
+        : intervalPolygons
 
-      if (centerPolygons.length === 0) {
+      if (polygons.length === 0) {
         return []
       }
 
       const geometryId = `${cachePrefix}:${strokeIndex}:${interval.intervalId}`
       const debugMeta: SolidCenterStrokeGeometryDebugMeta = {
+        sourcePathId: cachePrefix,
+        ownerKey: `${ownerPrefix}:stroke:${strokeIndex}`,
+        networkId: options.metadata?.networkId,
         strokeId: `stroke:${strokeIndex}`,
+        strokeIndex,
+        contourId,
+        legalDomainId,
         intervalId: interval.intervalId,
         authoredVisibleIntervalIndex: interval.authoredIndex,
         startDistance: interval.startDistance,
         endDistance: interval.endDistance,
         wrapsSeam: interval.wrapsSeam,
         previousVisibleIntervalId: interval.previousVisibleIntervalId,
-        nextVisibleIntervalId: interval.nextVisibleIntervalId
+        nextVisibleIntervalId: interval.nextVisibleIntervalId,
+        geometryFamily: 'constrained-dashed',
+        resolutionStatus: getConstrainedDashedResolutionStatus(
+          classification.sourceTopology,
+          !topology.closed && !topology.isSimpleOpen
+        ),
+        runtimeStatus: 'candidate',
+        sourceTopology: classification.sourceTopology,
+        topologyFamily: topology.topologyFamily,
+        intervalTopology: classification.intervalTopology,
+        revisionSet: getRevisionSet(classification)
       }
 
-      return buildConstrainedSolidLegalityClippingResult(
-        [{ points, closed }],
-        [
-          toSyntheticStrokeAttrs(stroke, {
-            style: 'solid'
-          })
-        ],
-        [
-          {
-            geometry: {
-              geometryId,
-              polygons: centerPolygons,
-              bounds: getBounds(centerPolygons),
-              debugMeta
-            },
-            paint: {
-              geometryId,
-              kind: stroke.kind,
-              color: stroke.color,
-              alpha: stroke.alpha,
-              gradientStyle: stroke.gradientStyle,
-              paintKey: stroke.paintKey
-            }
+      return [
+        {
+          geometry: {
+            geometryId,
+            polygons,
+            bounds: getBounds(polygons),
+            debugMeta
+          },
+          paint: {
+            geometryId,
+            kind: stroke.kind,
+            color: stroke.color,
+            alpha: stroke.alpha,
+            gradientStyle: stroke.gradientStyle,
+            paintKey: stroke.paintKey
           }
-        ]
-      ).packets
+        }
+      ]
     })
   })
 }

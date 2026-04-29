@@ -4,5 +4,5 @@
 - `feature-authoring.md`
 - `ui-data-flow.md`
 - `testing-contracts.md`
-- `scenario-matrix-testing.md`
+- `geometry-scenario-testing.md`
 - `geometry-clipping-regression-contract.md`

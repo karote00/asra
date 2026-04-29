@@ -22,7 +22,11 @@ export const allocateDashedCenterStrokeIntervals = (
   offset: number,
   closed: boolean
 ): DashedCenterStrokeIntervalRecord[] => {
-  if (!Number.isFinite(totalLength) || totalLength <= 0 || !isValidPattern(pattern)) {
+  if (
+    !Number.isFinite(totalLength) ||
+    totalLength <= 0 ||
+    !isValidPattern(pattern)
+  ) {
     return []
   }
 
@@ -92,43 +96,34 @@ export const allocateDashedCenterStrokeIntervals = (
     }
   }
 
-  const visibleIntervals = mergedIntervals.filter(
-    (interval) => interval.kind === 'visible'
+  const visibleMergedIndices = mergedIntervals.flatMap((interval, index) =>
+    interval.kind === 'visible' ? [index] : []
+  )
+  const visibleOrderByMergedIndex = new Map(
+    visibleMergedIndices.map((mergedIndex, visibleIndex) => [
+      mergedIndex,
+      visibleIndex
+    ])
   )
 
   return mergedIntervals.map((interval, index) => {
-    const visibleIndex = visibleIntervals.findIndex(
-      (candidate) =>
-        candidate.authoredIndex === interval.authoredIndex &&
-        candidate.startDistance === interval.startDistance &&
-        candidate.endDistance === interval.endDistance
-    )
+    const visibleIndex = visibleOrderByMergedIndex.get(index) ?? -1
+    const previousVisibleIndex =
+      visibleIndex > 0 ? visibleMergedIndices[visibleIndex - 1] : undefined
+    const nextVisibleIndex =
+      visibleIndex >= 0 && visibleIndex < visibleMergedIndices.length - 1
+        ? visibleMergedIndices[visibleIndex + 1]
+        : undefined
 
     return {
       ...interval,
       intervalId: `interval:${index}`,
       previousVisibleIntervalId:
-        interval.kind === 'visible' && visibleIndex > 0
-          ? `interval:${mergedIntervals.findIndex(
-              (candidate) =>
-                candidate.kind === 'visible' &&
-                candidate.authoredIndex === visibleIntervals[visibleIndex - 1]?.authoredIndex &&
-                candidate.startDistance ===
-                  visibleIntervals[visibleIndex - 1]?.startDistance &&
-                candidate.endDistance === visibleIntervals[visibleIndex - 1]?.endDistance
-            )}`
-          : null,
+        previousVisibleIndex === undefined
+          ? null
+          : `interval:${previousVisibleIndex}`,
       nextVisibleIntervalId:
-        interval.kind === 'visible' && visibleIndex >= 0 && visibleIndex < visibleIntervals.length - 1
-          ? `interval:${mergedIntervals.findIndex(
-              (candidate) =>
-                candidate.kind === 'visible' &&
-                candidate.authoredIndex === visibleIntervals[visibleIndex + 1]?.authoredIndex &&
-                candidate.startDistance ===
-                  visibleIntervals[visibleIndex + 1]?.startDistance &&
-                candidate.endDistance === visibleIntervals[visibleIndex + 1]?.endDistance
-            )}`
-          : null
+        nextVisibleIndex === undefined ? null : `interval:${nextVisibleIndex}`
     }
   })
 }

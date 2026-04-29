@@ -2,6 +2,7 @@ import type { SolidCenterStrokeResolvedPacket } from './solid-center-stroke-pack
 import {
   buildCenterDashedOverlapGraph,
   extractCenterDashedOverlapComponents,
+  polygonsHavePositiveAreaOverlap,
   type CenterDashedOverlapCandidate,
   type Vec2
 } from './center-dashed-overlap-graph'
@@ -24,11 +25,7 @@ type BailoutReason =
   | 'owner-tie-unresolved'
   | 'illegal-domain-missing'
 
-export type CenterDashedDebugMode =
-  | 'overlap'
-  | 'ownership'
-  | 'bailout'
-  | 'all'
+export type CenterDashedDebugMode = 'overlap' | 'ownership' | 'bailout' | 'all'
 
 export interface CenterDashedOverlapComponentDiagnostic {
   componentId: string
@@ -42,6 +39,8 @@ export interface CenterDashedOwnershipRegionDiagnostic {
   candidateIds: string[]
   ownerIntervalId: string
   ownerStrokeId: string
+  ownerKey?: string
+  networkId?: string
   ownerPrimitiveKind: 'body' | 'join' | 'cap'
   bounds: Bounds
   polygon: Vec2[]
@@ -50,6 +49,7 @@ export interface CenterDashedOwnershipRegionDiagnostic {
 export interface CenterDashedOwnershipBailoutDiagnostic {
   componentId: string
   reason: BailoutReason
+  preservedOwnerKeys: string[]
   preservedPreviewIntervalIds: string[]
   preservedPreviewPolygons: Vec2[][]
 }
@@ -85,9 +85,9 @@ const roundCoordinate = (value: number) =>
 const getDebugConfig = (): CenterDashedDebugConfig =>
   (
     globalThis as {
-      __ASYRA_PHASE4A_STROKE_DEBUG__?: CenterDashedDebugConfig
+      __ASYRA_CENTER_DASHED_OVERLAP_DEBUG__?: CenterDashedDebugConfig
     }
-  ).__ASYRA_PHASE4A_STROKE_DEBUG__ ?? {}
+  ).__ASYRA_CENTER_DASHED_OVERLAP_DEBUG__ ?? {}
 
 const getBounds = (polygons: Vec2[][]): Bounds => {
   let minX = Infinity
@@ -114,19 +114,10 @@ const getBounds = (polygons: Vec2[][]): Bounds => {
 const candidateOverlapsPolygon = (
   candidate: CenterDashedOverlapCandidate,
   polygon: Vec2[]
-) => {
-  const polygonBounds = getBounds([polygon])
-
-  return candidate.polygons.some((candidatePolygon) => {
-    const candidateBounds = getBounds([candidatePolygon])
-    return (
-      candidateBounds.minX <= polygonBounds.maxX &&
-      candidateBounds.maxX >= polygonBounds.minX &&
-      candidateBounds.minY <= polygonBounds.maxY &&
-      candidateBounds.maxY >= polygonBounds.minY
-    )
-  })
-}
+) =>
+  candidate.polygons.some((candidatePolygon) =>
+    polygonsHavePositiveAreaOverlap(candidatePolygon, polygon)
+  )
 
 const createOwnershipCandidate = (
   candidate: CenterDashedOverlapCandidate
@@ -134,6 +125,8 @@ const createOwnershipCandidate = (
   candidateId: candidate.candidateId,
   intervalId: candidate.intervalId,
   strokeId: candidate.strokeId,
+  ownerKey: candidate.ownerKey,
+  networkId: candidate.networkId,
   primitiveKind: 'body',
   normalDistanceToSource: 0,
   startDistance: candidate.startDistance,
@@ -141,7 +134,8 @@ const createOwnershipCandidate = (
   stableIntervalId: candidate.candidateId,
   polygons: candidate.polygons,
   continuityPreserving:
-    candidate.previousVisibleIntervalId !== null || candidate.nextVisibleIntervalId !== null,
+    candidate.previousVisibleIntervalId !== null ||
+    candidate.nextVisibleIntervalId !== null,
   regionInsideTerminalEnvelope: false
 })
 
@@ -201,7 +195,7 @@ const buildOwnershipRegionsForComponent = (
 
 const buildOwnershipDiagnostics = (
   components: CenterDashedOverlapComponentDiagnostic[],
-  candidates: CenterDashedOverlapCandidate[],
+  candidateById: Map<string, CenterDashedOverlapCandidate>,
   config: CenterDashedDebugConfig
 ): CenterDashedOwnershipDiagnostics => {
   const ownedRegions: CenterDashedOwnershipRegionDiagnostic[] = []
@@ -210,10 +204,10 @@ const buildOwnershipDiagnostics = (
 
   components.forEach((component) => {
     const componentCandidates = component.candidateIds
-      .map((candidateId) =>
-        candidates.find((candidate) => candidate.candidateId === candidateId)
+      .map((candidateId) => candidateById.get(candidateId))
+      .filter(
+        (candidate): candidate is CenterDashedOverlapCandidate => !!candidate
       )
-      .filter((candidate): candidate is CenterDashedOverlapCandidate => !!candidate)
 
     componentCandidates.forEach(({ intervalId }) => {
       passthroughIntervals.add(intervalId)
@@ -238,10 +232,13 @@ const buildOwnershipDiagnostics = (
       ...ownership.ownedRegions.map((region) => ({
         regionId: region.regionId,
         candidateIds:
-          regions.find((candidateRegion) => candidateRegion.regionId === region.regionId)
-            ?.candidateIds ?? [],
+          regions.find(
+            (candidateRegion) => candidateRegion.regionId === region.regionId
+          )?.candidateIds ?? [],
         ownerIntervalId: region.ownerIntervalId,
         ownerStrokeId: region.ownerStrokeId,
+        ownerKey: region.ownerKey,
+        networkId: region.networkId,
         ownerPrimitiveKind: region.ownerPrimitiveKind,
         bounds: region.bounds,
         polygon: region.polygon
@@ -262,15 +259,19 @@ export const buildCenterDashedOverlapDiagnosticsFromResolvedPackets = (
   packets: SolidCenterStrokeResolvedPacket[],
   debugConfig: CenterDashedDebugConfig = getDebugConfig()
 ): CenterDashedOverlapDiagnostics => {
-  const candidates = buildCenterDashedOverlapCandidatesFromResolvedPackets(packets)
+  const candidates =
+    buildCenterDashedOverlapCandidatesFromResolvedPackets(packets)
   const graph = buildCenterDashedOverlapGraph(candidates)
+  const candidateById = new Map(
+    candidates.map((candidate) => [candidate.candidateId, candidate])
+  )
   const components = extractCenterDashedOverlapComponents(graph).map(
     (candidateIds, index) => {
       const componentCandidates = candidateIds
-        .map((candidateId) =>
-          candidates.find((candidate) => candidate.candidateId === candidateId)
+        .map((candidateId) => candidateById.get(candidateId))
+        .filter(
+          (candidate): candidate is CenterDashedOverlapCandidate => !!candidate
         )
-        .filter((candidate): candidate is CenterDashedOverlapCandidate => !!candidate)
       const polygons = componentCandidates.flatMap(({ polygons }) => polygons)
 
       return {
@@ -286,7 +287,7 @@ export const buildCenterDashedOverlapDiagnosticsFromResolvedPackets = (
     candidates,
     edges: graph.edges,
     components,
-    ownership: buildOwnershipDiagnostics(components, candidates, debugConfig)
+    ownership: buildOwnershipDiagnostics(components, candidateById, debugConfig)
   }
 }
 
@@ -295,8 +296,28 @@ export const applyCenterDashedOverlapDiagnostics = <T extends object>(
   packets: SolidCenterStrokeResolvedPacket[],
   debugConfig?: CenterDashedDebugConfig
 ) => {
+  const resolvedDebugConfig = debugConfig ?? getDebugConfig()
+  if (!resolvedDebugConfig.enabled) {
+    ;(
+      graphic as T & CenterDashedOverlapDiagnosticsRuntimeGraphic
+    ).__asyraCenterDashedOverlapDiagnostics = {
+      candidates: [],
+      edges: [],
+      components: [],
+      ownership: {
+        ownedRegions: [],
+        passthroughIntervals: [],
+        unresolvedBailouts: []
+      }
+    }
+    return
+  }
+
   ;(
     graphic as T & CenterDashedOverlapDiagnosticsRuntimeGraphic
   ).__asyraCenterDashedOverlapDiagnostics =
-    buildCenterDashedOverlapDiagnosticsFromResolvedPackets(packets, debugConfig)
+    buildCenterDashedOverlapDiagnosticsFromResolvedPackets(
+      packets,
+      resolvedDebugConfig
+    )
 }

@@ -19,7 +19,7 @@ const getPolygonBounds = (polygon: { x: number; y: number }[]) => ({
 const createSyntheticPacket = (
   geometryId: string,
   strokeId: string,
-  polygon: Array<{ x: number; y: number }>
+  polygon: { x: number; y: number }[]
 ): SolidCenterStrokeResolvedPacket => ({
   geometry: {
     geometryId,
@@ -78,7 +78,9 @@ describe('constrained solid legality clipping', () => {
       packets.map((packet) => packet.geometry.geometryId)
     )
     expect(result.packets[0]).toBe(packets[0])
-    expect(result.packets[0]?.geometry.polygons).toBe(packets[0]?.geometry.polygons)
+    expect(result.packets[0]?.geometry.polygons).toBe(
+      packets[0]?.geometry.polygons
+    )
   })
 
   it('should run: preserve asymmetric-width inside probe polygons byte-for-byte when legality clipping sees no true overflow', () => {
@@ -117,7 +119,9 @@ describe('constrained solid legality clipping', () => {
     )
 
     expect(result.eligibleOverflowGeometryIds).toEqual([])
-    expect(result.preservedGeometryIds).toEqual(['rect:inside:asymmetric-probe'])
+    expect(result.preservedGeometryIds).toEqual([
+      'rect:inside:asymmetric-probe'
+    ])
     expect(result.packets[0]).toBe(packet)
     expect(result.packets[0]?.geometry.polygons).toBe(packet.geometry.polygons)
     expect(result.packets[0]?.geometry.bounds).toEqual(packet.geometry.bounds)
@@ -159,7 +163,9 @@ describe('constrained solid legality clipping', () => {
     )
 
     expect(result.eligibleOverflowGeometryIds).toEqual([])
-    expect(result.preservedGeometryIds).toEqual(['rect:outside:asymmetric-probe'])
+    expect(result.preservedGeometryIds).toEqual([
+      'rect:outside:asymmetric-probe'
+    ])
     expect(result.packets[0]).toBe(packet)
     expect(result.packets[0]?.geometry.polygons).toBe(packet.geometry.polygons)
     expect(result.packets[0]?.geometry.bounds).toEqual(packet.geometry.bounds)
@@ -278,10 +284,9 @@ describe('constrained solid legality clipping', () => {
 
     expect(result.ownershipDiagnostics.ownedRegions).toHaveLength(8)
     expect(strokeOnePackets).toHaveLength(2)
-    expect(strokeOnePackets.map((packet) => packet.geometry.polygons.length)).toEqual([
-      8,
-      8
-    ])
+    expect(
+      strokeOnePackets.map((packet) => packet.geometry.polygons.length)
+    ).toEqual([8, 8])
     expect(strokeOnePackets.map((packet) => packet.geometry.bounds)).toEqual([
       { minX: -12, minY: -12, maxX: 92, maxY: 52 },
       { minX: 108, minY: -12, maxX: 212, maxY: 52 }
@@ -389,7 +394,9 @@ describe('constrained solid legality clipping', () => {
 
     expect(result.ownershipDiagnostics.ownedRegions).toHaveLength(4)
     expect(
-      result.ownershipDiagnostics.ownedRegions.map((region) => region.candidateIds)
+      result.ownershipDiagnostics.ownedRegions.map(
+        (region) => region.candidateIds
+      )
     ).toEqual([
       ['candidate:0', 'candidate:1'],
       ['candidate:0', 'candidate:1'],
@@ -485,9 +492,13 @@ describe('constrained solid legality clipping', () => {
       ]
     )
 
-    expect(result.ownershipDiagnostics.ownedRegions.length).toBeGreaterThanOrEqual(5)
     expect(
-      result.ownershipDiagnostics.ownedRegions.map((region) => region.candidateIds)
+      result.ownershipDiagnostics.ownedRegions.length
+    ).toBeGreaterThanOrEqual(5)
+    expect(
+      result.ownershipDiagnostics.ownedRegions.map(
+        (region) => region.candidateIds
+      )
     ).toEqual(
       result.ownershipDiagnostics.ownedRegions.map(() => [
         'candidate:0',
@@ -597,9 +608,13 @@ describe('constrained solid legality clipping', () => {
       ]
     )
 
-    expect(result.ownershipDiagnostics.ownedRegions.length).toBeGreaterThanOrEqual(4)
     expect(
-      result.ownershipDiagnostics.ownedRegions.map((region) => region.candidateIds)
+      result.ownershipDiagnostics.ownedRegions.length
+    ).toBeGreaterThanOrEqual(4)
+    expect(
+      result.ownershipDiagnostics.ownedRegions.map(
+        (region) => region.candidateIds
+      )
     ).toEqual(
       result.ownershipDiagnostics.ownedRegions.map(() => [
         'candidate:0',
@@ -663,7 +678,11 @@ describe('constrained solid legality clipping', () => {
         {
           geometry: {
             geometryId: 'mixed-multi-ear-partial:0',
-            polygons: [firstNonOrthogonalPiece, secondNonOrthogonalPiece, convexPiece],
+            polygons: [
+              firstNonOrthogonalPiece,
+              secondNonOrthogonalPiece,
+              convexPiece
+            ],
             bounds: {
               minX: 0,
               minY: 0,
@@ -726,7 +745,9 @@ describe('constrained solid legality clipping', () => {
 
     expect(result.ownershipDiagnostics.ownedRegions).toHaveLength(20)
     expect(
-      result.ownershipDiagnostics.ownedRegions.map((region) => region.candidateIds)
+      result.ownershipDiagnostics.ownedRegions.map(
+        (region) => region.candidateIds
+      )
     ).toEqual(
       result.ownershipDiagnostics.ownedRegions.map(() => [
         'candidate:0',
@@ -795,7 +816,11 @@ describe('constrained solid legality clipping', () => {
     )
 
     expect(result.eligibleOverflowGeometryIds).toEqual([])
-    expect(result.ownershipDiagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
+    expect(
+      result.ownershipDiagnostics.ownedRegions.map(
+        (region) => region.candidateIds
+      )
+    ).toEqual([
       ['candidate:0', 'candidate:1'],
       ['candidate:1', 'candidate:2']
     ])
@@ -895,7 +920,11 @@ describe('constrained solid legality clipping', () => {
       ]
     )
 
-    expect(result.ownershipDiagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
+    expect(
+      result.ownershipDiagnostics.ownedRegions.map(
+        (region) => region.candidateIds
+      )
+    ).toEqual([
       ['candidate:0', 'candidate:1'],
       ['candidate:1', 'candidate:2'],
       ['candidate:2', 'candidate:3']
@@ -1003,7 +1032,11 @@ describe('constrained solid legality clipping', () => {
       ]
     )
 
-    expect(result.ownershipDiagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
+    expect(
+      result.ownershipDiagnostics.ownedRegions.map(
+        (region) => region.candidateIds
+      )
+    ).toEqual([
       ['candidate:0', 'candidate:1', 'candidate:3'],
       ['candidate:0', 'candidate:1'],
       ['candidate:1', 'candidate:2', 'candidate:3'],
@@ -1035,7 +1068,9 @@ describe('constrained solid legality clipping', () => {
       ]
     ])
     expect(result.packets[3]?.geometry.polygons).toHaveLength(1)
-    expect(getPolygonBounds(result.packets[3]?.geometry.polygons[0] ?? [])).toEqual({
+    expect(
+      getPolygonBounds(result.packets[3]?.geometry.polygons[0] ?? [])
+    ).toEqual({
       minX: 4,
       minY: -6,
       maxX: 13,
@@ -1127,7 +1162,11 @@ describe('constrained solid legality clipping', () => {
       ]
     )
 
-    expect(result.ownershipDiagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
+    expect(
+      result.ownershipDiagnostics.ownedRegions.map(
+        (region) => region.candidateIds
+      )
+    ).toEqual([
       ['candidate:0', 'candidate:1'],
       ['candidate:1', 'candidate:2']
     ])
@@ -1210,7 +1249,11 @@ describe('constrained solid legality clipping', () => {
       ]
     )
 
-    expect(result.ownershipDiagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
+    expect(
+      result.ownershipDiagnostics.ownedRegions.map(
+        (region) => region.candidateIds
+      )
+    ).toEqual([
       ['candidate:0', 'candidate:1'],
       ['candidate:0', 'candidate:1']
     ])
@@ -1281,11 +1324,17 @@ describe('constrained solid legality clipping', () => {
       ]
     )
 
-    expect(result.ownershipDiagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
+    expect(
+      result.ownershipDiagnostics.ownedRegions.map(
+        (region) => region.candidateIds
+      )
+    ).toEqual([
       ['candidate:0', 'candidate:1'],
       ['candidate:0', 'candidate:1']
     ])
-    expect(result.ownershipDiagnostics.ownedRegions.map((region) => region.bounds)).toEqual([
+    expect(
+      result.ownershipDiagnostics.ownedRegions.map((region) => region.bounds)
+    ).toEqual([
       { minX: 0, minY: 0, maxX: 2, maxY: 2 },
       { minX: 0, minY: 2, maxX: 2, maxY: 6 }
     ])
@@ -1414,12 +1463,18 @@ describe('constrained solid legality clipping', () => {
       ]
     )
 
-    expect(result.ownershipDiagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
+    expect(
+      result.ownershipDiagnostics.ownedRegions.map(
+        (region) => region.candidateIds
+      )
+    ).toEqual([
       ['candidate:0', 'candidate:1'],
       ['candidate:0', 'candidate:1'],
       ['candidate:0', 'candidate:1']
     ])
-    expect(result.ownershipDiagnostics.ownedRegions.map((region) => region.bounds)).toEqual([
+    expect(
+      result.ownershipDiagnostics.ownedRegions.map((region) => region.bounds)
+    ).toEqual([
       { minX: 0, minY: 0, maxX: 2, maxY: 2 },
       { minX: 0, minY: 2, maxX: 2, maxY: 6 },
       { minX: 12, minY: 1, maxX: 14, maxY: 3 }
@@ -1576,7 +1631,11 @@ describe('constrained solid legality clipping', () => {
       ]
     )
 
-    expect(result.ownershipDiagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
+    expect(
+      result.ownershipDiagnostics.ownedRegions.map(
+        (region) => region.candidateIds
+      )
+    ).toEqual([
       ['candidate:0', 'candidate:1'],
       ['candidate:0', 'candidate:1'],
       ['candidate:0', 'candidate:1'],
@@ -1602,7 +1661,6 @@ describe('constrained solid legality clipping', () => {
     ])
     expect(result.packets[1]?.geometry.polygons).toEqual([])
   })
-
 
   it('should run: clip true inside overflow against the canonical legality boundary while preserving geometry identity', () => {
     const overflowPacket: SolidCenterStrokeResolvedPacket = {
@@ -1786,10 +1844,13 @@ describe('constrained solid legality clipping', () => {
       [overflowPacket]
     )
 
-    expect(result.eligibleOverflowGeometryIds).toEqual(['overflow:outside:corner'])
+    expect(result.eligibleOverflowGeometryIds).toEqual([
+      'overflow:outside:corner'
+    ])
     expect(result.packets[0]?.geometry.polygons).toHaveLength(2)
 
-    const [firstPolygon, secondPolygon] = result.packets[0]?.geometry.polygons ?? []
+    const [firstPolygon, secondPolygon] =
+      result.packets[0]?.geometry.polygons ?? []
     const firstBounds = getPolygonBounds(firstPolygon)
     const secondBounds = getPolygonBounds(secondPolygon)
 
@@ -1806,5 +1867,4 @@ describe('constrained solid legality clipping', () => {
       maxY: 12
     })
   })
-
 })

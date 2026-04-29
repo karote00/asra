@@ -16,3 +16,4 @@ References:
 - `viewport-navigation.feature`
 - `pen-tool.feature`
 - `undo-redo.feature`
+- `stroke-rendering.feature`

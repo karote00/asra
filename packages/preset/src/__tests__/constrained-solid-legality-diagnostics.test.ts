@@ -6,7 +6,7 @@ import { buildConstrainedSolidStrokeResolvedPackets } from '../components/stroke
 describe('constrained solid legality diagnostics', () => {
   it('should run: supported closed constrained packets produce canonical legality diagnostics without rewriting packet identity', () => {
     const packets = buildConstrainedSolidStrokeResolvedPackets(
-      'phase4b',
+      'constrained-solid-legality',
       [
         { x: 0, y: 0 },
         { x: 80, y: 0 },
@@ -70,7 +70,7 @@ describe('constrained solid legality diagnostics', () => {
     )
     expect(packets[0]?.geometry.polygons).toEqual(
       buildConstrainedSolidStrokeResolvedPackets(
-        'phase4b',
+        'constrained-solid-legality',
         [
           { x: 0, y: 0 },
           { x: 80, y: 0 },
@@ -79,17 +79,17 @@ describe('constrained solid legality diagnostics', () => {
         ],
         true,
         [
-            createDefaultStroke({
-              visible: true,
-              style: 'solid',
+          createDefaultStroke({
+            visible: true,
+            style: 'solid',
             position: 'inside',
             width: 6,
             color: '#00ff00',
             opacity: 1,
-              joinType: 'miter',
-              capType: 'butt',
-              miterAngle: 28.96
-            })
+            joinType: 'miter',
+            capType: 'butt',
+            miterAngle: 28.96
+          })
         ]
       )[0]?.geometry.polygons
     )

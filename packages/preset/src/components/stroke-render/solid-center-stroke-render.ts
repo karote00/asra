@@ -6,6 +6,12 @@ import {
   type RenderFillStyle
 } from '@asyra/render'
 import type { RenderableStroke } from './renderable-stroke'
+import type { SolidCenterStrokeGeometryDebugMeta } from './solid-center-stroke-packets'
+import {
+  computeStrokeDirtyKeys,
+  type StrokeDirtyKey,
+  type StrokeRevisionSet
+} from './stroke-dirty-keys'
 
 interface Vec2 {
   x: number
@@ -19,6 +25,8 @@ export interface SolidCenterStrokeRenderEntry {
     'kind' | 'color' | 'alpha' | 'gradientStyle' | 'paintKey'
   >
   polygons: Vec2[][]
+  debugMeta?: SolidCenterStrokeGeometryDebugMeta
+  revisionSet?: StrokeRevisionSet
 }
 
 interface SolidStrokeCacheSolidEntry {
@@ -26,6 +34,8 @@ interface SolidStrokeCacheSolidEntry {
   projection: MeshProjection
   signature: string
   paintKey: string
+  revisionSet?: StrokeRevisionSet
+  lastDirtyKeys?: StrokeDirtyKey[]
 }
 
 interface SolidStrokeCacheGradientEntry {
@@ -34,12 +44,14 @@ interface SolidStrokeCacheGradientEntry {
   graphics: Graphics
   signature: string
   paintKey: string
+  revisionSet?: StrokeRevisionSet
+  lastDirtyKeys?: StrokeDirtyKey[]
 }
 
 interface SolidCenterStrokeRenderGraphic {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   addChild?: (...args: any[]) => unknown
-  __asyraPhase1MeshCache?: Map<
+  __asyraStrokeMeshCache?: Map<
     string,
     SolidStrokeCacheSolidEntry | SolidStrokeCacheGradientEntry
   >
@@ -115,19 +127,39 @@ const disposeCacheEntry = (
   entry.container.destroy()
 }
 
+const getRevisionDirtyKeys = (
+  previous: StrokeRevisionSet | undefined,
+  next: StrokeRevisionSet | undefined
+) => {
+  if (!previous || !next) {
+    return null
+  }
+
+  return computeStrokeDirtyKeys(previous, next).dirtyKeys
+}
+
+const hasGeometryDirtyKey = (dirtyKeys: StrokeDirtyKey[] | null) =>
+  dirtyKeys === null ||
+  dirtyKeys.some(
+    (key) => key !== 'paint-payload' && key !== 'render-hit-export'
+  )
+
+const hasPaintDirtyKey = (dirtyKeys: StrokeDirtyKey[] | null) =>
+  dirtyKeys === null || dirtyKeys.includes('paint-payload')
+
 export const renderSolidCenterStrokeEntries = (
   graphic: SolidCenterStrokeRenderGraphic,
   entries: SolidCenterStrokeRenderEntry[]
 ) => {
-  if (!graphic.__asyraPhase1MeshCache) {
-    graphic.__asyraPhase1MeshCache = new Map()
+  if (!graphic.__asyraStrokeMeshCache) {
+    graphic.__asyraStrokeMeshCache = new Map()
   }
 
   const active = new Set<string>()
 
   if (entries.length === 0) {
-    graphic.__asyraPhase1MeshCache.forEach((entry) => disposeCacheEntry(entry))
-    graphic.__asyraPhase1MeshCache.clear()
+    graphic.__asyraStrokeMeshCache.forEach((entry) => disposeCacheEntry(entry))
+    graphic.__asyraStrokeMeshCache.clear()
     return
   }
 
@@ -137,9 +169,11 @@ export const renderSolidCenterStrokeEntries = (
       return
     }
 
-    const signature = getSignature(polygons)
-    const existing = graphic.__asyraPhase1MeshCache?.get(entry.cacheKey)
-    const geometryModel = buildGeometryModel(polygons)
+    const existing = graphic.__asyraStrokeMeshCache?.get(entry.cacheKey)
+    const revisionSet = entry.revisionSet ?? entry.debugMeta?.revisionSet
+    const dirtyKeys = getRevisionDirtyKeys(existing?.revisionSet, revisionSet)
+    const geometryDirty = hasGeometryDirtyKey(dirtyKeys)
+    const paintDirty = hasPaintDirtyKey(dirtyKeys)
     const strokeKind = entry.stroke.kind ?? 'solid'
     const paintKey =
       entry.stroke.paintKey ??
@@ -147,10 +181,24 @@ export const renderSolidCenterStrokeEntries = (
 
     if (existing && existing.kind !== strokeKind) {
       disposeCacheEntry(existing)
-      graphic.__asyraPhase1MeshCache?.delete(entry.cacheKey)
+      graphic.__asyraStrokeMeshCache?.delete(entry.cacheKey)
     }
 
-    const compatibleEntry = graphic.__asyraPhase1MeshCache?.get(entry.cacheKey)
+    const compatibleEntry = graphic.__asyraStrokeMeshCache?.get(entry.cacheKey)
+
+    if (compatibleEntry && dirtyKeys !== null && !geometryDirty && !paintDirty) {
+      compatibleEntry.revisionSet = revisionSet
+      compatibleEntry.lastDirtyKeys = []
+      if (compatibleEntry.kind === 'gradient') {
+        compatibleEntry.container.visible = true
+      } else {
+        compatibleEntry.projection.setVisible(true)
+      }
+      active.add(entry.cacheKey)
+      return
+    }
+
+    const signature = getSignature(polygons)
 
     if (strokeKind === 'gradient') {
       const gradientStyle = entry.stroke.gradientStyle
@@ -161,18 +209,32 @@ export const renderSolidCenterStrokeEntries = (
       if (
         compatibleEntry &&
         compatibleEntry.kind === 'gradient' &&
-        compatibleEntry.signature === signature &&
-        compatibleEntry.paintKey === paintKey
+        (dirtyKeys !== null
+          ? !geometryDirty && !paintDirty
+          : compatibleEntry.signature === signature &&
+            compatibleEntry.paintKey === paintKey)
       ) {
+        compatibleEntry.revisionSet = revisionSet
+        compatibleEntry.lastDirtyKeys = dirtyKeys ?? []
         compatibleEntry.container.visible = true
         active.add(entry.cacheKey)
         return
       }
 
-      if (compatibleEntry && compatibleEntry.kind === 'gradient') {
+      if (
+        compatibleEntry &&
+        compatibleEntry.kind === 'gradient' &&
+        (dirtyKeys === null ||
+          geometryDirty ||
+          paintDirty ||
+          compatibleEntry.signature !== signature ||
+          compatibleEntry.paintKey !== paintKey)
+      ) {
         applyGradientPaint(compatibleEntry.graphics, polygons, gradientStyle)
         compatibleEntry.signature = signature
         compatibleEntry.paintKey = paintKey
+        compatibleEntry.revisionSet = revisionSet
+        compatibleEntry.lastDirtyKeys = dirtyKeys ?? []
         compatibleEntry.container.visible = true
         active.add(entry.cacheKey)
         return
@@ -188,18 +250,21 @@ export const renderSolidCenterStrokeEntries = (
         return
       }
 
-      graphic.__asyraPhase1MeshCache?.set(entry.cacheKey, {
+      graphic.__asyraStrokeMeshCache?.set(entry.cacheKey, {
         kind: 'gradient',
         container,
         graphics: gradientGraphic,
         signature,
-        paintKey
+        paintKey,
+        revisionSet,
+        lastDirtyKeys: []
       })
       active.add(entry.cacheKey)
       return
     }
 
     if (!compatibleEntry) {
+      const geometryModel = buildGeometryModel(polygons)
       const projection = createMeshProjection({
         model: geometryModel,
         paint: {
@@ -214,11 +279,13 @@ export const renderSolidCenterStrokeEntries = (
         return
       }
 
-      graphic.__asyraPhase1MeshCache?.set(entry.cacheKey, {
+      graphic.__asyraStrokeMeshCache?.set(entry.cacheKey, {
         kind: 'solid',
         projection,
         signature,
-        paintKey
+        paintKey,
+        revisionSet,
+        lastDirtyKeys: []
       })
       active.add(entry.cacheKey)
       return
@@ -226,9 +293,12 @@ export const renderSolidCenterStrokeEntries = (
 
     if (
       compatibleEntry.kind === 'solid' &&
-      (compatibleEntry.signature !== signature ||
-        compatibleEntry.paintKey !== paintKey)
+      (dirtyKeys !== null
+        ? geometryDirty || paintDirty
+        : compatibleEntry.signature !== signature ||
+          compatibleEntry.paintKey !== paintKey)
     ) {
+      const geometryModel = buildGeometryModel(polygons)
       compatibleEntry.projection.update({
         model: geometryModel,
         paint: {
@@ -239,20 +309,26 @@ export const renderSolidCenterStrokeEntries = (
       })
       compatibleEntry.signature = signature
       compatibleEntry.paintKey = paintKey
+      compatibleEntry.revisionSet = revisionSet
+      compatibleEntry.lastDirtyKeys = dirtyKeys ?? []
     }
 
     if (compatibleEntry.kind === 'solid') {
+      if (dirtyKeys !== null && !geometryDirty && !paintDirty) {
+        compatibleEntry.revisionSet = revisionSet
+        compatibleEntry.lastDirtyKeys = []
+      }
       compatibleEntry.projection.setVisible(true)
     }
     active.add(entry.cacheKey)
   })
 
-  graphic.__asyraPhase1MeshCache.forEach((entry, key) => {
+  graphic.__asyraStrokeMeshCache.forEach((entry, key) => {
     if (active.has(key)) {
       return
     }
 
     disposeCacheEntry(entry)
-    graphic.__asyraPhase1MeshCache?.delete(key)
+    graphic.__asyraStrokeMeshCache?.delete(key)
   })
 }

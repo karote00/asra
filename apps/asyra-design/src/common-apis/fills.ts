@@ -218,8 +218,7 @@ export const fillApis = {
     clientPos: PositionData,
     canvasBounds?: DOMRect | null
   ): PositionData => {
-    const resolvedBounds =
-      canvasBounds ?? fillApis.getCanvasBounds()
+    const resolvedBounds = canvasBounds ?? fillApis.getCanvasBounds()
     if (!resolvedBounds) {
       return clientPos
     }
@@ -314,10 +313,7 @@ export const fillApis = {
     return {
       ...geometry.fill.gradient,
       gradientHandles: geometry.fill.gradient.gradientHandles.map(
-        (handle, index) =>
-          index === handleIndex
-            ? nextHandle
-            : handle
+        (handle, index) => (index === handleIndex ? nextHandle : handle)
       )
     }
   },

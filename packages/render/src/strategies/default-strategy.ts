@@ -7,13 +7,18 @@ const randomHexColorCode = () => {
   return '#' + n.slice(0, 6)
 }
 
+const toFiniteNumber = (value: unknown, fallback = 0) =>
+  typeof value === 'number' && Number.isFinite(value) ? value : fallback
+
 export const defaultRectangleStrategy: RenderStrategy = (
   graphic: Graphics,
   data: RenderElementData
 ) => {
-  graphic.rect(0, 0, data.width, data.height).fill(randomHexColorCode())
-  graphic.x = data.x
-  graphic.y = data.y
+  const width = Math.max(0, toFiniteNumber(data.width))
+  const height = Math.max(0, toFiniteNumber(data.height))
+  graphic.rect(0, 0, width, height).fill(randomHexColorCode())
+  graphic.x = toFiniteNumber(data.x)
+  graphic.y = toFiniteNumber(data.y)
 }
 
 // Fallback for unknown types

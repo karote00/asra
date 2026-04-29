@@ -15,7 +15,10 @@ interface Bounds {
 interface ConstrainedSolidOwnershipCandidate {
   candidateId: string
   strokeId: string
+  strokeIndex?: number
+  ownerKey?: string
   polygons: Vec2[][]
+  bounds: Bounds
 }
 
 interface ConstrainedSolidOwnershipComponentDiagnostic {
@@ -29,14 +32,42 @@ export interface ConstrainedSolidOwnershipRegionDiagnostic {
   regionId: string
   candidateIds: string[]
   ownerStrokeId: string
+  ownerStrokeIndex?: number
+  ownerKey?: string
   bounds: Bounds
   polygon: Vec2[]
 }
 
+export interface ConstrainedSolidArrangementPolicyDiagnostic {
+  strategy: 'bounded-convex-subset-arrangement'
+  epsilon: number
+  roundingFactor: number
+  maxExactSubsetCount: number
+  zeroAreaThreshold: number
+  tangentialTouchPolicy: 'boundary-overlap-without-zero-area-face'
+  coincidentEdgePolicy: 'dedupe-rotated-polygon-signatures'
+}
+
+export interface ConstrainedSolidArrangementFaceDiagnostic {
+  faceId: string
+  candidateIds: string[]
+  ownerStrokeId: string
+  ownerStrokeIndex?: number
+  ownerKey?: string
+  bounds: Bounds
+  polygon: Vec2[]
+  partitionMethod:
+    | 'exact-subset-intersection'
+    | 'intra-candidate-intersection'
+    | 'bounded-overlap-polygon'
+}
+
 export interface ConstrainedSolidOwnershipDiagnostics {
+  arrangementPolicy: ConstrainedSolidArrangementPolicyDiagnostic
   candidates: ConstrainedSolidOwnershipCandidate[]
   edges: [string, string][]
   components: ConstrainedSolidOwnershipComponentDiagnostic[]
+  arrangementFaces: ConstrainedSolidArrangementFaceDiagnostic[]
   ownedRegions: ConstrainedSolidOwnershipRegionDiagnostic[]
 }
 
@@ -47,6 +78,28 @@ export interface ConstrainedSolidOwnershipDiagnosticsRuntimeGraphic {
 const EPSILON = 1e-6
 const ROUNDING_FACTOR = 1_000
 const MAX_EXACT_SUBSET_COUNT = 4096
+const polygonBoundsCache = new WeakMap<Vec2[], Bounds>()
+const convexPiecesCache = new WeakMap<Vec2[], Vec2[][]>()
+
+const ARRANGEMENT_POLICY: ConstrainedSolidArrangementPolicyDiagnostic = {
+  strategy: 'bounded-convex-subset-arrangement',
+  epsilon: EPSILON,
+  roundingFactor: ROUNDING_FACTOR,
+  maxExactSubsetCount: MAX_EXACT_SUBSET_COUNT,
+  zeroAreaThreshold: EPSILON,
+  tangentialTouchPolicy: 'boundary-overlap-without-zero-area-face',
+  coincidentEdgePolicy: 'dedupe-rotated-polygon-signatures'
+}
+
+export const createEmptyConstrainedSolidOwnershipDiagnostics =
+  (): ConstrainedSolidOwnershipDiagnostics => ({
+    arrangementPolicy: ARRANGEMENT_POLICY,
+    candidates: [],
+    edges: [],
+    components: [],
+    arrangementFaces: [],
+    ownedRegions: []
+  })
 
 const roundCoordinate = (value: number) =>
   Math.round(value * ROUNDING_FACTOR) / ROUNDING_FACTOR
@@ -71,6 +124,17 @@ const getBounds = (polygons: Vec2[][]): Bounds => {
   }
 
   return { minX, minY, maxX, maxY }
+}
+
+const getPolygonBounds = (polygon: Vec2[]): Bounds => {
+  const cached = polygonBoundsCache.get(polygon)
+  if (cached) {
+    return cached
+  }
+
+  const bounds = getBounds([polygon])
+  polygonBoundsCache.set(polygon, bounds)
+  return bounds
 }
 
 const boundsOverlap = (a: Bounds, b: Bounds) =>
@@ -144,8 +208,8 @@ const isPointInsidePolygon = (point: Vec2, polygon: Vec2[]) => {
 }
 
 const polygonsOverlap = (left: Vec2[], right: Vec2[]) => {
-  const leftBounds = getBounds([left])
-  const rightBounds = getBounds([right])
+  const leftBounds = getPolygonBounds(left)
+  const rightBounds = getPolygonBounds(right)
 
   if (!boundsOverlap(leftBounds, rightBounds)) {
     return false
@@ -168,23 +232,39 @@ const polygonsOverlap = (left: Vec2[], right: Vec2[]) => {
     }
   }
 
-  return isPointInsidePolygon(left[0], right) || isPointInsidePolygon(right[0], left)
+  return (
+    isPointInsidePolygon(left[0], right) || isPointInsidePolygon(right[0], left)
+  )
 }
 
 const candidatesOverlap = (
   left: ConstrainedSolidOwnershipCandidate,
   right: ConstrainedSolidOwnershipCandidate
 ) =>
+  boundsOverlap(left.bounds, right.bounds) &&
   left.polygons.some((leftPolygon) =>
-    right.polygons.some((rightPolygon) => polygonsOverlap(leftPolygon, rightPolygon))
+    right.polygons.some((rightPolygon) =>
+      polygonsOverlap(leftPolygon, rightPolygon)
+    )
   )
 
 const buildCandidates = (packets: SolidCenterStrokeResolvedPacket[]) =>
   packets.map((packet, index) => ({
     candidateId: `candidate:${index}`,
     strokeId: packet.geometry.debugMeta?.strokeId ?? `stroke:${index}`,
-    polygons: packet.geometry.polygons
+    strokeIndex: packet.geometry.debugMeta?.strokeIndex,
+    ownerKey: packet.geometry.debugMeta?.ownerKey,
+    polygons: packet.geometry.polygons,
+    bounds: packet.geometry.bounds
   }))
+
+const getOwnerCandidate = (candidates: ConstrainedSolidOwnershipCandidate[]) =>
+  [...candidates].sort((left, right) =>
+    Number.isFinite(left.strokeIndex) && Number.isFinite(right.strokeIndex)
+      ? (left.strokeIndex as number) - (right.strokeIndex as number) ||
+        left.strokeId.localeCompare(right.strokeId)
+      : left.strokeId.localeCompare(right.strokeId)
+  )[0]
 
 const buildEdges = (candidates: ConstrainedSolidOwnershipCandidate[]) => {
   const sortedCandidates = [...candidates].sort((left, right) =>
@@ -198,11 +278,10 @@ const buildEdges = (candidates: ConstrainedSolidOwnershipCandidate[]) => {
       rightIndex < sortedCandidates.length;
       rightIndex += 1
     ) {
-      if (candidatesOverlap(sortedCandidates[leftIndex], sortedCandidates[rightIndex])) {
-        edges.push([
-          sortedCandidates[leftIndex].candidateId,
-          sortedCandidates[rightIndex].candidateId
-        ])
+      const left = sortedCandidates[leftIndex]
+      const right = sortedCandidates[rightIndex]
+      if (candidatesOverlap(left, right)) {
+        edges.push([left.candidateId, right.candidateId])
       }
     }
   }
@@ -214,6 +293,9 @@ const extractComponents = (
   candidates: ConstrainedSolidOwnershipCandidate[],
   edges: [string, string][]
 ) => {
+  const candidateById = new Map(
+    candidates.map((candidate) => [candidate.candidateId, candidate])
+  )
   const adjacency = new Map<string, string[]>()
   candidates.forEach((candidate) => {
     adjacency.set(candidate.candidateId, [])
@@ -257,9 +339,7 @@ const extractComponents = (
 
     candidateIds.sort((left, right) => left.localeCompare(right))
     const componentCandidates = candidateIds
-      .map((candidateId) =>
-        candidates.find((entry) => entry.candidateId === candidateId)
-      )
+      .map((candidateId) => candidateById.get(candidateId))
       .filter((entry): entry is ConstrainedSolidOwnershipCandidate => !!entry)
     const polygons = componentCandidates.flatMap(({ polygons }) => polygons)
 
@@ -274,18 +354,6 @@ const extractComponents = (
   return components.sort((left, right) =>
     left.componentId.localeCompare(right.componentId)
   )
-}
-
-const candidateOverlapsPolygon = (
-  candidate: ConstrainedSolidOwnershipCandidate,
-  polygon: Vec2[]
-) => {
-  const polygonBounds = getBounds([polygon])
-
-  return candidate.polygons.some((candidatePolygon) => {
-    const candidateBounds = getBounds([candidatePolygon])
-    return boundsOverlap(candidateBounds, polygonBounds)
-  })
 }
 
 const buildRegionKey = (candidateIds: string[], bounds: Bounds) =>
@@ -344,10 +412,8 @@ const lineIntersection = (
   const determinant2 = x3 * y4 - y3 * x4
 
   return {
-    x:
-      (determinant1 * (x3 - x4) - (x1 - x2) * determinant2) / denominator,
-    y:
-      (determinant1 * (y3 - y4) - (y1 - y2) * determinant2) / denominator
+    x: (determinant1 * (x3 - x4) - (x1 - x2) * determinant2) / denominator,
+    y: (determinant1 * (y3 - y4) - (y1 - y2) * determinant2) / denominator
   }
 }
 
@@ -446,7 +512,9 @@ const polygonsEqual = (left: Vec2[], right: Vec2[]) => {
     left.every((point, index) => pointsEqual(point, candidate[index]))
 
   for (let offset = 0; offset < right.length; offset += 1) {
-    const rotated = right.map((_, index) => right[(index + offset) % right.length])
+    const rotated = right.map(
+      (_, index) => right[(index + offset) % right.length]
+    )
     if (matchesAtRotation(rotated)) {
       return true
     }
@@ -466,7 +534,10 @@ const polygonListContains = (polygons: Vec2[][], candidate: Vec2[]) =>
 const isOrthogonalPolygon = (polygon: Vec2[]) =>
   polygon.every((point, index) => {
     const next = polygon[(index + 1) % polygon.length]
-    return Math.abs(point.x - next.x) <= EPSILON || Math.abs(point.y - next.y) <= EPSILON
+    return (
+      Math.abs(point.x - next.x) <= EPSILON ||
+      Math.abs(point.y - next.y) <= EPSILON
+    )
   })
 
 const isConvexPolygon = (polygon: Vec2[]) => {
@@ -584,9 +655,9 @@ const decomposeOrthogonalPolygonToRectangles = (polygon: Vec2[]) => {
     return [polygon]
   }
 
-  const yLevels = [...new Set(polygon.map((point) => roundCoordinate(point.y)))].sort(
-    (left, right) => left - right
-  )
+  const yLevels = [
+    ...new Set(polygon.map((point) => roundCoordinate(point.y)))
+  ].sort((left, right) => left - right)
   const rectangles: Vec2[][] = []
 
   for (let index = 0; index < yLevels.length - 1; index += 1) {
@@ -608,15 +679,25 @@ const decomposeOrthogonalPolygonToRectangles = (polygon: Vec2[]) => {
         const minY = Math.min(point.y, next.y)
         const maxY = Math.max(point.y, next.y)
 
-        return sampleY > minY + EPSILON && sampleY < maxY - EPSILON ? [point.x] : []
+        return sampleY > minY + EPSILON && sampleY < maxY - EPSILON
+          ? [point.x]
+          : []
       })
       .sort((left, right) => left - right)
 
-    for (let intersectionIndex = 0; intersectionIndex < intersections.length; intersectionIndex += 2) {
+    for (
+      let intersectionIndex = 0;
+      intersectionIndex < intersections.length;
+      intersectionIndex += 2
+    ) {
       const left = intersections[intersectionIndex]
       const right = intersections[intersectionIndex + 1]
 
-      if (left === undefined || right === undefined || right - left <= EPSILON) {
+      if (
+        left === undefined ||
+        right === undefined ||
+        right - left <= EPSILON
+      ) {
         continue
       }
 
@@ -641,19 +722,24 @@ const decomposeOrthogonalPolygonToRectangles = (polygon: Vec2[]) => {
 }
 
 const normalizePolygonToConvexPieces = (polygon: Vec2[]) => {
+  const cached = convexPiecesCache.get(polygon)
+  if (cached) {
+    return cached
+  }
+
+  let pieces: Vec2[][]
   if (polygon.length < 4) {
-    return [polygon]
+    pieces = [polygon]
+  } else if (isOrthogonalPolygon(polygon)) {
+    pieces = decomposeOrthogonalPolygonToRectangles(polygon)
+  } else if (isConvexPolygon(polygon)) {
+    pieces = [polygon]
+  } else {
+    pieces = decomposeSimplePolygonToTriangles(polygon)
   }
 
-  if (isOrthogonalPolygon(polygon)) {
-    return decomposeOrthogonalPolygonToRectangles(polygon)
-  }
-
-  if (isConvexPolygon(polygon)) {
-    return [polygon]
-  }
-
-  return decomposeSimplePolygonToTriangles(polygon)
+  convexPiecesCache.set(polygon, pieces)
+  return pieces
 }
 
 const intersectConvexPolygons = (left: Vec2[], right: Vec2[]) => {
@@ -666,6 +752,32 @@ const intersectConvexPolygons = (left: Vec2[], right: Vec2[]) => {
 
   return clipped
 }
+
+const polygonsHavePositiveAreaOverlap = (left: Vec2[], right: Vec2[]) =>
+  boundsOverlap(getPolygonBounds(left), getPolygonBounds(right)) &&
+  normalizePolygonToConvexPieces(left).some((leftPiece) =>
+    normalizePolygonToConvexPieces(right).some((rightPiece) => {
+      if (
+        !boundsOverlap(getPolygonBounds(leftPiece), getPolygonBounds(rightPiece))
+      ) {
+        return false
+      }
+
+      const intersection = intersectConvexPolygons(leftPiece, rightPiece)
+      return (
+        intersection.length >= 3 &&
+        Math.abs(signedArea(intersection)) > EPSILON
+      )
+    })
+  )
+
+const candidateOverlapsPolygon = (
+  candidate: ConstrainedSolidOwnershipCandidate,
+  polygon: Vec2[]
+) =>
+  candidate.polygons.some((candidatePolygon) =>
+    polygonsHavePositiveAreaOverlap(candidatePolygon, polygon)
+  )
 
 const isPointOnBoundary = (point: Vec2, polygon: Vec2[]) =>
   polygon.some((start, index) => {
@@ -841,22 +953,49 @@ const buildSharedIntersectionPolygons = (
     normalizePolygonToConvexPieces(polygon)
   )
 
-  for (let candidateIndex = 1; candidateIndex < candidates.length; candidateIndex += 1) {
+  for (
+    let candidateIndex = 1;
+    candidateIndex < candidates.length;
+    candidateIndex += 1
+  ) {
     const nextCandidate = candidates[candidateIndex]
     const nextSharedPolygons: Vec2[][] = []
 
     sharedPolygons.forEach((sharedPolygon) => {
       nextCandidate.polygons.forEach((candidatePolygon) => {
-        normalizePolygonToConvexPieces(candidatePolygon).forEach((candidatePiece) => {
-          const intersection = intersectConvexPolygons(sharedPolygon, candidatePiece)
-          if (intersection.length === 0) {
-            return
-          }
+        if (
+          !boundsOverlap(
+            getPolygonBounds(sharedPolygon),
+            getPolygonBounds(candidatePolygon)
+          )
+        ) {
+          return
+        }
 
-          if (!polygonListContains(nextSharedPolygons, intersection)) {
-            nextSharedPolygons.push(intersection)
+        normalizePolygonToConvexPieces(candidatePolygon).forEach(
+          (candidatePiece) => {
+            if (
+              !boundsOverlap(
+                getPolygonBounds(sharedPolygon),
+                getPolygonBounds(candidatePiece)
+              )
+            ) {
+              return
+            }
+
+            const intersection = intersectConvexPolygons(
+              sharedPolygon,
+              candidatePiece
+            )
+            if (intersection.length === 0) {
+              return
+            }
+
+            if (!polygonListContains(nextSharedPolygons, intersection)) {
+              nextSharedPolygons.push(intersection)
+            }
           }
-        })
+        )
       })
     })
 
@@ -868,6 +1007,67 @@ const buildSharedIntersectionPolygons = (
   }
 
   return sharedPolygons
+}
+
+const buildIntraCandidateIntersectionPolygons = (
+  candidate: ConstrainedSolidOwnershipCandidate
+) => {
+  const intersections: Vec2[][] = []
+
+  for (
+    let leftPolygonIndex = 0;
+    leftPolygonIndex < candidate.polygons.length;
+    leftPolygonIndex += 1
+  ) {
+    const leftPieces = normalizePolygonToConvexPieces(
+      candidate.polygons[leftPolygonIndex]
+    )
+
+    for (
+      let rightPolygonIndex = leftPolygonIndex + 1;
+      rightPolygonIndex < candidate.polygons.length;
+      rightPolygonIndex += 1
+    ) {
+      const rightPieces = normalizePolygonToConvexPieces(
+        candidate.polygons[rightPolygonIndex]
+      )
+      if (
+        !boundsOverlap(
+          getPolygonBounds(candidate.polygons[leftPolygonIndex]),
+          getPolygonBounds(candidate.polygons[rightPolygonIndex])
+        )
+      ) {
+        continue
+      }
+
+      leftPieces.forEach((leftPiece) => {
+        rightPieces.forEach((rightPiece) => {
+          if (
+            !boundsOverlap(
+              getPolygonBounds(leftPiece),
+              getPolygonBounds(rightPiece)
+            )
+          ) {
+            return
+          }
+
+          const intersection = intersectConvexPolygons(leftPiece, rightPiece)
+          if (
+            intersection.length < 3 ||
+            Math.abs(signedArea(intersection)) <= EPSILON
+          ) {
+            return
+          }
+
+          if (!polygonListContains(intersections, intersection)) {
+            intersections.push(intersection)
+          }
+        })
+      })
+    }
+  }
+
+  return intersections
 }
 
 const candidateIdsContainsAll = (candidateIds: string[], subset: string[]) =>
@@ -912,15 +1112,23 @@ const getExactSubsetCount = (candidateCount: number) =>
 const buildOwnedRegions = (
   components: ConstrainedSolidOwnershipComponentDiagnostic[],
   candidates: ConstrainedSolidOwnershipCandidate[]
-) => {
+): {
+  arrangementFaces: ConstrainedSolidArrangementFaceDiagnostic[]
+  ownedRegions: ConstrainedSolidOwnershipRegionDiagnostic[]
+} => {
   const ownedRegions: ConstrainedSolidOwnershipRegionDiagnostic[] = []
+  const arrangementFaces: ConstrainedSolidArrangementFaceDiagnostic[] = []
+  const candidateById = new Map(
+    candidates.map((candidate) => [candidate.candidateId, candidate])
+  )
 
   components.forEach((component) => {
     const componentCandidates = component.candidateIds
-      .map((candidateId) =>
-        candidates.find((candidate) => candidate.candidateId === candidateId)
+      .map((candidateId) => candidateById.get(candidateId))
+      .filter(
+        (candidate): candidate is ConstrainedSolidOwnershipCandidate =>
+          !!candidate
       )
-      .filter((candidate): candidate is ConstrainedSolidOwnershipCandidate => !!candidate)
 
     const regions = new Map<
       string,
@@ -929,6 +1137,9 @@ const buildOwnedRegions = (
         candidateIds: string[]
         polygon: Vec2[]
         ownerStrokeId: string
+        ownerStrokeIndex?: number
+        ownerKey?: string
+        partitionMethod: ConstrainedSolidArrangementFaceDiagnostic['partitionMethod']
       }
     >()
 
@@ -936,36 +1147,65 @@ const buildOwnedRegions = (
       componentCandidates.length >= 2 &&
       getExactSubsetCount(componentCandidates.length) <= MAX_EXACT_SUBSET_COUNT
 
+    componentCandidates.forEach((candidate) => {
+      const candidateIds = [candidate.candidateId]
+      buildIntraCandidateIntersectionPolygons(candidate).forEach(
+        (polygon, polygonIndex) => {
+          const bounds = getBounds([polygon])
+          const regionKey = buildRegionKey(candidateIds, bounds)
+
+          if (!regions.has(regionKey)) {
+            regions.set(regionKey, {
+              regionId: `${component.componentId}:region:intra:${candidate.candidateId}:${polygonIndex}`,
+              candidateIds,
+              polygon,
+              ownerStrokeId: candidate.strokeId,
+              ownerStrokeIndex: candidate.strokeIndex,
+              ownerKey: candidate.ownerKey,
+              partitionMethod: 'intra-candidate-intersection'
+            })
+          }
+        }
+      )
+    })
+
     if (canBuildExactSharedRegions) {
       const subsetEntries = enumerateCandidateSubsets(componentCandidates)
         .map((subset) => {
           const candidateIds = subset
             .map((candidate) => candidate.candidateId)
             .sort((left, right) => left.localeCompare(right))
-          const ownerStrokeId = [...subset]
-            .sort((left, right) => left.strokeId.localeCompare(right.strokeId))[0]
-            .strokeId
+          const ownerCandidate = getOwnerCandidate(subset)
           const intersectionPolygons = buildSharedIntersectionPolygons(subset)
 
           return {
             candidateIds,
-            ownerStrokeId,
+            ownerStrokeId: ownerCandidate.strokeId,
+            ownerStrokeIndex: ownerCandidate.strokeIndex,
+            ownerKey: ownerCandidate.ownerKey,
             polygons: intersectionPolygons
           }
         })
         .filter((entry) => entry.polygons.length > 0)
 
-      const exactEntries: Array<{
+      const exactEntries: {
         candidateIds: string[]
         ownerStrokeId: string
+        ownerStrokeIndex?: number
+        ownerKey?: string
         polygons: Vec2[][]
-      }> = []
+      }[] = []
 
       subsetEntries.forEach((entry) => {
         let exactPolygons = [...entry.polygons]
 
         exactEntries.forEach((supersetEntry) => {
-          if (!candidateIdsContainsAll(supersetEntry.candidateIds, entry.candidateIds)) {
+          if (
+            !candidateIdsContainsAll(
+              supersetEntry.candidateIds,
+              entry.candidateIds
+            )
+          ) {
             return
           }
 
@@ -983,13 +1223,16 @@ const buildOwnedRegions = (
         })
 
         const filteredPolygons = exactPolygons.filter(
-          (polygon) => polygon.length >= 3 && Math.abs(signedArea(polygon)) > EPSILON
+          (polygon) =>
+            polygon.length >= 3 && Math.abs(signedArea(polygon)) > EPSILON
         )
 
         if (filteredPolygons.length > 0) {
           exactEntries.push({
             candidateIds: entry.candidateIds,
             ownerStrokeId: entry.ownerStrokeId,
+            ownerStrokeIndex: entry.ownerStrokeIndex,
+            ownerKey: entry.ownerKey,
             polygons: filteredPolygons
           })
         }
@@ -1004,7 +1247,10 @@ const buildOwnedRegions = (
               regionId: `${component.componentId}:region:shared:${entry.candidateIds.join('-')}:${polygonIndex}`,
               candidateIds: entry.candidateIds,
               polygon,
-              ownerStrokeId: entry.ownerStrokeId
+              ownerStrokeId: entry.ownerStrokeId,
+              ownerStrokeIndex: entry.ownerStrokeIndex,
+              ownerKey: entry.ownerKey,
+              partitionMethod: 'exact-subset-intersection'
             })
           }
         })
@@ -1014,8 +1260,8 @@ const buildOwnedRegions = (
     if (regions.size === 0) {
       componentCandidates.forEach((anchorCandidate) => {
         anchorCandidate.polygons.forEach((polygon, polygonIndex) => {
-          const overlappingCandidates = componentCandidates.filter((candidate) =>
-            candidateOverlapsPolygon(candidate, polygon)
+          const overlappingCandidates = componentCandidates.filter(
+            (candidate) => candidateOverlapsPolygon(candidate, polygon)
           )
 
           if (overlappingCandidates.length < 2) {
@@ -1025,9 +1271,7 @@ const buildOwnedRegions = (
           const candidateIds = overlappingCandidates
             .map(({ candidateId }) => candidateId)
             .sort((left, right) => left.localeCompare(right))
-          const ownerStrokeId = [...overlappingCandidates]
-            .sort((left, right) => left.strokeId.localeCompare(right.strokeId))[0]
-            .strokeId
+          const ownerCandidate = getOwnerCandidate(overlappingCandidates)
           const bounds = getBounds([polygon])
           const regionKey = buildRegionKey(candidateIds, bounds)
 
@@ -1036,25 +1280,49 @@ const buildOwnedRegions = (
               regionId: `${component.componentId}:region:${anchorCandidate.candidateId}:${polygonIndex}`,
               candidateIds,
               polygon,
-              ownerStrokeId
+              ownerStrokeId: ownerCandidate.strokeId,
+              ownerStrokeIndex: ownerCandidate.strokeIndex,
+              ownerKey: ownerCandidate.ownerKey,
+              partitionMethod: 'bounded-overlap-polygon'
             })
           }
         })
       })
     }
 
+    const componentFaces = [...regions.values()].map((region) => ({
+      faceId: region.regionId.replace(':region:', ':face:'),
+      candidateIds: region.candidateIds,
+      ownerStrokeId: region.ownerStrokeId,
+      ownerStrokeIndex: region.ownerStrokeIndex,
+      ownerKey: region.ownerKey,
+      bounds: getBounds([region.polygon]),
+      polygon: region.polygon,
+      partitionMethod: region.partitionMethod
+    }))
+
+    arrangementFaces.push(...componentFaces)
     ownedRegions.push(
-      ...[...regions.values()].map((region) => ({
-        regionId: region.regionId,
-        candidateIds: region.candidateIds,
-        ownerStrokeId: region.ownerStrokeId,
-        bounds: getBounds([region.polygon]),
-        polygon: region.polygon
+      ...componentFaces.map((face) => ({
+        regionId: face.faceId.replace(':face:', ':region:'),
+        candidateIds: face.candidateIds,
+        ownerStrokeId: face.ownerStrokeId,
+        ownerStrokeIndex: face.ownerStrokeIndex,
+        ownerKey: face.ownerKey,
+        bounds: face.bounds,
+        polygon: face.polygon
       }))
     )
   })
 
-  return ownedRegions.sort((left, right) => left.regionId.localeCompare(right.regionId))
+  return {
+    arrangementFaces: arrangementFaces.sort((left, right) =>
+      left.faceId.localeCompare(right.faceId)
+    ),
+    ownedRegions: ownedRegions.sort((left, right) =>
+      left.regionId.localeCompare(right.regionId)
+    )
+  }
 }
 
 export const buildConstrainedSolidOwnershipDiagnostics = (
@@ -1063,12 +1331,17 @@ export const buildConstrainedSolidOwnershipDiagnostics = (
   const candidates = buildCandidates(packets)
   const edges = buildEdges(candidates)
   const components = extractComponents(candidates, edges)
-  const ownedRegions = buildOwnedRegions(components, candidates)
+  const { arrangementFaces, ownedRegions } = buildOwnedRegions(
+    components,
+    candidates
+  )
 
   return {
+    arrangementPolicy: ARRANGEMENT_POLICY,
     candidates,
     edges,
     components,
+    arrangementFaces,
     ownedRegions
   }
 }

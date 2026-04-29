@@ -73,9 +73,7 @@ export const redo = () => {
 }
 
 // Renderer events - published by render engine adapter
-export const renderPointerHover = (
-  payload: string | RenderPointerPayload
-) => {
+export const renderPointerHover = (payload: string | RenderPointerPayload) => {
   const resolved: RenderPointerPayload =
     typeof payload === 'string'
       ? {
@@ -91,9 +89,7 @@ export const renderPointerHover = (
   })
 }
 
-export const renderPointerLeave = (
-  payload: string | RenderPointerPayload
-) => {
+export const renderPointerLeave = (payload: string | RenderPointerPayload) => {
   const resolved: RenderPointerPayload =
     typeof payload === 'string'
       ? {

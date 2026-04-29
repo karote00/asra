@@ -1,5 +1,9 @@
 import { defineComponent } from '@asyra/core'
-import { EntityTypes, PropertyTypes, setElementGeometryLocalBounds } from '@asyra/utils'
+import {
+  EntityTypes,
+  PropertyTypes,
+  setElementGeometryLocalBounds
+} from '@asyra/utils'
 import { applyRenderableFill, DEFAULT_FRAME_FILLS } from './fills'
 
 defineComponent({

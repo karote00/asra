@@ -14,7 +14,8 @@ import type {
   CenterDashedOverlapDiagnosticsRuntimeGraphic
 } from '../components/stroke-render/center-dashed-overlap-diagnostics'
 
-const CENTER_DASHED_OVERLAP_DEBUG_LAYER_NAME = 'center-dashed-overlap-debug-layer'
+const CENTER_DASHED_OVERLAP_DEBUG_LAYER_NAME =
+  'center-dashed-overlap-debug-layer'
 
 interface TransformMatrix {
   a: number
@@ -42,9 +43,9 @@ const BAILOUT_STROKE_COLOR = 0xff3300
 const getDebugConfig = (): CenterDashedDebugConfig =>
   (
     globalThis as {
-      __ASYRA_PHASE4A_STROKE_DEBUG__?: CenterDashedDebugConfig
+      __ASYRA_CENTER_DASHED_OVERLAP_DEBUG__?: CenterDashedDebugConfig
     }
-  ).__ASYRA_PHASE4A_STROKE_DEBUG__ ?? {}
+  ).__ASYRA_CENTER_DASHED_OVERLAP_DEBUG__ ?? {}
 
 const transformPoint = (
   matrix: TransformMatrix,
@@ -84,7 +85,9 @@ const drawOwnershipDiagnostics = (
     ownerColorByStrokeId.set(region.ownerStrokeId, nextColor)
 
     canvas.polygon(
-      region.polygon.map((point) => transformPoint(element.worldTransform, point)),
+      region.polygon.map((point) =>
+        transformPoint(element.worldTransform, point)
+      ),
       { color: nextColor, alpha: 0.26 },
       { color: nextColor, width: 1.5 }
     )

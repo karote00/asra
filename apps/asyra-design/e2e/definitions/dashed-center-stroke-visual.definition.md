@@ -1,13 +1,13 @@
 # Dashed Center Stroke Visual Definition
 
-This benchmark defines the screenshot-level oracle for the promoted
+This benchmark defines the screenshot-level oracle for the supported
 `dashed + center + uniform width + solid paint` slice.
 
 It answers:
 
 > When a supported element uses center dashed stroke rendering, does the real
 > app output show alternating visible bands and gaps at the authored pattern
-> positions, while non-promoted constrained slices remain absent?
+> positions, while non-supported constrained slices remain absent?
 
 ## Required supported behavior
 
@@ -15,7 +15,7 @@ It answers:
   the top edge
 - dash offset shifts the visible/gap probes deterministically
 - oval center dashed stroke renders visible center-top coverage through the
-  promoted path
+  supported path
 - rectangle center dashed `miter` keeps its outer corner square filled when a
   visible dash spans the corner
 - exact short-carryover `miter` cases on one closed orthogonal path follow the
@@ -24,12 +24,12 @@ It answers:
   carried remainder remains visibly filled
 - rectangle center dashed `bevel` cuts that outer corner square away while
   preserving diagonal bevel coverage
-- center dashed `round` join renders visible corner curvature on a promoted
+- center dashed `round` join renders visible corner curvature on a supported
   closed orthogonal vector path without filling the miter corner probe
 - closed non-self-intersecting vector center dashed stroke renders through the
-  same promoted path
+  same supported path
 - open vector `butt` and `square` caps remain visually distinguishable on the
-  promoted path
+  supported path
 - open vector center dashed `round` cap renders half-circle dash terminals
   without filling square-cap corner probes
 

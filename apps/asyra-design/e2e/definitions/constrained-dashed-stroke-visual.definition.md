@@ -1,23 +1,23 @@
 # Constrained Dashed Stroke Visual Definition
 
-This benchmark defines the screenshot-level oracle for the currently promoted
+This benchmark defines the screenshot-level oracle for the currently supported
 constrained dashed slices across:
 
-- Family A `full-loop visible`
-- the first Family B `single-edge visible interval`
-- the first Family C `corner-spanning visible interval`
-- the first promoted Phase 5 round representatives
-- the first promoted Phase 6 gradient-paint representative
+- full-loop topology family `full-loop visible`
+- the first single-edge topology family `single-edge visible interval`
+- the first corner-spanning topology family `corner-spanning visible interval`
+- the first supported join/cap round representatives
+- the first supported paint gradient-paint representative
 
 It answers:
 
-> When a promoted shape-generated or vector-generated closed path uses a
+> When a supported shape-generated or vector-generated closed path uses a
 > constrained dashed stroke whose visible interval either covers the full
-> closed loop, stays within one legal edge span, or crosses one promoted legal
-> corner, does the real app/runtime path render the promoted slices while
+> closed loop, stays within one legal edge span, or crosses one supported legal
+> corner, does the real app/runtime path render the supported slices while
 > keeping the remaining unsupported round/paint slices blocked?
 
-## Current promoted scope
+## Current supported scope
 
 - shape-generated `rect`
 - `position: inside`
@@ -33,18 +33,18 @@ It answers:
 - `position: outside`
 - one single-edge visible interval on a closed path
 - shape-generated `rect`
-- corner-spanning promoted representatives on a closed path:
+- corner-spanning supported representatives on a closed path:
   - `position: inside + join: bevel`
   - `position: inside + join: miter`
   - `position: outside + join: bevel`
   - `position: outside + join: miter`
 - vector-generated closed single-network rectangle-equivalent path
-- corner-spanning promoted representatives on a closed path:
+- corner-spanning supported representatives on a closed path:
   - `position: inside + join: bevel`
   - `position: inside + join: miter`
 - vector-generated closed single-network non-rectangle-equivalent quadrilateral
   path
-- corner-spanning promoted representatives on a closed path:
+- corner-spanning supported representatives on a closed path:
   - `position: inside + join: bevel`
   - `position: inside + join: miter`
   - `position: outside + join: bevel`
@@ -76,11 +76,11 @@ It answers:
 - rectangle outside constrained dashed single-edge stroke renders one visible
   outer interval on the same legal top edge span only
 - the first vector-generated closed rectangle-equivalent single-edge fixture
-  keeps the same inside/outside interval-local semantics on the promoted
+  keeps the same inside/outside interval-local semantics on the supported
   product path
 - the first broader vector-generated closed non-rectangle-equivalent
   single-edge fixture keeps the same inside/outside interval-local semantics
-  on the promoted product path
+  on the supported product path
 - the first corner-spanning constrained dashed representatives keep one
   visible interval across a legal corner while the rectangle center
   remains absent for the current supported representatives:
@@ -90,19 +90,19 @@ It answers:
   - `outside + miter`
 - the first vector-generated closed rectangle-equivalent corner-spanning
   constrained dashed representatives keep the same legal inside-corner
-  coverage on the promoted product path for:
+  coverage on the supported product path for:
   - `inside + bevel`
   - `inside + miter`
   - `outside + bevel`
   - `outside + miter`
 - the first broader vector-generated closed non-rectangle-equivalent
   corner-spanning constrained dashed representative keeps one visible inside
-  interval across the promoted top-right legal corner for:
+  interval across the supported top-right legal corner for:
   - `inside + bevel`
   - `inside + miter`
 - the next broader vector-generated closed non-rectangle-equivalent
   corner-spanning constrained dashed representative keeps one visible outside
-  interval across the same promoted top-right legal corner for:
+  interval across the same supported top-right legal corner for:
   - `outside + bevel`
   - `outside + miter`
 - oval inside constrained dashed full-loop stroke renders a visible inner band
@@ -110,107 +110,109 @@ It answers:
 - oval outside constrained dashed full-loop stroke renders a visible outer band
   on the same product path without filling the oval center
 - the first vector-generated closed rectangle-equivalent fixture keeps the same
-  inside/outside visible-band semantics on the promoted product path
+  inside/outside visible-band semantics on the supported product path
 - closed single-network vector repeated dashed strokes keep the authored
   `inside` / `outside` placement on the app path when the closed legality
-  domain is valid; they must not silently render as centered fallback
+  domain is valid; they must not silently render as centered substitute geometry
 - the first vector-generated closed rectangle-equivalent round-join fixture
   keeps the same `full-loop + inside + round join` constrained dashed
-  semantics on the promoted product path
+  semantics on the supported product path
 - the next vector-generated closed rectangle-equivalent round-join fixture
   keeps the same `full-loop + outside + round join` constrained dashed
-  semantics on the promoted product path
+  semantics on the supported product path
 - the next broader vector-generated closed non-rectangle-equivalent round-join
   fixture keeps the same `full-loop + outside + round join` constrained dashed
-  semantics on the promoted product path
+  semantics on the supported product path
 - shape-generated and vector-generated rectangle-equivalent fixtures keep
   matching `full-loop + outside + round join` constrained dashed coverage on
-  the next Phase 5 Family D equivalence gate
+  the next supported join/cap source-equivalence topology family equivalence gate
 - the next shape-generated `rect` round-join fixture keeps the same
   `full-loop + outside + round join` constrained dashed semantics on the
-  promoted product path
+  supported product path
 - the first vector-generated closed rectangle-equivalent round-cap fixture
   keeps the same `single-edge + inside + round cap` constrained dashed
-  semantics on the promoted product path
+  semantics on the supported product path
 - the next vector-generated closed rectangle-equivalent round-cap fixture
   keeps the same `single-edge + outside + round cap` constrained dashed
-  semantics on the promoted product path
+  semantics on the supported product path
 - shape-generated and vector-generated rectangle-equivalent fixtures keep
   matching `single-edge + outside + round cap` constrained dashed coverage on
-  the next Phase 5 Family D equivalence gate
+  the next supported join/cap source-equivalence topology family equivalence gate
 - the next shape-generated `rect` round-cap fixture keeps the same
   `single-edge + outside + round cap` constrained dashed semantics on the
-  promoted product path
+  supported product path
 - the first broader vector-generated closed non-rectangle-equivalent round-cap
   fixture keeps the same `single-edge + inside + round cap` constrained dashed
-  semantics on the promoted product path
+  semantics on the supported product path
 - the next broader vector-generated closed non-rectangle-equivalent round-cap
   fixture keeps the same `single-edge + outside + round cap` constrained
-  dashed semantics on the promoted product path
+  dashed semantics on the supported product path
 - the first broader vector-generated closed non-rectangle-equivalent round-join
   fixture keeps the same `full-loop + inside + round join` constrained dashed
-  semantics on the promoted product path
+  semantics on the supported product path
 - the shape-generated `rect` fixture keeps `corner-spanning + inside + round
-  join` constrained dashed coverage on the uniform-width Family C product path
+  join` constrained dashed coverage on the uniform-width corner-spanning topology family product path
 - the shape-generated `rect` fixture keeps `corner-spanning + outside + round
-  join` constrained dashed coverage on the uniform-width Family C product path
+  join` constrained dashed coverage on the uniform-width corner-spanning topology family product path
 - the closed rectangle-equivalent `vector` fixture keeps `corner-spanning +
   inside + round join` constrained dashed coverage on the uniform-width Family
   C product path
 - the closed rectangle-equivalent `vector` fixture keeps `corner-spanning +
   outside + round join` constrained dashed coverage on the uniform-width Family
   C product path
-- the first Phase 6 gradient-paint representative keeps the same constrained
+- supported full-loop constrained dashed round joins use the shared constrained
+  round geometry path; they must not substitute miter geometry as a proxy
+- the first supported paint gradient-paint representative keeps the same constrained
   dashed `rect + full-loop + inside` geometry while swapping only paint to a
   local-bounds linear gradient on the bounded app/runtime path
-- the next Phase 6 gradient-paint representative keeps the same constrained
+- the next supported paint gradient-paint representative keeps the same constrained
   dashed `rect + full-loop + outside` geometry while swapping only paint to a
   local-bounds linear gradient on the bounded app/runtime path
-- the next Phase 6 vector-generated gradient-paint representative keeps the
+- the next supported paint vector-generated gradient-paint representative keeps the
   same constrained dashed `full-loop + inside` geometry on a closed
   rectangle-equivalent `vector` path while swapping only paint to the same
   local-bounds linear gradient field
-- the next Phase 6 vector-generated gradient-paint representative keeps the
+- the next supported paint vector-generated gradient-paint representative keeps the
   same constrained dashed `full-loop + outside` geometry on a closed
   rectangle-equivalent `vector` path while swapping only paint to the same
   local-bounds linear gradient field
-- the next broader Phase 6 vector-generated gradient-paint representative keeps
+- the next broader supported paint vector-generated gradient-paint representative keeps
   the same constrained dashed `full-loop + inside` geometry on a closed
   non-rectangle-equivalent quadrilateral `vector` path while swapping only
   paint to the same local-bounds linear gradient field
-- the next broader Phase 6 vector-generated gradient-paint representative keeps
+- the next broader supported paint vector-generated gradient-paint representative keeps
   the same constrained dashed `full-loop + outside` geometry on a closed
   non-rectangle-equivalent quadrilateral `vector` path while swapping only
   paint to the same local-bounds linear gradient field
-- the next Phase 6 gradient-paint representative keeps the same constrained
+- the next supported paint gradient-paint representative keeps the same constrained
   dashed `rect + single-edge + inside` geometry while swapping only paint to a
   local-bounds linear gradient on the bounded app/runtime path
 - shape-generated and vector-generated rectangle-equivalent round-join
-  full-loop coverage stays within the declared tolerance on the first Phase 5
-  Family D equivalence gate
+  full-loop coverage stays within the declared tolerance on the first supported join/cap
+  source-equivalence topology family equivalence gate
 - shape-generated and vector-generated rectangle-equivalent round-cap
-  single-edge coverage stays within the declared tolerance on the next Phase 5
-  Family D equivalence gate
+  single-edge coverage stays within the declared tolerance on the next supported join/cap
+  source-equivalence topology family equivalence gate
 - shape-generated and vector-generated rectangle-equivalent full-loop gradient
-  coverage stays within the declared tolerance on the first Phase 6 Family D
+  coverage stays within the declared tolerance on the first supported paint source-equivalence topology family
   equivalence gate
 - the first broader vector-generated closed non-rectangle-equivalent fixture
-  keeps the same inside/outside visible-band semantics on the promoted product
+  keeps the same inside/outside visible-band semantics on the supported product
   path
 - shape-generated and vector-generated rectangle-equivalent full-loop coverage
-  stays within the declared tolerance on the first Family D equivalence gate
+  stays within the declared tolerance on the first source-equivalence topology family equivalence gate
 
 ## Required blocked behavior
 
 - shape-generated `rect` with multiple eligible constrained dashed strokes
-  remains visually absent until 4C ownership is promoted
+  remains visually absent until multi-stroke ownership is supported
 - open-path constrained dashed `vector` paths keep authored `inside` /
-  `outside` in scene data, but render through centered fallback instead of
-  disappearing; open-path constrained clipping remains unpromoted
+  `outside` in scene data and render through exact interval-local one-sided
+  geometry for supported simple open paths
 - real-created open single-network `vector` paths with repeated dash intervals
   keep authored `inside` / `outside` in scene data after switching from
-  `center`, but render through centered visibility fallback until exact
-  constrained open-path semantics are promoted
+  `center`, and render through exact constrained open-path semantics when the
+  topology is supported
 - real-created simple closed single-network `vector` paths with repeated dash
   intervals keep authored `inside` / `outside` in scene data after switching
   from `center`, and render through constrained multi-interval placement when
@@ -220,14 +222,14 @@ It answers:
   from `center`, and route through constrained multi-interval placement when
   the sampled closed legality domain is valid
 - self-intersecting constrained dashed full-loop `vector` paths remain visually
-  absent until that unsupported exact topology is promoted
+  absent until that unsupported exact topology is supported
 - the reported closed star-like single-network `vector` with repeated dash
   intervals keeps authored `inside` / `outside` in scene data after switching
   from `center`, and routes through constrained multi-interval placement when
   its sampled closed legality domain is valid; true self-intersecting
-  fill-rule legality remains unpromoted
+  fill-rule legality remains unsupported
 - multi-network constrained dashed `vector` paths remain visually absent until
-  that ownership path is promoted
+  that ownership path is supported
 - corner-spanning constrained dashed slices are not part of this benchmark and
   remain blocked/pending elsewhere, except for:
   - the first shape-generated `rect + inside + bevel/miter` representative pair
@@ -245,9 +247,9 @@ It answers:
   blocked/pending elsewhere
 - multi-network vector constrained dashed slices are not part of this benchmark
   and remain blocked/pending elsewhere
-- constrained dashed gradient-paint promotion beyond the first Phase 6
+- constrained dashed gradient-paint support beyond the first supported paint
   representative remains blocked/pending elsewhere:
-  - only these Phase 6 representatives are promoted here:
+  - only these supported paint representatives are supported here:
     - shape-generated `rect + full-loop + inside + local-bounds linear gradient paint`
     - shape-generated `rect + full-loop + outside + local-bounds linear gradient paint`
     - shape-generated `rect + single-edge + inside + local-bounds linear gradient paint`
@@ -269,7 +271,7 @@ It answers:
     representatives remain
     blocked/pending
   - corner-spanning constrained dashed gradient paint remains blocked/pending
-    beyond the first promoted representative:
+    beyond the first supported representative:
     - shape-generated `rect + inside + bevel + corner-spanning + local-bounds linear gradient paint`
     - shape-generated `rect + outside + bevel + corner-spanning + local-bounds linear gradient paint`
     - closed rectangle-equivalent `vector + inside + bevel + corner-spanning + local-bounds linear gradient paint`
@@ -303,15 +305,15 @@ It answers:
   - interior leakage stays absent on both sources
   - center coverage stays absent on both sources
 - repeat on one rectangle with `outside + single-edge + round cap` and verify:
-  - constrained dashed coverage exists on the promoted exterior terminal cap
-  - constrained dashed coverage exists on the promoted exterior body span
+  - constrained dashed coverage exists on the supported exterior terminal cap
+  - constrained dashed coverage exists on the supported exterior body span
   - terminal-cap leakage into the inner band remains absent
   - the later exterior gap remains absent
   - the rectangle center remains absent
 - repeat on one rectangle-equivalent closed vector path with
   `outside + single-edge + round cap` and verify:
-  - constrained dashed coverage exists on the promoted exterior terminal cap
-  - constrained dashed coverage exists on the promoted exterior body span
+  - constrained dashed coverage exists on the supported exterior terminal cap
+  - constrained dashed coverage exists on the supported exterior body span
   - terminal-cap leakage into the inner band remains absent
   - the later exterior gap remains absent
   - the vector center remains absent
@@ -324,8 +326,8 @@ It answers:
   - center coverage stays absent on both sources
 - repeat on one non-rectangle-equivalent closed vector path with
   `outside + single-edge + round cap` and verify:
-  - constrained dashed coverage exists on the promoted exterior terminal cap
-  - constrained dashed coverage exists on the promoted exterior body span
+  - constrained dashed coverage exists on the supported exterior terminal cap
+  - constrained dashed coverage exists on the supported exterior body span
   - terminal-cap leakage into the inner band remains absent
   - the later exterior gap remains absent
   - the vector center remains absent
@@ -552,14 +554,14 @@ It answers:
 - repeat on one vector path patched to a closed rectangle-equivalent network
   with `inside + single-edge + round cap` and verify:
   - cap coverage exists near the leading terminal
-  - body coverage exists on the promoted interval
+  - body coverage exists on the supported interval
   - exterior leakage remains absent
   - later top-edge spans remain absent
   - the vector center remains absent
 - repeat on one vector path patched to a closed non-rectangle-equivalent
   quadrilateral network with `inside + single-edge + round cap` and verify:
   - cap coverage exists near the leading terminal
-  - body coverage exists on the promoted interval
+  - body coverage exists on the supported interval
   - exterior leakage remains absent
   - later top-edge spans remain absent
   - the vector center remains absent
@@ -570,7 +572,7 @@ It answers:
   - the vector center remains absent
 - repeat on one rectangle with `inside + single-edge + round cap` and verify:
   - cap coverage exists near the leading terminal
-  - body coverage exists on the promoted interval
+  - body coverage exists on the supported interval
   - exterior leakage remains absent
   - later top-edge spans remain absent
   - the rectangle center remains absent
@@ -584,7 +586,7 @@ It answers:
   - the center-authored dashed stroke is visible
   - the same stroke remains visible after switching to authored `inside`
   - the same stroke remains visible after switching to authored `outside`
-  - the constrained switch uses the promoted constrained dashed packet path
+  - the constrained switch uses the supported constrained dashed packet path
     when the sampled closed legality domain is valid
 - repeat on one vector path patched to one open horizontal line and verify:
   - constrained dashed coverage remains absent on the authored line span
@@ -597,32 +599,32 @@ It answers:
   - the rectangle fixture stays axis-aligned for this probe
   - the authored dash pattern yields exactly one visible interval on the app
     fixture perimeter
-  - coverage exists on the promoted edge span
+  - coverage exists on the supported edge span
   - later spans on the same edge remain absent
   - the center remains absent
 - repeat on one rectangle with a corner-spanning visible interval and verify:
-  - coverage exists on both sides of the promoted inside corner
+  - coverage exists on both sides of the supported inside corner
   - unrelated top-edge spans remain absent
   - exterior leakage remains absent
   - the center remains absent
   - repeat once with `join: bevel`
   - repeat once with `join: miter`
   - repeat once with `position: outside + join: bevel` and verify:
-    - coverage exists on both promoted exterior corner-adjacent spans
+    - coverage exists on both supported exterior corner-adjacent spans
     - unrelated top-edge spans remain absent
     - interior leakage remains absent
     - the center remains absent
   - repeat once with `position: outside + join: miter` and verify:
-    - coverage exists on both promoted exterior corner-adjacent spans
+    - coverage exists on both supported exterior corner-adjacent spans
     - unrelated top-edge spans remain absent
     - interior leakage remains absent
     - the center remains absent
 - repeat the same inside/outside probe strategy on one oval
 - create one vector path, patch it to a closed rectangle-equivalent network,
-  and repeat the same inside/outside probes on the promoted vector fixture
+  and repeat the same inside/outside probes on the supported vector fixture
 - repeat on one vector path patched to a closed rectangle-equivalent network
   with a corner-spanning visible interval and verify:
-  - coverage exists on both sides of the promoted inside corner
+  - coverage exists on both sides of the supported inside corner
   - unrelated top-edge spans remain absent
   - exterior leakage remains absent
   - the center remains absent
@@ -630,7 +632,7 @@ It answers:
   - repeat once with `join: miter`
 - repeat on one vector path patched to a closed non-rectangle-equivalent
   quadrilateral network with a corner-spanning visible interval and verify:
-  - coverage exists on the promoted top edge near the corner
+  - coverage exists on the supported top edge near the corner
   - coverage exists on the adjacent slanted edge near the same corner
   - unrelated top-edge spans remain absent
   - exterior leakage remains absent
@@ -638,18 +640,18 @@ It answers:
   - repeat once with `position: inside + join: bevel`
   - repeat once with `position: inside + join: miter`
   - repeat once with `position: outside + join: bevel`
-    - coverage exists on the promoted top outside span near the corner
+    - coverage exists on the supported top outside span near the corner
     - coverage exists on the adjacent slanted outside span near the same corner
     - interior leakage remains absent
   - repeat once with `position: outside + join: miter`
-    - coverage exists on the promoted top outside span near the corner
+    - coverage exists on the supported top outside span near the corner
     - coverage exists on the adjacent slanted outside span near the same corner
     - interior leakage remains absent
 - create one vector path, patch it to a closed non-rectangle-equivalent
   quadrilateral network, and repeat:
   - the same inside/outside probes on the first broader full-loop vector
     fixture
-  - the same inside/outside single-edge probes on the first broader Family B
+  - the same inside/outside single-edge probes on the first broader single-edge topology family
     vector fixture
 - compare shape-generated and vector-generated probe coverage deltas for both
   `inside` and `outside`

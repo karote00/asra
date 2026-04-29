@@ -10,7 +10,7 @@ import {
 describe('center dashed overlap integration', () => {
   it('should run: real dashed-center packets from two overlapping strokes produce one overlap component', () => {
     const packets = buildDashedCenterStrokeResolvedPackets(
-      'phase4a',
+      'center-dashed-overlap',
       [
         { x: 0, y: 0 },
         { x: 120, y: 0 }
@@ -46,20 +46,25 @@ describe('center dashed overlap integration', () => {
       ]
     )
 
-    const candidates = buildCenterDashedOverlapCandidatesFromResolvedPackets(packets)
+    const candidates =
+      buildCenterDashedOverlapCandidatesFromResolvedPackets(packets)
     const graph = buildCenterDashedOverlapGraph(candidates)
     const components = extractCenterDashedOverlapComponents(graph)
 
-    expect(candidates.some((candidate) => candidate.strokeId === 'stroke:0')).toBe(true)
-    expect(candidates.some((candidate) => candidate.strokeId === 'stroke:1')).toBe(true)
+    expect(
+      candidates.some((candidate) => candidate.strokeId === 'stroke:0')
+    ).toBe(true)
+    expect(
+      candidates.some((candidate) => candidate.strokeId === 'stroke:1')
+    ).toBe(true)
     expect(graph.edges.length).toBeGreaterThan(0)
     expect(components.length).toBeLessThan(candidates.length)
     expect(components.some((component) => component.length > 1)).toBe(true)
   })
 
-  it('should run: overlap candidates preserve interval identity from the promoted packet geometry ids', () => {
+  it('should run: overlap candidates preserve interval identity from the supported packet geometry ids', () => {
     const packets = buildDashedCenterStrokeResolvedPackets(
-      'phase4a',
+      'center-dashed-overlap',
       [
         { x: 0, y: 0 },
         { x: 80, y: 0 }
@@ -79,16 +84,29 @@ describe('center dashed overlap integration', () => {
           dashPattern: [20, 10],
           dashOffset: 0
         })
-      ]
+      ],
+      {
+        metadata: {
+          ownerKeyPrefix: 'vector:diagnostic:network-a',
+          networkId: 'network-a'
+        }
+      }
     )
 
-    const candidates = buildCenterDashedOverlapCandidatesFromResolvedPackets(packets)
+    const candidates =
+      buildCenterDashedOverlapCandidatesFromResolvedPackets(packets)
 
     expect(candidates).not.toEqual([])
     candidates.forEach((candidate) => {
-      expect(candidate.candidateId.startsWith('phase4a:0:interval:')).toBe(true)
+      expect(
+        candidate.candidateId.startsWith(
+          'center-dashed-overlap:0:interval:'
+        )
+      ).toBe(true)
       expect(candidate.intervalId.startsWith('interval:')).toBe(true)
       expect(candidate.strokeId).toBe('stroke:0')
+      expect(candidate.ownerKey).toBe('vector:diagnostic:network-a:stroke:0')
+      expect(candidate.networkId).toBe('network-a')
       expect(candidate.authoredVisibleIntervalIndex).toBeGreaterThanOrEqual(0)
       expect(candidate.endDistance).toBeGreaterThan(candidate.startDistance)
     })

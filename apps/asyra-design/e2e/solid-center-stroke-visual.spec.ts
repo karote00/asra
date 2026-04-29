@@ -39,7 +39,6 @@ const MIN_MITER_CORNER_COVERAGE = 0.55
 const MAX_BEVEL_CORNER_COVERAGE = 0.45
 const MAX_EDGE_COVERAGE_DELTA = 0.12
 const MAX_CENTER_COVERAGE = 0.03
-const MAX_UNSUPPORTED_COVERAGE = 0.03
 const MIN_BEVEL_DIAGONAL_COVERAGE = 0.35
 
 const getSelectedElementSnapshot = async (
@@ -80,13 +79,20 @@ const captureSelectedElementRaster = async (
   const clip = {
     x: Math.max(
       0,
-      Math.floor(snapshot.rect.x * snapshot.zoom + snapshot.viewport.x - padding)
+      Math.floor(
+        snapshot.rect.x * snapshot.zoom + snapshot.viewport.x - padding
+      )
     ),
     y: Math.max(
       0,
-      Math.floor(snapshot.rect.y * snapshot.zoom + snapshot.viewport.y - padding)
+      Math.floor(
+        snapshot.rect.y * snapshot.zoom + snapshot.viewport.y - padding
+      )
     ),
-    width: Math.max(1, Math.ceil(snapshot.rect.width * snapshot.zoom + padding * 2)),
+    width: Math.max(
+      1,
+      Math.ceil(snapshot.rect.width * snapshot.zoom + padding * 2)
+    ),
     height: Math.max(
       1,
       Math.ceil(snapshot.rect.height * snapshot.zoom + padding * 2)
@@ -151,7 +157,14 @@ const getGreenCoverage = async (
         for (let x = startX; x < endX; x += 1) {
           const [r, g, b, a] = context.getImageData(x, y, 1, 1).data
           total += 1
-          if (a > 180 && g > 170 && r < 120 && b < 120 && g - r > 70 && g - b > 70) {
+          if (
+            a > 180 &&
+            g > 170 &&
+            r < 120 &&
+            b < 120 &&
+            g - r > 70 &&
+            g - b > 70
+          ) {
             green += 1
           }
         }
@@ -190,8 +203,12 @@ const configureRectangleCenterStroke = async (
   const color = config.color ?? STROKE_COLOR
 
   await propertiesPanel.getByTestId('prop-stroke-style-0').selectOption('solid')
-  await propertiesPanel.getByTestId('prop-stroke-position-0').selectOption('center')
-  await propertiesPanel.getByTestId('prop-stroke-join-0').selectOption(config.join)
+  await propertiesPanel
+    .getByTestId('prop-stroke-position-0')
+    .selectOption('center')
+  await propertiesPanel
+    .getByTestId('prop-stroke-join-0')
+    .selectOption(config.join)
   await propertiesPanel
     .getByTestId('prop-stroke-cap-0')
     .selectOption(config.cap ?? 'butt')
@@ -296,12 +313,12 @@ test.describe('Solid Center Stroke Visual Benchmarks', () => {
 
     const [topBand, leftBand, center, outerCornerSquare, bevelDiagonal] =
       await Promise.all([
-      getGreenCoverage(page, raster, probes.topBand),
-      getGreenCoverage(page, raster, probes.leftBand),
-      getGreenCoverage(page, raster, probes.center),
-      getGreenCoverage(page, raster, probes.outerCornerSquare),
-      getGreenCoverage(page, raster, probes.bevelDiagonal)
-    ])
+        getGreenCoverage(page, raster, probes.topBand),
+        getGreenCoverage(page, raster, probes.leftBand),
+        getGreenCoverage(page, raster, probes.center),
+        getGreenCoverage(page, raster, probes.outerCornerSquare),
+        getGreenCoverage(page, raster, probes.bevelDiagonal)
+      ])
 
     expect(topBand).toBeGreaterThan(MIN_BAND_COVERAGE)
     expect(leftBand).toBeGreaterThan(MIN_BAND_COVERAGE)

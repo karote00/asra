@@ -72,13 +72,20 @@ const captureSelectedElementRaster = async (
   const clip = {
     x: Math.max(
       0,
-      Math.floor(snapshot.rect.x * snapshot.zoom + snapshot.viewport.x - padding)
+      Math.floor(
+        snapshot.rect.x * snapshot.zoom + snapshot.viewport.x - padding
+      )
     ),
     y: Math.max(
       0,
-      Math.floor(snapshot.rect.y * snapshot.zoom + snapshot.viewport.y - padding)
+      Math.floor(
+        snapshot.rect.y * snapshot.zoom + snapshot.viewport.y - padding
+      )
     ),
-    width: Math.max(1, Math.ceil(snapshot.rect.width * snapshot.zoom + padding * 2)),
+    width: Math.max(
+      1,
+      Math.ceil(snapshot.rect.width * snapshot.zoom + padding * 2)
+    ),
     height: Math.max(
       1,
       Math.ceil(snapshot.rect.height * snapshot.zoom + padding * 2)
@@ -145,7 +152,9 @@ const getBlueCoverage = async (
 
 const ensureStrokeRow = async (page: Page) => {
   const propertiesPanel = getPropertiesPanel(page)
-  await expect(propertiesPanel.getByTestId('prop-strokes-section')).toBeVisible()
+  await expect(
+    propertiesPanel.getByTestId('prop-strokes-section')
+  ).toBeVisible()
   if (await propertiesPanel.getByTestId('prop-strokes-empty').isVisible()) {
     await propertiesPanel.getByTestId('prop-stroke-add').click()
   }
@@ -373,8 +382,12 @@ test.describe('Element Selection', () => {
 
     await ensureStrokeRow(page)
     const propertiesPanel = getPropertiesPanel(page)
-    await propertiesPanel.getByTestId('prop-stroke-style-0').selectOption('solid')
-    await propertiesPanel.getByTestId('prop-stroke-position-0').selectOption('outside')
+    await propertiesPanel
+      .getByTestId('prop-stroke-style-0')
+      .selectOption('solid')
+    await propertiesPanel
+      .getByTestId('prop-stroke-position-0')
+      .selectOption('outside')
     await propertiesPanel.getByTestId('prop-stroke-width-0').fill('16')
     await propertiesPanel.getByTestId('prop-stroke-width-0').press('Enter')
     await page.waitForTimeout(180)
@@ -494,9 +507,7 @@ test.describe('Element Selection', () => {
     await createRectangle(page, 0.45, 0.4)
 
     const contentsPanel = getContentsPanel(page)
-    const firstRow = contentsPanel
-      .locator('[data-layer-element="true"]')
-      .nth(0)
+    const firstRow = contentsPanel.locator('[data-layer-element="true"]').nth(0)
     const secondRow = contentsPanel
       .locator('[data-layer-element="true"]')
       .nth(1)

@@ -2,7 +2,7 @@
 
 ## Scope
 
-This benchmark validates the first visible Phase 4B legality-domain viewer on
+This benchmark validates the visible constrained-solid legality-domain viewer on
 the real app/runtime path.
 
 Current benchmark scope:
@@ -48,7 +48,7 @@ Current benchmark scope:
 
 ## Expected Behavior
 
-- when Phase 4B debug mode is enabled, the selected element must show a visible
+- when constrained-solid legality debug mode is enabled, the selected element must show a visible
   legality-domain overlay
 - inside legality overlays must use the inside-mode color family
 - outside legality overlays must use the outside-mode color family

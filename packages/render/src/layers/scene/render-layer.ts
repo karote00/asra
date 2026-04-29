@@ -9,6 +9,9 @@ import { ElementInteractionHandler } from './element-interaction-handler'
 import renderStrategyRegistry from '../../registries/render-strategy'
 import { defaultStrategy } from '../../strategies/default-strategy'
 
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value)
+
 export class RenderLayer {
   private currentWorkspace: Container
   private _elements: Map<string, SceneElement> = new Map()
@@ -62,6 +65,24 @@ export class RenderLayer {
     this.currentWorkspace.y = workspaceData.y
   }
 
+  private renderGraphic(graphic: Graphics, data: RenderElementData) {
+    const strategy = renderStrategyRegistry.get(data.type) || defaultStrategy
+    try {
+      strategy(graphic, data)
+      graphic.visible = data.visible !== false
+      return true
+    } catch (error) {
+      console.error('[RenderLayer] Element render strategy failed', {
+        elementId: data.id,
+        type: data.type,
+        error
+      })
+      graphic.clear()
+      graphic.visible = false
+      return false
+    }
+  }
+
   addContainer(containerData: RenderContainerData) {
     const container = new Container(containerData)
     this._elements.set(containerData.label, container)
@@ -71,16 +92,18 @@ export class RenderLayer {
   }
 
   addElement(data: RenderElementData) {
+    if (!data || typeof data.id !== 'string' || typeof data.type !== 'string') {
+      return undefined
+    }
+
     const existingElement = this.getElementById(data.id)
     if (existingElement) {
       ;(
         existingElement as SceneElement & { __asyraType?: string }
       ).__asyraType = data.type
 
-      const strategy = renderStrategyRegistry.get(data.type) || defaultStrategy
       if (existingElement instanceof Graphics) {
-        strategy(existingElement, data)
-        existingElement.visible = data.visible !== false
+        this.renderGraphic(existingElement, data)
       }
 
       if (existingElement.parent !== this.currentWorkspace) {
@@ -95,10 +118,8 @@ export class RenderLayer {
       ;(element as SceneElement & { __asyraType?: string }).__asyraType =
         data.type
 
-      const strategy = renderStrategyRegistry.get(data.type) || defaultStrategy
       if (element instanceof Graphics) {
-        strategy(element, data)
-        element.visible = data.visible !== false
+        this.renderGraphic(element, data)
       }
 
       this.addToMap(data.id, element)
@@ -111,10 +132,7 @@ export class RenderLayer {
     ;(graphic as SceneElement & { __asyraType?: string }).__asyraType =
       data.type
 
-    // Use registry to get render strategy, fallback to default
-    const strategy = renderStrategyRegistry.get(data.type) || defaultStrategy
-    strategy(graphic, data)
-    graphic.visible = data.visible !== false
+    this.renderGraphic(graphic, data)
 
     this.addToMap(data.id, graphic)
     this.currentWorkspace.addChild(graphic)
@@ -149,10 +167,15 @@ export class RenderLayer {
 
     // Handle children separately as it requires structural changes
     if (key === 'children') {
-      const oldList = new Set(before as string[])
+      const previousChildren = Array.isArray(before) ? before : []
+      const nextChildren = Array.isArray(after) ? after : []
+      const oldList = new Set(previousChildren as string[])
       const deleteCount = 0
       // Add element
-      ;(after as string[]).forEach((childId, index) => {
+      nextChildren.forEach((childId, index) => {
+        if (typeof childId !== 'string') {
+          return
+        }
         const child = this.getElementById(childId)
         if (!child) {
           return
@@ -177,7 +200,7 @@ export class RenderLayer {
 
       // Move element
       element.children.forEach((child, index) => {
-        const newIndex = (after as string[]).indexOf(child.label)
+        const newIndex = nextChildren.indexOf(child.label)
         if (newIndex !== index && newIndex !== -1) {
           element.setChildIndex(child, newIndex)
         }
@@ -190,7 +213,7 @@ export class RenderLayer {
       ? renderStrategyRegistry.get(data.type) || defaultStrategy
       : null
     if (strategy && element instanceof Graphics && data) {
-      strategy(element, data)
+      this.renderGraphic(element, data)
     } else {
       this.updateElementProperties(element, key, after)
     }
@@ -203,16 +226,24 @@ export class RenderLayer {
   ) {
     switch (key) {
       case 'x':
-        element.x = after as number
+        if (isFiniteNumber(after)) {
+          element.x = after
+        }
         break
       case 'y':
-        element.y = after as number
+        if (isFiniteNumber(after)) {
+          element.y = after
+        }
         break
       case 'width':
-        element.width = after as number
+        if (isFiniteNumber(after) && after >= 0) {
+          element.width = after
+        }
         break
       case 'height':
-        element.height = after as number
+        if (isFiniteNumber(after) && after >= 0) {
+          element.height = after
+        }
         break
       case 'visible':
         element.visible = Boolean(after)

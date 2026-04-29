@@ -223,8 +223,12 @@ describe('center dashed ownership', () => {
       {
         componentId: 'component:3',
         reason: 'owner-tie-unresolved',
+        preservedOwnerKeys: [],
         preservedPreviewIntervalIds: ['interval:a', 'interval:b'],
-        preservedPreviewPolygons: [rectangle(0, 0, 10, 10), rectangle(1, 1, 8, 8)]
+        preservedPreviewPolygons: [
+          rectangle(0, 0, 10, 10),
+          rectangle(1, 1, 8, 8)
+        ]
       }
     ])
   })

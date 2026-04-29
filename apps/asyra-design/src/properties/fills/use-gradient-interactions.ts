@@ -444,7 +444,8 @@ export const useGradientInteractions = ({
 
   const updateStopPositionFromClientX = (clientX: number) => {
     const draggingIndex = draggingStopIndexRef.current
-    const rect = dragRectRef.current ?? stripRef.current?.getBoundingClientRect()
+    const rect =
+      dragRectRef.current ?? stripRef.current?.getBoundingClientRect()
     if (!rect || draggingIndex === null) {
       return
     }

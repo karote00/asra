@@ -32,8 +32,8 @@ class Render {
     this._animateHandler = () => {
       this.updateLayers()
     }
-    this.interactionBridge = new RenderInteractionBridge(
-      (event) => this.getPointerPositions(event)
+    this.interactionBridge = new RenderInteractionBridge((event) =>
+      this.getPointerPositions(event)
     )
   }
 

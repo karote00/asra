@@ -21,12 +21,15 @@ const ensureDebugFlag = async (page: Page, enabled: boolean) => {
   await page.evaluate((nextEnabled) => {
     ;(
       window as unknown as {
-        __ASYRA_PHASE4B_STROKE_DEBUG__?: {
+        __ASYRA_CONSTRAINED_SOLID_LEGALITY_DEBUG__?: {
           enabled?: boolean
           mode?: 'legality' | 'ownership' | 'all'
         }
       }
-    ).__ASYRA_PHASE4B_STROKE_DEBUG__ = { enabled: nextEnabled, mode: 'legality' }
+    ).__ASYRA_CONSTRAINED_SOLID_LEGALITY_DEBUG__ = {
+      enabled: nextEnabled,
+      mode: 'legality'
+    }
   }, enabled)
 }
 
@@ -34,12 +37,15 @@ const ensureOwnershipDebugFlag = async (page: Page, enabled: boolean) => {
   await page.evaluate((nextEnabled) => {
     ;(
       window as unknown as {
-        __ASYRA_PHASE4B_STROKE_DEBUG__?: {
+        __ASYRA_CONSTRAINED_SOLID_LEGALITY_DEBUG__?: {
           enabled?: boolean
           mode?: 'legality' | 'ownership' | 'all'
         }
       }
-    ).__ASYRA_PHASE4B_STROKE_DEBUG__ = { enabled: nextEnabled, mode: 'ownership' }
+    ).__ASYRA_CONSTRAINED_SOLID_LEGALITY_DEBUG__ = {
+      enabled: nextEnabled,
+      mode: 'ownership'
+    }
   }, enabled)
 }
 
@@ -62,7 +68,9 @@ const configureConstrainedStroke = async (
   await propertiesPanel.getByTestId('prop-height').fill('120')
   await propertiesPanel.getByTestId('prop-height').press('Enter')
 
-  await propertiesPanel.getByTestId('prop-stroke-position-0').selectOption(position)
+  await propertiesPanel
+    .getByTestId('prop-stroke-position-0')
+    .selectOption(position)
   await propertiesPanel.getByTestId('prop-stroke-style-0').selectOption('solid')
   await propertiesPanel.getByTestId('prop-stroke-width-0').fill('12')
   await propertiesPanel.getByTestId('prop-stroke-width-0').press('Enter')
@@ -84,8 +92,12 @@ const configureOutsideSolidStrokeRow = async (
   await propertiesPanel
     .getByTestId(`prop-stroke-style-${index}`)
     .selectOption('solid')
-  await propertiesPanel.getByTestId(`prop-stroke-join-${index}`).selectOption(join)
-  await propertiesPanel.getByTestId(`prop-stroke-width-${index}`).fill(String(width))
+  await propertiesPanel
+    .getByTestId(`prop-stroke-join-${index}`)
+    .selectOption(join)
+  await propertiesPanel
+    .getByTestId(`prop-stroke-width-${index}`)
+    .fill(String(width))
   await propertiesPanel.getByTestId(`prop-stroke-width-${index}`).press('Enter')
   await propertiesPanel.getByTestId(`prop-stroke-color-${index}`).fill(colorHex)
   await propertiesPanel.getByTestId(`prop-stroke-color-${index}`).press('Enter')
@@ -123,14 +135,62 @@ const patchSelectedVectorToTwoClosedRectangles = async (page: Page) => {
     }
 
     const nextSegments = {
-      ab: { id: 'ab', startId: 'a', endId: 'b', outControlId: null, inControlId: null },
-      bc: { id: 'bc', startId: 'b', endId: 'c', outControlId: null, inControlId: null },
-      cd: { id: 'cd', startId: 'c', endId: 'd', outControlId: null, inControlId: null },
-      da: { id: 'da', startId: 'd', endId: 'a', outControlId: null, inControlId: null },
-      ef: { id: 'ef', startId: 'e', endId: 'f', outControlId: null, inControlId: null },
-      fg: { id: 'fg', startId: 'f', endId: 'g', outControlId: null, inControlId: null },
-      gh: { id: 'gh', startId: 'g', endId: 'h', outControlId: null, inControlId: null },
-      he: { id: 'he', startId: 'h', endId: 'e', outControlId: null, inControlId: null }
+      ab: {
+        id: 'ab',
+        startId: 'a',
+        endId: 'b',
+        outControlId: null,
+        inControlId: null
+      },
+      bc: {
+        id: 'bc',
+        startId: 'b',
+        endId: 'c',
+        outControlId: null,
+        inControlId: null
+      },
+      cd: {
+        id: 'cd',
+        startId: 'c',
+        endId: 'd',
+        outControlId: null,
+        inControlId: null
+      },
+      da: {
+        id: 'da',
+        startId: 'd',
+        endId: 'a',
+        outControlId: null,
+        inControlId: null
+      },
+      ef: {
+        id: 'ef',
+        startId: 'e',
+        endId: 'f',
+        outControlId: null,
+        inControlId: null
+      },
+      fg: {
+        id: 'fg',
+        startId: 'f',
+        endId: 'g',
+        outControlId: null,
+        inControlId: null
+      },
+      gh: {
+        id: 'gh',
+        startId: 'g',
+        endId: 'h',
+        outControlId: null,
+        inControlId: null
+      },
+      he: {
+        id: 'he',
+        startId: 'h',
+        endId: 'e',
+        outControlId: null,
+        inControlId: null
+      }
     }
 
     core?.changeComputedData?.(
@@ -190,10 +250,34 @@ const patchSelectedVectorToClosedRectangle = async (page: Page) => {
     }
 
     const nextSegments = {
-      ab: { id: 'ab', startId: 'a', endId: 'b', outControlId: null, inControlId: null },
-      bc: { id: 'bc', startId: 'b', endId: 'c', outControlId: null, inControlId: null },
-      cd: { id: 'cd', startId: 'c', endId: 'd', outControlId: null, inControlId: null },
-      da: { id: 'da', startId: 'd', endId: 'a', outControlId: null, inControlId: null }
+      ab: {
+        id: 'ab',
+        startId: 'a',
+        endId: 'b',
+        outControlId: null,
+        inControlId: null
+      },
+      bc: {
+        id: 'bc',
+        startId: 'b',
+        endId: 'c',
+        outControlId: null,
+        inControlId: null
+      },
+      cd: {
+        id: 'cd',
+        startId: 'c',
+        endId: 'd',
+        outControlId: null,
+        inControlId: null
+      },
+      da: {
+        id: 'da',
+        startId: 'd',
+        endId: 'a',
+        outControlId: null,
+        inControlId: null
+      }
     }
 
     core?.changeComputedData?.(
@@ -255,159 +339,6 @@ const patchSelectedVectorToMixedTopologyWithNonOrthogonalPiece = async (
     }
 
     const nextSegments = {
-      ab: { id: 'ab', startId: 'a', endId: 'b', outControlId: null, inControlId: null },
-      bc: { id: 'bc', startId: 'b', endId: 'c', outControlId: null, inControlId: null },
-      cd: { id: 'cd', startId: 'c', endId: 'd', outControlId: null, inControlId: null },
-      de: { id: 'de', startId: 'd', endId: 'e', outControlId: null, inControlId: null },
-      ea: { id: 'ea', startId: 'e', endId: 'a', outControlId: null, inControlId: null },
-      fg: { id: 'fg', startId: 'f', endId: 'g', outControlId: null, inControlId: null },
-      gh: { id: 'gh', startId: 'g', endId: 'h', outControlId: null, inControlId: null },
-      hi: { id: 'hi', startId: 'h', endId: 'i', outControlId: null, inControlId: null },
-      if: { id: 'if', startId: 'i', endId: 'f', outControlId: null, inControlId: null }
-    }
-
-    core?.changeComputedData?.(
-      [selectedId],
-      {
-        points: nextPoints,
-        segments: nextSegments,
-        networks: {
-          [primaryNetwork.id]: {
-            id: primaryNetwork.id,
-            pointIds: ['a', 'b', 'c', 'd', 'e'],
-            segmentIds: ['ab', 'bc', 'cd', 'de', 'ea'],
-            closed: true
-          },
-          [secondaryNetworkId]: {
-            id: secondaryNetworkId,
-            pointIds: ['f', 'g', 'h', 'i'],
-            segmentIds: ['fg', 'gh', 'hi', 'if'],
-            closed: true
-          }
-        },
-        closed: true,
-        width: 200,
-        height: 40
-      },
-      { undoable: false }
-    )
-  })
-
-  await page.waitForTimeout(180)
-}
-
-const patchSelectedVectorToEquivalentMixedTopologyWithNonOrthogonalPiece = async (
-  page: Page
-) => {
-  await page.evaluate(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
-    const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
-    if (!selectedId) {
-      throw new Error('No selected vector to patch')
-    }
-
-    const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
-    const computed = element?.getAllComputedData?.()
-    const primaryNetwork = Object.values(computed?.networks ?? {})[0] as
-      | { id: string }
-      | undefined
-
-    if (!computed || !primaryNetwork) {
-      throw new Error('Missing vector topology')
-    }
-
-    const secondaryNetworkId = `${primaryNetwork.id}:secondary`
-    const nextPoints = {
-      a: { id: 'a', kind: 'anchor', x: 0, y: 40, anchorType: 'sharp' },
-      b: { id: 'b', kind: 'anchor', x: 40, y: 20, anchorType: 'sharp' },
-      c: { id: 'c', kind: 'anchor', x: 80, y: 40, anchorType: 'sharp' },
-      d: { id: 'd', kind: 'anchor', x: 80, y: 0, anchorType: 'sharp' },
-      e: { id: 'e', kind: 'anchor', x: 0, y: 0, anchorType: 'sharp' },
-      f: { id: 'f', kind: 'anchor', x: 120, y: 40, anchorType: 'sharp' },
-      g: { id: 'g', kind: 'anchor', x: 200, y: 40, anchorType: 'sharp' },
-      h: { id: 'h', kind: 'anchor', x: 200, y: 0, anchorType: 'sharp' },
-      i: { id: 'i', kind: 'anchor', x: 120, y: 0, anchorType: 'sharp' }
-    }
-
-    const nextSegments = {
-      ab: { id: 'ab', startId: 'a', endId: 'b', outControlId: null, inControlId: null },
-      bc: { id: 'bc', startId: 'b', endId: 'c', outControlId: null, inControlId: null },
-      cd: { id: 'cd', startId: 'c', endId: 'd', outControlId: null, inControlId: null },
-      de: { id: 'de', startId: 'd', endId: 'e', outControlId: null, inControlId: null },
-      ea: { id: 'ea', startId: 'e', endId: 'a', outControlId: null, inControlId: null },
-      fg: { id: 'fg', startId: 'f', endId: 'g', outControlId: null, inControlId: null },
-      gh: { id: 'gh', startId: 'g', endId: 'h', outControlId: null, inControlId: null },
-      hi: { id: 'hi', startId: 'h', endId: 'i', outControlId: null, inControlId: null },
-      if: { id: 'if', startId: 'i', endId: 'f', outControlId: null, inControlId: null }
-    }
-
-    core?.changeComputedData?.(
-      [selectedId],
-      {
-        points: nextPoints,
-        segments: nextSegments,
-        networks: {
-          [primaryNetwork.id]: {
-            id: primaryNetwork.id,
-            pointIds: ['a', 'b', 'c', 'd', 'e'],
-            segmentIds: ['ab', 'bc', 'cd', 'de', 'ea'],
-            closed: true
-          },
-          [secondaryNetworkId]: {
-            id: secondaryNetworkId,
-            pointIds: ['f', 'g', 'h', 'i'],
-            segmentIds: ['fg', 'gh', 'hi', 'if'],
-            closed: true
-          }
-        },
-        closed: true,
-        width: 200,
-        height: 40
-      },
-      { undoable: false }
-    )
-  })
-
-  await page.waitForTimeout(180)
-}
-
-const patchSelectedVectorToMixedTopologyWithMultipleNonOrthogonalPieces = async (
-  page: Page
-) => {
-  await page.evaluate(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
-    const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
-    if (!selectedId) {
-      throw new Error('No selected vector to patch')
-    }
-
-    const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
-    const computed = element?.getAllComputedData?.()
-    const primaryNetwork = Object.values(computed?.networks ?? {})[0] as
-      | { id: string }
-      | undefined
-
-    if (!computed || !primaryNetwork) {
-      throw new Error('Missing vector topology')
-    }
-
-    const secondaryNetworkId = `${primaryNetwork.id}:secondary`
-    const nextPoints = {
-      a: { id: 'a', kind: 'anchor', x: 0, y: 0, anchorType: 'sharp' },
-      b: { id: 'b', kind: 'anchor', x: 80, y: 0, anchorType: 'sharp' },
-      c: { id: 'c', kind: 'anchor', x: 80, y: 40, anchorType: 'sharp' },
-      d: { id: 'd', kind: 'anchor', x: 40, y: 20, anchorType: 'sharp' },
-      e: { id: 'e', kind: 'anchor', x: 0, y: 40, anchorType: 'sharp' },
-      f: { id: 'f', kind: 'anchor', x: 120, y: 0, anchorType: 'sharp' },
-      g: { id: 'g', kind: 'anchor', x: 200, y: 0, anchorType: 'sharp' },
-      h: { id: 'h', kind: 'anchor', x: 200, y: 40, anchorType: 'sharp' },
-      i: { id: 'i', kind: 'anchor', x: 160, y: 20, anchorType: 'sharp' },
-      j: { id: 'j', kind: 'anchor', x: 120, y: 40, anchorType: 'sharp' }
-    }
-
-    const nextSegments = {
       ab: {
         id: 'ab',
         startId: 'a',
@@ -464,16 +395,9 @@ const patchSelectedVectorToMixedTopologyWithMultipleNonOrthogonalPieces = async 
         outControlId: null,
         inControlId: null
       },
-      ij: {
-        id: 'ij',
+      if: {
+        id: 'if',
         startId: 'i',
-        endId: 'j',
-        outControlId: null,
-        inControlId: null
-      },
-      jf: {
-        id: 'jf',
-        startId: 'j',
         endId: 'f',
         outControlId: null,
         inControlId: null
@@ -494,8 +418,8 @@ const patchSelectedVectorToMixedTopologyWithMultipleNonOrthogonalPieces = async 
           },
           [secondaryNetworkId]: {
             id: secondaryNetworkId,
-            pointIds: ['f', 'g', 'h', 'i', 'j'],
-            segmentIds: ['fg', 'gh', 'hi', 'ij', 'jf'],
+            pointIds: ['f', 'g', 'h', 'i'],
+            segmentIds: ['fg', 'gh', 'hi', 'if'],
             closed: true
           }
         },
@@ -509,6 +433,272 @@ const patchSelectedVectorToMixedTopologyWithMultipleNonOrthogonalPieces = async 
 
   await page.waitForTimeout(180)
 }
+
+const patchSelectedVectorToEquivalentMixedTopologyWithNonOrthogonalPiece =
+  async (page: Page) => {
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+      if (!selectedId) {
+        throw new Error('No selected vector to patch')
+      }
+
+      const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+      const computed = element?.getAllComputedData?.()
+      const primaryNetwork = Object.values(computed?.networks ?? {})[0] as
+        | { id: string }
+        | undefined
+
+      if (!computed || !primaryNetwork) {
+        throw new Error('Missing vector topology')
+      }
+
+      const secondaryNetworkId = `${primaryNetwork.id}:secondary`
+      const nextPoints = {
+        a: { id: 'a', kind: 'anchor', x: 0, y: 40, anchorType: 'sharp' },
+        b: { id: 'b', kind: 'anchor', x: 40, y: 20, anchorType: 'sharp' },
+        c: { id: 'c', kind: 'anchor', x: 80, y: 40, anchorType: 'sharp' },
+        d: { id: 'd', kind: 'anchor', x: 80, y: 0, anchorType: 'sharp' },
+        e: { id: 'e', kind: 'anchor', x: 0, y: 0, anchorType: 'sharp' },
+        f: { id: 'f', kind: 'anchor', x: 120, y: 40, anchorType: 'sharp' },
+        g: { id: 'g', kind: 'anchor', x: 200, y: 40, anchorType: 'sharp' },
+        h: { id: 'h', kind: 'anchor', x: 200, y: 0, anchorType: 'sharp' },
+        i: { id: 'i', kind: 'anchor', x: 120, y: 0, anchorType: 'sharp' }
+      }
+
+      const nextSegments = {
+        ab: {
+          id: 'ab',
+          startId: 'a',
+          endId: 'b',
+          outControlId: null,
+          inControlId: null
+        },
+        bc: {
+          id: 'bc',
+          startId: 'b',
+          endId: 'c',
+          outControlId: null,
+          inControlId: null
+        },
+        cd: {
+          id: 'cd',
+          startId: 'c',
+          endId: 'd',
+          outControlId: null,
+          inControlId: null
+        },
+        de: {
+          id: 'de',
+          startId: 'd',
+          endId: 'e',
+          outControlId: null,
+          inControlId: null
+        },
+        ea: {
+          id: 'ea',
+          startId: 'e',
+          endId: 'a',
+          outControlId: null,
+          inControlId: null
+        },
+        fg: {
+          id: 'fg',
+          startId: 'f',
+          endId: 'g',
+          outControlId: null,
+          inControlId: null
+        },
+        gh: {
+          id: 'gh',
+          startId: 'g',
+          endId: 'h',
+          outControlId: null,
+          inControlId: null
+        },
+        hi: {
+          id: 'hi',
+          startId: 'h',
+          endId: 'i',
+          outControlId: null,
+          inControlId: null
+        },
+        if: {
+          id: 'if',
+          startId: 'i',
+          endId: 'f',
+          outControlId: null,
+          inControlId: null
+        }
+      }
+
+      core?.changeComputedData?.(
+        [selectedId],
+        {
+          points: nextPoints,
+          segments: nextSegments,
+          networks: {
+            [primaryNetwork.id]: {
+              id: primaryNetwork.id,
+              pointIds: ['a', 'b', 'c', 'd', 'e'],
+              segmentIds: ['ab', 'bc', 'cd', 'de', 'ea'],
+              closed: true
+            },
+            [secondaryNetworkId]: {
+              id: secondaryNetworkId,
+              pointIds: ['f', 'g', 'h', 'i'],
+              segmentIds: ['fg', 'gh', 'hi', 'if'],
+              closed: true
+            }
+          },
+          closed: true,
+          width: 200,
+          height: 40
+        },
+        { undoable: false }
+      )
+    })
+
+    await page.waitForTimeout(180)
+  }
+
+const patchSelectedVectorToMixedTopologyWithMultipleNonOrthogonalPieces =
+  async (page: Page) => {
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+      if (!selectedId) {
+        throw new Error('No selected vector to patch')
+      }
+
+      const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+      const computed = element?.getAllComputedData?.()
+      const primaryNetwork = Object.values(computed?.networks ?? {})[0] as
+        | { id: string }
+        | undefined
+
+      if (!computed || !primaryNetwork) {
+        throw new Error('Missing vector topology')
+      }
+
+      const secondaryNetworkId = `${primaryNetwork.id}:secondary`
+      const nextPoints = {
+        a: { id: 'a', kind: 'anchor', x: 0, y: 0, anchorType: 'sharp' },
+        b: { id: 'b', kind: 'anchor', x: 80, y: 0, anchorType: 'sharp' },
+        c: { id: 'c', kind: 'anchor', x: 80, y: 40, anchorType: 'sharp' },
+        d: { id: 'd', kind: 'anchor', x: 40, y: 20, anchorType: 'sharp' },
+        e: { id: 'e', kind: 'anchor', x: 0, y: 40, anchorType: 'sharp' },
+        f: { id: 'f', kind: 'anchor', x: 120, y: 0, anchorType: 'sharp' },
+        g: { id: 'g', kind: 'anchor', x: 200, y: 0, anchorType: 'sharp' },
+        h: { id: 'h', kind: 'anchor', x: 200, y: 40, anchorType: 'sharp' },
+        i: { id: 'i', kind: 'anchor', x: 160, y: 20, anchorType: 'sharp' },
+        j: { id: 'j', kind: 'anchor', x: 120, y: 40, anchorType: 'sharp' }
+      }
+
+      const nextSegments = {
+        ab: {
+          id: 'ab',
+          startId: 'a',
+          endId: 'b',
+          outControlId: null,
+          inControlId: null
+        },
+        bc: {
+          id: 'bc',
+          startId: 'b',
+          endId: 'c',
+          outControlId: null,
+          inControlId: null
+        },
+        cd: {
+          id: 'cd',
+          startId: 'c',
+          endId: 'd',
+          outControlId: null,
+          inControlId: null
+        },
+        de: {
+          id: 'de',
+          startId: 'd',
+          endId: 'e',
+          outControlId: null,
+          inControlId: null
+        },
+        ea: {
+          id: 'ea',
+          startId: 'e',
+          endId: 'a',
+          outControlId: null,
+          inControlId: null
+        },
+        fg: {
+          id: 'fg',
+          startId: 'f',
+          endId: 'g',
+          outControlId: null,
+          inControlId: null
+        },
+        gh: {
+          id: 'gh',
+          startId: 'g',
+          endId: 'h',
+          outControlId: null,
+          inControlId: null
+        },
+        hi: {
+          id: 'hi',
+          startId: 'h',
+          endId: 'i',
+          outControlId: null,
+          inControlId: null
+        },
+        ij: {
+          id: 'ij',
+          startId: 'i',
+          endId: 'j',
+          outControlId: null,
+          inControlId: null
+        },
+        jf: {
+          id: 'jf',
+          startId: 'j',
+          endId: 'f',
+          outControlId: null,
+          inControlId: null
+        }
+      }
+
+      core?.changeComputedData?.(
+        [selectedId],
+        {
+          points: nextPoints,
+          segments: nextSegments,
+          networks: {
+            [primaryNetwork.id]: {
+              id: primaryNetwork.id,
+              pointIds: ['a', 'b', 'c', 'd', 'e'],
+              segmentIds: ['ab', 'bc', 'cd', 'de', 'ea'],
+              closed: true
+            },
+            [secondaryNetworkId]: {
+              id: secondaryNetworkId,
+              pointIds: ['f', 'g', 'h', 'i', 'j'],
+              segmentIds: ['fg', 'gh', 'hi', 'ij', 'jf'],
+              closed: true
+            }
+          },
+          closed: true,
+          width: 200,
+          height: 40
+        },
+        { undoable: false }
+      )
+    })
+
+    await page.waitForTimeout(180)
+  }
 
 const refocusSelectedElement = async (page: Page) => {
   const center = await getSelectedElementClientCenter(page)
@@ -541,14 +731,24 @@ const captureSelectedElementRaster = async (
   const clip = {
     x: Math.max(
       0,
-      Math.floor(rect.x * viewportState.zoom + viewportState.viewport.x - padding)
+      Math.floor(
+        rect.x * viewportState.zoom + viewportState.viewport.x - padding
+      )
     ),
     y: Math.max(
       0,
-      Math.floor(rect.y * viewportState.zoom + viewportState.viewport.y - padding)
+      Math.floor(
+        rect.y * viewportState.zoom + viewportState.viewport.y - padding
+      )
     ),
-    width: Math.max(1, Math.ceil(rect.width * viewportState.zoom + padding * 2)),
-    height: Math.max(1, Math.ceil(rect.height * viewportState.zoom + padding * 2))
+    width: Math.max(
+      1,
+      Math.ceil(rect.width * viewportState.zoom + padding * 2)
+    ),
+    height: Math.max(
+      1,
+      Math.ceil(rect.height * viewportState.zoom + padding * 2)
+    )
   }
   const screenshot = await page.screenshot({ clip })
 
@@ -564,128 +764,150 @@ const getOverlayCoverage = async (
   raster: RasterCapture,
   colorFamily: 'inside' | 'outside' | 'ownership'
 ) =>
-  page.evaluate(async ({ base64, width, height, colorFamily: nextColorFamily }) => {
-    const response = await fetch(`data:image/png;base64,${base64}`)
-    const blob = await response.blob()
-    const bitmap = await createImageBitmap(blob)
-    const canvas = document.createElement('canvas')
-    canvas.width = bitmap.width
-    canvas.height = bitmap.height
-    const context = canvas.getContext('2d')
-    if (!context) {
-      throw new Error('Canvas 2D context unavailable')
-    }
+  page.evaluate(
+    async ({ base64, width, height, colorFamily: nextColorFamily }) => {
+      const response = await fetch(`data:image/png;base64,${base64}`)
+      const blob = await response.blob()
+      const bitmap = await createImageBitmap(blob)
+      const canvas = document.createElement('canvas')
+      canvas.width = bitmap.width
+      canvas.height = bitmap.height
+      const context = canvas.getContext('2d')
+      if (!context) {
+        throw new Error('Canvas 2D context unavailable')
+      }
 
-    context.drawImage(bitmap, 0, 0)
+      context.drawImage(bitmap, 0, 0)
 
-    let overlay = 0
-    let total = 0
-    for (let y = 0; y < height; y += 1) {
-      for (let x = 0; x < width; x += 1) {
-        const [r, g, b, a] = context.getImageData(x, y, 1, 1).data
-        total += 1
-        const isInside = a > 20 && g > 150 && b > 150 && r < 120
-        const isOutside = a > 20 && r > 170 && g > 60 && g < 170 && b < 100
-        const isOwnership =
-          a > 20 && ((g > 200 && r < 160) || (b > 180 && g > 140) || (r > 200 && g > 180))
-        const matches =
-          nextColorFamily === 'inside'
-            ? isInside
-            : nextColorFamily === 'outside'
-              ? isOutside
-              : isOwnership
-        if (matches) {
-          overlay += 1
+      let overlay = 0
+      let total = 0
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const [r, g, b, a] = context.getImageData(x, y, 1, 1).data
+          total += 1
+          const isInside = a > 20 && g > 150 && b > 150 && r < 120
+          const isOutside = a > 20 && r > 170 && g > 60 && g < 170 && b < 100
+          const isOwnership =
+            a > 20 &&
+            ((g > 200 && r < 160) ||
+              (b > 180 && g > 140) ||
+              (r > 200 && g > 180))
+          const matches =
+            nextColorFamily === 'inside'
+              ? isInside
+              : nextColorFamily === 'outside'
+                ? isOutside
+                : isOwnership
+          if (matches) {
+            overlay += 1
+          }
         }
       }
-    }
 
-    return total > 0 ? overlay / total : 0
-  }, { ...raster, colorFamily })
+      return total > 0 ? overlay / total : 0
+    },
+    { ...raster, colorFamily }
+  )
 
 const getStrokeColorCoverage = async (
   page: Page,
   raster: RasterCapture,
   colorFamily: 'primary-red' | 'secondary-blue'
 ) =>
-  page.evaluate(async ({ base64, width, height, colorFamily: nextColorFamily }) => {
-    const response = await fetch(`data:image/png;base64,${base64}`)
-    const blob = await response.blob()
-    const bitmap = await createImageBitmap(blob)
-    const canvas = document.createElement('canvas')
-    canvas.width = bitmap.width
-    canvas.height = bitmap.height
-    const context = canvas.getContext('2d')
-    if (!context) {
-      throw new Error('Canvas 2D context unavailable')
-    }
+  page.evaluate(
+    async ({ base64, width, height, colorFamily: nextColorFamily }) => {
+      const response = await fetch(`data:image/png;base64,${base64}`)
+      const blob = await response.blob()
+      const bitmap = await createImageBitmap(blob)
+      const canvas = document.createElement('canvas')
+      canvas.width = bitmap.width
+      canvas.height = bitmap.height
+      const context = canvas.getContext('2d')
+      if (!context) {
+        throw new Error('Canvas 2D context unavailable')
+      }
 
-    context.drawImage(bitmap, 0, 0)
+      context.drawImage(bitmap, 0, 0)
 
-    let overlay = 0
-    let total = 0
-    for (let y = 0; y < height; y += 1) {
-      for (let x = 0; x < width; x += 1) {
-        const [r, g, b, a] = context.getImageData(x, y, 1, 1).data
-        total += 1
-        const isPrimaryRed = a > 40 && r > 140 && g < 90 && b < 90
-        const isSecondaryBlue = a > 40 && b > 140 && r < 90 && g < 120
-        const matches =
-          nextColorFamily === 'primary-red' ? isPrimaryRed : isSecondaryBlue
-        if (matches) {
-          overlay += 1
+      let overlay = 0
+      let total = 0
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const [r, g, b, a] = context.getImageData(x, y, 1, 1).data
+          total += 1
+          const isPrimaryRed = a > 40 && r > 140 && g < 90 && b < 90
+          const isSecondaryBlue = a > 40 && b > 140 && r < 90 && g < 120
+          const matches =
+            nextColorFamily === 'primary-red' ? isPrimaryRed : isSecondaryBlue
+          if (matches) {
+            overlay += 1
+          }
         }
       }
-    }
 
-    return total > 0 ? overlay / total : 0
-  }, { ...raster, colorFamily })
+      return total > 0 ? overlay / total : 0
+    },
+    { ...raster, colorFamily }
+  )
 
 const getDifferenceCoverage = async (
   page: Page,
   before: RasterCapture,
   after: RasterCapture
 ) =>
-  page.evaluate(async ({ beforeBase64, afterBase64 }) => {
-    const decode = async (base64: string) => {
-      const response = await fetch(`data:image/png;base64,${base64}`)
-      const blob = await response.blob()
-      return createImageBitmap(blob)
-    }
-
-    const [beforeBitmap, afterBitmap] = await Promise.all([
-      decode(beforeBase64),
-      decode(afterBase64)
-    ])
-
-    const canvas = document.createElement('canvas')
-    canvas.width = beforeBitmap.width
-    canvas.height = beforeBitmap.height
-    const context = canvas.getContext('2d')
-    if (!context) {
-      throw new Error('Canvas 2D context unavailable')
-    }
-
-    context.drawImage(beforeBitmap, 0, 0)
-    const beforeData = context.getImageData(0, 0, canvas.width, canvas.height).data
-    context.clearRect(0, 0, canvas.width, canvas.height)
-    context.drawImage(afterBitmap, 0, 0)
-    const afterData = context.getImageData(0, 0, canvas.width, canvas.height).data
-
-    let diff = 0
-    for (let index = 0; index < beforeData.length; index += 4) {
-      const delta =
-        Math.abs(beforeData[index] - afterData[index]) +
-        Math.abs(beforeData[index + 1] - afterData[index + 1]) +
-        Math.abs(beforeData[index + 2] - afterData[index + 2]) +
-        Math.abs(beforeData[index + 3] - afterData[index + 3])
-      if (delta > 30) {
-        diff += 1
+  page.evaluate(
+    async ({ beforeBase64, afterBase64 }) => {
+      const decode = async (base64: string) => {
+        const response = await fetch(`data:image/png;base64,${base64}`)
+        const blob = await response.blob()
+        return createImageBitmap(blob)
       }
-    }
 
-    return diff / (canvas.width * canvas.height)
-  }, { beforeBase64: before.base64, afterBase64: after.base64 })
+      const [beforeBitmap, afterBitmap] = await Promise.all([
+        decode(beforeBase64),
+        decode(afterBase64)
+      ])
+
+      const canvas = document.createElement('canvas')
+      canvas.width = beforeBitmap.width
+      canvas.height = beforeBitmap.height
+      const context = canvas.getContext('2d')
+      if (!context) {
+        throw new Error('Canvas 2D context unavailable')
+      }
+
+      context.drawImage(beforeBitmap, 0, 0)
+      const beforeData = context.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      ).data
+      context.clearRect(0, 0, canvas.width, canvas.height)
+      context.drawImage(afterBitmap, 0, 0)
+      const afterData = context.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      ).data
+
+      let diff = 0
+      for (let index = 0; index < beforeData.length; index += 4) {
+        const delta =
+          Math.abs(beforeData[index] - afterData[index]) +
+          Math.abs(beforeData[index + 1] - afterData[index + 1]) +
+          Math.abs(beforeData[index + 2] - afterData[index + 2]) +
+          Math.abs(beforeData[index + 3] - afterData[index + 3])
+        if (delta > 30) {
+          diff += 1
+        }
+      }
+
+      return diff / (canvas.width * canvas.height)
+    },
+    { beforeBase64: before.base64, afterBase64: after.base64 }
+  )
 
 test.describe('Constrained Solid Legality Visual', () => {
   test.beforeEach(async ({ page }) => {
@@ -727,7 +949,9 @@ test.describe('Constrained Solid Legality Visual', () => {
     expect(differenceCoverage).toBeGreaterThan(0.002)
   })
 
-  test('hides legality overlay when the debug flag is disabled', async ({ page }) => {
+  test('hides legality overlay when the debug flag is disabled', async ({
+    page
+  }) => {
     await ensureDebugFlag(page, false)
     await createRectangle(page, 0.3, 0.3)
     await ensureStrokeRow(page)
@@ -753,22 +977,34 @@ test.describe('Constrained Solid Legality Visual', () => {
     await propertiesPanel.getByTestId('prop-height').fill('120')
     await propertiesPanel.getByTestId('prop-height').press('Enter')
 
-    await propertiesPanel.getByTestId('prop-stroke-position-0').selectOption('outside')
-    await propertiesPanel.getByTestId('prop-stroke-style-0').selectOption('solid')
+    await propertiesPanel
+      .getByTestId('prop-stroke-position-0')
+      .selectOption('outside')
+    await propertiesPanel
+      .getByTestId('prop-stroke-style-0')
+      .selectOption('solid')
     await propertiesPanel.getByTestId('prop-stroke-width-0').fill('12')
     await propertiesPanel.getByTestId('prop-stroke-width-0').press('Enter')
 
     await propertiesPanel.getByTestId('prop-stroke-add').click()
     await expect(propertiesPanel.getByTestId('prop-stroke-1')).toBeVisible()
-    await propertiesPanel.getByTestId('prop-stroke-position-1').selectOption('outside')
-    await propertiesPanel.getByTestId('prop-stroke-style-1').selectOption('solid')
+    await propertiesPanel
+      .getByTestId('prop-stroke-position-1')
+      .selectOption('outside')
+    await propertiesPanel
+      .getByTestId('prop-stroke-style-1')
+      .selectOption('solid')
     await propertiesPanel.getByTestId('prop-stroke-width-1').fill('6')
     await propertiesPanel.getByTestId('prop-stroke-width-1').press('Enter')
 
     await page.waitForTimeout(300)
 
     const raster = await captureSelectedElementRaster(page)
-    const ownershipCoverage = await getOverlayCoverage(page, raster, 'ownership')
+    const ownershipCoverage = await getOverlayCoverage(
+      page,
+      raster,
+      'ownership'
+    )
     expect(ownershipCoverage).toBeGreaterThan(0.005)
   })
 
@@ -785,8 +1021,12 @@ test.describe('Constrained Solid Legality Visual', () => {
     await propertiesPanel.getByTestId('prop-height').fill('120')
     await propertiesPanel.getByTestId('prop-height').press('Enter')
 
-    await propertiesPanel.getByTestId('prop-stroke-position-0').selectOption('outside')
-    await propertiesPanel.getByTestId('prop-stroke-style-0').selectOption('solid')
+    await propertiesPanel
+      .getByTestId('prop-stroke-position-0')
+      .selectOption('outside')
+    await propertiesPanel
+      .getByTestId('prop-stroke-style-0')
+      .selectOption('solid')
     await propertiesPanel.getByTestId('prop-stroke-width-0').fill('12')
     await propertiesPanel.getByTestId('prop-stroke-width-0').press('Enter')
     await propertiesPanel.getByTestId('prop-stroke-color-0').fill('DA0000')
@@ -794,8 +1034,12 @@ test.describe('Constrained Solid Legality Visual', () => {
 
     await propertiesPanel.getByTestId('prop-stroke-add').click()
     await expect(propertiesPanel.getByTestId('prop-stroke-1')).toBeVisible()
-    await propertiesPanel.getByTestId('prop-stroke-position-1').selectOption('outside')
-    await propertiesPanel.getByTestId('prop-stroke-style-1').selectOption('solid')
+    await propertiesPanel
+      .getByTestId('prop-stroke-position-1')
+      .selectOption('outside')
+    await propertiesPanel
+      .getByTestId('prop-stroke-style-1')
+      .selectOption('solid')
     await propertiesPanel.getByTestId('prop-stroke-width-1').fill('6')
     await propertiesPanel.getByTestId('prop-stroke-width-1').press('Enter')
     await propertiesPanel.getByTestId('prop-stroke-color-1').fill('0000FF')
@@ -804,7 +1048,11 @@ test.describe('Constrained Solid Legality Visual', () => {
     await page.waitForTimeout(300)
 
     const raster = await captureSelectedElementRaster(page)
-    const primaryCoverage = await getStrokeColorCoverage(page, raster, 'primary-red')
+    const primaryCoverage = await getStrokeColorCoverage(
+      page,
+      raster,
+      'primary-red'
+    )
     const secondaryCoverage = await getStrokeColorCoverage(
       page,
       raster,
@@ -849,8 +1097,16 @@ test.describe('Constrained Solid Legality Visual', () => {
     await page.waitForTimeout(300)
 
     const raster = await captureSelectedElementRaster(page)
-    const ownershipCoverage = await getOverlayCoverage(page, raster, 'ownership')
-    const primaryCoverage = await getStrokeColorCoverage(page, raster, 'primary-red')
+    const ownershipCoverage = await getOverlayCoverage(
+      page,
+      raster,
+      'ownership'
+    )
+    const primaryCoverage = await getStrokeColorCoverage(
+      page,
+      raster,
+      'primary-red'
+    )
     const fifthStrokeCoverage = await page.evaluate(
       async ({ base64, width, height }) => {
         const response = await fetch(`data:image/png;base64,${base64}`)
@@ -1067,7 +1323,9 @@ test.describe('Constrained Solid Legality Visual', () => {
   }) => {
     await ensureOwnershipDebugFlag(page, true)
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-    await patchSelectedVectorToMixedTopologyWithMultipleNonOrthogonalPieces(page)
+    await patchSelectedVectorToMixedTopologyWithMultipleNonOrthogonalPieces(
+      page
+    )
     await refocusSelectedElement(page)
     await ensureStrokeRow(page)
 
@@ -1161,10 +1419,12 @@ test.describe('Constrained Solid Legality Visual', () => {
     expect(rectSecondaryCoverage).toBeGreaterThan(0.002)
     expect(vectorPrimaryCoverage).toBeGreaterThan(0.005)
     expect(vectorSecondaryCoverage).toBeGreaterThan(0.002)
-    expect(Math.abs(rectPrimaryCoverage - vectorPrimaryCoverage)).toBeLessThan(0.01)
-    expect(Math.abs(rectSecondaryCoverage - vectorSecondaryCoverage)).toBeLessThan(
+    expect(Math.abs(rectPrimaryCoverage - vectorPrimaryCoverage)).toBeLessThan(
       0.01
     )
+    expect(
+      Math.abs(rectSecondaryCoverage - vectorSecondaryCoverage)
+    ).toBeLessThan(0.01)
   })
 
   test('equivalent mixed-topology vectors keep equivalent local miter remainders when one disconnected sub-packet is a non-orthogonal non-convex piece on the broader subtraction path', async ({
@@ -1198,7 +1458,9 @@ test.describe('Constrained Solid Legality Visual', () => {
 
     await resetCanvas(page)
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-    await patchSelectedVectorToEquivalentMixedTopologyWithNonOrthogonalPiece(page)
+    await patchSelectedVectorToEquivalentMixedTopologyWithNonOrthogonalPiece(
+      page
+    )
     await refocusSelectedElement(page)
     await ensureStrokeRow(page)
     await configureOutsideSolidStrokeRow(page, 0, 12, 'DA0000', 'bevel')
@@ -1358,8 +1620,16 @@ test.describe('Constrained Solid Legality Visual', () => {
     await page.waitForTimeout(300)
 
     const raster = await captureSelectedElementRaster(page)
-    const ownershipCoverage = await getOverlayCoverage(page, raster, 'ownership')
-    const primaryCoverage = await getStrokeColorCoverage(page, raster, 'primary-red')
+    const ownershipCoverage = await getOverlayCoverage(
+      page,
+      raster,
+      'ownership'
+    )
+    const primaryCoverage = await getStrokeColorCoverage(
+      page,
+      raster,
+      'primary-red'
+    )
     const sixthStrokeCoverage = await page.evaluate(
       async ({ base64, width, height }) => {
         const response = await fetch(`data:image/png;base64,${base64}`)
@@ -1441,8 +1711,16 @@ test.describe('Constrained Solid Legality Visual', () => {
     await page.waitForTimeout(300)
 
     const raster = await captureSelectedElementRaster(page)
-    const ownershipCoverage = await getOverlayCoverage(page, raster, 'ownership')
-    const primaryCoverage = await getStrokeColorCoverage(page, raster, 'primary-red')
+    const ownershipCoverage = await getOverlayCoverage(
+      page,
+      raster,
+      'ownership'
+    )
+    const primaryCoverage = await getStrokeColorCoverage(
+      page,
+      raster,
+      'primary-red'
+    )
     const seventhStrokeCoverage = await page.evaluate(
       async ({ base64, width, height }) => {
         const response = await fetch(`data:image/png;base64,${base64}`)
@@ -1771,7 +2049,13 @@ test.describe('Constrained Solid Legality Visual', () => {
             const [r, g, b, a] = context.getImageData(x, y, 1, 1).data
             total += 1
             const isTenthStroke =
-              a > 40 && r > 150 && r < 240 && g > 70 && g < 150 && b > 90 && b < 150
+              a > 40 &&
+              r > 150 &&
+              r < 240 &&
+              g > 70 &&
+              g < 150 &&
+              b > 90 &&
+              b < 150
             if (isTenthStroke) {
               overlay += 1
             }

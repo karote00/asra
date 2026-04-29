@@ -64,11 +64,31 @@ describe('constrained solid stroke geometry', () => {
     ).toBe(true)
   })
 
-  it('should not run: reject open or unsupported constrained solid slices', () => {
+  it('should run: accept simple open constrained solid slices', () => {
     expect(
       supportsConstrainedSolidStroke(
         createStroke({
           position: 'inside'
+        }),
+        false
+      )
+    ).toBe(true)
+
+    expect(
+      supportsConstrainedSolidStroke(
+        createStroke({
+          position: 'outside'
+        }),
+        false
+      )
+    ).toBe(true)
+  })
+
+  it('should not run: reject unsupported constrained solid slices', () => {
+    expect(
+      supportsConstrainedSolidStroke(
+        createStroke({
+          position: 'center'
         }),
         false
       )
@@ -90,7 +110,173 @@ describe('constrained solid stroke geometry', () => {
         }),
         true
       )
-    ).toBe(false)
+    ).toBe(true)
+
+    expect(
+      supportsConstrainedSolidStroke(
+        createStroke({
+          cap: 'round'
+        }),
+        true
+      )
+    ).toBe(true)
+  })
+
+  it('should run: build open inside geometry on the authored left side only', () => {
+    const polygons = buildConstrainedSolidStrokePolygons(
+      [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 }
+      ],
+      false,
+      createStroke({
+        position: 'inside',
+        width: 4
+      })
+    )
+
+    expect(polygons).toEqual([
+      [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 4 },
+        { x: 0, y: 4 }
+      ]
+    ])
+  })
+
+  it('should run: keep self-intersecting open constrained solid paths visible as local-side geometry', () => {
+    const polygons = buildConstrainedSolidStrokePolygons(
+      [
+        { x: 0, y: 0 },
+        { x: 20, y: 20 },
+        { x: 0, y: 20 },
+        { x: 20, y: 0 }
+      ],
+      false,
+      createStroke({
+        position: 'inside',
+        width: 4
+      }),
+      { assumeSimpleOpen: true }
+    )
+
+    expect(polygons.length).toBeGreaterThan(0)
+  })
+
+  it('should run: build open outside geometry on the authored right side only', () => {
+    const polygons = buildConstrainedSolidStrokePolygons(
+      [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 }
+      ],
+      false,
+      createStroke({
+        position: 'outside',
+        width: 4
+      })
+    )
+
+    expect(polygons).toEqual([
+      [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: -4 },
+        { x: 0, y: -4 }
+      ]
+    ])
+  })
+
+  it('should run: apply square caps before one-sided open constrained geometry is built', () => {
+    const polygons = buildConstrainedSolidStrokePolygons(
+      [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 }
+      ],
+      false,
+      createStroke({
+        position: 'inside',
+        width: 4,
+        cap: 'square'
+      })
+    )
+
+    expect(getBounds(polygons)).toEqual({
+      minX: -2,
+      minY: 0,
+      maxX: 22,
+      maxY: 4
+    })
+  })
+
+  it('should run: build one-sided round caps without mirrored ghost geometry', () => {
+    const polygons = buildConstrainedSolidStrokePolygons(
+      [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 }
+      ],
+      false,
+      createStroke({
+        position: 'inside',
+        width: 4,
+        cap: 'round'
+      })
+    )
+
+    const bounds = getBounds(polygons)
+    expect(polygons.length).toBeGreaterThan(1)
+    expect(bounds.minX).toBeGreaterThanOrEqual(-2.001)
+    expect(bounds.maxX).toBeLessThanOrEqual(22.001)
+    expect(bounds.minY).toBeGreaterThanOrEqual(0)
+    expect(bounds.maxY).toBeLessThanOrEqual(4)
+  })
+
+  it('should run: use one-sided offset distance for open constrained miter limit checks', () => {
+    const polygons = buildConstrainedSolidStrokePolygons(
+      [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+        { x: 10, y: 10 }
+      ],
+      false,
+      createStroke({
+        position: 'inside',
+        width: 4,
+        join: 'miter',
+        miterLimit: 2
+      })
+    )
+
+    expect(polygons).toContainEqual([
+      { x: 10, y: 0 },
+      { x: 10, y: 4 },
+      { x: 6, y: 4 },
+      { x: 6, y: 0 }
+    ])
+  })
+
+  it('should run: resolve open constrained miter-limit exceedance as bevel geometry', () => {
+    const polygons = buildConstrainedSolidStrokePolygons(
+      [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+        { x: 10, y: 10 }
+      ],
+      false,
+      createStroke({
+        position: 'inside',
+        width: 4,
+        join: 'miter',
+        miterLimit: 1
+      })
+    )
+
+    expect(polygons).toContainEqual([
+      { x: 10, y: 0 },
+      { x: 10, y: 4 },
+      { x: 8, y: 2 },
+      { x: 6, y: 0 }
+    ])
   })
 
   it('should run: keep inside geometry inside the legal owner domain for rectangles', () => {
@@ -108,38 +294,87 @@ describe('constrained solid stroke geometry', () => {
       })
     )
 
-    expect(polygons).toHaveLength(4)
+    expect(polygons).toHaveLength(8)
     expect(getBounds(polygons)).toEqual({
       minX: 0,
       minY: 0,
       maxX: 20,
       maxY: 20
     })
-    expect(polygons).toEqual([
+    expect(polygons).toEqual(
+      expect.arrayContaining([
+        [
+          { x: 0, y: 0 },
+          { x: 20, y: 0 },
+          { x: 20, y: 4 },
+          { x: 0, y: 4 }
+        ],
+        [
+          { x: 20, y: 0 },
+          { x: 20, y: 4 },
+          { x: 16, y: 4 },
+          { x: 16, y: 0 }
+        ]
+      ])
+    )
+  })
+
+  it('should run: build closed inside bevel joins as explicit one-sided join faces', () => {
+    const polygons = buildConstrainedSolidStrokePolygons(
       [
         { x: 0, y: 0 },
         { x: 20, y: 0 },
-        { x: 16, y: 4 },
-        { x: 4, y: 4 }
+        { x: 20, y: 20 },
+        { x: 0, y: 20 }
       ],
+      true,
+      createStroke({
+        position: 'inside',
+        width: 4,
+        join: 'bevel'
+      })
+    )
+
+    expect(polygons).toContainEqual([
+      { x: 20, y: 0 },
+      { x: 20, y: 4 },
+      { x: 16, y: 0 }
+    ])
+    expect(polygons).not.toContainEqual([
+      { x: 20, y: 0 },
+      { x: 20, y: 4 },
+      { x: 16, y: 4 },
+      { x: 16, y: 0 }
+    ])
+  })
+
+  it('should run: resolve closed miter-limit exceedance as bevel join geometry', () => {
+    const polygons = buildConstrainedSolidStrokePolygons(
       [
+        { x: 0, y: 0 },
         { x: 20, y: 0 },
         { x: 20, y: 20 },
-        { x: 16, y: 16 },
-        { x: 16, y: 4 }
+        { x: 0, y: 20 }
       ],
-      [
-        { x: 20, y: 20 },
-        { x: 0, y: 20 },
-        { x: 4, y: 16 },
-        { x: 16, y: 16 }
-      ],
-      [
-        { x: 0, y: 20 },
-        { x: 0, y: 0 },
-        { x: 4, y: 4 },
-        { x: 4, y: 16 }
-      ]
+      true,
+      createStroke({
+        position: 'inside',
+        width: 4,
+        join: 'miter',
+        miterLimit: 1
+      })
+    )
+
+    expect(polygons).toContainEqual([
+      { x: 20, y: 0 },
+      { x: 20, y: 4 },
+      { x: 16, y: 0 }
+    ])
+    expect(polygons).not.toContainEqual([
+      { x: 20, y: 0 },
+      { x: 20, y: 4 },
+      { x: 16, y: 4 },
+      { x: 16, y: 0 }
     ])
   })
 
@@ -167,7 +402,61 @@ describe('constrained solid stroke geometry', () => {
     })
   })
 
-  it('should not run: reject self-intersecting constrained paths deterministically', () => {
+  it('should run: build inside round-join constrained solid geometry on closed paths', () => {
+    const polygons = buildConstrainedSolidStrokePolygons(
+      [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 20 },
+        { x: 0, y: 20 }
+      ],
+      true,
+      createStroke({
+        position: 'inside',
+        width: 4,
+        join: 'round',
+        cap: 'round'
+      })
+    )
+
+    expect(polygons.length).toBeGreaterThan(4)
+    expect(polygons.some((polygon) => polygon.length > 4)).toBe(true)
+    expect(getBounds(polygons)).toEqual({
+      minX: 0,
+      minY: 0,
+      maxX: 20,
+      maxY: 20
+    })
+  })
+
+  it('should run: build outside round-join constrained solid geometry on closed paths', () => {
+    const polygons = buildConstrainedSolidStrokePolygons(
+      [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 20 },
+        { x: 0, y: 20 }
+      ],
+      true,
+      createStroke({
+        position: 'outside',
+        width: 4,
+        join: 'round',
+        cap: 'round'
+      })
+    )
+
+    expect(polygons.length).toBeGreaterThan(4)
+    expect(polygons.some((polygon) => polygon.length > 4)).toBe(true)
+    expect(getBounds(polygons)).toEqual({
+      minX: -4,
+      minY: -4,
+      maxX: 24,
+      maxY: 24
+    })
+  })
+
+  it('should run: build closed self-intersecting constrained paths as local-side faces', () => {
     const polygons = buildConstrainedSolidStrokePolygons(
       [
         { x: 0, y: 0 },
@@ -182,6 +471,12 @@ describe('constrained solid stroke geometry', () => {
       })
     )
 
-    expect(polygons).toEqual([])
+    expect(polygons).toHaveLength(8)
+    expect(getBounds(polygons)).toEqual({
+      minX: -9.656854249492383,
+      minY: -4,
+      maxX: 29.656854249492376,
+      maxY: 22.82842712474619
+    })
   })
 })

@@ -13,19 +13,14 @@ const approximateEllipsePerimeter = (radiusX: number, radiusY: number) => {
     return 0
   }
 
-  const h = ((radiusX - radiusY) ** 2) / (sum ** 2)
+  const h = (radiusX - radiusY) ** 2 / sum ** 2
   return (
-    Math.PI *
-    sum *
-    (1 + (3 * h) / (10 + Math.sqrt(Math.max(1, 4 - 3 * h))))
+    Math.PI * sum * (1 + (3 * h) / (10 + Math.sqrt(Math.max(1, 4 - 3 * h))))
   )
 }
 
 const clampEllipseSegments = (segmentCount: number) =>
-  Math.max(
-    MIN_ELLIPSE_SEGMENTS,
-    Math.min(MAX_ELLIPSE_SEGMENTS, segmentCount)
-  )
+  Math.max(MIN_ELLIPSE_SEGMENTS, Math.min(MAX_ELLIPSE_SEGMENTS, segmentCount))
 
 const normalizeEllipseSegments = (segmentCount: number) => {
   const clamped = clampEllipseSegments(segmentCount)

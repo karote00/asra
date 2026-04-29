@@ -435,7 +435,11 @@ class InputSystem {
       return
     }
 
-    if (this.pointerCaptureId && captureId && this.pointerCaptureId !== captureId) {
+    if (
+      this.pointerCaptureId &&
+      captureId &&
+      this.pointerCaptureId !== captureId
+    ) {
       return
     }
 

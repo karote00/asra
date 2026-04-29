@@ -1,6 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
-  clickCanvas,
   createOval,
   createRectangle,
   createVectorPath,
@@ -81,13 +80,20 @@ const captureSelectedElementRaster = async (
   const clip = {
     x: Math.max(
       0,
-      Math.floor(snapshot.rect.x * snapshot.zoom + snapshot.viewport.x - padding)
+      Math.floor(
+        snapshot.rect.x * snapshot.zoom + snapshot.viewport.x - padding
+      )
     ),
     y: Math.max(
       0,
-      Math.floor(snapshot.rect.y * snapshot.zoom + snapshot.viewport.y - padding)
+      Math.floor(
+        snapshot.rect.y * snapshot.zoom + snapshot.viewport.y - padding
+      )
     ),
-    width: Math.max(1, Math.ceil(snapshot.rect.width * snapshot.zoom + padding * 2)),
+    width: Math.max(
+      1,
+      Math.ceil(snapshot.rect.width * snapshot.zoom + padding * 2)
+    ),
     height: Math.max(
       1,
       Math.ceil(snapshot.rect.height * snapshot.zoom + padding * 2)
@@ -133,7 +139,10 @@ const getGreenCoverage = async (
       context.drawImage(bitmap, 0, 0)
       const startX = Math.max(0, Math.floor(targetRegion.x))
       const startY = Math.max(0, Math.floor(targetRegion.y))
-      const endX = Math.min(canvas.width, Math.ceil(targetRegion.x + targetRegion.width))
+      const endX = Math.min(
+        canvas.width,
+        Math.ceil(targetRegion.x + targetRegion.width)
+      )
       const endY = Math.min(
         canvas.height,
         Math.ceil(targetRegion.y + targetRegion.height)
@@ -145,7 +154,14 @@ const getGreenCoverage = async (
         for (let x = startX; x < endX; x += 1) {
           const [r, g, b, a] = context.getImageData(x, y, 1, 1).data
           total += 1
-          if (a > 180 && g > 170 && r < 120 && b < 120 && g - r > 70 && g - b > 70) {
+          if (
+            a > 180 &&
+            g > 170 &&
+            r < 120 &&
+            b < 120 &&
+            g - r > 70 &&
+            g - b > 70
+          ) {
             green += 1
           }
         }
@@ -315,8 +331,12 @@ const configureSelectedStroke = async (
   await propertiesPanel
     .getByTestId('prop-stroke-position-0')
     .selectOption(config.position)
-  await propertiesPanel.getByTestId('prop-stroke-join-0').selectOption(config.join)
-  await propertiesPanel.getByTestId('prop-stroke-cap-0').selectOption(config.cap)
+  await propertiesPanel
+    .getByTestId('prop-stroke-join-0')
+    .selectOption(config.join)
+  await propertiesPanel
+    .getByTestId('prop-stroke-cap-0')
+    .selectOption(config.cap)
   await propertiesPanel.getByTestId('prop-stroke-width-0').fill(width)
   await propertiesPanel.getByTestId('prop-stroke-width-0').press('Enter')
   await propertiesPanel.getByTestId('prop-stroke-color-0').fill(color)
@@ -393,10 +413,34 @@ const patchSelectedVectorToClosedRectangle = async (page: Page) => {
     }
 
     const nextSegments = {
-      ab: { id: 'ab', startId: 'a', endId: 'b', outControlId: null, inControlId: null },
-      bc: { id: 'bc', startId: 'b', endId: 'c', outControlId: null, inControlId: null },
-      cd: { id: 'cd', startId: 'c', endId: 'd', outControlId: null, inControlId: null },
-      da: { id: 'da', startId: 'd', endId: 'a', outControlId: null, inControlId: null }
+      ab: {
+        id: 'ab',
+        startId: 'a',
+        endId: 'b',
+        outControlId: null,
+        inControlId: null
+      },
+      bc: {
+        id: 'bc',
+        startId: 'b',
+        endId: 'c',
+        outControlId: null,
+        inControlId: null
+      },
+      cd: {
+        id: 'cd',
+        startId: 'c',
+        endId: 'd',
+        outControlId: null,
+        inControlId: null
+      },
+      da: {
+        id: 'da',
+        startId: 'd',
+        endId: 'a',
+        outControlId: null,
+        inControlId: null
+      }
     }
 
     core?.changeComputedData?.(
@@ -449,8 +493,20 @@ const patchSelectedVectorToOpenPolyline = async (page: Page) => {
     }
 
     const nextSegments = {
-      ab: { id: 'ab', startId: 'a', endId: 'b', outControlId: null, inControlId: null },
-      bc: { id: 'bc', startId: 'b', endId: 'c', outControlId: null, inControlId: null }
+      ab: {
+        id: 'ab',
+        startId: 'a',
+        endId: 'b',
+        outControlId: null,
+        inControlId: null
+      },
+      bc: {
+        id: 'bc',
+        startId: 'b',
+        endId: 'c',
+        outControlId: null,
+        inControlId: null
+      }
     }
 
     core?.changeComputedData?.(
@@ -504,10 +560,34 @@ const patchSelectedVectorToSelfIntersectingBowtie = async (page: Page) => {
     }
 
     const nextSegments = {
-      ab: { id: 'ab', startId: 'a', endId: 'b', outControlId: null, inControlId: null },
-      bc: { id: 'bc', startId: 'b', endId: 'c', outControlId: null, inControlId: null },
-      cd: { id: 'cd', startId: 'c', endId: 'd', outControlId: null, inControlId: null },
-      da: { id: 'da', startId: 'd', endId: 'a', outControlId: null, inControlId: null }
+      ab: {
+        id: 'ab',
+        startId: 'a',
+        endId: 'b',
+        outControlId: null,
+        inControlId: null
+      },
+      bc: {
+        id: 'bc',
+        startId: 'b',
+        endId: 'c',
+        outControlId: null,
+        inControlId: null
+      },
+      cd: {
+        id: 'cd',
+        startId: 'c',
+        endId: 'd',
+        outControlId: null,
+        inControlId: null
+      },
+      da: {
+        id: 'da',
+        startId: 'd',
+        endId: 'a',
+        outControlId: null,
+        inControlId: null
+      }
     }
 
     core?.changeComputedData?.(
@@ -538,53 +618,56 @@ const ensureElementSelected = async (
   page: Page,
   expectedType?: 'rect' | 'oval' | 'vector'
 ) => {
-  await page.evaluate(({ expectedType }) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
-    const selectedIds = core?.deps?.selection?.getElementSelectionIds?.() ?? []
-    if (selectedIds.length > 0) {
-      return
-    }
-
-    const elements = core?.deps?.sceneTree?.getAllElements?.()
-    if (!(elements instanceof Map) || elements.size === 0) {
-      throw new Error('No element available to select')
-    }
-
-    const ordered = Array.from(elements.entries()).reverse()
-    const targetEntry = ordered.find(([id, element]) => {
-      if (id === 'workspace') {
-        return false
+  await page.evaluate(
+    ({ expectedType }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedIds =
+        core?.deps?.selection?.getElementSelectionIds?.() ?? []
+      if (selectedIds.length > 0) {
+        return
       }
 
-      if (!expectedType) {
-        return true
+      const elements = core?.deps?.sceneTree?.getAllElements?.()
+      if (!(elements instanceof Map) || elements.size === 0) {
+        throw new Error('No element available to select')
       }
 
-      const computed = element?.getAllComputedData?.() ?? {}
-      const elementType =
-        computed.type ??
-        element?.type ??
-        element?.getType?.() ??
-        null
+      const ordered = Array.from(elements.entries()).reverse()
+      const targetEntry = ordered.find(([id, element]) => {
+        if (id === 'workspace') {
+          return false
+        }
 
-      return expectedType ? elementType === expectedType : true
-    })
+        if (!expectedType) {
+          return true
+        }
 
-    const targetId = targetEntry?.[0] ?? null
-    if (!targetId) {
-      throw new Error(
-        expectedType
-          ? `No element available to select for type ${expectedType}`
-          : 'No element available to select'
-      )
-    }
+        const computed = element?.getAllComputedData?.() ?? {}
+        const elementType =
+          computed.type ?? element?.type ?? element?.getType?.() ?? null
 
-    core?.selectElements?.([targetId], { undoable: false })
-  }, { expectedType })
+        return expectedType ? elementType === expectedType : true
+      })
+
+      const targetId = targetEntry?.[0] ?? null
+      if (!targetId) {
+        throw new Error(
+          expectedType
+            ? `No element available to select for type ${expectedType}`
+            : 'No element available to select'
+        )
+      }
+
+      core?.selectElements?.([targetId], { undoable: false })
+    },
+    { expectedType }
+  )
 
   await page.waitForTimeout(150)
-  await expect(getPropertiesPanel(page).getByTestId('prop-strokes-section')).toBeVisible()
+  await expect(
+    getPropertiesPanel(page).getByTestId('prop-strokes-section')
+  ).toBeVisible()
 }
 
 const clearVectorOverlayState = async (page: Page) => {
@@ -863,7 +946,7 @@ test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
     )
   })
 
-  test('benchmark: unsupported round join remains blocked on constrained solid slices', async ({
+  test('benchmark: closed constrained solid round join renders on inside slices', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -878,14 +961,14 @@ test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
     const probes = getRectProbeRegions(raster)
     const [insideCoverage, outsideCoverage] = await Promise.all([
       getGreenCoverage(page, raster, probes.topInside),
-      getGreenCoverage(page, raster, probes.leftInside)
+      getGreenCoverage(page, raster, probes.topOutside)
     ])
 
-    expect(insideCoverage).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(outsideCoverage).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(insideCoverage).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(outsideCoverage).toBeLessThan(MAX_EXTERIOR_LEAK)
   })
 
-  test('benchmark: unsupported round cap remains blocked on constrained solid slices', async ({
+  test('benchmark: closed constrained solid round cap stays visually equivalent to butt caps', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -903,8 +986,8 @@ test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
       getGreenCoverage(page, raster, probes.leftOutside)
     ])
 
-    expect(topOutside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(leftOutside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(leftOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
   })
 
   test('benchmark: closed vector inside stroke renders through the constrained solid visual path', async ({
@@ -1026,9 +1109,8 @@ test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
     expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
     expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
   })
-
   ;(['inside', 'outside'] as const).forEach((position) => {
-    test(`benchmark: open constrained vector ${position} stroke renders as centered fallback`, async ({
+    test(`benchmark: open constrained vector ${position} stroke renders through exact one-sided geometry`, async ({
       page
     }) => {
       await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -1067,9 +1149,8 @@ test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
       expect(centerGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
     })
   })
-
   ;(['inside', 'outside'] as const).forEach((position) => {
-    test(`benchmark: real-created two-point open vector ${position} stroke remains visible through centered fallback`, async ({
+    test(`benchmark: real-created two-point open vector ${position} stroke remains visible through exact one-sided geometry`, async ({
       page
     }) => {
       await createTwoPointVectorPath(page)

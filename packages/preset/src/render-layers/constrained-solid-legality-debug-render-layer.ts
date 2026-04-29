@@ -1,4 +1,8 @@
-import { createOverlayLayerRegistration, renderSelectionStore, type OverlayCanvas } from '@asyra/core'
+import {
+  createOverlayLayerRegistration,
+  renderSelectionStore,
+  type OverlayCanvas
+} from '@asyra/core'
 import type {
   RegisterRenderLayerOptions,
   RenderLayerRegistration
@@ -37,12 +41,12 @@ type RegisterRenderLayer = (
 const getDebugConfig = () =>
   (
     globalThis as {
-      __ASYRA_PHASE4B_STROKE_DEBUG__?: {
+      __ASYRA_CONSTRAINED_SOLID_LEGALITY_DEBUG__?: {
         enabled?: boolean
         mode?: 'legality' | 'ownership' | 'all'
       }
     }
-  ).__ASYRA_PHASE4B_STROKE_DEBUG__ ?? {}
+  ).__ASYRA_CONSTRAINED_SOLID_LEGALITY_DEBUG__ ?? {}
 
 const transformPoint = (
   matrix: TransformMatrix,
@@ -64,7 +68,9 @@ const drawDiagnostics = (
   diagnostics.domains.forEach((domain) => {
     const color = domain.mode === 'inside' ? INSIDE_COLOR : OUTSIDE_COLOR
     canvas.polygon(
-      domain.boundaryPolygon.map((point) => transformPoint(element.worldTransform, point)),
+      domain.boundaryPolygon.map((point) =>
+        transformPoint(element.worldTransform, point)
+      ),
       domain.mode === 'inside'
         ? { color, alpha: 0.12 }
         : { color, alpha: 0.035 },
@@ -73,11 +79,11 @@ const drawDiagnostics = (
   })
 }
 
-const getOwnershipColor = (strokeId: string) => {
-  const numericSuffix = Number(strokeId.split(':').pop())
-  const colorIndex = Number.isFinite(numericSuffix)
-    ? Math.abs(numericSuffix) % OWNERSHIP_COLORS.length
-    : 0
+const getOwnershipColor = (strokeIndex: number | undefined) => {
+  const colorIndex =
+    typeof strokeIndex === 'number' && Number.isFinite(strokeIndex)
+      ? Math.abs(strokeIndex) % OWNERSHIP_COLORS.length
+      : 0
   return OWNERSHIP_COLORS[colorIndex]
 }
 
@@ -87,9 +93,11 @@ const drawOwnershipDiagnostics = (
   diagnostics: ConstrainedSolidOwnershipDiagnostics
 ) => {
   diagnostics.ownedRegions.forEach((region) => {
-    const color = getOwnershipColor(region.ownerStrokeId)
+    const color = getOwnershipColor(region.ownerStrokeIndex)
     canvas.polygon(
-      region.polygon.map((point) => transformPoint(element.worldTransform, point)),
+      region.polygon.map((point) =>
+        transformPoint(element.worldTransform, point)
+      ),
       { color, alpha: 0.12 },
       { color, width: 3 }
     )
@@ -129,7 +137,10 @@ export const registerConstrainedSolidLegalityDebugRenderLayer = (
       }
 
       const mode = debugConfig.mode ?? 'legality'
-      if ((mode === 'legality' || mode === 'all') && diagnostics?.domains.length) {
+      if (
+        (mode === 'legality' || mode === 'all') &&
+        diagnostics?.domains.length
+      ) {
         drawDiagnostics(canvas, element, diagnostics)
       }
       if (

@@ -83,8 +83,7 @@ class InteractionTargetRegistry {
       return
     }
 
-    const nextPatch =
-      typeof patch === 'function' ? patch(current) : patch
+    const nextPatch = typeof patch === 'function' ? patch(current) : patch
     const next: StoredTarget = {
       ...current,
       ...nextPatch,
@@ -142,7 +141,9 @@ class InteractionTargetRegistry {
     return this.sortedTargets
   }
 
-  hitTest(positions: InteractionTargetPositions): RenderInteractionTarget | null {
+  hitTest(
+    positions: InteractionTargetPositions
+  ): RenderInteractionTarget | null {
     const targets = this.getSortedTargets()
     for (const target of targets) {
       const point = resolveSpacePoint(target, positions)
@@ -158,9 +159,7 @@ class InteractionTargetRegistry {
     return null
   }
 
-  hitTestAll(
-    positions: InteractionTargetPositions
-  ): RenderInteractionTarget[] {
+  hitTestAll(positions: InteractionTargetPositions): RenderInteractionTarget[] {
     const hits: RenderInteractionTarget[] = []
     const targets = this.getSortedTargets()
 

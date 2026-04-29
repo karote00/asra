@@ -20,13 +20,11 @@ This definition file describes the screenshot-level oracle for
 - Supported joins in this phase:
   - `miter`
   - `bevel`
-- Unsupported joins in this phase:
   - `round`
 - Supported caps in this phase:
   - `butt`
   - `square`
-- Unsupported caps in this phase:
-  - `round`
+  - `round` on closed paths, where terminal cap shape has no visible effect
 
 ## Visual Contract
 
@@ -38,15 +36,16 @@ This definition file describes the screenshot-level oracle for
 - `oval inside/outside miter`
 - closed non-self-intersecting `vector inside/outside bevel`
 - closed non-self-intersecting `vector inside/outside miter`
-- open `vector inside/outside` authored placement through centered fallback
+- closed constrained `inside/outside round` joins on supported simple paths
+- closed constrained `round` cap equivalence on supported simple paths
+- open `vector inside/outside` authored placement through exact one-sided
+  constrained geometry
 
 These supported slices must visibly render the constrained stroke band on the
 expected side of the source shape while keeping the opposite side mostly clean.
 
 ### Unsupported or rejected constrained slices
 
-- constrained `round` join
-- constrained `round` cap
 - open constrained vector clipping
 - self-intersecting constrained vector paths
 
@@ -56,8 +55,8 @@ must stay stored, but visible stroke placement falls back to centered rendering.
 
 ### Closed constrained cap equivalence
 
-On closed constrained shapes, `butt` and `square` cap variants must remain
-visually equivalent within the benchmark tolerance because terminal cap
+On closed constrained shapes, `butt`, `square`, and `round` cap variants must
+remain visually equivalent within the benchmark tolerance because terminal cap
 semantics should not change a closed loop result.
 
 ## Measured Observables
@@ -84,6 +83,8 @@ the selected element.
 - unsupported / rejected slices:
   - sampled coverage `< 0.03`
 - closed constrained `butt` / `square` equivalence:
+  - absolute sampled-band delta `< 0.12`
+- closed constrained `butt` / `round` equivalence:
   - absolute sampled-band delta `< 0.12`
 
 ## Failure Meaning

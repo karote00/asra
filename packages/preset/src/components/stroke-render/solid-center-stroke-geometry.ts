@@ -24,7 +24,9 @@ export const supportsSolidCenterStroke = (
   stroke.style === 'solid' &&
   stroke.position === 'center' &&
   stroke.width > 0 &&
-  (stroke.join === 'miter' || stroke.join === 'bevel' || stroke.join === 'round') &&
+  (stroke.join === 'miter' ||
+    stroke.join === 'bevel' ||
+    stroke.join === 'round') &&
   stroke.miterLimit >= 1 &&
   (stroke.cap === 'butt' || stroke.cap === 'square' || stroke.cap === 'round')
 
@@ -50,14 +52,17 @@ const buildArcPoints = (
 
   const segmentCount = Math.max(2, Math.ceil(Math.abs(sweep) / (Math.PI / 12)))
   const radius = distance(center, start)
+  const points: Vec2[] = []
 
-  return Array.from({ length: segmentCount + 1 }, (_, index) => {
+  for (let index = 0; index <= segmentCount; index += 1) {
     const angle = startAngle + (sweep * index) / segmentCount
-    return {
+    points.push({
       x: center.x + Math.cos(angle) * radius,
       y: center.y + Math.sin(angle) * radius
-    }
-  })
+    })
+  }
+
+  return points
 }
 
 const buildRoundCapPolygons = (
@@ -134,7 +139,7 @@ export const buildSolidCenterStrokePolygons = (
     }
 
     const flattenSegmentPath = (
-      segments: Array<{ start: Vec2; end: Vec2 } | null>
+      segments: ({ start: Vec2; end: Vec2 } | null)[]
     ) => {
       const path: Vec2[] = []
 
@@ -204,7 +209,10 @@ export const buildSolidCenterStrokePolygons = (
       const point = source[index]
       const previousPoint = source[index - 1]
       const nextPoint = source[index + 1]
-      const turn = cross(subtract(point, previousPoint), subtract(nextPoint, point))
+      const turn = cross(
+        subtract(point, previousPoint),
+        subtract(nextPoint, point)
+      )
       if (Math.abs(turn) <= 1e-6) {
         continue
       }
@@ -257,20 +265,31 @@ export const buildSolidCenterStrokePolygons = (
       }
       return sweep
     }
-    const buildArcFan = (center: Vec2, start: Vec2, end: Vec2, turn: number) => {
+    const buildArcFan = (
+      center: Vec2,
+      start: Vec2,
+      end: Vec2,
+      turn: number
+    ) => {
       const startAngle = Math.atan2(start.y - center.y, start.x - center.x)
       const endAngle = Math.atan2(end.y - center.y, end.x - center.x)
       const sweep = normalizeSweep(startAngle, endAngle, turn)
-      const segmentCount = Math.max(2, Math.ceil(Math.abs(sweep) / (Math.PI / 12)))
+      const segmentCount = Math.max(
+        2,
+        Math.ceil(Math.abs(sweep) / (Math.PI / 12))
+      )
       const radius = distance(center, start)
+      const points: Vec2[] = []
 
-      return Array.from({ length: segmentCount + 1 }, (_, index) => {
+      for (let index = 0; index <= segmentCount; index += 1) {
         const angle = startAngle + (sweep * index) / segmentCount
-        return {
+        points.push({
           x: center.x + Math.cos(angle) * radius,
           y: center.y + Math.sin(angle) * radius
-        }
-      })
+        })
+      }
+
+      return points
     }
 
     leftSegments.forEach((leftSegment, index) => {
@@ -291,7 +310,10 @@ export const buildSolidCenterStrokePolygons = (
       const point = source[index]
       const previousPoint = source[index - 1]
       const nextPoint = source[index + 1]
-      const turn = cross(subtract(point, previousPoint), subtract(nextPoint, point))
+      const turn = cross(
+        subtract(point, previousPoint),
+        subtract(nextPoint, point)
+      )
       if (Math.abs(turn) <= 1e-6) {
         continue
       }

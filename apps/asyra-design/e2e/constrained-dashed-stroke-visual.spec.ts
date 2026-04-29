@@ -122,13 +122,20 @@ const captureSelectedElementRaster = async (
   const clip = {
     x: Math.max(
       0,
-      Math.floor(snapshot.rect.x * snapshot.zoom + snapshot.viewport.x - padding)
+      Math.floor(
+        snapshot.rect.x * snapshot.zoom + snapshot.viewport.x - padding
+      )
     ),
     y: Math.max(
       0,
-      Math.floor(snapshot.rect.y * snapshot.zoom + snapshot.viewport.y - padding)
+      Math.floor(
+        snapshot.rect.y * snapshot.zoom + snapshot.viewport.y - padding
+      )
     ),
-    width: Math.max(1, Math.ceil(snapshot.rect.width * snapshot.zoom + padding * 2)),
+    width: Math.max(
+      1,
+      Math.ceil(snapshot.rect.width * snapshot.zoom + padding * 2)
+    ),
     height: Math.max(
       1,
       Math.ceil(snapshot.rect.height * snapshot.zoom + padding * 2)
@@ -193,7 +200,14 @@ const getGreenCoverage = async (
         for (let x = startX; x < endX; x += 1) {
           const [r, g, b, a] = context.getImageData(x, y, 1, 1).data
           total += 1
-          if (a > 180 && g > 170 && r < 120 && b < 120 && g - r > 70 && g - b > 70) {
+          if (
+            a > 180 &&
+            g > 170 &&
+            r < 120 &&
+            b < 120 &&
+            g - r > 70 &&
+            g - b > 70
+          ) {
             green += 1
           }
         }
@@ -379,8 +393,10 @@ const getRectGradientProbeRegions = (raster: RasterCapture) => {
 const getMultiNetworkRectProbeRegions = (raster: RasterCapture) => {
   const bandWidth = 4
   const bandHeight = Math.max(2, raster.strokeWidthPx - 2)
-  const firstNetworkCenterColumn = raster.padding + raster.elementWidth * 0.2 - 2
-  const secondNetworkCenterColumn = raster.padding + raster.elementWidth * 0.8 - 2
+  const firstNetworkCenterColumn =
+    raster.padding + raster.elementWidth * 0.2 - 2
+  const secondNetworkCenterColumn =
+    raster.padding + raster.elementWidth * 0.8 - 2
 
   return {
     firstTopInside: {
@@ -499,8 +515,10 @@ const getRectSingleEdgeProbeRegions = (raster: RasterCapture) => {
 const getRectSingleEdgeGradientProbeRegions = (raster: RasterCapture) => {
   const bandWidth = Math.max(4, Math.round(raster.elementWidth * 0.08))
   const bandHeight = Math.max(2, raster.strokeWidthPx - 2)
-  const leftIntervalX = raster.padding + raster.elementWidth * 0.28 - bandWidth / 2
-  const rightIntervalX = raster.padding + raster.elementWidth * 0.36 - bandWidth / 2
+  const leftIntervalX =
+    raster.padding + raster.elementWidth * 0.28 - bandWidth / 2
+  const rightIntervalX =
+    raster.padding + raster.elementWidth * 0.36 - bandWidth / 2
   const laterGapX = raster.padding + raster.elementWidth * 0.72 - bandWidth / 2
 
   return {
@@ -531,11 +549,15 @@ const getRectSingleEdgeGradientProbeRegions = (raster: RasterCapture) => {
   }
 }
 
-const getRectSingleEdgeOutsideGradientProbeRegions = (raster: RasterCapture) => {
+const getRectSingleEdgeOutsideGradientProbeRegions = (
+  raster: RasterCapture
+) => {
   const bandWidth = Math.max(4, Math.round(raster.elementWidth * 0.08))
   const bandHeight = Math.max(2, raster.strokeWidthPx - 2)
-  const leftIntervalX = raster.padding + raster.elementWidth * 0.28 - bandWidth / 2
-  const rightIntervalX = raster.padding + raster.elementWidth * 0.36 - bandWidth / 2
+  const leftIntervalX =
+    raster.padding + raster.elementWidth * 0.28 - bandWidth / 2
+  const rightIntervalX =
+    raster.padding + raster.elementWidth * 0.36 - bandWidth / 2
   const laterGapX = raster.padding + raster.elementWidth * 0.72 - bandWidth / 2
 
   return {
@@ -566,48 +588,9 @@ const getRectSingleEdgeOutsideGradientProbeRegions = (raster: RasterCapture) => 
   }
 }
 
-const getRectSingleEdgeRoundCapProbeRegions = (raster: RasterCapture) => {
-  const bandWidth = Math.max(4, Math.round(raster.elementWidth * 0.08))
-  const bandHeight = Math.max(2, raster.strokeWidthPx - 2)
-  const capLeadX = raster.padding + raster.elementWidth * 0.2 - bandWidth / 2
-  const bodyX = raster.padding + raster.elementWidth * 0.3 - bandWidth / 2
-  const laterGapX = raster.padding + raster.elementWidth * 0.72 - bandWidth / 2
-
-  return {
-    capInside: {
-      x: capLeadX,
-      y: raster.padding + 1,
-      width: bandWidth,
-      height: bandHeight
-    },
-    bodyInside: {
-      x: bodyX,
-      y: raster.padding + 1,
-      width: bandWidth,
-      height: bandHeight
-    },
-    capOutsideLeak: {
-      x: capLeadX,
-      y: raster.padding - raster.strokeWidthPx + 1,
-      width: bandWidth,
-      height: bandHeight
-    },
-    laterTopInsideGap: {
-      x: laterGapX,
-      y: raster.padding + 1,
-      width: bandWidth,
-      height: bandHeight
-    },
-    center: {
-      x: raster.padding + raster.elementWidth / 2 - 4,
-      y: raster.padding + raster.elementHeight / 2 - 4,
-      width: 8,
-      height: 8
-    }
-  }
-}
-
-const getRectSingleEdgeOutsideRoundCapProbeRegions = (raster: RasterCapture) => {
+const getRectSingleEdgeOutsideRoundCapProbeRegions = (
+  raster: RasterCapture
+) => {
   const bandWidth = Math.max(4, Math.round(raster.elementWidth * 0.08))
   const bandHeight = Math.max(2, raster.strokeWidthPx - 2)
   const capLeadX = raster.padding + raster.elementWidth * 0.2 - bandWidth / 2
@@ -653,7 +636,8 @@ const getVectorRectSingleEdgeRoundCapProbeRegions = (raster: RasterCapture) => {
   const capBandHeight = 2
   const bandWidth = Math.max(3, raster.strokeWidthPx)
   const bandHeight = Math.max(2, raster.strokeWidthPx - 2)
-  const capLeadX = raster.padding + raster.elementWidth * 0.25 - capBandWidth / 2
+  const capLeadX =
+    raster.padding + raster.elementWidth * 0.25 - capBandWidth / 2
   const bodyX = raster.padding + raster.elementWidth * 0.3 - bandWidth / 2
   const laterGapX = raster.padding + raster.elementWidth * 0.72 - bandWidth / 2
 
@@ -698,7 +682,8 @@ const getVectorRectSingleEdgeOutsideRoundCapProbeRegions = (
   const capBandHeight = 2
   const bandWidth = Math.max(3, raster.strokeWidthPx)
   const bandHeight = Math.max(2, raster.strokeWidthPx - 2)
-  const capLeadX = raster.padding + raster.elementWidth * 0.25 - capBandWidth / 2
+  const capLeadX =
+    raster.padding + raster.elementWidth * 0.25 - capBandWidth / 2
   const bodyX = raster.padding + raster.elementWidth * 0.3 - bandWidth / 2
   const laterGapX = raster.padding + raster.elementWidth * 0.72 - bandWidth / 2
 
@@ -739,7 +724,8 @@ const getVectorRectSingleEdgeOutsideRoundCapProbeRegions = (
 const getRectCornerSpanningProbeRegions = (raster: RasterCapture) => {
   const bandWidth = Math.max(4, Math.round(raster.elementWidth * 0.1))
   const bandHeight = Math.max(2, raster.strokeWidthPx - 2)
-  const topNearCornerX = raster.padding + raster.elementWidth * 0.86 - bandWidth / 2
+  const topNearCornerX =
+    raster.padding + raster.elementWidth * 0.86 - bandWidth / 2
   const topGapX = raster.padding + raster.elementWidth * 0.25 - bandWidth / 2
 
   return {
@@ -842,7 +828,9 @@ const getRectCornerSpanningGradientProbeRegions = (raster: RasterCapture) => {
   }
 }
 
-const getRectCornerSpanningOutsideGradientProbeRegions = (raster: RasterCapture) => {
+const getRectCornerSpanningOutsideGradientProbeRegions = (
+  raster: RasterCapture
+) => {
   const bandWidth = Math.max(4, Math.round(raster.elementWidth * 0.1))
   const bandHeight = Math.max(2, raster.strokeWidthPx - 2)
   const topNearCornerLeftX =
@@ -893,7 +881,8 @@ const getRectCornerSpanningOutsideGradientProbeRegions = (raster: RasterCapture)
 const getTrapezoidCornerSpanningProbeRegions = (raster: RasterCapture) => {
   const bandWidth = Math.max(4, Math.round(raster.elementWidth * 0.1))
   const bandHeight = Math.max(2, raster.strokeWidthPx - 2)
-  const topNearCornerX = raster.padding + raster.elementWidth * 0.84 - bandWidth / 2
+  const topNearCornerX =
+    raster.padding + raster.elementWidth * 0.84 - bandWidth / 2
   const topGapX = raster.padding + raster.elementWidth * 0.25 - bandWidth / 2
   const slantedNearCornerX =
     raster.padding + raster.elementWidth * 0.83 - bandHeight / 2
@@ -952,7 +941,9 @@ const getTrapezoidCornerSpanningProbeRegions = (raster: RasterCapture) => {
   }
 }
 
-const getTrapezoidCornerSpanningGradientProbeRegions = (raster: RasterCapture) => {
+const getTrapezoidCornerSpanningGradientProbeRegions = (
+  raster: RasterCapture
+) => {
   const bandWidth = Math.max(4, Math.round(raster.elementWidth * 0.1))
   const bandHeight = Math.max(2, raster.strokeWidthPx - 2)
   const topNearCornerLeftX =
@@ -1083,10 +1074,34 @@ const patchSelectedVectorToClosedRectangle = async (page: Page) => {
     }
 
     const nextSegments = {
-      ab: { id: 'ab', startId: 'a', endId: 'b', outControlId: null, inControlId: null },
-      bc: { id: 'bc', startId: 'b', endId: 'c', outControlId: null, inControlId: null },
-      cd: { id: 'cd', startId: 'c', endId: 'd', outControlId: null, inControlId: null },
-      da: { id: 'da', startId: 'd', endId: 'a', outControlId: null, inControlId: null }
+      ab: {
+        id: 'ab',
+        startId: 'a',
+        endId: 'b',
+        outControlId: null,
+        inControlId: null
+      },
+      bc: {
+        id: 'bc',
+        startId: 'b',
+        endId: 'c',
+        outControlId: null,
+        inControlId: null
+      },
+      cd: {
+        id: 'cd',
+        startId: 'c',
+        endId: 'd',
+        outControlId: null,
+        inControlId: null
+      },
+      da: {
+        id: 'da',
+        startId: 'd',
+        endId: 'a',
+        outControlId: null,
+        inControlId: null
+      }
     }
 
     core?.changeComputedData?.(
@@ -1140,10 +1155,34 @@ const patchSelectedVectorToClosedTrapezoid = async (page: Page) => {
     }
 
     const nextSegments = {
-      ab: { id: 'ab', startId: 'a', endId: 'b', outControlId: null, inControlId: null },
-      bc: { id: 'bc', startId: 'b', endId: 'c', outControlId: null, inControlId: null },
-      cd: { id: 'cd', startId: 'c', endId: 'd', outControlId: null, inControlId: null },
-      da: { id: 'da', startId: 'd', endId: 'a', outControlId: null, inControlId: null }
+      ab: {
+        id: 'ab',
+        startId: 'a',
+        endId: 'b',
+        outControlId: null,
+        inControlId: null
+      },
+      bc: {
+        id: 'bc',
+        startId: 'b',
+        endId: 'c',
+        outControlId: null,
+        inControlId: null
+      },
+      cd: {
+        id: 'cd',
+        startId: 'c',
+        endId: 'd',
+        outControlId: null,
+        inControlId: null
+      },
+      da: {
+        id: 'da',
+        startId: 'd',
+        endId: 'a',
+        outControlId: null,
+        inControlId: null
+      }
     }
 
     core?.changeComputedData?.(
@@ -1197,10 +1236,34 @@ const patchSelectedVectorToSelfIntersecting = async (page: Page) => {
     }
 
     const nextSegments = {
-      ab: { id: 'ab', startId: 'a', endId: 'b', outControlId: null, inControlId: null },
-      bc: { id: 'bc', startId: 'b', endId: 'c', outControlId: null, inControlId: null },
-      cd: { id: 'cd', startId: 'c', endId: 'd', outControlId: null, inControlId: null },
-      da: { id: 'da', startId: 'd', endId: 'a', outControlId: null, inControlId: null }
+      ab: {
+        id: 'ab',
+        startId: 'a',
+        endId: 'b',
+        outControlId: null,
+        inControlId: null
+      },
+      bc: {
+        id: 'bc',
+        startId: 'b',
+        endId: 'c',
+        outControlId: null,
+        inControlId: null
+      },
+      cd: {
+        id: 'cd',
+        startId: 'c',
+        endId: 'd',
+        outControlId: null,
+        inControlId: null
+      },
+      da: {
+        id: 'da',
+        startId: 'd',
+        endId: 'a',
+        outControlId: null,
+        inControlId: null
+      }
     }
 
     core?.changeComputedData?.(
@@ -1262,10 +1325,34 @@ const patchSelectedVectorToClosedCubicLoop = async (page: Page) => {
     }
 
     const nextSegments = {
-      ab: { id: 'ab', startId: 'a', endId: 'b', outControlId: 'aOut', inControlId: 'bIn' },
-      bc: { id: 'bc', startId: 'b', endId: 'c', outControlId: 'bOut', inControlId: 'cIn' },
-      cd: { id: 'cd', startId: 'c', endId: 'd', outControlId: 'cOut', inControlId: 'dIn' },
-      da: { id: 'da', startId: 'd', endId: 'a', outControlId: 'dOut', inControlId: 'aIn' }
+      ab: {
+        id: 'ab',
+        startId: 'a',
+        endId: 'b',
+        outControlId: 'aOut',
+        inControlId: 'bIn'
+      },
+      bc: {
+        id: 'bc',
+        startId: 'b',
+        endId: 'c',
+        outControlId: 'bOut',
+        inControlId: 'cIn'
+      },
+      cd: {
+        id: 'cd',
+        startId: 'c',
+        endId: 'd',
+        outControlId: 'cOut',
+        inControlId: 'dIn'
+      },
+      da: {
+        id: 'da',
+        startId: 'd',
+        endId: 'a',
+        outControlId: 'dOut',
+        inControlId: 'aIn'
+      }
     }
 
     core?.changeComputedData?.(
@@ -1312,25 +1399,121 @@ const patchSelectedVectorToReportedClosedStar = async (page: Page) => {
     }
 
     const nextPoints = {
-      'tp-56': { id: 'tp-56', kind: 'anchor', x: 246.91886685202462, y: 0, anchorType: 'sharp' },
-      'tp-57': { id: 'tp-57', kind: 'anchor', x: 75.04396933738008, y: 457.5261356375752, anchorType: 'smooth' },
-      'tp-56:out': { id: 'tp-56:out', kind: 'control', x: 195.9809570843745, y: 149.61104635348715, controlRole: 'out' },
-      'tp-57:in': { id: 'tp-57:in', kind: 'control', x: -46.963000165973426, y: 476.8923212730281, controlRole: 'in' },
-      'tp-57:out': { id: 'tp-57:out', kind: 'control', x: 227.55268121657173, y: 433.3184035932593, controlRole: 'out' },
-      'tp-58': { id: 'tp-58', kind: 'anchor', x: 423.6353107755326, y: 198.5034027633924, anchorType: 'sharp' },
-      'tp-59': { id: 'tp-59', kind: 'anchor', x: 0, y: 91.98938176840147, anchorType: 'sharp' },
-      'tp-60': { id: 'tp-60', kind: 'anchor', x: 307.43819696281525, y: 428.4768571843963, anchorType: 'smooth' },
-      'tp-59:out': { id: 'tp-59:out', kind: 'control', x: 0, y: 91.98938176840147, controlRole: 'out' },
-      'tp-60:in': { id: 'tp-60:in', kind: 'control', x: 275.9681453052044, y: 498.6792801129134, controlRole: 'in' },
-      'tp-60:out': { id: 'tp-60:out', kind: 'control', x: 338.9082486204261, y: 358.2744342558792, controlRole: 'out' }
+      'tp-56': {
+        id: 'tp-56',
+        kind: 'anchor',
+        x: 246.91886685202462,
+        y: 0,
+        anchorType: 'sharp'
+      },
+      'tp-57': {
+        id: 'tp-57',
+        kind: 'anchor',
+        x: 75.04396933738008,
+        y: 457.5261356375752,
+        anchorType: 'smooth'
+      },
+      'tp-56:out': {
+        id: 'tp-56:out',
+        kind: 'control',
+        x: 195.9809570843745,
+        y: 149.61104635348715,
+        controlRole: 'out'
+      },
+      'tp-57:in': {
+        id: 'tp-57:in',
+        kind: 'control',
+        x: -46.963000165973426,
+        y: 476.8923212730281,
+        controlRole: 'in'
+      },
+      'tp-57:out': {
+        id: 'tp-57:out',
+        kind: 'control',
+        x: 227.55268121657173,
+        y: 433.3184035932593,
+        controlRole: 'out'
+      },
+      'tp-58': {
+        id: 'tp-58',
+        kind: 'anchor',
+        x: 423.6353107755326,
+        y: 198.5034027633924,
+        anchorType: 'sharp'
+      },
+      'tp-59': {
+        id: 'tp-59',
+        kind: 'anchor',
+        x: 0,
+        y: 91.98938176840147,
+        anchorType: 'sharp'
+      },
+      'tp-60': {
+        id: 'tp-60',
+        kind: 'anchor',
+        x: 307.43819696281525,
+        y: 428.4768571843963,
+        anchorType: 'smooth'
+      },
+      'tp-59:out': {
+        id: 'tp-59:out',
+        kind: 'control',
+        x: 0,
+        y: 91.98938176840147,
+        controlRole: 'out'
+      },
+      'tp-60:in': {
+        id: 'tp-60:in',
+        kind: 'control',
+        x: 275.9681453052044,
+        y: 498.6792801129134,
+        controlRole: 'in'
+      },
+      'tp-60:out': {
+        id: 'tp-60:out',
+        kind: 'control',
+        x: 338.9082486204261,
+        y: 358.2744342558792,
+        controlRole: 'out'
+      }
     }
 
     const nextSegments = {
-      'ts-95': { id: 'ts-95', startId: 'tp-56', endId: 'tp-57', outControlId: 'tp-56:out', inControlId: 'tp-57:in' },
-      'ts-96': { id: 'ts-96', startId: 'tp-57', endId: 'tp-58', outControlId: 'tp-57:out', inControlId: null },
-      'ts-97': { id: 'ts-97', startId: 'tp-58', endId: 'tp-59', outControlId: null, inControlId: null },
-      'ts-98': { id: 'ts-98', startId: 'tp-59', endId: 'tp-60', outControlId: 'tp-59:out', inControlId: 'tp-60:in' },
-      'ts-99': { id: 'ts-99', startId: 'tp-60', endId: 'tp-56', outControlId: 'tp-60:out', inControlId: null }
+      'ts-95': {
+        id: 'ts-95',
+        startId: 'tp-56',
+        endId: 'tp-57',
+        outControlId: 'tp-56:out',
+        inControlId: 'tp-57:in'
+      },
+      'ts-96': {
+        id: 'ts-96',
+        startId: 'tp-57',
+        endId: 'tp-58',
+        outControlId: 'tp-57:out',
+        inControlId: null
+      },
+      'ts-97': {
+        id: 'ts-97',
+        startId: 'tp-58',
+        endId: 'tp-59',
+        outControlId: null,
+        inControlId: null
+      },
+      'ts-98': {
+        id: 'ts-98',
+        startId: 'tp-59',
+        endId: 'tp-60',
+        outControlId: 'tp-59:out',
+        inControlId: 'tp-60:in'
+      },
+      'ts-99': {
+        id: 'ts-99',
+        startId: 'tp-60',
+        endId: 'tp-56',
+        outControlId: 'tp-60:out',
+        inControlId: null
+      }
     }
 
     core?.changeComputedData?.(
@@ -1442,14 +1625,62 @@ const patchSelectedVectorToMultiNetworkRectangles = async (page: Page) => {
     }
 
     const nextSegments = {
-      a01: { id: 'a01', startId: 'a0', endId: 'a1', outControlId: null, inControlId: null },
-      a12: { id: 'a12', startId: 'a1', endId: 'a2', outControlId: null, inControlId: null },
-      a23: { id: 'a23', startId: 'a2', endId: 'a3', outControlId: null, inControlId: null },
-      a30: { id: 'a30', startId: 'a3', endId: 'a0', outControlId: null, inControlId: null },
-      b01: { id: 'b01', startId: 'b0', endId: 'b1', outControlId: null, inControlId: null },
-      b12: { id: 'b12', startId: 'b1', endId: 'b2', outControlId: null, inControlId: null },
-      b23: { id: 'b23', startId: 'b2', endId: 'b3', outControlId: null, inControlId: null },
-      b30: { id: 'b30', startId: 'b3', endId: 'b0', outControlId: null, inControlId: null }
+      a01: {
+        id: 'a01',
+        startId: 'a0',
+        endId: 'a1',
+        outControlId: null,
+        inControlId: null
+      },
+      a12: {
+        id: 'a12',
+        startId: 'a1',
+        endId: 'a2',
+        outControlId: null,
+        inControlId: null
+      },
+      a23: {
+        id: 'a23',
+        startId: 'a2',
+        endId: 'a3',
+        outControlId: null,
+        inControlId: null
+      },
+      a30: {
+        id: 'a30',
+        startId: 'a3',
+        endId: 'a0',
+        outControlId: null,
+        inControlId: null
+      },
+      b01: {
+        id: 'b01',
+        startId: 'b0',
+        endId: 'b1',
+        outControlId: null,
+        inControlId: null
+      },
+      b12: {
+        id: 'b12',
+        startId: 'b1',
+        endId: 'b2',
+        outControlId: null,
+        inControlId: null
+      },
+      b23: {
+        id: 'b23',
+        startId: 'b2',
+        endId: 'b3',
+        outControlId: null,
+        inControlId: null
+      },
+      b30: {
+        id: 'b30',
+        startId: 'b3',
+        endId: 'b0',
+        outControlId: null,
+        inControlId: null
+      }
     }
 
     core?.changeComputedData?.(
@@ -1486,53 +1717,56 @@ const ensureElementSelected = async (
   page: Page,
   expectedType?: 'rect' | 'oval' | 'vector'
 ) => {
-  await page.evaluate(({ expectedType }) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
-    const selectedIds = core?.deps?.selection?.getElementSelectionIds?.() ?? []
-    if (selectedIds.length > 0) {
-      return
-    }
-
-    const elements = core?.deps?.sceneTree?.getAllElements?.()
-    if (!(elements instanceof Map) || elements.size === 0) {
-      throw new Error('No element available to select')
-    }
-
-    const ordered = Array.from(elements.entries()).reverse()
-    const targetEntry = ordered.find(([id, element]) => {
-      if (id === 'workspace') {
-        return false
+  await page.evaluate(
+    ({ expectedType }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedIds =
+        core?.deps?.selection?.getElementSelectionIds?.() ?? []
+      if (selectedIds.length > 0) {
+        return
       }
 
-      if (!expectedType) {
-        return true
+      const elements = core?.deps?.sceneTree?.getAllElements?.()
+      if (!(elements instanceof Map) || elements.size === 0) {
+        throw new Error('No element available to select')
       }
 
-      const computed = element?.getAllComputedData?.() ?? {}
-      const elementType =
-        computed.type ??
-        element?.type ??
-        element?.getType?.() ??
-        null
+      const ordered = Array.from(elements.entries()).reverse()
+      const targetEntry = ordered.find(([id, element]) => {
+        if (id === 'workspace') {
+          return false
+        }
 
-      return expectedType ? elementType === expectedType : true
-    })
+        if (!expectedType) {
+          return true
+        }
 
-    const targetId = targetEntry?.[0] ?? null
-    if (!targetId) {
-      throw new Error(
-        expectedType
-          ? `No element available to select for type ${expectedType}`
-          : 'No element available to select'
-      )
-    }
+        const computed = element?.getAllComputedData?.() ?? {}
+        const elementType =
+          computed.type ?? element?.type ?? element?.getType?.() ?? null
 
-    core?.selectElements?.([targetId], { undoable: false })
-  }, { expectedType })
+        return expectedType ? elementType === expectedType : true
+      })
+
+      const targetId = targetEntry?.[0] ?? null
+      if (!targetId) {
+        throw new Error(
+          expectedType
+            ? `No element available to select for type ${expectedType}`
+            : 'No element available to select'
+        )
+      }
+
+      core?.selectElements?.([targetId], { undoable: false })
+    },
+    { expectedType }
+  )
 
   await page.waitForTimeout(150)
-  await expect(getPropertiesPanel(page).getByTestId('prop-strokes-section')).toBeVisible()
+  await expect(
+    getPropertiesPanel(page).getByTestId('prop-strokes-section')
+  ).toBeVisible()
 }
 
 const clearVectorOverlayState = async (page: Page) => {
@@ -1548,17 +1782,20 @@ const clearVectorOverlayState = async (page: Page) => {
 }
 
 const setSelectedElementRotation = async (page: Page, rotation: number) => {
-  await page.evaluate(({ rotation }) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
-    const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
-    if (!selectedId) {
-      throw new Error('No selected element to rotate')
-    }
+  await page.evaluate(
+    ({ rotation }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+      if (!selectedId) {
+        throw new Error('No selected element to rotate')
+      }
 
-    const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
-    element?.updateComputedData?.('rotation', rotation, { undoable: false })
-  }, { rotation })
+      const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+      element?.updateComputedData?.('rotation', rotation, { undoable: false })
+    },
+    { rotation }
+  )
 
   await page.waitForTimeout(120)
 }
@@ -1589,25 +1826,6 @@ const createTwoPointVectorPath = async (page: Page) => {
   await page.waitForTimeout(120)
 }
 
-const createClosedTriangleVectorPath = async (page: Page) => {
-  const first = await getCanvasPosition(page, 0.3, 0.3)
-  const second = await getCanvasPosition(page, 0.42, 0.3)
-  const third = await getCanvasPosition(page, 0.42, 0.42)
-
-  await page.keyboard.press('p')
-  await page.waitForTimeout(100)
-  await page.mouse.click(first.x, first.y)
-  await page.waitForTimeout(120)
-  await page.mouse.click(second.x, second.y)
-  await page.waitForTimeout(120)
-  await page.mouse.click(third.x, third.y)
-  await page.waitForTimeout(120)
-  await page.mouse.click(first.x, first.y)
-  await page.waitForTimeout(240)
-  await page.keyboard.press('v')
-  await page.waitForTimeout(120)
-}
-
 const configureCenterDashedStroke = async (
   page: Page,
   config: {
@@ -1623,8 +1841,12 @@ const configureCenterDashedStroke = async (
   const propertiesPanel = getPropertiesPanel(page)
   await ensureSelectedStrokeRow(page, 0)
 
-  await propertiesPanel.getByTestId('prop-stroke-style-0').selectOption('dashed')
-  await propertiesPanel.getByTestId('prop-stroke-position-0').selectOption('center')
+  await propertiesPanel
+    .getByTestId('prop-stroke-style-0')
+    .selectOption('dashed')
+  await propertiesPanel
+    .getByTestId('prop-stroke-position-0')
+    .selectOption('center')
   await propertiesPanel
     .getByTestId('prop-stroke-join-0')
     .selectOption(config.join ?? 'bevel')
@@ -1653,7 +1875,9 @@ const setSelectedStrokePosition = async (
   position: 'center' | 'inside' | 'outside'
 ) => {
   const propertiesPanel = getPropertiesPanel(page)
-  await propertiesPanel.getByTestId('prop-stroke-position-0').selectOption(position)
+  await propertiesPanel
+    .getByTestId('prop-stroke-position-0')
+    .selectOption(position)
   await page.waitForTimeout(180)
 }
 
@@ -1774,14 +1998,15 @@ const patchSelectedStrokeRowToLinearGradient = async (
       const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
       const computed = element?.getAllComputedData?.() ?? {}
       const nextStrokes = Array.isArray(computed?.strokes)
-        ? computed.strokes.map((stroke: Record<string, unknown>, index: number) =>
-            index === strokeIndex
-              ? {
-                  ...stroke,
-                  kind: 'gradient',
-                  gradient
-                }
-              : stroke
+        ? computed.strokes.map(
+            (stroke: Record<string, unknown>, index: number) =>
+              index === strokeIndex
+                ? {
+                    ...stroke,
+                    kind: 'gradient',
+                    gradient
+                  }
+                : stroke
           )
         : null
 
@@ -1840,7 +2065,7 @@ test.beforeEach(async ({ page }) => {
   await resetCanvas(page)
 })
 
-test('benchmark: rectangle inside constrained dashed full-loop stroke renders through the promoted Phase 4C rectangle product path', async ({
+test('benchmark: rectangle inside constrained dashed full-loop stroke renders through the supported constrained dashed rectangle product path', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -1867,7 +2092,7 @@ test('benchmark: rectangle inside constrained dashed full-loop stroke renders th
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: rectangle outside constrained dashed full-loop stroke renders through the next promoted Phase 4C product path', async ({
+test('benchmark: rectangle outside constrained dashed full-loop stroke renders through the next supported constrained dashed product path', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -1892,7 +2117,7 @@ test('benchmark: rectangle outside constrained dashed full-loop stroke renders t
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: rectangle constrained dashed strokes with multiple eligible intervals remain absent until 4C ownership is promoted', async ({
+test('benchmark: rectangle constrained dashed strokes with multiple eligible intervals remain absent until multi-stroke ownership is supported', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -1924,7 +2149,34 @@ test('benchmark: rectangle constrained dashed strokes with multiple eligible int
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: rectangle constrained dashed inside round-join full-loop stroke renders through the first Phase 5 product path', async ({
+test('benchmark: rectangle repeated constrained dashed intervals render when ownership resolves to one stroke', async ({
+  page
+}) => {
+  await createRectangle(page, 0.3, 0.3)
+  await setSelectedElementSize(page, { width: 80, height: 40 })
+  await configureConstrainedDashedStroke(page, {
+    elementType: 'rect',
+    position: 'outside',
+    join: 'bevel',
+    cap: 'butt',
+    pattern: '20, 20'
+  })
+
+  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+  const probes = getRectRepeatedDashProbeRegions(raster)
+
+  const [topOutsideFirstDash, topInsideFirstDash, center] = await Promise.all([
+    getGreenCoverage(page, raster, probes.topOutsideFirstDash),
+    getGreenCoverage(page, raster, probes.topInsideFirstDash),
+    getGreenCoverage(page, raster, probes.center)
+  ])
+
+  expect(topOutsideFirstDash).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+  expect(topInsideFirstDash).toBeLessThan(MAX_EXTERIOR_LEAK)
+  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+})
+
+test('benchmark: rectangle constrained dashed inside round-join full-loop stroke renders through the first supported join/cap product path', async ({
   page
 }) => {
   await createRectangle(page, 0.35, 0.35)
@@ -1954,7 +2206,7 @@ test('benchmark: rectangle constrained dashed inside round-join full-loop stroke
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: rectangle constrained dashed outside round-join full-loop stroke renders through the next Phase 5 outside product path', async ({
+test('benchmark: rectangle constrained dashed outside round-join full-loop stroke renders through the next supported join/cap outside product path', async ({
   page
 }) => {
   await createRectangle(page, 0.35, 0.35)
@@ -1982,7 +2234,7 @@ test('benchmark: rectangle constrained dashed outside round-join full-loop strok
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: rectangle inside constrained dashed full-loop gradient stroke renders through the first Phase 6 product path', async ({
+test('benchmark: rectangle inside constrained dashed full-loop gradient stroke renders through the first supported paint product path', async ({
   page
 }) => {
   await createRectangle(page, 0.35, 0.35)
@@ -2015,7 +2267,7 @@ test('benchmark: rectangle inside constrained dashed full-loop gradient stroke r
   expect(center.b).toBeGreaterThan(170)
 })
 
-test('benchmark: rectangle outside constrained dashed full-loop gradient stroke renders through the next Phase 6 product path', async ({
+test('benchmark: rectangle outside constrained dashed full-loop gradient stroke renders through the next supported paint product path', async ({
   page
 }) => {
   await createRectangle(page, 0.35, 0.35)
@@ -2048,7 +2300,7 @@ test('benchmark: rectangle outside constrained dashed full-loop gradient stroke 
   expect(center.b).toBeGreaterThan(170)
 })
 
-test('benchmark: rectangle inside constrained dashed single-edge stroke renders through the first Family B product path', async ({
+test('benchmark: rectangle inside constrained dashed single-edge stroke renders through the first single-edge topology family product path', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -2078,7 +2330,7 @@ test('benchmark: rectangle inside constrained dashed single-edge stroke renders 
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: rectangle inside constrained dashed single-edge gradient stroke renders through the next Phase 6 product path', async ({
+test('benchmark: rectangle inside constrained dashed single-edge gradient stroke renders through the next supported paint product path', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -2119,7 +2371,7 @@ test('benchmark: rectangle inside constrained dashed single-edge gradient stroke
   expect(center.b).toBeGreaterThan(170)
 })
 
-test('benchmark: rectangle inside constrained dashed single-edge round-cap stroke renders through the next Phase 5 product path', async ({
+test('benchmark: rectangle inside constrained dashed single-edge round-cap stroke renders through the next supported join/cap product path', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -2151,7 +2403,7 @@ test('benchmark: rectangle inside constrained dashed single-edge round-cap strok
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: rectangle outside constrained dashed single-edge round-cap stroke renders through the next Phase 5 outside product path', async ({
+test('benchmark: rectangle outside constrained dashed single-edge round-cap stroke renders through the next supported join/cap outside product path', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -2183,7 +2435,7 @@ test('benchmark: rectangle outside constrained dashed single-edge round-cap stro
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: rectangle outside constrained dashed single-edge stroke renders through the same first Family B product path', async ({
+test('benchmark: rectangle outside constrained dashed single-edge stroke renders through the same first single-edge topology family product path', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -2213,7 +2465,7 @@ test('benchmark: rectangle outside constrained dashed single-edge stroke renders
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: rectangle outside constrained dashed single-edge gradient stroke renders through the next Phase 6 product path', async ({
+test('benchmark: rectangle outside constrained dashed single-edge gradient stroke renders through the next supported paint product path', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -2230,13 +2482,17 @@ test('benchmark: rectangle outside constrained dashed single-edge gradient strok
   const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
   const probes = getRectSingleEdgeOutsideGradientProbeRegions(raster)
 
-  const [intervalOutsideLeft, intervalOutsideRight, laterTopOutsideGap, center] =
-    await Promise.all([
-      getAverageColor(page, raster, probes.intervalOutsideLeft),
-      getAverageColor(page, raster, probes.intervalOutsideRight),
-      getAverageColor(page, raster, probes.laterTopOutsideGap),
-      getAverageColor(page, raster, probes.center)
-    ])
+  const [
+    intervalOutsideLeft,
+    intervalOutsideRight,
+    laterTopOutsideGap,
+    center
+  ] = await Promise.all([
+    getAverageColor(page, raster, probes.intervalOutsideLeft),
+    getAverageColor(page, raster, probes.intervalOutsideRight),
+    getAverageColor(page, raster, probes.laterTopOutsideGap),
+    getAverageColor(page, raster, probes.center)
+  ])
 
   expect(intervalOutsideLeft.a).toBeGreaterThan(180)
   expect(intervalOutsideRight.a).toBeGreaterThan(180)
@@ -2253,7 +2509,7 @@ test('benchmark: rectangle outside constrained dashed single-edge gradient strok
   expect(center.b).toBeGreaterThan(170)
 })
 
-test('benchmark: rectangle inside bevel corner-spanning constrained dashed stroke renders through the first Family C product path', async ({
+test('benchmark: rectangle inside bevel corner-spanning constrained dashed stroke renders through the first corner-spanning topology family product path', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -2292,7 +2548,7 @@ test('benchmark: rectangle inside bevel corner-spanning constrained dashed strok
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: rectangle inside bevel corner-spanning constrained dashed gradient stroke renders through the next Phase 6 product path', async ({
+test('benchmark: rectangle inside bevel corner-spanning constrained dashed gradient stroke renders through the next supported paint product path', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -2347,7 +2603,7 @@ test('benchmark: rectangle inside bevel corner-spanning constrained dashed gradi
   expect(center.b).toBeGreaterThan(170)
 })
 
-test('benchmark: rectangle inside miter corner-spanning constrained dashed stroke renders through the next Family C product path', async ({
+test('benchmark: rectangle inside miter corner-spanning constrained dashed stroke renders through the next corner-spanning topology family product path', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -2386,7 +2642,7 @@ test('benchmark: rectangle inside miter corner-spanning constrained dashed strok
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: rectangle inside round corner-spanning constrained dashed stroke renders through the uniform-width Family C product path', async ({
+test('benchmark: rectangle inside round corner-spanning constrained dashed stroke renders through the uniform-width corner-spanning topology family product path', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -2425,7 +2681,7 @@ test('benchmark: rectangle inside round corner-spanning constrained dashed strok
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: rectangle outside bevel corner-spanning constrained dashed stroke renders through the next bounded Family C product path', async ({
+test('benchmark: rectangle outside bevel corner-spanning constrained dashed stroke renders through the next bounded corner-spanning topology family product path', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -2464,7 +2720,7 @@ test('benchmark: rectangle outside bevel corner-spanning constrained dashed stro
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: rectangle outside bevel corner-spanning constrained dashed gradient stroke renders through the next Phase 6 product path', async ({
+test('benchmark: rectangle outside bevel corner-spanning constrained dashed gradient stroke renders through the next supported paint product path', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -2520,7 +2776,7 @@ test('benchmark: rectangle outside bevel corner-spanning constrained dashed grad
   expect(center.b).toBeGreaterThan(170)
 })
 
-test('benchmark: rectangle outside miter corner-spanning constrained dashed stroke renders through the matching bounded Family C product path', async ({
+test('benchmark: rectangle outside miter corner-spanning constrained dashed stroke renders through the matching bounded corner-spanning topology family product path', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -2559,7 +2815,7 @@ test('benchmark: rectangle outside miter corner-spanning constrained dashed stro
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: rectangle outside round corner-spanning constrained dashed stroke renders through the uniform-width Family C product path', async ({
+test('benchmark: rectangle outside round corner-spanning constrained dashed stroke renders through the uniform-width corner-spanning topology family product path', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -2598,7 +2854,7 @@ test('benchmark: rectangle outside round corner-spanning constrained dashed stro
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: oval inside constrained dashed full-loop stroke renders through the promoted Phase 4C oval product path', async ({
+test('benchmark: oval inside constrained dashed full-loop stroke renders through the supported constrained dashed oval product path', async ({
   page
 }) => {
   await createOval(page, 0.35, 0.35)
@@ -2626,7 +2882,7 @@ test('benchmark: oval inside constrained dashed full-loop stroke renders through
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: oval outside constrained dashed full-loop stroke renders through the same Phase 4C oval product path', async ({
+test('benchmark: oval outside constrained dashed full-loop stroke renders through the same supported constrained dashed oval product path', async ({
   page
 }) => {
   await createOval(page, 0.35, 0.35)
@@ -2654,7 +2910,63 @@ test('benchmark: oval outside constrained dashed full-loop stroke renders throug
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed vector inside constrained dashed full-loop stroke renders through the promoted Phase 4C vector product path', async ({
+test('benchmark: oval inside round-join constrained dashed full-loop stroke renders through the sampled smooth product path', async ({
+  page
+}) => {
+  await createOval(page, 0.35, 0.35)
+  await configureConstrainedDashedStroke(page, {
+    elementType: 'oval',
+    position: 'inside',
+    join: 'round',
+    cap: 'butt',
+    pattern: FULL_LOOP_PATTERN
+  })
+
+  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+  const probes = getOvalProbeRegions(raster)
+
+  const [topInside, leftInside, topOutside, center] = await Promise.all([
+    getGreenCoverage(page, raster, probes.topInside),
+    getGreenCoverage(page, raster, probes.leftInside),
+    getGreenCoverage(page, raster, probes.topOutside),
+    getGreenCoverage(page, raster, probes.center)
+  ])
+
+  expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+  expect(leftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+  expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
+  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+})
+
+test('benchmark: oval outside round-join constrained dashed full-loop stroke renders through the sampled smooth product path', async ({
+  page
+}) => {
+  await createOval(page, 0.35, 0.35)
+  await configureConstrainedDashedStroke(page, {
+    elementType: 'oval',
+    position: 'outside',
+    join: 'round',
+    cap: 'butt',
+    pattern: FULL_LOOP_PATTERN
+  })
+
+  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+  const probes = getOvalProbeRegions(raster)
+
+  const [topOutside, leftOutside, topInside, center] = await Promise.all([
+    getGreenCoverage(page, raster, probes.topOutside),
+    getGreenCoverage(page, raster, probes.leftOutside),
+    getGreenCoverage(page, raster, probes.topInside),
+    getGreenCoverage(page, raster, probes.center)
+  ])
+
+  expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+  expect(leftOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+  expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
+  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+})
+
+test('benchmark: closed vector inside constrained dashed full-loop stroke renders through the supported constrained dashed vector product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2684,7 +2996,7 @@ test('benchmark: closed vector inside constrained dashed full-loop stroke render
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed rectangle-equivalent vector outside round-join full-loop constrained dashed stroke renders through the next Phase 5 vector outside product path', async ({
+test('benchmark: closed rectangle-equivalent vector outside round-join full-loop constrained dashed stroke renders through the next supported join/cap vector outside product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2714,7 +3026,7 @@ test('benchmark: closed rectangle-equivalent vector outside round-join full-loop
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed rectangle-equivalent vector inside constrained dashed full-loop gradient stroke renders through the next Phase 6 vector product path', async ({
+test('benchmark: closed rectangle-equivalent vector inside constrained dashed full-loop gradient stroke renders through the next supported paint vector product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2747,7 +3059,7 @@ test('benchmark: closed rectangle-equivalent vector inside constrained dashed fu
   expect(center.b).toBeLessThan(80)
 })
 
-test('benchmark: closed non-rectangle-equivalent vector inside constrained dashed full-loop gradient stroke renders through the next broader Phase 6 vector product path', async ({
+test('benchmark: closed non-rectangle-equivalent vector inside constrained dashed full-loop gradient stroke renders through the next broader supported paint vector product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2781,7 +3093,7 @@ test('benchmark: closed non-rectangle-equivalent vector inside constrained dashe
   expect(center.b).toBeLessThan(80)
 })
 
-test('benchmark: closed rectangle-equivalent vector outside constrained dashed full-loop gradient stroke renders through the next Phase 6 vector product path', async ({
+test('benchmark: closed rectangle-equivalent vector outside constrained dashed full-loop gradient stroke renders through the next supported paint vector product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2815,7 +3127,7 @@ test('benchmark: closed rectangle-equivalent vector outside constrained dashed f
   expect(center.b).toBeLessThan(80)
 })
 
-test('benchmark: closed non-rectangle-equivalent vector outside constrained dashed full-loop gradient stroke renders through the next broader Phase 6 vector product path', async ({
+test('benchmark: closed non-rectangle-equivalent vector outside constrained dashed full-loop gradient stroke renders through the next broader supported paint vector product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2849,7 +3161,7 @@ test('benchmark: closed non-rectangle-equivalent vector outside constrained dash
   expect(center.b).toBeLessThan(80)
 })
 
-test('benchmark: closed rectangle-equivalent vector inside constrained dashed single-edge gradient stroke renders through the next Phase 6 vector product path', async ({
+test('benchmark: closed rectangle-equivalent vector inside constrained dashed single-edge gradient stroke renders through the next supported paint vector product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2892,7 +3204,7 @@ test('benchmark: closed rectangle-equivalent vector inside constrained dashed si
   expect(center.b).toBeLessThan(80)
 })
 
-test('benchmark: closed rectangle-equivalent vector outside constrained dashed single-edge gradient stroke renders through the next Phase 6 vector product path', async ({
+test('benchmark: closed rectangle-equivalent vector outside constrained dashed single-edge gradient stroke renders through the next supported paint vector product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2912,13 +3224,17 @@ test('benchmark: closed rectangle-equivalent vector outside constrained dashed s
   const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
   const probes = getRectSingleEdgeOutsideGradientProbeRegions(raster)
 
-  const [intervalOutsideLeft, intervalOutsideRight, laterTopOutsideGap, center] =
-    await Promise.all([
-      getAverageColor(page, raster, probes.intervalOutsideLeft),
-      getAverageColor(page, raster, probes.intervalOutsideRight),
-      getAverageColor(page, raster, probes.laterTopOutsideGap),
-      getAverageColor(page, raster, probes.center)
-    ])
+  const [
+    intervalOutsideLeft,
+    intervalOutsideRight,
+    laterTopOutsideGap,
+    center
+  ] = await Promise.all([
+    getAverageColor(page, raster, probes.intervalOutsideLeft),
+    getAverageColor(page, raster, probes.intervalOutsideRight),
+    getAverageColor(page, raster, probes.laterTopOutsideGap),
+    getAverageColor(page, raster, probes.center)
+  ])
 
   expect(intervalOutsideLeft.a).toBeGreaterThan(180)
   expect(intervalOutsideRight.a).toBeGreaterThan(180)
@@ -2935,7 +3251,7 @@ test('benchmark: closed rectangle-equivalent vector outside constrained dashed s
   expect(center.b).toBeLessThan(80)
 })
 
-test('benchmark: closed non-rectangle-equivalent vector outside constrained dashed single-edge gradient stroke renders through the next broader Phase 6 vector product path', async ({
+test('benchmark: closed non-rectangle-equivalent vector outside constrained dashed single-edge gradient stroke renders through the next broader supported paint vector product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2955,13 +3271,17 @@ test('benchmark: closed non-rectangle-equivalent vector outside constrained dash
   const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
   const probes = getRectSingleEdgeOutsideGradientProbeRegions(raster)
 
-  const [intervalOutsideLeft, intervalOutsideRight, laterTopOutsideGap, center] =
-    await Promise.all([
-      getAverageColor(page, raster, probes.intervalOutsideLeft),
-      getAverageColor(page, raster, probes.intervalOutsideRight),
-      getAverageColor(page, raster, probes.laterTopOutsideGap),
-      getAverageColor(page, raster, probes.center)
-    ])
+  const [
+    intervalOutsideLeft,
+    intervalOutsideRight,
+    laterTopOutsideGap,
+    center
+  ] = await Promise.all([
+    getAverageColor(page, raster, probes.intervalOutsideLeft),
+    getAverageColor(page, raster, probes.intervalOutsideRight),
+    getAverageColor(page, raster, probes.laterTopOutsideGap),
+    getAverageColor(page, raster, probes.center)
+  ])
 
   expect(intervalOutsideLeft.a).toBeGreaterThan(180)
   expect(intervalOutsideRight.a).toBeGreaterThan(180)
@@ -2978,7 +3298,7 @@ test('benchmark: closed non-rectangle-equivalent vector outside constrained dash
   expect(center.b).toBeLessThan(80)
 })
 
-test('benchmark: closed non-rectangle-equivalent vector inside constrained dashed single-edge gradient stroke renders through the next broader Phase 6 vector product path', async ({
+test('benchmark: closed non-rectangle-equivalent vector inside constrained dashed single-edge gradient stroke renders through the next broader supported paint vector product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3021,7 +3341,7 @@ test('benchmark: closed non-rectangle-equivalent vector inside constrained dashe
   expect(center.b).toBeLessThan(80)
 })
 
-test('benchmark: closed rectangle-equivalent vector inside round-join full-loop constrained dashed stroke renders through the next Phase 5 vector product path', async ({
+test('benchmark: closed rectangle-equivalent vector inside round-join full-loop constrained dashed stroke renders through the next supported join/cap vector product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3053,7 +3373,7 @@ test('benchmark: closed rectangle-equivalent vector inside round-join full-loop 
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed rectangle-equivalent vector inside single-edge round-cap constrained dashed stroke renders through the next Phase 5 vector cap path', async ({
+test('benchmark: closed rectangle-equivalent vector inside single-edge round-cap constrained dashed stroke renders through the next supported join/cap vector cap path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3090,7 +3410,7 @@ test('benchmark: closed rectangle-equivalent vector inside single-edge round-cap
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed rectangle-equivalent vector outside single-edge round-cap constrained dashed stroke renders through the next Phase 5 vector outside cap path', async ({
+test('benchmark: closed rectangle-equivalent vector outside single-edge round-cap constrained dashed stroke renders through the next supported join/cap vector outside cap path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3125,7 +3445,7 @@ test('benchmark: closed rectangle-equivalent vector outside single-edge round-ca
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed non-rectangle-equivalent vector inside single-edge round-cap constrained dashed stroke renders through the next broader Phase 5 vector cap path', async ({
+test('benchmark: closed non-rectangle-equivalent vector inside single-edge round-cap constrained dashed stroke renders through the next broader supported join/cap vector cap path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3162,7 +3482,7 @@ test('benchmark: closed non-rectangle-equivalent vector inside single-edge round
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed non-rectangle-equivalent vector outside single-edge round-cap constrained dashed stroke renders through the next broader Phase 5 vector outside cap path', async ({
+test('benchmark: closed non-rectangle-equivalent vector outside single-edge round-cap constrained dashed stroke renders through the next broader supported join/cap vector outside cap path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3199,7 +3519,7 @@ test('benchmark: closed non-rectangle-equivalent vector outside single-edge roun
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed non-rectangle-equivalent vector inside round-join full-loop constrained dashed stroke renders through the next broader Phase 5 vector round-join path', async ({
+test('benchmark: closed non-rectangle-equivalent vector inside round-join full-loop constrained dashed stroke renders through the next broader supported join/cap vector round-join path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3232,7 +3552,7 @@ test('benchmark: closed non-rectangle-equivalent vector inside round-join full-l
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed non-rectangle-equivalent vector outside round-join full-loop constrained dashed stroke renders through the next broader Phase 5 vector outside product path', async ({
+test('benchmark: closed non-rectangle-equivalent vector outside round-join full-loop constrained dashed stroke renders through the next broader supported join/cap vector outside product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3262,7 +3582,7 @@ test('benchmark: closed non-rectangle-equivalent vector outside round-join full-
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed vector outside constrained dashed full-loop stroke renders through the same Phase 4C vector product path', async ({
+test('benchmark: closed vector outside constrained dashed full-loop stroke renders through the same supported constrained dashed vector product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3291,7 +3611,7 @@ test('benchmark: closed vector outside constrained dashed full-loop stroke rende
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: self-intersecting constrained dashed vectors remain absent on the app path until that unsupported topology is promoted', async ({
+test('benchmark: self-intersecting constrained dashed vectors remain absent on the app path until that unsupported topology is implemented', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3320,9 +3640,8 @@ test('benchmark: self-intersecting constrained dashed vectors remain absent on t
   expect(topOutside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
-
 ;(['inside', 'outside'] as const).forEach((position) => {
-  test(`benchmark: open-path ${position} constrained dashed vectors render as centered fallback on the app path`, async ({
+  test(`benchmark: open-path ${position} constrained dashed vectors render through exact interval-local geometry on the app path`, async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3361,7 +3680,6 @@ test('benchmark: self-intersecting constrained dashed vectors remain absent on t
     expect(belowLine).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
   })
 })
-
 ;(['inside', 'outside'] as const).forEach((position) => {
   test(`benchmark: real-created open vector keeps dashed stroke visible after switching center to ${position}`, async ({
     page
@@ -3408,7 +3726,6 @@ test('benchmark: self-intersecting constrained dashed vectors remain absent on t
     expect(strokeEnvelope).toBeGreaterThan(0.04)
   })
 })
-
 ;(['inside', 'outside'] as const).forEach((position) => {
   test(`benchmark: real-created open vector keeps repeated dashed stroke visible through center-${position}-center switching`, async ({
     page
@@ -3478,7 +3795,6 @@ test('benchmark: self-intersecting constrained dashed vectors remain absent on t
     expect(restoredEnvelope).toBeGreaterThan(0.015)
   })
 })
-
 ;(['inside', 'outside'] as const).forEach((position) => {
   test(`benchmark: closed rectangle vector repeated dashed stroke switches from center to constrained ${position} placement`, async ({
     page
@@ -3517,11 +3833,13 @@ test('benchmark: self-intersecting constrained dashed vectors remain absent on t
 
     const raster = await captureSelectedElementRaster(page, 4)
     const probes = getRectRepeatedDashProbeRegions(raster)
-    const [topInsideFirstDash, topOutsideFirstDash, center] = await Promise.all([
-      getGreenCoverage(page, raster, probes.topInsideFirstDash),
-      getGreenCoverage(page, raster, probes.topOutsideFirstDash),
-      getGreenCoverage(page, raster, probes.center)
-    ])
+    const [topInsideFirstDash, topOutsideFirstDash, center] = await Promise.all(
+      [
+        getGreenCoverage(page, raster, probes.topInsideFirstDash),
+        getGreenCoverage(page, raster, probes.topOutsideFirstDash),
+        getGreenCoverage(page, raster, probes.center)
+      ]
+    )
 
     if (position === 'inside') {
       expect(topInsideFirstDash).toBeGreaterThan(0.35)
@@ -3533,7 +3851,6 @@ test('benchmark: self-intersecting constrained dashed vectors remain absent on t
     expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
   })
 })
-
 ;(['inside', 'outside'] as const).forEach((position) => {
   test(`benchmark: closed cubic vector repeated dashed stroke remains visible after switching center to ${position}`, async ({
     page
@@ -3588,7 +3905,6 @@ test('benchmark: self-intersecting constrained dashed vectors remain absent on t
     expect(strokeEnvelope).toBeGreaterThan(0.03)
   })
 })
-
 ;(['inside', 'outside'] as const).forEach((position) => {
   test(`benchmark: reported closed star vector repeated dashed stroke remains visible after switching center to ${position}`, async ({
     page
@@ -3644,7 +3960,7 @@ test('benchmark: self-intersecting constrained dashed vectors remain absent on t
   })
 })
 
-test('benchmark: multi-network constrained dashed vectors remain absent on the app path until that ownership path is promoted', async ({
+test('benchmark: multi-network constrained dashed vectors remain absent on the app path until that ownership path is supported', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3684,7 +4000,7 @@ test('benchmark: multi-network constrained dashed vectors remain absent on the a
   expect(centerGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed rectangle-equivalent vector inside bevel corner-spanning constrained dashed stroke renders through the first vector Family C product path', async ({
+test('benchmark: closed rectangle-equivalent vector inside bevel corner-spanning constrained dashed stroke renders through the first vector corner-spanning topology family product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3725,7 +4041,7 @@ test('benchmark: closed rectangle-equivalent vector inside bevel corner-spanning
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed rectangle-equivalent vector inside bevel corner-spanning constrained dashed gradient stroke renders through the next Phase 6 vector product path', async ({
+test('benchmark: closed rectangle-equivalent vector inside bevel corner-spanning constrained dashed gradient stroke renders through the next supported paint vector product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3782,7 +4098,7 @@ test('benchmark: closed rectangle-equivalent vector inside bevel corner-spanning
   expect(center.b).toBeLessThan(80)
 })
 
-test('benchmark: closed rectangle-equivalent vector inside miter corner-spanning constrained dashed stroke renders through the matching vector Family C product path', async ({
+test('benchmark: closed rectangle-equivalent vector inside miter corner-spanning constrained dashed stroke renders through the matching vector corner-spanning topology family product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3822,7 +4138,7 @@ test('benchmark: closed rectangle-equivalent vector inside miter corner-spanning
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed rectangle-equivalent vector inside round corner-spanning constrained dashed stroke renders through the uniform-width Family C product path', async ({
+test('benchmark: closed rectangle-equivalent vector inside round corner-spanning constrained dashed stroke renders through the uniform-width corner-spanning topology family product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3862,7 +4178,7 @@ test('benchmark: closed rectangle-equivalent vector inside round corner-spanning
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed rectangle-equivalent vector outside bevel corner-spanning constrained dashed stroke renders through the next bounded vector Family C product path', async ({
+test('benchmark: closed rectangle-equivalent vector outside bevel corner-spanning constrained dashed stroke renders through the next bounded vector corner-spanning topology family product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3903,7 +4219,7 @@ test('benchmark: closed rectangle-equivalent vector outside bevel corner-spannin
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed rectangle-equivalent vector outside bevel corner-spanning constrained dashed gradient stroke renders through the next Phase 6 vector product path', async ({
+test('benchmark: closed rectangle-equivalent vector outside bevel corner-spanning constrained dashed gradient stroke renders through the next supported paint vector product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3960,7 +4276,7 @@ test('benchmark: closed rectangle-equivalent vector outside bevel corner-spannin
   expect(center.b).toBeLessThan(80)
 })
 
-test('benchmark: closed rectangle-equivalent vector outside miter corner-spanning constrained dashed stroke renders through the matching bounded vector Family C product path', async ({
+test('benchmark: closed rectangle-equivalent vector outside miter corner-spanning constrained dashed stroke renders through the matching bounded vector corner-spanning topology family product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -4001,7 +4317,7 @@ test('benchmark: closed rectangle-equivalent vector outside miter corner-spannin
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed rectangle-equivalent vector outside round corner-spanning constrained dashed stroke renders through the uniform-width Family C product path', async ({
+test('benchmark: closed rectangle-equivalent vector outside round corner-spanning constrained dashed stroke renders through the uniform-width corner-spanning topology family product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -4042,7 +4358,7 @@ test('benchmark: closed rectangle-equivalent vector outside round corner-spannin
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed non-rectangle-equivalent vector inside bevel corner-spanning constrained dashed stroke renders through the first broader vector Family C product path', async ({
+test('benchmark: closed non-rectangle-equivalent vector inside bevel corner-spanning constrained dashed stroke renders through the first broader vector corner-spanning topology family product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -4083,7 +4399,7 @@ test('benchmark: closed non-rectangle-equivalent vector inside bevel corner-span
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed non-rectangle-equivalent vector inside bevel corner-spanning constrained dashed gradient stroke renders through the next broader Phase 6 vector product path', async ({
+test('benchmark: closed non-rectangle-equivalent vector inside bevel corner-spanning constrained dashed gradient stroke renders through the next broader supported paint vector product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -4140,7 +4456,7 @@ test('benchmark: closed non-rectangle-equivalent vector inside bevel corner-span
   expect(center.b).toBeLessThan(80)
 })
 
-test('benchmark: closed non-rectangle-equivalent vector inside miter corner-spanning constrained dashed stroke renders through the matching broader vector Family C product path', async ({
+test('benchmark: closed non-rectangle-equivalent vector inside miter corner-spanning constrained dashed stroke renders through the matching broader vector corner-spanning topology family product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -4181,7 +4497,7 @@ test('benchmark: closed non-rectangle-equivalent vector inside miter corner-span
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed non-rectangle-equivalent vector outside bevel corner-spanning constrained dashed stroke renders through the next broader vector Family C product path', async ({
+test('benchmark: closed non-rectangle-equivalent vector outside bevel corner-spanning constrained dashed stroke renders through the next broader vector corner-spanning topology family product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -4222,7 +4538,7 @@ test('benchmark: closed non-rectangle-equivalent vector outside bevel corner-spa
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed non-rectangle-equivalent vector outside miter corner-spanning constrained dashed stroke renders through the matching broader vector Family C product path', async ({
+test('benchmark: closed non-rectangle-equivalent vector outside miter corner-spanning constrained dashed stroke renders through the matching broader vector corner-spanning topology family product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -4263,7 +4579,7 @@ test('benchmark: closed non-rectangle-equivalent vector outside miter corner-spa
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed rectangle-equivalent vector inside constrained dashed single-edge stroke renders through the next Family B product path', async ({
+test('benchmark: closed rectangle-equivalent vector inside constrained dashed single-edge stroke renders through the next single-edge topology family product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -4296,7 +4612,7 @@ test('benchmark: closed rectangle-equivalent vector inside constrained dashed si
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed rectangle-equivalent vector outside constrained dashed single-edge stroke renders through the same next Family B product path', async ({
+test('benchmark: closed rectangle-equivalent vector outside constrained dashed single-edge stroke renders through the same next single-edge topology family product path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -4329,7 +4645,7 @@ test('benchmark: closed rectangle-equivalent vector outside constrained dashed s
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed non-rectangle-equivalent vector inside constrained dashed single-edge stroke renders through the broader Family B vector path', async ({
+test('benchmark: closed non-rectangle-equivalent vector inside constrained dashed single-edge stroke renders through the broader single-edge topology family vector path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -4362,7 +4678,7 @@ test('benchmark: closed non-rectangle-equivalent vector inside constrained dashe
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed non-rectangle-equivalent vector outside constrained dashed single-edge stroke renders through the same broader Family B vector path', async ({
+test('benchmark: closed non-rectangle-equivalent vector outside constrained dashed single-edge stroke renders through the same broader single-edge topology family vector path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -4395,7 +4711,7 @@ test('benchmark: closed non-rectangle-equivalent vector outside constrained dash
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed non-rectangle-equivalent vector inside constrained dashed full-loop stroke renders through the broader Phase 4C vector path', async ({
+test('benchmark: closed non-rectangle-equivalent vector inside constrained dashed full-loop stroke renders through the broader supported constrained dashed vector path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -4424,7 +4740,7 @@ test('benchmark: closed non-rectangle-equivalent vector inside constrained dashe
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: closed non-rectangle-equivalent vector outside constrained dashed full-loop stroke renders through the same broader Phase 4C vector path', async ({
+test('benchmark: closed non-rectangle-equivalent vector outside constrained dashed full-loop stroke renders through the same broader supported constrained dashed vector path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -4453,7 +4769,7 @@ test('benchmark: closed non-rectangle-equivalent vector outside constrained dash
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: shape-generated and vector-generated inside constrained dashed full-loop coverage stay equivalent on the first Family D gate', async ({
+test('benchmark: shape-generated and vector-generated inside constrained dashed full-loop coverage stay equivalent on the first source-equivalence topology family gate', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -4500,7 +4816,7 @@ test('benchmark: shape-generated and vector-generated inside constrained dashed 
   expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
 })
 
-test('benchmark: shape-generated and vector-generated inside round-join full-loop constrained dashed coverage stay equivalent on the first Phase 5 Family D gate', async ({
+test('benchmark: shape-generated and vector-generated inside round-join full-loop constrained dashed coverage stay equivalent on the first supported join/cap source-equivalence topology family gate', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -4555,7 +4871,7 @@ test('benchmark: shape-generated and vector-generated inside round-join full-loo
   expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
 })
 
-test('benchmark: shape-generated and vector-generated outside round-join full-loop constrained dashed coverage stay equivalent on the next Phase 5 Family D gate', async ({
+test('benchmark: shape-generated and vector-generated outside round-join full-loop constrained dashed coverage stay equivalent on the next supported join/cap source-equivalence topology family gate', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -4617,7 +4933,7 @@ test('benchmark: shape-generated and vector-generated outside round-join full-lo
   expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
 })
 
-test('benchmark: shape-generated and vector-generated outside constrained dashed full-loop coverage stay equivalent on the same Family D gate', async ({
+test('benchmark: shape-generated and vector-generated outside constrained dashed full-loop coverage stay equivalent on the same source-equivalence topology family gate', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -4664,7 +4980,7 @@ test('benchmark: shape-generated and vector-generated outside constrained dashed
   expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
 })
 
-test('benchmark: shape-generated and vector-generated inside constrained dashed single-edge coverage stay equivalent on the first Family B and Family D crossover gate', async ({
+test('benchmark: shape-generated and vector-generated inside constrained dashed single-edge coverage stay equivalent on the first single-edge topology family and source-equivalence topology family crossover gate', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -4720,7 +5036,7 @@ test('benchmark: shape-generated and vector-generated inside constrained dashed 
   expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
 })
 
-test('benchmark: shape-generated and vector-generated inside round-cap single-edge constrained dashed coverage stay equivalent on the next Phase 5 Family D gate', async ({
+test('benchmark: shape-generated and vector-generated inside round-cap single-edge constrained dashed coverage stay equivalent on the next supported join/cap source-equivalence topology family gate', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -4738,12 +5054,13 @@ test('benchmark: shape-generated and vector-generated inside round-cap single-ed
 
   const rectRaster = await captureSelectedElementRaster(page, 4)
   const rectProbes = getVectorRectSingleEdgeRoundCapProbeRegions(rectRaster)
-  const [rectCapInside, rectBodyInside, rectGap, rectCenter] = await Promise.all([
-    getGreenCoverage(page, rectRaster, rectProbes.capInside),
-    getGreenCoverage(page, rectRaster, rectProbes.bodyInside),
-    getGreenCoverage(page, rectRaster, rectProbes.laterTopInsideGap),
-    getGreenCoverage(page, rectRaster, rectProbes.center)
-  ])
+  const [rectCapInside, rectBodyInside, rectGap, rectCenter] =
+    await Promise.all([
+      getGreenCoverage(page, rectRaster, rectProbes.capInside),
+      getGreenCoverage(page, rectRaster, rectProbes.bodyInside),
+      getGreenCoverage(page, rectRaster, rectProbes.laterTopInsideGap),
+      getGreenCoverage(page, rectRaster, rectProbes.center)
+    ])
 
   await resetCanvas(page)
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -4785,7 +5102,7 @@ test('benchmark: shape-generated and vector-generated inside round-cap single-ed
   expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
 })
 
-test('benchmark: shape-generated and vector-generated outside round-cap single-edge constrained dashed coverage stay equivalent on the next Phase 5 Family D gate', async ({
+test('benchmark: shape-generated and vector-generated outside round-cap single-edge constrained dashed coverage stay equivalent on the next supported join/cap source-equivalence topology family gate', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -4802,20 +5119,16 @@ test('benchmark: shape-generated and vector-generated outside round-cap single-e
   })
 
   const rectRaster = await captureSelectedElementRaster(page, 4)
-  const rectProbes = getVectorRectSingleEdgeOutsideRoundCapProbeRegions(rectRaster)
-  const [
-    rectCapOutside,
-    rectBodyOutside,
-    rectInsideLeak,
-    rectGap,
-    rectCenter
-  ] = await Promise.all([
-    getGreenCoverage(page, rectRaster, rectProbes.capOutside),
-    getGreenCoverage(page, rectRaster, rectProbes.bodyOutside),
-    getGreenCoverage(page, rectRaster, rectProbes.capInsideLeak),
-    getGreenCoverage(page, rectRaster, rectProbes.laterTopOutsideGap),
-    getGreenCoverage(page, rectRaster, rectProbes.center)
-  ])
+  const rectProbes =
+    getVectorRectSingleEdgeOutsideRoundCapProbeRegions(rectRaster)
+  const [rectCapOutside, rectBodyOutside, rectInsideLeak, rectGap, rectCenter] =
+    await Promise.all([
+      getGreenCoverage(page, rectRaster, rectProbes.capOutside),
+      getGreenCoverage(page, rectRaster, rectProbes.bodyOutside),
+      getGreenCoverage(page, rectRaster, rectProbes.capInsideLeak),
+      getGreenCoverage(page, rectRaster, rectProbes.laterTopOutsideGap),
+      getGreenCoverage(page, rectRaster, rectProbes.center)
+    ])
 
   await resetCanvas(page)
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -4834,9 +5147,8 @@ test('benchmark: shape-generated and vector-generated outside round-cap single-e
   })
 
   const vectorRaster = await captureSelectedElementRaster(page, 4)
-  const vectorProbes = getVectorRectSingleEdgeOutsideRoundCapProbeRegions(
-    vectorRaster
-  )
+  const vectorProbes =
+    getVectorRectSingleEdgeOutsideRoundCapProbeRegions(vectorRaster)
   const [
     vectorCapOutside,
     vectorBodyOutside,
@@ -4868,7 +5180,7 @@ test('benchmark: shape-generated and vector-generated outside round-cap single-e
   expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
 })
 
-test('benchmark: shape-generated and vector-generated inside full-loop gradient constrained dashed coverage stay equivalent on the first Phase 6 Family D gate', async ({
+test('benchmark: shape-generated and vector-generated inside full-loop gradient constrained dashed coverage stay equivalent on the first supported paint source-equivalence topology family gate', async ({
   page
 }) => {
   await createRectangle(page, 0.35, 0.35)
@@ -4917,22 +5229,28 @@ test('benchmark: shape-generated and vector-generated inside full-loop gradient 
   expect(Math.abs(rectTopInsideLeft.a - vectorTopInsideLeft.a)).toBeLessThan(20)
   expect(rectTopInsideRight.a).toBeGreaterThan(180)
   expect(vectorTopInsideRight.a).toBeGreaterThan(180)
-  expect(Math.abs(rectTopInsideRight.a - vectorTopInsideRight.a)).toBeLessThan(20)
+  expect(Math.abs(rectTopInsideRight.a - vectorTopInsideRight.a)).toBeLessThan(
+    20
+  )
 
   expect(getRedBlueSkew(rectTopInsideLeft)).toBeGreaterThan(40)
   expect(getRedBlueSkew(vectorTopInsideLeft)).toBeGreaterThan(40)
   expect(
-    Math.abs(getRedBlueSkew(rectTopInsideLeft) - getRedBlueSkew(vectorTopInsideLeft))
+    Math.abs(
+      getRedBlueSkew(rectTopInsideLeft) - getRedBlueSkew(vectorTopInsideLeft)
+    )
   ).toBeLessThan(40)
 
   expect(getRedBlueSkew(rectTopInsideRight)).toBeLessThan(-40)
   expect(getRedBlueSkew(vectorTopInsideRight)).toBeLessThan(-40)
   expect(
-    Math.abs(getRedBlueSkew(rectTopInsideRight) - getRedBlueSkew(vectorTopInsideRight))
+    Math.abs(
+      getRedBlueSkew(rectTopInsideRight) - getRedBlueSkew(vectorTopInsideRight)
+    )
   ).toBeLessThan(40)
 })
 
-test('benchmark: shape-generated and vector-generated outside constrained dashed single-edge coverage stay equivalent on the same Family B and Family D crossover gate', async ({
+test('benchmark: shape-generated and vector-generated outside constrained dashed single-edge coverage stay equivalent on the same single-edge topology family and source-equivalence topology family crossover gate', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)

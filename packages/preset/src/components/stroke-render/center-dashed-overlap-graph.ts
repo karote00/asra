@@ -14,6 +14,8 @@ export interface CenterDashedOverlapCandidate {
   candidateId: string
   intervalId: string
   strokeId: string
+  ownerKey?: string
+  networkId?: string
   authoredVisibleIntervalIndex: number
   startDistance: number
   endDistance: number
@@ -29,8 +31,14 @@ export interface CenterDashedOverlapGraph {
 }
 
 const EPSILON = 1e-6
+const polygonBoundsCache = new WeakMap<Vec2[], Bounds>()
 
 const getPolygonBounds = (polygon: Vec2[]): Bounds => {
+  const cached = polygonBoundsCache.get(polygon)
+  if (cached) {
+    return cached
+  }
+
   let minX = Infinity
   let minY = Infinity
   let maxX = -Infinity
@@ -43,7 +51,32 @@ const getPolygonBounds = (polygon: Vec2[]): Bounds => {
     maxY = Math.max(maxY, point.y)
   })
 
-  return { minX, minY, maxX, maxY }
+  const bounds = Number.isFinite(minX)
+    ? { minX, minY, maxX, maxY }
+    : { minX: 0, minY: 0, maxX: 0, maxY: 0 }
+  polygonBoundsCache.set(polygon, bounds)
+  return bounds
+}
+
+const getCandidateBounds = (
+  candidate: CenterDashedOverlapCandidate
+): Bounds => {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  candidate.polygons.forEach((polygon) => {
+    const bounds = getPolygonBounds(polygon)
+    minX = Math.min(minX, bounds.minX)
+    minY = Math.min(minY, bounds.minY)
+    maxX = Math.max(maxX, bounds.maxX)
+    maxY = Math.max(maxY, bounds.maxY)
+  })
+
+  return Number.isFinite(minX)
+    ? { minX, minY, maxX, maxY }
+    : { minX: 0, minY: 0, maxX: 0, maxY: 0 }
 }
 
 const boundsOverlap = (a: Bounds, b: Bounds) =>
@@ -116,6 +149,142 @@ const isPointInsidePolygon = (point: Vec2, polygon: Vec2[]) => {
   return inside
 }
 
+const signedArea = (polygon: Vec2[]) => {
+  let area = 0
+
+  for (let index = 0; index < polygon.length; index += 1) {
+    const nextIndex = (index + 1) % polygon.length
+    area +=
+      polygon[index].x * polygon[nextIndex].y -
+      polygon[nextIndex].x * polygon[index].y
+  }
+
+  return area / 2
+}
+
+const isInsideHalfPlane = (
+  point: Vec2,
+  edgeStart: Vec2,
+  edgeEnd: Vec2,
+  orientationKind: 'cw' | 'ccw'
+) => {
+  const cross = orientation(edgeStart, edgeEnd, point)
+  return orientationKind === 'ccw' ? cross >= -EPSILON : cross <= EPSILON
+}
+
+const lineIntersection = (
+  segmentStart: Vec2,
+  segmentEnd: Vec2,
+  clipStart: Vec2,
+  clipEnd: Vec2
+): Vec2 => {
+  const x1 = segmentStart.x
+  const y1 = segmentStart.y
+  const x2 = segmentEnd.x
+  const y2 = segmentEnd.y
+  const x3 = clipStart.x
+  const y3 = clipStart.y
+  const x4 = clipEnd.x
+  const y4 = clipEnd.y
+
+  const denominator = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+  if (Math.abs(denominator) <= EPSILON) {
+    return segmentEnd
+  }
+
+  const determinant1 = x1 * y2 - y1 * x2
+  const determinant2 = x3 * y4 - y3 * x4
+
+  return {
+    x: (determinant1 * (x3 - x4) - (x1 - x2) * determinant2) / denominator,
+    y: (determinant1 * (y3 - y4) - (y1 - y2) * determinant2) / denominator
+  }
+}
+
+const dedupePolygon = (polygon: Vec2[]) => {
+  const result: Vec2[] = []
+
+  polygon.forEach((point) => {
+    const previous = result[result.length - 1]
+    if (
+      !previous ||
+      Math.abs(previous.x - point.x) > EPSILON ||
+      Math.abs(previous.y - point.y) > EPSILON
+    ) {
+      result.push(point)
+    }
+  })
+
+  const first = result[0]
+  const last = result[result.length - 1]
+  if (
+    first &&
+    last &&
+    result.length > 1 &&
+    Math.abs(first.x - last.x) <= EPSILON &&
+    Math.abs(first.y - last.y) <= EPSILON
+  ) {
+    result.pop()
+  }
+
+  return result
+}
+
+export const polygonsHavePositiveAreaOverlap = (left: Vec2[], right: Vec2[]) => {
+  const boundsA = getPolygonBounds(left)
+  const boundsB = getPolygonBounds(right)
+
+  if (!boundsOverlap(boundsA, boundsB)) {
+    return false
+  }
+
+  let output = [...left]
+  const orientationKind = signedArea(right) >= 0 ? 'ccw' : 'cw'
+
+  for (let index = 0; index < right.length; index += 1) {
+    const clipStart = right[index]
+    const clipEnd = right[(index + 1) % right.length]
+    const input = output
+    output = []
+
+    if (input.length === 0) {
+      break
+    }
+
+    let previous = input[input.length - 1]
+    let previousInside = isInsideHalfPlane(
+      previous,
+      clipStart,
+      clipEnd,
+      orientationKind
+    )
+
+    input.forEach((current) => {
+      const currentInside = isInsideHalfPlane(
+        current,
+        clipStart,
+        clipEnd,
+        orientationKind
+      )
+
+      if (currentInside) {
+        if (!previousInside) {
+          output.push(lineIntersection(previous, current, clipStart, clipEnd))
+        }
+        output.push(current)
+      } else if (previousInside) {
+        output.push(lineIntersection(previous, current, clipStart, clipEnd))
+      }
+
+      previous = current
+      previousInside = currentInside
+    })
+  }
+
+  const intersection = dedupePolygon(output)
+  return intersection.length >= 3 && Math.abs(signedArea(intersection)) > EPSILON
+}
+
 const polygonsOverlap = (a: Vec2[], b: Vec2[]) => {
   const boundsA = getPolygonBounds(a)
   const boundsB = getPolygonBounds(b)
@@ -149,7 +318,9 @@ const candidatesOverlap = (
   right: CenterDashedOverlapCandidate
 ) =>
   left.polygons.some((leftPolygon) =>
-    right.polygons.some((rightPolygon) => polygonsOverlap(leftPolygon, rightPolygon))
+    right.polygons.some((rightPolygon) =>
+      polygonsOverlap(leftPolygon, rightPolygon)
+    )
   )
 
 export const buildCenterDashedOverlapGraph = (
@@ -157,6 +328,12 @@ export const buildCenterDashedOverlapGraph = (
 ): CenterDashedOverlapGraph => {
   const sortedCandidates = [...candidates].sort((left, right) =>
     left.candidateId.localeCompare(right.candidateId)
+  )
+  const boundsByCandidateId = new Map(
+    sortedCandidates.map((candidate) => [
+      candidate.candidateId,
+      getCandidateBounds(candidate)
+    ])
   )
 
   const edges: [string, string][] = []
@@ -167,11 +344,17 @@ export const buildCenterDashedOverlapGraph = (
       rightIndex < sortedCandidates.length;
       rightIndex += 1
     ) {
-      if (candidatesOverlap(sortedCandidates[leftIndex], sortedCandidates[rightIndex])) {
-        edges.push([
-          sortedCandidates[leftIndex].candidateId,
-          sortedCandidates[rightIndex].candidateId
-        ])
+      const left = sortedCandidates[leftIndex]
+      const right = sortedCandidates[rightIndex]
+      const leftBounds = boundsByCandidateId.get(left.candidateId)
+      const rightBounds = boundsByCandidateId.get(right.candidateId)
+      if (
+        leftBounds &&
+        rightBounds &&
+        boundsOverlap(leftBounds, rightBounds) &&
+        candidatesOverlap(left, right)
+      ) {
+        edges.push([left.candidateId, right.candidateId])
       }
     }
   }

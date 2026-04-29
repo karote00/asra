@@ -15,7 +15,11 @@ interface Vec2 {
 const isPointInPolygon = (point: Vec2, polygon: Vec2[]) => {
   let inside = false
 
-  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index, index += 1) {
+  for (
+    let index = 0, previous = polygon.length - 1;
+    index < polygon.length;
+    previous = index, index += 1
+  ) {
     const current = polygon[index]
     const prior = polygon[previous]
     const intersects =
@@ -331,7 +335,12 @@ describe('dashed center stroke scenarios', () => {
   })
 
   it('should run: acute-angle open path with [20,10] starts the next visible dash at the corner', () => {
-    const intervals = allocateDashedCenterStrokeIntervals(60, [20, 10], 0, false)
+    const intervals = allocateDashedCenterStrokeIntervals(
+      60,
+      [20, 10],
+      0,
+      false
+    )
     const visible = intervals.filter((interval) => interval.kind === 'visible')
     const cornerDistance = 30
 
@@ -343,7 +352,12 @@ describe('dashed center stroke scenarios', () => {
   })
 
   it('should run: acute-angle open path with [27,13] lets the gap span the corner before the next visible dash', () => {
-    const intervals = allocateDashedCenterStrokeIntervals(60, [27, 13], 0, false)
+    const intervals = allocateDashedCenterStrokeIntervals(
+      60,
+      [27, 13],
+      0,
+      false
+    )
     const visible = intervals.filter((interval) => interval.kind === 'visible')
     const gap = intervals.find(
       (interval) =>

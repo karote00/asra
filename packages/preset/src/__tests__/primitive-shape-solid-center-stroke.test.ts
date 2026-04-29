@@ -10,6 +10,7 @@ import {
 } from '@asyra/utils'
 import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
+import type { SolidCenterStrokeExportPacket } from '../components/stroke-render/solid-center-stroke-packets'
 
 beforeAll(() => {
   core.defineSystemProperty<string | null>('pathEditingVectorId', null)
@@ -70,7 +71,7 @@ beforeAll(() => {
 })
 
 class RecordingShapeGraphic extends Container {
-  __asyraSolidCenterStrokeExportPackets?: unknown[]
+  __asyraSolidCenterStrokeExportPackets?: SolidCenterStrokeExportPacket[]
   __asyraGeometryLocalBounds?: {
     x: number
     y: number
@@ -120,10 +121,7 @@ const runRenderStrategy = (
       graphic: RecordingShapeGraphic,
       data: Record<string, unknown>
     ) => void
-  )(
-    graphic,
-    data
-  )
+  )(graphic, data)
 
   return graphic
 }
@@ -337,23 +335,20 @@ describe('primitive shape solid-center stroke wiring', () => {
         graphic: RecordingShapeGraphic,
         data: Record<string, unknown>
       ) => void
-    )(
-      graphic,
-      {
-        id: 'frame-1',
-        x: 24,
-        y: 30,
-        width: 120,
-        height: 64,
-        fills: [],
-        strokes: [
-          createDefaultStroke({
-            width: 4,
-            position: StrokePositions.INSIDE
-          })
-        ]
-      }
-    )
+    )(graphic, {
+      id: 'frame-1',
+      x: 24,
+      y: 30,
+      width: 120,
+      height: 64,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          width: 4,
+          position: StrokePositions.INSIDE
+        })
+      ]
+    })
 
     expect(getProjectionMeshes(graphic)).toHaveLength(0)
     expect(graphic.__asyraGeometryLocalBounds).toEqual({
@@ -364,7 +359,7 @@ describe('primitive shape solid-center stroke wiring', () => {
     })
   })
 
-  it('should not run: oval render strategy ignores unsupported constrained stroke slices with round joins', () => {
+  it('should run: oval render strategy supports closed constrained stroke slices with round joins', () => {
     const graphic = runRenderStrategy('oval', {
       id: 'oval-1',
       x: 8,
@@ -382,7 +377,15 @@ describe('primitive shape solid-center stroke wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(0)
+    expect(getProjectionMeshes(graphic)).toHaveLength(1)
+    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+    expect(
+      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
+    ).toMatchObject({
+      geometryFamily: 'constrained-solid',
+      resolutionStatus: 'exact-constrained',
+      runtimeStatus: 'accepted'
+    })
   })
 
   it('should run: rectangle render strategy keeps full corner coverage for supported closed solid stroke', () => {

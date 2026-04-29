@@ -28,6 +28,7 @@ definePropertyComponent({
       width: child.get('width'),
       dashPattern: child.get('dashPattern'),
       dashOffset: child.get('dashOffset'),
+      fill: child.get('fill'),
       defaultColorFormat: child.get('defaultColorFormat'),
       colorFormat: child.get('colorFormat'),
       color: child.get('color'),

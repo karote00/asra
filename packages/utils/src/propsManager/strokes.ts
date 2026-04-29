@@ -3,6 +3,7 @@ import {
   FillColorFormats,
   FillKinds,
   type FillColorFormat,
+  type FillAttrs,
   type FillGradientData,
   type FillKind
 } from './fills'
@@ -46,10 +47,7 @@ export interface StrokeAttrs extends BasePropertyAttrs {
   width: number
   dashPattern: number[]
   dashOffset: number
-  /** @deprecated Compatibility only. Use dashPattern. */
-  dash?: number
-  /** @deprecated Compatibility only. Use dashPattern. */
-  gap?: number
+  fill?: FillAttrs | null
   defaultColorFormat: FillColorFormat
   colorFormat: FillColorFormat
   kind: FillKind
@@ -82,8 +80,7 @@ export const createDefaultStroke = (
   width: 1,
   dashPattern: [20, 20],
   dashOffset: 0,
-  dash: 20,
-  gap: 20,
+  fill: null,
   defaultColorFormat: FillColorFormats.HEX,
   colorFormat: FillColorFormats.HEX,
   kind: FillKinds.SOLID,

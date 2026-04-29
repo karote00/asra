@@ -22,6 +22,8 @@ export interface CenterDashedOwnershipCandidate {
   candidateId: string
   intervalId: string
   strokeId: string
+  ownerKey?: string
+  networkId?: string
   primitiveKind: PrimitiveKind
   normalDistanceToSource: number
   startDistance: number
@@ -42,6 +44,8 @@ interface ResolvedRegionOwnership {
   regionId: string
   ownerIntervalId: string
   ownerStrokeId: string
+  ownerKey?: string
+  networkId?: string
   ownerPrimitiveKind: PrimitiveKind
   polygon: Vec2[]
   bounds: Bounds
@@ -50,6 +54,7 @@ interface ResolvedRegionOwnership {
 interface VisibilityBailoutRecord {
   componentId: string
   reason: BailoutReason
+  preservedOwnerKeys: string[]
   preservedPreviewIntervalIds: string[]
   preservedPreviewPolygons: Vec2[][]
 }
@@ -115,7 +120,9 @@ const chooseDeterministicOwner = (
     return null
   }
 
-  const competingKinds = new Set(candidates.map(({ primitiveKind }) => primitiveKind))
+  const competingKinds = new Set(
+    candidates.map(({ primitiveKind }) => primitiveKind)
+  )
   const maxPrimitiveRank = Math.max(
     ...candidates.map((candidate) => primitiveRank(candidate, competingKinds))
   )
@@ -148,14 +155,20 @@ const chooseDeterministicOwner = (
     return current[0]
   }
 
-  const minStartDistance = Math.min(...current.map(({ startDistance }) => startDistance))
-  current = current.filter(({ startDistance }) => startDistance === minStartDistance)
+  const minStartDistance = Math.min(
+    ...current.map(({ startDistance }) => startDistance)
+  )
+  current = current.filter(
+    ({ startDistance }) => startDistance === minStartDistance
+  )
   if (current.length === 1) {
     return current[0]
   }
 
   const minVisibleIntervalIndex = Math.min(
-    ...current.map(({ authoredVisibleIntervalIndex }) => authoredVisibleIntervalIndex)
+    ...current.map(
+      ({ authoredVisibleIntervalIndex }) => authoredVisibleIntervalIndex
+    )
   )
   current = current.filter(
     ({ authoredVisibleIntervalIndex }) =>
@@ -186,8 +199,15 @@ const buildBailoutRecord = (
 ): VisibilityBailoutRecord => ({
   componentId,
   reason,
+  preservedOwnerKeys: dedupeSorted(
+    regions.flatMap(({ candidates }) =>
+      candidates.flatMap(({ ownerKey }) => (ownerKey ? [ownerKey] : []))
+    )
+  ),
   preservedPreviewIntervalIds: dedupeSorted(
-    regions.flatMap(({ candidates }) => candidates.map(({ intervalId }) => intervalId))
+    regions.flatMap(({ candidates }) =>
+      candidates.map(({ intervalId }) => intervalId)
+    )
   ),
   preservedPreviewPolygons: regions.flatMap(({ candidates }) =>
     candidates.flatMap(({ polygons }) => polygons)
@@ -204,7 +224,9 @@ export const resolveCenterDashedOwnershipForComponent = ({
     return {
       ownedRegions: [],
       passthroughIntervals: [...unaffectedPassthroughIntervals].sort(),
-      unresolvedBailouts: [buildBailoutRecord(componentId, forceBailoutReason, regions)]
+      unresolvedBailouts: [
+        buildBailoutRecord(componentId, forceBailoutReason, regions)
+      ]
     }
   }
 
@@ -226,6 +248,8 @@ export const resolveCenterDashedOwnershipForComponent = ({
       regionId: region.regionId,
       ownerIntervalId: owner.intervalId,
       ownerStrokeId: owner.strokeId,
+      ownerKey: owner.ownerKey,
+      networkId: owner.networkId,
       ownerPrimitiveKind: owner.primitiveKind,
       polygon: region.polygon,
       bounds: getBounds(region.polygon)

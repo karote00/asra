@@ -87,39 +87,15 @@ describe('center dashed overlap graph', () => {
 
   it('should run: asymmetric variable-width dashed-overlap probes stay component-stable without rectangular-band assumptions', () => {
     const ordered = buildCenterDashedOverlapGraph([
-      candidate(
-        'candidate:a',
-        'interval:a',
-        trapezoid(0, 0, 12, 26, 20)
-      ),
-      candidate(
-        'candidate:b',
-        'interval:b',
-        trapezoid(16, 6, 18, 30, 20)
-      ),
-      candidate(
-        'candidate:c',
-        'interval:c',
-        trapezoid(70, 0, 10, 22, 20)
-      )
+      candidate('candidate:a', 'interval:a', trapezoid(0, 0, 12, 26, 20)),
+      candidate('candidate:b', 'interval:b', trapezoid(16, 6, 18, 30, 20)),
+      candidate('candidate:c', 'interval:c', trapezoid(70, 0, 10, 22, 20))
     ])
 
     const reversed = buildCenterDashedOverlapGraph([
-      candidate(
-        'candidate:c',
-        'interval:c',
-        trapezoid(70, 0, 10, 22, 20)
-      ),
-      candidate(
-        'candidate:b',
-        'interval:b',
-        trapezoid(16, 6, 18, 30, 20)
-      ),
-      candidate(
-        'candidate:a',
-        'interval:a',
-        trapezoid(0, 0, 12, 26, 20)
-      )
+      candidate('candidate:c', 'interval:c', trapezoid(70, 0, 10, 22, 20)),
+      candidate('candidate:b', 'interval:b', trapezoid(16, 6, 18, 30, 20)),
+      candidate('candidate:a', 'interval:a', trapezoid(0, 0, 12, 26, 20))
     ])
 
     expect(extractCenterDashedOverlapComponents(ordered)).toEqual([

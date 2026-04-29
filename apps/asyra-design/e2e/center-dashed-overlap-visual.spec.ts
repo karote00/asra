@@ -26,19 +26,20 @@ const ensureDebugFlag = async (
   } = {}
 ) => {
   await page.evaluate(() => {
-    ;(window as unknown as { __ASYRA_PHASE4A_STROKE_DEBUG__?: unknown })
-      .__ASYRA_PHASE4A_STROKE_DEBUG__ = undefined
+    ;(
+      window as unknown as { __ASYRA_CENTER_DASHED_OVERLAP_DEBUG__?: unknown }
+    ).__ASYRA_CENTER_DASHED_OVERLAP_DEBUG__ = undefined
   })
   await page.evaluate((config) => {
     ;(
       window as unknown as {
-        __ASYRA_PHASE4A_STROKE_DEBUG__?: {
+        __ASYRA_CENTER_DASHED_OVERLAP_DEBUG__?: {
           enabled?: boolean
           mode?: 'overlap' | 'ownership' | 'bailout' | 'all'
           forceBailoutReason?: 'owner-tie-unresolved'
         }
       }
-    ).__ASYRA_PHASE4A_STROKE_DEBUG__ = {
+    ).__ASYRA_CENTER_DASHED_OVERLAP_DEBUG__ = {
       enabled: true,
       ...config
     }
@@ -68,13 +69,23 @@ const configureSelectedRectangleForOverlap = async (page: Page) => {
   await propertiesPanel.getByTestId('prop-height').press('Enter')
 
   for (const index of [0, 1]) {
-    await propertiesPanel.getByTestId(`prop-stroke-style-${index}`).selectOption('dashed')
+    await propertiesPanel
+      .getByTestId(`prop-stroke-style-${index}`)
+      .selectOption('dashed')
     await propertiesPanel.getByTestId(`prop-stroke-width-${index}`).fill('18')
-    await propertiesPanel.getByTestId(`prop-stroke-width-${index}`).press('Enter')
-    await propertiesPanel.getByTestId(`prop-stroke-pattern-${index}`).fill('36, 18')
-    await propertiesPanel.getByTestId(`prop-stroke-pattern-${index}`).press('Enter')
+    await propertiesPanel
+      .getByTestId(`prop-stroke-width-${index}`)
+      .press('Enter')
+    await propertiesPanel
+      .getByTestId(`prop-stroke-pattern-${index}`)
+      .fill('36, 18')
+    await propertiesPanel
+      .getByTestId(`prop-stroke-pattern-${index}`)
+      .press('Enter')
     await propertiesPanel.getByTestId(`prop-stroke-offset-${index}`).fill('0')
-    await propertiesPanel.getByTestId(`prop-stroke-offset-${index}`).press('Enter')
+    await propertiesPanel
+      .getByTestId(`prop-stroke-offset-${index}`)
+      .press('Enter')
   }
 
   await page.waitForTimeout(300)
@@ -101,14 +112,24 @@ const captureSelectedElementRaster = async (
   const clip = {
     x: Math.max(
       0,
-      Math.floor(rect.x * viewportState.zoom + viewportState.viewport.x - padding)
+      Math.floor(
+        rect.x * viewportState.zoom + viewportState.viewport.x - padding
+      )
     ),
     y: Math.max(
       0,
-      Math.floor(rect.y * viewportState.zoom + viewportState.viewport.y - padding)
+      Math.floor(
+        rect.y * viewportState.zoom + viewportState.viewport.y - padding
+      )
     ),
-    width: Math.max(1, Math.ceil(rect.width * viewportState.zoom + padding * 2)),
-    height: Math.max(1, Math.ceil(rect.height * viewportState.zoom + padding * 2))
+    width: Math.max(
+      1,
+      Math.ceil(rect.width * viewportState.zoom + padding * 2)
+    ),
+    height: Math.max(
+      1,
+      Math.ceil(rect.height * viewportState.zoom + padding * 2)
+    )
   }
   const screenshot = await page.screenshot({ clip })
 
@@ -138,7 +159,7 @@ const getDebugOverlayCoverage = async (page: Page, raster: RasterCapture) =>
     let total = 0
     for (let y = 0; y < height; y += 1) {
       for (let x = 0; x < width; x += 1) {
-        const [r, g, b, a] = context.getImageData(x, y, 1, 1).data
+        const [r, g, _b, a] = context.getImageData(x, y, 1, 1).data
         total += 1
         const magentaLike = a > 20 && r > 150 && b > 150 && g < 120
         if (magentaLike) {
@@ -169,7 +190,7 @@ const getOwnershipOverlayCoverage = async (page: Page, raster: RasterCapture) =>
     let total = 0
     for (let y = 0; y < height; y += 1) {
       for (let x = 0; x < width; x += 1) {
-        const [r, g, b, a] = context.getImageData(x, y, 1, 1).data
+        const [r, g, _b, a] = context.getImageData(x, y, 1, 1).data
         total += 1
         const ownershipLike = a > 20 && g > 150 && r < 150
         if (ownershipLike) {
@@ -222,7 +243,7 @@ const getOverlapDiagnosticsSnapshot = async (page: Page) =>
     }
 
     const graphic = core?.deps?.render?.getElementById?.(selectedId)
-  return graphic?.__asyraCenterDashedOverlapDiagnostics ?? null
+    return graphic?.__asyraCenterDashedOverlapDiagnostics ?? null
   })
 
 test.describe('Center Dashed Overlap Visual', () => {
@@ -279,7 +300,9 @@ test.describe('Center Dashed Overlap Visual', () => {
 
     const diagnostics = await getOverlapDiagnosticsSnapshot(page)
     expect(diagnostics?.ownership?.ownedRegions ?? []).toEqual([])
-    expect(diagnostics?.ownership?.unresolvedBailouts?.length).toBeGreaterThan(0)
+    expect(diagnostics?.ownership?.unresolvedBailouts?.length).toBeGreaterThan(
+      0
+    )
 
     const raster = await captureSelectedElementRaster(page)
     const overlayCoverage = await getBailoutOverlayCoverage(page, raster)
@@ -297,9 +320,9 @@ test.describe('Center Dashed Overlap Visual', () => {
     await page.evaluate(() => {
       ;(
         window as unknown as {
-          __ASYRA_PHASE4A_STROKE_DEBUG__?: { enabled?: boolean }
+          __ASYRA_CENTER_DASHED_OVERLAP_DEBUG__?: { enabled?: boolean }
         }
-      ).__ASYRA_PHASE4A_STROKE_DEBUG__ = { enabled: false }
+      ).__ASYRA_CENTER_DASHED_OVERLAP_DEBUG__ = { enabled: false }
     })
     await page.waitForTimeout(120)
 

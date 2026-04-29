@@ -3,7 +3,10 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import Element from './Element'
 import { useFlattenedIdsData } from '../providers'
 import { COLUMN_WIDTH, ROW_HEIGHT } from '../constants'
-import { clearSelection, selectElements } from '../controllers/element-selection'
+import {
+  clearSelection,
+  selectElements
+} from '../controllers/element-selection'
 import { setHoveredElementId } from '../controllers/hovered-element'
 import { useElementSelection, useHoveredElementId } from '../providers'
 

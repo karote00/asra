@@ -48,16 +48,23 @@ const getBounds = (polygon: Vec2[]) => {
 const hasPoint = (polygon: Vec2[], expected: Vec2) =>
   polygon.some(
     (point) =>
-      Math.abs(point.x - expected.x) < 1e-6 && Math.abs(point.y - expected.y) < 1e-6
+      Math.abs(point.x - expected.x) < 1e-6 &&
+      Math.abs(point.y - expected.y) < 1e-6
   )
 
 const hasPolygonWithPoints = (polygons: Vec2[][], expected: Vec2[]) =>
-  polygons.some((polygon) => expected.every((point) => hasPoint(polygon, point)))
+  polygons.some((polygon) =>
+    expected.every((point) => hasPoint(polygon, point))
+  )
 
 const isPointInPolygon = (point: Vec2, polygon: Vec2[]) => {
   let inside = false
 
-  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index, index += 1) {
+  for (
+    let index = 0, previous = polygon.length - 1;
+    index < polygon.length;
+    previous = index, index += 1
+  ) {
     const current = polygon[index]
     const prior = polygon[previous]
     const intersects =

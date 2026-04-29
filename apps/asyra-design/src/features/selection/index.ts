@@ -87,7 +87,8 @@ const resolveSelectionIds = (
   const areaSelectionIds = elementApis
     .getElementIdsInBounds(selectionBounds)
     .filter(
-      (id) => !elementApis.isElementLocked(id) && elementApis.isElementVisible(id)
+      (id) =>
+        !elementApis.isElementLocked(id) && elementApis.isElementVisible(id)
     )
   if (mode === 'replace' || baseSelectionIds.length === 0) {
     return areaSelectionIds
@@ -105,180 +106,176 @@ const resolveSelectionIds = (
   return Array.from(result)
 }
 
-export const selectionFeature = defineFeature<SelectionAPI, SelectionSessionState>(
-  FeatureNames.SELECTION,
-  InputSystemEvents.INPUT_DRAG,
-  {
-    priority: 5,
-    exclusive: false,
-    api,
-    session: {
-      onStart: (snapshot: SystemContextSnapshot) => {
-        const { primaryTool } = snapshot
-        const mouse = {
-          position: snapshot.mousePosition,
-          down: snapshot.mouseDown
-        }
-        const pathEditingMode = systemContextApis.getPathEditingMode()
+export const selectionFeature = defineFeature<
+  SelectionAPI,
+  SelectionSessionState
+>(FeatureNames.SELECTION, InputSystemEvents.INPUT_DRAG, {
+  priority: 5,
+  exclusive: false,
+  api,
+  session: {
+    onStart: (snapshot: SystemContextSnapshot) => {
+      const { primaryTool } = snapshot
+      const mouse = {
+        position: snapshot.mousePosition,
+        down: snapshot.mouseDown
+      }
+      const pathEditingMode = systemContextApis.getPathEditingMode()
 
-        if (primaryTool !== PrimaryToolType.SELECT || !mouse.down) {
+      if (primaryTool !== PrimaryToolType.SELECT || !mouse.down) {
+        return null
+      }
+
+      // In path editing mode, keep focus on the current vector only.
+      if (pathEditingMode) {
+        return null
+      }
+
+      const hoveredElementId =
+        snapshot.hoveredElementId ??
+        elementApis.getElementIdAtClientPos(mouse.position)
+
+      systemContextApis.clearAreaSelection()
+
+      if (hoveredElementId) {
+        if (
+          elementApis.isElementLocked(hoveredElementId) ||
+          !elementApis.isElementVisible(hoveredElementId)
+        ) {
           return null
         }
-
-        // In path editing mode, keep focus on the current vector only.
-        if (pathEditingMode) {
-          return null
-        }
-
-        const hoveredElementId =
-          snapshot.hoveredElementId ??
-          elementApis.getElementIdAtClientPos(mouse.position)
-
-        systemContextApis.clearAreaSelection()
-
-        if (hoveredElementId) {
-          if (
-            elementApis.isElementLocked(hoveredElementId) ||
-            !elementApis.isElementVisible(hoveredElementId)
-          ) {
-            return null
-          }
-          transactionApis.startTransaction()
-          try {
-            if (snapshot.keyShift) {
-              api.toggleSelection(hoveredElementId)
-            } else {
-              selectionApis.selectElements([hoveredElementId])
-            }
-
-            clearPathEditingIfSelectionChanged()
-          } finally {
-            transactionApis.endTransaction()
-          }
-
-          return { mode: 'click' }
-        }
-
-        const dragStartWorkspacePos = elementApis.getMousePosInWorkspace(
-          mouse.position
-        )
-        if (!dragStartWorkspacePos) {
-          return null
-        }
-
-        return {
-          mode: 'area',
-          dragStartClientPos: mouse.position,
-          dragStartWorkspacePos,
-          additive: snapshot.keyShift,
-          initialSelectionIds: snapshot.keyShift
-            ? selectionApis.getSelectedIds()
-            : [],
-          hasMoved: false
-        }
-      },
-      onUpdate: (
-        snapshot: SystemContextSnapshot,
-        state: SelectionSessionState
-      ) => {
-        if (state.mode !== 'area') {
-          return
-        }
-
-        if (!snapshot.mouseDragging) {
-          return
-        }
-
-        const hasMoved =
-          state.hasMoved ||
-          elementApis.hasMovedBeyondThreshold(
-            state.dragStartClientPos,
-            snapshot.mousePosition,
-            FEATURE_MOVEMENT_THRESHOLD.areaSelection
-          )
-        if (!hasMoved) {
-          return
-        }
-
-        const currentWorkspacePos = elementApis.getMousePosInWorkspace(
-          snapshot.mousePosition
-        )
-        if (!currentWorkspacePos) {
-          return
-        }
-
-        state.hasMoved = true
-
-        const selectionBounds = getSelectionBounds(
-          state.dragStartWorkspacePos,
-          currentWorkspacePos
-        )
-        const nextSelectionIds = resolveSelectionIds(
-          selectionBounds,
-          state.additive ? state.initialSelectionIds : [],
-          state.additive ? 'toggle' : 'replace'
-        )
-
-        selectionApis.selectElements(nextSelectionIds, { undoable: false })
-
-        systemContextApis.setAreaSelection({
-          dragStart: state.dragStartWorkspacePos,
-          dragCurrent: currentWorkspacePos,
-          additive: state.additive
-        })
-      },
-      onEnd: (
-        snapshot: SystemContextSnapshot,
-        state: SelectionSessionState
-      ) => {
-        if (state.mode !== 'area') {
-          return
-        }
-
-        systemContextApis.clearAreaSelection()
-
-        if (!state.hasMoved) {
-          if (state.additive) {
-            return
-          }
-
-          transactionApis.startTransaction()
-          try {
-            selectionApis.selectElements([])
-            clearPathEditingIfSelectionChanged()
-          } finally {
-            transactionApis.endTransaction()
-          }
-          return
-        }
-
-        const currentWorkspacePos = elementApis.getMousePosInWorkspace(
-          snapshot.mousePosition
-        )
-        if (!currentWorkspacePos) {
-          return
-        }
-
-        const selectionBounds = getSelectionBounds(
-          state.dragStartWorkspacePos,
-          currentWorkspacePos
-        )
-        const nextSelectionIds = resolveSelectionIds(
-          selectionBounds,
-          state.additive ? state.initialSelectionIds : [],
-          state.additive ? 'toggle' : 'replace'
-        )
-
         transactionApis.startTransaction()
         try {
-          selectionApis.selectElements(nextSelectionIds)
+          if (snapshot.keyShift) {
+            api.toggleSelection(hoveredElementId)
+          } else {
+            selectionApis.selectElements([hoveredElementId])
+          }
+
           clearPathEditingIfSelectionChanged()
         } finally {
           transactionApis.endTransaction()
         }
+
+        return { mode: 'click' }
+      }
+
+      const dragStartWorkspacePos = elementApis.getMousePosInWorkspace(
+        mouse.position
+      )
+      if (!dragStartWorkspacePos) {
+        return null
+      }
+
+      return {
+        mode: 'area',
+        dragStartClientPos: mouse.position,
+        dragStartWorkspacePos,
+        additive: snapshot.keyShift,
+        initialSelectionIds: snapshot.keyShift
+          ? selectionApis.getSelectedIds()
+          : [],
+        hasMoved: false
+      }
+    },
+    onUpdate: (
+      snapshot: SystemContextSnapshot,
+      state: SelectionSessionState
+    ) => {
+      if (state.mode !== 'area') {
+        return
+      }
+
+      if (!snapshot.mouseDragging) {
+        return
+      }
+
+      const hasMoved =
+        state.hasMoved ||
+        elementApis.hasMovedBeyondThreshold(
+          state.dragStartClientPos,
+          snapshot.mousePosition,
+          FEATURE_MOVEMENT_THRESHOLD.areaSelection
+        )
+      if (!hasMoved) {
+        return
+      }
+
+      const currentWorkspacePos = elementApis.getMousePosInWorkspace(
+        snapshot.mousePosition
+      )
+      if (!currentWorkspacePos) {
+        return
+      }
+
+      state.hasMoved = true
+
+      const selectionBounds = getSelectionBounds(
+        state.dragStartWorkspacePos,
+        currentWorkspacePos
+      )
+      const nextSelectionIds = resolveSelectionIds(
+        selectionBounds,
+        state.additive ? state.initialSelectionIds : [],
+        state.additive ? 'toggle' : 'replace'
+      )
+
+      selectionApis.selectElements(nextSelectionIds, { undoable: false })
+
+      systemContextApis.setAreaSelection({
+        dragStart: state.dragStartWorkspacePos,
+        dragCurrent: currentWorkspacePos,
+        additive: state.additive
+      })
+    },
+    onEnd: (snapshot: SystemContextSnapshot, state: SelectionSessionState) => {
+      if (state.mode !== 'area') {
+        return
+      }
+
+      systemContextApis.clearAreaSelection()
+
+      if (!state.hasMoved) {
+        if (state.additive) {
+          return
+        }
+
+        transactionApis.startTransaction()
+        try {
+          selectionApis.selectElements([])
+          clearPathEditingIfSelectionChanged()
+        } finally {
+          transactionApis.endTransaction()
+        }
+        return
+      }
+
+      const currentWorkspacePos = elementApis.getMousePosInWorkspace(
+        snapshot.mousePosition
+      )
+      if (!currentWorkspacePos) {
+        return
+      }
+
+      const selectionBounds = getSelectionBounds(
+        state.dragStartWorkspacePos,
+        currentWorkspacePos
+      )
+      const nextSelectionIds = resolveSelectionIds(
+        selectionBounds,
+        state.additive ? state.initialSelectionIds : [],
+        state.additive ? 'toggle' : 'replace'
+      )
+
+      transactionApis.startTransaction()
+      try {
+        selectionApis.selectElements(nextSelectionIds)
+        clearPathEditingIfSelectionChanged()
+      } finally {
+        transactionApis.endTransaction()
       }
     }
   }
-)
+})
 
 export default selectionFeature

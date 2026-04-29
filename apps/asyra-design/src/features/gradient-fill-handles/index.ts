@@ -276,15 +276,17 @@ const applyStopDragUpdate = (
   }
 
   const currentStop = state.latestGradient.gradientStops[state.stopIndex]
-  if (currentStop && Math.abs(currentStop.position - position) <= DRAG_EPSILON) {
+  if (
+    currentStop &&
+    Math.abs(currentStop.position - position) <= DRAG_EPSILON
+  ) {
     return
   }
 
-  const nextStops: FillGradientStop[] =
-    state.initialGradient.gradientStops.map(
-      (stop: FillGradientStop, i: number) =>
-        i === state.stopIndex ? { ...stop, position } : stop
-    )
+  const nextStops: FillGradientStop[] = state.initialGradient.gradientStops.map(
+    (stop: FillGradientStop, i: number) =>
+      i === state.stopIndex ? { ...stop, position } : stop
+  )
 
   const nextGradient: FillGradientData = {
     ...state.initialGradient,

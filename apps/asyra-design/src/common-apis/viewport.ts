@@ -35,7 +35,9 @@ export const viewportApis = {
   /**
    * Convert a workspace position into canvas coordinates.
    */
-  getCanvasPositionFromWorkspace: (workspacePos: PositionData): PositionData => {
+  getCanvasPositionFromWorkspace: (
+    workspacePos: PositionData
+  ): PositionData => {
     const scale = viewportApis.getScale()
     const position = viewportApis.getPosition()
 

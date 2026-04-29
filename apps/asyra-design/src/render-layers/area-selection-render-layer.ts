@@ -96,10 +96,12 @@ export const registerAreaSelectionRenderLayer = (
         return
       }
 
-      const startCanvas =
-        deps.viewportApis.getCanvasPositionFromWorkspace(selection.dragStart)
-      const currentCanvas =
-        deps.viewportApis.getCanvasPositionFromWorkspace(selection.dragCurrent)
+      const startCanvas = deps.viewportApis.getCanvasPositionFromWorkspace(
+        selection.dragStart
+      )
+      const currentCanvas = deps.viewportApis.getCanvasPositionFromWorkspace(
+        selection.dragCurrent
+      )
       const rect = getRectFromPoints(startCanvas, currentCanvas)
 
       if (rect.width <= 0 || rect.height <= 0) {

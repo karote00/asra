@@ -6,7 +6,8 @@ export const createRectangleHitArea = (
   width: number,
   height: number
 ): HitAreaLike => ({
-  contains: (x: number, y: number) => x >= 0 && x <= width && y >= 0 && y <= height
+  contains: (x: number, y: number) =>
+    x >= 0 && x <= width && y >= 0 && y <= height
 })
 
 export const createEllipseHitArea = (

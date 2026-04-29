@@ -6,9 +6,16 @@ export interface Vec2 {
 }
 
 export const EPS = 1e-6
+const EPS_SQUARED = EPS * EPS
 
 export const distance = (from: Vec2, to: Vec2) =>
   Math.hypot(to.x - from.x, to.y - from.y)
+
+const distanceSquared = (from: Vec2, to: Vec2) => {
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  return dx * dx + dy * dy
+}
 
 export const add = (a: Vec2, b: Vec2): Vec2 => ({
   x: a.x + b.x,
@@ -57,7 +64,9 @@ export const dedupeAdjacent = (points: Vec2[]) => {
 
   const result = [points[0]]
   for (let index = 1; index < points.length; index += 1) {
-    if (distance(result[result.length - 1], points[index]) > EPS) {
+    if (
+      distanceSquared(result[result.length - 1], points[index]) > EPS_SQUARED
+    ) {
       result.push(points[index])
     }
   }
@@ -65,7 +74,10 @@ export const dedupeAdjacent = (points: Vec2[]) => {
 }
 
 export const normalizeClosed = (points: Vec2[]) => {
-  if (points.length > 1 && distance(points[0], points[points.length - 1]) <= EPS) {
+  if (
+    points.length > 1 &&
+    distanceSquared(points[0], points[points.length - 1]) <= EPS_SQUARED
+  ) {
     return points.slice(0, -1)
   }
   return points
@@ -73,7 +85,10 @@ export const normalizeClosed = (points: Vec2[]) => {
 
 export const dedupeClosed = (points: Vec2[]) => {
   const deduped = dedupeAdjacent(points)
-  if (deduped.length > 2 && distance(deduped[0], deduped[deduped.length - 1]) <= EPS) {
+  if (
+    deduped.length > 2 &&
+    distance(deduped[0], deduped[deduped.length - 1]) <= EPS
+  ) {
     deduped.pop()
   }
   return deduped
@@ -97,6 +112,103 @@ export const polygonArea = (points: Vec2[]) => {
 
 const cross = (a: Vec2, b: Vec2) => a.x * b.y - a.y * b.x
 
+const orientationOf = (a: Vec2, b: Vec2, c: Vec2) => {
+  const value = cross(subtract(b, a), subtract(c, b))
+  if (Math.abs(value) <= EPS) {
+    return 0
+  }
+  return value > 0 ? 1 : 2
+}
+
+const isPointOnSegment = (a: Vec2, b: Vec2, c: Vec2) =>
+  b.x <= Math.max(a.x, c.x) + EPS &&
+  b.x + EPS >= Math.min(a.x, c.x) &&
+  b.y <= Math.max(a.y, c.y) + EPS &&
+  b.y + EPS >= Math.min(a.y, c.y)
+
+const getSegmentBounds = (from: Vec2, to: Vec2) => ({
+  minX: Math.min(from.x, to.x),
+  minY: Math.min(from.y, to.y),
+  maxX: Math.max(from.x, to.x),
+  maxY: Math.max(from.y, to.y)
+})
+
+const segmentBoundsOverlap = (
+  left: ReturnType<typeof getSegmentBounds>,
+  right: ReturnType<typeof getSegmentBounds>
+) =>
+  left.minX <= right.maxX + EPS &&
+  left.maxX + EPS >= right.minX &&
+  left.minY <= right.maxY + EPS &&
+  left.maxY + EPS >= right.minY
+
+const segmentsIntersectInclusive = (
+  a1: Vec2,
+  a2: Vec2,
+  b1: Vec2,
+  b2: Vec2
+) => {
+  const o1 = orientationOf(a1, a2, b1)
+  const o2 = orientationOf(a1, a2, b2)
+  const o3 = orientationOf(b1, b2, a1)
+  const o4 = orientationOf(b1, b2, a2)
+
+  if (o1 !== o2 && o3 !== o4) {
+    return true
+  }
+
+  return (
+    (o1 === 0 && isPointOnSegment(a1, b1, a2)) ||
+    (o2 === 0 && isPointOnSegment(a1, b2, a2)) ||
+    (o3 === 0 && isPointOnSegment(b1, a1, b2)) ||
+    (o4 === 0 && isPointOnSegment(b1, a2, b2))
+  )
+}
+
+export const isSimpleOpenPath = (points: Vec2[]) => {
+  if (points.length < 2) {
+    return false
+  }
+
+  const segmentBounds = points
+    .slice(0, -1)
+    .map((point, index) => getSegmentBounds(point, points[index + 1]))
+
+  for (let leftIndex = 0; leftIndex < points.length - 1; leftIndex += 1) {
+    const leftStart = points[leftIndex]
+    const leftEnd = points[leftIndex + 1]
+
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < points.length - 1;
+      rightIndex += 1
+    ) {
+      if (rightIndex === leftIndex + 1) {
+        continue
+      }
+
+      if (
+        !segmentBoundsOverlap(segmentBounds[leftIndex], segmentBounds[rightIndex])
+      ) {
+        continue
+      }
+
+      if (
+        segmentsIntersectInclusive(
+          leftStart,
+          leftEnd,
+          points[rightIndex],
+          points[rightIndex + 1]
+        )
+      ) {
+        return false
+      }
+    }
+  }
+
+  return true
+}
+
 const segmentIntersection = (
   a: Vec2,
   b: Vec2,
@@ -113,12 +225,7 @@ const segmentIntersection = (
   const cma = subtract(c, a)
   const t = cross(cma, s) / denominator
   const u = cross(cma, r) / denominator
-  if (
-    t <= EPS ||
-    t >= 1 - EPS ||
-    u <= EPS ||
-    u >= 1 - EPS
-  ) {
+  if (t <= EPS || t >= 1 - EPS || u <= EPS || u >= 1 - EPS) {
     return null
   }
 
@@ -130,6 +237,9 @@ export const isSimpleClosedPolygon = (points: Vec2[]) => {
   if (polygon.length < 3) {
     return false
   }
+  const segmentBounds = polygon.map((point, index) =>
+    getSegmentBounds(point, polygon[(index + 1) % polygon.length])
+  )
 
   for (let i = 0; i < polygon.length; i += 1) {
     const a1 = polygon[i]
@@ -143,6 +253,10 @@ export const isSimpleClosedPolygon = (points: Vec2[]) => {
       const sharesForwardVertex = (i + 1) % polygon.length === j
       const sharesBackwardVertex = i === (j + 1) % polygon.length
       if (sameEdge || sharesForwardVertex || sharesBackwardVertex) {
+        continue
+      }
+
+      if (!segmentBoundsOverlap(segmentBounds[i], segmentBounds[j])) {
         continue
       }
 
@@ -235,7 +349,8 @@ const resolveJoin = (
   previous: OffsetSegment | null,
   next: OffsetSegment | null,
   original: Vec2,
-  stroke: Pick<RenderableStroke, 'join' | 'miterLimit' | 'width'>
+  stroke: Pick<RenderableStroke, 'join' | 'miterLimit' | 'width'>,
+  miterOffsetDistance = stroke.width / 2
 ) => {
   if (!previous && !next) {
     return original
@@ -269,7 +384,7 @@ const resolveJoin = (
     }
   }
 
-  const maxDistance = stroke.miterLimit * (stroke.width / 2)
+  const maxDistance = stroke.miterLimit * miterOffsetDistance
   if (distance(original, intersection) > maxDistance + EPS) {
     return {
       x: (previous.end.x + next.start.x) / 2,
@@ -292,6 +407,7 @@ export const offsetPath = (
   }
 
   const segments = buildOffsetSegments(normalized, closed, offset)
+  const miterOffsetDistance = Math.abs(offset)
 
   if (closed) {
     return normalized.map((point, index) =>
@@ -299,7 +415,8 @@ export const offsetPath = (
         segments[(index - 1 + normalized.length) % normalized.length],
         segments[index],
         point,
-        stroke
+        stroke,
+        miterOffsetDistance
       )
     )
   }
@@ -308,7 +425,13 @@ export const offsetPath = (
   result.push(segments[0]?.start ?? normalized[0])
   for (let index = 1; index < normalized.length - 1; index += 1) {
     result.push(
-      resolveJoin(segments[index - 1], segments[index], normalized[index], stroke)
+      resolveJoin(
+        segments[index - 1],
+        segments[index],
+        normalized[index],
+        stroke,
+        miterOffsetDistance
+      )
     )
   }
   result.push(

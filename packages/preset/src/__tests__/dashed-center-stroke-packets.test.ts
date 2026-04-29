@@ -36,6 +36,41 @@ describe('dashed center stroke packets', () => {
     ])
   })
 
+  it('should run: attach typed owner metadata to center dashed interval packets', () => {
+    const packets = buildDashedCenterStrokeResolvedPackets(
+      'vector:test:network-a:dashed-center',
+      [
+        { x: 0, y: 0 },
+        { x: 90, y: 0 }
+      ],
+      false,
+      [
+        createDefaultStroke({
+          style: 'dashed',
+          position: 'center',
+          width: 4,
+          dashPattern: [20, 10],
+          dashOffset: 0
+        })
+      ],
+      {
+        metadata: {
+          ownerKeyPrefix: 'vector:test:network-a',
+          networkId: 'network-a'
+        }
+      }
+    )
+
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      sourcePathId: 'vector:test:network-a:dashed-center',
+      ownerKey: 'vector:test:network-a:stroke:0',
+      networkId: 'network-a',
+      strokeId: 'stroke:0',
+      strokeIndex: 0,
+      intervalId: 'interval:0'
+    })
+  })
+
   it('should not run: emit any packets for unsupported dashed slices', () => {
     const packets = buildDashedCenterStrokeResolvedPackets(
       'unsupported',
@@ -150,21 +185,21 @@ describe('dashed center stroke packets', () => {
     )
 
     const baselineFirstStroke = baseline
-      .filter((packet) => packet.geometry.geometryId.startsWith('multi-stroke:0:'))
+      .filter((packet) => packet.geometry.debugMeta?.strokeId === 'stroke:0')
       .map((packet) => packet.geometry.bounds)
     const shiftedFirstStroke = shifted
-      .filter((packet) => packet.geometry.geometryId.startsWith('multi-stroke:0:'))
+      .filter((packet) => packet.geometry.debugMeta?.strokeId === 'stroke:0')
       .map((packet) => packet.geometry.bounds)
     const baselineSecondStroke = baseline
-      .filter((packet) => packet.geometry.geometryId.startsWith('multi-stroke:1:'))
+      .filter((packet) => packet.geometry.debugMeta?.strokeId === 'stroke:1')
       .map((packet) => ({
-        geometryId: packet.geometry.geometryId,
+        intervalId: packet.geometry.debugMeta?.intervalId,
         bounds: packet.geometry.bounds
       }))
     const shiftedSecondStroke = shifted
-      .filter((packet) => packet.geometry.geometryId.startsWith('multi-stroke:1:'))
+      .filter((packet) => packet.geometry.debugMeta?.strokeId === 'stroke:1')
       .map((packet) => ({
-        geometryId: packet.geometry.geometryId,
+        intervalId: packet.geometry.debugMeta?.intervalId,
         bounds: packet.geometry.bounds
       }))
 

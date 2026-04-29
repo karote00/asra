@@ -12,7 +12,7 @@ import type { SolidCenterStrokeResolvedPacket } from '../components/stroke-rende
 const createSyntheticPacket = (
   geometryId: string,
   strokeId: string,
-  polygon: Array<{ x: number; y: number }>
+  polygon: { x: number; y: number }[]
 ): SolidCenterStrokeResolvedPacket => ({
   geometry: {
     geometryId,
@@ -37,16 +37,24 @@ const createSyntheticPacket = (
 const createSyntheticMultiPolygonPacket = (
   geometryId: string,
   strokeId: string,
-  polygons: Array<Array<{ x: number; y: number }>>
+  polygons: { x: number; y: number }[][]
 ): SolidCenterStrokeResolvedPacket => ({
   geometry: {
     geometryId,
     polygons,
     bounds: {
-      minX: Math.min(...polygons.flatMap((polygon) => polygon.map((point) => point.x))),
-      minY: Math.min(...polygons.flatMap((polygon) => polygon.map((point) => point.y))),
-      maxX: Math.max(...polygons.flatMap((polygon) => polygon.map((point) => point.x))),
-      maxY: Math.max(...polygons.flatMap((polygon) => polygon.map((point) => point.y)))
+      minX: Math.min(
+        ...polygons.flatMap((polygon) => polygon.map((point) => point.x))
+      ),
+      minY: Math.min(
+        ...polygons.flatMap((polygon) => polygon.map((point) => point.y))
+      ),
+      maxX: Math.max(
+        ...polygons.flatMap((polygon) => polygon.map((point) => point.x))
+      ),
+      maxY: Math.max(
+        ...polygons.flatMap((polygon) => polygon.map((point) => point.y))
+      )
     },
     debugMeta: {
       strokeId
@@ -60,6 +68,41 @@ const createSyntheticMultiPolygonPacket = (
 })
 
 describe('constrained solid ownership diagnostics', () => {
+  it('should run: single multi-polygon candidate emits intra-candidate arrangement faces for self-overlap', () => {
+    const diagnostics = buildConstrainedSolidOwnershipDiagnostics([
+      createSyntheticMultiPolygonPacket('self-overlap:0', 'stroke:0', [
+        [
+          { x: 0, y: 0 },
+          { x: 20, y: 0 },
+          { x: 20, y: 20 },
+          { x: 0, y: 20 }
+        ],
+        [
+          { x: 10, y: 10 },
+          { x: 30, y: 10 },
+          { x: 30, y: 30 },
+          { x: 10, y: 30 }
+        ]
+      ])
+    ])
+
+    expect(diagnostics.candidates).toHaveLength(1)
+    expect(diagnostics.edges).toEqual([])
+    expect(diagnostics.arrangementFaces).toHaveLength(1)
+    expect(diagnostics.arrangementFaces[0]).toMatchObject({
+      candidateIds: ['candidate:0'],
+      ownerStrokeId: 'stroke:0',
+      partitionMethod: 'intra-candidate-intersection',
+      bounds: { minX: 10, minY: 10, maxX: 20, maxY: 20 }
+    })
+    expect(diagnostics.ownedRegions).toHaveLength(1)
+    expect(diagnostics.ownedRegions[0]).toMatchObject({
+      candidateIds: ['candidate:0'],
+      ownerStrokeId: 'stroke:0',
+      bounds: { minX: 10, minY: 10, maxX: 20, maxY: 20 }
+    })
+  })
+
   it('should run: overlapping supported constrained solid packets build deterministic ownership regions', () => {
     const packets = buildConstrainedSolidStrokeResolvedPackets(
       'rect:ownership',
@@ -88,13 +131,33 @@ describe('constrained solid ownership diagnostics', () => {
 
     const diagnostics = buildConstrainedSolidOwnershipDiagnostics(packets)
 
+    expect(diagnostics.arrangementPolicy).toEqual({
+      strategy: 'bounded-convex-subset-arrangement',
+      epsilon: 0.000001,
+      roundingFactor: 1000,
+      maxExactSubsetCount: 4096,
+      zeroAreaThreshold: 0.000001,
+      tangentialTouchPolicy: 'boundary-overlap-without-zero-area-face',
+      coincidentEdgePolicy: 'dedupe-rotated-polygon-signatures'
+    })
     expect(diagnostics.candidates).toHaveLength(2)
     expect(diagnostics.edges).toEqual([['candidate:0', 'candidate:1']])
     expect(diagnostics.components).toHaveLength(1)
+    expect(diagnostics.arrangementFaces).toHaveLength(
+      diagnostics.ownedRegions.length
+    )
+    expect(
+      diagnostics.arrangementFaces.every(
+        (face) => face.partitionMethod === 'exact-subset-intersection'
+      )
+    ).toBe(true)
     expect(diagnostics.ownedRegions.length).toBeGreaterThan(0)
     expect(
       new Set(diagnostics.ownedRegions.map((region) => region.ownerStrokeId))
     ).toEqual(new Set(['stroke:0']))
+    expect(
+      new Set(diagnostics.ownedRegions.map((region) => region.ownerStrokeIndex))
+    ).toEqual(new Set([0]))
   })
 
   it('should run: disjoint constrained packets do not create ownership regions', () => {
@@ -141,7 +204,83 @@ describe('constrained solid ownership diagnostics', () => {
     ])
 
     expect(diagnostics.edges).toEqual([])
+    expect(diagnostics.arrangementFaces).toEqual([])
     expect(diagnostics.ownedRegions).toEqual([])
+  })
+
+  it('should run: tangential edge touch records adjacency without emitting zero-area ownership faces', () => {
+    const diagnostics = buildConstrainedSolidOwnershipDiagnostics([
+      createSyntheticPacket('tangent-edge:0', 'stroke:0', [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+        { x: 10, y: 10 },
+        { x: 0, y: 10 }
+      ]),
+      createSyntheticPacket('tangent-edge:1', 'stroke:1', [
+        { x: 10, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 10 },
+        { x: 10, y: 10 }
+      ])
+    ])
+
+    expect(diagnostics.arrangementPolicy.tangentialTouchPolicy).toBe(
+      'boundary-overlap-without-zero-area-face'
+    )
+    expect(diagnostics.edges).toEqual([['candidate:0', 'candidate:1']])
+    expect(diagnostics.components).toHaveLength(1)
+    expect(diagnostics.arrangementFaces).toEqual([])
+    expect(diagnostics.ownedRegions).toEqual([])
+  })
+
+  it('should run: tangential point touch records adjacency without emitting zero-area ownership faces', () => {
+    const diagnostics = buildConstrainedSolidOwnershipDiagnostics([
+      createSyntheticPacket('tangent-point:0', 'stroke:0', [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+        { x: 10, y: 10 },
+        { x: 0, y: 10 }
+      ]),
+      createSyntheticPacket('tangent-point:1', 'stroke:1', [
+        { x: 10, y: 10 },
+        { x: 20, y: 10 },
+        { x: 20, y: 20 },
+        { x: 10, y: 20 }
+      ])
+    ])
+
+    expect(diagnostics.arrangementPolicy.tangentialTouchPolicy).toBe(
+      'boundary-overlap-without-zero-area-face'
+    )
+    expect(diagnostics.edges).toEqual([['candidate:0', 'candidate:1']])
+    expect(diagnostics.components).toHaveLength(1)
+    expect(diagnostics.arrangementFaces).toEqual([])
+    expect(diagnostics.ownedRegions).toEqual([])
+  })
+
+  it('should run: coincident reversed polygons dedupe into one ownership face', () => {
+    const polygon = [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 20, y: 20 },
+      { x: 0, y: 20 }
+    ]
+    const diagnostics = buildConstrainedSolidOwnershipDiagnostics([
+      createSyntheticPacket('coincident:0', 'stroke:0', polygon),
+      createSyntheticPacket('coincident:1', 'stroke:1', [...polygon].reverse())
+    ])
+
+    expect(diagnostics.arrangementPolicy.coincidentEdgePolicy).toBe(
+      'dedupe-rotated-polygon-signatures'
+    )
+    expect(diagnostics.edges).toEqual([['candidate:0', 'candidate:1']])
+    expect(diagnostics.arrangementFaces).toHaveLength(1)
+    expect(diagnostics.ownedRegions).toHaveLength(1)
+    expect(diagnostics.ownedRegions[0]).toMatchObject({
+      candidateIds: ['candidate:0', 'candidate:1'],
+      ownerStrokeId: 'stroke:0',
+      bounds: { minX: 0, minY: 0, maxX: 20, maxY: 20 }
+    })
   })
 
   it('should run: two-candidate constrained overlap emits canonical shared regions instead of full surrogate owner polygons', () => {
@@ -175,9 +314,7 @@ describe('constrained solid ownership diagnostics', () => {
     const diagnostics = buildConstrainedSolidOwnershipDiagnostics(packets)
 
     expect(diagnostics.ownedRegions).toHaveLength(4)
-    expect(
-      diagnostics.ownedRegions.map((region) => region.bounds)
-    ).toEqual([
+    expect(diagnostics.ownedRegions.map((region) => region.bounds)).toEqual([
       { minX: 0, minY: -12, maxX: 80, maxY: 0 },
       { minX: 80, minY: 0, maxX: 92, maxY: 40 },
       { minX: 0, minY: 40, maxX: 80, maxY: 52 },
@@ -235,9 +372,7 @@ describe('constrained solid ownership diagnostics', () => {
       ['candidate:0', 'candidate:1'],
       ['candidate:0', 'candidate:1']
     ])
-    expect(
-      diagnostics.ownedRegions.map((region) => region.bounds)
-    ).toEqual([
+    expect(diagnostics.ownedRegions.map((region) => region.bounds)).toEqual([
       { minX: -4, minY: -4, maxX: 84, maxY: 0 },
       { minX: 80, minY: -4, maxX: 84, maxY: 44 },
       { minX: -4, minY: 40, maxX: 84, maxY: 44 },
@@ -278,9 +413,32 @@ describe('constrained solid ownership diagnostics', () => {
       ['candidate:0', 'candidate:1'],
       ['candidate:1', 'candidate:2']
     ])
-    expect(diagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
+    expect(
+      diagnostics.ownedRegions.map((region) => region.candidateIds)
+    ).toEqual([
       ['candidate:0', 'candidate:1'],
       ['candidate:1', 'candidate:2']
+    ])
+    expect(
+      diagnostics.arrangementFaces.map((face) => ({
+        candidateIds: face.candidateIds,
+        ownerStrokeId: face.ownerStrokeId,
+        partitionMethod: face.partitionMethod,
+        bounds: face.bounds
+      }))
+    ).toEqual([
+      {
+        candidateIds: ['candidate:0', 'candidate:1'],
+        ownerStrokeId: 'stroke:0',
+        partitionMethod: 'exact-subset-intersection',
+        bounds: { minX: 4, minY: 0, maxX: 7, maxY: 6 }
+      },
+      {
+        candidateIds: ['candidate:1', 'candidate:2'],
+        ownerStrokeId: 'stroke:1',
+        partitionMethod: 'exact-subset-intersection',
+        bounds: { minX: 10, minY: 0, maxX: 13, maxY: 6 }
+      }
     ])
     expect(diagnostics.ownedRegions.map((region) => region.bounds)).toEqual([
       { minX: 4, minY: 0, maxX: 7, maxY: 6 },
@@ -324,7 +482,9 @@ describe('constrained solid ownership diagnostics', () => {
       ['candidate:1', 'candidate:2'],
       ['candidate:2', 'candidate:3']
     ])
-    expect(diagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
+    expect(
+      diagnostics.ownedRegions.map((region) => region.candidateIds)
+    ).toEqual([
       ['candidate:0', 'candidate:1'],
       ['candidate:1', 'candidate:2'],
       ['candidate:2', 'candidate:3']
@@ -374,7 +534,9 @@ describe('constrained solid ownership diagnostics', () => {
       ['candidate:1', 'candidate:3'],
       ['candidate:2', 'candidate:3']
     ])
-    expect(diagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
+    expect(
+      diagnostics.ownedRegions.map((region) => region.candidateIds)
+    ).toEqual([
       ['candidate:0', 'candidate:1', 'candidate:3'],
       ['candidate:0', 'candidate:1'],
       ['candidate:1', 'candidate:2', 'candidate:3'],
@@ -440,11 +602,37 @@ describe('constrained solid ownership diagnostics', () => {
     const diagnostics = buildConstrainedSolidOwnershipDiagnostics(packets)
 
     expect(diagnostics.ownedRegions).toHaveLength(16)
-    expect(diagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
+    expect(
+      diagnostics.ownedRegions.map((region) => region.candidateIds)
+    ).toEqual([
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
       ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3'],
       ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3'],
       ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3'],
@@ -534,15 +722,69 @@ describe('constrained solid ownership diagnostics', () => {
     const diagnostics = buildConstrainedSolidOwnershipDiagnostics(packets)
 
     expect(diagnostics.ownedRegions).toHaveLength(20)
-    expect(diagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
+    expect(
+      diagnostics.ownedRegions.map((region) => region.candidateIds)
+    ).toEqual([
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
       ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3'],
       ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3'],
       ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3'],
@@ -642,19 +884,105 @@ describe('constrained solid ownership diagnostics', () => {
     const diagnostics = buildConstrainedSolidOwnershipDiagnostics(packets)
 
     expect(diagnostics.ownedRegions).toHaveLength(24)
-    expect(diagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
+    expect(
+      diagnostics.ownedRegions.map((region) => region.candidateIds)
+    ).toEqual([
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
       ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3'],
       ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3'],
       ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3'],
@@ -764,23 +1092,145 @@ describe('constrained solid ownership diagnostics', () => {
     const diagnostics = buildConstrainedSolidOwnershipDiagnostics(packets)
 
     expect(diagnostics.ownedRegions).toHaveLength(28)
-    expect(diagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6', 'candidate:7'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6', 'candidate:7'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6', 'candidate:7'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6', 'candidate:7'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
+    expect(
+      diagnostics.ownedRegions.map((region) => region.candidateIds)
+    ).toEqual([
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6',
+        'candidate:7'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6',
+        'candidate:7'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6',
+        'candidate:7'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6',
+        'candidate:7'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
       ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3'],
       ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3'],
       ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3'],
@@ -900,27 +1350,189 @@ describe('constrained solid ownership diagnostics', () => {
     const diagnostics = buildConstrainedSolidOwnershipDiagnostics(packets)
 
     expect(diagnostics.ownedRegions).toHaveLength(32)
-    expect(diagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6', 'candidate:7', 'candidate:8'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6', 'candidate:7', 'candidate:8'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6', 'candidate:7', 'candidate:8'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6', 'candidate:7', 'candidate:8'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6', 'candidate:7'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6', 'candidate:7'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6', 'candidate:7'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6', 'candidate:7'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5', 'candidate:6'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4', 'candidate:5'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
-      ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3', 'candidate:4'],
+    expect(
+      diagnostics.ownedRegions.map((region) => region.candidateIds)
+    ).toEqual([
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6',
+        'candidate:7',
+        'candidate:8'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6',
+        'candidate:7',
+        'candidate:8'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6',
+        'candidate:7',
+        'candidate:8'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6',
+        'candidate:7',
+        'candidate:8'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6',
+        'candidate:7'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6',
+        'candidate:7'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6',
+        'candidate:7'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6',
+        'candidate:7'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5',
+        'candidate:6'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4',
+        'candidate:5'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
+      [
+        'candidate:0',
+        'candidate:1',
+        'candidate:2',
+        'candidate:3',
+        'candidate:4'
+      ],
       ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3'],
       ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3'],
       ['candidate:0', 'candidate:1', 'candidate:2', 'candidate:3'],
@@ -1048,14 +1660,13 @@ describe('constrained solid ownership diagnostics', () => {
     )
 
     const diagnostics = buildConstrainedSolidOwnershipDiagnostics(packets)
-    const subsetSizeCounts = diagnostics.ownedRegions.reduce<Record<number, number>>(
-      (counts, region) => {
-        const size = region.candidateIds.length
-        counts[size] = (counts[size] ?? 0) + 1
-        return counts
-      },
-      {}
-    )
+    const subsetSizeCounts = diagnostics.ownedRegions.reduce<
+      Record<number, number>
+    >((counts, region) => {
+      const size = region.candidateIds.length
+      counts[size] = (counts[size] ?? 0) + 1
+      return counts
+    }, {})
 
     expect(diagnostics.ownedRegions).toHaveLength(36)
     expect(subsetSizeCounts).toEqual({
@@ -1105,11 +1716,14 @@ describe('constrained solid ownership diagnostics', () => {
 
     expect(diagnostics.ownedRegions).toHaveLength(50)
     expect(
-      diagnostics.ownedRegions.reduce<Record<string, number>>((result, region) => {
-        const key = region.candidateIds.join('|')
-        result[key] = (result[key] ?? 0) + 1
-        return result
-      }, {})
+      diagnostics.ownedRegions.reduce<Record<string, number>>(
+        (result, region) => {
+          const key = region.candidateIds.join('|')
+          result[key] = (result[key] ?? 0) + 1
+          return result
+        },
+        {}
+      )
     ).toEqual({
       'candidate:0|candidate:1': 24,
       'candidate:0|candidate:1|candidate:2': 16,
@@ -1161,11 +1775,14 @@ describe('constrained solid ownership diagnostics', () => {
 
     expect(diagnostics.ownedRegions).toHaveLength(82)
     expect(
-      diagnostics.ownedRegions.reduce<Record<string, number>>((result, region) => {
-        const key = region.candidateIds.join('|')
-        result[key] = (result[key] ?? 0) + 1
-        return result
-      }, {})
+      diagnostics.ownedRegions.reduce<Record<string, number>>(
+        (result, region) => {
+          const key = region.candidateIds.join('|')
+          result[key] = (result[key] ?? 0) + 1
+          return result
+        },
+        {}
+      )
     ).toEqual({
       'candidate:0|candidate:1': 32,
       'candidate:0|candidate:1|candidate:2': 24,
@@ -1239,7 +1856,9 @@ describe('constrained solid ownership diagnostics', () => {
       ['candidate:0', 'candidate:1'],
       ['candidate:1', 'candidate:2']
     ])
-    expect(diagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
+    expect(
+      diagnostics.ownedRegions.map((region) => region.candidateIds)
+    ).toEqual([
       ['candidate:0', 'candidate:1'],
       ['candidate:1', 'candidate:2']
     ])
@@ -1271,7 +1890,9 @@ describe('constrained solid ownership diagnostics', () => {
     ])
 
     expect(diagnostics.edges).toEqual([['candidate:0', 'candidate:1']])
-    expect(diagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
+    expect(
+      diagnostics.ownedRegions.map((region) => region.candidateIds)
+    ).toEqual([
       ['candidate:0', 'candidate:1'],
       ['candidate:0', 'candidate:1']
     ])
@@ -1357,7 +1978,9 @@ describe('constrained solid ownership diagnostics', () => {
     ])
 
     expect(diagnostics.edges).toEqual([['candidate:0', 'candidate:1']])
-    expect(diagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
+    expect(
+      diagnostics.ownedRegions.map((region) => region.candidateIds)
+    ).toEqual([
       ['candidate:0', 'candidate:1'],
       ['candidate:0', 'candidate:1'],
       ['candidate:0', 'candidate:1']
@@ -1447,7 +2070,9 @@ describe('constrained solid ownership diagnostics', () => {
     ])
 
     expect(diagnostics.edges).toEqual([['candidate:0', 'candidate:1']])
-    expect(diagnostics.ownedRegions.map((region) => region.candidateIds)).toEqual([
+    expect(
+      diagnostics.ownedRegions.map((region) => region.candidateIds)
+    ).toEqual([
       ['candidate:0', 'candidate:1'],
       ['candidate:0', 'candidate:1'],
       ['candidate:0', 'candidate:1'],
@@ -1591,7 +2216,11 @@ describe('constrained solid ownership diagnostics', () => {
       {
         geometry: {
           geometryId: 'mixed-multi-ear:0',
-          polygons: [firstNonOrthogonalPiece, secondNonOrthogonalPiece, convexPiece],
+          polygons: [
+            firstNonOrthogonalPiece,
+            secondNonOrthogonalPiece,
+            convexPiece
+          ],
           bounds: {
             minX: 0,
             minY: 0,
@@ -1611,7 +2240,11 @@ describe('constrained solid ownership diagnostics', () => {
       {
         geometry: {
           geometryId: 'mixed-multi-ear:1',
-          polygons: [firstNonOrthogonalPiece, secondNonOrthogonalPiece, convexPiece],
+          polygons: [
+            firstNonOrthogonalPiece,
+            secondNonOrthogonalPiece,
+            convexPiece
+          ],
           bounds: {
             minX: 0,
             minY: 0,

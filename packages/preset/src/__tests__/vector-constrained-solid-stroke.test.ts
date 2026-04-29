@@ -16,6 +16,7 @@ import {
 } from '@asyra/utils'
 import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
+import type { SolidCenterStrokeExportPacket } from '../components/stroke-render/solid-center-stroke-packets'
 
 beforeAll(() => {
   core.defineSystemProperty<string | null>('pathEditingVectorId', null)
@@ -76,11 +77,9 @@ beforeAll(() => {
 })
 
 class RecordingVectorGraphic extends Container {
-  __asyraSolidCenterStrokeExportPackets?: {
-    geometryId: string
-    polygons: { x: number; y: number }[][]
-    bounds: { minX: number; minY: number; maxX: number; maxY: number }
-  }[]
+  __asyraVectorPathGeometryModelCount?: number
+  __asyraVectorPathTopologyModelCount?: number
+  __asyraSolidCenterStrokeExportPackets?: SolidCenterStrokeExportPacket[]
   __asyraConstrainedSolidOwnershipDiagnostics?: {
     candidates: {
       candidateId: string
@@ -100,6 +99,16 @@ class RecordingVectorGraphic extends Container {
       ownerStrokeId: string
       bounds: { minX: number; minY: number; maxX: number; maxY: number }
       polygon: { x: number; y: number }[]
+    }[]
+  }
+  __asyraConstrainedSolidRuntimeDiagnostics?: {
+    acceptedCount: number
+    blockedCount: number
+    entries: {
+      status: string
+      reason: string
+      candidatePacketCount: number
+      topologyFamily: string
     }[]
   }
   hitArea?: { contains: (x: number, y: number) => boolean } | null
@@ -134,11 +143,7 @@ class RecordingVectorGraphic extends Container {
 }
 
 class RecordingShapeGraphic extends Container {
-  __asyraSolidCenterStrokeExportPackets?: {
-    geometryId: string
-    polygons: { x: number; y: number }[][]
-    bounds: { minX: number; minY: number; maxX: number; maxY: number }
-  }[]
+  __asyraSolidCenterStrokeExportPackets?: SolidCenterStrokeExportPacket[]
   hitArea?: { contains: (x: number, y: number) => boolean } | null
 
   clear() {
@@ -223,7 +228,11 @@ const toVectorData = (anchors: TestAnchorPoint[], closed: boolean) => {
 }
 
 const toMultiNetworkVectorData = (
-  networksInput: { networkId: string; anchors: TestAnchorPoint[]; closed: boolean }[]
+  networksInput: {
+    networkId: string
+    anchors: TestAnchorPoint[]
+    closed: boolean
+  }[]
 ) => {
   const points: Record<string, VectorPointNode> = {}
   const segments: Record<string, VectorSegment> = {}
@@ -341,6 +350,50 @@ const getProjectionMeshes = (host: Container) =>
   })
 
 describe('vector constrained solid stroke product wiring', () => {
+  it('should run: build one path geometry model per network during one render pass', () => {
+    const graphic = runVectorRenderStrategy({
+      id: 'vector-path-model-reuse',
+      x: 0,
+      y: 0,
+      width: 120,
+      height: 40,
+      ...toMultiNetworkVectorData([
+        {
+          networkId: 'network-a',
+          anchors: [
+            { id: 'a1', x: 0, y: 0 },
+            { id: 'a2', x: 40, y: 0 },
+            { id: 'a3', x: 40, y: 40 },
+            { id: 'a4', x: 0, y: 40 }
+          ],
+          closed: true
+        },
+        {
+          networkId: 'network-b',
+          anchors: [
+            { id: 'b1', x: 80, y: 0 },
+            { id: 'b2', x: 120, y: 0 },
+            { id: 'b3', x: 120, y: 40 },
+            { id: 'b4', x: 80, y: 40 }
+          ],
+          closed: true
+        }
+      ]),
+      closed: true,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          width: 4,
+          style: StrokeStyles.SOLID,
+          position: StrokePositions.INSIDE
+        })
+      ]
+    })
+
+    expect(graphic.__asyraVectorPathGeometryModelCount).toBe(2)
+    expect(graphic.__asyraVectorPathTopologyModelCount).toBe(2)
+  })
+
   it('should run: render closed inside vectors through the constrained solid path on the main render path', () => {
     const graphic = runVectorRenderStrategy({
       id: 'vector-inside',
@@ -379,12 +432,11 @@ describe('vector constrained solid stroke product wiring', () => {
     expect(graphic.hitArea?.contains(1, 1)).toBe(true)
     expect(graphic.hitArea?.contains(-1, -1)).toBe(false)
   })
-
   ;[
     { label: 'inside', position: StrokePositions.INSIDE },
     { label: 'outside', position: StrokePositions.OUTSIDE }
   ].forEach(({ label, position }) => {
-    it(`should run: render open-path solid ${label} vectors as centered fallback on the main render path`, () => {
+    it(`should run: render open-path solid ${label} vectors as center geometry on the main render path`, () => {
       const graphic = runVectorRenderStrategy({
         id: `vector-open-${label}`,
         x: 0,
@@ -411,18 +463,170 @@ describe('vector constrained solid stroke product wiring', () => {
 
       expect(getProjectionMeshes(graphic)).toHaveLength(1)
       expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
-      expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual({
-        minX: 0,
-        minY: 8,
-        maxX: 40,
-        maxY: 12
+      expect(
+        graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
+      ).toMatchObject({
+        geometryFamily: 'solid-center',
+        resolutionStatus: 'native-center',
+        runtimeStatus: 'not-applicable',
+        runtimeReason: 'center-stroke',
+        sourceTopology: 'open',
+        topologyFamily: 'open'
       })
-      expect(graphic.hitArea?.contains(20, 10)).toBe(true)
-      expect(graphic.hitArea?.contains(20, 16)).toBe(false)
+      expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual(
+        {
+          minX: 0,
+          minY: 8,
+          maxX: 40,
+          maxY: 12
+        }
+      )
+      expect(graphic.hitArea?.contains(20, 9)).toBe(true)
+      expect(graphic.hitArea?.contains(20, 11)).toBe(true)
+      expect(graphic.hitArea?.contains(20, 7)).toBe(false)
+      expect(graphic.hitArea?.contains(20, 13)).toBe(false)
+      expect(graphic.__asyraConstrainedSolidRuntimeDiagnostics).toBeUndefined()
     })
   })
 
-  it('should not run: reject self-intersecting constrained vectors deterministically on the main render path', () => {
+  ;[
+    { label: 'inside', position: StrokePositions.INSIDE },
+    { label: 'outside', position: StrokePositions.OUTSIDE }
+  ].forEach(({ label, position }) => {
+    it(`should run: keep open-path solid center geometry when switching position to ${label}`, () => {
+      const strategy = renderStrategyRegistry.get('vector')
+      expect(strategy).toBeTypeOf('function')
+
+      const graphic = new RecordingVectorGraphic()
+      const baseData = {
+        id: `vector-open-solid-transition-${label}`,
+        x: 0,
+        y: 0,
+        width: 40,
+        height: 20,
+        ...toVectorData(
+          [
+            { id: 'a', x: 0, y: 10 },
+            { id: 'b', x: 40, y: 10 }
+          ],
+          false
+        ),
+        closed: false,
+        fills: []
+      }
+
+      ;(
+        strategy as unknown as (
+          graphic: RecordingVectorGraphic,
+          data: Record<string, unknown>
+        ) => void
+      )(graphic, {
+        ...baseData,
+        strokes: [
+          createDefaultStroke({
+            width: 4,
+            style: StrokeStyles.SOLID,
+            position: StrokePositions.CENTER
+          })
+        ]
+      })
+
+      expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+      expect(
+        graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
+      ).toMatchObject({
+        geometryFamily: 'solid-center',
+        resolutionStatus: 'native-center',
+        runtimeStatus: 'not-applicable'
+      })
+
+      ;(
+        strategy as unknown as (
+          graphic: RecordingVectorGraphic,
+          data: Record<string, unknown>
+        ) => void
+      )(graphic, {
+        ...baseData,
+        strokes: [
+          createDefaultStroke({
+            width: 4,
+            style: StrokeStyles.SOLID,
+            position
+          })
+        ]
+      })
+
+      expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+      expect(
+        graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
+      ).toMatchObject({
+        geometryFamily: 'solid-center',
+        resolutionStatus: 'native-center',
+        runtimeStatus: 'not-applicable',
+        runtimeReason: 'center-stroke',
+        sourceTopology: 'open'
+      })
+
+      expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual(
+        {
+          minX: 0,
+          minY: 8,
+          maxX: 40,
+          maxY: 12
+        }
+      )
+      expect(graphic.hitArea?.contains(20, 9)).toBe(true)
+      expect(graphic.hitArea?.contains(20, 11)).toBe(true)
+      expect(graphic.hitArea?.contains(20, 7)).toBe(false)
+      expect(graphic.hitArea?.contains(20, 13)).toBe(false)
+      expect(graphic.__asyraConstrainedSolidRuntimeDiagnostics).toBeUndefined()
+    })
+  })
+
+  it('should run: render open self-intersecting constrained solid vectors as center geometry on the main render path', () => {
+    const graphic = runVectorRenderStrategy({
+      id: 'vector-open-self-intersecting-constrained-solid',
+      x: 0,
+      y: 0,
+      width: 40,
+      height: 40,
+      ...toVectorData(
+        [
+          { id: 'a', x: 0, y: 0 },
+          { id: 'b', x: 40, y: 40 },
+          { id: 'c', x: 0, y: 40 },
+          { id: 'd', x: 40, y: 0 }
+        ],
+        false
+      ),
+      closed: false,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          width: 4,
+          style: StrokeStyles.SOLID,
+          position: StrokePositions.INSIDE
+        })
+      ]
+    })
+
+    expect(getProjectionMeshes(graphic)).toHaveLength(1)
+    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+    expect(
+      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
+    ).toMatchObject({
+      geometryFamily: 'solid-center',
+      resolutionStatus: 'native-center',
+      runtimeStatus: 'not-applicable',
+      runtimeReason: 'center-stroke',
+      sourceTopology: 'open',
+      topologyFamily: 'open'
+    })
+    expect(graphic.hitArea).not.toBeNull()
+    expect(graphic.__asyraConstrainedSolidRuntimeDiagnostics).toBeUndefined()
+  })
+
+  it('should run: render closed self-intersecting constrained solid vectors as local-side exact candidates', () => {
     const graphic = runVectorRenderStrategy({
       id: 'vector-self-intersecting-inside',
       x: 0,
@@ -449,9 +653,108 @@ describe('vector constrained solid stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(0)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toEqual([])
-    expect(graphic.hitArea).toBeNull()
+    expect(getProjectionMeshes(graphic)).toHaveLength(1)
+    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+    expect(
+      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
+    ).toMatchObject({
+      geometryFamily: 'constrained-solid',
+      resolutionStatus: 'exact-constrained',
+      sourceTopology: 'self-intersecting',
+      topologyFamily: 'self-intersecting'
+    })
+    expect(graphic.hitArea?.contains(2, 5)).toBe(true)
+    expect(graphic.__asyraConstrainedSolidRuntimeDiagnostics).toMatchObject({
+      acceptedCount: 1,
+      blockedCount: 0,
+      entries: [
+        {
+          status: 'accepted',
+          reason: 'accepted',
+          candidatePacketCount: 1,
+          topologyFamily: 'self-intersecting'
+        }
+      ]
+    })
+    expect(
+      graphic.__asyraConstrainedSolidOwnershipDiagnostics?.candidates
+    ).toHaveLength(1)
+    expect(
+      graphic.__asyraConstrainedSolidOwnershipDiagnostics?.candidates[0]
+        ?.polygons.length
+    ).toBeGreaterThan(1)
+    expect(
+      graphic.__asyraConstrainedSolidOwnershipDiagnostics?.ownedRegions.length
+    ).toBeGreaterThan(0)
+    expect(
+      graphic.__asyraConstrainedSolidOwnershipDiagnostics?.ownedRegions.every(
+        (region) =>
+          region.candidateIds.length === 1 &&
+          region.candidateIds[0]?.endsWith('candidate:0')
+      )
+    ).toBe(true)
+  })
+
+  it('should run: render multiple closed self-intersecting constrained solid strokes as typed local-side candidates', () => {
+    const graphic = runVectorRenderStrategy({
+      id: 'vector-self-intersecting-multi-solid',
+      x: 0,
+      y: 0,
+      width: 40,
+      height: 40,
+      ...toVectorData(
+        [
+          { id: 'a', x: 0, y: 0 },
+          { id: 'b', x: 40, y: 40 },
+          { id: 'c', x: 0, y: 40 },
+          { id: 'd', x: 40, y: 0 }
+        ],
+        true
+      ),
+      closed: true,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          width: 4,
+          style: StrokeStyles.SOLID,
+          position: StrokePositions.INSIDE
+        }),
+        createDefaultStroke({
+          width: 4,
+          style: StrokeStyles.SOLID,
+          position: StrokePositions.OUTSIDE
+        })
+      ]
+    })
+
+    expect(getProjectionMeshes(graphic)).toHaveLength(2)
+    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(2)
+    expect(
+      graphic.__asyraSolidCenterStrokeExportPackets?.map(
+        (packet) => packet.debugMeta?.ownerKey
+      )
+    ).toEqual([
+      'vector:vector-self-intersecting-multi-solid:network-0:stroke:0',
+      'vector:vector-self-intersecting-multi-solid:network-0:stroke:1'
+    ])
+    expect(graphic.__asyraConstrainedSolidRuntimeDiagnostics).toMatchObject({
+      acceptedCount: 1,
+      blockedCount: 0,
+      entries: [
+        {
+          status: 'accepted',
+          reason: 'accepted',
+          candidatePacketCount: 2,
+          topologyFamily: 'self-intersecting'
+        }
+      ]
+    })
+    expect(
+      graphic.__asyraConstrainedSolidOwnershipDiagnostics?.candidates
+    ).toHaveLength(2)
+    expect(
+      graphic.__asyraConstrainedSolidOwnershipDiagnostics?.ownedRegions.length
+    ).toBeGreaterThan(0)
   })
 
   it('should run: merge multi-network constrained ownership diagnostics with unique ids on the main render path', () => {
@@ -504,14 +807,16 @@ describe('vector constrained solid stroke product wiring', () => {
     const diagnostics = graphic.__asyraConstrainedSolidOwnershipDiagnostics
     expect(diagnostics).toBeDefined()
 
-    const candidateIds = diagnostics?.candidates.map(({ candidateId }) => candidateId) ?? []
+    const candidateIds =
+      diagnostics?.candidates.map(({ candidateId }) => candidateId) ?? []
     expect(new Set(candidateIds).size).toBe(candidateIds.length)
 
     const componentIds =
       diagnostics?.components.map(({ componentId }) => componentId) ?? []
     expect(new Set(componentIds).size).toBe(componentIds.length)
 
-    const regionIds = diagnostics?.ownedRegions.map(({ regionId }) => regionId) ?? []
+    const regionIds =
+      diagnostics?.ownedRegions.map(({ regionId }) => regionId) ?? []
     expect(new Set(regionIds).size).toBe(regionIds.length)
 
     diagnostics?.components.forEach((component) => {
@@ -594,13 +899,262 @@ describe('vector constrained solid stroke product wiring', () => {
 
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
     const fifthStrokePackets = exportPackets.filter((packet) =>
-      packet.geometryId.includes(':constrained:4')
+      packet.debugMeta?.geometryFamily === 'constrained-solid' &&
+      packet.debugMeta.strokeId === 'stroke:4'
     )
 
     expect(fifthStrokePackets).toHaveLength(2)
-    expect(fifthStrokePackets.every((packet) => packet.polygons.length === 0)).toBe(
-      true
+    expect(
+      fifthStrokePackets.every((packet) => packet.polygons.length === 0)
+    ).toBe(true)
+  })
+
+  it('should run: resolve overlapping multi-network constrained solid vectors through global ownership diagnostics', () => {
+    const graphic = runVectorRenderStrategy({
+      id: 'vector-overlapping-multi-network-constrained-solid',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 40,
+      ...toMultiNetworkVectorData([
+        {
+          networkId: 'network-a',
+          closed: true,
+          anchors: [
+            { id: 'a0', x: 0, y: 0 },
+            { id: 'a1', x: 60, y: 0 },
+            { id: 'a2', x: 60, y: 40 },
+            { id: 'a3', x: 0, y: 40 }
+          ]
+        },
+        {
+          networkId: 'network-b',
+          closed: true,
+          anchors: [
+            { id: 'b0', x: 40, y: 0 },
+            { id: 'b1', x: 100, y: 0 },
+            { id: 'b2', x: 100, y: 40 },
+            { id: 'b3', x: 40, y: 40 }
+          ]
+        }
+      ]),
+      closed: true,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          width: 8,
+          style: StrokeStyles.SOLID,
+          position: StrokePositions.OUTSIDE
+        })
+      ]
+    })
+
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
+    expect(getProjectionMeshes(graphic)).toHaveLength(2)
+    expect(exportPackets).toHaveLength(2)
+    expect(
+      exportPackets.every(
+        (packet) =>
+          packet.debugMeta?.geometryFamily === 'constrained-solid' &&
+          packet.debugMeta?.ownerKey ===
+            'vector:vector-overlapping-multi-network-constrained-solid:overlap:stroke:0'
+      )
+    ).toBe(true)
+    expect(graphic.hitArea?.contains(-4, 20)).toBe(true)
+    expect(graphic.hitArea?.contains(104, 20)).toBe(true)
+    expect(graphic.hitArea?.contains(50, 20)).toBe(false)
+    expect(
+      graphic.__asyraConstrainedSolidOwnershipDiagnostics?.candidates.length
+    ).toBeGreaterThanOrEqual(2)
+    expect(
+      graphic.__asyraConstrainedSolidOwnershipDiagnostics?.edges.length
+    ).toBeGreaterThanOrEqual(1)
+    expect(graphic.__asyraConstrainedSolidRuntimeDiagnostics).toMatchObject({
+      acceptedCount: 2,
+      blockedCount: 0,
+      entries: [
+        {
+          status: 'accepted',
+          reason: 'accepted',
+          candidatePacketCount: 1
+        },
+        {
+          status: 'accepted',
+          reason: 'accepted',
+          candidatePacketCount: 1
+        }
+      ]
+    })
+  })
+
+  it('should run: render one-hole compound constrained solid vectors with legal-domain side inversion', () => {
+    const graphic = runVectorRenderStrategy({
+      id: 'vector-compound-hole-constrained-solid',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      ...toMultiNetworkVectorData([
+        {
+          networkId: 'outer',
+          closed: true,
+          anchors: [
+            { id: 'outer-0', x: 0, y: 0 },
+            { id: 'outer-1', x: 100, y: 0 },
+            { id: 'outer-2', x: 100, y: 100 },
+            { id: 'outer-3', x: 0, y: 100 }
+          ]
+        },
+        {
+          networkId: 'hole',
+          closed: true,
+          anchors: [
+            { id: 'hole-0', x: 25, y: 25 },
+            { id: 'hole-1', x: 75, y: 25 },
+            { id: 'hole-2', x: 75, y: 75 },
+            { id: 'hole-3', x: 25, y: 75 }
+          ]
+        }
+      ]),
+      closed: true,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          width: 4,
+          style: StrokeStyles.SOLID,
+          position: StrokePositions.INSIDE
+        })
+      ]
+    })
+
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
+    expect(getProjectionMeshes(graphic)).toHaveLength(2)
+    expect(exportPackets).toHaveLength(2)
+    expect(
+      exportPackets.map((packet) => packet.debugMeta?.legalDomainId)
+    ).toEqual([
+      'vector:vector-compound-hole-constrained-solid:compound-legal-domain:0',
+      'vector:vector-compound-hole-constrained-solid:compound-legal-domain:0'
+    ])
+    const boundsByNetwork = new Map(
+      exportPackets.map((packet) => [
+        packet.debugMeta?.networkId,
+        roundBounds(packet.bounds)
+      ])
     )
+    expect(boundsByNetwork.get('outer')).toEqual({
+      minX: 0,
+      minY: 0,
+      maxX: 100,
+      maxY: 100
+    })
+    expect(boundsByNetwork.get('hole')).toEqual({
+      minX: 21,
+      minY: 21,
+      maxX: 79,
+      maxY: 79
+    })
+    expect(graphic.hitArea?.contains(2, 2)).toBe(true)
+    expect(graphic.hitArea?.contains(23, 50)).toBe(true)
+    expect(graphic.hitArea?.contains(50, 50)).toBe(false)
+    expect(graphic.__asyraConstrainedSolidRuntimeDiagnostics).toMatchObject({
+      acceptedCount: 2,
+      blockedCount: 0
+    })
+  })
+
+  it('should run: render nested compound constrained solid vectors with containment-depth side inversion', () => {
+    const graphic = runVectorRenderStrategy({
+      id: 'vector-nested-compound-constrained-solid',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      ...toMultiNetworkVectorData([
+        {
+          networkId: 'outer',
+          closed: true,
+          anchors: [
+            { id: 'outer-0', x: 0, y: 0 },
+            { id: 'outer-1', x: 100, y: 0 },
+            { id: 'outer-2', x: 100, y: 100 },
+            { id: 'outer-3', x: 0, y: 100 }
+          ]
+        },
+        {
+          networkId: 'hole',
+          closed: true,
+          anchors: [
+            { id: 'hole-0', x: 20, y: 20 },
+            { id: 'hole-1', x: 80, y: 20 },
+            { id: 'hole-2', x: 80, y: 80 },
+            { id: 'hole-3', x: 20, y: 80 }
+          ]
+        },
+        {
+          networkId: 'island',
+          closed: true,
+          anchors: [
+            { id: 'island-0', x: 40, y: 40 },
+            { id: 'island-1', x: 60, y: 40 },
+            { id: 'island-2', x: 60, y: 60 },
+            { id: 'island-3', x: 40, y: 60 }
+          ]
+        }
+      ]),
+      closed: true,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          width: 4,
+          style: StrokeStyles.SOLID,
+          position: StrokePositions.INSIDE
+        })
+      ]
+    })
+
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
+    expect(getProjectionMeshes(graphic)).toHaveLength(3)
+    expect(exportPackets).toHaveLength(3)
+    expect(
+      exportPackets.map((packet) => packet.debugMeta?.legalDomainId)
+    ).toEqual([
+      'vector:vector-nested-compound-constrained-solid:compound-legal-domain:0',
+      'vector:vector-nested-compound-constrained-solid:compound-legal-domain:0',
+      'vector:vector-nested-compound-constrained-solid:compound-legal-domain:0'
+    ])
+    const boundsByNetwork = new Map(
+      exportPackets.map((packet) => [
+        packet.debugMeta?.networkId,
+        roundBounds(packet.bounds)
+      ])
+    )
+    expect(boundsByNetwork.get('outer')).toEqual({
+      minX: 0,
+      minY: 0,
+      maxX: 100,
+      maxY: 100
+    })
+    expect(boundsByNetwork.get('hole')).toEqual({
+      minX: 16,
+      minY: 16,
+      maxX: 84,
+      maxY: 84
+    })
+    expect(boundsByNetwork.get('island')).toEqual({
+      minX: 40,
+      minY: 40,
+      maxX: 60,
+      maxY: 60
+    })
+    expect(graphic.hitArea?.contains(2, 2)).toBe(true)
+    expect(graphic.hitArea?.contains(18, 50)).toBe(true)
+    expect(graphic.hitArea?.contains(42, 50)).toBe(true)
+    expect(graphic.hitArea?.contains(50, 50)).toBe(false)
+    expect(graphic.__asyraConstrainedSolidRuntimeDiagnostics).toMatchObject({
+      acceptedCount: 3,
+      blockedCount: 0
+    })
   })
 
   it('should run: shape-generated and vector-generated closed rectangles keep equivalent local miter remainders when a bevel owner clips the broader subtraction path', () => {
@@ -652,21 +1206,18 @@ describe('vector constrained solid stroke product wiring', () => {
     })
 
     const serializePackets = (
-      packets:
-        | {
-            geometryId: string
-            polygons: { x: number; y: number }[][]
-            bounds: { minX: number; minY: number; maxX: number; maxY: number }
-          }[]
-        | undefined
+      packets: SolidCenterStrokeExportPacket[] | undefined
     ) =>
       (packets ?? []).map((packet) => ({
-        geometryId: packet.geometryId.split(':').slice(-2).join(':'),
+        strokeId: packet.debugMeta?.strokeId,
+        geometryFamily: packet.debugMeta?.geometryFamily,
         polygonCount: packet.polygons.length,
         bounds: packet.bounds
       }))
 
-    expect(serializePackets(rectGraphic.__asyraSolidCenterStrokeExportPackets)).toEqual(
+    expect(
+      serializePackets(rectGraphic.__asyraSolidCenterStrokeExportPackets)
+    ).toEqual(
       serializePackets(vectorGraphic.__asyraSolidCenterStrokeExportPackets)
     )
   })
@@ -723,12 +1274,17 @@ describe('vector constrained solid stroke product wiring', () => {
 
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
     const secondaryPackets = exportPackets.filter((packet) =>
-      packet.geometryId.includes(':constrained:1')
+      packet.debugMeta?.geometryFamily === 'constrained-solid' &&
+      packet.debugMeta.strokeId === 'stroke:1'
     )
 
     expect(secondaryPackets).toHaveLength(2)
-    expect(secondaryPackets.every((packet) => packet.polygons.length > 0)).toBe(true)
-    expect(secondaryPackets.some((packet) => packet.polygons.length > 4)).toBe(true)
+    expect(secondaryPackets.every((packet) => packet.polygons.length > 0)).toBe(
+      true
+    )
+    expect(secondaryPackets.some((packet) => packet.polygons.length > 4)).toBe(
+      true
+    )
     expect(secondaryPackets[0]?.bounds.minX).toBe(-12)
     expect(secondaryPackets[0]?.bounds.minY).toBe(-12)
     expect(secondaryPackets[0]?.bounds.maxX).toBe(92)
@@ -841,13 +1397,18 @@ describe('vector constrained solid stroke product wiring', () => {
           bounds: roundBounds(packet.bounds)
         }))
         .sort((left, right) =>
-          JSON.stringify(left.bounds).localeCompare(JSON.stringify(right.bounds))
+          JSON.stringify(left.bounds).localeCompare(
+            JSON.stringify(right.bounds)
+          )
         )
 
     const serializeOwnedRegions = (
       diagnostics:
         | {
-            ownedRegions: { candidateIds: string[]; bounds: { minX: number; minY: number; maxX: number; maxY: number } }[]
+            ownedRegions: {
+              candidateIds: string[]
+              bounds: { minX: number; minY: number; maxX: number; maxY: number }
+            }[]
           }
         | undefined
     ) =>
@@ -857,16 +1418,24 @@ describe('vector constrained solid stroke product wiring', () => {
           bounds: roundBounds(region.bounds)
         }))
         .sort((left, right) =>
-          JSON.stringify(left.bounds).localeCompare(JSON.stringify(right.bounds))
+          JSON.stringify(left.bounds).localeCompare(
+            JSON.stringify(right.bounds)
+          )
         )
 
     expect(
       serializePackets(canonicalGraphic.__asyraSolidCenterStrokeExportPackets)
-    ).toEqual(serializePackets(equivalentGraphic.__asyraSolidCenterStrokeExportPackets))
-    expect(
-      serializeOwnedRegions(canonicalGraphic.__asyraConstrainedSolidOwnershipDiagnostics)
     ).toEqual(
-      serializeOwnedRegions(equivalentGraphic.__asyraConstrainedSolidOwnershipDiagnostics)
+      serializePackets(equivalentGraphic.__asyraSolidCenterStrokeExportPackets)
+    )
+    expect(
+      serializeOwnedRegions(
+        canonicalGraphic.__asyraConstrainedSolidOwnershipDiagnostics
+      )
+    ).toEqual(
+      serializeOwnedRegions(
+        equivalentGraphic.__asyraConstrainedSolidOwnershipDiagnostics
+      )
     )
   })
 
@@ -923,13 +1492,22 @@ describe('vector constrained solid stroke product wiring', () => {
 
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
     const secondaryPackets = exportPackets.filter((packet) =>
-      packet.geometryId.includes(':constrained:1')
+      packet.debugMeta?.geometryFamily === 'constrained-solid' &&
+      packet.debugMeta.strokeId === 'stroke:1'
     )
 
     expect(secondaryPackets).toHaveLength(2)
-    expect(secondaryPackets.every((packet) => packet.polygons.length > 0)).toBe(true)
-    expect(secondaryPackets.every((packet) => packet.polygons.length > 4)).toBe(true)
-    expect(secondaryPackets.every((packet) => packet.bounds.maxY > 52)).toBe(true)
-    expect(secondaryPackets.every((packet) => packet.bounds.minY === -12)).toBe(true)
+    expect(secondaryPackets.every((packet) => packet.polygons.length > 0)).toBe(
+      true
+    )
+    expect(secondaryPackets.every((packet) => packet.polygons.length > 4)).toBe(
+      true
+    )
+    expect(secondaryPackets.every((packet) => packet.bounds.maxY > 52)).toBe(
+      true
+    )
+    expect(secondaryPackets.every((packet) => packet.bounds.minY === -12)).toBe(
+      true
+    )
   })
 })

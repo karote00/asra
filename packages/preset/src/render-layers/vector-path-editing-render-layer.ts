@@ -717,7 +717,7 @@ export const registerVectorPathEditingRenderLayer = (
         (subpath) => subpath.points
       )
       const lastSubpath = screenSubpaths[screenSubpaths.length - 1]
-      const fallbackPreviewStartPoint =
+      const defaultPreviewStartPoint =
         lastSubpath.points[lastSubpath.points.length - 1]
       const selectedPreviewPoint =
         activeSelectedPoint !== null
@@ -729,7 +729,7 @@ export const registerVectorPathEditingRenderLayer = (
         selectedPreviewPoint &&
         isSubpathEndpoint(screenSubpaths, selectedPreviewPoint.id)
           ? selectedPreviewPoint
-          : fallbackPreviewStartPoint
+          : defaultPreviewStartPoint
       const previewHandleSide: 'in' | 'out' = (() => {
         if (!previewStartPoint) {
           return 'out'

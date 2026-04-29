@@ -1,7 +1,4 @@
-import type {
-  PositionData,
-  RenderInteractionCaptureMode
-} from '@asyra/utils'
+import type { PositionData, RenderInteractionCaptureMode } from '@asyra/utils'
 import type {
   RenderInteractionTarget,
   RenderInteractionTargetBounds,
@@ -85,8 +82,7 @@ const distanceSquaredToSegment = (
     return distanceSquared(point, start)
   }
 
-  const t =
-    ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSq
+  const t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSq
   const clamped = Math.max(0, Math.min(1, t))
   const proj = {
     x: start.x + clamped * dx,
@@ -163,7 +159,7 @@ export const createRenderInteractionPolylineTarget = (
   const radiusSquared = options.hitRadius * options.hitRadius
   const bounds = createBoundsForPoints(points, options.hitRadius)
 
-  const segments: Array<{ start: PositionData; end: PositionData }> = []
+  const segments: { start: PositionData; end: PositionData }[] = []
   for (let i = 0; i < points.length - 1; i += 1) {
     segments.push({ start: points[i], end: points[i + 1] })
   }
@@ -181,11 +177,7 @@ export const createRenderInteractionPolylineTarget = (
     meta: options.meta,
     hitTest: (point) => {
       for (const segment of segments) {
-        const dist = distanceSquaredToSegment(
-          point,
-          segment.start,
-          segment.end
-        )
+        const dist = distanceSquaredToSegment(point, segment.start, segment.end)
         if (dist <= radiusSquared) {
           return true
         }

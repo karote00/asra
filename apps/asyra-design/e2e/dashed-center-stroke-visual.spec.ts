@@ -81,13 +81,20 @@ const captureSelectedElementRaster = async (
   const clip = {
     x: Math.max(
       0,
-      Math.floor(snapshot.rect.x * snapshot.zoom + snapshot.viewport.x - padding)
+      Math.floor(
+        snapshot.rect.x * snapshot.zoom + snapshot.viewport.x - padding
+      )
     ),
     y: Math.max(
       0,
-      Math.floor(snapshot.rect.y * snapshot.zoom + snapshot.viewport.y - padding)
+      Math.floor(
+        snapshot.rect.y * snapshot.zoom + snapshot.viewport.y - padding
+      )
     ),
-    width: Math.max(1, Math.ceil(snapshot.rect.width * snapshot.zoom + padding * 2)),
+    width: Math.max(
+      1,
+      Math.ceil(snapshot.rect.width * snapshot.zoom + padding * 2)
+    ),
     height: Math.max(
       1,
       Math.ceil(snapshot.rect.height * snapshot.zoom + padding * 2)
@@ -152,7 +159,14 @@ const getGreenCoverage = async (
         for (let x = startX; x < endX; x += 1) {
           const [r, g, b, a] = context.getImageData(x, y, 1, 1).data
           total += 1
-          if (a > 180 && g > 170 && r < 120 && b < 120 && g - r > 70 && g - b > 70) {
+          if (
+            a > 180 &&
+            g > 170 &&
+            r < 120 &&
+            b < 120 &&
+            g - r > 70 &&
+            g - b > 70
+          ) {
             green += 1
           }
         }
@@ -211,10 +225,7 @@ const ensureElementSelected = async (
 
         const computed = element?.getAllComputedData?.() ?? {}
         const elementType =
-          computed.type ??
-          element?.type ??
-          element?.getType?.() ??
-          null
+          computed.type ?? element?.type ?? element?.getType?.() ?? null
 
         return elementType === expectedType
       })
@@ -223,67 +234,72 @@ const ensureElementSelected = async (
     { timeout: 2000 }
   )
 
-  await page.evaluate(({ expectedType }) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
-    const selectedIds = core?.deps?.selection?.getElementSelectionIds?.() ?? []
-    if (selectedIds.length > 0) {
-      if (!expectedType) {
-        return
+  await page.evaluate(
+    ({ expectedType }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedIds =
+        core?.deps?.selection?.getElementSelectionIds?.() ?? []
+      if (selectedIds.length > 0) {
+        if (!expectedType) {
+          return
+        }
+
+        const selectedElement = core?.deps?.sceneTree?.getElementById?.(
+          selectedIds[0]
+        )
+        const selectedComputed = selectedElement?.getAllComputedData?.() ?? {}
+        const selectedType =
+          selectedComputed.type ??
+          selectedElement?.type ??
+          selectedElement?.getType?.() ??
+          null
+
+        if (selectedType === expectedType) {
+          return
+        }
       }
 
-      const selectedElement = core?.deps?.sceneTree?.getElementById?.(selectedIds[0])
-      const selectedComputed = selectedElement?.getAllComputedData?.() ?? {}
-      const selectedType =
-        selectedComputed.type ??
-        selectedElement?.type ??
-        selectedElement?.getType?.() ??
-        null
-
-      if (selectedType === expectedType) {
-        return
-      }
-    }
-
-    const elements = core?.deps?.sceneTree?.getAllElements?.()
-    if (!(elements instanceof Map) || elements.size === 0) {
-      throw new Error('No element available to select')
-    }
-
-    const ordered = Array.from(elements.entries()).reverse()
-    const targetEntry = ordered.find(([id, element]) => {
-      if (id === 'workspace') {
-        return false
+      const elements = core?.deps?.sceneTree?.getAllElements?.()
+      if (!(elements instanceof Map) || elements.size === 0) {
+        throw new Error('No element available to select')
       }
 
-      if (!expectedType) {
-        return true
+      const ordered = Array.from(elements.entries()).reverse()
+      const targetEntry = ordered.find(([id, element]) => {
+        if (id === 'workspace') {
+          return false
+        }
+
+        if (!expectedType) {
+          return true
+        }
+
+        const computed = element?.getAllComputedData?.() ?? {}
+        const elementType =
+          computed.type ?? element?.type ?? element?.getType?.() ?? null
+
+        return expectedType ? elementType === expectedType : true
+      })
+
+      const targetId = targetEntry?.[0] ?? null
+      if (!targetId) {
+        throw new Error(
+          expectedType
+            ? `No element available to select for type ${expectedType}`
+            : 'No element available to select'
+        )
       }
 
-      const computed = element?.getAllComputedData?.() ?? {}
-      const elementType =
-        computed.type ??
-        element?.type ??
-        element?.getType?.() ??
-        null
-
-      return expectedType ? elementType === expectedType : true
-    })
-
-    const targetId = targetEntry?.[0] ?? null
-    if (!targetId) {
-      throw new Error(
-        expectedType
-          ? `No element available to select for type ${expectedType}`
-          : 'No element available to select'
-      )
-    }
-
-    core?.selectElements?.([targetId], { undoable: false })
-  }, { expectedType })
+      core?.selectElements?.([targetId], { undoable: false })
+    },
+    { expectedType }
+  )
 
   await page.waitForTimeout(150)
-  await expect(getPropertiesPanel(page).getByTestId('prop-strokes-section')).toBeVisible()
+  await expect(
+    getPropertiesPanel(page).getByTestId('prop-strokes-section')
+  ).toBeVisible()
 }
 
 const configureDashedCenterStroke = async (
@@ -300,8 +316,12 @@ const configureDashedCenterStroke = async (
   const propertiesPanel = getPropertiesPanel(page)
   await ensureStrokeRow(page)
 
-  await propertiesPanel.getByTestId('prop-stroke-style-0').selectOption('dashed')
-  await propertiesPanel.getByTestId('prop-stroke-position-0').selectOption('center')
+  await propertiesPanel
+    .getByTestId('prop-stroke-style-0')
+    .selectOption('dashed')
+  await propertiesPanel
+    .getByTestId('prop-stroke-position-0')
+    .selectOption('center')
   await propertiesPanel
     .getByTestId('prop-stroke-join-0')
     .selectOption(config.join ?? 'miter')
@@ -347,26 +367,6 @@ const getLocalPointProbe = (
   width: size,
   height: size
 })
-
-const getCenterRectCornerProbes = (raster: RasterCapture) => {
-  const outerHalf = Math.max(2, Math.round(raster.strokeWidthPx / 2))
-  const cornerProbe = Math.max(2, outerHalf - 2)
-
-  return {
-    outerCornerSquare: {
-      x: raster.padding - outerHalf + 1,
-      y: raster.padding - outerHalf + 1,
-      width: cornerProbe,
-      height: cornerProbe
-    },
-    bevelDiagonal: {
-      x: raster.padding - outerHalf + 1,
-      y: raster.padding - outerHalf + 1,
-      width: outerHalf + 2,
-      height: outerHalf + 2
-    }
-  }
-}
 
 const getTopRightCornerTurnProbes = (raster: RasterCapture) => {
   const probeSize = 3
@@ -419,10 +419,34 @@ const patchSelectedVectorToClosedOrthogonalPath = async (
     }
 
     const nextSegments = {
-      ab: { id: 'ab', startId: 'a', endId: 'b', outControlId: null, inControlId: null },
-      bc: { id: 'bc', startId: 'b', endId: 'c', outControlId: null, inControlId: null },
-      cd: { id: 'cd', startId: 'c', endId: 'd', outControlId: null, inControlId: null },
-      da: { id: 'da', startId: 'd', endId: 'a', outControlId: null, inControlId: null }
+      ab: {
+        id: 'ab',
+        startId: 'a',
+        endId: 'b',
+        outControlId: null,
+        inControlId: null
+      },
+      bc: {
+        id: 'bc',
+        startId: 'b',
+        endId: 'c',
+        outControlId: null,
+        inControlId: null
+      },
+      cd: {
+        id: 'cd',
+        startId: 'c',
+        endId: 'd',
+        outControlId: null,
+        inControlId: null
+      },
+      da: {
+        id: 'da',
+        startId: 'd',
+        endId: 'a',
+        outControlId: null,
+        inControlId: null
+      }
     }
 
     core?.changeComputedData?.(
@@ -477,7 +501,13 @@ const patchSelectedVectorToOpenHorizontalLine = async (page: Page) => {
     }
 
     const nextSegments = {
-      ab: { id: 'ab', startId: 'a', endId: 'b', outControlId: null, inControlId: null }
+      ab: {
+        id: 'ab',
+        startId: 'a',
+        endId: 'b',
+        outControlId: null,
+        inControlId: null
+      }
     }
 
     core?.changeComputedData?.(
@@ -536,8 +566,20 @@ const patchSelectedVectorToOpenAcuteTurn = async (page: Page) => {
     }
 
     const nextSegments = {
-      ab: { id: 'ab', startId: 'a', endId: 'b', outControlId: null, inControlId: null },
-      bc: { id: 'bc', startId: 'b', endId: 'c', outControlId: null, inControlId: null }
+      ab: {
+        id: 'ab',
+        startId: 'a',
+        endId: 'b',
+        outControlId: null,
+        inControlId: null
+      },
+      bc: {
+        id: 'bc',
+        startId: 'b',
+        endId: 'c',
+        outControlId: null,
+        inControlId: null
+      }
     }
 
     core?.changeComputedData?.(
@@ -590,9 +632,17 @@ test.describe('Dashed Center Stroke Visual Benchmarks', () => {
     await configureDashedCenterStroke(page, { pattern: '20, 20', offset: '0' })
 
     const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-    const visibleA = await getGreenCoverage(page, raster, getTopProbe(raster, 0.1))
+    const visibleA = await getGreenCoverage(
+      page,
+      raster,
+      getTopProbe(raster, 0.1)
+    )
     const gapA = await getGreenCoverage(page, raster, getTopProbe(raster, 0.3))
-    const visibleB = await getGreenCoverage(page, raster, getTopProbe(raster, 0.5))
+    const visibleB = await getGreenCoverage(
+      page,
+      raster,
+      getTopProbe(raster, 0.5)
+    )
     const gapB = await getGreenCoverage(page, raster, getTopProbe(raster, 0.7))
 
     expect(visibleA).toBeGreaterThan(MIN_VISIBLE_COVERAGE)
@@ -608,23 +658,39 @@ test.describe('Dashed Center Stroke Visual Benchmarks', () => {
     await configureDashedCenterStroke(page, { pattern: '20, 20', offset: '10' })
 
     const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-    const visibleHead = await getGreenCoverage(page, raster, getTopProbe(raster, 0.05))
-    const shiftedGap = await getGreenCoverage(page, raster, getTopProbe(raster, 0.2))
-    const shiftedVisible = await getGreenCoverage(page, raster, getTopProbe(raster, 0.4))
+    const visibleHead = await getGreenCoverage(
+      page,
+      raster,
+      getTopProbe(raster, 0.05)
+    )
+    const shiftedGap = await getGreenCoverage(
+      page,
+      raster,
+      getTopProbe(raster, 0.2)
+    )
+    const shiftedVisible = await getGreenCoverage(
+      page,
+      raster,
+      getTopProbe(raster, 0.4)
+    )
 
     expect(visibleHead).toBeGreaterThan(MIN_VISIBLE_COVERAGE)
     expect(shiftedGap).toBeLessThan(MAX_GAP_COVERAGE)
     expect(shiftedVisible).toBeGreaterThan(MIN_VISIBLE_COVERAGE)
   })
 
-  test('benchmark: oval center dashed stroke renders through the promoted path', async ({
+  test('benchmark: oval center dashed stroke renders through the supported path', async ({
     page
   }) => {
     await createOval(page, 0.35, 0.35)
     await configureDashedCenterStroke(page, { pattern: '400, 20', offset: '0' })
 
     const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-    const topCenterCoverage = await getGreenCoverage(page, raster, getTopProbe(raster, 0.5))
+    const topCenterCoverage = await getGreenCoverage(
+      page,
+      raster,
+      getTopProbe(raster, 0.5)
+    )
 
     expect(topCenterCoverage).toBeGreaterThan(MIN_VISIBLE_COVERAGE)
   })
@@ -642,7 +708,11 @@ test.describe('Dashed Center Stroke Visual Benchmarks', () => {
 
     const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
     const probes = getTopRightCornerTurnProbes(raster)
-    const cornerCoverage = await getGreenCoverage(page, raster, probes.miterCornerFill)
+    const cornerCoverage = await getGreenCoverage(
+      page,
+      raster,
+      probes.miterCornerFill
+    )
 
     expect(cornerCoverage).toBeGreaterThan(MIN_CORNER_FILL_COVERAGE)
   })
@@ -661,13 +731,17 @@ test.describe('Dashed Center Stroke Visual Benchmarks', () => {
     const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
     const probes = getTopRightCornerTurnProbes(raster)
     const cornerCoverage = await getGreenCoverage(page, raster, probes.bevelCut)
-    const diagonalCoverage = await getGreenCoverage(page, raster, probes.bevelDiagonal)
+    const diagonalCoverage = await getGreenCoverage(
+      page,
+      raster,
+      probes.bevelDiagonal
+    )
 
     expect(cornerCoverage).toBeLessThan(MAX_CORNER_FILL_COVERAGE)
     expect(diagonalCoverage).toBeGreaterThan(MIN_DIAGONAL_COVERAGE)
   })
 
-  test('benchmark: closed vector center dashed stroke renders through the promoted path', async ({
+  test('benchmark: closed vector center dashed stroke renders through the supported path', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -680,7 +754,11 @@ test.describe('Dashed Center Stroke Visual Benchmarks', () => {
     })
 
     const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-    const visibleA = await getGreenCoverage(page, raster, getTopProbe(raster, 0.1))
+    const visibleA = await getGreenCoverage(
+      page,
+      raster,
+      getTopProbe(raster, 0.1)
+    )
     const gapA = await getGreenCoverage(page, raster, getTopProbe(raster, 0.3))
 
     expect(visibleA).toBeGreaterThan(MIN_VISIBLE_COVERAGE)
@@ -703,7 +781,11 @@ test.describe('Dashed Center Stroke Visual Benchmarks', () => {
     const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
     const probes = getTopRightCornerTurnProbes(raster)
     const cornerCoverage = await getGreenCoverage(page, raster, probes.bevelCut)
-    const diagonalCoverage = await getGreenCoverage(page, raster, probes.bevelDiagonal)
+    const diagonalCoverage = await getGreenCoverage(
+      page,
+      raster,
+      probes.bevelDiagonal
+    )
 
     expect(cornerCoverage).toBeLessThan(MAX_CORNER_FILL_COVERAGE)
     expect(diagonalCoverage).toBeGreaterThan(MIN_DIAGONAL_COVERAGE)
@@ -936,7 +1018,7 @@ test.describe('Dashed Center Stroke Visual Benchmarks', () => {
     expect(bottomRightBodyCoverage).toBeGreaterThan(MIN_VISIBLE_COVERAGE)
   })
 
-  test('benchmark: open vector center dashed stroke renders the promoted slice without constrained fallback', async ({
+  test('benchmark: open vector center dashed stroke renders the supported slice without constrained substitute geometry', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -972,8 +1054,12 @@ test.describe('Dashed Center Stroke Visual Benchmarks', () => {
     await createRectangle(page, 0.3, 0.3)
     await ensureStrokeRow(page)
     const propertiesPanel = getPropertiesPanel(page)
-    await propertiesPanel.getByTestId('prop-stroke-style-0').selectOption('dashed')
-    await propertiesPanel.getByTestId('prop-stroke-position-0').selectOption('inside')
+    await propertiesPanel
+      .getByTestId('prop-stroke-style-0')
+      .selectOption('dashed')
+    await propertiesPanel
+      .getByTestId('prop-stroke-position-0')
+      .selectOption('inside')
     await propertiesPanel.getByTestId('prop-stroke-pattern-0').fill('20, 20')
     await propertiesPanel.getByTestId('prop-stroke-pattern-0').press('Enter')
     await propertiesPanel.getByTestId('prop-stroke-color-0').fill(STROKE_COLOR)
@@ -991,7 +1077,7 @@ test.describe('Dashed Center Stroke Visual Benchmarks', () => {
     expect(coverage).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
   })
 
-  test('benchmark: open vector dashed butt and square caps stay visually distinct on the promoted path', async ({
+  test('benchmark: open vector dashed butt and square caps stay visually distinct on the supported path', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -1115,8 +1201,16 @@ test.describe('Dashed Center Stroke Visual Benchmarks', () => {
 
     const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
     const [roundArc, miterCorner] = await Promise.all([
-      getGreenCoverage(page, raster, getLocalPointProbe(raster, { x: 83, y: -3 })),
-      getGreenCoverage(page, raster, getLocalPointProbe(raster, { x: 85, y: -5 }, 2))
+      getGreenCoverage(
+        page,
+        raster,
+        getLocalPointProbe(raster, { x: 83, y: -3 })
+      ),
+      getGreenCoverage(
+        page,
+        raster,
+        getLocalPointProbe(raster, { x: 85, y: -5 }, 2)
+      )
     ])
 
     expect(roundArc).toBeGreaterThan(0.2)
@@ -1138,8 +1232,16 @@ test.describe('Dashed Center Stroke Visual Benchmarks', () => {
 
     const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
     const [roundTerminal, squareCorner] = await Promise.all([
-      getGreenCoverage(page, raster, getLocalPointProbe(raster, { x: -4, y: 0 }, 4)),
-      getGreenCoverage(page, raster, getLocalPointProbe(raster, { x: -5, y: -5 }, 2))
+      getGreenCoverage(
+        page,
+        raster,
+        getLocalPointProbe(raster, { x: -4, y: 0 }, 4)
+      ),
+      getGreenCoverage(
+        page,
+        raster,
+        getLocalPointProbe(raster, { x: -5, y: -5 }, 2)
+      )
     ])
 
     expect(roundTerminal).toBeGreaterThan(0.2)

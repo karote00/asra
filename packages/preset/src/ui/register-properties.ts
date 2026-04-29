@@ -142,6 +142,26 @@ const areFillsEqual = (a: FillAttrs, b: FillAttrs) => {
   return true
 }
 
+const areStrokeFillPayloadsEqual = (
+  a: StrokeAttrs['fill'],
+  b: StrokeAttrs['fill']
+) => {
+  if (!a && !b) {
+    return true
+  }
+
+  if (!a || !b) {
+    return false
+  }
+
+  return (
+    a.defaultColorFormat === b.defaultColorFormat &&
+    a.colorFormat === b.colorFormat &&
+    a.visible === b.visible &&
+    areFillsEqual(a, b)
+  )
+}
+
 const isStrokeArray = (value: unknown): value is StrokeAttrs[] =>
   Array.isArray(value)
 
@@ -149,8 +169,10 @@ const areStrokesEqual = (a: StrokeAttrs, b: StrokeAttrs) =>
   a.style === b.style &&
   a.position === b.position &&
   a.width === b.width &&
-  a.dash === b.dash &&
-  a.gap === b.gap &&
+  a.dashOffset === b.dashOffset &&
+  a.dashPattern.length === b.dashPattern.length &&
+  a.dashPattern.every((entry, index) => entry === b.dashPattern[index]) &&
+  areStrokeFillPayloadsEqual(a.fill, b.fill) &&
   a.defaultColorFormat === b.defaultColorFormat &&
   a.colorFormat === b.colorFormat &&
   a.kind === b.kind &&

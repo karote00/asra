@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Container, Graphics, Mesh } from 'pixi.js'
 import { renderSolidCenterStrokeEntries } from '../components/stroke-render/solid-center-stroke-render'
+import { buildStrokeRuntimeRevisionSet } from '../components/stroke-render/stroke-dirty-keys'
 
 class MeshTestHost extends Container {}
 
@@ -61,7 +62,12 @@ describe('solid center stroke render', () => {
           color: 0x3366ff,
           alpha: 0.75
         },
-        polygons: [[{ x: 0, y: 0 }, { x: 10, y: 0 }]]
+        polygons: [
+          [
+            { x: 0, y: 0 },
+            { x: 10, y: 0 }
+          ]
+        ]
       }
     ])
 
@@ -101,6 +107,105 @@ describe('solid center stroke render', () => {
 
     expect(getProjectionMeshes(host)).toHaveLength(1)
     expect(getProjectionMeshes(host)[0]).toBe(mesh)
+  })
+
+  it('should run: record runtime dirty keys from packet revisions', () => {
+    const host = new MeshTestHost()
+    const baseRevisionSet = buildStrokeRuntimeRevisionSet({
+      points: [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+        { x: 10, y: 4 },
+        { x: 0, y: 4 }
+      ],
+      closed: true,
+      stroke: {
+        style: 'solid',
+        position: 'center',
+        width: 4,
+        join: 'miter',
+        miterLimit: 4,
+        cap: 'butt',
+        color: 0x3366ff,
+        alpha: 0.75
+      },
+      geometryFamily: 'solid-center',
+      resolutionStatus: 'native-center',
+      runtimeStatus: 'not-applicable',
+      runtimeReason: 'center-stroke',
+      ownerKey: 'rect:a:stroke:0',
+      strokeId: 'stroke:0'
+    })
+    const paintRevisionSet = buildStrokeRuntimeRevisionSet({
+      points: [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+        { x: 10, y: 4 },
+        { x: 0, y: 4 }
+      ],
+      closed: true,
+      stroke: {
+        style: 'solid',
+        position: 'center',
+        width: 4,
+        join: 'miter',
+        miterLimit: 4,
+        cap: 'butt',
+        color: 0xff0000,
+        alpha: 1
+      },
+      geometryFamily: 'solid-center',
+      resolutionStatus: 'native-center',
+      runtimeStatus: 'not-applicable',
+      runtimeReason: 'center-stroke',
+      ownerKey: 'rect:a:stroke:0',
+      strokeId: 'stroke:0'
+    })
+    const polygons = [
+      [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+        { x: 10, y: 4 },
+        { x: 0, y: 4 }
+      ]
+    ]
+
+    renderSolidCenterStrokeEntries(host, [
+      {
+        cacheKey: 'solid_center_0',
+        stroke: {
+          color: 0x3366ff,
+          alpha: 0.75
+        },
+        polygons,
+        revisionSet: baseRevisionSet
+      }
+    ])
+    const mesh = getProjectionMeshes(host)[0]
+
+    renderSolidCenterStrokeEntries(host, [
+      {
+        cacheKey: 'solid_center_0',
+        stroke: {
+          color: 0xff0000,
+          alpha: 1
+        },
+        polygons,
+        revisionSet: paintRevisionSet
+      }
+    ])
+
+    const cacheEntry = (
+      host as typeof host & {
+        __asyraStrokeMeshCache?: Map<string, { lastDirtyKeys?: string[] }>
+      }
+    ).__asyraStrokeMeshCache?.get('solid_center_0')
+
+    expect(getProjectionMeshes(host)[0]).toBe(mesh)
+    expect(cacheEntry?.lastDirtyKeys).toEqual([
+      'paint-payload',
+      'render-hit-export'
+    ])
   })
 
   it('should run: reuse the same graphics projection when only gradient paint changes', () => {

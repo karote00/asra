@@ -3,7 +3,12 @@ import { allocateDashedCenterStrokeIntervals } from '../components/stroke-render
 
 describe('dashed center stroke interval allocation', () => {
   it('should run: preserve authored dash pattern through interval allocation on open paths', () => {
-    const intervals = allocateDashedCenterStrokeIntervals(100, [20, 10], 0, false)
+    const intervals = allocateDashedCenterStrokeIntervals(
+      100,
+      [20, 10],
+      0,
+      false
+    )
 
     expect(
       intervals.map((interval) => ({
@@ -59,7 +64,12 @@ describe('dashed center stroke interval allocation', () => {
   })
 
   it('should run: merge seam-wrap visible intervals deterministically on closed paths', () => {
-    const intervals = allocateDashedCenterStrokeIntervals(90, [20, 20], 10, true)
+    const intervals = allocateDashedCenterStrokeIntervals(
+      90,
+      [20, 20],
+      10,
+      true
+    )
 
     expect(
       intervals
@@ -86,8 +96,39 @@ describe('dashed center stroke interval allocation', () => {
     ])
   })
 
+  it('should run: normalize negative dash offsets into the positive pattern cycle', () => {
+    const negativeOffsetIntervals = allocateDashedCenterStrokeIntervals(
+      80,
+      [20, 10],
+      -10,
+      false
+    )
+    const equivalentPositiveOffsetIntervals = allocateDashedCenterStrokeIntervals(
+      80,
+      [20, 10],
+      20,
+      false
+    )
+
+    expect(
+      negativeOffsetIntervals.map((interval) => ({
+        kind: interval.kind,
+        startDistance: interval.startDistance,
+        endDistance: interval.endDistance
+      }))
+    ).toEqual(
+      equivalentPositiveOffsetIntervals.map((interval) => ({
+        kind: interval.kind,
+        startDistance: interval.startDistance,
+        endDistance: interval.endDistance
+      }))
+    )
+  })
+
   it('should not run: produce any intervals for empty or invalid normalized patterns', () => {
     expect(allocateDashedCenterStrokeIntervals(100, [], 0, false)).toEqual([])
-    expect(allocateDashedCenterStrokeIntervals(100, [0, -1], 0, false)).toEqual([])
+    expect(allocateDashedCenterStrokeIntervals(100, [0, -1], 0, false)).toEqual(
+      []
+    )
   })
 })
