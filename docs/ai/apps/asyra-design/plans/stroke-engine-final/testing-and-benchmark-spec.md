@@ -353,7 +353,27 @@ Current `FinalFace[]` contract coverage:
     centroid-only classifier
   - same-visual ownerSet / interval / source-span merge on one arrangement face
   - exact duplicate arrangement faces collapse without opacity stacking
+  - same-visual overlapping `FinalFace[]` records are backend-unioned before
+    render / hit-test / export projection, so alpha is applied once over the
+    unioned product region
+  - same-visual overlapping inputs with opposite winding still produce one
+    coverage layer and cannot cancel to a hole or zero-layer result
+  - failed or empty backend union fails open to the original faces rather than
+    deleting product coverage
+  - vector render debug mode can bypass same-visual overlap collapse with
+    `strokeDebugOptions.disableVisualOverlapCollapse === true`, while product
+    default still collapses the same fixture before render / hit-test / export
+    projection
+  - toolbar E2E verifies the development-only overlap-debug toolbar toggle
+    updates `strokeDebugDisableVisualOverlapCollapse`, so debug inspection can
+    be enabled without editing vector element data. Production builds must hide
+    this debug UI unless explicitly built with
+    `VITE_ASYRA_ENABLE_STROKE_DEBUG_UI=true`.
   - different visual packet keys stay separate on the same arrangement face
+  - different opacity keeps overlapping faces separate because it changes
+    `visualPacketKey`
+  - non-overlapping same-visual faces skip backend union to avoid unnecessary
+    boolean work
   - unknown backend candidate references fail loudly
 - `packages/preset/src/__tests__/clipper2-geometry-backend.test.ts` verifies
   the Phase 9/13 backend adapter:

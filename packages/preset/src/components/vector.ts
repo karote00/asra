@@ -27,7 +27,10 @@ import {
   classifyConstrainedDashedRuntimeStatus,
   hasConstrainedDashedStrokeIntent
 } from './stroke-render/constrained-dashed-stroke-packets'
-import { buildArrangedStrokeFinalFacesFromResolvedPackets } from './stroke-render/stroke-candidate-arrangement'
+import {
+  buildArrangedStrokeFinalFacesFromResolvedPackets,
+  collapseStrokeFinalFaceVisualOverlaps
+} from './stroke-render/stroke-candidate-arrangement'
 import { getGeometryBackend } from './stroke-render/geometry-backend'
 import type { ArrangementLegalDomain } from './stroke-render/arrangement-face-classifier'
 import {
@@ -85,6 +88,11 @@ interface VectorComputedData {
   fillRule: PathTopologyFillRule
   fills: FillAttrs[]
   strokes?: StrokeAttrs[]
+  strokeDebugOptions: VectorStrokeDebugOptions
+}
+
+interface VectorStrokeDebugOptions {
+  disableVisualOverlapCollapse?: boolean
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -246,6 +254,9 @@ const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
   const rawData = isRecord(data) ? data : {}
   const points = normalizeVectorPointNodeMap(rawData.points)
   const segments = normalizeVectorSegmentMap(rawData.segments)
+  const rawStrokeDebugOptions = isRecord(rawData.strokeDebugOptions)
+    ? rawData.strokeDebugOptions
+    : {}
 
   return {
     id: typeof rawData.id === 'string' ? rawData.id : 'vector:invalid',
@@ -261,7 +272,11 @@ const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
       rawData.fillRule === 'nonzero' ? 'nonzero' : null
     ),
     fills: Array.isArray(rawData.fills) ? rawData.fills : [],
-    strokes: Array.isArray(rawData.strokes) ? rawData.strokes : []
+    strokes: Array.isArray(rawData.strokes) ? rawData.strokes : [],
+    strokeDebugOptions: {
+      disableVisualOverlapCollapse:
+        rawStrokeDebugOptions.disableVisualOverlapCollapse === true
+    }
   }
 }
 
@@ -2182,10 +2197,34 @@ const renderVectorGraphic = (
     }),
     ...constrainedDashedPromotion.packets
   ]
-  const strokeFinalFaces = [
+  const rawStrokeFinalFaces = [
     ...buildSolidCenterStrokeFinalFaces(strokePackets),
     ...constrainedDashedPromotion.exactFaces
   ]
+  const strokeFinalFaces = (() => {
+    const systemDebugDisableVisualOverlapCollapse =
+      core.getSystemProperty<boolean>(
+        'strokeDebugDisableVisualOverlapCollapse'
+      ) ?? false
+
+    if (
+      renderData.strokeDebugOptions.disableVisualOverlapCollapse === true ||
+      systemDebugDisableVisualOverlapCollapse
+    ) {
+      return rawStrokeFinalFaces
+    }
+
+    try {
+      const backend = getGeometryBackend()
+      return backend.capabilities.union === true
+        ? collapseStrokeFinalFaceVisualOverlaps(rawStrokeFinalFaces, {
+            backend
+          })
+        : rawStrokeFinalFaces
+    } catch {
+      return rawStrokeFinalFaces
+    }
+  })()
 
   const applyVectorHoverHitArea = () => {
     const hitCache: VectorHitCache = graphicCache.__asyraVectorHitCache ?? {}
@@ -2556,6 +2595,11 @@ defineComponent({
           joinType: StrokeJoinTypes.ROUND
         })
       ]
+    },
+    {
+      name: 'strokeDebugOptions',
+      type: PropertyTypes.CUSTOM,
+      defaultValue: {} as VectorStrokeDebugOptions
     }
   ],
   renderStrategy: vectorRenderStrategy

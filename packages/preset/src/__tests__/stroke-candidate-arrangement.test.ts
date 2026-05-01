@@ -7,10 +7,15 @@ import type {
 } from '../components/stroke-render/geometry-backend'
 import {
   buildArrangedStrokeFinalFacesFromResolvedPackets,
-  buildStrokeArrangementCandidates
+  buildStrokeArrangementCandidates,
+  collapseStrokeFinalFaceVisualOverlaps
 } from '../components/stroke-render/stroke-candidate-arrangement'
 import { buildStrokeFinalFacesFromResolvedPackets } from '../components/stroke-render/stroke-final-face'
-import type { SolidCenterStrokeResolvedPacket } from '../components/stroke-render/solid-center-stroke-packets'
+import type {
+  SolidCenterStrokeGeometryDebugMeta,
+  SolidCenterStrokePaintPacket,
+  SolidCenterStrokeResolvedPacket
+} from '../components/stroke-render/solid-center-stroke-packets'
 
 const square = (x: number, y: number, size: number) => [
   { x, y },
@@ -18,6 +23,13 @@ const square = (x: number, y: number, size: number) => [
   { x: x + size, y: y + size },
   { x, y: y + size }
 ]
+
+const getBounds = (polygon: { x: number; y: number }[]) => ({
+  minX: Math.min(...polygon.map((point) => point.x)),
+  minY: Math.min(...polygon.map((point) => point.y)),
+  maxX: Math.max(...polygon.map((point) => point.x)),
+  maxY: Math.max(...polygon.map((point) => point.y))
+})
 
 const concaveCShape = () => [
   { x: 0, y: 0 },
@@ -50,7 +62,7 @@ const makePacket = (
     geometry: {
       geometryId: id,
       polygons: [polygon],
-      bounds: { minX: 0, minY: 0, maxX: 10, maxY: 10 },
+      bounds: getBounds(polygon),
       debugMeta: {
         sourcePathId: `source:${id}`,
         ownerKey: options.ownerKey ?? `owner:${id}`,
@@ -82,6 +94,19 @@ const makeBackend = (
 ): Pick<GeometryBackend, 'buildArrangement'> => ({
   buildArrangement
 })
+
+const makeUnionBackend = (
+  union: GeometryBackend['union']
+): Pick<GeometryBackend, 'union'> => ({
+  union
+})
+
+const buildTestFinalFaces = (packets: SolidCenterStrokeResolvedPacket[]) =>
+  buildStrokeFinalFacesFromResolvedPackets<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket,
+    SolidCenterStrokeResolvedPacket
+  >(packets)
 
 describe('stroke candidate arrangement', () => {
   it('should run: build candidate regions with typed owner, interval, and source-span metadata', () => {
@@ -507,6 +532,203 @@ describe('stroke candidate arrangement', () => {
       'owner:a',
       'owner:b'
     ])
+  })
+
+  it('should run: collapse same-visual overlapping final-face coverage to one visible layer', () => {
+    const packets = [
+      makePacket('candidate:overlap-a', {
+        ownerKey: 'owner:a',
+        intervalId: 'interval:a',
+        sourceSpanIds: ['span:a'],
+        polygon: square(0, 0, 10),
+        alpha: 0.5
+      }),
+      makePacket('candidate:overlap-b', {
+        ownerKey: 'owner:b',
+        intervalId: 'interval:b',
+        sourceSpanIds: ['span:b'],
+        polygon: square(5, 0, 10),
+        alpha: 0.5
+      })
+    ]
+    const faces = buildTestFinalFaces(packets)
+    const unionCalls: PolygonRegion[][] = []
+    const backend = makeUnionBackend((regions) => {
+      unionCalls.push(regions)
+      return [
+        {
+          polygons: [
+            [
+              { x: 0, y: 0 },
+              { x: 15, y: 0 },
+              { x: 15, y: 10 },
+              { x: 0, y: 10 }
+            ]
+          ]
+        }
+      ]
+    })
+
+    const collapsed = collapseStrokeFinalFaceVisualOverlaps(faces, { backend })
+
+    expect(unionCalls).toHaveLength(1)
+    expect(unionCalls[0]).toHaveLength(2)
+    expect(collapsed).toHaveLength(1)
+    expect(collapsed[0]?.polygons).toEqual([
+      [
+        { x: 0, y: 0 },
+        { x: 15, y: 0 },
+        { x: 15, y: 10 },
+        { x: 0, y: 10 }
+      ]
+    ])
+    expect(collapsed[0]?.paint.alpha).toBe(0.5)
+    expect(collapsed[0]?.ownerSet).toEqual([
+      expect.objectContaining({ ownerKey: 'owner:a' }),
+      expect.objectContaining({ ownerKey: 'owner:b' })
+    ])
+    expect(collapsed[0]?.intervalIds).toEqual(['interval:a', 'interval:b'])
+    expect(collapsed[0]?.sourceSpanIds).toEqual(['span:a', 'span:b'])
+    expect(collapsed[0]?.debugMeta).toMatchObject({
+      visualOverlapCollapseStatus: 'exact-union',
+      visualOverlapSourceGeometryIds: [
+        'candidate:overlap-a',
+        'candidate:overlap-b'
+      ]
+    })
+  })
+
+  it('should run: keep one same-visual coverage layer when overlapping inputs use opposite winding', () => {
+    const packets = [
+      makePacket('candidate:winding-a', {
+        ownerKey: 'owner:a',
+        intervalId: 'interval:a',
+        sourceSpanIds: ['span:a'],
+        polygon: square(0, 0, 10),
+        alpha: 0.5
+      }),
+      makePacket('candidate:winding-b', {
+        ownerKey: 'owner:b',
+        intervalId: 'interval:b',
+        sourceSpanIds: ['span:b'],
+        polygon: [...square(5, 0, 10)].reverse(),
+        alpha: 0.5
+      })
+    ]
+    const faces = buildTestFinalFaces(packets)
+    const signedAreas: number[] = []
+
+    const collapsed = collapseStrokeFinalFaceVisualOverlaps(faces, {
+      backend: makeUnionBackend((regions) => {
+        regions.forEach((region) =>
+          region.polygons.forEach((polygon) => {
+            let area = 0
+            for (let index = 0; index < polygon.length; index += 1) {
+              const current = polygon[index]
+              const next = polygon[(index + 1) % polygon.length]
+              area += current.x * next.y - next.x * current.y
+            }
+            signedAreas.push(area / 2)
+          })
+        )
+        return [
+          {
+            polygons: [
+              [
+                { x: 0, y: 0 },
+                { x: 15, y: 0 },
+                { x: 15, y: 10 },
+                { x: 0, y: 10 }
+              ]
+            ]
+          }
+        ]
+      })
+    })
+
+    expect(signedAreas.every((area) => area > 0)).toBe(true)
+    expect(collapsed).toHaveLength(1)
+    expect(collapsed[0]?.sourceGeometryIds).toEqual([
+      'candidate:winding-a',
+      'candidate:winding-b'
+    ])
+  })
+
+  it('should run: fail open instead of deleting same-visual coverage when backend union returns empty', () => {
+    const packets = [
+      makePacket('candidate:empty-union-a', {
+        ownerKey: 'owner:a',
+        polygon: square(0, 0, 10),
+        alpha: 0.5
+      }),
+      makePacket('candidate:empty-union-b', {
+        ownerKey: 'owner:b',
+        polygon: square(5, 0, 10),
+        alpha: 0.5
+      })
+    ]
+    const faces = buildTestFinalFaces(packets)
+
+    const collapsed = collapseStrokeFinalFaceVisualOverlaps(faces, {
+      backend: makeUnionBackend(() => [])
+    })
+
+    expect(collapsed).toHaveLength(2)
+    expect(collapsed.map((face) => face.sourceGeometryIds[0]).sort()).toEqual([
+      'candidate:empty-union-a',
+      'candidate:empty-union-b'
+    ])
+  })
+
+  it('should run: keep overlapping faces separate when opacity changes visual packet identity', () => {
+    const packets = [
+      makePacket('candidate:opacity-a', {
+        ownerKey: 'owner:a',
+        polygon: square(0, 0, 10),
+        alpha: 0.5
+      }),
+      makePacket('candidate:opacity-b', {
+        ownerKey: 'owner:b',
+        polygon: square(5, 0, 10),
+        alpha: 0.75
+      })
+    ]
+    const faces = buildTestFinalFaces(packets)
+    let unionCallCount = 0
+
+    const collapsed = collapseStrokeFinalFaceVisualOverlaps(faces, {
+      backend: makeUnionBackend((regions) => {
+        unionCallCount += 1
+        return regions
+      })
+    })
+
+    expect(unionCallCount).toBe(0)
+    expect(collapsed).toHaveLength(2)
+    expect(collapsed.map((face) => face.paint.alpha).sort()).toEqual([0.5, 0.75])
+  })
+
+  it('should run: skip same-visual union when final-face bounds do not overlap', () => {
+    const packets = [
+      makePacket('candidate:separate-a', {
+        polygon: square(0, 0, 10)
+      }),
+      makePacket('candidate:separate-b', {
+        polygon: square(20, 0, 10)
+      })
+    ]
+    const faces = buildTestFinalFaces(packets)
+    let unionCallCount = 0
+
+    const collapsed = collapseStrokeFinalFaceVisualOverlaps(faces, {
+      backend: makeUnionBackend((regions) => {
+        unionCallCount += 1
+        return regions
+      })
+    })
+
+    expect(unionCallCount).toBe(0)
+    expect(collapsed).toHaveLength(2)
   })
 
   it('should not run: accept arrangement faces that reference unknown candidates', () => {

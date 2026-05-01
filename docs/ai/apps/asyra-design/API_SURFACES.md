@@ -85,6 +85,8 @@ Import boundary:
 `systemContextApis` (`src/common-apis/system-context.ts`)
 
 - `switchPrimaryTool(tool: string): void`
+- `getStrokeDebugDisableVisualOverlapCollapse(): boolean`
+- `setStrokeDebugDisableVisualOverlapCollapse(enabled: boolean): void`
 - `getSystemContextSnapshot(): SystemContextSnapshot`
 - `updateHoveredElementId(elementId: string | null): void`
 - `getAreaSelection(): { dragStart: PositionData; dragCurrent: PositionData; additive: boolean } | null`

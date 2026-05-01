@@ -341,13 +341,45 @@ Current implementation checkpoint:
 - `buildArrangedStrokeFinalFacesFromResolvedPackets` applies exact duplicate
   collapse after backend arrangement conversion. This removes duplicate
   same-packet exact faces without changing opacity or visual stacking.
+- `collapseStrokeFinalFaceVisualOverlaps` now runs after the vector renderer
+  assembles the single `strokeFinalFaces` source. It groups faces by
+  `visualPacketKey`, skips groups whose bounds do not overlap, and backend-unions
+  only same-visual overlapping groups. The merged face preserves
+  `ownerSet`, `intervalIds`, `sourceSpanIds`, `sourceContourIds`, legal-domain
+  ids, and debug collapse provenance.
+- This visual-overlap collapse applies before render / hit-test / export
+  projection, so same stroke opacity is not stacked in overlap regions and all
+  projections see the same canonical product geometry. For any point covered by
+  `N` same-visual faces, product coverage is exactly one layer; the collapse
+  must never turn coverage into zero layers.
+- Same-visual union normalizes input winding because those inputs are coverage,
+  not shell/hole contour roles. Opposite-oriented duplicate coverage must not
+  cancel into holes.
+- `strokeDebugOptions.disableVisualOverlapCollapse` is available as a
+  diagnostic-only vector render option. It bypasses same-visual overlap collapse
+  so implementers can inspect raw `FinalFace[]` geometry; product defaults keep
+  collapse enabled.
+- Asyra Design exposes this through an icon-only toolbar overlap-debug toggle backed by
+  runtime system property `strokeDebugDisableVisualOverlapCollapse`. The toggle
+  is debug UI only: it is visible in development builds, hidden in production by
+  default, and can only be exposed in production with the explicit
+  `VITE_ASYRA_ENABLE_STROKE_DEBUG_UI=true` build flag. The toggle must not mutate
+  element computed data or authored stroke payloads; it only rebuilds the current
+  render projection for inspection.
 - different visual packet keys still remain separate, including different
   paint, opacity, blend, mask, clip, effect, stack, visibility, or stroke spec.
 - tests:
   - `solid-center-stroke-packets.test.ts` verifies local-side approximation does
     not collapse and exact duplicates do.
   - `stroke-candidate-arrangement.test.ts` verifies exact arrangement duplicate
-    faces collapse without opacity stacking.
+    faces collapse without opacity stacking, same-visual overlaps union before
+    projection, different-opacity overlaps remain separate, opposite-winding
+    same-visual coverage cannot cancel to zero layers, empty backend union fails
+    open, and non-overlapping same-visual faces skip backend union.
+  - `vector-constrained-dashed-stroke.test.ts` verifies the debug bypass keeps
+    raw same-visual faces available without changing the product default.
+  - `viewport-navigation.spec.ts` verifies the toolbar toggle changes the
+    runtime debug system property.
 
 ## Next Active Track. Exact Backend And Product Promotion
 

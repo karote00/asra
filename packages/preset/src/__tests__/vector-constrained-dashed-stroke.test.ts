@@ -97,6 +97,10 @@ beforeAll(() => {
   core.defineSystemProperty<string | null>('pathEditingVectorId', null)
   core.defineSystemProperty<boolean>('pathEditingMode', false)
   core.defineSystemProperty<boolean>('mouseDragging', false)
+  core.defineSystemProperty<boolean>(
+    'strokeDebugDisableVisualOverlapCollapse',
+    false
+  )
 
   const systemPropertyMap = new Map<string, BehaviorSubject<unknown>>()
   const presetDeps = {
@@ -153,6 +157,7 @@ beforeAll(() => {
 
 afterEach(() => {
   selectGeometryBackend(UNSUPPORTED_BACKEND_ID)
+  core.setSystemProperty('strokeDebugDisableVisualOverlapCollapse', false)
 })
 
 class RecordingVectorGraphic extends Container {
@@ -3965,6 +3970,146 @@ describe('vector constrained dashed stroke product wiring', () => {
       acceptedCount: 2,
       blockedCount: 0
     })
+  })
+
+  it('should run: allow debug inspection to bypass same-visual visual overlap collapse', () => {
+    const backendId = 'vector-stroke-debug-disable-overlap-collapse-backend'
+    registerGeometryBackend({
+      backendId,
+      load: () => createPassthroughArrangementBackend(backendId)
+    })
+    selectGeometryBackend(backendId)
+
+    const vectorData = {
+      id: 'vector-debug-disable-visual-overlap-collapse',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 40,
+      ...toMultiNetworkVectorData([
+        {
+          networkId: 'network-a',
+          closed: true,
+          anchors: [
+            { id: 'a0', x: 0, y: 0 },
+            { id: 'a1', x: 60, y: 0 },
+            { id: 'a2', x: 60, y: 40 },
+            { id: 'a3', x: 0, y: 40 }
+          ]
+        },
+        {
+          networkId: 'network-b',
+          closed: true,
+          anchors: [
+            { id: 'b0', x: 40, y: 0 },
+            { id: 'b1', x: 100, y: 0 },
+            { id: 'b2', x: 100, y: 40 },
+            { id: 'b3', x: 40, y: 40 }
+          ]
+        }
+      ]),
+      closed: true,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          width: 4,
+          style: StrokeStyles.SOLID,
+          position: StrokePositions.CENTER
+        })
+      ]
+    }
+
+    const productGraphic = runVectorRenderStrategy(vectorData)
+    const debugGraphic = runVectorRenderStrategy({
+      ...vectorData,
+      strokeDebugOptions: {
+        disableVisualOverlapCollapse: true
+      }
+    })
+
+    const productPackets =
+      productGraphic.__asyraSolidCenterStrokeExportPackets ?? []
+    const debugPackets = debugGraphic.__asyraSolidCenterStrokeExportPackets ?? []
+
+    expect(productPackets).toHaveLength(1)
+    expect(productPackets[0]?.debugMeta).toMatchObject({
+      visualOverlapCollapseStatus: 'exact-union'
+    })
+    expect(debugPackets.length).toBeGreaterThan(productPackets.length)
+    expect(
+      debugPackets.every(
+        (packet) =>
+          packet.debugMeta?.visualOverlapCollapseStatus === undefined
+      )
+    ).toBe(true)
+  })
+
+  it('should run: allow global stroke debug toggle to bypass same-visual visual overlap collapse', () => {
+    const backendId = 'vector-stroke-global-debug-disable-overlap-collapse-backend'
+    registerGeometryBackend({
+      backendId,
+      load: () => createPassthroughArrangementBackend(backendId)
+    })
+    selectGeometryBackend(backendId)
+
+    const vectorData = {
+      id: 'vector-global-debug-disable-visual-overlap-collapse',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 40,
+      ...toMultiNetworkVectorData([
+        {
+          networkId: 'network-a',
+          closed: true,
+          anchors: [
+            { id: 'a0', x: 0, y: 0 },
+            { id: 'a1', x: 60, y: 0 },
+            { id: 'a2', x: 60, y: 40 },
+            { id: 'a3', x: 0, y: 40 }
+          ]
+        },
+        {
+          networkId: 'network-b',
+          closed: true,
+          anchors: [
+            { id: 'b0', x: 40, y: 0 },
+            { id: 'b1', x: 100, y: 0 },
+            { id: 'b2', x: 100, y: 40 },
+            { id: 'b3', x: 40, y: 40 }
+          ]
+        }
+      ]),
+      closed: true,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          width: 4,
+          style: StrokeStyles.SOLID,
+          position: StrokePositions.CENTER
+        })
+      ]
+    }
+
+    const productGraphic = runVectorRenderStrategy(vectorData)
+    core.setSystemProperty('strokeDebugDisableVisualOverlapCollapse', true)
+    const debugGraphic = runVectorRenderStrategy(vectorData)
+
+    const productPackets =
+      productGraphic.__asyraSolidCenterStrokeExportPackets ?? []
+    const debugPackets = debugGraphic.__asyraSolidCenterStrokeExportPackets ?? []
+
+    expect(productPackets).toHaveLength(1)
+    expect(productPackets[0]?.debugMeta).toMatchObject({
+      visualOverlapCollapseStatus: 'exact-union'
+    })
+    expect(debugPackets.length).toBeGreaterThan(productPackets.length)
+    expect(
+      debugPackets.every(
+        (packet) =>
+          packet.debugMeta?.visualOverlapCollapseStatus === undefined
+      )
+    ).toBe(true)
   })
 
   it('should run: render compound-hole constrained dashed vectors with legal-domain side inversion', () => {

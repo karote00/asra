@@ -371,6 +371,16 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     source$: primaryToolObservable
   })
 
+  const strokeDebugDisableVisualOverlapCollapseObservable =
+    core.defineSystemProperty<boolean>(
+      'strokeDebugDisableVisualOverlapCollapse',
+      false
+    )
+  core.defineUIProperty<boolean>('strokeDebugDisableVisualOverlapCollapse', {
+    defaultValue: false,
+    source$: strokeDebugDisableVisualOverlapCollapseObservable
+  })
+
   core.defineSystemProperty('systemMode', DefaultSystemSnapshot.mode)
   core.defineSystemProperty(
     'systemFeatureFlags',

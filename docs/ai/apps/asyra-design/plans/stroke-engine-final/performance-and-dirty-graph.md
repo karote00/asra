@@ -153,6 +153,20 @@ Current implementation checkpoint:
 - vector render pass must build one combined `strokeFinalFaces` array and use
   it for render, hit-test, and export. Promoted exact faces must not be
   converted back into resolved packets before projection.
+- same-visual `FinalFace[]` overlap collapse is bounded by visual-packet
+  grouping and a bounds-overlap precheck. Groups with no overlapping bounds
+  must not call the backend boolean union path.
+- same-visual overlap collapse is a coverage union, not a legality or contour
+  role classifier. It normalizes input winding before union so opposite-oriented
+  duplicate coverage cannot create zero-layer output.
+- `strokeDebugOptions.disableVisualOverlapCollapse` is a render-source debug
+  key. Toggling it must rebuild the `FinalFace[]` projection source for
+  inspection, but it must not invalidate path topology, interval allocation,
+  legal-domain normalization, or paint payload caches.
+- The UI toggle writes the runtime system property
+  `strokeDebugDisableVisualOverlapCollapse`; render subscriptions must reload
+  the render tree when it changes so already-mounted vectors rebuild the
+  final-face projection under the selected debug mode.
 - geometry backend selection is part of the render invalidation contract. When
   the active backend changes from unsupported/local to an exact backend, preset
   render subscriptions must reload the render scene tree so existing vectors

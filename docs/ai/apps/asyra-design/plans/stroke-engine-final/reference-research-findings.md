@@ -1004,6 +1004,12 @@ Decision:
 - visual packet identity includes paint, opacity, blend/effect/mask/clip context,
   stroke spec, stacking group, visibility, and compatible runtime status
 - same visual packet collapse does not stack opacity
+- same visual packet overlap is not a paint-layer workaround: the runtime
+  backend-unions overlapping `FinalFace[]` groups before render / hit-test /
+  export projection, and skips that boolean work when bounds do not overlap
+- same visual packet overlap treats every input as coverage, not a shell/hole
+  contour role. If `N` same-visual faces cover a point, final coverage is one
+  layer, never `N` layers and never zero.
 - different visual packet identity must remain separate and follows normal
   stacking
 - collapsed faces keep typed `ownerSet`, `intervalIds`, `sourceSpanIds`, and

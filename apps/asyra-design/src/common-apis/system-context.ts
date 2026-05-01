@@ -79,6 +79,18 @@ export const systemContextApis = {
     core.setSystemProperty('primaryTool', tool)
   },
 
+  getStrokeDebugDisableVisualOverlapCollapse: (): boolean => {
+    return (
+      core.getSystemProperty<boolean>(
+        'strokeDebugDisableVisualOverlapCollapse'
+      ) ?? false
+    )
+  },
+
+  setStrokeDebugDisableVisualOverlapCollapse: (enabled: boolean) => {
+    core.setSystemProperty('strokeDebugDisableVisualOverlapCollapse', enabled)
+  },
+
   /**
    * Get the current system context snapshot
    */

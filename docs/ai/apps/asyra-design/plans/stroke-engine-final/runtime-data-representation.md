@@ -267,7 +267,18 @@ Minimum fields:
   source
 - duplicate faces may collapse only when exact face ownership is proven and
   final face geometry plus `visualPacketKey` match
-- same visual packet collapse must not multiply opacity
+- same visual packet collapse must not multiply opacity and must not remove
+  coverage; for a point covered by `N` same-visual faces, product coverage is
+  exactly one layer
+- `strokeDebugOptions.disableVisualOverlapCollapse === true` may bypass
+  same-visual overlap collapse for geometry inspection only. This is a
+  diagnostic switch, not product semantics; default render / hit-test / export
+  must keep collapse enabled and must continue to share the same product
+  `FinalFace[]` source.
+- The Asyra Design toolbar exposes the same diagnostic behavior through the
+  runtime system property `strokeDebugDisableVisualOverlapCollapse`. This
+  property is global, runtime-only, and must not be serialized into authored
+  vector geometry or stroke payloads.
 - different paint, opacity, blend mode, mask, effect, clip context, stacking
   group, visibility state, or stroke spec must remain separate
 - collapsed faces must preserve all owners through `ownerSet`; no helper may
@@ -407,7 +418,9 @@ Current checkpoint:
   - `center` accepts all partitioned faces
 - exact arrangement output groups claims by `visualPacketKey`; same-visual
   claims merge metadata into one final face, while different visual packet keys
-  stay separate and preserve normal stacking.
+  stay separate and preserve normal stacking. Same-visual union treats inputs as
+  coverage, not shell/hole contour roles, so opposite winding cannot erase the
+  product face.
 - `packages/preset/src/components/stroke-render/clipper2-geometry-backend.ts`
   wraps `clipper2-wasm@0.2.1` as a concrete backend for boolean operations and
   offsetting. This adapter is a backend module only; product helpers must keep

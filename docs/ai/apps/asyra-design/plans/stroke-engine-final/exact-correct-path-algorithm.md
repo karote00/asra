@@ -219,8 +219,25 @@ guarantees the face is topologically uniform for the tested predicate.
 
 Only faces that pass ownership and legality become semantic regions.
 
-If two overlapping candidates represent the same legal visible stroke region,
-they must collapse to one semantic region rather than draw as two stacked layers.
+If two or more overlapping candidates represent the same legal visible stroke
+region, they must collapse to one semantic region rather than draw as stacked
+layers. This is a general visual-coverage rule, not a high-curvature special
+case: for any point covered by `N` same-visual faces, final product coverage at
+that point must be exactly `1`, never `N` and never `0`.
+Runtime implementation rule:
+
+- construct the single `FinalFace[]` source first
+- group only by identical `visualPacketKey`
+- skip groups whose bounds do not overlap
+- backend-union overlapping same-visual groups into one product face
+- treat same-visual inputs as coverage before union; normalize input winding so
+  opposite-oriented equivalent coverage cannot cancel into a hole or empty face
+- preserve `ownerSet`, interval ids, source-span ids, source-contour ids, and
+  legal-domain ids on the merged face
+- project render / hit-test / export from that merged `FinalFace[]`
+
+Different visual packet keys are never part of this collapse and keep normal
+stacking behavior.
 
 ## High-Curvature Rule
 

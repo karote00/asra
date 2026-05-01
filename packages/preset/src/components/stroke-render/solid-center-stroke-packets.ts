@@ -164,6 +164,9 @@ export interface SolidCenterStrokeGeometryDebugMeta {
     insideFillDomain: boolean
     outsideFillDomain: boolean
   }
+  visualOverlapCollapseStatus?: 'exact-union'
+  visualOverlapSourceFaceIds?: string[]
+  visualOverlapSourceGeometryIds?: string[]
   revisionSet?: StrokeRevisionSet
 }
 
