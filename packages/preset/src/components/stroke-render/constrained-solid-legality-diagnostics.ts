@@ -4,6 +4,7 @@ import {
   buildConstrainedSolidLegalityDomain,
   type ConstrainedSolidLegalityDomain
 } from './constrained-solid-legality-domain'
+import type { PathTopologyFillRule } from './path-topology-model'
 import { supportsConstrainedSolidStroke } from './constrained-solid-stroke-geometry'
 import type { SolidCenterStrokeResolvedPacket } from './solid-center-stroke-packets'
 
@@ -23,7 +24,7 @@ export interface ConstrainedSolidLegalityDomainDiagnostic {
   strokeId: string
   geometryId: string | null
   mode: 'inside' | 'outside'
-  fillRule: 'nonzero'
+  fillRule: PathTopologyFillRule
   canonicalPolygonForm: 'simple-closed-polygon'
   orientation: 'cw' | 'ccw'
   boundaryPolygon: Vec2[]
@@ -42,6 +43,7 @@ export interface ConstrainedSolidLegalityDiagnosticsRuntimeGraphic {
 export interface ConstrainedSolidLegalitySourceGroup {
   points: Vec2[]
   closed: boolean
+  fillRule?: PathTopologyFillRule | null
 }
 
 const getBounds = (polygon: Vec2[]): Bounds => {
@@ -93,7 +95,8 @@ export const buildConstrainedSolidLegalityDiagnostics = (
       const domain = buildConstrainedSolidLegalityDomain(
         source.points,
         source.closed,
-        stroke.position as 'inside' | 'outside'
+        stroke.position as 'inside' | 'outside',
+        source.fillRule
       )
 
       if (!domain) {

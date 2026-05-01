@@ -38,7 +38,8 @@ describe('constrained solid legality diagnostics', () => {
             { x: 80, y: 40 },
             { x: 0, y: 40 }
           ],
-          closed: true
+          closed: true,
+          fillRule: 'nonzero'
         }
       ],
       [

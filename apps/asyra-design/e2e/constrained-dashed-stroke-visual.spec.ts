@@ -3611,7 +3611,7 @@ test('benchmark: closed vector outside constrained dashed full-loop stroke rende
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: self-intersecting constrained dashed vectors remain absent on the app path until that unsupported topology is implemented', async ({
+test('benchmark: self-intersecting constrained dashed vectors remain visible as local-side geometry on the app path', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3630,15 +3630,16 @@ test('benchmark: self-intersecting constrained dashed vectors remain absent on t
   const raster = await captureSelectedElementRaster(page, 4)
   const probes = getRectProbeRegions(raster)
 
-  const [topInside, topOutside, center] = await Promise.all([
+  const [topInside, topOutside, leftInside, leftOutside] = await Promise.all([
     getGreenCoverage(page, raster, probes.topInside),
     getGreenCoverage(page, raster, probes.topOutside),
-    getGreenCoverage(page, raster, probes.center)
+    getGreenCoverage(page, raster, probes.leftInside),
+    getGreenCoverage(page, raster, probes.leftOutside)
   ])
 
-  expect(topInside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(topOutside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  expect(
+    Math.max(topInside, topOutside, leftInside, leftOutside)
+  ).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
 })
 ;(['inside', 'outside'] as const).forEach((position) => {
   test(`benchmark: open-path ${position} constrained dashed vectors render through exact interval-local geometry on the app path`, async ({

@@ -12,6 +12,697 @@ This file is migration authority only.
 It must not be used as the primary source for current support claims; those live
 in `active-support-scope.md` and `topology-and-product-semantics.md`.
 
+## Next Active Track. Exact Engine FinalFace Migration
+
+This track is the active execution order after the 2026-04-30 CTO review
+closure. It does not renumber the historical rollout phases below; it defines
+the next exact-engine implementation path from the current runtime checkpoint.
+
+### Step 1. Extend `FinalFace[]` Bridge To Every Stroke Family
+
+Goal:
+
+- route solid center, dashed center, constrained solid, and constrained dashed
+  render / hit-test / export projections through `FinalFace[]`
+
+Current implementation checkpoint:
+
+- solid center projections already derive render, hit-test, and export payloads
+  from a `FinalFace[]` bridge
+- dashed center, constrained solid, and constrained dashed packet tests now
+  assert that each family can materialize `FinalFace[]`
+- bridge mode preserves existing packet cardinality by default; duplicate
+  collapse remains opt-in for exact arrangement / face-collapse phases
+- `FinalFace[]` bridge preserves typed owner, interval, contour, legal-domain,
+  topology, runtime, and paint metadata supplied by the source packets
+
+Required outputs:
+
+- all stroke families can materialize `FinalFace[]`
+- bridge mode preserves existing packet cardinality by default
+- no bridge conversion enables duplicate collapse unless an exact face-collapse
+  phase explicitly requests it
+
+Gate:
+
+- current product rendering, hit-test, and export tests remain behaviorally
+  unchanged
+- every final face carries typed owner metadata when the source packet provides
+  it
+
+Wrong-decision recovery:
+
+- if bridge conversion changes visible packet count or hit/export behavior,
+  disable collapse for that family and restore behavior before proceeding
+
+### Step 2. Complete `visualPacketKey` Semantics
+
+Goal:
+
+- make duplicate-region collapse safe by encoding the full visual stacking
+  identity
+
+Current implementation checkpoint:
+
+- `FinalFace` debug metadata accepts a typed `visualContext`
+- `visualPacketKey` is built from paint identity, paint revision, stroke spec,
+  opacity, blend mode, effect key, mask key, clip key, stacking group,
+  visibility key, and runtime family key
+- current stroke data does not yet provide blend/mask/clip/effect/stacking
+  context, so bridge code uses explicit placeholder keys such as
+  `blendMode: "normal"`, `mask:none`, `clip:none`, `effect:none`, and
+  `stack:default`
+- tests prove duplicate geometry does not collapse when paint, opacity, or
+  visual context differ
+- bridge default remains no-collapse; explicit duplicate collapse is still
+  reserved for exact arrangement / face-collapse phases
+
+Required outputs:
+
+- `visualPacketKey` includes or references paint, opacity, blend mode, effect
+  context, mask/clip context, stroke spec, stacking group, visibility state, and
+  compatible runtime geometry family
+
+Gate:
+
+- same visual packet duplicate faces may collapse without opacity stacking
+- different paint, opacity, blend, mask, clip, effect, stack, visibility, or
+  stroke spec never collapse
+
+Wrong-decision recovery:
+
+- if a fixture shows incorrect merging, widen `visualPacketKey`; never patch
+  render or export separately
+
+### Step 3. Add Source `fillRule` And Default Migration
+
+Goal:
+
+- make legal-domain classification read source policy instead of hardcoded
+  assumptions
+
+Required outputs:
+
+- source topology model exposes `fillRule: "evenodd" | "nonzero"`
+- old vectors without a fill-rule field default to `evenodd`
+- exact support cannot be claimed for a family whose legal-domain stage ignores
+  source fill rule
+
+Gate:
+
+- self-intersection and compound legal-domain tests can run both `evenodd` and
+  `nonzero` cases
+
+Wrong-decision recovery:
+
+- if a helper hardcodes `evenodd` for exact support, demote the exact claim and
+  move the rule back into source normalization
+
+Current implementation checkpoint:
+
+- `PathTopologyModel` exposes `fillRule` and `fillRuleBasis` as concrete
+  `"evenodd" | "nonzero"` values.
+- legacy vector render data normalizes missing `fillRule` to `evenodd`.
+- topology revision includes `fillRule`, so legal-domain consumers cannot reuse
+  stale topology after a fill-rule change.
+- constrained solid legality diagnostics read source `fillRule`; simple polygon
+  clipping remains visually unchanged because `evenodd` and `nonzero` are
+  equivalent for the currently supported simple domain.
+
+### Step 4. Implement `GeometryBackend` Registration And Selection
+
+Goal:
+
+- keep heavy boolean / offset work behind a replaceable backend adapter
+
+Required outputs:
+
+- backend registration / selection entrypoint
+- lazy backend loading policy
+- tests using a mock backend to verify `union`, `difference`, `intersection`,
+  `offset`, and `buildArrangement` data flow
+- unsupported backend continues to fail loudly
+
+Gate:
+
+- missing backend support cannot silently emit empty geometry, center fallback,
+  or local-side approximation
+
+Wrong-decision recovery:
+
+- if backend integration leaks into product helpers directly, move it behind the
+  adapter before continuing
+
+Current implementation checkpoint:
+
+- `geometry-backend.ts` defines `GeometryBackend`, `GeometryBackendRegistry`,
+  and `GeometryBackendRegistration`.
+- the default registry starts with
+  `unsupported-exact-geometry-backend`, which throws explicit errors for
+  `union`, `difference`, `intersection`, `offset`, and `buildArrangement`.
+- backend registrations are lazy: `load()` is not called until the selected
+  backend is resolved.
+- resolving a registration whose loaded backend id does not match the declared
+  id fails immediately.
+- tests verify operation data flow through a mock exact backend without
+  introducing a real boolean dependency yet.
+
+### Step 5. Implement Legal-Domain Normalization
+
+Goal:
+
+- solve compound overlapping holes with normalized legal boundaries
+
+Required outputs:
+
+- `LegalDomain = union(shells) - union(holes)`
+- normalized boundaries with deterministic seam selection
+- source contour/span metadata attached to normalized boundary spans
+- dash allocation uses normalized boundaries for normalized compound paths
+
+Gate:
+
+- overlapping-hole fixtures prove hidden raw hole edges do not produce product
+  stroke geometry
+
+Wrong-decision recovery:
+
+- if raw contour intervals leak into normalized product geometry, return to
+  legal-domain normalization before touching dash or render code
+
+Current implementation checkpoint:
+
+- `legal-domain-normalization.ts` defines `NormalizedLegalDomain`,
+  `NormalizedBoundarySpan`, and `buildCompoundLegalDomainNormalization`.
+- containment-only compound paths normalize without a heavy backend and emit one
+  shared legal-domain id plus deterministic topmost-leftmost seams for each
+  boundary span.
+- source contour ids and committed `SourceSpanGraph` span ids are attached to
+  normalized boundary spans.
+- overlapping holes are not promoted to product compound support without an
+  exact backend. Without `allowBackendNormalization` and a registered backend,
+  normalization returns `blocked: requires-exact-backend`.
+- vector product runtime now passes the selected exact backend into compound
+  normalization when `union` and `difference` are available. With that backend,
+  overlapping-hole vectors promote to one shared normalized legal domain instead
+  of separate raw-network domains.
+- mock-backend tests verify the exact boolean flow:
+  `union(shells, nonzero) -> union(holes, nonzero) ->
+  difference(shells, holes, nonzero)`. Role-level union is geometric union; it
+  must not reuse source `evenodd` because overlapping same-role regions would
+  toggle into XOR-like gaps.
+- vector product rendering now consumes the normalization result for shared
+  compound legal-domain metadata. If normalization is blocked, it keeps the
+  source networks separate instead of assigning a false shared compound domain.
+
+### Step 6. Implement Source Span Graph And Dash Interval Split
+
+Goal:
+
+- make dash ownership span-aware before self-intersection and arrangement
+  support
+
+Required outputs:
+
+- source spans split at vertices, self-intersections, normalized-boundary cuts,
+  and dash interval boundaries
+- dash intervals carry `sourceSpanIds`
+- interval crossing a self-intersection is split before face ownership
+
+Gate:
+
+- tests can trace each final face back to interval ids and source span ids
+
+Wrong-decision recovery:
+
+- if a dash interval claims an unsplit self-intersection span, fix interval/span
+  allocation before candidate generation
+
+Current implementation checkpoint:
+
+- `source-span-graph.ts` defines `SourceSpanGraph`, `SourceSpanRecord`, and
+  `SourceSpanCut`.
+- source spans are split at topology vertices, dash interval boundaries, and
+  detected line-segment self-intersections on the current flattened topology.
+- dashed center and constrained dashed packets attach `sourceSpanIds` to debug
+  metadata; the existing `FinalFace[]` bridge carries those ids into final face
+  records.
+- legal-domain normalized boundary spans now use the source span graph instead
+  of raw segment ids.
+- Step 6 does not split render packets into multiple visible fragments yet.
+  That is intentional: Step 7 arrangement will split final faces while
+  preserving visual continuity and avoiding seam artifacts.
+
+### Step 7. Implement Candidate Arrangement And Face Classification
+
+Goal:
+
+- solve self-intersection, high-curvature candidate self-overlap, and duplicate
+  face ownership through arrangement
+
+Required outputs:
+
+- source/candidate arrangement
+- legal-domain face classification
+- side-aware inside/outside classification
+- ownerSet assignment
+- duplicate-region face detection
+
+Gate:
+
+- self-intersecting inside and outside dashed fixtures are classified as
+  distinct exact face sets
+- high-curvature candidates remove illegal/duplicate self-overlap faces
+- render, hit-test, and export all project from the same exact `FinalFace[]`
+
+Wrong-decision recovery:
+
+- if arrangement cannot explain a visible face owner, keep the family as
+  `local-side-approximation` or `research-gated`; do not promote it to exact
+
+Current implementation checkpoint:
+
+- `stroke-candidate-arrangement.ts` converts resolved stroke packets into
+  typed `CandidateRegion[]` without parsing `geometryId`.
+- arrangement work is backend-driven through `GeometryBackend.buildArrangement`;
+  the unsupported backend still throws instead of producing silent empty output.
+- arrangement faces are filtered by authored `strokePosition` and face
+  `legalState`: `inside` keeps inside-domain faces, `outside` keeps
+  outside-domain faces, and `center` keeps all faces.
+- backend-returned arrangement faces become exact `FinalFace[]` with
+  `arrangementStatus: "exact"`, `arrangementFaceId`,
+  `arrangementCandidateIds`, and `arrangementLegalState` metadata.
+- same-visual claims on one arrangement face merge owner, interval, source
+  span, source contour, and legal-domain metadata into one exact final face;
+  different visual packet keys remain separate.
+- product constrained dashed self-intersecting / high-curvature families remain
+  `local-side-approximation` until an exact backend is selected and product
+  runtime routing is explicitly promoted. Step 7 adds the exact bridge; it does
+  not silently switch product output.
+
+### Step 8. Enable Explicit Duplicate Collapse For Exact Families
+
+Goal:
+
+- turn on collapse only after exact arrangement and owner metadata are complete
+
+Required outputs:
+
+- `collapseDuplicateFaces: true` only for families with exact face ownership
+- ownerSet / intervalIds / sourceSpanIds / sourceContourIds preserved after
+  collapse
+- same visual packet collapse does not stack opacity
+- different visual packets remain separate
+
+Gate:
+
+- collapse changes no visual result except removing duplicate same-packet
+  overdraw
+- hit-test still returns deterministic primary owner plus full ownerSet
+- visual export emits merged final faces while editable/internal export can
+  preserve owner metadata
+
+Wrong-decision recovery:
+
+- if collapse changes visible stacking or loses owner metadata, disable collapse
+  for that family and fix `visualPacketKey` / ownership before retrying
+
+Current implementation checkpoint:
+
+- `buildStrokeFinalFacesFromResolvedPackets(..., { collapseDuplicateFaces:
+  true })` now treats collapse as a guarded exact-only operation. Local-side
+  approximation bridge packets remain separate even if a caller requests
+  collapse.
+- exact duplicate collapse requires `arrangementStatus: "exact"`,
+  `resolutionStatus: "exact-constrained"`, and `runtimeStatus: "accepted"`.
+- `collapseExactDuplicateFinalFaces` collapses exact `FinalFace[]` records by
+  geometry signature plus `visualPacketKey`, preserving `ownerSet`,
+  `intervalIds`, `sourceSpanIds`, `sourceContourIds`, and legal-domain ids.
+- `buildArrangedStrokeFinalFacesFromResolvedPackets` applies exact duplicate
+  collapse after backend arrangement conversion. This removes duplicate
+  same-packet exact faces without changing opacity or visual stacking.
+- different visual packet keys still remain separate, including different
+  paint, opacity, blend, mask, clip, effect, stack, visibility, or stroke spec.
+- tests:
+  - `solid-center-stroke-packets.test.ts` verifies local-side approximation does
+    not collapse and exact duplicates do.
+  - `stroke-candidate-arrangement.test.ts` verifies exact arrangement duplicate
+    faces collapse without opacity stacking.
+
+## Next Active Track. Exact Backend And Product Promotion
+
+This track starts after the FinalFace migration steps. Completing the previous
+eight steps means the architecture can safely host an exact stroke engine; it
+does not mean every stroke topology is already exact. The following phases are
+the remaining path to product-grade Figma-like stroke behavior.
+
+### Status Taxonomy After CTO-Review Closure
+
+Exact-stroke work must be tracked as product workstreams plus shared
+infrastructure blockers. Do not report shared blockers as independent product
+features.
+
+Defined product workstreams:
+
+1. self-intersecting closed `inside/outside` dashed exact stroke - exact
+   promotion is currently gated off; side-aware local visibility is implemented
+   and protected
+2. high-curvature / offset self-overlap exact constrained stroke - backend-gated
+   exact promotion exists with real-backend partition and side-specific fixtures
+3. overlapping compound holes normalized-boundary dashed stroke - implemented
+   for the backend-normalized compound constrained dashed product path
+4. multi-network / duplicate-region ownership collapse - implemented for the
+   exact arranged constrained dashed product path
+
+Shared infrastructure blockers:
+
+1. holed / multi-contour arrangement face classification
+2. direct `FinalFace[]` projection for promoted exact families
+3. exact geometry cache / dirty graph hardening
+
+Implementation rule:
+
+- high-curvature exact promotion must be reported as an implemented
+  backend-gated product path after real-backend partition, promotion, and
+  side-specific signature fixtures are present
+- self-intersecting exact promotion must not be reported as implemented until
+  exact legal-domain clipping preserves valid internal dash regions after
+  backend load
+- any remaining work for those families is broader Figma/reference parity,
+  stress coverage, and performance hardening, not a missing promotion path
+- overlapping compound holes normalized-boundary dashed stroke and
+  multi-network / duplicate-region ownership collapse must not be listed as
+  unfinished product work unless a regression is found
+- the three shared infrastructure items exist only because the product
+  workstreams cannot be completed safely without them
+- if a later status report lists remaining work, it must preserve this grouping
+  and avoid presenting the shared blockers as separate product semantics
+
+### Phase 9. Connect Exact Geometry Backend
+
+Goal:
+
+- replace the unsupported backend with a production exact geometry backend
+  adapter for boolean, offset, and arrangement operations
+
+Required outputs:
+
+- selected backend adapter, initially Clipper2 WASM or an equivalent
+  deterministic polygon engine
+- deterministic coordinate scaling from model-space floats to integer backend
+  coordinates and back
+- backend version and capability metadata included in cache keys
+- `union`, `difference`, `intersection`, `offset`, and `buildArrangement`
+  backed by real operations
+- explicit unsupported errors remain when no backend is registered
+
+Gate:
+
+- legal-domain normalization handles overlapping holes through backend boolean
+  operations
+- arrangement bridge receives real partitioned faces
+- missing backend support cannot emit empty geometry, fallback center, or
+  pretend exact output
+
+Wrong-decision recovery:
+
+- if backend integration leaks into product helpers directly, move it behind
+  `GeometryBackend` before continuing
+- if coordinate scaling changes topology or creates unstable hashes, revert the
+  backend promotion and fix scaling before enabling product families
+
+Current implementation checkpoint:
+
+- implemented: `geometry-backend.ts` defines registration, lazy resolution,
+  unsupported backend behavior, mock-backend operation tests, backend
+  capability metadata, backend version metadata, deterministic coordinate
+  policy, shared coordinate mapper, and backend cache signatures.
+- implemented: `clipper2-geometry-backend.ts` wraps `clipper2-wasm@0.2.1`
+  behind `GeometryBackend` for `union`, `difference`, `intersection`, and
+  `offset`. Product helpers still do not import Clipper2 directly.
+- implemented: async preload/register helpers expose Clipper2 registration to
+  a future backend bootstrap entrypoint without making synchronous product
+  geometry helpers initialize WASM on demand.
+- implemented: `enableDefaultExactGeometryBackend` is exported from the root
+  preset entrypoint as a dynamic-import bootstrap. It does not statically import
+  the concrete Clipper2 backend.
+- implemented: the Asyra Design app starts the exact backend bootstrap in the
+  background after `applyPreset`. Before the async backend is ready, product
+  rendering remains on local-side constrained visibility; after selection,
+  accepted constrained dashed packets can promote through exact arrangement.
+- bundle guard: concrete Clipper2 helpers remain outside the root static export
+  surface. The default app may emit async backend assets, but synchronous product
+  geometry helpers must not initialize or await WASM during render.
+- implemented: Clipper2-backed `buildArrangement` partitions overlapping
+  candidate regions into disjoint faces and preserves multi-candidate owner
+  claims.
+- implemented: typed legal-domain face classification runs after backend
+  partitioning and before product inside/outside filtering.
+- implemented: holed and mixed multi-contour arrangement faces use
+  deterministic filled-region sampling and split mixed legal states before
+  inside/outside filtering.
+- current limitation: broader real-document Figma/reference parity remains a
+  hardening requirement for extreme multi-contour faces, not a blocker for the
+  implemented backend arrangement path.
+
+### Phase 10. Promote Constrained Dashed To Exact Arrangement
+
+Goal:
+
+- replace local-side approximation with exact arrangement output family by
+  family
+
+Promotion order:
+
+1. simple closed inside/outside dashed
+2. self-intersecting inside/outside dashed
+3. high-curvature sampled closed dashed
+4. multi-network overlap dashed
+5. compound holes dashed
+
+Required outputs:
+
+- chosen-side candidate geometry only
+- backend arrangement partitioning
+- legal-domain face classification
+- ownerSet collapse through exact `FinalFace[]`
+- render, hit-test, and export projections from exact final faces
+
+Gate:
+
+- promoted families report `resolutionStatus: "exact-constrained"`
+- promoted families do not depend on diagnostics to define visible output
+- inside/outside does not disappear and does not fallback to center
+
+Current implementation checkpoint:
+
+- `clipper2-geometry-backend.ts` now implements backend-driven candidate
+  partitioning. Overlapping candidates are split into disjoint arrangement
+  faces; overlap faces carry all contributing candidate claims.
+- `stroke-candidate-arrangement.ts` converts partitioned backend faces into
+  exact `FinalFace[]`, groups same visual packet claims, and preserves different
+  visual packet separation.
+- `arrangement-face-classifier.ts` now recomputes arrangement `legalState` from
+  typed legal-domain geometry and source `fillRule` before the bridge applies
+  authored `inside` / `outside` filtering. Backend permissive legal state is no
+  longer product authority when legal domains are supplied.
+- vector product runtime now has a gated exact promotion path for accepted
+  constrained dashed packets: when the selected `GeometryBackend` supports
+  `buildArrangement`, all accepted local candidate packets for the vector are
+  promoted through one backend arrangement pass, classified against the vector
+  legal domain, and projected back from exact `FinalFace[]`.
+- if no exact backend is selected, or if backend arrangement fails, product
+  runtime keeps authored-side local constrained dashed visibility. It must not
+  emit center fallback and must not disappear merely because exact arrangement
+  is unavailable.
+- implemented: real Clipper2-backed fixtures cover self-intersecting
+  arrangement partitioning, high-curvature overlapping candidate partitioning,
+  backend-gated product promotion, and side-specific inside/outside exact
+  signatures.
+- current limitation: broader visual/reference parity for extreme repeated
+  dash intervals remains a hardening task.
+
+Wrong-decision recovery:
+
+- if a promoted family shows unexplained visible faces, demote only that family
+  back to explicit `local-side-approximation` and fix the exact path before
+  retrying
+
+### Phase 11. Exact Compound And Multi-Network Ownership
+
+Goal:
+
+- make compound legal domains and multi-network overlap ownership exact and
+  product-visible
+
+Required outputs:
+
+- `union(shells) - union(holes)` legal-domain normalization in the product path
+- dash interval allocation on normalized boundaries for normalized compound
+  paths
+- normalized boundary spans mapped back to source owner metadata
+- multi-network same-visual collapse and different-visual separation
+- hit-test returns primary owner plus full ownerSet
+
+Gate:
+
+- overlapping holes do not draw stroke on hidden raw hole edges
+- multi-network overlap never resolves owner by `geometryId` or incidental
+  packet order
+- visual export, editable metadata, and hit-test agree on final geometry
+
+Current implementation checkpoint:
+
+- arrangement final faces preserve `ownerSet`, `intervalIds`, `sourceSpanIds`,
+  `sourceContourIds`, and `legalDomainIds`.
+- hit-test and export packets expose `primaryOwner`, `ownerSet`, interval ids,
+  source span ids, source contour ids, and legal-domain ids from the same
+  `FinalFace[]` source used by render.
+- multi-network overlap ownership can be represented without parsing
+  `geometryId`; UI selection policy can consume `primaryOwner` plus `ownerSet`.
+- constrained dashed multi-network exact promotion now runs across all accepted
+  network candidates in one arrangement pass. Same-visual overlap can collapse
+  into one product packet while preserving every network owner in `ownerSet`.
+- exact `FinalFace[]` compatibility packets carry typed `ownerSet`, interval,
+  source-span, source-contour, and legal-domain metadata in debug metadata so
+  downstream compatibility projections cannot collapse multi-owner faces back
+  to a single owner.
+- backend-normalized overlapping compound-hole dashed strokes now allocate
+  product dashes on normalized legal-domain boundary spans instead of raw
+  overlapping hole contours. The projected packets preserve source contour,
+  source span, legal-domain, and ownerSet metadata.
+
+Wrong-decision recovery:
+
+- if normalized-boundary dash placement diverges from visible legal-domain
+  output, stop promotion and repair legal-domain normalization first
+
+### Phase 12. Export, Hit-Test, And Runtime Promotion
+
+Goal:
+
+- make exact `FinalFace[]` the single product source for promoted families
+
+Required outputs:
+
+- render projection from exact `FinalFace[]`
+- hit-test projection from the same exact `FinalFace[]`
+- visual export projection from the same exact `FinalFace[]`
+- editable/internal export preserves owner metadata
+- legacy projection routes either removed or limited to explicit non-exact
+  fallback families
+
+Gate:
+
+- render, hit-test, and export coverage match on the same fixture set
+- promoted exact families have no second stroke geometry path
+- project scan confirms no old product route silently handles exact families
+
+Current implementation checkpoint:
+
+- solid center packet projections expose dedicated `FinalFace[]` conversion
+  helpers for render, hit-test, and export.
+- hit-test/export packet metadata now comes from the same `FinalFace[]` records
+  as render entries.
+- hit/export projection arrays are cached per `FinalFace[]` source to avoid
+  rebuilding packet metadata repeatedly in one render pass.
+- vector product runtime now builds one combined `strokeFinalFaces` source per
+  render pass. Non-exact packets are converted once into `FinalFace[]`; exact
+  arranged constrained dashed faces are appended directly without converting
+  back into resolved packets first.
+- vector render, hit-test, and export project from the combined
+  `strokeFinalFaces` source. Multi-owner exact faces therefore keep their full
+  `ownerSet` without relying on a packet round-trip.
+- current limitation: non-vector product paths and explicit no-backend
+  local-side approximation families may still use resolved packet compatibility
+  projection before reaching `FinalFace[]`.
+
+Wrong-decision recovery:
+
+- if parity breaks, restore the last exact `FinalFace[]` source and fix only the
+  faulty projection; do not restroke authored input in render/export layers
+
+### Phase 13. Performance Hardening
+
+Goal:
+
+- make the exact engine sustainable for animation and interactive editing
+
+Required outputs:
+
+- backend result cache
+- topology, source-span, interval, arrangement, and final-face cache layers
+- active-drag preview policy with settled-frame exact recompute
+- benchmark fixtures for 100 points, 10+ self-intersecting stars, compound
+  holes, and multi-network overlap
+- helper-level performance tests for heavy geometry stages
+
+Gate:
+
+- normal interaction target remains 120 fps
+- minimum floor remains 60 fps
+- no repeated flatten, topology, interval allocation, or arrangement work within
+  one frame for the same revision
+- CPU and memory stay bounded under benchmark workloads
+
+Current implementation checkpoint:
+
+- implemented: Clipper2 backend operations use bounded per-backend result caches
+  for `union`, `difference`, `intersection`, `offset`, and `buildArrangement`.
+  Cached outputs are cloned before return so caller mutation cannot poison later
+  geometry.
+- implemented: arrangement cache entries are reconstructed against the current
+  `CandidateRegion` objects by typed candidate id, so owner metadata remains
+  current and is not recovered from geometry ids.
+- implemented: solid-center `FinalFace[]` projection helpers cache hit-test and
+  export packet arrays per final-face source, avoiding repeated metadata packet
+  rebuilding in one render pass.
+- implemented: vector runtime combines non-exact packet-derived faces with
+  promoted exact arrangement faces into one `strokeFinalFaces` array, then uses
+  that array for render, hit-test, and export projections.
+- implemented: vector, rectangle, and oval runtime paths already reuse shared
+  path geometry and topology models per source revision; existing performance
+  contract tests guard that topology count tracks network count, not packet
+  family count.
+- validated: app production build places Clipper2 in async backend assets
+  (`clipper2-geometry-backend` chunk plus `clipper2z` WASM). The main render
+  path still does not synchronously import or await the backend.
+- implemented: browser Clipper2 loading now uses the bundler-resolved WASM URL
+  through `locateFile`, preventing dev/prod servers from returning HTML as a
+  failed `.wasm` response.
+- implemented: active geometry-backend selection now notifies preset render
+  subscriptions, and selection changes reload the render scene tree. Existing
+  vectors therefore recompute exact backend-gated stroke geometry after the
+  async backend finishes loading.
+- implemented: arrangement legal-domain classification now samples filled
+  regions for simple, concave, holed, and mixed multi-contour faces. If one
+  backend face contains polygons with different legal states, the classifier
+  splits them before inside/outside filtering.
+- implemented: closed self-intersecting constrained dashed packets remain
+  product-visible as authored-side local geometry. Exact promotion is disabled
+  for this topology because the current legal-domain clipping pass can remove
+  valid internal dash regions after backend load; packets therefore keep
+  `resolutionStatus: "local-side-approximation"` even with a selected backend.
+- implemented: sampled-simple / high-curvature constrained dashed packets now
+  have the same backend-gated exact promotion path. With a selected arrangement
+  backend they return `resolutionStatus: "exact-constrained"`; without a
+  backend they remain visible as explicit `local-side-approximation` packets.
+- implemented: backend-normalized compound-hole boundary dash projection is
+  product-visible after async bootstrap.
+- implemented: high-curvature exact promotions have real-backend fixtures
+  proving partitioned candidate faces, product promotion, and side-specific
+  inside/outside signatures. Self-intersection fixtures currently guard stable
+  local-side visibility and side-specific geometry until exact clipping is
+  corrected.
+- current limitation: performance/stress coverage must continue to grow for
+  large documents, animation, and extreme repeated-interval reference parity.
+
+Wrong-decision recovery:
+
+- if exact backend work misses the frame budget, keep exact output for settled
+  frames and repair dirty graph/cache boundaries before enabling animated
+  exact recompute
+
 ## Phase 0. Documentation Reset
 
 ### Goal
@@ -272,6 +963,9 @@ This phase is closed for the supported constrained dashed slices:
   semantic-region collapse are implemented
 - open dashed paths use center-equivalent geometry for authored `inside` /
   `outside` positions and do not emit constrained dashed runtime diagnostics
+- open dashed paths with zero and non-zero `dashOffset` both emit true
+  arc-length pattern intervals; Figma-like endpoint half-dash balancing is a
+  deliberate product divergence
 - full-loop and interval-local packets carry typed owner, network, stroke,
   contour, legal-domain, source-topology, topology-family, and
   interval-topology metadata
@@ -400,6 +1094,9 @@ This phase is closed for product open-path position semantics:
   `resolutionStatus: "native-center"`, `runtimeStatus: "not-applicable"`, and
   `sourceTopology: "open"` even when authored position is `inside` or
   `outside`
+- dashed open vectors carry `dashPlacementMode: "arc-length-pattern"` metadata
+  so tests and diagnostics can prove the runtime does not enter endpoint
+  balancing paths
 - switching an open vector from center to inside/outside preserves the packet
   family and hit geometry; constrained runtime diagnostics remain absent
 
@@ -450,8 +1147,9 @@ multi-network semantics.
 This phase is closed as a gating phase, not as broad exact support:
 
 - self-intersecting constrained solid and dashed paths may emit local-side
-  visibility packets; exact face ownership remains research-gated until an
-  explicit face policy exists
+  visibility packets when no exact backend is selected; accepted constrained
+  dashed packets promote to exact arrangement metadata when an exact backend is
+  selected
 - disjoint multi-network constrained dashed vectors remain supported through
   typed per-network owner diagnostics
 - overlapping or boundary-touching multi-network source bounds are treated as

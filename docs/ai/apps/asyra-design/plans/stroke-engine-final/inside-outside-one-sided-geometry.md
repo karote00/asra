@@ -153,11 +153,57 @@ For dashed strokes:
   topology model
 - slice only the visible interval input
 - build one-sided segment/join/cap faces only for the visible interval
+- the visible interval source edge must be the authored sliced segment
+  geometry. Tangent frames are allowed only as derived local frames for normals
+  and caps; they are never allowed to replace the dash body, invent a straight
+  chord, or provide a seam-clipping boundary.
+- legality handling must preserve that authored sliced source edge for
+  source-path packets. If a clip pass would replace the dash body with
+  intersection-only points, the packet is invalid; use selected-side source
+  segment guards instead of broad closed-boundary clipping for that packet.
+- if a completed dash polygon crosses another authored segment because of
+  `inside` or `outside` ownership, clip the polygon by intersecting it with the
+  authored segment polyline. For Bezier segments, the sampled curve polyline is
+  the clipping boundary. Nearest-boundary-segment side evaluation is required;
+  a far-away sample on the same curve must not decide legality for the current
+  point.
+- if the selected-side ribbon for one high-curvature sampled interval would
+  self-intersect, subdivide that visible interval along the same authored
+  source polyline until each emitted sub-ribbon is a simple polygon. This keeps
+  every dash face on the real segment path while preventing invalid notch /
+  overlap geometry. The subdivision is allowed only as a bounded robustness
+  step and must not change dash scheduling, authored side, paint, or owner
+  metadata.
+- sub-ribbon / cell generation must use a shared sampled offset boundary across
+  adjacent samples. The normal at the cell boundary is therefore inherited from
+  the shared offset-boundary construction, not recomputed independently by each
+  cell. This is the local approximation of standard stroke tessellation join
+  behavior and prevents visible overlap stripes on curved dashes.
+- if a shared-boundary cell becomes non-simple, that cell may degrade to a
+  segment-local offset face. This is a validity fallback within the same
+  selected-side geometry family, not a fallback to center stroke, not a paint
+  workaround, and not a separate opacity layer.
+- if the visible interval spans authored segment boundaries, split it at those
+  boundaries first. Each line or Bezier segment slice builds its own
+  selected-side face from that segment's sampled geometry; downstream join,
+  guard clipping, and arrangement/legality stages may then combine or clip the
+  faces. A cross-segment high-curvature dash must not be offset as one global
+  open ribbon.
+- each segment-local slice must be clipped by adjacent authored segment
+  boundaries when it starts or ends at the boundary. For Bezier neighbors, use
+  the sampled Bezier boundary polyline, not endpoint tangents.
 
 Forbidden:
 
 - first build a doubled-width center dashed packet
 - then clip it to simulate `inside` or `outside`
+- draw an interval body along an endpoint tangent instead of the actual source
+  segment slice
+- recompute a completely independent normal strip for every small curve cell
+  when a shared offset boundary can keep adjacent cells connected
+- emit a self-intersecting dash ribbon as product render geometry
+- offset a cross-segment dash as a single sampled open path when authored
+  segment boundaries are available
 
 Canonical dash-length rule:
 

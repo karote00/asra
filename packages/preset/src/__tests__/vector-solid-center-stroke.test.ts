@@ -17,6 +17,7 @@ import {
 } from '@asyra/utils'
 import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
+import type { SolidCenterStrokeExportPacket } from '../components/stroke-render/solid-center-stroke-packets'
 
 beforeAll(() => {
   core.defineSystemProperty<string | null>('pathEditingVectorId', null)
@@ -77,9 +78,7 @@ beforeAll(() => {
 })
 
 class RecordingVectorGraphic extends Container {
-  __asyraSolidCenterStrokeExportPackets?: {
-    bounds: { minX: number; minY: number; maxX: number; maxY: number }
-  }[]
+  __asyraSolidCenterStrokeExportPackets?: SolidCenterStrokeExportPacket[]
   hitArea?: { contains: (x: number, y: number) => boolean } | null
 
   clear() {
@@ -206,7 +205,7 @@ describe('vector solid-center stroke product wiring', () => {
     { label: 'inside', position: StrokePositions.INSIDE },
     { label: 'outside', position: StrokePositions.OUTSIDE }
   ].forEach(({ label, position }) => {
-    it(`should run: render open-vector solid ${label} placement as one-sided constrained geometry on the main render path`, () => {
+    it(`should run: render open-vector solid ${label} placement as center-equivalent geometry on the main render path`, () => {
       const graphic = runVectorRenderStrategy({
         id: `vector-solid-open-${label}`,
         x: 0,
@@ -235,28 +234,22 @@ describe('vector solid-center stroke product wiring', () => {
 
       expect(getProjectionMeshes(graphic)).toHaveLength(1)
       expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
-      expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual(
-        position === StrokePositions.INSIDE
-          ? {
-              minX: 0,
-              minY: 10,
-              maxX: 40,
-              maxY: 16
-            }
-          : {
-              minX: 0,
-              minY: 4,
-              maxX: 40,
-              maxY: 10
-            }
-      )
-      if (position === StrokePositions.INSIDE) {
-        expect(graphic.hitArea?.contains(20, 11)).toBe(true)
-        expect(graphic.hitArea?.contains(20, 7)).toBe(false)
-      } else {
-        expect(graphic.hitArea?.contains(20, 9)).toBe(true)
-        expect(graphic.hitArea?.contains(20, 13)).toBe(false)
-      }
+      expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual({
+        minX: 0,
+        minY: 7,
+        maxX: 40,
+        maxY: 13
+      })
+      expect(
+        graphic.__asyraSolidCenterStrokeExportPackets?.[0].debugMeta
+      ).toMatchObject({
+        geometryFamily: 'solid-center',
+        resolutionStatus: 'native-center',
+        sourceTopology: 'open'
+      })
+      expect(graphic.hitArea?.contains(20, 10)).toBe(true)
+      expect(graphic.hitArea?.contains(20, 6.9)).toBe(false)
+      expect(graphic.hitArea?.contains(20, 13.1)).toBe(false)
     })
   })
 

@@ -424,12 +424,12 @@ describe('primitive shape constrained dashed stroke wiring', () => {
     ).toBe(0)
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxX
-    ).toBe(40)
+    ).toBe(43)
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxY
     ).toBe(6)
     expect(graphic.hitArea?.contains(20, 3)).toBe(true)
-    expect(graphic.hitArea?.contains(42, 3)).toBe(false)
+    expect(graphic.hitArea?.contains(42, 3)).toBe(true)
     expect(graphic.hitArea?.contains(40, 20)).toBe(false)
   })
 
@@ -466,7 +466,7 @@ describe('primitive shape constrained dashed stroke wiring', () => {
     ).toBe(-6)
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxX
-    ).toBeCloseTo(40, 6)
+    ).toBeCloseTo(43, 6)
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxY
     ).toBe(0)

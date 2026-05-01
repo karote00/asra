@@ -9,6 +9,7 @@ import {
   buildSolidCenterStrokeHitTestPackets,
   createSolidCenterStrokeHitArea
 } from '../components/stroke-render/solid-center-stroke-packets'
+import { buildStrokeFinalFacesFromResolvedPackets } from '../components/stroke-render/stroke-final-face'
 
 describe('constrained solid stroke packets', () => {
   it('should detect constrained solid intent only for positive-width inside/outside solid strokes', () => {
@@ -73,6 +74,50 @@ describe('constrained solid stroke packets', () => {
     expect(exportPacket.polygons).toBe(resolved.geometry.polygons)
     expect(hit.bounds).toEqual(resolved.geometry.bounds)
     expect(exportPacket.bounds).toEqual(resolved.geometry.bounds)
+  })
+
+  it('should run: materialize constrained solid packets as final faces with legal-domain metadata', () => {
+    const packets = buildConstrainedSolidStrokeResolvedPackets(
+      'vector:test:network-a:constrained-solid',
+      [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 20 },
+        { x: 0, y: 20 }
+      ],
+      true,
+      [createDefaultStroke({ width: 4, style: 'solid', position: 'inside' })],
+      {
+        metadata: {
+          ownerKeyPrefix: 'vector:test:network-a',
+          networkId: 'network-a',
+          contourId: 'contour-a',
+          legalDomainId: 'legal-domain-a'
+        }
+      }
+    )
+
+    const [face] = buildStrokeFinalFacesFromResolvedPackets(packets)
+
+    expect(face).toMatchObject({
+      faceId: packets[0]?.geometry.geometryId,
+      geometryFamily: 'constrained-solid',
+      resolutionStatus: 'exact-constrained',
+      runtimeStatus: 'accepted',
+      sourceTopology: 'rectangle-equivalent',
+      sourceContourIds: ['contour-a'],
+      legalDomainIds: ['legal-domain-a']
+    })
+    expect(face?.ownerSet).toEqual([
+      {
+        ownerKey: 'vector:test:network-a:stroke:0',
+        sourcePathId: 'vector:test:network-a:constrained-solid',
+        networkId: 'network-a',
+        strokeId: 'stroke:0',
+        strokeIndex: 0,
+        contourId: 'contour-a'
+      }
+    ])
   })
 
   it('should run: derive open constrained solid packets from one-sided geometry', () => {

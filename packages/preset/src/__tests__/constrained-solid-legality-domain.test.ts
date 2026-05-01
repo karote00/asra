@@ -29,7 +29,7 @@ describe('constrained solid legality domain', () => {
 
     expect(domain).toEqual({
       mode: 'inside',
-      fillRule: 'nonzero',
+      fillRule: 'evenodd',
       canonicalPolygonForm: 'simple-closed-polygon',
       boundaryPolygon: [
         { x: 0, y: 0 },
@@ -46,6 +46,25 @@ describe('constrained solid legality domain', () => {
     expect(
       isPointInConstrainedSolidLegalityDomain(resolvedDomain, { x: -2, y: 10 })
     ).toBe(false)
+  })
+
+  it('should run: preserve explicit source fill rule in legality metadata', () => {
+    const domain = buildConstrainedSolidLegalityDomain(
+      [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 20 },
+        { x: 0, y: 20 }
+      ],
+      true,
+      'inside',
+      'nonzero'
+    )
+
+    expect(domain).toMatchObject({
+      mode: 'inside',
+      fillRule: 'nonzero'
+    })
   })
 
   it('should run: shape-generated and vector-generated equivalent paths yield identical domains', () => {

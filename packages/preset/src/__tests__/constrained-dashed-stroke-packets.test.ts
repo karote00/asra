@@ -5,6 +5,7 @@ import {
   buildSolidCenterStrokeHitTestPackets,
   createSolidCenterStrokeHitArea
 } from '../components/stroke-render/solid-center-stroke-packets'
+import { buildStrokeFinalFacesFromResolvedPackets } from '../components/stroke-render/stroke-final-face'
 import { buildConstrainedDashedStrokeResolvedPackets } from '../components/stroke-render/constrained-dashed-stroke-packets'
 import {
   classifyConstrainedDashedInterval,
@@ -15,6 +16,12 @@ import {
 } from '../components/stroke-render/constrained-dashed-stroke-packets'
 import { getRenderableStrokes } from '../components/stroke-render/renderable-stroke'
 import { buildEllipseLoop } from '../components/stroke-render/ellipse-path'
+import {
+  buildVectorGeometryModelPath,
+  slicePathGeometryPoints
+} from '../components/stroke-render/path-geometry'
+import { isSimpleClosedPolygon } from '../components/stroke-render/solid-stroke-geometry-core'
+import { buildPathTopologyModel } from '../components/stroke-render/path-topology-model'
 import {
   FillKinds,
   createDefaultGradientData,
@@ -29,6 +36,603 @@ const getOnlyRenderableStroke = (
     throw new Error('Expected one renderable stroke')
   }
   return stroke
+}
+
+const cubicPoint = (
+  t: number,
+  p0: { x: number; y: number },
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+  p3: { x: number; y: number }
+) => {
+  const mt = 1 - t
+  const mt2 = mt * mt
+  const t2 = t * t
+
+  return {
+    x:
+      mt2 * mt * p0.x +
+      3 * mt2 * t * p1.x +
+      3 * mt * t2 * p2.x +
+      t2 * t * p3.x,
+    y:
+      mt2 * mt * p0.y +
+      3 * mt2 * t * p1.y +
+      3 * mt * t2 * p2.y +
+      t2 * t * p3.y
+  }
+}
+
+const sampleCubic = (
+  p0: { x: number; y: number },
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+  p3: { x: number; y: number },
+  steps: number,
+  includeStart = true
+) => {
+  const points: { x: number; y: number }[] = []
+  for (let index = includeStart ? 0 : 1; index <= steps; index += 1) {
+    points.push(cubicPoint(index / steps, p0, p1, p2, p3))
+  }
+  return points
+}
+
+const getPointBounds = (points: { x: number; y: number }[]) => ({
+  minX: Math.min(...points.map((point) => point.x)),
+  minY: Math.min(...points.map((point) => point.y)),
+  maxX: Math.max(...points.map((point) => point.x)),
+  maxY: Math.max(...points.map((point) => point.y))
+})
+
+const pointDistance = (
+  from: { x: number; y: number },
+  to: { x: number; y: number }
+) => Math.hypot(to.x - from.x, to.y - from.y)
+
+const countSharedVertices = (
+  first: { x: number; y: number }[],
+  second: { x: number; y: number }[]
+) =>
+  first.filter((firstPoint) =>
+    second.some((secondPoint) => pointDistance(firstPoint, secondPoint) <= 1e-4)
+  ).length
+
+const pointSegmentDistance = (
+  point: { x: number; y: number },
+  start: { x: number; y: number },
+  end: { x: number; y: number }
+) => {
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  const lengthSquared = dx * dx + dy * dy
+  if (lengthSquared <= 1e-12) {
+    return pointDistance(point, start)
+  }
+
+  const t = Math.max(
+    0,
+    Math.min(
+      1,
+      ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared
+    )
+  )
+  return pointDistance(point, {
+    x: start.x + dx * t,
+    y: start.y + dy * t
+  })
+}
+
+const pointPolylineDistance = (
+  point: { x: number; y: number },
+  polyline: { x: number; y: number }[]
+) => {
+  if (polyline.length === 0) {
+    return Number.POSITIVE_INFINITY
+  }
+  if (polyline.length === 1) {
+    return pointDistance(point, polyline[0])
+  }
+
+  let minDistance = Number.POSITIVE_INFINITY
+  for (let index = 0; index < polyline.length - 1; index += 1) {
+    minDistance = Math.min(
+      minDistance,
+      pointSegmentDistance(point, polyline[index], polyline[index + 1])
+    )
+  }
+  return minDistance
+}
+
+const pointClosedPolylineDistance = (
+  point: { x: number; y: number },
+  polyline: { x: number; y: number }[]
+) => {
+  if (polyline.length < 2) {
+    return pointPolylineDistance(point, polyline)
+  }
+
+  return Math.min(
+    pointPolylineDistance(point, polyline),
+    pointSegmentDistance(point, polyline[polyline.length - 1], polyline[0])
+  )
+}
+
+const samplePolygonEdges = (
+  polygon: { x: number; y: number }[],
+  maxStep = 1
+) => {
+  const samples: { x: number; y: number }[] = []
+  if (polygon.length < 2) {
+    return samples
+  }
+
+  for (let index = 0; index < polygon.length; index += 1) {
+    const start = polygon[index]
+    const end = polygon[(index + 1) % polygon.length]
+    const length = pointDistance(start, end)
+    const steps = Math.max(1, Math.ceil(length / maxStep))
+    for (let step = 1; step < steps; step += 1) {
+      const t = step / steps
+      samples.push({
+        x: start.x + (end.x - start.x) * t,
+        y: start.y + (end.y - start.y) * t
+      })
+    }
+  }
+
+  return samples
+}
+
+const findSelectedSidePolylineViolations = (
+  polygon: { x: number; y: number }[],
+  boundary: { x: number; y: number }[],
+  selectedSide: 1 | -1,
+  crossTolerance = 0.1
+) =>
+  polygon.flatMap((point) =>
+    boundary.slice(0, -1).flatMap((start, index) => {
+      const end = boundary[index + 1]
+      const cross =
+        (end.x - start.x) * (point.y - start.y) -
+        (end.y - start.y) * (point.x - start.x)
+      const violates =
+        selectedSide > 0
+          ? cross < -crossTolerance
+          : cross > crossTolerance
+      return violates ? [{ point, segmentIndex: index, cross }] : []
+    })
+  )
+
+const findSelectedSideNearestPolylineViolations = (
+  polygon: { x: number; y: number }[],
+  boundary: { x: number; y: number }[],
+  selectedSide: 1 | -1,
+  crossTolerance = 0.1
+) =>
+  polygon.flatMap((point) => {
+    let nearestSegmentIndex = -1
+    let nearestDistance = Number.POSITIVE_INFINITY
+    let nearestCross = 0
+
+    boundary.slice(0, -1).forEach((start, index) => {
+      const end = boundary[index + 1]
+      const distance = pointSegmentDistance(point, start, end)
+      if (distance < nearestDistance) {
+        nearestDistance = distance
+        nearestSegmentIndex = index
+        nearestCross =
+          (end.x - start.x) * (point.y - start.y) -
+          (end.y - start.y) * (point.x - start.x)
+      }
+    })
+
+    const violates =
+      selectedSide > 0
+        ? nearestCross < -crossTolerance
+        : nearestCross > crossTolerance
+    return violates
+      ? [{ point, segmentIndex: nearestSegmentIndex, cross: nearestCross }]
+      : []
+  })
+
+const isPointInsideEvenOdd = (
+  point: { x: number; y: number },
+  polygon: { x: number; y: number }[]
+) => {
+  let inside = false
+  for (
+    let index = 0, previousIndex = polygon.length - 1;
+    index < polygon.length;
+    previousIndex = index, index += 1
+  ) {
+    const current = polygon[index]
+    const previous = polygon[previousIndex]
+    const crosses =
+      current.y > point.y !== previous.y > point.y &&
+      point.x <
+        ((previous.x - current.x) * (point.y - current.y)) /
+          (previous.y - current.y) +
+          current.x
+    if (crosses) {
+      inside = !inside
+    }
+  }
+
+  return inside
+}
+
+const signedPolygonArea = (points: { x: number; y: number }[]) => {
+  let area = 0
+  points.forEach((point, index) => {
+    const next = points[(index + 1) % points.length]
+    area += point.x * next.y - next.x * point.y
+  })
+  return area / 2
+}
+
+const getClosedSegmentDistanceRanges = (points: { x: number; y: number }[]) => {
+  let cursor = 0
+  return points.map((point, index) => {
+    const next = points[(index + 1) % points.length]
+    const length = pointDistance(point, next)
+    const range = {
+      index,
+      startDistance: cursor,
+      endDistance: cursor + length
+    }
+    cursor += length
+    return range
+  })
+}
+
+const getPathSegmentDistanceRanges = (
+  segments: { length: number }[]
+) => {
+  let cursor = 0
+  return segments.map((segment, index) => {
+    const range = {
+      index,
+      startDistance: cursor,
+      endDistance: cursor + segment.length
+    }
+    cursor = range.endDistance
+    return range
+  })
+}
+
+const intervalContainsDistance = (
+  distance: number,
+  startDistance: number,
+  endDistance: number,
+  wrapsSeam: boolean,
+  totalLength: number
+) =>
+  isDistanceInsideInterval(
+    distance,
+    startDistance,
+    endDistance,
+    wrapsSeam,
+    totalLength
+  )
+
+const packetCrossesSourceSegmentBoundary = (
+  packet: ReturnType<typeof buildConstrainedDashedStrokeResolvedPackets>[number],
+  segmentRanges: ReturnType<typeof getPathSegmentDistanceRanges>,
+  totalLength: number
+) => {
+  const startDistance = packet.geometry.debugMeta?.startDistance
+  const endDistance = packet.geometry.debugMeta?.endDistance
+  if (startDistance === undefined || endDistance === undefined) {
+    return false
+  }
+
+  return segmentRanges.some(
+    (range) =>
+      range.endDistance > 0 &&
+      range.endDistance < totalLength &&
+      intervalContainsDistance(
+        range.endDistance,
+        startDistance,
+        endDistance,
+        packet.geometry.debugMeta?.wrapsSeam === true,
+        totalLength
+      ) &&
+      Math.abs(range.endDistance - startDistance) > 1e-4 &&
+      Math.abs(range.endDistance - endDistance) > 1e-4
+  )
+}
+
+const normalizeClosedTestPoints = <T extends { x: number; y: number }>(
+  points: T[]
+) => {
+  if (
+    points.length > 1 &&
+    pointDistance(points[0], points[points.length - 1]) <= 1e-6
+  ) {
+    return points.slice(0, -1)
+  }
+
+  return points
+}
+
+const normalizeVector = (point: { x: number; y: number }) => {
+  const length = Math.hypot(point.x, point.y)
+  if (length <= 1e-6) {
+    return null
+  }
+
+  return {
+    x: point.x / length,
+    y: point.y / length
+  }
+}
+
+const isSharpGuardVertex = (
+  points: { x: number; y: number; sharp?: boolean }[],
+  index: number
+) => {
+  if (points[index].sharp === false) {
+    return false
+  }
+
+  const previous = points[(index - 1 + points.length) % points.length]
+  const point = points[index]
+  const next = points[(index + 1) % points.length]
+  const incoming = normalizeVector({
+    x: point.x - previous.x,
+    y: point.y - previous.y
+  })
+  const outgoing = normalizeVector({
+    x: next.x - point.x,
+    y: next.y - point.y
+  })
+  if (!incoming || !outgoing) {
+    return false
+  }
+
+  const dot = Math.max(
+    -1,
+    Math.min(1, incoming.x * outgoing.x + incoming.y * outgoing.y)
+  )
+  return Math.acos(dot) >= Math.PI / 4
+}
+
+const isDistanceInsideInterval = (
+  distance: number,
+  startDistance: number,
+  endDistance: number,
+  wrapsSeam: boolean,
+  totalLength: number
+) => {
+  const normalizeDistance = (value: number) =>
+    totalLength > 0 ? ((value % totalLength) + totalLength) % totalLength : 0
+  const cursor = normalizeDistance(distance)
+  const start = normalizeDistance(startDistance)
+  const end = normalizeDistance(endDistance)
+
+  if (wrapsSeam) {
+    return cursor >= start - 1e-6 || cursor <= end + 1e-6
+  }
+
+  return cursor >= start - 1e-6 && cursor <= end + 1e-6
+}
+
+const findNearestTopologyDistance = (
+  point: { x: number; y: number },
+  topologyPoints: { x: number; y: number }[],
+  topologyRanges: ReturnType<typeof getClosedSegmentDistanceRanges>
+) => {
+  let nearestIndex = 0
+  let nearestDistance = Number.POSITIVE_INFINITY
+  topologyPoints.forEach((candidate, index) => {
+    const distance = pointDistance(point, candidate)
+    if (distance < nearestDistance) {
+      nearestDistance = distance
+      nearestIndex = index
+    }
+  })
+  return topologyRanges[nearestIndex]?.startDistance ?? 0
+}
+
+const getGuardEdgesForInterval = (
+  topologyPoints: { x: number; y: number }[],
+  guardSourcePoints: { x: number; y: number; sharp?: boolean }[],
+  startDistance: number,
+  endDistance: number,
+  wrapsSeam: boolean
+) => {
+  const guardPoints = normalizeClosedTestPoints(guardSourcePoints)
+  const topologyRanges = getClosedSegmentDistanceRanges(
+    normalizeClosedTestPoints(topologyPoints)
+  )
+  const totalLength = topologyRanges[topologyRanges.length - 1]?.endDistance ?? 0
+  const edges: { start: { x: number; y: number }; end: { x: number; y: number } }[] = []
+  const addEdge = (
+    start: { x: number; y: number },
+    end: { x: number; y: number }
+  ) => {
+    if (
+      !edges.some(
+        (edge) =>
+          pointDistance(edge.start, start) <= 1e-6 &&
+          pointDistance(edge.end, end) <= 1e-6
+      )
+    ) {
+      edges.push({ start, end })
+    }
+  }
+
+  guardPoints.forEach((point, index) => {
+    const distance = findNearestTopologyDistance(
+      point,
+      topologyPoints,
+      topologyRanges
+    )
+    if (
+      isSharpGuardVertex(guardPoints, index) &&
+      isDistanceInsideInterval(
+        distance,
+        startDistance,
+        endDistance,
+        wrapsSeam,
+        totalLength
+      )
+    ) {
+      const previous = guardPoints[(index - 1 + guardPoints.length) % guardPoints.length]
+      const next = guardPoints[(index + 1) % guardPoints.length]
+      addEdge(previous, point)
+      addEdge(point, next)
+    }
+  })
+
+  return edges
+}
+
+const getAllSharpGuardEdges = (
+  guardSourcePoints: { x: number; y: number; sharp?: boolean }[]
+) => {
+  const guardPoints = normalizeClosedTestPoints(guardSourcePoints)
+  const edges: { start: { x: number; y: number }; end: { x: number; y: number } }[] = []
+  const addEdge = (
+    start: { x: number; y: number },
+    end: { x: number; y: number }
+  ) => {
+    if (
+      !edges.some(
+        (edge) =>
+          pointDistance(edge.start, start) <= 1e-6 &&
+          pointDistance(edge.end, end) <= 1e-6
+      )
+    ) {
+      edges.push({ start, end })
+    }
+  }
+
+  guardPoints.forEach((point, index) => {
+    if (!isSharpGuardVertex(guardPoints, index)) {
+      return
+    }
+
+    addEdge(guardPoints[(index - 1 + guardPoints.length) % guardPoints.length], point)
+    addEdge(point, guardPoints[(index + 1) % guardPoints.length])
+  })
+
+  return edges
+}
+
+const polygonBoundsOverlapSegment = (
+  polygon: { x: number; y: number }[],
+  start: { x: number; y: number },
+  end: { x: number; y: number }
+) => {
+  const bounds = getPointBounds(polygon)
+  return (
+    Math.min(start.x, end.x) <= bounds.maxX + 1e-6 &&
+    Math.max(start.x, end.x) + 1e-6 >= bounds.minX &&
+    Math.min(start.y, end.y) <= bounds.maxY + 1e-6 &&
+    Math.max(start.y, end.y) + 1e-6 >= bounds.minY
+  )
+}
+
+const findSelectedSideViolations = (
+  points: { x: number; y: number }[],
+  packets: ReturnType<typeof buildConstrainedDashedStrokeResolvedPackets>,
+  authoredPosition: 'inside' | 'outside',
+  guardPoints: { x: number; y: number; sharp?: boolean }[] = points
+) => {
+  const normalizedGuardPoints = normalizeClosedTestPoints(guardPoints)
+  const area = signedPolygonArea(normalizedGuardPoints)
+  const effectivePosition =
+    area >= 0
+      ? authoredPosition
+      : authoredPosition === 'inside'
+        ? 'outside'
+        : 'inside'
+  const selectedSide = effectivePosition === 'inside' ? 1 : -1
+
+  return packets.flatMap((packet) => {
+    const startDistance = packet.geometry.debugMeta?.startDistance
+    const endDistance = packet.geometry.debugMeta?.endDistance
+    if (
+      typeof startDistance !== 'number' ||
+      typeof endDistance !== 'number'
+    ) {
+      return []
+    }
+
+    const guardEdges = getGuardEdgesForInterval(
+      points,
+      normalizedGuardPoints,
+      startDistance,
+      endDistance,
+      packet.geometry.debugMeta?.wrapsSeam === true
+    )
+
+    return packet.geometry.polygons.flatMap((polygon) =>
+      [...polygon, ...samplePolygonEdges(polygon)].flatMap((candidatePoint) =>
+        guardEdges.flatMap((edge, segmentIndex) => {
+          const { start, end } = edge
+          const cross =
+            (end.x - start.x) * (candidatePoint.y - start.y) -
+            (end.y - start.y) * (candidatePoint.x - start.x)
+          const violates =
+            selectedSide > 0 ? cross < -1e-4 : cross > 1e-4
+          return violates
+            ? [
+                {
+                  geometryId: packet.geometry.geometryId,
+                  segmentIndex,
+                  cross
+                }
+              ]
+            : []
+        })
+      )
+    )
+  })
+}
+
+const findSelectedSideCrossingViolations = (
+  packets: ReturnType<typeof buildConstrainedDashedStrokeResolvedPackets>,
+  authoredPosition: 'inside' | 'outside',
+  guardPoints: { x: number; y: number; sharp?: boolean }[]
+) => {
+  const normalizedGuardPoints = normalizeClosedTestPoints(guardPoints)
+  const area = signedPolygonArea(normalizedGuardPoints)
+  const effectivePosition =
+    area >= 0
+      ? authoredPosition
+      : authoredPosition === 'inside'
+        ? 'outside'
+        : 'inside'
+  const selectedSide = effectivePosition === 'inside' ? 1 : -1
+  const guardEdges = getAllSharpGuardEdges(normalizedGuardPoints)
+
+  return packets.flatMap((packet) =>
+    packet.geometry.polygons.flatMap((polygon) =>
+      guardEdges.flatMap((edge, edgeIndex) => {
+        if (!polygonBoundsOverlapSegment(polygon, edge.start, edge.end)) {
+          return []
+        }
+
+        let hasInside = false
+        let hasOutside = false
+        for (const point of polygon) {
+          const cross =
+            (edge.end.x - edge.start.x) * (point.y - edge.start.y) -
+            (edge.end.y - edge.start.y) * (point.x - edge.start.x)
+          const inside = selectedSide > 0 ? cross >= -1e-4 : cross <= 1e-4
+          hasInside ||= inside
+          hasOutside ||= !inside
+        }
+
+        return hasInside && hasOutside
+          ? [{ geometryId: packet.geometry.geometryId, edgeIndex }]
+          : []
+      })
+    )
+  )
 }
 
 describe('constrained dashed stroke packets', () => {
@@ -167,6 +771,738 @@ describe('constrained dashed stroke packets', () => {
           packet.geometry.debugMeta?.sourceTopology === 'self-intersecting'
       )
     ).toBe(true)
+  })
+
+  it('should run: keep self-intersecting inside and outside dashed packets side-aware instead of center-derived', () => {
+    const points = [
+      { x: 192.42083700791653, y: 0 },
+      { x: 11.358174406717296, y: 364.1297089212308 },
+      { x: 360.120941483566, y: 144.31562775593738 },
+      { x: 0, y: 14.030686031827244 },
+      { x: 270.59180204238254, y: 345.42212754546125 }
+    ]
+    const baseStroke = {
+      width: 10,
+      style: 'dashed' as const,
+      joinType: 'miter' as const,
+      capType: 'butt' as const,
+      dashPattern: [27, 20],
+      dashOffset: 0
+    }
+    const insidePackets = buildConstrainedDashedStrokeResolvedPackets(
+      'vector:self-intersecting-reference-inside',
+      points,
+      true,
+      [
+        createDefaultStroke({
+          ...baseStroke,
+          position: 'inside'
+        })
+      ]
+    )
+    const outsidePackets = buildConstrainedDashedStrokeResolvedPackets(
+      'vector:self-intersecting-reference-outside',
+      points,
+      true,
+      [
+        createDefaultStroke({
+          ...baseStroke,
+          position: 'outside'
+        })
+      ]
+    )
+
+    expect(insidePackets.length).toBeGreaterThan(0)
+    expect(outsidePackets.length).toBeGreaterThan(0)
+    expect(
+      [...insidePackets, ...outsidePackets].every(
+        (packet) =>
+          packet.geometry.debugMeta?.geometryFamily ===
+            'constrained-dashed' &&
+          packet.geometry.debugMeta?.resolutionStatus ===
+            'local-side-approximation' &&
+          packet.geometry.debugMeta?.sourceTopology === 'self-intersecting'
+      )
+    ).toBe(true)
+
+    const signature = (
+      packets: ReturnType<typeof buildConstrainedDashedStrokeResolvedPackets>
+    ) =>
+      packets
+        .map((packet) =>
+          [
+            packet.geometry.bounds.minX.toFixed(3),
+            packet.geometry.bounds.minY.toFixed(3),
+            packet.geometry.bounds.maxX.toFixed(3),
+            packet.geometry.bounds.maxY.toFixed(3)
+          ].join(',')
+        )
+        .join('|')
+
+    expect(signature(insidePackets)).not.toBe(signature(outsidePackets))
+  })
+
+  it('should run: emit bounded cell polygons for high-curvature dash intervals instead of fan ribbons', () => {
+    const packets = buildConstrainedDashedStrokeResolvedPackets(
+      'vector:high-curvature-inside-dashed',
+      buildEllipseLoop(72, 48),
+      true,
+      [
+        createDefaultStroke({
+          width: 10,
+          style: 'dashed',
+          position: 'inside',
+          joinType: 'miter',
+          capType: 'butt',
+          dashPattern: [27, 20],
+          dashOffset: 0
+        })
+      ]
+    )
+
+    expect(packets.length).toBeGreaterThan(1)
+    expect(
+      packets.every(
+        (packet) =>
+          packet.geometry.debugMeta?.geometryFamily ===
+            'constrained-dashed' &&
+          packet.geometry.debugMeta?.sourceTopology ===
+            'sampled-simple-closed' &&
+          packet.geometry.polygons.length >= 1 &&
+          packet.geometry.polygons.every((polygon) =>
+            isSimpleClosedPolygon(polygon)
+          )
+      )
+    ).toBe(true)
+
+    const multiCellPackets = packets.filter(
+      (packet) => packet.geometry.polygons.length > 1
+    )
+    for (const packet of multiCellPackets) {
+      for (
+        let index = 0;
+        index < packet.geometry.polygons.length - 1;
+        index += 1
+      ) {
+        expect(
+          countSharedVertices(
+            packet.geometry.polygons[index],
+            packet.geometry.polygons[index + 1]
+          )
+        ).toBeGreaterThanOrEqual(2)
+      }
+    }
+  })
+
+  it('should run: keep the reported vector-6 inside dashed intervals as bounded cell faces', () => {
+    const tp12 = { x: 192.42083700791653, y: 0 }
+    const tp13 = { x: 11.358174406717296, y: 364.1297089212308 }
+    const tp14 = { x: 360.120941483566, y: 144.31562775593738 }
+    const tp15 = { x: 0, y: 14.030686031827244 }
+    const tp16 = { x: 270.59180204238254, y: 345.42212754546125 }
+    const points = [
+      ...sampleCubic(
+        tp12,
+        { x: 170.10536493824844, y: 119.07041481724248 },
+        { x: -42.09205809548172, y: 343.2841182453731 },
+        tp13,
+        16
+      ),
+      ...sampleCubic(
+        tp13,
+        { x: 78.17096503446606, y: 390.18669726605293 },
+        tp14,
+        tp14,
+        8,
+        false
+      ),
+      tp15,
+      ...sampleCubic(
+        tp15,
+        { x: 0, y: 14.030686031827244 },
+        { x: 263.9105229796076, y: 362.79345310867603 },
+        tp16,
+        16,
+        false
+      ),
+      ...sampleCubic(
+        tp16,
+        { x: 277.2730811051575, y: 328.05080198224647 },
+        tp12,
+        tp12,
+        8,
+        false
+      )
+    ]
+    const guardPoints = [
+      { ...tp12, sharp: true },
+      { ...tp13, sharp: false },
+      { ...tp14, sharp: true },
+      { ...tp15, sharp: true },
+      { ...tp16, sharp: false }
+    ]
+    const packets = buildConstrainedDashedStrokeResolvedPackets(
+      'vector-6:reported-inside-dashed',
+      points,
+      true,
+      [
+        createDefaultStroke({
+          width: 10,
+          style: 'dashed',
+          position: 'inside',
+          joinType: 'miter',
+          capType: 'butt',
+          dashPattern: [27, 20],
+          dashOffset: 0
+        })
+      ],
+      { selectedSideGuardPoints: guardPoints }
+    )
+
+    expect(packets.length).toBeGreaterThan(1)
+    expect(
+      packets.every(
+        (packet) =>
+          packet.geometry.debugMeta?.geometryFamily ===
+            'constrained-dashed' &&
+          packet.geometry.debugMeta?.sourceTopology ===
+            'self-intersecting' &&
+          packet.geometry.polygons.length >= 1 &&
+          packet.geometry.polygons.every((polygon) =>
+            isSimpleClosedPolygon(polygon)
+          )
+      )
+    ).toBe(true)
+
+    expect(findSelectedSideViolations(points, packets, 'inside', guardPoints)).toEqual([])
+    const seamAdjacentPackets = packets.filter(
+      (packet) =>
+        packet.geometry.bounds.minY < 40 &&
+        packet.geometry.bounds.minX < tp12.x + 16 &&
+        packet.geometry.bounds.maxX > tp12.x - 16
+    )
+    expect(seamAdjacentPackets.length).toBeGreaterThanOrEqual(2)
+    expect(
+      findSelectedSideCrossingViolations(
+        seamAdjacentPackets,
+        'inside',
+        guardPoints
+      )
+    ).toEqual([])
+  })
+
+  it('should run: build reported vector-6 seam dashes from true source segments, not tangent caps', () => {
+    const points = {
+      'tp-12': {
+        id: 'tp-12',
+        kind: 'anchor',
+        x: 192.42083700791653,
+        y: 0,
+        anchorType: 'sharp'
+      },
+      'tp-13': {
+        id: 'tp-13',
+        kind: 'anchor',
+        x: 11.358174406717296,
+        y: 364.1297089212308,
+        anchorType: 'smooth'
+      },
+      'tp-12:out': {
+        id: 'tp-12:out',
+        kind: 'control',
+        x: 170.10536493824844,
+        y: 119.07041481724248,
+        controlForId: 'tp-12',
+        controlRole: 'out'
+      },
+      'tp-13:in': {
+        id: 'tp-13:in',
+        kind: 'control',
+        x: -42.09205809548172,
+        y: 343.2841182453731,
+        controlForId: 'tp-13',
+        controlRole: 'in'
+      },
+      'tp-13:out': {
+        id: 'tp-13:out',
+        kind: 'control',
+        x: 78.17096503446606,
+        y: 390.18669726605293,
+        controlForId: 'tp-13',
+        controlRole: 'out'
+      },
+      'tp-14': {
+        id: 'tp-14',
+        kind: 'anchor',
+        x: 360.120941483566,
+        y: 144.31562775593738,
+        anchorType: 'sharp'
+      },
+      'tp-15': {
+        id: 'tp-15',
+        kind: 'anchor',
+        x: 0,
+        y: 14.030686031827244,
+        anchorType: 'sharp'
+      },
+      'tp-16': {
+        id: 'tp-16',
+        kind: 'anchor',
+        x: 270.59180204238254,
+        y: 345.42212754546125,
+        anchorType: 'smooth'
+      },
+      'tp-15:out': {
+        id: 'tp-15:out',
+        kind: 'control',
+        x: 0,
+        y: 14.030686031827244,
+        controlForId: 'tp-15',
+        controlRole: 'out'
+      },
+      'tp-16:in': {
+        id: 'tp-16:in',
+        kind: 'control',
+        x: 263.9105229796076,
+        y: 362.79345310867603,
+        controlForId: 'tp-16',
+        controlRole: 'in'
+      },
+      'tp-16:out': {
+        id: 'tp-16:out',
+        kind: 'control',
+        x: 277.2730811051575,
+        y: 328.05080198224647,
+        controlForId: 'tp-16',
+        controlRole: 'out'
+      }
+    } as const
+    const segments = {
+      'ts-23': {
+        id: 'ts-23',
+        startId: 'tp-12',
+        endId: 'tp-13',
+        outControlId: 'tp-12:out',
+        inControlId: 'tp-13:in'
+      },
+      'ts-24': {
+        id: 'ts-24',
+        startId: 'tp-13',
+        endId: 'tp-14',
+        outControlId: 'tp-13:out',
+        inControlId: null
+      },
+      'ts-25': {
+        id: 'ts-25',
+        startId: 'tp-14',
+        endId: 'tp-15',
+        outControlId: null,
+        inControlId: null
+      },
+      'ts-26': {
+        id: 'ts-26',
+        startId: 'tp-15',
+        endId: 'tp-16',
+        outControlId: 'tp-15:out',
+        inControlId: 'tp-16:in'
+      },
+      'ts-27': {
+        id: 'ts-27',
+        startId: 'tp-16',
+        endId: 'tp-12',
+        outControlId: 'tp-16:out',
+        inControlId: null
+      }
+    } as const
+    const network = {
+      id: 'tn-4',
+      pointIds: ['tp-12', 'tp-13', 'tp-14', 'tp-15', 'tp-16'],
+      segmentIds: ['ts-23', 'ts-24', 'ts-25', 'ts-26', 'ts-27'],
+      closed: true
+    }
+    const sourcePath = buildVectorGeometryModelPath(
+      network,
+      points,
+      segments
+    )
+    const topology = buildPathTopologyModel({
+      pathId: 'vector-6',
+      networkId: 'tn-4',
+      points: sourcePath.sampledPoints,
+      closed: true
+    })
+    const guardPoints = [
+      { x: points['tp-12'].x, y: points['tp-12'].y, sharp: true },
+      { x: points['tp-13'].x, y: points['tp-13'].y, sharp: false },
+      { x: points['tp-14'].x, y: points['tp-14'].y, sharp: true },
+      { x: points['tp-15'].x, y: points['tp-15'].y, sharp: true },
+      { x: points['tp-16'].x, y: points['tp-16'].y, sharp: false }
+    ]
+    const packets = buildConstrainedDashedStrokeResolvedPackets(
+      'vector-6:reported-inside-dashed-source-path',
+      topology.normalizedPoints,
+      true,
+      [
+        createDefaultStroke({
+          width: 10,
+          style: 'dashed',
+          position: 'inside',
+          joinType: 'miter',
+          capType: 'butt',
+          dashPattern: [27, 20],
+          dashOffset: 0
+        })
+      ],
+      {
+        topology,
+        sourcePath,
+        selectedSideGuardPoints: guardPoints
+      }
+    )
+    const firstInterval = packets.find(
+      (packet) => packet.geometry.debugMeta?.intervalId === 'interval:0'
+    )
+    const closingSegmentTail = slicePathGeometryPoints(
+      sourcePath,
+      sourcePath.totalLength - 35,
+      sourcePath.totalLength,
+      false
+    )
+    const firstSegmentHead = slicePathGeometryPoints(sourcePath, 0, 35, false)
+    const selectedSide = signedPolygonArea(guardPoints) >= 0 ? 1 : -1
+    if (firstInterval) {
+      const firstPolygons = firstInterval.geometry.polygons
+      expect(firstPolygons.length).toBeGreaterThanOrEqual(1)
+      expect(
+        firstPolygons.reduce(
+          (count, polygon) =>
+            count +
+            polygon.filter(
+              (point) => pointPolylineDistance(point, closingSegmentTail) < 1e-4
+            ).length,
+          0
+        )
+      ).toBeGreaterThan(2)
+      firstPolygons.forEach((polygon) => {
+        expect(
+          findSelectedSidePolylineViolations(
+            polygon,
+            closingSegmentTail,
+            selectedSide
+          )
+        ).toEqual([])
+      })
+      expect(
+        firstPolygons.reduce(
+          (count, polygon) =>
+            count +
+            polygon.filter(
+              (point) => pointPolylineDistance(point, firstSegmentHead) < 1e-4
+            ).length,
+          0
+        )
+      ).toBeGreaterThan(10)
+      const firstOutsideLegalDomain = firstPolygons.flatMap((polygon) =>
+        polygon.filter(
+          (point) =>
+            !isPointInsideEvenOdd(point, topology.normalizedPoints) &&
+            pointClosedPolylineDistance(point, topology.normalizedPoints) > 0.25
+        )
+      )
+      expect(firstOutsideLegalDomain).toEqual([])
+    }
+    for (const packet of packets) {
+      const startDistance = packet.geometry.debugMeta?.startDistance
+      const endDistance = packet.geometry.debugMeta?.endDistance
+      if (startDistance === undefined || endDistance === undefined) {
+        continue
+      }
+      const sourceInterval = slicePathGeometryPoints(
+        sourcePath,
+        startDistance,
+        endDistance,
+        packet.geometry.debugMeta?.wrapsSeam === true
+      )
+      const sourceEdgePointCount = packet.geometry.polygons.reduce(
+        (count, polygon) =>
+          count +
+          polygon.filter(
+            (point) => pointPolylineDistance(point, sourceInterval) < 0.5
+          ).length,
+        0
+      )
+      const expectedSourceEdgePoints = Math.min(
+        sourceInterval.length,
+        Math.max(2, Math.min(12, Math.floor(sourceInterval.length * 0.25)))
+      )
+      const singleResolvedStrip =
+        packet.geometry.polygons.length === 1 &&
+        (packet.geometry.polygons[0]?.length ?? 0) >= 4
+      expect(
+        sourceEdgePointCount >= expectedSourceEdgePoints || singleResolvedStrip
+      ).toBe(true)
+    }
+    const legalBoundary = topology.normalizedPoints
+    const endInterval = packets
+      .filter((packet) => packet.geometry.debugMeta?.startDistance !== undefined)
+      .sort(
+        (left, right) =>
+          (right.geometry.debugMeta?.startDistance ?? 0) -
+          (left.geometry.debugMeta?.startDistance ?? 0)
+      )[0]
+    expect(endInterval).toBeDefined()
+    if (!endInterval) {
+      throw new Error('Expected vector-6 final seam dash interval')
+    }
+    const endPolygons = endInterval.geometry.polygons
+    expect(
+      endPolygons.reduce(
+        (count, polygon) =>
+          count +
+          polygon.filter(
+            (point) => pointPolylineDistance(point, closingSegmentTail) < 1e-4
+          ).length,
+        0
+      )
+    ).toBeGreaterThan(2)
+    endPolygons.forEach((polygon) => {
+      expect(
+        findSelectedSidePolylineViolations(
+          polygon,
+          closingSegmentTail,
+          selectedSide
+        )
+      ).toEqual([])
+    })
+    endPolygons.forEach((polygon) => {
+      expect(
+        findSelectedSideNearestPolylineViolations(
+          polygon,
+          firstSegmentHead,
+          selectedSide
+        )
+      ).toEqual([])
+    })
+    const endOutsideLegalDomain = endPolygons.flatMap((polygon) =>
+      polygon.filter(
+        (point) =>
+          !isPointInsideEvenOdd(point, legalBoundary) &&
+          pointClosedPolylineDistance(point, legalBoundary) > 0.25
+      )
+    )
+    expect(endOutsideLegalDomain).toEqual([])
+    const outsideStrokeBandEdgeSamples = packets.flatMap((packet) =>
+      packet.geometry.polygons.flatMap((polygon) =>
+        samplePolygonEdges(polygon).flatMap((point) =>
+          pointClosedPolylineDistance(point, sourcePath.sampledPoints) > 10.25
+            ? [
+                {
+                  intervalId: packet.geometry.debugMeta?.intervalId,
+                  point: {
+                    x: Math.round(point.x * 100) / 100,
+                    y: Math.round(point.y * 100) / 100
+                  }
+                }
+              ]
+            : []
+        )
+      )
+    )
+    expect(outsideStrokeBandEdgeSamples).toEqual([])
+    const invalidSimplePackets = packets.filter((packet) => {
+      return packet.geometry.polygons.some(
+        (polygon) => !isSimpleClosedPolygon(polygon)
+      )
+    })
+    expect(
+      invalidSimplePackets.map((packet) => ({
+        intervalId: packet.geometry.debugMeta?.intervalId,
+        bounds: packet.geometry.bounds
+      }))
+    ).toEqual([])
+    const sourceSegmentRanges = getPathSegmentDistanceRanges(
+      sourcePath.segments
+    )
+    const sourceSegmentCrossingPackets = packets.filter((packet) =>
+      packetCrossesSourceSegmentBoundary(
+        packet,
+        sourceSegmentRanges,
+        sourcePath.totalLength
+      )
+    )
+    expect(sourceSegmentCrossingPackets.length).toBeGreaterThan(0)
+    for (const packet of sourceSegmentCrossingPackets) {
+      const startDistance = packet.geometry.debugMeta?.startDistance ?? 0
+      const endDistance = packet.geometry.debugMeta?.endDistance ?? 0
+      const intervalLength =
+        packet.geometry.debugMeta?.wrapsSeam === true
+          ? sourcePath.totalLength - startDistance + endDistance
+          : endDistance - startDistance
+      const polygonAreaSum = packet.geometry.polygons.reduce(
+        (sum, polygon) => sum + Math.abs(signedPolygonArea(polygon)),
+        0
+      )
+
+      expect(packet.geometry.polygons.length).toBeGreaterThan(1)
+      expect(polygonAreaSum).toBeLessThanOrEqual(10 * (intervalLength + 40) * 3)
+    }
+    for (const packet of packets) {
+      for (const polygon of packet.geometry.polygons) {
+        for (const point of polygon) {
+          expect(
+            pointClosedPolylineDistance(point, sourcePath.sampledPoints)
+          ).toBeLessThanOrEqual(10.25)
+        }
+      }
+    }
+  })
+
+  it('should run: build generic source-path dash bodies from authored intervals, not endpoint tangents', () => {
+    const points = {
+      a: {
+        id: 'a',
+        kind: 'anchor',
+        x: 0,
+        y: 0,
+        anchorType: 'sharp'
+      },
+      b: {
+        id: 'b',
+        kind: 'anchor',
+        x: 120,
+        y: 170,
+        anchorType: 'smooth'
+      },
+      'a:out': {
+        id: 'a:out',
+        kind: 'control',
+        x: 28,
+        y: 88,
+        controlForId: 'a',
+        controlRole: 'out'
+      },
+      'b:in': {
+        id: 'b:in',
+        kind: 'control',
+        x: 18,
+        y: 180,
+        controlForId: 'b',
+        controlRole: 'in'
+      },
+      c: {
+        id: 'c',
+        kind: 'anchor',
+        x: 210,
+        y: 20,
+        anchorType: 'sharp'
+      }
+    } as const
+    const segments = {
+      ab: {
+        id: 'ab',
+        startId: 'a',
+        endId: 'b',
+        outControlId: 'a:out',
+        inControlId: 'b:in'
+      },
+      bc: {
+        id: 'bc',
+        startId: 'b',
+        endId: 'c',
+        outControlId: null,
+        inControlId: null
+      },
+      ca: {
+        id: 'ca',
+        startId: 'c',
+        endId: 'a',
+        outControlId: null,
+        inControlId: null
+      }
+    } as const
+    const network = {
+      id: 'generic-loop',
+      pointIds: ['a', 'b', 'c'],
+      segmentIds: ['ab', 'bc', 'ca'],
+      closed: true
+    }
+    const sourcePath = buildVectorGeometryModelPath(network, points, segments)
+    const topology = buildPathTopologyModel({
+      pathId: 'generic-loop',
+      networkId: 'generic-loop',
+      points: sourcePath.sampledPoints,
+      closed: true
+    })
+    const packets = buildConstrainedDashedStrokeResolvedPackets(
+      'generic-loop:inside-dashed-source-path',
+      topology.normalizedPoints,
+      true,
+      [
+        createDefaultStroke({
+          width: 8,
+          style: 'dashed',
+          position: 'inside',
+          joinType: 'miter',
+          capType: 'butt',
+          dashPattern: [30, 18],
+          dashOffset: 0
+        })
+      ],
+      {
+        topology,
+        sourcePath,
+        selectedSideGuardPoints: [
+          { x: points.a.x, y: points.a.y, sharp: true },
+          { x: points.b.x, y: points.b.y, sharp: false },
+          { x: points.c.x, y: points.c.y, sharp: true }
+        ]
+      }
+    )
+
+    const curvedPackets = packets.filter((packet) => {
+      const startDistance = packet.geometry.debugMeta?.startDistance
+      const endDistance = packet.geometry.debugMeta?.endDistance
+      return (
+        startDistance !== undefined &&
+        endDistance !== undefined &&
+        startDistance < sourcePath.segments[0].length &&
+        endDistance <= sourcePath.segments[0].length
+      )
+    })
+
+    expect(curvedPackets.length).toBeGreaterThan(0)
+    for (const packet of curvedPackets) {
+      const startDistance = packet.geometry.debugMeta?.startDistance
+      const endDistance = packet.geometry.debugMeta?.endDistance
+      if (startDistance === undefined || endDistance === undefined) {
+        continue
+      }
+      const sourceInterval = slicePathGeometryPoints(
+        sourcePath,
+        startDistance,
+        endDistance,
+        packet.geometry.debugMeta?.wrapsSeam === true
+      )
+      const sourceEdgePointCount = packet.geometry.polygons.reduce(
+        (count, polygon) =>
+          count +
+          polygon.filter(
+            (point) => pointPolylineDistance(point, sourceInterval) < 0.5
+          ).length,
+        0
+      )
+
+      const expectedSourceEdgePoints = Math.min(
+        sourceInterval.length,
+        Math.max(3, Math.floor(sourceInterval.length * 0.25))
+      )
+      const singleResolvedStrip =
+        packet.geometry.polygons.length === 1 &&
+        (packet.geometry.polygons[0]?.length ?? 0) >= 4
+      expect(
+        sourceEdgePointCount >= expectedSourceEdgePoints || singleResolvedStrip
+      ).toBe(true)
+    }
   })
 
   it('should classify constrained dashed source topology without relying on shape-specific runtime branches', () => {
@@ -952,6 +2288,67 @@ describe('constrained dashed stroke packets', () => {
     expect(hitArea?.contains(-1, -1)).toBe(false)
   })
 
+  it('should run: materialize constrained dashed accepted packets as final faces without bridge collapse', () => {
+    const packets = buildConstrainedDashedStrokeResolvedPackets(
+      'rect:test:constrained-dashed-final-face',
+      [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 20 },
+        { x: 0, y: 20 }
+      ],
+      true,
+      [
+        createDefaultStroke({
+          width: 4,
+          style: 'dashed',
+          position: 'inside',
+          dashPattern: [10, 10],
+          dashOffset: 0
+        })
+      ],
+      {
+        metadata: {
+          ownerKeyPrefix: 'vector:test:network-a',
+          networkId: 'network-a',
+          contourId: 'contour-a',
+          legalDomainId: 'legal-domain-a'
+        }
+      }
+    )
+    const acceptedPackets = attachStrokePacketDebugMeta(packets, {
+      runtimeStatus: 'accepted',
+      runtimeReason: 'single-owner',
+      ownershipStatus: 'accepted',
+      ownerCount: 1
+    })
+
+    const faces = buildStrokeFinalFacesFromResolvedPackets(acceptedPackets)
+
+    expect(faces).toHaveLength(acceptedPackets.length)
+    expect(faces[0]).toMatchObject({
+      faceId: acceptedPackets[0]?.geometry.geometryId,
+      sourceGeometryIds: [acceptedPackets[0]?.geometry.geometryId],
+      geometryFamily: 'constrained-dashed',
+      runtimeStatus: 'accepted',
+      sourceTopology: 'rectangle-equivalent',
+      sourceContourIds: ['contour-a'],
+      legalDomainIds: ['legal-domain-a']
+    })
+    expect(faces[0]?.intervalIds).toEqual(['interval:0'])
+    expect(faces[0]?.ownerSet).toEqual([
+      {
+        ownerKey: 'vector:test:network-a:stroke:0',
+        sourcePathId: 'rect:test:constrained-dashed-final-face',
+        networkId: 'network-a',
+        strokeId: 'stroke:0',
+        strokeIndex: 0,
+        contourId: 'contour-a',
+        intervalId: 'interval:0'
+      }
+    ])
+  })
+
   it('should run: attach topology and legal-domain metadata to interval-local constrained dashed packets', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'rect:test:interval-local',
@@ -986,6 +2383,9 @@ describe('constrained dashed stroke packets', () => {
       topologyFamily: 'rectangle-equivalent',
       intervalTopology: 'single-edge'
     })
+    expect(packets[0]?.geometry.debugMeta?.sourceSpanIds).toEqual([
+      'rect:test:interval-local:contour:0:source-span:0'
+    ])
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 0,
       minY: 0,
@@ -1458,7 +2858,7 @@ describe('constrained dashed stroke packets', () => {
     expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
     expect(packets[0]?.geometry.bounds.minX).toBeCloseTo(17, 6)
     expect(packets[0]?.geometry.bounds.minY).toBe(0)
-    expect(packets[0]?.geometry.bounds.maxX).toBe(40)
+    expect(packets[0]?.geometry.bounds.maxX).toBe(43)
     expect(packets[0]?.geometry.bounds.maxY).toBe(6)
   })
 
@@ -1488,7 +2888,7 @@ describe('constrained dashed stroke packets', () => {
     expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
     expect(packets[0]?.geometry.bounds.minX).toBeCloseTo(17, 6)
     expect(packets[0]?.geometry.bounds.minY).toBe(-6)
-    expect(packets[0]?.geometry.bounds.maxX).toBeCloseTo(40, 6)
+    expect(packets[0]?.geometry.bounds.maxX).toBeCloseTo(43, 6)
     expect(packets[0]?.geometry.bounds.maxY).toBe(0)
   })
 
@@ -1518,7 +2918,7 @@ describe('constrained dashed stroke packets', () => {
     expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
     expect(packets[0]?.geometry.bounds.minX).toBeCloseTo(18, 6)
     expect(packets[0]?.geometry.bounds.minY).toBe(0)
-    expect(packets[0]?.geometry.bounds.maxX).toBe(40)
+    expect(packets[0]?.geometry.bounds.maxX).toBe(42)
     expect(packets[0]?.geometry.bounds.maxY).toBe(4)
   })
 
@@ -1548,7 +2948,7 @@ describe('constrained dashed stroke packets', () => {
     expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
     expect(packets[0]?.geometry.bounds.minX).toBeCloseTo(18, 6)
     expect(packets[0]?.geometry.bounds.minY).toBe(-4)
-    expect(packets[0]?.geometry.bounds.maxX).toBeCloseTo(40, 6)
+    expect(packets[0]?.geometry.bounds.maxX).toBeCloseTo(42, 6)
     expect(packets[0]?.geometry.bounds.maxY).toBe(0)
   })
 
@@ -1578,7 +2978,7 @@ describe('constrained dashed stroke packets', () => {
     expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
     expect(packets[0]?.geometry.bounds.minX).toBeCloseTo(18, 6)
     expect(packets[0]?.geometry.bounds.minY).toBe(0)
-    expect(packets[0]?.geometry.bounds.maxX).toBe(40)
+    expect(packets[0]?.geometry.bounds.maxX).toBe(42)
     expect(packets[0]?.geometry.bounds.maxY).toBe(4)
   })
 
@@ -1608,7 +3008,7 @@ describe('constrained dashed stroke packets', () => {
     expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
     expect(packets[0]?.geometry.bounds.minX).toBeCloseTo(18, 6)
     expect(packets[0]?.geometry.bounds.minY).toBeLessThan(-3.5)
-    expect(packets[0]?.geometry.bounds.maxX).toBeCloseTo(40, 6)
+    expect(packets[0]?.geometry.bounds.maxX).toBeCloseTo(42, 6)
     expect(packets[0]?.geometry.bounds.maxY).toBeGreaterThan(-0.5)
   })
 
@@ -2156,12 +3556,83 @@ describe('constrained dashed stroke packets', () => {
             'constrained-dashed' &&
           packet.geometry.debugMeta?.sourceTopology ===
             'sampled-simple-closed' &&
-          packet.geometry.debugMeta?.resolutionStatus === 'exact-constrained'
+          packet.geometry.debugMeta?.resolutionStatus ===
+            'local-side-approximation'
       )
     ).toBe(true)
     expect(
       packets.every((packet) => packet.geometry.bounds.minX >= -0.001)
     ).toBe(true)
+  })
+
+  it('should run: high-curvature inside dashed packets stay visible as local-side approximation until arrangement clipping is exact', () => {
+    const start = { x: 45.2802, y: 0 }
+    const bottom = { x: 45.2802, y: 370.5 }
+    const points = [
+      ...sampleCubic(
+        start,
+        { x: 11.1135, y: 123 },
+        { x: -36.7286, y: 370.5 },
+        bottom,
+        48
+      ),
+      ...sampleCubic(
+        bottom,
+        { x: 128.28, y: 370.5 },
+        { x: 79.4469, y: 124 },
+        start,
+        48,
+        false
+      )
+    ]
+    const sourceBounds = getPointBounds(points)
+    const packets = buildConstrainedDashedStrokeResolvedPackets(
+      'figma-ref:high-curvature-cubic-loop-inside-dashed',
+      points,
+      true,
+      [
+        createDefaultStroke({
+          width: 10,
+          style: 'dashed',
+          position: 'inside',
+          joinType: 'miter',
+          capType: 'butt',
+          dashPattern: [27, 20],
+          dashOffset: 0
+        })
+      ]
+    )
+
+    expect(packets.length).toBeGreaterThan(0)
+    expect(
+      packets.every(
+        (packet) =>
+          packet.geometry.debugMeta?.geometryFamily ===
+            'constrained-dashed' &&
+          packet.geometry.debugMeta?.sourceTopology ===
+            'sampled-simple-closed' &&
+          packet.geometry.debugMeta?.resolutionStatus ===
+            'local-side-approximation'
+      )
+    ).toBe(true)
+    expect(
+      packets.every(
+        (packet) =>
+          packet.geometry.bounds.minX >= sourceBounds.minX - 0.001 &&
+          packet.geometry.bounds.minY >= sourceBounds.minY - 0.001 &&
+          packet.geometry.bounds.maxX <= sourceBounds.maxX + 0.001 &&
+          packet.geometry.bounds.maxY <= sourceBounds.maxY + 0.001
+      )
+    ).toBe(true)
+    for (const packet of packets) {
+      const polygon = packet.geometry.polygons[0] ?? []
+      expect(isSimpleClosedPolygon(polygon)).toBe(true)
+      for (const point of polygon) {
+        expect(pointClosedPolylineDistance(point, points)).toBeLessThanOrEqual(
+          10.25
+        )
+      }
+    }
   })
 
   it('should run: sampled simple closed outside dashed paths emit visible selected-side packets', () => {

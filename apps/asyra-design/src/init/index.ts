@@ -12,7 +12,7 @@
  * ```
  */
 
-export { initApp } from './init-app'
+export { initApp, waitForExactGeometryBackend } from './init-app'
 // Also export as 'bootstrap' for users who prefer that naming
 export { initApp as bootstrap } from './init-app'
 

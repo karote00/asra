@@ -27,6 +27,8 @@ describe('path topology model', () => {
       networkId: 'rect',
       sourceFamily: 'shape',
       topologyFamily: 'rectangle-equivalent',
+      fillRule: 'evenodd',
+      fillRuleBasis: 'evenodd',
       closed: true,
       totalLength: 240,
       isSimpleClosed: true,
@@ -44,7 +46,8 @@ describe('path topology model', () => {
       {
         legalDomainId: 'rect:test:legal-domain:0',
         role: 'shell',
-        fillRuleBasis: 'declared-app-policy',
+        fillRule: 'evenodd',
+        fillRuleBasis: 'evenodd',
         contourIds: ['rect:test:contour:0']
       }
     ])
@@ -77,6 +80,49 @@ describe('path topology model', () => {
       { kind: 'gap', startDistance: 80, endDistance: 90 },
       { kind: 'visible', startDistance: 90, endDistance: 100 }
     ])
+  })
+
+  it('should run: preserve source fill rule and make it topology-revision significant', () => {
+    const points = [
+      { x: 0, y: 0 },
+      { x: 80, y: 0 },
+      { x: 80, y: 40 },
+      { x: 0, y: 40 }
+    ]
+    const evenOddTopology = buildPathTopologyModel({
+      pathId: 'fill-rule:test',
+      points,
+      closed: true,
+      fillRule: 'evenodd'
+    })
+    const nonzeroTopology = buildPathTopologyModel({
+      pathId: 'fill-rule:test',
+      points,
+      closed: true,
+      fillRule: 'nonzero'
+    })
+
+    expect(evenOddTopology).toMatchObject({
+      fillRule: 'evenodd',
+      fillRuleBasis: 'evenodd',
+      legalDomains: [
+        expect.objectContaining({
+          fillRule: 'evenodd',
+          fillRuleBasis: 'evenodd'
+        })
+      ]
+    })
+    expect(nonzeroTopology).toMatchObject({
+      fillRule: 'nonzero',
+      fillRuleBasis: 'nonzero',
+      legalDomains: [
+        expect.objectContaining({
+          fillRule: 'nonzero',
+          fillRuleBasis: 'nonzero'
+        })
+      ]
+    })
+    expect(evenOddTopology.revision).not.toEqual(nonzeroTopology.revision)
   })
 
   it('should run: classify open path simplicity once on the topology model', () => {
@@ -116,6 +162,7 @@ describe('path topology model', () => {
     const outer = buildPathTopologyModel({
       pathId: 'compound:outer',
       networkId: 'outer',
+      fillRule: 'nonzero',
       points: [
         { x: 0, y: 0 },
         { x: 100, y: 0 },
@@ -127,6 +174,7 @@ describe('path topology model', () => {
     const innerSameOrientation = buildPathTopologyModel({
       pathId: 'compound:inner',
       networkId: 'inner',
+      fillRule: 'nonzero',
       points: [
         { x: 25, y: 25 },
         { x: 75, y: 25 },
@@ -144,6 +192,7 @@ describe('path topology model', () => {
         networkId: 'outer',
         contourId: 'compound:outer:contour:0',
         legalDomainId: 'compound:outer:legal-domain:0',
+        fillRule: 'nonzero',
         role: 'shell',
         nestingDepth: 0
       },
@@ -152,9 +201,50 @@ describe('path topology model', () => {
         networkId: 'inner',
         contourId: 'compound:inner:contour:0',
         legalDomainId: 'compound:inner:legal-domain:0',
+        fillRule: 'nonzero',
         role: 'hole',
         nestingDepth: 1
       }
     ])
+  })
+
+  it('should run: reject overlapping compound holes until legal-domain boolean normalization exists', () => {
+    const outer = buildPathTopologyModel({
+      pathId: 'compound-overlap:outer',
+      networkId: 'outer',
+      points: [
+        { x: 0, y: 0 },
+        { x: 240, y: 0 },
+        { x: 240, y: 160 },
+        { x: 0, y: 160 }
+      ],
+      closed: true
+    })
+    const leftHole = buildPathTopologyModel({
+      pathId: 'compound-overlap:left-hole',
+      networkId: 'left-hole',
+      points: [
+        { x: 45, y: 45 },
+        { x: 135, y: 45 },
+        { x: 135, y: 115 },
+        { x: 45, y: 115 }
+      ],
+      closed: true
+    })
+    const rightHole = buildPathTopologyModel({
+      pathId: 'compound-overlap:right-hole',
+      networkId: 'right-hole',
+      points: [
+        { x: 95, y: 45 },
+        { x: 185, y: 45 },
+        { x: 185, y: 115 },
+        { x: 95, y: 115 }
+      ],
+      closed: true
+    })
+
+    expect(
+      classifyCompoundClosedLegalDomains([outer, leftHole, rightHole])
+    ).toEqual([])
   })
 })

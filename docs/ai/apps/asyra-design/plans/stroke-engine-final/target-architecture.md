@@ -130,7 +130,8 @@ Required schema-level fields for `PathTopologyModel`:
 - `revision: string`
 - `sourceFamily: SourceFamily`
 - `topologyFamily: TopologyFamily`
-- `fillRuleBasis: "nonzero" | "evenodd" | "declared-app-policy"`
+- `fillRule: "nonzero" | "evenodd"`
+- `fillRuleBasis: "nonzero" | "evenodd"`
 - `canonicalLengthBasis: "arc-length-on-topology"`
 - `contours: ContourTopology[]`
 - `intersectionDescriptors: IntersectionDescriptor[]`
@@ -197,8 +198,12 @@ Current Phase 2 implementation checkpoint:
   with stroke packet builders
 - constrained dashed topology support classification consumes the shared
   topology family instead of recomputing shape-specific source classification
-- compound closed legal-domain classification has an explicit containment-depth
-  helper; orientation-only hole inference remains forbidden
+- compound closed legal-domain normalization has an explicit full-contour
+  containment-depth helper; orientation-only and single-probe hole inference
+  remain forbidden
+- overlapping compound holes are backend-gated: they must run
+  `union(shells) - union(holes)` through the exact backend before product dash
+  boundaries can be considered exact
 - the compound product slice supports constrained solid and constrained dashed
   containment-only vectors; packets share a compound legal-domain id, and
   odd-depth hole contours invert selected side before one-sided geometry is
@@ -241,6 +246,13 @@ Current supported join/cap implementation checkpoint:
   original geometry reference when no duplicate exists
 - constrained solid legality clipping consumes foreign-owned arrangement faces,
   not packet groups, as the subtraction source
+- exact arrangement bridge output now uses `FinalFace[]` directly:
+  `stroke-candidate-arrangement.ts` converts typed candidates through
+  `GeometryBackend.buildArrangement`, filters by side-aware legal state, and
+  emits exact final faces with arrangement metadata.
+- the bridge is not a product promotion by itself. Families that are currently
+  `local-side-approximation` remain so until an exact backend is selected and
+  the product runtime explicitly routes through the arrangement bridge.
 
 Current supported paint implementation checkpoint:
 
@@ -258,11 +270,22 @@ Current supported paint implementation checkpoint:
 - open paths must not emit constrained solid/dashed runtime diagnostics solely
   because the authored stroke position is `inside` or `outside`.
 - closed self-intersecting constrained dashed `inside/outside` packets are
-  emitted as product local-side approximation geometry until exact face
-  arrangement exists. They preserve `geometryFamily: "constrained-dashed"`,
-  `sourceTopology: "self-intersecting"`, and
-  `resolutionStatus: "local-side-approximation"` through render, hit-test, and
-  export. They must not be converted to center dashed geometry.
+  emitted as product local-side approximation geometry even when an exact
+  arrangement backend is selected. Exact promotion is disabled for this topology
+  until legal-domain clipping preserves valid internal dash regions. These
+  packets keep
+  `geometryFamily: "constrained-dashed"`,
+  `sourceTopology: "self-intersecting"`,
+  `resolutionStatus: "local-side-approximation"`, and typed metadata through
+  render, hit-test, and export. They must not be converted to center dashed
+  geometry.
+- sampled-simple-closed constrained dashed interval-local packets preserve
+  `sourceTopology: "sampled-simple-closed"` and remain explicit
+  `local-side-approximation` when their packet metadata says the current
+  geometry is local-side. A selected backend is not enough to promote them:
+  promotion is allowed only after the exact arrangement path can prove the
+  promoted faces preserve the authored segment-local geometry without fan-like
+  overlap or wrong-side clipping.
 - closed self-intersecting constrained solid full-loop paths preserve
   `geometryFamily: "constrained-solid"` and
   `sourceTopology: "self-intersecting"` as local-side one-sided candidate
@@ -274,8 +297,13 @@ Current supported paint implementation checkpoint:
 
 Current supported topology gate implementation checkpoint:
 
-- self-intersecting constrained dashed paths use local-side approximation until
-  exact face semantics are explicitly supported
+- self-intersecting constrained dashed paths use local-side approximation even
+  when an exact backend is selected; promotion is gated until legal-domain
+  clipping preserves valid internal dash regions
+- sampled-simple-closed interval-local constrained dashed paths use local-side
+  approximation when their packet metadata reports
+  `resolutionStatus: "local-side-approximation"`; promotion is gated until the
+  exact arrangement path proves segment-local clipping parity
 - seam-wrapping constrained dashed intervals and sharp sampled full-loop round
   joins stay on the constrained packet family; they must not be blocked or
   converted to center geometry merely because exactness is incomplete
@@ -320,6 +348,7 @@ Current supported performance implementation checkpoint:
 The final architecture must distinguish between:
 
 - semantic-region truth
+- exact final-face truth
 - emission-time batching
 
 Canonical definitions live in `runtime-data-representation.md`.
@@ -328,11 +357,15 @@ Required rule:
 
 - semantic ownership, legality, and support truth must be preserved before any
   render/export batching begins
+- `FinalFace[]` is the exact-engine target authority for render, hit-test, and
+  export projection
+- bridge packet families may be converted into `FinalFace[]` while migration is
+  in progress, but no new exact family may skip `FinalFace[]`
 
 ### StrokeRegionPacket
 
-All product-facing stroke semantics must flow through one resolved packet
-family.
+All product-facing stroke semantics must flow through one resolved packet family
+or its successor `FinalFace[]` projection during migration.
 
 Required packet sections:
 
@@ -350,9 +383,44 @@ Batching is allowed only after semantic packets already exist.
 The renderer/exporter may therefore consume:
 
 - semantic `StrokeRegionPacket[]`
+- exact `FinalFace[]`
 - or `StrokeEmissionBatch[]` derived from them
 
-But the engine may not skip the semantic packet layer.
+But the engine may not skip the semantic / final-face authority layer.
+
+### FinalFace
+
+`FinalFace[]` is the next canonical exact-geometry contract.
+
+Responsibilities:
+
+- preserve final face geometry after candidate arrangement and legality
+  classification
+- preserve typed `ownerSet`, `intervalIds`, `sourceSpanIds`, and
+  `sourceContourIds`
+- carry `visualPacketKey`, `paintKey`, and `strokeSpecKey` so duplicate-region
+  collapse is explicit and testable
+- serve as the only source for render mesh, hit region, and export path
+  projection
+
+Collapse rules:
+
+- same geometry plus same `visualPacketKey` may collapse only after exact face
+  ownership is proven
+- local-side approximation packets are not duplicate-collapse candidates
+- collapse preserves all owner metadata
+- collapse does not multiply opacity
+- different paint, opacity, blend mode, stacking, mask, clip, effect, visibility,
+  or stroke spec must not collapse
+
+Migration checkpoint:
+
+- `packages/preset/src/components/stroke-render/stroke-final-face.ts` defines
+  the first `FinalFace` bridge contract
+- `solid-center-stroke-packets.ts` now derives render, hit-test, and export
+  packet projections from `FinalFace[]`
+- exact arrangement phases must emit `FinalFace[]` directly rather than adding a
+  new parallel packet authority
 
 Required typed metadata fields:
 

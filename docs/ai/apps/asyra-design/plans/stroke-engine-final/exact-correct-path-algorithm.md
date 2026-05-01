@@ -120,6 +120,16 @@ Required tolerance metadata:
 
 If any tolerance is omitted, the family must not be marked as exact support.
 
+Canonical tolerance policy:
+
+- exact curve flattening target: `0.25 px`
+- preview curve flattening ceiling: `min(1.0 px, strokeWidth / 4)`
+- arrangement / snap epsilon: `1e-6` model units
+- zero-area face threshold:
+  `max(1e-8, flattenTolerance * flattenTolerance * 0.25)`
+- preview mode may reduce density only when topology family, support state,
+  ownership state, and interval allocation remain unchanged
+
 ## Core Algorithm
 
 ### 1. Normalize and classify the path
@@ -150,8 +160,11 @@ Dashed strokes must allocate intervals on `arc-length-on-topology`.
 
 The dash schedule is not allowed to depend on later offset geometry.
 
-Open dashed paths must additionally account for Figma's half-dash endpoint
-behavior before exact open dashed support is supported.
+Open and closed dashed paths use deterministic repeated arc-length pattern
+placement from the canonical topology length basis. Asyra intentionally does
+not implement Figma's segment-local endpoint balancing or half-dash endpoint
+placement. `dashOffset` is a phase shift into the authored pattern, and
+endpoints only clip whatever authored interval reaches the path boundary.
 
 Odd dash-pattern normalization is not globally closed by this file because
 Figma, SVG, and Lottie references do not all describe the same normalization
@@ -168,6 +181,10 @@ For each visible interval:
 - build segment-body candidates
 - build join candidates
 - build cap candidates where applicable
+- merge construction strips for that interval into one candidate region before
+  product projection. Sampling strips are implementation detail only; they must
+  not be emitted as separate visible polygons because that creates internal
+  seams and alpha stacking.
 
 No opposite-side geometry may be created for exact constrained support.
 
@@ -175,6 +192,7 @@ No opposite-side geometry may be created for exact constrained support.
 
 If candidates overlap, touch, cross, or self-intersect:
 
+- normalize each candidate region with boolean `union`
 - run planar arrangement
 - split candidates into explicit face regions
 - preserve source edge, interval, contour, and owner lineage
@@ -227,8 +245,38 @@ Forbidden:
 Feasibility:
 
 - feasible for tolerance-bounded canonical geometry
-- not supported until high-curvature fixtures prove stable topology, interval,
-  arrangement, and legality behavior
+- exact support requires stable topology, interval, arrangement, duplicate-face
+  collapse, and legality behavior
+- without a selected exact backend, high-curvature sampled constrained dashed
+  interval-local packets must be labeled
+  `resolutionStatus: "local-side-approximation"`
+- a no-backend high-curvature local-side approximation may split one visible
+  dash interval into bounded source-ordered sub-ribbons only when the unsplit
+  selected-side ribbon would be self-intersecting. Every emitted sub-ribbon must
+  be a simple polygon built from the authored sampled source path, not from a
+  tangent/chord proxy.
+- authored segment boundaries are mandatory split points when `sourcePath`
+  metadata is available. Segment-local candidate construction comes before any
+  fallback robustness subdivision because line-to-Bezier and Bezier-to-Bezier
+  high-curvature joins cannot be recovered reliably from one global sampled
+  open-ribbon offset.
+- with a selected exact backend, accepted high-curvature packets may promote to
+  `resolutionStatus: "exact-constrained"` after arrangement, legality, and
+  owner collapse
+
+2026-04-29 Figma reference refinement:
+
+- A high-curvature cubic-loop inside dashed SVG export contains a source legal
+  loop mask and pre-mask filled dash candidates.
+- Its outline export contains final filled dash components after legal-domain
+  clipping.
+- Asyra may use legal-domain clipping as an internal arrangement/legality
+  operation, but product render / hit / export packets may only contain the
+  post-legality semantic regions.
+- exact backend output must clip arrangement faces with `intersection` /
+  `difference` against the source legal domain before side filtering.
+- Any implementation that emits pre-clipped candidates as product geometry
+  fails exact support even if the screenshot appears visually close.
 
 ## Acute-Corner Rule
 
@@ -340,8 +388,53 @@ Recommended feasible algorithm:
 5. run stroke-candidate arrangement
 6. classify stroke faces against legal domains and interval ownership
 
-Until these decisions are written and tested, self-intersection remains
-`research-gated` or `blocked`.
+Until this branch is implemented and tested, self-intersection exact support
+remains `research-gated`. Product visibility may use explicitly marked
+local-side approximation packets, but those packets are not exact support.
+
+2026-04-29 Figma reference refinement:
+
+- User-supplied inside dashed self-intersection outline export contains
+  thirty-four filled dash subpaths.
+- User-supplied outside dashed self-intersection outline export contains
+  thirty-two filled dash subpaths.
+- Therefore exact inside and exact outside self-intersection support must be
+  solved as distinct side-aware face-classification problems.
+- A shared center-derived packet family with a side label is not an acceptable
+  exact model.
+- Local-side approximation remains allowed only as explicitly marked visibility
+  support; it is not exact support.
+
+## Overlapping Compound-Hole Rule
+
+Overlapping raw hole contours are not equivalent to nested non-overlapping
+contours.
+
+Required behavior for exact support:
+
+1. construct the legal fill domain from the authored contour set and winding
+   rule
+2. boolean-normalize overlapping holes and shells into legal regions
+3. assign stable `legalDomainId`, shell/hole role, and contour lineage metadata
+4. allocate intervals on the normalized legal-domain boundaries used for product
+   stroke emission
+5. build one-sided candidates from those legal boundaries
+6. run arrangement/legality before render / hit / export emission
+
+2026-04-29 Figma reference refinement:
+
+- The overlapping-hole inside dashed SVG export contains one merged inner hole
+  in the mask, even though the fixture was authored from overlapping holes.
+- This confirms that product stroke geometry follows normalized legal domains,
+  not each raw hole contour independently.
+
+Current support:
+
+- containment-depth parity for non-overlapping nested contours is supported
+- overlapping holes are backend-gated: without exact boolean normalization they
+  remain blocked for shared compound support; with a selected backend they use
+  normalized legal-domain regions, normalized legal-domain boundary spans for
+  dashed product emission, and shared source contour / source span metadata.
 
 ## Overlap Rendering Rule
 
@@ -375,26 +468,30 @@ A family may move from `research-gated` to exact support only when all are true:
 - geometry oracles cover representative and pathological fixtures
 - performance is measured on the supported workload
 
-## Remaining Gated Decisions
+## Remaining Implementation And Hardening Gates
 
-These are not implementation guesses. They are blocked decisions until reference
-capture, external research, or an Asyra deterministic rule closes them:
+These are implementation and hardening gates, not open-ended product guesses:
 
-- exact inside/outside semantics for open paths with complex endpoint
-  ownership
-- self-intersecting closed paths where legal-domain fill rule and stroke owner
-  priority are not yet approved
-- compound paths with holes when contour orientation or fill-rule behavior is
-  ambiguous
-- multi-network overlap ownership when two networks can claim the same legal
-  face
-- numeric tolerance values for flattening, offset approximation, arrangement
-  snapping, and zero-area rejection
-- high-curvature preview density policy when lowering tessellation could change
-  topology class, ownership class, or support state
+- exact self-intersecting constrained dashed strokes have backend-gated product
+  promotion and real-backend partition / side-specific fixture coverage;
+  remaining work is broader visual/reference parity and stress coverage
+- high-curvature exact constrained dashed strokes have backend-gated product
+  promotion and real-backend overlapping-candidate / side-specific fixture
+  coverage; remaining work is broader visual/reference parity and stress
+  coverage
+- overlapping compound holes require legal-domain boolean normalization before
+  interval allocation; the backend-normalized product path implements this for
+  constrained dashed geometry
+- independent multi-network owner preservation is implemented for exact
+  arranged constrained dashed product paths; future export optimization may
+  still add flattened visual minimization without losing owner metadata
+- open dashed support intentionally uses true arc-length pattern placement for
+  both zero and non-zero `dashOffset`; Figma half-dash endpoint balancing is a
+  documented divergence, not a product path
 
-If any item above is required by a phase, that phase must either close the
-decision in this file first or keep the scenario gated.
+If any item above is required by a phase, that phase must either implement the
+declared algorithm in this file first or keep the scenario in the current
+visibility / hardening state.
 
 ## Required Fixtures Before Implementation
 

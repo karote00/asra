@@ -81,6 +81,7 @@ export interface VectorTopology {
 
 export interface VectorPathStyle {
   closed: boolean
+  fillRule?: 'evenodd' | 'nonzero'
   fills?: FillAttrs[]
   strokes?: StrokeAttrs[]
 }

@@ -5,12 +5,16 @@ import {
   polygonArea,
   type Vec2
 } from './solid-stroke-geometry-core'
+import {
+  normalizePathTopologyFillRule,
+  type PathTopologyFillRule
+} from './path-topology-model'
 
 export type ConstrainedSolidLegalityMode = 'inside' | 'outside'
 
 export interface ConstrainedSolidLegalityDomain {
   mode: ConstrainedSolidLegalityMode
-  fillRule: 'nonzero'
+  fillRule: PathTopologyFillRule
   canonicalPolygonForm: 'simple-closed-polygon'
   boundaryPolygon: Vec2[]
   orientation: 'cw' | 'ccw'
@@ -62,7 +66,8 @@ const isPointInsidePolygon = (point: Vec2, polygon: Vec2[]) => {
 export const buildConstrainedSolidLegalityDomain = (
   points: Vec2[],
   closed: boolean,
-  mode: ConstrainedSolidLegalityMode
+  mode: ConstrainedSolidLegalityMode,
+  fillRule?: PathTopologyFillRule | null
 ): ConstrainedSolidLegalityDomain | null => {
   if (!closed) {
     return null
@@ -84,7 +89,7 @@ export const buildConstrainedSolidLegalityDomain = (
 
   return {
     mode,
-    fillRule: 'nonzero',
+    fillRule: normalizePathTopologyFillRule(fillRule),
     canonicalPolygonForm: 'simple-closed-polygon',
     boundaryPolygon: source,
     orientation: area > 0 ? 'ccw' : 'cw'

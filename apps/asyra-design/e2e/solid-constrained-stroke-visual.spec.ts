@@ -1185,7 +1185,7 @@ test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
     })
   })
 
-  test('benchmark: self-intersecting constrained vector stroke remains visually absent', async ({
+  test('benchmark: self-intersecting constrained vector stroke remains visible as local-side geometry', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -1204,14 +1204,15 @@ test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
     const raster = await captureSelectedElementRaster(page, 8)
     const probes = getRectProbeRegions(raster)
 
-    const [topOutside, leftOutside, center] = await Promise.all([
+    const [topOutside, leftOutside, topInside, leftInside] = await Promise.all([
       getGreenCoverage(page, raster, probes.topOutside),
       getGreenCoverage(page, raster, probes.leftOutside),
-      getGreenCoverage(page, raster, probes.center)
+      getGreenCoverage(page, raster, probes.topInside),
+      getGreenCoverage(page, raster, probes.leftInside)
     ])
 
-    expect(topOutside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(leftOutside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(
+      Math.max(topOutside, leftOutside, topInside, leftInside)
+    ).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
   })
 })

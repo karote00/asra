@@ -199,9 +199,9 @@ Asyra decision:
 - Runtime stroke data uses `dashPattern` and `dashOffset` as the canonical dash
   API. Legacy `dash` / `gap` compatibility fields are not runtime geometry
   inputs; old serialized data must be migrated before render normalization.
-- Figma's half-dash endpoint behavior still needs a dedicated fixture set before
-  more advanced open dashed semantics, endpoint balancing, or decorated caps are
-  supported.
+- Figma's half-dash endpoint behavior is intentionally not the Asyra product
+  rule. Open and closed dashed paths use true repeated arc-length pattern
+  placement; endpoints only clip the interval that reaches the boundary.
 - Closed-loop dashed support may continue to use canonical arc-length interval
   allocation, but seam behavior must be validated against Figma fixtures.
 
@@ -240,13 +240,18 @@ Findings:
 
 Asyra decision:
 
-- Constrained dashed `inside/outside` on self-intersecting closed paths is
-  blocked until planar arrangement can split intersections, classify legal
-  faces, and collapse duplicate semantic regions.
-- The runtime may expose typed blocked diagnostics for this family.
-- It must not render local-side interval candidates as product geometry.
-- Figma half-dash endpoint behavior must not be assumed to apply unchanged to
-  every closed-loop or constrained dashed family without capture.
+- Constrained dashed `inside/outside` on self-intersecting closed paths is not
+  exact until planar arrangement can split intersections, classify legal faces,
+  and collapse duplicate semantic regions.
+- The runtime may keep the authored side visible through deterministic
+  local-side approximation packets, but only when every packet is explicitly
+  marked `sourceTopology: "self-intersecting"` and
+  `resolutionStatus: "local-side-approximation"`.
+- This visibility path is not a center fallback, is not exact support, and must
+  not be promoted to exact without the arrangement/face-collapse stage.
+- Figma half-dash endpoint behavior is documented as a product divergence.
+  Open center-equivalent dashed geometry uses the same true arc-length pattern
+  allocator as closed-loop and constrained dashed families.
 
 ### Boolean Geometry
 
@@ -436,8 +441,10 @@ Asyra decision:
   winding-rule metadata.
 - Miter-limit exceedance is supported bevel geometry.
 - Baseline exact caps should start with no cap, round, and square.
-- Dashes are interval-domain geometry, but Figma half-dash endpoint behavior
-  requires explicit fixtures before open dashed exact support.
+- Dashes are interval-domain geometry. Asyra uses true arc-length interval
+  allocation instead of Figma endpoint balancing for open zero-offset dashed
+  support; any future endpoint-balancing mode would require a new product
+  decision and tests before implementation.
 - Self-intersecting closed paths require arrangement/union-style cleanup and face
   semantics before offsetting; raw offsetting is not acceptable.
 - Algorithm references are construction references, not product semantics
@@ -552,19 +559,488 @@ MCP limitation from this pass:
 
 - the Starter plan tool-call limit stopped additional SVG export for Q3 and Q4
 - Q3 self-intersection conclusions remain fixture-created and
-  metadata-observed, but not yet export-confirmed
+  metadata-observed, but not yet export-confirmed in that MCP pass. The
+  2026-04-29 user-supplied SVG exports below close the product-visible outline
+  reference for the supplied self-intersecting star fixtures.
+
+## 2026-04-29 User-Supplied Figma SVG / Outline Fixture Analysis
+
+Input files:
+
+- `stroke-ref-01-self-intersecting-closed-inside-dashed-*`
+- `stroke-ref-02-self-intersecting-closed-outside-dashed-*`
+- `stroke-ref-03-high-curvature-cubic-loop-inside-dashed-*`
+- `stroke-ref-04-compound-overlap-holes-inside-dashed-*`
+- `stroke-ref-05-Multi-network-overlap-outside-dashed-*`
+
+Read-only analysis source:
+
+- user-exported original SVG
+- user-exported outline SVG
+- user screenshot for visible Figma editor appearance
+
+General finding:
+
+- These exports are product-appearance references, not always authored-source
+  references.
+- Original SVG export may already contain Figma-generated appearance geometry,
+  masks, or merged contours.
+- Outline SVG export is the stronger oracle for visible filled stroke geometry,
+  because it contains the final filled dash components after Figma's stroke
+  expansion.
+- The renderer must not infer authoring topology from an outline SVG. It may
+  use outline geometry to validate final visible regions, packet count classes,
+  clipping behavior, and overdraw absence.
+
+### Reference 01. Self-Intersecting Closed Inside Dashed
+
+Observed SVG structure:
+
+- original SVG:
+  - one stroked path
+  - `stroke-width="10"`
+  - `stroke-dasharray="27 20"`
+  - five path subpaths
+  - no mask or clip path
+- outline SVG:
+  - one filled path
+  - thirty-four filled subpaths
+
+Finding:
+
+- Figma does not export this inside dashed self-intersecting fixture as a simple
+  centerline fallback.
+- The outline output contains many independent filled dash components. This
+  confirms that the product-visible target is filled geometry per visible dash
+  component, not raw candidate rectangles and not a hidden center fallback.
+- The original export is already Figma-generated constrained appearance
+  geometry. It must not be treated as the user's original five-point star
+  centerline.
+
+Asyra decision:
+
+- Current local-side approximation visibility may remain as a non-exact
+  supported visibility slice only when packets are explicitly marked
+  `resolutionStatus: "local-side-approximation"`.
+- Exact support requires matching the filled-component semantics through source
+  arrangement, legal-domain classification, interval ownership, and duplicate
+  region collapse.
+- Any test promoted to exact support must compare semantic filled components or
+  face-level coverage, not only "something is visible".
+
+### Reference 02. Self-Intersecting Closed Outside Dashed
+
+Observed SVG structure:
+
+- original SVG:
+  - one stroked path
+  - `stroke-width="10"`
+  - `stroke-dasharray="27 20"`
+  - one path subpath
+  - no mask or clip path
+- outline SVG:
+  - one filled path
+  - thirty-two filled subpaths
+
+Finding:
+
+- Outside dashed self-intersection also remains constrained-side visible output.
+- The outline output has a different filled-component count from inside
+  (`32` versus `34`), so inside/outside cannot share one post-hoc center
+  expansion with only a side label changed.
+- The original outside export is a generated outline-like path suitable for
+  preserving appearance in SVG, not a reliable authored-source topology record.
+
+Asyra decision:
+
+- Inside/outside self-intersecting dashed paths must preserve the authored side.
+- Center fallback is forbidden.
+- Exact support must run separate inside and outside legality/ownership
+  classification and may not assume the component cardinality is identical
+  between the two sides.
+
+### Reference 03. High-Curvature Cubic Loop Inside Dashed
+
+Observed SVG structure:
+
+- original SVG:
+  - one mask path describing the source legal loop
+  - one masked filled dash path
+  - the visible dash path contains forty-six subpaths before mask clipping
+- outline SVG:
+  - one filled path
+  - twenty filled subpaths
+
+Finding:
+
+- Figma uses a legal-domain mask in the appearance export for this high-curvature
+  inside dashed loop.
+- Candidate geometry may be larger than the legal domain before clipping.
+- The final outline output proves the product-visible result is clipped filled
+  geometry, not raw offset candidates.
+
+Asyra decision:
+
+- High-curvature inside dashed support must be validated by final legal-domain
+  clipping and filled-region output.
+- Local interval geometry is not sufficient for exact support if it leaks
+  outside the legal domain or draws duplicate overlap.
+- The exact branch remains arrangement-and-legality gated when curvature causes
+  candidate self-overlap.
+
+### Reference 04. Compound Overlap Holes Inside Dashed
+
+Observed SVG structure:
+
+- original SVG:
+  - one mask path with two subpaths
+  - outer legal shell: `(0,0)-(240,160)`
+  - one merged inner hole: `(45,45)-(185,115)`
+  - one masked filled dash path with eighty pre-mask subpaths
+- outline SVG:
+  - one filled path
+  - twenty-four filled subpaths
+
+Finding:
+
+- The two overlapping hole rectangles in the authoring fixture are not preserved
+  as two independent hole owners in the appearance export.
+- Figma resolves the legal domain first and exports one merged inner hole before
+  applying inside dashed appearance.
+- This is a legal-domain normalization fixture, not a contour-order fixture.
+
+Asyra decision:
+
+- Overlapping compound holes require a legal-domain boolean normalization stage
+  before exact constrained stroke support can be claimed.
+- Containment-depth parity remains valid for nested non-overlapping contours.
+- Intersecting or overlapping hole contours are not covered by the
+  containment-only supported slice.
+- Product packets for overlapping holes must be emitted from normalized legal
+  regions, not from each raw hole contour independently.
+
+### Reference 05. Multi-Network Overlap Outside Dashed
+
+Observed SVG structure:
+
+- original SVG:
+  - one stroked path
+  - `stroke-width="10"`
+  - `stroke-dasharray="28 16"`
+  - one path subpath
+  - no mask or clip path
+- outline SVG:
+  - one filled path
+  - sixteen filled subpaths
+
+Finding:
+
+- The exported original is already a merged single-contour outside dashed
+  appearance path.
+- This fixture proves a flattened-union outside dashed product result.
+- It does not prove preservation of two independent multi-network owners,
+  because the SVG no longer contains two owner networks.
+
+Asyra decision:
+
+- Use this fixture as a flattened-union visible-output oracle.
+- Do not use it as evidence that Figma preserves independent multi-network
+  ownership for overlapping outside dashed paths.
+- Exact multi-network ownership still needs either direct Figma node metadata
+  capture or an authored fixture that preserves distinct network identities
+  through the reference pipeline.
+
+## Reference Closure From 2026-04-29 SVG Exports
+
+Closed or refined:
+
+- self-intersecting inside/outside dashed must remain constrained-side visible;
+  center fallback is forbidden
+- self-intersecting inside and outside dashed outputs have different filled
+  component structure and must not share one exact component model
+- high-curvature inside dashed exact support requires legal-domain clipping of
+  candidate geometry
+- overlapping compound holes require legal-domain boolean normalization before
+  exact stroke emission
+- the supplied multi-network outside dashed SVG validates flattened-union output
+  but not independent owner preservation
+
+Still gated after these exports:
+
+- exact self-intersecting constrained dashed face ownership and duplicate-region
+  collapse
+- exact high-curvature candidate self-overlap removal
+- exact overlapping-hole legal-domain boolean normalization in runtime product
+  packets
+- exact independent multi-network ownership when source network identities must
+  remain separate
+
+## 2026-04-30 External Algorithm Research Closure
+
+This pass resolves the remaining product-semantic ambiguity into implementation
+rules. It does not mean every exact algorithm is already implemented.
+
+References:
+
+- Figma stroke properties:
+  `https://help.figma.com/hc/en-us/articles/360049283914-Apply-and-adjust-stroke-properties`
+- CGAL 2D arrangements:
+  `https://doc.cgal.org/latest/Arrangement_on_surface_2/index.html`
+- Clipper2 offset paths:
+  `https://angusj.com/clipper2/Docs/Units/Clipper.Offset/Classes/ClipperOffset/_Body.htm`
+- Martinez polygon clipping:
+  `https://github.com/w8r/martinez`
+- Paper.js `Path.flatten([flatness])`:
+  `https://paperjs.org/reference/path/`
+- SVG `stroke-dasharray`:
+  `https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Attribute/stroke-dasharray`
+- SVG `stroke-dashoffset`:
+  `https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Attribute/stroke-dashoffset`
+
+### Planar Arrangement As The Exact Self-Intersection Path
+
+Finding:
+
+- CGAL defines 2D arrangements as a subdivision into vertices, edges, and faces
+  induced by curves. This is the correct data model for source intersections,
+  candidate stroke overlap, and face-level legality.
+- Clipper2 warns that offsetting intersecting closed paths produces undesirable
+  results and recommends removing intersections through a union clipping
+  operation before offsetting.
+
+Asyra decision:
+
+- Exact self-intersecting constrained strokes must split source intersections,
+  build a source arrangement, classify legal faces by declared fill rule, build
+  one-sided interval candidates from split spans, then run candidate
+  arrangement and duplicate-region collapse.
+- Raw offsetting of self-intersecting closed paths is forbidden.
+- Current local-side approximation remains a visibility bridge only.
+
+### High-Curvature And Candidate Self-Overlap
+
+Finding:
+
+- Mature curve tooling such as Paper.js and Bezier.js treats curve offsetting
+  and flattening as tolerance-bounded approximation, not analytic exact output.
+- Candidate self-overlap is expected when offset distance is large relative to
+  local curvature.
+
+Asyra decision:
+
+- High-curvature exact support is exact relative to Asyra's declared canonical
+  flattened geometry, not analytic Bezier offsets.
+- Candidate self-overlap is resolved by arrangement and face classification.
+- Until arrangement removes duplicate/illegal faces, sampled high-curvature
+  constrained dashed interval packets are local-side approximation, not exact
+  constrained support.
+
+### Compound Holes And Boolean Normalization
+
+Finding:
+
+- Polygon boolean libraries such as Martinez implement union, intersection,
+  difference, and xor for polygons, multipolygons, holes, and self-intersecting
+  inputs.
+- The user-supplied Figma overlapping-hole fixture shows Figma normalizes the
+  legal domain into one merged hole before emitting inside dashed appearance.
+
+Asyra decision:
+
+- Exact compound support is `LegalDomain = union(shells) - union(holes)`.
+- Overlapping holes must run legal-domain boolean normalization before interval
+  allocation and one-sided candidate construction.
+- Containment-depth parity remains the current supported slice for
+  non-overlapping nested contours.
+
+### Multi-Network Overlap
+
+Finding:
+
+- Figma's flattened SVG export can prove final visible output, but it does not
+  prove that independent source-network owners survive export.
+
+Asyra decision:
+
+- Current product rendering may keep overlapping network strokes visible when
+  every packet preserves typed `networkId` / `ownerKey` metadata.
+- Exact owner-collapsed output uses an `ownerSet` on the final semantic face
+  when multiple networks claim the same visible region with identical stroke
+  layer, stroke spec, and paint payload.
+- Different stroke layers, different paint, or different object stacking do not
+  collapse.
+
+### Open Dashed Endpoint And Closed Seam Rules
+
+Finding:
+
+- Figma documents that dashed lines start and end with a half-length dash.
+- SVG defines dash arrays and dash offsets as deterministic repeated
+  arc-length patterns.
+
+Asyra decision:
+
+- Open paths keep authored `inside` / `outside` center-equivalent for geometry.
+- Open and closed dashed support use deterministic arc-length interval
+  allocation. They do not auto-balance endpoints or seams; Figma half-dash
+  endpoint behavior is a documented divergence from Asyra's product rule.
+
+### Numeric Tolerance Policy
+
+Finding:
+
+- Paper.js documents `flatten([flatness])` as subdividing curves until the
+  maximum error is met, with default flatness `0.25`.
+
+Asyra decision:
+
+- Exact curve flattening target: `0.25 px`.
+- Preview curve flattening ceiling: `1.0 px` or `strokeWidth / 4`, whichever is
+  lower, while preserving topology family and support state.
+- Snap epsilon: `1e-6` model units.
+- Zero-area face rejection threshold:
+  `max(1e-8, flattenTolerance * flattenTolerance * 0.25)`.
+- Interaction settle must rebuild exact geometry and converge to the exact
+  baseline hash for the same revision.
 
 ## Still Gated After This Research Pass
 
-- Figma-visible behavior for constrained dashed strokes on closed loops,
-  especially seam placement and half-dash behavior.
-- Figma-visible behavior for open `inside/outside` strokes, including endpoint
-  and cap semantics.
-- Figma-visible behavior for self-intersecting vector-network regions with
-  constrained strokes.
-- Boolean-union minimization for overlapping constrained solid export packets
-  when two networks claim the same visible stroke face.
-- Exact numeric tolerance values for flattening, offset approximation,
-  arrangement snapping, and zero-area rejection.
-- Performance benchmark environments and fixture sizes for `120 fps` target and
-  `60 fps` floor.
+- Exact self-intersection arrangement implementation now has a backend-gated
+  promotion path for accepted constrained dashed packets plus real Clipper2
+  fixtures for partitioned owner claims, product promotion, and side-specific
+  inside/outside signatures. Remaining work is broader Figma/reference parity
+  and stress coverage for extreme repeated-interval cases.
+- Exact high-curvature candidate arrangement now has a backend-gated promotion
+  path for accepted sampled-simple constrained dashed packets plus real
+  Clipper2 fixtures for overlapping-candidate partitioning, product promotion,
+  and side-specific inside/outside signatures. Remaining work is broader
+  Figma/reference parity and stress coverage for extreme curvature cases.
+- Runtime legal-domain boolean normalization for overlapping compound holes was
+  later implemented for the backend-normalized constrained dashed product path;
+  see `active-support-scope.md` for current status.
+- Independent multi-network same-visual ownerSet collapse was later implemented
+  for exact arranged constrained dashed product paths; see
+  `active-support-scope.md` for current status.
+- Open dashed zero-offset support uses the same pure arc-length pattern
+  semantics as non-zero `dashOffset`; endpoint half-dash behavior is not a
+  product path.
+
+## 2026-04-30 CTO Review Closure
+
+The remaining gates are now implementation gates, not unresolved product
+semantics. The exact engine must converge on the following model:
+
+```text
+Raw Vector
+  -> Canonical Flatten
+  -> Source Span Graph
+  -> Legal Domain Normalization
+  -> Dash Interval Allocation
+  -> Candidate Region Generation
+  -> Planar Arrangement
+  -> Face Classification
+  -> Duplicate / Owner Collapse
+  -> FinalFace[]
+  -> RenderMesh / HitRegion / ExportPath
+```
+
+### Fill Rule And Legal Domain
+
+Decision:
+
+- self-intersection and compound legal-domain classification must use the source
+  path's declared fill rule
+- when source data has no fill-rule field yet, the temporary default is
+  `evenodd`, but the data model must expose
+  `fillRule: "evenodd" | "nonzero"` before exact support is claimed
+- `inside` means candidate faces intersected with the legal fill domain
+- `outside` means candidate faces outside the legal fill domain
+- `center` remains independent from fill-domain clipping unless an export
+  projection explicitly requires normalization
+
+Rationale:
+
+- forcing all self-intersections to `evenodd` would be deterministic, but it
+  would prevent future Figma-like fill-rule parity
+- the engine may default old data to `evenodd`; it must not erase the ability to
+  support `nonzero`
+
+### FinalFace As Canonical Runtime Contract
+
+Decision:
+
+- `FinalFace[]` is the canonical exact-geometry source for render, hit-test, and
+  export
+- legacy resolved packets may exist only as bridge inputs while migration is in
+  progress
+- `RenderMesh`, `HitRegion`, and `ExportPath` are projections of `FinalFace[]`,
+  not independent geometry authorities
+
+Minimum `FinalFace` fields:
+
+- `faceId`
+- `sourceGeometryIds`
+- `polygons` or lazy region descriptor
+- `bounds`
+- `visualPacketKey`
+- `paintKey`
+- `strokeSpecKey`
+- `ownerSet`
+- `intervalIds`
+- `sourceSpanIds`
+- `sourceContourIds`
+- `legalDomainIds`
+- `geometryFamily`
+- `resolutionStatus`
+- `runtimeStatus`
+- `sourceTopology`
+
+### Collapse Rule
+
+Decision:
+
+- duplicate candidate regions collapse only when they share the same final face
+  geometry and the same visual packet identity
+- visual packet identity includes paint, opacity, blend/effect/mask/clip context,
+  stroke spec, stacking group, visibility, and compatible runtime status
+- same visual packet collapse does not stack opacity
+- different visual packet identity must remain separate and follows normal
+  stacking
+- collapsed faces keep typed `ownerSet`, `intervalIds`, `sourceSpanIds`, and
+  `sourceContourIds`
+
+### Multi-Network Export And Hit-Test
+
+Decision:
+
+- visual export emits merged `FinalFace[]` projections
+- editable/internal export may preserve network-separated packets plus owner
+  metadata
+- hit-test returns a primary owner selected by deterministic stack order and
+  also carries the full `ownerSet`
+
+### Preview And Tolerance Policy
+
+Decision:
+
+- final/settled geometry is deterministic and cache-keyed by tolerance
+- preview geometry may use lower tessellation density, but it is never a final
+  hit-test or export source
+- if preview topology differs from final topology, final settled geometry wins
+- runtime default exact tolerance remains `0.25 px` until a measured performance
+  profile proves a lower value can still satisfy the `120 fps` target and
+  `60 fps` floor
+- export may define a stricter tolerance profile, but it must use a different
+  cache key
+
+### Backend Strategy
+
+Decision:
+
+- use a hybrid architecture
+- Asyra owns the runtime data model, owner metadata, dirty graph, cache keys,
+  legal-domain classifier, and `FinalFace[]` contract
+- heavy boolean / offset operations may use a Clipper2-like backend behind a
+  `GeometryBackend` adapter
+- CGAL arrangement remains the conceptual model, not the first production JS/TS
+  runtime dependency

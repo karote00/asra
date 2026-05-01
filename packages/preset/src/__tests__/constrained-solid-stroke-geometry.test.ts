@@ -224,7 +224,7 @@ describe('constrained solid stroke geometry', () => {
     )
 
     const bounds = getBounds(polygons)
-    expect(polygons.length).toBeGreaterThan(1)
+    expect(polygons).toHaveLength(1)
     expect(bounds.minX).toBeGreaterThanOrEqual(-2.001)
     expect(bounds.maxX).toBeLessThanOrEqual(22.001)
     expect(bounds.minY).toBeGreaterThanOrEqual(0)
@@ -247,12 +247,15 @@ describe('constrained solid stroke geometry', () => {
       })
     )
 
-    expect(polygons).toContainEqual([
-      { x: 10, y: 0 },
-      { x: 10, y: 4 },
-      { x: 6, y: 4 },
-      { x: 6, y: 0 }
-    ])
+    expect(polygons).toHaveLength(1)
+    expect(polygons[0]).toEqual(
+      expect.arrayContaining([
+        { x: 10, y: 0 },
+        { x: 10, y: 10 },
+        { x: 6, y: 10 },
+        { x: 6, y: 4 }
+      ])
+    )
   })
 
   it('should run: resolve open constrained miter-limit exceedance as bevel geometry', () => {
@@ -271,12 +274,15 @@ describe('constrained solid stroke geometry', () => {
       })
     )
 
-    expect(polygons).toContainEqual([
-      { x: 10, y: 0 },
-      { x: 10, y: 4 },
-      { x: 8, y: 2 },
-      { x: 6, y: 0 }
-    ])
+    expect(polygons).toHaveLength(1)
+    expect(polygons[0]).toEqual(
+      expect.arrayContaining([
+        { x: 10, y: 0 },
+        { x: 10, y: 10 },
+        { x: 6, y: 10 },
+        { x: 8, y: 2 }
+      ])
+    )
   })
 
   it('should run: keep inside geometry inside the legal owner domain for rectangles', () => {

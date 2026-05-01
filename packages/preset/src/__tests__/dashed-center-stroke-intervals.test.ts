@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { allocateDashedCenterStrokeIntervals } from '../components/stroke-render/dashed-center-stroke-intervals'
 
 describe('dashed center stroke interval allocation', () => {
-  it('should run: preserve authored dash pattern through interval allocation on open paths', () => {
+  it('should run: allocate open path dashes by true arc length without endpoint balancing', () => {
     const intervals = allocateDashedCenterStrokeIntervals(
       100,
       [20, 10],
@@ -123,6 +123,18 @@ describe('dashed center stroke interval allocation', () => {
         endDistance: interval.endDistance
       }))
     )
+  })
+
+  it('should run: emit one clipped visible interval for open paths shorter than the first dash', () => {
+    expect(
+      allocateDashedCenterStrokeIntervals(12, [20, 10], 0, false).map(
+        (interval) => ({
+          kind: interval.kind,
+          startDistance: interval.startDistance,
+          endDistance: interval.endDistance
+        })
+      )
+    ).toEqual([{ kind: 'visible', startDistance: 0, endDistance: 12 }])
   })
 
   it('should not run: produce any intervals for empty or invalid normalized patterns', () => {

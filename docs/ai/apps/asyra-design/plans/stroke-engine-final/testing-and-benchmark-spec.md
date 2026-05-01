@@ -125,8 +125,9 @@ The tests must include:
 - one fixture where miter remains below limit
 - one fixture where miter exceeds limit and emits bevel geometry while staying
   in the supported exact family
-- one open dashed Figma fixture proving whether half-dash endpoint behavior
-  applies to the supported family
+- one open dashed fixture proving zero-offset true arc-length pattern behavior
+  and one explicit-offset fixture proving non-zero `dashOffset` uses the same
+  phase-shifted arc-length pattern without endpoint rebalancing
 - one odd dash-pattern normalization fixture with an explicit Figma/SVG/Lottie
   compatibility decision
 - one open-path fixture proving `strokeAlign: INSIDE` and
@@ -136,8 +137,22 @@ The tests must include:
 - one high-curvature fixture that creates candidate self-overlap
 - one overlap fixture that proves duplicate candidate layers collapse into
   semantic regions
-- one self-intersection fixture that verifies support state remains gated until
-  face semantics are declared
+- one self-intersection fixture that verifies no-backend output remains
+  visible as local-side approximation and selected-backend output promotes to
+  exact constrained arrangement geometry
+- one self-intersecting inside dashed outline fixture whose exact oracle is
+  filled-component semantics, not center fallback visibility
+- one self-intersecting outside dashed outline fixture proving outside has its
+  own side-aware component structure
+- one high-curvature inside dashed fixture proving selected-backend product
+  output is exact constrained arrangement geometry and pre-clipped candidates
+  are not treated as final exact faces
+- one overlapping-hole compound fixture proving raw hole contours are
+  normalized into legal-domain boolean regions before exact constrained dashed
+  emission
+- one flattened-union multi-network export fixture proving visible output plus
+  metadata-preserving ownerSet fixtures for exact independent multi-network
+  owner semantics
 
 The miter-limit fixture must assert both geometry and status:
 
@@ -199,15 +214,100 @@ Current supported paint coverage:
 
 Current supported topology gate coverage:
 
+- `packages/preset/src/__tests__/path-topology-model.test.ts` and
+  `legal-domain-normalization.test.ts` verify overlapping compound holes require
+  backend boolean normalization before shared compound support
+- `packages/preset/src/__tests__/vector-constrained-dashed-stroke.test.ts`
+  verifies vector product runtime keeps overlapping holes separate without a
+  backend and, with a selected boolean backend, places product dashes on
+  normalized legal-domain boundary spans while preserving source contour/span
+  owner metadata
+- `packages/preset/src/__tests__/constrained-dashed-stroke-packets.test.ts`
+  verifies self-intersecting inside/outside dashed packets remain side-aware
+  local-side approximation packets instead of center-derived geometry
+- `packages/preset/src/__tests__/constrained-dashed-stroke-packets.test.ts`
+  verifies reported `vector-6` inside dashed packets do not place polygon
+  vertices outside the selected-side legal domain at the closed-path seam. The
+  regression uses authored anchor guard points and the authored `PathGeometry`
+  segment chain so the first dash at a closed-path seam is constrained by the
+  true previous source segment, not by a sampled endpoint tangent or an
+  anchor-to-anchor chord. Endpoint intervals are endpoint-aware: a dash starting
+  at the seam clips its start cap against the previous segment but must preserve
+  the body that follows the next segment; a dash ending at the seam mirrors
+  that rule by clipping against the next segment while preserving the body that
+  follows the previous segment. Only a dash that spans through the seam clips
+  against both adjacent segments at full crossing reach. Smooth anchors are not
+  allowed to activate the guard. The same regression also verifies that every
+  resolved dash packet keeps a source-edge point set on its
+  `slicePathGeometryPoints` interval, so no dash body can be replaced by an
+  endpoint tangent, and that interval polygons crossing another active authored
+  sharp-boundary edge are clipped by that authored edge instead of retaining a
+  tangent/cap cut, including seam-adjacent intervals that do not themselves
+  contain the sharp seam vertex.
+- `packages/preset/src/__tests__/constrained-dashed-stroke-packets.test.ts`
+  verifies a generic, non-reported source-path constrained dash loop preserves
+  a proportional set of authored `slicePathGeometryPoints` source-edge samples
+  for every curved dash packet. This prevents future fixes from passing only
+  the reported `vector-6` fixture while still drawing generic source-path
+  dashes from endpoint tangents or legality-clip intersections.
+- `packages/preset/src/__tests__/constrained-dashed-stroke-packets.test.ts`
+  verifies reported `vector-6` seam end dashes clip against the start authored
+  segment when their completed one-sided polygon crosses that segment. The pass
+  rule requires boundary points on the start segment and nearest-segment
+  selected-side legality, so Bezier clipping cannot be approximated by a global
+  endpoint tangent or unrelated curve sample.
+- `packages/preset/src/__tests__/constrained-dashed-stroke-packets.test.ts`
+  verifies high-curvature inside dashed packets stay inside source legal bounds
+  after final legality clipping
 - `packages/preset/src/__tests__/vector-constrained-solid-stroke.test.ts`
   verifies overlapping multi-network constrained solid vectors emit product
   packets after entering global ownership diagnostics
 - `packages/preset/src/__tests__/vector-constrained-dashed-stroke.test.ts`
   verifies overlapping multi-network constrained dashed vectors emit accepted
   per-network runtime diagnostics with typed owner metadata
+- `packages/preset/src/__tests__/vector-constrained-dashed-stroke.test.ts`
+  verifies overlapping hole vectors are not assigned the shared compound
+  `legalDomainId` used by containment-only compound support
 - existing self-intersection fixtures verify constrained solid/dashed paths
   remain constrained local-side geometry instead of silently falling back to
   center visibility
+
+Current Figma reference fixture coverage obligations:
+
+- `stroke-ref-01-self-intersecting-closed-inside-dashed`:
+  - original SVG has one stroked path, five subpaths, dash pattern `[27,20]`
+  - outline SVG has thirty-four filled subpaths
+  - exact support must compare filled-component or face coverage, not merely
+    visibility
+- `stroke-ref-02-self-intersecting-closed-outside-dashed`:
+  - original SVG has one stroked path, one subpath, dash pattern `[27,20]`
+  - outline SVG has thirty-two filled subpaths
+  - exact support must keep outside separate from inside; a shared center
+    component model is invalid
+  - current runtime support must keep self-intersecting inside/outside dashes
+    visible as side-aware local geometry even when the exact backend is loaded;
+    it must not promote this topology through the current exact clipping path
+    because that path can remove valid internal dash regions
+- `stroke-ref-03-high-curvature-cubic-loop-inside-dashed`:
+  - original SVG uses a legal-domain mask plus pre-mask filled dash candidates
+  - outline SVG has twenty filled subpaths
+  - exact support must prove final packets contain post-legality regions only
+  - without a selected exact backend, current runtime visibility support marks
+    sampled-simple-closed interval-local constrained dashed packets as
+    `resolutionStatus: "local-side-approximation"`
+  - with a selected exact backend, accepted packets must promote to
+    `resolutionStatus: "exact-constrained"` with exact arrangement metadata
+- `stroke-ref-04-compound-overlap-holes-inside-dashed`:
+  - original SVG mask has an outer shell and one merged inner hole
+  - outline SVG has twenty-four filled subpaths
+  - product support proves overlapping holes are boolean-normalized before
+    stroke emission and that dashes are allocated from normalized boundaries,
+    not raw overlapping hole contours
+- `stroke-ref-05-Multi-network-overlap-outside-dashed`:
+  - original SVG has one merged stroked contour, dash pattern `[28,16]`
+  - outline SVG has sixteen filled subpaths
+  - this fixture validates flattened-union visible output but is not sufficient
+    to validate independent multi-network owner preservation
 
 Current supported performance coverage:
 
@@ -229,6 +329,90 @@ Current supported performance coverage:
   - CPU geometry path only; GPU/browser claims require separate browser
     benchmark declarations before they can be used as product performance
     evidence
+
+Current `FinalFace[]` contract coverage:
+
+- `packages/preset/src/__tests__/solid-center-stroke-packets.test.ts`
+  verifies existing resolved stroke packets can materialize canonical final
+  faces
+- tests assert typed owner metadata is preserved without parsing
+  `geometryId`
+- tests assert local-side approximation duplicates do not collapse and exact
+  duplicate geometry collapses only when visual packet keys match
+- tests assert different paint payloads keep duplicate geometry as separate
+  final faces
+- render, hit-test, and export packet projections must continue to derive from
+  the same final-face source
+- `packages/preset/src/__tests__/stroke-candidate-arrangement.test.ts`
+  verifies the Step 7 backend bridge:
+  - typed `CandidateRegion[]` construction
+  - inside/outside legal-state filtering into distinct exact final face sets
+  - typed legal-domain geometry overrides backend legal state before product
+    side filtering
+  - concave simple arrangement faces use an interior sample instead of a naked
+    centroid-only classifier
+  - same-visual ownerSet / interval / source-span merge on one arrangement face
+  - exact duplicate arrangement faces collapse without opacity stacking
+  - different visual packet keys stay separate on the same arrangement face
+  - unknown backend candidate references fail loudly
+- `packages/preset/src/__tests__/clipper2-geometry-backend.test.ts` verifies
+  the Phase 9/13 backend adapter:
+  - Clipper2 can be loaded and registered without product helpers importing the
+    concrete backend
+  - backend version, capability metadata, coordinate policy, and cache
+    signature are deterministic
+  - boolean, offset, and arrangement operations return real geometry
+  - one multi-strip candidate is normalized into one arrangement face before
+    partitioning, preventing visible internal dash seams and opacity
+    multiplication
+  - exact legal-domain clipping splits crossing arrangement faces with backend
+    `intersection` / `difference` before inside/outside filtering
+  - backend operation caches clone cached geometry before return
+  - arrangement cache hits bind `claimedBy` to the current typed candidate
+    objects instead of stale cached owners
+- `packages/preset/src/__tests__/constrained-dashed-stroke-packets.test.ts`
+  verifies high-curvature and reported `vector-6` inside dashed intervals emit
+  one packet per dash interval, with bounded segment-cell polygons when a
+  merged ribbon would create fan-like overlap. Every emitted cell polygon must
+  be simple, remain within stroke-width distance of the authored sampled source
+  path, preserve shared interval metadata, and stay bounded by local
+  sharp-corner selected-side guards. Adjacent cells for the same smooth curve
+  dash must share source/offset-boundary vertices so they connect rather than
+  overlap as independent normal strips. Source-path intervals crossing authored
+  segment boundaries must emit segment-local polygons instead of one inflated
+  cross-segment fan, and cells touching segment boundaries must be clipped by
+  adjacent authored segment tail/head polylines.
+- `packages/preset/src/__tests__/vector-constrained-dashed-stroke.test.ts`
+  verifies the Phase 10/12 product promotion path:
+  - without an exact backend, authored inside/outside constrained dashed output
+    remains visible as `local-side-approximation`
+  - with a selected arrangement backend, accepted constrained dashed packets are
+    promoted to `resolutionStatus: "exact-constrained"` with
+    `arrangementStatus: "exact"`
+  - multi-network constrained dashed candidates are promoted in one vector-level
+    arrangement pass, and same-visual exact faces preserve every contributing
+    network in `ownerSet`
+  - backend-normalized overlapping compound-hole dashed vectors allocate product
+    dashes on normalized legal-domain boundary spans and carry source contour /
+    source span metadata into export packets
+  - runtime diagnostics remain accepted and do not report blocked fallback
+
+Current and future `FinalFace[]` fixtures:
+
+- self-intersecting inside/outside dashed fixtures must prove stable visible
+  side-aware local geometry with and without an exact backend selected. They
+  must not expect exact promotion until the clipping oracle preserves internal
+  dash regions.
+- high-curvature inside/outside dashed fixtures include backend-gated exact
+  promotion from visible local-side packets and real Clipper2-backed tests that
+  compare side-specific final signatures separately for each side
+- real backend arrangement fixtures partition self-intersecting and
+  high-curvature overlapping candidates into owner-specific and shared faces
+- broader holed / multi-contour arrangement fixtures must stay in the suite to
+  prove filled-sample selection and mixed-legal-state splitting before those
+  faces are used for self-intersection or high-curvature exact promotion
+- future reference fixtures should add larger real-document visual parity and
+  stress coverage, not redefine the product semantics
 
 ## Required Concrete Test Cases
 
@@ -507,6 +691,8 @@ Current supported performance coverage:
   - preview and final classification match
   - final geometry hash equals exact baseline hash
   - preview uses the same committed interval schedule as exact mode
+  - preview flattening tolerance does not exceed `min(1.0 px, strokeWidth / 4)`
+  - exact flattening target is `0.25 px`
 
 ### Case 16. Compound closed path with one hole inside constrained solid
 

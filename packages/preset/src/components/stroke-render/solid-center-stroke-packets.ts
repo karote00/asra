@@ -14,6 +14,11 @@ import {
   buildPathTopologyModel,
   type PathTopologyModel
 } from './path-topology-model'
+import {
+  buildStrokeFinalFacesFromResolvedPackets,
+  type StrokeFinalFace,
+  type StrokeOwnerKey
+} from './stroke-final-face'
 
 interface Vec2 {
   x: number
@@ -47,6 +52,12 @@ export interface SolidCenterStrokeHitTestPacket {
   geometryId: string
   polygons: Vec2[][]
   bounds: Bounds
+  primaryOwner?: StrokeOwnerKey
+  ownerSet: StrokeOwnerKey[]
+  intervalIds: string[]
+  sourceSpanIds: string[]
+  sourceContourIds: string[]
+  legalDomainIds: string[]
   debugMeta?: SolidCenterStrokeGeometryDebugMeta
 }
 
@@ -54,6 +65,12 @@ export interface SolidCenterStrokeExportPacket {
   geometryId: string
   polygons: Vec2[][]
   bounds: Bounds
+  primaryOwner?: StrokeOwnerKey
+  ownerSet: StrokeOwnerKey[]
+  intervalIds: string[]
+  sourceSpanIds: string[]
+  sourceContourIds: string[]
+  legalDomainIds: string[]
   debugMeta?: SolidCenterStrokeGeometryDebugMeta
 }
 
@@ -118,12 +135,18 @@ export interface SolidCenterStrokeGeometryDebugMeta {
   contourId?: string
   legalDomainId?: string | null
   intervalId?: string
+  sourceSpanIds?: string[]
+  ownerSet?: StrokeOwnerKey[]
+  intervalIds?: string[]
+  sourceContourIds?: string[]
+  legalDomainIds?: string[]
   authoredVisibleIntervalIndex?: number
   startDistance?: number
   endDistance?: number
   wrapsSeam?: boolean
   previousVisibleIntervalId?: string | null
   nextVisibleIntervalId?: string | null
+  dashPlacementMode?: 'arc-length-pattern'
   geometryFamily?: StrokeGeometryFamily
   resolutionStatus?: StrokeGeometryResolutionStatus
   runtimeStatus?: StrokeGeometryRuntimeStatus
@@ -133,6 +156,14 @@ export interface SolidCenterStrokeGeometryDebugMeta {
   intervalTopology?: StrokeGeometryIntervalTopology
   ownershipStatus?: StrokeGeometryOwnershipStatus
   ownerCount?: number
+  strokePosition?: 'center' | 'inside' | 'outside'
+  arrangementStatus?: 'exact'
+  arrangementFaceId?: string
+  arrangementCandidateIds?: string[]
+  arrangementLegalState?: {
+    insideFillDomain: boolean
+    outsideFillDomain: boolean
+  }
   revisionSet?: StrokeRevisionSet
 }
 
@@ -243,6 +274,18 @@ const normalizedResolvedPacketCache = new WeakMap<
   SolidCenterStrokeResolvedPacket[],
   SolidCenterStrokeResolvedPacket[]
 >()
+const finalFaceCache = new WeakMap<
+  SolidCenterStrokeResolvedPacket[],
+  StrokeFinalFace<SolidCenterStrokeGeometryDebugMeta, SolidCenterStrokePaintPacket>[]
+>()
+const hitPacketCache = new WeakMap<
+  StrokeFinalFace<SolidCenterStrokeGeometryDebugMeta, SolidCenterStrokePaintPacket>[],
+  SolidCenterStrokeHitTestPacket[]
+>()
+const exportPacketCache = new WeakMap<
+  StrokeFinalFace<SolidCenterStrokeGeometryDebugMeta, SolidCenterStrokePaintPacket>[],
+  SolidCenterStrokeExportPacket[]
+>()
 
 export const normalizeResolvedStrokePacketGeometry = (
   packets: SolidCenterStrokeResolvedPacket[]
@@ -340,6 +383,7 @@ export const buildSolidCenterStrokeResolvedPackets = (
             networkId: options.metadata?.networkId,
             strokeId: `stroke:${index}`,
             strokeIndex: index,
+            strokePosition: 'center',
             geometryFamily: 'solid-center',
             resolutionStatus: 'native-center',
             runtimeStatus: 'not-applicable',
@@ -404,44 +448,159 @@ export const attachStrokePacketDebugMeta = (
     paint: packet.paint
   }))
 
+export const buildSolidCenterStrokeFinalFaces = (
+  packets: SolidCenterStrokeResolvedPacket[]
+): StrokeFinalFace<
+  SolidCenterStrokeGeometryDebugMeta,
+  SolidCenterStrokePaintPacket
+>[] => {
+  const cached = finalFaceCache.get(packets)
+  if (cached) {
+    return cached
+  }
+
+  const faces = buildStrokeFinalFacesFromResolvedPackets<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket,
+    SolidCenterStrokeResolvedPacket
+  >(normalizeResolvedStrokePacketGeometry(packets))
+  finalFaceCache.set(packets, faces)
+  return faces
+}
+
+const getProjectedGeometryId = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >
+) => (face.sourceGeometryIds.length === 1 ? face.sourceGeometryIds[0] : face.faceId)
+
+export const buildSolidCenterStrokeResolvedPacketsFromFinalFaces = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[]
+): SolidCenterStrokeResolvedPacket[] =>
+  faces.map((face) => {
+    const geometryId = getProjectedGeometryId(face)
+    const debugMeta = {
+      ...face.debugMeta,
+      ownerSet: face.ownerSet,
+      intervalIds: face.intervalIds,
+      sourceSpanIds: face.sourceSpanIds,
+      sourceContourIds: face.sourceContourIds,
+      legalDomainIds: face.legalDomainIds
+    }
+
+    return {
+      geometry: {
+        geometryId,
+        polygons: face.polygons,
+        bounds: face.bounds,
+        debugMeta
+      },
+      paint: {
+        ...face.paint,
+        geometryId
+      }
+    }
+  })
+
+export const buildSolidCenterStrokeHitTestPacketsFromFinalFaces = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[]
+): SolidCenterStrokeHitTestPacket[] => {
+  const cached = hitPacketCache.get(faces)
+  if (cached) {
+    return cached
+  }
+
+  const packets = faces.map((face) => ({
+    geometryId: getProjectedGeometryId(face),
+    polygons: face.polygons,
+    bounds: face.bounds,
+    primaryOwner: face.ownerSet[0],
+    ownerSet: face.ownerSet,
+    intervalIds: face.intervalIds,
+    sourceSpanIds: face.sourceSpanIds,
+    sourceContourIds: face.sourceContourIds,
+    legalDomainIds: face.legalDomainIds,
+    debugMeta: face.debugMeta
+  }))
+  hitPacketCache.set(faces, packets)
+  return packets
+}
+
 export const buildSolidCenterStrokeHitTestPackets = (
   packets: SolidCenterStrokeResolvedPacket[]
 ): SolidCenterStrokeHitTestPacket[] =>
-  normalizeResolvedStrokePacketGeometry(packets).map((packet) => ({
-    geometryId: packet.geometry.geometryId,
-    polygons: packet.geometry.polygons,
-    bounds: packet.geometry.bounds,
-    debugMeta: packet.geometry.debugMeta
+  buildSolidCenterStrokeHitTestPacketsFromFinalFaces(
+    buildSolidCenterStrokeFinalFaces(packets)
+  )
+
+export const buildSolidCenterStrokeExportPacketsFromFinalFaces = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[]
+): SolidCenterStrokeExportPacket[] => {
+  const cached = exportPacketCache.get(faces)
+  if (cached) {
+    return cached
+  }
+
+  const packets = faces.map((face) => ({
+    geometryId: getProjectedGeometryId(face),
+    polygons: face.polygons,
+    bounds: face.bounds,
+    primaryOwner: face.ownerSet[0],
+    ownerSet: face.ownerSet,
+    intervalIds: face.intervalIds,
+    sourceSpanIds: face.sourceSpanIds,
+    sourceContourIds: face.sourceContourIds,
+    legalDomainIds: face.legalDomainIds,
+    debugMeta: face.debugMeta
   }))
+  exportPacketCache.set(faces, packets)
+  return packets
+}
 
 export const buildSolidCenterStrokeExportPackets = (
   packets: SolidCenterStrokeResolvedPacket[]
 ): SolidCenterStrokeExportPacket[] =>
-  normalizeResolvedStrokePacketGeometry(packets).map((packet) => ({
-    geometryId: packet.geometry.geometryId,
-    polygons: packet.geometry.polygons,
-    bounds: packet.geometry.bounds,
-    debugMeta: packet.geometry.debugMeta
+  buildSolidCenterStrokeExportPacketsFromFinalFaces(
+    buildSolidCenterStrokeFinalFaces(packets)
+  )
+
+export const toSolidCenterStrokeRenderEntriesFromFinalFaces = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[]
+) =>
+  faces.map((face) => ({
+    cacheKey: getProjectedGeometryId(face),
+    stroke: {
+      kind: face.paint.kind,
+      color: face.paint.color,
+      alpha: face.paint.alpha,
+      gradientStyle: face.paint.gradientStyle ?? null,
+      paintKey:
+        face.paint.paintKey ?? `solid:${face.paint.color}:${face.paint.alpha}`
+    },
+    polygons: face.polygons,
+    debugMeta: face.debugMeta,
+    revisionSet: face.debugMeta?.revisionSet
   }))
 
 export const toSolidCenterStrokeRenderEntries = (
   packets: SolidCenterStrokeResolvedPacket[]
 ) =>
-  normalizeResolvedStrokePacketGeometry(packets).map((packet) => ({
-    cacheKey: packet.geometry.geometryId,
-    stroke: {
-      kind: packet.paint.kind,
-      color: packet.paint.color,
-      alpha: packet.paint.alpha,
-      gradientStyle: packet.paint.gradientStyle ?? null,
-      paintKey:
-        packet.paint.paintKey ??
-        `solid:${packet.paint.color}:${packet.paint.alpha}`
-    },
-    polygons: packet.geometry.polygons,
-    debugMeta: packet.geometry.debugMeta,
-    revisionSet: packet.geometry.debugMeta?.revisionSet
-  }))
+  toSolidCenterStrokeRenderEntriesFromFinalFaces(
+    buildSolidCenterStrokeFinalFaces(packets)
+  )
 
 export const applySolidCenterStrokeExportPackets = <T extends object>(
   graphic: T,
@@ -453,29 +612,66 @@ export const applySolidCenterStrokeExportPackets = <T extends object>(
     buildSolidCenterStrokeExportPackets(packets)
 }
 
+export const applySolidCenterStrokeExportPacketsFromFinalFaces = <T extends object>(
+  graphic: T,
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[]
+) => {
+  ;(
+    graphic as T & SolidCenterStrokeRuntimeGraphic
+  ).__asyraSolidCenterStrokeExportPackets =
+    buildSolidCenterStrokeExportPacketsFromFinalFaces(faces)
+}
+
+const createSolidCenterStrokeHitAreaFromPacketGetter = (
+  getHitPackets: () => SolidCenterStrokeHitTestPacket[]
+) => ({
+  contains: (x: number, y: number) =>
+    getHitPackets().some((packet) => {
+      if (
+        x < packet.bounds.minX ||
+        x > packet.bounds.maxX ||
+        y < packet.bounds.minY ||
+        y > packet.bounds.maxY
+      ) {
+        return false
+      }
+
+      return packet.polygons.some((polygon) =>
+        isPointInsidePolygon({ x, y }, polygon)
+      )
+    })
+})
+
+export const createSolidCenterStrokeHitAreaFromFinalFaces = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[]
+) => {
+  if (faces.length === 0) {
+    return null
+  }
+  let cachedHitPackets: SolidCenterStrokeHitTestPacket[] | null = null
+  return createSolidCenterStrokeHitAreaFromPacketGetter(() => {
+    cachedHitPackets ??= buildSolidCenterStrokeHitTestPacketsFromFinalFaces(faces)
+    return cachedHitPackets
+  })
+}
+
 export const createSolidCenterStrokeHitArea = (
   packets: SolidCenterStrokeResolvedPacket[]
 ) => {
-  const hitPackets = buildSolidCenterStrokeHitTestPackets(packets)
-  if (hitPackets.length === 0) {
+  if (packets.length === 0) {
     return null
   }
-
-  return {
-    contains: (x: number, y: number) =>
-      hitPackets.some((packet) => {
-        if (
-          x < packet.bounds.minX ||
-          x > packet.bounds.maxX ||
-          y < packet.bounds.minY ||
-          y > packet.bounds.maxY
-        ) {
-          return false
-        }
-
-        return packet.polygons.some((polygon) =>
-          isPointInsidePolygon({ x, y }, polygon)
-        )
-      })
+  let cachedHitPackets: SolidCenterStrokeHitTestPacket[] | null = null
+  const getHitPackets = () => {
+    cachedHitPackets ??= buildSolidCenterStrokeHitTestPackets(packets)
+    return cachedHitPackets
   }
+
+  return createSolidCenterStrokeHitAreaFromPacketGetter(getHitPackets)
 }

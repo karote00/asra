@@ -5,7 +5,6 @@ export type ConstrainedSolidRuntimeStatus = 'accepted' | 'blocked'
 export type ConstrainedSolidRuntimeReason =
   | 'accepted'
   | 'degenerate-topology'
-  | 'unsupported-self-intersection'
   | 'unsupported-overlap-ownership'
   | 'unsupported-topology'
   | 'no-candidate-packets'

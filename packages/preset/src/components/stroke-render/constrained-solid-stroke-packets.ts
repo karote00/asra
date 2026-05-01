@@ -145,6 +145,7 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
             strokeIndex: index,
             contourId,
             legalDomainId,
+            strokePosition: stroke.position,
             geometryFamily: 'constrained-solid',
             resolutionStatus: getConstrainedSolidResolutionStatus(topology),
             runtimeStatus: 'accepted',

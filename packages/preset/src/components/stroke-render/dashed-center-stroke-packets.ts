@@ -19,6 +19,10 @@ import {
   buildPathTopologyModel,
   type PathTopologyModel
 } from './path-topology-model'
+import {
+  buildSourceSpanGraph,
+  getSourceSpanIdsForInterval
+} from './source-span-graph'
 
 interface Vec2 {
   x: number
@@ -176,6 +180,8 @@ export const buildDashedCenterStrokeResolvedPackets = (
       stroke.dashPattern,
       stroke.dashOffset
     ).filter((interval) => interval.kind === 'visible')
+    const dashPlacementMode = 'arc-length-pattern'
+    const sourceSpanGraph = buildSourceSpanGraph(topology, intervals)
     const intervalSignature = buildVisibleIntervalSignature(intervals)
     const revisionSetsByIntervalTopology = new Map<
       string,
@@ -248,12 +254,15 @@ export const buildDashedCenterStrokeResolvedPackets = (
         strokeId: `stroke:${strokeIndex}`,
         strokeIndex,
         intervalId: interval.intervalId,
+        strokePosition: 'center',
+        sourceSpanIds: getSourceSpanIdsForInterval(sourceSpanGraph, interval),
         authoredVisibleIntervalIndex: interval.authoredIndex,
         startDistance: interval.startDistance,
         endDistance: interval.endDistance,
         wrapsSeam: interval.wrapsSeam,
         previousVisibleIntervalId: interval.previousVisibleIntervalId,
         nextVisibleIntervalId: interval.nextVisibleIntervalId,
+        dashPlacementMode,
         geometryFamily: 'dashed-center',
         resolutionStatus: 'native-center',
         runtimeStatus: 'not-applicable',

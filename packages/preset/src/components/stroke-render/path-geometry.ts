@@ -43,7 +43,7 @@ interface PathSampleFrame {
 }
 
 const EPS = 1e-6
-const CURVE_TESSELLATION_TOLERANCE = 0.5
+const CURVE_TESSELLATION_TOLERANCE = 0.25
 
 const distance = (from: Vec2, to: Vec2) =>
   Math.hypot(to.x - from.x, to.y - from.y)
@@ -262,10 +262,89 @@ const slicePathSegmentFrames = (
     : sampleCubicSegmentFrames(segment, startLength, endLength, tolerance)
 }
 
-const samplePathSegment = (segment: PathSegment, tolerance: number): Vec2[] =>
-  slicePathSegmentFrames(segment, 0, segment.length, tolerance).map(
+export const slicePathSegmentPoints = (
+  segment: PathSegment,
+  startLength: number,
+  endLength: number,
+  tolerance = CURVE_TESSELLATION_TOLERANCE
+): Vec2[] =>
+  slicePathSegmentFrames(segment, startLength, endLength, tolerance).map(
     (frame) => frame.point
   )
+
+const samplePathSegment = (segment: PathSegment, tolerance: number): Vec2[] =>
+  slicePathSegmentPoints(segment, 0, segment.length, tolerance)
+
+const slicePathGeometryPointRange = (
+  path: Pick<PathGeometry, 'segments'>,
+  startLength: number,
+  endLength: number,
+  tolerance: number
+) => {
+  if (endLength <= startLength || path.segments.length === 0) {
+    return []
+  }
+
+  let cursor = 0
+  const points: Vec2[] = []
+
+  for (const segment of path.segments) {
+    const segmentStart = cursor
+    const segmentEnd = cursor + segment.length
+    cursor = segmentEnd
+
+    if (
+      segment.length <= EPS ||
+      segmentEnd <= startLength ||
+      segmentStart >= endLength
+    ) {
+      continue
+    }
+
+    const overlapStart = Math.max(startLength, segmentStart)
+    const overlapEnd = Math.min(endLength, segmentEnd)
+    const segmentPoints = slicePathSegmentFrames(
+      segment,
+      overlapStart - segmentStart,
+      overlapEnd - segmentStart,
+      tolerance
+    ).map((frame) => frame.point)
+
+    if (segmentPoints.length === 0) {
+      continue
+    }
+
+    const previous = points[points.length - 1]
+    if (previous && samePoint(previous, segmentPoints[0])) {
+      points.push(...segmentPoints.slice(1))
+    } else {
+      points.push(...segmentPoints)
+    }
+  }
+
+  return dedupeAdjacentPoints(points)
+}
+
+export const slicePathGeometryPoints = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  startLength: number,
+  endLength: number,
+  wrapsSeam: boolean,
+  tolerance = CURVE_TESSELLATION_TOLERANCE
+) => {
+  if (!wrapsSeam) {
+    return slicePathGeometryPointRange(path, startLength, endLength, tolerance)
+  }
+
+  const tail = slicePathGeometryPointRange(
+    path,
+    startLength,
+    path.totalLength,
+    tolerance
+  )
+  const head = slicePathGeometryPointRange(path, 0, endLength, tolerance)
+  return dedupeAdjacentPoints(mergePointLists(tail, head))
+}
 
 const getAnchorNode = (
   points: Record<string, VectorPointNode>,

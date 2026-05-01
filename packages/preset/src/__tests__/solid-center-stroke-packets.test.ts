@@ -8,6 +8,7 @@ import {
   normalizeResolvedStrokePacketGeometry,
   toSolidCenterStrokeRenderEntries
 } from '../components/stroke-render/solid-center-stroke-packets'
+import { buildStrokeFinalFacesFromResolvedPackets } from '../components/stroke-render/stroke-final-face'
 
 describe('solid center stroke packets', () => {
   it('should run: derive render, hit, and export packets from the same final geometry source', () => {
@@ -131,6 +132,38 @@ describe('solid center stroke packets', () => {
     expect(buildSolidCenterStrokeExportPackets(packets)[0]?.debugMeta).toBe(
       packets[0]?.geometry.debugMeta
     )
+    expect(buildSolidCenterStrokeHitTestPackets(packets)[0]).toMatchObject({
+      primaryOwner: {
+        ownerKey: 'vector:test:network-a:stroke:0',
+        networkId: 'network-a',
+        strokeId: 'stroke:0',
+        strokeIndex: 0
+      },
+      ownerSet: [
+        {
+          ownerKey: 'vector:test:network-a:stroke:0',
+          networkId: 'network-a',
+          strokeId: 'stroke:0',
+          strokeIndex: 0
+        }
+      ]
+    })
+    expect(buildSolidCenterStrokeExportPackets(packets)[0]).toMatchObject({
+      primaryOwner: {
+        ownerKey: 'vector:test:network-a:stroke:0',
+        networkId: 'network-a',
+        strokeId: 'stroke:0',
+        strokeIndex: 0
+      },
+      ownerSet: [
+        {
+          ownerKey: 'vector:test:network-a:stroke:0',
+          networkId: 'network-a',
+          strokeId: 'stroke:0',
+          strokeIndex: 0
+        }
+      ]
+    })
   })
 
   it('should not run: emit packets for unsupported constrained slices', () => {
@@ -167,5 +200,383 @@ describe('solid center stroke packets', () => {
     expect(hitArea?.contains(1, 1)).toBe(true)
     expect(hitArea?.contains(10, 10)).toBe(false)
     expect(hitArea?.contains(-5, -5)).toBe(false)
+  })
+
+  it('should run: materialize canonical final faces with typed owner metadata', () => {
+    const packets = buildSolidCenterStrokeResolvedPackets(
+      'vector:test:network-a:center',
+      [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 }
+      ],
+      false,
+      [createDefaultStroke({ width: 4, style: 'solid', position: 'center' })],
+      {
+        metadata: {
+          ownerKeyPrefix: 'vector:test:network-a',
+          networkId: 'network-a'
+        }
+      }
+    )
+
+    const [face] = buildStrokeFinalFacesFromResolvedPackets(packets)
+
+    expect(face).toMatchObject({
+      faceId: packets[0]?.geometry.geometryId,
+      sourceGeometryIds: [packets[0]?.geometry.geometryId],
+      geometryFamily: 'solid-center',
+      resolutionStatus: 'native-center',
+      runtimeStatus: 'not-applicable',
+      sourceTopology: 'open'
+    })
+    expect(face?.ownerSet).toEqual([
+      {
+        ownerKey: 'vector:test:network-a:stroke:0',
+        sourcePathId: 'vector:test:network-a:center',
+        networkId: 'network-a',
+        strokeId: 'stroke:0',
+        strokeIndex: 0
+      }
+    ])
+    expect(face?.paintKey).toBe('solid:0:1')
+    expect(face?.strokeSpecKey).toMatch(/^stroke-spec:/)
+    expect(face?.visualPacketKey).toContain(face?.strokeSpecKey)
+  })
+
+  it('should not run: collapse local-side approximation duplicate final faces', () => {
+    const polygon = [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 20, y: 20 },
+      { x: 0, y: 20 }
+    ]
+    const basePacket = {
+      geometry: {
+        geometryId: 'duplicate:a',
+        polygons: [polygon],
+        bounds: { minX: 0, minY: 0, maxX: 20, maxY: 20 },
+        debugMeta: {
+          sourcePathId: 'vector:a',
+          ownerKey: 'vector:a:stroke:0',
+          networkId: 'network-a',
+          strokeId: 'stroke:0',
+          strokeIndex: 0,
+          contourId: 'contour-a',
+          intervalId: 'interval-a',
+          sourceSpanIds: ['span-a'],
+          geometryFamily: 'constrained-dashed',
+          resolutionStatus: 'local-side-approximation',
+          runtimeStatus: 'accepted',
+          revisionSet: {
+            strokeSpecRevision: 'stroke-spec:shared',
+            paintRevision: 'paint:shared'
+          }
+        }
+      },
+      paint: {
+        geometryId: 'duplicate:a',
+        color: 0xff0000,
+        alpha: 1,
+        paintKey: 'paint:red'
+      }
+    }
+    const duplicateOwnerPacket = {
+      ...basePacket,
+      geometry: {
+        ...basePacket.geometry,
+        geometryId: 'duplicate:b',
+        debugMeta: {
+          ...basePacket.geometry.debugMeta,
+          sourcePathId: 'vector:b',
+          ownerKey: 'vector:b:stroke:0',
+          networkId: 'network-b',
+          contourId: 'contour-b',
+          intervalId: 'interval-b',
+          sourceSpanIds: ['span-b']
+        }
+      },
+      paint: {
+        ...basePacket.paint,
+        geometryId: 'duplicate:b'
+      }
+    }
+
+    const [face] = buildStrokeFinalFacesFromResolvedPackets(
+      [basePacket, duplicateOwnerPacket],
+      {
+        collapseDuplicateFaces: true
+      }
+    )
+
+    expect(face?.sourceGeometryIds).toEqual(['duplicate:a'])
+    expect(face?.ownerSet.map((owner) => owner.ownerKey)).toEqual([
+      'vector:a:stroke:0'
+    ])
+    expect(
+      buildStrokeFinalFacesFromResolvedPackets(
+        [basePacket, duplicateOwnerPacket],
+        {
+          collapseDuplicateFaces: true
+        }
+      )
+    ).toHaveLength(2)
+  })
+
+  it('should run: collapse exact duplicate final faces only when visual packet keys match', () => {
+    const polygon = [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 20, y: 20 },
+      { x: 0, y: 20 }
+    ]
+    const basePacket = {
+      geometry: {
+        geometryId: 'duplicate:a',
+        polygons: [polygon],
+        bounds: { minX: 0, minY: 0, maxX: 20, maxY: 20 },
+        debugMeta: {
+          sourcePathId: 'vector:a',
+          ownerKey: 'vector:a:stroke:0',
+          networkId: 'network-a',
+          strokeId: 'stroke:0',
+          strokeIndex: 0,
+          contourId: 'contour-a',
+          intervalId: 'interval-a',
+          sourceSpanIds: ['span-a'],
+          geometryFamily: 'constrained-dashed' as const,
+          resolutionStatus: 'exact-constrained' as const,
+          runtimeStatus: 'accepted' as const,
+          arrangementStatus: 'exact' as const,
+          arrangementFaceId: 'face:a',
+          arrangementCandidateIds: ['duplicate:a'],
+          arrangementLegalState: {
+            insideFillDomain: true,
+            outsideFillDomain: false
+          },
+          revisionSet: {
+            strokeSpecRevision: 'stroke-spec:shared',
+            paintRevision: 'paint:shared'
+          }
+        }
+      },
+      paint: {
+        geometryId: 'duplicate:a',
+        color: 0xff0000,
+        alpha: 1,
+        paintKey: 'paint:red'
+      }
+    }
+    const duplicateOwnerPacket = {
+      ...basePacket,
+      geometry: {
+        ...basePacket.geometry,
+        geometryId: 'duplicate:b',
+        debugMeta: {
+          ...basePacket.geometry.debugMeta,
+          sourcePathId: 'vector:b',
+          ownerKey: 'vector:b:stroke:0',
+          networkId: 'network-b',
+          contourId: 'contour-b',
+          intervalId: 'interval-b',
+          sourceSpanIds: ['span-b'],
+          arrangementFaceId: 'face:b',
+          arrangementCandidateIds: ['duplicate:b']
+        }
+      },
+      paint: {
+        ...basePacket.paint,
+        geometryId: 'duplicate:b'
+      }
+    }
+
+    const faces = buildStrokeFinalFacesFromResolvedPackets(
+      [basePacket, duplicateOwnerPacket],
+      {
+        collapseDuplicateFaces: true
+      }
+    )
+
+    expect(faces).toHaveLength(1)
+    expect(faces[0]?.sourceGeometryIds).toEqual(['duplicate:a', 'duplicate:b'])
+    expect(faces[0]?.ownerSet.map((owner) => owner.ownerKey)).toEqual([
+      'vector:a:stroke:0',
+      'vector:b:stroke:0'
+    ])
+    expect(faces[0]?.intervalIds).toEqual(['interval-a', 'interval-b'])
+    expect(faces[0]?.sourceSpanIds).toEqual(['span-a', 'span-b'])
+    expect(faces[0]?.sourceContourIds).toEqual(['contour-a', 'contour-b'])
+  })
+
+  it('should not run: collapse duplicate geometry when paint differs', () => {
+    const polygon = [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 20, y: 20 },
+      { x: 0, y: 20 }
+    ]
+    const packet = {
+      geometry: {
+        geometryId: 'duplicate:a',
+        polygons: [polygon],
+        bounds: { minX: 0, minY: 0, maxX: 20, maxY: 20 },
+        debugMeta: {
+          ownerKey: 'owner:a',
+          geometryFamily: 'constrained-dashed',
+          revisionSet: {
+            strokeSpecRevision: 'stroke-spec:shared'
+          }
+        }
+      },
+      paint: {
+        geometryId: 'duplicate:a',
+        color: 0xff0000,
+        alpha: 1,
+        paintKey: 'paint:red'
+      }
+    }
+    const differentPaintPacket = {
+      ...packet,
+      geometry: {
+        ...packet.geometry,
+        geometryId: 'duplicate:b',
+        debugMeta: {
+          ...packet.geometry.debugMeta,
+          ownerKey: 'owner:b'
+        }
+      },
+      paint: {
+        geometryId: 'duplicate:b',
+        color: 0x0000ff,
+        alpha: 1,
+        paintKey: 'paint:blue'
+      }
+    }
+
+    expect(
+      buildStrokeFinalFacesFromResolvedPackets(
+        [packet, differentPaintPacket],
+        { collapseDuplicateFaces: true }
+      )
+    ).toHaveLength(2)
+  })
+
+  it('should not run: collapse duplicate geometry when opacity differs', () => {
+    const polygon = [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 20, y: 20 },
+      { x: 0, y: 20 }
+    ]
+    const packet = {
+      geometry: {
+        geometryId: 'duplicate:a',
+        polygons: [polygon],
+        bounds: { minX: 0, minY: 0, maxX: 20, maxY: 20 },
+        debugMeta: {
+          ownerKey: 'owner:a',
+          geometryFamily: 'constrained-dashed',
+          runtimeStatus: 'accepted',
+          revisionSet: {
+            strokeSpecRevision: 'stroke-spec:shared',
+            paintRevision: 'paint:shared'
+          }
+        }
+      },
+      paint: {
+        geometryId: 'duplicate:a',
+        color: 0xff0000,
+        alpha: 1,
+        paintKey: 'paint:red'
+      }
+    }
+    const differentOpacityPacket = {
+      ...packet,
+      geometry: {
+        ...packet.geometry,
+        geometryId: 'duplicate:b',
+        debugMeta: {
+          ...packet.geometry.debugMeta,
+          ownerKey: 'owner:b'
+        }
+      },
+      paint: {
+        ...packet.paint,
+        geometryId: 'duplicate:b',
+        alpha: 0.5
+      }
+    }
+
+    expect(
+      buildStrokeFinalFacesFromResolvedPackets(
+        [packet, differentOpacityPacket],
+        { collapseDuplicateFaces: true }
+      )
+    ).toHaveLength(2)
+  })
+
+  it('should not run: collapse duplicate geometry when visual context differs', () => {
+    const polygon = [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 20, y: 20 },
+      { x: 0, y: 20 }
+    ]
+    const packet = {
+      geometry: {
+        geometryId: 'duplicate:a',
+        polygons: [polygon],
+        bounds: { minX: 0, minY: 0, maxX: 20, maxY: 20 },
+        debugMeta: {
+          ownerKey: 'owner:a',
+          geometryFamily: 'constrained-dashed',
+          runtimeStatus: 'accepted',
+          visualContext: {
+            blendMode: 'normal',
+            stackingGroupKey: 'stack:a',
+            maskKey: 'mask:none',
+            clipKey: 'clip:none',
+            effectKey: 'effect:none'
+          },
+          revisionSet: {
+            strokeSpecRevision: 'stroke-spec:shared',
+            paintRevision: 'paint:shared'
+          }
+        }
+      },
+      paint: {
+        geometryId: 'duplicate:a',
+        color: 0xff0000,
+        alpha: 1,
+        paintKey: 'paint:red'
+      }
+    }
+    const differentStackPacket = {
+      ...packet,
+      geometry: {
+        ...packet.geometry,
+        geometryId: 'duplicate:b',
+        debugMeta: {
+          ...packet.geometry.debugMeta,
+          ownerKey: 'owner:b',
+          visualContext: {
+            ...packet.geometry.debugMeta.visualContext,
+            stackingGroupKey: 'stack:b'
+          }
+        }
+      },
+      paint: {
+        ...packet.paint,
+        geometryId: 'duplicate:b'
+      }
+    }
+
+    const faces = buildStrokeFinalFacesFromResolvedPackets(
+      [packet, differentStackPacket],
+      { collapseDuplicateFaces: true }
+    )
+
+    expect(faces).toHaveLength(2)
+    expect(faces[0]?.visualPacketKey).toContain('stackingGroupKey:stack:a')
+    expect(faces[1]?.visualPacketKey).toContain('stackingGroupKey:stack:b')
   })
 })

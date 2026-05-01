@@ -143,13 +143,337 @@ const buildOneSidedRoundCap = (
   return points
 }
 
+const appendDedupePoint = (points: Vec2[], point: Vec2) => {
+  const previous = points[points.length - 1]
+  if (previous && distance(previous, point) <= EPS) {
+    return
+  }
+  points.push(point)
+}
+
+const offsetVectorAtSegment = (from: Vec2, to: Vec2, offset: number) => {
+  const direction = normalize(subtract(to, from))
+  if (!direction) {
+    return null
+  }
+
+  return {
+    x: -direction.y * offset,
+    y: direction.x * offset
+  }
+}
+
+const midpoint = (a: Vec2, b: Vec2): Vec2 => ({
+  x: (a.x + b.x) / 2,
+  y: (a.y + b.y) / 2
+})
+
+const buildSampledOpenOffsetBoundary = (
+  points: Vec2[],
+  offset: number,
+  stroke: Pick<RenderableStroke, 'miterLimit'>
+) => {
+  const segments = buildOffsetSegments(points, false, offset)
+  const firstSegment = segments[0]
+  const lastSegment = segments[points.length - 2]
+  if (!firstSegment || !lastSegment) {
+    return []
+  }
+
+  const maxOffsetDistance = Math.max(
+    Math.abs(offset),
+    Math.min(stroke.miterLimit * Math.abs(offset), Math.abs(offset) * 1.75)
+  )
+  const boundary: Vec2[] = [firstSegment.start]
+
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const previous = segments[index - 1]
+    const next = segments[index]
+    if (!previous || !next) {
+      return []
+    }
+
+    const previousOffset = offsetVectorAtSegment(
+      points[index - 1],
+      points[index],
+      offset
+    )
+    const nextOffset = offsetVectorAtSegment(
+      points[index],
+      points[index + 1],
+      offset
+    )
+    const averagedOffset =
+      previousOffset && nextOffset
+        ? scale(add(previousOffset, nextOffset), 0.5)
+        : null
+
+    const averagedDirection = averagedOffset
+      ? normalize(averagedOffset)
+      : null
+
+    if (averagedDirection) {
+      appendDedupePoint(
+        boundary,
+        add(points[index], scale(averagedDirection, Math.abs(offset)))
+      )
+      continue
+    }
+
+    appendDedupePoint(boundary, midpoint(previous.end, next.start))
+  }
+
+  appendDedupePoint(boundary, lastSegment.end)
+  return boundary
+}
+
+const buildJoinedOpenOffsetBoundary = (
+  points: Vec2[],
+  offset: number,
+  stroke: Pick<RenderableStroke, 'join' | 'miterLimit' | 'width'>
+) => {
+  const segments = buildOffsetSegments(points, false, offset)
+  const firstSegment = segments[0]
+  const lastSegment = segments[points.length - 2]
+  if (!firstSegment || !lastSegment) {
+    return []
+  }
+
+  const boundary: Vec2[] = [firstSegment.start]
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const previous = segments[index - 1]
+    const next = segments[index]
+    if (!previous || !next) {
+      return []
+    }
+
+    if (stroke.join === 'round') {
+      const incoming = subtract(points[index], points[index - 1])
+      const outgoing = subtract(points[index + 1], points[index])
+      const sweepSign = cross(incoming, outgoing) * offset >= 0 ? -1 : 1
+      const arcPoints = buildArcPoints(
+        points[index],
+        previous.end,
+        next.start,
+        sweepSign
+      )
+      arcPoints.slice(1).forEach((point) => appendDedupePoint(boundary, point))
+      continue
+    }
+
+    if (stroke.join === 'bevel') {
+      appendDedupePoint(boundary, previous.end)
+      appendDedupePoint(boundary, next.start)
+      continue
+    }
+
+    const intersection = offsetLineIntersection(
+      previous.start,
+      previous.end,
+      next.start,
+      next.end
+    )
+    const maxDistance = stroke.miterLimit * Math.abs(offset)
+    if (
+      intersection &&
+      distance(points[index], intersection) <= maxDistance + EPS
+    ) {
+      appendDedupePoint(boundary, intersection)
+      continue
+    }
+
+    appendDedupePoint(boundary, previous.end)
+    appendDedupePoint(boundary, next.start)
+  }
+
+  appendDedupePoint(boundary, lastSegment.end)
+  return boundary
+}
+
+const MAX_OPEN_RIBBON_SPLIT_DEPTH = 8
+
+const buildOpenConstrainedStrokeStripPolygonsFromSource = (
+  source: Vec2[],
+  stroke: Pick<RenderableStroke, 'position' | 'width' | 'miterLimit'>
+) => {
+  const offset = getOpenConstrainedOffset(stroke)
+  const offsetBoundary = buildSampledOpenOffsetBoundary(source, offset, stroke)
+  if (offsetBoundary.length !== source.length) {
+    return []
+  }
+
+  const polygon = dedupeClosed([...source, ...offsetBoundary.slice().reverse()])
+  return polygon.length >= 3 &&
+    Math.abs(polygonArea(polygon)) > EPS
+    ? [polygon]
+    : []
+}
+
+const buildOpenConstrainedStrokeCellPolygonsFromSource = (
+  source: Vec2[],
+  stroke: Pick<RenderableStroke, 'position' | 'width' | 'miterLimit'>
+) => {
+  const offset = getOpenConstrainedOffset(stroke)
+  const offsetBoundary = buildSampledOpenOffsetBoundary(source, offset, stroke)
+  if (offsetBoundary.length !== source.length) {
+    return []
+  }
+
+  const polygons: Vec2[][] = []
+  const seamOverlap = Math.min(0.35, Math.max(0, stroke.width * 0.035))
+
+  for (let index = 0; index < source.length - 1; index += 1) {
+    let start = source[index]
+    let end = source[index + 1]
+    if (distance(start, end) <= EPS) {
+      continue
+    }
+    const direction = normalize(subtract(end, start))
+    if (direction && seamOverlap > EPS) {
+      if (index > 0) {
+        start = add(start, scale(direction, -seamOverlap))
+      }
+      if (index < source.length - 2) {
+        end = add(end, scale(direction, seamOverlap))
+      }
+    }
+
+    let polygon = dedupeClosed([
+      start,
+      end,
+      offsetBoundary[index + 1],
+      offsetBoundary[index]
+    ])
+
+    if (!isSimpleClosedPolygon(polygon)) {
+      const offsetVector = offsetVectorAtSegment(start, end, offset)
+      if (!offsetVector) {
+        continue
+      }
+      polygon = dedupeClosed([
+        start,
+        end,
+        add(end, offsetVector),
+        add(start, offsetVector)
+      ])
+      if (!isSimpleClosedPolygon(polygon)) {
+        continue
+      }
+    }
+
+    if (polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPS) {
+      polygons.push(polygon)
+    }
+  }
+
+  return polygons
+}
+
+const buildOpenConstrainedStrokePolygonsFromSource = (
+  source: Vec2[],
+  stroke: Pick<
+    RenderableStroke,
+    'position' | 'width' | 'join' | 'miterLimit' | 'cap'
+  >,
+  options: { assumeNormalizedOpen?: boolean },
+  splitDepth: number
+): Vec2[][] => {
+  if (options.assumeNormalizedOpen === true && source.length > 3) {
+    const stripPolygons = buildOpenConstrainedStrokeStripPolygonsFromSource(
+      source,
+      stroke
+    )
+    if (stripPolygons.length > 0) {
+      return stripPolygons
+    }
+
+    return buildOpenConstrainedStrokeCellPolygonsFromSource(source, stroke)
+  }
+
+  const offset = getOpenConstrainedOffset(stroke)
+  const offsetBoundary =
+    options.assumeNormalizedOpen === true && source.length > 3
+      ? buildSampledOpenOffsetBoundary(source, offset, stroke)
+      : stroke.join === 'round' || stroke.join === 'bevel'
+        ? buildJoinedOpenOffsetBoundary(source, offset, stroke)
+        : offsetPath(source, false, offset, stroke)
+  if (offsetBoundary.length < 2) {
+    return []
+  }
+
+  const rawPolygon: Vec2[] = [...source]
+  if (stroke.cap === 'round') {
+    const startDirection = normalize(subtract(source[1], source[0]))
+    const endDirection = normalize(
+      subtract(source[source.length - 1], source[source.length - 2])
+    )
+    if (startDirection && endDirection) {
+      const endCap = buildOneSidedRoundCap(
+        source[source.length - 1],
+        offsetBoundary[offsetBoundary.length - 1],
+        endDirection,
+        false
+      )
+      const startCap = buildOneSidedRoundCap(
+        source[0],
+        offsetBoundary[0],
+        startDirection,
+        true
+      ).reverse()
+
+      rawPolygon.push(...endCap.slice(1))
+      rawPolygon.push(...offsetBoundary.slice(0, -1).reverse())
+      rawPolygon.push(...startCap.slice(1))
+    } else {
+      rawPolygon.push(...offsetBoundary.reverse())
+    }
+  } else {
+    rawPolygon.push(...offsetBoundary.reverse())
+  }
+
+  const polygon = dedupeClosed(rawPolygon)
+  if (polygon.length < 3) {
+    return []
+  }
+
+  if (
+    isSimpleClosedPolygon(polygon) ||
+    splitDepth >= MAX_OPEN_RIBBON_SPLIT_DEPTH ||
+    source.length <= 2
+  ) {
+    return [polygon]
+  }
+
+  const splitIndex = Math.floor(source.length / 2)
+  const leftSource = source.slice(0, splitIndex + 1)
+  const rightSource = source.slice(splitIndex)
+
+  return [
+    ...buildOpenConstrainedStrokePolygonsFromSource(
+      leftSource,
+      stroke,
+      options,
+      splitDepth + 1
+    ),
+    ...buildOpenConstrainedStrokePolygonsFromSource(
+      rightSource,
+      stroke,
+      options,
+      splitDepth + 1
+    )
+  ]
+}
+
 const buildOpenConstrainedStrokePolygons = (
   points: Vec2[],
   stroke: Pick<
     RenderableStroke,
     'position' | 'width' | 'join' | 'miterLimit' | 'cap'
   >,
-  options: { assumeSimpleOpen?: boolean; assumeNormalizedOpen?: boolean } = {}
+  options: {
+    assumeSimpleOpen?: boolean
+    assumeNormalizedOpen?: boolean
+  } = {}
 ): Vec2[][] => {
   const normalizedSource =
     options.assumeNormalizedOpen === true ? points : dedupeClosed(points)
@@ -161,104 +485,12 @@ const buildOpenConstrainedStrokePolygons = (
     return []
   }
 
-  const offset = getOpenConstrainedOffset(stroke)
-  const offsetSegments = buildOffsetSegments(source, false, offset)
-  const offsetPathPoints =
-    stroke.join === 'round'
-      ? []
-      : offsetPath(source, false, offset, {
-          ...stroke,
-          join: stroke.join === 'bevel' ? 'miter' : stroke.join
-        })
-
-  if (offsetSegments.length === 0) {
-    return []
-  }
-
-  const polygons: Vec2[][] = []
-  const pushPolygon = (rawPoints: Vec2[]) => {
-    const polygon = dedupeClosed(rawPoints)
-    if (polygon.length >= 3) {
-      polygons.push(polygon)
-    }
-  }
-
-  offsetSegments.forEach((segment, index) => {
-    if (!segment) {
-      return
-    }
-
-    pushPolygon([source[index], source[index + 1], segment.end, segment.start])
-  })
-
-  for (let index = 1; index < source.length - 1; index += 1) {
-    const previousSegment = offsetSegments[index - 1]
-    const nextSegment = offsetSegments[index]
-    if (!previousSegment || !nextSegment) {
-      continue
-    }
-
-    if (stroke.join === 'round') {
-      const turn = cross(
-        subtract(source[index], source[index - 1]),
-        subtract(source[index + 1], source[index])
-      )
-      const arcPoints = buildArcPoints(
-        source[index],
-        previousSegment.end,
-        nextSegment.start,
-        turn === 0 ? (offset >= 0 ? 1 : -1) : turn
-      )
-      pushPolygon([source[index], ...arcPoints])
-      continue
-    }
-
-    if (stroke.join === 'bevel') {
-      pushPolygon([source[index], previousSegment.end, nextSegment.start])
-      continue
-    }
-
-    const joinPoint = offsetPathPoints[index]
-    if (joinPoint) {
-      pushPolygon([
-        source[index],
-        previousSegment.end,
-        joinPoint,
-        nextSegment.start
-      ])
-    }
-  }
-
-  if (stroke.cap === 'round') {
-    const startDirection = normalize(subtract(source[1], source[0]))
-    const endDirection = normalize(
-      subtract(source[source.length - 1], source[source.length - 2])
-    )
-    const firstSegment = offsetSegments[0]
-    const lastSegment = offsetSegments[offsetSegments.length - 1]
-    if (startDirection && firstSegment) {
-      pushPolygon(
-        buildOneSidedRoundCap(
-          source[0],
-          firstSegment.start,
-          startDirection,
-          true
-        )
-      )
-    }
-    if (endDirection && lastSegment) {
-      pushPolygon(
-        buildOneSidedRoundCap(
-          source[source.length - 1],
-          lastSegment.end,
-          endDirection,
-          false
-        )
-      )
-    }
-  }
-
-  return polygons
+  return buildOpenConstrainedStrokePolygonsFromSource(
+    source,
+    stroke,
+    { assumeNormalizedOpen: options.assumeNormalizedOpen },
+    0
+  )
 }
 
 const normalizePoint = (point: Vec2): Vec2 => ({

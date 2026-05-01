@@ -334,7 +334,7 @@ describe('dashed center stroke scenarios', () => {
     expect(isPointInPolygons({ x: 350, y: 275 }, polygons)).toBe(true)
   })
 
-  it('should run: acute-angle open path with [20,10] starts the next visible dash at the corner', () => {
+  it('should run: acute-angle open path with [20,10] uses true arc-length intervals through the corner', () => {
     const intervals = allocateDashedCenterStrokeIntervals(
       60,
       [20, 10],
@@ -342,35 +342,37 @@ describe('dashed center stroke scenarios', () => {
       false
     )
     const visible = intervals.filter((interval) => interval.kind === 'visible')
-    const cornerDistance = 30
+    const cornerDistance = 40
 
     expect(visible).toHaveLength(2)
     expect(visible[0]?.startDistance).toBe(0)
     expect(visible[0]?.endDistance).toBe(20)
-    expect(visible[1]?.startDistance).toBe(cornerDistance)
+    expect(visible[1]?.startDistance).toBe(30)
     expect(visible[1]?.endDistance).toBe(50)
+    expect(visible[1]?.startDistance).toBeLessThan(cornerDistance)
+    expect(visible[1]?.endDistance).toBeGreaterThan(cornerDistance)
   })
 
-  it('should run: acute-angle open path with [27,13] lets the gap span the corner before the next visible dash', () => {
+  it('should run: acute-angle open path with [27,13] and explicit offset lets the gap span the corner before the next visible dash', () => {
     const intervals = allocateDashedCenterStrokeIntervals(
       60,
       [27, 13],
-      0,
+      1,
       false
     )
     const visible = intervals.filter((interval) => interval.kind === 'visible')
     const gap = intervals.find(
       (interval) =>
         interval.kind === 'gap' &&
-        interval.startDistance === 27 &&
-        interval.endDistance === 40
+        interval.startDistance === 26 &&
+        interval.endDistance === 39
     )
 
     expect(visible).toHaveLength(2)
     expect(gap).toBeTruthy()
     expect(gap?.startDistance).toBeLessThan(30)
     expect(gap?.endDistance).toBeGreaterThan(30)
-    expect(visible[1]?.startDistance).toBe(40)
+    expect(visible[1]?.startDistance).toBe(39)
   })
 
   it('should run: acute-angle open path with [40,10] keeps a miter dash continuous through the turn', () => {
@@ -389,7 +391,7 @@ describe('dashed center stroke scenarios', () => {
           width: 10,
           joinType: StrokeJoinTypes.MITER,
           dashPattern: [40, 10],
-          dashOffset: 0
+          dashOffset: 5
         })
       ]
     )
@@ -414,7 +416,7 @@ describe('dashed center stroke scenarios', () => {
           width: 10,
           joinType: StrokeJoinTypes.BEVEL,
           dashPattern: [40, 10],
-          dashOffset: 0
+          dashOffset: 5
         })
       ]
     )
@@ -423,7 +425,7 @@ describe('dashed center stroke scenarios', () => {
     expect(isPointInPolygons({ x: 31, y: 2 }, polygons)).toBe(true)
   })
 
-  it('should run: acute-angle open path with [27,13] keeps the corner absent when the gap spans the turn', () => {
+  it('should run: acute-angle open path with [27,13] and explicit offset keeps the corner absent when the gap spans the turn', () => {
     const packets = buildDashedCenterStrokeResolvedPackets(
       'scenario:acute:gap-span',
       [
@@ -439,7 +441,7 @@ describe('dashed center stroke scenarios', () => {
           width: 10,
           joinType: StrokeJoinTypes.MITER,
           dashPattern: [27, 13],
-          dashOffset: 0
+          dashOffset: 1
         })
       ]
     )

@@ -11,6 +11,7 @@ import {
 } from './solid-stroke-geometry-core'
 
 export type PathTopologySourceFamily = 'shape' | 'vector' | 'unknown'
+export type PathTopologyFillRule = 'evenodd' | 'nonzero'
 
 export type PathTopologyFamily =
   | 'open'
@@ -30,7 +31,8 @@ export interface PathTopologySegmentDescriptor {
 export interface PathTopologyLegalDomainDescriptor {
   legalDomainId: string
   role: 'open' | 'shell' | 'hole' | 'blocked'
-  fillRuleBasis: 'nonzero' | 'evenodd' | 'declared-app-policy'
+  fillRule: PathTopologyFillRule
+  fillRuleBasis: PathTopologyFillRule
   contourIds: string[]
 }
 
@@ -55,7 +57,8 @@ export interface PathTopologyModel {
   revision: string
   sourceFamily: PathTopologySourceFamily
   topologyFamily: PathTopologyFamily
-  fillRuleBasis: 'nonzero' | 'evenodd' | 'declared-app-policy'
+  fillRule: PathTopologyFillRule
+  fillRuleBasis: PathTopologyFillRule
   canonicalLengthBasis: 'arc-length-on-topology'
   closed: boolean
   normalizedPoints: Vec2[]
@@ -72,6 +75,7 @@ export interface CompoundLegalDomainClassification {
   networkId: string
   contourId: string
   legalDomainId: string
+  fillRule: PathTopologyFillRule
   role: 'shell' | 'hole'
   nestingDepth: number
 }
@@ -81,9 +85,14 @@ export interface BuildPathTopologyModelInput {
   sourceId?: string
   networkId?: string
   sourceFamily?: PathTopologySourceFamily
+  fillRule?: PathTopologyFillRule | null
   points: Vec2[]
   closed: boolean
 }
+
+export const normalizePathTopologyFillRule = (
+  fillRule: PathTopologyFillRule | null | undefined
+): PathTopologyFillRule => (fillRule === 'nonzero' ? 'nonzero' : 'evenodd')
 
 const normalizeTopologyPoints = (points: Vec2[], closed: boolean) =>
   closed ? normalizeClosed(dedupeAdjacent(points)) : dedupeAdjacent(points)
@@ -105,9 +114,14 @@ const getTopologyLength = (points: Vec2[], closed: boolean) => {
   return totalLength
 }
 
-const getTopologyRevision = (points: Vec2[], closed: boolean) =>
+const getTopologyRevision = (
+  points: Vec2[],
+  closed: boolean,
+  fillRule: PathTopologyFillRule
+) =>
   [
     closed ? 'closed' : 'open',
+    `fillRule:${fillRule}`,
     points.map((point) => `${point.x.toFixed(6)},${point.y.toFixed(6)}`).join(';')
   ].join('|')
 
@@ -163,9 +177,11 @@ export const buildPathTopologyModel = ({
   sourceId = pathId,
   networkId = 'default',
   sourceFamily = 'unknown',
+  fillRule,
   points,
   closed
 }: BuildPathTopologyModelInput): PathTopologyModel => {
+  const normalizedFillRule = normalizePathTopologyFillRule(fillRule)
   const normalizedPoints = normalizeTopologyPoints(points, closed)
   const totalLength = getTopologyLength(normalizedPoints, closed)
   const simpleClosed =
@@ -218,10 +234,11 @@ export const buildPathTopologyModel = ({
     pathId,
     sourceId,
     networkId,
-    revision: getTopologyRevision(normalizedPoints, closed),
+    revision: getTopologyRevision(normalizedPoints, closed, normalizedFillRule),
     sourceFamily,
     topologyFamily,
-    fillRuleBasis: 'declared-app-policy',
+    fillRule: normalizedFillRule,
+    fillRuleBasis: normalizedFillRule,
     canonicalLengthBasis: 'arc-length-on-topology',
     closed,
     normalizedPoints,
@@ -252,7 +269,8 @@ export const buildPathTopologyModel = ({
           {
             legalDomainId,
             role: 'shell',
-            fillRuleBasis: 'declared-app-policy',
+            fillRule: normalizedFillRule,
+            fillRuleBasis: normalizedFillRule,
             contourIds: [`${pathId}:contour:0`]
           }
         ]
@@ -297,10 +315,88 @@ export const isPointInsideTopologyPolygon = (point: Vec2, polygon: Vec2[]) => {
   return inside
 }
 
+const getPointBounds = (points: Vec2[]) => {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  points.forEach((point) => {
+    minX = Math.min(minX, point.x)
+    minY = Math.min(minY, point.y)
+    maxX = Math.max(maxX, point.x)
+    maxY = Math.max(maxY, point.y)
+  })
+
+  return { minX, minY, maxX, maxY }
+}
+
+const boundsOverlapOrTouch = (
+  left: ReturnType<typeof getPointBounds>,
+  right: ReturnType<typeof getPointBounds>
+) =>
+  left.maxX >= right.minX &&
+  right.maxX >= left.minX &&
+  left.maxY >= right.minY &&
+  right.maxY >= left.minY
+
+const areAllPointsInsideTopology = (
+  points: Vec2[],
+  container: PathTopologyModel
+) =>
+  points.every((point) =>
+    isPointInsideTopologyPolygon(point, container.normalizedPoints)
+  )
+
+const hasNonContainmentOverlap = (topologies: PathTopologyModel[]) => {
+  for (let leftIndex = 0; leftIndex < topologies.length - 1; leftIndex += 1) {
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < topologies.length;
+      rightIndex += 1
+    ) {
+      const left = topologies[leftIndex]
+      const right = topologies[rightIndex]
+      if (
+        !boundsOverlapOrTouch(
+          getPointBounds(left.normalizedPoints),
+          getPointBounds(right.normalizedPoints)
+        )
+      ) {
+        continue
+      }
+
+      const leftInsideRight = areAllPointsInsideTopology(
+        left.normalizedPoints,
+        right
+      )
+      const rightInsideLeft = areAllPointsInsideTopology(
+        right.normalizedPoints,
+        left
+      )
+      if (!leftInsideRight && !rightInsideLeft) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
 export const classifyCompoundClosedLegalDomains = (
   topologies: PathTopologyModel[]
-): CompoundLegalDomainClassification[] =>
-  topologies.flatMap((topology) => {
+): CompoundLegalDomainClassification[] => {
+  const eligibleTopologies = topologies.filter(
+    (topology) => topology.closed && topology.isSimpleClosed
+  )
+  if (
+    eligibleTopologies.length !== topologies.length ||
+    hasNonContainmentOverlap(eligibleTopologies)
+  ) {
+    return []
+  }
+
+  return eligibleTopologies.flatMap((topology) => {
     if (!topology.closed || !topology.isSimpleClosed) {
       return []
     }
@@ -316,7 +412,7 @@ export const classifyCompoundClosedLegalDomains = (
         candidate.closed &&
         candidate.isSimpleClosed &&
         candidate.normalizedPoints.length >= 3 &&
-        isPointInsideTopologyPolygon(probe, candidate.normalizedPoints)
+        areAllPointsInsideTopology(topology.normalizedPoints, candidate)
     ).length
     const role = nestingDepth % 2 === 0 ? 'shell' : 'hole'
 
@@ -326,8 +422,10 @@ export const classifyCompoundClosedLegalDomains = (
         networkId: topology.networkId,
         contourId: `${topology.pathId}:contour:0`,
         legalDomainId: `${topology.pathId}:legal-domain:0`,
+        fillRule: topology.fillRule,
         role,
         nestingDepth
       }
     ]
   })
+}

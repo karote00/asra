@@ -26,6 +26,15 @@ Canonical object:
 
 - `PathTopologyModel`
 
+Required source semantics:
+
+- `fillRule: "evenodd" | "nonzero"` is stored on the topology model and copied
+  into legal-domain descriptors.
+- Missing legacy vector data defaults to `evenodd` during source normalization.
+- `fillRule` is topology-revision significant; paint-only changes must not
+  rebuild topology, but source fill-rule changes must invalidate legal-domain
+  consumers.
+
 Allowed ownership:
 
 - immutable for one committed source revision
@@ -60,6 +69,31 @@ Preferred representation:
 - seam-wrap descriptors
 - contour/network references
 - committed arc-length boundaries
+
+### 2A. Source Span Layer
+
+Canonical object:
+
+- `SourceSpanGraph`
+
+Current implementation entrypoint:
+
+- `packages/preset/src/components/stroke-render/source-span-graph.ts`
+
+Required behavior:
+
+- splits the committed topology into source spans before candidate ownership
+- records cuts from topology vertices, dash interval boundaries, and discovered
+  self-intersections on the current flattened topology
+- exposes `sourceSpanIds` for each dash interval
+- supports seam-wrapping intervals by collecting spans on both sides of the seam
+
+Current migration rule:
+
+- dashed center and constrained dashed packet metadata carry `sourceSpanIds`
+- the `FinalFace[]` bridge preserves `sourceSpanIds`
+- Step 7, not Step 6, is responsible for turning span-aware intervals into
+  arrangement-split final faces
 
 ### 3. Candidate-Face Layer
 
@@ -113,6 +147,9 @@ Meaning:
 Required properties:
 
 - one semantic region has exactly one `ownerKey`
+- if exact face collapse merges multiple equivalent owners into one visible
+  region, the semantic region carries `ownerSet: string[]` while `ownerKey`
+  remains the deterministic primary owner for stable ordering
 - one semantic region has a typed `networkId` / source key when it originates
   from a vector network
 - one semantic region has exactly one support or blocked classification
@@ -123,12 +160,17 @@ Required properties:
 Canonical objects:
 
 - `StrokeRegionPacket`
+- `FinalFace`
 - `StrokeEmissionBatch`
 
 Meaning:
 
 - `StrokeRegionPacket` is the canonical semantic packet consumed by render,
   hit-test, and export
+- `FinalFace` is the next exact-engine canonical face contract. During
+  migration, existing resolved stroke packets may be converted into
+  `FinalFace[]`; after exact arrangement lands, render, hit-test, and export
+  must project from `FinalFace[]` directly.
 - `StrokeEmissionBatch` is an output-optimization grouping that may combine
   multiple semantic packets when and only when semantics remain unchanged
 
@@ -174,11 +216,319 @@ Current implementation checkpoint:
   center-based `strokeGeometry` view. It is not an oracle for closed
   inside/outside product geometry; closed constrained appearance must come from
   resolved stroke packets or outline-style geometry.
-- self-intersecting constrained dashed `inside/outside` packets are currently
-  local-side approximation product geometry, not exact arrangement geometry.
-  The runtime must preserve `sourceTopology: "self-intersecting"` so opacity,
-  gradient, image paint, hit-test, and export reviewers can distinguish this
-  supported visibility slice from future exact legal-domain face arrangement.
+- self-intersecting constrained dashed `inside/outside` packets remain visible
+  as explicitly marked local-side approximation product geometry. They must not
+  be promoted through exact arrangement until the exact clipping oracle preserves
+  valid internal dash regions; a selected backend must not make these dashes
+  disappear.
+- sampled-simple-closed constrained dashed interval-local packets follow the
+  same rule: with a selected exact backend they may promote to exact
+  arrangement metadata; without it they remain local-side approximation. Real
+  Clipper2-backed fixtures now prove overlapping-candidate partitioning,
+  backend promotion, and side-specific inside/outside signatures for this path.
+  Full-loop sampled constrained packets may remain exact only when candidate
+  cleanup has normalized each visible dash into a face-level region.
+- first `FinalFace[]` bridge implementation exists in
+  `packages/preset/src/components/stroke-render/stroke-final-face.ts`.
+  It converts resolved stroke packets into canonical face records, preserves
+  typed owner metadata, and collapses exact duplicate geometry only when visual
+  packet identity matches.
+- vector runtime uses a combined `strokeFinalFaces` array as the render /
+  hit-test / export source. Promoted exact arrangement faces enter this array
+  directly; non-exact resolved packets are converted once into faces for the
+  same pass.
+
+## FinalFace Contract
+
+`FinalFace[]` is the exact-engine target contract.
+
+Minimum fields:
+
+- `faceId`
+- `sourceGeometryIds`
+- `polygons` or future lazy region descriptor
+- `bounds`
+- `visualPacketKey`
+- `paintKey`
+- `strokeSpecKey`
+- `ownerSet`
+- `intervalIds`
+- `sourceSpanIds`
+- `sourceContourIds`
+- `legalDomainIds`
+- `geometryFamily`
+- `resolutionStatus`
+- `runtimeStatus`
+- `sourceTopology`
+
+`FinalFace` invariants:
+
+- render, hit-test, and export projections must use the same `FinalFace[]`
+  source
+- duplicate faces may collapse only when exact face ownership is proven and
+  final face geometry plus `visualPacketKey` match
+- same visual packet collapse must not multiply opacity
+- different paint, opacity, blend mode, mask, effect, clip context, stacking
+  group, visibility state, or stroke spec must remain separate
+- collapsed faces must preserve all owners through `ownerSet`; no helper may
+  parse `geometryId` to recover ownership
+- visual export may emit merged `FinalFace[]` projections; editable/internal
+  export may preserve network-separated owner metadata
+
+Current Step 8 implementation:
+
+- duplicate collapse is guarded by `arrangementStatus: "exact"`,
+  `resolutionStatus: "exact-constrained"`, and `runtimeStatus: "accepted"`.
+- local-side approximation packets remain separate even if a bridge caller asks
+  for `collapseDuplicateFaces: true`.
+- `collapseExactDuplicateFinalFaces` collapses exact faces by geometry
+  signature and `visualPacketKey`; it preserves owner, interval, source-span,
+  source-contour, and legal-domain metadata.
+
+`visualPacketKey` must represent the visual stacking identity of a face. It is
+not an owner key. It must include or be derived from:
+
+- paint payload
+- opacity
+- blend mode
+- effect context
+- mask / clip context
+- stroke spec
+- stacking group
+- visibility state
+- runtime geometry family compatibility
+
+Current bridge implementation:
+
+- `StrokeFinalFaceDebugMetaBase.visualContext` may provide explicit visual
+  identity overrides
+- when source data has no visual context yet, bridge code writes deterministic
+  placeholders:
+  - blend mode: `normal`
+  - effect context: `effect:none`
+  - mask context: `mask:none`
+  - clip context: `clip:none`
+  - stacking group: `stack:default`
+- placeholders are part of `visualPacketKey`; they are not ignored. Future
+  product data that introduces real blend/mask/clip/effect/stack values must
+  replace these placeholders through typed metadata before exact duplicate
+  collapse is enabled.
+
+`FinalFace` migration rule:
+
+- existing bridge packets may feed `FinalFace[]`
+- new exact arrangement code must emit `FinalFace[]` as its primary output
+- once a family emits `FinalFace[]`, downstream render, hit-test, and export
+  must not re-run stroke geometry from raw authored input
+
+## GeometryBackend Adapter Contract
+
+Exact boolean, offset, and arrangement work must run through a backend adapter.
+
+Current checkpoint:
+
+- `packages/preset/src/components/stroke-render/geometry-backend.ts` defines the
+  `GeometryBackend` interface and an unsupported backend that throws explicit
+  errors instead of returning silent empty geometry.
+- every backend must expose `backendId`, `backendVersion`, boolean capability
+  metadata for `union` / `difference` / `intersection` / `offset` /
+  `buildArrangement`, and a deterministic coordinate policy before it can be
+  resolved.
+- the coordinate policy fixes model-space float to integer-backend conversion:
+  default scale is `1_000_000`, rounding is `round`, signed zero is normalized
+  to `0`, non-finite values fail fast, and coordinates outside the safe integer
+  scaling range are rejected before backend calls.
+- `getGeometryBackendCacheSignature` combines backend id, backend version,
+  scale, rounding, and epsilon. Exact geometry cache keys must include this
+  signature whenever backend output can affect topology or final face geometry.
+- the same file defines `GeometryBackendRegistry` and
+  `GeometryBackendRegistration` for exact backend registration, active backend
+  selection, and lazy backend resolution.
+- the default registry always contains
+  `unsupported-exact-geometry-backend`; selecting any other backend requires an
+  explicit registration.
+- registered backends are loaded only when resolved. A registration whose loaded
+  backend id differs from the declared id, lacks a version, lacks a supported
+  coordinate policy, or exposes malformed capability metadata is invalid and
+  must fail fast.
+- bridge conversion into `FinalFace[]` preserves existing packet cardinality by
+  default; duplicate-region collapse must be explicitly requested by an exact
+  arrangement or face-collapse phase. This prevents migration code from changing
+  current render/hit/export behavior before exact ownership semantics are fully
+  active.
+- `packages/preset/src/components/stroke-render/stroke-candidate-arrangement.ts`
+  defines the Step 7 exact bridge:
+  - resolved packets -> `FinalFace[]` bridge faces
+  - bridge faces -> typed `CandidateRegion[]`
+  - backend `ArrangementFace[]` -> exact `FinalFace[]`
+- arrangement final faces carry `arrangementStatus`, `arrangementFaceId`,
+  `arrangementCandidateIds`, and `arrangementLegalState` so render, hit-test,
+  export, and diagnostics can trace the exact face partition.
+- hit-test and export projections must carry `primaryOwner`, `ownerSet`,
+  `intervalIds`, `sourceSpanIds`, `sourceContourIds`, and `legalDomainIds`
+  directly from `FinalFace[]`. They must not reconstruct ownership from
+  geometry ids.
+- render, hit-test, and export projections may use different output structures,
+  but they must share the same `FinalFace[]` source and preserve the same final
+  geometry ids for merged faces.
+- non-vector product runtime may temporarily project exact arranged
+  `FinalFace[]` back into existing resolved packet structures while legacy
+  consumers are being removed. This compatibility projection is allowed only
+  when packet geometry, debug metadata, ownerSet-derived projections, hit-test
+  data, and export data all originate from the same exact `FinalFace[]`
+  records.
+- exact compatibility packets, where still used, must carry typed `ownerSet`,
+  `intervalIds`, `sourceSpanIds`, `sourceContourIds`, and `legalDomainIds` in
+  debug metadata. Any downstream bridge that rebuilds `FinalFace[]` from these
+  packets must restore the full sets instead of deriving a single owner from
+  primary packet fields.
+- when no exact backend is selected, constrained dashed product output may
+  remain an explicitly marked `local-side-approximation`; it must preserve the
+  authored `inside` / `outside` side and must not fallback to center.
+- local-side constrained dashed interval output emits one packet per dash
+  interval. The packet may contain multiple bounded segment-cell polygons when
+  a merged ribbon would self-intersect at high curvature. These cells are
+  canonical visible geometry for the local-side family, carry shared interval
+  metadata, and must not be split into separate paint packets that multiply
+  opacity.
+- adjacent segment-cell polygons inside the same dash interval should share
+  sampled source and offset-boundary vertices, so curved dashes join as one
+  continuous local-side face family instead of a stack of independent normal
+  strips. A non-simple shared-boundary cell may use a segment-local offset
+  fallback only for that cell; the packet still remains one interval with one
+  paint payload.
+- source-path segment-local cells that touch authored segment boundaries carry
+  boundary-legality clipping against the adjacent authored segment tail/head.
+  The clipped result remains canonical product geometry for render, hit-test,
+  and export projections.
+- arrangement classification keeps authored side semantics:
+  - `inside` accepts only faces where `insideFillDomain` is true
+  - `outside` accepts only faces where `outsideFillDomain` is true
+  - `center` accepts all partitioned faces
+- exact arrangement output groups claims by `visualPacketKey`; same-visual
+  claims merge metadata into one final face, while different visual packet keys
+  stay separate and preserve normal stacking.
+- `packages/preset/src/components/stroke-render/clipper2-geometry-backend.ts`
+  wraps `clipper2-wasm@0.2.1` as a concrete backend for boolean operations and
+  offsetting. This adapter is a backend module only; product helpers must keep
+  depending on `GeometryBackend`.
+- `loadClipper2GeometryBackend` and `loadAndRegisterClipper2GeometryBackend`
+  provide the async WASM preload path. Browser/runtime loading must use the
+  bundler-resolved `clipper2z.wasm?url` asset through `locateFile`; fetching a
+  package-relative `.wasm` path is invalid because dev servers may return HTML
+  instead of `application/wasm`.
+- `enableDefaultExactGeometryBackend` is the root-safe bootstrap. It uses a
+  dynamic import, registers and selects Clipper2 asynchronously, and may be
+  called by app initialization without making render helpers await WASM.
+- app startup must await the default exact backend bootstrap before
+  `core.start()` when possible. This prevents an initial local render followed
+  by a backend-selected second render that changes product geometry after page
+  load.
+- selecting a different active geometry backend is a render invalidation event.
+  Preset render subscriptions must reload the render scene tree when backend
+  selection changes so already-loaded vectors are recomputed with the selected
+  exact backend instead of staying on pre-backend local approximation.
+- synchronous product geometry helpers must never initialize WASM on demand.
+  Before the async backend is ready, constrained dashed output remains authored
+  side local approximation; after the backend is selected, accepted packets may
+  promote through exact arrangement.
+- the Clipper2 adapter implements `buildArrangement` by incrementally
+  partitioning candidate regions with backend `intersection` and `difference`.
+  Output faces are disjoint and preserve every contributing candidate claim.
+- before partitioning, `buildArrangement` normalizes each candidate with backend
+  `union`. This is required because a single dash interval may be constructed
+  from many sampled strip pieces; product arrangement must see one candidate
+  region, not many visible strip faces.
+- Clipper2 backend operations use bounded per-backend result caches for
+  `union`, `difference`, `intersection`, `offset`, and `buildArrangement`.
+  Cache keys are derived from operation kind, fill rule, offset options,
+  candidate ids, visual packet keys, stroke positions, and deterministic input
+  geometry.
+- cached backend geometry is cloned before it is returned. Arrangement cache
+  hits rebuild `claimedBy` from the current typed `CandidateRegion` objects by
+  candidate id, so stale owner objects cannot leak across calls.
+- arrangement legal state from the backend is only partition metadata. Product
+  inside/outside filtering must use typed source legal domains before converting
+  arrangement faces to exact `FinalFace[]`.
+- when the selected backend supports `union`, `intersection`, and `difference`,
+  legal-domain classification clips each arrangement face into inside and
+  outside regions geometrically. Sampler-only legal classification is a fallback
+  for non-clipping test backends and must not be treated as exact product
+  support for self-intersecting or high-curvature constrained dashed output.
+
+Required operations:
+
+- `union`
+- `difference`
+- `intersection`
+- `offset`
+- `buildArrangement`
+
+Backend rules:
+
+- the adapter may be backed by Clipper2-like WASM, another robust polygon
+  backend, or a future native implementation
+- product helpers may request exact boolean / offset / arrangement work only
+  through the selected registry backend; direct imports of a concrete backend
+  are forbidden outside backend registration modules
+- backend output cannot be accepted as product geometry until Asyra attaches
+  `FinalFace` owner, interval, source-span, legal-domain, paint, and visual
+  packet metadata
+- missing backend support must fail loudly in tests or diagnostics; it must not
+  fall back to center strokes or empty render output
+- concrete backend wrappers must use the shared coordinate mapper instead of
+  implementing local scaling, rounding, epsilon, or signed-zero behavior.
+- role-level legal-domain normalization must use geometric union semantics:
+  `union(shells, nonzero)`, `union(holes, nonzero)`, then
+  `difference(shells, holes, nonzero)`. Source fill rule is used to classify
+  source topology, not to toggle overlapping same-role regions during union.
+
+## Normalized Legal Domain Contract
+
+Canonical object:
+
+- `NormalizedLegalDomain`
+
+Current implementation entrypoint:
+
+- `packages/preset/src/components/stroke-render/legal-domain-normalization.ts`
+
+Required fields:
+
+- `legalDomainId`
+- `fillRule`
+- `mode: "containment-depth" | "backend-boolean"`
+- `regions`
+- `boundarySpans`
+- `classifications`
+
+Boundary span requirements:
+
+- every span has a deterministic seam point
+- containment-only spans use topmost-leftmost seam selection on the source
+  contour
+- every span carries `sourceContourIds`
+- current implementation attaches committed `SourceSpanGraph` ids as
+  `sourceSpanIds`
+
+Current support:
+
+- containment-only compound paths normalize without a heavy backend
+- overlapping holes require backend boolean normalization. With a selected exact
+  backend that supports `union` and `difference`, vector product runtime passes
+  that backend into normalization and emits one shared legal-domain metadata
+  context. Without that backend, product shared compound support remains blocked
+  and raw networks stay separate.
+- backend-backed normalization must compute
+  `union(shells, nonzero) -> union(holes, nonzero) ->
+  difference(shells, holes, nonzero)` before product dash allocation can use
+  normalized legal boundaries
+
+Forbidden:
+
+- assigning a shared compound `legalDomainId` when normalization is blocked
+- using raw overlapping hole contours as exact product dash boundaries
+- silently returning empty regions when backend normalization is unavailable
 
 ## Stroke Paint Payload Model
 
@@ -209,6 +559,14 @@ Canonical miter naming:
 Legacy `dash` and `gap` are not runtime geometry inputs. If they appear in old
 serialized data, migration must convert them before render normalization; the
 stroke renderer must not silently reconstruct geometry from them.
+
+Open dashed placement metadata:
+
+- `dashPlacementMode: "arc-length-pattern"` marks all open and closed dashed
+  paths that use the repeated authored dash pattern on the canonical
+  arc-length basis.
+- Figma-style segment-local endpoint balancing and half-length endpoint dashes
+  are documented divergences and must not be emitted by the product runtime.
 
 ### 7. Runtime Diagnostics Layer
 

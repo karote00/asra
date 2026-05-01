@@ -112,15 +112,22 @@ Current implementation checkpoint:
   within one stroke build by stable classification inputs such as
   `sourceTopology + intervalTopology`; visible intervals must not each rehash
   the same source points, stroke spec, and interval signature
-- compound closed legal-domain classification uses containment depth over
-  explicit topology descriptors; orientation-only hole inference is not a valid
-  completion signal for Phase 2
+- compound closed legal-domain classification uses full-contour containment
+  depth over explicit topology descriptors; orientation-only or single-probe
+  hole inference is not a valid completion signal for Phase 2
+- compound legal-domain normalization is single-pass for containment-only paths;
+  overlapping holes require exact backend boolean normalization and must not run
+  global boolean work unless the compound source revision is dirty
 - dashed-center packet construction is single-pass per vector render; overlap
   diagnostics consume the actual rendered dashed-center packets instead of
   triggering a second interval allocation / packet-build pass
 - constrained dashed candidate construction and runtime classification must be
   skipped entirely when the authored stroke set has no constrained dashed
   intent
+- source span graph construction is bounded by current flattened segment count
+  and visible interval count; it may do `O(segmentCount^2)` self-intersection
+  discovery for now, but must be cached by topology revision plus interval
+  allocation revision before it is used in animation-heavy exact paths
 - arrangement-heavy constrained dashed diagnostics must be lazy or debug-gated;
   normal product rendering may attach runtime status metadata, but it must not
   synchronously build ownership arrangement diagnostics unless a debug consumer
@@ -132,6 +139,25 @@ Current implementation checkpoint:
   polygon signatures or normalized geometry models; a cache hit with no dirty
   geometry or paint keys must only restore visibility and carry forward revision
   metadata
+- exact backend operation caches must be bounded per backend instance and keyed
+  by deterministic operation inputs, backend version, coordinate policy, fill
+  rule, path geometry, and operation options. A cached result must be cloned
+  before returning to callers.
+- arrangement cache entries may cache partition geometry and candidate ids, but
+  they must reconstruct `claimedBy` from the current typed `CandidateRegion`
+  objects. They must never persist stale owner objects or recover ownership from
+  geometry ids.
+- render / hit-test / export projections from `FinalFace[]` may cache projected
+  packet arrays by final-face array identity within a render pass, but the
+  canonical `FinalFace[]` remains the source of truth.
+- vector render pass must build one combined `strokeFinalFaces` array and use
+  it for render, hit-test, and export. Promoted exact faces must not be
+  converted back into resolved packets before projection.
+- geometry backend selection is part of the render invalidation contract. When
+  the active backend changes from unsupported/local to an exact backend, preset
+  render subscriptions must reload the render scene tree so existing vectors
+  rebuild canonical geometry with the new backend. This reload must not create
+  undo history and must not mutate scene data.
 - the render pass exposes a debug/profiling counter for the number of path
   geometry models built in that pass
 - the render pass exposes a debug/profiling counter for the number of
@@ -143,6 +169,10 @@ Current supported performance benchmark checkpoint:
 
 - `packages/preset/src/__tests__/stroke-performance-contract.test.ts` is the
   current declared baseline CPU geometry benchmark suite
+- `packages/preset/src/__tests__/clipper2-geometry-backend.test.ts` verifies
+  bounded backend cache safety for boolean and arrangement outputs by mutating a
+  first result and asserting the cached replay returns clean cloned geometry
+  with current candidate owner objects
 - runtime target:
   - Vitest/jsdom project test runtime
 - hardware tier:
@@ -176,6 +206,7 @@ Preview mode is allowed only under these constraints:
 - lower tessellation density is allowed
 - partial packet reuse is allowed
 - deferred exact rebuild is allowed
+- preview curve flattening may relax up to `min(1.0 px, strokeWidth / 4)`
 
 Preview mode is not allowed to change:
 
@@ -187,6 +218,16 @@ Preview mode is not allowed to change:
 
 When interaction settles, the exact path must be restored and its geometry hash
 must converge to the exact baseline for the same revision.
+
+Exact-mode curve flattening target:
+
+- `0.25 px`
+
+Numeric robustness constants:
+
+- arrangement / snap epsilon: `1e-6` model units
+- zero-area face rejection threshold:
+  `max(1e-8, flattenTolerance * flattenTolerance * 0.25)`
 
 Preview inheritance rule:
 

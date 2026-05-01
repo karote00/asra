@@ -22,6 +22,7 @@ import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
 import type { SolidCenterStrokeExportPacket } from '../components/stroke-render/solid-center-stroke-packets'
 import { createReportedRoundInsideDashedStarVectorData } from './inside-dashed-fixtures'
+import { selectGeometryBackend } from '../components/stroke-render/geometry-backend'
 
 beforeAll(() => {
   core.defineSystemProperty<string | null>('pathEditingVectorId', null)
@@ -1299,10 +1300,16 @@ describe('Vector Component', () => {
   })
 
   it('should run: render many self-intersecting inside dashed stars as local-side constrained geometry without exceeding frame budget', () => {
+    selectGeometryBackend('unsupported-exact-geometry-backend')
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
     if (!renderStrategy) return
+    runRenderStrategy(
+      renderStrategy,
+      createMeshMockGraphic(),
+      createSelfIntersectingStarsVectorData(12)
+    )
     const mockGraphic = createMeshMockGraphic()
     const mockData = createSelfIntersectingStarsVectorData(12)
     const start = performance.now()

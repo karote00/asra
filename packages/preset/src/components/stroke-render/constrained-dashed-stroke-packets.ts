@@ -6,7 +6,10 @@ import {
 import type { allocateDashedCenterStrokeIntervals } from './dashed-center-stroke-intervals'
 import { createStrokeIntervalPointSlicer } from './stroke-interval-frames'
 import { buildConstrainedSolidStrokePolygons } from './constrained-solid-stroke-geometry'
-import { polygonArea } from './solid-stroke-geometry-core'
+import {
+  isSimpleClosedPolygon,
+  polygonArea
+} from './solid-stroke-geometry-core'
 import type {
   SolidCenterStrokeGeometryDebugMeta,
   SolidCenterStrokeResolvedPacket
@@ -18,10 +21,25 @@ import {
   type PathTopologyModel,
   type PathTopologyFamily
 } from './path-topology-model'
+import {
+  slicePathSegmentPoints,
+  slicePathGeometryPoints,
+  type PathSegment,
+  type PathGeometry
+} from './path-geometry'
+import {
+  buildSourceSpanGraph,
+  getSourceSpanIdsForInterval
+} from './source-span-graph'
+import type { StrokeOwnerKey } from './stroke-final-face'
 
 interface Vec2 {
   x: number
   y: number
+}
+
+interface SelectedSideGuardPoint extends Vec2 {
+  sharp?: boolean
 }
 
 interface Bounds {
@@ -36,9 +54,15 @@ export interface ConstrainedDashedStrokeOptions {
     ownerKeyPrefix?: string
     networkId?: string
     contourId?: string
+    sourceContourIds?: string[]
     legalDomainId?: string | null
+    legalDomainIds?: string[]
+    sourceSpanIds?: string[]
+    ownerSet?: StrokeOwnerKey[]
   }
   topology?: PathTopologyModel
+  sourcePath?: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>
+  selectedSideGuardPoints?: SelectedSideGuardPoint[]
 }
 
 export type ConstrainedDashedSourceTopology =
@@ -780,9 +804,13 @@ const isSupportedConstrainedDashedInterval = (
 
 const getConstrainedDashedResolutionStatus = (
   sourceTopology: ConstrainedDashedSourceTopology,
+  intervalTopology?: ConstrainedDashedIntervalTopology,
   forceLocalSideApproximation = false
 ): Exclude<SolidCenterStrokeGeometryDebugMeta['resolutionStatus'], undefined> =>
-  sourceTopology === 'self-intersecting' || forceLocalSideApproximation
+  sourceTopology === 'self-intersecting' ||
+  forceLocalSideApproximation ||
+  (sourceTopology === 'sampled-simple-closed' &&
+    intervalTopology !== 'full-loop')
     ? 'local-side-approximation'
     : 'exact-constrained'
 
@@ -944,6 +972,1157 @@ const applyClosedIntervalLegality = (
     .filter((polygon) => polygon.length >= 3)
 }
 
+const normalizeDistanceOnLoop = (distance: number, totalLength: number) =>
+  totalLength > 0 ? ((distance % totalLength) + totalLength) % totalLength : 0
+
+const getSourcePathSegmentRanges = (
+  path: Pick<PathGeometry, 'segments'>
+) => {
+  let cursor = 0
+  return path.segments.map((segment, index) => {
+    const range = {
+      index,
+      startDistance: cursor,
+      endDistance: cursor + segment.length
+    }
+    cursor = range.endDistance
+    return range
+  })
+}
+
+const splitSourcePathRangeBySegmentBoundaries = (
+  path: Pick<PathGeometry, 'segments'>,
+  startDistance: number,
+  endDistance: number
+) => {
+  if (endDistance - startDistance <= EPSILON) {
+    return []
+  }
+
+  return getSourcePathSegmentRanges(path).flatMap((segment) => {
+    const start = Math.max(startDistance, segment.startDistance)
+    const end = Math.min(endDistance, segment.endDistance)
+    return end - start > EPSILON
+      ? [
+          {
+            startDistance: start,
+            endDistance: end,
+            segmentIndex: segment.index
+          }
+        ]
+      : []
+  })
+}
+
+const splitVisibleIntervalBySourceSegments = (
+  path: Pick<PathGeometry, 'segments' | 'totalLength'>,
+  interval: Pick<
+    ReturnType<typeof allocateDashedIntervalsForTopology>[number],
+    'startDistance' | 'endDistance' | 'wrapsSeam'
+  >
+) => {
+  if (path.segments.length === 0 || path.totalLength <= EPSILON) {
+    return []
+  }
+
+  if (interval.wrapsSeam) {
+    return [
+      ...splitSourcePathRangeBySegmentBoundaries(
+        path,
+        interval.startDistance,
+        path.totalLength
+      ),
+      ...splitSourcePathRangeBySegmentBoundaries(path, 0, interval.endDistance)
+    ]
+  }
+
+  return splitSourcePathRangeBySegmentBoundaries(
+    path,
+    interval.startDistance,
+    interval.endDistance
+  )
+}
+
+const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
+  polygons: Vec2[][],
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  range: {
+    startDistance: number
+    endDistance: number
+    segmentIndex: number
+  },
+  authoredStroke: Pick<RenderableStroke, 'position' | 'dashPattern'>,
+  intervalStroke: Pick<RenderableStroke, 'position' | 'width'>,
+  sharpGuardVertices: SharpGuardVertex[] = []
+) => {
+  if (
+    polygons.length === 0 ||
+    path.closed !== true ||
+    path.segments.length < 2 ||
+    authoredStroke.position !== 'inside'
+  ) {
+    return polygons
+  }
+
+  const segmentRanges = getSourcePathSegmentRanges(path)
+  const segmentRange = segmentRanges[range.segmentIndex]
+  if (!segmentRange) {
+    return polygons
+  }
+
+  const selectedSide = intervalStroke.position === 'inside' ? 1 : -1
+  const boundaryReach = Math.max(
+    intervalStroke.width * 2,
+    authoredStroke.dashPattern[0] ?? intervalStroke.width
+  )
+  const endpointClipReach = Math.max(intervalStroke.width * 0.55, EPSILON)
+  const touchesSegmentStart =
+    range.startDistance <=
+    segmentRange.startDistance + endpointClipReach + EPSILON
+  const touchesSegmentEnd =
+    range.endDistance >= segmentRange.endDistance - endpointClipReach - EPSILON
+  const previousSegment =
+    path.segments[
+      (range.segmentIndex - 1 + path.segments.length) % path.segments.length
+    ]
+  const nextSegment =
+    path.segments[(range.segmentIndex + 1) % path.segments.length]
+  const previousBoundary = getBoundaryTail(
+    buildSourceSegmentBoundary(previousSegment),
+    boundaryReach
+  )
+  const nextBoundary = getBoundaryHead(
+    buildSourceSegmentBoundary(nextSegment),
+    boundaryReach
+  )
+  const currentBoundary = buildSourceSegmentBoundary(
+    path.segments[range.segmentIndex]
+  )
+  const segmentStartIsSharp = sharpGuardVertices.some((guard) =>
+    areLoopDistancesEqual(
+      segmentRange.startDistance,
+      guard.distance,
+      path.totalLength
+    )
+  )
+  const segmentEndIsSharp = sharpGuardVertices.some((guard) =>
+    areLoopDistancesEqual(
+      segmentRange.endDistance,
+      guard.distance,
+      path.totalLength
+    )
+  )
+  const clippedPolygons = polygons.flatMap((polygon) => {
+    let currentPolygon = polygon
+
+    if (touchesSegmentStart) {
+      currentPolygon = clipPolygonToSelectedSideBoundaryIfCrossing(
+        currentPolygon,
+        previousBoundary,
+        selectedSide
+      )
+      if (currentPolygon.length < 3) {
+        return []
+      }
+    }
+
+    if (touchesSegmentEnd) {
+      currentPolygon = clipPolygonToSelectedSideBoundaryIfCrossing(
+        currentPolygon,
+        nextBoundary,
+        selectedSide
+      )
+      if (currentPolygon.length < 3) {
+        return []
+      }
+    }
+
+    if (
+      (touchesSegmentStart && !segmentStartIsSharp) ||
+      (touchesSegmentEnd && !segmentEndIsSharp)
+    ) {
+      currentPolygon = clipPolygonToDominantSideBoundaryIfCrossing(
+        currentPolygon,
+        currentBoundary
+      )
+      if (currentPolygon.length < 3) {
+        return []
+      }
+    }
+
+    return currentPolygon.length >= 3 && isSimpleClosedPolygon(currentPolygon)
+      ? [currentPolygon]
+      : []
+  })
+
+  const fallbackPolygons = polygons.filter(
+    (polygon) => polygon.length >= 3 && isSimpleClosedPolygon(polygon)
+  )
+  if (clippedPolygons.length > 0) {
+    const sourceEdge = slicePathGeometryPoints(
+      path,
+      range.startDistance,
+      range.endDistance,
+      false
+    )
+    const fallbackSourceEdgeCount = countSourceEdgeVertices(
+      fallbackPolygons,
+      sourceEdge
+    )
+    const clippedSourceEdgeCount = countSourceEdgeVertices(
+      clippedPolygons,
+      sourceEdge
+    )
+    if (
+      fallbackSourceEdgeCount >= 3 &&
+      clippedSourceEdgeCount < Math.min(3, fallbackSourceEdgeCount)
+    ) {
+      return fallbackPolygons
+    }
+
+    return clippedPolygons
+  }
+
+  return fallbackPolygons
+}
+
+const isDistanceInsideInterval = (
+  distance: number,
+  interval: Pick<
+    ReturnType<typeof allocateDashedIntervalsForTopology>[number],
+    'startDistance' | 'endDistance' | 'wrapsSeam'
+  >,
+  totalLength: number
+) => {
+  const loopDistance = normalizeDistanceOnLoop(distance, totalLength)
+  const start = normalizeDistanceOnLoop(interval.startDistance, totalLength)
+  const end = normalizeDistanceOnLoop(interval.endDistance, totalLength)
+
+  if (interval.wrapsSeam) {
+    return loopDistance >= start - EPSILON || loopDistance <= end + EPSILON
+  }
+
+  return loopDistance >= start - EPSILON && loopDistance <= end + EPSILON
+}
+
+const areLoopDistancesEqual = (
+  left: number,
+  right: number,
+  totalLength: number
+) => {
+  if (totalLength <= EPSILON) {
+    return Math.abs(left - right) <= EPSILON
+  }
+
+  const delta = Math.abs(
+    normalizeDistanceOnLoop(left, totalLength) -
+      normalizeDistanceOnLoop(right, totalLength)
+  )
+  return Math.min(delta, totalLength - delta) <= EPSILON
+}
+
+const isIntervalStartAtGuard = (
+  interval: Pick<
+    ReturnType<typeof allocateDashedIntervalsForTopology>[number],
+    'startDistance'
+  >,
+  guard: Pick<SharpGuardVertex, 'distance'>,
+  totalLength: number
+) => areLoopDistancesEqual(interval.startDistance, guard.distance, totalLength)
+
+const isIntervalEndAtGuard = (
+  interval: Pick<
+    ReturnType<typeof allocateDashedIntervalsForTopology>[number],
+    'endDistance'
+  >,
+  guard: Pick<SharpGuardVertex, 'distance'>,
+  totalLength: number
+) => areLoopDistancesEqual(interval.endDistance, guard.distance, totalLength)
+
+const isSharpGuardVertex = (points: Vec2[], index: number) => {
+  const candidate = points[index] as SelectedSideGuardPoint
+  if (candidate.sharp === false) {
+    return false
+  }
+
+  const previous = points[(index - 1 + points.length) % points.length]
+  const point = points[index]
+  const next = points[(index + 1) % points.length]
+  const incoming = normalizeVector({
+    x: point.x - previous.x,
+    y: point.y - previous.y
+  })
+  const outgoing = normalizeVector({
+    x: next.x - point.x,
+    y: next.y - point.y
+  })
+
+  if (!incoming || !outgoing) {
+    return false
+  }
+
+  const dot = Math.max(
+    -1,
+    Math.min(1, incoming.x * outgoing.x + incoming.y * outgoing.y)
+  )
+  return Math.acos(dot) >= Math.PI / 4
+}
+
+interface SharpGuardVertex {
+  distance: number
+  previousSegmentStart: Vec2
+  previousSegmentEnd: Vec2
+  nextSegmentStart: Vec2
+  nextSegmentEnd: Vec2
+  previousBoundary: Vec2[]
+  nextBoundary: Vec2[]
+}
+
+const normalizeClosedGuardPoints = (points: Vec2[]) => {
+  if (
+    points.length > 1 &&
+    distanceBetween(points[0], points[points.length - 1]) <= EPSILON
+  ) {
+    return points.slice(0, -1)
+  }
+
+  return points
+}
+
+const findNearestSegmentRange = (
+  point: Vec2,
+  topologyPoints: Vec2[],
+  segmentRanges: ReturnType<typeof getClosedSegmentRanges>
+) => {
+  let nearestIndex = -1
+  let nearestDistanceSquared = Number.POSITIVE_INFINITY
+
+  topologyPoints.forEach((candidate, index) => {
+    const distanceSquared =
+      (candidate.x - point.x) * (candidate.x - point.x) +
+      (candidate.y - point.y) * (candidate.y - point.y)
+    if (distanceSquared < nearestDistanceSquared) {
+      nearestIndex = index
+      nearestDistanceSquared = distanceSquared
+    }
+  })
+
+  return nearestIndex >= 0 ? segmentRanges[nearestIndex] : undefined
+}
+
+const buildSourceSegmentBoundary = (segment: PathSegment | undefined) =>
+  segment ? slicePathSegmentPoints(segment, 0, segment.length) : []
+
+const buildSharpGuardVertices = (
+  topologyPoints: Vec2[],
+  segmentRanges: ReturnType<typeof getClosedSegmentRanges>,
+  guardPoints: SelectedSideGuardPoint[] = topologyPoints,
+  sourcePath?: Pick<PathGeometry, 'segments' | 'closed'>
+): SharpGuardVertex[] => {
+  const normalizedGuardPoints = normalizeClosedGuardPoints(guardPoints)
+  if (normalizedGuardPoints.length < 3) {
+    return []
+  }
+
+  const canUseSourcePathSegments =
+    sourcePath?.closed === true &&
+    sourcePath.segments.length === normalizedGuardPoints.length
+  const canUseDirectGuardRange =
+    normalizedGuardPoints.length === segmentRanges.length
+
+  const vertices: SharpGuardVertex[] = []
+
+  for (let index = 0; index < normalizedGuardPoints.length; index += 1) {
+    if (isSharpGuardVertex(normalizedGuardPoints, index)) {
+      const point = normalizedGuardPoints[index]
+      const segment = canUseDirectGuardRange
+        ? segmentRanges[index]
+        : findNearestSegmentRange(point, topologyPoints, segmentRanges)
+      if (!segment) {
+        continue
+      }
+      const previous =
+        normalizedGuardPoints[
+          (index - 1 + normalizedGuardPoints.length) %
+            normalizedGuardPoints.length
+        ]
+      const next = normalizedGuardPoints[(index + 1) % normalizedGuardPoints.length]
+      const previousBoundary = canUseSourcePathSegments
+        ? buildSourceSegmentBoundary(
+            sourcePath.segments[
+              (index - 1 + sourcePath.segments.length) %
+                sourcePath.segments.length
+            ]
+          )
+        : [previous, point]
+      const nextBoundary = canUseSourcePathSegments
+        ? buildSourceSegmentBoundary(sourcePath.segments[index])
+        : [point, next]
+      vertices.push({
+        distance: segment.startDistance,
+        previousSegmentStart: previous,
+        previousSegmentEnd: point,
+        nextSegmentStart: point,
+        nextSegmentEnd: next,
+        previousBoundary,
+        nextBoundary
+      })
+    }
+  }
+
+  return vertices
+}
+
+const getIntervalGuardVertices = (
+  sharpGuardVertices: SharpGuardVertex[],
+  segmentRanges: ReturnType<typeof getClosedSegmentRanges>,
+  interval: Pick<
+    ReturnType<typeof allocateDashedIntervalsForTopology>[number],
+    'startDistance' | 'endDistance' | 'wrapsSeam'
+  >,
+  totalLength: number
+) => {
+  if (
+    sharpGuardVertices.length === 0 ||
+    segmentRanges.length === 0 ||
+    totalLength <= EPSILON
+  ) {
+    return []
+  }
+
+  const selectedVertices: SharpGuardVertex[] = []
+
+  for (const vertex of sharpGuardVertices) {
+    if (isDistanceInsideInterval(vertex.distance, interval, totalLength)) {
+      selectedVertices.push(vertex)
+    }
+  }
+
+  return selectedVertices
+}
+
+const clipPolygonToSelectedSideOfSegment = (
+  polygon: Vec2[],
+  segmentStart: Vec2,
+  segmentEnd: Vec2,
+  selectedSide: 1 | -1
+) => {
+  const dx = segmentEnd.x - segmentStart.x
+  const dy = segmentEnd.y - segmentStart.y
+  const isInside = (point: Vec2) => {
+    const cross = dx * (point.y - segmentStart.y) - dy * (point.x - segmentStart.x)
+    return selectedSide > 0 ? cross >= -EPSILON : cross <= EPSILON
+  }
+  const output: Vec2[] = []
+
+  for (let currentIndex = 0; currentIndex < polygon.length; currentIndex += 1) {
+    const current = polygon[currentIndex]
+    const previous = polygon[(currentIndex - 1 + polygon.length) % polygon.length]
+    const currentInside = isInside(current)
+    const previousInside = isInside(previous)
+
+    if (currentInside) {
+      if (!previousInside) {
+        output.push(lineIntersection(previous, current, segmentStart, segmentEnd))
+      }
+      output.push(current)
+      continue
+    }
+
+    if (previousInside) {
+      output.push(lineIntersection(previous, current, segmentStart, segmentEnd))
+    }
+  }
+
+  return cleanPolygon(output)
+}
+
+const areSamePoint = (first: Vec2, second: Vec2) =>
+  Math.hypot(first.x - second.x, first.y - second.y) <= EPSILON
+
+const isCollinearPoint = (previous: Vec2, point: Vec2, next: Vec2) => {
+  const ax = point.x - previous.x
+  const ay = point.y - previous.y
+  const bx = next.x - point.x
+  const by = next.y - point.y
+  return Math.abs(ax * by - ay * bx) <= EPSILON
+}
+
+const cleanPolygon = (polygon: Vec2[]) => {
+  if (polygon.length < 2) {
+    return polygon
+  }
+
+  const deduped: Vec2[] = []
+  for (const point of polygon) {
+    const previous = deduped[deduped.length - 1]
+    if (!previous || !areSamePoint(previous, point)) {
+      deduped.push(point)
+    }
+  }
+
+  if (deduped.length > 2 && areSamePoint(deduped[0], deduped[deduped.length - 1])) {
+    deduped.pop()
+  }
+
+  if (deduped.length < 4) {
+    return deduped
+  }
+
+  const cleaned: Vec2[] = []
+  for (let index = 0; index < deduped.length; index += 1) {
+    const previous = deduped[(index - 1 + deduped.length) % deduped.length]
+    const point = deduped[index]
+    const next = deduped[(index + 1) % deduped.length]
+    if (!isCollinearPoint(previous, point, next)) {
+      cleaned.push(point)
+    }
+  }
+
+  return cleaned.length >= 3 ? cleaned : deduped
+}
+
+const getPolygonBounds = (polygon: Vec2[]) => {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  for (const point of polygon) {
+    minX = Math.min(minX, point.x)
+    minY = Math.min(minY, point.y)
+    maxX = Math.max(maxX, point.x)
+    maxY = Math.max(maxY, point.y)
+  }
+
+  return { minX, minY, maxX, maxY }
+}
+
+const segmentBoundsOverlapPolygon = (
+  segmentStart: Vec2,
+  segmentEnd: Vec2,
+  polygon: Vec2[]
+) => {
+  const bounds = getPolygonBounds(polygon)
+  return (
+    Math.min(segmentStart.x, segmentEnd.x) <= bounds.maxX + EPSILON &&
+    Math.max(segmentStart.x, segmentEnd.x) + EPSILON >= bounds.minX &&
+    Math.min(segmentStart.y, segmentEnd.y) <= bounds.maxY + EPSILON &&
+    Math.max(segmentStart.y, segmentEnd.y) + EPSILON >= bounds.minY
+  )
+}
+
+const pointSegmentDistance = (point: Vec2, start: Vec2, end: Vec2) => {
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  const lengthSquared = dx * dx + dy * dy
+  if (lengthSquared <= EPSILON * EPSILON) {
+    return distanceBetween(point, start)
+  }
+
+  const t = Math.max(
+    0,
+    Math.min(
+      1,
+      ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared
+    )
+  )
+
+  return distanceBetween(point, {
+    x: start.x + dx * t,
+    y: start.y + dy * t
+  })
+}
+
+const pointPolylineDistance = (point: Vec2, polyline: Vec2[]) => {
+  if (polyline.length === 0) {
+    return Number.POSITIVE_INFINITY
+  }
+
+  if (polyline.length === 1) {
+    return distanceBetween(point, polyline[0])
+  }
+
+  return polyline.slice(0, -1).reduce((nearestDistance, start, index) => {
+    const end = polyline[index + 1]
+    return Math.min(nearestDistance, pointSegmentDistance(point, start, end))
+  }, Number.POSITIVE_INFINITY)
+}
+
+const countSourceEdgeVertices = (polygons: Vec2[][], source: Vec2[]) =>
+  polygons.reduce(
+    (count, polygon) =>
+      count +
+      polygon.filter((point) => pointPolylineDistance(point, source) <= 0.5)
+        .length,
+    0
+  )
+
+interface SegmentIntersectionHit {
+  point: Vec2
+  polygonEdgeIndex: number
+  polygonT: number
+  boundaryEdgeIndex: number
+  boundaryT: number
+  polygonPosition: number
+  boundaryPosition: number
+}
+
+const segmentIntersectionWithParams = (
+  polygonStart: Vec2,
+  polygonEnd: Vec2,
+  boundaryStart: Vec2,
+  boundaryEnd: Vec2
+) => {
+  const rx = polygonEnd.x - polygonStart.x
+  const ry = polygonEnd.y - polygonStart.y
+  const sx = boundaryEnd.x - boundaryStart.x
+  const sy = boundaryEnd.y - boundaryStart.y
+  const denominator = rx * sy - ry * sx
+  if (Math.abs(denominator) <= EPSILON) {
+    return null
+  }
+
+  const qpx = boundaryStart.x - polygonStart.x
+  const qpy = boundaryStart.y - polygonStart.y
+  const t = (qpx * sy - qpy * sx) / denominator
+  const u = (qpx * ry - qpy * rx) / denominator
+  if (
+    t < -EPSILON ||
+    t > 1 + EPSILON ||
+    u < -EPSILON ||
+    u > 1 + EPSILON
+  ) {
+    return null
+  }
+
+  const clampedT = Math.max(0, Math.min(1, t))
+  const clampedU = Math.max(0, Math.min(1, u))
+  return {
+    point: normalizePoint({
+      x: polygonStart.x + rx * clampedT,
+      y: polygonStart.y + ry * clampedT
+    }),
+    polygonT: clampedT,
+    boundaryT: clampedU
+  }
+}
+
+const getPolylineClipIntersections = (
+  polygon: Vec2[],
+  boundary: Vec2[]
+): SegmentIntersectionHit[] => {
+  const hits: SegmentIntersectionHit[] = []
+  for (let polygonEdgeIndex = 0; polygonEdgeIndex < polygon.length; polygonEdgeIndex += 1) {
+    const polygonStart = polygon[polygonEdgeIndex]
+    const polygonEnd = polygon[(polygonEdgeIndex + 1) % polygon.length]
+    for (let boundaryEdgeIndex = 0; boundaryEdgeIndex < boundary.length - 1; boundaryEdgeIndex += 1) {
+      const boundaryStart = boundary[boundaryEdgeIndex]
+      const boundaryEnd = boundary[boundaryEdgeIndex + 1]
+      const hit = segmentIntersectionWithParams(
+        polygonStart,
+        polygonEnd,
+        boundaryStart,
+        boundaryEnd
+      )
+      if (!hit) {
+        continue
+      }
+      if (
+        hits.some(
+          (existing) => distanceBetween(existing.point, hit.point) <= EPSILON
+        )
+      ) {
+        continue
+      }
+      hits.push({
+        point: hit.point,
+        polygonEdgeIndex,
+        polygonT: hit.polygonT,
+        boundaryEdgeIndex,
+        boundaryT: hit.boundaryT,
+        polygonPosition: polygonEdgeIndex + hit.polygonT,
+        boundaryPosition: boundaryEdgeIndex + hit.boundaryT
+      })
+    }
+  }
+
+  return hits
+}
+
+const pushDedupePoint = (points: Vec2[], point: Vec2) => {
+  const previous = points[points.length - 1]
+  if (!previous || distanceBetween(previous, point) > EPSILON) {
+    points.push(point)
+  }
+}
+
+const getPolygonPathBetweenHits = (
+  polygon: Vec2[],
+  from: SegmentIntersectionHit,
+  to: SegmentIntersectionHit
+) => {
+  const result: Vec2[] = []
+  pushDedupePoint(result, from.point)
+
+  let vertexIndex = (from.polygonEdgeIndex + 1) % polygon.length
+  while (vertexIndex !== (to.polygonEdgeIndex + 1) % polygon.length) {
+    pushDedupePoint(result, polygon[vertexIndex])
+    vertexIndex = (vertexIndex + 1) % polygon.length
+  }
+
+  pushDedupePoint(result, to.point)
+  return result
+}
+
+const getBoundaryPathBetweenHits = (
+  boundary: Vec2[],
+  from: SegmentIntersectionHit,
+  to: SegmentIntersectionHit
+): Vec2[] => {
+  if (from.boundaryPosition <= to.boundaryPosition) {
+    const result: Vec2[] = []
+    pushDedupePoint(result, from.point)
+    for (
+      let vertexIndex = from.boundaryEdgeIndex + 1;
+      vertexIndex <= to.boundaryEdgeIndex;
+      vertexIndex += 1
+    ) {
+      pushDedupePoint(result, boundary[vertexIndex])
+    }
+    pushDedupePoint(result, to.point)
+    return result
+  }
+
+  return getBoundaryPathBetweenHits(boundary, to, from).reverse()
+}
+
+const getSelectedSideViolationScore = (
+  polygon: Vec2[],
+  boundary: Vec2[],
+  selectedSide: 1 | -1
+) => {
+  let score = 0
+  for (const point of polygon) {
+    let nearestCross = 0
+    let nearestDistance = Number.POSITIVE_INFINITY
+    for (let index = 0; index < boundary.length - 1; index += 1) {
+      const start = boundary[index]
+      const end = boundary[index + 1]
+      const cross =
+        (end.x - start.x) * (point.y - start.y) -
+        (end.y - start.y) * (point.x - start.x)
+      const distanceToSegment = pointSegmentDistance(point, start, end)
+      if (distanceToSegment < nearestDistance) {
+        nearestDistance = distanceToSegment
+        nearestCross = cross
+      }
+    }
+    const violation = selectedSide > 0 ? -nearestCross : nearestCross
+    if (violation > EPSILON) {
+      score += violation
+    }
+  }
+  return score
+}
+
+const isFullyOnRejectedSideOfBoundary = (
+  polygon: Vec2[],
+  boundary: Vec2[],
+  selectedSide: 1 | -1
+) => {
+  if (polygon.length < 3 || boundary.length < 2) {
+    return false
+  }
+
+  return polygon.every((point) => {
+    let nearestCross = 0
+    let nearestDistance = Number.POSITIVE_INFINITY
+    for (let index = 0; index < boundary.length - 1; index += 1) {
+      const start = boundary[index]
+      const end = boundary[index + 1]
+      const cross =
+        (end.x - start.x) * (point.y - start.y) -
+        (end.y - start.y) * (point.x - start.x)
+      const distanceToSegment = pointSegmentDistance(point, start, end)
+      if (distanceToSegment < nearestDistance) {
+        nearestDistance = distanceToSegment
+        nearestCross = cross
+      }
+    }
+
+    return selectedSide > 0
+      ? nearestCross < -EPSILON
+      : nearestCross > EPSILON
+  })
+}
+
+const clipPolygonToSelectedSidePolylineIfCrossing = (
+  polygon: Vec2[],
+  boundary: Vec2[],
+  selectedSide: 1 | -1
+) => {
+  if (polygon.length < 3 || boundary.length < 2) {
+    return null
+  }
+
+  const hits = getPolylineClipIntersections(polygon, boundary).sort(
+    (left, right) => left.boundaryPosition - right.boundaryPosition
+  )
+  if (hits.length < 2) {
+    return null
+  }
+
+  const first = hits[0]
+  const last = hits[hits.length - 1]
+  const candidates = [
+    cleanPolygon([
+      ...getPolygonPathBetweenHits(polygon, first, last),
+      ...getBoundaryPathBetweenHits(boundary, last, first).slice(1)
+    ]),
+    cleanPolygon([
+      ...getPolygonPathBetweenHits(polygon, last, first),
+      ...getBoundaryPathBetweenHits(boundary, first, last).slice(1)
+    ])
+  ].filter((candidate) => candidate.length >= 3)
+
+  if (candidates.length === 0) {
+    return null
+  }
+
+  return candidates.sort((left, right) => {
+    const scoreDelta =
+      getSelectedSideViolationScore(left, boundary, selectedSide) -
+      getSelectedSideViolationScore(right, boundary, selectedSide)
+    if (Math.abs(scoreDelta) > EPSILON) {
+      return scoreDelta
+    }
+    return Math.abs(polygonArea(left)) - Math.abs(polygonArea(right))
+  })[0]
+}
+
+const getBoundaryHead = (boundary: Vec2[], reach: number) => {
+  if (boundary.length <= 2) {
+    return boundary
+  }
+
+  const result = [boundary[0]]
+  let length = 0
+  for (let index = 1; index < boundary.length; index += 1) {
+    const previous = boundary[index - 1]
+    const current = boundary[index]
+    length += distanceBetween(previous, current)
+    result.push(current)
+    if (length >= reach - EPSILON) {
+      break
+    }
+  }
+  return result
+}
+
+const getBoundaryTail = (boundary: Vec2[], reach: number) => {
+  if (boundary.length <= 2) {
+    return boundary
+  }
+
+  const result = [boundary[boundary.length - 1]]
+  let length = 0
+  for (let index = boundary.length - 2; index >= 0; index -= 1) {
+    const previous = boundary[index + 1]
+    const current = boundary[index]
+    length += distanceBetween(previous, current)
+    result.push(current)
+    if (length >= reach - EPSILON) {
+      break
+    }
+  }
+  return result.reverse()
+}
+
+const clipPolygonToSelectedSideIfCrossing = (
+  polygon: Vec2[],
+  segmentStart: Vec2,
+  segmentEnd: Vec2,
+  selectedSide: 1 | -1,
+  activationStart = segmentStart,
+  activationEnd = segmentEnd
+) => {
+  if (
+    polygon.length < 3 ||
+    !segmentBoundsOverlapPolygon(activationStart, activationEnd, polygon)
+  ) {
+    return polygon
+  }
+
+  const dx = segmentEnd.x - segmentStart.x
+  const dy = segmentEnd.y - segmentStart.y
+  let hasInside = false
+  let hasOutside = false
+
+  for (const point of polygon) {
+    const cross = dx * (point.y - segmentStart.y) - dy * (point.x - segmentStart.x)
+    const inside = selectedSide > 0 ? cross >= -EPSILON : cross <= EPSILON
+    hasInside ||= inside
+    hasOutside ||= !inside
+    if (hasInside && hasOutside) {
+      return clipPolygonToSelectedSideOfSegment(
+        polygon,
+        segmentStart,
+        segmentEnd,
+        selectedSide
+      )
+    }
+  }
+
+  return polygon
+}
+
+const clipPolygonToSelectedSideBoundary = (
+  polygon: Vec2[],
+  boundary: Vec2[],
+  selectedSide: 1 | -1
+) => {
+  if (polygon.length < 3 || boundary.length < 2) {
+    return polygon
+  }
+
+  let currentPolygon = polygon
+  for (let index = 0; index < boundary.length - 1; index += 1) {
+    if (currentPolygon.length < 3) {
+      break
+    }
+
+    currentPolygon = clipPolygonToSelectedSideOfSegment(
+      currentPolygon,
+      boundary[index],
+      boundary[index + 1],
+      selectedSide
+    )
+  }
+  return currentPolygon
+}
+
+const clipPolygonToSelectedSideBoundaryIfCrossing = (
+  polygon: Vec2[],
+  boundary: Vec2[],
+  selectedSide: 1 | -1
+) => {
+  if (polygon.length < 3 || boundary.length < 2) {
+    return polygon
+  }
+
+  const polylineClipped = clipPolygonToSelectedSidePolylineIfCrossing(
+    polygon,
+    boundary,
+    selectedSide
+  )
+  if (polylineClipped) {
+    return polylineClipped
+  }
+
+  let currentPolygon = polygon
+  for (let index = 0; index < boundary.length - 1; index += 1) {
+    if (currentPolygon.length < 3) {
+      break
+    }
+
+    currentPolygon = clipPolygonToSelectedSideIfCrossing(
+      currentPolygon,
+      boundary[index],
+      boundary[index + 1],
+      selectedSide
+    )
+  }
+  return currentPolygon
+}
+
+const clipPolygonToDominantSideBoundaryIfCrossing = (
+  polygon: Vec2[],
+  boundary: Vec2[]
+) => {
+  if (polygon.length < 3 || boundary.length < 2) {
+    return polygon
+  }
+
+  const positiveSideViolationScore = getSelectedSideViolationScore(
+    polygon,
+    boundary,
+    1
+  )
+  const negativeSideViolationScore = getSelectedSideViolationScore(
+    polygon,
+    boundary,
+    -1
+  )
+  const dominantSide: 1 | -1 =
+    positiveSideViolationScore <= negativeSideViolationScore ? 1 : -1
+
+  const clipped = clipPolygonToSelectedSideBoundaryIfCrossing(
+    polygon,
+    boundary,
+    dominantSide
+  )
+  if (clipped.length < 3 || isSimpleClosedPolygon(clipped)) {
+    return clipped
+  }
+
+  const strictClipped = clipPolygonToSelectedSideBoundary(
+    polygon,
+    boundary,
+    dominantSide
+  )
+  return strictClipped.length >= 3 &&
+    (isSimpleClosedPolygon(strictClipped) ||
+      Math.abs(polygonArea(strictClipped)) < Math.abs(polygonArea(clipped)))
+    ? strictClipped
+    : clipped
+}
+
+const clipPolygonToSelectedSideBoundaryOrDropRejected = (
+  polygon: Vec2[],
+  boundary: Vec2[],
+  selectedSide: 1 | -1
+) => {
+  if (polygon.length < 3 || boundary.length < 2) {
+    return polygon
+  }
+
+  const clipped = clipPolygonToSelectedSideBoundaryIfCrossing(
+    polygon,
+    boundary,
+    selectedSide
+  )
+  if (
+    clipped.length >= 3 &&
+    getSelectedSideViolationScore(clipped, boundary, selectedSide) <= EPSILON
+  ) {
+    return clipped
+  }
+
+  return isFullyOnRejectedSideOfBoundary(clipped, boundary, selectedSide)
+    ? []
+    : clipped
+}
+
+const applyClosedIntervalSelectedSideGuards = (
+  polygons: Vec2[][],
+  closed: boolean,
+  interval: Pick<
+    ReturnType<typeof allocateDashedIntervalsForTopology>[number],
+    'startDistance' | 'endDistance' | 'wrapsSeam'
+  >,
+  sharpGuardVertices: SharpGuardVertex[],
+  segmentRanges: ReturnType<typeof getClosedSegmentRanges>,
+  totalLength: number,
+  authoredStroke: Pick<RenderableStroke, 'position' | 'dashPattern' | 'join'>,
+  intervalStroke: Pick<RenderableStroke, 'position' | 'width'>
+) => {
+  if (
+    !closed ||
+    polygons.length === 0 ||
+    authoredStroke.position !== 'inside' ||
+    sharpGuardVertices.length === 0
+  ) {
+    return polygons
+  }
+
+  const guardVertices = getIntervalGuardVertices(
+    sharpGuardVertices,
+    segmentRanges,
+    interval,
+    totalLength
+  )
+
+  const selectedSide = intervalStroke.position === 'inside' ? 1 : -1
+  const crossingGuardReach = Math.max(
+    intervalStroke.width * 2,
+    authoredStroke.dashPattern[0] ?? intervalStroke.width
+  )
+  const clippedPolygons: Vec2[][] = []
+
+  for (const polygon of polygons) {
+    let currentPolygon = polygon
+
+    if (guardVertices.length > 0) {
+      for (const guard of guardVertices) {
+        if (currentPolygon.length < 3) {
+          break
+        }
+
+        const startsAtGuard = isIntervalStartAtGuard(
+          interval,
+          guard,
+          totalLength
+        )
+        const endsAtGuard = isIntervalEndAtGuard(interval, guard, totalLength)
+        const spansAcrossGuard = !startsAtGuard && !endsAtGuard
+
+        if (startsAtGuard || spansAcrossGuard) {
+          currentPolygon = clipPolygonToSelectedSideBoundary(
+            currentPolygon,
+            getBoundaryTail(guard.previousBoundary, crossingGuardReach),
+            selectedSide
+          )
+        }
+        if (currentPolygon.length < 3) {
+          break
+        }
+        if (endsAtGuard || spansAcrossGuard) {
+          currentPolygon = clipPolygonToSelectedSideBoundary(
+            currentPolygon,
+            getBoundaryHead(guard.nextBoundary, crossingGuardReach),
+            selectedSide
+          )
+        }
+        if (currentPolygon.length < 3) {
+          break
+        }
+      }
+    }
+
+    for (const guard of sharpGuardVertices) {
+      if (currentPolygon.length < 3) {
+        break
+      }
+
+      if (guardVertices.includes(guard)) {
+        continue
+      }
+
+      const startsAtGuard = isIntervalStartAtGuard(
+        interval,
+        guard,
+        totalLength
+      )
+      const endsAtGuard = isIntervalEndAtGuard(interval, guard, totalLength)
+
+      if (!endsAtGuard) {
+        currentPolygon = clipPolygonToSelectedSideBoundaryIfCrossing(
+          currentPolygon,
+          getBoundaryTail(guard.previousBoundary, crossingGuardReach),
+          selectedSide
+        )
+      }
+      if (currentPolygon.length < 3) {
+        break
+      }
+      if (!startsAtGuard) {
+        currentPolygon = clipPolygonToSelectedSideBoundaryIfCrossing(
+          currentPolygon,
+          getBoundaryHead(guard.nextBoundary, crossingGuardReach),
+          selectedSide
+        )
+      }
+    }
+
+    if (currentPolygon.length >= 3) {
+      clippedPolygons.push(currentPolygon)
+    }
+  }
+
+  return clippedPolygons
+}
+
 export const buildConstrainedDashedStrokeResolvedPackets = (
   cachePrefix: string,
   points: Vec2[],
@@ -973,6 +2152,19 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
     topology
   )
   const segmentRanges = getClosedSegmentRanges(topologyPoints, topology.closed)
+  const sharpGuardVertices =
+    topology.closed &&
+    sourceTopology !== 'degenerate' &&
+    (options.sourcePath ||
+      (options.selectedSideGuardPoints &&
+        options.selectedSideGuardPoints.length !== topologyPoints.length))
+      ? buildSharpGuardVertices(
+          topologyPoints,
+          segmentRanges,
+          options.selectedSideGuardPoints,
+          options.sourcePath
+        )
+      : []
   const intervalPointSlicer = createStrokeIntervalPointSlicer(
     topologyPoints,
     topology.closed
@@ -988,6 +2180,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
       stroke.dashPattern,
       stroke.dashOffset
     ).filter((interval) => interval.kind === 'visible')
+    const sourceSpanGraph = buildSourceSpanGraph(topology, visibleIntervals)
     const intervalSignature = buildVisibleIntervalSignature(visibleIntervals)
 
     if (visibleIntervals.length === 0) {
@@ -1025,6 +2218,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
         geometryFamily: 'constrained-dashed',
         resolutionStatus: getConstrainedDashedResolutionStatus(
           classification.sourceTopology,
+          classification.intervalTopology,
           !topology.closed && !topology.isSimpleOpen
         ),
         runtimeStatus: 'candidate',
@@ -1092,6 +2286,13 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
         contourId,
         legalDomainId,
         intervalId: fullLoopInterval.intervalId,
+        strokePosition: stroke.position,
+        ownerSet: options.metadata?.ownerSet,
+        sourceContourIds: options.metadata?.sourceContourIds,
+        legalDomainIds: options.metadata?.legalDomainIds,
+        sourceSpanIds:
+          options.metadata?.sourceSpanIds ??
+          getSourceSpanIdsForInterval(sourceSpanGraph, fullLoopInterval),
         authoredVisibleIntervalIndex: fullLoopInterval.authoredIndex,
         startDistance: fullLoopInterval.startDistance,
         endDistance: fullLoopInterval.endDistance,
@@ -1101,6 +2302,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
         geometryFamily: 'constrained-dashed',
         resolutionStatus: getConstrainedDashedResolutionStatus(
           classification.sourceTopology,
+          classification.intervalTopology,
           !topology.closed && !topology.isSimpleOpen
         ),
         runtimeStatus: 'candidate',
@@ -1149,37 +2351,78 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
         return []
       }
 
-      const intervalPoints = intervalPointSlicer.slice(
-        interval.startDistance,
-        interval.endDistance,
-        interval.wrapsSeam
-      )
-      const intervalPolygons = buildConstrainedSolidStrokePolygons(
-        intervalPoints,
-        false,
-        intervalStroke,
-        {
-          assumeSimpleOpen:
-            stroke.cap !== 'square' &&
-            (!topology.closed ||
-              topology.isSimpleClosed ||
-              topology.topologyFamily === 'self-intersecting')
-              ? true
-              : undefined,
-          assumeSimpleClosed: topology.closed
-            ? topology.isSimpleClosed
-            : undefined,
-          assumeNormalizedOpen: true
-        }
-      )
-      const polygons = topology.isSimpleClosed
-        ? applyClosedIntervalLegality(
+      const sourcePath = options.sourcePath
+      const intervalPolygons = sourcePath
+        ? splitVisibleIntervalBySourceSegments(sourcePath, interval).flatMap(
+            (range) => {
+              const intervalPoints = slicePathGeometryPoints(
+                sourcePath,
+                range.startDistance,
+                range.endDistance,
+                false
+              )
+              const rangePolygons = buildConstrainedSolidStrokePolygons(
+                intervalPoints,
+                false,
+                intervalStroke,
+                {
+                  assumeSimpleOpen: stroke.cap !== 'square' ? true : undefined,
+                  assumeSimpleClosed: undefined,
+                  assumeNormalizedOpen: true
+                }
+              )
+              return clipSourceSegmentRangePolygonsToAdjacentBoundaries(
+                rangePolygons,
+                sourcePath,
+                range,
+                stroke,
+                intervalStroke,
+                sharpGuardVertices
+              )
+            }
+          )
+        : buildConstrainedSolidStrokePolygons(
+            intervalPointSlicer.slice(
+              interval.startDistance,
+              interval.endDistance,
+              interval.wrapsSeam
+            ),
+            false,
+            intervalStroke,
+            {
+              assumeSimpleOpen:
+                stroke.cap !== 'square' &&
+                (!topology.closed ||
+                  topology.isSimpleClosed ||
+                  topology.topologyFamily === 'self-intersecting')
+                  ? true
+                  : undefined,
+              assumeSimpleClosed: topology.closed
+                ? topology.isSimpleClosed
+                : undefined,
+              assumeNormalizedOpen: true
+            }
+          )
+      const selectedSidePolygons = sourcePath
+        ? intervalPolygons
+        : applyClosedIntervalSelectedSideGuards(
             intervalPolygons,
+            topology.closed,
+            interval,
+            sharpGuardVertices,
+            segmentRanges,
+            totalLength,
+            stroke,
+            intervalStroke
+          )
+      const polygons = topology.isSimpleClosed && !options.sourcePath
+        ? applyClosedIntervalLegality(
+            selectedSidePolygons,
             topologyPoints,
             topology.closed,
             stroke
           )
-        : intervalPolygons
+        : selectedSidePolygons
 
       if (polygons.length === 0) {
         return []
@@ -1195,6 +2438,13 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
         contourId,
         legalDomainId,
         intervalId: interval.intervalId,
+        strokePosition: stroke.position,
+        ownerSet: options.metadata?.ownerSet,
+        sourceContourIds: options.metadata?.sourceContourIds,
+        legalDomainIds: options.metadata?.legalDomainIds,
+        sourceSpanIds:
+          options.metadata?.sourceSpanIds ??
+          getSourceSpanIdsForInterval(sourceSpanGraph, interval),
         authoredVisibleIntervalIndex: interval.authoredIndex,
         startDistance: interval.startDistance,
         endDistance: interval.endDistance,
@@ -1204,6 +2454,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
         geometryFamily: 'constrained-dashed',
         resolutionStatus: getConstrainedDashedResolutionStatus(
           classification.sourceTopology,
+          classification.intervalTopology,
           !topology.closed && !topology.isSimpleOpen
         ),
         runtimeStatus: 'candidate',

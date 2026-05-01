@@ -61,23 +61,23 @@ Baseline support may include:
 - dashed strokes only after interval-local one-sided geometry is implemented
   and tested for that topology
 
-Baseline support may not include:
+Baseline support must keep explicitly gated unless listed as supported in the
+active support contract:
 
-- self-intersecting source paths
 - multi-network overlap ownership beyond the supported simple closed
   global-diagnostics slice
 - nested ownership chains beyond containment-depth legal-region parity
-- high-curvature self-overlap that requires arrangement correctness not yet
-  implemented
 - decorated caps
 - any behavior whose support state is not explicit
 
-Self-intersecting constrained dashed `inside/outside` is supported as
-local-side approximation visibility until exact face arrangement exists. The
-engine must preserve the authored constrained side and must not convert the
-stroke to center geometry. Candidate overlap, opacity/gradient/image overdraw,
-and legal-domain leaks remain known exactness limitations and must be visible
-through `sourceTopology: "self-intersecting"` plus
+High-curvature constrained dashed `inside/outside` families are supported as
+backend-gated exact promotion paths. Self-intersecting constrained dashed
+families are currently supported as authored-side visible local geometry only:
+the engine must preserve dash visibility and must not convert the stroke to
+center geometry, but it must not promote self-intersecting packets through exact
+arrangement until the exact legal-domain clipping oracle no longer removes
+valid internal dash regions. This state remains explicit through
+`sourceTopology: "self-intersecting"` plus
 `resolutionStatus: "local-side-approximation"` metadata.
 
 ## Support-State Vocabulary
@@ -166,8 +166,13 @@ Current final-package expectation:
   resolved against the legal filled region rather than raw contour interior
 - render, hit-test, and export packets must carry the same shared compound
   `legalDomainId`
-- intersecting contours, shared edges, and non-containment nested ownership
-  chains remain `research-gated`
+- intersecting contours, overlapping hole contours, shared edges, and
+  non-containment nested ownership chains remain `research-gated`
+- 2026-04-29 Figma SVG exports for overlapping compound holes show the legal
+  domain is normalized first: two overlapping raw hole contours become one
+  merged inner hole before inside dashed appearance is emitted. Exact support
+  for this family therefore requires legal-domain boolean normalization before
+  dash interval emission.
 - otherwise `research-gated`
 
 ### Family 3. Open Paths
@@ -203,8 +208,9 @@ Fallback policy:
   canonical product behavior for authored `inside` / `outside`
 - open paths must not be mislabeled as constrained exact support when they emit
   center geometry
-- Figma dashed-open-path half-dash endpoint behavior must be captured before
-  more complex dashed open-path support is supported
+- Asyra dashed-open-path behavior intentionally diverges from Figma endpoint
+  balancing: zero and non-zero `dashOffset` both use true arc-length pattern
+  placement, and endpoints only clip the interval that reaches the boundary
 
 ### Family 4. High-Curvature Sampled Smooth Closed Paths
 
@@ -221,6 +227,17 @@ Current final-package expectation:
 
 - may be `supported` for supported exact slices when topology is proven stable
 - otherwise `research-gated`
+- 2026-04-29 Figma SVG exports for a high-curvature cubic loop show inside
+  dashed appearance as legal-domain-clipped filled dash geometry. Candidate
+  geometry may exist outside the legal domain before clipping, but product
+  packets must not emit that pre-clipped geometry as final render / hit / export
+  output.
+- 2026-04-30 research closure defines high-curvature exact support as
+  tolerance-bounded canonical geometry plus arrangement / face classification.
+  Until that exact branch removes duplicate and illegal candidate faces,
+  sampled-simple-closed constrained dashed interval-local packets are visibility
+  support only and must be marked
+  `resolutionStatus: "local-side-approximation"`.
 
 ### Family 5. Self-Overlapping But Non-Self-Intersecting One-Sided Candidates
 
@@ -270,6 +287,9 @@ Current final-package expectation:
   interval-local one-sided packets for visibility
 - full-loop constrained solid/dashed face ownership remains `research-gated`
   or `blocked`
+- 2026-04-29 Figma outline exports confirm that inside and outside dashed
+  self-intersecting outputs produce distinct filled-component structures
+  (`inside` and `outside` must not share a center-derived exact component model)
 
 Allowed temporary behavior:
 
@@ -304,6 +324,10 @@ Current final-package expectation:
   global candidate / ownership diagnostics for constrained solid
 - exact boolean-union export minimization for overlapping solid packets remains
   an optimization gate; it must not be used to hide product geometry
+- a flattened-union SVG export does not prove independent multi-network owner
+  preservation. The 2026-04-29 Figma outside dashed multi-network export
+  contains one merged contour, so it can validate flattened visible output but
+  not distinct source-network ownership semantics.
 
 Decision rule:
 
@@ -312,6 +336,11 @@ Decision rule:
   network independently
 - constrained solid overlap must enter the global ownership diagnostic path
   before render / hit / export packets are accepted
+- if multiple networks claim the same final semantic face with identical stroke
+  layer, stroke spec, and paint payload, the exact collapsed face must carry a
+  typed `ownerSet` rather than losing owners or parsing them from IDs
+- different stroke layers, different paint, or different object stacking
+  preserve separate product regions instead of owner-collapse
 - if a future fixture requires exact duplicate-face collapse, update the
   source-of-truth first, then add a boolean-union or face-emission phase
 

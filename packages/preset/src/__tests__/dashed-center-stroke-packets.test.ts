@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { StrokeJoinTypes, createDefaultStroke } from '@asyra/utils'
 import { buildDashedCenterStrokeResolvedPackets } from '../components/stroke-render/dashed-center-stroke-packets'
 import { buildSolidCenterStrokeResolvedPackets } from '../components/stroke-render/solid-center-stroke-packets'
+import { buildStrokeFinalFacesFromResolvedPackets } from '../components/stroke-render/stroke-final-face'
 
 describe('dashed center stroke packets', () => {
-  it('should run: build one resolved packet per visible dash interval on an open center path', () => {
+  it('should run: build true arc-length packets on an open center path when dashOffset is zero', () => {
     const packets = buildDashedCenterStrokeResolvedPackets(
       'open-line',
       [
@@ -27,12 +28,25 @@ describe('dashed center stroke packets', () => {
     expect(
       packets.map((packet) => ({
         minX: packet.geometry.bounds.minX,
-        maxX: packet.geometry.bounds.maxX
+        maxX: packet.geometry.bounds.maxX,
+        dashPlacementMode: packet.geometry.debugMeta?.dashPlacementMode
       }))
     ).toEqual([
-      { minX: 0, maxX: 20 },
-      { minX: 30, maxX: 50 },
-      { minX: 60, maxX: 80 }
+      {
+        minX: 0,
+        maxX: 20,
+        dashPlacementMode: 'arc-length-pattern'
+      },
+      {
+        minX: 30,
+        maxX: 50,
+        dashPlacementMode: 'arc-length-pattern'
+      },
+      {
+        minX: 60,
+        maxX: 80,
+        dashPlacementMode: 'arc-length-pattern'
+      }
     ])
   })
 
@@ -67,8 +81,59 @@ describe('dashed center stroke packets', () => {
       networkId: 'network-a',
       strokeId: 'stroke:0',
       strokeIndex: 0,
-      intervalId: 'interval:0'
+      intervalId: 'interval:0',
+      sourceSpanIds: ['vector:test:network-a:dashed-center:contour:0:source-span:0']
     })
+  })
+
+  it('should run: materialize dashed center intervals as final faces without bridge collapse', () => {
+    const packets = buildDashedCenterStrokeResolvedPackets(
+      'vector:test:network-a:dashed-center',
+      [
+        { x: 0, y: 0 },
+        { x: 90, y: 0 }
+      ],
+      false,
+      [
+        createDefaultStroke({
+          style: 'dashed',
+          position: 'center',
+          width: 4,
+          dashPattern: [20, 10],
+          dashOffset: 0
+        })
+      ],
+      {
+        metadata: {
+          ownerKeyPrefix: 'vector:test:network-a',
+          networkId: 'network-a'
+        }
+      }
+    )
+
+    const faces = buildStrokeFinalFacesFromResolvedPackets(packets)
+
+    expect(faces).toHaveLength(packets.length)
+    expect(faces[0]).toMatchObject({
+      faceId: packets[0]?.geometry.geometryId,
+      sourceGeometryIds: [packets[0]?.geometry.geometryId],
+      geometryFamily: 'dashed-center',
+      resolutionStatus: 'native-center',
+      runtimeStatus: 'not-applicable',
+      sourceTopology: 'open',
+      intervalIds: ['interval:0'],
+      sourceSpanIds: ['vector:test:network-a:dashed-center:contour:0:source-span:0']
+    })
+    expect(faces[0]?.ownerSet).toEqual([
+      {
+        ownerKey: 'vector:test:network-a:stroke:0',
+        sourcePathId: 'vector:test:network-a:dashed-center',
+        networkId: 'network-a',
+        strokeId: 'stroke:0',
+        strokeIndex: 0,
+        intervalId: 'interval:0'
+      }
+    ])
   })
 
   it('should not run: emit any packets for unsupported dashed slices', () => {
@@ -172,7 +237,7 @@ describe('dashed center stroke packets', () => {
           position: 'center',
           width: 4,
           dashPattern: [20, 20],
-          dashOffset: 10
+          dashOffset: 5
         }),
         createDefaultStroke({
           style: 'dashed',

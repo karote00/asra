@@ -19,7 +19,8 @@ file is updated first in the same change.
 8. `ApplyLegality`
 9. `BuildResolvedStrokeRegions`
 10. `AttachPaintPayload`
-11. `EmitRenderHitExportPackets`
+11. `BuildFinalFaces`
+12. `EmitRenderHitExportPackets`
 
 ## Stage Contracts
 
@@ -163,6 +164,26 @@ Current Phase 2 checkpoint:
   - interval revision
   - stroke geometry revision
 
+Current Step 6 checkpoint:
+
+- source span ownership is computed before candidate construction by
+  `buildSourceSpanGraph`
+- dashed center and constrained dashed packets carry `sourceSpanIds`
+- self-intersection-crossing intervals are span-split in metadata before face
+  ownership, while render packet splitting is deferred to arrangement
+
+Backend boundary:
+
+- this stage may produce candidate descriptors without a heavy backend
+- one dash interval must resolve to one visual candidate region. Implementations
+  may sample a curve into many construction strips, but those strips must be
+  merged into a face-level region before render, hit-test, export, or exact
+  arrangement projection. Internal strip edges must never be visible product
+  geometry.
+- once it needs boolean offset / cleanup / arrangement, it must resolve work
+  through `GeometryBackendRegistry`; product helpers must not import concrete
+  backend implementations directly
+
 Current Phase 3 checkpoint:
 
 - constrained solid inside/outside support no longer uses doubled-width center
@@ -186,6 +207,45 @@ Current implementation checkpoint:
   only for the visible interval
 - closed inside constrained dashed interval-local packets apply legal-domain
   clipping to the one-sided candidate, not to a widened center packet
+- closed inside constrained dashed interval-local packets also apply a bounded
+  sharp-corner selected-side guard before render packets are emitted. The guard
+  has two independent jobs:
+  - intervals that start exactly at a sharp authored vertex clip only the
+    interval start cap against the previous authored source segment; they must
+    not clip the dash body against the next segment because that body follows
+    the next segment;
+  - intervals that end exactly at a sharp authored vertex clip only the interval
+    end cap against the next authored source segment; they must not clip the
+    dash body against the previous segment because that body follows the
+    previous segment;
+  - intervals that genuinely span across a sharp authored vertex clip against
+    both adjacent authored source segments;
+  - any interval polygon that crosses an active authored sharp-boundary edge is
+    clipped by that authored edge even when the interval does not contain the
+    sharp vertex.
+  This prevents seam-adjacent dashes from being cut by the interval tangent/cap
+  line instead of the authored closing segment while avoiding over-clipping the
+  dash body on the segment it actually follows.
+- every non-full-loop constrained dash packet must build its source edge from
+  the authored interval polyline returned by `slicePathGeometryPoints`. Tangent
+  frames may be used only to derive local normals / caps from that polyline;
+  they must never replace the source edge, extend a dash body, or act as an
+  authored segment boundary. For vector product paths, guards use bounded local
+  polylines sliced from the authored source segments (line or cubic), not
+  endpoint tangents, anchor-to-anchor chords, or sampled tangent-frame
+  surrogates. Smooth anchors may only serve as adjacent segment endpoints.
+- source-path constrained dash packets must preserve that authored interval
+  source edge through legality handling. A closed-path legal-domain clip is not
+  allowed to rebuild the dash body from clip intersections if doing so removes
+  the authored interval polyline. Source-path packets use local selected-side
+  guards for boundary protection; non-source-path packets may still use the
+  broader closed-boundary legality clip.
+- when a source-path dash polygon crosses a non-owned authored boundary
+  segment, clipping must be computed as polygon-to-authored-polyline
+  intersection, not as an endpoint tangent or an unconditional half-plane pass.
+  Candidate choice is evaluated against the nearest sampled boundary segment so
+  Bezier boundaries are treated as the curve polyline they were sampled from,
+  not as one global line.
 - constrained dashed packets preserve contour, legal-domain, source-topology,
   topology-family, and interval-topology metadata for downstream ownership,
   blocked diagnostics, render, hit-test, and export consumers
@@ -199,10 +259,38 @@ Current supported paint checkpoint:
   `sourceTopology: "open"` even when the authored position is `inside` or
   `outside`
 - closed self-intersecting constrained dashed paths preserve authored
-  `inside/outside` visibility by emitting local-side approximation packets
-  until arrangement can split intersections, classify legal inside/outside
-  faces, and collapse duplicate semantic regions. These packets are product
-  geometry, but they are not exact arrangement geometry.
+  `inside/outside` visibility as local-side approximation packets. Exact
+  promotion remains gated until legal-domain clipping preserves valid internal
+  dash regions.
+- sampled-simple-closed constrained dashed interval-local packets remain
+  local-side approximation while the exact arrangement oracle is gated.
+- interval-local constrained dashed packets may expose multiple bounded
+  segment-cell polygons inside one packet when a single merged ribbon would
+  self-intersect or create fan-like overlap. This is product geometry, not debug
+  strip output: cells must keep one interval/source-span ownership family, stay
+  simple, and preserve paint parity without changing authored opacity.
+- segment-cell polygons for one dash interval must share the same sampled
+  offset boundary at adjacent source samples whenever that produces simple
+  polygons. They must not independently recompute a fresh normal per cell,
+  because that creates stacked stripe overlap on curved dashes. If a shared
+  boundary cell becomes non-simple at an extreme turn, only that cell may fall
+  back to a segment-local offset face while preserving the same interval,
+  paint, and owner metadata.
+- if one sampled high-curvature visible interval would form a self-intersecting
+  one-sided ribbon, the interval must be represented as bounded source-ordered
+  cell polygons until every emitted polygon is simple. This is a
+  validity-preserving subdivision, not a fallback to center geometry.
+- when authored `sourcePath` segment metadata is available, subdivision must
+  happen at authored segment boundaries before high-curvature robustness splits.
+  A dash interval that crosses from a line segment into a Bezier segment, or
+  from one Bezier segment into another, must emit segment-local one-sided faces
+  rather than one global sampled ribbon. This prevents the offset boundary of
+  one segment from pulling the adjacent segment into fan-like overlap geometry.
+- when a source-path segment-local face starts at an authored segment boundary,
+  it must be clipped against the previous authored segment tail; when it ends at
+  an authored segment boundary, it must be clipped against the next authored
+  segment head. Bezier boundaries are sampled polylines for this local clip.
+  This is boundary legality, not dash rescheduling.
 - open dashed paths are not constrained product paths; authored
   `inside/outside` resolves to center-equivalent dashed geometry before this
   stage
@@ -222,6 +310,8 @@ Current supported paint checkpoint:
   - later stages consume face regions, not raw unpartitioned overlap soup
   - one numeric robustness policy governs crossing, tangency, snap, and
     zero-area rejection
+  - exact flattening target is `0.25 px`; preview flattening ceiling is
+    `min(1.0 px, strokeWidth / 4)` and may not alter support state
 - allowed recovery:
   - bypass for simple non-overlapping topologies
 - forbidden callers:
@@ -236,6 +326,28 @@ Current supported join/cap checkpoint:
 
 - constrained solid overlap diagnostics publish a concrete
   `arrangementPolicy`
+
+Current Step 7 checkpoint:
+
+- `stroke-candidate-arrangement.ts` is the exact arrangement bridge from
+  resolved packets to `CandidateRegion[]`, backend partition faces, and exact
+  `FinalFace[]`.
+- the bridge filters arrangement faces by typed stroke position and backend
+  legal-state classification; it never falls back from `inside` / `outside` to
+  center.
+- exact backend promotion normalizes each input candidate with `union` before
+  partitioning, so a sampled curved dash cannot self-stack opacity or expose
+  internal seams.
+- exact backend promotion clips arrangement faces against typed source legal
+  domains with `intersection` / `difference` when those operations are
+  available. Probe-point legal classification is only a fallback for
+  non-clipping test backends, not an exact product path for self-intersecting or
+  high-curvature constrained dashed strokes.
+- same-visual candidate claims on one partitioned face merge metadata into one
+  final face; different visual packet keys stay separate for later stacking.
+- product runtime still requires an explicit backend-selection and promotion
+  gate before local-side approximation families can claim exact arrangement
+  support.
 - the current shipped slice uses `bounded-convex-subset-arrangement`
 - the policy declares `epsilon`, `roundingFactor`, `maxExactSubsetCount`,
   `zeroAreaThreshold`, tangential-touch behavior, and coincident-edge dedupe
@@ -359,16 +471,58 @@ Current supported join/cap checkpoint:
   - paint revision
   - bounds revision
 
-### 11. EmitRenderHitExportPackets
+### 11. BuildFinalFaces
 
 - input:
-  - paint-attached region packets
+  - paint-attached region packets or exact arrangement faces
+- output:
+  - `FinalFace[]`
+- invariants:
+  - `FinalFace[]` is the canonical source for render, hit-test, and export
+    projection
+  - duplicate regions collapse only when the family has exact face ownership
+    and geometry plus `visualPacketKey` match
+  - collapsed faces preserve typed `ownerSet`, `intervalIds`, `sourceSpanIds`,
+    and `sourceContourIds`
+  - same visual packet collapse must not stack opacity
+  - different paint, opacity, blend, mask, clip, effect, stack, visibility, or
+    stroke spec must remain separate
+- allowed recovery:
+  - keep visually distinct packets separate
+  - mark local-side approximation explicitly when exact arrangement is not yet
+    implemented for that family
+- forbidden callers:
+  - renderer-only collapse that discards hit/export ownership
+  - exporter restroking from authored input
+- complexity budget:
+  - bridge path without exact collapse: `O(regionCount)`
+  - exact duplicate collapse: `O(exactFaceCount * signatureCost)`
+  - exact arrangement path: bounded by arrangement face count and cache keys
+- dirty keys:
+  - resolved region revision
+  - ownership revision
+  - legality revision
+  - paint revision
+
+Current Step 8 checkpoint:
+
+- exact duplicate collapse is gated by `arrangementStatus: "exact"`,
+  `resolutionStatus: "exact-constrained"`, and `runtimeStatus: "accepted"`.
+- local-side approximation packets do not collapse even when a caller requests
+  duplicate collapse.
+- exact arrangement output calls `collapseExactDuplicateFinalFaces` after
+  backend face conversion.
+
+### 12. EmitRenderHitExportPackets
+
+- input:
+  - `FinalFace[]`
 - output:
   - render packets
   - hit packets
   - export packets
 - invariants:
-  - all outputs share the same region geometry family
+  - all outputs share the same final face geometry family
   - specialization is payload-level, not geometry-level
   - render/export batching may group semantic packets, but it may not erase
     packet-level semantic truth

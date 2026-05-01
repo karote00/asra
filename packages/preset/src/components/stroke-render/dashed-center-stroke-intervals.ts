@@ -16,6 +16,34 @@ const isValidPattern = (pattern: number[]) =>
   pattern.length > 0 &&
   pattern.every((entry) => Number.isFinite(entry) && entry > 0)
 
+type RawDashedCenterStrokeInterval = Omit<
+  DashedCenterStrokeIntervalRecord,
+  'intervalId' | 'previousVisibleIntervalId' | 'nextVisibleIntervalId'
+>
+
+const pushRawInterval = (
+  intervals: RawDashedCenterStrokeInterval[],
+  interval: RawDashedCenterStrokeInterval
+) => {
+  if (interval.endDistance <= interval.startDistance) {
+    return
+  }
+
+  const previous = intervals[intervals.length - 1]
+  if (
+    previous &&
+    previous.kind === interval.kind &&
+    Math.abs(previous.endDistance - interval.startDistance) <= 1e-6 &&
+    previous.wrapsSeam === interval.wrapsSeam
+  ) {
+    previous.endDistance = interval.endDistance
+    previous.intervalLength = previous.endDistance - previous.startDistance
+    return
+  }
+
+  intervals.push(interval)
+}
+
 export const allocateDashedCenterStrokeIntervals = (
   totalLength: number,
   pattern: number[],
@@ -44,10 +72,7 @@ export const allocateDashedCenterStrokeIntervals = (
     return nextOffset >= 0 ? nextOffset : nextOffset + cycleLength
   })()
 
-  const rawIntervals: Omit<
-    DashedCenterStrokeIntervalRecord,
-    'intervalId' | 'previousVisibleIntervalId' | 'nextVisibleIntervalId'
-  >[] = []
+  const rawIntervals: RawDashedCenterStrokeInterval[] = []
 
   let cursor = -normalizedOffset
   let authoredIndex = 0
