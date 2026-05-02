@@ -1068,14 +1068,238 @@ const splitVisibleIntervalBySourceSegments = (
   )
 }
 
+type SourceSegmentIntervalRange = {
+  startDistance: number
+  endDistance: number
+  segmentIndex: number
+}
+
+const areSourceRangesAdjacent = (
+  current: SourceSegmentIntervalRange,
+  next: SourceSegmentIntervalRange,
+  totalLength: number
+) => {
+  if (Math.abs(current.endDistance - next.startDistance) <= EPSILON) {
+    return true
+  }
+
+  return (
+    Math.abs(current.endDistance - totalLength) <= EPSILON &&
+    next.startDistance <= EPSILON
+  )
+}
+
+const addPoint = (left: Vec2, right: Vec2): Vec2 => ({
+  x: left.x + right.x,
+  y: left.y + right.y
+})
+
+const subtractPoint = (left: Vec2, right: Vec2): Vec2 => ({
+  x: left.x - right.x,
+  y: left.y - right.y
+})
+
+const crossPoints = (left: Vec2, right: Vec2) =>
+  left.x * right.y - left.y * right.x
+
+const getPathOrientation = (
+  path: Pick<PathGeometry, 'segments' | 'closed'>
+) => {
+  const points = path.segments.map((segment) => segment.start)
+  return points.length >= 3 && polygonArea(points) < 0 ? -1 : 1
+}
+
+const getOutsideOffsetDistance = (
+  path: Pick<PathGeometry, 'segments' | 'closed'>,
+  strokeWidth: number
+) => {
+  const orientation = getPathOrientation(path)
+  return orientation > 0 ? -strokeWidth : strokeWidth
+}
+
+const getOffsetPointOnLine = (
+  point: Vec2,
+  lineStart: Vec2,
+  lineEnd: Vec2,
+  offset: number
+) => {
+  const direction = normalizeVector({
+    x: lineEnd.x - lineStart.x,
+    y: lineEnd.y - lineStart.y
+  })
+  if (!direction) {
+    return null
+  }
+
+  return addPoint(point, {
+    x: -direction.y * offset,
+    y: direction.x * offset
+  })
+}
+
+const buildJoinArcPoints = (
+  center: Vec2,
+  start: Vec2,
+  end: Vec2,
+  sweepSign: number
+) => {
+  const startAngle = Math.atan2(start.y - center.y, start.x - center.x)
+  const endAngle = Math.atan2(end.y - center.y, end.x - center.x)
+  let sweep = endAngle - startAngle
+
+  if (sweepSign >= 0) {
+    while (sweep < 0) {
+      sweep += Math.PI * 2
+    }
+  } else {
+    while (sweep > 0) {
+      sweep -= Math.PI * 2
+    }
+  }
+
+  const segmentCount = Math.max(2, Math.ceil(Math.abs(sweep) / (Math.PI / 12)))
+  const radius = distanceBetween(center, start)
+  const points: Vec2[] = []
+
+  for (let index = 0; index <= segmentCount; index += 1) {
+    const angle = startAngle + (sweep * index) / segmentCount
+    points.push(
+      normalizePoint({
+        x: center.x + Math.cos(angle) * radius,
+        y: center.y + Math.sin(angle) * radius
+      })
+    )
+  }
+
+  return points
+}
+
+const buildOutsideSourceVertexJoinPolygon = (
+  path: Pick<PathGeometry, 'segments' | 'closed'>,
+  previousSegmentIndex: number,
+  nextSegmentIndex: number,
+  stroke: Pick<RenderableStroke, 'width' | 'join' | 'miterLimit'>
+) => {
+  const previousBoundary = buildSourceSegmentBoundary(
+    path.segments[previousSegmentIndex]
+  )
+  const nextBoundary = buildSourceSegmentBoundary(path.segments[nextSegmentIndex])
+  if (previousBoundary.length < 2 || nextBoundary.length < 2) {
+    return []
+  }
+
+  const vertex = previousBoundary[previousBoundary.length - 1]
+  const nextVertex = nextBoundary[0]
+  if (distanceBetween(vertex, nextVertex) > 0.5) {
+    return []
+  }
+
+  const previousStart = previousBoundary[previousBoundary.length - 2]
+  const nextEnd = nextBoundary[1]
+  const offset = getOutsideOffsetDistance(path, stroke.width)
+  const previousOffsetStart = getOffsetPointOnLine(
+    previousStart,
+    previousStart,
+    vertex,
+    offset
+  )
+  const previousOffsetEnd = getOffsetPointOnLine(
+    vertex,
+    previousStart,
+    vertex,
+    offset
+  )
+  const nextOffsetStart = getOffsetPointOnLine(vertex, vertex, nextEnd, offset)
+  const nextOffsetEnd = getOffsetPointOnLine(nextEnd, vertex, nextEnd, offset)
+  if (
+    !previousOffsetStart ||
+    !previousOffsetEnd ||
+    !nextOffsetStart ||
+    !nextOffsetEnd
+  ) {
+    return []
+  }
+
+  let polygon =
+    stroke.join === 'round'
+      ? [
+          vertex,
+          ...buildJoinArcPoints(
+            vertex,
+            previousOffsetEnd,
+            nextOffsetStart,
+            crossPoints(
+              subtractPoint(vertex, previousStart),
+              subtractPoint(nextEnd, vertex)
+            ) *
+              offset >=
+              0
+              ? -1
+              : 1
+          )
+        ]
+      : [vertex, previousOffsetEnd, nextOffsetStart]
+
+  if (stroke.join === 'miter') {
+    const joinPoint = lineIntersection(
+      previousOffsetStart,
+      previousOffsetEnd,
+      nextOffsetStart,
+      nextOffsetEnd
+    )
+    if (
+      distanceBetween(vertex, joinPoint) <=
+      stroke.miterLimit * Math.abs(offset) + EPSILON
+    ) {
+      polygon = [vertex, previousOffsetEnd, joinPoint, nextOffsetStart]
+    }
+  }
+
+  const cleaned = cleanPolygon(polygon)
+  return cleaned.length >= 3 &&
+    Math.abs(polygonArea(cleaned)) > EPSILON &&
+    isSimpleClosedPolygon(cleaned)
+    ? [cleaned]
+    : []
+}
+
+const buildOutsideSourceSegmentJoinPolygons = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  ranges: SourceSegmentIntervalRange[],
+  authoredStroke: Pick<RenderableStroke, 'position' | 'cap'>,
+  intervalStroke: Pick<
+    RenderableStroke,
+    'style' | 'position' | 'width' | 'join' | 'miterLimit' | 'cap'
+  >
+) => {
+  if (
+    authoredStroke.position !== 'outside' ||
+    path.closed !== true ||
+    path.segments.length < 2 ||
+    ranges.length < 2
+  ) {
+    return []
+  }
+
+  return ranges.flatMap((range, index) => {
+    const next = ranges[index + 1]
+    if (!next || !areSourceRangesAdjacent(range, next, path.totalLength)) {
+      return []
+    }
+
+    return buildOutsideSourceVertexJoinPolygon(
+      path,
+      range.segmentIndex,
+      next.segmentIndex,
+      intervalStroke
+    )
+  })
+}
+
 const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
   polygons: Vec2[][],
   path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
-  range: {
-    startDistance: number
-    endDistance: number
-    segmentIndex: number
-  },
+  range: SourceSegmentIntervalRange,
   authoredStroke: Pick<RenderableStroke, 'position' | 'dashPattern' | 'cap'>,
   intervalStroke: Pick<RenderableStroke, 'position' | 'width'>,
   sharpGuardVertices: SharpGuardVertex[] = []
@@ -2473,8 +2697,12 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
 
       const sourcePath = options.sourcePath
       const intervalPolygons = sourcePath
-        ? splitVisibleIntervalBySourceSegments(sourcePath, interval).flatMap(
-            (range) => {
+        ? (() => {
+            const sourceRanges = splitVisibleIntervalBySourceSegments(
+              sourcePath,
+              interval
+            )
+            const rangePolygons = sourceRanges.flatMap((range) => {
               const rawIntervalPoints = slicePathGeometryPoints(
                 sourcePath,
                 range.startDistance,
@@ -2504,8 +2732,17 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 intervalStroke,
                 sharpGuardVertices
               )
-            }
-          )
+            })
+            return [
+              ...rangePolygons,
+              ...buildOutsideSourceSegmentJoinPolygons(
+                sourcePath,
+                sourceRanges,
+                stroke,
+                intervalStroke
+              )
+            ]
+          })()
         : buildConstrainedSolidStrokePolygons(
             intervalPointSlicer.slice(
               interval.startDistance,

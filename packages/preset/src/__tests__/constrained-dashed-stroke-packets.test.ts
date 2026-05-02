@@ -3453,6 +3453,79 @@ describe('constrained dashed stroke packets', () => {
     })
   })
 
+  it('should run: keep outside source-path dashed intervals visually joined across a segment boundary', () => {
+    const points = [
+      { x: 0, y: 0 },
+      { x: 80, y: 0 },
+      { x: 80, y: 40 },
+      { x: 0, y: 40 }
+    ]
+    const sourcePath = {
+      segments: [
+        {
+          type: 'line' as const,
+          start: points[0],
+          end: points[1],
+          length: 80
+        },
+        {
+          type: 'line' as const,
+          start: points[1],
+          end: points[2],
+          length: 40
+        },
+        {
+          type: 'line' as const,
+          start: points[2],
+          end: points[3],
+          length: 80
+        },
+        {
+          type: 'line' as const,
+          start: points[3],
+          end: points[0],
+          length: 40
+        }
+      ],
+      closed: true,
+      totalLength: 240
+    }
+    const topology = buildPathTopologyModel({
+      pathId: 'rect:test:outside-source-path',
+      networkId: 'tn-rect',
+      points,
+      closed: true
+    })
+    const packets = buildConstrainedDashedStrokeResolvedPackets(
+      'rect:test:outside-source-path',
+      points,
+      true,
+      [
+        createDefaultStroke({
+          width: 6,
+          style: 'dashed',
+          position: 'outside',
+          joinType: 'miter',
+          capType: 'butt',
+          dashPattern: [40, 200],
+          dashOffset: 180
+        })
+      ],
+      {
+        topology,
+        sourcePath,
+        selectedSideGuardPoints: points
+      }
+    )
+
+    expect(packets).toHaveLength(1)
+    expect(
+      packets[0]?.geometry.polygons.some((polygon) =>
+        isPointInsideEvenOdd({ x: 83, y: -3 }, polygon)
+      )
+    ).toBe(true)
+  })
+
   it('should run: derive one outside round corner-spanning constrained dashed packet on the uniform-width corner-spanning topology family product path', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'rect:test:constrained-dashed',
