@@ -1309,6 +1309,257 @@ describe('constrained dashed stroke packets', () => {
       )
     )
     expect(outsideStrokeBandEdgeSamples).toEqual([])
+    const squareCapPackets = buildConstrainedDashedStrokeResolvedPackets(
+      'vector-6:reported-inside-dashed-square-source-path',
+      topology.normalizedPoints,
+      true,
+      [
+        createDefaultStroke({
+          width: 10,
+          style: 'dashed',
+          position: 'inside',
+          joinType: 'miter',
+          capType: 'square',
+          dashPattern: [27, 20],
+          dashOffset: 0
+        })
+      ],
+      {
+        topology,
+        sourcePath,
+        selectedSideGuardPoints: guardPoints
+      }
+    )
+    const firstSquareInterval = squareCapPackets.find(
+      (packet) => packet.geometry.debugMeta?.intervalId === 'interval:0'
+    )
+    expect(firstSquareInterval).toBeDefined()
+    firstSquareInterval?.geometry.polygons.forEach((polygon) => {
+      expect(
+        findSelectedSidePolylineViolations(
+          polygon,
+          closingSegmentTail,
+          selectedSide
+        )
+      ).toEqual([])
+      expect(
+        findSelectedSideNearestPolylineViolations(
+          polygon,
+          firstSegmentHead,
+          selectedSide
+        )
+      ).toEqual([])
+    })
+    const endSquareInterval = squareCapPackets
+      .filter((packet) => packet.geometry.debugMeta?.startDistance !== undefined)
+      .sort(
+        (left, right) =>
+          (right.geometry.debugMeta?.startDistance ?? 0) -
+          (left.geometry.debugMeta?.startDistance ?? 0)
+      )[0]
+    expect(endSquareInterval).toBeDefined()
+    endSquareInterval?.geometry.polygons.forEach((polygon) => {
+      expect(
+        findSelectedSidePolylineViolations(
+          polygon,
+          closingSegmentTail,
+          selectedSide
+        )
+      ).toEqual([])
+      expect(
+        findSelectedSideNearestPolylineViolations(
+          polygon,
+          firstSegmentHead,
+          selectedSide
+        )
+      ).toEqual([])
+    })
+    const pathSegmentRangesForSquare = getPathSegmentDistanceRanges(
+      sourcePath.segments
+    )
+    const leftSharpVertexDistance =
+      pathSegmentRangesForSquare[3]?.startDistance ?? 0
+    const leftSharpPreviousTail = slicePathGeometryPoints(
+      sourcePath,
+      leftSharpVertexDistance - 35,
+      leftSharpVertexDistance,
+      false
+    )
+    const leftSharpNextHead = slicePathGeometryPoints(
+      sourcePath,
+      leftSharpVertexDistance,
+      leftSharpVertexDistance + 35,
+      false
+    )
+    const leftSharpPoint = {
+      x: points['tp-15'].x,
+      y: points['tp-15'].y
+    }
+    const leftSharpSquarePackets = squareCapPackets.filter((packet) =>
+      packet.geometry.polygons.some((polygon) =>
+        polygon.some((point) => pointDistance(point, leftSharpPoint) <= 55)
+      )
+    )
+    expect(leftSharpSquarePackets.length).toBeGreaterThan(0)
+    leftSharpSquarePackets.forEach((packet) => {
+      packet.geometry.polygons.forEach((polygon) => {
+        expect(
+          findSelectedSidePolylineViolations(
+            polygon,
+            leftSharpPreviousTail,
+            selectedSide
+          )
+        ).toEqual([])
+        expect(
+          findSelectedSideNearestPolylineViolations(
+            polygon,
+            leftSharpNextHead,
+            selectedSide,
+            0.5
+          )
+        ).toEqual([])
+      })
+    })
+    const squareOutsideLegalDomainEdgeSamples = squareCapPackets.flatMap(
+      (packet) =>
+        packet.geometry.polygons.flatMap((polygon) =>
+          samplePolygonEdges(polygon).flatMap((point) =>
+            (pointDistance(point, leftSharpPoint) <= 70 ||
+              pointDistance(point, {
+                x: points['tp-14'].x,
+                y: points['tp-14'].y
+              }) <= 70) &&
+            !isPointInsideEvenOdd(point, legalBoundary) &&
+            pointClosedPolylineDistance(point, legalBoundary) > 0.25
+              ? [
+                  {
+                    intervalId: packet.geometry.debugMeta?.intervalId,
+                    startDistance: Math.round(
+                      (packet.geometry.debugMeta?.startDistance ?? 0) * 100
+                    ) / 100,
+                    endDistance: Math.round(
+                      (packet.geometry.debugMeta?.endDistance ?? 0) * 100
+                    ) / 100,
+                    point: {
+                      x: Math.round(point.x * 100) / 100,
+                      y: Math.round(point.y * 100) / 100
+                    }
+                  }
+                ]
+              : []
+          )
+        )
+    )
+    expect(squareOutsideLegalDomainEdgeSamples).toEqual([])
+    const longSquareCapPackets = buildConstrainedDashedStrokeResolvedPackets(
+      'vector-6:reported-inside-dashed-long-square-source-path',
+      topology.normalizedPoints,
+      true,
+      [
+        createDefaultStroke({
+          width: 10,
+          style: 'dashed',
+          position: 'inside',
+          joinType: 'miter',
+          capType: 'square',
+          dashPattern: [400, 20],
+          dashOffset: 0
+        })
+      ],
+      {
+        topology,
+        sourcePath,
+        selectedSideGuardPoints: guardPoints
+      }
+    )
+    const longSquareLeftSharpPackets = longSquareCapPackets.filter((packet) =>
+      packet.geometry.polygons.some((polygon) =>
+        polygon.some((point) => pointDistance(point, leftSharpPoint) <= 55)
+      )
+    )
+    expect(longSquareLeftSharpPackets.length).toBeGreaterThan(0)
+    longSquareLeftSharpPackets.forEach((packet) => {
+      packet.geometry.polygons.forEach((polygon) => {
+        expect(
+          findSelectedSidePolylineViolations(
+            polygon,
+            leftSharpPreviousTail,
+            selectedSide
+          )
+        ).toEqual([])
+        expect(
+          findSelectedSideNearestPolylineViolations(
+            polygon,
+            leftSharpNextHead,
+            selectedSide,
+            0.5
+          )
+        ).toEqual([])
+      })
+    })
+    const longSquareLeftSharpEdgeViolations = longSquareCapPackets.flatMap(
+      (packet) =>
+        packet.geometry.polygons.flatMap((polygon) =>
+          samplePolygonEdges(polygon).flatMap((point) =>
+            pointDistance(point, leftSharpPoint) <= 80 &&
+            (findSelectedSidePolylineViolations(
+              [point],
+              leftSharpPreviousTail,
+              selectedSide
+            ).length > 0 ||
+              findSelectedSideNearestPolylineViolations(
+                [point],
+                leftSharpNextHead,
+                selectedSide,
+                0.5
+              ).length > 0)
+              ? [
+                  {
+                    intervalId: packet.geometry.debugMeta?.intervalId,
+                    point: {
+                      x: Math.round(point.x * 100) / 100,
+                      y: Math.round(point.y * 100) / 100
+                    }
+                  }
+                ]
+              : []
+          )
+        )
+    )
+    expect(longSquareLeftSharpEdgeViolations).toEqual([])
+    const longSquareOutsideLegalDomainEdgeSamples =
+      longSquareCapPackets.flatMap((packet) =>
+        packet.geometry.polygons.flatMap((polygon) =>
+          samplePolygonEdges(polygon).flatMap((point) =>
+            (pointDistance(point, leftSharpPoint) <= 80 ||
+              pointDistance(point, {
+                x: points['tp-14'].x,
+                y: points['tp-14'].y
+              }) <= 80) &&
+            !isPointInsideEvenOdd(point, legalBoundary) &&
+            pointClosedPolylineDistance(point, legalBoundary) > 0.25
+              ? [
+                  {
+                    intervalId: packet.geometry.debugMeta?.intervalId,
+                    startDistance:
+                      Math.round(
+                        (packet.geometry.debugMeta?.startDistance ?? 0) * 100
+                      ) / 100,
+                    endDistance:
+                      Math.round(
+                        (packet.geometry.debugMeta?.endDistance ?? 0) * 100
+                      ) / 100,
+                    point: {
+                      x: Math.round(point.x * 100) / 100,
+                      y: Math.round(point.y * 100) / 100
+                    }
+                  }
+                ]
+              : []
+          )
+        )
+      )
+    expect(longSquareOutsideLegalDomainEdgeSamples).toEqual([])
     const invalidSimplePackets = packets.filter((packet) => {
       return packet.geometry.polygons.some(
         (polygon) => !isSimpleClosedPolygon(polygon)

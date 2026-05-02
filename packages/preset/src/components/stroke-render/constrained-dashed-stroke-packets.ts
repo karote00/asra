@@ -139,6 +139,31 @@ export interface ConstrainedDashedRuntimeStatusClassification {
 
 const EPSILON = 1e-6
 
+const getIntervalAllocationDashPattern = (
+  stroke: Pick<RenderableStroke, 'cap' | 'dashPattern' | 'width'>
+) => {
+  if (stroke.cap !== 'square' || stroke.width <= EPSILON) {
+    return stroke.dashPattern
+  }
+
+  const squareCapGrowth = stroke.width
+  return stroke.dashPattern.map((entry, index) =>
+    index % 2 === 0
+      ? Math.max(EPSILON, entry + squareCapGrowth)
+      : Math.max(EPSILON, entry - squareCapGrowth)
+  )
+}
+
+const getIntervalAllocationDashOffset = (
+  stroke: Pick<RenderableStroke, 'cap' | 'dashOffset' | 'width'>
+) => {
+  if (stroke.cap !== 'square' || stroke.width <= EPSILON) {
+    return stroke.dashOffset
+  }
+
+  return stroke.dashOffset + stroke.width / 2
+}
+
 const buildVisibleIntervalSignature = (
   intervals: ReturnType<typeof allocateDashedCenterStrokeIntervals>
 ) =>
@@ -1051,7 +1076,7 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
     endDistance: number
     segmentIndex: number
   },
-  authoredStroke: Pick<RenderableStroke, 'position' | 'dashPattern'>,
+  authoredStroke: Pick<RenderableStroke, 'position' | 'dashPattern' | 'cap'>,
   intervalStroke: Pick<RenderableStroke, 'position' | 'width'>,
   sharpGuardVertices: SharpGuardVertex[] = []
 ) => {
@@ -1071,14 +1096,30 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
   }
 
   const selectedSide = intervalStroke.position === 'inside' ? 1 : -1
+  const segmentStartIsSharp = sharpGuardVertices.some((guard) =>
+    areLoopDistancesEqual(
+      segmentRange.startDistance,
+      guard.distance,
+      path.totalLength
+    )
+  )
+  const segmentEndIsSharp = sharpGuardVertices.some((guard) =>
+    areLoopDistancesEqual(
+      segmentRange.endDistance,
+      guard.distance,
+      path.totalLength
+    )
+  )
   const boundaryReach = Math.max(
     intervalStroke.width * 2,
     authoredStroke.dashPattern[0] ?? intervalStroke.width
   )
-  const endpointClipReach = Math.max(intervalStroke.width * 0.55, EPSILON)
+  const endpointClipReach = Math.max(
+    intervalStroke.width * (authoredStroke.cap === 'square' ? 1.5 : 0.55),
+    EPSILON
+  )
   const touchesSegmentStart =
-    range.startDistance <=
-    segmentRange.startDistance + endpointClipReach + EPSILON
+    range.startDistance <= segmentRange.startDistance + endpointClipReach + EPSILON
   const touchesSegmentEnd =
     range.endDistance >= segmentRange.endDistance - endpointClipReach - EPSILON
   const previousSegment =
@@ -1098,40 +1139,58 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
   const currentBoundary = buildSourceSegmentBoundary(
     path.segments[range.segmentIndex]
   )
-  const segmentStartIsSharp = sharpGuardVertices.some((guard) =>
-    areLoopDistancesEqual(
-      segmentRange.startDistance,
-      guard.distance,
-      path.totalLength
-    )
+  const currentHeadReference = getBoundaryHeadReferencePoint(
+    currentBoundary,
+    boundaryReach
   )
-  const segmentEndIsSharp = sharpGuardVertices.some((guard) =>
-    areLoopDistancesEqual(
-      segmentRange.endDistance,
-      guard.distance,
-      path.totalLength
-    )
+  const currentTailReference = getBoundaryTailReferencePoint(
+    currentBoundary,
+    boundaryReach
+  )
+  const previousBoundarySelectedSide = getSelectedSideTowardPoint(
+    previousBoundary,
+    currentHeadReference,
+    selectedSide
+  )
+  const nextBoundarySelectedSide = getSelectedSideTowardPoint(
+    nextBoundary,
+    currentTailReference,
+    selectedSide
   )
   const clippedPolygons = polygons.flatMap((polygon) => {
     let currentPolygon = polygon
 
     if (touchesSegmentStart) {
-      currentPolygon = clipPolygonToSelectedSideBoundaryIfCrossing(
-        currentPolygon,
-        previousBoundary,
-        selectedSide
-      )
+      currentPolygon =
+        segmentStartIsSharp
+          ? clipPolygonToSelectedSideBoundary(
+              currentPolygon,
+              previousBoundary,
+              previousBoundarySelectedSide
+            )
+          : clipPolygonToSelectedSideBoundaryIfCrossing(
+              currentPolygon,
+              previousBoundary,
+              selectedSide
+            )
       if (currentPolygon.length < 3) {
         return []
       }
     }
 
     if (touchesSegmentEnd) {
-      currentPolygon = clipPolygonToSelectedSideBoundaryIfCrossing(
-        currentPolygon,
-        nextBoundary,
-        selectedSide
-      )
+      currentPolygon =
+        segmentEndIsSharp
+          ? clipPolygonToSelectedSideBoundary(
+              currentPolygon,
+              nextBoundary,
+              nextBoundarySelectedSide
+            )
+          : clipPolygonToSelectedSideBoundaryIfCrossing(
+              currentPolygon,
+              nextBoundary,
+              selectedSide
+            )
       if (currentPolygon.length < 3) {
         return []
       }
@@ -1329,15 +1388,20 @@ const buildSharpGuardVertices = (
     sourcePath.segments.length === normalizedGuardPoints.length
   const canUseDirectGuardRange =
     normalizedGuardPoints.length === segmentRanges.length
+  const sourcePathSegmentRanges = canUseSourcePathSegments
+    ? getSourcePathSegmentRanges(sourcePath)
+    : []
 
   const vertices: SharpGuardVertex[] = []
 
   for (let index = 0; index < normalizedGuardPoints.length; index += 1) {
     if (isSharpGuardVertex(normalizedGuardPoints, index)) {
       const point = normalizedGuardPoints[index]
-      const segment = canUseDirectGuardRange
-        ? segmentRanges[index]
-        : findNearestSegmentRange(point, topologyPoints, segmentRanges)
+      const segment = canUseSourcePathSegments
+        ? sourcePathSegmentRanges[index]
+        : canUseDirectGuardRange
+          ? segmentRanges[index]
+          : findNearestSegmentRange(point, topologyPoints, segmentRanges)
       if (!segment) {
         continue
       }
@@ -1839,6 +1903,46 @@ const getBoundaryTail = (boundary: Vec2[], reach: number) => {
   return result.reverse()
 }
 
+const getBoundaryHeadReferencePoint = (boundary: Vec2[], reach: number) => {
+  const head = getBoundaryHead(boundary, reach)
+  return head[head.length - 1] ?? boundary[0]
+}
+
+const getBoundaryTailReferencePoint = (boundary: Vec2[], reach: number) => {
+  const tail = getBoundaryTail(boundary, reach)
+  return tail[0] ?? boundary[boundary.length - 1]
+}
+
+const getSelectedSideTowardPoint = (
+  boundary: Vec2[],
+  point: Vec2 | undefined,
+  fallback: 1 | -1
+): 1 | -1 => {
+  if (!point || boundary.length < 2) {
+    return fallback
+  }
+
+  let nearestCross = 0
+  let nearestDistance = Number.POSITIVE_INFINITY
+  for (let index = 0; index < boundary.length - 1; index += 1) {
+    const start = boundary[index]
+    const end = boundary[index + 1]
+    const cross =
+      (end.x - start.x) * (point.y - start.y) -
+      (end.y - start.y) * (point.x - start.x)
+    const distanceToSegment = pointSegmentDistance(point, start, end)
+    if (distanceToSegment < nearestDistance) {
+      nearestDistance = distanceToSegment
+      nearestCross = cross
+    }
+  }
+
+  if (Math.abs(nearestCross) <= EPSILON) {
+    return fallback
+  }
+  return nearestCross > 0 ? 1 : -1
+}
+
 const clipPolygonToSelectedSideIfCrossing = (
   polygon: Vec2[],
   segmentStart: Vec2,
@@ -1997,6 +2101,19 @@ const clipPolygonToSelectedSideBoundaryOrDropRejected = (
     getSelectedSideViolationScore(clipped, boundary, selectedSide) <= EPSILON
   ) {
     return clipped
+  }
+
+  const strictClipped = clipPolygonToSelectedSideBoundary(
+    clipped,
+    boundary,
+    selectedSide
+  )
+  if (
+    strictClipped.length >= 3 &&
+    getSelectedSideViolationScore(strictClipped, boundary, selectedSide) <=
+      EPSILON
+  ) {
+    return strictClipped
   }
 
   return isFullyOnRejectedSideOfBoundary(clipped, boundary, selectedSide)
@@ -2175,10 +2292,13 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
       return []
     }
 
+    const intervalAllocationDashPattern =
+      getIntervalAllocationDashPattern(stroke)
+    const intervalAllocationDashOffset = getIntervalAllocationDashOffset(stroke)
     const visibleIntervals = allocateDashedIntervalsForTopology(
       topology,
-      stroke.dashPattern,
-      stroke.dashOffset
+      intervalAllocationDashPattern,
+      intervalAllocationDashOffset
     ).filter((interval) => interval.kind === 'visible')
     const sourceSpanGraph = buildSourceSpanGraph(topology, visibleIntervals)
     const intervalSignature = buildVisibleIntervalSignature(visibleIntervals)
@@ -2355,18 +2475,23 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
       const intervalPolygons = sourcePath
         ? splitVisibleIntervalBySourceSegments(sourcePath, interval).flatMap(
             (range) => {
-              const intervalPoints = slicePathGeometryPoints(
+              const rawIntervalPoints = slicePathGeometryPoints(
                 sourcePath,
                 range.startDistance,
                 range.endDistance,
                 false
               )
               const rangePolygons = buildConstrainedSolidStrokePolygons(
-                intervalPoints,
+                rawIntervalPoints,
                 false,
-                intervalStroke,
+                stroke.cap === 'square'
+                  ? {
+                      ...intervalStroke,
+                      cap: 'butt'
+                    }
+                  : intervalStroke,
                 {
-                  assumeSimpleOpen: stroke.cap !== 'square' ? true : undefined,
+                  assumeSimpleOpen: true,
                   assumeSimpleClosed: undefined,
                   assumeNormalizedOpen: true
                 }
@@ -2388,13 +2513,17 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
               interval.wrapsSeam
             ),
             false,
-            intervalStroke,
+            stroke.cap === 'square'
+              ? {
+                  ...intervalStroke,
+                  cap: 'butt'
+                }
+              : intervalStroke,
             {
               assumeSimpleOpen:
-                stroke.cap !== 'square' &&
-                (!topology.closed ||
+                !topology.closed ||
                   topology.isSimpleClosed ||
-                  topology.topologyFamily === 'self-intersecting')
+                  topology.topologyFamily === 'self-intersecting'
                   ? true
                   : undefined,
               assumeSimpleClosed: topology.closed
@@ -2415,7 +2544,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
             stroke,
             intervalStroke
           )
-      const polygons = topology.isSimpleClosed && !options.sourcePath
+      const polygons = topology.isSimpleClosed
         ? applyClosedIntervalLegality(
             selectedSidePolygons,
             topologyPoints,

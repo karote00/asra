@@ -378,7 +378,11 @@ const buildOpenConstrainedStrokePolygonsFromSource = (
   options: { assumeNormalizedOpen?: boolean },
   splitDepth: number
 ): Vec2[][] => {
-  if (options.assumeNormalizedOpen === true && source.length > 3) {
+  if (
+    options.assumeNormalizedOpen === true &&
+    source.length > 3 &&
+    stroke.cap !== 'round'
+  ) {
     const stripPolygons = buildOpenConstrainedStrokeStripPolygonsFromSource(
       source,
       stroke

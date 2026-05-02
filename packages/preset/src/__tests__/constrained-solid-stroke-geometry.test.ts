@@ -231,6 +231,35 @@ describe('constrained solid stroke geometry', () => {
     expect(bounds.maxY).toBeLessThanOrEqual(4)
   })
 
+  it('should run: preserve one-sided round caps on normalized multi-point open strips', () => {
+    const polygons = buildConstrainedSolidStrokePolygons(
+      [
+        { x: 0, y: 0 },
+        { x: 5, y: 0 },
+        { x: 10, y: 0 },
+        { x: 15, y: 0 },
+        { x: 20, y: 0 }
+      ],
+      false,
+      createStroke({
+        position: 'inside',
+        width: 4,
+        cap: 'round'
+      }),
+      {
+        assumeSimpleOpen: true,
+        assumeNormalizedOpen: true
+      }
+    )
+
+    const bounds = getBounds(polygons)
+    expect(polygons).toHaveLength(1)
+    expect(bounds.minX).toBeLessThan(-1.9)
+    expect(bounds.maxX).toBeGreaterThan(21.9)
+    expect(bounds.minY).toBeGreaterThanOrEqual(0)
+    expect(bounds.maxY).toBeLessThanOrEqual(4)
+  })
+
   it('should run: use one-sided offset distance for open constrained miter limit checks', () => {
     const polygons = buildConstrainedSolidStrokePolygons(
       [

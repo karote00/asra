@@ -159,7 +159,7 @@ const getDebugOverlayCoverage = async (page: Page, raster: RasterCapture) =>
     let total = 0
     for (let y = 0; y < height; y += 1) {
       for (let x = 0; x < width; x += 1) {
-        const [r, g, _b, a] = context.getImageData(x, y, 1, 1).data
+        const [r, g, b, a] = context.getImageData(x, y, 1, 1).data
         total += 1
         const magentaLike = a > 20 && r > 150 && b > 150 && g < 120
         if (magentaLike) {
