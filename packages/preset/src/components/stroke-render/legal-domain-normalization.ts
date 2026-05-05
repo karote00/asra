@@ -1,7 +1,4 @@
-import {
-  type GeometryBackend,
-  type PolygonRegion
-} from './geometry-backend'
+import { type GeometryBackend, type PolygonRegion } from './geometry-backend'
 import {
   type CompoundLegalDomainClassification,
   type PathTopologyFillRule,

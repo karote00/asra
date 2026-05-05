@@ -276,6 +276,7 @@ describeProfile('stroke API performance profile', () => {
       buildCenterDashedOverlapCandidatesFromResolvedPackets(centerDashedPackets)
     const overlapGraph = buildCenterDashedOverlapGraph(overlapCandidates)
     const overlapComponents = extractCenterDashedOverlapComponents(overlapGraph)
+    expect(overlapComponents.length).toBeGreaterThan(0)
     const legalityDomain = buildConstrainedSolidLegalityDomain(
       starTopology.normalizedPoints,
       starTopology.closed,
@@ -315,12 +316,15 @@ describeProfile('stroke API performance profile', () => {
     const graphicsHost: Record<string, unknown> = {}
 
     const results = [
-      measure('getRenderableStrokes(3 strokes)', 3000, () =>
-        getRenderableStrokes([
-          insideDashedStroke,
-          insideSolidStroke,
-          centerDashedStroke
-        ]).length
+      measure(
+        'getRenderableStrokes(3 strokes)',
+        3000,
+        () =>
+          getRenderableStrokes([
+            insideDashedStroke,
+            insideSolidStroke,
+            centerDashedStroke
+          ]).length
       ),
       measure('getStrokeHitWidth(3 strokes)', 3000, () =>
         getStrokeHitWidth([
@@ -337,11 +341,7 @@ describeProfile('stroke API performance profile', () => {
         const left = perpendicularLeft(a, b)
         const mixed = add(scale(delta, 0.5), normalized ?? { x: 0, y: 0 })
         return (
-          distance(a, b) +
-          mixed.x +
-          mixed.y +
-          (left?.x ?? 0) +
-          (left?.y ?? 0)
+          distance(a, b) + mixed.x + mixed.y + (left?.x ?? 0) + (left?.y ?? 0)
         )
       }),
       measure('dedupe/normalize/polygonArea(simple star)', 2500, () =>
@@ -357,55 +357,75 @@ describeProfile('stroke API performance profile', () => {
         const segment = createOffsetSegment(openSine[0], openSine[1], 3)
         return segment ? segment.start.x + segment.end.y : 0
       }),
-      measure('buildOffsetSegments(open 72 points)', 1000, () =>
-        buildOffsetSegments(openSine, false, 3).length
+      measure(
+        'buildOffsetSegments(open 72 points)',
+        1000,
+        () => buildOffsetSegments(openSine, false, 3).length
       ),
-      measure('offsetPath(star)', 1000, () =>
-        offsetPath(simpleStar, true, 3, {
-          join: 'round',
-          miterLimit: 4,
-          width: 6
-        }).length
+      measure(
+        'offsetPath(star)',
+        1000,
+        () =>
+          offsetPath(simpleStar, true, 3, {
+            join: 'round',
+            miterLimit: 4,
+            width: 6
+          }).length
       ),
-      measure('extendForCap(open sine)', 1500, () =>
-        extendForCap(openSine, {
-          cap: 'square',
-          width: 6
-        }).length
+      measure(
+        'extendForCap(open sine)',
+        1500,
+        () =>
+          extendForCap(openSine, {
+            cap: 'square',
+            width: 6
+          }).length
       ),
-      measure('buildPolylineGeometryModelPath(open 72 points)', 1000, () =>
-        buildPolylineGeometryModelPath(openSine, false).segments.length
+      measure(
+        'buildPolylineGeometryModelPath(open 72 points)',
+        1000,
+        () => buildPolylineGeometryModelPath(openSine, false).segments.length
       ),
-      measure('buildEllipseLoop(180x120)', 1000, () =>
-        buildEllipseLoop(180, 120).length
+      measure(
+        'buildEllipseLoop(180x120)',
+        1000,
+        () => buildEllipseLoop(180, 120).length
       ),
-      measure('buildPathTopologyModel(open 72 points)', 1000, () =>
-        buildPathTopologyModel({
-          pathId: 'profile:open-sine',
-          sourceId: 'profile:open-sine',
-          networkId: 'open-sine',
-          sourceFamily: 'vector',
-          points: openSine,
-          closed: false
-        }).normalizedPoints.length
+      measure(
+        'buildPathTopologyModel(open 72 points)',
+        1000,
+        () =>
+          buildPathTopologyModel({
+            pathId: 'profile:open-sine',
+            sourceId: 'profile:open-sine',
+            networkId: 'open-sine',
+            sourceFamily: 'vector',
+            points: openSine,
+            closed: false
+          }).normalizedPoints.length
       ),
-      measure('buildPathTopologyModel(closed 10-point star)', 1000, () =>
-        buildPathTopologyModel({
-          pathId: 'profile:simple-star',
-          sourceId: 'profile:simple-star',
-          networkId: 'simple-star',
-          sourceFamily: 'vector',
-          points: simpleStar,
-          closed: true
-        }).normalizedPoints.length
+      measure(
+        'buildPathTopologyModel(closed 10-point star)',
+        1000,
+        () =>
+          buildPathTopologyModel({
+            pathId: 'profile:simple-star',
+            sourceId: 'profile:simple-star',
+            networkId: 'simple-star',
+            sourceFamily: 'vector',
+            points: simpleStar,
+            closed: true
+          }).normalizedPoints.length
       ),
       measure('classifyPathTopologyModel(star)', 3000, () =>
         classifyPathTopologyModel(starTopology) === 'sampled-simple-closed'
           ? 1
           : 0
       ),
-      measure('classifyCompoundClosedLegalDomains(single star)', 1000, () =>
-        classifyCompoundClosedLegalDomains([starTopology]).length
+      measure(
+        'classifyCompoundClosedLegalDomains(single star)',
+        1000,
+        () => classifyCompoundClosedLegalDomains([starTopology]).length
       ),
       measure('isPointInsideTopologyPolygon(star)', 3000, () =>
         isPointInsideTopologyPolygon(
@@ -415,16 +435,22 @@ describeProfile('stroke API performance profile', () => {
           ? 1
           : 0
       ),
-      measure('allocateDashedCenterStrokeIntervals(open)', 1500, () =>
-        allocateDashedCenterStrokeIntervals(
-          openTopology.totalLength,
-          [18, 10],
-          0,
-          openTopology.closed
-        ).length
+      measure(
+        'allocateDashedCenterStrokeIntervals(open)',
+        1500,
+        () =>
+          allocateDashedCenterStrokeIntervals(
+            openTopology.totalLength,
+            [18, 10],
+            0,
+            openTopology.closed
+          ).length
       ),
-      measure('allocateDashedIntervalsForTopology(star)', 1500, () =>
-        allocateDashedIntervalsForTopology(starTopology, [18, 10], 0).length
+      measure(
+        'allocateDashedIntervalsForTopology(star)',
+        1500,
+        () =>
+          allocateDashedIntervalsForTopology(starTopology, [18, 10], 0).length
       ),
       measure('sliceStrokeIntervalFrames(first star dash)', 1500, () =>
         visibleInterval
@@ -438,67 +464,84 @@ describeProfile('stroke API performance profile', () => {
           : 0
       ),
       measure('supportsDashedCenterStroke(renderable)', 5000, () =>
-        supportsDashedCenterStroke(getRenderableStrokes([centerDashedStroke])[0])
+        supportsDashedCenterStroke(
+          getRenderableStrokes([centerDashedStroke])[0]
+        )
           ? 1
           : 0
       ),
-      measure('buildSolidCenterStrokePolygons(star)', 800, () =>
-        buildSolidCenterStrokePolygons(
-          starTopology.normalizedPoints,
-          starTopology.closed,
-          {
-            style: 'solid',
-            position: 'center',
-            width: 6,
-            join: 'round',
-            miterLimit: 4,
-            cap: 'round'
-          }
-        ).length
+      measure(
+        'buildSolidCenterStrokePolygons(star)',
+        800,
+        () =>
+          buildSolidCenterStrokePolygons(
+            starTopology.normalizedPoints,
+            starTopology.closed,
+            {
+              style: 'solid',
+              position: 'center',
+              width: 6,
+              join: 'round',
+              miterLimit: 4,
+              cap: 'round'
+            }
+          ).length
       ),
-      measure('buildSolidCenterStrokeResolvedPackets(star)', 600, () =>
-        buildSolidCenterStrokeResolvedPackets(
-          'profile:star:center-solid',
-          starTopology.normalizedPoints,
-          starTopology.closed,
-          [centerSolidStroke],
-          { topology: starTopology }
-        ).length
+      measure(
+        'buildSolidCenterStrokeResolvedPackets(star)',
+        600,
+        () =>
+          buildSolidCenterStrokeResolvedPackets(
+            'profile:star:center-solid',
+            starTopology.normalizedPoints,
+            starTopology.closed,
+            [centerSolidStroke],
+            { topology: starTopology }
+          ).length
       ),
-      measure('buildDashedCenterStrokeResolvedPackets(star)', 300, () =>
-        buildDashedCenterStrokeResolvedPackets(
-          'profile:star:center-dashed',
-          starTopology.normalizedPoints,
-          starTopology.closed,
-          [centerDashedStroke],
-          { topology: starTopology }
-        ).length
+      measure(
+        'buildDashedCenterStrokeResolvedPackets(star)',
+        300,
+        () =>
+          buildDashedCenterStrokeResolvedPackets(
+            'profile:star:center-dashed',
+            starTopology.normalizedPoints,
+            starTopology.closed,
+            [centerDashedStroke],
+            { topology: starTopology }
+          ).length
       ),
-      measure('buildConstrainedSolidStrokePolygons(star)', 600, () =>
-        buildConstrainedSolidStrokePolygons(
-          starTopology.normalizedPoints,
-          starTopology.closed,
-          {
-            style: 'solid',
-            position: 'inside',
-            width: 6,
-            join: 'round',
-            miterLimit: 4,
-            cap: 'round'
-          }
-        ).length
+      measure(
+        'buildConstrainedSolidStrokePolygons(star)',
+        600,
+        () =>
+          buildConstrainedSolidStrokePolygons(
+            starTopology.normalizedPoints,
+            starTopology.closed,
+            {
+              style: 'solid',
+              position: 'inside',
+              width: 6,
+              join: 'round',
+              miterLimit: 4,
+              cap: 'round'
+            }
+          ).length
       ),
       measure('hasConstrainedSolidStrokeIntent', 5000, () =>
         hasConstrainedSolidStrokeIntent([insideSolidStroke]) ? 1 : 0
       ),
-      measure('buildConstrainedSolidStrokeResolvedPackets(star)', 600, () =>
-        buildConstrainedSolidStrokeResolvedPackets(
-          'profile:star:solid',
-          starTopology.normalizedPoints,
-          starTopology.closed,
-          [insideSolidStroke],
-          { topology: starTopology }
-        ).length
+      measure(
+        'buildConstrainedSolidStrokeResolvedPackets(star)',
+        600,
+        () =>
+          buildConstrainedSolidStrokeResolvedPackets(
+            'profile:star:solid',
+            starTopology.normalizedPoints,
+            starTopology.closed,
+            [insideSolidStroke],
+            { topology: starTopology }
+          ).length
       ),
       measure('hasConstrainedDashedStrokeIntent', 5000, () =>
         hasConstrainedDashedStrokeIntent([insideDashedStroke]) ? 1 : 0
@@ -538,49 +581,63 @@ describeProfile('stroke API performance profile', () => {
             : 0
           : 0
       ),
-      measure('buildConstrainedDashedStrokeResolvedPackets(star)', 300, () =>
-        buildConstrainedDashedStrokeResolvedPackets(
-          'profile:star:dashed',
-          starTopology.normalizedPoints,
-          starTopology.closed,
-          [insideDashedStroke],
-          { topology: starTopology }
-        ).length
+      measure(
+        'buildConstrainedDashedStrokeResolvedPackets(star)',
+        300,
+        () =>
+          buildConstrainedDashedStrokeResolvedPackets(
+            'profile:star:dashed',
+            starTopology.normalizedPoints,
+            starTopology.closed,
+            [insideDashedStroke],
+            { topology: starTopology }
+          ).length
       ),
-      measure('buildConstrainedDashedStrokeResolvedPackets(open)', 300, () =>
-        buildConstrainedDashedStrokeResolvedPackets(
-          'profile:open:dashed',
-          openTopology.normalizedPoints,
-          openTopology.closed,
-          [insideDashedStroke],
-          { topology: openTopology }
-        ).length
+      measure(
+        'buildConstrainedDashedStrokeResolvedPackets(open)',
+        300,
+        () =>
+          buildConstrainedDashedStrokeResolvedPackets(
+            'profile:open:dashed',
+            openTopology.normalizedPoints,
+            openTopology.closed,
+            [insideDashedStroke],
+            { topology: openTopology }
+          ).length
       ),
-      measure('classifyConstrainedDashedOwnership(star packets)', 3000, () =>
-        classifyConstrainedDashedOwnership(renderPackets).packetCount
+      measure(
+        'classifyConstrainedDashedOwnership(star packets)',
+        3000,
+        () => classifyConstrainedDashedOwnership(renderPackets).packetCount
       ),
-      measure('classifyConstrainedDashedRuntimeStatus(star)', 3000, () =>
-        classifyConstrainedDashedRuntimeStatus({
-          points: starTopology.normalizedPoints,
-          closed: starTopology.closed,
-          topology: starTopology,
-          candidatePackets: renderPackets
-        }).ownership.packetCount
+      measure(
+        'classifyConstrainedDashedRuntimeStatus(star)',
+        3000,
+        () =>
+          classifyConstrainedDashedRuntimeStatus({
+            points: starTopology.normalizedPoints,
+            closed: starTopology.closed,
+            topology: starTopology,
+            candidatePackets: renderPackets
+          }).ownership.packetCount
       ),
-      measure('buildConstrainedDashedRuntimeDiagnostics', 3000, () =>
-        buildConstrainedDashedRuntimeDiagnostics([
-          {
-            sourceId: 'profile:star',
-            networkId: 'profile:network',
-            candidatePacketCount: renderPackets.length,
-            ...classifyConstrainedDashedRuntimeStatus({
-              points: starTopology.normalizedPoints,
-              closed: starTopology.closed,
-              topology: starTopology,
-              candidatePackets: renderPackets
-            })
-          }
-        ]).acceptedCount
+      measure(
+        'buildConstrainedDashedRuntimeDiagnostics',
+        3000,
+        () =>
+          buildConstrainedDashedRuntimeDiagnostics([
+            {
+              sourceId: 'profile:star',
+              networkId: 'profile:network',
+              candidatePacketCount: renderPackets.length,
+              ...classifyConstrainedDashedRuntimeStatus({
+                points: starTopology.normalizedPoints,
+                closed: starTopology.closed,
+                topology: starTopology,
+                candidatePackets: renderPackets
+              })
+            }
+          ]).acceptedCount
       ),
       measure('set/clear constrained dashed diagnostics', 3000, () => {
         setConstrainedDashedRuntimeDiagnostics(graphicsHost, [
@@ -599,12 +656,15 @@ describeProfile('stroke API performance profile', () => {
         clearConstrainedDashedRuntimeDiagnostics(graphicsHost)
         return 1
       }),
-      measure('buildConstrainedSolidLegalityDomain(star)', 1500, () =>
-        buildConstrainedSolidLegalityDomain(
-          starTopology.normalizedPoints,
-          starTopology.closed,
-          'inside'
-        )?.boundaryPolygon.length ?? 0
+      measure(
+        'buildConstrainedSolidLegalityDomain(star)',
+        1500,
+        () =>
+          buildConstrainedSolidLegalityDomain(
+            starTopology.normalizedPoints,
+            starTopology.closed,
+            'inside'
+          )?.boundaryPolygon.length ?? 0
       ),
       measure('isPointInConstrainedSolidLegalityDomain(star)', 3000, () =>
         legalityDomain &&
@@ -615,37 +675,49 @@ describeProfile('stroke API performance profile', () => {
           ? 1
           : 0
       ),
-      measure('buildConstrainedSolidLegalityClippingResult(star)', 200, () =>
-        buildConstrainedSolidLegalityClippingResult(
-          [
+      measure(
+        'buildConstrainedSolidLegalityClippingResult(star)',
+        200,
+        () =>
+          buildConstrainedSolidLegalityClippingResult(
+            [
+              {
+                points: starTopology.normalizedPoints,
+                closed: starTopology.closed
+              }
+            ],
+            [insideSolidStroke],
+            constrainedSolidPackets
+          ).packets.length
+      ),
+      measure(
+        'createEmptyConstrainedSolidOwnershipDiagnostics',
+        3000,
+        () =>
+          createEmptyConstrainedSolidOwnershipDiagnostics().candidates.length
+      ),
+      measure(
+        'buildConstrainedSolidOwnershipDiagnostics(star)',
+        300,
+        () =>
+          buildConstrainedSolidOwnershipDiagnostics(constrainedSolidPackets)
+            .ownedRegions.length
+      ),
+      measure(
+        'buildConstrainedSolidRuntimeDiagnostics',
+        3000,
+        () =>
+          buildConstrainedSolidRuntimeDiagnostics([
             {
-              points: starTopology.normalizedPoints,
+              sourceId: 'profile:star',
+              networkId: 'profile:network',
+              status: 'accepted',
+              reason: 'accepted',
+              candidatePacketCount: constrainedSolidPackets.length,
+              topologyFamily: starTopology.topologyFamily,
               closed: starTopology.closed
             }
-          ],
-          [insideSolidStroke],
-          constrainedSolidPackets
-        ).packets.length
-      ),
-      measure('createEmptyConstrainedSolidOwnershipDiagnostics', 3000, () =>
-        createEmptyConstrainedSolidOwnershipDiagnostics().candidates.length
-      ),
-      measure('buildConstrainedSolidOwnershipDiagnostics(star)', 300, () =>
-        buildConstrainedSolidOwnershipDiagnostics(constrainedSolidPackets)
-          .ownedRegions.length
-      ),
-      measure('buildConstrainedSolidRuntimeDiagnostics', 3000, () =>
-        buildConstrainedSolidRuntimeDiagnostics([
-          {
-            sourceId: 'profile:star',
-            networkId: 'profile:network',
-            status: 'accepted',
-            reason: 'accepted',
-            candidatePacketCount: constrainedSolidPackets.length,
-            topologyFamily: starTopology.topologyFamily,
-            closed: starTopology.closed
-          }
-        ]).acceptedCount
+          ]).acceptedCount
       ),
       measure('set/clear constrained solid diagnostics', 3000, () => {
         setConstrainedSolidRuntimeDiagnostics(graphicsHost, [
@@ -662,10 +734,13 @@ describeProfile('stroke API performance profile', () => {
         clearConstrainedSolidRuntimeDiagnostics(graphicsHost)
         return 1
       }),
-      measure('center dashed overlap candidates', 1000, () =>
-        buildCenterDashedOverlapCandidatesFromResolvedPackets(
-          centerDashedPackets
-        ).length
+      measure(
+        'center dashed overlap candidates',
+        1000,
+        () =>
+          buildCenterDashedOverlapCandidatesFromResolvedPackets(
+            centerDashedPackets
+          ).length
       ),
       measure('polygonsHavePositiveAreaOverlap(first pair)', 3000, () =>
         centerDashedPackets.length >= 2 &&
@@ -676,61 +751,82 @@ describeProfile('stroke API performance profile', () => {
           ? 1
           : 0
       ),
-      measure('buildCenterDashedOverlapGraph(star)', 500, () =>
-        buildCenterDashedOverlapGraph(overlapCandidates).edges.length
+      measure(
+        'buildCenterDashedOverlapGraph(star)',
+        500,
+        () => buildCenterDashedOverlapGraph(overlapCandidates).edges.length
       ),
-      measure('extractCenterDashedOverlapComponents(star)', 1000, () =>
-        extractCenterDashedOverlapComponents(overlapGraph).length
+      measure(
+        'extractCenterDashedOverlapComponents(star)',
+        1000,
+        () => extractCenterDashedOverlapComponents(overlapGraph).length
       ),
-      measure('resolveCenterDashedOwnershipForComponent(single)', 1000, () =>
-        resolveCenterDashedOwnershipForComponent({
-          componentId: 'profile:component',
-          regions: [
-            {
-              regionId: 'profile:region',
-              polygon: centerDashedPackets[0]?.geometry.polygons[0] ?? [],
-              candidates: [
-                {
-                  candidateId: 'profile:candidate',
-                  intervalId: 'profile:interval',
-                  strokeId: 'stroke:0',
-                  ownerKey: 'profile:owner',
-                  primitiveKind: 'body',
-                  normalDistanceToSource: 0,
-                  startDistance: 0,
-                  authoredVisibleIntervalIndex: 0,
-                  stableIntervalId: 'profile:interval',
-                  polygons: centerDashedPackets[0]?.geometry.polygons ?? [],
-                  continuityPreserving: true,
-                  regionInsideTerminalEnvelope: true
-                }
-              ]
-            }
-          ]
-        }).ownedRegions.length
+      measure(
+        'resolveCenterDashedOwnershipForComponent(single)',
+        1000,
+        () =>
+          resolveCenterDashedOwnershipForComponent({
+            componentId: 'profile:component',
+            regions: [
+              {
+                regionId: 'profile:region',
+                polygon: centerDashedPackets[0]?.geometry.polygons[0] ?? [],
+                candidates: [
+                  {
+                    candidateId: 'profile:candidate',
+                    intervalId: 'profile:interval',
+                    strokeId: 'stroke:0',
+                    ownerKey: 'profile:owner',
+                    primitiveKind: 'body',
+                    normalDistanceToSource: 0,
+                    startDistance: 0,
+                    authoredVisibleIntervalIndex: 0,
+                    stableIntervalId: 'profile:interval',
+                    polygons: centerDashedPackets[0]?.geometry.polygons ?? [],
+                    continuityPreserving: true,
+                    regionInsideTerminalEnvelope: true
+                  }
+                ]
+              }
+            ]
+          }).ownedRegions.length
       ),
-      measure('buildCenterDashedOverlapDiagnostics(star)', 300, () =>
-        buildCenterDashedOverlapDiagnosticsFromResolvedPackets(
-          centerDashedPackets
-        ).components.length
+      measure(
+        'buildCenterDashedOverlapDiagnostics(star)',
+        300,
+        () =>
+          buildCenterDashedOverlapDiagnosticsFromResolvedPackets(
+            centerDashedPackets
+          ).components.length
       ),
-      measure('normalizeResolvedStrokePacketGeometry', 3000, () =>
-        normalizeResolvedStrokePacketGeometry(solidCenterPackets).length
+      measure(
+        'normalizeResolvedStrokePacketGeometry',
+        3000,
+        () => normalizeResolvedStrokePacketGeometry(solidCenterPackets).length
       ),
-      measure('attachStrokePacketDebugMeta', 3000, () =>
-        attachStrokePacketDebugMeta(solidCenterPackets, {
-          runtimeStatus: 'accepted',
-          runtimeReason: 'single-owner'
-        }).length
+      measure(
+        'attachStrokePacketDebugMeta',
+        3000,
+        () =>
+          attachStrokePacketDebugMeta(solidCenterPackets, {
+            runtimeStatus: 'accepted',
+            runtimeReason: 'single-owner'
+          }).length
       ),
-      measure('buildSolidCenterStrokeHitTestPackets', 3000, () =>
-        buildSolidCenterStrokeHitTestPackets(solidCenterPackets).length
+      measure(
+        'buildSolidCenterStrokeHitTestPackets',
+        3000,
+        () => buildSolidCenterStrokeHitTestPackets(solidCenterPackets).length
       ),
-      measure('buildSolidCenterStrokeExportPackets', 3000, () =>
-        buildSolidCenterStrokeExportPackets(solidCenterPackets).length
+      measure(
+        'buildSolidCenterStrokeExportPackets',
+        3000,
+        () => buildSolidCenterStrokeExportPackets(solidCenterPackets).length
       ),
-      measure('toSolidCenterStrokeRenderEntries', 3000, () =>
-        toSolidCenterStrokeRenderEntries(solidCenterPackets).length
+      measure(
+        'toSolidCenterStrokeRenderEntries',
+        3000,
+        () => toSolidCenterStrokeRenderEntries(solidCenterPackets).length
       ),
       measure('applySolidCenterStrokeExportPackets', 3000, () => {
         applySolidCenterStrokeExportPackets(graphicsHost, solidCenterPackets)
@@ -741,56 +837,71 @@ describeProfile('stroke API performance profile', () => {
           ? 1
           : 0
       ),
-      measure('renderSolidCenterStrokeEntries(cached second pass)', 1500, () => {
-        renderSolidCenterStrokeEntries(renderHost, renderEntries)
-        return (
-          (
-            renderHost as typeof renderHost & {
-              __asyraStrokeMeshCache?: Map<string, unknown>
-            }
-          ).__asyraStrokeMeshCache?.size ?? 0
-        )
-      }),
-      measure('buildStrokeRuntimeRevisionSet', 3000, () =>
-        buildStrokeRuntimeRevisionSet({
-          points: starTopology.normalizedPoints,
-          closed: starTopology.closed,
-          stroke: getRenderableStrokes([insideDashedStroke])[0],
-          geometryFamily: 'constrained-dashed',
-          resolutionStatus: 'exact-constrained',
-          runtimeStatus: 'candidate',
-          ownerKey: 'profile:owner',
-          networkId: 'profile:network',
-          strokeId: 'stroke:0',
-          intervalSignature: 'profile:intervals',
-          sourceTopology: starTopology.topologyFamily,
-          intervalTopology: 'single-edge'
-        }).sourcePathRevision.toString().length
+      measure(
+        'renderSolidCenterStrokeEntries(cached second pass)',
+        1500,
+        () => {
+          renderSolidCenterStrokeEntries(renderHost, renderEntries)
+          return (
+            (
+              renderHost as typeof renderHost & {
+                __asyraStrokeMeshCache?: Map<string, unknown>
+              }
+            ).__asyraStrokeMeshCache?.size ?? 0
+          )
+        }
       ),
-      measure('computeStrokeDirtyKeys(paint only)', 3000, () =>
-        computeStrokeDirtyKeys(baseRevisionSet, paintRevisionSet).dirtyKeys
-          .length
+      measure(
+        'buildStrokeRuntimeRevisionSet',
+        3000,
+        () =>
+          buildStrokeRuntimeRevisionSet({
+            points: starTopology.normalizedPoints,
+            closed: starTopology.closed,
+            stroke: getRenderableStrokes([insideDashedStroke])[0],
+            geometryFamily: 'constrained-dashed',
+            resolutionStatus: 'exact-constrained',
+            runtimeStatus: 'candidate',
+            ownerKey: 'profile:owner',
+            networkId: 'profile:network',
+            strokeId: 'stroke:0',
+            intervalSignature: 'profile:intervals',
+            sourceTopology: starTopology.topologyFamily,
+            intervalTopology: 'single-edge'
+          }).sourcePathRevision.toString().length
       ),
-      measure('updateStrokeRuntimeRevisionSetFromMetadata', 3000, () =>
-        updateStrokeRuntimeRevisionSetFromMetadata(baseRevisionSet, {
-          ownerKey: 'profile:owner',
-          networkId: 'profile:network',
-          strokeId: 'stroke:0',
-          geometryFamily: 'constrained-dashed',
-          resolutionStatus: 'exact-constrained',
-          runtimeStatus: 'accepted',
-          runtimeReason: 'single-owner',
-          sourceTopology: starTopology.topologyFamily,
-          intervalTopology: 'single-edge',
-          ownershipStatus: 'accepted',
-          ownerCount: 1
-        })?.ownershipRevision.toString().length ?? 0
+      measure(
+        'computeStrokeDirtyKeys(paint only)',
+        3000,
+        () =>
+          computeStrokeDirtyKeys(baseRevisionSet, paintRevisionSet).dirtyKeys
+            .length
+      ),
+      measure(
+        'updateStrokeRuntimeRevisionSetFromMetadata',
+        3000,
+        () =>
+          updateStrokeRuntimeRevisionSetFromMetadata(baseRevisionSet, {
+            ownerKey: 'profile:owner',
+            networkId: 'profile:network',
+            strokeId: 'stroke:0',
+            geometryFamily: 'constrained-dashed',
+            resolutionStatus: 'exact-constrained',
+            runtimeStatus: 'accepted',
+            runtimeReason: 'single-owner',
+            sourceTopology: starTopology.topologyFamily,
+            intervalTopology: 'single-edge',
+            ownershipStatus: 'accepted',
+            ownerCount: 1
+          })?.ownershipRevision.toString().length ?? 0
       )
     ]
 
     printProfileResults(results)
 
     expect(results.every((result) => result.totalMs >= 0)).toBe(true)
-    expect(results.reduce((sum, result) => sum + result.resultCount, 0)).toBeGreaterThan(0)
+    expect(
+      results.reduce((sum, result) => sum + result.resultCount, 0)
+    ).toBeGreaterThan(0)
   })
 })

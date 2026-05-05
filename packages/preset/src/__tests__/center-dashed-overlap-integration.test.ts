@@ -99,9 +99,7 @@ describe('center dashed overlap integration', () => {
     expect(candidates).not.toEqual([])
     candidates.forEach((candidate) => {
       expect(
-        candidate.candidateId.startsWith(
-          'center-dashed-overlap:0:interval:'
-        )
+        candidate.candidateId.startsWith('center-dashed-overlap:0:interval:')
       ).toBe(true)
       expect(candidate.intervalId.startsWith('interval:')).toBe(true)
       expect(candidate.strokeId).toBe('stroke:0')

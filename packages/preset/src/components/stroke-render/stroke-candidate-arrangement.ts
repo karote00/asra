@@ -47,7 +47,8 @@ export interface StrokeCandidateArrangementOptions {
 }
 
 export interface StrokeVisualOverlapCollapseOptions {
-  backend: Pick<GeometryBackend, 'union'>
+  backend: Pick<GeometryBackend, 'union'> &
+    Partial<Pick<GeometryBackend, 'buildArrangement'>>
   fillRule?: FillRule
 }
 
@@ -124,6 +125,154 @@ const hasAnyBoundsOverlap = (faces: ArrangedStrokeFinalFace[]) => {
 
   return false
 }
+
+const pointInPolygon = (point: Vec2, polygon: Vec2[]) => {
+  let inside = false
+
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+    const current = polygon[i]
+    const previous = polygon[j]
+    const intersects =
+      current.y > point.y !== previous.y > point.y &&
+      point.x <
+        ((previous.x - current.x) * (point.y - current.y)) /
+          (previous.y - current.y) +
+          current.x
+
+    if (intersects) {
+      inside = !inside
+    }
+  }
+
+  return inside
+}
+
+const hasContainedContour = (polygons: Vec2[][]) =>
+  polygons.some((candidate, candidateIndex) => {
+    const sample = candidate[0]
+    if (!sample) {
+      return false
+    }
+
+    return polygons.some(
+      (container, containerIndex) =>
+        containerIndex !== candidateIndex && pointInPolygon(sample, container)
+    )
+  })
+
+const uniqueSortedCoordinates = (
+  polygons: Vec2[][],
+  axis: 'x' | 'y'
+): number[] =>
+  [
+    ...new Set(
+      polygons
+        .flatMap((polygon) => polygon.map((point) => point[axis]))
+        .filter((value) => Number.isFinite(value))
+    )
+  ].sort((left, right) => left - right)
+
+const rectangleFromCell = (
+  left: number,
+  top: number,
+  right: number,
+  bottom: number
+): Vec2[] => [
+  { x: left, y: top },
+  { x: right, y: top },
+  { x: right, y: bottom },
+  { x: left, y: bottom }
+]
+
+const polygonContainsByEvenOdd = (point: Vec2, polygons: Vec2[][]) => {
+  let inside = false
+
+  polygons.forEach((polygon) => {
+    if (pointInPolygon(point, polygon)) {
+      inside = !inside
+    }
+  })
+
+  return inside
+}
+
+const decomposeNestedContoursToCoverageCells = (
+  polygons: Vec2[][]
+): Vec2[][] => {
+  if (!hasContainedContour(polygons)) {
+    return polygons
+  }
+
+  const xs = uniqueSortedCoordinates(polygons, 'x')
+  const ys = uniqueSortedCoordinates(polygons, 'y')
+  if (xs.length < 2 || ys.length < 2) {
+    return polygons
+  }
+
+  const cells: Vec2[][] = []
+
+  for (let xIndex = 0; xIndex < xs.length - 1; xIndex += 1) {
+    for (let yIndex = 0; yIndex < ys.length - 1; yIndex += 1) {
+      const left = xs[xIndex]
+      const right = xs[xIndex + 1]
+      const top = ys[yIndex]
+      const bottom = ys[yIndex + 1]
+
+      if (right - left <= 0 || bottom - top <= 0) {
+        continue
+      }
+
+      const sample = {
+        x: (left + right) / 2,
+        y: (top + bottom) / 2
+      }
+
+      if (polygonContainsByEvenOdd(sample, polygons)) {
+        cells.push(rectangleFromCell(left, top, right, bottom))
+      }
+    }
+  }
+
+  return cells.length > 0 ? cells : polygons
+}
+
+const getRegionCoveragePolygons = (region: PolygonRegion) =>
+  decomposeNestedContoursToCoverageCells(region.polygons)
+
+const getVisualCollapseRegions = (faces: ArrangedStrokeFinalFace[]) =>
+  faces.flatMap((face) =>
+    face.polygons.map((polygon) => ({
+      polygons: [normalizeCoveragePolygonWinding(polygon)]
+    }))
+  )
+
+const hasOverlappingPolygonsInFace = (face: ArrangedStrokeFinalFace) => {
+  if (face.polygons.length < 2) {
+    return false
+  }
+
+  const polygonBounds = face.polygons.map((polygon) => getBounds([polygon]))
+  for (let leftIndex = 0; leftIndex < polygonBounds.length; leftIndex += 1) {
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < polygonBounds.length;
+      rightIndex += 1
+    ) {
+      if (boundsOverlap(polygonBounds[leftIndex], polygonBounds[rightIndex])) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+const shouldAttemptVisualOverlapCollapse = (
+  faces: ArrangedStrokeFinalFace[]
+) =>
+  faces.length >= 2
+    ? hasAnyBoundsOverlap(faces)
+    : Boolean(faces[0] && hasOverlappingPolygonsInFace(faces[0]))
 
 const hashStableString = (prefix: string, value: string) => {
   let hash = 2166136261
@@ -293,7 +442,10 @@ const groupByVisualPacket = (
 
 const canClipLegalDomains = (
   backend: StrokeCandidateArrangementOptions['backend']
-): backend is Pick<GeometryBackend, 'buildArrangement' | 'difference' | 'intersection' | 'union'> =>
+): backend is Pick<
+  GeometryBackend,
+  'buildArrangement' | 'difference' | 'intersection' | 'union'
+> =>
   typeof backend.difference === 'function' &&
   typeof backend.intersection === 'function' &&
   typeof backend.union === 'function'
@@ -394,7 +546,9 @@ const mergeArrangedFaceGroup = (
     legalDomainIds
   } = collectMergedFaceMetadata(group.faces)
 
-  const candidateIds = group.candidates.map((candidate) => candidate.candidateId)
+  const candidateIds = group.candidates.map(
+    (candidate) => candidate.candidateId
+  )
   const polygons = arrangementFace.geometry.polygons
   const faceId = hashStableString(
     'arranged-face',
@@ -486,6 +640,52 @@ const groupFinalFacesByVisualPacket = (faces: ArrangedStrokeFinalFace[]) => {
   return [...groups.values()]
 }
 
+const isLocalSideConstrainedSolidFace = (face: ArrangedStrokeFinalFace) =>
+  face.geometryFamily === 'constrained-solid' &&
+  face.resolutionStatus !== 'exact-constrained'
+
+const isSelfIntersectingConstrainedSolidFace = (
+  face: ArrangedStrokeFinalFace
+) =>
+  face.geometryFamily === 'constrained-solid' &&
+  face.sourceTopology === 'self-intersecting'
+
+const canCollapseVisualOverlapExactly = (faces: ArrangedStrokeFinalFace[]) =>
+  faces.every(
+    (face) =>
+      !isLocalSideConstrainedSolidFace(face) &&
+      !(
+        isSelfIntersectingConstrainedSolidFace(face) &&
+        face.debugMeta?.arrangementStatus !== 'exact' &&
+        face.resolutionStatus !== 'exact-constrained'
+      )
+  )
+
+const canTrustExactArrangementPartition = (
+  faces: ArrangedStrokeFinalFace[]
+) => {
+  if (faces.length === 0) {
+    return false
+  }
+
+  const networkIds = new Set<string>()
+  return faces.every((face) => {
+    if (
+      face.resolutionStatus !== 'exact-constrained' ||
+      face.debugMeta?.arrangementStatus !== 'exact'
+    ) {
+      return false
+    }
+
+    const networkId = face.debugMeta.networkId
+    if (networkId) {
+      networkIds.add(networkId)
+    }
+
+    return networkIds.size <= 1
+  })
+}
+
 const mergeVisualOverlapFaceGroup = (
   faces: ArrangedStrokeFinalFace[],
   unionRegions: PolygonRegion[]
@@ -503,7 +703,7 @@ const mergeVisualOverlapFaceGroup = (
     sourceContourIds,
     legalDomainIds
   } = collectMergedFaceMetadata(faces)
-  const polygons = unionRegions.flatMap((region) => region.polygons)
+  const polygons = unionRegions.flatMap(getRegionCoveragePolygons)
   const faceId = hashStableString(
     'visual-overlap-face',
     `${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`
@@ -534,24 +734,136 @@ const mergeVisualOverlapFaceGroup = (
   }
 }
 
+const mergeVisualOverlapArrangementFaceGroup = (
+  arrangementFace: ArrangementFace,
+  faces: ArrangedStrokeFinalFace[]
+): ArrangedStrokeFinalFace => {
+  const [primaryFace] = faces
+  if (!primaryFace) {
+    throw new Error(
+      'Cannot collapse visual overlap arrangement face for an empty face group'
+    )
+  }
+
+  const {
+    sourceGeometryIds,
+    ownerSet,
+    intervalIds,
+    sourceSpanIds,
+    sourceContourIds,
+    legalDomainIds
+  } = collectMergedFaceMetadata(faces)
+  const polygons = arrangementFace.geometry.polygons
+  const faceId = hashStableString(
+    'visual-overlap-arranged-face',
+    `${arrangementFace.faceId}|${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`
+  )
+
+  return {
+    ...primaryFace,
+    faceId,
+    sourceGeometryIds,
+    polygons,
+    bounds: getBounds(polygons),
+    ownerSet,
+    intervalIds,
+    sourceSpanIds,
+    sourceContourIds,
+    legalDomainIds,
+    debugMeta: {
+      ...primaryFace.debugMeta,
+      ownerSet,
+      intervalIds,
+      sourceSpanIds,
+      sourceContourIds,
+      legalDomainIds,
+      visualOverlapCollapseStatus: 'exact-arrangement',
+      visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
+      visualOverlapSourceGeometryIds: sourceGeometryIds,
+      arrangementStatus: 'exact',
+      arrangementFaceId: arrangementFace.faceId,
+      arrangementCandidateIds: arrangementFace.claimedBy.map(
+        (candidate) => candidate.candidateId
+      )
+    }
+  }
+}
+
+const collapseVisualOverlapFaceGroupByArrangement = (
+  faces: ArrangedStrokeFinalFace[],
+  backend: Pick<GeometryBackend, 'buildArrangement'>
+): ArrangedStrokeFinalFace[] => {
+  const normalizedFaces = faces.map((face) => ({
+    ...face,
+    polygons: normalizeCoverageRegionWinding(face).polygons
+  }))
+  const candidates = buildStrokeArrangementCandidates(normalizedFaces)
+  const faceByCandidateId = new Map(
+    normalizedFaces.map((face) => [face.faceId, face])
+  )
+  const arrangementFaces = backend
+    .buildArrangement(candidates)
+    .filter((face) => hasRegionGeometry(face.geometry))
+
+  const collapsedFaces = arrangementFaces.flatMap((arrangementFace) => {
+    const claimedFaces: ArrangedStrokeFinalFace[] = []
+    arrangementFace.claimedBy.forEach((candidate) => {
+      const sourceFace = faceByCandidateId.get(candidate.candidateId)
+      if (sourceFace) {
+        claimedFaces.push(sourceFace)
+      }
+    })
+
+    if (claimedFaces.length === 0) {
+      return []
+    }
+
+    return mergeVisualOverlapArrangementFaceGroup(
+      arrangementFace,
+      claimedFaces
+    )
+  })
+
+  return collapseExactDuplicateFinalFaces(collapsedFaces)
+}
+
 export const collapseStrokeFinalFaceVisualOverlaps = (
   faces: ArrangedStrokeFinalFace[],
   options: StrokeVisualOverlapCollapseOptions
 ): ArrangedStrokeFinalFace[] => {
-  if (faces.length < 2) {
+  if (faces.length === 0) {
     return faces
   }
 
   return groupFinalFacesByVisualPacket(faces).flatMap((group) => {
-    if (group.length < 2 || !hasAnyBoundsOverlap(group)) {
+    if (!canCollapseVisualOverlapExactly(group)) {
       return group
     }
 
-    const unionRegions = options.backend
-      .union(
-        group.map(normalizeCoverageRegionWinding),
-        options.fillRule ?? 'nonzero'
+    if (canTrustExactArrangementPartition(group)) {
+      return group
+    }
+
+    if (!shouldAttemptVisualOverlapCollapse(group)) {
+      return group
+    }
+
+    const buildArrangement = options.backend.buildArrangement
+    if (group.length >= 2 && typeof buildArrangement === 'function') {
+      const arrangedCollapse = collapseVisualOverlapFaceGroupByArrangement(
+        group,
+        { buildArrangement }
       )
+      if (
+        arrangedCollapse.length > 0 &&
+        !shouldAttemptVisualOverlapCollapse(arrangedCollapse)
+      ) {
+        return arrangedCollapse
+      }
+    }
+
+    const unionRegions = options.backend
+      .union(getVisualCollapseRegions(group), options.fillRule ?? 'nonzero')
       .filter(hasRegionGeometry)
 
     if (unionRegions.length === 0) {

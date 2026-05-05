@@ -99,6 +99,7 @@ export type StrokeGeometryRuntimeStatus =
 export type StrokeGeometryRuntimeReason =
   | 'center-stroke'
   | 'constrained-solid-exact'
+  | 'local-side-constrained-solid'
   | 'single-owner'
   | 'typed-owners'
   | 'missing-owner-metadata'
@@ -157,6 +158,10 @@ export interface SolidCenterStrokeGeometryDebugMeta {
   ownershipStatus?: StrokeGeometryOwnershipStatus
   ownerCount?: number
   strokePosition?: 'center' | 'inside' | 'outside'
+  strokeWidth?: number
+  strokeJoin?: 'miter' | 'bevel' | 'round'
+  strokeCap?: 'butt' | 'square' | 'round' | 'none'
+  strokeMiterLimit?: number
   arrangementStatus?: 'exact'
   arrangementFaceId?: string
   arrangementCandidateIds?: string[]
@@ -164,7 +169,7 @@ export interface SolidCenterStrokeGeometryDebugMeta {
     insideFillDomain: boolean
     outsideFillDomain: boolean
   }
-  visualOverlapCollapseStatus?: 'exact-union'
+  visualOverlapCollapseStatus?: 'exact-union' | 'exact-arrangement'
   visualOverlapSourceFaceIds?: string[]
   visualOverlapSourceGeometryIds?: string[]
   revisionSet?: StrokeRevisionSet
@@ -279,14 +284,23 @@ const normalizedResolvedPacketCache = new WeakMap<
 >()
 const finalFaceCache = new WeakMap<
   SolidCenterStrokeResolvedPacket[],
-  StrokeFinalFace<SolidCenterStrokeGeometryDebugMeta, SolidCenterStrokePaintPacket>[]
+  StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[]
 >()
 const hitPacketCache = new WeakMap<
-  StrokeFinalFace<SolidCenterStrokeGeometryDebugMeta, SolidCenterStrokePaintPacket>[],
+  StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[],
   SolidCenterStrokeHitTestPacket[]
 >()
 const exportPacketCache = new WeakMap<
-  StrokeFinalFace<SolidCenterStrokeGeometryDebugMeta, SolidCenterStrokePaintPacket>[],
+  StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[],
   SolidCenterStrokeExportPacket[]
 >()
 
@@ -476,7 +490,8 @@ const getProjectedGeometryId = (
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
   >
-) => (face.sourceGeometryIds.length === 1 ? face.sourceGeometryIds[0] : face.faceId)
+) =>
+  face.sourceGeometryIds.length === 1 ? face.sourceGeometryIds[0] : face.faceId
 
 export const buildSolidCenterStrokeResolvedPacketsFromFinalFaces = (
   faces: StrokeFinalFace<
@@ -615,7 +630,9 @@ export const applySolidCenterStrokeExportPackets = <T extends object>(
     buildSolidCenterStrokeExportPackets(packets)
 }
 
-export const applySolidCenterStrokeExportPacketsFromFinalFaces = <T extends object>(
+export const applySolidCenterStrokeExportPacketsFromFinalFaces = <
+  T extends object
+>(
   graphic: T,
   faces: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
@@ -659,7 +676,8 @@ export const createSolidCenterStrokeHitAreaFromFinalFaces = (
   }
   let cachedHitPackets: SolidCenterStrokeHitTestPacket[] | null = null
   return createSolidCenterStrokeHitAreaFromPacketGetter(() => {
-    cachedHitPackets ??= buildSolidCenterStrokeHitTestPacketsFromFinalFaces(faces)
+    cachedHitPackets ??=
+      buildSolidCenterStrokeHitTestPacketsFromFinalFaces(faces)
     return cachedHitPackets
   })
 }

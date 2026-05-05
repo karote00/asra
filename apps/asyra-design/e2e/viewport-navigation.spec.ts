@@ -102,7 +102,8 @@ test.describe('Viewport Navigation', () => {
 
     await toggle.click()
     await expect(toggle).toHaveAttribute('data-active', 'true')
-    await expect.poll(() =>
+    await expect
+      .poll(() =>
         page.evaluate(
           () =>
             // eslint-disable-next-line @typescript-eslint/no-explicit-any

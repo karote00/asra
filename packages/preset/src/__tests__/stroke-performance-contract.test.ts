@@ -272,7 +272,8 @@ const Q8_POLYGON_TEMPLATES: Vec2[][] = [
 const buildQ8PolygonPoints = (frame: number, index: number) => {
   const template = Q8_POLYGON_TEMPLATES[index % Q8_POLYGON_TEMPLATES.length]
   const x = (index % 5) * 52 + Math.sin(frame / 34 + index) * 0.5
-  const y = 160 + Math.floor(index / 5) * 58 + Math.cos(frame / 31 + index) * 0.5
+  const y =
+    160 + Math.floor(index / 5) * 58 + Math.cos(frame / 31 + index) * 0.5
   return template.map((point) => ({ x: x + point.x, y: y + point.y }))
 }
 
@@ -467,7 +468,10 @@ describe('stroke performance contract', () => {
           [q8DashedStroke],
           { topology }
         )
-        if (topology.topologyFamily !== 'rectangle-equivalent' || packets.length === 0) {
+        if (
+          topology.topologyFamily !== 'rectangle-equivalent' ||
+          packets.length === 0
+        ) {
           invalidFrameCount += 1
         }
       }

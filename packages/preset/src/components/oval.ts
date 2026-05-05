@@ -138,7 +138,8 @@ defineComponent({
             runtimeReason: constrainedDashedRuntimeStatus.reason,
             sourceTopology: constrainedDashedRuntimeStatus.sourceTopology,
             ownershipStatus: constrainedDashedRuntimeStatus.ownership.status,
-            ownerCount: constrainedDashedRuntimeStatus.ownership.ownerKeys.length
+            ownerCount:
+              constrainedDashedRuntimeStatus.ownership.ownerKeys.length
           })
         : []
     if (constrainedDashedRuntimeStatus) {
@@ -177,12 +178,16 @@ defineComponent({
               },
               topology: pathTopology
             }
-          )
+          ),
+          {
+            includeOwnershipDiagnosticsForPreservedPackets: true
+          }
         )
       : {
           packets: [],
           legalityDiagnostics: { domains: [], acceptedGeometryIds: [] },
-          ownershipDiagnostics: createEmptyConstrainedSolidOwnershipDiagnostics()
+          ownershipDiagnostics:
+            createEmptyConstrainedSolidOwnershipDiagnostics()
         }
     const constrainedPackets = constrainedResult.packets
     const strokePackets = [

@@ -186,7 +186,12 @@ export const renderSolidCenterStrokeEntries = (
 
     const compatibleEntry = graphic.__asyraStrokeMeshCache?.get(entry.cacheKey)
 
-    if (compatibleEntry && dirtyKeys !== null && !geometryDirty && !paintDirty) {
+    if (
+      compatibleEntry &&
+      dirtyKeys !== null &&
+      !geometryDirty &&
+      !paintDirty
+    ) {
       compatibleEntry.revisionSet = revisionSet
       compatibleEntry.lastDirtyKeys = []
       if (compatibleEntry.kind === 'gradient') {

@@ -230,7 +230,10 @@ const dedupePolygon = (polygon: Vec2[]) => {
   return result
 }
 
-export const polygonsHavePositiveAreaOverlap = (left: Vec2[], right: Vec2[]) => {
+export const polygonsHavePositiveAreaOverlap = (
+  left: Vec2[],
+  right: Vec2[]
+) => {
   const boundsA = getPolygonBounds(left)
   const boundsB = getPolygonBounds(right)
 
@@ -282,7 +285,9 @@ export const polygonsHavePositiveAreaOverlap = (left: Vec2[], right: Vec2[]) => 
   }
 
   const intersection = dedupePolygon(output)
-  return intersection.length >= 3 && Math.abs(signedArea(intersection)) > EPSILON
+  return (
+    intersection.length >= 3 && Math.abs(signedArea(intersection)) > EPSILON
+  )
 }
 
 const polygonsOverlap = (a: Vec2[], b: Vec2[]) => {

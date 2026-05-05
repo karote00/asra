@@ -28,10 +28,20 @@ describe('source span graph', () => {
 
     expect(graph.cuts.map((cut) => cut.kind)).toContain('dash-boundary')
     expect(graph.cuts.map((cut) => cut.kind)).toContain('vertex')
-    expect(getSourceSpanIdsForInterval(graph, intervals[0]!)).toEqual([
+    const firstInterval = intervals[0]
+    const secondInterval = intervals[1]
+    expect(firstInterval).toBeDefined()
+    expect(secondInterval).toBeDefined()
+    if (!firstInterval || !secondInterval) {
+      throw new Error(
+        'Expected two visible intervals for source span graph test'
+      )
+    }
+
+    expect(getSourceSpanIdsForInterval(graph, firstInterval)).toEqual([
       'span:rect:contour:0:source-span:0'
     ])
-    expect(getSourceSpanIdsForInterval(graph, intervals[1]!)).toEqual([
+    expect(getSourceSpanIdsForInterval(graph, secondInterval)).toEqual([
       'span:rect:contour:0:source-span:2'
     ])
   })
@@ -53,7 +63,10 @@ describe('source span graph', () => {
       0,
       topology.closed
     ).filter((interval) => interval.kind === 'visible')
-    const graph = buildSourceSpanGraph(topology, firstInterval ? [firstInterval] : [])
+    const graph = buildSourceSpanGraph(
+      topology,
+      firstInterval ? [firstInterval] : []
+    )
 
     expect(graph.cuts).toEqual(
       expect.arrayContaining([

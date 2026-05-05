@@ -89,7 +89,9 @@ describe('Render', () => {
   })
 
   it('should keep the scene renderable when one element strategy receives invalid data', () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined)
     render.switchWorkspace({
       id: 'workspace',
       type: 'WORKSPACE',

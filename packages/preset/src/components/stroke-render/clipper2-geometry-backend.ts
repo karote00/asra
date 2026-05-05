@@ -108,10 +108,7 @@ const DEFAULT_OPERATION_CACHE_LIMIT = 256
 const toClipperFillRule = (module: Clipper2Module, fillRule: FillRule) =>
   fillRule === 'evenodd' ? module.FillRule.EvenOdd : module.FillRule.NonZero
 
-const toClipperJoinType = (
-  module: Clipper2Module,
-  join: StrokeOffsetJoin
-) => {
+const toClipperJoinType = (module: Clipper2Module, join: StrokeOffsetJoin) => {
   if (join === 'round') {
     return module.JoinType.Round
   }
@@ -184,16 +181,15 @@ const pathKey = (path: Vec2[] | Vec2[][]) =>
 
 const candidateKey = (candidates: CandidateRegion[]) =>
   candidates
-    .map(
-      (candidate) =>
-        [
-          candidate.candidateId,
-          candidate.visualPacketKey,
-          candidate.strokePosition,
-          candidate.paintKey ?? '',
-          candidate.strokeSpecKey ?? '',
-          regionsKey([candidate.geometry])
-        ].join('|')
+    .map((candidate) =>
+      [
+        candidate.candidateId,
+        candidate.visualPacketKey,
+        candidate.strokePosition,
+        candidate.paintKey ?? '',
+        candidate.strokeSpecKey ?? '',
+        regionsKey([candidate.geometry])
+      ].join('|')
     )
     .join('|||')
 
@@ -241,7 +237,11 @@ export const createClipper2GeometryBackend = (
     const path = new module.Path64()
 
     backendPoints.forEach((point) => {
-      const clipperPoint = new module.Point64(BigInt(point.x), BigInt(point.y), 0n)
+      const clipperPoint = new module.Point64(
+        BigInt(point.x),
+        BigInt(point.y),
+        0n
+      )
       path.push_back(clipperPoint)
       clipperPoint.delete()
     })
@@ -393,7 +393,9 @@ export const createClipper2GeometryBackend = (
       fillRule
     )
 
-  const buildArrangement = (candidates: CandidateRegion[]): ArrangementFace[] => {
+  const buildArrangement = (
+    candidates: CandidateRegion[]
+  ): ArrangementFace[] => {
     const cacheKey = `arrangement|${candidateKey(candidates)}`
     const candidateById = new Map(
       candidates.map((candidate) => [candidate.candidateId, candidate])
@@ -403,7 +405,7 @@ export const createClipper2GeometryBackend = (
       return cloneArrangementFaces(cached, candidateById)
     }
 
-    type Atom = {
+    interface Atom {
       geometry: PolygonRegion
       claimedBy: CandidateRegion[]
     }
@@ -426,7 +428,7 @@ export const createClipper2GeometryBackend = (
         }
       }
 
-      let nextAtoms: Atom[] = []
+      const nextAtoms: Atom[] = []
       let remaining: PolygonRegion[] = candidateRegions
 
       atoms.forEach((atom) => {
@@ -545,7 +547,8 @@ export const loadClipper2GeometryBackend = async (
     factoryOptions?: unknown
   ) => Promise<Clipper2Module>
   const factoryOptions =
-    typeof options.factoryOptions === 'object' && options.factoryOptions !== null
+    typeof options.factoryOptions === 'object' &&
+    options.factoryOptions !== null
       ? {
           locateFile: (path: string) =>
             path.endsWith('.wasm') ? clipper2WasmUrl : path,

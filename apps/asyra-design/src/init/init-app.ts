@@ -8,6 +8,7 @@ import { initSelectionCompatibility } from './derived-state/init-selection-compa
 import { initPathEditingContinuation } from './derived-state/init-path-editing-continuation'
 import { initFeatures } from './foundation/init-features'
 import { initInputSystem } from './foundation/init-input-system'
+import { elementApis } from '../common-apis/element'
 
 let exactGeometryBackendReady: Promise<void> = Promise.resolve()
 
@@ -37,9 +38,11 @@ export const waitForExactGeometryBackend = (): Promise<void> =>
  */
 export const initApp = (): void => {
   applyPreset(core)
-  exactGeometryBackendReady = enableDefaultExactGeometryBackend().catch((error) => {
-    console.error('[Asyra] Failed to initialize exact stroke backend:', error)
-  })
+  exactGeometryBackendReady = enableDefaultExactGeometryBackend().catch(
+    (error) => {
+      console.error('[Asyra] Failed to initialize exact stroke backend:', error)
+    }
+  )
 
   // Diagnostics: subscribe once to core load diagnostics and route reports to app-level handlers.
   initLoadDiagnostics()
@@ -58,6 +61,12 @@ export const initApp = (): void => {
   initInputSystem()
   // Initialize feature-system for application-level features
   initFeatures()
+
+  if (import.meta.env.DEV) {
+    window.__AsyraE2E__ = {
+      elementApis
+    }
+  }
 
   // Future: More framework initialization can be added here
   // initRender()

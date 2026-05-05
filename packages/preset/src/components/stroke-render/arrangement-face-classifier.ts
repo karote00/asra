@@ -95,9 +95,8 @@ const isPointInsideEvenOdd = (point: Vec2, polygons: Vec2[][]) => {
 }
 
 const isPointStrictlyInsidePolygon = (point: Vec2, polygon: Vec2[]) =>
-  !isPointOnPolygonBoundary(point, polygon) && isPointInsideEvenOdd(point, [
-    polygon
-  ])
+  !isPointOnPolygonBoundary(point, polygon) &&
+  isPointInsideEvenOdd(point, [polygon])
 
 const isPointInsideNonZero = (point: Vec2, polygons: Vec2[][]) =>
   polygons.reduce(
@@ -337,9 +336,9 @@ const classifyArrangementFaceByLegalDomain = (
   })
 
   if (sampledComponents.length === 0) {
-    const samplePoint = face.geometry.polygons
-      .flatMap((polygon) => getPolygonInteriorSamplePoint(polygon) ?? [])
-      [0]
+    const samplePoint = face.geometry.polygons.flatMap(
+      (polygon) => getPolygonInteriorSamplePoint(polygon) ?? []
+    )[0]
     return [
       {
         ...face,
@@ -396,4 +395,6 @@ export const classifyArrangementFacesByLegalDomain = (
 ): ArrangementFace[] =>
   domains.length === 0
     ? faces
-    : faces.flatMap((face) => classifyArrangementFaceByLegalDomain(face, domains))
+    : faces.flatMap((face) =>
+        classifyArrangementFaceByLegalDomain(face, domains)
+      )

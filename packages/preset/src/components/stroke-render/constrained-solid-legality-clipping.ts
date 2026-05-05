@@ -7,6 +7,7 @@ import {
 } from './constrained-solid-legality-diagnostics'
 import {
   buildConstrainedSolidOwnershipDiagnostics,
+  createEmptyConstrainedSolidOwnershipDiagnostics,
   type ConstrainedSolidOwnershipDiagnostics
 } from './constrained-solid-ownership-diagnostics'
 import type { SolidCenterStrokeGeometryPacket } from './solid-center-stroke-packets'
@@ -29,6 +30,21 @@ export interface ConstrainedSolidLegalityClippingResult {
   preservedGeometryIds: string[]
   legalityDiagnostics: ConstrainedSolidLegalityDiagnostics
   ownershipDiagnostics: ConstrainedSolidOwnershipDiagnostics
+}
+
+export interface ConstrainedSolidLegalityClippingOptions {
+  /**
+   * Debug-only: preserve legality-clipped solid packets before visual overlap /
+   * foreign-owner cleanup so implementers can inspect the raw constrained
+   * geometry. Product rendering must leave this disabled.
+   */
+  disableVisualOverlapCollapse?: boolean
+  /**
+   * Render-layer diagnostics can request candidate ownership metadata even when
+   * there is only one preserved packet. The core no-op clipping path keeps the
+   * historical empty diagnostics contract unless this is enabled.
+   */
+  includeOwnershipDiagnosticsForPreservedPackets?: boolean
 }
 
 const EPSILON = 1e-6
@@ -58,6 +74,89 @@ const isPointOnBoundary = (point: Vec2, polygon: Vec2[]) =>
     const end = polygon[(index + 1) % polygon.length]
     return isPointOnSegment(point, start, end)
   })
+
+const segmentsIntersect = (
+  firstStart: Vec2,
+  firstEnd: Vec2,
+  secondStart: Vec2,
+  secondEnd: Vec2
+) => {
+  const firstToSecondStart = orientation(firstStart, firstEnd, secondStart)
+  const firstToSecondEnd = orientation(firstStart, firstEnd, secondEnd)
+  const secondToFirstStart = orientation(secondStart, secondEnd, firstStart)
+  const secondToFirstEnd = orientation(secondStart, secondEnd, firstEnd)
+
+  if (
+    Math.abs(firstToSecondStart) <= EPSILON &&
+    isPointOnSegment(secondStart, firstStart, firstEnd)
+  ) {
+    return true
+  }
+  if (
+    Math.abs(firstToSecondEnd) <= EPSILON &&
+    isPointOnSegment(secondEnd, firstStart, firstEnd)
+  ) {
+    return true
+  }
+  if (
+    Math.abs(secondToFirstStart) <= EPSILON &&
+    isPointOnSegment(firstStart, secondStart, secondEnd)
+  ) {
+    return true
+  }
+  if (
+    Math.abs(secondToFirstEnd) <= EPSILON &&
+    isPointOnSegment(firstEnd, secondStart, secondEnd)
+  ) {
+    return true
+  }
+
+  const firstSegmentStraddlesSecond =
+    (firstToSecondStart > EPSILON && firstToSecondEnd < -EPSILON) ||
+    (firstToSecondStart < -EPSILON && firstToSecondEnd > EPSILON)
+  const secondSegmentStraddlesFirst =
+    (secondToFirstStart > EPSILON && secondToFirstEnd < -EPSILON) ||
+    (secondToFirstStart < -EPSILON && secondToFirstEnd > EPSILON)
+
+  return firstSegmentStraddlesSecond && secondSegmentStraddlesFirst
+}
+
+const isNonAdjacentEdgePair = (
+  firstIndex: number,
+  secondIndex: number,
+  edgeCount: number
+) =>
+  firstIndex !== secondIndex &&
+  (firstIndex + 1) % edgeCount !== secondIndex &&
+  (secondIndex + 1) % edgeCount !== firstIndex
+
+const isSelfIntersectingBoundary = (polygon: Vec2[]) => {
+  if (polygon.length < 4) {
+    return false
+  }
+
+  for (let firstIndex = 0; firstIndex < polygon.length; firstIndex += 1) {
+    const firstStart = polygon[firstIndex]
+    const firstEnd = polygon[(firstIndex + 1) % polygon.length]
+    for (
+      let secondIndex = firstIndex + 1;
+      secondIndex < polygon.length;
+      secondIndex += 1
+    ) {
+      if (!isNonAdjacentEdgePair(firstIndex, secondIndex, polygon.length)) {
+        continue
+      }
+
+      const secondStart = polygon[secondIndex]
+      const secondEnd = polygon[(secondIndex + 1) % polygon.length]
+      if (segmentsIntersect(firstStart, firstEnd, secondStart, secondEnd)) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
 
 const isPointStrictlyInsidePolygon = (point: Vec2, polygon: Vec2[]) => {
   if (isPointOnBoundary(point, polygon)) {
@@ -822,7 +921,8 @@ const clipGeometryPacketToOutsideDomain = (
 export const buildConstrainedSolidLegalityClippingResult = (
   sources: ConstrainedSolidLegalitySourceGroup[],
   strokes: StrokeAttrs[] | undefined,
-  packets: SolidCenterStrokeResolvedPacket[]
+  packets: SolidCenterStrokeResolvedPacket[],
+  options: ConstrainedSolidLegalityClippingOptions = {}
 ): ConstrainedSolidLegalityClippingResult => {
   const initialLegalityDiagnostics = buildConstrainedSolidLegalityDiagnostics(
     sources,
@@ -839,6 +939,10 @@ export const buildConstrainedSolidLegalityClippingResult = (
   const clippedPackets = packets.map((packet) => {
     const domain = domainsByGeometryId.get(packet.geometry.geometryId)
     if (!domain) {
+      return packet
+    }
+
+    if (isSelfIntersectingBoundary(domain.boundaryPolygon)) {
       return packet
     }
 
@@ -865,6 +969,32 @@ export const buildConstrainedSolidLegalityClippingResult = (
       geometry: clipped.geometry
     }
   })
+
+  if (
+    clippedPackets.length < 2 ||
+    options.disableVisualOverlapCollapse === true
+  ) {
+    const legalityDiagnostics = buildConstrainedSolidLegalityDiagnostics(
+      sources,
+      strokes,
+      clippedPackets
+    )
+    const ownershipDiagnostics =
+      options.disableVisualOverlapCollapse === true ||
+      options.includeOwnershipDiagnosticsForPreservedPackets === true
+        ? buildConstrainedSolidOwnershipDiagnostics(clippedPackets)
+        : createEmptyConstrainedSolidOwnershipDiagnostics()
+
+    return {
+      packets: clippedPackets,
+      eligibleOverflowGeometryIds,
+      preservedGeometryIds: clippedPackets.map(
+        (packet) => packet.geometry.geometryId
+      ),
+      legalityDiagnostics,
+      ownershipDiagnostics
+    }
+  }
 
   const ownershipDiagnostics =
     buildConstrainedSolidOwnershipDiagnostics(clippedPackets)

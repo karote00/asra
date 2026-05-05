@@ -162,9 +162,9 @@ describe('geometry backend contract', () => {
     expect(loadCount).toBe(1)
 
     expect(resolved.union([inputRegion], 'evenodd')).toEqual([outputRegion])
-    expect(resolved.difference([inputRegion], [outputRegion], 'nonzero')).toEqual([
-      outputRegion
-    ])
+    expect(
+      resolved.difference([inputRegion], [outputRegion], 'nonzero')
+    ).toEqual([outputRegion])
     expect(
       resolved.intersection([inputRegion], [outputRegion], 'evenodd')
     ).toEqual([outputRegion])

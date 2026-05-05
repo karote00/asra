@@ -758,15 +758,17 @@ const polygonsHavePositiveAreaOverlap = (left: Vec2[], right: Vec2[]) =>
   normalizePolygonToConvexPieces(left).some((leftPiece) =>
     normalizePolygonToConvexPieces(right).some((rightPiece) => {
       if (
-        !boundsOverlap(getPolygonBounds(leftPiece), getPolygonBounds(rightPiece))
+        !boundsOverlap(
+          getPolygonBounds(leftPiece),
+          getPolygonBounds(rightPiece)
+        )
       ) {
         return false
       }
 
       const intersection = intersectConvexPolygons(leftPiece, rightPiece)
       return (
-        intersection.length >= 3 &&
-        Math.abs(signedArea(intersection)) > EPSILON
+        intersection.length >= 3 && Math.abs(signedArea(intersection)) > EPSILON
       )
     })
   )

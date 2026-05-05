@@ -6254,3 +6254,37 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - `docs/ai/apps/asyra-design/plans/stroke-engine-final/runtime-data-representation.md`
   - `docs/ai/apps/asyra-design/plans/stroke-engine-final/topology-and-product-semantics.md`
   - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-05-04 - Promote self-intersecting inside solid to exact arranged visual collapse
+
+- Context:
+  - The reported vector-6 self-intersecting closed star with inside solid stroke
+    exposed a false completion standard: global E2E could pass while authored
+    segments disappeared or overlap opacity returned in local crops.
+  - The previous active docs still required self-intersecting constrained solid
+    to remain a local-side candidate family even after exact arrangement became
+    available, which conflicted with the current source-of-truth plan requiring
+    one final geometry family for render, hit-test, and export.
+- Decision:
+  - Promote self-intersecting constrained solid full-loop candidates through
+    exact arrangement for the current product slice.
+  - Preserve typed one-sided per-source-segment candidates and do not use source
+    self-intersections as clipping boundaries.
+  - Collapse same-visual overlap into one final visual layer while preserving
+    owner/source-span metadata for downstream projection.
+  - Keep constrained dashed self-intersecting exact promotion gated; dashed
+    interval ownership and legal-domain clipping still require a separate exact
+    oracle.
+- Consequences:
+  - Reported vector-6 inside solid must keep all five authored segments visible
+    in global visual tests and in local crops for five endpoints, five
+    self-intersections, and authored segment bodies.
+  - Red alpha overlap in the same visual packet must not become darker than one
+    product layer.
+  - Future claims of completion for this slice require the visual artifacts to
+    be inspected, not only E2E command success.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/geometry-pipeline.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/target-architecture.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`

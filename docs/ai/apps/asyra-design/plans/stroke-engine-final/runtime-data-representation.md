@@ -279,6 +279,10 @@ Minimum fields:
   runtime system property `strokeDebugDisableVisualOverlapCollapse`. This
   property is global, runtime-only, and must not be serialized into authored
   vector geometry or stroke payloads.
+- Because the property is global, automated visual tests must explicitly keep it
+  off for product assertions. A test that needs raw-overlap inspection must turn
+  it on only for that local diagnostic step and must restore it to `false`
+  before continuing or exiting.
 - different paint, opacity, blend mode, mask, effect, clip context, stacking
   group, visibility state, or stroke spec must remain separate
 - collapsed faces must preserve all owners through `ownerSet`; no helper may

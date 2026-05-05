@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page, type TestInfo } from '@playwright/test'
 import {
   createOval,
   createRectangle,
@@ -34,6 +34,14 @@ interface RasterCapture {
   padding: number
 }
 
+interface LocalRasterCapture {
+  base64: string
+  width: number
+  height: number
+  scale: number
+  source: { x: number; y: number; width: number; height: number }
+}
+
 const PADDING = 24
 const STROKE_WIDTH = 10
 const MIN_SUPPORTED_COVERAGE = 0.6
@@ -41,6 +49,10 @@ const MAX_UNSUPPORTED_COVERAGE = 0.03
 const MAX_EXTERIOR_LEAK = 0.12
 const MAX_CAP_VARIANCE = 0.12
 const STROKE_COLOR = '00FF00'
+const REPORTED_VECTOR_6_PRODUCT_STROKE_COLOR = 'DF0606'
+const REPORTED_VECTOR_6_LOCAL_SCALE = 14
+const REPORTED_VECTOR_6_LOCAL_WIDTH = 460
+const REPORTED_VECTOR_6_LOCAL_HEIGHT = 400
 
 const getSelectedElementSnapshot = async (
   page: Page
@@ -112,6 +124,100 @@ const captureSelectedElementRaster = async (
   }
 }
 
+const cropSelectedElementRaster = async (
+  page: Page,
+  raster: RasterCapture,
+  localCenter: { x: number; y: number },
+  options: { scale?: number; width?: number; height?: number } = {}
+): Promise<LocalRasterCapture> => {
+  const scale = options.scale ?? 10
+  const width = options.width ?? 360
+  const height = options.height ?? 300
+  const sourceWidth = width / scale
+  const sourceHeight = height / scale
+  const source = {
+    x: raster.padding + localCenter.x - sourceWidth / 2,
+    y: raster.padding + localCenter.y - sourceHeight / 2,
+    width: sourceWidth,
+    height: sourceHeight
+  }
+
+  const base64 = await page.evaluate(
+    async ({ base64, height, source, width }) => {
+      const response = await fetch(`data:image/png;base64,${base64}`)
+      const blob = await response.blob()
+      const bitmap = await createImageBitmap(blob)
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const context = canvas.getContext('2d')
+      if (!context) {
+        throw new Error('Canvas 2D context unavailable')
+      }
+
+      context.imageSmoothingEnabled = false
+      context.drawImage(
+        bitmap,
+        source.x,
+        source.y,
+        source.width,
+        source.height,
+        0,
+        0,
+        width,
+        height
+      )
+      return canvas.toDataURL('image/png').split(',')[1] ?? ''
+    },
+    {
+      base64: raster.base64,
+      height,
+      source,
+      width
+    }
+  )
+
+  return {
+    base64,
+    width,
+    height,
+    scale,
+    source
+  }
+}
+
+const attachPng = async (label: string, base64: string, testInfo: TestInfo) => {
+  await testInfo.attach(label, {
+    body: Buffer.from(base64, 'base64'),
+    contentType: 'image/png'
+  })
+}
+
+const setStrokeDebugDisableVisualOverlapCollapse = async (
+  page: Page,
+  disabled: boolean
+) => {
+  await page.evaluate((nextDisabled) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    core?.setSystemProperty?.(
+      'strokeDebugDisableVisualOverlapCollapse',
+      nextDisabled
+    )
+  }, disabled)
+  await page.waitForTimeout(120)
+}
+
+const getStrokeDebugDisableVisualOverlapCollapse = async (page: Page) =>
+  page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    return (
+      core?.getSystemProperty?.('strokeDebugDisableVisualOverlapCollapse') ===
+      true
+    )
+  })
+
 const getGreenCoverage = async (
   page: Page,
   raster: RasterCapture,
@@ -174,6 +280,202 @@ const getGreenCoverage = async (
       region: targetRegion(region, raster)
     }
   )
+
+const getBase64GreenCoverage = async (
+  page: Page,
+  base64: string,
+  region: { x: number; y: number; width: number; height: number }
+) =>
+  page.evaluate(
+    async ({
+      base64,
+      region: targetRegion
+    }: {
+      base64: string
+      region: { x: number; y: number; width: number; height: number }
+    }) => {
+      const response = await fetch(`data:image/png;base64,${base64}`)
+      const blob = await response.blob()
+      const bitmap = await createImageBitmap(blob)
+      const canvas = document.createElement('canvas')
+      canvas.width = bitmap.width
+      canvas.height = bitmap.height
+      const context = canvas.getContext('2d')
+      if (!context) {
+        throw new Error('Canvas 2D context unavailable')
+      }
+
+      context.drawImage(bitmap, 0, 0)
+      const startX = Math.max(0, Math.floor(targetRegion.x))
+      const startY = Math.max(0, Math.floor(targetRegion.y))
+      const endX = Math.min(
+        canvas.width,
+        Math.ceil(targetRegion.x + targetRegion.width)
+      )
+      const endY = Math.min(
+        canvas.height,
+        Math.ceil(targetRegion.y + targetRegion.height)
+      )
+
+      let total = 0
+      let green = 0
+      for (let y = startY; y < endY; y += 1) {
+        for (let x = startX; x < endX; x += 1) {
+          const [r, g, b, a] = context.getImageData(x, y, 1, 1).data
+          total += 1
+          if (
+            a > 180 &&
+            g > 170 &&
+            r < 120 &&
+            b < 120 &&
+            g - r > 70 &&
+            g - b > 70
+          ) {
+            green += 1
+          }
+        }
+      }
+
+      return total > 0 ? green / total : 0
+    },
+    {
+      base64,
+      region
+    }
+  )
+
+const getBase64RedCoverage = async (
+  page: Page,
+  base64: string,
+  region: { x: number; y: number; width: number; height: number }
+) =>
+  page.evaluate(
+    async ({
+      base64,
+      region: targetRegion
+    }: {
+      base64: string
+      region: { x: number; y: number; width: number; height: number }
+    }) => {
+      const response = await fetch(`data:image/png;base64,${base64}`)
+      const blob = await response.blob()
+      const bitmap = await createImageBitmap(blob)
+      const canvas = document.createElement('canvas')
+      canvas.width = bitmap.width
+      canvas.height = bitmap.height
+      const context = canvas.getContext('2d')
+      if (!context) {
+        throw new Error('Canvas 2D context unavailable')
+      }
+
+      context.drawImage(bitmap, 0, 0)
+      const startX = Math.max(0, Math.floor(targetRegion.x))
+      const startY = Math.max(0, Math.floor(targetRegion.y))
+      const endX = Math.min(
+        canvas.width,
+        Math.ceil(targetRegion.x + targetRegion.width)
+      )
+      const endY = Math.min(
+        canvas.height,
+        Math.ceil(targetRegion.y + targetRegion.height)
+      )
+
+      let total = 0
+      let red = 0
+      for (let y = startY; y < endY; y += 1) {
+        for (let x = startX; x < endX; x += 1) {
+          const [r, g, b, a] = context.getImageData(x, y, 1, 1).data
+          total += 1
+          if (
+            a > 120 &&
+            r > 95 &&
+            g < 80 &&
+            b < 80 &&
+            r - g > 35 &&
+            r - b > 35
+          ) {
+            red += 1
+          }
+        }
+      }
+
+      return total > 0 ? red / total : 0
+    },
+    {
+      base64,
+      region
+    }
+  )
+
+const getBase64DoubleRedCoverage = async (
+  page: Page,
+  base64: string,
+  region: { x: number; y: number; width: number; height: number }
+) =>
+  page.evaluate(
+    async ({
+      base64,
+      region: targetRegion
+    }: {
+      base64: string
+      region: { x: number; y: number; width: number; height: number }
+    }) => {
+      const response = await fetch(`data:image/png;base64,${base64}`)
+      const blob = await response.blob()
+      const bitmap = await createImageBitmap(blob)
+      const canvas = document.createElement('canvas')
+      canvas.width = bitmap.width
+      canvas.height = bitmap.height
+      const context = canvas.getContext('2d')
+      if (!context) {
+        throw new Error('Canvas 2D context unavailable')
+      }
+
+      context.drawImage(bitmap, 0, 0)
+      const startX = Math.max(0, Math.floor(targetRegion.x))
+      const startY = Math.max(0, Math.floor(targetRegion.y))
+      const endX = Math.min(
+        canvas.width,
+        Math.ceil(targetRegion.x + targetRegion.width)
+      )
+      const endY = Math.min(
+        canvas.height,
+        Math.ceil(targetRegion.y + targetRegion.height)
+      )
+
+      let total = 0
+      let doubleRed = 0
+      for (let y = startY; y < endY; y += 1) {
+        for (let x = startX; x < endX; x += 1) {
+          const [r, g, b, a] = context.getImageData(x, y, 1, 1).data
+          total += 1
+          if (
+            a > 180 &&
+            r > 150 &&
+            g < 55 &&
+            b < 55 &&
+            r - g > 95 &&
+            r - b > 95
+          ) {
+            doubleRed += 1
+          }
+        }
+      }
+
+      return total > 0 ? doubleRed / total : 0
+    },
+    {
+      base64,
+      region
+    }
+  )
+
+const getRedCoverage = async (
+  page: Page,
+  raster: RasterCapture,
+  region: { x: number; y: number; width: number; height: number }
+) =>
+  getBase64RedCoverage(page, raster.base64, targetRegion(region, raster))
 
 const targetRegion = (
   region: { x: number; y: number; width: number; height: number },
@@ -260,6 +562,382 @@ const getOpenDiagonalProbeRegions = (raster: RasterCapture) => ({
   }
 })
 
+const getReportedVector6InsideSolidProbeRegions = (raster: RasterCapture) => {
+  const px = raster.padding
+  return {
+    topSharpLeftExterior: {
+      // Keep this probe outside the legal top stroke band. The old probe at
+      // x=px+170/y=px+2 overlapped the intended inside stroke near tp-12 and
+      // forced a false "exterior leak" failure.
+      x: px + 146,
+      y: px + 0,
+      width: 18,
+      height: 18
+    },
+    topSharpRightExterior: {
+      // Symmetric true-exterior probe for the right side of tp-12. Keep it
+      // outside the intended upper stroke edge instead of sampling the band.
+      x: px + 214,
+      y: px + 0,
+      width: 18,
+      height: 18
+    },
+    leftSharpExterior: {
+      // True exterior left of tp-15. The previous probe overlapped the
+      // intended descending stroke band and measured valid coverage.
+      x: px - 12,
+      y: px + 40,
+      width: 14,
+      height: 20
+    },
+    rightSharpUpperExterior: {
+      // True void above the right sharp endpoint. The previous probe overlapped
+      // the legal upper stroke band and forced valid geometry to be treated as
+      // an exterior leak.
+      x: px + 336,
+      y: px + 88,
+      width: 24,
+      height: 18
+    },
+    rightSharpLowerExterior: {
+      // This must sample the actual void below the right sharp endpoint.
+      // The old probe overlapped the legitimate inside stroke band and
+      // incorrectly forced self-intersection-style clipping.
+      x: px + 327,
+      y: px + 182,
+      width: 24,
+      height: 24
+    },
+    lowerCurveExterior: {
+      x: px + 296,
+      y: px + 320,
+      width: 24,
+      height: 24
+    },
+    crossingInteriorStroke: {
+      // Positive probe for an authored crossing segment. Keep it in the stroke
+      // core rather than straddling the antialiased edge, otherwise tiny raster
+      // shifts can incorrectly report missing coverage.
+      x: px + 206,
+      y: px + 84,
+      width: 20,
+      height: 14
+    },
+    unrelatedCrossingVoid: {
+      x: px + 290,
+      y: px + 45,
+      width: 28,
+      height: 28
+    },
+    bridgedUpperVoid: {
+      x: px + 250,
+      y: px + 58,
+      width: 42,
+      height: 28
+    },
+    bridgedRightVoid: {
+      // Void between the two right-side stroke bands. This catches a giant
+      // bridge face without sampling the legal sharp-end join at tp-14.
+      x: px + 326,
+      y: px + 141,
+      width: 12,
+      height: 18
+    }
+  }
+}
+
+interface ReportedVector6LocalVisualTarget {
+  label: string
+  center: { x: number; y: number }
+  minCoverage: number
+  maxCoverage: number
+}
+
+interface ReportedVector6PointProbe {
+  label: string
+  point: { x: number; y: number }
+  size?: number
+  minCoverage?: number
+  maxCoverage?: number
+}
+
+const reportedVector6EndpointVisualTargets: ReportedVector6LocalVisualTarget[] =
+  [
+    {
+      label: 'endpoint-tp-12-top',
+      center: { x: 192.42083700791653, y: 0 },
+      minCoverage: 0.002,
+      maxCoverage: 0.42
+    },
+    {
+      label: 'endpoint-tp-13-bottom-left-curve',
+      center: { x: 11.358174406717296, y: 364.1297089212308 },
+      minCoverage: 0.002,
+      maxCoverage: 0.42
+    },
+    {
+      label: 'endpoint-tp-14-right',
+      center: { x: 360.120941483566, y: 144.31562775593738 },
+      minCoverage: 0.002,
+      // This crop includes the legal miter/join plus both adjacent segment
+      // bodies. Exterior leaks are covered by the forbidden bridge probes; a
+      // lower total-coverage ceiling incorrectly rejects the required miter.
+      maxCoverage: 0.58
+    },
+    {
+      label: 'endpoint-tp-15-left',
+      center: { x: 0, y: 14.030686031827244 },
+      minCoverage: 0.002,
+      // Same as tp-14: the high-zoom endpoint crop intentionally contains a
+      // dense legal join region. This threshold prevents accidental filled
+      // bridges without treating a valid miter as an exterior leak.
+      maxCoverage: 0.62
+    },
+    {
+      label: 'endpoint-tp-16-bottom-right-curve',
+      center: { x: 270.59180204238254, y: 345.42212754546125 },
+      minCoverage: 0.002,
+      // This endpoint sits where a cubic segment and a steep line meet. The
+      // correct local crop contains a relatively dense legal stroke band, so
+      // the cap is valid below the broader bridge threshold used elsewhere.
+      maxCoverage: 0.46
+    }
+  ]
+
+const reportedVector6SelfIntersectionVisualTargets: ReportedVector6LocalVisualTarget[] =
+  [
+    {
+      label: 'self-intersection-upper-cross',
+      center: { x: 215.77, y: 92.09 },
+      minCoverage: 0.004,
+      maxCoverage: 0.75
+    },
+    {
+      label: 'self-intersection-left-cross',
+      center: { x: 112.42, y: 160.22 },
+      minCoverage: 0.004,
+      maxCoverage: 0.75
+    },
+    {
+      label: 'self-intersection-center-cross',
+      center: { x: 164.19, y: 73.43 },
+      minCoverage: 0.004,
+      maxCoverage: 0.75
+    },
+    {
+      label: 'self-intersection-lower-cross',
+      center: { x: 200.81, y: 271.31 },
+      minCoverage: 0.004,
+      maxCoverage: 0.75
+    },
+    {
+      label: 'self-intersection-right-cross',
+      center: { x: 250.12, y: 234.23 },
+      minCoverage: 0.004,
+      maxCoverage: 0.75
+    }
+  ]
+
+const reportedVector6SegmentBodyVisualTargets: ReportedVector6LocalVisualTarget[] =
+  [
+    {
+      label: 'segment-ts-23-cubic-near-top',
+      center: { x: 158, y: 78 },
+      minCoverage: 0.08,
+      maxCoverage: 0.75
+    },
+    {
+      label: 'segment-ts-23-cubic-mid',
+      center: { x: 112, y: 162 },
+      minCoverage: 0.08,
+      maxCoverage: 0.75
+    },
+    {
+      label: 'segment-ts-23-cubic-lower',
+      center: { x: 73.48, y: 218.9 },
+      minCoverage: 0.08,
+      maxCoverage: 0.75
+    },
+    {
+      label: 'segment-ts-24-line-near-left',
+      center: { x: 78, y: 346 },
+      minCoverage: 0.08,
+      maxCoverage: 0.75
+    },
+    {
+      label: 'segment-ts-24-line-mid',
+      center: { x: 210.79, y: 263.99 },
+      minCoverage: 0.08,
+      maxCoverage: 0.75
+    },
+    {
+      label: 'segment-ts-24-line-near-right',
+      center: { x: 310, y: 196 },
+      minCoverage: 0.08,
+      maxCoverage: 0.75
+    },
+    {
+      label: 'segment-ts-25-line-near-right',
+      center: { x: 318, y: 128 },
+      minCoverage: 0.08,
+      maxCoverage: 0.75
+    },
+    {
+      label: 'segment-ts-25-line-mid',
+      center: { x: 180.06, y: 79.17 },
+      minCoverage: 0.08,
+      maxCoverage: 0.75
+    },
+    {
+      label: 'segment-ts-25-line-near-left',
+      center: { x: 72, y: 40 },
+      minCoverage: 0.08,
+      maxCoverage: 0.75
+    },
+    {
+      label: 'segment-ts-26-cubic-near-left',
+      center: { x: 48, y: 58 },
+      minCoverage: 0.08,
+      maxCoverage: 0.75
+    },
+    {
+      label: 'segment-ts-26-cubic-mid',
+      center: { x: 132.79, y: 186.24 },
+      minCoverage: 0.08,
+      maxCoverage: 0.75
+    },
+    {
+      label: 'segment-ts-26-cubic-lower',
+      center: { x: 218, y: 302 },
+      minCoverage: 0.08,
+      maxCoverage: 0.75
+    },
+    {
+      label: 'segment-ts-27-cubic-lower',
+      center: { x: 266, y: 296 },
+      minCoverage: 0.08,
+      maxCoverage: 0.75
+    },
+    {
+      label: 'segment-ts-27-cubic-mid',
+      center: { x: 234.01, y: 166.2 },
+      minCoverage: 0.08,
+      maxCoverage: 0.75
+    },
+    {
+      label: 'segment-ts-27-cubic-near-top',
+      center: { x: 210, y: 70 },
+      minCoverage: 0.08,
+      maxCoverage: 0.75
+    }
+  ]
+
+const reportedVector6RequiredStrokeProbes: ReportedVector6PointProbe[] = [
+  {
+    label: 'ts-23 cubic upper core',
+    point: { x: 167, y: 60 },
+    minCoverage: 0.22
+  },
+  {
+    label: 'ts-23 cubic middle core',
+    point: { x: 116, y: 158 },
+    minCoverage: 0.22
+  },
+  {
+    label: 'ts-23 cubic lower core',
+    point: { x: 45.5, y: 261.4 },
+    minCoverage: 0.18
+  },
+  {
+    label: 'ts-24 line lower-left core',
+    point: { x: 82, y: 352 },
+    minCoverage: 0.22
+  },
+  {
+    label: 'ts-24 line middle core',
+    point: { x: 194, y: 279 },
+    minCoverage: 0.22
+  },
+  {
+    label: 'ts-24 line upper-right core',
+    point: { x: 298, y: 196 },
+    minCoverage: 0.22
+  },
+  {
+    label: 'ts-25 line right core',
+    point: { x: 314, y: 128 },
+    minCoverage: 0.22
+  },
+  {
+    label: 'ts-25 line middle core',
+    point: { x: 190, y: 84 },
+    minCoverage: 0.22
+  },
+  {
+    label: 'ts-25 line left core',
+    point: { x: 72, y: 41 },
+    minCoverage: 0.18
+  },
+  {
+    label: 'ts-26 cubic left core',
+    point: { x: 39.3, y: 65.6 },
+    minCoverage: 0.18
+  },
+  {
+    label: 'ts-26 cubic middle core',
+    point: { x: 134, y: 186 },
+    minCoverage: 0.22
+  },
+  {
+    label: 'ts-26 cubic lower core',
+    point: { x: 222, y: 302 },
+    minCoverage: 0.18
+  },
+  {
+    label: 'ts-27 cubic lower core',
+    point: { x: 265, y: 296 },
+    minCoverage: 0.18
+  },
+  {
+    label: 'ts-27 cubic middle core',
+    point: { x: 235, y: 167 },
+    minCoverage: 0.22
+  },
+  {
+    label: 'ts-27 cubic upper core',
+    point: { x: 209, y: 70 },
+    minCoverage: 0.18
+  }
+]
+
+const reportedVector6ForbiddenBridgeProbes: ReportedVector6PointProbe[] = [
+  {
+    label: 'upper-left empty face',
+    point: { x: 120, y: 80 },
+    maxCoverage: 0.05
+  },
+  {
+    label: 'upper-right empty face',
+    point: { x: 292, y: 72 },
+    maxCoverage: 0.05
+  },
+  {
+    label: 'right interior empty face',
+    point: { x: 315, y: 150 },
+    maxCoverage: 0.05
+  },
+  {
+    label: 'center interior empty face',
+    point: { x: 168, y: 165 },
+    maxCoverage: 0.05
+  },
+  {
+    label: 'lower-right interior empty face',
+    point: { x: 244, y: 274 },
+    maxCoverage: 0.05
+  }
+]
+
 const getOvalProbeRegions = (raster: RasterCapture) => {
   const centerColumn = raster.padding + raster.elementWidth / 2 - 2
   const centerRow = raster.padding + raster.elementHeight / 2 - 2
@@ -318,6 +996,7 @@ const configureSelectedStroke = async (
     cap: 'butt' | 'square' | 'round'
     width?: number
     color?: string
+    opacity?: number
   }
 ) => {
   await ensureElementSelected(page, config.elementType)
@@ -327,20 +1006,28 @@ const configureSelectedStroke = async (
   const width = String(config.width ?? STROKE_WIDTH)
   const color = config.color ?? STROKE_COLOR
 
-  await propertiesPanel.getByTestId('prop-stroke-style-0').selectOption('solid')
+  await propertiesPanel
+    .getByTestId('prop-stroke-style-0')
+    .selectOption('solid', { force: true })
   await propertiesPanel
     .getByTestId('prop-stroke-position-0')
-    .selectOption(config.position)
+    .selectOption(config.position, { force: true })
   await propertiesPanel
     .getByTestId('prop-stroke-join-0')
-    .selectOption(config.join)
+    .selectOption(config.join, { force: true })
   await propertiesPanel
     .getByTestId('prop-stroke-cap-0')
-    .selectOption(config.cap)
+    .selectOption(config.cap, { force: true })
   await propertiesPanel.getByTestId('prop-stroke-width-0').fill(width)
   await propertiesPanel.getByTestId('prop-stroke-width-0').press('Enter')
   await propertiesPanel.getByTestId('prop-stroke-color-0').fill(color)
   await propertiesPanel.getByTestId('prop-stroke-color-0').press('Enter')
+  if (config.opacity !== undefined) {
+    await propertiesPanel
+      .getByTestId('prop-stroke-opacity-0')
+      .fill(String(config.opacity))
+    await propertiesPanel.getByTestId('prop-stroke-opacity-0').press('Enter')
+  }
   await page.waitForTimeout(180)
 }
 
@@ -457,6 +1144,7 @@ const patchSelectedVectorToClosedRectangle = async (page: Page) => {
           }
         },
         closed: true,
+        fills: [],
         width: 80,
         height: 40
       },
@@ -614,6 +1302,437 @@ const patchSelectedVectorToSelfIntersectingBowtie = async (page: Page) => {
   await page.waitForTimeout(180)
 }
 
+const patchSelectedVectorToReportedVector6 = async (page: Page) => {
+  await page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+    if (!selectedId) {
+      throw new Error('No selected vector to patch')
+    }
+
+    const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+    const computed = element?.getAllComputedData?.()
+    const primaryNetwork = Object.values(computed?.networks ?? {})[0] as
+      | { id: string }
+      | undefined
+
+    if (!computed || !primaryNetwork) {
+      throw new Error('Missing vector topology')
+    }
+
+    const points = {
+      'tp-12': {
+        id: 'tp-12',
+        kind: 'anchor',
+        x: 192.42083700791653,
+        y: 0,
+        anchorType: 'sharp'
+      },
+      'tp-13': {
+        id: 'tp-13',
+        kind: 'anchor',
+        x: 11.358174406717296,
+        y: 364.1297089212308,
+        anchorType: 'smooth'
+      },
+      'tp-12:out': {
+        id: 'tp-12:out',
+        kind: 'control',
+        x: 170.10536493824844,
+        y: 119.07041481724248,
+        controlForId: 'tp-12',
+        controlRole: 'out'
+      },
+      'tp-13:in': {
+        id: 'tp-13:in',
+        kind: 'control',
+        x: -42.09205809548172,
+        y: 343.2841182453731,
+        controlForId: 'tp-13',
+        controlRole: 'in'
+      },
+      'tp-13:out': {
+        id: 'tp-13:out',
+        kind: 'control',
+        x: 78.17096503446606,
+        y: 390.18669726605293,
+        controlForId: 'tp-13',
+        controlRole: 'out'
+      },
+      'tp-14': {
+        id: 'tp-14',
+        kind: 'anchor',
+        x: 360.120941483566,
+        y: 144.31562775593738,
+        anchorType: 'sharp'
+      },
+      'tp-15': {
+        id: 'tp-15',
+        kind: 'anchor',
+        x: 0,
+        y: 14.030686031827244,
+        anchorType: 'sharp'
+      },
+      'tp-16': {
+        id: 'tp-16',
+        kind: 'anchor',
+        x: 270.59180204238254,
+        y: 345.42212754546125,
+        anchorType: 'smooth'
+      },
+      'tp-15:out': {
+        id: 'tp-15:out',
+        kind: 'control',
+        x: 0,
+        y: 14.030686031827244,
+        controlForId: 'tp-15',
+        controlRole: 'out'
+      },
+      'tp-16:in': {
+        id: 'tp-16:in',
+        kind: 'control',
+        x: 263.9105229796076,
+        y: 362.79345310867603,
+        controlForId: 'tp-16',
+        controlRole: 'in'
+      },
+      'tp-16:out': {
+        id: 'tp-16:out',
+        kind: 'control',
+        x: 277.2730811051575,
+        y: 328.05080198224647,
+        controlForId: 'tp-16',
+        controlRole: 'out'
+      }
+    }
+
+    const segments = {
+      'ts-23': {
+        id: 'ts-23',
+        startId: 'tp-12',
+        endId: 'tp-13',
+        outControlId: 'tp-12:out',
+        inControlId: 'tp-13:in'
+      },
+      'ts-24': {
+        id: 'ts-24',
+        startId: 'tp-13',
+        endId: 'tp-14',
+        outControlId: 'tp-13:out',
+        inControlId: null
+      },
+      'ts-25': {
+        id: 'ts-25',
+        startId: 'tp-14',
+        endId: 'tp-15',
+        outControlId: null,
+        inControlId: null
+      },
+      'ts-26': {
+        id: 'ts-26',
+        startId: 'tp-15',
+        endId: 'tp-16',
+        outControlId: 'tp-15:out',
+        inControlId: 'tp-16:in'
+      },
+      'ts-27': {
+        id: 'ts-27',
+        startId: 'tp-16',
+        endId: 'tp-12',
+        outControlId: 'tp-16:out',
+        inControlId: null
+      }
+    }
+
+    core?.changeComputedData?.(
+      [selectedId],
+      {
+        points,
+        segments,
+        networks: {
+          [primaryNetwork.id]: {
+            id: primaryNetwork.id,
+            pointIds: ['tp-12', 'tp-13', 'tp-14', 'tp-15', 'tp-16'],
+            segmentIds: ['ts-23', 'ts-24', 'ts-25', 'ts-26', 'ts-27'],
+            closed: true
+          }
+        },
+        closed: true,
+        width: 360.120941483566,
+        height: 366.06359840210007
+      },
+      { undoable: false }
+    )
+  })
+
+  await page.waitForTimeout(180)
+}
+
+const setSelectedVectorReportedSolidStroke = async (
+  page: Page,
+  options: { color?: string; opacity?: number } = {}
+) => {
+  await page.evaluate(
+    ({ color, opacity }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+      if (!selectedId) {
+        throw new Error('No selected vector for stroke patch')
+      }
+
+      const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      const baseStroke = Array.isArray(computed.strokes)
+        ? (computed.strokes[0] ?? {})
+        : {}
+      core?.changeComputedData?.(
+        [selectedId],
+        {
+          strokes: [
+            {
+              ...baseStroke,
+              id: baseStroke.id ?? 'reported-vector-6-solid-inside',
+              kind: 'solid',
+              style: 'solid',
+              position: 'inside',
+              width: 10,
+              dashPattern: [],
+              dashOffset: 0,
+              color: `#${color}`,
+              opacity: opacity === undefined ? 1 : opacity / 100,
+              visible: true,
+              gradient: null,
+              fill: null,
+              defaultColorFormat: 'hex',
+              colorFormat: 'hex',
+              joinType: 'miter',
+              capType: 'butt',
+              miterAngle: 28.96
+            }
+          ]
+        },
+        { undoable: false }
+      )
+    },
+    {
+      color: options.color ?? STROKE_COLOR,
+      opacity: options.opacity
+    }
+  )
+
+  await page.waitForTimeout(180)
+}
+
+const createReportedVector6InsideSolid = async (
+  page: Page,
+  options: { color?: string; opacity?: number } = {}
+) => {
+  await page.evaluate(
+    ({ color, opacity }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const points = {
+        'tp-12': {
+          id: 'tp-12',
+          kind: 'anchor',
+          x: 192.42083700791653,
+          y: 0,
+          anchorType: 'sharp'
+        },
+        'tp-13': {
+          id: 'tp-13',
+          kind: 'anchor',
+          x: 11.358174406717296,
+          y: 364.1297089212308,
+          anchorType: 'smooth'
+        },
+        'tp-12:out': {
+          id: 'tp-12:out',
+          kind: 'control',
+          x: 170.10536493824844,
+          y: 119.07041481724248,
+          controlForId: 'tp-12',
+          controlRole: 'out'
+        },
+        'tp-13:in': {
+          id: 'tp-13:in',
+          kind: 'control',
+          x: -42.09205809548172,
+          y: 343.2841182453731,
+          controlForId: 'tp-13',
+          controlRole: 'in'
+        },
+        'tp-13:out': {
+          id: 'tp-13:out',
+          kind: 'control',
+          x: 78.17096503446606,
+          y: 390.18669726605293,
+          controlForId: 'tp-13',
+          controlRole: 'out'
+        },
+        'tp-14': {
+          id: 'tp-14',
+          kind: 'anchor',
+          x: 360.120941483566,
+          y: 144.31562775593738,
+          anchorType: 'sharp'
+        },
+        'tp-15': {
+          id: 'tp-15',
+          kind: 'anchor',
+          x: 0,
+          y: 14.030686031827244,
+          anchorType: 'sharp'
+        },
+        'tp-16': {
+          id: 'tp-16',
+          kind: 'anchor',
+          x: 270.59180204238254,
+          y: 345.42212754546125,
+          anchorType: 'smooth'
+        },
+        'tp-15:out': {
+          id: 'tp-15:out',
+          kind: 'control',
+          x: 0,
+          y: 14.030686031827244,
+          controlForId: 'tp-15',
+          controlRole: 'out'
+        },
+        'tp-16:in': {
+          id: 'tp-16:in',
+          kind: 'control',
+          x: 263.9105229796076,
+          y: 362.79345310867603,
+          controlForId: 'tp-16',
+          controlRole: 'in'
+        },
+        'tp-16:out': {
+          id: 'tp-16:out',
+          kind: 'control',
+          x: 277.2730811051575,
+          y: 328.05080198224647,
+          controlForId: 'tp-16',
+          controlRole: 'out'
+        }
+      }
+      const segments = {
+        'ts-23': {
+          id: 'ts-23',
+          startId: 'tp-12',
+          endId: 'tp-13',
+          outControlId: 'tp-12:out',
+          inControlId: 'tp-13:in'
+        },
+        'ts-24': {
+          id: 'ts-24',
+          startId: 'tp-13',
+          endId: 'tp-14',
+          outControlId: 'tp-13:out',
+          inControlId: null
+        },
+        'ts-25': {
+          id: 'ts-25',
+          startId: 'tp-14',
+          endId: 'tp-15',
+          outControlId: null,
+          inControlId: null
+        },
+        'ts-26': {
+          id: 'ts-26',
+          startId: 'tp-15',
+          endId: 'tp-16',
+          outControlId: 'tp-15:out',
+          inControlId: 'tp-16:in'
+        },
+        'ts-27': {
+          id: 'ts-27',
+          startId: 'tp-16',
+          endId: 'tp-12',
+          outControlId: 'tp-16:out',
+          inControlId: null
+        }
+      }
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      const createdId = elementApis?.createElement?.(
+        {
+          type: 'vector',
+          points,
+          segments,
+          networks: {
+            'tn-4': {
+              id: 'tn-4',
+              pointIds: ['tp-12', 'tp-13', 'tp-14', 'tp-15', 'tp-16'],
+              segmentIds: ['ts-23', 'ts-24', 'ts-25', 'ts-26', 'ts-27'],
+              closed: true
+            }
+          },
+          closed: true
+        },
+        { undoable: false }
+      )
+      if (!createdId) {
+        throw new Error('Failed to create reported vector-6 fixture')
+      }
+      elementApis?.changeComputedData?.(
+        [createdId],
+        {
+          x: 220,
+          y: 159,
+          width: 360.120941483566,
+          height: 366.06359840210007,
+          points,
+          segments,
+          networks: {
+            'tn-4': {
+              id: 'tn-4',
+              pointIds: ['tp-12', 'tp-13', 'tp-14', 'tp-15', 'tp-16'],
+              segmentIds: ['ts-23', 'ts-24', 'ts-25', 'ts-26', 'ts-27'],
+              closed: true
+            }
+          },
+          closed: true,
+          fills: [],
+          strokes: [
+            {
+              id: 'reported-vector-6-solid-inside',
+              kind: 'solid',
+              style: 'solid',
+              position: 'inside',
+              width: 10,
+              dashPattern: [],
+              dashOffset: 0,
+              fill: null,
+              defaultColorFormat: 'hex',
+              colorFormat: 'hex',
+              color: `#${color}`,
+              opacity: opacity === undefined ? 1 : opacity / 100,
+              visible: true,
+              gradient: null,
+              joinType: 'miter',
+              capType: 'butt',
+              miterAngle: 28.96
+            }
+          ]
+        },
+        { undoable: false }
+      )
+      core?.selectElements?.([createdId], { undoable: false })
+    },
+    {
+      color: options.color ?? STROKE_COLOR,
+      opacity: options.opacity
+    }
+  )
+
+  await clearVectorOverlayState(page)
+  await ensureElementSelected(page, 'vector')
+  await page.waitForTimeout(180)
+}
+
+
 const ensureElementSelected = async (
   page: Page,
   expectedType?: 'rect' | 'oval' | 'vector'
@@ -682,11 +1801,188 @@ const clearVectorOverlayState = async (page: Page) => {
   await page.waitForTimeout(120)
 }
 
+const prepareReportedVector6InsideSolid = async (
+  page: Page,
+  options: { color?: string; opacity?: number } = {}
+) => {
+  await createReportedVector6InsideSolid(page, options)
+  if (process.env.ASYRA_DEBUG_REPORTED_VECTOR6 === '1') {
+    const debugComputed = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      const element = selectedId
+        ? core?.deps?.sceneTree?.getElementById?.(selectedId)
+        : null
+      const computed = element?.getAllComputedData?.() ?? {}
+      const renderElement = selectedId
+        ? core?.deps?.render?.getElementById?.(selectedId)
+        : null
+      const root = core?.deps?.render?.viewport?.view as
+        | { label?: string; children?: unknown[] }
+        | undefined
+      const labels: string[] = []
+      const stack: { label?: string; children?: unknown[] }[] = root
+        ? [root]
+        : []
+      while (stack.length > 0) {
+        const current = stack.pop()
+        if (!current) {
+          continue
+        }
+        if (current.label) {
+          labels.push(current.label)
+        }
+        current.children?.forEach((child: unknown) =>
+          stack.push(child as { label?: string; children?: unknown[] })
+        )
+      }
+      return {
+        selectedId,
+        x: computed.x,
+        y: computed.y,
+        width: computed.width,
+        height: computed.height,
+        pointCount: Object.keys(computed.points ?? {}).length,
+        segmentCount: Object.keys(computed.segments ?? {}).length,
+        networkCount: Object.keys(computed.networks ?? {}).length,
+        visible: computed.visible,
+        opacity: computed.opacity,
+        zoom: core?.getSystemProperty?.('zoom') ?? null,
+        viewport: core?.getSystemProperty?.('viewportPosition') ?? null,
+        strokes: computed.strokes,
+        renderCacheSize: renderElement?.__asyraStrokeMeshCache?.size ?? null,
+        renderDiagnostics:
+          renderElement?.__asyraConstrainedSolidRuntimeDiagnostics ?? null,
+        renderLabels: labels.slice(0, 40)
+      }
+    })
+  }
+  // The exact geometry backend may load asynchronously after the first paint.
+  // These tests validate settled product geometry, not the optimistic preview.
+  await page.waitForTimeout(1200)
+}
+
+const captureReportedVector6LocalTarget = async (
+  page: Page,
+  raster: RasterCapture,
+  target: ReportedVector6LocalVisualTarget,
+  testInfo: TestInfo,
+  groupLabel: string
+) => {
+  const localRaster = await cropSelectedElementRaster(
+    page,
+    raster,
+    target.center,
+    {
+      scale: REPORTED_VECTOR_6_LOCAL_SCALE,
+      width: REPORTED_VECTOR_6_LOCAL_WIDTH,
+      height: REPORTED_VECTOR_6_LOCAL_HEIGHT
+    }
+  )
+  await attachPng(
+    `reported-vector-6-solid-inside-${groupLabel}-${target.label}.png`,
+    localRaster.base64,
+    testInfo
+  )
+  const localCoverage = await getBase64GreenCoverage(
+    page,
+    localRaster.base64,
+    {
+      x: 0,
+      y: 0,
+      width: localRaster.width,
+      height: localRaster.height
+    }
+  )
+
+  return { localCoverage, localRaster }
+}
+
+const getReportedVector6PointProbeRegion = (
+  raster: RasterCapture,
+  probe: ReportedVector6PointProbe
+) => {
+  const size = probe.size ?? 14
+  return {
+    x: raster.padding + probe.point.x - size / 2,
+    y: raster.padding + probe.point.y - size / 2,
+    width: size,
+    height: size
+  }
+}
+
+const assertReportedVector6GreenPointProbes = async (
+  page: Page,
+  raster: RasterCapture,
+  probes: ReportedVector6PointProbe[]
+) => {
+  const results = await Promise.all(
+    probes.map(async (probe) => ({
+      probe,
+      coverage: await getGreenCoverage(
+        page,
+        raster,
+        getReportedVector6PointProbeRegion(raster, probe)
+      )
+    }))
+  )
+
+  for (const { coverage, probe } of results) {
+    if (probe.minCoverage !== undefined) {
+      expect(coverage, `${probe.label}: required coverage`).toBeGreaterThan(
+        probe.minCoverage
+      )
+    }
+    if (probe.maxCoverage !== undefined) {
+      expect(coverage, `${probe.label}: forbidden coverage`).toBeLessThan(
+        probe.maxCoverage
+      )
+    }
+  }
+}
+
+const assertReportedVector6RedPointProbes = async (
+  page: Page,
+  raster: RasterCapture,
+  probes: ReportedVector6PointProbe[]
+) => {
+  const results = await Promise.all(
+    probes.map(async (probe) => ({
+      probe,
+      coverage: await getRedCoverage(
+        page,
+        raster,
+        getReportedVector6PointProbeRegion(raster, probe)
+      )
+    }))
+  )
+
+  for (const { coverage, probe } of results) {
+    if (probe.minCoverage !== undefined) {
+      expect(coverage, `${probe.label}: required red coverage`).toBeGreaterThan(
+        probe.minCoverage
+      )
+    }
+    if (probe.maxCoverage !== undefined) {
+      expect(coverage, `${probe.label}: forbidden red coverage`).toBeLessThan(
+        probe.maxCoverage
+      )
+    }
+  }
+}
+
 test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
     await waitForAppReady(page)
+    await setStrokeDebugDisableVisualOverlapCollapse(page, false)
     await resetCanvas(page)
+  })
+
+  test.afterEach(async ({ page }) => {
+    await setStrokeDebugDisableVisualOverlapCollapse(page, false)
   })
 
   test('benchmark: rectangle inside bevel keeps full supported band coverage', async ({
@@ -1215,4 +2511,327 @@ test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
       Math.max(topOutside, leftOutside, topInside, leftInside)
     ).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
   })
+
+  test('benchmark: reported vector-6 inside solid global visual contract', async ({
+    page
+  }, testInfo) => {
+    await prepareReportedVector6InsideSolid(page)
+
+    if (process.env.ASYRA_DEBUG_REPORTED_VECTOR6 === '1') {
+      const fullPage = await page.screenshot({ fullPage: true })
+      await attachPng(
+        'reported-vector-6-solid-inside-debug-full-page.png',
+        fullPage.toString('base64'),
+        testInfo
+      )
+    }
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    await attachPng(
+      'reported-vector-6-solid-inside-global.png',
+      raster.base64,
+      testInfo
+    )
+    const probes = getReportedVector6InsideSolidProbeRegions(raster)
+    const [
+      topSharpLeftExterior,
+      topSharpRightExterior,
+      leftSharpExterior,
+      rightSharpUpperExterior,
+      rightSharpLowerExterior,
+      lowerCurveExterior,
+      topRightVoidCoverage,
+      bridgedUpperVoid,
+      bridgedRightVoid,
+      crossingSegmentCoverage
+    ] = await Promise.all([
+      getGreenCoverage(page, raster, probes.topSharpLeftExterior),
+      getGreenCoverage(page, raster, probes.topSharpRightExterior),
+      getGreenCoverage(page, raster, probes.leftSharpExterior),
+      getGreenCoverage(page, raster, probes.rightSharpUpperExterior),
+      getGreenCoverage(page, raster, probes.rightSharpLowerExterior),
+      getGreenCoverage(page, raster, probes.lowerCurveExterior),
+      getGreenCoverage(page, raster, probes.unrelatedCrossingVoid),
+      getGreenCoverage(page, raster, probes.bridgedUpperVoid),
+      getGreenCoverage(page, raster, probes.bridgedRightVoid),
+      getGreenCoverage(page, raster, probes.crossingInteriorStroke)
+    ])
+    const fullCoverage = await getBase64GreenCoverage(page, raster.base64, {
+      x: raster.padding,
+      y: raster.padding,
+      width: raster.elementWidth,
+      height: raster.elementHeight
+    })
+
+    const unsupportedCoverages = {
+      topSharpLeftExterior,
+      topSharpRightExterior,
+      leftSharpExterior,
+      rightSharpUpperExterior,
+      rightSharpLowerExterior,
+      lowerCurveExterior,
+      topRightVoidCoverage,
+      bridgedUpperVoid,
+      bridgedRightVoid
+    }
+    for (const [label, coverage] of Object.entries(unsupportedCoverages)) {
+      expect(coverage, label).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    }
+
+    // Correct global shape: no giant face bridge, no dominant filled region,
+    // and authored crossing stroke coverage remains visible.
+    expect(fullCoverage, 'fullCoverage').toBeGreaterThan(0.035)
+    expect(fullCoverage, 'fullCoverage').toBeLessThan(0.22)
+    expect(crossingSegmentCoverage).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    await assertReportedVector6GreenPointProbes(
+      page,
+      raster,
+      reportedVector6RequiredStrokeProbes
+    )
+    await assertReportedVector6GreenPointProbes(
+      page,
+      raster,
+      reportedVector6ForbiddenBridgeProbes
+    )
+  })
+
+  test('benchmark: reported vector-6 inside solid product red alpha keeps every authored segment visible', async ({
+    page
+  }, testInfo) => {
+    await prepareReportedVector6InsideSolid(page, {
+      color: REPORTED_VECTOR_6_PRODUCT_STROKE_COLOR,
+      opacity: 50
+    })
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    await attachPng(
+      'reported-vector-6-solid-inside-product-red-alpha-global.png',
+      raster.base64,
+      testInfo
+    )
+
+    const segmentCoverages = await Promise.all(
+      reportedVector6SegmentBodyVisualTargets.map(async (target) => {
+        const localRaster = await cropSelectedElementRaster(
+          page,
+          raster,
+          target.center,
+          {
+            scale: REPORTED_VECTOR_6_LOCAL_SCALE,
+            width: REPORTED_VECTOR_6_LOCAL_WIDTH,
+            height: REPORTED_VECTOR_6_LOCAL_HEIGHT
+          }
+        )
+        await attachPng(
+          `reported-vector-6-solid-inside-product-red-alpha-segment-${target.label}.png`,
+          localRaster.base64,
+          testInfo
+        )
+
+        return {
+          label: target.label,
+          minCoverage: target.minCoverage,
+          maxCoverage: target.maxCoverage,
+          coverage: await getBase64RedCoverage(page, localRaster.base64, {
+            x: 0,
+            y: 0,
+            width: localRaster.width,
+            height: localRaster.height
+          })
+        }
+      })
+    )
+    const doubleRedCoverage = await getBase64DoubleRedCoverage(
+      page,
+      raster.base64,
+      {
+        x: raster.padding,
+        y: raster.padding,
+        width: raster.elementWidth,
+        height: raster.elementHeight
+      }
+    )
+
+    for (const result of segmentCoverages) {
+      expect(
+        result.coverage,
+        `${result.label}: red alpha segment coverage`
+      ).toBeGreaterThan(result.minCoverage)
+      expect(
+        result.coverage,
+        `${result.label}: red alpha segment max coverage`
+      ).toBeLessThan(result.maxCoverage)
+    }
+    expect(
+      doubleRedCoverage,
+      'red alpha double-opacity visual overlap coverage'
+    ).toBeLessThan(0.003)
+    await assertReportedVector6RedPointProbes(
+      page,
+      raster,
+      reportedVector6RequiredStrokeProbes
+    )
+    await assertReportedVector6RedPointProbes(
+      page,
+      raster,
+      reportedVector6ForbiddenBridgeProbes
+    )
+  })
+
+  test('benchmark: reported vector-6 inside solid raw-overlap debug mode is opt-in and restored', async ({
+    page
+  }, testInfo) => {
+    await prepareReportedVector6InsideSolid(page, {
+      color: REPORTED_VECTOR_6_PRODUCT_STROKE_COLOR,
+      opacity: 50
+    })
+
+    expect(await getStrokeDebugDisableVisualOverlapCollapse(page)).toBe(false)
+
+    const productRaster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const productDoubleRedCoverage = await getBase64DoubleRedCoverage(
+      page,
+      productRaster.base64,
+      {
+        x: productRaster.padding,
+        y: productRaster.padding,
+        width: productRaster.elementWidth,
+        height: productRaster.elementHeight
+      }
+    )
+    expect(
+      productDoubleRedCoverage,
+      'product default double-opacity coverage'
+    ).toBeLessThan(0.003)
+
+    try {
+      await setStrokeDebugDisableVisualOverlapCollapse(page, true)
+      expect(await getStrokeDebugDisableVisualOverlapCollapse(page)).toBe(true)
+
+      const rawRaster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+      await attachPng(
+        'reported-vector-6-solid-inside-raw-overlap-debug-red-alpha-global.png',
+        rawRaster.base64,
+        testInfo
+      )
+      const rawRedCoverage = await getBase64RedCoverage(
+        page,
+        rawRaster.base64,
+        {
+          x: rawRaster.padding,
+          y: rawRaster.padding,
+          width: rawRaster.elementWidth,
+          height: rawRaster.elementHeight
+        }
+      )
+
+      expect(
+        rawRedCoverage,
+        'raw debug visible red stroke coverage'
+      ).toBeGreaterThan(0.02)
+    } finally {
+      await setStrokeDebugDisableVisualOverlapCollapse(page, false)
+    }
+
+    expect(await getStrokeDebugDisableVisualOverlapCollapse(page)).toBe(false)
+
+    const restoredRaster = await captureSelectedElementRaster(
+      page,
+      STROKE_WIDTH
+    )
+    const restoredDoubleRedCoverage = await getBase64DoubleRedCoverage(
+      page,
+      restoredRaster.base64,
+      {
+        x: restoredRaster.padding,
+        y: restoredRaster.padding,
+        width: restoredRaster.elementWidth,
+        height: restoredRaster.elementHeight
+      }
+    )
+    expect(
+      restoredDoubleRedCoverage,
+      'restored product double-opacity coverage'
+    ).toBeLessThan(0.003)
+  })
+
+  for (const target of reportedVector6EndpointVisualTargets) {
+    test(`benchmark: reported vector-6 inside solid endpoint ${target.label} local visual contract`, async ({
+      page
+    }, testInfo) => {
+      await prepareReportedVector6InsideSolid(page)
+
+      const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+      const { localCoverage } = await captureReportedVector6LocalTarget(
+        page,
+        raster,
+        target,
+        testInfo,
+        'endpoint'
+      )
+
+      // Correct endpoint shape: endpoint area is not empty, but also is not
+      // dominated by a large accidental bridge/exterior face.
+      expect(localCoverage, `${target.label}: min coverage`).toBeGreaterThan(
+        target.minCoverage
+      )
+      expect(localCoverage, `${target.label}: max coverage`).toBeLessThan(
+        target.maxCoverage
+      )
+    })
+  }
+
+  for (const target of reportedVector6SelfIntersectionVisualTargets) {
+    test(`benchmark: reported vector-6 inside solid self-intersection ${target.label} local visual contract`, async ({
+      page
+    }, testInfo) => {
+      await prepareReportedVector6InsideSolid(page)
+
+      const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+      const { localCoverage } = await captureReportedVector6LocalTarget(
+        page,
+        raster,
+        target,
+        testInfo,
+        'self-intersection'
+      )
+
+      // Correct self-intersection shape: crossings are not clipping
+      // boundaries. The crop must keep visible stroke coverage without
+      // turning into a dominant filled bridge.
+      expect(localCoverage, `${target.label}: min coverage`).toBeGreaterThan(
+        target.minCoverage
+      )
+      expect(localCoverage, `${target.label}: max coverage`).toBeLessThan(
+        target.maxCoverage
+      )
+    })
+  }
+
+  for (const target of reportedVector6SegmentBodyVisualTargets) {
+    test(`benchmark: reported vector-6 inside solid authored segment ${target.label} local visual contract`, async ({
+      page
+    }, testInfo) => {
+      await prepareReportedVector6InsideSolid(page)
+
+      const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+      const { localCoverage } = await captureReportedVector6LocalTarget(
+        page,
+        raster,
+        target,
+        testInfo,
+        'segment-body'
+      )
+
+      // Correct segment body shape: every authored source segment keeps visible
+      // inside-solid coverage. Self-intersection is not a clipping boundary and
+      // must not delete unrelated authored segments.
+      expect(localCoverage, `${target.label}: min coverage`).toBeGreaterThan(
+        target.minCoverage
+      )
+      expect(localCoverage, `${target.label}: max coverage`).toBeLessThan(
+        target.maxCoverage
+      )
+    })
+  }
 })

@@ -288,9 +288,14 @@ Current supported paint implementation checkpoint:
   overlap or wrong-side clipping.
 - closed self-intersecting constrained solid full-loop paths preserve
   `geometryFamily: "constrained-solid"` and
-  `sourceTopology: "self-intersecting"` as local-side one-sided candidate
-  faces; this prevents disappearance without claiming completed legal-domain
-  face arrangement
+  `sourceTopology: "self-intersecting"` as typed one-sided source-span
+  candidates. The current product slice promotes those candidates through exact
+  arrangement for same-visual overlap collapse, but it does not use
+  legal-domain clipping that treats source self-intersections as clipping
+  boundaries. The reported vector-6 star is the active regression fixture:
+  all five authored segments must remain visible, global and local crops must
+  pass, and final render / hit-test / export projections must share the same
+  collapsed face source.
 - open-path position changes from `center` to `inside` or `outside` do not
   change the resolved geometry family or hit geometry. They may update the
   authored stroke spec, but they must not dirty constrained geometry families.
@@ -307,8 +312,11 @@ Current supported topology gate implementation checkpoint:
 - seam-wrapping constrained dashed intervals and sharp sampled full-loop round
   joins stay on the constrained packet family; they must not be blocked or
   converted to center geometry merely because exactness is incomplete
-- self-intersecting full-loop constrained solid paths are supported only as
-  local-side candidate visibility until face semantics are explicitly supported
+- self-intersecting full-loop constrained solid paths are supported as exact
+  arranged visual collapse for the current product slice. A selected exact
+  backend may collapse same-visual candidate overlap only after all authored
+  source-span candidates are preserved; it must not replace them with a
+  legal-domain-clipped fill that deletes crossing stroke coverage.
 - disjoint multi-network constrained dashed vectors remain accepted per typed
   network owner
 - containment-only compound constrained solid and dashed vectors are not treated

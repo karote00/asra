@@ -75,7 +75,6 @@ export const setConstrainedDashedRuntimeDiagnostics = <T extends object>(
 export const clearConstrainedDashedRuntimeDiagnostics = <T extends object>(
   graphic: T
 ) => {
-  delete (
-    graphic as T & ConstrainedDashedRuntimeDiagnosticsRuntimeGraphic
-  ).__asyraConstrainedDashedRuntimeDiagnostics
+  delete (graphic as T & ConstrainedDashedRuntimeDiagnosticsRuntimeGraphic)
+    .__asyraConstrainedDashedRuntimeDiagnostics
 }

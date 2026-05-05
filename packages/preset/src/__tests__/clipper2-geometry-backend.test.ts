@@ -19,9 +19,11 @@ const require = createRequire(import.meta.url)
 const wasmPath = require.resolve('clipper2-wasm/dist/umd/clipper2z.wasm')
 
 const loadClipperModule = async () =>
-  (await (Clipper2ZFactory as (options: {
-    wasmBinary: Uint8Array
-  }) => Promise<Clipper2Module>)({
+  (await (
+    Clipper2ZFactory as (options: {
+      wasmBinary: Uint8Array
+    }) => Promise<Clipper2Module>
+  )({
     wasmBinary: readFileSync(wasmPath)
   })) as Clipper2Module
 
@@ -122,7 +124,12 @@ describe('clipper2 geometry backend adapter', () => {
     }
 
     const first = backend.union([square], 'nonzero')
-    first[0]!.polygons[0]![0]!.x = 999
+    const firstPoint = first[0]?.polygons[0]?.[0]
+    expect(firstPoint).toBeDefined()
+    if (!firstPoint) {
+      throw new Error('Expected first union point for cache immutability probe')
+    }
+    firstPoint.x = 999
 
     const second = backend.union([square], 'nonzero')
 
@@ -256,9 +263,9 @@ describe('clipper2 geometry backend adapter', () => {
     ])
 
     expect(faces).toHaveLength(1)
-    expect(faces[0]?.claimedBy.map((candidate) => candidate.candidateId)).toEqual([
-      'candidate:single-dash'
-    ])
+    expect(
+      faces[0]?.claimedBy.map((candidate) => candidate.candidateId)
+    ).toEqual(['candidate:single-dash'])
     expect(faces[0]?.geometry.polygons).toHaveLength(1)
   })
 
@@ -376,9 +383,9 @@ describe('clipper2 geometry backend adapter', () => {
     ])
 
     expect(faces).toHaveLength(1)
-    expect(faces[0]?.claimedBy.map((candidate) => candidate.candidateId)).toEqual(
-      ['candidate:a', 'candidate:b']
-    )
+    expect(
+      faces[0]?.claimedBy.map((candidate) => candidate.candidateId)
+    ).toEqual(['candidate:a', 'candidate:b'])
   })
 
   it('should run: partition self-intersecting dash candidates into shared and owner-specific arrangement faces', async () => {
@@ -472,13 +479,13 @@ describe('clipper2 geometry backend adapter', () => {
       }
     ])
     const sharedFaces = faces.filter((face) => face.claimedBy.length === 2)
-    const ownerSpecificFaces = faces.filter((face) => face.claimedBy.length === 1)
+    const ownerSpecificFaces = faces.filter(
+      (face) => face.claimedBy.length === 1
+    )
 
     expect(sharedFaces.length).toBeGreaterThan(0)
     expect(ownerSpecificFaces.length).toBeGreaterThan(0)
-    expect(
-      faces.every((face) => face.geometry.polygons.length > 0)
-    ).toBe(true)
+    expect(faces.every((face) => face.geometry.polygons.length > 0)).toBe(true)
   })
 
   it('should run: reuse arrangement cache with the current candidate objects', async () => {
@@ -503,7 +510,14 @@ describe('clipper2 geometry backend adapter', () => {
 
     const firstCandidate = makeCandidate('a')
     const first = backend.buildArrangement([firstCandidate])
-    first[0]!.geometry.polygons[0]![0]!.x = 999
+    const firstPoint = first[0]?.geometry.polygons[0]?.[0]
+    expect(firstPoint).toBeDefined()
+    if (!firstPoint) {
+      throw new Error(
+        'Expected first arrangement point for cache immutability probe'
+      )
+    }
+    firstPoint.x = 999
 
     const secondCandidate = makeCandidate('a')
     const second = backend.buildArrangement([secondCandidate])

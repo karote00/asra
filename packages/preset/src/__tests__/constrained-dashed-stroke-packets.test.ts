@@ -51,15 +51,8 @@ const cubicPoint = (
 
   return {
     x:
-      mt2 * mt * p0.x +
-      3 * mt2 * t * p1.x +
-      3 * mt * t2 * p2.x +
-      t2 * t * p3.x,
-    y:
-      mt2 * mt * p0.y +
-      3 * mt2 * t * p1.y +
-      3 * mt * t2 * p2.y +
-      t2 * t * p3.y
+      mt2 * mt * p0.x + 3 * mt2 * t * p1.x + 3 * mt * t2 * p2.x + t2 * t * p3.x,
+    y: mt2 * mt * p0.y + 3 * mt2 * t * p1.y + 3 * mt * t2 * p2.y + t2 * t * p3.y
   }
 }
 
@@ -197,9 +190,7 @@ const findSelectedSidePolylineViolations = (
         (end.x - start.x) * (point.y - start.y) -
         (end.y - start.y) * (point.x - start.x)
       const violates =
-        selectedSide > 0
-          ? cross < -crossTolerance
-          : cross > crossTolerance
+        selectedSide > 0 ? cross < -crossTolerance : cross > crossTolerance
       return violates ? [{ point, segmentIndex: index, cross }] : []
     })
   )
@@ -286,9 +277,7 @@ const getClosedSegmentDistanceRanges = (points: { x: number; y: number }[]) => {
   })
 }
 
-const getPathSegmentDistanceRanges = (
-  segments: { length: number }[]
-) => {
+const getPathSegmentDistanceRanges = (segments: { length: number }[]) => {
   let cursor = 0
   return segments.map((segment, index) => {
     const range = {
@@ -317,7 +306,9 @@ const intervalContainsDistance = (
   )
 
 const packetCrossesSourceSegmentBoundary = (
-  packet: ReturnType<typeof buildConstrainedDashedStrokeResolvedPackets>[number],
+  packet: ReturnType<
+    typeof buildConstrainedDashedStrokeResolvedPackets
+  >[number],
   segmentRanges: ReturnType<typeof getPathSegmentDistanceRanges>,
   totalLength: number
 ) => {
@@ -446,8 +437,12 @@ const getGuardEdgesForInterval = (
   const topologyRanges = getClosedSegmentDistanceRanges(
     normalizeClosedTestPoints(topologyPoints)
   )
-  const totalLength = topologyRanges[topologyRanges.length - 1]?.endDistance ?? 0
-  const edges: { start: { x: number; y: number }; end: { x: number; y: number } }[] = []
+  const totalLength =
+    topologyRanges[topologyRanges.length - 1]?.endDistance ?? 0
+  const edges: {
+    start: { x: number; y: number }
+    end: { x: number; y: number }
+  }[] = []
   const addEdge = (
     start: { x: number; y: number },
     end: { x: number; y: number }
@@ -479,7 +474,8 @@ const getGuardEdgesForInterval = (
         totalLength
       )
     ) {
-      const previous = guardPoints[(index - 1 + guardPoints.length) % guardPoints.length]
+      const previous =
+        guardPoints[(index - 1 + guardPoints.length) % guardPoints.length]
       const next = guardPoints[(index + 1) % guardPoints.length]
       addEdge(previous, point)
       addEdge(point, next)
@@ -493,7 +489,10 @@ const getAllSharpGuardEdges = (
   guardSourcePoints: { x: number; y: number; sharp?: boolean }[]
 ) => {
   const guardPoints = normalizeClosedTestPoints(guardSourcePoints)
-  const edges: { start: { x: number; y: number }; end: { x: number; y: number } }[] = []
+  const edges: {
+    start: { x: number; y: number }
+    end: { x: number; y: number }
+  }[] = []
   const addEdge = (
     start: { x: number; y: number },
     end: { x: number; y: number }
@@ -514,7 +513,10 @@ const getAllSharpGuardEdges = (
       return
     }
 
-    addEdge(guardPoints[(index - 1 + guardPoints.length) % guardPoints.length], point)
+    addEdge(
+      guardPoints[(index - 1 + guardPoints.length) % guardPoints.length],
+      point
+    )
     addEdge(point, guardPoints[(index + 1) % guardPoints.length])
   })
 
@@ -554,10 +556,7 @@ const findSelectedSideViolations = (
   return packets.flatMap((packet) => {
     const startDistance = packet.geometry.debugMeta?.startDistance
     const endDistance = packet.geometry.debugMeta?.endDistance
-    if (
-      typeof startDistance !== 'number' ||
-      typeof endDistance !== 'number'
-    ) {
+    if (typeof startDistance !== 'number' || typeof endDistance !== 'number') {
       return []
     }
 
@@ -576,8 +575,7 @@ const findSelectedSideViolations = (
           const cross =
             (end.x - start.x) * (candidatePoint.y - start.y) -
             (end.y - start.y) * (candidatePoint.x - start.x)
-          const violates =
-            selectedSide > 0 ? cross < -1e-4 : cross > 1e-4
+          const violates = selectedSide > 0 ? cross < -1e-4 : cross > 1e-4
           return violates
             ? [
                 {
@@ -699,8 +697,9 @@ describe('constrained dashed stroke packets', () => {
       position: 'inside',
       dashPattern: [20, 20]
     })
-    delete (missingDashPatternStroke as Partial<typeof missingDashPatternStroke>)
-      .dashPattern
+    delete (
+      missingDashPatternStroke as Partial<typeof missingDashPatternStroke>
+    ).dashPattern
 
     expect(hasConstrainedDashedStrokeIntent([missingDashPatternStroke])).toBe(
       false
@@ -764,8 +763,7 @@ describe('constrained dashed stroke packets', () => {
     expect(
       packets.every(
         (packet) =>
-          packet.geometry.debugMeta?.geometryFamily ===
-            'constrained-dashed' &&
+          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed' &&
           packet.geometry.debugMeta?.resolutionStatus ===
             'local-side-approximation' &&
           packet.geometry.debugMeta?.sourceTopology === 'self-intersecting'
@@ -817,8 +815,7 @@ describe('constrained dashed stroke packets', () => {
     expect(
       [...insidePackets, ...outsidePackets].every(
         (packet) =>
-          packet.geometry.debugMeta?.geometryFamily ===
-            'constrained-dashed' &&
+          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed' &&
           packet.geometry.debugMeta?.resolutionStatus ===
             'local-side-approximation' &&
           packet.geometry.debugMeta?.sourceTopology === 'self-intersecting'
@@ -864,8 +861,7 @@ describe('constrained dashed stroke packets', () => {
     expect(
       packets.every(
         (packet) =>
-          packet.geometry.debugMeta?.geometryFamily ===
-            'constrained-dashed' &&
+          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed' &&
           packet.geometry.debugMeta?.sourceTopology ===
             'sampled-simple-closed' &&
           packet.geometry.polygons.length >= 1 &&
@@ -963,10 +959,8 @@ describe('constrained dashed stroke packets', () => {
     expect(
       packets.every(
         (packet) =>
-          packet.geometry.debugMeta?.geometryFamily ===
-            'constrained-dashed' &&
-          packet.geometry.debugMeta?.sourceTopology ===
-            'self-intersecting' &&
+          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed' &&
+          packet.geometry.debugMeta?.sourceTopology === 'self-intersecting' &&
           packet.geometry.polygons.length >= 1 &&
           packet.geometry.polygons.every((polygon) =>
             isSimpleClosedPolygon(polygon)
@@ -974,7 +968,9 @@ describe('constrained dashed stroke packets', () => {
       )
     ).toBe(true)
 
-    expect(findSelectedSideViolations(points, packets, 'inside', guardPoints)).toEqual([])
+    expect(
+      findSelectedSideViolations(points, packets, 'inside', guardPoints)
+    ).toEqual([])
     const seamAdjacentPackets = packets.filter(
       (packet) =>
         packet.geometry.bounds.minY < 40 &&
@@ -1120,11 +1116,7 @@ describe('constrained dashed stroke packets', () => {
       segmentIds: ['ts-23', 'ts-24', 'ts-25', 'ts-26', 'ts-27'],
       closed: true
     }
-    const sourcePath = buildVectorGeometryModelPath(
-      network,
-      points,
-      segments
-    )
+    const sourcePath = buildVectorGeometryModelPath(network, points, segments)
     const topology = buildPathTopologyModel({
       pathId: 'vector-6',
       networkId: 'tn-4',
@@ -1244,7 +1236,9 @@ describe('constrained dashed stroke packets', () => {
     }
     const legalBoundary = topology.normalizedPoints
     const endInterval = packets
-      .filter((packet) => packet.geometry.debugMeta?.startDistance !== undefined)
+      .filter(
+        (packet) => packet.geometry.debugMeta?.startDistance !== undefined
+      )
       .sort(
         (left, right) =>
           (right.geometry.debugMeta?.startDistance ?? 0) -
@@ -1351,7 +1345,9 @@ describe('constrained dashed stroke packets', () => {
       ).toEqual([])
     })
     const endSquareInterval = squareCapPackets
-      .filter((packet) => packet.geometry.debugMeta?.startDistance !== undefined)
+      .filter(
+        (packet) => packet.geometry.debugMeta?.startDistance !== undefined
+      )
       .sort(
         (left, right) =>
           (right.geometry.debugMeta?.startDistance ?? 0) -
@@ -1434,12 +1430,14 @@ describe('constrained dashed stroke packets', () => {
               ? [
                   {
                     intervalId: packet.geometry.debugMeta?.intervalId,
-                    startDistance: Math.round(
-                      (packet.geometry.debugMeta?.startDistance ?? 0) * 100
-                    ) / 100,
-                    endDistance: Math.round(
-                      (packet.geometry.debugMeta?.endDistance ?? 0) * 100
-                    ) / 100,
+                    startDistance:
+                      Math.round(
+                        (packet.geometry.debugMeta?.startDistance ?? 0) * 100
+                      ) / 100,
+                    endDistance:
+                      Math.round(
+                        (packet.geometry.debugMeta?.endDistance ?? 0) * 100
+                      ) / 100,
                     point: {
                       x: Math.round(point.x * 100) / 100,
                       y: Math.round(point.y * 100) / 100
@@ -1919,8 +1917,7 @@ describe('constrained dashed stroke packets', () => {
     expect(
       packets.every(
         (packet) =>
-          packet.geometry.debugMeta?.geometryFamily ===
-            'constrained-dashed' &&
+          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed' &&
           packet.geometry.debugMeta?.sourceTopology ===
             'sampled-simple-closed' &&
           packet.geometry.debugMeta?.intervalTopology === 'full-loop'
@@ -1988,8 +1985,7 @@ describe('constrained dashed stroke packets', () => {
     expect(
       packets.every(
         (packet) =>
-          packet.geometry.debugMeta?.geometryFamily ===
-            'constrained-dashed' &&
+          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed' &&
           packet.geometry.debugMeta?.resolutionStatus ===
             'local-side-approximation' &&
           packet.geometry.debugMeta?.sourceTopology === 'self-intersecting'
@@ -2668,7 +2664,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 0,
       minY: 0,
@@ -2700,7 +2698,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: -6,
       minY: -6,
@@ -2733,7 +2733,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 0,
       minY: 0,
@@ -2766,7 +2768,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: -6,
       minY: -6,
@@ -2799,7 +2803,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds.minX).toBe(-6)
     expect(packets[0]?.geometry.bounds.minY).toBe(-6)
     expect(packets[0]?.geometry.bounds.maxX).toBeCloseTo(85.99393590649383, 6)
@@ -2979,8 +2985,9 @@ describe('constrained dashed stroke packets', () => {
 
     expect(packets).toHaveLength(2)
     expect(
-      packets.every((packet) =>
-        packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed'
+      packets.every(
+        (packet) =>
+          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed'
       )
     ).toBe(true)
     expect(
@@ -3013,7 +3020,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 20,
       minY: 0,
@@ -3106,7 +3115,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds.minX).toBeCloseTo(17, 6)
     expect(packets[0]?.geometry.bounds.minY).toBe(0)
     expect(packets[0]?.geometry.bounds.maxX).toBe(43)
@@ -3136,7 +3147,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds.minX).toBeCloseTo(17, 6)
     expect(packets[0]?.geometry.bounds.minY).toBe(-6)
     expect(packets[0]?.geometry.bounds.maxX).toBeCloseTo(43, 6)
@@ -3166,7 +3179,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds.minX).toBeCloseTo(18, 6)
     expect(packets[0]?.geometry.bounds.minY).toBe(0)
     expect(packets[0]?.geometry.bounds.maxX).toBe(42)
@@ -3196,7 +3211,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds.minX).toBeCloseTo(18, 6)
     expect(packets[0]?.geometry.bounds.minY).toBe(-4)
     expect(packets[0]?.geometry.bounds.maxX).toBeCloseTo(42, 6)
@@ -3226,7 +3243,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds.minX).toBeCloseTo(18, 6)
     expect(packets[0]?.geometry.bounds.minY).toBe(0)
     expect(packets[0]?.geometry.bounds.maxX).toBe(42)
@@ -3256,7 +3275,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds.minX).toBeCloseTo(18, 6)
     expect(packets[0]?.geometry.bounds.minY).toBeLessThan(-3.5)
     expect(packets[0]?.geometry.bounds.maxX).toBeCloseTo(42, 6)
@@ -3286,7 +3307,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 0,
       minY: 0,
@@ -3317,7 +3340,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 20,
       minY: -6,
@@ -3349,7 +3374,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 60,
       minY: -6,
@@ -3444,7 +3471,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 60,
       minY: -6,
@@ -3549,7 +3578,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 60,
       minY: -6,
@@ -3581,7 +3612,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 60,
       minY: 0,
@@ -3613,7 +3646,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 60,
       minY: 0,
@@ -3645,7 +3680,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 60,
       minY: 0,
@@ -3740,7 +3777,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds.minY).toBe(0)
     expect(packets[0]?.geometry.bounds.maxX).toBe(80)
     expect(packets[0]?.geometry.bounds.minX).toBeGreaterThan(48)
@@ -3772,7 +3811,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds.minY).toBe(0)
     expect(packets[0]?.geometry.bounds.maxX).toBe(80)
     expect(packets[0]?.geometry.bounds.minX).toBeGreaterThan(48)
@@ -3804,7 +3845,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds.minY).toBeLessThan(0)
     expect(packets[0]?.geometry.bounds.maxX).toBeGreaterThan(80)
     expect(packets[0]?.geometry.bounds.minX).toBeGreaterThan(48)
@@ -3836,7 +3879,9 @@ describe('constrained dashed stroke packets', () => {
     )
 
     expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({ geometryFamily: 'constrained-dashed' })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed'
+    })
     expect(packets[0]?.geometry.bounds.minY).toBeLessThan(0)
     expect(packets[0]?.geometry.bounds.maxX).toBeGreaterThan(80)
     expect(packets[0]?.geometry.bounds.minX).toBeGreaterThan(48)
@@ -3876,8 +3921,7 @@ describe('constrained dashed stroke packets', () => {
     expect(
       packets.every(
         (packet) =>
-          packet.geometry.debugMeta?.geometryFamily ===
-            'constrained-dashed' &&
+          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed' &&
           packet.geometry.debugMeta?.sourceTopology ===
             'sampled-simple-closed' &&
           packet.geometry.debugMeta?.resolutionStatus ===
@@ -3931,8 +3975,7 @@ describe('constrained dashed stroke packets', () => {
     expect(
       packets.every(
         (packet) =>
-          packet.geometry.debugMeta?.geometryFamily ===
-            'constrained-dashed' &&
+          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed' &&
           packet.geometry.debugMeta?.sourceTopology ===
             'sampled-simple-closed' &&
           packet.geometry.debugMeta?.resolutionStatus ===
@@ -3996,8 +4039,7 @@ describe('constrained dashed stroke packets', () => {
     expect(
       packets.every(
         (packet) =>
-          packet.geometry.debugMeta?.sourceTopology ===
-          'sampled-simple-closed'
+          packet.geometry.debugMeta?.sourceTopology === 'sampled-simple-closed'
       )
     ).toBe(true)
   })

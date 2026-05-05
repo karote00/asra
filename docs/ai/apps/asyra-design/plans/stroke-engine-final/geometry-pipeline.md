@@ -262,6 +262,20 @@ Current supported paint checkpoint:
   `inside/outside` visibility as local-side approximation packets. Exact
   promotion remains gated until legal-domain clipping preserves valid internal
   dash regions.
+- closed self-intersecting constrained solid paths are defined to preserve
+  authored `inside/outside` visibility as typed one-sided source-span
+  candidates, then promote those candidates through exact arrangement before
+  product render / hit / export. This product slice remains implementation in
+  progress until its global visual, endpoint-local, self-intersection-local,
+  opacity, and dashed regression gates pass. Promotion must preserve authored
+  source-span coverage and collapse same-visual overlap to one final layer; it
+  must not apply legal-domain clipping that treats source self-intersections as
+  deletion boundaries.
+- source self-intersections are not clipping boundaries for the current
+  constrained solid product slice. They may create overlap that needs
+  same-visual collapse, but they must not delete authored crossing stroke
+  coverage. Endpoint/local overhang clipping is limited to adjacent authored
+  segment side constraints.
 - sampled-simple-closed constrained dashed interval-local packets remain
   local-side approximation while the exact arrangement oracle is gated.
 - interval-local constrained dashed packets may expose multiple bounded

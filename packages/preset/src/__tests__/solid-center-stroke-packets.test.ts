@@ -453,10 +453,9 @@ describe('solid center stroke packets', () => {
     }
 
     expect(
-      buildStrokeFinalFacesFromResolvedPackets(
-        [packet, differentPaintPacket],
-        { collapseDuplicateFaces: true }
-      )
+      buildStrokeFinalFacesFromResolvedPackets([packet, differentPaintPacket], {
+        collapseDuplicateFaces: true
+      })
     ).toHaveLength(2)
   })
 

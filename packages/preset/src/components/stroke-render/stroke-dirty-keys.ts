@@ -144,7 +144,12 @@ const DIRTY_KEYS_BY_REVISION: Record<StrokeRevisionKey, StrokeDirtyKey[]> = {
     'paint-payload',
     'render-hit-export'
   ],
-  legalityRevision: ['legality', 'resolved-regions', 'paint-payload', 'render-hit-export'],
+  legalityRevision: [
+    'legality',
+    'resolved-regions',
+    'paint-payload',
+    'render-hit-export'
+  ],
   paintRevision: ['paint-payload', 'render-hit-export'],
   previewModeRevision: [
     'one-sided-candidates',
@@ -157,9 +162,7 @@ const DIRTY_KEYS_BY_REVISION: Record<StrokeRevisionKey, StrokeDirtyKey[]> = {
   ]
 }
 
-const isValidRevisionValue = (
-  value: unknown
-): value is StrokeRevisionValue =>
+const isValidRevisionValue = (value: unknown): value is StrokeRevisionValue =>
   (typeof value === 'string' && value.length > 0) ||
   (typeof value === 'number' && Number.isFinite(value))
 
@@ -191,10 +194,7 @@ const hashRevision = (prefix: string, value: string) => {
   return `${prefix}:${(hash >>> 0).toString(36)}`
 }
 
-const buildSourcePathRevision = (
-  points: readonly Vec2[],
-  closed: boolean
-) =>
+const buildSourcePathRevision = (points: readonly Vec2[], closed: boolean) =>
   hashRevision(
     'source-path',
     `${closed ? 'closed' : 'open'}|${points

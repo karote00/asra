@@ -536,7 +536,9 @@ const createMixedDashedStarAndOpenPathVectors = async (page: Page) => {
 
 const configureSelectedVectorInsideDashedStroke = async (page: Page) => {
   const propertiesPanel = getPropertiesPanel(page)
-  await expect(propertiesPanel.getByTestId('prop-strokes-section')).toBeVisible()
+  await expect(
+    propertiesPanel.getByTestId('prop-strokes-section')
+  ).toBeVisible()
   if (!(await propertiesPanel.getByTestId('prop-stroke-style-0').isVisible())) {
     await propertiesPanel.getByTestId('prop-stroke-add').click()
   }
@@ -629,9 +631,7 @@ const getVectorStrokeRenderSnapshot = async (
       computedStrokeStyle:
         typeof firstStroke?.style === 'string' ? firstStroke.style : null,
       computedStrokePosition:
-        typeof firstStroke?.position === 'string'
-          ? firstStroke.position
-          : null,
+        typeof firstStroke?.position === 'string' ? firstStroke.position : null,
       strokeCacheSize: renderElement?.__asyraStrokeMeshCache?.size ?? 0,
       acceptedConstrainedDashedCount:
         renderElement?.__asyraConstrainedDashedRuntimeDiagnostics
@@ -639,8 +639,10 @@ const getVectorStrokeRenderSnapshot = async (
       blockedConstrainedDashedCount:
         renderElement?.__asyraConstrainedDashedRuntimeDiagnostics
           ?.blockedCount ?? 0,
-      topologyModelCount: renderElement?.__asyraVectorPathTopologyModelCount ?? 0,
-      geometryModelCount: renderElement?.__asyraVectorPathGeometryModelCount ?? 0
+      topologyModelCount:
+        renderElement?.__asyraVectorPathTopologyModelCount ?? 0,
+      geometryModelCount:
+        renderElement?.__asyraVectorPathGeometryModelCount ?? 0
     }
   })
 
@@ -802,16 +804,18 @@ test.describe('vector stroke refresh rendering', () => {
     await patchSelectedVectorToSimpleStar(page)
     await configureSelectedVectorInsideDashedStroke(page)
 
-    await expect.poll(() => getVectorStrokeRenderSnapshot(page)).toMatchObject({
-      renderObjectCount: 1,
-      computedStrokeCount: 1,
-      computedStrokeStyle: 'dashed',
-      computedStrokePosition: 'inside',
-      acceptedConstrainedDashedCount: 1,
-      blockedConstrainedDashedCount: 0,
-      topologyModelCount: 1,
-      geometryModelCount: 1
-    })
+    await expect
+      .poll(() => getVectorStrokeRenderSnapshot(page))
+      .toMatchObject({
+        renderObjectCount: 1,
+        computedStrokeCount: 1,
+        computedStrokeStyle: 'dashed',
+        computedStrokePosition: 'inside',
+        acceptedConstrainedDashedCount: 1,
+        blockedConstrainedDashedCount: 0,
+        topologyModelCount: 1,
+        geometryModelCount: 1
+      })
     const beforeReload = await getVectorStrokeRenderSnapshot(page)
     expect(beforeReload?.strokeCacheSize).toBeGreaterThan(0)
 
@@ -819,17 +823,19 @@ test.describe('vector stroke refresh rendering', () => {
     await page.reload()
     await waitForAppReady(page)
 
-    await expect.poll(() => getVectorStrokeRenderSnapshot(page)).toMatchObject({
-      vectorId: beforeReload?.vectorId,
-      renderObjectCount: 1,
-      computedStrokeCount: 1,
-      computedStrokeStyle: 'dashed',
-      computedStrokePosition: 'inside',
-      acceptedConstrainedDashedCount: 1,
-      blockedConstrainedDashedCount: 0,
-      topologyModelCount: 1,
-      geometryModelCount: 1
-    })
+    await expect
+      .poll(() => getVectorStrokeRenderSnapshot(page))
+      .toMatchObject({
+        vectorId: beforeReload?.vectorId,
+        renderObjectCount: 1,
+        computedStrokeCount: 1,
+        computedStrokeStyle: 'dashed',
+        computedStrokePosition: 'inside',
+        acceptedConstrainedDashedCount: 1,
+        blockedConstrainedDashedCount: 0,
+        topologyModelCount: 1,
+        geometryModelCount: 1
+      })
     const afterReload = await getVectorStrokeRenderSnapshot(page)
     expect(afterReload?.strokeCacheSize).toBeGreaterThan(0)
     expect(consoleErrors).toEqual([])
@@ -859,16 +865,18 @@ test.describe('vector stroke refresh rendering', () => {
       })
     await configureSelectedVectorInsideDashedStroke(page)
 
-    await expect.poll(() => getVectorStrokeRenderSnapshot(page)).toMatchObject({
-      renderObjectCount: 1,
-      computedStrokeCount: 1,
-      computedStrokeStyle: 'dashed',
-      computedStrokePosition: 'inside',
-      acceptedConstrainedDashedCount: 1,
-      blockedConstrainedDashedCount: 0,
-      topologyModelCount: 1,
-      geometryModelCount: 1
-    })
+    await expect
+      .poll(() => getVectorStrokeRenderSnapshot(page))
+      .toMatchObject({
+        renderObjectCount: 1,
+        computedStrokeCount: 1,
+        computedStrokeStyle: 'dashed',
+        computedStrokePosition: 'inside',
+        acceptedConstrainedDashedCount: 1,
+        blockedConstrainedDashedCount: 0,
+        topologyModelCount: 1,
+        geometryModelCount: 1
+      })
     const beforeReload = await getVectorStrokeRenderSnapshot(page)
     expect(beforeReload?.strokeCacheSize).toBeGreaterThan(0)
 
@@ -878,17 +886,19 @@ test.describe('vector stroke refresh rendering', () => {
     await waitForAppReady(page)
     const reloadElapsedMs = Date.now() - reloadStart
 
-    await expect.poll(() => getVectorStrokeRenderSnapshot(page)).toMatchObject({
-      vectorId: beforeReload?.vectorId,
-      renderObjectCount: 1,
-      computedStrokeCount: 1,
-      computedStrokeStyle: 'dashed',
-      computedStrokePosition: 'inside',
-      acceptedConstrainedDashedCount: 1,
-      blockedConstrainedDashedCount: 0,
-      topologyModelCount: 1,
-      geometryModelCount: 1
-    })
+    await expect
+      .poll(() => getVectorStrokeRenderSnapshot(page))
+      .toMatchObject({
+        vectorId: beforeReload?.vectorId,
+        renderObjectCount: 1,
+        computedStrokeCount: 1,
+        computedStrokeStyle: 'dashed',
+        computedStrokePosition: 'inside',
+        acceptedConstrainedDashedCount: 1,
+        blockedConstrainedDashedCount: 0,
+        topologyModelCount: 1,
+        geometryModelCount: 1
+      })
     const afterReload = await getVectorStrokeRenderSnapshot(page)
     expect(afterReload?.strokeCacheSize).toBeGreaterThan(0)
     expect(reloadElapsedMs).toBeLessThan(5_000)
@@ -910,16 +920,18 @@ test.describe('vector stroke refresh rendering', () => {
     await patchSelectedVectorToSelfIntersectingStarNetworks(page, 12)
     await configureSelectedVectorInsideDashedStroke(page)
 
-    await expect.poll(() => getVectorStrokeRenderSnapshot(page)).toMatchObject({
-      renderObjectCount: 1,
-      computedStrokeCount: 1,
-      computedStrokeStyle: 'dashed',
-      computedStrokePosition: 'inside',
-      acceptedConstrainedDashedCount: 12,
-      blockedConstrainedDashedCount: 0,
-      topologyModelCount: 12,
-      geometryModelCount: 12
-    })
+    await expect
+      .poll(() => getVectorStrokeRenderSnapshot(page))
+      .toMatchObject({
+        renderObjectCount: 1,
+        computedStrokeCount: 1,
+        computedStrokeStyle: 'dashed',
+        computedStrokePosition: 'inside',
+        acceptedConstrainedDashedCount: 12,
+        blockedConstrainedDashedCount: 0,
+        topologyModelCount: 12,
+        geometryModelCount: 12
+      })
     const beforeReload = await getVectorStrokeRenderSnapshot(page)
     expect(beforeReload?.strokeCacheSize).toBeGreaterThan(0)
 
@@ -929,17 +941,19 @@ test.describe('vector stroke refresh rendering', () => {
     await waitForAppReady(page)
     const reloadElapsedMs = Date.now() - reloadStart
 
-    await expect.poll(() => getVectorStrokeRenderSnapshot(page)).toMatchObject({
-      vectorId: beforeReload?.vectorId,
-      renderObjectCount: 1,
-      computedStrokeCount: 1,
-      computedStrokeStyle: 'dashed',
-      computedStrokePosition: 'inside',
-      acceptedConstrainedDashedCount: 12,
-      blockedConstrainedDashedCount: 0,
-      topologyModelCount: 12,
-      geometryModelCount: 12
-    })
+    await expect
+      .poll(() => getVectorStrokeRenderSnapshot(page))
+      .toMatchObject({
+        vectorId: beforeReload?.vectorId,
+        renderObjectCount: 1,
+        computedStrokeCount: 1,
+        computedStrokeStyle: 'dashed',
+        computedStrokePosition: 'inside',
+        acceptedConstrainedDashedCount: 12,
+        blockedConstrainedDashedCount: 0,
+        topologyModelCount: 12,
+        geometryModelCount: 12
+      })
     const afterReload = await getVectorStrokeRenderSnapshot(page)
     expect(afterReload?.strokeCacheSize).toBeGreaterThan(0)
     expect(reloadElapsedMs).toBeLessThan(5_000)
@@ -966,14 +980,16 @@ test.describe('vector stroke refresh rendering', () => {
     await waitForAppReady(page)
     const reloadElapsedMs = Date.now() - reloadStart
 
-    await expect.poll(() => getVectorStrokeRenderSummary(page)).toMatchObject({
-      vectorCount: 12,
-      renderObjectCount: 12,
-      acceptedConstrainedDashedCount: 12,
-      blockedConstrainedDashedCount: 0,
-      topologyModelCount: 12,
-      geometryModelCount: 12
-    })
+    await expect
+      .poll(() => getVectorStrokeRenderSummary(page))
+      .toMatchObject({
+        vectorCount: 12,
+        renderObjectCount: 12,
+        acceptedConstrainedDashedCount: 12,
+        blockedConstrainedDashedCount: 0,
+        topologyModelCount: 12,
+        geometryModelCount: 12
+      })
     const afterReload = await getVectorStrokeRenderSummary(page)
     expect(afterReload.totalStrokeCacheSize).toBeGreaterThan(0)
     expect(reloadElapsedMs).toBeLessThan(5_000)
@@ -993,14 +1009,16 @@ test.describe('vector stroke refresh rendering', () => {
 
     await createMixedDashedStarAndOpenPathVectors(page)
 
-    await expect.poll(() => getVectorStrokeRenderSummary(page)).toMatchObject({
-      vectorCount: 11,
-      dashedCenterCount: 4,
-      dashedInsideCount: 4,
-      dashedOutsideCount: 3,
-      closedVectorCount: 10,
-      openVectorCount: 1
-    })
+    await expect
+      .poll(() => getVectorStrokeRenderSummary(page))
+      .toMatchObject({
+        vectorCount: 11,
+        dashedCenterCount: 4,
+        dashedInsideCount: 4,
+        dashedOutsideCount: 3,
+        closedVectorCount: 10,
+        openVectorCount: 1
+      })
 
     await saveCurrentFileToLocalStorage(page)
     const reloadStart = Date.now()
@@ -1008,19 +1026,21 @@ test.describe('vector stroke refresh rendering', () => {
     await waitForAppReady(page)
     const reloadElapsedMs = Date.now() - reloadStart
 
-    await expect.poll(() => getVectorStrokeRenderSummary(page)).toMatchObject({
-      vectorCount: 11,
-      renderObjectCount: 11,
-      dashedCenterCount: 4,
-      dashedInsideCount: 4,
-      dashedOutsideCount: 3,
-      closedVectorCount: 10,
-      openVectorCount: 1,
-      acceptedConstrainedDashedCount: 7,
-      blockedConstrainedDashedCount: 0,
-      topologyModelCount: 11,
-      geometryModelCount: 11
-    })
+    await expect
+      .poll(() => getVectorStrokeRenderSummary(page))
+      .toMatchObject({
+        vectorCount: 11,
+        renderObjectCount: 11,
+        dashedCenterCount: 4,
+        dashedInsideCount: 4,
+        dashedOutsideCount: 3,
+        closedVectorCount: 10,
+        openVectorCount: 1,
+        acceptedConstrainedDashedCount: 7,
+        blockedConstrainedDashedCount: 0,
+        topologyModelCount: 11,
+        geometryModelCount: 11
+      })
     const afterReload = await getVectorStrokeRenderSummary(page)
     expect(afterReload.totalStrokeCacheSize).toBeGreaterThan(0)
     expect(reloadElapsedMs).toBeLessThan(5_000)

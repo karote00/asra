@@ -122,7 +122,9 @@ const getTopologyRevision = (
   [
     closed ? 'closed' : 'open',
     `fillRule:${fillRule}`,
-    points.map((point) => `${point.x.toFixed(6)},${point.y.toFixed(6)}`).join(';')
+    points
+      .map((point) => `${point.x.toFixed(6)},${point.y.toFixed(6)}`)
+      .join(';')
   ].join('|')
 
 const isRectangleEquivalent = (points: Vec2[]) => {

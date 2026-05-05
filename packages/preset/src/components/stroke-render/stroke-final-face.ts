@@ -39,7 +39,7 @@ export interface StrokeFinalFaceDebugMetaBase {
     insideFillDomain: boolean
     outsideFillDomain: boolean
   }
-  visualOverlapCollapseStatus?: 'exact-union'
+  visualOverlapCollapseStatus?: 'exact-union' | 'exact-arrangement'
   visualOverlapSourceFaceIds?: string[]
   visualOverlapSourceGeometryIds?: string[]
   visualContext?: Partial<StrokeVisualContext>
@@ -94,7 +94,8 @@ export interface StrokeOwnerKey {
 }
 
 export interface StrokeFinalFace<
-  TDebugMeta extends StrokeFinalFaceDebugMetaBase = StrokeFinalFaceDebugMetaBase,
+  TDebugMeta extends
+    StrokeFinalFaceDebugMetaBase = StrokeFinalFaceDebugMetaBase,
   TPaint extends StrokeFinalFacePaint = StrokeFinalFacePaint
 > {
   faceId: string
@@ -309,7 +310,8 @@ const buildFaceFromPacket = <
       ? []
       : [debugMeta.legalDomainId])
   const intervalIds =
-    debugMeta?.intervalIds ?? (debugMeta?.intervalId ? [debugMeta.intervalId] : [])
+    debugMeta?.intervalIds ??
+    (debugMeta?.intervalId ? [debugMeta.intervalId] : [])
   const sourceSpanIds = debugMeta?.sourceSpanIds ?? []
   const sourceContourIds =
     debugMeta?.sourceContourIds ??
@@ -361,11 +363,15 @@ const mergeFace = <
   target: StrokeFinalFace<TDebugMeta, TPaint>,
   source: StrokeFinalFace<TDebugMeta, TPaint>
 ) => {
-  source.sourceGeometryIds.forEach((id) => pushUnique(target.sourceGeometryIds, id))
+  source.sourceGeometryIds.forEach((id) =>
+    pushUnique(target.sourceGeometryIds, id)
+  )
   source.ownerSet.forEach((owner) => pushUniqueOwner(target.ownerSet, owner))
   source.intervalIds.forEach((id) => pushUnique(target.intervalIds, id))
   source.sourceSpanIds.forEach((id) => pushUnique(target.sourceSpanIds, id))
-  source.sourceContourIds.forEach((id) => pushUnique(target.sourceContourIds, id))
+  source.sourceContourIds.forEach((id) =>
+    pushUnique(target.sourceContourIds, id)
+  )
   source.legalDomainIds.forEach((id) => pushUnique(target.legalDomainIds, id))
   target.faceId = hashStableString(
     'final-face',
@@ -381,7 +387,10 @@ export const buildStrokeFinalFacesFromResolvedPackets = <
   packets: readonly T[],
   options: BuildStrokeFinalFaceOptions = {}
 ): StrokeFinalFace<TDebugMeta, TPaint>[] => {
-  const facesByCollapseKey = new Map<string, StrokeFinalFace<TDebugMeta, TPaint>>()
+  const facesByCollapseKey = new Map<
+    string,
+    StrokeFinalFace<TDebugMeta, TPaint>
+  >()
   const shouldCollapse = options.collapseDuplicateFaces === true
 
   packets.forEach((packet) => {
@@ -415,7 +424,10 @@ export const collapseExactDuplicateFinalFaces = <
 >(
   faces: readonly StrokeFinalFace<TDebugMeta, TPaint>[]
 ): StrokeFinalFace<TDebugMeta, TPaint>[] => {
-  const facesByCollapseKey = new Map<string, StrokeFinalFace<TDebugMeta, TPaint>>()
+  const facesByCollapseKey = new Map<
+    string,
+    StrokeFinalFace<TDebugMeta, TPaint>
+  >()
 
   faces.forEach((face) => {
     if (!isExactCollapsibleFace(face)) {

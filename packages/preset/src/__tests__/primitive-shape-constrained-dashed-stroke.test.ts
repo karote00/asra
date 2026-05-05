@@ -303,8 +303,8 @@ describe('primitive shape constrained dashed stroke wiring', () => {
     expect(getProjectionMeshes(graphic)).toHaveLength(2)
     expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(2)
     expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.every((packet) =>
-        packet.debugMeta?.geometryFamily === 'constrained-dashed'
+      graphic.__asyraSolidCenterStrokeExportPackets?.every(
+        (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
       )
     ).toBe(true)
     expect(graphic.hitArea?.contains(10, -1)).toBe(true)
@@ -925,12 +925,12 @@ describe('primitive shape constrained dashed stroke wiring', () => {
       ]
     })
     expect(
-      graphic.__asyraConstrainedDashedRuntimeDiagnostics
-        ?.arrangementDiagnostics?.candidates
+      graphic.__asyraConstrainedDashedRuntimeDiagnostics?.arrangementDiagnostics
+        ?.candidates
     ).toHaveLength(2)
     expect(
-      graphic.__asyraConstrainedDashedRuntimeDiagnostics
-        ?.arrangementDiagnostics?.ownedRegions.length
+      graphic.__asyraConstrainedDashedRuntimeDiagnostics?.arrangementDiagnostics
+        ?.ownedRegions.length
     ).toBeGreaterThan(0)
   })
 

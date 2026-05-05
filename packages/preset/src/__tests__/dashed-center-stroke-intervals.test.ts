@@ -103,12 +103,8 @@ describe('dashed center stroke interval allocation', () => {
       -10,
       false
     )
-    const equivalentPositiveOffsetIntervals = allocateDashedCenterStrokeIntervals(
-      80,
-      [20, 10],
-      20,
-      false
-    )
+    const equivalentPositiveOffsetIntervals =
+      allocateDashedCenterStrokeIntervals(80, [20, 10], 20, false)
 
     expect(
       negativeOffsetIntervals.map((interval) => ({

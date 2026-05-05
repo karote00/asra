@@ -234,12 +234,14 @@ describe('vector solid-center stroke product wiring', () => {
 
       expect(getProjectionMeshes(graphic)).toHaveLength(1)
       expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
-      expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual({
-        minX: 0,
-        minY: 7,
-        maxX: 40,
-        maxY: 13
-      })
+      expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual(
+        {
+          minX: 0,
+          minY: 7,
+          maxX: 40,
+          maxY: 13
+        }
+      )
       expect(
         graphic.__asyraSolidCenterStrokeExportPackets?.[0].debugMeta
       ).toMatchObject({

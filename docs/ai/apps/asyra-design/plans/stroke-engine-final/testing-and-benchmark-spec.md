@@ -137,9 +137,10 @@ The tests must include:
 - one high-curvature fixture that creates candidate self-overlap
 - one overlap fixture that proves duplicate candidate layers collapse into
   semantic regions
-- one self-intersection fixture that verifies no-backend output remains
-  visible as local-side approximation and selected-backend output promotes to
-  exact constrained arrangement geometry
+- one self-intersection fixture that verifies local-side output remains visible
+  and unchanged when an exact backend is selected; selected-backend output must
+  not promote to exact arrangement geometry until the arrangement oracle is
+  fixture-proven
 - one self-intersecting inside dashed outline fixture whose exact oracle is
   filled-component semantics, not center fallback visibility
 - one self-intersecting outside dashed outline fixture proving outside has its
@@ -364,6 +365,11 @@ Current `FinalFace[]` contract coverage:
     `strokeDebugOptions.disableVisualOverlapCollapse === true`, while product
     default still collapses the same fixture before render / hit-test / export
     projection
+  - any E2E that inspects raw overlap must enable
+    `strokeDebugDisableVisualOverlapCollapse` inside that specific test step,
+    must assert the debug state is active before capturing raw geometry, and
+    must restore the property to `false` before the test exits. Product visual
+    tests must not rely on a globally enabled debug state.
   - toolbar E2E verifies the development-only overlap-debug toolbar toggle
     updates `strokeDebugDisableVisualOverlapCollapse`, so debug inspection can
     be enabled without editing vector element data. Production builds must hide
@@ -818,25 +824,48 @@ Current and future `FinalFace[]` fixtures:
   - diagnostics have `acceptedCount = 1`, `blockedCount = 0`
   - diagnostics do not contain the legacy multi-owner blocked reason
 
-### Case 20B. Closed self-intersecting constrained solid local-side visibility
+### Case 20B. Closed self-intersecting constrained solid exact arranged visual collapse gate
 
 - Input:
   - closed bow-tie vector `(0,0)-(40,40)-(0,40)-(40,0)`
   - solid constrained inside stroke, width `4`
+  - reported vector-6 self-intersecting closed star with the user-provided
+    cubic/line segment topology, solid constrained inside stroke, width `10`,
+    red alpha paint
 - Expected output:
   - product render emits constrained solid geometry instead of disappearing
+    only after this gate passes; before that point, this slice is
+    implementation-in-progress and must not be documented as supported
+  - selected-side source-span candidate polygons enter exact arrangement for
+    same-visual overlap collapse
+  - source self-intersections are not clipping boundaries by themselves
+  - every authored segment in reported vector-6 remains visibly covered in the
+    product render
+  - same-visual opacity does not stack where candidates overlap
+  - exact arrangement must not replace source-span candidates with a
+    legal-domain-clipped fill that deletes crossing stroke coverage or creates
+    a large bridge face
   - export packet keeps `geometryFamily = constrained-solid`
   - source topology remains typed as `self-intersecting`
-  - runtime diagnostics are accepted with one candidate packet
-  - ownership diagnostics expose candidate-local positive-area self-overlap
-    faces when local-side polygons overlap
+  - runtime diagnostics are accepted and final projections share one collapsed
+    face source for render / hit-test / export
 - Pass rule:
-  - render mesh count is `1`
-  - export packet count is `1`
+  - reported vector-6 full global visual test passes with all five authored
+    segments visible
+  - reported vector-6 five endpoint local crops, five self-intersection local
+    crops, and authored segment body local crops pass
+  - red alpha overlap probes do not exceed the single-layer product threshold
+  - render mesh count is `1` for one visual packet after collapse
+  - export packet count is `1` for one visual packet after collapse
   - a probe inside the local-side stroke strip, such as `(2,5)`, is hit
   - arrangement/ownership diagnostics have at least one owned region whose
     candidate id belongs to the self-intersecting candidate
-  - full legal-domain face ownership is not claimed by this test
+  - exterior probes around sharp vertices and high-curvature ends remain below
+    the unsupported-coverage threshold
+  - legal-domain clipping is not claimed by this test; the pass condition is
+    authored-side source-span preservation plus same-visual overlap collapse
+  - if any required visual crop or opacity oracle fails, implementation status
+    remains `implementation in progress` and product support cannot be claimed
 
 ### Case 20C. Closed self-intersecting constrained dashed full-loop remains visible as local-side approximation
 

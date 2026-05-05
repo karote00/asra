@@ -21,7 +21,7 @@ type RawDashedCenterStrokeInterval = Omit<
   'intervalId' | 'previousVisibleIntervalId' | 'nextVisibleIntervalId'
 >
 
-const pushRawInterval = (
+const _pushRawInterval = (
   intervals: RawDashedCenterStrokeInterval[],
   interval: RawDashedCenterStrokeInterval
 ) => {

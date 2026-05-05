@@ -137,7 +137,9 @@ export const DEFAULT_GEOMETRY_BACKEND_COORDINATE_POLICY: GeometryBackendCoordina
 
 const validateCoordinatePolicy = (policy: GeometryBackendCoordinatePolicy) => {
   if (!Number.isFinite(policy.scale) || policy.scale <= 0) {
-    throw new Error('GeometryBackend coordinate policy requires a positive scale')
+    throw new Error(
+      'GeometryBackend coordinate policy requires a positive scale'
+    )
   }
   if (
     !Number.isFinite(policy.maxAbsCoordinate) ||
@@ -148,21 +150,26 @@ const validateCoordinatePolicy = (policy: GeometryBackendCoordinatePolicy) => {
     )
   }
   if (!Number.isFinite(policy.epsilon) || policy.epsilon <= 0) {
-    throw new Error('GeometryBackend coordinate policy requires a positive epsilon')
+    throw new Error(
+      'GeometryBackend coordinate policy requires a positive epsilon'
+    )
   }
   if (policy.rounding !== 'round') {
     throw new Error(
       `GeometryBackend coordinate policy rounding "${policy.rounding}" is not supported`
     )
   }
-  if (!Number.isSafeInteger(Math.round(policy.maxAbsCoordinate * policy.scale))) {
+  if (
+    !Number.isSafeInteger(Math.round(policy.maxAbsCoordinate * policy.scale))
+  ) {
     throw new Error(
       'GeometryBackend coordinate policy exceeds JavaScript safe integer range'
     )
   }
 }
 
-const normalizeSignedZero = (value: number) => (Object.is(value, -0) ? 0 : value)
+const normalizeSignedZero = (value: number) =>
+  Object.is(value, -0) ? 0 : value
 
 const assertFiniteCoordinate = (value: number, label: string) => {
   if (!Number.isFinite(value)) {
@@ -278,7 +285,9 @@ const UNSUPPORTED_BACKEND_ID = 'unsupported-exact-geometry-backend'
 
 const validateBackendId = (backendId: string) => {
   if (!backendId.trim()) {
-    throw new Error('GeometryBackend registration requires a non-empty backendId')
+    throw new Error(
+      'GeometryBackend registration requires a non-empty backendId'
+    )
   }
 }
 
@@ -299,7 +308,9 @@ const validateBackendMetadata = (backend: GeometryBackend) => {
   }
 }
 
-const createCachedRegistration = (registration: GeometryBackendRegistration) => {
+const createCachedRegistration = (
+  registration: GeometryBackendRegistration
+) => {
   validateBackendId(registration.backendId)
   let resolvedBackend: GeometryBackend | null = null
 

@@ -52,7 +52,6 @@ export const setConstrainedSolidRuntimeDiagnostics = <T extends object>(
 export const clearConstrainedSolidRuntimeDiagnostics = <T extends object>(
   graphic: T
 ) => {
-  delete (
-    graphic as T & ConstrainedSolidRuntimeDiagnosticsGraphic
-  ).__asyraConstrainedSolidRuntimeDiagnostics
+  delete (graphic as T & ConstrainedSolidRuntimeDiagnosticsGraphic)
+    .__asyraConstrainedSolidRuntimeDiagnostics
 }

@@ -81,6 +81,7 @@ describe('constrained solid legality clipping', () => {
     expect(result.packets[0]?.geometry.polygons).toBe(
       packets[0]?.geometry.polygons
     )
+    expect(result.ownershipDiagnostics.candidates).toEqual([])
   })
 
   it('should run: preserve asymmetric-width inside probe polygons byte-for-byte when legality clipping sees no true overflow', () => {
@@ -223,6 +224,58 @@ describe('constrained solid legality clipping', () => {
     expect(result.packets[1]?.geometry.polygons).toEqual([])
   })
 
+  it('should run: preserve solid overlap packets when visual overlap cleanup is disabled for debugging', () => {
+    const strokes = [
+      createDefaultStroke({
+        style: StrokeStyles.SOLID,
+        position: StrokePositions.OUTSIDE,
+        width: 12,
+        color: '#ff0000'
+      }),
+      createDefaultStroke({
+        style: StrokeStyles.SOLID,
+        position: StrokePositions.OUTSIDE,
+        width: 6,
+        color: '#0000ff'
+      })
+    ]
+    const packets = buildConstrainedSolidStrokeResolvedPackets(
+      'rect:outside:debug-raw-overlap',
+      [
+        { x: 0, y: 0 },
+        { x: 80, y: 0 },
+        { x: 80, y: 40 },
+        { x: 0, y: 40 }
+      ],
+      true,
+      strokes
+    )
+
+    const result = buildConstrainedSolidLegalityClippingResult(
+      [
+        {
+          points: [
+            { x: 0, y: 0 },
+            { x: 80, y: 0 },
+            { x: 80, y: 40 },
+            { x: 0, y: 40 }
+          ],
+          closed: true
+        }
+      ],
+      strokes,
+      packets,
+      {
+        disableVisualOverlapCollapse: true
+      }
+    )
+
+    expect(result.ownershipDiagnostics.ownedRegions.length).toBeGreaterThan(0)
+    expect(result.packets[0]).toBe(packets[0])
+    expect(result.packets[1]).toBe(packets[1])
+    expect(result.packets[1]?.geometry.polygons.length).toBeGreaterThan(0)
+  })
+
   it('should run: preserve mixed-topology local remainders when a bevel owner clips a miter non-owner across disconnected sub-packets', () => {
     const strokes = [
       createDefaultStroke({
@@ -282,11 +335,11 @@ describe('constrained solid legality clipping', () => {
       (packet) => packet.geometry.debugMeta?.strokeId === 'stroke:1'
     )
 
-    expect(result.ownershipDiagnostics.ownedRegions).toHaveLength(8)
+    expect(result.ownershipDiagnostics.ownedRegions).toHaveLength(16)
     expect(strokeOnePackets).toHaveLength(2)
     expect(
       strokeOnePackets.map((packet) => packet.geometry.polygons.length)
-    ).toEqual([8, 8])
+    ).toEqual([4, 4])
     expect(strokeOnePackets.map((packet) => packet.geometry.bounds)).toEqual([
       { minX: -12, minY: -12, maxX: 92, maxY: 52 },
       { minX: 108, minY: -12, maxX: 212, maxY: 52 }
@@ -343,7 +396,7 @@ describe('constrained solid legality clipping', () => {
     )
 
     expect(result.eligibleOverflowGeometryIds).toEqual([])
-    expect(result.ownershipDiagnostics.ownedRegions).toHaveLength(8)
+    expect(result.ownershipDiagnostics.ownedRegions).toHaveLength(20)
     expect(result.packets[0]).toBe(packets[0])
     expect(result.packets[1]?.geometry.geometryId).toBe('rect:outside:nested:1')
     expect(result.packets[1]?.geometry.polygons).toEqual([])

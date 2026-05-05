@@ -142,12 +142,7 @@ const segmentBoundsOverlap = (
   left.minY <= right.maxY + EPS &&
   left.maxY + EPS >= right.minY
 
-const segmentsIntersectInclusive = (
-  a1: Vec2,
-  a2: Vec2,
-  b1: Vec2,
-  b2: Vec2
-) => {
+const segmentsIntersectInclusive = (a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) => {
   const o1 = orientationOf(a1, a2, b1)
   const o2 = orientationOf(a1, a2, b2)
   const o3 = orientationOf(b1, b2, a1)
@@ -188,7 +183,10 @@ export const isSimpleOpenPath = (points: Vec2[]) => {
       }
 
       if (
-        !segmentBoundsOverlap(segmentBounds[leftIndex], segmentBounds[rightIndex])
+        !segmentBoundsOverlap(
+          segmentBounds[leftIndex],
+          segmentBounds[rightIndex]
+        )
       ) {
         continue
       }

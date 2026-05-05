@@ -2,10 +2,7 @@ import type { DashedCenterStrokeIntervalRecord } from './dashed-center-stroke-in
 import type { PathTopologyModel } from './path-topology-model'
 import { EPS, distance, type Vec2 } from './solid-stroke-geometry-core'
 
-export type SourceSpanCutKind =
-  | 'vertex'
-  | 'dash-boundary'
-  | 'self-intersection'
+export type SourceSpanCutKind = 'vertex' | 'dash-boundary' | 'self-intersection'
 
 export interface SourceSpanCut {
   cutId: string
@@ -296,7 +293,8 @@ export const buildSourceSpanGraph = (
   const cuts = [...cutsByDistance.values()].sort(
     (left, right) => left.distance - right.distance
   )
-  const contourId = topology.contours[0]?.contourId ?? `${topology.pathId}:contour:0`
+  const contourId =
+    topology.contours[0]?.contourId ?? `${topology.pathId}:contour:0`
   const spans = cuts.slice(0, -1).flatMap((cut, index) => {
     const nextCut = cuts[index + 1]
     if (!nextCut || nextCut.distance - cut.distance <= EPS) {

@@ -82,7 +82,9 @@ describe('dashed center stroke packets', () => {
       strokeId: 'stroke:0',
       strokeIndex: 0,
       intervalId: 'interval:0',
-      sourceSpanIds: ['vector:test:network-a:dashed-center:contour:0:source-span:0']
+      sourceSpanIds: [
+        'vector:test:network-a:dashed-center:contour:0:source-span:0'
+      ]
     })
   })
 
@@ -122,7 +124,9 @@ describe('dashed center stroke packets', () => {
       runtimeStatus: 'not-applicable',
       sourceTopology: 'open',
       intervalIds: ['interval:0'],
-      sourceSpanIds: ['vector:test:network-a:dashed-center:contour:0:source-span:0']
+      sourceSpanIds: [
+        'vector:test:network-a:dashed-center:contour:0:source-span:0'
+      ]
     })
     expect(faces[0]?.ownerSet).toEqual([
       {

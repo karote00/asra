@@ -366,6 +366,10 @@ Current implementation checkpoint:
   `VITE_ASYRA_ENABLE_STROKE_DEBUG_UI=true` build flag. The toggle must not mutate
   element computed data or authored stroke payloads; it only rebuilds the current
   render projection for inspection.
+- Automated tests must treat this as opt-in debug state. Product E2E fixtures
+  start with `strokeDebugDisableVisualOverlapCollapse=false`; raw-overlap E2E
+  fixtures may enable it only in the local test step that captures raw geometry
+  and must restore it to `false` before exiting, including failure paths.
 - different visual packet keys still remain separate, including different
   paint, opacity, blend, mask, clip, effect, stack, visibility, or stroke spec.
 - tests:
@@ -715,6 +719,11 @@ Current implementation checkpoint:
   for this topology because the current legal-domain clipping pass can remove
   valid internal dash regions after backend load; packets therefore keep
   `resolutionStatus: "local-side-approximation"` even with a selected backend.
+- implemented: closed self-intersecting constrained solid visual tests now treat
+  self-intersection as overlap/ownership, not as a clipping boundary. The
+  reported vector-6 fixture requires one global visual contract plus five
+  endpoint and five self-intersection crops; these crops must preserve authored
+  crossing stroke coverage while still rejecting giant bridge faces.
 - implemented: sampled-simple / high-curvature constrained dashed packets now
   have the same backend-gated exact promotion path. With a selected arrangement
   backend they return `resolutionStatus: "exact-constrained"`; without a

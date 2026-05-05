@@ -177,12 +177,17 @@ describe('center dashed overlap diagnostics', () => {
         { x: 10, y: 10 },
         { x: 0, y: 10 }
       ]),
-      createSyntheticPacket('tangent-center:1', 'stroke:1', [
-        { x: 10, y: 0 },
-        { x: 20, y: 0 },
-        { x: 20, y: 10 },
-        { x: 10, y: 10 }
-      ], 1)
+      createSyntheticPacket(
+        'tangent-center:1',
+        'stroke:1',
+        [
+          { x: 10, y: 0 },
+          { x: 20, y: 0 },
+          { x: 20, y: 10 },
+          { x: 10, y: 10 }
+        ],
+        1
+      )
     ])
 
     expect(diagnostics.edges).toEqual([

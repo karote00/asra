@@ -91,10 +91,10 @@ interface SmoothEndingCornerVisualStats {
 
 interface LeakageProbeOracle {
   exteriorEmpty: WorkspacePoint[]
-  sourceSamples: Array<{
+  sourceSamples: {
     point: WorkspacePoint
     exteriorNormal: WorkspacePoint
-  }>
+  }[]
 }
 
 interface LeakageProbeStats {
@@ -295,9 +295,7 @@ const CORNER_ANCHOR_IDS = ['tp-48', 'tp-50', 'tp-51'] as const
 const STROKE_WIDTH = 10
 const STROKE_RADIUS = STROKE_WIDTH / 2
 const LOCAL_JOIN_ARM_LENGTH = STROKE_WIDTH * 2.2
-const LOCAL_JOIN_ARM_PROBE_FRACTIONS = [
-  0.4, 0.8, 1.2, 1.6, 2.0, 2.4
-] as const
+const LOCAL_JOIN_ARM_PROBE_FRACTIONS = [0.4, 0.8, 1.2, 1.6, 2.0, 2.4] as const
 const LOCAL_JOIN_CORE_PROBE_FRACTIONS = [0.05, 0.1, 0.16] as const
 const LOCAL_JOIN_EMPTY_PROBE_NEAR_DISTANCE = STROKE_WIDTH * 0.45
 const LOCAL_JOIN_EMPTY_PROBE_FAR_DISTANCE = STROKE_WIDTH * 0.8
@@ -1193,9 +1191,7 @@ const buildOriginalVector6LocalLeakageOracle = async (
   }
 
   const exteriorWorkspacePoints = (
-    [
-      0.54, 0.58, 0.62, 0.66, 0.7, 0.74, 0.78, 0.82, 0.86, 0.9
-    ] as const
+    [0.54, 0.58, 0.62, 0.66, 0.7, 0.74, 0.78, 0.82, 0.86, 0.9] as const
   ).flatMap((t) => {
     const point = evaluateReportedSegmentPoint(
       sourceSegment,
@@ -1611,12 +1607,10 @@ const analyzeLeakageProbeClip = async (
             continue
           }
 
-          let nearest:
-            | {
-                distanceSquared: number
-                exteriorDistance: number
-              }
-            | null = null
+          let nearest: {
+            distanceSquared: number
+            exteriorDistance: number
+          } | null = null
 
           for (const sample of leakageOracle.sourceSamples) {
             const dx = x - sample.point.x * rasterScaleX

@@ -31,6 +31,30 @@ const getBounds = (polygon: { x: number; y: number }[]) => ({
   maxY: Math.max(...polygon.map((point) => point.y))
 })
 
+const pointInPolygon = (
+  point: { x: number; y: number },
+  polygon: { x: number; y: number }[]
+) => {
+  let inside = false
+
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+    const current = polygon[i]
+    const previous = polygon[j]
+    const intersects =
+      current.y > point.y !== previous.y > point.y &&
+      point.x <
+        ((previous.x - current.x) * (point.y - current.y)) /
+          (previous.y - current.y) +
+          current.x
+
+    if (intersects) {
+      inside = !inside
+    }
+  }
+
+  return inside
+}
+
 const concaveCShape = () => [
   { x: 0, y: 0 },
   { x: 6, y: 0 },
@@ -52,17 +76,19 @@ const makePacket = (
     color?: number
     alpha?: number
     polygon?: { x: number; y: number }[]
+    polygons?: { x: number; y: number }[][]
     sourceSpanIds?: string[]
     intervalId?: string
   } = {}
 ): SolidCenterStrokeResolvedPacket => {
   const polygon = options.polygon ?? square(0, 0, 10)
+  const polygons = options.polygons ?? [polygon]
 
   return {
     geometry: {
       geometryId: id,
-      polygons: [polygon],
-      bounds: getBounds(polygon),
+      polygons,
+      bounds: getBounds(polygons.flat()),
       debugMeta: {
         sourcePathId: `source:${id}`,
         ownerKey: options.ownerKey ?? `owner:${id}`,
@@ -132,7 +158,13 @@ describe('stroke candidate arrangement', () => {
 
   it('should run: reject arrangement candidates without explicit stroke position metadata', () => {
     const packet = makePacket('candidate:missing-position')
-    delete packet.geometry.debugMeta!.strokePosition
+    expect(packet.geometry.debugMeta).toBeDefined()
+    if (!packet.geometry.debugMeta) {
+      throw new Error(
+        'Expected packet debug metadata for arrangement test setup'
+      )
+    }
+    delete packet.geometry.debugMeta.strokePosition
 
     expect(() =>
       buildStrokeArrangementCandidates(
@@ -598,6 +630,116 @@ describe('stroke candidate arrangement', () => {
     })
   })
 
+  it('should run: collapse same-visual overlapping polygons inside one solid final face', () => {
+    const packets = [
+      makePacket('candidate:solid-single-face', {
+        alpha: 0.5,
+        polygons: [square(0, 0, 10), square(5, 0, 10)]
+      })
+    ]
+    const faces = buildTestFinalFaces(packets)
+    const unionCalls: PolygonRegion[][] = []
+    const backend = makeUnionBackend((regions) => {
+      unionCalls.push(regions)
+      return [
+        {
+          polygons: [
+            [
+              { x: 0, y: 0 },
+              { x: 15, y: 0 },
+              { x: 15, y: 10 },
+              { x: 0, y: 10 }
+            ]
+          ]
+        }
+      ]
+    })
+
+    const collapsed = collapseStrokeFinalFaceVisualOverlaps(faces, { backend })
+
+    expect(unionCalls).toHaveLength(1)
+    expect(unionCalls[0]).toHaveLength(2)
+    expect(unionCalls[0]).toEqual([
+      { polygons: [square(0, 0, 10)] },
+      { polygons: [square(5, 0, 10)] }
+    ])
+    expect(collapsed).toHaveLength(1)
+    expect(collapsed[0]?.polygons).toEqual([
+      [
+        { x: 0, y: 0 },
+        { x: 15, y: 0 },
+        { x: 15, y: 10 },
+        { x: 0, y: 10 }
+      ]
+    ])
+    expect(collapsed[0]?.paint.alpha).toBe(0.5)
+    expect(collapsed[0]?.debugMeta).toMatchObject({
+      visualOverlapCollapseStatus: 'exact-union',
+      visualOverlapSourceGeometryIds: ['candidate:solid-single-face']
+    })
+  })
+
+  it('should run: convert same-visual ring union regions to non-overlapping coverage triangles', () => {
+    const packets = [
+      makePacket('candidate:ring-single-face', {
+        alpha: 0.5,
+        polygons: [
+          square(0, 0, 20),
+          square(0, 0, 4),
+          square(16, 0, 4),
+          square(16, 16, 4),
+          square(0, 16, 4)
+        ]
+      })
+    ]
+    const faces = buildTestFinalFaces(packets)
+    const backend = makeUnionBackend(() => [
+      {
+        polygons: [square(0, 0, 20), square(4, 4, 12)]
+      }
+    ])
+
+    const collapsed = collapseStrokeFinalFaceVisualOverlaps(faces, { backend })
+    const polygons = collapsed[0]?.polygons ?? []
+
+    expect(collapsed).toHaveLength(1)
+    expect(polygons.length).toBeGreaterThan(1)
+    expect(
+      polygons.some((polygon) => pointInPolygon({ x: 10, y: 10 }, polygon))
+    ).toBe(false)
+    expect(
+      polygons.some((polygon) => pointInPolygon({ x: 2, y: 2 }, polygon))
+    ).toBe(true)
+    expect(collapsed[0]?.debugMeta).toMatchObject({
+      visualOverlapCollapseStatus: 'exact-union',
+      visualOverlapSourceGeometryIds: ['candidate:ring-single-face']
+    })
+  })
+
+  it('should run: keep disjoint same-visual union polygons independent instead of triangulating bridges', () => {
+    const packets = [
+      makePacket('candidate:disjoint-single-face', {
+        alpha: 0.5,
+        polygons: [square(0, 0, 10), square(30, 0, 10)]
+      })
+    ]
+    const faces = buildTestFinalFaces(packets)
+    const backend = makeUnionBackend(() => [
+      {
+        polygons: [square(0, 0, 10), square(30, 0, 10)]
+      }
+    ])
+
+    const collapsed = collapseStrokeFinalFaceVisualOverlaps(faces, { backend })
+    const polygons = collapsed[0]?.polygons ?? []
+
+    expect(collapsed).toHaveLength(1)
+    expect(polygons).toEqual([square(0, 0, 10), square(30, 0, 10)])
+    expect(
+      polygons.some((polygon) => pointInPolygon({ x: 20, y: 5 }, polygon))
+    ).toBe(false)
+  })
+
   it('should run: keep one same-visual coverage layer when overlapping inputs use opposite winding', () => {
     const packets = [
       makePacket('candidate:winding-a', {
@@ -705,7 +847,9 @@ describe('stroke candidate arrangement', () => {
 
     expect(unionCallCount).toBe(0)
     expect(collapsed).toHaveLength(2)
-    expect(collapsed.map((face) => face.paint.alpha).sort()).toEqual([0.5, 0.75])
+    expect(collapsed.map((face) => face.paint.alpha).sort()).toEqual([
+      0.5, 0.75
+    ])
   })
 
   it('should run: skip same-visual union when final-face bounds do not overlap', () => {
@@ -759,6 +903,8 @@ describe('stroke candidate arrangement', () => {
 
     expect(() =>
       buildArrangedStrokeFinalFacesFromResolvedPackets([packet], { backend })
-    ).toThrow('Arrangement face references unknown candidate "candidate:missing"')
+    ).toThrow(
+      'Arrangement face references unknown candidate "candidate:missing"'
+    )
   })
 })

@@ -22,25 +22,28 @@ const entry = {
 describe('constrained dashed runtime diagnostics', () => {
   it('should run: defer arrangement diagnostics until explicitly read', () => {
     let buildCount = 0
-    const diagnostics = buildConstrainedDashedRuntimeDiagnostics([entry], () => {
-      buildCount += 1
-      return {
-        arrangementPolicy: {
-          strategy: 'bounded-convex-subset-arrangement',
-          epsilon: 0.000001,
-          roundingFactor: 1000,
-          maxExactSubsetCount: 4096,
-          zeroAreaThreshold: 0.000001,
-          tangentialTouchPolicy: 'boundary-overlap-without-zero-area-face',
-          coincidentEdgePolicy: 'dedupe-rotated-polygon-signatures'
-        },
-        candidates: [],
-        edges: [],
-        components: [],
-        arrangementFaces: [],
-        ownedRegions: []
+    const diagnostics = buildConstrainedDashedRuntimeDiagnostics(
+      [entry],
+      () => {
+        buildCount += 1
+        return {
+          arrangementPolicy: {
+            strategy: 'bounded-convex-subset-arrangement',
+            epsilon: 0.000001,
+            roundingFactor: 1000,
+            maxExactSubsetCount: 4096,
+            zeroAreaThreshold: 0.000001,
+            tangentialTouchPolicy: 'boundary-overlap-without-zero-area-face',
+            coincidentEdgePolicy: 'dedupe-rotated-polygon-signatures'
+          },
+          candidates: [],
+          edges: [],
+          components: [],
+          arrangementFaces: [],
+          ownedRegions: []
+        }
       }
-    })
+    )
 
     expect(diagnostics.acceptedCount).toBe(1)
     expect(buildCount).toBe(0)
