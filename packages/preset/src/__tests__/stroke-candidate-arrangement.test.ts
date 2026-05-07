@@ -79,6 +79,10 @@ const makePacket = (
     polygons?: { x: number; y: number }[][]
     sourceSpanIds?: string[]
     intervalId?: string
+    geometryFamily?: SolidCenterStrokeGeometryDebugMeta['geometryFamily']
+    resolutionStatus?: SolidCenterStrokeGeometryDebugMeta['resolutionStatus']
+    runtimeStatus?: SolidCenterStrokeGeometryDebugMeta['runtimeStatus']
+    sourceTopology?: SolidCenterStrokeGeometryDebugMeta['sourceTopology']
   } = {}
 ): SolidCenterStrokeResolvedPacket => {
   const polygon = options.polygon ?? square(0, 0, 10)
@@ -100,10 +104,11 @@ const makePacket = (
         intervalId: options.intervalId ?? `interval:${id}`,
         sourceSpanIds: options.sourceSpanIds ?? [`span:${id}`],
         strokePosition: options.strokePosition ?? 'inside',
-        geometryFamily: 'constrained-dashed',
-        resolutionStatus: 'local-side-approximation',
-        runtimeStatus: 'accepted',
-        sourceTopology: 'self-intersecting'
+        geometryFamily: options.geometryFamily ?? 'constrained-dashed',
+        resolutionStatus:
+          options.resolutionStatus ?? 'local-side-approximation',
+        runtimeStatus: options.runtimeStatus ?? 'accepted',
+        sourceTopology: options.sourceTopology ?? 'self-intersecting'
       }
     },
     paint: {
@@ -171,6 +176,92 @@ describe('stroke candidate arrangement', () => {
         buildStrokeFinalFacesFromResolvedPackets([packet])
       )
     ).toThrow(/without typed strokePosition/)
+  })
+
+  it('should run: reuse exact arrangement results for identical candidate geometry', () => {
+    const packets = [
+      makePacket('candidate:cache-a', {
+        polygon: square(0, 0, 10)
+      }),
+      makePacket('candidate:cache-b', {
+        polygon: square(5, 0, 10)
+      })
+    ]
+    let buildArrangementCallCount = 0
+    const backend = makeBackend((candidates) => {
+      buildArrangementCallCount += 1
+      return [
+        {
+          faceId: 'face:cache',
+          geometry: {
+            polygons: [square(0, 0, 15)]
+          },
+          claimedBy: candidates,
+          legalState: {
+            insideFillDomain: true,
+            outsideFillDomain: true
+          }
+        }
+      ]
+    })
+
+    const firstFaces = buildArrangedStrokeFinalFacesFromResolvedPackets(
+      packets,
+      { backend }
+    )
+    const secondFaces = buildArrangedStrokeFinalFacesFromResolvedPackets(
+      packets,
+      { backend }
+    )
+
+    expect(buildArrangementCallCount).toBe(1)
+    expect(secondFaces).toBe(firstFaces)
+  })
+
+  it('should run: reuse local-side visual overlap collapse for identical final faces', () => {
+    const packets = [
+      makePacket('candidate:collapse-cache-a', {
+        geometryFamily: 'constrained-solid',
+        alpha: 0.5,
+        polygon: square(0, 0, 10)
+      }),
+      makePacket('candidate:collapse-cache-b', {
+        geometryFamily: 'constrained-solid',
+        alpha: 0.5,
+        polygon: square(5, 0, 10)
+      })
+    ]
+    const faces = buildTestFinalFaces(packets)
+    let buildArrangementCallCount = 0
+    const backend = {
+      buildArrangement: (candidates: CandidateRegion[]) => {
+        buildArrangementCallCount += 1
+        return [
+          {
+            faceId: 'face:collapse-cache',
+            geometry: {
+              polygons: [square(0, 0, 15)]
+            },
+            claimedBy: candidates,
+            legalState: {
+              insideFillDomain: true,
+              outsideFillDomain: true
+            }
+          }
+        ]
+      },
+      union: (regions: PolygonRegion[]) => regions
+    }
+
+    const firstCollapsed = collapseStrokeFinalFaceVisualOverlaps(faces, {
+      backend
+    })
+    const secondCollapsed = collapseStrokeFinalFaceVisualOverlaps(faces, {
+      backend
+    })
+
+    expect(buildArrangementCallCount).toBe(1)
+    expect(secondCollapsed).toBe(firstCollapsed)
   })
 
   it('should run: classify inside and outside faces as distinct exact final face sets', () => {

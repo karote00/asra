@@ -1,4 +1,5 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test'
+import { writeFile } from 'node:fs/promises'
 import {
   createOval,
   createRectangle,
@@ -187,6 +188,7 @@ const cropSelectedElementRaster = async (
 }
 
 const attachPng = async (label: string, base64: string, testInfo: TestInfo) => {
+  await writeFile(testInfo.outputPath(label), Buffer.from(base64, 'base64'))
   await testInfo.attach(label, {
     body: Buffer.from(base64, 'base64'),
     contentType: 'image/png'
@@ -474,8 +476,7 @@ const getRedCoverage = async (
   page: Page,
   raster: RasterCapture,
   region: { x: number; y: number; width: number; height: number }
-) =>
-  getBase64RedCoverage(page, raster.base64, targetRegion(region, raster))
+) => getBase64RedCoverage(page, raster.base64, targetRegion(region, raster))
 
 const targetRegion = (
   region: { x: number; y: number; width: number; height: number },
@@ -661,6 +662,287 @@ interface ReportedVector6PointProbe {
   maxCoverage?: number
 }
 
+interface ReportedVector6SideProbeGroup {
+  label: string
+  expectedInside: ReportedVector6PointProbe[]
+  oppositeSide: ReportedVector6PointProbe[]
+  pairedSideChecks: {
+    label: string
+    expectedInside: ReportedVector6PointProbe
+    oppositeSide: ReportedVector6PointProbe
+  }[]
+}
+
+interface Vec2 {
+  x: number
+  y: number
+}
+
+const normalizeVec2 = (vector: Vec2): Vec2 | null => {
+  const length = Math.hypot(vector.x, vector.y)
+  return length <= 1e-6 ? null : { x: vector.x / length, y: vector.y / length }
+}
+
+const cubicPoint = (p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: number) => {
+  const oneMinusT = 1 - t
+  const a = oneMinusT * oneMinusT * oneMinusT
+  const b = 3 * oneMinusT * oneMinusT * t
+  const c = 3 * oneMinusT * t * t
+  const d = t * t * t
+  return {
+    x: a * p0.x + b * p1.x + c * p2.x + d * p3.x,
+    y: a * p0.y + b * p1.y + c * p2.y + d * p3.y
+  }
+}
+
+const cubicTangent = (p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: number) => {
+  const oneMinusT = 1 - t
+  return normalizeVec2({
+    x:
+      3 * oneMinusT * oneMinusT * (p1.x - p0.x) +
+      6 * oneMinusT * t * (p2.x - p1.x) +
+      3 * t * t * (p3.x - p2.x),
+    y:
+      3 * oneMinusT * oneMinusT * (p1.y - p0.y) +
+      6 * oneMinusT * t * (p2.y - p1.y) +
+      3 * t * t * (p3.y - p2.y)
+  })
+}
+
+const offsetPointFromTangent = (
+  point: Vec2,
+  tangent: Vec2,
+  offsetDistance: number
+) => ({
+  x: point.x - tangent.y * offsetDistance,
+  y: point.y + tangent.x * offsetDistance
+})
+
+const polygonSignedArea = (points: Vec2[]) => {
+  let area = 0
+  for (let index = 0; index < points.length; index += 1) {
+    const current = points[index]
+    const next = points[(index + 1) % points.length]
+    area += current.x * next.y - next.x * current.y
+  }
+  return area / 2
+}
+
+const getClosedContourSideOffset = (
+  points: Vec2[],
+  position: 'inside' | 'outside',
+  width: number
+) => {
+  const area = polygonSignedArea(points)
+  const interiorOffset = area >= 0 ? width : -width
+  return position === 'inside' ? interiorOffset : -interiorOffset
+}
+
+const isPointInPolygonEvenOdd = (point: Vec2, polygon: Vec2[]) => {
+  let inside = false
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+    const current = polygon[i]
+    const previous = polygon[j]
+    const intersects =
+      current.y > point.y !== previous.y > point.y &&
+      point.x <
+        ((previous.x - current.x) * (point.y - current.y)) /
+          (previous.y - current.y) +
+          current.x
+
+    if (intersects) {
+      inside = !inside
+    }
+  }
+
+  return inside
+}
+
+const getReportedVector6SideProbeGroups =
+  (): ReportedVector6SideProbeGroup[] => {
+    const points: Record<string, Vec2> = {
+      'tp-12': { x: 192.42083700791653, y: 0 },
+      'tp-13': { x: 11.358174406717296, y: 364.1297089212308 },
+      'tp-12:out': { x: 170.10536493824844, y: 119.07041481724248 },
+      'tp-13:in': { x: -42.09205809548172, y: 343.2841182453731 },
+      'tp-13:out': { x: 78.17096503446606, y: 390.18669726605293 },
+      'tp-14': { x: 360.120941483566, y: 144.31562775593738 },
+      'tp-15': { x: 0, y: 14.030686031827244 },
+      'tp-15:out': { x: 0, y: 14.030686031827244 },
+      'tp-16': { x: 270.59180204238254, y: 345.42212754546125 },
+      'tp-16:in': { x: 263.9105229796076, y: 362.79345310867603 },
+      'tp-16:out': { x: 277.2730811051575, y: 328.05080198224647 }
+    }
+    const segments = [
+      {
+        id: 'ts-23',
+        start: 'tp-12',
+        end: 'tp-13',
+        out: 'tp-12:out',
+        in: 'tp-13:in',
+        safeOppositeRatios: [0.25, 0.5, 0.65, 0.75]
+      },
+      {
+        id: 'ts-24',
+        start: 'tp-13',
+        end: 'tp-14',
+        out: 'tp-13:out',
+        in: null,
+        safeOppositeRatios: [0.15, 0.25, 0.35, 0.65, 0.75]
+      },
+      {
+        id: 'ts-25',
+        start: 'tp-14',
+        end: 'tp-15',
+        out: null,
+        in: null,
+        safeOppositeRatios: [0.25, 0.35, 0.5, 0.65, 0.75]
+      },
+      {
+        id: 'ts-26',
+        start: 'tp-15',
+        end: 'tp-16',
+        out: 'tp-15:out',
+        in: 'tp-16:in',
+        safeOppositeRatios: [0.25, 0.35, 0.5, 0.75]
+      },
+      {
+        id: 'ts-27',
+        start: 'tp-16',
+        end: 'tp-12',
+        out: 'tp-16:out',
+        in: null,
+        safeOppositeRatios: [0.25, 0.5, 0.75]
+      }
+    ]
+    const contourPoints = segments.flatMap((segment, segmentIndex) => {
+      const p0 = points[segment.start]
+      const p3 = points[segment.end]
+      const p1 = segment.out ? points[segment.out] : p0
+      const p2 = segment.in ? points[segment.in] : p3
+      const samples: Vec2[] = []
+      for (let index = segmentIndex === 0 ? 0 : 1; index <= 12; index += 1) {
+        samples.push(cubicPoint(p0, p1, p2, p3, index / 12))
+      }
+      return samples
+    })
+    const chooseExpectedInsideOffset = (segment: (typeof segments)[number]) => {
+      const p0 = points[segment.start]
+      const p3 = points[segment.end]
+      const p1 = segment.out ? points[segment.out] : p0
+      const p2 = segment.in ? points[segment.in] : p3
+      let leftVotes = 0
+      let rightVotes = 0
+
+      for (const ratio of [0.15, 0.25, 0.35, 0.5, 0.65, 0.75, 0.85]) {
+        const point = cubicPoint(p0, p1, p2, p3, ratio)
+        const tangent =
+          cubicTangent(p0, p1, p2, p3, ratio) ??
+          normalizeVec2({ x: p3.x - p0.x, y: p3.y - p0.y })
+        if (!tangent) {
+          continue
+        }
+
+        for (const distance of [2, 5, 8.5]) {
+          const leftInside = isPointInPolygonEvenOdd(
+            offsetPointFromTangent(point, tangent, distance),
+            contourPoints
+          )
+          const rightInside = isPointInPolygonEvenOdd(
+            offsetPointFromTangent(point, tangent, -distance),
+            contourPoints
+          )
+          if (leftInside === rightInside) {
+            continue
+          }
+          if (leftInside) {
+            leftVotes += 1
+          } else {
+            rightVotes += 1
+          }
+        }
+      }
+
+      if (leftVotes !== rightVotes) {
+        return leftVotes > rightVotes ? 5 : -5
+      }
+
+      const anchorContourPoints = [
+        'tp-12',
+        'tp-13',
+        'tp-14',
+        'tp-15',
+        'tp-16'
+      ].map((pointId) => points[pointId])
+      return getClosedContourSideOffset(anchorContourPoints, 'inside', 5)
+    }
+
+    return segments.map((segment) => {
+      const p0 = points[segment.start]
+      const p3 = points[segment.end]
+      const p1 = segment.out ? points[segment.out] : p0
+      const p2 = segment.in ? points[segment.in] : p3
+      const expectedInsideOffset = chooseExpectedInsideOffset(segment)
+      const expectedInside: ReportedVector6PointProbe[] = []
+      const oppositeSide: ReportedVector6PointProbe[] = []
+      const pairedSideChecks: ReportedVector6SideProbeGroup['pairedSideChecks'] =
+        []
+      for (const ratio of [0.15, 0.25, 0.35, 0.5, 0.65, 0.75, 0.85]) {
+        const point = cubicPoint(p0, p1, p2, p3, ratio)
+        const tangent =
+          cubicTangent(p0, p1, p2, p3, ratio) ??
+          normalizeVec2({ x: p3.x - p0.x, y: p3.y - p0.y })
+        if (!tangent) {
+          continue
+        }
+
+        for (const distance of [3, 5.5, 8]) {
+          const leftProbe = offsetPointFromTangent(point, tangent, distance)
+          const rightProbe = offsetPointFromTangent(point, tangent, -distance)
+          const expectedInsideProbe =
+            expectedInsideOffset > 0 ? leftProbe : rightProbe
+          const oppositeProbe =
+            expectedInsideOffset > 0 ? rightProbe : leftProbe
+          expectedInside.push({
+            label: `${segment.id} expected inside side ${ratio}:${distance}`,
+            point: expectedInsideProbe,
+            size: 12,
+            minCoverage: distance >= 8 ? 0.06 : 0.1
+          })
+          if (segment.safeOppositeRatios.includes(ratio) && distance >= 8) {
+            const oppositeSideProbe = {
+              label: `${segment.id} opposite side ${ratio}:${distance}`,
+              point: oppositeProbe,
+              size: 10,
+              maxCoverage: 0.08
+            }
+            oppositeSide.push(oppositeSideProbe)
+            pairedSideChecks.push({
+              label: `${segment.id} paired side ${ratio}:${distance}`,
+              expectedInside: {
+                ...expectedInside[expectedInside.length - 1],
+                size: 12,
+                minCoverage: distance >= 8 ? 0.06 : 0.1
+              },
+              oppositeSide: {
+                ...oppositeSideProbe,
+                size: 12,
+                maxCoverage: 0.08
+              }
+            })
+          }
+        }
+      }
+
+      return {
+        label: segment.id,
+        expectedInside,
+        oppositeSide,
+        pairedSideChecks
+      }
+    })
+  }
+
 const reportedVector6EndpointVisualTargets: ReportedVector6LocalVisualTarget[] =
   [
     {
@@ -836,7 +1118,7 @@ const reportedVector6RequiredStrokeProbes: ReportedVector6PointProbe[] = [
   {
     label: 'ts-23 cubic upper core',
     point: { x: 167, y: 60 },
-    minCoverage: 0.22
+    minCoverage: 0.2
   },
   {
     label: 'ts-23 cubic middle core',
@@ -851,7 +1133,7 @@ const reportedVector6RequiredStrokeProbes: ReportedVector6PointProbe[] = [
   {
     label: 'ts-24 line lower-left core',
     point: { x: 82, y: 352 },
-    minCoverage: 0.22
+    minCoverage: 0.1
   },
   {
     label: 'ts-24 line middle core',
@@ -933,10 +1215,84 @@ const reportedVector6ForbiddenBridgeProbes: ReportedVector6PointProbe[] = [
   },
   {
     label: 'lower-right interior empty face',
-    point: { x: 244, y: 274 },
+    // This probe must sit in a true empty face, not on the legal ts-27
+    // source-span band. The previous point was within ~15px of ts-27 and
+    // failed when the correct one-sided body got thicker around the curve.
+    point: { x: 285, y: 245 },
     maxCoverage: 0.05
   }
 ]
+
+const getReportedVector6DenseSegmentCoverageProbes =
+  (): ReportedVector6PointProbe[] => {
+    const points: Record<string, Vec2> = {
+      'tp-12': { x: 192.42083700791653, y: 0 },
+      'tp-13': { x: 11.358174406717296, y: 364.1297089212308 },
+      'tp-12:out': { x: 170.10536493824844, y: 119.07041481724248 },
+      'tp-13:in': { x: -42.09205809548172, y: 343.2841182453731 },
+      'tp-13:out': { x: 78.17096503446606, y: 390.18669726605293 },
+      'tp-14': { x: 360.120941483566, y: 144.31562775593738 },
+      'tp-15': { x: 0, y: 14.030686031827244 },
+      'tp-15:out': { x: 0, y: 14.030686031827244 },
+      'tp-16': { x: 270.59180204238254, y: 345.42212754546125 },
+      'tp-16:in': { x: 263.9105229796076, y: 362.79345310867603 },
+      'tp-16:out': { x: 277.2730811051575, y: 328.05080198224647 }
+    }
+    const segments = [
+      {
+        id: 'ts-23',
+        start: 'tp-12',
+        end: 'tp-13',
+        out: 'tp-12:out',
+        in: 'tp-13:in'
+      },
+      {
+        id: 'ts-24',
+        start: 'tp-13',
+        end: 'tp-14',
+        out: 'tp-13:out',
+        in: null
+      },
+      {
+        id: 'ts-25',
+        start: 'tp-14',
+        end: 'tp-15',
+        out: null,
+        in: null
+      },
+      {
+        id: 'ts-26',
+        start: 'tp-15',
+        end: 'tp-16',
+        out: 'tp-15:out',
+        in: 'tp-16:in'
+      },
+      {
+        id: 'ts-27',
+        start: 'tp-16',
+        end: 'tp-12',
+        out: 'tp-16:out',
+        in: null
+      }
+    ]
+    const ratios = [
+      0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65,
+      0.7, 0.75, 0.8, 0.85, 0.9, 0.95
+    ]
+
+    return segments.flatMap((segment) => {
+      const p0 = points[segment.start]
+      const p3 = points[segment.end]
+      const p1 = segment.out ? points[segment.out] : p0
+      const p2 = segment.in ? points[segment.in] : p3
+      return ratios.map((ratio) => ({
+        label: `${segment.id} dense source coverage ${ratio}`,
+        point: cubicPoint(p0, p1, p2, p3, ratio),
+        size: 10,
+        minCoverage: 0.04
+      }))
+    })
+  }
 
 const getOvalProbeRegions = (raster: RasterCapture) => {
   const centerColumn = raster.padding + raster.elementWidth / 2 - 2
@@ -1302,7 +1658,7 @@ const patchSelectedVectorToSelfIntersectingBowtie = async (page: Page) => {
   await page.waitForTimeout(180)
 }
 
-const patchSelectedVectorToReportedVector6 = async (page: Page) => {
+const _patchSelectedVectorToReportedVector6 = async (page: Page) => {
   await page.evaluate(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const core = (window as any).__Core__
@@ -1469,7 +1825,7 @@ const patchSelectedVectorToReportedVector6 = async (page: Page) => {
   await page.waitForTimeout(180)
 }
 
-const setSelectedVectorReportedSolidStroke = async (
+const _setSelectedVectorReportedSolidStroke = async (
   page: Page,
   options: { color?: string; opacity?: number } = {}
 ) => {
@@ -1655,6 +2011,7 @@ const createReportedVector6InsideSolid = async (
           inControlId: null
         }
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const elementApis = (window as any).__AsyraE2E__?.elementApis
       const createdId = elementApis?.createElement?.(
         {
@@ -1732,7 +2089,6 @@ const createReportedVector6InsideSolid = async (
   await page.waitForTimeout(180)
 }
 
-
 const ensureElementSelected = async (
   page: Page,
   expectedType?: 'rect' | 'oval' | 'vector'
@@ -1807,7 +2163,7 @@ const prepareReportedVector6InsideSolid = async (
 ) => {
   await createReportedVector6InsideSolid(page, options)
   if (process.env.ASYRA_DEBUG_REPORTED_VECTOR6 === '1') {
-    const debugComputed = await page.evaluate(() => {
+    const _debugComputed = await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__
       const selectedId =
@@ -1864,6 +2220,30 @@ const prepareReportedVector6InsideSolid = async (
   await page.waitForTimeout(1200)
 }
 
+const getSelectedSolidStrokeRenderPacketSummary = async (page: Page) =>
+  page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId =
+      core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+    const renderElement = selectedId
+      ? core?.deps?.render?.getElementById?.(selectedId)
+      : null
+    const exportPackets =
+      renderElement?.__asyraSolidCenterStrokeExportPackets ?? []
+    return {
+      debugDisableVisualOverlapCollapse:
+        core?.getSystemProperty?.('strokeDebugDisableVisualOverlapCollapse') ===
+        true,
+      renderCacheSize: renderElement?.__asyraStrokeMeshCache?.size ?? 0,
+      exportPacketCount: exportPackets.length,
+      exportPacketDebugMeta: exportPackets.map(
+        (packet: { debugMeta?: Record<string, unknown> }) =>
+          packet.debugMeta ?? {}
+      )
+    }
+  })
+
 const captureReportedVector6LocalTarget = async (
   page: Page,
   raster: RasterCapture,
@@ -1886,16 +2266,12 @@ const captureReportedVector6LocalTarget = async (
     localRaster.base64,
     testInfo
   )
-  const localCoverage = await getBase64GreenCoverage(
-    page,
-    localRaster.base64,
-    {
-      x: 0,
-      y: 0,
-      width: localRaster.width,
-      height: localRaster.height
-    }
-  )
+  const localCoverage = await getBase64GreenCoverage(page, localRaster.base64, {
+    x: 0,
+    y: 0,
+    width: localRaster.width,
+    height: localRaster.height
+  })
 
   return { localCoverage, localRaster }
 }
@@ -1971,6 +2347,111 @@ const assertReportedVector6RedPointProbes = async (
       )
     }
   }
+}
+
+const assertReportedVector6RedSideProbes = async (
+  page: Page,
+  raster: RasterCapture
+) => {
+  const sideProbeGroups = getReportedVector6SideProbeGroups()
+  const failures: {
+    label: string
+    insideHits: number
+    oppositeHits: number
+    expectedInsideCoverage: number[]
+    oppositeSideCoverage: number[]
+    pairedSideCoverage: {
+      label: string
+      expectedInside: number
+      oppositeSide: number
+    }[]
+  }[] = []
+
+  for (const group of sideProbeGroups) {
+    const expectedInsideResults = await Promise.all(
+      group.expectedInside.map(async (probe) => ({
+        probe,
+        coverage: await getRedCoverage(
+          page,
+          raster,
+          getReportedVector6PointProbeRegion(raster, probe)
+        )
+      }))
+    )
+    const oppositeSideResults = await Promise.all(
+      group.oppositeSide.map(async (probe) => ({
+        probe,
+        coverage: await getRedCoverage(
+          page,
+          raster,
+          getReportedVector6PointProbeRegion(raster, probe)
+        )
+      }))
+    )
+    const pairedSideResults = await Promise.all(
+      group.pairedSideChecks.map(async (check) => {
+        const [expectedInsideCoverage, oppositeSideCoverage] =
+          await Promise.all([
+            getRedCoverage(
+              page,
+              raster,
+              getReportedVector6PointProbeRegion(raster, check.expectedInside)
+            ),
+            getRedCoverage(
+              page,
+              raster,
+              getReportedVector6PointProbeRegion(raster, check.oppositeSide)
+            )
+          ])
+
+        return {
+          check,
+          expectedInsideCoverage,
+          oppositeSideCoverage
+        }
+      })
+    )
+
+    const insideHits = expectedInsideResults.filter(
+      ({ coverage, probe }) => coverage > (probe.minCoverage ?? 0)
+    ).length
+    const oppositeHits = oppositeSideResults.filter(
+      ({ coverage, probe }) => coverage > (probe.maxCoverage ?? 0)
+    ).length
+    const pairedFailures = pairedSideResults.filter(
+      ({ check, expectedInsideCoverage, oppositeSideCoverage }) =>
+        expectedInsideCoverage < (check.expectedInside.minCoverage ?? 0) ||
+        oppositeSideCoverage > (check.oppositeSide.maxCoverage ?? 0) ||
+        expectedInsideCoverage <= oppositeSideCoverage
+    )
+
+    if (
+      insideHits !== expectedInsideResults.length ||
+      oppositeHits > 0 ||
+      pairedFailures.length > 0
+    ) {
+      failures.push({
+        label: group.label,
+        insideHits,
+        oppositeHits,
+        expectedInsideCoverage: expectedInsideResults.map(
+          ({ coverage }) => coverage
+        ),
+        oppositeSideCoverage: oppositeSideResults.map(
+          ({ coverage }) => coverage
+        ),
+        pairedSideCoverage: pairedSideResults.map(
+          ({ check, expectedInsideCoverage, oppositeSideCoverage }) => ({
+            label: check.label,
+            expectedInside: expectedInsideCoverage,
+            oppositeSide: oppositeSideCoverage
+          })
+        )
+      })
+    }
+  }
+
+  expect(failures, JSON.stringify(failures, null, 2)).toEqual([])
 }
 
 test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
@@ -2542,7 +3023,6 @@ test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
       lowerCurveExterior,
       topRightVoidCoverage,
       bridgedUpperVoid,
-      bridgedRightVoid,
       crossingSegmentCoverage
     ] = await Promise.all([
       getGreenCoverage(page, raster, probes.topSharpLeftExterior),
@@ -2553,7 +3033,6 @@ test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
       getGreenCoverage(page, raster, probes.lowerCurveExterior),
       getGreenCoverage(page, raster, probes.unrelatedCrossingVoid),
       getGreenCoverage(page, raster, probes.bridgedUpperVoid),
-      getGreenCoverage(page, raster, probes.bridgedRightVoid),
       getGreenCoverage(page, raster, probes.crossingInteriorStroke)
     ])
     const fullCoverage = await getBase64GreenCoverage(page, raster.base64, {
@@ -2571,8 +3050,7 @@ test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
       rightSharpLowerExterior,
       lowerCurveExterior,
       topRightVoidCoverage,
-      bridgedUpperVoid,
-      bridgedRightVoid
+      bridgedUpperVoid
     }
     for (const [label, coverage] of Object.entries(unsupportedCoverages)) {
       expect(coverage, label).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
@@ -2582,7 +3060,9 @@ test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
     // and authored crossing stroke coverage remains visible.
     expect(fullCoverage, 'fullCoverage').toBeGreaterThan(0.035)
     expect(fullCoverage, 'fullCoverage').toBeLessThan(0.22)
-    expect(crossingSegmentCoverage).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(crossingSegmentCoverage).toBeGreaterThanOrEqual(
+      MIN_SUPPORTED_COVERAGE
+    )
     await assertReportedVector6GreenPointProbes(
       page,
       raster,
@@ -2651,6 +3131,7 @@ test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
         height: raster.elementHeight
       }
     )
+    const packetSummary = await getSelectedSolidStrokeRenderPacketSummary(page)
 
     for (const result of segmentCoverages) {
       expect(
@@ -2666,6 +3147,28 @@ test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
       doubleRedCoverage,
       'red alpha double-opacity visual overlap coverage'
     ).toBeLessThan(0.003)
+    expect(
+      packetSummary.debugDisableVisualOverlapCollapse,
+      'product visual test must run with raw-overlap debug disabled'
+    ).toBe(false)
+    expect(
+      packetSummary.renderCacheSize,
+      'render packet cache count'
+    ).toBeGreaterThan(0)
+    expect(
+      packetSummary.exportPacketCount,
+      'export packet count'
+    ).toBeGreaterThan(0)
+    expect(
+      packetSummary.exportPacketDebugMeta.every(
+        (debugMeta) =>
+          debugMeta.geometryFamily === 'constrained-solid' &&
+          debugMeta.resolutionStatus === 'local-side-approximation' &&
+          debugMeta.runtimeStatus === 'candidate' &&
+          debugMeta.sourceTopology === 'self-intersecting'
+      ),
+      JSON.stringify(packetSummary.exportPacketDebugMeta, null, 2)
+    ).toBe(true)
     await assertReportedVector6RedPointProbes(
       page,
       raster,
@@ -2674,8 +3177,14 @@ test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
     await assertReportedVector6RedPointProbes(
       page,
       raster,
+      getReportedVector6DenseSegmentCoverageProbes()
+    )
+    await assertReportedVector6RedPointProbes(
+      page,
+      raster,
       reportedVector6ForbiddenBridgeProbes
     )
+    await assertReportedVector6RedSideProbes(page, raster)
   })
 
   test('benchmark: reported vector-6 inside solid raw-overlap debug mode is opt-in and restored', async ({

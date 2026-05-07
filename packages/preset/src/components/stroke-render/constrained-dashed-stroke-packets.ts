@@ -6,9 +6,9 @@ import {
 import type { allocateDashedCenterStrokeIntervals } from './dashed-center-stroke-intervals'
 import { createStrokeIntervalPointSlicer } from './stroke-interval-frames'
 import {
-  buildConstrainedSolidStrokePolygons,
-  buildSelfIntersectingClosedConstrainedStrokePolygonsForDashedApproximation
-} from './constrained-solid-stroke-geometry'
+  buildConstrainedDashedLocalSideStrokePolygons,
+  buildSelfIntersectingClosedConstrainedDashedLocalSidePolygons
+} from './constrained-dashed-local-side-geometry'
 import {
   isSimpleClosedPolygon,
   polygonArea
@@ -1067,7 +1067,7 @@ const splitVisibleIntervalBySourceSegments = (
   )
 }
 
-type SourceSegmentIntervalRange = {
+interface SourceSegmentIntervalRange {
   startDistance: number
   endDistance: number
   segmentIndex: number
@@ -1387,44 +1387,42 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
     let currentPolygon = polygon
 
     if (touchesSegmentStart) {
-      currentPolygon =
-        segmentStartIsSharp
-          ? clipPolygonToSelectedSideBoundary(
-              currentPolygon,
-              previousBoundary,
-              previousBoundarySelectedSide
-            )
-          : clipPolygonToSelectedSideBoundaryIfCrossing(
-              currentPolygon,
-              previousBoundary,
-              selectedSide
-            )
+      currentPolygon = segmentStartIsSharp
+        ? clipPolygonToSelectedSideBoundary(
+            currentPolygon,
+            previousBoundary,
+            previousBoundarySelectedSide
+          )
+        : clipPolygonToSelectedSideBoundaryIfCrossing(
+            currentPolygon,
+            previousBoundary,
+            selectedSide
+          )
       if (currentPolygon.length < 3) {
         return []
       }
     }
 
     if (touchesSegmentEnd) {
-      currentPolygon =
-        segmentEndIsSharp
-          ? clipPolygonToSelectedSideBoundary(
-              currentPolygon,
-              nextBoundary,
-              nextBoundarySelectedSide
-            )
-          : clipPolygonToSelectedSideBoundaryIfCrossing(
-              currentPolygon,
-              nextBoundary,
-              selectedSide
-            )
+      currentPolygon = segmentEndIsSharp
+        ? clipPolygonToSelectedSideBoundary(
+            currentPolygon,
+            nextBoundary,
+            nextBoundarySelectedSide
+          )
+        : clipPolygonToSelectedSideBoundaryIfCrossing(
+            currentPolygon,
+            nextBoundary,
+            selectedSide
+          )
       if (currentPolygon.length < 3) {
         return []
       }
     }
 
     if (
-      ((touchesSegmentStart && !segmentStartIsSharp) ||
-        (touchesSegmentEnd && !segmentEndIsSharp))
+      (touchesSegmentStart && !segmentStartIsSharp) ||
+      (touchesSegmentEnd && !segmentEndIsSharp)
     ) {
       currentPolygon = clipPolygonToDominantSideBoundaryIfCrossing(
         currentPolygon,
@@ -2617,7 +2615,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
         style: 'solid' as const
       }
       const polygons = topology.isSimpleClosed
-        ? buildConstrainedSolidStrokePolygons(
+        ? buildConstrainedDashedLocalSideStrokePolygons(
             topologyPoints,
             true,
             solidStroke,
@@ -2626,7 +2624,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
               assumeSimpleClosed: true
             }
           )
-        : buildSelfIntersectingClosedConstrainedStrokePolygonsForDashedApproximation(
+        : buildSelfIntersectingClosedConstrainedDashedLocalSidePolygons(
             topologyPoints,
             solidStroke
           )
@@ -2724,21 +2722,22 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 range.endDistance,
                 false
               )
-              const rangePolygons = buildConstrainedSolidStrokePolygons(
-                rawIntervalPoints,
-                false,
-                stroke.cap === 'square'
-                  ? {
-                      ...intervalStroke,
-                      cap: 'butt'
-                    }
-                  : intervalStroke,
-                {
-                  assumeSimpleOpen: true,
-                  assumeSimpleClosed: undefined,
-                  assumeNormalizedOpen: true
-                }
-              )
+              const rangePolygons =
+                buildConstrainedDashedLocalSideStrokePolygons(
+                  rawIntervalPoints,
+                  false,
+                  stroke.cap === 'square'
+                    ? {
+                        ...intervalStroke,
+                        cap: 'butt'
+                      }
+                    : intervalStroke,
+                  {
+                    assumeSimpleOpen: true,
+                    assumeSimpleClosed: undefined,
+                    assumeNormalizedOpen: true
+                  }
+                )
               return clipSourceSegmentRangePolygonsToAdjacentBoundaries(
                 rangePolygons,
                 sourcePath,
@@ -2758,7 +2757,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
               )
             ]
           })()
-        : buildConstrainedSolidStrokePolygons(
+        : buildConstrainedDashedLocalSideStrokePolygons(
             intervalPointSlicer.slice(
               interval.startDistance,
               interval.endDistance,

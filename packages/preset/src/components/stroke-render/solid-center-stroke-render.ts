@@ -48,12 +48,24 @@ interface SolidStrokeCacheGradientEntry {
   lastDirtyKeys?: StrokeDirtyKey[]
 }
 
+interface SolidStrokeCacheGraphicsSolidEntry {
+  kind: 'graphics-solid'
+  container: Container
+  graphics: Graphics
+  signature: string
+  paintKey: string
+  revisionSet?: StrokeRevisionSet
+  lastDirtyKeys?: StrokeDirtyKey[]
+}
+
 interface SolidCenterStrokeRenderGraphic {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   addChild?: (...args: any[]) => unknown
   __asyraStrokeMeshCache?: Map<
     string,
-    SolidStrokeCacheSolidEntry | SolidStrokeCacheGradientEntry
+    | SolidStrokeCacheSolidEntry
+    | SolidStrokeCacheGradientEntry
+    | SolidStrokeCacheGraphicsSolidEntry
   >
 }
 
@@ -115,8 +127,25 @@ const applyGradientPaint = (
   graphics.fill(style as Parameters<Graphics['fill']>[0])
 }
 
+const applyGraphicsSolidPaint = (
+  graphics: Graphics,
+  polygons: Vec2[][],
+  color: number,
+  alpha: number
+) => {
+  graphics.clear()
+  polygons.forEach((polygon) => {
+    const flatPolygon = polygon.flatMap((point) => [point.x, point.y])
+    graphics.poly(flatPolygon)
+  })
+  graphics.fill({ color, alpha })
+}
+
 const disposeCacheEntry = (
-  entry: SolidStrokeCacheSolidEntry | SolidStrokeCacheGradientEntry
+  entry:
+    | SolidStrokeCacheSolidEntry
+    | SolidStrokeCacheGradientEntry
+    | SolidStrokeCacheGraphicsSolidEntry
 ) => {
   if (entry.kind === 'solid') {
     entry.projection.dispose()
@@ -147,6 +176,9 @@ const hasGeometryDirtyKey = (dirtyKeys: StrokeDirtyKey[] | null) =>
 const hasPaintDirtyKey = (dirtyKeys: StrokeDirtyKey[] | null) =>
   dirtyKeys === null || dirtyKeys.includes('paint-payload')
 
+const shouldRenderSolidWithGraphics = (_entry: SolidCenterStrokeRenderEntry) =>
+  false
+
 export const renderSolidCenterStrokeEntries = (
   graphic: SolidCenterStrokeRenderGraphic,
   entries: SolidCenterStrokeRenderEntry[]
@@ -175,11 +207,16 @@ export const renderSolidCenterStrokeEntries = (
     const geometryDirty = hasGeometryDirtyKey(dirtyKeys)
     const paintDirty = hasPaintDirtyKey(dirtyKeys)
     const strokeKind = entry.stroke.kind ?? 'solid'
+    const targetCacheKind =
+      strokeKind === 'solid' && shouldRenderSolidWithGraphics(entry)
+        ? 'graphics-solid'
+        : strokeKind
     const paintKey =
       entry.stroke.paintKey ??
       `solid:${entry.stroke.color}:${entry.stroke.alpha}`
+    const signature = getSignature(polygons)
 
-    if (existing && existing.kind !== strokeKind) {
+    if (existing && existing.kind !== targetCacheKind) {
       disposeCacheEntry(existing)
       graphic.__asyraStrokeMeshCache?.delete(entry.cacheKey)
     }
@@ -190,11 +227,15 @@ export const renderSolidCenterStrokeEntries = (
       compatibleEntry &&
       dirtyKeys !== null &&
       !geometryDirty &&
-      !paintDirty
+      !paintDirty &&
+      compatibleEntry.signature === signature &&
+      compatibleEntry.paintKey === paintKey
     ) {
       compatibleEntry.revisionSet = revisionSet
       compatibleEntry.lastDirtyKeys = []
       if (compatibleEntry.kind === 'gradient') {
+        compatibleEntry.container.visible = true
+      } else if (compatibleEntry.kind === 'graphics-solid') {
         compatibleEntry.container.visible = true
       } else {
         compatibleEntry.projection.setVisible(true)
@@ -203,7 +244,76 @@ export const renderSolidCenterStrokeEntries = (
       return
     }
 
-    const signature = getSignature(polygons)
+    if (targetCacheKind === 'graphics-solid') {
+      if (
+        compatibleEntry &&
+        compatibleEntry.kind === 'graphics-solid' &&
+        (dirtyKeys !== null
+          ? !geometryDirty &&
+            !paintDirty &&
+            compatibleEntry.signature === signature &&
+            compatibleEntry.paintKey === paintKey
+          : compatibleEntry.signature === signature &&
+            compatibleEntry.paintKey === paintKey)
+      ) {
+        compatibleEntry.revisionSet = revisionSet
+        compatibleEntry.lastDirtyKeys = dirtyKeys ?? []
+        compatibleEntry.container.visible = true
+        active.add(entry.cacheKey)
+        return
+      }
+
+      if (
+        compatibleEntry &&
+        compatibleEntry.kind === 'graphics-solid' &&
+        (dirtyKeys === null ||
+          geometryDirty ||
+          paintDirty ||
+          compatibleEntry.signature !== signature ||
+          compatibleEntry.paintKey !== paintKey)
+      ) {
+        applyGraphicsSolidPaint(
+          compatibleEntry.graphics,
+          polygons,
+          entry.stroke.color,
+          entry.stroke.alpha
+        )
+        compatibleEntry.signature = signature
+        compatibleEntry.paintKey = paintKey
+        compatibleEntry.revisionSet = revisionSet
+        compatibleEntry.lastDirtyKeys = dirtyKeys ?? []
+        compatibleEntry.container.visible = true
+        active.add(entry.cacheKey)
+        return
+      }
+
+      const container = new Container()
+      const graphics = new Graphics()
+      container.addChild(graphics)
+      applyGraphicsSolidPaint(
+        graphics,
+        polygons,
+        entry.stroke.color,
+        entry.stroke.alpha
+      )
+
+      if (!graphic.addChild(container)) {
+        container.destroy()
+        return
+      }
+
+      graphic.__asyraStrokeMeshCache?.set(entry.cacheKey, {
+        kind: 'graphics-solid',
+        container,
+        graphics,
+        signature,
+        paintKey,
+        revisionSet,
+        lastDirtyKeys: []
+      })
+      active.add(entry.cacheKey)
+      return
+    }
 
     if (strokeKind === 'gradient') {
       const gradientStyle = entry.stroke.gradientStyle
@@ -299,7 +409,10 @@ export const renderSolidCenterStrokeEntries = (
     if (
       compatibleEntry.kind === 'solid' &&
       (dirtyKeys !== null
-        ? geometryDirty || paintDirty
+        ? geometryDirty ||
+          paintDirty ||
+          compatibleEntry.signature !== signature ||
+          compatibleEntry.paintKey !== paintKey
         : compatibleEntry.signature !== signature ||
           compatibleEntry.paintKey !== paintKey)
     ) {
@@ -324,6 +437,8 @@ export const renderSolidCenterStrokeEntries = (
         compatibleEntry.lastDirtyKeys = []
       }
       compatibleEntry.projection.setVisible(true)
+    } else if (compatibleEntry.kind === 'graphics-solid') {
+      compatibleEntry.container.visible = true
     }
     active.add(entry.cacheKey)
   })

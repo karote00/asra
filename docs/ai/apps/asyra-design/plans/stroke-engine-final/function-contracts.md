@@ -237,7 +237,7 @@ Normative requirements:
     boundary seams
   - backend-backed overlap normalization runs
     `union(shells, nonzero) -> union(holes, nonzero) ->
-    difference(shells, holes, nonzero)`
+difference(shells, holes, nonzero)`
   - normalized boundary spans carry source contour ids and source span ids
 - Boundary conditions:
   - one shell and one hole
@@ -454,19 +454,23 @@ Current Phase 3 implementation note:
 
 Current implementation note:
 
-- supported constrained dashed full-loop intervals reuse the exact constrained
-  solid selected-side geometry path
+- supported constrained dashed full-loop intervals use the dashed local-side
+  geometry module. Dashed packet construction must not import self-intersecting
+  local-side helpers from the solid product geometry module.
+- shared one-sided local-side helpers live in the neutral
+  `constrained-local-side-stroke-geometry.ts` module. The solid geometry module
+  may re-export solid-compatible names, but dashed code must import through the
+  dashed local-side module and never through the solid product path.
 - supported constrained dashed non-full-loop intervals slice the source interval
   first, then build direct one-sided constrained geometry for that visible
   closed-path interval. Product vector rendering maps open-path authored
   `inside` / `outside` dashed strokes to center geometry before this stage.
 - self-intersecting closed constrained dashed intervals emit product
-  local-side approximation packets when no exact arrangement backend is
-  selected. With a selected backend, accepted packets promote through exact
-  face arrangement, legal-domain classification, and duplicate semantic-region
-  collapse. The packets must keep `geometryFamily: "constrained-dashed"` and
-  report either `resolutionStatus: "local-side-approximation"` or
-  `resolutionStatus: "exact-constrained"` according to the selected backend.
+  local-side approximation packets even when an exact arrangement backend is
+  selected. Exact promotion is gated until legal-domain clipping preserves valid
+  internal dash regions. The packets must keep
+  `geometryFamily: "constrained-dashed"` and report
+  `resolutionStatus: "local-side-approximation"`.
 - sampled-simple-closed interval-local constrained dashed packets follow the
   same selected-backend promotion rule. Full-loop sampled constrained packets
   may remain exact when they do not need interval-local candidate overlap
@@ -485,6 +489,9 @@ Current implementation note:
   are available. The guard edges come from the authored anchor-to-anchor segment
   chain, while only anchors marked sharp may activate the guard; smooth anchors
   remain available as adjacent segment endpoints but must not trigger clipping.
+- closed self-intersecting solid candidates choose the authored side per source
+  segment from sampled topology probes. A single contour-area offset is only a
+  tie-breaker and must not be used as the primary side decision for all spans.
 - if a local-side approximation interval polygon crosses another active
   authored sharp-boundary edge, the crossed portion must be clipped by that
   authored edge line, not by the sampled tangent or interval end cap. This
@@ -1032,6 +1039,9 @@ Current Step 7 implementation note:
   - with a backend supporting `buildArrangement`, only eligible packets emit
     exact faces carrying `arrangementStatus: "exact"` and
     `resolutionStatus: "exact-constrained"`
+  - ineligible self-intersecting or local-side approximation packets are returned
+    unchanged; backend absence or arrangement failure must not remove authored
+    inside/outside packets or substitute center geometry
   - all accepted network candidates for the current vector are arranged in the
     same promotion pass, so same-visual overlap can collapse into a shared
     `ownerSet`

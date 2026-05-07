@@ -39,7 +39,10 @@ export interface StrokeFinalFaceDebugMetaBase {
     insideFillDomain: boolean
     outsideFillDomain: boolean
   }
-  visualOverlapCollapseStatus?: 'exact-union' | 'exact-arrangement'
+  visualOverlapCollapseStatus?:
+    | 'exact-union'
+    | 'exact-arrangement'
+    | 'local-side-arrangement'
   visualOverlapSourceFaceIds?: string[]
   visualOverlapSourceGeometryIds?: string[]
   visualContext?: Partial<StrokeVisualContext>

@@ -17,6 +17,7 @@ import {
 } from '@asyra/utils'
 import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
+import { buildSolidCenterStrokePolygons } from '../components/stroke-render/solid-center-stroke-geometry'
 import type { SolidCenterStrokeExportPacket } from '../components/stroke-render/solid-center-stroke-packets'
 
 beforeAll(() => {
@@ -200,7 +201,105 @@ const getProjectionMeshes = (host: Container) =>
     )
   })
 
+const isPointInPolygon = (
+  point: { x: number; y: number },
+  polygon: { x: number; y: number }[]
+) => {
+  let inside = false
+  for (
+    let currentIndex = 0, previousIndex = polygon.length - 1;
+    currentIndex < polygon.length;
+    previousIndex = currentIndex, currentIndex += 1
+  ) {
+    const current = polygon[currentIndex]
+    const previous = polygon[previousIndex]
+    const intersects =
+      current.y > point.y !== previous.y > point.y &&
+      point.x <
+        ((previous.x - current.x) * (point.y - current.y)) /
+          (previous.y - current.y) +
+          current.x
+    if (intersects) {
+      inside = !inside
+    }
+  }
+
+  return inside
+}
+
 describe('vector solid-center stroke product wiring', () => {
+  it('should run: keep miter coverage across the closed-path seam', () => {
+    const polygons = buildSolidCenterStrokePolygons(
+      [
+        { x: 50, y: 0 },
+        { x: 90, y: 100 },
+        { x: 10, y: 100 }
+      ],
+      true,
+      {
+        style: 'solid',
+        position: 'center',
+        width: 20,
+        join: 'miter',
+        miterLimit: 4,
+        cap: 'butt'
+      }
+    )
+
+    expect(polygons.length).toBeGreaterThan(3)
+    ;[
+      { x: 47, y: 7 },
+      { x: 50, y: 9 },
+      { x: 53, y: 7 }
+    ].forEach((probe) => {
+      expect(
+        polygons.some((polygon) => isPointInPolygon(probe, polygon)),
+        JSON.stringify({ probe, polygons }, null, 2)
+      ).toBe(true)
+    })
+  })
+
+  it('should run: keep reported vector-6 closed seam coverage without covering the top hollow', () => {
+    const polygons = buildSolidCenterStrokePolygons(
+      [
+        { x: 192.42083700791653, y: 0 },
+        { x: 11.358174406717296, y: 364.1297089212308 },
+        { x: 360.120941483566, y: 144.31562775593738 },
+        { x: 0, y: 14.030686031827244 },
+        { x: 270.59180204238254, y: 345.42212754546125 }
+      ],
+      true,
+      {
+        style: 'solid',
+        position: 'center',
+        width: 10,
+        join: 'miter',
+        miterLimit: 4,
+        cap: 'butt'
+      }
+    )
+
+    ;[
+      { x: 190, y: 5 },
+      { x: 195, y: 5 },
+      { x: 192, y: 12 }
+    ].forEach((probe) => {
+      expect(
+        polygons.some((polygon) => isPointInPolygon(probe, polygon)),
+        JSON.stringify({ probe, polygons }, null, 2)
+      ).toBe(true)
+    })
+    ;[
+      { x: 192, y: 58 },
+      { x: 192, y: 68 },
+      { x: 198, y: 74 }
+    ].forEach((probe) => {
+      expect(
+        polygons.some((polygon) => isPointInPolygon(probe, polygon)),
+        JSON.stringify({ probe, polygons }, null, 2)
+      ).toBe(false)
+    })
+  })
   ;[
     { label: 'inside', position: StrokePositions.INSIDE },
     { label: 'outside', position: StrokePositions.OUTSIDE }

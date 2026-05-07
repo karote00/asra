@@ -85,18 +85,41 @@ const getModelBounds = (model: GeometryModel) => {
   }
 }
 
+const distance = (a: GeometryPoint, b: GeometryPoint) =>
+  Math.hypot(a.x - b.x, a.y - b.y)
+
+const normalizePolygon = (polygon: GeometryPoint[]) => {
+  const deduped: GeometryPoint[] = []
+  polygon.forEach((point) => {
+    const previous = deduped[deduped.length - 1]
+    if (!previous || distance(previous, point) > 1e-6) {
+      deduped.push(point)
+    }
+  })
+
+  if (
+    deduped.length > 2 &&
+    distance(deduped[0], deduped[deduped.length - 1]) <= 1e-6
+  ) {
+    deduped.pop()
+  }
+
+  return deduped
+}
+
 const triangulatePolygon = (
   polygon: GeometryPoint[],
   vertexOffset: number,
   vertices: number[],
   indices: number[]
 ) => {
-  if (polygon.length < 3) {
+  const normalizedPolygon = normalizePolygon(polygon)
+  if (normalizedPolygon.length < 3) {
     return
   }
 
   const flatPolygon: number[] = []
-  polygon.forEach((point) => {
+  normalizedPolygon.forEach((point) => {
     flatPolygon.push(point.x, point.y)
   })
 

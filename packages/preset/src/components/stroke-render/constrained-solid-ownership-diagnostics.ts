@@ -1348,6 +1348,13 @@ export const buildConstrainedSolidOwnershipDiagnostics = (
   }
 }
 
+export const buildConstrainedSolidOwnershipCandidateDiagnostics = (
+  packets: SolidCenterStrokeResolvedPacket[]
+): ConstrainedSolidOwnershipDiagnostics => ({
+  ...createEmptyConstrainedSolidOwnershipDiagnostics(),
+  candidates: buildCandidates(packets)
+})
+
 export const applyConstrainedSolidOwnershipDiagnostics = <T extends object>(
   graphic: T,
   packets: SolidCenterStrokeResolvedPacket[]

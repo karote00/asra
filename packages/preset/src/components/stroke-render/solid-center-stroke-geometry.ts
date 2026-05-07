@@ -292,17 +292,13 @@ export const buildSolidCenterStrokePolygons = (
       return points
     }
 
-    leftSegments.forEach((leftSegment, index) => {
-      const rightSegment = rightSegments[index]
-      if (!leftSegment || !rightSegment) {
-        return
-      }
-
+    source.forEach((_, index) => {
+      const nextIndex = (index + 1) % source.length
       pushPolygon([
-        leftSegment.start,
-        leftSegment.end,
-        rightSegment.end,
-        rightSegment.start
+        left[index],
+        left[nextIndex],
+        right[nextIndex],
+        right[index]
       ])
     })
 
@@ -447,22 +443,70 @@ export const buildSolidCenterStrokePolygons = (
       return polygons
     }
 
+    const leftSegments = buildOffsetSegments(source, true, halfWidth)
+    const rightSegments = buildOffsetSegments(source, true, -halfWidth)
     const left = offsetPath(source, true, halfWidth, stroke)
     const right = offsetPath(source, true, -halfWidth, stroke)
-    if (left.length === 0 || right.length === 0) {
+    if (
+      leftSegments.length === 0 ||
+      rightSegments.length === 0 ||
+      left.length === 0 ||
+      right.length === 0
+    ) {
       return []
     }
 
-    return source.flatMap((_, index) => {
-      const nextIndex = (index + 1) % source.length
-      const polygon = dedupeClosed([
-        left[index],
-        left[nextIndex],
-        right[nextIndex],
-        right[index]
+    const polygons: Vec2[][] = []
+    const pushPolygon = (points: Vec2[]) => {
+      const polygon = dedupeClosed(points)
+      return polygon.length >= 3 ? polygons.push(polygon) : undefined
+    }
+    const cross = (a: Vec2, b: Vec2) => a.x * b.y - a.y * b.x
+
+    leftSegments.forEach((leftSegment, index) => {
+      const rightSegment = rightSegments[index]
+      if (!leftSegment || !rightSegment) {
+        return
+      }
+
+      pushPolygon([
+        leftSegment.start,
+        leftSegment.end,
+        rightSegment.end,
+        rightSegment.start
       ])
-      return polygon.length >= 3 ? [polygon] : []
     })
+
+    source.forEach((point, index) => {
+      const previousIndex = (index - 1 + source.length) % source.length
+      const nextIndex = (index + 1) % source.length
+      const turn = cross(
+        subtract(point, source[previousIndex]),
+        subtract(source[nextIndex], point)
+      )
+      if (Math.abs(turn) <= 1e-6) {
+        return
+      }
+
+      const outerSegments = turn > 0 ? rightSegments : leftSegments
+      const innerSegments = turn > 0 ? leftSegments : rightSegments
+      const outerPath = turn > 0 ? right : left
+      const previousOuter = outerSegments[previousIndex]
+      const nextOuter = outerSegments[index]
+      const previousInner = innerSegments[previousIndex]
+      const nextInner = innerSegments[index]
+      const outerJoinPoint = outerPath[index]
+
+      if (previousInner && nextInner) {
+        pushPolygon([previousInner.end, point, nextInner.start])
+      }
+
+      if (previousOuter && nextOuter && outerJoinPoint) {
+        pushPolygon([previousOuter.end, outerJoinPoint, nextOuter.start, point])
+      }
+    })
+
+    return polygons
   }
 
   const left = offsetPath(source, false, halfWidth, stroke)

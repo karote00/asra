@@ -1,5 +1,5 @@
 import type { StrokeAttrs } from '@asyra/utils'
-import type { GeometryBackend, PolygonRegion } from './geometry-backend'
+import type { GeometryBackend } from './geometry-backend'
 import { getRenderableStrokes } from './renderable-stroke'
 import {
   buildSolidCenterStrokeResolvedPackets,
@@ -125,8 +125,7 @@ const supportsExactConstrainedSolidStroke = (
   stroke.miterLimit >= 1 &&
   (stroke.cap === 'butt' || stroke.cap === 'square' || stroke.cap === 'round')
 
-const distanceBetween = (a: Vec2, b: Vec2) =>
-  Math.hypot(b.x - a.x, b.y - a.y)
+const distanceBetween = (a: Vec2, b: Vec2) => Math.hypot(b.x - a.x, b.y - a.y)
 
 const normalizePoint = (point: Vec2): Vec2 => ({
   x: Math.abs(point.x) <= EPSILON ? 0 : point.x,
@@ -248,13 +247,452 @@ const getClosedContourSideOffsetDistance = (
     'position' | 'width'
   >
 ) => {
-  if (!isSimpleClosedPolygon(topologyPoints)) {
-    return getSegmentSideOffsetDistance(stroke)
+  const area = polygonArea(topologyPoints)
+  const interiorOffset = area >= 0 ? stroke.width : -stroke.width
+  return stroke.position === 'inside' ? interiorOffset : -interiorOffset
+}
+
+const isPointInPolygonEvenOdd = (point: Vec2, polygon: Vec2[]) => {
+  let inside = false
+
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+    const current = polygon[i]
+    const previous = polygon[j]
+    const intersects =
+      current.y > point.y !== previous.y > point.y &&
+      point.x <
+        ((previous.x - current.x) * (point.y - current.y)) /
+          (previous.y - current.y) +
+          current.x
+
+    if (intersects) {
+      inside = !inside
+    }
   }
 
-  const area = polygonArea(topologyPoints)
-  const outsideOffset = area >= 0 ? stroke.width : -stroke.width
-  return stroke.position === 'outside' ? outsideOffset : -outsideOffset
+  return inside
+}
+
+const getPointSegmentDistance = (
+  point: Vec2,
+  segmentStart: Vec2,
+  segmentEnd: Vec2
+) => {
+  const dx = segmentEnd.x - segmentStart.x
+  const dy = segmentEnd.y - segmentStart.y
+  const lengthSquared = dx * dx + dy * dy
+  if (lengthSquared <= EPSILON) {
+    return distanceBetween(point, segmentStart)
+  }
+
+  const t = Math.max(
+    0,
+    Math.min(
+      1,
+      ((point.x - segmentStart.x) * dx + (point.y - segmentStart.y) * dy) /
+        lengthSquared
+    )
+  )
+  return distanceBetween(point, {
+    x: segmentStart.x + dx * t,
+    y: segmentStart.y + dy * t
+  })
+}
+
+const isPointOnPolygonBoundary = (point: Vec2, polygon: Vec2[]) =>
+  polygon.some(
+    (current, index) =>
+      getPointSegmentDistance(
+        point,
+        current,
+        polygon[(index + 1) % polygon.length]
+      ) <= 0.25
+  )
+
+const polygonListContainsPointIncludingBoundary = (
+  polygons: Vec2[][],
+  point: Vec2
+) =>
+  polygons.some(
+    (polygon) =>
+      isPointOnPolygonBoundary(point, polygon) ||
+      isPointInPolygonEvenOdd(point, polygon)
+  )
+
+const getPolylinePointAtRatio = (
+  points: Vec2[],
+  ratio: number
+): Vec2 | null => {
+  if (points.length === 0) {
+    return null
+  }
+  if (points.length === 1) {
+    return points[0]
+  }
+
+  const lengths: number[] = []
+  let totalLength = 0
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const length = distanceBetween(points[index], points[index + 1])
+    lengths.push(length)
+    totalLength += length
+  }
+  if (totalLength <= EPSILON) {
+    return points[0]
+  }
+
+  let remaining = totalLength * ratio
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const length = lengths[index] ?? 0
+    if (remaining <= length || index === points.length - 2) {
+      const t = length > EPSILON ? remaining / length : 0
+      const start = points[index]
+      const end = points[index + 1]
+      return {
+        x: start.x + (end.x - start.x) * t,
+        y: start.y + (end.y - start.y) * t
+      }
+    }
+    remaining -= length
+  }
+
+  return points[points.length - 1]
+}
+
+const bodyPolygonsCoverSourceSegment = (
+  bodyPolygons: Vec2[][],
+  rawSegmentPoints: Vec2[]
+) => {
+  if (bodyPolygons.length === 0 || rawSegmentPoints.length < 2) {
+    return false
+  }
+
+  return [0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95].every(
+    (ratio) => {
+      const point = getPolylinePointAtRatio(rawSegmentPoints, ratio)
+      return point
+        ? polygonListContainsPointIncludingBoundary(bodyPolygons, point)
+        : true
+    }
+  )
+}
+
+const buildOneSidedSegmentBodyPolygonFromCells = (
+  cells: OneSidedSegmentBodyCellPolygon[]
+) => {
+  if (cells.length === 0) {
+    return null
+  }
+
+  const sourceBoundary = [
+    cells[0].polygon[0],
+    ...cells.map((cell) => cell.polygon[1])
+  ]
+  const offsetBoundary = [
+    cells[cells.length - 1].polygon[2],
+    ...[...cells].reverse().map((cell) => cell.polygon[3])
+  ]
+  const polygon = cleanPolygon([...sourceBoundary, ...offsetBoundary])
+
+  return polygon.length >= 3 &&
+    isSimpleClosedPolygon(polygon) &&
+    Math.abs(polygonArea(polygon)) > EPSILON
+    ? polygon
+    : null
+}
+
+const buildCompactedOneSidedSegmentBodyCellPolygons = (
+  cells: OneSidedSegmentBodyCellPolygon[]
+) => {
+  if (cells.length <= 1) {
+    return cells.map((cell) => cell.polygon)
+  }
+
+  const compacted: Vec2[][] = []
+  let run: OneSidedSegmentBodyCellPolygon[] = []
+
+  const flushRun = () => {
+    if (run.length === 0) {
+      return
+    }
+
+    const compactedPolygon = buildOneSidedSegmentBodyPolygonFromCells(run)
+    if (compactedPolygon) {
+      compacted.push(compactedPolygon)
+    } else {
+      compacted.push(...run.map((cell) => cell.polygon))
+    }
+    run = []
+  }
+
+  cells.forEach((cell) => {
+    const previous = run[run.length - 1]
+    if (previous && cell.startDistance > previous.endDistance + EPSILON * 10) {
+      flushRun()
+    }
+    run.push(cell)
+  })
+  flushRun()
+
+  return compacted
+}
+
+const getWindingContribution = (point: Vec2, polygon: Vec2[]) => {
+  let winding = 0
+
+  for (let index = 0; index < polygon.length; index += 1) {
+    const current = polygon[index]
+    const next = polygon[(index + 1) % polygon.length]
+    if (current.y <= point.y) {
+      if (
+        next.y > point.y &&
+        crossPoints(
+          subtractPoint(next, current),
+          subtractPoint(point, current)
+        ) > EPSILON
+      ) {
+        winding += 1
+      }
+      continue
+    }
+
+    if (
+      next.y <= point.y &&
+      crossPoints(subtractPoint(next, current), subtractPoint(point, current)) <
+        -EPSILON
+    ) {
+      winding -= 1
+    }
+  }
+
+  return winding
+}
+
+const isPointInFillDomain = (
+  point: Vec2,
+  polygon: Vec2[],
+  fillRule: PathTopologyFillRule
+) =>
+  fillRule === 'nonzero'
+    ? getWindingContribution(point, polygon) !== 0
+    : isPointInPolygonEvenOdd(point, polygon)
+
+interface SourceSegmentFrame {
+  point: Vec2
+  tangent: Vec2
+}
+
+const getCubicLengthAtT = (
+  segment: Extract<PathSegment, { type: 'cubic' }>,
+  t: number
+) => {
+  if (t <= EPSILON) {
+    return 0
+  }
+  if (t >= 1 - EPSILON) {
+    return segment.length
+  }
+  return segment.curve.split(0, t).length()
+}
+
+const getCubicTAtLength = (
+  segment: Extract<PathSegment, { type: 'cubic' }>,
+  targetLength: number
+) => {
+  if (targetLength <= EPSILON) {
+    return 0
+  }
+  if (targetLength >= segment.length - EPSILON) {
+    return 1
+  }
+
+  let low = 0
+  let high = 1
+  for (let index = 0; index < 24; index += 1) {
+    const mid = (low + high) / 2
+    if (getCubicLengthAtT(segment, mid) < targetLength) {
+      low = mid
+    } else {
+      high = mid
+    }
+  }
+  return (low + high) / 2
+}
+
+const getSegmentFrameAtLocalLength = (
+  segment: PathSegment | undefined,
+  localLength: number
+): SourceSegmentFrame | null => {
+  if (!segment || segment.length <= EPSILON) {
+    return null
+  }
+
+  if (segment.type === 'line') {
+    const t = Math.max(0, Math.min(1, localLength / segment.length))
+    const tangent = normalizeVector(subtractPoint(segment.end, segment.start))
+    return tangent
+      ? {
+          point: {
+            x: segment.start.x + (segment.end.x - segment.start.x) * t,
+            y: segment.start.y + (segment.end.y - segment.start.y) * t
+          },
+          tangent
+        }
+      : null
+  }
+
+  const t = getCubicTAtLength(segment, localLength)
+  const point = segment.curve.get(t) as Vec2
+  const derivative = segment.curve.derivative(t) as Vec2
+  const tangent =
+    normalizeVector(derivative) ??
+    normalizeVector(subtractPoint(segment.control1, segment.start)) ??
+    normalizeVector(subtractPoint(segment.control2, segment.start)) ??
+    normalizeVector(subtractPoint(segment.end, segment.start))
+
+  return tangent
+    ? {
+        point: { x: point.x, y: point.y },
+        tangent
+      }
+    : null
+}
+
+const getSourceSegmentProbeFrame = (
+  sourcePath: Pick<PathGeometry, 'segments'>,
+  range: SourceSegmentRange,
+  ratio: number
+) => {
+  const segment = sourcePath.segments[range.segmentIndex]
+  const rangeLength = range.endDistance - range.startDistance
+  return getSegmentFrameAtLocalLength(segment, rangeLength * ratio)
+}
+
+const getSegmentFrameOffsetPoint = (
+  frame: SourceSegmentFrame | null,
+  offsetDistance: number
+) =>
+  frame
+    ? {
+        x: frame.point.x - frame.tangent.y * offsetDistance,
+        y: frame.point.y + frame.tangent.x * offsetDistance
+      }
+    : null
+
+const chooseSourceSegmentSideOffsetDistance = (
+  sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  topologyPoints: Vec2[],
+  fillRule: PathTopologyFillRule,
+  stroke: Pick<
+    ReturnType<typeof getRenderableStrokes>[number],
+    'position' | 'width'
+  >,
+  range: SourceSegmentRange,
+  fallbackOffsetDistance: number
+) => {
+  if (
+    topologyPoints.length < 3 ||
+    sourcePath.closed !== true ||
+    (stroke.position !== 'inside' && stroke.position !== 'outside')
+  ) {
+    return fallbackOffsetDistance
+  }
+
+  const probeDistances = [
+    Math.min(2, Math.max(0.5, stroke.width * 0.2)),
+    Math.max(1, stroke.width * 0.5),
+    Math.max(1.5, stroke.width * 0.85)
+  ]
+  const probeRatios = [0.15, 0.25, 0.35, 0.5, 0.65, 0.75, 0.85]
+  let leftVotes = 0
+  let rightVotes = 0
+
+  for (const ratio of probeRatios) {
+    const frame = getSourceSegmentProbeFrame(sourcePath, range, ratio)
+    for (const probeDistance of probeDistances) {
+      const leftProbe = getSegmentFrameOffsetPoint(frame, probeDistance)
+      const rightProbe = getSegmentFrameOffsetPoint(frame, -probeDistance)
+      if (!leftProbe || !rightProbe) {
+        continue
+      }
+
+      const leftInside = isPointInFillDomain(
+        leftProbe,
+        topologyPoints,
+        fillRule
+      )
+      const rightInside = isPointInFillDomain(
+        rightProbe,
+        topologyPoints,
+        fillRule
+      )
+
+      if (leftInside === rightInside) {
+        continue
+      }
+
+      if (stroke.position === 'inside') {
+        if (leftInside) {
+          leftVotes += 1
+        } else {
+          rightVotes += 1
+        }
+        continue
+      }
+
+      if (leftInside) {
+        rightVotes += 1
+      } else {
+        leftVotes += 1
+      }
+    }
+  }
+
+  if (leftVotes === rightVotes) {
+    return fallbackOffsetDistance
+  }
+
+  const fillDomainSideOffsetDistance =
+    leftVotes > rightVotes ? stroke.width : -stroke.width
+
+  return fillDomainSideOffsetDistance
+}
+
+const buildSelfIntersectingAuthoredSourceSpanOffsetDistances = (
+  sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  topologyPoints: Vec2[],
+  stroke: Pick<
+    ReturnType<typeof getRenderableStrokes>[number],
+    'position' | 'width'
+  >,
+  fillRule: PathTopologyFillRule,
+  fallbackOffsetDistance: number
+): number[] | null => {
+  if (
+    sourcePath.closed !== true ||
+    sourcePath.segments.length < 2 ||
+    topologyPoints.length < 3 ||
+    isSimpleClosedPolygon(topologyPoints) ||
+    (stroke.position !== 'inside' && stroke.position !== 'outside')
+  ) {
+    return null
+  }
+
+  const segmentRanges = getSourcePathSegmentRanges(sourcePath)
+
+  return sourcePath.segments.map((_segment, segmentIndex) => {
+    const range = segmentRanges[segmentIndex]
+    return range
+      ? chooseSourceSegmentSideOffsetDistance(
+          sourcePath,
+          topologyPoints,
+          fillRule,
+          stroke,
+          range,
+          fallbackOffsetDistance
+        )
+      : fallbackOffsetDistance
+  })
 }
 
 const buildOneSidedOffsetDistanceBySourceSegment = (
@@ -263,13 +701,41 @@ const buildOneSidedOffsetDistanceBySourceSegment = (
   stroke: Pick<
     ReturnType<typeof getRenderableStrokes>[number],
     'position' | 'width'
-  >
+  >,
+  fillRule: PathTopologyFillRule
 ) => {
   const fallbackOffsetDistance = getClosedContourSideOffsetDistance(
     topologyPoints,
     stroke
   )
-  return sourcePath.segments.map(() => fallbackOffsetDistance)
+
+  const selfIntersectingAuthoredOffsets =
+    buildSelfIntersectingAuthoredSourceSpanOffsetDistances(
+      sourcePath,
+      topologyPoints,
+      stroke,
+      fillRule,
+      fallbackOffsetDistance
+    )
+  if (selfIntersectingAuthoredOffsets) {
+    return selfIntersectingAuthoredOffsets
+  }
+
+  const segmentRanges = getSourcePathSegmentRanges(sourcePath)
+
+  return sourcePath.segments.map((_segment, segmentIndex) => {
+    const range = segmentRanges[segmentIndex]
+    return range
+      ? chooseSourceSegmentSideOffsetDistance(
+          sourcePath,
+          topologyPoints,
+          fillRule,
+          stroke,
+          range,
+          fallbackOffsetDistance
+        )
+      : fallbackOffsetDistance
+  })
 }
 
 const buildOneSidedOffsetDistanceResolver = (
@@ -315,10 +781,7 @@ const getOffsetPointOnLine = (
   })
 }
 
-const getSampleTangent = (
-  points: Vec2[],
-  index: number
-): Vec2 | null => {
+const getSampleTangent = (points: Vec2[], index: number): Vec2 | null => {
   const previous = points[index - 1]
   const current = points[index]
   const next = points[index + 1]
@@ -466,6 +929,72 @@ const buildOneSidedSegmentBodyCellPolygons = (
   return cells
 }
 
+const buildOneSidedSegmentBodyChunkPolygons = (
+  sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  range: SourceSegmentRange,
+  offsetDistance: number,
+  maxChunkCount: number
+): OneSidedSegmentBodyCellPolygon[] => {
+  const rangeLength = range.endDistance - range.startDistance
+  if (rangeLength <= EPSILON || maxChunkCount <= 0) {
+    return []
+  }
+
+  const chunkCount = Math.max(
+    1,
+    Math.min(maxChunkCount, Math.ceil(rangeLength / 18))
+  )
+  const chunks: OneSidedSegmentBodyCellPolygon[] = []
+
+  for (let index = 0; index < chunkCount; index += 1) {
+    const startDistance =
+      range.startDistance + (rangeLength * index) / chunkCount
+    const endDistance =
+      range.startDistance + (rangeLength * (index + 1)) / chunkCount
+    const points = slicePathGeometryPoints(
+      sourcePath,
+      startDistance,
+      endDistance,
+      false
+    )
+    const polygon = buildOneSidedSegmentBodyPolygon(points, offsetDistance)
+    if (!polygon) {
+      continue
+    }
+
+    const sourceReferencePoints = slicePathGeometryPoints(
+      sourcePath,
+      startDistance,
+      endDistance,
+      false
+    )
+    const sourceReferencePoint =
+      sourceReferencePoints.length > 0
+        ? normalizePoint({
+            x:
+              sourceReferencePoints.reduce((sum, point) => sum + point.x, 0) /
+              sourceReferencePoints.length,
+            y:
+              sourceReferencePoints.reduce((sum, point) => sum + point.y, 0) /
+              sourceReferencePoints.length
+          })
+        : normalizePoint(polygon[0])
+
+    chunks.push({
+      polygon,
+      startDistance,
+      endDistance,
+      referencePoint: normalizePoint({
+        x: polygon.reduce((sum, point) => sum + point.x, 0) / polygon.length,
+        y: polygon.reduce((sum, point) => sum + point.y, 0) / polygon.length
+      }),
+      sourceReferencePoint
+    })
+  }
+
+  return chunks
+}
+
 const getSegmentStartDirection = (segment: PathSegment): Vec2 | null => {
   if (segment.type === 'line') {
     return normalizeVector(subtractPoint(segment.end, segment.start))
@@ -554,7 +1083,7 @@ const normalizeClosedGuardPoints = (points: SelectedSideGuardPoint[] = []) => {
     : points
 }
 
-const isSharpGuardPoint = (
+const _isSharpGuardPoint = (
   guardPoints: SelectedSideGuardPoint[] | undefined,
   index: number
 ) => {
@@ -562,8 +1091,9 @@ const isSharpGuardPoint = (
   if (normalizedGuardPoints.length === 0) {
     return false
   }
-  return normalizedGuardPoints[index % normalizedGuardPoints.length]?.sharp ===
-    true
+  return (
+    normalizedGuardPoints[index % normalizedGuardPoints.length]?.sharp === true
+  )
 }
 
 const buildSourceSegmentBoundary = (segment: PathSegment | undefined) =>
@@ -778,7 +1308,7 @@ const clipPolygonToBoundarySelectedSideIfCrossing = (
   return currentPolygon
 }
 
-const clipPolygonToBoundaryContainingReferenceIfCrossing = (
+const _clipPolygonToBoundaryContainingReferenceIfCrossing = (
   polygon: Vec2[],
   boundary: Vec2[],
   referencePoint: Vec2
@@ -865,7 +1395,12 @@ const clipSolidCellToAdjacentVertexBoundaries = (
     sourcePath.segments[(range.segmentIndex + 1) % sourcePath.segments.length]
   const nextSegmentIndex = (range.segmentIndex + 1) % sourcePath.segments.length
   const startReach = Math.max(
-    getVertexInfluenceReach(currentSegment, previousSegment, 'start', stroke.width),
+    getVertexInfluenceReach(
+      currentSegment,
+      previousSegment,
+      'start',
+      stroke.width
+    ),
     endpointReach
   )
   const endReach = Math.max(
@@ -901,6 +1436,33 @@ const clipSolidCellToAdjacentVertexBoundaries = (
   return polygon
 }
 
+const clipSolidBodyPolygonToAdjacentVertexBoundaries = (
+  polygon: Vec2[],
+  sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  range: SourceSegmentRange,
+  stroke: Pick<
+    ReturnType<typeof getRenderableStrokes>[number],
+    'position' | 'width'
+  >,
+  oneSidedOffsetDistanceBySegment?: readonly number[]
+) =>
+  clipSolidCellToAdjacentVertexBoundaries(
+    {
+      polygon,
+      startDistance: range.startDistance,
+      endDistance: range.endDistance,
+      referencePoint: normalizePoint({
+        x: polygon.reduce((sum, point) => sum + point.x, 0) / polygon.length,
+        y: polygon.reduce((sum, point) => sum + point.y, 0) / polygon.length
+      }),
+      sourceReferencePoint: normalizePoint(polygon[0])
+    },
+    sourcePath,
+    range,
+    stroke,
+    oneSidedOffsetDistanceBySegment
+  )
+
 const buildSourcePathSegmentCandidatePolygonsForRange = (
   sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   range: SourceSegmentRange,
@@ -917,6 +1479,7 @@ const buildSourcePathSegmentCandidatePolygonsForRange = (
   options: {
     clipAdjacentBoundaries?: boolean
     splitOneSidedBodyIntoCells?: boolean
+    maxOneSidedBodyCells?: number
     oneSidedBody?: boolean
     oneSidedOffsetDistance?: number
     oneSidedOffsetDistanceBySegment?: readonly number[]
@@ -942,25 +1505,88 @@ const buildSourcePathSegmentCandidatePolygonsForRange = (
       options.oneSidedOffsetDistance ??
       getSegmentSideOffsetDistance(stroke)
 
-    const bodyPolygons =
-      options.splitOneSidedBodyIntoCells === true
+    const fullBodyPolygon = buildOneSidedSegmentBodyPolygon(
+      rawSegmentPoints,
+      offsetDistance
+    )
+    const fullBodyPolygonIsUsable =
+      fullBodyPolygon !== null &&
+      fullBodyPolygon.length >= 3 &&
+      isSimpleClosedPolygon(fullBodyPolygon) &&
+      Math.abs(polygonArea(fullBodyPolygon)) > EPSILON
+    const shouldUseSplitBody =
+      options.splitOneSidedBodyIntoCells === true && !fullBodyPolygonIsUsable
+    const chunkBodyPolygons =
+      shouldUseSplitBody && options.maxOneSidedBodyCells !== undefined
+        ? buildOneSidedSegmentBodyChunkPolygons(
+            sourcePath,
+            range,
+            offsetDistance,
+            options.maxOneSidedBodyCells
+          ).map((cell) => cell.polygon)
+        : []
+    const buildCellBodyCells = () =>
+      shouldUseSplitBody
         ? buildOneSidedSegmentBodyCellPolygons(
             rawSegmentPoints,
             offsetDistance,
             options.oneSidedOffsetDistanceResolver,
             range
-          ).map((cell) =>
-            clipSolidCellToAdjacentVertexBoundaries(
-              cell,
+          )
+        : []
+    const buildCellBodyPolygons = () =>
+      buildCellBodyCells().map((cell) => cell.polygon)
+    const cellBodyPolygons =
+      shouldUseSplitBody && options.maxOneSidedBodyCells === undefined
+        ? buildCellBodyPolygons()
+        : []
+    const rawBodyPolygons = fullBodyPolygonIsUsable
+      ? [fullBodyPolygon]
+      : chunkBodyPolygons.length > 0
+        ? chunkBodyPolygons
+        : cellBodyPolygons
+    const clipBodyPolygons = (polygons: Vec2[][]) =>
+      options.clipAdjacentBoundaries === true
+        ? polygons.map((polygon) =>
+            clipSolidBodyPolygonToAdjacentVertexBoundaries(
+              polygon,
               sourcePath,
               range,
               stroke,
               options.oneSidedOffsetDistanceBySegment
             )
           )
+        : polygons
+    let bodyPolygons = clipBodyPolygons(rawBodyPolygons)
+    if (
+      !fullBodyPolygonIsUsable &&
+      chunkBodyPolygons.length > 0 &&
+      !bodyPolygonsCoverSourceSegment(bodyPolygons, rawSegmentPoints)
+    ) {
+      const fallbackCells = buildCellBodyCells().filter(
+        (cell) =>
+          !polygonListContainsPointIncludingBoundary(
+            bodyPolygons,
+            cell.sourceReferencePoint
+          )
+      )
+      const compactedFallbackPolygons =
+        buildCompactedOneSidedSegmentBodyCellPolygons(fallbackCells)
+      const compactedBodyPolygons = [
+        ...bodyPolygons,
+        ...clipBodyPolygons(compactedFallbackPolygons)
+      ]
+
+      bodyPolygons = bodyPolygonsCoverSourceSegment(
+        compactedBodyPolygons,
+        rawSegmentPoints
+      )
+        ? compactedBodyPolygons
         : [
-            buildOneSidedSegmentBodyPolygon(rawSegmentPoints, offsetDistance)
-          ].filter((polygon): polygon is Vec2[] => polygon !== null)
+            ...bodyPolygons,
+            ...clipBodyPolygons(fallbackCells.map((cell) => cell.polygon))
+          ]
+    }
     if (bodyPolygons.length === 0) {
       return []
     }
@@ -991,6 +1617,7 @@ const buildSourcePathSegmentCandidateRecords = (
   options: {
     clipAdjacentBoundaries?: boolean
     splitOneSidedBodyIntoCells?: boolean
+    maxOneSidedBodyCells?: number
     oneSidedBody?: boolean
     oneSidedOffsetDistance?: number
     oneSidedOffsetDistanceBySegment?: readonly number[]
@@ -1068,6 +1695,13 @@ const buildSourcePathVertexJoinCandidatePolygons = (
       options.oneSidedOffsetDistanceBySegment?.[nextIndex] ??
       options.oneSidedOffsetDistance ??
       getSegmentSideOffsetDistance(stroke)
+    if (
+      stroke.position !== 'outside' &&
+      sideFromOffsetDistance(previousOffset) !==
+        sideFromOffsetDistance(nextOffset)
+    ) {
+      return []
+    }
     const previousStart = addPoint(vertex, scalePoint(previousDirection, -1))
     const nextEnd = addPoint(vertex, nextDirection)
     const previousOffsetStart = getOffsetPointOnLine(
@@ -1133,7 +1767,8 @@ const buildSourcePathVertexJoinCandidatePolygons = (
       if (
         joinPoint &&
         distanceBetween(vertex, joinPoint) <=
-          stroke.miterLimit * Math.max(Math.abs(previousOffset), Math.abs(nextOffset)) +
+          stroke.miterLimit *
+            Math.max(Math.abs(previousOffset), Math.abs(nextOffset)) +
             EPSILON
       ) {
         polygon = [vertex, previousOffsetEnd, joinPoint, nextOffsetStart]
@@ -1141,10 +1776,15 @@ const buildSourcePathVertexJoinCandidatePolygons = (
     }
 
     const cleaned = cleanPolygon(polygon)
-    return cleaned.length >= 3 &&
+    const joinPolygon =
+      cleaned.length >= 3 &&
       Math.abs(polygonArea(cleaned)) > EPSILON &&
       isSimpleClosedPolygon(cleaned)
-      ? [{ polygon: cleaned, sourceVertexIndex: previousIndex }]
+        ? cleaned
+        : null
+
+    return joinPolygon
+      ? [{ polygon: joinPolygon, sourceVertexIndex: previousIndex }]
       : []
   })
 }
@@ -1160,23 +1800,22 @@ const buildSourcePathVertexJoinCandidateRecords = (
     oneSidedOffsetDistanceBySegment?: readonly number[]
   } = {}
 ): ExactSolidCandidatePolygon[] =>
-  buildSourcePathVertexJoinCandidatePolygons(
-    sourcePath,
-    stroke,
-    options
-  ).map(({ polygon, sourceVertexIndex }) => ({
-    polygon,
-    role: 'vertex-join' as const,
-    sourceVertexIndex,
-    sourceSpanIds: [`vertex:${sourceVertexIndex}`]
-  }))
+  buildSourcePathVertexJoinCandidatePolygons(sourcePath, stroke, options).map(
+    ({ polygon, sourceVertexIndex }) => ({
+      polygon,
+      role: 'vertex-join' as const,
+      sourceVertexIndex,
+      sourceSpanIds: [`vertex:${sourceVertexIndex}`]
+    })
+  )
 
 const buildExactArrangementCandidatePolygons = (
   topologyPoints: Vec2[],
   closed: boolean,
   stroke: ReturnType<typeof getRenderableStrokes>[number],
   sourcePath?: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
-  selectedSideGuardPoints?: SelectedSideGuardPoint[]
+  selectedSideGuardPoints?: SelectedSideGuardPoint[],
+  fillRule: PathTopologyFillRule = 'evenodd'
 ): ExactSolidCandidatePolygon[] => {
   const candidateSourcePath =
     sourcePath ?? buildPolylineGeometryModelPath(topologyPoints, closed)
@@ -1194,7 +1833,8 @@ const buildExactArrangementCandidatePolygons = (
     buildOneSidedOffsetDistanceBySourceSegment(
       candidateSourcePath,
       topologyPoints,
-      authoredStroke
+      authoredStroke,
+      fillRule
     )
   const oneSidedOffsetDistanceResolver = buildOneSidedOffsetDistanceResolver(
     candidateSourcePath,
@@ -1204,6 +1844,9 @@ const buildExactArrangementCandidatePolygons = (
   const oneSidedOffsetDistance =
     oneSidedOffsetDistanceBySegment[0] ??
     getClosedContourSideOffsetDistance(topologyPoints, authoredStroke)
+  const shouldSplitOneSidedBodyIntoCells =
+    !isSimpleClosedPolygon(topologyPoints)
+  const shouldClipAdjacentBoundaries = true
   const segmentCandidates = buildSourcePathSegmentCandidateRecords(
     candidateSourcePath,
     authoredStroke,
@@ -1211,19 +1854,27 @@ const buildExactArrangementCandidatePolygons = (
     topologyPoints,
     selectedSideGuardPoints,
     {
-      clipAdjacentBoundaries: true,
+      clipAdjacentBoundaries: shouldClipAdjacentBoundaries,
       oneSidedBody: true,
-      splitOneSidedBodyIntoCells: false,
+      splitOneSidedBodyIntoCells: shouldSplitOneSidedBodyIntoCells,
+      maxOneSidedBodyCells: shouldSplitOneSidedBodyIntoCells ? 11 : undefined,
       oneSidedOffsetDistance,
       oneSidedOffsetDistanceBySegment,
       oneSidedOffsetDistanceResolver
     }
   )
-  const joinCandidates = buildSourcePathVertexJoinCandidateRecords(
-    candidateSourcePath,
-    exactCandidateStroke,
-    { oneSidedOffsetDistance, oneSidedOffsetDistanceBySegment }
-  )
+  const shouldEmitVertexJoinCandidates =
+    !shouldSplitOneSidedBodyIntoCells || stroke.position === 'outside'
+  const joinCandidates = shouldEmitVertexJoinCandidates
+    ? buildSourcePathVertexJoinCandidateRecords(
+        candidateSourcePath,
+        exactCandidateStroke,
+        {
+          oneSidedOffsetDistance,
+          oneSidedOffsetDistanceBySegment
+        }
+      )
+    : []
 
   return [...segmentCandidates, ...joinCandidates]
 }
@@ -1244,8 +1895,11 @@ const mapTopologyFamilyToSourceTopology = (
 }
 
 const getConstrainedSolidResolutionStatus = (
-  _topology: PathTopologyModel
-): 'exact-constrained' => 'exact-constrained'
+  topology: PathTopologyModel
+): 'exact-constrained' | 'local-side-approximation' =>
+  topology.topologyFamily === 'self-intersecting'
+    ? 'local-side-approximation'
+    : 'exact-constrained'
 
 export const hasConstrainedSolidStrokeIntent = (
   strokes: StrokeAttrs[] | undefined
@@ -1329,7 +1983,8 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
         topology.closed,
         stroke,
         options.sourcePath,
-        options.selectedSideGuardPoints
+        options.selectedSideGuardPoints,
+        topology.fillRule
       )
     const polygons = exactArrangementCandidatePolygons.map(
       (candidate) => candidate.polygon
@@ -1339,7 +1994,12 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
     }
 
     const resolutionStatus = getConstrainedSolidResolutionStatus(topology)
-    const runtimeReason = 'constrained-solid-exact'
+    const runtimeStatus =
+      resolutionStatus === 'exact-constrained' ? 'accepted' : 'candidate'
+    const runtimeReason =
+      resolutionStatus === 'exact-constrained'
+        ? 'constrained-solid-exact'
+        : 'local-side-constrained-solid'
     const shouldEmitArrangementCandidates =
       options.candidateMode === 'exact-arrangement'
     const candidateRecords = shouldEmitArrangementCandidates
@@ -1376,7 +2036,7 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
             strokePosition: stroke.position,
             geometryFamily: 'constrained-solid',
             resolutionStatus,
-            runtimeStatus: 'accepted',
+            runtimeStatus,
             runtimeReason,
             sourceTopology,
             topologyFamily: topology.topologyFamily,
@@ -1392,7 +2052,7 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
               stroke,
               geometryFamily: 'constrained-solid',
               resolutionStatus,
-              runtimeStatus: 'accepted',
+              runtimeStatus,
               runtimeReason,
               ownerKey: options.metadata?.ownerKeyPrefix
                 ? `${options.metadata.ownerKeyPrefix}:stroke:${index}`

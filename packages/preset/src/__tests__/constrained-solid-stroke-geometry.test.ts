@@ -6,9 +6,9 @@ import Clipper2ZFactory from 'clipper2-wasm'
 import type { RenderableStroke } from '../components/stroke-render/renderable-stroke'
 import {
   buildConstrainedSolidStrokePolygons,
-  buildSelfIntersectingClosedConstrainedStrokePolygonsForDashedApproximation,
   supportsConstrainedSolidStroke
 } from '../components/stroke-render/constrained-solid-stroke-geometry'
+import { buildSelfIntersectingClosedConstrainedDashedLocalSidePolygons } from '../components/stroke-render/constrained-dashed-local-side-geometry'
 import { buildVectorGeometryModelPath } from '../components/stroke-render/path-geometry'
 import {
   createClipper2GeometryBackend,
@@ -62,53 +62,6 @@ const getBounds = (polygons: { x: number; y: number }[][]) => {
   )
 
   return { minX, minY, maxX, maxY }
-}
-
-const isPointInPolygon = (
-  point: { x: number; y: number },
-  polygon: { x: number; y: number }[]
-) => {
-  let inside = false
-  for (
-    let index = 0, previousIndex = polygon.length - 1;
-    index < polygon.length;
-    previousIndex = index, index += 1
-  ) {
-    const current = polygon[index]
-    const previous = polygon[previousIndex]
-    const crosses =
-      current.y > point.y !== previous.y > point.y &&
-      point.x <
-        ((previous.x - current.x) * (point.y - current.y)) /
-          (previous.y - current.y) +
-          current.x
-    if (crosses) {
-      inside = !inside
-    }
-  }
-  return inside
-}
-
-const isPointCovered = (
-  point: { x: number; y: number },
-  polygons: { x: number; y: number }[][]
-) => polygons.some((polygon) => isPointInPolygon(point, polygon))
-
-const getRegionCoverage = (
-  region: { x: number; y: number; width: number; height: number },
-  polygons: { x: number; y: number }[][]
-) => {
-  let total = 0
-  let covered = 0
-  for (let y = region.y; y < region.y + region.height; y += 1) {
-    for (let x = region.x; x < region.x + region.width; x += 1) {
-      total += 1
-      if (isPointCovered({ x, y }, polygons)) {
-        covered += 1
-      }
-    }
-  }
-  return total > 0 ? covered / total : 0
 }
 
 const createReportedVector6Fixture = () => {
@@ -698,7 +651,7 @@ describe('constrained solid stroke geometry', () => {
     })
   })
 
-  it('should run: reject closed self-intersecting constrained paths from the product solid geometry helper', () => {
+  it('should run: reject closed self-intersecting constrained paths from the product solid geometry helper and keep dashed local-side isolated', () => {
     const points = [
       { x: 0, y: 0 },
       { x: 20, y: 20 },
@@ -709,16 +662,12 @@ describe('constrained solid stroke geometry', () => {
       position: 'inside',
       width: 4
     })
-    const polygons = buildConstrainedSolidStrokePolygons(
-      points,
-      true,
-      stroke
-    )
+    const polygons = buildConstrainedSolidStrokePolygons(points, true, stroke)
 
     expect(polygons).toEqual([])
 
     const dashedApproximation =
-      buildSelfIntersectingClosedConstrainedStrokePolygonsForDashedApproximation(
+      buildSelfIntersectingClosedConstrainedDashedLocalSidePolygons(
         points,
         stroke
       )
@@ -732,7 +681,9 @@ describe('constrained solid stroke geometry', () => {
   })
 
   it('should run: keep reported inside-solid self-intersecting geometry out of the local-side helper when exact backend is available', async () => {
-    const exactBackend = createClipper2GeometryBackend(await loadClipperModule())
+    const exactBackend = createClipper2GeometryBackend(
+      await loadClipperModule()
+    )
     const { network, points, segments } = createReportedVector6Fixture()
     const path = buildVectorGeometryModelPath(network, points, segments)
     const guardPoints = network.pointIds.map((pointId) => {

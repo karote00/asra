@@ -17,6 +17,7 @@ import { applyCenterDashedOverlapDiagnostics } from './stroke-render/center-dash
 import { buildConstrainedSolidLegalityClippingResult } from './stroke-render/constrained-solid-legality-clipping'
 import { setConstrainedSolidLegalityDiagnostics } from './stroke-render/constrained-solid-legality-diagnostics'
 import {
+  buildConstrainedSolidOwnershipCandidateDiagnostics,
   buildConstrainedSolidOwnershipDiagnostics,
   createEmptyConstrainedSolidOwnershipDiagnostics,
   setConstrainedSolidOwnershipDiagnostics,
@@ -329,6 +330,57 @@ const isSelfIntersectingExactConstrainedSolidCandidatePacket = (
   isExactConstrainedSolidCandidatePacket(packet) &&
   packet.geometry.debugMeta?.sourceTopology === 'self-intersecting'
 
+const isGatedSelfIntersectingLocalSideConstrainedSolidCandidatePacket = (
+  packet: SolidCenterStrokeResolvedPacket
+) => {
+  const debugMeta = packet.geometry.debugMeta
+
+  return (
+    debugMeta?.geometryFamily === 'constrained-solid' &&
+    debugMeta.resolutionStatus === 'local-side-approximation' &&
+    debugMeta.sourceTopology === 'self-intersecting' &&
+    (debugMeta.sourceSpanIds?.length ?? 0) > 0
+  )
+}
+
+const canPreserveSingleOwnerLocalSideConstrainedSolidPackets = (
+  packets: SolidCenterStrokeResolvedPacket[]
+) => {
+  if (packets.length === 0) {
+    return false
+  }
+
+  const strokeIds = new Set(
+    packets.map((packet) => packet.geometry.debugMeta?.strokeId ?? null)
+  )
+
+  return (
+    strokeIds.size <= 1 &&
+    packets.every(
+      isGatedSelfIntersectingLocalSideConstrainedSolidCandidatePacket
+    )
+  )
+}
+
+const markArrangedFacesAsLocalSideCandidates = (
+  faces: SolidStrokeFinalFaceList
+): SolidStrokeFinalFaceList =>
+  faces.map((face) => ({
+    ...face,
+    resolutionStatus: 'local-side-approximation',
+    runtimeStatus: 'candidate',
+    debugMeta: face.debugMeta
+      ? {
+          ...face.debugMeta,
+          resolutionStatus: 'local-side-approximation',
+          runtimeStatus: 'candidate',
+          runtimeReason: 'local-side-constrained-solid',
+          arrangementStatus: undefined,
+          visualOverlapCollapseStatus: 'local-side-arrangement'
+        }
+      : face.debugMeta
+  }))
+
 const canUseExactSingleNetworkConstrainedSolidFacesDirectly = (
   faces: SolidStrokeFinalFaceList
 ) => {
@@ -372,48 +424,66 @@ const promoteConstrainedSolidPacketsToExactArrangement = (
   try {
     const backend = getGeometryBackend()
     if (backend.capabilities.buildArrangement !== true) {
-      return {
-        packets: hasExactConstrainedCandidates ? [] : packets,
-        exactFaces: []
-      }
+      return { packets, exactFaces: [] }
     }
 
-    const selfIntersectingPackets = packets.filter(
+    const gatedSelfIntersectingPackets = packets.filter(
       isSelfIntersectingExactConstrainedSolidCandidatePacket
     )
-    const legalDomainPackets =
-      selfIntersectingPackets.length === 0
+    const promotablePackets =
+      gatedSelfIntersectingPackets.length === 0
         ? packets
         : packets.filter(
             (packet) =>
               !isSelfIntersectingExactConstrainedSolidCandidatePacket(packet)
           )
-    const arrangedFaces = [
-      ...buildArrangedStrokeFinalFacesFromResolvedPackets(
-        selfIntersectingPackets,
-        {
-          backend,
-          legalDomains: []
-        }
-      ),
-      ...buildArrangedStrokeFinalFacesFromResolvedPackets(legalDomainPackets, {
+    const arrangedFaces = buildArrangedStrokeFinalFacesFromResolvedPackets(
+      promotablePackets,
+      {
         backend,
         legalDomains
-      })
-    ]
-    if (arrangedFaces.length === 0) {
-      return {
-        packets: hasExactConstrainedCandidates ? [] : packets,
-        exactFaces: []
       }
+    )
+    if (arrangedFaces.length === 0) {
+      return { packets, exactFaces: [] }
     }
 
-    return { packets: [], exactFaces: arrangedFaces }
+    return { packets: gatedSelfIntersectingPackets, exactFaces: arrangedFaces }
   } catch {
-    return {
-      packets: hasExactConstrainedCandidates ? [] : packets,
-      exactFaces: []
+    return { packets, exactFaces: [] }
+  }
+}
+
+const promoteGatedSelfIntersectingSolidPacketsToLocalSideVisualArrangement = (
+  packets: SolidCenterStrokeResolvedPacket[]
+): ConstrainedSolidPromotionResult => {
+  if (packets.length === 0) {
+    return { packets, exactFaces: [] }
+  }
+
+  try {
+    const backend = getGeometryBackend()
+    if (backend.capabilities.buildArrangement !== true) {
+      return { packets, exactFaces: [] }
     }
+
+    const arrangedFaces = buildArrangedStrokeFinalFacesFromResolvedPackets(
+      packets,
+      {
+        backend,
+        legalDomains: []
+      }
+    )
+    if (arrangedFaces.length === 0) {
+      return { packets, exactFaces: [] }
+    }
+
+    return {
+      packets: [],
+      exactFaces: markArrangedFacesAsLocalSideCandidates(arrangedFaces)
+    }
+  } catch {
+    return { packets, exactFaces: [] }
   }
 }
 
@@ -2136,15 +2206,11 @@ const renderVectorGraphic = (
               : `vector:${renderData.id}:${network.id}`,
             networkId: network.id,
             contourId: compoundRole?.contourId,
-            legalDomainId:
-              compoundLegalDomainId ?? compoundRole?.legalDomainId
+            legalDomainId: compoundLegalDomainId ?? compoundRole?.legalDomainId
           },
           topology,
           sourcePath: path,
-          selectedSideGuardPoints: getNetworkAnchorGuardPoints(
-            network,
-            points
-          ),
+          selectedSideGuardPoints: getNetworkAnchorGuardPoints(network, points),
           exactBackend: constrainedSolidExactBackend ?? undefined,
           fillRule: topology.fillRule,
           candidateMode: 'exact-arrangement'
@@ -2164,7 +2230,28 @@ const renderVectorGraphic = (
               (packet) => packet.geometry.geometryId
             )
           },
-          ownershipDiagnostics: createEmptyConstrainedSolidOwnershipDiagnostics()
+          ownershipDiagnostics:
+            createEmptyConstrainedSolidOwnershipDiagnostics()
+        }
+      }
+
+      if (
+        canPreserveSingleOwnerLocalSideConstrainedSolidPackets(candidatePackets)
+      ) {
+        return {
+          networkId: network.id,
+          points: topology.normalizedPoints,
+          closed: topology.closed,
+          fillRule: topology.fillRule,
+          packets: candidatePackets,
+          legalityDiagnostics: {
+            domains: [],
+            acceptedGeometryIds: candidatePackets.map(
+              (packet) => packet.geometry.geometryId
+            )
+          },
+          ownershipDiagnostics:
+            buildConstrainedSolidOwnershipCandidateDiagnostics(candidatePackets)
         }
       }
 
@@ -2199,15 +2286,26 @@ const renderVectorGraphic = (
     constrainedSolidDiagnostics.flatMap((entry) =>
       entry.packets.filter(isExactConstrainedSolidCandidatePacket)
     )
+  const constrainedSolidLocalSideVisualCandidatePackets =
+    constrainedSolidDiagnostics.flatMap((entry) =>
+      entry.packets.filter(
+        isGatedSelfIntersectingLocalSideConstrainedSolidCandidatePacket
+      )
+    )
   const constrainedSolidPromotion =
     promoteConstrainedSolidPacketsToExactArrangement(
       constrainedSolidExactCandidatePackets,
       arrangementLegalDomains
     )
-  const constrainedSolidExactCandidateGeometryIds = new Set(
-    constrainedSolidExactCandidatePackets.map(
-      (packet) => packet.geometry.geometryId
+  const constrainedSolidLocalSidePromotion =
+    promoteGatedSelfIntersectingSolidPacketsToLocalSideVisualArrangement(
+      constrainedSolidLocalSideVisualCandidatePackets
     )
+  const constrainedSolidPromotedCandidateGeometryIds = new Set(
+    [
+      ...constrainedSolidExactCandidatePackets,
+      ...constrainedSolidLocalSideVisualCandidatePackets
+    ].map((packet) => packet.geometry.geometryId)
   )
 
   const constrainedDashedRuntimeDiagnostics: ConstrainedDashedRuntimeDiagnosticEntry[] =
@@ -2385,7 +2483,7 @@ const renderVectorGraphic = (
         ...(topology.closed
           ? (constrainedNetworkDiagnostics?.packets.filter(
               (packet) =>
-                !constrainedSolidExactCandidateGeometryIds.has(
+                !constrainedSolidPromotedCandidateGeometryIds.has(
                   packet.geometry.geometryId
                 )
             ) ??
@@ -2414,11 +2512,13 @@ const renderVectorGraphic = (
       ]
     }),
     ...constrainedSolidPromotion.packets,
+    ...constrainedSolidLocalSidePromotion.packets,
     ...constrainedDashedPromotion.packets
   ]
   const rawStrokeFinalFaces = [
     ...buildSolidCenterStrokeFinalFaces(strokePackets),
     ...constrainedSolidPromotion.exactFaces,
+    ...constrainedSolidLocalSidePromotion.exactFaces,
     ...constrainedDashedPromotion.exactFaces
   ]
   const strokeFinalFaces = (() => {

@@ -208,7 +208,7 @@ Current implementation checkpoint:
   of separate raw-network domains.
 - mock-backend tests verify the exact boolean flow:
   `union(shells, nonzero) -> union(holes, nonzero) ->
-  difference(shells, holes, nonzero)`. Role-level union is geometric union; it
+difference(shells, holes, nonzero)`. Role-level union is geometric union; it
   must not reuse source `evenodd` because overlapping same-role regions would
   toggle into XOR-like gaps.
 - vector product rendering now consumes the normalization result for shared
@@ -330,7 +330,7 @@ Wrong-decision recovery:
 Current implementation checkpoint:
 
 - `buildStrokeFinalFacesFromResolvedPackets(..., { collapseDuplicateFaces:
-  true })` now treats collapse as a guarded exact-only operation. Local-side
+true })` now treats collapse as a guarded exact-only operation. Local-side
   approximation bridge packets remain separate even if a caller requests
   collapse.
 - exact duplicate collapse requires `arrangementStatus: "exact"`,
@@ -719,11 +719,14 @@ Current implementation checkpoint:
   for this topology because the current legal-domain clipping pass can remove
   valid internal dash regions after backend load; packets therefore keep
   `resolutionStatus: "local-side-approximation"` even with a selected backend.
-- implemented: closed self-intersecting constrained solid visual tests now treat
-  self-intersection as overlap/ownership, not as a clipping boundary. The
-  reported vector-6 fixture requires one global visual contract plus five
-  endpoint and five self-intersection crops; these crops must preserve authored
-  crossing stroke coverage while still rejecting giant bridge faces.
+- implemented as gate-only: closed self-intersecting constrained solid visual
+  tests now treat self-intersection as overlap/ownership, not as a clipping
+  boundary, but product exact support remains implementation in progress. The
+  reported vector-6 fixture requires one global visual contract, five authored
+  segment coverage checks, forbidden bridge probes, single-layer opacity, packet
+  count checks, and paired inside/opposite-side probes before exact promotion can
+  be enabled. The paired probes derive expected side from the sampled authored
+  topology for each source segment, not from a hard-coded global offset.
 - implemented: sampled-simple / high-curvature constrained dashed packets now
   have the same backend-gated exact promotion path. With a selected arrangement
   backend they return `resolutionStatus: "exact-constrained"`; without a

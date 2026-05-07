@@ -169,7 +169,10 @@ export interface SolidCenterStrokeGeometryDebugMeta {
     insideFillDomain: boolean
     outsideFillDomain: boolean
   }
-  visualOverlapCollapseStatus?: 'exact-union' | 'exact-arrangement'
+  visualOverlapCollapseStatus?:
+    | 'exact-union'
+    | 'exact-arrangement'
+    | 'local-side-arrangement'
   visualOverlapSourceFaceIds?: string[]
   visualOverlapSourceGeometryIds?: string[]
   revisionSet?: StrokeRevisionSet
@@ -385,7 +388,6 @@ export const buildSolidCenterStrokeResolvedPackets = (
     }
 
     const geometryId = `${cachePrefix}:${index}`
-
     return [
       {
         geometry: {
