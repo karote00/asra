@@ -93,6 +93,7 @@ interface ExactSolidCandidatePolygon {
 interface SourcePathVertexJoinCandidatePolygon {
   polygon: Vec2[]
   sourceVertexIndex: number
+  sourceSpanIds?: string[]
 }
 
 interface OneSidedSegmentBodyCellPolygon {
@@ -841,6 +842,46 @@ const buildOneSidedSegmentBodyPolygon = (
     : null
 }
 
+const buildOneSidedSmoothJoinBodyPolygon = (
+  previousBoundary: Vec2[],
+  nextBoundary: Vec2[],
+  offsetDistance: number
+) => {
+  if (previousBoundary.length < 2 || nextBoundary.length < 2) {
+    return null
+  }
+
+  const sharedPreviousVertex = previousBoundary[previousBoundary.length - 1]
+  const sharedNextVertex = nextBoundary[0]
+  if (distanceBetween(sharedPreviousVertex, sharedNextVertex) > 0.75) {
+    return null
+  }
+
+  const sourcePoints = [...previousBoundary, ...nextBoundary.slice(1)].map(
+    normalizePoint
+  )
+  if (sourcePoints.length < 3) {
+    return null
+  }
+
+  const offsetPoints = sourcePoints.map((_, index) =>
+    getOffsetPointForSample(sourcePoints, index, offsetDistance)
+  )
+  if (offsetPoints.some((point) => point === null)) {
+    return null
+  }
+
+  const polygon = cleanPolygon([
+    ...sourcePoints,
+    ...(offsetPoints as Vec2[]).reverse()
+  ])
+  return polygon.length >= 3 &&
+    isSimpleClosedPolygon(polygon) &&
+    Math.abs(polygonArea(polygon)) > EPSILON
+    ? polygon
+    : null
+}
+
 const buildOneSidedSegmentBodyCellPolygons = (
   points: Vec2[],
   offsetDistance: number,
@@ -1094,6 +1135,24 @@ const _isSharpGuardPoint = (
   return (
     normalizedGuardPoints[index % normalizedGuardPoints.length]?.sharp === true
   )
+}
+
+const getGuardPointForSourceSegmentJoin = (
+  guardPoints: SelectedSideGuardPoint[] | undefined,
+  previousSegmentIndex: number,
+  sourcePath: Pick<PathGeometry, 'segments'>,
+  vertex: Vec2
+) => {
+  const normalizedGuardPoints = normalizeClosedGuardPoints(guardPoints)
+  if (normalizedGuardPoints.length !== sourcePath.segments.length) {
+    return undefined
+  }
+
+  const guard =
+    normalizedGuardPoints[
+      (previousSegmentIndex + 1) % normalizedGuardPoints.length
+    ]
+  return guard && distanceBetween(guard, vertex) <= 0.75 ? guard : undefined
 }
 
 const buildSourceSegmentBoundary = (segment: PathSegment | undefined) =>
@@ -1655,6 +1714,7 @@ const buildSourcePathVertexJoinCandidatePolygons = (
   options: {
     oneSidedOffsetDistance?: number
     oneSidedOffsetDistanceBySegment?: readonly number[]
+    selectedSideGuardPoints?: SelectedSideGuardPoint[]
   } = {}
 ): SourcePathVertexJoinCandidatePolygon[] => {
   if (!sourcePath.closed || sourcePath.segments.length < 2) {
@@ -1678,6 +1738,15 @@ const buildSourcePathVertexJoinCandidatePolygons = (
     const vertex = previousSegment.end
     const nextVertex = nextSegment.start
     if (distanceBetween(vertex, nextVertex) > 0.5) {
+      return []
+    }
+    const guardPoint = getGuardPointForSourceSegmentJoin(
+      options.selectedSideGuardPoints,
+      previousIndex,
+      sourcePath,
+      vertex
+    )
+    if (stroke.position === 'outside' && guardPoint?.sharp === false) {
       return []
     }
 
@@ -1798,16 +1867,101 @@ const buildSourcePathVertexJoinCandidateRecords = (
   options: {
     oneSidedOffsetDistance?: number
     oneSidedOffsetDistanceBySegment?: readonly number[]
+    selectedSideGuardPoints?: SelectedSideGuardPoint[]
   } = {}
 ): ExactSolidCandidatePolygon[] =>
   buildSourcePathVertexJoinCandidatePolygons(sourcePath, stroke, options).map(
-    ({ polygon, sourceVertexIndex }) => ({
+    ({ polygon, sourceVertexIndex, sourceSpanIds }) => ({
       polygon,
       role: 'vertex-join' as const,
       sourceVertexIndex,
-      sourceSpanIds: [`vertex:${sourceVertexIndex}`]
+      sourceSpanIds: sourceSpanIds ?? [`vertex:${sourceVertexIndex}`]
     })
   )
+
+const buildSourcePathSmoothJoinCandidateRecords = (
+  sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  stroke: Pick<
+    ReturnType<typeof getRenderableStrokes>[number],
+    'position' | 'width'
+  >,
+  selectedSideGuardPoints: SelectedSideGuardPoint[] | undefined,
+  options: {
+    oneSidedOffsetDistance?: number
+    oneSidedOffsetDistanceBySegment?: readonly number[]
+  } = {}
+): ExactSolidCandidatePolygon[] => {
+  if (
+    sourcePath.closed !== true ||
+    sourcePath.segments.length < 2 ||
+    stroke.position !== 'outside'
+  ) {
+    return []
+  }
+
+  return sourcePath.segments.flatMap((previousSegment, previousIndex) => {
+    const nextIndex = (previousIndex + 1) % sourcePath.segments.length
+    const nextSegment = sourcePath.segments[nextIndex]
+    if (
+      !nextSegment ||
+      distanceBetween(previousSegment.end, nextSegment.start) > 0.5
+    ) {
+      return []
+    }
+
+    const guardPoint = getGuardPointForSourceSegmentJoin(
+      selectedSideGuardPoints,
+      previousIndex,
+      sourcePath,
+      previousSegment.end
+    )
+    if (guardPoint?.sharp !== false) {
+      return []
+    }
+
+    const previousOffset =
+      options.oneSidedOffsetDistanceBySegment?.[previousIndex] ??
+      options.oneSidedOffsetDistance ??
+      getSegmentSideOffsetDistance(stroke)
+    const nextOffset =
+      options.oneSidedOffsetDistanceBySegment?.[nextIndex] ??
+      options.oneSidedOffsetDistance ??
+      getSegmentSideOffsetDistance(stroke)
+    if (Math.abs(previousOffset - nextOffset) > EPSILON) {
+      return []
+    }
+
+    const reach = Math.min(
+      stroke.width * 1.5,
+      previousSegment.length * 0.1,
+      nextSegment.length * 0.1
+    )
+    if (reach <= EPSILON) {
+      return []
+    }
+
+    const polygon = buildOneSidedSmoothJoinBodyPolygon(
+      getBoundaryTail(buildSourceSegmentBoundary(previousSegment), reach),
+      getBoundaryHead(buildSourceSegmentBoundary(nextSegment), reach),
+      previousOffset
+    )
+
+    return polygon
+      ? [
+          {
+            polygon,
+            role: 'vertex-join' as const,
+            sourceVertexIndex: previousIndex,
+            sourceSpanIds: [
+              `smooth-join:${previousIndex}`,
+              `segment:${previousIndex}`,
+              `segment:${nextIndex}`
+            ]
+          }
+        ]
+      : []
+  })
+}
 
 const buildExactArrangementCandidatePolygons = (
   topologyPoints: Vec2[],
@@ -1871,12 +2025,25 @@ const buildExactArrangementCandidatePolygons = (
         exactCandidateStroke,
         {
           oneSidedOffsetDistance,
-          oneSidedOffsetDistanceBySegment
+          oneSidedOffsetDistanceBySegment,
+          selectedSideGuardPoints
         }
       )
     : []
+  const smoothJoinCandidates =
+    stroke.position === 'outside'
+      ? buildSourcePathSmoothJoinCandidateRecords(
+          candidateSourcePath,
+          exactCandidateStroke,
+          selectedSideGuardPoints,
+          {
+            oneSidedOffsetDistance,
+            oneSidedOffsetDistanceBySegment
+          }
+        )
+      : []
 
-  return [...segmentCandidates, ...joinCandidates]
+  return [...segmentCandidates, ...joinCandidates, ...smoothJoinCandidates]
 }
 
 const mapTopologyFamilyToSourceTopology = (

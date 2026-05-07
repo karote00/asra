@@ -11,10 +11,23 @@ const STROKE_WIDTH = 10
 const REPORTED_VECTOR_6_WIDTH = 360.120941483566
 const REPORTED_VECTOR_6_HEIGHT = 366.06359840210007
 const REPORTED_VECTOR_6_PRODUCT_STROKE_COLOR = 'DF0606'
+const TP12 = { x: 192.42083700791653, y: 0 }
+const TP15 = { x: 0, y: 14.030686031827244 }
+const TP16 = { x: 270.59180204238254, y: 345.42212754546125 }
+const TP15_OUT = { x: 0, y: 14.030686031827244 }
+const TP16_IN = { x: 263.9105229796076, y: 362.79345310867603 }
+const TP16_OUT = { x: 277.2730811051575, y: 328.05080198224647 }
 
 interface Vec2 {
   x: number
   y: number
+}
+
+interface CubicSegment {
+  start: Vec2
+  control1: Vec2
+  control2: Vec2
+  end: Vec2
 }
 
 interface RasterCapture {
@@ -173,6 +186,138 @@ const getRasterRegion = (raster: RasterCapture, point: Vec2, size: number) => {
     width: size,
     height: size
   }
+}
+
+const getRasterRectRegion = (
+  raster: RasterCapture,
+  region: { x: number; y: number; width: number; height: number }
+) => {
+  const scaleX = raster.elementWidth / REPORTED_VECTOR_6_WIDTH
+  const scaleY = raster.elementHeight / REPORTED_VECTOR_6_HEIGHT
+  return {
+    x: raster.padding + region.x * scaleX,
+    y: raster.padding + region.y * scaleY,
+    width: region.width * scaleX,
+    height: region.height * scaleY
+  }
+}
+
+const cropBase64Png = async (
+  page: Page,
+  base64: string,
+  region: { x: number; y: number; width: number; height: number }
+) =>
+  page.evaluate(
+    async ({ base64: sourceBase64, region: cropRegion }) => {
+      const response = await fetch(`data:image/png;base64,${sourceBase64}`)
+      const blob = await response.blob()
+      const bitmap = await createImageBitmap(blob)
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.ceil(cropRegion.width))
+      canvas.height = Math.max(1, Math.ceil(cropRegion.height))
+      const context = canvas.getContext('2d')
+      if (!context) {
+        throw new Error('Canvas 2D context unavailable')
+      }
+      context.drawImage(
+        bitmap,
+        cropRegion.x,
+        cropRegion.y,
+        cropRegion.width,
+        cropRegion.height,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      )
+      return canvas
+        .toDataURL('image/png')
+        .replace(/^data:image\/png;base64,/, '')
+    },
+    { base64, region }
+  )
+
+const interpolatePoint = (start: Vec2, end: Vec2, amount: number): Vec2 => ({
+  x: start.x + (end.x - start.x) * amount,
+  y: start.y + (end.y - start.y) * amount
+})
+
+const getCubicPoint = (segment: CubicSegment, t: number): Vec2 => {
+  const mt = 1 - t
+  return {
+    x:
+      mt ** 3 * segment.start.x +
+      3 * mt ** 2 * t * segment.control1.x +
+      3 * mt * t ** 2 * segment.control2.x +
+      t ** 3 * segment.end.x,
+    y:
+      mt ** 3 * segment.start.y +
+      3 * mt ** 2 * t * segment.control1.y +
+      3 * mt * t ** 2 * segment.control2.y +
+      t ** 3 * segment.end.y
+  }
+}
+
+const getCubicTangent = (segment: CubicSegment, t: number): Vec2 => {
+  const mt = 1 - t
+  const derivative = {
+    x:
+      3 * mt ** 2 * (segment.control1.x - segment.start.x) +
+      6 * mt * t * (segment.control2.x - segment.control1.x) +
+      3 * t ** 2 * (segment.end.x - segment.control2.x),
+    y:
+      3 * mt ** 2 * (segment.control1.y - segment.start.y) +
+      6 * mt * t * (segment.control2.y - segment.control1.y) +
+      3 * t ** 2 * (segment.end.y - segment.control2.y)
+  }
+  const length = Math.hypot(derivative.x, derivative.y)
+  return length > 0
+    ? { x: derivative.x / length, y: derivative.y / length }
+    : { x: 1, y: 0 }
+}
+
+const getCubicOffsetPoint = (
+  segment: CubicSegment,
+  t: number,
+  offsetDistance: number
+): Vec2 => {
+  const point = getCubicPoint(segment, t)
+  const tangent = getCubicTangent(segment, t)
+  return {
+    x: point.x - tangent.y * offsetDistance,
+    y: point.y + tangent.x * offsetDistance
+  }
+}
+
+const getLowerRightSmoothJoinCorridorProbes = (): RedCoverageProbe[] => {
+  const incoming = {
+    start: TP15,
+    control1: TP15_OUT,
+    control2: TP16_IN,
+    end: TP16
+  }
+  const outgoing = {
+    start: TP16,
+    control1: TP16_OUT,
+    control2: TP12,
+    end: TP12
+  }
+  const previousOffset = getCubicOffsetPoint(incoming, 0.985, STROKE_WIDTH)
+  const nextOffset = getCubicOffsetPoint(outgoing, 0.015, STROKE_WIDTH)
+  const centerOutside = interpolatePoint(previousOffset, nextOffset, 0.5)
+  const bridgeProbes = [0.25, 0.5, 0.75].map((amount) =>
+    interpolatePoint(previousOffset, nextOffset, amount)
+  )
+  const radialProbes = [0.45, 0.65, 0.85].map((amount) =>
+    interpolatePoint(TP16, centerOutside, amount)
+  )
+
+  return [...bridgeProbes, ...radialProbes].map((point, index) => ({
+    label: `lower-right smooth join corridor ${index}`,
+    point,
+    size: 8,
+    minCoverage: 0.08
+  }))
 }
 
 const assertRedCoverageProbes = async (
@@ -520,10 +665,32 @@ test.describe('Reported Vector-6 Outside Solid Switch Regression', () => {
     expect(packetSummary.vertexSpanIds).toEqual(
       expect.arrayContaining(['vertex:1', 'vertex:2', 'vertex:4'])
     )
+    const sourceSpanIds = packetSummary.exportPacketDebugMeta.flatMap(
+      (debugMeta) =>
+        Array.isArray(debugMeta.sourceSpanIds)
+          ? (debugMeta.sourceSpanIds as string[])
+          : []
+    )
+    expect(sourceSpanIds).toContain('smooth-join:3')
+    expect(sourceSpanIds).not.toContain('vertex:3')
+    expect(
+      sourceSpanIds.some((sourceSpanId) =>
+        sourceSpanId.startsWith('segment-run:')
+      )
+    ).toBe(false)
     const raster = await captureSelectedElementRaster(page)
     await attachPng(
       'reported-vector-6-solid-outside-switch.png',
       raster.base64,
+      testInfo
+    )
+    await attachPng(
+      'reported-vector-6-solid-outside-tp16-zoom.png',
+      await cropBase64Png(
+        page,
+        raster.base64,
+        getRasterRectRegion(raster, { x: 242, y: 318, width: 95, height: 70 })
+      ),
       testInfo
     )
     await assertRedCoverageProbes(page, raster, [
@@ -550,13 +717,20 @@ test.describe('Reported Vector-6 Outside Solid Switch Regression', () => {
         point: { x: 270, y: 350 },
         size: 14,
         minCoverage: 0.04
-      }
+      },
+      ...getLowerRightSmoothJoinCorridorProbes()
     ])
     await assertForbiddenRedCoverageProbes(page, raster, [
       {
         label: 'lower-right continuity patch must not exist',
         point: { x: 316, y: 344 },
         size: 28,
+        maxCoverage: 0.02
+      },
+      {
+        label: 'lower-right far hollow must stay empty',
+        point: { x: 326, y: 365 },
+        size: 24,
         maxCoverage: 0.02
       }
     ])

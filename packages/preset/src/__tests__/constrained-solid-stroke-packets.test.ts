@@ -330,6 +330,54 @@ const getSegmentSideProbePoints = (
   return probes
 }
 
+const interpolatePoint = (start: Vec2, end: Vec2, amount: number): Vec2 => ({
+  x: start.x + (end.x - start.x) * amount,
+  y: start.y + (end.y - start.y) * amount
+})
+
+const getSmoothJoinCorridorProbePoints = (
+  sourcePath: Pick<PathGeometry, 'segments'>,
+  previousRange: {
+    segmentIndex: number
+    startDistance: number
+    endDistance: number
+  },
+  nextRange: {
+    segmentIndex: number
+    startDistance: number
+    endDistance: number
+  },
+  offsetDistance: number
+) => {
+  const vertex = sourcePath.segments[previousRange.segmentIndex]?.end
+  const previousOffset = getSegmentFrameOffsetPointForTest(
+    getSegmentProbeFrameForTest(sourcePath, previousRange, 0.985),
+    offsetDistance
+  )
+  const nextOffset = getSegmentFrameOffsetPointForTest(
+    getSegmentProbeFrameForTest(sourcePath, nextRange, 0.015),
+    offsetDistance
+  )
+  if (!vertex || !previousOffset || !nextOffset) {
+    return []
+  }
+
+  const outsideBridge = [
+    interpolatePoint(previousOffset, nextOffset, 0.25),
+    interpolatePoint(previousOffset, nextOffset, 0.5),
+    interpolatePoint(previousOffset, nextOffset, 0.75)
+  ]
+  const centerOutside = interpolatePoint(previousOffset, nextOffset, 0.5)
+  const radialBridge = [0.45, 0.65, 0.85].map((amount) =>
+    interpolatePoint(vertex, centerOutside, amount)
+  )
+
+  return [...outsideBridge, ...radialBridge].map((point, index) => ({
+    id: `smooth-join:${previousRange.segmentIndex}:${index}`,
+    ...point
+  }))
+}
+
 const getSignedPolygonAreaForTest = (points: Vec2[]) => {
   let area = 0
   for (let index = 0; index < points.length; index += 1) {
@@ -976,6 +1024,16 @@ describe('constrained solid stroke packets', () => {
           packet.geometry.debugMeta?.runtimeStatus === 'candidate'
       )
     ).toBe(true)
+    const packetSourceSpanIds = packets.flatMap(
+      (packet) => packet.geometry.debugMeta?.sourceSpanIds ?? []
+    )
+    expect(packetSourceSpanIds).toContain('smooth-join:3')
+    expect(packetSourceSpanIds).not.toContain('vertex:3')
+    expect(
+      packetSourceSpanIds.some((sourceSpanId) =>
+        sourceSpanId.startsWith('segment-run:')
+      )
+    ).toBe(false)
 
     const forbiddenBridgeProbePoints = [
       { id: 'upper-left empty face', x: 120, y: 80 },
@@ -1030,6 +1088,8 @@ describe('constrained solid stroke packets', () => {
     expect(bridgeFinalFaceCoverage).toEqual([])
 
     const collapsedPolygons = collapsedFaces.flatMap((face) => face.polygons)
+    const arrangedPolygons = arrangedFaces.flatMap((face) => face.polygons)
+    const rawPolygons = packets.flatMap((packet) => packet.geometry.polygons)
     const representedSourceSegments = new Set(
       collapsedFaces.flatMap((face) =>
         face.sourceSpanIds.flatMap((sourceSpanId) => {
@@ -1066,39 +1126,55 @@ describe('constrained solid stroke packets', () => {
         2
       )
     ).toEqual([])
+    const sourceRanges = getSourcePathSegmentRangesForTest(sourcePath)
+    const smoothJoinCorridorCoverageFailures = getSmoothJoinCorridorProbePoints(
+      sourcePath,
+      sourceRanges[3],
+      sourceRanges[4],
+      10
+    ).flatMap((probe) => {
+      const rawCovered = polygonListContainsPoint(rawPolygons, probe)
+      const arrangedCovered = polygonListContainsPoint(arrangedPolygons, probe)
+      const collapsedCovered = polygonListContainsPoint(
+        collapsedPolygons,
+        probe
+      )
+      return rawCovered && arrangedCovered && collapsedCovered
+        ? []
+        : [{ ...probe, rawCovered, arrangedCovered, collapsedCovered }]
+    })
+    expect(
+      smoothJoinCorridorCoverageFailures,
+      JSON.stringify(smoothJoinCorridorCoverageFailures, null, 2)
+    ).toEqual([])
 
-    const sideProbeResults = getSourcePathSegmentRangesForTest(sourcePath).map(
-      (range) => {
-        const segmentOwnedPolygons = getSegmentOwnedPolygonsForTest(
-          collapsedFaces,
-          range.segmentIndex
-        )
-        const {
-          expectedInsideProbes,
-          oppositeSideProbes,
-          expectedInsideOffset
-        } = getSegmentInsideAndOppositeProbePoints(sourcePath, range, 'outside')
+    const sideProbeResults = sourceRanges.map((range) => {
+      const segmentOwnedPolygons = getSegmentOwnedPolygonsForTest(
+        collapsedFaces,
+        range.segmentIndex
+      )
+      const { expectedInsideProbes, oppositeSideProbes, expectedInsideOffset } =
+        getSegmentInsideAndOppositeProbePoints(sourcePath, range, 'outside')
 
-        return {
-          segmentIndex: range.segmentIndex,
-          expectedInsideOffset,
-          expectedOutsideHits: expectedInsideProbes.filter((point) =>
-            polygonListContainsPoint(segmentOwnedPolygons, point)
-          ).length,
-          productExpectedOutsideHits: expectedInsideProbes.filter((point) =>
-            polygonListContainsPoint(collapsedPolygons, point)
-          ).length,
-          expectedOutsideProbeCount: expectedInsideProbes.length,
-          oppositeSideHits: oppositeSideProbes.filter((point) =>
-            polygonListContainsPoint(segmentOwnedPolygons, point)
-          ).length,
-          productOppositeSideHits: oppositeSideProbes.filter((point) =>
-            polygonListContainsPoint(collapsedPolygons, point)
-          ).length,
-          oppositeSideProbeCount: oppositeSideProbes.length
-        }
+      return {
+        segmentIndex: range.segmentIndex,
+        expectedInsideOffset,
+        expectedOutsideHits: expectedInsideProbes.filter((point) =>
+          polygonListContainsPoint(segmentOwnedPolygons, point)
+        ).length,
+        productExpectedOutsideHits: expectedInsideProbes.filter((point) =>
+          polygonListContainsPoint(collapsedPolygons, point)
+        ).length,
+        expectedOutsideProbeCount: expectedInsideProbes.length,
+        oppositeSideHits: oppositeSideProbes.filter((point) =>
+          polygonListContainsPoint(segmentOwnedPolygons, point)
+        ).length,
+        productOppositeSideHits: oppositeSideProbes.filter((point) =>
+          polygonListContainsPoint(collapsedPolygons, point)
+        ).length,
+        oppositeSideProbeCount: oppositeSideProbes.length
       }
-    )
+    })
     const wrongSideSegments = sideProbeResults.filter(
       (result) =>
         result.expectedOutsideHits < 2 ||

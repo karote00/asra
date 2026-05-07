@@ -1332,6 +1332,9 @@ describe('vector constrained solid stroke product wiring', () => {
     const vertexSpanIds = exportPackets
       .flatMap((packet) => packet.debugMeta?.sourceSpanIds ?? [])
       .filter((sourceSpanId) => sourceSpanId.startsWith('vertex:'))
+    const sourceSpanIds = exportPackets.flatMap(
+      (packet) => packet.debugMeta?.sourceSpanIds ?? []
+    )
 
     if (process.env.ASYRA_STROKE_API_PROFILE === '1') {
       // eslint-disable-next-line no-console
@@ -1351,6 +1354,13 @@ describe('vector constrained solid stroke product wiring', () => {
     expect(vertexSpanIds).toEqual(
       expect.arrayContaining(['vertex:1', 'vertex:2', 'vertex:4'])
     )
+    expect(sourceSpanIds).toContain('smooth-join:3')
+    expect(sourceSpanIds).not.toContain('vertex:3')
+    expect(
+      sourceSpanIds.some((sourceSpanId) =>
+        sourceSpanId.startsWith('segment-run:')
+      )
+    ).toBe(false)
     expect(polygonCount).toBeLessThanOrEqual(80)
     expect(pointCount).toBeLessThanOrEqual(3_000)
     expect(
