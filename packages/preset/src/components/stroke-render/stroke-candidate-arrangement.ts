@@ -435,6 +435,39 @@ const isLegalForPosition = (
   }
 }
 
+const selectOwnedArrangementCandidates = (
+  candidates: CandidateRegion[],
+  faceByCandidateId: Map<string, ArrangedStrokeFinalFace>
+) => {
+  if (candidates.length < 2) {
+    return candidates
+  }
+
+  const faces = candidates.map((candidate) =>
+    faceByCandidateId.get(candidate.candidateId)
+  )
+  if (
+    !faces.every(
+      (face): face is ArrangedStrokeFinalFace =>
+        face?.geometryFamily === 'constrained-solid'
+    )
+  ) {
+    return candidates
+  }
+
+  const strokeIndices = candidates
+    .map((candidate) => candidate.strokeIndex)
+    .filter((index): index is number => typeof index === 'number')
+  if (strokeIndices.length !== candidates.length) {
+    return candidates
+  }
+
+  const ownerStrokeIndex = Math.min(...strokeIndices)
+  return candidates.filter(
+    (candidate) => candidate.strokeIndex === ownerStrokeIndex
+  )
+}
+
 const groupByVisualPacket = (
   candidates: CandidateRegion[],
   faceByCandidateId: Map<string, ArrangedStrokeFinalFace>,
@@ -448,32 +481,34 @@ const groupByVisualPacket = (
     }
   >()
 
-  candidates.forEach((candidate) => {
-    const sourceFace = faceByCandidateId.get(candidate.candidateId)
-    if (!sourceFace) {
-      throw new Error(
-        `Arrangement face references unknown candidate "${candidate.candidateId}"`
-      )
-    }
-    const position = candidate.strokePosition
-    if (!position) {
-      throw new Error(
-        `Arrangement candidate "${candidate.candidateId}" is missing typed strokePosition`
-      )
-    }
+  selectOwnedArrangementCandidates(candidates, faceByCandidateId).forEach(
+    (candidate) => {
+      const sourceFace = faceByCandidateId.get(candidate.candidateId)
+      if (!sourceFace) {
+        throw new Error(
+          `Arrangement face references unknown candidate "${candidate.candidateId}"`
+        )
+      }
+      const position = candidate.strokePosition
+      if (!position) {
+        throw new Error(
+          `Arrangement candidate "${candidate.candidateId}" is missing typed strokePosition`
+        )
+      }
 
-    if (!isLegalForPosition(position, legalState)) {
-      return
-    }
+      if (!isLegalForPosition(position, legalState)) {
+        return
+      }
 
-    const existing = groups.get(candidate.visualPacketKey) ?? {
-      candidates: [],
-      faces: []
+      const existing = groups.get(candidate.visualPacketKey) ?? {
+        candidates: [],
+        faces: []
+      }
+      existing.candidates.push(candidate)
+      existing.faces.push(sourceFace)
+      groups.set(candidate.visualPacketKey, existing)
     }
-    existing.candidates.push(candidate)
-    existing.faces.push(sourceFace)
-    groups.set(candidate.visualPacketKey, existing)
-  })
+  )
 
   return [...groups.values()]
 }

@@ -2231,7 +2231,7 @@ const renderVectorGraphic = (
             )
           },
           ownershipDiagnostics:
-            createEmptyConstrainedSolidOwnershipDiagnostics()
+            buildConstrainedSolidOwnershipDiagnostics(candidatePackets)
         }
       }
 

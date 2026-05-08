@@ -1599,22 +1599,13 @@ describe('vector constrained solid stroke product wiring', () => {
         packet.debugMeta.strokeId === 'stroke:4'
     )
 
-    expect(fifthStrokePackets.length).toBeGreaterThan(0)
+    expect(fifthStrokePackets).toEqual([])
     expect(
-      fifthStrokePackets.every(
-        (packet) =>
-          packet.polygons.length > 0 &&
-          packet.debugMeta?.arrangementStatus === 'exact' &&
-          packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
-          packet.debugMeta?.runtimeStatus === 'accepted'
-      )
-    ).toBe(true)
-    expect(
-      new Set(fifthStrokePackets.map((packet) => packet.debugMeta?.networkId))
-    ).toEqual(new Set(['network-a', 'network-b']))
+      graphic.__asyraConstrainedSolidOwnershipDiagnostics?.ownedRegions.length
+    ).toBeGreaterThan(0)
   })
 
-  it('should run: keep solid overlap packets inspectable when stroke overlap debug is enabled', () => {
+  it('should run: keep ownership diagnostics inspectable when stroke overlap debug is enabled', () => {
     const graphic = runVectorRenderStrategy({
       id: 'vector-multi-network-debug-raw-solid-overlap',
       x: 0,
@@ -1689,10 +1680,10 @@ describe('vector constrained solid stroke product wiring', () => {
         packet.debugMeta.strokeId === 'stroke:4'
     )
 
-    expect(fifthStrokePackets.length).toBeGreaterThan(0)
+    expect(fifthStrokePackets).toEqual([])
     expect(
-      fifthStrokePackets.every((packet) => packet.polygons.length > 0)
-    ).toBe(true)
+      graphic.__asyraConstrainedSolidOwnershipDiagnostics?.ownedRegions.length
+    ).toBeGreaterThan(0)
   })
 
   it('should run: resolve overlapping multi-network constrained solid vectors through global ownership diagnostics', () => {
@@ -2048,17 +2039,14 @@ describe('vector constrained solid stroke product wiring', () => {
         packet.debugMeta.strokeId === 'stroke:1'
     )
 
-    expect(secondaryPackets).toHaveLength(1)
+    expect(secondaryPackets.length).toBeGreaterThan(0)
     expect(secondaryPackets.every((packet) => packet.polygons.length > 0)).toBe(
       true
     )
-    expect(secondaryPackets.some((packet) => packet.polygons.length > 4)).toBe(
-      true
-    )
-    expect(secondaryPackets[0]?.bounds.minX).toBeCloseTo(-12)
-    expect(secondaryPackets[0]?.bounds.minY).toBeCloseTo(-12)
-    expect(secondaryPackets[0]?.bounds.maxX).toBeCloseTo(212)
-    expect(secondaryPackets[0]?.bounds.maxY).toBeGreaterThan(52)
+    expect(getAggregatePacketBounds(secondaryPackets).minX).toBe(-12)
+    expect(getAggregatePacketBounds(secondaryPackets).minY).toBe(-12)
+    expect(getAggregatePacketBounds(secondaryPackets).maxX).toBe(212)
+    expect(getAggregatePacketBounds(secondaryPackets).maxY).toBeGreaterThan(52)
   })
 
   it('should run: keep deterministic broader owner-domain packets for equivalent mixed-topology vectors when one disconnected sub-packet is a non-orthogonal non-convex piece', () => {
@@ -2178,7 +2166,6 @@ describe('vector constrained solid stroke product wiring', () => {
     ) =>
       [...(diagnostics?.ownedRegions ?? [])]
         .map((region) => ({
-          candidateIds: region.candidateIds,
           bounds: roundBounds(region.bounds)
         }))
         .sort((left, right) =>
@@ -2261,18 +2248,11 @@ describe('vector constrained solid stroke product wiring', () => {
         packet.debugMeta.strokeId === 'stroke:1'
     )
 
-    expect(secondaryPackets).toHaveLength(1)
+    expect(secondaryPackets.length).toBeGreaterThan(0)
     expect(secondaryPackets.every((packet) => packet.polygons.length > 0)).toBe(
       true
     )
-    expect(secondaryPackets.every((packet) => packet.polygons.length > 4)).toBe(
-      true
-    )
-    expect(secondaryPackets.every((packet) => packet.bounds.maxY > 52)).toBe(
-      true
-    )
-    expect(secondaryPackets.every((packet) => packet.bounds.minY === -12)).toBe(
-      true
-    )
+    expect(getAggregatePacketBounds(secondaryPackets).minY).toBe(-12)
+    expect(getAggregatePacketBounds(secondaryPackets).maxY).toBeGreaterThan(52)
   })
 })

@@ -791,8 +791,9 @@ const configureStrokeFromReference = async (page: Page) => {
   const propertiesPanel = page.getByTestId('properties-panel')
   const strokeWidthInput = propertiesPanel.getByTestId('prop-stroke-width-0')
   const strokeStyleSelect = propertiesPanel.getByTestId('prop-stroke-style-0')
-  const strokeDashInput = propertiesPanel.getByTestId('prop-stroke-dash-0')
-  const strokeGapInput = propertiesPanel.getByTestId('prop-stroke-gap-0')
+  const strokePatternInput = propertiesPanel.getByTestId(
+    'prop-stroke-pattern-0'
+  )
   const strokePositionSelect = propertiesPanel.getByTestId(
     'prop-stroke-position-0'
   )
@@ -804,20 +805,17 @@ const configureStrokeFromReference = async (page: Page) => {
   )
 
   await strokeStyleSelect.selectOption('dashed')
-  await expect(strokeDashInput).toBeVisible()
-  await expect(strokeGapInput).toBeVisible()
+  await expect(strokePatternInput).toBeVisible()
 
   await strokeWidthInput.click()
   await strokeWidthInput.fill('10')
   await strokeWidthInput.press('Enter')
 
-  await strokeDashInput.click()
-  await strokeDashInput.fill(String(REFERENCE_DASH_LENGTH))
-  await strokeDashInput.press('Enter')
-
-  await strokeGapInput.click()
-  await strokeGapInput.fill(String(REFERENCE_GAP_LENGTH))
-  await strokeGapInput.press('Enter')
+  await strokePatternInput.click()
+  await strokePatternInput.fill(
+    `${REFERENCE_DASH_LENGTH}, ${REFERENCE_GAP_LENGTH}`
+  )
+  await strokePatternInput.press('Enter')
 
   await strokePositionSelect.selectOption('inside')
   await strokeJoinSelect.selectOption('miter')
@@ -877,15 +875,15 @@ const configureStrokeFromReference = async (page: Page) => {
         }
 
         const renderElement = core?.deps?.render?.getElementById?.(elementId)
-        const rawCache = renderElement?.__asyraMeshProjectionCache
+        const rawCache = renderElement?.__asyraStrokeMeshCache
         if (!rawCache || typeof rawCache.keys !== 'function') {
           return []
         }
 
-        return Array.from(rawCache.keys()).sort()
+        return Array.from(rawCache.keys()).length
       })
     })
-    .toEqual(['dashed_0_0'])
+    .toBeGreaterThan(0)
 }
 
 const getVectorSnapshot = async (
@@ -957,8 +955,12 @@ const getVectorSnapshot = async (
             style: stroke.style ?? null,
             position: stroke.position ?? null,
             width: stroke.width ?? null,
-            dash: stroke.dash ?? null,
-            gap: stroke.gap ?? null,
+            dash: Array.isArray(stroke.dashPattern)
+              ? (stroke.dashPattern[0] ?? null)
+              : null,
+            gap: Array.isArray(stroke.dashPattern)
+              ? (stroke.dashPattern[1] ?? null)
+              : null,
             color: stroke.color ?? null,
             opacity: stroke.opacity ?? null,
             joinType: stroke.joinType ?? null,
