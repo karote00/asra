@@ -2727,7 +2727,7 @@ test('benchmark: rectangle outside constrained dashed full-loop stroke renders t
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
-test('benchmark: rectangle constrained dashed strokes with multiple eligible intervals remain absent until multi-stroke ownership is supported', async ({
+test('benchmark: rectangle constrained dashed strokes with multiple eligible intervals render through typed multi-stroke ownership', async ({
   page
 }) => {
   await createRectangle(page, 0.3, 0.3)
@@ -2754,8 +2754,8 @@ test('benchmark: rectangle constrained dashed strokes with multiple eligible int
     getGreenCoverage(page, raster, probes.center)
   ])
 
-  expect(topInside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(topOutside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+  expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 
@@ -3200,7 +3200,8 @@ test('benchmark: rectangle inside bevel corner-spanning constrained dashed gradi
     getRedBlueSkew(topNearCornerRight) + 15
   )
   expect(topNearCornerLeft.r).toBeGreaterThan(topNearCornerLeft.b + 40)
-  expect(topNearCornerRight.b).toBeGreaterThan(topNearCornerRight.r + 8)
+  expect(topNearCornerRight.b).toBeGreaterThan(topNearCornerLeft.b + 15)
+  expect(topNearCornerRight.r).toBeLessThan(topNearCornerLeft.r - 40)
   expect(Math.abs(getRedBlueSkew(topFarGap))).toBeLessThan(20)
   expect(topFarGap.r).toBeGreaterThan(170)
   expect(topFarGap.g).toBeGreaterThan(170)
@@ -4719,7 +4720,7 @@ test('benchmark: reported closed star vector inside dashed square caps do not le
   expect(leftCornerLeak).toBeLessThan(0.002)
 })
 
-test('benchmark: multi-network constrained dashed vectors remain absent on the app path until that ownership path is supported', async ({
+test('benchmark: multi-network constrained dashed vectors render through typed per-network ownership', async ({
   page
 }) => {
   await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -4753,9 +4754,9 @@ test('benchmark: multi-network constrained dashed vectors remain absent on the a
   ])
 
   expect(firstTopInside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(firstTopOutside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  expect(firstTopOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
   expect(secondTopInside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(secondTopOutside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  expect(secondTopOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
   expect(centerGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 

@@ -55,6 +55,11 @@ const pointInPolygon = (
   return inside
 }
 
+const isPointCoveredByPolygons = (
+  point: { x: number; y: number },
+  polygons: { x: number; y: number }[][]
+) => polygons.some((polygon) => pointInPolygon(point, polygon))
+
 const concaveCShape = () => [
   { x: 0, y: 0 },
   { x: 6, y: 0 },
@@ -442,7 +447,7 @@ describe('stroke candidate arrangement', () => {
     })
   })
 
-  it('should run: classify holed arrangement faces from a filled sample instead of a hole sample', () => {
+  it('should run: render holed arrangement faces as coverage cells without filling the hole', () => {
     const holedRegion: PolygonRegion = {
       polygons: [square(0, 0, 10), square(4, 4, 2)]
     }
@@ -476,7 +481,13 @@ describe('stroke candidate arrangement', () => {
       }
     )
 
-    expect(insideFace?.polygons).toEqual(holedRegion.polygons)
+    expect(insideFace?.polygons.length).toBeGreaterThan(0)
+    expect(
+      isPointCoveredByPolygons({ x: 1, y: 1 }, insideFace?.polygons ?? [])
+    ).toBe(true)
+    expect(
+      isPointCoveredByPolygons({ x: 5, y: 5 }, insideFace?.polygons ?? [])
+    ).toBe(false)
     expect(insideFace?.debugMeta).toMatchObject({
       arrangementFaceId: 'face:holed-domain',
       arrangementLegalState: {

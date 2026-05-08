@@ -672,7 +672,7 @@ const mergeArrangedFaceGroup = (
   const candidateIds = group.candidates.map(
     (candidate) => candidate.candidateId
   )
-  const polygons = arrangementFace.geometry.polygons
+  const polygons = getRegionCoveragePolygons(arrangementFace.geometry)
   const faceId = hashStableString(
     'arranged-face',
     `${arrangementFace.faceId}|${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`
@@ -991,7 +991,7 @@ const mergeVisualOverlapArrangementFaceGroup = (
     sourceContourIds,
     legalDomainIds
   } = collectMergedFaceMetadata(faces)
-  const polygons = arrangementFace.geometry.polygons
+  const polygons = getRegionCoveragePolygons(arrangementFace.geometry)
   const faceId = hashStableString(
     'visual-overlap-arranged-face',
     `${arrangementFace.faceId}|${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`
@@ -1046,7 +1046,7 @@ const mergeLocalSideVisualOverlapArrangementFaceGroup = (
     sourceContourIds,
     legalDomainIds
   } = collectMergedFaceMetadata(faces)
-  const polygons = arrangementFace.geometry.polygons
+  const polygons = getRegionCoveragePolygons(arrangementFace.geometry)
   const faceId = hashStableString(
     'local-side-visual-overlap-arranged-face',
     `${arrangementFace.faceId}|${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`

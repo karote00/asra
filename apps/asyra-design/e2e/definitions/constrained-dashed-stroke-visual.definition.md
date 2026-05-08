@@ -205,7 +205,8 @@ It answers:
 ## Required blocked behavior
 
 - shape-generated `rect` with multiple eligible constrained dashed strokes
-  remains visually absent until multi-stroke ownership is supported
+  renders both selected-side bands through typed multi-stroke ownership while
+  leaving unsupported center coverage absent
 - open-path constrained dashed `vector` paths keep authored `inside` /
   `outside` in scene data and render through exact interval-local one-sided
   geometry for supported simple open paths
@@ -228,8 +229,8 @@ It answers:
   from `center`, and routes through constrained multi-interval placement when
   its sampled closed legality domain is valid; true self-intersecting
   fill-rule legality remains unsupported
-- multi-network constrained dashed `vector` paths remain visually absent until
-  that ownership path is supported
+- multi-network constrained dashed `vector` paths render each disjoint network
+  through typed per-network ownership while keeping the inter-network gap absent
 - corner-spanning constrained dashed slices are not part of this benchmark and
   remain blocked/pending elsewhere, except for:
   - the first shape-generated `rect + inside + bevel/miter` representative pair
