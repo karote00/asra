@@ -8,6 +8,7 @@ export interface SourceSpanCut {
   cutId: string
   distance: number
   kind: SourceSpanCutKind
+  crossingId?: string
 }
 
 export interface SourceSpanRecord {
@@ -53,7 +54,7 @@ const getSegmentDistanceRanges = (topology: PathTopologyModel) => {
 const cross = (a: Vec2, b: Vec2, c: Vec2) =>
   (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
 
-const getSegmentIntersectionRatio = (
+const getSegmentIntersectionRatios = (
   leftStart: Vec2,
   leftEnd: Vec2,
   rightStart: Vec2,
@@ -81,7 +82,7 @@ const getSegmentIntersectionRatio = (
     return null
   }
 
-  return leftRatio
+  return { leftRatio, rightRatio }
 }
 
 const areAdjacentClosedSegments = (
@@ -172,22 +173,32 @@ const getSelfIntersectionCuts = (
         continue
       }
 
-      const ratio = getSegmentIntersectionRatio(
+      const ratios = getSegmentIntersectionRatios(
         left.start,
         left.end,
         right.start,
         right.end
       )
-      if (ratio === null) {
+      if (ratios === null) {
         continue
       }
 
+      const crossingId = `self-intersection:${left.segmentId}:${right.segmentId}`
       const distanceAlongLeft =
-        left.startDistance + distance(left.start, left.end) * ratio
-      cuts.push({
-        cutId: `self-intersection:${left.segmentId}:${right.segmentId}`,
-        distance: clampDistance(distanceAlongLeft, topology.totalLength),
-        kind: 'self-intersection'
+        left.startDistance + distance(left.start, left.end) * ratios.leftRatio
+      const distanceAlongRight =
+        right.startDistance +
+        distance(right.start, right.end) * ratios.rightRatio
+      ;[
+        { segmentId: left.segmentId, distance: distanceAlongLeft },
+        { segmentId: right.segmentId, distance: distanceAlongRight }
+      ].forEach((cut) => {
+        cuts.push({
+          cutId: `${crossingId}:${cut.segmentId}`,
+          crossingId,
+          distance: clampDistance(cut.distance, topology.totalLength),
+          kind: 'self-intersection'
+        })
       })
     }
   }
@@ -213,6 +224,11 @@ const addCut = (
   cutsByDistance.set(distanceKey, {
     cutId: `${existing.cutId}|${cut.cutId}`,
     distance: existing.distance,
+    crossingId:
+      existing.crossingId === cut.crossingId
+        ? existing.crossingId
+        : [existing.crossingId, cut.crossingId].filter(Boolean).join('|') ||
+          undefined,
     kind:
       existing.kind === 'self-intersection' || cut.kind === 'self-intersection'
         ? 'self-intersection'

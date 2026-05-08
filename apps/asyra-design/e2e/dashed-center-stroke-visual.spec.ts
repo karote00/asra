@@ -43,6 +43,28 @@ interface RasterCapture {
   padding: number
 }
 
+interface CenterDashedPacketSummary {
+  intervalId: string | null
+  intervalIds: string[]
+  intervalTerminalRole: string | null
+  visualOverlapCollapseStatus: string | null
+  ribbonValidityStatus: string | null
+  polygonCount: number
+  maxPolygonPointCount: number
+  startDistance: number
+  endDistance: number
+  bounds: {
+    minX: number
+    minY: number
+    maxX: number
+    maxY: number
+  }
+  representativePoint: {
+    x: number
+    y: number
+  }
+}
+
 const getSelectedElementSnapshot = async (
   page: Page
 ): Promise<SelectedElementSnapshot> => {
@@ -606,6 +628,209 @@ const patchSelectedVectorToOpenAcuteTurn = async (page: Page) => {
   await page.waitForTimeout(180)
 }
 
+const patchSelectedVectorToOpenHighCurvatureSelfCrossingPath = async (
+  page: Page
+) => {
+  await page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+    if (!selectedId) {
+      throw new Error('No selected vector to patch')
+    }
+
+    const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+    const computed = element?.getAllComputedData?.()
+    const primaryNetwork = Object.values(computed?.networks ?? {})[0] as
+      | { id: string }
+      | undefined
+
+    if (!computed || !primaryNetwork) {
+      throw new Error('Missing vector topology')
+    }
+
+    const nextPoints = {
+      a: { id: 'a', kind: 'anchor', x: 116, y: 0, anchorType: 'smooth' },
+      aOut: {
+        id: 'aOut',
+        kind: 'control',
+        x: 80,
+        y: 104,
+        controlRole: 'out'
+      },
+      b: { id: 'b', kind: 'anchor', x: 18, y: 214, anchorType: 'smooth' },
+      bIn: {
+        id: 'bIn',
+        kind: 'control',
+        x: -24,
+        y: 160,
+        controlRole: 'in'
+      },
+      bOut: {
+        id: 'bOut',
+        kind: 'control',
+        x: 96,
+        y: 258,
+        controlRole: 'out'
+      },
+      c: { id: 'c', kind: 'anchor', x: 222, y: 138, anchorType: 'sharp' },
+      d: { id: 'd', kind: 'anchor', x: 0, y: 96, anchorType: 'sharp' },
+      dOut: {
+        id: 'dOut',
+        kind: 'control',
+        x: 72,
+        y: 210,
+        controlRole: 'out'
+      },
+      e: { id: 'e', kind: 'anchor', x: 176, y: 336, anchorType: 'smooth' },
+      eIn: {
+        id: 'eIn',
+        kind: 'control',
+        x: 228,
+        y: 296,
+        controlRole: 'in'
+      }
+    }
+
+    const nextSegments = {
+      ab: {
+        id: 'ab',
+        startId: 'a',
+        endId: 'b',
+        outControlId: 'aOut',
+        inControlId: 'bIn'
+      },
+      bc: {
+        id: 'bc',
+        startId: 'b',
+        endId: 'c',
+        outControlId: 'bOut',
+        inControlId: null
+      },
+      cd: {
+        id: 'cd',
+        startId: 'c',
+        endId: 'd',
+        outControlId: null,
+        inControlId: null
+      },
+      de: {
+        id: 'de',
+        startId: 'd',
+        endId: 'e',
+        outControlId: 'dOut',
+        inControlId: 'eIn'
+      }
+    }
+
+    core?.changeComputedData?.(
+      [selectedId],
+      {
+        points: nextPoints,
+        segments: nextSegments,
+        networks: {
+          [primaryNetwork.id]: {
+            id: primaryNetwork.id,
+            pointIds: ['a', 'b', 'c', 'd', 'e'],
+            segmentIds: ['ab', 'bc', 'cd', 'de'],
+            closed: false
+          }
+        },
+        closed: false,
+        width: 222,
+        height: 336
+      },
+      { undoable: false }
+    )
+  })
+
+  await page.waitForTimeout(240)
+}
+
+const getSelectedCenterDashedPacketSummary = async (
+  page: Page
+): Promise<CenterDashedPacketSummary[]> =>
+  page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId =
+      core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+    const renderElement = selectedId
+      ? core?.deps?.render?.getElementById?.(selectedId)
+      : null
+    const exportPackets =
+      renderElement?.__asyraSolidCenterStrokeExportPackets ?? []
+
+    return exportPackets
+      .filter(
+        (packet: { debugMeta?: { geometryFamily?: string } }) =>
+          packet.debugMeta?.geometryFamily === 'dashed-center'
+      )
+      .map(
+        (packet: {
+          debugMeta?: {
+            intervalId?: string
+            intervalIds?: string[]
+            intervalTerminalRole?: string
+            visualOverlapCollapseStatus?: string
+            ribbonValidityStatus?: string
+            startDistance?: number
+            endDistance?: number
+          }
+          bounds: {
+            minX: number
+            minY: number
+            maxX: number
+            maxY: number
+          }
+          polygons?: { x: number; y: number }[][]
+        }) => {
+          const polygon = packet.polygons?.[0] ?? []
+          const representativePoint =
+            polygon.length > 0
+              ? polygon.reduce(
+                  (sum, point) => ({
+                    x: sum.x + point.x / polygon.length,
+                    y: sum.y + point.y / polygon.length
+                  }),
+                  { x: 0, y: 0 }
+                )
+              : {
+                  x: (packet.bounds.minX + packet.bounds.maxX) / 2,
+                  y: (packet.bounds.minY + packet.bounds.maxY) / 2
+                }
+
+          return {
+            intervalId: packet.debugMeta?.intervalId ?? null,
+            intervalIds: packet.debugMeta?.intervalIds ?? [],
+            intervalTerminalRole:
+              packet.debugMeta?.intervalTerminalRole ?? null,
+            visualOverlapCollapseStatus:
+              packet.debugMeta?.visualOverlapCollapseStatus ?? null,
+            ribbonValidityStatus:
+              packet.debugMeta?.ribbonValidityStatus ?? null,
+            polygonCount: packet.polygons?.length ?? 0,
+            maxPolygonPointCount: Math.max(
+              0,
+              ...(packet.polygons ?? []).map((polygon) => polygon.length)
+            ),
+            startDistance: packet.debugMeta?.startDistance ?? 0,
+            endDistance: packet.debugMeta?.endDistance ?? 0,
+            bounds: packet.bounds,
+            representativePoint
+          }
+        }
+      )
+      .sort(
+        (
+          left: { startDistance: number; intervalId: string | null },
+          right: { startDistance: number; intervalId: string | null }
+        ) =>
+          left.startDistance - right.startDistance ||
+          String(left.intervalId).localeCompare(String(right.intervalId))
+      )
+  })
+
 const clearVectorOverlayState = async (page: Page) => {
   await page.evaluate(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1046,6 +1271,108 @@ test.describe('Dashed Center Stroke Visual Benchmarks', () => {
 
     expect(visibleA).toBeGreaterThan(MIN_VISIBLE_COVERAGE)
     expect(gapA).toBeLessThan(MAX_GAP_COVERAGE)
+  })
+
+  test('benchmark: open self-crossing high-curvature center dashed keeps end intervals visible without cross-interval collapse', async ({
+    page
+  }) => {
+    await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
+    await clearVectorOverlayState(page)
+    await ensureElementSelected(page)
+    await patchSelectedVectorToOpenHighCurvatureSelfCrossingPath(page)
+    await configureDashedCenterStroke(page, {
+      join: 'miter',
+      cap: 'round',
+      pattern: '27, 20',
+      offset: '0'
+    })
+
+    await page.waitForFunction(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      const renderElement = selectedId
+        ? core?.deps?.render?.getElementById?.(selectedId)
+        : null
+      const exportPackets =
+        renderElement?.__asyraSolidCenterStrokeExportPackets ?? []
+      return exportPackets.some(
+        (packet: { debugMeta?: { geometryFamily?: string } }) =>
+          packet.debugMeta?.geometryFamily === 'dashed-center'
+      )
+    })
+
+    const packets = await getSelectedCenterDashedPacketSummary(page)
+    const intervalIds = packets.map((packet) => packet.intervalId)
+    const endPackets = packets.slice(-2)
+
+    expect(packets.length).toBeGreaterThanOrEqual(6)
+    expect(new Set(intervalIds).size).toBe(intervalIds.length)
+    expect(
+      packets.filter((packet) => packet.visualOverlapCollapseStatus !== null)
+    ).toEqual([])
+    expect(packets.every((packet) => packet.polygonCount >= 1)).toBe(true)
+    expect(packets.every((packet) => packet.polygonCount <= 3)).toBe(true)
+    expect(
+      packets.filter(
+        (packet) => packet.ribbonValidityStatus !== 'backend-offset'
+      )
+    ).toEqual([])
+    expect(
+      Math.max(...packets.map((packet) => packet.maxPolygonPointCount))
+    ).toBeLessThan(500)
+    expect(endPackets).toHaveLength(2)
+    expect(endPackets.every((packet) => packet.intervalId !== null)).toBe(true)
+    expect(endPackets.every((packet) => packet.bounds.maxY > 240)).toBe(true)
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const [
+      penultimateEndCoverage,
+      finalEndCoverage,
+      lowerRightLeakCoverage,
+      lowerRightCornerContinuityA,
+      lowerRightCornerContinuityB
+    ] = await Promise.all([
+      getGreenCoverage(
+        page,
+        raster,
+        getLocalPointProbe(raster, endPackets[0].representativePoint, 5)
+      ),
+      getGreenCoverage(
+        page,
+        raster,
+        getLocalPointProbe(raster, endPackets[1].representativePoint, 5)
+      ),
+      getGreenCoverage(
+        page,
+        raster,
+        getLocalPointProbe(
+          raster,
+          {
+            x: Math.min(222, endPackets[1].bounds.maxX + STROKE_WIDTH),
+            y: Math.min(336, endPackets[1].bounds.maxY + STROKE_WIDTH)
+          },
+          5
+        )
+      ),
+      getGreenCoverage(
+        page,
+        raster,
+        getLocalPointProbe(raster, { x: 20, y: 130 }, 9)
+      ),
+      getGreenCoverage(
+        page,
+        raster,
+        getLocalPointProbe(raster, { x: 38, y: 148 }, 9)
+      )
+    ])
+
+    expect(penultimateEndCoverage).toBeGreaterThan(0.18)
+    expect(finalEndCoverage).toBeGreaterThan(0.18)
+    expect(lowerRightLeakCoverage).toBeLessThan(MAX_GAP_COVERAGE)
+    expect(lowerRightCornerContinuityA).toBeGreaterThan(0.22)
+    expect(lowerRightCornerContinuityB).toBeGreaterThan(0.22)
   })
 
   test('benchmark: unsupported constrained dashed stroke remains visually absent', async ({

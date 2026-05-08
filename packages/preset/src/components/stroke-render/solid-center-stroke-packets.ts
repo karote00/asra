@@ -19,6 +19,11 @@ import {
   type StrokeFinalFace,
   type StrokeOwnerKey
 } from './stroke-final-face'
+import {
+  getGeometryBackend,
+  type GeometryBackend,
+  type PolygonRegion
+} from './geometry-backend'
 
 interface Vec2 {
   x: number
@@ -77,6 +82,11 @@ export interface SolidCenterStrokeExportPacket {
 export interface SolidCenterStrokeResolvedPacket {
   geometry: SolidCenterStrokeGeometryPacket
   paint: SolidCenterStrokePaintPacket
+}
+
+interface SolidCenterStrokeRenderEntryOptions {
+  collapseDashedCenterVisualOverlaps?: boolean
+  exactBackend?: Pick<GeometryBackend, 'capabilities' | 'union'>
 }
 
 export type StrokeGeometryFamily =
@@ -147,6 +157,15 @@ export interface SolidCenterStrokeGeometryDebugMeta {
   wrapsSeam?: boolean
   previousVisibleIntervalId?: string | null
   nextVisibleIntervalId?: string | null
+  intervalTerminalRole?: 'none' | 'path-start' | 'path-end' | 'both'
+  intervalStartCutKind?: 'vertex' | 'dash-boundary' | 'self-intersection'
+  intervalEndCutKind?: 'vertex' | 'dash-boundary' | 'self-intersection'
+  strokeIntersectionEligible?: boolean
+  ribbonValidityStatus?:
+    | 'simple-outline'
+    | 'backend-offset'
+    | 'fail-open-invalid-outline'
+    | 'empty'
   dashPlacementMode?: 'arc-length-pattern'
   geometryFamily?: StrokeGeometryFamily
   resolutionStatus?: StrokeGeometryResolutionStatus
@@ -495,6 +514,176 @@ const getProjectedGeometryId = (
 ) =>
   face.sourceGeometryIds.length === 1 ? face.sourceGeometryIds[0] : face.faceId
 
+const getUniqueStrings = (values: string[]) => [...new Set(values)]
+
+const flattenFacePolygons = (
+  regions: PolygonRegion[],
+  fallbackPolygons: Vec2[][]
+) => {
+  const polygons = regions.flatMap((region) => region.polygons)
+  return polygons.length > 0 ? polygons : fallbackPolygons
+}
+
+const getDashedCenterRenderGroupKey = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >
+) => {
+  if (face.geometryFamily !== 'dashed-center') {
+    return null
+  }
+
+  const ownerKey = [
+    face.debugMeta?.sourcePathId,
+    face.debugMeta?.ownerKey,
+    face.debugMeta?.networkId,
+    face.debugMeta?.strokeId,
+    face.debugMeta?.strokeIndex
+  ].join(':')
+
+  return `${face.visualPacketKey}|${ownerKey}`
+}
+
+const getDashedCenterRenderOverlapBackend = (
+  options: SolidCenterStrokeRenderEntryOptions
+) => {
+  try {
+    const backend = options.exactBackend ?? getGeometryBackend()
+    return backend.capabilities.union === true ? backend : null
+  } catch {
+    return null
+  }
+}
+
+const buildRenderEntryFromFinalFace = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >
+) => ({
+  cacheKey: getProjectedGeometryId(face),
+  stroke: {
+    kind: face.paint.kind,
+    color: face.paint.color,
+    alpha: face.paint.alpha,
+    gradientStyle: face.paint.gradientStyle ?? null,
+    paintKey:
+      face.paint.paintKey ?? `solid:${face.paint.color}:${face.paint.alpha}`
+  },
+  polygons: face.polygons,
+  debugMeta: face.debugMeta,
+  revisionSet: face.debugMeta?.revisionSet
+})
+
+const buildDashedCenterCollapsedRenderEntry = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[],
+  options: SolidCenterStrokeRenderEntryOptions
+) => {
+  const [primaryFace] = faces
+  const backend = getDashedCenterRenderOverlapBackend(options)
+  if (!primaryFace || faces.length < 2 || !backend) {
+    return faces.map(buildRenderEntryFromFinalFace)
+  }
+
+  const fallbackPolygons = faces.flatMap((face) => face.polygons)
+  const unionRegions = (() => {
+    try {
+      return backend.union(
+        faces.map((face) => ({ polygons: face.polygons })),
+        'nonzero'
+      )
+    } catch {
+      return []
+    }
+  })()
+  const polygons = flattenFacePolygons(unionRegions, fallbackPolygons)
+  const sourceGeometryIds = getUniqueStrings(
+    faces.flatMap((face) => face.sourceGeometryIds)
+  )
+  const intervalIds = getUniqueStrings(
+    faces.flatMap((face) => face.intervalIds)
+  )
+  const sourceSpanIds = getUniqueStrings(
+    faces.flatMap((face) => face.sourceSpanIds)
+  )
+  const sourceContourIds = getUniqueStrings(
+    faces.flatMap((face) => face.sourceContourIds)
+  )
+  const legalDomainIds = getUniqueStrings(
+    faces.flatMap((face) => face.legalDomainIds)
+  )
+
+  return [
+    {
+      ...buildRenderEntryFromFinalFace(primaryFace),
+      cacheKey: `render:dashed-center-union:${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`,
+      polygons,
+      debugMeta: {
+        ...primaryFace.debugMeta,
+        intervalIds,
+        sourceSpanIds,
+        sourceContourIds,
+        legalDomainIds,
+        visualOverlapCollapseStatus: 'exact-union' as const,
+        visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
+        visualOverlapSourceGeometryIds: sourceGeometryIds
+      }
+    }
+  ]
+}
+
+const collapseDashedCenterRenderEntries = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[],
+  options: SolidCenterStrokeRenderEntryOptions
+) => {
+  if (options.collapseDashedCenterVisualOverlaps === false) {
+    return faces.map(buildRenderEntryFromFinalFace)
+  }
+
+  const output: ReturnType<typeof buildRenderEntryFromFinalFace>[][] = []
+  const dashedGroups = new Map<
+    string,
+    StrokeFinalFace<
+      SolidCenterStrokeGeometryDebugMeta,
+      SolidCenterStrokePaintPacket
+    >[]
+  >()
+  const dashedGroupSlots = new Map<string, number>()
+
+  faces.forEach((face) => {
+    const groupKey = getDashedCenterRenderGroupKey(face)
+    if (!groupKey) {
+      output.push([buildRenderEntryFromFinalFace(face)])
+      return
+    }
+
+    const group = dashedGroups.get(groupKey) ?? []
+    group.push(face)
+    dashedGroups.set(groupKey, group)
+
+    if (!dashedGroupSlots.has(groupKey)) {
+      dashedGroupSlots.set(groupKey, output.length)
+      output.push([])
+    }
+  })
+
+  dashedGroups.forEach((group, groupKey) => {
+    const slot = dashedGroupSlots.get(groupKey)
+    if (slot !== undefined) {
+      output[slot] = buildDashedCenterCollapsedRenderEntry(group, options)
+    }
+  })
+
+  return output.flat()
+}
+
 export const buildSolidCenterStrokeResolvedPacketsFromFinalFaces = (
   faces: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
@@ -598,28 +787,17 @@ export const toSolidCenterStrokeRenderEntriesFromFinalFaces = (
   faces: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
-  >[]
-) =>
-  faces.map((face) => ({
-    cacheKey: getProjectedGeometryId(face),
-    stroke: {
-      kind: face.paint.kind,
-      color: face.paint.color,
-      alpha: face.paint.alpha,
-      gradientStyle: face.paint.gradientStyle ?? null,
-      paintKey:
-        face.paint.paintKey ?? `solid:${face.paint.color}:${face.paint.alpha}`
-    },
-    polygons: face.polygons,
-    debugMeta: face.debugMeta,
-    revisionSet: face.debugMeta?.revisionSet
-  }))
+  >[],
+  options: SolidCenterStrokeRenderEntryOptions = {}
+) => collapseDashedCenterRenderEntries(faces, options)
 
 export const toSolidCenterStrokeRenderEntries = (
-  packets: SolidCenterStrokeResolvedPacket[]
+  packets: SolidCenterStrokeResolvedPacket[],
+  options: SolidCenterStrokeRenderEntryOptions = {}
 ) =>
   toSolidCenterStrokeRenderEntriesFromFinalFaces(
-    buildSolidCenterStrokeFinalFaces(packets)
+    buildSolidCenterStrokeFinalFaces(packets),
+    options
   )
 
 export const applySolidCenterStrokeExportPackets = <T extends object>(

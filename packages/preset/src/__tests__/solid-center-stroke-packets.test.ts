@@ -9,6 +9,7 @@ import {
   toSolidCenterStrokeRenderEntries
 } from '../components/stroke-render/solid-center-stroke-packets'
 import { buildStrokeFinalFacesFromResolvedPackets } from '../components/stroke-render/stroke-final-face'
+import { createGeometryBackendCapabilities } from '../components/stroke-render/geometry-backend'
 
 describe('solid center stroke packets', () => {
   it('should run: derive render, hit, and export packets from the same final geometry source', () => {
@@ -164,6 +165,89 @@ describe('solid center stroke packets', () => {
         }
       ]
     })
+  })
+
+  it('should run: collapse dashed-center overlaps only for render while preserving interval packets', () => {
+    const firstPolygon = [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 20, y: 8 },
+      { x: 0, y: 8 }
+    ]
+    const secondPolygon = [
+      { x: 10, y: 0 },
+      { x: 30, y: 0 },
+      { x: 30, y: 8 },
+      { x: 10, y: 8 }
+    ]
+    const unionPolygon = [
+      { x: 0, y: 0 },
+      { x: 30, y: 0 },
+      { x: 30, y: 8 },
+      { x: 0, y: 8 }
+    ]
+    const packets = [firstPolygon, secondPolygon].map((polygon, index) => ({
+      geometry: {
+        geometryId: `dashed-center:${index}`,
+        polygons: [polygon],
+        bounds: {
+          minX: index === 0 ? 0 : 10,
+          minY: 0,
+          maxX: index === 0 ? 20 : 30,
+          maxY: 8
+        },
+        debugMeta: {
+          sourcePathId: 'vector:test:network-a:dashed-center',
+          ownerKey: 'vector:test:network-a:stroke:0',
+          networkId: 'network-a',
+          strokeId: 'stroke:0',
+          strokeIndex: 0,
+          intervalId: `interval:${index}`,
+          sourceSpanIds: [`span:${index}`],
+          geometryFamily: 'dashed-center' as const,
+          resolutionStatus: 'native-center' as const,
+          runtimeStatus: 'not-applicable' as const,
+          runtimeReason: 'center-stroke' as const
+        }
+      },
+      paint: {
+        geometryId: `dashed-center:${index}`,
+        color: 0xff0000,
+        alpha: 0.5,
+        paintKey: 'paint:red'
+      }
+    }))
+    const exactBackend = {
+      capabilities: createGeometryBackendCapabilities(false),
+      union: () => [{ polygons: [unionPolygon] }]
+    }
+    exactBackend.capabilities.union = true
+
+    const renderEntries = toSolidCenterStrokeRenderEntries(packets, {
+      exactBackend
+    })
+    const rawRenderEntries = toSolidCenterStrokeRenderEntries(packets, {
+      collapseDashedCenterVisualOverlaps: false,
+      exactBackend
+    })
+    const hitPackets = buildSolidCenterStrokeHitTestPackets(packets)
+    const exportPackets = buildSolidCenterStrokeExportPackets(packets)
+
+    expect(renderEntries).toHaveLength(1)
+    expect(renderEntries[0]?.polygons).toEqual([unionPolygon])
+    expect(renderEntries[0]?.debugMeta).toMatchObject({
+      intervalIds: ['interval:0', 'interval:1'],
+      sourceSpanIds: ['span:0', 'span:1'],
+      visualOverlapCollapseStatus: 'exact-union',
+      visualOverlapSourceGeometryIds: ['dashed-center:0', 'dashed-center:1']
+    })
+    expect(rawRenderEntries).toHaveLength(2)
+    expect(hitPackets).toHaveLength(2)
+    expect(exportPackets).toHaveLength(2)
+    expect(exportPackets.map((packet) => packet.intervalIds)).toEqual([
+      ['interval:0'],
+      ['interval:1']
+    ])
   })
 
   it('should not run: emit packets for unsupported constrained slices', () => {

@@ -1588,7 +1588,8 @@ describe('Vector Component', () => {
     }
 
     runRenderStrategy(renderStrategy, mockGraphic, supportedData)
-    expect(getProjectionMeshes(mockGraphic)).toHaveLength(1)
+    const initialProjectionMeshes = getProjectionMeshes(mockGraphic)
+    expect(initialProjectionMeshes).toHaveLength(1)
 
     runRenderStrategy(renderStrategy, mockGraphic, {
       ...supportedData,
@@ -1605,14 +1606,25 @@ describe('Vector Component', () => {
       ]
     })
 
-    expect(getProjectionMeshes(mockGraphic)).toHaveLength(1)
+    const nextProjectionMeshes = getProjectionMeshes(mockGraphic)
+    const exportPackets =
+      mockGraphic.__asyraSolidCenterStrokeExportPackets ?? []
+    expect(nextProjectionMeshes.length).toBeGreaterThan(0)
     expect(
-      mockGraphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({
-      geometryFamily: 'constrained-solid',
-      resolutionStatus: 'exact-constrained',
-      runtimeStatus: 'accepted'
-    })
+      nextProjectionMeshes.some((mesh) =>
+        initialProjectionMeshes.includes(mesh)
+      )
+    ).toBe(false)
+    expect(exportPackets.length).toBe(nextProjectionMeshes.length)
+    expect(
+      exportPackets.every((packet) =>
+        Boolean(
+          packet.debugMeta?.geometryFamily === 'constrained-solid' &&
+            packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
+            packet.debugMeta?.runtimeStatus === 'accepted'
+        )
+      )
+    ).toBe(true)
   })
 
   it('should keep reported self-intersecting inside dashed local-side geometry visible when path editing is toggled', () => {

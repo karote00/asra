@@ -73,6 +73,15 @@ describe('source span graph', () => {
         expect.objectContaining({ kind: 'self-intersection' })
       ])
     )
+    const selfIntersectionCuts = graph.cuts.filter(
+      (cut) => cut.kind === 'self-intersection'
+    )
+    expect(selfIntersectionCuts).toHaveLength(2)
+    expect(
+      new Set(selfIntersectionCuts.map((cut) => cut.crossingId)).size
+    ).toBe(1)
+    expect(selfIntersectionCuts[0]?.distance).toBeCloseTo(70.710678, 5)
+    expect(selfIntersectionCuts[1]?.distance).toBeCloseTo(312.132034, 5)
     const sourceSpanIds = firstInterval
       ? getSourceSpanIdsForInterval(graph, firstInterval)
       : []

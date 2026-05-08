@@ -8,6 +8,10 @@ import {
   type RenderableStroke
 } from './renderable-stroke'
 import { buildSolidCenterStrokePolygons } from './solid-center-stroke-geometry'
+import {
+  buildDashedCenterRibbonGeometry,
+  type DashedCenterRibbonFrame
+} from './dashed-center-ribbon-geometry'
 import type { allocateDashedCenterStrokeIntervals } from './dashed-center-stroke-intervals'
 import type {
   SolidCenterStrokeGeometryDebugMeta,
@@ -19,9 +23,12 @@ import {
   buildPathTopologyModel,
   type PathTopologyModel
 } from './path-topology-model'
+import { slicePathGeometryFrames, type PathGeometry } from './path-geometry'
 import {
   buildSourceSpanGraph,
-  getSourceSpanIdsForInterval
+  getSourceSpanIdsForInterval,
+  type SourceSpanGraph,
+  type SourceSpanCutKind
 } from './source-span-graph'
 
 interface Vec2 {
@@ -56,6 +63,109 @@ const getBounds = (polygons: Vec2[][]): Bounds => {
 
 const EPSILON = 1e-6
 
+const normalizeVector = (vector: Vec2): Vec2 | null => {
+  const length = Math.hypot(vector.x, vector.y)
+  if (length <= EPSILON) {
+    return null
+  }
+
+  return {
+    x: vector.x / length,
+    y: vector.y / length
+  }
+}
+
+const getFallbackTangent = (points: Vec2[], index: number): Vec2 => {
+  const previous = points[index - 1]
+  const current = points[index]
+  const next = points[index + 1]
+
+  if (previous && next) {
+    return (
+      normalizeVector({
+        x: next.x - previous.x,
+        y: next.y - previous.y
+      }) ?? { x: 1, y: 0 }
+    )
+  }
+  if (next) {
+    return (
+      normalizeVector({
+        x: next.x - current.x,
+        y: next.y - current.y
+      }) ?? { x: 1, y: 0 }
+    )
+  }
+  if (previous) {
+    return (
+      normalizeVector({
+        x: current.x - previous.x,
+        y: current.y - previous.y
+      }) ?? { x: 1, y: 0 }
+    )
+  }
+
+  return { x: 1, y: 0 }
+}
+
+const getCutKindAtDistance = (
+  graph: SourceSpanGraph,
+  distance: number
+): SourceSpanCutKind | undefined =>
+  graph.cuts.find((cut) => Math.abs(cut.distance - distance) <= EPSILON)?.kind
+
+const getIntervalEndpointCutKind = (
+  graph: SourceSpanGraph,
+  distance: number,
+  totalLength: number,
+  closed: boolean
+): SourceSpanCutKind | undefined => {
+  if (
+    !closed &&
+    (Math.abs(distance) <= EPSILON ||
+      Math.abs(distance - totalLength) <= EPSILON)
+  ) {
+    return 'vertex'
+  }
+
+  return getCutKindAtDistance(graph, distance)
+}
+
+const getIntervalTerminalRole = (
+  interval: { startDistance: number; endDistance: number; wrapsSeam: boolean },
+  totalLength: number,
+  closed: boolean
+): NonNullable<SolidCenterStrokeGeometryDebugMeta['intervalTerminalRole']> => {
+  if (closed) {
+    return interval.wrapsSeam ? 'both' : 'none'
+  }
+
+  const startsAtPathStart = Math.abs(interval.startDistance) <= EPSILON
+  const endsAtPathEnd = Math.abs(interval.endDistance - totalLength) <= EPSILON
+
+  if (startsAtPathStart && endsAtPathEnd) {
+    return 'both'
+  }
+  if (startsAtPathStart) {
+    return 'path-start'
+  }
+  if (endsAtPathEnd) {
+    return 'path-end'
+  }
+  return 'none'
+}
+
+const isStrokeIntersectionEligible = (
+  terminalRole: NonNullable<
+    SolidCenterStrokeGeometryDebugMeta['intervalTerminalRole']
+  >,
+  startCutKind: SourceSpanCutKind | undefined,
+  endCutKind: SourceSpanCutKind | undefined
+) =>
+  terminalRole !== 'none' ||
+  startCutKind === 'self-intersection' ||
+  endCutKind === 'self-intersection'
+
 const buildVisibleIntervalSignature = (
   intervals: ReturnType<typeof allocateDashedCenterStrokeIntervals>
 ) =>
@@ -88,6 +198,7 @@ interface DashedCenterStrokePacketOptions {
     networkId?: string
   }
   topology?: PathTopologyModel
+  sourcePath?: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>
 }
 
 const mapCenterTopologyToSourceTopology = (
@@ -215,35 +326,90 @@ export const buildDashedCenterStrokeResolvedPackets = (
     }
 
     return intervals.flatMap((interval) => {
-      const intervalFrames = intervalFrameSlicer.slice(
-        interval.startDistance,
-        interval.endDistance,
-        interval.wrapsSeam
-      )
-      const intervalPoints = intervalFrames.map(({ x, y }) => ({ x, y }))
+      const shouldUseSourcePathRibbon =
+        options.sourcePath?.segments.some(
+          (segment) => segment.type === 'cubic'
+        ) === true
       const coversFullClosedLoop =
         topology.closed &&
         !interval.wrapsSeam &&
         Math.abs(interval.startDistance) <= EPSILON &&
         Math.abs(interval.endDistance - totalLength) <= EPSILON
+      const intervalFrames = options.sourcePath
+        ? slicePathGeometryFrames(
+            options.sourcePath,
+            interval.startDistance,
+            interval.endDistance,
+            interval.wrapsSeam,
+            0.18
+          ).map(
+            (frame): DashedCenterRibbonFrame => ({
+              point: frame.point,
+              tangent: frame.tangent,
+              sharpJoin: frame.sharpJoin
+            })
+          )
+        : (() => {
+            const slicedFrames = intervalFrameSlicer.slice(
+              interval.startDistance,
+              interval.endDistance,
+              interval.wrapsSeam
+            )
+            const points = slicedFrames.map(({ x, y }) => ({ x, y }))
+            return points.map(
+              (point, index): DashedCenterRibbonFrame => ({
+                point,
+                tangent: getFallbackTangent(points, index),
+                sharpJoin: index > 0 && index < points.length - 1
+              })
+            )
+          })()
 
-      const polygons = buildSolidCenterStrokePolygons(
-        intervalPoints,
-        coversFullClosedLoop,
-        {
-          style: 'solid',
-          position: 'center',
-          width: stroke.width,
-          join: stroke.join,
-          miterLimit: stroke.miterLimit,
-          cap: stroke.cap
-        }
-      )
+      const ribbonGeometry =
+        shouldUseSourcePathRibbon && !coversFullClosedLoop
+          ? buildDashedCenterRibbonGeometry(intervalFrames, {
+              width: stroke.width,
+              join: stroke.join,
+              miterLimit: stroke.miterLimit,
+              cap: stroke.cap
+            })
+          : null
+      const polygons =
+        ribbonGeometry?.polygons ??
+        buildSolidCenterStrokePolygons(
+          intervalFrames.map((frame) => frame.point),
+          coversFullClosedLoop,
+          {
+            style: 'solid',
+            position: 'center',
+            width: stroke.width,
+            join: stroke.join,
+            miterLimit: stroke.miterLimit,
+            cap: stroke.cap
+          }
+        )
 
       if (polygons.length === 0) {
         return []
       }
 
+      const intervalTerminalRole = getIntervalTerminalRole(
+        interval,
+        totalLength,
+        topology.closed
+      )
+      const intervalStartCutKind = getIntervalEndpointCutKind(
+        sourceSpanGraph,
+        interval.startDistance,
+        totalLength,
+        topology.closed
+      )
+      const intervalEndCutKind = getIntervalEndpointCutKind(
+        sourceSpanGraph,
+        interval.endDistance,
+        totalLength,
+        topology.closed
+      )
       const geometryId = `${cachePrefix}:${strokeIndex}:${interval.intervalId}`
       const debugMeta: SolidCenterStrokeGeometryDebugMeta = {
         sourcePathId: cachePrefix,
@@ -262,6 +428,15 @@ export const buildDashedCenterStrokeResolvedPackets = (
         wrapsSeam: interval.wrapsSeam,
         previousVisibleIntervalId: interval.previousVisibleIntervalId,
         nextVisibleIntervalId: interval.nextVisibleIntervalId,
+        intervalTerminalRole,
+        intervalStartCutKind,
+        intervalEndCutKind,
+        strokeIntersectionEligible: isStrokeIntersectionEligible(
+          intervalTerminalRole,
+          intervalStartCutKind,
+          intervalEndCutKind
+        ),
+        ribbonValidityStatus: ribbonGeometry?.validityStatus,
         dashPlacementMode,
         geometryFamily: 'dashed-center',
         resolutionStatus: 'native-center',

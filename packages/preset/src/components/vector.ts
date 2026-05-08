@@ -2456,7 +2456,8 @@ const renderVectorGraphic = (
                   ownerKeyPrefix: `vector:${renderData.id}:${network.id}`,
                   networkId: network.id
                 },
-                topology
+                topology,
+                sourcePath: path
               }
             ),
             {}
@@ -2849,7 +2850,9 @@ const renderVectorGraphic = (
   }
   renderSolidCenterStrokeEntries(
     graphic,
-    toSolidCenterStrokeRenderEntriesFromFinalFaces(strokeFinalFaces)
+    toSolidCenterStrokeRenderEntriesFromFinalFaces(strokeFinalFaces, {
+      collapseDashedCenterVisualOverlaps: !shouldDisableVisualOverlapCollapse
+    })
   )
 }
 

@@ -292,13 +292,17 @@ export const buildSolidCenterStrokePolygons = (
       return points
     }
 
-    source.forEach((_, index) => {
-      const nextIndex = (index + 1) % source.length
+    leftSegments.forEach((leftSegment, index) => {
+      const rightSegment = rightSegments[index]
+      if (!leftSegment || !rightSegment) {
+        return
+      }
+
       pushPolygon([
-        left[index],
-        left[nextIndex],
-        right[nextIndex],
-        right[index]
+        leftSegment.start,
+        leftSegment.end,
+        rightSegment.end,
+        rightSegment.start
       ])
     })
 

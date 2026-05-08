@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { StrokeJoinTypes, createDefaultStroke } from '@asyra/utils'
 import { buildDashedCenterStrokeResolvedPackets } from '../components/stroke-render/dashed-center-stroke-packets'
+import { buildPathTopologyModel } from '../components/stroke-render/path-topology-model'
+import {
+  buildVectorGeometryModelPath,
+  slicePathGeometryFrames
+} from '../components/stroke-render/path-geometry'
 import { buildSolidCenterStrokeResolvedPackets } from '../components/stroke-render/solid-center-stroke-packets'
 import { buildStrokeFinalFacesFromResolvedPackets } from '../components/stroke-render/stroke-final-face'
 
@@ -88,6 +93,56 @@ describe('dashed center stroke packets', () => {
     })
   })
 
+  it('should run: mark center dashed terminal eligibility without treating non-terminal overlap as stroke cutting', () => {
+    const packets = buildDashedCenterStrokeResolvedPackets(
+      'center-dashed-terminal-metadata',
+      [
+        { x: 0, y: 0 },
+        { x: 50, y: 80 },
+        { x: 100, y: 0 }
+      ],
+      false,
+      [
+        createDefaultStroke({
+          style: 'dashed',
+          position: 'center',
+          width: 12,
+          joinType: StrokeJoinTypes.MITER,
+          dashPattern: [120, 20],
+          dashOffset: 80
+        })
+      ]
+    )
+
+    expect(packets.length).toBeGreaterThanOrEqual(2)
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      intervalId: 'interval:0',
+      intervalTerminalRole: 'path-start',
+      intervalStartCutKind: 'vertex',
+      intervalEndCutKind: 'dash-boundary',
+      strokeIntersectionEligible: true
+    })
+
+    const nonTerminalTurnPacket = packets.find(
+      (packet) =>
+        packet.geometry.debugMeta?.intervalTerminalRole === 'none' &&
+        packet.geometry.polygons.length > 1
+    )
+    expect(nonTerminalTurnPacket).toBeDefined()
+    expect(nonTerminalTurnPacket?.geometry.debugMeta).toMatchObject({
+      intervalStartCutKind: 'dash-boundary',
+      intervalEndCutKind: 'dash-boundary',
+      strokeIntersectionEligible: false
+    })
+    expect(nonTerminalTurnPacket?.geometry.debugMeta?.intervalId).toBeDefined()
+    const [face] = nonTerminalTurnPacket
+      ? buildStrokeFinalFacesFromResolvedPackets([nonTerminalTurnPacket])
+      : []
+    expect(face?.intervalIds).toEqual([
+      nonTerminalTurnPacket?.geometry.debugMeta?.intervalId
+    ])
+  })
+
   it('should run: materialize dashed center intervals as final faces without bridge collapse', () => {
     const packets = buildDashedCenterStrokeResolvedPackets(
       'vector:test:network-a:dashed-center',
@@ -138,6 +193,184 @@ describe('dashed center stroke packets', () => {
         intervalId: 'interval:0'
       }
     ])
+  })
+
+  it('should run: build source-path dashed center curves as single smooth interval outlines', () => {
+    const sourcePath = buildVectorGeometryModelPath(
+      {
+        id: 'network-a',
+        pointIds: ['a', 'b', 'c'],
+        segmentIds: ['ab', 'bc'],
+        closed: false
+      },
+      {
+        a: { id: 'a', kind: 'anchor', x: 0, y: 0, anchorType: 'smooth' },
+        aOut: {
+          id: 'aOut',
+          kind: 'control',
+          x: 90,
+          y: 180,
+          controlRole: 'out'
+        },
+        b: { id: 'b', kind: 'anchor', x: 12, y: 210, anchorType: 'smooth' },
+        bIn: {
+          id: 'bIn',
+          kind: 'control',
+          x: -70,
+          y: 140,
+          controlRole: 'in'
+        },
+        bOut: {
+          id: 'bOut',
+          kind: 'control',
+          x: 92,
+          y: 268,
+          controlRole: 'out'
+        },
+        c: { id: 'c', kind: 'anchor', x: 170, y: 330, anchorType: 'smooth' },
+        cIn: {
+          id: 'cIn',
+          kind: 'control',
+          x: 236,
+          y: 284,
+          controlRole: 'in'
+        }
+      },
+      {
+        ab: {
+          id: 'ab',
+          startId: 'a',
+          endId: 'b',
+          outControlId: 'aOut',
+          inControlId: 'bIn'
+        },
+        bc: {
+          id: 'bc',
+          startId: 'b',
+          endId: 'c',
+          outControlId: 'bOut',
+          inControlId: 'cIn'
+        }
+      }
+    )
+    const topology = buildPathTopologyModel({
+      pathId: 'source-path-smooth-dashed',
+      points: sourcePath.sampledPoints,
+      closed: sourcePath.closed
+    })
+
+    const packets = buildDashedCenterStrokeResolvedPackets(
+      'source-path-smooth-dashed',
+      sourcePath.sampledPoints,
+      sourcePath.closed,
+      [
+        createDefaultStroke({
+          style: 'dashed',
+          position: 'center',
+          width: 18,
+          joinType: StrokeJoinTypes.MITER,
+          dashPattern: [80, 30],
+          dashOffset: 0
+        })
+      ],
+      {
+        topology,
+        sourcePath
+      }
+    )
+
+    expect(packets.length).toBeGreaterThan(2)
+    packets.forEach((packet) => {
+      expect(packet.geometry.polygons).toHaveLength(1)
+      expect(packet.geometry.debugMeta?.intervalId).toBeDefined()
+      expect([
+        'simple-outline',
+        'backend-offset',
+        'fail-open-invalid-outline'
+      ]).toContain(packet.geometry.debugMeta?.ribbonValidityStatus)
+    })
+    expect(
+      Math.max(
+        ...packets.map((packet) => packet.geometry.polygons[0]?.length ?? 0)
+      )
+    ).toBeLessThan(800)
+  })
+
+  it('should run: only authored sharp anchors mark source-path ribbon joins as sharp', () => {
+    const buildPath = (middleAnchorType: 'smooth' | 'sharp') =>
+      buildVectorGeometryModelPath(
+        {
+          id: 'network-a',
+          pointIds: ['a', 'b', 'c'],
+          segmentIds: ['ab', 'bc'],
+          closed: false
+        },
+        {
+          a: { id: 'a', kind: 'anchor', x: 0, y: 0, anchorType: 'smooth' },
+          aOut: {
+            id: 'aOut',
+            kind: 'control',
+            x: 40,
+            y: 80,
+            controlRole: 'out'
+          },
+          b: {
+            id: 'b',
+            kind: 'anchor',
+            x: 80,
+            y: 100,
+            anchorType: middleAnchorType
+          },
+          bIn: {
+            id: 'bIn',
+            kind: 'control',
+            x: 30,
+            y: 80,
+            controlRole: 'in'
+          },
+          c: { id: 'c', kind: 'anchor', x: 160, y: 100, anchorType: 'sharp' }
+        },
+        {
+          ab: {
+            id: 'ab',
+            startId: 'a',
+            endId: 'b',
+            outControlId: 'aOut',
+            inControlId: 'bIn'
+          },
+          bc: {
+            id: 'bc',
+            startId: 'b',
+            endId: 'c',
+            outControlId: null,
+            inControlId: null
+          }
+        }
+      )
+
+    const smoothPath = buildPath('smooth')
+    const sharpPath = buildPath('sharp')
+    const smoothFrames = slicePathGeometryFrames(
+      smoothPath,
+      0,
+      smoothPath.totalLength,
+      false
+    )
+    const sharpFrames = slicePathGeometryFrames(
+      sharpPath,
+      0,
+      sharpPath.totalLength,
+      false
+    )
+    const smoothJoinFrame = smoothFrames.find(
+      (frame) => frame.point.x === 80 && frame.point.y === 100
+    )
+    const sharpJoinFrame = sharpFrames.find(
+      (frame) => frame.point.x === 80 && frame.point.y === 100
+    )
+
+    expect(smoothJoinFrame?.sharpJoin).not.toBe(true)
+    expect(sharpJoinFrame?.sharpJoin).toBe(true)
   })
 
   it('should not run: emit any packets for unsupported dashed slices', () => {

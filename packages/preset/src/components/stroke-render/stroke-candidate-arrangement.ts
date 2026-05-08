@@ -773,9 +773,20 @@ const groupFinalFacesByVisualPacket = (faces: ArrangedStrokeFinalFace[]) => {
   const groups = new Map<string, ArrangedStrokeFinalFace[]>()
 
   faces.forEach((face) => {
-    const existing = groups.get(face.visualPacketKey) ?? []
+    const groupKey =
+      face.geometryFamily === 'dashed-center'
+        ? [
+            face.visualPacketKey,
+            'dashed-center-interval',
+            stableStringify({
+              intervalIds: face.intervalIds,
+              ownerSet: face.ownerSet
+            })
+          ].join('|')
+        : face.visualPacketKey
+    const existing = groups.get(groupKey) ?? []
     existing.push(face)
-    groups.set(face.visualPacketKey, existing)
+    groups.set(groupKey, existing)
   })
 
   return [...groups.values()]
@@ -784,6 +795,9 @@ const groupFinalFacesByVisualPacket = (faces: ArrangedStrokeFinalFace[]) => {
 const isLocalSideConstrainedSolidFace = (face: ArrangedStrokeFinalFace) =>
   face.geometryFamily === 'constrained-solid' &&
   face.resolutionStatus !== 'exact-constrained'
+
+const hasDashedCenterFace = (faces: ArrangedStrokeFinalFace[]) =>
+  faces.some((face) => face.geometryFamily === 'dashed-center')
 
 const isSelfIntersectingConstrainedSolidFace = (
   face: ArrangedStrokeFinalFace
@@ -1147,6 +1161,10 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
 
   const groups = groupFinalFacesByVisualPacket(faces)
   const hasCollapsibleGroup = groups.some((group) => {
+    if (hasDashedCenterFace(group)) {
+      return false
+    }
+
     const shouldUseUnionOnlyCollapse =
       canCollapseLocalSideConstrainedSolidVisualOverlapByUnion(group)
     if (
@@ -1176,6 +1194,10 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
   }
 
   const collapsedFaces = groups.flatMap((group) => {
+    if (hasDashedCenterFace(group)) {
+      return group
+    }
+
     const shouldUseUnionOnlyCollapse =
       canCollapseLocalSideConstrainedSolidVisualOverlapByUnion(group)
     if (

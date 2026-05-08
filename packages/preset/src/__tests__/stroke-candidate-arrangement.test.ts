@@ -721,6 +721,79 @@ describe('stroke candidate arrangement', () => {
     })
   })
 
+  it('should run: keep overlapping dashed-center intervals separate during visual overlap collapse', () => {
+    const packets = [
+      makePacket('candidate:center-dash-a', {
+        ownerKey: 'owner:center-dash',
+        intervalId: 'interval:a',
+        geometryFamily: 'dashed-center',
+        resolutionStatus: 'native-center',
+        runtimeStatus: 'not-applicable',
+        strokePosition: 'center',
+        polygon: square(0, 0, 10)
+      }),
+      makePacket('candidate:center-dash-b', {
+        ownerKey: 'owner:center-dash',
+        intervalId: 'interval:b',
+        geometryFamily: 'dashed-center',
+        resolutionStatus: 'native-center',
+        runtimeStatus: 'not-applicable',
+        strokePosition: 'center',
+        polygon: square(5, 0, 10)
+      })
+    ]
+    const faces = buildTestFinalFaces(packets)
+    let unionCallCount = 0
+
+    const collapsed = collapseStrokeFinalFaceVisualOverlaps(faces, {
+      backend: makeUnionBackend((regions) => {
+        unionCallCount += 1
+        return regions
+      })
+    })
+
+    expect(unionCallCount).toBe(0)
+    expect(collapsed).toHaveLength(2)
+    expect(collapsed.map((face) => face.intervalIds[0]).sort()).toEqual([
+      'interval:a',
+      'interval:b'
+    ])
+    expect(
+      collapsed.some(
+        (face) => face.debugMeta?.visualOverlapCollapseStatus !== undefined
+      )
+    ).toBe(false)
+  })
+
+  it('should run: preserve same interval dashed-center polygons during visual overlap collapse', () => {
+    const packets = [
+      makePacket('candidate:center-dash-single', {
+        ownerKey: 'owner:center-dash',
+        intervalId: 'interval:single',
+        geometryFamily: 'dashed-center',
+        resolutionStatus: 'native-center',
+        runtimeStatus: 'not-applicable',
+        strokePosition: 'center',
+        polygons: [square(0, 0, 10), square(5, 0, 10)]
+      })
+    ]
+    const faces = buildTestFinalFaces(packets)
+    let unionCallCount = 0
+
+    const collapsed = collapseStrokeFinalFaceVisualOverlaps(faces, {
+      backend: makeUnionBackend((regions) => {
+        unionCallCount += 1
+        return regions
+      })
+    })
+
+    expect(unionCallCount).toBe(0)
+    expect(collapsed).toHaveLength(1)
+    expect(collapsed[0]?.polygons).toHaveLength(2)
+    expect(collapsed[0]?.intervalIds).toEqual(['interval:single'])
+    expect(collapsed[0]?.debugMeta?.visualOverlapCollapseStatus).toBeUndefined()
+  })
+
   it('should run: collapse same-visual overlapping polygons inside one solid final face', () => {
     const packets = [
       makePacket('candidate:solid-single-face', {

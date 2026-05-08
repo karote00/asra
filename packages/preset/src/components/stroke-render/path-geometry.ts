@@ -37,9 +37,10 @@ export interface PathGeometry {
   sampledPoints: Vec2[]
 }
 
-interface PathSampleFrame {
+export interface PathSampleFrame {
   point: Vec2
   tangent: Vec2
+  sharpJoin?: boolean
 }
 
 const EPS = 1e-6
@@ -325,6 +326,58 @@ const slicePathGeometryPointRange = (
   return dedupeAdjacentPoints(points)
 }
 
+const slicePathGeometryFrameRange = (
+  path: Pick<PathGeometry, 'segments'>,
+  startLength: number,
+  endLength: number,
+  tolerance: number
+) => {
+  if (endLength <= startLength || path.segments.length === 0) {
+    return []
+  }
+
+  let cursor = 0
+  const frames: PathSampleFrame[] = []
+
+  for (const segment of path.segments) {
+    const segmentStart = cursor
+    const segmentEnd = cursor + segment.length
+    cursor = segmentEnd
+
+    if (
+      segment.length <= EPS ||
+      segmentEnd <= startLength ||
+      segmentStart >= endLength
+    ) {
+      continue
+    }
+
+    const overlapStart = Math.max(startLength, segmentStart)
+    const overlapEnd = Math.min(endLength, segmentEnd)
+    const segmentFrames = slicePathSegmentFrames(
+      segment,
+      overlapStart - segmentStart,
+      overlapEnd - segmentStart,
+      tolerance
+    )
+
+    if (segmentFrames.length === 0) {
+      continue
+    }
+
+    const previous = frames[frames.length - 1]
+    if (previous && samePoint(previous.point, segmentFrames[0].point)) {
+      previous.sharpJoin =
+        previous.sharpJoin === true || segment.startAnchorType === 'sharp'
+      frames.push(...segmentFrames.slice(1))
+    } else {
+      frames.push(...segmentFrames)
+    }
+  }
+
+  return frames
+}
+
 export const slicePathGeometryPoints = (
   path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   startLength: number,
@@ -344,6 +397,45 @@ export const slicePathGeometryPoints = (
   )
   const head = slicePathGeometryPointRange(path, 0, endLength, tolerance)
   return dedupeAdjacentPoints(mergePointLists(tail, head))
+}
+
+export const slicePathGeometryFrames = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  startLength: number,
+  endLength: number,
+  wrapsSeam: boolean,
+  tolerance = CURVE_TESSELLATION_TOLERANCE
+) => {
+  if (!wrapsSeam) {
+    return slicePathGeometryFrameRange(path, startLength, endLength, tolerance)
+  }
+
+  const tail = slicePathGeometryFrameRange(
+    path,
+    startLength,
+    path.totalLength,
+    tolerance
+  )
+  const head = slicePathGeometryFrameRange(path, 0, endLength, tolerance)
+  if (tail.length === 0) {
+    return head
+  }
+  if (head.length === 0) {
+    return tail
+  }
+
+  if (samePoint(tail[tail.length - 1].point, head[0].point)) {
+    return [
+      ...tail.slice(0, -1),
+      {
+        ...tail[tail.length - 1],
+        sharpJoin: tail[tail.length - 1].sharpJoin === true
+      },
+      ...head.slice(1)
+    ]
+  }
+
+  return [...tail, ...head]
 }
 
 const getAnchorNode = (
