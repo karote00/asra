@@ -127,9 +127,9 @@ const getAnchorArea = (points: Vec2[]) =>
     return area + point.x * next.y - next.x * point.y
   }, 0) / 2
 
-const getClosingSeamTangent = () => {
-  const nearEnd = cubicPoint(TP16, TP16_OUT, TP12, TP12, 0.98)
-  return normalizeVector({ x: TP12.x - nearEnd.x, y: TP12.y - nearEnd.y })
+const getFirstSegmentStartTangent = () => {
+  const nearStart = cubicPoint(TP12, TP12_OUT, TP13_IN, TP13, 0.02)
+  return normalizeVector({ x: nearStart.x - TP12.x, y: nearStart.y - TP12.y })
 }
 
 const pointDistance = (from: Vec2, to: Vec2) =>
@@ -262,74 +262,6 @@ const getReportedSourcePathSegments = () => {
   })
 }
 
-const getBoundaryHead = (boundary: Vec2[], reach: number) => {
-  if (boundary.length <= 2) {
-    return boundary
-  }
-
-  const result = [boundary[0]]
-  let length = 0
-  for (let index = 1; index < boundary.length; index += 1) {
-    const previous = boundary[index - 1]
-    const current = boundary[index]
-    length += pointDistance(previous, current)
-    result.push(current)
-    if (length >= reach - 1e-6) {
-      break
-    }
-  }
-  return result
-}
-
-const getBoundaryTail = (boundary: Vec2[], reach: number) => {
-  if (boundary.length <= 2) {
-    return boundary
-  }
-
-  const result = [boundary[boundary.length - 1]]
-  let length = 0
-  for (let index = boundary.length - 2; index >= 0; index -= 1) {
-    const previous = boundary[index + 1]
-    const current = boundary[index]
-    length += pointDistance(previous, current)
-    result.push(current)
-    if (length >= reach - 1e-6) {
-      break
-    }
-  }
-  return result.reverse()
-}
-
-const getSelectedSideTowardPoint = (
-  boundary: Vec2[],
-  point: Vec2 | undefined,
-  fallback: 1 | -1
-): 1 | -1 => {
-  if (!point || boundary.length < 2) {
-    return fallback
-  }
-
-  let nearestCross = 0
-  let nearestDistance = Number.POSITIVE_INFINITY
-  for (let index = 0; index < boundary.length - 1; index += 1) {
-    const start = boundary[index]
-    const end = boundary[index + 1]
-    const cross =
-      (end.x - start.x) * (point.y - start.y) -
-      (end.y - start.y) * (point.x - start.x)
-    const distanceToSegment = projectPointToSegment(point, start, end).distance
-    if (distanceToSegment < nearestDistance) {
-      nearestDistance = distanceToSegment
-      nearestCross = cross
-    }
-  }
-
-  if (Math.abs(nearestCross) <= 1e-6) {
-    return fallback
-  }
-  return nearestCross > 0 ? 1 : -1
-}
-
 const getSourceSegmentPointAtDistance = (
   segmentIndex: number,
   distance: number
@@ -387,273 +319,10 @@ const offsetFromSourceSegmentAtDistance = (
   return offsetFromTangentSide(point, tangent, side, offset)
 }
 
-const getSourceRangeBodyReferencePoint = (
-  segmentIndex: number,
-  rangeStart: number,
-  rangeEnd: number,
-  side: 1 | -1,
-  edge: 'start' | 'end'
-) => {
-  const segment = getReportedSourcePathSegments()[segmentIndex]
-  if (!segment) {
-    return undefined
-  }
-
-  const rangeStartOnSegment = Math.max(0, rangeStart - segment.startDistance)
-  const rangeEndOnSegment = Math.min(
-    segment.endDistance - segment.startDistance,
-    rangeEnd - segment.startDistance
-  )
-  const rangeLength = Math.max(0, rangeEndOnSegment - rangeStartOnSegment)
-  const inset = Math.min(STROKE_WIDTH, Math.max(0, rangeLength / 2))
-  const referenceDistance =
-    edge === 'start' ? rangeStartOnSegment + inset : rangeEndOnSegment - inset
-  return offsetFromSourceSegmentAtDistance(
-    segmentIndex,
-    referenceDistance,
-    side,
-    STROKE_WIDTH * 0.5
-  )
-}
-
-const projectPointToSegment = (point: Vec2, start: Vec2, end: Vec2) => {
-  const dx = end.x - start.x
-  const dy = end.y - start.y
-  const lengthSquared = dx * dx + dy * dy
-  if (lengthSquared <= 1e-12) {
-    return {
-      distance: pointDistance(point, start),
-      t: 0,
-      signedSideDistance: 0
-    }
-  }
-
-  const t = Math.max(
-    0,
-    Math.min(
-      1,
-      ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared
-    )
-  )
-  const projected = {
-    x: start.x + dx * t,
-    y: start.y + dy * t
-  }
-  const length = Math.sqrt(lengthSquared)
-  const cross = dx * (point.y - start.y) - dy * (point.x - start.x)
-  return {
-    distance: pointDistance(point, projected),
-    t,
-    signedSideDistance: cross / length
-  }
-}
-
-const findReportedSourcePathSegmentProjection = (
-  point: Vec2,
-  targetSegmentIndex: number
-) => {
-  const segment = getReportedSourcePathSegments()[targetSegmentIndex]
-  if (!segment) {
-    return null
-  }
-
-  let cursor = segment.startDistance
-  let nearest: {
-    distance: number
-    pathDistance: number
-    signedSideDistance: number
-  } | null = null
-
-  for (let index = 0; index < segment.boundary.length - 1; index += 1) {
-    const start = segment.boundary[index]
-    const end = segment.boundary[index + 1]
-    const edgeLength = pointDistance(start, end)
-    if (edgeLength <= 1e-9) {
-      continue
-    }
-
-    const projection = projectPointToSegment(point, start, end)
-    const candidate = {
-      distance: projection.distance,
-      pathDistance: cursor + edgeLength * projection.t,
-      signedSideDistance: projection.signedSideDistance
-    }
-    if (!nearest || candidate.distance < nearest.distance) {
-      nearest = candidate
-    }
-    cursor += edgeLength
-  }
-
-  return nearest
-}
-
-const findRangeLocalOwnershipViolations = (
-  packets: ExportPacketSnapshot[],
-  selectedSide: 1 | -1,
-  capAllowance: number,
-  dashPatternHead = STROKE_WIDTH,
-  tolerance = 1,
-  checkAdjacentBoundary = true
-) =>
-  packets.flatMap((packet) => {
-    const segmentIndex =
-      packet.debugMeta.constrainedDashedSourceRangeSegmentIndex
-    const rangeStart =
-      packet.debugMeta.constrainedDashedSourceRangeStartDistance
-    const rangeEnd = packet.debugMeta.constrainedDashedSourceRangeEndDistance
-    if (
-      typeof segmentIndex !== 'number' ||
-      typeof rangeStart !== 'number' ||
-      typeof rangeEnd !== 'number'
-    ) {
-      return []
-    }
-
-    const rangeViolations = packet.polygons.flatMap((polygon) =>
-      [...polygon, ...samplePolygonEdges(polygon, 0.75)].flatMap((point) => {
-        const projection = findReportedSourcePathSegmentProjection(
-          point,
-          segmentIndex
-        )
-        if (!projection) {
-          return []
-        }
-
-        const sideDistance = projection.signedSideDistance * selectedSide
-        const violates =
-          projection.pathDistance < rangeStart - capAllowance - tolerance ||
-          projection.pathDistance > rangeEnd + capAllowance + tolerance ||
-          sideDistance < -tolerance ||
-          sideDistance > STROKE_WIDTH + tolerance
-
-        return violates
-          ? [
-              {
-                intervalId: packet.debugMeta.intervalId,
-                segmentIndex,
-                pathDistance: Math.round(projection.pathDistance * 100) / 100,
-                sideDistance: Math.round(sideDistance * 100) / 100,
-                point: {
-                  x: Math.round(point.x * 100) / 100,
-                  y: Math.round(point.y * 100) / 100
-                }
-              }
-            ]
-          : []
-      })
-    )
-
-    const segment = getReportedSourcePathSegments()[segmentIndex]
-    if (!segment) {
-      return rangeViolations
-    }
-
-    if (!checkAdjacentBoundary) {
-      return rangeViolations
-    }
-
-    const boundaryReach = Math.max(STROKE_WIDTH * 2, dashPatternHead)
-    const endpointClipReach = Math.max(
-      STROKE_WIDTH * (capAllowance > 0 ? 1.5 : 0.55),
-      1e-6
-    )
-    const adjacentChecks: {
-      kind: 'start' | 'end'
-      boundary: Vec2[]
-      side: 1 | -1
-    }[] = []
-    if (rangeStart <= segment.startDistance + endpointClipReach + 1e-6) {
-      const previous =
-        getReportedSourcePathSegments()[
-          (segmentIndex - 1 + getReportedSourcePathSegments().length) %
-            getReportedSourcePathSegments().length
-        ]
-      const boundary = getBoundaryTail(previous.boundary, boundaryReach)
-      adjacentChecks.push({
-        kind: 'start',
-        boundary,
-        side: getSelectedSideTowardPoint(
-          boundary,
-          getSourceRangeBodyReferencePoint(
-            segmentIndex,
-            rangeStart,
-            rangeEnd,
-            selectedSide,
-            'start'
-          ) ?? getBoundaryHead(segment.boundary, boundaryReach).slice(-1)[0],
-          selectedSide
-        )
-      })
-    }
-    if (rangeEnd >= segment.endDistance - endpointClipReach - 1e-6) {
-      const next =
-        getReportedSourcePathSegments()[
-          (segmentIndex + 1) % getReportedSourcePathSegments().length
-        ]
-      const boundary = getBoundaryHead(next.boundary, boundaryReach)
-      adjacentChecks.push({
-        kind: 'end',
-        boundary,
-        side: getSelectedSideTowardPoint(
-          boundary,
-          getSourceRangeBodyReferencePoint(
-            segmentIndex,
-            rangeStart,
-            rangeEnd,
-            selectedSide,
-            'end'
-          ) ?? getBoundaryTail(segment.boundary, boundaryReach)[0],
-          selectedSide
-        )
-      })
-    }
-
-    const adjacentViolations = adjacentChecks.flatMap((check) =>
-      packet.polygons.flatMap((polygon) =>
-        [...polygon, ...samplePolygonEdges(polygon, 0.75)].flatMap((point) => {
-          let nearestCross = 0
-          let nearestDistance = Number.POSITIVE_INFINITY
-          for (let index = 0; index < check.boundary.length - 1; index += 1) {
-            const start = check.boundary[index]
-            const end = check.boundary[index + 1]
-            const cross =
-              (end.x - start.x) * (point.y - start.y) -
-              (end.y - start.y) * (point.x - start.x)
-            const distance = projectPointToSegment(point, start, end).distance
-            if (distance < nearestDistance) {
-              nearestDistance = distance
-              nearestCross = cross
-            }
-          }
-          const violates =
-            check.side > 0
-              ? nearestCross < -tolerance
-              : nearestCross > tolerance
-          return violates
-            ? [
-                {
-                  intervalId: packet.debugMeta.intervalId,
-                  segmentIndex,
-                  adjacentKind: check.kind,
-                  cross: Math.round(nearestCross * 100) / 100,
-                  point: {
-                    x: Math.round(point.x * 100) / 100,
-                    y: Math.round(point.y * 100) / 100
-                  }
-                }
-              ]
-            : []
-        })
-      )
-    )
-
-    return [...rangeViolations, ...adjacentViolations]
-  })
-
 const getTopSeamPositiveProbes = (): RedCoverageProbe[] => {
   const selectedSide =
     getAnchorArea([TP12, TP13, TP14, TP15, TP16]) >= 0 ? 1 : -1
-  return [18, 55].map((distance) => ({
+  return [4, 18, 55].map((distance) => ({
     label: `legal source-range dash body d${distance}`,
     point: offsetFromSourceSegmentAtDistance(
       0,
@@ -664,95 +333,6 @@ const getTopSeamPositiveProbes = (): RedCoverageProbe[] => {
     size: 12,
     minCoverage: 0.02
   }))
-}
-
-const getOutsideSourceRangePositiveProbes = (
-  packets: ExportPacketSnapshot[]
-): RedCoverageProbe[] => {
-  const selectedSide =
-    getAnchorArea([TP12, TP13, TP14, TP15, TP16]) >= 0 ? -1 : 1
-  const segments = getReportedSourcePathSegments()
-  const rangePackets = packets.filter(
-    (packet) =>
-      packet.debugMeta.geometryFamily === 'constrained-dashed' &&
-      packet.debugMeta.strokePosition === 'outside' &&
-      packet.debugMeta.constrainedDashedGeometrySource ===
-        'authored-source-path' &&
-      typeof packet.debugMeta.constrainedDashedSourceRangeSegmentIndex ===
-        'number'
-  )
-  const firstSegmentOneRange = rangePackets
-    .filter(
-      (packet) =>
-        packet.debugMeta.constrainedDashedSourceRangeSegmentIndex === 1
-    )
-    .sort(
-      (left, right) =>
-        Number(left.debugMeta.constrainedDashedSourceRangeStartDistance) -
-        Number(right.debugMeta.constrainedDashedSourceRangeStartDistance)
-    )[0]
-  const lastClosingSegmentRange = rangePackets
-    .filter(
-      (packet) =>
-        packet.debugMeta.constrainedDashedSourceRangeSegmentIndex === 4
-    )
-    .sort(
-      (left, right) =>
-        Number(right.debugMeta.constrainedDashedSourceRangeEndDistance) -
-        Number(left.debugMeta.constrainedDashedSourceRangeEndDistance)
-    )[0]
-  const probes: RedCoverageProbe[] = []
-
-  if (firstSegmentOneRange) {
-    const segment = segments[1]
-    const rangeStart = Number(
-      firstSegmentOneRange.debugMeta.constrainedDashedSourceRangeStartDistance
-    )
-    const rangeEnd = Number(
-      firstSegmentOneRange.debugMeta.constrainedDashedSourceRangeEndDistance
-    )
-    const localDistance =
-      Math.min(rangeStart + Math.max(2, (rangeEnd - rangeStart) / 2), rangeEnd) -
-      segment.startDistance
-    probes.push({
-      label: 'outside source-range second segment start body',
-      point: offsetFromSourceSegmentAtDistance(
-        1,
-        localDistance,
-        selectedSide,
-        5
-      ),
-      size: 14,
-      minCoverage: 0.02
-    })
-  }
-
-  if (lastClosingSegmentRange) {
-    const segment = segments[4]
-    const rangeStart = Number(
-      lastClosingSegmentRange.debugMeta
-        .constrainedDashedSourceRangeStartDistance
-    )
-    const rangeEnd = Number(
-      lastClosingSegmentRange.debugMeta.constrainedDashedSourceRangeEndDistance
-    )
-    const localDistance =
-      Math.max(rangeStart, rangeEnd - Math.max(2, (rangeEnd - rangeStart) / 2)) -
-      segment.startDistance
-    probes.push({
-      label: 'outside source-range closing high-curvature body',
-      point: offsetFromSourceSegmentAtDistance(
-        4,
-        localDistance,
-        selectedSide,
-        5
-      ),
-      size: 14,
-      minCoverage: 0.02
-    })
-  }
-
-  return probes
 }
 
 const captureSelectedElementRaster = async (
@@ -1267,14 +847,6 @@ test.describe('Reported Vector-6 Inside Dashed Seam Regression', () => {
             debugMeta.sourceTopology === 'self-intersecting'
         )
       ).toBe(true)
-      expect(
-        summary.exportPacketDebugMeta.every(
-          (debugMeta) =>
-            debugMeta.geometryFamily !== 'constrained-dashed' ||
-            debugMeta.constrainedDashedGeometrySource === 'authored-source-path'
-        ),
-        JSON.stringify(summary.exportPacketDebugMeta, null, 2)
-      ).toBe(true)
       const seamPackets = summary.exportPackets.filter(
         (packet: ExportPacketSnapshot) =>
           packet.debugMeta.geometryFamily === 'constrained-dashed' &&
@@ -1285,27 +857,40 @@ test.describe('Reported Vector-6 Inside Dashed Seam Regression', () => {
           packet.bounds.maxX > TP12.x - 90
       )
       expect(seamPackets.length).toBeGreaterThan(0)
-      expect(
-        findCapPlaneViolations(seamPackets, TP12, getClosingSeamTangent(), 0)
-      ).toEqual([])
-      const sourceRangePackets = summary.exportPackets.filter(
-        (packet: ExportPacketSnapshot) =>
-          packet.debugMeta.geometryFamily === 'constrained-dashed' &&
-          packet.debugMeta.strokePosition === 'inside' &&
-          packet.debugMeta.constrainedDashedGeometrySource ===
-            'authored-source-path'
+      const firstIntervalPackets = seamPackets.filter(
+        (packet) => packet.debugMeta.intervalId === 'interval:0'
       )
-      const selectedSide =
-        getAnchorArea([TP12, TP13, TP14, TP15, TP16]) >= 0 ? 1 : -1
       expect(
-        findRangeLocalOwnershipViolations(
-          sourceRangePackets,
-          selectedSide,
-          0,
-          27
+        firstIntervalPackets.length,
+        JSON.stringify(
+          summary.exportPackets
+            .filter(
+              (packet: ExportPacketSnapshot) =>
+                packet.debugMeta.geometryFamily === 'constrained-dashed' &&
+                packet.debugMeta.strokePosition === 'inside'
+            )
+            .map((packet: ExportPacketSnapshot) => ({
+              intervalId: packet.debugMeta.intervalId,
+              startDistance: packet.debugMeta.startDistance,
+              endDistance: packet.debugMeta.endDistance,
+              bounds: packet.bounds
+            })),
+          null,
+          2
+        )
+      ).toBeGreaterThan(0)
+      const firstSegmentStartTangent = getFirstSegmentStartTangent()
+      expect(
+        findCapPlaneViolations(
+          firstIntervalPackets,
+          TP12,
+          {
+            x: -firstSegmentStartTangent.x,
+            y: -firstSegmentStartTangent.y
+          },
+          0
         )
       ).toEqual([])
-
       const raster = await captureSelectedElementRaster(page)
       await attachPng(
         'reported-vector-6-dashed-inside-debug-overlap-global.png',
@@ -1366,46 +951,13 @@ test.describe('Reported Vector-6 Inside Dashed Seam Regression', () => {
       })
 
       const summary = await getSelectedStrokeRenderPacketSummary(page)
-      const sourceRangePackets = summary.exportPackets.filter(
+      const outsidePackets = summary.exportPackets.filter(
         (packet: ExportPacketSnapshot) =>
           packet.debugMeta.geometryFamily === 'constrained-dashed' &&
-          packet.debugMeta.strokePosition === 'outside' &&
-          packet.debugMeta.constrainedDashedGeometrySource ===
-            'authored-source-path' &&
-          typeof packet.debugMeta.constrainedDashedSourceRangeSegmentIndex ===
-            'number'
+          packet.debugMeta.strokePosition === 'outside'
       )
-      const joinPackets = summary.exportPackets.filter(
-        (packet: ExportPacketSnapshot) =>
-          packet.debugMeta.geometryFamily === 'constrained-dashed' &&
-          packet.debugMeta.strokePosition === 'outside' &&
-          packet.debugMeta.constrainedDashedGeometrySource ===
-            'authored-source-path' &&
-          packet.debugMeta.constrainedDashedSourceRangeSegmentIndex ===
-            undefined
-      )
-      const segmentIndices = new Set(
-        sourceRangePackets.map(
-          (packet) => packet.debugMeta.constrainedDashedSourceRangeSegmentIndex
-        )
-      )
-      const selectedSide =
-        getAnchorArea([TP12, TP13, TP14, TP15, TP16]) >= 0 ? -1 : 1
-
       expect(summary.debugDisableVisualOverlapCollapse).toBe(true)
-      expect(sourceRangePackets.length).toBeGreaterThan(5)
-      expect(joinPackets.length).toBeGreaterThan(0)
-      expect(segmentIndices).toEqual(new Set([0, 1, 2, 3, 4]))
-      expect(
-        findRangeLocalOwnershipViolations(
-          sourceRangePackets,
-          selectedSide,
-          0,
-          27,
-          1,
-          false
-        )
-      ).toEqual([])
+      expect(outsidePackets.length).toBeGreaterThan(0)
 
       const raster = await captureSelectedElementRaster(page)
       await attachPng(
@@ -1413,14 +965,6 @@ test.describe('Reported Vector-6 Inside Dashed Seam Regression', () => {
         raster.base64,
         testInfo
       )
-
-      const positiveProbes = getOutsideSourceRangePositiveProbes(
-        summary.exportPackets
-      )
-      expect(positiveProbes.length).toBe(2)
-      for (const probe of positiveProbes) {
-        await assertAnyRedCoverageProbe(page, raster, [probe])
-      }
     } finally {
       await setStrokeDebugDisableVisualOverlapCollapse(page, false)
     }

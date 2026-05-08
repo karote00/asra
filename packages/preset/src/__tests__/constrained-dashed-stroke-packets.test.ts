@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   attachStrokePacketDebugMeta,
   buildSolidCenterStrokeExportPackets,
+  buildSolidCenterStrokeFinalFaces,
   buildSolidCenterStrokeHitTestPackets,
   createSolidCenterStrokeHitArea
 } from '../components/stroke-render/solid-center-stroke-packets'
@@ -226,6 +227,30 @@ const findSelectedSideNearestPolylineViolations = (
       ? [{ point, segmentIndex: nearestSegmentIndex, cross: nearestCross }]
       : []
   })
+
+const findStartCapPlaneViolations = (
+  polygons: { x: number; y: number }[][],
+  origin: { x: number; y: number },
+  tangent: { x: number; y: number },
+  tolerance = 0.75
+) =>
+  polygons.flatMap((polygon) =>
+    [...polygon, ...samplePolygonEdges(polygon, 0.75)].flatMap((point) => {
+      const projection =
+        (point.x - origin.x) * tangent.x + (point.y - origin.y) * tangent.y
+      return projection < -tolerance
+        ? [
+            {
+              projection: Math.round(projection * 100) / 100,
+              point: {
+                x: Math.round(point.x * 100) / 100,
+                y: Math.round(point.y * 100) / 100
+              }
+            }
+          ]
+        : []
+    })
+  )
 
 const isPointInsideEvenOdd = (
   point: { x: number; y: number },
@@ -1006,8 +1031,8 @@ describe('constrained dashed stroke packets', () => {
       'tp-12:out': {
         id: 'tp-12:out',
         kind: 'control',
-        x: 170.10536493824844,
-        y: 119.07041481724248,
+        x: 161.0183251984924,
+        y: 122.56543010176405,
         controlForId: 'tp-12',
         controlRole: 'out'
       },
@@ -1154,6 +1179,16 @@ describe('constrained dashed stroke packets', () => {
     const firstInterval = packets.find(
       (packet) => packet.geometry.debugMeta?.intervalId === 'interval:0'
     )
+    const acceptedPackets = attachStrokePacketDebugMeta(packets, {
+      runtimeStatus: 'accepted',
+      runtimeReason: 'single-owner',
+      ownershipStatus: 'accepted',
+      ownerCount: 1
+    })
+    const finalFaces = buildSolidCenterStrokeFinalFaces(acceptedPackets)
+    const firstIntervalFinalFace = finalFaces.find((face) =>
+      face.intervalIds.includes('interval:0')
+    )
     const closingSegmentTail = slicePathGeometryPoints(
       sourcePath,
       sourcePath.totalLength - 35,
@@ -1162,28 +1197,25 @@ describe('constrained dashed stroke packets', () => {
     )
     const firstSegmentHead = slicePathGeometryPoints(sourcePath, 0, 35, false)
     const selectedSide = signedPolygonArea(guardPoints) >= 0 ? 1 : -1
+    expect(firstInterval).toBeDefined()
+    expect(firstIntervalFinalFace).toBeDefined()
     if (firstInterval) {
       const firstPolygons = firstInterval.geometry.polygons
       expect(firstPolygons.length).toBeGreaterThanOrEqual(1)
+      const firstSegmentStartTangent = {
+        x: firstSegmentHead[1].x - firstSegmentHead[0].x,
+        y: firstSegmentHead[1].y - firstSegmentHead[0].y
+      }
+      const firstSegmentStartTangentLength = Math.hypot(
+        firstSegmentStartTangent.x,
+        firstSegmentStartTangent.y
+      )
       expect(
-        firstPolygons.reduce(
-          (count, polygon) =>
-            count +
-            polygon.filter(
-              (point) => pointPolylineDistance(point, closingSegmentTail) < 1e-4
-            ).length,
-          0
-        )
-      ).toBeGreaterThan(2)
-      firstPolygons.forEach((polygon) => {
-        expect(
-          findSelectedSidePolylineViolations(
-            polygon,
-            closingSegmentTail,
-            selectedSide
-          )
-        ).toEqual([])
-      })
+        findStartCapPlaneViolations(firstPolygons, firstSegmentHead[0], {
+          x: firstSegmentStartTangent.x / firstSegmentStartTangentLength,
+          y: firstSegmentStartTangent.y / firstSegmentStartTangentLength
+        })
+      ).toEqual([])
       expect(
         firstPolygons.reduce(
           (count, polygon) =>

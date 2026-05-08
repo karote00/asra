@@ -1301,6 +1301,10 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
   polygons: Vec2[][],
   path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   range: SourceSegmentIntervalRange,
+  interval: Pick<
+    ReturnType<typeof allocateDashedIntervalsForTopology>[number],
+    'startDistance' | 'endDistance' | 'wrapsSeam'
+  >,
   authoredStroke: Pick<RenderableStroke, 'position' | 'dashPattern' | 'cap'>,
   intervalStroke: Pick<RenderableStroke, 'position' | 'width'>,
   sharpGuardVertices: SharpGuardVertex[] = []
@@ -1348,6 +1352,14 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
     segmentRange.startDistance + endpointClipReach + EPSILON
   const touchesSegmentEnd =
     range.endDistance >= segmentRange.endDistance - endpointClipReach - EPSILON
+  const isPathStartTerminalRange =
+    !interval.wrapsSeam &&
+    interval.startDistance <= EPSILON &&
+    range.startDistance <= EPSILON
+  const isPathEndTerminalRange =
+    !interval.wrapsSeam &&
+    interval.endDistance >= path.totalLength - EPSILON &&
+    range.endDistance >= path.totalLength - EPSILON
   const previousSegment =
     path.segments[
       (range.segmentIndex - 1 + path.segments.length) % path.segments.length
@@ -1387,17 +1399,23 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
     let currentPolygon = polygon
 
     if (touchesSegmentStart) {
-      currentPolygon = segmentStartIsSharp
-        ? clipPolygonToSelectedSideBoundary(
+      currentPolygon = isPathStartTerminalRange
+        ? clipPolygonToSelectedSideBoundaryIfCrossing(
             currentPolygon,
             previousBoundary,
             previousBoundarySelectedSide
           )
-        : clipPolygonToSelectedSideBoundaryIfCrossing(
-            currentPolygon,
-            previousBoundary,
-            selectedSide
-          )
+        : segmentStartIsSharp
+          ? clipPolygonToSelectedSideBoundary(
+              currentPolygon,
+              previousBoundary,
+              previousBoundarySelectedSide
+            )
+          : clipPolygonToSelectedSideBoundaryIfCrossing(
+              currentPolygon,
+              previousBoundary,
+              selectedSide
+            )
       if (currentPolygon.length < 3) {
         return []
       }
@@ -1421,7 +1439,9 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
     }
 
     if (
-      (touchesSegmentStart && !segmentStartIsSharp) ||
+      (touchesSegmentStart &&
+        !isPathStartTerminalRange &&
+        !segmentStartIsSharp) ||
       (touchesSegmentEnd && !segmentEndIsSharp)
     ) {
       currentPolygon = clipPolygonToDominantSideBoundaryIfCrossing(
@@ -1441,6 +1461,10 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
   const fallbackPolygons = polygons.filter(
     (polygon) => polygon.length >= 3 && isSimpleClosedPolygon(polygon)
   )
+
+  if (isPathStartTerminalRange || isPathEndTerminalRange) {
+    return clippedPolygons
+  }
 
   if (clippedPolygons.length > 0) {
     const sourceEdge = slicePathGeometryPoints(
@@ -2742,6 +2766,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 rangePolygons,
                 sourcePath,
                 range,
+                interval,
                 stroke,
                 intervalStroke,
                 sharpGuardVertices
