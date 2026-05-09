@@ -20,6 +20,8 @@ export const buildConstrainedDashedLocalSideStrokePolygons = (
     assumeSimpleOpen?: boolean
     assumeSimpleClosed?: boolean
     assumeNormalizedOpen?: boolean
+    roundCapStart?: boolean
+    roundCapEnd?: boolean
   } = {}
 ): Vec2[][] =>
   buildConstrainedLocalSideStrokePolygons(points, closed, stroke, options)

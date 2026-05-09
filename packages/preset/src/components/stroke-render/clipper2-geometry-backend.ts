@@ -104,6 +104,7 @@ export interface LoadClipper2GeometryBackendOptions
 }
 
 const DEFAULT_OPERATION_CACHE_LIMIT = 256
+const OFFSET_ARC_TOLERANCE = 0.1
 
 const toClipperFillRule = (module: Clipper2Module, fillRule: FillRule) =>
   fillRule === 'evenodd' ? module.FillRule.EvenOdd : module.FillRule.NonZero
@@ -506,6 +507,7 @@ export const createClipper2GeometryBackend = (
         offsetOptions.join,
         offsetOptions.cap,
         offsetOptions.miterLimit,
+        OFFSET_ARC_TOLERANCE,
         closed,
         pathKey(path)
       ].join('|')
@@ -525,7 +527,7 @@ export const createClipper2GeometryBackend = (
           toClipperJoinType(module, offsetOptions.join),
           toClipperEndType(module, offsetOptions.cap, closed),
           offsetOptions.miterLimit,
-          mapper.toBackendDistance(0.25)
+          mapper.toBackendDistance(OFFSET_ARC_TOLERANCE)
         )
         const result = clipperPathsToRegions(outputPaths)
         regionCache.set(cacheKey, cloneRegions(result))

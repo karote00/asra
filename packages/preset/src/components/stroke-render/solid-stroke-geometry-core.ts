@@ -44,6 +44,96 @@ export const normalize = (point: Vec2): Vec2 | null => {
   }
 }
 
+interface RoundStrokeArcSamplingOptions {
+  maxAngle?: number
+  maxLength?: number
+}
+
+const ROUND_STROKE_ARC_MAX_ANGLE = Math.PI / 12
+const ROUND_STROKE_ARC_MAX_LENGTH = 0.75
+export const ROUND_STROKE_CAP_ARC_SAMPLING: RoundStrokeArcSamplingOptions = {
+  maxLength: 0.25
+}
+
+const getRoundStrokeArcSegmentCount = (
+  radius: number,
+  sweep: number,
+  minSegments: number,
+  options: RoundStrokeArcSamplingOptions = {}
+) => {
+  const absoluteSweep = Math.abs(sweep)
+  if (radius <= EPS || absoluteSweep <= EPS) {
+    return minSegments
+  }
+  const maxAngle = options.maxAngle ?? ROUND_STROKE_ARC_MAX_ANGLE
+  const maxLength = options.maxLength ?? ROUND_STROKE_ARC_MAX_LENGTH
+
+  return Math.max(
+    minSegments,
+    Math.ceil(absoluteSweep / maxAngle),
+    Math.ceil((absoluteSweep * radius) / maxLength)
+  )
+}
+
+export const buildRoundStrokeArcPoints = (
+  center: Vec2,
+  radius: number,
+  startAngle: number,
+  sweep: number,
+  minSegments = 2,
+  options: RoundStrokeArcSamplingOptions = {}
+) => {
+  const segmentCount = getRoundStrokeArcSegmentCount(
+    radius,
+    sweep,
+    minSegments,
+    options
+  )
+  const points: Vec2[] = []
+
+  for (let index = 0; index <= segmentCount; index += 1) {
+    const angle = startAngle + (sweep * index) / segmentCount
+    points.push({
+      x: center.x + Math.cos(angle) * radius,
+      y: center.y + Math.sin(angle) * radius
+    })
+  }
+
+  return points
+}
+
+export const buildRoundStrokeArcPointsBetween = (
+  center: Vec2,
+  start: Vec2,
+  end: Vec2,
+  sweepSign: number,
+  minSegments = 2,
+  options: RoundStrokeArcSamplingOptions = {}
+) => {
+  const startAngle = Math.atan2(start.y - center.y, start.x - center.x)
+  const endAngle = Math.atan2(end.y - center.y, end.x - center.x)
+  let sweep = endAngle - startAngle
+
+  if (sweepSign >= 0) {
+    while (sweep < 0) {
+      sweep += Math.PI * 2
+    }
+  } else {
+    while (sweep > 0) {
+      sweep -= Math.PI * 2
+    }
+  }
+
+  return buildRoundStrokeArcPoints(
+    center,
+    distance(center, start),
+    startAngle,
+    sweep,
+    minSegments,
+    options
+  )
+}
+
 export const perpendicularLeft = (from: Vec2, to: Vec2): Vec2 | null => {
   const delta = subtract(to, from)
   const normalized = normalize(delta)

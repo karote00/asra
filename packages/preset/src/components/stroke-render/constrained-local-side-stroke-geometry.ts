@@ -7,8 +7,11 @@ import {
 } from './path-geometry'
 import {
   add,
+  buildRoundStrokeArcPoints,
+  buildRoundStrokeArcPointsBetween,
   buildOffsetSegments,
   EPS,
+  ROUND_STROKE_CAP_ARC_SAMPLING,
   dedupeClosed,
   distance,
   extendForCap,
@@ -54,33 +57,7 @@ const buildArcPoints = (
   end: Vec2,
   sweepSign: number
 ) => {
-  const startAngle = Math.atan2(start.y - center.y, start.x - center.x)
-  const endAngle = Math.atan2(end.y - center.y, end.x - center.x)
-  let sweep = endAngle - startAngle
-
-  if (sweepSign >= 0) {
-    while (sweep < 0) {
-      sweep += Math.PI * 2
-    }
-  } else {
-    while (sweep > 0) {
-      sweep -= Math.PI * 2
-    }
-  }
-
-  const segmentCount = Math.max(2, Math.ceil(Math.abs(sweep) / (Math.PI / 12)))
-  const radius = distance(center, start)
-  const points: Vec2[] = []
-
-  for (let index = 0; index <= segmentCount; index += 1) {
-    const angle = startAngle + (sweep * index) / segmentCount
-    points.push({
-      x: center.x + Math.cos(angle) * radius,
-      y: center.y + Math.sin(angle) * radius
-    })
-  }
-
-  return points
+  return buildRoundStrokeArcPointsBetween(center, start, end, sweepSign)
 }
 
 const cross = (a: Vec2, b: Vec2) => a.x * b.y - a.y * b.x
@@ -144,18 +121,14 @@ const buildOneSidedRoundCap = (
   }
 
   const sweep = sweepViaMid(startAngle, midAngle, endAngle)
-  const segmentCount = Math.max(3, Math.ceil(Math.abs(sweep) / (Math.PI / 12)))
-  const points: Vec2[] = []
-
-  for (let index = 0; index <= segmentCount; index += 1) {
-    const angle = startAngle + (sweep * index) / segmentCount
-    points.push({
-      x: center.x + Math.cos(angle) * radius,
-      y: center.y + Math.sin(angle) * radius
-    })
-  }
-
-  return points
+  return buildRoundStrokeArcPoints(
+    center,
+    radius,
+    startAngle,
+    sweep,
+    3,
+    ROUND_STROKE_CAP_ARC_SAMPLING
+  )
 }
 
 const appendDedupePoint = (points: Vec2[], point: Vec2) => {
@@ -305,6 +278,12 @@ const buildJoinedOpenOffsetBoundary = (
 
 const MAX_OPEN_RIBBON_SPLIT_DEPTH = 8
 
+interface OpenConstrainedStrokeOptions {
+  assumeNormalizedOpen?: boolean
+  roundCapStart?: boolean
+  roundCapEnd?: boolean
+}
+
 const buildOpenConstrainedStrokeStripPolygonsFromSource = (
   source: Vec2[],
   stroke: Pick<RenderableStroke, 'position' | 'width' | 'miterLimit'>
@@ -387,13 +366,18 @@ const buildOpenConstrainedStrokePolygonsFromSource = (
     RenderableStroke,
     'position' | 'width' | 'join' | 'miterLimit' | 'cap'
   >,
-  options: { assumeNormalizedOpen?: boolean },
+  options: OpenConstrainedStrokeOptions,
   splitDepth: number
 ): Vec2[][] => {
+  const roundCapStart =
+    stroke.cap === 'round' && options.roundCapStart !== false
+  const roundCapEnd = stroke.cap === 'round' && options.roundCapEnd !== false
+  const hasRoundCap = roundCapStart || roundCapEnd
+
   if (
     options.assumeNormalizedOpen === true &&
     source.length > 3 &&
-    stroke.cap !== 'round'
+    !hasRoundCap
   ) {
     const stripPolygons = buildOpenConstrainedStrokeStripPolygonsFromSource(
       source,
@@ -418,28 +402,33 @@ const buildOpenConstrainedStrokePolygonsFromSource = (
   }
 
   const rawPolygon: Vec2[] = [...source]
-  if (stroke.cap === 'round') {
+  if (hasRoundCap) {
     const startDirection = normalize(subtract(source[1], source[0]))
     const endDirection = normalize(
       subtract(source[source.length - 1], source[source.length - 2])
     )
     if (startDirection && endDirection) {
-      const endCap = buildOneSidedRoundCap(
-        source[source.length - 1],
-        offsetBoundary[offsetBoundary.length - 1],
-        endDirection,
-        false
-      )
-      const startCap = buildOneSidedRoundCap(
-        source[0],
-        offsetBoundary[0],
-        startDirection,
-        true
-      ).reverse()
-
-      rawPolygon.push(...endCap.slice(1))
+      if (roundCapEnd) {
+        const endCap = buildOneSidedRoundCap(
+          source[source.length - 1],
+          offsetBoundary[offsetBoundary.length - 1],
+          endDirection,
+          false
+        )
+        rawPolygon.push(...endCap.slice(1))
+      } else {
+        rawPolygon.push(offsetBoundary[offsetBoundary.length - 1])
+      }
       rawPolygon.push(...offsetBoundary.slice(0, -1).reverse())
-      rawPolygon.push(...startCap.slice(1))
+      if (roundCapStart) {
+        const startCap = buildOneSidedRoundCap(
+          source[0],
+          offsetBoundary[0],
+          startDirection,
+          true
+        ).reverse()
+        rawPolygon.push(...startCap.slice(1))
+      }
     } else {
       rawPolygon.push(...offsetBoundary.reverse())
     }
@@ -468,13 +457,19 @@ const buildOpenConstrainedStrokePolygonsFromSource = (
     ...buildOpenConstrainedStrokePolygonsFromSource(
       leftSource,
       stroke,
-      options,
+      {
+        ...options,
+        roundCapEnd: false
+      },
       splitDepth + 1
     ),
     ...buildOpenConstrainedStrokePolygonsFromSource(
       rightSource,
       stroke,
-      options,
+      {
+        ...options,
+        roundCapStart: false
+      },
       splitDepth + 1
     )
   ]
@@ -489,6 +484,8 @@ const buildOpenConstrainedStrokePolygons = (
   options: {
     assumeSimpleOpen?: boolean
     assumeNormalizedOpen?: boolean
+    roundCapStart?: boolean
+    roundCapEnd?: boolean
   } = {}
 ): Vec2[][] => {
   const normalizedSource =
@@ -504,7 +501,11 @@ const buildOpenConstrainedStrokePolygons = (
   return buildOpenConstrainedStrokePolygonsFromSource(
     source,
     stroke,
-    { assumeNormalizedOpen: options.assumeNormalizedOpen },
+    {
+      assumeNormalizedOpen: options.assumeNormalizedOpen,
+      roundCapStart: options.roundCapStart,
+      roundCapEnd: options.roundCapEnd
+    },
     0
   )
 }
@@ -2232,6 +2233,8 @@ export const buildConstrainedSolidStrokePolygons = (
     assumeSimpleOpen?: boolean
     assumeSimpleClosed?: boolean
     assumeNormalizedOpen?: boolean
+    roundCapStart?: boolean
+    roundCapEnd?: boolean
     selectedSideGuardPoints?: SelectedSideGuardPoint[]
     sourcePath?: Pick<PathGeometry, 'segments' | 'closed'>
     exactBackend?: ExactConstrainedSolidBackend
@@ -2245,7 +2248,9 @@ export const buildConstrainedSolidStrokePolygons = (
   if (!closed) {
     return buildOpenConstrainedStrokePolygons(points, stroke, {
       assumeSimpleOpen: options.assumeSimpleOpen,
-      assumeNormalizedOpen: options.assumeNormalizedOpen
+      assumeNormalizedOpen: options.assumeNormalizedOpen,
+      roundCapStart: options.roundCapStart,
+      roundCapEnd: options.roundCapEnd
     })
   }
 

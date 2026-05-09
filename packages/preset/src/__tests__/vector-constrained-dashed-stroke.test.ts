@@ -2527,7 +2527,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     ).toBeCloseTo(-4, 6)
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxX
-    ).toBeCloseTo(83.99595727099589, 6)
+    ).toBeCloseTo(84, 1)
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxY
     ).toBeCloseTo(44, 6)

@@ -1,6 +1,8 @@
 import type { RenderableStroke } from './renderable-stroke'
 import {
+  ROUND_STROKE_CAP_ARC_SAMPLING,
   buildOffsetSegments,
+  buildRoundStrokeArcPointsBetween,
   distance,
   add,
   dedupeAdjacent,
@@ -36,34 +38,23 @@ const buildArcPoints = (
   end: Vec2,
   sweepSign: number
 ) => {
-  const startAngle = Math.atan2(start.y - center.y, start.x - center.x)
-  const endAngle = Math.atan2(end.y - center.y, end.x - center.x)
-  let sweep = endAngle - startAngle
-
-  if (sweepSign >= 0) {
-    while (sweep < 0) {
-      sweep += Math.PI * 2
-    }
-  } else {
-    while (sweep > 0) {
-      sweep -= Math.PI * 2
-    }
-  }
-
-  const segmentCount = Math.max(2, Math.ceil(Math.abs(sweep) / (Math.PI / 12)))
-  const radius = distance(center, start)
-  const points: Vec2[] = []
-
-  for (let index = 0; index <= segmentCount; index += 1) {
-    const angle = startAngle + (sweep * index) / segmentCount
-    points.push({
-      x: center.x + Math.cos(angle) * radius,
-      y: center.y + Math.sin(angle) * radius
-    })
-  }
-
-  return points
+  return buildRoundStrokeArcPointsBetween(center, start, end, sweepSign)
 }
+
+const buildRoundCapArcPoints = (
+  center: Vec2,
+  start: Vec2,
+  end: Vec2,
+  sweepSign: number
+) =>
+  buildRoundStrokeArcPointsBetween(
+    center,
+    start,
+    end,
+    sweepSign,
+    2,
+    ROUND_STROKE_CAP_ARC_SAMPLING
+  )
 
 const buildRoundCapPolygons = (
   points: Vec2[],
@@ -90,7 +81,7 @@ const buildRoundCapPolygons = (
 
   return [
     dedupeClosed(
-      buildArcPoints(
+      buildRoundCapArcPoints(
         startCenter,
         add(startCenter, scale(startNormal, radius)),
         add(startCenter, scale(startNormal, -radius)),
@@ -98,7 +89,7 @@ const buildRoundCapPolygons = (
       )
     ),
     dedupeClosed(
-      buildArcPoints(
+      buildRoundCapArcPoints(
         endCenter,
         add(endCenter, scale(endNormal, -radius)),
         add(endCenter, scale(endNormal, radius)),

@@ -282,7 +282,8 @@ const buildClosedSquareCapPhysicalSpans = (
   capLength: number
 ): ConstrainedDashedPhysicalSpan[] => {
   const visibleLength = getVisibleIntervalLength(interval, totalLength)
-  if (visibleLength >= totalLength - EPSILON) {
+  const effectiveLength = visibleLength + capLength * 2
+  if (effectiveLength >= totalLength - EPSILON) {
     return splitLoopRangeIntoPhysicalSpans(
       interval.intervalId,
       'core',
@@ -300,27 +301,13 @@ const buildClosedSquareCapPhysicalSpans = (
     )
   }
 
-  return [
-    ...splitLoopRangeIntoPhysicalSpans(
-      interval.intervalId,
-      'start-cap',
-      interval.startDistance - capLength,
-      interval.startDistance,
-      totalLength
-    ),
-    ...splitIntervalCoreIntoPhysicalSpans(
-      interval.intervalId,
-      interval,
-      totalLength
-    ),
-    ...splitLoopRangeIntoPhysicalSpans(
-      interval.intervalId,
-      'end-cap',
-      interval.endDistance,
-      interval.endDistance + capLength,
-      totalLength
-    )
-  ]
+  return splitLoopRangeIntoPhysicalSpans(
+    interval.intervalId,
+    'core',
+    interval.startDistance - capLength,
+    interval.startDistance - capLength + effectiveLength,
+    totalLength
+  )
 }
 
 const getIntervalPhysicalSpans = (
@@ -1262,6 +1249,11 @@ interface SourceSegmentIntervalRange {
   segmentIndex: number
 }
 
+interface SourceSegmentIntervalSpanRange {
+  range: SourceSegmentIntervalRange
+  span: ConstrainedDashedPhysicalSpan
+}
+
 interface SourcePathSlicingContext {
   segmentRanges: SourcePathSegmentRange[]
   splitRangeCache: Map<string, SourceSegmentIntervalRange[]>
@@ -1444,63 +1436,133 @@ const sliceSourcePathRangePoints = (
   return points
 }
 
-const areSourcePathLoopDistancesEqual = (
-  left: number,
-  right: number,
-  totalLength: number
-) => {
-  if (totalLength <= EPSILON) {
-    return Math.abs(left - right) <= EPSILON
+const SOURCE_PATH_SMOOTH_BOUNDARY_DOT_MIN = Math.cos(Math.PI / 36)
+
+const getSourceSegmentStartTangent = (segment: PathSegment): Vec2 | null => {
+  if (segment.type === 'line') {
+    return normalizeVector({
+      x: segment.end.x - segment.start.x,
+      y: segment.end.y - segment.start.y
+    })
   }
 
-  const delta = Math.abs(
-    normalizeLoopDistance(left, totalLength) -
-      normalizeLoopDistance(right, totalLength)
+  const derivative = segment.curve.derivative(0) as Vec2
+  return (
+    normalizeVector(derivative) ??
+    normalizeVector({
+      x: segment.control1.x - segment.start.x,
+      y: segment.control1.y - segment.start.y
+    }) ??
+    normalizeVector({
+      x: segment.end.x - segment.start.x,
+      y: segment.end.y - segment.start.y
+    })
   )
-  return Math.min(delta, totalLength - delta) <= EPSILON
 }
 
-const isSourcePathSeamDistance = (distance: number, totalLength: number) =>
-  distance <= EPSILON || Math.abs(distance - totalLength) <= EPSILON
+const getSourceSegmentEndTangent = (segment: PathSegment): Vec2 | null => {
+  if (segment.type === 'line') {
+    return normalizeVector({
+      x: segment.end.x - segment.start.x,
+      y: segment.end.y - segment.start.y
+    })
+  }
 
-const hasPhysicalSpanEndingAtBoundary = (
-  physicalSpans: ConstrainedDashedPhysicalSpan[],
-  boundary: number,
-  totalLength: number,
-  roles: ConstrainedDashedPhysicalSpanRole[]
-) =>
-  physicalSpans.some(
-    (candidate) =>
-      roles.includes(candidate.role) &&
-      areSourcePathLoopDistancesEqual(
-        candidate.endDistance,
-        boundary,
-        totalLength
-      )
+  const derivative = segment.curve.derivative(1) as Vec2
+  return (
+    normalizeVector(derivative) ??
+    normalizeVector({
+      x: segment.end.x - segment.control2.x,
+      y: segment.end.y - segment.control2.y
+    }) ??
+    normalizeVector({
+      x: segment.end.x - segment.start.x,
+      y: segment.end.y - segment.start.y
+    })
   )
+}
 
-const hasPhysicalSpanStartingAtBoundary = (
-  physicalSpans: ConstrainedDashedPhysicalSpan[],
-  boundary: number,
-  totalLength: number,
-  roles: ConstrainedDashedPhysicalSpanRole[]
-) =>
-  physicalSpans.some(
-    (candidate) =>
-      roles.includes(candidate.role) &&
-      areSourcePathLoopDistancesEqual(
-        candidate.startDistance,
-        boundary,
-        totalLength
-      )
+const isSourceBoundarySmooth = (
+  path: Pick<PathGeometry, 'segments'>,
+  previousSegmentIndex: number,
+  nextSegmentIndex: number
+) => {
+  const previous = path.segments[previousSegmentIndex]
+  const next = path.segments[nextSegmentIndex]
+  if (!previous || !next) {
+    return false
+  }
+
+  if (previous.endAnchorType === 'sharp' || next.startAnchorType === 'sharp') {
+    return false
+  }
+
+  const previousTangent = getSourceSegmentEndTangent(previous)
+  const nextTangent = getSourceSegmentStartTangent(next)
+  if (!previousTangent || !nextTangent) {
+    return false
+  }
+
+  return (
+    previousTangent.x * nextTangent.x + previousTangent.y * nextTangent.y >=
+    SOURCE_PATH_SMOOTH_BOUNDARY_DOT_MIN
   )
+}
+
+const canOverlapAcrossSourceRangeStart = (
+  path: Pick<PathGeometry, 'segments' | 'closed'>,
+  range: SourceSegmentIntervalRange,
+  segmentRanges: SourcePathSegmentRange[]
+) => {
+  const segmentRange = segmentRanges[range.segmentIndex]
+  if (
+    !segmentRange ||
+    Math.abs(range.startDistance - segmentRange.startDistance) > EPSILON
+  ) {
+    return true
+  }
+
+  const previousSegmentIndex =
+    range.segmentIndex > 0
+      ? range.segmentIndex - 1
+      : path.closed
+        ? path.segments.length - 1
+        : null
+  return previousSegmentIndex === null
+    ? false
+    : isSourceBoundarySmooth(path, previousSegmentIndex, range.segmentIndex)
+}
+
+const canOverlapAcrossSourceRangeEnd = (
+  path: Pick<PathGeometry, 'segments' | 'closed'>,
+  range: SourceSegmentIntervalRange,
+  segmentRanges: SourcePathSegmentRange[]
+) => {
+  const segmentRange = segmentRanges[range.segmentIndex]
+  if (
+    !segmentRange ||
+    Math.abs(range.endDistance - segmentRange.endDistance) > EPSILON
+  ) {
+    return true
+  }
+
+  const nextSegmentIndex =
+    range.segmentIndex < path.segments.length - 1
+      ? range.segmentIndex + 1
+      : path.closed
+        ? 0
+        : null
+  return nextSegmentIndex === null
+    ? false
+    : isSourceBoundarySmooth(path, range.segmentIndex, nextSegmentIndex)
+}
 
 const buildOverlappedSourcePathRenderRange = (
-  path: Pick<PathGeometry, 'totalLength'>,
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   range: SourceSegmentIntervalRange,
   span: ConstrainedDashedPhysicalSpan,
-  physicalSpans: ConstrainedDashedPhysicalSpan[],
-  stroke: Pick<RenderableStroke, 'cap' | 'width'>
+  stroke: Pick<RenderableStroke, 'width'>,
+  slicingContext?: SourcePathSlicingContext
 ): SourceSegmentIntervalRange => {
   const overlap = Math.min(
     SOURCE_PATH_DASH_SEGMENT_OVERLAP_MAX,
@@ -1513,64 +1575,18 @@ const buildOverlappedSourcePathRenderRange = (
   const startsAfterSpanStart =
     range.startDistance > span.startDistance + EPSILON
   const endsBeforeSpanEnd = range.endDistance < span.endDistance - EPSILON
-  const rangeStartsAtSpanStart =
-    Math.abs(range.startDistance - span.startDistance) <= EPSILON
-  const rangeEndsAtSpanEnd =
-    Math.abs(range.endDistance - span.endDistance) <= EPSILON
-  const startIsSeam = isSourcePathSeamDistance(
-    range.startDistance,
-    path.totalLength
-  )
-  const endIsSeam = isSourcePathSeamDistance(
-    range.endDistance,
-    path.totalLength
-  )
-  const overlapsSquareCapStartBoundary =
-    stroke.cap === 'square' &&
-    rangeStartsAtSpanStart &&
-    !startIsSeam &&
-    ((span.role === 'core' &&
-      hasPhysicalSpanEndingAtBoundary(
-        physicalSpans,
-        range.startDistance,
-        path.totalLength,
-        ['start-cap']
-      )) ||
-      (span.role === 'end-cap' &&
-        hasPhysicalSpanEndingAtBoundary(
-          physicalSpans,
-          range.startDistance,
-          path.totalLength,
-          ['core']
-        )))
-  const overlapsSquareCapEndBoundary =
-    stroke.cap === 'square' &&
-    rangeEndsAtSpanEnd &&
-    !endIsSeam &&
-    ((span.role === 'core' &&
-      hasPhysicalSpanStartingAtBoundary(
-        physicalSpans,
-        range.endDistance,
-        path.totalLength,
-        ['end-cap']
-      )) ||
-      (span.role === 'start-cap' &&
-        hasPhysicalSpanStartingAtBoundary(
-          physicalSpans,
-          range.endDistance,
-          path.totalLength,
-          ['core']
-        )))
+  const segmentRanges =
+    slicingContext?.segmentRanges ?? getSourcePathSegmentRanges(path)
   const startDistance = startsAfterSpanStart
-    ? Math.max(0, range.startDistance - overlap)
-    : overlapsSquareCapStartBoundary
+    ? canOverlapAcrossSourceRangeStart(path, range, segmentRanges)
       ? Math.max(0, range.startDistance - overlap)
       : range.startDistance
+    : range.startDistance
   const endDistance = endsBeforeSpanEnd
-    ? Math.min(path.totalLength, range.endDistance + overlap)
-    : overlapsSquareCapEndBoundary
+    ? canOverlapAcrossSourceRangeEnd(path, range, segmentRanges)
       ? Math.min(path.totalLength, range.endDistance + overlap)
       : range.endDistance
+    : range.endDistance
 
   return startDistance !== range.startDistance ||
     endDistance !== range.endDistance
@@ -1580,6 +1596,73 @@ const buildOverlappedSourcePathRenderRange = (
         endDistance
       }
     : range
+}
+
+const isSourcePathRangeAtVisibleIntervalStart = (
+  range: SourceSegmentIntervalRange,
+  interval: Pick<
+    ReturnType<typeof allocateDashedIntervalsForTopology>[number],
+    'startDistance' | 'wrapsSeam'
+  >,
+  totalLength: number
+) =>
+  areLoopDistancesEqual(
+    range.startDistance,
+    interval.startDistance,
+    totalLength
+  )
+
+const isSourcePathRangeAtVisibleIntervalEnd = (
+  range: SourceSegmentIntervalRange,
+  interval: Pick<
+    ReturnType<typeof allocateDashedIntervalsForTopology>[number],
+    'endDistance' | 'wrapsSeam'
+  >,
+  totalLength: number
+) => areLoopDistancesEqual(range.endDistance, interval.endDistance, totalLength)
+
+const getSourcePathRangeRoundCapOwnership = (
+  path: Pick<PathGeometry, 'totalLength'>,
+  range: SourceSegmentIntervalRange,
+  interval: Pick<
+    ReturnType<typeof allocateDashedIntervalsForTopology>[number],
+    'startDistance' | 'endDistance' | 'wrapsSeam'
+  >,
+  stroke: Pick<
+    RenderableStroke,
+    'style' | 'position' | 'width' | 'join' | 'miterLimit' | 'cap'
+  >
+) => {
+  if (stroke.cap !== 'round') {
+    return {
+      stroke,
+      roundCapStart: undefined,
+      roundCapEnd: undefined
+    }
+  }
+
+  const rangeOwnsStartCap = isSourcePathRangeAtVisibleIntervalStart(
+    range,
+    interval,
+    path.totalLength
+  )
+  const rangeOwnsEndCap = isSourcePathRangeAtVisibleIntervalEnd(
+    range,
+    interval,
+    path.totalLength
+  )
+
+  return {
+    stroke:
+      rangeOwnsStartCap || rangeOwnsEndCap
+        ? stroke
+        : {
+            ...stroke,
+            cap: 'butt' as const
+          },
+    roundCapStart: rangeOwnsStartCap,
+    roundCapEnd: rangeOwnsEndCap
+  }
 }
 
 const areSourceRangesAdjacent = (
@@ -1775,7 +1858,7 @@ const buildOutsideSourceVertexJoinPolygon = (
 
 const buildOutsideSourceSegmentJoinPolygons = (
   path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
-  ranges: SourceSegmentIntervalRange[],
+  spanRanges: SourceSegmentIntervalSpanRange[],
   authoredStroke: Pick<RenderableStroke, 'position' | 'cap'>,
   intervalStroke: Pick<
     RenderableStroke,
@@ -1786,10 +1869,14 @@ const buildOutsideSourceSegmentJoinPolygons = (
     authoredStroke.position !== 'outside' ||
     path.closed !== true ||
     path.segments.length < 2 ||
-    ranges.length < 2
+    spanRanges.length < 2
   ) {
     return []
   }
+
+  const ranges = spanRanges
+    .filter(({ span }) => span.role === 'core')
+    .map(({ range }) => range)
 
   return ranges.flatMap((range, index) => {
     const next = ranges[index + 1]
@@ -1876,6 +1963,10 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
     authoredStroke.cap === 'square'
       ? Math.max(intervalStroke.width / 2, EPSILON)
       : 0
+  const roundCapReach =
+    authoredStroke.cap === 'round'
+      ? Math.max(intervalStroke.width / 2, EPSILON)
+      : 0
   const isSquareCapWrappedEndpointRange =
     authoredStroke.cap === 'square' &&
     physicalSpanRole !== 'core' &&
@@ -1915,10 +2006,63 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
             segmentRange.endDistance,
             path.totalLength
           ))))
+  const isRoundCapWrappedEndpointRange =
+    authoredStroke.cap === 'round' &&
+    interval.wrapsSeam &&
+    (areLoopDistancesEqual(
+      range.startDistance,
+      interval.startDistance,
+      path.totalLength
+    ) ||
+      areLoopDistancesEqual(
+        range.endDistance,
+        interval.endDistance,
+        path.totalLength
+      ) ||
+      range.startDistance >= interval.startDistance - roundCapReach - EPSILON ||
+      range.endDistance <= interval.endDistance + roundCapReach + EPSILON)
+  const isRoundCapIntervalEndpointRange =
+    authoredStroke.cap === 'round' &&
+    !interval.wrapsSeam &&
+    (Math.abs(range.startDistance - interval.startDistance) <=
+      roundCapReach + EPSILON ||
+      Math.abs(range.endDistance - interval.endDistance) <=
+        roundCapReach + EPSILON)
+  const isRoundCapSegmentBoundaryEndpointRange =
+    authoredStroke.cap === 'round' &&
+    ((touchesSegmentStart &&
+      (areLoopDistancesEqual(
+        interval.startDistance,
+        segmentRange.startDistance,
+        path.totalLength
+      ) ||
+        areLoopDistancesEqual(
+          interval.endDistance,
+          segmentRange.startDistance,
+          path.totalLength
+        ))) ||
+      (touchesSegmentEnd &&
+        (areLoopDistancesEqual(
+          interval.startDistance,
+          segmentRange.endDistance,
+          path.totalLength
+        ) ||
+          areLoopDistancesEqual(
+            interval.endDistance,
+            segmentRange.endDistance,
+            path.totalLength
+          ))))
   const shouldRequireClippedSquareCapEndpoint =
     isSquareCapWrappedEndpointRange ||
     isSquareCapIntervalEndpointRange ||
     isSquareCapSegmentBoundaryEndpointRange
+  const shouldRequireClippedRoundCapEndpoint =
+    isRoundCapWrappedEndpointRange ||
+    isRoundCapIntervalEndpointRange ||
+    isRoundCapSegmentBoundaryEndpointRange
+  const shouldRequireClippedCapEndpoint =
+    shouldRequireClippedSquareCapEndpoint ||
+    shouldRequireClippedRoundCapEndpoint
   const fallbackPolygons = polygons.filter(
     (polygon) => polygon.length >= 3 && isSimpleClosedPolygon(polygon)
   )
@@ -2031,7 +2175,7 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
   if (
     isPathStartTerminalRange ||
     isPathEndTerminalRange ||
-    shouldRequireClippedSquareCapEndpoint
+    shouldRequireClippedCapEndpoint
   ) {
     return clippedPolygons
   }
@@ -3357,20 +3501,21 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
           : intervalStroke
       const intervalPolygons = sourcePath
         ? (() => {
-            const spanRanges = physicalSpans.flatMap((span) =>
-              splitVisibleIntervalBySourceSegments(
-                sourcePath,
-                span,
-                sourcePathSlicingContext
-              ).map((range) => ({ range, span }))
-            )
+            const spanRanges: SourceSegmentIntervalSpanRange[] =
+              physicalSpans.flatMap((span) =>
+                splitVisibleIntervalBySourceSegments(
+                  sourcePath,
+                  span,
+                  sourcePathSlicingContext
+                ).map((range) => ({ range, span }))
+              )
             const rangePolygons = spanRanges.flatMap(({ range, span }) => {
               const renderRange = buildOverlappedSourcePathRenderRange(
                 sourcePath,
                 range,
                 span,
-                physicalSpans,
-                stroke
+                stroke,
+                sourcePathSlicingContext
               )
               const rawIntervalPoints = sliceSourcePathRangePoints(
                 sourcePath,
@@ -3378,15 +3523,23 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 span.role,
                 sourcePathSlicingContext
               )
+              const rangeCapOwnership = getSourcePathRangeRoundCapOwnership(
+                sourcePath,
+                range,
+                interval,
+                squareCapPhysicalStroke
+              )
               const rangePolygons =
                 buildConstrainedDashedLocalSideStrokePolygons(
                   rawIntervalPoints,
                   false,
-                  squareCapPhysicalStroke,
+                  rangeCapOwnership.stroke,
                   {
                     assumeSimpleOpen: true,
                     assumeSimpleClosed: undefined,
-                    assumeNormalizedOpen: true
+                    assumeNormalizedOpen: true,
+                    roundCapStart: rangeCapOwnership.roundCapStart,
+                    roundCapEnd: rangeCapOwnership.roundCapEnd
                   }
                 )
               return clipSourceSegmentRangePolygonsToAdjacentBoundaries(
@@ -3405,7 +3558,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
               ...rangePolygons,
               ...buildOutsideSourceSegmentJoinPolygons(
                 sourcePath,
-                spanRanges.map(({ range }) => range),
+                spanRanges,
                 stroke,
                 intervalStroke
               )
@@ -3443,9 +3596,13 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
               return spanPolygons
             }
 
-            const spanRanges = physicalSpans.flatMap((span) =>
-              splitVisibleIntervalBySourceSegments(topologySourcePath, span)
-            )
+            const spanRanges: SourceSegmentIntervalSpanRange[] =
+              physicalSpans.flatMap((span) =>
+                splitVisibleIntervalBySourceSegments(
+                  topologySourcePath,
+                  span
+                ).map((range) => ({ range, span }))
+              )
             return [
               ...spanPolygons,
               ...buildOutsideSourceSegmentJoinPolygons(
