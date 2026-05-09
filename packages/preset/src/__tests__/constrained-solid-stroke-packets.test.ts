@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
+import { Bezier } from 'bezier-js'
 import Clipper2ZFactory from 'clipper2-wasm'
 import { createDefaultStroke } from '@asyra/utils'
 import {
@@ -814,6 +815,144 @@ describe('constrained solid stroke packets', () => {
     expect(
       createSolidCenterStrokeHitArea(outsidePackets)?.contains(10, 5)
     ).toBe(false)
+  })
+
+  it('should run: build a closed outside miter at a source-path seam without an explicit closing segment', () => {
+    const points = [
+      { x: 40, y: 0 },
+      { x: 80, y: 100 },
+      { x: 0, y: 100 }
+    ]
+    const openSegmentLength = Math.hypot(40, 100)
+    const sourcePath: PathGeometry = {
+      segments: [
+        {
+          type: 'line',
+          start: points[0],
+          end: points[1],
+          length: openSegmentLength,
+          startAnchorType: 'sharp',
+          endAnchorType: 'sharp'
+        },
+        {
+          type: 'line',
+          start: points[1],
+          end: points[2],
+          length: 80,
+          startAnchorType: 'sharp',
+          endAnchorType: 'sharp'
+        }
+      ],
+      closed: true,
+      totalLength: openSegmentLength + 80,
+      sampledPoints: points
+    }
+    const packets = buildConstrainedSolidStrokeResolvedPackets(
+      'triangle:test:outside-implicit-close',
+      points,
+      true,
+      [
+        createDefaultStroke({
+          width: 10,
+          style: 'solid',
+          position: 'outside',
+          joinType: 'miter',
+          miterAngle: 28.96
+        })
+      ],
+      {
+        sourcePath,
+        selectedSideGuardPoints: points,
+        candidateMode: 'exact-arrangement'
+      }
+    )
+    const sourceSpanIds = packets.flatMap(
+      (packet) => packet.geometry.debugMeta?.sourceSpanIds ?? []
+    )
+
+    expect(sourceSpanIds).toContain('vertex:2')
+    expect(
+      packets.some((packet) =>
+        polygonListContainsPoint(packet.geometry.polygons, { x: 40, y: -8 })
+      )
+    ).toBe(true)
+  })
+
+  it('should run: build a closed outside miter at a smooth-authored seam when source tangents form a corner', () => {
+    const points = [
+      { x: 40, y: 0 },
+      { x: 80, y: 100 },
+      { x: 0, y: 100 }
+    ]
+    const closingCurve = new Bezier(
+      points[2],
+      { x: 0, y: 80 },
+      { x: 20, y: 0 },
+      points[0]
+    )
+    const sourcePath: PathGeometry = {
+      segments: [
+        {
+          type: 'line',
+          start: points[0],
+          end: points[1],
+          length: Math.hypot(40, 100),
+          startAnchorType: 'smooth',
+          endAnchorType: 'sharp'
+        },
+        {
+          type: 'line',
+          start: points[1],
+          end: points[2],
+          length: 80,
+          startAnchorType: 'sharp',
+          endAnchorType: 'sharp'
+        },
+        {
+          type: 'cubic',
+          start: points[2],
+          control1: { x: 0, y: 80 },
+          control2: { x: 20, y: 0 },
+          end: points[0],
+          curve: closingCurve,
+          length: closingCurve.length(),
+          startAnchorType: 'sharp',
+          endAnchorType: 'smooth'
+        }
+      ],
+      closed: true,
+      totalLength: Math.hypot(40, 100) + 80 + closingCurve.length(),
+      sampledPoints: points
+    }
+    const packets = buildConstrainedSolidStrokeResolvedPackets(
+      'triangle:test:outside-smooth-corner-seam',
+      points,
+      true,
+      [
+        createDefaultStroke({
+          width: 10,
+          style: 'solid',
+          position: 'outside',
+          joinType: 'miter',
+          miterAngle: 28.96
+        })
+      ],
+      {
+        sourcePath,
+        selectedSideGuardPoints: [
+          { ...points[0], sharp: false },
+          { ...points[1], sharp: true },
+          { ...points[2], sharp: true }
+        ],
+        candidateMode: 'exact-arrangement'
+      }
+    )
+    const sourceSpanIds = packets.flatMap(
+      (packet) => packet.geometry.debugMeta?.sourceSpanIds ?? []
+    )
+
+    expect(sourceSpanIds).toContain('vertex:2')
+    expect(sourceSpanIds).not.toContain('smooth-join:2')
   })
 
   it('should run: keep self-intersecting open solid paths on center-equivalent geometry', () => {

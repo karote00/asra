@@ -49,6 +49,7 @@ const MIN_SUPPORTED_COVERAGE = 0.6
 const MAX_UNSUPPORTED_COVERAGE = 0.03
 const MAX_EXTERIOR_LEAK = 0.12
 const MAX_CAP_VARIANCE = 0.12
+const MIN_MITER_TIP_COVERAGE = 0.18
 const STROKE_COLOR = '00FF00'
 const REPORTED_VECTOR_6_PRODUCT_STROKE_COLOR = 'DF0606'
 const REPORTED_VECTOR_6_LOCAL_SCALE = 14
@@ -561,6 +562,17 @@ const getOpenDiagonalProbeRegions = (raster: RasterCapture) => ({
     width: raster.elementWidth,
     height: raster.elementHeight
   }
+})
+
+const getLocalPointProbeRegion = (
+  raster: RasterCapture,
+  point: Vec2,
+  size = 8
+) => ({
+  x: raster.padding + point.x - size / 2,
+  y: raster.padding + point.y - size / 2,
+  width: size,
+  height: size
 })
 
 const getReportedVector6InsideSolidProbeRegions = (raster: RasterCapture) => {
@@ -1503,6 +1515,165 @@ const patchSelectedVectorToClosedRectangle = async (page: Page) => {
         fills: [],
         width: 80,
         height: 40
+      },
+      { undoable: false }
+    )
+  })
+
+  await page.waitForTimeout(180)
+}
+
+const patchSelectedVectorToClosedSharpSeamWithoutClosingSegment = async (
+  page: Page
+) => {
+  await page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+    if (!selectedId) {
+      throw new Error('No selected vector to patch')
+    }
+
+    const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+    const computed = element?.getAllComputedData?.()
+    const primaryNetwork = Object.values(computed?.networks ?? {})[0] as
+      | { id: string }
+      | undefined
+
+    if (!computed || !primaryNetwork) {
+      throw new Error('Missing vector topology')
+    }
+
+    const nextPoints = {
+      a: { id: 'a', kind: 'anchor', x: 40, y: 0, anchorType: 'sharp' },
+      b: { id: 'b', kind: 'anchor', x: 80, y: 100, anchorType: 'sharp' },
+      c: { id: 'c', kind: 'anchor', x: 0, y: 100, anchorType: 'sharp' }
+    }
+
+    const nextSegments = {
+      ab: {
+        id: 'ab',
+        startId: 'a',
+        endId: 'b',
+        outControlId: null,
+        inControlId: null
+      },
+      bc: {
+        id: 'bc',
+        startId: 'b',
+        endId: 'c',
+        outControlId: null,
+        inControlId: null
+      }
+    }
+
+    core?.changeComputedData?.(
+      [selectedId],
+      {
+        points: nextPoints,
+        segments: nextSegments,
+        networks: {
+          [primaryNetwork.id]: {
+            id: primaryNetwork.id,
+            pointIds: ['a', 'b', 'c'],
+            segmentIds: ['ab', 'bc'],
+            closed: true
+          }
+        },
+        closed: true,
+        fills: [],
+        width: 80,
+        height: 100
+      },
+      { undoable: false }
+    )
+  })
+
+  await page.waitForTimeout(180)
+}
+
+const patchSelectedVectorToClosedSmoothCurveCornerSeam = async (page: Page) => {
+  await page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+    if (!selectedId) {
+      throw new Error('No selected vector to patch')
+    }
+
+    const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+    const computed = element?.getAllComputedData?.()
+    const primaryNetwork = Object.values(computed?.networks ?? {})[0] as
+      | { id: string }
+      | undefined
+
+    if (!computed || !primaryNetwork) {
+      throw new Error('Missing vector topology')
+    }
+
+    const nextPoints = {
+      a: { id: 'a', kind: 'anchor', x: 40, y: 0, anchorType: 'smooth' },
+      b: { id: 'b', kind: 'anchor', x: 80, y: 100, anchorType: 'sharp' },
+      c: { id: 'c', kind: 'anchor', x: 0, y: 100, anchorType: 'sharp' },
+      'c:out': {
+        id: 'c:out',
+        kind: 'control',
+        x: 0,
+        y: 80,
+        controlForId: 'c',
+        controlRole: 'out'
+      },
+      'a:in': {
+        id: 'a:in',
+        kind: 'control',
+        x: 20,
+        y: 0,
+        controlForId: 'a',
+        controlRole: 'in'
+      }
+    }
+
+    const nextSegments = {
+      ab: {
+        id: 'ab',
+        startId: 'a',
+        endId: 'b',
+        outControlId: null,
+        inControlId: null
+      },
+      bc: {
+        id: 'bc',
+        startId: 'b',
+        endId: 'c',
+        outControlId: null,
+        inControlId: null
+      },
+      ca: {
+        id: 'ca',
+        startId: 'c',
+        endId: 'a',
+        outControlId: 'c:out',
+        inControlId: 'a:in'
+      }
+    }
+
+    core?.changeComputedData?.(
+      [selectedId],
+      {
+        points: nextPoints,
+        segments: nextSegments,
+        networks: {
+          [primaryNetwork.id]: {
+            id: primaryNetwork.id,
+            pointIds: ['a', 'b', 'c'],
+            segmentIds: ['ab', 'bc', 'ca'],
+            closed: true
+          }
+        },
+        closed: true,
+        fills: [],
+        width: 80,
+        height: 100
       },
       { undoable: false }
     )
@@ -2825,6 +2996,74 @@ test.describe('Constrained Solid Stroke Visual Benchmarks', () => {
     expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
     expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
     expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  })
+
+  test('benchmark: closed vector outside miter stroke builds the implicit seam join', async ({
+    page
+  }) => {
+    await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
+    await clearVectorOverlayState(page)
+    await ensureElementSelected(page, 'vector')
+    await patchSelectedVectorToClosedSharpSeamWithoutClosingSegment(page)
+    await ensureElementSelected(page, 'vector')
+    await configureSelectedStroke(page, {
+      elementType: 'vector',
+      position: 'outside',
+      join: 'miter',
+      cap: 'butt',
+      width: 8
+    })
+
+    const raster = await captureSelectedElementRaster(page, 8)
+    const [seamMiter, centerVoid] = await Promise.all([
+      getGreenCoverage(
+        page,
+        raster,
+        getLocalPointProbeRegion(raster, { x: 40, y: -10 }, 8)
+      ),
+      getGreenCoverage(
+        page,
+        raster,
+        getLocalPointProbeRegion(raster, { x: 40, y: 55 }, 10)
+      )
+    ])
+
+    expect(seamMiter).toBeGreaterThan(MIN_MITER_TIP_COVERAGE)
+    expect(centerVoid).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  })
+
+  test('benchmark: closed vector outside miter stroke keeps a smooth-authored corner seam mitered', async ({
+    page
+  }) => {
+    await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
+    await clearVectorOverlayState(page)
+    await ensureElementSelected(page, 'vector')
+    await patchSelectedVectorToClosedSmoothCurveCornerSeam(page)
+    await ensureElementSelected(page, 'vector')
+    await configureSelectedStroke(page, {
+      elementType: 'vector',
+      position: 'outside',
+      join: 'miter',
+      cap: 'butt',
+      width: 8
+    })
+
+    const raster = await captureSelectedElementRaster(page, 8)
+    const [seamMiter, centerVoid] = await Promise.all([
+      getGreenCoverage(
+        page,
+        raster,
+        getLocalPointProbeRegion(raster, { x: 40, y: -10 }, 8)
+      ),
+      getGreenCoverage(
+        page,
+        raster,
+        getLocalPointProbeRegion(raster, { x: 40, y: 55 }, 10)
+      )
+    ])
+
+    expect(seamMiter).toBeGreaterThan(MIN_MITER_TIP_COVERAGE)
+    expect(centerVoid).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
   })
 
   test('benchmark: closed vector inside miter stroke renders through the constrained solid visual path', async ({

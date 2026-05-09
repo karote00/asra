@@ -110,6 +110,7 @@ type OneSidedOffsetDistanceResolver = (
 ) => number
 
 const EPSILON = 1e-6
+const SMOOTH_SEAM_CORNER_TURN_ANGLE = Math.PI / 4
 
 const supportsExactConstrainedSolidStroke = (
   stroke: Pick<
@@ -1060,6 +1061,49 @@ const getSegmentEndDirection = (segment: PathSegment): Vec2 | null => {
   )
 }
 
+const getSourceJoinTurnAngle = (
+  previousDirection: Vec2,
+  nextDirection: Vec2
+) => {
+  const dot = Math.max(
+    -1,
+    Math.min(
+      1,
+      previousDirection.x * nextDirection.x +
+        previousDirection.y * nextDirection.y
+    )
+  )
+  return Math.acos(dot)
+}
+
+const isClosedSourcePathSeamJoin = (
+  sourcePath: Pick<PathGeometry, 'segments' | 'closed'>,
+  previousSegmentIndex: number
+) =>
+  sourcePath.closed === true &&
+  previousSegmentIndex === sourcePath.segments.length - 1
+
+const shouldRespectSmoothGuardAtSourceJoin = (
+  guardPoint: SelectedSideGuardPoint | undefined,
+  sourcePath: Pick<PathGeometry, 'segments' | 'closed'>,
+  previousSegmentIndex: number,
+  previousDirection: Vec2,
+  nextDirection: Vec2
+) => {
+  if (guardPoint?.sharp !== false) {
+    return false
+  }
+
+  if (!isClosedSourcePathSeamJoin(sourcePath, previousSegmentIndex)) {
+    return true
+  }
+
+  return (
+    getSourceJoinTurnAngle(previousDirection, nextDirection) <
+    SMOOTH_SEAM_CORNER_TURN_ANGLE
+  )
+}
+
 const buildJoinArcPoints = (
   center: Vec2,
   start: Vec2,
@@ -1110,6 +1154,40 @@ const getSourcePathSegmentRanges = (
     cursor = range.endDistance
     return range
   })
+}
+
+const normalizeClosedSourcePathWithImplicitClosingSegment = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>
+): Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'> => {
+  if (path.closed !== true || path.segments.length < 2) {
+    return path
+  }
+
+  const firstSegment = path.segments[0]
+  const lastSegment = path.segments[path.segments.length - 1]
+  if (!firstSegment || !lastSegment) {
+    return path
+  }
+
+  const closingLength = distanceBetween(lastSegment.end, firstSegment.start)
+  if (closingLength <= EPSILON) {
+    return path
+  }
+
+  const closingSegment: PathSegment = {
+    type: 'line',
+    start: lastSegment.end,
+    end: firstSegment.start,
+    length: closingLength,
+    startAnchorType: lastSegment.endAnchorType,
+    endAnchorType: firstSegment.startAnchorType
+  }
+
+  return {
+    ...path,
+    segments: [...path.segments, closingSegment],
+    totalLength: path.totalLength + closingLength
+  }
 }
 
 const normalizeClosedGuardPoints = (points: SelectedSideGuardPoint[] = []) => {
@@ -1746,13 +1824,22 @@ const buildSourcePathVertexJoinCandidatePolygons = (
       sourcePath,
       vertex
     )
-    if (stroke.position === 'outside' && guardPoint?.sharp === false) {
-      return []
-    }
 
     const previousDirection = getSegmentEndDirection(previousSegment)
     const nextDirection = getSegmentStartDirection(nextSegment)
     if (!previousDirection || !nextDirection) {
+      return []
+    }
+    if (
+      stroke.position === 'outside' &&
+      shouldRespectSmoothGuardAtSourceJoin(
+        guardPoint,
+        sourcePath,
+        previousIndex,
+        previousDirection,
+        nextDirection
+      )
+    ) {
       return []
     }
 
@@ -1918,6 +2005,22 @@ const buildSourcePathSmoothJoinCandidateRecords = (
     if (guardPoint?.sharp !== false) {
       return []
     }
+    const previousDirection = getSegmentEndDirection(previousSegment)
+    const nextDirection = getSegmentStartDirection(nextSegment)
+    if (!previousDirection || !nextDirection) {
+      return []
+    }
+    if (
+      !shouldRespectSmoothGuardAtSourceJoin(
+        guardPoint,
+        sourcePath,
+        previousIndex,
+        previousDirection,
+        nextDirection
+      )
+    ) {
+      return []
+    }
 
     const previousOffset =
       options.oneSidedOffsetDistanceBySegment?.[previousIndex] ??
@@ -1972,7 +2075,9 @@ const buildExactArrangementCandidatePolygons = (
   fillRule: PathTopologyFillRule = 'evenodd'
 ): ExactSolidCandidatePolygon[] => {
   const candidateSourcePath =
-    sourcePath ?? buildPolylineGeometryModelPath(topologyPoints, closed)
+    normalizeClosedSourcePathWithImplicitClosingSegment(
+      sourcePath ?? buildPolylineGeometryModelPath(topologyPoints, closed)
+    )
 
   if (!closed || candidateSourcePath.segments.length === 0) {
     return []
