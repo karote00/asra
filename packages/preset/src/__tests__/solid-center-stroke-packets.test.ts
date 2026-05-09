@@ -56,19 +56,22 @@ describe('solid center stroke packets', () => {
     })
   })
 
-  it('should run: normalize duplicate polygons once before render, hit, and export packet emission', () => {
-    const duplicatePolygon = [
+  it('should run: filter invalid polygons once before render, hit, and export packet emission', () => {
+    const validPolygon = [
       { x: 0, y: 0 },
       { x: 20, y: 0 },
       { x: 20, y: 20 },
       { x: 0, y: 20 }
     ]
-    const reversedDuplicatePolygon = [...duplicatePolygon].reverse()
+    const invalidPolygon = [
+      { x: 100, y: 100 },
+      { x: 120, y: 100 }
+    ]
     const packets = [
       {
         geometry: {
           geometryId: 'duplicate:test',
-          polygons: [duplicatePolygon, reversedDuplicatePolygon],
+          polygons: [validPolygon, invalidPolygon],
           bounds: { minX: 0, minY: 0, maxX: 20, maxY: 20 },
           debugMeta: {
             geometryFamily: 'constrained-solid' as const,

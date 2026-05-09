@@ -19,6 +19,7 @@ import {
   type PathGeometry,
   type PathSegment
 } from './path-geometry'
+import { buildClosedConstrainedStrokePolygonEntriesForSource } from './constrained-solid-stroke-geometry'
 import {
   isSimpleClosedPolygon,
   polygonArea
@@ -73,7 +74,7 @@ interface ConstrainedSolidStrokePacketOptions {
     'capabilities' | 'union' | 'difference' | 'intersection' | 'offset'
   >
   fillRule?: PathTopologyFillRule
-  candidateMode?: 'exact-arrangement'
+  candidateMode?: 'exact-arrangement' | 'direct-local-side-exact'
 }
 
 interface SourceSegmentRange {
@@ -2173,6 +2174,33 @@ const getConstrainedSolidResolutionStatus = (
     ? 'local-side-approximation'
     : 'exact-constrained'
 
+const supportsDirectLocalSideExactTopology = (topology: PathTopologyModel) =>
+  topology.topologyFamily === 'rectangle-equivalent' ||
+  topology.topologyFamily === 'sampled-simple-closed'
+
+const getDirectLocalSideSourceSpanIds = (
+  entry: ReturnType<
+    typeof buildClosedConstrainedStrokePolygonEntriesForSource
+  >[number]
+) => {
+  if (entry.role === 'segment') {
+    return [`segment:${entry.sourceSegmentIndex ?? entry.index}`]
+  }
+
+  const vertexIndex = entry.sourceVertexIndex ?? entry.index
+  const spanIds = [`vertex:${vertexIndex}`]
+  const previousSegmentIndex = entry.sourcePreviousSegmentIndex
+  const nextSegmentIndex = entry.sourceNextSegmentIndex
+  if (previousSegmentIndex !== undefined) {
+    spanIds.push(`segment:${previousSegmentIndex}`)
+  }
+  if (nextSegmentIndex !== undefined) {
+    spanIds.push(`segment:${nextSegmentIndex}`)
+  }
+
+  return spanIds
+}
+
 export const hasConstrainedSolidStrokeIntent = (
   strokes: StrokeAttrs[] | undefined
 ) =>
@@ -2245,8 +2273,79 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
     }
 
     const candidateMode = options.candidateMode ?? 'exact-arrangement'
-    if (candidateMode !== 'exact-arrangement') {
-      return []
+    if (candidateMode === 'direct-local-side-exact') {
+      if (!supportsDirectLocalSideExactTopology(topology)) {
+        return []
+      }
+
+      const directLocalSideEntries =
+        buildClosedConstrainedStrokePolygonEntriesForSource(
+          topologyPoints,
+          stroke
+        )
+
+      return directLocalSideEntries.map((entry, entryIndex) => {
+        const geometryId = `${cachePrefix}:${index}:direct:${entry.role}:${entry.index}:${entryIndex}`
+        const ownerKey = options.metadata?.ownerKeyPrefix
+          ? `${options.metadata.ownerKeyPrefix}:stroke:${index}`
+          : undefined
+
+        return {
+          geometry: {
+            geometryId,
+            polygons: [entry.polygon],
+            bounds: getBounds([entry.polygon]),
+            debugMeta: {
+              sourcePathId: cachePrefix,
+              ownerKey,
+              networkId: options.metadata?.networkId,
+              strokeId: `stroke:${index}`,
+              strokeIndex: index,
+              contourId,
+              legalDomainId,
+              strokePosition: stroke.position,
+              geometryFamily: 'constrained-solid' as const,
+              resolutionStatus: 'exact-constrained' as const,
+              runtimeStatus: 'accepted' as const,
+              runtimeReason: 'constrained-solid-exact' as const,
+              visualOverlapCollapseStatus: 'exact-union' as const,
+              sourceTopology,
+              topologyFamily: topology.topologyFamily,
+              strokeWidth: stroke.width,
+              strokeJoin: stroke.join,
+              strokeCap: stroke.cap,
+              strokeMiterLimit: stroke.miterLimit,
+              sourceSpanIds: getDirectLocalSideSourceSpanIds(entry),
+              authoredVisibleIntervalIndex:
+                entry.sourceSegmentIndex ??
+                entry.sourceVertexIndex ??
+                entry.index,
+              revisionSet: buildStrokeRuntimeRevisionSet({
+                points: topologyPoints,
+                closed: topology.closed,
+                stroke,
+                geometryFamily: 'constrained-solid',
+                resolutionStatus: 'exact-constrained',
+                runtimeStatus: 'accepted',
+                runtimeReason: 'constrained-solid-exact',
+                ownerKey,
+                networkId: options.metadata?.networkId,
+                strokeId: `stroke:${index}`,
+                sourceTopology: topology.topologyFamily,
+                previewMode: 'exact'
+              })
+            }
+          },
+          paint: {
+            geometryId,
+            kind: stroke.kind,
+            color: stroke.color,
+            alpha: stroke.alpha,
+            gradientStyle: stroke.gradientStyle,
+            paintKey: stroke.paintKey
+          }
+        }
+      })
     }
 
     const exactArrangementCandidatePolygons =

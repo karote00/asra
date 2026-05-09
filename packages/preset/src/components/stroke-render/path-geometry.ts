@@ -43,6 +43,12 @@ export interface PathSampleFrame {
   sharpJoin?: boolean
 }
 
+export interface PathSliceSamplingOptions {
+  minCubicSamples?: number
+  maxCubicSamples?: number
+  useRangeLengthForSampleCount?: boolean
+}
+
 const EPS = 1e-6
 const CURVE_TESSELLATION_TOLERANCE = 0.25
 
@@ -201,14 +207,21 @@ const sampleCubicSegmentFrames = (
   segment: Extract<PathSegment, { type: 'cubic' }>,
   startLength: number,
   endLength: number,
-  tolerance: number
+  tolerance: number,
+  samplingOptions: PathSliceSamplingOptions = {}
 ): PathSampleFrame[] => {
   const t0 = getCurveTAtLength(segment, startLength)
   const t1 = getCurveTAtLength(segment, endLength)
   const splitCurve = toBezier(segment).split(t0, t1)
+  const minSamples = samplingOptions.minCubicSamples ?? 8
+  const maxSamples = samplingOptions.maxCubicSamples ?? 256
+  const sampleLength =
+    samplingOptions.useRangeLengthForSampleCount === true
+      ? endLength - startLength
+      : splitCurve.length()
   const sampleCount = Math.max(
-    8,
-    Math.min(256, Math.ceil(splitCurve.length() / Math.max(0.2, tolerance)))
+    minSamples,
+    Math.min(maxSamples, Math.ceil(sampleLength / Math.max(0.2, tolerance)))
   )
   const frames: PathSampleFrame[] = []
 
@@ -252,7 +265,8 @@ const slicePathSegmentFrames = (
   segment: PathSegment,
   startLength: number,
   endLength: number,
-  tolerance: number
+  tolerance: number,
+  samplingOptions?: PathSliceSamplingOptions
 ): PathSampleFrame[] => {
   if (endLength - startLength <= EPS) {
     return []
@@ -260,7 +274,13 @@ const slicePathSegmentFrames = (
 
   return segment.type === 'line'
     ? sampleLineSegmentFrames(segment, startLength, endLength)
-    : sampleCubicSegmentFrames(segment, startLength, endLength, tolerance)
+    : sampleCubicSegmentFrames(
+        segment,
+        startLength,
+        endLength,
+        tolerance,
+        samplingOptions
+      )
 }
 
 export const slicePathSegmentPoints = (
@@ -280,7 +300,8 @@ const slicePathGeometryPointRange = (
   path: Pick<PathGeometry, 'segments'>,
   startLength: number,
   endLength: number,
-  tolerance: number
+  tolerance: number,
+  samplingOptions?: PathSliceSamplingOptions
 ) => {
   if (endLength <= startLength || path.segments.length === 0) {
     return []
@@ -308,7 +329,8 @@ const slicePathGeometryPointRange = (
       segment,
       overlapStart - segmentStart,
       overlapEnd - segmentStart,
-      tolerance
+      tolerance,
+      samplingOptions
     ).map((frame) => frame.point)
 
     if (segmentPoints.length === 0) {
@@ -383,19 +405,33 @@ export const slicePathGeometryPoints = (
   startLength: number,
   endLength: number,
   wrapsSeam: boolean,
-  tolerance = CURVE_TESSELLATION_TOLERANCE
+  tolerance = CURVE_TESSELLATION_TOLERANCE,
+  samplingOptions?: PathSliceSamplingOptions
 ) => {
   if (!wrapsSeam) {
-    return slicePathGeometryPointRange(path, startLength, endLength, tolerance)
+    return slicePathGeometryPointRange(
+      path,
+      startLength,
+      endLength,
+      tolerance,
+      samplingOptions
+    )
   }
 
   const tail = slicePathGeometryPointRange(
     path,
     startLength,
     path.totalLength,
-    tolerance
+    tolerance,
+    samplingOptions
   )
-  const head = slicePathGeometryPointRange(path, 0, endLength, tolerance)
+  const head = slicePathGeometryPointRange(
+    path,
+    0,
+    endLength,
+    tolerance,
+    samplingOptions
+  )
   return dedupeAdjacentPoints(mergePointLists(tail, head))
 }
 

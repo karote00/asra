@@ -1340,33 +1340,24 @@ describe('Vector Component', () => {
     })
   })
 
-  it('should run: not schedule initial exact fill rebuild for self-intersecting reload preview', () => {
-    vi.useFakeTimers()
-    try {
-      const renderStrategy = renderStrategyRegistry.get('vector')
-      expect(renderStrategy).toBeDefined()
+  it('should run: rebuild self-intersecting vector fill synchronously without deferred timers', () => {
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
 
-      if (!renderStrategy) return
-      const mockGraphic = createMeshMockGraphic()
-      const mockData = createSelfIntersectingStarsVectorData(1)
+    if (!renderStrategy) return
+    const mockGraphic = createMeshMockGraphic()
+    const mockData = createSelfIntersectingStarsVectorData(1)
 
-      runRenderStrategy(renderStrategy, mockGraphic, mockData)
+    runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
-      const cache = (
-        mockGraphic as typeof mockGraphic & {
-          __asyraVectorFillCache?: {
-            pendingTimerId?: ReturnType<typeof setTimeout>
-            faces: unknown[]
-          }
+    const cache = (
+      mockGraphic as typeof mockGraphic & {
+        __asyraVectorFillCache?: {
+          faces: unknown[]
         }
-      ).__asyraVectorFillCache
-      expect(cache?.faces).toEqual([])
-      expect(cache?.pendingTimerId).toBeUndefined()
-      vi.runOnlyPendingTimers()
-      expect(cache?.faces).toEqual([])
-    } finally {
-      vi.useRealTimers()
-    }
+      }
+    ).__asyraVectorFillCache
+    expect(cache?.faces.length).toBeGreaterThan(0)
   })
 
   it('should run: ignore malformed vector topology fields instead of throwing during render', () => {

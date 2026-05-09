@@ -43,6 +43,7 @@ import {
   buildConstrainedSolidStrokeResolvedPackets,
   hasConstrainedSolidStrokeIntent
 } from './stroke-render/constrained-solid-stroke-packets'
+import { getRenderableStrokes } from './stroke-render/renderable-stroke'
 import {
   clearConstrainedSolidRuntimeDiagnostics,
   setConstrainedSolidRuntimeDiagnostics,
@@ -293,11 +294,6 @@ const getNumericSuffix = (value: string) => {
   return Number.parseInt(match[1], 10)
 }
 
-const getNow = () =>
-  typeof performance !== 'undefined' && typeof performance.now === 'function'
-    ? performance.now()
-    : Date.now()
-
 type SolidStrokeFinalFaceList = ReturnType<
   typeof buildSolidCenterStrokeFinalFaces
 >
@@ -320,6 +316,7 @@ const isExactConstrainedSolidCandidatePacket = (
   return (
     debugMeta?.geometryFamily === 'constrained-solid' &&
     debugMeta.resolutionStatus === 'exact-constrained' &&
+    debugMeta.visualOverlapCollapseStatus !== 'exact-union' &&
     (debugMeta.sourceSpanIds?.length ?? 0) > 0
   )
 }
@@ -393,7 +390,8 @@ const canUseExactSingleNetworkConstrainedSolidFacesDirectly = (
     if (
       face.geometryFamily !== 'constrained-solid' ||
       face.resolutionStatus !== 'exact-constrained' ||
-      face.debugMeta?.arrangementStatus !== 'exact'
+      (face.debugMeta?.arrangementStatus !== 'exact' &&
+        face.debugMeta?.visualOverlapCollapseStatus !== 'exact-union')
     ) {
       return false
     }
@@ -806,11 +804,6 @@ interface Vec2 {
 
 interface FillFaceCache {
   faces: Vec2[][]
-  lastRebuildAt: number
-  lastRenderAt: number
-  revision: number
-  pendingTimerId?: ReturnType<typeof setTimeout>
-  dragSuppressed?: boolean
   segmentKeyMap?: Record<string, string>
   segmentLinesMap?: Record<string, LineSegment[]>
 }
@@ -882,11 +875,6 @@ const DEFAULT_FLATTEN_SEGMENT_LENGTH = 12
 const INTERSECTION_EPS = 1e-6
 const NODE_KEY_EPS = 1e-4
 const MAX_OPEN_SEGMENTS = 1200
-const FILL_REBUILD_MIN_INTERVAL_MS = 120
-const FILL_HEAVY_REBUILD_MIN_INTERVAL_MS = 260
-const FILL_RAPID_RENDER_THRESHOLD_MS = 40
-const FILL_DEFERRED_REBUILD_MS = 140
-const FILL_HEAVY_COMPLEXITY_THRESHOLD = 320
 const EVEN_ODD_DRAG_MAX_RASTER_PIXELS = 160_000
 
 const cubicBezierPoint = (
@@ -1703,26 +1691,6 @@ const buildEvenOddShape = (
   return shape
 }
 
-const estimateFlattenedSegmentComplexity = (
-  orderedNetworks: VectorNetwork[],
-  points: Record<string, VectorPointNode>,
-  segments: Record<string, VectorSegment>
-) => {
-  let count = 0
-  orderedNetworks.forEach((network) => {
-    network.segmentIds.forEach((segmentId) => {
-      const segment = segments[segmentId]
-      if (!segment) {
-        return
-      }
-      const outControl = getControlNode(points, segment.outControlId)
-      const inControl = getControlNode(points, segment.inControlId)
-      count += outControl || inControl ? MIN_FLATTEN_STEPS : 1
-    })
-  })
-  return count
-}
-
 const drawVectorNetworkPath = (
   graphic: Parameters<RenderStrategy>[0],
   network: VectorNetwork,
@@ -1837,8 +1805,7 @@ const isSelectToolDrag = (): boolean => {
 
 const renderVectorGraphic = (
   graphic: Parameters<RenderStrategy>[0],
-  data: unknown,
-  options: { forceFillRebuild?: boolean; allowDeferredFill?: boolean } = {}
+  data: unknown
 ) => {
   const renderData = normalizeVectorRenderData(data)
   const graphicCache = graphic as typeof graphic & {
@@ -1941,9 +1908,6 @@ const renderVectorGraphic = (
       __asyraVectorPathTopologyModelCount?: number
     }
   ).__asyraVectorPathTopologyModelCount = networkPaths.length
-  const selfIntersectingNetworkCount = networkPaths.filter(
-    ({ topology }) => topology.topologyFamily === 'self-intersecting'
-  ).length
   const closedNetworkPaths = networkPaths.filter(
     ({ topology }) => topology.closed
   )
@@ -2104,6 +2068,27 @@ const renderVectorGraphic = (
     ({ topology }) =>
       topology.closed && hasConstrainedSolidStrokeIntent(renderData.strokes)
   )
+  const constrainedSolidRenderableStrokeCount = getRenderableStrokes(
+    renderData.strokes
+  ).filter(
+    (stroke) =>
+      stroke.style === 'solid' &&
+      (stroke.position === 'inside' || stroke.position === 'outside') &&
+      stroke.width > 0
+  ).length
+  const canUseDirectConstrainedSolidFastPath =
+    constrainedSolidRenderableStrokeCount === 1 &&
+    closedNetworkPaths.length === 1 &&
+    !hasSourceBoundsOverlap &&
+    !hasCompoundLegalDomain &&
+    !shouldBuildGlobalOverlapConstrainedSolid &&
+    !shouldDisableVisualOverlapCollapse
+  const getConstrainedSolidCandidateMode = (topology: PathTopologyModel) =>
+    canUseDirectConstrainedSolidFastPath &&
+    (topology.topologyFamily === 'rectangle-equivalent' ||
+      topology.topologyFamily === 'sampled-simple-closed')
+      ? 'direct-local-side-exact'
+      : 'exact-arrangement'
   const constrainedSolidDiagnostics = (() => {
     if (!hasConstrainedSolidIntent) {
       return networkPaths.map(({ network, topology }) => ({
@@ -2139,7 +2124,7 @@ const renderVectorGraphic = (
                   ),
                   exactBackend: constrainedSolidExactBackend ?? undefined,
                   fillRule: topology.fillRule,
-                  candidateMode: 'exact-arrangement'
+                  candidateMode: getConstrainedSolidCandidateMode(topology)
                 }
               )
             : []
@@ -2213,7 +2198,7 @@ const renderVectorGraphic = (
           selectedSideGuardPoints: getNetworkAnchorGuardPoints(network, points),
           exactBackend: constrainedSolidExactBackend ?? undefined,
           fillRule: topology.fillRule,
-          candidateMode: 'exact-arrangement'
+          candidateMode: getConstrainedSolidCandidateMode(topology)
         }
       )
 
@@ -2506,7 +2491,7 @@ const renderVectorGraphic = (
                 ),
                 exactBackend: constrainedSolidExactBackend ?? undefined,
                 fillRule: topology.fillRule,
-                candidateMode: 'exact-arrangement'
+                candidateMode: getConstrainedSolidCandidateMode(topology)
               }
             ))
           : [])
@@ -2665,113 +2650,25 @@ const renderVectorGraphic = (
         graphicCache.__asyraEvenOddFillCache.fill.dispose()
         graphicCache.__asyraEvenOddFillCache = undefined
       }
-      const now = getNow()
       const cache = graphicCache.__asyraVectorFillCache ?? {
-        faces: [],
-        lastRebuildAt: 0,
-        lastRenderAt: 0,
-        revision: 0
+        faces: []
       }
-      const lastRenderAt = cache.lastRenderAt
-      const complexity = estimateFlattenedSegmentComplexity(
+      const {
+        flattenedSegments,
+        directedSegments,
+        segmentKeyMap,
+        segmentLinesMap
+      } = buildFlattenedSegmentsWithCache(
         orderedNetworks,
         points,
-        segments
+        segments,
+        cache
       )
-      const heavy = complexity >= FILL_HEAVY_COMPLEXITY_THRESHOLD
-      const hasSelfIntersectingTopology = selfIntersectingNetworkCount > 0
-      const shouldYieldInitialExactFill =
-        options.allowDeferredFill !== false &&
-        !options.forceFillRebuild &&
-        !dragSuppressed &&
-        cache.faces.length === 0 &&
-        (heavy || hasSelfIntersectingTopology)
-      const shouldSuppressInitialDeferredExactFill =
-        shouldYieldInitialExactFill && hasSelfIntersectingTopology
-      const dragReleased = cache.dragSuppressed === true && !dragSuppressed
-      const rebuildInterval = heavy
-        ? FILL_HEAVY_REBUILD_MIN_INTERVAL_MS
-        : FILL_REBUILD_MIN_INTERVAL_MS
-      const rapidRender = now - lastRenderAt < FILL_RAPID_RENDER_THRESHOLD_MS
-      const shouldRebuild =
-        !shouldYieldInitialExactFill &&
-        (options.forceFillRebuild ||
-          dragReleased ||
-          (dragSuppressed
-            ? true
-            : !rapidRender && now - cache.lastRebuildAt >= rebuildInterval))
-
-      if (cache.pendingTimerId) {
-        clearTimeout(cache.pendingTimerId)
-        cache.pendingTimerId = undefined
-      }
-
-      let fillFaces = cache.faces
-      if (shouldRebuild) {
-        const {
-          flattenedSegments,
-          directedSegments,
-          segmentKeyMap,
-          segmentLinesMap
-        } = buildFlattenedSegmentsWithCache(
-          orderedNetworks,
-          points,
-          segments,
-          cache
-        )
-        fillFaces = buildFillFaces(flattenedSegments, directedSegments)
-        cache.faces = fillFaces
-        cache.lastRebuildAt = now
-        cache.segmentKeyMap = segmentKeyMap
-        cache.segmentLinesMap = segmentLinesMap
-      }
-
-      cache.lastRenderAt = now
-      cache.revision += 1
-      cache.dragSuppressed = dragSuppressed
+      const fillFaces = buildFillFaces(flattenedSegments, directedSegments)
+      cache.faces = fillFaces
+      cache.segmentKeyMap = segmentKeyMap
+      cache.segmentLinesMap = segmentLinesMap
       graphicCache.__asyraVectorFillCache = cache
-
-      if (
-        !dragSuppressed &&
-        !shouldRebuild &&
-        !shouldSuppressInitialDeferredExactFill &&
-        options.allowDeferredFill !== false
-      ) {
-        const scheduledRevision = cache.revision
-        const deferredDelay = heavy
-          ? FILL_DEFERRED_REBUILD_MS * 2
-          : FILL_DEFERRED_REBUILD_MS
-        cache.pendingTimerId = setTimeout(() => {
-          const activeCache = graphicCache.__asyraVectorFillCache
-          if (!activeCache || activeCache.revision !== scheduledRevision) {
-            return
-          }
-          if ('destroyed' in graphic && graphic.destroyed) {
-            return
-          }
-          const {
-            flattenedSegments,
-            directedSegments,
-            segmentKeyMap,
-            segmentLinesMap
-          } = buildFlattenedSegmentsWithCache(
-            orderedNetworks,
-            points,
-            segments,
-            activeCache
-          )
-          const deferredFaces = buildFillFaces(
-            flattenedSegments,
-            directedSegments
-          )
-          activeCache.faces = deferredFaces
-          activeCache.lastRebuildAt = getNow()
-          activeCache.pendingTimerId = undefined
-          activeCache.segmentKeyMap = segmentKeyMap
-          activeCache.segmentLinesMap = segmentLinesMap
-          renderVectorGraphic(graphic, renderData, { allowDeferredFill: false })
-        }, deferredDelay)
-      }
 
       if (fillFaces.length > 0) {
         drawFillFaces(graphic, fillFaces)
@@ -2786,10 +2683,6 @@ const renderVectorGraphic = (
     if (graphicCache.__asyraEvenOddFillCache?.fill) {
       graphicCache.__asyraEvenOddFillCache.fill.dispose()
       graphicCache.__asyraEvenOddFillCache = undefined
-    }
-    if (graphicCache.__asyraVectorFillCache?.pendingTimerId) {
-      clearTimeout(graphicCache.__asyraVectorFillCache.pendingTimerId)
-      graphicCache.__asyraVectorFillCache.pendingTimerId = undefined
     }
   }
 

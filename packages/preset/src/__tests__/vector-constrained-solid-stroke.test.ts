@@ -732,7 +732,8 @@ describe('vector constrained solid stroke product wiring', () => {
       exportPackets.every(
         (packet) =>
           packet.debugMeta?.geometryFamily === 'constrained-solid' &&
-          packet.debugMeta?.arrangementStatus === 'exact' &&
+          (packet.debugMeta?.arrangementStatus === 'exact' ||
+            packet.debugMeta?.visualOverlapCollapseStatus === 'exact-union') &&
           packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
           packet.debugMeta?.runtimeStatus === 'accepted'
       )
@@ -1166,6 +1167,83 @@ describe('vector constrained solid stroke product wiring', () => {
       acceptedCount: 1,
       blockedCount: 0
     })
+  })
+
+  it('should run: render simple constrained solid slider updates through the direct exact fast path', () => {
+    const baseData = {
+      id: 'vector-constrained-solid-slider-direct-exact',
+      x: 0,
+      y: 0,
+      width: 80,
+      height: 80,
+      ...toVectorData(
+        [
+          { id: 'a', x: 0, y: 0 },
+          { id: 'b', x: 80, y: 0 },
+          { id: 'c', x: 80, y: 80 },
+          { id: 'd', x: 0, y: 80 }
+        ],
+        true
+      ),
+      closed: true,
+      fills: []
+    }
+    const graphic = new RecordingVectorGraphic()
+
+    runVectorRenderStrategyIntoGraphic(graphic, {
+      ...baseData,
+      strokes: [
+        createDefaultStroke({
+          width: 6,
+          style: StrokeStyles.SOLID,
+          position: StrokePositions.INSIDE,
+          joinType: StrokeJoinTypes.ROUND
+        })
+      ]
+    })
+    const firstExportPackets =
+      graphic.__asyraSolidCenterStrokeExportPackets ?? []
+    expect(firstExportPackets.length).toBeGreaterThan(1)
+    expect(
+      firstExportPackets.every(
+        (packet) =>
+          packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
+          packet.debugMeta?.runtimeStatus === 'accepted'
+      )
+    ).toBe(true)
+    expect(
+      firstExportPackets.some(
+        (packet) => packet.debugMeta?.arrangementStatus === 'exact'
+      )
+    ).toBe(false)
+
+    runVectorRenderStrategyIntoGraphic(graphic, {
+      ...baseData,
+      strokes: [
+        createDefaultStroke({
+          width: 10,
+          style: StrokeStyles.SOLID,
+          position: StrokePositions.INSIDE,
+          joinType: StrokeJoinTypes.ROUND
+        })
+      ]
+    })
+    const nextExportPackets =
+      graphic.__asyraSolidCenterStrokeExportPackets ?? []
+
+    expect(nextExportPackets.length).toBe(firstExportPackets.length)
+    expect(
+      nextExportPackets.every(
+        (packet) =>
+          packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
+          packet.debugMeta?.runtimeStatus === 'accepted'
+      )
+    ).toBe(true)
+    expect(
+      nextExportPackets.some(
+        (packet) => packet.debugMeta?.arrangementStatus === 'exact'
+      )
+    ).toBe(false)
   })
 
   it('should run: switch reported vector-6 from inside solid to center solid without blocking render', () => {

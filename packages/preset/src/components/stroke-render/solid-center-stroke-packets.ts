@@ -261,51 +261,9 @@ export const hasSolidCenterStrokeIntent = (
       stroke.width > 0
   ) === true
 
-const roundGeometryCoordinate = (value: number) =>
-  Math.round(value * 1_000_000) / 1_000_000
-
-const buildPolygonSignature = (polygon: Vec2[]) => {
-  const points = polygon.map(
-    (point) =>
-      `${roundGeometryCoordinate(point.x)},${roundGeometryCoordinate(point.y)}`
-  )
-  const rotations = points.map((_, index) => [
-    ...points.slice(index),
-    ...points.slice(0, index)
-  ])
-  const reversedPoints = [...points].reverse()
-  const reversedRotations = reversedPoints.map((_, index) => [
-    ...reversedPoints.slice(index),
-    ...reversedPoints.slice(0, index)
-  ])
-
-  return [...rotations, ...reversedRotations]
-    .map((rotation) => rotation.join('|'))
-    .sort((left, right) => left.localeCompare(right))[0]
-}
-
 const normalizePacketPolygons = (polygons: Vec2[][]) => {
-  const seen = new Set<string>()
-  const normalized: Vec2[][] = []
-  let changed = false
-
-  polygons.forEach((polygon) => {
-    if (polygon.length < 3) {
-      changed = true
-      return
-    }
-
-    const signature = buildPolygonSignature(polygon)
-    if (seen.has(signature)) {
-      changed = true
-      return
-    }
-
-    seen.add(signature)
-    normalized.push(polygon)
-  })
-
-  return changed ? normalized : polygons
+  const normalized = polygons.filter((polygon) => polygon.length >= 3)
+  return normalized.length === polygons.length ? polygons : normalized
 }
 
 const normalizedResolvedPacketCache = new WeakMap<

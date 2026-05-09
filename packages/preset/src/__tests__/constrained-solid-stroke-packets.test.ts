@@ -576,6 +576,46 @@ describe('constrained solid stroke packets', () => {
     ).toBe(false)
   })
 
+  it('should run: emit direct local-side exact packets without exact arrangement metadata', () => {
+    const packets = buildConstrainedSolidStrokeResolvedPackets(
+      'rect:direct',
+      [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 20 },
+        { x: 0, y: 20 }
+      ],
+      true,
+      [createDefaultStroke({ width: 4, style: 'solid', position: 'inside' })],
+      { candidateMode: 'direct-local-side-exact' }
+    )
+
+    expect(packets.length).toBeGreaterThan(1)
+    expect(
+      packets.every((packet) =>
+        expect
+          .objectContaining({
+            geometryFamily: 'constrained-solid',
+            resolutionStatus: 'exact-constrained',
+            runtimeStatus: 'accepted',
+            runtimeReason: 'constrained-solid-exact',
+            visualOverlapCollapseStatus: 'exact-union'
+          })
+          .asymmetricMatch(packet.geometry.debugMeta)
+      )
+    ).toBe(true)
+    expect(
+      packets.some(
+        (packet) => packet.geometry.debugMeta?.arrangementStatus === 'exact'
+      )
+    ).toBe(false)
+    expect(
+      packets.flatMap(
+        (packet) => packet.geometry.debugMeta?.sourceSpanIds ?? []
+      )
+    ).toEqual(expect.arrayContaining(['segment:0', 'vertex:0']))
+  })
+
   it('should run: derive render, hit, and export packets from the same constrained final geometry source', () => {
     const packets = buildConstrainedSolidStrokeResolvedPackets(
       'rect:test',

@@ -29,7 +29,8 @@ import {
   slicePathSegmentPoints,
   slicePathGeometryPoints,
   type PathSegment,
-  type PathGeometry
+  type PathGeometry,
+  type PathSliceSamplingOptions
 } from './path-geometry'
 import {
   buildSourceSpanGraph,
@@ -142,6 +143,14 @@ export interface ConstrainedDashedRuntimeStatusClassification {
 }
 
 const EPSILON = 1e-6
+const SOURCE_PATH_DASH_SLICE_TOLERANCE = 0.25
+const SOURCE_PATH_DASH_SLICE_SAMPLING: PathSliceSamplingOptions = {
+  minCubicSamples: 16,
+  maxCubicSamples: 256,
+  useRangeLengthForSampleCount: true
+}
+const SOURCE_PATH_DASH_SEGMENT_OVERLAP_FACTOR = 0.04
+const SOURCE_PATH_DASH_SEGMENT_OVERLAP_MAX = 0.6
 
 type DashedTopologyInterval = ReturnType<
   typeof allocateDashedIntervalsForTopology
@@ -1101,6 +1110,11 @@ interface ClipEdge {
   dy: number
 }
 
+interface ClosedIntervalLegalityContext {
+  orientation: number
+  clipEdges: ClipEdge[]
+}
+
 const buildClipEdges = (boundary: Vec2[]): ClipEdge[] =>
   boundary.map((start, index) => {
     const end = boundary[(index + 1) % boundary.length]
@@ -1189,31 +1203,73 @@ const clipPolygonToClosedLegalDomain = (
 
 const applyClosedIntervalLegality = (
   polygons: Vec2[][],
+  context: ClosedIntervalLegalityContext | null
+) => {
+  if (!context) {
+    return polygons
+  }
+  if (context.clipEdges.length === 0) {
+    return []
+  }
+
+  return polygons
+    .map((polygon) =>
+      clipPolygonToClosedLegalDomain(
+        polygon,
+        context.clipEdges,
+        context.orientation
+      )
+    )
+    .filter((polygon) => polygon.length >= 3)
+}
+
+const buildClosedIntervalLegalityContext = (
   points: Vec2[],
   closed: boolean,
   stroke: RenderableStroke
-) => {
+): ClosedIntervalLegalityContext | null => {
   if (!closed || stroke.position !== 'inside') {
-    return polygons
+    return null
   }
 
   const boundary = getCanonicalClosedLoopPoints(points, closed)
   const orientationArea = polygonArea(boundary)
   if (boundary.length < 3 || Math.abs(orientationArea) <= EPSILON) {
-    return []
+    return {
+      orientation: 1,
+      clipEdges: []
+    }
   }
 
-  const orientation = orientationArea > 0 ? 1 : -1
-  const clipEdges = buildClipEdges(boundary)
-  return polygons
-    .map((polygon) =>
-      clipPolygonToClosedLegalDomain(polygon, clipEdges, orientation)
-    )
-    .filter((polygon) => polygon.length >= 3)
+  return {
+    orientation: orientationArea > 0 ? 1 : -1,
+    clipEdges: buildClipEdges(boundary)
+  }
 }
 
 const normalizeDistanceOnLoop = (distance: number, totalLength: number) =>
   totalLength > 0 ? ((distance % totalLength) + totalLength) % totalLength : 0
+
+interface SourcePathSegmentRange {
+  index: number
+  startDistance: number
+  endDistance: number
+}
+
+interface SourceSegmentIntervalRange {
+  startDistance: number
+  endDistance: number
+  segmentIndex: number
+}
+
+interface SourcePathSlicingContext {
+  segmentRanges: SourcePathSegmentRange[]
+  splitRangeCache: Map<string, SourceSegmentIntervalRange[]>
+  pointSliceCache: Map<string, Vec2[]>
+  segmentBoundaryCache: Map<number, Vec2[]>
+  samplingTolerance: number
+  samplingOptions: PathSliceSamplingOptions
+}
 
 const getSourcePathSegmentRanges = (path: Pick<PathGeometry, 'segments'>) => {
   let cursor = 0
@@ -1228,16 +1284,67 @@ const getSourcePathSegmentRanges = (path: Pick<PathGeometry, 'segments'>) => {
   })
 }
 
+const formatSourcePathRangeKeyDistance = (distance: number) =>
+  distance.toFixed(6)
+
+const buildSourcePathSplitCacheKey = (
+  startDistance: number,
+  endDistance: number,
+  wrapsSeam = false
+) =>
+  `${wrapsSeam ? 'wrap' : 'range'}:${formatSourcePathRangeKeyDistance(
+    startDistance
+  )}:${formatSourcePathRangeKeyDistance(endDistance)}`
+
+const buildSourcePathSliceCacheKey = (
+  range: SourceSegmentIntervalRange,
+  role: ConstrainedDashedPhysicalSpanRole
+) =>
+  `${range.segmentIndex}:${role}:${formatSourcePathRangeKeyDistance(
+    range.startDistance
+  )}:${formatSourcePathRangeKeyDistance(range.endDistance)}`
+
+const createSourcePathSlicingContext = (
+  path: Pick<PathGeometry, 'segments'>,
+  samplingTolerance = SOURCE_PATH_DASH_SLICE_TOLERANCE,
+  samplingOptions = SOURCE_PATH_DASH_SLICE_SAMPLING
+): SourcePathSlicingContext => ({
+  segmentRanges: getSourcePathSegmentRanges(path),
+  splitRangeCache: new Map(),
+  pointSliceCache: new Map(),
+  segmentBoundaryCache: new Map(),
+  samplingTolerance,
+  samplingOptions
+})
+
+const sliceSourcePathSegmentRangePoints = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  range: SourceSegmentIntervalRange,
+  slicingContext: SourcePathSlicingContext
+) => {
+  return slicePathGeometryPoints(
+    path,
+    range.startDistance,
+    range.endDistance,
+    false,
+    slicingContext.samplingTolerance,
+    slicingContext.samplingOptions
+  )
+}
+
 const splitSourcePathRangeBySegmentBoundaries = (
   path: Pick<PathGeometry, 'segments'>,
   startDistance: number,
-  endDistance: number
+  endDistance: number,
+  slicingContext?: SourcePathSlicingContext
 ) => {
   if (endDistance - startDistance <= EPSILON) {
     return []
   }
 
-  return getSourcePathSegmentRanges(path).flatMap((segment) => {
+  const segmentRanges =
+    slicingContext?.segmentRanges ?? getSourcePathSegmentRanges(path)
+  return segmentRanges.flatMap((segment) => {
     const start = Math.max(startDistance, segment.startDistance)
     const end = Math.min(endDistance, segment.endDistance)
     return end - start > EPSILON
@@ -1257,34 +1364,222 @@ const splitVisibleIntervalBySourceSegments = (
   interval: Pick<
     ReturnType<typeof allocateDashedIntervalsForTopology>[number],
     'startDistance' | 'endDistance' | 'wrapsSeam'
-  >
+  >,
+  slicingContext?: SourcePathSlicingContext
 ) => {
   if (path.segments.length === 0 || path.totalLength <= EPSILON) {
     return []
   }
 
+  const cacheKey = slicingContext
+    ? buildSourcePathSplitCacheKey(
+        interval.startDistance,
+        interval.endDistance,
+        interval.wrapsSeam
+      )
+    : null
+  const cached = cacheKey
+    ? slicingContext?.splitRangeCache.get(cacheKey)
+    : undefined
+  if (cached) {
+    return cached
+  }
+
   if (interval.wrapsSeam) {
-    return [
+    const ranges = [
       ...splitSourcePathRangeBySegmentBoundaries(
         path,
         interval.startDistance,
-        path.totalLength
+        path.totalLength,
+        slicingContext
       ),
-      ...splitSourcePathRangeBySegmentBoundaries(path, 0, interval.endDistance)
+      ...splitSourcePathRangeBySegmentBoundaries(
+        path,
+        0,
+        interval.endDistance,
+        slicingContext
+      )
     ]
+    if (cacheKey) {
+      slicingContext?.splitRangeCache.set(cacheKey, ranges)
+    }
+    return ranges
   }
 
-  return splitSourcePathRangeBySegmentBoundaries(
+  const ranges = splitSourcePathRangeBySegmentBoundaries(
     path,
     interval.startDistance,
-    interval.endDistance
+    interval.endDistance,
+    slicingContext
   )
+  if (cacheKey) {
+    slicingContext?.splitRangeCache.set(cacheKey, ranges)
+  }
+  return ranges
 }
 
-interface SourceSegmentIntervalRange {
-  startDistance: number
-  endDistance: number
-  segmentIndex: number
+const sliceSourcePathRangePoints = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  range: SourceSegmentIntervalRange,
+  role: ConstrainedDashedPhysicalSpanRole,
+  slicingContext?: SourcePathSlicingContext
+) => {
+  if (!slicingContext) {
+    return slicePathGeometryPoints(
+      path,
+      range.startDistance,
+      range.endDistance,
+      false
+    )
+  }
+
+  const cacheKey = buildSourcePathSliceCacheKey(range, role)
+  const cached = slicingContext.pointSliceCache.get(cacheKey)
+  if (cached) {
+    return cached
+  }
+
+  const points = sliceSourcePathSegmentRangePoints(path, range, slicingContext)
+  slicingContext.pointSliceCache.set(cacheKey, points)
+  return points
+}
+
+const areSourcePathLoopDistancesEqual = (
+  left: number,
+  right: number,
+  totalLength: number
+) => {
+  if (totalLength <= EPSILON) {
+    return Math.abs(left - right) <= EPSILON
+  }
+
+  const delta = Math.abs(
+    normalizeLoopDistance(left, totalLength) -
+      normalizeLoopDistance(right, totalLength)
+  )
+  return Math.min(delta, totalLength - delta) <= EPSILON
+}
+
+const isSourcePathSeamDistance = (distance: number, totalLength: number) =>
+  distance <= EPSILON || Math.abs(distance - totalLength) <= EPSILON
+
+const hasPhysicalSpanEndingAtBoundary = (
+  physicalSpans: ConstrainedDashedPhysicalSpan[],
+  boundary: number,
+  totalLength: number,
+  roles: ConstrainedDashedPhysicalSpanRole[]
+) =>
+  physicalSpans.some(
+    (candidate) =>
+      roles.includes(candidate.role) &&
+      areSourcePathLoopDistancesEqual(
+        candidate.endDistance,
+        boundary,
+        totalLength
+      )
+  )
+
+const hasPhysicalSpanStartingAtBoundary = (
+  physicalSpans: ConstrainedDashedPhysicalSpan[],
+  boundary: number,
+  totalLength: number,
+  roles: ConstrainedDashedPhysicalSpanRole[]
+) =>
+  physicalSpans.some(
+    (candidate) =>
+      roles.includes(candidate.role) &&
+      areSourcePathLoopDistancesEqual(
+        candidate.startDistance,
+        boundary,
+        totalLength
+      )
+  )
+
+const buildOverlappedSourcePathRenderRange = (
+  path: Pick<PathGeometry, 'totalLength'>,
+  range: SourceSegmentIntervalRange,
+  span: ConstrainedDashedPhysicalSpan,
+  physicalSpans: ConstrainedDashedPhysicalSpan[],
+  stroke: Pick<RenderableStroke, 'cap' | 'width'>
+): SourceSegmentIntervalRange => {
+  const overlap = Math.min(
+    SOURCE_PATH_DASH_SEGMENT_OVERLAP_MAX,
+    Math.max(0, stroke.width * SOURCE_PATH_DASH_SEGMENT_OVERLAP_FACTOR)
+  )
+  if (overlap <= EPSILON) {
+    return range
+  }
+
+  const startsAfterSpanStart =
+    range.startDistance > span.startDistance + EPSILON
+  const endsBeforeSpanEnd = range.endDistance < span.endDistance - EPSILON
+  const rangeStartsAtSpanStart =
+    Math.abs(range.startDistance - span.startDistance) <= EPSILON
+  const rangeEndsAtSpanEnd =
+    Math.abs(range.endDistance - span.endDistance) <= EPSILON
+  const startIsSeam = isSourcePathSeamDistance(
+    range.startDistance,
+    path.totalLength
+  )
+  const endIsSeam = isSourcePathSeamDistance(
+    range.endDistance,
+    path.totalLength
+  )
+  const overlapsSquareCapStartBoundary =
+    stroke.cap === 'square' &&
+    rangeStartsAtSpanStart &&
+    !startIsSeam &&
+    ((span.role === 'core' &&
+      hasPhysicalSpanEndingAtBoundary(
+        physicalSpans,
+        range.startDistance,
+        path.totalLength,
+        ['start-cap']
+      )) ||
+      (span.role === 'end-cap' &&
+        hasPhysicalSpanEndingAtBoundary(
+          physicalSpans,
+          range.startDistance,
+          path.totalLength,
+          ['core']
+        )))
+  const overlapsSquareCapEndBoundary =
+    stroke.cap === 'square' &&
+    rangeEndsAtSpanEnd &&
+    !endIsSeam &&
+    ((span.role === 'core' &&
+      hasPhysicalSpanStartingAtBoundary(
+        physicalSpans,
+        range.endDistance,
+        path.totalLength,
+        ['end-cap']
+      )) ||
+      (span.role === 'start-cap' &&
+        hasPhysicalSpanStartingAtBoundary(
+          physicalSpans,
+          range.endDistance,
+          path.totalLength,
+          ['core']
+        )))
+  const startDistance = startsAfterSpanStart
+    ? Math.max(0, range.startDistance - overlap)
+    : overlapsSquareCapStartBoundary
+      ? Math.max(0, range.startDistance - overlap)
+      : range.startDistance
+  const endDistance = endsBeforeSpanEnd
+    ? Math.min(path.totalLength, range.endDistance + overlap)
+    : overlapsSquareCapEndBoundary
+      ? Math.min(path.totalLength, range.endDistance + overlap)
+      : range.endDistance
+
+  return startDistance !== range.startDistance ||
+    endDistance !== range.endDistance
+    ? {
+        ...range,
+        startDistance,
+        endDistance
+      }
+    : range
 }
 
 const areSourceRangesAdjacent = (
@@ -1522,7 +1817,8 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
   authoredStroke: Pick<RenderableStroke, 'position' | 'dashPattern' | 'cap'>,
   intervalStroke: Pick<RenderableStroke, 'position' | 'width'>,
   physicalSpanRole: ConstrainedDashedPhysicalSpanRole = 'core',
-  sharpGuardVertices: SharpGuardVertex[] = []
+  sharpGuardVertices: SharpGuardVertex[] = [],
+  slicingContext?: SourcePathSlicingContext
 ) => {
   if (
     polygons.length === 0 ||
@@ -1533,7 +1829,8 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
     return polygons
   }
 
-  const segmentRanges = getSourcePathSegmentRanges(path)
+  const segmentRanges =
+    slicingContext?.segmentRanges ?? getSourcePathSegmentRanges(path)
   const segmentRange = segmentRanges[range.segmentIndex]
   if (!segmentRange) {
     return polygons
@@ -1622,22 +1919,33 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
     isSquareCapWrappedEndpointRange ||
     isSquareCapIntervalEndpointRange ||
     isSquareCapSegmentBoundaryEndpointRange
-  const previousSegment =
-    path.segments[
-      (range.segmentIndex - 1 + path.segments.length) % path.segments.length
-    ]
-  const nextSegment =
-    path.segments[(range.segmentIndex + 1) % path.segments.length]
+  const fallbackPolygons = polygons.filter(
+    (polygon) => polygon.length >= 3 && isSimpleClosedPolygon(polygon)
+  )
+  if (!touchesSegmentStart && !touchesSegmentEnd) {
+    return fallbackPolygons
+  }
+
   const previousBoundary = getBoundaryTail(
-    buildSourceSegmentBoundary(previousSegment),
+    getSourceSegmentBoundary(
+      path,
+      (range.segmentIndex - 1 + path.segments.length) % path.segments.length,
+      slicingContext
+    ),
     boundaryReach
   )
   const nextBoundary = getBoundaryHead(
-    buildSourceSegmentBoundary(nextSegment),
+    getSourceSegmentBoundary(
+      path,
+      (range.segmentIndex + 1) % path.segments.length,
+      slicingContext
+    ),
     boundaryReach
   )
-  const currentBoundary = buildSourceSegmentBoundary(
-    path.segments[range.segmentIndex]
+  const currentBoundary = getSourceSegmentBoundary(
+    path,
+    range.segmentIndex,
+    slicingContext
   )
   const currentHeadReference = getBoundaryHeadReferencePoint(
     currentBoundary,
@@ -1720,10 +2028,6 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
       : []
   })
 
-  const fallbackPolygons = polygons.filter(
-    (polygon) => polygon.length >= 3 && isSimpleClosedPolygon(polygon)
-  )
-
   if (
     isPathStartTerminalRange ||
     isPathEndTerminalRange ||
@@ -1733,11 +2037,11 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
   }
 
   if (clippedPolygons.length > 0) {
-    const sourceEdge = slicePathGeometryPoints(
+    const sourceEdge = sliceSourcePathRangePoints(
       path,
-      range.startDistance,
-      range.endDistance,
-      false
+      range,
+      physicalSpanRole,
+      slicingContext
     )
     const fallbackSourceEdgeCount = countSourceEdgeVertices(
       fallbackPolygons,
@@ -1886,6 +2190,41 @@ const findNearestSegmentRange = (
 
 const buildSourceSegmentBoundary = (segment: PathSegment | undefined) =>
   segment ? slicePathSegmentPoints(segment, 0, segment.length) : []
+
+const getSourceSegmentBoundary = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  segmentIndex: number,
+  slicingContext?: SourcePathSlicingContext
+) => {
+  const segment = path.segments[segmentIndex]
+  if (!segment) {
+    return []
+  }
+
+  if (!slicingContext) {
+    return buildSourceSegmentBoundary(segment)
+  }
+
+  const cached = slicingContext.segmentBoundaryCache.get(segmentIndex)
+  if (cached) {
+    return cached
+  }
+
+  const range = slicingContext.segmentRanges[segmentIndex]
+  const boundary = range
+    ? sliceSourcePathSegmentRangePoints(
+        path,
+        {
+          startDistance: range.startDistance,
+          endDistance: range.endDistance,
+          segmentIndex
+        },
+        slicingContext
+      )
+    : buildSourceSegmentBoundary(segment)
+  slicingContext.segmentBoundaryCache.set(segmentIndex, boundary)
+  return boundary
+}
 
 const buildSharpGuardVertices = (
   topologyPoints: Vec2[],
@@ -2979,6 +3318,16 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
       ]
     }
 
+    const sourcePath = options.sourcePath
+    const sourcePathSlicingContext = sourcePath
+      ? createSourcePathSlicingContext(sourcePath)
+      : undefined
+    const closedIntervalLegalityContext = buildClosedIntervalLegalityContext(
+      topologyPoints,
+      topology.closed,
+      stroke
+    )
+
     return visibleIntervals.flatMap((interval) => {
       const classification = classifyConstrainedDashedIntervalWithContext(
         topologyPoints,
@@ -2998,7 +3347,6 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
         return []
       }
 
-      const sourcePath = options.sourcePath
       const physicalSpans = getIntervalPhysicalSpans(topology, stroke, interval)
       const squareCapPhysicalStroke =
         stroke.cap === 'square'
@@ -3010,16 +3358,25 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
       const intervalPolygons = sourcePath
         ? (() => {
             const spanRanges = physicalSpans.flatMap((span) =>
-              splitVisibleIntervalBySourceSegments(sourcePath, span).map(
-                (range) => ({ range, span })
-              )
+              splitVisibleIntervalBySourceSegments(
+                sourcePath,
+                span,
+                sourcePathSlicingContext
+              ).map((range) => ({ range, span }))
             )
             const rangePolygons = spanRanges.flatMap(({ range, span }) => {
-              const rawIntervalPoints = slicePathGeometryPoints(
+              const renderRange = buildOverlappedSourcePathRenderRange(
                 sourcePath,
-                range.startDistance,
-                range.endDistance,
-                false
+                range,
+                span,
+                physicalSpans,
+                stroke
+              )
+              const rawIntervalPoints = sliceSourcePathRangePoints(
+                sourcePath,
+                renderRange,
+                span.role,
+                sourcePathSlicingContext
               )
               const rangePolygons =
                 buildConstrainedDashedLocalSideStrokePolygons(
@@ -3040,7 +3397,8 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 stroke,
                 intervalStroke,
                 span.role,
-                sharpGuardVertices
+                sharpGuardVertices,
+                sourcePathSlicingContext
               )
             })
             return [
@@ -3113,9 +3471,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
       const polygons = topology.isSimpleClosed
         ? applyClosedIntervalLegality(
             selectedSidePolygons,
-            topologyPoints,
-            topology.closed,
-            stroke
+            closedIntervalLegalityContext
           )
         : selectedSidePolygons
 
