@@ -68,6 +68,7 @@ const ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN = '20, 220'
 const ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET = '220'
 const ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN = '40, 200'
 const ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET = '180'
+const SHARP_SEAM_TRIANGLE_FIRST_DASH_PATTERN = '24, 260'
 const MIN_SUPPORTED_COVERAGE = 0.55
 const MIN_VECTOR_CAP_TERMINAL_COVERAGE = 0.25
 const MAX_UNSUPPORTED_COVERAGE = 0.03
@@ -1385,6 +1386,80 @@ const getRectCornerSpanningProbeRegions = (raster: RasterCapture) => {
   }
 }
 
+const getSharpSeamTriangleFirstDashProbeRegions = (raster: RasterCapture) => {
+  const seam = { x: 40, y: 0 }
+  const nextTangent = {
+    x: 40 / Math.hypot(40, 100),
+    y: 100 / Math.hypot(40, 100)
+  }
+  const previousTangent = {
+    x: 40 / Math.hypot(40, 100),
+    y: -100 / Math.hypot(40, 100)
+  }
+  const nextInsideNormal = { x: -nextTangent.y, y: nextTangent.x }
+  const previousInsideNormal = {
+    x: -previousTangent.y,
+    y: previousTangent.x
+  }
+  const pointAt = (
+    point: { x: number; y: number },
+    tangent: { x: number; y: number },
+    distance: number
+  ) => ({
+    x: point.x + tangent.x * distance,
+    y: point.y + tangent.y * distance
+  })
+  const offsetPoint = (
+    point: { x: number; y: number },
+    normal: { x: number; y: number },
+    distance: number
+  ) => ({
+    x: point.x + normal.x * distance,
+    y: point.y + normal.y * distance
+  })
+  const regionAround = (
+    point: { x: number; y: number },
+    size = Math.max(4, raster.strokeWidthPx - 3)
+  ) => ({
+    x: raster.padding + point.x - size / 2,
+    y: raster.padding + point.y - size / 2,
+    width: size,
+    height: size
+  })
+
+  const nextCore = pointAt(seam, nextTangent, 12)
+  const nextGap = pointAt(seam, nextTangent, 58)
+  const previousCore = pointAt(seam, previousTangent, -12)
+  const insideOffset = Math.max(3, raster.strokeWidthPx * 0.42)
+  const outsideOffset = -insideOffset
+
+  return {
+    nextInsideBody: regionAround(
+      offsetPoint(nextCore, nextInsideNormal, insideOffset)
+    ),
+    nextOutsideBody: regionAround(
+      offsetPoint(nextCore, nextInsideNormal, outsideOffset)
+    ),
+    previousOutsideBody: regionAround(
+      offsetPoint(previousCore, previousInsideNormal, outsideOffset)
+    ),
+    outsideMiter: regionAround(
+      { x: seam.x, y: seam.y - raster.strokeWidthPx / 2 },
+      4
+    ),
+    laterInsideGap: regionAround(
+      offsetPoint(nextGap, nextInsideNormal, insideOffset)
+    ),
+    laterOutsideGap: regionAround(
+      offsetPoint(nextGap, nextInsideNormal, outsideOffset)
+    ),
+    center: regionAround(
+      { x: raster.elementWidth / 2, y: raster.elementHeight * 0.6 },
+      8
+    )
+  }
+}
+
 const getRectCornerSpanningGradientProbeRegions = (raster: RasterCapture) => {
   const bandWidth = Math.max(4, Math.round(raster.elementWidth * 0.1))
   const bandHeight = Math.max(2, raster.strokeWidthPx - 2)
@@ -1725,6 +1800,79 @@ const patchSelectedVectorToClosedRectangle = async (page: Page) => {
         closed: true,
         width: 80,
         height: 40
+      },
+      { undoable: false }
+    )
+  })
+
+  await page.waitForTimeout(180)
+}
+
+const patchSelectedVectorToClosedSharpSeamTriangle = async (page: Page) => {
+  await page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+    if (!selectedId) {
+      throw new Error('No selected vector to patch')
+    }
+
+    const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+    const computed = element?.getAllComputedData?.()
+    const primaryNetwork = Object.values(computed?.networks ?? {})[0] as
+      | { id: string }
+      | undefined
+
+    if (!computed || !primaryNetwork) {
+      throw new Error('Missing vector topology')
+    }
+
+    const nextPoints = {
+      a: { id: 'a', kind: 'anchor', x: 40, y: 0, anchorType: 'sharp' },
+      b: { id: 'b', kind: 'anchor', x: 80, y: 100, anchorType: 'sharp' },
+      c: { id: 'c', kind: 'anchor', x: 0, y: 100, anchorType: 'sharp' }
+    }
+
+    const nextSegments = {
+      ab: {
+        id: 'ab',
+        startId: 'a',
+        endId: 'b',
+        outControlId: null,
+        inControlId: null
+      },
+      bc: {
+        id: 'bc',
+        startId: 'b',
+        endId: 'c',
+        outControlId: null,
+        inControlId: null
+      },
+      ca: {
+        id: 'ca',
+        startId: 'c',
+        endId: 'a',
+        outControlId: null,
+        inControlId: null
+      }
+    }
+
+    core?.changeComputedData?.(
+      [selectedId],
+      {
+        points: nextPoints,
+        segments: nextSegments,
+        networks: {
+          [primaryNetwork.id]: {
+            id: primaryNetwork.id,
+            pointIds: ['a', 'b', 'c'],
+            segmentIds: ['ab', 'bc', 'ca'],
+            closed: true
+          }
+        },
+        closed: true,
+        width: 80,
+        height: 100
       },
       { undoable: false }
     )
@@ -4053,6 +4201,162 @@ test('benchmark: closed rectangle-equivalent vector outside single-edge round-ca
   expect(bodyOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
   expect(capInsideLeak).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
   expect(laterTopOutsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+})
+
+test('benchmark: closed rectangle-equivalent vector inside single-edge square-cap constrained dashed stroke keeps endpoint body clipped to the inside', async ({
+  page
+}) => {
+  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
+  await clearVectorOverlayState(page)
+  await ensureElementSelected(page, 'vector')
+  await patchSelectedVectorToClosedRectangle(page)
+  await setSelectedElementRotation(page, 0)
+  await configureConstrainedDashedStroke(page, {
+    elementType: 'vector',
+    position: 'inside',
+    join: 'bevel',
+    cap: 'square',
+    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
+    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET,
+    width: 4
+  })
+
+  const raster = await captureSelectedElementRaster(page, 4)
+  const probes = getVectorRectSingleEdgeRoundCapProbeRegions(raster)
+
+  const [capInside, bodyInside, capOutsideLeak, laterTopInsideGap, center] =
+    await Promise.all([
+      getGreenCoverage(page, raster, probes.capInside),
+      getGreenCoverage(page, raster, probes.bodyInside),
+      getGreenCoverage(page, raster, probes.capOutsideLeak),
+      getGreenCoverage(page, raster, probes.laterTopInsideGap),
+      getGreenCoverage(page, raster, probes.center)
+    ])
+
+  expect(capInside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
+  expect(bodyInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+  expect(capOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
+  expect(laterTopInsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+})
+
+test('benchmark: closed rectangle-equivalent vector outside single-edge square-cap constrained dashed stroke keeps endpoint body outside the source', async ({
+  page
+}) => {
+  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
+  await clearVectorOverlayState(page)
+  await ensureElementSelected(page, 'vector')
+  await patchSelectedVectorToClosedRectangle(page)
+  await setSelectedElementRotation(page, 0)
+  await configureConstrainedDashedStroke(page, {
+    elementType: 'vector',
+    position: 'outside',
+    join: 'bevel',
+    cap: 'square',
+    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
+    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET,
+    width: 4
+  })
+
+  const raster = await captureSelectedElementRaster(page, 4)
+  const probes = getVectorRectSingleEdgeOutsideRoundCapProbeRegions(raster)
+
+  const [capOutside, bodyOutside, capInsideLeak, laterTopOutsideGap, center] =
+    await Promise.all([
+      getGreenCoverage(page, raster, probes.capOutside),
+      getGreenCoverage(page, raster, probes.bodyOutside),
+      getGreenCoverage(page, raster, probes.capInsideLeak),
+      getGreenCoverage(page, raster, probes.laterTopOutsideGap),
+      getGreenCoverage(page, raster, probes.center)
+    ])
+
+  expect(capOutside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
+  expect(bodyOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+  expect(capInsideLeak).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  expect(laterTopOutsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+})
+
+test('benchmark: closed sharp-seam vector inside square-cap first dash keeps the core visible while clipping the endpoint cap', async ({
+  page
+}) => {
+  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
+  await clearVectorOverlayState(page)
+  await ensureElementSelected(page, 'vector')
+  await patchSelectedVectorToClosedSharpSeamTriangle(page)
+  await setSelectedElementRotation(page, 0)
+  await configureConstrainedDashedStroke(page, {
+    elementType: 'vector',
+    position: 'inside',
+    join: 'miter',
+    cap: 'square',
+    pattern: SHARP_SEAM_TRIANGLE_FIRST_DASH_PATTERN,
+    offset: '0',
+    width: STROKE_WIDTH
+  })
+
+  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+  const probes = getSharpSeamTriangleFirstDashProbeRegions(raster)
+
+  const [bodyInside, outsideLeak, miterLeak, laterInsideGap, center] =
+    await Promise.all([
+      getGreenCoverage(page, raster, probes.nextInsideBody),
+      getGreenCoverage(page, raster, probes.nextOutsideBody),
+      getGreenCoverage(page, raster, probes.outsideMiter),
+      getGreenCoverage(page, raster, probes.laterInsideGap),
+      getGreenCoverage(page, raster, probes.center)
+    ])
+
+  expect(bodyInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+  expect(outsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
+  expect(miterLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
+  expect(laterInsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+})
+
+test('benchmark: closed sharp-seam vector outside square-cap first dash keeps the seam miter and adjacent dash bodies visible', async ({
+  page
+}) => {
+  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
+  await clearVectorOverlayState(page)
+  await ensureElementSelected(page, 'vector')
+  await patchSelectedVectorToClosedSharpSeamTriangle(page)
+  await setSelectedElementRotation(page, 0)
+  await configureConstrainedDashedStroke(page, {
+    elementType: 'vector',
+    position: 'outside',
+    join: 'miter',
+    cap: 'square',
+    pattern: SHARP_SEAM_TRIANGLE_FIRST_DASH_PATTERN,
+    offset: '0',
+    width: STROKE_WIDTH
+  })
+
+  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+  const probes = getSharpSeamTriangleFirstDashProbeRegions(raster)
+
+  const [
+    nextBodyOutside,
+    previousBodyOutside,
+    outsideMiter,
+    laterOutsideGap,
+    insideLeak,
+    center
+  ] = await Promise.all([
+    getGreenCoverage(page, raster, probes.nextOutsideBody),
+    getGreenCoverage(page, raster, probes.previousOutsideBody),
+    getGreenCoverage(page, raster, probes.outsideMiter),
+    getGreenCoverage(page, raster, probes.laterOutsideGap),
+    getGreenCoverage(page, raster, probes.nextInsideBody),
+    getGreenCoverage(page, raster, probes.center)
+  ])
+
+  expect(nextBodyOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+  expect(previousBodyOutside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
+  expect(outsideMiter).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
+  expect(laterOutsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  expect(insideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
   expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
 })
 

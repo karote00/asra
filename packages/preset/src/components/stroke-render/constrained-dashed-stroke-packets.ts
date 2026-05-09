@@ -25,6 +25,7 @@ import {
   type PathTopologyFamily
 } from './path-topology-model'
 import {
+  buildPolylineGeometryModelPath,
   slicePathSegmentPoints,
   slicePathGeometryPoints,
   type PathSegment,
@@ -142,29 +143,242 @@ export interface ConstrainedDashedRuntimeStatusClassification {
 
 const EPSILON = 1e-6
 
-const getIntervalAllocationDashPattern = (
-  stroke: Pick<RenderableStroke, 'cap' | 'dashPattern' | 'width'>
-) => {
-  if (stroke.cap !== 'square' || stroke.width <= EPSILON) {
-    return stroke.dashPattern
-  }
+type DashedTopologyInterval = ReturnType<
+  typeof allocateDashedIntervalsForTopology
+>[number]
 
-  const squareCapGrowth = stroke.width
-  return stroke.dashPattern.map((entry, index) =>
-    index % 2 === 0
-      ? Math.max(EPSILON, entry + squareCapGrowth)
-      : Math.max(EPSILON, entry - squareCapGrowth)
-  )
+type VisibleDashedTopologyInterval = DashedTopologyInterval & {
+  kind: 'visible'
 }
 
-const getIntervalAllocationDashOffset = (
-  stroke: Pick<RenderableStroke, 'cap' | 'dashOffset' | 'width'>
-) => {
-  if (stroke.cap !== 'square' || stroke.width <= EPSILON) {
-    return stroke.dashOffset
+const normalizeLoopDistance = (distance: number, totalLength: number) =>
+  totalLength > 0 ? ((distance % totalLength) + totalLength) % totalLength : 0
+
+const getVisibleIntervalLength = (
+  interval: Pick<
+    VisibleDashedTopologyInterval,
+    'startDistance' | 'endDistance' | 'wrapsSeam'
+  >,
+  totalLength: number
+) =>
+  interval.wrapsSeam
+    ? totalLength - interval.startDistance + interval.endDistance
+    : interval.endDistance - interval.startDistance
+
+type ConstrainedDashedPhysicalSpanRole = 'core' | 'start-cap' | 'end-cap'
+
+interface ConstrainedDashedPhysicalSpan {
+  spanId: string
+  role: ConstrainedDashedPhysicalSpanRole
+  startDistance: number
+  endDistance: number
+  wrapsSeam: boolean
+  intervalLength: number
+}
+
+const splitLoopRangeIntoPhysicalSpans = (
+  spanIdPrefix: string,
+  role: ConstrainedDashedPhysicalSpanRole,
+  rawStartDistance: number,
+  rawEndDistance: number,
+  totalLength: number
+): ConstrainedDashedPhysicalSpan[] => {
+  const intervalLength = rawEndDistance - rawStartDistance
+  if (intervalLength <= EPSILON || totalLength <= EPSILON) {
+    return []
   }
 
-  return stroke.dashOffset + stroke.width / 2
+  if (intervalLength >= totalLength - EPSILON) {
+    return [
+      {
+        spanId: `${spanIdPrefix}:${role}:0`,
+        role,
+        startDistance: 0,
+        endDistance: totalLength,
+        wrapsSeam: false,
+        intervalLength: totalLength
+      }
+    ]
+  }
+
+  const startDistance = normalizeLoopDistance(rawStartDistance, totalLength)
+  const endDistance = startDistance + intervalLength
+
+  if (endDistance <= totalLength + EPSILON) {
+    return [
+      {
+        spanId: `${spanIdPrefix}:${role}:0`,
+        role,
+        startDistance,
+        endDistance: Math.min(endDistance, totalLength),
+        wrapsSeam: false,
+        intervalLength: Math.min(endDistance, totalLength) - startDistance
+      }
+    ].filter((span) => span.intervalLength > EPSILON)
+  }
+
+  return [
+    {
+      spanId: `${spanIdPrefix}:${role}:0`,
+      role,
+      startDistance,
+      endDistance: totalLength,
+      wrapsSeam: false,
+      intervalLength: totalLength - startDistance
+    },
+    {
+      spanId: `${spanIdPrefix}:${role}:1`,
+      role,
+      startDistance: 0,
+      endDistance: endDistance - totalLength,
+      wrapsSeam: false,
+      intervalLength: endDistance - totalLength
+    }
+  ].filter((span) => span.intervalLength > EPSILON)
+}
+
+const splitIntervalCoreIntoPhysicalSpans = (
+  spanIdPrefix: string,
+  interval: VisibleDashedTopologyInterval,
+  totalLength: number
+): ConstrainedDashedPhysicalSpan[] =>
+  interval.wrapsSeam
+    ? [
+        ...splitLoopRangeIntoPhysicalSpans(
+          spanIdPrefix,
+          'core',
+          interval.startDistance,
+          totalLength,
+          totalLength
+        ),
+        ...splitLoopRangeIntoPhysicalSpans(
+          spanIdPrefix,
+          'core',
+          0,
+          interval.endDistance,
+          totalLength
+        )
+      ]
+    : splitLoopRangeIntoPhysicalSpans(
+        spanIdPrefix,
+        'core',
+        interval.startDistance,
+        interval.endDistance,
+        totalLength
+      )
+
+const buildClosedSquareCapPhysicalSpans = (
+  interval: VisibleDashedTopologyInterval,
+  totalLength: number,
+  capLength: number
+): ConstrainedDashedPhysicalSpan[] => {
+  const visibleLength = getVisibleIntervalLength(interval, totalLength)
+  if (visibleLength >= totalLength - EPSILON) {
+    return splitLoopRangeIntoPhysicalSpans(
+      interval.intervalId,
+      'core',
+      0,
+      totalLength,
+      totalLength
+    )
+  }
+
+  if (capLength <= EPSILON) {
+    return splitIntervalCoreIntoPhysicalSpans(
+      interval.intervalId,
+      interval,
+      totalLength
+    )
+  }
+
+  return [
+    ...splitLoopRangeIntoPhysicalSpans(
+      interval.intervalId,
+      'start-cap',
+      interval.startDistance - capLength,
+      interval.startDistance,
+      totalLength
+    ),
+    ...splitIntervalCoreIntoPhysicalSpans(
+      interval.intervalId,
+      interval,
+      totalLength
+    ),
+    ...splitLoopRangeIntoPhysicalSpans(
+      interval.intervalId,
+      'end-cap',
+      interval.endDistance,
+      interval.endDistance + capLength,
+      totalLength
+    )
+  ]
+}
+
+const getIntervalPhysicalSpans = (
+  topology: Pick<PathTopologyModel, 'totalLength' | 'closed'>,
+  stroke: Pick<RenderableStroke, 'cap' | 'width'>,
+  interval: VisibleDashedTopologyInterval
+): ConstrainedDashedPhysicalSpan[] => {
+  if (stroke.cap === 'square' && topology.closed && stroke.width > EPSILON) {
+    return buildClosedSquareCapPhysicalSpans(
+      interval,
+      topology.totalLength,
+      stroke.width / 2
+    )
+  }
+
+  const intervalLength = getVisibleIntervalLength(
+    interval,
+    topology.totalLength
+  )
+  if (intervalLength <= EPSILON) {
+    return []
+  }
+
+  return [
+    {
+      spanId: interval.intervalId,
+      role: 'core',
+      startDistance: interval.startDistance,
+      endDistance: interval.endDistance,
+      wrapsSeam: interval.wrapsSeam,
+      intervalLength
+    }
+  ]
+}
+
+const getVisibleConstrainedDashedIntervals = (
+  topology: Pick<PathTopologyModel, 'totalLength' | 'closed'>,
+  stroke: Pick<RenderableStroke, 'cap' | 'dashPattern' | 'dashOffset' | 'width'>
+): VisibleDashedTopologyInterval[] => {
+  if (stroke.cap === 'square' && !topology.closed && stroke.width > EPSILON) {
+    const squareCapGrowth = stroke.width
+    const intervalAllocationDashPattern = stroke.dashPattern.map(
+      (entry, index) =>
+        index % 2 === 0
+          ? Math.max(EPSILON, entry + squareCapGrowth)
+          : Math.max(EPSILON, entry - squareCapGrowth)
+    )
+    return allocateDashedIntervalsForTopology(
+      topology,
+      intervalAllocationDashPattern,
+      stroke.dashOffset + stroke.width / 2
+    ).filter(
+      (interval): interval is VisibleDashedTopologyInterval =>
+        interval.kind === 'visible'
+    )
+  }
+
+  const authoredIntervals = allocateDashedIntervalsForTopology(
+    topology,
+    stroke.dashPattern,
+    stroke.dashOffset
+  ).filter(
+    (interval): interval is VisibleDashedTopologyInterval =>
+      interval.kind === 'visible'
+  )
+
+  return authoredIntervals
 }
 
 const buildVisibleIntervalSignature = (
@@ -1307,6 +1521,7 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
   >,
   authoredStroke: Pick<RenderableStroke, 'position' | 'dashPattern' | 'cap'>,
   intervalStroke: Pick<RenderableStroke, 'position' | 'width'>,
+  physicalSpanRole: ConstrainedDashedPhysicalSpanRole = 'core',
   sharpGuardVertices: SharpGuardVertex[] = []
 ) => {
   if (
@@ -1360,6 +1575,53 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
     !interval.wrapsSeam &&
     interval.endDistance >= path.totalLength - EPSILON &&
     range.endDistance >= path.totalLength - EPSILON
+  const squareCapReach =
+    authoredStroke.cap === 'square'
+      ? Math.max(intervalStroke.width / 2, EPSILON)
+      : 0
+  const isSquareCapWrappedEndpointRange =
+    authoredStroke.cap === 'square' &&
+    physicalSpanRole !== 'core' &&
+    interval.wrapsSeam &&
+    (range.startDistance >= interval.startDistance - squareCapReach - EPSILON ||
+      range.endDistance <= interval.endDistance + squareCapReach + EPSILON)
+  const isSquareCapIntervalEndpointRange =
+    authoredStroke.cap === 'square' &&
+    physicalSpanRole !== 'core' &&
+    !interval.wrapsSeam &&
+    (Math.abs(range.startDistance - interval.startDistance) <=
+      squareCapReach + EPSILON ||
+      Math.abs(range.endDistance - interval.endDistance) <=
+        squareCapReach + EPSILON)
+  const isSquareCapSegmentBoundaryEndpointRange =
+    authoredStroke.cap === 'square' &&
+    physicalSpanRole !== 'core' &&
+    ((touchesSegmentStart &&
+      (areLoopDistancesEqual(
+        interval.startDistance,
+        segmentRange.startDistance,
+        path.totalLength
+      ) ||
+        areLoopDistancesEqual(
+          interval.endDistance,
+          segmentRange.startDistance,
+          path.totalLength
+        ))) ||
+      (touchesSegmentEnd &&
+        (areLoopDistancesEqual(
+          interval.startDistance,
+          segmentRange.endDistance,
+          path.totalLength
+        ) ||
+          areLoopDistancesEqual(
+            interval.endDistance,
+            segmentRange.endDistance,
+            path.totalLength
+          ))))
+  const shouldRequireClippedSquareCapEndpoint =
+    isSquareCapWrappedEndpointRange ||
+    isSquareCapIntervalEndpointRange ||
+    isSquareCapSegmentBoundaryEndpointRange
   const previousSegment =
     path.segments[
       (range.segmentIndex - 1 + path.segments.length) % path.segments.length
@@ -1462,7 +1724,11 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
     (polygon) => polygon.length >= 3 && isSimpleClosedPolygon(polygon)
   )
 
-  if (isPathStartTerminalRange || isPathEndTerminalRange) {
+  if (
+    isPathStartTerminalRange ||
+    isPathEndTerminalRange ||
+    shouldRequireClippedSquareCapEndpoint
+  ) {
     return clippedPolygons
   }
 
@@ -2541,20 +2807,20 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
     topologyPoints,
     topology.closed
   )
+  const topologySourcePath = buildPolylineGeometryModelPath(
+    topologyPoints,
+    topology.closed
+  )
 
   return getRenderableStrokes(strokes).flatMap((stroke, strokeIndex) => {
     if (!supportsConstrainedDashedStroke(stroke, topology.closed)) {
       return []
     }
 
-    const intervalAllocationDashPattern =
-      getIntervalAllocationDashPattern(stroke)
-    const intervalAllocationDashOffset = getIntervalAllocationDashOffset(stroke)
-    const visibleIntervals = allocateDashedIntervalsForTopology(
+    const visibleIntervals = getVisibleConstrainedDashedIntervals(
       topology,
-      intervalAllocationDashPattern,
-      intervalAllocationDashOffset
-    ).filter((interval) => interval.kind === 'visible')
+      stroke
+    )
     const sourceSpanGraph = buildSourceSpanGraph(topology, visibleIntervals)
     const intervalSignature = buildVisibleIntervalSignature(visibleIntervals)
 
@@ -2733,13 +2999,22 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
       }
 
       const sourcePath = options.sourcePath
+      const physicalSpans = getIntervalPhysicalSpans(topology, stroke, interval)
+      const squareCapPhysicalStroke =
+        stroke.cap === 'square'
+          ? {
+              ...intervalStroke,
+              cap: 'butt' as const
+            }
+          : intervalStroke
       const intervalPolygons = sourcePath
         ? (() => {
-            const sourceRanges = splitVisibleIntervalBySourceSegments(
-              sourcePath,
-              interval
+            const spanRanges = physicalSpans.flatMap((span) =>
+              splitVisibleIntervalBySourceSegments(sourcePath, span).map(
+                (range) => ({ range, span })
+              )
             )
-            const rangePolygons = sourceRanges.flatMap((range) => {
+            const rangePolygons = spanRanges.flatMap(({ range, span }) => {
               const rawIntervalPoints = slicePathGeometryPoints(
                 sourcePath,
                 range.startDistance,
@@ -2750,12 +3025,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 buildConstrainedDashedLocalSideStrokePolygons(
                   rawIntervalPoints,
                   false,
-                  stroke.cap === 'square'
-                    ? {
-                        ...intervalStroke,
-                        cap: 'butt'
-                      }
-                    : intervalStroke,
+                  squareCapPhysicalStroke,
                   {
                     assumeSimpleOpen: true,
                     assumeSimpleClosed: undefined,
@@ -2769,6 +3039,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 interval,
                 stroke,
                 intervalStroke,
+                span.role,
                 sharpGuardVertices
               )
             })
@@ -2776,38 +3047,57 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
               ...rangePolygons,
               ...buildOutsideSourceSegmentJoinPolygons(
                 sourcePath,
-                sourceRanges,
+                spanRanges.map(({ range }) => range),
                 stroke,
                 intervalStroke
               )
             ]
           })()
-        : buildConstrainedDashedLocalSideStrokePolygons(
-            intervalPointSlicer.slice(
-              interval.startDistance,
-              interval.endDistance,
-              interval.wrapsSeam
-            ),
-            false,
-            stroke.cap === 'square'
-              ? {
-                  ...intervalStroke,
-                  cap: 'butt'
+        : (() => {
+            const spanPolygons = physicalSpans.flatMap((span) =>
+              buildConstrainedDashedLocalSideStrokePolygons(
+                intervalPointSlicer.slice(
+                  span.startDistance,
+                  span.endDistance,
+                  span.wrapsSeam
+                ),
+                false,
+                squareCapPhysicalStroke,
+                {
+                  assumeSimpleOpen:
+                    !topology.closed ||
+                    topology.isSimpleClosed ||
+                    topology.topologyFamily === 'self-intersecting'
+                      ? true
+                      : undefined,
+                  assumeSimpleClosed: topology.closed
+                    ? topology.isSimpleClosed
+                    : undefined,
+                  assumeNormalizedOpen: true
                 }
-              : intervalStroke,
-            {
-              assumeSimpleOpen:
-                !topology.closed ||
-                topology.isSimpleClosed ||
-                topology.topologyFamily === 'self-intersecting'
-                  ? true
-                  : undefined,
-              assumeSimpleClosed: topology.closed
-                ? topology.isSimpleClosed
-                : undefined,
-              assumeNormalizedOpen: true
+              )
+            )
+            if (
+              stroke.cap !== 'square' ||
+              !topology.closed ||
+              stroke.width <= EPSILON
+            ) {
+              return spanPolygons
             }
-          )
+
+            const spanRanges = physicalSpans.flatMap((span) =>
+              splitVisibleIntervalBySourceSegments(topologySourcePath, span)
+            )
+            return [
+              ...spanPolygons,
+              ...buildOutsideSourceSegmentJoinPolygons(
+                topologySourcePath,
+                spanRanges,
+                stroke,
+                intervalStroke
+              )
+            ]
+          })()
       const selectedSidePolygons = sourcePath
         ? intervalPolygons
         : applyClosedIntervalSelectedSideGuards(
@@ -2854,6 +3144,17 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
         startDistance: interval.startDistance,
         endDistance: interval.endDistance,
         wrapsSeam: interval.wrapsSeam,
+        physicalSpanRanges: physicalSpans.map((span) => ({
+          spanId: span.spanId,
+          role: span.role,
+          startDistance: span.startDistance,
+          endDistance: span.endDistance,
+          wrapsSeam: span.wrapsSeam
+        })),
+        physicalVisibleLength: physicalSpans.reduce(
+          (total, span) => total + span.intervalLength,
+          0
+        ),
         previousVisibleIntervalId: interval.previousVisibleIntervalId,
         nextVisibleIntervalId: interval.nextVisibleIntervalId,
         geometryFamily: 'constrained-dashed',

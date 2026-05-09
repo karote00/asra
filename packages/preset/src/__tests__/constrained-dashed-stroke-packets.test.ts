@@ -3063,6 +3063,290 @@ describe('constrained dashed stroke packets', () => {
     })
   })
 
+  it('should run: split closed square-cap endpoint dashes into physical spans without clipping away the first dash', () => {
+    const points = [
+      { x: 0, y: 0 },
+      { x: 80, y: 0 },
+      { x: 80, y: 40 },
+      { x: 0, y: 40 }
+    ]
+    const squarePackets = buildConstrainedDashedStrokeResolvedPackets(
+      'rect:test:closed-square-cap-seam',
+      points,
+      true,
+      [
+        createDefaultStroke({
+          width: 10,
+          style: 'dashed',
+          position: 'inside',
+          capType: 'square',
+          dashPattern: [20, 60],
+          dashOffset: 0
+        })
+      ]
+    )
+    const firstSquareInterval = squarePackets.find(
+      (packet) =>
+        packet.geometry.debugMeta?.startDistance === 0 &&
+        packet.geometry.debugMeta?.endDistance === 20
+    )
+    const physicalSpans =
+      firstSquareInterval?.geometry.debugMeta?.physicalSpanRanges ?? []
+
+    expect(firstSquareInterval?.geometry.debugMeta).toMatchObject({
+      startDistance: 0,
+      endDistance: 20,
+      wrapsSeam: false,
+      physicalVisibleLength: 30
+    })
+    expect(physicalSpans).toEqual([
+      {
+        spanId: 'interval:0:start-cap:0',
+        role: 'start-cap',
+        startDistance: 235,
+        endDistance: 240,
+        wrapsSeam: false
+      },
+      {
+        spanId: 'interval:0:core:0',
+        role: 'core',
+        startDistance: 0,
+        endDistance: 20,
+        wrapsSeam: false
+      },
+      {
+        spanId: 'interval:0:end-cap:0',
+        role: 'end-cap',
+        startDistance: 20,
+        endDistance: 25,
+        wrapsSeam: false
+      }
+    ])
+    expect(
+      firstSquareInterval?.geometry.polygons.some((polygon) =>
+        isPointInsideEvenOdd({ x: 10, y: 5 }, polygon)
+      )
+    ).toBe(true)
+    const squareFaces = buildStrokeFinalFacesFromResolvedPackets(squarePackets)
+    expect(
+      squareFaces.some(
+        (face) =>
+          face.intervalIds.includes('interval:0') &&
+          face.polygons.some((polygon) =>
+            isPointInsideEvenOdd({ x: 10, y: 5 }, polygon)
+          )
+      )
+    ).toBe(true)
+
+    const buttPackets = buildConstrainedDashedStrokeResolvedPackets(
+      'rect:test:closed-butt-cap-seam',
+      points,
+      true,
+      [
+        createDefaultStroke({
+          width: 10,
+          style: 'dashed',
+          position: 'inside',
+          capType: 'butt',
+          dashPattern: [20, 60],
+          dashOffset: 0
+        })
+      ]
+    )
+    const firstButtInterval = buttPackets.find(
+      (packet) => packet.geometry.debugMeta?.startDistance === 0
+    )
+
+    expect(firstButtInterval?.geometry.debugMeta).toMatchObject({
+      startDistance: 0,
+      endDistance: 20,
+      wrapsSeam: false
+    })
+  })
+
+  it('should run: keep inside square-cap endpoint ranges clipped to the legal side on source-path geometry', () => {
+    const points = [
+      { x: 0, y: 0 },
+      { x: 80, y: 0 },
+      { x: 80, y: 40 },
+      { x: 0, y: 40 }
+    ]
+    const sourcePath = {
+      segments: [
+        {
+          type: 'line' as const,
+          start: points[0],
+          end: points[1],
+          length: 80
+        },
+        {
+          type: 'line' as const,
+          start: points[1],
+          end: points[2],
+          length: 40
+        },
+        {
+          type: 'line' as const,
+          start: points[2],
+          end: points[3],
+          length: 80
+        },
+        {
+          type: 'line' as const,
+          start: points[3],
+          end: points[0],
+          length: 40
+        }
+      ],
+      closed: true,
+      totalLength: 240
+    }
+    const topology = buildPathTopologyModel({
+      pathId: 'rect:test:inside-square-source-path',
+      networkId: 'tn-rect',
+      points,
+      closed: true
+    })
+    const packets = buildConstrainedDashedStrokeResolvedPackets(
+      'rect:test:inside-square-source-path',
+      points,
+      true,
+      [
+        createDefaultStroke({
+          width: 10,
+          style: 'dashed',
+          position: 'inside',
+          joinType: 'miter',
+          capType: 'square',
+          dashPattern: [20, 50],
+          dashOffset: 0
+        })
+      ],
+      {
+        topology,
+        sourcePath,
+        selectedSideGuardPoints: points
+      }
+    )
+    const outsideLegalDomainSamples = packets.flatMap((packet) =>
+      packet.geometry.polygons.flatMap((polygon) =>
+        samplePolygonEdges(polygon).flatMap((point) =>
+          !isPointInsideEvenOdd(point, points) &&
+          pointClosedPolylineDistance(point, points) > 0.25
+            ? [
+                {
+                  intervalId: packet.geometry.debugMeta?.intervalId,
+                  point: {
+                    x: Math.round(point.x * 100) / 100,
+                    y: Math.round(point.y * 100) / 100
+                  }
+                }
+              ]
+            : []
+        )
+      )
+    )
+
+    expect(packets.length).toBeGreaterThan(0)
+    expect(
+      packets.some((packet) =>
+        packet.geometry.polygons.some((polygon) =>
+          isPointInsideEvenOdd({ x: 10, y: 5 }, polygon)
+        )
+      )
+    ).toBe(true)
+    expect(outsideLegalDomainSamples).toEqual([])
+  })
+
+  it('should run: keep outside square-cap first dash bodies visible on both sides of a source-path seam', () => {
+    const points = [
+      { x: 0, y: 0 },
+      { x: 80, y: 0 },
+      { x: 80, y: 40 },
+      { x: 0, y: 40 }
+    ]
+    const sourcePath = {
+      segments: [
+        {
+          type: 'line' as const,
+          start: points[0],
+          end: points[1],
+          length: 80
+        },
+        {
+          type: 'line' as const,
+          start: points[1],
+          end: points[2],
+          length: 40
+        },
+        {
+          type: 'line' as const,
+          start: points[2],
+          end: points[3],
+          length: 80
+        },
+        {
+          type: 'line' as const,
+          start: points[3],
+          end: points[0],
+          length: 40
+        }
+      ],
+      closed: true,
+      totalLength: 240
+    }
+    const topology = buildPathTopologyModel({
+      pathId: 'rect:test:outside-square-first-dash-source-path',
+      networkId: 'tn-rect',
+      points,
+      closed: true
+    })
+    const packets = buildConstrainedDashedStrokeResolvedPackets(
+      'rect:test:outside-square-first-dash-source-path',
+      points,
+      true,
+      [
+        createDefaultStroke({
+          width: 10,
+          style: 'dashed',
+          position: 'outside',
+          joinType: 'miter',
+          capType: 'square',
+          dashPattern: [20, 60],
+          dashOffset: 0
+        })
+      ],
+      {
+        topology,
+        sourcePath,
+        selectedSideGuardPoints: points
+      }
+    )
+    const firstDash = packets.find(
+      (packet) => packet.geometry.debugMeta?.intervalId === 'interval:0'
+    )
+
+    expect(firstDash?.geometry.debugMeta?.physicalVisibleLength).toBeCloseTo(
+      30,
+      6
+    )
+    expect(
+      firstDash?.geometry.polygons.some((polygon) =>
+        isPointInsideEvenOdd({ x: 10, y: -5 }, polygon)
+      )
+    ).toBe(true)
+    expect(
+      firstDash?.geometry.polygons.some((polygon) =>
+        isPointInsideEvenOdd({ x: -5, y: 2 }, polygon)
+      )
+    ).toBe(true)
+    expect(
+      firstDash?.geometry.polygons.some((polygon) =>
+        isPointInsideEvenOdd({ x: -4, y: -4 }, polygon)
+      )
+    ).toBe(true)
+  })
+
   it('should run: keep the same constrained dashed single-edge geometry when the next supported paint gradient paint slice swaps paint over the supported rect path', () => {
     const solidPackets = buildConstrainedDashedStrokeResolvedPackets(
       'rect:test:constrained-dashed-single-edge',
@@ -3563,7 +3847,7 @@ describe('constrained dashed stroke packets', () => {
       true,
       [
         createDefaultStroke({
-          width: 6,
+          width: 10,
           style: 'dashed',
           position: 'outside',
           joinType: 'miter',
@@ -3582,7 +3866,150 @@ describe('constrained dashed stroke packets', () => {
     expect(packets).toHaveLength(1)
     expect(
       packets[0]?.geometry.polygons.some((polygon) =>
+        isPointInsideEvenOdd({ x: 83, y: -5 }, polygon)
+      )
+    ).toBe(true)
+  })
+
+  it('should run: keep outside square-cap source-path dashed bodies visible around a miter corner', () => {
+    const points = [
+      { x: 0, y: 0 },
+      { x: 80, y: 0 },
+      { x: 80, y: 40 },
+      { x: 0, y: 40 }
+    ]
+    const sourcePath = {
+      segments: [
+        {
+          type: 'line' as const,
+          start: points[0],
+          end: points[1],
+          length: 80
+        },
+        {
+          type: 'line' as const,
+          start: points[1],
+          end: points[2],
+          length: 40
+        },
+        {
+          type: 'line' as const,
+          start: points[2],
+          end: points[3],
+          length: 80
+        },
+        {
+          type: 'line' as const,
+          start: points[3],
+          end: points[0],
+          length: 40
+        }
+      ],
+      closed: true,
+      totalLength: 240
+    }
+    const topology = buildPathTopologyModel({
+      pathId: 'rect:test:outside-square-source-path',
+      networkId: 'tn-rect',
+      points,
+      closed: true
+    })
+    const packets = buildConstrainedDashedStrokeResolvedPackets(
+      'rect:test:outside-square-source-path',
+      points,
+      true,
+      [
+        createDefaultStroke({
+          width: 6,
+          style: 'dashed',
+          position: 'outside',
+          joinType: 'miter',
+          capType: 'square',
+          dashPattern: [40, 200],
+          dashOffset: 180
+        })
+      ],
+      {
+        topology,
+        sourcePath,
+        selectedSideGuardPoints: points
+      }
+    )
+
+    expect(packets).toHaveLength(1)
+    expect(
+      packets[0]?.geometry.polygons.some((polygon) =>
         isPointInsideEvenOdd({ x: 83, y: -3 }, polygon)
+      )
+    ).toBe(true)
+    expect(
+      packets[0]?.geometry.polygons.some((polygon) =>
+        isPointInsideEvenOdd({ x: 70, y: -5 }, polygon)
+      )
+    ).toBe(true)
+    expect(
+      packets[0]?.geometry.polygons.some((polygon) =>
+        isPointInsideEvenOdd({ x: 83, y: 10 }, polygon)
+      )
+    ).toBe(true)
+  })
+
+  it('should run: keep outside square-cap topology-sliced dashed bodies visible around a miter corner', () => {
+    const points = [
+      { x: 0, y: 0 },
+      { x: 80, y: 0 },
+      { x: 80, y: 40 },
+      { x: 0, y: 40 }
+    ]
+    const topology = buildPathTopologyModel({
+      pathId: 'rect:test:outside-square-topology-sliced',
+      networkId: 'tn-rect',
+      points,
+      closed: true
+    })
+    const packets = buildConstrainedDashedStrokeResolvedPackets(
+      'rect:test:outside-square-topology-sliced',
+      points,
+      true,
+      [
+        createDefaultStroke({
+          width: 10,
+          style: 'dashed',
+          position: 'outside',
+          joinType: 'miter',
+          capType: 'square',
+          dashPattern: [40, 200],
+          dashOffset: 180
+        })
+      ],
+      {
+        topology
+      }
+    )
+
+    expect(packets).toHaveLength(1)
+    expect(
+      packets[0]?.geometry.polygons.some((polygon) =>
+        isPointInsideEvenOdd({ x: 83, y: -3 }, polygon)
+      )
+    ).toBe(true)
+    expect(
+      packets[0]?.geometry.polygons.some((polygon) =>
+        isPointInsideEvenOdd({ x: 70, y: -3 }, polygon)
+      )
+    ).toBe(true)
+    expect(
+      packets[0]?.geometry.polygons.some((polygon) =>
+        isPointInsideEvenOdd({ x: 83, y: 10 }, polygon)
+      )
+    ).toBe(true)
+
+    const faces = buildStrokeFinalFacesFromResolvedPackets(packets)
+    expect(
+      faces.some((face) =>
+        face.polygons.some((polygon) =>
+          isPointInsideEvenOdd({ x: 70, y: -5 }, polygon)
+        )
       )
     ).toBe(true)
   })

@@ -155,6 +155,14 @@ export interface SolidCenterStrokeGeometryDebugMeta {
   startDistance?: number
   endDistance?: number
   wrapsSeam?: boolean
+  physicalSpanRanges?: {
+    spanId: string
+    role: 'core' | 'start-cap' | 'end-cap'
+    startDistance: number
+    endDistance: number
+    wrapsSeam: boolean
+  }[]
+  physicalVisibleLength?: number
   previousVisibleIntervalId?: string | null
   nextVisibleIntervalId?: string | null
   intervalTerminalRole?: 'none' | 'path-start' | 'path-end' | 'both'
