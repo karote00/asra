@@ -18,6 +18,8 @@
 - Runtime set/update: valid -> write; invalid -> reject.
 - Load value: valid -> write; invalid + default -> fallback.
 - Load value invalid without default -> keep initialized safe value.
+- Extension-provided property schemas must preserve the same runtime reject and load fallback semantics.
+- App migrations may reshape versioned document data before validation, but package validators remain the safety boundary.
 
 ## Rules
 

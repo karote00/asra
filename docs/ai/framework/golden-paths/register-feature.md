@@ -35,9 +35,13 @@
 - Exclusive features block competing handlers as designed.
 - Cancel path leaves runtime in valid state.
 - Undo/redo grouping is correct for the interaction.
+- Feature handlers use app/common APIs or core facade APIs for all state changes.
+- Interim session writes and final committed writes have explicit undoability.
+- The feature can be tested without direct access to unrelated package internals.
 
 ## Common Failure Cases
 
 - Feature writes directly to context/store without API boundaries.
 - Session never ends/cancels under some paths.
 - Priority/exclusive settings produce nondeterministic behavior.
+- One interaction accidentally creates multiple undo commits.

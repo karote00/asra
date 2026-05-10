@@ -46,6 +46,28 @@ Use these matrices for deterministic ownership and flow decisions.
   - valid: write
   - invalid: keep initialized safe value
 
+## Extension Author Matrix
+
+- feature author
+  - can: register feature behavior through explicit triggers, priority, exclusivity, and execution/session lifecycle
+  - must: call app/common APIs or core facade APIs for mutation/query work
+  - must not: mutate package internals or create a parallel decision runtime
+
+- preset author
+  - can: provide default components, properties, schemas, selections, features, events, render layers, and startup wiring
+  - must: keep defaults optional, movable, and replaceable
+  - must not: make app-domain behavior a hidden framework dependency
+
+- app/product author
+  - can: compose core and presets, define app features, shortcuts, events, schemas, render layers, and domain workflows
+  - should: replace preset behavior through documented unregister/redefine or override flows
+  - must not: patch preset/framework internals for app-specific policy
+
+- render extension author
+  - can: register render layers, interaction targets, handlers, and engine abstractions
+  - must: keep render derived from state/system inputs
+  - must not: make render engine state the source of truth for domain logic
+
 ## Flow Matrix (Canonical)
 
 1. input-system emits normalized event

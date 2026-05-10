@@ -6,6 +6,7 @@ compatible design decisions during refactors and extensions.
 ## Index
 
 - `data-authority-and-flow.md`
+- `extensible-runtime-guarantees.md`
 - `feature-runtime-and-determinism.md`
 - `registration-over-branching.md`
 - `validation-and-fallback-semantics.md`

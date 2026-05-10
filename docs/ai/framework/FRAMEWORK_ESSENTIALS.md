@@ -32,6 +32,17 @@ Any implementation decision must preserve:
 - Load path: valid -> write; invalid -> fallback.
 - Migration is app-owned; validation safety is framework-owned.
 
+## Extensible Runtime Guarantees
+
+Asyra products should be assembled from framework runtime contracts, preset defaults, and app-owned feature behavior.
+
+The framework guarantees:
+- feature isolation: features define bounded behavior and mutate state through API boundaries
+- transaction safety: one intended user action maps to one intended undo commit
+- schema safety: invalid runtime writes are rejected and invalid load values fall back deterministically
+- preset replaceability: defaults are optional, movable, and replaceable by product owners
+- render boundary safety: render is an output/interaction bridge, not a data authority
+
 ## Current System Position
 
 - `feature-system` is active decision/session runtime.

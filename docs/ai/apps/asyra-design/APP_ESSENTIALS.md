@@ -38,6 +38,14 @@ App code should:
 - Primary interaction runtime: `@asyra/feature-system`
 - Pen/path editing is stateful via system properties.
 
+## Framework Extension Contract
+
+Asyra Design follows the framework extensible runtime guarantees in `docs/ai/framework/design-principles/extensible-runtime-guarantees.md`.
+
+App features should prove their own behavior through `src/common-apis/*` and core facade APIs without depending on unrelated framework or preset internals.
+
+Preset-provided behavior may be used as the default, but app-specific workflow changes should be implemented as app-owned features, app-owned common APIs, or documented preset extension/replacement flows.
+
 ## Non-Negotiable App Constraints
 
 - Do not bypass feature boundaries by mutating deep package internals inside features.
