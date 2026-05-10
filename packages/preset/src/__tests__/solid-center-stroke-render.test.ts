@@ -52,6 +52,42 @@ describe('solid center stroke render', () => {
     expect(getProjectionMeshes(host)).toHaveLength(1)
   })
 
+  it('should run: render self-intersecting exact-union center strokes through a masked solid fill', () => {
+    const host = new MeshTestHost()
+
+    renderSolidCenterStrokeEntries(host, [
+      {
+        cacheKey: 'solid_center_self_intersecting',
+        stroke: {
+          color: 0x3366ff,
+          alpha: 0.75
+        },
+        polygons: [
+          [
+            { x: 0, y: 0 },
+            { x: 10, y: 0 },
+            { x: 10, y: 4 },
+            { x: 0, y: 4 }
+          ]
+        ],
+        debugMeta: {
+          geometryFamily: 'solid-center',
+          sourceTopology: 'self-intersecting',
+          visualOverlapCollapseStatus: 'exact-union'
+        }
+      }
+    ])
+
+    expect(getProjectionMeshes(host)).toHaveLength(0)
+    expect(getProjectionGraphics(host)).toHaveLength(2)
+    const cacheEntry = (
+      host as typeof host & {
+        __asyraStrokeMeshCache?: Map<string, { kind?: string }>
+      }
+    ).__asyraStrokeMeshCache?.get('solid_center_self_intersecting')
+    expect(cacheEntry?.kind).toBe('masked-solid')
+  })
+
   it('should not run: emit mesh projections for non-polygon solid-center fragments', () => {
     const host = new MeshTestHost()
 

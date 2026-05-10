@@ -43,7 +43,10 @@ import {
   buildConstrainedSolidStrokeResolvedPackets,
   hasConstrainedSolidStrokeIntent
 } from './stroke-render/constrained-solid-stroke-packets'
-import { getRenderableStrokes } from './stroke-render/renderable-stroke'
+import {
+  getRenderableStrokes,
+  type RenderableStroke
+} from './stroke-render/renderable-stroke'
 import {
   clearConstrainedSolidRuntimeDiagnostics,
   setConstrainedSolidRuntimeDiagnostics,
@@ -96,6 +99,11 @@ interface VectorComputedData {
 
 interface VectorStrokeDebugOptions {
   disableVisualOverlapCollapse?: boolean
+}
+
+interface NativeCenterSolidVisualStrokeGroup {
+  network: VectorNetwork
+  strokes: RenderableStroke[]
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -1750,6 +1758,50 @@ const drawVectorPath = (
   )
 }
 
+const drawNativeCenterSolidStrokePath = (
+  graphic: Parameters<RenderStrategy>[0],
+  networks: VectorNetwork[],
+  points: Record<string, VectorPointNode>,
+  segments: Record<string, VectorSegment>,
+  stroke: RenderableStroke
+) => {
+  networks.forEach((network) =>
+    drawVectorNetworkPath(graphic, network, points, segments)
+  )
+  ;(
+    graphic as {
+      stroke?: (style: {
+        width: number
+        color: number
+        alpha: number
+        join: RenderableStroke['join']
+        cap: Exclude<RenderableStroke['cap'], 'none'>
+        miterLimit: number
+      }) => unknown
+    }
+  ).stroke?.({
+    width: stroke.width,
+    color: stroke.color,
+    alpha: stroke.alpha,
+    join: stroke.join,
+    cap: stroke.cap === 'none' ? 'butt' : stroke.cap,
+    miterLimit: stroke.miterLimit
+  })
+}
+
+const isNativeCenterSolidVisualStroke = (stroke: RenderableStroke) =>
+  stroke.style === 'solid' &&
+  stroke.position === 'center' &&
+  stroke.kind === 'solid' &&
+  stroke.width > 0
+
+const shouldRenderCenterSolidFaceWithNativeVisual = (
+  face: SolidStrokeFinalFaceList[number]
+) =>
+  face.geometryFamily === 'solid-center' &&
+  face.resolutionStatus === 'native-center' &&
+  face.paint.kind === 'solid'
+
 const drawFillFaces = (
   graphic: Parameters<RenderStrategy>[0],
   faces: Vec2[][]
@@ -1847,6 +1899,11 @@ const renderVectorGraphic = (
         __asyraVectorPathTopologyModelCount?: number
       }
     ).__asyraVectorPathTopologyModelCount = 0
+    ;(
+      graphic as typeof graphic & {
+        __asyraNativeCenterSolidStrokeRenderCount?: number
+      }
+    ).__asyraNativeCenterSolidStrokeRenderCount = 0
     applySolidCenterStrokeExportPacketsFromFinalFaces(graphic, [])
     renderSolidCenterStrokeEntries(graphic, [])
     return
@@ -2396,6 +2453,21 @@ const renderVectorGraphic = (
       constrainedDashedAcceptedCandidatePackets,
       shouldUseNormalizedCompoundDashedBoundaries ? [] : arrangementLegalDomains
     )
+  const nativeCenterSolidVisualStrokeGroups: NativeCenterSolidVisualStrokeGroup[] =
+    shouldDisableVisualOverlapCollapse
+      ? []
+      : networkPaths.flatMap(({ network, topology }) => {
+          if (topology.topologyFamily === 'self-intersecting') {
+            return []
+          }
+          const renderStrokesForNetwork = topology.closed
+            ? renderData.strokes
+            : mapOpenPathStrokePositionToCenter(renderData.strokes)
+          const strokes = getRenderableStrokes(renderStrokesForNetwork).filter(
+            isNativeCenterSolidVisualStroke
+          )
+          return strokes.length > 0 ? [{ network, strokes }] : []
+        })
   const renderedDashedCenterPackets: ReturnType<
     typeof buildDashedCenterStrokeResolvedPackets
   > = []
@@ -2529,6 +2601,12 @@ const renderVectorGraphic = (
       return rawStrokeFinalFaces
     }
   })()
+  const strokeRenderFaces =
+    nativeCenterSolidVisualStrokeGroups.length > 0
+      ? strokeFinalFaces.filter(
+          (face) => !shouldRenderCenterSolidFaceWithNativeVisual(face)
+        )
+      : strokeFinalFaces
 
   const applyVectorHoverHitArea = () => {
     const hitCache: VectorHitCache = graphicCache.__asyraVectorHitCache ?? {}
@@ -2734,16 +2812,39 @@ const renderVectorGraphic = (
           )
         )
   )
-  drawVectorPath(graphic, orderedNetworks, points, segments)
   if (previewFill) {
     applyRenderableFill(graphic as { fill: unknown }, fillPayload, {
       replayPath: () =>
         drawVectorPath(graphic, orderedNetworks, points, segments)
     })
   }
+  if (nativeCenterSolidVisualStrokeGroups.length > 0) {
+    nativeCenterSolidVisualStrokeGroups.forEach(({ network, strokes }) => {
+      strokes.forEach((stroke) =>
+        drawNativeCenterSolidStrokePath(
+          graphic,
+          [network],
+          points,
+          segments,
+          stroke
+        )
+      )
+    })
+  } else {
+    drawVectorPath(graphic, orderedNetworks, points, segments)
+  }
+  ;(
+    graphic as typeof graphic & {
+      __asyraNativeCenterSolidStrokeRenderCount?: number
+    }
+  ).__asyraNativeCenterSolidStrokeRenderCount =
+    nativeCenterSolidVisualStrokeGroups.reduce(
+      (sum, group) => sum + group.strokes.length,
+      0
+    )
   renderSolidCenterStrokeEntries(
     graphic,
-    toSolidCenterStrokeRenderEntriesFromFinalFaces(strokeFinalFaces, {
+    toSolidCenterStrokeRenderEntriesFromFinalFaces(strokeRenderFaces, {
       collapseDashedCenterVisualOverlaps: !shouldDisableVisualOverlapCollapse
     })
   )

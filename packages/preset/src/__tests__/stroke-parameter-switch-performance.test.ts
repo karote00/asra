@@ -518,5 +518,9 @@ describeProfile('stroke parameter switch performance profile', () => {
       `STAR_CONSTRAINED_DASHED_PHASES ${JSON.stringify(breakdown)}\n`
     )
     expect(breakdown.packetCount).toBeGreaterThan(0)
+    expect(breakdown.averagePolygonPointsPerFrame).toBeLessThanOrEqual(2000)
+    expect(
+      breakdown.phases['constrained dashed packets'].averageMs
+    ).toBeLessThan(16.7)
   })
 })

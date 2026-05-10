@@ -274,6 +274,7 @@ const createSelfIntersectingStarsVectorData = (starCount: number) => {
 
 class RecordingGraphic extends Container {
   __asyraSolidCenterStrokeExportPackets?: SolidCenterStrokeExportPacket[]
+  __asyraNativeCenterSolidStrokeRenderCount?: number
   __asyraConstrainedDashedRuntimeDiagnostics?: {
     acceptedCount: number
     blockedCount: number
@@ -624,7 +625,9 @@ describe('Vector Component', () => {
       args: [100, 100]
     })
     expect(countInstructions(mockGraphic, 'bezierCurveTo')).toHaveLength(0)
-    expect(getProjectionMeshes(mockGraphic)).toHaveLength(1)
+    expect(getProjectionMeshes(mockGraphic)).toHaveLength(0)
+    expect(countInstructions(mockGraphic, 'stroke')).toHaveLength(1)
+    expect(mockGraphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(1)
   })
 
   it('should publish geometry bounds without stroke expansion', () => {
@@ -1419,7 +1422,7 @@ describe('Vector Component', () => {
     expect(mockGraphic.y).toBe(0)
   })
 
-  it('should run: render solid-center mesh for supported vector strokes', () => {
+  it('should run: render native solid-center visual stroke for supported vector strokes', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1458,7 +1461,9 @@ describe('Vector Component', () => {
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
-    expect(getProjectionMeshes(mockGraphic)).toHaveLength(1)
+    expect(getProjectionMeshes(mockGraphic)).toHaveLength(0)
+    expect(countInstructions(mockGraphic, 'stroke')).toHaveLength(1)
+    expect(mockGraphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(1)
     expect(mockGraphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
   })
 
@@ -1580,7 +1585,9 @@ describe('Vector Component', () => {
 
     runRenderStrategy(renderStrategy, mockGraphic, supportedData)
     const initialProjectionMeshes = getProjectionMeshes(mockGraphic)
-    expect(initialProjectionMeshes).toHaveLength(1)
+    expect(initialProjectionMeshes).toHaveLength(0)
+    expect(countInstructions(mockGraphic, 'stroke')).toHaveLength(1)
+    expect(mockGraphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(1)
 
     runRenderStrategy(renderStrategy, mockGraphic, {
       ...supportedData,
@@ -1601,12 +1608,8 @@ describe('Vector Component', () => {
     const exportPackets =
       mockGraphic.__asyraSolidCenterStrokeExportPackets ?? []
     expect(nextProjectionMeshes.length).toBeGreaterThan(0)
-    expect(
-      nextProjectionMeshes.some((mesh) =>
-        initialProjectionMeshes.includes(mesh)
-      )
-    ).toBe(false)
     expect(exportPackets.length).toBe(nextProjectionMeshes.length)
+    expect(mockGraphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
     expect(
       exportPackets.every((packet) =>
         Boolean(

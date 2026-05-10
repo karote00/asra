@@ -10,6 +10,7 @@ import {
   buildSelfIntersectingClosedConstrainedDashedLocalSidePolygons
 } from './constrained-dashed-local-side-geometry'
 import {
+  buildRoundStrokeArcPoints,
   isSimpleClosedPolygon,
   polygonArea
 } from './solid-stroke-geometry-core'
@@ -898,6 +899,16 @@ const classifyConstrainedDashedIntervalWithContext = (
   }
 }
 
+const classifySourcePathSampledSimpleDashedInterval = (
+  sourceTopology: ConstrainedDashedSourceTopology
+): ConstrainedDashedIntervalClassification => ({
+  sourceTopology,
+  intervalTopology: 'other',
+  acceptsFullLoopRoundJoin: false,
+  acceptsSingleEdgeRoundCap: false,
+  acceptsCornerSpanningJoin: false
+})
+
 const getConstrainedDashedPacketOwnerKey = (
   packet: Pick<SolidCenterStrokeResolvedPacket, 'geometry'>
 ) => packet.geometry.debugMeta?.ownerKey ?? null
@@ -1254,10 +1265,18 @@ interface SourceSegmentIntervalSpanRange {
   span: ConstrainedDashedPhysicalSpan
 }
 
+interface SourcePathSegmentSample {
+  points: Vec2[]
+  cumulativeDistances: number[]
+  polylineLength: number
+}
+
 interface SourcePathSlicingContext {
   segmentRanges: SourcePathSegmentRange[]
+  segmentSamples: SourcePathSegmentSample[]
   splitRangeCache: Map<string, SourceSegmentIntervalRange[]>
   pointSliceCache: Map<string, Vec2[]>
+  ribbonPolygonCache: Map<string, Vec2[][] | null>
   segmentBoundaryCache: Map<number, Vec2[]>
   samplingTolerance: number
   samplingOptions: PathSliceSamplingOptions
@@ -1296,24 +1315,176 @@ const buildSourcePathSliceCacheKey = (
     range.startDistance
   )}:${formatSourcePathRangeKeyDistance(range.endDistance)}`
 
+const buildSourcePathSegmentSample = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  range: SourcePathSegmentRange,
+  samplingTolerance: number,
+  samplingOptions: PathSliceSamplingOptions
+): SourcePathSegmentSample => {
+  const segment = path.segments[range.index]
+  const points = segment
+    ? slicePathGeometryPoints(
+        {
+          segments: [segment],
+          closed: false,
+          totalLength: segment.length
+        },
+        0,
+        segment.length,
+        false,
+        samplingTolerance,
+        samplingOptions
+      )
+    : []
+  const normalizedPoints =
+    points.length >= 2 ? points : segment ? [segment.start, segment.end] : []
+  const cumulativeDistances = [0]
+  for (let index = 1; index < normalizedPoints.length; index += 1) {
+    cumulativeDistances.push(
+      cumulativeDistances[cumulativeDistances.length - 1] +
+        distanceBetween(normalizedPoints[index - 1], normalizedPoints[index])
+    )
+  }
+
+  return {
+    points: normalizedPoints,
+    cumulativeDistances,
+    polylineLength: cumulativeDistances[cumulativeDistances.length - 1] ?? 0
+  }
+}
+
 const createSourcePathSlicingContext = (
-  path: Pick<PathGeometry, 'segments'>,
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   samplingTolerance = SOURCE_PATH_DASH_SLICE_TOLERANCE,
   samplingOptions = SOURCE_PATH_DASH_SLICE_SAMPLING
-): SourcePathSlicingContext => ({
-  segmentRanges: getSourcePathSegmentRanges(path),
-  splitRangeCache: new Map(),
-  pointSliceCache: new Map(),
-  segmentBoundaryCache: new Map(),
-  samplingTolerance,
-  samplingOptions
-})
+): SourcePathSlicingContext => {
+  const segmentRanges = getSourcePathSegmentRanges(path)
+  return {
+    segmentRanges,
+    segmentSamples: segmentRanges.map((range) =>
+      buildSourcePathSegmentSample(
+        path,
+        range,
+        samplingTolerance,
+        samplingOptions
+      )
+    ),
+    splitRangeCache: new Map(),
+    pointSliceCache: new Map(),
+    ribbonPolygonCache: new Map(),
+    segmentBoundaryCache: new Map(),
+    samplingTolerance,
+    samplingOptions
+  }
+}
+
+const interpolateSourcePathSamplePoint = (
+  sample: SourcePathSegmentSample,
+  distance: number
+): Vec2 | null => {
+  if (sample.points.length === 0) {
+    return null
+  }
+  if (sample.points.length === 1 || sample.polylineLength <= EPSILON) {
+    return sample.points[0]
+  }
+
+  const clampedDistance = Math.max(0, Math.min(sample.polylineLength, distance))
+  for (let index = 1; index < sample.points.length; index += 1) {
+    const previousDistance = sample.cumulativeDistances[index - 1]
+    const nextDistance = sample.cumulativeDistances[index]
+    if (clampedDistance > nextDistance + EPSILON) {
+      continue
+    }
+
+    const segmentLength = nextDistance - previousDistance
+    const t =
+      segmentLength > EPSILON
+        ? (clampedDistance - previousDistance) / segmentLength
+        : 0
+    const previous = sample.points[index - 1]
+    const next = sample.points[index]
+    return normalizePoint({
+      x: previous.x + (next.x - previous.x) * t,
+      y: previous.y + (next.y - previous.y) * t
+    })
+  }
+
+  return sample.points[sample.points.length - 1]
+}
+
+const dedupeSourcePathSlicePoints = (points: Vec2[]) => {
+  if (points.length <= 1) {
+    return points
+  }
+
+  const result = [points[0]]
+  for (let index = 1; index < points.length; index += 1) {
+    if (distanceBetween(result[result.length - 1], points[index]) > EPSILON) {
+      result.push(points[index])
+    }
+  }
+  return result
+}
+
+const sliceSourcePathSegmentSamplePoints = (
+  sample: SourcePathSegmentSample,
+  segmentLength: number,
+  localStartDistance: number,
+  localEndDistance: number
+) => {
+  if (sample.points.length < 2 || sample.polylineLength <= EPSILON) {
+    return []
+  }
+
+  const scale =
+    segmentLength > EPSILON ? sample.polylineLength / segmentLength : 1
+  const startDistance = Math.max(0, localStartDistance * scale)
+  const endDistance = Math.min(sample.polylineLength, localEndDistance * scale)
+  if (endDistance - startDistance <= EPSILON) {
+    return []
+  }
+
+  const startPoint = interpolateSourcePathSamplePoint(sample, startDistance)
+  const endPoint = interpolateSourcePathSamplePoint(sample, endDistance)
+  if (!startPoint || !endPoint) {
+    return []
+  }
+
+  const points = [startPoint]
+  for (let index = 1; index < sample.points.length - 1; index += 1) {
+    const distance = sample.cumulativeDistances[index]
+    if (
+      distance > startDistance + EPSILON &&
+      distance < endDistance - EPSILON
+    ) {
+      points.push(sample.points[index])
+    }
+  }
+  points.push(endPoint)
+
+  return dedupeSourcePathSlicePoints(points)
+}
 
 const sliceSourcePathSegmentRangePoints = (
   path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   range: SourceSegmentIntervalRange,
   slicingContext: SourcePathSlicingContext
 ) => {
+  const segmentRange = slicingContext.segmentRanges[range.segmentIndex]
+  const sample = slicingContext.segmentSamples[range.segmentIndex]
+  if (segmentRange && sample) {
+    const points = sliceSourcePathSegmentSamplePoints(
+      sample,
+      segmentRange.endDistance - segmentRange.startDistance,
+      range.startDistance - segmentRange.startDistance,
+      range.endDistance - segmentRange.startDistance
+    )
+    if (points.length >= 2) {
+      return points
+    }
+  }
+
   return slicePathGeometryPoints(
     path,
     range.startDistance,
@@ -1435,6 +1606,20 @@ const sliceSourcePathRangePoints = (
   slicingContext.pointSliceCache.set(cacheKey, points)
   return points
 }
+
+const sliceSourcePathRangePointsExact = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  range: SourceSegmentIntervalRange,
+  slicingContext?: SourcePathSlicingContext
+) =>
+  slicePathGeometryPoints(
+    path,
+    range.startDistance,
+    range.endDistance,
+    false,
+    slicingContext?.samplingTolerance,
+    slicingContext?.samplingOptions
+  )
 
 const SOURCE_PATH_SMOOTH_BOUNDARY_DOT_MIN = Math.cos(Math.PI / 36)
 
@@ -1663,6 +1848,276 @@ const getSourcePathRangeRoundCapOwnership = (
     roundCapStart: rangeOwnsStartCap,
     roundCapEnd: rangeOwnsEndCap
   }
+}
+
+const getSourcePathRibbonCacheKey = (
+  range: SourceSegmentIntervalRange,
+  role: ConstrainedDashedPhysicalSpanRole,
+  stroke: Pick<
+    RenderableStroke,
+    'position' | 'width' | 'join' | 'miterLimit' | 'cap'
+  >,
+  roundCapStart: boolean | undefined,
+  roundCapEnd: boolean | undefined
+) =>
+  [
+    range.segmentIndex,
+    role,
+    formatSourcePathRangeKeyDistance(range.startDistance),
+    formatSourcePathRangeKeyDistance(range.endDistance),
+    stroke.position,
+    stroke.width.toFixed(6),
+    stroke.join,
+    stroke.miterLimit.toFixed(6),
+    stroke.cap,
+    roundCapStart === true ? 'rs' : 'ns',
+    roundCapEnd === true ? 're' : 'ne'
+  ].join(':')
+
+const getConstrainedRibbonOffsetDistance = (
+  stroke: Pick<RenderableStroke, 'position' | 'width'>
+) => (stroke.position === 'inside' ? stroke.width : -stroke.width)
+
+const getOffsetVectorForSegment = (
+  from: Vec2,
+  to: Vec2,
+  offset: number
+): Vec2 | null => {
+  const direction = normalizeVector({
+    x: to.x - from.x,
+    y: to.y - from.y
+  })
+  if (!direction) {
+    return null
+  }
+
+  return {
+    x: -direction.y * offset,
+    y: direction.x * offset
+  }
+}
+
+const buildSourcePathRibbonOffsetBoundary = (
+  source: Vec2[],
+  offset: number
+) => {
+  if (source.length < 2) {
+    return []
+  }
+
+  const offsetBoundary: Vec2[] = []
+
+  for (let index = 0; index < source.length; index += 1) {
+    const point = source[index]
+    const previous = index > 0 ? source[index - 1] : null
+    const next = index < source.length - 1 ? source[index + 1] : null
+    const previousOffset = previous
+      ? getOffsetVectorForSegment(previous, point, offset)
+      : null
+    const nextOffset = next
+      ? getOffsetVectorForSegment(point, next, offset)
+      : null
+    const offsetVector =
+      previousOffset && nextOffset
+        ? normalizeVector({
+            x: previousOffset.x + nextOffset.x,
+            y: previousOffset.y + nextOffset.y
+          })
+        : previousOffset
+          ? normalizeVector(previousOffset)
+          : nextOffset
+            ? normalizeVector(nextOffset)
+            : null
+
+    if (!offsetVector) {
+      return []
+    }
+
+    offsetBoundary.push(
+      normalizePoint({
+        x: point.x + offsetVector.x * Math.abs(offset),
+        y: point.y + offsetVector.y * Math.abs(offset)
+      })
+    )
+  }
+
+  return offsetBoundary
+}
+
+const buildOneSidedRibbonRoundCap = (
+  endpoint: Vec2,
+  offsetEndpoint: Vec2,
+  tangent: Vec2,
+  isStart: boolean
+) => {
+  const center = {
+    x: (endpoint.x + offsetEndpoint.x) / 2,
+    y: (endpoint.y + offsetEndpoint.y) / 2
+  }
+  const radius = distanceBetween(endpoint, offsetEndpoint) / 2
+  if (radius <= EPSILON) {
+    return []
+  }
+
+  const bulgeDirection = isStart ? { x: -tangent.x, y: -tangent.y } : tangent
+  const midPoint = {
+    x: center.x + bulgeDirection.x * radius,
+    y: center.y + bulgeDirection.y * radius
+  }
+  const startAngle = Math.atan2(endpoint.y - center.y, endpoint.x - center.x)
+  const midAngle = Math.atan2(midPoint.y - center.y, midPoint.x - center.x)
+  const endAngle = Math.atan2(
+    offsetEndpoint.y - center.y,
+    offsetEndpoint.x - center.x
+  )
+  const normalizeAngleDelta = (value: number) => {
+    let result = value
+    while (result < 0) {
+      result += Math.PI * 2
+    }
+    while (result >= Math.PI * 2) {
+      result -= Math.PI * 2
+    }
+    return result
+  }
+  let sweep = endAngle - startAngle
+  while (sweep <= -Math.PI) {
+    sweep += Math.PI * 2
+  }
+  while (sweep > Math.PI) {
+    sweep -= Math.PI * 2
+  }
+
+  const positiveSweep = sweep < 0 ? sweep + Math.PI * 2 : sweep
+  const midDelta = normalizeAngleDelta(midAngle - startAngle)
+  const sweepViaMid =
+    midDelta <= positiveSweep + EPSILON
+      ? positiveSweep
+      : positiveSweep - Math.PI * 2
+
+  return buildRoundStrokeArcPoints(center, radius, startAngle, sweepViaMid, 3, {
+    maxLength: 0.25
+  }).map(normalizePoint)
+}
+
+const buildSourcePathRibbonPolygonFast = (
+  source: Vec2[],
+  stroke: Pick<
+    RenderableStroke,
+    'position' | 'width' | 'join' | 'miterLimit' | 'cap'
+  >,
+  options: {
+    roundCapStart?: boolean
+    roundCapEnd?: boolean
+  }
+) => {
+  if (source.length < 2 || stroke.width <= EPSILON) {
+    return null
+  }
+
+  const offset = getConstrainedRibbonOffsetDistance(stroke)
+  const offsetBoundary = buildSourcePathRibbonOffsetBoundary(source, offset)
+  if (offsetBoundary.length !== source.length) {
+    return null
+  }
+
+  const rawPolygon: Vec2[] = [...source.map(normalizePoint)]
+  const hasRoundCap =
+    stroke.cap === 'round' &&
+    (options.roundCapStart === true || options.roundCapEnd === true)
+
+  if (hasRoundCap) {
+    const startDirection = normalizeVector({
+      x: source[1].x - source[0].x,
+      y: source[1].y - source[0].y
+    })
+    const endDirection = normalizeVector({
+      x: source[source.length - 1].x - source[source.length - 2].x,
+      y: source[source.length - 1].y - source[source.length - 2].y
+    })
+    if (!startDirection || !endDirection) {
+      return null
+    }
+
+    if (options.roundCapEnd === true) {
+      rawPolygon.push(
+        ...buildOneSidedRibbonRoundCap(
+          source[source.length - 1],
+          offsetBoundary[offsetBoundary.length - 1],
+          endDirection,
+          false
+        ).slice(1)
+      )
+    } else {
+      rawPolygon.push(offsetBoundary[offsetBoundary.length - 1])
+    }
+    rawPolygon.push(...offsetBoundary.slice(0, -1).reverse())
+    if (options.roundCapStart === true) {
+      rawPolygon.push(
+        ...buildOneSidedRibbonRoundCap(
+          source[0],
+          offsetBoundary[0],
+          startDirection,
+          true
+        )
+          .reverse()
+          .slice(1)
+      )
+    }
+  } else {
+    rawPolygon.push(...offsetBoundary.reverse())
+  }
+
+  const polygon = cleanPolygon(rawPolygon)
+  if (polygon.length < 3 || Math.abs(polygonArea(polygon)) <= EPSILON) {
+    return null
+  }
+
+  return [polygon]
+}
+
+const buildSourcePathRibbonPolygons = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  renderRange: SourceSegmentIntervalRange,
+  span: ConstrainedDashedPhysicalSpan,
+  stroke: Pick<
+    RenderableStroke,
+    'style' | 'position' | 'width' | 'join' | 'miterLimit' | 'cap'
+  >,
+  roundCapStart: boolean | undefined,
+  roundCapEnd: boolean | undefined,
+  slicingContext?: SourcePathSlicingContext
+) => {
+  const cacheKey = slicingContext
+    ? getSourcePathRibbonCacheKey(
+        renderRange,
+        span.role,
+        stroke,
+        roundCapStart,
+        roundCapEnd
+      )
+    : null
+  const cached = cacheKey
+    ? slicingContext?.ribbonPolygonCache.get(cacheKey)
+    : undefined
+  if (cached !== undefined) {
+    return cached
+  }
+
+  const source = sliceSourcePathRangePoints(
+    path,
+    renderRange,
+    span.role,
+    slicingContext
+  )
+  const fastPolygons = buildSourcePathRibbonPolygonFast(source, stroke, {
+    roundCapStart,
+    roundCapEnd
+  })
+  if (cacheKey) {
+    slicingContext?.ribbonPolygonCache.set(cacheKey, fastPolygons)
+  }
+  return fastPolygons
 }
 
 const areSourceRangesAdjacent = (
@@ -1923,6 +2378,25 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
     return polygons
   }
 
+  const endpointClipReach = Math.max(
+    intervalStroke.width * (authoredStroke.cap === 'square' ? 1.5 : 0.55),
+    EPSILON
+  )
+  const touchesSegmentStart =
+    range.startDistance <=
+    segmentRange.startDistance + endpointClipReach + EPSILON
+  const touchesSegmentEnd =
+    range.endDistance >= segmentRange.endDistance - endpointClipReach - EPSILON
+  const fallbackPolygons = polygons.filter(
+    (polygon) =>
+      polygon.length >= 3 &&
+      Math.abs(polygonArea(polygon)) > EPSILON &&
+      isSimpleClosedPolygon(polygon)
+  )
+  if (!touchesSegmentStart && !touchesSegmentEnd) {
+    return fallbackPolygons
+  }
+
   const selectedSide = intervalStroke.position === 'inside' ? 1 : -1
   const segmentStartIsSharp = sharpGuardVertices.some((guard) =>
     areLoopDistancesEqual(
@@ -1942,15 +2416,6 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
     intervalStroke.width * 2,
     authoredStroke.dashPattern[0] ?? intervalStroke.width
   )
-  const endpointClipReach = Math.max(
-    intervalStroke.width * (authoredStroke.cap === 'square' ? 1.5 : 0.55),
-    EPSILON
-  )
-  const touchesSegmentStart =
-    range.startDistance <=
-    segmentRange.startDistance + endpointClipReach + EPSILON
-  const touchesSegmentEnd =
-    range.endDistance >= segmentRange.endDistance - endpointClipReach - EPSILON
   const isPathStartTerminalRange =
     !interval.wrapsSeam &&
     interval.startDistance <= EPSILON &&
@@ -2063,13 +2528,6 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
   const shouldRequireClippedCapEndpoint =
     shouldRequireClippedSquareCapEndpoint ||
     shouldRequireClippedRoundCapEndpoint
-  const fallbackPolygons = polygons.filter(
-    (polygon) => polygon.length >= 3 && isSimpleClosedPolygon(polygon)
-  )
-  if (!touchesSegmentStart && !touchesSegmentEnd) {
-    return fallbackPolygons
-  }
-
   const previousBoundary = getBoundaryTail(
     getSourceSegmentBoundary(
       path,
@@ -2167,7 +2625,9 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
       }
     }
 
-    return currentPolygon.length >= 3 && isSimpleClosedPolygon(currentPolygon)
+    return currentPolygon.length >= 3 &&
+      Math.abs(polygonArea(currentPolygon)) > EPSILON &&
+      isSimpleClosedPolygon(currentPolygon)
       ? [currentPolygon]
       : []
   })
@@ -3473,19 +3933,22 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
     )
 
     return visibleIntervals.flatMap((interval) => {
-      const classification = classifyConstrainedDashedIntervalWithContext(
-        topologyPoints,
-        topology.closed,
-        {
-          startDistance: interval.startDistance,
-          endDistance: interval.endDistance,
-          totalLength,
-          wrapsSeam: interval.wrapsSeam
-        },
-        stroke,
-        sourceTopology,
-        segmentRanges
-      )
+      const classification =
+        sourcePath && sourceTopology === 'sampled-simple-closed'
+          ? classifySourcePathSampledSimpleDashedInterval(sourceTopology)
+          : classifyConstrainedDashedIntervalWithContext(
+              topologyPoints,
+              topology.closed,
+              {
+                startDistance: interval.startDistance,
+                endDistance: interval.endDistance,
+                totalLength,
+                wrapsSeam: interval.wrapsSeam
+              },
+              stroke,
+              sourceTopology,
+              segmentRanges
+            )
 
       if (!isSupportedConstrainedDashedInterval(classification, stroke)) {
         return []
@@ -3509,6 +3972,8 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                   sourcePathSlicingContext
                 ).map((range) => ({ range, span }))
               )
+            const useExactInsideSourcePath =
+              stroke.position === 'inside' && sourcePath.closed === true
             const rangePolygons = spanRanges.flatMap(({ range, span }) => {
               const renderRange = buildOverlappedSourcePathRenderRange(
                 sourcePath,
@@ -3517,21 +3982,38 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 stroke,
                 sourcePathSlicingContext
               )
-              const rawIntervalPoints = sliceSourcePathRangePoints(
-                sourcePath,
-                renderRange,
-                span.role,
-                sourcePathSlicingContext
-              )
               const rangeCapOwnership = getSourcePathRangeRoundCapOwnership(
                 sourcePath,
                 range,
                 interval,
                 squareCapPhysicalStroke
               )
+              const fastRangePolygons = useExactInsideSourcePath
+                ? null
+                : buildSourcePathRibbonPolygons(
+                    sourcePath,
+                    renderRange,
+                    span,
+                    rangeCapOwnership.stroke,
+                    rangeCapOwnership.roundCapStart,
+                    rangeCapOwnership.roundCapEnd,
+                    sourcePathSlicingContext
+                  )
               const rangePolygons =
+                fastRangePolygons ??
                 buildConstrainedDashedLocalSideStrokePolygons(
-                  rawIntervalPoints,
+                  useExactInsideSourcePath
+                    ? sliceSourcePathRangePointsExact(
+                        sourcePath,
+                        renderRange,
+                        sourcePathSlicingContext
+                      )
+                    : sliceSourcePathRangePoints(
+                        sourcePath,
+                        renderRange,
+                        span.role,
+                        sourcePathSlicingContext
+                      ),
                   false,
                   rangeCapOwnership.stroke,
                   {

@@ -1131,6 +1131,44 @@ const assertCenterHollowRegionsStayEmpty = async (
   ])
 }
 
+const assertReportedVector6CenterSolidLocalAlpha = async (
+  page: Page,
+  testInfo: TestInfo
+) => {
+  const probes = [
+    {
+      label: 'reported-vector-6-center-seam-alpha.png',
+      point: { x: 192, y: 24 }
+    },
+    {
+      label: 'reported-vector-6-center-lower-curve-alpha.png',
+      point: { x: 270, y: 345 }
+    },
+    {
+      label: 'reported-vector-6-center-crossing-alpha.png',
+      point: { x: 190, y: 210 }
+    }
+  ]
+
+  for (const probe of probes) {
+    const raster = await captureZoomedSelectedLocalRaster(page, probe.point, {
+      zoom: 4,
+      width: 180,
+      height: 180
+    })
+    await attachPng(probe.label, raster.base64, testInfo)
+    const redStats = await getBase64RedDominantStats(page, raster.base64)
+    expect(
+      redStats.redPixelCount,
+      JSON.stringify({ label: probe.label, redStats }, null, 2)
+    ).toBeGreaterThan(80)
+    expect(
+      redStats.p99,
+      JSON.stringify({ label: probe.label, redStats }, null, 2)
+    ).toBeLessThanOrEqual(150)
+  }
+}
+
 const createReportedVector6InsideSolid = async (page: Page) => {
   await page.evaluate(
     ({ color, strokeWidth }) => {
@@ -1324,6 +1362,137 @@ const createReportedVector6InsideSolid = async (page: Page) => {
   await page.waitForTimeout(1200)
 }
 
+const createSelfIntersectingCenterSolid = async (page: Page) => {
+  await page.evaluate(
+    ({ color, strokeWidth }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      const points = {
+        'x-0': {
+          id: 'x-0',
+          kind: 'anchor',
+          x: 20,
+          y: 0,
+          anchorType: 'sharp'
+        },
+        'x-1': {
+          id: 'x-1',
+          kind: 'anchor',
+          x: 300,
+          y: 340,
+          anchorType: 'sharp'
+        },
+        'x-2': {
+          id: 'x-2',
+          kind: 'anchor',
+          x: 300,
+          y: 0,
+          anchorType: 'sharp'
+        },
+        'x-3': {
+          id: 'x-3',
+          kind: 'anchor',
+          x: 20,
+          y: 340,
+          anchorType: 'sharp'
+        }
+      }
+      const segments = {
+        'xs-0': {
+          id: 'xs-0',
+          startId: 'x-0',
+          endId: 'x-1',
+          outControlId: null,
+          inControlId: null
+        },
+        'xs-1': {
+          id: 'xs-1',
+          startId: 'x-1',
+          endId: 'x-2',
+          outControlId: null,
+          inControlId: null
+        },
+        'xs-2': {
+          id: 'xs-2',
+          startId: 'x-2',
+          endId: 'x-3',
+          outControlId: null,
+          inControlId: null
+        },
+        'xs-3': {
+          id: 'xs-3',
+          startId: 'x-3',
+          endId: 'x-0',
+          outControlId: null,
+          inControlId: null
+        }
+      }
+      const networks = {
+        'xn-0': {
+          id: 'xn-0',
+          pointIds: ['x-0', 'x-1', 'x-2', 'x-3'],
+          segmentIds: ['xs-0', 'xs-1', 'xs-2', 'xs-3'],
+          closed: true
+        }
+      }
+      const createdId = elementApis?.createElement?.(
+        { type: 'vector', points, segments, networks, closed: true },
+        { undoable: false }
+      )
+      if (!createdId) {
+        throw new Error(
+          'Failed to create self-intersecting center solid fixture'
+        )
+      }
+      elementApis?.changeComputedData?.(
+        [createdId],
+        {
+          x: 260,
+          y: 180,
+          width: 320,
+          height: 340,
+          points,
+          segments,
+          networks,
+          closed: true,
+          fills: [],
+          strokes: [
+            {
+              id: 'self-intersecting-center-solid',
+              kind: 'solid',
+              style: 'solid',
+              position: 'center',
+              width: strokeWidth,
+              dashPattern: [],
+              dashOffset: 0,
+              fill: null,
+              defaultColorFormat: 'hex',
+              colorFormat: 'hex',
+              color: `#${color}`,
+              opacity: 0.5,
+              visible: true,
+              gradient: null,
+              joinType: 'miter',
+              capType: 'butt',
+              miterAngle: 28.96
+            }
+          ]
+        },
+        { undoable: false }
+      )
+      core?.selectElements?.([createdId], { undoable: false })
+    },
+    {
+      color: REPORTED_VECTOR_6_PRODUCT_STROKE_COLOR,
+      strokeWidth: 30
+    }
+  )
+
+  await page.waitForTimeout(600)
+}
+
 const getSelectedSolidStrokeRenderPacketSummary = async (page: Page) =>
   page.evaluate(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1357,6 +1526,8 @@ const getSelectedSolidStrokeRenderPacketSummary = async (page: Page) =>
       strokeMeshCacheSummary: Array.from(
         renderElement?.__asyraStrokeMeshCache?.values?.() ?? []
       ).map((entry: { kind?: string }) => ({ kind: entry.kind })),
+      nativeCenterSolidStrokeRenderCount:
+        renderElement?.__asyraNativeCenterSolidStrokeRenderCount ?? 0,
       exportPacketDebugMeta: exportPackets.map(
         (packet: { debugMeta?: Record<string, unknown> }) =>
           packet.debugMeta ?? {}
@@ -1365,6 +1536,47 @@ const getSelectedSolidStrokeRenderPacketSummary = async (page: Page) =>
   })
 
 test.describe('Reported Vector-6 Inside Solid Visual Regression', () => {
+  test('renders self-intersecting center solid without product double-alpha overlap', async ({
+    page
+  }, testInfo) => {
+    await createSelfIntersectingCenterSolid(page)
+
+    const crossingRaster = await captureZoomedSelectedLocalRaster(
+      page,
+      { x: 160, y: 170 },
+      { zoom: 4, width: 360, height: 360 }
+    )
+    await attachPng(
+      'self-intersecting-center-solid-product-crossing.png',
+      crossingRaster.base64,
+      testInfo
+    )
+
+    const packetSummary = await getSelectedSolidStrokeRenderPacketSummary(page)
+    const redStats = await getBase64RedDominantStats(
+      page,
+      crossingRaster.base64
+    )
+    expect(packetSummary.debugDisableVisualOverlapCollapse).toBe(false)
+    expect(packetSummary.nativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(
+      packetSummary.strokeMeshCacheSummary.some(
+        (entry) => entry.kind === 'masked-solid'
+      ),
+      JSON.stringify(packetSummary, null, 2)
+    ).toBe(true)
+    expect(redStats.redPixelCount).toBeGreaterThan(1000)
+    expect(
+      redStats.p99,
+      JSON.stringify({ redStats, packetSummary }, null, 2)
+    ).toBeLessThanOrEqual(150)
+
+    await setStrokeDebugDisableVisualOverlapCollapse(page, true)
+    const debugSummary = await getSelectedSolidStrokeRenderPacketSummary(page)
+    expect(debugSummary.nativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(debugSummary.strokeMeshCacheSummary.length).toBeGreaterThan(0)
+  })
+
   test('preserves every authored segment from start to end', async ({
     page
   }, testInfo) => {
@@ -1440,9 +1652,10 @@ test.describe('Reported Vector-6 Inside Solid Visual Regression', () => {
 
     expect(switchMs).toBeLessThan(2000)
     expect(packetSummary.exportPacketCount).toBe(1)
+    expect(packetSummary.nativeCenterSolidStrokeRenderCount).toBe(0)
     expect(
       packetSummary.strokeMeshCacheSummary.some(
-        (entry) => entry.kind === 'solid' || entry.kind === 'graphics-solid'
+        (entry) => entry.kind === 'masked-solid'
       ),
       JSON.stringify(packetSummary, null, 2)
     ).toBe(true)
@@ -1459,13 +1672,14 @@ test.describe('Reported Vector-6 Inside Solid Visual Regression', () => {
     expect(
       redStats.p95,
       JSON.stringify({ redStats, packetSummary }, null, 2)
-    ).toBeLessThanOrEqual(180)
+    ).toBeLessThanOrEqual(150)
     expect(
       redStats.p99,
       JSON.stringify({ redStats, packetSummary }, null, 2)
-    ).toBeLessThanOrEqual(195)
+    ).toBeLessThanOrEqual(150)
     await assertCenterSeamCoverage(page, raster)
     await assertCenterHollowRegionsStayEmpty(page, raster)
+    await assertReportedVector6CenterSolidLocalAlpha(page, testInfo)
     const exportPolygons = await getSelectedSolidStrokeExportPolygons(page)
     const productSeamRaster = await captureZoomedSelectedLocalRaster(
       page,

@@ -248,6 +248,88 @@ const _buildReportedStarEvenOddPath = (
   return result
 }
 
+const isPointInsideEvenOddPath = (
+  point: { x: number; y: number },
+  path: { x: number; y: number }[]
+) => {
+  let inside = false
+  for (let index = 0; index < path.length; index += 1) {
+    const a = path[index]
+    const b = path[(index + 1) % path.length]
+    const crosses =
+      a.y > point.y !== b.y > point.y &&
+      point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y || 1e-9) + a.x
+    if (crosses) {
+      inside = !inside
+    }
+  }
+  return inside
+}
+
+const getLocalPathOutsideProbe = (
+  path: { x: number; y: number }[],
+  center: { x: number; y: number },
+  distance: number
+) => {
+  let nearestSegment: {
+    a: { x: number; y: number }
+    b: { x: number; y: number }
+  } = {
+    a: path[0],
+    b: path[1]
+  }
+  let nearestDistance = Number.POSITIVE_INFINITY
+  for (let index = 0; index < path.length; index += 1) {
+    const a = path[index]
+    const b = path[(index + 1) % path.length]
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const lengthSquared = dx * dx + dy * dy
+    const t =
+      lengthSquared <= 1e-9
+        ? 0
+        : Math.max(
+            0,
+            Math.min(
+              1,
+              ((center.x - a.x) * dx + (center.y - a.y) * dy) / lengthSquared
+            )
+          )
+    const projected = {
+      x: a.x + dx * t,
+      y: a.y + dy * t
+    }
+    const candidateDistance = distanceBetween(center, projected)
+    if (candidateDistance < nearestDistance) {
+      nearestDistance = candidateDistance
+      nearestSegment = { a, b }
+    }
+  }
+
+  const dx = nearestSegment.b.x - nearestSegment.a.x
+  const dy = nearestSegment.b.y - nearestSegment.a.y
+  const length = Math.hypot(dx, dy) || 1
+  const normal = {
+    x: -dy / length,
+    y: dx / length
+  }
+  const candidates = [
+    {
+      x: center.x + normal.x * distance,
+      y: center.y + normal.y * distance
+    },
+    {
+      x: center.x - normal.x * distance,
+      y: center.y - normal.y * distance
+    }
+  ]
+  return (
+    candidates.find(
+      (candidate) => !isPointInsideEvenOddPath(candidate, path)
+    ) ?? candidates[0]
+  )
+}
+
 const buildReportedStarSegmentBoundaries = (
   p: ReportedStarReferencePoints = REPORTED_STAR_POINTS
 ) => {
@@ -526,23 +608,113 @@ const getGreenCoverage = async (
     }
   )
 
+const getLocalGreenCoverage = async (
+  page: Page,
+  raster: LocalRasterCapture,
+  focus?: {
+    center: { x: number; y: number }
+    radius: number
+  }
+) =>
+  page.evaluate(
+    async ({
+      base64,
+      raster,
+      focus
+    }: {
+      base64: string
+      raster: LocalRasterCapture
+      focus?: {
+        center: { x: number; y: number }
+        radius: number
+      }
+    }) => {
+      const response = await fetch(`data:image/png;base64,${base64}`)
+      const blob = await response.blob()
+      const bitmap = await createImageBitmap(blob)
+      const canvas = document.createElement('canvas')
+      canvas.width = bitmap.width
+      canvas.height = bitmap.height
+      const context = canvas.getContext('2d')
+      if (!context) {
+        throw new Error('Canvas 2D context unavailable')
+      }
+
+      context.drawImage(bitmap, 0, 0)
+      const image = context.getImageData(0, 0, canvas.width, canvas.height).data
+      let total = 0
+      let green = 0
+      for (let y = 0; y < canvas.height; y += 1) {
+        for (let x = 0; x < canvas.width; x += 1) {
+          const local = {
+            x:
+              (raster.clip.x + x - raster.viewport.x) / raster.zoom -
+              raster.rect.x,
+            y:
+              (raster.clip.y + y - raster.viewport.y) / raster.zoom -
+              raster.rect.y
+          }
+          if (
+            focus &&
+            Math.hypot(local.x - focus.center.x, local.y - focus.center.y) >
+              focus.radius
+          ) {
+            continue
+          }
+          const offset = (y * canvas.width + x) * 4
+          const r = image[offset]
+          const g = image[offset + 1]
+          const b = image[offset + 2]
+          const a = image[offset + 3]
+          total += 1
+          if (
+            a > 180 &&
+            g > 170 &&
+            r < 120 &&
+            b < 120 &&
+            g - r > 70 &&
+            g - b > 70
+          ) {
+            green += 1
+          }
+        }
+      }
+
+      return total > 0 ? green / total : 0
+    },
+    {
+      base64: raster.base64,
+      raster,
+      focus
+    }
+  )
+
 const _getGreenLeakOutsideLocalPathCoverage = async (
   page: Page,
   raster: LocalRasterCapture,
   sourcePath: { x: number; y: number }[],
-  tolerancePx = 1.5
+  tolerancePx = 1.5,
+  focus?: {
+    center: { x: number; y: number }
+    radius: number
+  }
 ) =>
   page.evaluate(
     async ({
       base64,
       raster,
       sourcePath,
-      tolerancePx
+      tolerancePx,
+      focus
     }: {
       base64: string
       raster: LocalRasterCapture
       sourcePath: { x: number; y: number }[]
       tolerancePx: number
+      focus?: {
+        center: { x: number; y: number }
+        radius: number
+      }
     }) => {
       const response = await fetch(`data:image/png;base64,${base64}`)
       const blob = await response.blob()
@@ -627,6 +799,13 @@ const _getGreenLeakOutsideLocalPathCoverage = async (
                 (raster.clip.y + y - raster.viewport.y) / raster.zoom -
                 raster.rect.y
             }
+            if (
+              focus &&
+              Math.hypot(local.x - focus.center.x, local.y - focus.center.y) >
+                focus.radius
+            ) {
+              continue
+            }
             green += 1
             if (!isInsideEvenOdd(local) && pathDistance(local) > tolerance) {
               leak += 1
@@ -641,7 +820,8 @@ const _getGreenLeakOutsideLocalPathCoverage = async (
       base64: raster.base64,
       raster,
       sourcePath,
-      tolerancePx
+      tolerancePx,
+      focus
     }
   )
 
@@ -5022,6 +5202,112 @@ test('benchmark: reported closed star vector inside dashed square caps do not le
 
   expect(rightCornerLeak).toBeLessThan(0.002)
   expect(leftCornerLeak).toBeLessThan(0.002)
+})
+
+test('benchmark: closed source-path inside dashed event probes stay clipped and visible across caps', async ({
+  page
+}, testInfo) => {
+  await createTwoPointVectorPath(page)
+  await clearVectorOverlayState(page)
+  await ensureElementSelected(page, 'vector')
+  await patchSelectedVectorToReportedClosedStar(page)
+
+  const caps = ['butt', 'square', 'round'] as const
+  const debugModes = [
+    { label: 'product', disableVisualOverlapCollapse: false },
+    { label: 'debug-overlap', disableVisualOverlapCollapse: true }
+  ] as const
+
+  for (const cap of caps) {
+    await configureConstrainedDashedStroke(page, {
+      elementType: 'vector',
+      position: 'inside',
+      join: 'miter',
+      cap,
+      pattern: '27, 20',
+      width: 10
+    })
+
+    const referencePoints = await getReportedStarComputedReferencePoints(page)
+    const sourcePath = _buildReportedStarEvenOddPath(referencePoints)
+    const probes = [
+      {
+        name: 'closed-seam',
+        center: referencePoints.top,
+        coverageRadius: 18,
+        zoom: 12,
+        width: 420,
+        height: 360
+      },
+      {
+        name: 'sharp-segment-boundary',
+        center: referencePoints.left,
+        coverageRadius: 26,
+        zoom: 10,
+        width: 480,
+        height: 380
+      },
+      {
+        name: 'high-curvature-boundary',
+        center: referencePoints.bottomRight,
+        coverageRadius: 34,
+        zoom: 10,
+        width: 480,
+        height: 380
+      }
+    ] as const
+
+    for (const debugMode of debugModes) {
+      await setStrokeDebugDisableVisualOverlapCollapse(
+        page,
+        debugMode.disableVisualOverlapCollapse
+      )
+
+      for (const probe of probes) {
+        const raster = await captureSelectedElementLocalRaster(
+          page,
+          probe.center,
+          {
+            zoom: probe.zoom,
+            width: probe.width,
+            height: probe.height
+          }
+        )
+        await testInfo.attach(
+          `${cap}-${debugMode.label}-${probe.name}-inside-dashed-local-raster`,
+          {
+            body: Buffer.from(raster.base64, 'base64'),
+            contentType: 'image/png'
+          }
+        )
+
+        const outsideProbe = getLocalPathOutsideProbe(
+          sourcePath,
+          probe.center,
+          14
+        )
+        const [localCoverage, outsideCoverage] = await Promise.all([
+          getLocalGreenCoverage(page, raster, {
+            center: probe.center,
+            radius: probe.coverageRadius
+          }),
+          getLocalGreenCoverage(page, raster, {
+            center: outsideProbe,
+            radius: 5
+          })
+        ])
+
+        expect(
+          localCoverage,
+          `${cap} ${debugMode.label} ${probe.name} should keep dash coverage`
+        ).toBeGreaterThan(0.01)
+        expect(
+          outsideCoverage,
+          `${cap} ${debugMode.label} ${probe.name} should leave the local rejected side empty`
+        ).toBeLessThan(0.04)
+      }
+    }
+  }
 })
 
 test('benchmark: multi-network constrained dashed vectors render through typed per-network ownership', async ({

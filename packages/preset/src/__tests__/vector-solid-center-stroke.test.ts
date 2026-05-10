@@ -80,7 +80,9 @@ beforeAll(() => {
 
 class RecordingVectorGraphic extends Container {
   __asyraSolidCenterStrokeExportPackets?: SolidCenterStrokeExportPacket[]
+  __asyraNativeCenterSolidStrokeRenderCount?: number
   hitArea?: { contains: (x: number, y: number) => boolean } | null
+  instructions: { action: string; args: unknown[] }[] = []
 
   clear() {
     return this
@@ -107,6 +109,11 @@ class RecordingVectorGraphic extends Container {
   }
 
   fill() {
+    return this
+  }
+
+  stroke(...args: unknown[]) {
+    this.instructions.push({ action: 'stroke', args })
     return this
   }
 }
@@ -331,7 +338,8 @@ describe('vector solid-center stroke product wiring', () => {
         ]
       })
 
-      expect(getProjectionMeshes(graphic)).toHaveLength(1)
+      expect(getProjectionMeshes(graphic)).toHaveLength(0)
+      expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(1)
       expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
       expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual(
         {
@@ -381,7 +389,8 @@ describe('vector solid-center stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(1)
+    expect(getProjectionMeshes(graphic)).toHaveLength(0)
+    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(1)
     expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
     expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual({
       minX: -3,
@@ -421,7 +430,8 @@ describe('vector solid-center stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(1)
+    expect(getProjectionMeshes(graphic)).toHaveLength(0)
+    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(1)
     expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
     expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual({
       minX: -3,
@@ -433,5 +443,42 @@ describe('vector solid-center stroke product wiring', () => {
     expect(graphic.hitArea?.contains(42, 10)).toBe(true)
     expect(graphic.hitArea?.contains(-2, 7)).toBe(false)
     expect(graphic.hitArea?.contains(20, 18)).toBe(false)
+  })
+
+  it('should run: keep raw solid-center mesh visible when visual overlap debug is enabled', () => {
+    const graphic = runVectorRenderStrategy({
+      id: 'vector-solid-center-debug-overlap',
+      x: 0,
+      y: 0,
+      width: 80,
+      height: 40,
+      ...toVectorData(
+        [
+          { id: 'a', x: 0, y: 0 },
+          { id: 'b', x: 80, y: 0 },
+          { id: 'c', x: 80, y: 40 },
+          { id: 'd', x: 0, y: 40 }
+        ],
+        true
+      ),
+      closed: true,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          width: 6,
+          style: StrokeStyles.SOLID,
+          position: StrokePositions.CENTER,
+          joinType: StrokeJoinTypes.MITER,
+          capType: StrokeCapTypes.BUTT
+        })
+      ],
+      strokeDebugOptions: {
+        disableVisualOverlapCollapse: true
+      }
+    })
+
+    expect(getProjectionMeshes(graphic)).toHaveLength(1)
+    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
   })
 })

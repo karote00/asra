@@ -1662,6 +1662,142 @@ describe('constrained dashed stroke packets', () => {
       expect(packet.geometry.polygons.length).toBeGreaterThan(1)
       expect(polygonAreaSum).toBeLessThanOrEqual(10 * (intervalLength + 40) * 3)
     }
+    ;(['butt', 'square', 'round'] as const).forEach((capType) => {
+      const capPackets =
+        capType === 'butt'
+          ? packets
+          : buildConstrainedDashedStrokeResolvedPackets(
+              `vector-6:reported-inside-dashed-${capType}-source-path-events`,
+              topology.normalizedPoints,
+              true,
+              [
+                createDefaultStroke({
+                  width: 10,
+                  style: 'dashed',
+                  position: 'inside',
+                  joinType: 'miter',
+                  capType,
+                  dashPattern: [27, 20],
+                  dashOffset: 0
+                })
+              ],
+              {
+                topology,
+                sourcePath,
+                selectedSideGuardPoints: guardPoints
+              }
+            )
+      const capCrossingPackets = capPackets.filter((packet) =>
+        packetCrossesSourceSegmentBoundary(
+          packet,
+          sourceSegmentRanges,
+          sourcePath.totalLength
+        )
+      )
+      const endSegmentPackets = capPackets.filter(
+        (packet) =>
+          (packet.geometry.debugMeta?.startDistance ?? 0) >=
+          sourceSegmentRanges[sourceSegmentRanges.length - 1].startDistance -
+            1e-4
+      )
+      const secondSegmentFirstPackets = capPackets.filter((packet) => {
+        const startDistance = packet.geometry.debugMeta?.startDistance ?? -1
+        return (
+          startDistance >= sourceSegmentRanges[1].startDistance - 1e-4 &&
+          startDistance <= sourceSegmentRanges[1].startDistance + 60
+        )
+      })
+
+      expect(capPackets.length).toBeGreaterThan(1)
+      expect(capCrossingPackets.length).toBeGreaterThan(0)
+      expect(endSegmentPackets.length).toBeGreaterThan(0)
+      expect(secondSegmentFirstPackets.length).toBeGreaterThan(0)
+
+      const areaSum = (targetPackets: typeof capPackets) =>
+        targetPackets.reduce(
+          (sum, packet) =>
+            sum +
+            packet.geometry.polygons.reduce(
+              (polygonSum, polygon) =>
+                polygonSum + Math.abs(signedPolygonArea(polygon)),
+              0
+            ),
+          0
+        )
+
+      expect(areaSum(capCrossingPackets)).toBeGreaterThan(1)
+      expect(areaSum(endSegmentPackets)).toBeGreaterThan(1)
+      expect(areaSum(secondSegmentFirstPackets)).toBeGreaterThan(1)
+
+      const seamPoint = {
+        x: points['tp-12'].x,
+        y: points['tp-12'].y
+      }
+      const eventSelectedSideViolations = [
+        {
+          name: 'closed-seam',
+          center: seamPoint,
+          radius: 70,
+          previous: closingSegmentTail,
+          next: firstSegmentHead
+        },
+        {
+          name: 'left-sharp-boundary',
+          center: leftSharpPoint,
+          radius: 80,
+          previous: leftSharpPreviousTail,
+          next: leftSharpNextHead
+        }
+      ].flatMap((event) =>
+        capPackets.flatMap((packet) =>
+          packet.geometry.polygons.flatMap((polygon) =>
+            samplePolygonEdges(polygon).flatMap((point) => {
+              if (pointDistance(point, event.center) > event.radius) {
+                return []
+              }
+              const previousViolations = findSelectedSidePolylineViolations(
+                [point],
+                event.previous,
+                selectedSide
+              )
+              const nextViolations = findSelectedSideNearestPolylineViolations(
+                [point],
+                event.next,
+                selectedSide,
+                0.5
+              )
+              return previousViolations.length > 0 || nextViolations.length > 0
+                ? [
+                    {
+                      capType,
+                      event: event.name,
+                      intervalId: packet.geometry.debugMeta?.intervalId,
+                      point: {
+                        x: Math.round(point.x * 100) / 100,
+                        y: Math.round(point.y * 100) / 100
+                      }
+                    }
+                  ]
+                : []
+            })
+          )
+        )
+      )
+      expect(eventSelectedSideViolations).toEqual([])
+
+      const nonSimplePackets = capPackets.filter((packet) =>
+        packet.geometry.polygons.some(
+          (polygon) => !isSimpleClosedPolygon(polygon)
+        )
+      )
+      expect(
+        nonSimplePackets.map((packet) => ({
+          capType,
+          intervalId: packet.geometry.debugMeta?.intervalId,
+          bounds: packet.geometry.bounds
+        }))
+      ).toEqual([])
+    })
     for (const packet of packets) {
       for (const polygon of packet.geometry.polygons) {
         for (const point of polygon) {
