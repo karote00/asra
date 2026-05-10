@@ -601,13 +601,13 @@ const sortByStableId = <T extends { id: string }>(items: T[]): T[] =>
 const formatSourceModelCacheNumber = (value: number) =>
   Number.isFinite(value) ? value.toFixed(4) : 'NaN'
 
-const buildVectorNetworkSourceModelCacheKey = (
+const buildVectorSourceRevision = (
   vectorId: string,
   fillRule: PathTopologyFillRule,
   network: VectorNetwork,
   points: Record<string, VectorPointNode>,
   segments: Record<string, VectorSegment>
-) => {
+): VectorSourceRevision => {
   const pointEntries = network.pointIds.map((pointId) => {
     const point = points[pointId]
     return point
@@ -649,7 +649,7 @@ const buildVectorNetworkSourceModelCacheKey = (
     ].join(':')
   })
 
-  return [
+  const key = [
     vectorId,
     fillRule,
     network.id,
@@ -657,6 +657,14 @@ const buildVectorNetworkSourceModelCacheKey = (
     pointEntries.join('|'),
     segmentEntries.join('|')
   ].join('||')
+
+  return {
+    key,
+    vectorId,
+    networkId: network.id,
+    fillRule,
+    closed: network.closed
+  }
 }
 
 const getPointBounds = (points: Vec2[]) => {
@@ -909,8 +917,19 @@ interface VectorNetworkPathModel {
   topology: PathTopologyModel
 }
 
+interface VectorSourceRevision {
+  key: string
+  vectorId: string
+  networkId: string
+  fillRule: PathTopologyFillRule
+  closed: boolean
+}
+
 interface VectorPathModelCache {
-  entries: Map<string, { key: string; model: VectorNetworkPathModel }>
+  entries: Map<
+    string,
+    { revision: VectorSourceRevision; model: VectorNetworkPathModel }
+  >
 }
 
 const isAnchorNode = (
@@ -2011,11 +2030,14 @@ const renderVectorGraphic = (
   }
 
   const pathModelCache = graphicCache.__asyraVectorPathModelCache ?? {
-    entries: new Map<string, { key: string; model: VectorNetworkPathModel }>()
+    entries: new Map<
+      string,
+      { revision: VectorSourceRevision; model: VectorNetworkPathModel }
+    >()
   }
   const usedPathModelCacheKeys = new Set<string>()
   const networkPaths = orderedNetworks.map((network) => {
-    const cacheKey = buildVectorNetworkSourceModelCacheKey(
+    const sourceRevision = buildVectorSourceRevision(
       renderData.id,
       renderData.fillRule,
       network,
@@ -2023,7 +2045,7 @@ const renderVectorGraphic = (
       segments
     )
     const cached = pathModelCache.entries.get(network.id)
-    if (cached?.key === cacheKey) {
+    if (cached?.revision.key === sourceRevision.key) {
       usedPathModelCacheKeys.add(network.id)
       return cached.model
     }
@@ -2043,7 +2065,10 @@ const renderVectorGraphic = (
       path,
       topology
     }
-    pathModelCache.entries.set(network.id, { key: cacheKey, model })
+    pathModelCache.entries.set(network.id, {
+      revision: sourceRevision,
+      model
+    })
     usedPathModelCacheKeys.add(network.id)
     return model
   })

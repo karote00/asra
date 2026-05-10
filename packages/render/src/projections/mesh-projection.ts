@@ -31,6 +31,7 @@ export interface CreateMeshProjectionOptions {
 export interface MeshProjection {
   attach: (host: unknown) => boolean
   update: (options: CreateMeshProjectionOptions) => void
+  updatePaint: (paint: MeshProjectionPaint) => void
   setVisible: (visible: boolean) => void
   dispose: () => void
 }
@@ -238,6 +239,7 @@ export const createMeshProjection = (
       return true
     },
     update,
+    updatePaint: applyPaint,
     setVisible: (visible: boolean) => {
       root.visible = visible
     },

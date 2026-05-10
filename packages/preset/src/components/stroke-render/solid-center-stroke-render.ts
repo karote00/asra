@@ -111,6 +111,21 @@ const getSignature = (polygons: Vec2[][]) =>
     )
     .join('|')
 
+const getRevisionGeometrySignature = (
+  revisionSet: StrokeRevisionSet | undefined
+) =>
+  revisionSet
+    ? [
+        revisionSet.sourcePathRevision,
+        revisionSet.strokeSpecRevision,
+        revisionSet.intervalAllocationRevision,
+        revisionSet.topologyClassificationRevision,
+        revisionSet.ownershipRevision,
+        revisionSet.legalityRevision,
+        revisionSet.previewModeRevision
+      ].join('|')
+    : null
+
 const drawPolygons = (graphics: Graphics, polygons: Vec2[][]) => {
   polygons.forEach((polygon) => {
     const flatPolygon = polygon.flatMap((point) => [point.x, point.y])
@@ -266,7 +281,9 @@ export const renderSolidCenterStrokeEntries = (
     const paintKey =
       entry.stroke.paintKey ??
       `solid:${entry.stroke.color}:${entry.stroke.alpha}`
-    const signature = getSignature(polygons)
+    const revisionGeometrySignature = getRevisionGeometrySignature(revisionSet)
+    const getGeometrySignature = () =>
+      revisionGeometrySignature ?? getSignature(polygons)
 
     if (existing && existing.kind !== targetCacheKind) {
       disposeCacheEntry(existing)
@@ -274,6 +291,48 @@ export const renderSolidCenterStrokeEntries = (
     }
 
     const compatibleEntry = graphic.__asyraStrokeMeshCache?.get(entry.cacheKey)
+
+    if (compatibleEntry && dirtyKeys !== null && !geometryDirty) {
+      if (paintDirty) {
+        if (compatibleEntry.kind === 'solid') {
+          compatibleEntry.projection.updatePaint({
+            kind: 'solid',
+            color: entry.stroke.color,
+            alpha: entry.stroke.alpha
+          })
+        } else if (compatibleEntry.kind === 'gradient') {
+          const gradientStyle = entry.stroke.gradientStyle
+          if (gradientStyle) {
+            applyGradientPaint(
+              compatibleEntry.graphics,
+              polygons,
+              gradientStyle
+            )
+          }
+        } else if (compatibleEntry.kind === 'masked-solid') {
+          applyMaskedSolidPaint(
+            compatibleEntry.fill,
+            compatibleEntry.mask,
+            polygons,
+            entry.stroke.color,
+            entry.stroke.alpha
+          )
+        }
+      }
+
+      compatibleEntry.paintKey = paintKey
+      compatibleEntry.revisionSet = revisionSet
+      compatibleEntry.lastDirtyKeys = dirtyKeys
+      if (compatibleEntry.kind === 'solid') {
+        compatibleEntry.projection.setVisible(true)
+      } else {
+        compatibleEntry.container.visible = true
+      }
+      active.add(entry.cacheKey)
+      return
+    }
+
+    const signature = getGeometrySignature()
 
     if (
       compatibleEntry &&
