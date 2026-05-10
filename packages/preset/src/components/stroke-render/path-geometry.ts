@@ -37,6 +37,16 @@ export interface PathGeometry {
   sampledPoints: Vec2[]
 }
 
+export interface VectorSegmentGeometryFrameCacheEntry {
+  key: string
+  segment: PathSegment
+  sampledPoints: Vec2[]
+}
+
+export interface VectorSegmentGeometryFrameCache {
+  entries: Map<string, VectorSegmentGeometryFrameCacheEntry>
+}
+
 export interface PathSampleFrame {
   point: Vec2
   tangent: Vec2
@@ -543,72 +553,140 @@ const getControlNode = (
   return point
 }
 
+const buildSegmentGeometryRevisionKey = (
+  segment: VectorSegment,
+  points: Record<string, VectorPointNode>
+) => {
+  const pointIds = [
+    segment.startId,
+    segment.outControlId,
+    segment.inControlId,
+    segment.endId
+  ].filter((id): id is string => typeof id === 'string' && id.length > 0)
+
+  return [
+    segment.id,
+    segment.startId,
+    segment.outControlId ?? '',
+    segment.inControlId ?? '',
+    segment.endId,
+    ...pointIds.map((pointId) => {
+      const point = points[pointId]
+      return point
+        ? [
+            point.id,
+            point.kind,
+            point.x,
+            point.y,
+            point.kind === 'anchor' ? (point.anchorType ?? '') : '',
+            point.kind === 'control' ? (point.controlRole ?? '') : ''
+          ].join(':')
+        : `${pointId}:missing`
+    })
+  ].join('|')
+}
+
+const buildPathSegmentGeometry = (
+  segment: VectorSegment,
+  points: Record<string, VectorPointNode>
+): PathSegment | null => {
+  const start = getAnchorNode(points, segment.startId)
+  const end = getAnchorNode(points, segment.endId)
+  if (!start || !end) {
+    return null
+  }
+
+  const outControl = getControlNode(points, segment.outControlId)
+  const inControl = getControlNode(points, segment.inControlId)
+  if (!outControl && !inControl) {
+    return {
+      type: 'line',
+      start: { x: start.x, y: start.y },
+      end: { x: end.x, y: end.y },
+      length: Math.hypot(end.x - start.x, end.y - start.y),
+      startAnchorType: start.anchorType ?? 'sharp',
+      endAnchorType: end.anchorType ?? 'sharp'
+    }
+  }
+
+  const cubicSegment: Extract<PathSegment, { type: 'cubic' }> = {
+    type: 'cubic',
+    start: { x: start.x, y: start.y },
+    control1: outControl
+      ? { x: outControl.x, y: outControl.y }
+      : { x: start.x, y: start.y },
+    control2: inControl
+      ? { x: inControl.x, y: inControl.y }
+      : { x: end.x, y: end.y },
+    end: { x: end.x, y: end.y },
+    curve: new Bezier(
+      { x: start.x, y: start.y },
+      outControl
+        ? { x: outControl.x, y: outControl.y }
+        : { x: start.x, y: start.y },
+      inControl ? { x: inControl.x, y: inControl.y } : { x: end.x, y: end.y },
+      { x: end.x, y: end.y }
+    ),
+    length: 0,
+    startAnchorType: start.anchorType ?? 'sharp',
+    endAnchorType: end.anchorType ?? 'sharp'
+  }
+  cubicSegment.length = cubicSegment.curve.length()
+  return cubicSegment
+}
+
 const buildPathGeometry = (
   network: VectorNetwork,
   points: Record<string, VectorPointNode>,
-  segments: Record<string, VectorSegment>
+  segments: Record<string, VectorSegment>,
+  cache?: VectorSegmentGeometryFrameCache
 ): PathGeometry => {
   const pathSegments: PathSegment[] = []
+  const sampledSegments: Vec2[][] = []
   let totalLength = 0
+  const usedSegmentIds = new Set<string>()
 
   network.segmentIds.forEach((segmentId) => {
     const segment = segments[segmentId]
     if (!segment) {
       return
     }
+    usedSegmentIds.add(segmentId)
 
-    const start = getAnchorNode(points, segment.startId)
-    const end = getAnchorNode(points, segment.endId)
-    if (!start || !end) {
+    const revisionKey = buildSegmentGeometryRevisionKey(segment, points)
+    const cached = cache?.entries.get(segmentId)
+    if (cached?.key === revisionKey) {
+      totalLength += cached.segment.length
+      pathSegments.push(cached.segment)
+      sampledSegments.push(cached.sampledPoints)
       return
     }
 
-    const outControl = getControlNode(points, segment.outControlId)
-    const inControl = getControlNode(points, segment.inControlId)
-    if (!outControl && !inControl) {
-      const lineSegment: PathSegment = {
-        type: 'line',
-        start: { x: start.x, y: start.y },
-        end: { x: end.x, y: end.y },
-        length: Math.hypot(end.x - start.x, end.y - start.y),
-        startAnchorType: start.anchorType ?? 'sharp',
-        endAnchorType: end.anchorType ?? 'sharp'
-      }
-      totalLength += lineSegment.length
-      pathSegments.push(lineSegment)
+    const pathSegment = buildPathSegmentGeometry(segment, points)
+    if (!pathSegment) {
       return
     }
-
-    const cubicSegment: Extract<PathSegment, { type: 'cubic' }> = {
-      type: 'cubic',
-      start: { x: start.x, y: start.y },
-      control1: outControl
-        ? { x: outControl.x, y: outControl.y }
-        : { x: start.x, y: start.y },
-      control2: inControl
-        ? { x: inControl.x, y: inControl.y }
-        : { x: end.x, y: end.y },
-      end: { x: end.x, y: end.y },
-      curve: new Bezier(
-        { x: start.x, y: start.y },
-        outControl
-          ? { x: outControl.x, y: outControl.y }
-          : { x: start.x, y: start.y },
-        inControl ? { x: inControl.x, y: inControl.y } : { x: end.x, y: end.y },
-        { x: end.x, y: end.y }
-      ),
-      length: 0,
-      startAnchorType: start.anchorType ?? 'sharp',
-      endAnchorType: end.anchorType ?? 'sharp'
+    const sampledPoints = samplePathSegment(
+      pathSegment,
+      CURVE_TESSELLATION_TOLERANCE
+    )
+    totalLength += pathSegment.length
+    pathSegments.push(pathSegment)
+    sampledSegments.push(sampledPoints)
+    cache?.entries.set(segmentId, {
+      key: revisionKey,
+      segment: pathSegment,
+      sampledPoints
+    })
+  })
+  cache?.entries.forEach((_entry, segmentId) => {
+    if (!usedSegmentIds.has(segmentId)) {
+      cache.entries.delete(segmentId)
     }
-    cubicSegment.length = cubicSegment.curve.length()
-    totalLength += cubicSegment.length
-    pathSegments.push(cubicSegment)
   })
 
   const sampledPoints = dedupeAdjacentPoints(
-    pathSegments.reduce<Vec2[]>((result, segment, index) => {
-      const sampled = samplePathSegment(segment, CURVE_TESSELLATION_TOLERANCE)
+    sampledSegments.reduce<Vec2[]>((result, sampled, index) => {
       if (index === 0) {
         return sampled
       }

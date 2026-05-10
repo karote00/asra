@@ -59,6 +59,15 @@ interface SolidStrokeCacheMaskedSolidEntry {
   lastDirtyKeys?: StrokeDirtyKey[]
 }
 
+interface SolidStrokeCacheDragSolidGraphicsEntry {
+  kind: 'drag-solid-graphics'
+  graphics: Graphics
+  signature: string
+  paintKey: string
+  revisionSet?: StrokeRevisionSet
+  lastDirtyKeys?: StrokeDirtyKey[]
+}
+
 interface SolidCenterStrokeRenderGraphic {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   addChild?: (...args: any[]) => unknown
@@ -67,6 +76,7 @@ interface SolidCenterStrokeRenderGraphic {
     | SolidStrokeCacheSolidEntry
     | SolidStrokeCacheGradientEntry
     | SolidStrokeCacheMaskedSolidEntry
+    | SolidStrokeCacheDragSolidGraphicsEntry
   >
 }
 
@@ -199,14 +209,31 @@ const applyMaskedSolidPaint = (
   fill.mask = mask
 }
 
+const applySolidGraphicsPaint = (
+  graphics: Graphics,
+  polygons: Vec2[][],
+  color: number,
+  alpha: number
+) => {
+  graphics.clear()
+  drawPolygons(graphics, polygons)
+  graphics.fill({ color, alpha })
+}
+
 const disposeCacheEntry = (
   entry:
     | SolidStrokeCacheSolidEntry
     | SolidStrokeCacheGradientEntry
     | SolidStrokeCacheMaskedSolidEntry
+    | SolidStrokeCacheDragSolidGraphicsEntry
 ) => {
   if (entry.kind === 'solid') {
     entry.projection.dispose()
+    return
+  }
+
+  if (entry.kind === 'drag-solid-graphics') {
+    entry.graphics.destroy()
     return
   }
 
@@ -246,6 +273,13 @@ const shouldRenderSolidWithMask = (entry: SolidCenterStrokeRenderEntry) =>
   entry.debugMeta?.sourceTopology === 'self-intersecting' &&
   entry.debugMeta?.visualOverlapCollapseStatus === 'exact-union'
 
+const shouldRenderDragVisualWithGraphics = (
+  entry: SolidCenterStrokeRenderEntry
+) =>
+  entry.stroke.kind !== 'gradient' &&
+  (entry.revisionSet ?? entry.debugMeta?.revisionSet)?.previewModeRevision ===
+    'drag-visual'
+
 export const renderSolidCenterStrokeEntries = (
   graphic: SolidCenterStrokeRenderGraphic,
   entries: SolidCenterStrokeRenderEntry[]
@@ -274,8 +308,9 @@ export const renderSolidCenterStrokeEntries = (
     const geometryDirty = hasGeometryDirtyKey(dirtyKeys)
     const paintDirty = hasPaintDirtyKey(dirtyKeys)
     const strokeKind = entry.stroke.kind ?? 'solid'
-    const targetCacheKind =
-      strokeKind === 'solid' && shouldRenderSolidWithMask(entry)
+    const targetCacheKind = shouldRenderDragVisualWithGraphics(entry)
+      ? 'drag-solid-graphics'
+      : strokeKind === 'solid' && shouldRenderSolidWithMask(entry)
         ? 'masked-solid'
         : strokeKind
     const paintKey =
@@ -317,6 +352,13 @@ export const renderSolidCenterStrokeEntries = (
             entry.stroke.color,
             entry.stroke.alpha
           )
+        } else if (compatibleEntry.kind === 'drag-solid-graphics') {
+          applySolidGraphicsPaint(
+            compatibleEntry.graphics,
+            polygons,
+            entry.stroke.color,
+            entry.stroke.alpha
+          )
         }
       }
 
@@ -326,7 +368,11 @@ export const renderSolidCenterStrokeEntries = (
       if (compatibleEntry.kind === 'solid') {
         compatibleEntry.projection.setVisible(true)
       } else {
-        compatibleEntry.container.visible = true
+        if (compatibleEntry.kind === 'drag-solid-graphics') {
+          compatibleEntry.graphics.visible = true
+        } else {
+          compatibleEntry.container.visible = true
+        }
       }
       active.add(entry.cacheKey)
       return
@@ -348,6 +394,8 @@ export const renderSolidCenterStrokeEntries = (
         compatibleEntry.container.visible = true
       } else if (compatibleEntry.kind === 'masked-solid') {
         compatibleEntry.container.visible = true
+      } else if (compatibleEntry.kind === 'drag-solid-graphics') {
+        compatibleEntry.graphics.visible = true
       } else {
         compatibleEntry.projection.setVisible(true)
       }
@@ -422,6 +470,74 @@ export const renderSolidCenterStrokeEntries = (
         container,
         fill,
         mask,
+        signature,
+        paintKey,
+        revisionSet,
+        lastDirtyKeys: []
+      })
+      active.add(entry.cacheKey)
+      return
+    }
+
+    if (targetCacheKind === 'drag-solid-graphics') {
+      if (
+        compatibleEntry &&
+        compatibleEntry.kind === 'drag-solid-graphics' &&
+        (dirtyKeys !== null
+          ? !geometryDirty &&
+            !paintDirty &&
+            compatibleEntry.signature === signature &&
+            compatibleEntry.paintKey === paintKey
+          : compatibleEntry.signature === signature &&
+            compatibleEntry.paintKey === paintKey)
+      ) {
+        compatibleEntry.revisionSet = revisionSet
+        compatibleEntry.lastDirtyKeys = dirtyKeys ?? []
+        compatibleEntry.graphics.visible = true
+        active.add(entry.cacheKey)
+        return
+      }
+
+      if (
+        compatibleEntry &&
+        compatibleEntry.kind === 'drag-solid-graphics' &&
+        (dirtyKeys === null ||
+          geometryDirty ||
+          paintDirty ||
+          compatibleEntry.signature !== signature ||
+          compatibleEntry.paintKey !== paintKey)
+      ) {
+        applySolidGraphicsPaint(
+          compatibleEntry.graphics,
+          polygons,
+          entry.stroke.color,
+          entry.stroke.alpha
+        )
+        compatibleEntry.signature = signature
+        compatibleEntry.paintKey = paintKey
+        compatibleEntry.revisionSet = revisionSet
+        compatibleEntry.lastDirtyKeys = dirtyKeys ?? []
+        compatibleEntry.graphics.visible = true
+        active.add(entry.cacheKey)
+        return
+      }
+
+      const graphics = new Graphics()
+      applySolidGraphicsPaint(
+        graphics,
+        polygons,
+        entry.stroke.color,
+        entry.stroke.alpha
+      )
+
+      if (!graphic.addChild(graphics)) {
+        graphics.destroy()
+        return
+      }
+
+      graphic.__asyraStrokeMeshCache?.set(entry.cacheKey, {
+        kind: 'drag-solid-graphics',
+        graphics,
         signature,
         paintKey,
         revisionSet,
@@ -555,6 +671,8 @@ export const renderSolidCenterStrokeEntries = (
       compatibleEntry.projection.setVisible(true)
     } else if (compatibleEntry.kind === 'masked-solid') {
       compatibleEntry.container.visible = true
+    } else if (compatibleEntry.kind === 'drag-solid-graphics') {
+      compatibleEntry.graphics.visible = true
     }
     active.add(entry.cacheKey)
   })

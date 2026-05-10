@@ -127,6 +127,23 @@ const createVectorComputedPatch = (
   return patch
 }
 
+const isTransientVectorPointDragUpdate = (options?: EVENT_OPTIONS) => {
+  if (options?.undoable !== false) {
+    return false
+  }
+
+  const pathEditingMode =
+    core.getSystemProperty<boolean>('pathEditingMode') ?? false
+  if (!pathEditingMode) {
+    return false
+  }
+
+  const mouseDragging =
+    core.getSystemProperty<boolean>('mouseDragging') ?? false
+  const mouseDown = core.getSystemProperty<boolean>('mouseDown') ?? false
+  return mouseDragging || mouseDown
+}
+
 const getVectorComputed = (elementId: string) => {
   const element = sceneTree.getElementById(elementId)
   if (!element) {
@@ -310,22 +327,29 @@ const commitVectorTopology = (
     closed?: boolean
   }
 ) => {
-  const previousTopology = getVectorTopologyWorkspace(elementId)
+  const transientVectorPointDrag = isTransientVectorPointDragUpdate(options)
+  const previousTopology = transientVectorPointDrag
+    ? null
+    : getVectorTopologyWorkspace(elementId)
   const nextData: Record<string, DataTypes> = buildVectorComputedPatch(
     topologyInWorkspace,
     options
   )
 
-  const patch = createVectorComputedPatch(elementId, nextData)
+  const patch = transientVectorPointDrag
+    ? nextData
+    : createVectorComputedPatch(elementId, nextData)
   if (Object.keys(patch).length === 0) {
     return
   }
 
-  reconcileVectorSelectionAfterTopologyChange(
-    elementId,
-    previousTopology,
-    topologyInWorkspace
-  )
+  if (previousTopology) {
+    reconcileVectorSelectionAfterTopologyChange(
+      elementId,
+      previousTopology,
+      topologyInWorkspace
+    )
+  }
   applyComputedDataChange([elementId], patch, options)
 }
 
