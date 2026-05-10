@@ -27,10 +27,12 @@ import {
 } from './path-topology-model'
 import {
   buildPolylineGeometryModelPath,
+  samplePathSegmentFramesByLengthStep,
   slicePathSegmentPoints,
   slicePathGeometryPoints,
   type PathSegment,
   type PathGeometry,
+  type PathSampleFrame,
   type PathSliceSamplingOptions
 } from './path-geometry'
 import {
@@ -150,8 +152,15 @@ const SOURCE_PATH_DASH_SLICE_SAMPLING: PathSliceSamplingOptions = {
   maxCubicSamples: 256,
   useRangeLengthForSampleCount: true
 }
+const SOURCE_PATH_RIBBON_FRAME_TOLERANCE = 0.25
+const SOURCE_PATH_RIBBON_FRAME_SAMPLING: PathSliceSamplingOptions = {
+  minCubicSamples: 24,
+  maxCubicSamples: 384,
+  useRangeLengthForSampleCount: true
+}
 const SOURCE_PATH_DASH_SEGMENT_OVERLAP_FACTOR = 0.04
 const SOURCE_PATH_DASH_SEGMENT_OVERLAP_MAX = 0.6
+const SOURCE_PATH_RIBBON_FRAME_CACHE_LIMIT = 32
 
 type DashedTopologyInterval = ReturnType<
   typeof allocateDashedIntervalsForTopology
@@ -1271,9 +1280,26 @@ interface SourcePathSegmentSample {
   polylineLength: number
 }
 
+interface ExactSourcePathRibbonSegmentFrame {
+  segmentIndex: number
+  segmentLength: number
+  frames: PathSampleFrame[]
+  distances: number[]
+}
+
+interface ExactSourcePathRibbonFrame {
+  segmentFrames: ExactSourcePathRibbonSegmentFrame[]
+}
+
+const exactSourcePathRibbonFrameCache = new Map<
+  string,
+  ExactSourcePathRibbonFrame
+>()
+
 interface SourcePathSlicingContext {
   segmentRanges: SourcePathSegmentRange[]
   segmentSamples: SourcePathSegmentSample[]
+  exactRibbonFrame: ExactSourcePathRibbonFrame
   splitRangeCache: Map<string, SourceSegmentIntervalRange[]>
   pointSliceCache: Map<string, Vec2[]>
   ribbonPolygonCache: Map<string, Vec2[][] | null>
@@ -1353,6 +1379,123 @@ const buildSourcePathSegmentSample = (
   }
 }
 
+const formatRibbonFrameKeyPoint = (point: Vec2) =>
+  `${point.x.toFixed(4)},${point.y.toFixed(4)}`
+
+const buildExactSourcePathRibbonFrameCacheKey = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  samplingTolerance: number,
+  samplingOptions: PathSliceSamplingOptions
+) =>
+  [
+    path.closed ? 'closed' : 'open',
+    path.totalLength.toFixed(4),
+    samplingTolerance.toFixed(4),
+    samplingOptions.minCubicSamples ?? 'default-min',
+    samplingOptions.maxCubicSamples ?? 'default-max',
+    samplingOptions.useRangeLengthForSampleCount === true ? 'range' : 'curve',
+    ...path.segments.map((segment) =>
+      segment.type === 'line'
+        ? [
+            'line',
+            formatRibbonFrameKeyPoint(segment.start),
+            formatRibbonFrameKeyPoint(segment.end),
+            segment.length.toFixed(4),
+            segment.startAnchorType ?? 'none',
+            segment.endAnchorType ?? 'none'
+          ].join(':')
+        : [
+            'cubic',
+            formatRibbonFrameKeyPoint(segment.start),
+            formatRibbonFrameKeyPoint(segment.control1),
+            formatRibbonFrameKeyPoint(segment.control2),
+            formatRibbonFrameKeyPoint(segment.end),
+            segment.length.toFixed(4),
+            segment.startAnchorType ?? 'none',
+            segment.endAnchorType ?? 'none'
+          ].join(':')
+    )
+  ].join('|')
+
+const buildExactSourcePathRibbonFrame = (
+  path: Pick<PathGeometry, 'segments'>,
+  segmentRanges: SourcePathSegmentRange[],
+  samplingTolerance: number,
+  samplingOptions: PathSliceSamplingOptions
+): ExactSourcePathRibbonFrame => ({
+  segmentFrames: segmentRanges.map((range) => {
+    const segment = path.segments[range.index]
+    const frames = segment
+      ? samplePathSegmentFramesByLengthStep(
+          segment,
+          0,
+          segment.length,
+          samplingTolerance,
+          samplingOptions
+        )
+      : []
+    const cumulativeDistances = [0]
+    for (let index = 1; index < frames.length; index += 1) {
+      cumulativeDistances.push(
+        cumulativeDistances[cumulativeDistances.length - 1] +
+          distanceBetween(frames[index - 1].point, frames[index].point)
+      )
+    }
+    const polylineLength =
+      cumulativeDistances[cumulativeDistances.length - 1] ?? 0
+    const scale =
+      segment && polylineLength > EPSILON ? segment.length / polylineLength : 1
+    const lastIndex = Math.max(1, frames.length - 1)
+    return {
+      segmentIndex: range.index,
+      segmentLength: segment?.length ?? 0,
+      frames,
+      distances:
+        polylineLength > EPSILON
+          ? cumulativeDistances.map((distance) => distance * scale)
+          : frames.map((_, index) =>
+              segment ? (segment.length * index) / lastIndex : 0
+            )
+    }
+  })
+})
+
+const getExactSourcePathRibbonFrame = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  segmentRanges: SourcePathSegmentRange[],
+  samplingTolerance: number,
+  samplingOptions: PathSliceSamplingOptions
+) => {
+  const cacheKey = buildExactSourcePathRibbonFrameCacheKey(
+    path,
+    samplingTolerance,
+    samplingOptions
+  )
+  const cached = exactSourcePathRibbonFrameCache.get(cacheKey)
+  if (cached) {
+    exactSourcePathRibbonFrameCache.delete(cacheKey)
+    exactSourcePathRibbonFrameCache.set(cacheKey, cached)
+    return cached
+  }
+
+  const frame = buildExactSourcePathRibbonFrame(
+    path,
+    segmentRanges,
+    samplingTolerance,
+    samplingOptions
+  )
+  exactSourcePathRibbonFrameCache.set(cacheKey, frame)
+  if (
+    exactSourcePathRibbonFrameCache.size > SOURCE_PATH_RIBBON_FRAME_CACHE_LIMIT
+  ) {
+    const [oldestKey] = exactSourcePathRibbonFrameCache.keys()
+    if (oldestKey) {
+      exactSourcePathRibbonFrameCache.delete(oldestKey)
+    }
+  }
+  return frame
+}
+
 const createSourcePathSlicingContext = (
   path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   samplingTolerance = SOURCE_PATH_DASH_SLICE_TOLERANCE,
@@ -1368,6 +1511,12 @@ const createSourcePathSlicingContext = (
         samplingTolerance,
         samplingOptions
       )
+    ),
+    exactRibbonFrame: getExactSourcePathRibbonFrame(
+      path,
+      segmentRanges,
+      SOURCE_PATH_RIBBON_FRAME_TOLERANCE,
+      SOURCE_PATH_RIBBON_FRAME_SAMPLING
     ),
     splitRangeCache: new Map(),
     pointSliceCache: new Map(),
@@ -1606,20 +1755,6 @@ const sliceSourcePathRangePoints = (
   slicingContext.pointSliceCache.set(cacheKey, points)
   return points
 }
-
-const sliceSourcePathRangePointsExact = (
-  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
-  range: SourceSegmentIntervalRange,
-  slicingContext?: SourcePathSlicingContext
-) =>
-  slicePathGeometryPoints(
-    path,
-    range.startDistance,
-    range.endDistance,
-    false,
-    slicingContext?.samplingTolerance,
-    slicingContext?.samplingOptions
-  )
 
 const SOURCE_PATH_SMOOTH_BOUNDARY_DOT_MIN = Math.cos(Math.PI / 36)
 
@@ -1998,6 +2133,258 @@ const buildOneSidedRibbonRoundCap = (
   return buildRoundStrokeArcPoints(center, radius, startAngle, sweepViaMid, 3, {
     maxLength: 0.25
   }).map(normalizePoint)
+}
+
+const dedupeRibbonFrames = (frames: PathSampleFrame[]) => {
+  if (frames.length <= 1) {
+    return frames
+  }
+
+  const output = [frames[0]]
+  for (let index = 1; index < frames.length; index += 1) {
+    if (
+      distanceBetween(output[output.length - 1].point, frames[index].point) >
+      EPSILON
+    ) {
+      output.push(frames[index])
+    }
+  }
+  return output
+}
+
+const interpolateRibbonSegmentFrameAtDistance = (
+  segmentFrame: ExactSourcePathRibbonSegmentFrame,
+  distance: number
+): PathSampleFrame | null => {
+  if (segmentFrame.frames.length === 0) {
+    return null
+  }
+  if (
+    segmentFrame.frames.length === 1 ||
+    segmentFrame.segmentLength <= EPSILON
+  ) {
+    return segmentFrame.frames[0]
+  }
+
+  const clampedDistance = Math.max(
+    0,
+    Math.min(segmentFrame.segmentLength, distance)
+  )
+  for (let index = 1; index < segmentFrame.frames.length; index += 1) {
+    const previousDistance = segmentFrame.distances[index - 1]
+    const nextDistance = segmentFrame.distances[index]
+    if (clampedDistance > nextDistance + EPSILON) {
+      continue
+    }
+
+    const amount =
+      nextDistance - previousDistance > EPSILON
+        ? (clampedDistance - previousDistance) /
+          (nextDistance - previousDistance)
+        : 0
+    const previous = segmentFrame.frames[index - 1]
+    const next = segmentFrame.frames[index]
+    const tangent =
+      normalizeVector({
+        x: previous.tangent.x + (next.tangent.x - previous.tangent.x) * amount,
+        y: previous.tangent.y + (next.tangent.y - previous.tangent.y) * amount
+      }) ?? previous.tangent
+    return {
+      point: normalizePoint({
+        x: previous.point.x + (next.point.x - previous.point.x) * amount,
+        y: previous.point.y + (next.point.y - previous.point.y) * amount
+      }),
+      tangent
+    }
+  }
+
+  return segmentFrame.frames[segmentFrame.frames.length - 1]
+}
+
+const sliceExactRibbonSegmentFrames = (
+  segmentFrame: ExactSourcePathRibbonSegmentFrame,
+  localStartDistance: number,
+  localEndDistance: number
+) => {
+  if (localEndDistance - localStartDistance <= EPSILON) {
+    return []
+  }
+
+  const start = Math.max(
+    0,
+    Math.min(segmentFrame.segmentLength, localStartDistance)
+  )
+  const end = Math.max(
+    0,
+    Math.min(segmentFrame.segmentLength, localEndDistance)
+  )
+  if (end - start <= EPSILON) {
+    return []
+  }
+
+  const startFrame = interpolateRibbonSegmentFrameAtDistance(
+    segmentFrame,
+    start
+  )
+  const endFrame = interpolateRibbonSegmentFrameAtDistance(segmentFrame, end)
+  if (!startFrame || !endFrame) {
+    return []
+  }
+
+  const frames = [startFrame]
+  for (let index = 1; index < segmentFrame.frames.length - 1; index += 1) {
+    const distance = segmentFrame.distances[index]
+    if (distance > start + EPSILON && distance < end - EPSILON) {
+      frames.push(segmentFrame.frames[index])
+    }
+  }
+  frames.push(endFrame)
+  return dedupeRibbonFrames(frames)
+}
+
+const sliceExactRibbonRangeFrames = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  range: SourceSegmentIntervalRange,
+  slicingContext: SourcePathSlicingContext
+) => {
+  const segmentRanges = slicingContext.segmentRanges
+  const baseRange = segmentRanges[range.segmentIndex]
+  const ranges =
+    baseRange &&
+    range.startDistance >= baseRange.startDistance - EPSILON &&
+    range.endDistance <= baseRange.endDistance + EPSILON
+      ? [range]
+      : splitSourcePathRangeBySegmentBoundaries(
+          path,
+          range.startDistance,
+          range.endDistance,
+          slicingContext
+        )
+  const frames: PathSampleFrame[] = []
+
+  ranges.forEach((segmentRange) => {
+    const currentBaseRange = segmentRanges[segmentRange.segmentIndex]
+    const segmentFrame =
+      slicingContext.exactRibbonFrame.segmentFrames[segmentRange.segmentIndex]
+    if (!currentBaseRange || !segmentFrame) {
+      return
+    }
+    const segmentFrames = sliceExactRibbonSegmentFrames(
+      segmentFrame,
+      segmentRange.startDistance - currentBaseRange.startDistance,
+      segmentRange.endDistance - currentBaseRange.startDistance
+    )
+    if (segmentFrames.length === 0) {
+      return
+    }
+    const previous = frames[frames.length - 1]
+    if (
+      previous &&
+      distanceBetween(previous.point, segmentFrames[0].point) <= EPSILON
+    ) {
+      frames.push(...segmentFrames.slice(1))
+      return
+    }
+    frames.push(...segmentFrames)
+  })
+
+  return dedupeRibbonFrames(frames)
+}
+
+const buildExactSourcePathRibbonPolygonsFromFrames = (
+  frames: PathSampleFrame[],
+  stroke: Pick<RenderableStroke, 'position' | 'width' | 'cap'>
+) => {
+  if (frames.length < 2 || stroke.width <= EPSILON) {
+    return []
+  }
+
+  const source = frames.map((frame) => normalizePoint(frame.point))
+  const offsetBoundary = buildSourcePathRibbonOffsetBoundary(
+    source,
+    getConstrainedRibbonOffsetDistance(stroke)
+  )
+  if (offsetBoundary.length !== source.length) {
+    return []
+  }
+  const rawPolygon: Vec2[] = [...source, ...offsetBoundary.slice().reverse()]
+
+  const polygon = cleanPolygon(rawPolygon)
+  if (polygon.length < 3 || Math.abs(polygonArea(polygon)) <= EPSILON) {
+    return []
+  }
+
+  return [polygon]
+}
+
+const buildExactSourcePathRibbonPolygons = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  renderRange: SourceSegmentIntervalRange,
+  stroke: Pick<RenderableStroke, 'position' | 'width' | 'cap'>,
+  slicingContext: SourcePathSlicingContext
+) => {
+  const frames = sliceExactRibbonRangeFrames(path, renderRange, slicingContext)
+  const polygons = buildExactSourcePathRibbonPolygonsFromFrames(frames, stroke)
+  return polygons.length > 0 ? polygons : null
+}
+
+const buildExactSourcePathRibbonRoundCapPolygons = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  renderRange: SourceSegmentIntervalRange,
+  stroke: Pick<RenderableStroke, 'position' | 'width' | 'cap'>,
+  roundCapStart: boolean | undefined,
+  roundCapEnd: boolean | undefined,
+  slicingContext: SourcePathSlicingContext
+) => {
+  if (
+    stroke.cap !== 'round' ||
+    (roundCapStart !== true && roundCapEnd !== true)
+  ) {
+    return []
+  }
+
+  const frames = sliceExactRibbonRangeFrames(path, renderRange, slicingContext)
+  if (frames.length < 2) {
+    return []
+  }
+
+  const source = frames.map((frame) => normalizePoint(frame.point))
+  const offsetBoundary = buildSourcePathRibbonOffsetBoundary(
+    source,
+    getConstrainedRibbonOffsetDistance(stroke)
+  )
+  if (offsetBoundary.length !== source.length) {
+    return []
+  }
+  return [
+    ...(roundCapStart === true
+      ? [
+          cleanPolygon(
+            buildOneSidedRibbonRoundCap(
+              source[0],
+              offsetBoundary[0],
+              frames[0].tangent,
+              true
+            )
+          )
+        ]
+      : []),
+    ...(roundCapEnd === true
+      ? [
+          cleanPolygon(
+            buildOneSidedRibbonRoundCap(
+              source[source.length - 1],
+              offsetBoundary[offsetBoundary.length - 1],
+              frames[frames.length - 1].tangent,
+              false
+            )
+          )
+        ]
+      : [])
+  ].filter(
+    (capPolygon) =>
+      capPolygon.length >= 3 && Math.abs(polygonArea(capPolygon)) > EPSILON
+  )
 }
 
 const buildSourcePathRibbonPolygonFast = (
@@ -2387,15 +2774,15 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
     segmentRange.startDistance + endpointClipReach + EPSILON
   const touchesSegmentEnd =
     range.endDistance >= segmentRange.endDistance - endpointClipReach - EPSILON
-  const fallbackPolygons = polygons.filter(
-    (polygon) =>
-      polygon.length >= 3 &&
-      Math.abs(polygonArea(polygon)) > EPSILON &&
-      isSimpleClosedPolygon(polygon)
+  const areaValidPolygons = polygons.filter(
+    (polygon) => polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPSILON
   )
   if (!touchesSegmentStart && !touchesSegmentEnd) {
-    return fallbackPolygons
+    return areaValidPolygons.filter((polygon) => isSimpleClosedPolygon(polygon))
   }
+  const fallbackPolygons = areaValidPolygons.filter((polygon) =>
+    isSimpleClosedPolygon(polygon)
+  )
 
   const selectedSide = intervalStroke.position === 'inside' ? 1 : -1
   const segmentStartIsSharp = sharpGuardVertices.some((guard) =>
@@ -3988,32 +4375,76 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 interval,
                 squareCapPhysicalStroke
               )
-              const fastRangePolygons = useExactInsideSourcePath
-                ? null
-                : buildSourcePathRibbonPolygons(
+              if (useExactInsideSourcePath) {
+                const exactSourcePathSlicingContext = sourcePathSlicingContext
+                if (!exactSourcePathSlicingContext) {
+                  return []
+                }
+                const bodyPolygons =
+                  buildExactSourcePathRibbonPolygons(
                     sourcePath,
                     renderRange,
-                    span,
-                    rangeCapOwnership.stroke,
-                    rangeCapOwnership.roundCapStart,
-                    rangeCapOwnership.roundCapEnd,
-                    sourcePathSlicingContext
+                    {
+                      ...rangeCapOwnership.stroke,
+                      cap: 'butt' as const
+                    },
+                    exactSourcePathSlicingContext
+                  ) ?? []
+                const capPolygons = buildExactSourcePathRibbonRoundCapPolygons(
+                  sourcePath,
+                  renderRange,
+                  rangeCapOwnership.stroke,
+                  rangeCapOwnership.roundCapStart,
+                  rangeCapOwnership.roundCapEnd,
+                  exactSourcePathSlicingContext
+                )
+                return [
+                  ...clipSourceSegmentRangePolygonsToAdjacentBoundaries(
+                    bodyPolygons,
+                    sourcePath,
+                    range,
+                    interval,
+                    stroke.cap === 'round'
+                      ? {
+                          ...stroke,
+                          cap: 'butt' as const
+                        }
+                      : stroke,
+                    intervalStroke,
+                    span.role,
+                    sharpGuardVertices,
+                    exactSourcePathSlicingContext
+                  ),
+                  ...clipSourceSegmentRangePolygonsToAdjacentBoundaries(
+                    capPolygons,
+                    sourcePath,
+                    range,
+                    interval,
+                    stroke,
+                    intervalStroke,
+                    span.role,
+                    sharpGuardVertices,
+                    exactSourcePathSlicingContext
                   )
+                ]
+              }
               const rangePolygons =
-                fastRangePolygons ??
+                buildSourcePathRibbonPolygons(
+                  sourcePath,
+                  renderRange,
+                  span,
+                  rangeCapOwnership.stroke,
+                  rangeCapOwnership.roundCapStart,
+                  rangeCapOwnership.roundCapEnd,
+                  sourcePathSlicingContext
+                ) ??
                 buildConstrainedDashedLocalSideStrokePolygons(
-                  useExactInsideSourcePath
-                    ? sliceSourcePathRangePointsExact(
-                        sourcePath,
-                        renderRange,
-                        sourcePathSlicingContext
-                      )
-                    : sliceSourcePathRangePoints(
-                        sourcePath,
-                        renderRange,
-                        span.role,
-                        sourcePathSlicingContext
-                      ),
+                  sliceSourcePathRangePoints(
+                    sourcePath,
+                    renderRange,
+                    span.role,
+                    sourcePathSlicingContext
+                  ),
                   false,
                   rangeCapOwnership.stroke,
                   {

@@ -97,9 +97,19 @@ const areAdjacentClosedSegments = (
   return closed && leftIndex === 0 && rightIndex === segmentCount - 1
 }
 
+const SELF_INTERSECTION_CUT_CACHE_LIMIT = 64
+const selfIntersectionCutCache = new Map<string, SourceSpanCut[]>()
+
 const getSelfIntersectionCuts = (
   topology: PathTopologyModel
 ): SourceSpanCut[] => {
+  const cached = selfIntersectionCutCache.get(topology.revision)
+  if (cached) {
+    selfIntersectionCutCache.delete(topology.revision)
+    selfIntersectionCutCache.set(topology.revision, cached)
+    return cached
+  }
+
   const segmentRanges = getSegmentDistanceRanges(topology)
   if (segmentRanges.length < 2) {
     return []
@@ -203,6 +213,13 @@ const getSelfIntersectionCuts = (
     }
   }
 
+  selfIntersectionCutCache.set(topology.revision, cuts)
+  if (selfIntersectionCutCache.size > SELF_INTERSECTION_CUT_CACHE_LIMIT) {
+    const [oldestKey] = selfIntersectionCutCache.keys()
+    if (oldestKey) {
+      selfIntersectionCutCache.delete(oldestKey)
+    }
+  }
   return cuts
 }
 

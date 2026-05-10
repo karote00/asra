@@ -283,6 +283,47 @@ const slicePathSegmentFrames = (
       )
 }
 
+export const samplePathSegmentFrameAtLength = (
+  segment: PathSegment,
+  length: number
+): PathSampleFrame => {
+  if (segment.type === 'line') {
+    return (
+      sampleLineSegmentFrames(segment, length, length)[0] ?? {
+        point: segment.start,
+        tangent: getSegmentStartTangent(segment) ?? { x: 1, y: 0 }
+      }
+    )
+  }
+
+  const t = getCurveTAtLength(segment, length)
+  const point = segment.curve.get(t) as { x: number; y: number }
+  const derivative = segment.curve.derivative(t) as { x: number; y: number }
+  return {
+    point: { x: point.x, y: point.y },
+    tangent: normalizeVector({
+      x: derivative.x,
+      y: derivative.y
+    }) ??
+      getSegmentStartTangent(segment) ?? { x: 1, y: 0 }
+  }
+}
+
+export const samplePathSegmentFramesByLengthStep = (
+  segment: PathSegment,
+  startLength: number,
+  endLength: number,
+  tolerance = CURVE_TESSELLATION_TOLERANCE,
+  samplingOptions: PathSliceSamplingOptions = {}
+): PathSampleFrame[] =>
+  slicePathSegmentFrames(
+    segment,
+    startLength,
+    endLength,
+    tolerance,
+    samplingOptions
+  )
+
 export const slicePathSegmentPoints = (
   segment: PathSegment,
   startLength: number,

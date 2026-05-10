@@ -598,6 +598,67 @@ const sortByStableId = <T extends { id: string }>(items: T[]): T[] =>
     return a.id.localeCompare(b.id)
   })
 
+const formatSourceModelCacheNumber = (value: number) =>
+  Number.isFinite(value) ? value.toFixed(4) : 'NaN'
+
+const buildVectorNetworkSourceModelCacheKey = (
+  vectorId: string,
+  fillRule: PathTopologyFillRule,
+  network: VectorNetwork,
+  points: Record<string, VectorPointNode>,
+  segments: Record<string, VectorSegment>
+) => {
+  const pointEntries = network.pointIds.map((pointId) => {
+    const point = points[pointId]
+    return point
+      ? [
+          point.id,
+          point.kind,
+          formatSourceModelCacheNumber(point.x),
+          formatSourceModelCacheNumber(point.y),
+          point.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
+            ? point.anchorType
+            : `${point.controlForId}:${point.controlRole}`
+        ].join(':')
+      : `${pointId}:missing`
+  })
+  const segmentEntries = network.segmentIds.map((segmentId) => {
+    const segment = segments[segmentId]
+    if (!segment) {
+      return `${segmentId}:missing`
+    }
+
+    const relatedPointIds = [
+      segment.startId,
+      segment.endId,
+      segment.outControlId,
+      segment.inControlId
+    ].filter((pointId): pointId is string => !!pointId)
+    return [
+      segment.id,
+      segment.startId,
+      segment.endId,
+      segment.outControlId ?? 'none',
+      segment.inControlId ?? 'none',
+      ...relatedPointIds.map((pointId) => {
+        const point = points[pointId]
+        return point
+          ? `${point.id}:${formatSourceModelCacheNumber(point.x)}:${formatSourceModelCacheNumber(point.y)}`
+          : `${pointId}:missing`
+      })
+    ].join(':')
+  })
+
+  return [
+    vectorId,
+    fillRule,
+    network.id,
+    network.closed ? 'closed' : 'open',
+    pointEntries.join('|'),
+    segmentEntries.join('|')
+  ].join('||')
+}
+
 const getPointBounds = (points: Vec2[]) => {
   let minX = Infinity
   let minY = Infinity
@@ -838,6 +899,18 @@ interface VectorHitCache {
   segments?: Record<string, VectorSegment>
   networks?: Record<string, VectorNetwork>
   hasVisibleFill?: boolean
+}
+
+type VectorPathGeometryModel = ReturnType<typeof buildVectorGeometryModelPath>
+
+interface VectorNetworkPathModel {
+  network: VectorNetwork
+  path: VectorPathGeometryModel
+  topology: PathTopologyModel
+}
+
+interface VectorPathModelCache {
+  entries: Map<string, { key: string; model: VectorNetworkPathModel }>
 }
 
 const isAnchorNode = (
@@ -1864,6 +1937,7 @@ const renderVectorGraphic = (
     __asyraVectorFillCache?: FillFaceCache
     __asyraEvenOddFillCache?: EvenOddFillCache
     __asyraVectorHitCache?: VectorHitCache
+    __asyraVectorPathModelCache?: VectorPathModelCache
   }
 
   graphic.clear()
@@ -1936,7 +2010,24 @@ const renderVectorGraphic = (
     return evenOddShapeCache
   }
 
+  const pathModelCache = graphicCache.__asyraVectorPathModelCache ?? {
+    entries: new Map<string, { key: string; model: VectorNetworkPathModel }>()
+  }
+  const usedPathModelCacheKeys = new Set<string>()
   const networkPaths = orderedNetworks.map((network) => {
+    const cacheKey = buildVectorNetworkSourceModelCacheKey(
+      renderData.id,
+      renderData.fillRule,
+      network,
+      points,
+      segments
+    )
+    const cached = pathModelCache.entries.get(network.id)
+    if (cached?.key === cacheKey) {
+      usedPathModelCacheKeys.add(network.id)
+      return cached.model
+    }
+
     const path = buildVectorGeometryModelPath(network, points, segments)
     const topology = buildPathTopologyModel({
       pathId: `vector:${renderData.id}:${network.id}`,
@@ -1947,13 +2038,21 @@ const renderVectorGraphic = (
       points: path.sampledPoints,
       closed: path.closed
     })
-
-    return {
+    const model = {
       network,
       path,
       topology
     }
+    pathModelCache.entries.set(network.id, { key: cacheKey, model })
+    usedPathModelCacheKeys.add(network.id)
+    return model
   })
+  Array.from(pathModelCache.entries.keys()).forEach((networkId) => {
+    if (!usedPathModelCacheKeys.has(networkId)) {
+      pathModelCache.entries.delete(networkId)
+    }
+  })
+  graphicCache.__asyraVectorPathModelCache = pathModelCache
   ;(
     graphic as typeof graphic & {
       __asyraVectorPathGeometryModelCount?: number
