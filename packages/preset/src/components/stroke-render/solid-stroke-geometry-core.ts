@@ -223,14 +223,56 @@ const getSegmentBounds = (from: Vec2, to: Vec2) => ({
   maxY: Math.max(from.y, to.y)
 })
 
-const segmentBoundsOverlap = (
-  left: ReturnType<typeof getSegmentBounds>,
-  right: ReturnType<typeof getSegmentBounds>
-) =>
+type SegmentBounds = ReturnType<typeof getSegmentBounds>
+
+const segmentBoundsOverlap = (left: SegmentBounds, right: SegmentBounds) =>
   left.minX <= right.maxX + EPS &&
   left.maxX + EPS >= right.minX &&
   left.minY <= right.maxY + EPS &&
   left.maxY + EPS >= right.minY
+
+const hasIntersectingSegmentBoundsPair = (
+  segmentBounds: SegmentBounds[],
+  isAdjacent: (leftIndex: number, rightIndex: number) => boolean,
+  intersects: (leftIndex: number, rightIndex: number) => boolean
+) => {
+  const sortedBounds = segmentBounds
+    .map((bounds, index) => ({ ...bounds, index }))
+    .sort((left, right) => left.minX - right.minX || left.index - right.index)
+
+  for (
+    let leftPosition = 0;
+    leftPosition < sortedBounds.length;
+    leftPosition += 1
+  ) {
+    const left = sortedBounds[leftPosition]
+
+    for (
+      let rightPosition = leftPosition + 1;
+      rightPosition < sortedBounds.length;
+      rightPosition += 1
+    ) {
+      const right = sortedBounds[rightPosition]
+      if (right.minX > left.maxX + EPS) {
+        break
+      }
+
+      if (isAdjacent(left.index, right.index)) {
+        continue
+      }
+
+      if (!segmentBoundsOverlap(left, right)) {
+        continue
+      }
+
+      if (intersects(left.index, right.index)) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
 
 const segmentsIntersectInclusive = (a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) => {
   const o1 = orientationOf(a1, a2, b1)
@@ -259,42 +301,17 @@ export const isSimpleOpenPath = (points: Vec2[]) => {
     .slice(0, -1)
     .map((point, index) => getSegmentBounds(point, points[index + 1]))
 
-  for (let leftIndex = 0; leftIndex < points.length - 1; leftIndex += 1) {
-    const leftStart = points[leftIndex]
-    const leftEnd = points[leftIndex + 1]
-
-    for (
-      let rightIndex = leftIndex + 1;
-      rightIndex < points.length - 1;
-      rightIndex += 1
-    ) {
-      if (rightIndex === leftIndex + 1) {
-        continue
-      }
-
-      if (
-        !segmentBoundsOverlap(
-          segmentBounds[leftIndex],
-          segmentBounds[rightIndex]
-        )
-      ) {
-        continue
-      }
-
-      if (
-        segmentsIntersectInclusive(
-          leftStart,
-          leftEnd,
-          points[rightIndex],
-          points[rightIndex + 1]
-        )
-      ) {
-        return false
-      }
-    }
-  }
-
-  return true
+  return !hasIntersectingSegmentBoundsPair(
+    segmentBounds,
+    (leftIndex, rightIndex) => Math.abs(leftIndex - rightIndex) === 1,
+    (leftIndex, rightIndex) =>
+      segmentsIntersectInclusive(
+        points[leftIndex],
+        points[leftIndex + 1],
+        points[rightIndex],
+        points[rightIndex + 1]
+      )
+  )
 }
 
 const segmentIntersection = (
@@ -329,32 +346,21 @@ export const isSimpleClosedPolygon = (points: Vec2[]) => {
     getSegmentBounds(point, polygon[(index + 1) % polygon.length])
   )
 
-  for (let i = 0; i < polygon.length; i += 1) {
-    const a1 = polygon[i]
-    const a2 = polygon[(i + 1) % polygon.length]
-
-    for (let j = i + 1; j < polygon.length; j += 1) {
-      const b1 = polygon[j]
-      const b2 = polygon[(j + 1) % polygon.length]
-
-      const sameEdge = i === j
-      const sharesForwardVertex = (i + 1) % polygon.length === j
-      const sharesBackwardVertex = i === (j + 1) % polygon.length
-      if (sameEdge || sharesForwardVertex || sharesBackwardVertex) {
-        continue
-      }
-
-      if (!segmentBoundsOverlap(segmentBounds[i], segmentBounds[j])) {
-        continue
-      }
-
-      if (segmentIntersection(a1, a2, b1, b2)) {
-        return false
-      }
-    }
-  }
-
-  return true
+  return !hasIntersectingSegmentBoundsPair(
+    segmentBounds,
+    (leftIndex, rightIndex) =>
+      (leftIndex + 1) % polygon.length === rightIndex ||
+      leftIndex === (rightIndex + 1) % polygon.length,
+    (leftIndex, rightIndex) =>
+      Boolean(
+        segmentIntersection(
+          polygon[leftIndex],
+          polygon[(leftIndex + 1) % polygon.length],
+          polygon[rightIndex],
+          polygon[(rightIndex + 1) % polygon.length]
+        )
+      )
+  )
 }
 
 const lineIntersection = (

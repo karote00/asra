@@ -34,6 +34,9 @@ const describeProfile =
   process.env.ASYRA_STROKE_PARAMETER_SWITCH_PROFILE === '1'
     ? describe
     : describe.skip
+const PERFORMANCE_MEASUREMENT_SCOPE = 'cpu-only'
+const RENDERER_COVERAGE = 'fake'
+const DOES_NOT_MEASURE_RENDERER = true
 
 beforeAll(() => {
   HTMLCanvasElement.prototype.getContext =
@@ -312,6 +315,9 @@ const measureScenario = (
 
   return {
     label,
+    measurementScope: PERFORMANCE_MEASUREMENT_SCOPE,
+    rendererCoverage: RENDERER_COVERAGE,
+    doesNotMeasureRenderer: DOES_NOT_MEASURE_RENDERER,
     averageMs:
       frameTimes.reduce((total, value) => total + value, 0) / frameTimes.length,
     p95Ms: getPercentile(frameTimes, 0.95),
@@ -447,6 +453,9 @@ const measureInsideDashedPhaseBreakdown = () => {
   }
 
   return {
+    measurementScope: PERFORMANCE_MEASUREMENT_SCOPE,
+    rendererCoverage: RENDERER_COVERAGE,
+    doesNotMeasureRenderer: DOES_NOT_MEASURE_RENDERER,
     frames: measuredFrameCount,
     packetCount,
     faceCount,
@@ -468,7 +477,7 @@ const measureInsideDashedPhaseBreakdown = () => {
 }
 
 describeProfile('stroke parameter switch performance profile', () => {
-  it('should profile: measure reported closed star vector render strategy parameter updates', () => {
+  it('should profile: measure reported closed star vector render strategy parameter CPU updates', () => {
     const metrics = [
       measureScenario('inside dashed dashOffset slider', (frame) =>
         createDefaultStroke({
@@ -507,7 +516,12 @@ describeProfile('stroke parameter switch performance profile', () => {
     ]
 
     process.stdout.write(
-      `STAR_PARAM_SWITCH_METRICS ${JSON.stringify(metrics)}\n`
+      `STAR_PARAM_SWITCH_METRICS ${JSON.stringify({
+        measurementScope: PERFORMANCE_MEASUREMENT_SCOPE,
+        rendererCoverage: RENDERER_COVERAGE,
+        doesNotMeasureRenderer: DOES_NOT_MEASURE_RENDERER,
+        metrics
+      })}\n`
     )
     expect(metrics.every((metric) => metric.invalidFrameCount === 0)).toBe(true)
   })
@@ -515,7 +529,12 @@ describeProfile('stroke parameter switch performance profile', () => {
   it('should profile: break down reported closed star constrained dashed phases', () => {
     const breakdown = measureInsideDashedPhaseBreakdown()
     process.stdout.write(
-      `STAR_CONSTRAINED_DASHED_PHASES ${JSON.stringify(breakdown)}\n`
+      `STAR_CONSTRAINED_DASHED_PHASES ${JSON.stringify({
+        measurementScope: PERFORMANCE_MEASUREMENT_SCOPE,
+        rendererCoverage: RENDERER_COVERAGE,
+        doesNotMeasureRenderer: DOES_NOT_MEASURE_RENDERER,
+        breakdown
+      })}\n`
     )
     expect(breakdown.packetCount).toBeGreaterThan(0)
     expect(breakdown.averagePolygonPointsPerFrame).toBeLessThanOrEqual(2000)

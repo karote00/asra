@@ -116,6 +116,9 @@ interface ProfileResult {
 
 const describeProfile =
   process.env.ASYRA_STROKE_API_PROFILE === '1' ? describe : describe.skip
+const PERFORMANCE_MEASUREMENT_SCOPE = 'cpu-only'
+const RENDERER_COVERAGE = 'fake'
+const DOES_NOT_MEASURE_RENDERER = true
 
 const insideDashedStroke = createDefaultStroke({
   width: 6,
@@ -194,6 +197,13 @@ const measure = (
 
 const printProfileResults = (results: ProfileResult[]) => {
   const ranked = [...results].sort((left, right) => right.avgMs - left.avgMs)
+  process.stdout.write(
+    `STROKE_API_PROFILE_SCOPE ${JSON.stringify({
+      measurementScope: PERFORMANCE_MEASUREMENT_SCOPE,
+      rendererCoverage: RENDERER_COVERAGE,
+      doesNotMeasureRenderer: DOES_NOT_MEASURE_RENDERER
+    })}\n`
+  )
   console.table(
     ranked.map((result) => ({
       api: result.name,

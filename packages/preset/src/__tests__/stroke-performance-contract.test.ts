@@ -15,9 +15,9 @@ interface Vec2 {
 
 const FRAME_COUNT = 300
 const WARMUP_FRAMES = 20
-const TARGET_FPS = 120
-const FLOOR_FPS = 60
-const FLOOR_FRAME_MS = 1000 / FLOOR_FPS
+const TARGET_OPERATIONS_PER_SECOND = 120
+const FLOOR_OPERATIONS_PER_SECOND = 60
+const FLOOR_OPERATION_MS = 1000 / FLOOR_OPERATIONS_PER_SECOND
 
 const solidStroke = createDefaultStroke({
   width: 4,
@@ -75,9 +75,9 @@ const measureFrames = (runFrame: (frame: number) => void) => {
   const measuredMs = frameTimes.reduce((total, value) => total + value, 0)
 
   return {
-    averageFps: measuredFrameCount / (measuredMs / 1000),
-    totalFps: FRAME_COUNT / (totalMs / 1000),
-    p95FrameMs: getPercentile(frameTimes, 0.95)
+    averageOperationsPerSecond: measuredFrameCount / (measuredMs / 1000),
+    totalOperationsPerSecond: FRAME_COUNT / (totalMs / 1000),
+    p95OperationMs: getPercentile(frameTimes, 0.95)
   }
 }
 
@@ -278,15 +278,17 @@ const buildQ8PolygonPoints = (frame: number, index: number) => {
 }
 
 const assertPerformanceContract = (metrics: {
-  averageFps: number
-  p95FrameMs: number
+  averageOperationsPerSecond: number
+  p95OperationMs: number
 }) => {
-  expect(metrics.averageFps).toBeGreaterThanOrEqual(TARGET_FPS)
-  expect(metrics.p95FrameMs).toBeLessThanOrEqual(FLOOR_FRAME_MS)
+  expect(metrics.averageOperationsPerSecond).toBeGreaterThanOrEqual(
+    TARGET_OPERATIONS_PER_SECOND
+  )
+  expect(metrics.p95OperationMs).toBeLessThanOrEqual(FLOOR_OPERATION_MS)
 }
 
 describe('stroke performance contract', () => {
-  it('should run: keep 100 moving open points above the declared 120fps target and 60fps floor', () => {
+  it('should run: keep 100 moving open points above the declared operation target and floor', () => {
     let invalidFrameCount = 0
     const metrics = measureFrames((frame) => {
       const points = buildMovingOpenPoints(frame, 100)

@@ -1381,8 +1381,17 @@ interface SourcePathSlicingContext {
   pointSliceCache: Map<string, Vec2[]>
   ribbonPolygonCache: Map<string, Vec2[][] | null>
   segmentBoundaryCache: Map<number, Vec2[]>
+  segmentBoundaryClipCache: Map<string, SourceSegmentBoundaryClipData>
   samplingTolerance: number
   samplingOptions: PathSliceSamplingOptions
+}
+
+interface SourceSegmentBoundaryClipData {
+  boundary: Vec2[]
+  head: Vec2[]
+  tail: Vec2[]
+  headReference: Vec2 | undefined
+  tailReference: Vec2 | undefined
 }
 
 const getSourcePathSegmentRanges = (path: Pick<PathGeometry, 'segments'>) => {
@@ -1692,6 +1701,7 @@ const createSourcePathSlicingContext = (
     pointSliceCache: new Map(),
     ribbonPolygonCache: new Map(),
     segmentBoundaryCache: new Map(),
+    segmentBoundaryClipCache: new Map(),
     samplingTolerance,
     samplingOptions
   }
@@ -2583,24 +2593,26 @@ const getOneSidedRibbonRoundCapFrame = (
   tangent: Vec2,
   isStart: boolean
 ) => {
-  const center = {
-    x: (endpoint.x + offsetEndpoint.x) / 2,
-    y: (endpoint.y + offsetEndpoint.y) / 2
-  }
-  const radius = distanceBetween(endpoint, offsetEndpoint) / 2
-  if (radius <= EPSILON) {
+  const sideX = endpoint.x - offsetEndpoint.x
+  const sideY = endpoint.y - offsetEndpoint.y
+  const diameter = Math.hypot(sideX, sideY)
+  const radius = diameter / 2
+  if (diameter <= EPSILON || radius <= EPSILON) {
     return null
   }
 
-  const side = normalizeVector({
-    x: endpoint.x - center.x,
-    y: endpoint.y - center.y
-  })
-  const bulgeDirection = normalizeVector(
-    isStart ? { x: -tangent.x, y: -tangent.y } : tangent
-  )
-  if (!side || !bulgeDirection) {
+  const tangentLengthSquared = tangent.x * tangent.x + tangent.y * tangent.y
+  if (tangentLengthSquared <= EPSILON * EPSILON) {
     return null
+  }
+  const tangentScale =
+    Math.abs(tangentLengthSquared - 1) <= EPSILON
+      ? 1
+      : 1 / Math.sqrt(tangentLengthSquared)
+  const bulgeSign = isStart ? -1 : 1
+  const bulgeDirection = {
+    x: tangent.x * tangentScale * bulgeSign,
+    y: tangent.y * tangentScale * bulgeSign
   }
 
   const segmentCount = Math.max(
@@ -2609,9 +2621,15 @@ const getOneSidedRibbonRoundCapFrame = (
   )
 
   return {
-    center,
+    center: {
+      x: (endpoint.x + offsetEndpoint.x) / 2,
+      y: (endpoint.y + offsetEndpoint.y) / 2
+    },
     radius,
-    side,
+    side: {
+      x: sideX / diameter,
+      y: sideY / diameter
+    },
     bulgeDirection,
     unitSemicircle: getRoundCapUnitSemicircle(segmentCount)
   }
@@ -3868,53 +3886,43 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
   const shouldRequireClippedCapEndpoint =
     shouldRequireClippedSquareCapEndpoint ||
     shouldRequireClippedRoundCapEndpoint
-  let previousBoundary: Vec2[] | null = null
-  let nextBoundary: Vec2[] | null = null
-  let currentBoundary: Vec2[] | null = null
-  let currentHeadBoundary: Vec2[] | null = null
-  let currentTailBoundary: Vec2[] | null = null
-  let currentHeadReference: Vec2 | null = null
-  let currentTailReference: Vec2 | null = null
+  let previousBoundaryData: SourceSegmentBoundaryClipData | null = null
+  let nextBoundaryData: SourceSegmentBoundaryClipData | null = null
+  let currentBoundaryData: SourceSegmentBoundaryClipData | null = null
   let previousBoundarySelectedSide: 1 | -1 | null = null
   let nextBoundarySelectedSide: 1 | -1 | null = null
-  const getPreviousBoundary = () => {
-    previousBoundary ??= getBoundaryTail(
-      getSourceSegmentBoundary(
-        path,
-        (range.segmentIndex - 1 + path.segments.length) % path.segments.length,
-        slicingContext
-      ),
-      boundaryReach
-    )
-    return previousBoundary
-  }
-  const getNextBoundary = () => {
-    nextBoundary ??= getBoundaryHead(
-      getSourceSegmentBoundary(
-        path,
-        (range.segmentIndex + 1) % path.segments.length,
-        slicingContext
-      ),
-      boundaryReach
-    )
-    return nextBoundary
-  }
-  const getCurrentBoundary = () => {
-    currentBoundary ??= getSourceSegmentBoundary(
+  const getPreviousBoundaryData = () => {
+    previousBoundaryData ??= getSourceSegmentBoundaryClipData(
       path,
-      range.segmentIndex,
+      (range.segmentIndex - 1 + path.segments.length) % path.segments.length,
+      boundaryReach,
       slicingContext
     )
-    return currentBoundary
+    return previousBoundaryData
   }
-  const getCurrentHeadBoundary = () => {
-    currentHeadBoundary ??= getBoundaryHead(getCurrentBoundary(), boundaryReach)
-    return currentHeadBoundary
+  const getNextBoundaryData = () => {
+    nextBoundaryData ??= getSourceSegmentBoundaryClipData(
+      path,
+      (range.segmentIndex + 1) % path.segments.length,
+      boundaryReach,
+      slicingContext
+    )
+    return nextBoundaryData
   }
-  const getCurrentTailBoundary = () => {
-    currentTailBoundary ??= getBoundaryTail(getCurrentBoundary(), boundaryReach)
-    return currentTailBoundary
+  const getCurrentBoundaryData = () => {
+    currentBoundaryData ??= getSourceSegmentBoundaryClipData(
+      path,
+      range.segmentIndex,
+      boundaryReach,
+      slicingContext
+    )
+    return currentBoundaryData
   }
+  const getPreviousBoundary = () => getPreviousBoundaryData().tail
+  const getNextBoundary = () => getNextBoundaryData().head
+  const getCurrentBoundary = () => getCurrentBoundaryData().boundary
+  const getCurrentHeadBoundary = () => getCurrentBoundaryData().head
+  const getCurrentTailBoundary = () => getCurrentBoundaryData().tail
   const getCurrentDominantClipBoundary = () => {
     if (touchesSegmentStart && !touchesSegmentEnd) {
       return getCurrentHeadBoundary()
@@ -3924,20 +3932,8 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
     }
     return getCurrentBoundary()
   }
-  const getCurrentHeadReference = () => {
-    currentHeadReference ??= getBoundaryHeadReferencePoint(
-      getCurrentBoundary(),
-      boundaryReach
-    )
-    return currentHeadReference
-  }
-  const getCurrentTailReference = () => {
-    currentTailReference ??= getBoundaryTailReferencePoint(
-      getCurrentBoundary(),
-      boundaryReach
-    )
-    return currentTailReference
-  }
+  const getCurrentHeadReference = () => getCurrentBoundaryData().headReference
+  const getCurrentTailReference = () => getCurrentBoundaryData().tailReference
   const getPreviousBoundarySelectedSide = () => {
     previousBoundarySelectedSide ??= getSelectedSideTowardPoint(
       getPreviousBoundary(),
@@ -4055,8 +4051,14 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
 const shouldClipSourceSegmentRangeForInsideBoundary = (
   range: SourceSegmentIntervalRange,
   segmentRange: SourcePathSegmentRange | undefined,
+  path: Pick<PathGeometry, 'totalLength'>,
+  interval: Pick<
+    ReturnType<typeof allocateDashedIntervalsForTopology>[number],
+    'startDistance' | 'endDistance' | 'wrapsSeam'
+  >,
   authoredStroke: Pick<RenderableStroke, 'cap'>,
-  intervalStroke: Pick<RenderableStroke, 'width'>
+  intervalStroke: Pick<RenderableStroke, 'width'>,
+  sharpGuardVertices: SharpGuardVertex[]
 ) => {
   if (!segmentRange) {
     return true
@@ -4067,9 +4069,89 @@ const shouldClipSourceSegmentRangeForInsideBoundary = (
     EPSILON
   )
   return (
-    range.startDistance <=
-      segmentRange.startDistance + endpointClipReach + EPSILON ||
-    range.endDistance >= segmentRange.endDistance - endpointClipReach - EPSILON
+    (range.startDistance <=
+      segmentRange.startDistance + endpointClipReach + EPSILON &&
+      shouldClipSourceSegmentBoundaryForInsideRange(
+        segmentRange.startDistance,
+        path.totalLength,
+        interval,
+        authoredStroke,
+        intervalStroke,
+        sharpGuardVertices
+      )) ||
+    (range.endDistance >=
+      segmentRange.endDistance - endpointClipReach - EPSILON &&
+      shouldClipSourceSegmentBoundaryForInsideRange(
+        segmentRange.endDistance,
+        path.totalLength,
+        interval,
+        authoredStroke,
+        intervalStroke,
+        sharpGuardVertices
+      ))
+  )
+}
+
+const getLoopDistanceDelta = (
+  left: number,
+  right: number,
+  totalLength: number
+) => {
+  if (totalLength <= EPSILON) {
+    return Math.abs(left - right)
+  }
+
+  const delta = Math.abs(
+    normalizeDistanceOnLoop(left, totalLength) -
+      normalizeDistanceOnLoop(right, totalLength)
+  )
+  return Math.min(delta, totalLength - delta)
+}
+
+const shouldClipSourceSegmentBoundaryForInsideRange = (
+  boundaryDistance: number,
+  totalLength: number,
+  interval: Pick<
+    ReturnType<typeof allocateDashedIntervalsForTopology>[number],
+    'startDistance' | 'endDistance' | 'wrapsSeam'
+  >,
+  authoredStroke: Pick<RenderableStroke, 'cap'>,
+  intervalStroke: Pick<RenderableStroke, 'width'>,
+  sharpGuardVertices: SharpGuardVertex[]
+) => {
+  if (
+    boundaryDistance <= EPSILON ||
+    boundaryDistance >= totalLength - EPSILON ||
+    sharpGuardVertices.some((guard) =>
+      areLoopDistancesEqual(boundaryDistance, guard.distance, totalLength)
+    ) ||
+    areLoopDistancesEqual(
+      boundaryDistance,
+      interval.startDistance,
+      totalLength
+    ) ||
+    areLoopDistancesEqual(boundaryDistance, interval.endDistance, totalLength)
+  ) {
+    return true
+  }
+
+  const capReach =
+    authoredStroke.cap === 'butt'
+      ? 0
+      : Math.max(intervalStroke.width / 2, EPSILON)
+  if (capReach <= EPSILON) {
+    return false
+  }
+
+  return (
+    getLoopDistanceDelta(
+      boundaryDistance,
+      interval.startDistance,
+      totalLength
+    ) <=
+      capReach + EPSILON ||
+    getLoopDistanceDelta(boundaryDistance, interval.endDistance, totalLength) <=
+      capReach + EPSILON
   )
 }
 
@@ -4117,8 +4199,11 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
     shouldClipSourceSegmentRangeForInsideBoundary(
       range,
       segmentRange,
+      path,
+      interval,
       authoredStroke,
-      intervalStroke
+      intervalStroke,
+      sharpGuardVertices
     )
   const rangePolygons = measureStrokePipelinePhase(
     'stroke product visual compiler: polygon build',
@@ -4895,6 +4980,19 @@ const getPolylineBounds = (polyline: Vec2[]) => {
   return { minX, minY, maxX, maxY }
 }
 
+const polylineBoundsCache = new WeakMap<Vec2[], Bounds>()
+
+const getCachedPolylineBounds = (polyline: Vec2[]) => {
+  const cached = polylineBoundsCache.get(polyline)
+  if (cached) {
+    return cached
+  }
+
+  const bounds = getPolylineBounds(polyline)
+  polylineBoundsCache.set(polyline, bounds)
+  return bounds
+}
+
 const boundsOverlapBounds = (first: Bounds, second: Bounds) =>
   first.minX <= second.maxX + EPSILON &&
   first.maxX + EPSILON >= second.minX &&
@@ -5338,14 +5436,42 @@ const getBoundaryTail = (boundary: Vec2[], reach: number) => {
   return result.reverse()
 }
 
-const getBoundaryHeadReferencePoint = (boundary: Vec2[], reach: number) => {
-  const head = getBoundaryHead(boundary, reach)
-  return head[head.length - 1] ?? boundary[0]
-}
+const getSourceSegmentBoundaryClipData = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  segmentIndex: number,
+  reach: number,
+  slicingContext?: SourcePathSlicingContext
+): SourceSegmentBoundaryClipData => {
+  const boundary = getSourceSegmentBoundary(path, segmentIndex, slicingContext)
+  if (!slicingContext) {
+    const head = getBoundaryHead(boundary, reach)
+    const tail = getBoundaryTail(boundary, reach)
+    return {
+      boundary,
+      head,
+      tail,
+      headReference: head[head.length - 1] ?? boundary[0],
+      tailReference: tail[0] ?? boundary[boundary.length - 1]
+    }
+  }
 
-const getBoundaryTailReferencePoint = (boundary: Vec2[], reach: number) => {
+  const cacheKey = `${segmentIndex}:${reach.toFixed(6)}`
+  const cached = slicingContext.segmentBoundaryClipCache.get(cacheKey)
+  if (cached) {
+    return cached
+  }
+
+  const head = getBoundaryHead(boundary, reach)
   const tail = getBoundaryTail(boundary, reach)
-  return tail[0] ?? boundary[boundary.length - 1]
+  const data = {
+    boundary,
+    head,
+    tail,
+    headReference: head[head.length - 1] ?? boundary[0],
+    tailReference: tail[0] ?? boundary[boundary.length - 1]
+  }
+  slicingContext.segmentBoundaryClipCache.set(cacheKey, data)
+  return data
 }
 
 const getSelectedSideTowardPoint = (
@@ -5458,7 +5584,10 @@ const clipPolygonToSelectedSideBoundaryIfCrossing = (
     return polygon
   }
   if (
-    !boundsOverlapBounds(getPolygonBounds(polygon), getPolylineBounds(boundary))
+    !boundsOverlapBounds(
+      getPolygonBounds(polygon),
+      getCachedPolylineBounds(boundary)
+    )
   ) {
     return polygon
   }
@@ -5499,7 +5628,10 @@ const clipPolygonToDominantSideBoundaryIfCrossing = (
     return polygon
   }
   if (
-    !boundsOverlapBounds(getPolygonBounds(polygon), getPolylineBounds(boundary))
+    !boundsOverlapBounds(
+      getPolygonBounds(polygon),
+      getCachedPolylineBounds(boundary)
+    )
   ) {
     return polygon
   }
@@ -6176,8 +6308,11 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                       exactSourcePathSlicingContext.segmentRanges[
                         range.segmentIndex
                       ],
+                      sourcePath,
+                      interval,
                       stroke,
-                      intervalStroke
+                      intervalStroke,
+                      sharpGuardVertices
                     )
                   if (
                     canSkipInteriorSourcePathBoundaryClipping &&

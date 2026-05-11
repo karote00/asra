@@ -34,13 +34,16 @@ type PipelineVectorData = Omit<
 
 const FRAME_COUNT = Number(process.env.ASYRA_STROKE_DRAG_PIPELINE_FRAMES ?? 120)
 const WARMUP_FRAMES = Math.min(20, Math.max(0, Math.floor(FRAME_COUNT / 10)))
-const VISUAL_FRAME_BUDGET_MS = 8.33
-const SHOULD_ENFORCE_VISUAL_FRAME_BUDGET =
-  process.env.ASYRA_STROKE_DRAG_PIPELINE_ENFORCE_120FPS === '1'
+const CPU_PROFILE_PIPELINE_BUDGET_MS = 8.33
+const SHOULD_ENFORCE_CPU_PROFILE_BUDGET =
+  process.env.ASYRA_STROKE_DRAG_PIPELINE_ENFORCE_CPU_BUDGET === '1'
 const describeProfile =
   process.env.ASYRA_STROKE_DRAG_PIPELINE_PROFILE === '1'
     ? describe
     : describe.skip
+const PERFORMANCE_MEASUREMENT_SCOPE = 'cpu-only'
+const RENDERER_COVERAGE = 'fake'
+const DOES_NOT_MEASURE_RENDERER = true
 
 let currentVectorData: PipelineVectorData =
   createReportedRoundInsideDashedStarVectorData()
@@ -477,6 +480,9 @@ const measurePipelineScenario = (
 
   return {
     label,
+    measurementScope: PERFORMANCE_MEASUREMENT_SCOPE,
+    rendererCoverage: RENDERER_COVERAGE,
+    doesNotMeasureRenderer: DOES_NOT_MEASURE_RENDERER,
     averageMs:
       frameTimes.reduce((total, value) => total + value, 0) / frameTimes.length,
     p95Ms: getPercentile(frameTimes, 0.95),
@@ -498,7 +504,7 @@ const measurePipelineScenario = (
 }
 
 describeProfile('stroke drag full pipeline performance profile', () => {
-  it('should profile: path editing drag update, vector render, and editing overlay', () => {
+  it('should profile: path editing drag CPU pipeline update, vector render, and editing overlay', () => {
     const dragKinds = ['anchor', 'in-control', 'out-control'] as const
     const strokes = [
       createStroke('butt'),
@@ -515,8 +521,11 @@ describeProfile('stroke drag full pipeline performance profile', () => {
     const maxP95Ms = Math.max(...metrics.map((metric) => metric.p95Ms))
     process.stdout.write(
       `STROKE_DRAG_PIPELINE_METRICS ${JSON.stringify({
-        budgetMs: VISUAL_FRAME_BUDGET_MS,
-        enforceBudget: SHOULD_ENFORCE_VISUAL_FRAME_BUDGET,
+        measurementScope: PERFORMANCE_MEASUREMENT_SCOPE,
+        rendererCoverage: RENDERER_COVERAGE,
+        doesNotMeasureRenderer: DOES_NOT_MEASURE_RENDERER,
+        cpuProfileBudgetMs: CPU_PROFILE_PIPELINE_BUDGET_MS,
+        enforceCpuProfileBudget: SHOULD_ENFORCE_CPU_PROFILE_BUDGET,
         maxP95Ms,
         metrics
       })}\n`
@@ -604,8 +613,8 @@ describeProfile('stroke drag full pipeline performance profile', () => {
         (metric) => (metric.counters['final-coverage-builder-hit'] ?? 0) === 0
       )
     ).toBe(true)
-    if (SHOULD_ENFORCE_VISUAL_FRAME_BUDGET) {
-      expect(maxP95Ms).toBeLessThan(VISUAL_FRAME_BUDGET_MS)
+    if (SHOULD_ENFORCE_CPU_PROFILE_BUDGET) {
+      expect(maxP95Ms).toBeLessThan(CPU_PROFILE_PIPELINE_BUDGET_MS)
     } else {
       expect(maxP95Ms).toBeGreaterThan(0)
     }

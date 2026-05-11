@@ -148,7 +148,13 @@ const getRevisionGeometrySignature = (
 
 const drawPolygons = (graphics: Graphics, polygons: Vec2[][]) => {
   polygons.forEach((polygon) => {
-    const flatPolygon = polygon.flatMap((point) => [point.x, point.y])
+    const flatPolygon = new Array<number>(polygon.length * 2)
+    for (let index = 0; index < polygon.length; index += 1) {
+      const point = polygon[index]
+      const flatIndex = index * 2
+      flatPolygon[flatIndex] = point.x
+      flatPolygon[flatIndex + 1] = point.y
+    }
     graphics.poly(flatPolygon)
   })
 }

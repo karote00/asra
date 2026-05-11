@@ -2132,22 +2132,26 @@ const renderVectorGraphic = (
       const segmentFrameCache = pathModelCache.segmentFrames.get(
         network.id
       ) ?? { entries: new Map() }
-      const path = buildVectorGeometryModelPath(
-        network,
-        points,
-        segments,
-        segmentFrameCache
+      const path = measureVectorRenderPhase('path/topology: geometry', () =>
+        buildVectorGeometryModelPath(
+          network,
+          points,
+          segments,
+          segmentFrameCache
+        )
       )
       pathModelCache.segmentFrames.set(network.id, segmentFrameCache)
-      const topology = buildPathTopologyModel({
-        pathId: `vector:${renderData.id}:${network.id}`,
-        sourceId: `vector:${renderData.id}`,
-        networkId: network.id,
-        sourceFamily: 'vector',
-        fillRule: renderData.fillRule,
-        points: path.sampledPoints,
-        closed: path.closed
-      })
+      const topology = measureVectorRenderPhase('path/topology: topology', () =>
+        buildPathTopologyModel({
+          pathId: `vector:${renderData.id}:${network.id}`,
+          sourceId: `vector:${renderData.id}`,
+          networkId: network.id,
+          sourceFamily: 'vector',
+          fillRule: renderData.fillRule,
+          points: path.sampledPoints,
+          closed: path.closed
+        })
+      )
       const model = {
         network,
         path,
@@ -3217,12 +3221,7 @@ const renderVectorGraphic = (
       productVisualEntries.length > 0
         ? [...productVisualEntries, ...entries]
         : entries
-    return useDragVisualOnly && !shouldDisableVisualOverlapCollapse
-      ? combinedEntries.map((entry) => ({
-          ...entry,
-          preferSolidGraphics: true
-        }))
-      : combinedEntries
+    return combinedEntries
   })
 
   measureVectorRenderPhase('mesh render', () =>

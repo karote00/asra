@@ -14,11 +14,14 @@ import { createReportedRoundInsideDashedStarVectorData } from './inside-dashed-f
 
 const FRAME_COUNT = Number(process.env.ASYRA_STROKE_DRAG_FRAMES ?? 120)
 const WARMUP_FRAMES = Math.min(20, Math.max(0, Math.floor(FRAME_COUNT / 10)))
-const VISUAL_FRAME_BUDGET_MS = 8.33
-const SHOULD_ENFORCE_VISUAL_FRAME_BUDGET =
-  process.env.ASYRA_STROKE_DRAG_ENFORCE_120FPS === '1'
+const CPU_PROFILE_RENDER_BUDGET_MS = 8.33
+const SHOULD_ENFORCE_CPU_PROFILE_BUDGET =
+  process.env.ASYRA_STROKE_DRAG_ENFORCE_CPU_BUDGET === '1'
 const describeProfile =
   process.env.ASYRA_STROKE_DRAG_PROFILE === '1' ? describe : describe.skip
+const PERFORMANCE_MEASUREMENT_SCOPE = 'cpu-only'
+const RENDERER_COVERAGE = 'fake'
+const DOES_NOT_MEASURE_RENDERER = true
 
 beforeAll(() => {
   HTMLCanvasElement.prototype.getContext =
@@ -171,7 +174,8 @@ const expectFinalProductVisualCache = (graphic: RecordingVectorGraphic) => {
     cacheEntries.every(
       ([cacheKey, entry]) =>
         !cacheKey.startsWith('drag-visual:') &&
-        entry.kind !== 'drag-solid-graphics'
+        entry.kind !== 'drag-solid-graphics' &&
+        entry.kind !== 'solid-graphics'
     )
   ).toBe(true)
 }
@@ -333,6 +337,9 @@ const measureDragScenario = (
 
   return {
     label,
+    measurementScope: PERFORMANCE_MEASUREMENT_SCOPE,
+    rendererCoverage: RENDERER_COVERAGE,
+    doesNotMeasureRenderer: DOES_NOT_MEASURE_RENDERER,
     averageMs:
       frameTimes.reduce((total, value) => total + value, 0) / frameTimes.length,
     p95Ms: getPercentile(frameTimes, 0.95),
@@ -443,7 +450,7 @@ describe('stroke drag product visual contract', () => {
 })
 
 describeProfile('stroke drag performance profile', () => {
-  it('should profile: render anchor and curve-handle drag visual updates with optional 120fps budget enforcement', () => {
+  it('should profile: render anchor and curve-handle drag visual CPU updates with optional CPU budget enforcement', () => {
     const dragKinds = ['anchor', 'in-control', 'out-control'] as const
     const strokes = [
       createStroke('butt'),
@@ -460,15 +467,18 @@ describeProfile('stroke drag performance profile', () => {
     const maxP95Ms = Math.max(...metrics.map((metric) => metric.p95Ms))
     process.stdout.write(
       `STROKE_DRAG_METRICS ${JSON.stringify({
-        budgetMs: VISUAL_FRAME_BUDGET_MS,
-        enforceBudget: SHOULD_ENFORCE_VISUAL_FRAME_BUDGET,
+        measurementScope: PERFORMANCE_MEASUREMENT_SCOPE,
+        rendererCoverage: RENDERER_COVERAGE,
+        doesNotMeasureRenderer: DOES_NOT_MEASURE_RENDERER,
+        cpuProfileBudgetMs: CPU_PROFILE_RENDER_BUDGET_MS,
+        enforceCpuProfileBudget: SHOULD_ENFORCE_CPU_PROFILE_BUDGET,
         maxP95Ms,
         metrics
       })}\n`
     )
     expect(metrics.every((metric) => metric.invalidFrameCount === 0)).toBe(true)
-    if (SHOULD_ENFORCE_VISUAL_FRAME_BUDGET) {
-      expect(maxP95Ms).toBeLessThan(VISUAL_FRAME_BUDGET_MS)
+    if (SHOULD_ENFORCE_CPU_PROFILE_BUDGET) {
+      expect(maxP95Ms).toBeLessThan(CPU_PROFILE_RENDER_BUDGET_MS)
     } else {
       expect(maxP95Ms).toBeGreaterThan(0)
     }
