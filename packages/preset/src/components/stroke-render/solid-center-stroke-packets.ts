@@ -202,6 +202,10 @@ export interface SolidCenterStrokeGeometryDebugMeta {
     | 'local-side-arrangement'
   visualOverlapSourceFaceIds?: string[]
   visualOverlapSourceGeometryIds?: string[]
+  finalCoverageBuilderStatus?: 'product-final' | 'debug-raw'
+  intervalSweepSpanCount?: number
+  terminalCapCount?: number
+  sourceBoundaryJoinCount?: number
   revisionSet?: StrokeRevisionSet
 }
 

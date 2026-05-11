@@ -66,6 +66,38 @@ const visualOverlapCollapseResultCache = new WeakMap<
   Map<string, ArrangedStrokeFinalFace[]>
 >()
 
+const emitStrokePipelineCounter = (counterName: string, value = 1) => {
+  ;(
+    globalThis as typeof globalThis & {
+      __asyraStrokePipelineCounterSink?: (
+        counterName: string,
+        value: number
+      ) => void
+    }
+  ).__asyraStrokePipelineCounterSink?.(counterName, value)
+}
+
+const measureVectorRenderPhase = <T>(phaseName: string, run: () => T): T => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraVectorRenderPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraVectorRenderPhaseSink
+  if (!sink) {
+    return run()
+  }
+
+  const start = performance.now()
+  try {
+    return run()
+  } finally {
+    sink(phaseName, performance.now() - start)
+  }
+}
+
 const getBounds = (polygons: Vec2[][]): Bounds => {
   let minX = Infinity
   let minY = Infinity
@@ -575,31 +607,70 @@ const buildArrangementResultCacheKey = (
     })
   )
 
-const serializeFinalFaceForCache = (face: ArrangedStrokeFinalFace) => ({
-  faceId: face.faceId,
-  sourceGeometryIds: face.sourceGeometryIds,
-  polygons: serializeRegion({ polygons: face.polygons }),
-  visualPacketKey: face.visualPacketKey,
-  paintKey: face.paintKey,
-  strokeSpecKey: face.strokeSpecKey,
-  ownerSet: face.ownerSet,
-  intervalIds: face.intervalIds,
-  sourceSpanIds: face.sourceSpanIds,
-  sourceContourIds: face.sourceContourIds,
-  legalDomainIds: face.legalDomainIds,
-  geometryFamily: face.geometryFamily,
-  resolutionStatus: face.resolutionStatus,
-  runtimeStatus: face.runtimeStatus,
-  sourceTopology: face.sourceTopology,
-  paint: face.paint,
-  debugMeta: face.debugMeta
-})
+const getFacePointCount = (face: ArrangedStrokeFinalFace) =>
+  face.polygons.reduce((sum, polygon) => sum + polygon.length, 0)
+
+const serializeFinalFaceForCache = (face: ArrangedStrokeFinalFace) => {
+  const revisionSet = face.debugMeta?.revisionSet
+  if (revisionSet) {
+    return {
+      faceId: face.faceId,
+      sourceGeometryIds: face.sourceGeometryIds,
+      visualPacketKey: face.visualPacketKey,
+      paintKey: face.paintKey,
+      strokeSpecKey: face.strokeSpecKey,
+      bounds: face.bounds,
+      ownerSet: face.ownerSet,
+      intervalIds: face.intervalIds,
+      sourceSpanIds: face.sourceSpanIds,
+      sourceContourIds: face.sourceContourIds,
+      legalDomainIds: face.legalDomainIds,
+      geometryFamily: face.geometryFamily,
+      resolutionStatus: face.resolutionStatus,
+      runtimeStatus: face.runtimeStatus,
+      sourceTopology: face.sourceTopology,
+      revisionSet
+    }
+  }
+
+  emitStrokePipelineCounter(
+    'visual-overlap-collapse-polygon-cache-key-fallback'
+  )
+  return {
+    faceId: face.faceId,
+    sourceGeometryIds: face.sourceGeometryIds,
+    polygons: serializeRegion({ polygons: face.polygons }),
+    visualPacketKey: face.visualPacketKey,
+    paintKey: face.paintKey,
+    strokeSpecKey: face.strokeSpecKey,
+    ownerSet: face.ownerSet,
+    intervalIds: face.intervalIds,
+    sourceSpanIds: face.sourceSpanIds,
+    sourceContourIds: face.sourceContourIds,
+    legalDomainIds: face.legalDomainIds,
+    geometryFamily: face.geometryFamily,
+    resolutionStatus: face.resolutionStatus,
+    runtimeStatus: face.runtimeStatus,
+    sourceTopology: face.sourceTopology,
+    paint: face.paint,
+    debugMeta: face.debugMeta
+  }
+}
 
 const buildVisualOverlapCollapseCacheKey = (
   faces: ArrangedStrokeFinalFace[],
   options: StrokeVisualOverlapCollapseOptions
-) =>
-  hashStableString(
+) => {
+  emitStrokePipelineCounter('visual-overlap-collapse-cache-key')
+  emitStrokePipelineCounter(
+    'visual-overlap-collapse-input-face-count',
+    faces.length
+  )
+  emitStrokePipelineCounter(
+    'visual-overlap-collapse-input-point-count',
+    faces.reduce((sum, face) => sum + getFacePointCount(face), 0)
+  )
+  return hashStableString(
     'visual-overlap-collapse-cache',
     stableStringify({
       backend: getBackendSignature(options.backend as object),
@@ -607,6 +678,7 @@ const buildVisualOverlapCollapseCacheKey = (
       faces: faces.map(serializeFinalFaceForCache)
     })
   )
+}
 
 const getLegalDomainFillRule = (
   legalDomains: ArrangementLegalDomain[]
@@ -1128,9 +1200,13 @@ const collapseVisualOverlapFaceGroupByArrangement = (
   const faceByCandidateId = new Map(
     normalizedFaces.map((face) => [face.faceId, face])
   )
-  const arrangementFaces = backend
-    .buildArrangement(candidates)
-    .filter((face) => hasRegionGeometry(face.geometry))
+  const arrangementFaces = measureVectorRenderPhase(
+    'visual overlap collapse: arrangement',
+    () =>
+      backend
+        .buildArrangement(candidates)
+        .filter((face) => hasRegionGeometry(face.geometry))
+  )
 
   const collapsedFaces = arrangementFaces.flatMap((arrangementFace) => {
     const claimedFaces: ArrangedStrokeFinalFace[] = []
@@ -1163,27 +1239,28 @@ const collapseLocalSideVisualOverlapFaceGroupByArrangement = (
   const faceByCandidateId = new Map(
     normalizedFaces.map((face) => [face.faceId, face])
   )
-  return backend
-    .buildArrangement(candidates)
-    .filter((face) => hasRegionGeometry(face.geometry))
-    .flatMap((arrangementFace) => {
-      const claimedFaces: ArrangedStrokeFinalFace[] = []
-      arrangementFace.claimedBy.forEach((candidate) => {
-        const sourceFace = faceByCandidateId.get(candidate.candidateId)
-        if (sourceFace) {
-          claimedFaces.push(sourceFace)
-        }
-      })
-
-      if (claimedFaces.length === 0) {
-        return []
+  return measureVectorRenderPhase('visual overlap collapse: arrangement', () =>
+    backend
+      .buildArrangement(candidates)
+      .filter((face) => hasRegionGeometry(face.geometry))
+  ).flatMap((arrangementFace) => {
+    const claimedFaces: ArrangedStrokeFinalFace[] = []
+    arrangementFace.claimedBy.forEach((candidate) => {
+      const sourceFace = faceByCandidateId.get(candidate.candidateId)
+      if (sourceFace) {
+        claimedFaces.push(sourceFace)
       }
-
-      return mergeLocalSideVisualOverlapArrangementFaceGroup(
-        arrangementFace,
-        claimedFaces
-      )
     })
+
+    if (claimedFaces.length === 0) {
+      return []
+    }
+
+    return mergeLocalSideVisualOverlapArrangementFaceGroup(
+      arrangementFace,
+      claimedFaces
+    )
+  })
 }
 
 export const collapseStrokeFinalFaceVisualOverlaps = (
@@ -1215,18 +1292,24 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
     )
   })
   if (!hasCollapsibleGroup) {
+    emitStrokePipelineCounter('visual-overlap-collapse-not-needed')
     return faces
   }
 
-  const cacheKey = buildVisualOverlapCollapseCacheKey(faces, options)
+  const cacheKey = measureVectorRenderPhase(
+    'visual overlap collapse: cache key',
+    () => buildVisualOverlapCollapseCacheKey(faces, options)
+  )
   const cache = getBackendCacheGroup(
     visualOverlapCollapseResultCache,
     options.backend as object
   )
   const cachedFaces = cache.get(cacheKey)
   if (cachedFaces) {
+    emitStrokePipelineCounter('visual-overlap-collapse-cache-hit')
     return cachedFaces
   }
+  emitStrokePipelineCounter('visual-overlap-collapse-cache-miss')
 
   const collapsedFaces = groups.flatMap((group) => {
     if (hasDashedCenterFace(group)) {
@@ -1251,9 +1334,16 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
     }
 
     if (isNativeCenterSelfIntersectingSingleFaceCollapse(group)) {
-      const unionRegions = options.backend
-        .union(getVisualCollapseRegions(group), options.fillRule ?? 'nonzero')
-        .filter(hasRegionGeometry)
+      const unionRegions = measureVectorRenderPhase(
+        'visual overlap collapse: union',
+        () =>
+          options.backend
+            .union(
+              getVisualCollapseRegions(group),
+              options.fillRule ?? 'nonzero'
+            )
+            .filter(hasRegionGeometry)
+      )
 
       if (unionRegions.length === 0) {
         return group
@@ -1293,9 +1383,13 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
       }
     }
 
-    const unionRegions = options.backend
-      .union(getVisualCollapseRegions(group), options.fillRule ?? 'nonzero')
-      .filter(hasRegionGeometry)
+    const unionRegions = measureVectorRenderPhase(
+      'visual overlap collapse: union',
+      () =>
+        options.backend
+          .union(getVisualCollapseRegions(group), options.fillRule ?? 'nonzero')
+          .filter(hasRegionGeometry)
+    )
 
     if (unionRegions.length === 0) {
       return group

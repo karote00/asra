@@ -111,6 +111,41 @@ type RegisterRenderLayer = (
   options?: RegisterRenderLayerOptions
 ) => void
 
+const measureVectorEditingOverlayPhase = <T>(
+  phaseName: string,
+  run: () => T
+): T => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraVectorRenderPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraVectorRenderPhaseSink
+  if (!sink) {
+    return run()
+  }
+
+  const start = performance.now()
+  try {
+    return run()
+  } finally {
+    sink(phaseName, performance.now() - start)
+  }
+}
+
+const emitStrokePipelineCounter = (counterName: string, value = 1) => {
+  ;(
+    globalThis as typeof globalThis & {
+      __asyraStrokePipelineCounterSink?: (
+        counterName: string,
+        value: number
+      ) => void
+    }
+  ).__asyraStrokePipelineCounterSink?.(counterName, value)
+}
+
 const getNumericSuffix = (value: string) => {
   const match = value.match(/[-_](\d+)$/)
   if (!match) {
@@ -166,6 +201,19 @@ const getPathEditingVectorDataWithDeps = (
   if (!computed.points || !computed.segments || !computed.networks) {
     return null
   }
+  emitStrokePipelineCounter('editing-overlay-full-topology-walk')
+  emitStrokePipelineCounter(
+    'editing-overlay-walk-point-count',
+    Object.keys(computed.points).length
+  )
+  emitStrokePipelineCounter(
+    'editing-overlay-walk-segment-count',
+    Object.keys(computed.segments).length
+  )
+  emitStrokePipelineCounter(
+    'editing-overlay-walk-network-count',
+    Object.keys(computed.networks).length
+  )
 
   const offsetX = typeof computed.x === 'number' ? computed.x : 0
   const offsetY = typeof computed.y === 'number' ? computed.y : 0
@@ -597,7 +645,10 @@ export const registerVectorPathEditingRenderLayer = (
     update: (canvas: OverlayCanvas) => {
       canvas.clear()
 
-      const vectorData = getPathEditingVectorDataWithDeps(deps)
+      const vectorData = measureVectorEditingOverlayPhase(
+        'editing-overlay:model',
+        () => getPathEditingVectorDataWithDeps(deps)
+      )
       if (!vectorData) {
         return
       }
@@ -789,43 +840,45 @@ export const registerVectorPathEditingRenderLayer = (
         activeSelectedPoint?.pointId ?? null
       )
 
-      screenSubpaths.forEach((subpath) =>
-        drawSubpathSegments(canvas, subpath, screenSegmentsById)
-      )
-      drawHighlightedSegments(
-        canvas,
-        screenSegmentsById,
-        activeSelectedSegmentId,
-        activeHoveredSegmentId
-      )
-      drawHandleLines(canvas, flatScreenPoints, visibleHandleAnchorIds)
-      if (previewStartPoint) {
-        drawPreview(
-          canvas,
-          previewStartPoint,
-          mouseScreenPos,
-          shouldRenderPreview,
-          previewHandleSide
+      measureVectorEditingOverlayPhase('editing-overlay:draw', () => {
+        screenSubpaths.forEach((subpath) =>
+          drawSubpathSegments(canvas, subpath, screenSegmentsById)
         )
-      }
-      drawGhostInsertPoint(canvas, activeGhostInsertPoint)
-      drawAnchorPoints(
-        canvas,
-        flatScreenPoints,
-        activeSelectedPoint?.pointId ?? null,
-        activeSelectedPoint?.target ?? null,
-        activeHoveredPoint?.pointId ?? null,
-        activeHoveredPoint?.target ?? null
-      )
-      drawHandlePoints(
-        canvas,
-        flatScreenPoints,
-        visibleHandleAnchorIds,
-        activeSelectedPoint?.pointId ?? null,
-        activeSelectedPoint?.target ?? null,
-        activeHoveredPoint?.pointId ?? null,
-        activeHoveredPoint?.target ?? null
-      )
+        drawHighlightedSegments(
+          canvas,
+          screenSegmentsById,
+          activeSelectedSegmentId,
+          activeHoveredSegmentId
+        )
+        drawHandleLines(canvas, flatScreenPoints, visibleHandleAnchorIds)
+        if (previewStartPoint) {
+          drawPreview(
+            canvas,
+            previewStartPoint,
+            mouseScreenPos,
+            shouldRenderPreview,
+            previewHandleSide
+          )
+        }
+        drawGhostInsertPoint(canvas, activeGhostInsertPoint)
+        drawAnchorPoints(
+          canvas,
+          flatScreenPoints,
+          activeSelectedPoint?.pointId ?? null,
+          activeSelectedPoint?.target ?? null,
+          activeHoveredPoint?.pointId ?? null,
+          activeHoveredPoint?.target ?? null
+        )
+        drawHandlePoints(
+          canvas,
+          flatScreenPoints,
+          visibleHandleAnchorIds,
+          activeSelectedPoint?.pointId ?? null,
+          activeSelectedPoint?.target ?? null,
+          activeHoveredPoint?.pointId ?? null,
+          activeHoveredPoint?.target ?? null
+        )
+      })
     }
   })
 

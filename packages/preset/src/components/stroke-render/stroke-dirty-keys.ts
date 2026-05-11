@@ -367,6 +367,7 @@ export const updateStrokeRuntimeRevisionSetFromMetadata = (
     runtimeReason?: string
     sourceTopology?: string
     intervalTopology?: string
+    closed?: boolean
     ownershipStatus?: string
     ownerCount?: number
   }
@@ -379,7 +380,8 @@ export const updateStrokeRuntimeRevisionSetFromMetadata = (
     ...revisionSet,
     topologyClassificationRevision: buildTopologyClassificationRevision(
       metadata.sourceTopology ?? '',
-      metadata.intervalTopology ?? ''
+      metadata.intervalTopology ?? '',
+      metadata.closed
     ),
     ownershipRevision: buildOwnershipRevision(metadata),
     legalityRevision: buildLegalityRevision(metadata)

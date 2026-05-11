@@ -26,6 +26,7 @@ export interface SolidCenterStrokeRenderEntry {
   >
   polygons: Vec2[][]
   debugMeta?: SolidCenterStrokeGeometryDebugMeta
+  preferSolidGraphics?: boolean
   revisionSet?: StrokeRevisionSet
 }
 
@@ -60,7 +61,7 @@ interface SolidStrokeCacheMaskedSolidEntry {
 }
 
 interface SolidStrokeCacheDragSolidGraphicsEntry {
-  kind: 'drag-solid-graphics'
+  kind: 'drag-solid-graphics' | 'solid-graphics'
   graphics: Graphics
   signature: string
   paintKey: string
@@ -79,6 +80,15 @@ interface SolidCenterStrokeRenderGraphic {
     | SolidStrokeCacheDragSolidGraphicsEntry
   >
 }
+
+const isSolidGraphicsCacheEntry = (
+  entry:
+    | SolidStrokeCacheSolidEntry
+    | SolidStrokeCacheGradientEntry
+    | SolidStrokeCacheMaskedSolidEntry
+    | SolidStrokeCacheDragSolidGraphicsEntry
+): entry is SolidStrokeCacheDragSolidGraphicsEntry =>
+  entry.kind === 'drag-solid-graphics' || entry.kind === 'solid-graphics'
 
 const buildGeometryModel = (polygons: Vec2[][]): GeometryModel => {
   const normalizedPolygons = polygons.map((polygon) =>
@@ -232,7 +242,7 @@ const disposeCacheEntry = (
     return
   }
 
-  if (entry.kind === 'drag-solid-graphics') {
+  if (isSolidGraphicsCacheEntry(entry)) {
     entry.graphics.destroy()
     return
   }
@@ -280,6 +290,17 @@ const shouldRenderDragVisualWithGraphics = (
   (entry.revisionSet ?? entry.debugMeta?.revisionSet)?.previewModeRevision ===
     'drag-visual'
 
+const emitStrokePipelineCounter = (counterName: string, value = 1) => {
+  ;(
+    globalThis as typeof globalThis & {
+      __asyraStrokePipelineCounterSink?: (
+        counterName: string,
+        value: number
+      ) => void
+    }
+  ).__asyraStrokePipelineCounterSink?.(counterName, value)
+}
+
 export const renderSolidCenterStrokeEntries = (
   graphic: SolidCenterStrokeRenderGraphic,
   entries: SolidCenterStrokeRenderEntry[]
@@ -310,15 +331,22 @@ export const renderSolidCenterStrokeEntries = (
     const strokeKind = entry.stroke.kind ?? 'solid'
     const targetCacheKind = shouldRenderDragVisualWithGraphics(entry)
       ? 'drag-solid-graphics'
-      : strokeKind === 'solid' && shouldRenderSolidWithMask(entry)
-        ? 'masked-solid'
-        : strokeKind
+      : entry.preferSolidGraphics === true && strokeKind === 'solid'
+        ? 'solid-graphics'
+        : strokeKind === 'solid' && shouldRenderSolidWithMask(entry)
+          ? 'masked-solid'
+          : strokeKind
     const paintKey =
       entry.stroke.paintKey ??
       `solid:${entry.stroke.color}:${entry.stroke.alpha}`
     const revisionGeometrySignature = getRevisionGeometrySignature(revisionSet)
-    const getGeometrySignature = () =>
-      revisionGeometrySignature ?? getSignature(polygons)
+    const getGeometrySignature = () => {
+      if (revisionGeometrySignature) {
+        return revisionGeometrySignature
+      }
+      emitStrokePipelineCounter('stroke-render-coordinate-signature-fallback')
+      return getSignature(polygons)
+    }
 
     if (existing && existing.kind !== targetCacheKind) {
       disposeCacheEntry(existing)
@@ -352,7 +380,7 @@ export const renderSolidCenterStrokeEntries = (
             entry.stroke.color,
             entry.stroke.alpha
           )
-        } else if (compatibleEntry.kind === 'drag-solid-graphics') {
+        } else if (isSolidGraphicsCacheEntry(compatibleEntry)) {
           applySolidGraphicsPaint(
             compatibleEntry.graphics,
             polygons,
@@ -368,7 +396,7 @@ export const renderSolidCenterStrokeEntries = (
       if (compatibleEntry.kind === 'solid') {
         compatibleEntry.projection.setVisible(true)
       } else {
-        if (compatibleEntry.kind === 'drag-solid-graphics') {
+        if (isSolidGraphicsCacheEntry(compatibleEntry)) {
           compatibleEntry.graphics.visible = true
         } else {
           compatibleEntry.container.visible = true
@@ -394,7 +422,7 @@ export const renderSolidCenterStrokeEntries = (
         compatibleEntry.container.visible = true
       } else if (compatibleEntry.kind === 'masked-solid') {
         compatibleEntry.container.visible = true
-      } else if (compatibleEntry.kind === 'drag-solid-graphics') {
+      } else if (isSolidGraphicsCacheEntry(compatibleEntry)) {
         compatibleEntry.graphics.visible = true
       } else {
         compatibleEntry.projection.setVisible(true)
@@ -479,10 +507,13 @@ export const renderSolidCenterStrokeEntries = (
       return
     }
 
-    if (targetCacheKind === 'drag-solid-graphics') {
+    if (
+      targetCacheKind === 'drag-solid-graphics' ||
+      targetCacheKind === 'solid-graphics'
+    ) {
       if (
         compatibleEntry &&
-        compatibleEntry.kind === 'drag-solid-graphics' &&
+        compatibleEntry.kind === targetCacheKind &&
         (dirtyKeys !== null
           ? !geometryDirty &&
             !paintDirty &&
@@ -500,7 +531,7 @@ export const renderSolidCenterStrokeEntries = (
 
       if (
         compatibleEntry &&
-        compatibleEntry.kind === 'drag-solid-graphics' &&
+        compatibleEntry.kind === targetCacheKind &&
         (dirtyKeys === null ||
           geometryDirty ||
           paintDirty ||
@@ -536,7 +567,7 @@ export const renderSolidCenterStrokeEntries = (
       }
 
       graphic.__asyraStrokeMeshCache?.set(entry.cacheKey, {
-        kind: 'drag-solid-graphics',
+        kind: targetCacheKind,
         graphics,
         signature,
         paintKey,
@@ -671,7 +702,7 @@ export const renderSolidCenterStrokeEntries = (
       compatibleEntry.projection.setVisible(true)
     } else if (compatibleEntry.kind === 'masked-solid') {
       compatibleEntry.container.visible = true
-    } else if (compatibleEntry.kind === 'drag-solid-graphics') {
+    } else if (isSolidGraphicsCacheEntry(compatibleEntry)) {
       compatibleEntry.graphics.visible = true
     }
     active.add(entry.cacheKey)

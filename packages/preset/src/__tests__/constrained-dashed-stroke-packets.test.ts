@@ -2844,6 +2844,45 @@ describe('constrained dashed stroke packets', () => {
     })
   })
 
+  it('should keep geometry bounds when diagnostic metadata is omitted for drag visual collapse', () => {
+    const packets = buildConstrainedDashedStrokeResolvedPackets(
+      'rect:test:drag-metadata-omitted',
+      [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 20 },
+        { x: 0, y: 20 }
+      ],
+      true,
+      [
+        createDefaultStroke({
+          width: 4,
+          style: 'dashed',
+          position: 'inside',
+          dashPattern: [10, 100],
+          dashOffset: 0
+        })
+      ],
+      {
+        omitDiagnosticMetadata: true
+      }
+    )
+
+    expect(packets).toHaveLength(1)
+    expect(packets[0]?.geometry.bounds).toEqual({
+      minX: 0,
+      minY: 0,
+      maxX: 10,
+      maxY: 4
+    })
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      geometryFamily: 'constrained-dashed',
+      resolutionStatus: 'exact-constrained',
+      runtimeStatus: 'candidate'
+    })
+    expect(packets[0]?.geometry.debugMeta?.sourceSpanIds).toBeUndefined()
+  })
+
   it('should run: derive one inside round-join full-loop constrained dashed packet from topology classification', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'rect:test:constrained-dashed',

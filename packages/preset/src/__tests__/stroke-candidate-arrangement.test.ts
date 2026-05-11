@@ -16,6 +16,7 @@ import type {
   SolidCenterStrokePaintPacket,
   SolidCenterStrokeResolvedPacket
 } from '../components/stroke-render/solid-center-stroke-packets'
+import type { StrokeRevisionSet } from '../components/stroke-render/stroke-dirty-keys'
 
 const square = (x: number, y: number, size: number) => [
   { x, y },
@@ -88,6 +89,7 @@ const makePacket = (
     resolutionStatus?: SolidCenterStrokeGeometryDebugMeta['resolutionStatus']
     runtimeStatus?: SolidCenterStrokeGeometryDebugMeta['runtimeStatus']
     sourceTopology?: SolidCenterStrokeGeometryDebugMeta['sourceTopology']
+    revisionSet?: StrokeRevisionSet
   } = {}
 ): SolidCenterStrokeResolvedPacket => {
   const polygon = options.polygon ?? square(0, 0, 10)
@@ -113,7 +115,8 @@ const makePacket = (
         resolutionStatus:
           options.resolutionStatus ?? 'local-side-approximation',
         runtimeStatus: options.runtimeStatus ?? 'accepted',
-        sourceTopology: options.sourceTopology ?? 'self-intersecting'
+        sourceTopology: options.sourceTopology ?? 'self-intersecting',
+        revisionSet: options.revisionSet
       }
     },
     paint: {
@@ -143,6 +146,17 @@ const buildTestFinalFaces = (packets: SolidCenterStrokeResolvedPacket[]) =>
     SolidCenterStrokePaintPacket,
     SolidCenterStrokeResolvedPacket
   >(packets)
+
+const makeRevisionSet = (id: string): StrokeRevisionSet => ({
+  sourcePathRevision: `source:${id}`,
+  strokeSpecRevision: `stroke:${id}`,
+  intervalAllocationRevision: `interval:${id}`,
+  topologyClassificationRevision: `topology:${id}`,
+  ownershipRevision: `ownership:${id}`,
+  legalityRevision: `legality:${id}`,
+  paintRevision: `paint:${id}`,
+  previewModeRevision: 'preview:exact'
+})
 
 describe('stroke candidate arrangement', () => {
   it('should run: build candidate regions with typed owner, interval, and source-span metadata', () => {
@@ -267,6 +281,74 @@ describe('stroke candidate arrangement', () => {
 
     expect(buildArrangementCallCount).toBe(1)
     expect(secondCollapsed).toBe(firstCollapsed)
+  })
+
+  it('should run: build visual-overlap collapse cache keys from revisions when available', () => {
+    const sharedRevisionSet = makeRevisionSet('shared')
+    const packets = [
+      makePacket('candidate:revision-collapse-cache-a', {
+        geometryFamily: 'constrained-solid',
+        alpha: 0.5,
+        polygon: square(0, 0, 10),
+        revisionSet: sharedRevisionSet
+      }),
+      makePacket('candidate:revision-collapse-cache-b', {
+        geometryFamily: 'constrained-solid',
+        alpha: 0.5,
+        polygon: square(5, 0, 10),
+        revisionSet: sharedRevisionSet
+      })
+    ]
+    const faces = buildTestFinalFaces(packets)
+    const counters: Record<string, number> = {}
+    ;(
+      globalThis as typeof globalThis & {
+        __asyraStrokePipelineCounterSink?: (
+          counterName: string,
+          value: number
+        ) => void
+      }
+    ).__asyraStrokePipelineCounterSink = (counterName, value) => {
+      counters[counterName] = (counters[counterName] ?? 0) + value
+    }
+
+    try {
+      collapseStrokeFinalFaceVisualOverlaps(faces, {
+        backend: {
+          buildArrangement: (candidates: CandidateRegion[]) => [
+            {
+              faceId: 'face:revision-collapse-cache',
+              geometry: {
+                polygons: [square(0, 0, 15)]
+              },
+              claimedBy: candidates,
+              legalState: {
+                insideFillDomain: true,
+                outsideFillDomain: true
+              }
+            }
+          ],
+          union: (regions: PolygonRegion[]) => regions
+        }
+      })
+    } finally {
+      ;(
+        globalThis as typeof globalThis & {
+          __asyraStrokePipelineCounterSink?: (
+            counterName: string,
+            value: number
+          ) => void
+        }
+      ).__asyraStrokePipelineCounterSink = undefined
+    }
+
+    expect(counters['visual-overlap-collapse-cache-key']).toBe(1)
+    expect(
+      counters['visual-overlap-collapse-input-point-count']
+    ).toBeGreaterThan(0)
+    expect(
+      counters['visual-overlap-collapse-polygon-cache-key-fallback'] ?? 0
+    ).toBe(0)
   })
 
   it('should run: classify inside and outside faces as distinct exact final face sets', () => {
