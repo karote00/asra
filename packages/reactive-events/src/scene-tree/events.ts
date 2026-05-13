@@ -62,6 +62,15 @@ export interface ChangeComputedDataEvent {
   options: EVENT_OPTIONS
 }
 
+export interface ChangeComputedDataBatchEvent {
+  type: EventTypes
+  payload: {
+    elementIds: string[]
+    data: Record<string, DataTypes>
+  }
+  options: EVENT_OPTIONS
+}
+
 export type SceneTreeEvents =
   | SceneTreeInitEvent
   | SceneTreeLoadDataEvent
@@ -70,3 +79,4 @@ export type SceneTreeEvents =
   | RemoveElementEvent
   | UpdateComputedDataEvent
   | ChangeComputedDataEvent
+  | ChangeComputedDataBatchEvent

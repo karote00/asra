@@ -24,6 +24,27 @@ type Combinations = Record<string, string[]>
 
 const WHEEL_EVENT_OPTIONS: AddEventListenerOptions = { passive: false }
 
+const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraBrowserDragPhaseSink
+  if (!sink) {
+    return run()
+  }
+
+  const start = performance.now()
+  try {
+    return run()
+  } finally {
+    sink(phaseName, performance.now() - start)
+  }
+}
+
 const getMouseButton = (button: number): MouseButton => {
   switch (button) {
     case 0:
@@ -282,12 +303,14 @@ class InputSystem {
       if (canMove) {
         this.activeKeys.add(key)
 
-        this.checkCombinations(InputType.POINTER, {
-          ...DefaultPointerEventData,
-          clientX: event.clientX,
-          clientY: event.clientY,
-          button
-        })
+        measureBrowserDragPhase('input:pointer-move', () =>
+          this.checkCombinations(InputType.POINTER, {
+            ...DefaultPointerEventData,
+            clientX: event.clientX,
+            clientY: event.clientY,
+            button
+          })
+        )
 
         // No need to keep mouse up key after trigger action
         this.activeKeys.delete(key)
@@ -379,7 +402,9 @@ class InputSystem {
     const callbacks = this.listeners.get(event)
     if (callbacks) {
       callbacks.forEach((cb) => {
-        const result = cb(raw)
+        const result = measureBrowserDragPhase(`input:trigger:${event}`, () =>
+          cb(raw)
+        )
         // If callback returns a promise, catch any errors
         if (result instanceof Promise) {
           result.catch((error) => {

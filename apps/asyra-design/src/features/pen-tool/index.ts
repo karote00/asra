@@ -76,6 +76,27 @@ const createAnchorPoint = (point: {
 
 const DOUBLE_CLICK_HIT_PADDING = 8
 
+const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraBrowserDragPhaseSink
+  if (!sink) {
+    return run()
+  }
+
+  const start = performance.now()
+  try {
+    return run()
+  } finally {
+    sink(phaseName, performance.now() - start)
+  }
+}
+
 interface Vec2 {
   x: number
   y: number
@@ -105,35 +126,9 @@ const computeConnectedInHandle = (connectedPoint: VectorAnchorPoint): Vec2 => {
   return connectedPoint.inHandle ?? connectedPoint
 }
 
-let pendingSelectedPointMirror: SelectedVectorPointState | null | undefined
-let pendingSelectedPointTimer: ReturnType<typeof setTimeout> | null = null
-
-const scheduleSelectedVectorPointMirror = (
-  next: SelectedVectorPointState | null
-) => {
-  pendingSelectedPointMirror = next
-  if (pendingSelectedPointTimer) {
-    return
-  }
-
-  pendingSelectedPointTimer = setTimeout(() => {
-    pendingSelectedPointTimer = null
-    if (pendingSelectedPointMirror === undefined) {
-      return
-    }
-    systemContextApis.setSelectedVectorPoint(pendingSelectedPointMirror)
-    pendingSelectedPointMirror = undefined
-  }, 0)
-}
-
 const flushSelectedVectorPointMirror = (
   next: SelectedVectorPointState | null
 ) => {
-  if (pendingSelectedPointTimer) {
-    clearTimeout(pendingSelectedPointTimer)
-    pendingSelectedPointTimer = null
-  }
-  pendingSelectedPointMirror = undefined
   systemContextApis.setSelectedVectorPoint(next)
 }
 
@@ -251,8 +246,7 @@ const getPointTargetPosition = (
 const syncSelectedVectorPointMirror = (
   elementId: string,
   selectedPoint: { point: VectorAnchorPoint; index: number } | null,
-  target: VectorPointTarget,
-  options?: { deferred?: boolean }
+  target: VectorPointTarget
 ) => {
   if (!selectedPoint) {
     return false
@@ -276,19 +270,14 @@ const syncSelectedVectorPointMirror = (
     )
   }
 
-  if (options?.deferred) {
-    scheduleSelectedVectorPointMirror(nextState)
-  } else {
-    flushSelectedVectorPointMirror(nextState)
-  }
-
+  flushSelectedVectorPointMirror(nextState)
   return true
 }
 
 const updateVectorPointTargetPosition = (
   targetState: VectorPointDragTargetState,
   position: { x: number; y: number },
-  options?: { undoable: boolean }
+  options?: { undoable: boolean; skipResult?: boolean }
 ) => {
   if (targetState.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR) {
     return elementApis.updateVectorAnchorPointPosition(
@@ -874,23 +863,18 @@ export const selectVectorPointFeature = defineFeature<
         y: dragTarget.initialTargetPos.y + dy
       }
 
-      const updatedPoint = updateVectorPointTargetPosition(
-        dragTarget,
-        targetPos,
-        {
-          undoable: false
-        }
+      const updatedPoint = measureBrowserDragPhase(
+        'pen-tool:drag-point-update',
+        () =>
+          updateVectorPointTargetPosition(dragTarget, targetPos, {
+            undoable: false,
+            skipResult: true
+          })
       )
-      if (!updatedPoint) {
+      if (updatedPoint === null) {
         return
       }
 
-      syncSelectedVectorPointMirror(
-        dragTarget.elementId,
-        updatedPoint,
-        dragTarget.target,
-        { deferred: true }
-      )
       dragTarget.hasMoved = true
       return
     },
@@ -928,7 +912,7 @@ export const selectVectorPointFeature = defineFeature<
         dragTarget,
         targetPos
       )
-      if (!committedPoint) {
+      if (!committedPoint || committedPoint === true) {
         return
       }
 

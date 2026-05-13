@@ -395,16 +395,42 @@ const getMultiSelectionBounds = (
   }
 }
 
+const appendElementTransformSignature = (
+  parts: string[],
+  elementId: string,
+  element: RenderElementShape | null
+) => {
+  parts.push(elementId)
+  if (!element) {
+    parts.push('missing')
+    return
+  }
+
+  const transform = element.worldTransform
+  const bounds = getElementGeometryWorldBounds(element)
+  parts.push(
+    String(transform.a),
+    String(transform.b),
+    String(transform.c),
+    String(transform.d),
+    String(transform.tx),
+    String(transform.ty),
+    String(bounds.x),
+    String(bounds.y),
+    String(bounds.width),
+    String(bounds.height)
+  )
+}
+
 export const registerSelectionOverlayRenderLayer = (
   registerRenderLayer: RegisterRenderLayer,
   deps: Pick<PresetDependencies, 'render' | 'sceneTree' | 'systemContext'>
 ) => {
+  let lastDrawSignature = ''
   const layerRegistration = createOverlayLayerRegistration({
     name: SELECTION_OVERLAY_LAYER_NAME,
     zIndex: 8,
     update: (canvas: OverlayCanvas) => {
-      canvas.clear()
-
       const pathEditingVectorId =
         deps.systemContext.getManagedProperty<string | null>(
           'pathEditingVectorId'
@@ -412,6 +438,38 @@ export const registerSelectionOverlayRenderLayer = (
 
       const selectedIds = [...renderSelectionStore.elementSelection]
       const selectedElementId = selectedIds.length === 1 ? selectedIds[0] : null
+      const hoveredElementId =
+        deps.systemContext.getManagedProperty<string | null>(
+          'hoveredElementId'
+        ) ?? null
+      const drawSignatureParts = [
+        pathEditingVectorId ?? '',
+        selectedIds.join(','),
+        hoveredElementId ?? ''
+      ]
+      selectedIds.forEach((selectedId) => {
+        appendElementTransformSignature(
+          drawSignatureParts,
+          selectedId,
+          deps.render.getElementById(selectedId) as RenderElementShape | null
+        )
+      })
+      if (hoveredElementId) {
+        appendElementTransformSignature(
+          drawSignatureParts,
+          hoveredElementId,
+          deps.render.getElementById(
+            hoveredElementId
+          ) as RenderElementShape | null
+        )
+      }
+      const drawSignature = drawSignatureParts.join('|')
+      if (drawSignature === lastDrawSignature) {
+        return false
+      }
+      lastDrawSignature = drawSignature
+
+      canvas.clear()
       if (!pathEditingVectorId && selectedIds.length > 0) {
         if (selectedElementId) {
           const selectedElement = deps.render.getElementById(
@@ -439,26 +497,23 @@ export const registerSelectionOverlayRenderLayer = (
         }
       }
 
-      const hoveredElementId =
-        deps.systemContext.getManagedProperty<string | null>(
-          'hoveredElementId'
-        ) ?? null
       if (
         !hoveredElementId ||
         hoveredElementId === selectedElementId ||
         selectedIds.includes(hoveredElementId)
       ) {
-        return
+        return true
       }
 
       const hoveredElement = deps.render.getElementById(
         hoveredElementId
       ) as RenderElementShape | null
       if (!hoveredElement) {
-        return
+        return true
       }
 
       drawHoverGeometryOutline(canvas, deps, hoveredElementId, hoveredElement)
+      return true
     }
   })
 

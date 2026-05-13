@@ -12,6 +12,27 @@ import { defaultStrategy } from '../../strategies/default-strategy'
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value)
 
+const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraBrowserDragPhaseSink
+  if (!sink) {
+    return run()
+  }
+
+  const start = performance.now()
+  try {
+    return run()
+  } finally {
+    sink(phaseName, performance.now() - start)
+  }
+}
+
 export class RenderLayer {
   private currentWorkspace: Container
   private _elements: Map<string, SceneElement> = new Map()
@@ -68,7 +89,9 @@ export class RenderLayer {
   private renderGraphic(graphic: Graphics, data: RenderElementData) {
     const strategy = renderStrategyRegistry.get(data.type) || defaultStrategy
     try {
-      strategy(graphic, data)
+      measureBrowserDragPhase(`render-layer:strategy:${data.type}`, () =>
+        strategy(graphic, data)
+      )
       graphic.visible = data.visible !== false
       return true
     } catch (error) {
@@ -96,47 +119,49 @@ export class RenderLayer {
       return undefined
     }
 
-    const existingElement = this.getElementById(data.id)
-    if (existingElement) {
-      ;(
-        existingElement as SceneElement & { __asyraType?: string }
-      ).__asyraType = data.type
+    return measureBrowserDragPhase('render-layer:add-or-update-element', () => {
+      const existingElement = this.getElementById(data.id)
+      if (existingElement) {
+        ;(
+          existingElement as SceneElement & { __asyraType?: string }
+        ).__asyraType = data.type
 
-      if (existingElement instanceof Graphics) {
-        this.renderGraphic(existingElement, data)
+        if (existingElement instanceof Graphics) {
+          this.renderGraphic(existingElement, data)
+        }
+
+        if (existingElement.parent !== this.currentWorkspace) {
+          this.currentWorkspace.addChild(existingElement)
+        }
+
+        return existingElement
       }
 
-      if (existingElement.parent !== this.currentWorkspace) {
-        this.currentWorkspace.addChild(existingElement)
+      const element = this.getRestoreElement(data.id)
+      if (element) {
+        ;(element as SceneElement & { __asyraType?: string }).__asyraType =
+          data.type
+
+        if (element instanceof Graphics) {
+          this.renderGraphic(element, data)
+        }
+
+        this.addToMap(data.id, element)
+        this.currentWorkspace.addChild(element)
+        return element
       }
 
-      return existingElement
-    }
-
-    const element = this.getRestoreElement(data.id)
-    if (element) {
-      ;(element as SceneElement & { __asyraType?: string }).__asyraType =
+      const graphic = new Graphics()
+      graphic.label = data.id
+      ;(graphic as SceneElement & { __asyraType?: string }).__asyraType =
         data.type
 
-      if (element instanceof Graphics) {
-        this.renderGraphic(element, data)
-      }
+      this.renderGraphic(graphic, data)
 
-      this.addToMap(data.id, element)
-      this.currentWorkspace.addChild(element)
-      return element
-    }
-
-    const graphic = new Graphics()
-    graphic.label = data.id
-    ;(graphic as SceneElement & { __asyraType?: string }).__asyraType =
-      data.type
-
-    this.renderGraphic(graphic, data)
-
-    this.addToMap(data.id, graphic)
-    this.currentWorkspace.addChild(graphic)
-    return graphic
+      this.addToMap(data.id, graphic)
+      this.currentWorkspace.addChild(graphic)
+      return graphic
+    })
   }
 
   removeElement(elementId: string, parentId?: string) {
@@ -224,31 +249,38 @@ export class RenderLayer {
     key: string,
     after: DataTypes
   ) {
-    switch (key) {
-      case 'x':
-        if (isFiniteNumber(after)) {
-          element.x = after
-        }
-        break
-      case 'y':
-        if (isFiniteNumber(after)) {
-          element.y = after
-        }
-        break
-      case 'width':
-        if (isFiniteNumber(after) && after >= 0) {
-          element.width = after
-        }
-        break
-      case 'height':
-        if (isFiniteNumber(after) && after >= 0) {
-          element.height = after
-        }
-        break
-      case 'visible':
-        element.visible = Boolean(after)
-        break
-    }
+    measureBrowserDragPhase('render-layer:update-property', () => {
+      switch (key) {
+        case 'x':
+          if (isFiniteNumber(after)) {
+            element.x = after
+          }
+          break
+        case 'y':
+          if (isFiniteNumber(after)) {
+            element.y = after
+          }
+          break
+        case 'width':
+          if (isFiniteNumber(after) && after >= 0) {
+            element.width = after
+          }
+          break
+        case 'height':
+          if (isFiniteNumber(after) && after >= 0) {
+            element.height = after
+          }
+          break
+        case 'visible':
+          element.visible = Boolean(after)
+          break
+        case 'rotation':
+          if (isFiniteNumber(after)) {
+            element.rotation = after
+          }
+          break
+      }
+    })
   }
 
   /**

@@ -1,6 +1,7 @@
 import {
   VECTOR_TOKENS,
   createOverlayLayerRegistration,
+  sampleOverlayBezierPoints,
   type OverlayCanvas,
   type OverlayStrokeStyle
 } from '@asyra/core'
@@ -62,11 +63,36 @@ interface OverlaySegmentGeometry {
   to: PositionData
   outHandle: PositionData | null
   inHandle: PositionData | null
+  sampledPoints?: PositionData[]
 }
 
 interface OverlayVectorData {
   subpaths: OverlaySubpath[]
   segmentsById: Record<string, OverlaySegmentGeometry>
+}
+
+interface OverlayVectorDataCache {
+  vectorId: string
+  signature: string
+  data: OverlayVectorData
+}
+
+interface ScreenOverlayVectorData {
+  subpaths: OverlaySubpath[]
+  segmentsById: Record<string, OverlaySegmentGeometry>
+  flatPoints: OverlayAnchorPoint[]
+}
+
+interface ScreenOverlayVectorDataCache {
+  source: OverlayVectorData
+  viewportX: number
+  viewportY: number
+  viewportScale: number
+  data: ScreenOverlayVectorData
+}
+
+interface OverlayDrawState {
+  signature: string
 }
 
 interface VectorComputedData {
@@ -155,6 +181,118 @@ const getNumericSuffix = (value: string) => {
   return Number.parseInt(match[1], 10)
 }
 
+const appendPositionSignature = (
+  parts: string[],
+  prefix: string,
+  point: PositionData | null | undefined
+) => {
+  parts.push(prefix)
+  if (!point) {
+    parts.push('')
+    return
+  }
+
+  parts.push(String(point.x), String(point.y))
+}
+
+const appendSelectedPointSignature = (
+  parts: string[],
+  prefix: string,
+  point: SelectedVectorPointState | null
+) => {
+  parts.push(prefix)
+  if (!point) {
+    parts.push('')
+    return
+  }
+
+  parts.push(
+    point.elementId,
+    point.pointId,
+    String(point.index),
+    point.target,
+    String(point.x),
+    String(point.y)
+  )
+}
+
+const appendSelectedSegmentSignature = (
+  parts: string[],
+  prefix: string,
+  segment: SelectedVectorSegmentState | null
+) => {
+  parts.push(prefix)
+  if (!segment) {
+    parts.push('')
+    return
+  }
+
+  parts.push(segment.elementId, segment.segmentId)
+}
+
+const appendInsertPointSignature = (
+  parts: string[],
+  prefix: string,
+  point: HoveredVectorSegmentInsertPointState | null
+) => {
+  parts.push(prefix)
+  if (!point) {
+    parts.push('')
+    return
+  }
+
+  parts.push(point.elementId, point.segmentId, String(point.x), String(point.y))
+}
+
+const buildOverlayDrawSignature = (input: {
+  vectorModelSignature: string
+  viewportPosition: PositionData
+  viewportScale: number
+  mousePosition: PositionData
+  primaryTool: string | null | undefined
+  pathEditingVectorId: string | null
+  selectedVectorPoint: SelectedVectorPointState | null
+  hoveredVectorPoint: SelectedVectorPointState | null
+  selectedVectorSegment: SelectedVectorSegmentState | null
+  hoveredVectorSegment: SelectedVectorSegmentState | null
+  hoveredVectorSegmentInsertPoint: HoveredVectorSegmentInsertPointState | null
+  startNewSubpath: boolean
+}) => {
+  const parts = [
+    'draw',
+    input.vectorModelSignature,
+    String(input.viewportPosition.x),
+    String(input.viewportPosition.y),
+    String(input.viewportScale),
+    input.primaryTool ?? '',
+    input.pathEditingVectorId ?? '',
+    input.startNewSubpath ? '1' : '0'
+  ]
+  appendPositionSignature(parts, 'mouse', input.mousePosition)
+  appendSelectedPointSignature(
+    parts,
+    'selected-point',
+    input.selectedVectorPoint
+  )
+  appendSelectedPointSignature(parts, 'hovered-point', input.hoveredVectorPoint)
+  appendSelectedSegmentSignature(
+    parts,
+    'selected-segment',
+    input.selectedVectorSegment
+  )
+  appendSelectedSegmentSignature(
+    parts,
+    'hovered-segment',
+    input.hoveredVectorSegment
+  )
+  appendInsertPointSignature(
+    parts,
+    'insert-point',
+    input.hoveredVectorSegmentInsertPoint
+  )
+  return parts.join('|')
+}
+
 const sortByStableId = <T extends { id: string }>(items: T[]): T[] =>
   [...items].sort((a, b) => {
     const aRank = getNumericSuffix(a.id)
@@ -165,6 +303,85 @@ const sortByStableId = <T extends { id: string }>(items: T[]): T[] =>
 
     return a.id.localeCompare(b.id)
   })
+
+const appendSortedVectorPointSignature = (
+  parts: string[],
+  points: NonNullable<VectorComputedData['points']>
+) => {
+  Object.keys(points)
+    .sort()
+    .forEach((pointId) => {
+      const point = points[pointId]
+      if (!point) {
+        return
+      }
+
+      parts.push('p', pointId, point.kind, String(point.x), String(point.y))
+      if (point.kind === VECTOR_TOKENS.POINT.KIND.CONTROL) {
+        parts.push(point.controlForId ?? '', point.controlRole ?? '')
+      }
+    })
+}
+
+const appendSortedVectorSegmentSignature = (
+  parts: string[],
+  segments: NonNullable<VectorComputedData['segments']>
+) => {
+  Object.keys(segments)
+    .sort()
+    .forEach((segmentId) => {
+      const segment = segments[segmentId]
+      if (!segment) {
+        return
+      }
+
+      parts.push(
+        's',
+        segmentId,
+        segment.startId,
+        segment.endId,
+        segment.inControlId ?? '',
+        segment.outControlId ?? ''
+      )
+    })
+}
+
+const appendSortedVectorNetworkSignature = (
+  parts: string[],
+  networks: NonNullable<VectorComputedData['networks']>
+) => {
+  Object.keys(networks)
+    .sort()
+    .forEach((networkId) => {
+      const network = networks[networkId]
+      if (!network) {
+        return
+      }
+
+      parts.push(
+        'n',
+        networkId,
+        network.closed ? '1' : '0',
+        network.pointIds.join(','),
+        network.segmentIds.join(',')
+      )
+    })
+}
+
+const buildOverlayVectorDataSignature = (
+  computed: Required<
+    Pick<VectorComputedData, 'points' | 'segments' | 'networks'>
+  > &
+    Pick<VectorComputedData, 'x' | 'y'>,
+  offsetX: number,
+  offsetY: number
+) => {
+  const parts = ['o', String(offsetX), String(offsetY)]
+  appendSortedVectorPointSignature(parts, computed.points)
+  appendSortedVectorSegmentSignature(parts, computed.segments)
+  appendSortedVectorNetworkSignature(parts, computed.networks)
+  return parts.join('|')
+}
 
 const getControlId = (
   anchorId: string,
@@ -183,41 +400,80 @@ const toScreenPosition = (
 })
 
 const getPathEditingVectorDataWithDeps = (
-  deps: Pick<PresetDependencies, 'sceneTree' | 'systemContext'>
+  deps: Pick<PresetDependencies, 'sceneTree' | 'systemContext'>,
+  cache?: { current: OverlayVectorDataCache | null }
 ): OverlayVectorData | null => {
   const pathEditingVectorId = deps.systemContext.getManagedProperty<
     string | null
   >('pathEditingVectorId')
   if (!pathEditingVectorId) {
+    if (cache) {
+      cache.current = null
+    }
     return null
   }
 
   const element = deps.sceneTree.getElementById(pathEditingVectorId)
   if (!element || element.get('type') !== 'vector') {
+    if (cache) {
+      cache.current = null
+    }
     return null
   }
 
   const computed = element.getAllComputedData() as VectorComputedData
   if (!computed.points || !computed.segments || !computed.networks) {
+    if (cache) {
+      cache.current = null
+    }
     return null
   }
+  const computedPoints = computed.points
+  const computedSegments = computed.segments
+  const computedNetworks = computed.networks
+  const offsetX = typeof computed.x === 'number' ? computed.x : 0
+  const offsetY = typeof computed.y === 'number' ? computed.y : 0
+  const signature = measureVectorEditingOverlayPhase(
+    'editing-overlay:model-signature',
+    () =>
+      buildOverlayVectorDataSignature(
+        {
+          points: computedPoints,
+          segments: computedSegments,
+          networks: computedNetworks,
+          x: computed.x,
+          y: computed.y
+        },
+        offsetX,
+        offsetY
+      )
+  )
+  const cached = cache?.current
+  if (
+    cached &&
+    cached.vectorId === pathEditingVectorId &&
+    cached.signature === signature
+  ) {
+    emitStrokePipelineCounter('editing-overlay-model-cache-hit')
+    return cached.data
+  }
+
+  emitStrokePipelineCounter('editing-overlay-model-cache-miss')
   emitStrokePipelineCounter('editing-overlay-full-topology-walk')
   emitStrokePipelineCounter(
     'editing-overlay-walk-point-count',
-    Object.keys(computed.points).length
+    Object.keys(computedPoints).length
   )
   emitStrokePipelineCounter(
     'editing-overlay-walk-segment-count',
-    Object.keys(computed.segments).length
+    Object.keys(computedSegments).length
   )
   emitStrokePipelineCounter(
     'editing-overlay-walk-network-count',
-    Object.keys(computed.networks).length
+    Object.keys(computedNetworks).length
   )
 
-  const offsetX = typeof computed.x === 'number' ? computed.x : 0
-  const offsetY = typeof computed.y === 'number' ? computed.y : 0
-  const orderedNetworks = sortByStableId(Object.values(computed.networks))
+  const orderedNetworks = sortByStableId(Object.values(computedNetworks))
   const subpaths: OverlaySubpath[] = []
   const segmentsById: Record<string, OverlaySegmentGeometry> = {}
 
@@ -225,15 +481,15 @@ const getPathEditingVectorDataWithDeps = (
     const points: OverlayAnchorPoint[] = []
 
     network.pointIds.forEach((pointId) => {
-      const anchor = computed.points?.[pointId]
+      const anchor = computedPoints[pointId]
       if (!anchor || anchor.kind !== VECTOR_TOKENS.POINT.KIND.ANCHOR) {
         return
       }
 
       const inHandle =
-        computed.points?.[getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN)]
+        computedPoints[getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN)]
       const outHandle =
-        computed.points?.[getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.OUT)]
+        computedPoints[getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.OUT)]
 
       points.push({
         id: pointId,
@@ -251,13 +507,13 @@ const getPathEditingVectorDataWithDeps = (
     })
 
     network.segmentIds.forEach((segmentId) => {
-      const segment = computed.segments?.[segmentId]
+      const segment = computedSegments[segmentId]
       if (!segment) {
         return
       }
 
-      const start = computed.points?.[segment.startId]
-      const end = computed.points?.[segment.endId]
+      const start = computedPoints[segment.startId]
+      const end = computedPoints[segment.endId]
       if (
         !start ||
         !end ||
@@ -269,15 +525,15 @@ const getPathEditingVectorDataWithDeps = (
 
       const outControl =
         segment.outControlId &&
-        computed.points?.[segment.outControlId]?.kind ===
+        computedPoints[segment.outControlId]?.kind ===
           VECTOR_TOKENS.POINT.KIND.CONTROL
-          ? computed.points[segment.outControlId]
+          ? computedPoints[segment.outControlId]
           : null
       const inControl =
         segment.inControlId &&
-        computed.points?.[segment.inControlId]?.kind ===
+        computedPoints[segment.inControlId]?.kind ===
           VECTOR_TOKENS.POINT.KIND.CONTROL
-          ? computed.points[segment.inControlId]
+          ? computedPoints[segment.inControlId]
           : null
 
       segmentsById[segmentId] = {
@@ -303,13 +559,114 @@ const getPathEditingVectorDataWithDeps = (
   })
 
   if (subpaths.length === 0) {
+    if (cache) {
+      cache.current = null
+    }
     return null
   }
 
-  return {
+  const data = {
     subpaths,
     segmentsById
   }
+
+  if (cache) {
+    cache.current = {
+      vectorId: pathEditingVectorId,
+      signature,
+      data
+    }
+  }
+
+  return data
+}
+
+const projectOverlayVectorDataToScreen = (
+  vectorData: OverlayVectorData,
+  viewportPosition: PositionData,
+  viewportScale: number,
+  cache?: { current: ScreenOverlayVectorDataCache | null }
+): ScreenOverlayVectorData => {
+  const cached = cache?.current
+  if (
+    cached &&
+    cached.source === vectorData &&
+    cached.viewportX === viewportPosition.x &&
+    cached.viewportY === viewportPosition.y &&
+    cached.viewportScale === viewportScale
+  ) {
+    emitStrokePipelineCounter('editing-overlay-screen-cache-hit')
+    return cached.data
+  }
+
+  emitStrokePipelineCounter('editing-overlay-screen-cache-miss')
+  const subpaths = vectorData.subpaths.map((subpath) => ({
+    closed: subpath.closed,
+    segmentIds: [...subpath.segmentIds],
+    points: subpath.points.map((point) => ({
+      id: point.id,
+      x: point.x * viewportScale + viewportPosition.x,
+      y: point.y * viewportScale + viewportPosition.y,
+      inHandle: point.inHandle
+        ? toScreenPosition(point.inHandle, viewportPosition, viewportScale)
+        : null,
+      outHandle: point.outHandle
+        ? toScreenPosition(point.outHandle, viewportPosition, viewportScale)
+        : null
+    }))
+  }))
+  const segmentsById = Object.fromEntries(
+    Object.entries(vectorData.segmentsById).map(([segmentId, segment]) => [
+      segmentId,
+      (() => {
+        const from = toScreenPosition(
+          segment.from,
+          viewportPosition,
+          viewportScale
+        )
+        const to = toScreenPosition(segment.to, viewportPosition, viewportScale)
+        const inHandle = segment.inHandle
+          ? toScreenPosition(segment.inHandle, viewportPosition, viewportScale)
+          : null
+        const outHandle = segment.outHandle
+          ? toScreenPosition(segment.outHandle, viewportPosition, viewportScale)
+          : null
+        return {
+          ...segment,
+          from,
+          to,
+          inHandle,
+          outHandle,
+          sampledPoints:
+            outHandle || inHandle
+              ? sampleOverlayBezierPoints(
+                  from,
+                  outHandle ?? from,
+                  inHandle ?? to,
+                  to
+                )
+              : undefined
+        }
+      })()
+    ])
+  ) as Record<string, OverlaySegmentGeometry>
+  const data = {
+    subpaths,
+    segmentsById,
+    flatPoints: subpaths.flatMap((subpath) => subpath.points)
+  }
+
+  if (cache) {
+    cache.current = {
+      source: vectorData,
+      viewportX: viewportPosition.x,
+      viewportY: viewportPosition.y,
+      viewportScale,
+      data
+    }
+  }
+
+  return data
 }
 
 const getDiamondPoints = (
@@ -326,10 +683,15 @@ const drawSegment = (
   canvas: OverlayCanvas,
   segment: Pick<
     OverlaySegmentGeometry,
-    'from' | 'to' | 'outHandle' | 'inHandle'
+    'from' | 'to' | 'outHandle' | 'inHandle' | 'sampledPoints'
   >,
   stroke: OverlayStrokeStyle
 ) => {
+  if (segment.sampledPoints) {
+    canvas.polyline(segment.sampledPoints, stroke)
+    return
+  }
+
   const hasCurve = !!segment.outHandle || !!segment.inHandle
   if (!hasCurve) {
     canvas.line(segment.from, segment.to, stroke)
@@ -639,19 +1001,36 @@ export const registerVectorPathEditingRenderLayer = (
   registerRenderLayer: RegisterRenderLayer,
   deps: Pick<PresetDependencies, 'render' | 'sceneTree' | 'systemContext'>
 ) => {
+  const vectorDataCache: { current: OverlayVectorDataCache | null } = {
+    current: null
+  }
+  const screenDataCache: { current: ScreenOverlayVectorDataCache | null } = {
+    current: null
+  }
+  const drawState: { current: OverlayDrawState | null } = {
+    current: null
+  }
   const layerRegistration = createOverlayLayerRegistration({
     name: VECTOR_EDITING_LAYER_NAME,
     zIndex: 10,
     update: (canvas: OverlayCanvas) => {
-      canvas.clear()
-
       const vectorData = measureVectorEditingOverlayPhase(
         'editing-overlay:model',
-        () => getPathEditingVectorDataWithDeps(deps)
+        () => getPathEditingVectorDataWithDeps(deps, vectorDataCache)
       )
       if (!vectorData) {
-        return
+        screenDataCache.current = null
+        if (drawState.current?.signature !== 'empty') {
+          canvas.clear()
+          drawState.current = { signature: 'empty' }
+          return true
+        }
+        return false
       }
+      const vectorModelSignature =
+        vectorDataCache.current?.data === vectorData
+          ? vectorDataCache.current.signature
+          : ''
 
       const viewportPosition = deps.render.getViewportPosition()
       const viewportScale = deps.render.getViewportScale()
@@ -684,6 +1063,28 @@ export const registerVectorPathEditingRenderLayer = (
         deps.systemContext.getManagedProperty<boolean>(
           'pathEditingStartNewSubpath'
         ) ?? false
+      const drawSignature = buildOverlayDrawSignature({
+        vectorModelSignature,
+        viewportPosition,
+        viewportScale,
+        mousePosition: snapshot.mousePosition,
+        primaryTool: snapshot.primaryTool,
+        pathEditingVectorId,
+        selectedVectorPoint,
+        hoveredVectorPoint,
+        selectedVectorSegment,
+        hoveredVectorSegment,
+        hoveredVectorSegmentInsertPoint,
+        startNewSubpath
+      })
+      if (drawState.current?.signature === drawSignature) {
+        emitStrokePipelineCounter('editing-overlay-draw-cache-hit')
+        return false
+      }
+      emitStrokePipelineCounter('editing-overlay-draw-cache-miss')
+      drawState.current = { signature: drawSignature }
+      canvas.clear()
+
       const activeSelectedPoint =
         pathEditingVectorId &&
         selectedVectorPoint?.elementId === pathEditingVectorId &&
@@ -720,53 +1121,19 @@ export const registerVectorPathEditingRenderLayer = (
         viewportScale
       )
 
-      const screenSubpaths = vectorData.subpaths.map((subpath) => ({
-        closed: subpath.closed,
-        segmentIds: [...subpath.segmentIds],
-        points: subpath.points.map((point) => ({
-          id: point.id,
-          x: point.x * viewportScale + viewportPosition.x,
-          y: point.y * viewportScale + viewportPosition.y,
-          inHandle: point.inHandle
-            ? toScreenPosition(point.inHandle, viewportPosition, viewportScale)
-            : null,
-          outHandle: point.outHandle
-            ? toScreenPosition(point.outHandle, viewportPosition, viewportScale)
-            : null
-        }))
-      }))
-      const screenSegmentsById = Object.fromEntries(
-        Object.entries(vectorData.segmentsById).map(([segmentId, segment]) => [
-          segmentId,
-          {
-            ...segment,
-            from: toScreenPosition(
-              segment.from,
-              viewportPosition,
-              viewportScale
-            ),
-            to: toScreenPosition(segment.to, viewportPosition, viewportScale),
-            inHandle: segment.inHandle
-              ? toScreenPosition(
-                  segment.inHandle,
-                  viewportPosition,
-                  viewportScale
-                )
-              : null,
-            outHandle: segment.outHandle
-              ? toScreenPosition(
-                  segment.outHandle,
-                  viewportPosition,
-                  viewportScale
-                )
-              : null
-          }
-        ])
-      ) as Record<string, OverlaySegmentGeometry>
-
-      const flatScreenPoints = screenSubpaths.flatMap(
-        (subpath) => subpath.points
+      const screenData = measureVectorEditingOverlayPhase(
+        'editing-overlay:screen-project',
+        () =>
+          projectOverlayVectorDataToScreen(
+            vectorData,
+            viewportPosition,
+            viewportScale,
+            screenDataCache
+          )
       )
+      const screenSubpaths = screenData.subpaths
+      const screenSegmentsById = screenData.segmentsById
+      const flatScreenPoints = screenData.flatPoints
       const lastSubpath = screenSubpaths[screenSubpaths.length - 1]
       const defaultPreviewStartPoint =
         lastSubpath.points[lastSubpath.points.length - 1]
@@ -879,6 +1246,7 @@ export const registerVectorPathEditingRenderLayer = (
           activeHoveredPoint?.target ?? null
         )
       })
+      return true
     }
   })
 

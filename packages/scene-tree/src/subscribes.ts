@@ -1,6 +1,7 @@
 import {
   subscribeToRemoveElement,
   subscribeToChangeComputedData,
+  subscribeToChangeComputedDataBatch,
   subscribeToUpdateComputedData,
   subscribeToSceneTreeInit,
   subscribeToSceneTreeLoadData,
@@ -75,6 +76,25 @@ export const initSceneTreeSubscribes = () => {
         data as ComputedAttrs[KEY],
         options
       )
+    })
+    propsManager.commitChanges(options)
+    sceneTree.commitSceneTreeTransaction(options)
+  })
+
+  subscribeToChangeComputedDataBatch(async ({ payload, options }) => {
+    const { elementIds, data } = payload
+    const entries = Object.entries(data)
+
+    elementIds.forEach((elementId) => {
+      type KEY = keyof ComputedAttrs
+      entries.forEach(([key, value]) => {
+        sceneTree.updateComputedData(
+          elementId,
+          key as KEY,
+          value as ComputedAttrs[KEY],
+          options
+        )
+      })
     })
     propsManager.commitChanges(options)
     sceneTree.commitSceneTreeTransaction(options)

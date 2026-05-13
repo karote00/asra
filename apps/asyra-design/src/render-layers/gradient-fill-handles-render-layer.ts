@@ -172,18 +172,22 @@ export const registerGradientFillHandlesRenderLayer = (
     systemContext: SystemContextLike
   }
 ) => {
+  let lastDrawSignature = ''
   const layerRegistration = createOverlayLayerRegistration({
     name: GRADIENT_FILL_HANDLES_LAYER_NAME,
     zIndex: 12,
     update: (canvas: OverlayCanvas) => {
-      canvas.clear()
-
       const activeGradientFill =
         deps.systemContext.getManagedProperty<ActiveGradientFillState | null>(
           'activeGradientFill'
         ) ?? null
       if (!activeGradientFill) {
-        return
+        if (lastDrawSignature === 'empty') {
+          return false
+        }
+        lastDrawSignature = 'empty'
+        canvas.clear()
+        return true
       }
 
       const geometry = fillApis.getGradientHandleGeometry(
@@ -191,7 +195,17 @@ export const registerGradientFillHandlesRenderLayer = (
         activeGradientFill.fillId
       )
       if (!geometry) {
-        return
+        const missingSignature = [
+          'missing',
+          activeGradientFill.elementId,
+          activeGradientFill.fillId
+        ].join('|')
+        if (lastDrawSignature === missingSignature) {
+          return false
+        }
+        lastDrawSignature = missingSignature
+        canvas.clear()
+        return true
       }
 
       const hoveredHandle =
@@ -210,6 +224,33 @@ export const registerGradientFillHandlesRenderLayer = (
         deps.systemContext.getManagedProperty<GradientStopState | null>(
           'selectedGradientStop'
         ) ?? null
+
+      const drawSignature = [
+        activeGradientFill.elementId,
+        activeGradientFill.fillId,
+        ...geometry.canvasHandles.map((point) => `${point.x},${point.y}`),
+        ...(geometry.fill.gradient?.gradientStops.map(
+          (stop) => `${stop.position},${stop.color}`
+        ) ?? []),
+        hoveredHandle
+          ? `${hoveredHandle.elementId},${hoveredHandle.fillId},${hoveredHandle.handleIndex}`
+          : '',
+        selectedHandle
+          ? `${selectedHandle.elementId},${selectedHandle.fillId},${selectedHandle.handleIndex}`
+          : '',
+        hoveredStop
+          ? `${hoveredStop.elementId},${hoveredStop.fillId},${hoveredStop.stopIndex}`
+          : '',
+        selectedStop
+          ? `${selectedStop.elementId},${selectedStop.fillId},${selectedStop.stopIndex}`
+          : ''
+      ].join('|')
+      if (drawSignature === lastDrawSignature) {
+        return false
+      }
+      lastDrawSignature = drawSignature
+
+      canvas.clear()
 
       // Draw the gradient line
       canvas.line(geometry.canvasHandles[0], geometry.canvasHandles[1], {
@@ -265,6 +306,7 @@ export const registerGradientFillHandlesRenderLayer = (
           }
         )
       })
+      return true
     }
   })
 

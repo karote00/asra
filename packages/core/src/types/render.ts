@@ -14,7 +14,7 @@ export interface RenderLayerRegistration {
   name: string
   layer: unknown
   zIndex?: number
-  update?: () => void
+  update?: () => boolean | undefined
 }
 
 export interface RegisterRenderLayerOptions {

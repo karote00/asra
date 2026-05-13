@@ -16,6 +16,39 @@ import type {
 
 const ticker = Ticker.shared
 
+const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraBrowserDragPhaseSink
+  if (!sink) {
+    return run()
+  }
+
+  const start = performance.now()
+  try {
+    return run()
+  } finally {
+    sink(phaseName, performance.now() - start)
+  }
+}
+
+type RenderCallable = (...args: unknown[]) => unknown
+interface InstrumentableRenderTarget {
+  render?: RenderCallable
+  __asyraPixiRenderInstrumented?: boolean
+}
+
+interface InstrumentablePixiApplication extends Application {
+  render?: RenderCallable
+  renderer?: InstrumentableRenderTarget
+  __asyraPixiRenderInstrumented?: boolean
+}
+
 class Render {
   app: Application | null = null
   viewport: ViewportLayer
@@ -23,6 +56,11 @@ class Render {
   private _tickerActive: boolean = false
   private _animateHandler: () => void
   private interactionBridge: RenderInteractionBridge
+  private pixiRenderInstrumentationDepth = 0
+  private renderDirty = true
+  private nextFrameRenderDirty = false
+  private flushingFrame = false
+  private renderFrameId = 0
 
   constructor() {
     this.viewport = new ViewportLayer()
@@ -30,7 +68,7 @@ class Render {
     // Don't auto-start ticker in constructor to support controlled initialization
     this._tickerActive = false
     this._animateHandler = () => {
-      this.updateLayers()
+      this.flushFrame()
     }
     this.interactionBridge = new RenderInteractionBridge((event) =>
       this.getPointerPositions(event)
@@ -45,6 +83,8 @@ class Render {
 
     this.run()
     this._tickerActive = true
+    this.requestRender()
+    this.flushFrame()
   }
 
   stop() {
@@ -61,9 +101,73 @@ class Render {
   }
 
   updateLayers() {
-    renderLayerRegistry.getAll().forEach((registration) => {
-      registration.update?.()
+    return measureBrowserDragPhase('render:update-layers', () => {
+      let didChange = false
+      renderLayerRegistry.getAll().forEach((registration) => {
+        if (registration.shouldUpdate && !registration.shouldUpdate()) {
+          return
+        }
+        const updateResult = measureBrowserDragPhase(
+          `render:update-layer:${registration.name}`,
+          () => registration.update?.()
+        )
+        didChange = didChange || updateResult === true
+      })
+      return didChange
     })
+  }
+
+  requestRender() {
+    if (this.flushingFrame) {
+      this.nextFrameRenderDirty = true
+      return
+    }
+
+    this.renderDirty = true
+  }
+
+  flushFrame() {
+    if (!this.app || this.flushingFrame) {
+      return
+    }
+
+    this.flushingFrame = true
+    this.renderFrameId += 1
+    ;(
+      globalThis as typeof globalThis & {
+        __asyraStrokePipelineCounterSink?: (
+          counterName: string,
+          value: number
+        ) => void
+      }
+    ).__asyraStrokePipelineCounterSink?.('render-frame-count')
+    ;(
+      globalThis as typeof globalThis & {
+        __asyraStrokePipelineCounterSink?: (
+          counterName: string,
+          value: number
+        ) => void
+      }
+    ).__asyraStrokePipelineCounterSink?.('render-frame-id', this.renderFrameId)
+    try {
+      measureBrowserDragPhase('render:flush-frame', () => {
+        const layersChanged = this.updateLayers()
+        if (!this.renderDirty && !layersChanged) {
+          return
+        }
+
+        measureBrowserDragPhase('render:manual-app-render', () => {
+          this.app?.render()
+        })
+        this.renderDirty = false
+      })
+    } finally {
+      this.flushingFrame = false
+      if (this.nextFrameRenderDirty) {
+        this.renderDirty = true
+        this.nextFrameRenderDirty = false
+      }
+    }
   }
 
   registerLayer(
@@ -98,8 +202,10 @@ class Render {
       resolution: Math.min(window.devicePixelRatio, 2),
       resizeTo: window,
       antialias: true,
-      autoDensity: true
+      autoDensity: true,
+      autoStart: false
     })
+    this.installPixiRenderInstrumentation(app)
 
     this.app = app
     this.app.stage.eventMode = 'static'
@@ -110,6 +216,42 @@ class Render {
     }
 
     return this.app
+  }
+
+  private installPixiRenderInstrumentation(app: Application) {
+    const instrumentedApp = app as InstrumentablePixiApplication
+    if (instrumentedApp.__asyraPixiRenderInstrumented) {
+      return
+    }
+
+    const wrapRender = (
+      target: InstrumentableRenderTarget | undefined,
+      phaseName: string
+    ) => {
+      if (!target || typeof target.render !== 'function') {
+        return
+      }
+
+      const originalRender = target.render
+      target.render = (...args: unknown[]) => {
+        if (this.pixiRenderInstrumentationDepth > 0) {
+          return originalRender.apply(target, args)
+        }
+
+        this.pixiRenderInstrumentationDepth += 1
+        try {
+          return measureBrowserDragPhase(phaseName, () =>
+            originalRender.apply(target, args)
+          )
+        } finally {
+          this.pixiRenderInstrumentationDepth -= 1
+        }
+      }
+    }
+
+    wrapRender(instrumentedApp, 'render:pixi-app-render')
+    wrapRender(instrumentedApp.renderer, 'render:pixi-renderer-render')
+    instrumentedApp.__asyraPixiRenderInstrumented = true
   }
 
   private _setupStageLayers() {
@@ -133,6 +275,7 @@ class Render {
     this.customLayerContainers.forEach((layer) => {
       this.app?.stage.addChild(layer)
     })
+    this.requestRender()
   }
 
   getAllElementsBounds() {
@@ -141,18 +284,25 @@ class Render {
 
   switchWorkspace(workspaceData: RenderContainerData) {
     this.viewport.switchWorkspace(workspaceData)
+    this.requestRender()
   }
 
   addContainer(containerData: RenderContainerData) {
-    return this.viewport.addContainer(containerData)
+    const container = this.viewport.addContainer(containerData)
+    this.requestRender()
+    return container
   }
 
   addElement(data: RenderElementData) {
-    return this.viewport.addElement(data)
+    const element = this.viewport.addElement(data)
+    this.requestRender()
+    return element
   }
 
   removeElement(elementId: string, parentId?: string) {
-    return this.viewport.removeElement(elementId, parentId)
+    const didRemove = this.viewport.removeElement(elementId, parentId)
+    this.requestRender()
+    return didRemove
   }
 
   updateElement(
@@ -163,6 +313,7 @@ class Render {
     data?: RenderElementData
   ) {
     this.viewport.updateElement(elementId, key, before, after, data)
+    this.requestRender()
   }
 
   updateElementProperties(
@@ -171,6 +322,7 @@ class Render {
     after: DataTypes
   ) {
     this.viewport.updateElementProperties(element, key, after)
+    this.requestRender()
   }
 
   /**
@@ -180,6 +332,7 @@ class Render {
    */
   zoomFit(uiBounds: DOMRect) {
     this.viewport.zoomFit(uiBounds)
+    this.requestRender()
   }
 
   /**
@@ -190,6 +343,7 @@ class Render {
    */
   panTo(x: number, y: number) {
     this.viewport.panTo(x, y)
+    this.requestRender()
   }
 
   /**
@@ -200,6 +354,7 @@ class Render {
    */
   zoomTo(scale: number) {
     this.viewport.zoomTo(scale)
+    this.requestRender()
   }
 
   /**
@@ -211,6 +366,7 @@ class Render {
    */
   zoomToCenter(scale: number, centerX: number, centerY: number) {
     this.viewport.zoomToCenter(scale, centerX, centerY)
+    this.requestRender()
   }
 
   getViewportPosition() {

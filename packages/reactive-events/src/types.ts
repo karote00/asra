@@ -26,7 +26,8 @@ export enum ElementEventTypes {
   FINISH_ADD_ELEMENT = 'finishAddElement',
   REMOVE_ELEMENT = 'removeElement',
   UPDATE_COMPUTED_DATA = 'updateComputedData',
-  CHANGE_COMPUTED_DATA = 'changeComputedData'
+  CHANGE_COMPUTED_DATA = 'changeComputedData',
+  CHANGE_COMPUTED_DATA_BATCH = 'changeComputedDataBatch'
 }
 
 // Selection

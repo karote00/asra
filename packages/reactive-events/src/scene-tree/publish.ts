@@ -95,3 +95,18 @@ export const changeComputedData = (
     options
   })
 }
+
+export const changeComputedDataBatch = (
+  elementIds: string[],
+  data: Record<string, DataTypes>,
+  options: EVENT_OPTIONS = { undoable: true }
+) => {
+  publishEvent({
+    type: EventTypes.CHANGE_COMPUTED_DATA_BATCH,
+    payload: {
+      data,
+      elementIds
+    },
+    options
+  })
+}

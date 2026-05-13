@@ -414,8 +414,8 @@ export const updateAnchorPositionInTopology = (
   if (!isAnchorNode(point)) {
     return {
       points: { ...topology.points },
-      segments: { ...topology.segments },
-      networks: { ...topology.networks }
+      segments: topology.segments,
+      networks: topology.networks
     }
   }
 
@@ -456,8 +456,8 @@ export const updateAnchorPositionInTopology = (
 
   return {
     points: nextPoints,
-    segments: { ...topology.segments },
-    networks: { ...topology.networks }
+    segments: topology.segments,
+    networks: topology.networks
   }
 }
 
@@ -470,8 +470,16 @@ export const setAnchorTypeInTopology = (
   if (!isAnchorNode(point)) {
     return {
       points: { ...topology.points },
-      segments: { ...topology.segments },
-      networks: { ...topology.networks }
+      segments: topology.segments,
+      networks: topology.networks
+    }
+  }
+
+  if (point.anchorType === type && type !== 'sharp') {
+    return {
+      points: topology.points,
+      segments: topology.segments,
+      networks: topology.networks
     }
   }
 
@@ -483,8 +491,8 @@ export const setAnchorTypeInTopology = (
         anchorType: type
       }
     },
-    segments: { ...topology.segments },
-    networks: { ...topology.networks }
+    segments: topology.segments,
+    networks: topology.networks
   }
 
   if (type === 'sharp') {
@@ -514,6 +522,7 @@ export const setAnchorHandleInTopology = (
   const controlId = getControlId(pointId, role)
   let nextPoints = { ...topology.points }
   const nextSegments: Record<string, VectorSegment> = {}
+  const nextControlId = position ? controlId : null
 
   if (position) {
     nextPoints[controlId] = {
@@ -533,18 +542,24 @@ export const setAnchorHandleInTopology = (
       role === VECTOR_TOKENS.CONTROL.ROLE.OUT &&
       segment.startId === pointId
     ) {
-      nextSegments[segmentId] = {
-        ...segment,
-        outControlId: position ? controlId : null
-      }
+      nextSegments[segmentId] =
+        segment.outControlId === nextControlId
+          ? segment
+          : {
+              ...segment,
+              outControlId: nextControlId
+            }
       return
     }
 
     if (role === VECTOR_TOKENS.CONTROL.ROLE.IN && segment.endId === pointId) {
-      nextSegments[segmentId] = {
-        ...segment,
-        inControlId: position ? controlId : null
-      }
+      nextSegments[segmentId] =
+        segment.inControlId === nextControlId
+          ? segment
+          : {
+              ...segment,
+              inControlId: nextControlId
+            }
       return
     }
 
@@ -554,7 +569,7 @@ export const setAnchorHandleInTopology = (
   return {
     points: nextPoints,
     segments: nextSegments,
-    networks: { ...topology.networks }
+    networks: topology.networks
   }
 }
 

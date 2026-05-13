@@ -1,6 +1,7 @@
 import {
   addElement,
   changeComputedData,
+  changeComputedDataBatch,
   sceneTreeInit,
   sceneTreeLoadData
 } from '@asyra/reactive-events'
@@ -73,6 +74,11 @@ export const createSceneTreeAPIs = (
     ) {
       const entries = Object.entries(data ?? {})
       if (entries.length === 0) {
+        return
+      }
+
+      if (options?.undoable === false && entries.length > 1) {
+        changeComputedDataBatch(elementIds, data, options)
         return
       }
 

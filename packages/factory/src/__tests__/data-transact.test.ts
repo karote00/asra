@@ -67,6 +67,26 @@ describe('DataTransact user action completion', () => {
     )
   })
 
+  it('forwards effective mutation options to shared channel payloads', () => {
+    const pushToSharedChannel = vi.fn()
+    const transact = new DataTransact({ pushToSharedChannel })
+
+    transact.start()
+    transact.update(createUpdateEvent({ undoable: false, shared: 'sceneTree' }))
+    transact.end()
+
+    expect(pushToSharedChannel).toHaveBeenCalledWith(
+      'sceneTree',
+      expect.objectContaining({
+        id: 'test.change',
+        options: { undoable: false }
+      })
+    )
+    expect(pushToSharedChannel.mock.calls[0][1].options).not.toHaveProperty(
+      'shared'
+    )
+  })
+
   it('keeps transaction local when options.shared is omitted', () => {
     const pushToSharedChannel = vi.fn()
     const transact = new DataTransact({ pushToSharedChannel })

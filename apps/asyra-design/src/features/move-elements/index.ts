@@ -28,6 +28,27 @@ interface Bounds {
   height: number
 }
 
+const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraBrowserDragPhaseSink
+  if (!sink) {
+    return run()
+  }
+
+  const start = performance.now()
+  try {
+    return run()
+  } finally {
+    sink(phaseName, performance.now() - start)
+  }
+}
+
 interface MoveElementsApi {
   resolveInitialPositions: (snapshot: SystemContextSnapshot) => {
     dragStartWorkspacePos: PositionData
@@ -265,7 +286,9 @@ export const moveElementsFeature = defineFeature<
         state.initialPositions
       )
 
-      api.applyPositions(targetPositions, { undoable: false })
+      measureBrowserDragPhase('move-elements:apply-positions', () =>
+        api.applyPositions(targetPositions, { undoable: false })
+      )
       state.isMoving = true
     },
 

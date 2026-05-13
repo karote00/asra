@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   EventTypes,
   subscribeToAddElement,
-  subscribeToChangeComputedData
+  subscribeToChangeComputedData,
+  subscribeToChangeComputedDataBatch
 } from '@asyra/reactive-events'
 import { createSceneTreeAPIs, type SceneTreeRequests } from '../apis/scene-tree'
 
@@ -26,12 +27,16 @@ describe('createSceneTreeAPIs.changeComputedData', () => {
     subscription.unsubscribe()
   })
 
-  it('propagates undoable=false options to each published change event', () => {
+  it('batches transient computed data changes with undoable=false', () => {
     const apis = createSceneTreeAPIs(createRequests())
-    const subscriber = vi.fn()
-    const subscription = subscribeToChangeComputedData(subscriber)
+    const singleSubscriber = vi.fn()
+    const batchSubscriber = vi.fn()
+    const singleSubscription = subscribeToChangeComputedData(singleSubscriber)
+    const batchSubscription =
+      subscribeToChangeComputedDataBatch(batchSubscriber)
 
-    subscriber.mockClear()
+    singleSubscriber.mockClear()
+    batchSubscriber.mockClear()
     apis.changeComputedData(
       ['element-1'],
       {
@@ -41,31 +46,24 @@ describe('createSceneTreeAPIs.changeComputedData', () => {
       { undoable: false }
     )
 
-    expect(subscriber).toHaveBeenCalledTimes(2)
-    expect(subscriber).toHaveBeenNthCalledWith(1, {
-      type: EventTypes.CHANGE_COMPUTED_DATA,
+    expect(singleSubscriber).not.toHaveBeenCalled()
+    expect(batchSubscriber).toHaveBeenCalledTimes(1)
+    expect(batchSubscriber).toHaveBeenCalledWith({
+      type: EventTypes.CHANGE_COMPUTED_DATA_BATCH,
       payload: {
         elementIds: ['element-1'],
-        key: 'x',
-        data: 120
-      },
-      options: {
-        undoable: false
-      }
-    })
-    expect(subscriber).toHaveBeenNthCalledWith(2, {
-      type: EventTypes.CHANGE_COMPUTED_DATA,
-      payload: {
-        elementIds: ['element-1'],
-        key: 'y',
-        data: 240
+        data: {
+          x: 120,
+          y: 240
+        }
       },
       options: {
         undoable: false
       }
     })
 
-    subscription.unsubscribe()
+    singleSubscription.unsubscribe()
+    batchSubscription.unsubscribe()
   })
 
   it('keeps default undoable=true behavior when options are omitted', () => {

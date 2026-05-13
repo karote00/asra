@@ -11,6 +11,30 @@ import { startTransaction, endTransaction } from '@asyra/reactive-events'
 
 const DEFAULT_HANDLER_TIMEOUT_MS = 5000
 
+const measureBrowserDragAsyncPhase = async <T>(
+  phaseName: string,
+  run: () => Promise<T>
+): Promise<T> => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraBrowserDragPhaseSink
+  if (!sink) {
+    return run()
+  }
+
+  const start = performance.now()
+  try {
+    return await run()
+  } finally {
+    sink(phaseName, performance.now() - start)
+  }
+}
+
 /**
  * Session Manager
  * Handles priority-based session coordination for multiple features
@@ -211,9 +235,13 @@ export class SessionManager {
       try {
         const state = session.states.get(participant.featureName)
         if (state !== undefined) {
-          await this.runWithTimeout(
-            () => participant.handler.onUpdate?.(snapshotWithSignal, state),
-            `${participant.featureName}.onUpdate`
+          await measureBrowserDragAsyncPhase(
+            `feature-session:${participant.featureName}.onUpdate`,
+            () =>
+              this.runWithTimeout(
+                () => participant.handler.onUpdate?.(snapshotWithSignal, state),
+                `${participant.featureName}.onUpdate`
+              )
           )
         }
       } catch (error) {

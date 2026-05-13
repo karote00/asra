@@ -26,6 +26,7 @@ export interface OverlayCanvas {
     to: PositionData,
     stroke: OverlayStrokeStyle
   ) => void
+  polyline: (points: PositionData[], stroke: OverlayStrokeStyle) => void
   bezierCurve: (
     from: PositionData,
     control1: PositionData,
@@ -49,7 +50,7 @@ export interface OverlayCanvas {
 export interface CreateOverlayLayerOptions {
   name: string
   zIndex?: number
-  update: (canvas: OverlayCanvas) => void
+  update: (canvas: OverlayCanvas) => boolean | undefined
 }
 
 const distancePointToLine = (
@@ -189,8 +190,10 @@ export const createOverlayLayerRegistration = (
         })
       }
     },
-    bezierCurve: (from, control1, control2, to, stroke) => {
-      const points = sampleOverlayBezierPoints(from, control1, control2, to)
+    polyline: (points, stroke) => {
+      if (points.length < 2) {
+        return
+      }
       graphics.moveTo(points[0].x, points[0].y)
       for (let i = 1; i < points.length; i += 1) {
         graphics.lineTo(points[i].x, points[i].y)
@@ -203,6 +206,10 @@ export const createOverlayLayerRegistration = (
           join: stroke.join || 'round'
         })
       }
+    },
+    bezierCurve: (from, control1, control2, to, stroke) => {
+      const points = sampleOverlayBezierPoints(from, control1, control2, to)
+      canvas.polyline(points, stroke)
     },
     circle: (center, radius, fillColor, stroke) => {
       graphics.circle(center.x, center.y, radius)
@@ -265,7 +272,7 @@ export const createOverlayLayerRegistration = (
     layer,
     zIndex: options.zIndex,
     update: () => {
-      options.update(canvas)
+      return options.update(canvas)
     }
   }
 }

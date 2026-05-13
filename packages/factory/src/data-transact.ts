@@ -16,6 +16,29 @@ import {
 } from '@asyra/reactive-events'
 import type { SharedDataChannelRegistry } from './shared-data-channel'
 
+const toSharedChannelPayload = (
+  payload: TransactionPayload,
+  options: UpdateTransactionEvent['options']
+): TransactionPayload => {
+  if (!options) {
+    return payload
+  }
+
+  const { shared: _shared, ...payloadOptions } = options
+  const hasPayloadOptions = Object.keys(payloadOptions).length > 0
+  if (!hasPayloadOptions) {
+    return payload
+  }
+
+  return {
+    ...payload,
+    options: {
+      ...(payload.options ?? {}),
+      ...payloadOptions
+    }
+  } as TransactionPayload
+}
+
 class DataTransact {
   private changes: AllEvent[] = []
   private undoStack: AllEvent[][] = []
@@ -70,7 +93,7 @@ class DataTransact {
     if (sharedChannelName) {
       this.sharedDataChannelRegistry.pushToSharedChannel(
         sharedChannelName,
-        payload
+        toSharedChannelPayload(payload, event.options)
       )
     }
   }

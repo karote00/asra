@@ -50,6 +50,7 @@ export { keyMap } from '@asyra/input-system'
 export {
   renderStrategyRegistry,
   createOverlayLayerRegistration,
+  sampleOverlayBezierPoints,
   createRenderInteractionPointTarget,
   createRenderInteractionCircleTarget,
   createRenderInteractionSegmentTarget,

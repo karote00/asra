@@ -2,5 +2,6 @@ export interface RenderLayerRegistration {
   name: string
   layer: unknown
   zIndex?: number
-  update?: () => void
+  shouldUpdate?: () => boolean
+  update?: () => boolean | undefined
 }

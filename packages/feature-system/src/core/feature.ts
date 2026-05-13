@@ -16,6 +16,30 @@ import executionRegistry from './execution-registry'
 const featureRegistry = new FeatureRegistry()
 const sessionManager = new SessionManager()
 
+const measureBrowserDragAsyncPhase = async <T>(
+  phaseName: string,
+  run: () => Promise<T>
+): Promise<T> => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraBrowserDragPhaseSink
+  if (!sink) {
+    return run()
+  }
+
+  const start = performance.now()
+  try {
+    return await run()
+  } finally {
+    sink(phaseName, performance.now() - start)
+  }
+}
+
 let corePackages: CorePackages = {}
 let isPackagesSet = false
 
@@ -95,27 +119,32 @@ function registerFeatureHandlers(
         }
 
         const eventHandler = async (raw: RawInputEvent) => {
-          const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
-          const mergedSnapshot = {
-            ...snapshot,
-            ...(raw.detail ? { detail: raw.detail } : {})
-          } as SystemContextSnapshotWithDetail
+          await measureBrowserDragAsyncPhase(
+            `feature:event:${event}`,
+            async () => {
+              const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
+              const mergedSnapshot = {
+                ...snapshot,
+                ...(raw.detail ? { detail: raw.detail } : {})
+              } as SystemContextSnapshotWithDetail
 
-          if (event.includes('.start')) {
-            await sessionManager.cancelActiveSessions({
-              ...mergedSnapshot,
-              detail: {
-                ...mergedSnapshot.detail,
-                cancelled: true,
-                cancelledBy: event
+              if (event.includes('.start')) {
+                await sessionManager.cancelActiveSessions({
+                  ...mergedSnapshot,
+                  detail: {
+                    ...mergedSnapshot.detail,
+                    cancelled: true,
+                    cancelledBy: event
+                  }
+                })
+                await sessionManager.handleStart(keyConfig, mergedSnapshot)
+              } else if (event.includes('.update')) {
+                await sessionManager.handleUpdate(keyConfig, mergedSnapshot)
+              } else if (event.includes('.end')) {
+                await sessionManager.handleEnd(keyConfig, mergedSnapshot)
               }
-            })
-            await sessionManager.handleStart(keyConfig, mergedSnapshot)
-          } else if (event.includes('.update')) {
-            await sessionManager.handleUpdate(keyConfig, mergedSnapshot)
-          } else if (event.includes('.end')) {
-            await sessionManager.handleEnd(keyConfig, mergedSnapshot)
-          }
+            }
+          )
         }
         inputSystem.on?.(event, eventHandler)
         registeredEvents.add(event)

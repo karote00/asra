@@ -19,10 +19,15 @@ export const fileLoadComplete = () => {
   })
 }
 
+let transactionDepth = 0
+
 export const startTransaction = () => {
-  publishEvent({
-    type: EventTypes.START_TRANSACTION
-  })
+  if (transactionDepth === 0) {
+    publishEvent({
+      type: EventTypes.START_TRANSACTION
+    })
+  }
+  transactionDepth += 1
 }
 
 export const updateTransaction = (
@@ -39,9 +44,19 @@ export const updateTransaction = (
 }
 
 export const endTransaction = () => {
-  publishEvent({
-    type: EventTypes.END_TRANSACTION
-  })
+  if (transactionDepth <= 0) {
+    publishEvent({
+      type: EventTypes.END_TRANSACTION
+    })
+    return
+  }
+
+  transactionDepth -= 1
+  if (transactionDepth === 0) {
+    publishEvent({
+      type: EventTypes.END_TRANSACTION
+    })
+  }
 }
 
 export const userActionCompleted = (payload: UserActionCompletedPayload) => {

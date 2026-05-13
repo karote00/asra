@@ -3,6 +3,7 @@ import {
   type RemoveElementEvent,
   type UpdateComputedDataEvent,
   type ChangeComputedDataEvent,
+  type ChangeComputedDataBatchEvent,
   SceneTreeInitEvent,
   SceneTreeLoadDataEvent,
   AddElementEvent
@@ -33,3 +34,8 @@ export const subscribeToUpdateComputedData =
 
 export const subscribeToChangeComputedData =
   createSubscribeEvent<ChangeComputedDataEvent>(EventTypes.CHANGE_COMPUTED_DATA)
+
+export const subscribeToChangeComputedDataBatch =
+  createSubscribeEvent<ChangeComputedDataBatchEvent>(
+    EventTypes.CHANGE_COMPUTED_DATA_BATCH
+  )

@@ -43,10 +43,17 @@ describe('SceneTree transaction options', () => {
     sceneTree = new SceneTree()
   })
 
-  it('forwards per-change options to updateTransaction', () => {
+  it('batches transient computed changes before updateTransaction', () => {
     const { events, subscription } = captureUpdateTransactionEvents()
     const change = createUpdateChange({ options: { undoable: false } })
+    const secondChange = createUpdateChange({
+      key: 'y',
+      before: 1,
+      after: 20,
+      options: { undoable: false }
+    })
     sceneTree.addChange(change)
+    sceneTree.addChange(secondChange)
 
     sceneTree.commitSceneTreeTransaction()
 
@@ -54,7 +61,23 @@ describe('SceneTree transaction options', () => {
       expect.objectContaining({
         type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
         eventName: change.eventName,
-        payload: change,
+        payload: {
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+          eventName: ReactiveEventsModule.EventTypes.UPDATE_COMPUTED_DATA,
+          id: 'element-1',
+          changes: [
+            {
+              key: 'x',
+              before: 0,
+              after: 10
+            },
+            {
+              key: 'y',
+              before: 1,
+              after: 20
+            }
+          ]
+        },
         options: {
           undoable: false,
           shared: SharedDataChannelNames.SCENE_TREE
@@ -64,7 +87,7 @@ describe('SceneTree transaction options', () => {
     subscription.unsubscribe()
   })
 
-  it('uses commit fallback options when change has none', () => {
+  it('uses commit fallback options when batching transient computed changes', () => {
     const { events, subscription } = captureUpdateTransactionEvents()
     const change = createUpdateChange()
     sceneTree.addChange(change)
@@ -75,7 +98,18 @@ describe('SceneTree transaction options', () => {
       expect.objectContaining({
         type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
         eventName: change.eventName,
-        payload: change,
+        payload: {
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+          eventName: ReactiveEventsModule.EventTypes.UPDATE_COMPUTED_DATA,
+          id: 'element-1',
+          changes: [
+            {
+              key: 'x',
+              before: 0,
+              after: 10
+            }
+          ]
+        },
         options: {
           undoable: false,
           shared: SharedDataChannelNames.SCENE_TREE

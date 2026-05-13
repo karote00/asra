@@ -6,6 +6,8 @@ import type {
   ElementInstanceTypes,
   GroupInstanceTypes,
   SceneTreeChange,
+  UpdateElementBatchChange,
+  UpdateElementChange,
   EVENT_OPTIONS,
   EvnetOptions,
   CreateElementData
@@ -528,14 +530,49 @@ class SceneTree {
   }
 
   commitSceneTreeTransaction(options?: EVENT_OPTIONS) {
+    const transientComputedUpdates = new Map<
+      string,
+      UpdateElementBatchChange['changes']
+    >()
+
     this.changes.forEach((change) => {
       const changeOptions = change.options ?? options
       const routedOptions: EVENT_OPTIONS = {
         ...(changeOptions ?? {}),
         shared: changeOptions?.shared ?? SharedDataChannelNames.SCENE_TREE
       }
+
+      if (
+        routedOptions.undoable === false &&
+        change.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA
+      ) {
+        const computedChange = change as UpdateElementChange
+        const changes = transientComputedUpdates.get(computedChange.id) ?? []
+        changes.push({
+          key: computedChange.key,
+          before: computedChange.before,
+          after: computedChange.after
+        })
+        transientComputedUpdates.set(computedChange.id, changes)
+        return
+      }
+
       updateTransaction(change.eventName, change, routedOptions)
     })
+
+    transientComputedUpdates.forEach((changes, id) => {
+      const batchChange: UpdateElementBatchChange = {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        id,
+        changes
+      }
+      updateTransaction(batchChange.eventName, batchChange, {
+        undoable: false,
+        shared: SharedDataChannelNames.SCENE_TREE
+      })
+    })
+
     this.cleanChanges()
   }
 

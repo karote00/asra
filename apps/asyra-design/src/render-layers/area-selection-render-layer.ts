@@ -82,18 +82,31 @@ export const registerAreaSelectionRenderLayer = (
     }
   }
 ) => {
+  let lastDrawSignature = ''
   const layerRegistration = createOverlayLayerRegistration({
     name: AREA_SELECTION_LAYER_NAME,
     zIndex: 9,
     update: (canvas: OverlayCanvas) => {
-      canvas.clear()
-
       const selection =
         deps.systemContext.getManagedProperty<AreaSelectionState | null>(
           'areaSelection'
         ) ?? null
+      const drawSignature = selection
+        ? [
+            selection.dragStart.x,
+            selection.dragStart.y,
+            selection.dragCurrent.x,
+            selection.dragCurrent.y
+          ].join('|')
+        : 'empty'
+      if (drawSignature === lastDrawSignature) {
+        return false
+      }
+      lastDrawSignature = drawSignature
+
+      canvas.clear()
       if (!selection) {
-        return
+        return true
       }
 
       const startCanvas = deps.viewportApis.getCanvasPositionFromWorkspace(
@@ -105,7 +118,7 @@ export const registerAreaSelectionRenderLayer = (
       const rect = getRectFromPoints(startCanvas, currentCanvas)
 
       if (rect.width <= 0 || rect.height <= 0) {
-        return
+        return true
       }
 
       const rectPoints = getRectPoints(rect)
@@ -114,6 +127,7 @@ export const registerAreaSelectionRenderLayer = (
         alpha: AREA_SELECTION_FILL_ALPHA
       })
       drawRectOutline(canvas, rectPoints)
+      return true
     }
   })
 

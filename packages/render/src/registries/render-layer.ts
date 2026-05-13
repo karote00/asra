@@ -3,6 +3,7 @@ import type { RenderLayerRegistration } from '../types/render-layer'
 
 class RenderLayerRegistry {
   private layers = new MapRegistry<string, RenderLayerRegistration>()
+  private sortedLayers: RenderLayerRegistration[] | null = null
 
   register(
     registration: RenderLayerRegistration,
@@ -12,6 +13,7 @@ class RenderLayerRegistry {
     this.layers.register(name, registration, {
       duplicateErrorMessage: `Render layer "${name}" is already registered`
     })
+    this.sortedLayers = null
   }
 
   unregister(name: string): boolean {
@@ -20,7 +22,11 @@ class RenderLayerRegistry {
       return false
     }
 
-    return this.layers.delete(name)
+    const didDelete = this.layers.delete(name)
+    if (didDelete) {
+      this.sortedLayers = null
+    }
+    return didDelete
   }
 
   get(name: string): RenderLayerRegistration | undefined {
@@ -32,13 +38,17 @@ class RenderLayerRegistry {
   }
 
   getAll(): RenderLayerRegistration[] {
-    return this.layers
-      .values()
-      .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0))
+    if (!this.sortedLayers) {
+      this.sortedLayers = this.layers
+        .values()
+        .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0))
+    }
+    return this.sortedLayers
   }
 
   clear(): void {
     this.layers.clear()
+    this.sortedLayers = null
   }
 }
 

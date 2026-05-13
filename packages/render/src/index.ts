@@ -39,6 +39,7 @@ export {
 } from './strategies/default-strategy'
 export {
   createOverlayLayerRegistration,
+  sampleOverlayBezierPoints,
   type OverlayCanvas,
   type OverlayStrokeStyle,
   type CreateOverlayLayerOptions

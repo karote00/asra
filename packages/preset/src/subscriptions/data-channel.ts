@@ -20,6 +20,7 @@ import {
   type GroupRawData,
   type SceneTreeChange,
   type SelectionChange,
+  type UpdateElementBatchChange,
   type UpdateElementChange,
   type WorkspaceRawData
 } from '@asyra/utils'
@@ -31,6 +32,74 @@ import {
   SelectionEventNames,
   type SelectionChannel
 } from '../selection/channels'
+
+const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraBrowserDragPhaseSink
+
+  if (!sink) {
+    return run()
+  }
+
+  const start = performance.now()
+  try {
+    return run()
+  } finally {
+    sink(phaseName, performance.now() - start)
+  }
+}
+
+const emitStrokePipelineCounter = (counterName: string, value = 1): void => {
+  ;(
+    globalThis as typeof globalThis & {
+      __asyraStrokePipelineCounterSink?: (
+        counterName: string,
+        value?: number
+      ) => void
+    }
+  ).__asyraStrokePipelineCounterSink?.(counterName, value)
+}
+
+const ELEMENT_DATA_MAP_COMPUTED_KEYS = new Set([
+  'name',
+  'type',
+  'visible',
+  'lock'
+])
+
+const shouldUpdateElementDataMapForComputedKey = (key: string): boolean =>
+  ELEMENT_DATA_MAP_COMPUTED_KEYS.has(key)
+
+const getMatchingPropertiesForSceneTreeChange = (
+  change: SceneTreeChange
+): string[] => {
+  if (change.action !== SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH) {
+    return propertyRegistry.getMatchingProperties(change)
+  }
+
+  const batchChange = change as UpdateElementBatchChange
+  return Array.from(
+    new Set(
+      batchChange.changes.flatMap(({ key, before, after }) =>
+        propertyRegistry.getMatchingProperties({
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+          eventName: batchChange.eventName,
+          id: batchChange.id,
+          key,
+          before,
+          after,
+          options: batchChange.options
+        })
+      )
+    )
+  )
+}
 
 // Render observers keep render-internal stores in sync with shared channel changes.
 const updateRenderSceneTree = (change: SceneTreeChange) => {
@@ -47,8 +116,13 @@ const updateRenderSceneTree = (change: SceneTreeChange) => {
       break
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA: {
-      const { id, key, before, after } = change as UpdateElementChange
-      renderSceneTreeStore.updateElement(id, key, before, after)
+      const { id, key, before, after, options } = change as UpdateElementChange
+      renderSceneTreeStore.updateElement(id, key, before, after, options)
+      break
+    }
+    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH: {
+      const { id, changes, options } = change as UpdateElementBatchChange
+      renderSceneTreeStore.updateElementBatch(id, changes, options)
       break
     }
   }
@@ -220,6 +294,124 @@ const syncElementDataMap = (deps: PresetDependencies): void => {
   uiContext.set('elementDataMap', getElementDataMap(deps))
 }
 
+const syncElementDataMapEntries = (
+  deps: PresetDependencies,
+  elementIds: Iterable<string>
+): void => {
+  const current =
+    uiContext.get<Record<string, Record<string, unknown>>>('elementDataMap') ??
+    {}
+  const removedIds = new Set<string>()
+  const updatedEntries = new Map<string, Record<string, unknown>>()
+
+  for (const elementId of elementIds) {
+    const element = deps.sceneTree.getElementById(elementId)
+    if (!element || element.get('type') === EntityTypes.WORKSPACE) {
+      removedIds.add(elementId)
+      continue
+    }
+
+    updatedEntries.set(
+      elementId,
+      element.save() as unknown as Record<string, unknown>
+    )
+  }
+
+  const next = Object.entries(current).reduce(
+    (acc, [elementId, elementData]) => {
+      if (!removedIds.has(elementId)) {
+        acc[elementId] = elementData
+      }
+      return acc
+    },
+    {} as Record<string, Record<string, unknown>>
+  )
+  updatedEntries.forEach((elementData, elementId) => {
+    next[elementId] = elementData
+  })
+
+  uiContext.set('elementDataMap', next)
+}
+
+interface PendingUIContextSync {
+  flattenedElementIds: boolean
+  fullElementDataMap: boolean
+  elementSelectionAndDerived: boolean
+  dirtyElementDataMapIds: Set<string>
+  dirtyPropertyKeys: Set<string>
+}
+
+const createPendingUIContextSync = (): PendingUIContextSync => ({
+  flattenedElementIds: false,
+  fullElementDataMap: false,
+  elementSelectionAndDerived: false,
+  dirtyElementDataMapIds: new Set(),
+  dirtyPropertyKeys: new Set()
+})
+
+let pendingUIContextSync = createPendingUIContextSync()
+
+const resetPendingUIContextSync = (): void => {
+  pendingUIContextSync = createPendingUIContextSync()
+}
+
+const hasPendingUIContextSync = (): boolean =>
+  pendingUIContextSync.flattenedElementIds ||
+  pendingUIContextSync.fullElementDataMap ||
+  pendingUIContextSync.elementSelectionAndDerived ||
+  pendingUIContextSync.dirtyElementDataMapIds.size > 0 ||
+  pendingUIContextSync.dirtyPropertyKeys.size > 0
+
+const flushPendingUIContextSync = (
+  core: PresetCoreAPIs,
+  deps: PresetDependencies
+): void => {
+  if (!hasPendingUIContextSync()) {
+    emitStrokePipelineCounter('ui-context-transaction-flush-skip')
+    return
+  }
+
+  const pending = pendingUIContextSync
+  resetPendingUIContextSync()
+
+  measureBrowserDragPhase('ui-context:flush', () => {
+    emitStrokePipelineCounter('ui-context-transaction-flush')
+
+    if (pending.flattenedElementIds) {
+      emitStrokePipelineCounter('ui-context-sync-flattened-ids')
+      syncFlattenedElementIds(deps)
+    }
+
+    if (pending.fullElementDataMap) {
+      emitStrokePipelineCounter('ui-context-sync-element-data-map-full')
+      syncElementDataMap(deps)
+    } else if (pending.dirtyElementDataMapIds.size > 0) {
+      emitStrokePipelineCounter(
+        'ui-context-sync-element-data-map-entry',
+        pending.dirtyElementDataMapIds.size
+      )
+      syncElementDataMapEntries(deps, pending.dirtyElementDataMapIds)
+    }
+
+    if (pending.elementSelectionAndDerived) {
+      emitStrokePipelineCounter('ui-context-sync-element-selection-derived')
+      syncElementSelectionAndDerived(core, deps)
+    }
+
+    if (pending.dirtyPropertyKeys.size > 0) {
+      emitStrokePipelineCounter(
+        'ui-context-recompute-property-key-count',
+        pending.dirtyPropertyKeys.size
+      )
+      const selectedIds = getSelectedIds(core, SelectionChannels.ELEMENT)
+      uiContext.recomputeProperties(
+        [...pending.dirtyPropertyKeys],
+        buildSelectionContext(deps, selectedIds)
+      )
+    }
+  })
+}
+
 // Selection channel updates only affect selection-derived UI properties.
 const updateUIContextSelection = (
   change: SelectionChange,
@@ -254,39 +446,48 @@ const handleUIContextSceneTreeChange = (
   core: PresetCoreAPIs,
   deps: PresetDependencies
 ) => {
-  const updatedPropertyKeys = propertyRegistry.getMatchingProperties(change)
+  const updatedPropertyKeys = getMatchingPropertiesForSceneTreeChange(change)
+  updatedPropertyKeys.forEach((key) => {
+    pendingUIContextSync.dirtyPropertyKeys.add(key)
+  })
 
   switch (change.action) {
     case SCENE_TREE_ACTIONS.ADD_ELEMENT:
-      syncFlattenedElementIds(deps)
-      syncElementDataMap(deps)
+      pendingUIContextSync.flattenedElementIds = true
+      pendingUIContextSync.fullElementDataMap = true
       break
     case SCENE_TREE_ACTIONS.REMOVE_ELEMENT: {
       const removedId = (change as AddRemoveElementChange).data.id
       if (typeof removedId === 'string' && removedId.length > 0) {
         syncSelectionOnElementRemoval(core, removedId)
+        pendingUIContextSync.elementSelectionAndDerived = true
       }
-      syncFlattenedElementIds(deps)
-      syncElementDataMap(deps)
+      pendingUIContextSync.flattenedElementIds = true
+      pendingUIContextSync.fullElementDataMap = true
       break
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA: {
-      syncElementDataMap(deps)
-      const { key } = change as UpdateElementChange
+      const { id, key } = change as UpdateElementChange
+      if (shouldUpdateElementDataMapForComputedKey(key)) {
+        pendingUIContextSync.dirtyElementDataMapIds.add(id)
+      }
       if (key === 'children') {
-        syncFlattenedElementIds(deps)
+        pendingUIContextSync.flattenedElementIds = true
       }
       break
     }
-  }
-
-  if (updatedPropertyKeys.length > 0) {
-    // Recompute only properties whose trigger matches this scene-tree change.
-    const selectedIds = getSelectedIds(core, SelectionChannels.ELEMENT)
-    uiContext.recomputeProperties(
-      updatedPropertyKeys,
-      buildSelectionContext(deps, selectedIds)
-    )
+    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH: {
+      const { id, changes } = change as UpdateElementBatchChange
+      changes.forEach(({ key }) => {
+        if (shouldUpdateElementDataMapForComputedKey(key)) {
+          pendingUIContextSync.dirtyElementDataMapIds.add(id)
+        }
+        if (key === 'children') {
+          pendingUIContextSync.flattenedElementIds = true
+        }
+      })
+      break
+    }
   }
 }
 
@@ -372,6 +573,7 @@ export const registerDefaultDataChannelObservers = (
   })
 
   subscribeToFileLoadComplete(() => {
+    resetPendingUIContextSync()
     renderSceneTreeStore.reload()
     syncFlattenedElementIds(deps)
     syncElementDataMap(deps)
@@ -384,10 +586,7 @@ export const registerDefaultDataChannelObservers = (
   })
 
   subscribeToEndTransaction(() => {
-    syncFlattenedElementIds(deps)
-    syncElementDataMap(deps)
-    syncElementSelectionAndDerived(core, deps)
-    syncVectorSelections(core)
+    flushPendingUIContextSync(core, deps)
   })
 
   // Undo/redo publishes selection events directly from transaction history.

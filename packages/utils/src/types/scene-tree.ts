@@ -24,6 +24,21 @@ export interface UpdateElementChange {
   options?: MutationOptions
 }
 
-export type SceneTreeChange = AddRemoveElementChange | UpdateElementChange
+export interface UpdateElementBatchChange {
+  action: SCENE_TREE_ACTIONS
+  eventName: string
+  id: string
+  changes: {
+    key: string
+    before: DataTypes
+    after: DataTypes
+  }[]
+  options?: MutationOptions
+}
+
+export type SceneTreeChange =
+  | AddRemoveElementChange
+  | UpdateElementChange
+  | UpdateElementBatchChange
 
 export interface SceneTreeYjsChange extends YjsChange<SceneTreeChange> {}

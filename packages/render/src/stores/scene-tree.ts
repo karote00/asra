@@ -4,18 +4,175 @@ import sceneTree from '@asyra/scene-tree'
 import { RenderElementData } from '../types'
 
 import render from '../render'
+import type { RenderLayerRegistration } from '../types/render-layer'
+
+const DIRECT_RENDER_PROPERTY_KEYS = new Set(['x', 'y', 'rotation'])
+const SCENE_TREE_PENDING_RENDER_LAYER = 'render-scene-tree-pending-updates'
+
+interface ComputedDataMirrorEntry {
+  rawDataSnapshot: Record<string, unknown>
+  computedDataSnapshot: Record<string, DataTypes>
+}
+
+const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraBrowserDragPhaseSink
+  if (!sink) {
+    return run()
+  }
+
+  const start = performance.now()
+  try {
+    return run()
+  } finally {
+    sink(phaseName, performance.now() - start)
+  }
+}
+
+const emitStrokePipelineCounter = (counterName: string, value = 1) => {
+  ;(
+    globalThis as typeof globalThis & {
+      __asyraStrokePipelineCounterSink?: (
+        counterName: string,
+        value: number
+      ) => void
+    }
+  ).__asyraStrokePipelineCounterSink?.(counterName, value)
+}
+
+class ComputedDataMirror {
+  private entries = new Map<string, ComputedDataMirrorEntry>()
+
+  clear() {
+    this.entries.clear()
+  }
+
+  delete(elementId: string) {
+    this.entries.delete(elementId)
+    emitStrokePipelineCounter('computed-mirror-invalidate')
+  }
+
+  seed(
+    elementId: string,
+    reason: 'reload' | 'add' | 'undoable-refresh' | 'fallback'
+  ): ComputedDataMirrorEntry | null {
+    const element = sceneTree.getElementById(elementId)
+    if (!element) {
+      this.delete(elementId)
+      return null
+    }
+
+    const { rawDataSnapshot, computedDataSnapshot } = measureBrowserDragPhase(
+      'render-scene-tree:mirror-seed',
+      () => ({
+        rawDataSnapshot: element.save() as unknown as Record<string, unknown>,
+        computedDataSnapshot: element.getAllComputedData() as Record<
+          string,
+          DataTypes
+        >
+      })
+    )
+    const entry = {
+      rawDataSnapshot: { ...rawDataSnapshot },
+      computedDataSnapshot: { ...computedDataSnapshot }
+    }
+    this.entries.set(elementId, entry)
+    emitStrokePipelineCounter('computed-mirror-seed')
+    emitStrokePipelineCounter(`computed-mirror-seed-${reason}`)
+    return entry
+  }
+
+  ensure(elementId: string): ComputedDataMirrorEntry | null {
+    const entry = this.entries.get(elementId)
+    if (entry) {
+      emitStrokePipelineCounter('computed-mirror-hit')
+      return entry
+    }
+
+    emitStrokePipelineCounter('computed-mirror-fallback-miss')
+    return this.seed(elementId, 'fallback')
+  }
+
+  applyComputedChange(elementId: string, key: string, after: DataTypes) {
+    const entry = this.ensure(elementId)
+    if (!entry) {
+      return false
+    }
+
+    entry.computedDataSnapshot = {
+      ...entry.computedDataSnapshot,
+      [key]: after
+    }
+    emitStrokePipelineCounter('computed-mirror-staged-change-count')
+    return true
+  }
+
+  applyComputedChanges(
+    elementId: string,
+    changes: { key: string; after: DataTypes }[]
+  ) {
+    const entry = this.ensure(elementId)
+    if (!entry) {
+      return false
+    }
+
+    const nextComputedDataSnapshot = { ...entry.computedDataSnapshot }
+    changes.forEach(({ key, after }) => {
+      nextComputedDataSnapshot[key] = after
+    })
+    entry.computedDataSnapshot = nextComputedDataSnapshot
+    emitStrokePipelineCounter(
+      'computed-mirror-staged-change-count',
+      changes.length
+    )
+    emitStrokePipelineCounter('computed-mirror-batch-apply-count')
+    return true
+  }
+
+  composeRenderData(elementId: string): RenderElementData | null {
+    const entry = this.ensure(elementId)
+    if (!entry) {
+      return null
+    }
+
+    return measureBrowserDragPhase(
+      'render-scene-tree:mirror-compose-render-data',
+      () =>
+        ({
+          ...entry.rawDataSnapshot,
+          ...entry.computedDataSnapshot
+        }) as RenderElementData
+    )
+  }
+}
 
 class RenderSceneTree {
   private _workspace: WorkspaceRawData | null
+  private computedDataMirror = new ComputedDataMirror()
   private pendingElementUpdates = new Set<string>()
+  private pendingFrameFlush = false
   private pendingFlush = false
+  private frameAlignedFlush = false
+  private flushingPendingChanges = false
 
   constructor() {
     this._workspace = null
+    this.frameAlignedFlush = installPendingRenderLayer(this)
   }
 
   reload() {
     if (!sceneTree.currentWorkspace) return
+
+    this.pendingElementUpdates.clear()
+    this.pendingFrameFlush = false
+    this.pendingFlush = false
+    this.computedDataMirror.clear()
 
     const currentWorkspaceData =
       sceneTree.currentWorkspace.save() as WorkspaceRawData
@@ -30,7 +187,9 @@ class RenderSceneTree {
 
     // Create all element render node
     sceneTree.getAllElements().forEach((element) => {
-      const renderElementData = this._getRenderData(element.get('id'))
+      const elementId = element.get('id')
+      this.computedDataMirror.seed(elementId, 'reload')
+      const renderElementData = this._getRenderData(elementId)
       if (element.get('type') !== EntityTypes.WORKSPACE && renderElementData) {
         this.addElement(renderElementData)
       }
@@ -38,19 +197,11 @@ class RenderSceneTree {
   }
 
   private _getRenderData(id: string) {
-    const element = sceneTree.getElementById(id)
-    if (!element) return null
-
-    const elementComputedData = element.getAllComputedData()
-    const elementData = {
-      ...element.save(),
-      ...elementComputedData
-    } as RenderElementData
-
-    return elementData
+    return this.computedDataMirror.composeRenderData(id)
   }
 
   addElementById(id: string) {
+    this.computedDataMirror.seed(id, 'add')
     const renderElementData = this._getRenderData(id)
     if (renderElementData) {
       this.addElement(renderElementData)
@@ -62,6 +213,8 @@ class RenderSceneTree {
   }
 
   removeElement(data: ElementRawData, parentId?: string) {
+    this.computedDataMirror.delete(data.id)
+    this.pendingElementUpdates.delete(data.id)
     render.removeElement(data.id, parentId)
   }
 
@@ -69,20 +222,125 @@ class RenderSceneTree {
     elementId: string,
     key: string,
     before: DataTypes,
-    after: DataTypes
+    after: DataTypes,
+    options?: { undoable?: boolean }
   ) {
-    if (key === 'visible') {
-      render.updateElement(elementId, key, before, after)
+    if (options?.undoable !== false) {
+      this.computedDataMirror.seed(elementId, 'undoable-refresh')
+      emitStrokePipelineCounter(`computed-mirror-undoable-refresh-key-${key}`)
+    }
+
+    const didStage = this.computedDataMirror.applyComputedChange(
+      elementId,
+      key,
+      after
+    )
+    if (!didStage) {
       return
     }
 
-    // Computed data updates arrive per-key; coalesce into a single render pass.
+    if (key === 'visible' || DIRECT_RENDER_PROPERTY_KEYS.has(key)) {
+      this.recordDirtyChange(elementId, 1, this.pendingFrameFlush)
+      measureBrowserDragPhase('render-scene-tree:update-direct-property', () =>
+        render.updateElement(elementId, key, before, after)
+      )
+      this.pendingFrameFlush = true
+      this.scheduleFlush()
+      return
+    }
+
+    // Computed data updates arrive per-key; commit once the transaction ends.
+    this.recordDirtyChange(
+      elementId,
+      1,
+      this.pendingElementUpdates.has(elementId)
+    )
     this.pendingElementUpdates.add(elementId)
+    this.scheduleFlush()
+  }
+
+  updateElementBatch(
+    elementId: string,
+    changes: { key: string; before: DataTypes; after: DataTypes }[],
+    options?: { undoable?: boolean }
+  ) {
+    if (options?.undoable !== false) {
+      this.computedDataMirror.seed(elementId, 'undoable-refresh')
+      changes.forEach(({ key }) => {
+        emitStrokePipelineCounter(`computed-mirror-undoable-refresh-key-${key}`)
+      })
+    }
+
+    const didStage = this.computedDataMirror.applyComputedChanges(
+      elementId,
+      changes.map(({ key, after }) => ({ key, after }))
+    )
+    if (!didStage) {
+      return
+    }
+
+    const hasComputedFullUpdate = changes.some(
+      ({ key }) => key !== 'visible' && !DIRECT_RENDER_PROPERTY_KEYS.has(key)
+    )
+
+    this.recordDirtyChange(
+      elementId,
+      changes.length,
+      hasComputedFullUpdate
+        ? this.pendingElementUpdates.has(elementId)
+        : this.pendingFrameFlush
+    )
+
+    changes.forEach(({ key, before, after }) => {
+      if (
+        !hasComputedFullUpdate &&
+        (key === 'visible' || DIRECT_RENDER_PROPERTY_KEYS.has(key))
+      ) {
+        measureBrowserDragPhase(
+          'render-scene-tree:update-direct-property',
+          () => render.updateElement(elementId, key, before, after)
+        )
+        this.pendingFrameFlush = true
+      }
+    })
+
+    if (hasComputedFullUpdate) {
+      this.pendingElementUpdates.add(elementId)
+    }
+    this.scheduleFlush()
+  }
+
+  commitPendingComputedDataChanges() {
+    this.scheduleFlush()
+  }
+
+  private recordDirtyChange(
+    elementId: string,
+    changeCount: number,
+    didCoalesce: boolean
+  ) {
+    emitStrokePipelineCounter('dirty-change-count', changeCount)
+    if (didCoalesce) {
+      emitStrokePipelineCounter('dirty-change-coalesced-count', changeCount)
+    }
+    if (!this.pendingElementUpdates.has(elementId)) {
+      emitStrokePipelineCounter('dirty-element-count')
+    }
+  }
+
+  private scheduleFlush() {
     if (this.pendingFlush) {
+      emitStrokePipelineCounter('render-scene-tree-flush-coalesced')
       return
     }
 
     this.pendingFlush = true
+    if (this.frameAlignedFlush) {
+      emitStrokePipelineCounter('render-scene-tree-frame-aligned-flush')
+      render.requestRender()
+      return
+    }
+
     const schedule =
       typeof queueMicrotask === 'function'
         ? queueMicrotask
@@ -91,25 +349,102 @@ class RenderSceneTree {
           }
 
     schedule(() => {
-      this.pendingFlush = false
-      const ids = Array.from(this.pendingElementUpdates)
-      this.pendingElementUpdates.clear()
-      ids.forEach((id) => {
-        const data = this._getRenderData(id)
-        if (data) {
-          render.updateElement(
-            id,
-            'computed',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            undefined as any as DataTypes,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            undefined as any as DataTypes,
-            data
-          )
-        }
-      })
+      this.flushPendingChanges()
     })
   }
+
+  hasPendingChanges() {
+    return this.pendingFrameFlush || this.pendingElementUpdates.size > 0
+  }
+
+  private flushPendingChanges() {
+    if (this.flushingPendingChanges) {
+      emitStrokePipelineCounter('render-scene-tree-flush-reentrant-skipped')
+      return
+    }
+
+    const didFlush = this.applyPendingChanges()
+    if (didFlush) {
+      render.flushFrame()
+    }
+  }
+
+  flushPendingChangesForFrame() {
+    return this.applyPendingChanges()
+  }
+
+  private applyPendingChanges() {
+    if (this.flushingPendingChanges) {
+      emitStrokePipelineCounter('render-scene-tree-flush-reentrant-skipped')
+      return false
+    }
+
+    if (!this.pendingFrameFlush && this.pendingElementUpdates.size === 0) {
+      this.pendingFlush = false
+      return false
+    }
+
+    return measureBrowserDragPhase('render-scene-tree:flush', () => {
+      this.flushingPendingChanges = true
+      try {
+        this.pendingFlush = false
+        emitStrokePipelineCounter('computed-mirror-commit-count')
+        this.pendingFrameFlush = false
+        const ids = Array.from(this.pendingElementUpdates)
+        emitStrokePipelineCounter('product-render-per-render-frame', ids.length)
+        this.pendingElementUpdates.clear()
+        ids.forEach((id) => {
+          const data = this._getRenderData(id)
+          if (data) {
+            measureBrowserDragPhase('render-scene-tree:update-element', () =>
+              render.updateElement(
+                id,
+                'computed',
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                undefined as any as DataTypes,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                undefined as any as DataTypes,
+                data
+              )
+            )
+          }
+        })
+        return true
+      } finally {
+        this.flushingPendingChanges = false
+      }
+    })
+  }
+}
+
+let activeRenderSceneTree: RenderSceneTree | null = null
+let pendingRenderLayerInstalled = false
+
+const installPendingRenderLayer = (store: RenderSceneTree) => {
+  activeRenderSceneTree = store
+  const renderWithLayer = render as typeof render & {
+    registerLayer?: (
+      registration: RenderLayerRegistration,
+      options?: { override?: boolean }
+    ) => void
+  }
+
+  if (typeof renderWithLayer.registerLayer !== 'function') {
+    return false
+  }
+
+  if (!pendingRenderLayerInstalled) {
+    renderWithLayer.registerLayer({
+      name: SCENE_TREE_PENDING_RENDER_LAYER,
+      layer: {},
+      shouldUpdate: () => activeRenderSceneTree?.hasPendingChanges() ?? false,
+      update: () =>
+        activeRenderSceneTree?.flushPendingChangesForFrame() ?? false
+    })
+    pendingRenderLayerInstalled = true
+  }
+
+  return true
 }
 
 export { RenderSceneTree }
