@@ -1,0 +1,1589 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stroke Flow Inspector</title>
+    <style>
+      :root {
+        --bg: #101418;
+        --panel: #151b22;
+        --panel-2: #1d2530;
+        --line: #334155;
+        --text: #e5edf5;
+        --muted: #9caab8;
+        --muted-strong: #c7d2df;
+        --accent: #59b7ff;
+        --accent-2: #f97373;
+        --warn: #f6c85f;
+        --ok: #7bd88f;
+        --card-w: 270px;
+        --card-h: 118px;
+        --gap-x: 170px;
+        --gap-y: 80px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(89, 183, 255, 0.12), transparent 34rem),
+          var(--bg);
+        font:
+          14px/1.5 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: minmax(980px, 1fr) 430px;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .main {
+        min-width: 0;
+        overflow: auto;
+        padding: 24px;
+      }
+
+      .header {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 18px;
+      }
+
+      h1 {
+        margin: 0 0 6px;
+        font-size: 24px;
+        letter-spacing: 0;
+      }
+
+      .subtitle {
+        margin: 0;
+        max-width: 980px;
+        color: var(--muted);
+      }
+
+      .filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 18px;
+      }
+
+      .guide-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(260px, 1fr));
+        gap: 12px;
+        margin: 0 0 18px;
+      }
+
+      .guide-card {
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 14px;
+        padding: 15px 16px;
+        background: rgba(21, 27, 34, 0.86);
+      }
+
+      .guide-card h2 {
+        margin: 0 0 8px;
+        color: var(--text);
+        font-size: 14px;
+        letter-spacing: 0;
+      }
+
+      .guide-card p,
+      .guide-card li {
+        color: var(--muted-strong);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .guide-card p {
+        margin: 0;
+      }
+
+      .guide-card ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      .legend-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .legend-item {
+        display: flex;
+        gap: 9px;
+        align-items: center;
+        color: var(--muted-strong);
+        font-size: 12px;
+      }
+
+      .legend-swatch {
+        width: 18px;
+        height: 18px;
+        flex: 0 0 auto;
+        border: 2px solid rgba(148, 163, 184, 0.42);
+        border-radius: 6px;
+        background: rgba(21, 27, 34, 0.96);
+      }
+
+      .legend-swatch.selected {
+        border-color: var(--accent);
+        background: rgba(89, 183, 255, 0.13);
+      }
+
+      .legend-swatch.risk {
+        border-color: rgba(246, 200, 95, 0.72);
+      }
+
+      .legend-swatch.blocker {
+        border-color: rgba(249, 115, 115, 0.72);
+      }
+
+      .legend-swatch.truth {
+        border-color: rgba(123, 216, 143, 0.72);
+      }
+
+      .filter-button {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 7px 10px;
+        color: var(--muted);
+        background: rgba(21, 27, 34, 0.86);
+        cursor: pointer;
+      }
+
+      .filter-button:hover,
+      .filter-button.is-active {
+        border-color: var(--accent);
+        color: var(--text);
+        background: rgba(89, 183, 255, 0.13);
+      }
+
+      .flow-wrap {
+        position: relative;
+        min-width: 3220px;
+        min-height: 2260px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 16px;
+        background:
+          linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+          rgba(9, 13, 18, 0.68);
+        background-size: 28px 28px;
+      }
+
+      .lane-label {
+        position: absolute;
+        top: 16px;
+        width: var(--card-w);
+        padding: 8px 10px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .flow-svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        overflow: visible;
+      }
+
+      .edge-path {
+        fill: none;
+        stroke: rgba(148, 163, 184, 0.5);
+        stroke-width: 2;
+      }
+
+      .edge-path.is-active {
+        stroke: var(--accent);
+        stroke-width: 3;
+      }
+
+      .step-card {
+        position: absolute;
+        width: var(--card-w);
+        min-height: var(--card-h);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 14px;
+        padding: 13px 14px;
+        color: var(--text);
+        font: inherit;
+        text-align: left;
+        background: rgba(21, 27, 34, 0.96);
+        box-shadow: 0 16px 32px rgba(0, 0, 0, 0.24);
+        cursor: pointer;
+        transition:
+          border-color 0.15s ease,
+          transform 0.15s ease,
+          background 0.15s ease;
+      }
+
+      .step-card:hover,
+      .step-card.is-selected {
+        border-color: var(--accent);
+        background: rgba(30, 41, 59, 0.98);
+        transform: translateY(-1px);
+      }
+
+      .step-card.is-risk {
+        border-color: rgba(246, 200, 95, 0.48);
+      }
+
+      .step-card.is-critical-risk {
+        border-color: rgba(249, 115, 115, 0.62);
+      }
+
+      .step-kicker {
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .step-title {
+        margin-top: 4px;
+        color: var(--text);
+        font-size: 15px;
+        font-weight: 750;
+      }
+
+      .step-summary {
+        margin-top: 6px;
+        color: var(--muted-strong);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+      }
+
+      .badge {
+        border-radius: 999px;
+        padding: 2px 7px;
+        color: var(--muted);
+        background: rgba(148, 163, 184, 0.12);
+        font-size: 11px;
+      }
+
+      .badge.truth {
+        color: var(--ok);
+        background: rgba(123, 216, 143, 0.13);
+      }
+
+      .badge.risk {
+        color: var(--warn);
+        background: rgba(246, 200, 95, 0.13);
+      }
+
+      .badge.blocker {
+        color: var(--accent-2);
+        background: rgba(249, 115, 115, 0.13);
+      }
+
+      .detail {
+        height: 100vh;
+        overflow: auto;
+        border-left: 1px solid rgba(148, 163, 184, 0.18);
+        background: rgba(15, 23, 32, 0.96);
+        padding: 24px;
+      }
+
+      .detail h2 {
+        margin: 0 0 6px;
+        font-size: 21px;
+      }
+
+      .detail-group {
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .detail-summary {
+        margin: 14px 0 20px;
+        color: var(--muted);
+      }
+
+      .detail-section {
+        margin: 0 0 20px;
+        padding: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.035);
+      }
+
+      .detail-section h3 {
+        margin: 0 0 10px;
+        font-size: 13px;
+        color: var(--text);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      li + li {
+        margin-top: 7px;
+      }
+
+      code {
+        border-radius: 5px;
+        padding: 1px 5px;
+        color: #dbeafe;
+        background: rgba(15, 23, 42, 0.88);
+        font-family:
+          ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+      }
+
+      .rule-box {
+        border-color: rgba(89, 183, 255, 0.28);
+        background: rgba(89, 183, 255, 0.08);
+      }
+
+      .risk-box {
+        border-color: rgba(249, 115, 115, 0.28);
+        background: rgba(249, 115, 115, 0.08);
+      }
+
+      .command-box {
+        border-color: rgba(123, 216, 143, 0.24);
+        background: rgba(123, 216, 143, 0.07);
+      }
+
+      .evidence-box {
+        border-color: rgba(246, 200, 95, 0.28);
+        background: rgba(246, 200, 95, 0.07);
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      @media (max-width: 1100px) {
+        .app {
+          grid-template-columns: minmax(760px, 1fr) 380px;
+        }
+
+        .guide-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <main class="main">
+        <div class="header">
+          <div>
+            <h1>Stroke Flow Inspector</h1>
+            <p class="subtitle">
+              Interactive diagnostic map for the current vector fill/stroke render flow. Each node on the left represents a real pipeline step; click any step to inspect helper functions, input/output, decision points, and risks in the detail panel.
+            </p>
+          </div>
+        </div>
+        <div id="filters" class="filters"></div>
+        <section class="guide-grid" aria-label="how to read the stroke flow inspector">
+          <article id="guide-how-to-read" class="guide-card">
+            <h2>How to read this board</h2>
+            <ul>
+              <li>Read the flow from left to right. Each card is a real pipeline step.</li>
+              <li>Arrows show data moving into the next decision or transformation step.</li>
+              <li>Click a card to inspect helpers, inputs, outputs, risks, tests, and evidence.</li>
+              <li>Use the group filters to isolate one subsystem without changing the underlying flow.</li>
+            </ul>
+          </article>
+          <article id="guide-legend" class="guide-card">
+            <h2>Legend</h2>
+            <div class="legend-list">
+              <div class="legend-item"><span class="legend-swatch selected"></span>Selected card or active edge.</div>
+              <div class="legend-item"><span class="legend-swatch"></span>Normal pipeline step.</div>
+              <div class="legend-item"><span class="legend-swatch risk"></span>Known risk: inspect before editing nearby code.</div>
+              <div class="legend-item"><span class="legend-swatch blocker"></span>Critical failure point or active blocker.</div>
+              <div class="legend-item"><span class="legend-swatch truth"></span>Intended source of truth for downstream consumers.</div>
+            </div>
+          </article>
+          <article id="guide-debug-checklist" class="guide-card">
+            <h2>Current debug checklist</h2>
+            <ul>
+              <li>Shared geometry model is the only geometry truth for fill, stroke, and future shadow.</li>
+              <li>Fill consumes fillRegions; inside/outside dashed stroke consumes strokeBoundaryContours.</li>
+              <li>Hole boundary contours must produce stroke coverage when the stroke rules require it.</li>
+              <li>Each split contour domain owns its dash distribution independently.</li>
+              <li>Product visual must be final/no-overlap; debug overlap is the only raw-fragment mode.</li>
+            </ul>
+          </article>
+        </section>
+        <section id="flow" class="flow-wrap" aria-label="stroke flow diagram"></section>
+      </main>
+      <aside id="detail" class="detail" aria-label="step detail"></aside>
+    </div>
+
+    <script>
+      const groups = [
+        "All",
+        "Input",
+        "Path Model",
+        "Shared Geometry",
+        "Fill",
+        "Dashed Stroke",
+        "Solid Stroke",
+        "Final Faces",
+        "Render",
+        "Diagnostics"
+      ];
+
+      const lanes = [
+        "Input",
+        "Path Model",
+        "Shared Geometry",
+        "Fill",
+        "Dashed Stroke",
+        "Solid Stroke",
+        "Final Faces",
+        "Render",
+        "Diagnostics"
+      ];
+
+      const latestRules = [
+        "The shared resolved geometry model is the geometry truth for fill, stroke, and future shadow consumers.",
+        "Fill consumes fillRegions from the self-intersecting model; stroke consumes strokeBoundaryContours.",
+        "Inside/outside dashed stroke must include both outer boundaries and hole boundaries.",
+        "Center stroke does not use inside/outside side rules or contour legal-side ownership.",
+        "For self-intersecting inside/outside dashed stroke, each dash domain must be a contour edge domain split by intersections.",
+        "Every split domain owns its dash distribution independently; dash state must not continue from the previous domain.",
+        "Product visual output must be final and no-overlap; debug overlap is the only mode that may show raw fragments."
+      ];
+
+      const steps = [
+        {
+          id: "entry",
+          group: "Input",
+          lane: 0,
+          row: 0,
+          title: "Render strategy entry",
+          summary: "The render engine invokes the vector component render strategy.",
+          helpers: ["vectorRenderStrategy", "renderVectorGraphic"],
+          inputs: ["graphic", "unknown render data"],
+          outputs: ["normalized vector render execution"],
+          decisions: ["All vector fill/stroke rendering enters through this step."],
+          next: ["normalize"],
+          risks: ["This layer should not make domain-specific geometry decisions."],
+          tags: ["entry"]
+        },
+        {
+          id: "normalize",
+          group: "Input",
+          lane: 0,
+          row: 1,
+          title: "Normalize vector render data",
+          summary: "Converts raw computed data into VectorComputedData.",
+          helpers: [
+            "normalizeVectorRenderData",
+            "normalizeVectorPointNodeMap",
+            "normalizeVectorSegmentMap",
+            "normalizeVectorNetworkMap"
+          ],
+          inputs: ["points", "segments", "networks", "fills", "strokes", "fillRule", "debug options"],
+          outputs: ["normalized points / segments / networks / strokes / fillRule"],
+          decisions: ["Missing or invalid data falls back to a renderable shape here."],
+          next: ["drag-debug", "path-topology"],
+          risks: ["If the computed data mirror provides incomplete partial data, every downstream geometry step will use the wrong input."],
+          tags: ["data"]
+        },
+        {
+          id: "drag-debug",
+          group: "Input",
+          lane: 0,
+          row: 2,
+          title: "Drag / debug render decision",
+          summary: "Determines drag visual mode and whether debug overlap is disabled.",
+          helpers: [
+            "isVectorEditingDrag",
+            "isSelectToolDrag",
+            "core.getSystemProperty",
+            "shouldDisableVisualOverlapCollapse",
+            "useDragVisualOnly"
+          ],
+          inputs: ["renderData.id", "strokeDebugOptions", "system strokeDebugDisableVisualOverlapCollapse"],
+          outputs: ["useDragVisualOnly", "shouldDisableVisualOverlapCollapse"],
+          decisions: [
+            "Drag mode may only skip hit/export/diagnostics; it must not skip final product visual output.",
+            "Debug overlap mode may show raw fragments."
+          ],
+          next: ["path-topology"],
+          risks: ["Any raw packet shortcut will cause translucent strokes to overlap during drag."],
+          tags: ["decision", "risk"]
+        },
+        {
+          id: "path-topology",
+          group: "Path Model",
+          lane: 1,
+          row: 1,
+          title: "Path / topology model",
+          summary: "Builds path geometry and topology classification for each network.",
+          helpers: [
+            "buildVectorSourceRevision",
+            "buildVectorGeometryModelPath",
+            "buildPathTopologyModel"
+          ],
+          inputs: ["orderedNetworks", "points", "segments", "fillRule", "pathModelCache"],
+          outputs: ["networkPaths: network + path + topology"],
+          decisions: [
+            "Reuse the cached model when the source revision key matches.",
+            "topologyFamily selects the downstream simple, sampled, or self-intersecting branch."
+          ],
+          next: ["shared-model", "compound-domain", "center-stroke"],
+          risks: ["Topology is still classified from sampled normalized points; self-intersection details must be supplied by the shared model."],
+          tags: ["cache", "topology"]
+        },
+        {
+          id: "shared-model",
+          group: "Shared Geometry",
+          lane: 2,
+          row: 1,
+          title: "Resolved vector geometry model",
+          summary: "Builds the shared resolved geometry model for fill, stroke, and future shadow consumers.",
+          helpers: ["buildResolvedVectorGeometryModel", "buildSelfIntersectingGeometry"],
+          inputs: ["networkPaths", "fillRule"],
+          outputs: ["ResolvedVectorGeometryModel", "selfIntersecting.fillRegions", "selfIntersecting.strokeBoundaryContours"],
+          decisions: [
+            "This is the intended single geometry truth.",
+            "The selfIntersecting model may be null for non-self-intersecting networks."
+          ],
+          next: ["planar-graph", "fill-path", "dashed-candidates"],
+          risks: ["If stroke still rebuilds contours by itself, the system returns to multiple truths."],
+          tags: ["truth", "shared"]
+        },
+        {
+          id: "planar-graph",
+          group: "Shared Geometry",
+          lane: 2,
+          row: 2,
+          title: "Planar graph / even-odd contours",
+          summary: "Splits a self-intersecting closed path into a planar graph, faces, fill regions, and stroke boundary contours.",
+          helpers: [
+            "buildSelfIntersectingEvenOddResolvedGeometry",
+            "splitSegmentsByIntersections",
+            "buildPlanarGraph",
+            "buildBoundaryContoursFromGraph"
+          ],
+          inputs: ["traced source path segments"],
+          outputs: ["fillRegions", "legalFaceBoundaries", "strokeBoundaryContours"],
+          decisions: [
+            "fillRegions are consumed by fill.",
+            "strokeBoundaryContours are consumed by inside/outside stroke and must include hole boundaries.",
+            "Each contour edge carries legalFaceId, oppositeFaceId, and source provenance."
+          ],
+          next: ["fill-path", "self-dashed"],
+          risks: ["Current failures usually come from contour direction, edge-domain allocation, or clipping that removes hole-boundary stroke."],
+          tags: ["truth", "critical"]
+        },
+        {
+          id: "compound-domain",
+          group: "Shared Geometry",
+          lane: 2,
+          row: 3,
+          title: "Compound legal domain normalization",
+          summary: "Builds a compound shell/hole legal domain for multiple closed networks.",
+          helpers: ["buildCompoundLegalDomainNormalization", "invertConstrainedStrokePositionForHole"],
+          inputs: ["closedNetworkPaths", "geometry backend"],
+          outputs: ["compound legalDomain", "compound role by network id"],
+          decisions: [
+            "Used only when multiple closed networks exist and the backend supports it.",
+            "A hole network inverts the constrained stroke position."
+          ],
+          next: ["dashed-candidates", "solid-candidates"],
+          risks: ["This is a multi-network hole, not the same as an even-odd hole contour from one self-intersecting path."],
+          tags: ["decision"]
+        },
+        {
+          id: "fill-path",
+          group: "Fill",
+          lane: 3,
+          row: 1,
+          title: "Fill face selection",
+          summary: "Selects shared fillRegions or the legacy flattened fallback for fill.",
+          helpers: ["resolvedGeometry.selfIntersecting.fillRegions", "buildFlattenedSegmentsWithCache", "buildFillFaces"],
+          inputs: ["fillPayload", "orderedNetworks", "resolvedGeometryByNetworkId"],
+          outputs: ["effectiveFillFaces"],
+          decisions: [
+            "Self-intersecting fill should prefer shared fillRegions.",
+            "Use the buildFillFaces fallback only when shared faces are unavailable."
+          ],
+          next: ["draw-fill"],
+          risks: ["The buildFillFaces fallback still exists; it should not become another self-intersection truth."],
+          tags: ["fill", "risk"]
+        },
+        {
+          id: "draw-fill",
+          group: "Fill",
+          lane: 3,
+          row: 2,
+          title: "Draw fill",
+          summary: "Draws fill faces to the graphic; gradient fill uses a separate even-odd raster style.",
+          helpers: ["drawFillFaces", "applyRenderableFill", "core.createEvenOddFillStyle"],
+          inputs: ["effectiveFillFaces", "fillPayload", "dragSuppressed"],
+          outputs: ["fill drawn on graphic"],
+          decisions: [
+            "Flat fill uses faces.",
+            "Gradient fill uses the EvenOddFillStyle cache."
+          ],
+          next: ["draw-source-path", "mesh-render"],
+          risks: ["The visible fill shape is an important reference for validating stroke contours."],
+          tags: ["fill"]
+        },
+        {
+          id: "dashed-candidates",
+          group: "Dashed Stroke",
+          lane: 4,
+          row: 1,
+          title: "Constrained dashed candidates",
+          summary: "Builds candidate packets for closed constrained dashed stroke.",
+          helpers: ["buildConstrainedDashedStrokeResolvedPackets", "buildNormalizedCompoundConstrainedDashedPackets"],
+          inputs: ["topology", "sourcePath", "strokesForNetwork", "selfIntersectingBoundaryContours", "selfIntersectingFillRegions"],
+          outputs: ["constrainedDashedCandidatePackets"],
+          decisions: [
+            "Self-intersecting strokes with position !== center should use the contour branch.",
+            "Non-self-intersecting cubic paths may pass sourcePath; simple line paths may use topology points."
+          ],
+          next: ["self-dashed", "legacy-dashed", "acceptance"],
+          risks: ["This step combines the new contour branch with many legacy sourcePath fallbacks, so it is the most important point to inspect visually."],
+          tags: ["dashed", "critical"]
+        },
+        {
+          id: "self-dashed",
+          group: "Dashed Stroke",
+          lane: 4,
+          row: 2,
+          title: "Self-intersecting even-odd dashed branch",
+          summary: "Self-intersecting inside/outside dashed stroke should generate product geometry along strokeBoundaryContours.",
+          helpers: ["buildSelfIntersectingEvenOddFaceBoundaryDashedPackets"],
+          inputs: ["sourcePath", "stroke", "boundaryContours", "fillRegions"],
+          outputs: ["one constrained-dashed resolved packet with contour polygons"],
+          decisions: [
+            "Exclude stroke.position === center.",
+            "No stroke is produced when boundaryContours is empty.",
+            "Inside stroke is currently still clipped to shared legalRegions."
+          ],
+          next: ["contour-domains", "normalize-clip"],
+          risks: [
+            "If contour polygons are generated and then clipped by fillRegions, hole-boundary stroke may be removed.",
+            "If contour direction or legalSide is wrong, inside/outside stroke is drawn on the wrong side."
+          ],
+          tags: ["dashed", "blocker"]
+        },
+        {
+          id: "contour-domains",
+          group: "Dashed Stroke",
+          lane: 4,
+          row: 3,
+          title: "Contour edge dash domains",
+          summary: "Each contour edge becomes an independent dash domain.",
+          helpers: [
+            "getEvenOddContourDashDomains",
+            "buildEndpointAlignedOpenDashIntervals",
+            "getEvenOddContourOpenIntervalRenderRanges"
+          ],
+          inputs: ["EvenOddBoundaryContour", "dashPattern", "cap", "stroke.width"],
+          outputs: ["domain intervals and render ranges"],
+          decisions: [
+            "Each split edge owns its dash distribution independently.",
+            "Each domain has a half dash at both ends; the interior is distributed by dash/gap.",
+            "Square cap uses the effective interval but stays within the same domain."
+          ],
+          next: ["contour-polygons"],
+          risks: ["If edge domains are merged back into a contour-loop domain, the result will not match Figma-like segmented dash behavior."],
+          tags: ["truth", "dashed"]
+        },
+        {
+          id: "contour-polygons",
+          group: "Dashed Stroke",
+          lane: 4,
+          row: 4,
+          title: "Contour local-side polygons",
+          summary: "Slices a polyline from each domain interval and builds open local-side stroke polygons.",
+          helpers: [
+            "slicePolylineByDistance",
+            "getEvenOddContourOpenStrokePosition",
+            "buildConstrainedDashedLocalSideStrokePolygons"
+          ],
+          inputs: ["domain.points", "renderRange", "contour.legalSide", "stroke.position"],
+          outputs: ["raw contour dash polygons"],
+          decisions: [
+            "Inside uses the contour legal side.",
+            "Outside uses the opposite side.",
+            "Round cap is enabled only at true interval terminals."
+          ],
+          next: ["normalize-clip"],
+          risks: ["This step still reuses a local-side helper; it knows only an open polyline and side, not planar graph faces."],
+          tags: ["dashed", "risk"]
+        },
+        {
+          id: "normalize-clip",
+          group: "Dashed Stroke",
+          lane: 4,
+          row: 5,
+          title: "Normalize / legal clipping",
+          summary: "Merges product polygons and intersects inside stroke with shared legal regions.",
+          helpers: ["normalizeConstrainedDashedProductVisualPolygons", "clipConstrainedDashedPolygonsToSharedLegalRegions"],
+          inputs: ["raw contour polygons", "fillRegions"],
+          outputs: ["product constrained dashed polygons"],
+          decisions: [
+            "Product mode uses union to remove raw overlap.",
+            "Inside currently intersects against fillRegions."
+          ],
+          next: ["acceptance"],
+          risks: [
+            "Inside contour stroke is already generated along legal boundaries; clipping it again with fillRegions may remove hole stroke.",
+            "Union/intersection uses nonzero rules, so it must be verified against the even-odd contour intent."
+          ],
+          tags: ["blocker", "risk"]
+        },
+        {
+          id: "legacy-dashed",
+          group: "Dashed Stroke",
+          lane: 4,
+          row: 6,
+          title: "Legacy sourcePath dashed branches",
+          summary: "Non-self-intersecting or debug/raw paths use legacy sourcePath/topology interval builders.",
+          helpers: [
+            "getVisibleConstrainedDashedIntervals",
+            "buildSourcePathSlicingContext",
+            "splitVisibleIntervalBySourceSegments",
+            "buildConstrainedDashedLocalSideStrokePolygons"
+          ],
+          inputs: ["topology points", "sourcePath", "visibleIntervals"],
+          outputs: ["candidate packets for non-self-intersecting cases"],
+          decisions: [
+            "Round true terminals, square effective intervals, and sharp/smooth boundaries are decided inside these helpers.",
+            "Debug overlap may keep raw fragments."
+          ],
+          next: ["acceptance"],
+          risks: ["The legacy path still has many branches; it must not override the self-intersecting contour truth."],
+          tags: ["risk", "dashed"]
+        },
+        {
+          id: "solid-candidates",
+          group: "Solid Stroke",
+          lane: 5,
+          row: 1,
+          title: "Constrained solid candidates",
+          summary: "Builds candidate packets for inside/outside solid stroke and applies legality clipping.",
+          helpers: [
+            "buildConstrainedSolidStrokeResolvedPackets",
+            "buildConstrainedSolidLegalityClippingResult",
+            "promoteConstrainedSolidPacketsToExactArrangement"
+          ],
+          inputs: ["topology", "sourcePath", "strokes", "legal domains"],
+          outputs: ["constrained solid packets and exact faces"],
+          decisions: [
+            "Center solid does not use the inside/outside contour side rule.",
+            "The self-intersecting constrained solid branch is still separate and not fully unified with dashed contour logic."
+          ],
+          next: ["stroke-packets", "final-faces"],
+          risks: ["This page focuses on dashed stroke; constrained solid stroke still needs alignment with the shared geometry model."],
+          tags: ["solid", "risk"]
+        },
+        {
+          id: "center-stroke",
+          group: "Solid Stroke",
+          lane: 5,
+          row: 2,
+          title: "Center stroke packets",
+          summary: "Center dashed/solid stroke follows the authored/source path and does not use inside/outside side ownership.",
+          helpers: ["buildDashedCenterStrokeResolvedPackets", "buildSolidCenterStrokeResolvedPackets", "drawNativeCenterSolidStrokePath"],
+          inputs: ["topology.normalizedPoints", "sourcePath", "center strokes"],
+          outputs: ["center stroke packets or native center solid visual"],
+          decisions: [
+            "Center stroke does not need inside/outside legal-side decisions.",
+            "Native center solid visual may replay the path stroke directly."
+          ],
+          next: ["stroke-packets", "draw-source-path"],
+          risks: ["Do not apply the new self-intersecting inside/outside rules to center stroke."],
+          tags: ["truth", "solid"]
+        },
+        {
+          id: "acceptance",
+          group: "Dashed Stroke",
+          lane: 4,
+          row: 7,
+          title: "Dashed acceptance / promotion",
+          summary: "Runtime status decides whether candidate packets enter exact arrangement promotion.",
+          helpers: ["classifyConstrainedDashedRuntimeStatus", "attachStrokePacketDebugMeta", "promoteConstrainedDashedPacketsToExactArrangement"],
+          inputs: ["constrainedDashedCandidatePackets", "arrangement legal domains"],
+          outputs: ["accepted dashed packets", "promoted exact faces"],
+          decisions: [
+            "A self-intersecting contour product packet should become final coverage directly and should not be blocked by fallback logic.",
+            "Legal domains should be used only when arrangement is needed."
+          ],
+          next: ["stroke-packets", "final-faces", "diagnostics"],
+          risks: ["If the runtime classifier still uses authored sourcePath logic, it will conflict with contour domains."],
+          tags: ["dashed", "risk"]
+        },
+        {
+          id: "stroke-packets",
+          group: "Final Faces",
+          lane: 6,
+          row: 1,
+          title: "Collect stroke packets",
+          summary: "Combines center packets, constrained solid packets, and promoted dashed/solid packets into strokePackets.",
+          helpers: ["buildSolidCenterStrokeResolvedPackets", "buildDashedCenterStrokeResolvedPackets", "constrainedSolidPromotion.packets", "constrainedDashedPromotion.packets"],
+          inputs: ["networkPaths", "renderData.strokes", "promotions"],
+          outputs: ["strokePackets"],
+          decisions: [
+            "Promoted constrained dashed packets merge with center/solid packets here.",
+            "Drag visual mode must not replace the final flow with raw packets."
+          ],
+          next: ["final-faces"],
+          risks: ["If the same geometry exists as both candidate packets and promoted faces, product overlap can occur."],
+          tags: ["final"]
+        },
+        {
+          id: "final-faces",
+          group: "Final Faces",
+          lane: 6,
+          row: 2,
+          title: "Final faces",
+          summary: "Converts packets into final faces and appends promoted exact faces.",
+          helpers: ["buildSolidCenterStrokeFinalFaces", "buildArrangedStrokeFinalFacesFromResolvedPackets"],
+          inputs: ["strokePackets", "promotedExactStrokeFinalFaces"],
+          outputs: ["rawStrokeFinalFaces"],
+          decisions: ["Raw faces may still contain product overlap; the next step collapses it."],
+          next: ["visual-collapse"],
+          risks: ["The product final/no-overlap rule must be satisfied here or earlier."],
+          tags: ["final"]
+        },
+        {
+          id: "visual-collapse",
+          group: "Final Faces",
+          lane: 6,
+          row: 3,
+          title: "Visual overlap collapse",
+          summary: "Product mode uses backend union/collapse to remove same-color translucent overlap.",
+          helpers: ["collapseStrokeFinalFaceVisualOverlaps", "canUseExactSingleNetworkConstrainedSolidFacesDirectly"],
+          inputs: ["rawStrokeFinalFaces", "shouldDisableVisualOverlapCollapse", "geometry backend"],
+          outputs: ["strokeFinalFaces"],
+          decisions: [
+            "When debug overlap is on, return raw faces directly.",
+            "If the backend does not support union, fail open."
+          ],
+          next: ["render-entries", "hit-export"],
+          risks: ["If upstream generated wrong-side geometry, collapse can only merge it; it cannot fix direction."],
+          tags: ["final", "risk"]
+        },
+        {
+          id: "draw-source-path",
+          group: "Render",
+          lane: 7,
+          row: 1,
+          title: "Draw source path / native stroke",
+          summary: "Draws fill/source path or native center solid stroke before mesh entries.",
+          helpers: ["drawVectorPath", "drawNativeCenterSolidStrokePath"],
+          inputs: ["orderedNetworks", "points", "segments", "nativeCenterSolidVisualStrokeGroups"],
+          outputs: ["source path / native center solid drawn"],
+          decisions: [
+            "Native center solid can replace polygon mesh.",
+            "Other stroke types still use mesh render entries."
+          ],
+          next: ["render-entries"],
+          risks: ["The blue source-path outline is an overlay/debug reference, not constrained stroke geometry."],
+          tags: ["render"]
+        },
+        {
+          id: "render-entries",
+          group: "Render",
+          lane: 7,
+          row: 2,
+          title: "Render entries",
+          summary: "Converts final faces into mesh render entries.",
+          helpers: ["toSolidCenterStrokeRenderEntriesFromFinalFaces"],
+          inputs: ["strokeRenderFaces", "productStrokeRenderEntries"],
+          outputs: ["SolidCenterStrokeRenderEntry[]"],
+          decisions: [
+            "productStrokeRenderEntries is currently disabled.",
+            "The normal path converts final faces into render entries."
+          ],
+          next: ["mesh-render"],
+          risks: ["If the product compiler is re-enabled, it must prove equivalence with the full final flow."],
+          tags: ["render"]
+        },
+        {
+          id: "mesh-render",
+          group: "Render",
+          lane: 7,
+          row: 3,
+          title: "Mesh render",
+          summary: "Draws SolidCenterStrokeRenderEntry objects onto the Pixi graphic.",
+          helpers: ["renderSolidCenterStrokeEntries"],
+          inputs: ["graphic", "strokeRenderEntries"],
+          outputs: ["visible product stroke"],
+          decisions: ["Geometry correctness decisions should not happen here."],
+          next: ["done"],
+          risks: ["If upstream still outputs raw overlap or wrong-side geometry, mesh render will faithfully draw it wrong."],
+          tags: ["render"]
+        },
+        {
+          id: "hit-export",
+          group: "Diagnostics",
+          lane: 8,
+          row: 1,
+          title: "Hit / export data",
+          summary: "Updates hit area and export packets outside drag visual mode.",
+          helpers: ["applyVectorHoverHitArea", "applySolidCenterStrokeExportPacketsFromFinalFaces"],
+          inputs: ["strokeFinalFaces", "fill faces", "points / segments / networks"],
+          outputs: ["graphic.hitArea", "export packets"],
+          decisions: ["Drag visual mode may keep previous hit/export data, but product visual output must still be current."],
+          next: ["diagnostics"],
+          risks: ["Hit/export uses strokeFinalFaces, so incorrect final faces also corrupt interaction and export."],
+          tags: ["diagnostics"]
+        },
+        {
+          id: "diagnostics",
+          group: "Diagnostics",
+          lane: 8,
+          row: 2,
+          title: "Runtime diagnostics",
+          summary: "Writes dashed/solid legality, ownership, and overlap diagnostics.",
+          helpers: [
+            "setConstrainedDashedRuntimeDiagnostics",
+            "setConstrainedSolidRuntimeDiagnostics",
+            "setConstrainedSolidLegalityDiagnostics",
+            "setConstrainedSolidOwnershipDiagnostics",
+            "applyCenterDashedOverlapDiagnostics"
+          ],
+          inputs: ["candidate packets", "runtime diagnostics", "ownership diagnostics"],
+          outputs: ["debug render layers / diagnostics state"],
+          decisions: ["Debug layers may show raw, rejected, or overlap data, but must not change product output."],
+          next: ["done"],
+          risks: ["Debug data can mislead product-branch analysis if it comes from a legacy branch."],
+          tags: ["diagnostics", "risk"]
+        },
+        {
+          id: "done",
+          group: "Render",
+          lane: 7,
+          row: 4,
+          title: "Visible final result",
+          summary: "The fill + stroke result visible to the user.",
+          helpers: ["Pixi render loop"],
+          inputs: ["filled graphic", "source path/native stroke", "stroke meshes"],
+          outputs: ["final product visual"],
+          decisions: [
+            "The product result must be final and no-overlap.",
+            "Self-intersecting inside dashed stroke must include both outer and hole contour stroke."
+          ],
+          next: [],
+          risks: ["This is where screenshot-visible failures land; the root cause is usually in contour, domain, clipping, or final-flow steps."],
+          tags: ["render", "truth"]
+        }
+      ];
+
+      const edges = [
+        ["entry", "normalize"],
+        ["normalize", "drag-debug"],
+        ["drag-debug", "path-topology"],
+        ["path-topology", "shared-model"],
+        ["path-topology", "compound-domain"],
+        ["path-topology", "center-stroke"],
+        ["shared-model", "planar-graph"],
+        ["shared-model", "fill-path"],
+        ["shared-model", "dashed-candidates"],
+        ["planar-graph", "fill-path"],
+        ["planar-graph", "self-dashed"],
+        ["compound-domain", "dashed-candidates"],
+        ["compound-domain", "solid-candidates"],
+        ["fill-path", "draw-fill"],
+        ["draw-fill", "draw-source-path"],
+        ["dashed-candidates", "self-dashed"],
+        ["dashed-candidates", "legacy-dashed"],
+        ["self-dashed", "contour-domains"],
+        ["contour-domains", "contour-polygons"],
+        ["contour-polygons", "normalize-clip"],
+        ["normalize-clip", "acceptance"],
+        ["legacy-dashed", "acceptance"],
+        ["solid-candidates", "stroke-packets"],
+        ["solid-candidates", "final-faces"],
+        ["center-stroke", "stroke-packets"],
+        ["center-stroke", "draw-source-path"],
+        ["acceptance", "stroke-packets"],
+        ["acceptance", "final-faces"],
+        ["stroke-packets", "final-faces"],
+        ["final-faces", "visual-collapse"],
+        ["visual-collapse", "render-entries"],
+        ["visual-collapse", "hit-export"],
+        ["draw-source-path", "render-entries"],
+        ["render-entries", "mesh-render"],
+        ["mesh-render", "done"],
+        ["hit-export", "diagnostics"],
+        ["diagnostics", "done"]
+      ];
+
+      const sharedCommands = [
+        "yarn workspace @asyra/preset test:local src/__tests__/constrained-dashed-stroke-packets.test.ts",
+        "yarn workspace @asyra/preset test:local src/__tests__/vector-constrained-dashed-stroke.test.ts src/__tests__/stroke-performance-contract.test.ts",
+        "yarn workspace @asyra/asyra-design test:e2e -- stroke-rule-driven-dashed-visual.spec.ts constrained-dashed-stroke-visual.spec.ts reported-vector-6-dashed-inside-seam.spec.ts",
+        "yarn workspace @asyra/preset build:preset",
+        "yarn lint:ci"
+      ];
+
+      const defaultEvidenceByGroup = {
+        Input: {
+          relatedFiles: [
+            "packages/preset/src/components/vector.ts"
+          ],
+          relatedTests: [
+            "packages/preset/src/__tests__/vector-constrained-dashed-stroke.test.ts",
+            "apps/asyra-design/e2e/stroke-drag-render-performance.spec.ts"
+          ],
+          debugCommands: [
+            "yarn workspace @asyra/preset test:local src/__tests__/vector-constrained-dashed-stroke.test.ts",
+            "yarn workspace @asyra/asyra-design test:e2e -- stroke-drag-render-performance.spec.ts"
+          ],
+          evidenceToInspect: [
+            "Verify normalized points, segments, networks, fillRule, and strokes match the source computed data.",
+            "Verify drag mode does not switch product visual rendering to raw packet output."
+          ]
+        },
+        "Path Model": {
+          relatedFiles: [
+            "packages/preset/src/components/vector.ts",
+            "packages/preset/src/components/stroke-render/path-topology-model.ts",
+            "packages/preset/src/components/stroke-render/path-geometry.ts"
+          ],
+          relatedTests: [
+            "packages/preset/src/__tests__/vector-constrained-dashed-stroke.test.ts"
+          ],
+          debugCommands: [
+            "yarn workspace @asyra/preset test:local src/__tests__/vector-constrained-dashed-stroke.test.ts"
+          ],
+          evidenceToInspect: [
+            "Inspect source revision keys and whether the source path was rebuilt from the latest points/controls.",
+            "Inspect topologyFamily and sampled path classification before stroke rules are applied."
+          ]
+        },
+        "Shared Geometry": {
+          relatedFiles: [
+            "packages/preset/src/components/stroke-render/resolved-vector-geometry-model.ts",
+            "packages/preset/src/components/stroke-render/self-intersecting-legal-domain.ts",
+            "packages/preset/src/components/stroke-render/source-span-graph.ts"
+          ],
+          relatedTests: [
+            "packages/preset/src/__tests__/constrained-dashed-stroke-packets.test.ts",
+            "packages/preset/src/__tests__/vector-constrained-dashed-stroke.test.ts"
+          ],
+          debugCommands: [
+            "yarn workspace @asyra/preset test:local src/__tests__/constrained-dashed-stroke-packets.test.ts"
+          ],
+          evidenceToInspect: [
+            "Inspect planar graph nodes, split edges, face ids, and contour ids.",
+            "Confirm outer and hole boundary contours are both present before fill/stroke consumers run."
+          ]
+        },
+        Fill: {
+          relatedFiles: [
+            "packages/preset/src/components/vector.ts",
+            "packages/preset/src/components/stroke-render/resolved-vector-geometry-model.ts"
+          ],
+          relatedTests: [
+            "packages/preset/src/__tests__/vector-constrained-dashed-stroke.test.ts",
+            "apps/asyra-design/e2e/stroke-rule-driven-dashed-visual.spec.ts"
+          ],
+          debugCommands: [
+            "yarn workspace @asyra/asyra-design test:e2e -- stroke-rule-driven-dashed-visual.spec.ts"
+          ],
+          evidenceToInspect: [
+            "Compare visible fill regions against the shared model fillRegions.",
+            "Use fill as a visual reference for legal region and hole boundary interpretation."
+          ]
+        },
+        "Dashed Stroke": {
+          relatedFiles: [
+            "packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts",
+            "packages/preset/src/components/stroke-render/constrained-dashed-local-side-geometry.ts",
+            "packages/preset/src/components/stroke-render/stroke-interval-frames.ts",
+            "packages/preset/src/components/stroke-render/resolved-vector-geometry-model.ts"
+          ],
+          relatedTests: [
+            "packages/preset/src/__tests__/constrained-dashed-stroke-packets.test.ts",
+            "packages/preset/src/__tests__/vector-constrained-dashed-stroke.test.ts",
+            "apps/asyra-design/e2e/constrained-dashed-stroke-visual.spec.ts",
+            "apps/asyra-design/e2e/stroke-rule-driven-dashed-visual.spec.ts",
+            "apps/asyra-design/e2e/reported-vector-6-dashed-inside-seam.spec.ts"
+          ],
+          debugCommands: sharedCommands,
+          evidenceToInspect: [
+            "Inspect contour id, edge domain id, dash interval, cap ownership, and side ownership for each generated polygon.",
+            "For self-intersecting inside/outside stroke, verify dash state resets per split contour domain.",
+            "For product mode, verify no raw overlap fragments are used as final visual output."
+          ]
+        },
+        "Solid Stroke": {
+          relatedFiles: [
+            "packages/preset/src/components/stroke-render/constrained-solid-stroke-packets.ts",
+            "packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts",
+            "packages/preset/src/components/stroke-render/solid-center-stroke-render.ts"
+          ],
+          relatedTests: [
+            "packages/preset/src/__tests__/vector-constrained-solid-stroke.test.ts",
+            "packages/preset/src/__tests__/solid-center-stroke-render.test.ts",
+            "apps/asyra-design/e2e/solid-center-stroke-visual.spec.ts"
+          ],
+          debugCommands: [
+            "yarn workspace @asyra/preset test:local src/__tests__/vector-constrained-solid-stroke.test.ts src/__tests__/solid-center-stroke-render.test.ts",
+            "yarn workspace @asyra/asyra-design test:e2e -- solid-center-stroke-visual.spec.ts"
+          ],
+          evidenceToInspect: [
+            "Verify center stroke remains source-path based and is not affected by inside/outside contour rules.",
+            "Verify constrained solid branches do not reintroduce independent self-intersection truth."
+          ]
+        },
+        "Final Faces": {
+          relatedFiles: [
+            "packages/preset/src/components/stroke-render/stroke-final-face.ts",
+            "packages/preset/src/components/stroke-render/stroke-candidate-arrangement.ts",
+            "packages/preset/src/components/stroke-render/geometry-backend.ts",
+            "packages/preset/src/components/stroke-render/clipper2-geometry-backend.ts"
+          ],
+          relatedTests: [
+            "packages/preset/src/__tests__/stroke-performance-contract.test.ts",
+            "packages/preset/src/__tests__/constrained-dashed-stroke-packets.test.ts",
+            "packages/preset/src/__tests__/solid-center-stroke-render.test.ts"
+          ],
+          debugCommands: [
+            "yarn workspace @asyra/preset test:local src/__tests__/stroke-performance-contract.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts"
+          ],
+          evidenceToInspect: [
+            "Inspect raw face count versus final face count.",
+            "Confirm product visual collapse is not being asked to fix wrong-side geometry."
+          ]
+        },
+        Render: {
+          relatedFiles: [
+            "packages/preset/src/components/vector.ts",
+            "packages/preset/src/components/stroke-render/solid-center-stroke-render.ts",
+            "packages/preset/src/components/stroke-render/renderable-stroke.ts"
+          ],
+          relatedTests: [
+            "packages/preset/src/__tests__/stroke-render-renderable-stroke.test.ts",
+            "packages/preset/src/__tests__/solid-center-stroke-render.test.ts",
+            "apps/asyra-design/e2e/stroke-drag-render-performance.spec.ts"
+          ],
+          debugCommands: [
+            "yarn workspace @asyra/preset test:local src/__tests__/stroke-render-renderable-stroke.test.ts src/__tests__/solid-center-stroke-render.test.ts",
+            "yarn workspace @asyra/asyra-design test:e2e -- stroke-drag-render-performance.spec.ts"
+          ],
+          evidenceToInspect: [
+            "Confirm render entries consume final faces, not candidate/raw packet polygons.",
+            "Use screenshots only after confirming the upstream final faces are correct."
+          ]
+        },
+        Diagnostics: {
+          relatedFiles: [
+            "packages/preset/src/components/stroke-render/constrained-dashed-runtime-diagnostics.ts",
+            "packages/preset/src/components/stroke-render/constrained-solid-runtime-diagnostics.ts",
+            "packages/preset/src/components/stroke-render/constrained-solid-legality-diagnostics.ts"
+          ],
+          relatedTests: [
+            "packages/preset/src/__tests__/constrained-dashed-runtime-diagnostics.test.ts",
+            "apps/asyra-design/e2e/stroke-drag-render-performance.spec.ts"
+          ],
+          debugCommands: [
+            "yarn workspace @asyra/preset test:local src/__tests__/constrained-dashed-runtime-diagnostics.test.ts",
+            "yarn workspace @asyra/asyra-design test:e2e -- stroke-drag-render-performance.spec.ts"
+          ],
+          evidenceToInspect: [
+            "Confirm diagnostics match the product branch being rendered.",
+            "Do not treat debug raw fragments as product visual truth."
+          ]
+        }
+      };
+
+      const stepEvidenceOverrides = {
+        "shared-model": {
+          evidenceToInspect: [
+            "Confirm the model is built once per source revision and is shared by fill, stroke, and future shadow.",
+            "Confirm strokeBoundaryContours include the center hole boundary for self-intersecting closed vectors."
+          ]
+        },
+        "planar-graph": {
+          evidenceToInspect: [
+            "Inspect face parity, exterior face selection, hole face detection, contour direction, and legalFaceId/oppositeFaceId.",
+            "Check that intersection points split contour edge domains before dash distribution is computed."
+          ]
+        },
+        "self-dashed": {
+          evidenceToInspect: [
+            "Confirm self-intersecting inside/outside dashed stroke consumes only strokeBoundaryContours.",
+            "Confirm hole-boundary contour polygons are generated before any clipping/normalization step."
+          ]
+        },
+        "contour-domains": {
+          evidenceToInspect: [
+            "For every split contour domain, verify start and end receive the domain-level half dash rule.",
+            "Verify dash offset does not continue across intersection-split domains."
+          ]
+        },
+        "normalize-clip": {
+          evidenceToInspect: [
+            "Check whether clipping against fillRegions removes hole-boundary stroke.",
+            "Check whether union/intersection winding assumptions conflict with even-odd contour intent."
+          ]
+        },
+        "legacy-dashed": {
+          evidenceToInspect: [
+            "Confirm this branch is not used for self-intersecting inside/outside product rendering.",
+            "Confirm debug/raw rendering stays isolated from product visual output."
+          ]
+        },
+        "visual-collapse": {
+          evidenceToInspect: [
+            "Use this only to remove same-visual overlap; do not rely on it to fix missing contours or wrong side ownership.",
+            "If collapse changes shape semantics, inspect the upstream product polygons instead."
+          ]
+        },
+        "done": {
+          evidenceToInspect: [
+            "Compare product screenshots against the latest Figma-like rules: outer and hole boundaries, independent split-domain dash distribution, and final/no-overlap output.",
+            "If the screenshot is wrong, trace backward through render entries, final faces, dashed packets, contour domains, and shared model."
+          ]
+        }
+      };
+
+      const unique = (items) => [...new Set(items.filter(Boolean))];
+
+      steps.forEach((step) => {
+        const groupEvidence = defaultEvidenceByGroup[step.group] ?? {};
+        const overrideEvidence = stepEvidenceOverrides[step.id] ?? {};
+        step.relatedFiles = unique([
+          ...(groupEvidence.relatedFiles ?? []),
+          ...(overrideEvidence.relatedFiles ?? [])
+        ]);
+        step.relatedTests = unique([
+          ...(groupEvidence.relatedTests ?? []),
+          ...(overrideEvidence.relatedTests ?? [])
+        ]);
+        step.debugCommands = unique([
+          ...(groupEvidence.debugCommands ?? []),
+          ...(overrideEvidence.debugCommands ?? [])
+        ]);
+        step.evidenceToInspect = unique([
+          ...(groupEvidence.evidenceToInspect ?? []),
+          ...(overrideEvidence.evidenceToInspect ?? [])
+        ]);
+      });
+
+      const flow = document.getElementById("flow");
+      const detail = document.getElementById("detail");
+      const filters = document.getElementById("filters");
+      let selectedId = steps[0].id;
+      let activeGroup = "All";
+
+      const layout = {
+        left: 28,
+        top: 68,
+        cardW: 270,
+        cardH: 118,
+        gapX: 170,
+        gapY: 80
+      };
+
+      const stepById = new Map(steps.map((step) => [step.id, step]));
+
+      const isVisible = (step) => activeGroup === "All" || step.group === activeGroup;
+
+      const stepPosition = (step) => ({
+        x: layout.left + step.lane * (layout.cardW + layout.gapX),
+        y: layout.top + step.row * (layout.cardH + layout.gapY)
+      });
+
+      const getFlowBounds = () => {
+        const visibleSteps = steps.filter(isVisible);
+        const visibleLanes = visibleSteps.map((step) => step.lane);
+        const visibleRows = visibleSteps.map((step) => step.row);
+        const maxLane = visibleLanes.length ? Math.max(...visibleLanes) : 0;
+        const maxRow = visibleRows.length ? Math.max(...visibleRows) : 0;
+        return {
+          width:
+            layout.left * 2 +
+            (maxLane + 1) * layout.cardW +
+            maxLane * layout.gapX,
+          height:
+            layout.top * 2 +
+            (maxRow + 1) * layout.cardH +
+            maxRow * layout.gapY
+        };
+      };
+
+      const section = (title, items, className = "") => {
+        const safeItems = items && items.length ? items : ["None"];
+        return `
+          <section class="detail-section ${className}">
+            <h3>${title}</h3>
+            <ul>${safeItems.map((item) => `<li>${formatInlineCode(item)}</li>`).join("")}</ul>
+          </section>
+        `;
+      };
+
+      const formatInlineCode = (text) =>
+        String(text).replace(/`([^`]+)`/g, "<code>$1</code>");
+
+      const renderFilters = () => {
+        filters.innerHTML = "";
+        groups.forEach((group) => {
+          const button = document.createElement("button");
+          button.className = `filter-button${group === activeGroup ? " is-active" : ""}`;
+          button.type = "button";
+          button.textContent = group;
+          button.addEventListener("click", () => {
+            activeGroup = group;
+            const selectedStep = stepById.get(selectedId);
+            if (selectedStep && !isVisible(selectedStep)) {
+              selectedId = steps.find(isVisible)?.id ?? steps[0].id;
+            }
+            render();
+          });
+          filters.appendChild(button);
+        });
+      };
+
+      const renderDetail = () => {
+        const step = stepById.get(selectedId) ?? steps[0];
+        detail.innerHTML = `
+          <div class="detail-group">${step.group}</div>
+          <h2>${step.title}</h2>
+          <p class="detail-summary">${step.summary}</p>
+          ${section("Helper functions", step.helpers)}
+          ${section("Input", step.inputs)}
+          ${section("Output", step.outputs)}
+          ${section("Decision points", step.decisions, "rule-box")}
+          ${section("Next steps", step.next)}
+          ${section("Known risks", step.risks, "risk-box")}
+          ${section("Related files", step.relatedFiles)}
+          ${section("Related tests", step.relatedTests)}
+          ${section("Debug commands", step.debugCommands, "command-box")}
+          ${section("Evidence to inspect", step.evidenceToInspect, "evidence-box")}
+          ${section("Latest global rules", latestRules, "rule-box")}
+        `;
+      };
+
+      const renderFlow = () => {
+        flow.innerHTML = "";
+        const bounds = getFlowBounds();
+        flow.style.minWidth = `${bounds.width}px`;
+        flow.style.minHeight = `${bounds.height}px`;
+
+        lanes.forEach((lane, laneIndex) => {
+          const label = document.createElement("div");
+          label.className = "lane-label";
+          label.style.left = `${layout.left + laneIndex * (layout.cardW + layout.gapX)}px`;
+          label.textContent = lane;
+          flow.appendChild(label);
+        });
+
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("class", "flow-svg");
+        svg.setAttribute("viewBox", `0 0 ${bounds.width} ${bounds.height}`);
+        const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+        const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+        marker.setAttribute("id", "arrow");
+        marker.setAttribute("viewBox", "0 0 10 10");
+        marker.setAttribute("refX", "8");
+        marker.setAttribute("refY", "5");
+        marker.setAttribute("markerWidth", "6");
+        marker.setAttribute("markerHeight", "6");
+        marker.setAttribute("orient", "auto-start-reverse");
+        const markerPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        markerPath.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
+        markerPath.setAttribute("fill", "rgba(148, 163, 184, 0.62)");
+        marker.appendChild(markerPath);
+        defs.appendChild(marker);
+        svg.appendChild(defs);
+        flow.appendChild(svg);
+
+        edges.forEach(([fromId, toId]) => {
+          const from = stepById.get(fromId);
+          const to = stepById.get(toId);
+          if (!from || !to || !isVisible(from) || !isVisible(to)) {
+            return;
+          }
+          const fromPos = stepPosition(from);
+          const toPos = stepPosition(to);
+          const sameLane = from.lane === to.lane;
+          const startX = sameLane
+            ? fromPos.x + layout.cardW / 2
+            : fromPos.x + layout.cardW;
+          const startY = sameLane
+            ? fromPos.y + layout.cardH
+            : fromPos.y + layout.cardH / 2;
+          const endX = sameLane ? toPos.x + layout.cardW / 2 : toPos.x;
+          const endY = sameLane ? toPos.y : toPos.y + layout.cardH / 2;
+          const busX = fromPos.x + layout.cardW + layout.gapX * 0.48;
+          const edgePath = sameLane
+            ? `M ${startX} ${startY} L ${endX} ${endY}`
+            : `M ${startX} ${startY} C ${busX} ${startY}, ${busX} ${endY}, ${endX} ${endY}`;
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.setAttribute("d", edgePath);
+          path.setAttribute(
+            "class",
+            `edge-path${fromId === selectedId || toId === selectedId ? " is-active" : ""}`
+          );
+          path.setAttribute("marker-end", "url(#arrow)");
+          svg.appendChild(path);
+        });
+
+        steps.filter(isVisible).forEach((step) => {
+          const position = stepPosition(step);
+          const card = document.createElement("button");
+          card.type = "button";
+          card.className = [
+            "step-card",
+            step.id === selectedId ? "is-selected" : "",
+            step.tags.includes("risk") ? "is-risk" : "",
+            step.tags.includes("blocker") || step.tags.includes("critical") ? "is-critical-risk" : ""
+          ]
+            .filter(Boolean)
+            .join(" ");
+          card.style.left = `${position.x}px`;
+          card.style.top = `${position.y}px`;
+          card.innerHTML = `
+            <div class="step-kicker">${step.group}</div>
+            <div class="step-title">${step.title}</div>
+            <div class="step-summary">${step.summary}</div>
+            <div class="badge-row">
+              ${step.tags
+                .slice(0, 3)
+                .map((tag) => {
+                  const kind =
+                    tag === "truth"
+                      ? " truth"
+                      : tag === "risk"
+                        ? " risk"
+                        : tag === "blocker" || tag === "critical"
+                          ? " blocker"
+                          : "";
+                  return `<span class="badge${kind}">${tag}</span>`;
+                })
+                .join("")}
+            </div>
+          `;
+          card.addEventListener("click", () => {
+            selectedId = step.id;
+            render();
+          });
+          flow.appendChild(card);
+        });
+      };
+
+      const runStaticChecks = () => {
+        const stepIds = new Set();
+        const duplicateStepIds = [];
+        steps.forEach((step) => {
+          if (stepIds.has(step.id)) {
+            duplicateStepIds.push(step.id);
+          }
+          stepIds.add(step.id);
+        });
+        const missingEdgeTargets = edges.filter(
+          ([from, to]) => !stepIds.has(from) || !stepIds.has(to)
+        );
+        const requiredBranches = [
+          "shared-model",
+          "fill-path",
+          "self-dashed",
+          "final-faces",
+          "mesh-render"
+        ];
+        const missingRequiredBranches = requiredBranches.filter((id) => !stepIds.has(id));
+        const requiredGuideIds = [
+          "guide-how-to-read",
+          "guide-legend",
+          "guide-debug-checklist"
+        ];
+        const missingGuideSections = requiredGuideIds.filter((id) => !document.getElementById(id));
+        const requiredEvidenceFields = [
+          "relatedFiles",
+          "relatedTests",
+          "debugCommands",
+          "evidenceToInspect"
+        ];
+        const missingEvidenceFields = steps
+          .filter((step) =>
+            requiredEvidenceFields.some((field) => !Array.isArray(step[field]))
+          )
+          .map((step) => step.id);
+        const criticalStepsWithoutEvidence = steps
+          .filter((step) => step.tags.includes("risk") || step.tags.includes("blocker") || step.tags.includes("critical"))
+          .filter((step) => !step.relatedTests.length && !step.evidenceToInspect.length)
+          .map((step) => step.id);
+
+        if (
+          duplicateStepIds.length ||
+          missingEdgeTargets.length ||
+          missingRequiredBranches.length ||
+          missingGuideSections.length ||
+          missingEvidenceFields.length ||
+          criticalStepsWithoutEvidence.length
+        ) {
+          console.error("Stroke flow inspector static check failed", {
+            duplicateStepIds,
+            missingEdgeTargets,
+            missingRequiredBranches,
+            missingGuideSections,
+            missingEvidenceFields,
+            criticalStepsWithoutEvidence
+          });
+        } else {
+          console.info("Stroke flow inspector static check passed", {
+            stepCount: steps.length,
+            edgeCount: edges.length,
+            guideSectionCount: requiredGuideIds.length
+          });
+        }
+      };
+
+      const render = () => {
+        renderFilters();
+        renderFlow();
+        renderDetail();
+      };
+
+      runStaticChecks();
+      render();
+    </script>
+  </body>
+</html>
