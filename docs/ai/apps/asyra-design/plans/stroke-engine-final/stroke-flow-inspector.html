@@ -467,6 +467,16 @@
         background: rgba(184, 148, 255, 0.07);
       }
 
+      .trace-box {
+        border-color: rgba(45, 212, 191, 0.24);
+        background: rgba(45, 212, 191, 0.07);
+      }
+
+      .test-box {
+        border-color: rgba(251, 146, 60, 0.28);
+        background: rgba(251, 146, 60, 0.08);
+      }
+
       .hidden {
         display: none;
       }
@@ -502,7 +512,7 @@
               <ul>
                 <li>Read the flow from left to right. Each card is a real pipeline step.</li>
                 <li>Arrows show data moving into the next decision or transformation step.</li>
-                <li>Click a card to inspect helpers, inputs, outputs, risks, tests, and evidence.</li>
+                <li>Click a card to inspect helpers, helper conditions, inputs, outputs, risks, tests, implementation trace, and evidence.</li>
                 <li>Use the group filters to isolate one subsystem without changing the underlying flow.</li>
                 <li>Machine-readable flow data lives in <code>stroke-flow-inspector.data.js</code>; this HTML only renders it for human review.</li>
               </ul>
@@ -721,12 +731,16 @@
           <h2>${step.title}</h2>
           <p class="detail-summary">${step.summary}</p>
           ${section("Implementation alignment", alignmentSummary, "alignment-box")}
+          ${section("Plan references", step.planReferences, "rule-box")}
+          ${section("Implementation trace", step.implementationTrace, "trace-box")}
           ${section("Helper functions", step.helpers)}
+          ${section("Helper conditions", step.helperConditions, "trace-box")}
           ${section("Input", step.inputs)}
           ${section("Output", step.outputs)}
           ${section("Decision points", step.decisions, "rule-box")}
           ${section("Next steps", step.next)}
           ${section("Known risks", step.risks, "risk-box")}
+          ${section("E2E status", step.e2eStatus, "test-box")}
           ${section("Related files", step.relatedFiles)}
           ${section("Related tests", step.relatedTests)}
           ${section("Debug commands", step.debugCommands, "command-box")}
@@ -868,11 +882,13 @@
           ([from, to]) => !stepIds.has(from) || !stepIds.has(to)
         );
         const requiredBranches = [
-          "shared-model",
-          "fill-path",
-          "self-dashed",
-          "final-faces",
-          "mesh-render"
+          "input-event",
+          "dirty-revision-graph",
+          "shared-geometry-model",
+          "build-one-sided-candidates",
+          "build-final-faces",
+          "mesh-render",
+          "visible-final-result"
         ];
         const missingRequiredBranches = requiredBranches.filter((id) => !stepIds.has(id));
         const requiredGuideIds = [
@@ -882,21 +898,27 @@
           "guide-alignment-checklist"
         ];
         const missingGuideSections = requiredGuideIds.filter((id) => !document.getElementById(id));
-        const requiredEvidenceFields = [
+        const requiredNonEmptyFields = [
           "alignmentStatus",
           "latestRule",
           "currentImplementation",
           "requiredAdjustment",
-          "relatedFiles",
-          "relatedTests",
-          "debugCommands",
+          "planReferences",
+          "implementationTrace",
+          "helperConditions",
+          "e2eStatus",
           "evidenceToInspect"
         ];
+        const optionalArrayEvidenceFields = [
+          "relatedFiles",
+          "relatedTests",
+          "debugCommands"
+        ];
         const missingEvidenceFields = steps
-          .filter((step) => requiredEvidenceFields.some((field) => {
+          .filter((step) => requiredNonEmptyFields.some((field) => {
             const value = step[field];
-            return Array.isArray(value) ? false : !value;
-          }))
+            return Array.isArray(value) ? value.length === 0 : !value;
+          }) || optionalArrayEvidenceFields.some((field) => !Array.isArray(step[field])))
           .map((step) => step.id);
         const invalidAlignmentStatuses = steps
           .filter((step) => !alignmentLabels[step.alignmentStatus])
@@ -905,11 +927,7 @@
           .filter((step) => ["mismatch", "blocker"].includes(step.alignmentStatus))
           .filter((step) => !step.requiredAdjustment || step.requiredAdjustment === "None")
           .map((step) => step.id);
-        const fillNodesNotOutOfScope = steps
-          .filter((step) => step.group === "Fill")
-          .filter((step) => step.alignmentStatus !== "out-of-scope")
-          .map((step) => step.id);
-        const sharedModelMissingFutureConsumer = !String(stepById.get("shared-model")?.latestRule ?? "")
+        const sharedModelMissingFutureConsumer = !String(stepById.get("shared-geometry-model")?.latestRule ?? "")
           .toLowerCase()
           .includes("future shadow");
         const criticalStepsWithoutEvidence = steps
@@ -925,7 +943,6 @@
           missingEvidenceFields.length ||
           invalidAlignmentStatuses.length ||
           mismatchOrBlockerWithoutAdjustment.length ||
-          fillNodesNotOutOfScope.length ||
           sharedModelMissingFutureConsumer ||
           criticalStepsWithoutEvidence.length
         ) {
@@ -937,7 +954,6 @@
             missingEvidenceFields,
             invalidAlignmentStatuses,
             mismatchOrBlockerWithoutAdjustment,
-            fillNodesNotOutOfScope,
             sharedModelMissingFutureConsumer,
             criticalStepsWithoutEvidence
           });
