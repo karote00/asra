@@ -1,0 +1,13 @@
+{
+  "width": 1400,
+  "height": 1100,
+  "redPixelCount": 26844,
+  "legalRedPixelCount": 26844,
+  "outsideRedPixelCount": 0,
+  "darkOverdrawPixelCount": 1,
+  "maxDarkOverdrawComponentArea": 1,
+  "darkOverdrawComponentAreas": [],
+  "maxOutsideComponentArea": 0,
+  "outsideComponentAreas": [],
+  "sourcePathPacketCount": 56
+}

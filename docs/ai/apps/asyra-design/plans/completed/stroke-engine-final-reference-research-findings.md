@@ -241,14 +241,14 @@ Findings:
 Asyra decision:
 
 - Constrained dashed `inside/outside` on self-intersecting closed paths is not
-  exact until planar arrangement can split intersections, classify legal faces,
-  and collapse duplicate semantic regions.
-- The runtime may keep the authored side visible through deterministic
-  local-side approximation packets, but only when every packet is explicitly
-  marked `sourceTopology: "self-intersecting"` and
-  `resolutionStatus: "local-side-approximation"`.
-- This visibility path is not a center fallback, is not exact support, and must
-  not be promoted to exact without the arrangement/face-collapse stage.
+  supported until planar arrangement can split intersections, classify
+  even-odd legal faces, and derive legal-region boundary contours.
+- The current product target is Figma-like boundary-contour stroke: fill uses
+  legal regions; inside/outside stroke uses boundary contours between legal and
+  illegal/exterior faces, including hole boundaries.
+- The earlier authored-side local-side approximation is retained only as
+  historical context for previous debugging and is not the current product
+  support contract.
 - Figma half-dash endpoint behavior is documented as a product divergence.
   Open center-equivalent dashed geometry uses the same true arc-length pattern
   allocator as closed-loop and constrained dashed families.
@@ -619,12 +619,10 @@ Finding:
 
 Asyra decision:
 
-- Current local-side approximation visibility may remain as a non-exact
-  supported visibility slice only when packets are explicitly marked
-  `resolutionStatus: "local-side-approximation"`.
-- Exact support requires matching the filled-component semantics through source
-  arrangement, legal-domain classification, interval ownership, and duplicate
-  region collapse.
+- Current support target requires matching the filled-component semantics
+  through source arrangement, even-odd legal-region classification,
+  boundary-contour derivation, interval ownership, and duplicate region
+  collapse where needed.
 - Any test promoted to exact support must compare semantic filled components or
   face-level coverage, not only "something is visible".
 
@@ -653,7 +651,9 @@ Finding:
 
 Asyra decision:
 
-- Inside/outside self-intersecting dashed paths must preserve the authored side.
+- Inside/outside self-intersecting dashed paths must preserve the Figma-like
+  boundary-contour side: inside toward the legal face, outside toward the
+  opposite face.
 - Center fallback is forbidden.
 - Exact support must run separate inside and outside legality/ownership
   classification and may not assume the component cardinality is identical

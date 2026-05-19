@@ -1,6 +1,8 @@
 import { Container, Graphics } from 'pixi.js'
 import {
+  createRenderGradientFillStyle,
   createMeshProjection,
+  type CreateRenderGradientFillOptions,
   type GeometryModel,
   type MeshProjection,
   type RenderFillStyle
@@ -18,6 +20,13 @@ interface Vec2 {
   y: number
 }
 
+interface Bounds {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+}
+
 export interface SolidCenterStrokeRenderEntry {
   cacheKey: string
   stroke: Pick<
@@ -25,6 +34,14 @@ export interface SolidCenterStrokeRenderEntry {
     'kind' | 'color' | 'alpha' | 'gradientStyle' | 'paintKey'
   >
   polygons: Vec2[][]
+  fillPolygons?: Vec2[][]
+  clipPolygons?: Vec2[][]
+  strokePaths?: Vec2[][]
+  strokePathStyle?: Pick<
+    RenderableStroke,
+    'width' | 'cap' | 'join' | 'miterLimit'
+  >
+  paintBounds?: Bounds
   debugMeta?: SolidCenterStrokeGeometryDebugMeta
   preferSolidGraphics?: boolean
   revisionSet?: StrokeRevisionSet
@@ -140,33 +157,123 @@ const getRevisionGeometrySignature = (
         revisionSet.strokeSpecRevision,
         revisionSet.intervalAllocationRevision,
         revisionSet.topologyClassificationRevision,
+        revisionSet.candidateRevision ?? '',
+        revisionSet.arrangementRevision ?? '',
         revisionSet.ownershipRevision,
         revisionSet.legalityRevision,
+        revisionSet.resolvedRegionRevision ?? '',
         revisionSet.previewModeRevision
       ].join('|')
     : null
 
 const drawPolygons = (graphics: Graphics, polygons: Vec2[][]) => {
   polygons.forEach((polygon) => {
-    const flatPolygon = new Array<number>(polygon.length * 2)
-    for (let index = 0; index < polygon.length; index += 1) {
-      const point = polygon[index]
-      const flatIndex = index * 2
-      flatPolygon[flatIndex] = point.x
-      flatPolygon[flatIndex + 1] = point.y
+    drawPolygon(graphics, polygon)
+  })
+}
+
+const drawPolygon = (graphics: Graphics, polygon: Vec2[]) => {
+  const flatPolygon = new Array<number>(polygon.length * 2)
+  for (let index = 0; index < polygon.length; index += 1) {
+    const point = polygon[index]
+    const flatIndex = index * 2
+    flatPolygon[flatIndex] = point.x
+    flatPolygon[flatIndex + 1] = point.y
+  }
+  graphics.poly(flatPolygon)
+}
+
+const drawStrokePaths = (
+  graphics: Graphics,
+  paths: Vec2[][],
+  style: Pick<RenderableStroke, 'width' | 'cap' | 'join' | 'miterLimit'>,
+  color: number,
+  alpha: number
+) => {
+  let hasPath = false
+
+  paths.forEach((path) => {
+    if (path.length < 2) {
+      return
     }
-    graphics.poly(flatPolygon)
+
+    const first = path[0]
+    graphics.moveTo(first.x, first.y)
+    for (let index = 1; index < path.length; index += 1) {
+      const point = path[index]
+      graphics.lineTo(point.x, point.y)
+    }
+    hasPath = true
+  })
+
+  if (!hasPath) {
+    return
+  }
+
+  graphics.stroke({
+    color,
+    alpha,
+    width: style.width,
+    cap: style.cap === 'none' ? 'butt' : style.cap,
+    join: style.join,
+    miterLimit: style.miterLimit
+  })
+}
+
+type PaintDomainGradientStyle = RenderFillStyle & {
+  __asyraGradientOptions?: CreateRenderGradientFillOptions
+}
+
+const scaleGradientPointToBounds = (
+  point: { x: number; y: number } | undefined,
+  bounds: Bounds
+) => {
+  if (!point) {
+    return undefined
+  }
+
+  return {
+    x: bounds.minX + point.x * (bounds.maxX - bounds.minX),
+    y: bounds.minY + point.y * (bounds.maxY - bounds.minY)
+  }
+}
+
+const resolvePaintBoundsGradientStyle = (
+  style: RenderFillStyle,
+  paintBounds?: Bounds
+): RenderFillStyle => {
+  const gradientOptions = (style as PaintDomainGradientStyle)
+    .__asyraGradientOptions
+  if (!paintBounds || !gradientOptions) {
+    return style
+  }
+
+  return createRenderGradientFillStyle({
+    ...gradientOptions,
+    start: scaleGradientPointToBounds(gradientOptions.start, paintBounds),
+    end: scaleGradientPointToBounds(gradientOptions.end, paintBounds),
+    center: scaleGradientPointToBounds(gradientOptions.center, paintBounds),
+    outerCenter: scaleGradientPointToBounds(
+      gradientOptions.outerCenter,
+      paintBounds
+    )
   })
 }
 
 const applyGradientPaint = (
   graphics: Graphics,
   polygons: Vec2[][],
-  style: RenderFillStyle
+  style: RenderFillStyle,
+  paintBounds?: Bounds
 ) => {
   graphics.clear()
+  graphics.mask = null
   drawPolygons(graphics, polygons)
-  graphics.fill(style as Parameters<Graphics['fill']>[0])
+  graphics.fill(
+    resolvePaintBoundsGradientStyle(style, paintBounds) as Parameters<
+      Graphics['fill']
+    >[0]
+  )
 }
 
 const getPolygonBounds = (polygons: Vec2[][]) => {
@@ -201,9 +308,17 @@ const applyMaskedSolidPaint = (
   mask: Graphics,
   polygons: Vec2[][],
   color: number,
-  alpha: number
+  alpha: number,
+  fillPolygons?: Vec2[][],
+  clipPolygons?: Vec2[][],
+  strokePaths?: Vec2[][],
+  strokePathStyle?: Pick<
+    RenderableStroke,
+    'width' | 'cap' | 'join' | 'miterLimit'
+  >
 ) => {
-  const bounds = getPolygonBounds(polygons)
+  const maskPolygons = clipPolygons ?? polygons
+  const bounds = getPolygonBounds(maskPolygons)
   fill.clear()
   mask.clear()
 
@@ -211,17 +326,36 @@ const applyMaskedSolidPaint = (
     return
   }
 
-  fill
-    .rect(
-      bounds.minX,
-      bounds.minY,
-      Math.max(1e-6, bounds.maxX - bounds.minX),
-      Math.max(1e-6, bounds.maxY - bounds.minY)
-    )
-    .fill({ color, alpha })
+  const hasFillPolygons = fillPolygons && fillPolygons.length > 0
+  const hasStrokePaths =
+    strokePaths && strokePaths.length > 0 && strokePathStyle
 
-  drawPolygons(mask, polygons)
-  mask.fill({ color: 0xffffff, alpha: 1 })
+  if (hasFillPolygons) {
+    drawPolygons(fill, fillPolygons)
+    fill.fill({ color, alpha })
+    fill.beginPath()
+  } else if (!hasStrokePaths) {
+    fill
+      .rect(
+        bounds.minX,
+        bounds.minY,
+        Math.max(1e-6, bounds.maxX - bounds.minX),
+        Math.max(1e-6, bounds.maxY - bounds.minY)
+      )
+      .fill({ color, alpha })
+  }
+
+  if (hasStrokePaths) {
+    drawStrokePaths(fill, strokePaths, strokePathStyle, color, alpha)
+  }
+
+  maskPolygons.forEach((polygon) => {
+    if (polygon.length < 3) {
+      return
+    }
+    drawPolygon(mask, polygon)
+    mask.fill({ color: 0xffffff, alpha: 1 })
+  })
   fill.mask = mask
 }
 
@@ -232,8 +366,13 @@ const applySolidGraphicsPaint = (
   alpha: number
 ) => {
   graphics.clear()
-  drawPolygons(graphics, polygons)
-  graphics.fill({ color, alpha })
+  polygons.forEach((polygon) => {
+    if (polygon.length < 3) {
+      return
+    }
+    drawPolygon(graphics, polygon)
+    graphics.fill({ color, alpha })
+  })
 }
 
 const disposeCacheEntry = (
@@ -285,9 +424,14 @@ const hasPaintDirtyKey = (dirtyKeys: StrokeDirtyKey[] | null) =>
   dirtyKeys === null || dirtyKeys.includes('paint-payload')
 
 const shouldRenderSolidWithMask = (entry: SolidCenterStrokeRenderEntry) =>
-  entry.debugMeta?.geometryFamily === 'solid-center' &&
-  entry.debugMeta?.sourceTopology === 'self-intersecting' &&
-  entry.debugMeta?.visualOverlapCollapseStatus === 'exact-union'
+  (entry.debugMeta?.geometryFamily === 'solid-center' &&
+    entry.debugMeta?.sourceTopology === 'self-intersecting' &&
+    entry.debugMeta?.visualOverlapCollapseStatus === 'exact-union') ||
+  (entry.clipPolygons !== undefined && entry.clipPolygons.length > 0) ||
+  (entry.fillPolygons !== undefined && entry.fillPolygons.length > 0) ||
+  (entry.strokePaths !== undefined &&
+    entry.strokePaths.length > 0 &&
+    entry.strokePathStyle !== undefined)
 
 const shouldRenderDragVisualWithGraphics = (
   entry: SolidCenterStrokeRenderEntry
@@ -335,12 +479,14 @@ export const renderSolidCenterStrokeEntries = (
     const geometryDirty = hasGeometryDirtyKey(dirtyKeys)
     const paintDirty = hasPaintDirtyKey(dirtyKeys)
     const strokeKind = entry.stroke.kind ?? 'solid'
-    const targetCacheKind = shouldRenderDragVisualWithGraphics(entry)
-      ? 'drag-solid-graphics'
-      : entry.preferSolidGraphics === true && strokeKind === 'solid'
-        ? 'solid-graphics'
-        : strokeKind === 'solid' && shouldRenderSolidWithMask(entry)
-          ? 'masked-solid'
+    const shouldUseMaskedSolid =
+      strokeKind === 'solid' && shouldRenderSolidWithMask(entry)
+    const targetCacheKind = shouldUseMaskedSolid
+      ? 'masked-solid'
+      : shouldRenderDragVisualWithGraphics(entry)
+        ? 'drag-solid-graphics'
+        : entry.preferSolidGraphics === true && strokeKind === 'solid'
+          ? 'solid-graphics'
           : strokeKind
     const paintKey =
       entry.stroke.paintKey ??
@@ -375,7 +521,8 @@ export const renderSolidCenterStrokeEntries = (
             applyGradientPaint(
               compatibleEntry.graphics,
               polygons,
-              gradientStyle
+              gradientStyle,
+              entry.paintBounds
             )
           }
         } else if (compatibleEntry.kind === 'masked-solid') {
@@ -384,7 +531,11 @@ export const renderSolidCenterStrokeEntries = (
             compatibleEntry.mask,
             polygons,
             entry.stroke.color,
-            entry.stroke.alpha
+            entry.stroke.alpha,
+            entry.fillPolygons,
+            entry.clipPolygons,
+            entry.strokePaths,
+            entry.strokePathStyle
           )
         } else if (isSolidGraphicsCacheEntry(compatibleEntry)) {
           applySolidGraphicsPaint(
@@ -470,7 +621,11 @@ export const renderSolidCenterStrokeEntries = (
           compatibleEntry.mask,
           polygons,
           entry.stroke.color,
-          entry.stroke.alpha
+          entry.stroke.alpha,
+          entry.fillPolygons,
+          entry.clipPolygons,
+          entry.strokePaths,
+          entry.strokePathStyle
         )
         compatibleEntry.signature = signature
         compatibleEntry.paintKey = paintKey
@@ -491,7 +646,11 @@ export const renderSolidCenterStrokeEntries = (
         mask,
         polygons,
         entry.stroke.color,
-        entry.stroke.alpha
+        entry.stroke.alpha,
+        entry.fillPolygons,
+        entry.clipPolygons,
+        entry.strokePaths,
+        entry.strokePathStyle
       )
 
       if (!graphic.addChild(container)) {
@@ -614,7 +773,12 @@ export const renderSolidCenterStrokeEntries = (
           compatibleEntry.signature !== signature ||
           compatibleEntry.paintKey !== paintKey)
       ) {
-        applyGradientPaint(compatibleEntry.graphics, polygons, gradientStyle)
+        applyGradientPaint(
+          compatibleEntry.graphics,
+          polygons,
+          gradientStyle,
+          entry.paintBounds
+        )
         compatibleEntry.signature = signature
         compatibleEntry.paintKey = paintKey
         compatibleEntry.revisionSet = revisionSet
@@ -627,7 +791,12 @@ export const renderSolidCenterStrokeEntries = (
       const container = new Container()
       const gradientGraphic = new Graphics()
       container.addChild(gradientGraphic)
-      applyGradientPaint(gradientGraphic, polygons, gradientStyle)
+      applyGradientPaint(
+        gradientGraphic,
+        polygons,
+        gradientStyle,
+        entry.paintBounds
+      )
 
       if (!graphic.addChild(container)) {
         container.destroy()

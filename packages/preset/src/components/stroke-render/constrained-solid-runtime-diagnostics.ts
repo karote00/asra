@@ -1,4 +1,9 @@
 import type { PathTopologyModel } from './path-topology-model'
+import {
+  buildStrokeRuntimeDiagnosticBranch,
+  type StrokeRuntimeDiagnosticBranch,
+  type StrokeRuntimeDiagnosticDirtyStageTrace
+} from './stroke-runtime-diagnostics'
 
 export type ConstrainedSolidRuntimeStatus = 'accepted' | 'blocked'
 
@@ -17,6 +22,13 @@ export interface ConstrainedSolidRuntimeDiagnosticEntry {
   candidatePacketCount: number
   topologyFamily: PathTopologyModel['topologyFamily']
   closed: boolean
+  branchId?: string
+  ownerSet?: string[]
+  primaryOwner?: string
+  ownershipStatus?: string
+  legalDomainIds?: string[]
+  sourceContourIds?: string[]
+  dirtyStageTrace?: Partial<StrokeRuntimeDiagnosticDirtyStageTrace>
 }
 
 export interface ConstrainedSolidRuntimeDiagnostics {
@@ -24,6 +36,7 @@ export interface ConstrainedSolidRuntimeDiagnostics {
   acceptedCount: number
   blockedCount: number
   topologyFamilies: PathTopologyModel['topologyFamily'][]
+  branches: StrokeRuntimeDiagnosticBranch[]
 }
 
 export interface ConstrainedSolidRuntimeDiagnosticsGraphic {
@@ -36,7 +49,35 @@ export const buildConstrainedSolidRuntimeDiagnostics = (
   entries,
   acceptedCount: entries.filter((entry) => entry.status === 'accepted').length,
   blockedCount: entries.filter((entry) => entry.status === 'blocked').length,
-  topologyFamilies: [...new Set(entries.map((entry) => entry.topologyFamily))]
+  topologyFamilies: [...new Set(entries.map((entry) => entry.topologyFamily))],
+  branches: entries.map((entry) =>
+    buildStrokeRuntimeDiagnosticBranch({
+      branchId:
+        entry.branchId ??
+        `product:constrained-solid:${entry.sourceId}:${entry.networkId ?? 'all-networks'}`,
+      supportState: entry.status,
+      blockedReason: entry.status === 'blocked' ? entry.reason : null,
+      ownerProvenance: {
+        primaryOwner: entry.primaryOwner,
+        ownerSet: entry.ownerSet ?? [],
+        ownershipStatus: entry.ownershipStatus,
+        ownerCount: entry.ownerSet?.length ?? 0
+      },
+      legalDomainProvenance: {
+        legalDomainIds: entry.legalDomainIds ?? [],
+        sourceContourIds: entry.sourceContourIds ?? []
+      },
+      dirtyStageTrace: entry.dirtyStageTrace,
+      evidence: {
+        sourceId: entry.sourceId,
+        networkId: entry.networkId,
+        topologyFamily: entry.topologyFamily,
+        closed: entry.closed,
+        candidatePacketCount: entry.candidatePacketCount,
+        branchKind: 'product'
+      }
+    })
+  )
 })
 
 export const setConstrainedSolidRuntimeDiagnostics = <T extends object>(

@@ -205,9 +205,9 @@ Current implementation checkpoint:
   be advanced to `accepted` before product render/hit/export emission
 - unsupported exact constrained dashed arrangement must not make the object
   disappear. If the authored stroke is `inside` or `outside`, the product
-  render/hit/export path must keep that constrained side and may emit
-  deterministic local-side approximation packets marked
-  `resolutionStatus: "local-side-approximation"`.
+  render/hit/export path must keep that constrained side. For self-intersecting
+  closed paths, the side source is the even-odd legal-region boundary contour
+  model; authored-side local-side approximation is not the support contract.
 - center-derived substitute packets are not allowed for closed authored
   `inside/outside` constrained product output. For open paths, center-equivalent
   geometry is canonical product behavior even when the authored stroke position
@@ -216,11 +216,11 @@ Current implementation checkpoint:
   center-based `strokeGeometry` view. It is not an oracle for closed
   inside/outside product geometry; closed constrained appearance must come from
   resolved stroke packets or outline-style geometry.
-- self-intersecting constrained dashed `inside/outside` packets remain visible
-  as explicitly marked local-side approximation product geometry. They must not
-  be promoted through exact arrangement until the exact clipping oracle preserves
-  valid internal dash regions; a selected backend must not make these dashes
-  disappear.
+- self-intersecting constrained dashed `inside/outside` packets are represented
+  as boundary-contour product geometry. Packet metadata must preserve contour
+  id, source provenance, legal-side face id, opposite-face id, interval id, and
+  stroke ownership so render, hit-test, export, diagnostics, and future shadow
+  projection consume the same contour truth.
 - sampled-simple-closed constrained dashed interval-local packets follow the
   same rule: with a selected exact backend they may promote to exact
   arrangement metadata; without it they remain local-side approximation. Real
@@ -397,9 +397,11 @@ Current checkpoint:
   debug metadata. Any downstream bridge that rebuilds `FinalFace[]` from these
   packets must restore the full sets instead of deriving a single owner from
   primary packet fields.
-- when no exact backend is selected, constrained dashed product output may
-  remain an explicitly marked `local-side-approximation`; it must preserve the
-  authored `inside` / `outside` side and must not fallback to center.
+- when no exact backend is selected, non-self-intersecting constrained dashed
+  product output may remain an explicitly marked `local-side-approximation`;
+  it must preserve the authored `inside` / `outside` side and must not fallback
+  to center. Self-intersecting constrained dashed `inside/outside` output must
+  use the boundary-contour model before support can be claimed.
 - local-side constrained dashed interval output emits one packet per dash
   interval. The packet may contain multiple bounded segment-cell polygons when
   a merged ribbon would self-intersect at high curvature. These cells are

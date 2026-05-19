@@ -55,6 +55,7 @@ export interface PathTopologyModel {
   sourceId: string
   networkId: string
   revision: string
+  sourceRevision: string
   sourceFamily: PathTopologySourceFamily
   topologyFamily: PathTopologyFamily
   fillRule: PathTopologyFillRule
@@ -68,6 +69,13 @@ export interface PathTopologyModel {
   contours: PathTopologyContour[]
   intersectionDescriptors: { kind: 'self-intersection' }[]
   legalDomains: PathTopologyLegalDomainDescriptor[]
+  legalDomainDescriptors: PathTopologyLegalDomainDescriptor[]
+  metadata: {
+    pointCount: number
+    segmentCount: number
+    contourCount: number
+    legalDomainCount: number
+  }
 }
 
 export interface CompoundLegalDomainClassification {
@@ -84,6 +92,7 @@ export interface BuildPathTopologyModelInput {
   pathId: string
   sourceId?: string
   networkId?: string
+  sourceRevision?: string
   sourceFamily?: PathTopologySourceFamily
   fillRule?: PathTopologyFillRule | null
   points: Vec2[]
@@ -178,6 +187,7 @@ export const buildPathTopologyModel = ({
   pathId,
   sourceId = pathId,
   networkId = 'default',
+  sourceRevision,
   sourceFamily = 'unknown',
   fillRule,
   points,
@@ -185,6 +195,11 @@ export const buildPathTopologyModel = ({
 }: BuildPathTopologyModelInput): PathTopologyModel => {
   const normalizedFillRule = normalizePathTopologyFillRule(fillRule)
   const normalizedPoints = normalizeTopologyPoints(points, closed)
+  const topologyRevision = getTopologyRevision(
+    normalizedPoints,
+    closed,
+    normalizedFillRule
+  )
   const totalLength = getTopologyLength(normalizedPoints, closed)
   const simpleClosed =
     closed && normalizedPoints.length >= 3
@@ -231,12 +246,39 @@ export const buildPathTopologyModel = ({
       ]
     }
   )
+  const contours: PathTopologyContour[] = [
+    {
+      contourId: `${pathId}:contour:0`,
+      role: closed ? 'shell' : 'open',
+      networkId,
+      orientation: closed ? (area >= 0 ? 'ccw' : 'cw') : 'none-for-open',
+      isClosed: closed,
+      nestingDepth: 0,
+      legalDomainId,
+      arcLength: totalLength,
+      vertices: normalizedPoints,
+      segments,
+      samples: normalizedPoints
+    }
+  ]
+  const legalDomains: PathTopologyLegalDomainDescriptor[] = legalDomainId
+    ? [
+        {
+          legalDomainId,
+          role: 'shell',
+          fillRule: normalizedFillRule,
+          fillRuleBasis: normalizedFillRule,
+          contourIds: [`${pathId}:contour:0`]
+        }
+      ]
+    : []
 
   return {
     pathId,
     sourceId,
     networkId,
-    revision: getTopologyRevision(normalizedPoints, closed, normalizedFillRule),
+    revision: topologyRevision,
+    sourceRevision: sourceRevision ?? topologyRevision,
     sourceFamily,
     topologyFamily,
     fillRule: normalizedFillRule,
@@ -247,36 +289,19 @@ export const buildPathTopologyModel = ({
     totalLength,
     isSimpleClosed: simpleClosed,
     isSimpleOpen: simpleOpen,
-    contours: [
-      {
-        contourId: `${pathId}:contour:0`,
-        role: closed ? 'shell' : 'open',
-        networkId,
-        orientation: closed ? (area >= 0 ? 'ccw' : 'cw') : 'none-for-open',
-        isClosed: closed,
-        nestingDepth: 0,
-        legalDomainId,
-        arcLength: totalLength,
-        vertices: normalizedPoints,
-        segments,
-        samples: normalizedPoints
-      }
-    ],
+    contours,
     intersectionDescriptors:
       topologyFamily === 'self-intersecting' || (!closed && !simpleOpen)
         ? [{ kind: 'self-intersection' }]
         : [],
-    legalDomains: legalDomainId
-      ? [
-          {
-            legalDomainId,
-            role: 'shell',
-            fillRule: normalizedFillRule,
-            fillRuleBasis: normalizedFillRule,
-            contourIds: [`${pathId}:contour:0`]
-          }
-        ]
-      : []
+    legalDomains,
+    legalDomainDescriptors: legalDomains,
+    metadata: {
+      pointCount: normalizedPoints.length,
+      segmentCount: segments.length,
+      contourCount: contours.length,
+      legalDomainCount: legalDomains.length
+    }
   }
 }
 

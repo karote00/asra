@@ -191,6 +191,7 @@ export const assertVectorTopologyConsistency = (
           `Network ${networkId} missing segment for index ${index}.`,
           label
         )
+        return
       }
       if (segment.startId !== pair.startId || segment.endId !== pair.endId) {
         throwTopologyError(

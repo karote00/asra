@@ -9,6 +9,8 @@ The final engine must support:
 
 - one canonical authored stroke model
 - one canonical path-topology model
+- one canonical resolved vector geometry model shared by fill, stroke, and
+  shadow
 - one canonical interval-allocation model
 - one canonical ownership and legality model
 - one canonical resolved-region packet family
@@ -182,9 +184,12 @@ Forbidden schema shortcuts:
 
 This model must be reusable by:
 
+- fill region emission
 - center stroke packets
 - constrained stroke packets
 - dashed interval allocation
+- self-intersecting inside/outside stroke boundary-contour generation
+- shadow geometry projection
 - hit-testing
 - export
 - diagnostics
@@ -270,15 +275,13 @@ Current supported paint implementation checkpoint:
 - open paths must not emit constrained solid/dashed runtime diagnostics solely
   because the authored stroke position is `inside` or `outside`.
 - closed self-intersecting constrained dashed `inside/outside` packets are
-  emitted as product local-side approximation geometry even when an exact
-  arrangement backend is selected. Exact promotion is disabled for this topology
-  until legal-domain clipping preserves valid internal dash regions. These
-  packets keep
-  `geometryFamily: "constrained-dashed"`,
-  `sourceTopology: "self-intersecting"`,
-  `resolutionStatus: "local-side-approximation"`, and typed metadata through
-  render, hit-test, and export. They must not be converted to center dashed
-  geometry.
+  defined as Figma-like even-odd boundary-contour geometry. Product packets must
+  be emitted from legal-region boundary contours, including hole boundaries.
+  Fill consumes legal regions from the shared geometry model; stroke consumes
+  boundary contours from the same model; center stroke remains centerline based.
+  These packets must keep typed provenance metadata through render, hit-test,
+  and export. They must not be converted to center dashed geometry and must not
+  use authored-side local-side approximation as a support claim.
 - sampled-simple-closed constrained dashed interval-local packets preserve
   `sourceTopology: "sampled-simple-closed"` and remain explicit
   `local-side-approximation` when their packet metadata says the current
@@ -307,9 +310,10 @@ Current supported paint implementation checkpoint:
 
 Current supported topology gate implementation checkpoint:
 
-- self-intersecting constrained dashed paths use local-side approximation even
-  when an exact backend is selected; promotion is gated until legal-domain
-  clipping preserves valid internal dash regions
+- self-intersecting constrained dashed `inside/outside` paths use even-odd
+  legal-region boundary contours. Support is implementation-in-progress until
+  rule-driven contour model, direction, hole-boundary coverage, product visual,
+  drag/full equivalence, and inside/outside browser visual gates pass.
 - sampled-simple-closed interval-local constrained dashed paths use local-side
   approximation when their packet metadata reports
   `resolutionStatus: "local-side-approximation"`; promotion is gated until the

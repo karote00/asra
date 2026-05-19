@@ -20,6 +20,7 @@ import {
   type PathSegment
 } from './path-geometry'
 import { buildClosedConstrainedStrokePolygonEntriesForSource } from './constrained-solid-stroke-geometry'
+import { resolveOneSidedCandidateFlow } from './stroke-candidate-flow'
 import {
   isSimpleClosedPolygon,
   polygonArea
@@ -2067,7 +2068,7 @@ const buildSourcePathSmoothJoinCandidateRecords = (
   })
 }
 
-const buildExactArrangementCandidatePolygons = (
+export const buildExactArrangementCandidatePolygons = (
   topologyPoints: Vec2[],
   closed: boolean,
   stroke: ReturnType<typeof getRenderableStrokes>[number],
@@ -2236,10 +2237,15 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
 
   if (!topology.closed) {
     const centerEquivalentStrokes = strokes?.map((stroke) => {
+      const candidateFlow = resolveOneSidedCandidateFlow({
+        closed: topology.closed,
+        topologyFamily: topology.topologyFamily,
+        stroke
+      })
       if (
         stroke.visible !== false &&
         stroke.style === 'solid' &&
-        (stroke.position === 'inside' || stroke.position === 'outside')
+        candidateFlow.mode === 'center-equivalent'
       ) {
         return {
           ...stroke,

@@ -34,6 +34,8 @@ import {
   createClipper2GeometryBackend,
   type Clipper2Module
 } from '../components/stroke-render/clipper2-geometry-backend'
+import { buildVectorGeometryModelPath } from '../components/stroke-render/path-geometry'
+import { buildPathTopologyModel } from '../components/stroke-render/path-topology-model'
 
 const UNSUPPORTED_BACKEND_ID = 'unsupported-exact-geometry-backend'
 const require = createRequire(import.meta.url)
@@ -176,6 +178,17 @@ class RecordingVectorGraphic extends Container {
     acceptedCount: number
     blockedCount: number
     sourceTopologies: string[]
+    branches: {
+      branchId: string
+      supportState: string
+      blockedReason: string | null
+      ownerProvenance: { ownerSet: string[] }
+      legalDomainProvenance: {
+        legalDomainIds: string[]
+        sourceContourIds: string[]
+      }
+      dirtyStageTrace: { changedRevisionKeys: string[]; dirtyKeys: string[] }
+    }[]
     arrangementDiagnostics?: ConstrainedSolidOwnershipDiagnostics
   }
   hitArea?: { contains: (x: number, y: number) => boolean } | null
@@ -223,6 +236,17 @@ class RecordingShapeGraphic extends Container {
     acceptedCount: number
     blockedCount: number
     sourceTopologies: string[]
+    branches: {
+      branchId: string
+      supportState: string
+      blockedReason: string | null
+      ownerProvenance: { ownerSet: string[] }
+      legalDomainProvenance: {
+        legalDomainIds: string[]
+        sourceContourIds: string[]
+      }
+      dirtyStageTrace: { changedRevisionKeys: string[]; dirtyKeys: string[] }
+    }[]
     arrangementDiagnostics?: ConstrainedSolidOwnershipDiagnostics
   }
   hitArea?: { contains: (x: number, y: number) => boolean } | null
@@ -340,6 +364,39 @@ const buildPacketGeometrySignature = (
     )
     .sort()
     .join('||')
+
+const getExportPacketAggregateBounds = (
+  packets: SolidCenterStrokeExportPacket[]
+) => ({
+  minX: Math.min(...packets.map((packet) => packet.bounds.minX)),
+  minY: Math.min(...packets.map((packet) => packet.bounds.minY)),
+  maxX: Math.max(...packets.map((packet) => packet.bounds.maxX)),
+  maxY: Math.max(...packets.map((packet) => packet.bounds.maxY))
+})
+
+const isSelfIntersectingInsideDashedSourcePathPacket = (
+  packet: SolidCenterStrokeExportPacket
+) =>
+  packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
+  packet.debugMeta?.sourceTopology === 'self-intersecting' &&
+  packet.debugMeta?.strokePosition === 'inside' &&
+  packet.debugMeta?.runtimeStatus === 'accepted' &&
+  packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
+  typeof packet.debugMeta.intervalId === 'string' &&
+  packet.debugMeta.intervalId.startsWith('interval:') &&
+  packet.intervalIds.every((intervalId) => intervalId.startsWith('interval:'))
+
+const isSelfIntersectingOutsideDashedSourcePathPacket = (
+  packet: SolidCenterStrokeExportPacket
+) =>
+  packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
+  packet.debugMeta?.sourceTopology === 'self-intersecting' &&
+  packet.debugMeta?.strokePosition === 'outside' &&
+  packet.debugMeta?.runtimeStatus === 'accepted' &&
+  packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
+  typeof packet.debugMeta.intervalId === 'string' &&
+  packet.debugMeta.intervalId.startsWith('interval:') &&
+  packet.intervalIds.every((intervalId) => intervalId.startsWith('interval:'))
 
 interface TestAnchorPoint {
   id: string
@@ -771,14 +828,33 @@ const getProjectionMeshes = (host: Container) =>
 
 const getProjectionGraphics = (host: Container) =>
   host.children.flatMap((child) => {
+    if (child instanceof Graphics) {
+      return (child as Graphics & { __asyraStrokeGradientMask?: boolean })
+        .__asyraStrokeGradientMask
+        ? []
+        : [child]
+    }
+
     if (!(child instanceof Container)) {
       return []
     }
 
     return child.children.filter(
-      (grandchild): grandchild is Graphics => grandchild instanceof Graphics
+      (grandchild): grandchild is Graphics =>
+        grandchild instanceof Graphics &&
+        !(grandchild as Graphics & { __asyraStrokeGradientMask?: boolean })
+          .__asyraStrokeGradientMask
     )
   })
+
+const getStrokeMeshCacheKinds = (host: Container) =>
+  Array.from(
+    (
+      host as typeof host & {
+        __asyraStrokeMeshCache?: Map<string, { kind?: string }>
+      }
+    ).__asyraStrokeMeshCache?.values() ?? []
+  ).map((entry) => entry.kind)
 
 describe('vector constrained dashed stroke product wiring', () => {
   it('should run: render closed inside vectors through the constrained dashed path on the main render path', () => {
@@ -810,12 +886,15 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
+    expect(getProjectionGraphics(graphic).length).toBeGreaterThan(1)
+    expect(exportPackets.length).toBeGreaterThan(1)
     expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds).toEqual({
+      exportPackets.every(
+        (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
+      )
+    ).toBe(true)
+    expect(getExportPacketAggregateBounds(exportPackets)).toEqual({
       minX: 0,
       minY: 0,
       maxX: 40,
@@ -825,11 +904,20 @@ describe('vector constrained dashed stroke product wiring', () => {
     expect(graphic.hitArea?.contains(20, 20)).toBe(false)
   })
 
-  it('should run: promote accepted constrained dashed vector packets through the selected exact arrangement backend', () => {
+  it('should run: promote supported constrained dashed one-sided candidates through exact arrangement', () => {
     const backendId = 'vector-constrained-dashed-arrangement-test-backend'
+    let buildArrangementCallCount = 0
     registerGeometryBackend({
       backendId,
-      load: () => createPassthroughArrangementBackend(backendId)
+      load: () => ({
+        ...createPassthroughArrangementBackend(backendId),
+        buildArrangement: (candidates: CandidateRegion[]) => {
+          buildArrangementCallCount += 1
+          return createPassthroughArrangementBackend(
+            backendId
+          ).buildArrangement(candidates)
+        }
+      })
     })
     selectGeometryBackend(backendId)
 
@@ -861,23 +949,119 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
+    expect(exportPackets.length).toBeGreaterThan(1)
     expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({
-      geometryFamily: 'constrained-dashed',
-      resolutionStatus: 'exact-constrained',
-      runtimeStatus: 'accepted',
-      arrangementStatus: 'exact',
-      arrangementFaceId: `${backendId}:face:0:inside-legal:0`
-    })
+      exportPackets.every(
+        (packet) =>
+          packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
+          packet.debugMeta.resolutionStatus === 'exact-constrained' &&
+          packet.debugMeta.runtimeStatus === 'accepted' &&
+          packet.debugMeta.arrangementStatus === 'exact'
+      )
+    ).toBe(true)
     expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.ownerSet
-    ).toHaveLength(1)
+      exportPackets.every(
+        (packet) =>
+          typeof packet.debugMeta?.arrangementFaceId === 'string' &&
+          (packet.debugMeta.arrangementCandidateIds?.length ?? 0) > 0
+      )
+    ).toBe(true)
+    expect(exportPackets.every((packet) => packet.ownerSet.length === 1)).toBe(
+      true
+    )
+    expect(buildArrangementCallCount).toBe(1)
     expect(graphic.__asyraConstrainedDashedRuntimeDiagnostics).toMatchObject({
       acceptedCount: 1,
       blockedCount: 0
     })
+    expect(
+      graphic.__asyraConstrainedDashedRuntimeDiagnostics?.branches[0]
+    ).toMatchObject({
+      branchId:
+        'product:constrained-dashed:vector:vector-constrained-dashed-exact-arrangement:network-0:network-0',
+      supportState: 'accepted',
+      blockedReason: null,
+      ownerProvenance: {
+        ownerSet: expect.arrayContaining([expect.stringContaining('network-0')])
+      },
+      legalDomainProvenance: {
+        sourceContourIds: expect.arrayContaining([
+          expect.stringContaining('contour')
+        ])
+      },
+      dirtyStageTrace: {
+        changedRevisionKeys: [],
+        dirtyKeys: []
+      }
+    })
+  })
+
+  it('should run: defer gradient constrained dashed exact arrangement until paint attachment owns paint domains', () => {
+    const backendId = 'vector-constrained-dashed-gradient-defer-backend'
+    let buildArrangementCallCount = 0
+    registerGeometryBackend({
+      backendId,
+      load: () => ({
+        ...createPassthroughArrangementBackend(backendId),
+        buildArrangement: (candidates: CandidateRegion[]) => {
+          buildArrangementCallCount += 1
+          return createPassthroughArrangementBackend(
+            backendId
+          ).buildArrangement(candidates)
+        }
+      })
+    })
+    selectGeometryBackend(backendId)
+
+    const graphic = runVectorRenderStrategy({
+      id: 'vector-constrained-dashed-gradient-defer',
+      x: 0,
+      y: 0,
+      width: 80,
+      height: 40,
+      ...toVectorData(
+        [
+          { id: 'a', x: 0, y: 0 },
+          { id: 'b', x: 80, y: 0 },
+          { id: 'c', x: 80, y: 40 },
+          { id: 'd', x: 0, y: 40 }
+        ],
+        true
+      ),
+      closed: true,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          width: 6,
+          style: StrokeStyles.DASHED,
+          position: StrokePositions.INSIDE,
+          dashPattern: [400, 20],
+          dashOffset: 0,
+          kind: FillKinds.GRADIENT,
+          gradient: {
+            ...createDefaultGradientData(),
+            gradientHandles: [
+              { x: 0, y: 0.5 },
+              { x: 1, y: 0.5 }
+            ]
+          }
+        })
+      ]
+    })
+
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
+    expect(exportPackets.length).toBeGreaterThan(1)
+    expect(
+      exportPackets.every(
+        (packet) =>
+          packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
+          packet.debugMeta.resolutionStatus === 'exact-constrained' &&
+          packet.debugMeta.runtimeStatus === 'accepted' &&
+          packet.debugMeta.arrangementStatus === undefined
+      )
+    ).toBe(true)
+    expect(buildArrangementCallCount).toBe(0)
   })
 
   it('should run: render closed rectangle-equivalent vectors through the first supported paint constrained dashed gradient-paint product path', () => {
@@ -917,13 +1101,16 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
     expect(getProjectionMeshes(graphic)).toHaveLength(0)
-    expect(getProjectionGraphics(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+    expect(getProjectionGraphics(graphic).length).toBeGreaterThan(1)
+    expect(exportPackets.length).toBeGreaterThan(1)
     expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds).toEqual({
+      exportPackets.every(
+        (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
+      )
+    ).toBe(true)
+    expect(getExportPacketAggregateBounds(exportPackets)).toEqual({
       minX: 0,
       minY: 0,
       maxX: 80,
@@ -970,13 +1157,16 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
     expect(getProjectionMeshes(graphic)).toHaveLength(0)
-    expect(getProjectionGraphics(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+    expect(getProjectionGraphics(graphic).length).toBeGreaterThan(1)
+    expect(exportPackets.length).toBeGreaterThan(1)
     expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds).toEqual({
+      exportPackets.every(
+        (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
+      )
+    ).toBe(true)
+    expect(getExportPacketAggregateBounds(exportPackets)).toEqual({
       minX: 0,
       minY: 0,
       maxX: 80,
@@ -1023,13 +1213,16 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
     expect(getProjectionMeshes(graphic)).toHaveLength(0)
-    expect(getProjectionGraphics(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+    expect(getProjectionGraphics(graphic).length).toBeGreaterThan(1)
+    expect(exportPackets.length).toBeGreaterThan(1)
     expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds).toEqual({
+      exportPackets.every(
+        (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
+      )
+    ).toBe(true)
+    expect(getExportPacketAggregateBounds(exportPackets)).toEqual({
       minX: -6,
       minY: -6,
       maxX: 86,
@@ -1076,27 +1269,21 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
     expect(getProjectionMeshes(graphic)).toHaveLength(0)
-    expect(getProjectionGraphics(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+    expect(getProjectionGraphics(graphic).length).toBeGreaterThan(1)
+    expect(exportPackets.length).toBeGreaterThan(1)
     expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.minX
-    ).toBeCloseTo(-6, 1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.minY
-    ).toBeCloseTo(-6, 1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxX
-    ).toBeGreaterThan(89)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxX
-    ).toBeLessThan(92)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxY
-    ).toBeCloseTo(46, 1)
+      exportPackets.every(
+        (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
+      )
+    ).toBe(true)
+    const bounds = getExportPacketAggregateBounds(exportPackets)
+    expect(bounds.minX).toBeCloseTo(-6, 1)
+    expect(bounds.minY).toBeCloseTo(-6, 1)
+    expect(bounds.maxX).toBeGreaterThan(89)
+    expect(bounds.maxX).toBeLessThan(92)
+    expect(bounds.maxY).toBeCloseTo(46, 1)
     expect(graphic.hitArea?.contains(-2, 1)).toBe(true)
     expect(graphic.hitArea?.contains(30, 20)).toBe(false)
   })
@@ -1184,12 +1371,15 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
+    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(1)
+    expect(exportPackets.length).toBeGreaterThan(1)
     expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds).toEqual({
+      exportPackets.every(
+        (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
+      )
+    ).toBe(true)
+    expect(getExportPacketAggregateBounds(exportPackets)).toEqual({
       minX: -4,
       minY: -4,
       maxX: 44,
@@ -1229,12 +1419,15 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
+    expect(getProjectionGraphics(graphic).length).toBeGreaterThan(1)
+    expect(exportPackets.length).toBeGreaterThan(1)
     expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds).toEqual({
+      exportPackets.every(
+        (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
+      )
+    ).toBe(true)
+    expect(getExportPacketAggregateBounds(exportPackets)).toEqual({
       minX: 0,
       minY: 0,
       maxX: 80,
@@ -1274,12 +1467,15 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
+    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(1)
+    expect(exportPackets.length).toBeGreaterThan(1)
     expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds).toEqual({
+      exportPackets.every(
+        (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
+      )
+    ).toBe(true)
+    expect(getExportPacketAggregateBounds(exportPackets)).toEqual({
       minX: -6,
       minY: -6,
       maxX: 86,
@@ -2469,12 +2665,15 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
+    expect(getProjectionGraphics(graphic).length).toBeGreaterThan(1)
+    expect(exportPackets.length).toBeGreaterThan(1)
     expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds).toEqual({
+      exportPackets.every(
+        (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
+      )
+    ).toBe(true)
+    expect(getExportPacketAggregateBounds(exportPackets)).toEqual({
       minX: 0,
       minY: 0,
       maxX: 80,
@@ -2514,23 +2713,19 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
+    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(1)
+    expect(exportPackets.length).toBeGreaterThan(1)
     expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.minX
-    ).toBeCloseTo(-4, 6)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.minY
-    ).toBeCloseTo(-4, 6)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxX
-    ).toBeCloseTo(84, 1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxY
-    ).toBeCloseTo(44, 6)
+      exportPackets.every(
+        (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
+      )
+    ).toBe(true)
+    const bounds = getExportPacketAggregateBounds(exportPackets)
+    expect(bounds.minX).toBeCloseTo(-4, 6)
+    expect(bounds.minY).toBeCloseTo(-4, 6)
+    expect(bounds.maxX).toBeCloseTo(84, 1)
+    expect(bounds.maxY).toBeCloseTo(44, 6)
     expect(graphic.hitArea?.contains(-2, 1)).toBe(true)
     expect(graphic.hitArea?.contains(1, 1)).toBe(false)
     expect(graphic.hitArea?.contains(40, 20)).toBe(false)
@@ -2664,12 +2859,15 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
+    expect(getProjectionGraphics(graphic).length).toBeGreaterThan(1)
+    expect(exportPackets.length).toBeGreaterThan(1)
     expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds).toEqual({
+      exportPackets.every(
+        (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
+      )
+    ).toBe(true)
+    expect(getExportPacketAggregateBounds(exportPackets)).toEqual({
       minX: 0,
       minY: 0,
       maxX: 80,
@@ -2708,29 +2906,21 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
+    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(1)
+    expect(exportPackets.length).toBeGreaterThan(1)
     expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.minX
-    ).toBeCloseTo(-4, 1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.minY
-    ).toBeCloseTo(-4, 1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxX
-    ).toBeGreaterThan(84)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxX
-    ).toBeLessThan(88)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxY
-    ).toBeGreaterThan(43)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxY
-    ).toBeLessThan(46)
+      exportPackets.every(
+        (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
+      )
+    ).toBe(true)
+    const bounds = getExportPacketAggregateBounds(exportPackets)
+    expect(bounds.minX).toBeCloseTo(-4, 1)
+    expect(bounds.minY).toBeCloseTo(-4, 1)
+    expect(bounds.maxX).toBeGreaterThan(84)
+    expect(bounds.maxX).toBeLessThan(88)
+    expect(bounds.maxY).toBeGreaterThan(43)
+    expect(bounds.maxY).toBeLessThan(46)
     expect(graphic.hitArea?.contains(-1, 1)).toBe(true)
     expect(graphic.hitArea?.contains(40, 20)).toBe(false)
   })
@@ -2825,7 +3015,10 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(0)
+    expect(
+      getProjectionMeshes(graphic).length +
+        getProjectionGraphics(graphic).length
+    ).toBeGreaterThan(0)
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.length
     ).toBeGreaterThan(0)
@@ -3151,9 +3344,18 @@ describe('vector constrained dashed stroke product wiring', () => {
 
   it('should run: keep high-curvature sampled-simple local-side constrained dashed vectors local when a backend is selected', () => {
     const backendId = 'vector-constrained-dashed-high-curvature-exact-backend'
+    let buildArrangementCallCount = 0
     registerGeometryBackend({
       backendId,
-      load: () => createPassthroughArrangementBackend(backendId)
+      load: () => ({
+        ...createPassthroughArrangementBackend(backendId),
+        buildArrangement: (candidates: CandidateRegion[]) => {
+          buildArrangementCallCount += 1
+          return createPassthroughArrangementBackend(
+            backendId
+          ).buildArrangement(candidates)
+        }
+      })
     })
     selectGeometryBackend(backendId)
 
@@ -3192,6 +3394,7 @@ describe('vector constrained dashed stroke product wiring', () => {
           packet.debugMeta?.arrangementStatus === undefined
       )
     ).toBe(true)
+    expect(buildArrangementCallCount).toBe(0)
     expect(graphic.__asyraConstrainedDashedRuntimeDiagnostics).toMatchObject({
       acceptedCount: 1,
       blockedCount: 0,
@@ -3303,7 +3506,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     { label: 'inside', position: StrokePositions.INSIDE },
     { label: 'outside', position: StrokePositions.OUTSIDE }
   ].forEach(({ label, position }) => {
-    it(`should run: render visible local-side constrained dashed geometry for the reported self-intersecting closed star repeated dashed ${label} stroke`, () => {
+    it(`should run: render visible source-path constrained dashed geometry for the reported self-intersecting closed star repeated dashed ${label} stroke`, () => {
       const strategy = renderStrategyRegistry.get('vector')
       expect(strategy).toBeTypeOf('function')
 
@@ -3380,7 +3583,7 @@ describe('vector constrained dashed stroke product wiring', () => {
         graphic.__asyraSolidCenterStrokeExportPackets?.every(
           (packet) =>
             packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
-            packet.debugMeta?.resolutionStatus === 'local-side-approximation' &&
+            packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
             packet.debugMeta?.runtimeStatus === 'accepted'
         )
       ).toBe(true)
@@ -3397,7 +3600,71 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
   })
 
-  it('should run: render visible local-side constrained geometry for closed self-intersecting full-loop constrained dashed vectors', () => {
+  it('should run: render constrained dashed stroke packets from authored source-path intervals in the reported self-intersecting star', () => {
+    const starData = toReportedClosedStarVectorData()
+    const network = starData.networks['tn-14']
+    expect(network).toBeDefined()
+    const sourcePath = buildVectorGeometryModelPath(
+      network,
+      starData.points,
+      starData.segments
+    )
+    const topology = buildPathTopologyModel({
+      pathId: network.id,
+      networkId: network.id,
+      points: sourcePath.sampledPoints,
+      closed: true
+    })
+    expect(topology.topologyFamily).toBe('self-intersecting')
+    const graphic = runVectorRenderStrategy({
+      id: 'vector-constrained-dashed-reported-star-source-path',
+      x: 0,
+      y: 0,
+      width: 423.6353107755326,
+      height: 458.34939129152076,
+      ...starData,
+      closed: true,
+      fills: [],
+      strokes: [
+        createDefaultStroke({
+          id: 'pp-312',
+          width: 10,
+          style: StrokeStyles.DASHED,
+          position: StrokePositions.INSIDE,
+          capType: 'round',
+          dashPattern: [27, 20],
+          dashOffset: 0,
+          color: '#d51a1a'
+        })
+      ]
+    })
+
+    expect(getProjectionMeshes(graphic)).toHaveLength(0)
+    expect(getProjectionGraphics(graphic).length).toBeGreaterThan(0)
+    expect(getStrokeMeshCacheKinds(graphic)).toContain('solid-graphics')
+    expect(getStrokeMeshCacheKinds(graphic)).not.toContain('masked-solid')
+
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
+    expect(
+      exportPackets.every(
+        (packet) =>
+          packet.debugMeta?.sourceTopology === 'self-intersecting' &&
+          packet.debugMeta?.finalCoverageBuilderStatus === 'product-final' &&
+          typeof packet.debugMeta?.intervalId === 'string' &&
+          packet.debugMeta.intervalId.startsWith('interval:') &&
+          packet.intervalIds.every((intervalId) =>
+            intervalId.startsWith('interval:')
+          ) &&
+          packet.sourceSpanIds.length > 0
+      )
+    ).toBe(true)
+    const coveredSourceIntervalIds = new Set(
+      exportPackets.flatMap((packet) => packet.intervalIds)
+    )
+    expect(coveredSourceIntervalIds.size).toBeGreaterThan(1)
+  })
+
+  it('should run: render visible source-path split-range constrained geometry for closed self-intersecting full-loop constrained dashed vectors', () => {
     const graphic = runVectorRenderStrategy({
       id: 'vector-constrained-dashed-self-intersecting',
       x: 0,
@@ -3426,7 +3693,10 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(0)
+    expect(
+      getProjectionMeshes(graphic).length +
+        getProjectionGraphics(graphic).length
+    ).toBeGreaterThan(0)
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.length
     ).toBeGreaterThan(0)
@@ -3434,7 +3704,7 @@ describe('vector constrained dashed stroke product wiring', () => {
       graphic.__asyraSolidCenterStrokeExportPackets?.every(
         (packet) =>
           packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
-          packet.debugMeta?.resolutionStatus === 'local-side-approximation' &&
+          packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
           packet.debugMeta?.runtimeStatus === 'accepted'
       )
     ).toBe(true)
@@ -3451,7 +3721,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
   })
 
-  it('should run: render visible local-side constrained geometry for multiple closed self-intersecting full-loop constrained dashed strokes', () => {
+  it('should run: render visible source-path split-range constrained geometry for multiple closed self-intersecting full-loop constrained dashed strokes', () => {
     const graphic = runVectorRenderStrategy({
       id: 'vector-constrained-dashed-self-intersecting-multi',
       x: 0,
@@ -3487,7 +3757,10 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(0)
+    expect(
+      getProjectionMeshes(graphic).length +
+        getProjectionGraphics(graphic).length
+    ).toBeGreaterThan(0)
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.length
     ).toBeGreaterThan(0)
@@ -3495,8 +3768,19 @@ describe('vector constrained dashed stroke product wiring', () => {
       graphic.__asyraSolidCenterStrokeExportPackets?.every(
         (packet) =>
           packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
-          packet.debugMeta?.resolutionStatus === 'local-side-approximation' &&
+          packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
           packet.debugMeta?.runtimeStatus === 'accepted'
+      )
+    ).toBe(true)
+    expect(
+      graphic.__asyraSolidCenterStrokeExportPackets?.every(
+        (packet) =>
+          packet.polygons.length > 0 &&
+          packet.intervalIds.every((intervalId) =>
+            intervalId.startsWith('interval:')
+          ) &&
+          typeof packet.debugMeta?.intervalId === 'string' &&
+          packet.debugMeta.intervalId.startsWith('interval:')
       )
     ).toBe(true)
     expect(graphic.__asyraConstrainedDashedRuntimeDiagnostics).toMatchObject({
@@ -3511,7 +3795,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
   })
 
-  it('should run: render visible local-side constrained geometry for closed self-intersecting round-join full-loop constrained dashed vectors', () => {
+  it('should run: render visible source-path split-range constrained geometry for closed self-intersecting round-join full-loop constrained dashed vectors', () => {
     const graphic = runVectorRenderStrategy({
       id: 'vector-constrained-dashed-self-intersecting-round',
       x: 0,
@@ -3541,7 +3825,10 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(0)
+    expect(
+      getProjectionMeshes(graphic).length +
+        getProjectionGraphics(graphic).length
+    ).toBeGreaterThan(0)
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.length
     ).toBeGreaterThan(0)
@@ -3549,7 +3836,7 @@ describe('vector constrained dashed stroke product wiring', () => {
       graphic.__asyraSolidCenterStrokeExportPackets?.every(
         (packet) =>
           packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
-          packet.debugMeta?.resolutionStatus === 'local-side-approximation' &&
+          packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
           packet.debugMeta?.runtimeStatus === 'accepted'
       )
     ).toBe(true)
@@ -3565,7 +3852,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
   })
 
-  it('should run: keep closed self-intersecting constrained dashed vectors visible without exact promotion', () => {
+  it('should run: render closed self-intersecting inside constrained dashed vectors from source-path intervals', () => {
     const backendId =
       'vector-constrained-dashed-self-intersecting-exact-backend'
     registerGeometryBackend({
@@ -3605,14 +3892,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
     expect(exportPackets.length).toBeGreaterThan(0)
     expect(
-      exportPackets.every(
-        (packet) =>
-          packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
-          packet.debugMeta?.sourceTopology === 'self-intersecting' &&
-          packet.debugMeta?.resolutionStatus === 'local-side-approximation' &&
-          packet.debugMeta?.runtimeStatus === 'accepted' &&
-          packet.debugMeta?.arrangementStatus === undefined
-      )
+      exportPackets.every(isSelfIntersectingInsideDashedSourcePathPacket)
     ).toBe(true)
     expect(graphic.__asyraConstrainedDashedRuntimeDiagnostics).toMatchObject({
       acceptedCount: 1,
@@ -3626,7 +3906,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
   })
 
-  it('should run: keep closed self-intersecting constrained dashed vectors visible when the real Clipper2 backend is selected', async () => {
+  it('should run: render closed self-intersecting inside constrained dashed vectors from source-path intervals when the real Clipper2 backend is selected', async () => {
     await selectClipper2TestBackend(
       'vector-constrained-dashed-self-intersecting-clipper2-backend'
     )
@@ -3662,22 +3942,14 @@ describe('vector constrained dashed stroke product wiring', () => {
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
     expect(exportPackets.length).toBeGreaterThan(0)
     expect(
-      exportPackets.every(
-        (packet) =>
-          packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
-          packet.debugMeta?.sourceTopology === 'self-intersecting' &&
-          packet.debugMeta?.resolutionStatus === 'local-side-approximation' &&
-          packet.debugMeta?.runtimeStatus === 'accepted' &&
-          packet.debugMeta?.arrangementStatus === undefined &&
-          packet.debugMeta?.arrangementFaceId === undefined
-      )
+      exportPackets.every(isSelfIntersectingInsideDashedSourcePathPacket)
     ).toBe(true)
     expect(exportPackets.every((packet) => packet.ownerSet.length > 0)).toBe(
       true
     )
   })
 
-  it('should run: keep self-intersecting inside and outside local-side Clipper2 paths side-specific', async () => {
+  it('should run: keep self-intersecting inside and outside dashed source-path products side-specific', async () => {
     await selectClipper2TestBackend(
       'vector-constrained-dashed-self-intersecting-side-specific-clipper2-backend'
     )
@@ -3717,20 +3989,10 @@ describe('vector constrained dashed stroke product wiring', () => {
     expect(insidePackets.length).toBeGreaterThan(0)
     expect(outsidePackets.length).toBeGreaterThan(0)
     expect(
-      insidePackets.every(
-        (packet) =>
-          packet.debugMeta?.resolutionStatus === 'local-side-approximation' &&
-          packet.debugMeta?.sourceTopology === 'self-intersecting' &&
-          packet.debugMeta?.strokePosition === 'inside'
-      )
+      insidePackets.every(isSelfIntersectingInsideDashedSourcePathPacket)
     ).toBe(true)
     expect(
-      outsidePackets.every(
-        (packet) =>
-          packet.debugMeta?.resolutionStatus === 'local-side-approximation' &&
-          packet.debugMeta?.sourceTopology === 'self-intersecting' &&
-          packet.debugMeta?.strokePosition === 'outside'
-      )
+      outsidePackets.every(isSelfIntersectingOutsideDashedSourcePathPacket)
     ).toBe(true)
     expect(buildPacketGeometrySignature(insidePackets)).not.toBe(
       buildPacketGeometrySignature(outsidePackets)
@@ -3779,10 +4041,11 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(2)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(2)
+    const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
+    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(2)
+    expect(exportPackets.length).toBeGreaterThan(2)
     expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.every(
+      exportPackets.every(
         (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
       )
     ).toBe(true)
@@ -3800,7 +4063,7 @@ describe('vector constrained dashed stroke product wiring', () => {
           status: 'accepted',
           reason: 'single-owner',
           sourceTopology: 'rectangle-equivalent',
-          candidatePacketCount: 1
+          candidatePacketCount: expect.any(Number)
         },
         {
           sourceId: 'vector:vector-constrained-dashed-multi-network:network-b',
@@ -3808,18 +4071,23 @@ describe('vector constrained dashed stroke product wiring', () => {
           status: 'accepted',
           reason: 'single-owner',
           sourceTopology: 'rectangle-equivalent',
-          candidatePacketCount: 1
+          candidatePacketCount: expect.any(Number)
         }
       ]
     })
     expect(
+      graphic.__asyraConstrainedDashedRuntimeDiagnostics?.entries.every(
+        (entry) => entry.candidatePacketCount > 1
+      )
+    ).toBe(true)
+    expect(
       graphic.__asyraConstrainedDashedRuntimeDiagnostics?.arrangementDiagnostics
         ?.candidates
-    ).toHaveLength(2)
+    ).toHaveLength(16)
     expect(
       graphic.__asyraConstrainedDashedRuntimeDiagnostics?.arrangementDiagnostics
         ?.edges.length
-    ).toBe(0)
+    ).toBeGreaterThan(0)
   })
 
   it('should run: resolve overlapping multi-network constrained dashed vectors per typed network owner', () => {
@@ -3865,8 +4133,8 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
 
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
-    expect(getProjectionMeshes(graphic)).toHaveLength(2)
-    expect(exportPackets).toHaveLength(2)
+    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(2)
+    expect(exportPackets.length).toBeGreaterThan(2)
     expect(
       exportPackets.every(
         (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
@@ -3887,7 +4155,7 @@ describe('vector constrained dashed stroke product wiring', () => {
           status: 'accepted',
           reason: 'single-owner',
           sourceTopology: 'rectangle-equivalent',
-          candidatePacketCount: 1
+          candidatePacketCount: expect.any(Number)
         },
         {
           sourceId:
@@ -3896,14 +4164,19 @@ describe('vector constrained dashed stroke product wiring', () => {
           status: 'accepted',
           reason: 'single-owner',
           sourceTopology: 'rectangle-equivalent',
-          candidatePacketCount: 1
+          candidatePacketCount: expect.any(Number)
         }
       ]
     })
     expect(
+      graphic.__asyraConstrainedDashedRuntimeDiagnostics?.entries.every(
+        (entry) => entry.candidatePacketCount > 1
+      )
+    ).toBe(true)
+    expect(
       graphic.__asyraConstrainedDashedRuntimeDiagnostics?.arrangementDiagnostics
         ?.candidates
-    ).toHaveLength(2)
+    ).toHaveLength(16)
     expect(
       graphic.__asyraConstrainedDashedRuntimeDiagnostics?.arrangementDiagnostics
         ?.components.length
@@ -3914,7 +4187,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     ).toBeGreaterThan(0)
   })
 
-  it('should run: collapse same-visual multi-network constrained dashed exact arrangement faces into ownerSet', () => {
+  it('should run: preserve multi-network constrained dashed ownerSet through exact arrangement', () => {
     const backendId = 'vector-constrained-dashed-multi-network-merge-backend'
     registerGeometryBackend({
       backendId,
@@ -3964,18 +4237,34 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
 
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
-    expect(exportPackets).toHaveLength(1)
-    expect(exportPackets[0]?.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed',
-      resolutionStatus: 'exact-constrained',
-      runtimeStatus: 'accepted',
-      arrangementStatus: 'exact',
-      arrangementFaceId: `${backendId}:merged-face:0:outside-legal:0`
-    })
     expect(
-      exportPackets[0]?.ownerSet.map((owner) => owner.networkId).sort()
+      exportPackets.every(
+        (packet) =>
+          packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
+          packet.debugMeta.resolutionStatus === 'exact-constrained' &&
+          packet.debugMeta.runtimeStatus === 'accepted' &&
+          packet.debugMeta.arrangementStatus === 'exact' &&
+          typeof packet.debugMeta.arrangementFaceId === 'string'
+      )
+    ).toBe(true)
+    expect(
+      exportPackets.some(
+        (packet) => (packet.debugMeta?.arrangementCandidateIds?.length ?? 0) > 1
+      )
+    ).toBe(true)
+    expect(exportPackets).toHaveLength(1)
+    expect(
+      Array.from(
+        new Set(
+          exportPackets.flatMap((packet) =>
+            packet.ownerSet.map((owner) => owner.networkId)
+          )
+        )
+      ).sort()
     ).toEqual(['network-a', 'network-b'])
-    expect(exportPackets[0]?.sourceSpanIds.length).toBeGreaterThan(1)
+    expect(
+      exportPackets.some((packet) => packet.sourceSpanIds.length > 1)
+    ).toBe(true)
     expect(graphic.__asyraConstrainedDashedRuntimeDiagnostics).toMatchObject({
       acceptedCount: 2,
       blockedCount: 0
@@ -4166,14 +4455,15 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
 
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
-    expect(getProjectionMeshes(graphic)).toHaveLength(2)
-    expect(exportPackets).toHaveLength(2)
+    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(2)
+    expect(exportPackets.length).toBeGreaterThan(2)
     expect(
-      exportPackets.map((packet) => packet.debugMeta?.legalDomainId)
-    ).toEqual([
-      'vector:vector-constrained-dashed-compound-hole:compound-legal-domain:0',
-      'vector:vector-constrained-dashed-compound-hole:compound-legal-domain:0'
-    ])
+      new Set(exportPackets.map((packet) => packet.debugMeta?.legalDomainId))
+    ).toEqual(
+      new Set([
+        'vector:vector-constrained-dashed-compound-hole:compound-legal-domain:0'
+      ])
+    )
     expect(graphic.hitArea?.contains(2, 2)).toBe(true)
     expect(graphic.hitArea?.contains(23, 50)).toBe(true)
     expect(graphic.hitArea?.contains(50, 50)).toBe(false)
@@ -4185,20 +4475,25 @@ describe('vector constrained dashed stroke product wiring', () => {
           networkId: 'hole',
           status: 'accepted',
           reason: 'single-owner',
-          candidatePacketCount: 1
+          candidatePacketCount: expect.any(Number)
         },
         {
           networkId: 'outer',
           status: 'accepted',
           reason: 'single-owner',
-          candidatePacketCount: 1
+          candidatePacketCount: expect.any(Number)
         }
       ]
     })
     expect(
+      graphic.__asyraConstrainedDashedRuntimeDiagnostics?.entries.every(
+        (entry) => entry.candidatePacketCount > 1
+      )
+    ).toBe(true)
+    expect(
       graphic.__asyraConstrainedDashedRuntimeDiagnostics?.arrangementDiagnostics
         ?.candidates
-    ).toHaveLength(2)
+    ).toHaveLength(16)
     expect(
       graphic.__asyraConstrainedDashedRuntimeDiagnostics?.arrangementDiagnostics
         ?.components.length
@@ -4335,7 +4630,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
 
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
-    expect(exportPackets).toHaveLength(2)
+    expect(exportPackets.length).toBeGreaterThan(2)
     expect(
       new Set(exportPackets.map((packet) => packet.debugMeta?.legalDomainId))
     ).toEqual(
@@ -4870,8 +5165,8 @@ describe('vector constrained dashed stroke product wiring', () => {
 
     expect(getProjectionMeshes(rectGraphic)).toHaveLength(0)
     expect(getProjectionMeshes(vectorGraphic)).toHaveLength(0)
-    expect(getProjectionGraphics(rectGraphic)).toHaveLength(1)
-    expect(getProjectionGraphics(vectorGraphic)).toHaveLength(1)
+    expect(getProjectionGraphics(rectGraphic).length).toBeGreaterThan(1)
+    expect(getProjectionGraphics(vectorGraphic).length).toBeGreaterThan(1)
     expect(
       serializePackets(rectGraphic.__asyraSolidCenterStrokeExportPackets)
     ).toEqual(

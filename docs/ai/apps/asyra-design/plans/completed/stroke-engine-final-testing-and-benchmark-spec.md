@@ -38,9 +38,12 @@ Baseline support tests must prove:
   fallback.
 - open paths do not emit constrained solid/dashed runtime diagnostics solely
   because the authored position is `inside` or `outside`.
-- supported closed constrained dashed non-full-loop slices, including
-  self-intersecting repeated dashed intervals, build from sliced source
-  fragments and one-sided geometry, not from doubled-width center bands
+- supported closed constrained dashed non-full-loop slices build from sliced
+  source fragments and one-sided geometry, not from doubled-width center bands
+- self-intersecting closed constrained dashed `inside/outside` support, when
+  claimed, must build from Figma-like even-odd boundary contours rather than
+  from authored source-path intervals. The test suite must prove outer
+  contours and hole contours both receive stroke coverage.
 - dash intervals are geometry/topology intervals, not paint or shader output
 - constrained solid/dashed ownership and network routing are read from typed
   packet metadata, not by parsing `geometryId`
@@ -137,14 +140,17 @@ The tests must include:
 - one high-curvature fixture that creates candidate self-overlap
 - one overlap fixture that proves duplicate candidate layers collapse into
   semantic regions
-- one self-intersection fixture that verifies local-side output remains visible
-  and unchanged when an exact backend is selected; selected-backend output must
-  not promote to exact arrangement geometry until the arrangement oracle is
-  fixture-proven
-- one self-intersecting inside dashed outline fixture whose exact oracle is
-  filled-component semantics, not center fallback visibility
+- one self-intersection fixture that verifies the shared resolved vector
+  geometry model contains even-odd faces, fill regions, and stroke boundary
+  contours, including the center hole contour when the legal region has one
+- one self-intersecting inside dashed outline fixture whose oracle is
+  Figma-like boundary-contour stroke semantics: every legal-region boundary
+  contour, including hole boundaries, has product stroke coverage on the legal
+  side and no raw-overlap product shortcut
 - one self-intersecting outside dashed outline fixture proving outside has its
-  own side-aware component structure
+  own opposite-side boundary-contour structure
+- one center-stroke control fixture proving self-intersecting center stroke does
+  not consume even-odd inside/outside boundary-contour side rules
 - one high-curvature inside dashed fixture proving selected-backend product
   output is exact constrained arrangement geometry and pre-clipped candidates
   are not treated as final exact faces
@@ -224,8 +230,11 @@ Current supported topology gate coverage:
   normalized legal-domain boundary spans while preserving source contour/span
   owner metadata
 - `packages/preset/src/__tests__/constrained-dashed-stroke-packets.test.ts`
-  verifies self-intersecting inside/outside dashed packets remain side-aware
-  local-side approximation packets instead of center-derived geometry
+  must verify self-intersecting inside/outside dashed packets are generated
+  from even-odd boundary contours before the family can be claimed as supported.
+  Required checks include outer contour coverage, hole contour coverage,
+  direction probes, gap preservation, cap ownership, no fake source-split caps,
+  and no product double-alpha overlap.
 - `packages/preset/src/__tests__/constrained-dashed-stroke-packets.test.ts`
   verifies reported `vector-6` inside dashed packets do not place polygon
   vertices outside the selected-side legal domain at the closed-path seam. The
@@ -425,10 +434,10 @@ Current `FinalFace[]` contract coverage:
 
 Current and future `FinalFace[]` fixtures:
 
-- self-intersecting inside/outside dashed fixtures must prove stable visible
-  side-aware local geometry with and without an exact backend selected. They
-  must not expect exact promotion until the clipping oracle preserves internal
-  dash regions.
+- self-intersecting inside/outside dashed fixtures must prove stable
+  Figma-like even-odd boundary-contour product geometry with and without an
+  exact backend selected. They must not rely on authored-side local-side
+  approximation or center-derived visibility.
 - high-curvature inside/outside dashed fixtures include backend-gated exact
   promotion from visible local-side packets and real Clipper2-backed tests that
   compare side-specific final signatures separately for each side
@@ -867,39 +876,51 @@ Current and future `FinalFace[]` fixtures:
   - if any required visual crop or opacity oracle fails, implementation status
     remains `implementation in progress` and product support cannot be claimed
 
-### Case 20C. Closed self-intersecting constrained dashed full-loop remains visible as local-side approximation
+### Case 20C. Closed self-intersecting constrained dashed uses even-odd boundary contours
 
 - Input:
-  - closed bow-tie vector `(0,0)-(40,40)-(0,40)-(40,0)`
-  - dashed constrained inside stroke, width `4`, pattern `[400,20]`
+  - closed self-intersecting star or bow-tie vector
+  - dashed constrained inside stroke, width `4`, pattern `[27,20]`
 - Expected output:
-  - product render emits constrained dashed local-side approximation geometry
+  - shared geometry model emits even-odd legal regions and stroke boundary
+    contours
+  - boundary contours include every outer legal-region boundary and every hole
+    boundary
+  - product render emits constrained dashed contour geometry
   - source topology remains typed as `self-intersecting`
-  - interval topology is `full-loop`
-  - runtime diagnostics are accepted because product visibility is preserved
-  - exact face arrangement is not claimed
+  - runtime diagnostics are accepted only after contour direction, coverage,
+    and no-overlap gates pass
 - Pass rule:
-  - constrained dashed packet count is greater than `0`
-  - every packet has `resolutionStatus = local-side-approximation`
-  - accepted diagnostics count is `1`
+  - boundary-contour count is greater than the authored network contour count
+    when the self-intersection creates a hole boundary
+  - every boundary contour has at least one visible dash body or terminal cap
+    according to the dash schedule
+  - inside legal-side probes on each contour hit stroke coverage
+  - opposite-side probes stay below the product leak threshold
+  - center hole contour coverage is present when the even-odd legal region has
+    a hole
   - no center-derived substitute packet is emitted
 
-### Case 20D. Closed self-intersecting constrained dashed non-full-loop remains visible as local-side approximation
+### Case 20D. Closed self-intersecting constrained dashed direction and cap ownership
 
 - Input:
-  - closed bow-tie vector `(0,0)-(40,40)-(0,40)-(40,0)`
-  - dashed constrained inside stroke, width `4`, miter join,
-    `dashPattern: [27,20]`, `dashOffset: 0`
+  - same self-intersecting fixture as Case 20C
+  - `inside` and `outside` dashed constrained strokes
+  - cap variants: butt, square, round
 - Expected output:
-  - product render emits constrained dashed local-side approximation geometry
-  - source topology remains typed as `self-intersecting`
-  - runtime diagnostics are accepted because product visibility is preserved
-  - first dash is not allowed to disappear silently while later dashes render
+  - inside and outside choose opposite sides of the same boundary contour edge
+  - square cap uses effective interval semantics on the contour domain
+  - round cap exists only at true dash terminals on the contour domain
+  - contour edge splits and source intersections do not create fake caps
 - Pass rule:
-  - constrained dashed packet count is greater than `0`
-  - every packet has `resolutionStatus = local-side-approximation`
-  - accepted diagnostics count is `1`
-  - no center-derived substitute packet is emitted
+  - for every contour edge, legal-side direction probes are inside the
+    even-odd legal region and opposite-side probes are not the same legal side
+  - inside coverage appears on legal-side probes and outside coverage appears on
+    opposite-side probes
+  - source intersection nodes split contour domains without deleting adjacent
+    dash bodies
+  - no product polygon creates double-alpha overlap beyond the product
+    threshold
 
 ### Case 20E. Duplicate polygon normalization before render / hit / export
 

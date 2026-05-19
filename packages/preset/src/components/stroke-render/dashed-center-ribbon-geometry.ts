@@ -32,6 +32,10 @@ export interface DashedCenterRibbonGeometry {
   validityStatus: DashedCenterRibbonValidityStatus
 }
 
+export interface DashedCenterRibbonGeometryOptions {
+  allowRoundCapBackendOffset?: boolean
+}
+
 const EPSILON = 1e-6
 const MIN_POLYGON_AREA = 1e-4
 
@@ -350,8 +354,13 @@ const toBackendCap = (cap: RenderableStroke['cap']): StrokeOffsetCap =>
 
 const buildBackendOffsetPolygons = (
   frames: DashedCenterRibbonFrame[],
-  stroke: Pick<RenderableStroke, 'width' | 'join' | 'miterLimit' | 'cap'>
+  stroke: Pick<RenderableStroke, 'width' | 'join' | 'miterLimit' | 'cap'>,
+  options: DashedCenterRibbonGeometryOptions = {}
 ) => {
+  if (stroke.cap === 'round' && options.allowRoundCapBackendOffset !== true) {
+    return []
+  }
+
   try {
     const backend = getGeometryBackend()
     if (backend.capabilities.offset !== true) {
@@ -382,14 +391,14 @@ const buildBackendOffsetPolygons = (
 
 export const buildDashedCenterRibbonGeometry = (
   frames: DashedCenterRibbonFrame[],
-  stroke: Pick<RenderableStroke, 'width' | 'join' | 'miterLimit' | 'cap'>
+  stroke: Pick<RenderableStroke, 'width' | 'join' | 'miterLimit' | 'cap'>,
+  options: DashedCenterRibbonGeometryOptions = {}
 ): DashedCenterRibbonGeometry => {
   if (frames.length < 2 || stroke.width <= 0) {
     return { polygons: [], validityStatus: 'empty' }
   }
 
-  const backendPolygons =
-    stroke.cap === 'round' ? [] : buildBackendOffsetPolygons(frames, stroke)
+  const backendPolygons = buildBackendOffsetPolygons(frames, stroke, options)
   if (backendPolygons.length > 0) {
     return { polygons: backendPolygons, validityStatus: 'backend-offset' }
   }

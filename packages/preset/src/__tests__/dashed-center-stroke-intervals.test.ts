@@ -1,7 +1,66 @@
 import { describe, expect, it } from 'vitest'
-import { allocateDashedCenterStrokeIntervals } from '../components/stroke-render/dashed-center-stroke-intervals'
+import {
+  allocateDashedCenterStrokeIntervals,
+  allocateFigmaLikeSplitRangeDashedIntervals,
+  allocateStrokeIntervals,
+  allocateStrokeIntervalsForDomainPlan
+} from '../components/stroke-render/dashed-center-stroke-intervals'
 
 describe('dashed center stroke interval allocation', () => {
+  const expectBalancedFigmaLikeSplitRange = (
+    intervals: NonNullable<
+      ReturnType<typeof allocateFigmaLikeSplitRangeDashedIntervals>[number]
+    >['intervals'],
+    {
+      dashLength,
+      rangeEnd,
+      rangeStart
+    }: {
+      dashLength: number
+      rangeStart: number
+      rangeEnd: number
+    }
+  ) => {
+    const visible = intervals.filter((interval) => interval.kind === 'visible')
+    const rangeLength = rangeEnd - rangeStart
+    if (rangeLength <= dashLength) {
+      expect(visible).toHaveLength(1)
+      expect(visible[0]?.startDistance).toBeCloseTo(rangeStart, 6)
+      expect(visible[0]?.endDistance).toBeCloseTo(rangeEnd, 6)
+      expect(visible[0]?.figmaLikeTerminalRole).toBe('start-end')
+      return
+    }
+
+    const halfDash = dashLength / 2
+    expect(visible[0]?.startDistance).toBeCloseTo(rangeStart, 6)
+    expect(visible[0]?.endDistance).toBeCloseTo(rangeStart + halfDash, 6)
+    expect(visible[0]?.figmaLikeTerminalRole).toBe('start')
+    expect(visible.at(-1)?.startDistance).toBeCloseTo(rangeEnd - halfDash, 6)
+    expect(visible.at(-1)?.endDistance).toBeCloseTo(rangeEnd, 6)
+    expect(visible.at(-1)?.figmaLikeTerminalRole).toBe('end')
+
+    const middle = visible.slice(1, -1)
+    for (const interval of middle) {
+      expect(interval.figmaLikeTerminalRole).toBe('middle')
+      expect(interval.endDistance - interval.startDistance).toBeCloseTo(
+        dashLength,
+        6
+      )
+    }
+
+    const gaps = visible.slice(0, -1).flatMap((interval, index) => {
+      const next = visible[index + 1]
+      return next ? [next.startDistance - interval.endDistance] : []
+    })
+    expect(gaps.length).toBeGreaterThan(0)
+    const firstGap = gaps[0]
+    expect(firstGap).toBeDefined()
+    for (const gap of gaps) {
+      expect(gap).toBeGreaterThanOrEqual(0)
+      expect(gap).toBeCloseTo(firstGap ?? 0, 6)
+    }
+  }
+
   it('should run: allocate open path dashes by true arc length without endpoint balancing', () => {
     const intervals = allocateDashedCenterStrokeIntervals(
       100,
@@ -138,5 +197,665 @@ describe('dashed center stroke interval allocation', () => {
     expect(allocateDashedCenterStrokeIntervals(100, [0, -1], 0, false)).toEqual(
       []
     )
+  })
+
+  it('should run: allocate solid full-coverage intervals independently per topology domain', () => {
+    expect(
+      allocateStrokeIntervals({
+        domains: [
+          { domainId: 'source-path', totalLength: 40, closed: false },
+          { domainId: 'secondary-source-domain', totalLength: 24, closed: true }
+        ],
+        dashPattern: [],
+        dashOffset: 0
+      })
+    ).toEqual([
+      {
+        domainId: 'source-path',
+        intervals: [
+          expect.objectContaining({
+            intervalId: 'source-path:interval:0',
+            kind: 'visible',
+            startDistance: 0,
+            endDistance: 40
+          })
+        ]
+      },
+      {
+        domainId: 'secondary-source-domain',
+        intervals: [
+          expect.objectContaining({
+            intervalId: 'secondary-source-domain:interval:0',
+            kind: 'visible',
+            startDistance: 0,
+            endDistance: 24
+          })
+        ]
+      }
+    ])
+  })
+
+  it('should run: allocate legacy independent topology domains without making them self-intersecting dash product authority', () => {
+    const allocations = allocateStrokeIntervals({
+      domains: [
+        { domainId: 'source-domain', totalLength: 50, closed: true },
+        { domainId: 'secondary-domain', totalLength: 18, closed: true }
+      ],
+      dashPattern: [10, 5],
+      dashOffset: 0
+    })
+
+    expect(
+      allocations.map((allocation) => ({
+        domainId: allocation.domainId,
+        visible: allocation.intervals
+          .filter((interval) => interval.kind === 'visible')
+          .map((interval) => ({
+            intervalId: interval.intervalId,
+            startDistance: interval.startDistance,
+            endDistance: interval.endDistance,
+            wrapsSeam: interval.wrapsSeam
+          }))
+      }))
+    ).toEqual([
+      {
+        domainId: 'source-domain',
+        visible: [
+          {
+            intervalId: 'source-domain:interval:0',
+            startDistance: 45,
+            endDistance: 10,
+            wrapsSeam: true
+          },
+          {
+            intervalId: 'source-domain:interval:2',
+            startDistance: 15,
+            endDistance: 25,
+            wrapsSeam: false
+          },
+          {
+            intervalId: 'source-domain:interval:4',
+            startDistance: 30,
+            endDistance: 40,
+            wrapsSeam: false
+          }
+        ]
+      },
+      {
+        domainId: 'secondary-domain',
+        visible: [
+          {
+            intervalId: 'secondary-domain:interval:0',
+            startDistance: 15,
+            endDistance: 10,
+            wrapsSeam: true
+          }
+        ]
+      }
+    ])
+  })
+
+  it('should run: allocate Figma-like split ranges with half dashes at both ends and balanced interior gaps', () => {
+    const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+      domains: [
+        {
+          domainId: 'split:0',
+          startDistance: 0,
+          endDistance: 100,
+          sourceSegmentIndex: 0,
+          sideAuthority: 'implicit-fill-hole-domain',
+          selectedSide: 1,
+          sideResolutionStatus: 'resolved'
+        }
+      ],
+      dashPattern: [20, 10]
+    })
+
+    expect(allocation?.domainId).toBe('split:0')
+    const visible = allocation?.intervals.filter(
+      (interval) => interval.kind === 'visible'
+    )
+    expect(visible).toHaveLength(4)
+    expect(visible?.[0]).toMatchObject({
+      intervalId: 'split:0:interval:0',
+      startDistance: 0,
+      endDistance: 10,
+      wrapsSeam: false,
+      figmaLikeSplitRangeId: 'split:0',
+      figmaLikeSplitRangeStartDistance: 0,
+      figmaLikeSplitRangeEndDistance: 100,
+      figmaLikeTerminalRole: 'start',
+      figmaLikeSplitRangeSourceSegmentIndex: 0,
+      figmaLikeSideAuthority: 'implicit-fill-hole-domain',
+      figmaLikeSelectedSide: 1,
+      figmaLikeSideResolutionStatus: 'resolved'
+    })
+    expect(visible?.[1]?.startDistance).toBeCloseTo(23.333333, 5)
+    expect(visible?.[1]?.endDistance).toBeCloseTo(43.333333, 5)
+    expect(visible?.[2]?.startDistance).toBeCloseTo(56.666667, 5)
+    expect(visible?.[2]?.endDistance).toBeCloseTo(76.666667, 5)
+    expect(visible?.[3]).toMatchObject({
+      intervalId: 'split:0:interval:6',
+      startDistance: 90,
+      endDistance: 100,
+      wrapsSeam: false,
+      figmaLikeSplitRangeId: 'split:0',
+      figmaLikeSplitRangeStartDistance: 0,
+      figmaLikeSplitRangeEndDistance: 100,
+      figmaLikeTerminalRole: 'end',
+      figmaLikeSplitRangeSourceSegmentIndex: 0,
+      figmaLikeSideAuthority: 'implicit-fill-hole-domain',
+      figmaLikeSelectedSide: 1,
+      figmaLikeSideResolutionStatus: 'resolved'
+    })
+    expect(visible?.[1]?.figmaLikeTerminalRole).toBe('middle')
+    expect(visible?.[2]?.figmaLikeTerminalRole).toBe('middle')
+
+    const gaps = allocation?.intervals.filter(
+      (interval) => interval.kind === 'gap'
+    )
+    expect(gaps).toHaveLength(3)
+    for (const gap of gaps ?? []) {
+      expect(gap.intervalLength).toBeCloseTo(13.333333, 5)
+    }
+    expectBalancedFigmaLikeSplitRange(allocation?.intervals ?? [], {
+      dashLength: 20,
+      rangeStart: 0,
+      rangeEnd: 100
+    })
+  })
+
+  it('should run: distribute every middle dash and gap evenly inside one long Figma-like split range', () => {
+    const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+      domains: [
+        {
+          domainId: 'split:long',
+          startDistance: 100,
+          endDistance: 340,
+          sourceSegmentIndex: 0,
+          sideAuthority: 'implicit-fill-hole-domain',
+          selectedSide: 1,
+          sideResolutionStatus: 'resolved'
+        }
+      ],
+      dashPattern: [27, 20]
+    })
+
+    const visible =
+      allocation?.intervals.filter((interval) => interval.kind === 'visible') ??
+      []
+    expect(visible.map((interval) => interval.figmaLikeTerminalRole)).toEqual([
+      'start',
+      'middle',
+      'middle',
+      'middle',
+      'middle',
+      'end'
+    ])
+    expectBalancedFigmaLikeSplitRange(allocation?.intervals ?? [], {
+      dashLength: 27,
+      rangeStart: 100,
+      rangeEnd: 340
+    })
+
+    const gaps = visible.slice(0, -1).flatMap((interval, index) => {
+      const next = visible[index + 1]
+      return next ? [next.startDistance - interval.endDistance] : []
+    })
+    expect(gaps).toEqual([
+      expect.closeTo(21, 6),
+      expect.closeTo(21, 6),
+      expect.closeTo(21, 6),
+      expect.closeTo(21, 6),
+      expect.closeTo(21, 6)
+    ])
+  })
+
+  it('should run: precompute one average gap before emitting any split-range dash positions', () => {
+    const rangeStart = 12
+    const rangeEnd = 185.411
+    const dashLength = 27
+    const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+      domains: [
+        {
+          domainId: 'split:formula',
+          startDistance: rangeStart,
+          endDistance: rangeEnd,
+          sourceSegmentIndex: 0
+        }
+      ],
+      dashPattern: [dashLength, 20]
+    })
+
+    const visible =
+      allocation?.intervals.filter((interval) => interval.kind === 'visible') ??
+      []
+    expect(visible.map((interval) => interval.figmaLikeTerminalRole)).toEqual([
+      'start',
+      'middle',
+      'middle',
+      'middle',
+      'end'
+    ])
+
+    const rangeLength = rangeEnd - rangeStart
+    const middleDashCount = visible.length - 2
+    const averageGap =
+      (rangeLength - dashLength - middleDashCount * dashLength) /
+      (middleDashCount + 1)
+    const halfDash = dashLength / 2
+    const expectedVisibleRanges = [
+      [rangeStart, rangeStart + halfDash],
+      ...Array.from({ length: middleDashCount }, (_, middleIndex) => {
+        const startDistance =
+          rangeStart +
+          halfDash +
+          averageGap * (middleIndex + 1) +
+          dashLength * middleIndex
+        return [startDistance, startDistance + dashLength]
+      }),
+      [rangeEnd - halfDash, rangeEnd]
+    ]
+
+    visible.forEach((interval, index) => {
+      const [expectedStart, expectedEnd] = expectedVisibleRanges[index] ?? []
+      expect(interval.startDistance).toBeCloseTo(expectedStart ?? 0, 6)
+      expect(interval.endDistance).toBeCloseTo(expectedEnd ?? 0, 6)
+    })
+
+    const gaps =
+      allocation?.intervals.filter((interval) => interval.kind === 'gap') ?? []
+    expect(gaps).toHaveLength(middleDashCount + 1)
+    for (const gap of gaps) {
+      expect(gap.intervalLength).toBeCloseTo(averageGap, 6)
+    }
+  })
+
+  it('should run: choose the middle dash count whose balanced gap is nearest to the authored gap', () => {
+    const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+      domains: [
+        {
+          domainId: 'split:compressed-gap',
+          startDistance: 0,
+          endDistance: 186,
+          sourceSegmentIndex: 0
+        }
+      ],
+      dashPattern: [27, 20]
+    })
+
+    const visible =
+      allocation?.intervals.filter((interval) => interval.kind === 'visible') ??
+      []
+    expect(visible.map((interval) => interval.figmaLikeTerminalRole)).toEqual([
+      'start',
+      'middle',
+      'middle',
+      'middle',
+      'end'
+    ])
+    expectBalancedFigmaLikeSplitRange(allocation?.intervals ?? [], {
+      dashLength: 27,
+      rangeStart: 0,
+      rangeEnd: 186
+    })
+
+    const gaps = visible.slice(0, -1).flatMap((interval, index) => {
+      const next = visible[index + 1]
+      return next ? [next.startDistance - interval.endDistance] : []
+    })
+    for (const gap of gaps) {
+      expect(gap).toBeCloseTo(19.5, 6)
+    }
+  })
+
+  it('should run: reduce the middle dash when a short split range would over-compress gaps', () => {
+    const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+      domains: [
+        {
+          domainId: 'split:short-visible-gap',
+          startDistance: 0,
+          endDistance: 70,
+          sourceSegmentIndex: 0
+        }
+      ],
+      dashPattern: [27, 20]
+    })
+
+    const visible =
+      allocation?.intervals.filter((interval) => interval.kind === 'visible') ??
+      []
+    expect(visible.map((interval) => interval.figmaLikeTerminalRole)).toEqual([
+      'start',
+      'end'
+    ])
+    expectBalancedFigmaLikeSplitRange(allocation?.intervals ?? [], {
+      dashLength: 27,
+      rangeStart: 0,
+      rangeEnd: 70
+    })
+    const start = visible[0]
+    const end = visible[1]
+    expect(start).toBeDefined()
+    expect(end).toBeDefined()
+    expect((end?.startDistance ?? 0) - (start?.endDistance ?? 0)).toBeCloseTo(
+      43,
+      6
+    )
+  })
+
+  it('should run: use normal split ranges as the reference gap for shorter split ranges', () => {
+    const allocations = allocateFigmaLikeSplitRangeDashedIntervals({
+      domains: [
+        {
+          domainId: 'split:normal',
+          startDistance: 0,
+          endDistance: 240,
+          sourceSegmentIndex: 0
+        },
+        {
+          domainId: 'split:short',
+          startDistance: 240,
+          endDistance: 310,
+          sourceSegmentIndex: 0
+        }
+      ],
+      dashPattern: [27, 20]
+    })
+
+    const normalVisible =
+      allocations[0]?.intervals.filter(
+        (interval) => interval.kind === 'visible'
+      ) ?? []
+    const normalGaps = normalVisible.slice(0, -1).flatMap((interval, index) => {
+      const next = normalVisible[index + 1]
+      return next ? [next.startDistance - interval.endDistance] : []
+    })
+    expect(normalGaps.every((gap) => Math.abs(gap - 21) <= 1e-6)).toBe(true)
+
+    const shortVisible =
+      allocations[1]?.intervals.filter(
+        (interval) => interval.kind === 'visible'
+      ) ?? []
+    expect(
+      shortVisible.map((interval) => interval.figmaLikeTerminalRole)
+    ).toEqual(['start', 'end'])
+    expect(shortVisible[0]?.endDistance).toBeCloseTo(253.5, 6)
+    expect(shortVisible[1]?.startDistance).toBeCloseTo(296.5, 6)
+  })
+
+  it('should run: allocate adjacent Figma-like split ranges independently instead of carrying a cumulative schedule across the boundary', () => {
+    const allocations = allocateFigmaLikeSplitRangeDashedIntervals({
+      domains: [
+        {
+          domainId: 'split:0',
+          startDistance: 0,
+          endDistance: 50,
+          sourceSegmentIndex: 0
+        },
+        {
+          domainId: 'split:1',
+          startDistance: 50,
+          endDistance: 100,
+          sourceSegmentIndex: 0
+        }
+      ],
+      dashPattern: [20, 10]
+    })
+
+    const visibleByDomain = allocations.map((allocation) => ({
+      domainId: allocation.domainId,
+      visible: allocation.intervals
+        .filter((interval) => interval.kind === 'visible')
+        .map((interval) => ({
+          startDistance: interval.startDistance,
+          endDistance: interval.endDistance
+        }))
+    }))
+
+    expect(visibleByDomain).toEqual([
+      {
+        domainId: 'split:0',
+        visible: [
+          { startDistance: 0, endDistance: 10 },
+          { startDistance: 15, endDistance: 35 },
+          { startDistance: 40, endDistance: 50 }
+        ]
+      },
+      {
+        domainId: 'split:1',
+        visible: [
+          { startDistance: 50, endDistance: 60 },
+          { startDistance: 65, endDistance: 85 },
+          { startDistance: 90, endDistance: 100 }
+        ]
+      }
+    ])
+
+    const visibleIntervals = allocations.flatMap((allocation) =>
+      allocation.intervals.filter((interval) => interval.kind === 'visible')
+    )
+    expect(
+      visibleIntervals.filter(
+        (interval) => interval.figmaLikeTerminalRole === 'start'
+      )
+    ).toHaveLength(2)
+    expect(
+      visibleIntervals.filter(
+        (interval) => interval.figmaLikeTerminalRole === 'middle'
+      )
+    ).toHaveLength(2)
+    expect(
+      visibleIntervals.filter(
+        (interval) => interval.figmaLikeTerminalRole === 'end'
+      )
+    ).toHaveLength(2)
+    allocations.forEach((allocation, index) => {
+      expectBalancedFigmaLikeSplitRange(allocation.intervals, {
+        dashLength: 20,
+        rangeStart: index * 50,
+        rangeEnd: index * 50 + 50
+      })
+    })
+    expect(
+      visibleIntervals.every(
+        (interval) =>
+          interval.figmaLikeSplitRangeId === 'split:0' ||
+          interval.figmaLikeSplitRangeId === 'split:1'
+      )
+    ).toBe(true)
+  })
+
+  it('should run: collapse a Figma-like split range shorter than one dash into one visible range', () => {
+    const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+      domains: [
+        {
+          domainId: 'split:short',
+          startDistance: 25,
+          endDistance: 37,
+          sourceSegmentIndex: 2
+        }
+      ],
+      dashPattern: [20, 10]
+    })
+
+    expect(allocation?.intervals).toEqual([
+      expect.objectContaining({
+        intervalId: 'split:short:interval:0',
+        kind: 'visible',
+        startDistance: 25,
+        endDistance: 37,
+        wrapsSeam: false,
+        figmaLikeSplitRangeId: 'split:short',
+        figmaLikeSplitRangeStartDistance: 25,
+        figmaLikeSplitRangeEndDistance: 37,
+        figmaLikeTerminalRole: 'start-end',
+        figmaLikeSplitRangeSourceSegmentIndex: 2
+      })
+    ])
+  })
+
+  it('should run: allocate intervals directly from Step14 split-range domain plans', () => {
+    const allocations = allocateStrokeIntervalsForDomainPlan({
+      domainPlan: {
+        planId: 'plan:self-intersecting',
+        intervalDomainKind: 'figma-like-split-range',
+        totalLength: 100,
+        closed: true,
+        legalBoundaryDomains: [],
+        splitRangeDomains: [
+          {
+            domainId: 'split:0',
+            startDistance: 0,
+            endDistance: 50,
+            sourceSegmentIndex: 0,
+            sideAuthority: 'implicit-fill-hole-domain',
+            selectedSide: 1,
+            sideResolutionStatus: 'resolved'
+          },
+          {
+            domainId: 'split:1',
+            startDistance: 50,
+            endDistance: 100,
+            sourceSegmentIndex: 0,
+            sideAuthority: 'implicit-fill-hole-domain',
+            selectedSide: -1,
+            sideResolutionStatus: 'resolved'
+          }
+        ]
+      },
+      dashPattern: [20, 10],
+      dashOffset: 0
+    })
+
+    expect(allocations).toHaveLength(2)
+    expect(
+      allocations.flatMap((allocation) =>
+        allocation.intervals
+          .filter((interval) => interval.kind === 'visible')
+          .map((interval) => ({
+            domainId: allocation.domainId,
+            startDistance: interval.startDistance,
+            endDistance: interval.endDistance,
+            terminalRole: interval.figmaLikeTerminalRole,
+            selectedSide: interval.figmaLikeSelectedSide
+          }))
+      )
+    ).toEqual([
+      {
+        domainId: 'split:0',
+        startDistance: 0,
+        endDistance: 10,
+        terminalRole: 'start',
+        selectedSide: 1
+      },
+      {
+        domainId: 'split:0',
+        startDistance: 15,
+        endDistance: 35,
+        terminalRole: 'middle',
+        selectedSide: 1
+      },
+      {
+        domainId: 'split:0',
+        startDistance: 40,
+        endDistance: 50,
+        terminalRole: 'end',
+        selectedSide: 1
+      },
+      {
+        domainId: 'split:1',
+        startDistance: 50,
+        endDistance: 60,
+        terminalRole: 'start',
+        selectedSide: -1
+      },
+      {
+        domainId: 'split:1',
+        startDistance: 65,
+        endDistance: 85,
+        terminalRole: 'middle',
+        selectedSide: -1
+      },
+      {
+        domainId: 'split:1',
+        startDistance: 90,
+        endDistance: 100,
+        terminalRole: 'end',
+        selectedSide: -1
+      }
+    ])
+  })
+
+  it('should run: allocate compound legal-boundary domain intervals without collapsing shell and hole schedules', () => {
+    const allocations = allocateStrokeIntervalsForDomainPlan({
+      domainPlan: {
+        planId: 'plan:compound',
+        intervalDomainKind: 'legal-boundary-span',
+        totalLength: 0,
+        closed: true,
+        splitRangeDomains: [],
+        legalBoundaryDomains: [
+          {
+            domainId: 'compound:boundary:shell',
+            totalLength: 100,
+            closed: true
+          },
+          {
+            domainId: 'compound:boundary:hole',
+            totalLength: 60,
+            closed: true
+          }
+        ]
+      },
+      dashPattern: [20, 10],
+      dashOffset: 0
+    })
+
+    expect(allocations.map((allocation) => allocation.domainId)).toEqual([
+      'compound:boundary:shell',
+      'compound:boundary:hole'
+    ])
+    expect(
+      allocations.map((allocation) =>
+        allocation.intervals
+          .filter((interval) => interval.kind === 'visible')
+          .map((interval) => ({
+            intervalId: interval.intervalId,
+            startDistance: interval.startDistance,
+            endDistance: interval.endDistance
+          }))
+      )
+    ).toEqual([
+      [
+        {
+          intervalId: 'compound:boundary:shell:interval:0',
+          startDistance: 90,
+          endDistance: 20
+        },
+        {
+          intervalId: 'compound:boundary:shell:interval:2',
+          startDistance: 30,
+          endDistance: 50
+        },
+        {
+          intervalId: 'compound:boundary:shell:interval:4',
+          startDistance: 60,
+          endDistance: 80
+        }
+      ],
+      [
+        {
+          intervalId: 'compound:boundary:hole:interval:0',
+          startDistance: 0,
+          endDistance: 20
+        },
+        {
+          intervalId: 'compound:boundary:hole:interval:2',
+          startDistance: 30,
+          endDistance: 50
+        }
+      ]
+    ])
   })
 })

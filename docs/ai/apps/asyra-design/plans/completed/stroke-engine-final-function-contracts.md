@@ -993,9 +993,9 @@ Current Step 7 implementation note:
   - legal-domain descriptors that do not match the current source topology
   - classifier sample point cannot be chosen for a promoted exact family
 - Allowed fallbacks:
-  - keep authored-side local approximation visible when exact legal-domain
-    classification is unavailable
   - preserve backend legal state only for non-promoted diagnostic paths
+  - for non-self-intersecting local-side families, keep explicit
+    local-side output visible when exact promotion is unavailable
 - Forbidden usage:
   - parsing owner, network, interval, or legal-domain identity from
     `geometryId`
@@ -1028,9 +1028,9 @@ Current Step 7 implementation note:
   - packets already preserve authored `inside` / `outside` stroke position in
     typed debug metadata
   - runtime diagnostics have accepted the candidate packet set
-  - self-intersecting constrained dashed packets are not eligible for exact
-    promotion until exact legal-domain clipping preserves valid internal dash
-    regions
+  - self-intersecting constrained dashed `inside/outside` packets are eligible
+    only when they originate from the even-odd boundary-contour model with
+    contour id, legal-side face id, opposite-face id, and source provenance
   - sampled-simple constrained dashed packets with
     `resolutionStatus: "local-side-approximation"` are not eligible for exact
     promotion until exact arrangement proves segment-local clipping parity and
@@ -1039,9 +1039,9 @@ Current Step 7 implementation note:
   - with a backend supporting `buildArrangement`, only eligible packets emit
     exact faces carrying `arrangementStatus: "exact"` and
     `resolutionStatus: "exact-constrained"`
-  - ineligible self-intersecting or local-side approximation packets are returned
-    unchanged; backend absence or arrangement failure must not remove authored
-    inside/outside packets or substitute center geometry
+  - ineligible local-side approximation packets are returned unchanged; backend
+    absence or arrangement failure must not remove authored inside/outside
+    packets or substitute center geometry
   - all accepted network candidates for the current vector are arranged in the
     same promotion pass, so same-visual overlap can collapse into a shared
     `ownerSet`
@@ -1051,10 +1051,12 @@ Current Step 7 implementation note:
   - any remaining exact compatibility packets preserve `ownerSet`,
     `intervalIds`, `sourceSpanIds`, `sourceContourIds`, and `legalDomainIds` in
     typed debug metadata for downstream projections
-  - without an exact backend, emitted packets remain visible
-    `local-side-approximation` packets preserving authored side semantics
-  - self-intersecting constrained dashed packets remain visible local-side
-    packets even when a backend is selected
+  - without an exact backend, non-self-intersecting local-side packets may
+    remain visible `local-side-approximation` packets preserving authored side
+    semantics
+  - self-intersecting constrained dashed packets preserve boundary-contour
+    product semantics; they are not downgraded to authored-side local-side
+    approximation as a product path
   - sampled-simple local-side constrained dashed packets remain visible
     local-side packets even when a backend is selected
 - Boundary conditions:
@@ -1066,8 +1068,8 @@ Current Step 7 implementation note:
   - backend throws during arrangement
   - backend returns no final faces for an accepted visible packet set
 - Allowed recovery paths:
-  - keep local-side approximation visible and typed until exact promotion is
-    repaired
+  - keep non-self-intersecting local-side approximation visible and typed until
+    exact promotion is repaired
 - Forbidden usage:
   - center fallback
   - empty render output solely because exact backend is unavailable

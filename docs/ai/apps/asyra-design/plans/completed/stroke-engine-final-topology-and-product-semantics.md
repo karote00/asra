@@ -72,13 +72,13 @@ active support contract:
 
 High-curvature constrained dashed `inside/outside` families are supported as
 backend-gated exact promotion paths. Self-intersecting constrained dashed
-families are currently supported as authored-side visible local geometry only:
-the engine must preserve dash visibility and must not convert the stroke to
-center geometry, but it must not promote self-intersecting packets through exact
-arrangement until the exact legal-domain clipping oracle no longer removes
-valid internal dash regions. This state remains explicit through
-`sourceTopology: "self-intersecting"` plus
-`resolutionStatus: "local-side-approximation"` metadata.
+families are no longer defined as authored-side local-side visibility. The
+supported behavior is Figma-like even-odd boundary-contour stroke: first resolve
+the self-intersecting path into even-odd legal regions, then emit
+`inside/outside` stroke from the boundary contours between legal and
+illegal/exterior regions. This includes hole boundaries such as the center
+pentagon in a self-intersecting star. Each split contour edge is its own dash
+domain with half-dash endpoint placement and interior dash/gap distribution.
 
 ## Support-State Vocabulary
 
@@ -265,7 +265,7 @@ Examples:
 
 End-state goal:
 
-- exact support only with declared face semantics
+- exact Figma-like even-odd boundary-contour support
 
 Required product-semantic precondition:
 
@@ -273,31 +273,48 @@ Required product-semantic precondition:
   - fill-rule interpretation
   - ownership across intersection-generated faces
   - interval visibility through intersecting regions
+- the stroke engine must consume legal-region boundary contours, not only raw
+  authored source-path intervals
 
 Reference-backed direction:
 
 - do not offset raw self-intersecting closed paths
 - split and arrange the source first
-- classify source faces by explicit fill rule before building exact constrained
-  stroke faces
+- classify source faces by the even-odd fill rule before building constrained
+  stroke geometry
+- fill consumes legal regions
+- inside/outside stroke consumes legal-region boundary contours:
+  - a boundary contour is formed by graph edges where one adjacent face is legal
+    and the opposite adjacent face is illegal or exterior
+  - outer boundary contours and hole boundary contours are both stroke sources
+  - `inside` emits geometry toward the legal face side
+  - `outside` emits geometry toward the opposite side
+  - center stroke is excluded from these side rules and remains authored
+    centerline based
 
 Current final-package expectation:
 
-- repeated constrained dashed non-full-loop intervals may emit direct
-  interval-local one-sided packets for visibility
-- full-loop constrained solid/dashed face ownership remains `research-gated`
-  or `blocked`
-- 2026-04-29 Figma outline exports confirm that inside and outside dashed
-  self-intersecting outputs produce distinct filled-component structures
-  (`inside` and `outside` must not share a center-derived exact component model)
+- self-intersecting `inside/outside` dashed product behavior is supported by
+  the even-odd boundary-contour product path
+- dash domains are boundary contours, not the authored segment chain
+- each split contour edge is an independent dash domain; dash placement does
+  not continue across a planar-graph intersection node
+- hole boundaries must receive dashed stroke when they are legal-region
+  boundaries, even though the hole itself is not filled
+- source self-intersections are planar-graph nodes; they split contour edges and
+  may be dash-domain boundaries
+- 2026-04-29 Figma outline exports and the later center-hole comparison confirm
+  that inside and outside dashed self-intersecting outputs produce distinct
+  filled-component structures and that a center hole boundary is a stroke
+  boundary for `inside` dashed output
 
 Allowed temporary behavior:
 
-- local one-sided interval visibility is allowed only when packet metadata
-  keeps `sourceTopology: "self-intersecting"` so reviewers do not mistake it
-  for completed face-arrangement support
-- never claim full-loop exact constrained support before face semantics are
-  settled
+- no product path may claim self-intersecting constrained dashed support until
+  boundary-contour generation, direction probes, hole-boundary coverage,
+  no-overlap product visual, and inside/outside side tests all pass
+- any interim debug/raw geometry must be visibly separated from product render
+  behavior and must not be used as a support claim
 
 ### Family 7. Multi-Network Paths
 

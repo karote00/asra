@@ -1,12 +1,112 @@
 import { describe, expect, it } from 'vitest'
-import { allocateDashedCenterStrokeIntervals } from '../components/stroke-render/dashed-center-stroke-intervals'
+import {
+  allocateDashedCenterStrokeIntervals,
+  allocateStrokeIntervalsForDomainPlan
+} from '../components/stroke-render/dashed-center-stroke-intervals'
+import { getConstrainedDashedVisibleIntervals } from '../components/stroke-render/constrained-dashed-stroke-packets'
+import type { NormalizedLegalDomain } from '../components/stroke-render/legal-domain-normalization'
+import { buildPolylineGeometryModelPath } from '../components/stroke-render/path-geometry'
 import {
   buildSourceSpanGraph,
-  getSourceSpanIdsForInterval
+  getSourceSpanIdsForDomainInterval,
+  getSourceSpanIdsForInterval,
+  resolveSourceSpanProvenanceAvailability
 } from '../components/stroke-render/source-span-graph'
 import { buildPathTopologyModel } from '../components/stroke-render/path-topology-model'
+import { normalizeStrokeSpec } from '../components/stroke-render/renderable-stroke'
+import { resolveSourceFamily } from '../components/stroke-render/resolved-source-family'
+import { resolveStrokeDomains } from '../components/stroke-render/stroke-domain-plan'
+import {
+  StrokePositions,
+  StrokeStyles,
+  createDefaultStroke
+} from '@asyra/utils'
+
+const withCompoundLegalDomains = (
+  source: ReturnType<typeof buildPathTopologyModel>
+) => ({
+  ...source,
+  contours: [
+    ...source.contours,
+    {
+      ...source.contours[0],
+      contourId: `${source.pathId}:contour:hole`,
+      role: 'hole' as const,
+      nestingDepth: 1
+    }
+  ],
+  legalDomainDescriptors: [
+    ...source.legalDomainDescriptors,
+    {
+      legalDomainId: `${source.pathId}:legal-domain:compound`,
+      role: 'hole' as const,
+      fillRule: source.fillRule,
+      fillRuleBasis: source.fillRuleBasis,
+      contourIds: [`${source.pathId}:contour:hole`]
+    }
+  ]
+})
+
+const compoundLegalDomain = (
+  source: ReturnType<typeof buildPathTopologyModel>
+): Pick<NormalizedLegalDomain, 'legalDomainId' | 'boundarySpans'> => ({
+  legalDomainId: `${source.pathId}:normalized-legal-domain:0`,
+  boundarySpans: [
+    {
+      boundarySpanId: `${source.pathId}:boundary-span:shell`,
+      role: 'fill-exterior-edge',
+      geometry: source.normalizedPoints,
+      sourceContourIds: [`${source.pathId}:contour:0`],
+      sourceSpanIds: [`${source.pathId}:span:shell:0`],
+      seamPoint: source.normalizedPoints[0] ?? null
+    },
+    {
+      boundarySpanId: `${source.pathId}:boundary-span:hole`,
+      role: 'fill-interior-edge',
+      geometry: [
+        { x: 25, y: 25 },
+        { x: 75, y: 25 },
+        { x: 75, y: 75 },
+        { x: 25, y: 75 }
+      ],
+      sourceContourIds: [`${source.pathId}:contour:hole`],
+      sourceSpanIds: [`${source.pathId}:span:hole:0`],
+      seamPoint: { x: 25, y: 25 }
+    }
+  ]
+})
 
 describe('source span graph', () => {
+  it('should run: make source-span provenance availability explicit for render packet modes', () => {
+    expect(resolveSourceSpanProvenanceAvailability()).toEqual({
+      available: true,
+      reason: 'available'
+    })
+    expect(
+      resolveSourceSpanProvenanceAvailability({ visualOnly: true })
+    ).toEqual({
+      available: false,
+      reason: 'visual-only'
+    })
+    expect(
+      resolveSourceSpanProvenanceAvailability({
+        omitDiagnosticMetadata: true
+      })
+    ).toEqual({
+      available: false,
+      reason: 'diagnostic-metadata-omitted'
+    })
+    expect(
+      resolveSourceSpanProvenanceAvailability({
+        visualOnly: true,
+        omitDiagnosticMetadata: true
+      })
+    ).toEqual({
+      available: false,
+      reason: 'visual-only'
+    })
+  })
+
   it('should run: split source spans at vertices and dash interval boundaries', () => {
     const topology = buildPathTopologyModel({
       pathId: 'span:rect',
@@ -93,5 +193,132 @@ describe('source span graph', () => {
       ])
     )
     expect(sourceSpanIds.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('should run: preserve source-span provenance for StrokeDomainPlan split-range intervals', () => {
+    const sourcePath = buildPolylineGeometryModelPath(
+      [
+        { x: 0, y: 0 },
+        { x: 100, y: 100 },
+        { x: 0, y: 100 },
+        { x: 100, y: 0 }
+      ],
+      true
+    )
+    const topology = buildPathTopologyModel({
+      pathId: 'span:stroke-domain-plan',
+      points: sourcePath.sampledPoints,
+      closed: true
+    })
+    const stroke = normalizeStrokeSpec([
+      createDefaultStroke({
+        width: 10,
+        style: StrokeStyles.DASHED,
+        position: StrokePositions.INSIDE,
+        dashPattern: [20, 10]
+      })
+    ]).strokes[0]
+    const domainPlan = resolveStrokeDomains({
+      topology,
+      sourceFamily: resolveSourceFamily({ topology, stroke }),
+      stroke,
+      sourcePath
+    })
+    const intervals = getConstrainedDashedVisibleIntervals(
+      topology,
+      stroke,
+      sourcePath,
+      domainPlan
+    )
+    const graph = buildSourceSpanGraph(topology, intervals)
+    const graphCutDistances = new Set(
+      graph.cuts.map((cut) => cut.distance.toFixed(6))
+    )
+
+    expect(domainPlan.intervalDomainKind).toBe('figma-like-split-range')
+    expect(domainPlan.splitRangeDomains.length).toBeGreaterThan(
+      sourcePath.segments.length
+    )
+    domainPlan.splitRangeDomains.forEach((domain) => {
+      expect(graphCutDistances.has(domain.startDistance.toFixed(6))).toBe(true)
+      expect(graphCutDistances.has(domain.endDistance.toFixed(6))).toBe(true)
+    })
+    intervals.forEach((interval) => {
+      const sourceSpanIds = getSourceSpanIdsForInterval(graph, interval)
+      expect(sourceSpanIds.length).toBeGreaterThan(0)
+      expect(
+        sourceSpanIds.every(
+          (sourceSpanId) =>
+            sourceSpanId.startsWith(
+              'span:stroke-domain-plan:contour:0:source-span:'
+            ) &&
+            !sourceSpanId.includes('legal-domain') &&
+            !sourceSpanId.includes('hole')
+        )
+      ).toBe(true)
+    })
+  })
+
+  it('should run: resolve Step15 legal-boundary intervals to typed shell and hole source-span provenance', () => {
+    const topology = withCompoundLegalDomains(
+      buildPathTopologyModel({
+        pathId: 'span:compound-domain-plan',
+        points: [
+          { x: 0, y: 0 },
+          { x: 100, y: 0 },
+          { x: 100, y: 100 },
+          { x: 0, y: 100 }
+        ],
+        closed: true
+      })
+    )
+    const stroke = normalizeStrokeSpec([
+      createDefaultStroke({
+        width: 10,
+        style: StrokeStyles.DASHED,
+        position: StrokePositions.INSIDE,
+        dashPattern: [20, 10]
+      })
+    ]).strokes[0]
+    const domainPlan = resolveStrokeDomains({
+      topology,
+      sourceFamily: resolveSourceFamily({ topology, stroke }),
+      stroke,
+      sourcePath: buildPolylineGeometryModelPath(
+        topology.normalizedPoints,
+        true
+      ),
+      normalizedLegalDomain: compoundLegalDomain(topology)
+    })
+    const allocations = allocateStrokeIntervalsForDomainPlan({
+      domainPlan,
+      dashPattern: stroke.dashPattern,
+      dashOffset: stroke.dashOffset
+    })
+    const graph = buildSourceSpanGraph(topology)
+
+    expect(domainPlan.intervalDomainKind).toBe('legal-boundary-span')
+    expect(allocations).toHaveLength(2)
+    allocations.forEach((allocation) => {
+      const visibleInterval = allocation.intervals.find(
+        (interval) => interval.kind === 'visible'
+      )
+      expect(visibleInterval).toBeDefined()
+      if (!visibleInterval) {
+        throw new Error('Expected visible legal-boundary interval')
+      }
+
+      const sourceSpanIds = getSourceSpanIdsForDomainInterval({
+        graph,
+        domainPlan,
+        allocationDomainId: allocation.domainId,
+        interval: visibleInterval
+      })
+      expect(sourceSpanIds).toEqual(
+        allocation.domainId.includes('boundary-domain:0')
+          ? [`${topology.pathId}:span:shell:0`]
+          : [`${topology.pathId}:span:hole:0`]
+      )
+    })
   })
 })

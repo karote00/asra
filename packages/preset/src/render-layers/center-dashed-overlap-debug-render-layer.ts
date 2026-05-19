@@ -114,28 +114,58 @@ export const registerCenterDashedOverlapDebugRenderLayer = (
   registerRenderLayer: RegisterRenderLayer,
   deps: Pick<PresetDependencies, 'render'>
 ) => {
+  let lastDrawState: {
+    enabled: boolean
+    mode: string
+    selectedId: string
+    diagnostics: CenterDashedOverlapDiagnostics | null
+  } | null = null
   const layerRegistration = createOverlayLayerRegistration({
     name: CENTER_DASHED_OVERLAP_DEBUG_LAYER_NAME,
     zIndex: 10,
     update: (canvas: OverlayCanvas) => {
-      canvas.clear()
-
       const debugConfig = getDebugConfig()
+      const selectedIds = [...renderSelectionStore.elementSelection]
+      const selectedId = selectedIds.length === 1 ? selectedIds[0] : ''
+      const diagnostics =
+        debugConfig.enabled && selectedId
+          ? ((
+              deps.render.getElementById(
+                selectedId
+              ) as CenterDashedOverlapDiagnosticsRuntimeGraphic | null
+            )?.__asyraCenterDashedOverlapDiagnostics ?? null)
+          : null
+      const nextDrawState = {
+        enabled: debugConfig.enabled === true,
+        mode: debugConfig.mode ?? 'all',
+        selectedId,
+        diagnostics
+      }
+      if (
+        lastDrawState &&
+        lastDrawState.enabled === nextDrawState.enabled &&
+        lastDrawState.mode === nextDrawState.mode &&
+        lastDrawState.selectedId === nextDrawState.selectedId &&
+        lastDrawState.diagnostics === nextDrawState.diagnostics
+      ) {
+        return false
+      }
+      lastDrawState = nextDrawState
+
+      canvas.clear()
       if (!debugConfig.enabled) {
-        return
+        return true
       }
 
-      const selectedIds = [...renderSelectionStore.elementSelection]
       if (selectedIds.length !== 1) {
-        return
+        return true
       }
 
       const element = deps.render.getElementById(selectedIds[0]) as
         | (RenderElementShape & CenterDashedOverlapDiagnosticsRuntimeGraphic)
         | null
-      const diagnostics = element?.__asyraCenterDashedOverlapDiagnostics
       if (!element || !diagnostics || diagnostics.components.length === 0) {
-        return
+        return true
       }
 
       const mode = debugConfig.mode ?? 'all'
@@ -151,6 +181,7 @@ export const registerCenterDashedOverlapDebugRenderLayer = (
       if (mode === 'bailout' || mode === 'all') {
         drawBailoutDiagnostics(canvas, element, diagnostics)
       }
+      return true
     }
   })
 

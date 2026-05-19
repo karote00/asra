@@ -18,6 +18,7 @@ import {
   PropertyTypes,
   SCENE_TREE_ACTIONS,
   SceneTreeChange,
+  SharedDataChannelNames,
   Unit,
   resetIdCounter,
   type ElementRawData
@@ -26,7 +27,11 @@ import { SceneTree } from '../sceneTree'
 import Element from '../components/element'
 import Workspace from '../components/workspace'
 import componentRegistry from '../component-registry'
-import { EventTypes } from '@asyra/reactive-events'
+import {
+  EventTypes,
+  subscribeToEvents,
+  type UpdateTransactionEvent
+} from '@asyra/reactive-events'
 
 // Create a mock Rectangle component for testing
 class MockRectangle extends Element {
@@ -350,6 +355,80 @@ describe('SceneTree', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     propsManager.updatePropsData(positionId, 'xUnit' as any, Unit.PERCENT)
     expect(element.computed.get('x')).toBe(120)
+  })
+
+  it('batches transient vector computed-data key deltas in order', () => {
+    const events: UpdateTransactionEvent[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (event.type === EventTypes.UPDATE_TRANSACTION) {
+        events.push(event as UpdateTransactionEvent)
+      }
+    })
+    events.length = 0
+
+    sceneTree.addChange({
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      id: 'vector-1',
+      key: 'points',
+      before: {},
+      after: { p1: { x: 0, y: 0 } },
+      options: { undoable: false }
+    } as SceneTreeChange)
+    sceneTree.addChange({
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      id: 'vector-1',
+      key: 'segments',
+      before: {},
+      after: { s1: { startId: 'p1', endId: 'p2' } },
+      options: { undoable: false }
+    } as SceneTreeChange)
+    sceneTree.addChange({
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      id: 'vector-1',
+      key: 'networks',
+      before: {},
+      after: { n1: { pointIds: ['p1', 'p2'], segmentIds: ['s1'] } },
+      options: { undoable: false }
+    } as SceneTreeChange)
+
+    sceneTree.commitSceneTreeTransaction()
+
+    expect(events).toEqual([
+      expect.objectContaining({
+        type: EventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: {
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+          eventName: EventTypes.UPDATE_COMPUTED_DATA,
+          id: 'vector-1',
+          changes: [
+            {
+              key: 'points',
+              before: {},
+              after: { p1: { x: 0, y: 0 } }
+            },
+            {
+              key: 'segments',
+              before: {},
+              after: { s1: { startId: 'p1', endId: 'p2' } }
+            },
+            {
+              key: 'networks',
+              before: {},
+              after: { n1: { pointIds: ['p1', 'p2'], segmentIds: ['s1'] } }
+            }
+          ]
+        },
+        options: {
+          undoable: false,
+          shared: SharedDataChannelNames.SCENE_TREE
+        }
+      })
+    ])
+    subscription.unsubscribe()
   })
 
   // Test load and save

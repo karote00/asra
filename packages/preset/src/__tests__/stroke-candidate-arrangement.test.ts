@@ -85,6 +85,9 @@ const makePacket = (
     polygons?: { x: number; y: number }[][]
     sourceSpanIds?: string[]
     intervalId?: string
+    figmaLikeSplitRangeTerminals?: NonNullable<
+      SolidCenterStrokeGeometryDebugMeta['figmaLikeSplitRangeTerminals']
+    >
     geometryFamily?: SolidCenterStrokeGeometryDebugMeta['geometryFamily']
     resolutionStatus?: SolidCenterStrokeGeometryDebugMeta['resolutionStatus']
     runtimeStatus?: SolidCenterStrokeGeometryDebugMeta['runtimeStatus']
@@ -110,6 +113,7 @@ const makePacket = (
         legalDomainId: `legal:${id}`,
         intervalId: options.intervalId ?? `interval:${id}`,
         sourceSpanIds: options.sourceSpanIds ?? [`span:${id}`],
+        figmaLikeSplitRangeTerminals: options.figmaLikeSplitRangeTerminals,
         strokePosition: options.strokePosition ?? 'inside',
         geometryFamily: options.geometryFamily ?? 'constrained-dashed',
         resolutionStatus:
@@ -281,6 +285,76 @@ describe('stroke candidate arrangement', () => {
 
     expect(buildArrangementCallCount).toBe(1)
     expect(secondCollapsed).toBe(firstCollapsed)
+  })
+
+  it('should run: partition disconnected visual-overlap groups before exact arrangement', () => {
+    const packets = [
+      makePacket('candidate:partition-a0', {
+        geometryFamily: 'constrained-solid',
+        alpha: 0.5,
+        polygon: square(0, 0, 10)
+      }),
+      makePacket('candidate:partition-a1', {
+        geometryFamily: 'constrained-solid',
+        alpha: 0.5,
+        polygon: square(5, 0, 10)
+      }),
+      makePacket('candidate:partition-b0', {
+        geometryFamily: 'constrained-solid',
+        alpha: 0.5,
+        polygon: square(100, 0, 10)
+      }),
+      makePacket('candidate:partition-b1', {
+        geometryFamily: 'constrained-solid',
+        alpha: 0.5,
+        polygon: square(105, 0, 10)
+      })
+    ]
+    const faces = buildTestFinalFaces(packets)
+    const arrangedCandidateCounts: number[] = []
+    const backend = {
+      buildArrangement: (candidates: CandidateRegion[]) => {
+        arrangedCandidateCounts.push(candidates.length)
+        const points = candidates.flatMap((candidate) =>
+          candidate.geometry.polygons.flat()
+        )
+        const bounds = getBounds(points)
+        return [
+          {
+            faceId: `face:partition:${arrangedCandidateCounts.length}`,
+            geometry: {
+              polygons: [
+                [
+                  { x: bounds.minX, y: bounds.minY },
+                  { x: bounds.maxX, y: bounds.minY },
+                  { x: bounds.maxX, y: bounds.maxY },
+                  { x: bounds.minX, y: bounds.maxY }
+                ]
+              ]
+            },
+            claimedBy: candidates,
+            legalState: {
+              insideFillDomain: true,
+              outsideFillDomain: true
+            }
+          }
+        ]
+      },
+      union: (regions: PolygonRegion[]) => regions
+    }
+
+    const collapsed = collapseStrokeFinalFaceVisualOverlaps(faces, { backend })
+
+    expect(arrangedCandidateCounts).toEqual([2, 2])
+    expect(collapsed).toHaveLength(2)
+    expect(collapsed[0]?.intervalIds).toEqual([
+      'interval:candidate:partition-a0',
+      'interval:candidate:partition-a1'
+    ])
+    expect(collapsed[1]?.intervalIds).toEqual([
+      'interval:candidate:partition-b0',
+      'interval:candidate:partition-b1'
+    ])
   })
 
   it('should run: build visual-overlap collapse cache keys from revisions when available', () => {
@@ -661,6 +735,82 @@ describe('stroke candidate arrangement', () => {
     expect(faces[0]?.intervalIds).toEqual(['interval:a', 'interval:b'])
     expect(faces[0]?.sourceSpanIds).toEqual(['span:a', 'span:b'])
     expect(faces[0]?.polygons).toEqual([square(2, 2, 4)])
+  })
+
+  it('should run: preserve split-range terminal metadata through exact arrangement merge', () => {
+    const packets = [
+      makePacket('candidate:terminal-start', {
+        intervalId: 'interval:start',
+        sourceSpanIds: ['span:start'],
+        figmaLikeSplitRangeTerminals: [
+          {
+            intervalId: 'interval:start',
+            splitRangeId: 'split:a',
+            splitRangeStartDistance: 0,
+            splitRangeEndDistance: 50,
+            terminalRole: 'start',
+            startDistance: 0,
+            endDistance: 10
+          }
+        ]
+      }),
+      makePacket('candidate:terminal-end', {
+        intervalId: 'interval:end',
+        sourceSpanIds: ['span:end'],
+        figmaLikeSplitRangeTerminals: [
+          {
+            intervalId: 'interval:end',
+            splitRangeId: 'split:a',
+            splitRangeStartDistance: 0,
+            splitRangeEndDistance: 50,
+            terminalRole: 'end',
+            startDistance: 40,
+            endDistance: 50
+          }
+        ]
+      })
+    ]
+    const backend = makeBackend((candidates) => [
+      {
+        faceId: 'face:terminal',
+        geometry: { polygons: [square(0, 0, 12)] },
+        claimedBy: candidates,
+        legalState: {
+          insideFillDomain: true,
+          outsideFillDomain: false,
+          clipped: false
+        }
+      }
+    ])
+
+    const faces = buildArrangedStrokeFinalFacesFromResolvedPackets(packets, {
+      backend
+    })
+
+    expect(faces).toHaveLength(1)
+    expect(faces[0]?.intervalIds).toEqual(['interval:start', 'interval:end'])
+    expect(faces[0]?.sourceSpanIds).toEqual(['span:start', 'span:end'])
+    expect(
+      faces[0]?.debugMeta?.figmaLikeSplitRangeTerminals?.map((terminal) => ({
+        intervalId: terminal.intervalId,
+        terminalRole: terminal.terminalRole,
+        startDistance: terminal.startDistance,
+        endDistance: terminal.endDistance
+      }))
+    ).toEqual([
+      {
+        intervalId: 'interval:start',
+        terminalRole: 'start',
+        startDistance: 0,
+        endDistance: 10
+      },
+      {
+        intervalId: 'interval:end',
+        terminalRole: 'end',
+        startDistance: 40,
+        endDistance: 50
+      }
+    ])
   })
 
   it('should run: collapse duplicate exact arrangement faces without stacking opacity', () => {

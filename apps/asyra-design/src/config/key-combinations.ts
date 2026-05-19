@@ -131,7 +131,7 @@ export const keyCombinations = {
           },
           button,
           down: false,
-          dragging: true
+          dragging: false
         })
         updateKeyState(raw)
       }

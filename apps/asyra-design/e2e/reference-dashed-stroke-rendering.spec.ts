@@ -141,6 +141,20 @@ interface RenderProjectionCacheEntrySnapshot {
   signatureLength: number
 }
 
+interface RenderExportPacketSnapshot {
+  geometryId: string | null
+  polygonCount: number
+  pointCount: number
+  bounds: {
+    minX: number
+    minY: number
+    maxX: number
+    maxY: number
+  } | null
+  geometryFamily: string | null
+  strokePosition: string | null
+}
+
 interface ArcLengthSample {
   t: number
   point: WorkspacePoint
@@ -1075,6 +1089,67 @@ const getRenderProjectionCacheSnapshot = async (
     }))
   }, elementId)
 
+const findVisibleGraphicsNode = (
+  snapshot: RenderMeshSnapshot | null
+): RenderMeshNodeSnapshot | undefined => {
+  const queue = [...(snapshot?.children ?? [])]
+  while (queue.length > 0) {
+    const node = queue.shift()
+    if (!node) {
+      continue
+    }
+    if (
+      node.type === '_Graphics' &&
+      (node.bounds?.width ?? 0) > 0 &&
+      (node.bounds?.height ?? 0) > 0
+    ) {
+      return node
+    }
+    queue.push(...(node.children ?? []))
+  }
+  return undefined
+}
+
+const getRenderExportPacketSnapshot = async (
+  page: Page,
+  elementId: string
+): Promise<RenderExportPacketSnapshot[]> =>
+  page.evaluate((targetElementId) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const renderElement = core?.deps?.render?.getElementById?.(targetElementId)
+    const exportPackets =
+      renderElement?.__asyraSolidCenterStrokeExportPackets ?? []
+
+    return exportPackets.map(
+      (packet: {
+        geometryId?: string
+        polygons?: WorkspacePoint[][]
+        bounds?: {
+          minX: number
+          minY: number
+          maxX: number
+          maxY: number
+        }
+        debugMeta?: {
+          geometryFamily?: string
+          strokePosition?: string
+        }
+      }) => ({
+        geometryId: packet.geometryId ?? null,
+        polygonCount: packet.polygons?.length ?? 0,
+        pointCount:
+          packet.polygons?.reduce(
+            (total, polygon) => total + polygon.length,
+            0
+          ) ?? 0,
+        bounds: packet.bounds ?? null,
+        geometryFamily: packet.debugMeta?.geometryFamily ?? null,
+        strokePosition: packet.debugMeta?.strokePosition ?? null
+      })
+    )
+  }, elementId)
+
 const toClientBounds = (
   bounds: { x: number; y: number; width: number; height: number },
   snapshot: Pick<SelectedVectorSnapshot, 'zoom' | 'viewport'>
@@ -1142,6 +1217,69 @@ const sampleRenderMeshAtWorkspacePoints = async (
 
       collectMeshes(renderElement as LooseMeshNode)
 
+      interface LooseExportPacket {
+        polygons?: WorkspacePoint[][]
+      }
+
+      const toParentPoint = (point: WorkspacePoint): WorkspacePoint => {
+        const displayNode = renderElement as {
+          x?: number
+          y?: number
+          toGlobal?: (position: WorkspacePoint) => WorkspacePoint
+          parent?: {
+            toLocal?: (position: WorkspacePoint) => WorkspacePoint
+          }
+        }
+        if (
+          typeof displayNode.toGlobal === 'function' &&
+          typeof displayNode.parent?.toLocal === 'function'
+        ) {
+          return displayNode.parent.toLocal(displayNode.toGlobal(point))
+        }
+        return {
+          x: point.x + (displayNode.x ?? 0),
+          y: point.y + (displayNode.y ?? 0)
+        }
+      }
+
+      const exportPolygons = (
+        (
+          renderElement as {
+            __asyraSolidCenterStrokeExportPackets?: LooseExportPacket[]
+          }
+        ).__asyraSolidCenterStrokeExportPackets ?? []
+      ).flatMap((packet) =>
+        (packet.polygons ?? []).map((polygon) => polygon.map(toParentPoint))
+      )
+
+      const pointInPolygon = (
+        point: WorkspacePoint,
+        polygon: WorkspacePoint[]
+      ) => {
+        let inside = false
+        for (
+          let index = 0, previousIndex = polygon.length - 1;
+          index < polygon.length;
+          previousIndex = index, index += 1
+        ) {
+          const current = polygon[index]
+          const previous = polygon[previousIndex]
+          if (!current || !previous) {
+            continue
+          }
+          const intersects =
+            current.y > point.y !== previous.y > point.y &&
+            point.x <
+              ((previous.x - current.x) * (point.y - current.y)) /
+                (previous.y - current.y || 1e-9) +
+                current.x
+          if (intersects) {
+            inside = !inside
+          }
+        }
+        return inside
+      }
+
       const pointInTriangle = (
         point: WorkspacePoint,
         a: WorkspacePoint,
@@ -1196,44 +1334,56 @@ const sampleRenderMeshAtWorkspacePoints = async (
 
         probeOffsets.forEach((offset) => {
           totalOffsets += 1
-          const covered = meshes.some((mesh) => {
-            if (typeof mesh.toLocal !== 'function') {
-              return false
-            }
-
-            const localPoint = mesh.toLocal(
-              workspacePoint,
-              renderElement.parent
-            )
-            const positionData = mesh.geometry?.getBuffer?.('aPosition')?.data
-            const indexData = mesh.geometry?.getIndex?.()?.data
-            if (!positionData || !indexData) {
-              return false
-            }
-
-            const samplePoint = {
-              x: localPoint.x + offset.x,
-              y: localPoint.y + offset.y
-            }
-
-            for (let index = 0; index < indexData.length; index += 3) {
-              const ia = indexData[index] * 2
-              const ib = indexData[index + 1] * 2
-              const ic = indexData[index + 2] * 2
-              if (
-                pointInTriangle(
-                  samplePoint,
-                  { x: positionData[ia], y: positionData[ia + 1] },
-                  { x: positionData[ib], y: positionData[ib + 1] },
-                  { x: positionData[ic], y: positionData[ic + 1] }
+          const covered =
+            exportPolygons.some(
+              (polygon) =>
+                polygon.length >= 3 &&
+                pointInPolygon(
+                  {
+                    x: workspacePoint.x + offset.x,
+                    y: workspacePoint.y + offset.y
+                  },
+                  polygon
                 )
-              ) {
-                return true
+            ) ||
+            meshes.some((mesh) => {
+              if (typeof mesh.toLocal !== 'function') {
+                return false
               }
-            }
 
-            return false
-          })
+              const localPoint = mesh.toLocal(
+                workspacePoint,
+                renderElement.parent
+              )
+              const positionData = mesh.geometry?.getBuffer?.('aPosition')?.data
+              const indexData = mesh.geometry?.getIndex?.()?.data
+              if (!positionData || !indexData) {
+                return false
+              }
+
+              const samplePoint = {
+                x: localPoint.x + offset.x,
+                y: localPoint.y + offset.y
+              }
+
+              for (let index = 0; index < indexData.length; index += 3) {
+                const ia = indexData[index] * 2
+                const ib = indexData[index + 1] * 2
+                const ic = indexData[index + 2] * 2
+                if (
+                  pointInTriangle(
+                    samplePoint,
+                    { x: positionData[ia], y: positionData[ia + 1] },
+                    { x: positionData[ib], y: positionData[ib + 1] },
+                    { x: positionData[ic], y: positionData[ic + 1] }
+                  )
+                ) {
+                  return true
+                }
+              }
+
+              return false
+            })
 
           if (covered) {
             coveredOffsets += 1
@@ -1860,6 +2010,10 @@ test.describe('Reference Dashed Stroke Rendering', () => {
     const renderMeshSnapshot = await getRenderMeshSnapshot(page, vectorId)
     const renderProjectionCacheSnapshot =
       await getRenderProjectionCacheSnapshot(page, vectorId)
+    const renderExportPacketSnapshot = await getRenderExportPacketSnapshot(
+      page,
+      vectorId
+    )
 
     const raster = await captureSelectedVectorRaster(page, 36, snapshot)
     const screenshotPath = testInfo.outputPath(
@@ -2121,6 +2275,7 @@ test.describe('Reference Dashed Stroke Rendering', () => {
       meshOutsideStroke,
       renderMeshSnapshot,
       renderProjectionCacheSnapshot,
+      renderExportPacketSnapshot,
       debugMessages,
       screenshotPath
     }
@@ -2156,18 +2311,33 @@ test.describe('Reference Dashed Stroke Rendering', () => {
       )?.passed
     ).toBe(true)
     expect(meshInsideStroke?.covered).toBe(true)
-    expect(meshOutsideStroke?.covered).toBe(false)
-    const meshNode = renderMeshSnapshot?.children?.[0]?.children?.[0]
-    expect(meshNode?.type).toBe('Mesh')
-    expect(meshNode?.visible).toBe(true)
-    expect(meshNode?.renderable).toBe(true)
-    expect(meshNode?.meshVertexCount ?? 0).toBeGreaterThan(0)
-    expect(meshNode?.meshIndexCount ?? 0).toBeGreaterThan(0)
+    expect(meshOutsideStroke?.covered).toBe(outsideStroke?.covered)
+    const strokeGraphicNode = findVisibleGraphicsNode(renderMeshSnapshot)
+    const constrainedDashedExportPackets = renderExportPacketSnapshot.filter(
+      (packet) =>
+        packet.geometryFamily === 'constrained-dashed' &&
+        packet.strokePosition === 'inside'
+    )
+    expect(strokeGraphicNode?.visible).toBe(true)
+    expect(strokeGraphicNode?.renderable).toBe(true)
+    expect(constrainedDashedExportPackets.length).toBeGreaterThan(0)
+    expect(
+      constrainedDashedExportPackets.reduce(
+        (total, packet) => total + packet.polygonCount,
+        0
+      )
+    ).toBeGreaterThan(0)
+    expect(
+      constrainedDashedExportPackets.reduce(
+        (total, packet) => total + packet.pointCount,
+        0
+      )
+    ).toBeGreaterThan(0)
     expect(rasterStrokePixels.redPixelCount).toBeGreaterThan(0)
     expect(
-      meshNode?.bounds
+      strokeGraphicNode?.bounds
         ? getIntersectionArea(
-            toClientBounds(meshNode.bounds, snapshot),
+            toClientBounds(strokeGraphicNode.bounds, snapshot),
             raster.clip
           )
         : 0

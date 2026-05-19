@@ -19,7 +19,7 @@ export type LegalDomainNormalizationBlockedReason =
 
 export interface NormalizedBoundarySpan {
   boundarySpanId: string
-  role: 'outer-boundary' | 'hole-boundary'
+  role: 'fill-exterior-edge' | 'fill-interior-edge'
   geometry: Vec2[]
   sourceContourIds: string[]
   sourceSpanIds: string[]
@@ -204,7 +204,9 @@ const buildContainmentBoundarySpans = (
       {
         boundarySpanId: `${classification.legalDomainId}:boundary:${classification.networkId}`,
         role:
-          classification.role === 'shell' ? 'outer-boundary' : 'hole-boundary',
+          classification.role === 'shell'
+            ? 'fill-exterior-edge'
+            : 'fill-interior-edge',
         geometry,
         sourceContourIds: [classification.contourId],
         sourceSpanIds: getSourceSpanIds(topology),
@@ -229,7 +231,7 @@ const buildBackendBoundarySpans = (
       )
       return {
         boundarySpanId: `${legalDomainId}:normalized-boundary:${regionIndex}:${polygonIndex}`,
-        role: isNestedBoundary ? 'hole-boundary' : 'outer-boundary',
+        role: isNestedBoundary ? 'fill-interior-edge' : 'fill-exterior-edge',
         geometry,
         sourceContourIds,
         sourceSpanIds,

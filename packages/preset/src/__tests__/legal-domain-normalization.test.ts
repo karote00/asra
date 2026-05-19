@@ -87,8 +87,8 @@ describe('legal domain normalization', () => {
     ])
     expect(legalDomain.boundarySpans).toHaveLength(2)
     expect(legalDomain.boundarySpans.map((span) => span.role)).toEqual([
-      'outer-boundary',
-      'hole-boundary'
+      'fill-exterior-edge',
+      'fill-interior-edge'
     ])
     expect(legalDomain.boundarySpans[0]?.seamPoint).toEqual({ x: 0, y: 0 })
     expect(legalDomain.boundarySpans[1]?.seamPoint).toEqual({ x: 25, y: 25 })
@@ -187,8 +187,8 @@ describe('legal domain normalization', () => {
     })
     expect(legalDomain.boundarySpans).toHaveLength(2)
     expect(legalDomain.boundarySpans.map((span) => span.role)).toEqual([
-      'outer-boundary',
-      'hole-boundary'
+      'fill-exterior-edge',
+      'fill-interior-edge'
     ])
     expect(legalDomain.boundarySpans[0]?.sourceContourIds).toEqual([
       'compound-overlap:outer:contour:0',

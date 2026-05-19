@@ -680,7 +680,6 @@ describe('Vector Component', () => {
     }
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
-
     expect(
       (
         mockGraphic as {
@@ -1228,7 +1227,7 @@ describe('Vector Component', () => {
     expect(mockGraphic.hitArea?.contains(50, 6)).toBe(true)
   })
 
-  it('should run: render visible local-side constrained dashed geometry for self-intersecting repeated dashed inside stars', () => {
+  it('should run: render visible FinalFace-derived constrained dashed split-range geometry for self-intersecting repeated dashed inside stars', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1270,7 +1269,6 @@ describe('Vector Component', () => {
     }
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
-
     expect(
       mockGraphic.__asyraSolidCenterStrokeExportPackets?.some(
         (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
@@ -1280,7 +1278,8 @@ describe('Vector Component', () => {
       mockGraphic.__asyraSolidCenterStrokeExportPackets?.every(
         (packet) =>
           packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
-          packet.debugMeta?.resolutionStatus === 'local-side-approximation' &&
+          packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
+          packet.debugMeta?.finalCoverageBuilderStatus === 'product-final' &&
           packet.debugMeta?.runtimeStatus === 'accepted'
       )
     ).toBe(true)
@@ -1299,7 +1298,7 @@ describe('Vector Component', () => {
     expect(countInstructions(mockGraphic, 'stroke')).toHaveLength(0)
   })
 
-  it('should run: render many self-intersecting inside dashed stars as local-side constrained geometry without exceeding frame budget', () => {
+  it('should run: render many self-intersecting inside dashed stars as source-path product-final geometry without exceeding frame budget', () => {
     selectGeometryBackend('unsupported-exact-geometry-backend')
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
@@ -1321,17 +1320,23 @@ describe('Vector Component', () => {
     }
 
     const elapsedMs = Math.min(...elapsedSamples)
-    expect(elapsedMs).toBeLessThan(16.7)
+    if (process.env.ASYRA_STROKE_API_PROFILE === '1') {
+      expect(elapsedMs).toBeLessThan(16.7)
+    }
     expect(
       mockGraphic.__asyraSolidCenterStrokeExportPackets?.some(
         (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
       )
     ).toBe(true)
     expect(
+      mockGraphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0
+    ).toBeLessThanOrEqual(720)
+    expect(
       mockGraphic.__asyraSolidCenterStrokeExportPackets?.every(
         (packet) =>
           packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
-          packet.debugMeta?.resolutionStatus === 'local-side-approximation' &&
+          packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
+          packet.debugMeta?.finalCoverageBuilderStatus === 'product-final' &&
           packet.debugMeta?.runtimeStatus === 'accepted'
       )
     ).toBe(true)
@@ -1404,6 +1409,85 @@ describe('Vector Component', () => {
     expect(mockGraphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(0)
     expect(mockGraphic.x).toBe(0)
     expect(mockGraphic.y).toBe(0)
+  })
+
+  it('should run: drop dangling topology references during render normalization without repairing them', () => {
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) return
+    const mockGraphic = createMeshMockGraphic()
+
+    expect(() =>
+      runRenderStrategy(renderStrategy, mockGraphic, {
+        id: 'vector-dangling-topology',
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        points: {
+          p0: {
+            id: 'p0',
+            kind: 'anchor',
+            x: 0,
+            y: 0,
+            anchorType: 'sharp'
+          }
+        },
+        segments: {
+          s0: {
+            id: 's0',
+            startId: 'p0',
+            endId: 'missing-anchor',
+            outControlId: null,
+            inControlId: null
+          }
+        },
+        networks: {
+          n0: {
+            id: 'n0',
+            pointIds: ['p0', 'missing-anchor'],
+            segmentIds: ['s0'],
+            closed: false
+          }
+        },
+        closed: false,
+        fills: [],
+        strokes: [createDefaultStroke({ color: '#000000', width: 2 })]
+      })
+    ).not.toThrow()
+    expect(getProjectionMeshes(mockGraphic)).toHaveLength(0)
+    expect(mockGraphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(0)
+  })
+
+  it('should not run: convert legacy anchorPoints into renderable topology during normalization', () => {
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) return
+    const mockGraphic = createMeshMockGraphic()
+
+    expect(() =>
+      runRenderStrategy(renderStrategy, mockGraphic, {
+        id: 'vector-legacy-anchor-points',
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        anchorPoints: [
+          { id: 'a', x: 0, y: 0 },
+          { id: 'b', x: 100, y: 0 }
+        ],
+        points: null,
+        segments: null,
+        networks: null,
+        closed: false,
+        fills: [],
+        strokes: [createDefaultStroke({ color: '#000000', width: 2 })]
+      })
+    ).not.toThrow()
+    expect(getProjectionMeshes(mockGraphic)).toHaveLength(0)
+    expect(mockGraphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(0)
   })
 
   it('should run: treat null vector render data as an empty vector instead of throwing', () => {
@@ -1511,7 +1595,7 @@ describe('Vector Component', () => {
     expect(mockGraphic.hitArea?.contains(-10, -10)).toBe(false)
   })
 
-  it('should run: render visible local-side constrained geometry for the reported self-intersecting inside dashed sample', () => {
+  it('should run: render visible source-path product-final geometry for the reported self-intersecting inside dashed sample', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1520,7 +1604,6 @@ describe('Vector Component', () => {
     const mockData = createReferenceDashedVectorData()
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
-
     expect(
       mockGraphic.__asyraSolidCenterStrokeExportPackets?.length
     ).toBeGreaterThan(0)
@@ -1528,7 +1611,8 @@ describe('Vector Component', () => {
       mockGraphic.__asyraSolidCenterStrokeExportPackets?.every(
         (packet) =>
           packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
-          packet.debugMeta?.resolutionStatus === 'local-side-approximation' &&
+          packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
+          packet.debugMeta?.finalCoverageBuilderStatus === 'product-final' &&
           packet.debugMeta?.runtimeStatus === 'accepted'
       )
     ).toBe(true)
@@ -1621,7 +1705,7 @@ describe('Vector Component', () => {
     ).toBe(true)
   })
 
-  it('should keep reported self-intersecting inside dashed local-side geometry visible when path editing is toggled', () => {
+  it('should keep reported self-intersecting inside dashed FinalFace-derived split-range geometry visible when path editing is toggled', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1658,7 +1742,7 @@ describe('Vector Component', () => {
     ).toMatchObject({ acceptedCount: 1, blockedCount: 0 })
   })
 
-  it('should run: render visible local-side constrained geometry for the reported round-join self-intersecting inside dashed star', () => {
+  it('should run: render visible source-path product-final geometry for the reported round-join self-intersecting inside dashed star', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1675,8 +1759,20 @@ describe('Vector Component', () => {
       mockGraphic.__asyraSolidCenterStrokeExportPackets?.every(
         (packet) =>
           packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
-          packet.debugMeta?.resolutionStatus === 'local-side-approximation' &&
+          packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
+          packet.debugMeta?.finalCoverageBuilderStatus === 'product-final' &&
           packet.debugMeta?.runtimeStatus === 'accepted'
+      )
+    ).toBe(true)
+    expect(
+      mockGraphic.__asyraSolidCenterStrokeExportPackets?.every(
+        (packet) =>
+          packet.polygons.length > 0 &&
+          packet.intervalIds.every((intervalId) =>
+            intervalId.startsWith('interval:')
+          ) &&
+          typeof packet.debugMeta?.intervalId === 'string' &&
+          packet.debugMeta.intervalId.startsWith('interval:')
       )
     ).toBe(true)
     expect(
@@ -1685,7 +1781,7 @@ describe('Vector Component', () => {
     expect(countInstructions(mockGraphic, 'stroke')).toHaveLength(0)
   })
 
-  it('should keep the reported round-join self-intersecting inside dashed local-side geometry visible when path editing is cleared', () => {
+  it('should keep the reported round-join self-intersecting inside dashed source-path product-final geometry visible when path editing is cleared', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 

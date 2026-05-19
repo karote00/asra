@@ -401,13 +401,23 @@ Recommended feasible algorithm:
 1. split the source topology at all intersections
 2. construct a planar arrangement of the source path
 3. classify legal domains using the declared fill rule
-4. build one-sided stroke candidates from split topology spans
-5. run stroke-candidate arrangement
-6. classify stroke faces against legal domains and interval ownership
+4. derive legal-region boundary contours from edges adjacent to legal and
+   illegal/exterior faces
+5. build inside/outside stroke candidates from those boundary contours:
+   - `inside` toward the legal face
+   - `outside` toward the opposite face
+   - center stroke remains authored centerline based and does not consume this
+     contour side model
+6. run stroke-candidate arrangement only when the contour candidate family
+   still overlaps or needs same-visual cleanup
+7. classify stroke faces against legal domains and interval ownership
 
-Until this branch is implemented and tested, self-intersection exact support
-remains `research-gated`. Product visibility may use explicitly marked
-local-side approximation packets, but those packets are not exact support.
+The self-intersection constrained dashed `inside/outside` product path consumes
+the shared resolved geometry model's even-odd boundary contours. The former
+authored-side local-side approximation is not the product contract and must not
+be cited as supported behavior. Each split contour edge is an independent dash
+domain: both endpoints receive the endpoint dash rule and dash placement does
+not continue across an intersection node into the next split edge.
 
 2026-04-29 Figma reference refinement:
 
@@ -419,8 +429,10 @@ local-side approximation packets, but those packets are not exact support.
   solved as distinct side-aware face-classification problems.
 - A shared center-derived packet family with a side label is not an acceptable
   exact model.
-- Local-side approximation remains allowed only as explicitly marked visibility
-  support; it is not exact support.
+- Later Figma-like comparison established the product stroke source as
+  even-odd legal-region boundary contours, including hole boundaries. Local-side
+  approximation remains useful only as a historical debugging reference; it is
+  not the current support target.
 
 ## Overlapping Compound-Hole Rule
 

@@ -26,13 +26,6 @@ interface RedCoverageProbe {
   minCoverage: number
 }
 
-interface ForbiddenRedCoverageProbe {
-  label: string
-  point: Vec2
-  size: number
-  maxCoverage: number
-}
-
 interface ExportPacketSnapshot {
   debugMeta: Record<string, unknown>
   polygons: Vec2[][]
@@ -46,6 +39,7 @@ interface ExportPacketSnapshot {
 
 const PADDING = 24
 const STROKE_WIDTH = 10
+const ADJUSTED_DASH_PATTERN = [27, 20] as const
 const REPORTED_VECTOR_6_WIDTH = 360.120941483566
 const REPORTED_VECTOR_6_HEIGHT = 366.06359840210007
 const REPORTED_VECTOR_6_STROKE_COLOR = 'DF0606'
@@ -121,104 +115,48 @@ const offsetFromTangentSide = (
   y: point.y + tangent.x * selectedSide * distance
 })
 
-const getAnchorArea = (points: Vec2[]) =>
-  points.reduce((area, point, index) => {
-    const next = points[(index + 1) % points.length]
-    return area + point.x * next.y - next.x * point.y
-  }, 0) / 2
-
-const getFirstSegmentStartTangent = () => {
-  const nearStart = cubicPoint(TP12, TP12_OUT, TP13_IN, TP13, 0.02)
-  return normalizeVector({ x: nearStart.x - TP12.x, y: nearStart.y - TP12.y })
-}
-
 const pointDistance = (from: Vec2, to: Vec2) =>
   Math.hypot(to.x - from.x, to.y - from.y)
 
-const samplePolygonEdges = (polygon: Vec2[], maxStep = 0.5) => {
-  const samples: Vec2[] = []
-  for (let index = 0; index < polygon.length; index += 1) {
-    const start = polygon[index]
-    const end = polygon[(index + 1) % polygon.length]
-    const length = pointDistance(start, end)
-    const steps = Math.max(1, Math.ceil(length / maxStep))
-    for (let step = 1; step < steps; step += 1) {
-      const amount = step / steps
-      samples.push({
-        x: start.x + (end.x - start.x) * amount,
-        y: start.y + (end.y - start.y) * amount
-      })
-    }
+const getSignedArea = (points: readonly Vec2[]) => {
+  let total = 0
+  for (let index = 0; index < points.length; index += 1) {
+    const current = points[index]
+    const next = points[(index + 1) % points.length]
+    total += current.x * next.y - next.x * current.y
   }
-  return samples
+  return total / 2
 }
 
-const findCapPlaneViolations = (
-  packets: ExportPacketSnapshot[],
-  origin: Vec2,
-  tangent: Vec2,
-  capAllowance: number,
-  tolerance = 0.75
-) =>
-  packets.flatMap((packet) =>
-    packet.polygons.flatMap((polygon) =>
-      [...polygon, ...samplePolygonEdges(polygon)].flatMap((point) => {
-        const projection =
-          (point.x - origin.x) * tangent.x + (point.y - origin.y) * tangent.y
-        return projection > capAllowance + tolerance
-          ? [
-              {
-                intervalId: packet.debugMeta.intervalId,
-                projection: Math.round(projection * 100) / 100,
-                point: {
-                  x: Math.round(point.x * 100) / 100,
-                  y: Math.round(point.y * 100) / 100
-                }
-              }
-            ]
-          : []
-      })
-    )
-  )
-
-const getSourceRangeForbiddenProbes = (): ForbiddenRedCoverageProbe[] => {
-  const selectedSide =
-    getAnchorArea([TP12, TP13, TP14, TP15, TP16]) >= 0 ? 1 : -1
-  const rejectedSideProbes = [8, 14, 20, 26].flatMap((distance) =>
-    [5, 9].map((offset) => ({
-      label: `source-range rejected-side d${distance} o${offset}`,
-      point: offsetFromSourceSegmentAtDistance(
-        0,
-        distance,
-        -selectedSide as 1 | -1,
-        offset
-      ),
-      size: 5,
-      maxCoverage: 0.03
-    }))
-  )
-  const outsideWidthProbes = [50, 60, 70].flatMap((distance) =>
-    [14, 18].map((offset) => ({
-      label: `source-range outside-width d${distance} o${offset}`,
-      point: offsetFromSourceSegmentAtDistance(
-        0,
-        distance,
-        selectedSide as 1 | -1,
-        offset
-      ),
-      size: 5,
-      maxCoverage: 0.03
-    }))
-  )
-
-  return [...rejectedSideProbes, ...outsideWidthProbes]
-}
+const getInsideSourceSide = (points: readonly Vec2[]): 1 | -1 =>
+  getSignedArea(points) >= 0 ? 1 : -1
 
 const TP14 = { x: 360.12094148356596, y: 144.31562775593738 }
 const TP15 = { x: 0, y: 14.030686031827244 }
 const TP13_OUT = { x: 78.17096503446606, y: 390.18669726605293 }
 const TP15_OUT = { x: 0, y: 14.030686031827244 }
 const TP16_IN = { x: 263.91052297960755, y: 362.79345310867603 }
+const ADJUSTED_VECTOR_6_WIDTH = 360.12094148356584
+const ADJUSTED_VECTOR_6_HEIGHT = 367.70186652155667
+const ADJ_TP12 = { x: 188.1928217922337, y: 0 }
+const ADJ_TP13 = { x: 11.358174406717296, y: 365.76797704068724 }
+const ADJ_TP14 = { x: 360.12094148356584, y: 145.95389587539378 }
+const ADJ_TP15 = { x: 0, y: 15.668954151283657 }
+const ADJ_TP16 = { x: 270.59180204238254, y: 347.0603956649177 }
+const ADJ_TP12_OUT = { x: 164.3673966581619, y: 140.91988215887423 }
+const ADJ_TP13_IN = { x: -42.09205809548172, y: 344.92238636482955 }
+const ADJ_TP13_OUT = { x: 78.17096503446606, y: 391.8249653855095 }
+const ADJ_TP15_OUT = { x: 0, y: 15.668954151283657 }
+const ADJ_TP16_IN = { x: 263.9105229796075, y: 364.43172122813246 }
+const ADJ_TP16_OUT = { x: 277.27308110515736, y: 329.6890701017029 }
+const REPORTED_SOURCE_POINTS = [TP12, TP13, TP14, TP15, TP16] as const
+const ADJUSTED_SOURCE_POINTS = [
+  ADJ_TP12,
+  ADJ_TP13,
+  ADJ_TP14,
+  ADJ_TP15,
+  ADJ_TP16
+] as const
 
 const buildCubicPolyline = (
   p0: Vec2,
@@ -241,7 +179,7 @@ const getPolylineLength = (points: Vec2[]) =>
   }, 0)
 
 const getReportedSourcePathSegments = () => {
-  const boundaries = [
+  const polylines = [
     buildCubicPolyline(TP12, TP12_OUT, TP13_IN, TP13),
     buildCubicPolyline(TP13, TP13_OUT, TP14, TP14),
     [TP14, TP15],
@@ -249,10 +187,10 @@ const getReportedSourcePathSegments = () => {
     buildCubicPolyline(TP16, TP16_OUT, TP12, TP12)
   ]
   let cursor = 0
-  return boundaries.map((boundary, segmentIndex) => {
-    const length = getPolylineLength(boundary)
+  return polylines.map((polyline, segmentIndex) => {
+    const length = getPolylineLength(polyline)
     const range = {
-      boundary,
+      polyline,
       segmentIndex,
       startDistance: cursor,
       endDistance: cursor + length
@@ -272,9 +210,9 @@ const getSourceSegmentPointAtDistance = (
   }
 
   let cursor = 0
-  for (let index = 0; index < segment.boundary.length - 1; index += 1) {
-    const start = segment.boundary[index]
-    const end = segment.boundary[index + 1]
+  for (let index = 0; index < segment.polyline.length - 1; index += 1) {
+    const start = segment.polyline[index]
+    const end = segment.polyline[index + 1]
     const edgeLength = pointDistance(start, end)
     if (edgeLength <= 1e-9) {
       continue
@@ -295,8 +233,8 @@ const getSourceSegmentPointAtDistance = (
     cursor += edgeLength
   }
 
-  const end = segment.boundary[segment.boundary.length - 1]
-  const beforeEnd = segment.boundary[segment.boundary.length - 2] ?? end
+  const end = segment.polyline[segment.polyline.length - 1]
+  const beforeEnd = segment.polyline[segment.polyline.length - 2] ?? end
   return {
     point: end,
     tangent: normalizeVector({
@@ -319,15 +257,173 @@ const offsetFromSourceSegmentAtDistance = (
   return offsetFromTangentSide(point, tangent, side, offset)
 }
 
+const getAdjustedSourcePathSegments = () => {
+  const polylines = [
+    buildCubicPolyline(ADJ_TP12, ADJ_TP12_OUT, ADJ_TP13_IN, ADJ_TP13),
+    buildCubicPolyline(ADJ_TP13, ADJ_TP13_OUT, ADJ_TP14, ADJ_TP14),
+    [ADJ_TP14, ADJ_TP15],
+    buildCubicPolyline(ADJ_TP15, ADJ_TP15_OUT, ADJ_TP16_IN, ADJ_TP16),
+    buildCubicPolyline(ADJ_TP16, ADJ_TP16_OUT, ADJ_TP12, ADJ_TP12)
+  ]
+  let cursor = 0
+  return polylines.map((polyline, segmentIndex) => {
+    const length = getPolylineLength(polyline)
+    const range = {
+      polyline,
+      segmentIndex,
+      startDistance: cursor,
+      endDistance: cursor + length
+    }
+    cursor = range.endDistance
+    return range
+  })
+}
+
+const getAdjustedSourceSegmentPointAtDistance = (
+  segmentIndex: number,
+  distance: number
+) => {
+  const segment = getAdjustedSourcePathSegments()[segmentIndex]
+  if (!segment) {
+    throw new Error(`Missing adjusted source segment ${segmentIndex}`)
+  }
+
+  let cursor = 0
+  for (let index = 0; index < segment.polyline.length - 1; index += 1) {
+    const start = segment.polyline[index]
+    const end = segment.polyline[index + 1]
+    const edgeLength = pointDistance(start, end)
+    if (edgeLength <= 1e-9) {
+      continue
+    }
+    if (cursor + edgeLength >= distance) {
+      const amount = (distance - cursor) / edgeLength
+      return {
+        point: {
+          x: start.x + (end.x - start.x) * amount,
+          y: start.y + (end.y - start.y) * amount
+        },
+        tangent: normalizeVector({
+          x: end.x - start.x,
+          y: end.y - start.y
+        })
+      }
+    }
+    cursor += edgeLength
+  }
+
+  const end = segment.polyline[segment.polyline.length - 1]
+  const beforeEnd = segment.polyline[segment.polyline.length - 2] ?? end
+  return {
+    point: end,
+    tangent: normalizeVector({
+      x: end.x - beforeEnd.x,
+      y: end.y - beforeEnd.y
+    })
+  }
+}
+
+const offsetFromAdjustedSourceSegmentAtDistance = (
+  segmentIndex: number,
+  distance: number,
+  side: 1 | -1,
+  offset: number
+) => {
+  const { point, tangent } = getAdjustedSourceSegmentPointAtDistance(
+    segmentIndex,
+    distance
+  )
+  return offsetFromTangentSide(point, tangent, side, offset)
+}
+
+const getAdjustedTotalLength = () => {
+  const segments = getAdjustedSourcePathSegments()
+  return segments[segments.length - 1]?.endDistance ?? 0
+}
+
+const normalizeAdjustedLoopDistance = (distance: number) => {
+  const totalLength = getAdjustedTotalLength()
+  return totalLength > 0
+    ? ((distance % totalLength) + totalLength) % totalLength
+    : 0
+}
+
+const getAdjustedSourcePointAtLoopDistance = (distance: number) => {
+  const normalized = normalizeAdjustedLoopDistance(distance)
+  const segment = getAdjustedSourcePathSegments().find(
+    (candidate, index, segments) =>
+      normalized >= candidate.startDistance &&
+      (normalized <= candidate.endDistance || index === segments.length - 1)
+  )
+  if (!segment) {
+    throw new Error(`Missing adjusted source segment at ${normalized}`)
+  }
+
+  return getAdjustedSourceSegmentPointAtDistance(
+    segment.segmentIndex,
+    normalized - segment.startDistance
+  )
+}
+
+const isAdjustedVisibleDashDistance = (distance: number) => {
+  const totalLength = getAdjustedTotalLength()
+  if (totalLength <= 0) {
+    return false
+  }
+
+  const normalized = normalizeAdjustedLoopDistance(distance)
+  const patternLength = ADJUSTED_DASH_PATTERN[0] + ADJUSTED_DASH_PATTERN[1]
+  const patternDistance =
+    ((normalized % patternLength) + patternLength) % patternLength
+  return patternDistance <= ADJUSTED_DASH_PATTERN[0]
+}
+
+const getAdjustedHighCurvatureVisibleBodyProbes = () => {
+  const segments = getAdjustedSourcePathSegments()
+  const segmentStartDistance = segments[4]?.startDistance
+  if (segmentStartDistance === undefined) {
+    return []
+  }
+
+  const selectedSide = getInsideSourceSide(ADJUSTED_SOURCE_POINTS)
+  const relativeDistances = [-22, -16, -10, -5, -2, 2, 5, 10, 16, 22]
+  const offsets = [2.5, 4.5, 6.5]
+
+  return relativeDistances.flatMap((relativeDistance) => {
+    const distance = normalizeAdjustedLoopDistance(
+      segmentStartDistance + relativeDistance
+    )
+    if (!isAdjustedVisibleDashDistance(distance)) {
+      return []
+    }
+    const { point, tangent } = getAdjustedSourcePointAtLoopDistance(distance)
+    return offsets.map((offset) => ({
+      label: `adjusted high-curvature source-path body d${relativeDistance} o${offset}`,
+      point: offsetFromTangentSide(point, tangent, selectedSide, offset),
+      size: 6,
+      minCoverage: 0.06
+    }))
+  })
+}
+
 const getTopSeamPositiveProbes = (): RedCoverageProbe[] => {
-  const selectedSide =
-    getAnchorArea([TP12, TP13, TP14, TP15, TP16]) >= 0 ? 1 : -1
+  const selectedSide = getInsideSourceSide(REPORTED_SOURCE_POINTS)
   return [4, 18, 55].map((distance) => ({
-    label: `legal source-range dash body d${distance}`,
-    point: offsetFromSourceSegmentAtDistance(
+    label: `source-path dash body d${distance}`,
+    point: offsetFromSourceSegmentAtDistance(0, distance, selectedSide, 5),
+    size: 12,
+    minCoverage: 0.02
+  }))
+}
+
+const getAdjustedTopSeamPositiveProbes = (): RedCoverageProbe[] => {
+  const selectedSide = getInsideSourceSide(ADJUSTED_SOURCE_POINTS)
+  return [4, 18, 55].map((distance) => ({
+    label: `adjusted source-path dash body d${distance}`,
+    point: offsetFromAdjustedSourceSegmentAtDistance(
       0,
       distance,
-      selectedSide as 1 | -1,
+      selectedSide,
       5
     ),
     size: 12,
@@ -389,6 +485,21 @@ const captureSelectedElementRaster = async (
 const getRasterRegion = (raster: RasterCapture, point: Vec2, size: number) => {
   const scaleX = raster.elementWidth / REPORTED_VECTOR_6_WIDTH
   const scaleY = raster.elementHeight / REPORTED_VECTOR_6_HEIGHT
+  return {
+    x: raster.padding + point.x * scaleX - size / 2,
+    y: raster.padding + point.y * scaleY - size / 2,
+    width: size,
+    height: size
+  }
+}
+
+const getAdjustedRasterRegion = (
+  raster: RasterCapture,
+  point: Vec2,
+  size: number
+) => {
+  const scaleX = raster.elementWidth / ADJUSTED_VECTOR_6_WIDTH
+  const scaleY = raster.elementHeight / ADJUSTED_VECTOR_6_HEIGHT
   return {
     x: raster.padding + point.x * scaleX - size / 2,
     y: raster.padding + point.y * scaleY - size / 2,
@@ -703,6 +814,199 @@ const createReportedVector6InsideDashed = async (page: Page) =>
 const createReportedVector6OutsideDashed = async (page: Page) =>
   createReportedVector6Dashed(page, 'outside')
 
+const createAdjustedReportedVector6InsideRoundDashed = async (page: Page) => {
+  await page.evaluate(
+    ({ color, strokeWidth }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      const points = {
+        'tp-12': {
+          id: 'tp-12',
+          kind: 'anchor',
+          x: 188.1928217922337,
+          y: 0,
+          anchorType: 'smooth'
+        },
+        'tp-13': {
+          id: 'tp-13',
+          kind: 'anchor',
+          x: 11.358174406717296,
+          y: 365.76797704068724,
+          anchorType: 'smooth'
+        },
+        'tp-12:out': {
+          id: 'tp-12:out',
+          kind: 'control',
+          x: 164.3673966581619,
+          y: 140.91988215887423,
+          controlForId: 'tp-12',
+          controlRole: 'out'
+        },
+        'tp-13:in': {
+          id: 'tp-13:in',
+          kind: 'control',
+          x: -42.09205809548172,
+          y: 344.92238636482955,
+          controlForId: 'tp-13',
+          controlRole: 'in'
+        },
+        'tp-13:out': {
+          id: 'tp-13:out',
+          kind: 'control',
+          x: 78.17096503446606,
+          y: 391.8249653855095,
+          controlForId: 'tp-13',
+          controlRole: 'out'
+        },
+        'tp-14': {
+          id: 'tp-14',
+          kind: 'anchor',
+          x: 360.12094148356584,
+          y: 145.95389587539378,
+          anchorType: 'sharp'
+        },
+        'tp-15': {
+          id: 'tp-15',
+          kind: 'anchor',
+          x: 0,
+          y: 15.668954151283657,
+          anchorType: 'sharp'
+        },
+        'tp-16': {
+          id: 'tp-16',
+          kind: 'anchor',
+          x: 270.59180204238254,
+          y: 347.0603956649177,
+          anchorType: 'smooth'
+        },
+        'tp-15:out': {
+          id: 'tp-15:out',
+          kind: 'control',
+          x: 0,
+          y: 15.668954151283657,
+          controlForId: 'tp-15',
+          controlRole: 'out'
+        },
+        'tp-16:in': {
+          id: 'tp-16:in',
+          kind: 'control',
+          x: 263.9105229796075,
+          y: 364.43172122813246,
+          controlForId: 'tp-16',
+          controlRole: 'in'
+        },
+        'tp-16:out': {
+          id: 'tp-16:out',
+          kind: 'control',
+          x: 277.27308110515736,
+          y: 329.6890701017029,
+          controlForId: 'tp-16',
+          controlRole: 'out'
+        }
+      }
+      const segments = {
+        'ts-23': {
+          id: 'ts-23',
+          startId: 'tp-12',
+          endId: 'tp-13',
+          outControlId: 'tp-12:out',
+          inControlId: 'tp-13:in'
+        },
+        'ts-24': {
+          id: 'ts-24',
+          startId: 'tp-13',
+          endId: 'tp-14',
+          outControlId: 'tp-13:out',
+          inControlId: null
+        },
+        'ts-25': {
+          id: 'ts-25',
+          startId: 'tp-14',
+          endId: 'tp-15',
+          outControlId: null,
+          inControlId: null
+        },
+        'ts-26': {
+          id: 'ts-26',
+          startId: 'tp-15',
+          endId: 'tp-16',
+          outControlId: 'tp-15:out',
+          inControlId: 'tp-16:in'
+        },
+        'ts-27': {
+          id: 'ts-27',
+          startId: 'tp-16',
+          endId: 'tp-12',
+          outControlId: 'tp-16:out',
+          inControlId: null
+        }
+      }
+      const networks = {
+        'tn-4': {
+          id: 'tn-4',
+          pointIds: ['tp-12', 'tp-13', 'tp-14', 'tp-15', 'tp-16'],
+          segmentIds: ['ts-23', 'ts-24', 'ts-25', 'ts-26', 'ts-27'],
+          closed: true
+        }
+      }
+      const createdId = elementApis?.createElement?.(
+        { type: 'vector', points, segments, networks, closed: true },
+        { undoable: false }
+      )
+      if (!createdId) {
+        throw new Error('Failed to create adjusted reported vector-6 fixture')
+      }
+      elementApis?.changeComputedData?.(
+        [createdId],
+        {
+          x: 220,
+          y: 159,
+          width: 360.12094148356584,
+          height: 367.70186652155667,
+          points,
+          segments,
+          networks,
+          closed: true,
+          fills: [],
+          strokes: [
+            {
+              id: 'adjusted-vector-6-dashed-inside-round',
+              kind: 'solid',
+              style: 'dashed',
+              position: 'inside',
+              width: strokeWidth,
+              dashPattern: [27, 20],
+              dashOffset: 0,
+              fill: null,
+              defaultColorFormat: 'hex',
+              colorFormat: 'hex',
+              color: `#${color}`,
+              opacity: 0.5,
+              visible: true,
+              gradient: null,
+              joinType: 'miter',
+              capType: 'round',
+              miterAngle: 28.96
+            }
+          ]
+        },
+        { undoable: false }
+      )
+      core?.selectElements?.([createdId], { undoable: false })
+      core?.setSystemProperty?.('pathEditingVectorId', null)
+      core?.setSystemProperty?.('pathEditingMode', false)
+    },
+    {
+      color: REPORTED_VECTOR_6_STROKE_COLOR,
+      strokeWidth: STROKE_WIDTH
+    }
+  )
+
+  await page.waitForTimeout(1200)
+}
+
 const getSelectedStrokeRenderPacketSummary = async (page: Page) =>
   page.evaluate(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -755,37 +1059,6 @@ const getSelectedStrokeRenderPacketSummary = async (page: Page) =>
     }
   })
 
-const assertForbiddenRedCoverageProbes = async (
-  page: Page,
-  raster: RasterCapture,
-  probes: ForbiddenRedCoverageProbe[]
-) => {
-  const failures: {
-    label: string
-    coverage: number
-    maxCoverage: number
-    point: Vec2
-  }[] = []
-
-  for (const probe of probes) {
-    const coverage = await getBase64RedCoverage(
-      page,
-      raster.base64,
-      getRasterRegion(raster, probe.point, probe.size)
-    )
-    if (coverage > probe.maxCoverage) {
-      failures.push({
-        label: probe.label,
-        coverage,
-        maxCoverage: probe.maxCoverage,
-        point: probe.point
-      })
-    }
-  }
-
-  expect(failures, JSON.stringify(failures, null, 2)).toEqual([])
-}
-
 const assertAnyRedCoverageProbe = async (
   page: Page,
   raster: RasterCapture,
@@ -811,7 +1084,7 @@ const assertAnyRedCoverageProbe = async (
 }
 
 test.describe('Reported Vector-6 Inside Dashed Seam Regression', () => {
-  test('keeps smooth seam source-range constrained dashed polygons inside their authored local domains', async ({
+  test('records self-intersecting inside dashed seam packets without enforcing center-stroke side rules', async ({
     page
   }, testInfo) => {
     await createReportedVector6InsideDashed(page)
@@ -847,21 +1120,20 @@ test.describe('Reported Vector-6 Inside Dashed Seam Regression', () => {
             debugMeta.sourceTopology === 'self-intersecting'
         )
       ).toBe(true)
-      const seamPackets = summary.exportPackets.filter(
+      const sourcePathPackets = summary.exportPackets.filter(
         (packet: ExportPacketSnapshot) =>
           packet.debugMeta.geometryFamily === 'constrained-dashed' &&
           packet.debugMeta.strokePosition === 'inside' &&
-          packet.debugMeta.sourceTopology === 'self-intersecting' &&
-          packet.bounds.minY < 80 &&
-          packet.bounds.minX < TP12.x + 90 &&
-          packet.bounds.maxX > TP12.x - 90
+          packet.debugMeta.sourceTopology === 'self-intersecting'
       )
-      expect(seamPackets.length).toBeGreaterThan(0)
-      const firstIntervalPackets = seamPackets.filter(
-        (packet) => packet.debugMeta.intervalId === 'interval:0'
-      )
+      expect(sourcePathPackets.length).toBeGreaterThan(0)
       expect(
-        firstIntervalPackets.length,
+        sourcePathPackets.some(
+          (packet) =>
+            typeof packet.debugMeta.intervalId === 'string' &&
+            packet.debugMeta.intervalId.startsWith('interval:') &&
+            packet.debugMeta.sourceTopology === 'self-intersecting'
+        ),
         JSON.stringify(
           summary.exportPackets
             .filter(
@@ -878,19 +1150,7 @@ test.describe('Reported Vector-6 Inside Dashed Seam Regression', () => {
           null,
           2
         )
-      ).toBeGreaterThan(0)
-      const firstSegmentStartTangent = getFirstSegmentStartTangent()
-      expect(
-        findCapPlaneViolations(
-          firstIntervalPackets,
-          TP12,
-          {
-            x: -firstSegmentStartTangent.x,
-            y: -firstSegmentStartTangent.y
-          },
-          0
-        )
-      ).toEqual([])
+      ).toBe(true)
       const raster = await captureSelectedElementRaster(page)
       await attachPng(
         'reported-vector-6-dashed-inside-debug-overlap-global.png',
@@ -912,13 +1172,11 @@ test.describe('Reported Vector-6 Inside Dashed Seam Regression', () => {
         testInfo
       )
 
-      await assertForbiddenRedCoverageProbes(
-        page,
-        raster,
-        getSourceRangeForbiddenProbes()
-      )
+      await setStrokeDebugDisableVisualOverlapCollapse(page, false)
+      await page.waitForTimeout(180)
+      const productRaster = await captureSelectedElementRaster(page)
       for (const probe of getTopSeamPositiveProbes()) {
-        await assertAnyRedCoverageProbe(page, raster, [probe])
+        await assertAnyRedCoverageProbe(page, productRaster, [probe])
       }
     } finally {
       await setStrokeDebugDisableVisualOverlapCollapse(page, false)
@@ -968,5 +1226,148 @@ test.describe('Reported Vector-6 Inside Dashed Seam Regression', () => {
     } finally {
       await setStrokeDebugDisableVisualOverlapCollapse(page, false)
     }
+  })
+
+  test('keeps adjusted inside round dashed product visual on source-path intervals', async ({
+    page
+  }, testInfo) => {
+    await createAdjustedReportedVector6InsideRoundDashed(page)
+
+    const raster = await captureSelectedElementRaster(page)
+    await attachPng(
+      'adjusted-vector-6-inside-round-product-global.png',
+      raster.base64,
+      testInfo
+    )
+    await attachPng(
+      'adjusted-vector-6-inside-round-product-seam-crop.png',
+      await cropBase64Png(
+        page,
+        raster.base64,
+        getRasterRectRegion(raster, {
+          x: 130,
+          y: -12,
+          width: 125,
+          height: 115
+        })
+      ),
+      testInfo
+    )
+    await attachPng(
+      'adjusted-vector-6-inside-round-product-high-curvature-crop.png',
+      await cropBase64Png(
+        page,
+        raster.base64,
+        getRasterRectRegion(raster, {
+          x: 210,
+          y: 250,
+          width: 125,
+          height: 120
+        })
+      ),
+      testInfo
+    )
+
+    const selectedSide = getInsideSourceSide(ADJUSTED_SOURCE_POINTS)
+    const positiveProbes = [
+      {
+        label: 'adjusted seam source-path dash coverage',
+        point: offsetFromAdjustedSourceSegmentAtDistance(
+          0,
+          18,
+          selectedSide,
+          5
+        ),
+        size: 12,
+        minCoverage: 0.02
+      },
+      {
+        label: 'adjusted high-curvature source-path dash coverage',
+        point: offsetFromAdjustedSourceSegmentAtDistance(
+          4,
+          20,
+          selectedSide,
+          5
+        ),
+        size: 12,
+        minCoverage: 0.02
+      }
+    ]
+    for (const probe of positiveProbes) {
+      const coverage = await getBase64RedCoverage(
+        page,
+        raster.base64,
+        getAdjustedRasterRegion(raster, probe.point, probe.size)
+      )
+      expect(
+        coverage,
+        `${probe.label} should keep visible product coverage`
+      ).toBeGreaterThanOrEqual(probe.minCoverage)
+    }
+
+    const highCurvatureVisibleBodyFailures: {
+      label: string
+      coverage: number
+      minCoverage: number
+      point: Vec2
+    }[] = []
+    const highCurvatureVisibleBodyProbes =
+      getAdjustedHighCurvatureVisibleBodyProbes()
+    expect(highCurvatureVisibleBodyProbes.length).toBeGreaterThan(0)
+    for (const probe of highCurvatureVisibleBodyProbes) {
+      const coverage = await getBase64RedCoverage(
+        page,
+        raster.base64,
+        getAdjustedRasterRegion(raster, probe.point, probe.size)
+      )
+      if (coverage < probe.minCoverage) {
+        highCurvatureVisibleBodyFailures.push({
+          label: probe.label,
+          coverage,
+          minCoverage: probe.minCoverage,
+          point: probe.point
+        })
+      }
+    }
+    expect(
+      highCurvatureVisibleBodyFailures,
+      JSON.stringify(highCurvatureVisibleBodyFailures, null, 2)
+    ).toEqual([])
+  })
+
+  test('keeps adjusted inside round dashed source-path packets while path editing overlay is active', async ({
+    page
+  }, testInfo) => {
+    await createAdjustedReportedVector6InsideRoundDashed(page)
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      core?.setSystemProperty?.('pathEditingVectorId', selectedId)
+      core?.setSystemProperty?.('pathEditingMode', true)
+    })
+    await page.waitForTimeout(180)
+
+    const raster = await captureSelectedElementRaster(page)
+    await attachPng(
+      'adjusted-vector-6-inside-round-path-editing-global.png',
+      raster.base64,
+      testInfo
+    )
+    for (const probe of getAdjustedTopSeamPositiveProbes()) {
+      await assertAnyRedCoverageProbe(page, raster, [probe])
+    }
+    const summary = await getSelectedStrokeRenderPacketSummary(page)
+    expect(
+      summary.exportPacketDebugMeta.some(
+        (debugMeta) =>
+          debugMeta.geometryFamily === 'constrained-dashed' &&
+          debugMeta.strokePosition === 'inside' &&
+          debugMeta.sourceTopology === 'self-intersecting' &&
+          typeof debugMeta.intervalId === 'string' &&
+          debugMeta.intervalId.startsWith('interval:')
+      )
+    ).toBe(true)
   })
 })

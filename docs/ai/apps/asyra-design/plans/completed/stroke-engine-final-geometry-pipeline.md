@@ -53,6 +53,13 @@ file is updated first in the same change.
   - shape/vector source data
 - output:
   - canonical `PathTopologyModel`
+  - canonical resolved vector geometry model for vector paths:
+    - source paths
+    - planar graph for self-intersecting closed paths
+    - even-odd faces
+    - fill regions
+    - stroke boundary contours
+    - source provenance for downstream fill / stroke / shadow consumers
 - invariants:
   - every downstream stage sees the same topology revision
   - flattening and intersection discovery happen here, not in later packet
@@ -61,6 +68,10 @@ file is updated first in the same change.
     (`isSimpleClosed`) are classified here once per topology revision
   - legal-domain descriptors and shell/hole roles are fixed here for the current
     topology revision
+  - self-intersection planar graph, even-odd legal faces, fill regions, and
+    stroke boundary contours are computed once per source revision and shared;
+    fill, stroke, and future shadow paths must not each rebuild their own
+    conflicting contour model
   - downstream interval and candidate stages should receive view-backed topology
     access rather than copied coordinate arrays
 - allowed recovery:
@@ -86,6 +97,10 @@ Current Phase 2 checkpoint:
   authored cap policy does not mutate the open-path endpoints into a different
   topology; otherwise the lower-level geometry helper must keep its own safety
   guard
+- vector self-intersection support must route through a shared resolved
+  geometry model. Fill consumes `fillRegions`; inside/outside constrained stroke
+  consumes `strokeBoundaryContours`; future shadow projection should consume
+  the same model rather than recomputing planar graph / contour ownership.
 
 ### 3. ResolveSourceFamilies
 
@@ -258,10 +273,12 @@ Current supported paint checkpoint:
 - open product vector dashed paths emit `dashed-center` packets with
   `sourceTopology: "open"` even when the authored position is `inside` or
   `outside`
-- closed self-intersecting constrained dashed paths preserve authored
-  `inside/outside` visibility as local-side approximation packets. Exact
-  promotion remains gated until legal-domain clipping preserves valid internal
-  dash regions.
+- closed self-intersecting constrained dashed `inside/outside` product geometry
+  is defined by Figma-like even-odd boundary contours. The dash source is not
+  the authored source path directly; it is the set of boundary contours between
+  legal regions and illegal/exterior regions, including hole boundaries.
+  `inside` emits toward the legal face side and `outside` emits toward the
+  opposite side. Center stroke is excluded from this rule.
 - closed self-intersecting constrained solid paths are defined to preserve
   authored `inside/outside` visibility as typed one-sided source-span
   candidates, then promote those candidates through exact arrangement before
@@ -271,11 +288,10 @@ Current supported paint checkpoint:
   source-span coverage and collapse same-visual overlap to one final layer; it
   must not apply legal-domain clipping that treats source self-intersections as
   deletion boundaries.
-- source self-intersections are not clipping boundaries for the current
-  constrained solid product slice. They may create overlap that needs
-  same-visual collapse, but they must not delete authored crossing stroke
-  coverage. Endpoint/local overhang clipping is limited to adjacent authored
-  segment side constraints.
+- for self-intersecting constrained dashed `inside/outside`, source
+  self-intersections are planar-graph nodes and can terminate / restart contour
+  dash domains. They are not smooth source-segment boundaries and must not
+  create fake caps except where a contour dash interval truly starts or ends.
 - sampled-simple-closed constrained dashed interval-local packets remain
   local-side approximation while the exact arrangement oracle is gated.
 - interval-local constrained dashed packets may expose multiple bounded

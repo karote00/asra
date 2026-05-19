@@ -101,7 +101,12 @@ export const toRenderableGradient = (
       ...(radiusY !== undefined ? { radiusY } : {})
     }
 
-    return core.createRenderGradientFillStyle(radialOptions)
+    return {
+      ...core.createRenderGradientFillStyle(radialOptions),
+      __asyraGradientOptions: radialOptions
+    } as RenderFillStyle & {
+      __asyraGradientOptions: CreateRenderGradientFillOptions
+    }
   }
 
   if (entry.gradient.gradientType === FillGradientTypes.ANGULAR) {
@@ -113,7 +118,12 @@ export const toRenderableGradient = (
       textureSpace: 'local'
     }
 
-    return core.createRenderGradientFillStyle(angularOptions)
+    return {
+      ...core.createRenderGradientFillStyle(angularOptions),
+      __asyraGradientOptions: angularOptions
+    } as RenderFillStyle & {
+      __asyraGradientOptions: CreateRenderGradientFillOptions
+    }
   }
 
   if (entry.gradient.gradientType === FillGradientTypes.DIAMOND) {
@@ -125,7 +135,12 @@ export const toRenderableGradient = (
       textureSpace: 'local'
     }
 
-    return core.createRenderGradientFillStyle(diamondOptions)
+    return {
+      ...core.createRenderGradientFillStyle(diamondOptions),
+      __asyraGradientOptions: diamondOptions
+    } as RenderFillStyle & {
+      __asyraGradientOptions: CreateRenderGradientFillOptions
+    }
   }
 
   // Default: linear gradient
@@ -137,7 +152,12 @@ export const toRenderableGradient = (
     textureSpace: 'local'
   }
 
-  return core.createRenderGradientFillStyle(linearOptions)
+  return {
+    ...core.createRenderGradientFillStyle(linearOptions),
+    __asyraGradientOptions: linearOptions
+  } as RenderFillStyle & {
+    __asyraGradientOptions: CreateRenderGradientFillOptions
+  }
 }
 
 const getRenderableFillFromEntry = (

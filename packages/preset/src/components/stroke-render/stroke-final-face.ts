@@ -1,3 +1,9 @@
+import {
+  pushUniqueStrokeOwner,
+  resolveStrokeOwnership
+} from './stroke-ownership'
+import type { PaintAttachedStrokeRegion } from './stroke-paint-payload'
+
 export interface Vec2 {
   x: number
   y: number
@@ -39,12 +45,33 @@ export interface StrokeFinalFaceDebugMetaBase {
     insideFillDomain: boolean
     outsideFillDomain: boolean
   }
+  figmaLikeSplitRangeId?: string
+  figmaLikeSplitRangeStartDistance?: number
+  figmaLikeSplitRangeEndDistance?: number
+  figmaLikeTerminalRole?: 'start' | 'end' | 'start-end' | 'middle'
+  figmaLikeSplitRangeSourceSegmentIndex?: number
+  figmaLikeSideAuthority?: 'implicit-fill-hole-domain'
+  figmaLikeSelectedSide?: 1 | -1
+  figmaLikeSideResolutionStatus?: 'resolved' | 'blocked'
+  figmaLikeSideResolutionReason?: string
   visualOverlapCollapseStatus?:
     | 'exact-union'
     | 'exact-arrangement'
     | 'local-side-arrangement'
+    | 'render-projection-union'
   visualOverlapSourceFaceIds?: string[]
   visualOverlapSourceGeometryIds?: string[]
+  figmaLikeSplitRangeTerminals?: {
+    intervalId: string
+    splitRangeId: string
+    splitRangeStartDistance: number
+    splitRangeEndDistance: number
+    terminalRole: 'start' | 'end' | 'start-end' | 'middle'
+    startDistance: number
+    endDistance: number
+    sourceSegmentIndex?: number
+    selectedSide?: 1 | -1
+  }[]
   visualContext?: Partial<StrokeVisualContext>
   revisionSet?: {
     strokeSpecRevision?: string | number
@@ -138,41 +165,88 @@ const hashStableString = (prefix: string, value: string) => {
   return `${prefix}:${(hash >>> 0).toString(36)}`
 }
 
-const stableStringify = (value: unknown): string => {
-  if (value === null || typeof value !== 'object') {
-    return JSON.stringify(value)
-  }
-
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableStringify(item)).join(',')}]`
-  }
-
-  return `{${Object.entries(value as Record<string, unknown>)
-    .filter(([, item]) => item !== undefined)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`)
-    .join(',')}}`
-}
-
 const pushUnique = <T>(items: T[], value: T) => {
   if (!items.includes(value)) {
     items.push(value)
   }
 }
 
-const pushUniqueOwner = (owners: StrokeOwnerKey[], owner: StrokeOwnerKey) => {
-  if (!hasDefinedOwnerField(owner)) {
-    return
-  }
+const pushUniqueSplitRangeTerminal = (
+  terminals: NonNullable<
+    StrokeFinalFaceDebugMetaBase['figmaLikeSplitRangeTerminals']
+  >,
+  terminal: NonNullable<
+    StrokeFinalFaceDebugMetaBase['figmaLikeSplitRangeTerminals']
+  >[number]
+) => {
+  const exists = terminals.some(
+    (existing) =>
+      existing.intervalId === terminal.intervalId &&
+      existing.splitRangeId === terminal.splitRangeId &&
+      existing.terminalRole === terminal.terminalRole &&
+      existing.startDistance === terminal.startDistance &&
+      existing.endDistance === terminal.endDistance
+  )
 
-  const signature = stableStringify(owner)
-  if (!owners.some((candidate) => stableStringify(candidate) === signature)) {
-    owners.push(owner)
+  if (!exists) {
+    terminals.push({ ...terminal })
   }
 }
 
-const hasDefinedOwnerField = (owner: StrokeOwnerKey) =>
-  Object.values(owner).some((value) => value !== undefined)
+const mergeFaceDebugMeta = (
+  target: StrokeFinalFaceDebugMetaBase | undefined,
+  source: StrokeFinalFaceDebugMetaBase | undefined
+) => {
+  if (!target || !source) {
+    return
+  }
+
+  if (source.ownerSet) {
+    target.ownerSet = target.ownerSet ? [...target.ownerSet] : []
+    source.ownerSet.forEach((owner) =>
+      pushUniqueStrokeOwner(target.ownerSet ?? [], owner)
+    )
+  }
+
+  ;[
+    'intervalIds',
+    'sourceSpanIds',
+    'sourceContourIds',
+    'legalDomainIds',
+    'visualOverlapSourceFaceIds',
+    'visualOverlapSourceGeometryIds'
+  ].forEach((key) => {
+    const typedKey = key as keyof Pick<
+      StrokeFinalFaceDebugMetaBase,
+      | 'intervalIds'
+      | 'sourceSpanIds'
+      | 'sourceContourIds'
+      | 'legalDomainIds'
+      | 'visualOverlapSourceFaceIds'
+      | 'visualOverlapSourceGeometryIds'
+    >
+    const sourceValues = source[typedKey]
+    if (!sourceValues) {
+      return
+    }
+
+    const targetValues = [...(target[typedKey] ?? [])]
+    sourceValues.forEach((value) => pushUnique(targetValues, value))
+    ;(target[typedKey] as string[] | undefined) = targetValues
+  })
+
+  if (source.figmaLikeSplitRangeTerminals) {
+    const targetTerminals = [
+      ...(target.figmaLikeSplitRangeTerminals ?? [])
+    ] satisfies NonNullable<
+      StrokeFinalFaceDebugMetaBase['figmaLikeSplitRangeTerminals']
+    >
+    source.figmaLikeSplitRangeTerminals.forEach((terminal) =>
+      pushUniqueSplitRangeTerminal(targetTerminals, terminal)
+    )
+    target.figmaLikeSplitRangeTerminals = targetTerminals
+  }
+}
 
 const buildPolygonSignature = (polygon: Vec2[]) => {
   const points = polygon.map(
@@ -319,6 +393,10 @@ const buildFaceFromPacket = <
   const sourceContourIds =
     debugMeta?.sourceContourIds ??
     (debugMeta?.contourId ? [debugMeta.contourId] : [])
+  const ownership = resolveStrokeOwnership({
+    ownerSet: debugMeta?.ownerSet,
+    owner: buildOwnerKey(debugMeta)
+  })
 
   return {
     collapseKey: options.includeCollapseKey
@@ -332,9 +410,7 @@ const buildFaceFromPacket = <
       visualPacketKey,
       paintKey,
       strokeSpecKey,
-      ownerSet:
-        debugMeta?.ownerSet?.filter(hasDefinedOwnerField) ??
-        [buildOwnerKey(debugMeta)].filter(hasDefinedOwnerField),
+      ownerSet: ownership.ownerSet,
       intervalIds,
       sourceSpanIds,
       sourceContourIds,
@@ -369,13 +445,16 @@ const mergeFace = <
   source.sourceGeometryIds.forEach((id) =>
     pushUnique(target.sourceGeometryIds, id)
   )
-  source.ownerSet.forEach((owner) => pushUniqueOwner(target.ownerSet, owner))
+  source.ownerSet.forEach((owner) =>
+    pushUniqueStrokeOwner(target.ownerSet, owner)
+  )
   source.intervalIds.forEach((id) => pushUnique(target.intervalIds, id))
   source.sourceSpanIds.forEach((id) => pushUnique(target.sourceSpanIds, id))
   source.sourceContourIds.forEach((id) =>
     pushUnique(target.sourceContourIds, id)
   )
   source.legalDomainIds.forEach((id) => pushUnique(target.legalDomainIds, id))
+  mergeFaceDebugMeta(target.debugMeta, source.debugMeta)
   target.faceId = hashStableString(
     'final-face',
     `${target.visualPacketKey}|${target.sourceGeometryIds.join('|')}`
@@ -419,6 +498,99 @@ export const buildStrokeFinalFacesFromResolvedPackets = <
   })
 
   return [...facesByCollapseKey.values()]
+}
+
+const buildDebugMetaFromPaintAttachedRegion = (
+  region: PaintAttachedStrokeRegion
+): StrokeFinalFaceDebugMetaBase => ({
+  geometryFamily: region.geometryFamily,
+  resolutionStatus: region.resolutionStatus,
+  runtimeStatus: region.runtimeStatus,
+  runtimeReason: region.runtimeReason,
+  sourceTopology: region.sourceTopology,
+  topologyFamily: region.topologyFamily,
+  intervalTopology: region.intervalTopology,
+  strokePosition: region.strokePosition,
+  ownerSet: [...region.ownerSet],
+  intervalIds: [...region.intervalIds],
+  sourceSpanIds: [...region.sourceSpanIds],
+  sourceContourIds: [...region.sourceContourIds],
+  legalDomainIds: [...region.legalDomainIds],
+  arrangementStatus: region.arrangementStatus,
+  arrangementFaceId: region.arrangementFaceId,
+  arrangementCandidateIds: region.arrangementCandidateIds
+    ? [...region.arrangementCandidateIds]
+    : undefined,
+  arrangementLegalState: region.arrangementLegalState,
+  figmaLikeSplitRangeId: region.figmaLikeSplitRangeId,
+  figmaLikeSplitRangeStartDistance: region.figmaLikeSplitRangeStartDistance,
+  figmaLikeSplitRangeEndDistance: region.figmaLikeSplitRangeEndDistance,
+  figmaLikeTerminalRole: region.figmaLikeTerminalRole,
+  figmaLikeSplitRangeSourceSegmentIndex:
+    region.figmaLikeSplitRangeSourceSegmentIndex,
+  figmaLikeSideAuthority: region.figmaLikeSideAuthority,
+  figmaLikeSelectedSide: region.figmaLikeSelectedSide,
+  figmaLikeSideResolutionStatus: region.figmaLikeSideResolutionStatus,
+  figmaLikeSideResolutionReason: region.figmaLikeSideResolutionReason,
+  figmaLikeSplitRangeTerminals: region.figmaLikeSplitRangeTerminals
+    ? region.figmaLikeSplitRangeTerminals.map((terminal) => ({ ...terminal }))
+    : undefined,
+  revisionSet: {
+    ...region.revisionSet,
+    paintRevision: region.paint.paintKey
+  }
+})
+
+export const buildStrokeFinalFacesFromPaintAttachedRegions = (
+  regions: readonly PaintAttachedStrokeRegion[],
+  options: BuildStrokeFinalFaceOptions = {}
+): StrokeFinalFace<
+  StrokeFinalFaceDebugMetaBase,
+  PaintAttachedStrokeRegion['paint']
+>[] => {
+  const faces = regions.map((region) => {
+    const debugMeta = buildDebugMetaFromPaintAttachedRegion(region)
+    const packet = {
+      geometry: {
+        geometryId: region.regionId,
+        polygons: region.polygons,
+        bounds: region.bounds,
+        debugMeta
+      },
+      paint: region.paint
+    }
+    const paintKey = region.paintKey
+    const strokeSpecKey = buildStrokeSpecKey(packet)
+    const visualPacketKey = buildVisualPacketKey(packet)
+
+    return {
+      faceId: region.regionId,
+      sourceGeometryIds: [...region.sourceGeometryIds],
+      polygons: region.polygons,
+      bounds: region.bounds,
+      visualPacketKey,
+      paintKey,
+      strokeSpecKey,
+      ownerSet: [...region.ownerSet],
+      intervalIds: [...region.intervalIds],
+      sourceSpanIds: [...region.sourceSpanIds],
+      sourceContourIds: [...region.sourceContourIds],
+      legalDomainIds: [...region.legalDomainIds],
+      geometryFamily: region.geometryFamily,
+      resolutionStatus: region.resolutionStatus,
+      runtimeStatus: region.runtimeStatus,
+      sourceTopology: region.sourceTopology,
+      debugMeta,
+      paint: region.paint
+    } satisfies StrokeFinalFace<
+      StrokeFinalFaceDebugMetaBase,
+      PaintAttachedStrokeRegion['paint']
+    >
+  })
+
+  return options.collapseDuplicateFaces === true
+    ? collapseExactDuplicateFinalFaces(faces)
+    : faces
 }
 
 export const collapseExactDuplicateFinalFaces = <

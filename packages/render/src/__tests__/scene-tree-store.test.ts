@@ -309,6 +309,60 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(renderMock.flushFrame).not.toHaveBeenCalled()
   })
 
+  it('should run: reseed the computed mirror before undoable updates to prevent cache drift', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      {
+        type: 'vector',
+        visible: true,
+        name: 'Vector'
+      },
+      {
+        points: { p1: { x: 0, y: 0 } },
+        segments: {}
+      }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+
+    store.updateElement(
+      'vector-1',
+      'points',
+      {},
+      { p1: { x: 12, y: 8 } },
+      { undoable: false }
+    )
+    store.commitPendingComputedDataChanges()
+    await flushScheduledFrame()
+
+    element.getAllComputedData.mockReturnValue({
+      points: { p1: { x: 80, y: 40 } },
+      segments: { s1: { startId: 'p1' } },
+      width: 120
+    })
+    renderMock.updateElement.mockClear()
+    renderMock.requestRender.mockClear()
+
+    store.updateElement('vector-1', 'width', 120, 160)
+    store.commitPendingComputedDataChanges()
+    await flushScheduledFrame()
+
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(2)
+    expect(renderMock.updateElement).toHaveBeenCalledWith(
+      'vector-1',
+      'computed',
+      undefined,
+      undefined,
+      expect.objectContaining({
+        points: { p1: { x: 80, y: 40 } },
+        segments: { s1: { startId: 'p1' } },
+        width: 160
+      })
+    )
+    expect(renderMock.requestRender).toHaveBeenCalled()
+  })
+
   it('should run: remove pending mirror data when an element is removed', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()

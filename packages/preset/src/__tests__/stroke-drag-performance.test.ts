@@ -355,7 +355,7 @@ const measureDragScenario = (
 }
 
 describe('stroke drag product visual contract', () => {
-  it('should render final product faces during path editing drag instead of raw packet visuals', () => {
+  it('should render current product faces during path editing drag while deferring hit/export projection', () => {
     const graphic = new RecordingVectorGraphic()
     const data = mutateDragFrame(4, 'anchor')
     setPathEditingState({
@@ -369,12 +369,13 @@ describe('stroke drag product visual contract', () => {
     )
 
     expect(graphic.__asyraVectorDragVisualMode).toBe(true)
-    expect(phases.has('stroke product visual compiler')).toBe(true)
-    expect(phases.has('constrained dashed candidates')).toBe(false)
-    expect(phases.has('constrained dashed acceptance')).toBe(false)
-    expect(phases.has('constrained dashed promotion')).toBe(false)
+    expect(phases.has('stroke product visual compiler')).toBe(false)
+    expect(phases.has('constrained dashed candidates')).toBe(true)
+    expect(phases.has('constrained dashed acceptance')).toBe(true)
+    expect(phases.has('constrained dashed promotion')).toBe(true)
     expectFinalProductVisualCache(graphic)
     expect(graphic.__asyraSolidCenterStrokeExportPackets).toBeUndefined()
+    expect(graphic.hitArea ?? null).toBeNull()
     clearInteractionState()
   })
 

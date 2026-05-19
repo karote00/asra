@@ -8,6 +8,12 @@ import {
 } from '../components/stroke-render/path-geometry'
 import { buildSolidCenterStrokeResolvedPackets } from '../components/stroke-render/solid-center-stroke-packets'
 import { buildStrokeFinalFacesFromResolvedPackets } from '../components/stroke-render/stroke-final-face'
+import {
+  DEFAULT_GEOMETRY_BACKEND_COORDINATE_POLICY,
+  createGeometryBackendCapabilities,
+  registerGeometryBackend,
+  selectGeometryBackend
+} from '../components/stroke-render/geometry-backend'
 
 describe('dashed center stroke packets', () => {
   it('should run: build true arc-length packets on an open center path when dashOffset is zero', () => {
@@ -294,6 +300,134 @@ describe('dashed center stroke packets', () => {
         ...packets.map((packet) => packet.geometry.polygons[0]?.length ?? 0)
       )
     ).toBeLessThan(800)
+  })
+
+  it('should run: build round-cap source-path dashed center curves through backend offset', async () => {
+    const calls: { cap: string }[] = []
+    const backendId = 'dashed-center-round-cap-offset-test-backend'
+    registerGeometryBackend({
+      backendId,
+      load: () => ({
+        backendId,
+        backendVersion: 'test',
+        capabilities: createGeometryBackendCapabilities(true),
+        coordinatePolicy: DEFAULT_GEOMETRY_BACKEND_COORDINATE_POLICY,
+        union: () => [],
+        difference: () => [],
+        intersection: () => [],
+        offset: (path, _distance, options) => {
+          calls.push({ cap: options.cap })
+          const points = Array.isArray(path[0])
+            ? (path[0] as { x: number; y: number }[])
+            : (path as { x: number; y: number }[])
+          const first = points[0] ?? { x: 0, y: 0 }
+          const last = points[points.length - 1] ?? { x: 10, y: 0 }
+          return [
+            {
+              polygons: [
+                [
+                  { x: first.x, y: first.y - 1 },
+                  { x: last.x, y: last.y - 1 },
+                  { x: last.x, y: last.y + 1 },
+                  { x: first.x, y: first.y + 1 }
+                ]
+              ]
+            }
+          ]
+        },
+        buildArrangement: () => []
+      })
+    })
+    selectGeometryBackend(backendId)
+
+    const sourcePath = buildVectorGeometryModelPath(
+      {
+        id: 'network-a',
+        pointIds: ['a', 'b', 'c'],
+        segmentIds: ['ab', 'bc'],
+        closed: false
+      },
+      {
+        a: { id: 'a', kind: 'anchor', x: 0, y: 0, anchorType: 'smooth' },
+        aOut: {
+          id: 'aOut',
+          kind: 'control',
+          x: 90,
+          y: 180,
+          controlRole: 'out'
+        },
+        b: { id: 'b', kind: 'anchor', x: 12, y: 210, anchorType: 'smooth' },
+        bIn: {
+          id: 'bIn',
+          kind: 'control',
+          x: -70,
+          y: 140,
+          controlRole: 'in'
+        },
+        bOut: {
+          id: 'bOut',
+          kind: 'control',
+          x: 92,
+          y: 268,
+          controlRole: 'out'
+        },
+        c: { id: 'c', kind: 'anchor', x: 170, y: 330, anchorType: 'smooth' },
+        cIn: {
+          id: 'cIn',
+          kind: 'control',
+          x: 236,
+          y: 284,
+          controlRole: 'in'
+        }
+      },
+      {
+        ab: {
+          id: 'ab',
+          startId: 'a',
+          endId: 'b',
+          outControlId: 'aOut',
+          inControlId: 'bIn'
+        },
+        bc: {
+          id: 'bc',
+          startId: 'b',
+          endId: 'c',
+          outControlId: 'bOut',
+          inControlId: 'cIn'
+        }
+      }
+    )
+    const topology = buildPathTopologyModel({
+      pathId: 'source-path-round-cap-dashed',
+      points: sourcePath.sampledPoints,
+      closed: sourcePath.closed
+    })
+    const packets = buildDashedCenterStrokeResolvedPackets(
+      'source-path-round-cap-dashed',
+      sourcePath.sampledPoints,
+      sourcePath.closed,
+      [
+        createDefaultStroke({
+          style: 'dashed',
+          position: 'center',
+          width: 18,
+          joinType: StrokeJoinTypes.MITER,
+          capType: 'round',
+          dashPattern: [80, 30],
+          dashOffset: 0
+        })
+      ],
+      {
+        topology,
+        sourcePath
+      }
+    )
+
+    expect(packets.length).toBeGreaterThan(2)
+    expect(
+      packets.map((packet) => packet.geometry.debugMeta?.ribbonValidityStatus)
+    ).toEqual(packets.map(() => 'backend-offset'))
+    expect(calls.every((call) => call.cap === 'round')).toBe(true)
   })
 
   it('should run: only authored sharp anchors mark source-path ribbon joins as sharp', () => {

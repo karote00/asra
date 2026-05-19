@@ -27,6 +27,45 @@ export interface SourceSpanGraph {
   spans: SourceSpanRecord[]
 }
 
+export interface SourceSpanDomainPlanInput {
+  intervalDomainKind: string
+  legalBoundaryDomains: {
+    domainId: string
+    sourceSpanIds?: string[]
+  }[]
+}
+
+export type SourceSpanProvenanceUnavailableReason =
+  | 'visual-only'
+  | 'diagnostic-metadata-omitted'
+
+export type SourceSpanProvenanceAvailability =
+  | {
+      available: true
+      reason: 'available'
+    }
+  | {
+      available: false
+      reason: SourceSpanProvenanceUnavailableReason
+    }
+
+export interface SourceSpanProvenanceOptions {
+  visualOnly?: boolean
+  omitDiagnosticMetadata?: boolean
+}
+
+export const resolveSourceSpanProvenanceAvailability = (
+  options: SourceSpanProvenanceOptions = {}
+): SourceSpanProvenanceAvailability => {
+  if (options.visualOnly === true) {
+    return { available: false, reason: 'visual-only' }
+  }
+  if (options.omitDiagnosticMetadata === true) {
+    return { available: false, reason: 'diagnostic-metadata-omitted' }
+  }
+  return { available: true, reason: 'available' }
+}
+
 const clampDistance = (value: number, totalLength: number) =>
   Math.max(0, Math.min(totalLength, value))
 
@@ -382,4 +421,31 @@ export const getSourceSpanIdsForInterval = (
     : collect(interval.startDistance, interval.endDistance)
 
   return [...new Set(sourceSpanIds)]
+}
+
+export const getSourceSpanIdsForDomainInterval = ({
+  graph,
+  domainPlan,
+  allocationDomainId,
+  interval
+}: {
+  graph: SourceSpanGraph
+  domainPlan?: SourceSpanDomainPlanInput
+  allocationDomainId?: string
+  interval: Pick<
+    DashedCenterStrokeIntervalRecord,
+    'startDistance' | 'endDistance' | 'wrapsSeam'
+  >
+}): string[] => {
+  if (
+    domainPlan?.intervalDomainKind === 'legal-boundary-span' &&
+    allocationDomainId
+  ) {
+    const legalBoundaryDomain = domainPlan.legalBoundaryDomains.find(
+      (domain) => domain.domainId === allocationDomainId
+    )
+    return [...new Set(legalBoundaryDomain?.sourceSpanIds ?? [])]
+  }
+
+  return getSourceSpanIdsForInterval(graph, interval)
 }

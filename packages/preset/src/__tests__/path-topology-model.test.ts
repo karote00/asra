@@ -11,6 +11,7 @@ describe('path topology model', () => {
       pathId: 'rect:test',
       sourceId: 'rect:test',
       networkId: 'rect',
+      sourceRevision: 'source-revision:rect:test',
       sourceFamily: 'shape',
       points: [
         { x: 0, y: 0 },
@@ -25,6 +26,7 @@ describe('path topology model', () => {
       pathId: 'rect:test',
       sourceId: 'rect:test',
       networkId: 'rect',
+      sourceRevision: 'source-revision:rect:test',
       sourceFamily: 'shape',
       topologyFamily: 'rectangle-equivalent',
       fillRule: 'evenodd',
@@ -51,6 +53,13 @@ describe('path topology model', () => {
         contourIds: ['rect:test:contour:0']
       }
     ])
+    expect(topology.legalDomainDescriptors).toEqual(topology.legalDomains)
+    expect(topology.metadata).toEqual({
+      pointCount: 4,
+      segmentCount: 4,
+      contourCount: 1,
+      legalDomainCount: 1
+    })
   })
 
   it('should run: allocate dash intervals directly from topology length and closure', () => {

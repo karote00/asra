@@ -367,12 +367,18 @@ export const buildDashedCenterStrokeResolvedPackets = (
 
       const ribbonGeometry =
         shouldUseSourcePathRibbon && !coversFullClosedLoop
-          ? buildDashedCenterRibbonGeometry(intervalFrames, {
-              width: stroke.width,
-              join: stroke.join,
-              miterLimit: stroke.miterLimit,
-              cap: stroke.cap
-            })
+          ? buildDashedCenterRibbonGeometry(
+              intervalFrames,
+              {
+                width: stroke.width,
+                join: stroke.join,
+                miterLimit: stroke.miterLimit,
+                cap: stroke.cap
+              },
+              {
+                allowRoundCapBackendOffset: true
+              }
+            )
           : null
       const polygons =
         ribbonGeometry?.polygons ??

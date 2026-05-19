@@ -29,6 +29,25 @@ export interface RenderableStroke {
   paintKey?: string
 }
 
+export type StrokeSpecRejectionReason =
+  | 'invalid-entry'
+  | 'non-positive-width'
+  | 'invisible-stroke'
+  | 'invisible-paint'
+  | 'invalid-paint'
+  | 'invalid-gradient-paint'
+
+export interface StrokeSpecRejectionDiagnostic {
+  index: number
+  reason: StrokeSpecRejectionReason
+  strokeId?: string
+}
+
+export interface NormalizeStrokeSpecResult {
+  strokes: RenderableStroke[]
+  diagnostics: StrokeSpecRejectionDiagnostic[]
+}
+
 const normalizeStrokeEntry = (value: unknown): StrokeAttrs | null => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null
@@ -131,19 +150,47 @@ const getStrokeMiterLimit = (angle: number): number => {
   return Math.max(1, 1 / sinHalf)
 }
 
-const getRenderableStroke = (stroke: StrokeAttrs): RenderableStroke | null => {
-  if (!stroke.visible || stroke.width <= 0) {
-    return null
+const getRenderableStroke = (
+  stroke: StrokeAttrs
+):
+  | { stroke: RenderableStroke }
+  | { diagnostic: Omit<StrokeSpecRejectionDiagnostic, 'index'> } => {
+  if (!stroke.visible) {
+    return {
+      diagnostic: {
+        reason: 'invisible-stroke',
+        strokeId: stroke.id
+      }
+    }
+  }
+
+  if (!Number.isFinite(stroke.width) || stroke.width <= 0) {
+    return {
+      diagnostic: {
+        reason: 'non-positive-width',
+        strokeId: stroke.id
+      }
+    }
   }
 
   const paint = resolveStrokePaint(stroke)
   if (!paint.visible) {
-    return null
+    return {
+      diagnostic: {
+        reason: 'invisible-paint',
+        strokeId: stroke.id
+      }
+    }
   }
 
   const parsed = parseColor(paint.color)
   if (!parsed) {
-    return null
+    return {
+      diagnostic: {
+        reason: 'invalid-paint',
+        strokeId: stroke.id
+      }
+    }
   }
 
   const dashPattern = normalizeDashPattern(stroke)
@@ -163,7 +210,12 @@ const getRenderableStroke = (stroke: StrokeAttrs): RenderableStroke | null => {
       : null
 
   if (paint.kind === FillKinds.GRADIENT && !gradientStyle) {
-    return null
+    return {
+      diagnostic: {
+        reason: 'invalid-gradient-paint',
+        strokeId: stroke.id
+      }
+    }
   }
 
   const paintKey =
@@ -178,46 +230,71 @@ const getRenderableStroke = (stroke: StrokeAttrs): RenderableStroke | null => {
       : `solid:${rgbaToColorInt(parsed)}:${clampOpacity(parsed.a * paint.opacity)}`
 
   return {
-    style: stroke.style,
-    position: stroke.position,
-    width: stroke.width,
-    dashPattern,
-    dashOffset: normalizeDashOffset(stroke.dashOffset, dashPattern),
-    join: getStrokeJoin(stroke.joinType),
-    miterLimit: getStrokeMiterLimit(stroke.miterAngle),
-    cap:
-      stroke.capType === StrokeCapTypes.SQUARE
-        ? 'square'
-        : stroke.capType === StrokeCapTypes.ROUND
-          ? 'round'
-          : 'butt',
-    kind: paint.kind === FillKinds.GRADIENT ? 'gradient' : 'solid',
-    color: rgbaToColorInt(parsed),
-    alpha: clampOpacity(parsed.a * paint.opacity),
-    gradientStyle,
-    paintKey
+    stroke: {
+      style: stroke.style,
+      position: stroke.position,
+      width: stroke.width,
+      dashPattern,
+      dashOffset: normalizeDashOffset(stroke.dashOffset, dashPattern),
+      join: getStrokeJoin(stroke.joinType),
+      miterLimit: getStrokeMiterLimit(stroke.miterAngle),
+      cap:
+        stroke.capType === StrokeCapTypes.SQUARE
+          ? 'square'
+          : stroke.capType === StrokeCapTypes.ROUND
+            ? 'round'
+            : 'butt',
+      kind: paint.kind === FillKinds.GRADIENT ? 'gradient' : 'solid',
+      color: rgbaToColorInt(parsed),
+      alpha: clampOpacity(parsed.a * paint.opacity),
+      gradientStyle,
+      paintKey
+    }
   }
 }
 
-export const getRenderableStrokes = (strokes: unknown): RenderableStroke[] => {
+export const normalizeStrokeSpec = (
+  strokes: unknown
+): NormalizeStrokeSpecResult => {
   if (!Array.isArray(strokes)) {
-    return []
+    return {
+      strokes: [],
+      diagnostics: []
+    }
   }
 
-  return strokes.reduce<RenderableStroke[]>((result, rawStroke) => {
-    const stroke = normalizeStrokeEntry(rawStroke)
-    if (!stroke) {
+  return strokes.reduce<NormalizeStrokeSpecResult>(
+    (result, rawStroke, index) => {
+      const stroke = normalizeStrokeEntry(rawStroke)
+      if (!stroke) {
+        result.diagnostics.push({
+          index,
+          reason: 'invalid-entry'
+        })
+        return result
+      }
+
+      const renderableStrokeResult = getRenderableStroke(stroke)
+      if ('stroke' in renderableStrokeResult) {
+        result.strokes.push(renderableStrokeResult.stroke)
+      } else {
+        result.diagnostics.push({
+          index,
+          ...renderableStrokeResult.diagnostic
+        })
+      }
+
       return result
+    },
+    {
+      strokes: [],
+      diagnostics: []
     }
-
-    const renderableStroke = getRenderableStroke(stroke)
-    if (renderableStroke) {
-      result.push(renderableStroke)
-    }
-
-    return result
-  }, [])
+  )
 }
+
+export const getRenderableStrokes = (strokes: unknown): RenderableStroke[] =>
+  normalizeStrokeSpec(strokes).strokes
 
 export const getStrokeHitWidth = (strokes: unknown): number => {
   const renderableStrokes = getRenderableStrokes(strokes)

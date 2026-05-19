@@ -9,6 +9,9 @@ import core, {
 } from '@asyra/core'
 import { createDefaultFill } from '@asyra/utils'
 import { BehaviorSubject, Subscription } from 'rxjs'
+import { buildPolylineGeometryModelPath } from '../components/stroke-render/path-geometry'
+import { buildPathTopologyModel } from '../components/stroke-render/path-topology-model'
+import { buildResolvedVectorGeometryModel } from '../components/stroke-render/resolved-vector-geometry-model'
 import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
 
@@ -152,6 +155,40 @@ const createVectorData = (id: string, points: Vec2[]) => {
   }
 }
 
+const buildExpectedSelfIntersectingFillFaces = (
+  vectorId: string,
+  networkId: string,
+  points: Vec2[]
+) => {
+  const path = buildPolylineGeometryModelPath(points, true)
+  const topology = buildPathTopologyModel({
+    pathId: `vector:${vectorId}:${networkId}`,
+    sourceId: `vector:${vectorId}`,
+    networkId,
+    sourceRevision: `test-source:${vectorId}:${networkId}`,
+    sourceFamily: 'vector',
+    points: path.sampledPoints,
+    closed: path.closed
+  })
+  const model = buildResolvedVectorGeometryModel({
+    modelId: `vector:${vectorId}:resolved-geometry`,
+    fillRule: topology.fillRule,
+    networks: [
+      {
+        networkId,
+        path,
+        topology
+      }
+    ]
+  })
+
+  return (
+    model.networks[0]?.selfIntersecting?.fillRegions.flatMap(
+      (region) => region.polygons
+    ) ?? []
+  )
+}
+
 const getFillPathInstructions = (graphic: Graphics) => {
   const instructions = graphic.context.instructions as {
     action: string
@@ -237,5 +274,43 @@ describe('vector preview fill during drag', () => {
 
     expect(pathContainsPoint(updatedInstructions, movedPoint)).toBe(true)
     expect(pathContainsPoint(updatedInstructions, basePoints[0])).toBe(false)
+  })
+
+  it('should run: consume shared self-intersecting fill regions before legacy fill fallback', () => {
+    expect(renderStrategyRegistry.has('vector')).toBe(true)
+    const renderStrategy = renderStrategyRegistry.get('vector')
+    expect(renderStrategy).toBeDefined()
+
+    if (!renderStrategy) {
+      return
+    }
+
+    const vectorId = 'vector-self-intersecting-fill'
+    const points = [
+      { x: 40, y: 40 },
+      { x: 160, y: 160 },
+      { x: 40, y: 160 },
+      { x: 160, y: 40 }
+    ]
+    const data = createVectorData(vectorId, points)
+    const networkId = Object.keys(data.networks)[0]
+    const expectedFillFaces = buildExpectedSelfIntersectingFillFaces(
+      vectorId,
+      networkId,
+      points
+    )
+
+    expect(expectedFillFaces.length).toBeGreaterThan(0)
+
+    const graphic = new Graphics()
+    renderStrategy(graphic, data)
+
+    const cache = (
+      graphic as typeof graphic & {
+        __asyraVectorFillCache?: { faces?: Vec2[][] }
+      }
+    ).__asyraVectorFillCache
+
+    expect(cache?.faces).toEqual(expectedFillFaces)
   })
 })

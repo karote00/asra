@@ -53,6 +53,83 @@ describe('constrained dashed runtime diagnostics', () => {
     expect(buildCount).toBe(1)
   })
 
+  it('should run: publish product branch identity and typed provenance for runtime evidence', () => {
+    const diagnostics = buildConstrainedDashedRuntimeDiagnostics([
+      {
+        ...entry,
+        legalDomainIds: ['legal:network-0:shell'],
+        sourceContourIds: ['contour:network-0:shell'],
+        dirtyStageTrace: {
+          changedRevisionKeys: ['ownershipRevision'],
+          dirtyKeys: ['ownership', 'legality', 'resolved-regions']
+        }
+      }
+    ])
+
+    expect(diagnostics.branches).toEqual([
+      expect.objectContaining({
+        branchId: 'product:constrained-dashed:vector:test:network-0:network-0',
+        supportState: 'accepted',
+        blockedReason: null,
+        ownerProvenance: {
+          primaryOwner: 'vector:test:network-0:stroke:0',
+          ownerSet: ['vector:test:network-0:stroke:0'],
+          ownershipStatus: 'accepted',
+          ownerCount: 1
+        },
+        legalDomainProvenance: {
+          legalDomainIds: ['legal:network-0:shell'],
+          sourceContourIds: ['contour:network-0:shell'],
+          mode: undefined,
+          fillRule: undefined
+        },
+        dirtyStageTrace: {
+          changedRevisionKeys: ['ownershipRevision'],
+          dirtyKeys: ['ownership', 'legality', 'resolved-regions'],
+          revisionSet: undefined
+        },
+        evidence: {
+          sourceId: 'vector:test:network-0',
+          networkId: 'network-0',
+          sourceTopology: 'rectangle-equivalent',
+          candidatePacketCount: 1,
+          branchKind: 'product'
+        }
+      })
+    ])
+  })
+
+  it('should run: expose blocked reason on the same public branch shape', () => {
+    const diagnostics = buildConstrainedDashedRuntimeDiagnostics([
+      {
+        ...entry,
+        status: 'blocked',
+        reason: 'unsupported-open-topology',
+        candidatePacketCount: 0,
+        ownership: {
+          status: 'blocked',
+          reason: 'no-packets',
+          ownerKeys: [],
+          packetCount: 0
+        }
+      }
+    ])
+
+    expect(diagnostics.branches[0]).toMatchObject({
+      supportState: 'blocked',
+      blockedReason: 'unsupported-open-topology',
+      ownerProvenance: {
+        ownerSet: [],
+        ownerCount: 0,
+        ownershipStatus: 'blocked'
+      },
+      dirtyStageTrace: {
+        changedRevisionKeys: [],
+        dirtyKeys: []
+      }
+    })
+  })
+
   it('should run: attach lazy arrangement diagnostics without computing during render diagnostics assignment', () => {
     let buildCount = 0
     const graphic = {}

@@ -108,32 +108,64 @@ export const registerConstrainedSolidLegalityDebugRenderLayer = (
   registerRenderLayer: RegisterRenderLayer,
   deps: Pick<PresetDependencies, 'render'>
 ) => {
+  let lastDrawState: {
+    enabled: boolean
+    mode: string
+    selectedId: string
+    diagnostics: ConstrainedSolidLegalityDiagnostics | null
+    ownershipDiagnostics: ConstrainedSolidOwnershipDiagnostics | null
+  } | null = null
   const layerRegistration = createOverlayLayerRegistration({
     name: CONSTRAINED_SOLID_LEGALITY_DEBUG_LAYER_NAME,
     zIndex: 11,
     update: (canvas: OverlayCanvas) => {
-      canvas.clear()
-
       const debugConfig = getDebugConfig()
-      if (!debugConfig.enabled) {
-        return
-      }
-
       const selectedIds = [...renderSelectionStore.elementSelection]
-      if (selectedIds.length !== 1) {
-        return
-      }
-
-      const element = deps.render.getElementById(selectedIds[0]) as
+      const selectedId = selectedIds.length === 1 ? selectedIds[0] : ''
+      const element = deps.render.getElementById(selectedId) as
         | (RenderElementShape &
             ConstrainedSolidLegalityDiagnosticsRuntimeGraphic &
             ConstrainedSolidOwnershipDiagnosticsRuntimeGraphic)
         | null
-      const diagnostics = element?.__asyraConstrainedSolidLegalityDiagnostics
+      const diagnostics =
+        debugConfig.enabled === true
+          ? (element?.__asyraConstrainedSolidLegalityDiagnostics ?? null)
+          : null
       const ownershipDiagnostics =
-        element?.__asyraConstrainedSolidOwnershipDiagnostics
+        debugConfig.enabled === true
+          ? (element?.__asyraConstrainedSolidOwnershipDiagnostics ?? null)
+          : null
+      const nextDrawState = {
+        enabled: debugConfig.enabled === true,
+        mode: debugConfig.mode ?? 'legality',
+        selectedId,
+        diagnostics,
+        ownershipDiagnostics
+      }
+      if (
+        lastDrawState &&
+        lastDrawState.enabled === nextDrawState.enabled &&
+        lastDrawState.mode === nextDrawState.mode &&
+        lastDrawState.selectedId === nextDrawState.selectedId &&
+        lastDrawState.diagnostics === nextDrawState.diagnostics &&
+        lastDrawState.ownershipDiagnostics ===
+          nextDrawState.ownershipDiagnostics
+      ) {
+        return false
+      }
+      lastDrawState = nextDrawState
+
+      canvas.clear()
+      if (!debugConfig.enabled) {
+        return true
+      }
+
+      if (selectedIds.length !== 1) {
+        return true
+      }
+
       if (!element) {
-        return
+        return true
       }
 
       const mode = debugConfig.mode ?? 'legality'
@@ -149,6 +181,7 @@ export const registerConstrainedSolidLegalityDebugRenderLayer = (
       ) {
         drawOwnershipDiagnostics(canvas, element, ownershipDiagnostics)
       }
+      return true
     }
   })
 

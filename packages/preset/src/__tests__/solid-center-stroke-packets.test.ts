@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultStroke } from '@asyra/utils'
 import {
+  applySolidCenterStrokeExportPacketsFromFinalFaces,
   buildSolidCenterStrokeExportPackets,
+  buildSolidCenterStrokeExportPacketsFromFinalFaces,
   buildSolidCenterStrokeHitTestPackets,
+  buildSolidCenterStrokeHitTestPacketsFromFinalFaces,
   buildSolidCenterStrokeResolvedPackets,
   createSolidCenterStrokeHitArea,
   normalizeResolvedStrokePacketGeometry,
+  toSolidCenterStrokeRenderEntriesFromFinalFaces,
   toSolidCenterStrokeRenderEntries
 } from '../components/stroke-render/solid-center-stroke-packets'
 import { buildStrokeFinalFacesFromResolvedPackets } from '../components/stroke-render/stroke-final-face'
@@ -54,6 +58,143 @@ describe('solid center stroke packets', () => {
       paintRevision: expect.any(String),
       previewModeRevision: 'preview:exact'
     })
+  })
+
+  it('should run: project render, hit, and export packets directly from FinalFace[]', () => {
+    const packets = buildSolidCenterStrokeResolvedPackets(
+      'rect:final-face-projection',
+      [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 20 },
+        { x: 0, y: 20 }
+      ],
+      true,
+      [createDefaultStroke({ width: 4, style: 'solid', position: 'center' })]
+    )
+    const faces = buildStrokeFinalFacesFromResolvedPackets(packets)
+    const [face] = faces
+    const [render] = toSolidCenterStrokeRenderEntriesFromFinalFaces(faces)
+    const [hit] = buildSolidCenterStrokeHitTestPacketsFromFinalFaces(faces)
+    const [exportPacket] =
+      buildSolidCenterStrokeExportPacketsFromFinalFaces(faces)
+    const graphic = {}
+
+    expect(face).toBeDefined()
+    expect(render.cacheKey).toBe(hit.geometryId)
+    expect(exportPacket.geometryId).toBe(hit.geometryId)
+    expect(render.polygons).toBe(face?.polygons)
+    expect(hit.polygons).toBe(face?.polygons)
+    expect(exportPacket.polygons).toBe(face?.polygons)
+    expect(hit.bounds).toBe(face?.bounds)
+    expect(exportPacket.bounds).toBe(face?.bounds)
+    expect(render.debugMeta).toBe(face?.debugMeta)
+    expect(hit.debugMeta).toBe(face?.debugMeta)
+    expect(exportPacket.debugMeta).toBe(face?.debugMeta)
+    expect(hit.ownerSet).toBe(face?.ownerSet)
+    expect(exportPacket.ownerSet).toBe(face?.ownerSet)
+    expect(hit.intervalIds).toBe(face?.intervalIds)
+    expect(exportPacket.intervalIds).toBe(face?.intervalIds)
+    expect(hit.sourceSpanIds).toBe(face?.sourceSpanIds)
+    expect(exportPacket.sourceSpanIds).toBe(face?.sourceSpanIds)
+    expect(hit.sourceContourIds).toBe(face?.sourceContourIds)
+    expect(exportPacket.sourceContourIds).toBe(face?.sourceContourIds)
+    expect(hit.legalDomainIds).toBe(face?.legalDomainIds)
+    expect(exportPacket.legalDomainIds).toBe(face?.legalDomainIds)
+
+    applySolidCenterStrokeExportPacketsFromFinalFaces(graphic, faces)
+    expect(
+      (
+        graphic as {
+          __asyraSolidCenterStrokeExportPackets?: (typeof exportPacket)[]
+        }
+      ).__asyraSolidCenterStrokeExportPackets?.[0]
+    ).toBe(exportPacket)
+  })
+
+  it('should run: preserve split-range terminal provenance through render, hit, and export projection', () => {
+    const packet = {
+      geometry: {
+        geometryId: 'terminal-projection:a',
+        polygons: [
+          [
+            { x: 0, y: 0 },
+            { x: 10, y: 0 },
+            { x: 10, y: 4 },
+            { x: 0, y: 4 }
+          ]
+        ],
+        bounds: { minX: 0, minY: 0, maxX: 10, maxY: 4 },
+        debugMeta: {
+          sourcePathId: 'source:terminal',
+          ownerKey: 'owner:terminal',
+          networkId: 'network:terminal',
+          strokeId: 'stroke:0',
+          strokeIndex: 0,
+          contourId: 'contour:terminal',
+          legalDomainId: 'legal:terminal',
+          intervalId: 'interval:terminal-start',
+          sourceSpanIds: ['span:terminal'],
+          sourceContourIds: ['contour:terminal'],
+          legalDomainIds: ['legal:terminal'],
+          geometryFamily: 'constrained-dashed' as const,
+          resolutionStatus: 'exact-constrained' as const,
+          runtimeStatus: 'accepted' as const,
+          sourceTopology: 'self-intersecting' as const,
+          strokePosition: 'inside' as const,
+          figmaLikeSplitRangeId: 'split-range:terminal',
+          figmaLikeSplitRangeStartDistance: 0,
+          figmaLikeSplitRangeEndDistance: 30,
+          figmaLikeTerminalRole: 'start' as const,
+          figmaLikeSideAuthority: 'implicit-fill-hole-domain' as const,
+          figmaLikeSelectedSide: 1 as const,
+          figmaLikeSideResolutionStatus: 'resolved' as const,
+          figmaLikeSplitRangeTerminals: [
+            {
+              intervalId: 'interval:terminal-start',
+              splitRangeId: 'split-range:terminal',
+              splitRangeStartDistance: 0,
+              splitRangeEndDistance: 30,
+              terminalRole: 'start' as const,
+              startDistance: 0,
+              endDistance: 8
+            }
+          ]
+        }
+      },
+      paint: {
+        geometryId: 'terminal-projection:a',
+        color: 0xff0000,
+        alpha: 1,
+        paintKey: 'paint:terminal'
+      }
+    }
+    const faces = buildStrokeFinalFacesFromResolvedPackets([packet])
+    const [render] = toSolidCenterStrokeRenderEntriesFromFinalFaces(faces)
+    const [hit] = buildSolidCenterStrokeHitTestPacketsFromFinalFaces(faces)
+    const [exportPacket] =
+      buildSolidCenterStrokeExportPacketsFromFinalFaces(faces)
+
+    expect(render.debugMeta?.figmaLikeSplitRangeTerminals).toEqual([
+      {
+        intervalId: 'interval:terminal-start',
+        splitRangeId: 'split-range:terminal',
+        splitRangeStartDistance: 0,
+        splitRangeEndDistance: 30,
+        terminalRole: 'start',
+        startDistance: 0,
+        endDistance: 8
+      }
+    ])
+    expect(hit.debugMeta?.figmaLikeSplitRangeTerminals).toBe(
+      render.debugMeta?.figmaLikeSplitRangeTerminals
+    )
+    expect(exportPacket.debugMeta?.figmaLikeSplitRangeTerminals).toBe(
+      render.debugMeta?.figmaLikeSplitRangeTerminals
+    )
+    expect(hit.intervalIds).toBe(faces[0]?.intervalIds)
+    expect(exportPacket.sourceSpanIds).toBe(faces[0]?.sourceSpanIds)
+    expect(exportPacket.legalDomainIds).toBe(faces[0]?.legalDomainIds)
   })
 
   it('should run: filter invalid polygons once before render, hit, and export packet emission', () => {

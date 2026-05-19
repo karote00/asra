@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { Container, Graphics, Mesh } from 'pixi.js'
 import { renderSolidCenterStrokeEntries } from '../components/stroke-render/solid-center-stroke-render'
 import { buildStrokeRuntimeRevisionSet } from '../components/stroke-render/stroke-dirty-keys'
@@ -18,6 +18,10 @@ const getProjectionMeshes = (host: Container) =>
 
 const getProjectionGraphics = (host: Container) =>
   host.children.flatMap((child) => {
+    if (child instanceof Graphics) {
+      return [child]
+    }
+
     if (!(child instanceof Container)) {
       return []
     }
@@ -86,6 +90,212 @@ describe('solid center stroke render', () => {
       }
     ).__asyraStrokeMeshCache?.get('solid_center_self_intersecting')
     expect(cacheEntry?.kind).toBe('masked-solid')
+  })
+
+  it('should run: render constrained dashed product visuals as dashed fill clipped by legal mask', () => {
+    const host = new MeshTestHost()
+
+    renderSolidCenterStrokeEntries(host, [
+      {
+        cacheKey: 'constrained_dashed_product_final',
+        stroke: {
+          color: 0xdf0606,
+          alpha: 0.5
+        },
+        polygons: [
+          [
+            { x: 2, y: 2 },
+            { x: 8, y: 2 },
+            { x: 8, y: 8 },
+            { x: 2, y: 8 }
+          ]
+        ],
+        fillPolygons: [
+          [
+            { x: -4, y: 0 },
+            { x: 12, y: 0 },
+            { x: 12, y: 10 },
+            { x: -4, y: 10 }
+          ]
+        ],
+        clipPolygons: [
+          [
+            { x: 0, y: 0 },
+            { x: 10, y: 0 },
+            { x: 10, y: 10 },
+            { x: 0, y: 10 }
+          ]
+        ],
+        debugMeta: {
+          geometryFamily: 'constrained-dashed',
+          finalCoverageBuilderStatus: 'product-final'
+        }
+      }
+    ])
+
+    expect(getProjectionMeshes(host)).toHaveLength(0)
+    expect(getProjectionGraphics(host)).toHaveLength(2)
+    const cacheEntry = (
+      host as typeof host & {
+        __asyraStrokeMeshCache?: Map<string, { kind?: string }>
+      }
+    ).__asyraStrokeMeshCache?.get('constrained_dashed_product_final')
+    expect(cacheEntry?.kind).toBe('masked-solid')
+  })
+
+  it('should run: render constrained dashed product-final polygon coverage directly as mesh projection', () => {
+    const host = new MeshTestHost()
+
+    renderSolidCenterStrokeEntries(host, [
+      {
+        cacheKey: 'constrained_dashed_product_final_polygons_only',
+        stroke: {
+          color: 0xdf0606,
+          alpha: 0.5
+        },
+        polygons: [
+          [
+            { x: 2, y: 2 },
+            { x: 8, y: 2 },
+            { x: 8, y: 8 },
+            { x: 2, y: 8 }
+          ],
+          [
+            { x: 20, y: 2 },
+            { x: 26, y: 2 },
+            { x: 26, y: 8 },
+            { x: 20, y: 8 }
+          ]
+        ],
+        debugMeta: {
+          geometryFamily: 'constrained-dashed',
+          finalCoverageBuilderStatus: 'product-final',
+          sourceContourIds: ['source-a', 'source-b']
+        }
+      }
+    ])
+
+    expect(getProjectionMeshes(host)).toHaveLength(1)
+    expect(getProjectionGraphics(host)).toHaveLength(0)
+    const cacheEntry = (
+      host as typeof host & {
+        __asyraStrokeMeshCache?: Map<string, { kind?: string }>
+      }
+    ).__asyraStrokeMeshCache?.get(
+      'constrained_dashed_product_final_polygons_only'
+    )
+    expect(cacheEntry?.kind).toBe('solid')
+  })
+
+  it('should run: render self-intersecting constrained dashed source-path polygons through the product mesh cache', () => {
+    const host = new MeshTestHost()
+
+    renderSolidCenterStrokeEntries(host, [
+      {
+        cacheKey: 'self_intersecting_constrained_dashed_source_path',
+        stroke: {
+          color: 0xdf0606,
+          alpha: 0.5
+        },
+        polygons: [
+          [
+            { x: 2, y: 2 },
+            { x: 8, y: 2 },
+            { x: 8, y: 8 },
+            { x: 2, y: 8 }
+          ],
+          [
+            { x: 20, y: 2 },
+            { x: 26, y: 2 },
+            { x: 26, y: 8 },
+            { x: 20, y: 8 }
+          ]
+        ],
+        debugMeta: {
+          geometryFamily: 'constrained-dashed',
+          sourceTopology: 'self-intersecting',
+          finalCoverageBuilderStatus: 'product-final',
+          sourceContourIds: ['source-a', 'source-b']
+        }
+      }
+    ])
+
+    expect(getProjectionMeshes(host)).toHaveLength(0)
+    expect(getProjectionGraphics(host)).toHaveLength(2)
+    const cacheEntry = (
+      host as typeof host & {
+        __asyraStrokeMeshCache?: Map<string, { kind?: string }>
+      }
+    ).__asyraStrokeMeshCache?.get(
+      'self_intersecting_constrained_dashed_source_path'
+    )
+    expect(cacheEntry?.kind).toBe('masked-solid')
+  })
+
+  it('should run: paint constrained dashed fill polygons and native stroke paths together under the legal mask', () => {
+    const host = new MeshTestHost()
+    const polySpy = vi.spyOn(Graphics.prototype, 'poly')
+    const strokeSpy = vi.spyOn(Graphics.prototype, 'stroke')
+
+    try {
+      renderSolidCenterStrokeEntries(host, [
+        {
+          cacheKey: 'constrained_dashed_product_final_mixed',
+          stroke: {
+            color: 0xdf0606,
+            alpha: 0.5
+          },
+          polygons: [
+            [
+              { x: 2, y: 2 },
+              { x: 8, y: 2 },
+              { x: 8, y: 8 },
+              { x: 2, y: 8 }
+            ]
+          ],
+          fillPolygons: [
+            [
+              { x: 0, y: 0 },
+              { x: 8, y: 0 },
+              { x: 8, y: 4 },
+              { x: 0, y: 4 }
+            ]
+          ],
+          clipPolygons: [
+            [
+              { x: 0, y: 0 },
+              { x: 10, y: 0 },
+              { x: 10, y: 10 },
+              { x: 0, y: 10 }
+            ]
+          ],
+          strokePaths: [
+            [
+              { x: 1, y: 7 },
+              { x: 9, y: 7 }
+            ]
+          ],
+          strokePathStyle: {
+            width: 2,
+            cap: 'round',
+            join: 'round',
+            miterLimit: 4
+          },
+          debugMeta: {
+            geometryFamily: 'constrained-dashed',
+            finalCoverageBuilderStatus: 'product-final'
+          }
+        }
+      ])
+
+      expect(getProjectionMeshes(host)).toHaveLength(0)
+      expect(getProjectionGraphics(host)).toHaveLength(2)
+      expect(polySpy).toHaveBeenCalled()
+      expect(strokeSpy).toHaveBeenCalled()
+    } finally {
+      polySpy.mockRestore()
+      strokeSpy.mockRestore()
+    }
   })
 
   it('should not run: emit mesh projections for non-polygon solid-center fragments', () => {

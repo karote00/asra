@@ -10,7 +10,8 @@ import {
 } from '@asyra/utils'
 import {
   getRenderableStrokes,
-  getStrokeHitWidth
+  getStrokeHitWidth,
+  normalizeStrokeSpec
 } from '../components/stroke-render/renderable-stroke'
 
 const { createRenderGradientFillStyle } = vi.hoisted(() => ({
@@ -134,6 +135,37 @@ describe('stroke renderable normalization', () => {
     })
   })
 
+  it('should run: normalize negative dashed offsets into the canonical dash cycle', () => {
+    const [stroke] = normalizeStrokeSpec([
+      createDefaultStroke({
+        style: 'dashed',
+        dashPattern: [10, 5],
+        dashOffset: -2
+      })
+    ]).strokes
+
+    expect(stroke).toMatchObject({
+      dashPattern: [10, 5],
+      dashOffset: 13
+    })
+  })
+
+  it('should run: apply default cap, join, miter, and solid paint handoff at the canonical stroke spec boundary', () => {
+    const result = normalizeStrokeSpec([createDefaultStroke({ width: 4 })])
+
+    expect(result.diagnostics).toEqual([])
+    expect(result.strokes[0]).toMatchObject({
+      width: 4,
+      join: 'miter',
+      cap: 'butt',
+      miterLimit: expect.any(Number),
+      kind: 'solid',
+      color: 0x000000,
+      alpha: 1
+    })
+    expect(result.strokes[0]?.paintKey).toBe('solid:0:1')
+  })
+
   it('should run: normalize Figma-style miter angle thresholds into SVG miter limits', () => {
     const [defaultAngleStroke] = getRenderableStrokes([
       createDefaultStroke({
@@ -161,15 +193,18 @@ describe('stroke renderable normalization', () => {
   })
 
   it('should not run: reject invalid or non-renderable entries from normalization output', () => {
-    const strokes = getRenderableStrokes([
+    const result = normalizeStrokeSpec([
       createDefaultStroke({
+        id: 'hidden-stroke',
         visible: false
       }),
       createDefaultStroke({
+        id: 'zero-width-stroke',
         width: 0
       }),
       {
         ...createDefaultStroke({
+          id: 'invalid-paint-stroke',
           color: '#000000'
         }),
         color: 'not-a-color',
@@ -179,7 +214,59 @@ describe('stroke renderable normalization', () => {
       null
     ])
 
-    expect(strokes).toEqual([])
+    expect(result.strokes).toEqual([])
+    expect(result.diagnostics).toEqual([
+      {
+        index: 0,
+        reason: 'invisible-stroke',
+        strokeId: 'hidden-stroke'
+      },
+      {
+        index: 1,
+        reason: 'non-positive-width',
+        strokeId: 'zero-width-stroke'
+      },
+      {
+        index: 2,
+        reason: 'invalid-paint',
+        strokeId: 'invalid-paint-stroke'
+      },
+      {
+        index: 3,
+        reason: 'invalid-entry'
+      }
+    ])
+    expect(getRenderableStrokes([null])).toEqual([])
+  })
+
+  it('should not run: accept invisible paint or missing gradient payloads as renderable stroke specs', () => {
+    const result = normalizeStrokeSpec([
+      createDefaultStroke({
+        id: 'hidden-paint',
+        fill: createDefaultFill({
+          visible: false
+        })
+      }),
+      createDefaultStroke({
+        id: 'missing-gradient',
+        kind: FillKinds.GRADIENT,
+        gradient: null
+      })
+    ])
+
+    expect(result.strokes).toEqual([])
+    expect(result.diagnostics).toEqual([
+      {
+        index: 0,
+        reason: 'invisible-paint',
+        strokeId: 'hidden-paint'
+      },
+      {
+        index: 1,
+        reason: 'invalid-gradient-paint',
+        strokeId: 'missing-gradient'
+      }
+    ])
   })
 
   it('should run: compute max hit width from the normalized renderable stroke set', () => {

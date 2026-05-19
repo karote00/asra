@@ -3,12 +3,21 @@ import type {
   ConstrainedDashedSourceTopology
 } from './constrained-dashed-stroke-packets'
 import type { ConstrainedSolidOwnershipDiagnostics } from './constrained-solid-ownership-diagnostics'
+import {
+  buildStrokeRuntimeDiagnosticBranch,
+  type StrokeRuntimeDiagnosticBranch,
+  type StrokeRuntimeDiagnosticDirtyStageTrace
+} from './stroke-runtime-diagnostics'
 
 export interface ConstrainedDashedRuntimeDiagnosticEntry
   extends ConstrainedDashedRuntimeStatusClassification {
   sourceId: string
   networkId?: string
   candidatePacketCount: number
+  branchId?: string
+  legalDomainIds?: string[]
+  sourceContourIds?: string[]
+  dirtyStageTrace?: Partial<StrokeRuntimeDiagnosticDirtyStageTrace>
 }
 
 export interface ConstrainedDashedRuntimeDiagnostics {
@@ -16,6 +25,7 @@ export interface ConstrainedDashedRuntimeDiagnostics {
   acceptedCount: number
   blockedCount: number
   sourceTopologies: ConstrainedDashedSourceTopology[]
+  branches: StrokeRuntimeDiagnosticBranch[]
   arrangementDiagnostics?: ConstrainedSolidOwnershipDiagnostics
 }
 
@@ -34,7 +44,36 @@ export const buildConstrainedDashedRuntimeDiagnostics = (
     acceptedCount: entries.filter((entry) => entry.status === 'accepted')
       .length,
     blockedCount: entries.filter((entry) => entry.status === 'blocked').length,
-    sourceTopologies: [...new Set(entries.map((entry) => entry.sourceTopology))]
+    sourceTopologies: [
+      ...new Set(entries.map((entry) => entry.sourceTopology))
+    ],
+    branches: entries.map((entry) =>
+      buildStrokeRuntimeDiagnosticBranch({
+        branchId:
+          entry.branchId ??
+          `product:constrained-dashed:${entry.sourceId}:${entry.networkId ?? 'all-networks'}`,
+        supportState: entry.status,
+        blockedReason: entry.status === 'blocked' ? entry.reason : null,
+        ownerProvenance: {
+          primaryOwner: entry.ownership.ownerKeys[0],
+          ownerSet: entry.ownership.ownerKeys,
+          ownershipStatus: entry.ownership.status,
+          ownerCount: entry.ownership.ownerKeys.length
+        },
+        legalDomainProvenance: {
+          legalDomainIds: entry.legalDomainIds ?? [],
+          sourceContourIds: entry.sourceContourIds ?? []
+        },
+        dirtyStageTrace: entry.dirtyStageTrace,
+        evidence: {
+          sourceId: entry.sourceId,
+          networkId: entry.networkId,
+          sourceTopology: entry.sourceTopology,
+          candidatePacketCount: entry.candidatePacketCount,
+          branchKind: 'product'
+        }
+      })
+    )
   }
 
   if (!arrangementDiagnostics) {

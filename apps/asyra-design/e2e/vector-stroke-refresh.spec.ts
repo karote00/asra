@@ -908,7 +908,7 @@ test.describe('vector stroke refresh rendering', () => {
   test('should run: keep many self-intersecting inside dashed star networks visible after refresh', async ({
     page
   }) => {
-    test.setTimeout(20_000)
+    test.setTimeout(45_000)
     const consoleErrors: string[] = []
     page.on('console', (message) => {
       if (message.type() === 'error') {

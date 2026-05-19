@@ -547,10 +547,11 @@ Current implementation checkpoint:
   `buildArrangement`, all accepted local candidate packets for the vector are
   promoted through one backend arrangement pass, classified against the vector
   legal domain, and projected back from exact `FinalFace[]`.
-- if no exact backend is selected, or if backend arrangement fails, product
-  runtime keeps authored-side local constrained dashed visibility. It must not
-  emit center fallback and must not disappear merely because exact arrangement
-  is unavailable.
+- if no exact backend is selected, or if backend arrangement fails,
+  non-self-intersecting product runtime keeps local constrained dashed
+  visibility. Self-intersecting constrained dashed `inside/outside` is governed
+  by the even-odd boundary-contour model and must not fall back to authored-side
+  local geometry as a product path.
 - implemented: real Clipper2-backed fixtures cover self-intersecting
   arrangement partitioning, high-curvature overlapping candidate partitioning,
   backend-gated product promotion, and side-specific inside/outside exact
@@ -714,11 +715,12 @@ Current implementation checkpoint:
   regions for simple, concave, holed, and mixed multi-contour faces. If one
   backend face contains polygons with different legal states, the classifier
   splits them before inside/outside filtering.
-- implemented: closed self-intersecting constrained dashed packets remain
-  product-visible as authored-side local geometry. Exact promotion is disabled
-  for this topology because the current legal-domain clipping pass can remove
-  valid internal dash regions after backend load; packets therefore keep
-  `resolutionStatus: "local-side-approximation"` even with a selected backend.
+- implemented: closed self-intersecting constrained dashed packets are emitted
+  from the shared resolved geometry model's even-odd legal-region boundary
+  contours, including hole boundaries. The former authored-side local geometry
+  path is no longer the product contract and cannot be used as a support claim.
+  Each split contour edge is an independent dash domain with half-dash endpoint
+  placement and interior dash/gap distribution.
 - implemented as gate-only: closed self-intersecting constrained solid visual
   tests now treat self-intersection as overlap/ownership, not as a clipping
   boundary, but product exact support remains implementation in progress. The
@@ -1190,10 +1192,9 @@ multi-network semantics.
 
 This phase is closed as a gating phase, not as broad exact support:
 
-- self-intersecting constrained solid and dashed paths may emit local-side
-  visibility packets when no exact backend is selected; accepted constrained
-  dashed packets promote to exact arrangement metadata when an exact backend is
-  selected
+- self-intersecting constrained dashed `inside/outside` paths must use
+  even-odd boundary-contour product semantics before support is claimed;
+  authored-side local-side visibility is not the product contract
 - disjoint multi-network constrained dashed vectors remain supported through
   typed per-network owner diagnostics
 - overlapping or boundary-touching multi-network source bounds are treated as

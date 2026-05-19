@@ -23,6 +23,7 @@ import {
   type StrokeFinalFace,
   type StrokeOwnerKey
 } from './stroke-final-face'
+import { pushUniqueStrokeOwner } from './stroke-ownership'
 
 interface Vec2 {
   x: number
@@ -170,6 +171,52 @@ const hasAnyBoundsOverlap = (faces: ArrangedStrokeFinalFace[]) => {
   }
 
   return false
+}
+
+const partitionFinalFacesByBoundsConnectivity = (
+  faces: ArrangedStrokeFinalFace[]
+) => {
+  if (faces.length < 2) {
+    return [faces]
+  }
+
+  const visited = new Set<number>()
+  const groups: ArrangedStrokeFinalFace[][] = []
+
+  for (let startIndex = 0; startIndex < faces.length; startIndex += 1) {
+    if (visited.has(startIndex)) {
+      continue
+    }
+
+    const group: ArrangedStrokeFinalFace[] = []
+    const queue = [startIndex]
+    visited.add(startIndex)
+
+    while (queue.length > 0) {
+      const currentIndex = queue.shift()
+      if (currentIndex === undefined) {
+        continue
+      }
+
+      const current = faces[currentIndex]
+      group.push(current)
+
+      for (let nextIndex = 0; nextIndex < faces.length; nextIndex += 1) {
+        if (visited.has(nextIndex)) {
+          continue
+        }
+
+        if (boundsOverlap(current.bounds, faces[nextIndex].bounds)) {
+          visited.add(nextIndex)
+          queue.push(nextIndex)
+        }
+      }
+    }
+
+    groups.push(group)
+  }
+
+  return groups
 }
 
 const pointInPolygon = (point: Vec2, polygon: Vec2[]) => {
@@ -376,13 +423,6 @@ const getBackendCacheGroup = <T>(
   return cache
 }
 
-const pushUniqueOwner = (owners: StrokeOwnerKey[], owner: StrokeOwnerKey) => {
-  const signature = stableStringify(owner)
-  if (!owners.some((candidate) => stableStringify(candidate) === signature)) {
-    owners.push(owner)
-  }
-}
-
 const collectMergedFaceMetadata = (faces: ArrangedStrokeFinalFace[]) => {
   const sourceGeometryIds: string[] = []
   const ownerSet: StrokeOwnerKey[] = []
@@ -390,14 +430,32 @@ const collectMergedFaceMetadata = (faces: ArrangedStrokeFinalFace[]) => {
   const sourceSpanIds: string[] = []
   const sourceContourIds: string[] = []
   const legalDomainIds: string[] = []
+  const figmaLikeSplitRangeTerminals: NonNullable<
+    SolidCenterStrokeGeometryDebugMeta['figmaLikeSplitRangeTerminals']
+  > = []
+  const terminalKeys = new Set<string>()
 
   faces.forEach((face) => {
     face.sourceGeometryIds.forEach((id) => pushUnique(sourceGeometryIds, id))
-    face.ownerSet.forEach((owner) => pushUniqueOwner(ownerSet, owner))
+    face.ownerSet.forEach((owner) => pushUniqueStrokeOwner(ownerSet, owner))
     face.intervalIds.forEach((id) => pushUnique(intervalIds, id))
     face.sourceSpanIds.forEach((id) => pushUnique(sourceSpanIds, id))
     face.sourceContourIds.forEach((id) => pushUnique(sourceContourIds, id))
     face.legalDomainIds.forEach((id) => pushUnique(legalDomainIds, id))
+    face.debugMeta?.figmaLikeSplitRangeTerminals?.forEach((terminal) => {
+      const key = [
+        terminal.intervalId,
+        terminal.splitRangeId,
+        terminal.terminalRole,
+        terminal.startDistance,
+        terminal.endDistance
+      ].join('|')
+      if (terminalKeys.has(key)) {
+        return
+      }
+      terminalKeys.add(key)
+      figmaLikeSplitRangeTerminals.push({ ...terminal })
+    })
   })
 
   return {
@@ -406,7 +464,8 @@ const collectMergedFaceMetadata = (faces: ArrangedStrokeFinalFace[]) => {
     intervalIds,
     sourceSpanIds,
     sourceContourIds,
-    legalDomainIds
+    legalDomainIds,
+    figmaLikeSplitRangeTerminals
   }
 }
 
@@ -773,7 +832,8 @@ const mergeArrangedFaceGroup = (
     intervalIds,
     sourceSpanIds,
     sourceContourIds,
-    legalDomainIds
+    legalDomainIds,
+    figmaLikeSplitRangeTerminals
   } = collectMergedFaceMetadata(group.faces)
 
   const candidateIds = group.candidates.map(
@@ -809,7 +869,8 @@ const mergeArrangedFaceGroup = (
       arrangementCandidateIds: candidateIds,
       arrangementLegalState: arrangementFace.legalState,
       resolutionStatus: 'exact-constrained',
-      runtimeStatus: 'accepted'
+      runtimeStatus: 'accepted',
+      figmaLikeSplitRangeTerminals
     },
     paint: primaryFace.paint
   }
@@ -880,6 +941,16 @@ const groupFinalFacesByVisualPacket = (faces: ArrangedStrokeFinalFace[]) => {
   const groups = new Map<string, ArrangedStrokeFinalFace[]>()
 
   faces.forEach((face) => {
+    const selfIntersectingConstrainedDashedSplitKey =
+      face.geometryFamily === 'constrained-dashed' &&
+      face.sourceTopology === 'self-intersecting' &&
+      face.debugMeta?.figmaLikeSplitRangeId
+        ? [
+            'self-intersecting-constrained-dashed-split',
+            face.debugMeta.figmaLikeSplitRangeId,
+            face.debugMeta.figmaLikeSelectedSide ?? 'unknown-side'
+          ].join('|')
+        : null
     const groupKey =
       face.geometryFamily === 'dashed-center'
         ? [
@@ -890,7 +961,12 @@ const groupFinalFacesByVisualPacket = (faces: ArrangedStrokeFinalFace[]) => {
               ownerSet: face.ownerSet
             })
           ].join('|')
-        : face.visualPacketKey
+        : selfIntersectingConstrainedDashedSplitKey
+          ? [
+              face.visualPacketKey,
+              selfIntersectingConstrainedDashedSplitKey
+            ].join('|')
+          : face.visualPacketKey
     const existing = groups.get(groupKey) ?? []
     existing.push(face)
     groups.set(groupKey, existing)
@@ -905,6 +981,12 @@ const isLocalSideConstrainedSolidFace = (face: ArrangedStrokeFinalFace) =>
 
 const hasDashedCenterFace = (faces: ArrangedStrokeFinalFace[]) =>
   faces.some((face) => face.geometryFamily === 'dashed-center')
+
+const hasGradientPaintFace = (faces: ArrangedStrokeFinalFace[]) =>
+  faces.some(
+    (face) =>
+      face.paint.kind === 'gradient' || Boolean(face.paint.gradientStyle)
+  )
 
 const isSelfIntersectingConstrainedSolidFace = (
   face: ArrangedStrokeFinalFace
@@ -996,7 +1078,8 @@ const mergeVisualOverlapFaceGroup = (
     intervalIds,
     sourceSpanIds,
     sourceContourIds,
-    legalDomainIds
+    legalDomainIds,
+    figmaLikeSplitRangeTerminals
   } = collectMergedFaceMetadata(faces)
   const polygons = unionRegions.flatMap(getRegionCoveragePolygons)
   const faceId = hashStableString(
@@ -1022,6 +1105,7 @@ const mergeVisualOverlapFaceGroup = (
       sourceSpanIds,
       sourceContourIds,
       legalDomainIds,
+      figmaLikeSplitRangeTerminals,
       visualOverlapCollapseStatus: 'exact-union',
       visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
       visualOverlapSourceGeometryIds: sourceGeometryIds
@@ -1046,7 +1130,8 @@ const mergeNativeCenterVisualOverlapFaceGroup = (
     intervalIds,
     sourceSpanIds,
     sourceContourIds,
-    legalDomainIds
+    legalDomainIds,
+    figmaLikeSplitRangeTerminals
   } = collectMergedFaceMetadata(faces)
   const polygons = unionRegions.flatMap(getRegionCoveragePolygons)
   const faceId = hashStableString(
@@ -1072,6 +1157,7 @@ const mergeNativeCenterVisualOverlapFaceGroup = (
       sourceSpanIds,
       sourceContourIds,
       legalDomainIds,
+      figmaLikeSplitRangeTerminals,
       visualOverlapCollapseStatus: 'exact-union',
       visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
       visualOverlapSourceGeometryIds: sourceGeometryIds
@@ -1096,7 +1182,8 @@ const mergeVisualOverlapArrangementFaceGroup = (
     intervalIds,
     sourceSpanIds,
     sourceContourIds,
-    legalDomainIds
+    legalDomainIds,
+    figmaLikeSplitRangeTerminals
   } = collectMergedFaceMetadata(faces)
   const polygons = getRegionCoveragePolygons(arrangementFace.geometry)
   const faceId = hashStableString(
@@ -1122,6 +1209,7 @@ const mergeVisualOverlapArrangementFaceGroup = (
       sourceSpanIds,
       sourceContourIds,
       legalDomainIds,
+      figmaLikeSplitRangeTerminals,
       visualOverlapCollapseStatus: 'exact-arrangement',
       visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
       visualOverlapSourceGeometryIds: sourceGeometryIds,
@@ -1151,7 +1239,8 @@ const mergeLocalSideVisualOverlapArrangementFaceGroup = (
     intervalIds,
     sourceSpanIds,
     sourceContourIds,
-    legalDomainIds
+    legalDomainIds,
+    figmaLikeSplitRangeTerminals
   } = collectMergedFaceMetadata(faces)
   const polygons = getRegionCoveragePolygons(arrangementFace.geometry)
   const faceId = hashStableString(
@@ -1177,6 +1266,7 @@ const mergeLocalSideVisualOverlapArrangementFaceGroup = (
       sourceSpanIds,
       sourceContourIds,
       legalDomainIds,
+      figmaLikeSplitRangeTerminals,
       visualOverlapCollapseStatus: 'local-side-arrangement',
       visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
       visualOverlapSourceGeometryIds: sourceGeometryIds,
@@ -1277,6 +1367,10 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
       return false
     }
 
+    if (hasGradientPaintFace(group)) {
+      return false
+    }
+
     const shouldUseUnionOnlyCollapse =
       canCollapseLocalSideConstrainedSolidVisualOverlapByUnion(group)
     if (
@@ -1316,6 +1410,10 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
       return group
     }
 
+    if (hasGradientPaintFace(group)) {
+      return group
+    }
+
     const shouldUseUnionOnlyCollapse =
       canCollapseLocalSideConstrainedSolidVisualOverlapByUnion(group)
     if (
@@ -1331,6 +1429,17 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
 
     if (!shouldAttemptVisualOverlapCollapse(group)) {
       return group
+    }
+
+    const boundsConnectedGroups = partitionFinalFacesByBoundsConnectivity(group)
+    if (boundsConnectedGroups.length > 1) {
+      emitStrokePipelineCounter(
+        'visual-overlap-collapse-bounds-partitioned',
+        boundsConnectedGroups.length
+      )
+      return boundsConnectedGroups.flatMap((connectedGroup) =>
+        collapseStrokeFinalFaceVisualOverlaps(connectedGroup, options)
+      )
     }
 
     if (isNativeCenterSelfIntersectingSingleFaceCollapse(group)) {

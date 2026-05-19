@@ -166,6 +166,26 @@ export interface SolidCenterStrokeGeometryDebugMeta {
   previousVisibleIntervalId?: string | null
   nextVisibleIntervalId?: string | null
   intervalTerminalRole?: 'none' | 'path-start' | 'path-end' | 'both'
+  figmaLikeSplitRangeId?: string
+  figmaLikeSplitRangeStartDistance?: number
+  figmaLikeSplitRangeEndDistance?: number
+  figmaLikeTerminalRole?: 'start' | 'end' | 'start-end' | 'middle'
+  figmaLikeSplitRangeSourceSegmentIndex?: number
+  figmaLikeSideAuthority?: 'implicit-fill-hole-domain'
+  figmaLikeSelectedSide?: 1 | -1
+  figmaLikeSideResolutionStatus?: 'resolved' | 'blocked'
+  figmaLikeSideResolutionReason?: string
+  figmaLikeSplitRangeTerminals?: {
+    intervalId: string
+    splitRangeId: string
+    splitRangeStartDistance: number
+    splitRangeEndDistance: number
+    terminalRole: 'start' | 'end' | 'start-end' | 'middle'
+    startDistance: number
+    endDistance: number
+    sourceSegmentIndex?: number
+    selectedSide?: 1 | -1
+  }[]
   intervalStartCutKind?: 'vertex' | 'dash-boundary' | 'self-intersection'
   intervalEndCutKind?: 'vertex' | 'dash-boundary' | 'self-intersection'
   strokeIntersectionEligible?: boolean
@@ -200,12 +220,14 @@ export interface SolidCenterStrokeGeometryDebugMeta {
     | 'exact-union'
     | 'exact-arrangement'
     | 'local-side-arrangement'
+    | 'render-projection-union'
   visualOverlapSourceFaceIds?: string[]
   visualOverlapSourceGeometryIds?: string[]
   finalCoverageBuilderStatus?: 'product-final' | 'debug-raw'
   intervalSweepSpanCount?: number
   terminalCapCount?: number
   sourceBoundaryJoinCount?: number
+  paintBounds?: Bounds
   revisionSet?: StrokeRevisionSet
 }
 
@@ -494,6 +516,29 @@ const flattenFacePolygons = (
   return polygons.length > 0 ? polygons : fallbackPolygons
 }
 
+const getSignedPolygonArea = (polygon: Vec2[]) => {
+  let area = 0
+  for (let index = 0; index < polygon.length; index += 1) {
+    const current = polygon[index]
+    const next = polygon[(index + 1) % polygon.length]
+    area += current.x * next.y - next.x * current.y
+  }
+
+  return area / 2
+}
+
+const normalizeCoveragePolygonWinding = (polygon: Vec2[]) =>
+  getSignedPolygonArea(polygon) < 0 ? [...polygon].reverse() : polygon
+
+const toCoverageFaceRegion = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >
+) => ({
+  polygons: face.polygons.map(normalizeCoveragePolygonWinding)
+})
+
 const getDashedCenterRenderGroupKey = (
   face: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
@@ -512,10 +557,35 @@ const getDashedCenterRenderGroupKey = (
     face.debugMeta?.strokeIndex
   ].join(':')
 
-  return `${face.visualPacketKey}|${ownerKey}`
+  return `${face.paintKey}|${ownerKey}`
 }
 
-const getDashedCenterRenderOverlapBackend = (
+const getConstrainedDashedProductRenderGroupKey = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >
+) => {
+  if (
+    face.geometryFamily !== 'constrained-dashed' ||
+    face.debugMeta?.finalCoverageBuilderStatus !== 'product-final'
+  ) {
+    return null
+  }
+
+  const ownerKey = [
+    face.debugMeta?.sourcePathId,
+    face.debugMeta?.ownerKey,
+    face.debugMeta?.networkId,
+    face.debugMeta?.strokeId,
+    face.debugMeta?.strokeIndex,
+    face.debugMeta?.strokePosition
+  ].join(':')
+
+  return `${face.paintKey}|${ownerKey}`
+}
+
+const getRenderOverlapBackend = (
   options: SolidCenterStrokeRenderEntryOptions
 ) => {
   try {
@@ -543,18 +613,31 @@ const buildRenderEntryFromFinalFace = (
   },
   polygons: face.polygons,
   debugMeta: face.debugMeta,
-  revisionSet: face.debugMeta?.revisionSet
+  revisionSet: face.debugMeta?.revisionSet,
+  preferSolidGraphics:
+    face.geometryFamily === 'constrained-dashed' &&
+    (face.debugMeta?.finalCoverageBuilderStatus === 'product-final' ||
+      (face.debugMeta?.intervalTopology === 'full-loop' &&
+        face.debugMeta?.strokePosition === 'inside'))
 })
 
-const buildDashedCenterCollapsedRenderEntry = (
+type RenderProjectionCollapseStatus =
+  | 'exact-union'
+  | 'exact-arrangement'
+  | 'local-side-arrangement'
+  | 'render-projection-union'
+
+const buildCollapsedRenderEntry = (
   faces: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
   >[],
-  options: SolidCenterStrokeRenderEntryOptions
+  options: SolidCenterStrokeRenderEntryOptions,
+  cacheKeyPrefix: string,
+  collapseStatus: RenderProjectionCollapseStatus
 ) => {
   const [primaryFace] = faces
-  const backend = getDashedCenterRenderOverlapBackend(options)
+  const backend = getRenderOverlapBackend(options)
   if (!primaryFace || faces.length < 2 || !backend) {
     return faces.map(buildRenderEntryFromFinalFace)
   }
@@ -562,10 +645,7 @@ const buildDashedCenterCollapsedRenderEntry = (
   const fallbackPolygons = faces.flatMap((face) => face.polygons)
   const unionRegions = (() => {
     try {
-      return backend.union(
-        faces.map((face) => ({ polygons: face.polygons })),
-        'nonzero'
-      )
+      return backend.union(faces.map(toCoverageFaceRegion), 'nonzero')
     } catch {
       return []
     }
@@ -586,11 +666,14 @@ const buildDashedCenterCollapsedRenderEntry = (
   const legalDomainIds = getUniqueStrings(
     faces.flatMap((face) => face.legalDomainIds)
   )
+  const figmaLikeSplitRangeTerminals = faces.flatMap(
+    (face) => face.debugMeta?.figmaLikeSplitRangeTerminals ?? []
+  )
 
   return [
     {
       ...buildRenderEntryFromFinalFace(primaryFace),
-      cacheKey: `render:dashed-center-union:${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`,
+      cacheKey: `render:${cacheKeyPrefix}:${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`,
       polygons,
       debugMeta: {
         ...primaryFace.debugMeta,
@@ -598,13 +681,42 @@ const buildDashedCenterCollapsedRenderEntry = (
         sourceSpanIds,
         sourceContourIds,
         legalDomainIds,
-        visualOverlapCollapseStatus: 'exact-union' as const,
+        figmaLikeSplitRangeTerminals,
+        visualOverlapCollapseStatus: collapseStatus,
         visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
         visualOverlapSourceGeometryIds: sourceGeometryIds
       }
     }
   ]
 }
+
+const buildDashedCenterCollapsedRenderEntry = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[],
+  options: SolidCenterStrokeRenderEntryOptions
+) =>
+  buildCollapsedRenderEntry(
+    faces,
+    options,
+    'dashed-center-union',
+    'exact-union'
+  )
+
+const buildConstrainedDashedProductRenderEntry = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[],
+  options: SolidCenterStrokeRenderEntryOptions
+) =>
+  buildCollapsedRenderEntry(
+    faces,
+    options,
+    'constrained-dashed-product-union',
+    'render-projection-union'
+  )
 
 const collapseDashedCenterRenderEntries = (
   faces: StrokeFinalFace<
@@ -626,28 +738,59 @@ const collapseDashedCenterRenderEntries = (
     >[]
   >()
   const dashedGroupSlots = new Map<string, number>()
+  const constrainedDashedGroups = new Map<
+    string,
+    StrokeFinalFace<
+      SolidCenterStrokeGeometryDebugMeta,
+      SolidCenterStrokePaintPacket
+    >[]
+  >()
+  const constrainedDashedGroupSlots = new Map<string, number>()
 
   faces.forEach((face) => {
-    const groupKey = getDashedCenterRenderGroupKey(face)
-    if (!groupKey) {
-      output.push([buildRenderEntryFromFinalFace(face)])
+    const dashedCenterGroupKey = getDashedCenterRenderGroupKey(face)
+    if (dashedCenterGroupKey) {
+      const group = dashedGroups.get(dashedCenterGroupKey) ?? []
+      group.push(face)
+      dashedGroups.set(dashedCenterGroupKey, group)
+
+      if (!dashedGroupSlots.has(dashedCenterGroupKey)) {
+        dashedGroupSlots.set(dashedCenterGroupKey, output.length)
+        output.push([])
+      }
       return
     }
 
-    const group = dashedGroups.get(groupKey) ?? []
-    group.push(face)
-    dashedGroups.set(groupKey, group)
+    const constrainedDashedGroupKey =
+      getConstrainedDashedProductRenderGroupKey(face)
+    if (constrainedDashedGroupKey) {
+      const group = constrainedDashedGroups.get(constrainedDashedGroupKey) ?? []
+      group.push(face)
+      constrainedDashedGroups.set(constrainedDashedGroupKey, group)
 
-    if (!dashedGroupSlots.has(groupKey)) {
-      dashedGroupSlots.set(groupKey, output.length)
-      output.push([])
+      if (!constrainedDashedGroupSlots.has(constrainedDashedGroupKey)) {
+        constrainedDashedGroupSlots.set(
+          constrainedDashedGroupKey,
+          output.length
+        )
+        output.push([])
+      }
+      return
     }
+
+    output.push([buildRenderEntryFromFinalFace(face)])
   })
 
   dashedGroups.forEach((group, groupKey) => {
     const slot = dashedGroupSlots.get(groupKey)
     if (slot !== undefined) {
       output[slot] = buildDashedCenterCollapsedRenderEntry(group, options)
+    }
+  })
+  constrainedDashedGroups.forEach((group, groupKey) => {
+    const slot = constrainedDashedGroupSlots.get(groupKey)
+    if (slot !== undefined) {
+      output[slot] = buildConstrainedDashedProductRenderEntry(group, options)
     }
   })
 

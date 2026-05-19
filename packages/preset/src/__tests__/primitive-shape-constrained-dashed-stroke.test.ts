@@ -168,6 +168,50 @@ const getProjectionGraphics = (host: Container) =>
     )
   })
 
+const getExportPackets = (graphic: RecordingShapeGraphic) =>
+  graphic.__asyraSolidCenterStrokeExportPackets ?? []
+
+const getAggregatePacketBounds = (packets: SolidCenterStrokeExportPacket[]) =>
+  packets.reduce(
+    (bounds, packet) => ({
+      minX: Math.min(bounds.minX, packet.bounds.minX),
+      minY: Math.min(bounds.minY, packet.bounds.minY),
+      maxX: Math.max(bounds.maxX, packet.bounds.maxX),
+      maxY: Math.max(bounds.maxY, packet.bounds.maxY)
+    }),
+    {
+      minX: Infinity,
+      minY: Infinity,
+      maxX: -Infinity,
+      maxY: -Infinity
+    }
+  )
+
+const expectConstrainedDashedFragments = (
+  graphic: RecordingShapeGraphic,
+  options: {
+    minPacketCount?: number
+    expectedProjectionKind?: 'mesh' | 'graphics' | 'any'
+  } = {}
+) => {
+  const packets = getExportPackets(graphic)
+  expect(packets.length).toBeGreaterThanOrEqual(options.minPacketCount ?? 1)
+  expect(
+    packets.every(
+      (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
+    )
+  ).toBe(true)
+
+  if (options.expectedProjectionKind === 'mesh') {
+    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(0)
+    expect(getProjectionGraphics(graphic)).toHaveLength(0)
+  } else if (options.expectedProjectionKind === 'graphics') {
+    expect(getProjectionMeshes(graphic)).toHaveLength(0)
+  }
+
+  return packets
+}
+
 const runRenderStrategy = (
   type: 'rect' | 'oval',
   data: Record<string, unknown>
@@ -206,20 +250,17 @@ describe('primitive shape constrained dashed stroke wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds).toEqual({
+    const packets = expectConstrainedDashedFragments(graphic, {
+      minPacketCount: 4,
+      expectedProjectionKind: 'graphics'
+    })
+    expect(getAggregatePacketBounds(packets)).toEqual({
       minX: 0,
       minY: 0,
       maxX: 80,
       maxY: 40
     })
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({
+    expect(packets[0]?.debugMeta).toMatchObject({
       ownerKey: 'rect:rect-constrained-dashed-inside:stroke:0',
       geometryFamily: 'constrained-dashed',
       resolutionStatus: 'exact-constrained',
@@ -241,7 +282,7 @@ describe('primitive shape constrained dashed stroke wiring', () => {
           status: 'accepted',
           reason: 'single-owner',
           sourceTopology: 'rectangle-equivalent',
-          candidatePacketCount: 1
+          candidatePacketCount: packets.length
         }
       ]
     })
@@ -266,12 +307,11 @@ describe('primitive shape constrained dashed stroke wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds).toEqual({
+    const packets = expectConstrainedDashedFragments(graphic, {
+      minPacketCount: 4,
+      expectedProjectionKind: 'mesh'
+    })
+    expect(getAggregatePacketBounds(packets)).toEqual({
       minX: -6,
       minY: -6,
       maxX: 86,
@@ -898,12 +938,12 @@ describe('primitive shape constrained dashed stroke wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(2)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(2)
+    const packets = expectConstrainedDashedFragments(graphic, {
+      minPacketCount: 8,
+      expectedProjectionKind: 'mesh'
+    })
     expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.map(
-        (packet) => packet.debugMeta?.ownerKey
-      )
+      Array.from(new Set(packets.map((packet) => packet.debugMeta?.ownerKey)))
     ).toEqual([
       'rect:rect-constrained-dashed-multi:stroke:0',
       'rect:rect-constrained-dashed-multi:stroke:1'
@@ -920,14 +960,14 @@ describe('primitive shape constrained dashed stroke wiring', () => {
           status: 'accepted',
           reason: 'typed-owners',
           sourceTopology: 'rectangle-equivalent',
-          candidatePacketCount: 2
+          candidatePacketCount: packets.length
         }
       ]
     })
     expect(
       graphic.__asyraConstrainedDashedRuntimeDiagnostics?.arrangementDiagnostics
         ?.candidates
-    ).toHaveLength(2)
+    ).toHaveLength(packets.length)
     expect(
       graphic.__asyraConstrainedDashedRuntimeDiagnostics?.arrangementDiagnostics
         ?.ownedRegions.length
@@ -954,12 +994,11 @@ describe('primitive shape constrained dashed stroke wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds).toEqual({
+    const packets = expectConstrainedDashedFragments(graphic, {
+      minPacketCount: 4,
+      expectedProjectionKind: 'graphics'
+    })
+    expect(getAggregatePacketBounds(packets)).toEqual({
       minX: 0,
       minY: 0,
       maxX: 80,
@@ -989,12 +1028,11 @@ describe('primitive shape constrained dashed stroke wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds).toEqual({
+    const packets = expectConstrainedDashedFragments(graphic, {
+      minPacketCount: 4,
+      expectedProjectionKind: 'mesh'
+    })
+    expect(getAggregatePacketBounds(packets)).toEqual({
       minX: -6,
       minY: -6,
       maxX: 86,
@@ -1032,13 +1070,11 @@ describe('primitive shape constrained dashed stroke wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(0)
-    expect(getProjectionGraphics(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds).toEqual({
+    const packets = expectConstrainedDashedFragments(graphic, {
+      minPacketCount: 4,
+      expectedProjectionKind: 'graphics'
+    })
+    expect(getAggregatePacketBounds(packets)).toEqual({
       minX: 0,
       minY: 0,
       maxX: 80,
@@ -1075,13 +1111,11 @@ describe('primitive shape constrained dashed stroke wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(0)
-    expect(getProjectionGraphics(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds).toEqual({
+    const packets = expectConstrainedDashedFragments(graphic, {
+      minPacketCount: 4,
+      expectedProjectionKind: 'graphics'
+    })
+    expect(getAggregatePacketBounds(packets)).toEqual({
       minX: -6,
       minY: -6,
       maxX: 86,
@@ -1110,12 +1144,11 @@ describe('primitive shape constrained dashed stroke wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds).toEqual({
+    const packets = expectConstrainedDashedFragments(graphic, {
+      minPacketCount: 16,
+      expectedProjectionKind: 'graphics'
+    })
+    expect(getAggregatePacketBounds(packets)).toEqual({
       minX: 0,
       minY: 0,
       maxX: 72,
@@ -1144,23 +1177,15 @@ describe('primitive shape constrained dashed stroke wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.minX
-    ).toBeCloseTo(-5, 1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.minY
-    ).toBeCloseTo(-5, 1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxX
-    ).toBeCloseTo(77, 1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxY
-    ).toBeCloseTo(53, 1)
+    const packets = expectConstrainedDashedFragments(graphic, {
+      minPacketCount: 16,
+      expectedProjectionKind: 'mesh'
+    })
+    const bounds = getAggregatePacketBounds(packets)
+    expect(bounds.minX).toBeCloseTo(-5, 1)
+    expect(bounds.minY).toBeCloseTo(-5, 1)
+    expect(bounds.maxX).toBeCloseTo(77, 1)
+    expect(bounds.maxY).toBeCloseTo(53, 1)
     expect(graphic.hitArea?.contains(-2, 24)).toBe(true)
     expect(graphic.hitArea?.contains(36, 24)).toBe(false)
   })
@@ -1185,12 +1210,11 @@ describe('primitive shape constrained dashed stroke wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds).toEqual({
+    const packets = expectConstrainedDashedFragments(graphic, {
+      minPacketCount: 16,
+      expectedProjectionKind: 'graphics'
+    })
+    expect(getAggregatePacketBounds(packets)).toEqual({
       minX: 0,
       minY: 0,
       maxX: 72,
@@ -1220,23 +1244,15 @@ describe('primitive shape constrained dashed stroke wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
-    ).toMatchObject({ geometryFamily: 'constrained-dashed' })
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.minX
-    ).toBeCloseTo(-5, 1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.minY
-    ).toBeCloseTo(-5, 1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxX
-    ).toBeCloseTo(77, 1)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.bounds.maxY
-    ).toBeCloseTo(53, 1)
+    const packets = expectConstrainedDashedFragments(graphic, {
+      minPacketCount: 16,
+      expectedProjectionKind: 'mesh'
+    })
+    const bounds = getAggregatePacketBounds(packets)
+    expect(bounds.minX).toBeCloseTo(-5, 1)
+    expect(bounds.minY).toBeCloseTo(-5, 1)
+    expect(bounds.maxX).toBeCloseTo(77, 1)
+    expect(bounds.maxY).toBeCloseTo(53, 1)
     expect(graphic.hitArea?.contains(-2, 24)).toBe(true)
     expect(graphic.hitArea?.contains(36, 24)).toBe(false)
   })

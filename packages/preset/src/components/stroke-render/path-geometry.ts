@@ -233,7 +233,10 @@ const sampleCubicSegmentFrames = (
     minSamples,
     Math.min(maxSamples, Math.ceil(sampleLength / Math.max(0.2, tolerance)))
   )
-  const frames: PathSampleFrame[] = []
+  const sampledFrames: {
+    point: Vec2
+    tangent: Vec2 | null
+  }[] = []
 
   for (let index = 0; index <= sampleCount; index += 1) {
     const t = index / sampleCount
@@ -242,30 +245,29 @@ const sampleCubicSegmentFrames = (
     const tangent = normalizeVector({
       x: derivative.x,
       y: derivative.y
-    }) ??
-      (index > 0 ? (frames[index - 1]?.tangent ?? null) : null) ?? {
-        x: 1,
-        y: 0
-      }
+    })
 
-    frames.push({
+    sampledFrames.push({
       point: { x: point.x, y: point.y },
       tangent
     })
   }
 
-  const defaultStartTangent = frames.find((frame) => frame.tangent)?.tangent ??
+  const defaultStartTangent = sampledFrames.find((frame) => frame.tangent)
+    ?.tangent ??
     getSegmentStartTangent(segment) ?? { x: 1, y: 0 }
+  const frames: PathSampleFrame[] = []
 
-  for (let index = 0; index < frames.length; index += 1) {
-    if (!frames[index].tangent) {
-      frames[index] = {
-        point: frames[index].point,
-        tangent:
-          (index > 0 ? (frames[index - 1]?.tangent ?? null) : null) ??
-          defaultStartTangent
-      }
-    }
+  for (let index = 0; index < sampledFrames.length; index += 1) {
+    const tangent =
+      sampledFrames[index].tangent ??
+      (index > 0 ? (frames[index - 1]?.tangent ?? null) : null) ??
+      sampledFrames.slice(index + 1).find((frame) => frame.tangent)?.tangent ??
+      defaultStartTangent
+    frames.push({
+      point: sampledFrames[index].point,
+      tangent
+    })
   }
 
   return frames

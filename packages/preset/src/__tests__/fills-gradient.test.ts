@@ -140,6 +140,17 @@ describe('toRenderableGradient', () => {
       ]
     })
     expect(result).toEqual({
+      __asyraGradientOptions: {
+        type: 'linear',
+        start: { x: 0.5, y: 0 },
+        end: { x: 0.5, y: 1 },
+        colorStops: [
+          { offset: 0, color: 'rgba(255, 255, 255, 0.5)' },
+          { offset: 0.5, color: 'rgba(255, 0, 0, 0.4)' },
+          { offset: 1, color: 'rgba(0, 0, 0, 0.3)' }
+        ],
+        textureSpace: 'local'
+      },
       fill: {
         mocked: true,
         options: {
