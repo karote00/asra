@@ -11,7 +11,10 @@ import {
   type PathSliceSamplingOptions
 } from './path-geometry'
 import type { RenderableStroke } from './renderable-stroke'
-import type { ResolvedVectorSourceSplitRange } from './resolved-vector-geometry-model'
+import type {
+  ResolvedVectorSourceSplitRange,
+  ResolvedVectorStrokeBoundaryDomain
+} from './resolved-vector-geometry-model'
 import type { ResolvedSourceFamily } from './resolved-source-family'
 
 const EPSILON = 1e-6
@@ -107,6 +110,7 @@ export interface ResolveStrokeDomainsInput {
     | undefined
   implicitFillRegions?: PolygonRegion[]
   sharedSourceSplitRanges?: ResolvedVectorSourceSplitRange[]
+  sharedStrokeBoundaryDomains?: ResolvedVectorStrokeBoundaryDomain[]
   normalizedLegalDomain?: Pick<
     NormalizedLegalDomain,
     'legalDomainId' | 'boundarySpans'
@@ -416,42 +420,63 @@ export const buildFigmaLikeSplitRangeDashDomains = (
 }
 
 const buildSharedSplitRangeDashDomains = ({
-  sharedSourceSplitRanges,
+  sharedStrokeBoundaryDomains,
   sourceFamily,
   stroke
 }: {
-  sharedSourceSplitRanges: ResolvedVectorSourceSplitRange[]
+  sharedStrokeBoundaryDomains: ResolvedVectorStrokeBoundaryDomain[]
   sourceFamily: ResolvedSourceFamily
   stroke: Pick<RenderableStroke, 'position' | 'width'>
 }): FigmaLikeSplitRangeDashDomain[] =>
-  sharedSourceSplitRanges.map((range) => ({
-    domainId: range.rangeId,
-    startDistance: range.sourceStartDistance,
-    endDistance: range.sourceEndDistance,
-    sourceSegmentIndex: range.sourceSegmentIndex,
-    sideAuthority: 'implicit-fill-hole-domain',
-    selectedSide:
+  sharedStrokeBoundaryDomains.flatMap((range) => {
+    if (stroke.position === 'inside' && !range.insideEligible) {
+      return []
+    }
+    if (stroke.position === 'outside' && !range.outsideEligible) {
+      return []
+    }
+    const selectedSide =
       stroke.position === 'inside'
-        ? range.legalSide
-        : range.legalSide === 1
-          ? -1
-          : 1,
-    offsetDistance: stroke.width / 2,
-    sideResolutionStatus:
-      range.sideResolutionStatus === 'resolved' ? 'resolved' : 'blocked',
-    sideResolutionReason:
-      range.sideResolutionStatus === 'resolved'
-        ? undefined
-        : 'shared-source-split-range-side-conflict',
-    contourIds:
-      range.contourIds.length > 0
-        ? range.contourIds
-        : sourceFamily.legalDomainHints.contourIds,
-    legalDomainIds:
-      range.legalFaceIds.length > 0
-        ? range.legalFaceIds
-        : sourceFamily.legalDomainHints.legalDomainIds
-  }))
+        ? range.insideSelectedSide
+        : range.outsideSelectedSide
+    if (selectedSide === null) {
+      return []
+    }
+
+    return [
+      {
+        domainId: range.rangeId,
+        boundaryDomainId: range.boundaryDomainId,
+        boundaryPoints: range.boundaryPoints,
+        boundaryStartDistance: range.boundaryStartDistance,
+        boundaryEndDistance: range.boundaryEndDistance,
+        boundaryTotalLength: range.boundaryTotalLength,
+        startDistance: range.boundaryStartDistance,
+        endDistance: range.boundaryEndDistance,
+        sourceSegmentIndex: range.sourceSegmentIndex,
+        sideAuthority: 'implicit-fill-hole-domain',
+        selectedSide,
+        filledSide: range.filledSide,
+        unfilledSide: range.unfilledSide,
+        boundaryRole: range.boundaryRole,
+        offsetDistance: stroke.width / 2,
+        sideResolutionStatus:
+          range.sideResolutionStatus === 'resolved' ? 'resolved' : 'blocked',
+        sideResolutionReason:
+          range.sideResolutionStatus === 'resolved'
+            ? undefined
+            : 'shared-source-split-range-side-conflict',
+        contourIds:
+          range.contourIds.length > 0
+            ? range.contourIds
+            : sourceFamily.legalDomainHints.contourIds,
+        legalDomainIds:
+          range.legalFaceIds.length > 0
+            ? range.legalFaceIds
+            : sourceFamily.legalDomainHints.legalDomainIds
+      }
+    ]
+  })
 
 export const resolveStrokeDomains = ({
   topology,
@@ -460,6 +485,7 @@ export const resolveStrokeDomains = ({
   sourcePath,
   implicitFillRegions,
   sharedSourceSplitRanges,
+  sharedStrokeBoundaryDomains,
   normalizedLegalDomain
 }: ResolveStrokeDomainsInput): StrokeDomainPlan => {
   const basePlan = {
@@ -541,7 +567,8 @@ export const resolveStrokeDomains = ({
   const hasSharedSelfIntersectingSplitRanges =
     topology.closed &&
     isConstrainedPosition(stroke.position) &&
-    (sharedSourceSplitRanges?.length ?? 0) > 0
+    ((sharedStrokeBoundaryDomains?.length ?? 0) > 0 ||
+      (sharedSourceSplitRanges?.length ?? 0) > 0)
   if (
     isSelfIntersectingConstrained({ topology, stroke }) ||
     hasSharedSelfIntersectingSplitRanges
@@ -573,7 +600,24 @@ export const resolveStrokeDomains = ({
       }
     }
 
-    if (!sharedSourceSplitRanges || sharedSourceSplitRanges.length === 0) {
+    const resolvedStrokeBoundaryDomains =
+      sharedStrokeBoundaryDomains ??
+      sharedSourceSplitRanges?.map((range) => ({
+        ...range,
+        boundaryDomainId: range.boundaryDomainSourceId,
+        insideEligible: true,
+        outsideEligible: range.boundaryRole === 'outer',
+        insideSelectedSide: range.filledSide,
+        outsideSelectedSide:
+          range.boundaryRole === 'outer' ? range.unfilledSide : null,
+        adjacentFilledFaceIds: range.legalFaceIds,
+        adjacentUnfilledFaceIds: range.oppositeFaceIds
+      }))
+
+    if (
+      !resolvedStrokeBoundaryDomains ||
+      resolvedStrokeBoundaryDomains.length === 0
+    ) {
       return {
         ...basePlan,
         supportState: 'blocked',
@@ -590,7 +634,7 @@ export const resolveStrokeDomains = ({
     }
 
     const splitRangeDomains = buildSharedSplitRangeDashDomains({
-      sharedSourceSplitRanges,
+      sharedStrokeBoundaryDomains: resolvedStrokeBoundaryDomains,
       sourceFamily,
       stroke
     })
@@ -617,7 +661,7 @@ export const resolveStrokeDomains = ({
         legalBoundaryDomains: [],
         sideResolutionContext,
         diagnostics: [
-          'dash-domains-follow-source-split-ranges',
+          'dash-domains-follow-boundary-domains',
           'side-authority-is-implicit-fill-hole-domain',
           `split-range-side-resolution-blocked:${blockedSideDomain.domainId}`
         ]
@@ -639,7 +683,7 @@ export const resolveStrokeDomains = ({
       legalBoundaryDomains: [],
       sideResolutionContext,
       diagnostics: [
-        'dash-domains-follow-source-split-ranges',
+        'dash-domains-follow-boundary-domains',
         'side-authority-is-implicit-fill-hole-domain'
       ]
     }

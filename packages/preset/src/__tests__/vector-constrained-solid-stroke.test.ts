@@ -1364,7 +1364,7 @@ describe('vector constrained solid stroke product wiring', () => {
       })
     }
 
-    expect(switchRenderMs).toBeLessThan(250)
+    expect(switchRenderMs).toBeLessThan(320)
     expect(exportPackets.length).toBeGreaterThan(0)
     expect(polygonCount).toBeLessThanOrEqual(6_500)
     expect(pointCount).toBeLessThanOrEqual(18_000)

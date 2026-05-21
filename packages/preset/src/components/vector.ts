@@ -2605,6 +2605,9 @@ const renderVectorGraphic = (
                       sharedSourceSplitRanges:
                         resolvedSelfIntersectingGeometry?.sourceSplitRanges ??
                         [],
+                      sharedStrokeBoundaryDomains:
+                        resolvedSelfIntersectingGeometry?.strokeBoundaryDomains ??
+                        [],
                       selectedSideGuardPoints: getNetworkAnchorGuardPoints(
                         network,
                         points
@@ -2612,6 +2615,7 @@ const renderVectorGraphic = (
                       omitDiagnosticMetadata: useDragVisualOnly,
                       clipInsideToFillDomain:
                         isSelfIntersectingSourcePath ||
+                        path.closed === true ||
                         getRenderableFills(fillPayload).length > 0,
                       constrainedDashedVisualMode:
                         shouldDisableVisualOverlapCollapse ||

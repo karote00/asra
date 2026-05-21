@@ -101,7 +101,7 @@ export interface BuildPathTopologyModelInput {
 
 export const normalizePathTopologyFillRule = (
   fillRule: PathTopologyFillRule | null | undefined
-): PathTopologyFillRule => (fillRule === 'nonzero' ? 'nonzero' : 'evenodd')
+): PathTopologyFillRule => (fillRule === 'evenodd' ? 'evenodd' : 'nonzero')
 
 const normalizeTopologyPoints = (points: Vec2[], closed: boolean) =>
   closed ? normalizeClosed(dedupeAdjacent(points)) : dedupeAdjacent(points)

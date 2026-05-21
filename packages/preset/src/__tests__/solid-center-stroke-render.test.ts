@@ -1,9 +1,55 @@
-import { describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { Container, Graphics, Mesh } from 'pixi.js'
+import Clipper2ZFactory from 'clipper2-wasm'
 import { renderSolidCenterStrokeEntries } from '../components/stroke-render/solid-center-stroke-render'
 import { buildStrokeRuntimeRevisionSet } from '../components/stroke-render/stroke-dirty-keys'
+import {
+  buildSolidCenterStrokeExportPacketsFromFinalFaces,
+  toSolidCenterStrokeRenderEntriesFromFinalFaces,
+  type SolidCenterStrokeGeometryDebugMeta,
+  type SolidCenterStrokePaintPacket
+} from '../components/stroke-render/solid-center-stroke-packets'
+import type { StrokeFinalFace } from '../components/stroke-render/stroke-final-face'
+import {
+  registerGeometryBackend,
+  selectGeometryBackend,
+  type GeometryBackend
+} from '../components/stroke-render/geometry-backend'
+import {
+  createClipper2GeometryBackend,
+  type Clipper2Module
+} from '../components/stroke-render/clipper2-geometry-backend'
 
 class MeshTestHost extends Container {}
+
+const require = createRequire(import.meta.url)
+const clipperWasmPath = require.resolve('clipper2-wasm/dist/umd/clipper2z.wasm')
+
+let exactBackend: GeometryBackend | null = null
+
+const loadClipperModule = async () =>
+  (await (
+    Clipper2ZFactory as (options: {
+      wasmBinary: Uint8Array
+    }) => Promise<Clipper2Module>
+  )({
+    wasmBinary: readFileSync(clipperWasmPath)
+  })) as Clipper2Module
+
+beforeAll(async () => {
+  const backendId = 'clipper2-solid-center-render-test'
+  exactBackend = createClipper2GeometryBackend(await loadClipperModule(), {
+    backendId,
+    backendVersion: `${backendId}@test`
+  })
+  registerGeometryBackend({
+    backendId,
+    load: () => exactBackend as GeometryBackend
+  })
+  selectGeometryBackend(backendId)
+})
 
 const getProjectionMeshes = (host: Container) =>
   host.children.flatMap((child) => {
@@ -30,6 +76,84 @@ const getProjectionGraphics = (host: Container) =>
       (grandchild): grandchild is Graphics => grandchild instanceof Graphics
     )
   })
+
+const buildOutsideConstrainedDashedFace = (
+  faceId: string,
+  intervalId: string,
+  polygons: { x: number; y: number }[][]
+): StrokeFinalFace<
+  SolidCenterStrokeGeometryDebugMeta,
+  SolidCenterStrokePaintPacket
+> => ({
+  faceId,
+  sourceGeometryIds: [faceId],
+  polygons,
+  bounds: {
+    minX: Math.min(...polygons.flat().map((point) => point.x)),
+    minY: Math.min(...polygons.flat().map((point) => point.y)),
+    maxX: Math.max(...polygons.flat().map((point) => point.x)),
+    maxY: Math.max(...polygons.flat().map((point) => point.y))
+  },
+  visualPacketKey: 'outside-constrained-dashed',
+  paintKey: 'solid:red:1',
+  strokeSpecKey: 'outside-dashed-round',
+  ownerSet: [
+    {
+      ownerKey: 'owner:outside',
+      sourcePathId: 'source:outside',
+      networkId: 'network:outside',
+      strokeId: 'stroke:outside',
+      strokeIndex: 0,
+      intervalId
+    }
+  ],
+  intervalIds: [intervalId],
+  sourceSpanIds: [`source-span:${intervalId}`],
+  sourceContourIds: ['source-contour:outside'],
+  legalDomainIds: ['legal-domain:outside'],
+  geometryFamily: 'constrained-dashed',
+  debugMeta: {
+    geometryFamily: 'constrained-dashed',
+    finalCoverageBuilderStatus: 'product-final',
+    sourcePathId: 'source:outside',
+    ownerKey: 'owner:outside',
+    networkId: 'network:outside',
+    strokeId: 'stroke:outside',
+    strokeIndex: 0,
+    intervalId,
+    strokePosition: 'outside',
+    figmaLikeBoundaryDomainId: 'boundary:outside',
+    figmaLikeBoundaryPoints: [
+      { x: -2, y: 0 },
+      { x: 20, y: 0 }
+    ],
+    figmaLikeSelectedSide: -1,
+    figmaLikeSplitRangeTerminals: [
+      {
+        intervalId,
+        boundaryDomainId: 'boundary:outside',
+        boundaryPoints: [
+          { x: -2, y: 0 },
+          { x: 20, y: 0 }
+        ],
+        splitRangeId: 'split:outside',
+        splitRangeStartDistance: 0,
+        splitRangeEndDistance: 20,
+        terminalRole: 'middle',
+        startDistance: 0,
+        endDistance: 10,
+        selectedSide: -1
+      }
+    ]
+  },
+  paint: {
+    geometryId: faceId,
+    kind: 'solid',
+    color: 0xdf0606,
+    alpha: 1,
+    paintKey: 'solid:red:1'
+  }
+})
 
 describe('solid center stroke render', () => {
   it('should run: render canonical solid-center polygons into a mesh projection', () => {
@@ -220,8 +344,8 @@ describe('solid center stroke render', () => {
       }
     ])
 
-    expect(getProjectionMeshes(host)).toHaveLength(0)
-    expect(getProjectionGraphics(host)).toHaveLength(2)
+    expect(getProjectionMeshes(host)).toHaveLength(1)
+    expect(getProjectionGraphics(host)).toHaveLength(0)
     const cacheEntry = (
       host as typeof host & {
         __asyraStrokeMeshCache?: Map<string, { kind?: string }>
@@ -229,7 +353,55 @@ describe('solid center stroke render', () => {
     ).__asyraStrokeMeshCache?.get(
       'self_intersecting_constrained_dashed_source_path'
     )
-    expect(cacheEntry?.kind).toBe('masked-solid')
+    expect(cacheEntry?.kind).toBe('solid')
+  })
+
+  it('should run: keep outside constrained dashed projection seam bridges on the selected side before render/export', () => {
+    expect(exactBackend).not.toBeNull()
+    const faces = [
+      buildOutsideConstrainedDashedFace('outside-a', 'interval:a', [
+        [
+          { x: 0, y: -5 },
+          { x: 7.9, y: -5 },
+          { x: 7.9, y: -0.2 },
+          { x: 0, y: -0.2 }
+        ]
+      ]),
+      buildOutsideConstrainedDashedFace('outside-b', 'interval:b', [
+        [
+          { x: 8.1, y: -5 },
+          { x: 16, y: -5 },
+          { x: 16, y: -0.2 },
+          { x: 8.1, y: -0.2 }
+        ]
+      ])
+    ]
+
+    const renderEntries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
+      faces,
+      {
+        exactBackend: exactBackend ?? undefined
+      }
+    )
+    const exportPackets =
+      buildSolidCenterStrokeExportPacketsFromFinalFaces(faces)
+    const projectedRenderPolygons = renderEntries.flatMap(
+      (entry) => entry.polygons
+    )
+    const projectedExportPolygons = exportPackets.flatMap(
+      (packet) => packet.polygons
+    )
+
+    expect(renderEntries).toHaveLength(1)
+    expect(exportPackets).toHaveLength(1)
+    expect(projectedRenderPolygons.length).toBeGreaterThanOrEqual(2)
+    expect(projectedExportPolygons.length).toBeGreaterThanOrEqual(2)
+    for (const point of [
+      ...projectedRenderPolygons.flat(),
+      ...projectedExportPolygons.flat()
+    ]) {
+      expect(point.y).toBeLessThanOrEqual(1e-4)
+    }
   })
 
   it('should run: paint constrained dashed fill polygons and native stroke paths together under the legal mask', () => {

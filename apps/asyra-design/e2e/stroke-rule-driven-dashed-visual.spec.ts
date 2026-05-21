@@ -483,6 +483,16 @@ const getRuleDrivenPacketSummary = async (page: Page) =>
       renderElement?.__asyraSolidCenterStrokeExportPackets ?? []
     const diagnostics =
       renderElement?.__asyraConstrainedDashedRuntimeDiagnostics ?? null
+    const getPoints = (value: unknown) =>
+      Array.isArray(value)
+        ? value.filter(
+            (point): point is { x: number; y: number } =>
+              Boolean(point) &&
+              typeof point === 'object' &&
+              typeof (point as { x?: unknown }).x === 'number' &&
+              typeof (point as { y?: unknown }).y === 'number'
+          )
+        : []
     const constrainedPackets = exportPackets.flatMap(
       (packet: {
         debugMeta?: Record<string, unknown>
@@ -525,7 +535,38 @@ const getRuleDrivenPacketSummary = async (page: Page) =>
                       splitRangeEndDistance: record.splitRangeEndDistance,
                       terminalRole: record.terminalRole,
                       startDistance: record.startDistance,
-                      endDistance: record.endDistance
+                      endDistance: record.endDistance,
+                      selectedSide:
+                        record.selectedSide === 1 || record.selectedSide === -1
+                          ? record.selectedSide
+                          : debugMeta.figmaLikeSelectedSide === 1 ||
+                              debugMeta.figmaLikeSelectedSide === -1
+                            ? debugMeta.figmaLikeSelectedSide
+                            : null,
+                      boundaryPoints: getPoints(record.boundaryPoints).length
+                        ? getPoints(record.boundaryPoints)
+                        : getPoints(debugMeta.figmaLikeBoundaryPoints),
+                      boundaryStartDistance:
+                        typeof record.boundaryStartDistance === 'number'
+                          ? record.boundaryStartDistance
+                          : typeof debugMeta.figmaLikeBoundaryStartDistance ===
+                              'number'
+                            ? debugMeta.figmaLikeBoundaryStartDistance
+                            : null,
+                      boundaryEndDistance:
+                        typeof record.boundaryEndDistance === 'number'
+                          ? record.boundaryEndDistance
+                          : typeof debugMeta.figmaLikeBoundaryEndDistance ===
+                              'number'
+                            ? debugMeta.figmaLikeBoundaryEndDistance
+                            : null,
+                      boundaryTotalLength:
+                        typeof record.boundaryTotalLength === 'number'
+                          ? record.boundaryTotalLength
+                          : typeof debugMeta.figmaLikeBoundaryTotalLength ===
+                              'number'
+                            ? debugMeta.figmaLikeBoundaryTotalLength
+                            : null
                     }
                   ]
                 : []
@@ -563,6 +604,26 @@ const getRuleDrivenPacketSummary = async (page: Page) =>
             figmaLikeTerminalRole:
               typeof debugMeta.figmaLikeTerminalRole === 'string'
                 ? debugMeta.figmaLikeTerminalRole
+                : null,
+            figmaLikeSelectedSide:
+              debugMeta.figmaLikeSelectedSide === 1 ||
+              debugMeta.figmaLikeSelectedSide === -1
+                ? debugMeta.figmaLikeSelectedSide
+                : null,
+            figmaLikeBoundaryPoints: getPoints(
+              debugMeta.figmaLikeBoundaryPoints
+            ),
+            figmaLikeBoundaryStartDistance:
+              typeof debugMeta.figmaLikeBoundaryStartDistance === 'number'
+                ? debugMeta.figmaLikeBoundaryStartDistance
+                : null,
+            figmaLikeBoundaryEndDistance:
+              typeof debugMeta.figmaLikeBoundaryEndDistance === 'number'
+                ? debugMeta.figmaLikeBoundaryEndDistance
+                : null,
+            figmaLikeBoundaryTotalLength:
+              typeof debugMeta.figmaLikeBoundaryTotalLength === 'number'
+                ? debugMeta.figmaLikeBoundaryTotalLength
                 : null,
             figmaLikeSplitRangeTerminals,
             productFinal:
@@ -740,7 +801,11 @@ const getSameSplitRangeGapGeometryHits = (
     if (probe.kind !== 'gap') {
       return []
     }
-    const candidates = buildBilateralStrokeProbes(fixture, probe.distance)
+    const candidates = buildStrokeProbesForBoundaryRecord(
+      fixture,
+      probe,
+      probe.distance
+    )
     return packetSummary.constrainedPackets.flatMap((packet) => {
       if (packet.figmaLikeSplitRangeId !== probe.splitRangeId) {
         return []
@@ -805,14 +870,19 @@ const getSourcePointAndTangentAtDistance = (
   return null
 }
 
-const buildBilateralStrokeProbes = (
+const buildStrokeProbesForBoundaryRecord = (
   fixture: RuleDrivenVectorFixture,
+  record: {
+    boundaryPoints?: Vec2[]
+    selectedSide?: 1 | -1 | null
+  },
   distance: number
 ) => {
-  const sample = getSourcePointAndTangentAtDistance(
-    fixture.sourcePath,
-    distance
-  )
+  const path =
+    record.boundaryPoints && record.boundaryPoints.length >= 2
+      ? record.boundaryPoints
+      : fixture.sourcePath
+  const sample = getSourcePointAndTangentAtDistance(path, distance)
   if (!sample) {
     return []
   }
@@ -821,8 +891,12 @@ const buildBilateralStrokeProbes = (
     Math.max(1, STROKE_WIDTH * 0.5),
     Math.max(1, STROKE_WIDTH * 0.75)
   ]
+  const sides =
+    record.selectedSide === 1 || record.selectedSide === -1
+      ? [record.selectedSide]
+      : [-1, 1]
   return offsets.flatMap((offset) =>
-    [-1, 1].map((side) => ({
+    sides.map((side) => ({
       x: sample.point.x - sample.tangent.y * offset * side,
       y: sample.point.y + sample.tangent.x * offset * side
     }))
@@ -840,6 +914,8 @@ const buildSplitRangeDashDistributionProbes = (
       terminalRole: string
       startDistance: number
       endDistance: number
+      selectedSide: 1 | -1 | null
+      boundaryPoints: Vec2[]
     }[]
   >()
   for (const packet of packetSummary.constrainedPackets) {
@@ -851,7 +927,9 @@ const buildSplitRangeDashDistributionProbes = (
           splitRangeId: terminal.splitRangeId,
           terminalRole: terminal.terminalRole,
           startDistance: terminal.startDistance,
-          endDistance: terminal.endDistance
+          endDistance: terminal.endDistance,
+          selectedSide: terminal.selectedSide,
+          boundaryPoints: terminal.boundaryPoints
         }
       ])
     }
@@ -872,7 +950,9 @@ const buildSplitRangeDashDistributionProbes = (
           : ('terminal' as const),
       splitRangeId,
       role: packet.terminalRole,
-      distance: (packet.startDistance + packet.endDistance) / 2
+      distance: (packet.startDistance + packet.endDistance) / 2,
+      selectedSide: packet.selectedSide,
+      boundaryPoints: packet.boundaryPoints
     }))
     const gapProbes = sorted.slice(0, -1).flatMap((packet, index) => {
       const next = sorted[index + 1]
@@ -886,19 +966,25 @@ const buildSplitRangeDashDistributionProbes = (
           kind: 'gap' as const,
           splitRangeId,
           role: `${packet.terminalRole}-to-${next.terminalRole}`,
-          distance: (packet.endDistance + next.startDistance) / 2
+          distance: (packet.endDistance + next.startDistance) / 2,
+          selectedSide: packet.selectedSide,
+          boundaryPoints: packet.boundaryPoints
         },
         {
           kind: 'gap' as const,
           splitRangeId,
           role: `${packet.terminalRole}-to-${next.terminalRole}:after-left-terminal`,
-          distance: packet.endDistance + edgeInset
+          distance: packet.endDistance + edgeInset,
+          selectedSide: packet.selectedSide,
+          boundaryPoints: packet.boundaryPoints
         },
         {
           kind: 'gap' as const,
           splitRangeId,
           role: `${packet.terminalRole}-to-${next.terminalRole}:before-right-terminal`,
-          distance: next.startDistance - edgeInset
+          distance: next.startDistance - edgeInset,
+          selectedSide: next.selectedSide,
+          boundaryPoints: next.boundaryPoints
         }
       ]
     })
@@ -910,37 +996,68 @@ const buildSplitRangeDashDistributionProbes = (
 const buildSplitBoundaryAdjacencyProbes = (
   packetSummary: Awaited<ReturnType<typeof getRuleDrivenPacketSummary>>
 ) => {
-  const terminals = packetSummary.constrainedPackets.flatMap(
-    (packet) => packet.figmaLikeSplitRangeTerminals
+  const terminalEdges = packetSummary.constrainedPackets.flatMap((packet) =>
+    packet.figmaLikeSplitRangeTerminals.flatMap((terminal) => {
+      const points = terminal.boundaryPoints
+      if (!points || points.length < 2) {
+        return []
+      }
+      const records: {
+        edge: 'start' | 'end'
+        intervalId: string
+        splitRangeId: string
+        point: Vec2
+      }[] = []
+      if (
+        terminal.terminalRole === 'start' ||
+        terminal.terminalRole === 'start-end'
+      ) {
+        records.push({
+          edge: 'start',
+          intervalId: terminal.intervalId,
+          splitRangeId: terminal.splitRangeId,
+          point: points[0]
+        })
+      }
+      if (
+        terminal.terminalRole === 'end' ||
+        terminal.terminalRole === 'start-end'
+      ) {
+        records.push({
+          edge: 'end',
+          intervalId: terminal.intervalId,
+          splitRangeId: terminal.splitRangeId,
+          point: points[points.length - 1]
+        })
+      }
+      return records
+    })
   )
-  return terminals.flatMap((left) => {
-    if (left.terminalRole !== 'end' && left.terminalRole !== 'start-end') {
+
+  return terminalEdges.flatMap((left) => {
+    if (left.edge !== 'end') {
       return []
     }
-
-    return terminals.flatMap((right) => {
-      if (
-        right.terminalRole !== 'start' &&
-        right.terminalRole !== 'start-end'
-      ) {
+    return terminalEdges.flatMap((right) => {
+      if (right.edge !== 'start' || left.splitRangeId === right.splitRangeId) {
         return []
       }
-      if (left.splitRangeId === right.splitRangeId) {
-        return []
-      }
-      if (Math.abs(left.endDistance - right.startDistance) > 0.25) {
-        return []
-      }
-
-      return [
-        {
-          leftIntervalId: left.intervalId,
-          rightIntervalId: right.intervalId,
-          leftSplitRangeId: left.splitRangeId,
-          rightSplitRangeId: right.splitRangeId,
-          distance: left.endDistance
-        }
-      ]
+      const endpointDistance = Math.hypot(
+        left.point.x - right.point.x,
+        left.point.y - right.point.y
+      )
+      return endpointDistance <= 1.5
+        ? [
+            {
+              leftIntervalId: left.intervalId,
+              rightIntervalId: right.intervalId,
+              leftSplitRangeId: left.splitRangeId,
+              rightSplitRangeId: right.splitRangeId,
+              endpointDistance,
+              point: left.point
+            }
+          ]
+        : []
     })
   })
 }
@@ -1278,7 +1395,11 @@ const getProbeCoverage = async (
 
     const terminalCoverages = await Promise.all(
       visibleDashProbes.map(async (probe) => {
-        const candidates = buildBilateralStrokeProbes(fixture, probe.distance)
+        const candidates = buildStrokeProbesForBoundaryRecord(
+          fixture,
+          probe,
+          probe.distance
+        )
         const coverages = await Promise.all(
           candidates.map((candidate) =>
             getProbeCoverage(page, raster, candidate)
@@ -1350,7 +1471,11 @@ test('rule: focused split segment renders terminal half-dashes and adjacent gaps
 
   const terminalCoverages = await Promise.all(
     visibleDashProbes.map(async (probe) => {
-      const candidates = buildBilateralStrokeProbes(fixture, probe.distance)
+      const candidates = buildStrokeProbesForBoundaryRecord(
+        fixture,
+        probe,
+        probe.distance
+      )
       const coverages = await Promise.all(
         candidates.map((candidate) => getProbeCoverage(page, raster, candidate))
       )
@@ -1375,7 +1500,11 @@ test('rule: focused split segment renders terminal half-dashes and adjacent gaps
     gapProbes
       .filter((probe) => !probe.role.includes(':'))
       .map(async (probe) => {
-        const candidates = buildBilateralStrokeProbes(fixture, probe.distance)
+        const candidates = buildStrokeProbesForBoundaryRecord(
+          fixture,
+          probe,
+          probe.distance
+        )
         const coverages = await Promise.all(
           candidates.map((candidate) =>
             getProbeCoverage(page, raster, candidate)

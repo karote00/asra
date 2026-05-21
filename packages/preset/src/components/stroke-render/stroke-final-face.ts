@@ -45,6 +45,7 @@ export interface StrokeFinalFaceDebugMetaBase {
     insideFillDomain: boolean
     outsideFillDomain: boolean
   }
+  figmaLikeBoundaryDomainId?: string
   figmaLikeSplitRangeId?: string
   figmaLikeSplitRangeStartDistance?: number
   figmaLikeSplitRangeEndDistance?: number
@@ -52,8 +53,15 @@ export interface StrokeFinalFaceDebugMetaBase {
   figmaLikeSplitRangeSourceSegmentIndex?: number
   figmaLikeSideAuthority?: 'implicit-fill-hole-domain'
   figmaLikeSelectedSide?: 1 | -1
+  figmaLikeFilledSide?: 1 | -1
+  figmaLikeUnfilledSide?: 1 | -1
+  figmaLikeBoundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
   figmaLikeSideResolutionStatus?: 'resolved' | 'blocked'
   figmaLikeSideResolutionReason?: string
+  figmaLikeBoundaryPoints?: Vec2[]
+  figmaLikeBoundaryStartDistance?: number
+  figmaLikeBoundaryEndDistance?: number
+  figmaLikeBoundaryTotalLength?: number
   visualOverlapCollapseStatus?:
     | 'exact-union'
     | 'exact-arrangement'
@@ -63,6 +71,11 @@ export interface StrokeFinalFaceDebugMetaBase {
   visualOverlapSourceGeometryIds?: string[]
   figmaLikeSplitRangeTerminals?: {
     intervalId: string
+    boundaryDomainId?: string
+    boundaryPoints?: Vec2[]
+    boundaryStartDistance?: number
+    boundaryEndDistance?: number
+    boundaryTotalLength?: number
     splitRangeId: string
     splitRangeStartDistance: number
     splitRangeEndDistance: number
@@ -71,6 +84,9 @@ export interface StrokeFinalFaceDebugMetaBase {
     endDistance: number
     sourceSegmentIndex?: number
     selectedSide?: 1 | -1
+    filledSide?: 1 | -1
+    unfilledSide?: 1 | -1
+    boundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
   }[]
   visualContext?: Partial<StrokeVisualContext>
   revisionSet?: {
@@ -246,6 +262,16 @@ const mergeFaceDebugMeta = (
     )
     target.figmaLikeSplitRangeTerminals = targetTerminals
   }
+
+  if (source.figmaLikeBoundaryPoints) {
+    target.figmaLikeBoundaryPoints = source.figmaLikeBoundaryPoints.map(
+      (point) => ({ ...point })
+    )
+  }
+  target.figmaLikeBoundaryStartDistance ??=
+    source.figmaLikeBoundaryStartDistance
+  target.figmaLikeBoundaryEndDistance ??= source.figmaLikeBoundaryEndDistance
+  target.figmaLikeBoundaryTotalLength ??= source.figmaLikeBoundaryTotalLength
 }
 
 const buildPolygonSignature = (polygon: Vec2[]) => {
@@ -522,6 +548,7 @@ const buildDebugMetaFromPaintAttachedRegion = (
     ? [...region.arrangementCandidateIds]
     : undefined,
   arrangementLegalState: region.arrangementLegalState,
+  figmaLikeBoundaryDomainId: region.figmaLikeBoundaryDomainId,
   figmaLikeSplitRangeId: region.figmaLikeSplitRangeId,
   figmaLikeSplitRangeStartDistance: region.figmaLikeSplitRangeStartDistance,
   figmaLikeSplitRangeEndDistance: region.figmaLikeSplitRangeEndDistance,
@@ -530,8 +557,17 @@ const buildDebugMetaFromPaintAttachedRegion = (
     region.figmaLikeSplitRangeSourceSegmentIndex,
   figmaLikeSideAuthority: region.figmaLikeSideAuthority,
   figmaLikeSelectedSide: region.figmaLikeSelectedSide,
+  figmaLikeFilledSide: region.figmaLikeFilledSide,
+  figmaLikeUnfilledSide: region.figmaLikeUnfilledSide,
+  figmaLikeBoundaryRole: region.figmaLikeBoundaryRole,
   figmaLikeSideResolutionStatus: region.figmaLikeSideResolutionStatus,
   figmaLikeSideResolutionReason: region.figmaLikeSideResolutionReason,
+  figmaLikeBoundaryPoints: region.figmaLikeBoundaryPoints
+    ? region.figmaLikeBoundaryPoints.map((point) => ({ ...point }))
+    : undefined,
+  figmaLikeBoundaryStartDistance: region.figmaLikeBoundaryStartDistance,
+  figmaLikeBoundaryEndDistance: region.figmaLikeBoundaryEndDistance,
+  figmaLikeBoundaryTotalLength: region.figmaLikeBoundaryTotalLength,
   figmaLikeSplitRangeTerminals: region.figmaLikeSplitRangeTerminals
     ? region.figmaLikeSplitRangeTerminals.map((terminal) => ({ ...terminal }))
     : undefined,

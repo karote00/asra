@@ -15,6 +15,7 @@ import {
 import { buildPathTopologyModel } from '../components/stroke-render/path-topology-model'
 import { normalizeStrokeSpec } from '../components/stroke-render/renderable-stroke'
 import { resolveSourceFamily } from '../components/stroke-render/resolved-source-family'
+import { buildResolvedVectorGeometryModel } from '../components/stroke-render/resolved-vector-geometry-model'
 import { resolveStrokeDomains } from '../components/stroke-render/stroke-domain-plan'
 import {
   StrokePositions,
@@ -218,11 +219,25 @@ describe('source span graph', () => {
         dashPattern: [20, 10]
       })
     ]).strokes[0]
+    const resolvedGeometry = buildResolvedVectorGeometryModel({
+      modelId: 'span:stroke-domain-plan:resolved-geometry',
+      fillRule: topology.fillRule,
+      networks: [
+        {
+          networkId: topology.networkId,
+          path: sourcePath,
+          topology
+        }
+      ]
+    })
+    const sharedSourceSplitRanges =
+      resolvedGeometry.networks[0]?.selfIntersecting?.sourceSplitRanges ?? []
     const domainPlan = resolveStrokeDomains({
       topology,
       sourceFamily: resolveSourceFamily({ topology, stroke }),
       stroke,
-      sourcePath
+      sourcePath,
+      sharedSourceSplitRanges
     })
     const intervals = getConstrainedDashedVisibleIntervals(
       topology,

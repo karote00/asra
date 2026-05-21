@@ -1,0 +1,100 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - button "Reset" [ref=e6] [cursor=pointer]:
+        - img [ref=e7]
+      - button "Select (V)" [ref=e11] [cursor=pointer]:
+        - img [ref=e13]
+      - button "Rectangle (R)" [ref=e15] [cursor=pointer]:
+        - img [ref=e17]
+      - button "Oval (O)" [ref=e19] [cursor=pointer]:
+        - img [ref=e21]
+      - button "Pen (P)" [ref=e23] [cursor=pointer]:
+        - img [ref=e25]
+    - generic [ref=e27]:
+      - button "Enable raw stroke overlap debug view" [ref=e28] [cursor=pointer]:
+        - img [ref=e29]
+      - generic [ref=e33]: 260%
+  - generic [ref=e34]:
+    - generic [ref=e36]: Layers
+    - generic [ref=e40]:
+      - generic [ref=e41]:
+        - img [ref=e43]
+        - generic [ref=e45]: Vector 1
+      - generic [ref=e46]:
+        - button "Lock element" [ref=e47] [cursor=pointer]:
+          - img [ref=e49]
+        - button "Hide element" [pressed] [ref=e52] [cursor=pointer]:
+          - img [ref=e54]
+  - generic [ref=e58]:
+    - generic [ref=e60]: Vector path
+    - generic [ref=e61]:
+      - generic [ref=e62]:
+        - generic [ref=e64]:
+          - generic [ref=e66]: X
+          - textbox [ref=e67]: "96"
+        - generic [ref=e69]:
+          - generic [ref=e71]: "Y"
+          - textbox [ref=e72]: "32"
+      - generic [ref=e73]:
+        - generic [ref=e75]:
+          - generic [ref=e77]: W
+          - textbox [ref=e78]: "460"
+        - generic [ref=e80]:
+          - generic [ref=e82]: H
+          - textbox [ref=e83]: "545"
+      - generic [ref=e86]:
+        - generic [ref=e88]: R
+        - textbox [ref=e89]: "0"
+        - generic [ref=e90]: °
+    - generic [ref=e92]:
+      - generic [ref=e93]:
+        - generic [ref=e94]: Fill
+        - button "Add fill" [ref=e95] [cursor=pointer]:
+          - img [ref=e96]
+      - generic [ref=e98]: No fills yet.
+    - generic [ref=e100]:
+      - generic [ref=e101]:
+        - generic [ref=e102]: Stroke
+        - button "Add stroke" [ref=e103] [cursor=pointer]:
+          - img [ref=e104]
+      - generic [ref=e106]:
+        - generic [ref=e107]:
+          - generic [ref=e108]:
+            - generic [ref=e111]:
+              - button "Toggle color picker" [ref=e113] [cursor=pointer]
+              - textbox [ref=e117]: E10C0C
+            - generic [ref=e120]:
+              - textbox [ref=e121]: "50"
+              - generic [ref=e122]: "%"
+          - button "Hide stroke" [ref=e123] [cursor=pointer]:
+            - img [ref=e124]
+          - button "Remove stroke" [ref=e127] [cursor=pointer]:
+            - img [ref=e128]
+        - generic [ref=e129]:
+          - combobox [ref=e131] [cursor=pointer]:
+            - option "Center"
+            - option "Inside"
+            - option "Outside" [selected]
+          - combobox [ref=e133] [cursor=pointer]:
+            - option "Miter"
+            - option "Bevel"
+            - option "Round" [selected]
+          - combobox [ref=e135] [cursor=pointer]:
+            - option "Butt" [selected]
+            - option "Square"
+            - option "Round"
+          - generic [ref=e138]:
+            - textbox [ref=e139]: "28.96"
+            - generic [ref=e140]: °
+        - generic [ref=e141]:
+          - textbox [ref=e145]: "10"
+          - combobox [ref=e147] [cursor=pointer]:
+            - option "Solid"
+            - option "Dashed" [selected]
+          - textbox [ref=e151]: 27, 20
+          - textbox [ref=e155]: "0"
+```

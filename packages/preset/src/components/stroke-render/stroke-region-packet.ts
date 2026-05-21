@@ -47,6 +47,11 @@ export interface StrokeRegionPacket {
   topologyFamily?: string
   intervalTopology?: string
   strokePosition?: 'center' | 'inside' | 'outside'
+  figmaLikeBoundaryDomainId?: string
+  figmaLikeBoundaryPoints?: StrokeFinalFaceDebugMetaBase['figmaLikeBoundaryPoints']
+  figmaLikeBoundaryStartDistance?: number
+  figmaLikeBoundaryEndDistance?: number
+  figmaLikeBoundaryTotalLength?: number
   figmaLikeSplitRangeId?: string
   figmaLikeSplitRangeStartDistance?: number
   figmaLikeSplitRangeEndDistance?: number
@@ -54,6 +59,9 @@ export interface StrokeRegionPacket {
   figmaLikeSplitRangeSourceSegmentIndex?: number
   figmaLikeSideAuthority?: 'implicit-fill-hole-domain'
   figmaLikeSelectedSide?: 1 | -1
+  figmaLikeFilledSide?: 1 | -1
+  figmaLikeUnfilledSide?: 1 | -1
+  figmaLikeBoundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
   figmaLikeSideResolutionStatus?: 'resolved' | 'blocked'
   figmaLikeSideResolutionReason?: string
   figmaLikeSplitRangeTerminals?: NonNullable<
@@ -101,6 +109,14 @@ export const buildStrokeRegionPacketsFromFinalFaces = (
     topologyFamily: face.debugMeta?.topologyFamily,
     intervalTopology: face.debugMeta?.intervalTopology,
     strokePosition: face.debugMeta?.strokePosition,
+    figmaLikeBoundaryDomainId: face.debugMeta?.figmaLikeBoundaryDomainId,
+    figmaLikeBoundaryPoints: face.debugMeta?.figmaLikeBoundaryPoints
+      ? face.debugMeta.figmaLikeBoundaryPoints.map((point) => ({ ...point }))
+      : undefined,
+    figmaLikeBoundaryStartDistance:
+      face.debugMeta?.figmaLikeBoundaryStartDistance,
+    figmaLikeBoundaryEndDistance: face.debugMeta?.figmaLikeBoundaryEndDistance,
+    figmaLikeBoundaryTotalLength: face.debugMeta?.figmaLikeBoundaryTotalLength,
     figmaLikeSplitRangeId: face.debugMeta?.figmaLikeSplitRangeId,
     figmaLikeSplitRangeStartDistance:
       face.debugMeta?.figmaLikeSplitRangeStartDistance,
@@ -111,6 +127,9 @@ export const buildStrokeRegionPacketsFromFinalFaces = (
       face.debugMeta?.figmaLikeSplitRangeSourceSegmentIndex,
     figmaLikeSideAuthority: face.debugMeta?.figmaLikeSideAuthority,
     figmaLikeSelectedSide: face.debugMeta?.figmaLikeSelectedSide,
+    figmaLikeFilledSide: face.debugMeta?.figmaLikeFilledSide,
+    figmaLikeUnfilledSide: face.debugMeta?.figmaLikeUnfilledSide,
+    figmaLikeBoundaryRole: face.debugMeta?.figmaLikeBoundaryRole,
     figmaLikeSideResolutionStatus:
       face.debugMeta?.figmaLikeSideResolutionStatus,
     figmaLikeSideResolutionReason:

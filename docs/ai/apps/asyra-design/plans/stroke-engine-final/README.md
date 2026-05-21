@@ -4,11 +4,13 @@
 
 Only these files define the current stroke refactor plan:
 
+- `README.md`
 - `stroke-flow-inspector.data.js`
 - `stroke-flow-inspector.html`
 
 Implementation, DoD, status, risk, E2E state, and step ordering must be read
-from the inspector data. If any completed-history document disagrees with the
+from the inspector data. This README summarizes the active plan and must stay
+in sync with that data. If any completed-history document disagrees with the
 inspector, the inspector wins.
 
 ## Completed History Rule
@@ -20,25 +22,54 @@ historical decision records only.
 Do not edit completed history files and do not use them as current
 implementation guidance.
 
-## Current Figma-like Stroke Contract
+## Current Figma-Like Stroke Contract
 
-This plan is active. The latest self-intersecting inside/center/outside dashed
-split-range blockers were revalidated on 2026-05-19 by strengthening the Step
-30 star-wide oracle, fixing the upstream split-range domain/interval/candidate
-flow, clipping terminal/cap geometry to the implicit legal domain, preserving
-selected-side provenance through projection, and collapsing same-stroke overlap
-without losing terminal provenance.
+This plan is active and TDD-driven. The 2026-05-20 Figma filled-star review
+reopened the self-intersecting inside dashed flow. The previous active plan
+misclassified the central filled pentagon as an unfilled hole and accepted the
+wrong inside stroke result.
 
-The previous outside dashed blocker is resolved for the current star/reference
-gate. Outside uses the same split-range interval allocation as inside/center,
-and now has verified selected-side candidate geometry, generic inside/outside
-legality, projection provenance, and final visual evidence for butt, square,
-and round caps. This remains scoped evidence, not a full Figma stroke-matrix
-completion claim.
+Figma reference screenshots are rule-discovery evidence only. Automated gates
+must encode generic stroke rules instead of comparing pixels against a fixed
+reference image.
 
-The active target is the contract below. Boundary-contour product dashes,
-cumulative self-intersecting dashed schedules, renderer repair, and any
-"unsupported but still complete" interpretation are invalid.
+The active model is now **filled-face boundary stroke domains**:
+
+- Figma vector fill truth is defined by vector regions / loops and each
+  region's winding rule. `NONZERO` and `EVENODD` are both valid Figma rules;
+  `NONZERO` is the default path rule unless the data explicitly says otherwise.
+- Shared geometry must resolve planar faces, region membership, winding-rule
+  basis, and adjacent face occupancy before stroke domains are selected.
+- A self-intersecting central face is not a hole merely because of contour
+  orientation, signed area, or an even-odd helper name. It is a filled face when
+  the region/winding-rule evaluation says it is filled.
+- `inside`: every filled face owns inside stroke along its own boundary. If
+  multiple filled faces share an edge, each filled face may contribute its own
+  inside boundary stroke provenance. The central filled pentagon in the
+  five-point star is inside-eligible and must produce inside dashed stroke.
+- `outside`: outside stroke belongs only to boundaries between a filled face
+  and the exterior/unfilled outside of the filled shape. Filled-filled internal
+  adjacency is not outside. A real unfilled hole is outside-ineligible for the
+  global exterior stroke unless a separate Figma rule is captured and encoded.
+- `center`: center strokes may use center-equivalent geometry for the family
+  being tested, but center behavior cannot define inside/outside face rules.
+
+Dash allocation runs on each selected filled-face boundary split segment. When
+a boundary is cut by intersections, every resulting segment is an independent
+dash domain: both ends receive half-dash coverage, the interior dash/gap rhythm
+is solved before emission, and no continuity crosses the split boundary.
+
+Invalid current or historical rules:
+
+- Treating `hole` as a generic label for self-intersecting internal faces.
+- Classifying hole/outer solely from contour signed area or orientation.
+- Hardcoding even-odd containment for all self-intersecting filled-region
+  decisions.
+- Using source-path orientation, selectedSide metadata, visible fill paint,
+  packet order, rendered pixels, or renderer repair as the inside/outside
+  authority.
+- Claiming completion when the central filled face of the Figma star does not
+  have inside dashed stroke.
 
 Completion definition:
 
@@ -46,12 +77,14 @@ Completion definition:
   oracle, implementation, diagnostics, and render/hit/export projection path.
 - No product stroke family that Figma supports may remain blocked as
   unsupported.
-- Step 30 must validate the full Figma stroke matrix, not only the currently
-  fixed star/split-range cases.
-- If a behavior is unknown, the plan status is incomplete until a Figma
-  reference is captured and encoded as tests.
+- Step 30 validates the current product-exposed Figma stroke matrix through
+  rule-driven visual gates, not fixed screenshot image comparison and not only
+  one fixed star/split-range case.
+- If a behavior is unknown or newly captured from Figma, it is outside the
+  completion claim until a reference is captured, encoded as tests, and routed
+  through the earliest owning step.
 
-Global rules:
+## Global Rules
 
 1. Vector data changes start in feature/input code and enter state only through
    common APIs, validation, and transaction-bounded mutation.
@@ -73,46 +106,50 @@ Global rules:
    geometry on the resolved legal side; they must not be substituted by widened
    center-stroke clipping.
 8. Self-intersecting closed inside/outside dashed strokes use Figma-like
-   split-range dash domains: topology plus implicit fill/hole analysis splits
-   the authored path into legal source ranges, and each range is an independent
-   dash domain.
-9. For every Figma-like split range, both range ends receive half-dash coverage
-   and the interior dash/gap schedule is evenly distributed within that range.
-   No dash continuity may cross the split-range boundary.
-10. Self-intersecting inside/outside side selection is resolved once in the
-    shared geometry model as source split ranges with legal side, even when fill
-    paint is hidden or absent. Downstream stroke stages consume that metadata;
-    source-path orientation or packet-local fill probes are not valid fallbacks
-    for this family.
-11. Fill, hole, even-odd, and legal-boundary contours are side-resolution,
-    legality, fill, and diagnostic evidence only. They must not become
-    independent dashed product paths or replacement boundary-stroke geometry.
-12. Legality clips or filters existing candidate geometry only. It must not
-    construct widened center bands, contour restrokes, or replacement product
-    geometry.
-13. Overlap is resolved before product `FinalFace`/render output when terminal
+   filled-face boundary domains. Shared geometry resolves filled faces, region
+   loops, winding-rule basis, global exterior boundaries, real unfilled holes,
+   filled-filled internal adjacency, and boundary split segments before
+   stroke-domain selection.
+9. For every selected boundary split segment, both range ends receive half-dash
+   coverage and the interior dash/gap schedule is evenly distributed within
+   that range. No dash continuity may cross the split boundary.
+10. Inside selects every filled face boundary and draws on that face's inside
+    side. Outside selects only filled-to-exterior boundaries and draws on the
+    exterior side.
+11. Butt is the base dashed geometry. Square and round caps are additive
+    endpoint geometry attached after the base terminal dash intervals are
+    allocated; the assembled geometry then re-enters overlap, legality/mask,
+    FinalFace, and render/export projection.
+12. Fill regions, winding rules, loops, and face classifications are shared
+    geometry evidence used to derive stroke boundary domains. They must not be
+    recreated downstream as replacement geometry.
+13. Legality clips or filters existing candidate geometry only. It enforces the
+    selected filled-face/exterior side and eligibility; it must not construct
+    replacement center bands, authored source contour loops, or renderer fixes.
+14. Overlap is resolved before product `FinalFace`/render output when terminal
     provenance remains available. Raw overlapping fragments may exist only as
-    diagnostics/debug evidence; product visual overlap collapse must not create
-    double-opacity overdraw or erase split-range terminal identity.
-14. Typed metadata carries owner, network, contour, legal-domain, interval,
-    source-span, support, blocked, dirty-stage, side-resolution, and revision
-    state. Helpers must not parse `geometryId`, packet order, or rendered
-    pixels to recover semantics.
-15. `FinalFace[]` is the canonical source for render, hit-test, and export
+    diagnostics/debug evidence.
+15. A single visible dash interval must remain one connected product coverage
+    unit after legality/mask clipping. High-curvature outside clipping may prune
+    tiny numeric residue or stitch same-interval clip fragments upstream, but the
+    renderer must never draw a dash as disconnected slivers to hide a geometry
+    failure.
+16. Typed metadata carries owner, network, region, face, boundary, interval,
+    source-span, support, blocked, dirty-stage, side-resolution, winding-rule,
+    and revision state. Helpers must not parse `geometryId`, packet order, or
+    rendered pixels to recover semantics.
+17. `FinalFace[]` is the canonical source for render, hit-test, and export
     projection. Renderer entries draw upstream `FinalFace`-derived geometry
     faithfully and never repair stroke semantics.
-16. Final visual E2E is an AI-reviewed product gate: deterministic probes and
-    screenshot review must compare against Figma-like behavior, including
-    split-range dash placement, same-split-range adjacent gaps, implicit
-    hole-side stroke, no forbidden contour dash loops, bounded legal clipping,
-    and no double-opacity product overlap.
-17. Outside dashed butt/square/round is verified for the current
-    self-intersecting star/reference gate. Passing this scoped gate does not
-    prove every outside stroke family, cap, join, angle, or topology that Figma
-    supports.
-18. The current Step 13 matrix is not a full completion claim until every
-    exposed Figma stroke behavior has encoded reference tests and Step 30 visual
-    evidence.
+18. Final visual E2E is an AI-reviewed product gate: deterministic probes and
+    screenshot review must verify the Figma-like rules above, including
+    boundary-domain dash placement, same-boundary adjacent gaps, central filled
+    face inside stroke, outside exterior-only stroke, bounded legal clipping,
+    no disconnected high-curvature dash slivers, and no double-opacity product
+    overlap.
+19. The current Step 13 matrix and Step 30 gates define the present completion
+    claim for product-exposed Figma stroke behavior. Any newly captured Figma
+    mismatch reopens the earliest owning upstream step.
 
 ## Sequential Implementation Plan
 
@@ -123,268 +160,101 @@ upstream failure.
 
 Current execution state:
 
-- Plan status: `outside-dashed-gates-passed-full-matrix-open`.
-- Latest resolved blocker: outside dashed butt/square/round for the
-  self-intersecting star/reference gate now passes Step 17 candidate, Step 20
-  legality, Step 24/25 projection provenance, Step 30 deterministic visual
-  probes, and AI screenshot review.
-- Current blocker: no active blocker is known for the currently encoded
-  star/reference dashed gate. The plan remains open because full Figma stroke
-  parity requires encoded references for every exposed stroke behavior, not only
-  the currently fixed self-intersecting dashed cases.
-- Stop rule: if a new visual or Figma-reference failure appears, reopen the
-  earliest owning step and proceed sequentially. Do not patch renderer output to
-  hide an upstream candidate, legality, projection, or interval failure.
-- Step 13 exposes runtime support state separately from Figma parity status and
-  provides the explicit Figma stroke-family matrix.
-- Step 13 now exposes runtime support state separately from Figma parity status
-  and provides the first explicit Figma stroke-family matrix.
-- Step 13 is now aligned for source-family classification. Its matrix has no
-  implementation-gap or unverified-reference entries after reconciling stale
-  self-intersecting solid, compound dashed, and open constrained classifications
-  with current implementation/test evidence.
-- Step 14 is now aligned: every Step 13 classified family resolves to an
-  explicit `StrokeDomainPlan`, including compound legal-boundary spans and
-  self-intersecting implicit fill/hole side authority.
-- Step 15 is now aligned: interval allocation consumes explicit Step 14 domain
-  plans, including split-range terminal half-dash intervals and independent
-  legal-boundary shell/hole schedules.
-- Step 16 is now aligned: source-span provenance is resolved for split-range
-  intervals through `SourceSpanGraph` and for legal-boundary shell/hole
-  intervals through typed Step 14 domain sourceSpanIds.
-- Step 17 is now aligned for the current inside/center/outside dashed gates:
-  candidate geometry consumes shared selectedSide metadata, preserves
-  split-range provenance, and covers butt/square/round outside cap evidence for
-  the current star/reference fixtures. The 2026-05-19 top-left outside
-  first-dash regression is covered by a degenerate cubic-start tangent oracle:
-  shared path sampling must use the first non-degenerate tangent instead of a
-  horizontal fallback before Step 17 builds offset/cap geometry. Outside
-  source-vertex terminal starts also add selected-side join geometry at closed
-  segment boundaries, so the fourth segment first dash participates in the
-  same Figma-like outside miter corner across butt, square, and round caps.
-- Step 18 is now aligned: arrangement and visual-overlap collapse preserve
-  candidate provenance, terminal metadata, and support boundaries without using
-  `sourceContourIds` as a dashed correctness key.
-- Step 19 is now aligned: ownership continues from typed ownerSet/source
-  metadata only after packets, arrangement, and FinalFace bridges.
-- Step 20 is now aligned for the current inside/center/outside dashed gates:
-  legality uses a generic source-path implicit legal-domain clip/filter path,
-  independent of visible fill paint and without inside-only helper semantics.
-- Step 21 is now aligned: paint-free region packets preserve legal geometry,
-  terminal/side/owner/source/legal-domain provenance, arrangement metadata, and
-  non-paint revision keys without paint leakage.
-- Step 22 is now aligned: paint attachment preserves geometry/provenance,
-  isolates paint-only dirty paths, and passes visual paint regression gates.
-- Step 23 is now aligned: fill consumes shared self-intersection geometry, and
-  fill/no-fill variants preserve implicit legal-domain stroke evidence.
-- Step 24 is aligned for the current inside/center/outside gates: `FinalFace[]`
-  preserves terminal, selectedSide, and legal-domain provenance.
-- Step 25 is aligned for the current inside/center/outside gates: render,
-  hit, and export packets project from `FinalFace[]` and expose outside
-  selectedSide/legal-domain provenance, not only dash presence.
-- Step 26 is now aligned: render entries project FinalFace-derived geometry and
-  paint without renderer-side stroke repair across the current center/constrained
-  solid/dashed visual matrix. Revalidated on 2026-05-18: self-intersecting
-  constrained dashed product-final entries use direct FinalFace `solid-graphics`
-  projection, not `masked-solid` repair.
-- Step 27 is now aligned: renderer draw consumes upstream entries faithfully and
-  does not repair stroke semantics.
-- Step 28 is now aligned: hit/export projection is FinalFace-derived for the
-  current drag, refresh, and constrained visual gates.
-- Step 29 is now aligned: runtime diagnostics publish typed product/debug/blocked
-  evidence with branch identity and provenance.
-- Step 30 is partial, not complete: inside/center/outside dashed
-  self-intersecting star/reference gates pass deterministic probes and AI visual
-  review, but the full exposed Figma stroke matrix is still open.
-- Stop rule for current and future changes: if a visual failure is discovered,
-  keep the plan open and proceed sequentially; do not patch downstream render
-  output to hide upstream contract failures.
+- Plan status: `active-figma-like-stroke-matrix-verification`.
+- The 2026-05-20 filled-star inside dashed blocker is fixed for the encoded
+  matrix slice: the central pentagon is classified as a filled face, not a
+  hole; inside dashed stroke includes central filled-face boundaries; outside
+  dashed stroke excludes filled-filled internal adjacency.
+- The 2026-05-20 outside high-curvature blocker is fixed for the encoded matrix
+  slice: outside butt/square/round boundary-domain packets must remain connected
+  product coverage after legality clipping, with no high-complexity polygon made
+  from near-zero-edge clip residue. `polygonCount: 1` alone is not accepted as
+  proof because one polygon can still contain a fan of disconnected-looking
+  sliver edges.
+- Earliest owning steps for that slice are aligned after revalidation: Step 11
+  keeps the Figma winding-rule basis, Step 12 emits merged filled-face boundary
+  split segments, Step 14/15 select and allocate boundary-domain intervals, and
+  Step 17/20/24/25/26/30 preserve and render the result.
+- Blocked downstream steps for the 2026-05-20 filled-star inside slice: none.
+- Completion is still a matrix claim, not a blanket declaration that every
+  possible Figma stroke behavior is finished. Any newly captured Figma mismatch
+  reopens the earliest owning upstream step and must be fixed with TDD evidence
+  before downstream status is updated.
+- Stop rule: add failing TDD oracles first, fix the earliest owning step, then
+  update downstream status only after the upstream implementation, tests,
+  diagnostics/evidence, generated screenshots, and self-review pass.
 
-| Step | Inspector id                     | Figma-like DoD                                                                                                                                                                                         |
-| ---- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1    | `input-event`                    | Input produces vector/stroke edit intent only; no geometry, dash, side, legality, or render repair decisions.                                                                                          |
-| 2    | `vector-api-mutation`            | Topology mutations preserve authored points, segments, networks, handles, and closed state without synthesizing product stroke paths.                                                                  |
-| 3    | `validate-topology`              | Runtime validation rejects malformed topology before commit; product support classification remains downstream.                                                                                        |
-| 4    | `transaction-write`              | One intended vector/stroke edit maps to one intended undo transaction; final truth comes from committed state.                                                                                         |
-| 5    | `data-channel-delta`             | Computed-data deltas preserve every key needed to dirty source, spec, topology, stroke domain, interval, candidate, legality, paint, hit/export, and visual stages.                                    |
-| 6    | `render-cache-patch`             | Render cache patches committed deltas into a complete snapshot and reuses cache only when Figma-like inputs still match.                                                                               |
-| 7    | `dirty-revision-graph`           | Dirty graph classifies every stroke stage explicitly, including stroke domain, and keeps paint-only/source-topology edits on the correct rerun path.                                                   |
-| 8    | `render-strategy-entry`          | Vector render strategy orchestrates only; topology family, side, legality, ownership, and paint decisions stay in stage helpers.                                                                       |
-| 9    | `normalize-render-data`          | Render data normalization stabilizes inputs without repairing invalid topology into product geometry.                                                                                                  |
-| 10   | `normalize-stroke-spec`          | `normalizeStrokeSpec` canonicalizes width, position, caps, joins, miter, dash, opacity, and paint with rejection diagnostics.                                                                          |
-| 11   | `build-path-topology`            | `PathTopologyModel` owns source topology, fillRule, source revision, topology family, contours, length, and legal descriptors, but not stroke polygons.                                                |
-| 12   | `shared-geometry-model`          | Shared resolved geometry is canonical fill/hole/legal-domain evidence and source split-range side authority for fill, stroke, future shadow, legality, and diagnostics; it is not a dash product path. |
-| 13   | `resolve-source-families`        | `ResolvedSourceFamily` centralizes topology/stroke support state, blocked reason, and legal-domain hints.                                                                                              |
-| 14   | `resolve-stroke-domains`         | `StrokeDomainPlan` makes split ranges, family interval domains, legal-domain references, and side authority explicit before interval allocation.                                                       |
-| 15   | `allocate-intervals`             | Self-intersecting constrained inside/outside dashed strokes allocate per split range with half-dash endpoints and balanced interior dash/gap, with no cross-range continuity.                          |
-| 16   | `build-source-span-graph`        | Source-span provenance proves intervals/candidates came from authored source split ranges, not fill/hole contour dash domains.                                                                         |
-| 17   | `build-one-sided-candidates`     | Candidates are local one-sided geometry from normalized spec, intervals, and shared split-range side metadata; outside dashed must keep butt/square/round selected-side cap geometry and acute first dash shape covered by packet and visual gates. |
-| 18   | `partition-arrangement-faces`    | Arrangement partitions supported candidate geometry and overlap only; backend availability must not promote unsupported behavior or fill-boundary paths.                                               |
-| 19   | `resolve-ownership`              | Ownership resolves from typed metadata only, never `geometryId`, packet order, visual color, or renderer output.                                                                                       |
-| 20   | `apply-legality`                 | Legality clips/filters existing candidates against the correct legal domain for inside and outside, preserves legal-side provenance, and never constructs replacement geometry or inside-only clip paths. |
-| 21   | `build-resolved-stroke-regions`  | Paint-free `StrokeRegionPacket` preserves geometry, support, provenance, owner, legal-domain, interval, side-resolution, and revision metadata.                                                        |
-| 22   | `attach-paint-payload`           | Paint attaches after semantic geometry is final; paint-only edits do not mutate or rerun geometry stages.                                                                                              |
-| 23   | `fill-region-consumer`           | Fill consumes shared fillRegions; hidden/absent fill paint does not remove implicit legal domains needed by inside/outside stroke.                                                                     |
-| 24   | `build-final-faces`              | `FinalFace[]` is final geometry and preserves interval, source-span, legal-domain, owner, side-resolution, runtime, and paint metadata, including outside dashed selectedSide proof.              |
-| 25   | `emit-render-hit-export-packets` | Render, hit, and export packets project from `FinalFace[]` only; outside dashed packets prove selectedSide/legal-domain provenance, not merely visible dash pixels.                             |
-| 26   | `render-entries`                 | Render entries project `FinalFace` geometry and paint; native center paths are allowed only for center-equivalent semantics.                                                                           |
-| 27   | `mesh-render`                    | Renderer draws upstream entries faithfully and does not repair geometry, side, legality, overlap, or Figma-like semantics.                                                                             |
-| 28   | `hit-export`                     | Final non-drag hit/export projection matches `FinalFace` render geometry; drag deferral is allowed only when documented and tested.                                                                    |
-| 29   | `runtime-diagnostics`            | Diagnostics identify product/debug/legacy branch, support, blocked reason, owner/legal provenance, side evidence, overlap, dirty trace, and projection path.                                           |
-| 30   | `visible-final-result`           | Final visual result passes upstream gates, deterministic E2E probes, and AI visual review against Figma-like reference behavior; current star/reference dashed gates pass, but full matrix parity remains open. |
+| Step | Inspector id                     | Figma-like DoD                                                                                                                                                                                                                                                                                        |
+| ---- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | `input-event`                    | Input produces vector/stroke edit intent only; no geometry, dash, side, legality, or render repair decisions.                                                                                                                                                                                         |
+| 2    | `vector-api-mutation`            | Topology mutations preserve authored points, segments, networks, handles, and closed state without synthesizing product stroke paths.                                                                                                                                                                 |
+| 3    | `validate-topology`              | Runtime validation rejects malformed topology before commit; product support classification remains downstream.                                                                                                                                                                                       |
+| 4    | `transaction-write`              | One intended vector/stroke edit maps to one intended undo transaction; final truth comes from committed state.                                                                                                                                                                                        |
+| 5    | `data-channel-delta`             | Computed-data deltas preserve every key needed to dirty source, spec, topology, stroke domain, interval, candidate, legality, paint, hit/export, and visual stages.                                                                                                                                   |
+| 6    | `render-cache-patch`             | Render cache patches committed deltas into a complete snapshot and reuses cache only when Figma-like inputs still match.                                                                                                                                                                              |
+| 7    | `dirty-revision-graph`           | Dirty graph classifies every stroke stage explicitly, including fill-rule, region/face classification, stroke domain, and paint-only rerun paths.                                                                                                                                                     |
+| 8    | `render-strategy-entry`          | Vector render strategy orchestrates only; topology family, side, legality, ownership, and paint decisions stay in stage helpers.                                                                                                                                                                      |
+| 9    | `normalize-render-data`          | Render data normalization stabilizes inputs without repairing invalid topology into product geometry.                                                                                                                                                                                                 |
+| 10   | `normalize-stroke-spec`          | `normalizeStrokeSpec` canonicalizes width, position, caps, joins, miter, dash, opacity, and paint with rejection diagnostics.                                                                                                                                                                         |
+| 11   | `build-path-topology`            | `PathTopologyModel` owns source topology, Figma winding-rule basis, source revision, topology family, contours, length, and legal descriptors, but not stroke polygons. Missing `fillRule` must not silently become even-odd if Figma default should be nonzero.                                      |
+| 12   | `shared-geometry-model`          | Shared resolved geometry produces filled faces/regions, loops, real holes, filled-filled adjacency, exterior boundaries, open boundaries, and boundary split segments with adjacent face occupancy and winding-rule evidence. It must not classify central filled faces as holes by area/orientation. |
+| 13   | `resolve-source-families`        | `ResolvedSourceFamily` centralizes topology/stroke support state, blocked reason, and legal-domain hints without spreading product decisions through helpers.                                                                                                                                         |
+| 14   | `resolve-stroke-domains`         | `StrokeDomainPlan` selects filled-face boundary domains: inside includes every filled face boundary, including central filled face boundaries; outside includes only filled-to-exterior boundaries.                                                                                                   |
+| 15   | `allocate-intervals`             | Self-intersecting constrained dashed strokes allocate per selected filled-face boundary split segment with half-dash endpoints and balanced interior dash/gap, with no cross-segment continuity.                                                                                                      |
+| 16   | `build-source-span-graph`        | Provenance proves each interval/candidate came from a resolved filled-face boundary split segment and retains source/topology/face evidence.                                                                                                                                                          |
+| 17   | `build-one-sided-candidates`     | Candidates are built from filled-face boundary intervals; butt is base geometry, square/round caps are additive endpoint geometry, and no source-path-only or hole-label substitute is allowed.                                                                                                       |
+| 18   | `partition-arrangement-faces`    | Arrangement partitions supported candidate geometry and overlap only; backend availability must not promote unsupported behavior or fill-boundary paths.                                                                                                                                              |
+| 19   | `resolve-ownership`              | Ownership resolves from typed metadata only, never `geometryId`, packet order, visual color, or renderer output.                                                                                                                                                                                      |
+| 20   | `apply-legality`                 | Legality enforces filled-face/exterior eligibility: inside keeps geometry for selected filled face boundaries; outside keeps only filled-to-exterior boundary geometry.                                                                                                                               |
+| 21   | `build-resolved-stroke-regions`  | Paint-free `StrokeRegionPacket` preserves geometry, support, provenance, owner, legal-domain, interval, face/region, side-resolution, and revision metadata.                                                                                                                                          |
+| 22   | `attach-paint-payload`           | Paint attaches after semantic geometry is final; paint-only edits do not mutate or rerun geometry stages.                                                                                                                                                                                             |
+| 23   | `fill-region-consumer`           | Fill consumes shared filled regions/faces; hidden/absent fill paint does not remove implicit region evidence needed by inside/outside stroke.                                                                                                                                                         |
+| 24   | `build-final-faces`              | `FinalFace[]` is final geometry and preserves interval, source-span, region/face, boundary, legal-domain, owner, mask-side, runtime, and paint metadata.                                                                                                                                              |
+| 25   | `emit-render-hit-export-packets` | Render, hit, and export packets project from `FinalFace[]` only and preserve boundaryDomainId, face/region id, interval, source provenance, and inside/outside eligibility.                                                                                                                           |
+| 26   | `render-entries`                 | Render entries project `FinalFace` geometry and paint; native center paths are allowed only for center-equivalent semantics.                                                                                                                                                                          |
+| 27   | `mesh-render`                    | Renderer draws upstream entries faithfully and does not repair geometry, side, legality, overlap, or Figma-like semantics.                                                                                                                                                                            |
+| 28   | `hit-export`                     | Final non-drag hit/export projection matches `FinalFace` render geometry; drag deferral is allowed only when documented and tested.                                                                                                                                                                   |
+| 29   | `runtime-diagnostics`            | Diagnostics identify product/debug/legacy branch, support, blocked reason, owner/legal/face provenance, side evidence, overlap, dirty trace, and projection path.                                                                                                                                     |
+| 30   | `visible-final-result`           | Final visual result passes upstream gates, deterministic E2E probes, and screenshot review proving central filled face inside stroke, exterior-only outside stroke, half-dash/gap rules, and no renderer repair.                                                                                      |
 
 ## Functional Parity Status
 
-The inspector status is now intentionally conservative:
+The 2026-05-20 filled-star inside dashed slice is now aligned against the active
+generic rules. The current implementation and tests prove:
 
-- Steps 1-12 are foundation-aligned for the current flow, but they are not a
-  full-product completion claim.
-- Step 13 is aligned for source-family classification.
-- Step 14 is aligned for domain planning across the Step 13 family matrix.
-- Step 15 is aligned for interval allocation across the Step 14 domain plan
-  boundary.
-- Step 16 is aligned for source-span provenance across the Step 15 interval
-  boundary.
-- Step 17 is aligned for the current inside/center/outside dashed gates. Full
-  matrix completion still requires additional Figma references as new exposed
-  behaviors are identified.
-- Step 18 is aligned for arrangement/overlap metadata preservation across the
-  Step 14-17 domain, interval, provenance, and candidate metadata.
-- Step 19 is aligned for typed ownership propagation.
-- Step 20 is aligned for the current inside/center/outside dashed gates.
-- Step 21 is aligned after revalidation against the Step 20 legality
-  provenance gate.
-- Step 22 is aligned after revalidation against the paint-free region boundary.
-- Step 23 is aligned after revalidation against the shared
-  geometry/legal-domain recalibration.
-- Step 24 preserves outside selectedSide/legal-domain metadata through
-  `FinalFace[]` for the current outside dashed gate.
-- Step 25 preserves outside selectedSide/legal-domain metadata through render,
-  hit, and export projection for the current outside dashed gate.
-- Step 26 is aligned after revalidation against the FinalFace render-entry
-  projection contract.
-- Step 27 is aligned after revalidation against renderer draw as a faithful
-  consumer of upstream entries.
-- Step 28 is aligned after revalidation against hit/export projection and
-  drag/refresh freshness gates.
-- Step 29 is aligned after revalidation against runtime diagnostic branch
-  identity and provenance gates.
-- Step 30 is partial: current inside/center/outside dashed visual oracles pass,
-  including outside butt/square/round for the current star/reference gate. It is
-  not complete until every exposed Figma stroke behavior has encoded visual
-  reference coverage.
-- Known functional blocker: none for the currently encoded
-  self-intersecting dashed star/reference gate. Unknown or newly captured Figma
-  behaviors must reopen the earliest owning step.
+1. Shared geometry classifies the central star region as a filled face under the
+   active Figma winding-rule/region evaluation.
+2. Domain planning selects central filled-face boundaries for inside dashed
+   stroke and excludes filled-filled internal adjacency for outside dashed
+   stroke.
+3. Candidate, legality, overlap, `FinalFace`, render, hit/export, and packet
+   metadata preserve boundary-domain, face/region, interval, terminal, side, and
+   legal provenance.
+4. Visual E2E probes confirm inside dashed screenshots contain central
+   filled-face stroke, outside dashed screenshots omit internal filled-face
+   stroke, terminal half-dash/gap rules hold, and no double-opacity overdraw is
+   introduced.
+5. The verification gates for this slice passed:
+   `yarn workspace @asyra/preset test:local src/__tests__/resolved-vector-geometry-model.test.ts src/__tests__/stroke-domain-plan.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts src/__tests__/stroke-final-face.test.ts src/__tests__/vector-constrained-dashed-stroke.test.ts src/__tests__/vector-component.test.ts`,
+   `yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts --workers=1`,
+   `yarn workspace @asyra/preset build:preset`, and `yarn lint:ci`.
 
-## Completion Evidence
-
-1. **Step 13: Build the Figma stroke-family matrix**
-   Completed: the source-family matrix now has no implementation-gap or
-   unverified-reference entries, and open constrained behavior is represented as
-   center-equivalent runtime support rather than an unsupported blocker.
-
-2. **Step 14: Prove every classified family has a stroke domain plan**
-   Completed locally: source-family classifications now map into explicit
-   `StrokeDomainPlan` outputs for open, simple closed, compound closed,
-   self-intersecting closed, solid, dashed, center, inside, and outside
-   families.
-
-3. **Step 15: Allocate intervals from the domain plan**
-   Completed locally: `allocateStrokeIntervalsForDomainPlan` routes
-   split-range, legal-boundary-span, source-path, and topology-arc-length
-   domains through explicit interval allocation.
-
-4. **Step 16: Resolve source-span provenance**
-   Completed locally: split-range intervals resolve through `SourceSpanGraph`;
-   legal-boundary shell/hole intervals resolve through typed domain
-   sourceSpanIds.
-
-5. **Step 17: Build candidate geometry from resolved records**
-   Completed for the current dashed star/reference gate: candidate flow records
-   domainKind, consumes shared selectedSide metadata, proves source-path and
-   split-range routing without boundary-contour product paths, and covers
-   outside dashed butt/square/round selectedSide/cap evidence, including the
-   degenerate cubic-start tangent case that affected the fourth segment's first
-   outside dash and the selected-side source-vertex join required at that closed
-   segment boundary.
-
-6. **Step 18: Preserve metadata through arrangement**
-   Completed locally: exact arrangement and visual-overlap collapse preserve
-   terminal/source metadata, remove same-stroke opacity overdraw, and do not use
-   `sourceContourIds` as a dashed correctness path.
-
-7. **Step 19: Revalidate typed ownership**
-   Completed locally: ownership remains ownerSet/source metadata driven and
-   does not parse geometry ids, packet order, or sourceContourIds.
-
-8. **Step 26: Expand render-entry projection**
-   Completed locally: render entries project FinalFace-derived geometry and
-   paint without renderer-side stroke repair.
-
-9. **Step 25-29: Expand render/hit/export/diagnostics**
-   Completed locally: render/hit/export/diagnostics project from `FinalFace[]`
-   and distinguish product, debug, fallback, and blocked evidence through typed
-   provenance.
-
-10. **Step 30: Final visible result**
-    Completed for the current dashed star/reference gate: inside/center/outside
-    split-range gates include deterministic probes and AI visual review. The
-    full Figma stroke matrix remains open because any unencoded reference
-    behavior must still receive its own oracle.
-
-## Required Gates
-
-## Active Full Matrix Completion Plan
-
-Execute sequentially for any newly discovered or unencoded Figma stroke
-behavior. Do not update downstream status until the current step's DoD,
-targeted tests, diagnostics/evidence, and self-review pass.
-
-1. **Find the owning step**
-   Classify the failing behavior as interval/domain, candidate, legality,
-   arrangement/overlap, FinalFace/projection, render draw, diagnostics, or final
-   visual evidence. Reopen the earliest owning step only.
-
-2. **Add the oracle before implementation**
-   Encode the Figma reference as unit/integration/visual tests. For visible
-   geometry, Step 30 must include deterministic probes and AI screenshot review.
-
-3. **Fix sequentially**
-   Implement the owning step, then update downstream gates only after the
-   upstream implementation, tests, diagnostics/evidence, and self-review pass.
-
-4. **Preserve current dashed invariants**
-   Do not regress split-range half-dash endpoints, redistributed gaps, selected
-   side from shared geometry, no boundary-contour product loops, no renderer
-   repair, no same-stroke overdraw, or outside butt/square/round provenance for
-   the current star/reference gate.
-
-Run gates in step order. The targeted gate for the current step runs before
-broader gates.
-
-- Targeted unit/integration tests for the current step.
-- Relevant visual/E2E when the step affects visible geometry, hit/export, drag,
-  refresh, or final visual correctness.
-- `yarn workspace @asyra/preset build:preset`
-- `yarn lint:ci`
-
-Current partial visual evidence includes the broader constrained/reference
-dashed visual suite. This suite is required but not sufficient for complete
-Figma stroke parity:
-
-- `apps/asyra-design/e2e/constrained-dashed-stroke-visual.spec.ts`
-- reference dashed visual specs
-- reported dashed regression specs
+This does not close the entire stroke system. The Step 13 matrix and Step 30
+rule-driven gates remain the active completion authority. A new Figma mismatch
+must reopen the earliest owning step with a failing generic oracle before any
+downstream repair is attempted.
 
 ## Current Known Guardrails
 
-- Do not call the plan complete while any Figma-supported stroke family remains
-  unsupported, blocked, unverified, or covered only by a partial fixture.
-- Do not restore source-path cumulative dash scheduling for self-intersecting
-  constrained inside/outside dashed strokes.
-- Do not restore independent fill/hole boundary-contour dashed product paths.
-- Do not use source-path orientation as the self-intersecting inside/outside
-  side authority.
+- Do not call the whole stroke system complete from a single fixture or cap
+  family; completion requires the active matrix and Step 30 gates.
+- Do not restore authored-source-path cumulative dash scheduling for
+  self-intersecting constrained inside/outside dashed strokes.
+- Do not treat `hole` as a generic internal-face label. A real hole is an
+  unfilled face proven by region/winding evaluation.
+- Do not use source-path orientation, contour signed area, selectedSide
+  metadata, visible fill paint, packet order, or rendered pixels as the
+  self-intersecting inside/outside side authority.
+- Do not hardcode even-odd for all self-intersecting fill/face decisions.
 - Do not introduce renderer-side geometry repair.
 - Do not edit `../completed/*`; those files are completed-history records only.

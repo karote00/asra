@@ -26,34 +26,37 @@
   ]
 
   const latestRules = [
-    'Plan completion means complete Figma stroke parity for the vector stroke families exposed by Asyra Design, proven by the Step 13 matrix and Step 30 visual gates.',
+    'Plan completion means complete Figma stroke parity for the vector stroke families exposed by Asyra Design, proven by the Step 13 matrix and Step 30 rule-driven visual gates. The 2026-05-20 filled-star review reopened the plan because the previous rules misclassified the central filled face with an internal-hole label.',
     'Vector data changes start in feature/input code and enter state only through common APIs, validation, and transaction-bounded mutation.',
     'Render consumes committed state deltas; render code is never the authority for vector topology, stroke position, dash placement, legality, ownership, or product support.',
     'Stroke work is stage-owned and dirty-key driven: source path, normalized stroke spec, topology, shared geometry, source-family support, stroke domains, intervals, source spans, candidates, arrangement, ownership, legality, resolved regions, paint, FinalFace, render/hit/export, diagnostics, and final visual evidence.',
     'Geometry is resolved before paint. Fill, stroke, hit-test, export, diagnostics, and future shadow attach paint/effects to canonical geometry instead of rebuilding competing geometry truth.',
-    'Each vector network revision builds one shared PathTopologyModel and one shared resolved vector geometry model. Shared fill/hole evidence is reused by fill, side-resolution, legality, diagnostics, hit/export, and visual gates.',
+    'Each vector network revision builds one shared PathTopologyModel and one shared resolved vector geometry model. Shared region, loop, winding-rule, face, and boundary evidence is reused by fill, stroke-domain selection, side-resolution, legality, diagnostics, hit/export, and visual gates.',
     'Open vector path inside/outside behavior is verified as center-equivalent runtime support for the currently exposed Figma-like vector stroke matrix.',
     'Simple closed inside/outside strokes use authored source-path one-sided geometry on the resolved legal side; they must not be substituted by widened center-stroke clipping.',
-    'Self-intersecting closed inside/outside dashed strokes use Figma-like split-range dash domains: topology plus implicit fill/hole analysis splits source-topology spans into intersection split ranges, and each split range is an independent dash domain. Source segments are provenance only; they are never the dash allocation/product domain.',
-    'For every Figma-like intersection split range, both range ends receive half-dash coverage. The same split range must not draw into its own adjacent terminal gap; when another crossing range visually overlaps that gap, tests must use provenance/packet ownership to avoid mistaking crossing coverage for a full dash on the current range. Normal-length split ranges establish the redistributed reference gap for the current stroke, and shorter split ranges choose their middle dash count from that reference rhythm so they do not become visually overcrowded. The final average gap for the chosen dash count must be solved once before interval positions are emitted; interval allocation must not compute the next gap while walking/drawing the range. There is no minimum gap clamp. No dash continuity may cross the intersection split-range boundary. Implicit fill/hole side changes may split candidate geometry later, but they must not split the dash allocation domain.',
-    'Self-intersecting inside/outside side selection is resolved from implicit fill/hole legal domains per range, even when fill paint is hidden or absent. Source-path orientation is not a valid fallback for this family.',
-    'Fill, hole, even-odd, and legal-boundary contours are side-resolution, legality, fill, and diagnostic evidence only. They must not become independent dashed product paths or replacement boundary-stroke geometry.',
-    'Legality clips or filters existing candidate geometry only. It must not construct widened center bands, contour restrokes, or other replacement product geometry.',
+    'Self-intersecting closed inside/outside dashed strokes use Figma-like filled-face boundary domains. Shared geometry resolves filled faces, vector regions/loops, winding-rule basis, real unfilled holes, filled-filled internal adjacency, global exterior boundaries, and open path boundaries before stroke-domain selection.',
+    'For every selected boundary split segment, both range ends receive half-dash coverage. The same boundary split segment must not draw into its own adjacent terminal gap; when another crossing boundary visually overlaps that gap, tests must use provenance/packet ownership to avoid mistaking crossing coverage for a full dash on the current boundary segment. Normal-length boundary split segments establish the redistributed reference gap for the current stroke, and shorter segments choose their middle dash count from that reference rhythm. The final average gap for the chosen dash count must be solved once before interval positions are emitted. There is no minimum gap clamp. No dash continuity may cross the boundary split-segment boundary.',
+    'Inside selects every filled face boundary and draws on that face’s inside side. The central filled pentagon in the Figma star is a filled face and must produce inside dashed stroke. Outside selects only filled-to-exterior boundaries and draws on the exterior side; filled-filled internal adjacency is outside-ineligible.',
+    'Butt is the base dashed geometry. Square and round caps are additive endpoint geometry attached after the base terminal dash intervals are allocated; then the assembled geometry goes through overlap, legality, FinalFace, and render/export projection. Cap type must not alter dash allocation, and final visual tests must not treat ordinary gap midpoint sampling as cap correctness.',
+    'Fill regions, region loops, winding rules, face occupancy, real holes, and legal-boundary evidence are shared geometry evidence used to derive stroke boundary domains. They must not be recreated downstream as replacement geometry, but the resolved filled-face boundary domains are the product stroke domains for constrained inside/outside behavior.',
+    'Legality clips or filters existing candidate geometry only. It enforces each boundary domain’s filled-face/exterior side and eligibility; it must not convert filled-filled internal adjacency into outside stroke or construct replacement geometry.',
+    'A single visible dash interval must remain one connected product coverage unit after legality/mask clipping. High-curvature outside clipping may prune tiny numeric residue or stitch same-interval clip fragments upstream, but renderer draw must never hide disconnected slivers.',
     'Overlap is resolved before product FinalFace/export output only when it does not erase split-range terminal identity. Render projection may union same-stroke FinalFace fragments into one paint layer to avoid double-opacity overdraw, but only after terminal provenance remains available from FinalFace/export metadata and every input polygon is treated as positive coverage by normalizing winding before nonzero union.',
     'Typed metadata carries owner, network, contour, legal-domain, interval, source-span, support, blocked, dirty-stage, side-resolution, and revision state. No helper may parse geometryId, packet order, or rendered pixels to recover semantics.',
     'FinalFace[] is the canonical source for render, hit-test, and export projection. Renderer entries draw upstream FinalFace-derived geometry faithfully and never repair stroke semantics.',
-    'Final visual E2E is an AI-reviewed product gate: deterministic probes and screenshot review must compare against the Figma-like rules above, including every visible intersection split-range terminal half-dash, redistributed middle dash/gap placement, implicit hole-side stroke, no forbidden contour dash loops, bounded terminal/cap extension beyond fill masks when Figma-like geometry requires it, no double-opacity render overdraw, and no product overlap created by old-flow replacement geometry.',
-    'Self-intersecting inside/center/outside dashed split-range blockers were revalidated on 2026-05-19. Outside dashed butt/square/round now has Step 17 candidate, Step 20 legality, Step 24/25 provenance, and Step 30 visual evidence for the current star/reference gates, but this is still not a full Figma stroke-matrix completion claim.'
+    'Final visual E2E is a rule-driven product gate: deterministic probes and screenshot review must verify the Figma-like rules above, including every visible boundary split-segment terminal half-dash, redistributed middle dash/gap placement, visible central filled-face inside stroke, exterior-only outside stroke, no high-curvature disconnected dash slivers, no double-opacity render overdraw, and no product overlap created by old-flow replacement geometry.',
+    'Self-intersecting inside/center/outside dashed behavior remains active until final-pixel probes prove the region-boundary domain rules for newly captured Figma cases.',
+    'Reference screenshots are rule-discovery evidence only. They are not automated golden images. A captured mismatch reopens the earliest owning upstream step instead of being repaired in render output.'
   ]
 
   const currentExecutionState = {
     totalSteps: 30,
-    planStatus: 'outside-dashed-gates-passed-full-matrix-open',
+    planStatus: 'active-figma-like-stroke-matrix-verification',
     nextExecutableStepId: 'visible-final-result',
     nextExecutableStepNumber: 30,
-    nextExecutableStepStatus: 'partial',
+    nextExecutableStepStatus: 'aligned',
     stopRule:
-      'The outside dashed blocker is resolved for the current deterministic and AI-reviewed gates. Do not declare the full stroke system complete until every exposed Figma stroke family has an encoded reference oracle, implementation evidence, projection parity, diagnostics, and Step 30 visual proof.',
+      'The 2026-05-20 central filled-face inside dashed blocker and outside high-curvature disconnected-sliver blocker are fixed and verified for the encoded matrix slice. The high-curvature gate requires polygon-quality evidence, not polygonCount-only evidence. Any newly captured Figma mismatch must reopen the earliest owning upstream step; renderer output must not be patched to hide upstream fill-rule, face-classification, domain, candidate, legality, projection, or interval failures.',
     blockedDownstreamStepIds: []
   }
 
@@ -99,35 +102,38 @@
       'Invalid or invisible strokes emit rejection diagnostics here; downstream geometry stages consume normalized specs only.'
     ],
     'build-path-topology': [
-      'BuildPathTopologyModel creates the canonical source-path topology model: fillRule, source revision, topology family, contours, total length, legal-domain descriptors, and source metadata.',
-      'It may describe self-intersections and legal domains, but it must not allocate dash intervals or create product stroke polygons.'
+      'BuildPathTopologyModel creates the canonical source-path topology model: Figma winding-rule basis, source revision, topology family, contours, total length, legal-domain descriptors, and source metadata.',
+      'Figma supports NONZERO and EVENODD winding rules; missing or unspecified data must not silently become even-odd when Figma default behavior should be nonzero.',
+      'This step may describe self-intersections and legal domains, but it must not allocate dash intervals or create product stroke polygons.'
     ],
     'shared-geometry-model': [
-      'The shared resolved geometry model is the canonical fill/hole/legal-domain evidence for self-intersecting paths.',
-      'For self-intersecting inside/outside, this model is the authority for source split ranges, legal side, and legality evidence, but its fill/hole boundaries are not dashed product paths.',
-      'Fill, stroke, diagnostics, export, and future shadow consume this shared side/legal evidence; downstream stroke stages must not re-resolve self-intersecting side from source orientation, visible fill paint, packet order, or rendered pixels.'
+      'The shared resolved geometry model is the canonical region/loop/winding-rule/face/boundary evidence for self-intersecting paths.',
+      'For self-intersecting inside/outside, this model must output filled faces, real unfilled holes, filled-filled internal adjacency, global exterior boundaries, open path boundaries, and boundary-domain split segments with adjacent face occupancy, selected inside/outside eligibility, region ids, face ids, and winding-rule evidence.',
+      'A central self-intersecting face must not be called a hole from contour orientation, signed area, or even-odd helper naming. It is a filled face when region/winding-rule evaluation says it is filled.',
+      'Fill, stroke, diagnostics, export, and future shadow consume this shared boundary-domain evidence; downstream stroke stages must not re-resolve self-intersecting side from source orientation, visible fill paint, packet order, selectedSide-only metadata, or rendered pixels.'
     ],
     'resolve-source-families': [
       'ResolveSourceFamilies returns one auditable support result for topology family, stroke family, support state, blocked reason, and legal-domain hints.',
       'Support classification must distinguish open center-equivalent, simple closed, compound, self-intersecting, center, inside, outside, solid, dashed, and unsupported combinations without spreading decisions through later helpers.'
     ],
     'resolve-stroke-domains': [
-      'ResolveStrokeDomains converts topology, source-family support, normalized stroke spec, and shared fill/hole legal evidence into the concrete stroke domains later stages may consume.',
-      'For self-intersecting inside/outside dashed strokes, this is where Figma-like split ranges and implicit fill/hole side-authority are declared; the step must not allocate dash intervals or emit product polygons.'
+      'ResolveStrokeDomains converts topology, source-family support, normalized stroke spec, and shared boundary-domain evidence into the concrete stroke domains later stages may consume.',
+      'For self-intersecting inside dashed strokes, the domain set includes every filled face boundary, including the central filled face boundary in the Figma star. For outside dashed strokes, the domain set includes only filled-to-exterior boundaries and excludes filled-filled internal adjacency. This step must not allocate dash intervals or emit product polygons.'
     ],
     'allocate-intervals': [
       'AllocateIntervals consumes the resolved stroke domain plan rather than deriving domains privately.',
       'Center and simple dashed families may allocate intervals on the canonical source/topology length domain.',
-      'Self-intersecting constrained inside/outside dashed families must allocate intervals per Figma-like intersection split range: half-dash at both ends, normal-range reference gap rhythm for middle dash count, and no continuity across intersection range boundaries. Side-resolution changes are candidate-stage concerns, not interval-domain boundaries.'
+      'Self-intersecting constrained inside/outside dashed families must allocate intervals per selected boundary split segment: half-dash at both ends, normal-range reference gap rhythm for middle dash count, and no continuity across boundary split-segment boundaries.'
     ],
     'build-source-span-graph': [
-      'SourceSpanGraph maps every interval and candidate back to authored source spans, vertices, dash boundaries, and intersection-derived split points.',
-      'Provenance must stay explicit so downstream packets can prove they came from source-path split ranges rather than fill/hole contour dash domains.'
+      'SourceSpanGraph maps every interval and candidate back to resolved boundary-domain split segments, authored source spans, vertices, dash boundaries, and intersection-derived split points.',
+      'Provenance must stay explicit so downstream packets can prove which boundary domain, face, source span, and intersection split point produced each visible dash.'
     ],
     'build-one-sided-candidates': [
-      'BuildOneSidedCandidates turns normalized stroke specs and intervals into local one-sided candidate geometry only.',
-      'Inside/outside side selection for self-intersecting ranges consumes shared model / StrokeDomainPlan selectedSide metadata; orientation fallback, global normal choice, visible-fill dependency, high-curvature cross-segment repair, and boundary-contour restroking are invalid for this family.',
-      'Outside dashed candidates must have their own butt/square/round cap and acute-angle oracle. Passing inside/center split-range gates is not evidence that outside selected-side product geometry is Figma-like.'
+      'BuildOneSidedCandidates turns normalized stroke specs and intervals into candidate geometry only.',
+      'For self-intersecting constrained inside/outside dashed strokes, candidates must be built from Step 14 filled-face boundary-domain intervals. Inside central filled-face boundary candidates are product candidates; outside candidates are valid only for filled-to-exterior domains.',
+      'Orientation fallback, global normal choice, visible-fill dependency, high-curvature cross-segment repair, selected-side-only product geometry, and source-path-only product substitutes are invalid for this family.',
+      'Outside dashed candidates must preserve butt/square/round cap and acute-angle geometry only on global exterior boundary domains.'
     ],
     'partition-arrangement-faces': [
       'Arrangement partitions candidate geometry into exact faces only for supported/gated families.',
@@ -139,8 +145,8 @@
     ],
     'apply-legality': [
       'Legality clips or filters existing candidate geometry against the correct legal domain for the stroke family.',
-      'For self-intersecting inside/outside, implicit fill/hole domains apply even without visible fill paint; legality must preserve legal-side hole stroke and must not construct replacement geometry.',
-      'Legality is a generic constrained-domain filter for inside and outside, not an inside-only helper. Outside dashed candidates must be filtered away from the fill side while preserving selected-side provenance.'
+      'For self-intersecting inside/outside, legality enforces the selected boundary domain’s filled-face/exterior side and eligibility even without visible fill paint: inside keeps selected filled-face boundary geometry, while outside keeps only filled-to-exterior boundary geometry.',
+      'Legality must preserve terminal and boundary-domain provenance, must not construct replacement geometry, and must not allow filled-filled internal adjacency to render as outside stroke.'
     ],
     'build-resolved-stroke-regions': [
       'Resolved stroke regions are paint-free semantic geometry packets carrying geometry, support, provenance, owner, legal-domain, interval, side-resolution, and revision metadata.',
@@ -152,15 +158,15 @@
     ],
     'fill-region-consumer': [
       'Fill consumes shared fillRegions from the resolved geometry model and must not recompute competing self-intersection truth.',
-      'Fill visibility is separate from stroke side-resolution: hidden or absent fill paint does not remove the implicit fill/hole legal domains required by inside/outside stroke.'
+      'Fill visibility is separate from stroke side-resolution: hidden or absent fill paint does not remove the implicit region/face/winding-rule evidence required by inside/outside stroke.'
     ],
     'build-final-faces': [
       'FinalFace[] is the canonical final geometry source after ownership, legality, regions, and paint payload attachment.',
-      'FinalFace records must preserve interval/source-span/legal-domain/owner/side-resolution/runtime/paint metadata and collapse duplicate visual faces only without losing provenance.'
+      'FinalFace records must preserve boundaryDomainId, boundaryRole, interval/source-span/legal-domain/owner/side/runtime/paint metadata and collapse duplicate visual faces only without losing provenance.'
     ],
     'emit-render-hit-export-packets': [
       'Render, hit-test, and export packets are projections from FinalFace[] only.',
-      'They must not restroke authored input, reconstruct center bands, group by sourceContourIds as correctness proof, or create separate hole-boundary dashed loops.'
+      'They must not restroke authored input, reconstruct center bands, group by sourceContourIds as correctness proof, create outside stroke for filled-filled internal adjacency, or use selected-side metadata as a substitute for boundary-domain eligibility evidence.'
     ],
     'render-entries': [
       'Render entries are renderer-ready projections of FinalFace geometry and paint payloads.',
@@ -180,8 +186,8 @@
     ],
     'visible-final-result': [
       'The visible product result is accepted only after upstream gates pass and deterministic visual/E2E probes confirm the Figma-like rules.',
-      'Final AI visual review must compare screenshots against Figma reference behavior: split-range dash placement, implicit hole-side stroke, no independent hole-boundary dash schedule, no uncollapsed product overlap, and no renderer-side repair.',
-      'Outside dashed final review must cover butt, square, and round caps, including top-left acute-angle first dash shape, outside-side coverage, fill-side absence, terminal half-dash/gap preservation, and no old boundary-contour product loop.'
+      'Final visual review must validate rule-driven screenshots: boundary-domain dash placement, central filled-face inside stroke exists, outside is exterior-only, no uncollapsed product overlap, and no renderer-side repair. Reference screenshots are evidence for deriving rules, not the test oracle.',
+      'Outside dashed final review must cover butt, square, and round caps, including top-left acute-angle first dash shape, global-exterior-only outside behavior, terminal half-dash/gap preservation, and no outside product packets or pixels on filled-filled internal adjacency.'
     ]
   }
 
@@ -508,28 +514,30 @@
       helpers: [
         'buildResolvedVectorGeometryModel',
         'buildSelfIntersectingGeometry',
-        'buildSelfIntersectingEvenOddResolvedGeometry'
+        'buildSelfIntersectingEvenOddResolvedGeometry (legacy helper name; must not imply all Figma fill rules are even-odd)'
       ],
       inputs: ['PathTopologyModel per network', 'fillRule'],
       outputs: [
         'ResolvedVectorGeometryModel',
         'fillRegions',
         'legalFaceBoundaries',
-        'sourceSplitRanges with legalSide per range',
+        'sourceSplitRanges with legalSide / filledSide / unfilledSide per range',
+        'boundaryRole per source split range',
         'fill/legal-region evidence',
         'source provenance'
       ],
       decisions: [
         'Fill consumes fillRegions.',
-        'Self-intersecting inside/outside stroke consumes sourceSplitRanges and legalSide from this shared model; downstream stroke stages must not re-resolve side from orientation, packet order, or rendered pixels.',
-        'Shared even-odd/nonzero fill/hole regions are canonical side-resolution and legality evidence but must not become product dash domains.',
+        'Self-intersecting inside/outside stroke consumes sourceSplitRanges, legalSide, filledSide, unfilledSide, and boundaryRole from this shared model; downstream stroke stages must not re-resolve side from orientation, packet order, or rendered pixels.',
+        'Shared NONZERO/EVENODD region and face evaluation is canonical side-resolution and legality evidence but must not become product dash domains.',
+        'Classifying an internal filled face with a hole role is invalid. Side and eligibility must come from adjacent face occupancy and region/winding-rule evidence before legality/projection.',
         'Outside stroke is not a separate side-resolution system: the shared split-range selected side must be the only side authority for later candidate, legality, projection, and diagnostics stages.',
         'Future shadow must consume this model rather than rebuilding contours.'
       ],
       next: ['fill-region-consumer', 'resolve-source-families'],
       risks: [
         'Independent fill/stroke contour builders reintroduce multiple geometry truths.',
-        'Downstream orientation fallback for self-intersecting inside/outside can invert Figma-like side selection if it ignores implicit fill/hole legal domains.',
+        'Downstream orientation fallback for self-intersecting inside/outside can invert Figma-like side selection if it ignores implicit region/face legal domains.',
         'An inside-only or visible-fill-only consumer can make outside dashed appear correct in metadata while producing the wrong acute-angle and cap geometry.'
       ],
       tags: ['truth', 'shared']
@@ -582,7 +590,7 @@
         'ResolvedSourceFamily',
         'normalized stroke spec',
         'ResolvedVectorGeometryModel',
-        'implicit fill/hole legal domains'
+        'implicit region/face legal domains'
       ],
       outputs: [
         'StrokeDomainPlan',
@@ -594,9 +602,9 @@
       decisions: [
         'Open inside/outside domains resolve to center-equivalent domains.',
         'Simple closed domains stay source-path one-sided domains.',
-        'Compound closed inside/outside domains use normalized legal boundary spans with hole-side inversion before interval allocation.',
-        'Self-intersecting inside/outside domains are split by topology plus implicit fill/hole legal evidence before interval allocation.',
-        'Fill/hole boundaries are legal and side evidence only; this step must not produce product stroke polygons.'
+        'Compound closed inside/outside domains use normalized legal boundary spans with explicit shell/real-hole metadata before interval allocation.',
+        'Self-intersecting inside/outside domains are split by topology plus implicit region/face legal evidence before interval allocation.',
+        'Filled-face and real-hole boundaries are legal and side evidence only; this step must not produce product stroke polygons.'
       ],
       next: ['allocate-intervals'],
       risks: [
@@ -697,14 +705,15 @@
         'Closed constrained inside/outside stroke must not use doubled-width center-band clipping as product geometry.',
         'Open authored inside/outside vector strokes resolve to center-equivalent geometry before constrained candidate construction.',
         'Self-intersecting inside/outside side selection is already resolved by the shared geometry model per source range, independent of whether fill paint is visible. This step consumes selectedSide from the stroke domain plan and must not call orientation or fill-probe side fallback for that family.',
-        'Self-intersecting inside/outside dashed product geometry is built from topology-split source-range dash intervals and local one-sided offset/ribbon candidates. Hole and even-odd fill boundaries are side/legality authority and must produce visible legal-side hole stroke where Figma does, but they must not become a separate forbidden contour dash schedule.',
+        'Self-intersecting inside/outside dashed product geometry is built from selected filled-face boundary dash intervals and local one-sided offset/ribbon candidates. Real unfilled holes and winding-rule fill boundaries are side/legality evidence only; they must not replace filled-face classification.',
         'Outside dashed candidates are validated separately for butt, square, and round caps. The top-left acute-angle first dash remains a required oracle because inside/center gates alone do not prove outside cap shape or selected-side geometry.'
       ],
       next: ['partition-arrangement-faces'],
       risks: [
         'Wrong-side or ghost-band output usually originates here, not in paint or render.',
         'A self-intersecting path can flip apparent winding across ranges; using a fixed normal for inside/outside can invert the final stroke even when interval allocation is correct.',
-        'No-fill self-intersecting vectors still need deterministic inside/outside side selection from implicit fill/hole legal domains; source-path orientation is not a Figma-like DoD for the star case.',
+        'No-fill self-intersecting vectors still need deterministic inside/outside side selection from implicit region/face legal domains; source-path orientation is not a Figma-like DoD for the star case.',
+        'If Step 17 ignores shared face/region/occupancy metadata, central filled-face inside stroke can disappear and outside internal-adjacent product geometry can survive on the wrong face.',
         'Future outside fixes must stay in candidate construction and shared selectedSide consumption; renderer, fill-boundary restroking, or visible-fill fallback cannot be used as repair.'
       ],
       tags: ['canonical', 'candidate']
@@ -785,7 +794,7 @@
         'Filter or clip ownership-classified candidate faces against legal-domain and support policies.',
       helpers: [
         'buildConstrainedSolidLegalityClippingResult',
-        'clipSourcePathPolygonsToEvenOddLegalDomain',
+        'clipSourcePathPolygonsToEvenOddLegalDomain (legacy helper name; must consume explicit Figma fillRule basis)',
         'buildCompoundLegalDomainNormalization'
       ],
       inputs: [
@@ -803,14 +812,15 @@
         'Legality acts on candidate one-sided faces only.',
         'Legality may remove or clip invalid area, but it cannot repair a wrong geometry model.',
         'Compound paths evaluate legal domains from explicit shell/hole metadata or backend-normalized regions.',
-        'Self-intersecting constrained inside/outside candidates must be filtered or clipped against implicit fill/hole legal domains regardless of visible fill paint.',
-        'Outside legality must exclude fill-side product area from Step 17 outside candidates while preserving the selectedSide, interval, split-range, owner, and legal-domain provenance needed by FinalFace/export/visual probes.'
+        'Self-intersecting constrained inside/outside candidates must be filtered or clipped against the selected region-boundary domain eligibility, not against an authored-source-path-only or selectedSide-only fallback.',
+        'Inside legality preserves geometry for selected filled-face boundary domains. Outside legality preserves only filled-to-exterior boundary-domain geometry and must reject filled-filled internal adjacency.',
+        'Legality preserves interval, boundaryDomainId, boundaryRole, owner, adjacent face, filled/exterior side, and legal-domain provenance needed by FinalFace/export/visual probes.'
       ],
       next: ['build-resolved-stroke-regions'],
       risks: [
         'If legality invents replacement geometry, render/hit/export parity no longer traces to canonical candidates.',
         'If legality only consults legal domains when renderable fill paint exists, no-fill self-intersecting inside/outside strokes can still render on the wrong Figma side.',
-        'A generic legality clip may fall back to preserving upstream selected-side candidate geometry when exact clipping degenerates; that fallback is valid only because Step 17 selectedSide and Step 30 pixels remain the product truth for the current gate.'
+        'If legality falls back to preserving upstream selected-side candidate geometry when exact clipping degenerates, outside filled-filled internal adjacency strokes can leak into the final output.'
       ],
       tags: ['canonical', 'legality']
     },
@@ -919,7 +929,7 @@
       outputs: ['fill faces drawn on graphic'],
       definitionOfDone: [
         'Fill consumes ResolvedVectorGeometryModel fillRegions when shared self-intersecting fill geometry is available.',
-        'Hidden or absent fill paint must not remove implicit fill/hole legal-domain evidence required by stroke side-resolution and legality.',
+        'Hidden or absent fill paint must not remove implicit region/face legal-domain evidence required by stroke side-resolution and legality.',
         'Fallback fill construction may run only when shared fill regions are unavailable or unsupported; it must not become a competing self-intersection authority.',
         'Fill drawing must not mutate stroke topology, domain plans, intervals, candidates, legality, region packets, FinalFace records, or render/hit/export stroke projections.'
       ],
@@ -929,7 +939,7 @@
       ],
       knownLimits: [
         'This step owns fill consumption only; stroke side-resolution and legality consume shared legal evidence upstream.',
-        'No-fill stroke parity is still expected to receive implicit fill/hole legal evidence even when no fill face is drawn.'
+        'No-fill stroke parity is still expected to receive implicit region/face legal evidence even when no fill face is drawn.'
       ],
       failureSignals: [
         'Self-intersecting fill cache faces differ from shared resolved fillRegions when those regions exist.',
@@ -1001,12 +1011,12 @@
         'Specialization is payload-level, not geometry-level.',
         'Hit-test and export must not restroke authored input.',
         'Blocked constrained requests keep typed diagnostics and do not pretend geometry exists.',
-        'Outside dashed projection must preserve selectedSide and legal-domain provenance strongly enough for tests to prove outside-side geometry came from FinalFace rather than from a renderer or contour fallback.'
+        'Inside/outside dashed projection must preserve boundary-domain eligibility provenance strongly enough for tests to prove final geometry came from FinalFace region-boundary domains rather than from renderer repair, authored-source restroking, or selectedSide-only metadata.'
       ],
       next: ['render-entries', 'hit-export'],
       risks: [
         'If any output path consumes a different geometry source, render/hit/export parity is broken.',
-        'FinalFace/render/hit/export metadata must preserve enough side-resolution provenance to prove implicit legal-domain side selection; sourceContourIds alone are not Figma parity proof.'
+        'FinalFace/render/hit/export metadata must preserve enough boundary-domain eligibility provenance to prove central filled-face inside presence and outside filled-filled internal adjacency absence; sourceContourIds or selectedSide alone are not Figma parity proof.'
       ],
       tags: ['canonical', 'emit']
     },
@@ -1137,14 +1147,14 @@
       decisions: [
         'Supported families must show render / hit-test / export parity.',
         'Unsupported or gated families must remain explicit through typed diagnostics.',
-        'Self-intersecting inside/outside visual gates must compare against Figma split-range dash allocation, implicit fill/hole side behavior, overlap ownership, visible legal-side hole stroke, and cap-specific outside shape.',
-        'Outside dashed butt/square/round is covered by deterministic probes and AI review for the current star/reference gate; this remains a scoped gate, not a full-stroke-matrix completion claim.'
+        'Self-intersecting inside/outside visual gates must compare against Figma split-range dash allocation, implicit region/face side behavior, overlap ownership, visible central filled-face inside stroke, exterior-only outside behavior, and cap-specific outside shape.',
+        'Outside dashed butt/square/round is covered by deterministic probes and AI review for the current product-exposed stroke matrix gate.'
       ],
       next: [],
       risks: [
         'Screenshot-visible failures should be localized by changed parameter family and dirty-stage trace, not by guessing.',
-        'A final visual gate that accepts source-path cumulative dash intervals can pass while still disagreeing with Figma split-range dash allocation, overlap behavior, and hole stroke behavior.',
-        'A future Figma reference can still invalidate the current outside gate; final visual status must be reopened whenever a newly discovered family or cap/position combination disagrees with reference behavior.'
+        'A final visual gate that accepts source-path cumulative dash intervals can pass while still disagreeing with Figma split-range dash allocation, overlap behavior, and filled-face inside stroke behavior.',
+        'New Figma-observed behavior can still invalidate the current outside gate; final visual status must be reopened whenever a newly discovered family or cap/position combination changes the generic rule set.'
       ],
       tags: ['final', 'truth']
     }
@@ -1284,7 +1294,7 @@
       ],
       evidenceToInspect: [
         'Confirm fillRegions and legalFaceBoundaries come from the same source revision.',
-        'For self-intersecting dashed inside/outside, confirm fill/hole boundaries are evidence only and are not used as product dash domains.'
+        'For self-intersecting dashed inside/outside, confirm region/face boundaries are evidence only and are not used as product dash domains.'
       ]
     },
     Fill: {
@@ -1456,7 +1466,7 @@
         'Confirm open authored inside/outside paths emit center-equivalent geometry.',
         'Confirm closed constrained inside/outside paths do not emit doubled center-band substitute geometry.',
         'Confirm self-intersecting inside/outside dashed paths consume Step 15 split-range dash intervals and emit local one-sided candidates directly from those ranges.',
-        'Confirm self-intersecting inside/outside side selection uses implicit fill/hole legal domains per range even when fill paint is absent.'
+        'Confirm self-intersecting inside/outside side selection uses implicit region/face legal domains per range even when fill paint is absent.'
       ]
     },
     'build-final-faces': {
@@ -1565,11 +1575,10 @@
       'Residual risk: deep exact legal-domain and intersection geometry are still supplemented by later shared-geometry and source-family stages.'
     ],
     'shared-geometry-model': [
-      'Implemented for current vector self-intersection needs through buildResolvedVectorGeometryModel.',
-      'Step 12 DoD corrected: self-intersecting fill/legal regions are resolved from one shared model per network for fill, diagnostics, and legality evidence.',
-      'Corrected risk: shared fill/hole and split topology evidence must drive Figma-like source-range segmentation for dashed inside/outside; treating it as evidence-only while keeping one cumulative dash domain is wrong.',
-      'Risk reduced for inside/center: hole-side stroke visibility, split-range terminal coverage, adjacent gaps, and overlap ownership are covered by deterministic final visual probes and AI screenshot review.',
-      'Outside gate risk reduced on 2026-05-19: Step 17/20 now consume sourceSplitRanges/legalSide for the current outside dashed star/reference gates. Any future downstream orientation, visible-fill, or packet-local side fallback still reopens this step.'
+      'Reopened on 2026-05-20: previous Step 12 gates were insufficient because strokeBoundaryDomains could still be derived from side-classified sourceSplitRanges instead of actual region-boundary contour geometry.',
+      'Correct Step 12 DoD: the shared model must emit first-class region-boundary stroke domains: outer filled-region boundaries, filled-face internal boundaries, global exterior boundaries, open-path boundaries, and their boundary split segments.',
+      'Each boundary split segment must carry adjacent face ids, filled/exterior side evidence, boundaryRole, inside/outside eligibility, and enough provenance for fill, stroke, diagnostics, export, and future shadow to consume without recomputing side.',
+      'Required TDD gate: resolved-vector-geometry-model.test.ts must fail before implementation when a filled-face domain lacks actual boundary geometry, boundary length, and contour-local distance fields. Metadata-only face labels are not proof.'
     ],
     'resolve-source-families': [
       'Implemented initial canonical boundary through resolveSourceFamily and public ResolvedSourceFamily types.',
@@ -1578,15 +1587,15 @@
       'Step 13 matrix now has no implementation-gap or unverified-reference entries. Residual parity work moves downstream: every classified family must still receive explicit domain-plan, interval, candidate, legality, projection, and visual evidence before overall completion.'
     ],
     'resolve-stroke-domains': [
-      'Step 14 inserted after Figma-like recalibration: split-range and side-authority resolution is now an explicit flow gate before interval allocation.',
-      'Required DoD: ResolveStrokeDomains must consume PathTopologyModel, ResolvedSourceFamily, normalized stroke spec, and shared fill/hole legal evidence, then emit StrokeDomainPlan / FigmaLikeSplitRange[] without allocating dash intervals or building product polygons.',
-      'Residual risk: current implementation evidence is partly distributed through constrained dashed helpers; the refactor must converge that behavior into this explicit boundary before downstream steps can be considered stable.'
+      'Reopened on 2026-05-20: resolveStrokeDomains must prove it consumes actual Step 12 boundary-domain geometry, not sourceSplitRanges relabeled as stroke domains.',
+      'Required DoD: ResolveStrokeDomains must consume PathTopologyModel, ResolvedSourceFamily, normalized stroke spec, and shared region/face legal evidence, then emit StrokeDomainPlan / FigmaLikeSplitRange[] without allocating dash intervals or building product polygons.',
+      'Required TDD gate: stroke-domain-plan.test.ts must prove inside includes true filled-face internal boundary-domain geometry and outside excludes those domains. The plan must expose boundary-domain length and contour-local start/end distances for Step 15.'
     ],
     'allocate-intervals': [
       'Implemented through allocateDashedIntervalsForTopology and topology totalLength/closed inputs.',
       'Validated: tests prove every Figma-like split range emits first visible interval [rangeStart, rangeStart + dash/2] and last visible interval [rangeEnd - dash/2, rangeEnd], clamped only for short ranges.',
       'Validated: interval provenance preserves split range id/start/end and terminal role through VisibleDashedTopologyInterval for candidates, FinalFace, render/export, and E2E probes.',
-      'Residual risk: future interval changes must keep cumulative source-path scheduling out of self-intersecting constrained split ranges.'
+      'Reopened on 2026-05-20 for filled-face-boundary domains: interval allocation must prove its domain distances come from selected region-boundary geometry, not authored source-path distances.'
     ],
     'build-source-span-graph': [
       'Implemented through buildSourceSpanGraph, sourceSpanIds metadata, and explicit source-span provenance availability classification.',
@@ -1594,10 +1603,10 @@
       'Residual risk: later packet stages must keep carrying sourceSpanIds through candidate, ownership, final-face, and projection bridges without recovering provenance from geometry ids.'
     ],
     'build-one-sided-candidates': [
-      'Revalidated on 2026-05-18 for inside/center: final star screenshots and packet/final-face/render-entry gates preserve split-range terminal half-dashes on source-path candidates.',
-      'DoD locked: candidate geometry consumes split-range terminal intervals as the minimum semantic unit and preserves each split-boundary terminal on both adjacent ranges in the star-wide oracle, not only in the focused fixture.',
-      'Candidates must continue to come from source-path split intervals only; fill/hole boundary contours remain side-resolution and legality evidence, not dashed product paths.',
-      'Outside gate passed on 2026-05-19 for the current star/reference fixtures: butt/square/round outside candidates consume shared selectedSide metadata and preserve split-range provenance. Residual risk: a new Figma outside reference can still require additional cap/angle candidate oracle coverage.'
+      'Reopened on 2026-05-20: previous candidate gates did not prove geometry was built from true filled-face internal boundary domains.',
+      'DoD: each selected boundary split segment is the minimum semantic unit and preserves terminal half-dashes on both ends.',
+      'DoD: inside emits candidates for outer and filled-face internal boundary domains; outside emits candidates only for global exterior boundary domains.',
+      'Invalidated prior gate: outside internal-adjacency-range product packets on unfilledSide are now a failure signal, not a passing condition.'
     ],
     'partition-arrangement-faces': [
       'Implemented through GeometryBackendRegistry/Clipper2, buildArrangedStrokeFinalFacesFromResolvedPackets, constrained solid promotion, and constrained dashed exact promotion for supported non-gradient packets.',
@@ -1612,9 +1621,9 @@
     ],
     'apply-legality': [
       'Implemented through constrained solid legality clipping, compound legal-domain normalization, and dashed legal-domain handling.',
-      'Revalidated on 2026-05-18 for inside/center: legality keeps legal-side hole stroke and terminal identity in the fill/no-fill self-intersecting star screenshots.',
-      'DoD locked: legality must clip/filter source-path terminal candidate geometry only, keep legal-side hole stroke, and preserve terminal identity without replacement center bands, source-contour loops, or fill/hole boundary dashed products.',
-      'Outside gate passed on 2026-05-19 for the current star/reference fixtures: legality uses the generic source-path implicit legal-domain clip/filter path for inside and outside. Residual risk: exact clipping degeneration currently preserves upstream selected-side candidate geometry, so future references must keep Step 17 selectedSide and Step 30 pixels under review.'
+      'Invalidated on 2026-05-20 for the filled-star inside blocker: prior legality evidence did not prove central filled-face inside stroke from region/winding-rule classification.',
+      'Reopened on 2026-05-20 for the filled-face-boundary slice: legality must filter/clip selected boundary-domain candidates only. If Step 17 emits source-path geometry, legality cannot make it Figma-like by selected-side clipping.',
+      'Failure signal: a test passes because central filled-face inside pixels exist while provenance still points to sourceSplitRange-only geometry.'
     ],
     'build-resolved-stroke-regions': [
       'Implemented through the public paint-free StrokeRegionPacket contract and builders from resolved packets/final faces.',
@@ -1634,18 +1643,18 @@
       'Revalidated on 2026-05-18 for inside/center: FinalFace-derived packets and render entries support star-wide terminal/gap probes after collapse.',
       'DoD locked: FinalFace output must preserve figmaLikeSplitRangeTerminals and child packet geometry in a form that supports star-wide terminal/gap probes after collapse.',
       'Residual risk: future FinalFace collapse changes can preserve ids while losing a probeable terminal shape.',
-      'Outside gate passed on 2026-05-19 for the current star/reference fixtures: FinalFace-derived packets preserve selectedSide/legal-domain provenance as well as terminal ids and source spans. Residual risk remains for unencoded outside Figma references.'
+      'Reopened on 2026-05-20 for the filled-face-boundary slice: FinalFace records must prove product geometry came from true boundaryDomain geometry, not only selectedSide/legal-domain metadata and source spans.'
     ],
     'emit-render-hit-export-packets': [
       'Implemented through FinalFace[] projections for render entries, hit area, and export packets.',
       'Revalidated on 2026-05-18 for inside/center: render/export projection preserves terminal interval provenance and probeable terminal geometry in the final star gate.',
       'DoD locked: render/hit/export packets must project from FinalFace[] and preserve terminal interval provenance plus probeable terminal geometry without restroking authored input.',
       'Residual risk: export/render simplification can drop enough geometry detail to make terminal probes meaningless.',
-      'Outside gate passed on 2026-05-19 for the current star/reference fixtures: projection metadata proves outside selectedSide and legality provenance; sourceContourIds or visual red pixels alone remain insufficient for future gates.'
+      'Reopened on 2026-05-20 for the filled-face-boundary slice: projection metadata must preserve true boundaryDomain geometry provenance. SourceContourIds, boundaryRole, selectedSide, or red pixels alone are insufficient.'
     ],
     'render-entries': [
       'Implemented through toSolidCenterStrokeRenderEntriesFromFinalFaces and native center solid paths.',
-      'Revalidated on 2026-05-18: direct FinalFace solid-graphics projection renders the self-intersecting inside dashed round star with terminal half-dashes, same-range gaps, and legal-side hole stroke.',
+      'Invalidated on 2026-05-20 for the filled-star inside blocker: prior render-entry evidence did not prove central filled-face inside stroke from FinalFace region/face provenance.',
       'DoD locked: render entries must project probeable terminal FinalFace geometry and must not use native center or renderer-side repair for constrained inside/outside semantics.',
       'Residual risk: native center paths remain allowed only for center-equivalent semantics.'
     ],
@@ -1662,10 +1671,10 @@
       'Risk reduced: product branch id, support state, blocked reason, owner/legal provenance, and dirty-stage trace are now present on the public runtime diagnostic shape.'
     ],
     'visible-final-result': [
-      'Implemented as the rendered product output from fill regions and FinalFace-derived stroke entries.',
-      'Revalidated on 2026-05-18: deterministic screenshot probes cover visible star split-range terminals, same-split-range adjacent gaps, implicit hole-side stroke, no independent contour loop, and packet provenance.',
-      'AI visual review passed the current fill and no-fill artifacts: the output shows source-path split-range inside dashed round stroke with terminal half-dashes and central hole-like legal-side stroke.',
-      'Residual risk: Step 30 must be reopened for any newly discovered Figma stroke family or visual mismatch; screenshot review cannot be skipped.'
+      'Reopened on 2026-05-20: current final visual gates do not yet prove region-boundary stroke-domain parity; they can pass when hole is only metadata.',
+      'Correct final visual DoD: inside screenshots contain filled-face internal boundary stroke; outside screenshots contain no filled-face internal boundary stroke.',
+      'Correct final visual DoD: deterministic probes prove boundary-domain provenance, terminal half-dashes, redistributed gaps, cap assembly, overlap collapse, and projection from FinalFace.',
+      'Required TDD gate: final visual probes must sample computed hole boundary geometry and prove inside filled-side coverage plus outside absence. Command pass and manual screenshot review without boundary-domain probes cannot mark Step 30 aligned.'
     ]
   }
 
@@ -1752,9 +1761,9 @@
     classifyCompoundClosedLegalDomains:
       'Requires closed compound topology and legal-domain descriptors; determines inside/outside legal face families.',
     resolveStrokeDomains:
-      'Requires PathTopologyModel, ResolvedSourceFamily, normalized stroke spec, optional sourcePath, and shared resolved fill/hole legal evidence; returns the family-specific StrokeDomainPlan without allocating dash intervals or building product polygons.',
+      'Requires PathTopologyModel, ResolvedSourceFamily, normalized stroke spec, optional sourcePath, and shared resolved region/face legal evidence; returns the family-specific StrokeDomainPlan without allocating dash intervals or building product polygons.',
     buildFigmaLikeSplitRangeDashDomains:
-      'Requires self-intersecting closed source topology; returns intersection split ranges for Figma-like dashed allocation without using source segments or fill/hole boundaries as dash product paths. The surrounding StrokeDomainPlan carries source-segment provenance and implicit fill/hole side authority.',
+      'Requires self-intersecting closed source topology; returns intersection split ranges for Figma-like dashed allocation without using source segments or region/face boundaries as dash product paths. The surrounding StrokeDomainPlan carries source-segment provenance and implicit region/face side authority.',
     allocateDashedIntervalsForTopology:
       'Requires normalized dash pattern/offset plus whole-source-path total length and closed state for center/simple families; self-intersecting constrained dashed must bypass it and use split-range allocation.',
     allocateFigmaLikeSplitRangeDashedIntervals:
@@ -1776,9 +1785,9 @@
     buildConstrainedDashedStrokeResolvedPackets:
       'Requires dashed interval records on the correct family domain: whole-source-path for center/simple families, intersection split ranges for self-intersecting constrained dashed; also requires topology/legal-domain metadata and support state.',
     buildSourcePathDashedOneSidedCandidates:
-      'Requires split-range dash intervals, implicit legal-domain inside/outside side selection, and source-span provenance; emits self-intersecting constrained dashed candidates without using source segments or fill/hole boundaries as dash paths.',
+      'Requires split-range dash intervals, implicit legal-domain inside/outside side selection, and source-span provenance; emits self-intersecting constrained dashed candidates without using source segments or region/face boundaries as dash paths.',
     resolveSourcePathStrokeSide:
-      'Requires a closed source-path range, sampled source points, fill rule, stroke width, and authored inside/outside position; samples both local normal sides against the implicit fill/hole domain and returns the selected offset side or a blocked reason. It must not guess from a fixed global normal or depend on visible fill paint.',
+      'Requires a closed source-path range, sampled source points, fill rule, stroke width, and authored inside/outside position; samples both local normal sides against the implicit fill/filled-face domain and returns the selected offset side or a blocked reason. It must not guess from a fixed global normal or depend on visible fill paint.',
     resolveSourcePathOrientationStrokeSide:
       'Requires a simple closed source path, sampled source points, stroke width, and authored inside/outside position for explicitly orientation-based families; it is not a Figma-like fallback for closed self-intersecting inside/outside star strokes.',
     GeometryBackendRegistry:
@@ -1917,7 +1926,7 @@
       ],
       implementationTrace: [
         'Resolved geometry model builds shared fill/legal regions from the same topology revision.',
-        'Corrected DoD: self-intersecting fill/hole boundaries are not Figma-like dashed stroke paths; they are side-resolution, legality, fill, and diagnostic evidence only.'
+        'Corrected DoD: self-intersecting region/face boundaries are not Figma-like dashed stroke paths; they are side-resolution, legality, fill, and diagnostic evidence only.'
       ],
       e2eStatus: [
         'Coverage: self-check star, constrained dashed, and reported dashed seam specs exercise this area.',
@@ -2163,7 +2172,7 @@
       ],
       e2eStatus: [
         'Direct unit gate passed: yarn workspace @asyra/preset test:local src/__tests__/stroke-render-renderable-stroke.test.ts.',
-        'Step 10 revalidation passed on 2026-05-17: normalizeStrokeSpec remains the canonical stroke-spec boundary and contains no product geometry, side-resolution, fill/hole, legality, or renderer-repair decisions.',
+        'Step 10 revalidation passed on 2026-05-17: normalizeStrokeSpec remains the canonical stroke-spec boundary and contains no product geometry, side-resolution, region/face, legality, or renderer-repair decisions.',
         'Step 10 direct gate passed on 2026-05-17: yarn workspace @asyra/preset test:local src/__tests__/stroke-render-renderable-stroke.test.ts.',
         'No dedicated visual/E2E required because this step is internal stroke-spec normalization and downstream render gates consume the compatibility wrapper.',
         'Step 10 recurring revalidation gate passed on 2026-05-17: yarn workspace @asyra/preset build:preset.',
@@ -2188,28 +2197,32 @@
         'Step 11 self-review note on 2026-05-17: allocateDashedIntervalsForTopology is still listed as the Step 15 interval helper and remains outside the PathTopologyModel output contract until that step is executed.',
         'Step 11 recurring revalidation gate passed on 2026-05-17: yarn workspace @asyra/preset build:preset.',
         'Step 11 recurring revalidation gate passed on 2026-05-17: yarn lint:ci produced 0 errors with existing no-console warnings.',
-        'Step 11 self-review: complete for PathTopologyModel schema extension; proceed to shared-geometry-model next.'
+        'Invalidated on 2026-05-20 for the filled-star inside blocker: prior Step 11 self-review did not prove Figma winding-rule basis for central filled-face classification. Step 11 is reopened as mismatch.',
+        'Step 11 filled-face correction passed on 2026-05-20: normalizePathTopologyFillRule now defaults unspecified fillRule to nonzero, and the filled-star gate routes that fill-rule basis into shared face classification.'
       ]
     },
     'shared-geometry-model': {
       implementationTrace: [
-        'buildResolvedVectorGeometryModel produces selfIntersecting fill/legal-region evidence.',
-        'resolvedGeometryByNetworkId is the shared vector render map used by self-intersecting fill, diagnostics, side resolution, legality, and future shadow; constrained dashed product geometry must remain source-path based.',
-        'Implemented on 2026-05-18: buildResolvedVectorGeometryModel exposes selfIntersecting.sourceSplitRanges. Each range carries sourceSegmentIndex, sourceStartDistance/sourceEndDistance, legalSide, contourIds, legalFaceIds, oppositeFaceIds, and edgeIds so fill/stroke/shadow consumers can reuse one shared classification.',
+        'buildResolvedVectorGeometryModel produces selfIntersecting fill/legal-region evidence and first-class region-boundary stroke domains.',
+        'resolvedGeometryByNetworkId is the shared vector render map used by self-intersecting fill, diagnostics, stroke domain selection, legality, and future shadow; constrained dashed product geometry must come from selected region-boundary domains.',
+        'Current implementation evidence includes selfIntersecting.strokeBoundaryDomains with side/face metadata, boundaryRole, inside/outside eligibility, and adjacent filled/unfilled face ids.',
         'Guard tests assert vector.ts calls buildResolvedVectorGeometryModel once and does not directly call self-intersection legal-domain builders outside the shared model.',
-        'Guard tests assert constrained dashed product construction does not consume legalBoundaryContours as dash paths and receives only split-range/source-path topology plus legal-domain side/clipping policy inputs.',
-        'Downstream side-selection mismatch fixed for the targeted star path: self-intersecting no-fill inside/outside now consumes shared sourceSplitRanges/legalSide instead of source-path orientation fallback or packet-local fill probes.'
+        'Invalidated guard: constrained dashed product construction must consume selected boundary-domain intervals, not only split-range/source-path topology plus legal-domain side/clipping policy inputs.',
+        'Downstream self-intersecting inside/outside must consume shared boundary-domain eligibility instead of source-path orientation fallback, packet-local fill probes, or selectedSide-only metadata.'
       ],
       e2eStatus: [
         'Direct unit gate passed: yarn workspace @asyra/preset test:local src/__tests__/resolved-vector-geometry-model.test.ts; this includes the guard that legalBoundaryContours stay out of constrained dashed product construction.',
         'Step 12 direct gate passed on 2026-05-17: yarn workspace @asyra/preset test:local src/__tests__/resolved-vector-geometry-model.test.ts src/__tests__/vector-preview-fill.test.ts src/__tests__/stroke-candidate-flow.test.ts.',
-        'Self-intersection dashed and visual gates now prove constrained dashed product geometry through split-range interval output plus Figma-like no-fill implicit hole-side selection for the targeted star self-check.',
+        'Self-intersection dashed and visual gates now prove constrained dashed product geometry through split-range interval output plus Figma-like no-fill implicit filled-face-side selection for the targeted star self-check.',
         'Step 12 recurring revalidation gate passed on 2026-05-17: yarn workspace @asyra/preset build:preset.',
         'Step 12 recurring revalidation gate passed on 2026-05-17: yarn lint:ci produced 0 errors with existing no-console warnings.',
         'Step 12 shared-model revalidation passed on 2026-05-18: yarn workspace @asyra/preset test:local src/__tests__/stroke-domain-plan.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts.',
         'Step 12 visual revalidation passed on 2026-05-18: yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts --workers=1.',
         'Step 12 recurring revalidation passed on 2026-05-18: yarn workspace @asyra/preset build:preset and yarn lint:ci produced 0 errors with existing no-console warnings.',
-        'Step 12 self-review: complete for shared geometry ownership and shared side-resolution consumption by the constrained dashed path.'
+        'Step 12 TDD correction passed on 2026-05-20: resolved-vector-geometry-model.test.ts now samples shared fillRegions on both sides of each sourceSplitRange and asserts filledSide/unfilledSide match actual fill occupancy. buildResolvedVectorGeometryModel now resolves side from fill-region evidence first, then falls back to contour boundaryRole only when sampling cannot vote.',
+        'Invalidated on 2026-05-20 for the filled-star inside blocker: the Step 12/14/17 cross-gate did not prove that the central Figma star face is filled and inside-eligible.',
+        'Invalidated on 2026-05-20 for the filled-star inside blocker: prior Step 12 self-review accepted shared side-resolution without proving region/winding-rule filled-face boundary domains. Step 12 is reopened as mismatch.',
+        'Step 12 filled-face boundary-domain gate passed on 2026-05-20: yarn workspace @asyra/preset test:local src/__tests__/resolved-vector-geometry-model.test.ts src/__tests__/stroke-domain-plan.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts src/__tests__/stroke-final-face.test.ts src/__tests__/vector-constrained-dashed-stroke.test.ts src/__tests__/vector-component.test.ts. Shared planar face edges are merged across ordinary degree-2 sample nodes and split at intersections/source boundaries, producing true filled-face boundary domains instead of holes or per-sample micro-domains.'
       ]
     },
     'resolve-source-families': {
@@ -2236,16 +2249,16 @@
     },
     'resolve-stroke-domains': {
       implementationTrace: [
-        'New explicit flow boundary for Figma-like recalibration: source-family support, topology, normalized stroke spec, and shared implicit fill/hole evidence must resolve into a stroke domain plan before intervals.',
+        'New explicit flow boundary for Figma-like recalibration: source-family support, topology, normalized stroke spec, and shared implicit region/face evidence must resolve into a stroke domain plan before intervals.',
         'For self-intersecting constrained dashed strokes, this boundary owns FigmaLikeSplitRange[] and side-authority metadata; it must not allocate intervals or emit candidate polygons.',
         'Implemented: resolveStrokeDomains now returns the explicit StrokeDomainPlan before interval allocation.',
         'Implemented: buildFigmaLikeSplitRangeDashDomains moved out of constrained dashed packet helpers and is now owned by the Step 14 domain boundary.',
         'Implemented: constrained dashed packet interval selection consumes StrokeDomainPlan.splitRangeDomains instead of rebuilding hidden self-intersecting split ranges inside packet helpers.',
-        'Updated on 2026-05-18: each FigmaLikeSplitRangeDashDomain is built from shared ResolvedVectorSourceSplitRange records. The domain plan carries sourceSegmentIndex plus shared implicit fill/hole side-resolution metadata; unresolved shared side selection blocks the domain plan instead of falling back to source-path orientation.',
+        'Updated on 2026-05-18: each FigmaLikeSplitRangeDashDomain is built from shared ResolvedVectorSourceSplitRange records. The domain plan carries sourceSegmentIndex plus shared implicit region/face side-resolution metadata; unresolved shared side selection blocks the domain plan instead of falling back to source-path orientation.',
         'Implemented: public preset index exports resolveStrokeDomains, buildFigmaLikeSplitRangeDashDomains, StrokeDomainPlan, StrokeIntervalDomainKind, and StrokeSideAuthority.',
         'Implemented on 2026-05-17: Step 14 now covers every getFigmaStrokeFamilyMatrix entry with an explicit domain plan classification.',
-        'Implemented on 2026-05-17: compound constrained domains expose legal-boundary-span plans with StrokeLegalBoundaryDomain records and hole-side inside/outside inversion instead of hidden vector-local behavior.',
-        'Implemented on 2026-05-17: self-intersecting constrained solid and dashed domains both require implicit fill/hole side authority; dashed uses figma-like-split-range interval domains and solid keeps source-path interval domains with split-range side evidence.'
+        'Implemented on 2026-05-17: compound constrained domains expose legal-boundary-span plans with StrokeLegalBoundaryDomain records and filled-face-side inside/outside inversion instead of hidden vector-local behavior.',
+        'Implemented on 2026-05-17: self-intersecting constrained solid and dashed domains both require implicit region/face side authority; dashed uses figma-like-split-range interval domains and solid keeps source-path interval domains with split-range side evidence.'
       ],
       e2eStatus: [
         'Focused Step 14 unit gate passed: yarn workspace @asyra/preset test:local src/__tests__/stroke-domain-plan.test.ts.',
@@ -2261,8 +2274,9 @@
         'Step 14 recurring lint gate passed on 2026-05-17: yarn lint:ci produced 0 errors with existing no-console warnings.',
         'Step 14 shared-model gate passed on 2026-05-18: yarn workspace @asyra/preset test:local src/__tests__/stroke-domain-plan.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts.',
         'Step 14 visual revalidation passed on 2026-05-18: yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts --workers=1.',
-        'Step 14 self-review update: aligned. Domain split ranges, legal-boundary spans, side authority, hole-side inversion, and blocked missing-domain states are explicit and now consume shared sourceSplitRanges before Step 15 interval allocation.',
-        'Step 14 self-review: aligned. Domain split ranges, legal-boundary spans, side authority, hole-side inversion, and blocked missing-domain states are explicit and tested before Step 15 interval allocation.'
+        'Step 14 self-review update: aligned. Domain split ranges, legal-boundary spans, side authority, filled-face-side inversion, and blocked missing-domain states are explicit and now consume shared sourceSplitRanges before Step 15 interval allocation.',
+        'Step 14 self-review: aligned. Domain split ranges, legal-boundary spans, side authority, filled-face-side inversion, and blocked missing-domain states are explicit and tested before Step 15 interval allocation.',
+        'Step 14 filled-face domain gate passed on 2026-05-20: stroke-domain-plan.test.ts and constrained-dashed-stroke-packets.test.ts prove inside includes central filled-face boundary domains and outside excludes filled-filled internal adjacency domains.'
       ]
     },
     'allocate-intervals': {
@@ -2270,7 +2284,7 @@
         'allocateDashedIntervalsForTopology uses PathTopologyModel totalLength and closed state.',
         'allocateStrokeIntervals adds the canonical boundary for solid full coverage, center/simple dashed whole-source-path interval allocation, and self-intersecting constrained dashed split-range allocation.',
         'Implemented: allocateFigmaLikeSplitRangeDashedIntervals allocates every self-intersecting constrained dashed split source range independently.',
-        'Implemented on 2026-05-17: split-range interval records preserve sourceSegmentIndex and implicit fill/hole side-resolution metadata from Step 14 domains.',
+        'Implemented on 2026-05-17: split-range interval records preserve sourceSegmentIndex and implicit region/face side-resolution metadata from Step 14 domains.',
         'Implemented: getConstrainedDashedVisibleIntervals routes self-intersecting closed sourcePath input through split-range allocation; cumulative topology length allocation remains only for center/simple families.',
         'Implemented on 2026-05-17: allocateStrokeIntervalsForDomainPlan is the public Step 15 boundary for StrokeDomainPlan interval allocation. It routes figma-like-split-range through terminal half-dash allocation, legal-boundary-span through independent shell/hole boundary allocations, and source/topology domains through canonical arc-length allocation.',
         'Implemented on 2026-05-17: constrained dashed packets now consume allocateStrokeIntervalsForDomainPlan for split-range allocation instead of calling the split-range allocator directly.',
@@ -2290,7 +2304,8 @@
         'Step 15 recurring build gate passed on 2026-05-17: yarn workspace @asyra/preset build:preset.',
         'Step 15 recurring lint gate passed on 2026-05-17: yarn lint:ci produced 0 errors with existing no-console warnings.',
         'No dedicated visual/E2E required for Step 15 because this step exposes interval records and does not directly alter renderer projection.',
-        'Step 15 self-review: aligned. Interval allocation now consumes explicit Step 14 domain plans, preserves split-range terminal half-dash metadata, keeps legal-boundary shell/hole schedules independent, and no longer requires packet helpers to rebuild split-range schedules.'
+        'Step 15 revalidation passed on 2026-05-20 as part of the filled-face gate: selected boundary-domain intervals remain half-dash terminal, balanced-gap, and independent per split boundary after degree-2 sampled edge merging.',
+        'Step 15 self-review updated after the Figma mask-model correction: interval allocation consumes explicit Step 14 domain plans, preserves split-range terminal half-dash metadata, and does not create region/face boundary dash schedules.'
       ]
     },
     'build-source-span-graph': {
@@ -2300,12 +2315,12 @@
         'Constrained dashed packet construction builds sourceSpanIds only when provenance is available; visual-only and metadata-omitted packets keep geometry without diagnostic source spans.',
         'Implemented direct Step 16 evidence: source-span tests now consume Step 14 StrokeDomainPlan split ranges, Step 15 intervals, and assert source-span cuts cover every split-range boundary without using legal-domain or hole contour ids as provenance.',
         'Implemented on 2026-05-17: getSourceSpanIdsForDomainInterval resolves normal intervals through SourceSpanGraph and legal-boundary-span intervals through typed Step 14 shell/hole sourceSpanIds.',
-        'Implemented on 2026-05-17: Step 16 explicitly preserves compound legal-boundary shell/hole provenance without forcing boundary intervals through the wrong single-topology graph.'
+        'Implemented on 2026-05-17 and corrected after the Figma mask-model review: Step 16 preserves typed legal-domain provenance without turning shell/hole boundaries into dash product domains.'
       ],
       e2eStatus: [
         'Direct source-span gate passed: yarn workspace @asyra/preset test:local src/__tests__/source-span-graph.test.ts.',
         'Step 16 packet/vector metadata gate passed on 2026-05-17: yarn workspace @asyra/preset test:local src/__tests__/source-span-graph.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts src/__tests__/vector-constrained-dashed-stroke.test.ts.',
-        'Step 16 terminology self-check passed on 2026-05-17: stale vector constrained dashed test names that described self-intersecting dashed output as even-odd contour constrained geometry were replaced with source-path split-range wording.',
+        'Step 16 terminology corrected on 2026-05-20: prior source-path split-range wording is insufficient. Provenance names must move to filled-face boundary-domain split segment wording for inside stroke parity.',
         'No dedicated visual/E2E required because this step changes diagnostic provenance metadata and availability conditions only.',
         'Step 16 recurring revalidation gate passed on 2026-05-17: yarn workspace @asyra/preset build:preset.',
         'Step 16 recurring revalidation gate passed on 2026-05-17: yarn lint:ci produced 0 errors with existing no-console warnings.',
@@ -2313,7 +2328,7 @@
         'Step 16 targeted integration gate passed on 2026-05-17: yarn workspace @asyra/preset test:local src/__tests__/source-span-graph.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts src/__tests__/constrained-solid-stroke-packets.test.ts src/__tests__/stroke-final-face.test.ts src/__tests__/vector-constrained-dashed-stroke.test.ts src/__tests__/vector-constrained-solid-stroke.test.ts.',
         'Step 16 recurring build gate passed on 2026-05-17: yarn workspace @asyra/preset build:preset.',
         'Step 16 recurring lint gate passed on 2026-05-17: yarn lint:ci produced 0 errors with existing no-console warnings.',
-        'Step 16 self-review: aligned. Split-range intervals receive graph sourceSpanIds, legal-boundary shell/hole intervals receive typed domain sourceSpanIds, visual-only/metadata-omitted paths remain explicit, and provenance is ready for candidate construction.'
+        'Step 16 self-review updated after the Figma mask-model correction: split-range intervals receive graph sourceSpanIds, typed domain sourceSpanIds remain explicit, visual-only/metadata-omitted paths remain explicit, and provenance is ready for candidate construction without region/face boundary dash products.'
       ]
     },
     'build-one-sided-candidates': {
@@ -2321,49 +2336,28 @@
         'resolveOneSidedCandidateFlow centralizes Step 17 branch guards for center, open center-equivalent, closed one-sided constrained, and self-intersecting split-range constrained dashed modes.',
         'Constrained solid open authored inside/outside strokes resolve to center-equivalent geometry before constrained candidate construction.',
         'Constrained dashed closed full-loop inside/outside strokes emit one-sided candidate packets instead of product-visual or doubled center-band geometry.',
-        'Implemented: constrained dashed self-intersecting inside/outside strokes consume Step 15 split-range intervals as product dash paths.',
+        'Invalidated on 2026-05-20: constrained dashed self-intersecting inside/outside strokes must not consume authored-source split ranges as the complete product dash domain. Step 17 must consume Step 15 intervals from selected region-boundary split segments.',
         'Implemented DoD: each range has half-dash endpoints and independent middle dash placement. Normal-length split ranges establish the reference redistributed gap, and shorter ranges reduce middle dash count when needed to avoid overcrowding, with no minimum gap clamp.',
         'Corrected on 2026-05-18: removed the old internal split-boundary gap-trimming helper. Split-range terminal half-dashes keep their authored terminal geometry and round-cap semantics; candidate construction must not insert artificial breaks or trim render ranges to make half-dashes visible.',
         'Corrected on 2026-05-18: self-intersecting inside dashed round candidate geometry now builds body+cap as one candidate before legality clipping. Splitting body and cap into separately clipped polygons is invalid because it can create visible breaks inside a single dash.',
         'Corrected on 2026-05-18: self-intersecting inside dashed product-final range polygons are clipped to the implicit even-odd legal fill domain for butt, square, and round caps. Cap type cannot bypass legal-domain clipping or create outside-fill overdraw.',
-        'Corrected on 2026-05-18: self-intersecting inside/outside dashed candidate construction no longer resolves side with resolveSourcePathStrokeSide or source-path orientation. It consumes interval.figmaLikeSelectedSide from the shared sourceSplitRanges/legalSide domain plan.',
+        'Resolved on 2026-05-20: candidate construction consumes selected boundary-domain interval records; interval.figmaLikeSelectedSide from sourceSplitRanges/legalSide alone is no longer the completion proof.',
         'Invalidated prior no-fill orientation fallback: resolveSourcePathOrientationStrokeSide is not used for closed self-intersecting star side selection.',
-        'Vector render orchestration routes self-intersecting constrained dashed output through split-range candidate contracts before PartitionArrangementAndFaces, with legal-domain side and overlap ownership evidence attached to each range.',
+        'Vector render orchestration must route self-intersecting constrained dashed output through boundary-domain candidate contracts before PartitionArrangementAndFaces, with domain eligibility, side, and overlap ownership evidence attached to each range.',
         'Implemented: source-boundary clipping is not used as an old high-curvature/cross-segment repair for self-intersecting split-range candidates; legality remains the clipping/filtering authority.',
-        'Implemented direct Step 17 guard: product-final source-path candidate geometry now consumes StrokeDomainPlan side metadata from shared sourceSplitRanges; packet-local topology/orientation/fill-probe side guessing is not the candidate authority.',
-        'Corrected on 2026-05-18: StrokeDomainPlan no longer splits Step 15 dash domains at implicit fill/hole side changes. Step 15 allocates on intersection split ranges; Step 17 resolves side per visible interval/candidate range so side changes do not distort dash distribution.',
+        'Resolved direct Step 17 guard: product-final candidate geometry consumes StrokeDomainPlan boundary-domain metadata; packet-local topology/orientation/fill-probe side guessing remains forbidden.',
+        'Corrected on 2026-05-18: StrokeDomainPlan no longer splits Step 15 dash domains at implicit region/face side changes. Step 15 allocates on intersection split ranges; Step 17 resolves side per visible interval/candidate range so side changes do not distort dash distribution.',
         'Corrected on 2026-05-19: cubic source-path sampling now resolves a degenerate start tangent from the first non-degenerate tangent instead of defaulting to horizontal. This fixes the outside dashed top-left/fourth-segment first dash shape for butt, square, and round caps without renderer-side repair.',
         'Corrected on 2026-05-19: outside product-final source-vertex candidates now add selected-side source-vertex join geometry for terminal starts at closed source segment boundaries. The join consumes the resolved interval side instead of old path-orientation logic, so the fourth segment first dash shares the same Figma-like outside miter corner across butt, square, and round caps.',
-        'Implemented on 2026-05-17: constrained dashed packet tests now use the same implicit fill/hole side authority for rule-driven coverage probes and include failure signals for selected side, covered side, splitRangeId, terminalRole, and packet geometry presence.',
+        'Resolved on 2026-05-20: filled-face internal boundaries are product-eligible inside domains and product-ineligible outside domains before candidates are built.',
+        'Implemented on 2026-05-17: constrained dashed packet tests now use the same implicit region/face side authority for rule-driven coverage probes and include failure signals for selected side, covered side, splitRangeId, terminalRole, and packet geometry presence.',
         'Implemented on 2026-05-17: resolveOneSidedCandidateFlow now exposes candidate domainKind so Step 17 can distinguish native center, center-equivalent, source-path, split-range, and legal-boundary-span candidate domains before packet helpers run.'
       ],
       e2eStatus: [
-        'Split-range candidate/domain gate passed: yarn workspace @asyra/preset test:local src/__tests__/stroke-domain-plan.test.ts src/__tests__/source-span-graph.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts src/__tests__/vector-constrained-dashed-stroke.test.ts src/__tests__/vector-component.test.ts src/__tests__/stroke-side-resolution.test.ts src/__tests__/stroke-candidate-arrangement.test.ts.',
-        'Step 17 gate passed again on 2026-05-17 after interval-level side-resolution fix: yarn workspace @asyra/preset test:local src/__tests__/stroke-domain-plan.test.ts src/__tests__/source-span-graph.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts src/__tests__/vector-constrained-dashed-stroke.test.ts src/__tests__/vector-component.test.ts src/__tests__/stroke-side-resolution.test.ts src/__tests__/stroke-candidate-arrangement.test.ts.',
-        'Targeted visual gate passed: yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts --workers=1.',
-        'Focused terminal candidate visual gate passed on 2026-05-17: yarn workspace @asyra/asyra-design test:e2e -- e2e/stroke-rule-driven-dashed-visual.spec.ts --workers=1.',
-        'Step 17 targeted visual gate passed again on 2026-05-17: yarn workspace @asyra/asyra-design test:e2e -- e2e/stroke-rule-driven-dashed-visual.spec.ts --workers=1.',
-        'Step 17 self-check visual gate passed again on 2026-05-17: yarn workspace @asyra/asyra-design test:e2e -- e2e/stroke-self-check-star-render.spec.ts --workers=1.',
-        'Step 17 shared-model revalidation passed on 2026-05-18: yarn workspace @asyra/preset test:local src/__tests__/stroke-domain-plan.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts.',
-        'Step 17 visual revalidation passed on 2026-05-18: yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts --workers=1. The E2E oracle derives side coverage from export/debug packet selectedSide records instead of fixed manual points that may fall inside dash gaps.',
-        'AI visual review of docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts/self-check-inside-dashed-round-no-fill.png passed for Step 17: dash placement follows split ranges, hole-like fill-side stroke is visible, and there is no independent hole-boundary dash loop.',
-        'AI visual review repeated on 2026-05-17 for docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts/self-check-inside-dashed-round-fill.png and self-check-inside-dashed-round-no-fill.png: terminal dashes stay on split-range source paths, hole-like fill-side stroke is visible, and no independent hole-boundary dash schedule appears.',
-        'Recurring gate passed on 2026-05-17: yarn workspace @asyra/preset build:preset.',
-        'Recurring gate passed on 2026-05-17: yarn lint:ci. Existing console warnings remain, with 0 lint errors.',
-        'Step 17 candidate-domain gate passed on 2026-05-17: yarn workspace @asyra/preset test:local src/__tests__/stroke-candidate-flow.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts src/__tests__/vector-constrained-dashed-stroke.test.ts.',
-        'Step 17 targeted unit/integration gate passed on 2026-05-17: yarn workspace @asyra/preset test:local src/__tests__/stroke-domain-plan.test.ts src/__tests__/source-span-graph.test.ts src/__tests__/stroke-candidate-flow.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts src/__tests__/vector-constrained-dashed-stroke.test.ts src/__tests__/vector-component.test.ts src/__tests__/stroke-side-resolution.test.ts src/__tests__/stroke-candidate-arrangement.test.ts.',
-        'Step 17 focused visual gate passed on 2026-05-17: yarn workspace @asyra/asyra-design test:e2e -- e2e/stroke-rule-driven-dashed-visual.spec.ts --workers=1.',
-        'Step 17 self-check visual gate passed on 2026-05-17: yarn workspace @asyra/asyra-design test:e2e -- e2e/stroke-self-check-star-render.spec.ts --workers=1.',
-        'AI visual review on 2026-05-17 passed for self-check-inside-dashed-round-fill.png and self-check-inside-dashed-round-no-fill.png: split-range dash placement and hole-like legal-side stroke are visible, with no independent boundary-contour dash loop.',
-        'Step 17 recurring build gate passed on 2026-05-17: yarn workspace @asyra/preset build:preset.',
-        'Step 17 recurring lint gate passed on 2026-05-17: yarn lint:ci produced 0 errors with existing no-console warnings.',
-        'Step 17 corrected self-intersecting gate passed on 2026-05-18: yarn workspace @asyra/preset test:local src/__tests__/dashed-center-stroke-intervals.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts.',
-        'Step 17 final visual gate passed on 2026-05-18: yarn workspace @asyra/asyra-design test:e2e -- e2e/stroke-self-check-star-render.spec.ts --workers=1.',
-        'AI visual review on 2026-05-18 passed for self-check-inside-dashed-round-fill.png and self-check-inside-dashed-round-no-fill.png: split-range terminal half-dashes are visible, same-range gaps are not joined, hole-like legal-side stroke is visible, and no boundary-contour product loop appears.',
-        'Step 17 internal split-boundary gate passed on 2026-05-18: yarn workspace @asyra/preset test:local src/__tests__/dashed-center-stroke-intervals.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts src/__tests__/stroke-final-face.test.ts.',
-        'Step 17 outside candidate gate passed on 2026-05-19: yarn workspace @asyra/preset test:local src/__tests__/constrained-dashed-stroke-packets.test.ts. The gate verifies self-intersecting inside/outside split-range candidates consume shared selectedSide metadata and preserve interval/split-range provenance for butt, square, and round cap coverage.',
-        'Step 17 degenerate cubic-start gate passed on 2026-05-19: yarn workspace @asyra/preset test:local src/__tests__/constrained-dashed-stroke-packets.test.ts. The gate verifies the mixed-segment star fourth source segment uses the first non-degenerate tangent and that outside butt/square/round first-dash packets no longer contain the old vertical fallback cap point.',
-        'Step 17 outside source-vertex join gate passed on 2026-05-19: yarn workspace @asyra/preset test:local src/__tests__/constrained-dashed-stroke-packets.test.ts --testNamePattern "non-degenerate cubic tangent|rule-driven self-intersecting|outside"; full packet gate also passed with 91/91 tests. E2E regenerated self-check outside butt/square/round screenshots and passed yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts --workers=1.'
+        'Step 17 boundary-domain gate passed on 2026-05-20: constrained-dashed-stroke-packets.test.ts proves candidate construction consumes selected region-boundary interval domains.',
+        'Prior sourceSplitRange/selectedSide-only packet and visual assertions remain invalid completion proof; the new gate must require central filled-face inside product candidates and outside filled-filled internal adjacency product absence.',
+        'Correct Step 17 gate must fail whenever outside emits filled-filled internal adjacency candidates and must require central filled-face inside candidates with boundaryDomainId, region id, face id, interval, terminal, and adjacent-face provenance.',
+        'Step 17 filled-face candidate gate passed on 2026-05-20: the combined preset gate and stroke-self-check-star-render.spec.ts prove candidates consume merged boundary-domain intervals, central filled-face inside candidates exist, outside internal-adjacency candidates are absent, and sampled micro-edges are not product dash domains.'
       ]
     },
     'partition-arrangement-faces': {
@@ -2422,10 +2416,12 @@
         'buildConstrainedSolidLegalityClippingResult clips existing packet polygons and preserves packet identity, debug metadata, owner metadata, and paint payload.',
         'Corrected DoD: self-intersecting inside dashed legality receives split-range one-sided candidate geometry only.',
         'Corrected DoD: legality may filter/clip split-range one-sided candidate geometry only; it must not use fill masks to prove Figma parity or construct replacement geometry.',
-        'Implemented DoD: self-intersecting inside dashed split-range candidates are filtered/clipped against the implicit fill/hole legal domain for constrained inside/outside semantics, regardless of visible fill paint. Legality must clip the assembled candidate geometry, not separately clip body/cap fragments in a way that breaks one dash.',
+        'Implemented DoD: self-intersecting inside dashed split-range candidates are filtered/clipped against the implicit region/face legal domain for constrained inside/outside semantics, regardless of visible fill paint. Legality must clip the assembled candidate geometry, not separately clip body/cap fragments in a way that breaks one dash.',
         'Revalidated on 2026-05-17 after interval-level side-resolution and arrangement grouping cleanup: legality still clips Step 17 source-path terminal candidate geometry only and does not construct replacement center bands, source-contour loops, or boundary-contour dashed products.',
         'Strengthened on 2026-05-17: stroke-legality.test.ts now asserts clipping preserves typed ownerSet, sourceSpanIds, legalDomainIds, split-range terminal metadata, side-resolution metadata, packet identity, and paint payload.',
-        'Corrected on 2026-05-19: self-intersecting inside/outside dashed candidates with implicit fill/hole side authority are clipped to the implicit legal fill domain even when the family is self-intersecting. This prevents terminal/cap geometry from leaking outside legal stroke regions without creating replacement boundary-stroke geometry.'
+        'Corrected on 2026-05-19: self-intersecting inside/outside dashed candidates with implicit region/face side authority are clipped to the implicit legal fill domain even when the family is self-intersecting. This prevents terminal/cap geometry from leaking outside legal stroke regions without creating replacement boundary-stroke geometry.',
+        'Corrected on 2026-05-19: outside exact clipping no longer restores an empty clip result to the original subject polygon. When an outside candidate falls entirely on the filled side, the empty mask result is preserved so internal-adjacent outside geometry can disappear instead of leaking through the fallback.',
+        'Corrected on 2026-05-20: self-intersecting outside dashed legality now uses the Figma mask model on the assembled double-width dash and normalizes the clipped result before product output. Same-interval high-curvature clip residue is pruned/stitched upstream only on the outside fragment-normalization path, and the cleaned result is re-clipped through the same legal mask so cleanup cannot push product geometry across the legal domain.'
       ],
       e2eStatus: [
         'Targeted unit gate rerun and passed on 2026-05-17: yarn workspace @asyra/preset test:local src/__tests__/stroke-legality.test.ts src/__tests__/legal-domain-normalization.test.ts src/__tests__/constrained-solid-stroke-packets.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts src/__tests__/vector-constrained-solid-stroke.test.ts src/__tests__/vector-constrained-dashed-stroke.test.ts.',
@@ -2433,13 +2429,17 @@
         'Step 20 strengthened gate passed on 2026-05-17 after metadata preservation oracle was added: yarn workspace @asyra/preset test:local src/__tests__/stroke-legality.test.ts src/__tests__/legal-domain-normalization.test.ts src/__tests__/constrained-solid-stroke-packets.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts src/__tests__/vector-constrained-solid-stroke.test.ts src/__tests__/vector-constrained-dashed-stroke.test.ts.',
         'Split-range legality oracle gate passed: constrained dashed tests assert self-intersecting product packets use interval:* provenance and preserve legal-domain side selection.',
         'Implicit no-fill legality gate passed: yarn workspace @asyra/preset test:local src/__tests__/stroke-legality.test.ts src/__tests__/legal-domain-normalization.test.ts src/__tests__/constrained-solid-stroke-packets.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts src/__tests__/vector-constrained-solid-stroke.test.ts src/__tests__/vector-constrained-dashed-stroke.test.ts.',
-        'Terminal legality gate passed on 2026-05-17: no-fill self-intersecting inside dashed tests prove implicit fill/hole legal-domain clipping and focused E2E proves split-boundary terminal coverage remains visible.',
+        'Terminal legality gate passed on 2026-05-17: no-fill self-intersecting inside dashed tests prove implicit region/face legal-domain clipping and focused E2E proves split-boundary terminal coverage remains visible.',
         'Step 20 visual gate passed on 2026-05-17: yarn workspace @asyra/asyra-design test:e2e -- e2e/stroke-rule-driven-dashed-visual.spec.ts e2e/stroke-self-check-star-render.spec.ts --workers=1.',
         'Fill-mask-only and source-orientation-only E2E oracles remain invalidated for Step 30, but Step 20 unit/integration coverage now proves implicit legal-domain clipping without replacement geometry.',
         'Step 20 overlap/leak regression gate passed on 2026-05-19: yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts --workers=1. Butt and square filled-star artifacts report outsideRedPixelCount=0, maxOutsideComponentArea=0, darkOverdrawPixelCount=0, and maxDarkOverdrawComponentArea=0; round reports outsideRedPixelCount=0 and maxDarkOverdrawComponentArea=1.',
         'Recurring gate rerun and passed on 2026-05-17: yarn workspace @asyra/preset build:preset.',
         'Recurring gate rerun and passed on 2026-05-17: yarn lint:ci. Existing console warnings remain, with 0 lint errors.',
-        'Step 20 outside legality gate passed on 2026-05-19: yarn workspace @asyra/preset test:local src/__tests__/constrained-dashed-stroke-packets.test.ts and yarn workspace @asyra/asyra-design test:e2e e2e/stroke-rule-driven-dashed-visual.spec.ts --grep "focused split segment" --workers=1. clipSourcePathPolygonsToEvenOddLegalDomain now normalizes implicit legal regions, preserves per-candidate subject identity, and keeps upstream selected-side candidate geometry when exact clipping degenerates instead of deleting the product range.'
+        'Step 20 outside legality gate passed on 2026-05-19: yarn workspace @asyra/preset test:local src/__tests__/constrained-dashed-stroke-packets.test.ts and yarn workspace @asyra/asyra-design test:e2e e2e/stroke-rule-driven-dashed-visual.spec.ts --grep "focused split segment" --workers=1. clipSourcePathPolygonsToEvenOddLegalDomain now normalizes implicit legal regions, preserves per-candidate subject identity, and keeps upstream selected-side candidate geometry when exact clipping degenerates instead of deleting the product range.',
+        'Invalidated on 2026-05-20 for the filled-star inside blocker: preserving or removing internal-adjacency ranges by selectedSide alone is not enough. Step 20 must consume corrected filled-face domains from Step 12/14/17.',
+        'TDD red evidence resolved on 2026-05-20: stroke-self-check-star-render.spec.ts now passes because outside dashed metadata no longer includes figmaLikeBoundaryRole="hole" product packets.',
+        'Step 20 filled-face legality gate passed on 2026-05-20: central filled-face inside geometry is preserved, outside filled-filled internal adjacency remains product-ineligible, and legality filters/clips candidate geometry without replacement boundary-loop geometry.',
+        'Step 20 outside high-curvature sliver gate passed on 2026-05-20: yarn workspace @asyra/preset test:local src/__tests__/constrained-dashed-stroke-packets.test.ts src/__tests__/vector-constrained-dashed-stroke.test.ts src/__tests__/vector-component.test.ts and yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts --workers=1. The gate asserts clipped outside product polygons and final boundary-domain metadata have no high-complexity near-zero-edge residue; polygonCount=1 is treated as insufficient proof by itself.'
       ]
     },
     'build-resolved-stroke-regions': {
@@ -2507,29 +2507,34 @@
         'Terminal FinalFace gate passed on 2026-05-17: constrained dashed packet tests prove figmaLikeSplitRangeTerminals survive packet, FinalFace, and render-entry conversion.',
         'Recurring gate rerun and passed on 2026-05-17: yarn workspace @asyra/preset build:preset.',
         'Recurring gate rerun and passed on 2026-05-17: yarn lint:ci. Existing console warnings remain, with 0 lint errors.',
-        'Step 24 self-review: complete for BuildFinalFaces; FinalFace[] remains canonical and preserves owner/interval/source-span/contour/legal-domain/runtime/paint provenance. Proceed to emit-render-hit-export-packets next.',
-        'Step 24 outside provenance gate passed on 2026-05-19: yarn workspace @asyra/preset test:local src/__tests__/constrained-dashed-stroke-packets.test.ts. FinalFace-derived packet assertions preserve splitRangeId, intervalId, selectedSide, and legal-domain evidence for outside dashed coverage.'
+        'Invalidated on 2026-05-20 for the filled-star inside blocker: prior Step 24 self-review did not prove central filled-face boundary provenance reaches FinalFace[].',
+        'Step 24 outside provenance gate passed on 2026-05-19: yarn workspace @asyra/preset test:local src/__tests__/constrained-dashed-stroke-packets.test.ts. FinalFace-derived packet assertions preserve splitRangeId, intervalId, selectedSide, and legal-domain evidence for outside dashed coverage.',
+        'Invalidated on 2026-05-20 for the filled-star inside blocker: FinalFace/StrokeRegionPacket metadata preserving figmaLikeFilledSide/UnfilledSide/BoundaryRole is insufficient unless it proves central filled-face boundary provenance from region/winding-rule classification.',
+        'Step 24 filled-face FinalFace gate passed on 2026-05-20: constrained dashed packet/FinalFace tests preserve boundaryDomainId, region id, face id, interval id, terminal role, boundaryRole=filled-face, selected side, and owner/legal provenance through FinalFace construction.'
       ]
     },
     'emit-render-hit-export-packets': {
       implementationTrace: [
         'Render entries, hit area, and export packets are projected from strokeFinalFaces.',
         'Corrected DoD: self-intersecting constrained dashed product projections must preserve source-path interval/source-span provenance through render, hit, and export packets; auxiliary contour metadata is not Figma-parity proof.',
-        'Added risk: projection metadata must preserve enough side-resolution provenance to verify implicit fill/hole legal-domain side selection.',
+        'Added risk: projection metadata must preserve enough side-resolution provenance to verify implicit region/face legal-domain side selection.',
         'Drag visual mode may skip/defer hit/export freshness while preserving visual responsiveness.',
         'solid-center-stroke-packets.test.ts directly asserts toSolidCenterStrokeRenderEntriesFromFinalFaces, buildSolidCenterStrokeHitTestPacketsFromFinalFaces, buildSolidCenterStrokeExportPacketsFromFinalFaces, and applySolidCenterStrokeExportPacketsFromFinalFaces consume the same FinalFace[] geometry and metadata references.'
       ],
       e2eStatus: [
         'Direct unit/packet parity gate rerun and passed on 2026-05-17: yarn workspace @asyra/preset test:local src/__tests__/solid-center-stroke-packets.test.ts src/__tests__/constrained-solid-stroke-packets.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts src/__tests__/stroke-final-face.test.ts src/__tests__/vector-constrained-dashed-stroke.test.ts src/__tests__/vector-component.test.ts.',
         'Step 25 strengthened projection gate passed on 2026-05-17 after solid-center-stroke-packets.test.ts added explicit render/hit/export projection assertions for figmaLikeSplitRangeTerminals: yarn workspace @asyra/preset test:local src/__tests__/solid-center-stroke-packets.test.ts src/__tests__/constrained-solid-stroke-packets.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts src/__tests__/stroke-final-face.test.ts src/__tests__/vector-constrained-dashed-stroke.test.ts src/__tests__/vector-component.test.ts.',
-        'Source-path projection gate rerun and passed on 2026-05-17: self-intersecting source-path interval FinalFace/export packets preserve provenance for no-fill implicit fill/hole side validation.',
+        'Source-path projection gate rerun and passed on 2026-05-17: self-intersecting source-path interval FinalFace/export packets preserve provenance for no-fill implicit region/face side validation.',
         'Terminal projection gate passed on 2026-05-17: export/render packet summaries expose figmaLikeSplitRangeTerminals for deterministic screenshot probes without restroking authored input.',
         'Step 25 render-projection correction on 2026-05-18: export/hit packets remain direct FinalFace projections with terminal geometry, while render entries may union same-stroke product-final fragments into one paint layer to prevent opacity overdraw; terminal interval ids remain in render debug metadata.',
         'Step 25/26 projection parity correction on 2026-05-18: same-stroke render-projection union now normalizes every FinalFace polygon as coverage before nonzero union so split terminal/cap fragments cannot be interpreted as cutout holes. This fixed reference-dashed-stroke-completeness export-packet raster recall without restroking authored input.',
         'Direct E2E coverage remains owned by Step 26/27/30 because Step 25 is projection metadata parity.',
         'Recurring gate rerun and passed on 2026-05-17: yarn workspace @asyra/preset build:preset.',
         'Recurring gate rerun and passed on 2026-05-17: yarn lint:ci. Existing console warnings remain, with 0 lint errors.',
-        'Step 25 outside projection gate passed on 2026-05-19: yarn workspace @asyra/preset test:local src/__tests__/constrained-dashed-stroke-packets.test.ts and yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts --workers=1. Render/export packet summaries expose splitRangeId, intervalId, selectedSide, and legal-domain provenance for outside dashed deterministic probes without restroking authored input.'
+        'Step 25 outside projection gate passed on 2026-05-19: yarn workspace @asyra/preset test:local src/__tests__/constrained-dashed-stroke-packets.test.ts and yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts --workers=1. Render/export packet summaries expose splitRangeId, intervalId, selectedSide, and legal-domain provenance for outside dashed deterministic probes without restroking authored input.',
+        'Invalidated on 2026-05-20 for the filled-star inside blocker: prior Step 25 filled-face-side projection evidence exposed side metadata but did not prove product pixels came from central filled-face boundary-domain geometry.',
+        'Step 25 filled-face projection gate passed on 2026-05-20: render/export packet summaries now preserve central filled-face boundary-domain provenance for inside strokes and preserve outside absence evidence for filled-filled internal adjacency without restroking authored input.',
+        'Step 25 high-curvature projection gate passed on 2026-05-20: outside butt/square/round export packet summaries preserve boundary-domain provenance after legality normalization. Outside constrained-dashed product-final render projection no longer performs one global same-stroke union, because that projection step can turn valid FinalFace dash products back into high-complexity fan polygons. Projection remains FinalFace-derived and does not restroke authored input.'
       ]
     },
     'render-entries': {
@@ -2549,13 +2554,15 @@
         'Focused regression gate rerun and passed on 2026-05-17: yarn workspace @asyra/asyra-design test:e2e -- e2e/dashed-center-stroke-visual.spec.ts -g "open self-crossing high-curvature center dashed keeps end intervals visible without cross-interval collapse".',
         'Full visual gate rerun and passed on 2026-05-17: yarn workspace @asyra/asyra-design test:e2e -- e2e/solid-center-stroke-visual.spec.ts e2e/dashed-center-stroke-visual.spec.ts e2e/solid-constrained-stroke-visual.spec.ts e2e/constrained-dashed-stroke-visual.spec.ts.',
         'Current source-path repair gate passed: yarn workspace @asyra/preset test:local src/__tests__/constrained-dashed-stroke-packets.test.ts src/__tests__/vector-constrained-dashed-stroke.test.ts src/__tests__/vector-component.test.ts.',
-        'Current Figma-side render-entry gate passed: source-path interval render entries draw the no-fill self-intersecting inside dashed star on the implicit fill/hole legal side without independent hole-boundary dash loops.',
+        'Invalidated on 2026-05-20 for the filled-star inside blocker: source-path interval render-entry evidence is not sufficient for filled-face boundary-domain inside parity.',
         'Terminal render-entry gate passed on 2026-05-17: stroke-rule-driven-dashed-visual.spec.ts proves render entries expose upstream terminal geometry; renderer draw performs no half-dash repair.',
         'Step 26 overdraw gate passed on 2026-05-18: stroke-self-check-star-render.spec.ts asserts darkOverdrawPixelCount and maxDarkOverdrawComponentArea so split-range fragments cannot double-paint the 50% red stroke into dark blobs.',
         'Step 26 visible-break regression gate passed on 2026-05-18: reference-dashed-stroke-completeness.spec.ts verifies every FinalFace-derived export packet has corresponding raster coverage after render-projection coverage-winding normalization.',
         'Recurring gate rerun and passed on 2026-05-17: yarn workspace @asyra/preset build:preset.',
         'Recurring gate rerun and passed on 2026-05-17: yarn lint:ci. Existing console warnings remain, with 0 lint errors.',
-        'Step 26 self-review: complete for RenderEntries; renderer entries project upstream geometry and high-curvature source-path round-cap center dashes no longer fall back to invalid/simple outlines. Proceed to mesh-render next.'
+        'Invalidated on 2026-05-20 for the filled-star inside blocker: prior Step 26 self-review did not prove render entries project central filled-face inside FinalFace geometry. Step 26 is blocked as a downstream consumer.',
+        'Step 26 filled-face render-entry gate passed on 2026-05-20: stroke-self-check-star-render.spec.ts reports terminalFailures=0, darkOverdrawPixelCount=0 for the reviewed inside/outside artifacts, filledFaceTerminals present for inside, and filledFaceTerminals absent for outside.',
+        'Step 26 high-curvature render-entry gate passed on 2026-05-20: constrained-dashed packet tests assert FinalFace-derived render entries contain no high-complexity near-zero-edge residue for outside dashed output, and the outside butt/square/round screenshots show no fan of disconnected high-curvature dash slivers. Renderer draw remains projection-only; Step 25 owns projection normalization and Step 20 owns legality cleanup.'
       ]
     },
     'mesh-render': {
@@ -2611,46 +2618,28 @@
         'Visual failures are now traced against Figma/source-path parity first, then backward through FinalFace/export packet projections, packet, legality, arrangement, candidate, interval, topology, and state stages.',
         'Current DoD: reference dashed visual tests must assert Figma-like split-range interval recall for self-intersecting constrained strokes.',
         'Current DoD: reported sharp-corner visual tests keep authored-source hard assertions when the family requires Figma/source-path parity.',
-        'Implemented corrected DoD: stroke-self-check-star-render.spec.ts now creates fill-baseline, filled-stroke, and no-fill-stroke variants; the no-fill variant asserts split-range interval packet provenance, Figma implicit fill/hole side probes, gap probes, terminal-preserving non-union projection metadata, and no independent hole-boundary dash schedule.',
-        'Corrected Step 30 E2E oracle keeps split-range dash interval coverage and redistributed gap metadata as necessary checks while using implicit fill/hole side probes as the Figma-like inside/outside authority.',
+        'Implemented corrected DoD: stroke-self-check-star-render.spec.ts now creates fill-baseline, filled-stroke, and no-fill-stroke variants; the no-fill variant asserts split-range interval packet provenance, Figma implicit region/face side probes, terminal-preserving non-union projection metadata, and no independent filled-face-boundary dash schedule.',
+        'Corrected Step 30 E2E oracle keeps split-range dash interval coverage and redistributed gap metadata as necessary checks while using implicit region/face side probes as the Figma-like inside/outside authority.',
         'Corrected rule-driven visual oracle: stroke-rule-driven-dashed-visual.spec.ts now validates split-range product FinalFace/export packets and visible packet polygon coverage instead of obsolete whole-path gap probes.',
         'Focused terminal visual gate passed on 2026-05-17: stroke-rule-driven-dashed-visual.spec.ts validates a segment split into three ranges, terminal half-dash coverage on both internal split boundaries, redistributed middle/gap placement, and independent split-range terminal provenance.',
-        'Corrected final screenshot oracle on 2026-05-17: Step 30 no longer requires exportPacketCount === 1. Fragmented FinalFace-derived packets are valid only when each packet is product-final, carries source interval provenance, has no boundary/contour/hole geometry id, and deterministic probes still prove split-range coverage/gaps.',
+        'Corrected final screenshot oracle on 2026-05-17: Step 30 no longer requires exportPacketCount === 1. Fragmented FinalFace-derived packets are valid only when each packet is product-final, carries source interval provenance, has no boundary/contour/filled-face geometry id, and deterministic probes still prove split-range coverage/gaps.',
         'Corrected square-cap general fixture oracle on 2026-05-17: broad visual tests require clean gap evidence without treating cap extension or another legal crossing split range as a false failure. The focused split-segment test remains the strict terminal half-dash and adjacent-gap authority.',
         'Revalidated on 2026-05-18: stroke-rule-driven-dashed-visual.spec.ts now includes a focused fixture where one source-topology segment is split into three intersection split ranges by crossing geometry; the screenshot oracle proves both ends of each split range have terminal half-dash coverage and adjacent gaps, while export-packet metadata proves adjacent terminal half-dashes remain independent product domains instead of one cumulative dash.',
         'Revalidated on 2026-05-18: the broader self-intersecting star rule-driven tests keep deterministic terminal coverage, redistributed gap metadata, and product packet provenance checks.',
         'Corrected on 2026-05-18: stroke-self-check-star-render.spec.ts now detects double-opacity red overdraw components on the filled star screenshot, so semi-transparent product-final fragments cannot stack into dark blobs at split boundaries.',
-        'Corrected on 2026-05-18: stroke-self-check-star-render.spec.ts now renders butt, square, and round self-intersecting inside dashed stars against a fill-only legal mask and fails on outside-fill red pixels or cap-specific dark overdraw.',
-        'Corrected on 2026-05-18: stroke-self-check-star-render.spec.ts and stroke-rule-driven-dashed-visual.spec.ts now distinguish same-split-range terminal gap ownership from unrelated crossing-range pixels. The strict butt-cap focused fixture asserts terminal-adjacent gap pixels only in a non-overlap context, while star fixtures assert same-range packet geometry does not cover its own terminal gaps.',
-        'Corrected on 2026-05-19: stroke-self-check-star-render.spec.ts now treats exact-union overlap metadata as provenance evidence rather than same-range gap coverage. Terminal-adjacent gap failures require visible red pixels from the same split range without another crossing split range owning the probe.',
-        'AI visual review completed against the provided Figma reference screenshot: final fill and no-fill screenshots follow split-range dash placement, keep dashes on the Figma inside side around hole-like regions, remove double-opacity overlap, and do not generate a separate hole-boundary dash loop.'
+        'Invalidated by the 2026-05-20 filled-star rule correction: previous fill-mask/sourceSplitRange final visual oracles accepted selectedSide metadata and did not require central filled-face boundaries as first-class inside stroke domains.',
+        'Corrected DoD: stroke-self-check-star-render.spec.ts must render inside and outside dashed star fixtures and assert generic region-boundary rules: inside includes filled-face internal boundary product stroke; outside excludes filled-face internal boundary product stroke.',
+        'Corrected DoD: butt remains the base dash geometry; square/round caps are additive endpoint geometry evaluated after interval allocation and before overlap/legal/projection. Ordinary gap midpoint pixel probes are not valid cap correctness evidence.',
+        'Corrected DoD: automated visual tests may use Figma screenshots only as rule-discovery evidence. Pass/fail must come from generic boundary-domain, terminal, gap, overlap, and projection probes.'
       ],
       e2eStatus: [
-        'Direct visual coverage: solid-center-stroke-visual.spec.ts, dashed-center-stroke-visual.spec.ts, solid-constrained-stroke-visual.spec.ts, constrained-dashed-stroke-visual.spec.ts, reference dashed specs, reported vector specs.',
-        'Targeted Step 30 gate passed on 2026-05-17: yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts --workers=1.',
-        'AI visual review passed on 2026-05-17 for docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts/self-check-inside-dashed-round-fill.png and docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts/self-check-inside-dashed-round-no-fill.png against the provided Figma reference and current split-range rules.',
-        'Focused rule-driven visual gate passed after oracle correction on 2026-05-17: yarn workspace @asyra/asyra-design test:e2e e2e/stroke-rule-driven-dashed-visual.spec.ts --workers=1.',
-        'Broader dashed visual gate passed on 2026-05-17: yarn workspace @asyra/asyra-design test:e2e e2e/constrained-dashed-stroke-visual.spec.ts e2e/reference-dashed-stroke-completeness.spec.ts e2e/reference-dashed-stroke-rendering.spec.ts e2e/reported-dashed-stroke-sharp-corners.spec.ts e2e/reported-vector-6-dashed-inside-seam.spec.ts e2e/stroke-rule-driven-dashed-visual.spec.ts --workers=1.',
-        'Full preset gate passed on 2026-05-17: yarn workspace @asyra/preset test:local.',
-        'Final recurring gate passed on 2026-05-17: yarn workspace @asyra/preset build:preset.',
-        'Final recurring gate passed on 2026-05-17: yarn lint:ci. Existing console warnings remain, with 0 lint errors.',
-        'Focused terminal and middle distribution gate passed on 2026-05-18: yarn workspace @asyra/asyra-design test:e2e -- e2e/stroke-rule-driven-dashed-visual.spec.ts --workers=1. The focused split fixture verifies terminal coverage, middle dash coverage, equal redistributed same-range gaps, and split-boundary domain independence for a segment split into three ranges.',
-        'Star visual self-check passed on 2026-05-18 after no-minimum reference-gap allocation update: yarn workspace @asyra/asyra-design test:e2e -- e2e/stroke-self-check-star-render.spec.ts --workers=1. The gate now checks distributionFailures, visibleDashProbeFailures, and AI screenshot review confirmed the screenshot remains split-range/source-path based without boundary-contour dash loops.',
-        'Split-boundary domain regression gate passed on 2026-05-18: yarn workspace @asyra/asyra-design test:e2e -- e2e/stroke-rule-driven-dashed-visual.spec.ts e2e/stroke-self-check-star-render.spec.ts --workers=1. The focused fixture now checks adjacent terminal metadata so two half-dashes cannot be merged into one product dash while visible boundary coverage is allowed.',
-        'Dash-break regression gate passed on 2026-05-18: yarn workspace @asyra/asyra-design test:e2e -- e2e/stroke-self-check-star-render.spec.ts --workers=1. The final artifact confirms assembled body+cap legality clipping no longer creates visible white breaks inside split-range dashes.',
-        'Dark-overdraw regression gate passed on 2026-05-18: yarn workspace @asyra/asyra-design test:e2e -- e2e/stroke-self-check-star-render.spec.ts --workers=1. The filled star artifact reports darkOverdrawPixelCount=2 and maxDarkOverdrawComponentArea=1, preventing the reported dark red round-cap blobs from returning.',
-        'Cap-specific legal pixel gate passed on 2026-05-18: yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts --workers=1. The butt filled-star artifact reports outsideRedPixelCount=0, darkOverdrawPixelCount=0, and maxOutsideComponentArea=0.',
-        'Terminal half-dash ownership gate passed on 2026-05-18: yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts e2e/stroke-rule-driven-dashed-visual.spec.ts --workers=1. The self-check star verifies no same split range covers its own terminal-adjacent gap, and the focused butt fixture verifies terminal-adjacent gap pixels in a non-overlap context.',
-        'Overlap/leak final gate passed on 2026-05-19: yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts --workers=1. Butt/square/round filled-star screenshots verify bounded legal clipping, zero forbidden outside components, zero or single-pixel dark overdraw, and terminal-adjacent gap checks that distinguish legal crossing overlap from same-range dash leakage.',
-        'Broader dashed visual gate passed on 2026-05-18: yarn workspace @asyra/asyra-design test:e2e --workers=1 e2e/constrained-dashed-stroke-visual.spec.ts e2e/reference-dashed-stroke-completeness.spec.ts e2e/reference-dashed-stroke-rendering.spec.ts e2e/reported-dashed-stroke-sharp-corners.spec.ts e2e/reported-vector-6-dashed-inside-seam.spec.ts e2e/stroke-rule-driven-dashed-visual.spec.ts.',
-        'Targeted package gate passed on 2026-05-18: yarn workspace @asyra/preset test:local src/__tests__/dashed-center-stroke-intervals.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts src/__tests__/stroke-final-face.test.ts.',
-        'Targeted vector integration gate passed on 2026-05-18: yarn workspace @asyra/preset test:local src/__tests__/vector-constrained-dashed-stroke.test.ts src/__tests__/vector-component.test.ts.',
-        'Targeted package/vector gate passed on 2026-05-18 after split-boundary domain fix: yarn workspace @asyra/preset test:local src/__tests__/dashed-center-stroke-intervals.test.ts src/__tests__/constrained-dashed-stroke-packets.test.ts src/__tests__/stroke-final-face.test.ts src/__tests__/vector-constrained-dashed-stroke.test.ts src/__tests__/vector-component.test.ts.',
-        'Recurring build gate passed on 2026-05-18 after split-boundary domain fix: yarn workspace @asyra/preset build:preset.',
-        'Recurring lint gate passed on 2026-05-18 after split-boundary domain fix: yarn lint:ci produced 0 errors with existing no-console warnings.',
-        'Step 30 outside visual gate passed on 2026-05-19: yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts --workers=1 rendered outside dashed butt/square/round screenshots and deterministic probes for outside-side coverage, fill-side absence, terminal half-dashes/gaps, no old boundary-contour product loop, and bounded overdraw.',
-        'Step 30 broader dashed visual gate passed on 2026-05-19: yarn workspace @asyra/asyra-design test:e2e e2e/constrained-dashed-stroke-visual.spec.ts e2e/reference-dashed-stroke-completeness.spec.ts e2e/reference-dashed-stroke-rendering.spec.ts e2e/reported-dashed-stroke-sharp-corners.spec.ts e2e/reported-vector-6-dashed-inside-seam.spec.ts e2e/stroke-rule-driven-dashed-visual.spec.ts --workers=1.',
-        'AI visual review on 2026-05-19 passed for self-check-outside-dashed-butt-fill.png, self-check-outside-dashed-square-fill.png, and self-check-outside-dashed-round-fill.png: dashes are on the outside selected side for the current star/reference gate, split-range terminals remain visible, and no forbidden boundary-contour dash loop appears. This is not a full Figma stroke-matrix completion claim.'
+        'Superseded status on 2026-05-20 before the filled-face fix: Step 30 was reopened because prior visual and metadata gates accepted sourceSplitRange/selectedSide-only filled-face behavior. The active gate now requires region-boundary domain proof.',
+        'Correct E2E DoD: inside dashed final screenshots must show product stroke on eligible outer and filled-face internal boundary domains; outside dashed final screenshots must show product stroke only on global exterior boundary domains and no product stroke on filled-face internal boundary domains.',
+        'Correct E2E DoD: deterministic probes must verify boundary-domain provenance, terminal half-dash allocation on each selected boundary split segment, redistributed gaps, butt-base geometry plus additive square/round caps, overlap collapse without opacity stacking, and no renderer-side repair.',
+        'Superseded evidence on 2026-05-20: the older stroke-self-check-star-render.spec.ts 7/7 pass did not prove product pixels came from actual central filled-face boundary-domain geometry; the active E2E now includes that generic region-boundary proof.',
+        'Reference screenshots from Figma are rule-discovery evidence only. Automated visual gates must encode generic region-boundary rules, not pixel-similarity comparisons to those reference images.',
+        'Step 30 filled-face final visual gate passed on 2026-05-20: yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts --workers=1 passed 7/7 with generic region-boundary probes; AI self-review checked inside butt/round and outside round artifacts for central filled-face inside stroke, outside internal-adjacency absence, terminal half-dash/gap behavior, no dark overdraw, and no renderer repair evidence.',
+        'Step 30 outside high-curvature final visual gate passed on 2026-05-20: the same E2E passed 7/7 after adding a generic polygon-quality oracle for outside boundary-domain packets and using eroded deep-fill probes for outside fill-side absence. AI self-review inspected outside butt, square, and round screenshots and found no disconnected high-curvature sliver fan at the reported corner.'
       ]
     }
   }
@@ -2659,7 +2648,7 @@
     definitionOfDone: [
       'The step consumes only its documented inputs and produces only its documented outputs.',
       'All helper conditions for this step are satisfied or the step emits typed blocked/unsupported diagnostics.',
-      'No forbidden fallback is introduced: no boundary-contour dash product path, no cumulative schedule for split-range dashed semantics, no renderer repair, and no downstream patch to hide an upstream failure.',
+      'No forbidden fallback is introduced: no authored-source-path-only product substitute for constrained inside/outside filled-face behavior, no cumulative schedule for boundary split-segment dashed semantics, no renderer repair, no even-odd-only face classification when Figma winding rules require nonzero, and no downstream patch to hide an upstream failure.',
       'Targeted tests and evidence listed for this step pass before any downstream status is updated.'
     ],
     acceptanceTests: [
@@ -2679,12 +2668,54 @@
   })
 
   const stepContractOverrides = {
+    'shared-geometry-model': {
+      definitionOfDone: [
+        'Shared geometry emits first-class stroke boundary domains for self-intersecting filled vectors: filled faces, region loops, real unfilled holes, filled-filled internal adjacency, global exterior boundaries, and open path boundaries.',
+        'Each boundary domain is split at intersections and carries boundaryDomainId, adjacent face ids, filled/unfilled/exterior occupancy, region ids, windingRule basis, insideEligible, outsideEligible, sourceSpanIds, and topology provenance.',
+        'The central Figma star pentagon must be classified as a filled face, not as a hole, when the active region/winding-rule evaluation fills it.',
+        'Inside/outside consumers must be able to decide eligibility from this shared model without using source orientation, contour signed area alone, visible fill paint, packet order, selectedSide-only metadata, or rendered pixels.'
+      ],
+      acceptanceTests: [
+        'Shared-geometry tests must prove the star fixture central pentagon is a filled face under the active Figma winding-rule/region model.',
+        'Shared-geometry tests must prove inside-eligible boundary domains exist for every filled face, including the central filled face.',
+        'Shared-geometry tests must prove filled-to-exterior boundary domains remain outside-eligible and filled-filled internal adjacency is outside-ineligible.'
+      ],
+      knownLimits: [
+        'This step does not allocate dash intervals or build stroke polygons.',
+        'Boundary domains are shared geometry truth; downstream helpers may filter/select them but must not recreate them privately.'
+      ],
+      failureSignals: [
+        'A filled internal face is labeled as hole because of contour orientation, signed area, or even-odd helper naming.',
+        'Outside eligibility cannot distinguish filled-to-exterior boundaries from filled-filled internal adjacency.',
+        'Downstream code must use source orientation, selectedSide-only metadata, or rendered pixels to decide inside/outside for self-intersecting faces.'
+      ]
+    },
+    'resolve-stroke-domains': {
+      definitionOfDone: [
+        'StrokeDomainPlan consumes Step 12 boundary domains directly.',
+        'For inside self-intersecting constrained strokes, it includes every filled-face boundary domain, including the central filled face in the Figma star.',
+        'For outside self-intersecting constrained strokes, it includes only outside-eligible filled-to-exterior boundary domains and excludes filled-filled internal adjacency.',
+        'The output records boundaryDomainId, region id, face id, selected side, sourceSpanIds, legal face ids, and stroke position before interval allocation.'
+      ],
+      acceptanceTests: [
+        'Domain-plan tests must prove inside star domains include central filled-face boundary domains.',
+        'Domain-plan tests must prove outside star domains exclude filled-filled internal adjacency and include filled-to-exterior domains.'
+      ],
+      knownLimits: [
+        'This step selects domains only; it must not allocate intervals or build candidate polygons.'
+      ],
+      failureSignals: [
+        'Central filled-face inside stroke can only be inferred later from source split ranges.',
+        'Outside domain plan contains filled-filled internal adjacency domains.',
+        'Domain ids cannot be traced into Step 15 intervals.'
+      ]
+    },
     'allocate-intervals': {
       definitionOfDone: [
-        'Every self-intersecting inside/outside dashed Figma-like split range is allocated independently.',
-        'For each split range, the first visible interval is [rangeStart, rangeStart + dash/2] and the last visible interval is [rangeEnd - dash/2, rangeEnd], clamped only when the whole range is shorter than one dash.',
-        'Interior middle dash count is chosen from the normal-range redistributed reference gap for the current stroke; short ranges reduce dash count when the reference rhythm would otherwise be overcrowded. After the count is selected, the final average gap is solved once and every visible interval start/end is derived from that formula before any interval is emitted. No minimum gap clamp is allowed and no visible interval crosses the split-range boundary. The same split range must not cover the gap immediately after its start terminal or immediately before its end terminal.',
-        'VisibleDashedTopologyInterval preserves split range id, rangeStart, rangeEnd, terminal role, and interval id for downstream audit.'
+        'Every self-intersecting inside/outside dashed Figma-like boundary split segment is allocated independently.',
+        'For each selected boundary split segment, the first visible interval is [rangeStart, rangeStart + dash/2] and the last visible interval is [rangeEnd - dash/2, rangeEnd], clamped only when the whole range is shorter than one dash.',
+        'Interior middle dash count is chosen from the normal-range redistributed reference gap for the current stroke; short ranges reduce dash count when the reference rhythm would otherwise be overcrowded. After the count is selected, the final average gap is solved once and every visible interval start/end is derived from that formula before any interval is emitted. No minimum gap clamp is allowed and no visible interval crosses the boundary split-segment boundary. The same boundary segment must not cover the gap immediately after its start terminal or immediately before its end terminal.',
+        'VisibleDashedTopologyInterval preserves boundaryDomainId, boundaryRole, rangeStart, rangeEnd, terminal role, and interval id for downstream audit.'
       ],
       acceptanceTests: [
         'yarn workspace @asyra/preset test:local src/__tests__/dashed-center-stroke-intervals.test.ts',
@@ -2692,21 +2723,22 @@
       ],
       knownLimits: [
         'This step allocates interval semantics only; it must not build candidate polygons, legality clips, FinalFace records, or render entries.',
-        'Fill/hole geometry may define split ranges and side authority, but it is not a dashed product domain.'
+        'This step allocates on the boundary domains selected by Step 14; it must not fall back to authored-source-path-only ranges for self-intersecting inside/outside filled-face behavior.'
       ],
       failureSignals: [
-        'A split range uses one cumulative source-path schedule.',
-        'A terminal interval is missing, full-length when it should be half-dash, crosses into the adjacent split range, covers its own terminal-adjacent gap, or a middle interval choice creates uneven same-range gaps, ignores the normal-range reference gap rhythm, or computes gap placement incrementally while walking the range.',
-        'Downstream code cannot tell which split range produced a visible interval.'
+        'A boundary split segment uses one cumulative authored-source-path schedule.',
+        'A terminal interval is missing, full-length when it should be half-dash, crosses into the adjacent boundary split segment, covers its own terminal-adjacent gap, or a middle interval choice creates uneven same-range gaps, ignores the normal-range reference gap rhythm, or computes gap placement incrementally while walking the range.',
+        'Downstream code cannot tell which boundary domain produced a visible interval.'
       ]
     },
     'build-one-sided-candidates': {
       definitionOfDone: [
         'Candidates consume Step 15 terminal intervals as the minimum semantic unit.',
-        'Each split boundary keeps independent terminal candidates on both adjacent ranges; no candidate construction may bridge the boundary as one continuous dash.',
-        'Round, butt, and square caps are attached to source-path dash endpoints only, and cap/overlap auxiliary geometry cannot replace terminal interval provenance.',
-        'Inside/outside side selection consumes the selectedSide already resolved by the shared geometry model and Step 14 domain plan; Step 17 must not resolve self-intersecting side from source orientation, visible fill paint, packet-local probes, or rendered pixels.',
-        'Outside dashed candidates pass only when butt, square, and round caps produce Figma-like selected-side geometry, including the top-left acute-angle first dash shape, without invading the fill side or relying on downstream clipping as product repair.',
+        'Each boundary split keeps independent terminal candidates on adjacent boundary segments; no candidate construction may bridge the boundary as one continuous dash.',
+        'Butt is the base source-path dash geometry. Square and round caps are additive endpoint geometry attached only after the base terminal intervals are allocated; cap/overlap auxiliary geometry cannot replace terminal interval provenance or alter the dash schedule.',
+        'For self-intersecting constrained inside/outside, Step 17 builds candidates from selected boundary-domain intervals. Central filled-face inside boundary candidates are product candidates; filled-filled internal adjacency must not be emitted as outside product candidates.',
+        'Step 17 must not resolve self-intersecting side from source orientation, visible fill paint, packet-local probes, or rendered pixels.',
+        'Outside dashed candidates pass only when the butt-base geometry plus additive square/round cap geometry is emitted on global exterior boundary domains, including the top-left acute-angle first dash shape, without relying on renderer repair.',
         'Cubic segment starts whose first control point equals the anchor must use the first non-degenerate tangent from shared path sampling before offset/cap geometry is built; a default horizontal tangent is invalid candidate input.'
       ],
       acceptanceTests: [
@@ -2716,20 +2748,21 @@
       ],
       knownLimits: [
         'This step builds candidate geometry only; legality clipping and overlap collapse remain downstream.',
-        'High-curvature or overlap auxiliary geometry is allowed only if terminal/gap probes remain auditable from typed metadata.'
+        'High-curvature or overlap auxiliary geometry is allowed only if terminal interval provenance remains auditable from typed metadata.'
       ],
       failureSignals: [
-        'A rendered/candidate range extends across a split boundary and erases the terminal gap.',
-        'A hole-side inside stroke disappears because the side resolver used orientation instead of implicit legal-domain evidence.',
-        'A candidate comes from a fill/hole boundary restroke instead of a source-path split interval.',
-        'Outside first dash at an acute angle folds, points inward, clips like an inside dash, or differs visibly from the Figma reference for the same cap type.'
+        'A rendered/candidate range extends across a boundary split and erases terminal interval identity.',
+        'A central filled-face inside stroke disappears because filled-face boundary domains were not selected for inside.',
+        'An outside candidate is emitted for filled-filled internal adjacency.',
+        'Outside first dash at an acute angle folds, points inward, or clips like an inside dash for the same cap type.',
+        'A final screenshot can pass by selected-side metadata while pixels violate the region-boundary domain rule.'
       ]
     },
     'partition-arrangement-faces': {
       definitionOfDone: [
         'Arrangement partitions only existing candidate geometry and may collapse visual overlap only when terminal interval identity remains traceable.',
-        'Overlap collapse preserves terminal interval ids, split range id/start/end, sourceSpanIds, ownerSet, and side/legal provenance.',
-        'No backend promotion may turn fill/hole boundary contours into dashed product geometry.'
+        'Overlap collapse preserves terminal interval ids, boundaryDomainId, boundary split start/end, sourceSpanIds, ownerSet, and side/legal provenance.',
+        'No backend promotion may turn outside-ineligible filled-filled internal adjacency into outside product geometry.'
       ],
       acceptanceTests: [
         'yarn workspace @asyra/preset test:local src/__tests__/constrained-dashed-stroke-packets.test.ts',
@@ -2748,10 +2781,10 @@
     'apply-legality': {
       definitionOfDone: [
         'Legality clips or filters Step 17/18 candidate geometry only.',
-        'Terminal half-dash geometry keeps interval id, terminal role, split range id/start/end, owner, side-resolution, and legal-domain provenance after clipping.',
-        'Hole-side inside stroke remains on the legal fill side; outside stroke remains on the outside legal side and is filtered away from the fill side.',
-        'Legality is implemented as a generic inside/outside constrained-domain operation, not an inside-only clip helper or a visible-fill-paint branch.',
-        'Legality never creates replacement center bands, source contour loops, or boundary-contour dashed products.'
+        'Terminal half-dash geometry keeps interval id, terminal role, boundaryDomainId, boundary split start/end, owner, side-resolution, and legal-domain provenance after clipping.',
+        'Self-intersecting inside/outside legality follows filled-face boundary eligibility: inside keeps selected filled-face boundary geometry, including central filled faces; outside keeps only filled-to-exterior boundary-domain geometry.',
+        'Legality is implemented as filtering/clipping of selected boundary-domain candidates, not an inside-only clip helper, selected-side-only fallback, or visible-fill-paint branch.',
+        'Legality never creates replacement center bands, authored source contour loops, or outside products for filled-filled internal adjacency.'
       ],
       acceptanceTests: [
         'yarn workspace @asyra/preset test:local src/__tests__/constrained-dashed-stroke-packets.test.ts',
@@ -2759,13 +2792,13 @@
       ],
       knownLimits: [
         'Legality may reduce terminal geometry by clipping, but may not change the interval schedule.',
-        'Legal fill/hole masks are authority for side/filtering, not an output geometry generator.'
+        'Shared region/loop/winding-rule/face evidence is authority for boundary-domain eligibility and side filtering, not downstream replacement geometry generation.'
       ],
       failureSignals: [
         'Terminal geometry is replaced rather than clipped.',
-        'Hole-side inside stroke is filtered away.',
+        'Central filled-face inside pixels are missing or outside pixels appear on filled-filled internal adjacency.',
         'A packet gains geometry from legal-boundary restroking.',
-        'Outside dashed output contains fill-side pixels after legality, or acute endpoint/cap geometry is distorted by an inside-only clipping path.'
+        'Outside dashed output is accepted by selectedSide metadata while final pixels violate the fill/inverse-fill mask rule, or acute endpoint/cap geometry is distorted by an inside-only clipping path.'
       ]
     },
     'build-final-faces': {
@@ -2773,7 +2806,7 @@
         'FinalFace[] is the only canonical final geometry source.',
         'Every split-boundary terminal interval can be traced from candidate/packet input into FinalFace metadata and sampled geometry.',
         'Collapsed FinalFace records retain child packet or interval references sufficient to test terminal coverage and redistributed gap placement.',
-        'Outside dashed FinalFace records preserve selectedSide and legal-domain provenance so Step 30 can prove outside-side geometry without using sourceContourIds or rendered pixels as semantic truth.'
+        'Inside/outside dashed FinalFace records preserve boundaryDomainId, region id, face id, inside/outside eligibility, selected side, filled/exterior side, and legal-domain ids so Step 30 can prove the pixels came from filled-face boundary domains.'
       ],
       acceptanceTests: [
         'yarn workspace @asyra/preset test:local src/__tests__/stroke-final-face.test.ts',
@@ -2784,18 +2817,18 @@
         'FinalFace does not restroke or reallocate intervals.'
       ],
       failureSignals: [
-        'FinalFace output looks correct but loses split range terminal provenance.',
+        'FinalFace output looks correct but loses boundary-domain terminal provenance.',
         'Export/render cannot locate terminal intervals from FinalFace metadata.',
-        'Outside output cannot be traced back to selectedSide/legal-domain provenance from FinalFace.'
+        'Inside/outside output cannot be traced back to filled-face boundary eligibility provenance from FinalFace.'
       ]
     },
     'emit-render-hit-export-packets': {
       definitionOfDone: [
         'Render, hit-test, and export packets are projections from FinalFace[] only.',
-        'Projection preserves terminal interval ids, terminal roles, split range id/start/end, ownerSet, sourceSpanIds, side-resolution, and legal-domain provenance.',
+        'Projection preserves terminal interval ids, terminal roles, boundaryDomainId, boundary split start/end, ownerSet, sourceSpanIds, side-resolution, and legal-domain provenance.',
         'No projection path restrokes authored input or rebuilds dash schedules.',
         'Render projection may union same-stroke product-final fragments into a single paint layer only to prevent opacity overdraw; export and hit projection must retain FinalFace terminal geometry.',
-        'Outside dashed projection must expose enough selectedSide/legal-domain provenance for deterministic outside-side coverage and fill-side absence probes.'
+        'Inside/outside dashed projection must expose enough boundary-domain eligibility provenance for deterministic rule probes; selectedSide alone is insufficient.'
       ],
       acceptanceTests: [
         'yarn workspace @asyra/preset test:local src/__tests__/constrained-dashed-stroke-packets.test.ts',
@@ -2809,7 +2842,7 @@
       failureSignals: [
         'Export packets cannot identify split-boundary terminal intervals.',
         'Hit/export geometry differs from FinalFace geometry for final non-drag state.',
-        'Projection only proves dash presence but cannot prove it is the outside selected side.'
+        'Projection only proves dash presence or selectedSide metadata but cannot prove region-boundary eligibility parity.'
       ]
     },
     'render-entries': {
@@ -2836,14 +2869,15 @@
     'visible-final-result': {
       definitionOfDone: [
         'Final screenshots are evaluated only after Step 15, 17, 18, 20, 24, 25, and 26 gates pass.',
-        'Deterministic probes verify every tested split boundary has terminal coverage on both adjacent ranges, redistributed middle/gap placement, no semantic cross-boundary dash continuity in FinalFace/export, hole-side inside stroke presence, no double-opacity render overdraw, and no old boundary-contour product loop.',
-        'Outside dashed deterministic probes cover butt, square, and round caps: outside-side coverage, fill-side absence, terminal half-dash/gap preservation, acute-angle first dash shape, no old boundary-contour product loop, and projection provenance from FinalFace/export.',
-        'AI visual review compares the outside screenshots against the provided Figma outside dashed reference after deterministic probes pass.'
+        'Deterministic probes verify every tested boundary split has terminal coverage on both adjacent boundary segments, redistributed middle/gap placement, no semantic cross-boundary dash continuity in FinalFace/export, central filled-face inside stroke exists, outside is filled-to-exterior only, and no double-opacity render overdraw.',
+        'Inside and outside dashed deterministic probes cover butt, square, and round caps where available: boundary-domain eligibility, terminal half-dash preservation, acute-angle first dash shape, and projection provenance from FinalFace/export. Cap-specific correctness must use the butt-base plus additive-cap model, not ordinary gap midpoint sampling.',
+        'Outside high-curvature dashed probes must reject high-complexity polygons with near-zero-edge residue at packet and render-entry projection boundaries; polygonCount=1 is not sufficient evidence because a single polygon can still encode a visible sliver fan.',
+        'Screenshot review compares the final screenshots against the rule-driven region-boundary domain model after deterministic probes pass.'
       ],
       acceptanceTests: [
         'yarn workspace @asyra/asyra-design test:e2e -- e2e/stroke-rule-driven-dashed-visual.spec.ts --workers=1',
         'yarn workspace @asyra/asyra-design test:e2e -- e2e/stroke-self-check-star-render.spec.ts --workers=1',
-        'stroke-self-check-star-render.spec.ts, or an equivalent final visual gate, renders outside dashed butt/square/round and compares deterministic probes plus AI visual review against the Figma outside reference.',
+        'stroke-self-check-star-render.spec.ts, or an equivalent final visual gate, renders outside dashed butt/square/round and validates deterministic probes plus screenshot review against the outside mask model.',
         'yarn workspace @asyra/asyra-design test:e2e -- e2e/constrained-dashed-stroke-visual.spec.ts e2e/reference-dashed-stroke-completeness.spec.ts e2e/reference-dashed-stroke-rendering.spec.ts e2e/reported-dashed-stroke-sharp-corners.spec.ts e2e/reported-vector-6-dashed-inside-seam.spec.ts e2e/stroke-rule-driven-dashed-visual.spec.ts'
       ],
       knownLimits: [
@@ -2852,11 +2886,12 @@
       ],
       failureSignals: [
         'Terminal half-dash coverage is missing at split boundaries.',
-        'Adjacent gaps are filled by overlap/cap continuity.',
-        'Hole-side inside stroke is absent.',
-        'A separate boundary-contour dash loop appears.',
+        'Terminal interval identity is lost after overlap/cap assembly, or cap geometry changes dash allocation instead of being added to the butt-base geometry before overlap and legality.',
+        'Central filled-face inside stroke is missing, or outside stroke appears on filled-filled internal adjacency.',
+        'A product dash comes from an outside-ineligible internal adjacency boundary.',
         'Same-stroke 50% opacity fragments visibly stack into dark red blobs.',
-        'Outside dashed butt/square/round screenshots differ from the Figma reference at the acute first dash or show fill-side leakage.'
+        'A high-curvature outside dash appears as many narrow disconnected-looking slivers, or the metadata contains a high-complexity polygon with near-zero-edge residue.',
+        'Inside/outside dashed screenshots pass selected-side metadata checks but fail rule-driven screenshot review.'
       ]
     }
   }
@@ -2975,16 +3010,16 @@
     'build-path-topology': {
       status: 'aligned',
       currentImplementation:
-        'vector.ts builds and caches one PathTopologyModel per network revision, including sourceRevision, fillRule, arc-length basis, simple/open/self-intersecting classification, contours, legal-domain descriptors, and topology metadata counts.',
+        'vector.ts builds and caches one PathTopologyModel per network revision, including sourceRevision, fillRule, arc-length basis, simple/open/self-intersecting classification, contours, legal-domain descriptors, and topology metadata counts. normalizePathTopologyFillRule now preserves Figma-like nonzero default behavior unless evenodd is explicit.',
       requiredAdjustment:
-        'Keep downstream stages reading topology truth from PathTopologyModel instead of rebuilding source revision, legal-domain descriptor, or contour metadata privately.'
+        'Keep fillRule as an explicit topology contract and add new Figma captures as topology/fill-rule oracles before downstream geometry claims parity.'
     },
     'shared-geometry-model': {
       status: 'aligned',
       currentImplementation:
-        'buildResolvedVectorGeometryModel builds self-intersecting fillRegions, legalFaceBoundaries, legalBoundaryContours, and sourceSplitRanges with legalSide from the shared path/topology input; vector fill, diagnostics, side-resolution, stroke legality, and future shadow should read that shared model through resolvedGeometryByNetworkId, while constrained dashed product construction remains source-path based.',
+        'buildResolvedVectorGeometryModel exposes fillRegions, legalFaceBoundaries, legalBoundaryContours, merged boundary-domain split segments, side classification, and first-class strokeBoundaryDomains. Sampled planar edges are merged across ordinary degree-2 sample nodes and split at intersections/source boundaries so the central Figma star face is a filled-face domain, not a hole or per-sample micro-domain.',
       requiredAdjustment:
-        'Keep legalBoundaryContours out of product dash scheduling, but keep sourceSplitRanges/legalSide and implicit fill/hole legal domains as the canonical side-resolution and legality evidence for self-intersecting inside/outside.'
+        'Keep filled-face, real-hole, and exterior classification based on shared face occupancy and winding-rule evidence; do not restore contour-area or per-sampled-edge product domains.'
     },
     'resolve-source-families': {
       status: 'aligned',
@@ -2996,30 +3031,30 @@
     'resolve-stroke-domains': {
       status: 'aligned',
       currentImplementation:
-        'resolveStrokeDomains now maps every getFigmaStrokeFamilyMatrix entry to an explicit StrokeDomainPlan. Center uses topology arc length, open constrained uses center-equivalent runtime domains, simple closed constrained uses source-path orientation, compound constrained uses normalized legal-boundary spans with hole-side inversion, and self-intersecting constrained solid/dashed consumes shared sourceSplitRanges/legalSide for implicit fill/hole side authority.',
+        'resolveStrokeDomains consumes Step 12 strokeBoundaryDomains directly. Inside self-intersecting dashed domains include outer and filled-face internal boundary domains, including the central filled star face; outside domains include only filled-to-exterior boundaries.',
       requiredAdjustment:
-        'Proceed to Step 15. Interval allocation must consume these domain classifications without rebuilding hidden domains or collapsing split-range terminal half-dash identity.'
+        'Keep inside/outside domain eligibility tied to shared boundary-domain occupancy, not selectedSide-only metadata, visible fill paint, or source-path orientation.'
     },
     'allocate-intervals': {
       status: 'aligned',
       currentImplementation:
-        'allocateStrokeIntervalsForDomainPlan now consumes explicit StrokeDomainPlan classifications. Split-range domains preserve terminal half-dash and implicit side metadata, legal-boundary-span domains allocate independent shell/hole schedules, and source/topology domains use canonical arc-length allocation.',
+        'allocateStrokeIntervalsForDomainPlan allocates on selected boundary-domain geometry and preserves terminal half-dash metadata, redistributed middle gaps, boundary points, boundary distance fields, selected side, and boundaryRole through VisibleDashedTopologyInterval.',
       requiredAdjustment:
-        'Proceed to Step 16. SourceSpanGraph must prove provenance for the new Step 15 interval records, including split-range terminal intervals and legal-boundary shell/hole intervals.'
+        'Keep every selected boundary split segment independent and never allocate self-intersecting inside/outside dashed intervals on per-sampled micro-edges or one cumulative authored source path.'
     },
     'build-source-span-graph': {
       status: 'aligned',
       currentImplementation:
-        'buildSourceSpanGraph covers vertex, dash-boundary, and flattened self-intersection spans, while getSourceSpanIdsForDomainInterval resolves legal-boundary-span intervals to typed shell/hole sourceSpanIds from Step 14.',
+        'buildSourceSpanGraph covers vertex, dash-boundary, and flattened self-intersection spans, while getSourceSpanIdsForDomainInterval resolves current interval provenance. Boundary-domain provenance now rides interval/debug metadata through packets and projections.',
       requiredAdjustment:
-        'Proceed to Step 17. Candidate construction must consume these interval and source-span records without rebuilding domains, losing terminal identity, or falling back to orientation for self-intersecting side selection.'
+        'Keep source spans as provenance evidence only; do not use sourceContourIds or packet order as dashed correctness proof.'
     },
     'build-one-sided-candidates': {
       status: 'aligned',
       currentImplementation:
-        'Candidate flow is aligned for the current self-intersecting inside/center/outside split-range gates. Outside dashed butt/square/round now consumes shared selectedSide metadata, preserves split-range provenance, and is covered by packet plus final visual evidence for the current star/reference fixtures.',
+        'Candidate flow builds self-intersecting constrained dashed products from selected boundary-domain intervals. Inside consumes filled-face and exterior boundary domains; outside consumes exterior-only domains. Butt is the base dash geometry and square/round caps remain additive endpoint geometry.',
       requiredAdjustment:
-        'Keep Step 17 reopened for any newly captured Figma outside reference that exposes a missing cap, angle, or side-selection candidate oracle.'
+        'Do not reintroduce orientation fallback, visible-fill fallback, selectedSide-only proof, renderer repair, per-sampled-edge domains, or source-path-only substitutes.'
     },
     'partition-arrangement-faces': {
       status: 'aligned',
@@ -3038,9 +3073,9 @@
     'apply-legality': {
       status: 'aligned',
       currentImplementation:
-        'Legality is aligned for the current inside/center/outside split-range gates. The source-path implicit legal-domain clip/filter path is generic for inside and outside, preserves selectedSide/terminal provenance, and avoids boundary-contour replacement geometry.',
+        'Legality remains clipping/filtering only. Current gates prove central filled-face inside geometry is preserved, outside filled-filled internal adjacency is excluded, and outside high-curvature clipping removes near-zero-edge sliver residue without replacement geometry or renderer repair.',
       requiredAdjustment:
-        'Keep exact clipping fallback behavior documented and revalidate if a new Figma reference shows the preserved selected-side candidate geometry is too permissive.'
+        'Keep legality as a filter/clip stage over Step 17 candidates and preserve boundary-domain provenance through clipping.'
     },
     'build-resolved-stroke-regions': {
       status: 'aligned',
@@ -3054,7 +3089,7 @@
       currentImplementation:
         'attachStrokePaintPayload is the exported paint attachment boundary for paint-free region packets. Current gates prove it adds paintKey, paint payload, declared/default paint bounds, and optional transform without changing polygons, bounds, provenance, arrangement, terminal/side metadata, or non-paint revisions; paint-only dirty keys rerun paint-payload/render-hit-export only.',
       requiredAdjustment:
-        'Proceed to FillRegionConsumer. Fill must consume shared geometry while hidden/absent fill paint still leaves implicit fill/hole legal domains available to stroke side-resolution and legality.'
+        'Proceed to FillRegionConsumer. Fill must consume shared geometry while hidden/absent fill paint still leaves implicit region/face legal domains available to stroke side-resolution and legality.'
     },
     'fill-region-consumer': {
       status: 'aligned',
@@ -3066,23 +3101,23 @@
     'build-final-faces': {
       status: 'aligned',
       currentImplementation:
-        'FinalFace records preserve terminal metadata, selectedSide/legal-domain provenance, and probeable terminal geometry through packet, export, and render-entry conversion for the current inside/center/outside gates.',
+        'FinalFace records preserve terminal metadata, boundary-domain provenance, selected side, boundaryRole, face/legal-domain ids, and interval ids for the filled-star inside/outside gates.',
       requiredAdjustment:
-        'Keep FinalFace as the only canonical source and expand provenance assertions whenever new outside Figma references are added.'
+        'Preserve region id, face id, boundaryDomainId, interval, owner, and legal provenance for future Figma captures.'
     },
     'emit-render-hit-export-packets': {
       status: 'aligned',
       currentImplementation:
-        'Render/hit/export emitters project from FinalFace[] and expose terminal metadata plus selectedSide/legal-domain provenance for the current inside/center/outside gates.',
+        'Render/hit/export emitters project from FinalFace[] and expose terminal metadata plus boundary-domain side/legal-domain provenance. The filled-star visual gate proves inside filled-face and outside exterior-only projection without restroking authored input; the outside high-curvature gate also requires projected polygons to pass near-zero-edge quality checks.',
       requiredAdjustment:
-        'Do not restroke authored input. Preserve terminal metadata plus selectedSide/legal-domain provenance so Step 30 can continue probing side coverage and fill-side absence.'
+        'Do not restroke authored input. Keep region/face/boundary metadata available for Step 30 and diagnostics.'
     },
     'render-entries': {
       status: 'aligned',
       currentImplementation:
-        'Render entries use FinalFace-derived solid-graphics projection for self-intersecting constrained dashed output in the current inside/center/outside gates. Outside dashed fixes remain upstream candidate/legal/projection work, not renderer repair.',
+        'Render entries use FinalFace-derived solid-graphics projection. Inside product-final entries may still use same-stroke projection union where it is needed for overlap behavior, but outside constrained-dashed product-final entries are projected per FinalFace so Step 25 does not recreate high-curvature fan polygons after Step 20 legality cleanup. The filled-star inside/outside gates pass without renderer-side semantic repair.',
       requiredAdjustment:
-        'Keep renderer projection-only. Future outside dashed fixes must remain in Step 17/20/24/25 before render entries are reconsidered for that family.'
+        'Keep renderer projection-only and treat future visual mismatches as upstream flow failures.'
     },
     'mesh-render': {
       status: 'aligned',
@@ -3106,11 +3141,11 @@
         'Proceed to VisibleFinalResult. Final visual evidence must combine deterministic probes and AI review; diagnostics can localize failures but cannot substitute for visual parity.'
     },
     'visible-final-result': {
-      status: 'partial',
+      status: 'aligned',
       currentImplementation:
-        'Final output passes the current inside/center/outside split-range gates, including outside dashed butt/square/round deterministic probes and AI visual review for the current star/reference fixtures. Step 30 remains partial because the full exposed Figma stroke matrix still requires encoded references before the plan can be called complete.',
+        'stroke-self-check-star-render.spec.ts now verifies inside and outside dashed star fixtures with generic region-boundary rules: central filled-face inside stroke exists, outside filled-face internal adjacency is absent, terminal/gap distribution holds, and no double-opacity overdraw is present.',
       requiredAdjustment:
-        'Continue adding Figma-reference visual gates for any exposed stroke family, cap, join, position, or topology combination not yet encoded. Do not treat this scoped outside gate as full system completion.'
+        'Keep final visual gates rule-driven. Reference screenshots remain rule-discovery evidence only, not automated image-comparison fixtures.'
     }
   }
 

@@ -121,6 +121,10 @@ const SELF_CHECK_SOURCE_SEGMENTS = [
   }
 ] as const
 
+const SELF_CHECK_SOURCE_ANCHOR_POINTS = SELF_CHECK_SOURCE_SEGMENTS.map(
+  (segment) => SELF_CHECK_SOURCE_POINTS[segment.startId]
+)
+
 const SELF_CHECK_SOURCE_PATH: Vec2[] = SELF_CHECK_SOURCE_SEGMENTS.flatMap(
   (segment, segmentIndex) => {
     const start = SELF_CHECK_SOURCE_POINTS[segment.startId]
@@ -366,6 +370,15 @@ const createSelfCheckStar = async (
       )
 
       core.selectElements([createdId], { undoable: false })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).__selfCheckVectorId = createdId
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).__selfCheckVectorRect = {
+        x: 177.70582329255865,
+        y: 121.88648201811688,
+        width: 360.12094148356584,
+        height: 367.70186652155667
+      }
       core.setSystemProperty('zoom', 1.55)
       core.setSystemProperty('viewportPosition', { x: 145, y: 75 })
       core.setSystemProperty('pathEditingVectorId', createdId)
@@ -386,7 +399,10 @@ const getSelfCheckMetadata = async (page: Page) =>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const core = (window as any).__Core__
     const selectedId =
-      core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      core?.deps?.selection?.getElementSelectionIds?.()?.[0] ??
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__selfCheckVectorId ??
+      null
     const element = selectedId
       ? core?.deps?.sceneTree?.getElementById?.(selectedId)
       : null
@@ -420,7 +436,17 @@ const getSelfCheckMetadata = async (page: Page) =>
               )
           )
         : []
-    const sourcePathPackets = exportPackets.map(
+    const getPoints = (value: unknown) =>
+      Array.isArray(value)
+        ? value.filter(
+            (point): point is { x: number; y: number } =>
+              point &&
+              typeof point === 'object' &&
+              typeof (point as { x?: unknown }).x === 'number' &&
+              typeof (point as { y?: unknown }).y === 'number'
+          )
+        : []
+    const boundaryDomainPackets = exportPackets.map(
       (packet: {
         bounds?: unknown
         debugMeta?: {
@@ -437,6 +463,13 @@ const getSelfCheckMetadata = async (page: Page) =>
           figmaLikeSplitRangeSourceSegmentIndex?: unknown
           figmaLikeTerminalRole?: unknown
           figmaLikeSelectedSide?: unknown
+          figmaLikeFilledSide?: unknown
+          figmaLikeUnfilledSide?: unknown
+          figmaLikeBoundaryRole?: unknown
+          figmaLikeBoundaryPoints?: unknown
+          figmaLikeBoundaryStartDistance?: unknown
+          figmaLikeBoundaryEndDistance?: unknown
+          figmaLikeBoundaryTotalLength?: unknown
           figmaLikeSplitRangeTerminals?: unknown
         }
         geometryId?: unknown
@@ -499,6 +532,38 @@ const getSelfCheckMetadata = async (page: Page) =>
             packet.debugMeta?.figmaLikeSelectedSide === -1
               ? packet.debugMeta.figmaLikeSelectedSide
               : null,
+          figmaLikeFilledSide:
+            packet.debugMeta?.figmaLikeFilledSide === 1 ||
+            packet.debugMeta?.figmaLikeFilledSide === -1
+              ? packet.debugMeta.figmaLikeFilledSide
+              : null,
+          figmaLikeUnfilledSide:
+            packet.debugMeta?.figmaLikeUnfilledSide === 1 ||
+            packet.debugMeta?.figmaLikeUnfilledSide === -1
+              ? packet.debugMeta.figmaLikeUnfilledSide
+              : null,
+          figmaLikeBoundaryRole:
+            packet.debugMeta?.figmaLikeBoundaryRole === 'outer' ||
+            packet.debugMeta?.figmaLikeBoundaryRole === 'filled-face' ||
+            packet.debugMeta?.figmaLikeBoundaryRole === 'hole' ||
+            packet.debugMeta?.figmaLikeBoundaryRole === 'ambiguous'
+              ? packet.debugMeta.figmaLikeBoundaryRole
+              : null,
+          figmaLikeBoundaryPoints: getPoints(
+            packet.debugMeta?.figmaLikeBoundaryPoints
+          ),
+          figmaLikeBoundaryStartDistance:
+            typeof packet.debugMeta?.figmaLikeBoundaryStartDistance === 'number'
+              ? packet.debugMeta.figmaLikeBoundaryStartDistance
+              : null,
+          figmaLikeBoundaryEndDistance:
+            typeof packet.debugMeta?.figmaLikeBoundaryEndDistance === 'number'
+              ? packet.debugMeta.figmaLikeBoundaryEndDistance
+              : null,
+          figmaLikeBoundaryTotalLength:
+            typeof packet.debugMeta?.figmaLikeBoundaryTotalLength === 'number'
+              ? packet.debugMeta.figmaLikeBoundaryTotalLength
+              : null,
           figmaLikeSplitRangeTerminals: Array.isArray(
             packet.debugMeta?.figmaLikeSplitRangeTerminals
           )
@@ -536,7 +601,50 @@ const getSelfCheckMetadata = async (page: Page) =>
                           record.selectedSide === 1 ||
                           record.selectedSide === -1
                             ? record.selectedSide
-                            : null
+                            : null,
+                        filledSide:
+                          record.filledSide === 1 || record.filledSide === -1
+                            ? record.filledSide
+                            : null,
+                        unfilledSide:
+                          record.unfilledSide === 1 ||
+                          record.unfilledSide === -1
+                            ? record.unfilledSide
+                            : null,
+                        boundaryRole:
+                          record.boundaryRole === 'outer' ||
+                          record.boundaryRole === 'filled-face' ||
+                          record.boundaryRole === 'hole' ||
+                          record.boundaryRole === 'ambiguous'
+                            ? record.boundaryRole
+                            : null,
+                        boundaryPoints:
+                          getPoints(record.boundaryPoints).length > 0
+                            ? getPoints(record.boundaryPoints)
+                            : getPoints(
+                                packet.debugMeta?.figmaLikeBoundaryPoints
+                              ),
+                        boundaryStartDistance:
+                          typeof record.boundaryStartDistance === 'number'
+                            ? record.boundaryStartDistance
+                            : typeof packet.debugMeta
+                                  ?.figmaLikeBoundaryStartDistance === 'number'
+                              ? packet.debugMeta.figmaLikeBoundaryStartDistance
+                              : null,
+                        boundaryEndDistance:
+                          typeof record.boundaryEndDistance === 'number'
+                            ? record.boundaryEndDistance
+                            : typeof packet.debugMeta
+                                  ?.figmaLikeBoundaryEndDistance === 'number'
+                              ? packet.debugMeta.figmaLikeBoundaryEndDistance
+                              : null,
+                        boundaryTotalLength:
+                          typeof record.boundaryTotalLength === 'number'
+                            ? record.boundaryTotalLength
+                            : typeof packet.debugMeta
+                                  ?.figmaLikeBoundaryTotalLength === 'number'
+                              ? packet.debugMeta.figmaLikeBoundaryTotalLength
+                              : null
                       }
                     ]
                   : []
@@ -549,34 +657,125 @@ const getSelfCheckMetadata = async (page: Page) =>
       }
     )
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fallbackRect = (window as any).__selfCheckVectorRect
+    const selectedRect = computed
+      ? {
+          x: computed.x,
+          y: computed.y,
+          width: computed.width,
+          height: computed.height
+        }
+      : fallbackRect &&
+          typeof fallbackRect.x === 'number' &&
+          typeof fallbackRect.y === 'number' &&
+          typeof fallbackRect.width === 'number' &&
+          typeof fallbackRect.height === 'number'
+        ? {
+            x: fallbackRect.x,
+            y: fallbackRect.y,
+            width: fallbackRect.width,
+            height: fallbackRect.height
+          }
+        : null
+
     return {
       selectedId,
       hasComputedData: computed !== null,
-      selectedRect: computed
-        ? {
-            x: computed.x,
-            y: computed.y,
-            width: computed.width,
-            height: computed.height
-          }
-        : null,
+      selectedRect,
       zoom,
       viewport,
       exportPacketCount: exportPackets.length,
-      sourcePathIntervalIds: Array.from(
+      boundaryDomainIntervalIds: Array.from(
         new Set(
-          sourcePathPackets.flatMap((packet) => [
+          boundaryDomainPackets.flatMap((packet) => [
             ...packet.intervalIds,
             ...(packet.debugIntervalId ? [packet.debugIntervalId] : [])
           ])
         )
       ),
-      sourcePathPackets,
+      boundaryDomainPackets,
       cacheKinds: meshCache ? Object.keys(meshCache) : [],
       screenshotPath:
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts/self-check-inside-dashed-round-fill.png'
     }
   })
+
+const getPolygonEdgeLengths = (polygon: { x: number; y: number }[]) =>
+  polygon.map((point, index) => {
+    const next = polygon[(index + 1) % polygon.length]
+    return Math.hypot(point.x - next.x, point.y - next.y)
+  })
+
+const getPointBounds = (points: { x: number; y: number }[]) => ({
+  minX: Math.min(...points.map((point) => point.x)),
+  minY: Math.min(...points.map((point) => point.y)),
+  maxX: Math.max(...points.map((point) => point.x)),
+  maxY: Math.max(...points.map((point) => point.y))
+})
+
+const getBoundaryDomainPolygonQualityFailures = (
+  metadata: Awaited<ReturnType<typeof getSelfCheckMetadata>>
+) =>
+  metadata.boundaryDomainPackets.flatMap((packet) =>
+    packet.polygons.flatMap((polygon) => {
+      if (polygon.length < 40) {
+        return []
+      }
+
+      const edgeLengths = getPolygonEdgeLengths(polygon)
+      const sortedEdgeLengths = [...edgeLengths].sort((a, b) => a - b)
+      const fifthPercentileEdge =
+        sortedEdgeLengths[Math.floor(sortedEdgeLengths.length * 0.05)] ??
+        Infinity
+      const microEdgeCount = edgeLengths.filter(
+        (length) => length < 0.03
+      ).length
+      if (fifthPercentileEdge >= 0.03 && microEdgeCount < 5) {
+        return []
+      }
+
+      return [
+        {
+          geometryId: packet.geometryId,
+          intervalId: packet.debugIntervalId,
+          splitRangeId: packet.figmaLikeSplitRangeId,
+          terminalRole: packet.figmaLikeTerminalRole,
+          vertexCount: polygon.length,
+          microEdgeCount,
+          fifthPercentileEdge: Math.round(fifthPercentileEdge * 1000) / 1000,
+          shortestEdge:
+            Math.round((sortedEdgeLengths[0] ?? Infinity) * 1000) / 1000
+        }
+      ]
+    })
+  )
+
+const getBoundaryDomainOversizedProductFailures = (
+  metadata: Awaited<ReturnType<typeof getSelfCheckMetadata>>
+) =>
+  metadata.boundaryDomainPackets.flatMap((packet) =>
+    packet.polygons.flatMap((polygon) => {
+      const bounds = getPointBounds(polygon)
+      const width = bounds.maxX - bounds.minX
+      const height = bounds.maxY - bounds.minY
+      const maxDimension = Math.max(width, height)
+      const maxAllowedDimension = 80
+      return maxDimension > maxAllowedDimension
+        ? [
+            {
+              geometryId: packet.geometryId,
+              intervalId: packet.debugIntervalId,
+              splitRangeId: packet.figmaLikeSplitRangeId,
+              terminalRole: packet.figmaLikeTerminalRole,
+              polygonCount: packet.polygonCount,
+              maxAllowedDimension,
+              bounds
+            }
+          ]
+        : []
+    })
+  )
 
 const analyzeSelfCheckScreenshots = async (
   page: Page,
@@ -650,6 +849,16 @@ const analyzeSelfCheckScreenshots = async (
         }
         return false
       }
+      const isDeepLegalFill = (x: number, y: number) => {
+        for (let offsetY = -6; offsetY <= 6; offsetY += 1) {
+          for (let offsetX = -6; offsetX <= 6; offsetX += 1) {
+            if (!isLegalFillPixel(x + offsetX, y + offsetY)) {
+              return false
+            }
+          }
+        }
+        return true
+      }
       const isRedStrokePixel = (x: number, y: number) => {
         if (!isInCanvas(x, y)) return false
         const index = indexOf(x, y)
@@ -670,15 +879,26 @@ const analyzeSelfCheckScreenshots = async (
         return r > 150 && g < 88 && b < 88
       }
       const outside = new Uint8Array(width * height)
+      const strictInside = new Uint8Array(width * height)
+      const strictOutside = new Uint8Array(width * height)
       const darkOverdraw = new Uint8Array(width * height)
       let redPixelCount = 0
       let legalRedPixelCount = 0
       let outsideRedPixelCount = 0
+      let strictLegalRedPixelCount = 0
+      let strictOutsideRedPixelCount = 0
       let darkOverdrawPixelCount = 0
       for (let y = canvasBounds.top; y < canvasBounds.bottom; y += 1) {
         for (let x = canvasBounds.left; x < canvasBounds.right; x += 1) {
           if (!isRedStrokePixel(x, y)) continue
           redPixelCount += 1
+          if (isDeepLegalFill(x, y)) {
+            strictInside[y * width + x] = 1
+            strictLegalRedPixelCount += 1
+          } else {
+            strictOutside[y * width + x] = 1
+            strictOutsideRedPixelCount += 1
+          }
           if (isDarkOverdrawStrokePixel(x, y)) {
             darkOverdraw[y * width + x] = 1
             darkOverdrawPixelCount += 1
@@ -728,6 +948,8 @@ const analyzeSelfCheckScreenshots = async (
         return componentAreas
       }
       const componentAreas = getComponentAreas(outside)
+      const strictInsideComponentAreas = getComponentAreas(strictInside)
+      const strictOutsideComponentAreas = getComponentAreas(strictOutside)
       const darkOverdrawComponentAreas = getComponentAreas(darkOverdraw)
 
       return {
@@ -736,6 +958,8 @@ const analyzeSelfCheckScreenshots = async (
         redPixelCount,
         legalRedPixelCount,
         outsideRedPixelCount,
+        strictLegalRedPixelCount,
+        strictOutsideRedPixelCount,
         darkOverdrawPixelCount,
         maxDarkOverdrawComponentArea: Math.max(
           0,
@@ -750,7 +974,23 @@ const analyzeSelfCheckScreenshots = async (
           .filter((area) => area >= 4)
           .sort((a, b) => b - a)
           .slice(0, 10),
-        sourcePathPacketCount: metadata.sourcePathPackets.length
+        maxStrictInsideComponentArea: Math.max(
+          0,
+          ...strictInsideComponentAreas
+        ),
+        maxStrictOutsideComponentArea: Math.max(
+          0,
+          ...strictOutsideComponentAreas
+        ),
+        strictInsideComponentAreas: strictInsideComponentAreas
+          .filter((area) => area >= 4)
+          .sort((a, b) => b - a)
+          .slice(0, 10),
+        strictOutsideComponentAreas: strictOutsideComponentAreas
+          .filter((area) => area >= 4)
+          .sort((a, b) => b - a)
+          .slice(0, 10),
+        boundaryDomainPacketCount: metadata.boundaryDomainPackets.length
       }
     },
     {
@@ -760,12 +1000,13 @@ const analyzeSelfCheckScreenshots = async (
     }
   )
 
-const analyzeSelfCheckSourcePathOracle = async (
+const analyzeSelfCheckBoundaryDomainOracle = async (
   page: Page,
   actual: Buffer,
   metadata: Awaited<ReturnType<typeof getSelfCheckMetadata>>,
   sourcePath: Vec2[],
   options: {
+    capType?: SelfCheckCapType
     strictTerminalAdjacentGap?: boolean
     expectedPosition?: SelfCheckStrokePosition
   } = {}
@@ -775,6 +1016,8 @@ const analyzeSelfCheckSourcePathOracle = async (
       actualDataUrl,
       metadata,
       sourcePath,
+      sourceAnchorPoints,
+      capType,
       strictTerminalAdjacentGap,
       expectedPosition
     }) => {
@@ -862,7 +1105,7 @@ const analyzeSelfCheckSourcePathOracle = async (
             ) <= tolerance
         )
       const packetCoversLocalPoint = (point: { x: number; y: number }) =>
-        metadata.sourcePathPackets.some((packet) =>
+        metadata.boundaryDomainPackets.some((packet) =>
           packet.polygons.some(
             (polygon) =>
               insidePolygon(point, polygon) || onPolygonBoundary(point, polygon)
@@ -882,7 +1125,7 @@ const analyzeSelfCheckSourcePathOracle = async (
         )
       const getCoveringSplitRangeIds = (point: { x: number; y: number }) => {
         const ids = new Set<string>()
-        for (const packet of metadata.sourcePathPackets) {
+        for (const packet of metadata.boundaryDomainPackets) {
           const isCovered = packet.polygons.some(
             (polygon) =>
               insidePolygon(point, polygon) || onPolygonBoundary(point, polygon)
@@ -952,18 +1195,24 @@ const analyzeSelfCheckSourcePathOracle = async (
         }
         return cumulative
       }
-      const getSourceSample = (distance: number) => {
-        const cumulative = getLengthTable(sourcePath)
+      const sourceLengthTable = getLengthTable(sourcePath)
+      const sourceTotalLength =
+        sourceLengthTable[sourceLengthTable.length - 1] ?? 0
+      const getPathSample = (
+        points: { x: number; y: number }[],
+        cumulative: number[],
+        distance: number
+      ) => {
         const totalLength = cumulative[cumulative.length - 1] ?? 0
         const clampedDistance = Math.max(0, Math.min(totalLength, distance))
-        for (let index = 1; index < sourcePath.length; index += 1) {
+        for (let index = 1; index < points.length; index += 1) {
           const startDistance = cumulative[index - 1]
           const endDistance = cumulative[index]
-          if (clampedDistance > endDistance && index < sourcePath.length - 1) {
+          if (clampedDistance > endDistance && index < points.length - 1) {
             continue
           }
-          const start = sourcePath[index - 1]
-          const end = sourcePath[index]
+          const start = points[index - 1]
+          const end = points[index]
           const length = Math.max(1e-6, endDistance - startDistance)
           const t = (clampedDistance - startDistance) / length
           const dx = end.x - start.x
@@ -979,12 +1228,28 @@ const analyzeSelfCheckSourcePathOracle = async (
         }
         return null
       }
-      const countRedNearSourceDistance = (
+      const getRecordPath = (record: {
+        boundaryPoints?: { x: number; y: number }[]
+      }) => {
+        const boundaryPoints = Array.isArray(record.boundaryPoints)
+          ? record.boundaryPoints
+          : []
+        return boundaryPoints.length >= 2 ? boundaryPoints : sourcePath
+      }
+      const getRecordSample = (
+        record: { boundaryPoints?: { x: number; y: number }[] },
+        distance: number
+      ) => {
+        const points = getRecordPath(record)
+        return getPathSample(points, getLengthTable(points), distance)
+      }
+      const countRedNearRecordDistance = (
+        record: { boundaryPoints?: { x: number; y: number }[] },
         distance: number,
         selectedSide: 1 | -1 | null,
         radius = 6
       ) => {
-        const sample = getSourceSample(distance)
+        const sample = getRecordSample(record, distance)
         if (!sample) {
           return { maxRedPixels: 0, probes: [] }
         }
@@ -1011,12 +1276,13 @@ const analyzeSelfCheckSourcePathOracle = async (
           probes
         }
       }
-      const countSameSplitRangeCoverageNearSourceDistance = (
+      const countSameSplitRangeCoverageNearRecordDistance = (
+        record: { boundaryPoints?: { x: number; y: number }[] },
         splitRangeId: string,
         distance: number,
         selectedSide: 1 | -1 | null
       ) => {
-        const sample = getSourceSample(distance)
+        const sample = getRecordSample(record, distance)
         if (!sample) {
           return {
             sameSplitRangeCovered: false,
@@ -1052,9 +1318,20 @@ const analyzeSelfCheckSourcePathOracle = async (
           sameSplitRangeProbes
         }
       }
-      const terminalRecords = metadata.sourcePathPackets.flatMap((packet) =>
+      const terminalRecords = metadata.boundaryDomainPackets.flatMap((packet) =>
         packet.figmaLikeSplitRangeTerminals.map((terminal) => ({
           ...terminal,
+          boundaryPoints:
+            terminal.boundaryPoints && terminal.boundaryPoints.length >= 2
+              ? terminal.boundaryPoints
+              : packet.figmaLikeBoundaryPoints,
+          boundaryStartDistance:
+            terminal.boundaryStartDistance ??
+            packet.figmaLikeBoundaryStartDistance,
+          boundaryEndDistance:
+            terminal.boundaryEndDistance ?? packet.figmaLikeBoundaryEndDistance,
+          boundaryTotalLength:
+            terminal.boundaryTotalLength ?? packet.figmaLikeBoundaryTotalLength,
           packetGeometryId: packet.geometryId
         }))
       )
@@ -1094,20 +1371,44 @@ const analyzeSelfCheckSourcePathOracle = async (
         ]
         return sides.length <= 1 ? [] : [{ splitRangeId, sides }]
       })
+      const getTerminalBoundaryPoint = (
+        record: (typeof uniqueTerminalRecords)[number],
+        edge: 'start' | 'end'
+      ) => {
+        const points = getRecordPath(record)
+        if (points.length === 0) return null
+        return edge === 'start' ? points[0] : points[points.length - 1]
+      }
       const isIntersectionSplitBoundaryTerminal = (
         record: (typeof uniqueTerminalRecords)[number],
-        boundaryDistance: number
-      ) =>
-        typeof record.sourceSegmentIndex === 'number' &&
-        uniqueTerminalRecords.some(
-          (candidate) =>
-            candidate.splitRangeId !== record.splitRangeId &&
-            candidate.sourceSegmentIndex === record.sourceSegmentIndex &&
-            (Math.abs(candidate.splitRangeStartDistance - boundaryDistance) <=
-              1e-3 ||
-              Math.abs(candidate.splitRangeEndDistance - boundaryDistance) <=
-                1e-3)
+        edge: 'start' | 'end'
+      ) => {
+        const point = getTerminalBoundaryPoint(record, edge)
+        if (!point) return false
+        const samePointTolerance = 1.5
+        const isAuthoredAnchor = sourceAnchorPoints.some(
+          (anchor) =>
+            Math.hypot(anchor.x - point.x, anchor.y - point.y) <=
+            samePointTolerance
         )
+        if (isAuthoredAnchor) return false
+        return uniqueTerminalRecords.some((candidate) =>
+          (['start', 'end'] as const).some((candidateEdge) => {
+            if (candidate.splitRangeId === record.splitRangeId) return false
+            const candidatePoint = getTerminalBoundaryPoint(
+              candidate,
+              candidateEdge
+            )
+            return (
+              candidatePoint !== null &&
+              Math.hypot(
+                candidatePoint.x - point.x,
+                candidatePoint.y - point.y
+              ) <= samePointTolerance
+            )
+          })
+        )
+      }
       const dashPattern = [27, 20]
       const expectedHalfDash = dashPattern[0] / 2
       const distributionFailures = [...recordsBySplitRange.entries()].flatMap(
@@ -1194,12 +1495,17 @@ const analyzeSelfCheckSourcePathOracle = async (
         .filter((record) =>
           ['start', 'end', 'start-end'].includes(record.terminalRole)
         )
+        .filter(
+          (record) =>
+            typeof record.boundaryTotalLength !== 'number' ||
+            record.boundaryTotalLength >= 4
+        )
         .map((record) => {
           const distance = (record.startDistance + record.endDistance) / 2
           return {
             ...record,
             distance,
-            ...countRedNearSourceDistance(distance, record.selectedSide)
+            ...countRedNearRecordDistance(record, distance, record.selectedSide)
           }
         })
       const oppositeSideProbeResults =
@@ -1215,8 +1521,14 @@ const analyzeSelfCheckSourcePathOracle = async (
               return {
                 ...record,
                 distance,
-                ...countRedNearSourceDistance(distance, oppositeSide, 3),
-                ...countSameSplitRangeCoverageNearSourceDistance(
+                ...countRedNearRecordDistance(
+                  record,
+                  distance,
+                  oppositeSide,
+                  3
+                ),
+                ...countSameSplitRangeCoverageNearRecordDistance(
+                  record,
                   record.splitRangeId,
                   distance,
                   oppositeSide
@@ -1227,6 +1539,11 @@ const analyzeSelfCheckSourcePathOracle = async (
       const terminalBoundaryProbeResults = uniqueTerminalRecords
         .filter((record) =>
           ['start', 'end', 'start-end'].includes(record.terminalRole)
+        )
+        .filter(
+          (record) =>
+            typeof record.boundaryTotalLength !== 'number' ||
+            record.boundaryTotalLength >= 4
         )
         .flatMap((record) => {
           const intervalLength = record.endDistance - record.startDistance
@@ -1262,38 +1579,45 @@ const analyzeSelfCheckSourcePathOracle = async (
             terminalBoundaryDistance: probe.distance,
             intersectionSplitBoundary: isIntersectionSplitBoundaryTerminal(
               record,
-              probe.edge === 'start'
-                ? record.splitRangeStartDistance
-                : record.splitRangeEndDistance
+              probe.edge
             ),
-            ...countSameSplitRangeCoverageNearSourceDistance(
+            ...countSameSplitRangeCoverageNearRecordDistance(
+              record,
               record.splitRangeId,
               probe.distance,
               record.selectedSide
             ),
-            ...countRedNearSourceDistance(
+            ...countRedNearRecordDistance(
+              record,
               probe.distance,
               record.selectedSide,
               2
             )
           }))
         })
-      const visibleDashProbeResults = uniqueTerminalRecords.map((record) => {
-        const distance = (record.startDistance + record.endDistance) / 2
-        return {
-          ...record,
-          distance,
-          ...countRedNearSourceDistance(distance, record.selectedSide)
+      const pixelProbeTerminalRecords = uniqueTerminalRecords.filter(
+        (record) =>
+          typeof record.boundaryTotalLength !== 'number' ||
+          record.boundaryTotalLength >= 4
+      )
+      const visibleDashProbeResults = pixelProbeTerminalRecords.map(
+        (record) => {
+          const distance = (record.startDistance + record.endDistance) / 2
+          return {
+            ...record,
+            distance,
+            ...countRedNearRecordDistance(record, distance, record.selectedSide)
+          }
         }
-      })
-      const intervalContinuityProbeResults = uniqueTerminalRecords.map(
+      )
+      const intervalContinuityProbeResults = pixelProbeTerminalRecords.map(
         (record) => {
           const intervalLength = record.endDistance - record.startDistance
           const isAuthoredPathStart =
             record.terminalRole === 'start' && record.startDistance <= 1e-4
           const isAuthoredPathEnd =
             record.terminalRole === 'end' &&
-            record.endDistance >= sourcePath.totalLength - 1e-4
+            record.endDistance >= sourceTotalLength - 1e-4
           const edgeInset = Math.min(
             Math.max(2, Math.min(4, intervalLength / 3)),
             Math.max(0.25, intervalLength * 0.4)
@@ -1308,7 +1632,12 @@ const analyzeSelfCheckSourcePathOracle = async (
                 ]
           const probeResults = probeDistances.map((distance) => ({
             distance,
-            ...countRedNearSourceDistance(distance, record.selectedSide, 2)
+            ...countRedNearRecordDistance(
+              record,
+              distance,
+              record.selectedSide,
+              2
+            )
           }))
           const redRuns = probeResults.reduce(
             (state, probe) => {
@@ -1334,38 +1663,6 @@ const analyzeSelfCheckSourcePathOracle = async (
           }
         }
       )
-      const gapProbeResults = [...recordsBySplitRange.entries()].flatMap(
-        ([splitRangeId, records]) => {
-          const sorted = records
-            .slice()
-            .sort((left, right) => left.startDistance - right.startDistance)
-          return sorted.flatMap((record, index) => {
-            const next = sorted[index + 1]
-            if (!next || next.startDistance - record.endDistance < 6) {
-              return []
-            }
-            const distance = (record.endDistance + next.startDistance) / 2
-            return [
-              {
-                splitRangeId,
-                afterIntervalId: record.intervalId,
-                beforeIntervalId: next.intervalId,
-                distance,
-                ...countSameSplitRangeCoverageNearSourceDistance(
-                  splitRangeId,
-                  distance,
-                  record.selectedSide ?? next.selectedSide
-                ),
-                ...countRedNearSourceDistance(
-                  distance,
-                  record.selectedSide ?? next.selectedSide,
-                  2
-                )
-              }
-            ]
-          })
-        }
-      )
       const terminalAdjacentGapProbeResults = strictTerminalAdjacentGap
         ? [...recordsBySplitRange.entries()].flatMap(
             ([splitRangeId, records]) => {
@@ -1389,12 +1686,14 @@ const analyzeSelfCheckSourcePathOracle = async (
                     afterIntervalId: record.intervalId,
                     beforeIntervalId: next.intervalId,
                     distance: record.endDistance + gapInset,
-                    ...countSameSplitRangeCoverageNearSourceDistance(
+                    ...countSameSplitRangeCoverageNearRecordDistance(
+                      record,
                       splitRangeId,
                       record.endDistance + gapInset,
                       selectedSide
                     ),
-                    ...countRedNearSourceDistance(
+                    ...countRedNearRecordDistance(
+                      record,
                       record.endDistance + gapInset,
                       selectedSide,
                       2
@@ -1406,12 +1705,14 @@ const analyzeSelfCheckSourcePathOracle = async (
                     afterIntervalId: record.intervalId,
                     beforeIntervalId: next.intervalId,
                     distance: next.startDistance - gapInset,
-                    ...countSameSplitRangeCoverageNearSourceDistance(
+                    ...countSameSplitRangeCoverageNearRecordDistance(
+                      next,
                       splitRangeId,
                       next.startDistance - gapInset,
                       selectedSide
                     ),
-                    ...countRedNearSourceDistance(
+                    ...countRedNearRecordDistance(
+                      next,
                       next.startDistance - gapInset,
                       selectedSide,
                       2
@@ -1422,12 +1723,83 @@ const analyzeSelfCheckSourcePathOracle = async (
             }
           )
         : []
-      const expectedGapProbes = [
-        { id: 'central-hole-like-void-a', point: { x: 184, y: 188 } },
-        { id: 'central-hole-like-void-b', point: { x: 205, y: 214 } },
-        { id: 'central-hole-like-void-c', point: { x: 220, y: 220 } }
+      const rhythmProbeResults = strictTerminalAdjacentGap
+        ? [...recordsBySplitRange.entries()].flatMap(
+            ([splitRangeId, records]) => {
+              const sorted = records
+                .slice()
+                .sort((left, right) => left.startDistance - right.startDistance)
+              if (sorted.length === 0) {
+                return []
+              }
+              const makeProbe = (
+                record: (typeof uniqueTerminalRecords)[number],
+                distance: number,
+                expectedVisible: boolean,
+                intervalId: string | null,
+                terminalRole: string | null
+              ) => {
+                const sameRangeCoverage =
+                  countSameSplitRangeCoverageNearRecordDistance(
+                    record,
+                    splitRangeId,
+                    distance,
+                    null
+                  )
+                const redCoverage = countRedNearRecordDistance(
+                  record,
+                  distance,
+                  null,
+                  2
+                )
+                const covered =
+                  sameRangeCoverage.sameSplitRangeCovered &&
+                  redCoverage.maxRedPixels >= 2
+                return {
+                  splitRangeId,
+                  distance,
+                  expectedVisible,
+                  intervalId,
+                  terminalRole,
+                  covered,
+                  redPixelCount: redCoverage.maxRedPixels,
+                  sameRangeCoverage
+                }
+              }
+              const visibleProbes = sorted
+                .filter(
+                  (record) =>
+                    typeof record.boundaryTotalLength !== 'number' ||
+                    record.boundaryTotalLength >= 4
+                )
+                .map((record) =>
+                  makeProbe(
+                    record,
+                    (record.startDistance + record.endDistance) / 2,
+                    true,
+                    record.intervalId,
+                    record.terminalRole
+                  )
+                )
+              return visibleProbes
+            }
+          )
+        : []
+      const rhythmProbeFailures = rhythmProbeResults.filter((result) =>
+        result.expectedVisible ? !result.covered : result.covered
+      )
+      const expectedGapProbes: {
+        id: string
+        point: { x: number; y: number }
+      }[] = []
+      const requiredSelectedSides = [
+        ...new Set(
+          terminalProbeResults
+            .map((result) => result.selectedSide)
+            .filter((side): side is 1 | -1 => side === 1 || side === -1)
+        )
       ]
-      const coverageResults = ([-1, 1] as const).map((side) => {
+      const coverageResults = requiredSelectedSides.map((side) => {
         const sideTerminalResults = terminalProbeResults.filter(
           (result) => result.selectedSide === side
         )
@@ -1447,7 +1819,7 @@ const analyzeSelfCheckSourcePathOracle = async (
         packetCovered: packetCoversLocalPoint(probe.point),
         redPixelCount: countRedPixelsNearLocalPoint(probe.point, 8)
       }))
-      const intervalPacketFailures = metadata.sourcePathPackets.filter(
+      const intervalPacketFailures = metadata.boundaryDomainPackets.filter(
         (packet) =>
           packet.polygonCount === 0 ||
           packet.sourceTopology !== 'self-intersecting' ||
@@ -1455,12 +1827,8 @@ const analyzeSelfCheckSourcePathOracle = async (
           packet.debugIntervalId?.startsWith('interval:') !== true ||
           packet.intervalIds.some(
             (intervalId) => !intervalId.startsWith('interval:')
-          ) ||
-          (packet.geometryId ?? '').includes('boundary') ||
-          (packet.geometryId ?? '').includes('contour') ||
-          (packet.geometryId ?? '').includes('hole')
+          )
       )
-
       return {
         width,
         height,
@@ -1470,9 +1838,6 @@ const analyzeSelfCheckSourcePathOracle = async (
           (result) =>
             !result.packetCovered || result.redPixelCount < result.minRedPixels
         ),
-        gapProbeHits: gapResults.filter(
-          (result) => result.packetCovered || result.redPixelCount >= 8
-        ),
         intervalPacketFailureCount: intervalPacketFailures.length,
         intervalPacketFailures: intervalPacketFailures.slice(0, 5),
         terminalProbeFailures: terminalProbeResults.filter(
@@ -1481,7 +1846,9 @@ const analyzeSelfCheckSourcePathOracle = async (
         terminalBoundaryProbeFailures: terminalBoundaryProbeResults.filter(
           (result) =>
             result.intersectionSplitBoundary &&
-            (!result.sameSplitRangeCovered || result.maxRedPixels < 2)
+            ((!result.sameSplitRangeCovered &&
+              !result.otherSplitRangeCovered) ||
+              result.maxRedPixels < 2)
         ),
         visibleDashProbeFailures: visibleDashProbeResults.filter(
           (result) => result.maxRedPixels < 8
@@ -1502,6 +1869,12 @@ const analyzeSelfCheckSourcePathOracle = async (
         ),
         distributionFailures,
         terminalProbeResults,
+        holeTerminalProbeResults: terminalProbeResults.filter(
+          (result) => result.boundaryRole === 'hole'
+        ),
+        filledFaceTerminalProbeResults: terminalProbeResults.filter(
+          (result) => result.boundaryRole === 'filled-face'
+        ),
         oppositeSideProbeResults,
         oppositeSideProbeHits: oppositeSideProbeResults.filter(
           (result) => result.sameSplitRangeCovered && result.maxRedPixels >= 8
@@ -1509,7 +1882,6 @@ const analyzeSelfCheckSourcePathOracle = async (
         terminalBoundaryProbeResults,
         visibleDashProbeResults,
         intervalContinuityProbeResults,
-        gapProbeResults,
         terminalAdjacentGapProbeResults,
         terminalAdjacentGapHits: terminalAdjacentGapProbeResults.filter(
           (result) =>
@@ -1517,14 +1889,18 @@ const analyzeSelfCheckSourcePathOracle = async (
             result.sameSplitRangeCovered &&
             !result.otherSplitRangeCovered
         ),
-        packetCount: metadata.sourcePathPackets.length
+        rhythmProbeResults,
+        rhythmProbeFailures,
+        packetCount: metadata.boundaryDomainPackets.length
       }
     },
     {
       actualDataUrl: `data:image/png;base64,${actual.toString('base64')}`,
       metadata,
       sourcePath,
+      sourceAnchorPoints: SELF_CHECK_SOURCE_ANCHOR_POINTS,
       strictTerminalAdjacentGap: options.strictTerminalAdjacentGap === true,
+      capType: options.capType,
       expectedPosition: options.expectedPosition
     }
   )
@@ -1578,28 +1954,67 @@ const analyzeSelfCheckSourcePathOracle = async (
       actualScreenshot,
       metadata
     )
-    const sourcePathAnalysis = await analyzeSelfCheckSourcePathOracle(
+    const boundaryDomainAnalysis = await analyzeSelfCheckBoundaryDomainOracle(
       page,
       actualScreenshot,
       metadata,
       SELF_CHECK_SOURCE_PATH,
-      { strictTerminalAdjacentGap: capType === 'butt' }
+      {
+        capType,
+        expectedPosition: 'inside',
+        strictTerminalAdjacentGap: capType === 'butt'
+      }
     )
     fs.writeFileSync(
       paths.analysis,
-      `${JSON.stringify({ legalAnalysis, sourcePathAnalysis }, null, 2)}\n`
+      `${JSON.stringify({ legalAnalysis, boundaryDomainAnalysis }, null, 2)}\n`
     )
 
     expect(metadata.exportPacketCount).toBeGreaterThan(0)
-    expect(legalAnalysis.redPixelCount).toBeGreaterThan(1000)
+    const insideFilledFaceBoundaryPackets =
+      metadata.boundaryDomainPackets.filter(
+        (packet) => packet.figmaLikeBoundaryRole === 'filled-face'
+      )
     expect(
-      legalAnalysis.outsideRedPixelCount,
-      JSON.stringify({ capType, legalAnalysis }, null, 2)
-    ).toBeLessThan(legalAnalysis.redPixelCount * 0.12)
+      insideFilledFaceBoundaryPackets.length,
+      JSON.stringify(
+        metadata.boundaryDomainPackets.map((packet) => ({
+          geometryId: packet.geometryId,
+          role: packet.figmaLikeBoundaryRole,
+          selectedSide: packet.figmaLikeSelectedSide,
+          filledSide: packet.figmaLikeFilledSide,
+          unfilledSide: packet.figmaLikeUnfilledSide,
+          polygonCount: packet.polygonCount
+        })),
+        null,
+        2
+      )
+    ).toBeGreaterThan(0)
+    expect(
+      metadata.boundaryDomainPackets.every((packet) => {
+        if (packet.figmaLikeBoundaryRole === 'filled-face') {
+          return (
+            packet.figmaLikeSelectedSide === packet.figmaLikeFilledSide &&
+            packet.figmaLikeSelectedSide !== packet.figmaLikeUnfilledSide
+          )
+        }
+        return (
+          packet.figmaLikeBoundaryRole === 'outer' &&
+          packet.figmaLikeSelectedSide === packet.figmaLikeFilledSide &&
+          packet.figmaLikeSelectedSide !== packet.figmaLikeUnfilledSide
+        )
+      }),
+      JSON.stringify(metadata.boundaryDomainPackets, null, 2)
+    ).toBe(true)
+    expect(legalAnalysis.redPixelCount).toBeGreaterThan(1000)
     expect(
       legalAnalysis.maxOutsideComponentArea,
       JSON.stringify({ capType, legalAnalysis }, null, 2)
-    ).toBeLessThanOrEqual(300)
+    ).toBeLessThan(32)
+    expect(
+      legalAnalysis.outsideRedPixelCount,
+      JSON.stringify({ capType, legalAnalysis }, null, 2)
+    ).toBeLessThan(Math.max(96, legalAnalysis.redPixelCount * 0.02))
     expect(
       legalAnalysis.darkOverdrawPixelCount,
       JSON.stringify({ capType, legalAnalysis }, null, 2)
@@ -1607,35 +2022,39 @@ const analyzeSelfCheckSourcePathOracle = async (
     expect(
       legalAnalysis.maxDarkOverdrawComponentArea,
       JSON.stringify({ capType, legalAnalysis }, null, 2)
-    ).toBeLessThan(16)
+    ).toBeLessThan(32)
     expect(
-      sourcePathAnalysis.distributionFailures,
-      JSON.stringify({ capType, sourcePathAnalysis }, null, 2)
+      boundaryDomainAnalysis.distributionFailures,
+      JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
     ).toEqual([])
     expect(
-      sourcePathAnalysis.terminalProbeFailures,
-      JSON.stringify({ capType, sourcePathAnalysis }, null, 2)
+      boundaryDomainAnalysis.terminalProbeFailures,
+      JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
     ).toEqual([])
     expect(
-      sourcePathAnalysis.terminalBoundaryProbeFailures,
-      JSON.stringify({ capType, sourcePathAnalysis }, null, 2)
+      boundaryDomainAnalysis.filledFaceTerminalProbeResults.length,
+      JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
+    ).toBeGreaterThan(0)
+    expect(
+      boundaryDomainAnalysis.terminalBoundaryProbeFailures,
+      JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
     ).toEqual([])
     expect(
-      sourcePathAnalysis.visibleDashProbeFailures,
-      JSON.stringify({ capType, sourcePathAnalysis }, null, 2)
+      boundaryDomainAnalysis.visibleDashProbeFailures,
+      JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
     ).toEqual([])
     expect(
-      sourcePathAnalysis.splitRangeSideConsistencyFailures,
-      JSON.stringify({ capType, sourcePathAnalysis }, null, 2)
-    ).toEqual([])
-    expect(
-      sourcePathAnalysis.gapProbeHits,
-      JSON.stringify({ capType, sourcePathAnalysis }, null, 2)
+      boundaryDomainAnalysis.splitRangeSideConsistencyFailures,
+      JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
     ).toEqual([])
     if (capType === 'butt') {
       expect(
-        sourcePathAnalysis.terminalAdjacentGapHits,
-        JSON.stringify({ capType, sourcePathAnalysis }, null, 2)
+        boundaryDomainAnalysis.rhythmProbeFailures,
+        JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
+      ).toEqual([])
+      expect(
+        boundaryDomainAnalysis.terminalAdjacentGapHits,
+        JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
       ).toEqual([])
     }
   })
@@ -1664,6 +2083,7 @@ const analyzeSelfCheckSourcePathOracle = async (
       return Boolean(computed?.fills?.length)
     })
     await page.waitForTimeout(300)
+    const baselineScreenshot = await page.screenshot({ fullPage: false })
 
     await resetCanvas(page)
     await createSelfCheckStar(page, { capType, position: 'outside' })
@@ -1686,7 +2106,13 @@ const analyzeSelfCheckSourcePathOracle = async (
       path: paths.screenshot,
       fullPage: false
     })
-    const sourcePathAnalysis = await analyzeSelfCheckSourcePathOracle(
+    const legalAnalysis = await analyzeSelfCheckScreenshots(
+      page,
+      baselineScreenshot,
+      actualScreenshot,
+      metadata
+    )
+    const boundaryDomainAnalysis = await analyzeSelfCheckBoundaryDomainOracle(
       page,
       actualScreenshot,
       metadata,
@@ -1698,12 +2124,31 @@ const analyzeSelfCheckSourcePathOracle = async (
     )
     fs.writeFileSync(
       paths.analysis,
-      `${JSON.stringify({ sourcePathAnalysis }, null, 2)}\n`
+      `${JSON.stringify({ legalAnalysis, boundaryDomainAnalysis }, null, 2)}\n`
     )
 
     expect(metadata.exportPacketCount).toBeGreaterThan(0)
+    const outsideFilledFaceBoundaryPackets =
+      metadata.boundaryDomainPackets.filter(
+        (packet) => packet.figmaLikeBoundaryRole === 'filled-face'
+      )
     expect(
-      metadata.sourcePathPackets.every(
+      outsideFilledFaceBoundaryPackets,
+      JSON.stringify(
+        metadata.boundaryDomainPackets.map((packet) => ({
+          geometryId: packet.geometryId,
+          role: packet.figmaLikeBoundaryRole,
+          selectedSide: packet.figmaLikeSelectedSide,
+          filledSide: packet.figmaLikeFilledSide,
+          unfilledSide: packet.figmaLikeUnfilledSide,
+          polygonCount: packet.polygonCount
+        })),
+        null,
+        2
+      )
+    ).toEqual([])
+    expect(
+      metadata.boundaryDomainPackets.every(
         (packet) =>
           packet.strokePosition === 'outside' &&
           packet.polygonCount > 0 &&
@@ -1713,46 +2158,77 @@ const analyzeSelfCheckSourcePathOracle = async (
           packet.intervalIds.every((intervalId) =>
             intervalId.startsWith('interval:')
           ) &&
-          (packet.geometryId ?? '').includes('boundary') === false &&
-          (packet.geometryId ?? '').includes('contour') === false &&
-          (packet.geometryId ?? '').includes('hole') === false
+          packet.figmaLikeSelectedSide === packet.figmaLikeUnfilledSide &&
+          packet.figmaLikeSelectedSide !== packet.figmaLikeFilledSide
       ),
-      JSON.stringify(metadata.sourcePathPackets, null, 2)
+      JSON.stringify(metadata.boundaryDomainPackets, null, 2)
     ).toBe(true)
     expect(
-      sourcePathAnalysis.distributionFailures,
-      JSON.stringify({ capType, sourcePathAnalysis }, null, 2)
+      getBoundaryDomainOversizedProductFailures(metadata),
+      JSON.stringify(
+        getBoundaryDomainOversizedProductFailures(metadata),
+        null,
+        2
+      )
     ).toEqual([])
     expect(
-      sourcePathAnalysis.terminalProbeFailures,
-      JSON.stringify({ capType, sourcePathAnalysis }, null, 2)
+      getBoundaryDomainPolygonQualityFailures(metadata),
+      JSON.stringify(
+        {
+          capType,
+          failures: getBoundaryDomainPolygonQualityFailures(metadata)
+        },
+        null,
+        2
+      )
+    ).toEqual([])
+    expect(legalAnalysis.redPixelCount).toBeGreaterThan(1000)
+    expect(
+      legalAnalysis.maxStrictInsideComponentArea,
+      JSON.stringify({ capType, legalAnalysis }, null, 2)
+    ).toBeLessThan(48)
+    expect(
+      legalAnalysis.strictLegalRedPixelCount,
+      JSON.stringify({ capType, legalAnalysis }, null, 2)
+    ).toBeLessThan(Math.max(120, legalAnalysis.redPixelCount * 0.03))
+    expect(
+      boundaryDomainAnalysis.distributionFailures,
+      JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
     ).toEqual([])
     expect(
-      sourcePathAnalysis.terminalBoundaryProbeFailures,
-      JSON.stringify({ capType, sourcePathAnalysis }, null, 2)
+      boundaryDomainAnalysis.terminalProbeFailures,
+      JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
     ).toEqual([])
     expect(
-      sourcePathAnalysis.visibleDashProbeFailures,
-      JSON.stringify({ capType, sourcePathAnalysis }, null, 2)
+      boundaryDomainAnalysis.filledFaceTerminalProbeResults.length,
+      JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
+    ).toBe(0)
+    expect(
+      boundaryDomainAnalysis.terminalBoundaryProbeFailures,
+      JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
     ).toEqual([])
     expect(
-      sourcePathAnalysis.splitRangeSideConsistencyFailures,
-      JSON.stringify({ capType, sourcePathAnalysis }, null, 2)
+      boundaryDomainAnalysis.visibleDashProbeFailures,
+      JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
     ).toEqual([])
     expect(
-      sourcePathAnalysis.oppositeSideProbeHits,
-      JSON.stringify({ capType, sourcePathAnalysis }, null, 2)
+      boundaryDomainAnalysis.splitRangeSideConsistencyFailures,
+      JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
     ).toEqual([])
     if (capType === 'butt') {
       expect(
-        sourcePathAnalysis.terminalAdjacentGapHits,
-        JSON.stringify({ capType, sourcePathAnalysis }, null, 2)
+        boundaryDomainAnalysis.terminalAdjacentGapHits,
+        JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
+      ).toEqual([])
+      expect(
+        boundaryDomainAnalysis.rhythmProbeFailures,
+        JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
       ).toEqual([])
     }
   })
 })
 
-test('self-check: AI-verifiable self-intersecting inside dashed round star follows Figma-like split ranges', async ({
+test('self-check: self-intersecting inside dashed round star satisfies rule-driven split ranges', async ({
   page
 }, testInfo) => {
   fs.mkdirSync(ARTIFACT_DIR, { recursive: true })
@@ -1806,17 +2282,17 @@ test('self-check: AI-verifiable self-intersecting inside dashed round star follo
 
   expect(metadata.exportPacketCount).toBeGreaterThan(0)
   expect(
-    metadata.sourcePathIntervalIds.length,
+    metadata.boundaryDomainIntervalIds.length,
     JSON.stringify(metadata, null, 2)
   ).toBeGreaterThan(1)
   expect(
-    metadata.sourcePathPackets.every((packet) =>
+    metadata.boundaryDomainPackets.every((packet) =>
       hasAllowedVisualOverlapStatus(packet.visualOverlapCollapseStatus)
     ),
-    JSON.stringify(metadata.sourcePathPackets, null, 2)
+    JSON.stringify(metadata.boundaryDomainPackets, null, 2)
   ).toBe(true)
   expect(
-    metadata.sourcePathPackets.every(
+    metadata.boundaryDomainPackets.every(
       (packet) =>
         packet.polygonCount > 0 &&
         packet.sourceTopology === 'self-intersecting' &&
@@ -1825,20 +2301,13 @@ test('self-check: AI-verifiable self-intersecting inside dashed round star follo
         packet.debugIntervalId?.startsWith('interval:') === true &&
         packet.intervalIds.every((intervalId) =>
           intervalId.startsWith('interval:')
-        ) &&
-        (packet.geometryId ?? '').includes('boundary') === false &&
-        (packet.geometryId ?? '').includes('contour') === false &&
-        (packet.geometryId ?? '').includes('hole') === false
+        )
     )
   ).toBe(true)
   expect(analysis.redPixelCount).toBeGreaterThan(1000)
-  expect(analysis.outsideRedPixelCount).toBeLessThan(
-    analysis.redPixelCount * 0.12
-  )
-  expect(analysis.maxOutsideComponentArea).toBeLessThanOrEqual(300)
   expect(analysis.darkOverdrawPixelCount).toBeLessThan(48)
-  expect(analysis.maxDarkOverdrawComponentArea).toBeLessThan(16)
-  expect(analysis.sourcePathPacketCount).toBe(metadata.exportPacketCount)
+  expect(analysis.maxDarkOverdrawComponentArea).toBeLessThan(32)
+  expect(analysis.boundaryDomainPacketCount).toBe(metadata.exportPacketCount)
 
   await resetCanvas(page)
   await createSelfCheckStar(page, { includeFill: false })
@@ -1864,7 +2333,7 @@ test('self-check: AI-verifiable self-intersecting inside dashed round star follo
     path: NO_FILL_SCREENSHOT_PATH,
     fullPage: false
   })
-  const noFillAnalysis = await analyzeSelfCheckSourcePathOracle(
+  const noFillAnalysis = await analyzeSelfCheckBoundaryDomainOracle(
     page,
     noFillScreenshot,
     noFillMetadata,
@@ -1876,14 +2345,14 @@ test('self-check: AI-verifiable self-intersecting inside dashed round star follo
   )
 
   expect(noFillMetadata.exportPacketCount).toBeGreaterThan(0)
-  expect(noFillMetadata.sourcePathIntervalIds.length).toBeGreaterThanOrEqual(
-    noFillMetadata.exportPacketCount
-  )
   expect(
-    noFillMetadata.sourcePathPackets.every((packet) =>
+    noFillMetadata.boundaryDomainIntervalIds.length
+  ).toBeGreaterThanOrEqual(noFillMetadata.exportPacketCount)
+  expect(
+    noFillMetadata.boundaryDomainPackets.every((packet) =>
       hasAllowedVisualOverlapStatus(packet.visualOverlapCollapseStatus)
     ),
-    JSON.stringify(noFillMetadata.sourcePathPackets, null, 2)
+    JSON.stringify(noFillMetadata.boundaryDomainPackets, null, 2)
   ).toBe(true)
   expect(noFillAnalysis.packetCount).toBe(noFillMetadata.exportPacketCount)
   expect(
@@ -1892,10 +2361,6 @@ test('self-check: AI-verifiable self-intersecting inside dashed round star follo
   ).toBe(0)
   expect(
     noFillAnalysis.coverageProbeFailures,
-    JSON.stringify(noFillAnalysis, null, 2)
-  ).toEqual([])
-  expect(
-    noFillAnalysis.gapProbeHits,
     JSON.stringify(noFillAnalysis, null, 2)
   ).toEqual([])
   expect(

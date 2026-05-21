@@ -3506,7 +3506,10 @@ describe('vector constrained dashed stroke product wiring', () => {
     { label: 'inside', position: StrokePositions.INSIDE },
     { label: 'outside', position: StrokePositions.OUTSIDE }
   ].forEach(({ label, position }) => {
-    it(`should run: render visible source-path constrained dashed geometry for the reported self-intersecting closed star repeated dashed ${label} stroke`, () => {
+    it(`should run: render visible source-path constrained dashed geometry for the reported self-intersecting closed star repeated dashed ${label} stroke`, async () => {
+      await selectClipper2TestBackend(
+        `vector-constrained-dashed-reported-star-transition-${label}-clipper2-backend`
+      )
       const strategy = renderStrategyRegistry.get('vector')
       expect(strategy).toBeTypeOf('function')
 
@@ -3600,7 +3603,10 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
   })
 
-  it('should run: render constrained dashed stroke packets from authored source-path intervals in the reported self-intersecting star', () => {
+  it('should run: render constrained dashed stroke packets from authored source-path intervals in the reported self-intersecting star', async () => {
+    await selectClipper2TestBackend(
+      'vector-constrained-dashed-reported-star-source-path-clipper2-backend'
+    )
     const starData = toReportedClosedStarVectorData()
     const network = starData.networks['tn-14']
     expect(network).toBeDefined()
@@ -3664,7 +3670,10 @@ describe('vector constrained dashed stroke product wiring', () => {
     expect(coveredSourceIntervalIds.size).toBeGreaterThan(1)
   })
 
-  it('should run: render visible source-path split-range constrained geometry for closed self-intersecting full-loop constrained dashed vectors', () => {
+  it('should run: render visible source-path split-range constrained geometry for closed self-intersecting full-loop constrained dashed vectors', async () => {
+    await selectClipper2TestBackend(
+      'vector-constrained-dashed-self-intersecting-full-loop-clipper2-backend'
+    )
     const graphic = runVectorRenderStrategy({
       id: 'vector-constrained-dashed-self-intersecting',
       x: 0,
@@ -3795,7 +3804,10 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
   })
 
-  it('should run: render visible source-path split-range constrained geometry for closed self-intersecting round-join full-loop constrained dashed vectors', () => {
+  it('should run: render visible source-path split-range constrained geometry for closed self-intersecting round-join full-loop constrained dashed vectors', async () => {
+    await selectClipper2TestBackend(
+      'vector-constrained-dashed-self-intersecting-round-full-loop-clipper2-backend'
+    )
     const graphic = runVectorRenderStrategy({
       id: 'vector-constrained-dashed-self-intersecting-round',
       x: 0,

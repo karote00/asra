@@ -10,6 +10,11 @@ export interface DashedCenterStrokeIntervalRecord {
   wrapsSeam: boolean
   previousVisibleIntervalId: string | null
   nextVisibleIntervalId: string | null
+  figmaLikeBoundaryDomainId?: string
+  figmaLikeBoundaryPoints?: { x: number; y: number }[]
+  figmaLikeBoundaryStartDistance?: number
+  figmaLikeBoundaryEndDistance?: number
+  figmaLikeBoundaryTotalLength?: number
   figmaLikeSplitRangeId?: string
   figmaLikeSplitRangeStartDistance?: number
   figmaLikeSplitRangeEndDistance?: number
@@ -17,6 +22,9 @@ export interface DashedCenterStrokeIntervalRecord {
   figmaLikeSplitRangeSourceSegmentIndex?: number
   figmaLikeSideAuthority?: 'implicit-fill-hole-domain'
   figmaLikeSelectedSide?: 1 | -1
+  figmaLikeFilledSide?: 1 | -1
+  figmaLikeUnfilledSide?: 1 | -1
+  figmaLikeBoundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
   figmaLikeSideResolutionStatus?: 'resolved' | 'blocked'
   figmaLikeSideResolutionReason?: string
 }
@@ -53,11 +61,19 @@ export interface StrokeIntervalAllocation {
 
 export interface FigmaLikeSplitRangeDashDomain {
   domainId: string
+  boundaryDomainId?: string
+  boundaryPoints?: { x: number; y: number }[]
+  boundaryStartDistance?: number
+  boundaryEndDistance?: number
+  boundaryTotalLength?: number
   startDistance: number
   endDistance: number
   sourceSegmentIndex: number
   sideAuthority?: 'implicit-fill-hole-domain'
   selectedSide?: 1 | -1
+  filledSide?: 1 | -1
+  unfilledSide?: 1 | -1
+  boundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
   offsetDistance?: number
   sideResolutionStatus?: 'resolved' | 'blocked'
   sideResolutionReason?: string
@@ -441,6 +457,13 @@ export const allocateFigmaLikeSplitRangeDashedIntervals = ({
         `${domain.domainId}:interval`
       ).map((interval) => ({
         ...interval,
+        figmaLikeBoundaryDomainId: domain.boundaryDomainId,
+        figmaLikeBoundaryPoints: domain.boundaryPoints
+          ? domain.boundaryPoints.map((point) => ({ ...point }))
+          : undefined,
+        figmaLikeBoundaryStartDistance: domain.boundaryStartDistance,
+        figmaLikeBoundaryEndDistance: domain.boundaryEndDistance,
+        figmaLikeBoundaryTotalLength: domain.boundaryTotalLength,
         figmaLikeSplitRangeId: domain.domainId,
         figmaLikeSplitRangeStartDistance: startDistance,
         figmaLikeSplitRangeEndDistance: endDistance,
@@ -448,6 +471,9 @@ export const allocateFigmaLikeSplitRangeDashedIntervals = ({
         figmaLikeSplitRangeSourceSegmentIndex: domain.sourceSegmentIndex,
         figmaLikeSideAuthority: domain.sideAuthority,
         figmaLikeSelectedSide: domain.selectedSide,
+        figmaLikeFilledSide: domain.filledSide,
+        figmaLikeUnfilledSide: domain.unfilledSide,
+        figmaLikeBoundaryRole: domain.boundaryRole,
         figmaLikeSideResolutionStatus: domain.sideResolutionStatus,
         figmaLikeSideResolutionReason: domain.sideResolutionReason
       }))

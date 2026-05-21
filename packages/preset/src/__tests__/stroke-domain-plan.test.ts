@@ -615,6 +615,8 @@ const resolvePlanForMatrixEntry = (entry: FigmaStrokeFamilyMatrixEntry) => {
       : null
   const sharedSourceSplitRanges =
     resolvedGeometry?.networks[0]?.selfIntersecting?.sourceSplitRanges ?? []
+  const sharedStrokeBoundaryDomains =
+    resolvedGeometry?.networks[0]?.selfIntersecting?.strokeBoundaryDomains ?? []
 
   return resolveStrokeDomains({
     topology: pathTopology,
@@ -625,6 +627,7 @@ const resolvePlanForMatrixEntry = (entry: FigmaStrokeFamilyMatrixEntry) => {
     stroke: renderableStroke,
     sourcePath,
     sharedSourceSplitRanges,
+    sharedStrokeBoundaryDomains,
     normalizedLegalDomain:
       entry.familyScope === 'compound-closed'
         ? compoundLegalDomain(pathTopology)
@@ -704,7 +707,7 @@ describe('stroke domain plan', () => {
     })
   })
 
-  it('should run: resolve self-intersecting inside dashed as split-range intervals with implicit fill/hole side authority', () => {
+  it('should run: resolve self-intersecting inside dashed as filled-face boundary split ranges with implicit face authority', () => {
     const points = [
       { x: 0, y: 0 },
       { x: 120, y: 220 },
@@ -732,15 +735,16 @@ describe('stroke domain plan', () => {
     })
     const sharedSourceSplitRanges =
       resolvedGeometry.networks[0]?.selfIntersecting?.sourceSplitRanges ?? []
-    const intersectionSplitDomains =
-      buildFigmaLikeSplitRangeDashDomains(sourcePath)
-
+    const sharedStrokeBoundaryDomains =
+      resolvedGeometry.networks[0]?.selfIntersecting?.strokeBoundaryDomains ??
+      []
     const plan = resolveStrokeDomains({
       topology: pathTopology,
       sourceFamily,
       stroke: renderableStroke,
       sourcePath,
-      sharedSourceSplitRanges
+      sharedSourceSplitRanges,
+      sharedStrokeBoundaryDomains
     })
 
     expect(pathTopology.topologyFamily).toBe('self-intersecting')
@@ -753,36 +757,203 @@ describe('stroke domain plan', () => {
     expect(plan.splitRangeDomains.length).toBeGreaterThan(
       sourcePath.segments.length
     )
-    expect(plan.splitRangeDomains).toHaveLength(intersectionSplitDomains.length)
-    expect(plan.splitRangeDomains.map((domain) => domain.domainId)).toEqual(
-      intersectionSplitDomains.map((domain) => domain.domainId)
-    )
     expect(plan.splitRangeDomains).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           sourceSegmentIndex: expect.any(Number),
+          boundaryPoints: expect.arrayContaining([
+            expect.objectContaining({
+              x: expect.any(Number),
+              y: expect.any(Number)
+            })
+          ]),
+          boundaryStartDistance: expect.any(Number),
+          boundaryEndDistance: expect.any(Number),
+          boundaryTotalLength: expect.any(Number),
           sideAuthority: 'implicit-fill-hole-domain',
           sideResolutionStatus: 'resolved',
           selectedSide: expect.any(Number),
+          filledSide: expect.any(Number),
+          unfilledSide: expect.any(Number),
+          boundaryRole: expect.stringMatching(
+            /^(outer|hole|filled-face|ambiguous)$/
+          ),
           contourIds: expect.arrayContaining([expect.any(String)]),
           legalDomainIds: expect.arrayContaining([expect.any(String)])
         })
       ])
     )
     expect(
+      plan.splitRangeDomains.map((domain) => domain.boundaryRole)
+    ).toContain('filled-face')
+    expect(
+      plan.splitRangeDomains
+        .filter((domain) => domain.boundaryRole === 'filled-face')
+        .every(
+          (domain) =>
+            domain.selectedSide === domain.filledSide &&
+            domain.selectedSide !== domain.unfilledSide
+        )
+    ).toBe(true)
+    expect(
+      plan.splitRangeDomains
+        .filter((domain) => domain.boundaryRole === 'outer')
+        .every(
+          (domain) =>
+            domain.selectedSide === domain.filledSide &&
+            domain.selectedSide !== domain.unfilledSide
+        )
+    ).toBe(true)
+    expect(
       plan.splitRangeDomains.every(
         (domain) =>
           domain.sideResolutionStatus === 'resolved' &&
-          (domain.selectedSide === 1 || domain.selectedSide === -1)
+          (domain.selectedSide === 1 || domain.selectedSide === -1) &&
+          domain.filledSide !== domain.unfilledSide
       )
     ).toBe(true)
-    expect(plan.diagnostics).toContain(
-      'dash-domains-follow-source-split-ranges'
-    )
+    expect(plan.diagnostics).toContain('dash-domains-follow-boundary-domains')
     expect(plan.diagnostics).toContain(
       'side-authority-is-implicit-fill-hole-domain'
     )
     expect('intervals' in plan).toBe(false)
+  })
+
+  it('should run: resolve self-intersecting outside dashed from exterior boundary domains only', () => {
+    const points = [
+      { x: 0, y: 0 },
+      { x: 120, y: 220 },
+      { x: 240, y: 0 },
+      { x: 0, y: 140 },
+      { x: 240, y: 140 }
+    ]
+    const sourcePath = buildPolylineGeometryModelPath(points, true)
+    const pathTopology = topology(sourcePath.sampledPoints, true)
+    const renderableStroke = stroke(
+      StrokeStyles.DASHED,
+      StrokePositions.OUTSIDE
+    )
+    const resolvedGeometry = buildResolvedVectorGeometryModel({
+      modelId: 'stroke-domain:self-intersecting:outside-boundaries',
+      fillRule: pathTopology.fillRule,
+      networks: [
+        {
+          networkId: pathTopology.networkId,
+          path: sourcePath,
+          topology: pathTopology
+        }
+      ]
+    })
+    const selfIntersecting = resolvedGeometry.networks[0]?.selfIntersecting
+    expect(
+      selfIntersecting?.strokeBoundaryDomains.some(
+        (domain) => domain.boundaryRole === 'filled-face'
+      )
+    ).toBe(true)
+
+    const plan = resolveStrokeDomains({
+      topology: pathTopology,
+      sourceFamily: resolveSourceFamily({
+        topology: pathTopology,
+        stroke: renderableStroke
+      }),
+      stroke: renderableStroke,
+      sourcePath,
+      sharedSourceSplitRanges: selfIntersecting?.sourceSplitRanges ?? [],
+      sharedStrokeBoundaryDomains: selfIntersecting?.strokeBoundaryDomains ?? []
+    })
+
+    expect(plan).toMatchObject({
+      supportState: 'supported',
+      intervalDomainKind: 'figma-like-split-range',
+      sideAuthority: 'implicit-fill-hole-domain',
+      requiresImplicitFillHoleSideResolution: true
+    })
+    expect(plan.splitRangeDomains.length).toBeGreaterThan(0)
+    expect(
+      plan.splitRangeDomains.some(
+        (domain) => domain.boundaryRole === 'filled-face'
+      )
+    ).toBe(false)
+    expect(
+      plan.splitRangeDomains.every(
+        (domain) =>
+          domain.boundaryRole === 'outer' &&
+          domain.selectedSide === domain.unfilledSide &&
+          domain.selectedSide !== domain.filledSide
+      )
+    ).toBe(true)
+  })
+
+  it('should run: preserve actual boundary-domain geometry metrics for inside filled-face dash allocation', () => {
+    const points = [
+      { x: 0, y: 0 },
+      { x: 120, y: 220 },
+      { x: 240, y: 0 },
+      { x: 0, y: 140 },
+      { x: 240, y: 140 }
+    ]
+    const sourcePath = buildPolylineGeometryModelPath(points, true)
+    const pathTopology = topology(sourcePath.sampledPoints, true)
+    const renderableStroke = stroke(StrokeStyles.DASHED, StrokePositions.INSIDE)
+    const resolvedGeometry = buildResolvedVectorGeometryModel({
+      modelId: 'stroke-domain:self-intersecting:filled-face-boundary-metrics',
+      fillRule: pathTopology.fillRule,
+      networks: [
+        {
+          networkId: pathTopology.networkId,
+          path: sourcePath,
+          topology: pathTopology
+        }
+      ]
+    })
+    const selfIntersecting = resolvedGeometry.networks[0]?.selfIntersecting
+
+    const plan = resolveStrokeDomains({
+      topology: pathTopology,
+      sourceFamily: resolveSourceFamily({
+        topology: pathTopology,
+        stroke: renderableStroke
+      }),
+      stroke: renderableStroke,
+      sourcePath,
+      sharedSourceSplitRanges: selfIntersecting?.sourceSplitRanges ?? [],
+      sharedStrokeBoundaryDomains: selfIntersecting?.strokeBoundaryDomains ?? []
+    })
+    const filledFaceDomains = plan.splitRangeDomains.filter(
+      (domain) => domain.boundaryRole === 'filled-face'
+    )
+
+    expect(filledFaceDomains.length).toBeGreaterThan(0)
+    filledFaceDomains.forEach((domain) => {
+      const record = domain as unknown as Record<string, unknown>
+      expect(record.boundaryPoints).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            x: expect.any(Number),
+            y: expect.any(Number)
+          })
+        ])
+      )
+      expect(
+        (record.boundaryPoints as unknown[]).length
+      ).toBeGreaterThanOrEqual(2)
+      expect(record.boundaryStartDistance).toEqual(expect.any(Number))
+      expect(record.boundaryEndDistance).toEqual(expect.any(Number))
+      expect(record.boundaryTotalLength).toEqual(expect.any(Number))
+      expect(record.boundaryStartDistance).toBe(0)
+      expect(record.boundaryEndDistance).toBe(record.boundaryTotalLength)
+      expect(record.startDistance).toBe(record.boundaryStartDistance)
+      expect(record.endDistance).toBe(record.boundaryEndDistance)
+      expect(record.boundaryEndDistance as number).toBeGreaterThan(
+        record.boundaryStartDistance as number
+      )
+      expect(record.boundaryTotalLength as number).toBeGreaterThanOrEqual(
+        (record.boundaryEndDistance as number) -
+          (record.boundaryStartDistance as number) -
+          1e-6
+      )
+    })
   })
 
   it('should run: build split-range domains at source-path intersections', () => {

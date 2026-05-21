@@ -166,6 +166,11 @@ export interface SolidCenterStrokeGeometryDebugMeta {
   previousVisibleIntervalId?: string | null
   nextVisibleIntervalId?: string | null
   intervalTerminalRole?: 'none' | 'path-start' | 'path-end' | 'both'
+  figmaLikeBoundaryDomainId?: string
+  figmaLikeBoundaryPoints?: Vec2[]
+  figmaLikeBoundaryStartDistance?: number
+  figmaLikeBoundaryEndDistance?: number
+  figmaLikeBoundaryTotalLength?: number
   figmaLikeSplitRangeId?: string
   figmaLikeSplitRangeStartDistance?: number
   figmaLikeSplitRangeEndDistance?: number
@@ -173,10 +178,18 @@ export interface SolidCenterStrokeGeometryDebugMeta {
   figmaLikeSplitRangeSourceSegmentIndex?: number
   figmaLikeSideAuthority?: 'implicit-fill-hole-domain'
   figmaLikeSelectedSide?: 1 | -1
+  figmaLikeFilledSide?: 1 | -1
+  figmaLikeUnfilledSide?: 1 | -1
+  figmaLikeBoundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
   figmaLikeSideResolutionStatus?: 'resolved' | 'blocked'
   figmaLikeSideResolutionReason?: string
   figmaLikeSplitRangeTerminals?: {
     intervalId: string
+    boundaryDomainId?: string
+    boundaryPoints?: Vec2[]
+    boundaryStartDistance?: number
+    boundaryEndDistance?: number
+    boundaryTotalLength?: number
     splitRangeId: string
     splitRangeStartDistance: number
     splitRangeEndDistance: number
@@ -185,6 +198,9 @@ export interface SolidCenterStrokeGeometryDebugMeta {
     endDistance: number
     sourceSegmentIndex?: number
     selectedSide?: 1 | -1
+    filledSide?: 1 | -1
+    unfilledSide?: 1 | -1
+    boundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
   }[]
   intervalStartCutKind?: 'vertex' | 'dash-boundary' | 'self-intersection'
   intervalEndCutKind?: 'vertex' | 'dash-boundary' | 'self-intersection'
@@ -585,6 +601,16 @@ const getConstrainedDashedProductRenderGroupKey = (
   return `${face.paintKey}|${ownerKey}`
 }
 
+const getConstrainedDashedProductProjectionGroupKey = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >
+) =>
+  face.debugMeta?.strokePosition === 'outside'
+    ? getConstrainedDashedProductRenderGroupKey(face)
+    : null
+
 const getRenderOverlapBackend = (
   options: SolidCenterStrokeRenderEntryOptions
 ) => {
@@ -650,7 +676,8 @@ const buildCollapsedRenderEntry = (
       return []
     }
   })()
-  const polygons = flattenFacePolygons(unionRegions, fallbackPolygons)
+  const flattenedPolygons = flattenFacePolygons(unionRegions, fallbackPolygons)
+  const polygons = flattenedPolygons
   const sourceGeometryIds = getUniqueStrings(
     faces.flatMap((face) => face.sourceGeometryIds)
   )
@@ -717,6 +744,149 @@ const buildConstrainedDashedProductRenderEntry = (
     'constrained-dashed-product-union',
     'render-projection-union'
   )
+
+const buildProjectionPacketFromFinalFace = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >
+) => ({
+  geometryId: getProjectedGeometryId(face),
+  polygons: face.polygons,
+  bounds: face.bounds,
+  primaryOwner: face.ownerSet[0],
+  ownerSet: face.ownerSet,
+  intervalIds: face.intervalIds,
+  sourceSpanIds: face.sourceSpanIds,
+  sourceContourIds: face.sourceContourIds,
+  legalDomainIds: face.legalDomainIds,
+  debugMeta: face.debugMeta
+})
+
+const buildCollapsedProjectionPacket = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[],
+  cacheKeyPrefix: string,
+  collapseStatus: RenderProjectionCollapseStatus
+) => {
+  const [primaryFace] = faces
+  const backend = getRenderOverlapBackend({})
+  if (!primaryFace || faces.length < 2 || !backend) {
+    return faces.map(buildProjectionPacketFromFinalFace)
+  }
+
+  const fallbackPolygons = faces.flatMap((face) => face.polygons)
+  const unionRegions = (() => {
+    try {
+      return backend.union(faces.map(toCoverageFaceRegion), 'nonzero')
+    } catch {
+      return []
+    }
+  })()
+  const flattenedPolygons = flattenFacePolygons(unionRegions, fallbackPolygons)
+  const polygons =
+    collapseStatus === 'render-projection-union'
+      ? fallbackPolygons
+      : flattenedPolygons
+  const sourceGeometryIds = getUniqueStrings(
+    faces.flatMap((face) => face.sourceGeometryIds)
+  )
+  const intervalIds = getUniqueStrings(
+    faces.flatMap((face) => face.intervalIds)
+  )
+  const sourceSpanIds = getUniqueStrings(
+    faces.flatMap((face) => face.sourceSpanIds)
+  )
+  const sourceContourIds = getUniqueStrings(
+    faces.flatMap((face) => face.sourceContourIds)
+  )
+  const legalDomainIds = getUniqueStrings(
+    faces.flatMap((face) => face.legalDomainIds)
+  )
+  const ownerSet = [...new Set(faces.flatMap((face) => face.ownerSet))]
+  const figmaLikeSplitRangeTerminals = faces.flatMap(
+    (face) => face.debugMeta?.figmaLikeSplitRangeTerminals ?? []
+  )
+
+  return [
+    {
+      ...buildProjectionPacketFromFinalFace(primaryFace),
+      geometryId: `projection:${cacheKeyPrefix}:${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`,
+      polygons,
+      bounds: getBounds(polygons),
+      primaryOwner: ownerSet[0],
+      ownerSet,
+      intervalIds,
+      sourceSpanIds,
+      sourceContourIds,
+      legalDomainIds,
+      debugMeta: {
+        ...primaryFace.debugMeta,
+        intervalIds,
+        sourceSpanIds,
+        sourceContourIds,
+        legalDomainIds,
+        figmaLikeSplitRangeTerminals,
+        visualOverlapCollapseStatus: collapseStatus,
+        visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
+        visualOverlapSourceGeometryIds: sourceGeometryIds
+      }
+    }
+  ]
+}
+
+const buildProjectedPacketsFromFinalFaces = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[]
+) => {
+  const output: ReturnType<typeof buildProjectionPacketFromFinalFace>[][] = []
+  const constrainedDashedGroups = new Map<
+    string,
+    StrokeFinalFace<
+      SolidCenterStrokeGeometryDebugMeta,
+      SolidCenterStrokePaintPacket
+    >[]
+  >()
+  const constrainedDashedGroupSlots = new Map<string, number>()
+
+  faces.forEach((face) => {
+    const constrainedDashedGroupKey =
+      getConstrainedDashedProductProjectionGroupKey(face)
+    if (constrainedDashedGroupKey) {
+      const group = constrainedDashedGroups.get(constrainedDashedGroupKey) ?? []
+      group.push(face)
+      constrainedDashedGroups.set(constrainedDashedGroupKey, group)
+
+      if (!constrainedDashedGroupSlots.has(constrainedDashedGroupKey)) {
+        constrainedDashedGroupSlots.set(
+          constrainedDashedGroupKey,
+          output.length
+        )
+        output.push([])
+      }
+      return
+    }
+
+    output.push([buildProjectionPacketFromFinalFace(face)])
+  })
+
+  constrainedDashedGroups.forEach((group, groupKey) => {
+    const slot = constrainedDashedGroupSlots.get(groupKey)
+    if (slot !== undefined) {
+      output[slot] = buildCollapsedProjectionPacket(
+        group,
+        'constrained-dashed-product-union',
+        'render-projection-union'
+      )
+    }
+  })
+
+  return output.flat()
+}
 
 const collapseDashedCenterRenderEntries = (
   faces: StrokeFinalFace<
@@ -839,18 +1009,7 @@ export const buildSolidCenterStrokeHitTestPacketsFromFinalFaces = (
     return cached
   }
 
-  const packets = faces.map((face) => ({
-    geometryId: getProjectedGeometryId(face),
-    polygons: face.polygons,
-    bounds: face.bounds,
-    primaryOwner: face.ownerSet[0],
-    ownerSet: face.ownerSet,
-    intervalIds: face.intervalIds,
-    sourceSpanIds: face.sourceSpanIds,
-    sourceContourIds: face.sourceContourIds,
-    legalDomainIds: face.legalDomainIds,
-    debugMeta: face.debugMeta
-  }))
+  const packets = buildProjectedPacketsFromFinalFaces(faces)
   hitPacketCache.set(faces, packets)
   return packets
 }
@@ -873,18 +1032,7 @@ export const buildSolidCenterStrokeExportPacketsFromFinalFaces = (
     return cached
   }
 
-  const packets = faces.map((face) => ({
-    geometryId: getProjectedGeometryId(face),
-    polygons: face.polygons,
-    bounds: face.bounds,
-    primaryOwner: face.ownerSet[0],
-    ownerSet: face.ownerSet,
-    intervalIds: face.intervalIds,
-    sourceSpanIds: face.sourceSpanIds,
-    sourceContourIds: face.sourceContourIds,
-    legalDomainIds: face.legalDomainIds,
-    debugMeta: face.debugMeta
-  }))
+  const packets = buildProjectedPacketsFromFinalFaces(faces)
   exportPacketCache.set(faces, packets)
   return packets
 }

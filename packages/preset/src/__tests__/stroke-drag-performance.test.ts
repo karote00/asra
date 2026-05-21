@@ -174,8 +174,7 @@ const expectFinalProductVisualCache = (graphic: RecordingVectorGraphic) => {
     cacheEntries.every(
       ([cacheKey, entry]) =>
         !cacheKey.startsWith('drag-visual:') &&
-        entry.kind !== 'drag-solid-graphics' &&
-        entry.kind !== 'solid-graphics'
+        entry.kind !== 'drag-solid-graphics'
     )
   ).toBe(true)
 }

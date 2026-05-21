@@ -942,13 +942,16 @@ const groupFinalFacesByVisualPacket = (faces: ArrangedStrokeFinalFace[]) => {
 
   faces.forEach((face) => {
     const selfIntersectingConstrainedDashedSplitKey =
-      face.geometryFamily === 'constrained-dashed' &&
       face.sourceTopology === 'self-intersecting' &&
-      face.debugMeta?.figmaLikeSplitRangeId
+      (face.geometryFamily === 'constrained-dashed' ||
+        face.geometryFamily === 'constrained-solid') &&
+      (face.debugMeta?.figmaLikeSplitRangeId ||
+        face.intervalIds.some((id) => id.startsWith('interval:')))
         ? [
             'self-intersecting-constrained-dashed-split',
-            face.debugMeta.figmaLikeSplitRangeId,
-            face.debugMeta.figmaLikeSelectedSide ?? 'unknown-side'
+            face.debugMeta?.figmaLikeSplitRangeId ?? 'unknown-split-range',
+            stableStringify({ intervalIds: face.intervalIds }),
+            face.debugMeta?.figmaLikeSelectedSide ?? 'unknown-side'
           ].join('|')
         : null
     const groupKey =
@@ -1298,12 +1301,14 @@ const collapseVisualOverlapFaceGroupByArrangement = (
         .filter((face) => hasRegionGeometry(face.geometry))
   )
 
+  const claimedFaceIds = new Set<string>()
   const collapsedFaces = arrangementFaces.flatMap((arrangementFace) => {
     const claimedFaces: ArrangedStrokeFinalFace[] = []
     arrangementFace.claimedBy.forEach((candidate) => {
       const sourceFace = faceByCandidateId.get(candidate.candidateId)
       if (sourceFace) {
         claimedFaces.push(sourceFace)
+        claimedFaceIds.add(sourceFace.faceId)
       }
     })
 
@@ -1314,7 +1319,14 @@ const collapseVisualOverlapFaceGroupByArrangement = (
     return mergeVisualOverlapArrangementFaceGroup(arrangementFace, claimedFaces)
   })
 
-  return collapseExactDuplicateFinalFaces(collapsedFaces)
+  const unclaimedFaces = normalizedFaces.filter(
+    (face) => !claimedFaceIds.has(face.faceId)
+  )
+
+  return collapseExactDuplicateFinalFaces([
+    ...collapsedFaces,
+    ...unclaimedFaces
+  ])
 }
 
 const collapseLocalSideVisualOverlapFaceGroupByArrangement = (
@@ -1329,16 +1341,20 @@ const collapseLocalSideVisualOverlapFaceGroupByArrangement = (
   const faceByCandidateId = new Map(
     normalizedFaces.map((face) => [face.faceId, face])
   )
-  return measureVectorRenderPhase('visual overlap collapse: arrangement', () =>
-    backend
-      .buildArrangement(candidates)
-      .filter((face) => hasRegionGeometry(face.geometry))
+  const claimedFaceIds = new Set<string>()
+  const collapsedFaces = measureVectorRenderPhase(
+    'visual overlap collapse: arrangement',
+    () =>
+      backend
+        .buildArrangement(candidates)
+        .filter((face) => hasRegionGeometry(face.geometry))
   ).flatMap((arrangementFace) => {
     const claimedFaces: ArrangedStrokeFinalFace[] = []
     arrangementFace.claimedBy.forEach((candidate) => {
       const sourceFace = faceByCandidateId.get(candidate.candidateId)
       if (sourceFace) {
         claimedFaces.push(sourceFace)
+        claimedFaceIds.add(sourceFace.faceId)
       }
     })
 
@@ -1351,6 +1367,15 @@ const collapseLocalSideVisualOverlapFaceGroupByArrangement = (
       claimedFaces
     )
   })
+
+  const unclaimedFaces = normalizedFaces.filter(
+    (face) => !claimedFaceIds.has(face.faceId)
+  )
+
+  return collapseExactDuplicateFinalFaces([
+    ...collapsedFaces,
+    ...unclaimedFaces
+  ])
 }
 
 export const collapseStrokeFinalFaceVisualOverlaps = (
@@ -1467,10 +1492,7 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
         collapseLocalSideVisualOverlapFaceGroupByArrangement(group, {
           buildArrangement
         })
-      if (
-        localSideArrangedCollapse.length > 0 &&
-        !shouldAttemptVisualOverlapCollapse(localSideArrangedCollapse)
-      ) {
+      if (localSideArrangedCollapse.length > 0) {
         return localSideArrangedCollapse
       }
     }
