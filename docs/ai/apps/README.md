@@ -5,6 +5,9 @@ This folder contains app-level implementation contexts.
 Current apps:
 - `asyra-design/`
 
+Planned apps:
+- `asyra-cad/`
+
 Each app folder documents:
 - app-specific architecture and workflows
 - app interaction contracts
