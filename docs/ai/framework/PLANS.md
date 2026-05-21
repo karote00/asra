@@ -44,11 +44,14 @@ This file tracks framework planning topics and points to detailed references.
 3. App-level migration pipeline formalization
  - Versioned hook chain and migration templates.
  - Reference: `docs/ai/framework/plans/props-manager-app-level-migration-plan.md`
-4. Unit-aware property model (auto-layout-oriented)
+4. AI agent runtime
+ - Optional reusable package for natural-language planning, structured action validation, transaction-safe execution, provider replacement, and app-owned domain actions.
+ - Reference: `docs/ai/framework/plans/ai-agent-runtime-plan.md`
+5. Unit-aware property model (auto-layout-oriented)
  - Support value+unit semantics in schema/aggregates.
  - Keep auto-layout implementation out of this phase.
  - Reference: `docs/ai/framework/plans/unit-conversion-and-ui-aggregation-plan.md`
-5. UI aggregate helpers (lowest priority, auto-layout-related)
+6. UI aggregate helpers (lowest priority, auto-layout-related)
  - Mixed values and mixed units (`MIX`) helpers.
  - App-level registration remains first-class.
  - Reference: `docs/ai/framework/plans/unit-conversion-and-ui-aggregation-plan.md`
