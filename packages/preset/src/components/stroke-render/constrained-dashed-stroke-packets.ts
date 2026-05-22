@@ -4703,6 +4703,7 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
     let finalRangePolygons = [...rangePolygons, ...sourceVertexJoinPolygons]
     if (
       shouldResolveSelfIntersectingLegalSide &&
+      authoredStroke.position === 'outside' &&
       clipInsideToFillDomain &&
       interval.figmaLikeBoundaryRole !== 'hole' &&
       implicitFillRegions.length > 0
@@ -4812,7 +4813,8 @@ const buildDashedSourcePathFinalCoveragePolygons = (
   const shouldClipToImplicitFillDomain =
     clipInsideToFillDomain &&
     (topology.topologyFamily !== 'self-intersecting' ||
-      strokeDomainPlan?.sideAuthority === 'implicit-fill-hole-domain')
+      (strokeDomainPlan?.sideAuthority === 'implicit-fill-hole-domain' &&
+        authoredStroke.position === 'outside'))
 
   return shouldClipToImplicitFillDomain
     ? clipSourcePathPolygonsToEvenOddLegalDomain(
@@ -5743,10 +5745,35 @@ const clipSourcePathPolygonsToEvenOddLegalDomain = (
       return []
     }
 
-    const clipOperation =
-      stroke.position === 'inside'
-        ? backend.intersection.bind(backend)
-        : backend.difference.bind(backend)
+    if (stroke.position === 'inside') {
+      const directClippedPolygons = getCoveragePolygonsFromRegions(
+        backend.intersection(
+          toCoveragePolygonRegions(normalizedSubjectPolygons),
+          legalClipRegions,
+          'nonzero'
+        )
+      )
+        .map(cleanPolygon)
+        .filter(hasPolygonGeometry)
+
+      if (directClippedPolygons.length <= 1) {
+        return directClippedPolygons.length > 0
+          ? directClippedPolygons
+          : subjectPolygons
+      }
+
+      const unionedClippedPolygons = getCoveragePolygonsFromRegions(
+        backend.union(toCoveragePolygonRegions(directClippedPolygons), 'nonzero')
+      )
+        .map(cleanPolygon)
+        .filter(hasPolygonGeometry)
+
+      return unionedClippedPolygons.length > 0
+        ? unionedClippedPolygons
+        : directClippedPolygons
+    }
+
+    const clipOperation = backend.difference.bind(backend)
     const finalizeClipResultPolygons = (
       clipPolygons: Vec2[][],
       fillRule: 'evenodd' | 'nonzero'

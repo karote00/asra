@@ -236,6 +236,7 @@ export interface SolidCenterStrokeGeometryDebugMeta {
     | 'exact-union'
     | 'exact-arrangement'
     | 'local-side-arrangement'
+    | 'paint-composite'
     | 'render-projection-union'
   visualOverlapSourceFaceIds?: string[]
   visualOverlapSourceGeometryIds?: string[]
@@ -651,7 +652,76 @@ type RenderProjectionCollapseStatus =
   | 'exact-union'
   | 'exact-arrangement'
   | 'local-side-arrangement'
+  | 'paint-composite'
   | 'render-projection-union'
+
+const shouldCompositeConstrainedDashedProductPaint = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[]
+) => {
+  const [primaryFace] = faces
+  return (
+    primaryFace?.debugMeta?.geometryFamily === 'constrained-dashed' &&
+    primaryFace.debugMeta.strokePosition === 'inside' &&
+    primaryFace.debugMeta.sourceTopology === 'self-intersecting' &&
+    primaryFace.debugMeta.finalCoverageBuilderStatus === 'product-final'
+  )
+}
+
+const buildPaintCompositeRenderEntry = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[],
+  cacheKeyPrefix: string
+) => {
+  const [primaryFace] = faces
+  if (!primaryFace || faces.length < 2) {
+    return faces.map(buildRenderEntryFromFinalFace)
+  }
+
+  const polygons = faces.flatMap((face) => face.polygons)
+  const sourceGeometryIds = getUniqueStrings(
+    faces.flatMap((face) => face.sourceGeometryIds)
+  )
+  const intervalIds = getUniqueStrings(
+    faces.flatMap((face) => face.intervalIds)
+  )
+  const sourceSpanIds = getUniqueStrings(
+    faces.flatMap((face) => face.sourceSpanIds)
+  )
+  const sourceContourIds = getUniqueStrings(
+    faces.flatMap((face) => face.sourceContourIds)
+  )
+  const legalDomainIds = getUniqueStrings(
+    faces.flatMap((face) => face.legalDomainIds)
+  )
+  const figmaLikeSplitRangeTerminals = faces.flatMap(
+    (face) => face.debugMeta?.figmaLikeSplitRangeTerminals ?? []
+  )
+
+  return [
+    {
+      ...buildRenderEntryFromFinalFace(primaryFace),
+      cacheKey: `render:${cacheKeyPrefix}:${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`,
+      polygons,
+      clipPolygons: polygons,
+      debugMeta: {
+        ...primaryFace.debugMeta,
+        intervalIds,
+        sourceSpanIds,
+        sourceContourIds,
+        legalDomainIds,
+        figmaLikeSplitRangeTerminals,
+        visualOverlapCollapseStatus: 'paint-composite' as const,
+        visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
+        visualOverlapSourceGeometryIds: sourceGeometryIds
+      }
+    }
+  ]
+}
 
 const buildCollapsedRenderEntry = (
   faces: StrokeFinalFace<
@@ -737,13 +807,21 @@ const buildConstrainedDashedProductRenderEntry = (
     SolidCenterStrokePaintPacket
   >[],
   options: SolidCenterStrokeRenderEntryOptions
-) =>
-  buildCollapsedRenderEntry(
+): ReturnType<typeof buildRenderEntryFromFinalFace>[] => {
+  if (shouldCompositeConstrainedDashedProductPaint(faces)) {
+    return buildPaintCompositeRenderEntry(
+      faces,
+      'constrained-dashed-product-paint-composite'
+    )
+  }
+
+  return buildCollapsedRenderEntry(
     faces,
     options,
     'constrained-dashed-product-union',
     'render-projection-union'
   )
+}
 
 const buildProjectionPacketFromFinalFace = (
   face: StrokeFinalFace<
