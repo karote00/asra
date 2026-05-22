@@ -35,6 +35,14 @@ dist
 count.bash
 chrome-dev-perf-trace.json
 
+# Local test/debug artifacts
+apps/*/test-results/
+apps/*/playwright-report/
+docs/ai/apps/*/plans/*/artifacts/transient/
+docs/ai/apps/*/plans/*/artifacts/tmp/
+docs/ai/apps/*/plans/*/artifacts/local/
+docs/ai/apps/*/plans/*/artifacts/debug/
+
 # Context-RAG cache and data
 .context-rag/
 

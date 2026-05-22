@@ -22,6 +22,19 @@ historical decision records only.
 Do not edit completed history files and do not use them as current
 implementation guidance.
 
+## Artifact Rule
+
+Stroke artifacts are classified before staging:
+
+- durable evidence belongs in `artifacts/committed/` and must be linked from
+  this README, the inspector, a test, or a decision record
+- transient diagnostic output belongs in `artifacts/transient/`, `tmp/`,
+  `local/`, or `debug/`, which are ignored by Git
+- legacy tracked files already under `artifacts/` remain historical evidence;
+  do not move or rewrite them just to adopt the new folder split
+- after a commit exists, artifact cleanup should be a new commit unless the user
+  explicitly asks to rewrite history
+
 ## Current Figma-Like Stroke Contract
 
 This plan is active and TDD-driven. The 2026-05-20 Figma filled-star review

@@ -17,3 +17,43 @@
   - optional: `yarn release:app:verbose --prod=<app-name>`
 - Run this when the task explicitly includes template synchronization, or before publishing a new version that must include updated `create-app/*` templates.
 - For normal feature/refactor tasks, avoid touching `create-app/*`.
+
+## Evidence And Test Artifacts
+
+Generated evidence must be classified before it is staged.
+
+### Commit-eligible artifacts
+
+Commit artifacts only when they are part of the durable project record:
+
+- curated reference evidence that documents a product or Figma rule
+- small, intentionally named fixture data used by automated tests
+- concise diagnostic summaries that are referenced by an active plan, inspector, decision record, or release note
+- active-plan artifacts placed under an explicit `artifacts/committed/` folder, or legacy tracked artifacts that already exist as decision evidence
+
+Commit-eligible artifacts must be reviewable, bounded in size, and linked from the owning documentation or test.
+
+### Transient artifacts
+
+Do not commit transient artifacts:
+
+- Playwright `test-results/` and `playwright-report/`
+- local browser screenshots, videos, traces, and ad hoc debug captures
+- repeated iteration folders such as `*-v1`, `*-v2`, `*-latest`, or local diagnosis dumps
+- temporary JSON/PNG outputs that are not directly consumed by tests or documentation
+
+Transient outputs should be written under an ignored folder such as:
+
+- `apps/<app>/test-results/`
+- `apps/<app>/playwright-report/`
+- `docs/ai/apps/<app>/plans/<plan>/artifacts/transient/`
+- `docs/ai/apps/<app>/plans/<plan>/artifacts/tmp/`
+- `docs/ai/apps/<app>/plans/<plan>/artifacts/local/`
+- `docs/ai/apps/<app>/plans/<plan>/artifacts/debug/`
+
+### Git discipline
+
+- Do not rewrite an existing local commit to remove artifacts unless the user explicitly asks for history rewrite.
+- Prefer a new cleanup commit when a previously created commit needs artifact correction.
+- Before commit, run `git status --short` and inspect staged files for artifact paths.
+- If a transient artifact was accidentally staged, unstage and remove or restore it before committing.
