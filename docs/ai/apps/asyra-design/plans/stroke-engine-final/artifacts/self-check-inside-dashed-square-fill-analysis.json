@@ -2,11 +2,11 @@
   "legalAnalysis": {
     "width": 1400,
     "height": 1100,
-    "redPixelCount": 25029,
-    "legalRedPixelCount": 25029,
+    "redPixelCount": 24997,
+    "legalRedPixelCount": 24997,
     "outsideRedPixelCount": 0,
-    "strictLegalRedPixelCount": 16360,
-    "strictOutsideRedPixelCount": 8669,
+    "strictLegalRedPixelCount": 16320,
+    "strictOutsideRedPixelCount": 8677,
     "darkOverdrawPixelCount": 0,
     "maxDarkOverdrawComponentArea": 0,
     "darkOverdrawComponentAreas": [],
@@ -17,13 +17,13 @@
     "strictInsideComponentAreas": [
       1237,
       823,
-      663,
-      621,
+      676,
+      619,
       609,
       608,
       607,
       607,
-      600,
+      601,
       599
     ],
     "strictOutsideComponentAreas": [
@@ -2065,7 +2065,7 @@
               "x": 123.37519228838597,
               "y": 161.40425947625087
             },
-            "redPixelCount": 99
+            "redPixelCount": 100
           }
         ]
       },
@@ -3323,7 +3323,7 @@
         "boundaryTotalLength": 237.79736893915518,
         "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:19",
         "distance": 6.75,
-        "maxRedPixels": 105,
+        "maxRedPixels": 104,
         "probes": [
           {
             "point": {
@@ -3344,7 +3344,7 @@
               "x": 11.557781464910347,
               "y": 357.1935093007962
             },
-            "redPixelCount": 105
+            "redPixelCount": 104
           }
         ]
       },
@@ -11561,7 +11561,7 @@
         "boundaryTotalLength": 103.26991408605303,
         "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:59",
         "distance": 6.75,
-        "maxRedPixels": 71,
+        "maxRedPixels": 74,
         "probes": [
           {
             "point": {
@@ -11575,14 +11575,14 @@
               "x": 268.0016856476171,
               "y": 341.1151773441106
             },
-            "redPixelCount": 71
+            "redPixelCount": 74
           },
           {
             "point": {
               "x": 269.5629436856724,
               "y": 339.1626217524289
             },
-            "redPixelCount": 61
+            "redPixelCount": 64
           }
         ]
       },
@@ -11989,7 +11989,7 @@
               "x": 268.27952594438744,
               "y": 340.55053555686004
             },
-            "redPixelCount": 76
+            "redPixelCount": 79
           },
           {
             "point": {
@@ -12003,7 +12003,7 @@
               "x": 263.29552506358385,
               "y": 340.9502044450023
             },
-            "redPixelCount": 91
+            "redPixelCount": 90
           }
         ]
       }
@@ -13108,7 +13108,7 @@
               "x": 123.37519228838597,
               "y": 161.40425947625087
             },
-            "redPixelCount": 99
+            "redPixelCount": 100
           }
         ]
       },
@@ -29066,11 +29066,11 @@
               "x": 271.3714880327363,
               "y": 340.465188206945
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           }
         ],
-        "maxRedPixels": 0,
+        "maxRedPixels": 1,
         "probes": [
           {
             "point": {
@@ -29084,14 +29084,14 @@
               "x": 270.54156083824125,
               "y": 342.8234122954993
             },
-            "redPixelCount": 0
+            "redPixelCount": 1
           },
           {
             "point": {
               "x": 271.3714880327363,
               "y": 340.465188206945
             },
-            "redPixelCount": 0
+            "redPixelCount": 1
           }
         ]
       },
@@ -30039,7 +30039,7 @@
               "x": 185.16462810161732,
               "y": 40.61908506945905
             },
-            "redPixelCount": 93
+            "redPixelCount": 99
           }
         ]
       },
@@ -31522,7 +31522,7 @@
               "x": 133.09947369771496,
               "y": 115.96156758047272
             },
-            "redPixelCount": 108
+            "redPixelCount": 107
           }
         ]
       },
@@ -32020,7 +32020,7 @@
               "x": 123.37519228838597,
               "y": 161.40425947625087
             },
-            "redPixelCount": 99
+            "redPixelCount": 100
           }
         ]
       },
@@ -32839,7 +32839,7 @@
               "x": 146.13680847374823,
               "y": 123.3796469773
             },
-            "redPixelCount": 91
+            "redPixelCount": 93
           }
         ]
       },
@@ -33527,7 +33527,7 @@
         "boundaryTotalLength": 237.79736893915518,
         "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:19",
         "distance": 6.75,
-        "maxRedPixels": 105,
+        "maxRedPixels": 104,
         "probes": [
           {
             "point": {
@@ -33548,7 +33548,7 @@
               "x": 11.557781464910347,
               "y": 357.1935093007962
             },
-            "redPixelCount": 105
+            "redPixelCount": 104
           }
         ]
       },
@@ -34784,7 +34784,7 @@
               "x": 13.464922100498537,
               "y": 324.54887703831474
             },
-            "redPixelCount": 95
+            "redPixelCount": 97
           },
           {
             "point": {
@@ -34798,7 +34798,7 @@
               "x": 17.97774050559819,
               "y": 326.70165896935043
             },
-            "redPixelCount": 103
+            "redPixelCount": 96
           }
         ]
       },
@@ -35507,7 +35507,7 @@
               "x": 41.18636894516494,
               "y": 286.261077582621
             },
-            "redPixelCount": 94
+            "redPixelCount": 92
           }
         ]
       },
@@ -39610,7 +39610,7 @@
               "x": 152.54777074547866,
               "y": 297.6600741089562
             },
-            "redPixelCount": 103
+            "redPixelCount": 102
           }
         ]
       },
@@ -40151,7 +40151,7 @@
               "x": 107.44779876192447,
               "y": 326.22367722374906
             },
-            "redPixelCount": 107
+            "redPixelCount": 106
           }
         ]
       },
@@ -40692,7 +40692,7 @@
               "x": 60.51753937237055,
               "y": 350.3716588767155
             },
-            "redPixelCount": 107
+            "redPixelCount": 102
           }
         ]
       },
@@ -47596,7 +47596,7 @@
               "x": 90.80699620340124,
               "y": 121.83153150242507
             },
-            "redPixelCount": 99
+            "redPixelCount": 100
           }
         ]
       },
@@ -49477,7 +49477,7 @@
               "x": 136.4074583856473,
               "y": 204.59710845716063
             },
-            "redPixelCount": 99
+            "redPixelCount": 100
           }
         ]
       },
@@ -50122,7 +50122,7 @@
         "boundaryTotalLength": 103.26991408605303,
         "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:59",
         "distance": 6.75,
-        "maxRedPixels": 71,
+        "maxRedPixels": 74,
         "probes": [
           {
             "point": {
@@ -50136,14 +50136,14 @@
               "x": 268.0016856476171,
               "y": 341.1151773441106
             },
-            "redPixelCount": 71
+            "redPixelCount": 74
           },
           {
             "point": {
               "x": 269.5629436856724,
               "y": 339.1626217524289
             },
-            "redPixelCount": 61
+            "redPixelCount": 64
           }
         ]
       },
@@ -50550,7 +50550,7 @@
               "x": 268.27952594438744,
               "y": 340.55053555686004
             },
-            "redPixelCount": 76
+            "redPixelCount": 79
           },
           {
             "point": {
@@ -50564,7 +50564,7 @@
               "x": 263.29552506358385,
               "y": 340.9502044450023
             },
-            "redPixelCount": 91
+            "redPixelCount": 90
           }
         ]
       },
@@ -50945,7 +50945,7 @@
               "x": 239.6529474471743,
               "y": 307.6053874425073
             },
-            "redPixelCount": 99
+            "redPixelCount": 98
           }
         ]
       },
@@ -77536,7 +77536,7 @@
         "probeResults": [
           {
             "distance": 4,
-            "maxRedPixels": 2,
+            "maxRedPixels": 4,
             "probes": [
               {
                 "point": {
@@ -77550,7 +77550,7 @@
                   "x": 269.7953843696263,
                   "y": 342.42051529148546
                 },
-                "redPixelCount": 2
+                "redPixelCount": 4
               },
               {
                 "point": {

@@ -218,8 +218,7 @@ const buildAdjustedVector6Fixture = () => {
     sourcePath,
     implicitFillRegions: selfIntersecting?.fillRegions ?? [],
     sharedSourceSplitRanges: selfIntersecting?.sourceSplitRanges ?? [],
-    sharedStrokeBoundaryDomains:
-      selfIntersecting?.strokeBoundaryDomains ?? [],
+    sharedStrokeBoundaryDomains: selfIntersecting?.strokeBoundaryDomains ?? [],
     selectedSideGuardPoints: network.pointIds.map((pointId) => {
       const point = points[pointId as keyof typeof points]
       return {
@@ -244,7 +243,14 @@ const buildAdjustedVector6Fixture = () => {
     sharedStrokeBoundaryDomains: options.sharedStrokeBoundaryDomains
   })
 
-  return { topology, sourcePath, stroke, renderableStroke, options, strokeDomainPlan }
+  return {
+    topology,
+    sourcePath,
+    stroke,
+    renderableStroke,
+    options,
+    strokeDomainPlan
+  }
 }
 
 const distance = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.y - b.y)
@@ -368,7 +374,10 @@ const getPolylineSample = (points: Vec2[], distanceAlongPath: number) => {
     point: end,
     tangent:
       beforeEnd && length > 1e-9
-        ? { x: (end.x - beforeEnd.x) / length, y: (end.y - beforeEnd.y) / length }
+        ? {
+            x: (end.x - beforeEnd.x) / length,
+            y: (end.y - beforeEnd.y) / length
+          }
         : { x: 1, y: 0 }
   }
 }
@@ -385,13 +394,8 @@ const offsetFromSide = (
 
 describe('constrained dashed Vector-6 high-curvature pipeline diagnostics', () => {
   it('keeps the tp16 high-curvature split-range intervals covered through packets and final faces', () => {
-    const {
-      topology,
-      stroke,
-      renderableStroke,
-      options,
-      strokeDomainPlan
-    } = buildAdjustedVector6Fixture()
+    const { topology, stroke, renderableStroke, options, strokeDomainPlan } =
+      buildAdjustedVector6Fixture()
     const intervals = getConstrainedDashedVisibleIntervals(
       topology,
       renderableStroke,
@@ -506,11 +510,7 @@ describe('constrained dashed Vector-6 high-curvature pipeline diagnostics', () =
             noClipIntervalPolygons,
             1
           )
-          const finalCovered = isPointCoveredByPolygons(
-            probe,
-            finalPolygons,
-            1
-          )
+          const finalCovered = isPointCoveredByPolygons(probe, finalPolygons, 1)
           return packetCovered && finalCovered
             ? []
             : [

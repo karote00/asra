@@ -1481,10 +1481,7 @@ const getRuleDrivenSplitRangeGapCoverageFailures = ({
     ([splitRangeId, splitRangeIntervals]) => {
       const sortedIntervals = splitRangeIntervals
         .slice()
-        .sort(
-          (left, right) =>
-            left.startDistance - right.startDistance
-        )
+        .sort((left, right) => left.startDistance - right.startDistance)
 
       return sortedIntervals.slice(0, -1).flatMap((interval, index) => {
         const nextInterval = sortedIntervals[index + 1]
@@ -1591,10 +1588,7 @@ const getRuleDrivenBoundaryHugFailures = ({
 
     const trim = Math.min(stroke.width, visibleLength * 0.25)
     const sampleDistances = [0.28, 0.5, 0.72]
-      .map(
-        (factor) =>
-          interval.startDistance + visibleLength * factor
-      )
+      .map((factor) => interval.startDistance + visibleLength * factor)
       .filter(
         (distance) =>
           distance >= interval.startDistance + trim &&
@@ -3319,6 +3313,120 @@ describe('constrained dashed stroke packets', () => {
         .join('|')
 
     expect(signature(insidePackets)).not.toBe(signature(outsidePackets))
+  })
+
+  it('should run: expand square caps on self-intersecting split-range product intervals before final coverage', () => {
+    const {
+      topology,
+      sourcePath,
+      fillRegions,
+      sharedSourceSplitRanges,
+      sharedStrokeBoundaryDomains,
+      guardPoints
+    } = buildSelfIntersectingMixedSegmentStarFixture()
+    const stroke = createDefaultStroke({
+      width: 10,
+      style: 'dashed',
+      position: 'inside',
+      joinType: 'miter',
+      capType: 'square',
+      dashPattern: [27, 20],
+      dashOffset: 0
+    })
+    const packets = buildConstrainedDashedStrokeResolvedPackets(
+      'vector:self-intersecting-inside-square-cap-expansion',
+      topology.normalizedPoints,
+      true,
+      [stroke],
+      {
+        topology,
+        sourcePath,
+        implicitFillRegions: fillRegions,
+        sharedSourceSplitRanges,
+        sharedStrokeBoundaryDomains,
+        selectedSideGuardPoints: guardPoints,
+        clipInsideToFillDomain: true,
+        constrainedDashedVisualMode: 'product-final'
+      }
+    )
+
+    const expandablePackets = packets.filter((packet) => {
+      const meta = packet.geometry.debugMeta
+      if (
+        meta?.figmaLikeBoundaryDomainId === undefined ||
+        meta.figmaLikeBoundaryPoints === undefined ||
+        meta.startDistance === undefined ||
+        meta.endDistance === undefined ||
+        meta.physicalVisibleLength === undefined ||
+        meta.figmaLikeBoundaryTotalLength === undefined
+      ) {
+        return false
+      }
+      const visibleLength = meta.endDistance - meta.startDistance
+      return (
+        meta.startDistance >= stroke.width &&
+        meta.endDistance <= meta.figmaLikeBoundaryTotalLength - stroke.width &&
+        visibleLength > stroke.width * 2 &&
+        visibleLength + stroke.width <= meta.figmaLikeBoundaryTotalLength
+      )
+    })
+    const expandedPackets = expandablePackets.filter((packet) => {
+      const meta = packet.geometry.debugMeta
+      const visibleLength =
+        (meta?.endDistance ?? 0) - (meta?.startDistance ?? 0)
+      return (
+        (meta?.physicalVisibleLength ?? 0) >=
+        visibleLength + stroke.width - 1e-4
+      )
+    })
+
+    expect(expandablePackets.length).toBeGreaterThan(0)
+    expect(
+      expandedPackets.map((packet) => packet.geometry.debugMeta?.intervalId)
+    ).toEqual(
+      expandablePackets.map((packet) => packet.geometry.debugMeta?.intervalId)
+    )
+
+    const missingExtensionCoverage = expandablePackets.flatMap((packet) => {
+      const meta = packet.geometry.debugMeta
+      if (
+        !meta?.figmaLikeBoundaryPoints ||
+        meta.startDistance === undefined ||
+        meta.endDistance === undefined
+      ) {
+        return []
+      }
+      const boundaryPath = buildPolylineGeometryModelPath(
+        meta.figmaLikeBoundaryPoints,
+        false
+      )
+      const extensionProbeDistances = [
+        meta.startDistance - stroke.width * 0.25,
+        meta.endDistance + stroke.width * 0.25
+      ]
+      return extensionProbeDistances.flatMap((distance) => {
+        const covered = getRuleDrivenCoverageProbeCandidatesAtDistance(
+          boundaryPath,
+          distance,
+          stroke,
+          fillRegions,
+          meta.figmaLikeSelectedSide
+        ).some((probe) =>
+          isPointCoveredByPolygons(probe.point, packet.geometry.polygons, 1)
+        )
+
+        return covered
+          ? []
+          : [
+              {
+                intervalId: meta.intervalId,
+                splitRangeId: meta.figmaLikeSplitRangeId,
+                distance: Math.round(distance * 100) / 100
+              }
+            ]
+      })
+    })
+    expect(missingExtensionCoverage).toEqual([])
   })
 
   it('should run: emit bounded cell polygons for high-curvature dash intervals instead of fan ribbons', () => {
@@ -5294,9 +5402,9 @@ describe('constrained dashed stroke packets', () => {
 
     expect(finalFaces.length).toBeGreaterThan(1)
     expect(productRenderEntries).toHaveLength(1)
-    expect(productRenderEntries[0]?.debugMeta?.visualOverlapCollapseStatus).toBe(
-      'paint-composite'
-    )
+    expect(
+      productRenderEntries[0]?.debugMeta?.visualOverlapCollapseStatus
+    ).toBe('paint-composite')
     expect(productRenderEntries[0]?.polygons.length).toBe(finalPolygonCount)
     expect(productRenderEntries[0]?.fillPolygons).toBeUndefined()
     expect(productRenderEntries[0]?.clipPolygons?.length).toBe(

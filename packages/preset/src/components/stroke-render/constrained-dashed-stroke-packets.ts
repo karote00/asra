@@ -389,6 +389,37 @@ const buildClosedSquareCapPhysicalSpans = (
   )
 }
 
+const buildOpenSquareCapPhysicalSpans = (
+  interval: VisibleDashedTopologyInterval,
+  totalLength: number,
+  capLength: number
+): ConstrainedDashedPhysicalSpan[] => {
+  if (capLength <= EPSILON || totalLength <= EPSILON) {
+    return splitIntervalCoreIntoPhysicalSpans(
+      interval.intervalId,
+      interval,
+      totalLength
+    )
+  }
+
+  const startDistance = Math.max(0, interval.startDistance - capLength)
+  const endDistance = Math.min(totalLength, interval.endDistance + capLength)
+  if (endDistance <= startDistance + EPSILON) {
+    return []
+  }
+
+  return [
+    {
+      spanId: `${interval.intervalId}:core:0`,
+      role: 'core',
+      startDistance,
+      endDistance,
+      wrapsSeam: false,
+      intervalLength: endDistance - startDistance
+    }
+  ]
+}
+
 const getIntervalPhysicalSpans = (
   topology: Pick<PathTopologyModel, 'totalLength' | 'closed'>,
   stroke: Pick<RenderableStroke, 'cap' | 'width'>,
@@ -396,6 +427,20 @@ const getIntervalPhysicalSpans = (
 ): ConstrainedDashedPhysicalSpan[] => {
   if (stroke.cap === 'square' && topology.closed && stroke.width > EPSILON) {
     return buildClosedSquareCapPhysicalSpans(
+      interval,
+      topology.totalLength,
+      stroke.width / 2
+    )
+  }
+
+  if (
+    stroke.cap === 'square' &&
+    !topology.closed &&
+    stroke.width > EPSILON &&
+    (interval.figmaLikeSplitRangeId !== undefined ||
+      interval.figmaLikeBoundaryDomainId !== undefined)
+  ) {
+    return buildOpenSquareCapPhysicalSpans(
       interval,
       topology.totalLength,
       stroke.width / 2
@@ -5763,7 +5808,10 @@ const clipSourcePathPolygonsToEvenOddLegalDomain = (
       }
 
       const unionedClippedPolygons = getCoveragePolygonsFromRegions(
-        backend.union(toCoveragePolygonRegions(directClippedPolygons), 'nonzero')
+        backend.union(
+          toCoveragePolygonRegions(directClippedPolygons),
+          'nonzero'
+        )
       )
         .map(cleanPolygon)
         .filter(hasPolygonGeometry)
