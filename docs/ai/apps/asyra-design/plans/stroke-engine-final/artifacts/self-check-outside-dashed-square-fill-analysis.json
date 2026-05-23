@@ -2,41 +2,53 @@
   "legalAnalysis": {
     "width": 1400,
     "height": 1100,
-    "redPixelCount": 19947,
-    "legalRedPixelCount": 3258,
-    "outsideRedPixelCount": 16689,
+    "redPixelCount": 28905,
+    "legalRedPixelCount": 4569,
+    "outsideRedPixelCount": 24336,
     "strictLegalRedPixelCount": 0,
-    "strictOutsideRedPixelCount": 19947,
-    "darkOverdrawPixelCount": 0,
-    "maxDarkOverdrawComponentArea": 0,
-    "darkOverdrawComponentAreas": [],
-    "maxOutsideComponentArea": 724,
+    "strictOutsideRedPixelCount": 28905,
+    "darkOverdrawPixelCount": 658,
+    "maxDarkOverdrawComponentArea": 59,
+    "darkOverdrawComponentAreas": [
+      59,
+      55,
+      54,
+      50,
+      49,
+      49,
+      49,
+      49,
+      46,
+      46
+    ],
+    "maxOutsideComponentArea": 1571,
     "outsideComponentAreas": [
-      724,
-      712,
-      701,
-      662,
-      636,
-      536,
-      536,
-      535,
-      535,
-      533
+      1571,
+      1298,
+      1186,
+      1147,
+      973,
+      736,
+      735,
+      735,
+      734,
+      734
     ],
     "maxStrictInsideComponentArea": 0,
-    "maxStrictOutsideComponentArea": 826,
+    "maxStrictOutsideComponentArea": 1752,
     "strictInsideComponentAreas": [],
+    "strictInsideComponents": [],
     "strictOutsideComponentAreas": [
-      826,
-      823,
-      814,
-      769,
-      731,
-      628,
-      628,
-      627,
-      627,
-      627
+      1752,
+      1464,
+      1363,
+      1335,
+      1119,
+      862,
+      860,
+      860,
+      859,
+      859
     ],
     "boundaryDomainPacketCount": 1
   },
@@ -554,7 +566,7 @@
               "x": 179.59517538171076,
               "y": 5.152170507800537
             },
-            "redPixelCount": 108
+            "redPixelCount": 109
           }
         ]
       },
@@ -963,7 +975,7 @@
               "x": 197.19056134998436,
               "y": 4.572337838766927
             },
-            "redPixelCount": 95
+            "redPixelCount": 98
           }
         ]
       },
@@ -4834,7 +4846,7 @@
               "x": 359.9000898634015,
               "y": 156.05480156301311
             },
-            "redPixelCount": 91
+            "redPixelCount": 94
           }
         ]
       },
@@ -6813,7 +6825,7 @@
               "x": -1.8962293441567484,
               "y": 25.581825411389943
             },
-            "redPixelCount": 100
+            "redPixelCount": 103
           }
         ]
       },
@@ -7194,7 +7206,7 @@
               "x": 260.1953954573404,
               "y": 350.87795530251924
             },
-            "redPixelCount": 96
+            "redPixelCount": 95
           }
         ]
       },
@@ -7615,7 +7627,7 @@
               "x": 278.2475277059946,
               "y": 339.75119778057547
             },
-            "redPixelCount": 85
+            "redPixelCount": 83
           }
         ]
       }
@@ -35492,7 +35504,7 @@
               "x": 175.72551127324218,
               "y": 37.317104830226036
             },
-            "redPixelCount": 84
+            "redPixelCount": 81
           },
           {
             "point": {
@@ -35506,7 +35518,7 @@
               "x": 171.00595285905462,
               "y": 35.666114710609534
             },
-            "redPixelCount": 110
+            "redPixelCount": 113
           }
         ]
       },
@@ -35727,7 +35739,7 @@
               "x": 179.59517538171076,
               "y": 5.152170507800537
             },
-            "redPixelCount": 108
+            "redPixelCount": 109
           }
         ]
       },
@@ -36136,7 +36148,7 @@
               "x": 197.19056134998436,
               "y": 4.572337838766927
             },
-            "redPixelCount": 95
+            "redPixelCount": 98
           }
         ]
       },
@@ -38095,7 +38107,7 @@
               "x": 4.439285290299224,
               "y": 320.2433131762433
             },
-            "redPixelCount": 94
+            "redPixelCount": 85
           }
         ]
       },
@@ -38804,7 +38816,7 @@
               "x": 28.52532199497357,
               "y": 278.21757771471215
             },
-            "redPixelCount": 105
+            "redPixelCount": 104
           }
         ]
       },
@@ -42907,7 +42919,7 @@
               "x": 169.88402816786683,
               "y": 304.01939006824324
             },
-            "redPixelCount": 90
+            "redPixelCount": 88
           }
         ]
       },
@@ -43448,7 +43460,7 @@
               "x": 133.64602523752367,
               "y": 327.8517752396332
             },
-            "redPixelCount": 86
+            "redPixelCount": 85
           }
         ]
       },
@@ -43989,7 +44001,7 @@
               "x": 96.04441190872699,
               "y": 349.8532491810403
             },
-            "redPixelCount": 90
+            "redPixelCount": 87
           }
         ]
       },
@@ -44530,7 +44542,7 @@
               "x": 55.894630029008184,
               "y": 368.2723167420086
             },
-            "redPixelCount": 83
+            "redPixelCount": 81
           }
         ]
       },
@@ -45007,7 +45019,7 @@
               "x": 359.9000898634015,
               "y": 156.05480156301311
             },
-            "redPixelCount": 91
+            "redPixelCount": 94
           }
         ]
       },
@@ -48046,7 +48058,7 @@
               "x": -1.8962293441567484,
               "y": 25.581825411389943
             },
-            "redPixelCount": 100
+            "redPixelCount": 103
           }
         ]
       },
@@ -50125,7 +50137,7 @@
               "x": 260.1953954573404,
               "y": 350.87795530251924
             },
-            "redPixelCount": 96
+            "redPixelCount": 95
           }
         ]
       },
@@ -50546,7 +50558,7 @@
               "x": 278.2475277059946,
               "y": 339.75119778057547
             },
-            "redPixelCount": 85
+            "redPixelCount": 83
           }
         ]
       },
@@ -50927,7 +50939,7 @@
               "x": 228.3180555943859,
               "y": 317.42985825195
             },
-            "redPixelCount": 94
+            "redPixelCount": 93
           }
         ]
       },
@@ -51348,7 +51360,7 @@
               "x": 269.1939234392875,
               "y": 289.943994735437
             },
-            "redPixelCount": 89
+            "redPixelCount": 88
           }
         ]
       },

@@ -747,7 +747,10 @@ const buildCollapsedRenderEntry = (
     }
   })()
   const flattenedPolygons = flattenFacePolygons(unionRegions, fallbackPolygons)
-  const polygons = flattenedPolygons
+  const polygons =
+    collapseStatus === 'render-projection-union'
+      ? fallbackPolygons
+      : flattenedPolygons
   const sourceGeometryIds = getUniqueStrings(
     faces.flatMap((face) => face.sourceGeometryIds)
   )

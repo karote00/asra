@@ -783,6 +783,7 @@ const getStrokeExportPacketDiagnostics = async (
               points: polygon
             }))
             .filter((polygon) => intersectsFocus(polygon.bounds ?? undefined)),
+          polygons: packet.polygons ?? [],
           intervalIds: packet.intervalIds ?? [],
           sourceSpanIds: packet.sourceSpanIds ?? [],
           sourceContourIds: packet.sourceContourIds ?? [],
@@ -911,7 +912,8 @@ const patchReportedVectorGeometry = async (
 const configureReportedStroke = async (
   page: Page,
   join: 'round' | 'miter' = 'round',
-  position: 'inside' | 'outside' = 'inside'
+  position: 'inside' | 'outside' = 'inside',
+  cap: 'butt' | 'square' | 'round' = 'round'
 ) => {
   const propertiesPanel = getPropertiesPanel(page)
   const strokeWidthInput = propertiesPanel.getByTestId('prop-stroke-width-0')
@@ -924,6 +926,7 @@ const configureReportedStroke = async (
     'prop-stroke-position-0'
   )
   const strokeJoinSelect = propertiesPanel.getByTestId('prop-stroke-join-0')
+  const strokeCapSelect = propertiesPanel.getByTestId('prop-stroke-cap-0')
   const strokeColorInput = propertiesPanel.getByTestId('prop-stroke-color-0')
   const strokeOpacityInput = propertiesPanel.getByTestId(
     'prop-stroke-opacity-0'
@@ -941,6 +944,7 @@ const configureReportedStroke = async (
   await strokeOffsetInput.press('Enter')
   await strokePositionSelect.selectOption(position)
   await strokeJoinSelect.selectOption(join)
+  await strokeCapSelect.selectOption(cap)
   await strokeColorInput.fill('E10C0C')
   await strokeColorInput.press('Enter')
   await strokeOpacityInput.fill('50')
@@ -2159,7 +2163,11 @@ const analyzeLeakageProbeClip = async (
 
 const createOriginalVector6Fixture = async (
   page: Page,
-  options: { position?: 'inside' | 'outside'; join?: 'round' | 'miter' } = {}
+  options: {
+    position?: 'inside' | 'outside'
+    join?: 'round' | 'miter' | 'bevel'
+    cap?: 'butt' | 'square' | 'round'
+  } = {}
 ) => {
   const initialCount = await getElementCount(page)
   await activatePenTool(page)
@@ -2213,11 +2221,88 @@ const createOriginalVector6Fixture = async (
   await configureReportedStroke(
     page,
     options.join ?? 'miter',
-    options.position ?? 'inside'
+    options.position ?? 'inside',
+    options.cap ?? 'round'
   )
 
   return snapshot
 }
+
+const compareRasterBuffers = async (
+  page: Page,
+  first: Buffer,
+  second: Buffer
+) =>
+  page.evaluate(
+    async ({ firstDataUrl, secondDataUrl }) => {
+      const loadImage = (src: string) =>
+        new Promise<HTMLImageElement>((resolve, reject) => {
+          const image = new Image()
+          image.onload = () => resolve(image)
+          image.onerror = () => reject(new Error(`Failed to decode ${src}`))
+          image.src = src
+        })
+      const [firstImage, secondImage] = await Promise.all([
+        loadImage(firstDataUrl),
+        loadImage(secondDataUrl)
+      ])
+      const width = Math.min(firstImage.width, secondImage.width)
+      const height = Math.min(firstImage.height, secondImage.height)
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const context = canvas.getContext('2d')
+      if (!context) {
+        throw new Error('Missing canvas context for raster comparison')
+      }
+      context.drawImage(firstImage, 0, 0)
+      const firstPixels = context.getImageData(0, 0, width, height).data
+      context.clearRect(0, 0, width, height)
+      context.drawImage(secondImage, 0, 0)
+      const secondPixels = context.getImageData(0, 0, width, height).data
+
+      let rgbaChangedPixelCount = 0
+      let redChangedPixelCount = 0
+      let totalRgbaDifference = 0
+      const isStrokePixel = (pixels: Uint8ClampedArray, index: number) => {
+        const r = pixels[index]
+        const g = pixels[index + 1]
+        const b = pixels[index + 2]
+        const a = pixels[index + 3]
+        return a > 48 && r > 70 && r - g > 20 && r - b > 20
+      }
+
+      for (let index = 0; index < firstPixels.length; index += 4) {
+        const rgbaDifference =
+          Math.abs(firstPixels[index] - secondPixels[index]) +
+          Math.abs(firstPixels[index + 1] - secondPixels[index + 1]) +
+          Math.abs(firstPixels[index + 2] - secondPixels[index + 2]) +
+          Math.abs(firstPixels[index + 3] - secondPixels[index + 3])
+        if (rgbaDifference > 8) {
+          rgbaChangedPixelCount += 1
+          totalRgbaDifference += rgbaDifference
+        }
+        if (
+          isStrokePixel(firstPixels, index) !==
+          isStrokePixel(secondPixels, index)
+        ) {
+          redChangedPixelCount += 1
+        }
+      }
+
+      return {
+        width,
+        height,
+        rgbaChangedPixelCount,
+        redChangedPixelCount,
+        totalRgbaDifference
+      }
+    },
+    {
+      firstDataUrl: `data:image/png;base64,${first.toString('base64')}`,
+      secondDataUrl: `data:image/png;base64,${second.toString('base64')}`
+    }
+  )
 
 test.describe('Reported Dashed Stroke Sharp Corners', () => {
   test.beforeEach(async ({ page }) => {
@@ -2764,7 +2849,7 @@ test.describe('Reported Dashed Stroke Sharp Corners', () => {
   }, testInfo) => {
     const snapshot = await createOriginalVector6Fixture(page)
     await centerVectorInViewport(page, snapshot.elementId)
-    await setZoomPercent(page, ORIGINAL_VECTOR6_GLOBAL_ZOOM_PERCENT)
+    await page.keyboard.press('Meta+1')
     await centerVectorInViewport(page, snapshot.elementId)
     await page.waitForTimeout(150)
 
@@ -2893,5 +2978,115 @@ test.describe('Reported Dashed Stroke Sharp Corners', () => {
     )
 
     expect(raster.buffer.byteLength).toBeGreaterThan(0)
+  })
+
+  test('keeps the original vector-6 tp-16 outside super high-curvature endpoint responsive to join type', async ({
+    page
+  }, testInfo) => {
+    const inspectedPoint = evaluateReportedSegmentPoint(
+      ORIGINAL_VECTOR6_SEGMENTS[3],
+      0.86,
+      ORIGINAL_VECTOR6_POINTS
+    )
+    const captures: Partial<Record<'miter' | 'bevel' | 'round', Buffer>> = {}
+
+    for (const join of ['miter', 'bevel', 'round'] as const) {
+      await resetCanvas(page)
+      const snapshot = await createOriginalVector6Fixture(page, {
+        join,
+        position: 'outside',
+        cap: 'butt'
+      })
+      await setZoomPercent(page, ORIGINAL_VECTOR6_LOCAL_ZOOM_PERCENT)
+      await centerWorkspacePointInViewport(page, inspectedPoint)
+      await clearElementSelectionByClick(page)
+      await clearVectorOverlayState(page)
+      await page.waitForTimeout(150)
+
+      const raster = await captureWorkspaceClip(
+        page,
+        inspectedPoint,
+        LOCAL_LEAKAGE_CLIP_RADIUS
+      )
+      const packetDiagnostics = await getStrokeExportPacketDiagnostics(
+        page,
+        snapshot.elementId,
+        inspectedPoint
+      )
+      const diagnosticsPath = testInfo.outputPath(
+        `original-vector-6-tp-16-outside-${join}-join-packets.json`
+      )
+      await writeFile(
+        diagnosticsPath,
+        `${JSON.stringify(packetDiagnostics, null, 2)}\n`
+      )
+      await testInfo.attach(
+        `original-vector-6-tp-16-outside-${join}-join-packets`,
+        {
+          path: diagnosticsPath,
+          contentType: 'application/json'
+        }
+      )
+      captures[join] = raster.buffer
+      const attachmentPath = testInfo.outputPath(
+        `original-vector-6-tp-16-outside-${join}-join-crop.png`
+      )
+      await page.screenshot({ path: attachmentPath, clip: raster.clip })
+      await testInfo.attach(
+        `original-vector-6-tp-16-outside-${join}-join-crop`,
+        {
+          path: attachmentPath,
+          contentType: 'image/png'
+        }
+      )
+
+      const computedStrokeJoin = await page.evaluate((elementId) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        const element = core?.deps?.sceneTree?.getElementById?.(elementId)
+        return element?.getAllComputedData?.()?.strokes?.[0]?.joinType ?? null
+      }, snapshot.elementId)
+      expect(computedStrokeJoin).toBe(join)
+      const computedStrokeCap = await page.evaluate((elementId) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        const element = core?.deps?.sceneTree?.getElementById?.(elementId)
+        return element?.getAllComputedData?.()?.strokes?.[0]?.capType ?? null
+      }, snapshot.elementId)
+      expect(computedStrokeCap).toBe('butt')
+    }
+
+    const miterVsBevel = await compareRasterBuffers(
+      page,
+      captures.miter as Buffer,
+      captures.bevel as Buffer
+    )
+    const miterVsRound = await compareRasterBuffers(
+      page,
+      captures.miter as Buffer,
+      captures.round as Buffer
+    )
+    const bevelVsRound = await compareRasterBuffers(
+      page,
+      captures.bevel as Buffer,
+      captures.round as Buffer
+    )
+
+    expect(
+      Math.max(
+        miterVsBevel.rgbaChangedPixelCount,
+        miterVsRound.rgbaChangedPixelCount,
+        bevelVsRound.rgbaChangedPixelCount
+      ),
+      JSON.stringify(
+        {
+          miterVsBevel,
+          miterVsRound,
+          bevelVsRound
+        },
+        null,
+        2
+      )
+    ).toBeGreaterThan(24)
   })
 })

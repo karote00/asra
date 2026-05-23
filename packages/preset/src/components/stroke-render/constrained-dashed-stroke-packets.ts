@@ -3816,38 +3816,6 @@ const buildOutsideSourceVertexJoinPolygon = (
     : []
 }
 
-const buildSelectedSideSourceVertexJoinPolygon = (
-  path: Pick<PathGeometry, 'segments' | 'closed'>,
-  previousSegmentIndex: number,
-  nextSegmentIndex: number,
-  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join' | 'miterLimit'>
-) => {
-  const previousBoundary = buildSourceSegmentBoundary(
-    path.segments[previousSegmentIndex]
-  )
-  const nextBoundary = buildSourceSegmentBoundary(
-    path.segments[nextSegmentIndex]
-  )
-  if (previousBoundary.length < 2 || nextBoundary.length < 2) {
-    return []
-  }
-
-  const vertex = previousBoundary[previousBoundary.length - 1]
-  const nextVertex = nextBoundary[0]
-  if (distanceBetween(vertex, nextVertex) > 0.5) {
-    return []
-  }
-
-  const previousStart = previousBoundary[previousBoundary.length - 2]
-  const nextEnd = nextBoundary[1]
-  return buildSelectedSideVertexJoinPolygonFromPoints(
-    previousStart,
-    vertex,
-    nextEnd,
-    stroke
-  )
-}
-
 const buildSelectedSideVertexJoinPolygonFromPoints = (
   previousStart: Vec2,
   vertex: Vec2,
@@ -3921,28 +3889,155 @@ const buildSelectedSideVertexJoinPolygonFromPoints = (
     : []
 }
 
+const buildBoundaryDomainTerminalJoinCoveragePolygons = (
+  previousStart: Vec2,
+  vertex: Vec2,
+  nextEnd: Vec2,
+  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join' | 'miterLimit'>
+) => {
+  const offset = getConstrainedRibbonOffsetDistance(stroke)
+  const previousOffsetStart = getOffsetPointOnLine(
+    previousStart,
+    previousStart,
+    vertex,
+    offset
+  )
+  const previousOffsetEnd = getOffsetPointOnLine(
+    vertex,
+    previousStart,
+    vertex,
+    offset
+  )
+  const nextOffsetStart = getOffsetPointOnLine(vertex, vertex, nextEnd, offset)
+  const nextOffsetEnd = getOffsetPointOnLine(nextEnd, vertex, nextEnd, offset)
+  if (
+    !previousOffsetStart ||
+    !previousOffsetEnd ||
+    !nextOffsetStart ||
+    !nextOffsetEnd
+  ) {
+    return []
+  }
+
+  const sweepSign =
+    crossPoints(
+      subtractPoint(vertex, previousStart),
+      subtractPoint(nextEnd, vertex)
+    ) *
+      offset >=
+    0
+      ? -1
+      : 1
+  let outerJoinPoints =
+    stroke.join === 'round'
+      ? buildJoinArcPoints(
+          vertex,
+          nextOffsetStart,
+          previousOffsetEnd,
+          -sweepSign
+        )
+      : [nextOffsetStart, previousOffsetEnd]
+
+  if (stroke.join === 'miter') {
+    const joinPoint = lineIntersection(
+      previousOffsetStart,
+      previousOffsetEnd,
+      nextOffsetStart,
+      nextOffsetEnd
+    )
+    if (
+      distanceBetween(vertex, joinPoint) <=
+      stroke.miterLimit * Math.abs(offset) + EPSILON
+    ) {
+      outerJoinPoints = [nextOffsetStart, joinPoint, previousOffsetEnd]
+    }
+  }
+
+  const polygon = cleanMergedRibbonPolygon([
+    normalizePoint(previousStart),
+    normalizePoint(vertex),
+    normalizePoint(nextEnd),
+    nextOffsetEnd,
+    ...outerJoinPoints,
+    previousOffsetStart
+  ])
+  return polygon.length >= 3 &&
+    Math.abs(polygonArea(polygon)) > EPSILON &&
+    isSimpleClosedPolygon(polygon)
+    ? [polygon]
+    : []
+}
+
 const getBoundaryDomainFaceKey = (boundaryDomainId: string | undefined) =>
   boundaryDomainId?.match(/^face:[^:]+/)?.[0]
 
 const getBoundaryDomainTerminalPoint = (
   interval: VisibleDashedTopologyInterval,
-  terminal: 'start' | 'end'
+  terminal: 'start' | 'end',
+  sampleDistance = 0
 ) => {
   const boundaryPoints = interval.figmaLikeBoundaryPoints
   if (!boundaryPoints || boundaryPoints.length < 2) {
     return null
   }
 
+  const getSampledNeighbor = () => {
+    if (sampleDistance <= EPSILON) {
+      return terminal === 'start'
+        ? boundaryPoints[1]
+        : boundaryPoints[boundaryPoints.length - 2]
+    }
+
+    let traversed = 0
+    if (terminal === 'start') {
+      for (let index = 1; index < boundaryPoints.length; index += 1) {
+        const previous = boundaryPoints[index - 1]
+        const current = boundaryPoints[index]
+        const segmentLength = distanceBetween(previous, current)
+        if (traversed + segmentLength >= sampleDistance) {
+          const ratio =
+            segmentLength <= EPSILON
+              ? 0
+              : (sampleDistance - traversed) / segmentLength
+          return normalizePoint({
+            x: previous.x + (current.x - previous.x) * ratio,
+            y: previous.y + (current.y - previous.y) * ratio
+          })
+        }
+        traversed += segmentLength
+      }
+      return boundaryPoints[boundaryPoints.length - 1]
+    }
+
+    for (let index = boundaryPoints.length - 2; index >= 0; index -= 1) {
+      const previous = boundaryPoints[index + 1]
+      const current = boundaryPoints[index]
+      const segmentLength = distanceBetween(previous, current)
+      if (traversed + segmentLength >= sampleDistance) {
+        const ratio =
+          segmentLength <= EPSILON
+            ? 0
+            : (sampleDistance - traversed) / segmentLength
+        return normalizePoint({
+          x: previous.x + (current.x - previous.x) * ratio,
+          y: previous.y + (current.y - previous.y) * ratio
+        })
+      }
+      traversed += segmentLength
+    }
+    return boundaryPoints[0]
+  }
+
   if (terminal === 'start') {
     return {
       endpoint: boundaryPoints[0],
-      neighbor: boundaryPoints[1]
+      neighbor: getSampledNeighbor()
     }
   }
 
   return {
     endpoint: boundaryPoints[boundaryPoints.length - 1],
-    neighbor: boundaryPoints[boundaryPoints.length - 2]
+    neighbor: getSampledNeighbor()
   }
 }
 
@@ -3957,18 +4052,6 @@ interface BoundaryDomainTerminalJoinRecord {
   faceKey: string
 }
 
-const shouldSmoothBoundaryDomainTerminalJoin = (
-  previousTerminal: BoundaryDomainTerminalJoinRecord,
-  nextTerminal: BoundaryDomainTerminalJoinRecord
-) => {
-  const previousPointCount =
-    previousTerminal.interval.figmaLikeBoundaryPoints?.length ?? 0
-  const nextPointCount =
-    nextTerminal.interval.figmaLikeBoundaryPoints?.length ?? 0
-
-  return Math.max(previousPointCount, nextPointCount) >= 2
-}
-
 const buildOutsideBoundaryDomainTerminalJoinPolygons = (
   visibleIntervals: VisibleDashedTopologyInterval[],
   stroke: Pick<RenderableStroke, 'position' | 'width' | 'join' | 'miterLimit'>
@@ -3978,6 +4061,7 @@ const buildOutsideBoundaryDomainTerminalJoinPolygons = (
   }
 
   const terminalGroups = new Map<string, BoundaryDomainTerminalJoinRecord[]>()
+  const terminalJoinSampleDistance = Math.max(EPSILON, stroke.width * 2.25)
 
   const pushTerminal = (
     interval: VisibleDashedTopologyInterval,
@@ -3991,7 +4075,11 @@ const buildOutsideBoundaryDomainTerminalJoinPolygons = (
     }
 
     const faceKey = getBoundaryDomainFaceKey(interval.figmaLikeBoundaryDomainId)
-    const terminalPoint = getBoundaryDomainTerminalPoint(interval, terminal)
+    const terminalPoint = getBoundaryDomainTerminalPoint(
+      interval,
+      terminal,
+      terminalJoinSampleDistance
+    )
     if (!faceKey || !terminalPoint) {
       return
     }
@@ -4043,17 +4131,11 @@ const buildOutsideBoundaryDomainTerminalJoinPolygons = (
       x: (endTerminal.endpoint.x + startTerminal.endpoint.x) / 2,
       y: (endTerminal.endpoint.y + startTerminal.endpoint.y) / 2
     }
-    const terminalJoinStroke = shouldSmoothBoundaryDomainTerminalJoin(
-      endTerminal,
-      startTerminal
-    )
-      ? { ...stroke, join: 'round' as const }
-      : stroke
-    const polygons = buildSelectedSideVertexJoinPolygonFromPoints(
+    const polygons = buildBoundaryDomainTerminalJoinCoveragePolygons(
       endTerminal.neighbor,
       vertex,
       startTerminal.neighbor,
-      terminalJoinStroke
+      stroke
     )
     if (polygons.length === 0) {
       return
@@ -4578,6 +4660,8 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
     | 'endDistance'
     | 'wrapsSeam'
     | 'figmaLikeTerminalRole'
+    | 'figmaLikeSplitRangeStartDistance'
+    | 'figmaLikeSplitRangeEndDistance'
     | 'figmaLikeSelectedSide'
     | 'figmaLikeBoundaryRole'
     | 'figmaLikeSideResolutionStatus'
@@ -4645,16 +4729,71 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
     currentIntervalStroke: Pick<RenderableStroke, 'position' | 'width'>,
     shouldApplySourceBoundaryClip: boolean
   ) => {
+    const isOutsideBoundaryDomainTerminal =
+      shouldResolveSelfIntersectingLegalSide &&
+      authoredStroke.position === 'outside' &&
+      authoredStroke.cap === 'butt' &&
+      interval.figmaLikeBoundaryRole === 'outer' &&
+      interval.figmaLikeSelectedSide === -1
+    const ownsBoundaryDomainStartTerminal =
+      isOutsideBoundaryDomainTerminal &&
+      (interval.figmaLikeTerminalRole === 'start' ||
+        interval.figmaLikeTerminalRole === 'start-end') &&
+      isSourcePathRangeAtVisibleIntervalStart(range, interval, path.totalLength)
+    const ownsBoundaryDomainEndTerminal =
+      isOutsideBoundaryDomainTerminal &&
+      (interval.figmaLikeTerminalRole === 'end' ||
+        interval.figmaLikeTerminalRole === 'start-end') &&
+      isSourcePathRangeAtVisibleIntervalEnd(range, interval, path.totalLength)
+    const getBoundaryDomainBodyRenderRange = () => {
+      if (!ownsBoundaryDomainStartTerminal && !ownsBoundaryDomainEndTerminal) {
+        return renderRange
+      }
+
+      const rangeLength = Math.max(
+        EPSILON,
+        range.endDistance - range.startDistance
+      )
+      const terminalOwnershipReach = Math.min(
+        currentIntervalStroke.width * 0.5,
+        rangeLength * 0.45
+      )
+      let startDistance = renderRange.startDistance
+      let endDistance = renderRange.endDistance
+
+      if (ownsBoundaryDomainStartTerminal) {
+        startDistance = Math.max(
+          startDistance,
+          range.startDistance + terminalOwnershipReach
+        )
+      }
+      if (ownsBoundaryDomainEndTerminal) {
+        endDistance = Math.min(
+          endDistance,
+          range.endDistance - terminalOwnershipReach
+        )
+      }
+      if (endDistance <= startDistance + EPSILON) {
+        return null
+      }
+
+      return {
+        ...renderRange,
+        startDistance,
+        endDistance
+      }
+    }
     const buildRangePolygons = (
       candidateOffsetRibbonFrame: ExactSourcePathOffsetRibbonFrame,
-      candidateIntervalStroke: Pick<RenderableStroke, 'position' | 'width'>
+      candidateIntervalStroke: Pick<RenderableStroke, 'position' | 'width'>,
+      candidateRenderRange: SourceSegmentIntervalRange
     ) => {
       const exactFrames = measureStrokePipelinePhase(
         'stroke product visual compiler: range slice',
         () =>
           sliceExactOffsetRibbonRangeFrames(
             path,
-            renderRange,
+            candidateRenderRange,
             slicingContext,
             candidateOffsetRibbonFrame,
             candidateIntervalStroke
@@ -4720,32 +4859,15 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
       )
     }
 
-    const rangePolygons = buildRangePolygons(
-      currentOffsetRibbonFrame,
-      currentIntervalStroke
-    )
-    const segmentRange = slicingContext.segmentRanges[range.segmentIndex]
-    const shouldAddOutsideSourceVertexJoin =
-      authoredStroke.position === 'outside' &&
-      path.closed === true &&
-      segmentRange !== undefined &&
-      interval.figmaLikeTerminalRole === 'start' &&
-      Math.abs(range.startDistance - segmentRange.startDistance) <= EPSILON
-    const sourceVertexJoinPolygons = shouldAddOutsideSourceVertexJoin
-      ? buildSelectedSideSourceVertexJoinPolygon(
-          path,
-          (range.segmentIndex - 1 + path.segments.length) %
-            path.segments.length,
-          range.segmentIndex,
-          {
-            ...authoredStroke,
-            position: currentIntervalStroke.position,
-            width: currentIntervalStroke.width
-          }
+    const bodyRenderRange = getBoundaryDomainBodyRenderRange()
+    const rangePolygons = bodyRenderRange
+      ? buildRangePolygons(
+          currentOffsetRibbonFrame,
+          currentIntervalStroke,
+          bodyRenderRange
         )
       : []
-
-    let finalRangePolygons = [...rangePolygons, ...sourceVertexJoinPolygons]
+    let finalRangePolygons = rangePolygons
     if (
       shouldResolveSelfIntersectingLegalSide &&
       authoredStroke.position === 'outside' &&
@@ -4861,14 +4983,38 @@ const buildDashedSourcePathFinalCoveragePolygons = (
       (strokeDomainPlan?.sideAuthority === 'implicit-fill-hole-domain' &&
         authoredStroke.position === 'outside'))
 
-  return shouldClipToImplicitFillDomain
-    ? clipSourcePathPolygonsToEvenOddLegalDomain(
-        normalizedPolygons,
-        path,
-        authoredStroke,
-        implicitFillRegions
+  if (!shouldClipToImplicitFillDomain) {
+    return normalizedPolygons
+  }
+
+  const clippedPolygons = clipSourcePathPolygonsToEvenOddLegalDomain(
+    normalizedPolygons,
+    path,
+    authoredStroke,
+    implicitFillRegions
+  )
+
+  if (
+    authoredStroke.position !== 'outside' ||
+    clippedPolygons.length === 0 ||
+    implicitFillRegions.length === 0
+  ) {
+    return clippedPolygons
+  }
+
+  return clipSourcePathPolygonsToEvenOddLegalDomain(
+    clippedPolygons,
+    path,
+    authoredStroke,
+    [],
+    {
+      fragmentStitchRadius: 0,
+      fragmentPruneArea: Math.max(
+        1,
+        authoredStroke.width * authoredStroke.width * 0.1
       )
-    : normalizedPolygons
+    }
+  )
 }
 
 const isConstrainedDashedProductVisualCompilerEnabled = (
@@ -8173,8 +8319,30 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
             width: intervalStroke.width,
             join: stroke.join,
             miterLimit: stroke.miterLimit
-          }).map(({ polygons, intervals }, joinIndex) => {
+          }).flatMap(({ polygons, intervals }, joinIndex) => {
             const [previousInterval, nextInterval] = intervals
+            const clippedPolygons =
+              sourcePath &&
+              options.clipInsideToFillDomain === true &&
+              options.implicitFillRegions &&
+              options.implicitFillRegions.length > 0
+                ? clipSourcePathPolygonsToEvenOddLegalDomain(
+                    polygons,
+                    sourcePath,
+                    { position: stroke.position },
+                    options.implicitFillRegions,
+                    {
+                      fragmentStitchRadius: 0,
+                      fragmentPruneArea: Math.max(
+                        1,
+                        intervalStroke.width * intervalStroke.width * 0.1
+                      )
+                    }
+                  )
+                : polygons
+            if (clippedPolygons.length === 0) {
+              return []
+            }
             const intervalIds = intervals.map((interval) => interval.intervalId)
             const sourceSpanIds = [
               ...new Set(
@@ -8262,8 +8430,8 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
             return {
               geometry: {
                 geometryId,
-                polygons,
-                bounds: getBounds(polygons),
+                polygons: clippedPolygons,
+                bounds: getBounds(clippedPolygons),
                 debugMeta
               },
               paint: {

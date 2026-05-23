@@ -16,9 +16,12 @@ import { buildResolvedVectorGeometryModel } from '../components/stroke-render/re
 import { resolveSourceFamily } from '../components/stroke-render/resolved-source-family'
 import { resolveStrokeDomains } from '../components/stroke-render/stroke-domain-plan'
 import {
+  getGeometryBackend,
   registerGeometryBackend,
   selectGeometryBackend
 } from '../components/stroke-render/geometry-backend'
+import { collapseStrokeFinalFaceVisualOverlaps } from '../components/stroke-render/stroke-candidate-arrangement'
+import { toSolidCenterStrokeRenderEntriesFromFinalFaces } from '../components/stroke-render/solid-center-stroke-packets'
 import {
   createClipper2GeometryBackend,
   type Clipper2Module
@@ -51,25 +54,31 @@ beforeAll(async () => {
   selectGeometryBackend(backendId)
 })
 
-const ADJ_TP12 = { x: 188.1928217922337, y: 0 }
-const ADJ_TP13 = { x: 11.358174406717296, y: 365.76797704068724 }
-const ADJ_TP14 = { x: 360.12094148356584, y: 145.95389587539378 }
-const ADJ_TP15 = { x: 0, y: 15.668954151283657 }
-const ADJ_TP16 = { x: 270.59180204238254, y: 347.0603956649177 }
-const ADJ_TP12_OUT = { x: 164.3673966581619, y: 140.9198821588739 }
-const ADJ_TP13_IN = { x: -42.09205809548172, y: 344.92238636482955 }
-const ADJ_TP13_OUT = { x: 78.17096503446606, y: 391.8249653855095 }
-const ADJ_TP15_OUT = { x: 0, y: 15.668954151283657 }
-const ADJ_TP16_IN = { x: 263.9105229796075, y: 364.43172122813246 }
-const ADJ_TP16_OUT = { x: 277.27308110515736, y: 329.6890701017029 }
+const ADJ_TP12 = { x: 192.42083700791653, y: 0 }
+const ADJ_TP13 = { x: 11.358174406717296, y: 364.1297089212308 }
+const ADJ_TP14 = { x: 360.120941483566, y: 144.31562775593738 }
+const ADJ_TP15 = { x: 0, y: 14.030686031827244 }
+const ADJ_TP16 = { x: 270.59180204238254, y: 345.42212754546125 }
+const ADJ_TP12_OUT = { x: 170.10536493824844, y: 119.07041481724248 }
+const ADJ_TP13_IN = { x: -42.09205809548172, y: 343.2841182453731 }
+const ADJ_TP13_OUT = { x: 78.17096503446606, y: 390.18669726605293 }
+const ADJ_TP15_OUT = { x: 0, y: 14.030686031827244 }
+const ADJ_TP16_IN = { x: 263.9105229796076, y: 362.79345310867603 }
+const ADJ_TP16_OUT = { x: 277.2730811051575, y: 328.05080198224647 }
 
-const buildAdjustedVector6Fixture = () => {
+const buildAdjustedVector6Fixture = (
+  strokeOverrides: {
+    position?: 'inside' | 'outside' | 'center'
+    joinType?: 'miter' | 'bevel' | 'round'
+    capType?: 'butt' | 'round' | 'square'
+  } = {}
+) => {
   const points = {
     'tp-12': {
       id: 'tp-12',
       kind: 'anchor',
       ...ADJ_TP12,
-      anchorType: 'smooth'
+      anchorType: 'sharp'
     },
     'tp-13': {
       id: 'tp-13',
@@ -203,9 +212,9 @@ const buildAdjustedVector6Fixture = () => {
   const stroke = createDefaultStroke({
     width: 10,
     style: 'dashed',
-    position: 'inside',
-    joinType: 'miter',
-    capType: 'round',
+    position: strokeOverrides.position ?? 'inside',
+    joinType: strokeOverrides.joinType ?? 'miter',
+    capType: strokeOverrides.capType ?? 'round',
     dashPattern: [27, 20],
     dashOffset: 0
   })
@@ -392,7 +401,761 @@ const offsetFromSide = (
   y: point.y + tangent.x * offset * side
 })
 
+const getWindowedTurnAngleNearPoint = (
+  points: Vec2[],
+  target: Vec2,
+  windowSize = 12
+) => {
+  const closestIndex = points.reduce(
+    (closest, point, index) => {
+      const pointDistance = distance(point, target)
+      return pointDistance < closest.distance
+        ? {
+            index,
+            distance: pointDistance
+          }
+        : closest
+    },
+    {
+      index: 0,
+      distance: Number.POSITIVE_INFINITY
+    }
+  ).index
+  const before = points[Math.max(0, closestIndex - windowSize)]
+  const current = points[closestIndex]
+  const after = points[Math.min(points.length - 1, closestIndex + windowSize)]
+  if (!before || !current || !after) {
+    return 0
+  }
+  const incoming = {
+    x: current.x - before.x,
+    y: current.y - before.y
+  }
+  const outgoing = {
+    x: after.x - current.x,
+    y: after.y - current.y
+  }
+  const incomingLength = Math.hypot(incoming.x, incoming.y)
+  const outgoingLength = Math.hypot(outgoing.x, outgoing.y)
+  if (incomingLength <= 1e-9 || outgoingLength <= 1e-9) {
+    return 0
+  }
+  const dot =
+    (incoming.x * outgoing.x + incoming.y * outgoing.y) /
+    (incomingLength * outgoingLength)
+  return Math.acos(Math.max(-1, Math.min(1, dot)))
+}
+
+const getMaxWindowedTurnAngleNearPoint = (
+  points: Vec2[],
+  target: Vec2,
+  radius: number,
+  windowSize = 12
+) => {
+  let maxAngle = 0
+  for (let index = windowSize; index < points.length - windowSize; index += 1) {
+    const current = points[index]
+    if (!current || distance(current, target) > radius) {
+      continue
+    }
+    const before = points[index - windowSize]
+    const after = points[index + windowSize]
+    if (!before || !after) {
+      continue
+    }
+    const incoming = {
+      x: current.x - before.x,
+      y: current.y - before.y
+    }
+    const outgoing = {
+      x: after.x - current.x,
+      y: after.y - current.y
+    }
+    maxAngle = Math.max(
+      maxAngle,
+      getTurnAngleBetweenVectors(incoming, outgoing)
+    )
+  }
+  return maxAngle
+}
+
+const getTurnAngleBetweenVectors = (incoming: Vec2, outgoing: Vec2) => {
+  const incomingLength = Math.hypot(incoming.x, incoming.y)
+  const outgoingLength = Math.hypot(outgoing.x, outgoing.y)
+  if (incomingLength <= 1e-9 || outgoingLength <= 1e-9) {
+    return 0
+  }
+  const dot =
+    (incoming.x * outgoing.x + incoming.y * outgoing.y) /
+    (incomingLength * outgoingLength)
+  return Math.acos(Math.max(-1, Math.min(1, dot)))
+}
+
+const getStrokeProjectionPolygons = (
+  fixture: ReturnType<typeof buildAdjustedVector6Fixture>,
+  phase: 'packet' | 'final-face' | 'collapsed-final-face' | 'render'
+) => {
+  const packets = buildConstrainedDashedStrokeResolvedPackets(
+    `vector-6:adjusted:${fixture.renderableStroke.position}:${fixture.renderableStroke.join}:render-projection`,
+    fixture.topology.normalizedPoints,
+    true,
+    [fixture.stroke],
+    fixture.options
+  )
+  if (phase === 'packet') {
+    return packets.flatMap((packet) => packet.geometry.polygons)
+  }
+  const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
+  if (phase === 'final-face') {
+    return finalFaces.flatMap((face) => face.polygons)
+  }
+  const collapsedFinalFaces = collapseStrokeFinalFaceVisualOverlaps(
+    finalFaces,
+    {
+      backend: getGeometryBackend()
+    }
+  )
+  if (phase === 'collapsed-final-face') {
+    return collapsedFinalFaces.flatMap((face) => face.polygons)
+  }
+  return toSolidCenterStrokeRenderEntriesFromFinalFaces(collapsedFinalFaces, {
+    exactBackend: getGeometryBackend()
+  }).flatMap((entry) => entry.polygons)
+}
+
+const getLocalPacketDebug = (
+  fixture: ReturnType<typeof buildAdjustedVector6Fixture>,
+  center: Vec2,
+  radius: number
+) => {
+  const packets = buildConstrainedDashedStrokeResolvedPackets(
+    `vector-6:adjusted:${fixture.renderableStroke.position}:${fixture.renderableStroke.join}:packet-debug`,
+    fixture.topology.normalizedPoints,
+    true,
+    [fixture.stroke],
+    fixture.options
+  )
+  return packets
+    .filter((packet) =>
+      packet.geometry.polygons.some((polygon) =>
+        polygon.some((point) => distance(point, center) <= radius)
+      )
+    )
+    .map((packet) => ({
+      geometryId: packet.geometry.geometryId,
+      polygonCount: packet.geometry.polygons.length,
+      bounds: packet.geometry.bounds,
+      localPolygonSamples: packet.geometry.polygons
+        .filter((polygon) =>
+          polygon.some((point) => distance(point, center) <= radius)
+        )
+        .slice(0, 2)
+        .map((polygon) =>
+          polygon
+            .filter((point) => distance(point, center) <= radius + 16)
+            .slice(0, 12)
+            .map((point) => ({
+              x: Math.round(point.x * 100) / 100,
+              y: Math.round(point.y * 100) / 100,
+              d: Math.round(distance(point, center) * 100) / 100
+            }))
+        ),
+      localCoverageCount: getLocalCoverageSignature(
+        packet.geometry.polygons,
+        center,
+        radius,
+        1.5
+      ).size,
+      sourceBoundaryJoinCount:
+        packet.geometry.debugMeta?.sourceBoundaryJoinCount,
+      terminalCapCount: packet.geometry.debugMeta?.terminalCapCount,
+      intervalSweepSpanCount: packet.geometry.debugMeta?.intervalSweepSpanCount,
+      startDistance: packet.geometry.debugMeta?.startDistance,
+      endDistance: packet.geometry.debugMeta?.endDistance,
+      figmaLikeSplitRangeStartDistance:
+        packet.geometry.debugMeta?.figmaLikeSplitRangeStartDistance,
+      figmaLikeSplitRangeEndDistance:
+        packet.geometry.debugMeta?.figmaLikeSplitRangeEndDistance,
+      figmaLikeSplitRangeSourceSegmentIndex:
+        packet.geometry.debugMeta?.figmaLikeSplitRangeSourceSegmentIndex,
+      figmaLikeTerminalRole: packet.geometry.debugMeta?.figmaLikeTerminalRole,
+      figmaLikeBoundaryRole: packet.geometry.debugMeta?.figmaLikeBoundaryRole,
+      figmaLikeSelectedSide: packet.geometry.debugMeta?.figmaLikeSelectedSide,
+      finalCoverageBuilderStatus:
+        packet.geometry.debugMeta?.finalCoverageBuilderStatus
+    }))
+}
+
+const getLocalCoverageSignature = (
+  polygons: Vec2[][],
+  center: Vec2,
+  radius: number,
+  step: number
+) => {
+  const covered = new Set<string>()
+  for (let y = center.y - radius; y <= center.y + radius; y += step) {
+    for (let x = center.x - radius; x <= center.x + radius; x += step) {
+      const probe = { x, y }
+      if (isPointCoveredByPolygons(probe, polygons, 0.75)) {
+        covered.add(
+          `${Math.round((x - center.x) / step)},${Math.round(
+            (y - center.y) / step
+          )}`
+        )
+      }
+    }
+  }
+  return covered
+}
+
+const getCoverageDeltaCount = (first: Set<string>, second: Set<string>) => {
+  let delta = 0
+  first.forEach((key) => {
+    if (!second.has(key)) {
+      delta += 1
+    }
+  })
+  second.forEach((key) => {
+    if (!first.has(key)) {
+      delta += 1
+    }
+  })
+  return delta
+}
+
 describe('constrained dashed Vector-6 high-curvature pipeline diagnostics', () => {
+  it('keeps the tp16 high-curvature outside endpoint join-specific through render projection', () => {
+    const baseFixture = buildAdjustedVector6Fixture({
+      position: 'outside',
+      joinType: 'miter',
+      capType: 'butt'
+    })
+    const highCurvatureDomains =
+      baseFixture.strokeDomainPlan.splitRangeDomains.filter(
+        (domain) =>
+          (domain.sourceSegmentIndex === 3 ||
+            domain.sourceSegmentIndex === 4) &&
+          domain.boundaryPoints.some((point) => distance(point, ADJ_TP16) <= 1)
+      )
+    const authoredTp16TurnAngle = getTurnAngleBetweenVectors(
+      {
+        x: ADJ_TP16.x - ADJ_TP16_IN.x,
+        y: ADJ_TP16.y - ADJ_TP16_IN.y
+      },
+      {
+        x: ADJ_TP16_OUT.x - ADJ_TP16.x,
+        y: ADJ_TP16_OUT.y - ADJ_TP16.y
+      }
+    )
+    const localCurveTurnAngle = Math.max(
+      ...highCurvatureDomains.map((domain) =>
+        getMaxWindowedTurnAngleNearPoint(domain.boundaryPoints, ADJ_TP16, 64, 8)
+      )
+    )
+    const maxTurnAngle = Math.max(
+      authoredTp16TurnAngle,
+      localCurveTurnAngle,
+      ...highCurvatureDomains.map((domain) =>
+        getWindowedTurnAngleNearPoint(domain.boundaryPoints, ADJ_TP16)
+      )
+    )
+
+    expect(
+      maxTurnAngle,
+      JSON.stringify(
+        {
+          message:
+            'tp16 must stay a formal high-curvature benchmark before asserting join-specific coverage',
+          maxTurnAngle,
+          authoredTp16TurnAngle,
+          localCurveTurnAngle,
+          threshold: Math.PI / 5,
+          highCurvatureDomains: highCurvatureDomains.map((domain) => ({
+            domainId: domain.domainId,
+            sourceSegmentIndex: domain.sourceSegmentIndex,
+            boundaryRole: domain.boundaryRole,
+            selectedSide: domain.selectedSide,
+            pointCount: domain.boundaryPoints.length
+          }))
+        },
+        null,
+        2
+      )
+    ).toBeGreaterThanOrEqual(Math.PI / 5)
+
+    const coverageFor = (
+      joinType: 'miter' | 'bevel' | 'round',
+      phase: 'packet' | 'final-face' | 'collapsed-final-face' | 'render'
+    ) =>
+      getLocalCoverageSignature(
+        getStrokeProjectionPolygons(
+          buildAdjustedVector6Fixture({
+            position: 'outside',
+            joinType,
+            capType: 'butt'
+          }),
+          phase
+        ),
+        ADJ_TP16,
+        42,
+        1.5
+      )
+
+    const coverageCounts = {
+      packetMiter: coverageFor('miter', 'packet').size,
+      packetBevel: coverageFor('bevel', 'packet').size,
+      packetRound: coverageFor('round', 'packet').size,
+      finalMiter: coverageFor('miter', 'final-face').size,
+      finalBevel: coverageFor('bevel', 'final-face').size,
+      finalRound: coverageFor('round', 'final-face').size,
+      collapsedFinalMiter: coverageFor('miter', 'collapsed-final-face').size,
+      collapsedFinalBevel: coverageFor('bevel', 'collapsed-final-face').size,
+      collapsedFinalRound: coverageFor('round', 'collapsed-final-face').size,
+      renderMiter: coverageFor('miter', 'render').size,
+      renderBevel: coverageFor('bevel', 'render').size,
+      renderRound: coverageFor('round', 'render').size
+    }
+
+    expect(
+      Object.values(coverageCounts).every((count) => count >= 80),
+      JSON.stringify(
+        {
+          message:
+            'tp16 is a smooth high-curvature endpoint; coverage must survive packet, FinalFace, and render projection without a forced round-join fallback oracle',
+          coverageCounts,
+          localPackets: {
+            miter: getLocalPacketDebug(
+              buildAdjustedVector6Fixture({
+                position: 'outside',
+                joinType: 'miter',
+                capType: 'butt'
+              }),
+              ADJ_TP16,
+              42
+            ),
+            bevel: getLocalPacketDebug(
+              buildAdjustedVector6Fixture({
+                position: 'outside',
+                joinType: 'bevel',
+                capType: 'butt'
+              }),
+              ADJ_TP16,
+              42
+            ),
+            round: getLocalPacketDebug(
+              buildAdjustedVector6Fixture({
+                position: 'outside',
+                joinType: 'round',
+                capType: 'butt'
+              }),
+              ADJ_TP16,
+              42
+            )
+          }
+        },
+        null,
+        2
+      )
+    ).toBe(true)
+
+    const localSignatureFor = (
+      joinType: 'miter' | 'bevel' | 'round',
+      phase: 'packet' | 'final-face' | 'collapsed-final-face' | 'render'
+    ) =>
+      getStrokeProjectionPolygons(
+        buildAdjustedVector6Fixture({
+          position: 'outside',
+          joinType,
+          capType: 'butt'
+        }),
+        phase
+      )
+        .filter((polygon) =>
+          polygon.some((point) => distance(point, ADJ_TP16) <= 42)
+        )
+        .map((polygon) =>
+          polygon
+            .map((point) => [
+              Math.round(point.x * 100) / 100,
+              Math.round(point.y * 100) / 100
+            ])
+            .join('|')
+        )
+        .sort()
+        .join('::')
+
+    const packetSignatures = {
+      miter: localSignatureFor('miter', 'packet'),
+      bevel: localSignatureFor('bevel', 'packet'),
+      round: localSignatureFor('round', 'packet')
+    }
+    const finalFaceSignatures = {
+      miter: localSignatureFor('miter', 'final-face'),
+      bevel: localSignatureFor('bevel', 'final-face'),
+      round: localSignatureFor('round', 'final-face')
+    }
+    const collapsedFinalFaceSignatures = {
+      miter: localSignatureFor('miter', 'collapsed-final-face'),
+      bevel: localSignatureFor('bevel', 'collapsed-final-face'),
+      round: localSignatureFor('round', 'collapsed-final-face')
+    }
+    const renderSignatures = {
+      miter: localSignatureFor('miter', 'render'),
+      bevel: localSignatureFor('bevel', 'render'),
+      round: localSignatureFor('round', 'render')
+    }
+
+    expect(
+      new Set(Object.values(packetSignatures)).size,
+      JSON.stringify(
+        {
+          message:
+            'tp16 is a closed-path endpoint; packet geometry must not collapse miter/bevel/round to the same shape',
+          packetSignatures,
+          localPackets: {
+            miter: getLocalPacketDebug(
+              buildAdjustedVector6Fixture({
+                position: 'outside',
+                joinType: 'miter',
+                capType: 'butt'
+              }),
+              ADJ_TP16,
+              42
+            ),
+            bevel: getLocalPacketDebug(
+              buildAdjustedVector6Fixture({
+                position: 'outside',
+                joinType: 'bevel',
+                capType: 'butt'
+              }),
+              ADJ_TP16,
+              42
+            ),
+            round: getLocalPacketDebug(
+              buildAdjustedVector6Fixture({
+                position: 'outside',
+                joinType: 'round',
+                capType: 'butt'
+              }),
+              ADJ_TP16,
+              42
+            )
+          }
+        },
+        null,
+        2
+      )
+    ).toBeGreaterThan(1)
+
+    expect(
+      new Set(Object.values(finalFaceSignatures)).size,
+      JSON.stringify(
+        {
+          message:
+            'tp16 join-specific packet geometry must survive FinalFace projection',
+          finalFaceSignatures
+        },
+        null,
+        2
+      )
+    ).toBeGreaterThan(1)
+
+    expect(
+      new Set(Object.values(collapsedFinalFaceSignatures)).size,
+      JSON.stringify(
+        {
+          message:
+            'tp16 join-specific FinalFace geometry must survive overlap collapse before render projection',
+          collapsedFinalFaceSignatures
+        },
+        null,
+        2
+      )
+    ).toBeGreaterThan(1)
+
+    expect(
+      new Set(Object.values(renderSignatures)).size,
+      JSON.stringify(
+        {
+          message: 'tp16 join-specific geometry must survive render projection',
+          renderSignatures
+        },
+        null,
+        2
+      )
+    ).toBeGreaterThan(1)
+
+    const visibleCoverage = {
+      miter: getLocalCoverageSignature(
+        getStrokeProjectionPolygons(
+          buildAdjustedVector6Fixture({
+            position: 'outside',
+            joinType: 'miter',
+            capType: 'butt'
+          }),
+          'render'
+        ),
+        ADJ_TP16,
+        42,
+        0.75
+      ),
+      bevel: getLocalCoverageSignature(
+        getStrokeProjectionPolygons(
+          buildAdjustedVector6Fixture({
+            position: 'outside',
+            joinType: 'bevel',
+            capType: 'butt'
+          }),
+          'render'
+        ),
+        ADJ_TP16,
+        42,
+        0.75
+      ),
+      round: getLocalCoverageSignature(
+        getStrokeProjectionPolygons(
+          buildAdjustedVector6Fixture({
+            position: 'outside',
+            joinType: 'round',
+            capType: 'butt'
+          }),
+          'render'
+        ),
+        ADJ_TP16,
+        42,
+        0.75
+      )
+    }
+    const visibleDeltas = {
+      miterVsBevel: getCoverageDeltaCount(
+        visibleCoverage.miter,
+        visibleCoverage.bevel
+      ),
+      miterVsRound: getCoverageDeltaCount(
+        visibleCoverage.miter,
+        visibleCoverage.round
+      ),
+      bevelVsRound: getCoverageDeltaCount(
+        visibleCoverage.bevel,
+        visibleCoverage.round
+      )
+    }
+    const phaseVisibleDeltas = (
+      phase: 'packet' | 'final-face' | 'collapsed-final-face' | 'render'
+    ) => {
+      const phaseCoverage = {
+        miter: getLocalCoverageSignature(
+          getStrokeProjectionPolygons(
+            buildAdjustedVector6Fixture({
+              position: 'outside',
+              joinType: 'miter',
+              capType: 'butt'
+            }),
+            phase
+          ),
+          ADJ_TP16,
+          42,
+          0.75
+        ),
+        bevel: getLocalCoverageSignature(
+          getStrokeProjectionPolygons(
+            buildAdjustedVector6Fixture({
+              position: 'outside',
+              joinType: 'bevel',
+              capType: 'butt'
+            }),
+            phase
+          ),
+          ADJ_TP16,
+          42,
+          0.75
+        ),
+        round: getLocalCoverageSignature(
+          getStrokeProjectionPolygons(
+            buildAdjustedVector6Fixture({
+              position: 'outside',
+              joinType: 'round',
+              capType: 'butt'
+            }),
+            phase
+          ),
+          ADJ_TP16,
+          42,
+          0.75
+        )
+      }
+      return {
+        miterVsBevel: getCoverageDeltaCount(
+          phaseCoverage.miter,
+          phaseCoverage.bevel
+        ),
+        miterVsRound: getCoverageDeltaCount(
+          phaseCoverage.miter,
+          phaseCoverage.round
+        ),
+        bevelVsRound: getCoverageDeltaCount(
+          phaseCoverage.bevel,
+          phaseCoverage.round
+        ),
+        counts: {
+          miter: phaseCoverage.miter.size,
+          bevel: phaseCoverage.bevel.size,
+          round: phaseCoverage.round.size
+        }
+      }
+    }
+
+    expect(
+      Math.min(...Object.values(visibleDeltas)),
+      JSON.stringify(
+        {
+          message:
+            'tp16 join type must change the visible local silhouette, not just append a tiny hidden diagnostic patch',
+          visibleDeltas,
+          visibleCoverageCounts: {
+            miter: visibleCoverage.miter.size,
+            bevel: visibleCoverage.bevel.size,
+            round: visibleCoverage.round.size
+          },
+          phaseVisibleDeltas: {
+            packet: phaseVisibleDeltas('packet'),
+            finalFace: phaseVisibleDeltas('final-face'),
+            collapsedFinalFace: phaseVisibleDeltas('collapsed-final-face'),
+            render: phaseVisibleDeltas('render')
+          },
+          localPackets: {
+            miter: getLocalPacketDebug(
+              buildAdjustedVector6Fixture({
+                position: 'outside',
+                joinType: 'miter',
+                capType: 'butt'
+              }),
+              ADJ_TP16,
+              42
+            ),
+            bevel: getLocalPacketDebug(
+              buildAdjustedVector6Fixture({
+                position: 'outside',
+                joinType: 'bevel',
+                capType: 'butt'
+              }),
+              ADJ_TP16,
+              42
+            ),
+            round: getLocalPacketDebug(
+              buildAdjustedVector6Fixture({
+                position: 'outside',
+                joinType: 'round',
+                capType: 'butt'
+              }),
+              ADJ_TP16,
+              42
+            )
+          }
+        },
+        null,
+        2
+      )
+    ).toBeGreaterThan(24)
+
+    const wrongSideFailures = (['miter', 'bevel', 'round'] as const).flatMap(
+      (joinType) => {
+        const fixture = buildAdjustedVector6Fixture({
+          position: 'outside',
+          joinType,
+          capType: 'butt'
+        })
+        const packetPolygons = getStrokeProjectionPolygons(fixture, 'packet')
+        const finalFacePolygons = getStrokeProjectionPolygons(
+          fixture,
+          'final-face'
+        )
+        const renderPolygons = getStrokeProjectionPolygons(fixture, 'render')
+        const legalFillPolygons = fixture.options.implicitFillRegions.flatMap(
+          (region) => region.polygons
+        )
+
+        return highCurvatureDomains.flatMap((domain) =>
+          domain.boundaryPoints.flatMap((point, index, points) => {
+            if (index % 8 !== 0 || distance(point, ADJ_TP16) > 42) {
+              return []
+            }
+            const previous = points[Math.max(0, index - 1)]
+            const next = points[Math.min(points.length - 1, index + 1)]
+            const tangentLength = distance(previous, next)
+            if (tangentLength <= 1e-9) {
+              return []
+            }
+            const tangent = {
+              x: (next.x - previous.x) / tangentLength,
+              y: (next.y - previous.y) / tangentLength
+            }
+            const wrongSide = domain.selectedSide === -1 ? 1 : -1
+            return [1.5, 3, 5].flatMap((offset) => {
+              const probe = offsetFromSide(point, tangent, wrongSide, offset)
+              const legalFillCovered = isPointCoveredByPolygons(
+                probe,
+                legalFillPolygons,
+                0.5
+              )
+              if (!legalFillCovered) {
+                return []
+              }
+              const packetCovered = isPointCoveredByPolygons(
+                probe,
+                packetPolygons,
+                0.5
+              )
+              const finalFaceCovered = isPointCoveredByPolygons(
+                probe,
+                finalFacePolygons,
+                0.5
+              )
+              const renderCovered = isPointCoveredByPolygons(
+                probe,
+                renderPolygons,
+                0.5
+              )
+              return packetCovered || finalFaceCovered || renderCovered
+                ? [
+                    {
+                      joinType,
+                      domainId: domain.domainId,
+                      offset,
+                      point: {
+                        x: Math.round(point.x * 1000) / 1000,
+                        y: Math.round(point.y * 1000) / 1000
+                      },
+                      probe: {
+                        x: Math.round(probe.x * 1000) / 1000,
+                        y: Math.round(probe.y * 1000) / 1000
+                      },
+                      packetCovered,
+                      finalFaceCovered,
+                      renderCovered
+                    }
+                  ]
+                : []
+            })
+          })
+        )
+      }
+    )
+
+    expect(
+      wrongSideFailures,
+      JSON.stringify(
+        {
+          message:
+            'outside high-curvature terminal join must stay on the exterior side through packet, FinalFace, and render projection',
+          wrongSideFailures
+        },
+        null,
+        2
+      )
+    ).toEqual([])
+  })
+
   it('keeps the tp16 high-curvature split-range intervals covered through packets and final faces', () => {
     const { topology, stroke, renderableStroke, options, strokeDomainPlan } =
       buildAdjustedVector6Fixture()

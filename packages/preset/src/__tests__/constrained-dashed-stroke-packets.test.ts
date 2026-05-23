@@ -5131,6 +5131,475 @@ describe('constrained dashed stroke packets', () => {
     ).toEqual([])
   })
 
+  it('should run: keep outside self-intersecting terminal join topology independent from dash cap', () => {
+    const {
+      sourcePath,
+      topology,
+      fillRegions,
+      sharedSourceSplitRanges,
+      sharedStrokeBoundaryDomains,
+      guardPoints
+    } = buildSelfIntersectingMixedSegmentStarFixture()
+
+    const buildPackets = (
+      capType: 'butt' | 'square' | 'round',
+      joinType: 'miter' | 'bevel' | 'round'
+    ) =>
+      buildConstrainedDashedStrokeResolvedPackets(
+        `self-intersecting-mixed-star:outside-${joinType}-${capType}-join`,
+        topology.normalizedPoints,
+        true,
+        [
+          createDefaultStroke({
+            width: 10,
+            style: 'dashed',
+            position: 'outside',
+            joinType,
+            capType,
+            dashPattern: [27, 20],
+            dashOffset: 0
+          })
+        ],
+        {
+          topology,
+          sourcePath,
+          implicitFillRegions: fillRegions,
+          sharedSourceSplitRanges,
+          sharedStrokeBoundaryDomains,
+          selectedSideGuardPoints: guardPoints,
+          clipInsideToFillDomain: true,
+          constrainedDashedVisualMode: 'product-final'
+        }
+      )
+
+    const getTerminalJoinPolygonVertexCounts = (
+      capType: 'butt' | 'square' | 'round',
+      joinType: 'miter' | 'bevel' | 'round'
+    ) =>
+      buildPackets(capType, joinType)
+        .filter((packet) =>
+          packet.geometry.geometryId.includes(':boundary-terminal-join:')
+        )
+        .flatMap((packet) =>
+          packet.geometry.polygons.map((polygon) => polygon.length)
+        )
+    const getTerminalJoinPacketIds = (
+      capType: 'butt' | 'square' | 'round',
+      joinType: 'miter' | 'bevel' | 'round'
+    ) =>
+      buildPackets(capType, joinType)
+        .filter((packet) =>
+          packet.geometry.geometryId.includes(':boundary-terminal-join:')
+        )
+        .map((packet) => packet.geometry.geometryId)
+
+    const sortedCounts = (counts: number[]) => [...counts].sort((a, b) => a - b)
+    const countsByCapAndJoin = Object.fromEntries(
+      (['butt', 'square', 'round'] as const).map((capType) => [
+        capType,
+        {
+          miter: sortedCounts(
+            getTerminalJoinPolygonVertexCounts(capType, 'miter')
+          ),
+          bevel: sortedCounts(
+            getTerminalJoinPolygonVertexCounts(capType, 'bevel')
+          ),
+          round: sortedCounts(
+            getTerminalJoinPolygonVertexCounts(capType, 'round')
+          )
+        }
+      ])
+    ) as Record<
+      'butt' | 'square' | 'round',
+      Record<'miter' | 'bevel' | 'round', number[]>
+    >
+
+    ;(['miter', 'bevel', 'round'] as const).forEach((joinType) => {
+      expect(
+        getTerminalJoinPacketIds('butt', joinType).length,
+        JSON.stringify(
+          {
+            message:
+              'outside self-intersecting star has five authored vertices; every boundary terminal join must survive clipping',
+            joinType,
+            ids: getTerminalJoinPacketIds('butt', joinType)
+          },
+          null,
+          2
+        )
+      ).toBe(5)
+      expect(countsByCapAndJoin.butt[joinType].length).toBeGreaterThan(0)
+      expect(countsByCapAndJoin.butt[joinType]).toEqual(
+        countsByCapAndJoin.square[joinType]
+      )
+      expect(countsByCapAndJoin.butt[joinType]).toEqual(
+        countsByCapAndJoin.round[joinType]
+      )
+    })
+
+    expect(
+      Math.min(...countsByCapAndJoin.butt.miter),
+      JSON.stringify(
+        {
+          message:
+            'boundary-domain terminal joins are source-connected coverage polygons; they must not fall back to the old tiny vertex-only triangle topology',
+          countsByCapAndJoin
+        },
+        null,
+        2
+      )
+    ).toBeGreaterThan(4)
+    expect(countsByCapAndJoin.butt.miter).not.toEqual(
+      countsByCapAndJoin.butt.bevel
+    )
+    expect(countsByCapAndJoin.butt.miter).not.toEqual(
+      countsByCapAndJoin.butt.round
+    )
+    expect(countsByCapAndJoin.butt.bevel).not.toEqual(
+      countsByCapAndJoin.butt.round
+    )
+    expect(
+      Math.max(...countsByCapAndJoin.butt.round),
+      JSON.stringify(countsByCapAndJoin, null, 2)
+    ).toBeGreaterThan(4)
+  })
+
+  it('should run: make the right-bottom high-curvature outside endpoint follow join type', () => {
+    const {
+      sourcePath,
+      topology,
+      fillRegions,
+      sharedSourceSplitRanges,
+      sharedStrokeBoundaryDomains,
+      guardPoints
+    } = buildSelfIntersectingMixedSegmentStarFixture()
+    const highCurvatureAnchor = sourcePath.segments[3]?.end
+    expect(highCurvatureAnchor).toBeDefined()
+
+    const buildPackets = (joinType: 'miter' | 'bevel' | 'round') =>
+      buildConstrainedDashedStrokeResolvedPackets(
+        `self-intersecting-mixed-star:outside-${joinType}-right-bottom-join`,
+        topology.normalizedPoints,
+        true,
+        [
+          createDefaultStroke({
+            width: 10,
+            style: 'dashed',
+            position: 'outside',
+            joinType,
+            capType: 'butt',
+            dashPattern: [27, 20],
+            dashOffset: 0
+          })
+        ],
+        {
+          topology,
+          sourcePath,
+          implicitFillRegions: fillRegions,
+          sharedSourceSplitRanges,
+          sharedStrokeBoundaryDomains,
+          selectedSideGuardPoints: guardPoints,
+          clipInsideToFillDomain: true,
+          constrainedDashedVisualMode: 'product-final'
+        }
+      )
+
+    const getLocalTerminalJoinPackets = (
+      joinType: 'miter' | 'bevel' | 'round'
+    ) => {
+      const localPackets = buildPackets(joinType).filter((packet) => {
+        if (!packet.geometry.geometryId.includes(':boundary-terminal-join:')) {
+          return false
+        }
+
+        return packet.geometry.polygons.some((polygon) =>
+          polygon.some(
+            (point) =>
+              highCurvatureAnchor &&
+              pointDistance(point, highCurvatureAnchor) <= 32
+          )
+        )
+      })
+
+      expect(
+        localPackets.length,
+        JSON.stringify(
+          {
+            message:
+              'right-bottom high-curvature outside endpoint must produce local terminal packets before render projection',
+            joinType
+          },
+          null,
+          2
+        )
+      ).toBeGreaterThan(0)
+      return localPackets
+    }
+
+    const getLocalTerminalJoinSignature = (
+      joinType: 'miter' | 'bevel' | 'round'
+    ) =>
+      getLocalTerminalJoinPackets(joinType)
+        .flatMap((packet) => packet.geometry.polygons)
+        .map((polygon) =>
+          polygon
+            .map((point) => [
+              Math.round(point.x * 100) / 100,
+              Math.round(point.y * 100) / 100
+            ])
+            .join('|')
+        )
+        .sort()
+        .join('::')
+
+    const getLocalRenderSignature = (joinType: 'miter' | 'bevel' | 'round') => {
+      const finalFaces = buildStrokeFinalFacesFromResolvedPackets(
+        buildPackets(joinType)
+      )
+      const collapsedFinalFaces = collapseStrokeFinalFaceVisualOverlaps(
+        finalFaces,
+        {
+          backend: getGeometryBackend()
+        }
+      )
+      const renderEntries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
+        collapsedFinalFaces,
+        {
+          exactBackend: getGeometryBackend()
+        }
+      )
+      const localPolygons = renderEntries.flatMap((entry) =>
+        entry.polygons.filter((polygon) =>
+          polygon.some(
+            (point) =>
+              highCurvatureAnchor &&
+              pointDistance(point, highCurvatureAnchor) <= 32
+          )
+        )
+      )
+
+      expect(
+        localPolygons.length,
+        JSON.stringify(
+          {
+            message:
+              'right-bottom high-curvature outside endpoint must preserve join-specific geometry through FinalFace render projection',
+            joinType,
+            renderEntries: renderEntries.map((entry) => ({
+              cacheKey: entry.cacheKey,
+              status: entry.debugMeta?.visualOverlapCollapseStatus,
+              sourceGeometryIds:
+                entry.debugMeta?.visualOverlapSourceGeometryIds?.slice(0, 8)
+            }))
+          },
+          null,
+          2
+        )
+      ).toBeGreaterThan(0)
+
+      return localPolygons
+        .map((polygon) =>
+          polygon
+            .map((point) => [
+              Math.round(point.x * 100) / 100,
+              Math.round(point.y * 100) / 100
+            ])
+            .join('|')
+        )
+        .sort()
+        .join('::')
+    }
+
+    const miterSignature = getLocalTerminalJoinSignature('miter')
+    const bevelSignature = getLocalTerminalJoinSignature('bevel')
+    const roundSignature = getLocalTerminalJoinSignature('round')
+    const terminalJoinEndpointCoverage = Object.fromEntries(
+      (['miter', 'bevel', 'round'] as const).map((joinType) => [
+        joinType,
+        isPointCoveredByPolygons(
+          highCurvatureAnchor as { x: number; y: number },
+          getLocalTerminalJoinPackets(joinType).flatMap(
+            (packet) => packet.geometry.polygons
+          ),
+          1
+        )
+      ])
+    ) as Record<'miter' | 'bevel' | 'round', boolean>
+
+    expect(
+      terminalJoinEndpointCoverage,
+      JSON.stringify(
+        {
+          message:
+            'right-bottom outside terminal join must keep the authored endpoint covered; dropping the source vertex breaks terminal probe ownership',
+          terminalJoinEndpointCoverage
+        },
+        null,
+        2
+      )
+    ).toEqual({
+      miter: true,
+      bevel: true,
+      round: true
+    })
+
+    expect(
+      new Set([miterSignature, bevelSignature, roundSignature]).size,
+      JSON.stringify(
+        {
+          message:
+            'right-bottom high-curvature outside endpoint is a topology endpoint, so join type must affect terminal geometry',
+          miterSignature,
+          bevelSignature,
+          roundSignature
+        },
+        null,
+        2
+      )
+    ).toBeGreaterThan(1)
+
+    const miterRenderSignature = getLocalRenderSignature('miter')
+    const bevelRenderSignature = getLocalRenderSignature('bevel')
+    const roundRenderSignature = getLocalRenderSignature('round')
+
+    expect(
+      new Set([
+        miterRenderSignature,
+        bevelRenderSignature,
+        roundRenderSignature
+      ]).size,
+      JSON.stringify(
+        {
+          message:
+            'right-bottom high-curvature outside endpoint must keep join-specific geometry through FinalFace render projection',
+          miterRenderSignature,
+          bevelRenderSignature,
+          roundRenderSignature
+        },
+        null,
+        2
+      )
+    ).toBeGreaterThan(1)
+  })
+
+  it('should run: keep outside butt and square terminal dash bodies visible near authored star vertices', () => {
+    const {
+      sourcePath,
+      topology,
+      fillRegions,
+      sharedSourceSplitRanges,
+      sharedStrokeBoundaryDomains,
+      guardPoints
+    } = buildSelfIntersectingMixedSegmentStarFixture()
+    const probeGroups = [
+      [
+        { x: 184.49664345197667, y: 6.139900610694954 },
+        { x: 182.0459094168437, y: 5.646035559247745 },
+        { x: 179.59517538171076, y: 5.152170507800537 }
+      ],
+      [
+        { x: 192.36173887124727, y: 5.869439788824538 },
+        { x: 194.77615011061582, y: 5.2208888137957326 },
+        { x: 197.19056134998436, y: 4.572337838766927 }
+      ],
+      [
+        { x: 3.908652935183205, y: 363.63484710716176 },
+        { x: 1.9963708027514198, y: 365.2451815587532 },
+        { x: 0.08408867031963396, y: 366.85551601034456 }
+      ],
+      [
+        { x: 17.563221289594726, y: 369.8620871848398 },
+        { x: 17.231682944083875, y: 372.34000613538194 },
+        { x: 16.900144598573025, y: 374.8179250859241 }
+      ]
+    ]
+
+    const getStageCoverage = (capType: 'butt' | 'square') => {
+      const packets = buildConstrainedDashedStrokeResolvedPackets(
+        `self-intersecting-mixed-star:outside-${capType}-terminal-body`,
+        topology.normalizedPoints,
+        true,
+        [
+          createDefaultStroke({
+            width: 10,
+            style: 'dashed',
+            position: 'outside',
+            joinType: 'miter',
+            capType,
+            dashPattern: [27, 20],
+            dashOffset: 0
+          })
+        ],
+        {
+          topology,
+          sourcePath,
+          implicitFillRegions: fillRegions,
+          sharedSourceSplitRanges,
+          sharedStrokeBoundaryDomains,
+          selectedSideGuardPoints: guardPoints,
+          clipInsideToFillDomain: true,
+          constrainedDashedVisualMode: 'product-final'
+        }
+      )
+      const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
+      const collapsedFinalFaces = collapseStrokeFinalFaceVisualOverlaps(
+        finalFaces,
+        {
+          backend: getGeometryBackend()
+        }
+      )
+      const renderEntries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
+        collapsedFinalFaces,
+        {
+          exactBackend: getGeometryBackend()
+        }
+      )
+      const packetPolygons = packets.flatMap(
+        (packet) => packet.geometry.polygons
+      )
+      const finalFacePolygons = finalFaces.flatMap((face) => face.polygons)
+      const renderPolygons = renderEntries.flatMap((entry) => entry.polygons)
+
+      return probeGroups.map((probes, probeGroupIndex) => ({
+        capType,
+        probeGroupIndex,
+        packetCovered: probes.some((probe) =>
+          isPointCoveredByPolygons(probe, packetPolygons, 1)
+        ),
+        finalFaceCovered: probes.some((probe) =>
+          isPointCoveredByPolygons(probe, finalFacePolygons, 1)
+        ),
+        renderCovered: probes.some((probe) =>
+          isPointCoveredByPolygons(probe, renderPolygons, 1)
+        )
+      }))
+    }
+
+    const coverage = (['butt', 'square'] as const).flatMap((capType) =>
+      getStageCoverage(capType)
+    )
+
+    expect(
+      coverage,
+      JSON.stringify(
+        {
+          message:
+            'outside butt/square terminal dash bodies must survive packet, FinalFace, and render projection near authored vertices',
+          coverage
+        },
+        null,
+        2
+      )
+    ).toEqual(
+      coverage.map((record) => ({
+        ...record,
+        packetCovered: true,
+        finalFaceCovered: true,
+        renderCovered: true
+      }))
+    )
+  })
+
   it('should run: reject self-intersecting outside dashed geometry that crosses into filled faces at high curvature boundaries', () => {
     const {
       sourcePath,
@@ -5167,9 +5636,57 @@ describe('constrained dashed stroke packets', () => {
         constrainedDashedVisualMode: 'product-final'
       }
     )
+    expect(packets.length).toBeGreaterThan(0)
 
     const highCurvatureAnchor = sourcePath.segments[3]?.end
     expect(highCurvatureAnchor).toBeDefined()
+
+    const collectOversizedHighCurvatureEdges = (
+      polygonRecords: {
+        polygons: { x: number; y: number }[][]
+        intervalId?: string
+        splitRangeId?: string
+        terminalRole?: string
+        boundaryRole?: string
+        projectionStatus?: string
+      }[]
+    ) =>
+      polygonRecords.flatMap((record) =>
+        record.polygons.flatMap((polygon) =>
+          getPolygonEdges(polygon).flatMap((edge) => {
+            if (!highCurvatureAnchor) {
+              return []
+            }
+            if (
+              pointSegmentDistance(highCurvatureAnchor, edge.start, edge.end) >
+              stroke.width * 9
+            ) {
+              return []
+            }
+            const length = pointDistance(edge.start, edge.end)
+            return length > stroke.width * 5
+              ? [
+                  {
+                    intervalId: record.intervalId,
+                    splitRangeId: record.splitRangeId,
+                    terminalRole: record.terminalRole,
+                    boundaryRole: record.boundaryRole,
+                    projectionStatus: record.projectionStatus,
+                    length: Math.round(length * 100) / 100,
+                    start: {
+                      x: Math.round(edge.start.x * 100) / 100,
+                      y: Math.round(edge.start.y * 100) / 100
+                    },
+                    end: {
+                      x: Math.round(edge.end.x * 100) / 100,
+                      y: Math.round(edge.end.y * 100) / 100
+                    }
+                  }
+                ]
+              : []
+          })
+        )
+      )
 
     const collectFilledFaceIntrusions = (
       polygonRecords: {
@@ -5182,53 +5699,91 @@ describe('constrained dashed stroke packets', () => {
       }[]
     ) =>
       polygonRecords.flatMap((record) =>
-        record.polygons.flatMap((polygon) =>
-          [...polygon, ...samplePolygonEdges(polygon, 0.2)].flatMap((point) => {
+        record.polygons.flatMap((polygon) => {
+          if (!highCurvatureAnchor) {
+            return []
+          }
+          const radius = stroke.width * 9
+          const nearbyVertexSamples = polygon.filter(
+            (point) => pointDistance(point, highCurvatureAnchor) <= radius
+          )
+          const nearbyEdgeSamples = getPolygonEdges(polygon).flatMap((edge) => {
+            const minX = Math.min(edge.start.x, edge.end.x)
+            const maxX = Math.max(edge.start.x, edge.end.x)
+            const minY = Math.min(edge.start.y, edge.end.y)
+            const maxY = Math.max(edge.start.y, edge.end.y)
             if (
-              !highCurvatureAnchor ||
-              pointDistance(point, highCurvatureAnchor) > stroke.width * 9
+              highCurvatureAnchor.x < minX - radius ||
+              highCurvatureAnchor.x > maxX + radius ||
+              highCurvatureAnchor.y < minY - radius ||
+              highCurvatureAnchor.y > maxY + radius
             ) {
               return []
             }
-            const distanceToFillBoundary = getPointLegalBoundaryDistanceForTest(
-              point,
-              sourcePath
-            )
-            return isPointInsideResolvedLegalDomainForTest(
-              point,
-              sourcePath,
-              0,
-              fillRegions
-            ) && distanceToFillBoundary > 0.02
-              ? [
-                  {
-                    intervalId: record.intervalId,
-                    splitRangeId: record.splitRangeId,
-                    terminalRole: record.terminalRole,
-                    boundaryRole: record.boundaryRole,
-                    projectionStatus: record.projectionStatus,
-                    point: {
-                      x: Math.round(point.x * 100) / 100,
-                      y: Math.round(point.y * 100) / 100
-                    },
-                    distanceToFillBoundary:
-                      Math.round(distanceToFillBoundary * 100) / 100
-                  }
-                ]
+            const midpoint = {
+              x: (edge.start.x + edge.end.x) / 2,
+              y: (edge.start.y + edge.end.y) / 2
+            }
+            return pointDistance(midpoint, highCurvatureAnchor) <= radius
+              ? [midpoint]
               : []
           })
-        )
+
+          return [...nearbyVertexSamples, ...nearbyEdgeSamples].flatMap(
+            (point) => {
+              const distanceToFillBoundary =
+                getPointLegalBoundaryDistanceForTest(point, sourcePath)
+              return isPointInsideResolvedLegalDomainForTest(
+                point,
+                sourcePath,
+                0,
+                fillRegions
+              ) && distanceToFillBoundary > 0.02
+                ? [
+                    {
+                      intervalId: record.intervalId,
+                      splitRangeId: record.splitRangeId,
+                      terminalRole: record.terminalRole,
+                      boundaryRole: record.boundaryRole,
+                      projectionStatus: record.projectionStatus,
+                      point: {
+                        x: Math.round(point.x * 100) / 100,
+                        y: Math.round(point.y * 100) / 100
+                      },
+                      distanceToFillBoundary:
+                        Math.round(distanceToFillBoundary * 100) / 100
+                    }
+                  ]
+                : []
+            }
+          )
+        })
       )
 
-    const filledFaceIntrusions = collectFilledFaceIntrusions(
-      packets.map((packet) => ({
-        polygons: packet.geometry.polygons,
-        intervalId: packet.geometry.debugMeta?.intervalId,
-        splitRangeId: packet.geometry.debugMeta?.figmaLikeSplitRangeId,
-        terminalRole: packet.geometry.debugMeta?.figmaLikeTerminalRole,
-        boundaryRole: packet.geometry.debugMeta?.figmaLikeBoundaryRole
-      }))
-    )
+    const packetRecords = packets.map((packet) => ({
+      polygons: packet.geometry.polygons,
+      intervalId: packet.geometry.debugMeta?.intervalId,
+      splitRangeId: packet.geometry.debugMeta?.figmaLikeSplitRangeId,
+      terminalRole: packet.geometry.debugMeta?.figmaLikeTerminalRole,
+      boundaryRole: packet.geometry.debugMeta?.figmaLikeBoundaryRole
+    }))
+    const oversizedPacketEdges =
+      collectOversizedHighCurvatureEdges(packetRecords)
+    expect(
+      oversizedPacketEdges.slice(0, 20),
+      JSON.stringify(
+        {
+          message:
+            'outside dashed product geometry must not emit oversized high-curvature edges before legality sampling; long edges are usually broken miter/sliver output',
+          oversizedEdgeCount: oversizedPacketEdges.length,
+          firstOversizedEdges: oversizedPacketEdges.slice(0, 20)
+        },
+        null,
+        2
+      )
+    ).toEqual([])
+
+    const filledFaceIntrusions = collectFilledFaceIntrusions(packetRecords)
 
     expect(
       filledFaceIntrusions.slice(0, 20),
@@ -5251,16 +5806,31 @@ describe('constrained dashed stroke packets', () => {
         exactBackend: getGeometryBackend()
       }
     )
-    const projectedIntrusions = collectFilledFaceIntrusions(
-      renderEntries.map((entry) => ({
-        polygons: entry.polygons,
-        intervalId: entry.debugMeta?.intervalId,
-        splitRangeId: entry.debugMeta?.figmaLikeSplitRangeId,
-        terminalRole: entry.debugMeta?.figmaLikeTerminalRole,
-        boundaryRole: entry.debugMeta?.figmaLikeBoundaryRole,
-        projectionStatus: entry.debugMeta?.visualOverlapCollapseStatus
-      }))
-    )
+    const renderRecords = renderEntries.map((entry) => ({
+      polygons: entry.polygons,
+      intervalId: entry.debugMeta?.intervalId,
+      splitRangeId: entry.debugMeta?.figmaLikeSplitRangeId,
+      terminalRole: entry.debugMeta?.figmaLikeTerminalRole,
+      boundaryRole: entry.debugMeta?.figmaLikeBoundaryRole,
+      projectionStatus: entry.debugMeta?.visualOverlapCollapseStatus
+    }))
+    const oversizedRenderEdges =
+      collectOversizedHighCurvatureEdges(renderRecords)
+    expect(
+      oversizedRenderEdges.slice(0, 20),
+      JSON.stringify(
+        {
+          message:
+            'outside dashed render projection must not create oversized high-curvature edges before legality sampling',
+          oversizedEdgeCount: oversizedRenderEdges.length,
+          firstOversizedEdges: oversizedRenderEdges.slice(0, 20)
+        },
+        null,
+        2
+      )
+    ).toEqual([])
+
+    const projectedIntrusions = collectFilledFaceIntrusions(renderRecords)
 
     expect(
       projectedIntrusions.slice(0, 20),
@@ -8789,6 +9359,52 @@ describe('constrained dashed stroke packets', () => {
         (range) => range.role === 'core'
       )
     ).toBe(true)
+
+    const getHighCurvatureOutsideJoinSignature = (
+      joinType: 'miter' | 'bevel' | 'round'
+    ) =>
+      buildConstrainedDashedStrokeResolvedPackets(
+        `vector:test:high-curvature-outside-${joinType}-source-path`,
+        topology.normalizedPoints,
+        true,
+        [
+          createDefaultStroke({
+            width: 10,
+            style: 'dashed',
+            position: 'outside',
+            joinType,
+            capType: 'butt',
+            dashPattern: [firstSegmentLength + 42, 1000],
+            dashOffset: 0
+          })
+        ],
+        {
+          topology,
+          sourcePath,
+          selectedSideGuardPoints: guardPoints,
+          clipInsideToFillDomain: true
+        }
+      )
+        .flatMap((joinPacket) => joinPacket.geometry.polygons)
+        .map((polygon) =>
+          polygon
+            .map(
+              (point) =>
+                `${Math.round(point.x * 100) / 100},${
+                  Math.round(point.y * 100) / 100
+                }`
+            )
+            .join('|')
+        )
+        .join('||')
+
+    const miterSignature = getHighCurvatureOutsideJoinSignature('miter')
+    const bevelSignature = getHighCurvatureOutsideJoinSignature('bevel')
+    const roundSignature = getHighCurvatureOutsideJoinSignature('round')
+
+    expect(miterSignature).not.toEqual(bevelSignature)
+    expect(miterSignature).not.toEqual(roundSignature)
+    expect(bevelSignature).not.toEqual(roundSignature)
   })
 
   it('should run: keep outside square-cap source-path dashed bodies visible around a miter corner', () => {

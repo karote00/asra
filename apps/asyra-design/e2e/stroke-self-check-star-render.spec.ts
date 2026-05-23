@@ -34,6 +34,7 @@ const NO_FILL_ANALYSIS_PATH = path.join(
 )
 
 type SelfCheckCapType = 'butt' | 'square' | 'round'
+type SelfCheckJoinType = 'miter' | 'bevel' | 'round'
 type SelfCheckStrokePosition = 'inside' | 'outside'
 
 const getSelfCheckArtifactPaths = (
@@ -164,11 +165,12 @@ const createSelfCheckStar = async (
     includeStroke?: boolean
     includeFill?: boolean
     capType?: SelfCheckCapType
+    joinType?: SelfCheckJoinType
     position?: SelfCheckStrokePosition
   } = {}
 ) => {
   await page.evaluate(
-    ({ capType, includeFill, includeStroke, position }) => {
+    ({ capType, includeFill, includeStroke, joinType, position }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -346,7 +348,7 @@ const createSelfCheckStar = async (
               ? []
               : [
                   {
-                    id: `self-check-${position}-dashed-${capType}`,
+                    id: `self-check-${position}-dashed-${capType}-${joinType}`,
                     kind: 'solid',
                     style: 'dashed',
                     position,
@@ -360,7 +362,7 @@ const createSelfCheckStar = async (
                     opacity: 0.5,
                     visible: true,
                     gradient: null,
-                    joinType: 'miter',
+                    joinType,
                     capType,
                     miterAngle: 28.96
                   }
@@ -389,6 +391,7 @@ const createSelfCheckStar = async (
       capType: options.capType ?? 'round',
       includeFill: options.includeFill,
       includeStroke: options.includeStroke,
+      joinType: options.joinType ?? 'miter',
       position: options.position ?? 'inside'
     }
   )
@@ -685,6 +688,7 @@ const getSelfCheckMetadata = async (page: Page) =>
       selectedRect,
       zoom,
       viewport,
+      computedStrokes: computed?.strokes ?? [],
       exportPacketCount: exportPackets.length,
       boundaryDomainIntervalIds: Array.from(
         new Set(
@@ -912,9 +916,17 @@ const analyzeSelfCheckScreenshots = async (
         }
       }
 
-      const getComponentAreas = (mask: Uint8Array) => {
+      const getComponents = (mask: Uint8Array) => {
         const visited = new Uint8Array(width * height)
-        const componentAreas: number[] = []
+        const components: Array<{
+          area: number
+          minX: number
+          minY: number
+          maxX: number
+          maxY: number
+          centerX: number
+          centerY: number
+        }> = []
         const queue: number[] = []
         for (let y = canvasBounds.top; y < canvasBounds.bottom; y += 1) {
           for (let x = canvasBounds.left; x < canvasBounds.right; x += 1) {
@@ -924,10 +936,22 @@ const analyzeSelfCheckScreenshots = async (
             queue.length = 0
             queue.push(start)
             let area = 0
+            let minX = x
+            let minY = y
+            let maxX = x
+            let maxY = y
+            let sumX = 0
+            let sumY = 0
             for (const current of queue) {
               area += 1
               const currentX = current % width
               const currentY = Math.floor(current / width)
+              minX = Math.min(minX, currentX)
+              minY = Math.min(minY, currentY)
+              maxX = Math.max(maxX, currentX)
+              maxY = Math.max(maxY, currentY)
+              sumX += currentX
+              sumY += currentY
               for (let dy = -1; dy <= 1; dy += 1) {
                 for (let dx = -1; dx <= 1; dx += 1) {
                   if (dx === 0 && dy === 0) continue
@@ -942,15 +966,41 @@ const analyzeSelfCheckScreenshots = async (
                 }
               }
             }
-            componentAreas.push(area)
+            components.push({
+              area,
+              minX,
+              minY,
+              maxX,
+              maxY,
+              centerX: sumX / area,
+              centerY: sumY / area
+            })
           }
         }
-        return componentAreas
+        return components
       }
-      const componentAreas = getComponentAreas(outside)
-      const strictInsideComponentAreas = getComponentAreas(strictInside)
-      const strictOutsideComponentAreas = getComponentAreas(strictOutside)
-      const darkOverdrawComponentAreas = getComponentAreas(darkOverdraw)
+      const componentSummaries = getComponents(outside)
+      const strictInsideComponents = getComponents(strictInside)
+      const strictOutsideComponents = getComponents(strictOutside)
+      const darkOverdrawComponents = getComponents(darkOverdraw)
+      const componentAreas = componentSummaries.map(({ area }) => area)
+      const strictInsideComponentAreas = strictInsideComponents.map(
+        ({ area }) => area
+      )
+      const strictOutsideComponentAreas = strictOutsideComponents.map(
+        ({ area }) => area
+      )
+      const darkOverdrawComponentAreas = darkOverdrawComponents.map(
+        ({ area }) => area
+      )
+      const relevantComponents = (
+        components: typeof strictInsideComponents,
+        minArea = 4
+      ) =>
+        components
+          .filter(({ area }) => area >= minArea)
+          .sort((a, b) => b.area - a.area)
+          .slice(0, 10)
 
       return {
         width,
@@ -986,6 +1036,7 @@ const analyzeSelfCheckScreenshots = async (
           .filter((area) => area >= 4)
           .sort((a, b) => b - a)
           .slice(0, 10),
+        strictInsideComponents: relevantComponents(strictInsideComponents),
         strictOutsideComponentAreas: strictOutsideComponentAreas
           .filter((area) => area >= 4)
           .sort((a, b) => b - a)
@@ -1905,6 +1956,170 @@ const analyzeSelfCheckBoundaryDomainOracle = async (
     }
   )
 
+const compareRightBottomHighCurvatureSmoothTerminalPixels = async (
+  page: Page,
+  first: Buffer,
+  second: Buffer,
+  metadata: Awaited<ReturnType<typeof getSelfCheckMetadata>>
+) =>
+  page.evaluate(
+    async ({ firstDataUrl, secondDataUrl, metadata }) => {
+      const loadImage = (src: string) =>
+        new Promise<HTMLImageElement>((resolve, reject) => {
+          const image = new Image()
+          image.onload = () => resolve(image)
+          image.onerror = () => reject(new Error(`Failed to decode ${src}`))
+          image.src = src
+        })
+      const [firstImage, secondImage] = await Promise.all([
+        loadImage(firstDataUrl),
+        loadImage(secondDataUrl)
+      ])
+      const width = firstImage.width
+      const height = firstImage.height
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const context = canvas.getContext('2d')
+      if (!context) {
+        throw new Error('Missing canvas 2D context for join pixel oracle')
+      }
+
+      context.drawImage(firstImage, 0, 0)
+      const firstPixels = context.getImageData(0, 0, width, height).data
+      context.clearRect(0, 0, width, height)
+      context.drawImage(secondImage, 0, 0)
+      const secondPixels = context.getImageData(0, 0, width, height).data
+
+      const selectedRect = metadata.selectedRect
+      if (!selectedRect) {
+        throw new Error('Missing selected rect for join pixel oracle')
+      }
+
+      const sourceAnchor = { x: 270.59180204238254, y: 347.0603956649177 }
+      const screenAnchor = {
+        x:
+          (selectedRect.x + sourceAnchor.x) * metadata.zoom +
+          metadata.viewport.x,
+        y:
+          (selectedRect.y + sourceAnchor.y) * metadata.zoom +
+          metadata.viewport.y
+      }
+      const radius = 72
+      const isRedStrokePixel = (pixels: Uint8ClampedArray, index: number) => {
+        const r = pixels[index]
+        const g = pixels[index + 1]
+        const b = pixels[index + 2]
+        const a = pixels[index + 3]
+        return a > 120 && r > 90 && r > g * 1.25 && r > b * 1.25
+      }
+
+      let comparedPixelCount = 0
+      let changedPixelCount = 0
+      let changedRgbaPixelCount = 0
+      let totalRgbaDifference = 0
+      let firstRedCount = 0
+      let secondRedCount = 0
+      let fullImageChangedPixelCount = 0
+      let fullImageRgbaChangedPixelCount = 0
+      const changedBounds = {
+        minX: Number.POSITIVE_INFINITY,
+        minY: Number.POSITIVE_INFINITY,
+        maxX: Number.NEGATIVE_INFINITY,
+        maxY: Number.NEGATIVE_INFINITY
+      }
+      const rgbaChangedBounds = {
+        minX: Number.POSITIVE_INFINITY,
+        minY: Number.POSITIVE_INFINITY,
+        maxX: Number.NEGATIVE_INFINITY,
+        maxY: Number.NEGATIVE_INFINITY
+      }
+      for (let index = 0; index < firstPixels.length; index += 4) {
+        const firstRed = isRedStrokePixel(firstPixels, index)
+        const secondRed = isRedStrokePixel(secondPixels, index)
+        const rgbaDifference =
+          Math.abs(firstPixels[index] - secondPixels[index]) +
+          Math.abs(firstPixels[index + 1] - secondPixels[index + 1]) +
+          Math.abs(firstPixels[index + 2] - secondPixels[index + 2]) +
+          Math.abs(firstPixels[index + 3] - secondPixels[index + 3])
+        if (firstRed !== secondRed) {
+          const pixelIndex = index / 4
+          const x = pixelIndex % width
+          const y = Math.floor(pixelIndex / width)
+          fullImageChangedPixelCount += 1
+          changedBounds.minX = Math.min(changedBounds.minX, x)
+          changedBounds.minY = Math.min(changedBounds.minY, y)
+          changedBounds.maxX = Math.max(changedBounds.maxX, x)
+          changedBounds.maxY = Math.max(changedBounds.maxY, y)
+        }
+        if (rgbaDifference > 8) {
+          const pixelIndex = index / 4
+          const x = pixelIndex % width
+          const y = Math.floor(pixelIndex / width)
+          fullImageRgbaChangedPixelCount += 1
+          rgbaChangedBounds.minX = Math.min(rgbaChangedBounds.minX, x)
+          rgbaChangedBounds.minY = Math.min(rgbaChangedBounds.minY, y)
+          rgbaChangedBounds.maxX = Math.max(rgbaChangedBounds.maxX, x)
+          rgbaChangedBounds.maxY = Math.max(rgbaChangedBounds.maxY, y)
+        }
+      }
+      for (
+        let y = Math.max(0, Math.floor(screenAnchor.y - radius));
+        y <= Math.min(height - 1, Math.ceil(screenAnchor.y + radius));
+        y += 1
+      ) {
+        for (
+          let x = Math.max(0, Math.floor(screenAnchor.x - radius));
+          x <= Math.min(width - 1, Math.ceil(screenAnchor.x + radius));
+          x += 1
+        ) {
+          if (
+            (x - screenAnchor.x) ** 2 + (y - screenAnchor.y) ** 2 >
+            radius ** 2
+          ) {
+            continue
+          }
+          const index = (y * width + x) * 4
+          const firstRed = isRedStrokePixel(firstPixels, index)
+          const secondRed = isRedStrokePixel(secondPixels, index)
+          const rgbaDifference =
+            Math.abs(firstPixels[index] - secondPixels[index]) +
+            Math.abs(firstPixels[index + 1] - secondPixels[index + 1]) +
+            Math.abs(firstPixels[index + 2] - secondPixels[index + 2]) +
+            Math.abs(firstPixels[index + 3] - secondPixels[index + 3])
+          comparedPixelCount += 1
+          firstRedCount += firstRed ? 1 : 0
+          secondRedCount += secondRed ? 1 : 0
+          changedPixelCount += firstRed !== secondRed ? 1 : 0
+          if (rgbaDifference > 8) {
+            changedRgbaPixelCount += 1
+            totalRgbaDifference += rgbaDifference
+          }
+        }
+      }
+
+      return {
+        comparedPixelCount,
+        changedPixelCount,
+        changedRgbaPixelCount,
+        totalRgbaDifference,
+        fullImageChangedPixelCount,
+        fullImageRgbaChangedPixelCount,
+        changedBounds: fullImageChangedPixelCount > 0 ? changedBounds : null,
+        rgbaChangedBounds:
+          fullImageRgbaChangedPixelCount > 0 ? rgbaChangedBounds : null,
+        firstRedCount,
+        secondRedCount,
+        screenAnchor
+      }
+    },
+    {
+      firstDataUrl: `data:image/png;base64,${first.toString('base64')}`,
+      secondDataUrl: `data:image/png;base64,${second.toString('base64')}`,
+      metadata
+    }
+  )
+
 ;(['butt', 'square', 'round'] as const).forEach((capType) => {
   test(`self-check: self-intersecting inside dashed ${capType} final pixels keep split terminals and bounded overdraw`, async ({
     page
@@ -2226,6 +2441,105 @@ const analyzeSelfCheckBoundaryDomainOracle = async (
       ).toEqual([])
     }
   })
+})
+
+test('self-check: right-bottom high-curvature outside dashed smooth endpoint remains covered across join settings', async ({
+  page
+}) => {
+  const screenshots: Partial<Record<SelfCheckJoinType, Buffer>> = {}
+  let metadata: Awaited<ReturnType<typeof getSelfCheckMetadata>> | null = null
+
+  for (const joinType of ['miter', 'bevel', 'round'] as const) {
+    await resetCanvas(page)
+    await createSelfCheckStar(page, {
+      capType: 'butt',
+      joinType,
+      position: 'outside'
+    })
+    await page.waitForFunction(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      const element = selectedId
+        ? core?.deps?.sceneTree?.getElementById?.(selectedId)
+        : null
+      const computed = element?.getAllComputedData?.()
+      return Boolean(computed?.strokes?.length && computed?.fills?.length)
+    })
+    await page.waitForTimeout(800)
+
+    screenshots[joinType] = await page.screenshot({ fullPage: false })
+    metadata = await getSelfCheckMetadata(page)
+  }
+
+  expect(metadata).not.toBeNull()
+  expect(screenshots.miter).toBeDefined()
+  expect(screenshots.bevel).toBeDefined()
+  expect(screenshots.round).toBeDefined()
+
+  const miterVsBevel =
+    await compareRightBottomHighCurvatureSmoothTerminalPixels(
+      page,
+      screenshots.miter as Buffer,
+      screenshots.bevel as Buffer,
+      metadata as Awaited<ReturnType<typeof getSelfCheckMetadata>>
+    )
+  const miterVsRound =
+    await compareRightBottomHighCurvatureSmoothTerminalPixels(
+      page,
+      screenshots.miter as Buffer,
+      screenshots.round as Buffer,
+      metadata as Awaited<ReturnType<typeof getSelfCheckMetadata>>
+    )
+  const bevelVsRound =
+    await compareRightBottomHighCurvatureSmoothTerminalPixels(
+      page,
+      screenshots.bevel as Buffer,
+      screenshots.round as Buffer,
+      metadata as Awaited<ReturnType<typeof getSelfCheckMetadata>>
+    )
+
+  expect(
+    Math.min(
+      miterVsBevel.firstRedCount,
+      miterVsBevel.secondRedCount,
+      miterVsRound.firstRedCount,
+      miterVsRound.secondRedCount,
+      bevelVsRound.firstRedCount,
+      bevelVsRound.secondRedCount
+    ),
+    JSON.stringify(
+      {
+        miterVsBevel,
+        miterVsRound,
+        bevelVsRound,
+        computedStrokes: metadata?.computedStrokes
+      },
+      null,
+      2
+    )
+  ).toBeGreaterThan(80)
+
+  expect(
+    Math.max(
+      miterVsBevel.changedRgbaPixelCount,
+      miterVsRound.changedRgbaPixelCount,
+      bevelVsRound.changedRgbaPixelCount
+    ),
+    JSON.stringify(
+      {
+        message:
+          'right-bottom high-curvature closed-path endpoint must visibly respond to joinType changes in the app render path',
+        miterVsBevel,
+        miterVsRound,
+        bevelVsRound,
+        computedStrokes: metadata?.computedStrokes
+      },
+      null,
+      2
+    )
+  ).toBeGreaterThan(24)
 })
 
 test('self-check: self-intersecting inside dashed round star satisfies rule-driven split ranges', async ({

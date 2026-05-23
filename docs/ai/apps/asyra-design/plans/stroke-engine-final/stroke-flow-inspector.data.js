@@ -56,7 +56,7 @@
     nextExecutableStepNumber: 30,
     nextExecutableStepStatus: 'aligned',
     stopRule:
-      'The 2026-05-20 central filled-face inside dashed blocker and outside high-curvature disconnected-sliver blocker are fixed and verified for the encoded matrix slice. The high-curvature gate requires polygon-quality evidence, not polygonCount-only evidence. Any newly captured Figma mismatch must reopen the earliest owning upstream step; renderer output must not be patched to hide upstream fill-rule, face-classification, domain, candidate, legality, projection, or interval failures.',
+      'The 2026-05-20 central filled-face inside dashed blocker and outside high-curvature disconnected-sliver blocker are fixed for the encoded matrix slice and were revalidated on 2026-05-24 with focused packet/FinalFace/render-entry tests, rebuilt preset E2E, Cmd+1 global screenshot review, and native app zoom high-curvature crop review. Any newly captured Figma mismatch must reopen the earliest owning upstream step; renderer output must not be patched to hide upstream fill-rule, face-classification, domain, candidate, legality, projection, or interval failures.',
     blockedDownstreamStepIds: []
   }
 
@@ -2639,7 +2639,9 @@
         'Superseded evidence on 2026-05-20: the older stroke-self-check-star-render.spec.ts 7/7 pass did not prove product pixels came from actual central filled-face boundary-domain geometry; the active E2E now includes that generic region-boundary proof.',
         'Reference screenshots from Figma are rule-discovery evidence only. Automated visual gates must encode generic region-boundary rules, not pixel-similarity comparisons to those reference images.',
         'Step 30 filled-face final visual gate passed on 2026-05-20: yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts --workers=1 passed 7/7 with generic region-boundary probes; AI self-review checked inside butt/round and outside round artifacts for central filled-face inside stroke, outside internal-adjacency absence, terminal half-dash/gap behavior, no dark overdraw, and no renderer repair evidence.',
-        'Step 30 outside high-curvature final visual gate passed on 2026-05-20: the same E2E passed 7/7 after adding a generic polygon-quality oracle for outside boundary-domain packets and using eroded deep-fill probes for outside fill-side absence. AI self-review inspected outside butt, square, and round screenshots and found no disconnected high-curvature sliver fan at the reported corner.'
+        'Step 30 outside high-curvature final visual gate passed on 2026-05-20: the same E2E passed 7/7 after adding a generic polygon-quality oracle for outside boundary-domain packets and using eroded deep-fill probes for outside fill-side absence. AI self-review inspected outside butt, square, and round screenshots and found no disconnected high-curvature sliver fan at the reported corner.',
+        'Revalidated on 2026-05-24: focused packet/FinalFace/render-entry tests passed for the outside high-curvature endpoint join variants, outside terminal topology independence from cap type, inside/outside cap regressions, center round-cap regression, and vector-component constrained dashed export packets.',
+        'Revalidated on 2026-05-24 after rebuilding @asyra/preset: stroke-self-check-star-render.spec.ts passed inside butt/square/round, outside butt/square/round, and the right-bottom high-curvature join responsiveness gate with --workers=1; reported-dashed-stroke-sharp-corners.spec.ts passed original vector-6 tp-16 outside join responsiveness plus Cmd+1 global regression screenshot capture. AI self-review inspected the Cmd+1 full-view screenshot and native app zoom miter/bevel/round high-curvature crops.'
       ]
     }
   }
@@ -3143,7 +3145,7 @@
     'visible-final-result': {
       status: 'aligned',
       currentImplementation:
-        'stroke-self-check-star-render.spec.ts now verifies inside and outside dashed star fixtures with generic region-boundary rules: central filled-face inside stroke exists, outside filled-face internal adjacency is absent, terminal/gap distribution holds, and no double-opacity overdraw is present.',
+        'stroke-self-check-star-render.spec.ts verifies inside and outside dashed star fixtures with generic region-boundary rules: central filled-face inside stroke exists, outside filled-face internal adjacency is absent, terminal/gap distribution holds, and no double-opacity overdraw is present. The 2026-05-24 revalidation also covered original vector-6 outside high-curvature join responsiveness, a Cmd+1 global review screenshot, and native app zoom miter/bevel/round local crops.',
       requiredAdjustment:
         'Keep final visual gates rule-driven. Reference screenshots remain rule-discovery evidence only, not automated image-comparison fixtures.'
     }

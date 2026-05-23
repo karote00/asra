@@ -1101,6 +1101,30 @@ describe('Vector Component', () => {
     expect(
       mockGraphic.__asyraSolidCenterStrokeExportPackets?.some(
         (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
+      ),
+      JSON.stringify(
+        {
+          exportPacketCount:
+            mockGraphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0,
+          exportPackets:
+            mockGraphic.__asyraSolidCenterStrokeExportPackets?.map(
+              (packet) => ({
+                geometryId: packet.geometryId,
+                polygonCount: packet.polygons.length,
+                geometryFamily: packet.debugMeta?.geometryFamily,
+                resolutionStatus: packet.debugMeta?.resolutionStatus,
+                runtimeStatus: packet.debugMeta?.runtimeStatus,
+                finalCoverageBuilderStatus:
+                  packet.debugMeta?.finalCoverageBuilderStatus,
+                sourceTopology: packet.debugMeta?.sourceTopology,
+                visualOverlapCollapseStatus:
+                  packet.debugMeta?.visualOverlapCollapseStatus
+              })
+            ) ?? [],
+          diagnostics: mockGraphic.__asyraConstrainedDashedRuntimeDiagnostics
+        },
+        null,
+        2
       )
     ).toBe(true)
     expect(

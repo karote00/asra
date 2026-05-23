@@ -602,6 +602,20 @@ const buildResolvedVectorSourceSplitRanges = (
         sourceEndDistance.toFixed(6),
         legalSide
       ].join(':')
+      const resolvedSide = resolveFilledSideFromFillRegions({
+        boundaryRole: chain.boundaryRole,
+        domain: {
+          points: boundaryPoints,
+          sourceSegmentIndex: firstEdge.sourceSegmentIndex,
+          sourceStartDistance,
+          sourceEndDistance,
+          legalSide: firstEdge.legalSide
+        } as EvenOddBoundaryContour['dashDomains'][number],
+        fillRegions,
+        legalSide,
+        path
+      })
+      const filledSide = resolvedSide.filledSide
 
       rangeByKey.set(key, {
         rangeId: `source-split-range:${rangeByKey.size}`,
@@ -614,11 +628,11 @@ const buildResolvedVectorSourceSplitRanges = (
         sourceStartDistance,
         sourceEndDistance,
         legalSide,
-        filledSide: legalSide,
-        unfilledSide: legalSide === 1 ? -1 : 1,
+        filledSide,
+        unfilledSide: filledSide === 1 ? -1 : 1,
         boundaryRole: chain.boundaryRole,
         sideResolutionStatus:
-          chain.boundaryRole === 'ambiguous' ? 'conflict' : 'resolved',
+          chain.boundaryRole === 'ambiguous' ? 'conflict' : resolvedSide.status,
         contourIds: [face.faceId],
         legalFaceIds: [face.faceId],
         oppositeFaceIds: Array.from(
@@ -633,7 +647,7 @@ const buildResolvedVectorSourceSplitRanges = (
     })
   })
 
-  if (legalFaceBoundaries.length === 0) {
+  if (rangeByKey.size === 0) {
     legalBoundaryContours.forEach((contour) => {
       contour.dashDomains.forEach((domain) => {
         if (

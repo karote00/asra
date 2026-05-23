@@ -2,38 +2,50 @@
   "legalAnalysis": {
     "width": 1400,
     "height": 1100,
-    "redPixelCount": 19947,
-    "legalRedPixelCount": 3258,
-    "outsideRedPixelCount": 16689,
+    "redPixelCount": 22151,
+    "legalRedPixelCount": 3383,
+    "outsideRedPixelCount": 18768,
     "strictLegalRedPixelCount": 0,
-    "strictOutsideRedPixelCount": 19947,
-    "darkOverdrawPixelCount": 0,
-    "maxDarkOverdrawComponentArea": 0,
-    "darkOverdrawComponentAreas": [],
-    "maxOutsideComponentArea": 724,
+    "strictOutsideRedPixelCount": 22151,
+    "darkOverdrawPixelCount": 268,
+    "maxDarkOverdrawComponentArea": 30,
+    "darkOverdrawComponentAreas": [
+      30,
+      29,
+      28,
+      28,
+      28,
+      28,
+      28,
+      26,
+      24,
+      19
+    ],
+    "maxOutsideComponentArea": 1562,
     "outsideComponentAreas": [
-      724,
-      712,
-      701,
-      662,
-      636,
+      1562,
+      1263,
+      1180,
+      889,
       536,
       536,
       535,
       535,
-      533
+      533,
+      532
     ],
     "maxStrictInsideComponentArea": 0,
-    "maxStrictOutsideComponentArea": 826,
+    "maxStrictOutsideComponentArea": 1743,
     "strictInsideComponentAreas": [],
+    "strictInsideComponents": [],
     "strictOutsideComponentAreas": [
-      826,
-      823,
-      814,
-      769,
-      731,
+      1743,
+      1429,
+      1357,
+      1035,
       628,
       628,
+      627,
       627,
       627,
       627
@@ -259,28 +271,28 @@
         "boundaryTotalLength": 79.01036474117609,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 6.75,
-        "maxRedPixels": 113,
+        "maxRedPixels": 109,
         "probes": [
           {
             "point": {
               "x": 163.60207297959863,
               "y": 67.50085194270714
             },
-            "redPixelCount": 87
+            "redPixelCount": 60
           },
           {
             "point": {
               "x": 161.32289257424154,
               "y": 66.47355613339212
             },
-            "redPixelCount": 113
+            "redPixelCount": 95
           },
           {
             "point": {
               "x": 159.04371216888444,
               "y": 65.4462603240771
             },
-            "redPixelCount": 113
+            "redPixelCount": 109
           }
         ]
       },
@@ -312,28 +324,28 @@
         "boundaryTotalLength": 173.41143694995793,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 166.66143694995793,
-        "maxRedPixels": 113,
+        "maxRedPixels": 109,
         "probes": [
           {
             "point": {
               "x": 157.5709994796816,
               "y": 70.01658233503234
             },
-            "redPixelCount": 97
+            "redPixelCount": 69
           },
           {
             "point": {
               "x": 158.42150380772696,
               "y": 67.66570114110183
             },
-            "redPixelCount": 113
+            "redPixelCount": 92
           },
           {
             "point": {
               "x": 159.27200813577232,
               "y": 65.31481994717133
             },
-            "redPixelCount": 113
+            "redPixelCount": 109
           }
         ]
       },
@@ -554,7 +566,7 @@
               "x": 179.59517538171076,
               "y": 5.152170507800537
             },
-            "redPixelCount": 108
+            "redPixelCount": 109
           }
         ]
       },
@@ -963,7 +975,7 @@
               "x": 197.19056134998436,
               "y": 4.572337838766927
             },
-            "redPixelCount": 95
+            "redPixelCount": 98
           }
         ]
       },
@@ -1672,7 +1684,7 @@
               "x": 0.08408867031963396,
               "y": 366.85551601034456
             },
-            "redPixelCount": 98
+            "redPixelCount": 91
           }
         ]
       },
@@ -2213,7 +2225,7 @@
               "x": 16.900144598573025,
               "y": 374.8179250859241
             },
-            "redPixelCount": 93
+            "redPixelCount": 92
           }
         ]
       },
@@ -2901,28 +2913,28 @@
         "boundaryTotalLength": 237.79736893915518,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 231.04736893915518,
-        "maxRedPixels": 113,
+        "maxRedPixels": 96,
         "probes": [
           {
             "point": {
               "x": 107.69505705882791,
               "y": 167.4974753829277
             },
-            "redPixelCount": 89
+            "redPixelCount": 73
           },
           {
             "point": {
               "x": 105.58836242100143,
               "y": 166.1514301745661
             },
-            "redPixelCount": 113
+            "redPixelCount": 88
           },
           {
             "point": {
               "x": 103.48166778317497,
               "y": 164.8053849662045
             },
-            "redPixelCount": 109
+            "redPixelCount": 96
           }
         ]
       },
@@ -3414,28 +3426,28 @@
         "boundaryTotalLength": 186.04932674398572,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 6.75,
-        "maxRedPixels": 113,
+        "maxRedPixels": 94,
         "probes": [
           {
             "point": {
               "x": 107.29760416052736,
               "y": 159.36067856756648
             },
-            "redPixelCount": 96
+            "redPixelCount": 63
           },
           {
             "point": {
               "x": 105.32580572348564,
               "y": 160.89756207768684
             },
-            "redPixelCount": 113
+            "redPixelCount": 84
           },
           {
             "point": {
               "x": 103.35400728644393,
               "y": 162.43444558780718
             },
-            "redPixelCount": 109
+            "redPixelCount": 94
           }
         ]
       },
@@ -3955,28 +3967,28 @@
         "boundaryTotalLength": 215.3810652010374,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 6.75,
-        "maxRedPixels": 113,
+        "maxRedPixels": 110,
         "probes": [
           {
             "point": {
               "x": 196.8093927114462,
               "y": 278.9406940472867
             },
-            "redPixelCount": 100
+            "redPixelCount": 77
           },
           {
             "point": {
               "x": 198.2722827644026,
               "y": 280.96799587310375
             },
-            "redPixelCount": 113
+            "redPixelCount": 96
           },
           {
             "point": {
               "x": 199.735172817359,
               "y": 282.99529769892087
             },
-            "redPixelCount": 111
+            "redPixelCount": 110
           }
         ]
       },
@@ -4336,28 +4348,28 @@
         "boundaryTotalLength": 103.26991408605303,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 96.51991408605303,
-        "maxRedPixels": 113,
+        "maxRedPixels": 109,
         "probes": [
           {
             "point": {
               "x": 203.16515723935026,
               "y": 279.7572541531687
             },
-            "redPixelCount": 101
+            "redPixelCount": 83
           },
           {
             "point": {
               "x": 201.23530665052516,
               "y": 281.3464919279561
             },
-            "redPixelCount": 113
+            "redPixelCount": 101
           },
           {
             "point": {
               "x": 199.30545606170006,
               "y": 282.9357297027436
             },
-            "redPixelCount": 112
+            "redPixelCount": 109
           }
         ]
       },
@@ -4834,7 +4846,7 @@
               "x": 359.9000898634015,
               "y": 156.05480156301311
             },
-            "redPixelCount": 91
+            "redPixelCount": 94
           }
         ]
       },
@@ -5343,28 +5355,28 @@
         "boundaryTotalLength": 143.31502789010383,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 136.56502789010383,
-        "maxRedPixels": 113,
+        "maxRedPixels": 93,
         "probes": [
           {
             "point": {
               "x": 256.0183587517096,
               "y": 234.45311293281435
             },
-            "redPixelCount": 101
+            "redPixelCount": 76
           },
           {
             "point": {
               "x": 257.5536130692344,
               "y": 236.4261801340322
             },
-            "redPixelCount": 113
+            "redPixelCount": 93
           },
           {
             "point": {
               "x": 259.08886738675915,
               "y": 238.39924733525
             },
-            "redPixelCount": 99
+            "redPixelCount": 89
           }
         ]
       },
@@ -5764,28 +5776,28 @@
         "boundaryTotalLength": 112.76793839642194,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 6.75,
-        "maxRedPixels": 113,
+        "maxRedPixels": 95,
         "probes": [
           {
             "point": {
               "x": 253.1569696222682,
               "y": 242.59942515189584
             },
-            "redPixelCount": 103
+            "redPixelCount": 84
           },
           {
             "point": {
               "x": 255.58843632439573,
               "y": 242.0180735573809
             },
-            "redPixelCount": 113
+            "redPixelCount": 95
           },
           {
             "point": {
               "x": 258.01990302652325,
               "y": 241.43672196286593
             },
-            "redPixelCount": 101
+            "redPixelCount": 89
           }
         ]
       },
@@ -5817,28 +5829,28 @@
         "boundaryTotalLength": 156.72532232366837,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 6.75,
-        "maxRedPixels": 113,
+        "maxRedPixels": 98,
         "probes": [
           {
             "point": {
               "x": 219.94177988986016,
               "y": 92.58115038695222
             },
-            "redPixelCount": 94
+            "redPixelCount": 73
           },
           {
             "point": {
               "x": 220.79228421790552,
               "y": 90.23026919302171
             },
-            "redPixelCount": 113
+            "redPixelCount": 98
           },
           {
             "point": {
               "x": 221.64278854595088,
               "y": 87.87938799909121
             },
-            "redPixelCount": 101
+            "redPixelCount": 85
           }
         ]
       },
@@ -6226,28 +6238,28 @@
         "boundaryTotalLength": 95.83405257550845,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 89.08405257550845,
-        "maxRedPixels": 113,
+        "maxRedPixels": 84,
         "probes": [
           {
             "point": {
               "x": 213.45534023014324,
               "y": 85.47227460644542
             },
-            "redPixelCount": 98
+            "redPixelCount": 72
           },
           {
             "point": {
               "x": 215.87391781169467,
               "y": 84.839437753839
             },
-            "redPixelCount": 113
+            "redPixelCount": 84
           },
           {
             "point": {
               "x": 218.2924953932461,
               "y": 84.20660090123258
             },
-            "redPixelCount": 95
+            "redPixelCount": 76
           }
         ]
       },
@@ -6813,7 +6825,7 @@
               "x": -1.8962293441567484,
               "y": 25.581825411389943
             },
-            "redPixelCount": 100
+            "redPixelCount": 103
           }
         ]
       },
@@ -7173,7 +7185,7 @@
         "boundaryTotalLength": 103.26991408605303,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 6.75,
-        "maxRedPixels": 113,
+        "maxRedPixels": 112,
         "probes": [
           {
             "point": {
@@ -7187,14 +7199,14 @@
               "x": 261.7566534953957,
               "y": 348.92539971083755
             },
-            "redPixelCount": 113
+            "redPixelCount": 112
           },
           {
             "point": {
               "x": 260.1953954573404,
               "y": 350.87795530251924
             },
-            "redPixelCount": 96
+            "redPixelCount": 86
           }
         ]
       },
@@ -7615,7 +7627,7 @@
               "x": 278.2475277059946,
               "y": 339.75119778057547
             },
-            "redPixelCount": 85
+            "redPixelCount": 86
           }
         ]
       }
@@ -27063,8 +27075,8 @@
               "x": 161.64017227019428,
               "y": 71.80339158375
             },
-            "packetCovered": true,
-            "otherSplitRangeCovered": true
+            "packetCovered": false,
+            "otherSplitRangeCovered": false
           },
           {
             "point": {
@@ -27090,14 +27102,14 @@
               "x": 161.64017227019428,
               "y": 71.80339158375
             },
-            "redPixelCount": 13
+            "redPixelCount": 0
           },
           {
             "point": {
               "x": 159.3698034661039,
               "y": 70.75676581805665
             },
-            "redPixelCount": 13
+            "redPixelCount": 4
           },
           {
             "point": {
@@ -27146,8 +27158,8 @@
               "x": 162.03767374814956,
               "y": 71.63254055831851
             },
-            "packetCovered": true,
-            "otherSplitRangeCovered": true
+            "packetCovered": false,
+            "otherSplitRangeCovered": false
           },
           {
             "point": {
@@ -27173,14 +27185,14 @@
               "x": 162.03767374814956,
               "y": 71.63254055831851
             },
-            "redPixelCount": 13
+            "redPixelCount": 0
           },
           {
             "point": {
               "x": 162.88817807619492,
               "y": 69.281659364388
             },
-            "redPixelCount": 13
+            "redPixelCount": 6
           },
           {
             "point": {
@@ -29885,8 +29897,8 @@
               "x": 110.23908031686135,
               "y": 163.49856840997032
             },
-            "packetCovered": true,
-            "otherSplitRangeCovered": true
+            "packetCovered": false,
+            "otherSplitRangeCovered": false
           },
           {
             "point": {
@@ -29905,28 +29917,28 @@
             "otherSplitRangeCovered": true
           }
         ],
-        "maxRedPixels": 13,
+        "maxRedPixels": 11,
         "probes": [
           {
             "point": {
               "x": 110.23908031686135,
               "y": 163.49856840997032
             },
-            "redPixelCount": 13
+            "redPixelCount": 0
           },
           {
             "point": {
               "x": 108.12677741558697,
               "y": 162.1613412590091
             },
-            "redPixelCount": 13
+            "redPixelCount": 0
           },
           {
             "point": {
               "x": 106.01447451431261,
               "y": 160.82411410804787
             },
-            "redPixelCount": 13
+            "redPixelCount": 11
           }
         ]
       },
@@ -30428,8 +30440,8 @@
               "x": 110.21956984284259,
               "y": 163.10709490864835
             },
-            "packetCovered": true,
-            "otherSplitRangeCovered": true
+            "packetCovered": false,
+            "otherSplitRangeCovered": false
           },
           {
             "point": {
@@ -30455,14 +30467,14 @@
               "x": 110.21956984284259,
               "y": 163.10709490864835
             },
-            "redPixelCount": 13
+            "redPixelCount": 0
           },
           {
             "point": {
               "x": 108.24848459783252,
               "y": 164.6448929958183
             },
-            "redPixelCount": 13
+            "redPixelCount": 1
           },
           {
             "point": {
@@ -30999,8 +31011,8 @@
               "x": 200.66216265296126,
               "y": 276.150946720067
             },
-            "packetCovered": true,
-            "otherSplitRangeCovered": true
+            "packetCovered": false,
+            "otherSplitRangeCovered": false
           },
           {
             "point": {
@@ -31026,14 +31038,14 @@
               "x": 200.66216265296126,
               "y": 276.150946720067
             },
-            "redPixelCount": 13
+            "redPixelCount": 0
           },
           {
             "point": {
               "x": 202.13051045188396,
               "y": 278.17429907232764
             },
-            "redPixelCount": 13
+            "redPixelCount": 8
           },
           {
             "point": {
@@ -31410,8 +31422,8 @@
               "x": 200.1459799851295,
               "y": 276.0830458451073
             },
-            "packetCovered": true,
-            "otherSplitRangeCovered": true
+            "packetCovered": false,
+            "otherSplitRangeCovered": false
           },
           {
             "point": {
@@ -31437,14 +31449,14 @@
               "x": 200.1459799851295,
               "y": 276.0830458451073
             },
-            "redPixelCount": 13
+            "redPixelCount": 0
           },
           {
             "point": {
               "x": 198.21260688513235,
               "y": 277.6679964614381
             },
-            "redPixelCount": 13
+            "redPixelCount": 3
           },
           {
             "point": {
@@ -32507,16 +32519,16 @@
               "x": 252.26291216178532,
               "y": 237.36882239451293
             },
-            "packetCovered": true,
-            "otherSplitRangeCovered": true
+            "packetCovered": false,
+            "otherSplitRangeCovered": false
           },
           {
             "point": {
               "x": 253.79465573938938,
               "y": 239.34461631404722
             },
-            "packetCovered": true,
-            "otherSplitRangeCovered": true
+            "packetCovered": false,
+            "otherSplitRangeCovered": false
           },
           {
             "point": {
@@ -32534,14 +32546,14 @@
               "x": 252.26291216178532,
               "y": 237.36882239451293
             },
-            "redPixelCount": 13
+            "redPixelCount": 0
           },
           {
             "point": {
               "x": 253.79465573938938,
               "y": 239.34461631404722
             },
-            "redPixelCount": 13
+            "redPixelCount": 1
           },
           {
             "point": {
@@ -32958,16 +32970,16 @@
               "x": 252.0483548360466,
               "y": 237.97699087211757
             },
-            "packetCovered": true,
-            "otherSplitRangeCovered": true
+            "packetCovered": false,
+            "otherSplitRangeCovered": false
           },
           {
             "point": {
               "x": 254.47900116937413,
               "y": 237.39221877780957
             },
-            "packetCovered": true,
-            "otherSplitRangeCovered": true
+            "packetCovered": false,
+            "otherSplitRangeCovered": false
           },
           {
             "point": {
@@ -32985,14 +32997,14 @@
               "x": 252.0483548360466,
               "y": 237.97699087211757
             },
-            "redPixelCount": 13
+            "redPixelCount": 0
           },
           {
             "point": {
               "x": 254.47900116937413,
               "y": 237.39221877780957
             },
-            "redPixelCount": 13
+            "redPixelCount": 0
           },
           {
             "point": {
@@ -33041,16 +33053,16 @@
               "x": 215.4751056213922,
               "y": 90.96519216366603
             },
-            "packetCovered": true,
-            "otherSplitRangeCovered": true
+            "packetCovered": false,
+            "otherSplitRangeCovered": false
           },
           {
             "point": {
               "x": 216.32560994943756,
               "y": 88.61431096973553
             },
-            "packetCovered": true,
-            "otherSplitRangeCovered": true
+            "packetCovered": false,
+            "otherSplitRangeCovered": false
           },
           {
             "point": {
@@ -33061,28 +33073,28 @@
             "otherSplitRangeCovered": true
           }
         ],
-        "maxRedPixels": 13,
+        "maxRedPixels": 2,
         "probes": [
           {
             "point": {
               "x": 215.4751056213922,
               "y": 90.96519216366603
             },
-            "redPixelCount": 13
+            "redPixelCount": 0
           },
           {
             "point": {
               "x": 216.32560994943756,
               "y": 88.61431096973553
             },
-            "redPixelCount": 13
+            "redPixelCount": 0
           },
           {
             "point": {
               "x": 217.17611427748292,
               "y": 86.26342977580502
             },
-            "redPixelCount": 13
+            "redPixelCount": 2
           }
         ]
       },
@@ -33480,16 +33492,16 @@
               "x": 214.65719608132937,
               "y": 90.0684357113543
             },
-            "packetCovered": true,
-            "otherSplitRangeCovered": true
+            "packetCovered": false,
+            "otherSplitRangeCovered": false
           },
           {
             "point": {
               "x": 217.07595087332572,
               "y": 89.43627650973289
             },
-            "packetCovered": true,
-            "otherSplitRangeCovered": true
+            "packetCovered": false,
+            "otherSplitRangeCovered": false
           },
           {
             "point": {
@@ -33500,28 +33512,28 @@
             "otherSplitRangeCovered": true
           }
         ],
-        "maxRedPixels": 13,
+        "maxRedPixels": 11,
         "probes": [
           {
             "point": {
               "x": 214.65719608132937,
               "y": 90.0684357113543
             },
-            "redPixelCount": 13
+            "redPixelCount": 0
           },
           {
             "point": {
               "x": 217.07595087332572,
               "y": 89.43627650973289
             },
-            "redPixelCount": 13
+            "redPixelCount": 0
           },
           {
             "point": {
               "x": 219.4947056653221,
               "y": 88.8041173081115
             },
-            "redPixelCount": 13
+            "redPixelCount": 11
           }
         ]
       },
@@ -34558,7 +34570,7 @@
               "x": 266.39192486576593,
               "y": 354.6145327382706
             },
-            "redPixelCount": 13
+            "redPixelCount": 12
           }
         ]
       },
@@ -35211,28 +35223,28 @@
         "boundaryTotalLength": 79.01036474117609,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 6.75,
-        "maxRedPixels": 113,
+        "maxRedPixels": 109,
         "probes": [
           {
             "point": {
               "x": 163.60207297959863,
               "y": 67.50085194270714
             },
-            "redPixelCount": 87
+            "redPixelCount": 60
           },
           {
             "point": {
               "x": 161.32289257424154,
               "y": 66.47355613339212
             },
-            "redPixelCount": 113
+            "redPixelCount": 95
           },
           {
             "point": {
               "x": 159.04371216888444,
               "y": 65.4462603240771
             },
-            "redPixelCount": 113
+            "redPixelCount": 109
           }
         ]
       },
@@ -35264,28 +35276,28 @@
         "boundaryTotalLength": 173.41143694995793,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 166.66143694995793,
-        "maxRedPixels": 113,
+        "maxRedPixels": 109,
         "probes": [
           {
             "point": {
               "x": 157.5709994796816,
               "y": 70.01658233503234
             },
-            "redPixelCount": 97
+            "redPixelCount": 69
           },
           {
             "point": {
               "x": 158.42150380772696,
               "y": 67.66570114110183
             },
-            "redPixelCount": 113
+            "redPixelCount": 92
           },
           {
             "point": {
               "x": 159.27200813577232,
               "y": 65.31481994717133
             },
-            "redPixelCount": 113
+            "redPixelCount": 109
           }
         ]
       },
@@ -35727,7 +35739,7 @@
               "x": 179.59517538171076,
               "y": 5.152170507800537
             },
-            "redPixelCount": 108
+            "redPixelCount": 109
           }
         ]
       },
@@ -36136,7 +36148,7 @@
               "x": 197.19056134998436,
               "y": 4.572337838766927
             },
-            "redPixelCount": 95
+            "redPixelCount": 98
           }
         ]
       },
@@ -36845,7 +36857,7 @@
               "x": 0.08408867031963396,
               "y": 366.85551601034456
             },
-            "redPixelCount": 98
+            "redPixelCount": 91
           }
         ]
       },
@@ -37386,7 +37398,7 @@
               "x": 16.900144598573025,
               "y": 374.8179250859241
             },
-            "redPixelCount": 93
+            "redPixelCount": 92
           }
         ]
       },
@@ -40910,28 +40922,28 @@
         "boundaryTotalLength": 237.79736893915518,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 231.04736893915518,
-        "maxRedPixels": 113,
+        "maxRedPixels": 96,
         "probes": [
           {
             "point": {
               "x": 107.69505705882791,
               "y": 167.4974753829277
             },
-            "redPixelCount": 89
+            "redPixelCount": 73
           },
           {
             "point": {
               "x": 105.58836242100143,
               "y": 166.1514301745661
             },
-            "redPixelCount": 113
+            "redPixelCount": 88
           },
           {
             "point": {
               "x": 103.48166778317497,
               "y": 164.8053849662045
             },
-            "redPixelCount": 109
+            "redPixelCount": 96
           }
         ]
       },
@@ -41423,28 +41435,28 @@
         "boundaryTotalLength": 186.04932674398572,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 6.75,
-        "maxRedPixels": 113,
+        "maxRedPixels": 94,
         "probes": [
           {
             "point": {
               "x": 107.29760416052736,
               "y": 159.36067856756648
             },
-            "redPixelCount": 96
+            "redPixelCount": 63
           },
           {
             "point": {
               "x": 105.32580572348564,
               "y": 160.89756207768684
             },
-            "redPixelCount": 113
+            "redPixelCount": 84
           },
           {
             "point": {
               "x": 103.35400728644393,
               "y": 162.43444558780718
             },
-            "redPixelCount": 109
+            "redPixelCount": 94
           }
         ]
       },
@@ -41964,28 +41976,28 @@
         "boundaryTotalLength": 215.3810652010374,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 6.75,
-        "maxRedPixels": 113,
+        "maxRedPixels": 110,
         "probes": [
           {
             "point": {
               "x": 196.8093927114462,
               "y": 278.9406940472867
             },
-            "redPixelCount": 100
+            "redPixelCount": 77
           },
           {
             "point": {
               "x": 198.2722827644026,
               "y": 280.96799587310375
             },
-            "redPixelCount": 113
+            "redPixelCount": 96
           },
           {
             "point": {
               "x": 199.735172817359,
               "y": 282.99529769892087
             },
-            "redPixelCount": 111
+            "redPixelCount": 110
           }
         ]
       },
@@ -42345,28 +42357,28 @@
         "boundaryTotalLength": 103.26991408605303,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 96.51991408605303,
-        "maxRedPixels": 113,
+        "maxRedPixels": 109,
         "probes": [
           {
             "point": {
               "x": 203.16515723935026,
               "y": 279.7572541531687
             },
-            "redPixelCount": 101
+            "redPixelCount": 83
           },
           {
             "point": {
               "x": 201.23530665052516,
               "y": 281.3464919279561
             },
-            "redPixelCount": 113
+            "redPixelCount": 101
           },
           {
             "point": {
               "x": 199.30545606170006,
               "y": 282.9357297027436
             },
-            "redPixelCount": 112
+            "redPixelCount": 109
           }
         ]
       },
@@ -45007,7 +45019,7 @@
               "x": 359.9000898634015,
               "y": 156.05480156301311
             },
-            "redPixelCount": 91
+            "redPixelCount": 94
           }
         ]
       },
@@ -46470,28 +46482,28 @@
         "boundaryTotalLength": 143.31502789010383,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 136.56502789010383,
-        "maxRedPixels": 113,
+        "maxRedPixels": 93,
         "probes": [
           {
             "point": {
               "x": 256.0183587517096,
               "y": 234.45311293281435
             },
-            "redPixelCount": 101
+            "redPixelCount": 76
           },
           {
             "point": {
               "x": 257.5536130692344,
               "y": 236.4261801340322
             },
-            "redPixelCount": 113
+            "redPixelCount": 93
           },
           {
             "point": {
               "x": 259.08886738675915,
               "y": 238.39924733525
             },
-            "redPixelCount": 99
+            "redPixelCount": 89
           }
         ]
       },
@@ -46891,28 +46903,28 @@
         "boundaryTotalLength": 112.76793839642194,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 6.75,
-        "maxRedPixels": 113,
+        "maxRedPixels": 95,
         "probes": [
           {
             "point": {
               "x": 253.1569696222682,
               "y": 242.59942515189584
             },
-            "redPixelCount": 103
+            "redPixelCount": 84
           },
           {
             "point": {
               "x": 255.58843632439573,
               "y": 242.0180735573809
             },
-            "redPixelCount": 113
+            "redPixelCount": 95
           },
           {
             "point": {
               "x": 258.01990302652325,
               "y": 241.43672196286593
             },
-            "redPixelCount": 101
+            "redPixelCount": 89
           }
         ]
       },
@@ -46944,28 +46956,28 @@
         "boundaryTotalLength": 156.72532232366837,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 6.75,
-        "maxRedPixels": 113,
+        "maxRedPixels": 98,
         "probes": [
           {
             "point": {
               "x": 219.94177988986016,
               "y": 92.58115038695222
             },
-            "redPixelCount": 94
+            "redPixelCount": 73
           },
           {
             "point": {
               "x": 220.79228421790552,
               "y": 90.23026919302171
             },
-            "redPixelCount": 113
+            "redPixelCount": 98
           },
           {
             "point": {
               "x": 221.64278854595088,
               "y": 87.87938799909121
             },
-            "redPixelCount": 101
+            "redPixelCount": 85
           }
         ]
       },
@@ -47353,28 +47365,28 @@
         "boundaryTotalLength": 95.83405257550845,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 89.08405257550845,
-        "maxRedPixels": 113,
+        "maxRedPixels": 84,
         "probes": [
           {
             "point": {
               "x": 213.45534023014324,
               "y": 85.47227460644542
             },
-            "redPixelCount": 98
+            "redPixelCount": 72
           },
           {
             "point": {
               "x": 215.87391781169467,
               "y": 84.839437753839
             },
-            "redPixelCount": 113
+            "redPixelCount": 84
           },
           {
             "point": {
               "x": 218.2924953932461,
               "y": 84.20660090123258
             },
-            "redPixelCount": 95
+            "redPixelCount": 76
           }
         ]
       },
@@ -48046,7 +48058,7 @@
               "x": -1.8962293441567484,
               "y": 25.581825411389943
             },
-            "redPixelCount": 100
+            "redPixelCount": 103
           }
         ]
       },
@@ -50104,7 +50116,7 @@
         "boundaryTotalLength": 103.26991408605303,
         "packetGeometryId": "projection:constrained-dashed-product-union:paintKey:solid:14616070:0.5|paintRevision:paint:xtjvm7|strokeSpecKey:stroke-spec:8w1ngu|opacity:0.5|blendMode:normal|effectKey:effect:none|maskKey:mask:none|clipKey:clip:none|stackingGroupKey:stack:default|visibilityKey:visibility:accepted|runtimeFamilyKey:constrained-dashed:exact-constrained:accepted|vector:vector-1:tn-4:constrained-dashed:0:interval:0|vector:vector-1:tn-4:constrained-dashed:0:interval:1|vector:vector-1:tn-4:constrained-dashed:0:interval:2|vector:vector-1:tn-4:constrained-dashed:0:interval:3|vector:vector-1:tn-4:constrained-dashed:0:interval:4|vector:vector-1:tn-4:constrained-dashed:0:interval:5|vector:vector-1:tn-4:constrained-dashed:0:interval:6|vector:vector-1:tn-4:constrained-dashed:0:interval:7|vector:vector-1:tn-4:constrained-dashed:0:interval:8|vector:vector-1:tn-4:constrained-dashed:0:interval:9|vector:vector-1:tn-4:constrained-dashed:0:interval:10|vector:vector-1:tn-4:constrained-dashed:0:interval:11|vector:vector-1:tn-4:constrained-dashed:0:interval:12|vector:vector-1:tn-4:constrained-dashed:0:interval:13|vector:vector-1:tn-4:constrained-dashed:0:interval:14|vector:vector-1:tn-4:constrained-dashed:0:interval:15|vector:vector-1:tn-4:constrained-dashed:0:interval:16|vector:vector-1:tn-4:constrained-dashed:0:interval:17|vector:vector-1:tn-4:constrained-dashed:0:interval:18|vector:vector-1:tn-4:constrained-dashed:0:interval:19|vector:vector-1:tn-4:constrained-dashed:0:interval:20|vector:vector-1:tn-4:constrained-dashed:0:interval:21|vector:vector-1:tn-4:constrained-dashed:0:interval:22|vector:vector-1:tn-4:constrained-dashed:0:interval:23|vector:vector-1:tn-4:constrained-dashed:0:interval:24|vector:vector-1:tn-4:constrained-dashed:0:interval:25|vector:vector-1:tn-4:constrained-dashed:0:interval:26|vector:vector-1:tn-4:constrained-dashed:0:interval:27|vector:vector-1:tn-4:constrained-dashed:0:interval:28|vector:vector-1:tn-4:constrained-dashed:0:interval:29|vector:vector-1:tn-4:constrained-dashed:0:interval:30|vector:vector-1:tn-4:constrained-dashed:0:interval:31|vector:vector-1:tn-4:constrained-dashed:0:interval:32|vector:vector-1:tn-4:constrained-dashed:0:interval:33|vector:vector-1:tn-4:constrained-dashed:0:interval:34|vector:vector-1:tn-4:constrained-dashed:0:interval:35|vector:vector-1:tn-4:constrained-dashed:0:interval:36|vector:vector-1:tn-4:constrained-dashed:0:interval:37|vector:vector-1:tn-4:constrained-dashed:0:interval:38|vector:vector-1:tn-4:constrained-dashed:0:interval:39|vector:vector-1:tn-4:constrained-dashed:0:interval:40|vector:vector-1:tn-4:constrained-dashed:0:interval:41|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:0|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:1|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:2|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:3|vector:vector-1:tn-4:constrained-dashed:0:boundary-terminal-join:4",
         "distance": 6.75,
-        "maxRedPixels": 113,
+        "maxRedPixels": 112,
         "probes": [
           {
             "point": {
@@ -50118,14 +50130,14 @@
               "x": 261.7566534953957,
               "y": 348.92539971083755
             },
-            "redPixelCount": 113
+            "redPixelCount": 112
           },
           {
             "point": {
               "x": 260.1953954573404,
               "y": 350.87795530251924
             },
-            "redPixelCount": 96
+            "redPixelCount": 86
           }
         ]
       },
@@ -50546,7 +50558,7 @@
               "x": 278.2475277059946,
               "y": 339.75119778057547
             },
-            "redPixelCount": 85
+            "redPixelCount": 86
           }
         ]
       },
@@ -51969,14 +51981,14 @@
                   "x": 162.47091255171665,
                   "y": 69.9956627997608
                 },
-                "redPixelCount": 13
+                "redPixelCount": 1
               },
               {
                 "point": {
                   "x": 160.19615928447922,
                   "y": 68.95860080875318
                 },
-                "redPixelCount": 13
+                "redPixelCount": 1
               },
               {
                 "point": {
@@ -52137,14 +52149,14 @@
                   "x": 160.15696879300518,
                   "y": 70.95213709588224
                 },
-                "redPixelCount": 13
+                "redPixelCount": 0
               },
               {
                 "point": {
                   "x": 161.00747312105054,
                   "y": 68.60125590195173
                 },
-                "redPixelCount": 13
+                "redPixelCount": 4
               },
               {
                 "point": {
@@ -54557,7 +54569,7 @@
                   "x": 13.544024460150206,
                   "y": 374.2315217111572
                 },
-                "redPixelCount": 13
+                "redPixelCount": 12
               }
             ]
           }
@@ -58386,28 +58398,28 @@
           },
           {
             "distance": 233.79736893915518,
-            "maxRedPixels": 13,
+            "maxRedPixels": 9,
             "probes": [
               {
                 "point": {
                   "x": 109.16894862604174,
                   "y": 165.18394848078847
                 },
-                "redPixelCount": 13
+                "redPixelCount": 1
               },
               {
                 "point": {
                   "x": 107.05856340599425,
                   "y": 163.8436969286517
                 },
-                "redPixelCount": 13
+                "redPixelCount": 2
               },
               {
                 "point": {
                   "x": 104.94817818594674,
                   "y": 162.5034453765149
                 },
-                "redPixelCount": 13
+                "redPixelCount": 9
               }
             ]
           }
@@ -58906,28 +58918,28 @@
         "probeResults": [
           {
             "distance": 4,
-            "maxRedPixels": 13,
+            "maxRedPixels": 11,
             "probes": [
               {
                 "point": {
                   "x": 108.98897883973072,
                   "y": 161.52976099178167
                 },
-                "redPixelCount": 13
+                "redPixelCount": 0
               },
               {
                 "point": {
                   "x": 107.0175343934994,
                   "y": 163.06709855894889
                 },
-                "redPixelCount": 13
+                "redPixelCount": 0
               },
               {
                 "point": {
                   "x": 105.04608994726807,
                   "y": 164.60443612611613
                 },
-                "redPixelCount": 13
+                "redPixelCount": 11
               }
             ]
           },
@@ -59515,14 +59527,14 @@
                   "x": 199.040560270583,
                   "y": 277.3272926146853
                 },
-                "redPixelCount": 13
+                "redPixelCount": 0
               },
               {
                 "point": {
                   "x": 200.5062008035037,
                   "y": 279.35260686888387
                 },
-                "redPixelCount": 13
+                "redPixelCount": 7
               },
               {
                 "point": {
@@ -60011,14 +60023,14 @@
                   "x": 201.41616031211487,
                   "y": 277.63025483934854
                 },
-                "redPixelCount": 13
+                "redPixelCount": 3
               },
               {
                 "point": {
                   "x": 199.4839305520191,
                   "y": 279.2165991128908
                 },
-                "redPixelCount": 13
+                "redPixelCount": 7
               },
               {
                 "point": {
@@ -64678,28 +64690,28 @@
           },
           {
             "distance": 139.31502789010383,
-            "maxRedPixels": 13,
+            "maxRedPixels": 10,
             "probes": [
               {
                 "point": {
                   "x": 253.84518369519856,
                   "y": 236.14188884697816
                 },
-                "redPixelCount": 13
+                "redPixelCount": 0
               },
               {
                 "point": {
                   "x": 255.3786939030587,
                   "y": 238.11631191268336
                 },
-                "redPixelCount": 13
+                "redPixelCount": 0
               },
               {
                 "point": {
                   "x": 256.9122041109188,
                   "y": 240.09073497838858
                 },
-                "redPixelCount": 13
+                "redPixelCount": 10
               }
             ]
           }
@@ -65106,28 +65118,28 @@
         "probeResults": [
           {
             "distance": 4,
-            "maxRedPixels": 13,
+            "maxRedPixels": 7,
             "probes": [
               {
                 "point": {
                   "x": 252.51574005511898,
                   "y": 239.9227927412891
                 },
-                "redPixelCount": 13
+                "redPixelCount": 3
               },
               {
                 "point": {
                   "x": 254.94665469929106,
                   "y": 239.33913702706226
                 },
-                "redPixelCount": 13
+                "redPixelCount": 3
               },
               {
                 "point": {
                   "x": 257.37756934346316,
                   "y": 238.7554813128354
                 },
-                "redPixelCount": 13
+                "redPixelCount": 7
               }
             ]
           },
@@ -65220,28 +65232,28 @@
         "probeResults": [
           {
             "distance": 4,
-            "maxRedPixels": 13,
+            "maxRedPixels": 3,
             "probes": [
               {
                 "point": {
                   "x": 217.3558105765366,
                   "y": 91.64559562610232
                 },
-                "redPixelCount": 13
+                "redPixelCount": 2
               },
               {
                 "point": {
                   "x": 218.20631490458197,
                   "y": 89.29471443217182
                 },
-                "redPixelCount": 13
+                "redPixelCount": 3
               },
               {
                 "point": {
                   "x": 219.05681923262733,
                   "y": 86.94383323824131
                 },
-                "redPixelCount": 13
+                "redPixelCount": 3
               }
             ]
           },
@@ -65744,28 +65756,28 @@
           },
           {
             "distance": 91.83405257550845,
-            "maxRedPixels": 13,
+            "maxRedPixels": 3,
             "probes": [
               {
                 "point": {
                   "x": 214.15134203792923,
                   "y": 88.13310094171877
                 },
-                "redPixelCount": 13
+                "redPixelCount": 0
               },
               {
                 "point": {
                   "x": 216.57000774295975,
                   "y": 87.50060097546643
                 },
-                "redPixelCount": 13
+                "redPixelCount": 0
               },
               {
                 "point": {
                   "x": 218.98867344799027,
                   "y": 86.86810100921409
                 },
-                "redPixelCount": 13
+                "redPixelCount": 3
               }
             ]
           }
@@ -69133,7 +69145,7 @@
                   "x": 263.06691337379465,
                   "y": 352.95510963859977
                 },
-                "redPixelCount": 13
+                "redPixelCount": 10
               }
             ]
           },
@@ -71197,56 +71209,56 @@
         "afterIntervalId": "interval:1",
         "beforeIntervalId": "interval:2",
         "distance": 55.505182370588045,
-        "sameSplitRangeCovered": false,
-        "otherSplitRangeCovered": false,
+        "sameSplitRangeCovered": true,
+        "otherSplitRangeCovered": true,
         "sameSplitRangeProbes": [
           {
             "point": {
               "x": 180.52684677874234,
               "y": 22.21131141158392
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 178.12255479412678,
               "y": 21.526198243769052
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 175.7182628095112,
               "y": 20.841085075954183
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           }
         ],
-        "maxRedPixels": 0,
+        "maxRedPixels": 2,
         "probes": [
           {
             "point": {
               "x": 180.52684677874234,
               "y": 22.21131141158392
             },
-            "redPixelCount": 0
+            "redPixelCount": 1
           },
           {
             "point": {
               "x": 178.12255479412678,
               "y": 21.526198243769052
             },
-            "redPixelCount": 0
+            "redPixelCount": 2
           },
           {
             "point": {
               "x": 175.7182628095112,
               "y": 20.841085075954183
             },
-            "redPixelCount": 0
+            "redPixelCount": 2
           }
         ]
       },
@@ -71256,56 +71268,56 @@
         "afterIntervalId": "interval:1",
         "beforeIntervalId": "interval:2",
         "distance": 63.01036474117609,
-        "sameSplitRangeCovered": false,
-        "otherSplitRangeCovered": false,
+        "sameSplitRangeCovered": true,
+        "otherSplitRangeCovered": true,
         "sameSplitRangeProbes": [
           {
             "point": {
               "x": 182.45594008856318,
               "y": 15.03542642363307
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 180.0323793664217,
               "y": 14.421949915449524
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 177.60881864428023,
               "y": 13.808473407265978
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           }
         ],
-        "maxRedPixels": 0,
+        "maxRedPixels": 13,
         "probes": [
           {
             "point": {
               "x": 182.45594008856318,
               "y": 15.03542642363307
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": 180.0323793664217,
               "y": 14.421949915449524
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": 177.60881864428023,
               "y": 13.808473407265978
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           }
         ]
       },
@@ -71315,56 +71327,56 @@
         "afterIntervalId": "interval:23",
         "beforeIntervalId": "interval:24",
         "distance": 16,
-        "sameSplitRangeCovered": false,
-        "otherSplitRangeCovered": false,
+        "sameSplitRangeCovered": true,
+        "otherSplitRangeCovered": true,
         "sameSplitRangeProbes": [
           {
             "point": {
               "x": 15.896143969200589,
               "y": 18.76130065684345
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 16.746648297245947,
               "y": 16.410419462912945
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 17.597152625291308,
               "y": 14.05953826898244
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           }
         ],
-        "maxRedPixels": 0,
+        "maxRedPixels": 13,
         "probes": [
           {
             "point": {
               "x": 15.896143969200589,
               "y": 18.76130065684345
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": 16.746648297245947,
               "y": 16.410419462912945
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": 17.597152625291308,
               "y": 14.05953826898244
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           }
         ]
       },
@@ -71787,56 +71799,56 @@
         "afterIntervalId": "interval:39",
         "beforeIntervalId": "interval:40",
         "distance": 16,
-        "sameSplitRangeCovered": false,
-        "otherSplitRangeCovered": false,
+        "sameSplitRangeCovered": true,
+        "otherSplitRangeCovered": true,
         "sameSplitRangeProbes": [
           {
             "point": {
               "x": 194.7576404945344,
               "y": 14.80620082192681
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 197.17266125826907,
               "y": 14.159923241679511
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 199.58768202200378,
               "y": 13.513645661432214
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           }
         ],
-        "maxRedPixels": 0,
+        "maxRedPixels": 13,
         "probes": [
           {
             "point": {
               "x": 194.7576404945344,
               "y": 14.80620082192681
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": 197.17266125826907,
               "y": 14.159923241679511
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": 199.58768202200378,
               "y": 13.513645661432214
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           }
         ]
       },
@@ -72023,56 +72035,56 @@
         "afterIntervalId": "interval:3",
         "beforeIntervalId": "interval:4",
         "distance": 16,
-        "sameSplitRangeCovered": false,
-        "otherSplitRangeCovered": false,
+        "sameSplitRangeCovered": true,
+        "otherSplitRangeCovered": true,
         "sameSplitRangeProbes": [
           {
             "point": {
               "x": 0.12174568081621029,
               "y": 353.7194175542671
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": -2.3706644933863985,
               "y": 353.91407500604157
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": -4.863074667589007,
               "y": 354.108732457816
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           }
         ],
-        "maxRedPixels": 0,
+        "maxRedPixels": 13,
         "probes": [
           {
             "point": {
               "x": 0.12174568081621029,
               "y": 353.7194175542671
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": -2.3706644933863985,
               "y": 353.91407500604157
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": -4.863074667589007,
               "y": 354.108732457816
             },
-            "redPixelCount": 0
+            "redPixelCount": 6
           }
         ]
       },
@@ -73144,56 +73156,56 @@
         "afterIntervalId": "interval:13",
         "beforeIntervalId": "interval:14",
         "distance": 199.3810652010374,
-        "sameSplitRangeCovered": false,
-        "otherSplitRangeCovered": false,
+        "sameSplitRangeCovered": true,
+        "otherSplitRangeCovered": true,
         "sameSplitRangeProbes": [
           {
             "point": {
               "x": 27.311181236434244,
               "y": 370.0243360975581
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 27.49570463324674,
               "y": 372.51751702080225
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 27.680228030059236,
               "y": 375.01069794404646
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           }
         ],
-        "maxRedPixels": 0,
+        "maxRedPixels": 13,
         "probes": [
           {
             "point": {
               "x": 27.311181236434244,
               "y": 370.0243360975581
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": 27.49570463324674,
               "y": 372.51751702080225
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": 27.680228030059236,
               "y": 375.01069794404646
             },
-            "redPixelCount": 0
+            "redPixelCount": 12
           }
         ]
       },
@@ -73616,56 +73628,56 @@
         "afterIntervalId": "interval:31",
         "beforeIntervalId": "interval:32",
         "distance": 170.04932674398572,
-        "sameSplitRangeCovered": false,
-        "otherSplitRangeCovered": false,
+        "sameSplitRangeCovered": true,
+        "otherSplitRangeCovered": true,
         "sameSplitRangeProbes": [
           {
             "point": {
               "x": 7.683817021848274,
               "y": 29.926488708257793
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 5.693813686075226,
               "y": 31.439725875265047
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 3.70381035030218,
               "y": 32.95296304227231
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           }
         ],
-        "maxRedPixels": 0,
+        "maxRedPixels": 13,
         "probes": [
           {
             "point": {
               "x": 7.683817021848274,
               "y": 29.926488708257793
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": 5.693813686075226,
               "y": 31.439725875265047
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": 3.70381035030218,
               "y": 32.95296304227231
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           }
         ]
       },
@@ -73675,56 +73687,56 @@
         "afterIntervalId": "interval:33",
         "beforeIntervalId": "interval:34",
         "distance": 16,
-        "sameSplitRangeCovered": false,
-        "otherSplitRangeCovered": false,
+        "sameSplitRangeCovered": true,
+        "otherSplitRangeCovered": true,
         "sameSplitRangeProbes": [
           {
             "point": {
               "x": 256.2859812821267,
               "y": 340.57732836831553
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 254.53079529304836,
               "y": 342.3575873786124
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 252.77560930397001,
               "y": 344.1378463889092
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           }
         ],
-        "maxRedPixels": 0,
+        "maxRedPixels": 13,
         "probes": [
           {
             "point": {
               "x": 256.2859812821267,
               "y": 340.57732836831553
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": 254.53079529304836,
               "y": 342.3575873786124
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": 252.77560930397001,
               "y": 344.1378463889092
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           }
         ]
       },
@@ -73911,56 +73923,56 @@
         "afterIntervalId": "interval:15",
         "beforeIntervalId": "interval:16",
         "distance": 16,
-        "sameSplitRangeCovered": false,
-        "otherSplitRangeCovered": false,
+        "sameSplitRangeCovered": true,
+        "otherSplitRangeCovered": true,
         "sameSplitRangeProbes": [
           {
             "point": {
               "x": 349.6026108869221,
               "y": 158.28060598381109
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 351.2232765150123,
               "y": 160.1841403076222
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 352.8439421431025,
               "y": 162.0876746314333
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           }
         ],
-        "maxRedPixels": 0,
+        "maxRedPixels": 13,
         "probes": [
           {
             "point": {
               "x": 349.6026108869221,
               "y": 158.28060598381109
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": 351.2232765150123,
               "y": 160.1841403076222
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": 352.8439421431025,
               "y": 162.0876746314333
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           }
         ]
       },
@@ -74560,56 +74572,56 @@
         "afterIntervalId": "interval:21",
         "beforeIntervalId": "interval:22",
         "distance": 140.72532232366837,
-        "sameSplitRangeCovered": false,
-        "otherSplitRangeCovered": false,
+        "sameSplitRangeCovered": true,
+        "otherSplitRangeCovered": true,
         "sameSplitRangeProbes": [
           {
             "point": {
               "x": 345.925806170456,
               "y": 138.159786981973
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 346.77631049850135,
               "y": 135.8089057880425
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 347.6268148265467,
               "y": 133.458024594112
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           }
         ],
-        "maxRedPixels": 0,
+        "maxRedPixels": 13,
         "probes": [
           {
             "point": {
               "x": 345.925806170456,
               "y": 138.159786981973
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": 346.77631049850135,
               "y": 135.8089057880425
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": 347.6268148265467,
               "y": 133.458024594112
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           }
         ]
       },
@@ -74796,56 +74808,56 @@
         "afterIntervalId": "interval:37",
         "beforeIntervalId": "interval:38",
         "distance": 96.76793839642194,
-        "sameSplitRangeCovered": false,
-        "otherSplitRangeCovered": false,
+        "sameSplitRangeCovered": true,
+        "otherSplitRangeCovered": true,
         "sameSplitRangeProbes": [
           {
             "point": {
               "x": 272.0885087654426,
               "y": 330.79763176789686
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 274.5599005710661,
               "y": 330.4205077258402
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
               "x": 277.0312923766896,
               "y": 330.0433836837836
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           }
         ],
-        "maxRedPixels": 0,
+        "maxRedPixels": 13,
         "probes": [
           {
             "point": {
               "x": 272.0885087654426,
               "y": 330.79763176789686
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": 274.5599005710661,
               "y": 330.4205077258402
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           },
           {
             "point": {
               "x": 277.0312923766896,
               "y": 330.0433836837836
             },
-            "redPixelCount": 0
+            "redPixelCount": 13
           }
         ]
       }

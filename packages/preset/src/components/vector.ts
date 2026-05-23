@@ -2292,6 +2292,7 @@ const renderVectorGraphic = (
   )
 
   const fillPayload = getFillPayload(fills)
+  const hasRenderableFill = getRenderableFills(fillPayload).length > 0
   let previewFill = false
 
   const hasClosedNetwork =
@@ -2613,10 +2614,9 @@ const renderVectorGraphic = (
                         points
                       ),
                       omitDiagnosticMetadata: useDragVisualOnly,
-                      clipInsideToFillDomain:
-                        isSelfIntersectingSourcePath ||
-                        path.closed === true ||
-                        getRenderableFills(fillPayload).length > 0,
+                      clipInsideToFillDomain: isSelfIntersectingSourcePath
+                        ? hasRenderableFill
+                        : path.closed === true || hasRenderableFill,
                       constrainedDashedVisualMode:
                         shouldDisableVisualOverlapCollapse ||
                         !isSelfIntersectingSourcePath
