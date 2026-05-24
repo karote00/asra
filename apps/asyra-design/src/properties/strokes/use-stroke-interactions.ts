@@ -1,4 +1,9 @@
-import type { EVENT_OPTIONS, FillColorFormat, StrokeAttrs } from '@asyra/utils'
+import {
+  StrokeStyles,
+  type EVENT_OPTIONS,
+  type FillColorFormat,
+  type StrokeAttrs
+} from '@asyra/utils'
 import { isEqual } from 'lodash'
 import { useEffect, useMemo, useRef } from 'react'
 import {
@@ -12,6 +17,7 @@ import {
   convertUserColorToDefault,
   convertToHexUpper
 } from '../fills/color-format'
+import { getStrokeDashGap } from './dash-gap'
 
 const hasStrokePatch = (patch: StrokePatch) => Object.keys(patch).length > 0
 
@@ -295,9 +301,15 @@ export const useStrokeInteractions = ({
       return
     }
 
-    commitStrokeInteractionPatch({
+    const patch: StrokePatch = {
       style: nextStyle
-    })
+    }
+
+    if (nextStyle === StrokeStyles.DASHED && !isEqual(stroke.dashOffset, 0)) {
+      patch.dashOffset = 0
+    }
+
+    commitStrokeInteractionPatch(patch)
   }
 
   const handlePositionChange = (nextPosition: StrokeAttrs['position']) => {
@@ -327,43 +339,73 @@ export const useStrokeInteractions = ({
     return true
   }
 
-  const handleDashPatternChange = (value: string): boolean => {
+  const handleDashLengthChange = (value: string): boolean => {
     if (!stroke) {
       return false
     }
 
-    const nextPattern = value
-      .split(',')
-      .map((entry) => parseFiniteInputNumber(entry.trim()))
-      .filter((entry): entry is number => entry !== null)
-
-    if (nextPattern.length === 0 || nextPattern.some((entry) => entry <= 0)) {
+    const parsed = parseFiniteInputNumber(value)
+    if (parsed === null || parsed <= 0) {
       return false
     }
 
-    if (isEqual(stroke.dashPattern, nextPattern)) {
+    const current = getStrokeDashGap(stroke.dashPattern)
+    const nextPattern = [parsed, current.gap]
+    if (
+      isEqual(stroke.dashPattern, nextPattern) &&
+      isEqual(stroke.dashOffset, 0)
+    ) {
       return false
     }
 
-    commitStrokeInteractionPatch({
-      dashPattern: nextPattern
-    })
+    const resetDashOffsetSource = {
+      ...stroke,
+      dashOffset: Number.NaN
+    }
+
+    commitStrokeInteractionPatch(
+      {
+        dashPattern: nextPattern,
+        dashOffset: 0
+      },
+      undefined,
+      resetDashOffsetSource
+    )
     return true
   }
 
-  const handleDashOffsetChange = (value: string): boolean => {
+  const handleGapLengthChange = (value: string): boolean => {
+    if (!stroke) {
+      return false
+    }
+
     const parsed = parseFiniteInputNumber(value)
-    if (parsed === null) {
+    if (parsed === null || parsed <= 0) {
       return false
     }
 
-    if (!stroke || isEqual(stroke.dashOffset, parsed)) {
+    const current = getStrokeDashGap(stroke.dashPattern)
+    const nextPattern = [current.dash, parsed]
+    if (
+      isEqual(stroke.dashPattern, nextPattern) &&
+      isEqual(stroke.dashOffset, 0)
+    ) {
       return false
     }
 
-    commitStrokeInteractionPatch({
-      dashOffset: parsed
-    })
+    const resetDashOffsetSource = {
+      ...stroke,
+      dashOffset: Number.NaN
+    }
+
+    commitStrokeInteractionPatch(
+      {
+        dashPattern: nextPattern,
+        dashOffset: 0
+      },
+      undefined,
+      resetDashOffsetSource
+    )
     return true
   }
 
@@ -416,8 +458,8 @@ export const useStrokeInteractions = ({
     handleStyleChange,
     handlePositionChange,
     handleWidthChange,
-    handleDashPatternChange,
-    handleDashOffsetChange,
+    handleDashLengthChange,
+    handleGapLengthChange,
     handleJoinTypeChange,
     handleCapTypeChange,
     handleMiterAngleChange

@@ -69,6 +69,78 @@ test.describe('Property Management', () => {
       return Array.isArray(computed.strokes) ? computed.strokes.length : 0
     })
 
+  const getSelectedStroke = async (page: Page, strokeIndex = 0) =>
+    page.evaluate((targetStrokeIndex) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+      if (!selectedId) {
+        return null
+      }
+
+      const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      return Array.isArray(computed.strokes)
+        ? (computed.strokes[targetStrokeIndex] ?? null)
+        : null
+    }, strokeIndex)
+
+  const patchSelectedStroke = async (
+    page: Page,
+    strokePatch: Record<string, unknown>,
+    strokeIndex = 0
+  ) =>
+    page.evaluate(
+      ({ strokePatch, strokeIndex }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        const selectedId =
+          core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+        if (!selectedId) {
+          throw new Error('No selected element available for stroke patch')
+        }
+
+        const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+        const computed = element?.getAllComputedData?.() ?? {}
+        if (
+          !Array.isArray(computed.strokes) ||
+          !computed.strokes[strokeIndex]
+        ) {
+          throw new Error(`No stroke row available at index ${strokeIndex}`)
+        }
+
+        const stroke = computed.strokes[strokeIndex]
+        if (stroke?.id && typeof core?.updatePropertyById === 'function') {
+          Object.entries(strokePatch).forEach(([key, value]) => {
+            core.updatePropertyById(
+              stroke.id,
+              key,
+              value,
+              {
+                ownerElementId: selectedId,
+                ownerPropertyName: 'strokes'
+              },
+              { undoable: false }
+            )
+          })
+          core.commitPropertyChanges?.({ undoable: false })
+          return
+        }
+
+        core?.changeComputedData?.(
+          [selectedId],
+          {
+            strokes: computed.strokes.map(
+              (stroke: Record<string, unknown>, index: number) =>
+                index === strokeIndex ? { ...stroke, ...strokePatch } : stroke
+            )
+          },
+          { undoable: false }
+        )
+      },
+      { strokePatch, strokeIndex }
+    )
+
   const getTransactionSnapshot = async (page: Page) =>
     page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -285,6 +357,62 @@ test.describe('Property Management', () => {
     await propertiesPanel.getByTestId('prop-stroke-remove-0').click()
     await page.waitForTimeout(120)
     expect(await getSelectedStrokeCount(page)).toBe(1)
+  })
+
+  test('should edit dashed stroke through Dash and Gap fields', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+
+    const propertiesPanel = getPropertiesPanel(page)
+    await propertiesPanel.getByTestId('prop-stroke-add').click()
+    await page.waitForTimeout(120)
+    await propertiesPanel
+      .getByTestId('prop-stroke-style-0')
+      .selectOption('dashed')
+
+    const dashInput = propertiesPanel.getByTestId('prop-stroke-dash-0')
+    const gapInput = propertiesPanel.getByTestId('prop-stroke-gap-0')
+
+    await expect(dashInput).toBeVisible()
+    await expect(gapInput).toBeVisible()
+    await expect(
+      propertiesPanel.getByTestId('prop-stroke-pattern-0')
+    ).toHaveCount(0)
+    await expect(
+      propertiesPanel.getByTestId('prop-stroke-offset-0')
+    ).toHaveCount(0)
+
+    await dashInput.fill('27')
+    await dashInput.press('Enter')
+    await gapInput.fill('20')
+    await gapInput.press('Enter')
+
+    await expect
+      .poll(() => getSelectedStroke(page))
+      .toMatchObject({
+        dashPattern: [27, 20],
+        dashOffset: 0
+      })
+
+    await patchSelectedStroke(page, {
+      dashPattern: [27, 20, 5, 8],
+      dashOffset: 12
+    })
+    await page.waitForTimeout(120)
+
+    await expect(dashInput).toHaveValue('27')
+    await expect(gapInput).toHaveValue('20')
+
+    await gapInput.fill('21')
+    await gapInput.press('Enter')
+
+    await expect
+      .poll(() => getSelectedStroke(page))
+      .toMatchObject({
+        dashPattern: [27, 21],
+        dashOffset: 0
+      })
   })
 
   test('should show fills section for selected vector element', async ({

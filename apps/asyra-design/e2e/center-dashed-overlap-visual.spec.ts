@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
   createRectangle,
+  fillStrokeDashGap,
   getPropertiesPanel,
   getSelectedElementRect,
   resetCanvas,
@@ -76,16 +77,7 @@ const configureSelectedRectangleForOverlap = async (page: Page) => {
     await propertiesPanel
       .getByTestId(`prop-stroke-width-${index}`)
       .press('Enter')
-    await propertiesPanel
-      .getByTestId(`prop-stroke-pattern-${index}`)
-      .fill('36, 18')
-    await propertiesPanel
-      .getByTestId(`prop-stroke-pattern-${index}`)
-      .press('Enter')
-    await propertiesPanel.getByTestId(`prop-stroke-offset-${index}`).fill('0')
-    await propertiesPanel
-      .getByTestId(`prop-stroke-offset-${index}`)
-      .press('Enter')
+    await fillStrokeDashGap(propertiesPanel, index, '36, 18')
   }
 
   await page.waitForTimeout(300)

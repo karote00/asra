@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
   createVectorPath,
+  fillStrokeDashGap,
   getCanvasPosition,
   getPropertiesPanel,
   resetCanvas,
@@ -554,8 +555,7 @@ const configureSelectedVectorInsideDashedStroke = async (page: Page) => {
   await propertiesPanel.getByTestId('prop-stroke-cap-0').selectOption('round')
   await propertiesPanel.getByTestId('prop-stroke-width-0').fill('6')
   await propertiesPanel.getByTestId('prop-stroke-width-0').press('Enter')
-  await propertiesPanel.getByTestId('prop-stroke-pattern-0').fill('18, 10')
-  await propertiesPanel.getByTestId('prop-stroke-pattern-0').press('Enter')
+  await fillStrokeDashGap(propertiesPanel, 0, '18, 10')
 }
 
 const saveCurrentFileToLocalStorage = async (page: Page) => {

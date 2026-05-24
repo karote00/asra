@@ -3,9 +3,11 @@ import {
   createOval,
   createRectangle,
   createVectorPath,
+  fillStrokeDashGap,
   getCanvasPosition,
   getPropertiesPanel,
   getSelectedElementRect,
+  patchSelectedStrokeDashOffset,
   resetCanvas,
   waitForAppReady
 } from './test-utils'
@@ -2619,14 +2621,14 @@ const configureCenterDashedStroke = async (
     .getByTestId('prop-stroke-width-0')
     .fill(String(config.width ?? STROKE_WIDTH))
   await propertiesPanel.getByTestId('prop-stroke-width-0').press('Enter')
-  await propertiesPanel
-    .getByTestId('prop-stroke-pattern-0')
-    .fill(config.pattern ?? FULL_LOOP_PATTERN)
-  await propertiesPanel.getByTestId('prop-stroke-pattern-0').press('Enter')
-  await propertiesPanel
-    .getByTestId('prop-stroke-offset-0')
-    .fill(config.offset ?? '0')
-  await propertiesPanel.getByTestId('prop-stroke-offset-0').press('Enter')
+  await fillStrokeDashGap(
+    propertiesPanel,
+    0,
+    config.pattern ?? FULL_LOOP_PATTERN
+  )
+  if (Number(config.offset ?? '0') !== 0) {
+    await patchSelectedStrokeDashOffset(page, 0, config.offset ?? '0')
+  }
   await propertiesPanel.getByTestId('prop-stroke-color-0').fill(STROKE_COLOR)
   await propertiesPanel.getByTestId('prop-stroke-color-0').press('Enter')
   await page.waitForTimeout(180)
@@ -2695,18 +2697,14 @@ const configureConstrainedDashedStrokeRow = async (
   await propertiesPanel
     .getByTestId(`prop-stroke-width-${strokeIndex}`)
     .press('Enter')
-  await propertiesPanel
-    .getByTestId(`prop-stroke-pattern-${strokeIndex}`)
-    .fill(config.pattern ?? FULL_LOOP_PATTERN)
-  await propertiesPanel
-    .getByTestId(`prop-stroke-pattern-${strokeIndex}`)
-    .press('Enter')
-  await propertiesPanel
-    .getByTestId(`prop-stroke-offset-${strokeIndex}`)
-    .fill(config.offset ?? '0')
-  await propertiesPanel
-    .getByTestId(`prop-stroke-offset-${strokeIndex}`)
-    .press('Enter')
+  await fillStrokeDashGap(
+    propertiesPanel,
+    strokeIndex,
+    config.pattern ?? FULL_LOOP_PATTERN
+  )
+  if (Number(config.offset ?? '0') !== 0) {
+    await patchSelectedStrokeDashOffset(page, strokeIndex, config.offset ?? '0')
+  }
   await propertiesPanel
     .getByTestId(`prop-stroke-color-${strokeIndex}`)
     .fill(STROKE_COLOR)

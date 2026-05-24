@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { writeFile } from 'node:fs/promises'
 import {
+  fillStrokeDashGap,
   getActiveTool,
   getCanvasPosition,
   getElementCount,
@@ -919,10 +920,8 @@ const configureReportedStroke = async (
   const propertiesPanel = getPropertiesPanel(page)
   const strokeWidthInput = propertiesPanel.getByTestId('prop-stroke-width-0')
   const strokeStyleSelect = propertiesPanel.getByTestId('prop-stroke-style-0')
-  const strokePatternInput = propertiesPanel.getByTestId(
-    'prop-stroke-pattern-0'
-  )
-  const strokeOffsetInput = propertiesPanel.getByTestId('prop-stroke-offset-0')
+  const strokeDashInput = propertiesPanel.getByTestId('prop-stroke-dash-0')
+  const strokeGapInput = propertiesPanel.getByTestId('prop-stroke-gap-0')
   const strokePositionSelect = propertiesPanel.getByTestId(
     'prop-stroke-position-0'
   )
@@ -934,15 +933,12 @@ const configureReportedStroke = async (
   )
 
   await strokeStyleSelect.selectOption('dashed')
-  await expect(strokePatternInput).toBeVisible()
-  await expect(strokeOffsetInput).toBeVisible()
+  await expect(strokeDashInput).toBeVisible()
+  await expect(strokeGapInput).toBeVisible()
 
   await strokeWidthInput.fill('10')
   await strokeWidthInput.press('Enter')
-  await strokePatternInput.fill(`${DASH_LENGTH}, ${GAP_LENGTH}`)
-  await strokePatternInput.press('Enter')
-  await strokeOffsetInput.fill('0')
-  await strokeOffsetInput.press('Enter')
+  await fillStrokeDashGap(propertiesPanel, 0, `${DASH_LENGTH}, ${GAP_LENGTH}`)
   await strokePositionSelect.selectOption(position)
   await strokeJoinSelect.selectOption(join)
   await strokeCapSelect.selectOption(cap)
@@ -3050,13 +3046,10 @@ test.describe('Reported Dashed Stroke Sharp Corners', () => {
         `original-vector-6-tp-16-outside-${cap}-cap-crop.png`
       )
       await page.screenshot({ path: attachmentPath, clip: raster.clip })
-      await testInfo.attach(
-        `original-vector-6-tp-16-outside-${cap}-cap-crop`,
-        {
-          path: attachmentPath,
-          contentType: 'image/png'
-        }
-      )
+      await testInfo.attach(`original-vector-6-tp-16-outside-${cap}-cap-crop`, {
+        path: attachmentPath,
+        contentType: 'image/png'
+      })
     }
 
     const buttVsRound = await compareRasterBuffers(
@@ -3077,10 +3070,13 @@ test.describe('Reported Dashed Stroke Sharp Corners', () => {
       capCompareMetricsPath,
       `${JSON.stringify(capCompareMetrics, null, 2)}\n`
     )
-    await testInfo.attach('original-vector-6-tp-16-outside-cap-compare-metrics', {
-      path: capCompareMetricsPath,
-      contentType: 'application/json'
-    })
+    await testInfo.attach(
+      'original-vector-6-tp-16-outside-cap-compare-metrics',
+      {
+        path: capCompareMetricsPath,
+        contentType: 'application/json'
+      }
+    )
 
     const getTerminalCapCounts = (
       diagnostics:

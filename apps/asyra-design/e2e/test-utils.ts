@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 
 /**
  * Shared test utilities for E2E tests
@@ -87,6 +87,100 @@ export async function resetCanvas(page: Page) {
   const resetButton = page.getByTestId('reset-button')
   await resetButton.click()
   await page.waitForTimeout(500)
+}
+
+export function parseStrokeDashGapPattern(pattern: string): {
+  dash: string
+  gap: string
+} {
+  const entries = pattern
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+
+  const dash = entries[0] ?? '20'
+  return {
+    dash,
+    gap: entries[1] ?? dash
+  }
+}
+
+export async function fillStrokeDashGap(
+  propertiesPanel: Locator,
+  strokeIndex: number,
+  pattern: string
+) {
+  const { dash, gap } = parseStrokeDashGapPattern(pattern)
+  const dashInput = propertiesPanel.getByTestId(
+    `prop-stroke-dash-${strokeIndex}`
+  )
+  const gapInput = propertiesPanel.getByTestId(`prop-stroke-gap-${strokeIndex}`)
+
+  await dashInput.fill(dash)
+  await dashInput.press('Enter')
+  await gapInput.fill(gap)
+  await gapInput.press('Enter')
+}
+
+export async function patchSelectedStrokeDashOffset(
+  page: Page,
+  strokeIndex: number,
+  offset: string | number
+) {
+  const dashOffset = Number(offset)
+  if (!Number.isFinite(dashOffset)) {
+    throw new Error(`Invalid dash offset: ${offset}`)
+  }
+
+  await page.evaluate(
+    ({ strokeIndex, dashOffset }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      if (!selectedId) {
+        throw new Error('No selected element available for stroke dash offset')
+      }
+
+      const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      if (!Array.isArray(computed.strokes) || !computed.strokes[strokeIndex]) {
+        throw new Error(`No stroke row available at index ${strokeIndex}`)
+      }
+
+      const stroke = computed.strokes[strokeIndex]
+      if (stroke?.id && typeof core?.updatePropertyById === 'function') {
+        core.updatePropertyById(
+          stroke.id,
+          'dashOffset',
+          dashOffset,
+          {
+            ownerElementId: selectedId,
+            ownerPropertyName: 'strokes'
+          },
+          { undoable: false }
+        )
+        core.commitPropertyChanges?.({ undoable: false })
+        return
+      }
+
+      const strokes = computed.strokes.map(
+        (stroke: Record<string, unknown>, index: number) =>
+          index === strokeIndex ? { ...stroke, dashOffset } : stroke
+      )
+
+      core?.changeComputedData?.(
+        [selectedId],
+        {
+          strokes
+        },
+        { undoable: false }
+      )
+    },
+    { strokeIndex, dashOffset }
+  )
+
+  await page.waitForTimeout(120)
 }
 
 /**

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
   createVectorPath,
+  fillStrokeDashGap,
   getPropertiesPanel,
   getSelectedElementRect,
   resetCanvas,
@@ -933,10 +934,7 @@ const configureStroke = async (page: Page, strokeCase: StrokeCase) => {
   await propertiesPanel.getByTestId('prop-stroke-opacity-0').press('Enter')
 
   if (strokeCase.style === 'dashed') {
-    await propertiesPanel.getByTestId('prop-stroke-pattern-0').fill('20, 20')
-    await propertiesPanel.getByTestId('prop-stroke-pattern-0').press('Enter')
-    await propertiesPanel.getByTestId('prop-stroke-offset-0').fill('0')
-    await propertiesPanel.getByTestId('prop-stroke-offset-0').press('Enter')
+    await fillStrokeDashGap(propertiesPanel, 0, '20, 20')
   }
   await page.waitForTimeout(180)
 }

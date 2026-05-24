@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises'
 import { expect, test, type Page } from '@playwright/test'
 import {
+  fillStrokeDashGap,
   getCanvasPosition,
   getActiveTool,
   getElementCount,
@@ -805,9 +806,8 @@ const configureStrokeFromReference = async (page: Page) => {
   const propertiesPanel = page.getByTestId('properties-panel')
   const strokeWidthInput = propertiesPanel.getByTestId('prop-stroke-width-0')
   const strokeStyleSelect = propertiesPanel.getByTestId('prop-stroke-style-0')
-  const strokePatternInput = propertiesPanel.getByTestId(
-    'prop-stroke-pattern-0'
-  )
+  const strokeDashInput = propertiesPanel.getByTestId('prop-stroke-dash-0')
+  const strokeGapInput = propertiesPanel.getByTestId('prop-stroke-gap-0')
   const strokePositionSelect = propertiesPanel.getByTestId(
     'prop-stroke-position-0'
   )
@@ -819,17 +819,18 @@ const configureStrokeFromReference = async (page: Page) => {
   )
 
   await strokeStyleSelect.selectOption('dashed')
-  await expect(strokePatternInput).toBeVisible()
+  await expect(strokeDashInput).toBeVisible()
+  await expect(strokeGapInput).toBeVisible()
 
   await strokeWidthInput.click()
   await strokeWidthInput.fill('10')
   await strokeWidthInput.press('Enter')
 
-  await strokePatternInput.click()
-  await strokePatternInput.fill(
+  await fillStrokeDashGap(
+    propertiesPanel,
+    0,
     `${REFERENCE_DASH_LENGTH}, ${REFERENCE_GAP_LENGTH}`
   )
-  await strokePatternInput.press('Enter')
 
   await strokePositionSelect.selectOption('inside')
   await strokeJoinSelect.selectOption('miter')

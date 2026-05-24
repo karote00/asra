@@ -3,8 +3,10 @@ import {
   createOval,
   createRectangle,
   createVectorPath,
+  fillStrokeDashGap,
   getPropertiesPanel,
   getSelectedElementRect,
+  patchSelectedStrokeDashOffset,
   resetCanvas,
   waitForAppReady
 } from './test-utils'
@@ -354,14 +356,10 @@ const configureDashedCenterStroke = async (
     .getByTestId('prop-stroke-width-0')
     .fill(String(config.width ?? STROKE_WIDTH))
   await propertiesPanel.getByTestId('prop-stroke-width-0').press('Enter')
-  await propertiesPanel
-    .getByTestId('prop-stroke-pattern-0')
-    .fill(config.pattern ?? '20, 20')
-  await propertiesPanel.getByTestId('prop-stroke-pattern-0').press('Enter')
-  await propertiesPanel
-    .getByTestId('prop-stroke-offset-0')
-    .fill(config.offset ?? '0')
-  await propertiesPanel.getByTestId('prop-stroke-offset-0').press('Enter')
+  await fillStrokeDashGap(propertiesPanel, 0, config.pattern ?? '20, 20')
+  if (Number(config.offset ?? '0') !== 0) {
+    await patchSelectedStrokeDashOffset(page, 0, config.offset ?? '0')
+  }
   await propertiesPanel.getByTestId('prop-stroke-color-0').fill(STROKE_COLOR)
   await propertiesPanel.getByTestId('prop-stroke-color-0').press('Enter')
   await page.waitForTimeout(180)
@@ -1387,8 +1385,7 @@ test.describe('Dashed Center Stroke Visual Benchmarks', () => {
     await propertiesPanel
       .getByTestId('prop-stroke-position-0')
       .selectOption('inside')
-    await propertiesPanel.getByTestId('prop-stroke-pattern-0').fill('20, 20')
-    await propertiesPanel.getByTestId('prop-stroke-pattern-0').press('Enter')
+    await fillStrokeDashGap(propertiesPanel, 0, '20, 20')
     await propertiesPanel.getByTestId('prop-stroke-color-0').fill(STROKE_COLOR)
     await propertiesPanel.getByTestId('prop-stroke-color-0').press('Enter')
     await page.waitForTimeout(180)

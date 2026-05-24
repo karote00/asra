@@ -9,6 +9,7 @@ import {
 import type { CSSProperties } from 'react'
 import { useStroke } from '../../providers'
 import { formatInputNumber } from '../number-input'
+import { getStrokeDashGap } from './dash-gap'
 import StrokeColorRow from './stroke-color-row'
 import { useStrokeInteractions } from './use-stroke-interactions'
 
@@ -121,8 +122,8 @@ const StrokeItem = ({
     handleStyleChange,
     handlePositionChange,
     handleWidthChange,
-    handleDashPatternChange,
-    handleDashOffsetChange,
+    handleDashLengthChange,
+    handleGapLengthChange,
     handleJoinTypeChange,
     handleCapTypeChange,
     handleMiterAngleChange
@@ -135,6 +136,8 @@ const StrokeItem = ({
   if (!stroke) {
     return null
   }
+
+  const dashGap = getStrokeDashGap(stroke.dashPattern)
 
   return (
     <div className="grid grid-cols-1 gap-1 py-1">
@@ -271,9 +274,9 @@ const StrokeItem = ({
       </div>
 
       <div
-        className={`grid items-center gap-2 pl-4 pr-2 h-8 min-h-8 ${
+        className={`grid items-center gap-1 pl-4 pr-2 h-8 min-h-8 ${
           stroke.style === StrokeStyles.DASHED
-            ? 'grid-cols-[40px_minmax(0,1fr)_96px_52px]'
+            ? 'grid-cols-[40px_minmax(72px,1fr)_48px_48px]'
             : 'grid-cols-[40px_minmax(0,1fr)]'
         }`}
       >
@@ -318,18 +321,21 @@ const StrokeItem = ({
 
         {stroke.style === StrokeStyles.DASHED && (
           <PropertyControl>
-            <div style={{ width: '96px' }}>
+            <div style={{ width: '48px' }}>
               <Input
-                value={stroke.dashPattern.join(', ')}
+                value={formatInputNumber(dashGap.dash)}
                 size="small"
+                prefix="D"
                 containerClassName="!bg-transparent !px-0"
                 containerStyle={{
                   border: 'none'
                 }}
                 noOutline
-                inputClassName="!pl-[0.5em]"
-                onChange={handleDashPatternChange}
-                data-testid={`prop-stroke-pattern-${index}`}
+                inputClassName="!pl-0"
+                onChange={handleDashLengthChange}
+                data-testid={`prop-stroke-dash-${index}`}
+                aria-label="Dash length"
+                title="Dash"
               />
             </div>
           </PropertyControl>
@@ -337,18 +343,21 @@ const StrokeItem = ({
 
         {stroke.style === StrokeStyles.DASHED && (
           <PropertyControl>
-            <div style={{ width: '52px' }}>
+            <div style={{ width: '48px' }}>
               <Input
-                value={formatInputNumber(stroke.dashOffset)}
+                value={formatInputNumber(dashGap.gap)}
                 size="small"
+                prefix="G"
                 containerClassName="!bg-transparent !px-0"
                 containerStyle={{
                   border: 'none'
                 }}
                 noOutline
-                inputClassName="!pl-[0.5em]"
-                onChange={handleDashOffsetChange}
-                data-testid={`prop-stroke-offset-${index}`}
+                inputClassName="!pl-0"
+                onChange={handleGapLengthChange}
+                data-testid={`prop-stroke-gap-${index}`}
+                aria-label="Gap length"
+                title="Gap"
               />
             </div>
           </PropertyControl>
