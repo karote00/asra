@@ -101,6 +101,7 @@ yarn workspace @package/name build  # Package-specific build
 
 - **🚨 MONOREPO IMPORT RULE**: **ALWAYS** use `@asyra/package-name` for cross-package imports, NEVER use relative paths like `../../../other-package` (see `docs/ai/framework/CODING_STANDARDS.md`)
 - **🚨 MAIN BRANCH PROTECTION**: NEVER work on main branch - use feature branches only (see `docs/ai/project/rules/main-branch-protection.md`)
+- **🚨 ACTIVE PLAN / INSPECTOR FLOW RULE**: For any task that touches an active plan or inspector-backed workflow, first verify the inspector flow, then verify the active plan. If both are correct, inspect the implementation algorithm, including helper conditions, limits, fallbacks, and stale legacy branches. After finding and fixing the issue, re-check whether the inspector flow or active plan must be updated before claiming completion.
 - **Context Priority**: Use `docs/ai/framework/*` and `docs/ai/apps/*` first; treat `docs/ai/project/*` as legacy reference
 - **External APIs**: Use Context7 MCP server for libraries/frameworks/APIs (see `.antigravity/rules.md`)
 - Read `docs/ai/framework/FRAMEWORK_ESSENTIALS.md` before framework work

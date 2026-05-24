@@ -126,7 +126,6 @@ const DRAW_ORIGIN = {
 const LOCAL_CORNER_CLIP_RADIUS = 320
 const LOCAL_LEAKAGE_CLIP_RADIUS = 360
 const ZOOM_PERCENT = 260
-const ORIGINAL_VECTOR6_GLOBAL_ZOOM_PERCENT = 260
 const ORIGINAL_VECTOR6_LOCAL_ZOOM_PERCENT = 1200
 const DASH_LENGTH = 27
 const GAP_LENGTH = 20
@@ -722,6 +721,7 @@ const getStrokeExportPacketDiagnostics = async (
       ) as
         | {
             __asyraSolidCenterStrokeExportPackets?: {
+              geometryId?: string
               bounds?: {
                 minX: number
                 minY: number
@@ -773,6 +773,7 @@ const getStrokeExportPacketDiagnostics = async (
       return packets
         .map((packet, index) => ({
           index,
+          geometryId: packet.geometryId ?? null,
           bounds: packet.bounds ?? null,
           polygonCount: packet.polygons?.length ?? 0,
           pointCounts: (packet.polygons ?? []).map((polygon) => polygon.length),
@@ -2925,7 +2926,8 @@ test.describe('Reported Dashed Stroke Sharp Corners', () => {
   }, testInfo) => {
     const snapshot = await createOriginalVector6Fixture(page, {
       join: 'miter',
-      position: 'outside'
+      position: 'outside',
+      cap: 'butt'
     })
     await setZoomPercent(page, ORIGINAL_VECTOR6_LOCAL_ZOOM_PERCENT)
 
@@ -2980,7 +2982,137 @@ test.describe('Reported Dashed Stroke Sharp Corners', () => {
     expect(raster.buffer.byteLength).toBeGreaterThan(0)
   })
 
-  test('keeps the original vector-6 tp-16 outside super high-curvature endpoint responsive to join type', async ({
+  test('keeps the original vector-6 tp-16 outside super high-curvature cap type visually distinct', async ({
+    page
+  }, testInfo) => {
+    const inspectedPoint = evaluateReportedSegmentPoint(
+      ORIGINAL_VECTOR6_SEGMENTS[3],
+      0.86,
+      ORIGINAL_VECTOR6_POINTS
+    )
+    const captures: Partial<Record<'butt' | 'round' | 'square', Buffer>> = {}
+    const diagnosticsByCap: Partial<
+      Record<
+        'butt' | 'round' | 'square',
+        Awaited<ReturnType<typeof getStrokeExportPacketDiagnostics>>
+      >
+    > = {}
+
+    for (const cap of ['butt', 'round', 'square'] as const) {
+      await resetCanvas(page)
+      const snapshot = await createOriginalVector6Fixture(page, {
+        join: 'miter',
+        position: 'outside',
+        cap
+      })
+      await setZoomPercent(page, ORIGINAL_VECTOR6_LOCAL_ZOOM_PERCENT)
+      await centerWorkspacePointInViewport(page, inspectedPoint)
+      await clearElementSelectionByClick(page)
+      await clearVectorOverlayState(page)
+      await page.waitForTimeout(150)
+
+      const computedStrokeCap = await page.evaluate((elementId) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        const element = core?.deps?.sceneTree?.getElementById?.(elementId)
+        return element?.getAllComputedData?.()?.strokes?.[0]?.capType ?? null
+      }, snapshot.elementId)
+      expect(computedStrokeCap).toBe(cap)
+
+      const packetDiagnostics = await getStrokeExportPacketDiagnostics(
+        page,
+        snapshot.elementId,
+        inspectedPoint
+      )
+      diagnosticsByCap[cap] = packetDiagnostics
+      const packetDiagnosticsPath = testInfo.outputPath(
+        `original-vector-6-tp-16-outside-${cap}-cap-packet-diagnostics.json`
+      )
+      await writeFile(
+        packetDiagnosticsPath,
+        `${JSON.stringify(packetDiagnostics, null, 2)}\n`
+      )
+      await testInfo.attach(
+        `original-vector-6-tp-16-outside-${cap}-cap-packet-diagnostics`,
+        {
+          path: packetDiagnosticsPath,
+          contentType: 'application/json'
+        }
+      )
+
+      const raster = await captureWorkspaceClip(
+        page,
+        inspectedPoint,
+        LOCAL_LEAKAGE_CLIP_RADIUS
+      )
+      captures[cap] = raster.buffer
+      const attachmentPath = testInfo.outputPath(
+        `original-vector-6-tp-16-outside-${cap}-cap-crop.png`
+      )
+      await page.screenshot({ path: attachmentPath, clip: raster.clip })
+      await testInfo.attach(
+        `original-vector-6-tp-16-outside-${cap}-cap-crop`,
+        {
+          path: attachmentPath,
+          contentType: 'image/png'
+        }
+      )
+    }
+
+    const buttVsRound = await compareRasterBuffers(
+      page,
+      captures.butt as Buffer,
+      captures.round as Buffer
+    )
+    const buttVsSquare = await compareRasterBuffers(
+      page,
+      captures.butt as Buffer,
+      captures.square as Buffer
+    )
+    const capCompareMetrics = { buttVsRound, buttVsSquare }
+    const capCompareMetricsPath = testInfo.outputPath(
+      'original-vector-6-tp-16-outside-cap-compare-metrics.json'
+    )
+    await writeFile(
+      capCompareMetricsPath,
+      `${JSON.stringify(capCompareMetrics, null, 2)}\n`
+    )
+    await testInfo.attach('original-vector-6-tp-16-outside-cap-compare-metrics', {
+      path: capCompareMetricsPath,
+      contentType: 'application/json'
+    })
+
+    const getTerminalCapCounts = (
+      diagnostics:
+        | Awaited<ReturnType<typeof getStrokeExportPacketDiagnostics>>
+        | undefined
+    ) =>
+      (diagnostics ?? [])
+        .map((packet) => packet.debugMeta?.terminalCapCount)
+        .filter((count): count is number => typeof count === 'number')
+
+    const buttTerminalCapCounts = getTerminalCapCounts(diagnosticsByCap.butt)
+    const roundTerminalCapCounts = getTerminalCapCounts(diagnosticsByCap.round)
+    expect(
+      Math.max(...buttTerminalCapCounts),
+      JSON.stringify({ buttTerminalCapCounts }, null, 2)
+    ).toBe(0)
+    expect(
+      Math.max(...roundTerminalCapCounts),
+      JSON.stringify({ roundTerminalCapCounts }, null, 2)
+    ).toBeGreaterThan(0)
+
+    expect(
+      buttVsRound.redChangedPixelCount + buttVsRound.rgbaChangedPixelCount,
+      JSON.stringify(capCompareMetrics, null, 2)
+    ).toBeGreaterThan(24)
+    expect(
+      buttVsSquare.redChangedPixelCount + buttVsSquare.rgbaChangedPixelCount,
+      JSON.stringify(capCompareMetrics, null, 2)
+    ).toBeGreaterThan(24)
+  })
+
+  test('keeps the original vector-6 tp-16 outside super high-curvature endpoint terminal-owned across join type', async ({
     page
   }, testInfo) => {
     const inspectedPoint = evaluateReportedSegmentPoint(
@@ -2989,6 +3121,12 @@ test.describe('Reported Dashed Stroke Sharp Corners', () => {
       ORIGINAL_VECTOR6_POINTS
     )
     const captures: Partial<Record<'miter' | 'bevel' | 'round', Buffer>> = {}
+    const diagnosticsByJoin: Partial<
+      Record<
+        'miter' | 'bevel' | 'round',
+        Awaited<ReturnType<typeof getStrokeExportPacketDiagnostics>>
+      >
+    > = {}
 
     for (const join of ['miter', 'bevel', 'round'] as const) {
       await resetCanvas(page)
@@ -3013,6 +3151,7 @@ test.describe('Reported Dashed Stroke Sharp Corners', () => {
         snapshot.elementId,
         inspectedPoint
       )
+      diagnosticsByJoin[join] = packetDiagnostics
       const diagnosticsPath = testInfo.outputPath(
         `original-vector-6-tp-16-outside-${join}-join-packets.json`
       )
@@ -3056,6 +3195,44 @@ test.describe('Reported Dashed Stroke Sharp Corners', () => {
       expect(computedStrokeCap).toBe('butt')
     }
 
+    const forbiddenTerminalJoinEvidence = Object.entries(
+      diagnosticsByJoin
+    ).flatMap(([join, diagnostics]) =>
+      (diagnostics ?? []).flatMap((packet) => {
+        const debugMeta = packet.debugMeta as Record<string, unknown>
+        const sourceGeometryIds = Array.isArray(
+          debugMeta.visualOverlapSourceGeometryIds
+        )
+          ? debugMeta.visualOverlapSourceGeometryIds.filter(
+              (id): id is string => typeof id === 'string'
+            )
+          : []
+        const sourceBoundaryJoinCount =
+          typeof debugMeta.sourceBoundaryJoinCount === 'number'
+            ? debugMeta.sourceBoundaryJoinCount
+            : 0
+        return packet.geometryId?.includes(':boundary-terminal-join:') ||
+          sourceGeometryIds.some((id) =>
+            id.includes(':boundary-terminal-join:')
+          ) ||
+          sourceBoundaryJoinCount > 0
+          ? [
+              {
+                join,
+                geometryId: packet.geometryId,
+                sourceGeometryIds,
+                sourceBoundaryJoinCount,
+                terminalRole: debugMeta.figmaLikeTerminalRole
+              }
+            ]
+          : []
+      })
+    )
+    expect(
+      forbiddenTerminalJoinEvidence,
+      JSON.stringify({ forbiddenTerminalJoinEvidence }, null, 2)
+    ).toEqual([])
+
     const miterVsBevel = await compareRasterBuffers(
       page,
       captures.miter as Buffer,
@@ -3073,13 +3250,18 @@ test.describe('Reported Dashed Stroke Sharp Corners', () => {
     )
 
     expect(
-      Math.max(
+      [
+        miterVsBevel.redChangedPixelCount,
+        miterVsRound.redChangedPixelCount,
+        bevelVsRound.redChangedPixelCount,
         miterVsBevel.rgbaChangedPixelCount,
         miterVsRound.rgbaChangedPixelCount,
         bevelVsRound.rgbaChangedPixelCount
-      ),
+      ],
       JSON.stringify(
         {
+          message:
+            'tp-16 is a boundary split terminal/cap endpoint; local crop must not depend on join type',
           miterVsBevel,
           miterVsRound,
           bevelVsRound
@@ -3087,6 +3269,6 @@ test.describe('Reported Dashed Stroke Sharp Corners', () => {
         null,
         2
       )
-    ).toBeGreaterThan(24)
+    ).toEqual([0, 0, 0, 0, 0, 0])
   })
 })

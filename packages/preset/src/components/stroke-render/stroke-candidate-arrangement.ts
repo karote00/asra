@@ -941,21 +941,11 @@ const groupFinalFacesByVisualPacket = (faces: ArrangedStrokeFinalFace[]) => {
   const groups = new Map<string, ArrangedStrokeFinalFace[]>()
 
   faces.forEach((face) => {
-    const selfIntersectingConstrainedDashedSplitKey =
-      face.sourceTopology === 'self-intersecting' &&
-      (face.geometryFamily === 'constrained-dashed' ||
-        face.geometryFamily === 'constrained-solid') &&
-      (face.debugMeta?.figmaLikeSplitRangeId ||
-        face.intervalIds.some((id) => id.startsWith('interval:')))
-        ? [
-            'self-intersecting-constrained-dashed-split',
-            face.debugMeta?.figmaLikeSplitRangeId ?? 'unknown-split-range',
-            stableStringify({ intervalIds: face.intervalIds }),
-            face.debugMeta?.figmaLikeSelectedSide ?? 'unknown-side'
-          ].join('|')
-        : null
-    const groupKey =
-      face.geometryFamily === 'dashed-center'
+    const constrainedDashCoverageUnitKey =
+      getSelfIntersectingConstrainedDashedCoverageUnitKey(face)
+    const groupKey = constrainedDashCoverageUnitKey
+      ? [face.visualPacketKey, constrainedDashCoverageUnitKey].join('|')
+      : face.geometryFamily === 'dashed-center'
         ? [
             face.visualPacketKey,
             'dashed-center-interval',
@@ -964,12 +954,7 @@ const groupFinalFacesByVisualPacket = (faces: ArrangedStrokeFinalFace[]) => {
               ownerSet: face.ownerSet
             })
           ].join('|')
-        : selfIntersectingConstrainedDashedSplitKey
-          ? [
-              face.visualPacketKey,
-              selfIntersectingConstrainedDashedSplitKey
-            ].join('|')
-          : face.visualPacketKey
+        : face.visualPacketKey
     const existing = groups.get(groupKey) ?? []
     existing.push(face)
     groups.set(groupKey, existing)
@@ -982,8 +967,44 @@ const isLocalSideConstrainedSolidFace = (face: ArrangedStrokeFinalFace) =>
   face.geometryFamily === 'constrained-solid' &&
   face.resolutionStatus !== 'exact-constrained'
 
+const isSelfIntersectingConstrainedDashedProductFace = (
+  face: ArrangedStrokeFinalFace
+) =>
+  face.geometryFamily === 'constrained-dashed' &&
+  face.sourceTopology === 'self-intersecting' &&
+  face.debugMeta?.finalCoverageBuilderStatus === 'product-final'
+
+const getSelfIntersectingConstrainedDashedCoverageUnitKey = (
+  face: ArrangedStrokeFinalFace
+) => {
+  if (!isSelfIntersectingConstrainedDashedProductFace(face)) {
+    return null
+  }
+
+  const intervalIds =
+    face.intervalIds.length > 0
+      ? face.intervalIds
+      : face.debugMeta?.intervalId
+        ? [face.debugMeta.intervalId]
+        : []
+
+  return [
+    'self-intersecting-constrained-dash-coverage-unit',
+    'interval',
+    face.debugMeta?.figmaLikeBoundaryDomainId ?? 'unknown-boundary-domain',
+    face.debugMeta?.figmaLikeSplitRangeId ?? 'unknown-split-range',
+    stableStringify(intervalIds),
+    face.debugMeta?.figmaLikeTerminalRole ?? 'unknown-terminal-role',
+    face.debugMeta?.figmaLikeSelectedSide ?? 'unknown-selected-side'
+  ].join('|')
+}
+
 const hasDashedCenterFace = (faces: ArrangedStrokeFinalFace[]) =>
   faces.some((face) => face.geometryFamily === 'dashed-center')
+
+const hasSelfIntersectingConstrainedDashedProductFace = (
+  faces: ArrangedStrokeFinalFace[]
+) => faces.some(isSelfIntersectingConstrainedDashedProductFace)
 
 const hasGradientPaintFace = (faces: ArrangedStrokeFinalFace[]) =>
   faces.some(
@@ -1506,12 +1527,20 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
         group,
         { buildArrangement }
       )
+      const shouldTrustExactArrangement =
+        hasSelfIntersectingConstrainedDashedProductFace(group) &&
+        canTrustExactArrangementPartition(arrangedCollapse)
       if (
         arrangedCollapse.length > 0 &&
-        !shouldAttemptVisualOverlapCollapse(arrangedCollapse)
+        (shouldTrustExactArrangement ||
+          !shouldAttemptVisualOverlapCollapse(arrangedCollapse))
       ) {
         return arrangedCollapse
       }
+    }
+
+    if (hasSelfIntersectingConstrainedDashedProductFace(group)) {
+      return group
     }
 
     const unionRegions = measureVectorRenderPhase(

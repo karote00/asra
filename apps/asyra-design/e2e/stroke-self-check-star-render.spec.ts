@@ -89,6 +89,13 @@ const SELF_CHECK_SOURCE_POINTS: Record<string, Vec2> = {
   'tp-16:out': { x: 277.27308110515736, y: 329.6890701017029 }
 }
 
+const SELF_CHECK_VECTOR_RECT = {
+  x: 177.70582329255865,
+  y: 121.88648201811688,
+  width: 360.12094148356584,
+  height: 367.70186652155667
+} as const
+
 const SELF_CHECK_SOURCE_SEGMENTS = [
   {
     startId: 'tp-12',
@@ -125,6 +132,64 @@ const SELF_CHECK_SOURCE_SEGMENTS = [
 const SELF_CHECK_SOURCE_ANCHOR_POINTS = SELF_CHECK_SOURCE_SEGMENTS.map(
   (segment) => SELF_CHECK_SOURCE_POINTS[segment.startId]
 )
+
+const getSelfCheckSegmentPoint = (
+  segment: (typeof SELF_CHECK_SOURCE_SEGMENTS)[number],
+  key: 'startId' | 'endId' | 'outControlId' | 'inControlId'
+) => {
+  const pointId = segment[key]
+  return pointId ? SELF_CHECK_SOURCE_POINTS[pointId] : undefined
+}
+
+const getSelfCheckSegmentStartTangent = (
+  segment: (typeof SELF_CHECK_SOURCE_SEGMENTS)[number]
+) => {
+  const start = getSelfCheckSegmentPoint(segment, 'startId') as Vec2
+  const end = getSelfCheckSegmentPoint(segment, 'endId') as Vec2
+  const control = getSelfCheckSegmentPoint(segment, 'outControlId') ?? end
+  const tangent = { x: control.x - start.x, y: control.y - start.y }
+  return Math.hypot(tangent.x, tangent.y) > 1e-6
+    ? tangent
+    : { x: end.x - start.x, y: end.y - start.y }
+}
+
+const getSelfCheckSegmentEndTangent = (
+  segment: (typeof SELF_CHECK_SOURCE_SEGMENTS)[number]
+) => {
+  const start = getSelfCheckSegmentPoint(segment, 'startId') as Vec2
+  const end = getSelfCheckSegmentPoint(segment, 'endId') as Vec2
+  const control = getSelfCheckSegmentPoint(segment, 'inControlId') ?? start
+  const tangent = { x: end.x - control.x, y: end.y - control.y }
+  return Math.hypot(tangent.x, tangent.y) > 1e-6
+    ? tangent
+    : { x: end.x - start.x, y: end.y - start.y }
+}
+
+const SELF_CHECK_SMOOTH_CONTINUITY_ANCHOR_POINTS =
+  SELF_CHECK_SOURCE_SEGMENTS.flatMap((segment, segmentIndex) => {
+    const nextSegment =
+      SELF_CHECK_SOURCE_SEGMENTS[
+        (segmentIndex + 1) % SELF_CHECK_SOURCE_SEGMENTS.length
+      ]
+    if (segment.endId !== nextSegment.startId) {
+      return []
+    }
+    const previousTangent = getSelfCheckSegmentEndTangent(segment)
+    const nextTangent = getSelfCheckSegmentStartTangent(nextSegment)
+    const previousLength = Math.hypot(previousTangent.x, previousTangent.y)
+    const nextLength = Math.hypot(nextTangent.x, nextTangent.y)
+    if (previousLength <= 1e-6 || nextLength <= 1e-6) {
+      return []
+    }
+    const cross =
+      previousTangent.x * nextTangent.y - previousTangent.y * nextTangent.x
+    const dot =
+      previousTangent.x * nextTangent.x + previousTangent.y * nextTangent.y
+    const normalizedCross = Math.abs(cross) / (previousLength * nextLength)
+    return normalizedCross <= 1e-3 && dot > 0
+      ? [SELF_CHECK_SOURCE_POINTS[segment.endId]]
+      : []
+  })
 
 const SELF_CHECK_SOURCE_PATH: Vec2[] = SELF_CHECK_SOURCE_SEGMENTS.flatMap(
   (segment, segmentIndex) => {
@@ -170,7 +235,7 @@ const createSelfCheckStar = async (
   } = {}
 ) => {
   await page.evaluate(
-    ({ capType, includeFill, includeStroke, joinType, position }) => {
+    ({ capType, includeFill, includeStroke, joinType, position, rect }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -322,10 +387,10 @@ const createSelfCheckStar = async (
       elementApis.changeComputedData(
         [createdId],
         {
-          x: 177.70582329255865,
-          y: 121.88648201811688,
-          width: 360.12094148356584,
-          height: 367.70186652155667,
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
           points,
           segments,
           networks,
@@ -375,12 +440,7 @@ const createSelfCheckStar = async (
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(window as any).__selfCheckVectorId = createdId
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(window as any).__selfCheckVectorRect = {
-        x: 177.70582329255865,
-        y: 121.88648201811688,
-        width: 360.12094148356584,
-        height: 367.70186652155667
-      }
+      ;(window as any).__selfCheckVectorRect = { ...rect }
       core.setSystemProperty('zoom', 1.55)
       core.setSystemProperty('viewportPosition', { x: 145, y: 75 })
       core.setSystemProperty('pathEditingVectorId', createdId)
@@ -392,13 +452,14 @@ const createSelfCheckStar = async (
       includeFill: options.includeFill,
       includeStroke: options.includeStroke,
       joinType: options.joinType ?? 'miter',
-      position: options.position ?? 'inside'
+      position: options.position ?? 'inside',
+      rect: SELF_CHECK_VECTOR_RECT
     }
   )
 }
 
 const getSelfCheckMetadata = async (page: Page) =>
-  page.evaluate(() => {
+  page.evaluate((selfCheckRect) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const core = (window as any).__Core__
     const selectedId =
@@ -680,7 +741,7 @@ const getSelfCheckMetadata = async (page: Page) =>
             width: fallbackRect.width,
             height: fallbackRect.height
           }
-        : null
+        : { ...selfCheckRect }
 
     return {
       selectedId,
@@ -703,7 +764,7 @@ const getSelfCheckMetadata = async (page: Page) =>
       screenshotPath:
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts/self-check-inside-dashed-round-fill.png'
     }
-  })
+  }, SELF_CHECK_VECTOR_RECT)
 
 const getPolygonEdgeLengths = (polygon: { x: number; y: number }[]) =>
   polygon.map((point, index) => {
@@ -918,7 +979,7 @@ const analyzeSelfCheckScreenshots = async (
 
       const getComponents = (mask: Uint8Array) => {
         const visited = new Uint8Array(width * height)
-        const components: Array<{
+        const components: {
           area: number
           minX: number
           minY: number
@@ -926,7 +987,7 @@ const analyzeSelfCheckScreenshots = async (
           maxY: number
           centerX: number
           centerY: number
-        }> = []
+        }[] = []
         const queue: number[] = []
         for (let y = canvasBounds.top; y < canvasBounds.bottom; y += 1) {
           for (let x = canvasBounds.left; x < canvasBounds.right; x += 1) {
@@ -1068,6 +1129,7 @@ const analyzeSelfCheckBoundaryDomainOracle = async (
       metadata,
       sourcePath,
       sourceAnchorPoints,
+      smoothContinuityAnchorPoints,
       capType,
       strictTerminalAdjacentGap,
       expectedPosition
@@ -1460,6 +1522,27 @@ const analyzeSelfCheckBoundaryDomainOracle = async (
           })
         )
       }
+      const isSmoothContinuityBoundaryPoint = (point: {
+        x: number
+        y: number
+      }) => {
+        const samePointTolerance = 1.5
+        return smoothContinuityAnchorPoints.some(
+          (anchor) =>
+            Math.hypot(anchor.x - point.x, anchor.y - point.y) <=
+            samePointTolerance
+        )
+      }
+      const isSmoothContinuitySplitRangeEdge = (
+        records: typeof uniqueTerminalRecords,
+        rangeDistance: number
+      ) => {
+        const sampleRecord = records[0]
+        const sample = sampleRecord
+          ? getRecordSample(sampleRecord, rangeDistance)
+          : null
+        return sample ? isSmoothContinuityBoundaryPoint(sample.point) : false
+      }
       const dashPattern = [27, 20]
       const expectedHalfDash = dashPattern[0] / 2
       const distributionFailures = [...recordsBySplitRange.entries()].flatMap(
@@ -1485,22 +1568,33 @@ const analyzeSelfCheckBoundaryDomainOracle = async (
               (record) => record.terminalRole === 'start'
             )
             const end = sorted.find((record) => record.terminalRole === 'end')
-            if (!start) {
+            const startIsSmoothContinuity = isSmoothContinuitySplitRangeEdge(
+              sorted,
+              rangeStart
+            )
+            const endIsSmoothContinuity = isSmoothContinuitySplitRangeEdge(
+              sorted,
+              rangeEnd
+            )
+            if (!start && !startIsSmoothContinuity) {
               failures.push('missing-start-terminal')
             } else if (
-              Math.abs(start.startDistance - rangeStart) > 1e-4 ||
-              Math.abs(
-                start.endDistance - start.startDistance - expectedHalfDash
-              ) > 1e-4
+              start &&
+              (Math.abs(start.startDistance - rangeStart) > 1e-4 ||
+                Math.abs(
+                  start.endDistance - start.startDistance - expectedHalfDash
+                ) > 1e-4)
             ) {
               failures.push('start-terminal-not-half-dash')
             }
-            if (!end) {
+            if (!end && !endIsSmoothContinuity) {
               failures.push('missing-end-terminal')
             } else if (
-              Math.abs(end.endDistance - rangeEnd) > 1e-4 ||
-              Math.abs(end.endDistance - end.startDistance - expectedHalfDash) >
-                1e-4
+              end &&
+              (Math.abs(end.endDistance - rangeEnd) > 1e-4 ||
+                Math.abs(
+                  end.endDistance - end.startDistance - expectedHalfDash
+                ) > 1e-4)
             ) {
               failures.push('end-terminal-not-half-dash')
             }
@@ -1950,6 +2044,7 @@ const analyzeSelfCheckBoundaryDomainOracle = async (
       metadata,
       sourcePath,
       sourceAnchorPoints: SELF_CHECK_SOURCE_ANCHOR_POINTS,
+      smoothContinuityAnchorPoints: SELF_CHECK_SMOOTH_CONTINUITY_ANCHOR_POINTS,
       strictTerminalAdjacentGap: options.strictTerminalAdjacentGap === true,
       capType: options.capType,
       expectedPosition: options.expectedPosition
@@ -1960,10 +2055,14 @@ const compareRightBottomHighCurvatureSmoothTerminalPixels = async (
   page: Page,
   first: Buffer,
   second: Buffer,
-  metadata: Awaited<ReturnType<typeof getSelfCheckMetadata>>
+  metadata: Awaited<ReturnType<typeof getSelfCheckMetadata>>,
+  options: {
+    sourceAnchor?: Vec2
+    radius?: number
+  } = {}
 ) =>
   page.evaluate(
-    async ({ firstDataUrl, secondDataUrl, metadata }) => {
+    async ({ firstDataUrl, secondDataUrl, metadata, options }) => {
       const loadImage = (src: string) =>
         new Promise<HTMLImageElement>((resolve, reject) => {
           const image = new Image()
@@ -1996,7 +2095,8 @@ const compareRightBottomHighCurvatureSmoothTerminalPixels = async (
         throw new Error('Missing selected rect for join pixel oracle')
       }
 
-      const sourceAnchor = { x: 270.59180204238254, y: 347.0603956649177 }
+      const sourceAnchor =
+        options.sourceAnchor ?? { x: 270.59180204238254, y: 347.0603956649177 }
       const screenAnchor = {
         x:
           (selectedRect.x + sourceAnchor.x) * metadata.zoom +
@@ -2005,7 +2105,7 @@ const compareRightBottomHighCurvatureSmoothTerminalPixels = async (
           (selectedRect.y + sourceAnchor.y) * metadata.zoom +
           metadata.viewport.y
       }
-      const radius = 72
+      const radius = options.radius ?? 72
       const isRedStrokePixel = (pixels: Uint8ClampedArray, index: number) => {
         const r = pixels[index]
         const g = pixels[index + 1]
@@ -2116,7 +2216,8 @@ const compareRightBottomHighCurvatureSmoothTerminalPixels = async (
     {
       firstDataUrl: `data:image/png;base64,${first.toString('base64')}`,
       secondDataUrl: `data:image/png;base64,${second.toString('base64')}`,
-      metadata
+      metadata,
+      options
     }
   )
 
@@ -2407,6 +2508,14 @@ const compareRightBottomHighCurvatureSmoothTerminalPixels = async (
       JSON.stringify({ capType, legalAnalysis }, null, 2)
     ).toBeLessThan(Math.max(120, legalAnalysis.redPixelCount * 0.03))
     expect(
+      legalAnalysis.darkOverdrawPixelCount,
+      JSON.stringify({ capType, legalAnalysis }, null, 2)
+    ).toBe(0)
+    expect(
+      legalAnalysis.maxDarkOverdrawComponentArea,
+      JSON.stringify({ capType, legalAnalysis }, null, 2)
+    ).toBe(0)
+    expect(
       boundaryDomainAnalysis.distributionFailures,
       JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
     ).toEqual([])
@@ -2443,11 +2552,13 @@ const compareRightBottomHighCurvatureSmoothTerminalPixels = async (
   })
 })
 
-test('self-check: right-bottom high-curvature outside dashed smooth endpoint remains covered across join settings', async ({
+test('self-check: right-bottom high-curvature outside dashed terminal remains cap-owned across join settings', async ({
   page
 }) => {
   const screenshots: Partial<Record<SelfCheckJoinType, Buffer>> = {}
-  let metadata: Awaited<ReturnType<typeof getSelfCheckMetadata>> | null = null
+  const metadataByJoin: Partial<
+    Record<SelfCheckJoinType, Awaited<ReturnType<typeof getSelfCheckMetadata>>>
+  > = {}
 
   for (const joinType of ['miter', 'bevel', 'round'] as const) {
     await resetCanvas(page)
@@ -2470,34 +2581,86 @@ test('self-check: right-bottom high-curvature outside dashed smooth endpoint rem
     await page.waitForTimeout(800)
 
     screenshots[joinType] = await page.screenshot({ fullPage: false })
-    metadata = await getSelfCheckMetadata(page)
+    metadataByJoin[joinType] = await getSelfCheckMetadata(page)
   }
 
-  expect(metadata).not.toBeNull()
+  expect(metadataByJoin.miter).toBeDefined()
+  expect(metadataByJoin.bevel).toBeDefined()
+  expect(metadataByJoin.round).toBeDefined()
   expect(screenshots.miter).toBeDefined()
   expect(screenshots.bevel).toBeDefined()
   expect(screenshots.round).toBeDefined()
+
+  const boundaryTerminalJoinPackets = Object.entries(metadataByJoin).flatMap(
+    ([joinType, joinMetadata]) =>
+      (joinMetadata?.boundaryDomainPackets ?? []).flatMap((packet) =>
+        packet.geometryId?.includes(':boundary-terminal-join:')
+          ? [
+              {
+                joinType,
+                geometryId: packet.geometryId,
+                intervalIds: packet.intervalIds,
+                terminalRole: packet.figmaLikeTerminalRole
+              }
+            ]
+          : []
+      )
+  )
+  const productTerminalPacketCounts = Object.entries(metadataByJoin).map(
+    ([joinType, joinMetadata]) => ({
+      joinType,
+      count: (joinMetadata?.boundaryDomainPackets ?? []).filter((packet) => {
+        const role = packet.figmaLikeTerminalRole
+        return (
+          packet.strokePosition === 'outside' &&
+          packet.finalCoverageBuilderStatus === 'product-final' &&
+          (role === 'start' || role === 'end' || role === 'start-end')
+        )
+      }).length
+    })
+  )
+  const sourceVertexJoinPacketCounts = Object.entries(metadataByJoin).map(
+    ([joinType, joinMetadata]) => ({
+      joinType,
+      count: (joinMetadata?.boundaryDomainPackets ?? []).filter((packet) =>
+        packet.geometryId?.includes(':source-vertex-join:')
+      ).length
+    })
+  )
+
+  expect(
+    boundaryTerminalJoinPackets,
+    JSON.stringify({ boundaryTerminalJoinPackets }, null, 2)
+  ).toEqual([])
+  expect(
+    productTerminalPacketCounts.every(({ count }) => count > 0),
+    JSON.stringify({ productTerminalPacketCounts }, null, 2)
+  ).toBe(true)
+  expect(
+    sourceVertexJoinPacketCounts.every(({ count }) => count > 0),
+    JSON.stringify({ sourceVertexJoinPacketCounts }, null, 2)
+  ).toBe(true)
 
   const miterVsBevel =
     await compareRightBottomHighCurvatureSmoothTerminalPixels(
       page,
       screenshots.miter as Buffer,
       screenshots.bevel as Buffer,
-      metadata as Awaited<ReturnType<typeof getSelfCheckMetadata>>
+      metadataByJoin.miter as Awaited<ReturnType<typeof getSelfCheckMetadata>>
     )
   const miterVsRound =
     await compareRightBottomHighCurvatureSmoothTerminalPixels(
       page,
       screenshots.miter as Buffer,
       screenshots.round as Buffer,
-      metadata as Awaited<ReturnType<typeof getSelfCheckMetadata>>
+      metadataByJoin.miter as Awaited<ReturnType<typeof getSelfCheckMetadata>>
     )
   const bevelVsRound =
     await compareRightBottomHighCurvatureSmoothTerminalPixels(
       page,
       screenshots.bevel as Buffer,
       screenshots.round as Buffer,
-      metadata as Awaited<ReturnType<typeof getSelfCheckMetadata>>
+      metadataByJoin.bevel as Awaited<ReturnType<typeof getSelfCheckMetadata>>
     )
 
   expect(
@@ -2514,7 +2677,7 @@ test('self-check: right-bottom high-curvature outside dashed smooth endpoint rem
         miterVsBevel,
         miterVsRound,
         bevelVsRound,
-        computedStrokes: metadata?.computedStrokes
+        computedStrokes: metadataByJoin.round?.computedStrokes
       },
       null,
       2
@@ -2522,24 +2685,215 @@ test('self-check: right-bottom high-curvature outside dashed smooth endpoint rem
   ).toBeGreaterThan(80)
 
   expect(
-    Math.max(
+    [
+      miterVsBevel.changedPixelCount,
+      miterVsRound.changedPixelCount,
+      bevelVsRound.changedPixelCount,
       miterVsBevel.changedRgbaPixelCount,
       miterVsRound.changedRgbaPixelCount,
       bevelVsRound.changedRgbaPixelCount
-    ),
+    ],
     JSON.stringify(
       {
         message:
-          'right-bottom high-curvature closed-path endpoint must visibly respond to joinType changes in the app render path',
+          'right-bottom high-curvature boundary split endpoint is terminal/cap geometry, so local coverage must not depend on joinType',
         miterVsBevel,
         miterVsRound,
         bevelVsRound,
-        computedStrokes: metadata?.computedStrokes
+        computedStrokes: metadataByJoin.round?.computedStrokes
       },
       null,
       2
     )
-  ).toBeGreaterThan(24)
+  ).toEqual([0, 0, 0, 0, 0, 0])
+
+  const topMiterVsRound =
+    await compareRightBottomHighCurvatureSmoothTerminalPixels(
+      page,
+      screenshots.miter as Buffer,
+      screenshots.round as Buffer,
+      metadataByJoin.miter as Awaited<ReturnType<typeof getSelfCheckMetadata>>,
+      {
+        sourceAnchor: SELF_CHECK_SOURCE_POINTS['tp-12'],
+        radius: 68
+      }
+    )
+  const topBevelVsRound =
+    await compareRightBottomHighCurvatureSmoothTerminalPixels(
+      page,
+      screenshots.bevel as Buffer,
+      screenshots.round as Buffer,
+      metadataByJoin.bevel as Awaited<ReturnType<typeof getSelfCheckMetadata>>,
+      {
+        sourceAnchor: SELF_CHECK_SOURCE_POINTS['tp-12'],
+        radius: 68
+      }
+    )
+
+  expect(
+    Math.min(
+      topMiterVsRound.changedRgbaPixelCount,
+      topBevelVsRound.changedRgbaPixelCount
+    ),
+    JSON.stringify(
+      {
+        message:
+          'the authored top source vertex must still respond to round join while boundary split terminals stay cap-owned',
+        topMiterVsRound,
+        topBevelVsRound,
+        sourceVertexJoinPacketCounts
+      },
+      null,
+      2
+    )
+  ).toBeGreaterThan(20)
+})
+
+test('self-check: outside dashed star captures Cmd+1 and app-zoom coverage-unit review', async ({
+  page
+}, testInfo) => {
+  fs.mkdirSync(ARTIFACT_DIR, { recursive: true })
+
+  await createSelfCheckStar(page, {
+    capType: 'square',
+    joinType: 'miter',
+    position: 'outside'
+  })
+  await page.waitForFunction(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId =
+      core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+    const element = selectedId
+      ? core?.deps?.sceneTree?.getElementById?.(selectedId)
+      : null
+    const computed = element?.getAllComputedData?.()
+    return Boolean(computed?.strokes?.length && computed?.fills?.length)
+  })
+  await page.waitForTimeout(800)
+
+  await page.keyboard.press('Meta+1')
+  await page.waitForTimeout(500)
+  const globalPath = path.join(
+    ARTIFACT_DIR,
+    'self-check-outside-dashed-square-cmd1-global-review.png'
+  )
+  await page.screenshot({ path: globalPath, fullPage: false })
+  await testInfo.attach('outside-square-cmd1-global-review', {
+    path: globalPath,
+    contentType: 'image/png'
+  })
+
+  const focusSelfCheckLocalPoint = async (
+    point: Vec2,
+    zoom: number,
+    screenshotPath: string,
+    attachmentName: string
+  ) => {
+    const viewportSize = page.viewportSize()
+    if (!viewportSize) {
+      throw new Error('Missing viewport size')
+    }
+    const canvasCenter = {
+      x: 240 + (viewportSize.width - 480) / 2,
+      y: 48 + (viewportSize.height - 148) / 2
+    }
+    await page.evaluate(
+      ({ canvasCenter, point, rect, zoom }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const fallbackRect = (window as any).__selfCheckVectorRect
+        const targetRect =
+          fallbackRect &&
+          typeof fallbackRect.x === 'number' &&
+          typeof fallbackRect.y === 'number' &&
+          typeof fallbackRect.width === 'number' &&
+          typeof fallbackRect.height === 'number'
+            ? fallbackRect
+            : rect
+        if (!core) {
+          throw new Error('Missing app core')
+        }
+        core.setSystemProperty('zoom', zoom)
+        core.setSystemProperty('viewportPosition', {
+          x: canvasCenter.x - (targetRect.x + point.x) * zoom,
+          y: canvasCenter.y - (targetRect.y + point.y) * zoom
+        })
+      },
+      { canvasCenter, point, rect: SELF_CHECK_VECTOR_RECT, zoom }
+    )
+    await page.waitForTimeout(500)
+    await page.screenshot({ path: screenshotPath, fullPage: false })
+    await testInfo.attach(attachmentName, {
+      path: screenshotPath,
+      contentType: 'image/png'
+    })
+  }
+
+  await focusSelfCheckLocalPoint(
+    SELF_CHECK_SOURCE_POINTS['tp-12'],
+    4.25,
+    path.join(
+      ARTIFACT_DIR,
+      'self-check-outside-dashed-square-top-app-zoom-review.png'
+    ),
+    'outside-square-top-app-zoom-review'
+  )
+  await focusSelfCheckLocalPoint(
+    SELF_CHECK_SOURCE_POINTS['tp-13'],
+    3.35,
+    path.join(
+      ARTIFACT_DIR,
+      'self-check-outside-dashed-square-left-bottom-app-zoom-review.png'
+    ),
+    'outside-square-left-bottom-app-zoom-review'
+  )
+  await focusSelfCheckLocalPoint(
+    SELF_CHECK_SOURCE_POINTS['tp-16'],
+    3.75,
+    path.join(
+      ARTIFACT_DIR,
+      'self-check-outside-dashed-square-right-bottom-app-zoom-review.png'
+    ),
+    'outside-square-right-bottom-app-zoom-review'
+  )
+
+  const metadata = await getSelfCheckMetadata(page)
+  const boundaryTerminalJoinPackets = metadata.boundaryDomainPackets.filter(
+    (packet) => packet.geometryId?.includes(':boundary-terminal-join:')
+  )
+  const crossIntervalArrangedPackets = metadata.boundaryDomainPackets.flatMap(
+    (packet) => {
+      if (packet.visualOverlapCollapseStatus !== 'exact-arrangement') {
+        return []
+      }
+      const intervalIds = [
+        ...new Set(
+          [...packet.intervalIds, packet.debugIntervalId].filter(Boolean)
+        )
+      ]
+      return intervalIds.length > 1
+        ? [
+            {
+              geometryId: packet.geometryId,
+              intervalIds,
+              splitRangeId: packet.figmaLikeSplitRangeId,
+              terminalRole: packet.figmaLikeTerminalRole
+            }
+          ]
+        : []
+    }
+  )
+
+  expect(
+    boundaryTerminalJoinPackets,
+    JSON.stringify({ boundaryTerminalJoinPackets }, null, 2)
+  ).toEqual([])
+  expect(
+    crossIntervalArrangedPackets,
+    JSON.stringify({ crossIntervalArrangedPackets }, null, 2)
+  ).toEqual([])
 })
 
 test('self-check: self-intersecting inside dashed round star satisfies rule-driven split ranges', async ({

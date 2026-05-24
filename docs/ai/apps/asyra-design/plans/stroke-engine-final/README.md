@@ -125,14 +125,27 @@ Completion definition:
    stroke-domain selection.
 9. For every selected boundary split segment, both range ends receive half-dash
    coverage and the interior dash/gap schedule is evenly distributed within
-   that range. No dash continuity may cross the split boundary.
+   that range. Dash continuity must not cross a true self-intersection split
+   boundary. A smooth/tangent-continuous authored source vertex on the same
+   outside legal coverage is different: when the dash phase produces continuous
+   visible coverage on both adjacent source segments, that continuity must be
+   represented before candidate generation as one coverage interval, not as two
+   terminal half-dashes stitched after packets exist.
 10. Inside selects every filled face boundary and draws on that face's inside
     side. Outside selects only filled-to-exterior boundaries and draws on the
     exterior side.
 11. Butt is the base dashed geometry. Square and round caps are additive
     endpoint geometry attached after the base terminal dash intervals are
     allocated; the assembled geometry then re-enters overlap, legality/mask,
-    FinalFace, and render/export projection.
+    FinalFace, and render/export projection. A boundary split endpoint is a
+    terminal/cap boundary, not a line-join boundary. Only authored sharp or
+    tangent-discontinuous source vertices are line-join boundaries: when visible
+    terminal half-dashes from adjacent source segments meet at the same authored
+    sharp source vertex on the same legal outside boundary, the product emits
+    `source-vertex-join` coverage that responds to miter/bevel/round. Authored
+    smooth/tangent-continuous vertices and curve-internal high curvature are
+    continuous offset-curve coverage, not join-type coverage; they must preserve
+    same-coverage-unit continuity without using `boundary-terminal-join`.
 12. Fill regions, winding rules, loops, and face classifications are shared
     geometry evidence used to derive stroke boundary domains. They must not be
     recreated downstream as replacement geometry.
@@ -141,7 +154,18 @@ Completion definition:
     replacement center bands, authored source contour loops, or renderer fixes.
 14. Overlap is resolved before product `FinalFace`/render output when terminal
     provenance remains available. Raw overlapping fragments may exist only as
-    diagnostics/debug evidence.
+    diagnostics/debug evidence. For self-intersecting constrained dashed
+    product strokes, visual-overlap partition/collapse is scoped to a visible
+    dash coverage unit: same-interval fragments may be partitioned, but
+    independent interval faces must not be merged into a new arranged face and
+    boundary-terminal-join geometry must not enter product, render, hit, or
+    export output. Boundary-terminal-join records are allowed only as explicit
+    diagnostics, never as visible coverage or as replacement terminal
+    provenance. Constrained dashed render projection may use
+    `render-projection-arrangement` only as a paint projection from
+    `FinalFace[]`; hit/export remain direct `FinalFace` projections, and
+    renderer masks, `paint-composite` masking, and renderer repairs remain
+    forbidden.
 15. A single visible dash interval must remain one connected product coverage
     unit after legality/mask clipping. High-curvature outside clipping may prune
     tiny numeric residue or stitch same-interval clip fragments upstream, but the
@@ -173,7 +197,7 @@ upstream failure.
 
 Current execution state:
 
-- Plan status: `active-figma-like-stroke-matrix-verification`.
+- Plan status: `validated-high-curvature-outside-smoothness-repair`.
 - The 2026-05-20 filled-star inside dashed blocker is fixed for the encoded
   matrix slice: the central pentagon is classified as a filled face, not a
   hole; inside dashed stroke includes central filled-face boundaries; outside
@@ -184,10 +208,43 @@ Current execution state:
   from near-zero-edge clip residue. `polygonCount: 1` alone is not accepted as
   proof because one polygon can still contain a fan of disconnected-looking
   sliver edges.
-- Earliest owning steps for that slice are aligned after revalidation: Step 11
-  keeps the Figma winding-rule basis, Step 12 emits merged filled-face boundary
-  split segments, Step 14/15 select and allocate boundary-domain intervals, and
-  Step 17/20/24/25/26/30 preserve and render the result.
+- The 2026-05-24 terminal/cap contradiction is fixed for the encoded
+  self-intersecting outside dashed star and original vector-6 gates: boundary
+  split endpoints are terminal/cap geometry, not line joins; authored sharp or
+  tangent-discontinuous source vertices can emit typed `source-vertex-join`
+  coverage when adjacent visible outside terminal half-dashes meet on the same
+  legal boundary; authored smooth/tangent-continuous vertices, including the
+  lower-left/lower-right high-curvature smooth anchors, are continuous
+  offset-curve coverage and must not respond to join type; product packet,
+  `FinalFace`, render, hit, and export paths do not carry visible
+  `boundary-terminal-join` geometry or `sourceBoundaryJoinCount` provenance;
+  outside butt terminal packets start/end at their own split endpoint before
+  overlap handling; constrained dashed product render uses
+  `render-projection-arrangement` instead of `paint-composite`/renderer mask
+  projection.
+- The 2026-05-24 lower-left/lower-right/tp16 smooth high-curvature continuity
+  repair is validated for the encoded self-check and original vector-6 gates.
+  Join non-response at tp-13/tp-16 is expected because their incoming/outgoing
+  tangents are continuous. The old post-packet behavior that unioned two
+  terminal half-dash packets into `smooth-source-continuity` coverage is
+  invalidated: it carried terminal cut edges into the smooth body and could
+  break boundary-domain orientation. The current implementation builds a single
+  pre-candidate `smooth-source-continuity` interval from adjacent
+  smooth/tangent-continuous terminal coverage only when both sides share the
+  same outside legal boundary-domain coverage.
+- The original vector-6 tp16 extreme high-curvature smoothness slice is
+  validated for the encoded native app zoom crop. The terminal/cap and join
+  semantics remain fixed: tp16 is an interval-internal smooth/tangent-continuous
+  sample and does not respond to join type; true dash start/end cut edges remain
+  terminal/cap edges. Product body smoothness is guarded by stroke-width-aware
+  contour oracles and same interval provenance, not overlap, cap, join, renderer
+  masking, or renderer repair.
+- Earliest owning steps for this repair are Step 14/15 interval allocation and
+  Step 17 candidate generation. Step 20 legality may clip/filter the single
+  candidate and stitch same-interval fragments, but it must not build
+  replacement geometry or cross-interval merged coverage. Step 24/25/26/30 were
+  revalidated for the encoded slice with rebuilt preset E2E and screenshot
+  review.
 - Blocked downstream steps for the 2026-05-20 filled-star inside slice: none.
 - Completion is still a matrix claim, not a blanket declaration that every
   possible Figma stroke behavior is finished. Any newly captured Figma mismatch
@@ -196,6 +253,27 @@ Current execution state:
 - Stop rule: add failing TDD oracles first, fix the earliest owning step, then
   update downstream status only after the upstream implementation, tests,
   diagnostics/evidence, generated screenshots, and self-review pass.
+
+Current 2026-05-24 evidence for the high-curvature outside smoothness repair:
+
+- `yarn workspace @asyra/preset exec vitest run src/__tests__/constrained-dashed-vector6-high-curvature-diagnostic.test.ts -t "keeps the tp16 high-curvature outside endpoint" --reporter=verbose`
+- `yarn workspace @asyra/preset exec vitest run src/__tests__/constrained-dashed-vector6-high-curvature-diagnostic.test.ts --reporter=verbose`
+- `yarn workspace @asyra/preset exec vitest run src/__tests__/constrained-dashed-stroke-packets.test.ts -t "keep smooth high-curvature outside vertices continuous without join-type geometry" --reporter=verbose`
+- `yarn workspace @asyra/preset exec vitest run src/__tests__/constrained-dashed-stroke-packets.test.ts -t "reject self-intersecting outside dashed geometry that crosses into filled faces at high curvature boundaries" --reporter=verbose`
+- `yarn workspace @asyra/preset exec vitest run src/__tests__/constrained-dashed-stroke-packets.test.ts -t "keep the right-bottom high-curvature outside endpoint as terminal cap geometry independent of join type" --reporter=verbose`
+- `yarn workspace @asyra/preset exec vitest run src/__tests__/constrained-dashed-stroke-packets.test.ts -t "keep outside self-intersecting boundary endpoints as terminal caps" --reporter=verbose`
+- `yarn workspace @asyra/preset exec vitest run src/__tests__/constrained-dashed-stroke-packets.test.ts -t "(keep outside self-intersecting boundary endpoints|keep the right-bottom high-curvature|restore true outside source-vertex joins|reject self-intersecting outside dashed geometry|keep self-intersecting outside dashed overlap scoped|keep high-curvature outside source-path dashes smooth|keep smooth high-curvature outside vertices continuous without join-type geometry)" --reporter=verbose`
+- `yarn workspace @asyra/preset exec vitest run src/__tests__/constrained-dashed-stroke-packets.test.ts -t "keep center dashed round caps smooth on large strokes" --reporter=verbose`
+- `yarn workspace @asyra/preset build:preset`
+- `yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts -g "self-check: self-intersecting outside dashed .* final pixels keep split terminals and outside side|self-check: right-bottom high-curvature outside dashed terminal remains cap-owned across join settings|self-check: outside dashed star captures Cmd\\+1 and app-zoom coverage-unit review" --workers=1`
+- `yarn workspace @asyra/asyra-design test:e2e e2e/reported-dashed-stroke-sharp-corners.spec.ts -g "original vector-6 tp-16 outside" --workers=1`
+- `yarn workspace @asyra/asyra-design test:e2e e2e/stroke-self-check-star-render.spec.ts -g "self-check: self-intersecting inside dashed .* final pixels keep split terminals and bounded overdraw" --workers=1`
+- `yarn workspace @asyra/asyra-design test:e2e e2e/dashed-center-stroke-visual.spec.ts -g "benchmark: rectangle center dashed miter|benchmark: rectangle center dashed bevel|benchmark: closed vector center dashed stroke renders through the supported path" --workers=1`
+- Screenshot self-review passed for `self-check-outside-dashed-square-cmd1-global-review.png`,
+  `self-check-outside-dashed-square-left-bottom-app-zoom-review.png`,
+  `self-check-outside-dashed-square-right-bottom-app-zoom-review.png`,
+  `self-check-outside-dashed-square-top-app-zoom-review.png`, and original
+  vector-6 tp16 butt/square/round and miter/bevel/round native app zoom crops.
 
 | Step | Inspector id                     | Figma-like DoD                                                                                                                                                                                                                                                                                        |
 | ---- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

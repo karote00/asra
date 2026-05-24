@@ -2,11 +2,11 @@
   "legalAnalysis": {
     "width": 1400,
     "height": 1100,
-    "redPixelCount": 24997,
-    "legalRedPixelCount": 24997,
+    "redPixelCount": 25000,
+    "legalRedPixelCount": 25000,
     "outsideRedPixelCount": 0,
-    "strictLegalRedPixelCount": 16320,
-    "strictOutsideRedPixelCount": 8677,
+    "strictLegalRedPixelCount": 16325,
+    "strictOutsideRedPixelCount": 8675,
     "darkOverdrawPixelCount": 0,
     "maxDarkOverdrawComponentArea": 0,
     "darkOverdrawComponentAreas": [],
@@ -16,12 +16,12 @@
     "maxStrictOutsideComponentArea": 322,
     "strictInsideComponentAreas": [
       1237,
-      823,
-      676,
-      619,
+      822,
+      677,
+      620,
+      610,
       609,
       608,
-      607,
       607,
       601,
       599
@@ -37,49 +37,58 @@
         "centerY": 448.9215844785772
       },
       {
-        "area": 823,
+        "area": 822,
         "minX": 648,
         "minY": 364,
         "maxX": 697,
         "maxY": 404,
-        "centerX": 675.9149453219927,
-        "centerY": 386.82867557715673
+        "centerX": 675.9075425790754,
+        "centerY": 386.8138686131387
       },
       {
-        "area": 676,
+        "area": 677,
         "minX": 696,
         "minY": 305,
         "maxX": 729,
         "maxY": 358,
-        "centerX": 713.1967455621302,
-        "centerY": 332.1390532544379
+        "centerX": 713.1979320531758,
+        "centerY": 332.1403249630724
       },
       {
-        "area": 619,
+        "area": 620,
         "minX": 458,
         "minY": 311,
         "maxX": 500,
         "maxY": 356,
-        "centerX": 476.31017770597737,
-        "centerY": 329.1001615508885
+        "centerX": 476.3032258064516,
+        "centerY": 329.09032258064514
       },
       {
-        "area": 609,
+        "area": 610,
         "minX": 617,
         "minY": 558,
         "maxX": 652,
         "maxY": 598,
-        "centerX": 634.2939244663382,
-        "centerY": 578.3070607553366
+        "centerX": 634.2967213114754,
+        "centerY": 578.3311475409836
       },
       {
-        "area": 608,
+        "area": 609,
         "minX": 765,
         "minY": 458,
         "maxX": 788,
         "maxY": 501,
-        "centerX": 776.6118421052631,
-        "centerY": 479.26644736842104
+        "centerX": 776.6206896551724,
+        "centerY": 479.2495894909688
+      },
+      {
+        "area": 608,
+        "minX": 662,
+        "minY": 615,
+        "maxX": 697,
+        "maxY": 655,
+        "centerX": 679.3782894736842,
+        "centerY": 635.1200657894736
       },
       {
         "area": 607,
@@ -89,15 +98,6 @@
         "maxY": 575,
         "centerX": 795.5271828665568,
         "centerY": 553.7578253706755
-      },
-      {
-        "area": 607,
-        "minX": 662,
-        "minY": 615,
-        "maxX": 697,
-        "maxY": 655,
-        "centerX": 679.3723228995058,
-        "centerY": 635.0922570016475
       },
       {
         "area": 601,
@@ -1553,7 +1553,7 @@
               "x": 166.91839921390073,
               "y": 84.03523859522507
             },
-            "redPixelCount": 112
+            "redPixelCount": 111
           }
         ]
       },
@@ -1659,7 +1659,7 @@
               "x": 166.8637406147249,
               "y": 84.01283048219929
             },
-            "redPixelCount": 112
+            "redPixelCount": 111
           }
         ]
       },
@@ -12596,7 +12596,7 @@
               "x": 166.91839921390073,
               "y": 84.03523859522507
             },
-            "redPixelCount": 112
+            "redPixelCount": 111
           }
         ]
       },
@@ -12702,7 +12702,7 @@
               "x": 166.8637406147249,
               "y": 84.01283048219929
             },
-            "redPixelCount": 112
+            "redPixelCount": 111
           }
         ]
       },
@@ -31259,7 +31259,7 @@
               "x": 166.91839921390073,
               "y": 84.03523859522507
             },
-            "redPixelCount": 112
+            "redPixelCount": 111
           }
         ]
       },
@@ -31365,7 +31365,7 @@
               "x": 166.8637406147249,
               "y": 84.01283048219929
             },
-            "redPixelCount": 112
+            "redPixelCount": 111
           }
         ]
       },
