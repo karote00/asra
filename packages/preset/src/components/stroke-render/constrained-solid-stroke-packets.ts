@@ -2497,6 +2497,7 @@ interface SolidMaskModelPolygonResult {
   maskSide?: 'inside-fill' | 'outside-exterior'
   renderFillPolygons?: Vec2[][]
   renderClipPolygons?: Vec2[][]
+  renderStrokeMaskPolygons?: Vec2[][]
   renderStrokePaths?: Vec2[][]
   renderStrokePathStyle?: {
     width: number
@@ -2613,6 +2614,7 @@ const buildSolidMaskModelPolygons = ({
       coverageOracle: 'render-mask',
       maskSide: 'inside-fill',
       renderClipPolygons: fillMaskPolygons,
+      renderStrokeMaskPolygons: centerStrokePolygons,
       renderStrokePaths,
       renderStrokePathStyle: {
         width: stroke.width * 2,
@@ -2656,6 +2658,8 @@ const buildSolidMaskModelPolygons = ({
             renderFillPolygons:
               renderStrokePaths.length > 0 ? undefined : polygons,
             renderClipPolygons: flattenRegionPolygons(fillMaskRegions),
+            renderStrokeMaskPolygons:
+              renderStrokePaths.length > 0 ? centerStrokePolygons : undefined,
             renderStrokePaths:
               renderStrokePaths.length > 0 ? renderStrokePaths : undefined,
             renderStrokePathStyle:
@@ -2700,6 +2704,8 @@ const buildSolidMaskModelPolygons = ({
           coverageOracle: 'exact-boolean',
           maskSide: 'outside-exterior',
           renderClipPolygons,
+          renderStrokeMaskPolygons:
+            renderStrokePaths.length > 0 ? centerStrokePolygons : undefined,
           renderStrokePaths:
             renderStrokePaths.length > 0 ? renderStrokePaths : undefined,
           renderStrokePathStyle:
@@ -2877,8 +2883,7 @@ const buildSelfIntersectingSolidMaskModelPackets = ({
               strokeMiterLimit: stroke.miterLimit,
               solidMaskModelMaskApplication:
                 solidMaskModelPolygons.maskApplication,
-              solidMaskModelVisibleRender:
-                solidMaskModelPolygons.visibleRender,
+              solidMaskModelVisibleRender: solidMaskModelPolygons.visibleRender,
               solidMaskModelCoverageOracle:
                 solidMaskModelPolygons.coverageOracle,
               solidMaskModelMaskSide: solidMaskModelPolygons.maskSide,
@@ -2886,6 +2891,8 @@ const buildSelfIntersectingSolidMaskModelPackets = ({
                 solidMaskModelPolygons.renderFillPolygons,
               solidMaskModelRenderClipPolygons:
                 solidMaskModelPolygons.renderClipPolygons,
+              solidMaskModelRenderStrokeMaskPolygons:
+                solidMaskModelPolygons.renderStrokeMaskPolygons,
               solidMaskModelRenderStrokePaths:
                 solidMaskModelPolygons.renderStrokePaths,
               solidMaskModelRenderStrokePathStyle:

@@ -393,6 +393,52 @@ const polygonListContainsPointWithWinding = (
   return winding !== 0
 }
 
+const countVisibleMaskCoverageDifferences = ({
+  firstClipPolygons,
+  firstStrokeMaskPolygons,
+  secondClipPolygons,
+  secondStrokeMaskPolygons,
+  centers,
+  radius,
+  step
+}: {
+  firstClipPolygons: Vec2[][]
+  firstStrokeMaskPolygons: Vec2[][]
+  secondClipPolygons: Vec2[][]
+  secondStrokeMaskPolygons: Vec2[][]
+  centers: Vec2[]
+  radius: number
+  step: number
+}) => {
+  let changed = 0
+  let compared = 0
+
+  centers.forEach((center) => {
+    for (let y = center.y - radius; y <= center.y + radius; y += step) {
+      for (let x = center.x - radius; x <= center.x + radius; x += step) {
+        if (Math.hypot(x - center.x, y - center.y) > radius) {
+          continue
+        }
+        const point = { x, y }
+        const firstCovered =
+          polygonListContainsPointWithWinding(firstStrokeMaskPolygons, point) &&
+          polygonListContainsPointWithWinding(firstClipPolygons, point)
+        const secondCovered =
+          polygonListContainsPointWithWinding(
+            secondStrokeMaskPolygons,
+            point
+          ) && polygonListContainsPointWithWinding(secondClipPolygons, point)
+        compared += 1
+        if (firstCovered !== secondCovered) {
+          changed += 1
+        }
+      }
+    }
+  })
+
+  return { changed, compared }
+}
+
 const polygonListRegionCoverage = (
   polygons: Vec2[][],
   region: { x: number; y: number; width: number; height: number },
@@ -1598,6 +1644,12 @@ describe('constrained solid stroke packets', () => {
       { position: 'inside' as const, joinType: 'bevel' as const },
       { position: 'inside' as const, joinType: 'round' as const }
     ]
+    const outsideRenderMasks: Partial<
+      Record<
+        'miter' | 'round' | 'bevel',
+        { clipPolygons: Vec2[][]; strokeMaskPolygons: Vec2[][] }
+      >
+    > = {}
 
     for (const { position, joinType } of cases) {
       const packets = buildConstrainedSolidStrokeResolvedPackets(
@@ -1631,6 +1683,16 @@ describe('constrained solid stroke packets', () => {
         buildStrokeFinalFacesFromResolvedPackets(packets),
         { backend }
       ).flatMap((face) => face.polygons)
+      const renderEntries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
+        buildStrokeFinalFacesFromResolvedPackets(packets)
+      )
+      if (position === 'outside') {
+        const [entry] = renderEntries
+        outsideRenderMasks[joinType] = {
+          clipPolygons: entry?.clipPolygons ?? [],
+          strokeMaskPolygons: entry?.strokeMaskPolygons ?? []
+        }
+      }
       const maxDistance = joinType === 'miter' ? 64 : 24
       const farSourceCoverageFailures = getFarSourceCoverageFailures({
         polygons,
@@ -1740,6 +1802,39 @@ describe('constrained solid stroke packets', () => {
         )
       ).toEqual([])
     }
+
+    const roundMask = outsideRenderMasks.round
+    const bevelMask = outsideRenderMasks.bevel
+    expect(roundMask).toBeDefined()
+    expect(bevelMask).toBeDefined()
+
+    const roundVsBevel = countVisibleMaskCoverageDifferences({
+      firstClipPolygons: roundMask?.clipPolygons ?? [],
+      firstStrokeMaskPolygons: roundMask?.strokeMaskPolygons ?? [],
+      secondClipPolygons: bevelMask?.clipPolygons ?? [],
+      secondStrokeMaskPolygons: bevelMask?.strokeMaskPolygons ?? [],
+      centers: [
+        { x: 360.12094148356584, y: 145.95389587539378 },
+        { x: 0, y: 15.668954151283657 }
+      ],
+      radius: 64,
+      step: 2
+    })
+
+    expect(
+      roundVsBevel.changed,
+      JSON.stringify(
+        {
+          message:
+            'outside solid visible mask must preserve source-vertex bevel/round differences before renderer projection',
+          roundVsBevel,
+          roundMask,
+          bevelMask
+        },
+        null,
+        2
+      )
+    ).toBeGreaterThan(0)
   })
 
   it('should run: keep self-intersecting solid reload path off boundary-domain packet generation', async () => {

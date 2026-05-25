@@ -233,6 +233,7 @@ export interface SolidCenterStrokeGeometryDebugMeta {
   solidMaskModelMaskSide?: 'inside-fill' | 'outside-exterior'
   solidMaskModelRenderFillPolygons?: Vec2[][]
   solidMaskModelRenderClipPolygons?: Vec2[][]
+  solidMaskModelRenderStrokeMaskPolygons?: Vec2[][]
   solidMaskModelRenderStrokePaths?: Vec2[][]
   solidMaskModelRenderStrokePathStyle?: {
     width: number
@@ -664,6 +665,8 @@ const buildRenderEntryFromFinalFace = (
     face.debugMeta?.solidMaskModelRenderFillPolygons
   const solidMaskRenderClipPolygons =
     face.debugMeta?.solidMaskModelRenderClipPolygons
+  const solidMaskRenderStrokeMaskPolygons =
+    face.debugMeta?.solidMaskModelRenderStrokeMaskPolygons
   const solidMaskRenderStrokePaths =
     face.debugMeta?.solidMaskModelRenderStrokePaths
   const solidMaskRenderStrokePathStyle =
@@ -682,6 +685,7 @@ const buildRenderEntryFromFinalFace = (
     polygons: face.polygons,
     fillPolygons: solidMaskRenderFillPolygons,
     clipPolygons: solidMaskRenderClipPolygons,
+    strokeMaskPolygons: solidMaskRenderStrokeMaskPolygons,
     strokePaths: solidMaskRenderStrokePaths,
     strokePathStyle: solidMaskRenderStrokePathStyle,
     debugMeta: face.debugMeta,

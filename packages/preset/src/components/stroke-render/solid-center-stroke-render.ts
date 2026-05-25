@@ -36,6 +36,7 @@ export interface SolidCenterStrokeRenderEntry {
   polygons: Vec2[][]
   fillPolygons?: Vec2[][]
   clipPolygons?: Vec2[][]
+  strokeMaskPolygons?: Vec2[][]
   strokePaths?: Vec2[][]
   strokePathStyle?: Pick<
     RenderableStroke,
@@ -150,6 +151,32 @@ const getSignature = (polygons: Vec2[][]) =>
     )
     .join('|')
 
+const getStrokePathStyleSignature = (
+  style: SolidCenterStrokeRenderEntry['strokePathStyle']
+) =>
+  style
+    ? [
+        style.width.toFixed(3),
+        style.cap,
+        style.join,
+        style.miterLimit.toFixed(3)
+      ].join(':')
+    : ''
+
+const getMaskedSolidDescriptorSignature = (
+  entry: SolidCenterStrokeRenderEntry,
+  polygons: Vec2[][]
+) =>
+  [
+    'masked-solid-descriptor',
+    getSignature(polygons),
+    getSignature(entry.fillPolygons ?? []),
+    getSignature(entry.clipPolygons ?? []),
+    getSignature(entry.strokeMaskPolygons ?? []),
+    getSignature(entry.strokePaths ?? []),
+    getStrokePathStyleSignature(entry.strokePathStyle)
+  ].join('|')
+
 const getRevisionGeometrySignature = (
   revisionSet: StrokeRevisionSet | undefined
 ) =>
@@ -248,6 +275,17 @@ const drawPolygonsWithCutouts = (
     }
     drawPolygon(graphics, [...holePolygon].reverse())
     graphics.fill(fill)
+  })
+}
+
+const drawOpaqueMaskPolygons = (graphics: Graphics, polygons: Vec2[][]) => {
+  polygons.forEach((polygon) => {
+    if (polygon.length < 3) {
+      return
+    }
+    drawPolygon(graphics, polygon)
+    graphics.fill({ color: 0xffffff, alpha: 1 })
+    graphics.beginPath()
   })
 }
 
@@ -401,6 +439,7 @@ const applyMaskedSolidPaint = (
   alpha: number,
   fillPolygons?: Vec2[][],
   clipPolygons?: Vec2[][],
+  strokeMaskPolygons?: Vec2[][],
   strokePaths?: Vec2[][],
   strokePathStyle?: Pick<
     RenderableStroke,
@@ -411,6 +450,7 @@ const applyMaskedSolidPaint = (
   const bounds = getPolygonBounds(maskPolygons)
   fill.clear()
   mask.clear()
+  strokeMask.clear()
   fill.alpha = alpha
   mask.alpha = 1
 
@@ -419,6 +459,8 @@ const applyMaskedSolidPaint = (
   }
 
   const hasFillPolygons = fillPolygons && fillPolygons.length > 0
+  const hasStrokeMaskPolygons =
+    strokeMaskPolygons && strokeMaskPolygons.length > 0
   const hasStrokePaths =
     strokePaths && strokePaths.length > 0 && strokePathStyle
 
@@ -442,6 +484,9 @@ const applyMaskedSolidPaint = (
 
   if (hasStrokePaths) {
     drawStrokePaths(strokeMask, strokePaths, strokePathStyle, 0xffffff, 1)
+    content.mask = strokeMask
+  } else if (hasStrokeMaskPolygons) {
+    drawOpaqueMaskPolygons(strokeMask, strokeMaskPolygons)
     content.mask = strokeMask
   }
 
@@ -516,6 +561,8 @@ const shouldRenderSolidWithMask = (entry: SolidCenterStrokeRenderEntry) =>
     entry.debugMeta?.visualOverlapCollapseStatus === 'exact-union') ||
   (entry.clipPolygons !== undefined && entry.clipPolygons.length > 0) ||
   (entry.fillPolygons !== undefined && entry.fillPolygons.length > 0) ||
+  (entry.strokeMaskPolygons !== undefined &&
+    entry.strokeMaskPolygons.length > 0) ||
   (entry.strokePaths !== undefined &&
     entry.strokePaths.length > 0 &&
     entry.strokePathStyle !== undefined)
@@ -580,12 +627,18 @@ export const renderSolidCenterStrokeEntries = (
       `solid:${entry.stroke.color}:${entry.stroke.alpha}`
     const revisionGeometrySignature = getRevisionGeometrySignature(revisionSet)
     const getGeometrySignature = () => {
+      const descriptorSignature = shouldUseMaskedSolid
+        ? getMaskedSolidDescriptorSignature(entry, polygons)
+        : null
       if (revisionGeometrySignature) {
-        return revisionGeometrySignature
+        return descriptorSignature
+          ? `${revisionGeometrySignature}|${descriptorSignature}`
+          : revisionGeometrySignature
       }
       emitStrokePipelineCounter('stroke-render-coordinate-signature-fallback')
-      return getSignature(polygons)
+      return descriptorSignature ?? getSignature(polygons)
     }
+    const signature = getGeometrySignature()
 
     if (existing && existing.kind !== targetCacheKind) {
       disposeCacheEntry(existing)
@@ -594,7 +647,12 @@ export const renderSolidCenterStrokeEntries = (
 
     const compatibleEntry = graphic.__asyraStrokeMeshCache?.get(entry.cacheKey)
 
-    if (compatibleEntry && dirtyKeys !== null && !geometryDirty) {
+    if (
+      compatibleEntry &&
+      dirtyKeys !== null &&
+      !geometryDirty &&
+      compatibleEntry.signature === signature
+    ) {
       if (paintDirty) {
         if (compatibleEntry.kind === 'solid') {
           compatibleEntry.projection.updatePaint({
@@ -623,6 +681,7 @@ export const renderSolidCenterStrokeEntries = (
             entry.stroke.alpha,
             entry.fillPolygons,
             entry.clipPolygons,
+            entry.strokeMaskPolygons,
             entry.strokePaths,
             entry.strokePathStyle
           )
@@ -651,8 +710,6 @@ export const renderSolidCenterStrokeEntries = (
       active.add(entry.cacheKey)
       return
     }
-
-    const signature = getGeometrySignature()
 
     if (
       compatibleEntry &&
@@ -715,6 +772,7 @@ export const renderSolidCenterStrokeEntries = (
           entry.stroke.alpha,
           entry.fillPolygons,
           entry.clipPolygons,
+          entry.strokeMaskPolygons,
           entry.strokePaths,
           entry.strokePathStyle
         )
@@ -746,6 +804,7 @@ export const renderSolidCenterStrokeEntries = (
         entry.stroke.alpha,
         entry.fillPolygons,
         entry.clipPolygons,
+        entry.strokeMaskPolygons,
         entry.strokePaths,
         entry.strokePathStyle
       )

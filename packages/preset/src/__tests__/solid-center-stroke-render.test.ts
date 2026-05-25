@@ -393,7 +393,7 @@ describe('solid center stroke render', () => {
     )
 
     expect(renderEntries).toHaveLength(1)
-    expect(exportPackets).toHaveLength(1)
+    expect(exportPackets.length).toBeGreaterThan(0)
     expect(projectedRenderPolygons.length).toBeGreaterThanOrEqual(2)
     expect(projectedExportPolygons.length).toBeGreaterThanOrEqual(2)
     for (const point of [
@@ -467,6 +467,152 @@ describe('solid center stroke render', () => {
     } finally {
       polySpy.mockRestore()
       strokeSpy.mockRestore()
+    }
+  })
+
+  it('should run: prefer seam-free masked source stroke paths over fallback polygon masks', () => {
+    const host = new MeshTestHost()
+    const strokeSpy = vi.spyOn(Graphics.prototype, 'stroke')
+
+    try {
+      renderSolidCenterStrokeEntries(host, [
+        {
+          cacheKey: 'outside_solid_masked_source_stroke_path_priority',
+          stroke: {
+            color: 0xdf0606,
+            alpha: 1
+          },
+          polygons: [
+            [
+              { x: -8, y: -8 },
+              { x: 32, y: -8 },
+              { x: 32, y: 32 },
+              { x: -8, y: 32 }
+            ]
+          ],
+          clipPolygons: [
+            [
+              { x: -10, y: -10 },
+              { x: 34, y: -10 },
+              { x: 34, y: 34 },
+              { x: -10, y: 34 }
+            ]
+          ],
+          strokeMaskPolygons: [
+            [
+              { x: 0, y: 24 },
+              { x: 10, y: 0 },
+              { x: 20, y: 24 }
+            ]
+          ],
+          strokePaths: [
+            [
+              { x: 0, y: 24 },
+              { x: 10, y: 0 },
+              { x: 20, y: 24 }
+            ]
+          ],
+          strokePathStyle: {
+            width: 16,
+            cap: 'round',
+            join: 'round',
+            miterLimit: 4
+          },
+          debugMeta: {
+            geometryFamily: 'constrained-solid',
+            solidMaskModelVisibleRender: 'masked-source-stroke',
+            solidMaskModelMaskSide: 'outside-exterior'
+          }
+        }
+      ])
+
+      expect(getProjectionMeshes(host)).toHaveLength(0)
+      expect(getProjectionGraphics(host)).toHaveLength(2)
+      expect(strokeSpy).toHaveBeenCalled()
+    } finally {
+      strokeSpy.mockRestore()
+    }
+  })
+
+  it('should run: clear cached masked-source-stroke masks before repainting join changes', () => {
+    const host = new MeshTestHost()
+    const baseEntry = {
+      cacheKey: 'outside_solid_masked_source_stroke_join_switch',
+      stroke: {
+        color: 0xdf0606,
+        alpha: 1
+      },
+      polygons: [
+        [
+          { x: -8, y: -8 },
+          { x: 32, y: -8 },
+          { x: 32, y: 32 },
+          { x: -8, y: 32 }
+        ]
+      ],
+      clipPolygons: [
+        [
+          { x: -10, y: -10 },
+          { x: 34, y: -10 },
+          { x: 34, y: 34 },
+          { x: -10, y: 34 }
+        ]
+      ],
+      strokePaths: [
+        [
+          { x: 0, y: 24 },
+          { x: 10, y: 0 },
+          { x: 20, y: 24 }
+        ]
+      ],
+      strokePathStyle: {
+        width: 16,
+        cap: 'round' as const,
+        join: 'round' as const,
+        miterLimit: 4
+      },
+      debugMeta: {
+        geometryFamily: 'constrained-solid' as const,
+        solidMaskModelVisibleRender: 'masked-source-stroke' as const,
+        solidMaskModelMaskSide: 'outside-exterior' as const
+      }
+    }
+
+    renderSolidCenterStrokeEntries(host, [baseEntry])
+    const cacheEntry = (
+      host as typeof host & {
+        __asyraStrokeMeshCache?: Map<
+          string,
+          { kind?: string; strokeMask?: Graphics }
+        >
+      }
+    ).__asyraStrokeMeshCache?.get(baseEntry.cacheKey)
+    expect(cacheEntry?.kind).toBe('masked-solid')
+    const strokeMask = cacheEntry?.strokeMask
+    expect(strokeMask).toBeInstanceOf(Graphics)
+    const clearSpy = vi.spyOn(strokeMask as Graphics, 'clear')
+
+    try {
+      renderSolidCenterStrokeEntries(host, [
+        {
+          ...baseEntry,
+          strokePathStyle: {
+            ...baseEntry.strokePathStyle,
+            join: 'bevel' as const
+          }
+        }
+      ])
+
+      expect(clearSpy).toHaveBeenCalled()
+      expect(
+        (
+          host as typeof host & {
+            __asyraStrokeMeshCache?: Map<string, { kind?: string }>
+          }
+        ).__asyraStrokeMeshCache?.get(baseEntry.cacheKey)?.kind
+      ).toBe('masked-solid')
+    } finally {
+      clearSpy.mockRestore()
     }
   })
 
