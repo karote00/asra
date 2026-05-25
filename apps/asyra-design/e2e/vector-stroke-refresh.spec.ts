@@ -15,6 +15,8 @@ interface VectorStrokeRenderSnapshot {
   computedStrokeStyle: string | null
   computedStrokePosition: string | null
   strokeCacheSize: number
+  acceptedConstrainedSolidCount: number
+  blockedConstrainedSolidCount: number
   acceptedConstrainedDashedCount: number
   blockedConstrainedDashedCount: number
   topologyModelCount: number
@@ -558,6 +560,26 @@ const configureSelectedVectorInsideDashedStroke = async (page: Page) => {
   await fillStrokeDashGap(propertiesPanel, 0, '18, 10')
 }
 
+const configureSelectedVectorInsideSolidStroke = async (page: Page) => {
+  const propertiesPanel = getPropertiesPanel(page)
+  await expect(
+    propertiesPanel.getByTestId('prop-strokes-section')
+  ).toBeVisible()
+  if (!(await propertiesPanel.getByTestId('prop-stroke-style-0').isVisible())) {
+    await propertiesPanel.getByTestId('prop-stroke-add').click()
+  }
+  await expect(propertiesPanel.getByTestId('prop-stroke-style-0')).toBeVisible()
+
+  await propertiesPanel.getByTestId('prop-stroke-style-0').selectOption('solid')
+  await propertiesPanel
+    .getByTestId('prop-stroke-position-0')
+    .selectOption('inside')
+  await propertiesPanel.getByTestId('prop-stroke-join-0').selectOption('round')
+  await propertiesPanel.getByTestId('prop-stroke-cap-0').selectOption('round')
+  await propertiesPanel.getByTestId('prop-stroke-width-0').fill('6')
+  await propertiesPanel.getByTestId('prop-stroke-width-0').press('Enter')
+}
+
 const saveCurrentFileToLocalStorage = async (page: Page) => {
   await page.evaluate(async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -606,6 +628,10 @@ const getVectorStrokeRenderSnapshot = async (
     const renderElement = core?.deps?.render?.getElementById?.(vectorId) as
       | {
           __asyraStrokeMeshCache?: Map<string, unknown>
+          __asyraConstrainedSolidRuntimeDiagnostics?: {
+            acceptedCount?: number
+            blockedCount?: number
+          }
           __asyraConstrainedDashedRuntimeDiagnostics?: {
             acceptedCount?: number
             blockedCount?: number
@@ -633,6 +659,12 @@ const getVectorStrokeRenderSnapshot = async (
       computedStrokePosition:
         typeof firstStroke?.position === 'string' ? firstStroke.position : null,
       strokeCacheSize: renderElement?.__asyraStrokeMeshCache?.size ?? 0,
+      acceptedConstrainedSolidCount:
+        renderElement?.__asyraConstrainedSolidRuntimeDiagnostics
+          ?.acceptedCount ?? 0,
+      blockedConstrainedSolidCount:
+        renderElement?.__asyraConstrainedSolidRuntimeDiagnostics
+          ?.blockedCount ?? 0,
       acceptedConstrainedDashedCount:
         renderElement?.__asyraConstrainedDashedRuntimeDiagnostics
           ?.acceptedCount ?? 0,
@@ -902,6 +934,70 @@ test.describe('vector stroke refresh rendering', () => {
     const afterReload = await getVectorStrokeRenderSnapshot(page)
     expect(afterReload?.strokeCacheSize).toBeGreaterThan(0)
     expect(reloadElapsedMs).toBeLessThan(5_000)
+    expect(consoleErrors).toEqual([])
+  })
+
+  test('should run: keep an actually pen-drawn self-intersecting inside solid star fast after refresh', async ({
+    page
+  }) => {
+    test.setTimeout(20_000)
+    const consoleErrors: string[] = []
+    page.on('console', (message) => {
+      if (message.type() === 'error') {
+        consoleErrors.push(message.text())
+      }
+    })
+
+    await drawSelfIntersectingStarWithPen(page)
+    await expect
+      .poll(() => getSelectedVectorTopologySnapshot(page))
+      .toMatchObject({
+        pointCount: 5,
+        segmentCount: 5,
+        networkCount: 1,
+        firstNetworkClosed: true,
+        firstNetworkPointCount: 5,
+        firstNetworkSegmentCount: 5
+      })
+    await configureSelectedVectorInsideSolidStroke(page)
+
+    await expect
+      .poll(() => getVectorStrokeRenderSnapshot(page))
+      .toMatchObject({
+        renderObjectCount: 1,
+        computedStrokeCount: 1,
+        computedStrokeStyle: 'solid',
+        computedStrokePosition: 'inside',
+        acceptedConstrainedSolidCount: 1,
+        blockedConstrainedSolidCount: 0,
+        topologyModelCount: 1,
+        geometryModelCount: 1
+      })
+    const beforeReload = await getVectorStrokeRenderSnapshot(page)
+    expect(beforeReload?.strokeCacheSize).toBeGreaterThan(0)
+
+    await saveCurrentFileToLocalStorage(page)
+    const reloadStart = Date.now()
+    await page.reload()
+    await waitForAppReady(page)
+    const reloadElapsedMs = Date.now() - reloadStart
+
+    await expect
+      .poll(() => getVectorStrokeRenderSnapshot(page))
+      .toMatchObject({
+        vectorId: beforeReload?.vectorId,
+        renderObjectCount: 1,
+        computedStrokeCount: 1,
+        computedStrokeStyle: 'solid',
+        computedStrokePosition: 'inside',
+        acceptedConstrainedSolidCount: 1,
+        blockedConstrainedSolidCount: 0,
+        topologyModelCount: 1,
+        geometryModelCount: 1
+      })
+    const afterReload = await getVectorStrokeRenderSnapshot(page)
+    expect(afterReload?.strokeCacheSize).toBeGreaterThan(0)
+    expect(reloadElapsedMs).toBeLessThan(2_000)
     expect(consoleErrors).toEqual([])
   })
 

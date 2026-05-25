@@ -9,11 +9,13 @@ import {
   hasConstrainedSolidStrokeIntent
 } from '../components/stroke-render/constrained-solid-stroke-packets'
 import {
+  buildPolylineGeometryModelPath,
   buildVectorGeometryModelPath,
   type PathGeometry,
   type PathSegment
 } from '../components/stroke-render/path-geometry'
 import { buildPathTopologyModel } from '../components/stroke-render/path-topology-model'
+import { buildResolvedVectorGeometryModel } from '../components/stroke-render/resolved-vector-geometry-model'
 import {
   buildSolidCenterStrokeExportPackets,
   buildSolidCenterStrokeHitTestPackets,
@@ -110,6 +112,254 @@ const normalizeVector = (vector: Vec2): Vec2 | null => {
       }
 }
 
+const buildSelfIntersectingSolidDomainFixture = () => {
+  const points = [
+    { x: 0, y: 0 },
+    { x: 120, y: 220 },
+    { x: 240, y: 0 },
+    { x: 0, y: 140 },
+    { x: 240, y: 140 }
+  ]
+  const sourcePath = buildPolylineGeometryModelPath(points, true)
+  const topology = buildPathTopologyModel({
+    pathId: 'self-intersecting-solid-domain-star',
+    sourceId: 'self-intersecting-solid-domain-star',
+    networkId: 'network-0',
+    sourceRevision: 'source-revision:self-intersecting-solid-domain-star',
+    sourceFamily: 'vector',
+    points: sourcePath.sampledPoints,
+    closed: sourcePath.closed
+  })
+  const resolvedGeometry = buildResolvedVectorGeometryModel({
+    modelId: 'self-intersecting-solid-domain-star:resolved-geometry',
+    fillRule: topology.fillRule,
+    networks: [
+      {
+        networkId: topology.networkId,
+        path: sourcePath,
+        topology
+      }
+    ]
+  })
+  const selfIntersecting = resolvedGeometry.networks[0]?.selfIntersecting
+  return {
+    sourcePath,
+    topology,
+    fillRegions: selfIntersecting?.fillRegions ?? [],
+    sharedSourceSplitRanges: selfIntersecting?.sourceSplitRanges ?? [],
+    sharedStrokeBoundaryDomains: selfIntersecting?.strokeBoundaryDomains ?? []
+  }
+}
+
+const buildSelfCheckStarSolidDomainFixture = () => {
+  const points = {
+    'tp-12': {
+      id: 'tp-12',
+      kind: 'anchor',
+      x: 188.1928217922337,
+      y: 0,
+      anchorType: 'smooth'
+    },
+    'tp-13': {
+      id: 'tp-13',
+      kind: 'anchor',
+      x: 11.358174406717296,
+      y: 365.76797704068724,
+      anchorType: 'smooth'
+    },
+    'tp-12:out': {
+      id: 'tp-12:out',
+      kind: 'control',
+      x: 164.3673966581619,
+      y: 140.91988215887423,
+      controlForId: 'tp-12',
+      controlRole: 'out'
+    },
+    'tp-13:in': {
+      id: 'tp-13:in',
+      kind: 'control',
+      x: -42.09205809548172,
+      y: 344.92238636482955,
+      controlForId: 'tp-13',
+      controlRole: 'in'
+    },
+    'tp-13:out': {
+      id: 'tp-13:out',
+      kind: 'control',
+      x: 78.17096503446606,
+      y: 391.8249653855095,
+      controlForId: 'tp-13',
+      controlRole: 'out'
+    },
+    'tp-14': {
+      id: 'tp-14',
+      kind: 'anchor',
+      x: 360.12094148356584,
+      y: 145.95389587539378,
+      anchorType: 'sharp'
+    },
+    'tp-15': {
+      id: 'tp-15',
+      kind: 'anchor',
+      x: 0,
+      y: 15.668954151283657,
+      anchorType: 'sharp'
+    },
+    'tp-16': {
+      id: 'tp-16',
+      kind: 'anchor',
+      x: 270.59180204238254,
+      y: 347.0603956649177,
+      anchorType: 'smooth'
+    },
+    'tp-15:out': {
+      id: 'tp-15:out',
+      kind: 'control',
+      x: 0,
+      y: 15.668954151283657,
+      controlForId: 'tp-15',
+      controlRole: 'out'
+    },
+    'tp-16:in': {
+      id: 'tp-16:in',
+      kind: 'control',
+      x: 263.9105229796075,
+      y: 364.43172122813246,
+      controlForId: 'tp-16',
+      controlRole: 'in'
+    },
+    'tp-16:out': {
+      id: 'tp-16:out',
+      kind: 'control',
+      x: 277.27308110515736,
+      y: 329.6890701017029,
+      controlForId: 'tp-16',
+      controlRole: 'out'
+    }
+  } as const
+  const segments = {
+    'ts-23': {
+      id: 'ts-23',
+      startId: 'tp-12',
+      endId: 'tp-13',
+      outControlId: 'tp-12:out',
+      inControlId: 'tp-13:in'
+    },
+    'ts-24': {
+      id: 'ts-24',
+      startId: 'tp-13',
+      endId: 'tp-14',
+      outControlId: 'tp-13:out',
+      inControlId: null
+    },
+    'ts-25': {
+      id: 'ts-25',
+      startId: 'tp-14',
+      endId: 'tp-15',
+      outControlId: null,
+      inControlId: null
+    },
+    'ts-26': {
+      id: 'ts-26',
+      startId: 'tp-15',
+      endId: 'tp-16',
+      outControlId: 'tp-15:out',
+      inControlId: 'tp-16:in'
+    },
+    'ts-27': {
+      id: 'ts-27',
+      startId: 'tp-16',
+      endId: 'tp-12',
+      outControlId: 'tp-16:out',
+      inControlId: null
+    }
+  } as const
+  const network = {
+    id: 'tn-4',
+    pointIds: ['tp-12', 'tp-13', 'tp-14', 'tp-15', 'tp-16'],
+    segmentIds: ['ts-23', 'ts-24', 'ts-25', 'ts-26', 'ts-27'],
+    closed: true
+  }
+  const sourcePath = buildVectorGeometryModelPath(network, points, segments)
+  const topology = buildPathTopologyModel({
+    pathId: 'self-check-star-solid-domain',
+    sourceId: 'self-check-star-solid-domain',
+    networkId: 'tn-4',
+    sourceRevision: 'source-revision:self-check-star-solid-domain',
+    sourceFamily: 'vector',
+    points: sourcePath.sampledPoints,
+    closed: sourcePath.closed
+  })
+  const resolvedGeometry = buildResolvedVectorGeometryModel({
+    modelId: 'self-check-star-solid-domain:resolved-geometry',
+    fillRule: topology.fillRule,
+    networks: [
+      {
+        networkId: topology.networkId,
+        path: sourcePath,
+        topology
+      }
+    ]
+  })
+  const selfIntersecting = resolvedGeometry.networks[0]?.selfIntersecting
+
+  return {
+    sourcePath,
+    topology,
+    fillRegions: selfIntersecting?.fillRegions ?? [],
+    sharedSourceSplitRanges: selfIntersecting?.sourceSplitRanges ?? [],
+    sharedStrokeBoundaryDomains: selfIntersecting?.strokeBoundaryDomains ?? []
+  }
+}
+
+const getSolidPacketMeta = (
+  packet: ReturnType<typeof buildConstrainedSolidStrokeResolvedPackets>[number]
+) => packet.geometry.debugMeta
+
+const solidPacketHasDashedTerminalMetadata = (
+  packet: ReturnType<typeof buildConstrainedSolidStrokeResolvedPackets>[number]
+) => {
+  const meta = getSolidPacketMeta(packet)
+  return (
+    meta?.figmaLikeTerminalRole !== undefined ||
+    (meta?.figmaLikeSplitRangeTerminals?.length ?? 0) > 0
+  )
+}
+
+const solidPacketUsesBoundaryDomainProductGeometry = (
+  packet: ReturnType<typeof buildConstrainedSolidStrokeResolvedPackets>[number]
+) =>
+  packet.geometry.geometryId.includes(':boundary-domain:') ||
+  packet.geometry.debugMeta?.sourceSpanIds?.some((sourceSpanId) =>
+    sourceSpanId.startsWith('boundary-domain:')
+  ) === true
+
+const solidPacketCarriesSourceVertexProvenance = (
+  packet: ReturnType<typeof buildConstrainedSolidStrokeResolvedPackets>[number]
+) =>
+  packet.geometry.debugMeta?.sourceSpanIds?.some((sourceSpanId) =>
+    sourceSpanId.startsWith('vertex:')
+  ) === true
+
+const withVectorRenderPhaseSink = <T>(
+  sink: (phaseName: string, durationMs: number) => void,
+  run: () => T
+): T => {
+  const globalWithSink = globalThis as typeof globalThis & {
+    __asyraVectorRenderPhaseSink?: (
+      phaseName: string,
+      durationMs: number
+    ) => void
+  }
+  const previousSink = globalWithSink.__asyraVectorRenderPhaseSink
+  globalWithSink.__asyraVectorRenderPhaseSink = sink
+  try {
+    return run()
+  } finally {
+    globalWithSink.__asyraVectorRenderPhaseSink = previousSink
+  }
+}
+
 const polygonListContainsPoint = (polygons: Vec2[][], point: Vec2) =>
   polygons.some(
     (polygon) =>
@@ -122,6 +372,25 @@ const polygonListContainsPoint = (polygons: Vec2[][], point: Vec2) =>
           ) <= 0.25
       ) || isPointInPolygon(point, polygon)
   )
+
+const getSignedPolygonArea = (polygon: Vec2[]) =>
+  polygon.reduce((sum, point, index) => {
+    const next = polygon[(index + 1) % polygon.length]
+    return sum + point.x * next.y - next.x * point.y
+  }, 0) / 2
+
+const polygonListContainsPointWithWinding = (
+  polygons: Vec2[][],
+  point: Vec2
+) => {
+  const winding = polygons.reduce((sum, polygon) => {
+    if (!isPointInPolygon(point, polygon)) {
+      return sum
+    }
+    return sum + (getSignedPolygonArea(polygon) >= 0 ? 1 : -1)
+  }, 0)
+  return winding !== 0
+}
 
 const polygonListRegionCoverage = (
   polygons: Vec2[][],
@@ -141,6 +410,129 @@ const polygonListRegionCoverage = (
   }
 
   return total === 0 ? 0 : covered / total
+}
+
+const distanceToPolyline = (point: Vec2, points: Vec2[]) => {
+  let minimumDistance = Infinity
+  for (let index = 0; index < points.length; index += 1) {
+    const start = points[index]
+    const end = points[(index + 1) % points.length]
+    minimumDistance = Math.min(
+      minimumDistance,
+      pointSegmentDistance(point, start, end)
+    )
+  }
+  return minimumDistance
+}
+
+const getFarSourceCoverageFailures = ({
+  polygons,
+  sourcePath,
+  maxDistance,
+  step = 8
+}: {
+  polygons: Vec2[][]
+  sourcePath: PathGeometry
+  maxDistance: number
+  step?: number
+}) => {
+  const bounds = {
+    minX: Math.min(...sourcePath.sampledPoints.map((point) => point.x)) - 20,
+    minY: Math.min(...sourcePath.sampledPoints.map((point) => point.y)) - 20,
+    maxX: Math.max(...sourcePath.sampledPoints.map((point) => point.x)) + 20,
+    maxY: Math.max(...sourcePath.sampledPoints.map((point) => point.y)) + 20
+  }
+  const failures: { x: number; y: number; distance: number }[] = []
+
+  for (let y = bounds.minY + step / 2; y <= bounds.maxY; y += step) {
+    for (let x = bounds.minX + step / 2; x <= bounds.maxX; x += step) {
+      const point = { x, y }
+      if (!polygonListContainsPointWithWinding(polygons, point)) {
+        continue
+      }
+
+      const distance = distanceToPolyline(point, sourcePath.sampledPoints)
+      if (distance > maxDistance) {
+        failures.push({
+          x: Math.round(x * 100) / 100,
+          y: Math.round(y * 100) / 100,
+          distance: Math.round(distance * 100) / 100
+        })
+      }
+    }
+  }
+
+  return failures.slice(0, 20)
+}
+
+const getPolygonBoundaryDistance = (point: Vec2, polygon: Vec2[]) =>
+  polygon.reduce((minimumDistance, current, index) => {
+    const next = polygon[(index + 1) % polygon.length]
+    return Math.min(minimumDistance, pointSegmentDistance(point, current, next))
+  }, Infinity)
+
+const getFillRegionDeepCoverageFailures = ({
+  strokePolygons,
+  fillRegions,
+  minBoundaryDistance,
+  step = 8
+}: {
+  strokePolygons: Vec2[][]
+  fillRegions: { polygons: Vec2[][] }[]
+  minBoundaryDistance: number
+  step?: number
+}) => {
+  const failures: { x: number; y: number; distance: number }[] = []
+
+  fillRegions.forEach((region) => {
+    const regionPolygons = region.polygons.filter(
+      (polygon) => polygon.length >= 3
+    )
+    if (regionPolygons.length === 0) {
+      return
+    }
+    const bounds = {
+      minX: Math.min(
+        ...regionPolygons.flatMap((polygon) => polygon.map((point) => point.x))
+      ),
+      minY: Math.min(
+        ...regionPolygons.flatMap((polygon) => polygon.map((point) => point.y))
+      ),
+      maxX: Math.max(
+        ...regionPolygons.flatMap((polygon) => polygon.map((point) => point.x))
+      ),
+      maxY: Math.max(
+        ...regionPolygons.flatMap((polygon) => polygon.map((point) => point.y))
+      )
+    }
+
+    for (let y = bounds.minY + step / 2; y <= bounds.maxY; y += step) {
+      for (let x = bounds.minX + step / 2; x <= bounds.maxX; x += step) {
+        const point = { x, y }
+        if (!polygonListContainsPointWithWinding(regionPolygons, point)) {
+          continue
+        }
+        const boundaryDistance = Math.min(
+          ...regionPolygons.map((polygon) =>
+            getPolygonBoundaryDistance(point, polygon)
+          )
+        )
+        if (boundaryDistance < minBoundaryDistance) {
+          continue
+        }
+        if (!polygonListContainsPointWithWinding(strokePolygons, point)) {
+          continue
+        }
+        failures.push({
+          x: Math.round(x * 100) / 100,
+          y: Math.round(y * 100) / 100,
+          distance: Math.round(boundaryDistance * 100) / 100
+        })
+      }
+    }
+  })
+
+  return failures.slice(0, 20)
 }
 
 const getSourcePathSegmentRangesForTest = (sourcePath: {
@@ -1018,6 +1410,336 @@ describe('constrained solid stroke packets', () => {
       runtimeReason: 'center-stroke',
       resolutionStatus: 'native-center'
     })
+  })
+
+  it('should run: require self-intersecting inside solidMaskModel packets, not boundary-domain ribbon products', () => {
+    const {
+      sourcePath,
+      topology,
+      fillRegions,
+      sharedSourceSplitRanges,
+      sharedStrokeBoundaryDomains
+    } = buildSelfIntersectingSolidDomainFixture()
+
+    expect(topology.topologyFamily).toBe('self-intersecting')
+    expect(
+      sharedStrokeBoundaryDomains.some(
+        (domain) => domain.boundaryRole === 'filled-face'
+      )
+    ).toBe(true)
+
+    const packets = buildConstrainedSolidStrokeResolvedPackets(
+      'self-intersecting-solid-domain-star:inside',
+      topology.normalizedPoints,
+      true,
+      [
+        createDefaultStroke({
+          width: 10,
+          style: 'solid',
+          position: 'inside',
+          joinType: 'miter',
+          capType: 'round'
+        })
+      ],
+      {
+        topology,
+        sourcePath,
+        implicitFillRegions: fillRegions,
+        sharedSourceSplitRanges,
+        sharedStrokeBoundaryDomains,
+        candidateMode: 'exact-arrangement'
+      }
+    )
+
+    expect(packets.length).toBeGreaterThan(0)
+    expect(
+      packets.every(
+        (packet) =>
+          packet.geometry.debugMeta?.geometryFamily === 'constrained-solid' &&
+          packet.geometry.debugMeta?.sourceTopology === 'self-intersecting' &&
+          packet.geometry.debugMeta?.resolutionStatus === 'exact-constrained' &&
+          packet.geometry.debugMeta?.runtimeStatus === 'accepted' &&
+          packet.geometry.debugMeta?.figmaLikeSideAuthority ===
+            'implicit-fill-hole-domain'
+      )
+    ).toBe(true)
+    expect(
+      packets.every(
+        (packet) =>
+          packet.geometry.debugMeta?.figmaLikeSelectedSide ===
+          packet.geometry.debugMeta?.figmaLikeFilledSide
+      )
+    ).toBe(true)
+    expect(packets.some(solidPacketCarriesSourceVertexProvenance)).toBe(true)
+    expect(packets.some(solidPacketHasDashedTerminalMetadata)).toBe(false)
+    expect(packets.some(solidPacketUsesBoundaryDomainProductGeometry)).toBe(
+      false
+    )
+  })
+
+  it('should run: require self-intersecting outside solidMaskModel packets without internal-adjacency or dashed terminal metadata', async () => {
+    const {
+      sourcePath,
+      topology,
+      fillRegions,
+      sharedSourceSplitRanges,
+      sharedStrokeBoundaryDomains
+    } = buildSelfIntersectingSolidDomainFixture()
+    const backend = createClipper2GeometryBackend(await loadClipperModule())
+
+    const packets = buildConstrainedSolidStrokeResolvedPackets(
+      'self-intersecting-solid-domain-star:outside',
+      topology.normalizedPoints,
+      true,
+      [
+        createDefaultStroke({
+          width: 10,
+          style: 'solid',
+          position: 'outside',
+          joinType: 'miter',
+          capType: 'round'
+        })
+      ],
+      {
+        topology,
+        sourcePath,
+        implicitFillRegions: fillRegions,
+        sharedSourceSplitRanges,
+        sharedStrokeBoundaryDomains,
+        exactBackend: backend,
+        candidateMode: 'exact-arrangement'
+      }
+    )
+
+    expect(packets.length).toBeGreaterThan(0)
+    expect(
+      packets.some(
+        (packet) =>
+          packet.geometry.debugMeta?.figmaLikeBoundaryRole === 'filled-face'
+      )
+    ).toBe(false)
+    expect(
+      packets.every(
+        (packet) =>
+          packet.geometry.debugMeta?.figmaLikeBoundaryRole === 'outer' &&
+          packet.geometry.debugMeta?.figmaLikeSelectedSide ===
+            packet.geometry.debugMeta?.figmaLikeUnfilledSide &&
+          packet.geometry.debugMeta?.resolutionStatus === 'exact-constrained'
+      )
+    ).toBe(true)
+    expect(packets.some(solidPacketCarriesSourceVertexProvenance)).toBe(true)
+    expect(packets.some(solidPacketHasDashedTerminalMetadata)).toBe(false)
+    expect(packets.some(solidPacketUsesBoundaryDomainProductGeometry)).toBe(
+      false
+    )
+  })
+
+  it('should run: keep self-check self-intersecting solid join matrix near the authored source path', async () => {
+    const {
+      sourcePath,
+      topology,
+      fillRegions,
+      sharedSourceSplitRanges,
+      sharedStrokeBoundaryDomains
+    } = buildSelfCheckStarSolidDomainFixture()
+    const backend = createClipper2GeometryBackend(await loadClipperModule())
+    const cases = [
+      { position: 'outside' as const, joinType: 'miter' as const },
+      { position: 'outside' as const, joinType: 'round' as const },
+      { position: 'outside' as const, joinType: 'bevel' as const },
+      { position: 'inside' as const, joinType: 'miter' as const },
+      { position: 'inside' as const, joinType: 'bevel' as const },
+      { position: 'inside' as const, joinType: 'round' as const }
+    ]
+
+    for (const { position, joinType } of cases) {
+      const packets = buildConstrainedSolidStrokeResolvedPackets(
+        `self-check-star-solid-domain:${position}:${joinType}`,
+        topology.normalizedPoints,
+        true,
+        [
+          createDefaultStroke({
+            width: 10,
+            style: 'solid',
+            position,
+            joinType,
+            capType: 'round'
+          })
+        ],
+        {
+          topology,
+          sourcePath,
+          implicitFillRegions: fillRegions,
+          sharedSourceSplitRanges,
+          sharedStrokeBoundaryDomains,
+          candidateMode: 'exact-arrangement',
+          exactBackend: backend
+        }
+      )
+      const polygons = packets.flatMap((packet) => packet.geometry.polygons)
+      const exportPolygons = buildSolidCenterStrokeExportPackets(
+        packets
+      ).flatMap((packet) => packet.polygons)
+      const collapsedPolygons = collapseStrokeFinalFaceVisualOverlaps(
+        buildStrokeFinalFacesFromResolvedPackets(packets),
+        { backend }
+      ).flatMap((face) => face.polygons)
+      const maxDistance = joinType === 'miter' ? 64 : 24
+      const farSourceCoverageFailures = getFarSourceCoverageFailures({
+        polygons,
+        sourcePath,
+        maxDistance
+      })
+      const deepFillCoverageFailures =
+        position === 'outside'
+          ? getFillRegionDeepCoverageFailures({
+              strokePolygons: polygons,
+              fillRegions,
+              minBoundaryDistance: 12
+            })
+          : []
+      const exportDeepFillCoverageFailures =
+        position === 'outside'
+          ? getFillRegionDeepCoverageFailures({
+              strokePolygons: exportPolygons,
+              fillRegions,
+              minBoundaryDistance: 12
+            })
+          : []
+      const collapsedDeepFillCoverageFailures =
+        position === 'outside'
+          ? getFillRegionDeepCoverageFailures({
+              strokePolygons: collapsedPolygons,
+              fillRegions,
+              minBoundaryDistance: 12
+            })
+          : []
+      const sourceSpanIds = packets.flatMap(
+        (packet) => packet.geometry.debugMeta?.sourceSpanIds ?? []
+      )
+      const sampledVertexSourceSpanIds = sourceSpanIds.filter(
+        (sourceSpanId) => {
+          const match = /^vertex:(\d+)$/.exec(sourceSpanId)
+          return match ? Number(match[1]) >= sourcePath.segments.length : false
+        }
+      )
+
+      expect(packets.length).toBeGreaterThan(0)
+      expect(
+        packets.every(
+          (packet) =>
+            packet.geometry.debugMeta?.geometryFamily === 'constrained-solid' &&
+            packet.geometry.debugMeta?.resolutionStatus ===
+              'exact-constrained' &&
+            packet.geometry.debugMeta?.sourceTopology === 'self-intersecting'
+        )
+      ).toBe(true)
+      expect(packets.some(solidPacketHasDashedTerminalMetadata)).toBe(false)
+      expect(
+        sampledVertexSourceSpanIds,
+        JSON.stringify({ position, joinType, sourceSpanIds }, null, 2)
+      ).toEqual([])
+      expect(
+        deepFillCoverageFailures,
+        JSON.stringify(
+          {
+            position,
+            joinType,
+            deepFillCoverageFailures,
+            polygonCount: polygons.length
+          },
+          null,
+          2
+        )
+      ).toEqual([])
+      expect(
+        exportDeepFillCoverageFailures,
+        JSON.stringify(
+          {
+            position,
+            joinType,
+            exportDeepFillCoverageFailures,
+            exportPolygonCount: exportPolygons.length
+          },
+          null,
+          2
+        )
+      ).toEqual([])
+      expect(
+        collapsedDeepFillCoverageFailures,
+        JSON.stringify(
+          {
+            position,
+            joinType,
+            collapsedDeepFillCoverageFailures,
+            collapsedPolygonCount: collapsedPolygons.length
+          },
+          null,
+          2
+        )
+      ).toEqual([])
+      expect(
+        farSourceCoverageFailures,
+        JSON.stringify(
+          {
+            position,
+            joinType,
+            maxDistance,
+            farSourceCoverageFailures,
+            polygonCount: polygons.length
+          },
+          null,
+          2
+        )
+      ).toEqual([])
+    }
+  })
+
+  it('should run: keep self-intersecting solid reload path off boundary-domain packet generation', async () => {
+    const {
+      sourcePath,
+      topology,
+      fillRegions,
+      sharedSourceSplitRanges,
+      sharedStrokeBoundaryDomains
+    } = buildSelfIntersectingSolidDomainFixture()
+    const backend = createClipper2GeometryBackend(await loadClipperModule())
+    const phaseNames: string[] = []
+
+    const packets = withVectorRenderPhaseSink(
+      (phaseName) => {
+        phaseNames.push(phaseName)
+      },
+      () =>
+        buildConstrainedSolidStrokeResolvedPackets(
+          'self-intersecting-solid-domain-star:outside-performance',
+          topology.normalizedPoints,
+          true,
+          [
+            createDefaultStroke({
+              width: 10,
+              style: 'solid',
+              position: 'outside',
+              joinType: 'miter',
+              capType: 'round'
+            })
+          ],
+          {
+            topology,
+            sourcePath,
+            implicitFillRegions: fillRegions,
+            sharedSourceSplitRanges,
+            sharedStrokeBoundaryDomains,
+            exactBackend: backend,
+            candidateMode: 'exact-arrangement'
+          }
+        )
+    )
+
+    expect(packets.length).toBeGreaterThan(0)
+    expect(phaseNames).not.toContain(
+      'constrained-solid:self-intersecting-boundary-domain-packets'
+    )
   })
 
   it('should run: keep reported vector-6 outside solid gated local-side candidates covering authored segments', async () => {

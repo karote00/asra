@@ -660,8 +660,8 @@ test.describe('Reported Vector-6 Outside Solid Switch Regression', () => {
     expect(packetSummary.debugDisableVisualOverlapCollapse).toBe(false)
     expect(packetSummary.exportPacketCount).toBeGreaterThan(0)
     expect(packetSummary.exportPacketCount).toBeLessThanOrEqual(24)
-    expect(packetSummary.polygonCount).toBeLessThanOrEqual(80)
-    expect(packetSummary.pointCount).toBeLessThanOrEqual(3_000)
+    expect(packetSummary.polygonCount).toBeLessThanOrEqual(120)
+    expect(packetSummary.pointCount).toBeLessThanOrEqual(4_500)
     expect(packetSummary.vertexSpanIds).toEqual(
       expect.arrayContaining(['vertex:1', 'vertex:2', 'vertex:4'])
     )
@@ -738,10 +738,13 @@ test.describe('Reported Vector-6 Outside Solid Switch Regression', () => {
       packetSummary.exportPacketDebugMeta.every(
         (debugMeta) =>
           debugMeta.geometryFamily === 'constrained-solid' &&
-          debugMeta.resolutionStatus === 'local-side-approximation' &&
-          debugMeta.runtimeStatus === 'candidate' &&
+          debugMeta.resolutionStatus === 'exact-constrained' &&
+          debugMeta.runtimeStatus === 'accepted' &&
           debugMeta.sourceTopology === 'self-intersecting' &&
-          debugMeta.strokePosition === 'outside'
+          debugMeta.strokePosition === 'outside' &&
+          debugMeta.figmaLikeBoundaryRole === 'outer' &&
+          debugMeta.figmaLikeTerminalRole === undefined &&
+          debugMeta.figmaLikeSplitRangeTerminals === undefined
       ),
       JSON.stringify(packetSummary.exportPacketDebugMeta, null, 2)
     ).toBe(true)

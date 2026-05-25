@@ -1018,6 +1018,17 @@ const isSelfIntersectingConstrainedSolidFace = (
   face.geometryFamily === 'constrained-solid' &&
   face.sourceTopology === 'self-intersecting'
 
+const isSelfIntersectingConstrainedSolidMaskModelFace = (
+  face: ArrangedStrokeFinalFace
+) =>
+  isSelfIntersectingConstrainedSolidFace(face) &&
+  face.resolutionStatus === 'exact-constrained' &&
+  face.debugMeta?.solidMaskModelMaskApplication !== undefined
+
+const hasSelfIntersectingConstrainedSolidMaskModelFace = (
+  faces: ArrangedStrokeFinalFace[]
+) => faces.some(isSelfIntersectingConstrainedSolidMaskModelFace)
+
 const canCollapseVisualOverlapExactly = (faces: ArrangedStrokeFinalFace[]) =>
   faces.every(
     (face) =>
@@ -1129,7 +1140,10 @@ const mergeVisualOverlapFaceGroup = (
       sourceSpanIds,
       sourceContourIds,
       legalDomainIds,
-      figmaLikeSplitRangeTerminals,
+      figmaLikeSplitRangeTerminals:
+        figmaLikeSplitRangeTerminals.length > 0
+          ? figmaLikeSplitRangeTerminals
+          : undefined,
       visualOverlapCollapseStatus: 'exact-union',
       visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
       visualOverlapSourceGeometryIds: sourceGeometryIds
@@ -1417,6 +1431,10 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
       return false
     }
 
+    if (hasSelfIntersectingConstrainedSolidMaskModelFace(group)) {
+      return false
+    }
+
     const shouldUseUnionOnlyCollapse =
       canCollapseLocalSideConstrainedSolidVisualOverlapByUnion(group)
     if (
@@ -1457,6 +1475,10 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
     }
 
     if (hasGradientPaintFace(group)) {
+      return group
+    }
+
+    if (hasSelfIntersectingConstrainedSolidMaskModelFace(group)) {
       return group
     }
 

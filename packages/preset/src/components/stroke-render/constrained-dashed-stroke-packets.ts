@@ -3596,21 +3596,6 @@ const buildSourcePathRibbonPolygons = (
   return fastPolygons
 }
 
-const areSourceRangesAdjacent = (
-  current: SourceSegmentIntervalRange,
-  next: SourceSegmentIntervalRange,
-  totalLength: number
-) => {
-  if (Math.abs(current.endDistance - next.startDistance) <= EPSILON) {
-    return true
-  }
-
-  return (
-    Math.abs(current.endDistance - totalLength) <= EPSILON &&
-    next.startDistance <= EPSILON
-  )
-}
-
 const addPoint = (left: Vec2, right: Vec2): Vec2 => ({
   x: left.x + right.x,
   y: left.y + right.y
@@ -3787,6 +3772,84 @@ const buildOutsideSourceVertexJoinPolygon = (
     : []
 }
 
+const doPhysicalSpansCrossSourceVertex = (
+  physicalSpans: ConstrainedDashedPhysicalSpan[],
+  sourceVertexDistance: number,
+  totalLength: number
+) => {
+  const crossesInterior = physicalSpans.some(
+    (span) =>
+      isDistanceInsideInterval(sourceVertexDistance, span, totalLength) &&
+      getLoopDistanceDelta(
+        sourceVertexDistance,
+        span.startDistance,
+        totalLength
+      ) > EPSILON &&
+      getLoopDistanceDelta(
+        sourceVertexDistance,
+        span.endDistance,
+        totalLength
+      ) > EPSILON
+  )
+  if (crossesInterior) {
+    return true
+  }
+
+  if (!areLoopDistancesEqual(sourceVertexDistance, 0, totalLength)) {
+    return false
+  }
+
+  const hasTailSpan = physicalSpans.some((span) =>
+    areLoopDistancesEqual(span.endDistance, totalLength, totalLength)
+  )
+  const hasHeadSpan = physicalSpans.some((span) =>
+    areLoopDistancesEqual(span.startDistance, 0, totalLength)
+  )
+  return hasTailSpan && hasHeadSpan
+}
+
+const buildOutsideSourcePathIntervalJoinPolygons = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  physicalSpans: ConstrainedDashedPhysicalSpan[],
+  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join' | 'miterLimit'>
+) => {
+  if (
+    stroke.position !== 'outside' ||
+    path.closed !== true ||
+    path.segments.length < 2 ||
+    physicalSpans.length === 0
+  ) {
+    return []
+  }
+
+  const segmentRanges = getSourcePathSegmentRanges(path)
+  return path.segments.flatMap((_segment, previousSegmentIndex) => {
+    const nextSegmentIndex = (previousSegmentIndex + 1) % path.segments.length
+    if (isSourceBoundarySmooth(path, previousSegmentIndex, nextSegmentIndex)) {
+      return []
+    }
+
+    const sourceVertexDistance =
+      segmentRanges[nextSegmentIndex]?.startDistance ?? 0
+    if (
+      !doPhysicalSpansCrossSourceVertex(
+        physicalSpans,
+        sourceVertexDistance,
+        path.totalLength
+      )
+    ) {
+      return []
+    }
+
+    return buildOutsideSourceVertexJoinPolygon(
+      path,
+      previousSegmentIndex,
+      nextSegmentIndex,
+      stroke
+    )
+  })
+}
+
 const getBoundaryDomainTerminalPoint = (
   interval: VisibleDashedTopologyInterval,
   terminal: 'start' | 'end',
@@ -3904,14 +3967,18 @@ const getSourceVertexTurnAngle = (
   const previousBoundary = buildSourceSegmentBoundary(
     path.segments[previousSegmentIndex]
   )
-  const nextBoundary = buildSourceSegmentBoundary(path.segments[nextSegmentIndex])
+  const nextBoundary = buildSourceSegmentBoundary(
+    path.segments[nextSegmentIndex]
+  )
   if (previousBoundary.length < 2 || nextBoundary.length < 2) {
     return null
   }
 
   const vertex = previousBoundary[previousBoundary.length - 1]
   const nextVertex = nextBoundary[0]
-  if (distanceBetween(vertex, nextVertex) > SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE) {
+  if (
+    distanceBetween(vertex, nextVertex) > SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE
+  ) {
     return null
   }
 
@@ -3949,10 +4016,7 @@ const getSourceVertexRecords = (
       previousSegmentIndex,
       nextSegmentIndex
     )
-    if (
-      turnAngle === null ||
-      turnAngle < SOURCE_VERTEX_JOIN_MIN_TURN_ANGLE
-    ) {
+    if (turnAngle === null || turnAngle < SOURCE_VERTEX_JOIN_MIN_TURN_ANGLE) {
       return []
     }
 
@@ -4126,7 +4190,10 @@ const buildOutsideSmoothSourceVertexContinuityInterval = (
     return null
   }
 
-  const buildContinuousPathCandidate = (leftPath: Vec2[], rightPath: Vec2[]) => {
+  const buildContinuousPathCandidate = (
+    leftPath: Vec2[],
+    rightPath: Vec2[]
+  ) => {
     const leftStartsAtVertex =
       distanceBetween(leftPath[0], sourceVertex.vertex) <=
       distanceBetween(leftPath[leftPath.length - 1], sourceVertex.vertex)
@@ -4307,19 +4374,18 @@ const replaceOutsideSmoothSourceVertexContinuityIntervals = (
     | undefined,
   stroke: Pick<RenderableStroke, 'position' | 'width'>
 ) => {
-  const replacements = buildOutsideSmoothSourceVertexContinuityIntervalReplacements(
-    sourcePath,
-    visibleIntervals,
-    stroke
-  )
+  const replacements =
+    buildOutsideSmoothSourceVertexContinuityIntervalReplacements(
+      sourcePath,
+      visibleIntervals,
+      stroke
+    )
   if (replacements.length === 0) {
     return visibleIntervals
   }
 
   const removedIntervalIds = new Set(
-    replacements.flatMap((replacement) => [
-      ...replacement.replacedIntervalIds
-    ])
+    replacements.flatMap((replacement) => [...replacement.replacedIntervalIds])
   )
   const replacementsByInsertIndex = new Map<
     number,
@@ -5272,14 +5338,15 @@ export const buildConstrainedDashedStrokeProductVisualEntries = (
       sourcePath,
       strokeDomainPlan
     )
-    const visibleIntervals = replaceOutsideSmoothSourceVertexContinuityIntervals(
-      allocatedVisibleIntervals,
-      sourcePath,
-      {
-        position: stroke.position,
-        width: stroke.width
-      }
-    )
+    const visibleIntervals =
+      replaceOutsideSmoothSourceVertexContinuityIntervals(
+        allocatedVisibleIntervals,
+        sourcePath,
+        {
+          position: stroke.position,
+          width: stroke.width
+        }
+      )
     if (visibleIntervals.length === 0) {
       continue
     }
@@ -6000,7 +6067,11 @@ const findNearestProductBoundaryPathProjection = (
   }
 
   let nearest: ProductBoundaryPathProjection | null = null
-  for (let segmentIndex = 0; segmentIndex < path.length - 1; segmentIndex += 1) {
+  for (
+    let segmentIndex = 0;
+    segmentIndex < path.length - 1;
+    segmentIndex += 1
+  ) {
     const start = path[segmentIndex]
     const end = path[segmentIndex + 1]
     const dx = end.x - start.x
@@ -6104,11 +6175,7 @@ const buildProductBoundaryOpenPath = (
     pushDistinctBoundaryPoint(points, end.point)
   } else {
     pushDistinctBoundaryPoint(points, start.point)
-    for (
-      let index = start.segmentIndex;
-      index > end.segmentIndex;
-      index -= 1
-    ) {
+    for (let index = start.segmentIndex; index > end.segmentIndex; index -= 1) {
       pushDistinctBoundaryPoint(points, path[index])
     }
     pushDistinctBoundaryPoint(points, end.point)
@@ -6150,8 +6217,7 @@ const chooseRestoredProductBoundaryPath = (
     const maxSegmentLength = getPolylineMaxEdgeLength(path)
     return (
       length > directLength + EPSILON &&
-      length <=
-        Math.max(directLength * 4, directLength + maxEdgeLength * 4) &&
+      length <= Math.max(directLength * 4, directLength + maxEdgeLength * 4) &&
       maxSegmentLength <= Math.max(maxEdgeLength, directLength * 0.75)
     )
   }
@@ -6182,7 +6248,7 @@ const chooseRestoredProductBoundaryPath = (
       const path = buildProductBoundaryPath(
         startProjection,
         endProjection,
-          direction
+        direction
       )
       if (path.length < 3) {
         return []
@@ -6191,7 +6257,10 @@ const chooseRestoredProductBoundaryPath = (
     })
   })
   const pathCandidates = subjectPaths.flatMap((path) => {
-    const startProjection = findNearestProductBoundaryPathProjection(start, path)
+    const startProjection = findNearestProductBoundaryPathProjection(
+      start,
+      path
+    )
     const endProjection = findNearestProductBoundaryPathProjection(end, path)
     if (
       !startProjection ||
@@ -6223,7 +6292,11 @@ const restoreClippedProductLongBoundaryEdges = (
   options: ClippedProductCleanupOptions = {}
 ) => {
   const maxEdgeLength = options.restoreSubjectBoundaryMaxEdgeLength
-  if (!maxEdgeLength || maxEdgeLength <= EPSILON || subjectPolygons.length === 0) {
+  if (
+    !maxEdgeLength ||
+    maxEdgeLength <= EPSILON ||
+    subjectPolygons.length === 0
+  ) {
     return polygons
   }
 
@@ -7816,14 +7889,15 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
       sourcePath,
       strokeDomainPlan
     )
-    const visibleIntervals = replaceOutsideSmoothSourceVertexContinuityIntervals(
-      allocatedVisibleIntervals,
-      sourcePath,
-      {
-        position: stroke.position,
-        width: stroke.width
-      }
-    )
+    const visibleIntervals =
+      replaceOutsideSmoothSourceVertexContinuityIntervals(
+        allocatedVisibleIntervals,
+        sourcePath,
+        {
+          position: stroke.position,
+          width: stroke.width
+        }
+      )
     const sourceSpanProvenance =
       resolveSourceSpanProvenanceAvailability(options)
     const sourceSpanGraph = sourceSpanProvenance.available
@@ -8045,9 +8119,6 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
     const intervalPointSlicer = sourcePath
       ? null
       : createStrokeIntervalPointSlicer(topologyPoints, topology.closed)
-    const topologySourcePath = sourcePath
-      ? null
-      : buildPolylineGeometryModelPath(topologyPoints, topology.closed)
     const canSkipInteriorSourcePathBoundaryClipping =
       options.visualOnly === true
     const canUseProductFinalIntervalClassification =
@@ -8651,6 +8722,25 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
             cleanupCollinearTolerance: 0.0001
           }
         )
+      }
+      if (
+        sourcePath &&
+        stroke.position === 'outside' &&
+        boundaryDomainPath === null
+      ) {
+        polygons = [
+          ...polygons,
+          ...buildOutsideSourcePathIntervalJoinPolygons(
+            sourcePath,
+            physicalSpans,
+            {
+              position: stroke.position,
+              width: intervalStroke.width,
+              join: stroke.join,
+              miterLimit: stroke.miterLimit
+            }
+          )
+        ]
       }
 
       if (polygons.length === 0) {

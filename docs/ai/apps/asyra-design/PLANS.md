@@ -8,8 +8,10 @@ Never record completed plans here.
 
 - active source-of-truth package:
   - `docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md`
-- active routing contract:
-  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/source-of-truth.md`
+- active routing and inspector contract:
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.data.js`
+  - `docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.html`
 - active baseline analysis report:
   - `docs/ai/apps/asyra-design/reports/stroke-engine-final-analysis-report.md`
 - decision history:
@@ -19,13 +21,27 @@ Required direction:
 
 - geometry is resolved before paint
 - fill, stroke, and shadow attach paint to canonical geometry
-- `inside` and `outside` strokes use direct one-sided geometry, not doubled
-  center-band clipping
+- `inside` and `outside` constrained strokes first resolve shared fill/mask
+  domains. Solid and dashed consume that evidence differently: solid uses a
+  Figma-like doubled center-stroke plus fill/exterior mask model, while dashed
+  uses selected boundary-domain dash intervals.
 - render, hit-test, export, diagnostics, and animation share the same resolved
   geometry family
 - ownership, topology, support state, interval state, and blocked state are
   typed metadata, never parsed from `geometryId`
 - interaction performance targets `120fps`; product floor is `60fps`
+- Step 30 completion requires deterministic probes plus global and local zoom
+  visual review artifacts for solid miter/join shape, mask boundaries, overlap
+  darkening, high-curvature cracks, split-end cap artifacts, dashed
+  terminal/cap behavior, intersections, and side eligibility
+- self-intersecting solid Step 30 gates must include the join matrix currently
+  covered by the self-check star: outside round/bevel plus inside
+  miter/bevel/round, with no dashed terminal metadata, no illegal side leakage,
+  and no same-paint dark-overdraw beyond the anti-aliasing threshold
+- self-intersecting solid mask-model packets must stay on the lightweight
+  product path during reload; inspector provenance is required, but dashed-only
+  interval allocation and expensive ownership arrangement diagnostics are not
+  allowed on the normal render path
 
 Legacy stroke planning files outside `stroke-engine-final/` are not retained as
 active or archived documents. Historical reasoning belongs only in decision

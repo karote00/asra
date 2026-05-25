@@ -227,6 +227,16 @@ export interface SolidCenterStrokeGeometryDebugMeta {
   strokeJoin?: 'miter' | 'bevel' | 'round'
   strokeCap?: 'butt' | 'square' | 'round' | 'none'
   strokeMiterLimit?: number
+  solidMaskModelMaskApplication?: 'render-fill-mask' | 'exact-boolean'
+  solidMaskModelRenderFillPolygons?: Vec2[][]
+  solidMaskModelRenderClipPolygons?: Vec2[][]
+  solidMaskModelRenderStrokePaths?: Vec2[][]
+  solidMaskModelRenderStrokePathStyle?: {
+    width: number
+    cap: 'butt' | 'square' | 'round' | 'none'
+    join: 'miter' | 'bevel' | 'round'
+    miterLimit: number
+  }
   arrangementStatus?: 'exact'
   arrangementFaceId?: string
   arrangementCandidateIds?: string[]
@@ -646,25 +656,43 @@ const buildRenderEntryFromFinalFace = (
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
   >
-) => ({
-  cacheKey: getProjectedGeometryId(face),
-  stroke: {
-    kind: face.paint.kind,
-    color: face.paint.color,
-    alpha: face.paint.alpha,
-    gradientStyle: face.paint.gradientStyle ?? null,
-    paintKey:
-      face.paint.paintKey ?? `solid:${face.paint.color}:${face.paint.alpha}`
-  },
-  polygons: face.polygons,
-  debugMeta: face.debugMeta,
-  revisionSet: face.debugMeta?.revisionSet,
-  preferSolidGraphics:
-    face.geometryFamily === 'constrained-dashed' &&
-    (face.debugMeta?.finalCoverageBuilderStatus === 'product-final' ||
-      (face.debugMeta?.intervalTopology === 'full-loop' &&
-        face.debugMeta?.strokePosition === 'inside'))
-})
+) => {
+  const solidMaskRenderFillPolygons =
+    face.debugMeta?.solidMaskModelRenderFillPolygons
+  const solidMaskRenderClipPolygons =
+    face.debugMeta?.solidMaskModelRenderClipPolygons
+  const solidMaskRenderStrokePaths =
+    face.debugMeta?.solidMaskModelRenderStrokePaths
+  const solidMaskRenderStrokePathStyle =
+    face.debugMeta?.solidMaskModelRenderStrokePathStyle
+
+  return {
+    cacheKey: getProjectedGeometryId(face),
+    stroke: {
+      kind: face.paint.kind,
+      color: face.paint.color,
+      alpha: face.paint.alpha,
+      gradientStyle: face.paint.gradientStyle ?? null,
+      paintKey:
+        face.paint.paintKey ?? `solid:${face.paint.color}:${face.paint.alpha}`
+    },
+    polygons: face.polygons,
+    fillPolygons: solidMaskRenderFillPolygons,
+    clipPolygons: solidMaskRenderClipPolygons,
+    strokePaths: solidMaskRenderStrokePaths,
+    strokePathStyle: solidMaskRenderStrokePathStyle,
+    debugMeta: face.debugMeta,
+    revisionSet: face.debugMeta?.revisionSet,
+    preferSolidGraphics:
+      (face.geometryFamily === 'constrained-dashed' &&
+        (face.debugMeta?.finalCoverageBuilderStatus === 'product-final' ||
+          (face.debugMeta?.intervalTopology === 'full-loop' &&
+            face.debugMeta?.strokePosition === 'inside'))) ||
+      (face.geometryFamily === 'constrained-solid' &&
+        face.debugMeta?.sourceTopology === 'self-intersecting' &&
+        !solidMaskRenderClipPolygons?.length)
+  }
+}
 
 type RenderProjectionCollapseStatus =
   | 'exact-union'
@@ -823,7 +851,10 @@ const buildCollapsedRenderEntry = (
         sourceSpanIds,
         sourceContourIds,
         legalDomainIds,
-        figmaLikeSplitRangeTerminals,
+        figmaLikeSplitRangeTerminals:
+          figmaLikeSplitRangeTerminals.length > 0
+            ? figmaLikeSplitRangeTerminals
+            : undefined,
         visualOverlapCollapseStatus: collapseStatus,
         visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
         visualOverlapSourceGeometryIds: sourceGeometryIds
@@ -892,7 +923,10 @@ const buildRenderProjectionArrangementEntry = (
         sourceSpanIds,
         sourceContourIds,
         legalDomainIds,
-        figmaLikeSplitRangeTerminals,
+        figmaLikeSplitRangeTerminals:
+          figmaLikeSplitRangeTerminals.length > 0
+            ? figmaLikeSplitRangeTerminals
+            : undefined,
         visualOverlapCollapseStatus: 'render-projection-arrangement' as const,
         visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
         visualOverlapSourceGeometryIds: sourceGeometryIds

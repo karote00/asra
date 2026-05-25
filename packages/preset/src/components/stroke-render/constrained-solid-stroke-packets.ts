@@ -1,11 +1,12 @@
 import type { StrokeAttrs } from '@asyra/utils'
-import type { GeometryBackend } from './geometry-backend'
+import type { GeometryBackend, PolygonRegion } from './geometry-backend'
 import { getRenderableStrokes } from './renderable-stroke'
 import {
   buildSolidCenterStrokeResolvedPackets,
   type SolidCenterStrokeResolvedPacket
 } from './solid-center-stroke-packets'
 import type { StrokeGeometrySourceTopology } from './solid-center-stroke-packets'
+import { buildSolidCenterStrokePolygons } from './solid-center-stroke-geometry'
 import { buildStrokeRuntimeRevisionSet } from './stroke-dirty-keys'
 import {
   buildPathTopologyModel,
@@ -21,6 +22,12 @@ import {
 } from './path-geometry'
 import { buildClosedConstrainedStrokePolygonEntriesForSource } from './constrained-solid-stroke-geometry'
 import { resolveOneSidedCandidateFlow } from './stroke-candidate-flow'
+import { resolveSourceFamily } from './resolved-source-family'
+import { resolveStrokeDomains } from './stroke-domain-plan'
+import type {
+  ResolvedVectorSourceSplitRange,
+  ResolvedVectorStrokeBoundaryDomain
+} from './resolved-vector-geometry-model'
 import {
   isSimpleClosedPolygon,
   polygonArea
@@ -68,7 +75,13 @@ interface ConstrainedSolidStrokePacketOptions {
     legalDomainId?: string | null
   }
   topology?: PathTopologyModel
-  sourcePath?: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>
+  sourcePath?: Pick<
+    PathGeometry,
+    'segments' | 'closed' | 'totalLength' | 'sampledPoints'
+  >
+  implicitFillRegions?: PolygonRegion[]
+  sharedSourceSplitRanges?: ResolvedVectorSourceSplitRange[]
+  sharedStrokeBoundaryDomains?: ResolvedVectorStrokeBoundaryDomain[]
   selectedSideGuardPoints?: SelectedSideGuardPoint[]
   exactBackend?: Pick<
     GeometryBackend,
@@ -113,6 +126,28 @@ type OneSidedOffsetDistanceResolver = (
 
 const EPSILON = 1e-6
 const SMOOTH_SEAM_CORNER_TURN_ANGLE = Math.PI / 4
+
+const measureConstrainedSolidPhase = <T>(
+  phaseName: string,
+  run: () => T
+): T => {
+  const start = performance.now()
+  try {
+    return run()
+  } finally {
+    ;(
+      globalThis as typeof globalThis & {
+        __asyraVectorRenderPhaseSink?: (
+          phaseName: string,
+          durationMs: number
+        ) => void
+      }
+    ).__asyraVectorRenderPhaseSink?.(
+      `constrained-solid:${phaseName}`,
+      performance.now() - start
+    )
+  }
+}
 
 const supportsExactConstrainedSolidStroke = (
   stroke: Pick<
@@ -2175,6 +2210,626 @@ const getConstrainedSolidResolutionStatus = (
     ? 'local-side-approximation'
     : 'exact-constrained'
 
+const hasExactSolidMaskBackend = (
+  backend: ConstrainedSolidStrokePacketOptions['exactBackend'] | undefined
+): backend is NonNullable<
+  ConstrainedSolidStrokePacketOptions['exactBackend']
+> =>
+  backend?.capabilities.union === true &&
+  backend.capabilities.intersection === true &&
+  backend.capabilities.difference === true
+
+const hasRegionGeometry = (region: PolygonRegion) =>
+  region.polygons.some(
+    (polygon) => polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPSILON
+  )
+
+const flattenRegionPolygons = (regions: PolygonRegion[]): Vec2[][] =>
+  regions.flatMap((region) =>
+    region.polygons.filter(
+      (polygon) =>
+        polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPSILON
+    )
+  )
+
+const buildSolidMaskModelSourceSpanIds = (
+  sourcePath: Pick<PathGeometry, 'segments'>
+) => {
+  const sourceSpanIds: string[] = []
+
+  sourcePath.segments.forEach((segment, index) => {
+    const nextSegment =
+      sourcePath.segments[(index + 1) % sourcePath.segments.length]
+    sourceSpanIds.push(`segment:${index}`)
+
+    if (
+      segment.endAnchorType === 'smooth' &&
+      nextSegment?.startAnchorType === 'smooth'
+    ) {
+      sourceSpanIds.push(`smooth-join:${index}`)
+      return
+    }
+
+    sourceSpanIds.push(`vertex:${index}`)
+  })
+
+  return sourceSpanIds
+}
+
+const getPreferredSolidMaskEvidenceDomain = (
+  domains: ReturnType<typeof resolveStrokeDomains>['splitRangeDomains'],
+  strokePosition: 'inside' | 'outside'
+) => {
+  const eligibleDomains = domains.filter(
+    (domain) =>
+      domain.sideResolutionStatus === 'resolved' &&
+      domain.selectedSide !== undefined &&
+      (domain.boundaryPoints?.length ?? 0) >= 2
+  )
+
+  const preferredDomains =
+    strokePosition === 'inside'
+      ? eligibleDomains.filter(
+          (domain) => domain.boundaryRole === 'filled-face'
+        )
+      : eligibleDomains.filter((domain) => domain.boundaryRole === 'outer')
+  const candidates =
+    preferredDomains.length > 0 ? preferredDomains : eligibleDomains
+
+  return [...candidates].sort(
+    (left, right) =>
+      (right.boundaryPoints?.length ?? 0) -
+        (left.boundaryPoints?.length ?? 0) ||
+      right.endDistance -
+        right.startDistance -
+        (left.endDistance - left.startDistance)
+  )[0]
+}
+
+const SOURCE_CENTER_STROKE_SEGMENT_TOLERANCE = 0.75
+
+const buildCenterStrokeSegmentBodyPolygonsForSourceSegment = (
+  segment: PathSegment,
+  halfWidth: number
+) => {
+  const sourcePoints = slicePathSegmentPoints(
+    segment,
+    0,
+    segment.length,
+    SOURCE_CENTER_STROKE_SEGMENT_TOLERANCE
+  ).map(normalizePoint)
+  if (sourcePoints.length < 2) {
+    return []
+  }
+
+  const leftPoints = sourcePoints.map((_, index) =>
+    getOffsetPointForSample(sourcePoints, index, halfWidth)
+  )
+  const rightPoints = sourcePoints.map((_, index) =>
+    getOffsetPointForSample(sourcePoints, index, -halfWidth)
+  )
+  if (
+    leftPoints.some((point) => point === null) ||
+    rightPoints.some((point) => point === null)
+  ) {
+    return []
+  }
+
+  return sourcePoints.slice(0, -1).flatMap((_point, index) => {
+    const leftStart = leftPoints[index]
+    const leftEnd = leftPoints[index + 1]
+    const rightStart = rightPoints[index]
+    const rightEnd = rightPoints[index + 1]
+    if (!leftStart || !leftEnd || !rightStart || !rightEnd) {
+      return []
+    }
+
+    const polygon = cleanPolygon([leftStart, leftEnd, rightEnd, rightStart])
+    return polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPSILON
+      ? [polygon]
+      : []
+  })
+}
+
+const buildCenterStrokeSourceVertexJoinPolygon = (
+  vertex: Vec2,
+  previousDirection: Vec2,
+  nextDirection: Vec2,
+  offsetDistance: number,
+  sweepSign: number,
+  stroke: Pick<
+    ReturnType<typeof getRenderableStrokes>[number],
+    'join' | 'miterLimit'
+  >
+) => {
+  const previousStart = addPoint(vertex, scalePoint(previousDirection, -1))
+  const nextEnd = addPoint(vertex, nextDirection)
+  const previousOffsetStart = getOffsetPointOnLine(
+    previousStart,
+    previousStart,
+    vertex,
+    offsetDistance
+  )
+  const previousOffsetEnd = getOffsetPointOnLine(
+    vertex,
+    previousStart,
+    vertex,
+    offsetDistance
+  )
+  const nextOffsetStart = getOffsetPointOnLine(
+    vertex,
+    vertex,
+    nextEnd,
+    offsetDistance
+  )
+  const nextOffsetEnd = getOffsetPointOnLine(
+    nextEnd,
+    vertex,
+    nextEnd,
+    offsetDistance
+  )
+  if (
+    !previousOffsetStart ||
+    !previousOffsetEnd ||
+    !nextOffsetStart ||
+    !nextOffsetEnd
+  ) {
+    return null
+  }
+
+  let polygon =
+    stroke.join === 'round'
+      ? [
+          vertex,
+          ...buildJoinArcPoints(
+            vertex,
+            previousOffsetEnd,
+            nextOffsetStart,
+            sweepSign
+          )
+        ]
+      : [vertex, previousOffsetEnd, nextOffsetStart]
+
+  if (stroke.join === 'miter') {
+    const joinPoint = lineIntersection(
+      previousOffsetStart,
+      previousOffsetEnd,
+      nextOffsetStart,
+      nextOffsetEnd
+    )
+    if (
+      joinPoint &&
+      distanceBetween(vertex, joinPoint) <=
+        stroke.miterLimit * Math.abs(offsetDistance) + EPSILON
+    ) {
+      polygon = [vertex, previousOffsetEnd, joinPoint, nextOffsetStart]
+    }
+  }
+
+  const cleaned = cleanPolygon(polygon)
+  return cleaned.length >= 3 &&
+    Math.abs(polygonArea(cleaned)) > EPSILON &&
+    isSimpleClosedPolygon(cleaned)
+    ? cleaned
+    : null
+}
+
+const buildCenterStrokeSourceVertexJoinPolygons = (
+  sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  halfWidth: number,
+  stroke: Pick<
+    ReturnType<typeof getRenderableStrokes>[number],
+    'join' | 'miterLimit'
+  >
+) => {
+  const path = normalizeClosedSourcePathWithImplicitClosingSegment(sourcePath)
+  if (!path.closed || path.segments.length < 2) {
+    return []
+  }
+
+  return path.segments.flatMap((previousSegment, previousIndex) => {
+    const nextIndex = (previousIndex + 1) % path.segments.length
+    const nextSegment = path.segments[nextIndex]
+    if (
+      !nextSegment ||
+      distanceBetween(previousSegment.end, nextSegment.start) > 0.5
+    ) {
+      return []
+    }
+
+    const previousDirection = getSegmentEndDirection(previousSegment)
+    const nextDirection = getSegmentStartDirection(nextSegment)
+    if (!previousDirection || !nextDirection) {
+      return []
+    }
+
+    const turn = crossPoints(previousDirection, nextDirection)
+    const dot =
+      previousDirection.x * nextDirection.x +
+      previousDirection.y * nextDirection.y
+    if (Math.abs(turn) <= EPSILON && dot > 0) {
+      return []
+    }
+
+    const vertex = normalizePoint(previousSegment.end)
+    const outerOffsetDistance = turn > 0 ? -halfWidth : halfWidth
+    const polygon = buildCenterStrokeSourceVertexJoinPolygon(
+      vertex,
+      previousDirection,
+      nextDirection,
+      outerOffsetDistance,
+      turn > 0 ? 1 : -1,
+      stroke
+    )
+    return polygon ? [polygon] : []
+  })
+}
+
+const buildSolidMaskModelSourceCenterStrokePolygons = (
+  sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  stroke: Pick<
+    ReturnType<typeof getRenderableStrokes>[number],
+    'width' | 'join' | 'miterLimit'
+  >
+) => {
+  const path = normalizeClosedSourcePathWithImplicitClosingSegment(sourcePath)
+  const halfWidth = stroke.width
+  const segmentPolygons = path.segments.flatMap((segment) => {
+    return buildCenterStrokeSegmentBodyPolygonsForSourceSegment(
+      segment,
+      halfWidth
+    )
+  })
+  const joinPolygons = buildCenterStrokeSourceVertexJoinPolygons(
+    path,
+    halfWidth,
+    stroke
+  )
+
+  return [...segmentPolygons, ...joinPolygons]
+}
+
+interface SolidMaskModelPolygonResult {
+  polygons: Vec2[][]
+  maskApplication: 'render-fill-mask' | 'exact-boolean'
+  renderFillPolygons?: Vec2[][]
+  renderClipPolygons?: Vec2[][]
+  renderStrokePaths?: Vec2[][]
+  renderStrokePathStyle?: {
+    width: number
+    cap: 'butt' | 'square' | 'round' | 'none'
+    join: 'miter' | 'bevel' | 'round'
+    miterLimit: number
+  }
+}
+
+const closeSourcePathForStrokeRender = (
+  sourcePath: Pick<PathGeometry, 'sampledPoints' | 'closed'>
+): Vec2[][] => {
+  const sampledPoints = sourcePath.sampledPoints.filter(
+    (point) => Number.isFinite(point.x) && Number.isFinite(point.y)
+  )
+  if (sampledPoints.length < 2) {
+    return []
+  }
+
+  if (!sourcePath.closed) {
+    return [sampledPoints.map((point) => ({ ...point }))]
+  }
+
+  const first = sampledPoints[0]
+  const last = sampledPoints[sampledPoints.length - 1]
+  const needsClosingPoint =
+    Math.abs(first.x - last.x) > EPSILON || Math.abs(first.y - last.y) > EPSILON
+
+  return [
+    [
+      ...sampledPoints.map((point) => ({ ...point })),
+      ...(needsClosingPoint ? [{ ...first }] : [])
+    ]
+  ]
+}
+
+const buildSolidMaskModelPolygons = ({
+  topology,
+  stroke,
+  fillRegions,
+  exactBackend,
+  sourcePath
+}: {
+  topology: PathTopologyModel
+  stroke: ReturnType<typeof getRenderableStrokes>[number]
+  fillRegions: PolygonRegion[]
+  exactBackend?: ConstrainedSolidStrokePacketOptions['exactBackend']
+  sourcePath?: Pick<
+    PathGeometry,
+    'segments' | 'closed' | 'totalLength' | 'sampledPoints'
+  >
+}): SolidMaskModelPolygonResult | null => {
+  const doubledCenterStroke = {
+    ...stroke,
+    style: 'solid' as const,
+    position: 'center' as const,
+    width: stroke.width * 2
+  }
+  const sourceCenterStrokePolygons = sourcePath
+    ? buildSolidMaskModelSourceCenterStrokePolygons(sourcePath, stroke)
+    : []
+  const centerStrokePolygons =
+    sourceCenterStrokePolygons.length > 0
+      ? sourceCenterStrokePolygons
+      : buildSolidCenterStrokePolygons(
+          topology.normalizedPoints,
+          topology.closed,
+          doubledCenterStroke
+        )
+  if (centerStrokePolygons.length === 0) {
+    return null
+  }
+
+  const fillMaskPolygons = flattenRegionPolygons(fillRegions)
+  if (fillMaskPolygons.length === 0) {
+    return null
+  }
+
+  const backend = hasExactSolidMaskBackend(exactBackend)
+    ? exactBackend
+    : undefined
+  if (stroke.position === 'inside' && (!backend || fillRegions.length === 0)) {
+    const renderStrokePaths = sourcePath
+      ? closeSourcePathForStrokeRender(sourcePath)
+      : []
+    if (renderStrokePaths.length === 0) {
+      return null
+    }
+
+    return {
+      polygons: centerStrokePolygons,
+      maskApplication: 'render-fill-mask',
+      renderClipPolygons: fillMaskPolygons,
+      renderStrokePaths,
+      renderStrokePathStyle: {
+        width: stroke.width * 2,
+        cap: stroke.cap,
+        join: stroke.join,
+        miterLimit: stroke.miterLimit
+      }
+    }
+  }
+  if (!backend || fillRegions.length === 0) {
+    return null
+  }
+
+  try {
+    const strokeRegions = backend.union(
+      centerStrokePolygons.map((polygon) => ({ polygons: [polygon] })),
+      'nonzero'
+    )
+    const fillMaskRegions = backend.union(fillRegions, 'nonzero')
+    if (
+      strokeRegions.length === 0 ||
+      fillMaskRegions.length === 0 ||
+      !strokeRegions.some(hasRegionGeometry) ||
+      !fillMaskRegions.some(hasRegionGeometry)
+    ) {
+      return null
+    }
+
+    if (stroke.position === 'inside') {
+      const polygons = flattenRegionPolygons(strokeRegions)
+      return polygons.length > 0
+        ? {
+            polygons,
+            maskApplication: 'render-fill-mask',
+            renderFillPolygons: polygons,
+            renderClipPolygons: flattenRegionPolygons(fillMaskRegions)
+          }
+        : null
+    }
+
+    const maskedRegions = backend.difference(
+      strokeRegions,
+      fillMaskRegions,
+      'nonzero'
+    )
+    const normalizedRegions =
+      maskedRegions.length > 0
+        ? backend.union(maskedRegions, 'nonzero')
+        : maskedRegions
+    const polygons = flattenRegionPolygons(normalizedRegions)
+    return polygons.length > 0
+      ? { polygons, maskApplication: 'exact-boolean' }
+      : null
+  } catch {
+    return null
+  }
+}
+
+const buildSelfIntersectingSolidMaskModelPackets = ({
+  cachePrefix,
+  stroke,
+  strokeIndex,
+  topology,
+  sourcePath,
+  options
+}: {
+  cachePrefix: string
+  stroke: ReturnType<typeof getRenderableStrokes>[number]
+  strokeIndex: number
+  topology: PathTopologyModel
+  sourcePath: Pick<
+    PathGeometry,
+    'segments' | 'closed' | 'totalLength' | 'sampledPoints'
+  >
+  options: ConstrainedSolidStrokePacketOptions
+}): SolidCenterStrokeResolvedPacket[] => {
+  if (
+    topology.topologyFamily !== 'self-intersecting' ||
+    !topology.closed ||
+    (stroke.position !== 'inside' && stroke.position !== 'outside')
+  ) {
+    return []
+  }
+
+  const sourceFamily = measureConstrainedSolidPhase(
+    'self-intersecting-source-family',
+    () => resolveSourceFamily({ topology, stroke })
+  )
+  const strokeDomainPlan = measureConstrainedSolidPhase(
+    'self-intersecting-stroke-domains',
+    () =>
+      resolveStrokeDomains({
+        topology,
+        sourceFamily,
+        stroke,
+        sourcePath,
+        implicitFillRegions: options.implicitFillRegions,
+        sharedSourceSplitRanges: options.sharedSourceSplitRanges,
+        sharedStrokeBoundaryDomains: options.sharedStrokeBoundaryDomains
+      })
+  )
+
+  if (
+    strokeDomainPlan.supportState === 'blocked' ||
+    strokeDomainPlan.sideAuthority !== 'implicit-fill-hole-domain' ||
+    strokeDomainPlan.splitRangeDomains.length === 0
+  ) {
+    return []
+  }
+
+  const primaryContour = topology.contours[0]
+  const contourId = options.metadata?.contourId ?? primaryContour?.contourId
+  const ownerKey = options.metadata?.ownerKeyPrefix
+    ? `${options.metadata.ownerKeyPrefix}:stroke:${strokeIndex}`
+    : undefined
+  const strokeId = `stroke:${strokeIndex}`
+
+  return measureConstrainedSolidPhase(
+    'self-intersecting-solid-mask-model-packets',
+    () => {
+      const evidenceDomain = getPreferredSolidMaskEvidenceDomain(
+        strokeDomainPlan.splitRangeDomains,
+        stroke.position as 'inside' | 'outside'
+      )
+      if (!evidenceDomain) {
+        return []
+      }
+
+      const solidMaskModelPolygons = buildSolidMaskModelPolygons({
+        topology,
+        stroke,
+        fillRegions: options.implicitFillRegions ?? [],
+        exactBackend: options.exactBackend,
+        sourcePath
+      })
+      if (!solidMaskModelPolygons) {
+        return []
+      }
+      const { polygons } = solidMaskModelPolygons
+
+      const geometryId = `${cachePrefix}:${strokeIndex}:solid-mask`
+      const evidenceLegalDomainIds = evidenceDomain.legalDomainIds ?? []
+      const evidenceContourIds = evidenceDomain.contourIds ?? []
+      const legalDomainIds =
+        evidenceLegalDomainIds.length > 0
+          ? evidenceLegalDomainIds
+          : sourceFamily.legalDomainHints.legalDomainIds
+      const contourIds =
+        evidenceContourIds.length > 0
+          ? evidenceContourIds
+          : sourceFamily.legalDomainHints.contourIds
+      const sourceSpanIds = buildSolidMaskModelSourceSpanIds(sourcePath)
+      const revisionSet = buildStrokeRuntimeRevisionSet({
+        points: topology.normalizedPoints,
+        closed: topology.closed,
+        stroke,
+        geometryFamily: 'constrained-solid',
+        resolutionStatus: 'exact-constrained',
+        runtimeStatus: 'accepted',
+        runtimeReason: 'constrained-solid-exact',
+        ownerKey,
+        networkId: options.metadata?.networkId,
+        strokeId,
+        sourceTopology: topology.topologyFamily,
+        intervalSignature: `solid-mask:${stroke.position}`
+      })
+
+      return [
+        {
+          geometry: {
+            geometryId,
+            polygons,
+            bounds: getBounds(polygons),
+            debugMeta: {
+              sourcePathId: cachePrefix,
+              ownerKey,
+              networkId: options.metadata?.networkId,
+              strokeId,
+              strokeIndex,
+              contourId,
+              legalDomainId:
+                legalDomainIds[0] ?? options.metadata?.legalDomainId ?? null,
+              intervalId: `solid-mask:${stroke.position}`,
+              sourceSpanIds,
+              sourceContourIds: contourIds,
+              legalDomainIds,
+              startDistance: 0,
+              endDistance: sourcePath.totalLength,
+              wrapsSeam: true,
+              figmaLikeBoundaryPoints: (
+                evidenceDomain.boundaryPoints ?? []
+              ).map((point) => ({ ...point })),
+              figmaLikeBoundaryStartDistance:
+                evidenceDomain.boundaryStartDistance,
+              figmaLikeBoundaryEndDistance: evidenceDomain.boundaryEndDistance,
+              figmaLikeBoundaryTotalLength: evidenceDomain.boundaryTotalLength,
+              figmaLikeSideAuthority: 'implicit-fill-hole-domain',
+              figmaLikeSelectedSide: evidenceDomain.selectedSide,
+              figmaLikeFilledSide: evidenceDomain.filledSide,
+              figmaLikeUnfilledSide: evidenceDomain.unfilledSide,
+              figmaLikeBoundaryRole:
+                stroke.position === 'inside' ? 'filled-face' : 'outer',
+              figmaLikeSideResolutionStatus:
+                evidenceDomain.sideResolutionStatus,
+              geometryFamily: 'constrained-solid',
+              resolutionStatus: 'exact-constrained',
+              runtimeStatus: 'accepted',
+              runtimeReason: 'constrained-solid-exact',
+              sourceTopology: 'self-intersecting',
+              topologyFamily: topology.topologyFamily,
+              strokePosition: stroke.position,
+              strokeWidth: stroke.width,
+              strokeJoin: stroke.join,
+              strokeCap: stroke.cap,
+              strokeMiterLimit: stroke.miterLimit,
+              solidMaskModelMaskApplication:
+                solidMaskModelPolygons.maskApplication,
+              solidMaskModelRenderFillPolygons:
+                solidMaskModelPolygons.renderFillPolygons,
+              solidMaskModelRenderClipPolygons:
+                solidMaskModelPolygons.renderClipPolygons,
+              solidMaskModelRenderStrokePaths:
+                solidMaskModelPolygons.renderStrokePaths,
+              solidMaskModelRenderStrokePathStyle:
+                solidMaskModelPolygons.renderStrokePathStyle,
+              visualOverlapCollapseStatus: 'exact-arrangement',
+              revisionSet
+            }
+          },
+          paint: {
+            geometryId,
+            kind: stroke.kind,
+            color: stroke.color,
+            alpha: stroke.alpha,
+            gradientStyle: stroke.gradientStyle,
+            paintKey: stroke.paintKey
+          }
+        }
+      ]
+    }
+  )
+}
+
 const supportsDirectLocalSideExactTopology = (topology: PathTopologyModel) =>
   topology.topologyFamily === 'rectangle-equivalent' ||
   topology.topologyFamily === 'sampled-simple-closed'
@@ -2276,6 +2931,22 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
   return getRenderableStrokes(strokes).flatMap((stroke, index) => {
     if (!supportsExactConstrainedSolidStroke(stroke)) {
       return []
+    }
+
+    if (
+      topology.topologyFamily === 'self-intersecting' &&
+      options.sourcePath &&
+      ((options.sharedStrokeBoundaryDomains?.length ?? 0) > 0 ||
+        (options.sharedSourceSplitRanges?.length ?? 0) > 0)
+    ) {
+      return buildSelfIntersectingSolidMaskModelPackets({
+        cachePrefix,
+        stroke,
+        strokeIndex: index,
+        topology,
+        sourcePath: options.sourcePath,
+        options
+      })
     }
 
     const candidateMode = options.candidateMode ?? 'exact-arrangement'

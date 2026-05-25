@@ -761,10 +761,7 @@ const isStrokeWidthCutEdge = (
   contourPaths: ReturnType<typeof getStrokeWidthContourPaths>,
   strokeWidth: number
 ) => {
-  if (
-    edge.length < strokeWidth * 0.75 ||
-    edge.length > strokeWidth * 1.25
-  ) {
+  if (edge.length < strokeWidth * 0.75 || edge.length > strokeWidth * 1.25) {
     return false
   }
 
@@ -854,7 +851,9 @@ const getLocalHighCurvatureProductEdgeStats = (
       isPointCoveredByPolygons(point, smoothPacketPolygons, 0.75)
     ) ||
     smoothPacketPolygons.some((smoothPolygon) =>
-      smoothPolygon.some((point) => isPointCoveredByPolygons(point, [polygon], 0.75))
+      smoothPolygon.some((point) =>
+        isPointCoveredByPolygons(point, [polygon], 0.75)
+      )
     )
   const records =
     phase === 'packet'
@@ -917,7 +916,8 @@ const getLocalHighCurvatureProductEdgeStats = (
         if (distance(edge.midpoint, ADJ_TP16) > 64) {
           return []
         }
-        const previousEdge = edges[(edgeIndex - 1 + edges.length) % edges.length]
+        const previousEdge =
+          edges[(edgeIndex - 1 + edges.length) % edges.length]
         const nextEdge = edges[(edgeIndex + 1) % edges.length]
         const edgeAngle = getVectorAngleRadians(edge.start, edge.end)
         const previousAngle = getVectorAngleRadians(
@@ -970,8 +970,7 @@ const getLocalHighCurvatureProductEdgeStats = (
   )
   const roughContourEdges = localEdges
     .filter(
-      (edge) =>
-        edge.length > edgeLimit && !edge.isAllowedSmoothTerminalCutEdge
+      (edge) => edge.length > edgeLimit && !edge.isAllowedSmoothTerminalCutEdge
     )
     .sort((left, right) => right.length - left.length)
 
@@ -1287,12 +1286,7 @@ describe('constrained dashed Vector-6 high-curvature pipeline diagnostics', () =
     const roughContinuityEdges = (['miter', 'bevel', 'round'] as const).flatMap(
       (joinType) =>
         (
-          [
-            'packet',
-            'final-face',
-            'collapsed-final-face',
-            'render'
-          ] as const
+          ['packet', 'final-face', 'collapsed-final-face', 'render'] as const
         ).flatMap((phase) => {
           const edgeStats = getLocalHighCurvatureProductEdgeStats(
             joinType,

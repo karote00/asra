@@ -1606,9 +1606,13 @@ test.describe('Reported Vector-6 Inside Solid Visual Regression', () => {
       packetSummary.exportPacketDebugMeta.every(
         (debugMeta) =>
           debugMeta.geometryFamily === 'constrained-solid' &&
-          debugMeta.resolutionStatus === 'local-side-approximation' &&
-          debugMeta.runtimeStatus === 'candidate' &&
-          debugMeta.sourceTopology === 'self-intersecting'
+          debugMeta.resolutionStatus === 'exact-constrained' &&
+          debugMeta.runtimeStatus === 'accepted' &&
+          debugMeta.sourceTopology === 'self-intersecting' &&
+          debugMeta.figmaLikeSideAuthority === 'implicit-fill-hole-domain' &&
+          debugMeta.figmaLikeBoundaryRole === 'filled-face' &&
+          debugMeta.figmaLikeTerminalRole === undefined &&
+          debugMeta.figmaLikeSplitRangeTerminals === undefined
       ),
       JSON.stringify(packetSummary.exportPacketDebugMeta, null, 2)
     ).toBe(true)

@@ -36,23 +36,43 @@ const NO_FILL_ANALYSIS_PATH = path.join(
 type SelfCheckCapType = 'butt' | 'square' | 'round'
 type SelfCheckJoinType = 'miter' | 'bevel' | 'round'
 type SelfCheckStrokePosition = 'inside' | 'outside'
+type SelfCheckStrokeStyle = 'solid' | 'dashed'
 
 const getSelfCheckArtifactPaths = (
   capType: SelfCheckCapType,
   variant: 'fill' | 'no-fill',
-  position: SelfCheckStrokePosition = 'inside'
+  position: SelfCheckStrokePosition = 'inside',
+  style: SelfCheckStrokeStyle = 'dashed'
 ) => ({
   screenshot: path.join(
     ARTIFACT_DIR,
-    `self-check-${position}-dashed-${capType}-${variant}.png`
+    `self-check-${position}-${style}-${capType}-${variant}.png`
   ),
   metadata: path.join(
     ARTIFACT_DIR,
-    `self-check-${position}-dashed-${capType}-${variant}.json`
+    `self-check-${position}-${style}-${capType}-${variant}.json`
   ),
   analysis: path.join(
     ARTIFACT_DIR,
-    `self-check-${position}-dashed-${capType}-${variant}-analysis.json`
+    `self-check-${position}-${style}-${capType}-${variant}-analysis.json`
+  )
+})
+
+const getSelfCheckSolidJoinArtifactPaths = (
+  position: SelfCheckStrokePosition,
+  joinType: SelfCheckJoinType
+) => ({
+  screenshot: path.join(
+    ARTIFACT_DIR,
+    `self-check-${position}-solid-${joinType}-join-fill.png`
+  ),
+  metadata: path.join(
+    ARTIFACT_DIR,
+    `self-check-${position}-solid-${joinType}-join-fill.json`
+  ),
+  analysis: path.join(
+    ARTIFACT_DIR,
+    `self-check-${position}-solid-${joinType}-join-fill-analysis.json`
   )
 })
 
@@ -232,10 +252,19 @@ const createSelfCheckStar = async (
     capType?: SelfCheckCapType
     joinType?: SelfCheckJoinType
     position?: SelfCheckStrokePosition
+    style?: SelfCheckStrokeStyle
   } = {}
 ) => {
   await page.evaluate(
-    ({ capType, includeFill, includeStroke, joinType, position, rect }) => {
+    ({
+      capType,
+      includeFill,
+      includeStroke,
+      joinType,
+      position,
+      rect,
+      style
+    }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -413,12 +442,12 @@ const createSelfCheckStar = async (
               ? []
               : [
                   {
-                    id: `self-check-${position}-dashed-${capType}-${joinType}`,
+                    id: `self-check-${position}-${style}-${capType}-${joinType}`,
                     kind: 'solid',
-                    style: 'dashed',
+                    style,
                     position,
                     width: 10,
-                    dashPattern: [27, 20],
+                    dashPattern: style === 'dashed' ? [27, 20] : [],
                     dashOffset: 0,
                     fill: null,
                     defaultColorFormat: 'hex',
@@ -453,7 +482,8 @@ const createSelfCheckStar = async (
       includeStroke: options.includeStroke,
       joinType: options.joinType ?? 'miter',
       position: options.position ?? 'inside',
-      rect: SELF_CHECK_VECTOR_RECT
+      rect: SELF_CHECK_VECTOR_RECT,
+      style: options.style ?? 'dashed'
     }
   )
 }
@@ -517,10 +547,14 @@ const getSelfCheckMetadata = async (page: Page) =>
           intervalId?: unknown
           startDistance?: unknown
           endDistance?: unknown
+          geometryFamily?: unknown
+          resolutionStatus?: unknown
+          runtimeStatus?: unknown
           sourceTopology?: unknown
           finalCoverageBuilderStatus?: unknown
           visualOverlapCollapseStatus?: unknown
           strokePosition?: unknown
+          strokeWidth?: unknown
           figmaLikeSplitRangeId?: unknown
           figmaLikeSplitRangeStartDistance?: unknown
           figmaLikeSplitRangeEndDistance?: unknown
@@ -558,6 +592,18 @@ const getSelfCheckMetadata = async (page: Page) =>
             typeof packet.debugMeta?.endDistance === 'number'
               ? packet.debugMeta.endDistance
               : null,
+          geometryFamily:
+            typeof packet.debugMeta?.geometryFamily === 'string'
+              ? packet.debugMeta.geometryFamily
+              : null,
+          resolutionStatus:
+            typeof packet.debugMeta?.resolutionStatus === 'string'
+              ? packet.debugMeta.resolutionStatus
+              : null,
+          runtimeStatus:
+            typeof packet.debugMeta?.runtimeStatus === 'string'
+              ? packet.debugMeta.runtimeStatus
+              : null,
           sourceTopology: packet.debugMeta?.sourceTopology ?? null,
           finalCoverageBuilderStatus:
             packet.debugMeta?.finalCoverageBuilderStatus ?? null,
@@ -568,6 +614,16 @@ const getSelfCheckMetadata = async (page: Page) =>
             packet.debugMeta?.strokePosition === 'outside' ||
             packet.debugMeta?.strokePosition === 'center'
               ? packet.debugMeta.strokePosition
+              : null,
+          strokeWidth:
+            typeof packet.debugMeta?.strokeWidth === 'number'
+              ? packet.debugMeta.strokeWidth
+              : null,
+          solidMaskModelMaskApplication:
+            packet.debugMeta?.solidMaskModelMaskApplication ===
+              'render-fill-mask' ||
+            packet.debugMeta?.solidMaskModelMaskApplication === 'exact-boolean'
+              ? packet.debugMeta.solidMaskModelMaskApplication
               : null,
           figmaLikeSplitRangeId:
             typeof packet.debugMeta?.figmaLikeSplitRangeId === 'string'
@@ -1109,6 +1165,168 @@ const analyzeSelfCheckScreenshots = async (
       baselineDataUrl: `data:image/png;base64,${baseline.toString('base64')}`,
       actualDataUrl: `data:image/png;base64,${actual.toString('base64')}`,
       metadata
+    }
+  )
+
+const analyzeSolidBoundaryContinuity = async (
+  page: Page,
+  actual: Buffer,
+  metadata: Awaited<ReturnType<typeof getSelfCheckMetadata>>,
+  expectedPosition: SelfCheckStrokePosition
+) =>
+  page.evaluate(
+    async ({ actualDataUrl, metadata, expectedPosition }) => {
+      const loadImage = (src: string) =>
+        new Promise<HTMLImageElement>((resolve, reject) => {
+          const image = new Image()
+          image.onload = () => resolve(image)
+          image.onerror = () => reject(new Error(`Failed to decode ${src}`))
+          image.src = src
+        })
+      const actualImage = await loadImage(actualDataUrl)
+      const width = actualImage.width
+      const height = actualImage.height
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const context = canvas.getContext('2d')
+      if (!context) {
+        throw new Error('Missing canvas 2D context for continuity analysis')
+      }
+      context.drawImage(actualImage, 0, 0)
+      const actualData = context.getImageData(0, 0, width, height).data
+      const canvasBounds = {
+        left: 240,
+        top: 40,
+        right: Math.min(width, 1160),
+        bottom: Math.min(height, 1065)
+      }
+      const indexOf = (x: number, y: number) => (y * width + x) * 4
+      const isInCanvas = (x: number, y: number) =>
+        x >= canvasBounds.left &&
+        x < canvasBounds.right &&
+        y >= canvasBounds.top &&
+        y < canvasBounds.bottom
+      const isRedStrokePixel = (x: number, y: number) => {
+        if (!isInCanvas(x, y)) return false
+        const index = indexOf(x, y)
+        const r = actualData[index]
+        const g = actualData[index + 1]
+        const b = actualData[index + 2]
+        const a = actualData[index + 3]
+        return a > 120 && r > 70 && r > g * 1.35 && r > b * 1.35
+      }
+      const hasNearbyRedStrokePixel = (x: number, y: number, radius = 2) => {
+        const centerX = Math.round(x)
+        const centerY = Math.round(y)
+        for (let offsetY = -radius; offsetY <= radius; offsetY += 1) {
+          for (let offsetX = -radius; offsetX <= radius; offsetX += 1) {
+            if (
+              offsetX * offsetX + offsetY * offsetY <= radius * radius &&
+              isRedStrokePixel(centerX + offsetX, centerY + offsetY)
+            ) {
+              return true
+            }
+          }
+        }
+        return false
+      }
+      const normalize = (vector: { x: number; y: number }) => {
+        const length = Math.hypot(vector.x, vector.y)
+        return length <= 1e-6
+          ? null
+          : { x: vector.x / length, y: vector.y / length }
+      }
+      const toCanvasPoint = (point: { x: number; y: number }) => ({
+        x:
+          (metadata.selectedRect.x + point.x) * metadata.zoom +
+          metadata.viewport.x,
+        y:
+          (metadata.selectedRect.y + point.y) * metadata.zoom +
+          metadata.viewport.y
+      })
+      const sampleFailures: {
+        geometryId: string | null
+        pointIndex: number
+        distance: number
+        canvasPoint: { x: number; y: number }
+      }[] = []
+      let sampleCount = 0
+
+      for (const packet of metadata.boundaryDomainPackets) {
+        if (
+          packet.geometryFamily !== 'constrained-solid' ||
+          packet.strokePosition !== expectedPosition ||
+          packet.figmaLikeSelectedSide === null
+        ) {
+          continue
+        }
+        const boundaryPoints = packet.figmaLikeBoundaryPoints
+        if (boundaryPoints.length < 2) {
+          continue
+        }
+        const strokeWidth =
+          typeof packet.strokeWidth === 'number' && packet.strokeWidth > 0
+            ? packet.strokeWidth
+            : 10
+        const distances = [
+          strokeWidth * 0.45,
+          strokeWidth * 0.65,
+          strokeWidth * 0.85
+        ]
+        const stride = Math.max(1, Math.floor(boundaryPoints.length / 96))
+
+        for (let index = 0; index < boundaryPoints.length; index += stride) {
+          const point = boundaryPoints[index]
+          const previous = boundaryPoints[index - 1]
+          const next = boundaryPoints[index + 1]
+          const tangent =
+            previous && next
+              ? normalize({ x: next.x - previous.x, y: next.y - previous.y })
+              : next
+                ? normalize({ x: next.x - point.x, y: next.y - point.y })
+                : previous
+                  ? normalize({
+                      x: point.x - previous.x,
+                      y: point.y - previous.y
+                    })
+                  : null
+          if (!tangent) {
+            continue
+          }
+          const normal = {
+            x: -tangent.y * packet.figmaLikeSelectedSide,
+            y: tangent.x * packet.figmaLikeSelectedSide
+          }
+
+          for (const distance of distances) {
+            const canvasPoint = toCanvasPoint({
+              x: point.x + normal.x * distance,
+              y: point.y + normal.y * distance
+            })
+            sampleCount += 1
+            if (!hasNearbyRedStrokePixel(canvasPoint.x, canvasPoint.y)) {
+              sampleFailures.push({
+                geometryId: packet.geometryId,
+                pointIndex: index,
+                distance,
+                canvasPoint
+              })
+            }
+          }
+        }
+      }
+
+      return {
+        sampleCount,
+        sampleFailures: sampleFailures.slice(0, 25),
+        failureCount: sampleFailures.length
+      }
+    },
+    {
+      actualDataUrl: `data:image/png;base64,${actual.toString('base64')}`,
+      metadata,
+      expectedPosition
     }
   )
 
@@ -2095,8 +2313,10 @@ const compareRightBottomHighCurvatureSmoothTerminalPixels = async (
         throw new Error('Missing selected rect for join pixel oracle')
       }
 
-      const sourceAnchor =
-        options.sourceAnchor ?? { x: 270.59180204238254, y: 347.0603956649177 }
+      const sourceAnchor = options.sourceAnchor ?? {
+        x: 270.59180204238254,
+        y: 347.0603956649177
+      }
       const screenAnchor = {
         x:
           (selectedRect.x + sourceAnchor.x) * metadata.zoom +
@@ -2550,6 +2770,495 @@ const compareRightBottomHighCurvatureSmoothTerminalPixels = async (
       ).toEqual([])
     }
   })
+})
+
+test('self-check: self-intersecting inside solid uses solidMaskModel with filled-face mask evidence', async ({
+  page
+}) => {
+  fs.mkdirSync(ARTIFACT_DIR, { recursive: true })
+  const paths = getSelfCheckArtifactPaths('round', 'fill', 'inside', 'solid')
+
+  await createSelfCheckStar(page, {
+    includeStroke: false,
+    capType: 'round',
+    style: 'solid'
+  })
+  await page.waitForFunction(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId =
+      core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+    const element = selectedId
+      ? core?.deps?.sceneTree?.getElementById?.(selectedId)
+      : null
+    const computed = element?.getAllComputedData?.()
+    return Boolean(computed?.fills?.length)
+  })
+  await page.waitForTimeout(300)
+  const baselineScreenshot = await page.screenshot({ fullPage: false })
+
+  await resetCanvas(page)
+  await createSelfCheckStar(page, { capType: 'round', style: 'solid' })
+  await page.waitForFunction(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId =
+      core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+    const element = selectedId
+      ? core?.deps?.sceneTree?.getElementById?.(selectedId)
+      : null
+    const computed = element?.getAllComputedData?.()
+    return Boolean(computed?.strokes?.length && computed?.fills?.length)
+  })
+  await page.waitForTimeout(1000)
+
+  const metadata = await getSelfCheckMetadata(page)
+  fs.writeFileSync(paths.metadata, `${JSON.stringify(metadata, null, 2)}\n`)
+  const actualScreenshot = await page.screenshot({
+    path: paths.screenshot,
+    fullPage: false
+  })
+  const legalAnalysis = await analyzeSelfCheckScreenshots(
+    page,
+    baselineScreenshot,
+    actualScreenshot,
+    metadata
+  )
+  fs.writeFileSync(
+    paths.analysis,
+    `${JSON.stringify(legalAnalysis, null, 2)}\n`
+  )
+
+  const boundaryRoles = metadata.boundaryDomainPackets.flatMap((packet) => [
+    packet.figmaLikeBoundaryRole,
+    ...packet.figmaLikeSplitRangeTerminals.map(
+      (terminal) => terminal.boundaryRole
+    )
+  ])
+  const sideRecords = metadata.boundaryDomainPackets.flatMap((packet) => [
+    {
+      selectedSide: packet.figmaLikeSelectedSide,
+      filledSide: packet.figmaLikeFilledSide,
+      unfilledSide: packet.figmaLikeUnfilledSide
+    },
+    ...packet.figmaLikeSplitRangeTerminals.map((terminal) => ({
+      selectedSide: terminal.selectedSide,
+      filledSide: terminal.filledSide,
+      unfilledSide: terminal.unfilledSide
+    }))
+  ])
+
+  expect(metadata.exportPacketCount).toBeGreaterThan(0)
+  expect(
+    boundaryRoles.includes('filled-face'),
+    JSON.stringify(metadata.boundaryDomainPackets, null, 2)
+  ).toBe(true)
+  expect(
+    metadata.boundaryDomainPackets.every(
+      (packet) =>
+        packet.geometryFamily === 'constrained-solid' &&
+        packet.sourceTopology === 'self-intersecting' &&
+        packet.resolutionStatus !== 'local-side-approximation' &&
+        packet.runtimeStatus !== 'candidate'
+    ),
+    JSON.stringify(metadata.boundaryDomainPackets, null, 2)
+  ).toBe(true)
+  expect(
+    metadata.boundaryDomainPackets.some(
+      (packet) =>
+        packet.geometryId?.includes(':boundary-domain:') === true ||
+        packet.figmaLikeTerminalRole !== null ||
+        packet.figmaLikeSplitRangeTerminals.length > 0
+    ),
+    JSON.stringify(metadata.boundaryDomainPackets, null, 2)
+  ).toBe(false)
+  expect(
+    sideRecords.every(
+      (record) =>
+        record.selectedSide === record.filledSide &&
+        record.filledSide !== record.unfilledSide
+    ),
+    JSON.stringify(sideRecords, null, 2)
+  ).toBe(true)
+  expect(legalAnalysis.redPixelCount).toBeGreaterThan(1000)
+  expect(
+    legalAnalysis.outsideRedPixelCount,
+    JSON.stringify(legalAnalysis, null, 2)
+  ).toBe(0)
+  expect(
+    legalAnalysis.maxOutsideComponentArea,
+    JSON.stringify(legalAnalysis, null, 2)
+  ).toBe(0)
+  expect(
+    legalAnalysis.darkOverdrawPixelCount,
+    JSON.stringify(legalAnalysis, null, 2)
+  ).toBeLessThan(4)
+  expect(
+    legalAnalysis.maxDarkOverdrawComponentArea,
+    JSON.stringify(legalAnalysis, null, 2)
+  ).toBeLessThan(4)
+})
+
+test('self-check: self-intersecting outside solid uses solidMaskModel and excludes filled-filled internal adjacency', async ({
+  page
+}, testInfo) => {
+  fs.mkdirSync(ARTIFACT_DIR, { recursive: true })
+  const paths = getSelfCheckArtifactPaths('round', 'fill', 'outside', 'solid')
+
+  await createSelfCheckStar(page, {
+    includeStroke: false,
+    capType: 'round',
+    position: 'outside',
+    style: 'solid'
+  })
+  await page.waitForFunction(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId =
+      core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+    const element = selectedId
+      ? core?.deps?.sceneTree?.getElementById?.(selectedId)
+      : null
+    const computed = element?.getAllComputedData?.()
+    return Boolean(computed?.fills?.length)
+  })
+  await page.waitForTimeout(300)
+  const baselineScreenshot = await page.screenshot({ fullPage: false })
+
+  await resetCanvas(page)
+  await createSelfCheckStar(page, {
+    capType: 'round',
+    position: 'outside',
+    style: 'solid'
+  })
+  await page.waitForFunction(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId =
+      core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+    const element = selectedId
+      ? core?.deps?.sceneTree?.getElementById?.(selectedId)
+      : null
+    const computed = element?.getAllComputedData?.()
+    return Boolean(computed?.strokes?.length && computed?.fills?.length)
+  })
+  await page.waitForTimeout(1000)
+
+  const metadata = await getSelfCheckMetadata(page)
+  fs.writeFileSync(paths.metadata, `${JSON.stringify(metadata, null, 2)}\n`)
+  const actualScreenshot = await page.screenshot({
+    path: paths.screenshot,
+    fullPage: false
+  })
+  const legalAnalysis = await analyzeSelfCheckScreenshots(
+    page,
+    baselineScreenshot,
+    actualScreenshot,
+    metadata
+  )
+  const continuityAnalysis = await analyzeSolidBoundaryContinuity(
+    page,
+    actualScreenshot,
+    metadata,
+    'outside'
+  )
+  fs.writeFileSync(
+    paths.analysis,
+    `${JSON.stringify(legalAnalysis, null, 2)}\n`
+  )
+
+  const boundaryRoles = metadata.boundaryDomainPackets.flatMap((packet) => [
+    packet.figmaLikeBoundaryRole,
+    ...packet.figmaLikeSplitRangeTerminals.map(
+      (terminal) => terminal.boundaryRole
+    )
+  ])
+  const sideRecords = metadata.boundaryDomainPackets.flatMap((packet) => [
+    {
+      selectedSide: packet.figmaLikeSelectedSide,
+      filledSide: packet.figmaLikeFilledSide,
+      unfilledSide: packet.figmaLikeUnfilledSide
+    },
+    ...packet.figmaLikeSplitRangeTerminals.map((terminal) => ({
+      selectedSide: terminal.selectedSide,
+      filledSide: terminal.filledSide,
+      unfilledSide: terminal.unfilledSide
+    }))
+  ])
+
+  expect(metadata.exportPacketCount).toBeGreaterThan(0)
+  expect(
+    boundaryRoles.includes('filled-face'),
+    JSON.stringify(metadata.boundaryDomainPackets, null, 2)
+  ).toBe(false)
+  expect(
+    metadata.boundaryDomainPackets.every(
+      (packet) =>
+        packet.geometryFamily === 'constrained-solid' &&
+        packet.sourceTopology === 'self-intersecting' &&
+        packet.resolutionStatus !== 'local-side-approximation' &&
+        packet.runtimeStatus !== 'candidate'
+    ),
+    JSON.stringify(metadata.boundaryDomainPackets, null, 2)
+  ).toBe(true)
+  expect(
+    metadata.boundaryDomainPackets.some(
+      (packet) =>
+        packet.geometryId?.includes(':boundary-domain:') === true ||
+        packet.figmaLikeTerminalRole !== null ||
+        packet.figmaLikeSplitRangeTerminals.length > 0
+    ),
+    JSON.stringify(metadata.boundaryDomainPackets, null, 2)
+  ).toBe(false)
+  expect(boundaryRoles.every((role) => role === 'outer')).toBe(true)
+  expect(
+    sideRecords.every(
+      (record) =>
+        record.selectedSide === record.unfilledSide &&
+        record.filledSide !== record.unfilledSide
+    ),
+    JSON.stringify(sideRecords, null, 2)
+  ).toBe(true)
+  expect(legalAnalysis.redPixelCount).toBeGreaterThan(1000)
+  expect(
+    legalAnalysis.strictLegalRedPixelCount,
+    JSON.stringify(legalAnalysis, null, 2)
+  ).toBeLessThan(500)
+  expect(
+    legalAnalysis.maxStrictInsideComponentArea,
+    JSON.stringify(legalAnalysis, null, 2)
+  ).toBeLessThan(500)
+  expect(
+    continuityAnalysis.sampleCount,
+    JSON.stringify(continuityAnalysis, null, 2)
+  ).toBeGreaterThan(150)
+  expect(
+    continuityAnalysis.failureCount,
+    JSON.stringify(continuityAnalysis, null, 2)
+  ).toBe(0)
+  expect(
+    legalAnalysis.darkOverdrawPixelCount,
+    JSON.stringify(legalAnalysis, null, 2)
+  ).toBeLessThan(4)
+  expect(
+    legalAnalysis.maxDarkOverdrawComponentArea,
+    JSON.stringify(legalAnalysis, null, 2)
+  ).toBeLessThan(4)
+
+  await testInfo.attach('outside-solid-global-review', {
+    path: paths.screenshot,
+    contentType: 'image/png'
+  })
+
+  const focusSelfCheckLocalPoint = async (
+    point: Vec2,
+    zoom: number,
+    screenshotPath: string,
+    attachmentName: string
+  ) => {
+    const viewportSize = page.viewportSize()
+    if (!viewportSize) {
+      throw new Error('Missing viewport size')
+    }
+    const canvasCenter = {
+      x: 240 + (viewportSize.width - 480) / 2,
+      y: 48 + (viewportSize.height - 148) / 2
+    }
+    await page.evaluate(
+      ({ canvasCenter, point, rect, zoom }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const fallbackRect = (window as any).__selfCheckVectorRect
+        const targetRect =
+          fallbackRect &&
+          typeof fallbackRect.x === 'number' &&
+          typeof fallbackRect.y === 'number' &&
+          typeof fallbackRect.width === 'number' &&
+          typeof fallbackRect.height === 'number'
+            ? fallbackRect
+            : rect
+        if (!core) {
+          throw new Error('Missing app core')
+        }
+        core.setSystemProperty('zoom', zoom)
+        core.setSystemProperty('viewportPosition', {
+          x: canvasCenter.x - (targetRect.x + point.x) * zoom,
+          y: canvasCenter.y - (targetRect.y + point.y) * zoom
+        })
+      },
+      { canvasCenter, point, rect: SELF_CHECK_VECTOR_RECT, zoom }
+    )
+    await page.waitForTimeout(500)
+    await page.screenshot({ path: screenshotPath, fullPage: false })
+    await testInfo.attach(attachmentName, {
+      path: screenshotPath,
+      contentType: 'image/png'
+    })
+  }
+
+  await focusSelfCheckLocalPoint(
+    SELF_CHECK_SOURCE_POINTS['tp-13'],
+    4.25,
+    path.join(
+      ARTIFACT_DIR,
+      'self-check-outside-solid-round-left-bottom-app-zoom-review.png'
+    ),
+    'outside-solid-left-bottom-app-zoom-review'
+  )
+  await focusSelfCheckLocalPoint(
+    SELF_CHECK_SOURCE_POINTS['tp-16'],
+    4.25,
+    path.join(
+      ARTIFACT_DIR,
+      'self-check-outside-solid-round-right-bottom-app-zoom-review.png'
+    ),
+    'outside-solid-right-bottom-app-zoom-review'
+  )
+  await focusSelfCheckLocalPoint(
+    SELF_CHECK_SOURCE_POINTS['tp-15'],
+    4,
+    path.join(
+      ARTIFACT_DIR,
+      'self-check-outside-solid-round-top-app-zoom-review.png'
+    ),
+    'outside-solid-top-app-zoom-review'
+  )
+})
+
+test('self-check: self-intersecting solid join matrix keeps mask legality isolated from join changes', async ({
+  page
+}, testInfo) => {
+  fs.mkdirSync(ARTIFACT_DIR, { recursive: true })
+  const cases: {
+    position: SelfCheckStrokePosition
+    joinType: SelfCheckJoinType
+  }[] = [
+    { position: 'outside', joinType: 'round' },
+    { position: 'outside', joinType: 'bevel' },
+    { position: 'inside', joinType: 'miter' },
+    { position: 'inside', joinType: 'bevel' },
+    { position: 'inside', joinType: 'round' }
+  ]
+
+  for (const { position, joinType } of cases) {
+    const paths = getSelfCheckSolidJoinArtifactPaths(position, joinType)
+
+    await resetCanvas(page)
+    await createSelfCheckStar(page, {
+      includeStroke: false,
+      capType: 'round',
+      joinType,
+      position,
+      style: 'solid'
+    })
+    await page.waitForFunction(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      const element = selectedId
+        ? core?.deps?.sceneTree?.getElementById?.(selectedId)
+        : null
+      const computed = element?.getAllComputedData?.()
+      return Boolean(computed?.fills?.length)
+    })
+    await page.waitForTimeout(300)
+    const baselineScreenshot = await page.screenshot({ fullPage: false })
+
+    await resetCanvas(page)
+    await createSelfCheckStar(page, {
+      capType: 'round',
+      joinType,
+      position,
+      style: 'solid'
+    })
+    await page.waitForFunction(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      const element = selectedId
+        ? core?.deps?.sceneTree?.getElementById?.(selectedId)
+        : null
+      const computed = element?.getAllComputedData?.()
+      return Boolean(computed?.strokes?.length && computed?.fills?.length)
+    })
+    await page.waitForTimeout(800)
+
+    const metadata = await getSelfCheckMetadata(page)
+    fs.writeFileSync(paths.metadata, `${JSON.stringify(metadata, null, 2)}\n`)
+    const actualScreenshot = await page.screenshot({
+      path: paths.screenshot,
+      fullPage: false
+    })
+    const legalAnalysis = await analyzeSelfCheckScreenshots(
+      page,
+      baselineScreenshot,
+      actualScreenshot,
+      metadata
+    )
+    fs.writeFileSync(
+      paths.analysis,
+      `${JSON.stringify(legalAnalysis, null, 2)}\n`
+    )
+
+    const productPackets = metadata.boundaryDomainPackets.filter(
+      (packet) => packet.geometryFamily === 'constrained-solid'
+    )
+    expect(
+      productPackets.length,
+      JSON.stringify({ position, joinType, metadata }, null, 2)
+    ).toBeGreaterThan(0)
+    expect(
+      productPackets.every(
+        (packet) =>
+          packet.sourceTopology === 'self-intersecting' &&
+          packet.resolutionStatus !== 'local-side-approximation' &&
+          packet.runtimeStatus !== 'candidate' &&
+          packet.figmaLikeTerminalRole === null &&
+          packet.figmaLikeSplitRangeTerminals.length === 0
+      ),
+      JSON.stringify({ position, joinType, productPackets }, null, 2)
+    ).toBe(true)
+    expect(
+      legalAnalysis.redPixelCount,
+      JSON.stringify({ position, joinType, legalAnalysis }, null, 2)
+    ).toBeGreaterThan(1000)
+
+    if (position === 'outside') {
+      expect(
+        legalAnalysis.strictLegalRedPixelCount,
+        JSON.stringify({ position, joinType, legalAnalysis }, null, 2)
+      ).toBeLessThan(500)
+      expect(
+        legalAnalysis.maxStrictInsideComponentArea,
+        JSON.stringify({ position, joinType, legalAnalysis }, null, 2)
+      ).toBeLessThan(500)
+    } else {
+      expect(
+        legalAnalysis.outsideRedPixelCount,
+        JSON.stringify({ position, joinType, legalAnalysis }, null, 2)
+      ).toBe(0)
+      expect(
+        legalAnalysis.maxOutsideComponentArea,
+        JSON.stringify({ position, joinType, legalAnalysis }, null, 2)
+      ).toBe(0)
+    }
+    expect(
+      legalAnalysis.darkOverdrawPixelCount,
+      JSON.stringify({ position, joinType, legalAnalysis }, null, 2)
+    ).toBeLessThan(4)
+    expect(
+      legalAnalysis.maxDarkOverdrawComponentArea,
+      JSON.stringify({ position, joinType, legalAnalysis }, null, 2)
+    ).toBeLessThan(4)
+
+    await testInfo.attach(`${position}-solid-${joinType}-join-global`, {
+      path: paths.screenshot,
+      contentType: 'image/png'
+    })
+  }
 })
 
 test('self-check: right-bottom high-curvature outside dashed terminal remains cap-owned across join settings', async ({

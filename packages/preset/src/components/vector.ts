@@ -541,6 +541,27 @@ const isSelfIntersectingExactConstrainedSolidCandidatePacket = (
   isExactConstrainedSolidCandidatePacket(packet) &&
   packet.geometry.debugMeta?.sourceTopology === 'self-intersecting'
 
+const isAcceptedSelfIntersectingBoundaryDomainSolidPacket = (
+  packet: SolidCenterStrokeResolvedPacket
+) => {
+  const debugMeta = packet.geometry.debugMeta
+
+  return (
+    isSelfIntersectingExactConstrainedSolidCandidatePacket(packet) &&
+    debugMeta?.runtimeStatus === 'accepted' &&
+    debugMeta.figmaLikeSideAuthority === 'implicit-fill-hole-domain' &&
+    debugMeta.figmaLikeBoundaryDomainId !== undefined &&
+    (debugMeta.strokePosition === 'inside' ||
+      debugMeta.strokePosition === 'outside')
+  )
+}
+
+const canAcceptSelfIntersectingBoundaryDomainSolidPacketsWithoutLegality = (
+  packets: SolidCenterStrokeResolvedPacket[]
+) =>
+  packets.length > 0 &&
+  packets.every(isAcceptedSelfIntersectingBoundaryDomainSolidPacket)
+
 const isGatedSelfIntersectingLocalSideConstrainedSolidCandidatePacket = (
   packet: SolidCenterStrokeResolvedPacket
 ) => {
@@ -2434,7 +2455,7 @@ const renderVectorGraphic = (
       const backend = getGeometryBackend()
       return backend.capabilities.union === true &&
         backend.capabilities.difference === true &&
-        backend.capabilities.offset === true
+        backend.capabilities.intersection === true
         ? backend
         : null
     } catch {
@@ -2666,30 +2687,40 @@ const renderVectorGraphic = (
 
       if (shouldBuildGlobalOverlapConstrainedSolid) {
         const candidatePackets = networkPaths.flatMap(
-          ({ network, path, topology }) =>
-            topology.closed
-              ? buildConstrainedSolidStrokeResolvedPackets(
-                  `vector:${renderData.id}:${network.id}:constrained`,
-                  topology.normalizedPoints,
-                  topology.closed,
-                  renderData.strokes,
-                  {
-                    metadata: {
-                      ownerKeyPrefix: `vector:${renderData.id}:overlap`,
-                      networkId: network.id
-                    },
-                    topology,
-                    sourcePath: path,
-                    selectedSideGuardPoints: getNetworkAnchorGuardPoints(
-                      network,
-                      points
-                    ),
-                    exactBackend: constrainedSolidExactBackend ?? undefined,
-                    fillRule: topology.fillRule,
-                    candidateMode: getConstrainedSolidCandidateMode(topology)
-                  }
-                )
-              : []
+          ({ network, path, topology }) => {
+            if (!topology.closed) {
+              return []
+            }
+            const resolvedSelfIntersectingGeometry =
+              resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
+            return buildConstrainedSolidStrokeResolvedPackets(
+              `vector:${renderData.id}:${network.id}:constrained`,
+              topology.normalizedPoints,
+              topology.closed,
+              renderData.strokes,
+              {
+                metadata: {
+                  ownerKeyPrefix: `vector:${renderData.id}:overlap`,
+                  networkId: network.id
+                },
+                topology,
+                sourcePath: path,
+                implicitFillRegions:
+                  resolvedSelfIntersectingGeometry?.fillRegions ?? [],
+                sharedSourceSplitRanges:
+                  resolvedSelfIntersectingGeometry?.sourceSplitRanges ?? [],
+                sharedStrokeBoundaryDomains:
+                  resolvedSelfIntersectingGeometry?.strokeBoundaryDomains ?? [],
+                selectedSideGuardPoints: getNetworkAnchorGuardPoints(
+                  network,
+                  points
+                ),
+                exactBackend: constrainedSolidExactBackend ?? undefined,
+                fillRule: topology.fillRule,
+                candidateMode: getConstrainedSolidCandidateMode(topology)
+              }
+            )
+          }
         )
         const result = buildConstrainedSolidLegalityClippingResult(
           closedNetworkPaths.map(({ topology }) => ({
@@ -2741,6 +2772,8 @@ const renderVectorGraphic = (
           renderData.strokes,
           compoundRole?.role
         )
+        const resolvedSelfIntersectingGeometry =
+          resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
         const candidatePackets = buildConstrainedSolidStrokeResolvedPackets(
           `vector:${renderData.id}:${network.id}:constrained`,
           topology.normalizedPoints,
@@ -2758,6 +2791,12 @@ const renderVectorGraphic = (
             },
             topology,
             sourcePath: path,
+            implicitFillRegions:
+              resolvedSelfIntersectingGeometry?.fillRegions ?? [],
+            sharedSourceSplitRanges:
+              resolvedSelfIntersectingGeometry?.sourceSplitRanges ?? [],
+            sharedStrokeBoundaryDomains:
+              resolvedSelfIntersectingGeometry?.strokeBoundaryDomains ?? [],
             selectedSideGuardPoints: getNetworkAnchorGuardPoints(
               network,
               points
@@ -2767,6 +2806,30 @@ const renderVectorGraphic = (
             candidateMode: getConstrainedSolidCandidateMode(topology)
           }
         )
+
+        if (
+          canAcceptSelfIntersectingBoundaryDomainSolidPacketsWithoutLegality(
+            candidatePackets
+          )
+        ) {
+          return {
+            networkId: network.id,
+            points: topology.normalizedPoints,
+            closed: topology.closed,
+            fillRule: topology.fillRule,
+            packets: candidatePackets,
+            legalityDiagnostics: {
+              domains: [],
+              acceptedGeometryIds: candidatePackets.map(
+                (packet) => packet.geometry.geometryId
+              )
+            },
+            ownershipDiagnostics:
+              buildConstrainedSolidOwnershipCandidateDiagnostics(
+                candidatePackets
+              )
+          }
+        }
 
         if (candidatePackets.some(isExactConstrainedSolidCandidatePacket)) {
           return {
@@ -3148,6 +3211,15 @@ const renderVectorGraphic = (
                 },
                 topology,
                 sourcePath: path,
+                implicitFillRegions:
+                  resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
+                    ?.fillRegions ?? [],
+                sharedSourceSplitRanges:
+                  resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
+                    ?.sourceSplitRanges ?? [],
+                sharedStrokeBoundaryDomains:
+                  resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
+                    ?.strokeBoundaryDomains ?? [],
                 selectedSideGuardPoints: getNetworkAnchorGuardPoints(
                   network,
                   points

@@ -34,6 +34,8 @@ export interface DashedCenterRibbonGeometry {
 
 export interface DashedCenterRibbonGeometryOptions {
   allowRoundCapBackendOffset?: boolean
+  disableBackendOffset?: boolean
+  skipSimpleOutlineValidation?: boolean
 }
 
 const EPSILON = 1e-6
@@ -357,6 +359,10 @@ const buildBackendOffsetPolygons = (
   stroke: Pick<RenderableStroke, 'width' | 'join' | 'miterLimit' | 'cap'>,
   options: DashedCenterRibbonGeometryOptions = {}
 ) => {
+  if (options.disableBackendOffset === true) {
+    return []
+  }
+
   if (stroke.cap === 'round' && options.allowRoundCapBackendOffset !== true) {
     return []
   }
@@ -435,6 +441,12 @@ export const buildDashedCenterRibbonGeometry = (
 
   const polygon = dedupeClosed(outline)
   const outlinePolygons = normalizeOutputPolygons([polygon])
+  if (options.skipSimpleOutlineValidation === true) {
+    return outlinePolygons.length > 0
+      ? { polygons: outlinePolygons, validityStatus: 'simple-outline' }
+      : { polygons: [], validityStatus: 'empty' }
+  }
+
   if (
     outlinePolygons.length === 1 &&
     isSimpleClosedPolygon(outlinePolygons[0])

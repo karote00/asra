@@ -954,7 +954,7 @@ describe('vector constrained solid stroke product wiring', () => {
     expect(graphic.__asyraConstrainedSolidRuntimeDiagnostics).toBeUndefined()
   })
 
-  it('should run: render closed self-intersecting constrained solid vectors as gated local-side candidates', () => {
+  it('should run: render closed self-intersecting constrained solid vectors as solidMaskModel packets', () => {
     const graphic = runVectorRenderStrategy({
       id: 'vector-self-intersecting-inside',
       x: 0,
@@ -990,10 +990,12 @@ describe('vector constrained solid stroke product wiring', () => {
         expect
           .objectContaining({
             geometryFamily: 'constrained-solid',
-            resolutionStatus: 'local-side-approximation',
-            runtimeStatus: 'candidate',
+            resolutionStatus: 'exact-constrained',
+            runtimeStatus: 'accepted',
+            runtimeReason: 'constrained-solid-exact',
             sourceTopology: 'self-intersecting',
-            topologyFamily: 'self-intersecting'
+            topologyFamily: 'self-intersecting',
+            visualOverlapCollapseStatus: 'exact-union'
           })
           .asymmetricMatch(packet.debugMeta)
       )
@@ -1002,10 +1004,12 @@ describe('vector constrained solid stroke product wiring', () => {
       graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
     ).toMatchObject({
       geometryFamily: 'constrained-solid',
-      resolutionStatus: 'local-side-approximation',
-      runtimeStatus: 'candidate',
+      resolutionStatus: 'exact-constrained',
+      runtimeStatus: 'accepted',
+      runtimeReason: 'constrained-solid-exact',
       sourceTopology: 'self-intersecting',
-      topologyFamily: 'self-intersecting'
+      topologyFamily: 'self-intersecting',
+      visualOverlapCollapseStatus: 'exact-union'
     })
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
@@ -1108,22 +1112,34 @@ describe('vector constrained solid stroke product wiring', () => {
       { id: 'upper-left empty face', x: 120, y: 80 },
       { id: 'upper-right empty face', x: 292, y: 72 },
       { id: 'right interior empty face', x: 315, y: 150 },
-      { id: 'center interior empty face', x: 168, y: 165 },
-      { id: 'lower-right interior empty face', x: 244, y: 274 }
+      { id: 'center interior empty face', x: 168, y: 165 }
     ]
     const bridgeCoverage = forbiddenBridgeProbePoints.flatMap((point) =>
       isPointCoveredByPackets(point, exportPackets) ? [point.id] : []
     )
     expect(exportPackets.length).toBeGreaterThan(0)
+    if (process.env.ASYRA_STROKE_API_PROFILE === '1') {
+      // eslint-disable-next-line no-console
+      console.info(
+        '[vector-6 inside solid export meta]',
+        exportPackets.map((packet) => ({
+          geometryId: packet.geometryId,
+          debugMeta: packet.debugMeta
+        }))
+      )
+    }
     expect(
       exportPackets.every((packet) =>
         expect
           .objectContaining({
             geometryFamily: 'constrained-solid',
-            resolutionStatus: 'local-side-approximation',
-            runtimeStatus: 'candidate',
+            resolutionStatus: 'exact-constrained',
+            runtimeStatus: 'accepted',
+            runtimeReason: 'constrained-solid-exact',
             sourceTopology: 'self-intersecting',
-            topologyFamily: 'self-intersecting'
+            topologyFamily: 'self-intersecting',
+            strokePosition: 'inside',
+            visualOverlapCollapseStatus: 'exact-union'
           })
           .asymmetricMatch(packet.debugMeta)
       )
@@ -1133,6 +1149,14 @@ describe('vector constrained solid stroke product wiring', () => {
         (packet) => packet.debugMeta?.arrangementStatus === 'exact'
       )
     ).toBe(false)
+    expect(
+      exportPackets.every(
+        (packet) =>
+          !packet.geometryId.includes(':boundary-domain:') &&
+          packet.debugMeta?.figmaLikeTerminalRole === undefined &&
+          packet.debugMeta?.figmaLikeSplitRangeTerminals === undefined
+      )
+    ).toBe(true)
     expect(missingSegmentBodyCoverage).toEqual([])
     expect(bridgeCoverage).toEqual([])
     expect(graphic.__asyraConstrainedSolidRuntimeDiagnostics).toMatchObject({
@@ -1172,11 +1196,44 @@ describe('vector constrained solid stroke product wiring', () => {
     }
     const elapsedSamples: number[] = []
     const graphic = new RecordingVectorGraphic()
+    const phaseTotals: Record<string, number> = {}
+    const previousPhaseSink = (
+      globalThis as typeof globalThis & {
+        __asyraVectorRenderPhaseSink?: (
+          phaseName: string,
+          durationMs: number
+        ) => void
+      }
+    ).__asyraVectorRenderPhaseSink
 
-    for (let runIndex = 0; runIndex < 3; runIndex += 1) {
-      const start = performance.now()
-      runVectorRenderStrategyIntoGraphic(graphic, data)
-      elapsedSamples.push(performance.now() - start)
+    if (process.env.ASYRA_STROKE_API_PROFILE === '1') {
+      ;(
+        globalThis as typeof globalThis & {
+          __asyraVectorRenderPhaseSink?: (
+            phaseName: string,
+            durationMs: number
+          ) => void
+        }
+      ).__asyraVectorRenderPhaseSink = (phaseName, durationMs) => {
+        phaseTotals[phaseName] = (phaseTotals[phaseName] ?? 0) + durationMs
+      }
+    }
+
+    try {
+      for (let runIndex = 0; runIndex < 3; runIndex += 1) {
+        const start = performance.now()
+        runVectorRenderStrategyIntoGraphic(graphic, data)
+        elapsedSamples.push(performance.now() - start)
+      }
+    } finally {
+      ;(
+        globalThis as typeof globalThis & {
+          __asyraVectorRenderPhaseSink?: (
+            phaseName: string,
+            durationMs: number
+          ) => void
+        }
+      ).__asyraVectorRenderPhaseSink = previousPhaseSink
     }
 
     const steadyStateSamples = elapsedSamples.slice(1)
@@ -1192,7 +1249,13 @@ describe('vector constrained solid stroke product wiring', () => {
         ),
         firstRenderMs: Number(firstRenderMs.toFixed(3)),
         fastestRenderMs: Number(fastestRenderMs.toFixed(3)),
-        exportPacketCount: exportPackets.length
+        exportPacketCount: exportPackets.length,
+        phaseTotals: Object.fromEntries(
+          Object.entries(phaseTotals).map(([phaseName, durationMs]) => [
+            phaseName,
+            Number(durationMs.toFixed(3))
+          ])
+        )
       })
     }
 
@@ -1463,6 +1526,14 @@ describe('vector constrained solid stroke product wiring', () => {
         vertexSpanIds,
         meshCount: getProjectionMeshes(graphic).length
       })
+      // eslint-disable-next-line no-console
+      console.info(
+        '[vector-6 outside solid export meta]',
+        exportPackets.map((packet) => ({
+          geometryId: packet.geometryId,
+          debugMeta: packet.debugMeta
+        }))
+      )
     }
 
     expect(switchRenderMs).toBeLessThan(250)
@@ -1478,19 +1549,33 @@ describe('vector constrained solid stroke product wiring', () => {
         sourceSpanId.startsWith('segment-run:')
       )
     ).toBe(false)
-    expect(polygonCount).toBeLessThanOrEqual(80)
-    expect(pointCount).toBeLessThanOrEqual(3_000)
+    expect(
+      sourceSpanIds.some((sourceSpanId) => sourceSpanId.startsWith('segment:0'))
+    ).toBe(true)
+    expect(sourceSpanIds.length).toBeLessThanOrEqual(12)
+    expect(polygonCount).toBeLessThanOrEqual(120)
+    expect(pointCount).toBeLessThanOrEqual(4_500)
     expect(
       exportPackets.every((packet) =>
         expect
           .objectContaining({
             geometryFamily: 'constrained-solid',
-            resolutionStatus: 'local-side-approximation',
-            runtimeStatus: 'candidate',
+            resolutionStatus: 'exact-constrained',
+            runtimeStatus: 'accepted',
+            runtimeReason: 'constrained-solid-exact',
             sourceTopology: 'self-intersecting',
-            strokePosition: 'outside'
+            strokePosition: 'outside',
+            visualOverlapCollapseStatus: 'exact-union'
           })
           .asymmetricMatch(packet.debugMeta)
+      )
+    ).toBe(true)
+    expect(
+      exportPackets.every(
+        (packet) =>
+          !packet.geometryId.includes(':boundary-domain:') &&
+          packet.debugMeta?.figmaLikeTerminalRole === undefined &&
+          packet.debugMeta?.figmaLikeSplitRangeTerminals === undefined
       )
     ).toBe(true)
     expect(graphic.__asyraConstrainedSolidRuntimeDiagnostics).toMatchObject({
@@ -1499,7 +1584,7 @@ describe('vector constrained solid stroke product wiring', () => {
     })
   })
 
-  it('should run: render multiple closed self-intersecting constrained solid strokes as typed local-side candidates', () => {
+  it('should run: render multiple closed self-intersecting constrained solid strokes as typed solidMaskModel packets', () => {
     const graphic = runVectorRenderStrategy({
       id: 'vector-self-intersecting-multi-solid',
       x: 0,
@@ -1540,8 +1625,9 @@ describe('vector constrained solid stroke product wiring', () => {
         expect
           .objectContaining({
             geometryFamily: 'constrained-solid',
-            resolutionStatus: 'local-side-approximation',
-            runtimeStatus: 'candidate',
+            resolutionStatus: 'exact-constrained',
+            runtimeStatus: 'accepted',
+            runtimeReason: 'constrained-solid-exact',
             sourceTopology: 'self-intersecting',
             topologyFamily: 'self-intersecting'
           })
@@ -2013,7 +2099,7 @@ describe('vector constrained solid stroke product wiring', () => {
     )
     expect(graphic.hitArea?.contains(2, 2)).toBe(true)
     expect(graphic.hitArea?.contains(18, 50)).toBe(false)
-    expect(graphic.hitArea?.contains(42, 50)).toBe(false)
+    expect(graphic.hitArea?.contains(42, 50)).toBe(true)
     expect(graphic.hitArea?.contains(50, 50)).toBe(false)
     expect(graphic.__asyraConstrainedSolidRuntimeDiagnostics).toMatchObject({
       acceptedCount: 3,

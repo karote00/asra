@@ -172,6 +172,83 @@ const drawPolygons = (graphics: Graphics, polygons: Vec2[][]) => {
   })
 }
 
+const getSignedPolygonArea = (polygon: Vec2[]) =>
+  polygon.reduce((sum, point, index) => {
+    const next = polygon[(index + 1) % polygon.length]
+    return sum + point.x * next.y - next.x * point.y
+  }, 0) / 2
+
+const getPolygonReferencePoint = (polygon: Vec2[]) => ({
+  x: polygon.reduce((sum, point) => sum + point.x, 0) / polygon.length,
+  y: polygon.reduce((sum, point) => sum + point.y, 0) / polygon.length
+})
+
+const isPointInPolygon = (point: Vec2, polygon: Vec2[]) => {
+  let inside = false
+
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+    const current = polygon[i]
+    const previous = polygon[j]
+    const intersects =
+      current.y > point.y !== previous.y > point.y &&
+      point.x <
+        ((previous.x - current.x) * (point.y - current.y)) /
+          (previous.y - current.y) +
+          current.x
+
+    if (intersects) {
+      inside = !inside
+    }
+  }
+
+  return inside
+}
+
+const drawPolygonsWithCutouts = (
+  graphics: Graphics,
+  polygons: Vec2[][],
+  fill: { color: number; alpha: number }
+) => {
+  const drawablePolygons = polygons.filter((polygon) => polygon.length >= 3)
+  const positivePolygons = drawablePolygons.filter(
+    (polygon) => getSignedPolygonArea(polygon) >= 0
+  )
+  const holePolygons = drawablePolygons.filter(
+    (polygon) => getSignedPolygonArea(polygon) < 0
+  )
+  const outerPolygons =
+    positivePolygons.length > 0 ? positivePolygons : drawablePolygons
+  const consumedHoles = new Set<Vec2[]>()
+
+  outerPolygons.forEach((outerPolygon) => {
+    const containedHoles = holePolygons.filter((holePolygon) => {
+      if (consumedHoles.has(holePolygon)) {
+        return false
+      }
+      return isPointInPolygon(
+        getPolygonReferencePoint(holePolygon),
+        outerPolygon
+      )
+    })
+
+    drawPolygon(graphics, outerPolygon)
+    graphics.fill(fill)
+    containedHoles.forEach((holePolygon) => {
+      drawPolygon(graphics, holePolygon)
+      graphics.cut()
+      consumedHoles.add(holePolygon)
+    })
+  })
+
+  holePolygons.forEach((holePolygon) => {
+    if (consumedHoles.has(holePolygon)) {
+      return
+    }
+    drawPolygon(graphics, [...holePolygon].reverse())
+    graphics.fill(fill)
+  })
+}
+
 const drawPolygon = (graphics: Graphics, polygon: Vec2[]) => {
   const flatPolygon = new Array<number>(polygon.length * 2)
   for (let index = 0; index < polygon.length; index += 1) {
@@ -196,12 +273,21 @@ const drawStrokePaths = (
     if (path.length < 2) {
       return
     }
-
     const first = path[0]
+    const last = path[path.length - 1]
+    const closed =
+      path.length > 2 &&
+      Math.abs(first.x - last.x) < 1e-6 &&
+      Math.abs(first.y - last.y) < 1e-6
+    const drawablePath = closed ? path.slice(0, -1) : path
+
     graphics.moveTo(first.x, first.y)
-    for (let index = 1; index < path.length; index += 1) {
-      const point = path[index]
+    for (let index = 1; index < drawablePath.length; index += 1) {
+      const point = drawablePath[index]
       graphics.lineTo(point.x, point.y)
+    }
+    if (closed) {
+      graphics.closePath()
     }
     hasPath = true
   })
@@ -321,6 +407,8 @@ const applyMaskedSolidPaint = (
   const bounds = getPolygonBounds(maskPolygons)
   fill.clear()
   mask.clear()
+  fill.alpha = alpha
+  mask.alpha = 1
 
   if (!bounds) {
     return
@@ -331,8 +419,7 @@ const applyMaskedSolidPaint = (
     strokePaths && strokePaths.length > 0 && strokePathStyle
 
   if (hasFillPolygons) {
-    drawPolygons(fill, fillPolygons)
-    fill.fill({ color, alpha })
+    drawPolygonsWithCutouts(fill, fillPolygons, { color, alpha: 1 })
     fill.beginPath()
   } else if (!hasStrokePaths) {
     fill
@@ -342,11 +429,11 @@ const applyMaskedSolidPaint = (
         Math.max(1e-6, bounds.maxX - bounds.minX),
         Math.max(1e-6, bounds.maxY - bounds.minY)
       )
-      .fill({ color, alpha })
+      .fill({ color, alpha: 1 })
   }
 
   if (hasStrokePaths) {
-    drawStrokePaths(fill, strokePaths, strokePathStyle, color, alpha)
+    drawStrokePaths(fill, strokePaths, strokePathStyle, color, 1)
   }
 
   maskPolygons.forEach((polygon) => {
@@ -366,13 +453,8 @@ const applySolidGraphicsPaint = (
   alpha: number
 ) => {
   graphics.clear()
-  polygons.forEach((polygon) => {
-    if (polygon.length < 3) {
-      return
-    }
-    drawPolygon(graphics, polygon)
-    graphics.fill({ color, alpha })
-  })
+  graphics.alpha = alpha
+  drawPolygonsWithCutouts(graphics, polygons, { color, alpha: 1 })
 }
 
 const disposeCacheEntry = (
