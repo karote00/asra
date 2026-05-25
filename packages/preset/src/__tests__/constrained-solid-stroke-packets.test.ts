@@ -19,7 +19,8 @@ import { buildResolvedVectorGeometryModel } from '../components/stroke-render/re
 import {
   buildSolidCenterStrokeExportPackets,
   buildSolidCenterStrokeHitTestPackets,
-  createSolidCenterStrokeHitArea
+  createSolidCenterStrokeHitArea,
+  toSolidCenterStrokeRenderEntriesFromFinalFaces
 } from '../components/stroke-render/solid-center-stroke-packets'
 import {
   createClipper2GeometryBackend,
@@ -1475,6 +1476,52 @@ describe('constrained solid stroke packets', () => {
     expect(packets.some(solidPacketUsesBoundaryDomainProductGeometry)).toBe(
       false
     )
+    expect(
+      packets.every((packet) =>
+        packet.geometry.debugMeta?.strokePosition === 'outside'
+          ? packet.geometry.debugMeta?.solidMaskModelVisibleRender ===
+              'masked-source-stroke' &&
+            packet.geometry.debugMeta?.solidMaskModelCoverageOracle ===
+              'exact-boolean' &&
+            packet.geometry.debugMeta?.solidMaskModelMaskSide ===
+              'outside-exterior' &&
+            ((packet.geometry.debugMeta?.solidMaskModelRenderStrokePaths
+              ?.length ?? 0) > 0 ||
+              (packet.geometry.debugMeta?.solidMaskModelRenderFillPolygons
+                ?.length ?? 0) > 0) &&
+            (packet.geometry.debugMeta?.solidMaskModelRenderClipPolygons
+              ?.length ?? 0) > 0
+          : true
+      ),
+      JSON.stringify(
+        packets.map((packet) => packet.geometry.debugMeta),
+        null,
+        2
+      )
+    ).toBe(true)
+    const renderEntries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
+      buildStrokeFinalFacesFromResolvedPackets(packets)
+    )
+    expect(
+      renderEntries.every(
+        (entry) =>
+          ((entry.strokePaths?.length ?? 0) > 0 ||
+            (entry.fillPolygons?.length ?? 0) > 0) &&
+          (entry.clipPolygons?.length ?? 0) > 0 &&
+          entry.debugMeta?.solidMaskModelVisibleRender ===
+            'masked-source-stroke'
+      ),
+      JSON.stringify(
+        renderEntries.map((entry) => ({
+          strokePaths: entry.strokePaths?.length ?? 0,
+          fillPolygons: entry.fillPolygons?.length ?? 0,
+          clipPolygons: entry.clipPolygons?.length ?? 0,
+          debugMeta: entry.debugMeta
+        })),
+        null,
+        2
+      )
+    ).toBe(true)
   })
 
   it('should run: require self-intersecting outside solidMaskModel packets without internal-adjacency or dashed terminal metadata', async () => {

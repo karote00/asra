@@ -4,10 +4,12 @@ import path from 'node:path'
 import { resetCanvas, waitForAppReady } from './test-utils'
 
 const REPO_ROOT = path.resolve(process.cwd(), '../..')
-const ARTIFACT_DIR = path.join(
-  REPO_ROOT,
-  'docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts'
-)
+const ARTIFACT_DIR =
+  process.env.ASYRA_STROKE_FINAL_ARTIFACT_DIR ??
+  path.join(
+    REPO_ROOT,
+    'docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts'
+  )
 const SCREENSHOT_PATH = path.join(
   ARTIFACT_DIR,
   'self-check-inside-dashed-round-fill.png'
@@ -555,6 +557,10 @@ const getSelfCheckMetadata = async (page: Page) =>
           visualOverlapCollapseStatus?: unknown
           strokePosition?: unknown
           strokeWidth?: unknown
+          solidMaskModelMaskApplication?: unknown
+          solidMaskModelVisibleRender?: unknown
+          solidMaskModelCoverageOracle?: unknown
+          solidMaskModelMaskSide?: unknown
           figmaLikeSplitRangeId?: unknown
           figmaLikeSplitRangeStartDistance?: unknown
           figmaLikeSplitRangeEndDistance?: unknown
@@ -624,6 +630,22 @@ const getSelfCheckMetadata = async (page: Page) =>
               'render-fill-mask' ||
             packet.debugMeta?.solidMaskModelMaskApplication === 'exact-boolean'
               ? packet.debugMeta.solidMaskModelMaskApplication
+              : null,
+          solidMaskModelVisibleRender:
+            packet.debugMeta?.solidMaskModelVisibleRender ===
+            'masked-source-stroke'
+              ? packet.debugMeta.solidMaskModelVisibleRender
+              : null,
+          solidMaskModelCoverageOracle:
+            packet.debugMeta?.solidMaskModelCoverageOracle ===
+              'exact-boolean' ||
+            packet.debugMeta?.solidMaskModelCoverageOracle === 'render-mask'
+              ? packet.debugMeta.solidMaskModelCoverageOracle
+              : null,
+          solidMaskModelMaskSide:
+            packet.debugMeta?.solidMaskModelMaskSide === 'inside-fill' ||
+            packet.debugMeta?.solidMaskModelMaskSide === 'outside-exterior'
+              ? packet.debugMeta.solidMaskModelMaskSide
               : null,
           figmaLikeSplitRangeId:
             typeof packet.debugMeta?.figmaLikeSplitRangeId === 'string'
@@ -1327,6 +1349,172 @@ const analyzeSolidBoundaryContinuity = async (
       actualDataUrl: `data:image/png;base64,${actual.toString('base64')}`,
       metadata,
       expectedPosition
+    }
+  )
+
+const analyzeSolidLocalBlackCrack = async (
+  page: Page,
+  actual: Buffer,
+  center: Vec2,
+  label: string
+) =>
+  page.evaluate(
+    async ({ actualDataUrl, center, label }) => {
+      const loadImage = (src: string) =>
+        new Promise<HTMLImageElement>((resolve, reject) => {
+          const image = new Image()
+          image.onload = () => resolve(image)
+          image.onerror = () => reject(new Error(`Failed to decode ${src}`))
+          image.src = src
+        })
+      const actualImage = await loadImage(actualDataUrl)
+      const width = actualImage.width
+      const height = actualImage.height
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const context = canvas.getContext('2d')
+      if (!context) {
+        throw new Error('Missing canvas 2D context for crack analysis')
+      }
+      context.drawImage(actualImage, 0, 0)
+      const actualData = context.getImageData(0, 0, width, height).data
+      const indexOf = (x: number, y: number) => (y * width + x) * 4
+      const inBounds = (x: number, y: number) =>
+        x >= 0 && x < width && y >= 0 && y < height
+      const isRedStrokePixel = (x: number, y: number) => {
+        if (!inBounds(x, y)) return false
+        const index = indexOf(x, y)
+        const r = actualData[index]
+        const g = actualData[index + 1]
+        const b = actualData[index + 2]
+        const a = actualData[index + 3]
+        return a > 120 && r > 70 && r > g * 1.35 && r > b * 1.35
+      }
+      const isDarkPixel = (x: number, y: number) => {
+        if (!inBounds(x, y)) return false
+        const index = indexOf(x, y)
+        const r = actualData[index]
+        const g = actualData[index + 1]
+        const b = actualData[index + 2]
+        const a = actualData[index + 3]
+        return a > 120 && r < 52 && g < 52 && b < 52
+      }
+      const hasRedAlong = (
+        x: number,
+        y: number,
+        dx: number,
+        dy: number
+      ) => {
+        for (let distance = 4; distance <= 28; distance += 2) {
+          const sampleX = Math.round(x + dx * distance)
+          const sampleY = Math.round(y + dy * distance)
+          if (isRedStrokePixel(sampleX, sampleY)) {
+            return true
+          }
+        }
+        return false
+      }
+      const hasOpposingRedStroke = (x: number, y: number) =>
+        [
+          { dx: 1, dy: 0 },
+          { dx: 0, dy: 1 },
+          { dx: 1, dy: 1 },
+          { dx: 1, dy: -1 }
+        ].some(
+          ({ dx, dy }) =>
+            hasRedAlong(x, y, dx, dy) && hasRedAlong(x, y, -dx, -dy)
+        )
+      const scanRadius = 180
+      const crackMask = new Uint8Array(width * height)
+      let crackPixelCount = 0
+
+      for (
+        let y = Math.max(0, Math.floor(center.y - scanRadius));
+        y <= Math.min(height - 1, Math.ceil(center.y + scanRadius));
+        y += 1
+      ) {
+        for (
+          let x = Math.max(0, Math.floor(center.x - scanRadius));
+          x <= Math.min(width - 1, Math.ceil(center.x + scanRadius));
+          x += 1
+        ) {
+          if (Math.hypot(x - center.x, y - center.y) > scanRadius) {
+            continue
+          }
+          if (isDarkPixel(x, y) && hasOpposingRedStroke(x, y)) {
+            crackMask[y * width + x] = 1
+            crackPixelCount += 1
+          }
+        }
+      }
+
+      const visited = new Uint8Array(width * height)
+      const queue: number[] = []
+      const components: {
+        area: number
+        minX: number
+        minY: number
+        maxX: number
+        maxY: number
+      }[] = []
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const start = y * width + x
+          if (crackMask[start] !== 1 || visited[start] === 1) continue
+          visited[start] = 1
+          queue.length = 0
+          queue.push(start)
+          let area = 0
+          let minX = x
+          let minY = y
+          let maxX = x
+          let maxY = y
+          for (const current of queue) {
+            area += 1
+            const currentX = current % width
+            const currentY = Math.floor(current / width)
+            minX = Math.min(minX, currentX)
+            minY = Math.min(minY, currentY)
+            maxX = Math.max(maxX, currentX)
+            maxY = Math.max(maxY, currentY)
+            for (let dy = -1; dy <= 1; dy += 1) {
+              for (let dx = -1; dx <= 1; dx += 1) {
+                if (dx === 0 && dy === 0) continue
+                const nextX = currentX + dx
+                const nextY = currentY + dy
+                if (!inBounds(nextX, nextY)) continue
+                const next = nextY * width + nextX
+                if (crackMask[next] === 1 && visited[next] !== 1) {
+                  visited[next] = 1
+                  queue.push(next)
+                }
+              }
+            }
+          }
+          components.push({ area, minX, minY, maxX, maxY })
+        }
+      }
+
+      const relevantComponents = components
+        .filter((component) => component.area >= 4)
+        .sort((left, right) => right.area - left.area)
+        .slice(0, 10)
+
+      return {
+        label,
+        crackPixelCount,
+        maxCrackComponentArea: Math.max(
+          0,
+          ...relevantComponents.map((component) => component.area)
+        ),
+        crackComponents: relevantComponents
+      }
+    },
+    {
+      actualDataUrl: `data:image/png;base64,${actual.toString('base64')}`,
+      center,
+      label
     }
   )
 
@@ -3019,6 +3207,20 @@ test('self-check: self-intersecting outside solid uses solidMaskModel and exclud
     ),
     JSON.stringify(sideRecords, null, 2)
   ).toBe(true)
+  const outsideSolidPackets = metadata.boundaryDomainPackets.filter(
+    (packet) =>
+      packet.geometryFamily === 'constrained-solid' &&
+      packet.strokePosition === 'outside'
+  )
+  expect(
+    outsideSolidPackets.every(
+      (packet) =>
+        packet.solidMaskModelVisibleRender === 'masked-source-stroke' &&
+        packet.solidMaskModelCoverageOracle === 'exact-boolean' &&
+        packet.solidMaskModelMaskSide === 'outside-exterior'
+    ),
+    JSON.stringify(outsideSolidPackets, null, 2)
+  ).toBe(true)
   expect(legalAnalysis.redPixelCount).toBeGreaterThan(1000)
   expect(
     legalAnalysis.strictLegalRedPixelCount,
@@ -3054,7 +3256,8 @@ test('self-check: self-intersecting outside solid uses solidMaskModel and exclud
     point: Vec2,
     zoom: number,
     screenshotPath: string,
-    attachmentName: string
+    attachmentName: string,
+    assertNoCrack = true
   ) => {
     const viewportSize = page.viewportSize()
     if (!viewportSize) {
@@ -3090,11 +3293,27 @@ test('self-check: self-intersecting outside solid uses solidMaskModel and exclud
       { canvasCenter, point, rect: SELF_CHECK_VECTOR_RECT, zoom }
     )
     await page.waitForTimeout(500)
-    await page.screenshot({ path: screenshotPath, fullPage: false })
+    const screenshot = await page.screenshot({
+      path: screenshotPath,
+      fullPage: false
+    })
     await testInfo.attach(attachmentName, {
       path: screenshotPath,
       contentType: 'image/png'
     })
+    const crackAnalysis = await analyzeSolidLocalBlackCrack(
+      page,
+      screenshot,
+      canvasCenter,
+      attachmentName
+    )
+    if (assertNoCrack) {
+      expect(
+        crackAnalysis.maxCrackComponentArea,
+        JSON.stringify(crackAnalysis, null, 2)
+      ).toBeLessThan(4)
+    }
+    return crackAnalysis
   }
 
   await focusSelfCheckLocalPoint(
@@ -3122,7 +3341,8 @@ test('self-check: self-intersecting outside solid uses solidMaskModel and exclud
       ARTIFACT_DIR,
       'self-check-outside-solid-round-top-app-zoom-review.png'
     ),
-    'outside-solid-top-app-zoom-review'
+    'outside-solid-top-app-zoom-review',
+    false
   )
 })
 

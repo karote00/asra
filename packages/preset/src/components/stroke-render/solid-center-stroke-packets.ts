@@ -228,6 +228,9 @@ export interface SolidCenterStrokeGeometryDebugMeta {
   strokeCap?: 'butt' | 'square' | 'round' | 'none'
   strokeMiterLimit?: number
   solidMaskModelMaskApplication?: 'render-fill-mask' | 'exact-boolean'
+  solidMaskModelVisibleRender?: 'masked-source-stroke'
+  solidMaskModelCoverageOracle?: 'exact-boolean' | 'render-mask'
+  solidMaskModelMaskSide?: 'inside-fill' | 'outside-exterior'
   solidMaskModelRenderFillPolygons?: Vec2[][]
   solidMaskModelRenderClipPolygons?: Vec2[][]
   solidMaskModelRenderStrokePaths?: Vec2[][]

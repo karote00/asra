@@ -2492,6 +2492,9 @@ const buildSolidMaskModelSourceCenterStrokePolygons = (
 interface SolidMaskModelPolygonResult {
   polygons: Vec2[][]
   maskApplication: 'render-fill-mask' | 'exact-boolean'
+  visibleRender?: 'masked-source-stroke'
+  coverageOracle?: 'exact-boolean' | 'render-mask'
+  maskSide?: 'inside-fill' | 'outside-exterior'
   renderFillPolygons?: Vec2[][]
   renderClipPolygons?: Vec2[][]
   renderStrokePaths?: Vec2[][]
@@ -2528,6 +2531,26 @@ const closeSourcePathForStrokeRender = (
       ...(needsClosingPoint ? [{ ...first }] : [])
     ]
   ]
+}
+
+const buildOutsideExteriorRenderMaskPolygons = (
+  strokePolygons: Vec2[][],
+  fillMaskPolygons: Vec2[][],
+  strokeWidth: number
+): Vec2[][] => {
+  const bounds = getBounds([...strokePolygons, ...fillMaskPolygons])
+  const margin = Math.max(16, strokeWidth * 4)
+  const outer = [
+    { x: bounds.minX - margin, y: bounds.minY - margin },
+    { x: bounds.maxX + margin, y: bounds.minY - margin },
+    { x: bounds.maxX + margin, y: bounds.maxY + margin },
+    { x: bounds.minX - margin, y: bounds.maxY + margin }
+  ]
+  const filledFaceCutouts = fillMaskPolygons.map((polygon) =>
+    polygonArea(polygon) < 0 ? polygon : [...polygon].reverse()
+  )
+
+  return [outer, ...filledFaceCutouts]
 }
 
 const buildSolidMaskModelPolygons = ({
@@ -2586,6 +2609,9 @@ const buildSolidMaskModelPolygons = ({
     return {
       polygons: centerStrokePolygons,
       maskApplication: 'render-fill-mask',
+      visibleRender: 'masked-source-stroke',
+      coverageOracle: 'render-mask',
+      maskSide: 'inside-fill',
       renderClipPolygons: fillMaskPolygons,
       renderStrokePaths,
       renderStrokePathStyle: {
@@ -2617,12 +2643,30 @@ const buildSolidMaskModelPolygons = ({
 
     if (stroke.position === 'inside') {
       const polygons = flattenRegionPolygons(strokeRegions)
+      const renderStrokePaths = sourcePath
+        ? closeSourcePathForStrokeRender(sourcePath)
+        : []
       return polygons.length > 0
         ? {
             polygons,
             maskApplication: 'render-fill-mask',
-            renderFillPolygons: polygons,
-            renderClipPolygons: flattenRegionPolygons(fillMaskRegions)
+            visibleRender: 'masked-source-stroke',
+            coverageOracle: 'render-mask',
+            maskSide: 'inside-fill',
+            renderFillPolygons:
+              renderStrokePaths.length > 0 ? undefined : polygons,
+            renderClipPolygons: flattenRegionPolygons(fillMaskRegions),
+            renderStrokePaths:
+              renderStrokePaths.length > 0 ? renderStrokePaths : undefined,
+            renderStrokePathStyle:
+              renderStrokePaths.length > 0
+                ? {
+                    width: stroke.width * 2,
+                    cap: stroke.cap,
+                    join: stroke.join,
+                    miterLimit: stroke.miterLimit
+                  }
+                : undefined
           }
         : null
     }
@@ -2637,8 +2681,37 @@ const buildSolidMaskModelPolygons = ({
         ? backend.union(maskedRegions, 'nonzero')
         : maskedRegions
     const polygons = flattenRegionPolygons(normalizedRegions)
+    const renderStrokePaths = sourcePath
+      ? closeSourcePathForStrokeRender(sourcePath)
+      : []
+    const renderClipPolygons =
+      renderStrokePaths.length > 0
+        ? buildOutsideExteriorRenderMaskPolygons(
+            centerStrokePolygons,
+            flattenRegionPolygons(fillMaskRegions),
+            stroke.width
+          )
+        : undefined
     return polygons.length > 0
-      ? { polygons, maskApplication: 'exact-boolean' }
+      ? {
+          polygons,
+          maskApplication: 'exact-boolean',
+          visibleRender: 'masked-source-stroke',
+          coverageOracle: 'exact-boolean',
+          maskSide: 'outside-exterior',
+          renderClipPolygons,
+          renderStrokePaths:
+            renderStrokePaths.length > 0 ? renderStrokePaths : undefined,
+          renderStrokePathStyle:
+            renderStrokePaths.length > 0
+              ? {
+                  width: stroke.width * 2,
+                  cap: stroke.cap,
+                  join: stroke.join,
+                  miterLimit: stroke.miterLimit
+                }
+              : undefined
+        }
       : null
   } catch {
     return null
@@ -2804,6 +2877,11 @@ const buildSelfIntersectingSolidMaskModelPackets = ({
               strokeMiterLimit: stroke.miterLimit,
               solidMaskModelMaskApplication:
                 solidMaskModelPolygons.maskApplication,
+              solidMaskModelVisibleRender:
+                solidMaskModelPolygons.visibleRender,
+              solidMaskModelCoverageOracle:
+                solidMaskModelPolygons.coverageOracle,
+              solidMaskModelMaskSide: solidMaskModelPolygons.maskSide,
               solidMaskModelRenderFillPolygons:
                 solidMaskModelPolygons.renderFillPolygons,
               solidMaskModelRenderClipPolygons:

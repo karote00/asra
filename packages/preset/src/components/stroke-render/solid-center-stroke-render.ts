@@ -69,8 +69,10 @@ interface SolidStrokeCacheGradientEntry {
 interface SolidStrokeCacheMaskedSolidEntry {
   kind: 'masked-solid'
   container: Container
+  content: Container
   fill: Graphics
   mask: Graphics
+  strokeMask: Graphics
   signature: string
   paintKey: string
   revisionSet?: StrokeRevisionSet
@@ -390,8 +392,10 @@ const getPolygonBounds = (polygons: Vec2[][]) => {
 }
 
 const applyMaskedSolidPaint = (
+  content: Container,
   fill: Graphics,
   mask: Graphics,
+  strokeMask: Graphics,
   polygons: Vec2[][],
   color: number,
   alpha: number,
@@ -418,10 +422,14 @@ const applyMaskedSolidPaint = (
   const hasStrokePaths =
     strokePaths && strokePaths.length > 0 && strokePathStyle
 
+  content.mask = null
+  fill.mask = null
+  mask.mask = null
+  strokeMask.mask = null
   if (hasFillPolygons) {
     drawPolygonsWithCutouts(fill, fillPolygons, { color, alpha: 1 })
     fill.beginPath()
-  } else if (!hasStrokePaths) {
+  } else {
     fill
       .rect(
         bounds.minX,
@@ -433,16 +441,11 @@ const applyMaskedSolidPaint = (
   }
 
   if (hasStrokePaths) {
-    drawStrokePaths(fill, strokePaths, strokePathStyle, color, 1)
+    drawStrokePaths(strokeMask, strokePaths, strokePathStyle, 0xffffff, 1)
+    content.mask = strokeMask
   }
 
-  maskPolygons.forEach((polygon) => {
-    if (polygon.length < 3) {
-      return
-    }
-    drawPolygon(mask, polygon)
-    mask.fill({ color: 0xffffff, alpha: 1 })
-  })
+  drawPolygonsWithCutouts(mask, maskPolygons, { color: 0xffffff, alpha: 1 })
   fill.mask = mask
 }
 
@@ -477,6 +480,8 @@ const disposeCacheEntry = (
   if (entry.kind === 'masked-solid') {
     entry.fill.destroy()
     entry.mask.destroy()
+    entry.strokeMask.destroy()
+    entry.content.destroy()
     entry.container.destroy()
     return
   }
@@ -609,8 +614,10 @@ export const renderSolidCenterStrokeEntries = (
           }
         } else if (compatibleEntry.kind === 'masked-solid') {
           applyMaskedSolidPaint(
+            compatibleEntry.content,
             compatibleEntry.fill,
             compatibleEntry.mask,
+            compatibleEntry.strokeMask,
             polygons,
             entry.stroke.color,
             entry.stroke.alpha,
@@ -699,8 +706,10 @@ export const renderSolidCenterStrokeEntries = (
           compatibleEntry.paintKey !== paintKey)
       ) {
         applyMaskedSolidPaint(
+          compatibleEntry.content,
           compatibleEntry.fill,
           compatibleEntry.mask,
+          compatibleEntry.strokeMask,
           polygons,
           entry.stroke.color,
           entry.stroke.alpha,
@@ -719,13 +728,19 @@ export const renderSolidCenterStrokeEntries = (
       }
 
       const container = new Container()
+      const content = new Container()
       const fill = new Graphics()
       const mask = new Graphics()
-      container.addChild(fill)
+      const strokeMask = new Graphics()
+      content.addChild(fill)
+      container.addChild(content)
       container.addChild(mask)
+      container.addChild(strokeMask)
       applyMaskedSolidPaint(
+        content,
         fill,
         mask,
+        strokeMask,
         polygons,
         entry.stroke.color,
         entry.stroke.alpha,
@@ -743,8 +758,10 @@ export const renderSolidCenterStrokeEntries = (
       graphic.__asyraStrokeMeshCache?.set(entry.cacheKey, {
         kind: 'masked-solid',
         container,
+        content,
         fill,
         mask,
+        strokeMask,
         signature,
         paintKey,
         revisionSet,
