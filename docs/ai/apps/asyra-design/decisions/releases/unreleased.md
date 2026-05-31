@@ -6288,3 +6288,32 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - `docs/ai/apps/asyra-design/plans/stroke-engine-final/geometry-pipeline.md`
   - `docs/ai/apps/asyra-design/plans/stroke-engine-final/target-architecture.md`
   - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
+
+## 2026-05-31 - Stroke rule authority narrowed after inside solid Figma mismatch
+
+- Context:
+  - Current app screenshots show grid/vector-network self-intersecting inside
+    solid rendering does not match Figma: internal shared edges render as
+    independent full-width strips and internal pentagon corners do not follow
+    `strokeJoin` / `strokeMiterLimit`.
+  - Prior stroke docs and reports preserved mutually conflicting rules,
+    including direct one-sided solid geometry and completed-matrix claims.
+- Decision:
+  - Treat old one-sided solid docs, completed plan copies, BDD feature text, and
+    the stroke final analysis report as wrong or stale for current rules.
+  - Keep current stroke rules only in:
+    `docs/ai/apps/asyra-design/PLANS.md`,
+    `docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md`, and
+    `docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.data.js`.
+  - Keep `stroke-flow-inspector.html` only as a non-authoritative viewer shell.
+  - Record wrong decisions only in decision history. Do not preserve wrong
+    specification files as tombstones, completed copies, reports, or BDD
+    features.
+- Consequences:
+  - Solid inside/outside rule authority is Figma-style doubled authored center
+    stroke plus filled-region or exterior mask, not direct one-sided solid
+    visible geometry.
+  - The stroke engine remains reopened until implementation probes and reviewed
+    screenshots prove Figma parity.
+  - Decision history can contain obsolete decisions, but active docs cannot use
+    them as rule sources.

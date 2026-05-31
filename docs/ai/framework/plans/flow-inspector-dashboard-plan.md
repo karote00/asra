@@ -178,6 +178,6 @@ Storage draft:
 
 ## Exit Criteria For First Phase
 
-- `docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.html` includes reading guidance, legend, checklist, and node-level references.
+- `docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.html` renders data-backed nodes and viewer controls only; current stroke rules live in `stroke-flow-inspector.data.js`.
 - `docs/ai/framework/plans/flow-inspector-dashboard-plan.md` defines the devtool direction.
 - No product code changes are required.

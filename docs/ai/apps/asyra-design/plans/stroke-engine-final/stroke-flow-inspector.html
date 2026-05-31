@@ -540,34 +540,26 @@
         </div>
         <div id="filters" class="filters"></div>
         <details class="guide-panel">
-          <summary>Reading guide, legend, and current debug checklist</summary>
+          <summary>Viewer controls and legend</summary>
           <section
             class="guide-grid"
-            aria-label="how to read the stroke flow inspector"
+            aria-label="stroke flow inspector viewer controls"
           >
             <article id="guide-how-to-read" class="guide-card">
-              <h2>How to read this board</h2>
+              <h2>Viewer controls</h2>
               <ul>
                 <li>
-                  Read the flow from left to right. Each card is a real pipeline
-                  step.
+                  Cards and arrows are rendered from
+                  <code>stroke-flow-inspector.data.js</code>.
                 </li>
                 <li>
-                  Arrows show data moving into the next decision or
-                  transformation step.
+                  Click a card to show the data-backed detail panel.
                 </li>
                 <li>
-                  Click a card to inspect helpers, helper conditions, inputs,
-                  outputs, risks, tests, implementation trace, and evidence.
+                  Use group filters to hide or show rendered nodes.
                 </li>
                 <li>
-                  Use the group filters to isolate one subsystem without
-                  changing the underlying flow.
-                </li>
-                <li>
-                  Machine-readable flow data lives in
-                  <code>stroke-flow-inspector.data.js</code>; this HTML only
-                  renders it for human review.
+                  This HTML shell does not define stroke rules or status.
                 </li>
               </ul>
             </article>
@@ -610,50 +602,30 @@
               </p>
             </article>
             <article id="guide-debug-checklist" class="guide-card">
-              <h2>Current debug checklist</h2>
+              <h2>Data panels</h2>
               <ul>
                 <li>
-                  Shared geometry model is the only geometry truth for fill,
-                  stroke, and future shadow.
+                  The detail panel lists fields supplied by the data file.
                 </li>
                 <li>
-                  Fill consumes fillRegions; constrained dashed stroke consumes
-                  source-path intervals from the correct family domain.
+                  Empty fields are hidden by the renderer.
                 </li>
                 <li>
-                  Fill and hole boundaries are legal/diagnostic evidence only;
-                  they are not dashed stroke paths.
-                </li>
-                <li>
-                  Self-intersecting inside/outside dashed intervals use
-                  Figma-like split ranges: each range owns half-dash endpoints
-                  and balanced interior dash/gap placement.
-                </li>
-                <li>
-                  Product visual must be final/no-overlap; debug overlap is the
-                  only raw-fragment mode.
+                  Static checks verify required data-backed node ids exist.
                 </li>
               </ul>
             </article>
             <article id="guide-alignment-checklist" class="guide-card">
-              <h2>Flow alignment checklist</h2>
+              <h2>Viewer checks</h2>
               <ul>
                 <li>
-                  Shared geometry model must be built before fill and stroke
-                  consumers.
+                  Duplicate node ids are reported in the console.
                 </li>
                 <li>
-                  Stroke must consume the family-correct interval domain and
-                  local side decisions; legal/fill evidence remains auxiliary
-                  except where it is the documented side-resolution authority.
-                </li>
-                <li>Fill is a reference consumer only for this stroke fix.</li>
-                <li>
-                  Center stroke must not use inside/outside contour-side rules.
+                  Edges that point to missing nodes are reported in the console.
                 </li>
                 <li>
-                  Product visual must be final/no-overlap; raw fragments are
-                  debug-only.
+                  Missing viewer guide sections are reported in the console.
                 </li>
               </ul>
             </article>
@@ -1067,7 +1039,7 @@
           'input-event',
           'dirty-revision-graph',
           'shared-geometry-model',
-          'build-one-sided-candidates',
+          'build-stroke-candidates',
           'build-final-faces',
           'mesh-render',
           'visible-final-result'
