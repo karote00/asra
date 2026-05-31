@@ -1,60 +1,60 @@
 {
   "width": 1400,
   "height": 1100,
-  "redPixelCount": 49825,
-  "legalRedPixelCount": 49825,
+  "redPixelCount": 40043,
+  "legalRedPixelCount": 40043,
   "outsideRedPixelCount": 0,
-  "strictLegalRedPixelCount": 33851,
+  "strictLegalRedPixelCount": 24069,
   "strictOutsideRedPixelCount": 15974,
   "darkOverdrawPixelCount": 0,
   "maxDarkOverdrawComponentArea": 0,
   "darkOverdrawComponentAreas": [],
   "maxOutsideComponentArea": 0,
   "outsideComponentAreas": [],
-  "maxStrictInsideComponentArea": 17671,
+  "maxStrictInsideComponentArea": 11150,
   "maxStrictOutsideComponentArea": 5508,
   "strictInsideComponentAreas": [
-    17671,
-    7469,
-    5781,
-    2930
+    11150,
+    6059,
+    4367,
+    2493
   ],
   "strictInsideComponents": [
     {
-      "area": 17671,
+      "area": 11150,
       "minX": 444,
       "minY": 295,
       "maxX": 803,
       "maxY": 680,
-      "centerX": 668.5355667477788,
-      "centerY": 472.15137796389564
+      "centerX": 651.5778475336323,
+      "centerY": 448.75174887892376
     },
     {
-      "area": 7469,
+      "area": 6059,
       "minX": 431,
       "minY": 525,
       "maxX": 725,
       "maxY": 827,
-      "centerX": 586.7551211674923,
-      "centerY": 676.8563395367519
+      "centerX": 570.7507839577488,
+      "centerY": 692.3046707377455
     },
     {
-      "area": 5781,
+      "area": 4367,
       "minX": 754,
       "minY": 417,
       "maxX": 962,
       "maxY": 620,
-      "centerX": 828.5163466528282,
-      "centerY": 509.4350458398201
+      "centerX": 840.958323792077,
+      "centerY": 506.7359743531028
     },
     {
-      "area": 2930,
+      "area": 2493,
       "minX": 739,
       "minY": 636,
       "maxX": 832,
       "maxY": 788,
-      "centerX": 791.779180887372,
-      "centerY": 703.1238907849829
+      "centerX": 795.0100280786202,
+      "centerY": 709.0365022061773
     }
   ],
   "strictOutsideComponentAreas": [

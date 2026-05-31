@@ -53,6 +53,16 @@ export interface SolidCenterStrokeRenderDescriptor {
   fillClipPolygons?: Vec2[][]
   strokeMaskPolygons?: Vec2[][]
   strokePaths?: Vec2[][]
+  strokePathGroups?: {
+    clipPolygons: Vec2[][]
+    strokePaths: Vec2[][]
+    strokePathStyle?: {
+      width: number
+      cap: 'butt' | 'square' | 'round' | 'none'
+      join: 'miter' | 'bevel' | 'round'
+      miterLimit: number
+    }
+  }[]
   strokePathStyle?: {
     width: number
     cap: 'butt' | 'square' | 'round' | 'none'
@@ -739,6 +749,7 @@ const buildRenderEntryFromFinalFace = (
     fillClipPolygons: renderDescriptor?.fillClipPolygons,
     strokeMaskPolygons: renderDescriptor?.strokeMaskPolygons,
     strokePaths: renderDescriptor?.strokePaths,
+    strokePathGroups: renderDescriptor?.strokePathGroups,
     strokePathStyle: renderDescriptor?.strokePathStyle,
     debugMeta: shouldEmitFullStrokeDiagnostics() ? face.debugMeta : undefined,
     runtimeMeta,

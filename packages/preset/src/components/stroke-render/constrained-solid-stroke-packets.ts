@@ -2758,6 +2758,16 @@ interface SolidMaskModelPolygonResult {
   renderFillClipPolygons?: Vec2[][]
   renderStrokeMaskPolygons?: Vec2[][]
   renderStrokePaths?: Vec2[][]
+  renderStrokePathGroups?: {
+    clipPolygons: Vec2[][]
+    strokePaths: Vec2[][]
+    strokePathStyle?: {
+      width: number
+      cap: 'butt' | 'square' | 'round' | 'none'
+      join: 'miter' | 'bevel' | 'round'
+      miterLimit: number
+    }
+  }[]
   renderStrokePathStyle?: {
     width: number
     cap: 'butt' | 'square' | 'round' | 'none'
@@ -2798,6 +2808,107 @@ const closeSourcePathForStrokeRender = (
       ...(needsClosingPoint ? [{ ...first }] : [])
     ]
   ]
+}
+
+const isJoinReactiveInsideFaceBoundary = (face: EvenOddLegalFaceBoundary) => {
+  const sharedEdgeCount = face.edges.filter(
+    (edge) => edge.oppositeFaceLegal
+  ).length
+  const highDegreeVertices = new Set<string>()
+  const addHighDegreeVertex = (point: Vec2) => {
+    highDegreeVertices.add(`${point.x.toFixed(2)}:${point.y.toFixed(2)}`)
+  }
+  face.edges.forEach((edge) => {
+    if (edge.startNodeDegree > 2) {
+      addHighDegreeVertex(edge.start)
+    }
+    if (edge.endNodeDegree > 2) {
+      addHighDegreeVertex(edge.end)
+    }
+  })
+
+  return (
+    sharedEdgeCount >= 5 &&
+    sharedEdgeCount / Math.max(1, face.edges.length) >= 0.8 &&
+    highDegreeVertices.size >= 5
+  )
+}
+
+const getNormalizedInsideFacePolygon = (
+  face: EvenOddLegalFaceBoundary
+): Vec2[] | null => {
+  const facePolygon = cleanPolygon(face.points.map(normalizePoint))
+  if (facePolygon.length < 3 || Math.abs(polygonArea(facePolygon)) <= EPSILON) {
+    return null
+  }
+  return polygonArea(facePolygon) < 0 ? [...facePolygon].reverse() : facePolygon
+}
+
+const closePathPointsForStrokeRender = (points: Vec2[]): Vec2[][] => {
+  const cleaned = cleanPolylinePoints(points.map(normalizePoint))
+  if (cleaned.length < 2) {
+    return []
+  }
+  const first = cleaned[0]
+  const last = cleaned[cleaned.length - 1]
+  return distanceBetween(first, last) <= EPSILON
+    ? [cleaned]
+    : [[...cleaned, { ...first }]]
+}
+
+const buildInsideAdjacencyStrokePathGroups = (
+  legalBoundaryContours: EvenOddBoundaryContour[],
+  legalFaceBoundaries: EvenOddLegalFaceBoundary[],
+  stroke: Pick<
+    ReturnType<typeof getRenderableStrokes>[number],
+    'width' | 'join' | 'miterLimit'
+  >
+): {
+  clipPolygons: Vec2[][]
+  strokePaths: Vec2[][]
+  strokePathStyle: {
+    width: number
+    cap: 'butt'
+    join: 'miter' | 'bevel' | 'round'
+    miterLimit: number
+  }
+}[] => {
+  const boundaryGroups = legalBoundaryContours.flatMap((contour) =>
+    closePathPointsForStrokeRender(contour.points).map((strokePath) => ({
+      clipPolygons: [strokePath],
+      strokePaths: [strokePath],
+      strokePathStyle: {
+        width: stroke.width * 2,
+        cap: 'butt' as const,
+        join: stroke.join,
+        miterLimit: stroke.miterLimit
+      }
+    }))
+  )
+
+  const joinReactiveFaceGroups = legalFaceBoundaries.flatMap((face) => {
+    if (!isJoinReactiveInsideFaceBoundary(face)) {
+      return []
+    }
+    const normalizedFacePolygon = getNormalizedInsideFacePolygon(face)
+    if (!normalizedFacePolygon) {
+      return []
+    }
+    return closePathPointsForStrokeRender(normalizedFacePolygon).map(
+      (strokePath) => ({
+        clipPolygons: [normalizedFacePolygon],
+        strokePaths: [strokePath],
+        strokePathStyle: {
+          width: stroke.width,
+          cap: 'butt' as const,
+          join: stroke.join,
+          miterLimit: stroke.miterLimit
+        }
+      })
+    )
+  })
+
+  return [...boundaryGroups, ...joinReactiveFaceGroups]
 }
 
 const buildOutsideExteriorRenderMaskPolygons = (
@@ -4487,6 +4598,11 @@ const buildSolidMaskModelPolygons = ({
               )
           )
       const polygons = flattenRegionPolygons(productRegions)
+      const renderStrokePathGroups = buildInsideAdjacencyStrokePathGroups(
+        legalBoundaryContours,
+        legalFaceBoundaries,
+        stroke
+      )
       const renderClipPolygons = flattenRegionPolygons(
         insideVisibleFillClipRegions
       )
@@ -4494,7 +4610,8 @@ const buildSolidMaskModelPolygons = ({
       const sourceRenderStrokePaths = sourcePath
         ? closeSourcePathForStrokeRender(sourcePath)
         : []
-      const renderStrokePaths = sourceRenderStrokePaths
+      const renderStrokePaths =
+        renderStrokePathGroups.length > 0 ? [] : sourceRenderStrokePaths
       const isJoinAwareFaceOwnedMask =
         isFaceOwnedMask &&
         (faceOwnedInsideMask.internalCornerJoinPolygonCount > 0 ||
@@ -4521,13 +4638,18 @@ const buildSolidMaskModelPolygons = ({
             faceOwnershipTrace: faceOwnedInsideMask.faceOwnershipTrace,
             renderClipPolygons,
             renderFillClipPolygons,
+            renderStrokePathGroups:
+              renderStrokePathGroups.length > 0
+                ? renderStrokePathGroups
+                : undefined,
             renderStrokePaths:
               renderStrokePaths.length > 0 ? renderStrokePaths : undefined,
             renderStrokePathStyle:
-              renderStrokePaths.length > 0
+              renderStrokePaths.length > 0 || renderStrokePathGroups.length > 0
                 ? {
                     width: stroke.width * 2,
-                    cap: isFaceOwnedMask ? 'butt' : stroke.cap,
+                    cap:
+                      renderStrokePathGroups.length > 0 ? 'butt' : stroke.cap,
                     join: stroke.join,
                     miterLimit: stroke.miterLimit
                   }
@@ -4710,6 +4832,7 @@ const buildSelfIntersectingSolidMaskModelPackets = ({
               strokeMaskPolygons:
                 solidMaskModelPolygons.renderStrokeMaskPolygons,
               strokePaths: solidMaskModelPolygons.renderStrokePaths,
+              strokePathGroups: solidMaskModelPolygons.renderStrokePathGroups,
               strokePathStyle: solidMaskModelPolygons.renderStrokePathStyle
             },
             debugMeta: {

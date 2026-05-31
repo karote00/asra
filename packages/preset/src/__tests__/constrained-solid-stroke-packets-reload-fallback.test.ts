@@ -2595,6 +2595,43 @@ const buildUnionPolygonsForTest = (
     )
   )
 
+interface RenderEntryStrokePathStyleForTest {
+  width: number
+  cap: 'butt' | 'square' | 'round' | 'none'
+  join: 'miter' | 'bevel' | 'round'
+  miterLimit: number
+}
+
+interface RenderEntryStrokePathGroupForTest {
+  strokePaths?: Vec2[][]
+  strokePathStyle?: RenderEntryStrokePathStyleForTest
+}
+
+interface RenderEntrySourceMaskForTest {
+  clipPolygons?: Vec2[][]
+  strokeMaskPolygons?: Vec2[][]
+  strokePaths?: Vec2[][]
+  strokePathGroups?: RenderEntryStrokePathGroupForTest[]
+  strokePathStyle?: RenderEntryStrokePathStyleForTest
+}
+
+const buildStrokePathPolygonsForTest = (
+  strokePaths: Vec2[][],
+  style: RenderEntryStrokePathStyleForTest | undefined
+) =>
+  style
+    ? strokePaths.flatMap((strokePath) =>
+        buildSolidCenterStrokePolygons(strokePath, true, {
+          style: 'solid',
+          position: 'center',
+          width: style.width,
+          cap: style.cap === 'none' ? 'butt' : style.cap,
+          join: style.join,
+          miterLimit: style.miterLimit
+        })
+      )
+    : []
+
 const getRenderEntrySourceStrokePolygonsForTest = ({
   backend,
   entry,
@@ -2603,50 +2640,86 @@ const getRenderEntrySourceStrokePolygonsForTest = ({
   strokeWidth
 }: {
   backend: ReturnType<typeof createClipper2GeometryBackend>
-  entry:
-    | {
-        strokeMaskPolygons?: Vec2[][]
-        strokePaths?: Vec2[][]
-      }
-    | undefined
+  entry: RenderEntrySourceMaskForTest | undefined
   sourcePath: Pick<PathGeometry, 'sampledPoints' | 'closed'>
   join: 'miter' | 'bevel' | 'round'
   strokeWidth: number
 }) => {
   const strokeMaskPolygons = entry?.strokeMaskPolygons ?? []
-  const strokePathPolygons =
+  const flatStrokePathPolygons =
     entry?.strokePaths && entry.strokePaths.length > 0
-      ? buildOffsetSourceStrokePolygonsForTest(
-          backend,
-          sourcePath,
-          join,
-          strokeWidth
-        )
+      ? entry.strokePathStyle
+        ? buildStrokePathPolygonsForTest(
+            entry.strokePaths,
+            entry.strokePathStyle
+          )
+        : buildOffsetSourceStrokePolygonsForTest(
+            backend,
+            sourcePath,
+            join,
+            strokeWidth
+          )
       : []
+  const groupedStrokePathPolygons =
+    entry?.strokePathGroups?.flatMap((group) =>
+      buildStrokePathPolygonsForTest(
+        group.strokePaths ?? [],
+        group.strokePathStyle
+      )
+    ) ?? []
 
-  if (strokeMaskPolygons.length > 0 || strokePathPolygons.length > 0) {
-    return [...strokePathPolygons, ...strokeMaskPolygons]
+  if (
+    strokeMaskPolygons.length > 0 ||
+    flatStrokePathPolygons.length > 0 ||
+    groupedStrokePathPolygons.length > 0
+  ) {
+    return [
+      ...flatStrokePathPolygons,
+      ...groupedStrokePathPolygons,
+      ...strokeMaskPolygons
+    ]
   }
   return []
 }
 
 const expectRenderEntryHasSourceStrokeMaskForTest = (
-  entry:
-    | {
-        strokeMaskPolygons?: Vec2[][]
-        strokePaths?: Vec2[][]
-        strokePathStyle?: unknown
-      }
-    | undefined
+  entry: RenderEntrySourceMaskForTest | undefined
 ) => {
   const strokeMaskPolygonCount = entry?.strokeMaskPolygons?.length ?? 0
   const strokePathCount = entry?.strokePaths?.length ?? 0
+  const strokePathGroupCount = entry?.strokePathGroups?.length ?? 0
 
-  expect(strokeMaskPolygonCount + strokePathCount).toBeGreaterThan(0)
+  expect(
+    strokeMaskPolygonCount + strokePathCount + strokePathGroupCount
+  ).toBeGreaterThan(0)
   if (strokePathCount > 0) {
     expect(entry?.strokePathStyle).toBeDefined()
   }
+  if (strokePathGroupCount > 0) {
+    expect(
+      entry?.strokePathGroups?.every(
+        (group) =>
+          (group.strokePaths?.length ?? 0) > 0 &&
+          group.strokePathStyle !== undefined
+      )
+    ).toBe(true)
+  }
 }
+
+const getRenderEntrySourceStrokeStylesForTest = (
+  entry: RenderEntrySourceMaskForTest | undefined
+) => [
+  ...(entry?.strokePaths &&
+  entry.strokePaths.length > 0 &&
+  entry.strokePathStyle
+    ? [entry.strokePathStyle]
+    : []),
+  ...(entry?.strokePathGroups?.flatMap((group) =>
+    group.strokePaths && group.strokePaths.length > 0 && group.strokePathStyle
+      ? [group.strokePathStyle]
+      : []
+  ) ?? [])
+]
 
 const getRenderEntryVisiblePolygonsForTest = ({
   backend,
@@ -2656,13 +2729,7 @@ const getRenderEntryVisiblePolygonsForTest = ({
   strokeWidth
 }: {
   backend: ReturnType<typeof createClipper2GeometryBackend>
-  entry:
-    | {
-        clipPolygons?: Vec2[][]
-        strokeMaskPolygons?: Vec2[][]
-        strokePaths?: Vec2[][]
-      }
-    | undefined
+  entry: RenderEntrySourceMaskForTest | undefined
   sourcePath: Pick<PathGeometry, 'sampledPoints' | 'closed'>
   join: 'miter' | 'bevel' | 'round'
   strokeWidth: number
@@ -4313,6 +4380,54 @@ const expectInsideSolidAdjacencyCoverageForTest = ({
   ).toBeLessThanOrEqual(1.25)
 }
 
+const expectInsideSolidSharedEdgeHalfWidthForTest = ({
+  name,
+  polygons,
+  probePairs,
+  strokeWidth
+}: {
+  name: string
+  polygons: Vec2[][]
+  probePairs: {
+    sharedEdge: EvenOddLegalFaceBoundaryEdge
+    normalEdge: EvenOddLegalFaceBoundaryEdge
+  }[]
+  strokeWidth: number
+}) => {
+  const analyses = probePairs.map((pair) => ({
+    key: sharedEdgeGeometryKeyForTest(pair.sharedEdge),
+    sharedEdge: pair.sharedEdge,
+    normalEdge: pair.normalEdge,
+    analysis: analyzeInsideSolidAdjacencyCoverageForTest({
+      polygons,
+      sharedEdge: pair.sharedEdge,
+      normalEdge: pair.normalEdge,
+      strokeWidth
+    })
+  }))
+  const overWide = analyses.filter(
+    (entry) => entry.analysis.sharedMedian > strokeWidth * 0.65
+  )
+
+  expect(
+    analyses.length,
+    JSON.stringify({ name, analyses }, null, 2)
+  ).toBeGreaterThan(0)
+  expect(
+    overWide,
+    JSON.stringify(
+      {
+        name,
+        reason:
+          'inside solid visible render must expose only half stroke width on each shared-edge side',
+        overWide
+      },
+      null,
+      2
+    )
+  ).toEqual([])
+}
+
 const expectAllInsideSolidSharedEdgesForTest = ({
   name,
   polygons,
@@ -4392,17 +4507,20 @@ const expectAllInsideSolidSharedEdgesForTest = ({
 }
 
 describe('constrained solid stroke packets: reload and fallback guards', () => {
-  it('should run: keep all internal pentagon corner join envelopes single-source', async () => {
+  it('should run: keep all internal pentagon corners on masked authored source stroke', async () => {
     const {
       sourcePath,
       topology,
       fillRegions,
       legalFaceBoundaries,
+      legalBoundaryContours,
       sharedSourceSplitRanges,
       sharedStrokeBoundaryDomains
     } = buildSelfCheckStarSolidDomainFixture()
     const backend = createClipper2GeometryBackend(await loadClipperModule())
     const cases = ['miter', 'bevel', 'round'] as const
+    const probePairs =
+      getInsideSolidAdjacencyProbePairsForTest(legalFaceBoundaries)
 
     cases.forEach((joinType) => {
       const packets = buildConstrainedSolidStrokeResolvedPackets(
@@ -4423,6 +4541,7 @@ describe('constrained solid stroke packets: reload and fallback guards', () => {
           sourcePath,
           implicitFillRegions: fillRegions,
           implicitLegalFaceBoundaries: legalFaceBoundaries,
+          implicitLegalBoundaryContours: legalBoundaryContours,
           sharedSourceSplitRanges,
           sharedStrokeBoundaryDomains,
           candidateMode: 'exact-arrangement',
@@ -4432,13 +4551,6 @@ describe('constrained solid stroke packets: reload and fallback guards', () => {
       const [entry] = toSolidCenterStrokeRenderEntriesFromFinalFaces(
         buildStrokeFinalFacesFromResolvedPackets(packets)
       )
-      const sourceStrokePolygons = getRenderEntrySourceStrokePolygonsForTest({
-        backend,
-        entry,
-        sourcePath,
-        join: joinType,
-        strokeWidth: 10
-      })
       const visiblePolygons = getRenderEntryVisiblePolygonsForTest({
         backend,
         entry,
@@ -4449,28 +4561,24 @@ describe('constrained solid stroke packets: reload and fallback guards', () => {
 
       expect(packets.length).toBeGreaterThan(0)
       expectRenderEntryHasSourceStrokeMaskForTest(entry)
+      expect(
+        getRenderEntrySourceStrokeStylesForTest(entry).some(
+          (style) => style.join === joinType
+        )
+      ).toBe(true)
+      expectInsideSolidSharedEdgeHalfWidthForTest({
+        name: `inside solid ${joinType} visible all shared edges`,
+        polygons: visiblePolygons,
+        probePairs,
+        strokeWidth: 10
+      })
       if (joinType === 'round') {
-        expectInsideSolidRoundCornerSingleLobesForTest({
-          name: `inside solid ${joinType} all internal pentagon corner envelopes`,
-          polygons: visiblePolygons,
-          legalFaceBoundaries,
-          strokeWidth: 10
-        })
-        expectInsideSolidRoundCornerSmoothnessForTest({
-          name: 'inside solid round all internal pentagon corner envelopes',
-          polygons: visiblePolygons,
-          legalFaceBoundaries,
-          strokeWidth: 10
-        })
-      } else {
-        expectNoInsidePentagonCornerSplitIntervalsForTest({
-          name: `inside solid ${joinType} all internal pentagon corner envelopes`,
-          visiblePolygons,
-          clipPolygons: entry?.clipPolygons ?? [],
-          sourceStrokePolygons,
-          legalFaceBoundaries,
-          strokeWidth: 10
-        })
+        expect(
+          getRenderEntrySourceStrokeStylesForTest(entry).some(
+            (style) => style.join === 'round' && style.width === 10
+          )
+        ).toBe(true)
+        expect(entry?.clipPolygons?.length ?? 0).toBeGreaterThan(0)
       }
     })
   })

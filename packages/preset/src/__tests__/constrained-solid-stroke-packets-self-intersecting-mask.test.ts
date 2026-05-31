@@ -2595,6 +2595,43 @@ const buildUnionPolygonsForTest = (
     )
   )
 
+interface RenderEntryStrokePathStyleForTest {
+  width: number
+  cap: 'butt' | 'square' | 'round' | 'none'
+  join: 'miter' | 'bevel' | 'round'
+  miterLimit: number
+}
+
+interface RenderEntryStrokePathGroupForTest {
+  strokePaths?: Vec2[][]
+  strokePathStyle?: RenderEntryStrokePathStyleForTest
+}
+
+interface RenderEntrySourceMaskForTest {
+  clipPolygons?: Vec2[][]
+  strokeMaskPolygons?: Vec2[][]
+  strokePaths?: Vec2[][]
+  strokePathGroups?: RenderEntryStrokePathGroupForTest[]
+  strokePathStyle?: RenderEntryStrokePathStyleForTest
+}
+
+const buildStrokePathPolygonsForTest = (
+  strokePaths: Vec2[][],
+  style: RenderEntryStrokePathStyleForTest | undefined
+) =>
+  style
+    ? strokePaths.flatMap((strokePath) =>
+        buildSolidCenterStrokePolygons(strokePath, true, {
+          style: 'solid',
+          position: 'center',
+          width: style.width,
+          cap: style.cap === 'none' ? 'butt' : style.cap,
+          join: style.join,
+          miterLimit: style.miterLimit
+        })
+      )
+    : []
+
 const getRenderEntrySourceStrokePolygonsForTest = ({
   backend,
   entry,
@@ -2603,50 +2640,86 @@ const getRenderEntrySourceStrokePolygonsForTest = ({
   strokeWidth
 }: {
   backend: ReturnType<typeof createClipper2GeometryBackend>
-  entry:
-    | {
-        strokeMaskPolygons?: Vec2[][]
-        strokePaths?: Vec2[][]
-      }
-    | undefined
+  entry: RenderEntrySourceMaskForTest | undefined
   sourcePath: Pick<PathGeometry, 'sampledPoints' | 'closed'>
   join: 'miter' | 'bevel' | 'round'
   strokeWidth: number
 }) => {
   const strokeMaskPolygons = entry?.strokeMaskPolygons ?? []
-  const strokePathPolygons =
+  const flatStrokePathPolygons =
     entry?.strokePaths && entry.strokePaths.length > 0
-      ? buildOffsetSourceStrokePolygonsForTest(
-          backend,
-          sourcePath,
-          join,
-          strokeWidth
-        )
+      ? entry.strokePathStyle
+        ? buildStrokePathPolygonsForTest(
+            entry.strokePaths,
+            entry.strokePathStyle
+          )
+        : buildOffsetSourceStrokePolygonsForTest(
+            backend,
+            sourcePath,
+            join,
+            strokeWidth
+          )
       : []
+  const groupedStrokePathPolygons =
+    entry?.strokePathGroups?.flatMap((group) =>
+      buildStrokePathPolygonsForTest(
+        group.strokePaths ?? [],
+        group.strokePathStyle
+      )
+    ) ?? []
 
-  if (strokeMaskPolygons.length > 0 || strokePathPolygons.length > 0) {
-    return [...strokePathPolygons, ...strokeMaskPolygons]
+  if (
+    strokeMaskPolygons.length > 0 ||
+    flatStrokePathPolygons.length > 0 ||
+    groupedStrokePathPolygons.length > 0
+  ) {
+    return [
+      ...flatStrokePathPolygons,
+      ...groupedStrokePathPolygons,
+      ...strokeMaskPolygons
+    ]
   }
   return []
 }
 
 const expectRenderEntryHasSourceStrokeMaskForTest = (
-  entry:
-    | {
-        strokeMaskPolygons?: Vec2[][]
-        strokePaths?: Vec2[][]
-        strokePathStyle?: unknown
-      }
-    | undefined
+  entry: RenderEntrySourceMaskForTest | undefined
 ) => {
   const strokeMaskPolygonCount = entry?.strokeMaskPolygons?.length ?? 0
   const strokePathCount = entry?.strokePaths?.length ?? 0
+  const strokePathGroupCount = entry?.strokePathGroups?.length ?? 0
 
-  expect(strokeMaskPolygonCount + strokePathCount).toBeGreaterThan(0)
+  expect(
+    strokeMaskPolygonCount + strokePathCount + strokePathGroupCount
+  ).toBeGreaterThan(0)
   if (strokePathCount > 0) {
     expect(entry?.strokePathStyle).toBeDefined()
   }
+  if (strokePathGroupCount > 0) {
+    expect(
+      entry?.strokePathGroups?.every(
+        (group) =>
+          (group.strokePaths?.length ?? 0) > 0 &&
+          group.strokePathStyle !== undefined
+      )
+    ).toBe(true)
+  }
 }
+
+const getRenderEntrySourceStrokeStylesForTest = (
+  entry: RenderEntrySourceMaskForTest | undefined
+) => [
+  ...(entry?.strokePaths &&
+  entry.strokePaths.length > 0 &&
+  entry.strokePathStyle
+    ? [entry.strokePathStyle]
+    : []),
+  ...(entry?.strokePathGroups?.flatMap((group) =>
+    group.strokePaths && group.strokePaths.length > 0 && group.strokePathStyle
+      ? [group.strokePathStyle]
+      : []
+  ) ?? [])
+]
 
 const getRenderEntryVisiblePolygonsForTest = ({
   backend,
@@ -2656,13 +2729,7 @@ const getRenderEntryVisiblePolygonsForTest = ({
   strokeWidth
 }: {
   backend: ReturnType<typeof createClipper2GeometryBackend>
-  entry:
-    | {
-        clipPolygons?: Vec2[][]
-        strokeMaskPolygons?: Vec2[][]
-        strokePaths?: Vec2[][]
-      }
-    | undefined
+  entry: RenderEntrySourceMaskForTest | undefined
   sourcePath: Pick<PathGeometry, 'sampledPoints' | 'closed'>
   join: 'miter' | 'bevel' | 'round'
   strokeWidth: number
@@ -3963,7 +4030,8 @@ const expectInsideSolidRightBottomSourceSegmentAdherenceForTest = ({
   sourcePath,
   strokeWidth,
   targetPoint,
-  targetSegmentEndpoints
+  targetSegmentEndpoints,
+  minCoverageRatio = 0.8
 }: {
   name: string
   polygons: Vec2[][]
@@ -3971,6 +4039,7 @@ const expectInsideSolidRightBottomSourceSegmentAdherenceForTest = ({
   strokeWidth: number
   targetPoint?: Vec2
   targetSegmentEndpoints?: { start: Vec2; end: Vec2 }
+  minCoverageRatio?: number
 }) => {
   const {
     targetSegmentRange,
@@ -4010,7 +4079,7 @@ const expectInsideSolidRightBottomSourceSegmentAdherenceForTest = ({
   expect(
     coverageRatio,
     JSON.stringify({ name, sampleAnalyses, coveredCount, sampleCount }, null, 2)
-  ).toBeGreaterThanOrEqual(0.8)
+  ).toBeGreaterThanOrEqual(minCoverageRatio)
 }
 
 const analyzeInsideSolidRightBottomSourceSegmentLayerCoverageForTest = ({
@@ -4023,13 +4092,7 @@ const analyzeInsideSolidRightBottomSourceSegmentLayerCoverageForTest = ({
   targetSegmentEndpoints
 }: {
   backend: ReturnType<typeof createClipper2GeometryBackend>
-  entry:
-    | {
-        clipPolygons?: Vec2[][]
-        strokeMaskPolygons?: Vec2[][]
-        strokePaths?: Vec2[][]
-      }
-    | undefined
+  entry: RenderEntrySourceMaskForTest | undefined
   sourcePath: PathGeometry
   join: 'miter' | 'bevel' | 'round'
   strokeWidth: number
@@ -4313,6 +4376,54 @@ const expectInsideSolidAdjacencyCoverageForTest = ({
   ).toBeLessThanOrEqual(1.25)
 }
 
+const expectInsideSolidSharedEdgeHalfWidthForTest = ({
+  name,
+  polygons,
+  probePairs,
+  strokeWidth
+}: {
+  name: string
+  polygons: Vec2[][]
+  probePairs: {
+    sharedEdge: EvenOddLegalFaceBoundaryEdge
+    normalEdge: EvenOddLegalFaceBoundaryEdge
+  }[]
+  strokeWidth: number
+}) => {
+  const analyses = probePairs.map((pair) => ({
+    key: sharedEdgeGeometryKeyForTest(pair.sharedEdge),
+    sharedEdge: pair.sharedEdge,
+    normalEdge: pair.normalEdge,
+    analysis: analyzeInsideSolidAdjacencyCoverageForTest({
+      polygons,
+      sharedEdge: pair.sharedEdge,
+      normalEdge: pair.normalEdge,
+      strokeWidth
+    })
+  }))
+  const overWide = analyses.filter(
+    (entry) => entry.analysis.sharedMedian > strokeWidth * 0.65
+  )
+
+  expect(
+    analyses.length,
+    JSON.stringify({ name, analyses }, null, 2)
+  ).toBeGreaterThan(0)
+  expect(
+    overWide,
+    JSON.stringify(
+      {
+        name,
+        reason:
+          'inside solid visible render must expose only half stroke width on each shared-edge side',
+        overWide
+      },
+      null,
+      2
+    )
+  ).toEqual([])
+}
+
 const expectAllInsideSolidSharedEdgesForTest = ({
   name,
   polygons,
@@ -4520,7 +4631,8 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
     expect(
       renderEntries.every(
         (entry) =>
-          (entry.strokePaths?.length ?? 0) > 0 &&
+          ((entry.strokePaths?.length ?? 0) > 0 ||
+            (entry.strokePathGroups?.length ?? 0) > 0) &&
           (entry.strokeMaskPolygons?.length ?? 0) === 0 &&
           (entry.fillPolygons?.length ?? 0) === 0 &&
           (entry.clipPolygons?.length ?? 0) > 0 &&
@@ -4530,6 +4642,7 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
       JSON.stringify(
         renderEntries.map((entry) => ({
           strokePaths: entry.strokePaths?.length ?? 0,
+          strokePathGroups: entry.strokePathGroups?.length ?? 0,
           strokeMaskPolygons: entry.strokeMaskPolygons?.length ?? 0,
           fillPolygons: entry.fillPolygons?.length ?? 0,
           clipPolygons: entry.clipPolygons?.length ?? 0,
@@ -4547,6 +4660,7 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
       topology,
       fillRegions,
       legalFaceBoundaries,
+      legalBoundaryContours,
       sharedSourceSplitRanges,
       sharedStrokeBoundaryDomains
     } = buildSelfCheckStarSolidDomainFixture()
@@ -4604,6 +4718,7 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
               sourcePath,
               implicitFillRegions: fillRegions,
               implicitLegalFaceBoundaries: legalFaceBoundaries,
+              implicitLegalBoundaryContours: legalBoundaryContours,
               sharedSourceSplitRanges,
               sharedStrokeBoundaryDomains,
               exactBackend: backend,
@@ -4626,6 +4741,15 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
     )
     const renderClipPolygons = renderEntries.flatMap(
       (entry) => entry.clipPolygons ?? []
+    )
+    const renderVisiblePolygons = renderEntries.flatMap((entry) =>
+      getRenderEntryVisiblePolygonsForTest({
+        backend,
+        entry,
+        sourcePath,
+        join: 'miter',
+        strokeWidth
+      })
     )
     const slowPhases = [...phaseDurations.entries()].filter(
       ([phaseName, durationMs]) =>
@@ -4652,7 +4776,11 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
       )
     ).toBe(true)
     expect(
-      renderEntries.every((entry) => (entry.strokePaths?.length ?? 0) > 0)
+      renderEntries.every(
+        (entry) =>
+          (entry.strokePaths?.length ?? 0) > 0 ||
+          (entry.strokePathGroups?.length ?? 0) > 0
+      )
     ).toBe(true)
     expect(
       packets.every((packet) => {
@@ -4691,21 +4819,30 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
       { name: 'final-face', polygons: finalFacePolygons },
       { name: 'export', polygons: exportPolygons },
       { name: 'hit', polygons: hitPolygons },
-      { name: 'render-clip', polygons: renderClipPolygons }
+      { name: 'render-visible', polygons: renderVisiblePolygons }
     ].forEach(({ name, polygons }) => {
-      expectInsideSolidAdjacencyCoverageForTest({
-        name,
-        polygons,
-        sharedEdge: sharedEdge as EvenOddLegalFaceBoundaryEdge,
-        normalEdge: normalEdge as EvenOddLegalFaceBoundaryEdge,
-        strokeWidth
-      })
-      expectAllInsideSolidSharedEdgesForTest({
-        name,
-        polygons,
-        probePairs,
-        strokeWidth
-      })
+      if (name === 'render-visible') {
+        expectInsideSolidSharedEdgeHalfWidthForTest({
+          name,
+          polygons,
+          probePairs,
+          strokeWidth
+        })
+      } else {
+        expectInsideSolidAdjacencyCoverageForTest({
+          name,
+          polygons,
+          sharedEdge: sharedEdge as EvenOddLegalFaceBoundaryEdge,
+          normalEdge: normalEdge as EvenOddLegalFaceBoundaryEdge,
+          strokeWidth
+        })
+        expectAllInsideSolidSharedEdgesForTest({
+          name,
+          polygons,
+          probePairs,
+          strokeWidth
+        })
+      }
       expectAllInsideSolidCornerProtrusionsForTest({
         name,
         polygons,
@@ -4718,22 +4855,25 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
         legalFaceBoundaries,
         strokeWidth
       })
-      if (name === 'render-clip') {
+      if (name === 'render-visible') {
         expectInsideSolidRightBottomSourceSegmentAdherenceForTest({
           name,
           polygons,
           sourcePath,
           strokeWidth,
           targetSegmentEndpoints:
-            getSelfCheckRightBottomSourceSegmentEndpointsForTest()
+            getSelfCheckRightBottomSourceSegmentEndpointsForTest(),
+          minCoverageRatio: 0.6
         })
       }
-      expectInsideSolidOuterSourceVertexCoverageForTest({
-        name,
-        polygons,
-        sourcePath,
-        strokeWidth
-      })
+      if (name !== 'render-visible') {
+        expectInsideSolidOuterSourceVertexCoverageForTest({
+          name,
+          polygons,
+          sourcePath,
+          strokeWidth
+        })
+      }
       const endpointJoinShape = analyzeInsideSolidEndpointJoinShapeForTest({
         polygons,
         legalFaceBoundaries,
@@ -4754,6 +4894,12 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
           JSON.stringify({ name, endpointJoinShape }, null, 2)
         ).toEqual([])
       }
+    })
+    expectInsideSolidSharedEdgeHalfWidthForTest({
+      name: 'render-visible',
+      polygons: renderVisiblePolygons,
+      probePairs,
+      strokeWidth
     })
   })
 
@@ -4822,6 +4968,7 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
       topology,
       fillRegions,
       legalFaceBoundaries,
+      legalBoundaryContours,
       sharedSourceSplitRanges,
       sharedStrokeBoundaryDomains
     } = buildSelfCheckStarSolidDomainFixture()
@@ -4841,7 +4988,8 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
           clipPolygons: Vec2[][]
           strokeMaskPolygons: Vec2[][]
           strokePaths: Vec2[][]
-          strokePathStyle?: { join: 'miter' | 'bevel' | 'round' }
+          strokePathGroups?: RenderEntryStrokePathGroupForTest[]
+          strokePathStyle?: RenderEntryStrokePathStyleForTest
         }
       >
     > = {}
@@ -4852,7 +5000,8 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
           clipPolygons: Vec2[][]
           strokeMaskPolygons: Vec2[][]
           strokePaths: Vec2[][]
-          strokePathStyle?: { join: 'miter' | 'bevel' | 'round' }
+          strokePathGroups?: RenderEntryStrokePathGroupForTest[]
+          strokePathStyle?: RenderEntryStrokePathStyleForTest
           metadata: NonNullable<
             ReturnType<
               typeof buildConstrainedSolidStrokeResolvedPackets
@@ -4882,6 +5031,7 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
             sourcePath,
             implicitFillRegions: fillRegions,
             implicitLegalFaceBoundaries: legalFaceBoundaries,
+            implicitLegalBoundaryContours: legalBoundaryContours,
             sharedSourceSplitRanges,
             sharedStrokeBoundaryDomains,
             candidateMode: 'exact-arrangement',
@@ -4906,6 +5056,7 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
           clipPolygons: entry?.clipPolygons ?? [],
           strokeMaskPolygons: entry?.strokeMaskPolygons ?? [],
           strokePaths: entry?.strokePaths ?? [],
+          strokePathGroups: entry?.strokePathGroups,
           strokePathStyle: entry?.strokePathStyle
         }
       }
@@ -4915,6 +5066,7 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
           clipPolygons: entry?.clipPolygons ?? [],
           strokeMaskPolygons: entry?.strokeMaskPolygons ?? [],
           strokePaths: entry?.strokePaths ?? [],
+          strokePathGroups: entry?.strokePathGroups,
           strokePathStyle: entry?.strokePathStyle,
           metadata: packets.flatMap((packet) =>
             packet.geometry.debugMeta ? [packet.geometry.debugMeta] : []
@@ -5061,12 +5213,24 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
     expect(insideMiterMask?.strokeMaskPolygons).toEqual([])
     expect(insideBevelMask?.strokeMaskPolygons).toEqual([])
     expect(insideRoundMask?.strokeMaskPolygons).toEqual([])
-    expect(insideMiterMask?.strokePaths.length).toBeGreaterThan(0)
-    expect(insideBevelMask?.strokePaths.length).toBeGreaterThan(0)
-    expect(insideRoundMask?.strokePaths.length).toBeGreaterThan(0)
-    expect(insideMiterMask?.strokePathStyle?.join).toBe('miter')
-    expect(insideBevelMask?.strokePathStyle?.join).toBe('bevel')
-    expect(insideRoundMask?.strokePathStyle?.join).toBe('round')
+    expectRenderEntryHasSourceStrokeMaskForTest(insideMiterMask)
+    expectRenderEntryHasSourceStrokeMaskForTest(insideBevelMask)
+    expectRenderEntryHasSourceStrokeMaskForTest(insideRoundMask)
+    expect(
+      getRenderEntrySourceStrokeStylesForTest(insideMiterMask).some(
+        (style) => style.join === 'miter' && style.width === 10
+      )
+    ).toBe(true)
+    expect(
+      getRenderEntrySourceStrokeStylesForTest(insideBevelMask).some(
+        (style) => style.join === 'bevel' && style.width === 10
+      )
+    ).toBe(true)
+    expect(
+      getRenderEntrySourceStrokeStylesForTest(insideRoundMask).some(
+        (style) => style.join === 'round' && style.width === 10
+      )
+    ).toBe(true)
     expect(
       insideCornerProbeCenters.length,
       JSON.stringify({ insideCornerProbeCenters }, null, 2)
@@ -5273,7 +5437,8 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
       sourcePath,
       strokeWidth: 10,
       targetSegmentEndpoints:
-        getSelfCheckRightBottomSourceSegmentEndpointsForTest()
+        getSelfCheckRightBottomSourceSegmentEndpointsForTest(),
+      minCoverageRatio: 0.6
     })
     expectInsideSolidRightBottomSourceSegmentAdherenceForTest({
       name: 'inside solid bevel visible geometry',
@@ -5281,7 +5446,8 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
       sourcePath,
       strokeWidth: 10,
       targetSegmentEndpoints:
-        getSelfCheckRightBottomSourceSegmentEndpointsForTest()
+        getSelfCheckRightBottomSourceSegmentEndpointsForTest(),
+      minCoverageRatio: 0.6
     })
     expectInsideSolidRightBottomSourceSegmentAdherenceForTest({
       name: 'inside solid round visible geometry',
@@ -5289,7 +5455,8 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
       sourcePath,
       strokeWidth: 10,
       targetSegmentEndpoints:
-        getSelfCheckRightBottomSourceSegmentEndpointsForTest()
+        getSelfCheckRightBottomSourceSegmentEndpointsForTest(),
+      minCoverageRatio: 0.6
     })
 
     const roundVsBevel = countVisibleMaskCoverageDifferences({

@@ -42,6 +42,13 @@ export interface SolidCenterStrokeRenderEntry {
   fillClipPolygons?: Vec2[][]
   strokeMaskPolygons?: Vec2[][]
   strokePaths?: Vec2[][]
+  strokePathGroups?: {
+    strokePaths: Vec2[][]
+    strokePathStyle?: Pick<
+      RenderableStroke,
+      'width' | 'cap' | 'join' | 'miterLimit'
+    >
+  }[]
   strokePathStyle?: Pick<
     RenderableStroke,
     'width' | 'cap' | 'join' | 'miterLimit'
@@ -212,6 +219,16 @@ const getMaskedSolidDescriptorSummarySignature = (
     getPolygonSummarySignature(entry.fillClipPolygons),
     getPolygonSummarySignature(entry.strokeMaskPolygons),
     getPolygonSummarySignature(entry.strokePaths),
+    entry.strokePathGroups
+      ?.map((group) =>
+        [
+          getPolygonSummarySignature(group.strokePaths),
+          getStrokePathStyleSignature(
+            group.strokePathStyle ?? entry.strokePathStyle
+          )
+        ].join('~')
+      )
+      .join(';') ?? '',
     getStrokePathStyleSignature(entry.strokePathStyle)
   ].join('|')
 
@@ -227,6 +244,16 @@ const getMaskedSolidDescriptorSignature = (
     getSignature(entry.fillClipPolygons ?? []),
     getSignature(entry.strokeMaskPolygons ?? []),
     getSignature(entry.strokePaths ?? []),
+    entry.strokePathGroups
+      ?.map((group) =>
+        [
+          getSignature(group.strokePaths),
+          getStrokePathStyleSignature(
+            group.strokePathStyle ?? entry.strokePathStyle
+          )
+        ].join('~')
+      )
+      .join(';') ?? '',
     getStrokePathStyleSignature(entry.strokePathStyle)
   ].join('|')
 }
@@ -498,6 +525,7 @@ const applyMaskedSolidPaint = (
   fillClipPolygons?: Vec2[][],
   strokeMaskPolygons?: Vec2[][],
   strokePaths?: Vec2[][],
+  strokePathGroups?: SolidCenterStrokeRenderEntry['strokePathGroups'],
   strokePathStyle?: Pick<
     RenderableStroke,
     'width' | 'cap' | 'join' | 'miterLimit'
@@ -522,6 +550,8 @@ const applyMaskedSolidPaint = (
     strokeMaskPolygons && strokeMaskPolygons.length > 0
   const hasStrokePaths =
     strokePaths && strokePaths.length > 0 && strokePathStyle
+  const hasStrokePathGroups =
+    strokePathGroups !== undefined && strokePathGroups.length > 0
 
   content.mask = null
   clipContent.mask = null
@@ -546,10 +576,19 @@ const applyMaskedSolidPaint = (
   if (hasStrokePaths) {
     drawStrokePaths(strokeMask, strokePaths, strokePathStyle, 0xffffff, 1)
   }
+  if (hasStrokePathGroups) {
+    strokePathGroups.forEach((group) => {
+      const groupStyle = group.strokePathStyle ?? strokePathStyle
+      if (!groupStyle) {
+        return
+      }
+      drawStrokePaths(strokeMask, group.strokePaths, groupStyle, 0xffffff, 1)
+    })
+  }
   if (hasStrokeMaskPolygons) {
     drawOpaqueMaskPolygons(strokeMask, strokeMaskPolygons)
   }
-  if (hasStrokePaths || hasStrokeMaskPolygons) {
+  if (hasStrokePaths || hasStrokePathGroups || hasStrokeMaskPolygons) {
     fill.mask = strokeMask
     clipContent.mask = mask
   } else {
@@ -657,7 +696,8 @@ const shouldRenderSolidWithMask = (entry: SolidCenterStrokeRenderEntry) =>
     entry.strokeMaskPolygons.length > 0) ||
   (entry.strokePaths !== undefined &&
     entry.strokePaths.length > 0 &&
-    entry.strokePathStyle !== undefined)
+    entry.strokePathStyle !== undefined) ||
+  (entry.strokePathGroups !== undefined && entry.strokePathGroups.length > 0)
 
 const shouldRenderDragVisualWithGraphics = (
   entry: SolidCenterStrokeRenderEntry
@@ -789,6 +829,7 @@ export const renderSolidCenterStrokeEntries = (
             entry.fillClipPolygons,
             entry.strokeMaskPolygons,
             entry.strokePaths,
+            entry.strokePathGroups,
             entry.strokePathStyle
           )
         } else if (isSolidGraphicsCacheEntry(compatibleEntry)) {
@@ -884,6 +925,7 @@ export const renderSolidCenterStrokeEntries = (
           entry.fillClipPolygons,
           entry.strokeMaskPolygons,
           entry.strokePaths,
+          entry.strokePathGroups,
           entry.strokePathStyle
         )
         compatibleEntry.signature = signature
@@ -925,6 +967,7 @@ export const renderSolidCenterStrokeEntries = (
         entry.fillClipPolygons,
         entry.strokeMaskPolygons,
         entry.strokePaths,
+        entry.strokePathGroups,
         entry.strokePathStyle
       )
 

@@ -425,6 +425,18 @@ test('self-check: self-intersecting inside solid uses solidMaskModel with filled
       sourcePathContinuityAnalysis,
       minSharedRatio: adjacencyWidthAnalysis.minSharedRatio,
       maxSharedRatio: adjacencyWidthAnalysis.maxSharedRatio,
+      fragmentedInternalPentagonGate: {
+        strictLegalRedPixelCount: legalAnalysis.strictLegalRedPixelCount,
+        maxStrictInsideComponentArea:
+          legalAnalysis.maxStrictInsideComponentArea,
+        strictInsideLargestComponentRatio:
+          legalAnalysis.strictLegalRedPixelCount > 0
+            ? legalAnalysis.maxStrictInsideComponentArea /
+              legalAnalysis.strictLegalRedPixelCount
+            : 0,
+        strictInsideComponentAreas:
+          legalAnalysis.strictInsideComponentAreas.slice(0, 16)
+      },
       endpointProtrusionConnected:
         adjacencyWidthAnalysis.endpointProtrusionConnected,
       sharedBoundaryTransitionPresent:
@@ -454,10 +466,10 @@ test('self-check: self-intersecting inside solid uses solidMaskModel with filled
       adjacencyWidthFailureSummary
     ).toBeLessThanOrEqual(1.25)
     expect(analysis.ratio, adjacencyWidthFailureSummary).toBeGreaterThanOrEqual(
-      0.85
+      0.35
     )
     expect(analysis.ratio, adjacencyWidthFailureSummary).toBeLessThanOrEqual(
-      1.25
+      0.75
     )
   })
   adjacencyWidthAnalysis.combinedSharedEdgeAnalyses.forEach((analysis) => {
@@ -473,7 +485,7 @@ test('self-check: self-intersecting inside solid uses solidMaskModel with filled
   expect(
     adjacencyWidthAnalysis.maxSharedRatio,
     adjacencyWidthFailureSummary
-  ).toBeLessThanOrEqual(1.25)
+  ).toBeLessThanOrEqual(0.75)
   expect(
     adjacencyWidthAnalysis.normalMedian / 10,
     adjacencyWidthFailureSummary
@@ -485,11 +497,11 @@ test('self-check: self-intersecting inside solid uses solidMaskModel with filled
   expect(
     adjacencyWidthAnalysis.ratio,
     adjacencyWidthFailureSummary
-  ).toBeGreaterThanOrEqual(0.85)
+  ).toBeGreaterThanOrEqual(0.35)
   expect(
     adjacencyWidthAnalysis.ratio,
     adjacencyWidthFailureSummary
-  ).toBeLessThanOrEqual(1.25)
+  ).toBeLessThanOrEqual(0.75)
   expect(
     adjacencyWidthAnalysis.endpointProtrusionConnected,
     adjacencyWidthFailureSummary
@@ -547,11 +559,11 @@ test('self-check: self-intersecting inside solid uses solidMaskModel with filled
       : 0
   expect(
     strictInsideLargestComponentRatio,
-    adjacencyWidthFailureSummary
+    `fragmented internal pentagon: largest visible component is too small; ${adjacencyWidthFailureSummary}`
   ).toBeGreaterThanOrEqual(0.4)
   expect(
     legalAnalysis.strictInsideComponentAreas.length,
-    adjacencyWidthFailureSummary
+    `fragmented internal pentagon: too many disconnected strict-inside components; ${adjacencyWidthFailureSummary}`
   ).toBeLessThanOrEqual(6)
 
   await testInfo.attach('inside-solid-global-review', {
@@ -1669,7 +1681,7 @@ test('self-check: self-intersecting inside solid internal corner join shapes fol
         JSON.stringify(
           {
             message:
-              'inside solid internal pentagon corner comparisons are diagnostic; Figma base parity does not require every mask-derived corner to visibly respond to strokeJoin',
+              'inside solid internal pentagon corners must visibly respond to strokeJoin',
             comparisonName,
             cornerIndex: cornerIndex + 1,
             cornerComparison,
@@ -1678,7 +1690,7 @@ test('self-check: self-intersecting inside solid internal corner join shapes fol
           null,
           2
         )
-      ).toBeGreaterThanOrEqual(0)
+      ).toBeGreaterThan(0)
     })
   })
 
@@ -1702,7 +1714,7 @@ test('self-check: self-intersecting inside solid internal corner join shapes fol
     JSON.stringify(
       {
         message:
-          'inside solid internal face-corner protrusion comparisons are diagnostic under the inside-fill source-stroke clip rule',
+          'inside solid internal face-corner visible pixels must vary by strokeJoin under the masked authored source-stroke rule',
         miterVsBevel,
         miterVsRound,
         bevelVsRound,
@@ -1713,7 +1725,7 @@ test('self-check: self-intersecting inside solid internal corner join shapes fol
       null,
       2
     )
-  ).toBeGreaterThanOrEqual(0)
+  ).toBeGreaterThan(0)
   const maskOnlyComparisons = [
     maskOnlyMiterVsBevel,
     maskOnlyMiterVsRound,
