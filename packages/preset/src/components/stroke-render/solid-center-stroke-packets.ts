@@ -698,7 +698,7 @@ const getRenderArrangementBackend = (
   ) {
     return providedBackend as Pick<
       GeometryBackend,
-      'capabilities' | 'buildArrangement'
+      'capabilities' | 'buildArrangement' | 'union'
     >
   }
 
@@ -806,7 +806,7 @@ const buildRenderProjectionArrangementPolygons = (
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
   >[],
-  backend: Pick<GeometryBackend, 'buildArrangement'>
+  backend: Pick<GeometryBackend, 'capabilities' | 'buildArrangement' | 'union'>
 ) => {
   const candidates = buildRenderProjectionArrangementCandidates(faces)
   const bounds = candidates.map((candidate) =>
@@ -862,7 +862,23 @@ const buildRenderProjectionArrangementPolygons = (
     )
   })
 
-  return output
+  if (output.length <= 1 || backend.capabilities.union !== true) {
+    return output
+  }
+
+  try {
+    return flattenFacePolygons(
+      backend.union(
+        output.map((polygon) => ({
+          polygons: [normalizeCoveragePolygonWinding(polygon)]
+        })),
+        'nonzero'
+      ),
+      output
+    )
+  } catch {
+    return output
+  }
 }
 
 const buildCollapsedRenderEntry = (

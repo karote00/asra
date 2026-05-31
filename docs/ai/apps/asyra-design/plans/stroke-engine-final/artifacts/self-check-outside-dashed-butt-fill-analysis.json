@@ -2,18 +2,16 @@
   "legalAnalysis": {
     "width": 1400,
     "height": 1100,
-    "redPixelCount": 20433,
-    "legalRedPixelCount": 3236,
-    "outsideRedPixelCount": 17197,
+    "redPixelCount": 19330,
+    "legalRedPixelCount": 3212,
+    "outsideRedPixelCount": 16118,
     "strictLegalRedPixelCount": 0,
-    "strictOutsideRedPixelCount": 20433,
+    "strictOutsideRedPixelCount": 19330,
     "darkOverdrawPixelCount": 0,
     "maxDarkOverdrawComponentArea": 0,
     "darkOverdrawComponentAreas": [],
-    "maxOutsideComponentArea": 1203,
+    "maxOutsideComponentArea": 736,
     "outsideComponentAreas": [
-      1203,
-      819,
       736,
       636,
       552,
@@ -21,15 +19,15 @@
       536,
       536,
       535,
-      535
+      535,
+      533,
+      529
     ],
     "maxStrictInsideComponentArea": 0,
-    "maxStrictOutsideComponentArea": 1316,
+    "maxStrictOutsideComponentArea": 838,
     "strictInsideComponentAreas": [],
     "strictInsideComponents": [],
     "strictOutsideComponentAreas": [
-      1316,
-      926,
       838,
       731,
       647,
@@ -37,7 +35,9 @@
       633,
       632,
       631,
-      630
+      630,
+      628,
+      628
     ],
     "boundaryDomainPacketCount": 43
   },
@@ -60580,16 +60580,16 @@
         "afterIntervalId": "interval:23",
         "beforeIntervalId": "interval:24",
         "distance": 16,
-        "sameSplitRangeCovered": false,
-        "otherSplitRangeCovered": false,
+        "sameSplitRangeCovered": true,
+        "otherSplitRangeCovered": true,
         "sameSplitRangeProbes": [
           {
             "point": {
               "x": 15.896143969200589,
               "y": 18.76130065684345
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
@@ -60608,14 +60608,14 @@
             "otherSplitRangeCovered": false
           }
         ],
-        "maxRedPixels": 0,
+        "maxRedPixels": 1,
         "probes": [
           {
             "point": {
               "x": 15.896143969200589,
               "y": 18.76130065684345
             },
-            "redPixelCount": 0
+            "redPixelCount": 1
           },
           {
             "point": {
@@ -62173,16 +62173,16 @@
         "afterIntervalId": "interval:31",
         "beforeIntervalId": "interval:32",
         "distance": 170.04932674398572,
-        "sameSplitRangeCovered": false,
-        "otherSplitRangeCovered": false,
+        "sameSplitRangeCovered": true,
+        "otherSplitRangeCovered": true,
         "sameSplitRangeProbes": [
           {
             "point": {
               "x": 7.683817021848274,
               "y": 29.926488708257793
             },
-            "packetCovered": false,
-            "otherSplitRangeCovered": false
+            "packetCovered": true,
+            "otherSplitRangeCovered": true
           },
           {
             "point": {
@@ -62201,14 +62201,14 @@
             "otherSplitRangeCovered": false
           }
         ],
-        "maxRedPixels": 0,
+        "maxRedPixels": 1,
         "probes": [
           {
             "point": {
               "x": 7.683817021848274,
               "y": 29.926488708257793
             },
-            "redPixelCount": 0
+            "redPixelCount": 1
           },
           {
             "point": {

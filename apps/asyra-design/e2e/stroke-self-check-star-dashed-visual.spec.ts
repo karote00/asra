@@ -429,6 +429,72 @@ test('self-check: right-bottom high-curvature outside dashed terminal remains ca
       ).length
     })
   )
+  const localSourceVertexJoinPacketCounts = Object.entries(metadataByJoin).map(
+    ([joinType, joinMetadata]) => ({
+      joinType,
+      tp14: (joinMetadata?.boundaryDomainPackets ?? []).filter(
+        (packet) =>
+          packet.geometryId?.includes(':source-vertex-join:') &&
+          packet.polygons.some((polygon) =>
+            polygon.some(
+              (point) =>
+                Math.hypot(
+                  point.x - SELF_CHECK_SOURCE_POINTS['tp-14'].x,
+                  point.y - SELF_CHECK_SOURCE_POINTS['tp-14'].y
+                ) <= 24
+            )
+          )
+      ).length,
+      tp15: (joinMetadata?.boundaryDomainPackets ?? []).filter(
+        (packet) =>
+          packet.geometryId?.includes(':source-vertex-join:') &&
+          packet.polygons.some((polygon) =>
+            polygon.some(
+              (point) =>
+                Math.hypot(
+                  point.x - SELF_CHECK_SOURCE_POINTS['tp-15'].x,
+                  point.y - SELF_CHECK_SOURCE_POINTS['tp-15'].y
+                ) <= 24
+            )
+          )
+      ).length
+    })
+  )
+  const localSourceVertexJoinPolygonSizes = Object.entries(metadataByJoin).map(
+    ([joinType, joinMetadata]) => ({
+      joinType,
+      tp14: (joinMetadata?.boundaryDomainPackets ?? [])
+        .filter(
+          (packet) =>
+            packet.geometryId?.includes(':source-vertex-join:') &&
+            packet.polygons.some((polygon) =>
+              polygon.some(
+                (point) =>
+                  Math.hypot(
+                    point.x - SELF_CHECK_SOURCE_POINTS['tp-14'].x,
+                    point.y - SELF_CHECK_SOURCE_POINTS['tp-14'].y
+                  ) <= 24
+              )
+            )
+        )
+        .flatMap((packet) => packet.polygons.map((polygon) => polygon.length)),
+      tp15: (joinMetadata?.boundaryDomainPackets ?? [])
+        .filter(
+          (packet) =>
+            packet.geometryId?.includes(':source-vertex-join:') &&
+            packet.polygons.some((polygon) =>
+              polygon.some(
+                (point) =>
+                  Math.hypot(
+                    point.x - SELF_CHECK_SOURCE_POINTS['tp-15'].x,
+                    point.y - SELF_CHECK_SOURCE_POINTS['tp-15'].y
+                  ) <= 24
+              )
+            )
+        )
+        .flatMap((packet) => packet.polygons.map((polygon) => polygon.length))
+    })
+  )
 
   expect(
     boundaryTerminalJoinPackets,
@@ -509,41 +575,69 @@ test('self-check: right-bottom high-curvature outside dashed terminal remains ca
     )
   ).toEqual([0, 0, 0, 0, 0, 0])
 
-  const topMiterVsRound =
+  const rightTopMiterVsRound =
     await compareRightBottomHighCurvatureSmoothTerminalPixels(
       page,
       screenshots.miter as Buffer,
       screenshots.round as Buffer,
       metadataByJoin.miter as Awaited<ReturnType<typeof getSelfCheckMetadata>>,
       {
-        sourceAnchor: SELF_CHECK_SOURCE_POINTS['tp-12'],
+        sourceAnchor: SELF_CHECK_SOURCE_POINTS['tp-14'],
         radius: 68
       }
     )
-  const topBevelVsRound =
+  const rightTopBevelVsRound =
     await compareRightBottomHighCurvatureSmoothTerminalPixels(
       page,
       screenshots.bevel as Buffer,
       screenshots.round as Buffer,
       metadataByJoin.bevel as Awaited<ReturnType<typeof getSelfCheckMetadata>>,
       {
-        sourceAnchor: SELF_CHECK_SOURCE_POINTS['tp-12'],
+        sourceAnchor: SELF_CHECK_SOURCE_POINTS['tp-14'],
+        radius: 68
+      }
+    )
+  const leftTopMiterVsRound =
+    await compareRightBottomHighCurvatureSmoothTerminalPixels(
+      page,
+      screenshots.miter as Buffer,
+      screenshots.round as Buffer,
+      metadataByJoin.miter as Awaited<ReturnType<typeof getSelfCheckMetadata>>,
+      {
+        sourceAnchor: SELF_CHECK_SOURCE_POINTS['tp-15'],
+        radius: 68
+      }
+    )
+  const leftTopBevelVsRound =
+    await compareRightBottomHighCurvatureSmoothTerminalPixels(
+      page,
+      screenshots.bevel as Buffer,
+      screenshots.round as Buffer,
+      metadataByJoin.bevel as Awaited<ReturnType<typeof getSelfCheckMetadata>>,
+      {
+        sourceAnchor: SELF_CHECK_SOURCE_POINTS['tp-15'],
         radius: 68
       }
     )
 
   expect(
     Math.min(
-      topMiterVsRound.changedRgbaPixelCount,
-      topBevelVsRound.changedRgbaPixelCount
+      rightTopMiterVsRound.changedRgbaPixelCount,
+      rightTopBevelVsRound.changedRgbaPixelCount,
+      leftTopMiterVsRound.changedRgbaPixelCount,
+      leftTopBevelVsRound.changedRgbaPixelCount
     ),
     JSON.stringify(
       {
         message:
-          'the authored top source vertex must still respond to round join while boundary split terminals stay cap-owned',
-        topMiterVsRound,
-        topBevelVsRound,
-        sourceVertexJoinPacketCounts
+          'the authored left-top and right-top source vertices must respond to round join while boundary split terminals stay cap-owned',
+        rightTopMiterVsRound,
+        rightTopBevelVsRound,
+        leftTopMiterVsRound,
+        leftTopBevelVsRound,
+        sourceVertexJoinPacketCounts,
+        localSourceVertexJoinPacketCounts,
+        localSourceVertexJoinPolygonSizes
       },
       null,
       2

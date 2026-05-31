@@ -4093,8 +4093,21 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
       sharedStrokeBoundaryDomains,
       guardPoints
     } = buildSelfIntersectingMixedSegmentStarFixture()
-    const topSharpVertex = sourcePath.segments[4]?.end
-    expect(topSharpVertex).toBeDefined()
+    const sourceJoinVertices = [
+      {
+        id: 'tp-12',
+        point: sourcePath.segments[4]?.end
+      },
+      {
+        id: 'tp-14',
+        point: sourcePath.segments[1]?.end
+      },
+      {
+        id: 'tp-15',
+        point: sourcePath.segments[2]?.end
+      }
+    ]
+    expect(sourceJoinVertices.every((vertex) => vertex.point)).toBe(true)
 
     const buildPackets = (joinType: 'miter' | 'bevel' | 'round') =>
       buildConstrainedDashedStrokeResolvedPackets(
@@ -4124,6 +4137,35 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
         }
       )
 
+    const buildProductEntries = (joinType: 'miter' | 'bevel' | 'round') =>
+      buildConstrainedDashedStrokeProductVisualEntries(
+        `self-intersecting-mixed-star:outside-${joinType}-top-source-vertex-product-visual`,
+        topology.normalizedPoints,
+        true,
+        [
+          createDefaultStroke({
+            width: 10,
+            style: 'dashed',
+            position: 'outside',
+            joinType,
+            capType: 'butt',
+            dashPattern: [27, 20],
+            dashOffset: 0
+          })
+        ],
+        {
+          topology,
+          sourcePath,
+          implicitFillRegions: fillRegions,
+          sharedSourceSplitRanges,
+          sharedStrokeBoundaryDomains,
+          selectedSideGuardPoints: guardPoints,
+          clipInsideToFillDomain: true,
+          constrainedDashedVisualMode: 'product-final',
+          enableProductVisualCompiler: true
+        }
+      )
+
     const getSourceBoundaryJoinCount = (debugMeta: unknown) =>
       typeof (debugMeta as { sourceBoundaryJoinCount?: unknown })
         ?.sourceBoundaryJoinCount === 'number'
@@ -4131,7 +4173,10 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
             .sourceBoundaryJoinCount
         : 0
 
-    const getLocalJoinPackets = (joinType: 'miter' | 'bevel' | 'round') => {
+    const getLocalJoinPackets = (
+      joinType: 'miter' | 'bevel' | 'round',
+      sourceJoinVertex: (typeof sourceJoinVertices)[number]
+    ) => {
       const packets = buildPackets(joinType)
       const forbiddenPackets = packets.filter(
         (packet) =>
@@ -4162,7 +4207,8 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
           packet.geometry.polygons.some((polygon) =>
             polygon.some(
               (point) =>
-                topSharpVertex && pointDistance(point, topSharpVertex) <= 24
+                sourceJoinVertex.point &&
+                pointDistance(point, sourceJoinVertex.point) <= 24
             )
           )
       )
@@ -4172,8 +4218,9 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
         JSON.stringify(
           {
             message:
-              'a continuous visible dash across the authored top source vertex must emit source-vertex join coverage',
+              'a continuous visible dash across the authored source vertex must emit source-vertex join coverage',
             joinType,
+            sourceJoinVertex: sourceJoinVertex.id,
             sourceVertexJoinIds: packets
               .map((packet) => packet.geometry.geometryId)
               .filter((id) => id.includes(':source-vertex-join:'))
@@ -4186,7 +4233,10 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
       return localJoinPackets
     }
 
-    const getLocalRenderSignature = (joinType: 'miter' | 'bevel' | 'round') => {
+    const getLocalRenderSignature = (
+      joinType: 'miter' | 'bevel' | 'round',
+      sourceJoinVertex: (typeof sourceJoinVertices)[number]
+    ) => {
       const packets = buildPackets(joinType)
       const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
       const collapsedFinalFaces = collapseStrokeFinalFaceVisualOverlaps(
@@ -4205,7 +4255,8 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
         entry.polygons.filter((polygon) =>
           polygon.some(
             (point) =>
-              topSharpVertex && pointDistance(point, topSharpVertex) <= 24
+              sourceJoinVertex.point &&
+              pointDistance(point, sourceJoinVertex.point) <= 24
           )
         )
       )
@@ -4216,7 +4267,8 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
           {
             message:
               'source-vertex join coverage must survive FinalFace render projection',
-            joinType
+            joinType,
+            sourceJoinVertex: sourceJoinVertex.id
           },
           null,
           2
@@ -4236,43 +4288,287 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
         .join('::')
     }
 
-    const miterJoinSignature = getLocalJoinPackets('miter')
-      .flatMap((packet) => packet.geometry.polygons)
-      .map((polygon) => polygon.length)
-      .join(',')
-    const bevelJoinSignature = getLocalJoinPackets('bevel')
-      .flatMap((packet) => packet.geometry.polygons)
-      .map((polygon) => polygon.length)
-      .join(',')
-    const roundJoinSignature = getLocalJoinPackets('round')
-      .flatMap((packet) => packet.geometry.polygons)
-      .map((polygon) => polygon.length)
-      .join(',')
-    expect(
-      new Set([miterJoinSignature, bevelJoinSignature, roundJoinSignature]).size
-    ).toBeGreaterThan(1)
+    const getLocalProductVisualSignature = (
+      joinType: 'miter' | 'bevel' | 'round',
+      sourceJoinVertex: (typeof sourceJoinVertices)[number]
+    ) => {
+      const productEntries = buildProductEntries(joinType)
+      expect(productEntries).not.toBeNull()
+      const localPolygons = (productEntries ?? []).flatMap((entry) =>
+        entry.polygons.filter((polygon) =>
+          polygon.some(
+            (point) =>
+              sourceJoinVertex.point &&
+              pointDistance(point, sourceJoinVertex.point) <= 24
+          )
+        )
+      )
+      const nearestDistance =
+        sourceJoinVertex.point && productEntries
+          ? Math.min(
+              ...productEntries.flatMap((entry) =>
+                entry.polygons.flatMap((polygon) =>
+                  polygon.map((point) =>
+                    sourceJoinVertex.point
+                      ? pointDistance(point, sourceJoinVertex.point)
+                      : Number.POSITIVE_INFINITY
+                  )
+                )
+              )
+            )
+          : Number.POSITIVE_INFINITY
+      expect(
+        localPolygons.length,
+        JSON.stringify(
+          {
+            message:
+              'source-vertex join coverage must survive direct product visual projection',
+            joinType,
+            sourceJoinVertex: sourceJoinVertex.id,
+            nearestDistance
+          },
+          null,
+          2
+        )
+      ).toBeGreaterThan(0)
 
-    const miterRenderSignature = getLocalRenderSignature('miter')
-    const bevelRenderSignature = getLocalRenderSignature('bevel')
-    const roundRenderSignature = getLocalRenderSignature('round')
-    expect(
-      new Set([
-        miterRenderSignature,
-        bevelRenderSignature,
-        roundRenderSignature
-      ]).size,
-      JSON.stringify(
-        {
-          message:
-            'true source-vertex joins must react to miter/bevel/round after FinalFace render projection',
+      return localPolygons
+        .map((polygon) =>
+          polygon
+            .map((point) => [
+              Math.round(point.x * 100) / 100,
+              Math.round(point.y * 100) / 100
+            ])
+            .join('|')
+        )
+        .sort()
+        .join('::')
+    }
+
+    sourceJoinVertices.forEach((sourceJoinVertex) => {
+      const miterJoinSignature = getLocalJoinPackets('miter', sourceJoinVertex)
+        .flatMap((packet) => packet.geometry.polygons)
+        .map((polygon) => polygon.length)
+        .join(',')
+      const bevelJoinSignature = getLocalJoinPackets('bevel', sourceJoinVertex)
+        .flatMap((packet) => packet.geometry.polygons)
+        .map((polygon) => polygon.length)
+        .join(',')
+      const roundJoinSignature = getLocalJoinPackets('round', sourceJoinVertex)
+        .flatMap((packet) => packet.geometry.polygons)
+        .map((polygon) => polygon.length)
+        .join(',')
+      expect(
+        new Set([miterJoinSignature, bevelJoinSignature, roundJoinSignature])
+          .size,
+        JSON.stringify(
+          {
+            message:
+              'true source-vertex joins must react to miter/bevel/round at the packet stage',
+            sourceJoinVertex: sourceJoinVertex.id,
+            miterJoinSignature,
+            bevelJoinSignature,
+            roundJoinSignature
+          },
+          null,
+          2
+        )
+      ).toBeGreaterThan(1)
+
+      const miterRenderSignature = getLocalRenderSignature(
+        'miter',
+        sourceJoinVertex
+      )
+      const bevelRenderSignature = getLocalRenderSignature(
+        'bevel',
+        sourceJoinVertex
+      )
+      const roundRenderSignature = getLocalRenderSignature(
+        'round',
+        sourceJoinVertex
+      )
+      expect(
+        new Set([
           miterRenderSignature,
           bevelRenderSignature,
           roundRenderSignature
-        },
-        null,
-        2
+        ]).size,
+        JSON.stringify(
+          {
+            message:
+              'true source-vertex joins must react to miter/bevel/round after FinalFace render projection',
+            sourceJoinVertex: sourceJoinVertex.id,
+            miterRenderSignature,
+            bevelRenderSignature,
+            roundRenderSignature
+          },
+          null,
+          2
+        )
+      ).toBeGreaterThan(1)
+
+      if (sourceJoinVertex.id === 'tp-14' || sourceJoinVertex.id === 'tp-15') {
+        const miterProductSignature = getLocalProductVisualSignature(
+          'miter',
+          sourceJoinVertex
+        )
+        const bevelProductSignature = getLocalProductVisualSignature(
+          'bevel',
+          sourceJoinVertex
+        )
+        const roundProductSignature = getLocalProductVisualSignature(
+          'round',
+          sourceJoinVertex
+        )
+        expect(
+          new Set([
+            miterProductSignature,
+            bevelProductSignature,
+            roundProductSignature
+          ]).size,
+          JSON.stringify(
+            {
+              message:
+                'true source-vertex joins must react to miter/bevel/round in direct product visual output',
+              sourceJoinVertex: sourceJoinVertex.id,
+              miterProductSignature,
+              bevelProductSignature,
+              roundProductSignature
+            },
+            null,
+            2
+          )
+        ).toBeGreaterThan(1)
+      }
+    })
+  })
+
+  it('should run: keep inside sharp source vertices out of boundary-terminal join fallback', () => {
+    const {
+      sourcePath,
+      topology,
+      fillRegions,
+      sharedSourceSplitRanges,
+      sharedStrokeBoundaryDomains,
+      guardPoints
+    } = buildSelfIntersectingMixedSegmentStarFixture()
+    const sourceJoinVertices = [
+      {
+        id: 'tp-14',
+        point: sourcePath.segments[1]?.end
+      },
+      {
+        id: 'tp-15',
+        point: sourcePath.segments[2]?.end
+      }
+    ]
+    expect(sourceJoinVertices.every((vertex) => vertex.point)).toBe(true)
+
+    const buildPackets = (joinType: 'miter' | 'bevel' | 'round') =>
+      buildConstrainedDashedStrokeResolvedPackets(
+        `self-intersecting-mixed-star:inside-${joinType}-sharp-source-vertex-join`,
+        topology.normalizedPoints,
+        true,
+        [
+          createDefaultStroke({
+            width: 10,
+            style: 'dashed',
+            position: 'inside',
+            joinType,
+            capType: 'butt',
+            dashPattern: [27, 20],
+            dashOffset: 0
+          })
+        ],
+        {
+          topology,
+          sourcePath,
+          implicitFillRegions: fillRegions,
+          sharedSourceSplitRanges,
+          sharedStrokeBoundaryDomains,
+          selectedSideGuardPoints: guardPoints,
+          clipInsideToFillDomain: true,
+          constrainedDashedVisualMode: 'product-final'
+        }
       )
-    ).toBeGreaterThan(1)
+
+    const getLocalRenderSignature = (
+      joinType: 'miter' | 'bevel' | 'round',
+      sourceJoinVertex: (typeof sourceJoinVertices)[number]
+    ) => {
+      const packets = buildPackets(joinType)
+      const forbiddenPackets = packets.filter((packet) =>
+        packet.geometry.geometryId.includes(':boundary-terminal-join:')
+      )
+      expect(
+        forbiddenPackets.map((packet) => packet.geometry.geometryId),
+        JSON.stringify(
+          {
+            message:
+              'inside sharp source-vertex joins must not revive boundary-terminal-join geometry',
+            joinType,
+            sourceJoinVertex: sourceJoinVertex.id
+          },
+          null,
+          2
+        )
+      ).toEqual([])
+
+      const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
+      const collapsedFinalFaces = collapseStrokeFinalFaceVisualOverlaps(
+        finalFaces,
+        {
+          backend: getGeometryBackend()
+        }
+      )
+      const renderEntries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
+        collapsedFinalFaces,
+        {
+          exactBackend: getGeometryBackend()
+        }
+      )
+      const localPolygons = renderEntries.flatMap((entry) =>
+        entry.polygons.filter((polygon) =>
+          polygon.some(
+            (point) =>
+              sourceJoinVertex.point &&
+              pointDistance(point, sourceJoinVertex.point) <= 24
+          )
+        )
+      )
+
+      expect(
+        localPolygons.length,
+        JSON.stringify(
+          {
+            message:
+              'inside source-vertex join coverage must survive FinalFace render projection',
+            joinType,
+            sourceJoinVertex: sourceJoinVertex.id
+          },
+          null,
+          2
+        )
+      ).toBeGreaterThan(0)
+
+      return localPolygons
+        .map((polygon) =>
+          polygon
+            .map((point) => [
+              Math.round(point.x * 100) / 100,
+              Math.round(point.y * 100) / 100
+            ])
+            .join('|')
+        )
+        .sort()
+        .join('::')
+    }
+
+    sourceJoinVertices.forEach((sourceJoinVertex) => {
+      expect(getLocalRenderSignature('miter', sourceJoinVertex)).not.toEqual('')
+      expect(getLocalRenderSignature('bevel', sourceJoinVertex)).not.toEqual('')
+      expect(getLocalRenderSignature('round', sourceJoinVertex)).not.toEqual('')
+    })
   })
 
   it('should run: keep outside butt and square terminal dash bodies visible near authored star vertices', () => {

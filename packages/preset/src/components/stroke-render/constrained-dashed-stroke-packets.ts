@@ -3609,20 +3609,9 @@ const subtractPoint = (left: Vec2, right: Vec2): Vec2 => ({
 const crossPoints = (left: Vec2, right: Vec2) =>
   left.x * right.y - left.y * right.x
 
-const getPathOrientation = (
-  path: Pick<PathGeometry, 'segments' | 'closed'>
-) => {
-  const points = path.segments.map((segment) => segment.start)
-  return points.length >= 3 && polygonArea(points) < 0 ? -1 : 1
-}
-
-const getOutsideOffsetDistance = (
-  path: Pick<PathGeometry, 'segments' | 'closed'>,
-  strokeWidth: number
-) => {
-  const orientation = getPathOrientation(path)
-  return orientation > 0 ? -strokeWidth : strokeWidth
-}
+const getSourceVertexJoinOffsetDistance = (
+  stroke: Pick<RenderableStroke, 'position' | 'width'>
+) => getConstrainedRibbonOffsetDistance(stroke)
 
 const getOffsetPointOnLine = (
   point: Vec2,
@@ -3681,11 +3670,12 @@ const buildJoinArcPoints = (
   return points
 }
 
-const buildOutsideSourceVertexJoinPolygon = (
+const buildSourceVertexJoinPolygonForOffset = (
   path: Pick<PathGeometry, 'segments' | 'closed'>,
   previousSegmentIndex: number,
   nextSegmentIndex: number,
-  stroke: Pick<RenderableStroke, 'width' | 'join' | 'miterLimit'>
+  stroke: Pick<RenderableStroke, 'join' | 'miterLimit'>,
+  offset: number
 ) => {
   const previousBoundary = buildSourceSegmentBoundary(
     path.segments[previousSegmentIndex]
@@ -3705,7 +3695,6 @@ const buildOutsideSourceVertexJoinPolygon = (
 
   const previousStart = previousBoundary[previousBoundary.length - 2]
   const nextEnd = nextBoundary[1]
-  const offset = getOutsideOffsetDistance(path, stroke.width)
   const previousOffsetStart = getOffsetPointOnLine(
     previousStart,
     previousStart,
@@ -3772,6 +3761,166 @@ const buildOutsideSourceVertexJoinPolygon = (
     : []
 }
 
+const getPolygonsReferencePointDistance = (
+  polygons: Vec2[][],
+  referencePoints: Vec2[]
+) => {
+  if (polygons.length === 0 || referencePoints.length === 0) {
+    return Number.POSITIVE_INFINITY
+  }
+
+  const polygonPoints = polygons.flat()
+  return referencePoints.reduce((totalDistance, referencePoint) => {
+    const minimumDistance = polygonPoints.reduce(
+      (currentMinimum, polygonPoint) =>
+        Math.min(currentMinimum, distanceBetween(referencePoint, polygonPoint)),
+      Number.POSITIVE_INFINITY
+    )
+    return totalDistance + minimumDistance
+  }, 0)
+}
+
+const getRadialBoundaryPoint = (vertex: Vec2, point: Vec2, radius: number) => {
+  const direction = normalizeVector(subtractPoint(point, vertex))
+  return direction
+    ? normalizePoint({
+        x: vertex.x + direction.x * radius,
+        y: vertex.y + direction.y * radius
+      })
+    : null
+}
+
+const buildBoundaryTerminalSourceVertexJoinPolygon = (
+  vertex: Vec2,
+  previousTerminal: SourceVertexBoundaryTerminalRecord,
+  nextTerminal: SourceVertexBoundaryTerminalRecord,
+  stroke: Pick<RenderableStroke, 'width' | 'join' | 'miterLimit'>,
+  referencePoints: Vec2[]
+) => {
+  const radius = Math.abs(stroke.width)
+  if (radius <= EPSILON) {
+    return []
+  }
+
+  const previousPoint = getRadialBoundaryPoint(
+    vertex,
+    previousTerminal.neighbor,
+    radius
+  )
+  const nextPoint = getRadialBoundaryPoint(
+    vertex,
+    nextTerminal.neighbor,
+    radius
+  )
+  if (!previousPoint || !nextPoint) {
+    return []
+  }
+
+  const buildCleanedPolygon = (polygon: Vec2[]) => {
+    const cleaned = cleanPolygon(polygon)
+    return cleaned.length >= 3 &&
+      Math.abs(polygonArea(cleaned)) > EPSILON &&
+      isSimpleClosedPolygon(cleaned)
+      ? cleaned
+      : null
+  }
+
+  if (stroke.join === 'round') {
+    const candidates = [-1, 1]
+      .map((sweepSign) =>
+        buildCleanedPolygon([
+          vertex,
+          ...buildJoinArcPoints(vertex, previousPoint, nextPoint, sweepSign)
+        ])
+      )
+      .filter((polygon): polygon is Vec2[] => polygon !== null)
+    const [selected] = candidates.sort(
+      (left, right) =>
+        Math.abs(polygonArea(right)) - Math.abs(polygonArea(left))
+    )
+    return selected ? [selected] : []
+  }
+
+  if (stroke.join === 'miter') {
+    const previousDirection = normalizeVector(
+      subtractPoint(previousPoint, vertex)
+    )
+    const nextDirection = normalizeVector(subtractPoint(nextPoint, vertex))
+    if (previousDirection && nextDirection) {
+      const bisector = normalizeVector({
+        x: previousDirection.x + nextDirection.x,
+        y: previousDirection.y + nextDirection.y
+      })
+      if (bisector) {
+        const dot = Math.max(
+          -1,
+          Math.min(
+            1,
+            previousDirection.x * nextDirection.x +
+              previousDirection.y * nextDirection.y
+          )
+        )
+        const halfAngle = Math.acos(dot) / 2
+        const miterLength =
+          Math.sin(halfAngle) <= EPSILON
+            ? radius
+            : Math.min(radius / Math.sin(halfAngle), stroke.miterLimit * radius)
+        const miterPoint = normalizePoint({
+          x: vertex.x + bisector.x * miterLength,
+          y: vertex.y + bisector.y * miterLength
+        })
+        const miterPolygon = buildCleanedPolygon([
+          vertex,
+          previousPoint,
+          miterPoint,
+          nextPoint
+        ])
+        if (miterPolygon) {
+          return [miterPolygon]
+        }
+      }
+    }
+  }
+
+  const bevelPolygon = buildCleanedPolygon([vertex, previousPoint, nextPoint])
+  return bevelPolygon ? [bevelPolygon] : []
+}
+
+const buildSourceVertexJoinPolygon = (
+  path: Pick<PathGeometry, 'segments' | 'closed'>,
+  previousSegmentIndex: number,
+  nextSegmentIndex: number,
+  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join' | 'miterLimit'>,
+  options: {
+    referencePoints?: Vec2[]
+  } = {}
+) => {
+  const primaryOffset = getSourceVertexJoinOffsetDistance(stroke)
+  const primaryPolygons = buildSourceVertexJoinPolygonForOffset(
+    path,
+    previousSegmentIndex,
+    nextSegmentIndex,
+    stroke,
+    primaryOffset
+  )
+  const referencePoints = options.referencePoints ?? []
+  if (referencePoints.length === 0 || Math.abs(primaryOffset) <= EPSILON) {
+    return primaryPolygons
+  }
+
+  const oppositePolygons = buildSourceVertexJoinPolygonForOffset(
+    path,
+    previousSegmentIndex,
+    nextSegmentIndex,
+    stroke,
+    -primaryOffset
+  )
+  return getPolygonsReferencePointDistance(oppositePolygons, referencePoints) <
+    getPolygonsReferencePointDistance(primaryPolygons, referencePoints)
+    ? oppositePolygons
+    : primaryPolygons
+}
+
 const doPhysicalSpansCrossSourceVertex = (
   physicalSpans: ConstrainedDashedPhysicalSpan[],
   sourceVertexDistance: number,
@@ -3808,13 +3957,16 @@ const doPhysicalSpansCrossSourceVertex = (
   return hasTailSpan && hasHeadSpan
 }
 
-const buildOutsideSourcePathIntervalJoinPolygons = (
+const buildSourcePathIntervalJoinPolygons = (
   path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   physicalSpans: ConstrainedDashedPhysicalSpan[],
-  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join' | 'miterLimit'>
+  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join' | 'miterLimit'>,
+  options: {
+    excludedVertexIndexes?: Set<number>
+  } = {}
 ) => {
   if (
-    stroke.position !== 'outside' ||
+    (stroke.position !== 'outside' && stroke.position !== 'inside') ||
     path.closed !== true ||
     path.segments.length < 2 ||
     physicalSpans.length === 0
@@ -3825,6 +3977,9 @@ const buildOutsideSourcePathIntervalJoinPolygons = (
   const segmentRanges = getSourcePathSegmentRanges(path)
   return path.segments.flatMap((_segment, previousSegmentIndex) => {
     const nextSegmentIndex = (previousSegmentIndex + 1) % path.segments.length
+    if (options.excludedVertexIndexes?.has(nextSegmentIndex)) {
+      return []
+    }
     if (isSourceBoundarySmooth(path, previousSegmentIndex, nextSegmentIndex)) {
       return []
     }
@@ -3841,7 +3996,7 @@ const buildOutsideSourcePathIntervalJoinPolygons = (
       return []
     }
 
-    return buildOutsideSourceVertexJoinPolygon(
+    return buildSourceVertexJoinPolygon(
       path,
       previousSegmentIndex,
       nextSegmentIndex,
@@ -3933,6 +4088,7 @@ interface SourceVertexBoundaryTerminalRecord {
   interval: VisibleDashedTopologyInterval
   terminal: 'start' | 'end'
   endpoint: Vec2
+  neighbor: Vec2
   sourceSegmentIndex: number
   domainKey: string | undefined
 }
@@ -4071,7 +4227,8 @@ const getBoundaryDomainJoinDomainKey = (
   interval.figmaLikeBoundaryDomainId
 
 const collectSourceVertexBoundaryTerminalRecords = (
-  visibleIntervals: VisibleDashedTopologyInterval[]
+  visibleIntervals: VisibleDashedTopologyInterval[],
+  terminalSampleDistance = 0
 ) => {
   const records: SourceVertexBoundaryTerminalRecord[] = []
   const pushTerminal = (
@@ -4087,7 +4244,11 @@ const collectSourceVertexBoundaryTerminalRecords = (
       return
     }
 
-    const terminalPoint = getBoundaryDomainTerminalPoint(interval, terminal)
+    const terminalPoint = getBoundaryDomainTerminalPoint(
+      interval,
+      terminal,
+      terminalSampleDistance
+    )
     if (!terminalPoint) {
       return
     }
@@ -4096,6 +4257,7 @@ const collectSourceVertexBoundaryTerminalRecords = (
       interval,
       terminal,
       endpoint: terminalPoint.endpoint,
+      neighbor: terminalPoint.neighbor,
       sourceSegmentIndex: interval.figmaLikeSplitRangeSourceSegmentIndex,
       domainKey: getBoundaryDomainJoinDomainKey(interval)
     })
@@ -4305,8 +4467,10 @@ const buildOutsideSmoothSourceVertexContinuityIntervalReplacements = (
     SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE,
     stroke.width * 0.75
   )
-  const terminalRecords =
-    collectSourceVertexBoundaryTerminalRecords(visibleIntervals)
+  const terminalRecords = collectSourceVertexBoundaryTerminalRecords(
+    visibleIntervals,
+    Math.max(stroke.width, SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE)
+  )
   if (terminalRecords.length === 0) {
     return []
   }
@@ -4443,20 +4607,40 @@ const buildOutsideSourceVertexBoundaryJoinRecords = (
         distanceBetween(record.endpoint, sourceVertex.vertex) <=
           endpointTolerance
     )
-    if (
-      !previousTerminal ||
-      !nextTerminal ||
-      previousTerminal.domainKey !== nextTerminal.domainKey
-    ) {
+    if (!previousTerminal || !nextTerminal) {
       return []
     }
 
-    const polygons = buildOutsideSourceVertexJoinPolygon(
+    const referenceDistance = Math.max(
+      SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE,
+      stroke.width * 2.5
+    )
+    const referencePoints = [
+      ...(previousTerminal.interval.figmaLikeBoundaryPoints ?? []),
+      ...(nextTerminal.interval.figmaLikeBoundaryPoints ?? [])
+    ].filter(
+      (point) =>
+        distanceBetween(point, sourceVertex.vertex) >
+          SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE &&
+        distanceBetween(point, sourceVertex.vertex) <= referenceDistance
+    )
+
+    const sourcePathPolygons = buildSourceVertexJoinPolygon(
       sourcePath,
       sourceVertex.previousSegmentIndex,
       sourceVertex.nextSegmentIndex,
-      stroke
+      stroke,
+      { referencePoints }
     )
+    const boundaryTerminalPolygons =
+      buildBoundaryTerminalSourceVertexJoinPolygon(
+        sourceVertex.vertex,
+        previousTerminal,
+        nextTerminal,
+        stroke,
+        referencePoints
+      )
+    const polygons = [...sourcePathPolygons, ...boundaryTerminalPolygons]
     if (polygons.length === 0) {
       return []
     }
@@ -5369,36 +5553,97 @@ export const buildConstrainedDashedStrokeProductVisualEntries = (
             ...intervalStroke,
             cap: stroke.cap
           }
-    const polygons = normalizeConstrainedDashedProductVisualPolygons(
-      visibleIntervals.flatMap((interval) => {
-        const physicalSpans = getIntervalPhysicalSpans(
-          topology,
-          stroke,
-          interval
-        )
-        const intervalSweep = buildDashedSourcePathIntervalSweep(
-          sourcePath,
-          physicalSpans,
-          interval,
-          stroke,
-          squareCapPhysicalStroke,
-          slicingContext
-        )
-        return buildDashedSourcePathFinalCoveragePolygons(
-          sourcePath,
-          topology,
-          intervalSweep,
-          interval,
-          stroke,
-          intervalStroke,
-          sharpGuardVertices,
-          slicingContext,
-          strokeDomainPlan,
-          options.clipInsideToFillDomain === true,
-          options.implicitFillRegions ?? []
-        )
-      })
+    const sourceVertexBoundaryJoinRecords =
+      buildOutsideSourceVertexBoundaryJoinRecords(
+        sourcePath,
+        visibleIntervals,
+        {
+          position: intervalStroke.position,
+          width: intervalStroke.width,
+          join: stroke.join,
+          miterLimit: stroke.miterLimit
+        }
+      )
+    const sourceVertexBoundaryJoinVertexIndexes = new Set(
+      sourceVertexBoundaryJoinRecords.map(
+        (joinRecord) => joinRecord.vertexIndex
+      )
     )
+    const intervalProductPolygons = visibleIntervals.flatMap((interval) => {
+      const physicalSpans = getIntervalPhysicalSpans(topology, stroke, interval)
+      const intervalSweep = buildDashedSourcePathIntervalSweep(
+        sourcePath,
+        physicalSpans,
+        interval,
+        stroke,
+        squareCapPhysicalStroke,
+        slicingContext
+      )
+      const finalCoveragePolygons = buildDashedSourcePathFinalCoveragePolygons(
+        sourcePath,
+        topology,
+        intervalSweep,
+        interval,
+        stroke,
+        intervalStroke,
+        sharpGuardVertices,
+        slicingContext,
+        strokeDomainPlan,
+        options.clipInsideToFillDomain === true,
+        options.implicitFillRegions ?? []
+      )
+      const sourceVertexJoinPolygons =
+        sourceVertexBoundaryJoinVertexIndexes.size > 0
+          ? []
+          : buildSourcePathIntervalJoinPolygons(sourcePath, physicalSpans, {
+              position: intervalStroke.position,
+              width: intervalStroke.width,
+              join: stroke.join,
+              miterLimit: stroke.miterLimit
+            })
+      const constrainedSourceVertexJoinPolygons =
+        stroke.position === 'inside' &&
+        options.clipInsideToFillDomain === true &&
+        sourceVertexJoinPolygons.length > 0
+          ? clipSourcePathPolygonsToEvenOddLegalDomain(
+              sourceVertexJoinPolygons,
+              sourcePath,
+              stroke,
+              options.implicitFillRegions ?? [],
+              {
+                fragmentPruneArea: EPSILON * 10,
+                cleanupMicroEdgeTolerance: 0.001,
+                cleanupCollinearTolerance: 0.0001
+              }
+            )
+          : sourceVertexJoinPolygons
+
+      return [...finalCoveragePolygons, ...constrainedSourceVertexJoinPolygons]
+    })
+    const sourceVertexBoundaryJoinPolygons =
+      sourceVertexBoundaryJoinRecords.flatMap((joinRecord) =>
+        options.clipInsideToFillDomain === true &&
+        options.implicitFillRegions &&
+        options.implicitFillRegions.length > 0
+          ? clipSourcePathPolygonsToEvenOddLegalDomain(
+              joinRecord.polygons,
+              sourcePath,
+              { position: stroke.position },
+              options.implicitFillRegions,
+              {
+                fragmentStitchRadius: 0,
+                fragmentPruneArea: Math.max(
+                  1,
+                  intervalStroke.width * intervalStroke.width * 0.1
+                )
+              }
+            )
+          : joinRecord.polygons
+      )
+    const polygons = normalizeConstrainedDashedProductVisualPolygons([
+      ...intervalProductPolygons,
+      ...sourceVertexBoundaryJoinPolygons
+    ])
     const clipPolygons = getInsideSourcePathEvenOddLegalClipPolygons(
       sourcePath,
       stroke,
@@ -8137,6 +8382,26 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
             acceptsCornerSpanningJoin: true
           }
         : null
+    const sourceVertexBoundaryJoinRecords =
+      productFinalIntervalClassification !== null &&
+      sourcePath &&
+      options.visualOnly !== true
+        ? buildOutsideSourceVertexBoundaryJoinRecords(
+            sourcePath,
+            visibleIntervals,
+            {
+              position: intervalStroke.position,
+              width: intervalStroke.width,
+              join: stroke.join,
+              miterLimit: stroke.miterLimit
+            }
+          )
+        : []
+    const sourceVertexBoundaryJoinVertexIndexes = new Set(
+      sourceVertexBoundaryJoinRecords.map(
+        (joinRecord) => joinRecord.vertexIndex
+      )
+    )
     const visibleIntervalById = new Map(
       visibleIntervals.map((interval) => [interval.intervalId, interval])
     )
@@ -8692,11 +8957,11 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
             )
             return [
               ...spanPolygons,
-              ...buildOutsideSourcePathIntervalJoinPolygons(
+              ...buildSourcePathIntervalJoinPolygons(
                 fallbackSourcePath,
                 physicalSpans,
                 {
-                  position: stroke.position,
+                  position: intervalStroke.position,
                   width: intervalStroke.width,
                   join: stroke.join,
                   miterLimit: stroke.miterLimit
@@ -8725,6 +8990,17 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
               closedIntervalLegalityContext
             )
           : selectedSidePolygons
+      if (sourcePath && stroke.position === 'inside') {
+        polygons = [
+          ...polygons,
+          ...buildSourcePathIntervalJoinPolygons(sourcePath, physicalSpans, {
+            position: intervalStroke.position,
+            width: intervalStroke.width,
+            join: stroke.join,
+            miterLimit: stroke.miterLimit
+          })
+        ]
+      }
       if (
         sourcePath &&
         stroke.position === 'inside' &&
@@ -8745,19 +9021,20 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
       }
       if (sourcePath && stroke.position === 'outside') {
         const sourceVertexJoinPath = boundaryDomainPath ?? sourcePath
-        polygons = [
-          ...polygons,
-          ...buildOutsideSourcePathIntervalJoinPolygons(
-            sourceVertexJoinPath,
-            physicalSpans,
-            {
-              position: stroke.position,
-              width: intervalStroke.width,
-              join: stroke.join,
-              miterLimit: stroke.miterLimit
-            }
-          )
-        ]
+        const intervalSourceVertexJoinPolygons =
+          sourceVertexBoundaryJoinVertexIndexes.size > 0
+            ? []
+            : buildSourcePathIntervalJoinPolygons(
+                sourceVertexJoinPath,
+                physicalSpans,
+                {
+                  position: intervalStroke.position,
+                  width: intervalStroke.width,
+                  join: stroke.join,
+                  miterLimit: stroke.miterLimit
+                }
+              )
+        polygons = [...polygons, ...intervalSourceVertexJoinPolygons]
       }
 
       if (polygons.length === 0) {
@@ -8952,18 +9229,9 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
       options.visualOnly !== true &&
       productFinalIntervalClassification !== null &&
       sourcePath
-        ? buildOutsideSourceVertexBoundaryJoinRecords(
-            sourcePath,
-            visibleIntervals,
-            {
-              position: stroke.position,
-              width: intervalStroke.width,
-              join: stroke.join,
-              miterLimit: stroke.miterLimit
-            }
-          ).flatMap((joinRecord, joinIndex) => {
+        ? sourceVertexBoundaryJoinRecords.flatMap((joinRecord, joinIndex) => {
             const [previousInterval, nextInterval] = joinRecord.intervals
-            const polygons =
+            const clippedPolygons =
               options.clipInsideToFillDomain === true &&
               options.implicitFillRegions &&
               options.implicitFillRegions.length > 0
@@ -8981,6 +9249,10 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                     }
                   )
                 : joinRecord.polygons
+            const polygons = normalizeConstrainedDashedProductVisualPolygons(
+              clippedPolygons,
+              { cleanClipResidue: true }
+            )
             if (polygons.length === 0) {
               return []
             }

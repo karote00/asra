@@ -1,10 +1,10 @@
 {
   "width": 1400,
   "height": 1100,
-  "redPixelCount": 33889,
-  "legalRedPixelCount": 33889,
+  "redPixelCount": 33888,
+  "legalRedPixelCount": 33888,
   "outsideRedPixelCount": 0,
-  "strictLegalRedPixelCount": 22397,
+  "strictLegalRedPixelCount": 22396,
   "strictOutsideRedPixelCount": 11492,
   "darkOverdrawPixelCount": 0,
   "maxDarkOverdrawComponentArea": 0,
@@ -17,10 +17,10 @@
     1605,
     1272,
     861,
-    824,
+    823,
     821,
     796,
-    796,
+    795,
     794,
     793,
     786
@@ -54,13 +54,13 @@
       "centerY": 509.13240418118465
     },
     {
-      "area": 824,
+      "area": 823,
       "minX": 693,
       "minY": 298,
       "maxX": 730,
       "maxY": 365,
-      "centerX": 713.1650485436893,
-      "centerY": 333.2742718446602
+      "centerX": 713.1640340218712,
+      "centerY": 333.2746051032807
     },
     {
       "area": 821,
@@ -73,21 +73,21 @@
     },
     {
       "area": 796,
-      "minX": 764,
-      "minY": 452,
-      "maxX": 789,
-      "maxY": 507,
-      "centerX": 776.572864321608,
-      "centerY": 479.18467336683415
-    },
-    {
-      "area": 796,
       "minX": 659,
       "minY": 612,
       "maxX": 700,
       "maxY": 658,
       "centerX": 679.4120603015075,
       "centerY": 635.0816582914573
+    },
+    {
+      "area": 795,
+      "minX": 764,
+      "minY": 452,
+      "maxX": 789,
+      "maxY": 507,
+      "centerX": 776.5698113207548,
+      "centerY": 479.2100628930818
     },
     {
       "area": 794,

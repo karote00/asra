@@ -2,18 +2,16 @@
   "legalAnalysis": {
     "width": 1400,
     "height": 1100,
-    "redPixelCount": 27444,
-    "legalRedPixelCount": 4373,
-    "outsideRedPixelCount": 23071,
+    "redPixelCount": 26309,
+    "legalRedPixelCount": 4325,
+    "outsideRedPixelCount": 21984,
     "strictLegalRedPixelCount": 0,
-    "strictOutsideRedPixelCount": 27444,
+    "strictOutsideRedPixelCount": 26309,
     "darkOverdrawPixelCount": 0,
     "maxDarkOverdrawComponentArea": 0,
     "darkOverdrawComponentAreas": [],
-    "maxOutsideComponentArea": 1397,
+    "maxOutsideComponentArea": 759,
     "outsideComponentAreas": [
-      1397,
-      1015,
       759,
       744,
       736,
@@ -21,15 +19,15 @@
       735,
       735,
       734,
-      734
+      734,
+      732,
+      729
     ],
     "maxStrictInsideComponentArea": 0,
-    "maxStrictOutsideComponentArea": 1549,
+    "maxStrictOutsideComponentArea": 890,
     "strictInsideComponentAreas": [],
     "strictInsideComponents": [],
     "strictOutsideComponentAreas": [
-      1549,
-      1160,
       890,
       882,
       871,
@@ -37,7 +35,9 @@
       866,
       864,
       862,
-      861
+      861,
+      861,
+      860
     ],
     "boundaryDomainPacketCount": 43
   },
