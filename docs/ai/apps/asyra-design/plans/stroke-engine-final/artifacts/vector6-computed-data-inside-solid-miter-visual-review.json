@@ -1,0 +1,201 @@
+{
+  "baseUrl": "http://localhost:3000",
+  "joinType": "miter",
+  "screenshotPath": "/Users/asa/Desktop/workspace/asra/docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts/vector6-computed-data-inside-solid-miter-visual-review.png",
+  "viewport": {
+    "width": 1600,
+    "height": 1600
+  },
+  "canvasRect": {
+    "x": 0,
+    "y": 0,
+    "width": 1600,
+    "height": 1600
+  },
+  "computedData": {
+    "id": "vector-1",
+    "x": 17.654489349902178,
+    "y": 55.12887331713321,
+    "width": 360.12094148356584,
+    "height": 367.70186652155667,
+    "points": {
+      "tp-12": {
+        "id": "tp-12",
+        "kind": "anchor",
+        "x": 188.1928217922337,
+        "y": 0,
+        "anchorType": "smooth"
+      },
+      "tp-13": {
+        "id": "tp-13",
+        "kind": "anchor",
+        "x": 11.358174406717296,
+        "y": 365.76797704068724,
+        "anchorType": "smooth"
+      },
+      "tp-12:out": {
+        "id": "tp-12:out",
+        "kind": "control",
+        "x": 164.3673966581619,
+        "y": 140.9198821588739,
+        "controlForId": "tp-12",
+        "controlRole": "out"
+      },
+      "tp-13:in": {
+        "id": "tp-13:in",
+        "kind": "control",
+        "x": -42.09205809548172,
+        "y": 344.92238636482955,
+        "controlForId": "tp-13",
+        "controlRole": "in"
+      },
+      "tp-13:out": {
+        "id": "tp-13:out",
+        "kind": "control",
+        "x": 78.17096503446606,
+        "y": 391.8249653855095,
+        "controlForId": "tp-13",
+        "controlRole": "out"
+      },
+      "tp-14": {
+        "id": "tp-14",
+        "kind": "anchor",
+        "x": 360.12094148356584,
+        "y": 145.95389587539378,
+        "anchorType": "sharp"
+      },
+      "tp-15": {
+        "id": "tp-15",
+        "kind": "anchor",
+        "x": 0,
+        "y": 15.668954151283657,
+        "anchorType": "sharp"
+      },
+      "tp-16": {
+        "id": "tp-16",
+        "kind": "anchor",
+        "x": 270.59180204238254,
+        "y": 347.0603956649177,
+        "anchorType": "smooth"
+      },
+      "tp-15:out": {
+        "id": "tp-15:out",
+        "kind": "control",
+        "x": 0,
+        "y": 15.668954151283657,
+        "controlForId": "tp-15",
+        "controlRole": "out"
+      },
+      "tp-16:in": {
+        "id": "tp-16:in",
+        "kind": "control",
+        "x": 263.9105229796075,
+        "y": 364.43172122813246,
+        "controlForId": "tp-16",
+        "controlRole": "in"
+      },
+      "tp-16:out": {
+        "id": "tp-16:out",
+        "kind": "control",
+        "x": 277.27308110515736,
+        "y": 329.6890701017029,
+        "controlForId": "tp-16",
+        "controlRole": "out"
+      }
+    },
+    "segments": {
+      "ts-23": {
+        "id": "ts-23",
+        "startId": "tp-12",
+        "endId": "tp-13",
+        "outControlId": "tp-12:out",
+        "inControlId": "tp-13:in"
+      },
+      "ts-24": {
+        "id": "ts-24",
+        "startId": "tp-13",
+        "endId": "tp-14",
+        "outControlId": "tp-13:out",
+        "inControlId": null
+      },
+      "ts-25": {
+        "id": "ts-25",
+        "startId": "tp-14",
+        "endId": "tp-15",
+        "outControlId": null,
+        "inControlId": null
+      },
+      "ts-26": {
+        "id": "ts-26",
+        "startId": "tp-15",
+        "endId": "tp-16",
+        "outControlId": "tp-15:out",
+        "inControlId": "tp-16:in"
+      },
+      "ts-27": {
+        "id": "ts-27",
+        "startId": "tp-16",
+        "endId": "tp-12",
+        "outControlId": "tp-16:out",
+        "inControlId": null
+      }
+    },
+    "networks": {
+      "tn-4": {
+        "id": "tn-4",
+        "pointIds": [
+          "tp-12",
+          "tp-13",
+          "tp-14",
+          "tp-15",
+          "tp-16"
+        ],
+        "segmentIds": [
+          "ts-23",
+          "ts-24",
+          "ts-25",
+          "ts-26",
+          "ts-27"
+        ],
+        "closed": true
+      }
+    },
+    "fills": [
+      {
+        "id": "pp-60",
+        "kind": "solid",
+        "defaultColorFormat": "hex",
+        "colorFormat": "hex",
+        "color": "#cccccc",
+        "opacity": 1,
+        "visible": true,
+        "gradient": null
+      }
+    ],
+    "strokes": [
+      {
+        "id": "pp-41",
+        "kind": "solid",
+        "style": "solid",
+        "position": "inside",
+        "width": 10,
+        "dashPattern": [
+          27,
+          20
+        ],
+        "dashOffset": 0,
+        "fill": null,
+        "defaultColorFormat": "hex",
+        "colorFormat": "hex",
+        "color": "#df0606",
+        "opacity": 0.5,
+        "visible": true,
+        "gradient": null,
+        "joinType": "miter",
+        "capType": "round",
+        "miterAngle": 28.96
+      }
+    ],
+    "closed": true
+  }
+}

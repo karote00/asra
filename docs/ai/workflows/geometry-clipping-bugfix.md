@@ -32,6 +32,7 @@ Fix geometry/clipping regressions with rule-boundary TDD, explicit helper gating
 - `docs/ai/apps/asyra-design/WORKFLOW.md`
 - `docs/ai/apps/asyra-design/rules/testing-contracts.md`
 - `docs/ai/apps/asyra-design/rules/geometry-clipping-regression-contract.md`
+- `docs/ai/skills/app-visual-review-sync/SKILL.md`
 
 ## Execution
 
@@ -48,7 +49,11 @@ Fix geometry/clipping regressions with rule-boundary TDD, explicit helper gating
    - no sample-id, dash-index, or screenshot-position special cases
 5. Implement at the first stage that actually corrupts geometry.
 6. Re-run rule tests, render-level tests, visual tests, and performance checks.
-7. If visual validation still fails, loop back to step 1 automatically. Do not stop at a partially wired state.
+7. For app-visible geometry, stroke, mask, or Figma-parity fixes, run the `app-visual-review-sync` procedure before completion claims:
+   - use `ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL` for Asyra Design
+   - assert runtime computed data parity before screenshots when the report includes computed data
+   - inspect live-app screenshots manually and report `E2E passed` separately from `manual app visual review passed`
+8. If visual validation still fails, loop back to step 1 automatically. Do not stop at a partially wired state.
 
 ## Output
 

@@ -39,6 +39,7 @@ Do not commit transient artifacts:
 
 - Playwright `test-results/` and `playwright-report/`
 - local browser screenshots, videos, traces, and ad hoc debug captures
+- app visual review screenshots and metadata unless they are explicitly promoted by an active plan or user request
 - repeated iteration folders such as `*-v1`, `*-v2`, `*-latest`, or local diagnosis dumps
 - temporary JSON/PNG outputs that are not directly consumed by tests or documentation
 

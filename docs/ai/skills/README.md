@@ -26,6 +26,7 @@ Skills should be strict enough that two agents produce nearly the same process/o
 - `constants-registry-manager/SKILL.md`
 - `deprecation-lifecycle-enforcer/SKILL.md`
 - `render-layer-registration-checker/SKILL.md`
+- `app-visual-review-sync/SKILL.md`
 - `props-schema-validation-guard/SKILL.md`
 - `docs-contract-sync/SKILL.md`
 - `plan-done-closeout/SKILL.md`

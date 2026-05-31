@@ -41,6 +41,7 @@ Before coding:
 - define cancellation/tool-switch behavior if session-based
 - define panel/provider impact
 - define E2E/manual verification path
+- for canvas/vector/rendering/geometry work, define the `app-visual-review-sync` path before final completion claims
 
 Checklist:
 - [ ] deterministic behavior order is defined
@@ -64,11 +65,18 @@ Run what matches scope:
 - `yarn workspace @asyra/asyra-design react:build`
 - `yarn workspace @asyra/asyra-design test:e2e` for UI/interaction behavior changes
 - focused manual checks for interactions not fully covered by E2E
+- for canvas/vector/rendering/geometry/Figma-parity claims, use `docs/ai/skills/app-visual-review-sync/SKILL.md`
+  - use `ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL` as the app-specific review URL
+  - if Playwright needs `PLAYWRIGHT_TEST_BASE_URL`, set it from the same value
+  - assert runtime computed data before screenshots when the review is tied to supplied computed data
+  - inspect the final live-app screenshots before saying `manual app visual review passed`
+  - keep `E2E passed` separate from `manual app visual review passed`
 
 Quality gates:
 - [ ] app builds
 - [ ] changed interaction path behaves as expected
 - [ ] no regression in tool switching/selection/property panel for touched area
+- [ ] visual completion claims include synchronized live-app review evidence when applicable
 
 ## Phase 5: Docs Sync
 
