@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { BehaviorSubject, Subscription } from 'rxjs'
 import { Container, Graphics, Mesh } from 'pixi.js'
 import Clipper2ZFactory from 'clipper2-wasm'
@@ -36,10 +36,15 @@ import {
 } from '../components/stroke-render/clipper2-geometry-backend'
 import { buildVectorGeometryModelPath } from '../components/stroke-render/path-geometry'
 import { buildPathTopologyModel } from '../components/stroke-render/path-topology-model'
+import type { StrokeDiagnosticsMode } from '../components/stroke-render/stroke-diagnostics-mode'
 
 const UNSUPPORTED_BACKEND_ID = 'unsupported-exact-geometry-backend'
 const require = createRequire(import.meta.url)
 const clipperWasmPath = require.resolve('clipper2-wasm/dist/umd/clipper2z.wasm')
+
+interface StrokeDiagnosticsTestGlobal {
+  __ASYRA_STROKE_DIAGNOSTICS_MODE__?: StrokeDiagnosticsMode
+}
 
 const loadClipperModule = async () =>
   (await (
@@ -159,9 +164,17 @@ beforeAll(() => {
   )
 })
 
+beforeEach(() => {
+  ;(
+    globalThis as StrokeDiagnosticsTestGlobal
+  ).__ASYRA_STROKE_DIAGNOSTICS_MODE__ = 'full'
+})
+
 afterEach(() => {
   selectGeometryBackend(UNSUPPORTED_BACKEND_ID)
   core.setSystemProperty('strokeDebugDisableVisualOverlapCollapse', false)
+  delete (globalThis as StrokeDiagnosticsTestGlobal)
+    .__ASYRA_STROKE_DIAGNOSTICS_MODE__
 })
 
 class RecordingVectorGraphic extends Container {

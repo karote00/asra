@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { BehaviorSubject, Subscription } from 'rxjs'
 import { Container, Graphics, Mesh } from 'pixi.js'
 import core, { renderStrategyRegistry } from '@asyra/core'
@@ -14,6 +14,21 @@ import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
 import type { SolidCenterStrokeExportPacket } from '../components/stroke-render/solid-center-stroke-packets'
 import type { ConstrainedSolidOwnershipDiagnostics } from '../components/stroke-render/constrained-solid-ownership-diagnostics'
+import type { StrokeDiagnosticsMode } from '../components/stroke-render/stroke-diagnostics-mode'
+
+interface StrokeDiagnosticsGlobal {
+  __ASYRA_STROKE_DIAGNOSTICS_MODE__?: StrokeDiagnosticsMode
+}
+
+beforeEach(() => {
+  ;(globalThis as StrokeDiagnosticsGlobal).__ASYRA_STROKE_DIAGNOSTICS_MODE__ =
+    'full'
+})
+
+afterEach(() => {
+  delete (globalThis as StrokeDiagnosticsGlobal)
+    .__ASYRA_STROKE_DIAGNOSTICS_MODE__
+})
 
 beforeAll(() => {
   HTMLCanvasElement.prototype.getContext =

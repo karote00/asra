@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { BehaviorSubject, Subscription } from 'rxjs'
 import { Container, Mesh } from 'pixi.js'
 import core, { renderStrategyRegistry } from '@asyra/core'
@@ -10,6 +10,21 @@ import {
 } from '@asyra/utils'
 import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
+import type { StrokeDiagnosticsMode } from '../components/stroke-render/stroke-diagnostics-mode'
+
+interface StrokeDiagnosticsGlobal {
+  __ASYRA_STROKE_DIAGNOSTICS_MODE__?: StrokeDiagnosticsMode
+}
+
+beforeEach(() => {
+  ;(globalThis as StrokeDiagnosticsGlobal).__ASYRA_STROKE_DIAGNOSTICS_MODE__ =
+    'full'
+})
+
+afterEach(() => {
+  delete (globalThis as StrokeDiagnosticsGlobal)
+    .__ASYRA_STROKE_DIAGNOSTICS_MODE__
+})
 
 beforeAll(() => {
   core.defineSystemProperty<string | null>('pathEditingVectorId', null)

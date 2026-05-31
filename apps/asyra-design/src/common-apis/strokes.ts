@@ -9,6 +9,19 @@ import core from '../contexts'
 
 export type StrokePatch = Partial<Pick<StrokeAttrs, StrokeWritableKey>>
 
+const updateStrokePropertyById = core.updatePropertyById as <
+  K extends StrokeWritableKey
+>(
+  propertyId: string,
+  key: K,
+  data: StrokeAttrs[K],
+  owner: {
+    ownerElementId: string
+    ownerPropertyName: string
+  },
+  options?: EVENT_OPTIONS
+) => void
+
 const getChangedPatchEntries = (
   currentStroke: StrokeAttrs,
   patch: StrokePatch
@@ -19,6 +32,10 @@ const getChangedPatchEntries = (
     }
 
     const nextValue = patch[key]
+    if (nextValue === undefined) {
+      return []
+    }
+
     return isEqual(currentStroke[key], nextValue)
       ? []
       : ([[key, nextValue]] as const)
@@ -38,7 +55,7 @@ export const strokeApis = {
     }
 
     changedEntries.forEach(([key, value]) => {
-      core.updatePropertyById(
+      updateStrokePropertyById(
         strokeId,
         key,
         value,

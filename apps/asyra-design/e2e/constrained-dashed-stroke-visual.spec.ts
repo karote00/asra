@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { expect, test, type Page } from '@playwright/test'
 import {
   createOval,
@@ -9,6 +10,7 @@ import {
   getSelectedElementRect,
   patchSelectedStrokeDashOffset,
   resetCanvas,
+  setStrokeDiagnosticsMode,
   waitForAppReady
 } from './test-utils'
 
@@ -2824,3725 +2826,915 @@ test.beforeEach(async ({ page }) => {
   await waitForAppReady(page)
   await setStrokeDebugDisableVisualOverlapCollapse(page, false)
   await resetCanvas(page)
+  await setStrokeDiagnosticsMode(page, 'full')
 })
 
 test.afterEach(async ({ page }) => {
   await setStrokeDebugDisableVisualOverlapCollapse(page, false)
 })
 
-test('benchmark: rectangle inside constrained dashed full-loop stroke renders through the supported constrained dashed rectangle product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await configureConstrainedDashedStroke(page, {
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectProbeRegions(raster)
-
-  const [topInside, leftInside, topOutside, center] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topInside),
-    getGreenCoverage(page, raster, probes.leftInside),
-    getGreenCoverage(page, raster, probes.topOutside),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(leftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: rectangle outside constrained dashed full-loop stroke renders through the next supported constrained dashed product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await configureConstrainedDashedStroke(page, {
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectProbeRegions(raster)
-
-  const [topOutside, topInside, center] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topOutside),
-    getGreenCoverage(page, raster, probes.topInside),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: rectangle constrained dashed strokes with multiple eligible intervals render through typed multi-stroke ownership', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await configureConstrainedDashedStrokeRow(page, 0, {
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-  await configureConstrainedDashedStrokeRow(page, 1, {
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-  await page.waitForTimeout(180)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectProbeRegions(raster)
-
-  const [topInside, topOutside, center] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topInside),
-    getGreenCoverage(page, raster, probes.topOutside),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: rectangle repeated constrained dashed intervals render when ownership resolves to one stroke', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: '20, 20'
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectRepeatedDashProbeRegions(raster)
-
-  const [topOutsideFirstDash, topInsideFirstDash, center] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topOutsideFirstDash),
-    getGreenCoverage(page, raster, probes.topInsideFirstDash),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topOutsideFirstDash).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topInsideFirstDash).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: rectangle constrained dashed inside round-join full-loop stroke renders through the first supported join/cap product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.35, 0.35)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'inside',
-    join: 'round',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectProbeRegions(raster)
-
-  const [topInside, leftInside, topOutside, center] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topInside),
-    getGreenCoverage(page, raster, probes.leftInside),
-    getGreenCoverage(page, raster, probes.topOutside),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(leftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: rectangle constrained dashed outside round-join full-loop stroke renders through the next supported join/cap outside product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.35, 0.35)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'outside',
-    join: 'round',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectProbeRegions(raster)
-
-  const [topOutside, topInside, center] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topOutside),
-    getGreenCoverage(page, raster, probes.topInside),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: rectangle inside constrained dashed full-loop gradient stroke renders through the first supported paint product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.35, 0.35)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectGradientProbeRegions(raster)
-
-  const [topInsideLeft, topInsideRight, center] = await Promise.all([
-    getAverageColor(page, raster, probes.topInsideLeft),
-    getAverageColor(page, raster, probes.topInsideRight),
-    getAverageColor(page, raster, probes.center)
-  ])
-
-  expect(topInsideLeft.a).toBeGreaterThan(180)
-  expect(topInsideRight.a).toBeGreaterThan(180)
-  expect(topInsideLeft.r).toBeGreaterThan(topInsideLeft.b + 40)
-  expect(topInsideRight.b).toBeGreaterThan(topInsideRight.r + 40)
-  expect(center.r).toBeGreaterThan(170)
-  expect(center.g).toBeGreaterThan(170)
-  expect(center.b).toBeGreaterThan(170)
-})
-
-test('benchmark: rectangle outside constrained dashed full-loop gradient stroke renders through the next supported paint product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.35, 0.35)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectGradientProbeRegions(raster)
-
-  const [topOutsideLeft, topOutsideRight, center] = await Promise.all([
-    getAverageColor(page, raster, probes.topOutsideLeft),
-    getAverageColor(page, raster, probes.topOutsideRight),
-    getAverageColor(page, raster, probes.center)
-  ])
-
-  expect(topOutsideLeft.a).toBeGreaterThan(180)
-  expect(topOutsideRight.a).toBeGreaterThan(180)
-  expect(topOutsideLeft.r).toBeGreaterThan(topOutsideLeft.b + 40)
-  expect(topOutsideRight.b).toBeGreaterThan(topOutsideRight.r + 40)
-  expect(center.r).toBeGreaterThan(170)
-  expect(center.g).toBeGreaterThan(170)
-  expect(center.b).toBeGreaterThan(170)
-})
-
-test('benchmark: rectangle inside constrained dashed single-edge stroke renders through the first single-edge topology family product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await configureConstrainedDashedStroke(page, {
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: RECT_SINGLE_EDGE_PATTERN,
-    offset: RECT_SINGLE_EDGE_OFFSET
-  })
-  await setSelectedElementRotation(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectSingleEdgeProbeRegions(raster)
-
-  const [intervalInside, laterTopInsideGap, intervalOutside, center] =
-    await Promise.all([
-      getGreenCoverage(page, raster, probes.intervalInside),
-      getGreenCoverage(page, raster, probes.laterTopInsideGap),
-      getGreenCoverage(page, raster, probes.intervalOutside),
-      getGreenCoverage(page, raster, probes.center)
-    ])
-
-  expect(intervalInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(laterTopInsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(intervalOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: rectangle inside constrained dashed single-edge gradient stroke renders through the next supported paint product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await configureConstrainedDashedStroke(page, {
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: RECT_SINGLE_EDGE_PATTERN,
-    offset: RECT_SINGLE_EDGE_OFFSET
-  })
-  await setSelectedElementRotation(page, 0)
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectSingleEdgeGradientProbeRegions(raster)
-
-  const [intervalInsideLeft, intervalInsideRight, laterTopInsideGap, center] =
-    await Promise.all([
-      getAverageColor(page, raster, probes.intervalInsideLeft),
-      getAverageColor(page, raster, probes.intervalInsideRight),
-      getAverageColor(page, raster, probes.laterTopInsideGap),
-      getAverageColor(page, raster, probes.center)
-    ])
-
-  expect(intervalInsideLeft.a).toBeGreaterThan(180)
-  expect(intervalInsideRight.a).toBeGreaterThan(180)
-  expect(intervalInsideLeft.r).toBeGreaterThan(intervalInsideLeft.b + 40)
-  expect(intervalInsideRight.b).toBeGreaterThan(intervalInsideLeft.b + 10)
-  expect(getRedBlueSkew(intervalInsideLeft)).toBeGreaterThan(
-    getRedBlueSkew(intervalInsideRight) + 15
-  )
-  expect(Math.abs(getRedBlueSkew(laterTopInsideGap))).toBeLessThan(20)
-  expect(laterTopInsideGap.r).toBeGreaterThan(170)
-  expect(laterTopInsideGap.g).toBeGreaterThan(170)
-  expect(laterTopInsideGap.b).toBeGreaterThan(170)
-  expect(center.r).toBeGreaterThan(170)
-  expect(center.g).toBeGreaterThan(170)
-  expect(center.b).toBeGreaterThan(170)
-})
-
-test('benchmark: rectangle inside constrained dashed single-edge round-cap stroke renders through the next supported join/cap product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await configureConstrainedDashedStroke(page, {
-    position: 'inside',
-    join: 'bevel',
-    cap: 'round',
-    pattern: RECT_SINGLE_EDGE_PATTERN,
-    offset: RECT_SINGLE_EDGE_OFFSET
-  })
-  await setSelectedElementRotation(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getVectorRectSingleEdgeRoundCapProbeRegions(raster)
-
-  const [capInside, bodyInside, capOutsideLeak, laterTopInsideGap, center] =
-    await Promise.all([
-      getGreenCoverage(page, raster, probes.capInside),
-      getGreenCoverage(page, raster, probes.bodyInside),
-      getGreenCoverage(page, raster, probes.capOutsideLeak),
-      getGreenCoverage(page, raster, probes.laterTopInsideGap),
-      getGreenCoverage(page, raster, probes.center)
-    ])
-
-  expect(capInside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
-  expect(bodyInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(capOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(laterTopInsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: rectangle outside constrained dashed single-edge round-cap stroke renders through the next supported join/cap outside product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await configureConstrainedDashedStroke(page, {
-    position: 'outside',
-    join: 'bevel',
-    cap: 'round',
-    pattern: RECT_SINGLE_EDGE_PATTERN,
-    offset: RECT_SINGLE_EDGE_OFFSET
-  })
-  await setSelectedElementRotation(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectSingleEdgeOutsideRoundCapProbeRegions(raster)
-
-  const [capOutside, bodyOutside, capInsideLeak, laterTopOutsideGap, center] =
-    await Promise.all([
-      getGreenCoverage(page, raster, probes.capOutside),
-      getGreenCoverage(page, raster, probes.bodyOutside),
-      getGreenCoverage(page, raster, probes.capInsideLeak),
-      getGreenCoverage(page, raster, probes.laterTopOutsideGap),
-      getGreenCoverage(page, raster, probes.center)
-    ])
-
-  expect(capOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(bodyOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(capInsideLeak).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(laterTopOutsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: rectangle outside constrained dashed single-edge stroke renders through the same first single-edge topology family product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await configureConstrainedDashedStroke(page, {
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: RECT_SINGLE_EDGE_PATTERN,
-    offset: RECT_SINGLE_EDGE_OFFSET
-  })
-  await setSelectedElementRotation(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectSingleEdgeProbeRegions(raster)
-
-  const [intervalOutside, intervalInside, laterTopOutsideGap, center] =
-    await Promise.all([
-      getGreenCoverage(page, raster, probes.intervalOutside),
-      getGreenCoverage(page, raster, probes.intervalInside),
-      getGreenCoverage(page, raster, probes.laterTopOutsideGap),
-      getGreenCoverage(page, raster, probes.center)
-    ])
-
-  expect(intervalOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(intervalInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(laterTopOutsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: rectangle outside constrained dashed single-edge gradient stroke renders through the next supported paint product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await configureConstrainedDashedStroke(page, {
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: RECT_SINGLE_EDGE_PATTERN,
-    offset: RECT_SINGLE_EDGE_OFFSET
-  })
-  await setSelectedElementRotation(page, 0)
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectSingleEdgeOutsideGradientProbeRegions(raster)
-
-  const [
-    intervalOutsideLeft,
-    intervalOutsideRight,
-    laterTopOutsideGap,
-    center
-  ] = await Promise.all([
-    getAverageColor(page, raster, probes.intervalOutsideLeft),
-    getAverageColor(page, raster, probes.intervalOutsideRight),
-    getAverageColor(page, raster, probes.laterTopOutsideGap),
-    getAverageColor(page, raster, probes.center)
-  ])
-
-  expect(intervalOutsideLeft.a).toBeGreaterThan(180)
-  expect(intervalOutsideRight.a).toBeGreaterThan(180)
-  expect(intervalOutsideLeft.r).toBeGreaterThan(intervalOutsideLeft.b + 40)
-  expect(intervalOutsideRight.b).toBeGreaterThan(intervalOutsideLeft.b + 10)
-  expect(getRedBlueSkew(intervalOutsideLeft)).toBeGreaterThan(
-    getRedBlueSkew(intervalOutsideRight) + 15
-  )
-  expect(laterTopOutsideGap.r).toBeLessThan(80)
-  expect(laterTopOutsideGap.g).toBeLessThan(80)
-  expect(laterTopOutsideGap.b).toBeLessThan(80)
-  expect(center.r).toBeGreaterThan(170)
-  expect(center.g).toBeGreaterThan(170)
-  expect(center.b).toBeGreaterThan(170)
-})
-
-test('benchmark: rectangle inside bevel corner-spanning constrained dashed stroke renders through the first corner-spanning topology family product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectCornerSpanningProbeRegions(raster)
-
-  const [
-    topNearCornerInside,
-    rightNearCornerInside,
-    topFarGap,
-    cornerOutsideLeak,
-    center
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topNearCornerInside),
-    getGreenCoverage(page, raster, probes.rightNearCornerInside),
-    getGreenCoverage(page, raster, probes.topFarGap),
-    getGreenCoverage(page, raster, probes.cornerOutsideLeak),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(rightNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: rectangle inside bevel corner-spanning constrained dashed gradient stroke renders through the next supported paint product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectCornerSpanningGradientProbeRegions(raster)
-
-  const [
-    topNearCornerLeft,
-    topNearCornerRight,
-    rightNearCorner,
-    topFarGap,
-    cornerOutsideLeak,
-    center
-  ] = await Promise.all([
-    getAverageColor(page, raster, probes.topNearCornerLeft),
-    getAverageColor(page, raster, probes.topNearCornerRight),
-    getAverageColor(page, raster, probes.rightNearCorner),
-    getAverageColor(page, raster, probes.topFarGap),
-    getAverageColor(page, raster, probes.cornerOutsideLeak),
-    getAverageColor(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerLeft.a).toBeGreaterThan(180)
-  expect(topNearCornerRight.a).toBeGreaterThan(180)
-  expect(rightNearCorner.a).toBeGreaterThan(180)
-  expect(getRedBlueSkew(topNearCornerLeft)).toBeGreaterThan(
-    getRedBlueSkew(topNearCornerRight) + 15
-  )
-  expect(topNearCornerLeft.r).toBeGreaterThan(topNearCornerLeft.b + 40)
-  expect(topNearCornerRight.b).toBeGreaterThan(topNearCornerLeft.b + 15)
-  expect(topNearCornerRight.r).toBeLessThan(topNearCornerLeft.r - 40)
-  expect(Math.abs(getRedBlueSkew(topFarGap))).toBeLessThan(20)
-  expect(topFarGap.r).toBeGreaterThan(170)
-  expect(topFarGap.g).toBeGreaterThan(170)
-  expect(topFarGap.b).toBeGreaterThan(170)
-  expect(cornerOutsideLeak.r).toBeLessThan(80)
-  expect(cornerOutsideLeak.g).toBeLessThan(80)
-  expect(cornerOutsideLeak.b).toBeLessThan(80)
-  expect(center.r).toBeGreaterThan(170)
-  expect(center.g).toBeGreaterThan(170)
-  expect(center.b).toBeGreaterThan(170)
-})
-
-test('benchmark: rectangle inside miter corner-spanning constrained dashed stroke renders through the next corner-spanning topology family product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'inside',
-    join: 'miter',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectCornerSpanningProbeRegions(raster)
-
-  const [
-    topNearCornerInside,
-    rightNearCornerInside,
-    topFarGap,
-    cornerOutsideLeak,
-    center
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topNearCornerInside),
-    getGreenCoverage(page, raster, probes.rightNearCornerInside),
-    getGreenCoverage(page, raster, probes.topFarGap),
-    getGreenCoverage(page, raster, probes.cornerOutsideLeak),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(rightNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: rectangle inside round corner-spanning constrained dashed stroke renders through the uniform-width corner-spanning topology family product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'inside',
-    join: 'round',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectCornerSpanningProbeRegions(raster)
-
-  const [
-    topNearCornerInside,
-    rightNearCornerInside,
-    topFarGap,
-    cornerOutsideLeak,
-    center
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topNearCornerInside),
-    getGreenCoverage(page, raster, probes.rightNearCornerInside),
-    getGreenCoverage(page, raster, probes.topFarGap),
-    getGreenCoverage(page, raster, probes.cornerOutsideLeak),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(rightNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: rectangle outside bevel corner-spanning constrained dashed stroke renders through the next bounded corner-spanning topology family product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectCornerSpanningProbeRegions(raster)
-
-  const [
-    topNearCornerOutside,
-    rightNearCornerOutside,
-    topFarGap,
-    cornerInsideLeak,
-    center
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topNearCornerOutside),
-    getGreenCoverage(page, raster, probes.rightNearCornerOutside),
-    getGreenCoverage(page, raster, probes.topFarGap),
-    getGreenCoverage(page, raster, probes.cornerInsideLeak),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(rightNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: rectangle outside bevel corner-spanning constrained dashed gradient stroke renders through the next supported paint product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectCornerSpanningOutsideGradientProbeRegions(raster)
-
-  const [
-    topNearCornerOutsideLeft,
-    topNearCornerOutsideRight,
-    rightNearCornerOutside,
-    topFarGap,
-    cornerInsideLeak,
-    center
-  ] = await Promise.all([
-    getAverageColor(page, raster, probes.topNearCornerOutsideLeft),
-    getAverageColor(page, raster, probes.topNearCornerOutsideRight),
-    getAverageColor(page, raster, probes.rightNearCornerOutside),
-    getAverageColor(page, raster, probes.topFarGap),
-    getAverageColor(page, raster, probes.cornerInsideLeak),
-    getAverageColor(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerOutsideLeft.a).toBeGreaterThan(180)
-  expect(topNearCornerOutsideRight.a).toBeGreaterThan(180)
-  expect(rightNearCornerOutside.a).toBeGreaterThan(180)
-  expect(getRedBlueSkew(topNearCornerOutsideLeft)).toBeGreaterThan(
-    getRedBlueSkew(topNearCornerOutsideRight) + 15
-  )
-  expect(topNearCornerOutsideLeft.r).toBeGreaterThan(
-    topNearCornerOutsideLeft.b + 40
-  )
-  expect(topFarGap.r).toBeLessThan(80)
-  expect(topFarGap.g).toBeLessThan(80)
-  expect(topFarGap.b).toBeLessThan(80)
-  expect(Math.abs(getRedBlueSkew(cornerInsideLeak))).toBeLessThan(20)
-  expect(cornerInsideLeak.r).toBeGreaterThan(170)
-  expect(cornerInsideLeak.g).toBeGreaterThan(170)
-  expect(cornerInsideLeak.b).toBeGreaterThan(170)
-  expect(center.r).toBeGreaterThan(170)
-  expect(center.g).toBeGreaterThan(170)
-  expect(center.b).toBeGreaterThan(170)
-})
-
-test('benchmark: rectangle outside miter corner-spanning constrained dashed stroke renders through the matching bounded corner-spanning topology family product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'outside',
-    join: 'miter',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectCornerSpanningProbeRegions(raster)
-
-  const [
-    topNearCornerOutside,
-    rightNearCornerOutside,
-    topFarGap,
-    cornerInsideLeak,
-    center
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topNearCornerOutside),
-    getGreenCoverage(page, raster, probes.rightNearCornerOutside),
-    getGreenCoverage(page, raster, probes.topFarGap),
-    getGreenCoverage(page, raster, probes.cornerInsideLeak),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(rightNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: rectangle outside round corner-spanning constrained dashed stroke renders through the uniform-width corner-spanning topology family product path', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'outside',
-    join: 'round',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectCornerSpanningProbeRegions(raster)
-
-  const [
-    topNearCornerOutside,
-    rightNearCornerOutside,
-    topFarGap,
-    cornerInsideLeak,
-    center
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topNearCornerOutside),
-    getGreenCoverage(page, raster, probes.rightNearCornerOutside),
-    getGreenCoverage(page, raster, probes.topFarGap),
-    getGreenCoverage(page, raster, probes.cornerInsideLeak),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(rightNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: oval inside constrained dashed full-loop stroke renders through the supported constrained dashed oval product path', async ({
-  page
-}) => {
-  await createOval(page, 0.35, 0.35)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'oval',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getOvalProbeRegions(raster)
-
-  const [topInside, leftInside, topOutside, center] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topInside),
-    getGreenCoverage(page, raster, probes.leftInside),
-    getGreenCoverage(page, raster, probes.topOutside),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(leftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: oval outside constrained dashed full-loop stroke renders through the same supported constrained dashed oval product path', async ({
-  page
-}) => {
-  await createOval(page, 0.35, 0.35)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'oval',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getOvalProbeRegions(raster)
-
-  const [topOutside, leftOutside, topInside, center] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topOutside),
-    getGreenCoverage(page, raster, probes.leftOutside),
-    getGreenCoverage(page, raster, probes.topInside),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(leftOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: oval inside round-join constrained dashed full-loop stroke renders through the sampled smooth product path', async ({
-  page
-}) => {
-  await createOval(page, 0.35, 0.35)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'oval',
-    position: 'inside',
-    join: 'round',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getOvalProbeRegions(raster)
-
-  const [topInside, leftInside, topOutside, center] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topInside),
-    getGreenCoverage(page, raster, probes.leftInside),
-    getGreenCoverage(page, raster, probes.topOutside),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(leftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: oval outside round-join constrained dashed full-loop stroke renders through the sampled smooth product path', async ({
-  page
-}) => {
-  await createOval(page, 0.35, 0.35)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'oval',
-    position: 'outside',
-    join: 'round',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getOvalProbeRegions(raster)
-
-  const [topOutside, leftOutside, topInside, center] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topOutside),
-    getGreenCoverage(page, raster, probes.leftOutside),
-    getGreenCoverage(page, raster, probes.topInside),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(leftOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed vector inside constrained dashed full-loop stroke renders through the supported constrained dashed vector product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectProbeRegions(raster)
-
-  const [topInside, topOutside, center] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topInside),
-    getGreenCoverage(page, raster, probes.topOutside),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed rectangle-equivalent vector outside round-join full-loop constrained dashed stroke renders through the next supported join/cap vector outside product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'round',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectProbeRegions(raster)
-
-  const [topOutside, topInside, center] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topOutside),
-    getGreenCoverage(page, raster, probes.topInside),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed rectangle-equivalent vector inside constrained dashed full-loop gradient stroke renders through the next supported paint vector product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await patchSelectedVectorToClosedRectangle(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectGradientProbeRegions(raster)
-
-  const [topInsideLeft, topInsideRight, center] = await Promise.all([
-    getAverageColor(page, raster, probes.topInsideLeft),
-    getAverageColor(page, raster, probes.topInsideRight),
-    getAverageColor(page, raster, probes.center)
-  ])
-
-  expect(topInsideLeft.a).toBeGreaterThan(180)
-  expect(topInsideRight.a).toBeGreaterThan(180)
-  expect(topInsideLeft.r).toBeGreaterThan(topInsideLeft.b + 40)
-  expect(topInsideRight.b).toBeGreaterThan(topInsideRight.r + 40)
-  expect(center.r).toBeLessThan(80)
-  expect(center.g).toBeLessThan(80)
-  expect(center.b).toBeLessThan(80)
-})
-
-test('benchmark: closed non-rectangle-equivalent vector inside constrained dashed full-loop gradient stroke renders through the next broader supported paint vector product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedTrapezoid(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectGradientProbeRegions(raster)
-
-  const [topInsideLeft, topInsideRight, center] = await Promise.all([
-    getAverageColor(page, raster, probes.topInsideLeft),
-    getAverageColor(page, raster, probes.topInsideRight),
-    getAverageColor(page, raster, probes.center)
-  ])
-
-  expect(topInsideLeft.a).toBeGreaterThan(180)
-  expect(topInsideRight.a).toBeGreaterThan(180)
-  expect(topInsideLeft.r).toBeGreaterThan(topInsideLeft.b + 40)
-  expect(topInsideRight.b).toBeGreaterThan(topInsideRight.r + 40)
-  expect(center.r).toBeLessThan(80)
-  expect(center.g).toBeLessThan(80)
-  expect(center.b).toBeLessThan(80)
-})
-
-test('benchmark: closed rectangle-equivalent vector outside constrained dashed full-loop gradient stroke renders through the next supported paint vector product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectGradientProbeRegions(raster)
-
-  const [topOutsideLeft, topOutsideRight, center] = await Promise.all([
-    getAverageColor(page, raster, probes.topOutsideLeft),
-    getAverageColor(page, raster, probes.topOutsideRight),
-    getAverageColor(page, raster, probes.center)
-  ])
-
-  expect(topOutsideLeft.a).toBeGreaterThan(180)
-  expect(topOutsideRight.a).toBeGreaterThan(180)
-  expect(topOutsideLeft.r).toBeGreaterThan(topOutsideLeft.b + 40)
-  expect(topOutsideRight.b).toBeGreaterThan(topOutsideRight.r + 40)
-  expect(center.r).toBeLessThan(80)
-  expect(center.g).toBeLessThan(80)
-  expect(center.b).toBeLessThan(80)
-})
-
-test('benchmark: closed non-rectangle-equivalent vector outside constrained dashed full-loop gradient stroke renders through the next broader supported paint vector product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedTrapezoid(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectGradientProbeRegions(raster)
-
-  const [topOutsideLeft, topOutsideRight, center] = await Promise.all([
-    getAverageColor(page, raster, probes.topOutsideLeft),
-    getAverageColor(page, raster, probes.topOutsideRight),
-    getAverageColor(page, raster, probes.center)
-  ])
-
-  expect(topOutsideLeft.a).toBeGreaterThan(180)
-  expect(topOutsideRight.a).toBeGreaterThan(180)
-  expect(topOutsideLeft.r).toBeGreaterThan(topOutsideLeft.b + 40)
-  expect(topOutsideRight.b).toBeGreaterThan(topOutsideRight.r + 40)
-  expect(center.r).toBeLessThan(80)
-  expect(center.g).toBeLessThan(80)
-  expect(center.b).toBeLessThan(80)
-})
-
-test('benchmark: closed rectangle-equivalent vector inside constrained dashed single-edge gradient stroke renders through the next supported paint vector product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET
-  })
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectSingleEdgeGradientProbeRegions(raster)
-
-  const [intervalInsideLeft, intervalInsideRight, laterTopInsideGap, center] =
-    await Promise.all([
-      getAverageColor(page, raster, probes.intervalInsideLeft),
-      getAverageColor(page, raster, probes.intervalInsideRight),
-      getAverageColor(page, raster, probes.laterTopInsideGap),
-      getAverageColor(page, raster, probes.center)
-    ])
-
-  expect(intervalInsideLeft.a).toBeGreaterThan(180)
-  expect(intervalInsideRight.a).toBeGreaterThan(180)
-  expect(intervalInsideLeft.r).toBeGreaterThan(intervalInsideLeft.b + 40)
-  expect(intervalInsideRight.b).toBeGreaterThan(intervalInsideLeft.b + 10)
-  expect(getRedBlueSkew(intervalInsideLeft)).toBeGreaterThan(
-    getRedBlueSkew(intervalInsideRight) + 15
-  )
-  expect(laterTopInsideGap.r).toBeLessThan(80)
-  expect(laterTopInsideGap.g).toBeLessThan(80)
-  expect(laterTopInsideGap.b).toBeLessThan(80)
-  expect(center.r).toBeLessThan(80)
-  expect(center.g).toBeLessThan(80)
-  expect(center.b).toBeLessThan(80)
-})
-
-test('benchmark: closed rectangle-equivalent vector outside constrained dashed single-edge gradient stroke renders through the next supported paint vector product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET
-  })
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectSingleEdgeOutsideGradientProbeRegions(raster)
-
-  const [
-    intervalOutsideLeft,
-    intervalOutsideRight,
-    laterTopOutsideGap,
-    center
-  ] = await Promise.all([
-    getAverageColor(page, raster, probes.intervalOutsideLeft),
-    getAverageColor(page, raster, probes.intervalOutsideRight),
-    getAverageColor(page, raster, probes.laterTopOutsideGap),
-    getAverageColor(page, raster, probes.center)
-  ])
-
-  expect(intervalOutsideLeft.a).toBeGreaterThan(180)
-  expect(intervalOutsideRight.a).toBeGreaterThan(180)
-  expect(intervalOutsideLeft.r).toBeGreaterThan(intervalOutsideLeft.b + 40)
-  expect(intervalOutsideRight.b).toBeGreaterThan(intervalOutsideLeft.b + 10)
-  expect(getRedBlueSkew(intervalOutsideLeft)).toBeGreaterThan(
-    getRedBlueSkew(intervalOutsideRight) + 15
-  )
-  expect(laterTopOutsideGap.r).toBeLessThan(80)
-  expect(laterTopOutsideGap.g).toBeLessThan(80)
-  expect(laterTopOutsideGap.b).toBeLessThan(80)
-  expect(center.r).toBeLessThan(80)
-  expect(center.g).toBeLessThan(80)
-  expect(center.b).toBeLessThan(80)
-})
-
-test('benchmark: closed non-rectangle-equivalent vector outside constrained dashed single-edge gradient stroke renders through the next broader supported paint vector product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedTrapezoid(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET
-  })
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectSingleEdgeOutsideGradientProbeRegions(raster)
-
-  const [
-    intervalOutsideLeft,
-    intervalOutsideRight,
-    laterTopOutsideGap,
-    center
-  ] = await Promise.all([
-    getAverageColor(page, raster, probes.intervalOutsideLeft),
-    getAverageColor(page, raster, probes.intervalOutsideRight),
-    getAverageColor(page, raster, probes.laterTopOutsideGap),
-    getAverageColor(page, raster, probes.center)
-  ])
-
-  expect(intervalOutsideLeft.a).toBeGreaterThan(180)
-  expect(intervalOutsideRight.a).toBeGreaterThan(180)
-  expect(intervalOutsideLeft.r).toBeGreaterThan(intervalOutsideLeft.b + 40)
-  expect(intervalOutsideRight.b).toBeGreaterThan(intervalOutsideLeft.b + 10)
-  expect(getRedBlueSkew(intervalOutsideLeft)).toBeGreaterThan(
-    getRedBlueSkew(intervalOutsideRight) + 15
-  )
-  expect(laterTopOutsideGap.r).toBeLessThan(80)
-  expect(laterTopOutsideGap.g).toBeLessThan(80)
-  expect(laterTopOutsideGap.b).toBeLessThan(80)
-  expect(center.r).toBeLessThan(80)
-  expect(center.g).toBeLessThan(80)
-  expect(center.b).toBeLessThan(80)
-})
-
-test('benchmark: closed non-rectangle-equivalent vector inside constrained dashed single-edge gradient stroke renders through the next broader supported paint vector product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedTrapezoid(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET
-  })
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectSingleEdgeGradientProbeRegions(raster)
-
-  const [intervalInsideLeft, intervalInsideRight, laterTopInsideGap, center] =
-    await Promise.all([
-      getAverageColor(page, raster, probes.intervalInsideLeft),
-      getAverageColor(page, raster, probes.intervalInsideRight),
-      getAverageColor(page, raster, probes.laterTopInsideGap),
-      getAverageColor(page, raster, probes.center)
-    ])
-
-  expect(intervalInsideLeft.a).toBeGreaterThan(180)
-  expect(intervalInsideRight.a).toBeGreaterThan(180)
-  expect(intervalInsideLeft.r).toBeGreaterThan(intervalInsideLeft.b + 40)
-  expect(intervalInsideRight.b).toBeGreaterThan(intervalInsideLeft.b + 10)
-  expect(getRedBlueSkew(intervalInsideLeft)).toBeGreaterThan(
-    getRedBlueSkew(intervalInsideRight) + 15
-  )
-  expect(laterTopInsideGap.r).toBeLessThan(80)
-  expect(laterTopInsideGap.g).toBeLessThan(80)
-  expect(laterTopInsideGap.b).toBeLessThan(80)
-  expect(center.r).toBeLessThan(80)
-  expect(center.g).toBeLessThan(80)
-  expect(center.b).toBeLessThan(80)
-})
-
-test('benchmark: closed rectangle-equivalent vector inside round-join full-loop constrained dashed stroke renders through the next supported join/cap vector product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'round',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectProbeRegions(raster)
-
-  const [topInside, leftInside, topOutside, center] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topInside),
-    getGreenCoverage(page, raster, probes.leftInside),
-    getGreenCoverage(page, raster, probes.topOutside),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(leftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed rectangle-equivalent vector inside single-edge round-cap constrained dashed stroke renders through the next supported join/cap vector cap path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'round',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET,
-    width: 4
-  })
-
-  const raster = await captureSelectedElementRaster(page, 4)
-  const probes = getVectorRectSingleEdgeRoundCapProbeRegions(raster)
-
-  const [capInside, bodyInside, capOutsideLeak, laterTopInsideGap, center] =
-    await Promise.all([
-      getGreenCoverage(page, raster, probes.capInside),
-      getGreenCoverage(page, raster, probes.bodyInside),
-      getGreenCoverage(page, raster, probes.capOutsideLeak),
-      getGreenCoverage(page, raster, probes.laterTopInsideGap),
-      getGreenCoverage(page, raster, probes.center)
-    ])
-
-  expect(capInside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
-  expect(bodyInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(capOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(laterTopInsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed rectangle-equivalent vector outside single-edge round-cap constrained dashed stroke renders through the next supported join/cap vector outside cap path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'round',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getVectorRectSingleEdgeOutsideRoundCapProbeRegions(raster)
-
-  const [capOutside, bodyOutside, capInsideLeak, laterTopOutsideGap, center] =
-    await Promise.all([
-      getGreenCoverage(page, raster, probes.capOutside),
-      getGreenCoverage(page, raster, probes.bodyOutside),
-      getGreenCoverage(page, raster, probes.capInsideLeak),
-      getGreenCoverage(page, raster, probes.laterTopOutsideGap),
-      getGreenCoverage(page, raster, probes.center)
-    ])
-
-  expect(capOutside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
-  expect(bodyOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(capInsideLeak).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(laterTopOutsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed rectangle-equivalent vector inside single-edge square-cap constrained dashed stroke keeps endpoint body clipped to the inside', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'square',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET,
-    width: 4
-  })
-
-  const raster = await captureSelectedElementRaster(page, 4)
-  const probes = getVectorRectSingleEdgeRoundCapProbeRegions(raster)
-
-  const [capInside, bodyInside, capOutsideLeak, laterTopInsideGap, center] =
-    await Promise.all([
-      getGreenCoverage(page, raster, probes.capInside),
-      getGreenCoverage(page, raster, probes.bodyInside),
-      getGreenCoverage(page, raster, probes.capOutsideLeak),
-      getGreenCoverage(page, raster, probes.laterTopInsideGap),
-      getGreenCoverage(page, raster, probes.center)
-    ])
-
-  expect(capInside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
-  expect(bodyInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(capOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(laterTopInsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed rectangle-equivalent vector outside single-edge square-cap constrained dashed stroke keeps endpoint body outside the source', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'square',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET,
-    width: 4
-  })
-
-  const raster = await captureSelectedElementRaster(page, 4)
-  const probes = getVectorRectSingleEdgeOutsideRoundCapProbeRegions(raster)
-
-  const [capOutside, bodyOutside, capInsideLeak, laterTopOutsideGap, center] =
-    await Promise.all([
-      getGreenCoverage(page, raster, probes.capOutside),
-      getGreenCoverage(page, raster, probes.bodyOutside),
-      getGreenCoverage(page, raster, probes.capInsideLeak),
-      getGreenCoverage(page, raster, probes.laterTopOutsideGap),
-      getGreenCoverage(page, raster, probes.center)
-    ])
-
-  expect(capOutside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
-  expect(bodyOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(capInsideLeak).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(laterTopOutsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed sharp-seam vector inside square-cap first dash keeps the core visible while clipping the endpoint cap', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedSharpSeamTriangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'miter',
-    cap: 'square',
-    pattern: SHARP_SEAM_TRIANGLE_FIRST_DASH_PATTERN,
-    offset: '0',
-    width: STROKE_WIDTH
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getSharpSeamTriangleFirstDashProbeRegions(raster)
-
-  const [bodyInside, outsideLeak, miterLeak, laterInsideGap, center] =
-    await Promise.all([
-      getGreenCoverage(page, raster, probes.nextInsideBody),
-      getGreenCoverage(page, raster, probes.nextOutsideBody),
-      getGreenCoverage(page, raster, probes.outsideMiter),
-      getGreenCoverage(page, raster, probes.laterInsideGap),
-      getGreenCoverage(page, raster, probes.center)
-    ])
-
-  expect(bodyInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(outsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(miterLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(laterInsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed sharp-seam vector outside square-cap first dash keeps the seam miter and adjacent dash bodies visible', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedSharpSeamTriangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'miter',
-    cap: 'square',
-    pattern: SHARP_SEAM_TRIANGLE_FIRST_DASH_PATTERN,
-    offset: '0',
-    width: STROKE_WIDTH
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getSharpSeamTriangleFirstDashProbeRegions(raster)
-
-  const [
-    nextBodyOutside,
-    previousBodyOutside,
-    outsideMiter,
-    laterOutsideGap,
-    insideLeak,
-    center
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.nextOutsideBody),
-    getGreenCoverage(page, raster, probes.previousOutsideBody),
-    getGreenCoverage(page, raster, probes.outsideMiter),
-    getGreenCoverage(page, raster, probes.laterOutsideGap),
-    getGreenCoverage(page, raster, probes.nextInsideBody),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(nextBodyOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(previousBodyOutside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
-  expect(outsideMiter).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
-  expect(laterOutsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(insideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed non-rectangle-equivalent vector inside single-edge round-cap constrained dashed stroke renders through the next broader supported join/cap vector cap path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedTrapezoid(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'round',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET,
-    width: 4
-  })
-
-  const raster = await captureSelectedElementRaster(page, 4)
-  const probes = getVectorRectSingleEdgeRoundCapProbeRegions(raster)
-
-  const [capInside, bodyInside, capOutsideLeak, laterTopInsideGap, center] =
-    await Promise.all([
-      getGreenCoverage(page, raster, probes.capInside),
-      getGreenCoverage(page, raster, probes.bodyInside),
-      getGreenCoverage(page, raster, probes.capOutsideLeak),
-      getGreenCoverage(page, raster, probes.laterTopInsideGap),
-      getGreenCoverage(page, raster, probes.center)
-    ])
-
-  expect(capInside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
-  expect(bodyInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(capOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(laterTopInsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed non-rectangle-equivalent vector outside single-edge round-cap constrained dashed stroke renders through the next broader supported join/cap vector outside cap path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedTrapezoid(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'round',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET,
-    width: 4
-  })
-
-  const raster = await captureSelectedElementRaster(page, 4)
-  const probes = getVectorRectSingleEdgeOutsideRoundCapProbeRegions(raster)
-
-  const [capOutside, bodyOutside, capInsideLeak, laterTopOutsideGap, center] =
-    await Promise.all([
-      getGreenCoverage(page, raster, probes.capOutside),
-      getGreenCoverage(page, raster, probes.bodyOutside),
-      getGreenCoverage(page, raster, probes.capInsideLeak),
-      getGreenCoverage(page, raster, probes.laterTopOutsideGap),
-      getGreenCoverage(page, raster, probes.center)
-    ])
-
-  expect(capOutside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
-  expect(bodyOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(capInsideLeak).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(laterTopOutsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed non-rectangle-equivalent vector inside round-join full-loop constrained dashed stroke renders through the next broader supported join/cap vector round-join path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedTrapezoid(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'round',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN,
-    width: 4
-  })
-
-  const raster = await captureSelectedElementRaster(page, 4)
-  const probes = getRectProbeRegions(raster)
-
-  const [topInside, leftInside, topOutside, center] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topInside),
-    getGreenCoverage(page, raster, probes.leftInside),
-    getGreenCoverage(page, raster, probes.topOutside),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(leftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed non-rectangle-equivalent vector outside round-join full-loop constrained dashed stroke renders through the next broader supported join/cap vector outside product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedTrapezoid(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'round',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectProbeRegions(raster)
-
-  const [topOutside, topInside, center] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topOutside),
-    getGreenCoverage(page, raster, probes.topInside),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed vector outside constrained dashed full-loop stroke renders through the same supported constrained dashed vector product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectProbeRegions(raster)
-
-  const [topOutside, topInside, center] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topOutside),
-    getGreenCoverage(page, raster, probes.topInside),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: self-intersecting constrained dashed vectors remain visible on source-path intervals on the app path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToSelfIntersecting(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN,
-    width: 4
-  })
-
-  const raster = await captureSelectedElementRaster(page, 4)
-  const wholeStrokeCoverage = await getGreenCoverage(page, raster, {
-    x: 0,
-    y: 0,
-    width: raster.width,
-    height: raster.height
-  })
-
-  expect(wholeStrokeCoverage).toBeGreaterThan(0.006)
-})
-;(['inside', 'outside'] as const).forEach((position) => {
-  test(`benchmark: open-path ${position} constrained dashed vectors render through exact interval-local geometry on the app path`, async ({
+test.describe('constrained dashed primitive visual matrix', () => {
+  test('benchmark: rectangle inside constrained dashed full-loop stroke renders through the supported constrained dashed rectangle product path', async ({
     page
   }) => {
-    await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-    await clearVectorOverlayState(page)
-    await ensureElementSelected(page, 'vector')
-    await patchSelectedVectorToOpenLine(page)
+    await createRectangle(page, 0.3, 0.3)
     await configureConstrainedDashedStroke(page, {
-      elementType: 'vector',
-      position,
+      position: 'inside',
       join: 'bevel',
       cap: 'butt',
-      pattern: FULL_LOOP_PATTERN,
-      width: 4
+      pattern: FULL_LOOP_PATTERN
     })
 
-    const authoredStroke = await getSelectedStrokeRowSnapshot(page, 0)
-    expect(authoredStroke).toMatchObject({
-      style: 'dashed',
-      position,
-      width: 4,
-      joinType: 'bevel',
-      capType: 'butt'
-    })
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectProbeRegions(raster)
 
-    const raster = await captureSelectedElementRaster(page, 4)
-    const probes = getOpenLineProbeRegions(raster)
-
-    const [midline, aboveLine, belowLine] = await Promise.all([
-      getGreenCoverage(page, raster, probes.midline),
-      getGreenCoverage(page, raster, probes.aboveLine),
-      getGreenCoverage(page, raster, probes.belowLine)
+    const [topInside, leftInside, topOutside, center] = await Promise.all([
+      getGreenCoverage(page, raster, probes.topInside),
+      getGreenCoverage(page, raster, probes.leftInside),
+      getGreenCoverage(page, raster, probes.topOutside),
+      getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(midline).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(aboveLine).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(belowLine).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(leftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
   })
-})
-;(['inside', 'outside'] as const).forEach((position) => {
-  test(`benchmark: real-created open vector keeps dashed stroke visible after switching center to ${position}`, async ({
+
+  test('benchmark: rectangle outside constrained dashed full-loop stroke renders through the next supported constrained dashed product path', async ({
     page
   }) => {
-    await createTwoPointVectorPath(page)
-    await clearVectorOverlayState(page)
-    await ensureElementSelected(page, 'vector')
-    await configureCenterDashedStroke(page, {
-      elementType: 'vector',
+    await createRectangle(page, 0.3, 0.3)
+    await configureConstrainedDashedStroke(page, {
+      position: 'outside',
       join: 'bevel',
       cap: 'butt',
-      pattern: FULL_LOOP_PATTERN,
-      width: 4
+      pattern: FULL_LOOP_PATTERN
     })
 
-    const centerStroke = await getSelectedStrokeRowSnapshot(page, 0)
-    expect(centerStroke).toMatchObject({
-      style: 'dashed',
-      position: 'center',
-      width: 4,
-      joinType: 'bevel',
-      capType: 'butt'
-    })
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectProbeRegions(raster)
 
-    await setSelectedStrokePosition(page, position)
+    const [topOutside, topInside, center] = await Promise.all([
+      getGreenCoverage(page, raster, probes.topOutside),
+      getGreenCoverage(page, raster, probes.topInside),
+      getGreenCoverage(page, raster, probes.center)
+    ])
 
-    const authoredStroke = await getSelectedStrokeRowSnapshot(page, 0)
-    expect(authoredStroke).toMatchObject({
-      style: 'dashed',
-      position,
-      width: 4,
-      joinType: 'bevel',
-      capType: 'butt'
-    })
-
-    const raster = await captureSelectedElementRaster(page, 4)
-    const probes = getOpenDiagonalProbeRegions(raster)
-    const strokeEnvelope = await getGreenCoverage(
-      page,
-      raster,
-      probes.strokeEnvelope
-    )
-
-    expect(strokeEnvelope).toBeGreaterThan(0.04)
+    expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
   })
-})
-;(['inside', 'outside'] as const).forEach((position) => {
-  test(`benchmark: real-created open vector keeps repeated dashed stroke visible through center-${position}-center switching`, async ({
+
+  test('benchmark: rectangle constrained dashed strokes with multiple eligible intervals render through typed multi-stroke ownership', async ({
     page
   }) => {
-    await createTwoPointVectorPath(page)
-    await clearVectorOverlayState(page)
-    await ensureElementSelected(page, 'vector')
-    await configureCenterDashedStroke(page, {
-      elementType: 'vector',
-      pattern: '20, 20',
-      width: 4
-    })
-
-    const centerStroke = await getSelectedStrokeRowSnapshot(page, 0)
-    expect(centerStroke).toMatchObject({
-      style: 'dashed',
-      position: 'center',
-      width: 4,
-      joinType: 'bevel',
-      capType: 'butt'
-    })
-
-    const centerRaster = await captureSelectedElementRaster(page, 4)
-    const centerEnvelope = await getGreenCoverage(
-      page,
-      centerRaster,
-      getOpenDiagonalProbeRegions(centerRaster).strokeEnvelope
-    )
-    expect(centerEnvelope).toBeGreaterThan(0.015)
-
-    await setSelectedStrokePosition(page, position)
-
-    const constrainedStroke = await getSelectedStrokeRowSnapshot(page, 0)
-    expect(constrainedStroke).toMatchObject({
-      style: 'dashed',
-      position,
-      width: 4,
-      joinType: 'bevel',
-      capType: 'butt'
-    })
-
-    const constrainedRaster = await captureSelectedElementRaster(page, 4)
-    const constrainedEnvelope = await getGreenCoverage(
-      page,
-      constrainedRaster,
-      getOpenDiagonalProbeRegions(constrainedRaster).strokeEnvelope
-    )
-    expect(constrainedEnvelope).toBeGreaterThan(0.015)
-
-    await setSelectedStrokePosition(page, 'center')
-
-    const restoredStroke = await getSelectedStrokeRowSnapshot(page, 0)
-    expect(restoredStroke).toMatchObject({
-      style: 'dashed',
-      position: 'center',
-      width: 4,
-      joinType: 'bevel',
-      capType: 'butt'
-    })
-
-    const restoredRaster = await captureSelectedElementRaster(page, 4)
-    const restoredEnvelope = await getGreenCoverage(
-      page,
-      restoredRaster,
-      getOpenDiagonalProbeRegions(restoredRaster).strokeEnvelope
-    )
-    expect(restoredEnvelope).toBeGreaterThan(0.015)
-  })
-})
-;(['inside', 'outside'] as const).forEach((position) => {
-  test(`benchmark: closed rectangle vector repeated dashed stroke switches from center to constrained ${position} placement`, async ({
-    page
-  }) => {
-    await createTwoPointVectorPath(page)
-    await clearVectorOverlayState(page)
-    await ensureElementSelected(page, 'vector')
-    await patchSelectedVectorToClosedRectangle(page)
-    await configureCenterDashedStroke(page, {
-      elementType: 'vector',
-      join: 'miter',
+    await createRectangle(page, 0.3, 0.3)
+    await configureConstrainedDashedStrokeRow(page, 0, {
+      position: 'inside',
+      join: 'bevel',
       cap: 'butt',
-      pattern: '20, 20',
-      width: 4
+      pattern: FULL_LOOP_PATTERN
+    })
+    await configureConstrainedDashedStrokeRow(page, 1, {
+      position: 'outside',
+      join: 'bevel',
+      cap: 'butt',
+      pattern: FULL_LOOP_PATTERN
+    })
+    await page.waitForTimeout(180)
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectProbeRegions(raster)
+
+    const [topInside, topOutside, center] = await Promise.all([
+      getGreenCoverage(page, raster, probes.topInside),
+      getGreenCoverage(page, raster, probes.topOutside),
+      getGreenCoverage(page, raster, probes.center)
+    ])
+
+    expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  })
+
+  test('benchmark: rectangle repeated constrained dashed intervals render when ownership resolves to one stroke', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+    await setSelectedElementSize(page, { width: 80, height: 40 })
+    await configureConstrainedDashedStroke(page, {
+      elementType: 'rect',
+      position: 'outside',
+      join: 'bevel',
+      cap: 'butt',
+      pattern: '20, 20'
     })
 
-    const centerStroke = await getSelectedStrokeRowSnapshot(page, 0)
-    expect(centerStroke).toMatchObject({
-      style: 'dashed',
-      position: 'center',
-      width: 4,
-      joinType: 'miter',
-      capType: 'butt'
-    })
-
-    await setSelectedStrokePosition(page, position)
-
-    const authoredStroke = await getSelectedStrokeRowSnapshot(page, 0)
-    expect(authoredStroke).toMatchObject({
-      style: 'dashed',
-      position,
-      width: 4,
-      joinType: 'miter',
-      capType: 'butt'
-    })
-
-    const raster = await captureSelectedElementRaster(page, 4)
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
     const probes = getRectRepeatedDashProbeRegions(raster)
-    const [topInsideFirstDash, topOutsideFirstDash, center] = await Promise.all(
+
+    const [topOutsideFirstDash, topInsideFirstDash, center] = await Promise.all(
       [
-        getGreenCoverage(page, raster, probes.topInsideFirstDash),
         getGreenCoverage(page, raster, probes.topOutsideFirstDash),
+        getGreenCoverage(page, raster, probes.topInsideFirstDash),
         getGreenCoverage(page, raster, probes.center)
       ]
     )
 
-    if (position === 'inside') {
-      expect(topInsideFirstDash).toBeGreaterThan(0.35)
-      expect(topOutsideFirstDash).toBeLessThan(MAX_EXTERIOR_LEAK)
-    } else {
-      expect(topOutsideFirstDash).toBeGreaterThan(0.35)
-      expect(topInsideFirstDash).toBeLessThan(MAX_EXTERIOR_LEAK)
-    }
+    expect(topOutsideFirstDash).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topInsideFirstDash).toBeLessThan(MAX_EXTERIOR_LEAK)
     expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
   })
-})
-;(['inside', 'outside'] as const).forEach((position) => {
-  test(`benchmark: closed cubic vector repeated dashed stroke remains visible after switching center to ${position}`, async ({
+
+  test('benchmark: rectangle constrained dashed inside round-join full-loop stroke renders through the first supported join/cap product path', async ({
     page
   }) => {
-    await createTwoPointVectorPath(page)
-    await clearVectorOverlayState(page)
-    await ensureElementSelected(page, 'vector')
-    await patchSelectedVectorToClosedCubicLoop(page)
-    await configureCenterDashedStroke(page, {
-      elementType: 'vector',
-      join: 'miter',
-      cap: 'butt',
-      pattern: '20, 20',
-      width: 4
-    })
-
-    const centerStroke = await getSelectedStrokeRowSnapshot(page, 0)
-    expect(centerStroke).toMatchObject({
-      style: 'dashed',
-      position: 'center',
-      width: 4,
-      joinType: 'miter',
-      capType: 'butt'
-    })
-
-    const centerRaster = await captureSelectedElementRaster(page, 4)
-    const centerEnvelope = await getGreenCoverage(
-      page,
-      centerRaster,
-      getOpenDiagonalProbeRegions(centerRaster).strokeEnvelope
-    )
-    expect(centerEnvelope).toBeGreaterThan(0.03)
-
-    await setSelectedStrokePosition(page, position)
-
-    const authoredStroke = await getSelectedStrokeRowSnapshot(page, 0)
-    expect(authoredStroke).toMatchObject({
-      style: 'dashed',
-      position,
-      width: 4,
-      joinType: 'miter',
-      capType: 'butt'
-    })
-
-    const raster = await captureSelectedElementRaster(page, 4)
-    const strokeEnvelope = await getGreenCoverage(
-      page,
-      raster,
-      getOpenDiagonalProbeRegions(raster).strokeEnvelope
-    )
-
-    expect(strokeEnvelope).toBeGreaterThan(0.03)
-  })
-})
-;(['inside', 'outside'] as const).forEach((position) => {
-  test(`benchmark: reported closed star vector repeated dashed stroke remains visible after switching center to ${position}`, async ({
-    page
-  }) => {
-    await createTwoPointVectorPath(page)
-    await clearVectorOverlayState(page)
-    await ensureElementSelected(page, 'vector')
-    await patchSelectedVectorToReportedClosedStar(page)
-    await configureCenterDashedStroke(page, {
-      elementType: 'vector',
-      join: 'miter',
-      cap: 'butt',
-      pattern: '20, 20',
-      width: 10
-    })
-
-    const centerStroke = await getSelectedStrokeRowSnapshot(page, 0)
-    expect(centerStroke).toMatchObject({
-      style: 'dashed',
-      position: 'center',
-      width: 10,
-      joinType: 'miter',
-      capType: 'butt'
-    })
-
-    const centerRaster = await captureSelectedElementRaster(page, 10)
-    const centerEnvelope = await getGreenCoverage(
-      page,
-      centerRaster,
-      getOpenDiagonalProbeRegions(centerRaster).strokeEnvelope
-    )
-    expect(centerEnvelope).toBeGreaterThan(0.01)
-
-    await setSelectedStrokePosition(page, position)
-
-    const authoredStroke = await getSelectedStrokeRowSnapshot(page, 0)
-    expect(authoredStroke).toMatchObject({
-      style: 'dashed',
-      position,
-      width: 10,
-      joinType: 'miter',
-      capType: 'butt'
-    })
-
-    const raster = await captureSelectedElementRaster(page, 10)
-    const strokeEnvelope = await getGreenCoverage(
-      page,
-      raster,
-      getOpenDiagonalProbeRegions(raster).strokeEnvelope
-    )
-
-    expect(strokeEnvelope).toBeGreaterThan(0.01)
-  })
-})
-
-test('benchmark: reported closed star vector inside dashed square caps preserve global dash coverage', async ({
-  page
-}) => {
-  await createTwoPointVectorPath(page)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToReportedClosedStar(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'miter',
-    cap: 'square',
-    pattern: '20, 20',
-    width: 10
-  })
-
-  const authoredStroke = await getSelectedStrokeRowSnapshot(page, 0)
-  expect(authoredStroke).toMatchObject({
-    style: 'dashed',
-    position: 'inside',
-    width: 10,
-    joinType: 'miter',
-    capType: 'square'
-  })
-
-  const raster = await captureSelectedElementRaster(page, 10)
-  const probes = getReportedStarGlobalProbeRegions(raster)
-  const [
-    wholeStrokeEnvelope,
-    upperLeftArm,
-    upperRightArm,
-    centerCrossingBand,
-    lowerLeftCurve,
-    lowerRightArm
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.wholeStrokeEnvelope),
-    getGreenCoverage(page, raster, probes.upperLeftArm),
-    getGreenCoverage(page, raster, probes.upperRightArm),
-    getGreenCoverage(page, raster, probes.centerCrossingBand),
-    getGreenCoverage(page, raster, probes.lowerLeftCurve),
-    getGreenCoverage(page, raster, probes.lowerRightArm)
-  ])
-
-  expect(wholeStrokeEnvelope).toBeGreaterThan(0.015)
-  expect(upperLeftArm).toBeGreaterThan(0.008)
-  expect(upperRightArm).toBeGreaterThan(0.008)
-  expect(centerCrossingBand).toBeGreaterThan(0.008)
-  expect(lowerLeftCurve).toBeGreaterThan(0.008)
-  expect(lowerRightArm).toBeGreaterThan(0.008)
-})
-
-test('benchmark: reported closed star vector inside dashed square caps keep source-path sharp-corner coverage visible', async ({
-  page
-}, testInfo) => {
-  await createTwoPointVectorPath(page)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToReportedClosedStar(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'miter',
-    cap: 'square',
-    pattern: '400, 20',
-    width: 10
-  })
-
-  const authoredStroke = await getSelectedStrokeRowSnapshot(page, 0)
-  expect(authoredStroke).toMatchObject({
-    style: 'dashed',
-    position: 'inside',
-    width: 10,
-    joinType: 'miter',
-    capType: 'square'
-  })
-
-  const referencePoints = await getReportedStarComputedReferencePoints(page)
-  const rightCornerRaster = await captureSelectedElementLocalRaster(
-    page,
-    referencePoints.right,
-    {
-      zoom: 12,
-      width: 520,
-      height: 420
-    }
-  )
-  const leftCornerRaster = await captureSelectedElementLocalRaster(
-    page,
-    referencePoints.left,
-    {
-      zoom: 12,
-      width: 520,
-      height: 420
-    }
-  )
-  await testInfo.attach('right-corner-square-cap-local-raster', {
-    body: Buffer.from(rightCornerRaster.base64, 'base64'),
-    contentType: 'image/png'
-  })
-  await testInfo.attach('left-corner-square-cap-local-raster', {
-    body: Buffer.from(leftCornerRaster.base64, 'base64'),
-    contentType: 'image/png'
-  })
-  const [rightCornerCoverage, leftCornerCoverage] = await Promise.all([
-    getLocalGreenCoverage(page, rightCornerRaster, {
-      center: referencePoints.right,
-      radius: 28
-    }),
-    getLocalGreenCoverage(page, leftCornerRaster, {
-      center: referencePoints.left,
-      radius: 28
-    })
-  ])
-
-  expect(rightCornerCoverage).toBeGreaterThan(0.004)
-  expect(leftCornerCoverage).toBeGreaterThan(0.004)
-})
-
-test('benchmark: closed source-path inside dashed event probes stay clipped and visible across caps', async ({
-  page
-}, testInfo) => {
-  await createTwoPointVectorPath(page)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToReportedClosedStar(page)
-
-  const caps = ['butt', 'square', 'round'] as const
-  const debugModes = [
-    { label: 'product', disableVisualOverlapCollapse: false }
-  ] as const
-
-  for (const cap of caps) {
+    await createRectangle(page, 0.35, 0.35)
+    await setSelectedElementSize(page, { width: 80, height: 40 })
+    await setSelectedElementRotation(page, 0)
     await configureConstrainedDashedStroke(page, {
-      elementType: 'vector',
+      elementType: 'rect',
+      position: 'inside',
+      join: 'round',
+      cap: 'butt',
+      pattern: FULL_LOOP_PATTERN
+    })
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectProbeRegions(raster)
+
+    const [topInside, leftInside, topOutside, center] = await Promise.all([
+      getGreenCoverage(page, raster, probes.topInside),
+      getGreenCoverage(page, raster, probes.leftInside),
+      getGreenCoverage(page, raster, probes.topOutside),
+      getGreenCoverage(page, raster, probes.center)
+    ])
+
+    expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(leftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  })
+
+  test('benchmark: rectangle constrained dashed outside round-join full-loop stroke renders through the next supported join/cap outside product path', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.35, 0.35)
+    await setSelectedElementSize(page, { width: 80, height: 40 })
+    await setSelectedElementRotation(page, 0)
+    await configureConstrainedDashedStroke(page, {
+      elementType: 'rect',
+      position: 'outside',
+      join: 'round',
+      cap: 'butt',
+      pattern: FULL_LOOP_PATTERN
+    })
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectProbeRegions(raster)
+
+    const [topOutside, topInside, center] = await Promise.all([
+      getGreenCoverage(page, raster, probes.topOutside),
+      getGreenCoverage(page, raster, probes.topInside),
+      getGreenCoverage(page, raster, probes.center)
+    ])
+
+    expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  })
+
+  test('benchmark: rectangle inside constrained dashed full-loop gradient stroke renders through the first supported paint product path', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.35, 0.35)
+    await setSelectedElementSize(page, { width: 80, height: 40 })
+    await setSelectedElementRotation(page, 0)
+    await configureConstrainedDashedStroke(page, {
+      elementType: 'rect',
+      position: 'inside',
+      join: 'bevel',
+      cap: 'butt',
+      pattern: FULL_LOOP_PATTERN
+    })
+    await patchSelectedStrokeRowToLinearGradient(page, 0)
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectGradientProbeRegions(raster)
+
+    const [topInsideLeft, topInsideRight, center] = await Promise.all([
+      getAverageColor(page, raster, probes.topInsideLeft),
+      getAverageColor(page, raster, probes.topInsideRight),
+      getAverageColor(page, raster, probes.center)
+    ])
+
+    expect(topInsideLeft.a).toBeGreaterThan(180)
+    expect(topInsideRight.a).toBeGreaterThan(180)
+    expect(topInsideLeft.r).toBeGreaterThan(topInsideLeft.b + 40)
+    expect(topInsideRight.b).toBeGreaterThan(topInsideRight.r + 40)
+    expect(center.r).toBeGreaterThan(170)
+    expect(center.g).toBeGreaterThan(170)
+    expect(center.b).toBeGreaterThan(170)
+  })
+
+  test('benchmark: rectangle outside constrained dashed full-loop gradient stroke renders through the next supported paint product path', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.35, 0.35)
+    await setSelectedElementSize(page, { width: 80, height: 40 })
+    await setSelectedElementRotation(page, 0)
+    await configureConstrainedDashedStroke(page, {
+      elementType: 'rect',
+      position: 'outside',
+      join: 'bevel',
+      cap: 'butt',
+      pattern: FULL_LOOP_PATTERN
+    })
+    await patchSelectedStrokeRowToLinearGradient(page, 0)
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectGradientProbeRegions(raster)
+
+    const [topOutsideLeft, topOutsideRight, center] = await Promise.all([
+      getAverageColor(page, raster, probes.topOutsideLeft),
+      getAverageColor(page, raster, probes.topOutsideRight),
+      getAverageColor(page, raster, probes.center)
+    ])
+
+    expect(topOutsideLeft.a).toBeGreaterThan(180)
+    expect(topOutsideRight.a).toBeGreaterThan(180)
+    expect(topOutsideLeft.r).toBeGreaterThan(topOutsideLeft.b + 40)
+    expect(topOutsideRight.b).toBeGreaterThan(topOutsideRight.r + 40)
+    expect(center.r).toBeGreaterThan(170)
+    expect(center.g).toBeGreaterThan(170)
+    expect(center.b).toBeGreaterThan(170)
+  })
+
+  test('benchmark: rectangle inside constrained dashed single-edge stroke renders through the first single-edge topology family product path', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+    await configureConstrainedDashedStroke(page, {
+      position: 'inside',
+      join: 'bevel',
+      cap: 'butt',
+      pattern: RECT_SINGLE_EDGE_PATTERN,
+      offset: RECT_SINGLE_EDGE_OFFSET
+    })
+    await setSelectedElementRotation(page, 0)
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectSingleEdgeProbeRegions(raster)
+
+    const [intervalInside, laterTopInsideGap, intervalOutside, center] =
+      await Promise.all([
+        getGreenCoverage(page, raster, probes.intervalInside),
+        getGreenCoverage(page, raster, probes.laterTopInsideGap),
+        getGreenCoverage(page, raster, probes.intervalOutside),
+        getGreenCoverage(page, raster, probes.center)
+      ])
+
+    expect(intervalInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(laterTopInsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(intervalOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  })
+
+  test('benchmark: rectangle inside constrained dashed single-edge gradient stroke renders through the next supported paint product path', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+    await configureConstrainedDashedStroke(page, {
+      position: 'inside',
+      join: 'bevel',
+      cap: 'butt',
+      pattern: RECT_SINGLE_EDGE_PATTERN,
+      offset: RECT_SINGLE_EDGE_OFFSET
+    })
+    await setSelectedElementRotation(page, 0)
+    await patchSelectedStrokeRowToLinearGradient(page, 0)
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectSingleEdgeGradientProbeRegions(raster)
+
+    const [intervalInsideLeft, intervalInsideRight, laterTopInsideGap, center] =
+      await Promise.all([
+        getAverageColor(page, raster, probes.intervalInsideLeft),
+        getAverageColor(page, raster, probes.intervalInsideRight),
+        getAverageColor(page, raster, probes.laterTopInsideGap),
+        getAverageColor(page, raster, probes.center)
+      ])
+
+    expect(intervalInsideLeft.a).toBeGreaterThan(180)
+    expect(intervalInsideRight.a).toBeGreaterThan(180)
+    expect(intervalInsideLeft.r).toBeGreaterThan(intervalInsideLeft.b + 40)
+    expect(intervalInsideRight.b).toBeGreaterThan(intervalInsideLeft.b + 10)
+    expect(getRedBlueSkew(intervalInsideLeft)).toBeGreaterThan(
+      getRedBlueSkew(intervalInsideRight) + 15
+    )
+    expect(Math.abs(getRedBlueSkew(laterTopInsideGap))).toBeLessThan(20)
+    expect(laterTopInsideGap.r).toBeGreaterThan(170)
+    expect(laterTopInsideGap.g).toBeGreaterThan(170)
+    expect(laterTopInsideGap.b).toBeGreaterThan(170)
+    expect(center.r).toBeGreaterThan(170)
+    expect(center.g).toBeGreaterThan(170)
+    expect(center.b).toBeGreaterThan(170)
+  })
+
+  test('benchmark: rectangle inside constrained dashed single-edge round-cap stroke renders through the next supported join/cap product path', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+    await configureConstrainedDashedStroke(page, {
+      position: 'inside',
+      join: 'bevel',
+      cap: 'round',
+      pattern: RECT_SINGLE_EDGE_PATTERN,
+      offset: RECT_SINGLE_EDGE_OFFSET
+    })
+    await setSelectedElementRotation(page, 0)
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getVectorRectSingleEdgeRoundCapProbeRegions(raster)
+
+    const [capInside, bodyInside, capOutsideLeak, laterTopInsideGap, center] =
+      await Promise.all([
+        getGreenCoverage(page, raster, probes.capInside),
+        getGreenCoverage(page, raster, probes.bodyInside),
+        getGreenCoverage(page, raster, probes.capOutsideLeak),
+        getGreenCoverage(page, raster, probes.laterTopInsideGap),
+        getGreenCoverage(page, raster, probes.center)
+      ])
+
+    expect(capInside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
+    expect(bodyInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(capOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
+    expect(laterTopInsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  })
+
+  test('benchmark: rectangle outside constrained dashed single-edge round-cap stroke renders through the next supported join/cap outside product path', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+    await configureConstrainedDashedStroke(page, {
+      position: 'outside',
+      join: 'bevel',
+      cap: 'round',
+      pattern: RECT_SINGLE_EDGE_PATTERN,
+      offset: RECT_SINGLE_EDGE_OFFSET
+    })
+    await setSelectedElementRotation(page, 0)
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectSingleEdgeOutsideRoundCapProbeRegions(raster)
+
+    const [capOutside, bodyOutside, capInsideLeak, laterTopOutsideGap, center] =
+      await Promise.all([
+        getGreenCoverage(page, raster, probes.capOutside),
+        getGreenCoverage(page, raster, probes.bodyOutside),
+        getGreenCoverage(page, raster, probes.capInsideLeak),
+        getGreenCoverage(page, raster, probes.laterTopOutsideGap),
+        getGreenCoverage(page, raster, probes.center)
+      ])
+
+    expect(capOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(bodyOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(capInsideLeak).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(laterTopOutsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  })
+
+  test('benchmark: rectangle outside constrained dashed single-edge stroke renders through the same first single-edge topology family product path', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+    await configureConstrainedDashedStroke(page, {
+      position: 'outside',
+      join: 'bevel',
+      cap: 'butt',
+      pattern: RECT_SINGLE_EDGE_PATTERN,
+      offset: RECT_SINGLE_EDGE_OFFSET
+    })
+    await setSelectedElementRotation(page, 0)
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectSingleEdgeProbeRegions(raster)
+
+    const [intervalOutside, intervalInside, laterTopOutsideGap, center] =
+      await Promise.all([
+        getGreenCoverage(page, raster, probes.intervalOutside),
+        getGreenCoverage(page, raster, probes.intervalInside),
+        getGreenCoverage(page, raster, probes.laterTopOutsideGap),
+        getGreenCoverage(page, raster, probes.center)
+      ])
+
+    expect(intervalOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(intervalInside).toBeLessThan(MAX_EXTERIOR_LEAK)
+    expect(laterTopOutsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  })
+
+  test('benchmark: rectangle outside constrained dashed single-edge gradient stroke renders through the next supported paint product path', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+    await configureConstrainedDashedStroke(page, {
+      position: 'outside',
+      join: 'bevel',
+      cap: 'butt',
+      pattern: RECT_SINGLE_EDGE_PATTERN,
+      offset: RECT_SINGLE_EDGE_OFFSET
+    })
+    await setSelectedElementRotation(page, 0)
+    await patchSelectedStrokeRowToLinearGradient(page, 0)
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectSingleEdgeOutsideGradientProbeRegions(raster)
+
+    const [
+      intervalOutsideLeft,
+      intervalOutsideRight,
+      laterTopOutsideGap,
+      center
+    ] = await Promise.all([
+      getAverageColor(page, raster, probes.intervalOutsideLeft),
+      getAverageColor(page, raster, probes.intervalOutsideRight),
+      getAverageColor(page, raster, probes.laterTopOutsideGap),
+      getAverageColor(page, raster, probes.center)
+    ])
+
+    expect(intervalOutsideLeft.a).toBeGreaterThan(180)
+    expect(intervalOutsideRight.a).toBeGreaterThan(180)
+    expect(intervalOutsideLeft.r).toBeGreaterThan(intervalOutsideLeft.b + 40)
+    expect(intervalOutsideRight.b).toBeGreaterThan(intervalOutsideLeft.b + 10)
+    expect(getRedBlueSkew(intervalOutsideLeft)).toBeGreaterThan(
+      getRedBlueSkew(intervalOutsideRight) + 15
+    )
+    expect(laterTopOutsideGap.r).toBeLessThan(80)
+    expect(laterTopOutsideGap.g).toBeLessThan(80)
+    expect(laterTopOutsideGap.b).toBeLessThan(80)
+    expect(center.r).toBeGreaterThan(170)
+    expect(center.g).toBeGreaterThan(170)
+    expect(center.b).toBeGreaterThan(170)
+  })
+
+  test('benchmark: rectangle inside bevel corner-spanning constrained dashed stroke renders through the first corner-spanning topology family product path', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+    await setSelectedElementSize(page, { width: 80, height: 40 })
+    await setSelectedElementRotation(page, 0)
+    await configureConstrainedDashedStroke(page, {
+      elementType: 'rect',
+      position: 'inside',
+      join: 'bevel',
+      cap: 'butt',
+      pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
+      offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
+    })
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectCornerSpanningProbeRegions(raster)
+
+    const [
+      topNearCornerInside,
+      rightNearCornerInside,
+      topFarGap,
+      cornerOutsideLeak,
+      center
+    ] = await Promise.all([
+      getGreenCoverage(page, raster, probes.topNearCornerInside),
+      getGreenCoverage(page, raster, probes.rightNearCornerInside),
+      getGreenCoverage(page, raster, probes.topFarGap),
+      getGreenCoverage(page, raster, probes.cornerOutsideLeak),
+      getGreenCoverage(page, raster, probes.center)
+    ])
+
+    expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(rightNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  })
+
+  test('benchmark: rectangle inside bevel corner-spanning constrained dashed gradient stroke renders through the next supported paint product path', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+    await setSelectedElementSize(page, { width: 80, height: 40 })
+    await setSelectedElementRotation(page, 0)
+    await configureConstrainedDashedStroke(page, {
+      elementType: 'rect',
+      position: 'inside',
+      join: 'bevel',
+      cap: 'butt',
+      pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
+      offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
+    })
+    await patchSelectedStrokeRowToLinearGradient(page, 0)
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectCornerSpanningGradientProbeRegions(raster)
+
+    const [
+      topNearCornerLeft,
+      topNearCornerRight,
+      rightNearCorner,
+      topFarGap,
+      cornerOutsideLeak,
+      center
+    ] = await Promise.all([
+      getAverageColor(page, raster, probes.topNearCornerLeft),
+      getAverageColor(page, raster, probes.topNearCornerRight),
+      getAverageColor(page, raster, probes.rightNearCorner),
+      getAverageColor(page, raster, probes.topFarGap),
+      getAverageColor(page, raster, probes.cornerOutsideLeak),
+      getAverageColor(page, raster, probes.center)
+    ])
+
+    expect(topNearCornerLeft.a).toBeGreaterThan(180)
+    expect(topNearCornerRight.a).toBeGreaterThan(180)
+    expect(rightNearCorner.a).toBeGreaterThan(180)
+    expect(getRedBlueSkew(topNearCornerLeft)).toBeGreaterThan(
+      getRedBlueSkew(topNearCornerRight) + 15
+    )
+    expect(topNearCornerLeft.r).toBeGreaterThan(topNearCornerLeft.b + 40)
+    expect(topNearCornerRight.b).toBeGreaterThan(topNearCornerLeft.b + 15)
+    expect(topNearCornerRight.r).toBeLessThan(topNearCornerLeft.r - 40)
+    expect(Math.abs(getRedBlueSkew(topFarGap))).toBeLessThan(20)
+    expect(topFarGap.r).toBeGreaterThan(170)
+    expect(topFarGap.g).toBeGreaterThan(170)
+    expect(topFarGap.b).toBeGreaterThan(170)
+    expect(cornerOutsideLeak.r).toBeLessThan(80)
+    expect(cornerOutsideLeak.g).toBeLessThan(80)
+    expect(cornerOutsideLeak.b).toBeLessThan(80)
+    expect(center.r).toBeGreaterThan(170)
+    expect(center.g).toBeGreaterThan(170)
+    expect(center.b).toBeGreaterThan(170)
+  })
+
+  test('benchmark: rectangle inside miter corner-spanning constrained dashed stroke renders through the next corner-spanning topology family product path', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+    await setSelectedElementSize(page, { width: 80, height: 40 })
+    await setSelectedElementRotation(page, 0)
+    await configureConstrainedDashedStroke(page, {
+      elementType: 'rect',
       position: 'inside',
       join: 'miter',
-      cap,
-      pattern: '27, 20',
-      width: 10
+      cap: 'butt',
+      pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
+      offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
     })
 
-    for (const debugMode of debugModes) {
-      await setStrokeDebugDisableVisualOverlapCollapse(
-        page,
-        debugMode.disableVisualOverlapCollapse
-      )
-      const probes = await getSelectedStrokePacketProbeCenters(page)
-      expect(probes.length).toBeGreaterThanOrEqual(6)
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectCornerSpanningProbeRegions(raster)
 
-      for (const probe of probes) {
-        const raster = await captureSelectedElementLocalRaster(
-          page,
-          probe.center,
-          {
-            zoom: 12,
-            width: 360,
-            height: 300
-          }
-        )
-        await testInfo.attach(
-          `${cap}-${debugMode.label}-${probe.name}-inside-dashed-local-raster`,
-          {
-            body: Buffer.from(raster.base64, 'base64'),
-            contentType: 'image/png'
-          }
-        )
+    const [
+      topNearCornerInside,
+      rightNearCornerInside,
+      topFarGap,
+      cornerOutsideLeak,
+      center
+    ] = await Promise.all([
+      getGreenCoverage(page, raster, probes.topNearCornerInside),
+      getGreenCoverage(page, raster, probes.rightNearCornerInside),
+      getGreenCoverage(page, raster, probes.topFarGap),
+      getGreenCoverage(page, raster, probes.cornerOutsideLeak),
+      getGreenCoverage(page, raster, probes.center)
+    ])
 
-        const localCoverage = await getLocalGreenCoverage(page, raster, {
-          center: probe.center,
-          radius: 6
-        })
-        const minLocalCoverage = 0.005
+    expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(rightNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  })
 
-        expect(
-          localCoverage,
-          `${cap} ${debugMode.label} ${probe.name} should keep dash coverage`
-        ).toBeGreaterThan(minLocalCoverage)
-      }
-    }
-  }
-})
+  test('benchmark: rectangle inside round corner-spanning constrained dashed stroke renders through the uniform-width corner-spanning topology family product path', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+    await setSelectedElementSize(page, { width: 80, height: 40 })
+    await setSelectedElementRotation(page, 0)
+    await configureConstrainedDashedStroke(page, {
+      elementType: 'rect',
+      position: 'inside',
+      join: 'round',
+      cap: 'butt',
+      pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
+      offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
+    })
 
-test('benchmark: long dash crossing many short vector segments stays clipped and visible across caps', async ({
-  page
-}) => {
-  const fixture = buildLongShortSegmentFixture()
-  const strokeWidth = 12
-  const dashLength = 760
-  const dashGap = 120
-  const bodyDistances = [90, 280]
-  const gapDistance = dashLength + dashGap / 2
-  const cases = [
-    { position: 'inside', cap: 'butt' },
-    { position: 'inside', cap: 'square' },
-    { position: 'inside', cap: 'round' },
-    { position: 'outside', cap: 'butt' },
-    { position: 'outside', cap: 'square' },
-    { position: 'outside', cap: 'round' }
-  ] as const
-  const debugModes = [
-    { label: 'product', disableVisualOverlapCollapse: false },
-    { label: 'debug-overlap', disableVisualOverlapCollapse: true }
-  ] as const
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectCornerSpanningProbeRegions(raster)
 
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToLongShortSegments(page)
-  await setSelectedElementRotation(page, 0)
+    const [
+      topNearCornerInside,
+      rightNearCornerInside,
+      topFarGap,
+      cornerOutsideLeak,
+      center
+    ] = await Promise.all([
+      getGreenCoverage(page, raster, probes.topNearCornerInside),
+      getGreenCoverage(page, raster, probes.rightNearCornerInside),
+      getGreenCoverage(page, raster, probes.topFarGap),
+      getGreenCoverage(page, raster, probes.cornerOutsideLeak),
+      getGreenCoverage(page, raster, probes.center)
+    ])
 
-  for (const debugMode of debugModes) {
-    await setStrokeDebugDisableVisualOverlapCollapse(
-      page,
-      debugMode.disableVisualOverlapCollapse
+    expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(rightNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  })
+
+  test('benchmark: rectangle outside bevel corner-spanning constrained dashed stroke renders through the next bounded corner-spanning topology family product path', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+    await setSelectedElementSize(page, { width: 80, height: 40 })
+    await setSelectedElementRotation(page, 0)
+    await configureConstrainedDashedStroke(page, {
+      elementType: 'rect',
+      position: 'outside',
+      join: 'bevel',
+      cap: 'butt',
+      pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
+      offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
+    })
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectCornerSpanningProbeRegions(raster)
+
+    const [
+      topNearCornerOutside,
+      rightNearCornerOutside,
+      topFarGap,
+      cornerInsideLeak,
+      center
+    ] = await Promise.all([
+      getGreenCoverage(page, raster, probes.topNearCornerOutside),
+      getGreenCoverage(page, raster, probes.rightNearCornerOutside),
+      getGreenCoverage(page, raster, probes.topFarGap),
+      getGreenCoverage(page, raster, probes.cornerInsideLeak),
+      getGreenCoverage(page, raster, probes.center)
+    ])
+
+    expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(rightNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  })
+
+  test('benchmark: rectangle outside bevel corner-spanning constrained dashed gradient stroke renders through the next supported paint product path', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+    await setSelectedElementSize(page, { width: 80, height: 40 })
+    await setSelectedElementRotation(page, 0)
+    await configureConstrainedDashedStroke(page, {
+      elementType: 'rect',
+      position: 'outside',
+      join: 'bevel',
+      cap: 'butt',
+      pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
+      offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
+    })
+    await patchSelectedStrokeRowToLinearGradient(page, 0)
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectCornerSpanningOutsideGradientProbeRegions(raster)
+
+    const [
+      topNearCornerOutsideLeft,
+      topNearCornerOutsideRight,
+      rightNearCornerOutside,
+      topFarGap,
+      cornerInsideLeak,
+      center
+    ] = await Promise.all([
+      getAverageColor(page, raster, probes.topNearCornerOutsideLeft),
+      getAverageColor(page, raster, probes.topNearCornerOutsideRight),
+      getAverageColor(page, raster, probes.rightNearCornerOutside),
+      getAverageColor(page, raster, probes.topFarGap),
+      getAverageColor(page, raster, probes.cornerInsideLeak),
+      getAverageColor(page, raster, probes.center)
+    ])
+
+    expect(topNearCornerOutsideLeft.a).toBeGreaterThan(180)
+    expect(topNearCornerOutsideRight.a).toBeGreaterThan(180)
+    expect(rightNearCornerOutside.a).toBeGreaterThan(180)
+    expect(getRedBlueSkew(topNearCornerOutsideLeft)).toBeGreaterThan(
+      getRedBlueSkew(topNearCornerOutsideRight) + 15
     )
-
-    for (const currentCase of cases) {
-      await configureConstrainedDashedStroke(page, {
-        elementType: 'vector',
-        position: currentCase.position,
-        join: 'miter',
-        cap: currentCase.cap,
-        pattern: `${dashLength}, ${dashGap}`,
-        width: strokeWidth
-      })
-
-      const raster = await captureSelectedElementRaster(page, strokeWidth, 42)
-      const selectedSide = currentCase.position
-      const rejectedSide =
-        currentCase.position === 'inside' ? 'outside' : 'inside'
-      const sideOffset = strokeWidth * 0.46
-      const bodyRegions = bodyDistances.map((distance) =>
-        getLocalProbeRegion(
-          raster,
-          getStrokeSideProbeAtDistance(
-            fixture.sourcePath,
-            distance,
-            selectedSide,
-            sideOffset
-          ),
-          12
-        )
-      )
-      const rejectedRegions = bodyDistances.map((distance) =>
-        getLocalProbeRegion(
-          raster,
-          getStrokeSideProbeAtDistance(
-            fixture.sourcePath,
-            distance,
-            rejectedSide,
-            sideOffset + 1.5
-          ),
-          10
-        )
-      )
-      const gapRegion = getLocalProbeRegion(
-        raster,
-        getStrokeSideProbeAtDistance(
-          fixture.sourcePath,
-          gapDistance,
-          selectedSide,
-          sideOffset
-        ),
-        6
-      )
-      const centerRegion = {
-        x: raster.padding + 252,
-        y: raster.padding + 212,
-        width: 16,
-        height: 16
-      }
-
-      const [bodyCoverages, rejectedCoverages, gapCoverage, centerCoverage] =
-        await Promise.all([
-          Promise.all(
-            bodyRegions.map((region) => getGreenCoverage(page, raster, region))
-          ),
-          Promise.all(
-            rejectedRegions.map((region) =>
-              getGreenCoverage(page, raster, region)
-            )
-          ),
-          getGreenCoverage(page, raster, gapRegion),
-          getGreenCoverage(page, raster, centerRegion)
-        ])
-
-      const strongBodyProbeCount = bodyCoverages.filter(
-        (coverage) => coverage > 0.08
-      ).length
-      const requiredStrongBodyProbeCount = Math.min(3, bodyDistances.length)
-      expect(
-        strongBodyProbeCount,
-        `${debugMode.label} ${currentCase.position} ${currentCase.cap} should keep most long-dash probes strongly visible: ${JSON.stringify(bodyCoverages)}`
-      ).toBeGreaterThanOrEqual(requiredStrongBodyProbeCount)
-      for (const [index, coverage] of bodyCoverages.entries()) {
-        expect(
-          coverage,
-          `${debugMode.label} ${currentCase.position} ${currentCase.cap} long dash body probe ${index} should remain visible`
-        ).toBeGreaterThan(0.04)
-      }
-      if (currentCase.position === 'inside') {
-        for (const [index, coverage] of rejectedCoverages.entries()) {
-          expect(
-            coverage,
-            `${debugMode.label} ${currentCase.position} ${currentCase.cap} rejected-side probe ${index} should stay clipped`
-          ).toBeLessThan(MAX_EXTERIOR_LEAK)
-        }
-      }
-      expect(
-        gapCoverage,
-        `${debugMode.label} ${currentCase.position} ${currentCase.cap} long dash gap should remain empty`
-      ).toBeLessThan(0.18)
-      expect(
-        centerCoverage,
-        `${debugMode.label} ${currentCase.position} ${currentCase.cap} closed shape center should remain empty`
-      ).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    }
-  }
-
-  await setStrokeDebugDisableVisualOverlapCollapse(page, false)
-})
-
-test('benchmark: multi-network constrained dashed vectors render through typed per-network ownership', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToMultiNetworkRectangles(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN,
-    width: 4
-  })
-
-  const raster = await captureSelectedElementRaster(page, 4)
-  const probes = getMultiNetworkRectProbeRegions(raster)
-
-  const [
-    firstTopInside,
-    firstTopOutside,
-    secondTopInside,
-    secondTopOutside,
-    centerGap
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.firstTopInside),
-    getGreenCoverage(page, raster, probes.firstTopOutside),
-    getGreenCoverage(page, raster, probes.secondTopInside),
-    getGreenCoverage(page, raster, probes.secondTopOutside),
-    getGreenCoverage(page, raster, probes.centerGap)
-  ])
-
-  expect(firstTopInside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(firstTopOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(secondTopInside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(secondTopOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(centerGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed rectangle-equivalent vector inside bevel corner-spanning constrained dashed stroke renders through the first vector corner-spanning topology family product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectCornerSpanningProbeRegions(raster)
-
-  const [
-    topNearCornerInside,
-    rightNearCornerInside,
-    topFarGap,
-    cornerOutsideLeak,
-    center
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topNearCornerInside),
-    getGreenCoverage(page, raster, probes.rightNearCornerInside),
-    getGreenCoverage(page, raster, probes.topFarGap),
-    getGreenCoverage(page, raster, probes.cornerOutsideLeak),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(rightNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed rectangle-equivalent vector inside bevel corner-spanning constrained dashed gradient stroke renders through the one-sided candidate paint vector path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectCornerSpanningGradientProbeRegions(raster)
-
-  const [
-    topNearCornerLeft,
-    topNearCornerRight,
-    rightNearCorner,
-    topFarGap,
-    cornerOutsideLeak,
-    center
-  ] = await Promise.all([
-    getAverageColor(page, raster, probes.topNearCornerLeft),
-    getAverageColor(page, raster, probes.topNearCornerRight),
-    getAverageColor(page, raster, probes.rightNearCorner),
-    getAverageColor(page, raster, probes.topFarGap),
-    getAverageColor(page, raster, probes.cornerOutsideLeak),
-    getAverageColor(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerLeft.a).toBeGreaterThan(180)
-  expect(topNearCornerRight.a).toBeGreaterThan(180)
-  expect(rightNearCorner.a).toBeGreaterThan(180)
-  expect(getRedBlueSkew(topNearCornerLeft)).toBeGreaterThan(
-    getRedBlueSkew(topNearCornerRight) + 15
-  )
-  expect(topNearCornerLeft.r).toBeGreaterThan(topNearCornerLeft.b + 40)
-  expect(topNearCornerRight.b).toBeGreaterThan(80)
-  expect(Math.abs(getRedBlueSkew(topFarGap))).toBeLessThan(20)
-  expect(topFarGap.r).toBeLessThan(80)
-  expect(topFarGap.g).toBeLessThan(80)
-  expect(topFarGap.b).toBeLessThan(80)
-  expect(cornerOutsideLeak.r).toBeLessThan(80)
-  expect(cornerOutsideLeak.g).toBeLessThan(80)
-  expect(cornerOutsideLeak.b).toBeLessThan(80)
-  expect(center.r).toBeLessThan(80)
-  expect(center.g).toBeLessThan(80)
-  expect(center.b).toBeLessThan(80)
-})
-
-test('benchmark: closed rectangle-equivalent vector inside miter corner-spanning constrained dashed stroke renders through the matching vector corner-spanning topology family product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'miter',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectCornerSpanningProbeRegions(raster)
-
-  const [
-    topNearCornerInside,
-    rightNearCornerInside,
-    topFarGap,
-    cornerOutsideLeak,
-    center
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topNearCornerInside),
-    getGreenCoverage(page, raster, probes.rightNearCornerInside),
-    getGreenCoverage(page, raster, probes.topFarGap),
-    getGreenCoverage(page, raster, probes.cornerOutsideLeak),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(rightNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed rectangle-equivalent vector inside round corner-spanning constrained dashed stroke renders through the uniform-width corner-spanning topology family product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'round',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectCornerSpanningProbeRegions(raster)
-
-  const [
-    topNearCornerInside,
-    rightNearCornerInside,
-    topFarGap,
-    cornerOutsideLeak,
-    center
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topNearCornerInside),
-    getGreenCoverage(page, raster, probes.rightNearCornerInside),
-    getGreenCoverage(page, raster, probes.topFarGap),
-    getGreenCoverage(page, raster, probes.cornerOutsideLeak),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(rightNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed rectangle-equivalent vector outside bevel corner-spanning constrained dashed stroke renders through the next bounded vector corner-spanning topology family product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectCornerSpanningProbeRegions(raster)
-
-  const [
-    topNearCornerOutside,
-    rightNearCornerOutside,
-    topFarGap,
-    cornerInsideLeak,
-    center
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topNearCornerOutside),
-    getGreenCoverage(page, raster, probes.rightNearCornerOutside),
-    getGreenCoverage(page, raster, probes.topFarGap),
-    getGreenCoverage(page, raster, probes.cornerInsideLeak),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(rightNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed rectangle-equivalent vector outside bevel corner-spanning constrained dashed gradient stroke renders through the next supported paint vector product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectCornerSpanningOutsideGradientProbeRegions(raster)
-
-  const [
-    topNearCornerOutsideLeft,
-    topNearCornerOutsideRight,
-    rightNearCornerOutside,
-    topFarGap,
-    cornerInsideLeak,
-    center
-  ] = await Promise.all([
-    getAverageColor(page, raster, probes.topNearCornerOutsideLeft),
-    getAverageColor(page, raster, probes.topNearCornerOutsideRight),
-    getAverageColor(page, raster, probes.rightNearCornerOutside),
-    getAverageColor(page, raster, probes.topFarGap),
-    getAverageColor(page, raster, probes.cornerInsideLeak),
-    getAverageColor(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerOutsideLeft.a).toBeGreaterThan(180)
-  expect(topNearCornerOutsideRight.a).toBeGreaterThan(180)
-  expect(rightNearCornerOutside.a).toBeGreaterThan(180)
-  expect(getRedBlueSkew(topNearCornerOutsideLeft)).toBeGreaterThan(
-    getRedBlueSkew(topNearCornerOutsideRight) + 15
-  )
-  expect(topNearCornerOutsideLeft.r).toBeGreaterThan(
-    topNearCornerOutsideLeft.b + 40
-  )
-  expect(topFarGap.r).toBeLessThan(80)
-  expect(topFarGap.g).toBeLessThan(80)
-  expect(topFarGap.b).toBeLessThan(80)
-  expect(cornerInsideLeak.r).toBeLessThan(80)
-  expect(cornerInsideLeak.g).toBeLessThan(80)
-  expect(cornerInsideLeak.b).toBeLessThan(80)
-  expect(center.r).toBeLessThan(80)
-  expect(center.g).toBeLessThan(80)
-  expect(center.b).toBeLessThan(80)
-})
-
-test('benchmark: closed rectangle-equivalent vector outside miter corner-spanning constrained dashed stroke renders through the matching bounded vector corner-spanning topology family product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'miter',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectCornerSpanningProbeRegions(raster)
-
-  const [
-    topNearCornerOutside,
-    rightNearCornerOutside,
-    topFarGap,
-    cornerInsideLeak,
-    center
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topNearCornerOutside),
-    getGreenCoverage(page, raster, probes.rightNearCornerOutside),
-    getGreenCoverage(page, raster, probes.topFarGap),
-    getGreenCoverage(page, raster, probes.cornerInsideLeak),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(rightNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed rectangle-equivalent vector outside round corner-spanning constrained dashed stroke renders through the uniform-width corner-spanning topology family product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'round',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectCornerSpanningProbeRegions(raster)
-
-  const [
-    topNearCornerOutside,
-    rightNearCornerOutside,
-    topFarGap,
-    cornerInsideLeak,
-    center
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topNearCornerOutside),
-    getGreenCoverage(page, raster, probes.rightNearCornerOutside),
-    getGreenCoverage(page, raster, probes.topFarGap),
-    getGreenCoverage(page, raster, probes.cornerInsideLeak),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(rightNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed non-rectangle-equivalent vector inside bevel corner-spanning constrained dashed stroke renders through the first broader vector corner-spanning topology family product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedTrapezoid(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getTrapezoidCornerSpanningProbeRegions(raster)
-
-  const [
-    topNearCornerInside,
-    slantedNearCornerInside,
-    topFarGap,
-    cornerOutsideLeak,
-    center
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topNearCornerInside),
-    getGreenCoverage(page, raster, probes.slantedNearCornerInside),
-    getGreenCoverage(page, raster, probes.topFarGap),
-    getGreenCoverage(page, raster, probes.cornerOutsideLeak),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(slantedNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed non-rectangle-equivalent vector inside bevel corner-spanning constrained dashed gradient stroke renders through the broader one-sided candidate paint vector path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedTrapezoid(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getTrapezoidCornerSpanningGradientProbeRegions(raster)
-
-  const [
-    topNearCornerLeft,
-    topNearCornerRight,
-    slantedNearCorner,
-    topFarGap,
-    cornerOutsideLeak,
-    center
-  ] = await Promise.all([
-    getAverageColor(page, raster, probes.topNearCornerLeft),
-    getAverageColor(page, raster, probes.topNearCornerRight),
-    getAverageColor(page, raster, probes.slantedNearCorner),
-    getAverageColor(page, raster, probes.topFarGap),
-    getAverageColor(page, raster, probes.cornerOutsideLeak),
-    getAverageColor(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerLeft.a).toBeGreaterThan(180)
-  expect(topNearCornerRight.a).toBeGreaterThan(180)
-  expect(slantedNearCorner.a).toBeGreaterThan(180)
-  expect(getRedBlueSkew(topNearCornerLeft)).toBeGreaterThan(
-    getRedBlueSkew(topNearCornerRight) + 15
-  )
-  expect(topNearCornerLeft.r).toBeGreaterThan(topNearCornerLeft.b + 40)
-  expect(topNearCornerRight.b).toBeGreaterThan(80)
-  expect(Math.abs(getRedBlueSkew(topFarGap))).toBeLessThan(20)
-  expect(topFarGap.r).toBeLessThan(80)
-  expect(topFarGap.g).toBeLessThan(80)
-  expect(topFarGap.b).toBeLessThan(80)
-  expect(cornerOutsideLeak.r).toBeLessThan(80)
-  expect(cornerOutsideLeak.g).toBeLessThan(80)
-  expect(cornerOutsideLeak.b).toBeLessThan(80)
-  expect(center.r).toBeLessThan(80)
-  expect(center.g).toBeLessThan(80)
-  expect(center.b).toBeLessThan(80)
-})
-
-test('benchmark: closed non-rectangle-equivalent vector inside miter corner-spanning constrained dashed stroke renders through the matching broader vector corner-spanning topology family product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedTrapezoid(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'miter',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getTrapezoidCornerSpanningProbeRegions(raster)
-
-  const [
-    topNearCornerInside,
-    slantedNearCornerInside,
-    topFarGap,
-    cornerOutsideLeak,
-    center
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topNearCornerInside),
-    getGreenCoverage(page, raster, probes.slantedNearCornerInside),
-    getGreenCoverage(page, raster, probes.topFarGap),
-    getGreenCoverage(page, raster, probes.cornerOutsideLeak),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(slantedNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed non-rectangle-equivalent vector outside bevel corner-spanning constrained dashed stroke renders through the next broader vector corner-spanning topology family product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedTrapezoid(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getTrapezoidCornerSpanningProbeRegions(raster)
-
-  const [
-    topNearCornerOutside,
-    slantedNearCornerOutside,
-    topFarGap,
-    cornerInsideLeak,
-    center
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topNearCornerOutside),
-    getGreenCoverage(page, raster, probes.slantedNearCornerOutside),
-    getGreenCoverage(page, raster, probes.topFarGap),
-    getGreenCoverage(page, raster, probes.cornerInsideLeak),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(slantedNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed non-rectangle-equivalent vector outside miter corner-spanning constrained dashed stroke renders through the matching broader vector corner-spanning topology family product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedTrapezoid(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'miter',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
-    offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getTrapezoidCornerSpanningProbeRegions(raster)
-
-  const [
-    topNearCornerOutside,
-    slantedNearCornerOutside,
-    topFarGap,
-    cornerInsideLeak,
-    center
-  ] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topNearCornerOutside),
-    getGreenCoverage(page, raster, probes.slantedNearCornerOutside),
-    getGreenCoverage(page, raster, probes.topFarGap),
-    getGreenCoverage(page, raster, probes.cornerInsideLeak),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(slantedNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed rectangle-equivalent vector inside constrained dashed single-edge stroke renders through the next single-edge topology family product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectSingleEdgeProbeRegions(raster)
-
-  const [intervalInside, laterTopInsideGap, intervalOutside, center] =
-    await Promise.all([
-      getGreenCoverage(page, raster, probes.intervalInside),
-      getGreenCoverage(page, raster, probes.laterTopInsideGap),
-      getGreenCoverage(page, raster, probes.intervalOutside),
-      getGreenCoverage(page, raster, probes.center)
-    ])
-
-  expect(intervalInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(laterTopInsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(intervalOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed rectangle-equivalent vector outside constrained dashed single-edge stroke renders through the same next single-edge topology family product path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectSingleEdgeProbeRegions(raster)
-
-  const [intervalOutside, intervalInside, laterTopOutsideGap, center] =
-    await Promise.all([
-      getGreenCoverage(page, raster, probes.intervalOutside),
-      getGreenCoverage(page, raster, probes.intervalInside),
-      getGreenCoverage(page, raster, probes.laterTopOutsideGap),
-      getGreenCoverage(page, raster, probes.center)
-    ])
-
-  expect(intervalOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(intervalInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(laterTopOutsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed non-rectangle-equivalent vector inside constrained dashed single-edge stroke renders through the broader single-edge topology family vector path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedTrapezoid(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectSingleEdgeProbeRegions(raster)
-
-  const [intervalInside, laterTopInsideGap, intervalOutside, center] =
-    await Promise.all([
-      getGreenCoverage(page, raster, probes.intervalInside),
-      getGreenCoverage(page, raster, probes.laterTopInsideGap),
-      getGreenCoverage(page, raster, probes.intervalOutside),
-      getGreenCoverage(page, raster, probes.center)
-    ])
-
-  expect(intervalInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(laterTopInsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(intervalOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed non-rectangle-equivalent vector outside constrained dashed single-edge stroke renders through the same broader single-edge topology family vector path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedTrapezoid(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectSingleEdgeProbeRegions(raster)
-
-  const [intervalOutside, intervalInside, laterTopOutsideGap, center] =
-    await Promise.all([
-      getGreenCoverage(page, raster, probes.intervalOutside),
-      getGreenCoverage(page, raster, probes.intervalInside),
-      getGreenCoverage(page, raster, probes.laterTopOutsideGap),
-      getGreenCoverage(page, raster, probes.center)
-    ])
-
-  expect(intervalOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(intervalInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(laterTopOutsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed non-rectangle-equivalent vector inside constrained dashed full-loop stroke renders through the broader supported constrained dashed vector path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedTrapezoid(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectProbeRegions(raster)
-
-  const [topInside, topOutside, center] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topInside),
-    getGreenCoverage(page, raster, probes.topOutside),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: closed non-rectangle-equivalent vector outside constrained dashed full-loop stroke renders through the same broader supported constrained dashed vector path', async ({
-  page
-}) => {
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedTrapezoid(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const probes = getRectProbeRegions(raster)
-
-  const [topOutside, topInside, center] = await Promise.all([
-    getGreenCoverage(page, raster, probes.topOutside),
-    getGreenCoverage(page, raster, probes.topInside),
-    getGreenCoverage(page, raster, probes.center)
-  ])
-
-  expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-})
-
-test('benchmark: shape-generated and vector-generated inside constrained dashed full-loop coverage stay equivalent on the first source-equivalence topology family gate', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const rectRaster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const rectProbes = getRectProbeRegions(rectRaster)
-  const [rectTopInside, rectCenter] = await Promise.all([
-    getGreenCoverage(page, rectRaster, rectProbes.topInside),
-    getGreenCoverage(page, rectRaster, rectProbes.center)
-  ])
-
-  await resetCanvas(page)
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const vectorRaster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const vectorProbes = getRectProbeRegions(vectorRaster)
-  const [vectorTopInside, vectorCenter] = await Promise.all([
-    getGreenCoverage(page, vectorRaster, vectorProbes.topInside),
-    getGreenCoverage(page, vectorRaster, vectorProbes.center)
-  ])
-
-  expect(rectTopInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(vectorTopInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(Math.abs(rectTopInside - vectorTopInside)).toBeLessThan(0.08)
-  expect(rectCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(vectorCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
-})
-
-test('benchmark: shape-generated and vector-generated inside round-join full-loop constrained dashed coverage stay equivalent on the first supported join/cap source-equivalence topology family gate', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'inside',
-    join: 'round',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const rectRaster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const rectProbes = getRectProbeRegions(rectRaster)
-  const [rectTopInside, rectLeftInside, rectCenter] = await Promise.all([
-    getGreenCoverage(page, rectRaster, rectProbes.topInside),
-    getGreenCoverage(page, rectRaster, rectProbes.leftInside),
-    getGreenCoverage(page, rectRaster, rectProbes.center)
-  ])
-
-  await resetCanvas(page)
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'round',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const vectorRaster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const vectorProbes = getRectProbeRegions(vectorRaster)
-  const [vectorTopInside, vectorLeftInside, vectorCenter] = await Promise.all([
-    getGreenCoverage(page, vectorRaster, vectorProbes.topInside),
-    getGreenCoverage(page, vectorRaster, vectorProbes.leftInside),
-    getGreenCoverage(page, vectorRaster, vectorProbes.center)
-  ])
-
-  expect(rectTopInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(vectorTopInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(Math.abs(rectTopInside - vectorTopInside)).toBeLessThan(0.08)
-  expect(rectLeftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(vectorLeftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(Math.abs(rectLeftInside - vectorLeftInside)).toBeLessThan(0.08)
-  expect(rectCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(vectorCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
-})
-
-test('benchmark: shape-generated and vector-generated outside round-join full-loop constrained dashed coverage stay equivalent on the next supported join/cap source-equivalence topology family gate', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'outside',
-    join: 'round',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const rectRaster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const rectProbes = getRectProbeRegions(rectRaster)
-  const [rectTopOutside, rectLeftOutside, rectTopInside, rectCenter] =
-    await Promise.all([
-      getGreenCoverage(page, rectRaster, rectProbes.topOutside),
-      getGreenCoverage(page, rectRaster, rectProbes.leftOutside),
-      getGreenCoverage(page, rectRaster, rectProbes.topInside),
-      getGreenCoverage(page, rectRaster, rectProbes.center)
-    ])
-
-  await resetCanvas(page)
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'round',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const vectorRaster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const vectorProbes = getRectProbeRegions(vectorRaster)
-  const [vectorTopOutside, vectorLeftOutside, vectorTopInside, vectorCenter] =
-    await Promise.all([
-      getGreenCoverage(page, vectorRaster, vectorProbes.topOutside),
-      getGreenCoverage(page, vectorRaster, vectorProbes.leftOutside),
-      getGreenCoverage(page, vectorRaster, vectorProbes.topInside),
-      getGreenCoverage(page, vectorRaster, vectorProbes.center)
-    ])
-
-  expect(rectTopOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(vectorTopOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(Math.abs(rectTopOutside - vectorTopOutside)).toBeLessThan(0.08)
-  expect(rectLeftOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(vectorLeftOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(Math.abs(rectLeftOutside - vectorLeftOutside)).toBeLessThan(0.08)
-  expect(rectTopInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(vectorTopInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-  expect(Math.abs(rectTopInside - vectorTopInside)).toBeLessThan(0.03)
-  expect(rectCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(vectorCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
-})
-
-test('benchmark: shape-generated and vector-generated outside constrained dashed full-loop coverage stay equivalent on the same source-equivalence topology family gate', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const rectRaster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const rectProbes = getRectProbeRegions(rectRaster)
-  const [rectTopOutside, rectCenter] = await Promise.all([
-    getGreenCoverage(page, rectRaster, rectProbes.topOutside),
-    getGreenCoverage(page, rectRaster, rectProbes.center)
-  ])
-
-  await resetCanvas(page)
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-
-  const vectorRaster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const vectorProbes = getRectProbeRegions(vectorRaster)
-  const [vectorTopOutside, vectorCenter] = await Promise.all([
-    getGreenCoverage(page, vectorRaster, vectorProbes.topOutside),
-    getGreenCoverage(page, vectorRaster, vectorProbes.center)
-  ])
-
-  expect(rectTopOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(vectorTopOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(Math.abs(rectTopOutside - vectorTopOutside)).toBeLessThan(0.08)
-  expect(rectCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(vectorCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
-})
-
-test('benchmark: shape-generated and vector-generated inside constrained dashed single-edge coverage stay equivalent on the first single-edge topology family and source-equivalence topology family crossover gate', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET
-  })
-
-  const rectRaster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const rectProbes = getRectSingleEdgeProbeRegions(rectRaster)
-  const [rectInterval, rectGap, rectCenter] = await Promise.all([
-    getGreenCoverage(page, rectRaster, rectProbes.intervalInside),
-    getGreenCoverage(page, rectRaster, rectProbes.laterTopInsideGap),
-    getGreenCoverage(page, rectRaster, rectProbes.center)
-  ])
-
-  await resetCanvas(page)
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET
-  })
-
-  const vectorRaster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const vectorProbes = getRectSingleEdgeProbeRegions(vectorRaster)
-  const [vectorInterval, vectorGap, vectorCenter] = await Promise.all([
-    getGreenCoverage(page, vectorRaster, vectorProbes.intervalInside),
-    getGreenCoverage(page, vectorRaster, vectorProbes.laterTopInsideGap),
-    getGreenCoverage(page, vectorRaster, vectorProbes.center)
-  ])
-
-  expect(rectInterval).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(vectorInterval).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(Math.abs(rectInterval - vectorInterval)).toBeLessThan(0.08)
-  expect(rectGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(vectorGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(Math.abs(rectGap - vectorGap)).toBeLessThan(0.03)
-  expect(rectCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(vectorCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
-})
-
-test('benchmark: shape-generated and vector-generated inside round-cap single-edge constrained dashed coverage stay equivalent on the next supported join/cap source-equivalence topology family gate', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'round',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET,
-    width: 4
-  })
-
-  const rectRaster = await captureSelectedElementRaster(page, 4)
-  const rectProbes = getVectorRectSingleEdgeRoundCapProbeRegions(rectRaster)
-  const [rectCapInside, rectBodyInside, rectGap, rectCenter] =
-    await Promise.all([
-      getGreenCoverage(page, rectRaster, rectProbes.capInside),
-      getGreenCoverage(page, rectRaster, rectProbes.bodyInside),
-      getGreenCoverage(page, rectRaster, rectProbes.laterTopInsideGap),
-      getGreenCoverage(page, rectRaster, rectProbes.center)
-    ])
-
-  await resetCanvas(page)
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'round',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET,
-    width: 4
-  })
-
-  const vectorRaster = await captureSelectedElementRaster(page, 4)
-  const vectorProbes = getVectorRectSingleEdgeRoundCapProbeRegions(vectorRaster)
-  const [vectorCapInside, vectorBodyInside, vectorGap, vectorCenter] =
-    await Promise.all([
-      getGreenCoverage(page, vectorRaster, vectorProbes.capInside),
-      getGreenCoverage(page, vectorRaster, vectorProbes.bodyInside),
-      getGreenCoverage(page, vectorRaster, vectorProbes.laterTopInsideGap),
-      getGreenCoverage(page, vectorRaster, vectorProbes.center)
-    ])
-
-  expect(rectCapInside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
-  expect(vectorCapInside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
-  expect(Math.abs(rectCapInside - vectorCapInside)).toBeLessThan(0.12)
-  expect(rectBodyInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(vectorBodyInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(Math.abs(rectBodyInside - vectorBodyInside)).toBeLessThan(0.08)
-  expect(rectGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(vectorGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(Math.abs(rectGap - vectorGap)).toBeLessThan(0.03)
-  expect(rectCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(vectorCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
-})
-
-test('benchmark: shape-generated and vector-generated outside round-cap single-edge constrained dashed coverage stay equivalent on the next supported join/cap source-equivalence topology family gate', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'round',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET,
-    width: 4
-  })
-
-  const rectRaster = await captureSelectedElementRaster(page, 4)
-  const rectProbes =
-    getVectorRectSingleEdgeOutsideRoundCapProbeRegions(rectRaster)
-  const [rectCapOutside, rectBodyOutside, rectInsideLeak, rectGap, rectCenter] =
-    await Promise.all([
-      getGreenCoverage(page, rectRaster, rectProbes.capOutside),
-      getGreenCoverage(page, rectRaster, rectProbes.bodyOutside),
-      getGreenCoverage(page, rectRaster, rectProbes.capInsideLeak),
-      getGreenCoverage(page, rectRaster, rectProbes.laterTopOutsideGap),
-      getGreenCoverage(page, rectRaster, rectProbes.center)
-    ])
-
-  await resetCanvas(page)
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'round',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET,
-    width: 4
-  })
-
-  const vectorRaster = await captureSelectedElementRaster(page, 4)
-  const vectorProbes =
-    getVectorRectSingleEdgeOutsideRoundCapProbeRegions(vectorRaster)
-  const [
-    vectorCapOutside,
-    vectorBodyOutside,
-    vectorInsideLeak,
-    vectorGap,
-    vectorCenter
-  ] = await Promise.all([
-    getGreenCoverage(page, vectorRaster, vectorProbes.capOutside),
-    getGreenCoverage(page, vectorRaster, vectorProbes.bodyOutside),
-    getGreenCoverage(page, vectorRaster, vectorProbes.capInsideLeak),
-    getGreenCoverage(page, vectorRaster, vectorProbes.laterTopOutsideGap),
-    getGreenCoverage(page, vectorRaster, vectorProbes.center)
-  ])
-
-  expect(rectCapOutside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
-  expect(vectorCapOutside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
-  expect(Math.abs(rectCapOutside - vectorCapOutside)).toBeLessThan(0.12)
-  expect(rectBodyOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(vectorBodyOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(Math.abs(rectBodyOutside - vectorBodyOutside)).toBeLessThan(0.08)
-  expect(rectInsideLeak).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(vectorInsideLeak).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(Math.abs(rectInsideLeak - vectorInsideLeak)).toBeLessThan(0.03)
-  expect(rectGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(vectorGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(Math.abs(rectGap - vectorGap)).toBeLessThan(0.03)
-  expect(rectCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(vectorCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
-})
-
-test('benchmark: shape-generated and vector-generated inside full-loop gradient constrained dashed coverage stay equivalent on the first supported paint source-equivalence topology family gate', async ({
-  page
-}) => {
-  await createRectangle(page, 0.35, 0.35)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const rectRaster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const rectProbes = getRectGradientProbeRegions(rectRaster)
-  const [rectTopInsideLeft, rectTopInsideRight] = await Promise.all([
-    getAverageColor(page, rectRaster, rectProbes.topInsideLeft),
-    getAverageColor(page, rectRaster, rectProbes.topInsideRight)
-  ])
-
-  await resetCanvas(page)
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'inside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: FULL_LOOP_PATTERN
-  })
-  await patchSelectedStrokeRowToLinearGradient(page, 0)
-
-  const vectorRaster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const vectorProbes = getRectGradientProbeRegions(vectorRaster)
-  const [vectorTopInsideLeft, vectorTopInsideRight] = await Promise.all([
-    getAverageColor(page, vectorRaster, vectorProbes.topInsideLeft),
-    getAverageColor(page, vectorRaster, vectorProbes.topInsideRight)
-  ])
-
-  expect(rectTopInsideLeft.a).toBeGreaterThan(180)
-  expect(vectorTopInsideLeft.a).toBeGreaterThan(180)
-  expect(Math.abs(rectTopInsideLeft.a - vectorTopInsideLeft.a)).toBeLessThan(20)
-  expect(rectTopInsideRight.a).toBeGreaterThan(180)
-  expect(vectorTopInsideRight.a).toBeGreaterThan(180)
-  expect(Math.abs(rectTopInsideRight.a - vectorTopInsideRight.a)).toBeLessThan(
-    20
-  )
-
-  expect(getRedBlueSkew(rectTopInsideLeft)).toBeGreaterThan(40)
-  expect(getRedBlueSkew(vectorTopInsideLeft)).toBeGreaterThan(40)
-  expect(
-    Math.abs(
-      getRedBlueSkew(rectTopInsideLeft) - getRedBlueSkew(vectorTopInsideLeft)
+    expect(topNearCornerOutsideLeft.r).toBeGreaterThan(
+      topNearCornerOutsideLeft.b + 40
     )
-  ).toBeLessThan(40)
-
-  expect(getRedBlueSkew(rectTopInsideRight)).toBeLessThan(-40)
-  expect(getRedBlueSkew(vectorTopInsideRight)).toBeLessThan(-40)
-  expect(
-    Math.abs(
-      getRedBlueSkew(rectTopInsideRight) - getRedBlueSkew(vectorTopInsideRight)
-    )
-  ).toBeLessThan(40)
-})
-
-test('benchmark: shape-generated and vector-generated outside constrained dashed single-edge coverage stay equivalent on the same single-edge topology family and source-equivalence topology family crossover gate', async ({
-  page
-}) => {
-  await createRectangle(page, 0.3, 0.3)
-  await setSelectedElementSize(page, { width: 80, height: 40 })
-  await setSelectedElementRotation(page, 0)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'rect',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET
+    expect(topFarGap.r).toBeLessThan(80)
+    expect(topFarGap.g).toBeLessThan(80)
+    expect(topFarGap.b).toBeLessThan(80)
+    expect(Math.abs(getRedBlueSkew(cornerInsideLeak))).toBeLessThan(20)
+    expect(cornerInsideLeak.r).toBeGreaterThan(170)
+    expect(cornerInsideLeak.g).toBeGreaterThan(170)
+    expect(cornerInsideLeak.b).toBeGreaterThan(170)
+    expect(center.r).toBeGreaterThan(170)
+    expect(center.g).toBeGreaterThan(170)
+    expect(center.b).toBeGreaterThan(170)
   })
 
-  const rectRaster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const rectProbes = getRectSingleEdgeProbeRegions(rectRaster)
-  const [rectInterval, rectGap, rectCenter] = await Promise.all([
-    getGreenCoverage(page, rectRaster, rectProbes.intervalOutside),
-    getGreenCoverage(page, rectRaster, rectProbes.laterTopOutsideGap),
-    getGreenCoverage(page, rectRaster, rectProbes.center)
-  ])
+  test('benchmark: rectangle outside miter corner-spanning constrained dashed stroke renders through the matching bounded corner-spanning topology family product path', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+    await setSelectedElementSize(page, { width: 80, height: 40 })
+    await setSelectedElementRotation(page, 0)
+    await configureConstrainedDashedStroke(page, {
+      elementType: 'rect',
+      position: 'outside',
+      join: 'miter',
+      cap: 'butt',
+      pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
+      offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
+    })
 
-  await resetCanvas(page)
-  await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
-  await clearVectorOverlayState(page)
-  await ensureElementSelected(page, 'vector')
-  await patchSelectedVectorToClosedRectangle(page)
-  await configureConstrainedDashedStroke(page, {
-    elementType: 'vector',
-    position: 'outside',
-    join: 'bevel',
-    cap: 'butt',
-    pattern: ORTHOGONAL_80X40_SINGLE_EDGE_PATTERN,
-    offset: ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectCornerSpanningProbeRegions(raster)
+
+    const [
+      topNearCornerOutside,
+      rightNearCornerOutside,
+      topFarGap,
+      cornerInsideLeak,
+      center
+    ] = await Promise.all([
+      getGreenCoverage(page, raster, probes.topNearCornerOutside),
+      getGreenCoverage(page, raster, probes.rightNearCornerOutside),
+      getGreenCoverage(page, raster, probes.topFarGap),
+      getGreenCoverage(page, raster, probes.cornerInsideLeak),
+      getGreenCoverage(page, raster, probes.center)
+    ])
+
+    expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(rightNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
   })
 
-  const vectorRaster = await captureSelectedElementRaster(page, STROKE_WIDTH)
-  const vectorProbes = getRectSingleEdgeProbeRegions(vectorRaster)
-  const [vectorInterval, vectorGap, vectorCenter] = await Promise.all([
-    getGreenCoverage(page, vectorRaster, vectorProbes.intervalOutside),
-    getGreenCoverage(page, vectorRaster, vectorProbes.laterTopOutsideGap),
-    getGreenCoverage(page, vectorRaster, vectorProbes.center)
-  ])
+  test('benchmark: rectangle outside round corner-spanning constrained dashed stroke renders through the uniform-width corner-spanning topology family product path', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+    await setSelectedElementSize(page, { width: 80, height: 40 })
+    await setSelectedElementRotation(page, 0)
+    await configureConstrainedDashedStroke(page, {
+      elementType: 'rect',
+      position: 'outside',
+      join: 'round',
+      cap: 'butt',
+      pattern: ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN,
+      offset: ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET
+    })
 
-  expect(rectInterval).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(vectorInterval).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-  expect(Math.abs(rectInterval - vectorInterval)).toBeLessThan(0.08)
-  expect(rectGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(vectorGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(Math.abs(rectGap - vectorGap)).toBeLessThan(0.03)
-  expect(rectCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(vectorCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-  expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getRectCornerSpanningProbeRegions(raster)
+
+    const [
+      topNearCornerOutside,
+      rightNearCornerOutside,
+      topFarGap,
+      cornerInsideLeak,
+      center
+    ] = await Promise.all([
+      getGreenCoverage(page, raster, probes.topNearCornerOutside),
+      getGreenCoverage(page, raster, probes.rightNearCornerOutside),
+      getGreenCoverage(page, raster, probes.topFarGap),
+      getGreenCoverage(page, raster, probes.cornerInsideLeak),
+      getGreenCoverage(page, raster, probes.center)
+    ])
+
+    expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(rightNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  })
+
+  test('benchmark: oval inside constrained dashed full-loop stroke renders through the supported constrained dashed oval product path', async ({
+    page
+  }) => {
+    await createOval(page, 0.35, 0.35)
+    await configureConstrainedDashedStroke(page, {
+      elementType: 'oval',
+      position: 'inside',
+      join: 'bevel',
+      cap: 'butt',
+      pattern: FULL_LOOP_PATTERN
+    })
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getOvalProbeRegions(raster)
+
+    const [topInside, leftInside, topOutside, center] = await Promise.all([
+      getGreenCoverage(page, raster, probes.topInside),
+      getGreenCoverage(page, raster, probes.leftInside),
+      getGreenCoverage(page, raster, probes.topOutside),
+      getGreenCoverage(page, raster, probes.center)
+    ])
+
+    expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(leftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  })
+
+  test('benchmark: oval outside constrained dashed full-loop stroke renders through the same supported constrained dashed oval product path', async ({
+    page
+  }) => {
+    await createOval(page, 0.35, 0.35)
+    await configureConstrainedDashedStroke(page, {
+      elementType: 'oval',
+      position: 'outside',
+      join: 'bevel',
+      cap: 'butt',
+      pattern: FULL_LOOP_PATTERN
+    })
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getOvalProbeRegions(raster)
+
+    const [topOutside, leftOutside, topInside, center] = await Promise.all([
+      getGreenCoverage(page, raster, probes.topOutside),
+      getGreenCoverage(page, raster, probes.leftOutside),
+      getGreenCoverage(page, raster, probes.topInside),
+      getGreenCoverage(page, raster, probes.center)
+    ])
+
+    expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(leftOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  })
+
+  test('benchmark: oval inside round-join constrained dashed full-loop stroke renders through the sampled smooth product path', async ({
+    page
+  }) => {
+    await createOval(page, 0.35, 0.35)
+    await configureConstrainedDashedStroke(page, {
+      elementType: 'oval',
+      position: 'inside',
+      join: 'round',
+      cap: 'butt',
+      pattern: FULL_LOOP_PATTERN
+    })
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getOvalProbeRegions(raster)
+
+    const [topInside, leftInside, topOutside, center] = await Promise.all([
+      getGreenCoverage(page, raster, probes.topInside),
+      getGreenCoverage(page, raster, probes.leftInside),
+      getGreenCoverage(page, raster, probes.topOutside),
+      getGreenCoverage(page, raster, probes.center)
+    ])
+
+    expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(leftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  })
+
+  test('benchmark: oval outside round-join constrained dashed full-loop stroke renders through the sampled smooth product path', async ({
+    page
+  }) => {
+    await createOval(page, 0.35, 0.35)
+    await configureConstrainedDashedStroke(page, {
+      elementType: 'oval',
+      position: 'outside',
+      join: 'round',
+      cap: 'butt',
+      pattern: FULL_LOOP_PATTERN
+    })
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH)
+    const probes = getOvalProbeRegions(raster)
+
+    const [topOutside, leftOutside, topInside, center] = await Promise.all([
+      getGreenCoverage(page, raster, probes.topOutside),
+      getGreenCoverage(page, raster, probes.leftOutside),
+      getGreenCoverage(page, raster, probes.topInside),
+      getGreenCoverage(page, raster, probes.center)
+    ])
+
+    expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(leftOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
+    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+  })
 })

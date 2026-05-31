@@ -1,4 +1,4 @@
-import core, { render, systemContext, sceneTree } from '../../contexts'
+import core, { systemContext } from '../../contexts'
 import type {
   ActiveGradientFillState,
   GradientHandleState
@@ -28,8 +28,6 @@ export const initGradientFillEditing = () => {
   registerGradientFillHandlesRenderLayer(
     (registration, options) => core.registerRenderLayer(registration, options),
     {
-      render,
-      sceneTree,
       systemContext
     }
   )

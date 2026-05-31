@@ -29,8 +29,8 @@ describe('path topology model', () => {
       sourceRevision: 'source-revision:rect:test',
       sourceFamily: 'shape',
       topologyFamily: 'rectangle-equivalent',
-      fillRule: 'evenodd',
-      fillRuleBasis: 'evenodd',
+      fillRule: 'nonzero',
+      fillRuleBasis: 'nonzero',
       closed: true,
       totalLength: 240,
       isSimpleClosed: true,
@@ -48,8 +48,8 @@ describe('path topology model', () => {
       {
         legalDomainId: 'rect:test:legal-domain:0',
         role: 'shell',
-        fillRule: 'evenodd',
-        fillRuleBasis: 'evenodd',
+        fillRule: 'nonzero',
+        fillRuleBasis: 'nonzero',
         contourIds: ['rect:test:contour:0']
       }
     ])

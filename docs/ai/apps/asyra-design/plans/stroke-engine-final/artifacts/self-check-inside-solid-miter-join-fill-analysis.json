@@ -1,0 +1,69 @@
+{
+  "width": 1400,
+  "height": 1100,
+  "redPixelCount": 49826,
+  "legalRedPixelCount": 49826,
+  "outsideRedPixelCount": 0,
+  "strictLegalRedPixelCount": 33852,
+  "strictOutsideRedPixelCount": 15974,
+  "darkOverdrawPixelCount": 0,
+  "maxDarkOverdrawComponentArea": 0,
+  "darkOverdrawComponentAreas": [],
+  "maxOutsideComponentArea": 0,
+  "outsideComponentAreas": [],
+  "maxStrictInsideComponentArea": 17672,
+  "maxStrictOutsideComponentArea": 5508,
+  "strictInsideComponentAreas": [
+    17672,
+    7469,
+    5781,
+    2930
+  ],
+  "strictInsideComponents": [
+    {
+      "area": 17672,
+      "minX": 444,
+      "minY": 295,
+      "maxX": 803,
+      "maxY": 680,
+      "centerX": 668.5326505205976,
+      "centerY": 472.15431190583973
+    },
+    {
+      "area": 7469,
+      "minX": 431,
+      "minY": 525,
+      "maxX": 725,
+      "maxY": 827,
+      "centerX": 586.7551211674923,
+      "centerY": 676.8563395367519
+    },
+    {
+      "area": 5781,
+      "minX": 754,
+      "minY": 417,
+      "maxX": 962,
+      "maxY": 620,
+      "centerX": 828.5163466528282,
+      "centerY": 509.4350458398201
+    },
+    {
+      "area": 2930,
+      "minX": 739,
+      "minY": 636,
+      "maxX": 832,
+      "maxY": 788,
+      "centerX": 791.779180887372,
+      "centerY": 703.1238907849829
+    }
+  ],
+  "strictOutsideComponentAreas": [
+    5508,
+    5029,
+    3218,
+    2156,
+    37,
+    26
+  ],
+  "boundaryDomainPacketCount": 1
+}

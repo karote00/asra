@@ -1373,3 +1373,10 @@ export const setConstrainedSolidOwnershipDiagnostics = <T extends object>(
     graphic as T & ConstrainedSolidOwnershipDiagnosticsRuntimeGraphic
   ).__asyraConstrainedSolidOwnershipDiagnostics = diagnostics
 }
+
+export const clearConstrainedSolidOwnershipDiagnostics = <T extends object>(
+  graphic: T
+) => {
+  delete (graphic as T & ConstrainedSolidOwnershipDiagnosticsRuntimeGraphic)
+    .__asyraConstrainedSolidOwnershipDiagnostics
+}

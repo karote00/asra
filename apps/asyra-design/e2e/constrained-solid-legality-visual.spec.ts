@@ -6,6 +6,7 @@ import {
   getPropertiesPanel,
   getSelectedElementRect,
   resetCanvas,
+  setStrokeDiagnosticsMode,
   waitForAppReady
 } from './test-utils'
 
@@ -914,6 +915,7 @@ test.describe('Constrained Solid Legality Visual', () => {
     await page.goto('/')
     await waitForAppReady(page)
     await resetCanvas(page)
+    await setStrokeDiagnosticsMode(page, 'full')
   })
 
   test('shows inside legality overlay for a selected rectangle with a supported constrained solid stroke', async ({

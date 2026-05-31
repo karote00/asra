@@ -817,6 +817,13 @@ const getVectorStrokeRenderSummary = async (
 
 test.describe('vector stroke refresh rendering', () => {
   test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      ;(
+        window as typeof window & {
+          __ASYRA_STROKE_DIAGNOSTICS_MODE__?: 'full'
+        }
+      ).__ASYRA_STROKE_DIAGNOSTICS_MODE__ = 'full'
+    })
     await page.goto('/')
     await waitForAppReady(page)
     await resetCanvas(page)

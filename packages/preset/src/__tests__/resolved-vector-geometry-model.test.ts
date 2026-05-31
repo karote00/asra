@@ -252,6 +252,71 @@ describe('resolved vector geometry model', () => {
     ).toBe(true)
   })
 
+  it('should run: expose bounded unfilled faces for evenodd self-intersection masks', () => {
+    const points = [
+      { x: 0, y: 0 },
+      { x: 120, y: 220 },
+      { x: 240, y: 0 },
+      { x: 0, y: 140 },
+      { x: 240, y: 140 }
+    ]
+    const path = buildPolylineGeometryModelPath(points, true)
+    const topology = buildPathTopologyModel({
+      pathId: 'shared-star-evenodd-unfilled-faces',
+      sourceId: 'shared-star-evenodd',
+      networkId: 'network-0',
+      sourceRevision: 'source-revision:shared-star-evenodd:network-0',
+      sourceFamily: 'vector',
+      points: path.sampledPoints,
+      closed: path.closed,
+      fillRule: 'evenodd'
+    })
+
+    const model = buildResolvedVectorGeometryModel({
+      modelId: 'shared-star-evenodd-unfilled-faces-model',
+      fillRule: topology.fillRule,
+      networks: [
+        {
+          networkId: 'network-0',
+          path,
+          topology
+        }
+      ]
+    })
+    const selfIntersecting = model.networks[0]?.selfIntersecting
+    const unfilledFaceBoundaries =
+      selfIntersecting?.unfilledFaceBoundaries ?? []
+    const legalFaceIds = new Set(
+      selfIntersecting?.legalFaceBoundaries.map((face) => face.faceId) ?? []
+    )
+
+    expect(topology.fillRule).toBe('evenodd')
+    expect(selfIntersecting?.fillRegions.length).toBeGreaterThan(0)
+    expect(unfilledFaceBoundaries.length).toBeGreaterThan(0)
+    expect(
+      unfilledFaceBoundaries.every(
+        (face) =>
+          face.faceId.startsWith('face:') &&
+          !legalFaceIds.has(face.faceId) &&
+          face.points.length >= 3 &&
+          face.edges.length >= 3 &&
+          face.edges.every((edge) => edge.edgeId.includes(':edge:'))
+      ),
+      JSON.stringify(
+        {
+          legalFaceIds: [...legalFaceIds],
+          unfilledFaceBoundaries: unfilledFaceBoundaries.map((face) => ({
+            faceId: face.faceId,
+            pointCount: face.points.length,
+            edgeIds: face.edges.map((edge) => edge.edgeId)
+          }))
+        },
+        null,
+        2
+      )
+    ).toBe(true)
+  })
+
   it('should run: expose filled-face stroke domains as actual boundary geometry, not source-range labels', () => {
     const points = [
       { x: 0, y: 0 },
@@ -323,7 +388,9 @@ describe('resolved vector geometry model', () => {
       'resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting'
     )
     expect(source).toContain('?.fillRegions ?? []')
+    expect(source).toContain('?.unfilledFaceBoundaries ?? []')
     expect(source).toContain('?.legalBoundaryContours')
+    expect(source).toContain('implicitUnfilledFaceBoundaries')
     expect(source).not.toMatch(/buildSelfIntersectingEvenOddResolvedGeometry/)
   })
 

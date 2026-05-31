@@ -8,6 +8,7 @@ import {
   getSelectedElementRect,
   patchSelectedStrokeDashOffset,
   resetCanvas,
+  setStrokeDiagnosticsMode,
   waitForAppReady
 } from './test-utils'
 
@@ -846,6 +847,7 @@ test.describe('Dashed Center Stroke Visual Benchmarks', () => {
     await page.goto('/')
     await waitForAppReady(page)
     await resetCanvas(page)
+    await setStrokeDiagnosticsMode(page, 'full')
   })
 
   test('benchmark: rectangle center dashed stroke preserves authored visible and gap probes', async ({

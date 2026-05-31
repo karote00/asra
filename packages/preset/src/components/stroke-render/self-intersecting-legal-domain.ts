@@ -31,6 +31,7 @@ interface PlanarFace {
   edgeIds: number[]
   area: number
   legal: boolean
+  exterior: boolean
 }
 
 interface PlanarGraph {
@@ -329,6 +330,7 @@ export interface EvenOddBoundaryContour {
 export interface SelfIntersectingEvenOddResolvedGeometry {
   fillRegions: PolygonRegion[]
   legalFaceBoundaries: EvenOddLegalFaceBoundary[]
+  unfilledFaceBoundaries: EvenOddLegalFaceBoundary[]
   legalBoundaryContours: EvenOddBoundaryContour[]
 }
 
@@ -464,6 +466,7 @@ const buildPlanarGraph = (
       points: face.points,
       edgeIds: face.edgeIds,
       area: polygonArea(face.points),
+      exterior: faceIndex === outerFaceIndex,
       legal:
         faceIndex === outerFaceIndex
           ? false
@@ -572,6 +575,24 @@ const buildFillFaceBoundariesFromGraph = (
 ): EvenOddLegalFaceBoundary[] =>
   graph.faces.flatMap((face) =>
     face.legal
+      ? [
+          {
+            faceId: face.faceId,
+            points: face.points,
+            edges: face.edgeIds.flatMap((edgeId, boundaryIndex) =>
+              toLegalFaceBoundaryEdge(graph, face, edgeId, boundaryIndex)
+            ),
+            area: face.area
+          }
+        ]
+      : []
+  )
+
+const buildUnfilledFaceBoundariesFromGraph = (
+  graph: PlanarGraph
+): EvenOddLegalFaceBoundary[] =>
+  graph.faces.flatMap((face) =>
+    !face.legal && !face.exterior
       ? [
           {
             faceId: face.faceId,
@@ -1034,13 +1055,16 @@ export const buildSelfIntersectingResolvedGeometry = (
     return {
       fillRegions: [],
       legalFaceBoundaries: [],
+      unfilledFaceBoundaries: [],
       legalBoundaryContours: []
     }
   }
 
   const legalFaceBoundaries = buildFillFaceBoundariesFromGraph(graph)
+  const unfilledFaceBoundaries = buildUnfilledFaceBoundariesFromGraph(graph)
   return {
     legalFaceBoundaries,
+    unfilledFaceBoundaries,
     fillRegions: legalFaceBoundaries.map((face) => ({
       polygons: [face.points]
     })),

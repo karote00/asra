@@ -105,6 +105,7 @@ interface StrokeResolvedPacketLike<
     polygons: Vec2[][]
     bounds: Bounds
     debugMeta?: TDebugMeta
+    renderDescriptor?: unknown
   }
   paint: TPaint
 }
@@ -161,6 +162,7 @@ export interface StrokeFinalFace<
   runtimeStatus?: string
   sourceTopology?: string
   debugMeta?: TDebugMeta
+  renderDescriptor?: unknown
   paint: TPaint
 }
 
@@ -446,6 +448,7 @@ const buildFaceFromPacket = <
       runtimeStatus: debugMeta?.runtimeStatus,
       sourceTopology: debugMeta?.sourceTopology,
       debugMeta,
+      renderDescriptor: packet.geometry.renderDescriptor,
       paint: packet.paint
     } satisfies StrokeFinalFace<TDebugMeta, TPaint>
   }
@@ -481,6 +484,9 @@ const mergeFace = <
   )
   source.legalDomainIds.forEach((id) => pushUnique(target.legalDomainIds, id))
   mergeFaceDebugMeta(target.debugMeta, source.debugMeta)
+  if (target.renderDescriptor === undefined) {
+    target.renderDescriptor = source.renderDescriptor
+  }
   target.faceId = hashStableString(
     'final-face',
     `${target.visualPacketKey}|${target.sourceGeometryIds.join('|')}`

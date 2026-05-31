@@ -16,11 +16,18 @@ import {
   clearConstrainedDashedRuntimeDiagnostics,
   setConstrainedDashedRuntimeDiagnostics
 } from './stroke-render/constrained-dashed-runtime-diagnostics'
-import { applyCenterDashedOverlapDiagnostics } from './stroke-render/center-dashed-overlap-diagnostics'
+import {
+  applyCenterDashedOverlapDiagnostics,
+  clearCenterDashedOverlapDiagnostics
+} from './stroke-render/center-dashed-overlap-diagnostics'
 import { buildConstrainedSolidLegalityClippingResult } from './stroke-render/constrained-solid-legality-clipping'
-import { setConstrainedSolidLegalityDiagnostics } from './stroke-render/constrained-solid-legality-diagnostics'
+import {
+  clearConstrainedSolidLegalityDiagnostics,
+  setConstrainedSolidLegalityDiagnostics
+} from './stroke-render/constrained-solid-legality-diagnostics'
 import {
   buildConstrainedSolidOwnershipDiagnostics,
+  clearConstrainedSolidOwnershipDiagnostics,
   createEmptyConstrainedSolidOwnershipDiagnostics,
   setConstrainedSolidOwnershipDiagnostics
 } from './stroke-render/constrained-solid-ownership-diagnostics'
@@ -42,6 +49,7 @@ import {
   hasSolidCenterStrokeIntent,
   toSolidCenterStrokeRenderEntries
 } from './stroke-render/solid-center-stroke-packets'
+import { shouldEmitFullStrokeDiagnostics } from './stroke-render/stroke-diagnostics-mode'
 
 defineComponent({
   type: 'rect',
@@ -96,6 +104,7 @@ defineComponent({
     })
     const hasCenterDashedIntent = hasDashedCenterStrokeIntent(data.strokes)
     const hasCenterSolidIntent = hasSolidCenterStrokeIntent(data.strokes)
+    const shouldAttachFullStrokeDiagnostics = shouldEmitFullStrokeDiagnostics()
     const dashedCenterPackets = hasCenterDashedIntent
       ? buildDashedCenterStrokeResolvedPackets(
           `rect:${data.id ?? 'anonymous'}:dashed-center`,
@@ -146,7 +155,7 @@ defineComponent({
               constrainedDashedRuntimeStatus.ownership.ownerKeys.length
           })
         : []
-    if (constrainedDashedRuntimeStatus) {
+    if (shouldAttachFullStrokeDiagnostics && constrainedDashedRuntimeStatus) {
       setConstrainedDashedRuntimeDiagnostics(
         graphic,
         [
@@ -184,7 +193,8 @@ defineComponent({
             }
           ),
           {
-            includeOwnershipDiagnosticsForPreservedPackets: true
+            includeOwnershipDiagnosticsForPreservedPackets:
+              shouldAttachFullStrokeDiagnostics
           }
         )
       : {
@@ -214,15 +224,21 @@ defineComponent({
       ...constrainedPackets
     ]
     applySolidCenterStrokeExportPackets(graphic, strokePackets)
-    applyCenterDashedOverlapDiagnostics(graphic, dashedCenterPackets)
-    setConstrainedSolidLegalityDiagnostics(
-      graphic,
-      constrainedResult.legalityDiagnostics
-    )
-    setConstrainedSolidOwnershipDiagnostics(
-      graphic,
-      constrainedResult.ownershipDiagnostics
-    )
+    if (shouldAttachFullStrokeDiagnostics) {
+      applyCenterDashedOverlapDiagnostics(graphic, dashedCenterPackets)
+      setConstrainedSolidLegalityDiagnostics(
+        graphic,
+        constrainedResult.legalityDiagnostics
+      )
+      setConstrainedSolidOwnershipDiagnostics(
+        graphic,
+        constrainedResult.ownershipDiagnostics
+      )
+    } else {
+      clearCenterDashedOverlapDiagnostics(graphic)
+      clearConstrainedSolidLegalityDiagnostics(graphic)
+      clearConstrainedSolidOwnershipDiagnostics(graphic)
+    }
     const fillHitArea =
       getRenderableFills(data.fills).length > 0
         ? createRectangleHitArea(data.width, data.height)

@@ -298,18 +298,8 @@ export const applyCenterDashedOverlapDiagnostics = <T extends object>(
 ) => {
   const resolvedDebugConfig = debugConfig ?? getDebugConfig()
   if (!resolvedDebugConfig.enabled) {
-    ;(
-      graphic as T & CenterDashedOverlapDiagnosticsRuntimeGraphic
-    ).__asyraCenterDashedOverlapDiagnostics = {
-      candidates: [],
-      edges: [],
-      components: [],
-      ownership: {
-        ownedRegions: [],
-        passthroughIntervals: [],
-        unresolvedBailouts: []
-      }
-    }
+    delete (graphic as T & CenterDashedOverlapDiagnosticsRuntimeGraphic)
+      .__asyraCenterDashedOverlapDiagnostics
     return
   }
 
@@ -320,4 +310,11 @@ export const applyCenterDashedOverlapDiagnostics = <T extends object>(
       packets,
       resolvedDebugConfig
     )
+}
+
+export const clearCenterDashedOverlapDiagnostics = <T extends object>(
+  graphic: T
+) => {
+  delete (graphic as T & CenterDashedOverlapDiagnosticsRuntimeGraphic)
+    .__asyraCenterDashedOverlapDiagnostics
 }

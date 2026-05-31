@@ -26,6 +26,7 @@ export interface ResolvedVectorSelfIntersectingGeometry {
   tracedSegments: TracedLineSegment[]
   fillRegions: PolygonRegion[]
   legalFaceBoundaries: EvenOddLegalFaceBoundary[]
+  unfilledFaceBoundaries: EvenOddLegalFaceBoundary[]
   legalBoundaryContours: EvenOddBoundaryContour[]
   sourceSplitRanges: ResolvedVectorSourceSplitRange[]
   strokeBoundaryDomains: ResolvedVectorStrokeBoundaryDomain[]
@@ -891,6 +892,10 @@ const buildSelfIntersectingGeometry = (
     resolvedGeometry.legalFaceBoundaries.length > 0
       ? resolvedGeometry.legalFaceBoundaries
       : (fallbackResolvedGeometry?.legalFaceBoundaries ?? [])
+  const unfilledFaceBoundaries =
+    resolvedGeometry.unfilledFaceBoundaries.length > 0
+      ? resolvedGeometry.unfilledFaceBoundaries
+      : (fallbackResolvedGeometry?.unfilledFaceBoundaries ?? [])
 
   const sourceSplitRanges = buildResolvedVectorSourceSplitRanges(
     legalFaceBoundaries,
@@ -908,6 +913,7 @@ const buildSelfIntersectingGeometry = (
         ? resolvedGeometry.fillRegions
         : (fallbackResolvedGeometry?.fillRegions ?? []),
     legalFaceBoundaries: legalFaceBoundaries,
+    unfilledFaceBoundaries,
     legalBoundaryContours,
     sourceSplitRanges,
     strokeBoundaryDomains:

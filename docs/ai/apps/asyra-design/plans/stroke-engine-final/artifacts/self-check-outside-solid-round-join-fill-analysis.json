@@ -1,0 +1,24 @@
+{
+  "width": 1400,
+  "height": 1100,
+  "redPixelCount": 34804,
+  "legalRedPixelCount": 5292,
+  "outsideRedPixelCount": 29512,
+  "strictLegalRedPixelCount": 0,
+  "strictOutsideRedPixelCount": 34804,
+  "darkOverdrawPixelCount": 0,
+  "maxDarkOverdrawComponentArea": 0,
+  "darkOverdrawComponentAreas": [],
+  "maxOutsideComponentArea": 29512,
+  "outsideComponentAreas": [
+    29512
+  ],
+  "maxStrictInsideComponentArea": 0,
+  "maxStrictOutsideComponentArea": 34804,
+  "strictInsideComponentAreas": [],
+  "strictInsideComponents": [],
+  "strictOutsideComponentAreas": [
+    34804
+  ],
+  "boundaryDomainPacketCount": 1
+}

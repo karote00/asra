@@ -12,6 +12,19 @@ import core, { render, sceneTree } from '../contexts'
 
 export type FillPatch = Partial<Pick<FillAttrs, FillWritableKey>>
 
+const updateFillPropertyById = core.updatePropertyById as <
+  K extends FillWritableKey
+>(
+  propertyId: string,
+  key: K,
+  data: FillAttrs[K],
+  owner: {
+    ownerElementId: string
+    ownerPropertyName: string
+  },
+  options?: EVENT_OPTIONS
+) => void
+
 interface RenderElementShape {
   toGlobal: (point: PositionData) => PositionData
   toLocal: (
@@ -152,6 +165,10 @@ const getChangedPatchEntries = (currentFill: FillAttrs, patch: FillPatch) =>
     }
 
     const nextValue = patch[key]
+    if (nextValue === undefined) {
+      return []
+    }
+
     return isEqual(currentFill[key], nextValue)
       ? []
       : ([[key, nextValue]] as const)
@@ -543,7 +560,7 @@ export const fillApis = {
     }
 
     changedEntries.forEach(([key, value]) => {
-      core.updatePropertyById(
+      updateFillPropertyById(
         fillId,
         key,
         value,

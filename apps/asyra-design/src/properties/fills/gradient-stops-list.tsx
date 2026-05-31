@@ -113,6 +113,8 @@ const GradientStopsList = ({
             index={stopIndex}
             fill={
               {
+                id: `gradient-stop-${index}-${stopIndex}`,
+                type: 'fill',
                 kind: FillKinds.SOLID,
                 color: stop.color,
                 opacity: stop.opacity,
@@ -122,6 +124,8 @@ const GradientStopsList = ({
                 gradient: null
               } as FillAttrs
             }
+            fillId={`gradient-stop-${index}-${stopIndex}`}
+            ownerElementId={null}
             displayColor={convertToHexUpper(stop.color)}
             gradientData={null}
             colorFormat={fillColorFormat}

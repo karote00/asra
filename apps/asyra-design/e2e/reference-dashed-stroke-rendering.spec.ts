@@ -7,8 +7,9 @@ import {
   getElementCount,
   getZoomLevel,
   getToolbar,
-  waitForAppReady,
-  resetCanvas
+  resetCanvas,
+  setStrokeDiagnosticsMode,
+  waitForAppReady
 } from './test-utils'
 
 // Definition:
@@ -1906,6 +1907,7 @@ test.describe('Reference Dashed Stroke Rendering', () => {
     await page.goto('/')
     await waitForAppReady(page)
     await resetCanvas(page)
+    await setStrokeDiagnosticsMode(page, 'full')
   })
 
   test('renders the dashed stroke with the expected first dash, gap, inside placement, and color', async ({

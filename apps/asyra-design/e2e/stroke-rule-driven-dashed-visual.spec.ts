@@ -60,6 +60,13 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await waitForAppReady(page)
   await resetCanvas(page)
+  await page.evaluate(() => {
+    ;(
+      window as typeof window & {
+        __ASYRA_STROKE_DIAGNOSTICS_MODE__?: 'full'
+      }
+    ).__ASYRA_STROKE_DIAGNOSTICS_MODE__ = 'full'
+  })
 })
 
 const lerpPoint = (a: Vec2, b: Vec2, t: number): Vec2 => ({

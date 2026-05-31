@@ -5,6 +5,7 @@ import {
   getPropertiesPanel,
   getSelectedElementRect,
   resetCanvas,
+  setStrokeDiagnosticsMode,
   waitForAppReady
 } from './test-utils'
 
@@ -243,6 +244,7 @@ test.describe('Center Dashed Overlap Visual', () => {
     await page.goto('/')
     await waitForAppReady(page)
     await resetCanvas(page)
+    await setStrokeDiagnosticsMode(page, 'full')
   })
 
   test('shows overlap debug overlay for a selected rectangle with overlapping dashed strokes', async ({

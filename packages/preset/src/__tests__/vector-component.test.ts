@@ -1,6 +1,17 @@
-import { beforeAll, describe, it, expect, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  it,
+  expect,
+  vi
+} from 'vitest'
 import { BehaviorSubject, Subscription } from 'rxjs'
 import { Container, Mesh } from 'pixi.js'
+import Clipper2ZFactory from 'clipper2-wasm'
 import {
   componentRegistry,
   elementPropertyRegistry,
@@ -22,7 +33,58 @@ import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
 import type { SolidCenterStrokeExportPacket } from '../components/stroke-render/solid-center-stroke-packets'
 import { createReportedRoundInsideDashedStarVectorData } from './inside-dashed-fixtures'
-import { selectGeometryBackend } from '../components/stroke-render/geometry-backend'
+import {
+  registerGeometryBackend,
+  selectGeometryBackend
+} from '../components/stroke-render/geometry-backend'
+import {
+  createClipper2GeometryBackend,
+  type Clipper2Module
+} from '../components/stroke-render/clipper2-geometry-backend'
+import type { StrokeDiagnosticsMode } from '../components/stroke-render/stroke-diagnostics-mode'
+
+const require = createRequire(import.meta.url)
+const clipperWasmPath = require.resolve('clipper2-wasm/dist/umd/clipper2z.wasm')
+const CLIPPER_VECTOR_COMPONENT_TEST_BACKEND_ID =
+  'vector-component-clipper2-test'
+const UNSUPPORTED_EXACT_BACKEND_ID = 'unsupported-exact-geometry-backend'
+
+const loadClipperModule = async () =>
+  (await (
+    Clipper2ZFactory as (options: {
+      wasmBinary: Uint8Array
+    }) => Promise<Clipper2Module>
+  )({
+    wasmBinary: readFileSync(clipperWasmPath)
+  })) as Clipper2Module
+
+const selectClipper2VectorComponentBackend = async () => {
+  const backend = createClipper2GeometryBackend(await loadClipperModule(), {
+    backendId: CLIPPER_VECTOR_COMPONENT_TEST_BACKEND_ID,
+    backendVersion: `${CLIPPER_VECTOR_COMPONENT_TEST_BACKEND_ID}@test`
+  })
+
+  registerGeometryBackend({
+    backendId: CLIPPER_VECTOR_COMPONENT_TEST_BACKEND_ID,
+    load: () => backend
+  })
+  selectGeometryBackend(CLIPPER_VECTOR_COMPONENT_TEST_BACKEND_ID)
+}
+
+interface StrokeDiagnosticsGlobal {
+  __ASYRA_STROKE_DIAGNOSTICS_MODE__?: StrokeDiagnosticsMode
+}
+
+beforeEach(() => {
+  ;(globalThis as StrokeDiagnosticsGlobal).__ASYRA_STROKE_DIAGNOSTICS_MODE__ =
+    'full'
+})
+
+afterEach(() => {
+  delete (globalThis as StrokeDiagnosticsGlobal)
+    .__ASYRA_STROKE_DIAGNOSTICS_MODE__
+  selectGeometryBackend(UNSUPPORTED_EXACT_BACKEND_ID)
+})
 
 beforeAll(() => {
   core.defineSystemProperty<string | null>('pathEditingVectorId', null)
@@ -1151,8 +1213,8 @@ describe('Vector Component', () => {
     expect(countInstructions(mockGraphic, 'stroke')).toHaveLength(0)
   })
 
-  it('should run: render many self-intersecting inside dashed stars as source-path product-final geometry without exceeding frame budget', () => {
-    selectGeometryBackend('unsupported-exact-geometry-backend')
+  it('should run: render many self-intersecting inside dashed stars as source-path product-final geometry without exceeding frame budget', async () => {
+    await selectClipper2VectorComponentBackend()
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1179,6 +1241,19 @@ describe('Vector Component', () => {
     expect(
       mockGraphic.__asyraSolidCenterStrokeExportPackets?.some(
         (packet) => packet.debugMeta?.geometryFamily === 'constrained-dashed'
+      ),
+      JSON.stringify(
+        {
+          exportPacketCount:
+            mockGraphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0,
+          diagnostics: mockGraphic.__asyraConstrainedDashedRuntimeDiagnostics,
+          packets: mockGraphic.__asyraSolidCenterStrokeExportPackets?.slice(
+            0,
+            12
+          )
+        },
+        null,
+        2
       )
     ).toBe(true)
     expect(

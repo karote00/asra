@@ -2,6 +2,7 @@ import { Input, PropertyControl } from '@asyra/design-system'
 import { type ReactNode, useCallback } from 'react'
 import { VECTOR_TOKENS, type VectorPointTarget } from '@asyra/core'
 import {
+  isVectorHandleMode,
   VectorHandleModes,
   type VectorHandleMode,
   ROW_HEIGHT
@@ -301,11 +302,12 @@ const VectorPoint = () => {
         null)
       : null
   const pointType = anchorPoint?.type ?? 'sharp'
-  const handleMode =
-    selectedPoint?.handleMode ??
-    (elementId && pointId
+  const selectedHandleMode = selectedPoint?.handleMode
+  const handleMode = isVectorHandleMode(selectedHandleMode)
+    ? selectedHandleMode
+    : elementId && pointId
       ? elementApis.getVectorAnchorPointHandleMode(elementId, pointId)
-      : VectorHandleModes.NONE)
+      : VectorHandleModes.NONE
 
   const applyTargetSelection = useCallback(
     (
@@ -379,7 +381,9 @@ const VectorPoint = () => {
                 y
               }
             )
-      return applyTargetSelection(updatedPoint, target)
+      return updatedPoint === true
+        ? false
+        : applyTargetSelection(updatedPoint, target)
     },
     [elementId, pointId, x, y, target, applyTargetSelection]
   )
@@ -410,7 +414,9 @@ const VectorPoint = () => {
                 y: nextY
               }
             )
-      return applyTargetSelection(updatedPoint, target)
+      return updatedPoint === true
+        ? false
+        : applyTargetSelection(updatedPoint, target)
     },
     [elementId, pointId, x, y, target, applyTargetSelection]
   )

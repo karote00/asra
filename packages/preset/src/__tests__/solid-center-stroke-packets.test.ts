@@ -15,6 +15,28 @@ import {
 import { buildStrokeFinalFacesFromResolvedPackets } from '../components/stroke-render/stroke-final-face'
 import { createGeometryBackendCapabilities } from '../components/stroke-render/geometry-backend'
 
+type StrokeDiagnosticsMode = 'off' | 'summary' | 'full'
+
+const withStrokeDiagnosticsMode = <T>(
+  mode: StrokeDiagnosticsMode,
+  run: () => T
+): T => {
+  const target = globalThis as typeof globalThis & {
+    __ASYRA_STROKE_DIAGNOSTICS_MODE__?: StrokeDiagnosticsMode
+  }
+  const previous = target.__ASYRA_STROKE_DIAGNOSTICS_MODE__
+  target.__ASYRA_STROKE_DIAGNOSTICS_MODE__ = mode
+  try {
+    return run()
+  } finally {
+    if (previous === undefined) {
+      delete target.__ASYRA_STROKE_DIAGNOSTICS_MODE__
+    } else {
+      target.__ASYRA_STROKE_DIAGNOSTICS_MODE__ = previous
+    }
+  }
+}
+
 describe('solid center stroke packets', () => {
   it('should run: derive render, hit, and export packets from the same final geometry source', () => {
     const packets = buildSolidCenterStrokeResolvedPackets(
@@ -44,9 +66,20 @@ describe('solid center stroke packets', () => {
     expect(exportPacket.polygons).toBe(resolved.geometry.polygons)
     expect(hit.bounds).toEqual(resolved.geometry.bounds)
     expect(exportPacket.bounds).toEqual(resolved.geometry.bounds)
-    expect(render.debugMeta).toBe(resolved.geometry.debugMeta)
-    expect(hit.debugMeta).toBe(resolved.geometry.debugMeta)
-    expect(exportPacket.debugMeta).toBe(resolved.geometry.debugMeta)
+    expect(render.debugMeta).toBeUndefined()
+    expect(hit.debugMeta).toBeUndefined()
+    expect(exportPacket.debugMeta).toBeUndefined()
+    withStrokeDiagnosticsMode('full', () => {
+      expect(toSolidCenterStrokeRenderEntries(packets)[0]?.debugMeta).toBe(
+        resolved.geometry.debugMeta
+      )
+      expect(buildSolidCenterStrokeHitTestPackets(packets)[0]?.debugMeta).toBe(
+        resolved.geometry.debugMeta
+      )
+      expect(buildSolidCenterStrokeExportPackets(packets)[0]?.debugMeta).toBe(
+        resolved.geometry.debugMeta
+      )
+    })
     expect(render.revisionSet).toBe(resolved.geometry.debugMeta?.revisionSet)
     expect(resolved.geometry.debugMeta?.revisionSet).toMatchObject({
       sourcePathRevision: expect.any(String),
@@ -88,9 +121,20 @@ describe('solid center stroke packets', () => {
     expect(exportPacket.polygons).toBe(face?.polygons)
     expect(hit.bounds).toBe(face?.bounds)
     expect(exportPacket.bounds).toBe(face?.bounds)
-    expect(render.debugMeta).toBe(face?.debugMeta)
-    expect(hit.debugMeta).toBe(face?.debugMeta)
-    expect(exportPacket.debugMeta).toBe(face?.debugMeta)
+    expect(render.debugMeta).toBeUndefined()
+    expect(hit.debugMeta).toBeUndefined()
+    expect(exportPacket.debugMeta).toBeUndefined()
+    withStrokeDiagnosticsMode('full', () => {
+      expect(
+        toSolidCenterStrokeRenderEntriesFromFinalFaces(faces)[0]?.debugMeta
+      ).toBe(face?.debugMeta)
+      expect(
+        buildSolidCenterStrokeHitTestPacketsFromFinalFaces(faces)[0]?.debugMeta
+      ).toBe(face?.debugMeta)
+      expect(
+        buildSolidCenterStrokeExportPacketsFromFinalFaces(faces)[0]?.debugMeta
+      ).toBe(face?.debugMeta)
+    })
     expect(hit.ownerSet).toBe(face?.ownerSet)
     expect(exportPacket.ownerSet).toBe(face?.ownerSet)
     expect(hit.intervalIds).toBe(face?.intervalIds)
@@ -175,23 +219,35 @@ describe('solid center stroke packets', () => {
     const [exportPacket] =
       buildSolidCenterStrokeExportPacketsFromFinalFaces(faces)
 
-    expect(render.debugMeta?.figmaLikeSplitRangeTerminals).toEqual([
-      {
-        intervalId: 'interval:terminal-start',
-        splitRangeId: 'split-range:terminal',
-        splitRangeStartDistance: 0,
-        splitRangeEndDistance: 30,
-        terminalRole: 'start',
-        startDistance: 0,
-        endDistance: 8
-      }
-    ])
-    expect(hit.debugMeta?.figmaLikeSplitRangeTerminals).toBe(
-      render.debugMeta?.figmaLikeSplitRangeTerminals
-    )
-    expect(exportPacket.debugMeta?.figmaLikeSplitRangeTerminals).toBe(
-      render.debugMeta?.figmaLikeSplitRangeTerminals
-    )
+    expect(render.debugMeta).toBeUndefined()
+    expect(hit.debugMeta).toBeUndefined()
+    expect(exportPacket.debugMeta).toBeUndefined()
+    withStrokeDiagnosticsMode('full', () => {
+      const [diagnosticRender] =
+        toSolidCenterStrokeRenderEntriesFromFinalFaces(faces)
+      const [diagnosticHit] =
+        buildSolidCenterStrokeHitTestPacketsFromFinalFaces(faces)
+      const [diagnosticExport] =
+        buildSolidCenterStrokeExportPacketsFromFinalFaces(faces)
+
+      expect(diagnosticRender.debugMeta?.figmaLikeSplitRangeTerminals).toEqual([
+        {
+          intervalId: 'interval:terminal-start',
+          splitRangeId: 'split-range:terminal',
+          splitRangeStartDistance: 0,
+          splitRangeEndDistance: 30,
+          terminalRole: 'start',
+          startDistance: 0,
+          endDistance: 8
+        }
+      ])
+      expect(diagnosticHit.debugMeta?.figmaLikeSplitRangeTerminals).toBe(
+        diagnosticRender.debugMeta?.figmaLikeSplitRangeTerminals
+      )
+      expect(diagnosticExport.debugMeta?.figmaLikeSplitRangeTerminals).toBe(
+        diagnosticRender.debugMeta?.figmaLikeSplitRangeTerminals
+      )
+    })
     expect(hit.intervalIds).toBe(faces[0]?.intervalIds)
     expect(exportPacket.sourceSpanIds).toBe(faces[0]?.sourceSpanIds)
     expect(exportPacket.legalDomainIds).toBe(faces[0]?.legalDomainIds)
@@ -271,12 +327,20 @@ describe('solid center stroke packets', () => {
       strokeId: 'stroke:0',
       strokeIndex: 0
     })
-    expect(buildSolidCenterStrokeHitTestPackets(packets)[0]?.debugMeta).toBe(
-      packets[0]?.geometry.debugMeta
-    )
-    expect(buildSolidCenterStrokeExportPackets(packets)[0]?.debugMeta).toBe(
-      packets[0]?.geometry.debugMeta
-    )
+    expect(
+      buildSolidCenterStrokeHitTestPackets(packets)[0]?.debugMeta
+    ).toBeUndefined()
+    expect(
+      buildSolidCenterStrokeExportPackets(packets)[0]?.debugMeta
+    ).toBeUndefined()
+    withStrokeDiagnosticsMode('full', () => {
+      expect(buildSolidCenterStrokeHitTestPackets(packets)[0]?.debugMeta).toBe(
+        packets[0]?.geometry.debugMeta
+      )
+      expect(buildSolidCenterStrokeExportPackets(packets)[0]?.debugMeta).toBe(
+        packets[0]?.geometry.debugMeta
+      )
+    })
     expect(buildSolidCenterStrokeHitTestPackets(packets)[0]).toMatchObject({
       primaryOwner: {
         ownerKey: 'vector:test:network-a:stroke:0',
@@ -379,11 +443,18 @@ describe('solid center stroke packets', () => {
 
     expect(renderEntries).toHaveLength(1)
     expect(renderEntries[0]?.polygons).toEqual([unionPolygon])
-    expect(renderEntries[0]?.debugMeta).toMatchObject({
-      intervalIds: ['interval:0', 'interval:1'],
-      sourceSpanIds: ['span:0', 'span:1'],
-      visualOverlapCollapseStatus: 'exact-union',
-      visualOverlapSourceGeometryIds: ['dashed-center:0', 'dashed-center:1']
+    expect(renderEntries[0]?.debugMeta).toBeUndefined()
+    withStrokeDiagnosticsMode('full', () => {
+      expect(
+        toSolidCenterStrokeRenderEntries(packets, {
+          exactBackend
+        })[0]?.debugMeta
+      ).toMatchObject({
+        intervalIds: ['interval:0', 'interval:1'],
+        sourceSpanIds: ['span:0', 'span:1'],
+        visualOverlapCollapseStatus: 'exact-union',
+        visualOverlapSourceGeometryIds: ['dashed-center:0', 'dashed-center:1']
+      })
     })
     expect(rawRenderEntries).toHaveLength(2)
     expect(hitPackets).toHaveLength(2)

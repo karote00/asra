@@ -185,8 +185,15 @@ const getClassificationTopology = (
   classification: CompoundLegalDomainClassification
 ) => topologies.find((topology) => topology.pathId === classification.pathId)
 
-const toPolygonRegion = (topology: PathTopologyModel): PolygonRegion => ({
-  polygons: [topology.normalizedPoints]
+const toPolygonRegion = (
+  topology: PathTopologyModel,
+  role: CompoundLegalDomainClassification['role'] = 'shell'
+): PolygonRegion => ({
+  polygons: [
+    role === 'hole'
+      ? [...topology.normalizedPoints].reverse()
+      : topology.normalizedPoints
+  ]
 })
 
 const buildContainmentBoundarySpans = (
@@ -324,12 +331,12 @@ export const buildCompoundLegalDomainNormalization = (
   )
 
   if (!hasNonContainmentOverlap(eligibleTopologies)) {
-    const regions = shellClassifications.flatMap((classification) => {
+    const regions = classifications.flatMap((classification) => {
       const topology = getClassificationTopology(
         eligibleTopologies,
         classification
       )
-      return topology ? [toPolygonRegion(topology)] : []
+      return topology ? [toPolygonRegion(topology, classification.role)] : []
     })
     const boundarySpans = buildContainmentBoundarySpans(
       eligibleTopologies,

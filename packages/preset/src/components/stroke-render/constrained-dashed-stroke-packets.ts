@@ -8682,7 +8682,27 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
               return spanPolygons
             }
 
-            return spanPolygons
+            if (stroke.position !== 'outside') {
+              return spanPolygons
+            }
+
+            const fallbackSourcePath = buildPolylineGeometryModelPath(
+              topologyPoints,
+              topology.closed
+            )
+            return [
+              ...spanPolygons,
+              ...buildOutsideSourcePathIntervalJoinPolygons(
+                fallbackSourcePath,
+                physicalSpans,
+                {
+                  position: stroke.position,
+                  width: intervalStroke.width,
+                  join: stroke.join,
+                  miterLimit: stroke.miterLimit
+                }
+              )
+            ]
           })()
       const selectedSidePolygons = sourcePath
         ? intervalPolygons
@@ -8723,15 +8743,12 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
           }
         )
       }
-      if (
-        sourcePath &&
-        stroke.position === 'outside' &&
-        boundaryDomainPath === null
-      ) {
+      if (sourcePath && stroke.position === 'outside') {
+        const sourceVertexJoinPath = boundaryDomainPath ?? sourcePath
         polygons = [
           ...polygons,
           ...buildOutsideSourcePathIntervalJoinPolygons(
-            sourcePath,
+            sourceVertexJoinPath,
             physicalSpans,
             {
               position: stroke.position,

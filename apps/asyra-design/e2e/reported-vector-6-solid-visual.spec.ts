@@ -4,6 +4,7 @@ import {
   getPropertiesPanel,
   getSelectedElementRect,
   resetCanvas,
+  setStrokeDiagnosticsMode,
   waitForAppReady
 } from './test-utils'
 
@@ -49,6 +50,7 @@ test.beforeEach(async ({ page }) => {
   await waitForAppReady(page)
   await setStrokeDebugDisableVisualOverlapCollapse(page, false)
   await resetCanvas(page)
+  await setStrokeDiagnosticsMode(page, 'full')
 })
 
 test.afterEach(async ({ page }) => {

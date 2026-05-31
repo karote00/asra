@@ -29,7 +29,7 @@ describe('constrained solid legality domain', () => {
 
     expect(domain).toEqual({
       mode: 'inside',
-      fillRule: 'evenodd',
+      fillRule: 'nonzero',
       canonicalPolygonForm: 'simple-closed-polygon',
       boundaryPolygon: [
         { x: 0, y: 0 },

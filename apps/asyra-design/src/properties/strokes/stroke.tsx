@@ -137,6 +137,10 @@ const StrokeItem = ({
     return null
   }
 
+  const strokeAttrs = {
+    ...stroke,
+    id: strokeId
+  } satisfies StrokeAttrs
   const dashGap = getStrokeDashGap(stroke.dashPattern)
 
   return (
@@ -147,7 +151,7 @@ const StrokeItem = ({
       >
         <StrokeColorRow
           index={index}
-          stroke={stroke as StrokeAttrs}
+          stroke={strokeAttrs}
           displayColor={displayColor}
           colorFormat={stroke.colorFormat}
           onColorValueChange={handleColorValueChange}

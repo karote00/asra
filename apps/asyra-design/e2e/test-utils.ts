@@ -80,11 +80,35 @@ export async function waitForAppReady(page: Page) {
   await page.waitForTimeout(500) // Allow rendering to complete
 }
 
+export async function setStrokeDiagnosticsMode(
+  page: Page,
+  mode: 'off' | 'summary' | 'full'
+) {
+  await page.evaluate((nextMode) => {
+    ;(
+      globalThis as unknown as {
+        __ASYRA_STROKE_DIAGNOSTICS_MODE__?: 'off' | 'summary' | 'full'
+      }
+    ).__ASYRA_STROKE_DIAGNOSTICS_MODE__ = nextMode
+  }, mode)
+}
+
 /**
  * Reset the canvas by clicking the Reset button
  */
 export async function resetCanvas(page: Page) {
-  const resetButton = page.getByTestId('reset-button')
+  let resetButton = page.getByTestId('reset-button')
+  const canReset = await resetButton
+    .waitFor({ state: 'visible', timeout: 5_000 })
+    .then(() => true)
+    .catch(() => false)
+
+  if (!canReset) {
+    await page.goto('/')
+    await waitForAppReady(page)
+    resetButton = page.getByTestId('reset-button')
+  }
+
   await resetButton.click()
   await page.waitForTimeout(500)
 }

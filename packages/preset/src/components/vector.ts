@@ -13,12 +13,19 @@ import {
   applyRenderableFill,
   getRenderableFills
 } from './fills'
-import { applyCenterDashedOverlapDiagnostics } from './stroke-render/center-dashed-overlap-diagnostics'
+import {
+  applyCenterDashedOverlapDiagnostics,
+  clearCenterDashedOverlapDiagnostics
+} from './stroke-render/center-dashed-overlap-diagnostics'
 import { buildConstrainedSolidLegalityClippingResult } from './stroke-render/constrained-solid-legality-clipping'
-import { setConstrainedSolidLegalityDiagnostics } from './stroke-render/constrained-solid-legality-diagnostics'
+import {
+  clearConstrainedSolidLegalityDiagnostics,
+  setConstrainedSolidLegalityDiagnostics
+} from './stroke-render/constrained-solid-legality-diagnostics'
 import {
   buildConstrainedSolidOwnershipCandidateDiagnostics,
   buildConstrainedSolidOwnershipDiagnostics,
+  clearConstrainedSolidOwnershipDiagnostics,
   createEmptyConstrainedSolidOwnershipDiagnostics,
   setConstrainedSolidOwnershipDiagnostics,
   type ConstrainedSolidOwnershipDiagnostics
@@ -70,6 +77,7 @@ import {
   renderSolidCenterStrokeEntries,
   type SolidCenterStrokeRenderEntry
 } from './stroke-render/solid-center-stroke-render'
+import { shouldEmitFullStrokeDiagnostics } from './stroke-render/stroke-diagnostics-mode'
 import {
   attachStrokePacketDebugMeta,
   applySolidCenterStrokeExportPacketsFromFinalFaces,
@@ -158,6 +166,13 @@ const toStringArray = (value: unknown): string[] =>
   Array.isArray(value)
     ? value.filter((entry): entry is string => typeof entry === 'string')
     : []
+
+const normalizeRawPathTopologyFillRule = (
+  value: unknown
+): PathTopologyFillRule =>
+  normalizePathTopologyFillRule(
+    value === 'evenodd' || value === 'nonzero' ? value : 'nonzero'
+  )
 
 const normalizeVectorPointNodeMap = (
   value: unknown
@@ -457,9 +472,7 @@ const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
     emitStrokePipelineCounter('vector-render-normalize-fast-path-hit')
     return {
       ...data,
-      fillRule: normalizePathTopologyFillRule(
-        data.fillRule === 'nonzero' ? 'nonzero' : null
-      ),
+      fillRule: normalizeRawPathTopologyFillRule(data.fillRule),
       fills: Array.isArray(data.fills) ? data.fills : [],
       strokes: Array.isArray(data.strokes) ? data.strokes : [],
       strokeDebugOptions: {
@@ -487,9 +500,7 @@ const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
     segments,
     networks: normalizeVectorNetworkMap(rawData.networks, points, segments),
     closed: rawData.closed === true,
-    fillRule: normalizePathTopologyFillRule(
-      rawData.fillRule === 'nonzero' ? 'nonzero' : null
-    ),
+    fillRule: normalizeRawPathTopologyFillRule(rawData.fillRule),
     fills: Array.isArray(rawData.fills) ? rawData.fills : [],
     strokes: Array.isArray(rawData.strokes) ? rawData.strokes : [],
     strokeDebugOptions: {
@@ -562,57 +573,6 @@ const canAcceptSelfIntersectingBoundaryDomainSolidPacketsWithoutLegality = (
   packets.length > 0 &&
   packets.every(isAcceptedSelfIntersectingBoundaryDomainSolidPacket)
 
-const isGatedSelfIntersectingLocalSideConstrainedSolidCandidatePacket = (
-  packet: SolidCenterStrokeResolvedPacket
-) => {
-  const debugMeta = packet.geometry.debugMeta
-
-  return (
-    debugMeta?.geometryFamily === 'constrained-solid' &&
-    debugMeta.resolutionStatus === 'local-side-approximation' &&
-    debugMeta.sourceTopology === 'self-intersecting' &&
-    (debugMeta.sourceSpanIds?.length ?? 0) > 0
-  )
-}
-
-const canPreserveSingleOwnerLocalSideConstrainedSolidPackets = (
-  packets: SolidCenterStrokeResolvedPacket[]
-) => {
-  if (packets.length === 0) {
-    return false
-  }
-
-  const strokeIds = new Set(
-    packets.map((packet) => packet.geometry.debugMeta?.strokeId ?? null)
-  )
-
-  return (
-    strokeIds.size <= 1 &&
-    packets.every(
-      isGatedSelfIntersectingLocalSideConstrainedSolidCandidatePacket
-    )
-  )
-}
-
-const markArrangedFacesAsLocalSideCandidates = (
-  faces: SolidStrokeFinalFaceList
-): SolidStrokeFinalFaceList =>
-  faces.map((face) => ({
-    ...face,
-    resolutionStatus: 'local-side-approximation',
-    runtimeStatus: 'candidate',
-    debugMeta: face.debugMeta
-      ? {
-          ...face.debugMeta,
-          resolutionStatus: 'local-side-approximation',
-          runtimeStatus: 'candidate',
-          runtimeReason: 'local-side-constrained-solid',
-          arrangementStatus: undefined,
-          visualOverlapCollapseStatus: 'local-side-arrangement'
-        }
-      : face.debugMeta
-  }))
-
 const canUseExactSingleNetworkConstrainedSolidFacesDirectly = (
   faces: SolidStrokeFinalFaceList
 ) => {
@@ -682,39 +642,6 @@ const promoteConstrainedSolidPacketsToExactArrangement = (
     }
 
     return { packets: gatedSelfIntersectingPackets, exactFaces: arrangedFaces }
-  } catch {
-    return { packets, exactFaces: [] }
-  }
-}
-
-const promoteGatedSelfIntersectingSolidPacketsToLocalSideVisualArrangement = (
-  packets: SolidCenterStrokeResolvedPacket[]
-): ConstrainedSolidPromotionResult => {
-  if (packets.length === 0) {
-    return { packets, exactFaces: [] }
-  }
-
-  try {
-    const backend = getGeometryBackend()
-    if (backend.capabilities.buildArrangement !== true) {
-      return { packets, exactFaces: [] }
-    }
-
-    const arrangedFaces = buildArrangedStrokeFinalFacesFromResolvedPackets(
-      packets,
-      {
-        backend,
-        legalDomains: []
-      }
-    )
-    if (arrangedFaces.length === 0) {
-      return { packets, exactFaces: [] }
-    }
-
-    return {
-      packets: [],
-      exactFaces: markArrangedFacesAsLocalSideCandidates(arrangedFaces)
-    }
   } catch {
     return { packets, exactFaces: [] }
   }
@@ -2555,6 +2482,7 @@ const renderVectorGraphic = (
     hasSourceBoundsOverlap && !hasCompoundLegalDomain
   const shouldEmitConstrainedDashedRuntimeDiagnostics =
     hasConstrainedDashedIntent
+  const shouldAttachFullStrokeDiagnostics = shouldEmitFullStrokeDiagnostics()
   const shouldUseNormalizedCompoundDashedBoundaries =
     !hasSharedSelfIntersectingLegalContours &&
     shouldEmitConstrainedDashedRuntimeDiagnostics &&
@@ -2707,6 +2635,13 @@ const renderVectorGraphic = (
                 sourcePath: path,
                 implicitFillRegions:
                   resolvedSelfIntersectingGeometry?.fillRegions ?? [],
+                implicitLegalFaceBoundaries:
+                  resolvedSelfIntersectingGeometry?.legalFaceBoundaries ?? [],
+                implicitUnfilledFaceBoundaries:
+                  resolvedSelfIntersectingGeometry?.unfilledFaceBoundaries ??
+                  [],
+                implicitLegalBoundaryContours:
+                  resolvedSelfIntersectingGeometry?.legalBoundaryContours ?? [],
                 sharedSourceSplitRanges:
                   resolvedSelfIntersectingGeometry?.sourceSplitRanges ?? [],
                 sharedStrokeBoundaryDomains:
@@ -2793,6 +2728,12 @@ const renderVectorGraphic = (
             sourcePath: path,
             implicitFillRegions:
               resolvedSelfIntersectingGeometry?.fillRegions ?? [],
+            implicitLegalFaceBoundaries:
+              resolvedSelfIntersectingGeometry?.legalFaceBoundaries ?? [],
+            implicitUnfilledFaceBoundaries:
+              resolvedSelfIntersectingGeometry?.unfilledFaceBoundaries ?? [],
+            implicitLegalBoundaryContours:
+              resolvedSelfIntersectingGeometry?.legalBoundaryContours ?? [],
             sharedSourceSplitRanges:
               resolvedSelfIntersectingGeometry?.sourceSplitRanges ?? [],
             sharedStrokeBoundaryDomains:
@@ -2824,10 +2765,11 @@ const renderVectorGraphic = (
                 (packet) => packet.geometry.geometryId
               )
             },
-            ownershipDiagnostics:
-              buildConstrainedSolidOwnershipCandidateDiagnostics(
-                candidatePackets
-              )
+            ownershipDiagnostics: shouldAttachFullStrokeDiagnostics
+              ? buildConstrainedSolidOwnershipCandidateDiagnostics(
+                  candidatePackets
+                )
+              : createEmptyConstrainedSolidOwnershipDiagnostics()
           }
         }
 
@@ -2844,32 +2786,9 @@ const renderVectorGraphic = (
                 (packet) => packet.geometry.geometryId
               )
             },
-            ownershipDiagnostics:
-              buildConstrainedSolidOwnershipDiagnostics(candidatePackets)
-          }
-        }
-
-        if (
-          canPreserveSingleOwnerLocalSideConstrainedSolidPackets(
-            candidatePackets
-          )
-        ) {
-          return {
-            networkId: network.id,
-            points: topology.normalizedPoints,
-            closed: topology.closed,
-            fillRule: topology.fillRule,
-            packets: candidatePackets,
-            legalityDiagnostics: {
-              domains: [],
-              acceptedGeometryIds: candidatePackets.map(
-                (packet) => packet.geometry.geometryId
-              )
-            },
-            ownershipDiagnostics:
-              buildConstrainedSolidOwnershipCandidateDiagnostics(
-                candidatePackets
-              )
+            ownershipDiagnostics: shouldAttachFullStrokeDiagnostics
+              ? buildConstrainedSolidOwnershipDiagnostics(candidatePackets)
+              : createEmptyConstrainedSolidOwnershipDiagnostics()
           }
         }
 
@@ -2905,12 +2824,6 @@ const renderVectorGraphic = (
     constrainedSolidDiagnostics.flatMap((entry) =>
       entry.packets.filter(isExactConstrainedSolidCandidatePacket)
     )
-  const constrainedSolidLocalSideVisualCandidatePackets =
-    constrainedSolidDiagnostics.flatMap((entry) =>
-      entry.packets.filter(
-        isGatedSelfIntersectingLocalSideConstrainedSolidCandidatePacket
-      )
-    )
   const constrainedSolidPromotion =
     promoteConstrainedSolidPacketsToExactArrangement(
       constrainedSolidExactCandidatePackets,
@@ -2918,15 +2831,10 @@ const renderVectorGraphic = (
         ? getArrangementLegalDomains()
         : []
     )
-  const constrainedSolidLocalSidePromotion =
-    promoteGatedSelfIntersectingSolidPacketsToLocalSideVisualArrangement(
-      constrainedSolidLocalSideVisualCandidatePackets
-    )
   const constrainedSolidPromotedCandidateGeometryIds = new Set(
-    [
-      ...constrainedSolidExactCandidatePackets,
-      ...constrainedSolidLocalSideVisualCandidatePackets
-    ].map((packet) => packet.geometry.geometryId)
+    constrainedSolidExactCandidatePackets.map(
+      (packet) => packet.geometry.geometryId
+    )
   )
 
   const constrainedDashedRuntimeDiagnostics: ConstrainedDashedRuntimeDiagnosticEntry[] =
@@ -3214,6 +3122,15 @@ const renderVectorGraphic = (
                 implicitFillRegions:
                   resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
                     ?.fillRegions ?? [],
+                implicitLegalFaceBoundaries:
+                  resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
+                    ?.legalFaceBoundaries ?? [],
+                implicitUnfilledFaceBoundaries:
+                  resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
+                    ?.unfilledFaceBoundaries ?? [],
+                implicitLegalBoundaryContours:
+                  resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
+                    ?.legalBoundaryContours ?? [],
                 sharedSourceSplitRanges:
                   resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
                     ?.sourceSplitRanges ?? [],
@@ -3233,12 +3150,10 @@ const renderVectorGraphic = (
       ]
     }),
     ...constrainedSolidPromotion.packets,
-    ...constrainedSolidLocalSidePromotion.packets,
     ...constrainedDashedPromotion.packets
   ])
   const promotedExactStrokeFinalFaces = [
     ...constrainedSolidPromotion.exactFaces,
-    ...constrainedSolidLocalSidePromotion.exactFaces,
     ...constrainedDashedPromotion.exactFaces
   ]
   const rawStrokeFinalFaces = measureVectorRenderPhase('final faces', () => [
@@ -3474,8 +3389,15 @@ const renderVectorGraphic = (
   if (!useDragVisualOnly) {
     applyVectorHoverHitArea()
     applySolidCenterStrokeExportPacketsFromFinalFaces(graphic, strokeFinalFaces)
-    applyCenterDashedOverlapDiagnostics(graphic, renderedDashedCenterPackets)
-    if (shouldEmitConstrainedDashedRuntimeDiagnostics) {
+    if (shouldAttachFullStrokeDiagnostics) {
+      applyCenterDashedOverlapDiagnostics(graphic, renderedDashedCenterPackets)
+    } else {
+      clearCenterDashedOverlapDiagnostics(graphic)
+    }
+    if (
+      shouldAttachFullStrokeDiagnostics &&
+      shouldEmitConstrainedDashedRuntimeDiagnostics
+    ) {
       setConstrainedDashedRuntimeDiagnostics(
         graphic,
         constrainedDashedRuntimeDiagnostics,
@@ -3487,7 +3409,7 @@ const renderVectorGraphic = (
     } else {
       clearConstrainedDashedRuntimeDiagnostics(graphic)
     }
-    if (hasConstrainedSolidIntent) {
+    if (shouldAttachFullStrokeDiagnostics && hasConstrainedSolidIntent) {
       setConstrainedSolidRuntimeDiagnostics(
         graphic,
         constrainedSolidRuntimeDiagnostics
@@ -3495,31 +3417,36 @@ const renderVectorGraphic = (
     } else {
       clearConstrainedSolidRuntimeDiagnostics(graphic)
     }
-    setConstrainedSolidLegalityDiagnostics(graphic, {
-      domains: constrainedSolidDiagnostics.flatMap(
-        ({ legalityDiagnostics }) => legalityDiagnostics.domains
-      ),
-      acceptedGeometryIds: constrainedSolidDiagnostics.flatMap(
-        ({ legalityDiagnostics }) => legalityDiagnostics.acceptedGeometryIds
-      )
-    })
-    setConstrainedSolidOwnershipDiagnostics(
-      graphic,
-      shouldBuildGlobalOverlapConstrainedSolid && hasConstrainedSolidIntent
-        ? (constrainedSolidDiagnostics.find(
-            ({ ownershipDiagnostics }) =>
-              ownershipDiagnostics.candidates.length > 0
-          )?.ownershipDiagnostics ??
-            createEmptyConstrainedSolidOwnershipDiagnostics())
-        : mergeConstrainedSolidOwnershipDiagnostics(
-            constrainedSolidDiagnostics.map(
-              ({ networkId, ownershipDiagnostics }) => ({
-                networkId,
-                ownershipDiagnostics
-              })
+    if (shouldAttachFullStrokeDiagnostics) {
+      setConstrainedSolidLegalityDiagnostics(graphic, {
+        domains: constrainedSolidDiagnostics.flatMap(
+          ({ legalityDiagnostics }) => legalityDiagnostics.domains
+        ),
+        acceptedGeometryIds: constrainedSolidDiagnostics.flatMap(
+          ({ legalityDiagnostics }) => legalityDiagnostics.acceptedGeometryIds
+        )
+      })
+      setConstrainedSolidOwnershipDiagnostics(
+        graphic,
+        shouldBuildGlobalOverlapConstrainedSolid && hasConstrainedSolidIntent
+          ? (constrainedSolidDiagnostics.find(
+              ({ ownershipDiagnostics }) =>
+                ownershipDiagnostics.candidates.length > 0
+            )?.ownershipDiagnostics ??
+              createEmptyConstrainedSolidOwnershipDiagnostics())
+          : mergeConstrainedSolidOwnershipDiagnostics(
+              constrainedSolidDiagnostics.map(
+                ({ networkId, ownershipDiagnostics }) => ({
+                  networkId,
+                  ownershipDiagnostics
+                })
+              )
             )
-          )
-    )
+      )
+    } else {
+      clearConstrainedSolidLegalityDiagnostics(graphic)
+      clearConstrainedSolidOwnershipDiagnostics(graphic)
+    }
   }
   if (previewFill) {
     applyRenderableFill(graphic as { fill: unknown }, fillPayload, {
@@ -3613,7 +3540,7 @@ defineComponent({
     {
       name: 'fillRule',
       type: PropertyTypes.CUSTOM,
-      defaultValue: 'evenodd'
+      defaultValue: 'nonzero'
     },
     {
       name: 'fills',

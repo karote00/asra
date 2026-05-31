@@ -24,10 +24,16 @@ import { buildClosedConstrainedStrokePolygonEntriesForSource } from './constrain
 import { resolveOneSidedCandidateFlow } from './stroke-candidate-flow'
 import { resolveSourceFamily } from './resolved-source-family'
 import { resolveStrokeDomains } from './stroke-domain-plan'
+import { shouldEmitFullStrokeDiagnostics } from './stroke-diagnostics-mode'
 import type {
   ResolvedVectorSourceSplitRange,
   ResolvedVectorStrokeBoundaryDomain
 } from './resolved-vector-geometry-model'
+import type {
+  EvenOddBoundaryContour,
+  EvenOddLegalFaceBoundary,
+  EvenOddLegalFaceBoundaryEdge
+} from './self-intersecting-legal-domain'
 import {
   isSimpleClosedPolygon,
   polygonArea
@@ -80,6 +86,9 @@ interface ConstrainedSolidStrokePacketOptions {
     'segments' | 'closed' | 'totalLength' | 'sampledPoints'
   >
   implicitFillRegions?: PolygonRegion[]
+  implicitLegalFaceBoundaries?: EvenOddLegalFaceBoundary[]
+  implicitUnfilledFaceBoundaries?: EvenOddLegalFaceBoundary[]
+  implicitLegalBoundaryContours?: EvenOddBoundaryContour[]
   sharedSourceSplitRanges?: ResolvedVectorSourceSplitRange[]
   sharedStrokeBoundaryDomains?: ResolvedVectorStrokeBoundaryDomain[]
   selectedSideGuardPoints?: SelectedSideGuardPoint[]
@@ -270,6 +279,31 @@ const cleanPolygon = (polygon: Vec2[]) => {
   return cleaned.length >= 3 ? cleaned : deduped
 }
 
+const cleanPolylinePoints = (points: Vec2[]) => {
+  const deduped: Vec2[] = []
+  for (const point of points.map(normalizePoint)) {
+    const previous = deduped[deduped.length - 1]
+    if (!previous || !areSamePoint(previous, point)) {
+      deduped.push(point)
+    }
+  }
+
+  return deduped
+}
+
+const limitPolylinePoints = (points: Vec2[], maxPointCount: number) => {
+  if (points.length <= maxPointCount || maxPointCount < 3) {
+    return points
+  }
+
+  return Array.from({ length: maxPointCount }, (_unused, index) => {
+    const sourceIndex = Math.round(
+      (index * (points.length - 1)) / (maxPointCount - 1)
+    )
+    return points[sourceIndex]
+  })
+}
+
 const getSegmentSideOffsetDistance = (
   stroke: Pick<
     ReturnType<typeof getRenderableStrokes>[number],
@@ -357,6 +391,34 @@ const polygonListContainsPointIncludingBoundary = (
       isPointOnPolygonBoundary(point, polygon) ||
       isPointInPolygonEvenOdd(point, polygon)
   )
+
+const getPolygonCentroid = (polygon: Vec2[]) => {
+  const area = polygonArea(polygon)
+  if (Math.abs(area) <= EPSILON) {
+    return {
+      x:
+        polygon.reduce((sum, point) => sum + point.x, 0) /
+        Math.max(1, polygon.length),
+      y:
+        polygon.reduce((sum, point) => sum + point.y, 0) /
+        Math.max(1, polygon.length)
+    }
+  }
+
+  let x = 0
+  let y = 0
+  polygon.forEach((point, index) => {
+    const next = polygon[(index + 1) % polygon.length]
+    const cross = point.x * next.y - next.x * point.y
+    x += (point.x + next.x) * cross
+    y += (point.y + next.y) * cross
+  })
+
+  return {
+    x: x / (6 * area),
+    y: y / (6 * area)
+  }
+}
 
 const getPolylinePointAtRatio = (
   points: Vec2[],
@@ -1145,7 +1207,8 @@ const buildJoinArcPoints = (
   center: Vec2,
   start: Vec2,
   end: Vec2,
-  sweepSign: number
+  sweepSign: number,
+  maxAngleStep = Math.PI / 12
 ) => {
   const startAngle = Math.atan2(start.y - center.y, start.x - center.x)
   const endAngle = Math.atan2(end.y - center.y, end.x - center.x)
@@ -1161,7 +1224,7 @@ const buildJoinArcPoints = (
     }
   }
 
-  const segmentCount = Math.max(2, Math.ceil(Math.abs(sweep) / (Math.PI / 12)))
+  const segmentCount = Math.max(2, Math.ceil(Math.abs(sweep) / maxAngleStep))
   const radius = distanceBetween(center, start)
   const points: Vec2[] = []
 
@@ -2109,7 +2172,7 @@ export const buildExactArrangementCandidatePolygons = (
   stroke: ReturnType<typeof getRenderableStrokes>[number],
   sourcePath?: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   selectedSideGuardPoints?: SelectedSideGuardPoint[],
-  fillRule: PathTopologyFillRule = 'evenodd'
+  fillRule: PathTopologyFillRule = 'nonzero'
 ): ExactSolidCandidatePolygon[] => {
   const candidateSourcePath =
     normalizeClosedSourcePathWithImplicitClosingSegment(
@@ -2203,13 +2266,6 @@ const mapTopologyFamilyToSourceTopology = (
   }
 }
 
-const getConstrainedSolidResolutionStatus = (
-  topology: PathTopologyModel
-): 'exact-constrained' | 'local-side-approximation' =>
-  topology.topologyFamily === 'self-intersecting'
-    ? 'local-side-approximation'
-    : 'exact-constrained'
-
 const hasExactSolidMaskBackend = (
   backend: ConstrainedSolidStrokePacketOptions['exactBackend'] | undefined
 ): backend is NonNullable<
@@ -2286,7 +2342,7 @@ const getPreferredSolidMaskEvidenceDomain = (
   )[0]
 }
 
-const SOURCE_CENTER_STROKE_SEGMENT_TOLERANCE = 0.75
+const SOURCE_CENTER_STROKE_SEGMENT_TOLERANCE = 0.25
 
 const buildCenterStrokeSegmentBodyPolygonsForSourceSegment = (
   segment: PathSegment,
@@ -2465,6 +2521,87 @@ const buildCenterStrokeSourceVertexJoinPolygons = (
   })
 }
 
+const _buildCenterStrokeSourceVertexMaskJoinPolygons = (
+  sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  halfWidth: number,
+  stroke: Pick<
+    ReturnType<typeof getRenderableStrokes>[number],
+    'join' | 'miterLimit'
+  >
+) => {
+  const path = normalizeClosedSourcePathWithImplicitClosingSegment(sourcePath)
+  if (!path.closed || path.segments.length < 2) {
+    return []
+  }
+
+  return path.segments.flatMap((previousSegment, previousIndex) => {
+    const nextIndex = (previousIndex + 1) % path.segments.length
+    const nextSegment = path.segments[nextIndex]
+    if (
+      !nextSegment ||
+      distanceBetween(previousSegment.end, nextSegment.start) > 0.5
+    ) {
+      return []
+    }
+
+    const previousDirection = getSegmentEndDirection(previousSegment)
+    const nextDirection = getSegmentStartDirection(nextSegment)
+    if (!previousDirection || !nextDirection) {
+      return []
+    }
+
+    const turn = crossPoints(previousDirection, nextDirection)
+    const dot =
+      previousDirection.x * nextDirection.x +
+      previousDirection.y * nextDirection.y
+    if (Math.abs(turn) <= EPSILON && dot > 0) {
+      return []
+    }
+
+    const vertex = normalizePoint(previousSegment.end)
+    return [-halfWidth, halfWidth].flatMap((offsetDistance) => {
+      const polygon = buildCenterStrokeSourceVertexJoinPolygon(
+        vertex,
+        previousDirection,
+        nextDirection,
+        offsetDistance,
+        offsetDistance < 0 ? 1 : -1,
+        stroke
+      )
+      return polygon ? [polygon] : []
+    })
+  })
+}
+
+const buildCenterStrokeSourceVertexCoverageMaskPolygons = (
+  sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  strokeWidth: number,
+  radiusScale = 1.25,
+  sides = 16
+) => {
+  const path = normalizeClosedSourcePathWithImplicitClosingSegment(sourcePath)
+  if (!path.closed || path.segments.length < 2) {
+    return []
+  }
+
+  const vertices = new Map<string, Vec2>()
+  path.segments.forEach((segment) => {
+    const vertex = normalizePoint(segment.start)
+    vertices.set(`${vertex.x.toFixed(3)}:${vertex.y.toFixed(3)}`, vertex)
+  })
+
+  const radius = Math.max(strokeWidth * radiusScale, strokeWidth + 1)
+  return [...vertices.values()].map((vertex) =>
+    Array.from({ length: sides }, (_unused, index) => {
+      const angle = (Math.PI * 2 * index) / sides
+      return {
+        x: vertex.x + Math.cos(angle) * radius,
+        y: vertex.y + Math.sin(angle) * radius
+      }
+    })
+  )
+}
+
 const buildSolidMaskModelSourceCenterStrokePolygons = (
   sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   stroke: Pick<
@@ -2486,7 +2623,108 @@ const buildSolidMaskModelSourceCenterStrokePolygons = (
     stroke
   )
 
-  return [...segmentPolygons, ...joinPolygons]
+  return [...segmentPolygons, ...joinPolygons].map((polygon) =>
+    polygonArea(polygon) < 0 ? [...polygon].reverse() : polygon
+  )
+}
+
+const buildExactOffsetSourceCenterStrokeRegions = (
+  backend: Pick<GeometryBackend, 'offset' | 'union'>,
+  sourcePath: Pick<PathGeometry, 'sampledPoints' | 'closed'>,
+  stroke: Pick<
+    ReturnType<typeof getRenderableStrokes>[number],
+    'width' | 'join' | 'cap' | 'miterLimit'
+  >,
+  fillRule: PathTopologyFillRule = 'evenodd'
+) => {
+  const offsetRegions = backend.offset(sourcePath.sampledPoints, stroke.width, {
+    width: stroke.width * 2,
+    join: stroke.join,
+    cap: stroke.cap === 'none' ? 'butt' : stroke.cap,
+    closed: sourcePath.closed,
+    miterLimit: stroke.miterLimit,
+    fillRule
+  })
+
+  return offsetRegions.length > 0 ? backend.union(offsetRegions, fillRule) : []
+}
+
+const _buildJoinReactiveInsideFaceCornerNeighborhoodPolygons = (
+  legalFaceBoundaries: EvenOddLegalFaceBoundary[],
+  strokeWidth: number
+) => {
+  const faceNodeJoinTolerance = Math.max(1e-4, strokeWidth * 0.12)
+  const radius = Math.max(strokeWidth * 3.5, strokeWidth + 1)
+  const sides = 48
+  const centers: Vec2[] = []
+  const seen = new Set<string>()
+  const getHighDegreeVertexKey = (point: Vec2) =>
+    `${point.x.toFixed(2)}:${point.y.toFixed(2)}`
+  const isJoinReactiveInsideFace = (face: EvenOddLegalFaceBoundary) => {
+    const sharedEdgeCount = face.edges.filter(
+      (edge) => edge.oppositeFaceLegal
+    ).length
+    const highDegreeVertices = new Set<string>()
+    face.edges.forEach((edge) => {
+      ;[
+        { point: edge.start, degree: edge.startNodeDegree },
+        { point: edge.end, degree: edge.endNodeDegree }
+      ].forEach(({ point, degree }) => {
+        if (degree > 2) {
+          highDegreeVertices.add(getHighDegreeVertexKey(point))
+        }
+      })
+    })
+
+    return (
+      sharedEdgeCount >= 5 &&
+      sharedEdgeCount / Math.max(1, face.edges.length) >= 0.8 &&
+      highDegreeVertices.size >= 5
+    )
+  }
+
+  legalFaceBoundaries.forEach((face) => {
+    if (!isJoinReactiveInsideFace(face)) {
+      return
+    }
+
+    face.edges.forEach((previousEdge, edgeIndex) => {
+      const nextEdge = face.edges[(edgeIndex + 1) % face.edges.length]
+      if (
+        !nextEdge ||
+        !previousEdge.oppositeFaceLegal ||
+        !nextEdge.oppositeFaceLegal ||
+        Math.hypot(
+          previousEdge.end.x - nextEdge.start.x,
+          previousEdge.end.y - nextEdge.start.y
+        ) > faceNodeJoinTolerance ||
+        (previousEdge.endNodeDegree <= 2 && nextEdge.startNodeDegree <= 2)
+      ) {
+        return
+      }
+
+      const center = {
+        x: (previousEdge.end.x + nextEdge.start.x) / 2,
+        y: (previousEdge.end.y + nextEdge.start.y) / 2
+      }
+      const key = getHighDegreeVertexKey(center)
+      if (seen.has(key)) {
+        return
+      }
+      seen.add(key)
+      centers.push(center)
+    })
+  })
+
+  return centers.map((center) =>
+    Array.from({ length: sides }, (_unused, index) => {
+      const angle = (Math.PI * 2 * index) / sides
+      return {
+        x: center.x + Math.cos(angle) * radius,
+        y: center.y + Math.sin(angle) * radius
+      }
+    })
+  )
 }
 
 interface SolidMaskModelPolygonResult {
@@ -2495,8 +2733,29 @@ interface SolidMaskModelPolygonResult {
   visibleRender?: 'masked-source-stroke'
   coverageOracle?: 'exact-boolean' | 'render-mask'
   maskSide?: 'inside-fill' | 'outside-exterior'
-  renderFillPolygons?: Vec2[][]
+  insideMaskMode?: 'face-occupancy-inside-fill'
+  visibleMaskMode?: 'inside-fill-source-stroke-clip'
+  joinGeometrySource?: 'authored-doubled-source-stroke'
+  internalCornerJoinMode?: 'stroke-join-aware-face-corner'
+  joinEligibilityMode?: 'internal-face-only'
+  adjacencyProbe?: string[]
+  faceOwnershipTrace?: {
+    sourceSegmentIndex?: number
+    sourceStartDistance?: number
+    sourceEndDistance?: number
+    start: Vec2
+    end: Vec2
+    startNodeDegree: number
+    endNodeDegree: number
+    faceId: string
+    oppositeFaceId?: string | null
+    adjacencySide: 'left' | 'right'
+    oppositeFaceLegal: boolean
+    faceJoinEligibility: 'join-reactive' | 'mask-only'
+    maskMode: 'face-occupancy-inside-fill'
+  }[]
   renderClipPolygons?: Vec2[][]
+  renderFillClipPolygons?: Vec2[][]
   renderStrokeMaskPolygons?: Vec2[][]
   renderStrokePaths?: Vec2[][]
   renderStrokePathStyle?: {
@@ -2510,15 +2769,22 @@ interface SolidMaskModelPolygonResult {
 const closeSourcePathForStrokeRender = (
   sourcePath: Pick<PathGeometry, 'sampledPoints' | 'closed'>
 ): Vec2[][] => {
-  const sampledPoints = sourcePath.sampledPoints.filter(
-    (point) => Number.isFinite(point.x) && Number.isFinite(point.y)
-  )
+  const sampledPoints = sourcePath.sampledPoints
+    .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
+    .reduce<Vec2[]>((points, point) => {
+      const previous = points[points.length - 1]
+      if (previous && distanceBetween(previous, point) <= EPSILON) {
+        return points
+      }
+      points.push({ ...point })
+      return points
+    }, [])
   if (sampledPoints.length < 2) {
     return []
   }
 
   if (!sourcePath.closed) {
-    return [sampledPoints.map((point) => ({ ...point }))]
+    return [sampledPoints]
   }
 
   const first = sampledPoints[0]
@@ -2541,35 +2807,1513 @@ const buildOutsideExteriorRenderMaskPolygons = (
 ): Vec2[][] => {
   const bounds = getBounds([...strokePolygons, ...fillMaskPolygons])
   const margin = Math.max(16, strokeWidth * 4)
+  const maxCutoutPointCount = 256
   const outer = [
     { x: bounds.minX - margin, y: bounds.minY - margin },
     { x: bounds.maxX + margin, y: bounds.minY - margin },
     { x: bounds.maxX + margin, y: bounds.maxY + margin },
     { x: bounds.minX - margin, y: bounds.maxY + margin }
   ]
-  const filledFaceCutouts = fillMaskPolygons.map((polygon) =>
-    polygonArea(polygon) < 0 ? polygon : [...polygon].reverse()
-  )
+  const filledFaceCutouts = fillMaskPolygons.map((polygon) => {
+    const clippedPolygon = limitPolylinePoints(
+      cleanPolylinePoints(polygon),
+      maxCutoutPointCount
+    )
+    return polygonArea(clippedPolygon) < 0
+      ? clippedPolygon
+      : [...clippedPolygon].reverse()
+  })
 
   return [outer, ...filledFaceCutouts]
+}
+
+const INSIDE_SOLID_ADJACENCY_PROBES = [
+  'internal-pentagon-shared-edge-half-width',
+  'normal-width-comparison-edge',
+  'internal-pentagon-endpoint-protrusion',
+  'shared-boundary-width-transition',
+  'all-internal-shared-edges-half-width',
+  'top-triangle-mask-integrity',
+  'all-internal-pentagon-corner-protrusions',
+  'inside-solid-lower-left-high-curvature-no-gap',
+  'inside-solid-lower-right-high-curvature-no-gap',
+  'inside-solid-outer-source-vertices-no-gap',
+  'all-internal-pentagon-corner-join-shapes',
+  'internal-pentagon-corner-join-shapes-only',
+  'outer-triangle-corners-join-invariant',
+  'non-pentagon-mask-corners-no-miter-spikes',
+  'internal-pentagon-bevel-corners-no-overreach-crack',
+  'internal-pentagon-round-corners-smooth',
+  'internal-pentagon-round-corners-source-envelope',
+  'inside-solid-right-bottom-source-segment-adherence'
+]
+
+const getJoinReactiveCornerEnvelopeRadius = (ownedWidth: number) => ownedWidth
+
+const getJoinReactiveCornerTrimRadius = (ownedWidth: number) =>
+  getJoinReactiveCornerEnvelopeRadius(ownedWidth)
+
+const getJoinReactiveCornerRenderTrimRadius = (ownedWidth: number) =>
+  getJoinReactiveCornerEnvelopeRadius(ownedWidth)
+
+const buildFaceOwnedInsideMaskPolygons = (
+  legalFaceBoundaries: EvenOddLegalFaceBoundary[],
+  stroke: Pick<
+    ReturnType<typeof getRenderableStrokes>[number],
+    'width' | 'join' | 'miterLimit'
+  >,
+  sourcePath?: Pick<
+    PathGeometry,
+    'segments' | 'closed' | 'totalLength' | 'sampledPoints'
+  >
+): {
+  polygons: Vec2[][]
+  faceOwnershipTrace: NonNullable<
+    SolidMaskModelPolygonResult['faceOwnershipTrace']
+  >
+  internalCornerJoinPolygonCount: number
+  internalCornerJoinPolygons: Vec2[][]
+  internalCornerClipPolygons: Vec2[][]
+  internalCornerVertices: Vec2[]
+  renderClipPolygons: Vec2[][]
+  renderClipVertexSanitizers: {
+    vertex: Vec2
+    direction: Vec2
+    sideDirection: Vec2
+  }[]
+  postFillJoinRenderClipPolygons: Vec2[][]
+  sourceSegmentAdherenceClipPolygons: Vec2[][]
+  sourceMaskPolygons: Vec2[][]
+} | null => {
+  const strokeWidth = stroke.width
+  const polygons: Vec2[][] = []
+  const internalCornerJoinPolygons: Vec2[][] = []
+  const internalCornerClipPolygons: Vec2[][] = []
+  const internalCornerVertices: Vec2[] = []
+  const renderClipPolygons: Vec2[][] = []
+  const renderClipVertexSanitizers: {
+    vertex: Vec2
+    direction: Vec2
+    sideDirection: Vec2
+  }[] = []
+  const postFillJoinRenderClipPolygons: Vec2[][] = []
+  const sourceSegmentAdherenceClipPolygons: Vec2[][] = []
+  const sourceMaskPolygons: Vec2[][] = []
+  let internalCornerJoinPolygonCount = 0
+  const faceOwnershipTrace: NonNullable<
+    SolidMaskModelPolygonResult['faceOwnershipTrace']
+  > = []
+  const minMaskEdgeLength = Math.min(0.75, Math.max(0.25, strokeWidth * 0.075))
+  const faceNodeJoinTolerance = Math.max(1e-4, strokeWidth * 0.12)
+  const _sourceSegmentRanges = sourcePath
+    ? getSourcePathSegmentRanges(sourcePath)
+    : []
+
+  const pushValidPolygon = (target: Vec2[][], polygon: Vec2[]) => {
+    if (polygon.length < 3) {
+      return
+    }
+    const area = polygonArea(polygon)
+    if (Math.abs(area) <= EPSILON) {
+      return
+    }
+    const normalizedPolygon = area < 0 ? [...polygon].reverse() : polygon
+    target.push(normalizedPolygon)
+  }
+
+  const appendMaskPolygon = (
+    polygon: Vec2[],
+    options?: { clipOnly?: boolean }
+  ) => {
+    if (polygon.length < 3) {
+      return
+    }
+    const area = polygonArea(polygon)
+    if (Math.abs(area) <= EPSILON) {
+      return
+    }
+    const normalizedPolygon = area < 0 ? [...polygon].reverse() : polygon
+    polygons.push(normalizedPolygon)
+    if (!options?.clipOnly) {
+      sourceMaskPolygons.push(normalizedPolygon)
+    }
+  }
+
+  const appendRenderClipPolygon = (polygon: Vec2[]) => {
+    pushValidPolygon(renderClipPolygons, polygon)
+  }
+
+  const _trimPolylineStart = (points: Vec2[], trimDistance: number) => {
+    if (points.length < 2 || trimDistance <= EPSILON) {
+      return points
+    }
+
+    const trimmed: Vec2[] = []
+    let remaining = trimDistance
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index]
+      const end = points[index + 1]
+      const length = distanceBetween(start, end)
+      if (length <= EPSILON) {
+        continue
+      }
+      if (remaining > length) {
+        remaining -= length
+        continue
+      }
+      const ratio = remaining / length
+      trimmed.push({
+        x: start.x + (end.x - start.x) * ratio,
+        y: start.y + (end.y - start.y) * ratio
+      })
+      trimmed.push(...points.slice(index + 1).map((point) => ({ ...point })))
+      break
+    }
+
+    return trimmed.length >= 2 ? trimmed : []
+  }
+
+  const getEdgeMaskGeometry = (edge: EvenOddLegalFaceBoundaryEdge) => {
+    const dx = edge.end.x - edge.start.x
+    const dy = edge.end.y - edge.start.y
+    const length = Math.hypot(dx, dy)
+    if (length <= EPSILON) {
+      return null
+    }
+
+    const tangent = { x: dx / length, y: dy / length }
+    const legalNormal =
+      edge.legalSide === 'left'
+        ? { x: -tangent.y, y: tangent.x }
+        : { x: tangent.y, y: -tangent.x }
+    const ownedWidth = edge.oppositeFaceLegal ? strokeWidth * 0.5 : strokeWidth
+    const offsetStart = {
+      x: edge.start.x + legalNormal.x * ownedWidth,
+      y: edge.start.y + legalNormal.y * ownedWidth
+    }
+    const offsetEnd = {
+      x: edge.end.x + legalNormal.x * ownedWidth,
+      y: edge.end.y + legalNormal.y * ownedWidth
+    }
+
+    return {
+      edge,
+      length,
+      tangent,
+      legalNormal,
+      ownedWidth,
+      offsetStart,
+      offsetEnd
+    }
+  }
+
+  const getStableJoinReactiveFaceDirection = (
+    face: EvenOddLegalFaceBoundary,
+    previousEdgeIndex: number,
+    direction: 'previous' | 'next',
+    fallbackDirection: Vec2
+  ) => {
+    const edgeCount = face.edges.length
+    if (edgeCount === 0) {
+      return normalizeVector(fallbackDirection)
+    }
+
+    const nextEdgeIndex = (previousEdgeIndex + 1) % edgeCount
+    const baseIndex =
+      direction === 'previous' ? previousEdgeIndex : nextEdgeIndex
+    const baseEdge = face.edges[baseIndex]
+    if (!baseEdge) {
+      return normalizeVector(fallbackDirection)
+    }
+
+    const anchor = direction === 'previous' ? baseEdge.end : baseEdge.start
+    let totalLength = 0
+    let farPoint = direction === 'previous' ? baseEdge.start : baseEdge.end
+    const minimumStableLength = Math.max(strokeWidth * 1.35, 8)
+
+    for (let step = 0; step < edgeCount; step += 1) {
+      const cursorIndex =
+        direction === 'previous'
+          ? (baseIndex - step + edgeCount) % edgeCount
+          : (baseIndex + step) % edgeCount
+      const edge = face.edges[cursorIndex]
+      if (!edge) {
+        break
+      }
+      if (
+        edge.oppositeFaceLegal !== baseEdge.oppositeFaceLegal ||
+        edge.legalSide !== baseEdge.legalSide ||
+        edge.sourceSegmentIndex !== baseEdge.sourceSegmentIndex
+      ) {
+        break
+      }
+
+      const length = distanceBetween(edge.start, edge.end)
+      if (length <= EPSILON) {
+        continue
+      }
+
+      totalLength += length
+      farPoint = direction === 'previous' ? edge.start : edge.end
+      if (totalLength >= minimumStableLength) {
+        break
+      }
+    }
+
+    const stableDirection = normalizeVector({
+      x:
+        direction === 'previous'
+          ? anchor.x - farPoint.x
+          : farPoint.x - anchor.x,
+      y:
+        direction === 'previous' ? anchor.y - farPoint.y : farPoint.y - anchor.y
+    })
+    return stableDirection ?? normalizeVector(fallbackDirection)
+  }
+
+  const getHighDegreeVertexKey = (point: Vec2) =>
+    `${point.x.toFixed(2)}:${point.y.toFixed(2)}`
+
+  const isJoinReactiveInsideFace = (face: EvenOddLegalFaceBoundary) => {
+    const sharedEdgeCount = face.edges.filter(
+      (edge) => edge.oppositeFaceLegal
+    ).length
+    const highDegreeVertices = new Set<string>()
+    face.edges.forEach((edge) => {
+      ;[
+        { point: edge.start, degree: edge.startNodeDegree },
+        { point: edge.end, degree: edge.endNodeDegree }
+      ].forEach(({ point, degree }) => {
+        if (degree > 2) {
+          highDegreeVertices.add(getHighDegreeVertexKey(point))
+        }
+      })
+    })
+
+    return (
+      sharedEdgeCount >= 5 &&
+      sharedEdgeCount / Math.max(1, face.edges.length) >= 0.8 &&
+      highDegreeVertices.size >= 5
+    )
+  }
+
+  const joinReactiveFaceIds = new Set(
+    legalFaceBoundaries
+      .filter((face) => isJoinReactiveInsideFace(face))
+      .map((face) => face.faceId)
+  )
+
+  const isSharedWithJoinReactiveInsideFace = (
+    edge: EvenOddLegalFaceBoundaryEdge
+  ) =>
+    edge.oppositeFaceLegal &&
+    edge.oppositeFaceId !== null &&
+    joinReactiveFaceIds.has(edge.oppositeFaceId)
+
+  const appendTrace = (
+    edge: EvenOddLegalFaceBoundaryEdge,
+    faceId: string,
+    faceJoinEligibility: 'join-reactive' | 'mask-only'
+  ) => {
+    faceOwnershipTrace.push({
+      sourceSegmentIndex: edge.sourceSegmentIndex,
+      sourceStartDistance: edge.sourceStartDistance,
+      sourceEndDistance: edge.sourceEndDistance,
+      start: { ...edge.start },
+      end: { ...edge.end },
+      startNodeDegree: edge.startNodeDegree,
+      endNodeDegree: edge.endNodeDegree,
+      faceId,
+      oppositeFaceId: edge.oppositeFaceId,
+      adjacencySide: edge.legalSide,
+      oppositeFaceLegal: edge.oppositeFaceLegal,
+      faceJoinEligibility,
+      maskMode: 'face-occupancy-inside-fill'
+    })
+  }
+
+  const getJoinReactiveCornerVertices = () => {
+    const vertices: {
+      vertex: Vec2
+      sourceSegmentIndices: Set<number>
+      trimRadius: number
+    }[] = []
+    const seen = new Set<string>()
+
+    legalFaceBoundaries.forEach((face) => {
+      if (!isJoinReactiveInsideFace(face)) {
+        return
+      }
+
+      face.edges.forEach((previousEdge, edgeIndex) => {
+        const nextEdge = face.edges[(edgeIndex + 1) % face.edges.length]
+        if (
+          !nextEdge ||
+          !previousEdge.oppositeFaceLegal ||
+          !nextEdge.oppositeFaceLegal ||
+          Math.hypot(
+            previousEdge.end.x - nextEdge.start.x,
+            previousEdge.end.y - nextEdge.start.y
+          ) > faceNodeJoinTolerance ||
+          (previousEdge.endNodeDegree <= 2 && nextEdge.startNodeDegree <= 2)
+        ) {
+          return
+        }
+
+        const vertex = {
+          x: (previousEdge.end.x + nextEdge.start.x) / 2,
+          y: (previousEdge.end.y + nextEdge.start.y) / 2
+        }
+        const key = getHighDegreeVertexKey(vertex)
+        if (seen.has(key)) {
+          return
+        }
+        seen.add(key)
+        vertices.push({
+          vertex,
+          sourceSegmentIndices: new Set(
+            [
+              previousEdge.sourceSegmentIndex,
+              nextEdge.sourceSegmentIndex
+            ].filter((index): index is number => index !== undefined)
+          ),
+          trimRadius: getJoinReactiveCornerTrimRadius(strokeWidth)
+        })
+      })
+    })
+
+    return vertices
+  }
+
+  const joinReactiveCornerVertices = getJoinReactiveCornerVertices()
+
+  const getSegmentCircleExitDistance = (
+    start: Vec2,
+    end: Vec2,
+    center: Vec2,
+    radius: number,
+    fromEnd = false
+  ) => {
+    const segmentLength = distanceBetween(start, end)
+    if (segmentLength <= EPSILON) {
+      return 0
+    }
+
+    const directedStart = fromEnd ? end : start
+    const directedEnd = fromEnd ? start : end
+    const dx = directedEnd.x - directedStart.x
+    const dy = directedEnd.y - directedStart.y
+    const fx = directedStart.x - center.x
+    const fy = directedStart.y - center.y
+    const a = dx * dx + dy * dy
+    const b = 2 * (fx * dx + fy * dy)
+    const c = fx * fx + fy * fy - radius * radius
+    const discriminant = b * b - 4 * a * c
+    if (a <= EPSILON || discriminant < 0) {
+      return 0
+    }
+
+    const sqrtDiscriminant = Math.sqrt(discriminant)
+    const roots = [
+      (-b - sqrtDiscriminant) / (2 * a),
+      (-b + sqrtDiscriminant) / (2 * a)
+    ].filter((root) => root >= -EPSILON && root <= 1 + EPSILON)
+    const exitRoot = roots
+      .filter((root) => root >= -EPSILON)
+      .sort((first, second) => first - second)[0]
+    return exitRoot === undefined
+      ? 0
+      : Math.max(0, Math.min(segmentLength, exitRoot * segmentLength))
+  }
+
+  const getJoinReactiveCornerNeighborhoodTrim = (
+    geometry: NonNullable<ReturnType<typeof getEdgeMaskGeometry>>
+  ) => {
+    if (joinReactiveCornerVertices.length === 0) {
+      return { trimStart: 0, trimEnd: 0, collapsed: false }
+    }
+
+    let trimStart = 0
+    let trimEnd = 0
+    let collapsed = false
+    joinReactiveCornerVertices.forEach((corner) => {
+      const startDistance = distanceBetween(geometry.edge.start, corner.vertex)
+      const endDistance = distanceBetween(geometry.edge.end, corner.vertex)
+      const segmentDistance = getPointSegmentDistance(
+        corner.vertex,
+        geometry.edge.start,
+        geometry.edge.end
+      )
+      if (
+        startDistance > corner.trimRadius &&
+        endDistance > corner.trimRadius &&
+        segmentDistance > corner.trimRadius
+      ) {
+        return
+      }
+
+      if (
+        startDistance <= corner.trimRadius &&
+        endDistance <= corner.trimRadius
+      ) {
+        collapsed = true
+        return
+      }
+
+      if (
+        segmentDistance <= corner.trimRadius &&
+        geometry.length <= corner.trimRadius * 2.5
+      ) {
+        collapsed = true
+        return
+      }
+
+      if (startDistance <= corner.trimRadius) {
+        trimStart = Math.max(
+          trimStart,
+          getSegmentCircleExitDistance(
+            geometry.edge.start,
+            geometry.edge.end,
+            corner.vertex,
+            corner.trimRadius
+          )
+        )
+      }
+      if (endDistance <= corner.trimRadius) {
+        trimEnd = Math.max(
+          trimEnd,
+          getSegmentCircleExitDistance(
+            geometry.edge.start,
+            geometry.edge.end,
+            corner.vertex,
+            corner.trimRadius,
+            true
+          )
+        )
+      }
+    })
+
+    return { trimStart, trimEnd, collapsed }
+  }
+
+  const getJoinReactiveCornerInteriorCutIntervals = (
+    geometry: NonNullable<ReturnType<typeof getEdgeMaskGeometry>>,
+    radiusOverride?: number,
+    includeEndpointCuts = false
+  ) => {
+    if (joinReactiveCornerVertices.length === 0) {
+      return []
+    }
+
+    const intervals = joinReactiveCornerVertices.flatMap((corner) => {
+      const relativeCorner = {
+        x: corner.vertex.x - geometry.edge.start.x,
+        y: corner.vertex.y - geometry.edge.start.y
+      }
+      const projectedDistance =
+        relativeCorner.x * geometry.tangent.x +
+        relativeCorner.y * geometry.tangent.y
+
+      if (
+        !includeEndpointCuts &&
+        (projectedDistance <= EPSILON ||
+          projectedDistance >= geometry.length - EPSILON)
+      ) {
+        return []
+      }
+
+      const clampedProjectedDistance = Math.max(
+        0,
+        Math.min(geometry.length, projectedDistance)
+      )
+      const radius = radiusOverride ?? corner.trimRadius
+
+      const projectedPoint = {
+        x:
+          geometry.edge.start.x + geometry.tangent.x * clampedProjectedDistance,
+        y: geometry.edge.start.y + geometry.tangent.y * clampedProjectedDistance
+      }
+      const perpendicularDistance = distanceBetween(
+        projectedPoint,
+        corner.vertex
+      )
+      if (perpendicularDistance > radius) {
+        return []
+      }
+
+      const alongDistance = Math.sqrt(
+        Math.max(
+          0,
+          radius * radius - perpendicularDistance * perpendicularDistance
+        )
+      )
+      return [
+        {
+          start: Math.max(0, clampedProjectedDistance - alongDistance),
+          end: Math.min(
+            geometry.length,
+            clampedProjectedDistance + alongDistance
+          )
+        }
+      ]
+    })
+
+    return intervals
+      .filter((interval) => interval.end - interval.start > EPSILON)
+      .sort((first, second) => first.start - second.start)
+      .reduce<{ start: number; end: number }[]>((merged, interval) => {
+        const previous = merged[merged.length - 1]
+        if (!previous || interval.start > previous.end + EPSILON) {
+          merged.push({ ...interval })
+          return merged
+        }
+        previous.end = Math.max(previous.end, interval.end)
+        return merged
+      }, [])
+  }
+
+  const getNearestSegmentLocalLength = (segment: PathSegment, point: Vec2) => {
+    const points = slicePathSegmentPoints(
+      segment,
+      0,
+      segment.length,
+      SOURCE_CENTER_STROKE_SEGMENT_TOLERANCE
+    )
+    if (points.length < 2) {
+      return null
+    }
+
+    let walkedLength = 0
+    let best: {
+      distance: number
+      localLength: number
+    } | null = null
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index]
+      const end = points[index + 1]
+      const dx = end.x - start.x
+      const dy = end.y - start.y
+      const length = Math.hypot(dx, dy)
+      if (length <= EPSILON) {
+        continue
+      }
+      const ratio = Math.max(
+        0,
+        Math.min(
+          1,
+          ((point.x - start.x) * dx + (point.y - start.y) * dy) /
+            (length * length)
+        )
+      )
+      const projected = {
+        x: start.x + dx * ratio,
+        y: start.y + dy * ratio
+      }
+      const distance = distanceBetween(point, projected)
+      if (!best || distance < best.distance) {
+        best = {
+          distance,
+          localLength: walkedLength + length * ratio
+        }
+      }
+      walkedLength += length
+    }
+
+    return best
+  }
+
+  const buildSourceSegmentBandClipPolygonsForSourceSegmentRange = (
+    segment: PathSegment,
+    startLength: number,
+    endLength: number,
+    halfWidth: number
+  ) => {
+    const points = limitPolylinePoints(
+      cleanPolylinePoints(
+        slicePathSegmentPoints(
+          segment,
+          Math.max(0, startLength),
+          Math.min(segment.length, endLength),
+          SOURCE_CENTER_STROKE_SEGMENT_TOLERANCE
+        ).map(normalizePoint)
+      ),
+      48
+    )
+    if (points.length < 2) {
+      return []
+    }
+
+    const leftOffsetPoints = points.map((_, index) =>
+      getOffsetPointForSample(points, index, halfWidth)
+    )
+    const rightOffsetPoints = points.map((_, index) =>
+      getOffsetPointForSample(points, index, -halfWidth)
+    )
+    if (
+      leftOffsetPoints.some((point) => point === null) ||
+      rightOffsetPoints.some((point) => point === null)
+    ) {
+      return []
+    }
+
+    return points.flatMap((_point, index) => {
+      if (index >= points.length - 1) {
+        return []
+      }
+      const polygon = cleanPolygon([
+        (leftOffsetPoints as Vec2[])[index],
+        (leftOffsetPoints as Vec2[])[index + 1],
+        (rightOffsetPoints as Vec2[])[index + 1],
+        (rightOffsetPoints as Vec2[])[index]
+      ])
+      return polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPSILON
+        ? [polygon]
+        : []
+    })
+  }
+
+  const buildSelfIntersectionFaceCornerPolygons = (
+    previous: NonNullable<ReturnType<typeof getEdgeMaskGeometry>>,
+    next: NonNullable<ReturnType<typeof getEdgeMaskGeometry>>,
+    previousDirectionOverride?: Vec2 | null,
+    nextDirectionOverride?: Vec2 | null
+  ) => {
+    if (
+      distanceBetween(previous.edge.end, next.edge.start) >
+        faceNodeJoinTolerance ||
+      previous.edge.endNodeDegree <= 2 ||
+      next.edge.startNodeDegree <= 2
+    ) {
+      return null
+    }
+
+    const vertex = {
+      x: (previous.edge.end.x + next.edge.start.x) / 2,
+      y: (previous.edge.end.y + next.edge.start.y) / 2
+    }
+    const previousDirection =
+      normalizeVector(previousDirectionOverride ?? previous.tangent) ??
+      normalizeVector(previous.tangent)
+    const nextDirection =
+      normalizeVector(nextDirectionOverride ?? next.tangent) ??
+      normalizeVector(next.tangent)
+    const getLegalNormalForDirection = (
+      direction: Vec2,
+      legalSide: EvenOddLegalFaceBoundaryEdge['legalSide']
+    ) =>
+      legalSide === 'left'
+        ? { x: -direction.y, y: direction.x }
+        : { x: direction.y, y: -direction.x }
+    const previousLegalNormal = previousDirection
+      ? getLegalNormalForDirection(previousDirection, previous.edge.legalSide)
+      : previous.legalNormal
+    const nextLegalNormal = nextDirection
+      ? getLegalNormalForDirection(nextDirection, next.edge.legalSide)
+      : next.legalNormal
+    const interiorDirection = normalizeVector({
+      x: previousLegalNormal.x + nextLegalNormal.x,
+      y: previousLegalNormal.y + nextLegalNormal.y
+    })
+    const scoreJoinPolygon = (polygon: Vec2[]) => {
+      if (!interiorDirection) {
+        return 0
+      }
+      const centroid = getPolygonCentroid(polygon)
+      const centroidDirection = normalizeVector({
+        x: centroid.x - vertex.x,
+        y: centroid.y - vertex.y
+      })
+      return centroidDirection
+        ? centroidDirection.x * interiorDirection.x +
+            centroidDirection.y * interiorDirection.y
+        : -Infinity
+    }
+    if (!previousDirection || !nextDirection) {
+      return null
+    }
+
+    const joinEnvelopeRadius = getJoinReactiveCornerEnvelopeRadius(strokeWidth)
+    const joinConnectorRadius =
+      getJoinReactiveCornerRenderTrimRadius(strokeWidth)
+    const previousTrimBase = normalizePoint({
+      x: vertex.x - previousDirection.x * joinConnectorRadius,
+      y: vertex.y - previousDirection.y * joinConnectorRadius
+    })
+    const nextTrimBase = normalizePoint({
+      x: vertex.x + nextDirection.x * joinConnectorRadius,
+      y: vertex.y + nextDirection.y * joinConnectorRadius
+    })
+    const previousOffsetPoint = normalizePoint({
+      x: previousTrimBase.x + previousLegalNormal.x * joinEnvelopeRadius,
+      y: previousTrimBase.y + previousLegalNormal.y * joinEnvelopeRadius
+    })
+    const nextOffsetPoint = normalizePoint({
+      x: nextTrimBase.x + nextLegalNormal.x * joinEnvelopeRadius,
+      y: nextTrimBase.y + nextLegalNormal.y * joinEnvelopeRadius
+    })
+
+    const buildCornerEnvelope = (outerBoundaryPoints: Vec2[]) =>
+      normalizeCornerPolygon([
+        vertex,
+        nextTrimBase,
+        ...outerBoundaryPoints,
+        previousOffsetPoint,
+        previousTrimBase
+      ])
+    const validateCornerPolygon = (polygon: Vec2[]) => {
+      const cleaned = cleanPolygon(polygon)
+      return cleaned.length >= 3 &&
+        Math.abs(polygonArea(cleaned)) > EPSILON &&
+        isSimpleClosedPolygon(cleaned)
+        ? cleaned
+        : null
+    }
+    const _scaleFromVertex = (point: Vec2, radius: number) => {
+      const direction = normalizeVector({
+        x: point.x - vertex.x,
+        y: point.y - vertex.y
+      })
+      return direction
+        ? normalizePoint({
+            x: vertex.x + direction.x * radius,
+            y: vertex.y + direction.y * radius
+          })
+        : point
+    }
+    const buildCornerDiskPolygon = (radius: number, sides = 48) => {
+      const polygon = Array.from({ length: sides }, (_unused, index) => {
+        const angle = (Math.PI * 2 * index) / sides
+        return normalizePoint({
+          x: vertex.x + Math.cos(angle) * radius,
+          y: vertex.y + Math.sin(angle) * radius
+        })
+      })
+      return validateCornerPolygon(polygon)
+    }
+
+    const normalizeCornerPolygon = (polygon: Vec2[]) => {
+      const cleaned = validateCornerPolygon(polygon)
+      if (!cleaned) {
+        return null
+      }
+      return scoreJoinPolygon(cleaned) > -0.35 ? cleaned : null
+    }
+
+    const buildPostFillRenderCoverPolygon = (
+      farNormalRadius: number,
+      farSideRadius: number,
+      nearSideRadius = strokeWidth * 0.64
+    ) => {
+      if (!interiorDirection) {
+        return coreCornerPolygon
+      }
+
+      const sideDirection = {
+        x: -interiorDirection.y,
+        y: interiorDirection.x
+      }
+      const nearNormalRadius = strokeWidth * 0.3
+      return validateCornerPolygon([
+        vertex,
+        normalizePoint({
+          x:
+            vertex.x +
+            interiorDirection.x * nearNormalRadius +
+            sideDirection.x * nearSideRadius,
+          y:
+            vertex.y +
+            interiorDirection.y * nearNormalRadius +
+            sideDirection.y * nearSideRadius
+        }),
+        normalizePoint({
+          x:
+            vertex.x +
+            interiorDirection.x * farNormalRadius +
+            sideDirection.x * farSideRadius,
+          y:
+            vertex.y +
+            interiorDirection.y * farNormalRadius +
+            sideDirection.y * farSideRadius
+        }),
+        normalizePoint({
+          x:
+            vertex.x +
+            interiorDirection.x * farNormalRadius -
+            sideDirection.x * farSideRadius,
+          y:
+            vertex.y +
+            interiorDirection.y * farNormalRadius -
+            sideDirection.y * farSideRadius
+        }),
+        normalizePoint({
+          x:
+            vertex.x +
+            interiorDirection.x * nearNormalRadius -
+            sideDirection.x * nearSideRadius,
+          y:
+            vertex.y +
+            interiorDirection.y * nearNormalRadius -
+            sideDirection.y * nearSideRadius
+        })
+      ])
+    }
+    const buildBevelCornerPolygon = () => {
+      return buildCornerEnvelope([nextOffsetPoint])
+    }
+
+    const buildMiterCornerPolygon = () => {
+      const buildMiterFallbackCornerPolygon = () =>
+        buildCornerEnvelope([nextOffsetPoint]) ?? buildBevelCornerPolygon()
+      const previousLineEnd = addPoint(previousOffsetPoint, previousDirection)
+      const nextLineEnd = addPoint(nextOffsetPoint, nextDirection)
+      const miterPoint = lineIntersection(
+        previousOffsetPoint,
+        previousLineEnd,
+        nextOffsetPoint,
+        nextLineEnd
+      )
+      if (
+        !miterPoint ||
+        distanceBetween(vertex, miterPoint) >
+          stroke.miterLimit * strokeWidth + EPSILON
+      ) {
+        return buildMiterFallbackCornerPolygon()
+      }
+
+      return (
+        buildCornerEnvelope([nextOffsetPoint, miterPoint]) ??
+        buildMiterFallbackCornerPolygon()
+      )
+    }
+
+    const buildMiterRenderClipPolygon = () => {
+      const fallback = buildMiterCornerPolygon()
+      const previousLineEnd = addPoint(previousOffsetPoint, previousDirection)
+      const nextLineEnd = addPoint(nextOffsetPoint, nextDirection)
+      const miterPoint = lineIntersection(
+        previousOffsetPoint,
+        previousLineEnd,
+        nextOffsetPoint,
+        nextLineEnd
+      )
+      if (
+        !miterPoint ||
+        distanceBetween(vertex, miterPoint) >
+          stroke.miterLimit * strokeWidth + EPSILON
+      ) {
+        return fallback
+      }
+
+      const miterDistance = distanceBetween(vertex, miterPoint)
+      const sideEnvelopeDistance = Math.max(
+        distanceBetween(vertex, previousOffsetPoint),
+        distanceBetween(vertex, nextOffsetPoint)
+      )
+      const miterEnvelopePoint =
+        interiorDirection &&
+        miterDistance + strokeWidth * 0.05 < sideEnvelopeDistance
+          ? normalizePoint({
+              x: vertex.x + interiorDirection.x * sideEnvelopeDistance,
+              y: vertex.y + interiorDirection.y * sideEnvelopeDistance
+            })
+          : miterPoint
+
+      return (
+        buildCornerEnvelope([nextOffsetPoint, miterEnvelopePoint]) ?? fallback
+      )
+    }
+
+    const buildRoundCornerPolygon = () => {
+      if (interiorDirection) {
+        const centerAngle = Math.atan2(interiorDirection.y, interiorDirection.x)
+        const halfAngle = 0.75
+        const radius = strokeWidth * 1.65
+        const segmentCount = Math.max(
+          8,
+          Math.ceil((halfAngle * 2) / (Math.PI / 48))
+        )
+        const arcPoints: Vec2[] = []
+        for (let index = 0; index <= segmentCount; index += 1) {
+          const angle =
+            centerAngle - halfAngle + (halfAngle * 2 * index) / segmentCount
+          arcPoints.push(
+            normalizePoint({
+              x: vertex.x + Math.cos(angle) * radius,
+              y: vertex.y + Math.sin(angle) * radius
+            })
+          )
+        }
+        const sectorPolygon = buildCornerEnvelope(arcPoints)
+        if (sectorPolygon) {
+          return sectorPolygon
+        }
+      }
+
+      const candidates = [-1, 1]
+        .map((sweepSign) => {
+          const arcPoints = buildJoinArcPoints(
+            vertex,
+            nextOffsetPoint,
+            previousOffsetPoint,
+            sweepSign,
+            Math.PI / 24
+          )
+          const polygon = buildCornerEnvelope(arcPoints)
+          return polygon
+            ? {
+                polygon,
+                score: scoreJoinPolygon(polygon),
+                area: Math.abs(polygonArea(polygon))
+              }
+            : null
+        })
+        .filter(
+          (
+            candidate
+          ): candidate is { polygon: Vec2[]; score: number; area: number } =>
+            candidate !== null
+        )
+        .sort((first, second) => {
+          const scoreDelta = second.score - first.score
+          return Math.abs(scoreDelta) > 1e-6
+            ? scoreDelta
+            : first.area - second.area
+        })
+
+      return candidates[0]?.polygon ?? buildBevelCornerPolygon()
+    }
+
+    const coreCornerPolygon = buildCornerDiskPolygon(strokeWidth)
+    const miterRenderTipPolygon =
+      interiorDirection && stroke.join === 'miter'
+        ? normalizeCornerPolygon([
+            vertex,
+            previousTrimBase,
+            normalizePoint({
+              x: vertex.x + interiorDirection.x * strokeWidth * 2.8,
+              y: vertex.y + interiorDirection.y * strokeWidth * 2.8
+            }),
+            nextTrimBase
+          ])
+        : null
+    const acceptedJoinPolygon =
+      stroke.join === 'round'
+        ? (buildCornerDiskPolygon(strokeWidth * 1.65) ??
+          buildRoundCornerPolygon())
+        : stroke.join === 'miter'
+          ? buildMiterCornerPolygon()
+          : null
+    const acceptedRenderClipPolygon =
+      stroke.join === 'miter' ? buildMiterRenderClipPolygon() : null
+    const acceptedJoinPolygons = acceptedJoinPolygon
+      ? [
+          ...(stroke.join === 'round' || !coreCornerPolygon
+            ? []
+            : [coreCornerPolygon]),
+          acceptedJoinPolygon
+        ]
+      : coreCornerPolygon
+        ? [coreCornerPolygon]
+        : []
+    const postFillRenderCoverPolygon =
+      stroke.join === 'round'
+        ? buildPostFillRenderCoverPolygon(strokeWidth * 1.8, strokeWidth * 1.2)
+        : stroke.join === 'bevel'
+          ? buildPostFillRenderCoverPolygon(
+              strokeWidth * 1.035,
+              strokeWidth * 0.7
+            )
+          : null
+    const bevelCenterRenderCoverPolygon =
+      stroke.join === 'bevel'
+        ? buildPostFillRenderCoverPolygon(
+            strokeWidth * 1.16,
+            strokeWidth * 0.08,
+            strokeWidth * 0.12
+          )
+        : null
+    const renderClipVertexSanitizer = interiorDirection
+      ? {
+          vertex,
+          direction: interiorDirection,
+          sideDirection: {
+            x: -interiorDirection.y,
+            y: interiorDirection.x
+          }
+        }
+      : null
+    return {
+      clipPolygons: acceptedJoinPolygons,
+      joinPolygons: acceptedJoinPolygons,
+      renderClipPolygons: acceptedRenderClipPolygon
+        ? [
+            ...(stroke.join === 'round' || !coreCornerPolygon
+              ? []
+              : [coreCornerPolygon]),
+            acceptedRenderClipPolygon,
+            ...(miterRenderTipPolygon ? [miterRenderTipPolygon] : [])
+          ]
+        : acceptedJoinPolygons,
+      renderClipVertexSanitizer,
+      postFillRenderClipPolygons: postFillRenderCoverPolygon
+        ? [
+            postFillRenderCoverPolygon,
+            ...(bevelCenterRenderCoverPolygon
+              ? [bevelCenterRenderCoverPolygon]
+              : [])
+          ]
+        : []
+    }
+  }
+
+  legalFaceBoundaries.forEach((face) => {
+    const faceJoinEligibility = isJoinReactiveInsideFace(face)
+      ? 'join-reactive'
+      : 'mask-only'
+
+    const maskGeometries = face.edges
+      .map(getEdgeMaskGeometry)
+      .filter(
+        (
+          geometry
+        ): geometry is NonNullable<ReturnType<typeof getEdgeMaskGeometry>> =>
+          geometry !== null && geometry.length >= minMaskEdgeLength
+      )
+    const geometriesForMask =
+      maskGeometries.length >= 2
+        ? maskGeometries
+        : face.edges
+            .map(getEdgeMaskGeometry)
+            .filter(
+              (
+                geometry
+              ): geometry is NonNullable<
+                ReturnType<typeof getEdgeMaskGeometry>
+              > => geometry !== null
+            )
+    const faceEdgeIndexById = new Map(
+      face.edges.map((edge, index) => [edge.edgeId, index])
+    )
+    const maskPieces = geometriesForMask.flatMap((geometry) => {
+      const edgeIndex = faceEdgeIndexById.get(geometry.edge.edgeId) ?? -1
+      const previousFaceEdge =
+        edgeIndex >= 0
+          ? face.edges[(edgeIndex - 1 + face.edges.length) % face.edges.length]
+          : undefined
+      const nextFaceEdge =
+        edgeIndex >= 0
+          ? face.edges[(edgeIndex + 1) % face.edges.length]
+          : undefined
+      const startOwnershipTransition =
+        geometry.edge.startNodeDegree > 2 &&
+        previousFaceEdge !== undefined &&
+        previousFaceEdge.oppositeFaceLegal !== geometry.edge.oppositeFaceLegal
+      const endOwnershipTransition =
+        geometry.edge.endNodeDegree > 2 &&
+        nextFaceEdge !== undefined &&
+        nextFaceEdge.oppositeFaceLegal !== geometry.edge.oppositeFaceLegal
+      const transitionTrimDistance = 0
+      const joinReactiveSharedTrimDistance =
+        faceJoinEligibility === 'join-reactive' &&
+        geometry.edge.oppositeFaceLegal
+          ? Math.min(
+              getJoinReactiveCornerEnvelopeRadius(strokeWidth),
+              geometry.length * 0.45
+            )
+          : 0
+      const sharedTrimDistance = joinReactiveSharedTrimDistance
+      const joinReactiveCornerNeighborhoodTrim =
+        faceJoinEligibility === 'join-reactive'
+          ? getJoinReactiveCornerNeighborhoodTrim(geometry)
+          : { trimStart: 0, trimEnd: 0, collapsed: false }
+      const trimStart =
+        joinReactiveCornerNeighborhoodTrim.trimStart > 0
+          ? joinReactiveCornerNeighborhoodTrim.trimStart
+          : startOwnershipTransition && !geometry.edge.oppositeFaceLegal
+            ? transitionTrimDistance
+            : sharedTrimDistance > 0 && geometry.edge.startNodeDegree > 2
+              ? sharedTrimDistance
+              : 0
+      const trimEnd =
+        joinReactiveCornerNeighborhoodTrim.trimEnd > 0
+          ? joinReactiveCornerNeighborhoodTrim.trimEnd
+          : endOwnershipTransition && !geometry.edge.oppositeFaceLegal
+            ? transitionTrimDistance
+            : sharedTrimDistance > 0 && geometry.edge.endNodeDegree > 2
+              ? sharedTrimDistance
+              : 0
+      const highDegreeOverlap = 0
+      const startOverlap =
+        geometry.edge.startNodeDegree > 2
+          ? Math.min(highDegreeOverlap, geometry.length * 0.2)
+          : 0
+      const endOverlap =
+        geometry.edge.endNodeDegree > 2
+          ? Math.min(highDegreeOverlap, geometry.length * 0.2)
+          : 0
+      const collapsed =
+        joinReactiveCornerNeighborhoodTrim.collapsed ||
+        trimStart + trimEnd >= geometry.length - EPSILON
+      const baseStartDistance = trimStart - startOverlap
+      const baseEndDistance = geometry.length - trimEnd + endOverlap
+      const buildMaskPiece = (
+        startDistance: number,
+        endDistance: number,
+        pieceCollapsed: boolean
+      ) => {
+        const start = {
+          x: geometry.edge.start.x + geometry.tangent.x * startDistance,
+          y: geometry.edge.start.y + geometry.tangent.y * startDistance
+        }
+        const end = {
+          x: geometry.edge.start.x + geometry.tangent.x * endDistance,
+          y: geometry.edge.start.y + geometry.tangent.y * endDistance
+        }
+        const ownedWidth = geometry.ownedWidth
+        const offsetStart = {
+          x: start.x + geometry.legalNormal.x * ownedWidth,
+          y: start.y + geometry.legalNormal.y * ownedWidth
+        }
+        const offsetEnd = {
+          x: end.x + geometry.legalNormal.x * ownedWidth,
+          y: end.y + geometry.legalNormal.y * ownedWidth
+        }
+        return {
+          geometry,
+          collapsed: pieceCollapsed,
+          trimStart,
+          trimEnd,
+          startDistance,
+          endDistance,
+          start,
+          end,
+          offsetStart,
+          offsetEnd,
+          rawOffsetStart: geometry.offsetStart,
+          rawOffsetEnd: geometry.offsetEnd
+        }
+      }
+
+      if (collapsed || baseEndDistance - baseStartDistance <= EPSILON) {
+        return [buildMaskPiece(baseStartDistance, baseEndDistance, true)]
+      }
+
+      const cutIntervals =
+        faceJoinEligibility === 'join-reactive'
+          ? getJoinReactiveCornerInteriorCutIntervals(geometry).flatMap(
+              (interval) => {
+                const start = Math.max(baseStartDistance, interval.start)
+                const end = Math.min(baseEndDistance, interval.end)
+                return end - start > EPSILON ? [{ start, end }] : []
+              }
+            )
+          : []
+
+      if (cutIntervals.length === 0) {
+        return [buildMaskPiece(baseStartDistance, baseEndDistance, false)]
+      }
+
+      const pieces: ReturnType<typeof buildMaskPiece>[] = []
+      let cursor = baseStartDistance
+      cutIntervals.forEach((interval) => {
+        if (interval.start - cursor > minMaskEdgeLength) {
+          pieces.push(buildMaskPiece(cursor, interval.start, false))
+        }
+        cursor = Math.max(cursor, interval.end)
+      })
+      if (baseEndDistance - cursor > minMaskEdgeLength) {
+        pieces.push(buildMaskPiece(cursor, baseEndDistance, false))
+      }
+
+      return pieces.length > 0
+        ? pieces
+        : [buildMaskPiece(baseStartDistance, baseEndDistance, true)]
+    })
+
+    const appendMaskPieceChain = (chain: typeof maskPieces) => {
+      const visiblePieces = chain.filter((piece) => !piece.collapsed)
+      if (visiblePieces.length === 0) {
+        return
+      }
+      const getRenderRanges = (piece: (typeof visiblePieces)[number]) => {
+        const shouldApplyJoinReactiveRenderCut =
+          faceJoinEligibility === 'join-reactive' ||
+          (stroke.join !== 'miter' &&
+            isSharedWithJoinReactiveInsideFace(piece.geometry.edge))
+        const renderCutRadius = shouldApplyJoinReactiveRenderCut
+          ? getJoinReactiveCornerRenderTrimRadius(strokeWidth) *
+            (stroke.join === 'miter'
+              ? 1.65
+              : stroke.join === 'round'
+                ? 3.8
+                : 2.35)
+          : getJoinReactiveCornerRenderTrimRadius(strokeWidth)
+        const cutIntervals: { start: number; end: number }[] =
+          getJoinReactiveCornerInteriorCutIntervals(
+            piece.geometry,
+            renderCutRadius,
+            true
+          ).flatMap((interval) => {
+            const start = Math.max(piece.startDistance, interval.start)
+            const end = Math.min(piece.endDistance, interval.end)
+            return end - start > EPSILON ? [{ start, end }] : []
+          })
+
+        const ranges: { start: number; end: number }[] = []
+        let cursor = piece.startDistance
+        cutIntervals.forEach((interval) => {
+          if (interval.start - cursor > minMaskEdgeLength) {
+            ranges.push({ start: cursor, end: interval.start })
+          }
+          cursor = Math.max(cursor, interval.end)
+        })
+        if (piece.endDistance - cursor > minMaskEdgeLength) {
+          ranges.push({ start: cursor, end: piece.endDistance })
+        }
+
+        return ranges
+      }
+
+      const buildPieceRangePolygon = (
+        piece: (typeof visiblePieces)[number],
+        range: { start: number; end: number }
+      ) => {
+        const renderStartDistance = range.start
+        const renderEndDistance = range.end
+        const start = {
+          x:
+            piece.geometry.edge.start.x +
+            piece.geometry.tangent.x * renderStartDistance,
+          y:
+            piece.geometry.edge.start.y +
+            piece.geometry.tangent.y * renderStartDistance
+        }
+        const end = {
+          x:
+            piece.geometry.edge.start.x +
+            piece.geometry.tangent.x * renderEndDistance,
+          y:
+            piece.geometry.edge.start.y +
+            piece.geometry.tangent.y * renderEndDistance
+        }
+        const offsetStart = {
+          x: start.x + piece.geometry.legalNormal.x * piece.geometry.ownedWidth,
+          y: start.y + piece.geometry.legalNormal.y * piece.geometry.ownedWidth
+        }
+        const offsetEnd = {
+          x: end.x + piece.geometry.legalNormal.x * piece.geometry.ownedWidth,
+          y: end.y + piece.geometry.legalNormal.y * piece.geometry.ownedWidth
+        }
+        return cleanPolygon([start, end, offsetEnd, offsetStart])
+      }
+
+      visiblePieces.forEach((piece) => {
+        appendMaskPolygon(
+          buildPieceRangePolygon(piece, {
+            start: piece.startDistance,
+            end: piece.endDistance
+          })
+        )
+        getRenderRanges(piece).forEach((range) => {
+          appendRenderClipPolygon(buildPieceRangePolygon(piece, range))
+        })
+      })
+    }
+    let activeChain: typeof maskPieces = []
+
+    maskPieces.forEach((piece) => {
+      if (piece.collapsed) {
+        appendMaskPieceChain(activeChain)
+        activeChain = []
+        appendTrace(piece.geometry.edge, face.faceId, faceJoinEligibility)
+        return
+      }
+
+      const previous = activeChain[activeChain.length - 1]
+      const canJoinPrevious =
+        previous &&
+        previous.geometry.edge.endNodeDegree <= 2 &&
+        piece.geometry.edge.startNodeDegree <= 2 &&
+        distanceBetween(previous.end, piece.start) <= faceNodeJoinTolerance
+
+      if (!previous || canJoinPrevious) {
+        activeChain.push(piece)
+      } else {
+        appendMaskPieceChain(activeChain)
+        activeChain = [piece]
+      }
+      appendTrace(piece.geometry.edge, face.faceId, faceJoinEligibility)
+    })
+    appendMaskPieceChain(activeChain)
+
+    const includedEdgeIds = new Set(
+      geometriesForMask.map((geometry) => geometry.edge.edgeId)
+    )
+    face.edges.forEach((previousEdge, edgeIndex) => {
+      const nextEdge = face.edges[(edgeIndex + 1) % face.edges.length]
+      if (
+        faceJoinEligibility !== 'join-reactive' ||
+        !nextEdge ||
+        !previousEdge.oppositeFaceLegal ||
+        !nextEdge.oppositeFaceLegal ||
+        (!includedEdgeIds.has(previousEdge.edgeId) &&
+          !includedEdgeIds.has(nextEdge.edgeId)) ||
+        (previousEdge.endNodeDegree <= 2 && nextEdge.startNodeDegree <= 2)
+      ) {
+        return
+      }
+
+      const previousGeometry = getEdgeMaskGeometry(previousEdge)
+      const nextGeometry = getEdgeMaskGeometry(nextEdge)
+      if (!previousGeometry || !nextGeometry) {
+        return
+      }
+      const previousStableDirection = getStableJoinReactiveFaceDirection(
+        face,
+        edgeIndex,
+        'previous',
+        previousGeometry.tangent
+      )
+      const nextStableDirection = getStableJoinReactiveFaceDirection(
+        face,
+        edgeIndex,
+        'next',
+        nextGeometry.tangent
+      )
+      const faceCorner = buildSelfIntersectionFaceCornerPolygons(
+        previousGeometry,
+        nextGeometry,
+        previousStableDirection,
+        nextStableDirection
+      )
+      if (faceCorner && faceCorner.clipPolygons.length > 0) {
+        internalCornerJoinPolygonCount += 1
+        internalCornerVertices.push(previousGeometry.edge.end)
+        faceCorner.joinPolygons.forEach((joinPolygon) => {
+          pushValidPolygon(internalCornerJoinPolygons, joinPolygon)
+          appendMaskPolygon(joinPolygon)
+        })
+        faceCorner.clipPolygons.forEach((clipPolygon) => {
+          pushValidPolygon(internalCornerClipPolygons, clipPolygon)
+        })
+        faceCorner.renderClipPolygons.forEach((clipPolygon) => {
+          appendRenderClipPolygon(clipPolygon)
+        })
+        if (faceCorner.renderClipVertexSanitizer) {
+          renderClipVertexSanitizers.push(faceCorner.renderClipVertexSanitizer)
+        }
+        faceCorner.postFillRenderClipPolygons.forEach((clipPolygon) => {
+          pushValidPolygon(postFillJoinRenderClipPolygons, clipPolygon)
+        })
+      }
+    })
+
+    // Source-segment adherence cannot be a blanket mask-only-face supplement:
+    // centered strips overlap the face-owned shared-edge mask and show up as
+    // a second broken stroke layer at high zoom. Keep the helper available for
+    // a targeted future repair, but do not feed it into the accepted visible
+    // mask until the owner can prove it is local and seam-free.
+  })
+
+  if (sourcePath && joinReactiveCornerVertices.length > 0) {
+    const seenSourceClipRanges = new Set<string>()
+    joinReactiveCornerVertices.forEach((corner) => {
+      corner.sourceSegmentIndices.forEach((sourceSegmentIndex) => {
+        const segment = sourcePath.segments[sourceSegmentIndex]
+        if (!segment) {
+          return
+        }
+        const isSourceSegmentAdherenceEligible =
+          segment.type === 'cubic' &&
+          segment.startAnchorType === 'sharp' &&
+          segment.endAnchorType === 'smooth'
+        if (!isSourceSegmentAdherenceEligible) {
+          return
+        }
+        const nearest = getNearestSegmentLocalLength(segment, corner.vertex)
+        if (!nearest || nearest.distance > strokeWidth * 1.25) {
+          return
+        }
+        const rangeRadius = strokeWidth * 2.65
+        const startLength = Math.max(0, nearest.localLength - rangeRadius)
+        const endLength = Math.min(
+          segment.length,
+          nearest.localLength + rangeRadius
+        )
+        const key = `${sourceSegmentIndex}:${startLength.toFixed(2)}:${endLength.toFixed(2)}`
+        if (seenSourceClipRanges.has(key)) {
+          return
+        }
+        seenSourceClipRanges.add(key)
+
+        buildSourceSegmentBandClipPolygonsForSourceSegmentRange(
+          segment,
+          startLength,
+          endLength,
+          strokeWidth * 0.56
+        ).forEach((polygon) => {
+          pushValidPolygon(sourceSegmentAdherenceClipPolygons, polygon)
+          appendRenderClipPolygon(polygon)
+        })
+      })
+    })
+  }
+
+  if (sourcePath) {
+    buildCenterStrokeSourceVertexCoverageMaskPolygons(
+      sourcePath,
+      strokeWidth,
+      1.25,
+      24
+    ).forEach((polygon) => {
+      appendMaskPolygon(polygon)
+      appendRenderClipPolygon(polygon)
+    })
+  }
+
+  return polygons.length > 0
+    ? {
+        polygons,
+        faceOwnershipTrace,
+        internalCornerJoinPolygonCount,
+        internalCornerJoinPolygons,
+        internalCornerClipPolygons,
+        internalCornerVertices,
+        renderClipPolygons,
+        renderClipVertexSanitizers,
+        postFillJoinRenderClipPolygons,
+        sourceSegmentAdherenceClipPolygons,
+        sourceMaskPolygons
+      }
+    : null
 }
 
 const buildSolidMaskModelPolygons = ({
   topology,
   stroke,
   fillRegions,
+  legalFaceBoundaries = [],
+  unfilledFaceBoundaries = [],
+  legalBoundaryContours = [],
   exactBackend,
   sourcePath
 }: {
   topology: PathTopologyModel
   stroke: ReturnType<typeof getRenderableStrokes>[number]
   fillRegions: PolygonRegion[]
+  legalFaceBoundaries?: EvenOddLegalFaceBoundary[]
+  unfilledFaceBoundaries?: EvenOddLegalFaceBoundary[]
+  legalBoundaryContours?: EvenOddBoundaryContour[]
   exactBackend?: ConstrainedSolidStrokePacketOptions['exactBackend']
   sourcePath?: Pick<
     PathGeometry,
     'segments' | 'closed' | 'totalLength' | 'sampledPoints'
   >
 }): SolidMaskModelPolygonResult | null => {
+  if (topology.topologyFamily === 'self-intersecting' && !sourcePath) {
+    return null
+  }
+
   const doubledCenterStroke = {
     ...stroke,
     style: 'solid' as const,
@@ -2599,6 +4343,13 @@ const buildSolidMaskModelPolygons = ({
   const backend = hasExactSolidMaskBackend(exactBackend)
     ? exactBackend
     : undefined
+  if (
+    topology.topologyFamily === 'self-intersecting' &&
+    stroke.position === 'inside' &&
+    (!backend || fillRegions.length === 0)
+  ) {
+    return null
+  }
   if (stroke.position === 'inside' && (!backend || fillRegions.length === 0)) {
     const renderStrokePaths = sourcePath
       ? closeSourcePathForStrokeRender(sourcePath)
@@ -2614,7 +4365,6 @@ const buildSolidMaskModelPolygons = ({
       coverageOracle: 'render-mask',
       maskSide: 'inside-fill',
       renderClipPolygons: fillMaskPolygons,
-      renderStrokeMaskPolygons: centerStrokePolygons,
       renderStrokePaths,
       renderStrokePathStyle: {
         width: stroke.width * 2,
@@ -2629,11 +4379,18 @@ const buildSolidMaskModelPolygons = ({
   }
 
   try {
-    const strokeRegions = backend.union(
-      centerStrokePolygons.map((polygon) => ({ polygons: [polygon] })),
-      'nonzero'
+    const strokeRegions = measureConstrainedSolidPhase(
+      'solid-mask-model-stroke-region-union',
+      () =>
+        backend.union(
+          centerStrokePolygons.map((polygon) => ({ polygons: [polygon] })),
+          'nonzero'
+        )
     )
-    const fillMaskRegions = backend.union(fillRegions, 'nonzero')
+    const fillMaskRegions = measureConstrainedSolidPhase(
+      'solid-mask-model-fill-region-union',
+      () => backend.union(fillRegions, 'nonzero')
+    )
     if (
       strokeRegions.length === 0 ||
       fillMaskRegions.length === 0 ||
@@ -2644,29 +4401,133 @@ const buildSolidMaskModelPolygons = ({
     }
 
     if (stroke.position === 'inside') {
-      const polygons = flattenRegionPolygons(strokeRegions)
-      const renderStrokePaths = sourcePath
+      const faceOwnedInsideMask = measureConstrainedSolidPhase(
+        'solid-mask-model-inside-face-owned-mask',
+        () =>
+          buildFaceOwnedInsideMaskPolygons(
+            legalFaceBoundaries,
+            stroke,
+            sourcePath
+          )
+      )
+      const isFaceOwnedMask =
+        faceOwnedInsideMask !== null && faceOwnedInsideMask.polygons.length > 0
+      if (!isFaceOwnedMask) {
+        return null
+      }
+      const faceOwnedAcceptedClipSourcePolygons = isFaceOwnedMask
+        ? faceOwnedInsideMask.sourceMaskPolygons
+        : []
+      const exactSourceStrokeRegions =
+        sourcePath && isFaceOwnedMask
+          ? measureConstrainedSolidPhase(
+              'solid-mask-model-inside-exact-source-stroke',
+              () =>
+                buildExactOffsetSourceCenterStrokeRegions(
+                  backend,
+                  sourcePath,
+                  stroke
+                )
+            )
+          : []
+      const exactSourceStrokeWithInternalJoinRegions =
+        exactSourceStrokeRegions.length > 0 &&
+        isFaceOwnedMask &&
+        faceOwnedInsideMask.internalCornerJoinPolygons.length > 0
+          ? measureConstrainedSolidPhase(
+              'solid-mask-model-inside-exact-source-stroke-internal-join-union',
+              () =>
+                backend.union(
+                  [
+                    ...exactSourceStrokeRegions,
+                    ...faceOwnedInsideMask.internalCornerJoinPolygons.map(
+                      (polygon) => ({ polygons: [polygon] })
+                    )
+                  ],
+                  'nonzero'
+                )
+            )
+          : exactSourceStrokeRegions
+      const effectiveStrokeRegions =
+        exactSourceStrokeWithInternalJoinRegions.length > 0
+          ? exactSourceStrokeWithInternalJoinRegions
+          : strokeRegions
+      const faceOwnedVisibleMaskPolygons =
+        faceOwnedAcceptedClipSourcePolygons.length > 0
+          ? faceOwnedAcceptedClipSourcePolygons
+          : []
+      if (
+        topology.topologyFamily === 'self-intersecting' &&
+        faceOwnedVisibleMaskPolygons.length === 0
+      ) {
+        return null
+      }
+      const insideFillClipRegions = fillRegions.filter(hasRegionGeometry)
+      const insideVisibleFillClipRegions = insideFillClipRegions
+      const shouldClipSourcePieces = unfilledFaceBoundaries.length > 0
+      const productRegions = shouldClipSourcePieces
+        ? measureConstrainedSolidPhase(
+            'solid-mask-model-inside-source-piece-fill-intersections',
+            () =>
+              centerStrokePolygons.flatMap((polygon) =>
+                backend.intersection(
+                  [{ polygons: [polygon] }],
+                  insideVisibleFillClipRegions,
+                  topology.fillRule
+                )
+              )
+          )
+        : measureConstrainedSolidPhase(
+            'solid-mask-model-inside-stroke-mask-intersection',
+            () =>
+              backend.intersection(
+                effectiveStrokeRegions,
+                insideVisibleFillClipRegions,
+                topology.fillRule
+              )
+          )
+      const polygons = flattenRegionPolygons(productRegions)
+      const renderClipPolygons = flattenRegionPolygons(
+        insideVisibleFillClipRegions
+      )
+      const renderFillClipPolygons = undefined
+      const sourceRenderStrokePaths = sourcePath
         ? closeSourcePathForStrokeRender(sourcePath)
         : []
-      return polygons.length > 0
+      const renderStrokePaths = sourceRenderStrokePaths
+      const isJoinAwareFaceOwnedMask =
+        isFaceOwnedMask &&
+        (faceOwnedInsideMask.internalCornerJoinPolygonCount > 0 ||
+          (topology.topologyFamily === 'self-intersecting' &&
+            renderStrokePaths.length > 0))
+      const hasRenderMask = renderClipPolygons.length > 0
+      return polygons.length > 0 && hasRenderMask
         ? {
             polygons,
-            maskApplication: 'render-fill-mask',
+            maskApplication: 'exact-boolean',
             visibleRender: 'masked-source-stroke',
-            coverageOracle: 'render-mask',
+            coverageOracle: 'exact-boolean',
             maskSide: 'inside-fill',
-            renderFillPolygons:
-              renderStrokePaths.length > 0 ? undefined : polygons,
-            renderClipPolygons: flattenRegionPolygons(fillMaskRegions),
-            renderStrokeMaskPolygons:
-              renderStrokePaths.length > 0 ? centerStrokePolygons : undefined,
+            insideMaskMode: 'face-occupancy-inside-fill',
+            visibleMaskMode: 'inside-fill-source-stroke-clip',
+            joinGeometrySource: 'authored-doubled-source-stroke',
+            internalCornerJoinMode: isJoinAwareFaceOwnedMask
+              ? 'stroke-join-aware-face-corner'
+              : undefined,
+            joinEligibilityMode: isJoinAwareFaceOwnedMask
+              ? 'internal-face-only'
+              : undefined,
+            adjacencyProbe: INSIDE_SOLID_ADJACENCY_PROBES,
+            faceOwnershipTrace: faceOwnedInsideMask.faceOwnershipTrace,
+            renderClipPolygons,
+            renderFillClipPolygons,
             renderStrokePaths:
               renderStrokePaths.length > 0 ? renderStrokePaths : undefined,
             renderStrokePathStyle:
               renderStrokePaths.length > 0
                 ? {
                     width: stroke.width * 2,
-                    cap: stroke.cap,
+                    cap: isFaceOwnedMask ? 'butt' : stroke.cap,
                     join: stroke.join,
                     miterLimit: stroke.miterLimit
                   }
@@ -2675,14 +4536,16 @@ const buildSolidMaskModelPolygons = ({
         : null
     }
 
-    const maskedRegions = backend.difference(
-      strokeRegions,
-      fillMaskRegions,
-      'nonzero'
+    const maskedRegions = measureConstrainedSolidPhase(
+      'solid-mask-model-outside-stroke-fill-difference',
+      () => backend.difference(strokeRegions, fillMaskRegions, 'nonzero')
     )
     const normalizedRegions =
       maskedRegions.length > 0
-        ? backend.union(maskedRegions, 'nonzero')
+        ? measureConstrainedSolidPhase(
+            'solid-mask-model-outside-result-union',
+            () => backend.union(maskedRegions, 'nonzero')
+          )
         : maskedRegions
     const polygons = flattenRegionPolygons(normalizedRegions)
     const renderStrokePaths = sourcePath
@@ -2704,8 +4567,6 @@ const buildSolidMaskModelPolygons = ({
           coverageOracle: 'exact-boolean',
           maskSide: 'outside-exterior',
           renderClipPolygons,
-          renderStrokeMaskPolygons:
-            renderStrokePaths.length > 0 ? centerStrokePolygons : undefined,
           renderStrokePaths:
             renderStrokePaths.length > 0 ? renderStrokePaths : undefined,
           renderStrokePathStyle:
@@ -2798,6 +4659,9 @@ const buildSelfIntersectingSolidMaskModelPackets = ({
         topology,
         stroke,
         fillRegions: options.implicitFillRegions ?? [],
+        legalFaceBoundaries: options.implicitLegalFaceBoundaries ?? [],
+        unfilledFaceBoundaries: options.implicitUnfilledFaceBoundaries ?? [],
+        legalBoundaryContours: options.implicitLegalBoundaryContours ?? [],
         exactBackend: options.exactBackend,
         sourcePath
       })
@@ -2818,6 +4682,7 @@ const buildSelfIntersectingSolidMaskModelPackets = ({
           ? evidenceContourIds
           : sourceFamily.legalDomainHints.contourIds
       const sourceSpanIds = buildSolidMaskModelSourceSpanIds(sourcePath)
+      const shouldAttachFullDiagnostics = shouldEmitFullStrokeDiagnostics()
       const revisionSet = buildStrokeRuntimeRevisionSet({
         points: topology.normalizedPoints,
         closed: topology.closed,
@@ -2839,6 +4704,14 @@ const buildSelfIntersectingSolidMaskModelPackets = ({
             geometryId,
             polygons,
             bounds: getBounds(polygons),
+            renderDescriptor: {
+              clipPolygons: solidMaskModelPolygons.renderClipPolygons,
+              fillClipPolygons: solidMaskModelPolygons.renderFillClipPolygons,
+              strokeMaskPolygons:
+                solidMaskModelPolygons.renderStrokeMaskPolygons,
+              strokePaths: solidMaskModelPolygons.renderStrokePaths,
+              strokePathStyle: solidMaskModelPolygons.renderStrokePathStyle
+            },
             debugMeta: {
               sourcePathId: cachePrefix,
               ownerKey,
@@ -2855,9 +4728,11 @@ const buildSelfIntersectingSolidMaskModelPackets = ({
               startDistance: 0,
               endDistance: sourcePath.totalLength,
               wrapsSeam: true,
-              figmaLikeBoundaryPoints: (
-                evidenceDomain.boundaryPoints ?? []
-              ).map((point) => ({ ...point })),
+              figmaLikeBoundaryPoints: shouldAttachFullDiagnostics
+                ? (evidenceDomain.boundaryPoints ?? []).map((point) => ({
+                    ...point
+                  }))
+                : undefined,
               figmaLikeBoundaryStartDistance:
                 evidenceDomain.boundaryStartDistance,
               figmaLikeBoundaryEndDistance: evidenceDomain.boundaryEndDistance,
@@ -2887,16 +4762,22 @@ const buildSelfIntersectingSolidMaskModelPackets = ({
               solidMaskModelCoverageOracle:
                 solidMaskModelPolygons.coverageOracle,
               solidMaskModelMaskSide: solidMaskModelPolygons.maskSide,
-              solidMaskModelRenderFillPolygons:
-                solidMaskModelPolygons.renderFillPolygons,
-              solidMaskModelRenderClipPolygons:
-                solidMaskModelPolygons.renderClipPolygons,
-              solidMaskModelRenderStrokeMaskPolygons:
-                solidMaskModelPolygons.renderStrokeMaskPolygons,
-              solidMaskModelRenderStrokePaths:
-                solidMaskModelPolygons.renderStrokePaths,
-              solidMaskModelRenderStrokePathStyle:
-                solidMaskModelPolygons.renderStrokePathStyle,
+              solidMaskModelInsideMaskMode:
+                solidMaskModelPolygons.insideMaskMode,
+              solidMaskModelVisibleMaskMode:
+                solidMaskModelPolygons.visibleMaskMode,
+              solidMaskModelJoinGeometrySource:
+                solidMaskModelPolygons.joinGeometrySource,
+              solidMaskModelInternalCornerJoinMode:
+                solidMaskModelPolygons.internalCornerJoinMode,
+              solidMaskModelJoinEligibilityMode:
+                solidMaskModelPolygons.joinEligibilityMode,
+              solidMaskModelAdjacencyProbe: shouldAttachFullDiagnostics
+                ? solidMaskModelPolygons.adjacencyProbe
+                : undefined,
+              solidMaskModelFaceOwnershipTrace: shouldAttachFullDiagnostics
+                ? solidMaskModelPolygons.faceOwnershipTrace
+                : undefined,
               visualOverlapCollapseStatus: 'exact-arrangement',
               revisionSet
             }
@@ -3033,6 +4914,9 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
         options
       })
     }
+    if (topology.topologyFamily === 'self-intersecting') {
+      return []
+    }
 
     const candidateMode = options.candidateMode ?? 'exact-arrangement'
     if (candidateMode === 'direct-local-side-exact') {
@@ -3126,13 +5010,9 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
       return []
     }
 
-    const resolutionStatus = getConstrainedSolidResolutionStatus(topology)
-    const runtimeStatus =
-      resolutionStatus === 'exact-constrained' ? 'accepted' : 'candidate'
-    const runtimeReason =
-      resolutionStatus === 'exact-constrained'
-        ? 'constrained-solid-exact'
-        : 'local-side-constrained-solid'
+    const resolutionStatus = 'exact-constrained' as const
+    const runtimeStatus = 'accepted'
+    const runtimeReason = 'constrained-solid-exact'
     const shouldEmitArrangementCandidates =
       options.candidateMode === 'exact-arrangement'
     const candidateRecords = shouldEmitArrangementCandidates

@@ -198,6 +198,26 @@ under the same family.
 
 ## Required Test Layers
 
+### File and Batch Structure
+
+Geometry tests must be partitioned by scenario family and runtime contract.
+Large mixed files make failures hard to interpret and hide slow paths.
+
+Rules:
+
+- Keep a test file focused on one scenario family or one runtime wiring layer.
+- Split files when adding a new family would make the output ambiguous.
+- Split files when one slow case delays progress reporting for unrelated cases.
+- Test names must state the invariant being proven, not just the fixture or bug
+  nickname.
+- A passing run must immediately show which geometry contract passed from the
+  file name, describe block, or test name.
+- Performance / budget checks belong in their own narrowly named test file or
+  describe block when they can run slower than ordinary unit semantics.
+
+If a geometry command needs a second diagnostic pass to understand what passed,
+the suite is not sufficiently partitioned.
+
 ### Unit Tests
 
 Unit tests validate algorithm semantics, not screenshots.

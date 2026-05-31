@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
@@ -26,15 +27,32 @@ import {
   createClipper2GeometryBackend,
   type Clipper2Module
 } from '../components/stroke-render/clipper2-geometry-backend'
-import {
-  buildArrangedStrokeFinalFacesFromResolvedPackets,
-  collapseStrokeFinalFaceVisualOverlaps
-} from '../components/stroke-render/stroke-candidate-arrangement'
+import { collapseStrokeFinalFaceVisualOverlaps } from '../components/stroke-render/stroke-candidate-arrangement'
+import { buildSolidCenterStrokePolygons } from '../components/stroke-render/solid-center-stroke-geometry'
 import { buildStrokeFinalFacesFromResolvedPackets } from '../components/stroke-render/stroke-final-face'
+import type { EvenOddLegalFaceBoundaryEdge } from '../components/stroke-render/self-intersecting-legal-domain'
 
 interface Vec2 {
   x: number
   y: number
+}
+
+type StrokeDiagnosticsMode = 'off' | 'summary' | 'full'
+
+const withStrokeDiagnosticsMode = <T>(
+  mode: StrokeDiagnosticsMode,
+  run: () => T
+): T => {
+  const target = globalThis as typeof globalThis & {
+    __ASYRA_STROKE_DIAGNOSTICS_MODE__?: StrokeDiagnosticsMode
+  }
+  const previous = target.__ASYRA_STROKE_DIAGNOSTICS_MODE__
+  target.__ASYRA_STROKE_DIAGNOSTICS_MODE__ = mode
+  try {
+    return run()
+  } finally {
+    target.__ASYRA_STROKE_DIAGNOSTICS_MODE__ = previous
+  }
 }
 
 const require = createRequire(import.meta.url)
@@ -65,6 +83,11 @@ const pointSegmentDistance = (point: Vec2, start: Vec2, end: Vec2) => {
   )
   return Math.hypot(point.x - (start.x + dx * t), point.y - (start.y + dy * t))
 }
+
+const flattenTestRegionPolygons = (regions: { polygons: Vec2[][] }[]) =>
+  regions.flatMap((region) =>
+    region.polygons.map((polygon) => polygon.map((point) => ({ ...point })))
+  )
 
 const isPointInPolygon = (point: Vec2, polygon: Vec2[]) => {
   if (
@@ -113,6 +136,9 @@ const normalizeVector = (vector: Vec2): Vec2 | null => {
       }
 }
 
+const dotPoints = (first: Vec2, second: Vec2) =>
+  first.x * second.x + first.y * second.y
+
 const buildSelfIntersectingSolidDomainFixture = () => {
   const points = [
     { x: 0, y: 0 },
@@ -147,12 +173,17 @@ const buildSelfIntersectingSolidDomainFixture = () => {
     sourcePath,
     topology,
     fillRegions: selfIntersecting?.fillRegions ?? [],
+    legalFaceBoundaries: selfIntersecting?.legalFaceBoundaries ?? [],
+    unfilledFaceBoundaries: selfIntersecting?.unfilledFaceBoundaries ?? [],
+    legalBoundaryContours: selfIntersecting?.legalBoundaryContours ?? [],
     sharedSourceSplitRanges: selfIntersecting?.sourceSplitRanges ?? [],
     sharedStrokeBoundaryDomains: selfIntersecting?.strokeBoundaryDomains ?? []
   }
 }
 
-const buildSelfCheckStarSolidDomainFixture = () => {
+const buildSelfCheckStarSolidDomainFixture = (
+  options: { seamStartSegmentId?: string } = {}
+) => {
   const points = {
     'tp-12': {
       id: 'tp-12',
@@ -275,10 +306,19 @@ const buildSelfCheckStarSolidDomainFixture = () => {
       inControlId: null
     }
   } as const
+  const orderedPointIds = ['tp-12', 'tp-13', 'tp-14', 'tp-15', 'tp-16']
+  const orderedSegmentIds = ['ts-23', 'ts-24', 'ts-25', 'ts-26', 'ts-27']
+  const seamSegmentIndex = options.seamStartSegmentId
+    ? orderedSegmentIds.indexOf(options.seamStartSegmentId)
+    : -1
+  const rotate = <T>(items: T[], startIndex: number) =>
+    startIndex > 0
+      ? [...items.slice(startIndex), ...items.slice(0, startIndex)]
+      : items
   const network = {
     id: 'tn-4',
-    pointIds: ['tp-12', 'tp-13', 'tp-14', 'tp-15', 'tp-16'],
-    segmentIds: ['ts-23', 'ts-24', 'ts-25', 'ts-26', 'ts-27'],
+    pointIds: rotate(orderedPointIds, seamSegmentIndex),
+    segmentIds: rotate(orderedSegmentIds, seamSegmentIndex),
     closed: true
   }
   const sourcePath = buildVectorGeometryModelPath(network, points, segments)
@@ -308,10 +348,16 @@ const buildSelfCheckStarSolidDomainFixture = () => {
     sourcePath,
     topology,
     fillRegions: selfIntersecting?.fillRegions ?? [],
+    legalFaceBoundaries: selfIntersecting?.legalFaceBoundaries ?? [],
     sharedSourceSplitRanges: selfIntersecting?.sourceSplitRanges ?? [],
     sharedStrokeBoundaryDomains: selfIntersecting?.strokeBoundaryDomains ?? []
   }
 }
+
+const getSelfCheckRightBottomSourceSegmentEndpointsForTest = () => ({
+  start: { x: 0, y: 15.668954151283657 },
+  end: { x: 270.59180204238254, y: 347.0603956649177 }
+})
 
 const getSolidPacketMeta = (
   packet: ReturnType<typeof buildConstrainedSolidStrokeResolvedPackets>[number]
@@ -359,6 +405,17 @@ const withVectorRenderPhaseSink = <T>(
   } finally {
     globalWithSink.__asyraVectorRenderPhaseSink = previousSink
   }
+}
+
+const sumPolygonPointCount = (polygons: Vec2[][]) =>
+  polygons.reduce((sum, polygon) => sum + polygon.length, 0)
+
+const addPhaseDuration = (
+  durations: Map<string, number>,
+  phaseName: string,
+  durationMs: number
+) => {
+  durations.set(phaseName, (durations.get(phaseName) ?? 0) + durationMs)
 }
 
 const polygonListContainsPoint = (polygons: Vec2[][], point: Vec2) =>
@@ -439,7 +496,91 @@ const countVisibleMaskCoverageDifferences = ({
   return { changed, compared }
 }
 
-const polygonListRegionCoverage = (
+const countClipPolygonCoverageDifferencesForTest = ({
+  firstClipPolygons,
+  secondClipPolygons,
+  centers,
+  radius,
+  step
+}: {
+  firstClipPolygons: Vec2[][]
+  secondClipPolygons: Vec2[][]
+  centers: Vec2[]
+  radius: number
+  step: number
+}) => {
+  let changed = 0
+  let compared = 0
+
+  centers.forEach((center) => {
+    for (let y = center.y - radius; y <= center.y + radius; y += step) {
+      for (let x = center.x - radius; x <= center.x + radius; x += step) {
+        if (Math.hypot(x - center.x, y - center.y) > radius) {
+          continue
+        }
+        const point = { x, y }
+        const firstCovered = polygonListContainsPointWithWinding(
+          firstClipPolygons,
+          point
+        )
+        const secondCovered = polygonListContainsPointWithWinding(
+          secondClipPolygons,
+          point
+        )
+        compared += 1
+        if (firstCovered !== secondCovered) {
+          changed += 1
+        }
+      }
+    }
+  })
+
+  return { changed, compared }
+}
+
+const countClipPolygonCoverageDifferencesAtPointsForTest = ({
+  firstClipPolygons,
+  secondClipPolygons,
+  points
+}: {
+  firstClipPolygons: Vec2[][]
+  secondClipPolygons: Vec2[][]
+  points: Vec2[]
+}) => {
+  let changed = 0
+
+  points.forEach((point) => {
+    const firstCovered = polygonListContainsPointWithWinding(
+      firstClipPolygons,
+      point
+    )
+    const secondCovered = polygonListContainsPointWithWinding(
+      secondClipPolygons,
+      point
+    )
+    if (firstCovered !== secondCovered) {
+      changed += 1
+    }
+  })
+
+  return { changed, compared: points.length }
+}
+
+const getFaceCentroidForTest = (face: {
+  edges: EvenOddLegalFaceBoundaryEdge[]
+}) => {
+  const points = face.edges.map((edge) => edge.start)
+  return {
+    x:
+      points.reduce((sum, point) => sum + point.x, 0) /
+      Math.max(1, points.length),
+    y:
+      points.reduce((sum, point) => sum + point.y, 0) /
+      Math.max(1, points.length)
+  }
+}
+
+const _polygonListRegionCoverage = (
   polygons: Vec2[][],
   region: { x: number; y: number; width: number; height: number },
   step = 1
@@ -734,6 +875,85 @@ const getSegmentProbeFrameForTest = (
     : null
 }
 
+const getNearestSourceRangeForProbePointForTest = (
+  sourcePath: PathGeometry,
+  probePoint: Vec2
+) => {
+  const sourceRanges = getSourcePathSegmentRangesForTest(sourcePath)
+  let best: {
+    range: (typeof sourceRanges)[number]
+    ratio: number
+    distance: number
+  } | null = null
+
+  sourceRanges.forEach((range) => {
+    for (let step = 0; step <= 100; step += 1) {
+      const ratio = step / 100
+      const frame = getSegmentProbeFrameForTest(sourcePath, range, ratio)
+      if (!frame) {
+        continue
+      }
+      const distance = Math.hypot(
+        frame.point.x - probePoint.x,
+        frame.point.y - probePoint.y
+      )
+      if (!best || distance < best.distance) {
+        best = { range, ratio, distance }
+      }
+    }
+  })
+
+  return best
+}
+
+const getSourceRangeForSegmentEndpointsForTest = (
+  sourcePath: PathGeometry,
+  endpoints: { start: Vec2; end: Vec2 }
+) => {
+  const sourceRanges = getSourcePathSegmentRangesForTest(sourcePath)
+  return sourceRanges.find((range) => {
+    const segment = sourcePath.segments[range.segmentIndex]
+    return (
+      segment &&
+      Math.hypot(
+        segment.start.x - endpoints.start.x,
+        segment.start.y - endpoints.start.y
+      ) <= 0.25 &&
+      Math.hypot(
+        segment.end.x - endpoints.end.x,
+        segment.end.y - endpoints.end.y
+      ) <= 0.25
+    )
+  })
+}
+
+const getNearestRatioOnSourceRangeForProbePointForTest = (
+  sourcePath: PathGeometry,
+  range: {
+    segmentIndex: number
+    startDistance: number
+    endDistance: number
+  },
+  probePoint: Vec2
+) => {
+  let best: { ratio: number; distance: number } | null = null
+  for (let step = 0; step <= 100; step += 1) {
+    const ratio = step / 100
+    const frame = getSegmentProbeFrameForTest(sourcePath, range, ratio)
+    if (!frame) {
+      continue
+    }
+    const distance = Math.hypot(
+      frame.point.x - probePoint.x,
+      frame.point.y - probePoint.y
+    )
+    if (!best || distance < best.distance) {
+      best = { ratio, distance }
+    }
+  }
+  return best
+}
+
 const getSegmentFrameOffsetPointForTest = (
   frame: SourceSegmentFrameForTest | null,
   offsetDistance: number
@@ -775,7 +995,7 @@ const interpolatePoint = (start: Vec2, end: Vec2, amount: number): Vec2 => ({
   y: start.y + (end.y - start.y) * amount
 })
 
-const getSmoothJoinCorridorProbePoints = (
+const _getSmoothJoinCorridorProbePoints = (
   sourcePath: Pick<PathGeometry, 'segments'>,
   previousRange: {
     segmentIndex: number
@@ -892,7 +1112,7 @@ const chooseSegmentSideOffsetForTest = (
   return leftVotes > rightVotes ? strokeWidth : -strokeWidth
 }
 
-const getSegmentInsideAndOppositeProbePoints = (
+const _getSegmentInsideAndOppositeProbePoints = (
   sourcePath: Pick<PathGeometry, 'segments' | 'sampledPoints'>,
   range: {
     segmentIndex: number
@@ -925,7 +1145,7 @@ const getSegmentInsideAndOppositeProbePoints = (
   }
 }
 
-const getDenseSegmentCenterlineProbePoints = (
+const _getDenseSegmentCenterlineProbePoints = (
   sourcePath: Pick<PathGeometry, 'segments'>,
   segmentIds: readonly string[]
 ) => {
@@ -960,7 +1180,7 @@ const getDenseSegmentCenterlineProbePoints = (
   )
 }
 
-const getSegmentOwnedPolygonsForTest = (
+const _getSegmentOwnedPolygonsForTest = (
   faces: {
     polygons: Vec2[][]
     sourceSpanIds: readonly string[]
@@ -977,7 +1197,3201 @@ const getSegmentOwnedPolygonsForTest = (
     )
     .flatMap((face) => face.polygons)
 
-describe('constrained solid stroke packets', () => {
+const median = (values: number[]) => {
+  const sorted = [...values].sort((first, second) => first - second)
+  if (sorted.length === 0) {
+    return 0
+  }
+  const middle = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 0
+    ? (sorted[middle - 1] + sorted[middle]) / 2
+    : sorted[middle]
+}
+
+const getEdgeLengthForTest = (
+  edge: Pick<EvenOddLegalFaceBoundaryEdge, 'start' | 'end'>
+) => Math.hypot(edge.end.x - edge.start.x, edge.end.y - edge.start.y)
+
+const getEdgeMidpointForTest = (
+  edge: Pick<EvenOddLegalFaceBoundaryEdge, 'start' | 'end'>
+) => ({
+  x: (edge.start.x + edge.end.x) / 2,
+  y: (edge.start.y + edge.end.y) / 2
+})
+
+const chooseInsideSolidAdjacencyProbeEdgesForTest = (
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[]
+) => {
+  const edges = legalFaceBoundaries.flatMap((face) => face.edges)
+  const measurableEdges = edges.filter(
+    (edge) =>
+      edge.sourceSegmentIndex !== undefined &&
+      edge.sourceStartDistance !== undefined &&
+      edge.sourceEndDistance !== undefined &&
+      getEdgeLengthForTest(edge) > 24
+  )
+  const sharedEdges = measurableEdges.filter((edge) => edge.oppositeFaceLegal)
+  const normalEdges = measurableEdges.filter((edge) => !edge.oppositeFaceLegal)
+  const center = {
+    x:
+      measurableEdges.reduce(
+        (sum, edge) => sum + getEdgeMidpointForTest(edge).x,
+        0
+      ) / Math.max(1, measurableEdges.length),
+    y:
+      measurableEdges.reduce(
+        (sum, edge) => sum + getEdgeMidpointForTest(edge).y,
+        0
+      ) / Math.max(1, measurableEdges.length)
+  }
+  const upperLeftScore = (edge: EvenOddLegalFaceBoundaryEdge) => {
+    const midpoint = getEdgeMidpointForTest(edge)
+    return midpoint.x - center.x + (midpoint.y - center.y) * 0.75
+  }
+  const sharedEdge = [...sharedEdges].sort(
+    (first, second) => upperLeftScore(first) - upperLeftScore(second)
+  )[0]
+  const normalEdge =
+    [...normalEdges]
+      .filter(
+        (edge) =>
+          sharedEdge?.sourceSegmentIndex === undefined ||
+          edge.sourceSegmentIndex === sharedEdge.sourceSegmentIndex
+      )
+      .sort(
+        (first, second) =>
+          getEdgeLengthForTest(second) - getEdgeLengthForTest(first)
+      )[0] ??
+    [...normalEdges].sort(
+      (first, second) =>
+        getEdgeLengthForTest(second) - getEdgeLengthForTest(first)
+    )[0]
+
+  return {
+    sharedEdge,
+    normalEdge
+  }
+}
+
+const getInsideSolidAdjacencyProbePairsForTest = (
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[]
+) => {
+  const edges = legalFaceBoundaries.flatMap((face) => face.edges)
+  const measurableEdges = edges.filter(
+    (edge) =>
+      edge.sourceSegmentIndex !== undefined &&
+      edge.sourceStartDistance !== undefined &&
+      edge.sourceEndDistance !== undefined &&
+      getEdgeLengthForTest(edge) > 24
+  )
+  const normalEdges = measurableEdges.filter((edge) => !edge.oppositeFaceLegal)
+  const longestNormalEdge = [...normalEdges].sort(
+    (first, second) =>
+      getEdgeLengthForTest(second) - getEdgeLengthForTest(first)
+  )[0]
+
+  return measurableEdges
+    .filter((edge) => edge.oppositeFaceLegal)
+    .map((sharedEdge) => {
+      const normalEdge =
+        [...normalEdges]
+          .filter(
+            (edge) => edge.sourceSegmentIndex === sharedEdge.sourceSegmentIndex
+          )
+          .sort(
+            (first, second) =>
+              getEdgeLengthForTest(second) - getEdgeLengthForTest(first)
+          )[0] ?? longestNormalEdge
+      return normalEdge ? { sharedEdge, normalEdge } : null
+    })
+    .filter(
+      (
+        pair
+      ): pair is {
+        sharedEdge: EvenOddLegalFaceBoundaryEdge
+        normalEdge: EvenOddLegalFaceBoundaryEdge
+      } => pair !== null
+    )
+}
+
+const sharedEdgeGeometryKeyForTest = (edge: EvenOddLegalFaceBoundaryEdge) =>
+  [
+    `${edge.start.x.toFixed(3)}:${edge.start.y.toFixed(3)}`,
+    `${edge.end.x.toFixed(3)}:${edge.end.y.toFixed(3)}`
+  ]
+    .sort()
+    .join('|')
+
+const measureCoverageWidthAcrossEdgeForTest = ({
+  polygons,
+  edge,
+  sampleRatio,
+  strokeWidth,
+  step = 0.5
+}: {
+  polygons: Vec2[][]
+  edge: EvenOddLegalFaceBoundaryEdge
+  sampleRatio: number
+  strokeWidth: number
+  step?: number
+}) => {
+  const dx = edge.end.x - edge.start.x
+  const dy = edge.end.y - edge.start.y
+  const length = Math.hypot(dx, dy)
+  if (length <= 1e-6) {
+    return 0
+  }
+  const normal = {
+    x: edge.legalSide === 'left' ? -dy / length : dy / length,
+    y: edge.legalSide === 'left' ? dx / length : -dx / length
+  }
+  const center = {
+    x: edge.start.x + dx * sampleRatio,
+    y: edge.start.y + dy * sampleRatio
+  }
+  const samples: { offset: number; covered: boolean }[] = []
+  for (let offset = step; offset <= strokeWidth * 1.6 + 1e-6; offset += step) {
+    samples.push({
+      offset,
+      covered: polygonListContainsPointWithWinding(polygons, {
+        x: center.x + normal.x * offset,
+        y: center.y + normal.y * offset
+      })
+    })
+  }
+
+  let currentStart: number | null = null
+  let bestWidth = 0
+  samples.forEach((sample, index) => {
+    if (sample.covered && currentStart === null) {
+      currentStart = sample.offset
+    }
+    const next = samples[index + 1]
+    if (currentStart !== null && (!sample.covered || !next)) {
+      const end = sample.covered ? sample.offset : sample.offset - step
+      bestWidth = Math.max(bestWidth, Math.max(0, end - currentStart + step))
+      currentStart = null
+    }
+  })
+
+  return bestWidth
+}
+
+const lineIntersectionForTest = (
+  firstStart: Vec2,
+  firstEnd: Vec2,
+  secondStart: Vec2,
+  secondEnd: Vec2
+) => {
+  const firstDx = firstEnd.x - firstStart.x
+  const firstDy = firstEnd.y - firstStart.y
+  const secondDx = secondEnd.x - secondStart.x
+  const secondDy = secondEnd.y - secondStart.y
+  const denominator = firstDx * secondDy - firstDy * secondDx
+  if (Math.abs(denominator) <= 1e-9) {
+    return null
+  }
+
+  const t =
+    ((secondStart.x - firstStart.x) * secondDy -
+      (secondStart.y - firstStart.y) * secondDx) /
+    denominator
+  return {
+    x: firstStart.x + firstDx * t,
+    y: firstStart.y + firstDy * t
+  }
+}
+
+const getLegalEdgeFrameForTest = (
+  edge: EvenOddLegalFaceBoundaryEdge,
+  strokeWidth: number
+) => {
+  const dx = edge.end.x - edge.start.x
+  const dy = edge.end.y - edge.start.y
+  const length = Math.hypot(dx, dy)
+  if (length <= 1e-6) {
+    return null
+  }
+  const tangent = { x: dx / length, y: dy / length }
+  const normal =
+    edge.legalSide === 'left'
+      ? { x: -tangent.y, y: tangent.x }
+      : { x: tangent.y, y: -tangent.x }
+
+  return {
+    length,
+    tangent,
+    normal,
+    width: edge.oppositeFaceLegal ? strokeWidth * 0.5 : strokeWidth
+  }
+}
+
+const buildExpectedInsideEndpointJoinPolygonForTest = (
+  previousEdge: EvenOddLegalFaceBoundaryEdge,
+  nextEdge: EvenOddLegalFaceBoundaryEdge,
+  strokeWidth: number
+) => {
+  const previousFrame = getLegalEdgeFrameForTest(previousEdge, strokeWidth)
+  const nextFrame = getLegalEdgeFrameForTest(nextEdge, strokeWidth)
+  if (!previousFrame || !nextFrame) {
+    return null
+  }
+
+  const vertex = {
+    x: (previousEdge.end.x + nextEdge.start.x) / 2,
+    y: (previousEdge.end.y + nextEdge.start.y) / 2
+  }
+  const previousOffsetVertex = {
+    x: vertex.x + previousFrame.normal.x * previousFrame.width,
+    y: vertex.y + previousFrame.normal.y * previousFrame.width
+  }
+  const nextOffsetVertex = {
+    x: vertex.x + nextFrame.normal.x * nextFrame.width,
+    y: vertex.y + nextFrame.normal.y * nextFrame.width
+  }
+  if (previousEdge.oppositeFaceLegal !== nextEdge.oppositeFaceLegal) {
+    const previousBackDistance = Math.min(
+      strokeWidth * 0.65,
+      previousFrame.length * 0.24
+    )
+    const nextForwardDistance = Math.min(
+      strokeWidth * 0.35,
+      nextFrame.length * 0.5
+    )
+    const previousBack = {
+      x: vertex.x - previousFrame.tangent.x * previousBackDistance,
+      y: vertex.y - previousFrame.tangent.y * previousBackDistance
+    }
+    const previousBackOffset = {
+      x: previousBack.x + previousFrame.normal.x * previousFrame.width,
+      y: previousBack.y + previousFrame.normal.y * previousFrame.width
+    }
+    const nextForward = {
+      x: vertex.x + nextFrame.tangent.x * nextForwardDistance,
+      y: vertex.y + nextFrame.tangent.y * nextForwardDistance
+    }
+    const nextForwardOffset = {
+      x: nextForward.x + nextFrame.normal.x * nextFrame.width,
+      y: nextForward.y + nextFrame.normal.y * nextFrame.width
+    }
+
+    return [
+      previousBack,
+      vertex,
+      nextForward,
+      nextForwardOffset,
+      nextOffsetVertex,
+      previousBackOffset
+    ]
+  }
+  const previousOffsetStart = {
+    x: previousEdge.start.x + previousFrame.normal.x * previousFrame.width,
+    y: previousEdge.start.y + previousFrame.normal.y * previousFrame.width
+  }
+  const nextOffsetEnd = {
+    x: nextEdge.end.x + nextFrame.normal.x * nextFrame.width,
+    y: nextEdge.end.y + nextFrame.normal.y * nextFrame.width
+  }
+  const joinPoint = lineIntersectionForTest(
+    previousOffsetStart,
+    previousOffsetVertex,
+    nextOffsetVertex,
+    nextOffsetEnd
+  )
+  const boundedJoinPoint =
+    joinPoint &&
+    Math.hypot(joinPoint.x - vertex.x, joinPoint.y - vertex.y) <=
+      strokeWidth * 4
+      ? joinPoint
+      : null
+
+  return boundedJoinPoint
+    ? [vertex, previousOffsetVertex, boundedJoinPoint, nextOffsetVertex]
+    : [vertex, previousOffsetVertex, nextOffsetVertex]
+}
+
+const findInsideEndpointJoinProbeForTest = (
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[],
+  sharedEdge: EvenOddLegalFaceBoundaryEdge,
+  strokeWidth: number
+) => {
+  for (const face of legalFaceBoundaries) {
+    const index = face.edges.findIndex(
+      (edge) => edge.edgeId === sharedEdge.edgeId
+    )
+    if (index < 0) {
+      continue
+    }
+    const nextEdge = face.edges[(index + 1) % face.edges.length]
+    if (
+      !nextEdge ||
+      Math.hypot(
+        nextEdge.start.x - sharedEdge.end.x,
+        nextEdge.start.y - sharedEdge.end.y
+      ) > 0.75
+    ) {
+      continue
+    }
+    const expectedJoinPolygon = buildExpectedInsideEndpointJoinPolygonForTest(
+      sharedEdge,
+      nextEdge,
+      strokeWidth
+    )
+    const frame = getLegalEdgeFrameForTest(sharedEdge, strokeWidth)
+    if (!expectedJoinPolygon || !frame) {
+      continue
+    }
+
+    return {
+      sharedEdge,
+      nextEdge,
+      frame,
+      expectedJoinPolygon,
+      vertex: { ...sharedEdge.end }
+    }
+  }
+
+  return null
+}
+
+const analyzeInsideSolidEndpointJoinShapeForTest = ({
+  polygons,
+  legalFaceBoundaries,
+  sharedEdge,
+  strokeWidth
+}: {
+  polygons: Vec2[][]
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[]
+  sharedEdge: EvenOddLegalFaceBoundaryEdge
+  strokeWidth: number
+}) => {
+  const probe = findInsideEndpointJoinProbeForTest(
+    legalFaceBoundaries,
+    sharedEdge,
+    strokeWidth
+  )
+  if (!probe) {
+    return {
+      probeFound: false,
+      outsideExpectedJoinCoverage: [],
+      missingExpectedJoinCoverage: [],
+      sampleCount: 0
+    }
+  }
+
+  const outsideExpectedJoinCoverage: Vec2[] = []
+  const missingExpectedJoinCoverage: Vec2[] = []
+  let sampleCount = 0
+  for (const tangentOffset of [0.2, 0.32, 0.44, 0.56]) {
+    for (const normalOffset of [0.2, 0.35, 0.5]) {
+      const point = {
+        x:
+          probe.vertex.x +
+          probe.frame.tangent.x * strokeWidth * tangentOffset +
+          probe.frame.normal.x * strokeWidth * normalOffset,
+        y:
+          probe.vertex.y +
+          probe.frame.tangent.y * strokeWidth * tangentOffset +
+          probe.frame.normal.y * strokeWidth * normalOffset
+      }
+      sampleCount += 1
+      const expectedJoinContainsPoint = polygonListContainsPointWithWinding(
+        [probe.expectedJoinPolygon],
+        point
+      )
+      if (
+        !expectedJoinContainsPoint &&
+        polygonListContainsPointWithWinding(polygons, point)
+      ) {
+        outsideExpectedJoinCoverage.push(point)
+      }
+    }
+  }
+  const joinBounds = probe.expectedJoinPolygon.reduce(
+    (bounds, point) => ({
+      minX: Math.min(bounds.minX, point.x),
+      minY: Math.min(bounds.minY, point.y),
+      maxX: Math.max(bounds.maxX, point.x),
+      maxY: Math.max(bounds.maxY, point.y)
+    }),
+    {
+      minX: Infinity,
+      minY: Infinity,
+      maxX: -Infinity,
+      maxY: -Infinity
+    }
+  )
+  const joinSampleStep = Math.max(0.75, strokeWidth / 5)
+  for (let y = joinBounds.minY; y <= joinBounds.maxY; y += joinSampleStep) {
+    for (let x = joinBounds.minX; x <= joinBounds.maxX; x += joinSampleStep) {
+      const point = { x, y }
+      const awayFromBoundary = probe.expectedJoinPolygon.every(
+        (current, index) =>
+          pointSegmentDistance(
+            point,
+            current,
+            probe.expectedJoinPolygon[
+              (index + 1) % probe.expectedJoinPolygon.length
+            ]
+          ) > 0.75
+      )
+      if (
+        awayFromBoundary &&
+        polygonListContainsPointWithWinding(
+          [probe.expectedJoinPolygon],
+          point
+        ) &&
+        !polygonListContainsPointWithWinding(polygons, point)
+      ) {
+        missingExpectedJoinCoverage.push(point)
+      }
+    }
+  }
+
+  return {
+    probeFound: true,
+    outsideExpectedJoinCoverage,
+    missingExpectedJoinCoverage,
+    sampleCount,
+    probe
+  }
+}
+
+const getInsideSolidCornerTransitionProbesForTest = (
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[],
+  strokeWidth: number
+) => {
+  const probes: {
+    faceIndex: number
+    vertex: Vec2
+    previousEdge: EvenOddLegalFaceBoundaryEdge
+    nextEdge: EvenOddLegalFaceBoundaryEdge
+    sharedEdge: EvenOddLegalFaceBoundaryEdge
+    probeDirection: Vec2
+    sideDirection: Vec2
+    samplePoints: Vec2[]
+  }[] = []
+  const centralFaceProbes: typeof probes = []
+  const seen = new Set<string>()
+  const centralSeen = new Set<string>()
+
+  legalFaceBoundaries.forEach((face, faceIndex) => {
+    const sharedEdgeCount = face.edges.filter(
+      (edge) => edge.oppositeFaceLegal
+    ).length
+    const highDegreeVertices = new Set<string>()
+    face.edges.forEach((edge) => {
+      ;[
+        { point: edge.start, degree: edge.startNodeDegree },
+        { point: edge.end, degree: edge.endNodeDegree }
+      ].forEach(({ point, degree }) => {
+        if (degree > 2) {
+          highDegreeVertices.add(`${point.x.toFixed(2)}:${point.y.toFixed(2)}`)
+        }
+      })
+    })
+    const isInternalPentagonLikeFace =
+      sharedEdgeCount >= 5 &&
+      sharedEdgeCount / Math.max(1, face.edges.length) >= 0.8 &&
+      highDegreeVertices.size >= 5
+    if (!isInternalPentagonLikeFace) {
+      return
+    }
+
+    const facePoints = face.edges.map((edge) => edge.start)
+    const centroid = {
+      x:
+        facePoints.reduce((sum, point) => sum + point.x, 0) /
+        Math.max(1, facePoints.length),
+      y:
+        facePoints.reduce((sum, point) => sum + point.y, 0) /
+        Math.max(1, facePoints.length)
+    }
+
+    face.edges.forEach((previousEdge, edgeIndex) => {
+      const nextEdge = face.edges[(edgeIndex + 1) % face.edges.length]
+      if (
+        !nextEdge ||
+        !previousEdge.oppositeFaceLegal ||
+        !nextEdge.oppositeFaceLegal ||
+        Math.hypot(
+          previousEdge.end.x - nextEdge.start.x,
+          previousEdge.end.y - nextEdge.start.y
+        ) > 0.75 ||
+        (previousEdge.endNodeDegree <= 2 && nextEdge.startNodeDegree <= 2)
+      ) {
+        return
+      }
+
+      const previousFrame = getLegalEdgeFrameForTest(previousEdge, strokeWidth)
+      const nextFrame = getLegalEdgeFrameForTest(nextEdge, strokeWidth)
+      if (!previousFrame || !nextFrame) {
+        return
+      }
+      const vertex = {
+        x: (previousEdge.end.x + nextEdge.start.x) / 2,
+        y: (previousEdge.end.y + nextEdge.start.y) / 2
+      }
+      const centroidDirection = normalizeVector({
+        x: centroid.x - vertex.x,
+        y: centroid.y - vertex.y
+      })
+      const rawProbeDirection =
+        normalizeVector({
+          x: previousFrame.normal.x + nextFrame.normal.x,
+          y: previousFrame.normal.y + nextFrame.normal.y
+        }) ?? centroidDirection
+      if (!rawProbeDirection || !centroidDirection) {
+        return
+      }
+      const probeDirection =
+        rawProbeDirection.x * centroidDirection.x +
+          rawProbeDirection.y * centroidDirection.y >=
+        0
+          ? rawProbeDirection
+          : { x: -rawProbeDirection.x, y: -rawProbeDirection.y }
+      const tangentDelta = normalizeVector({
+        x: nextFrame.tangent.x - previousFrame.tangent.x,
+        y: nextFrame.tangent.y - previousFrame.tangent.y
+      })
+      const perpendicularSideDirection = {
+        x: -probeDirection.y,
+        y: probeDirection.x
+      }
+      const sideDirection =
+        tangentDelta && dotPoints(perpendicularSideDirection, tangentDelta) < 0
+          ? {
+              x: -perpendicularSideDirection.x,
+              y: -perpendicularSideDirection.y
+            }
+          : perpendicularSideDirection
+      const samplePoints = [0.38, 0.56, 0.74].flatMap((normalOffset) =>
+        [-0.18, 0, 0.18].map((sideOffset) => ({
+          x:
+            vertex.x +
+            probeDirection.x * strokeWidth * normalOffset +
+            sideDirection.x * strokeWidth * sideOffset,
+          y:
+            vertex.y +
+            probeDirection.y * strokeWidth * normalOffset +
+            sideDirection.y * strokeWidth * sideOffset
+        }))
+      )
+      const key = `${vertex.x.toFixed(2)}:${vertex.y.toFixed(2)}`
+      if (!centralSeen.has(key)) {
+        centralSeen.add(key)
+        centralFaceProbes.push({
+          faceIndex,
+          vertex,
+          previousEdge,
+          nextEdge,
+          sharedEdge: previousEdge,
+          probeDirection,
+          sideDirection,
+          samplePoints
+        })
+      }
+    })
+  })
+
+  if (centralFaceProbes.length >= 5) {
+    return centralFaceProbes
+  }
+
+  legalFaceBoundaries.forEach((face, faceIndex) => {
+    face.edges.forEach((previousEdge, edgeIndex) => {
+      const nextEdge = face.edges[(edgeIndex + 1) % face.edges.length]
+      if (!nextEdge) {
+        return
+      }
+      const vertexDistance = Math.hypot(
+        previousEdge.end.x - nextEdge.start.x,
+        previousEdge.end.y - nextEdge.start.y
+      )
+      if (
+        vertexDistance > 0.75 ||
+        previousEdge.oppositeFaceLegal === nextEdge.oppositeFaceLegal ||
+        (previousEdge.endNodeDegree <= 2 && nextEdge.startNodeDegree <= 2)
+      ) {
+        return
+      }
+
+      const sharedEdge = previousEdge.oppositeFaceLegal
+        ? previousEdge
+        : nextEdge
+      const sharedFrame = getLegalEdgeFrameForTest(sharedEdge, strokeWidth)
+      if (!sharedFrame) {
+        return
+      }
+      const vertex = {
+        x: (previousEdge.end.x + nextEdge.start.x) / 2,
+        y: (previousEdge.end.y + nextEdge.start.y) / 2
+      }
+      const tangentAwayFromVertex =
+        sharedEdge.edgeId === previousEdge.edgeId
+          ? { x: -sharedFrame.tangent.x, y: -sharedFrame.tangent.y }
+          : sharedFrame.tangent
+      const samplePoints = [0.18, 0.28, 0.38].flatMap((tangentOffset) =>
+        [0.68, 0.82, 0.96].map((normalOffset) => ({
+          x:
+            vertex.x +
+            tangentAwayFromVertex.x * strokeWidth * tangentOffset +
+            sharedFrame.normal.x * strokeWidth * normalOffset,
+          y:
+            vertex.y +
+            tangentAwayFromVertex.y * strokeWidth * tangentOffset +
+            sharedFrame.normal.y * strokeWidth * normalOffset
+        }))
+      )
+      const key = [
+        faceIndex,
+        vertex.x.toFixed(2),
+        vertex.y.toFixed(2),
+        sharedEdge.edgeId
+      ].join(':')
+      if (!seen.has(key)) {
+        seen.add(key)
+        probes.push({
+          faceIndex,
+          vertex,
+          previousEdge,
+          nextEdge,
+          sharedEdge,
+          probeDirection: sharedFrame.normal,
+          sideDirection: tangentAwayFromVertex,
+          samplePoints
+        })
+      }
+    })
+  })
+
+  return probes
+}
+
+const getRightUpperInsidePentagonCornerProbeForTest = (
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[],
+  strokeWidth: number
+) => {
+  const probes = getInsideSolidCornerTransitionProbesForTest(
+    legalFaceBoundaries,
+    strokeWidth
+  )
+  const center = {
+    x:
+      probes.reduce((sum, probe) => sum + probe.vertex.x, 0) /
+      Math.max(1, probes.length),
+    y:
+      probes.reduce((sum, probe) => sum + probe.vertex.y, 0) /
+      Math.max(1, probes.length)
+  }
+  return [...probes]
+    .filter((probe) => probe.vertex.y <= center.y)
+    .sort((first, second) => second.vertex.x - first.vertex.x)[0]
+}
+
+const nearestPolygonVertexForTest = (polygons: Vec2[][], point: Vec2) => {
+  let nearest: {
+    point: Vec2
+    distance: number
+  } | null = null
+  polygons.forEach((polygon) => {
+    polygon.forEach((vertex) => {
+      const distance = Math.hypot(vertex.x - point.x, vertex.y - point.y)
+      if (!nearest || distance < nearest.distance) {
+        nearest = {
+          point: vertex,
+          distance
+        }
+      }
+    })
+  })
+
+  return nearest
+}
+
+const nearestPolygonSegmentsForTest = (
+  polygons: Vec2[][],
+  point: Vec2,
+  limit = 4
+) =>
+  polygons
+    .flatMap((polygon, polygonIndex) =>
+      polygon.map((start, segmentIndex) => {
+        const end = polygon[(segmentIndex + 1) % polygon.length]
+        return {
+          polygonIndex,
+          segmentIndex,
+          start: {
+            x: Number(start.x.toFixed(6)),
+            y: Number(start.y.toFixed(6))
+          },
+          end: {
+            x: Number(end.x.toFixed(6)),
+            y: Number(end.y.toFixed(6))
+          },
+          length: Number(
+            Math.hypot(end.x - start.x, end.y - start.y).toFixed(6)
+          ),
+          distance: Number(pointSegmentDistance(point, start, end).toFixed(6))
+        }
+      })
+    )
+    .sort((first, second) => first.distance - second.distance)
+    .slice(0, limit)
+
+const getPolygonCentroidForTest = (polygon: Vec2[]) => {
+  const area = getSignedPolygonArea(polygon)
+  if (Math.abs(area) <= 1e-9) {
+    return {
+      x:
+        polygon.reduce((sum, point) => sum + point.x, 0) /
+        Math.max(1, polygon.length),
+      y:
+        polygon.reduce((sum, point) => sum + point.y, 0) /
+        Math.max(1, polygon.length)
+    }
+  }
+
+  let x = 0
+  let y = 0
+  polygon.forEach((point, index) => {
+    const next = polygon[(index + 1) % polygon.length]
+    const cross = point.x * next.y - next.x * point.y
+    x += (point.x + next.x) * cross
+    y += (point.y + next.y) * cross
+  })
+
+  return {
+    x: x / (6 * area),
+    y: y / (6 * area)
+  }
+}
+
+const getContainingPolygonDiagnosticsForTest = (
+  polygons: Vec2[][],
+  point: Vec2
+) =>
+  polygons.flatMap((polygon, polygonIndex) => {
+    if (!polygonListContainsPointWithWinding([polygon], point)) {
+      return []
+    }
+    const nearest = nearestPolygonVertexForTest([polygon], point)
+    return [
+      {
+        polygonIndex,
+        vertexCount: polygon.length,
+        area: getSignedPolygonArea(polygon),
+        vertices:
+          polygon.length <= 8
+            ? polygon.map((vertex) => ({
+                x: Number(vertex.x.toFixed(6)),
+                y: Number(vertex.y.toFixed(6))
+              }))
+            : undefined,
+        bounds: {
+          minX: Math.min(...polygon.map((vertex) => vertex.x)),
+          minY: Math.min(...polygon.map((vertex) => vertex.y)),
+          maxX: Math.max(...polygon.map((vertex) => vertex.x)),
+          maxY: Math.max(...polygon.map((vertex) => vertex.y))
+        },
+        nearestVertex: nearest
+      }
+    ]
+  })
+
+const getDetachedPositiveIslandsInsideCutoutsForTest = ({
+  polygons,
+  legalFaceBoundaries,
+  strokeWidth
+}: {
+  polygons: Vec2[][]
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[]
+  strokeWidth: number
+}) => {
+  const probe = getRightUpperInsidePentagonCornerProbeForTest(
+    legalFaceBoundaries,
+    strokeWidth
+  )
+  if (!probe) {
+    return []
+  }
+
+  const cutouts = polygons
+    .map((polygon, polygonIndex) => ({
+      polygon,
+      polygonIndex,
+      area: getSignedPolygonArea(polygon)
+    }))
+    .filter((entry) => entry.area < -1e-6)
+  const maxArtifactArea = strokeWidth * strokeWidth * 1.05
+
+  return polygons.flatMap((polygon, polygonIndex) => {
+    const area = getSignedPolygonArea(polygon)
+    if (area <= 1e-6 || area > maxArtifactArea) {
+      return []
+    }
+    const centroid = getPolygonCentroidForTest(polygon)
+    const containingCutout = cutouts.find((cutout) =>
+      isPointInPolygon(centroid, cutout.polygon)
+    )
+    if (!containingCutout) {
+      return []
+    }
+    const distanceToJoinVertex = Math.hypot(
+      centroid.x - probe.vertex.x,
+      centroid.y - probe.vertex.y
+    )
+    if (distanceToJoinVertex > strokeWidth * 3) {
+      return []
+    }
+
+    return [
+      {
+        polygonIndex,
+        area,
+        vertexCount: polygon.length,
+        centroid,
+        distanceToJoinVertex,
+        containingCutout: {
+          polygonIndex: containingCutout.polygonIndex,
+          area: containingCutout.area
+        },
+        nearestJoinVertex: nearestPolygonVertexForTest([polygon], probe.vertex)
+      }
+    ]
+  })
+}
+
+const samplePathSegmentForTest = (segment: PathSegment) => {
+  if (segment.type === 'line') {
+    return [{ ...segment.start }, { ...segment.end }]
+  }
+
+  return segment.curve.getLUT(32).map((point) => ({
+    x: point.x,
+    y: point.y
+  }))
+}
+
+const getSourceSegmentStrokeContributorsForTest = ({
+  backend,
+  sourcePath,
+  join,
+  strokeWidth,
+  point
+}: {
+  backend: ReturnType<typeof createClipper2GeometryBackend>
+  sourcePath: Pick<PathGeometry, 'segments'>
+  join: 'miter' | 'bevel' | 'round'
+  strokeWidth: number
+  point: Vec2
+}) =>
+  sourcePath.segments.flatMap((segment, sourceSegmentIndex) => {
+    const sampledPoints = samplePathSegmentForTest(segment)
+    const regions = backend.union(
+      backend.offset(sampledPoints, strokeWidth, {
+        width: strokeWidth * 2,
+        join,
+        cap: 'butt',
+        closed: false,
+        miterLimit: 4,
+        fillRule: 'nonzero'
+      }),
+      'nonzero'
+    )
+    const polygons = flattenTestRegionPolygons(regions)
+    if (!polygonListContainsPointWithWinding(polygons, point)) {
+      return []
+    }
+
+    return [
+      {
+        sourceSegmentIndex,
+        segmentType: segment.type,
+        start: segment.start,
+        end: segment.end,
+        nearestVertex: nearestPolygonVertexForTest(polygons, point)
+      }
+    ]
+  })
+
+const getFaceOwnershipEdgeContributorsForTest = ({
+  faceOwnershipTrace,
+  point
+}: {
+  faceOwnershipTrace:
+    | {
+        sourceSegmentIndex?: number
+        sourceStartDistance?: number
+        sourceEndDistance?: number
+        start: Vec2
+        end: Vec2
+        startNodeDegree: number
+        endNodeDegree: number
+        faceId: string
+        oppositeFaceId?: string | null
+        oppositeFaceLegal: boolean
+        faceJoinEligibility: 'join-reactive' | 'mask-only'
+      }[]
+    | undefined
+  point: Vec2
+}) =>
+  [...(faceOwnershipTrace ?? [])]
+    .map((trace, traceIndex) => ({
+      traceIndex,
+      distance: pointSegmentDistance(point, trace.start, trace.end),
+      trace
+    }))
+    .sort((first, second) => first.distance - second.distance)
+    .slice(0, 8)
+
+const getInsidePentagonCornerArtifactCandidatesForTest = (
+  probe: NonNullable<
+    ReturnType<typeof getRightUpperInsidePentagonCornerProbeForTest>
+  >,
+  strokeWidth: number
+) => {
+  const previousFrame = getLegalEdgeFrameForTest(
+    probe.previousEdge,
+    strokeWidth
+  )
+  const nextFrame = getLegalEdgeFrameForTest(probe.nextEdge, strokeWidth)
+  if (!previousFrame || !nextFrame) {
+    return []
+  }
+  const cornerAttachOverlap = Math.min(
+    1.5,
+    Math.max(
+      0.5,
+      strokeWidth * 0.12,
+      Math.min(previousFrame.length, nextFrame.length) * 0.02
+    )
+  )
+  const highDegreeOverlap = Math.min(
+    0.5,
+    Math.max(
+      0.15,
+      strokeWidth * 0.04,
+      Math.min(previousFrame.length, nextFrame.length) * 0.01
+    )
+  )
+
+  return [
+    {
+      id: 'previous-tangent-attach',
+      point: {
+        x:
+          probe.vertex.x -
+          previousFrame.tangent.x * cornerAttachOverlap +
+          previousFrame.normal.x * previousFrame.width,
+        y:
+          probe.vertex.y -
+          previousFrame.tangent.y * cornerAttachOverlap +
+          previousFrame.normal.y * previousFrame.width
+      }
+    },
+    {
+      id: 'next-tangent-attach',
+      point: {
+        x:
+          probe.vertex.x +
+          nextFrame.tangent.x * cornerAttachOverlap +
+          nextFrame.normal.x * nextFrame.width,
+        y:
+          probe.vertex.y +
+          nextFrame.tangent.y * cornerAttachOverlap +
+          nextFrame.normal.y * nextFrame.width
+      }
+    },
+    {
+      id: 'previous-high-degree-overlap-offset',
+      point: {
+        x:
+          probe.vertex.x +
+          previousFrame.tangent.x * highDegreeOverlap +
+          previousFrame.normal.x * previousFrame.width,
+        y:
+          probe.vertex.y +
+          previousFrame.tangent.y * highDegreeOverlap +
+          previousFrame.normal.y * previousFrame.width
+      }
+    },
+    {
+      id: 'next-high-degree-overlap-offset',
+      point: {
+        x:
+          probe.vertex.x -
+          nextFrame.tangent.x * highDegreeOverlap +
+          nextFrame.normal.x * nextFrame.width,
+        y:
+          probe.vertex.y -
+          nextFrame.tangent.y * highDegreeOverlap +
+          nextFrame.normal.y * nextFrame.width
+      }
+    }
+  ]
+}
+
+const expectNoInsidePentagonCornerArtifactVerticesForTest = ({
+  name,
+  polygons,
+  legalFaceBoundaries,
+  strokeWidth
+}: {
+  name: string
+  polygons: Vec2[][]
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[]
+  strokeWidth: number
+}) => {
+  const probe = getRightUpperInsidePentagonCornerProbeForTest(
+    legalFaceBoundaries,
+    strokeWidth
+  )
+  expect(probe, JSON.stringify({ name }, null, 2)).toBeDefined()
+  if (!probe) {
+    return
+  }
+
+  const candidates = getInsidePentagonCornerArtifactCandidatesForTest(
+    probe,
+    strokeWidth
+  )
+  const exposedCandidates = candidates.flatMap((candidate) => {
+    const nearest = nearestPolygonVertexForTest(polygons, candidate.point)
+    return nearest && nearest.distance <= 0.35
+      ? [
+          {
+            ...candidate,
+            nearest
+          }
+        ]
+      : []
+  })
+
+  expect(
+    exposedCandidates,
+    JSON.stringify(
+      {
+        name,
+        probe,
+        candidates,
+        exposedCandidates
+      },
+      null,
+      2
+    )
+  ).toEqual([])
+}
+
+const getCoverageIntervalsForTest = (
+  samples: boolean[]
+): { start: number; end: number }[] => {
+  const intervals: { start: number; end: number }[] = []
+  let start: number | null = null
+
+  samples.forEach((covered, index) => {
+    if (covered && start === null) {
+      start = index
+    }
+    if ((!covered || index === samples.length - 1) && start !== null) {
+      intervals.push({
+        start,
+        end: covered && index === samples.length - 1 ? index : index - 1
+      })
+      start = null
+    }
+  })
+
+  return intervals
+}
+
+const getInsidePentagonCornerCoverageLineAnalysesForTest = ({
+  polygons,
+  legalFaceBoundaries,
+  strokeWidth,
+  containsPoint
+}: {
+  polygons: Vec2[][]
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[]
+  strokeWidth: number
+  containsPoint?: (point: Vec2) => boolean
+}) => {
+  const isCovered =
+    containsPoint ??
+    ((point: Vec2) => polygonListContainsPointWithWinding(polygons, point))
+  return getInsideSolidCornerTransitionProbesForTest(
+    legalFaceBoundaries,
+    strokeWidth
+  ).map((probe, probeIndex) => {
+    const lines = [0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75].map(
+      (normalOffset) => {
+        const samples: boolean[] = []
+        for (
+          let sideOffset = -1.4;
+          sideOffset <= 1.4 + 1e-6;
+          sideOffset += 0.05
+        ) {
+          samples.push(
+            isCovered({
+              x:
+                probe.vertex.x +
+                probe.probeDirection.x * strokeWidth * normalOffset +
+                probe.sideDirection.x * strokeWidth * sideOffset,
+              y:
+                probe.vertex.y +
+                probe.probeDirection.y * strokeWidth * normalOffset +
+                probe.sideDirection.y * strokeWidth * sideOffset
+            })
+          )
+        }
+        const intervals = getCoverageIntervalsForTest(samples)
+        return {
+          normalOffset,
+          intervalCount: intervals.length,
+          coveredCount: samples.filter(Boolean).length,
+          intervals
+        }
+      }
+    )
+
+    return {
+      probeIndex,
+      vertex: probe.vertex,
+      lines
+    }
+  })
+}
+
+const getInsidePentagonCornerSplitIntervalDiagnosticsForTest = ({
+  visiblePolygons,
+  clipPolygons,
+  sourceStrokePolygons,
+  legalFaceBoundaries,
+  strokeWidth
+}: {
+  visiblePolygons: Vec2[][]
+  clipPolygons: Vec2[][]
+  sourceStrokePolygons: Vec2[][]
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[]
+  strokeWidth: number
+}) => {
+  const visibleAnalyses = getInsidePentagonCornerCoverageLineAnalysesForTest({
+    polygons: visiblePolygons,
+    legalFaceBoundaries,
+    strokeWidth
+  })
+  const clipAnalyses = getInsidePentagonCornerCoverageLineAnalysesForTest({
+    polygons: clipPolygons,
+    legalFaceBoundaries,
+    strokeWidth
+  })
+  const sourceAnalyses = getInsidePentagonCornerCoverageLineAnalysesForTest({
+    polygons: sourceStrokePolygons,
+    legalFaceBoundaries,
+    strokeWidth
+  })
+  const splitVisible = visibleAnalyses.flatMap((analysis, probeIndex) => {
+    const clipAnalysis = clipAnalyses[probeIndex]
+    const sourceAnalysis = sourceAnalyses[probeIndex]
+    return analysis.lines.flatMap((line, lineIndex) => {
+      if (line.intervalCount <= 1 || line.coveredCount < 3) {
+        return []
+      }
+      return [
+        {
+          probeIndex: analysis.probeIndex,
+          vertex: analysis.vertex,
+          normalOffset: line.normalOffset,
+          visible: line,
+          clip: clipAnalysis?.lines[lineIndex],
+          source: sourceAnalysis?.lines[lineIndex]
+        }
+      ]
+    })
+  })
+
+  return {
+    visibleAnalyses,
+    splitVisible
+  }
+}
+
+const expectNoInsidePentagonCornerSplitIntervalsForTest = ({
+  name,
+  visiblePolygons,
+  clipPolygons,
+  sourceStrokePolygons,
+  legalFaceBoundaries,
+  strokeWidth
+}: {
+  name: string
+  visiblePolygons: Vec2[][]
+  clipPolygons: Vec2[][]
+  sourceStrokePolygons: Vec2[][]
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[]
+  strokeWidth: number
+}) => {
+  const { visibleAnalyses, splitVisible } =
+    getInsidePentagonCornerSplitIntervalDiagnosticsForTest({
+      visiblePolygons,
+      clipPolygons,
+      sourceStrokePolygons,
+      legalFaceBoundaries,
+      strokeWidth
+    })
+
+  expect(
+    visibleAnalyses.length,
+    JSON.stringify({ name, visibleAnalyses }, null, 2)
+  ).toBeGreaterThanOrEqual(5)
+  expect(
+    splitVisible,
+    JSON.stringify(
+      {
+        name,
+        reason:
+          'visible geometry split into multiple intervals near an internal pentagon corner',
+        splitVisible
+      },
+      null,
+      2
+    )
+  ).toEqual([])
+}
+
+const expectRightUpperInsidePentagonClipContainsSourceJoinForTest = ({
+  name,
+  sourceStrokePolygons,
+  clipPolygons,
+  legalFaceBoundaries,
+  strokeWidth
+}: {
+  name: string
+  sourceStrokePolygons: Vec2[][]
+  clipPolygons: Vec2[][]
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[]
+  strokeWidth: number
+}) => {
+  const probe = getRightUpperInsidePentagonCornerProbeForTest(
+    legalFaceBoundaries,
+    strokeWidth
+  )
+  expect(probe, JSON.stringify({ name }, null, 2)).toBeDefined()
+  if (!probe) {
+    return
+  }
+
+  const missingSamples: {
+    normalOffset: number
+    sideOffset: number
+    point: Vec2
+  }[] = []
+
+  for (
+    let normalOffset = 0.3;
+    normalOffset <= 1.02 + 1e-6;
+    normalOffset += 0.04
+  ) {
+    for (
+      let sideOffset = -0.62;
+      sideOffset <= 0.62 + 1e-6;
+      sideOffset += 0.04
+    ) {
+      const point = {
+        x:
+          probe.vertex.x +
+          probe.probeDirection.x * strokeWidth * normalOffset +
+          probe.sideDirection.x * strokeWidth * sideOffset,
+        y:
+          probe.vertex.y +
+          probe.probeDirection.y * strokeWidth * normalOffset +
+          probe.sideDirection.y * strokeWidth * sideOffset
+      }
+      const sourceContainsPoint = polygonListContainsPointWithWinding(
+        sourceStrokePolygons,
+        point
+      )
+      if (
+        sourceContainsPoint &&
+        !polygonListContainsPointWithWinding(clipPolygons, point)
+      ) {
+        missingSamples.push({
+          normalOffset: Number(normalOffset.toFixed(2)),
+          sideOffset: Number(sideOffset.toFixed(2)),
+          point
+        })
+      }
+    }
+  }
+
+  expect(
+    missingSamples,
+    JSON.stringify(
+      {
+        name,
+        reason:
+          'render clip under-admits the authored doubled source-stroke join envelope near the right-upper internal pentagon corner',
+        probe,
+        missingSamples: missingSamples.slice(0, 40),
+        missingCount: missingSamples.length
+      },
+      null,
+      2
+    )
+  ).toEqual([])
+}
+
+const buildOffsetSourceStrokePolygonsForTest = (
+  backend: ReturnType<typeof createClipper2GeometryBackend>,
+  sourcePath: Pick<PathGeometry, 'sampledPoints' | 'closed'>,
+  join: 'miter' | 'bevel' | 'round',
+  strokeWidth: number
+) =>
+  flattenTestRegionPolygons(
+    backend.union(
+      backend.offset(sourcePath.sampledPoints, strokeWidth, {
+        width: strokeWidth * 2,
+        join,
+        cap: 'butt',
+        closed: sourcePath.closed,
+        miterLimit: 4,
+        fillRule: 'nonzero'
+      }),
+      'nonzero'
+    )
+  )
+
+const buildMaskedVisiblePolygonsForTest = (
+  backend: ReturnType<typeof createClipper2GeometryBackend>,
+  sourceStrokePolygons: Vec2[][],
+  clipPolygons: Vec2[][]
+) => {
+  if (sourceStrokePolygons.length === 0 || clipPolygons.length === 0) {
+    return []
+  }
+
+  const sourceStrokeRegions = backend.union(
+    sourceStrokePolygons.map((polygon) => ({ polygons: [polygon] })),
+    'nonzero'
+  )
+  const clipRegions = backend.union(
+    clipPolygons.map((polygon) => ({ polygons: [polygon] })),
+    'nonzero'
+  )
+
+  return flattenTestRegionPolygons(
+    backend.intersection(sourceStrokeRegions, clipRegions, 'nonzero')
+  )
+}
+
+const buildUnionPolygonsForTest = (
+  backend: ReturnType<typeof createClipper2GeometryBackend>,
+  polygons: Vec2[][]
+) =>
+  flattenTestRegionPolygons(
+    backend.union(
+      polygons.map((polygon) => ({ polygons: [polygon] })),
+      'nonzero'
+    )
+  )
+
+const getRenderEntrySourceStrokePolygonsForTest = ({
+  backend,
+  entry,
+  sourcePath,
+  join,
+  strokeWidth
+}: {
+  backend: ReturnType<typeof createClipper2GeometryBackend>
+  entry:
+    | {
+        strokeMaskPolygons?: Vec2[][]
+        strokePaths?: Vec2[][]
+      }
+    | undefined
+  sourcePath: Pick<PathGeometry, 'sampledPoints' | 'closed'>
+  join: 'miter' | 'bevel' | 'round'
+  strokeWidth: number
+}) => {
+  const strokeMaskPolygons = entry?.strokeMaskPolygons ?? []
+  const strokePathPolygons =
+    entry?.strokePaths && entry.strokePaths.length > 0
+      ? buildOffsetSourceStrokePolygonsForTest(
+          backend,
+          sourcePath,
+          join,
+          strokeWidth
+        )
+      : []
+
+  if (strokeMaskPolygons.length > 0 || strokePathPolygons.length > 0) {
+    return [...strokePathPolygons, ...strokeMaskPolygons]
+  }
+  return []
+}
+
+const expectRenderEntryHasSourceStrokeMaskForTest = (
+  entry:
+    | {
+        strokeMaskPolygons?: Vec2[][]
+        strokePaths?: Vec2[][]
+        strokePathStyle?: unknown
+      }
+    | undefined
+) => {
+  const strokeMaskPolygonCount = entry?.strokeMaskPolygons?.length ?? 0
+  const strokePathCount = entry?.strokePaths?.length ?? 0
+
+  expect(strokeMaskPolygonCount + strokePathCount).toBeGreaterThan(0)
+  if (strokePathCount > 0) {
+    expect(entry?.strokePathStyle).toBeDefined()
+  }
+}
+
+const getRenderEntryVisiblePolygonsForTest = ({
+  backend,
+  entry,
+  sourcePath,
+  join,
+  strokeWidth
+}: {
+  backend: ReturnType<typeof createClipper2GeometryBackend>
+  entry:
+    | {
+        clipPolygons?: Vec2[][]
+        strokeMaskPolygons?: Vec2[][]
+        strokePaths?: Vec2[][]
+      }
+    | undefined
+  sourcePath: Pick<PathGeometry, 'sampledPoints' | 'closed'>
+  join: 'miter' | 'bevel' | 'round'
+  strokeWidth: number
+}) => {
+  const sourceStrokePolygons = getRenderEntrySourceStrokePolygonsForTest({
+    backend,
+    entry,
+    sourcePath,
+    join,
+    strokeWidth
+  })
+  return buildMaskedVisiblePolygonsForTest(
+    backend,
+    sourceStrokePolygons,
+    entry?.clipPolygons ?? []
+  )
+}
+
+const isInternalPentagonLikeFaceForTest = (face: {
+  edges: EvenOddLegalFaceBoundaryEdge[]
+}) => {
+  const sharedEdgeCount = face.edges.filter(
+    (edge) => edge.oppositeFaceLegal
+  ).length
+  const highDegreeVertices = new Set<string>()
+  face.edges.forEach((edge) => {
+    ;[
+      { point: edge.start, degree: edge.startNodeDegree },
+      { point: edge.end, degree: edge.endNodeDegree }
+    ].forEach(({ point, degree }) => {
+      if (degree > 2) {
+        highDegreeVertices.add(`${point.x.toFixed(2)}:${point.y.toFixed(2)}`)
+      }
+    })
+  })
+
+  return (
+    sharedEdgeCount >= 5 &&
+    sharedEdgeCount / Math.max(1, face.edges.length) >= 0.8 &&
+    highDegreeVertices.size >= 5
+  )
+}
+
+const getInsideSolidMaskOnlyCornerProbesForTest = (
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[],
+  strokeWidth: number
+) => {
+  const probes: { vertex: Vec2; samplePoints: Vec2[] }[] = []
+  const seen = new Set<string>()
+
+  legalFaceBoundaries.forEach((face) => {
+    if (isInternalPentagonLikeFaceForTest(face)) {
+      return
+    }
+
+    const faceCentroid = getFaceCentroidForTest(face)
+    face.edges.forEach((previousEdge, edgeIndex) => {
+      const nextEdge = face.edges[(edgeIndex + 1) % face.edges.length]
+      if (!nextEdge) {
+        return
+      }
+      const vertexDistance = Math.hypot(
+        previousEdge.end.x - nextEdge.start.x,
+        previousEdge.end.y - nextEdge.start.y
+      )
+      if (
+        vertexDistance > 0.75 ||
+        (previousEdge.endNodeDegree <= 2 && nextEdge.startNodeDegree <= 2)
+      ) {
+        return
+      }
+
+      const vertex = {
+        x: (previousEdge.end.x + nextEdge.start.x) / 2,
+        y: (previousEdge.end.y + nextEdge.start.y) / 2
+      }
+      const faceDirection = normalizeVector({
+        x: faceCentroid.x - vertex.x,
+        y: faceCentroid.y - vertex.y
+      })
+      if (!faceDirection) {
+        return
+      }
+      const samplePoints = [0.35, 0.55, 0.75, 0.95].map((offset) => ({
+        x: vertex.x + faceDirection.x * strokeWidth * offset,
+        y: vertex.y + faceDirection.y * strokeWidth * offset
+      }))
+      const key = `${vertex.x.toFixed(2)}:${vertex.y.toFixed(2)}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        probes.push({ vertex, samplePoints })
+      }
+    })
+  })
+
+  return probes
+}
+
+const expectAllInsideSolidCornerProtrusionsForTest = ({
+  name,
+  polygons,
+  legalFaceBoundaries,
+  strokeWidth
+}: {
+  name: string
+  polygons: Vec2[][]
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[]
+  strokeWidth: number
+}) => {
+  const probes = getInsideSolidCornerTransitionProbesForTest(
+    legalFaceBoundaries,
+    strokeWidth
+  )
+  const missing = probes.filter(
+    (probe) =>
+      !probe.samplePoints.some((point) =>
+        polygonListContainsPointWithWinding(polygons, point)
+      )
+  )
+
+  expect(
+    probes.length,
+    JSON.stringify({ name, probes }, null, 2)
+  ).toBeGreaterThanOrEqual(5)
+  expect(missing, JSON.stringify({ name, missing, probes }, null, 2)).toEqual(
+    []
+  )
+}
+
+const expectInsideSolidRoundCornerSmoothnessForTest = ({
+  name,
+  polygons,
+  legalFaceBoundaries,
+  strokeWidth
+}: {
+  name: string
+  polygons: Vec2[][]
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[]
+  strokeWidth: number
+}) => {
+  const probes = getInsideSolidCornerTransitionProbesForTest(
+    legalFaceBoundaries,
+    strokeWidth
+  )
+  const analyses = probes.map((probe) => {
+    const coveredAngleBuckets: number[] = []
+    for (let angleIndex = -11; angleIndex <= 11; angleIndex += 1) {
+      const angle = angleIndex * 0.05
+      const cos = Math.cos(angle)
+      const sin = Math.sin(angle)
+      const direction = {
+        x: probe.probeDirection.x * cos + probe.sideDirection.x * sin,
+        y: probe.probeDirection.y * cos + probe.sideDirection.y * sin
+      }
+      let covered = false
+      for (let radius = 0.55; radius <= 1.65 + 1e-6; radius += 0.075) {
+        const point = {
+          x: probe.vertex.x + direction.x * strokeWidth * radius,
+          y: probe.vertex.y + direction.y * strokeWidth * radius
+        }
+        if (polygonListContainsPointWithWinding(polygons, point)) {
+          covered = true
+          break
+        }
+      }
+      if (covered) {
+        coveredAngleBuckets.push(angleIndex)
+      }
+    }
+    const gapRuns: number[] = []
+    let currentGap = 0
+    for (let angleIndex = -11; angleIndex <= 11; angleIndex += 1) {
+      if (coveredAngleBuckets.includes(angleIndex)) {
+        if (currentGap > 0) {
+          gapRuns.push(currentGap)
+          currentGap = 0
+        }
+        continue
+      }
+      currentGap += 1
+    }
+    if (currentGap > 0) {
+      gapRuns.push(currentGap)
+    }
+
+    return {
+      vertex: probe.vertex,
+      angleBucketCount: coveredAngleBuckets.length,
+      maximumGapRun: Math.max(0, ...gapRuns)
+    }
+  })
+  const faceted = analyses.filter(
+    (analysis) => analysis.angleBucketCount < 16 || analysis.maximumGapRun > 2
+  )
+
+  expect(
+    probes.length,
+    JSON.stringify({ name, analyses }, null, 2)
+  ).toBeGreaterThanOrEqual(5)
+  expect(faceted, JSON.stringify({ name, faceted, analyses }, null, 2)).toEqual(
+    []
+  )
+}
+
+const getInsideSolidCornerSingleLobeAnalysisForTest = ({
+  probe,
+  strokeWidth,
+  containsPoint
+}: {
+  probe: ReturnType<typeof getInsideSolidCornerTransitionProbesForTest>[number]
+  strokeWidth: number
+  containsPoint: (point: Vec2) => boolean
+}) => {
+  const splitLobeLines = [0.38, 0.5, 0.62, 0.74].flatMap((normalOffset) => {
+    const samples: boolean[] = []
+    for (
+      let sideOffset = -1.05;
+      sideOffset <= 1.05 + 1e-6;
+      sideOffset += 0.075
+    ) {
+      samples.push(
+        containsPoint({
+          x:
+            probe.vertex.x +
+            probe.probeDirection.x * strokeWidth * normalOffset +
+            probe.sideDirection.x * strokeWidth * sideOffset,
+          y:
+            probe.vertex.y +
+            probe.probeDirection.y * strokeWidth * normalOffset +
+            probe.sideDirection.y * strokeWidth * sideOffset
+        })
+      )
+    }
+
+    let intervalCount = 0
+    let previousCovered = false
+    samples.forEach((covered) => {
+      if (covered && !previousCovered) {
+        intervalCount += 1
+      }
+      previousCovered = covered
+    })
+    const coveredCount = samples.filter(Boolean).length
+
+    return intervalCount > 1 && coveredCount >= 3
+      ? [
+          {
+            normalOffset,
+            intervalCount,
+            coveredCount
+          }
+        ]
+      : []
+  })
+  const radialFrontier = Array.from({ length: 17 }, (_unused, index) => {
+    const angle = -0.8 + index * 0.1
+    const cos = Math.cos(angle)
+    const sin = Math.sin(angle)
+    const direction = {
+      x: probe.probeDirection.x * cos + probe.sideDirection.x * sin,
+      y: probe.probeDirection.y * cos + probe.sideDirection.y * sin
+    }
+    let intervalCount = 0
+    let previousCovered = false
+    let coveredCount = 0
+    let farthestCoveredRadius = 0
+
+    for (
+      let radius = strokeWidth * 0.08;
+      radius <= strokeWidth * 1.65 + 1e-6;
+      radius += 0.25
+    ) {
+      const covered = containsPoint({
+        x: probe.vertex.x + direction.x * radius,
+        y: probe.vertex.y + direction.y * radius
+      })
+      if (covered && !previousCovered) {
+        intervalCount += 1
+      }
+      if (covered) {
+        coveredCount += 1
+        farthestCoveredRadius = radius
+      }
+      previousCovered = covered
+    }
+
+    return {
+      angle,
+      intervalCount,
+      coveredCount,
+      farthestCoveredRadius
+    }
+  })
+  const lobeValleys = radialFrontier.flatMap((entry, index) => {
+    if (index < 3 || index > radialFrontier.length - 4) {
+      return []
+    }
+    const leftPeak = Math.max(
+      ...radialFrontier
+        .slice(Math.max(0, index - 4), index)
+        .map((item) => item.farthestCoveredRadius)
+    )
+    const rightPeak = Math.max(
+      ...radialFrontier
+        .slice(index + 1, Math.min(radialFrontier.length, index + 5))
+        .map((item) => item.farthestCoveredRadius)
+    )
+    const peakFloor = strokeWidth * 0.72
+    return Math.min(leftPeak, rightPeak) >= peakFloor &&
+      entry.farthestCoveredRadius + strokeWidth * 0.18 <
+        Math.min(leftPeak, rightPeak)
+      ? [
+          {
+            angle: entry.angle,
+            farthestCoveredRadius: entry.farthestCoveredRadius,
+            leftPeak,
+            rightPeak
+          }
+        ]
+      : []
+  })
+  const splitRays = radialFrontier.filter(
+    (entry) => entry.intervalCount > 1 && entry.coveredCount >= 3
+  )
+
+  return {
+    vertex: probe.vertex,
+    splitLobeLines,
+    splitRays,
+    lobeValleys,
+    radialFrontier
+  }
+}
+
+const getInsideSolidCornerMicroProfileAnalysisForTest = ({
+  probe,
+  strokeWidth,
+  containsPoint
+}: {
+  probe: ReturnType<typeof getInsideSolidCornerTransitionProbesForTest>[number]
+  strokeWidth: number
+  containsPoint: (point: Vec2) => boolean
+}) => {
+  const angleStep = 0.025
+  const radiusStep = strokeWidth * 0.0125
+  const angles = Array.from({ length: 77 }, (_unused, index) =>
+    Number((-0.95 + index * angleStep).toFixed(3))
+  )
+  const radialFrontier = angles.map((angle) => {
+    const cos = Math.cos(angle)
+    const sin = Math.sin(angle)
+    const direction = {
+      x: probe.probeDirection.x * cos + probe.sideDirection.x * sin,
+      y: probe.probeDirection.y * cos + probe.sideDirection.y * sin
+    }
+    let intervalCount = 0
+    let previousCovered = false
+    let coveredCount = 0
+    let firstCoveredRadius = 0
+    let farthestCoveredRadius = 0
+
+    for (
+      let radius = strokeWidth * 0.03;
+      radius <= strokeWidth * 1.75 + 1e-6;
+      radius += radiusStep
+    ) {
+      const covered = containsPoint({
+        x: probe.vertex.x + direction.x * radius,
+        y: probe.vertex.y + direction.y * radius
+      })
+      if (covered && !previousCovered) {
+        intervalCount += 1
+        if (firstCoveredRadius === 0) {
+          firstCoveredRadius = radius
+        }
+      }
+      if (covered) {
+        coveredCount += 1
+        farthestCoveredRadius = radius
+      }
+      previousCovered = covered
+    }
+
+    return {
+      angle,
+      intervalCount,
+      coveredCount,
+      firstCoveredRadius,
+      farthestCoveredRadius
+    }
+  })
+
+  const meaningfulFrontier = radialFrontier.filter(
+    (entry) => entry.farthestCoveredRadius >= strokeWidth * 0.35
+  )
+  const leftPeak = Math.max(
+    0,
+    ...meaningfulFrontier
+      .filter((entry) => entry.angle <= -0.16)
+      .map((entry) => entry.farthestCoveredRadius)
+  )
+  const centerPeak = Math.max(
+    0,
+    ...meaningfulFrontier
+      .filter((entry) => Math.abs(entry.angle) <= 0.1)
+      .map((entry) => entry.farthestCoveredRadius)
+  )
+  const rightPeak = Math.max(
+    0,
+    ...meaningfulFrontier
+      .filter((entry) => entry.angle >= 0.16)
+      .map((entry) => entry.farthestCoveredRadius)
+  )
+  const sidePeaksExceedCenter =
+    leftPeak >= strokeWidth * 0.55 &&
+    rightPeak >= strokeWidth * 0.55 &&
+    Math.min(leftPeak, rightPeak) > centerPeak + strokeWidth * 0.075
+  const transitionValleys = [
+    {
+      side: 'left' as const,
+      sector: meaningfulFrontier.filter(
+        (entry) => entry.angle >= -0.62 && entry.angle <= -0.38
+      ),
+      sidePeak: leftPeak
+    },
+    {
+      side: 'right' as const,
+      sector: meaningfulFrontier.filter(
+        (entry) => entry.angle >= 0.38 && entry.angle <= 0.62
+      ),
+      sidePeak: rightPeak
+    }
+  ].flatMap(({ side, sector, sidePeak }) => {
+    if (sector.length === 0) {
+      return []
+    }
+    const valley = sector.reduce((lowest, entry) =>
+      entry.farthestCoveredRadius < lowest.farthestCoveredRadius
+        ? entry
+        : lowest
+    )
+    const expectedFloor = Math.min(centerPeak, sidePeak)
+    return expectedFloor >= strokeWidth * 0.85 &&
+      valley.farthestCoveredRadius + strokeWidth * 0.08 < expectedFloor
+      ? [
+          {
+            side,
+            angle: valley.angle,
+            farthestCoveredRadius: valley.farthestCoveredRadius,
+            expectedFloor,
+            depth: expectedFloor - valley.farthestCoveredRadius
+          }
+        ]
+      : []
+  })
+
+  const splitRays = radialFrontier.filter(
+    (entry) => entry.intervalCount > 1 && entry.coveredCount >= 4
+  )
+  const localPeaks = meaningfulFrontier.flatMap((entry, index) => {
+    if (index < 3 || index > meaningfulFrontier.length - 4) {
+      return []
+    }
+    const before = meaningfulFrontier
+      .slice(Math.max(0, index - 3), index)
+      .map((item) => item.farthestCoveredRadius)
+    const after = meaningfulFrontier
+      .slice(index + 1, Math.min(meaningfulFrontier.length, index + 4))
+      .map((item) => item.farthestCoveredRadius)
+    const localFloor = Math.max(...before, ...after)
+    return entry.farthestCoveredRadius > localFloor + strokeWidth * 0.06
+      ? [
+          {
+            angle: entry.angle,
+            farthestCoveredRadius: entry.farthestCoveredRadius,
+            neighborFloor: localFloor
+          }
+        ]
+      : []
+  })
+  const separatedPeakCount = localPeaks.reduce((count, peak, index) => {
+    if (
+      index === 0 ||
+      Math.abs(peak.angle - localPeaks[index - 1].angle) >= 0.18
+    ) {
+      return count + 1
+    }
+    return count
+  }, 0)
+
+  const scanlineSplits = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7].flatMap(
+    (normalOffset) => {
+      const samples: boolean[] = []
+      for (
+        let sideOffset = -1.15;
+        sideOffset <= 1.15 + 1e-6;
+        sideOffset += 0.025
+      ) {
+        samples.push(
+          containsPoint({
+            x:
+              probe.vertex.x +
+              probe.probeDirection.x * strokeWidth * normalOffset +
+              probe.sideDirection.x * strokeWidth * sideOffset,
+            y:
+              probe.vertex.y +
+              probe.probeDirection.y * strokeWidth * normalOffset +
+              probe.sideDirection.y * strokeWidth * sideOffset
+          })
+        )
+      }
+      const intervals = getCoverageIntervalsForTest(samples)
+      return intervals.length > 1 && samples.filter(Boolean).length >= 5
+        ? [
+            {
+              normalOffset,
+              intervalCount: intervals.length,
+              intervals
+            }
+          ]
+        : []
+    }
+  )
+
+  return {
+    vertex: probe.vertex,
+    leftPeak,
+    centerPeak,
+    rightPeak,
+    sidePeaksExceedCenter,
+    transitionValleys,
+    separatedPeakCount,
+    localPeaks,
+    splitRays,
+    scanlineSplits,
+    radialFrontier
+  }
+}
+
+const expectRightUpperInsidePentagonMicroProfileForTest = ({
+  name,
+  legalFaceBoundaries,
+  strokeWidth,
+  layers
+}: {
+  name: string
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[]
+  strokeWidth: number
+  layers: {
+    name: string
+    polygons: Vec2[][]
+  }[]
+}) => {
+  const probe = getRightUpperInsidePentagonCornerProbeForTest(
+    legalFaceBoundaries,
+    strokeWidth
+  )
+  expect(probe, JSON.stringify({ name }, null, 2)).toBeDefined()
+  if (!probe) {
+    return
+  }
+
+  const analyses = layers.map((layer) => ({
+    layer: layer.name,
+    analysis: getInsideSolidCornerMicroProfileAnalysisForTest({
+      probe,
+      strokeWidth,
+      containsPoint: (point) =>
+        polygonListContainsPointWithWinding(layer.polygons, point)
+    })
+  }))
+  if (process.env.ASYRA_DEBUG_RIGHT_UPPER_INTERNAL_CORNER === '1') {
+    const localVertices = layers.map((layer) => ({
+      layer: layer.name,
+      vertices: layer.polygons.flatMap((polygon, polygonIndex) =>
+        polygon.flatMap((point, pointIndex) => {
+          const relative = {
+            x: point.x - probe.vertex.x,
+            y: point.y - probe.vertex.y
+          }
+          const radius = Math.hypot(relative.x, relative.y)
+          if (radius > strokeWidth * 2.2) {
+            return []
+          }
+          return [
+            {
+              polygonIndex,
+              pointIndex,
+              point,
+              radius,
+              angle: Math.atan2(
+                dotPoints(relative, probe.sideDirection),
+                dotPoints(relative, probe.probeDirection)
+              )
+            }
+          ]
+        })
+      )
+    }))
+    console.info(
+      JSON.stringify({ name, probe, analyses, localVertices }, null, 2)
+    )
+  }
+  const visibleFailure = analyses
+    .filter((item) => item.layer === 'visible')
+    .filter(
+      ({ analysis }) =>
+        analysis.transitionValleys.length > 0 ||
+        analysis.separatedPeakCount > 1 ||
+        analysis.splitRays.length > 0 ||
+        analysis.scanlineSplits.length > 0
+    )
+  const compactAnalyses = analyses.map(({ layer, analysis }) => ({
+    layer,
+    vertex: analysis.vertex,
+    leftPeak: Number(analysis.leftPeak.toFixed(3)),
+    centerPeak: Number(analysis.centerPeak.toFixed(3)),
+    rightPeak: Number(analysis.rightPeak.toFixed(3)),
+    sidePeaksExceedCenter: analysis.sidePeaksExceedCenter,
+    transitionValleys: analysis.transitionValleys.map((valley) => ({
+      side: valley.side,
+      angle: valley.angle,
+      farthestCoveredRadius: Number(valley.farthestCoveredRadius.toFixed(3)),
+      expectedFloor: Number(valley.expectedFloor.toFixed(3)),
+      depth: Number(valley.depth.toFixed(3))
+    })),
+    separatedPeakCount: analysis.separatedPeakCount,
+    localPeaks: analysis.localPeaks.map((peak) => ({
+      angle: peak.angle,
+      farthestCoveredRadius: Number(peak.farthestCoveredRadius.toFixed(3)),
+      neighborFloor: Number(peak.neighborFloor.toFixed(3))
+    })),
+    splitRayCount: analysis.splitRays.length,
+    scanlineSplitCount: analysis.scanlineSplits.length
+  }))
+
+  expect(
+    visibleFailure,
+    JSON.stringify(
+      {
+        name,
+        reason:
+          'right-upper internal pentagon corner exposes multiple micro protrusions after the full visible pipeline',
+        compactAnalyses
+      },
+      null,
+      2
+    )
+  ).toEqual([])
+}
+
+const getRightUpperInsidePentagonWideSectorTipContributorsForTest = ({
+  legalFaceBoundaries,
+  strokeWidth,
+  layers,
+  faceOwnershipTrace
+}: {
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[]
+  strokeWidth: number
+  layers: {
+    name: string
+    polygons: Vec2[][]
+  }[]
+  faceOwnershipTrace:
+    | {
+        sourceSegmentIndex?: number
+        sourceStartDistance?: number
+        sourceEndDistance?: number
+        start: Vec2
+        end: Vec2
+        startNodeDegree: number
+        endNodeDegree: number
+        faceId: string
+        oppositeFaceId?: string | null
+        oppositeFaceLegal: boolean
+        faceJoinEligibility: 'join-reactive' | 'mask-only'
+      }[]
+    | undefined
+}) => {
+  const probe = getRightUpperInsidePentagonCornerProbeForTest(
+    legalFaceBoundaries,
+    strokeWidth
+  )
+  if (!probe) {
+    return []
+  }
+
+  const minimumArtifactRadius = strokeWidth * 1.08
+  const maximumArtifactRadius = strokeWidth * 2.45
+  const sideTipAngleRange = {
+    min: -2.25,
+    max: -0.95
+  }
+
+  return layers.flatMap((layer) =>
+    layer.polygons.flatMap((polygon, polygonIndex) =>
+      polygon.flatMap((point, pointIndex) => {
+        const relative = {
+          x: point.x - probe.vertex.x,
+          y: point.y - probe.vertex.y
+        }
+        const radius = Math.hypot(relative.x, relative.y)
+        if (radius < minimumArtifactRadius || radius > maximumArtifactRadius) {
+          return []
+        }
+
+        const angle = Math.atan2(
+          dotPoints(relative, probe.sideDirection),
+          dotPoints(relative, probe.probeDirection)
+        )
+        if (angle < sideTipAngleRange.min || angle > sideTipAngleRange.max) {
+          return []
+        }
+
+        const previous =
+          polygon[(pointIndex - 1 + polygon.length) % polygon.length]
+        const next = polygon[(pointIndex + 1) % polygon.length]
+        const previousVector = previous
+          ? normalizeVector({
+              x: point.x - previous.x,
+              y: point.y - previous.y
+            })
+          : null
+        const nextVector = next
+          ? normalizeVector({
+              x: next.x - point.x,
+              y: next.y - point.y
+            })
+          : null
+        const turnAngle =
+          previousVector && nextVector
+            ? Math.acos(
+                Math.max(-1, Math.min(1, dotPoints(previousVector, nextVector)))
+              )
+            : 0
+
+        return [
+          {
+            layer: layer.name,
+            polygonIndex,
+            pointIndex,
+            point: {
+              x: Number(point.x.toFixed(6)),
+              y: Number(point.y.toFixed(6))
+            },
+            radius: Number(radius.toFixed(6)),
+            angle: Number(angle.toFixed(6)),
+            previous: previous
+              ? {
+                  x: Number(previous.x.toFixed(6)),
+                  y: Number(previous.y.toFixed(6))
+                }
+              : null,
+            next: next
+              ? {
+                  x: Number(next.x.toFixed(6)),
+                  y: Number(next.y.toFixed(6))
+                }
+              : null,
+            previousSegmentLength: previous
+              ? Number(
+                  Math.hypot(
+                    point.x - previous.x,
+                    point.y - previous.y
+                  ).toFixed(6)
+                )
+              : null,
+            nextSegmentLength: next
+              ? Number(
+                  Math.hypot(next.x - point.x, next.y - point.y).toFixed(6)
+                )
+              : null,
+            turnAngle: Number(turnAngle.toFixed(6)),
+            nearestInputSegments: layers
+              .filter((inputLayer) => inputLayer.name !== layer.name)
+              .map((inputLayer) => ({
+                layer: inputLayer.name,
+                segments: nearestPolygonSegmentsForTest(
+                  inputLayer.polygons,
+                  point,
+                  3
+                )
+              })),
+            nearestFaceOwnershipEdges: getFaceOwnershipEdgeContributorsForTest({
+              faceOwnershipTrace,
+              point
+            }).map((entry) => ({
+              distance: Number(entry.distance.toFixed(6)),
+              traceIndex: entry.traceIndex,
+              faceId: entry.trace.faceId,
+              oppositeFaceId: entry.trace.oppositeFaceId,
+              oppositeFaceLegal: entry.trace.oppositeFaceLegal,
+              faceJoinEligibility: entry.trace.faceJoinEligibility,
+              sourceSegmentIndex: entry.trace.sourceSegmentIndex,
+              startNodeDegree: entry.trace.startNodeDegree,
+              endNodeDegree: entry.trace.endNodeDegree
+            }))
+          }
+        ]
+      })
+    )
+  )
+}
+
+const getRightUpperInsidePentagonNearSideTipVerticesForTest = ({
+  legalFaceBoundaries,
+  strokeWidth,
+  layers,
+  faceOwnershipTrace
+}: {
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[]
+  strokeWidth: number
+  layers: {
+    name: string
+    polygons: Vec2[][]
+  }[]
+  faceOwnershipTrace:
+    | {
+        sourceSegmentIndex?: number
+        sourceStartDistance?: number
+        sourceEndDistance?: number
+        start: Vec2
+        end: Vec2
+        startNodeDegree: number
+        endNodeDegree: number
+        faceId: string
+        oppositeFaceId?: string | null
+        oppositeFaceLegal: boolean
+        faceJoinEligibility: 'join-reactive' | 'mask-only'
+      }[]
+    | undefined
+}) => {
+  const probe = getRightUpperInsidePentagonCornerProbeForTest(
+    legalFaceBoundaries,
+    strokeWidth
+  )
+  if (!probe) {
+    return []
+  }
+
+  const minimumTipRadius = strokeWidth * 0.55
+  const maximumTipRadius = strokeWidth * 1.05
+  const minimumSideAngle = 1.15
+  const maximumSideAngle = 1.95
+
+  return layers.flatMap((layer) => {
+    const vertices = layer.polygons.flatMap((polygon, polygonIndex) =>
+      polygon.flatMap((point, pointIndex) => {
+        const relative = {
+          x: point.x - probe.vertex.x,
+          y: point.y - probe.vertex.y
+        }
+        const radius = Math.hypot(relative.x, relative.y)
+        if (radius < minimumTipRadius || radius > maximumTipRadius) {
+          return []
+        }
+
+        const angle = Math.atan2(
+          dotPoints(relative, probe.sideDirection),
+          dotPoints(relative, probe.probeDirection)
+        )
+        if (
+          Math.abs(angle) < minimumSideAngle ||
+          Math.abs(angle) > maximumSideAngle
+        ) {
+          return []
+        }
+
+        const previous =
+          polygon[(pointIndex - 1 + polygon.length) % polygon.length]
+        const next = polygon[(pointIndex + 1) % polygon.length]
+        const neighborDistances = [previous, next]
+          .filter((neighbor): neighbor is Vec2 => neighbor !== undefined)
+          .map((neighbor) =>
+            Math.hypot(point.x - neighbor.x, point.y - neighbor.y)
+          )
+
+        return [
+          {
+            layer: layer.name,
+            polygonIndex,
+            pointIndex,
+            point: {
+              x: Number(point.x.toFixed(6)),
+              y: Number(point.y.toFixed(6))
+            },
+            radius: Number(radius.toFixed(6)),
+            angle: Number(angle.toFixed(6)),
+            neighborDistances: neighborDistances.map((distance) =>
+              Number(distance.toFixed(6))
+            ),
+            nearestFaceOwnershipEdges: getFaceOwnershipEdgeContributorsForTest({
+              faceOwnershipTrace,
+              point
+            }).map((entry) => ({
+              distance: Number(entry.distance.toFixed(6)),
+              traceIndex: entry.traceIndex,
+              faceId: entry.trace.faceId,
+              oppositeFaceId: entry.trace.oppositeFaceId,
+              oppositeFaceLegal: entry.trace.oppositeFaceLegal,
+              faceJoinEligibility: entry.trace.faceJoinEligibility,
+              sourceSegmentIndex: entry.trace.sourceSegmentIndex,
+              startNodeDegree: entry.trace.startNodeDegree,
+              endNodeDegree: entry.trace.endNodeDegree
+            }))
+          }
+        ]
+      })
+    )
+
+    return vertices.length > 0 && vertices.length < 4
+      ? [
+          {
+            layer: layer.name,
+            vertices
+          }
+        ]
+      : []
+  })
+}
+
+const getRightUpperInsidePentagonMicroPeakContributorsForTest = ({
+  legalFaceBoundaries,
+  strokeWidth,
+  layers,
+  faceOwnershipTrace
+}: {
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[]
+  strokeWidth: number
+  layers: {
+    name: string
+    polygons: Vec2[][]
+  }[]
+  faceOwnershipTrace:
+    | {
+        sourceSegmentIndex?: number
+        sourceStartDistance?: number
+        sourceEndDistance?: number
+        start: Vec2
+        end: Vec2
+        startNodeDegree: number
+        endNodeDegree: number
+        faceId: string
+        oppositeFaceId?: string | null
+        oppositeFaceLegal: boolean
+        faceJoinEligibility: 'join-reactive' | 'mask-only'
+      }[]
+    | undefined
+}) => {
+  const probe = getRightUpperInsidePentagonCornerProbeForTest(
+    legalFaceBoundaries,
+    strokeWidth
+  )
+  if (!probe) {
+    return []
+  }
+
+  return layers.flatMap((layer) => {
+    const analysis = getInsideSolidCornerMicroProfileAnalysisForTest({
+      probe,
+      strokeWidth,
+      containsPoint: (point) =>
+        polygonListContainsPointWithWinding(layer.polygons, point)
+    })
+    const sidePeakEntries = analysis.radialFrontier.filter(
+      (entry) =>
+        Math.abs(entry.angle) >= 0.35 &&
+        Math.abs(entry.angle) <= 0.62 &&
+        entry.farthestCoveredRadius >= strokeWidth * 0.75 &&
+        entry.farthestCoveredRadius > analysis.centerPeak + strokeWidth * 0.075
+    )
+
+    return sidePeakEntries.map((entry) => {
+      const cos = Math.cos(entry.angle)
+      const sin = Math.sin(entry.angle)
+      const direction = {
+        x: probe.probeDirection.x * cos + probe.sideDirection.x * sin,
+        y: probe.probeDirection.y * cos + probe.sideDirection.y * sin
+      }
+      const point = {
+        x: probe.vertex.x + direction.x * entry.farthestCoveredRadius,
+        y: probe.vertex.y + direction.y * entry.farthestCoveredRadius
+      }
+
+      return {
+        layer: layer.name,
+        angle: entry.angle,
+        farthestCoveredRadius: Number(entry.farthestCoveredRadius.toFixed(3)),
+        centerPeak: Number(analysis.centerPeak.toFixed(3)),
+        point: {
+          x: Number(point.x.toFixed(6)),
+          y: Number(point.y.toFixed(6))
+        },
+        clipContributors: getContainingPolygonDiagnosticsForTest(
+          layer.polygons,
+          point
+        ).map((contributor) => ({
+          polygonIndex: contributor.polygonIndex,
+          vertexCount: contributor.vertexCount,
+          area: Number(contributor.area.toFixed(6)),
+          bounds: {
+            minX: Number(contributor.bounds.minX.toFixed(6)),
+            minY: Number(contributor.bounds.minY.toFixed(6)),
+            maxX: Number(contributor.bounds.maxX.toFixed(6)),
+            maxY: Number(contributor.bounds.maxY.toFixed(6))
+          },
+          nearestVertex: contributor.nearestVertex
+            ? {
+                point: {
+                  x: Number(contributor.nearestVertex.point.x.toFixed(6)),
+                  y: Number(contributor.nearestVertex.point.y.toFixed(6))
+                },
+                distance: Number(contributor.nearestVertex.distance.toFixed(6))
+              }
+            : null
+        })),
+        nearestFaceOwnershipEdges: getFaceOwnershipEdgeContributorsForTest({
+          faceOwnershipTrace,
+          point
+        }).map((entry) => ({
+          distance: Number(entry.distance.toFixed(6)),
+          traceIndex: entry.traceIndex,
+          faceId: entry.trace.faceId,
+          oppositeFaceId: entry.trace.oppositeFaceId,
+          oppositeFaceLegal: entry.trace.oppositeFaceLegal,
+          faceJoinEligibility: entry.trace.faceJoinEligibility,
+          sourceSegmentIndex: entry.trace.sourceSegmentIndex,
+          startNodeDegree: entry.trace.startNodeDegree,
+          endNodeDegree: entry.trace.endNodeDegree
+        }))
+      }
+    })
+  })
+}
+
+const expectInsideSolidRoundCornerSingleLobesForTest = ({
+  name,
+  polygons,
+  legalFaceBoundaries,
+  strokeWidth,
+  containsPoint
+}: {
+  name: string
+  polygons: Vec2[][]
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[]
+  strokeWidth: number
+  containsPoint?: (point: Vec2) => boolean
+}) => {
+  const probes = getInsideSolidCornerTransitionProbesForTest(
+    legalFaceBoundaries,
+    strokeWidth
+  )
+  const isCovered =
+    containsPoint ??
+    ((point: Vec2) => polygonListContainsPointWithWinding(polygons, point))
+  const analyses = probes.map((probe) =>
+    getInsideSolidCornerSingleLobeAnalysisForTest({
+      probe,
+      strokeWidth,
+      containsPoint: isCovered
+    })
+  )
+  const splitLobes = analyses.filter(
+    (analysis) =>
+      analysis.splitLobeLines.length > 0 ||
+      analysis.splitRays.length > 0 ||
+      analysis.lobeValleys.length > 0
+  )
+
+  expect(
+    probes.length,
+    JSON.stringify({ name, analyses }, null, 2)
+  ).toBeGreaterThanOrEqual(5)
+  expect(
+    splitLobes,
+    JSON.stringify({ name, splitLobes, analyses }, null, 2)
+  ).toEqual([])
+}
+
+const getLowerHighCurvatureProbesForTest = (
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[],
+  strokeWidth: number
+) => {
+  const allEdges = legalFaceBoundaries.flatMap((face) => face.edges)
+  const allPoints = allEdges.flatMap((edge) => [edge.start, edge.end])
+  const center = {
+    x:
+      allPoints.reduce((sum, point) => sum + point.x, 0) /
+      Math.max(1, allPoints.length),
+    y:
+      allPoints.reduce((sum, point) => sum + point.y, 0) /
+      Math.max(1, allPoints.length)
+  }
+  const byVertex = new Map<
+    string,
+    {
+      vertex: Vec2
+      incident: {
+        edge: EvenOddLegalFaceBoundaryEdge
+        at: 'start' | 'end'
+      }[]
+    }
+  >()
+  allEdges.forEach((edge) => {
+    ;[
+      { at: 'start' as const, point: edge.start, degree: edge.startNodeDegree },
+      { at: 'end' as const, point: edge.end, degree: edge.endNodeDegree }
+    ].forEach(({ at, point, degree }) => {
+      if (degree <= 2 || point.y <= center.y) {
+        return
+      }
+      const key = `${point.x.toFixed(2)}:${point.y.toFixed(2)}`
+      const record = byVertex.get(key) ?? {
+        vertex: { ...point },
+        incident: []
+      }
+      record.incident.push({ edge, at })
+      byVertex.set(key, record)
+    })
+  })
+  const lowerVertices = [...byVertex.values()].sort(
+    (first, second) => second.vertex.y - first.vertex.y
+  )
+  const lowerBand = lowerVertices.slice(0, Math.min(4, lowerVertices.length))
+  const left = [...lowerBand].sort(
+    (first, second) => first.vertex.x - second.vertex.x
+  )[0]
+  const right = [...lowerBand].sort(
+    (first, second) => second.vertex.x - first.vertex.x
+  )[0]
+
+  return [
+    { id: 'inside-solid-lower-left-high-curvature-no-gap', entry: left },
+    { id: 'inside-solid-lower-right-high-curvature-no-gap', entry: right }
+  ].flatMap(({ id, entry }) => {
+    if (!entry) {
+      return []
+    }
+    const samplePoints = entry.incident.flatMap(({ edge, at }) => {
+      const frame = getLegalEdgeFrameForTest(edge, strokeWidth)
+      if (!frame) {
+        return []
+      }
+      const tangentAway =
+        at === 'start'
+          ? frame.tangent
+          : { x: -frame.tangent.x, y: -frame.tangent.y }
+      return [0.2, 0.42, 0.64].flatMap((tangentOffset) =>
+        [0.3, 0.55, 0.8].map((normalOffset) => ({
+          x:
+            entry.vertex.x +
+            tangentAway.x * strokeWidth * tangentOffset +
+            frame.normal.x * strokeWidth * normalOffset,
+          y:
+            entry.vertex.y +
+            tangentAway.y * strokeWidth * tangentOffset +
+            frame.normal.y * strokeWidth * normalOffset
+        }))
+      )
+    })
+    return [{ id, vertex: entry.vertex, samplePoints }]
+  })
+}
+
+const expectInsideSolidLowerHighCurvatureCoverageForTest = ({
+  name,
+  polygons,
+  legalFaceBoundaries,
+  strokeWidth
+}: {
+  name: string
+  polygons: Vec2[][]
+  legalFaceBoundaries: { edges: EvenOddLegalFaceBoundaryEdge[] }[]
+  strokeWidth: number
+}) => {
+  const probes = getLowerHighCurvatureProbesForTest(
+    legalFaceBoundaries,
+    strokeWidth
+  )
+  const missing = probes.filter((probe) => {
+    const coveredCount = probe.samplePoints.filter((point) =>
+      polygonListContainsPointWithWinding(polygons, point)
+    ).length
+    return (
+      coveredCount < Math.max(2, Math.floor(probe.samplePoints.length * 0.2))
+    )
+  })
+
+  expect(
+    probes.map((probe) => probe.id).sort(),
+    JSON.stringify({ name, probes }, null, 2)
+  ).toEqual([
+    'inside-solid-lower-left-high-curvature-no-gap',
+    'inside-solid-lower-right-high-curvature-no-gap'
+  ])
+  expect(missing, JSON.stringify({ name, missing, probes }, null, 2)).toEqual(
+    []
+  )
+}
+
+const analyzeInsideSolidRightBottomSourceSegmentAdherenceForTest = ({
+  polygons,
+  sourcePath,
+  strokeWidth,
+  targetPoint,
+  targetSegmentEndpoints
+}: {
+  polygons: Vec2[][]
+  sourcePath: PathGeometry
+  strokeWidth: number
+  targetPoint?: Vec2
+  targetSegmentEndpoints?: { start: Vec2; end: Vec2 }
+}) => {
+  const sourceRanges = getSourcePathSegmentRangesForTest(sourcePath)
+  const internalPentagonRightBottomT = 0.676
+  const defaultTargetPoint =
+    targetPoint ??
+    getSegmentProbeFrameForTest(
+      sourcePath,
+      sourceRanges[3],
+      internalPentagonRightBottomT
+    )?.point
+  const endpointRange = targetSegmentEndpoints
+    ? getSourceRangeForSegmentEndpointsForTest(
+        sourcePath,
+        targetSegmentEndpoints
+      )
+    : undefined
+  const target = defaultTargetPoint
+    ? endpointRange
+      ? {
+          range: endpointRange,
+          ...(getNearestRatioOnSourceRangeForProbePointForTest(
+            sourcePath,
+            endpointRange,
+            defaultTargetPoint
+          ) ?? {
+            ratio: internalPentagonRightBottomT,
+            distance: Number.POSITIVE_INFINITY
+          })
+        }
+      : getNearestSourceRangeForProbePointForTest(
+          sourcePath,
+          defaultTargetPoint
+        )
+    : null
+  const targetSegmentRange = endpointRange ?? target?.range
+  const targetRatio = target?.ratio ?? internalPentagonRightBottomT
+  const sampleAnalyses = [-0.02, -0.01, 0, 0.01, 0.02].flatMap((delta) => {
+    if (!targetSegmentRange) {
+      return []
+    }
+    const frame = getSegmentProbeFrameForTest(
+      sourcePath,
+      targetSegmentRange,
+      targetRatio + delta
+    )
+    if (!frame) {
+      return []
+    }
+    const normal = { x: -frame.tangent.y, y: frame.tangent.x }
+    const sideCounts = [-1, 1].map(
+      (side) =>
+        [0.12, 0.24, 0.36, 0.48].filter((offset) =>
+          polygonListContainsPointWithWinding(polygons, {
+            x: frame.point.x + normal.x * side * strokeWidth * offset,
+            y: frame.point.y + normal.y * side * strokeWidth * offset
+          })
+        ).length
+    )
+
+    return [
+      {
+        point: frame.point,
+        sideCounts,
+        // Source-segment adherence is one-sided contact/no-wedge, not adjacency width.
+        covered: Math.max(...sideCounts) >= 2
+      }
+    ]
+  })
+  const coveredCount = sampleAnalyses.filter((entry) => entry.covered).length
+  const sampleCount = sampleAnalyses.length
+
+  return {
+    targetSegmentRange,
+    targetRatio,
+    targetDistance: target?.distance,
+    sampleAnalyses,
+    coveredCount,
+    sampleCount,
+    coverageRatio: coveredCount / Math.max(1, sampleCount)
+  }
+}
+
+const expectInsideSolidRightBottomSourceSegmentAdherenceForTest = ({
+  name,
+  polygons,
+  sourcePath,
+  strokeWidth,
+  targetPoint,
+  targetSegmentEndpoints
+}: {
+  name: string
+  polygons: Vec2[][]
+  sourcePath: PathGeometry
+  strokeWidth: number
+  targetPoint?: Vec2
+  targetSegmentEndpoints?: { start: Vec2; end: Vec2 }
+}) => {
+  const {
+    targetSegmentRange,
+    targetRatio,
+    targetDistance,
+    sampleAnalyses,
+    coveredCount,
+    sampleCount,
+    coverageRatio
+  } = analyzeInsideSolidRightBottomSourceSegmentAdherenceForTest({
+    polygons,
+    sourcePath,
+    strokeWidth,
+    targetPoint,
+    targetSegmentEndpoints
+  })
+  expect(
+    targetSegmentRange,
+    JSON.stringify(
+      { name, sourceRanges: getSourcePathSegmentRangesForTest(sourcePath) },
+      null,
+      2
+    )
+  ).toBeTruthy()
+  expect(
+    targetDistance ?? Number.POSITIVE_INFINITY,
+    JSON.stringify(
+      { name, targetPoint, targetSegmentRange, targetRatio, targetDistance },
+      null,
+      2
+    )
+  ).toBeLessThanOrEqual(strokeWidth * 0.25)
+  expect(
+    sampleCount,
+    JSON.stringify({ name, sampleAnalyses }, null, 2)
+  ).toBeGreaterThan(0)
+  expect(
+    coverageRatio,
+    JSON.stringify({ name, sampleAnalyses, coveredCount, sampleCount }, null, 2)
+  ).toBeGreaterThanOrEqual(0.8)
+}
+
+const analyzeInsideSolidRightBottomSourceSegmentLayerCoverageForTest = ({
+  backend,
+  entry,
+  sourcePath,
+  join,
+  strokeWidth,
+  targetPoint,
+  targetSegmentEndpoints
+}: {
+  backend: ReturnType<typeof createClipper2GeometryBackend>
+  entry:
+    | {
+        clipPolygons?: Vec2[][]
+        strokeMaskPolygons?: Vec2[][]
+        strokePaths?: Vec2[][]
+      }
+    | undefined
+  sourcePath: PathGeometry
+  join: 'miter' | 'bevel' | 'round'
+  strokeWidth: number
+  targetPoint?: Vec2
+  targetSegmentEndpoints?: { start: Vec2; end: Vec2 }
+}) => {
+  const sourceRanges = getSourcePathSegmentRangesForTest(sourcePath)
+  const internalPentagonRightBottomT = 0.676
+  const defaultTargetPoint =
+    targetPoint ??
+    getSegmentProbeFrameForTest(
+      sourcePath,
+      sourceRanges[3],
+      internalPentagonRightBottomT
+    )?.point
+  const endpointRange = targetSegmentEndpoints
+    ? getSourceRangeForSegmentEndpointsForTest(
+        sourcePath,
+        targetSegmentEndpoints
+      )
+    : undefined
+  const target = defaultTargetPoint
+    ? endpointRange
+      ? {
+          range: endpointRange,
+          ...(getNearestRatioOnSourceRangeForProbePointForTest(
+            sourcePath,
+            endpointRange,
+            defaultTargetPoint
+          ) ?? {
+            ratio: internalPentagonRightBottomT,
+            distance: Number.POSITIVE_INFINITY
+          })
+        }
+      : getNearestSourceRangeForProbePointForTest(
+          sourcePath,
+          defaultTargetPoint
+        )
+    : null
+  const targetSegmentRange = endpointRange ?? target?.range
+  const targetRatio = target?.ratio ?? internalPentagonRightBottomT
+  const sourcePolygons = getRenderEntrySourceStrokePolygonsForTest({
+    backend,
+    entry,
+    sourcePath,
+    join,
+    strokeWidth
+  })
+  const clipPolygons = entry?.clipPolygons ?? []
+  const visiblePolygons = getRenderEntryVisiblePolygonsForTest({
+    backend,
+    entry,
+    sourcePath,
+    join,
+    strokeWidth
+  })
+  const sourceUnionPolygons = buildUnionPolygonsForTest(backend, sourcePolygons)
+  const clipUnionPolygons = buildUnionPolygonsForTest(backend, clipPolygons)
+  const visibleUnionPolygons = buildUnionPolygonsForTest(
+    backend,
+    visiblePolygons
+  )
+
+  const samples = [-0.02, -0.01, 0, 0.01, 0.02].flatMap((delta) => {
+    if (!targetSegmentRange) {
+      return []
+    }
+    const frame = getSegmentProbeFrameForTest(
+      sourcePath,
+      targetSegmentRange,
+      targetRatio + delta
+    )
+    if (!frame) {
+      return []
+    }
+    const normal = { x: -frame.tangent.y, y: frame.tangent.x }
+
+    return [-1, 1].flatMap((side) =>
+      [0.12, 0.24, 0.36, 0.48].map((offset) => {
+        const point = {
+          x: frame.point.x + normal.x * side * strokeWidth * offset,
+          y: frame.point.y + normal.y * side * strokeWidth * offset
+        }
+        const source = polygonListContainsPointWithWinding(
+          sourceUnionPolygons,
+          point
+        )
+        const clip = polygonListContainsPointWithWinding(
+          clipUnionPolygons,
+          point
+        )
+        const visible = polygonListContainsPointWithWinding(
+          visibleUnionPolygons,
+          point
+        )
+
+        return {
+          t: targetRatio + delta,
+          side,
+          offset,
+          point,
+          source,
+          clip,
+          visible,
+          nearestSourceVertex: nearestPolygonVertexForTest(
+            sourcePolygons,
+            point
+          ),
+          nearestClipVertex: nearestPolygonVertexForTest(clipPolygons, point)
+        }
+      })
+    )
+  })
+
+  return {
+    targetSegmentRange,
+    targetRatio,
+    targetDistance: target?.distance,
+    sourcePolygonCount: sourcePolygons.length,
+    clipPolygonCount: clipPolygons.length,
+    visiblePolygonCount: visiblePolygons.length,
+    samples,
+    sourceUnderAdmits: samples.filter(
+      (sample) => !sample.source && sample.clip && !sample.visible
+    ),
+    clipUnderAdmits: samples.filter(
+      (sample) => sample.source && !sample.clip && !sample.visible
+    ),
+    intersectionUnderAdmits: samples.filter(
+      (sample) => sample.source && sample.clip && !sample.visible
+    ),
+    visibleSamples: samples.filter((sample) => sample.visible)
+  }
+}
+
+const getClosedSourceAnchorPointsForTest = (sourcePath: PathGeometry) => {
+  const anchors = new Map<string, Vec2>()
+
+  sourcePath.segments.forEach((segment) => {
+    const key = `${segment.start.x.toFixed(3)}:${segment.start.y.toFixed(3)}`
+    anchors.set(key, { ...segment.start })
+  })
+
+  if (!sourcePath.closed && sourcePath.segments.length > 0) {
+    const last = sourcePath.segments[sourcePath.segments.length - 1]
+    const key = `${last.end.x.toFixed(3)}:${last.end.y.toFixed(3)}`
+    anchors.set(key, { ...last.end })
+  }
+
+  return [...anchors.values()]
+}
+
+const expectInsideSolidOuterSourceVertexCoverageForTest = ({
+  name,
+  polygons,
+  sourcePath,
+  strokeWidth
+}: {
+  name: string
+  polygons: Vec2[][]
+  sourcePath: PathGeometry
+  strokeWidth: number
+}) => {
+  const anchors = getClosedSourceAnchorPointsForTest(sourcePath)
+  const center = {
+    x:
+      anchors.reduce((sum, point) => sum + point.x, 0) /
+      Math.max(1, anchors.length),
+    y:
+      anchors.reduce((sum, point) => sum + point.y, 0) /
+      Math.max(1, anchors.length)
+  }
+  const anchorAnalyses = anchors.map((anchor, anchorIndex) => {
+    const direction = normalizeVector({
+      x: center.x - anchor.x,
+      y: center.y - anchor.y
+    })
+    const samplePoints = direction
+      ? [0.25, 0.42, 0.6, 0.78, 0.96].map((offset) => ({
+          x: anchor.x + direction.x * strokeWidth * offset,
+          y: anchor.y + direction.y * strokeWidth * offset
+        }))
+      : []
+    const coveredCount = samplePoints.filter((point) =>
+      polygonListContainsPointWithWinding(polygons, point)
+    ).length
+
+    return {
+      anchorIndex,
+      anchor,
+      coveredCount,
+      sampleCount: samplePoints.length,
+      samplePoints
+    }
+  })
+  const missing = anchorAnalyses.filter(
+    (analysis) => analysis.coveredCount < Math.max(2, analysis.sampleCount - 2)
+  )
+
+  expect(
+    anchors.length,
+    JSON.stringify({ name, anchorAnalyses }, null, 2)
+  ).toBeGreaterThanOrEqual(5)
+  expect(
+    missing,
+    JSON.stringify({ name, missing, anchorAnalyses }, null, 2)
+  ).toEqual([])
+}
+
+const analyzeInsideSolidAdjacencyCoverageForTest = ({
+  polygons,
+  sharedEdge,
+  normalEdge,
+  strokeWidth
+}: {
+  polygons: Vec2[][]
+  sharedEdge: EvenOddLegalFaceBoundaryEdge
+  normalEdge: EvenOddLegalFaceBoundaryEdge
+  strokeWidth: number
+}) => {
+  const ratios = [0.35, 0.5, 0.65]
+  const sharedWidths = ratios.map((ratio) =>
+    measureCoverageWidthAcrossEdgeForTest({
+      polygons,
+      edge: sharedEdge,
+      sampleRatio: ratio,
+      strokeWidth
+    })
+  )
+  const normalWidths = ratios.map((ratio) =>
+    measureCoverageWidthAcrossEdgeForTest({
+      polygons,
+      edge: normalEdge,
+      sampleRatio: ratio,
+      strokeWidth
+    })
+  )
+  const sharedMedian = median(sharedWidths)
+  const normalMedian = median(normalWidths)
+
+  return {
+    sharedWidths,
+    normalWidths,
+    sharedMedian,
+    normalMedian,
+    ratio: normalMedian > 0 ? sharedMedian / normalMedian : Infinity
+  }
+}
+
+const expectInsideSolidAdjacencyCoverageForTest = ({
+  name,
+  polygons,
+  sharedEdge,
+  normalEdge,
+  strokeWidth
+}: {
+  name: string
+  polygons: Vec2[][]
+  sharedEdge: EvenOddLegalFaceBoundaryEdge
+  normalEdge: EvenOddLegalFaceBoundaryEdge
+  strokeWidth: number
+}) => {
+  const analysis = analyzeInsideSolidAdjacencyCoverageForTest({
+    polygons,
+    sharedEdge,
+    normalEdge,
+    strokeWidth
+  })
+
+  expect(
+    analysis.normalMedian,
+    JSON.stringify({ name, analysis, sharedEdge, normalEdge }, null, 2)
+  ).toBeGreaterThan(0)
+  expect(
+    analysis.ratio,
+    JSON.stringify({ name, analysis, sharedEdge, normalEdge }, null, 2)
+  ).toBeGreaterThanOrEqual(0.85)
+  expect(
+    analysis.ratio,
+    JSON.stringify({ name, analysis, sharedEdge, normalEdge }, null, 2)
+  ).toBeLessThanOrEqual(1.25)
+}
+
+const expectAllInsideSolidSharedEdgesForTest = ({
+  name,
+  polygons,
+  probePairs,
+  strokeWidth
+}: {
+  name: string
+  polygons: Vec2[][]
+  probePairs: {
+    sharedEdge: EvenOddLegalFaceBoundaryEdge
+    normalEdge: EvenOddLegalFaceBoundaryEdge
+  }[]
+  strokeWidth: number
+}) => {
+  expect(probePairs.length, JSON.stringify({ name }, null, 2)).toBeGreaterThan(
+    0
+  )
+
+  const analyses = probePairs.map((pair) => ({
+    key: sharedEdgeGeometryKeyForTest(pair.sharedEdge),
+    sharedEdge: pair.sharedEdge,
+    normalEdge: pair.normalEdge,
+    analysis: analyzeInsideSolidAdjacencyCoverageForTest({
+      polygons,
+      sharedEdge: pair.sharedEdge,
+      normalEdge: pair.normalEdge,
+      strokeWidth
+    })
+  }))
+
+  analyses.forEach((entry) => {
+    expect(
+      entry.analysis.normalMedian,
+      JSON.stringify({ name, entry }, null, 2)
+    ).toBeGreaterThan(0)
+    expect(
+      entry.analysis.ratio,
+      JSON.stringify({ name, entry }, null, 2)
+    ).toBeGreaterThanOrEqual(0.85)
+    expect(
+      entry.analysis.ratio,
+      JSON.stringify({ name, entry }, null, 2)
+    ).toBeLessThanOrEqual(1.25)
+  })
+
+  const groupedBySharedEdge = analyses.reduce((groups, entry) => {
+    const group = groups.get(entry.key) ?? []
+    group.push(entry)
+    groups.set(entry.key, group)
+    return groups
+  }, new Map<string, typeof analyses>())
+
+  groupedBySharedEdge.forEach((group, key) => {
+    if (group.length < 2) {
+      return
+    }
+    const combinedSharedMedian = group
+      .slice(0, 2)
+      .reduce((sum, entry) => sum + entry.analysis.sharedMedian, 0)
+    const normalMedian = median(
+      group
+        .map((entry) => entry.analysis.normalMedian)
+        .filter((value) => value > 0)
+    )
+    const combinedRatio =
+      normalMedian > 0 ? combinedSharedMedian / normalMedian : Infinity
+
+    expect(
+      combinedRatio,
+      JSON.stringify({ name, key, group, combinedRatio }, null, 2)
+    ).toBeGreaterThanOrEqual(0.85)
+    expect(
+      combinedRatio,
+      JSON.stringify({ name, key, group, combinedRatio }, null, 2)
+    ).toBeLessThanOrEqual(2.25)
+  })
+}
+
+describe('constrained solid stroke packets: base render hit export', () => {
   it('should detect constrained solid intent only for positive-width inside/outside solid strokes', () => {
     expect(
       hasConstrainedSolidStrokeIntent([
@@ -1224,8 +4638,15 @@ describe('constrained solid stroke packets', () => {
       sourceTopology: 'rectangle-equivalent',
       topologyFamily: 'rectangle-equivalent'
     })
-    expect(hit.debugMeta).toBe(resolved.geometry.debugMeta)
-    expect(exportPacket.debugMeta).toBe(resolved.geometry.debugMeta)
+    expect(hit.debugMeta).toBeUndefined()
+    expect(exportPacket.debugMeta).toBeUndefined()
+
+    withStrokeDiagnosticsMode('full', () => {
+      const [diagnosticHit] = buildSolidCenterStrokeHitTestPackets(packets)
+      const [diagnosticExport] = buildSolidCenterStrokeExportPackets(packets)
+      expect(diagnosticHit.debugMeta).toBe(resolved.geometry.debugMeta)
+      expect(diagnosticExport.debugMeta).toBe(resolved.geometry.debugMeta)
+    })
   })
 
   it('should run: keep non-overflow constrained hit inside the legal owner domain', () => {
@@ -1457,1115 +4878,5 @@ describe('constrained solid stroke packets', () => {
       runtimeReason: 'center-stroke',
       resolutionStatus: 'native-center'
     })
-  })
-
-  it('should run: require self-intersecting inside solidMaskModel packets, not boundary-domain ribbon products', () => {
-    const {
-      sourcePath,
-      topology,
-      fillRegions,
-      sharedSourceSplitRanges,
-      sharedStrokeBoundaryDomains
-    } = buildSelfIntersectingSolidDomainFixture()
-
-    expect(topology.topologyFamily).toBe('self-intersecting')
-    expect(
-      sharedStrokeBoundaryDomains.some(
-        (domain) => domain.boundaryRole === 'filled-face'
-      )
-    ).toBe(true)
-
-    const packets = buildConstrainedSolidStrokeResolvedPackets(
-      'self-intersecting-solid-domain-star:inside',
-      topology.normalizedPoints,
-      true,
-      [
-        createDefaultStroke({
-          width: 10,
-          style: 'solid',
-          position: 'inside',
-          joinType: 'miter',
-          capType: 'round'
-        })
-      ],
-      {
-        topology,
-        sourcePath,
-        implicitFillRegions: fillRegions,
-        sharedSourceSplitRanges,
-        sharedStrokeBoundaryDomains,
-        candidateMode: 'exact-arrangement'
-      }
-    )
-
-    expect(packets.length).toBeGreaterThan(0)
-    expect(
-      packets.every(
-        (packet) =>
-          packet.geometry.debugMeta?.geometryFamily === 'constrained-solid' &&
-          packet.geometry.debugMeta?.sourceTopology === 'self-intersecting' &&
-          packet.geometry.debugMeta?.resolutionStatus === 'exact-constrained' &&
-          packet.geometry.debugMeta?.runtimeStatus === 'accepted' &&
-          packet.geometry.debugMeta?.figmaLikeSideAuthority ===
-            'implicit-fill-hole-domain'
-      )
-    ).toBe(true)
-    expect(
-      packets.every(
-        (packet) =>
-          packet.geometry.debugMeta?.figmaLikeSelectedSide ===
-          packet.geometry.debugMeta?.figmaLikeFilledSide
-      )
-    ).toBe(true)
-    expect(packets.some(solidPacketCarriesSourceVertexProvenance)).toBe(true)
-    expect(packets.some(solidPacketHasDashedTerminalMetadata)).toBe(false)
-    expect(packets.some(solidPacketUsesBoundaryDomainProductGeometry)).toBe(
-      false
-    )
-    expect(
-      packets.every((packet) =>
-        packet.geometry.debugMeta?.strokePosition === 'outside'
-          ? packet.geometry.debugMeta?.solidMaskModelVisibleRender ===
-              'masked-source-stroke' &&
-            packet.geometry.debugMeta?.solidMaskModelCoverageOracle ===
-              'exact-boolean' &&
-            packet.geometry.debugMeta?.solidMaskModelMaskSide ===
-              'outside-exterior' &&
-            ((packet.geometry.debugMeta?.solidMaskModelRenderStrokePaths
-              ?.length ?? 0) > 0 ||
-              (packet.geometry.debugMeta?.solidMaskModelRenderFillPolygons
-                ?.length ?? 0) > 0) &&
-            (packet.geometry.debugMeta?.solidMaskModelRenderClipPolygons
-              ?.length ?? 0) > 0
-          : true
-      ),
-      JSON.stringify(
-        packets.map((packet) => packet.geometry.debugMeta),
-        null,
-        2
-      )
-    ).toBe(true)
-    const renderEntries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
-      buildStrokeFinalFacesFromResolvedPackets(packets)
-    )
-    expect(
-      renderEntries.every(
-        (entry) =>
-          ((entry.strokePaths?.length ?? 0) > 0 ||
-            (entry.fillPolygons?.length ?? 0) > 0) &&
-          (entry.clipPolygons?.length ?? 0) > 0 &&
-          entry.debugMeta?.solidMaskModelVisibleRender ===
-            'masked-source-stroke'
-      ),
-      JSON.stringify(
-        renderEntries.map((entry) => ({
-          strokePaths: entry.strokePaths?.length ?? 0,
-          fillPolygons: entry.fillPolygons?.length ?? 0,
-          clipPolygons: entry.clipPolygons?.length ?? 0,
-          debugMeta: entry.debugMeta
-        })),
-        null,
-        2
-      )
-    ).toBe(true)
-  })
-
-  it('should run: require self-intersecting outside solidMaskModel packets without internal-adjacency or dashed terminal metadata', async () => {
-    const {
-      sourcePath,
-      topology,
-      fillRegions,
-      sharedSourceSplitRanges,
-      sharedStrokeBoundaryDomains
-    } = buildSelfIntersectingSolidDomainFixture()
-    const backend = createClipper2GeometryBackend(await loadClipperModule())
-
-    const packets = buildConstrainedSolidStrokeResolvedPackets(
-      'self-intersecting-solid-domain-star:outside',
-      topology.normalizedPoints,
-      true,
-      [
-        createDefaultStroke({
-          width: 10,
-          style: 'solid',
-          position: 'outside',
-          joinType: 'miter',
-          capType: 'round'
-        })
-      ],
-      {
-        topology,
-        sourcePath,
-        implicitFillRegions: fillRegions,
-        sharedSourceSplitRanges,
-        sharedStrokeBoundaryDomains,
-        exactBackend: backend,
-        candidateMode: 'exact-arrangement'
-      }
-    )
-
-    expect(packets.length).toBeGreaterThan(0)
-    expect(
-      packets.some(
-        (packet) =>
-          packet.geometry.debugMeta?.figmaLikeBoundaryRole === 'filled-face'
-      )
-    ).toBe(false)
-    expect(
-      packets.every(
-        (packet) =>
-          packet.geometry.debugMeta?.figmaLikeBoundaryRole === 'outer' &&
-          packet.geometry.debugMeta?.figmaLikeSelectedSide ===
-            packet.geometry.debugMeta?.figmaLikeUnfilledSide &&
-          packet.geometry.debugMeta?.resolutionStatus === 'exact-constrained'
-      )
-    ).toBe(true)
-    expect(packets.some(solidPacketCarriesSourceVertexProvenance)).toBe(true)
-    expect(packets.some(solidPacketHasDashedTerminalMetadata)).toBe(false)
-    expect(packets.some(solidPacketUsesBoundaryDomainProductGeometry)).toBe(
-      false
-    )
-  })
-
-  it('should run: keep self-check self-intersecting solid join matrix near the authored source path', async () => {
-    const {
-      sourcePath,
-      topology,
-      fillRegions,
-      sharedSourceSplitRanges,
-      sharedStrokeBoundaryDomains
-    } = buildSelfCheckStarSolidDomainFixture()
-    const backend = createClipper2GeometryBackend(await loadClipperModule())
-    const cases = [
-      { position: 'outside' as const, joinType: 'miter' as const },
-      { position: 'outside' as const, joinType: 'round' as const },
-      { position: 'outside' as const, joinType: 'bevel' as const },
-      { position: 'inside' as const, joinType: 'miter' as const },
-      { position: 'inside' as const, joinType: 'bevel' as const },
-      { position: 'inside' as const, joinType: 'round' as const }
-    ]
-    const outsideRenderMasks: Partial<
-      Record<
-        'miter' | 'round' | 'bevel',
-        { clipPolygons: Vec2[][]; strokeMaskPolygons: Vec2[][] }
-      >
-    > = {}
-
-    for (const { position, joinType } of cases) {
-      const packets = buildConstrainedSolidStrokeResolvedPackets(
-        `self-check-star-solid-domain:${position}:${joinType}`,
-        topology.normalizedPoints,
-        true,
-        [
-          createDefaultStroke({
-            width: 10,
-            style: 'solid',
-            position,
-            joinType,
-            capType: 'round'
-          })
-        ],
-        {
-          topology,
-          sourcePath,
-          implicitFillRegions: fillRegions,
-          sharedSourceSplitRanges,
-          sharedStrokeBoundaryDomains,
-          candidateMode: 'exact-arrangement',
-          exactBackend: backend
-        }
-      )
-      const polygons = packets.flatMap((packet) => packet.geometry.polygons)
-      const exportPolygons = buildSolidCenterStrokeExportPackets(
-        packets
-      ).flatMap((packet) => packet.polygons)
-      const collapsedPolygons = collapseStrokeFinalFaceVisualOverlaps(
-        buildStrokeFinalFacesFromResolvedPackets(packets),
-        { backend }
-      ).flatMap((face) => face.polygons)
-      const renderEntries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
-        buildStrokeFinalFacesFromResolvedPackets(packets)
-      )
-      if (position === 'outside') {
-        const [entry] = renderEntries
-        outsideRenderMasks[joinType] = {
-          clipPolygons: entry?.clipPolygons ?? [],
-          strokeMaskPolygons: entry?.strokeMaskPolygons ?? []
-        }
-      }
-      const maxDistance = joinType === 'miter' ? 64 : 24
-      const farSourceCoverageFailures = getFarSourceCoverageFailures({
-        polygons,
-        sourcePath,
-        maxDistance
-      })
-      const deepFillCoverageFailures =
-        position === 'outside'
-          ? getFillRegionDeepCoverageFailures({
-              strokePolygons: polygons,
-              fillRegions,
-              minBoundaryDistance: 12
-            })
-          : []
-      const exportDeepFillCoverageFailures =
-        position === 'outside'
-          ? getFillRegionDeepCoverageFailures({
-              strokePolygons: exportPolygons,
-              fillRegions,
-              minBoundaryDistance: 12
-            })
-          : []
-      const collapsedDeepFillCoverageFailures =
-        position === 'outside'
-          ? getFillRegionDeepCoverageFailures({
-              strokePolygons: collapsedPolygons,
-              fillRegions,
-              minBoundaryDistance: 12
-            })
-          : []
-      const sourceSpanIds = packets.flatMap(
-        (packet) => packet.geometry.debugMeta?.sourceSpanIds ?? []
-      )
-      const sampledVertexSourceSpanIds = sourceSpanIds.filter(
-        (sourceSpanId) => {
-          const match = /^vertex:(\d+)$/.exec(sourceSpanId)
-          return match ? Number(match[1]) >= sourcePath.segments.length : false
-        }
-      )
-
-      expect(packets.length).toBeGreaterThan(0)
-      expect(
-        packets.every(
-          (packet) =>
-            packet.geometry.debugMeta?.geometryFamily === 'constrained-solid' &&
-            packet.geometry.debugMeta?.resolutionStatus ===
-              'exact-constrained' &&
-            packet.geometry.debugMeta?.sourceTopology === 'self-intersecting'
-        )
-      ).toBe(true)
-      expect(packets.some(solidPacketHasDashedTerminalMetadata)).toBe(false)
-      expect(
-        sampledVertexSourceSpanIds,
-        JSON.stringify({ position, joinType, sourceSpanIds }, null, 2)
-      ).toEqual([])
-      expect(
-        deepFillCoverageFailures,
-        JSON.stringify(
-          {
-            position,
-            joinType,
-            deepFillCoverageFailures,
-            polygonCount: polygons.length
-          },
-          null,
-          2
-        )
-      ).toEqual([])
-      expect(
-        exportDeepFillCoverageFailures,
-        JSON.stringify(
-          {
-            position,
-            joinType,
-            exportDeepFillCoverageFailures,
-            exportPolygonCount: exportPolygons.length
-          },
-          null,
-          2
-        )
-      ).toEqual([])
-      expect(
-        collapsedDeepFillCoverageFailures,
-        JSON.stringify(
-          {
-            position,
-            joinType,
-            collapsedDeepFillCoverageFailures,
-            collapsedPolygonCount: collapsedPolygons.length
-          },
-          null,
-          2
-        )
-      ).toEqual([])
-      expect(
-        farSourceCoverageFailures,
-        JSON.stringify(
-          {
-            position,
-            joinType,
-            maxDistance,
-            farSourceCoverageFailures,
-            polygonCount: polygons.length
-          },
-          null,
-          2
-        )
-      ).toEqual([])
-    }
-
-    const roundMask = outsideRenderMasks.round
-    const bevelMask = outsideRenderMasks.bevel
-    expect(roundMask).toBeDefined()
-    expect(bevelMask).toBeDefined()
-
-    const roundVsBevel = countVisibleMaskCoverageDifferences({
-      firstClipPolygons: roundMask?.clipPolygons ?? [],
-      firstStrokeMaskPolygons: roundMask?.strokeMaskPolygons ?? [],
-      secondClipPolygons: bevelMask?.clipPolygons ?? [],
-      secondStrokeMaskPolygons: bevelMask?.strokeMaskPolygons ?? [],
-      centers: [
-        { x: 360.12094148356584, y: 145.95389587539378 },
-        { x: 0, y: 15.668954151283657 }
-      ],
-      radius: 64,
-      step: 2
-    })
-
-    expect(
-      roundVsBevel.changed,
-      JSON.stringify(
-        {
-          message:
-            'outside solid visible mask must preserve source-vertex bevel/round differences before renderer projection',
-          roundVsBevel,
-          roundMask,
-          bevelMask
-        },
-        null,
-        2
-      )
-    ).toBeGreaterThan(0)
-  })
-
-  it('should run: keep self-intersecting solid reload path off boundary-domain packet generation', async () => {
-    const {
-      sourcePath,
-      topology,
-      fillRegions,
-      sharedSourceSplitRanges,
-      sharedStrokeBoundaryDomains
-    } = buildSelfIntersectingSolidDomainFixture()
-    const backend = createClipper2GeometryBackend(await loadClipperModule())
-    const phaseNames: string[] = []
-
-    const packets = withVectorRenderPhaseSink(
-      (phaseName) => {
-        phaseNames.push(phaseName)
-      },
-      () =>
-        buildConstrainedSolidStrokeResolvedPackets(
-          'self-intersecting-solid-domain-star:outside-performance',
-          topology.normalizedPoints,
-          true,
-          [
-            createDefaultStroke({
-              width: 10,
-              style: 'solid',
-              position: 'outside',
-              joinType: 'miter',
-              capType: 'round'
-            })
-          ],
-          {
-            topology,
-            sourcePath,
-            implicitFillRegions: fillRegions,
-            sharedSourceSplitRanges,
-            sharedStrokeBoundaryDomains,
-            exactBackend: backend,
-            candidateMode: 'exact-arrangement'
-          }
-        )
-    )
-
-    expect(packets.length).toBeGreaterThan(0)
-    expect(phaseNames).not.toContain(
-      'constrained-solid:self-intersecting-boundary-domain-packets'
-    )
-  })
-
-  it('should run: keep reported vector-6 outside solid gated local-side candidates covering authored segments', async () => {
-    const points = {
-      'tp-12': {
-        id: 'tp-12',
-        kind: 'anchor',
-        x: 192.42083700791653,
-        y: 0,
-        anchorType: 'sharp'
-      },
-      'tp-13': {
-        id: 'tp-13',
-        kind: 'anchor',
-        x: 11.358174406717296,
-        y: 364.1297089212308,
-        anchorType: 'sharp'
-      },
-      'tp-12:out': {
-        id: 'tp-12:out',
-        kind: 'control',
-        x: 170.10536493824844,
-        y: 119.07041481724248,
-        controlForId: 'tp-12',
-        controlRole: 'out'
-      },
-      'tp-13:in': {
-        id: 'tp-13:in',
-        kind: 'control',
-        x: -42.09205809548172,
-        y: 343.2841182453731,
-        controlForId: 'tp-13',
-        controlRole: 'in'
-      },
-      'tp-13:out': {
-        id: 'tp-13:out',
-        kind: 'control',
-        x: 78.17096503446606,
-        y: 390.18669726605293,
-        controlForId: 'tp-13',
-        controlRole: 'out'
-      },
-      'tp-14': {
-        id: 'tp-14',
-        kind: 'anchor',
-        x: 360.120941483566,
-        y: 144.31562775593738,
-        anchorType: 'sharp'
-      },
-      'tp-15': {
-        id: 'tp-15',
-        kind: 'anchor',
-        x: 0,
-        y: 14.030686031827244,
-        anchorType: 'sharp'
-      },
-      'tp-16': {
-        id: 'tp-16',
-        kind: 'anchor',
-        x: 270.59180204238254,
-        y: 345.42212754546125,
-        anchorType: 'sharp'
-      },
-      'tp-15:out': {
-        id: 'tp-15:out',
-        kind: 'control',
-        x: 0,
-        y: 14.030686031827244,
-        controlForId: 'tp-15',
-        controlRole: 'out'
-      },
-      'tp-16:in': {
-        id: 'tp-16:in',
-        kind: 'control',
-        x: 263.9105229796076,
-        y: 362.79345310867603,
-        controlForId: 'tp-16',
-        controlRole: 'in'
-      },
-      'tp-16:out': {
-        id: 'tp-16:out',
-        kind: 'control',
-        x: 277.2730811051575,
-        y: 328.05080198224647,
-        controlForId: 'tp-16',
-        controlRole: 'out'
-      }
-    } as const
-    const segments = {
-      'ts-23': {
-        id: 'ts-23',
-        startId: 'tp-12',
-        endId: 'tp-13',
-        outControlId: 'tp-12:out',
-        inControlId: 'tp-13:in'
-      },
-      'ts-24': {
-        id: 'ts-24',
-        startId: 'tp-13',
-        endId: 'tp-14',
-        outControlId: 'tp-13:out',
-        inControlId: null
-      },
-      'ts-25': {
-        id: 'ts-25',
-        startId: 'tp-14',
-        endId: 'tp-15',
-        outControlId: null,
-        inControlId: null
-      },
-      'ts-26': {
-        id: 'ts-26',
-        startId: 'tp-15',
-        endId: 'tp-16',
-        outControlId: 'tp-15:out',
-        inControlId: 'tp-16:in'
-      },
-      'ts-27': {
-        id: 'ts-27',
-        startId: 'tp-16',
-        endId: 'tp-12',
-        outControlId: 'tp-16:out',
-        inControlId: null
-      }
-    } as const
-    const network = {
-      id: 'tn-4',
-      pointIds: ['tp-12', 'tp-13', 'tp-14', 'tp-15', 'tp-16'],
-      segmentIds: ['ts-23', 'ts-24', 'ts-25', 'ts-26', 'ts-27'],
-      closed: true
-    }
-    const sourcePath = buildVectorGeometryModelPath(network, points, segments)
-    const topology = buildPathTopologyModel({
-      pathId: 'vector-6:reported-solid-outside',
-      networkId: 'tn-4',
-      points: sourcePath.sampledPoints,
-      closed: true
-    })
-    const guardPoints = [
-      { x: points['tp-12'].x, y: points['tp-12'].y, sharp: true },
-      { x: points['tp-13'].x, y: points['tp-13'].y, sharp: false },
-      { x: points['tp-14'].x, y: points['tp-14'].y, sharp: true },
-      { x: points['tp-15'].x, y: points['tp-15'].y, sharp: true },
-      { x: points['tp-16'].x, y: points['tp-16'].y, sharp: false }
-    ]
-    const backend = createClipper2GeometryBackend(await loadClipperModule())
-    const profileVector6Solid = process.env.ASYRA_STROKE_API_PROFILE === '1'
-    const profileStart = performance.now()
-    const packets = buildConstrainedSolidStrokeResolvedPackets(
-      'vector-6:reported-solid-outside',
-      topology.normalizedPoints,
-      true,
-      [
-        createDefaultStroke({
-          width: 10,
-          style: 'solid',
-          position: 'outside',
-          joinType: 'miter',
-          capType: 'butt'
-        })
-      ],
-      {
-        topology,
-        sourcePath,
-        selectedSideGuardPoints: guardPoints,
-        candidateMode: 'exact-arrangement',
-        exactBackend: backend
-      }
-    )
-    const packetsMs = performance.now() - profileStart
-
-    expect(packets.length).toBeGreaterThan(0)
-    // Solid constrained geometry is represented as full-coverage source-span
-    // candidates plus vertex joins. It must not be split into hundreds of
-    // per-sample cells; doing so turns exact arrangement into a multi-second
-    // product render path for vector-6.
-    expect(packets.length).toBeLessThanOrEqual(24)
-    expect(
-      packets.every(
-        (packet) =>
-          packet.geometry.debugMeta?.resolutionStatus ===
-            'local-side-approximation' &&
-          packet.geometry.debugMeta?.runtimeStatus === 'candidate'
-      )
-    ).toBe(true)
-    const packetSourceSpanIds = packets.flatMap(
-      (packet) => packet.geometry.debugMeta?.sourceSpanIds ?? []
-    )
-    expect(packetSourceSpanIds).toContain('smooth-join:3')
-    expect(packetSourceSpanIds).not.toContain('vertex:3')
-    expect(
-      packetSourceSpanIds.some((sourceSpanId) =>
-        sourceSpanId.startsWith('segment-run:')
-      )
-    ).toBe(false)
-
-    const forbiddenBridgeProbePoints = [
-      { id: 'upper-left empty face', x: 120, y: 80 },
-      { id: 'upper-right empty face', x: 292, y: 72 },
-      { id: 'right interior empty face', x: 315, y: 150 },
-      { id: 'center interior empty face', x: 168, y: 165 },
-      { id: 'lower-right interior empty face', x: 244, y: 274 }
-    ]
-    // Self-intersection is not a product clipping boundary for solid strokes:
-    // typed one-sided candidates own the side, while arrangement/collapse only
-    // remove same-visual duplicate coverage. Applying fill-domain clipping here
-    // deletes authored segments.
-    const arrangementStart = performance.now()
-    const arrangedFaces = buildArrangedStrokeFinalFacesFromResolvedPackets(
-      packets,
-      { backend }
-    )
-    const arrangementMs = performance.now() - arrangementStart
-    const collapseStart = performance.now()
-    const collapsedFaces = collapseStrokeFinalFaceVisualOverlaps(
-      arrangedFaces,
-      { backend }
-    )
-    expect(arrangedFaces.length).toBeLessThanOrEqual(48)
-    expect(collapsedFaces.length).toBeLessThanOrEqual(48)
-    const collapseMs = performance.now() - collapseStart
-    if (profileVector6Solid) {
-      // eslint-disable-next-line no-console
-      console.info('[vector-6 outside solid profile]', {
-        packets: packets.length,
-        arrangedFaces: arrangedFaces.length,
-        collapsedFaces: collapsedFaces.length,
-        packetsMs: Number(packetsMs.toFixed(3)),
-        arrangementMs: Number(arrangementMs.toFixed(3)),
-        collapseMs: Number(collapseMs.toFixed(3)),
-        totalMs: Number((packetsMs + arrangementMs + collapseMs).toFixed(3))
-      })
-    }
-    const bridgeFinalFaceCoverage = forbiddenBridgeProbePoints.flatMap(
-      (point) => {
-        const coveringFaceIds = collapsedFaces.flatMap((face) =>
-          face.polygons.some((polygon) => isPointInPolygon(point, polygon))
-            ? [face.faceId]
-            : []
-        )
-
-        return coveringFaceIds.length === 0
-          ? []
-          : [{ point: point.id, coveringFaceIds }]
-      }
-    )
-    expect(bridgeFinalFaceCoverage).toEqual([])
-
-    const collapsedPolygons = collapsedFaces.flatMap((face) => face.polygons)
-    const arrangedPolygons = arrangedFaces.flatMap((face) => face.polygons)
-    const rawPolygons = packets.flatMap((packet) => packet.geometry.polygons)
-    const representedSourceSegments = new Set(
-      collapsedFaces.flatMap((face) =>
-        face.sourceSpanIds.flatMap((sourceSpanId) => {
-          const match = /^segment:(\d+)/.exec(sourceSpanId)
-          return match ? [Number(match[1])] : []
-        })
-      )
-    )
-    const missingSegmentBodyCoverage = getSourcePathSegmentRangesForTest(
-      sourcePath
-    ).flatMap((range) =>
-      representedSourceSegments.has(range.segmentIndex)
-        ? []
-        : [`segment:${range.segmentIndex}`]
-    )
-    expect(
-      missingSegmentBodyCoverage,
-      JSON.stringify(
-        {
-          missingSegmentBodyCoverage,
-          packets: packets.map((packet) => ({
-            id: packet.geometry.geometryId,
-            intervalIndex:
-              packet.geometry.debugMeta?.authoredVisibleIntervalIndex,
-            sourceSpanIds: packet.geometry.debugMeta?.sourceSpanIds ?? [],
-            polygonCount: packet.geometry.polygons.length
-          })),
-          collapsedFaces: collapsedFaces.map((face) => ({
-            faceId: face.faceId,
-            sourceSpanIds: face.sourceSpanIds
-          }))
-        },
-        null,
-        2
-      )
-    ).toEqual([])
-    const sourceRanges = getSourcePathSegmentRangesForTest(sourcePath)
-    const smoothJoinCorridorCoverageFailures = getSmoothJoinCorridorProbePoints(
-      sourcePath,
-      sourceRanges[3],
-      sourceRanges[4],
-      10
-    ).flatMap((probe) => {
-      const rawCovered = polygonListContainsPoint(rawPolygons, probe)
-      const arrangedCovered = polygonListContainsPoint(arrangedPolygons, probe)
-      const collapsedCovered = polygonListContainsPoint(
-        collapsedPolygons,
-        probe
-      )
-      return rawCovered && arrangedCovered && collapsedCovered
-        ? []
-        : [{ ...probe, rawCovered, arrangedCovered, collapsedCovered }]
-    })
-    expect(
-      smoothJoinCorridorCoverageFailures,
-      JSON.stringify(smoothJoinCorridorCoverageFailures, null, 2)
-    ).toEqual([])
-
-    const sideProbeResults = sourceRanges.map((range) => {
-      const segmentOwnedPolygons = getSegmentOwnedPolygonsForTest(
-        collapsedFaces,
-        range.segmentIndex
-      )
-      const { expectedInsideProbes, oppositeSideProbes, expectedInsideOffset } =
-        getSegmentInsideAndOppositeProbePoints(sourcePath, range, 'outside')
-
-      return {
-        segmentIndex: range.segmentIndex,
-        expectedInsideOffset,
-        expectedOutsideHits: expectedInsideProbes.filter((point) =>
-          polygonListContainsPoint(segmentOwnedPolygons, point)
-        ).length,
-        productExpectedOutsideHits: expectedInsideProbes.filter((point) =>
-          polygonListContainsPoint(collapsedPolygons, point)
-        ).length,
-        expectedOutsideProbeCount: expectedInsideProbes.length,
-        oppositeSideHits: oppositeSideProbes.filter((point) =>
-          polygonListContainsPoint(segmentOwnedPolygons, point)
-        ).length,
-        productOppositeSideHits: oppositeSideProbes.filter((point) =>
-          polygonListContainsPoint(collapsedPolygons, point)
-        ).length,
-        oppositeSideProbeCount: oppositeSideProbes.length
-      }
-    })
-    const wrongSideSegments = sideProbeResults.filter(
-      (result) =>
-        result.expectedOutsideHits < 2 ||
-        result.productExpectedOutsideHits < 2 ||
-        result.oppositeSideHits > 1 ||
-        result.productOppositeSideHits > 1
-    )
-    expect(
-      wrongSideSegments,
-      JSON.stringify(sideProbeResults, null, 2)
-    ).toEqual([])
-
-    // Gated self-intersecting solid packets stay local-side candidates until the
-    // vector-6 product gates can promote them to exact support.
-  })
-
-  it('should run: keep reported vector-6 inside solid from creating bridge faces', async () => {
-    const points = {
-      'tp-12': {
-        id: 'tp-12',
-        kind: 'anchor',
-        x: 192.42083700791653,
-        y: 0,
-        anchorType: 'sharp'
-      },
-      'tp-13': {
-        id: 'tp-13',
-        kind: 'anchor',
-        x: 11.358174406717296,
-        y: 364.1297089212308,
-        anchorType: 'smooth'
-      },
-      'tp-12:out': {
-        id: 'tp-12:out',
-        kind: 'control',
-        x: 170.10536493824844,
-        y: 119.07041481724248,
-        controlForId: 'tp-12',
-        controlRole: 'out'
-      },
-      'tp-13:in': {
-        id: 'tp-13:in',
-        kind: 'control',
-        x: -42.09205809548172,
-        y: 343.2841182453731,
-        controlForId: 'tp-13',
-        controlRole: 'in'
-      },
-      'tp-13:out': {
-        id: 'tp-13:out',
-        kind: 'control',
-        x: 78.17096503446606,
-        y: 390.18669726605293,
-        controlForId: 'tp-13',
-        controlRole: 'out'
-      },
-      'tp-14': {
-        id: 'tp-14',
-        kind: 'anchor',
-        x: 360.120941483566,
-        y: 144.31562775593738,
-        anchorType: 'sharp'
-      },
-      'tp-15': {
-        id: 'tp-15',
-        kind: 'anchor',
-        x: 0,
-        y: 14.030686031827244,
-        anchorType: 'sharp'
-      },
-      'tp-16': {
-        id: 'tp-16',
-        kind: 'anchor',
-        x: 270.59180204238254,
-        y: 345.42212754546125,
-        anchorType: 'smooth'
-      },
-      'tp-15:out': {
-        id: 'tp-15:out',
-        kind: 'control',
-        x: 0,
-        y: 14.030686031827244,
-        controlForId: 'tp-15',
-        controlRole: 'out'
-      },
-      'tp-16:in': {
-        id: 'tp-16:in',
-        kind: 'control',
-        x: 263.9105229796076,
-        y: 362.79345310867603,
-        controlForId: 'tp-16',
-        controlRole: 'in'
-      },
-      'tp-16:out': {
-        id: 'tp-16:out',
-        kind: 'control',
-        x: 277.2730811051575,
-        y: 328.05080198224647,
-        controlForId: 'tp-16',
-        controlRole: 'out'
-      }
-    } as const
-    const segments = {
-      'ts-23': {
-        id: 'ts-23',
-        startId: 'tp-12',
-        endId: 'tp-13',
-        outControlId: 'tp-12:out',
-        inControlId: 'tp-13:in'
-      },
-      'ts-24': {
-        id: 'ts-24',
-        startId: 'tp-13',
-        endId: 'tp-14',
-        outControlId: 'tp-13:out',
-        inControlId: null
-      },
-      'ts-25': {
-        id: 'ts-25',
-        startId: 'tp-14',
-        endId: 'tp-15',
-        outControlId: null,
-        inControlId: null
-      },
-      'ts-26': {
-        id: 'ts-26',
-        startId: 'tp-15',
-        endId: 'tp-16',
-        outControlId: 'tp-15:out',
-        inControlId: 'tp-16:in'
-      },
-      'ts-27': {
-        id: 'ts-27',
-        startId: 'tp-16',
-        endId: 'tp-12',
-        outControlId: 'tp-16:out',
-        inControlId: null
-      }
-    } as const
-    const network = {
-      id: 'tn-4',
-      pointIds: ['tp-12', 'tp-13', 'tp-14', 'tp-15', 'tp-16'],
-      segmentIds: ['ts-23', 'ts-24', 'ts-25', 'ts-26', 'ts-27'],
-      closed: true
-    }
-    const sourcePath = buildVectorGeometryModelPath(network, points, segments)
-    const topology = buildPathTopologyModel({
-      pathId: 'vector-6:reported-solid-inside',
-      networkId: 'tn-4',
-      points: sourcePath.sampledPoints,
-      closed: true
-    })
-    const backend = createClipper2GeometryBackend(await loadClipperModule())
-    const profileVector6Solid = process.env.ASYRA_STROKE_API_PROFILE === '1'
-    const profileStart = performance.now()
-    const packets = buildConstrainedSolidStrokeResolvedPackets(
-      'vector-6:reported-solid-inside',
-      topology.normalizedPoints,
-      true,
-      [
-        createDefaultStroke({
-          width: 10,
-          style: 'solid',
-          position: 'inside',
-          joinType: 'miter',
-          capType: 'square'
-        })
-      ],
-      {
-        topology,
-        sourcePath,
-        candidateMode: 'exact-arrangement',
-        exactBackend: backend
-      }
-    )
-    const packetsMs = performance.now() - profileStart
-    expect(packets.length).toBeGreaterThan(0)
-    expect(
-      packets.every(
-        (packet) =>
-          packet.geometry.debugMeta?.resolutionStatus ===
-            'local-side-approximation' &&
-          packet.geometry.debugMeta?.runtimeStatus === 'candidate'
-      )
-    ).toBe(true)
-    const arrangementStart = performance.now()
-    const arrangedFaces = buildArrangedStrokeFinalFacesFromResolvedPackets(
-      packets,
-      { backend }
-    )
-    const arrangementMs = performance.now() - arrangementStart
-    const collapseStart = performance.now()
-    const collapsedFaces = collapseStrokeFinalFaceVisualOverlaps(
-      arrangedFaces,
-      { backend }
-    )
-    const collapseMs = performance.now() - collapseStart
-    const cachedArrangementStart = performance.now()
-    const cachedArrangedFaces =
-      buildArrangedStrokeFinalFacesFromResolvedPackets(packets, { backend })
-    const cachedArrangementMs = performance.now() - cachedArrangementStart
-    const cachedCollapseStart = performance.now()
-    const cachedCollapsedFaces = collapseStrokeFinalFaceVisualOverlaps(
-      arrangedFaces,
-      { backend }
-    )
-    const cachedCollapseMs = performance.now() - cachedCollapseStart
-    expect(cachedArrangedFaces).toBe(arrangedFaces)
-    expect(cachedCollapsedFaces).toBe(collapsedFaces)
-    if (profileVector6Solid) {
-      // eslint-disable-next-line no-console
-      console.info('[vector-6 inside solid profile]', {
-        packets: packets.length,
-        packetsBySegment: packets.reduce<Record<string, number>>(
-          (counts, packet) => {
-            const segmentId =
-              packet.geometry.debugMeta?.sourceSpanIds
-                ?.find((id) => id.startsWith('segment:'))
-                ?.split(':')
-                .slice(0, 2)
-                .join(':') ?? 'unknown'
-            counts[segmentId] = (counts[segmentId] ?? 0) + 1
-            return counts
-          },
-          {}
-        ),
-        arrangedFaces: arrangedFaces.length,
-        collapsedFaces: collapsedFaces.length,
-        packetsMs: Number(packetsMs.toFixed(3)),
-        arrangementMs: Number(arrangementMs.toFixed(3)),
-        collapseMs: Number(collapseMs.toFixed(3)),
-        cachedArrangementMs: Number(cachedArrangementMs.toFixed(3)),
-        cachedCollapseMs: Number(cachedCollapseMs.toFixed(3)),
-        totalMs: Number((packetsMs + arrangementMs + collapseMs).toFixed(3))
-      })
-    }
-    const denseCenterlineProbes = getDenseSegmentCenterlineProbePoints(
-      sourcePath,
-      network.segmentIds
-    )
-    const rawPolygons = packets.flatMap((packet) => packet.geometry.polygons)
-    const arrangedPolygons = arrangedFaces.flatMap((face) => face.polygons)
-    const collapsedPolygons = collapsedFaces.flatMap((face) => face.polygons)
-    const denseCoverageFailures = denseCenterlineProbes.flatMap((probe) => {
-      const rawCovered = polygonListContainsPoint(rawPolygons, probe.point)
-      const arrangedCovered = polygonListContainsPoint(
-        arrangedPolygons,
-        probe.point
-      )
-      const collapsedCovered = polygonListContainsPoint(
-        collapsedPolygons,
-        probe.point
-      )
-
-      return rawCovered && arrangedCovered && collapsedCovered
-        ? []
-        : [{ ...probe, rawCovered, arrangedCovered, collapsedCovered }]
-    })
-    const sideProbeResults = getSourcePathSegmentRangesForTest(sourcePath).map(
-      (range) => {
-        const segmentOwnedPolygons = getSegmentOwnedPolygonsForTest(
-          collapsedFaces,
-          range.segmentIndex
-        )
-        const {
-          expectedInsideProbes,
-          oppositeSideProbes,
-          expectedInsideOffset
-        } = getSegmentInsideAndOppositeProbePoints(sourcePath, range)
-        return {
-          segmentIndex: range.segmentIndex,
-          expectedInsideOffset,
-          expectedInsideHits: expectedInsideProbes.filter((point) =>
-            polygonListContainsPoint(segmentOwnedPolygons, point)
-          ).length,
-          productExpectedInsideHits: expectedInsideProbes.filter((point) =>
-            polygonListContainsPoint(collapsedPolygons, point)
-          ).length,
-          expectedInsideProbeCount: expectedInsideProbes.length,
-          oppositeSideHits: oppositeSideProbes.filter((point) =>
-            polygonListContainsPoint(segmentOwnedPolygons, point)
-          ).length,
-          productOppositeSideHits: oppositeSideProbes.filter((point) =>
-            polygonListContainsPoint(collapsedPolygons, point)
-          ).length,
-          oppositeSideProbeCount: oppositeSideProbes.length,
-          oppositeSideCoveringFaces: oppositeSideProbes.flatMap(
-            (point, probeIndex) => {
-              const faces = collapsedFaces
-                .map((face) => ({
-                  faceId: face.faceId,
-                  sourceSpanIds: face.sourceSpanIds,
-                  sourceGeometryIds: face.sourceGeometryIds,
-                  contains: polygonListContainsPoint(face.polygons, point)
-                }))
-                .filter((face) => face.contains)
-
-              return faces.length === 0
-                ? []
-                : [
-                    {
-                      probeIndex,
-                      point,
-                      faces: faces.map(
-                        ({ faceId, sourceSpanIds, sourceGeometryIds }) => ({
-                          faceId,
-                          sourceSpanIds,
-                          sourceGeometryIds
-                        })
-                      )
-                    }
-                  ]
-            }
-          )
-        }
-      }
-    )
-    const wrongSideSegments = sideProbeResults.filter(
-      (result) =>
-        result.expectedInsideHits < 2 ||
-        result.productExpectedInsideHits < 2 ||
-        result.oppositeSideHits > 1 ||
-        result.productOppositeSideHits > 1
-    )
-    expect(
-      wrongSideSegments,
-      JSON.stringify(sideProbeResults, null, 2)
-    ).toEqual([])
-    expect(
-      denseCoverageFailures,
-      JSON.stringify(denseCoverageFailures, null, 2)
-    ).toEqual([])
-    const broadEmptyFaceRegions = [
-      { id: 'tp-12 top protrusion', x: 185, y: -10, width: 16, height: 8 },
-      { id: 'tp-15 left protrusion', x: -11, y: 5, width: 8, height: 14 },
-      { id: 'tp-14 right protrusion', x: 363, y: 138, width: 10, height: 14 },
-      { id: 'tp-16 lower protrusion', x: 270, y: 350, width: 10, height: 10 },
-      { id: 'center empty face', x: 156, y: 150, width: 24, height: 24 }
-    ]
-    const broadEmptyFaceFailures = broadEmptyFaceRegions
-      .map((region) => ({
-        id: region.id,
-        coverage: polygonListRegionCoverage(collapsedPolygons, region)
-      }))
-      .filter((result) => result.coverage > 0.08)
-    expect(
-      broadEmptyFaceFailures,
-      JSON.stringify(broadEmptyFaceFailures, null, 2)
-    ).toEqual([])
   })
 })

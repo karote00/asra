@@ -47,4 +47,22 @@ describe('vector render strategy entry', () => {
       prefix.indexOf('graphic.clear()')
     )
   })
+
+  it('should run: preserve explicit fillRule while defaulting missing data at the topology boundary', () => {
+    const source = vectorComponentSource()
+
+    expect(source).toContain(
+      "value === 'evenodd' || value === 'nonzero' ? value : 'nonzero'"
+    )
+    expect(source).toContain('normalizeRawPathTopologyFillRule(data.fillRule)')
+    expect(source).toContain(
+      'normalizeRawPathTopologyFillRule(rawData.fillRule)'
+    )
+    expect(source).not.toContain(
+      "data.fillRule === 'nonzero' ? 'nonzero' : null"
+    )
+    expect(source).not.toContain(
+      "rawData.fillRule === 'nonzero' ? 'nonzero' : null"
+    )
+  })
 })

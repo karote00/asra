@@ -58,7 +58,7 @@ describe('legal domain normalization', () => {
 
     expect(legalDomain).toMatchObject({
       legalDomainId: 'compound:legal-domain:0',
-      fillRule: 'evenodd',
+      fillRule: 'nonzero',
       mode: 'containment-depth',
       classifications: [
         expect.objectContaining({
@@ -81,6 +81,16 @@ describe('legal domain normalization', () => {
             { x: 100, y: 0 },
             { x: 100, y: 100 },
             { x: 0, y: 100 }
+          ]
+        ]
+      },
+      {
+        polygons: [
+          [
+            { x: 25, y: 75 },
+            { x: 75, y: 75 },
+            { x: 75, y: 25 },
+            { x: 25, y: 25 }
           ]
         ]
       }
