@@ -791,7 +791,14 @@ export const buildResolvedVectorStrokeBoundaryDomains = (
   })
 
 export const buildResolvedVectorSourcePathTracedSegments = (
-  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>
+  path: Pick<
+    PathGeometry,
+    | 'segments'
+    | 'closed'
+    | 'totalLength'
+    | 'traceSampleTolerance'
+    | 'traceSampleOptions'
+  >
 ): TracedLineSegment[] => {
   const segmentRanges = getSourcePathSegmentDistanceRanges(path)
   return path.segments.flatMap((segment, segmentIndex) => {
@@ -808,7 +815,9 @@ export const buildResolvedVectorSourcePathTracedSegments = (
       },
       0,
       segment.length,
-      false
+      false,
+      path.traceSampleTolerance,
+      path.traceSampleOptions
     )
     const sampledPoints =
       points.length >= 2 ? points : [segment.start, segment.end]

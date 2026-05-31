@@ -35,6 +35,8 @@ export interface PathGeometry {
   closed: boolean
   totalLength: number
   sampledPoints: Vec2[]
+  traceSampleTolerance?: number
+  traceSampleOptions?: PathSliceSamplingOptions
 }
 
 export interface VectorSegmentGeometryFrameCacheEntry {
@@ -57,6 +59,12 @@ export interface PathSliceSamplingOptions {
   minCubicSamples?: number
   maxCubicSamples?: number
   useRangeLengthForSampleCount?: boolean
+}
+
+export interface PathGeometryBuildOptions {
+  sampleTolerance?: number
+  sampleOptions?: PathSliceSamplingOptions
+  cacheKey?: string
 }
 
 const EPS = 1e-6
@@ -340,14 +348,23 @@ export const slicePathSegmentPoints = (
   segment: PathSegment,
   startLength: number,
   endLength: number,
-  tolerance = CURVE_TESSELLATION_TOLERANCE
+  tolerance = CURVE_TESSELLATION_TOLERANCE,
+  samplingOptions?: PathSliceSamplingOptions
 ): Vec2[] =>
-  slicePathSegmentFrames(segment, startLength, endLength, tolerance).map(
-    (frame) => frame.point
-  )
+  slicePathSegmentFrames(
+    segment,
+    startLength,
+    endLength,
+    tolerance,
+    samplingOptions
+  ).map((frame) => frame.point)
 
-const samplePathSegment = (segment: PathSegment, tolerance: number): Vec2[] =>
-  slicePathSegmentPoints(segment, 0, segment.length, tolerance)
+const samplePathSegment = (
+  segment: PathSegment,
+  tolerance: number,
+  samplingOptions?: PathSliceSamplingOptions
+): Vec2[] =>
+  slicePathSegmentPoints(segment, 0, segment.length, tolerance, samplingOptions)
 
 const slicePathGeometryPointRange = (
   path: Pick<PathGeometry, 'segments'>,
@@ -405,7 +422,8 @@ const slicePathGeometryFrameRange = (
   path: Pick<PathGeometry, 'segments'>,
   startLength: number,
   endLength: number,
-  tolerance: number
+  tolerance: number,
+  samplingOptions?: PathSliceSamplingOptions
 ) => {
   if (endLength <= startLength || path.segments.length === 0) {
     return []
@@ -433,7 +451,8 @@ const slicePathGeometryFrameRange = (
       segment,
       overlapStart - segmentStart,
       overlapEnd - segmentStart,
-      tolerance
+      tolerance,
+      samplingOptions
     )
 
     if (segmentFrames.length === 0) {
@@ -493,19 +512,33 @@ export const slicePathGeometryFrames = (
   startLength: number,
   endLength: number,
   wrapsSeam: boolean,
-  tolerance = CURVE_TESSELLATION_TOLERANCE
+  tolerance = CURVE_TESSELLATION_TOLERANCE,
+  samplingOptions?: PathSliceSamplingOptions
 ) => {
   if (!wrapsSeam) {
-    return slicePathGeometryFrameRange(path, startLength, endLength, tolerance)
+    return slicePathGeometryFrameRange(
+      path,
+      startLength,
+      endLength,
+      tolerance,
+      samplingOptions
+    )
   }
 
   const tail = slicePathGeometryFrameRange(
     path,
     startLength,
     path.totalLength,
-    tolerance
+    tolerance,
+    samplingOptions
   )
-  const head = slicePathGeometryFrameRange(path, 0, endLength, tolerance)
+  const head = slicePathGeometryFrameRange(
+    path,
+    0,
+    endLength,
+    tolerance,
+    samplingOptions
+  )
   if (tail.length === 0) {
     return head
   }
@@ -641,12 +674,18 @@ const buildPathGeometry = (
   network: VectorNetwork,
   points: Record<string, VectorPointNode>,
   segments: Record<string, VectorSegment>,
-  cache?: VectorSegmentGeometryFrameCache
+  cache?: VectorSegmentGeometryFrameCache,
+  options?: PathGeometryBuildOptions
 ): PathGeometry => {
   const pathSegments: PathSegment[] = []
   const sampledSegments: Vec2[][] = []
   let totalLength = 0
   const usedSegmentIds = new Set<string>()
+  const sampleTolerance =
+    options?.sampleTolerance ?? CURVE_TESSELLATION_TOLERANCE
+  const samplingCacheKey =
+    options?.cacheKey ??
+    `sample:${sampleTolerance}:${options?.sampleOptions?.minCubicSamples ?? ''}:${options?.sampleOptions?.maxCubicSamples ?? ''}:${options?.sampleOptions?.useRangeLengthForSampleCount ?? ''}`
 
   network.segmentIds.forEach((segmentId) => {
     const segment = segments[segmentId]
@@ -655,7 +694,10 @@ const buildPathGeometry = (
     }
     usedSegmentIds.add(segmentId)
 
-    const revisionKey = buildSegmentGeometryRevisionKey(segment, points)
+    const revisionKey = [
+      samplingCacheKey,
+      buildSegmentGeometryRevisionKey(segment, points)
+    ].join('|')
     const cached = cache?.entries.get(segmentId)
     if (cached?.key === revisionKey) {
       totalLength += cached.segment.length
@@ -670,7 +712,8 @@ const buildPathGeometry = (
     }
     const sampledPoints = samplePathSegment(
       pathSegment,
-      CURVE_TESSELLATION_TOLERANCE
+      sampleTolerance,
+      options?.sampleOptions
     )
     totalLength += pathSegment.length
     pathSegments.push(pathSegment)
@@ -700,7 +743,9 @@ const buildPathGeometry = (
     segments: pathSegments,
     closed: network.closed,
     totalLength,
-    sampledPoints
+    sampledPoints,
+    traceSampleTolerance: sampleTolerance,
+    traceSampleOptions: options?.sampleOptions
   }
 }
 

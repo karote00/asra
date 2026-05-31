@@ -93,6 +93,15 @@ class RecordingVectorGraphic extends Container {
   __asyraVectorDragVisualMode?: boolean
   __asyraSolidCenterStrokeExportPackets?: unknown[]
   __asyraStrokeMeshCache?: Map<string, { kind?: string }>
+  __asyraVectorPathModelCache?: {
+    entries: Map<
+      string,
+      {
+        revision: { key: string }
+        model: { path: { sampledPoints: unknown[] } }
+      }
+    >
+  }
   hitArea?: { contains: (x: number, y: number) => boolean } | null
 
   clear() {
@@ -166,6 +175,16 @@ const clearInteractionState = () => {
 
 const getStrokeCacheEntries = (graphic: RecordingVectorGraphic) =>
   Array.from(graphic.__asyraStrokeMeshCache?.entries() ?? [])
+
+const getPathModelSampleCount = (graphic: RecordingVectorGraphic) =>
+  Array.from(
+    graphic.__asyraVectorPathModelCache?.entries.values() ?? []
+  ).reduce((total, entry) => total + entry.model.path.sampledPoints.length, 0)
+
+const getPathModelRevisionKeys = (graphic: RecordingVectorGraphic) =>
+  Array.from(graphic.__asyraVectorPathModelCache?.entries.values() ?? []).map(
+    (entry) => entry.revision.key
+  )
 
 const expectFinalProductVisualCache = (graphic: RecordingVectorGraphic) => {
   const cacheEntries = getStrokeCacheEntries(graphic)
@@ -445,6 +464,44 @@ describe('stroke drag product visual contract', () => {
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0
     ).toBeGreaterThan(0)
+    clearInteractionState()
+  })
+
+  it('should run: bound self-intersecting path drag preview sampling and restore full precision after drag', () => {
+    const graphic = new RecordingVectorGraphic()
+    const stroke = createStroke('round')
+    const data = mutateDragFrame(9, 'anchor')
+
+    setPathEditingState({
+      vectorId: 'drag-profile:anchor',
+      mouseDragging: true,
+      mouseDown: true
+    })
+    renderVectorFrame(graphic, data, stroke)
+
+    const dragSampleCount = getPathModelSampleCount(graphic)
+    expect(graphic.__asyraVectorDragVisualMode).toBe(true)
+    expect(dragSampleCount).toBeGreaterThan(0)
+    expect(dragSampleCount).toBeLessThanOrEqual(320)
+    expect(
+      getPathModelRevisionKeys(graphic).every((key) =>
+        key.includes('drag-preview:v1')
+      )
+    ).toBe(true)
+
+    setPathEditingState({
+      vectorId: 'drag-profile:anchor',
+      mouseDragging: false,
+      mouseDown: false
+    })
+    renderVectorFrame(graphic, data, stroke)
+
+    const finalSampleCount = getPathModelSampleCount(graphic)
+    expect(graphic.__asyraVectorDragVisualMode).toBe(false)
+    expect(finalSampleCount).toBeGreaterThan(dragSampleCount * 3)
+    expect(
+      getPathModelRevisionKeys(graphic).every((key) => key.includes('final:v1'))
+    ).toBe(true)
     clearInteractionState()
   })
 })

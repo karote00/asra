@@ -130,6 +130,9 @@ interface BurstDragMetrics {
 }
 
 const FRAME_BUDGET_120FPS_MS = 8.33
+const VECTOR_POINT_DRAG_RESOLVED_GEOMETRY_P95_BUDGET_MS = Number(
+  process.env.ASYRA_VECTOR_POINT_DRAG_RESOLVED_GEOMETRY_P95_BUDGET_MS ?? 24
+)
 const DRAG_STEP_COUNT = Number(process.env.ASYRA_STROKE_DRAG_E2E_STEPS ?? 12)
 const SHOULD_ENFORCE_120FPS =
   process.env.ASYRA_STROKE_DRAG_E2E_ENFORCE_120FPS === '1'
@@ -680,6 +683,21 @@ const assertRequiredPhaseCoverage = (metric: DragMetrics) => {
     metric.freshnessProbe?.visualChanged,
     `${metric.label} should visibly update the product stroke during drag`
   ).toBe(true)
+}
+
+const assertVectorPointDragPerformanceBudget = (metrics: DragMetrics[]) => {
+  const pointDragMetrics = metrics.filter(
+    (metric) => !metric.label.startsWith('move-vector:')
+  )
+  const resolvedGeometryP95Values = pointDragMetrics.map(
+    (metric) => metric.phaseP95Ms['resolved vector geometry model'] ?? 0
+  )
+  const maxResolvedGeometryP95 = Math.max(...resolvedGeometryP95Values)
+
+  expect(
+    maxResolvedGeometryP95,
+    `vector point/control drag resolved geometry p95 should stay below ${VECTOR_POINT_DRAG_RESOLVED_GEOMETRY_P95_BUDGET_MS}ms`
+  ).toBeLessThan(VECTOR_POINT_DRAG_RESOLVED_GEOMETRY_P95_BUDGET_MS)
 }
 
 const waitForPaintFrame = (page: Page) =>
@@ -2176,6 +2194,7 @@ test.describe('stroke drag render performance UX gate', () => {
       'out-control'
     )
     metrics.forEach(assertRequiredPhaseCoverage)
+    assertVectorPointDragPerformanceBudget(metrics)
     expect(
       burstMetrics.productRenderPhaseCount,
       'burst drag should observe product vector renders'
@@ -2249,6 +2268,8 @@ test.describe('stroke drag render performance UX gate', () => {
         phaseMeasurementPaintIndex: 0,
         paintObservationWindow: 3,
         frameBudgetMs: FRAME_BUDGET_120FPS_MS,
+        vectorPointDragResolvedGeometryP95BudgetMs:
+          VECTOR_POINT_DRAG_RESOLVED_GEOMETRY_P95_BUDGET_MS,
         enforce120fps: SHOULD_ENFORCE_120FPS,
         schedulingBaseline,
         maxP95Ms,

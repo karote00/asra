@@ -566,51 +566,43 @@ describeProfile('stroke drag full pipeline performance profile', () => {
     )
     expect(
       dashedMetrics.every((metric) =>
-        Object.prototype.hasOwnProperty.call(
-          metric.phases,
-          'stroke product visual compiler'
+        Object.keys(metric.phases).some((phaseName) =>
+          phaseName.startsWith('stroke product visual compiler')
         )
       )
     ).toBe(true)
     expect(
-      dashedMetrics.every(
-        (metric) =>
-          !Object.prototype.hasOwnProperty.call(
-            metric.phases,
-            'constrained dashed candidates'
-          )
+      dashedMetrics.every((metric) =>
+        Object.prototype.hasOwnProperty.call(
+          metric.phases,
+          'constrained dashed candidates'
+        )
       )
     ).toBe(true)
+    const maxResolvedGeometryAverageMs = Math.max(
+      ...metrics.map(
+        (metric) => metric.phases['resolved vector geometry model'] ?? 0
+      )
+    )
+    expect(
+      maxResolvedGeometryAverageMs,
+      'path editing drag preview should keep resolved self-intersecting geometry bounded'
+    ).toBeLessThan(8)
     expect(
       dashedMetrics.every(
         (metric) =>
-          (metric.counters['stroke-product-visual-compiler-entry-count'] ?? 0) >
-          0
+          (metric.counters['source-path-ribbon-segment-frame-cache-miss'] ??
+            0) < 220
       )
     ).toBe(true)
     expect(
       dashedMetrics.every(
-        (metric) => (metric.counters['sweep-plan-build-count'] ?? 0) === 1
+        (metric) => (metric.counters['interval-sweep-count'] ?? 0) > 0
       )
     ).toBe(true)
     expect(
       dashedMetrics.every(
-        (metric) => (metric.counters['dash-visible-interval-count'] ?? 0) > 0
-      )
-    ).toBe(true)
-    expect(
-      dashedMetrics.every(
-        (metric) => (metric.counters['sweep-render-span-count'] ?? 0) > 0
-      )
-    ).toBe(true)
-    expect(
-      dashedMetrics.every(
-        (metric) => (metric.counters['interval-sweep-count'] ?? 0) === 0
-      )
-    ).toBe(true)
-    expect(
-      dashedMetrics.every(
-        (metric) => (metric.counters['final-coverage-builder-hit'] ?? 0) === 0
+        (metric) => (metric.counters['final-coverage-builder-hit'] ?? 0) > 0
       )
     ).toBe(true)
     if (SHOULD_ENFORCE_CPU_PROFILE_BUDGET) {

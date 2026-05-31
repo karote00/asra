@@ -67,6 +67,7 @@ import {
 } from './stroke-render/dashed-center-stroke-packets'
 import {
   buildVectorGeometryModelPath,
+  type PathGeometryBuildOptions,
   type VectorSegmentGeometryFrameCache
 } from './stroke-render/path-geometry'
 import {
@@ -801,7 +802,8 @@ const buildVectorSourceRevision = (
   fillRule: PathTopologyFillRule,
   network: VectorNetwork,
   points: Record<string, VectorPointNode>,
-  segments: Record<string, VectorSegment>
+  segments: Record<string, VectorSegment>,
+  geometryCacheKey: string
 ): VectorSourceRevision => {
   const counterSink = (
     globalThis as typeof globalThis & {
@@ -857,6 +859,7 @@ const buildVectorSourceRevision = (
     vectorId,
     fillRule,
     network.id,
+    geometryCacheKey,
     network.closed ? 'closed' : 'open',
     pointEntries.join('|'),
     segmentEntries.join('|')
@@ -1191,6 +1194,14 @@ const INTERSECTION_EPS = 1e-6
 const NODE_KEY_EPS = 1e-4
 const MAX_OPEN_SEGMENTS = 1200
 const EVEN_ODD_DRAG_MAX_RASTER_PIXELS = 160_000
+const DRAG_PATH_GEOMETRY_OPTIONS = {
+  cacheKey: 'drag-preview:v1',
+  sampleTolerance: 8,
+  sampleOptions: {
+    maxCubicSamples: 32
+  }
+} satisfies PathGeometryBuildOptions
+const FINAL_PATH_GEOMETRY_CACHE_KEY = 'final:v1'
 
 const cubicBezierPoint = (
   p0: Vec2,
@@ -2270,6 +2281,11 @@ const renderVectorGraphic = (
     string,
     VectorSegmentGeometryFrameCache
   >()
+  const pathGeometryOptions = dragSuppressed
+    ? DRAG_PATH_GEOMETRY_OPTIONS
+    : undefined
+  const pathGeometryCacheKey =
+    pathGeometryOptions?.cacheKey ?? FINAL_PATH_GEOMETRY_CACHE_KEY
   const usedPathModelCacheKeys = new Set<string>()
   const networkPaths = measureVectorRenderPhase('path/topology', () =>
     orderedNetworks.map((network) => {
@@ -2278,7 +2294,8 @@ const renderVectorGraphic = (
         renderData.fillRule,
         network,
         points,
-        segments
+        segments,
+        pathGeometryCacheKey
       )
       const cached = pathModelCache.entries.get(network.id)
       if (cached?.revision.key === sourceRevision.key) {
@@ -2294,7 +2311,8 @@ const renderVectorGraphic = (
           network,
           points,
           segments,
-          segmentFrameCache
+          segmentFrameCache,
+          pathGeometryOptions
         )
       )
       pathModelCache.segmentFrames.set(network.id, segmentFrameCache)
