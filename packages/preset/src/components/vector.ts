@@ -93,6 +93,7 @@ import {
 } from './stroke-render/path-topology-model'
 import {
   buildResolvedVectorGeometryModel,
+  type ResolvedVectorGeometryFrameCache,
   type ResolvedVectorGeometryNetworkModel
 } from './stroke-render/resolved-vector-geometry-model'
 
@@ -2140,6 +2141,7 @@ const renderVectorGraphic = (
     __asyraEvenOddFillCache?: EvenOddFillCache
     __asyraVectorHitCache?: VectorHitCache
     __asyraVectorPathModelCache?: VectorPathModelCache
+    __asyraResolvedVectorGeometryCache?: ResolvedVectorGeometryFrameCache
   }
   const systemDebugDisableVisualOverlapCollapse =
     core.getSystemProperty<boolean>(
@@ -2327,9 +2329,11 @@ const renderVectorGraphic = (
           path,
           topology
         })),
-        resolveSelfIntersecting: needsResolvedGeometryModel
+        resolveSelfIntersecting: needsResolvedGeometryModel,
+        previousCache: graphicCache.__asyraResolvedVectorGeometryCache
       })
   )
+  graphicCache.__asyraResolvedVectorGeometryCache = resolvedGeometryModel.cache
   const resolvedGeometryByNetworkId = new Map<
     string,
     ResolvedVectorGeometryNetworkModel

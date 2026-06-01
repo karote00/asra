@@ -4,12 +4,17 @@ import { describe, expect, it } from 'vitest'
 import type { PolygonRegion } from '../components/stroke-render/geometry-backend'
 import { buildPathTopologyModel } from '../components/stroke-render/path-topology-model'
 import {
+  buildVectorGeometryModelPath,
   buildPolylineGeometryModelPath,
   samplePathSegmentFrameAtLength,
   type PathGeometry
 } from '../components/stroke-render/path-geometry'
 import { buildResolvedVectorGeometryModel } from '../components/stroke-render/resolved-vector-geometry-model'
 import type { Vec2 } from '../components/stroke-render/solid-stroke-geometry-core'
+import {
+  REPORTED_ROUND_INSIDE_DASHED_STAR_NETWORK_ID,
+  createReportedRoundInsideDashedStarVectorData
+} from './inside-dashed-fixtures'
 
 const vectorComponentSource = () =>
   readFileSync('src/components/vector.ts', 'utf8')
@@ -105,6 +110,47 @@ const sampleRangeSideOccupancy = ({
     leftFilled: isPointInFillRegions(sidePoint(1), regions),
     rightFilled: isPointInFillRegions(sidePoint(-1), regions)
   }
+}
+
+const buildReportedStarGeometryInput = (
+  frame: number,
+  kind: 'anchor' | 'in-control' | 'out-control'
+) => {
+  const data = createReportedRoundInsideDashedStarVectorData()
+  const deltaX = Math.sin(frame / 7) * 18
+  const deltaY = Math.cos(frame / 9) * 14
+  const points = { ...data.points }
+
+  if (kind === 'anchor') {
+    ;(['tp-52', 'tp-52:in', 'tp-52:out'] as const).forEach((pointId) => {
+      points[pointId] = {
+        ...points[pointId],
+        x: points[pointId].x + deltaX,
+        y: points[pointId].y + deltaY
+      }
+    })
+  } else {
+    const pointId = kind === 'in-control' ? 'tp-52:in' : 'tp-52:out'
+    points[pointId] = {
+      ...points[pointId],
+      x: points[pointId].x + deltaX,
+      y: points[pointId].y + deltaY
+    }
+  }
+
+  const network = data.networks[REPORTED_ROUND_INSIDE_DASHED_STAR_NETWORK_ID]
+  const path = buildVectorGeometryModelPath(network, points, data.segments)
+  const topology = buildPathTopologyModel({
+    pathId: `cached-drag-frame:${kind}:${frame}`,
+    sourceId: 'cached-drag-frame',
+    networkId: network.id,
+    sourceRevision: `source-revision:cached-drag-frame:${kind}:${frame}`,
+    sourceFamily: 'vector',
+    points: path.sampledPoints,
+    closed: path.closed
+  })
+
+  return { path, topology, networkId: network.id }
 }
 
 describe('resolved vector geometry model', () => {
@@ -376,6 +422,49 @@ describe('resolved vector geometry model', () => {
       )
       expect(domain.insideEligible).toBe(true)
       expect(domain.outsideEligible).toBe(false)
+    })
+  })
+
+  it('should run: keep cached self-intersection drag frames equivalent to full rebuilds', () => {
+    let previousCache:
+      | ReturnType<typeof buildResolvedVectorGeometryModel>['cache']
+      | undefined
+    ;(
+      [
+        ['anchor', 0],
+        ['anchor', 1],
+        ['in-control', 2],
+        ['out-control', 3],
+        ['anchor', 4]
+      ] as const
+    ).forEach(([kind, frame]) => {
+      const { path, topology, networkId } = buildReportedStarGeometryInput(
+        frame,
+        kind
+      )
+      const networks = [
+        {
+          networkId,
+          path,
+          topology
+        }
+      ]
+      const fullModel = buildResolvedVectorGeometryModel({
+        modelId: `full:${kind}:${frame}`,
+        fillRule: topology.fillRule,
+        networks
+      })
+      const cachedModel = buildResolvedVectorGeometryModel({
+        modelId: `cached:${kind}:${frame}`,
+        fillRule: topology.fillRule,
+        networks,
+        previousCache
+      })
+
+      expect(cachedModel.networks[0]?.selfIntersecting).toEqual(
+        fullModel.networks[0]?.selfIntersecting
+      )
+      previousCache = cachedModel.cache
     })
   })
 

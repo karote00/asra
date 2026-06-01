@@ -1,6 +1,7 @@
 import {
   buildSelfIntersectingResolvedGeometry,
   splitTracedSegmentsByIntersections,
+  type SelfIntersectionPairCache,
   type EvenOddBoundaryContour,
   type EvenOddLegalFaceBoundaryEdge,
   type EvenOddLegalFaceBoundary,
@@ -19,6 +20,19 @@ interface ResolvedVectorGeometryNetworkInput {
   networkId: string
   path: PathGeometry
   topology: PathTopologyModel
+}
+
+export interface ResolvedVectorGeometryNetworkFrameCache {
+  tracedSegmentSignatures: string[]
+  selfIntersectionCache?: SelfIntersectionPairCache
+}
+
+export interface ResolvedVectorGeometryFrameCache {
+  networks: Map<string, ResolvedVectorGeometryNetworkFrameCache>
+}
+
+export interface IncrementalResolvedGeometryOptions {
+  previousCache?: ResolvedVectorGeometryFrameCache
 }
 
 export interface ResolvedVectorSelfIntersectingGeometry {
@@ -72,11 +86,56 @@ export interface ResolvedVectorGeometryModel {
   modelId: string
   fillRule: PathTopologyModel['fillRule']
   networks: ResolvedVectorGeometryNetworkModel[]
+  cache?: ResolvedVectorGeometryFrameCache
 }
 
 const EPSILON = 1e-6
 
 const distanceBetween = (a: Vec2, b: Vec2) => Math.hypot(b.x - a.x, b.y - a.y)
+
+const getTracedSegmentSignature = (segment: TracedLineSegment) =>
+  [
+    segment.start.x.toFixed(4),
+    segment.start.y.toFixed(4),
+    segment.end.x.toFixed(4),
+    segment.end.y.toFixed(4),
+    segment.sourceSegmentIndex ?? ''
+  ].join(':')
+
+const emitStrokePipelineCounter = (counterName: string, value = 1) => {
+  ;(
+    globalThis as typeof globalThis & {
+      __asyraStrokePipelineCounterSink?: (
+        counterName: string,
+        value: number
+      ) => void
+    }
+  ).__asyraStrokePipelineCounterSink?.(counterName, value)
+}
+
+const measureResolvedVectorGeometryPhase = <T>(
+  phaseName: string,
+  run: () => T
+): T => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraVectorRenderPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraVectorRenderPhaseSink
+  if (!sink) {
+    return run()
+  }
+
+  const start = performance.now()
+  try {
+    return run()
+  } finally {
+    sink(phaseName, performance.now() - start)
+  }
+}
 
 const isPointInPolygonEvenOdd = (point: Vec2, polygon: Vec2[]) => {
   let inside = false
@@ -103,6 +162,58 @@ const isPointInPolygonEvenOdd = (point: Vec2, polygon: Vec2[]) => {
 const isPointInFillRegions = (point: Vec2, regions: PolygonRegion[]) =>
   regions.some((region) =>
     region.polygons.some((polygon) => isPointInPolygonEvenOdd(point, polygon))
+  )
+
+interface PolygonBounds {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+}
+
+interface PreparedFillPolygon {
+  polygon: Vec2[]
+  bounds: PolygonBounds
+}
+
+const getPolygonBounds = (polygon: Vec2[]): PolygonBounds => {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  polygon.forEach((point) => {
+    minX = Math.min(minX, point.x)
+    minY = Math.min(minY, point.y)
+    maxX = Math.max(maxX, point.x)
+    maxY = Math.max(maxY, point.y)
+  })
+  return { minX, minY, maxX, maxY }
+}
+
+const buildPreparedFillPolygons = (
+  regions: PolygonRegion[]
+): PreparedFillPolygon[] =>
+  regions.flatMap((region) =>
+    region.polygons.map((polygon) => ({
+      polygon,
+      bounds: getPolygonBounds(polygon)
+    }))
+  )
+
+const boundsContainPoint = (bounds: PolygonBounds, point: Vec2) =>
+  point.x >= bounds.minX - EPSILON &&
+  point.x <= bounds.maxX + EPSILON &&
+  point.y >= bounds.minY - EPSILON &&
+  point.y <= bounds.maxY + EPSILON
+
+const isPointInPreparedFillPolygons = (
+  point: Vec2,
+  preparedPolygons: PreparedFillPolygon[]
+) =>
+  preparedPolygons.some(
+    ({ polygon, bounds }) =>
+      boundsContainPoint(bounds, point) &&
+      isPointInPolygonEvenOdd(point, polygon)
   )
 
 const getSegmentStartDistance = (
@@ -167,6 +278,7 @@ const resolveFilledSideFromFillRegions = ({
   boundaryRole,
   domain,
   fillRegions,
+  preparedFillPolygons,
   legalSide,
   path,
   sourceSegmentStartDistance
@@ -174,6 +286,7 @@ const resolveFilledSideFromFillRegions = ({
   boundaryRole: ResolvedVectorSourceSplitRange['boundaryRole']
   domain: EvenOddBoundaryContour['dashDomains'][number]
   fillRegions: PolygonRegion[]
+  preparedFillPolygons?: PreparedFillPolygon[]
   legalSide: 1 | -1
   path: Pick<PathGeometry, 'segments'>
   sourceSegmentStartDistance?: number
@@ -181,7 +294,11 @@ const resolveFilledSideFromFillRegions = ({
   const fallbackFilledSide =
     boundaryRole === 'hole' ? (legalSide === 1 ? -1 : 1) : legalSide
 
-  if (boundaryRole === 'hole') {
+  if (
+    boundaryRole === 'hole' ||
+    boundaryRole === 'outer' ||
+    boundaryRole === 'filled-face'
+  ) {
     return {
       filledSide: fallbackFilledSide,
       status: 'resolved' as const
@@ -208,14 +325,14 @@ const resolveFilledSideFromFillRegions = ({
     })
     const votes = [1e-3, 0.01, 0.05, 0.1, 0.35, 0.75, 1, 1.5, 2].reduce(
       (result, offset) => {
-        const leftFilled = isPointInFillRegions(
-          sidePoint(1, offset),
-          fillRegions
-        )
-        const rightFilled = isPointInFillRegions(
-          sidePoint(-1, offset),
-          fillRegions
-        )
+        const leftPoint = sidePoint(1, offset)
+        const rightPoint = sidePoint(-1, offset)
+        const leftFilled = preparedFillPolygons
+          ? isPointInPreparedFillPolygons(leftPoint, preparedFillPolygons)
+          : isPointInFillRegions(leftPoint, fillRegions)
+        const rightFilled = preparedFillPolygons
+          ? isPointInPreparedFillPolygons(rightPoint, preparedFillPolygons)
+          : isPointInFillRegions(rightPoint, fillRegions)
         if (leftFilled !== rightFilled) {
           if (leftFilled) {
             result.left += 1
@@ -266,11 +383,14 @@ const resolveFilledSideFromFillRegions = ({
 
   const votes = [1e-3, 0.01, 0.05, 0.1, 0.35, 0.75, 1, 1.5, 2].reduce(
     (result, offset) => {
-      const leftFilled = isPointInFillRegions(sidePoint(1, offset), fillRegions)
-      const rightFilled = isPointInFillRegions(
-        sidePoint(-1, offset),
-        fillRegions
-      )
+      const leftPoint = sidePoint(1, offset)
+      const rightPoint = sidePoint(-1, offset)
+      const leftFilled = preparedFillPolygons
+        ? isPointInPreparedFillPolygons(leftPoint, preparedFillPolygons)
+        : isPointInFillRegions(leftPoint, fillRegions)
+      const rightFilled = preparedFillPolygons
+        ? isPointInPreparedFillPolygons(rightPoint, preparedFillPolygons)
+        : isPointInFillRegions(rightPoint, fillRegions)
       if (leftFilled !== rightFilled) {
         if (leftFilled) {
           result.left += 1
@@ -456,12 +576,11 @@ const getMergedBoundaryPoints = (edges: EvenOddLegalFaceBoundaryEdge[]) =>
       )
 
 const getMergedBoundaryLength = (points: Vec2[]) =>
-  points
-    .slice(1)
-    .reduce(
-      (sum, point, index) => sum + distanceBetween(points[index], point),
-      0
-    )
+  points.reduce(
+    (sum, point, index) =>
+      index === 0 ? sum : sum + distanceBetween(points[index - 1], point),
+    0
+  )
 
 const buildResolvedVectorSourceSplitRanges = (
   legalFaceBoundaries: EvenOddLegalFaceBoundary[],
@@ -470,15 +589,22 @@ const buildResolvedVectorSourceSplitRanges = (
   path: Pick<PathGeometry, 'segments'>
 ): ResolvedVectorSourceSplitRange[] => {
   const rangeByKey = new Map<string, ResolvedVectorSourceSplitRange>()
+  let preparedFillPolygons: PreparedFillPolygon[] | undefined
+  const getPreparedFillPolygons = () => {
+    preparedFillPolygons ??= buildPreparedFillPolygons(fillRegions)
+    return preparedFillPolygons
+  }
   const sourceSegmentStartDistanceByIndex = new Map<number, number>()
+  let sourceCursor = 0
+  path.segments.forEach((segment, segmentIndex) => {
+    sourceSegmentStartDistanceByIndex.set(segmentIndex, sourceCursor)
+    sourceCursor += segment.length
+  })
   const getCachedSourceSegmentStartDistance = (segmentIndex: number) => {
-    const cached = sourceSegmentStartDistanceByIndex.get(segmentIndex)
-    if (cached !== undefined) {
-      return cached
-    }
-    const distance = getSegmentStartDistance(path, segmentIndex)
-    sourceSegmentStartDistanceByIndex.set(segmentIndex, distance)
-    return distance
+    return (
+      sourceSegmentStartDistanceByIndex.get(segmentIndex) ??
+      getSegmentStartDistance(path, segmentIndex)
+    )
   }
   const getBoundaryRole = (
     contour: EvenOddBoundaryContour
@@ -498,18 +624,40 @@ const buildResolvedVectorSourceSplitRanges = (
       end.x.toFixed(4),
       end.y.toFixed(4)
     ].join(':')
-  const contourRoleByEdgeKey = new Map<
+  let contourRoleByEdgeKey:
+    | Map<string, ResolvedVectorSourceSplitRange['boundaryRole']>
+    | undefined
+  const contourRoleByOppositeFaceId = new Map<
     string,
-    ResolvedVectorSourceSplitRange['boundaryRole']
+    ResolvedVectorSourceSplitRange['boundaryRole'] | 'mixed'
   >()
-
   legalBoundaryContours.forEach((contour) => {
     const role = getBoundaryRole(contour)
-    contour.edges.forEach((edge) => {
-      contourRoleByEdgeKey.set(edgeKey(edge.start, edge.end), role)
-      contourRoleByEdgeKey.set(edgeKey(edge.end, edge.start), role)
-    })
+    const existing = contourRoleByOppositeFaceId.get(contour.oppositeFaceId)
+    contourRoleByOppositeFaceId.set(
+      contour.oppositeFaceId,
+      existing === undefined || existing === role ? role : 'mixed'
+    )
   })
+  const getContourRoleByEdgeKey = (
+    edge: EvenOddLegalFaceBoundaryEdge
+  ): ResolvedVectorSourceSplitRange['boundaryRole'] | undefined => {
+    contourRoleByEdgeKey ??= (() => {
+      const roleByEdgeKey = new Map<
+        string,
+        ResolvedVectorSourceSplitRange['boundaryRole']
+      >()
+      legalBoundaryContours.forEach((contour) => {
+        const role = getBoundaryRole(contour)
+        contour.edges.forEach((contourEdge) => {
+          roleByEdgeKey.set(edgeKey(contourEdge.start, contourEdge.end), role)
+          roleByEdgeKey.set(edgeKey(contourEdge.end, contourEdge.start), role)
+        })
+      })
+      return roleByEdgeKey
+    })()
+    return contourRoleByEdgeKey.get(edgeKey(edge.start, edge.end))
+  }
 
   legalFaceBoundaries.forEach((face) => {
     const getFaceEdgeBoundaryRole = (
@@ -517,8 +665,14 @@ const buildResolvedVectorSourceSplitRanges = (
     ): ResolvedVectorSourceSplitRange['boundaryRole'] =>
       edge.oppositeFaceLegal
         ? 'filled-face'
-        : (contourRoleByEdgeKey.get(edgeKey(edge.start, edge.end)) ??
-          'ambiguous')
+        : edge.oppositeFaceId === null
+          ? 'ambiguous'
+          : (() => {
+              const role = contourRoleByOppositeFaceId.get(edge.oppositeFaceId)
+              return role && role !== 'mixed'
+                ? role
+                : (getContourRoleByEdgeKey(edge) ?? 'ambiguous')
+            })()
 
     const edgeRecords = face.edges.flatMap((edge) => {
       if (
@@ -646,6 +800,10 @@ const buildResolvedVectorSourceSplitRanges = (
           legalSide: firstEdge.legalSide
         } as EvenOddBoundaryContour['dashDomains'][number],
         fillRegions,
+        preparedFillPolygons:
+          chain.boundaryRole === 'ambiguous'
+            ? getPreparedFillPolygons()
+            : undefined,
         legalSide,
         path,
         sourceSegmentStartDistance: getCachedSourceSegmentStartDistance(
@@ -719,6 +877,10 @@ const buildResolvedVectorSourceSplitRanges = (
           boundaryRole,
           domain,
           fillRegions,
+          preparedFillPolygons:
+            boundaryRole === 'ambiguous'
+              ? getPreparedFillPolygons()
+              : undefined,
           legalSide,
           path,
           sourceSegmentStartDistance: getCachedSourceSegmentStartDistance(
@@ -896,32 +1058,56 @@ export const buildResolvedVectorSourcePathTracedSegments = (
 
 const buildSelfIntersectingGeometry = (
   path: PathGeometry,
-  topology: PathTopologyModel
-): ResolvedVectorSelfIntersectingGeometry | null => {
+  topology: PathTopologyModel,
+  previousCache?: ResolvedVectorGeometryNetworkFrameCache
+): {
+  geometry: ResolvedVectorSelfIntersectingGeometry | null
+  cache: ResolvedVectorGeometryNetworkFrameCache
+} => {
+  const emptyCache: ResolvedVectorGeometryNetworkFrameCache = {
+    tracedSegmentSignatures: []
+  }
   if (!path.closed || path.segments.length < 2) {
-    return null
+    return { geometry: null, cache: emptyCache }
   }
 
   const tracedSegments = buildResolvedVectorSourcePathTracedSegments(path)
   if (tracedSegments.length === 0) {
-    return null
+    return { geometry: null, cache: emptyCache }
   }
-  const sourceSplitSegments =
+  const tracedSegmentSignatures = tracedSegments.map(getTracedSegmentSignature)
+  const splitResult =
     topology.topologyFamily === 'self-intersecting'
-      ? tracedSegments
-      : splitTracedSegmentsByIntersections(tracedSegments)
+      ? null
+      : splitTracedSegmentsByIntersections(tracedSegments, {
+          previousCache: previousCache?.selfIntersectionCache,
+          segmentSignatures: tracedSegmentSignatures,
+          returnCache: true
+        })
+  const sourceSplitSegments = splitResult?.splitSegments ?? tracedSegments
   const hasSourceIntersections =
     sourceSplitSegments.length > tracedSegments.length
   if (
     topology.topologyFamily !== 'self-intersecting' &&
     !hasSourceIntersections
   ) {
-    return null
+    return {
+      geometry: null,
+      cache: {
+        tracedSegmentSignatures,
+        selfIntersectionCache:
+          splitResult?.cache ?? previousCache?.selfIntersectionCache
+      }
+    }
   }
 
   const resolvedGeometry = buildSelfIntersectingResolvedGeometry(
     tracedSegments,
-    topology.fillRule
+    topology.fillRule,
+    {
+      previousCache: splitResult?.cache ?? previousCache?.selfIntersectionCache,
+      segmentSignatures: tracedSegmentSignatures
+    }
   )
   const fallbackResolvedGeometry =
     resolvedGeometry.legalBoundaryContours.length === 0
@@ -948,27 +1134,49 @@ const buildSelfIntersectingGeometry = (
       ? resolvedGeometry.unfilledFaceBoundaries
       : (fallbackResolvedGeometry?.unfilledFaceBoundaries ?? [])
 
-  const sourceSplitRanges = buildResolvedVectorSourceSplitRanges(
-    legalFaceBoundaries,
-    legalBoundaryContours,
-    resolvedGeometry.fillRegions.length > 0
-      ? resolvedGeometry.fillRegions
-      : (fallbackResolvedGeometry?.fillRegions ?? []),
-    path
+  const sourceSplitRanges = measureResolvedVectorGeometryPhase(
+    'resolved self-intersecting geometry: source split ranges',
+    () =>
+      buildResolvedVectorSourceSplitRanges(
+        legalFaceBoundaries,
+        legalBoundaryContours,
+        resolvedGeometry.fillRegions.length > 0
+          ? resolvedGeometry.fillRegions
+          : (fallbackResolvedGeometry?.fillRegions ?? []),
+        path
+      )
   )
 
+  const outputCache = {
+    tracedSegmentSignatures,
+    selfIntersectionCache: resolvedGeometry.cache ?? splitResult.cache
+  }
+  if (
+    previousCache?.selfIntersectionCache &&
+    outputCache.selfIntersectionCache
+  ) {
+    emitStrokePipelineCounter('resolved-geometry-frame-cache-reused')
+  } else {
+    emitStrokePipelineCounter('resolved-geometry-frame-cache-primed')
+  }
+
   return {
-    tracedSegments,
-    fillRegions:
-      resolvedGeometry.fillRegions.length > 0
-        ? resolvedGeometry.fillRegions
-        : (fallbackResolvedGeometry?.fillRegions ?? []),
-    legalFaceBoundaries: legalFaceBoundaries,
-    unfilledFaceBoundaries,
-    legalBoundaryContours,
-    sourceSplitRanges,
-    strokeBoundaryDomains:
-      buildResolvedVectorStrokeBoundaryDomains(sourceSplitRanges)
+    geometry: {
+      tracedSegments,
+      fillRegions:
+        resolvedGeometry.fillRegions.length > 0
+          ? resolvedGeometry.fillRegions
+          : (fallbackResolvedGeometry?.fillRegions ?? []),
+      legalFaceBoundaries: legalFaceBoundaries,
+      unfilledFaceBoundaries,
+      legalBoundaryContours,
+      sourceSplitRanges,
+      strokeBoundaryDomains: measureResolvedVectorGeometryPhase(
+        'resolved self-intersecting geometry: stroke boundary domains',
+        () => buildResolvedVectorStrokeBoundaryDomains(sourceSplitRanges)
+      )
+    },
+    cache: outputCache
   }
 }
 
@@ -976,18 +1184,37 @@ export const buildResolvedVectorGeometryModel = ({
   fillRule,
   modelId,
   networks,
-  resolveSelfIntersecting = true
+  resolveSelfIntersecting = true,
+  previousCache
 }: {
   fillRule: PathTopologyModel['fillRule']
   modelId: string
   networks: ResolvedVectorGeometryNetworkInput[]
-}): ResolvedVectorGeometryModel => ({
-  modelId,
-  fillRule,
-  networks: networks.map((network) => ({
-    ...network,
-    selfIntersecting: resolveSelfIntersecting
-      ? buildSelfIntersectingGeometry(network.path, network.topology)
-      : null
-  }))
-})
+  resolveSelfIntersecting?: boolean
+} & IncrementalResolvedGeometryOptions): ResolvedVectorGeometryModel => {
+  const nextCache: ResolvedVectorGeometryFrameCache = { networks: new Map() }
+  return {
+    modelId,
+    fillRule,
+    networks: networks.map((network) => {
+      if (!resolveSelfIntersecting) {
+        return {
+          ...network,
+          selfIntersecting: null
+        }
+      }
+
+      const result = buildSelfIntersectingGeometry(
+        network.path,
+        network.topology,
+        previousCache?.networks.get(network.networkId)
+      )
+      nextCache.networks.set(network.networkId, result.cache)
+      return {
+        ...network,
+        selfIntersecting: result.geometry
+      }
+    }),
+    cache: nextCache
+  }
+}

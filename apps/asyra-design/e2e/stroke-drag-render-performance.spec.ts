@@ -1,3 +1,4 @@
+import { writeFile } from 'node:fs/promises'
 import { expect, test, type Page } from '@playwright/test'
 import {
   createVectorPath,
@@ -2308,7 +2309,7 @@ test.describe('stroke drag render performance UX gate', () => {
 
   test('measures real browser point and handle drag rendering with complete stroke render probes', async ({
     page
-  }) => {
+  }, testInfo) => {
     const metrics: DragMetrics[] = []
     const schedulingBaseline = await measureSchedulingBaseline(page)
 
@@ -2353,6 +2354,19 @@ test.describe('stroke drag render performance UX gate', () => {
       burstMetrics.freshnessProbe.visualChanged,
       'burst drag should visibly update the product stroke'
     ).toBe(true)
+    const visualReviewRaster = await captureSelectedElementRaster(page, 72)
+    const visualReviewRasterBuffer = Buffer.from(
+      visualReviewRaster.base64,
+      'base64'
+    )
+    const visualReviewPath = testInfo.outputPath(
+      'stroke-drag-visual-review.png'
+    )
+    await writeFile(visualReviewPath, visualReviewRasterBuffer)
+    await testInfo.attach('stroke-drag-visual-review.png', {
+      path: visualReviewPath,
+      contentType: 'image/png'
+    })
 
     const maxP95Ms = Math.max(...metrics.map((metric) => metric.p95Ms))
     const pointDragMetrics = metrics.filter(

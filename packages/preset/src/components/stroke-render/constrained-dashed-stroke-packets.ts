@@ -1751,6 +1751,7 @@ const buildExactSourcePathRibbonSegmentFrameCacheKey = (
 const buildSourcePathFinalRangePolygonCacheKey = (
   path: Pick<PathGeometry, 'segments'>,
   renderRange: SourceSegmentIntervalRange,
+  segmentRange: SourcePathSegmentRange | undefined,
   spanRole: ConstrainedDashedPhysicalSpanRole,
   stroke: Pick<RenderableStroke, 'position' | 'width' | 'cap'>,
   roundCapStart: boolean | undefined,
@@ -1763,6 +1764,14 @@ const buildSourcePathFinalRangePolygonCacheKey = (
   if (!segment) {
     return null
   }
+  const localStartDistance =
+    segmentRange?.index === renderRange.segmentIndex
+      ? renderRange.startDistance - segmentRange.startDistance
+      : renderRange.startDistance
+  const localEndDistance =
+    segmentRange?.index === renderRange.segmentIndex
+      ? renderRange.endDistance - segmentRange.startDistance
+      : renderRange.endDistance
 
   return [
     buildExactSourcePathRibbonSegmentFrameCacheKey(
@@ -1778,8 +1787,8 @@ const buildSourcePathFinalRangePolygonCacheKey = (
     roundCapEnd === true ? 're' : 'ne',
     roundCapVisualMaxLength.toFixed(4),
     renderRange.segmentIndex,
-    formatSourcePathRangeKeyDistance(renderRange.startDistance),
-    formatSourcePathRangeKeyDistance(renderRange.endDistance)
+    formatSourcePathRangeKeyDistance(localStartDistance),
+    formatSourcePathRangeKeyDistance(localEndDistance)
   ].join('|')
 }
 
@@ -5481,6 +5490,7 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
         ? buildSourcePathFinalRangePolygonCacheKey(
             path,
             candidateRenderRange,
+            slicingContext.segmentRanges[candidateRenderRange.segmentIndex],
             span.role,
             resolvedCapStroke,
             capOwnership.roundCapStart,

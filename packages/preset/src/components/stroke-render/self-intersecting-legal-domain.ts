@@ -23,6 +23,31 @@ export interface TracedLineSegment extends LineSegment {
   sourceEndDistance?: number
 }
 
+export interface SelfIntersectionPairCacheEntry {
+  leftIndex: number
+  rightIndex: number
+  leftSignature: string
+  rightSignature: string
+  leftParams: number[]
+  rightParams: number[]
+}
+
+export interface SelfIntersectionPairCache {
+  segmentSignatures: string[]
+  pairEntries: Map<string, SelfIntersectionPairCacheEntry>
+}
+
+export interface IncrementalSelfIntersectionOptions {
+  previousCache?: SelfIntersectionPairCache
+  segmentSignatures?: string[]
+  returnCache?: boolean
+}
+
+interface SplitTracedSegmentsResult {
+  splitSegments: TracedLineSegment[]
+  cache: SelfIntersectionPairCache
+}
+
 interface DirectedEdge {
   from: number
   to: number
@@ -95,8 +120,8 @@ const polygonArea = (points: Vec2[]) => {
   return area / 2
 }
 
-const polygonCentroid = (points: Vec2[]) => {
-  const area = polygonArea(points)
+const polygonCentroid = (points: Vec2[], precomputedArea?: number) => {
+  const area = precomputedArea ?? polygonArea(points)
   if (Math.abs(area) <= INTERSECTION_EPS) {
     const sum = points.reduce(
       (acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }),
@@ -205,11 +230,72 @@ const interpolateTracedDistance = (segment: TracedLineSegment, t: number) => {
   )
 }
 
-export const splitTracedSegmentsByIntersections = <T extends TracedLineSegment>(
-  segments: T[]
-): TracedLineSegment[] => {
+const getTracedSegmentSignature = (segment: TracedLineSegment) =>
+  [
+    segment.start.x.toFixed(4),
+    segment.start.y.toFixed(4),
+    segment.end.x.toFixed(4),
+    segment.end.y.toFixed(4),
+    segment.sourceSegmentIndex ?? ''
+  ].join(':')
+
+const getPairCacheKey = (leftIndex: number, rightIndex: number) =>
+  `${leftIndex}:${rightIndex}`
+
+const emitStrokePipelineCounter = (counterName: string, value = 1) => {
+  ;(
+    globalThis as typeof globalThis & {
+      __asyraStrokePipelineCounterSink?: (
+        counterName: string,
+        value: number
+      ) => void
+    }
+  ).__asyraStrokePipelineCounterSink?.(counterName, value)
+}
+
+const splitTracedSegmentsByIntersectionsInternal = <
+  T extends TracedLineSegment
+>(
+  segments: T[],
+  options: IncrementalSelfIntersectionOptions = {}
+): SplitTracedSegmentsResult => {
   const splitParams = segments.map(() => [0, 1])
   const segmentBounds = segments.map(getSegmentBounds)
+  const segmentSignatures =
+    options.segmentSignatures ??
+    segments.map((segment) => getTracedSegmentSignature(segment))
+  const pairEntries = new Map<string, SelfIntersectionPairCacheEntry>()
+  const previousSegmentSignatures = options.previousCache?.segmentSignatures
+  const canReusePreviousPairs =
+    previousSegmentSignatures !== undefined &&
+    previousSegmentSignatures.length === segmentSignatures.length
+  const dirtySegmentIndexes = new Set<number>()
+  if (canReusePreviousPairs) {
+    segmentSignatures.forEach((signature, index) => {
+      if (previousSegmentSignatures[index] !== signature) {
+        dirtySegmentIndexes.add(index)
+      }
+    })
+    options.previousCache?.pairEntries.forEach((cachedPair, pairKey) => {
+      const leftIndex = cachedPair.leftIndex
+      const rightIndex = cachedPair.rightIndex
+      if (
+        !Number.isInteger(leftIndex) ||
+        !Number.isInteger(rightIndex) ||
+        dirtySegmentIndexes.has(leftIndex) ||
+        dirtySegmentIndexes.has(rightIndex) ||
+        cachedPair.leftSignature !== (segmentSignatures[leftIndex] ?? '') ||
+        cachedPair.rightSignature !== (segmentSignatures[rightIndex] ?? '')
+      ) {
+        return
+      }
+
+      splitParams[leftIndex].push(...cachedPair.leftParams)
+      splitParams[rightIndex].push(...cachedPair.rightParams)
+      pairEntries.set(pairKey, cachedPair)
+      emitStrokePipelineCounter('self-intersection-pair-cache-hit')
+    })
+  }
   const segmentIndexesByMinX = segments
     .map((_, index) => index)
     .sort(
@@ -251,15 +337,55 @@ export const splitTracedSegmentsByIntersections = <T extends TracedLineSegment>(
         continue
       }
 
+      const pairKey = getPairCacheKey(leftIndex, rightIndex)
+      if (
+        canReusePreviousPairs &&
+        !dirtySegmentIndexes.has(leftIndex) &&
+        !dirtySegmentIndexes.has(rightIndex)
+      ) {
+        continue
+      }
+      const leftSignature = segmentSignatures[leftIndex] ?? ''
+      const rightSignature = segmentSignatures[rightIndex] ?? ''
+      const cachedPair = options.previousCache?.pairEntries.get(pairKey)
+      if (
+        cachedPair &&
+        cachedPair.leftSignature === leftSignature &&
+        cachedPair.rightSignature === rightSignature
+      ) {
+        splitParams[leftIndex].push(...cachedPair.leftParams)
+        splitParams[rightIndex].push(...cachedPair.rightParams)
+        pairEntries.set(pairKey, cachedPair)
+        emitStrokePipelineCounter('self-intersection-pair-cache-hit')
+        continue
+      }
+
+      emitStrokePipelineCounter('self-intersection-pair-cache-miss')
       const intersection = segmentIntersection(
         segments[leftIndex],
         segments[rightIndex]
       )
       if (!intersection) {
+        pairEntries.set(pairKey, {
+          leftIndex,
+          rightIndex,
+          leftSignature,
+          rightSignature,
+          leftParams: [],
+          rightParams: []
+        })
         continue
       }
       splitParams[leftIndex].push(intersection.t)
       splitParams[rightIndex].push(intersection.u)
+      pairEntries.set(pairKey, {
+        leftIndex,
+        rightIndex,
+        leftSignature,
+        rightSignature,
+        leftParams: [intersection.t],
+        rightParams: [intersection.u]
+      })
     }
   }
 
@@ -286,7 +412,28 @@ export const splitTracedSegmentsByIntersections = <T extends TracedLineSegment>(
     }
   })
 
-  return result
+  return {
+    splitSegments: result,
+    cache: {
+      segmentSignatures,
+      pairEntries
+    }
+  }
+}
+
+export function splitTracedSegmentsByIntersections<T extends TracedLineSegment>(
+  segments: T[]
+): TracedLineSegment[]
+export function splitTracedSegmentsByIntersections<T extends TracedLineSegment>(
+  segments: T[],
+  options: IncrementalSelfIntersectionOptions & { returnCache: true }
+): SplitTracedSegmentsResult
+export function splitTracedSegmentsByIntersections<T extends TracedLineSegment>(
+  segments: T[],
+  options: IncrementalSelfIntersectionOptions = {}
+): TracedLineSegment[] | SplitTracedSegmentsResult {
+  const result = splitTracedSegmentsByIntersectionsInternal(segments, options)
+  return options.returnCache ? result : result.splitSegments
 }
 
 const evenOddContains = (point: Vec2, segments: LineSegment[]) => {
@@ -372,6 +519,8 @@ export interface EvenOddBoundaryContourEdge {
   oppositeFaceId: string
   start: Vec2
   end: Vec2
+  startNodeDegree?: number
+  endNodeDegree?: number
   sourceSegmentIndex?: number
   sourceStartDistance?: number
   sourceEndDistance?: number
@@ -416,17 +565,23 @@ export interface SelfIntersectingEvenOddResolvedGeometry {
   legalFaceBoundaries: EvenOddLegalFaceBoundary[]
   unfilledFaceBoundaries: EvenOddLegalFaceBoundary[]
   legalBoundaryContours: EvenOddBoundaryContour[]
+  cache?: SelfIntersectionPairCache
 }
 
 const buildPlanarGraph = (
   segments: TracedLineSegment[],
-  fillRule: SelfIntersectingFillRule = 'evenodd'
+  fillRule: SelfIntersectingFillRule = 'evenodd',
+  options: IncrementalSelfIntersectionOptions & {
+    inputAlreadySplit?: boolean
+  } = {}
 ): PlanarGraph | null => {
   if (segments.length > MAX_OPEN_SEGMENTS) {
     return null
   }
 
-  const splitSegments = splitTracedSegmentsByIntersections(segments)
+  const splitSegments = options.inputAlreadySplit
+    ? segments
+    : splitTracedSegmentsByIntersections(segments, options)
   if (splitSegments.length === 0) {
     return null
   }
@@ -494,7 +649,7 @@ const buildPlanarGraph = (
   })
 
   const visited = new Array(edges.length).fill(false)
-  const rawFaces: { points: Vec2[]; edgeIds: number[] }[] = []
+  const rawFaces: { points: Vec2[]; edgeIds: number[]; area: number }[] = []
 
   for (let edgeIndex = 0; edgeIndex < edges.length; edgeIndex += 1) {
     if (visited[edgeIndex]) {
@@ -525,17 +680,17 @@ const buildPlanarGraph = (
       }
     }
 
-    if (face.length < 3 || Math.abs(polygonArea(face)) <= INTERSECTION_EPS) {
+    const area = polygonArea(face)
+    if (face.length < 3 || Math.abs(area) <= INTERSECTION_EPS) {
       continue
     }
-    rawFaces.push({ points: face, edgeIds: faceEdgeIds })
+    rawFaces.push({ points: face, edgeIds: faceEdgeIds, area })
   }
 
   const faceIndexByEdgeId = new Map<number, number>()
   const outerFaceIndex = rawFaces.reduce(
     (largestIndex, face, faceIndex) =>
-      Math.abs(polygonArea(face.points)) >
-      Math.abs(polygonArea(rawFaces[largestIndex]?.points ?? []))
+      Math.abs(face.area) > Math.abs(rawFaces[largestIndex]?.area ?? 0)
         ? faceIndex
         : largestIndex,
     0
@@ -544,12 +699,12 @@ const buildPlanarGraph = (
     face.edgeIds.forEach((edgeId) => {
       faceIndexByEdgeId.set(edgeId, faceIndex)
     })
-    const centroid = polygonCentroid(face.points)
+    const centroid = polygonCentroid(face.points, face.area)
     return {
       faceId: `face:${faceIndex}`,
       points: face.points,
       edgeIds: face.edgeIds,
-      area: polygonArea(face.points),
+      area: face.area,
       exterior: faceIndex === outerFaceIndex,
       legal:
         faceIndex === outerFaceIndex
@@ -701,7 +856,8 @@ const canMergeContourEdgesIntoDashDomain = (
   previous.sourceSegmentIndex === next.sourceSegmentIndex &&
   previous.reversed === next.reversed &&
   areSourceDistancesContinuous(previous, next) &&
-  getGraphNodeDegreeAtPoint(graph, previous.end) <= 2
+  (previous.endNodeDegree ?? getGraphNodeDegreeAtPoint(graph, previous.end)) <=
+    2
 
 const classifyDashDomainBreak = (
   graph: PlanarGraph,
@@ -709,7 +865,11 @@ const classifyDashDomainBreak = (
   incoming?: EvenOddBoundaryContourEdge,
   outgoing?: EvenOddBoundaryContourEdge
 ): EvenOddBoundaryContourDashDomainBreakKind => {
-  if (getGraphNodeDegreeAtPoint(graph, point) > 2) {
+  const nodeDegree =
+    incoming?.endNodeDegree ??
+    outgoing?.startNodeDegree ??
+    getGraphNodeDegreeAtPoint(graph, point)
+  if (nodeDegree > 2) {
     return 'self-intersection'
   }
 
@@ -958,6 +1118,8 @@ const buildBoundaryContoursFromGraph = (
           oppositeFaceId: face.faceId,
           start: graph.pointsList[edge.from],
           end: graph.pointsList[edge.to],
+          startNodeDegree: graph.nodeDegreeById[edge.from] ?? 0,
+          endNodeDegree: graph.nodeDegreeById[edge.to] ?? 0,
           sourceSegmentIndex: segment.sourceSegmentIndex,
           sourceStartDistance,
           sourceEndDistance,
@@ -1071,18 +1233,31 @@ export const buildSelfIntersectingEvenOddBoundaryContours = (
 
 export const buildSelfIntersectingResolvedGeometry = (
   segments: TracedLineSegment[],
-  fillRule: SelfIntersectingFillRule = 'evenodd'
+  fillRule: SelfIntersectingFillRule = 'evenodd',
+  options: IncrementalSelfIntersectionOptions = {}
 ): SelfIntersectingEvenOddResolvedGeometry => {
+  const splitResult = measureSelfIntersectingPhase(
+    'resolved self-intersecting geometry: intersections',
+    () =>
+      splitTracedSegmentsByIntersections(segments, {
+        ...options,
+        returnCache: true
+      })
+  )
   const graph = measureSelfIntersectingPhase(
     'resolved self-intersecting geometry: planar graph',
-    () => buildPlanarGraph(segments, fillRule)
+    () =>
+      buildPlanarGraph(splitResult.splitSegments, fillRule, {
+        inputAlreadySplit: true
+      })
   )
   if (!graph) {
     return {
       fillRegions: [],
       legalFaceBoundaries: [],
       unfilledFaceBoundaries: [],
-      legalBoundaryContours: []
+      legalBoundaryContours: [],
+      cache: splitResult.cache
     }
   }
 
@@ -1104,7 +1279,8 @@ export const buildSelfIntersectingResolvedGeometry = (
     fillRegions: legalFaceBoundaries.map((face) => ({
       polygons: [face.points]
     })),
-    legalBoundaryContours
+    legalBoundaryContours,
+    cache: splitResult.cache
   }
 }
 
