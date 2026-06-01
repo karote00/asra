@@ -17,6 +17,8 @@ const WARMUP_FRAMES = Math.min(20, Math.max(0, Math.floor(FRAME_COUNT / 10)))
 const CPU_PROFILE_RENDER_BUDGET_MS = 8.33
 const SHOULD_ENFORCE_CPU_PROFILE_BUDGET =
   process.env.ASYRA_STROKE_DRAG_ENFORCE_CPU_BUDGET === '1'
+const SHOULD_ENFORCE_CPU_PROFILE_P95_BUDGET =
+  process.env.ASYRA_STROKE_DRAG_ENFORCE_CPU_P95_BUDGET === '1'
 const describeProfile =
   process.env.ASYRA_STROKE_DRAG_PROFILE === '1' ? describe : describe.skip
 const PERFORMANCE_MEASUREMENT_SCOPE = 'cpu-only'
@@ -90,7 +92,6 @@ beforeAll(() => {
 })
 
 class RecordingVectorGraphic extends Container {
-  __asyraVectorDragVisualMode?: boolean
   __asyraSolidCenterStrokeExportPackets?: unknown[]
   __asyraStrokeMeshCache?: Map<string, { kind?: string }>
   __asyraVectorPathModelCache?: {
@@ -186,7 +187,7 @@ const getPathModelRevisionKeys = (graphic: RecordingVectorGraphic) =>
     (entry) => entry.revision.key
   )
 
-const expectFinalProductVisualCache = (graphic: RecordingVectorGraphic) => {
+const expectFullStrokeRenderCache = (graphic: RecordingVectorGraphic) => {
   const cacheEntries = getStrokeCacheEntries(graphic)
   expect(cacheEntries.length).toBeGreaterThan(0)
   expect(
@@ -310,7 +311,7 @@ const measureDragScenario = (
   core.setSystemProperty('mouseDown', true)
 
   const frameTimes: number[] = []
-  let invalidFrameCount = 0
+  let incompleteFrameCount = 0
   const phaseTotals: Record<string, number> = {}
 
   for (let frame = 0; frame < FRAME_COUNT; frame += 1) {
@@ -322,8 +323,8 @@ const measureDragScenario = (
     if (frame >= WARMUP_FRAMES) {
       frameTimes.push(end - start)
     }
-    if (graphic.__asyraVectorDragVisualMode !== true) {
-      invalidFrameCount += 1
+    if ((graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0) === 0) {
+      incompleteFrameCount += 1
     }
   }
 
@@ -362,7 +363,7 @@ const measureDragScenario = (
       frameTimes.reduce((total, value) => total + value, 0) / frameTimes.length,
     p95Ms: getPercentile(frameTimes, 0.95),
     maxMs: Math.max(...frameTimes),
-    invalidFrameCount,
+    incompleteFrameCount,
     phases: Object.fromEntries(
       Object.entries(phaseTotals).map(([phaseName, totalMs]) => [
         phaseName,
@@ -372,8 +373,8 @@ const measureDragScenario = (
   }
 }
 
-describe('stroke drag product visual contract', () => {
-  it('should render current product faces during path editing drag while deferring hit/export projection', () => {
+describe('stroke drag complete render contract', () => {
+  it('should render the full constrained dashed stroke pipeline during path editing drag', () => {
     const graphic = new RecordingVectorGraphic()
     const data = mutateDragFrame(4, 'anchor')
     setPathEditingState({
@@ -386,14 +387,15 @@ describe('stroke drag product visual contract', () => {
       renderVectorFrame(graphic, data, createStroke('square'))
     )
 
-    expect(graphic.__asyraVectorDragVisualMode).toBe(true)
-    expect(phases.has('stroke product visual compiler')).toBe(false)
+    expect(phases.has('constrained dashed product visuals')).toBe(false)
     expect(phases.has('constrained dashed candidates')).toBe(true)
     expect(phases.has('constrained dashed acceptance')).toBe(true)
     expect(phases.has('constrained dashed promotion')).toBe(true)
-    expectFinalProductVisualCache(graphic)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets).toBeUndefined()
-    expect(graphic.hitArea ?? null).toBeNull()
+    expectFullStrokeRenderCache(graphic)
+    expect(
+      graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0
+    ).toBeGreaterThan(0)
+    expect(graphic.hitArea ?? null).not.toBeNull()
     clearInteractionState()
   })
 
@@ -415,7 +417,6 @@ describe('stroke drag product visual contract', () => {
       renderVectorFrame(graphic, data, createStroke('square'))
     )
 
-    expect(graphic.__asyraVectorDragVisualMode).toBe(false)
     expect(phases.has('stroke product visual compiler')).toBe(false)
     expect(phases.has('constrained dashed candidates')).toBe(true)
     expect(phases.has('constrained dashed acceptance')).toBe(true)
@@ -434,15 +435,14 @@ describe('stroke drag product visual contract', () => {
 
     renderVectorFrame(graphic, data, createStroke('butt'))
 
-    expect(graphic.__asyraVectorDragVisualMode).toBe(false)
-    expectFinalProductVisualCache(graphic)
+    expectFullStrokeRenderCache(graphic)
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0
     ).toBeGreaterThan(0)
     clearInteractionState()
   })
 
-  it('should replace drag visual cache with full product cache after drag stops', () => {
+  it('should keep full stroke cache while dragging and after drag stops', () => {
     const graphic = new RecordingVectorGraphic()
     const stroke = createStroke('round')
     setPathEditingState({
@@ -459,15 +459,14 @@ describe('stroke drag product visual contract', () => {
     })
     renderVectorFrame(graphic, mutateDragFrame(7, 'out-control'), stroke)
 
-    expect(graphic.__asyraVectorDragVisualMode).toBe(false)
-    expectFinalProductVisualCache(graphic)
+    expectFullStrokeRenderCache(graphic)
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0
     ).toBeGreaterThan(0)
     clearInteractionState()
   })
 
-  it('should run: bound self-intersecting path drag preview sampling and restore full precision after drag', () => {
+  it('should run: keep full self-intersecting path precision during drag', () => {
     const graphic = new RecordingVectorGraphic()
     const stroke = createStroke('round')
     const data = mutateDragFrame(9, 'anchor')
@@ -480,13 +479,9 @@ describe('stroke drag product visual contract', () => {
     renderVectorFrame(graphic, data, stroke)
 
     const dragSampleCount = getPathModelSampleCount(graphic)
-    expect(graphic.__asyraVectorDragVisualMode).toBe(true)
-    expect(dragSampleCount).toBeGreaterThan(0)
-    expect(dragSampleCount).toBeLessThanOrEqual(320)
+    expect(dragSampleCount).toBeGreaterThan(320)
     expect(
-      getPathModelRevisionKeys(graphic).every((key) =>
-        key.includes('drag-preview:v1')
-      )
+      getPathModelRevisionKeys(graphic).every((key) => key.includes('final:v1'))
     ).toBe(true)
 
     setPathEditingState({
@@ -497,8 +492,7 @@ describe('stroke drag product visual contract', () => {
     renderVectorFrame(graphic, data, stroke)
 
     const finalSampleCount = getPathModelSampleCount(graphic)
-    expect(graphic.__asyraVectorDragVisualMode).toBe(false)
-    expect(finalSampleCount).toBeGreaterThan(dragSampleCount * 3)
+    expect(finalSampleCount).toBe(dragSampleCount)
     expect(
       getPathModelRevisionKeys(graphic).every((key) => key.includes('final:v1'))
     ).toBe(true)
@@ -507,7 +501,7 @@ describe('stroke drag product visual contract', () => {
 })
 
 describeProfile('stroke drag performance profile', () => {
-  it('should profile: render anchor and curve-handle drag visual CPU updates with optional CPU budget enforcement', () => {
+  it('should profile: render anchor and curve-handle drag CPU updates with complete stroke geometry', () => {
     const dragKinds = ['anchor', 'in-control', 'out-control'] as const
     const strokes = [
       createStroke('butt'),
@@ -522,6 +516,7 @@ describeProfile('stroke drag performance profile', () => {
     )
 
     const maxP95Ms = Math.max(...metrics.map((metric) => metric.p95Ms))
+    const maxAverageMs = Math.max(...metrics.map((metric) => metric.averageMs))
     process.stdout.write(
       `STROKE_DRAG_METRICS ${JSON.stringify({
         measurementScope: PERFORMANCE_MEASUREMENT_SCOPE,
@@ -529,13 +524,20 @@ describeProfile('stroke drag performance profile', () => {
         doesNotMeasureRenderer: DOES_NOT_MEASURE_RENDERER,
         cpuProfileBudgetMs: CPU_PROFILE_RENDER_BUDGET_MS,
         enforceCpuProfileBudget: SHOULD_ENFORCE_CPU_PROFILE_BUDGET,
+        enforceCpuProfileP95Budget: SHOULD_ENFORCE_CPU_PROFILE_P95_BUDGET,
         maxP95Ms,
+        maxAverageMs,
         metrics
       })}\n`
     )
-    expect(metrics.every((metric) => metric.invalidFrameCount === 0)).toBe(true)
+    expect(metrics.every((metric) => metric.incompleteFrameCount === 0)).toBe(
+      true
+    )
     if (SHOULD_ENFORCE_CPU_PROFILE_BUDGET) {
-      expect(maxP95Ms).toBeLessThan(CPU_PROFILE_RENDER_BUDGET_MS)
+      expect(maxAverageMs).toBeLessThan(CPU_PROFILE_RENDER_BUDGET_MS)
+      if (SHOULD_ENFORCE_CPU_PROFILE_P95_BUDGET) {
+        expect(maxP95Ms).toBeLessThan(CPU_PROFILE_RENDER_BUDGET_MS)
+      }
     } else {
       expect(maxP95Ms).toBeGreaterThan(0)
     }

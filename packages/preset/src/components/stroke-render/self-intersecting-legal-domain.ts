@@ -10,6 +10,13 @@ interface LineSegment {
   end: Vec2
 }
 
+interface LineSegmentBounds {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+}
+
 export interface TracedLineSegment extends LineSegment {
   sourceSegmentIndex?: number
   sourceStartDistance?: number
@@ -37,6 +44,7 @@ interface PlanarFace {
 interface PlanarGraph {
   splitSegments: TracedLineSegment[]
   pointsList: Vec2[]
+  nodeIdByKey: Map<string, number>
   nodeDegreeById: number[]
   edges: DirectedEdge[]
   faces: PlanarFace[]
@@ -52,6 +60,30 @@ const MAX_OPEN_SEGMENTS = 1200
 
 const distance = (from: Vec2, to: Vec2) =>
   Math.hypot(to.x - from.x, to.y - from.y)
+
+const measureSelfIntersectingPhase = <T>(
+  phaseName: string,
+  run: () => T
+): T => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraVectorRenderPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraVectorRenderPhaseSink
+  if (!sink) {
+    return run()
+  }
+
+  const start = performance.now()
+  try {
+    return run()
+  } finally {
+    sink(phaseName, performance.now() - start)
+  }
+}
 
 const polygonArea = (points: Vec2[]) => {
   let area = 0
@@ -88,6 +120,22 @@ const polygonCentroid = (points: Vec2[]) => {
 }
 
 const cross = (a: Vec2, b: Vec2) => a.x * b.y - a.y * b.x
+
+const getSegmentBounds = (segment: LineSegment): LineSegmentBounds => ({
+  minX: Math.min(segment.start.x, segment.end.x),
+  minY: Math.min(segment.start.y, segment.end.y),
+  maxX: Math.max(segment.start.x, segment.end.x),
+  maxY: Math.max(segment.start.y, segment.end.y)
+})
+
+const segmentBoundsMayOverlap = (
+  left: LineSegmentBounds,
+  right: LineSegmentBounds
+) =>
+  left.maxX >= right.minX - INTERSECTION_EPS &&
+  right.maxX >= left.minX - INTERSECTION_EPS &&
+  left.maxY >= right.minY - INTERSECTION_EPS &&
+  right.maxY >= left.minY - INTERSECTION_EPS
 
 const segmentIntersection = (a: LineSegment, b: LineSegment) => {
   const r = { x: a.end.x - a.start.x, y: a.end.y - a.start.y }
@@ -161,13 +209,48 @@ export const splitTracedSegmentsByIntersections = <T extends TracedLineSegment>(
   segments: T[]
 ): TracedLineSegment[] => {
   const splitParams = segments.map(() => [0, 1])
+  const segmentBounds = segments.map(getSegmentBounds)
+  const segmentIndexesByMinX = segments
+    .map((_, index) => index)
+    .sort(
+      (leftIndex, rightIndex) =>
+        (segmentBounds[leftIndex]?.minX ?? 0) -
+        (segmentBounds[rightIndex]?.minX ?? 0)
+    )
 
-  for (let leftIndex = 0; leftIndex < segments.length; leftIndex += 1) {
+  for (
+    let leftOrderIndex = 0;
+    leftOrderIndex < segmentIndexesByMinX.length;
+    leftOrderIndex += 1
+  ) {
+    const leftIndex = segmentIndexesByMinX[leftOrderIndex]
+    if (leftIndex === undefined) {
+      continue
+    }
+    const leftBounds = segmentBounds[leftIndex]
+    if (!leftBounds) {
+      continue
+    }
     for (
-      let rightIndex = leftIndex + 1;
-      rightIndex < segments.length;
-      rightIndex += 1
+      let rightOrderIndex = leftOrderIndex + 1;
+      rightOrderIndex < segmentIndexesByMinX.length;
+      rightOrderIndex += 1
     ) {
+      const rightIndex = segmentIndexesByMinX[rightOrderIndex]
+      if (rightIndex === undefined) {
+        continue
+      }
+      const rightBounds = segmentBounds[rightIndex]
+      if (!rightBounds) {
+        continue
+      }
+      if (rightBounds.minX > leftBounds.maxX + INTERSECTION_EPS) {
+        break
+      }
+      if (!segmentBoundsMayOverlap(leftBounds, rightBounds)) {
+        continue
+      }
+
       const intersection = segmentIntersection(
         segments[leftIndex],
         segments[rightIndex]
@@ -284,6 +367,7 @@ export interface EvenOddLegalFaceBoundary {
 export interface EvenOddBoundaryContourEdge {
   edgeId: string
   contourId: string
+  contourEdgeIndex?: number
   legalFaceId: string
   oppositeFaceId: string
   start: Vec2
@@ -477,6 +561,7 @@ const buildPlanarGraph = (
   return {
     splitSegments,
     pointsList,
+    nodeIdByKey: nodes,
     nodeDegreeById: pointsList.map(
       (_, nodeId) => adjacency[nodeId]?.length ?? 0
     ),
@@ -505,49 +590,7 @@ const toLegalFaceBoundaryEdge = (
     : segment.sourceEndDistance
   const start = graph.pointsList[edge.from]
   const end = graph.pointsList[edge.to]
-  const dx = end.x - start.x
-  const dy = end.y - start.y
-  const length = Math.hypot(dx, dy)
-  const midpoint = {
-    x: (start.x + end.x) / 2,
-    y: (start.y + end.y) / 2
-  }
-  const offset = 1e-3
-  const leftProbe = {
-    x: midpoint.x + (-dy / length) * offset,
-    y: midpoint.y + (dx / length) * offset
-  }
-  const rightProbe = {
-    x: midpoint.x - (-dy / length) * offset,
-    y: midpoint.y - (dx / length) * offset
-  }
-  const leftInFace = evenOddContains(
-    leftProbe,
-    face.edgeIds.map((id) => {
-      const faceEdge = graph.edges[id]
-      return {
-        start: graph.pointsList[faceEdge.from],
-        end: graph.pointsList[faceEdge.to]
-      }
-    })
-  )
-  const rightInFace = evenOddContains(
-    rightProbe,
-    face.edgeIds.map((id) => {
-      const faceEdge = graph.edges[id]
-      return {
-        start: graph.pointsList[faceEdge.from],
-        end: graph.pointsList[faceEdge.to]
-      }
-    })
-  )
-  const fallbackLegalSide = face.area >= 0 ? 'left' : 'right'
-  const legalSide =
-    leftInFace && !rightInFace
-      ? ('left' as const)
-      : rightInFace && !leftInFace
-        ? ('right' as const)
-        : fallbackLegalSide
+  const legalSide = face.area >= 0 ? ('left' as const) : ('right' as const)
   const reverseFaceIndex = graph.faceIndexByEdgeId.get(edge.rev)
   const reverseFace =
     reverseFaceIndex === undefined ? undefined : graph.faces[reverseFaceIndex]
@@ -573,38 +616,42 @@ const toLegalFaceBoundaryEdge = (
 const buildFillFaceBoundariesFromGraph = (
   graph: PlanarGraph
 ): EvenOddLegalFaceBoundary[] =>
-  graph.faces.flatMap((face) =>
-    face.legal
-      ? [
-          {
-            faceId: face.faceId,
-            points: face.points,
-            edges: face.edgeIds.flatMap((edgeId, boundaryIndex) =>
-              toLegalFaceBoundaryEdge(graph, face, edgeId, boundaryIndex)
-            ),
-            area: face.area
-          }
-        ]
-      : []
-  )
+  graph.faces.flatMap((face) => {
+    if (!face.legal) {
+      return []
+    }
+
+    return [
+      {
+        faceId: face.faceId,
+        points: face.points,
+        edges: face.edgeIds.flatMap((edgeId, boundaryIndex) =>
+          toLegalFaceBoundaryEdge(graph, face, edgeId, boundaryIndex)
+        ),
+        area: face.area
+      }
+    ]
+  })
 
 const buildUnfilledFaceBoundariesFromGraph = (
   graph: PlanarGraph
 ): EvenOddLegalFaceBoundary[] =>
-  graph.faces.flatMap((face) =>
-    !face.legal && !face.exterior
-      ? [
-          {
-            faceId: face.faceId,
-            points: face.points,
-            edges: face.edgeIds.flatMap((edgeId, boundaryIndex) =>
-              toLegalFaceBoundaryEdge(graph, face, edgeId, boundaryIndex)
-            ),
-            area: face.area
-          }
-        ]
-      : []
-  )
+  graph.faces.flatMap((face) => {
+    if (face.legal || face.exterior) {
+      return []
+    }
+
+    return [
+      {
+        faceId: face.faceId,
+        points: face.points,
+        edges: face.edgeIds.flatMap((edgeId, boundaryIndex) =>
+          toLegalFaceBoundaryEdge(graph, face, edgeId, boundaryIndex)
+        ),
+        area: face.area
+      }
+    ]
+  })
 
 const buildFillFaceBoundaries = (
   segments: TracedLineSegment[]
@@ -619,7 +666,7 @@ export const buildSelfIntersectingEvenOddLegalFaceBoundaries = (
 
 const getGraphNodeIdAtPoint = (graph: PlanarGraph, point: Vec2) => {
   const key = toNodeKey(point)
-  return graph.pointsList.findIndex((candidate) => toNodeKey(candidate) === key)
+  return graph.nodeIdByKey.get(key) ?? -1
 }
 
 const getGraphNodeDegreeAtPoint = (graph: PlanarGraph, point: Vec2) => {
@@ -764,8 +811,9 @@ const buildBoundaryContourDashDomains = (
       return []
     }
 
-    const firstEdgeIndex = edges.indexOf(firstEdge)
-    const lastEdgeIndex = edges.indexOf(lastEdge)
+    const firstEdgeIndex =
+      firstEdge.contourEdgeIndex ?? edges.indexOf(firstEdge)
+    const lastEdgeIndex = lastEdge.contourEdgeIndex ?? edges.indexOf(lastEdge)
     const previousEdge =
       firstEdgeIndex >= 0
         ? edges[(firstEdgeIndex - 1 + edges.length) % edges.length]
@@ -815,8 +863,7 @@ const buildBoundaryContourDashDomains = (
 }
 
 const buildBoundaryContoursFromGraph = (
-  graph: PlanarGraph,
-  fillRule: SelfIntersectingFillRule
+  graph: PlanarGraph
 ): EvenOddBoundaryContour[] => {
   const areSamePoint = (a: Vec2, b: Vec2) => distance(a, b) <= NODE_KEY_EPS
   const splitClosedBoundaryCycles = <T extends { start: Vec2; end: Vec2 }>(
@@ -824,6 +871,15 @@ const buildBoundaryContoursFromGraph = (
   ): T[][] => {
     const cycles: T[][] = []
     let active: T[] = []
+    let activeStartIndexByKey = new Map<string, number>()
+    const rebuildActiveStartIndex = () => {
+      activeStartIndexByKey = new Map(
+        active.map((activeEdge, activeIndex) => [
+          toNodeKey(activeEdge.start),
+          activeIndex
+        ])
+      )
+    }
 
     edges.forEach((edge) => {
       const previous = active[active.length - 1]
@@ -835,13 +891,13 @@ const buildBoundaryContoursFromGraph = (
           cycles.push(active)
         }
         active = []
+        activeStartIndexByKey.clear()
       }
 
+      activeStartIndexByKey.set(toNodeKey(edge.start), active.length)
       active.push(edge)
       const endKey = toNodeKey(edge.end)
-      const repeatedStartIndex = active.findIndex(
-        (activeEdge) => toNodeKey(activeEdge.start) === endKey
-      )
+      const repeatedStartIndex = activeStartIndexByKey.get(endKey) ?? -1
       if (repeatedStartIndex === -1) {
         return
       }
@@ -851,6 +907,7 @@ const buildBoundaryContoursFromGraph = (
         cycles.push(cycle)
       }
       active = active.slice(0, repeatedStartIndex)
+      rebuildActiveStartIndex()
     })
 
     if (
@@ -870,6 +927,9 @@ const buildBoundaryContoursFromGraph = (
 
     const rawEdges = face.edgeIds.flatMap((edgeId, boundaryIndex) => {
       const edge = graph.edges[edgeId]
+      if (!edge) {
+        return []
+      }
       const reverseFaceIndex = graph.faceIndexByEdgeId.get(edge.rev)
       const reverseFace =
         reverseFaceIndex === undefined
@@ -883,45 +943,7 @@ const buildBoundaryContoursFromGraph = (
       if (!segment) {
         return []
       }
-      const edgeStart = graph.pointsList[edge.from]
-      const edgeEnd = graph.pointsList[edge.to]
-      const edgeDx = edgeEnd.x - edgeStart.x
-      const edgeDy = edgeEnd.y - edgeStart.y
-      const edgeLength = Math.hypot(edgeDx, edgeDy)
-      if (edgeLength <= INTERSECTION_EPS) {
-        return []
-      }
-      const midpoint = {
-        x: (edgeStart.x + edgeEnd.x) / 2,
-        y: (edgeStart.y + edgeEnd.y) / 2
-      }
-      const probeDistance = 1e-3
-      const leftProbe = {
-        x: midpoint.x + (-edgeDy / edgeLength) * probeDistance,
-        y: midpoint.y + (edgeDx / edgeLength) * probeDistance
-      }
-      const rightProbe = {
-        x: midpoint.x - (-edgeDy / edgeLength) * probeDistance,
-        y: midpoint.y - (edgeDx / edgeLength) * probeDistance
-      }
-      const leftLegal = containsByFillRule(
-        leftProbe,
-        graph.splitSegments,
-        fillRule
-      )
-      const rightLegal = containsByFillRule(
-        rightProbe,
-        graph.splitSegments,
-        fillRule
-      )
-      const fallbackLegalSide =
-        face.area >= 0 ? ('right' as const) : ('left' as const)
-      const legalSide =
-        leftLegal && !rightLegal
-          ? ('left' as const)
-          : rightLegal && !leftLegal
-            ? ('right' as const)
-            : fallbackLegalSide
+      const legalSide = face.area >= 0 ? ('right' as const) : ('left' as const)
       const sourceStartDistance = edge.reversed
         ? segment.sourceEndDistance
         : segment.sourceStartDistance
@@ -1006,7 +1028,8 @@ const buildBoundaryContoursFromGraph = (
       const edges = chain.map((edge, edgeIndex) => ({
         ...edge,
         edgeId: `${contourId}:edge:${edgeIndex}`,
-        contourId
+        contourId,
+        contourEdgeIndex: edgeIndex
       }))
       const points: Vec2[] = []
       edges.forEach((edge) => {
@@ -1043,14 +1066,17 @@ export const buildSelfIntersectingEvenOddBoundaryContours = (
   segments: TracedLineSegment[]
 ): EvenOddBoundaryContour[] => {
   const graph = buildPlanarGraph(segments, 'evenodd')
-  return graph ? buildBoundaryContoursFromGraph(graph, 'evenodd') : []
+  return graph ? buildBoundaryContoursFromGraph(graph) : []
 }
 
 export const buildSelfIntersectingResolvedGeometry = (
   segments: TracedLineSegment[],
   fillRule: SelfIntersectingFillRule = 'evenodd'
 ): SelfIntersectingEvenOddResolvedGeometry => {
-  const graph = buildPlanarGraph(segments, fillRule)
+  const graph = measureSelfIntersectingPhase(
+    'resolved self-intersecting geometry: planar graph',
+    () => buildPlanarGraph(segments, fillRule)
+  )
   if (!graph) {
     return {
       fillRegions: [],
@@ -1060,15 +1086,25 @@ export const buildSelfIntersectingResolvedGeometry = (
     }
   }
 
-  const legalFaceBoundaries = buildFillFaceBoundariesFromGraph(graph)
-  const unfilledFaceBoundaries = buildUnfilledFaceBoundariesFromGraph(graph)
+  const legalFaceBoundaries = measureSelfIntersectingPhase(
+    'resolved self-intersecting geometry: legal face boundaries',
+    () => buildFillFaceBoundariesFromGraph(graph)
+  )
+  const unfilledFaceBoundaries = measureSelfIntersectingPhase(
+    'resolved self-intersecting geometry: unfilled face boundaries',
+    () => buildUnfilledFaceBoundariesFromGraph(graph)
+  )
+  const legalBoundaryContours = measureSelfIntersectingPhase(
+    'resolved self-intersecting geometry: boundary contours',
+    () => buildBoundaryContoursFromGraph(graph)
+  )
   return {
     legalFaceBoundaries,
     unfilledFaceBoundaries,
     fillRegions: legalFaceBoundaries.map((face) => ({
       polygons: [face.points]
     })),
-    legalBoundaryContours: buildBoundaryContoursFromGraph(graph, fillRule)
+    legalBoundaryContours
   }
 }
 

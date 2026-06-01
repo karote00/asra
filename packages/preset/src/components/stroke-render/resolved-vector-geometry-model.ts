@@ -7,7 +7,6 @@ import {
   type TracedLineSegment
 } from './self-intersecting-legal-domain'
 import {
-  buildPolylineGeometryModelPath,
   samplePathSegmentFrameAtLength,
   slicePathGeometryPoints,
   type PathGeometry
@@ -119,26 +118,49 @@ const sampleBoundaryDomainFrame = (points: Vec2[]) => {
     return null
   }
 
-  const boundaryPath = buildPolylineGeometryModelPath(points, false)
-  if (boundaryPath.totalLength <= EPSILON) {
+  let totalLength = 0
+  for (let index = 1; index < points.length; index += 1) {
+    const start = points[index - 1]
+    const end = points[index]
+    if (!start || !end) {
+      continue
+    }
+    totalLength += distanceBetween(start, end)
+  }
+  if (totalLength <= EPSILON) {
     return null
   }
 
-  let remainingDistance = boundaryPath.totalLength / 2
-  for (const segment of boundaryPath.segments) {
-    if (remainingDistance <= segment.length + EPSILON) {
-      return samplePathSegmentFrameAtLength(
-        segment,
-        Math.max(0, Math.min(segment.length, remainingDistance))
-      )
+  let remainingDistance = totalLength / 2
+  for (let index = 1; index < points.length; index += 1) {
+    const start = points[index - 1]
+    const end = points[index]
+    if (!start || !end) {
+      continue
     }
-    remainingDistance -= segment.length
+    const length = distanceBetween(start, end)
+    if (length <= EPSILON) {
+      continue
+    }
+    if (remainingDistance > length + EPSILON) {
+      remainingDistance -= length
+      continue
+    }
+
+    const t = Math.max(0, Math.min(1, remainingDistance / length))
+    return {
+      point: {
+        x: start.x + (end.x - start.x) * t,
+        y: start.y + (end.y - start.y) * t
+      },
+      tangent: {
+        x: (end.x - start.x) / length,
+        y: (end.y - start.y) / length
+      }
+    }
   }
 
-  const lastSegment = boundaryPath.segments[boundaryPath.segments.length - 1]
-  return lastSegment
-    ? samplePathSegmentFrameAtLength(lastSegment, lastSegment.length)
-    : null
+  return null
 }
 
 const resolveFilledSideFromFillRegions = ({
@@ -146,13 +168,15 @@ const resolveFilledSideFromFillRegions = ({
   domain,
   fillRegions,
   legalSide,
-  path
+  path,
+  sourceSegmentStartDistance
 }: {
   boundaryRole: ResolvedVectorSourceSplitRange['boundaryRole']
   domain: EvenOddBoundaryContour['dashDomains'][number]
   fillRegions: PolygonRegion[]
   legalSide: 1 | -1
   path: Pick<PathGeometry, 'segments'>
+  sourceSegmentStartDistance?: number
 }) => {
   const fallbackFilledSide =
     boundaryRole === 'hole' ? (legalSide === 1 ? -1 : 1) : legalSide
@@ -226,10 +250,9 @@ const resolveFilledSideFromFillRegions = ({
     }
   }
 
-  const segmentStartDistance = getSegmentStartDistance(
-    path,
-    domain.sourceSegmentIndex
-  )
+  const segmentStartDistance =
+    sourceSegmentStartDistance ??
+    getSegmentStartDistance(path, domain.sourceSegmentIndex)
   const localMidDistance =
     (Math.min(domain.sourceStartDistance, domain.sourceEndDistance) +
       Math.max(domain.sourceStartDistance, domain.sourceEndDistance)) /
@@ -447,6 +470,16 @@ const buildResolvedVectorSourceSplitRanges = (
   path: Pick<PathGeometry, 'segments'>
 ): ResolvedVectorSourceSplitRange[] => {
   const rangeByKey = new Map<string, ResolvedVectorSourceSplitRange>()
+  const sourceSegmentStartDistanceByIndex = new Map<number, number>()
+  const getCachedSourceSegmentStartDistance = (segmentIndex: number) => {
+    const cached = sourceSegmentStartDistanceByIndex.get(segmentIndex)
+    if (cached !== undefined) {
+      return cached
+    }
+    const distance = getSegmentStartDistance(path, segmentIndex)
+    sourceSegmentStartDistanceByIndex.set(segmentIndex, distance)
+    return distance
+  }
   const getBoundaryRole = (
     contour: EvenOddBoundaryContour
   ): ResolvedVectorSourceSplitRange['boundaryRole'] => {
@@ -614,7 +647,10 @@ const buildResolvedVectorSourceSplitRanges = (
         } as EvenOddBoundaryContour['dashDomains'][number],
         fillRegions,
         legalSide,
-        path
+        path,
+        sourceSegmentStartDistance: getCachedSourceSegmentStartDistance(
+          firstEdge.sourceSegmentIndex
+        )
       })
       const filledSide = resolvedSide.filledSide
 
@@ -684,7 +720,10 @@ const buildResolvedVectorSourceSplitRanges = (
           domain,
           fillRegions,
           legalSide,
-          path
+          path,
+          sourceSegmentStartDistance: getCachedSourceSegmentStartDistance(
+            domain.sourceSegmentIndex
+          )
         })
         const filledSide = resolvedSide.filledSide
         const key = [
@@ -867,7 +906,10 @@ const buildSelfIntersectingGeometry = (
   if (tracedSegments.length === 0) {
     return null
   }
-  const sourceSplitSegments = splitTracedSegmentsByIntersections(tracedSegments)
+  const sourceSplitSegments =
+    topology.topologyFamily === 'self-intersecting'
+      ? tracedSegments
+      : splitTracedSegmentsByIntersections(tracedSegments)
   const hasSourceIntersections =
     sourceSplitSegments.length > tracedSegments.length
   if (
@@ -933,7 +975,8 @@ const buildSelfIntersectingGeometry = (
 export const buildResolvedVectorGeometryModel = ({
   fillRule,
   modelId,
-  networks
+  networks,
+  resolveSelfIntersecting = true
 }: {
   fillRule: PathTopologyModel['fillRule']
   modelId: string
@@ -943,9 +986,8 @@ export const buildResolvedVectorGeometryModel = ({
   fillRule,
   networks: networks.map((network) => ({
     ...network,
-    selfIntersecting: buildSelfIntersectingGeometry(
-      network.path,
-      network.topology
-    )
+    selfIntersecting: resolveSelfIntersecting
+      ? buildSelfIntersectingGeometry(network.path, network.topology)
+      : null
   }))
 })

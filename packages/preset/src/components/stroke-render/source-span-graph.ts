@@ -155,7 +155,7 @@ const getSelfIntersectionCuts = (
   }
 
   const cuts: SourceSpanCut[] = []
-  const segmentRefs = segmentRanges.flatMap((segment) => {
+  const segmentRefs = segmentRanges.flatMap((segment, segmentOrderIndex) => {
     const start = topology.normalizedPoints[segment.startIndex]
     const end = topology.normalizedPoints[segment.endIndex]
     if (!start || !end) {
@@ -165,6 +165,7 @@ const getSelfIntersectionCuts = (
     return [
       {
         ...segment,
+        segmentOrderIndex,
         start,
         end,
         minX: Math.min(start.x, end.x),
@@ -174,27 +175,43 @@ const getSelfIntersectionCuts = (
       }
     ]
   })
+  const segmentIndexesByMinX = segmentRefs
+    .map((_, index) => index)
+    .sort(
+      (leftIndex, rightIndex) =>
+        (segmentRefs[leftIndex]?.minX ?? 0) -
+        (segmentRefs[rightIndex]?.minX ?? 0)
+    )
 
-  for (let leftIndex = 0; leftIndex < segmentRefs.length - 1; leftIndex += 1) {
+  for (
+    let leftOrderIndex = 0;
+    leftOrderIndex < segmentIndexesByMinX.length - 1;
+    leftOrderIndex += 1
+  ) {
+    const leftIndex = segmentIndexesByMinX[leftOrderIndex]
     const left = segmentRefs[leftIndex]
     if (!left) {
       continue
     }
 
     for (
-      let rightIndex = leftIndex + 1;
-      rightIndex < segmentRefs.length;
-      rightIndex += 1
+      let rightOrderIndex = leftOrderIndex + 1;
+      rightOrderIndex < segmentIndexesByMinX.length;
+      rightOrderIndex += 1
     ) {
+      const rightIndex = segmentIndexesByMinX[rightOrderIndex]
       const right = segmentRefs[rightIndex]
       if (!right) {
         continue
       }
+      if (right.minX > left.maxX + EPS) {
+        break
+      }
 
       if (
         areAdjacentClosedSegments(
-          leftIndex,
-          rightIndex,
+          left.segmentOrderIndex,
+          right.segmentOrderIndex,
           segmentRefs.length,
           topology.closed
         )

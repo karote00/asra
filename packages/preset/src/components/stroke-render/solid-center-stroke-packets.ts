@@ -22,6 +22,7 @@ import {
 import { shouldEmitFullStrokeDiagnostics } from './stroke-diagnostics-mode'
 import {
   getGeometryBackend,
+  getGeometryBackendCacheSignature,
   type CandidateRegion,
   type GeometryBackend,
   type PolygonRegion
@@ -608,6 +609,71 @@ const flattenFacePolygons = (
   return polygons.length > 0 ? polygons : fallbackPolygons
 }
 
+const emitStrokePipelineCounter = (counterName: string, value = 1) => {
+  ;(
+    globalThis as typeof globalThis & {
+      __asyraStrokePipelineCounterSink?: (
+        counterName: string,
+        value: number
+      ) => void
+    }
+  ).__asyraStrokePipelineCounterSink?.(counterName, value)
+}
+
+const RENDER_PROJECTION_ARRANGEMENT_CACHE_LIMIT = 2048
+const renderProjectionArrangementCache = new Map<string, Vec2[][]>()
+
+const buildRenderProjectionPolygonSignature = (polygon: Vec2[]) =>
+  polygon
+    .map(
+      (point) => `${Math.round(point.x * 1000)},${Math.round(point.y * 1000)}`
+    )
+    .join(';')
+
+const buildRenderProjectionArrangementCacheKey = (
+  candidates: CandidateRegion[],
+  backend: Pick<GeometryBackend, 'capabilities' | 'buildArrangement' | 'union'>
+) =>
+  [
+    getGeometryBackendCacheSignature(backend as GeometryBackend),
+    ...candidates.map((candidate) =>
+      candidate.geometry.polygons
+        .map(buildRenderProjectionPolygonSignature)
+        .join('|')
+    )
+  ].join('::')
+
+const getCachedRenderProjectionArrangement = (
+  cacheKey: string
+): Vec2[][] | null => {
+  const cached = renderProjectionArrangementCache.get(cacheKey)
+  if (!cached) {
+    emitStrokePipelineCounter('render-projection-arrangement-cache-miss')
+    return null
+  }
+
+  renderProjectionArrangementCache.delete(cacheKey)
+  renderProjectionArrangementCache.set(cacheKey, cached)
+  emitStrokePipelineCounter('render-projection-arrangement-cache-hit')
+  return cached
+}
+
+const setCachedRenderProjectionArrangement = (
+  cacheKey: string,
+  polygons: Vec2[][]
+) => {
+  if (
+    renderProjectionArrangementCache.size >=
+    RENDER_PROJECTION_ARRANGEMENT_CACHE_LIMIT
+  ) {
+    const oldestKey = renderProjectionArrangementCache.keys().next().value
+    if (oldestKey) {
+      renderProjectionArrangementCache.delete(oldestKey)
+    }
+  }
+  renderProjectionArrangementCache.set(cacheKey, polygons)
+}
+
 const getSignedPolygonArea = (polygon: Vec2[]) => {
   let area = 0
   for (let index = 0; index < polygon.length; index += 1) {
@@ -661,6 +727,14 @@ const getConstrainedDashedProductRenderGroupKey = (
   if (
     face.geometryFamily !== 'constrained-dashed' ||
     face.debugMeta?.finalCoverageBuilderStatus !== 'product-final'
+  ) {
+    return null
+  }
+
+  if (
+    !shouldEmitFullStrokeDiagnostics() &&
+    face.paint.kind !== 'gradient' &&
+    face.paint.alpha >= 1
   ) {
     return null
   }
@@ -851,9 +925,19 @@ const buildRenderProjectionArrangementPolygons = (
     const componentCandidates = componentIndexes.map(
       (index) => candidates[index]
     )
-    const arrangedPolygons = backend
-      .buildArrangement(componentCandidates)
-      .flatMap((face) => face.geometry.polygons)
+    const arrangementCacheKey = buildRenderProjectionArrangementCacheKey(
+      componentCandidates,
+      backend
+    )
+    const arrangedPolygons =
+      getCachedRenderProjectionArrangement(arrangementCacheKey) ??
+      (() => {
+        const polygons = backend
+          .buildArrangement(componentCandidates)
+          .flatMap((face) => face.geometry.polygons)
+        setCachedRenderProjectionArrangement(arrangementCacheKey, polygons)
+        return polygons
+      })()
 
     output.push(
       ...(arrangedPolygons.length > 0
