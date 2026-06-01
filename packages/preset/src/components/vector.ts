@@ -2148,6 +2148,8 @@ const renderVectorGraphic = (
   const shouldDisableVisualOverlapCollapse =
     renderData.strokeDebugOptions.disableVisualOverlapCollapse === true ||
     systemDebugDisableVisualOverlapCollapse
+  const isMouseDragging =
+    core.getSystemProperty<boolean>('mouseDragging') === true
   graphic.clear()
   ;(graphic as { hitArea: unknown | null }).hitArea = null
   setElementGeometryLocalBounds(
@@ -2943,9 +2945,6 @@ const renderVectorGraphic = (
     shouldDisableVisualOverlapCollapse
       ? []
       : networkPaths.flatMap(({ network, topology }) => {
-          if (topology.topologyFamily === 'self-intersecting') {
-            return []
-          }
           const renderStrokesForNetwork = topology.closed
             ? renderData.strokes
             : mapOpenPathStrokePositionToCenter(renderData.strokes)
@@ -3106,6 +3105,16 @@ const renderVectorGraphic = (
     ...buildSolidCenterStrokeFinalFaces(strokePackets),
     ...promotedExactStrokeFinalFaces
   ])
+  const nativeCenterSolidFinalFaces =
+    nativeCenterSolidVisualStrokeGroups.length > 0
+      ? rawStrokeFinalFaces.filter(shouldRenderCenterSolidFaceWithNativeVisual)
+      : []
+  const collapseInputStrokeFinalFaces =
+    nativeCenterSolidFinalFaces.length > 0
+      ? rawStrokeFinalFaces.filter(
+          (face) => !shouldRenderCenterSolidFaceWithNativeVisual(face)
+        )
+      : rawStrokeFinalFaces
   const strokeFinalFaces = measureVectorRenderPhase(
     'visual overlap collapse',
     () => {
@@ -3114,27 +3123,39 @@ const renderVectorGraphic = (
         return rawStrokeFinalFaces
       }
 
+      const finishCollapse = (faces: typeof collapseInputStrokeFinalFaces) =>
+        nativeCenterSolidFinalFaces.length > 0
+          ? [...faces, ...nativeCenterSolidFinalFaces]
+          : faces
+
+      if (collapseInputStrokeFinalFaces.length === 0) {
+        emitStrokePipelineCounter('visual-overlap-collapse-native-center-only')
+        return finishCollapse([])
+      }
+
       if (
         canUseExactSingleNetworkConstrainedSolidFacesDirectly(
-          rawStrokeFinalFaces
+          collapseInputStrokeFinalFaces
         )
       ) {
         emitStrokePipelineCounter('visual-overlap-collapse-exact-direct')
-        return rawStrokeFinalFaces
+        return finishCollapse(collapseInputStrokeFinalFaces)
       }
 
       try {
         const backend = getGeometryBackend()
         if (backend.capabilities.union !== true) {
           emitStrokePipelineCounter('visual-overlap-collapse-no-union-backend')
-          return rawStrokeFinalFaces
+          return finishCollapse(collapseInputStrokeFinalFaces)
         }
-        return collapseStrokeFinalFaceVisualOverlaps(rawStrokeFinalFaces, {
-          backend
-        })
+        return finishCollapse(
+          collapseStrokeFinalFaceVisualOverlaps(collapseInputStrokeFinalFaces, {
+            backend
+          })
+        )
       } catch {
         emitStrokePipelineCounter('visual-overlap-collapse-error-fallback')
-        return rawStrokeFinalFaces
+        return finishCollapse(collapseInputStrokeFinalFaces)
       }
     }
   )
@@ -3147,6 +3168,17 @@ const renderVectorGraphic = (
 
   const applyVectorHoverHitArea = () => {
     const hitCache: VectorHitCache = graphicCache.__asyraVectorHitCache ?? {}
+    if (isMouseDragging && hitCache.hitArea) {
+      emitStrokePipelineCounter('vector-hit-area-drag-cache-hit')
+      ;(graphic as { hitArea: typeof hitCache.hitArea | null }).hitArea =
+        hitCache.hitArea
+      return
+    }
+
+    if (isMouseDragging) {
+      emitStrokePipelineCounter('vector-hit-area-drag-cache-miss')
+    }
+
     const hasVisibleFill =
       hasClosedNetwork && getRenderableFills(fillPayload).length > 0
     const strokeHitSignature = strokeFinalFaces
@@ -3162,11 +3194,13 @@ const renderVectorGraphic = (
       hitCache.hasVisibleFill === hasVisibleFill
 
     if (reuseHitArea) {
+      emitStrokePipelineCounter('vector-hit-area-stable-cache-hit')
       ;(graphic as { hitArea: typeof hitCache.hitArea | null }).hitArea =
         hitCache.hitArea
       return
     }
 
+    emitStrokePipelineCounter('vector-hit-area-rebuild')
     hitCache.points = points
     hitCache.segments = segments
     hitCache.networks = networks
@@ -3409,6 +3443,13 @@ const renderVectorGraphic = (
       (sum, group) => sum + group.strokes.length,
       0
     )
+  emitStrokePipelineCounter(
+    'native-center-solid-stroke-render-count',
+    nativeCenterSolidVisualStrokeGroups.reduce(
+      (sum, group) => sum + group.strokes.length,
+      0
+    )
+  )
   const strokeRenderEntries = measureVectorRenderPhase('render entries', () => {
     return toSolidCenterStrokeRenderEntriesFromFinalFaces(strokeRenderFaces, {
       collapseDashedCenterVisualOverlaps: !shouldDisableVisualOverlapCollapse

@@ -226,6 +226,33 @@ const collectRenderPhases = (callback: () => void) => {
   return phases
 }
 
+const collectStrokePipelineCounters = (callback: () => void) => {
+  const counters: Record<string, number> = {}
+  ;(
+    globalThis as typeof globalThis & {
+      __asyraStrokePipelineCounterSink?: (
+        counterName: string,
+        value: number
+      ) => void
+    }
+  ).__asyraStrokePipelineCounterSink = (counterName, value) => {
+    counters[counterName] = (counters[counterName] ?? 0) + value
+  }
+  try {
+    callback()
+  } finally {
+    ;(
+      globalThis as typeof globalThis & {
+        __asyraStrokePipelineCounterSink?: (
+          counterName: string,
+          value: number
+        ) => void
+      }
+    ).__asyraStrokePipelineCounterSink = undefined
+  }
+  return counters
+}
+
 const getPercentile = (values: number[], percentile: number) => {
   const sorted = [...values].sort((left, right) => left - right)
   const index = Math.min(
@@ -396,6 +423,49 @@ describe('stroke drag complete render contract', () => {
       graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0
     ).toBeGreaterThan(0)
     expect(graphic.hitArea ?? null).not.toBeNull()
+    clearInteractionState()
+  })
+
+  it('should reuse non-visual hover hit area during drag and rebuild it after drag stops', () => {
+    const graphic = new RecordingVectorGraphic()
+    const stroke = createStroke('round')
+    setPathEditingState({
+      vectorId: 'drag-profile:anchor',
+      mouseDragging: false,
+      mouseDown: false
+    })
+    renderVectorFrame(graphic, mutateDragFrame(0, 'anchor'), stroke)
+    const initialHitArea = graphic.hitArea
+    expect(initialHitArea ?? null).not.toBeNull()
+
+    setPathEditingState({
+      vectorId: 'drag-profile:anchor',
+      mouseDragging: true,
+      mouseDown: true
+    })
+    const dragCounters = collectStrokePipelineCounters(() => {
+      renderVectorFrame(graphic, mutateDragFrame(1, 'anchor'), stroke)
+    })
+
+    expect(graphic.hitArea).toBe(initialHitArea)
+    expect(dragCounters['vector-hit-area-drag-cache-hit']).toBe(1)
+    expect(dragCounters['vector-hit-area-rebuild'] ?? 0).toBe(0)
+    expectFullStrokeRenderCache(graphic)
+    expect(
+      graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0
+    ).toBeGreaterThan(0)
+
+    setPathEditingState({
+      vectorId: 'drag-profile:anchor',
+      mouseDragging: false,
+      mouseDown: false
+    })
+    const finalCounters = collectStrokePipelineCounters(() => {
+      renderVectorFrame(graphic, mutateDragFrame(2, 'anchor'), stroke)
+    })
+
+    expect(graphic.hitArea ?? null).not.toBeNull()
+    expect(finalCounters['vector-hit-area-rebuild']).toBe(1)
     clearInteractionState()
   })
 

@@ -620,6 +620,30 @@ const emitStrokePipelineCounter = (counterName: string, value = 1) => {
   ).__asyraStrokePipelineCounterSink?.(counterName, value)
 }
 
+const measureStrokeRenderEntryPhase = <T>(
+  phaseName: string,
+  run: () => T
+): T => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraVectorRenderPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraVectorRenderPhaseSink
+  if (!sink) {
+    return run()
+  }
+
+  const start = performance.now()
+  try {
+    return run()
+  } finally {
+    sink(phaseName, performance.now() - start)
+  }
+}
+
 const RENDER_PROJECTION_ARRANGEMENT_CACHE_LIMIT = 2048
 const renderProjectionArrangementCache = new Map<string, Vec2[][]>()
 
@@ -731,10 +755,16 @@ const getConstrainedDashedProductRenderGroupKey = (
     return null
   }
 
+  const hasFilledFaceBoundaryRole =
+    face.debugMeta?.figmaLikeBoundaryRole === 'filled-face' ||
+    face.debugMeta?.figmaLikeSplitRangeTerminals?.some(
+      (terminal) => terminal.boundaryRole === 'filled-face'
+    ) === true
   if (
     !shouldEmitFullStrokeDiagnostics() &&
     face.paint.kind !== 'gradient' &&
-    face.paint.alpha >= 1
+    (face.paint.alpha ?? 1) >= 1 &&
+    hasFilledFaceBoundaryRole
   ) {
     return null
   }
@@ -875,6 +905,82 @@ const buildRenderProjectionArrangementCandidates = (
     }))
   )
 
+const findRenderProjectionComponentIndexes = (bounds: Bounds[]) => {
+  const parents = bounds.map((_, index) => index)
+  const ranks = bounds.map(() => 0)
+
+  const findRoot = (index: number): number => {
+    const parent = parents[index]
+    if (parent === index) {
+      return index
+    }
+
+    const root = findRoot(parent)
+    parents[index] = root
+    return root
+  }
+
+  const union = (leftIndex: number, rightIndex: number) => {
+    const leftRoot = findRoot(leftIndex)
+    const rightRoot = findRoot(rightIndex)
+    if (leftRoot === rightRoot) {
+      return
+    }
+
+    const leftRank = ranks[leftRoot]
+    const rightRank = ranks[rightRoot]
+    if (leftRank < rightRank) {
+      parents[leftRoot] = rightRoot
+      return
+    }
+
+    if (leftRank > rightRank) {
+      parents[rightRoot] = leftRoot
+      return
+    }
+
+    parents[rightRoot] = leftRoot
+    ranks[leftRoot] += 1
+  }
+
+  const sortedIndexes = bounds
+    .map((_, index) => index)
+    .sort(
+      (leftIndex, rightIndex) =>
+        bounds[leftIndex].minX - bounds[rightIndex].minX
+    )
+  const activeIndexes: number[] = []
+
+  sortedIndexes.forEach((currentIndex) => {
+    const currentBounds = bounds[currentIndex]
+
+    for (let index = activeIndexes.length - 1; index >= 0; index -= 1) {
+      const activeIndex = activeIndexes[index]
+      const activeBounds = bounds[activeIndex]
+      if (activeBounds.maxX <= currentBounds.minX) {
+        activeIndexes.splice(index, 1)
+        continue
+      }
+
+      if (doBoundsOverlap(currentBounds, activeBounds)) {
+        union(currentIndex, activeIndex)
+      }
+    }
+
+    activeIndexes.push(currentIndex)
+  })
+
+  const groupsByRoot = new Map<number, number[]>()
+  bounds.forEach((_, index) => {
+    const root = findRoot(index)
+    const group = groupsByRoot.get(root) ?? []
+    group.push(index)
+    groupsByRoot.set(root, group)
+  })
+
+  return [...groupsByRoot.values()]
+}
+
 const buildRenderProjectionArrangementPolygons = (
   faces: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
@@ -882,87 +988,115 @@ const buildRenderProjectionArrangementPolygons = (
   >[],
   backend: Pick<GeometryBackend, 'capabilities' | 'buildArrangement' | 'union'>
 ) => {
-  const candidates = buildRenderProjectionArrangementCandidates(faces)
-  const bounds = candidates.map((candidate) =>
-    getBounds(candidate.geometry.polygons)
+  const candidates = measureStrokeRenderEntryPhase(
+    'render projection: candidates',
+    () => buildRenderProjectionArrangementCandidates(faces)
   )
-  const visited = new Set<number>()
+
+  if (candidates.length <= 1) {
+    return candidates.flatMap((candidate) => candidate.geometry.polygons)
+  }
+
+  if (backend.capabilities.union === true) {
+    try {
+      const polygons = measureStrokeRenderEntryPhase(
+        'render projection: direct union',
+        () =>
+          flattenFacePolygons(
+            backend.union(
+              candidates.map((candidate) => ({
+                polygons: candidate.geometry.polygons
+              })),
+              'nonzero'
+            ),
+            []
+          )
+      )
+
+      if (polygons.length > 0) {
+        return polygons
+      }
+    } catch {
+      // Fall through to the arrangement path below.
+    }
+  }
+
+  const bounds = measureStrokeRenderEntryPhase(
+    'render projection: bounds',
+    () => candidates.map((candidate) => getBounds(candidate.geometry.polygons))
+  )
   const output: Vec2[][] = []
 
-  candidates.forEach((candidate, startIndex) => {
-    if (visited.has(startIndex)) {
-      return
-    }
-
-    const stack = [startIndex]
-    const componentIndexes: number[] = []
-    visited.add(startIndex)
-
-    while (stack.length > 0) {
-      const currentIndex = stack.pop()
-      if (currentIndex === undefined) {
-        continue
+  measureStrokeRenderEntryPhase('render projection: components', () => {
+    findRenderProjectionComponentIndexes(bounds).forEach((componentIndexes) => {
+      if (componentIndexes.length === 1) {
+        const [componentIndex] = componentIndexes
+        output.push(...candidates[componentIndex].geometry.polygons)
+        return
       }
-      componentIndexes.push(currentIndex)
 
-      bounds.forEach((candidateBounds, nextIndex) => {
-        if (
-          visited.has(nextIndex) ||
-          !doBoundsOverlap(bounds[currentIndex], candidateBounds)
-        ) {
-          return
+      const componentCandidates = componentIndexes.map(
+        (index) => candidates[index]
+      )
+      if (backend.capabilities.union === true) {
+        try {
+          const componentPolygons = measureStrokeRenderEntryPhase(
+            'render projection: component direct union',
+            () =>
+              flattenFacePolygons(
+                backend.union(
+                  componentCandidates.map((candidate) => ({
+                    polygons: candidate.geometry.polygons
+                  })),
+                  'nonzero'
+                ),
+                []
+              )
+          )
+
+          if (componentPolygons.length > 0) {
+            emitStrokePipelineCounter(
+              'render-projection-component-direct-union'
+            )
+            output.push(...componentPolygons)
+            return
+          }
+        } catch {
+          // Fall through to the arrangement path for this component.
         }
-        visited.add(nextIndex)
-        stack.push(nextIndex)
-      })
-    }
+      }
 
-    if (componentIndexes.length === 1) {
-      output.push(...candidate.geometry.polygons)
-      return
-    }
+      const arrangementCacheKey = buildRenderProjectionArrangementCacheKey(
+        componentCandidates,
+        backend
+      )
+      const arrangedPolygons =
+        getCachedRenderProjectionArrangement(arrangementCacheKey) ??
+        (() =>
+          measureStrokeRenderEntryPhase(
+            'render projection: arrangement',
+            () => {
+              const polygons = backend
+                .buildArrangement(componentCandidates)
+                .flatMap((face) => face.geometry.polygons)
+              setCachedRenderProjectionArrangement(
+                arrangementCacheKey,
+                polygons
+              )
+              return polygons
+            }
+          ))()
 
-    const componentCandidates = componentIndexes.map(
-      (index) => candidates[index]
-    )
-    const arrangementCacheKey = buildRenderProjectionArrangementCacheKey(
-      componentCandidates,
-      backend
-    )
-    const arrangedPolygons =
-      getCachedRenderProjectionArrangement(arrangementCacheKey) ??
-      (() => {
-        const polygons = backend
-          .buildArrangement(componentCandidates)
-          .flatMap((face) => face.geometry.polygons)
-        setCachedRenderProjectionArrangement(arrangementCacheKey, polygons)
-        return polygons
-      })()
-
-    output.push(
-      ...(arrangedPolygons.length > 0
-        ? arrangedPolygons
-        : componentCandidates.flatMap((entry) => entry.geometry.polygons))
-    )
+      output.push(
+        ...(arrangedPolygons.length > 0
+          ? arrangedPolygons
+          : componentCandidates.flatMap((entry) => entry.geometry.polygons))
+      )
+    })
   })
 
-  if (output.length <= 1 || backend.capabilities.union !== true) {
-    return output
-  }
-
-  try {
-    return flattenFacePolygons(
-      backend.union(
-        output.map((polygon) => ({
-          polygons: [normalizeCoveragePolygonWinding(polygon)]
-        })),
-        'nonzero'
-      ),
-      output
-    )
-  } catch {
-    return output
-  }
+  emitStrokePipelineCounter('render-projection-final-union-skipped')
+  return output
 }
 
 const buildCollapsedRenderEntry = (
