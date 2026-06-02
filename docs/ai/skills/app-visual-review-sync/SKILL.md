@@ -1,6 +1,6 @@
 ---
 name: app-visual-review-sync
-description: Verify final app visual review against the same live app state the user sees, including base URL synchronization, runtime computed-data parity, screenshots, and manual inspection before completion claims.
+description: Run synchronized app visual-review tests, generate screenshots from the same live app state the user sees, and inspect those screenshots before completion claims.
 ---
 
 # Skill: app-visual-review-sync
@@ -27,6 +27,7 @@ Use this skill when requests include:
 - App name and target route.
 - Live app base URL from the project-owned visual review env file.
 - Review scenario and expected visual behavior.
+- Visual test scope, when the user wants a subset instead of the default inferred scope.
 - Any required runtime state, fixture, or computed data.
 - Expected viewport, zoom, selection/editing state, and overlay visibility when relevant.
 
@@ -47,53 +48,105 @@ For future apps:
 4. Confirm the URL is reachable before collecting screenshots.
 5. If Playwright still requires a generic base URL, set it from the same value:
    - `PLAYWRIGHT_TEST_BASE_URL="$ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL"`
-6. Record the exact command and URL used.
-7. Confirm whether screenshots include selection outlines, path-edit handles, rulers, panels, or other overlays.
+6. Select the visual test scope before screenshots.
+7. Record the selected scope, exact command, URL, and artifact directory.
+8. Confirm whether screenshots include selection outlines, path-edit handles, rulers, panels, or other overlays.
+
+## Visual Test Scope
+
+When this skill is used, run the relevant app visual-review tests before screenshot inspection unless the user explicitly requests a narrower scope or no automated tests.
+
+Supported scope levels:
+- `all`: run all visual-review-related tests for the target app and scenario.
+- `domain:<name>`: run a domain-specific visual suite, such as `domain:stroke`, `domain:stroke-canonical`, or `domain:drag-render`.
+- `files:<patterns>`: run only explicit Playwright spec files or regex patterns.
+- `screenshot-only`: skip automated E2E execution and only perform synchronized live-app screenshot capture plus agent screenshot inspection. Use this only when the user explicitly asks to avoid automated visual tests.
+
+Default scope:
+- If no scope is provided, infer the smallest complete visual-review suite that covers the completion claim.
+- If the claim is broad baseline stroke correctness, run the full canonical stroke matrix.
+- If the claim is a narrow regression fix, run the affected visual spec(s), the affected canonical case spec(s), and then inspect the generated screenshots/crops.
+- If the task has no maintained visual E2E suite yet, create or update a formal project test before claiming completion; do not rely on a temporary screenshot-only check.
+
+## Asyra Design Visual Test Commands
+
+Always resolve `ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL` from `apps/asyra-design/.env` or an explicit shell override first.
+
+For Playwright, set both URLs to the same value:
+
+```bash
+PLAYWRIGHT_TEST_BASE_URL="$ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL" \
+ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL="$ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL" \
+yarn workspace @asyra/asyra-design test:e2e <scope> --reporter=line
+```
+
+Canonical stroke baseline scope:
+
+```bash
+PLAYWRIGHT_TEST_BASE_URL="$ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL" \
+ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL="$ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL" \
+yarn workspace @asyra/asyra-design test:e2e e2e/stroke-canonical --reporter=line
+```
+
+This runs the 18 canonical stroke visual specs:
+- Solid: `inside | center | outside` x `miter | bevel | round`
+- Dashed: `inside | center | outside` x `butt | square | round`
+
+Do not collapse these canonical cases into one long E2E test. Each canonical case should remain an independently runnable spec file.
 
 ## Deterministic Procedure
 
-1. Load the real app route in a browser-driven app session.
-2. Recreate or load the exact state under review.
-3. If computed data was supplied, assert app runtime computed data matches it before taking screenshots.
+1. Run the selected visual test scope and record pass/fail output.
+2. Confirm the tests produced deterministic screenshots/crops/metadata when the suite is expected to emit artifacts.
+3. Load the real app route in a browser-driven app session.
+4. Recreate or load the exact state under review.
+5. If computed data was supplied, assert app runtime computed data matches it before taking screenshots.
    - Compare stable fields required for the review, including geometry, fills, strokes, stroke position, width, join, cap, opacity, and visible flags.
    - A screenshot from a nearby fixture is not evidence for the supplied computed data.
-4. Capture screenshots from the live rendered app.
+6. Capture screenshots from the live rendered app.
    - Use browser/app screenshots, not a standalone canvas/demo renderer, for final app review evidence.
    - Keep crop and viewport deterministic.
-5. Save or report metadata:
+7. Save or report metadata:
    - base URL
+   - selected visual test scope
    - test command
+   - automated pass/fail result
+   - artifact directory
    - viewport
    - zoom and selection/editing state
    - runtime object id or selected element id
    - computed data snapshot or hash
    - screenshot paths
-6. Inspect the screenshots manually before claiming completion.
-7. Separate status labels:
+8. Inspect the generated screenshots/crops before claiming completion.
+9. Separate status labels:
    - `E2E passed` means automated assertions passed.
-   - `manual app visual review passed` means screenshots were inspected and matched the expected visual behavior.
+   - `agent screenshot review passed` means generated screenshots/crops were inspected and matched the expected visual behavior.
 
 ## Validation Matrix
 
 - Base URL resolves from the app-specific variable and matches the user's live app target.
 - Runtime state under screenshot matches the supplied scenario.
+- Selected visual test scope covers the completion claim.
+- Automated visual tests pass, unless `screenshot-only` was explicitly requested.
 - Screenshots come from the real app rendering path.
 - Metadata is sufficient to reproduce the review.
-- Final answer distinguishes automated checks from manual visual inspection.
+- Final answer distinguishes automated checks from agent screenshot inspection.
 
 ## Required Output Format
 
 1. `Base URL`
-2. `Command`
-3. `Runtime State`
-4. `Screenshots`
-5. `Manual Visual Review`
-6. `Remaining Differences`
+2. `Visual Test Scope`
+3. `Command`
+4. `Runtime State`
+5. `Screenshots`
+6. `Screenshot Review`
+7. `Remaining Differences`
 
 ## Guardrails
 
 - Do not claim visual completion from Playwright pass/fail output alone.
 - Do not claim app visual review from generated geometry data alone.
+- Do not skip maintained visual-review E2E suites unless the user explicitly chooses `screenshot-only` or a narrower scope.
 - Do not substitute a test renderer, helper canvas, or isolated packet renderer for the app.
 - Do not invent a fallback base URL when the app-specific visual review variable is missing.
 - Do not continue if the user's live app view and captured screenshot disagree; reconcile URL, build, viewport, zoom, runtime data, and overlay state first.

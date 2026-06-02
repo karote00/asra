@@ -30,6 +30,7 @@ Skills should be strict enough that two agents produce nearly the same process/o
 - `props-schema-validation-guard/SKILL.md`
 - `docs-contract-sync/SKILL.md`
 - `plan-done-closeout/SKILL.md`
+- `unit-failure-visual-replay/SKILL.md`
 
 ## Runtime vs Docs
 
