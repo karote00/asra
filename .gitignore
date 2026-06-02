@@ -42,6 +42,7 @@ docs/ai/apps/*/plans/*/artifacts/transient/
 docs/ai/apps/*/plans/*/artifacts/tmp/
 docs/ai/apps/*/plans/*/artifacts/local/
 docs/ai/apps/*/plans/*/artifacts/debug/
+docs/ai/apps/*/plans/*/artifacts/canonical-stroke-matrix/
 
 # Context-RAG cache and data
 .context-rag/

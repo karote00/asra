@@ -38,7 +38,7 @@ export const NO_FILL_ANALYSIS_PATH = path.join(
 
 export type SelfCheckCapType = 'butt' | 'square' | 'round'
 export type SelfCheckJoinType = 'miter' | 'bevel' | 'round'
-export type SelfCheckStrokePosition = 'inside' | 'outside'
+export type SelfCheckStrokePosition = 'inside' | 'center' | 'outside'
 export type SelfCheckStrokeStyle = 'solid' | 'dashed'
 
 export const INSIDE_SOLID_LOCAL_REVIEW_ZOOM = 20
@@ -1778,7 +1778,7 @@ export const analyzeSolidBoundaryContinuity = async (
   page: Page,
   actual: Buffer,
   metadata: Awaited<ReturnType<typeof getSelfCheckMetadata>>,
-  expectedPosition: SelfCheckStrokePosition
+  expectedPosition: Exclude<SelfCheckStrokePosition, 'center'>
 ) =>
   page.evaluate(
     async ({ actualDataUrl, metadata, expectedPosition }) => {
@@ -3615,7 +3615,7 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
   options: {
     capType?: SelfCheckCapType
     strictTerminalAdjacentGap?: boolean
-    expectedPosition?: SelfCheckStrokePosition
+    expectedPosition?: Exclude<SelfCheckStrokePosition, 'center'>
   } = {}
 ) =>
   page.evaluate(
