@@ -237,6 +237,34 @@ describe('Render', () => {
     )
   })
 
+  it('should coalesce render requests made during layer updates into the current frame', () => {
+    const appRender = vi.fn()
+    render.app = {
+      render: appRender
+    } as unknown as Application
+
+    let shouldUpdate = true
+    render.registerLayer({
+      name: 'test-current-frame-request-layer',
+      layer: {},
+      shouldUpdate: () => shouldUpdate,
+      update: () => {
+        shouldUpdate = false
+        render.requestRender()
+        return true
+      }
+    })
+
+    try {
+      render.flushFrame()
+      render.flushFrame()
+    } finally {
+      render.unregisterLayer('test-current-frame-request-layer')
+    }
+
+    expect(appRender).toHaveBeenCalledTimes(1)
+  })
+
   it('should delegate zoomFit to viewport', () => {
     const uiBounds = new DOMRect(0, 0, 100, 100)
     vi.spyOn(render.viewport, 'zoomFit')

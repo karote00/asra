@@ -41,9 +41,10 @@ export interface IncrementalSelfIntersectionOptions {
   previousCache?: SelfIntersectionPairCache
   segmentSignatures?: string[]
   returnCache?: boolean
+  preSplitResult?: SplitTracedSegmentsResult
 }
 
-interface SplitTracedSegmentsResult {
+export interface SplitTracedSegmentsResult {
   splitSegments: TracedLineSegment[]
   cache: SelfIntersectionPairCache
 }
@@ -242,6 +243,35 @@ const getTracedSegmentSignature = (segment: TracedLineSegment) =>
 const getPairCacheKey = (leftIndex: number, rightIndex: number) =>
   `${leftIndex}:${rightIndex}`
 
+const areSourceDistancesConsecutive = (
+  left: TracedLineSegment,
+  right: TracedLineSegment
+) => {
+  if (
+    left.sourceStartDistance === undefined ||
+    left.sourceEndDistance === undefined ||
+    right.sourceStartDistance === undefined ||
+    right.sourceEndDistance === undefined
+  ) {
+    return false
+  }
+
+  return (
+    Math.abs(left.sourceEndDistance - right.sourceStartDistance) <=
+      SOURCE_DISTANCE_EPS ||
+    Math.abs(right.sourceEndDistance - left.sourceStartDistance) <=
+      SOURCE_DISTANCE_EPS
+  )
+}
+
+const areConsecutiveSameSourceTracedSegments = (
+  left: TracedLineSegment,
+  right: TracedLineSegment
+) =>
+  left.sourceSegmentIndex !== undefined &&
+  left.sourceSegmentIndex === right.sourceSegmentIndex &&
+  areSourceDistancesConsecutive(left, right)
+
 const emitStrokePipelineCounter = (counterName: string, value = 1) => {
   ;(
     globalThis as typeof globalThis & {
@@ -296,6 +326,86 @@ const splitTracedSegmentsByIntersectionsInternal = <
       emitStrokePipelineCounter('self-intersection-pair-cache-hit')
     })
   }
+
+  const processPair = (inputLeftIndex: number, inputRightIndex: number) => {
+    const leftIndex = Math.min(inputLeftIndex, inputRightIndex)
+    const rightIndex = Math.max(inputLeftIndex, inputRightIndex)
+    if (leftIndex === rightIndex) {
+      return
+    }
+
+    if (leftIndex === undefined) {
+      return
+    }
+    const leftBounds = segmentBounds[leftIndex]
+    if (!leftBounds) {
+      return
+    }
+    const rightBounds = segmentBounds[rightIndex]
+    if (!rightBounds || !segmentBoundsMayOverlap(leftBounds, rightBounds)) {
+      return
+    }
+    if (
+      areConsecutiveSameSourceTracedSegments(
+        segments[leftIndex],
+        segments[rightIndex]
+      )
+    ) {
+      emitStrokePipelineCounter('self-intersection-consecutive-pair-skipped')
+      return
+    }
+
+    const pairKey = getPairCacheKey(leftIndex, rightIndex)
+    if (
+      canReusePreviousPairs &&
+      !dirtySegmentIndexes.has(leftIndex) &&
+      !dirtySegmentIndexes.has(rightIndex)
+    ) {
+      return
+    }
+    const leftSignature = segmentSignatures[leftIndex] ?? ''
+    const rightSignature = segmentSignatures[rightIndex] ?? ''
+    const cachedPair = options.previousCache?.pairEntries.get(pairKey)
+    if (
+      cachedPair &&
+      cachedPair.leftSignature === leftSignature &&
+      cachedPair.rightSignature === rightSignature
+    ) {
+      splitParams[leftIndex].push(...cachedPair.leftParams)
+      splitParams[rightIndex].push(...cachedPair.rightParams)
+      pairEntries.set(pairKey, cachedPair)
+      emitStrokePipelineCounter('self-intersection-pair-cache-hit')
+      return
+    }
+
+    emitStrokePipelineCounter('self-intersection-pair-cache-miss')
+    const intersection = segmentIntersection(
+      segments[leftIndex],
+      segments[rightIndex]
+    )
+    if (!intersection) {
+      pairEntries.set(pairKey, {
+        leftIndex,
+        rightIndex,
+        leftSignature,
+        rightSignature,
+        leftParams: [],
+        rightParams: []
+      })
+      return
+    }
+    splitParams[leftIndex].push(intersection.t)
+    splitParams[rightIndex].push(intersection.u)
+    pairEntries.set(pairKey, {
+      leftIndex,
+      rightIndex,
+      leftSignature,
+      rightSignature,
+      leftParams: [intersection.t],
+      rightParams: [intersection.u]
+    })
+  }
+
   const segmentIndexesByMinX = segments
     .map((_, index) => index)
     .sort(
@@ -333,59 +443,7 @@ const splitTracedSegmentsByIntersectionsInternal = <
       if (rightBounds.minX > leftBounds.maxX + INTERSECTION_EPS) {
         break
       }
-      if (!segmentBoundsMayOverlap(leftBounds, rightBounds)) {
-        continue
-      }
-
-      const pairKey = getPairCacheKey(leftIndex, rightIndex)
-      if (
-        canReusePreviousPairs &&
-        !dirtySegmentIndexes.has(leftIndex) &&
-        !dirtySegmentIndexes.has(rightIndex)
-      ) {
-        continue
-      }
-      const leftSignature = segmentSignatures[leftIndex] ?? ''
-      const rightSignature = segmentSignatures[rightIndex] ?? ''
-      const cachedPair = options.previousCache?.pairEntries.get(pairKey)
-      if (
-        cachedPair &&
-        cachedPair.leftSignature === leftSignature &&
-        cachedPair.rightSignature === rightSignature
-      ) {
-        splitParams[leftIndex].push(...cachedPair.leftParams)
-        splitParams[rightIndex].push(...cachedPair.rightParams)
-        pairEntries.set(pairKey, cachedPair)
-        emitStrokePipelineCounter('self-intersection-pair-cache-hit')
-        continue
-      }
-
-      emitStrokePipelineCounter('self-intersection-pair-cache-miss')
-      const intersection = segmentIntersection(
-        segments[leftIndex],
-        segments[rightIndex]
-      )
-      if (!intersection) {
-        pairEntries.set(pairKey, {
-          leftIndex,
-          rightIndex,
-          leftSignature,
-          rightSignature,
-          leftParams: [],
-          rightParams: []
-        })
-        continue
-      }
-      splitParams[leftIndex].push(intersection.t)
-      splitParams[rightIndex].push(intersection.u)
-      pairEntries.set(pairKey, {
-        leftIndex,
-        rightIndex,
-        leftSignature,
-        rightSignature,
-        leftParams: [intersection.t],
-        rightParams: [intersection.u]
-      })
+      processPair(leftIndex, rightIndex)
     }
   }
 
@@ -579,9 +637,10 @@ const buildPlanarGraph = (
     return null
   }
 
-  const splitSegments = options.inputAlreadySplit
+  const splitSegments: TracedLineSegment[] = options.inputAlreadySplit
     ? segments
-    : splitTracedSegmentsByIntersections(segments, options)
+    : splitTracedSegmentsByIntersectionsInternal(segments, options)
+        .splitSegments
   if (splitSegments.length === 0) {
     return null
   }
@@ -647,12 +706,19 @@ const buildPlanarGraph = (
   adjacency.forEach((edgeIds) => {
     edgeIds.sort((a, b) => edges[a].angle - edges[b].angle)
   })
+  const adjacencyPositionByEdgeId = new Int32Array(edges.length)
+  adjacencyPositionByEdgeId.fill(-1)
+  adjacency.forEach((edgeIds) => {
+    edgeIds.forEach((edgeId, edgePosition) => {
+      adjacencyPositionByEdgeId[edgeId] = edgePosition
+    })
+  })
 
-  const visited = new Array(edges.length).fill(false)
+  const visited = new Uint8Array(edges.length)
   const rawFaces: { points: Vec2[]; edgeIds: number[]; area: number }[] = []
 
   for (let edgeIndex = 0; edgeIndex < edges.length; edgeIndex += 1) {
-    if (visited[edgeIndex]) {
+    if (visited[edgeIndex] === 1) {
       continue
     }
 
@@ -661,15 +727,15 @@ const buildPlanarGraph = (
     let currentEdge = edgeIndex
     let guard = 0
 
-    while (!visited[currentEdge] && guard < edges.length * 2) {
+    while (visited[currentEdge] !== 1 && guard < edges.length * 2) {
       guard += 1
-      visited[currentEdge] = true
+      visited[currentEdge] = 1
       const edge = edges[currentEdge]
       face.push(pointsList[edge.from])
       faceEdgeIds.push(currentEdge)
 
       const outgoing = adjacency[edge.to] ?? []
-      const reverseIndex = outgoing.indexOf(edge.rev)
+      const reverseIndex = adjacencyPositionByEdgeId[edge.rev] ?? -1
       if (reverseIndex === -1) {
         break
       }
@@ -731,11 +797,11 @@ const toLegalFaceBoundaryEdge = (
   face: PlanarFace,
   edgeId: number,
   boundaryIndex: number
-): EvenOddLegalFaceBoundaryEdge[] => {
+): EvenOddLegalFaceBoundaryEdge | null => {
   const edge = graph.edges[edgeId]
   const segment = graph.splitSegments[edge.segmentIndex]
   if (!segment) {
-    return []
+    return null
   }
   const sourceStartDistance = edge.reversed
     ? segment.sourceEndDistance
@@ -749,64 +815,74 @@ const toLegalFaceBoundaryEdge = (
   const reverseFaceIndex = graph.faceIndexByEdgeId.get(edge.rev)
   const reverseFace =
     reverseFaceIndex === undefined ? undefined : graph.faces[reverseFaceIndex]
-  return [
-    {
-      edgeId: `${face.faceId}:edge:${boundaryIndex}`,
-      faceId: face.faceId,
-      oppositeFaceId: reverseFace?.faceId ?? null,
-      oppositeFaceLegal: reverseFace?.legal === true,
-      start,
-      end,
-      startNodeDegree: graph.nodeDegreeById[edge.from] ?? 0,
-      endNodeDegree: graph.nodeDegreeById[edge.to] ?? 0,
-      sourceSegmentIndex: segment.sourceSegmentIndex,
-      sourceStartDistance,
-      sourceEndDistance,
-      reversed: edge.reversed,
-      legalSide
-    }
-  ]
+  return {
+    edgeId: `${face.faceId}:edge:${boundaryIndex}`,
+    faceId: face.faceId,
+    oppositeFaceId: reverseFace?.faceId ?? null,
+    oppositeFaceLegal: reverseFace?.legal === true,
+    start,
+    end,
+    startNodeDegree: graph.nodeDegreeById[edge.from] ?? 0,
+    endNodeDegree: graph.nodeDegreeById[edge.to] ?? 0,
+    sourceSegmentIndex: segment.sourceSegmentIndex,
+    sourceStartDistance,
+    sourceEndDistance,
+    reversed: edge.reversed,
+    legalSide
+  }
 }
 
 const buildFillFaceBoundariesFromGraph = (
   graph: PlanarGraph
-): EvenOddLegalFaceBoundary[] =>
-  graph.faces.flatMap((face) => {
+): EvenOddLegalFaceBoundary[] => {
+  const boundaries: EvenOddLegalFaceBoundary[] = []
+  graph.faces.forEach((face) => {
     if (!face.legal) {
-      return []
+      return
     }
 
-    return [
-      {
-        faceId: face.faceId,
-        points: face.points,
-        edges: face.edgeIds.flatMap((edgeId, boundaryIndex) =>
-          toLegalFaceBoundaryEdge(graph, face, edgeId, boundaryIndex)
-        ),
-        area: face.area
+    const edges: EvenOddLegalFaceBoundaryEdge[] = []
+    face.edgeIds.forEach((edgeId, boundaryIndex) => {
+      const edge = toLegalFaceBoundaryEdge(graph, face, edgeId, boundaryIndex)
+      if (edge) {
+        edges.push(edge)
       }
-    ]
+    })
+    boundaries.push({
+      faceId: face.faceId,
+      points: face.points,
+      edges,
+      area: face.area
+    })
   })
+  return boundaries
+}
 
 const buildUnfilledFaceBoundariesFromGraph = (
   graph: PlanarGraph
-): EvenOddLegalFaceBoundary[] =>
-  graph.faces.flatMap((face) => {
+): EvenOddLegalFaceBoundary[] => {
+  const boundaries: EvenOddLegalFaceBoundary[] = []
+  graph.faces.forEach((face) => {
     if (face.legal || face.exterior) {
-      return []
+      return
     }
 
-    return [
-      {
-        faceId: face.faceId,
-        points: face.points,
-        edges: face.edgeIds.flatMap((edgeId, boundaryIndex) =>
-          toLegalFaceBoundaryEdge(graph, face, edgeId, boundaryIndex)
-        ),
-        area: face.area
+    const edges: EvenOddLegalFaceBoundaryEdge[] = []
+    face.edgeIds.forEach((edgeId, boundaryIndex) => {
+      const edge = toLegalFaceBoundaryEdge(graph, face, edgeId, boundaryIndex)
+      if (edge) {
+        edges.push(edge)
       }
-    ]
+    })
+    boundaries.push({
+      faceId: face.faceId,
+      points: face.points,
+      edges,
+      area: face.area
+    })
   })
+  return boundaries
+}
 
 const buildFillFaceBoundaries = (
   segments: TracedLineSegment[]
@@ -1080,15 +1156,22 @@ const buildBoundaryContoursFromGraph = (
     return cycles
   }
 
-  return graph.faces.flatMap((face) => {
+  const contours: EvenOddBoundaryContour[] = []
+  graph.faces.forEach((face) => {
     if (face.legal) {
-      return []
+      return
     }
 
-    const rawEdges = face.edgeIds.flatMap((edgeId, boundaryIndex) => {
+    const rawEdges: (Omit<
+      EvenOddBoundaryContourEdge,
+      'edgeId' | 'contourId'
+    > & {
+      boundaryIndex: number
+    })[] = []
+    face.edgeIds.forEach((edgeId, boundaryIndex) => {
       const edge = graph.edges[edgeId]
       if (!edge) {
-        return []
+        return
       }
       const reverseFaceIndex = graph.faceIndexByEdgeId.get(edge.rev)
       const reverseFace =
@@ -1096,12 +1179,12 @@ const buildBoundaryContoursFromGraph = (
           ? undefined
           : graph.faces[reverseFaceIndex]
       if (!reverseFace?.legal) {
-        return []
+        return
       }
 
       const segment = graph.splitSegments[edge.segmentIndex]
       if (!segment) {
-        return []
+        return
       }
       const legalSide = face.area >= 0 ? ('right' as const) : ('left' as const)
       const sourceStartDistance = edge.reversed
@@ -1111,26 +1194,24 @@ const buildBoundaryContoursFromGraph = (
         ? segment.sourceStartDistance
         : segment.sourceEndDistance
 
-      return [
-        {
-          boundaryIndex,
-          legalFaceId: reverseFace.faceId,
-          oppositeFaceId: face.faceId,
-          start: graph.pointsList[edge.from],
-          end: graph.pointsList[edge.to],
-          startNodeDegree: graph.nodeDegreeById[edge.from] ?? 0,
-          endNodeDegree: graph.nodeDegreeById[edge.to] ?? 0,
-          sourceSegmentIndex: segment.sourceSegmentIndex,
-          sourceStartDistance,
-          sourceEndDistance,
-          reversed: edge.reversed,
-          legalSide
-        }
-      ]
+      rawEdges.push({
+        boundaryIndex,
+        legalFaceId: reverseFace.faceId,
+        oppositeFaceId: face.faceId,
+        start: graph.pointsList[edge.from],
+        end: graph.pointsList[edge.to],
+        startNodeDegree: graph.nodeDegreeById[edge.from] ?? 0,
+        endNodeDegree: graph.nodeDegreeById[edge.to] ?? 0,
+        sourceSegmentIndex: segment.sourceSegmentIndex,
+        sourceStartDistance,
+        sourceEndDistance,
+        reversed: edge.reversed,
+        legalSide
+      })
     })
 
     if (rawEdges.length === 0) {
-      return []
+      return
     }
 
     const chains: (typeof rawEdges)[] = []
@@ -1173,9 +1254,12 @@ const buildBoundaryContoursFromGraph = (
       }
     }
 
-    const cycles = chains.flatMap((chain) => splitClosedBoundaryCycles(chain))
+    const cycles: (typeof rawEdges)[] = []
+    chains.forEach((chain) => {
+      cycles.push(...splitClosedBoundaryCycles(chain))
+    })
 
-    return cycles.flatMap((chain, chainIndex) => {
+    cycles.forEach((chain, chainIndex) => {
       const contourId = `contour:${face.faceId}:${chainIndex}`
       const firstEdge = chain[0]
       const lastEdge = chain[chain.length - 1]
@@ -1184,7 +1268,7 @@ const buildBoundaryContoursFromGraph = (
         !lastEdge ||
         !areSamePoint(lastEdge.end, firstEdge.start)
       ) {
-        return []
+        return
       }
       const legalSide = firstEdge.legalSide
       const edges = chain.map((edge, edgeIndex) => ({
@@ -1206,22 +1290,21 @@ const buildBoundaryContoursFromGraph = (
         edges
       )
 
-      return [
-        {
-          contourId,
-          points,
-          edges,
-          dashDomains,
-          legalSide,
-          legalFaceIds: Array.from(
-            new Set(edges.map((edge) => edge.legalFaceId))
-          ),
-          oppositeFaceId: face.faceId,
-          area: polygonArea(points)
-        }
-      ]
+      contours.push({
+        contourId,
+        points,
+        edges,
+        dashDomains,
+        legalSide,
+        legalFaceIds: Array.from(
+          new Set(edges.map((edge) => edge.legalFaceId))
+        ),
+        oppositeFaceId: face.faceId,
+        area: polygonArea(points)
+      })
     })
   })
+  return contours
 }
 
 export const buildSelfIntersectingEvenOddBoundaryContours = (
@@ -1239,6 +1322,7 @@ export const buildSelfIntersectingResolvedGeometry = (
   const splitResult = measureSelfIntersectingPhase(
     'resolved self-intersecting geometry: intersections',
     () =>
+      options.preSplitResult ??
       splitTracedSegmentsByIntersections(segments, {
         ...options,
         returnCache: true

@@ -423,8 +423,13 @@ const resolveFilledSideFromFillRegions = ({
 }
 
 const getSourcePathSegmentDistanceRanges = (
-  path: Pick<PathGeometry, 'segments'>
+  path: Pick<PathGeometry, 'segments'> &
+    Partial<Pick<PathGeometry, 'segmentDistanceRanges'>>
 ) => {
+  if (path.segmentDistanceRanges?.length === path.segments.length) {
+    return path.segmentDistanceRanges
+  }
+
   let cursor = 0
   return path.segments.map((segment, index) => {
     const range = {
@@ -445,26 +450,26 @@ const buildClosedTopologyPointTracedSegments = (
   }
 
   let cursor = 0
-  return points.flatMap((start, index) => {
+  const tracedSegments: TracedLineSegment[] = []
+  points.forEach((start, index) => {
     const end = points[(index + 1) % points.length]
     const length = distanceBetween(start, end)
     if (length <= EPSILON) {
-      return []
+      return
     }
 
     const sourceStartDistance = cursor
     cursor += length
 
-    return [
-      {
-        sourceSegmentIndex: index,
-        sourceStartDistance,
-        sourceEndDistance: cursor,
-        start,
-        end
-      }
-    ]
+    tracedSegments.push({
+      sourceSegmentIndex: index,
+      sourceStartDistance,
+      sourceEndDistance: cursor,
+      start,
+      end
+    })
   })
+  return tracedSegments
 }
 
 const getPolylineArea = (points: Vec2[]) => {
@@ -594,17 +599,14 @@ const buildResolvedVectorSourceSplitRanges = (
     preparedFillPolygons ??= buildPreparedFillPolygons(fillRegions)
     return preparedFillPolygons
   }
-  const sourceSegmentStartDistanceByIndex = new Map<number, number>()
+  const sourceSegmentStartDistances: number[] = []
   let sourceCursor = 0
   path.segments.forEach((segment, segmentIndex) => {
-    sourceSegmentStartDistanceByIndex.set(segmentIndex, sourceCursor)
+    sourceSegmentStartDistances[segmentIndex] = sourceCursor
     sourceCursor += segment.length
   })
   const getCachedSourceSegmentStartDistance = (segmentIndex: number) => {
-    return (
-      sourceSegmentStartDistanceByIndex.get(segmentIndex) ??
-      getSegmentStartDistance(path, segmentIndex)
-    )
+    return sourceSegmentStartDistances[segmentIndex] ?? 0
   }
   const getBoundaryRole = (
     contour: EvenOddBoundaryContour
@@ -674,13 +676,17 @@ const buildResolvedVectorSourceSplitRanges = (
                 : (getContourRoleByEdgeKey(edge) ?? 'ambiguous')
             })()
 
-    const edgeRecords = face.edges.flatMap((edge) => {
+    const edgeRecords: {
+      edge: EvenOddLegalFaceBoundaryEdge
+      boundaryRole: ResolvedVectorSourceSplitRange['boundaryRole']
+    }[] = []
+    face.edges.forEach((edge) => {
       if (
         edge.sourceSegmentIndex === undefined ||
         edge.sourceStartDistance === undefined ||
         edge.sourceEndDistance === undefined
       ) {
-        return []
+        return
       }
       const sourceStartDistance = Math.min(
         edge.sourceStartDistance,
@@ -694,14 +700,12 @@ const buildResolvedVectorSourceSplitRanges = (
         sourceEndDistance - sourceStartDistance <= EPSILON ||
         distanceBetween(edge.start, edge.end) <= EPSILON
       ) {
-        return []
+        return
       }
-      return [
-        {
-          edge,
-          boundaryRole: getFaceEdgeBoundaryRole(edge)
-        }
-      ]
+      edgeRecords.push({
+        edge,
+        boundaryRole: getFaceEdgeBoundaryRole(edge)
+      })
     })
 
     const chains: {
@@ -758,14 +762,29 @@ const buildResolvedVectorSourceSplitRanges = (
         return
       }
 
-      const sourceDistances = chain.edges.flatMap((edge) =>
-        edge.sourceStartDistance !== undefined &&
-        edge.sourceEndDistance !== undefined
-          ? [edge.sourceStartDistance, edge.sourceEndDistance]
-          : []
-      )
-      const sourceStartDistance = Math.min(...sourceDistances)
-      const sourceEndDistance = Math.max(...sourceDistances)
+      let sourceStartDistance = Infinity
+      let sourceEndDistance = -Infinity
+      const oppositeFaceIds = new Set<string>()
+      chain.edges.forEach((edge) => {
+        if (
+          edge.sourceStartDistance !== undefined &&
+          edge.sourceEndDistance !== undefined
+        ) {
+          sourceStartDistance = Math.min(
+            sourceStartDistance,
+            edge.sourceStartDistance,
+            edge.sourceEndDistance
+          )
+          sourceEndDistance = Math.max(
+            sourceEndDistance,
+            edge.sourceStartDistance,
+            edge.sourceEndDistance
+          )
+        }
+        if (edge.oppositeFaceId) {
+          oppositeFaceIds.add(edge.oppositeFaceId)
+        }
+      })
       if (
         !Number.isFinite(sourceStartDistance) ||
         !Number.isFinite(sourceEndDistance) ||
@@ -830,13 +849,7 @@ const buildResolvedVectorSourceSplitRanges = (
           chain.boundaryRole === 'ambiguous' ? 'conflict' : resolvedSide.status,
         contourIds: [face.faceId],
         legalFaceIds: [face.faceId],
-        oppositeFaceIds: Array.from(
-          new Set(
-            chain.edges.flatMap((edge) =>
-              edge.oppositeFaceId ? [edge.oppositeFaceId] : []
-            )
-          )
-        ),
+        oppositeFaceIds: Array.from(oppositeFaceIds),
         edgeIds
       })
     })
@@ -997,63 +1010,82 @@ export const buildResolvedVectorSourcePathTracedSegments = (
     | 'segments'
     | 'closed'
     | 'totalLength'
+    | 'segmentDistanceRanges'
+    | 'sampledSegmentPoints'
+    | 'sampledSegmentDistances'
     | 'traceSampleTolerance'
     | 'traceSampleOptions'
   >
 ): TracedLineSegment[] => {
   const segmentRanges = getSourcePathSegmentDistanceRanges(path)
-  return path.segments.flatMap((segment, segmentIndex) => {
+  const tracedSegments: TracedLineSegment[] = []
+  for (
+    let segmentIndex = 0;
+    segmentIndex < path.segments.length;
+    segmentIndex += 1
+  ) {
+    const segment = path.segments[segmentIndex]
     const segmentRange = segmentRanges[segmentIndex]
     if (!segmentRange || segment.length <= EPSILON) {
-      return []
+      continue
     }
 
-    const points = slicePathGeometryPoints(
-      {
-        segments: [segment],
-        closed: false,
-        totalLength: segment.length
-      },
-      0,
-      segment.length,
-      false,
-      path.traceSampleTolerance,
-      path.traceSampleOptions
-    )
+    const points =
+      path.sampledSegmentPoints?.[segmentIndex] ??
+      slicePathGeometryPoints(
+        {
+          segments: [segment],
+          closed: false,
+          totalLength: segment.length
+        },
+        0,
+        segment.length,
+        false,
+        path.traceSampleTolerance,
+        path.traceSampleOptions
+      )
     const sampledPoints =
       points.length >= 2 ? points : [segment.start, segment.end]
-    const localDistances = [0]
-    for (let index = 1; index < sampledPoints.length; index += 1) {
-      localDistances.push(
-        localDistances[localDistances.length - 1] +
-          distanceBetween(sampledPoints[index - 1], sampledPoints[index])
-      )
-    }
-    const sampledLength = localDistances[localDistances.length - 1] ?? 0
+    const sampledDistances = path.sampledSegmentDistances?.[segmentIndex]
+    const hasSampledDistances =
+      sampledDistances && sampledDistances.length === sampledPoints.length
+    const sampledLength = hasSampledDistances
+      ? (sampledDistances[sampledDistances.length - 1] ?? 0)
+      : sampledPoints.reduce(
+          (sum, point, index) =>
+            index === 0
+              ? sum
+              : sum + distanceBetween(sampledPoints[index - 1], point),
+          0
+        )
     const distanceScale =
       sampledLength > EPSILON ? segment.length / sampledLength : 1
 
-    return sampledPoints.flatMap((point, index) => {
-      if (index === 0) {
-        return []
-      }
+    let localStart = 0
+    for (let index = 1; index < sampledPoints.length; index += 1) {
+      const point = sampledPoints[index]
       const previousPoint = sampledPoints[index - 1]
-      if (distanceBetween(previousPoint, point) <= EPSILON) {
-        return []
+      const localEnd = hasSampledDistances
+        ? (sampledDistances[index] ?? localStart)
+        : localStart + distanceBetween(previousPoint, point)
+      const sampledSegmentLength = localEnd - localStart
+      if (sampledSegmentLength <= EPSILON) {
+        localStart = localEnd
+        continue
       }
-      const localStart = localDistances[index - 1] * distanceScale
-      const localEnd = localDistances[index] * distanceScale
-      return [
-        {
-          sourceSegmentIndex: segmentIndex,
-          sourceStartDistance: segmentRange.startDistance + localStart,
-          sourceEndDistance: segmentRange.startDistance + localEnd,
-          start: previousPoint,
-          end: point
-        }
-      ]
-    })
-  })
+      tracedSegments.push({
+        sourceSegmentIndex: segmentIndex,
+        sourceStartDistance:
+          segmentRange.startDistance + localStart * distanceScale,
+        sourceEndDistance:
+          segmentRange.startDistance + localEnd * distanceScale,
+        start: previousPoint,
+        end: point
+      })
+      localStart = localEnd
+    }
+  }
+  return tracedSegments
 }
 
 const buildSelfIntersectingGeometry = (
@@ -1106,7 +1138,8 @@ const buildSelfIntersectingGeometry = (
     topology.fillRule,
     {
       previousCache: splitResult?.cache ?? previousCache?.selfIntersectionCache,
-      segmentSignatures: tracedSegmentSignatures
+      segmentSignatures: tracedSegmentSignatures,
+      preSplitResult: splitResult ?? undefined
     }
   )
   const fallbackResolvedGeometry =
@@ -1149,7 +1182,10 @@ const buildSelfIntersectingGeometry = (
 
   const outputCache = {
     tracedSegmentSignatures,
-    selfIntersectionCache: resolvedGeometry.cache ?? splitResult.cache
+    selfIntersectionCache:
+      resolvedGeometry.cache ??
+      splitResult?.cache ??
+      previousCache?.selfIntersectionCache
   }
   if (
     previousCache?.selfIntersectionCache &&

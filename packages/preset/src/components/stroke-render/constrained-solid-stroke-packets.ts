@@ -2918,7 +2918,6 @@ const buildOutsideExteriorRenderMaskPolygons = (
 ): Vec2[][] => {
   const bounds = getBounds([...strokePolygons, ...fillMaskPolygons])
   const margin = Math.max(16, strokeWidth * 4)
-  const maxCutoutPointCount = 256
   const outer = [
     { x: bounds.minX - margin, y: bounds.minY - margin },
     { x: bounds.maxX + margin, y: bounds.minY - margin },
@@ -2926,10 +2925,7 @@ const buildOutsideExteriorRenderMaskPolygons = (
     { x: bounds.minX - margin, y: bounds.maxY + margin }
   ]
   const filledFaceCutouts = fillMaskPolygons.map((polygon) => {
-    const clippedPolygon = limitPolylinePoints(
-      cleanPolylinePoints(polygon),
-      maxCutoutPointCount
-    )
+    const clippedPolygon = cleanPolylinePoints(polygon)
     return polygonArea(clippedPolygon) < 0
       ? clippedPolygon
       : [...clippedPolygon].reverse()

@@ -17,6 +17,7 @@ export type PathSegment =
       length: number
       startAnchorType?: VectorAnchorType
       endAnchorType?: VectorAnchorType
+      revisionKey?: string
     }
   | {
       type: 'cubic'
@@ -28,6 +29,7 @@ export type PathSegment =
       length: number
       startAnchorType?: VectorAnchorType
       endAnchorType?: VectorAnchorType
+      revisionKey?: string
     }
 
 export interface PathGeometry {
@@ -35,14 +37,24 @@ export interface PathGeometry {
   closed: boolean
   totalLength: number
   sampledPoints: Vec2[]
+  segmentDistanceRanges?: PathSegmentDistanceRange[]
+  sampledSegmentPoints?: Vec2[][]
+  sampledSegmentDistances?: number[][]
   traceSampleTolerance?: number
   traceSampleOptions?: PathSliceSamplingOptions
+}
+
+export interface PathSegmentDistanceRange {
+  index: number
+  startDistance: number
+  endDistance: number
 }
 
 export interface VectorSegmentGeometryFrameCacheEntry {
   key: string
   segment: PathSegment
   sampledPoints: Vec2[]
+  sampledDistances: number[]
 }
 
 export interface VectorSegmentGeometryFrameCache {
@@ -169,6 +181,11 @@ const getCurveLengthAtT = (
   return toBezier(segment).split(0, t).length()
 }
 
+const curveLengthTCache = new WeakMap<
+  Extract<PathSegment, { type: 'cubic' }>,
+  Map<number, number>
+>()
+
 const getCurveTAtLength = (
   segment: Extract<PathSegment, { type: 'cubic' }>,
   targetLength: number
@@ -178,6 +195,12 @@ const getCurveTAtLength = (
   }
   if (targetLength >= segment.length - EPS) {
     return 1
+  }
+
+  const cachedByLength = curveLengthTCache.get(segment)
+  const cached = cachedByLength?.get(targetLength)
+  if (cached !== undefined) {
+    return cached
   }
 
   let low = 0
@@ -190,7 +213,13 @@ const getCurveTAtLength = (
       high = mid
     }
   }
-  return (low + high) / 2
+  const t = (low + high) / 2
+  if (cachedByLength) {
+    cachedByLength.set(targetLength, t)
+  } else {
+    curveLengthTCache.set(segment, new Map([[targetLength, t]]))
+  }
+  return t
 }
 
 const sampleLineSegmentFrames = (
@@ -230,13 +259,18 @@ const sampleCubicSegmentFrames = (
 ): PathSampleFrame[] => {
   const t0 = getCurveTAtLength(segment, startLength)
   const t1 = getCurveTAtLength(segment, endLength)
-  const splitCurve = toBezier(segment).split(t0, t1)
+  const isFullSegmentRange = t0 <= EPS && t1 >= 1 - EPS
+  const splitCurve = isFullSegmentRange
+    ? toBezier(segment)
+    : toBezier(segment).split(t0, t1)
   const minSamples = samplingOptions.minCubicSamples ?? 8
   const maxSamples = samplingOptions.maxCubicSamples ?? 256
   const sampleLength =
     samplingOptions.useRangeLengthForSampleCount === true
       ? endLength - startLength
-      : splitCurve.length()
+      : isFullSegmentRange
+        ? segment.length
+        : splitCurve.length()
   const sampleCount = Math.max(
     minSamples,
     Math.min(maxSamples, Math.ceil(sampleLength / Math.max(0.2, tolerance)))
@@ -264,13 +298,23 @@ const sampleCubicSegmentFrames = (
   const defaultStartTangent = sampledFrames.find((frame) => frame.tangent)
     ?.tangent ??
     getSegmentStartTangent(segment) ?? { x: 1, y: 0 }
+  const nextTangents: (Vec2 | null)[] = new Array(sampledFrames.length).fill(
+    null
+  )
+  let nextTangent: Vec2 | null = null
+  for (let index = sampledFrames.length - 1; index >= 0; index -= 1) {
+    nextTangents[index] = nextTangent
+    if (sampledFrames[index].tangent) {
+      nextTangent = sampledFrames[index].tangent
+    }
+  }
   const frames: PathSampleFrame[] = []
 
   for (let index = 0; index < sampledFrames.length; index += 1) {
     const tangent =
       sampledFrames[index].tangent ??
       (index > 0 ? (frames[index - 1]?.tangent ?? null) : null) ??
-      sampledFrames.slice(index + 1).find((frame) => frame.tangent)?.tangent ??
+      nextTangents[index] ??
       defaultStartTangent
     frames.push({
       point: sampledFrames[index].point,
@@ -365,6 +409,17 @@ const samplePathSegment = (
   samplingOptions?: PathSliceSamplingOptions
 ): Vec2[] =>
   slicePathSegmentPoints(segment, 0, segment.length, tolerance, samplingOptions)
+
+const buildCumulativePointDistances = (points: Vec2[]) => {
+  const distances = [0]
+  for (let index = 1; index < points.length; index += 1) {
+    distances.push(
+      distances[distances.length - 1] +
+        distance(points[index - 1], points[index])
+    )
+  }
+  return distances
+}
 
 const slicePathGeometryPointRange = (
   path: Pick<PathGeometry, 'segments'>,
@@ -678,7 +733,9 @@ const buildPathGeometry = (
   options?: PathGeometryBuildOptions
 ): PathGeometry => {
   const pathSegments: PathSegment[] = []
+  const segmentDistanceRanges: PathSegmentDistanceRange[] = []
   const sampledSegments: Vec2[][] = []
+  const sampledSegmentDistances: number[][] = []
   let totalLength = 0
   const usedSegmentIds = new Set<string>()
   const sampleTolerance =
@@ -700,9 +757,16 @@ const buildPathGeometry = (
     ].join('|')
     const cached = cache?.entries.get(segmentId)
     if (cached?.key === revisionKey) {
+      const startDistance = totalLength
       totalLength += cached.segment.length
       pathSegments.push(cached.segment)
+      segmentDistanceRanges.push({
+        index: pathSegments.length - 1,
+        startDistance,
+        endDistance: totalLength
+      })
       sampledSegments.push(cached.sampledPoints)
+      sampledSegmentDistances.push(cached.sampledDistances)
       return
     }
 
@@ -710,18 +774,28 @@ const buildPathGeometry = (
     if (!pathSegment) {
       return
     }
+    pathSegment.revisionKey = revisionKey
     const sampledPoints = samplePathSegment(
       pathSegment,
       sampleTolerance,
       options?.sampleOptions
     )
+    const sampledDistances = buildCumulativePointDistances(sampledPoints)
+    const startDistance = totalLength
     totalLength += pathSegment.length
     pathSegments.push(pathSegment)
+    segmentDistanceRanges.push({
+      index: pathSegments.length - 1,
+      startDistance,
+      endDistance: totalLength
+    })
     sampledSegments.push(sampledPoints)
+    sampledSegmentDistances.push(sampledDistances)
     cache?.entries.set(segmentId, {
       key: revisionKey,
       segment: pathSegment,
-      sampledPoints
+      sampledPoints,
+      sampledDistances
     })
   })
   cache?.entries.forEach((_entry, segmentId) => {
@@ -730,20 +804,35 @@ const buildPathGeometry = (
     }
   })
 
-  const sampledPoints = dedupeAdjacentPoints(
-    sampledSegments.reduce<Vec2[]>((result, sampled, index) => {
-      if (index === 0) {
-        return sampled
-      }
-      return mergePointLists(result, sampled)
-    }, [])
-  )
+  const mergedSampledPoints: Vec2[] = []
+  sampledSegments.forEach((sampled) => {
+    if (sampled.length === 0) {
+      return
+    }
+    if (mergedSampledPoints.length === 0) {
+      mergedSampledPoints.push(...sampled)
+      return
+    }
+    const startIndex = samePoint(
+      mergedSampledPoints[mergedSampledPoints.length - 1],
+      sampled[0]
+    )
+      ? 1
+      : 0
+    for (let index = startIndex; index < sampled.length; index += 1) {
+      mergedSampledPoints.push(sampled[index])
+    }
+  })
+  const sampledPoints = dedupeAdjacentPoints(mergedSampledPoints)
 
   return {
     segments: pathSegments,
     closed: network.closed,
     totalLength,
     sampledPoints,
+    segmentDistanceRanges,
+    sampledSegmentPoints: sampledSegments,
+    sampledSegmentDistances,
     traceSampleTolerance: sampleTolerance,
     traceSampleOptions: options?.sampleOptions
   }
@@ -761,17 +850,22 @@ export const buildPolylineGeometryModelPath = (
       segments: [],
       closed,
       totalLength: 0,
-      sampledPoints
+      sampledPoints,
+      segmentDistanceRanges: [],
+      sampledSegmentPoints: [],
+      sampledSegmentDistances: []
     }
   }
 
   const segments: PathSegment[] = []
+  const segmentDistanceRanges: PathSegmentDistanceRange[] = []
   let totalLength = 0
 
   for (let i = 0; i < sampledPoints.length - 1; i += 1) {
     const start = sampledPoints[i]
     const end = sampledPoints[i + 1]
     const length = distance(start, end)
+    const startDistance = totalLength
     totalLength += length
     segments.push({
       type: 'line',
@@ -780,6 +874,11 @@ export const buildPolylineGeometryModelPath = (
       length,
       startAnchorType: 'sharp',
       endAnchorType: 'sharp'
+    })
+    segmentDistanceRanges.push({
+      index: segments.length - 1,
+      startDistance,
+      endDistance: totalLength
     })
   }
 
@@ -787,6 +886,7 @@ export const buildPolylineGeometryModelPath = (
     const start = sampledPoints[sampledPoints.length - 1]
     const end = sampledPoints[0]
     const length = distance(start, end)
+    const startDistance = totalLength
     totalLength += length
     segments.push({
       type: 'line',
@@ -796,12 +896,23 @@ export const buildPolylineGeometryModelPath = (
       startAnchorType: 'sharp',
       endAnchorType: 'sharp'
     })
+    segmentDistanceRanges.push({
+      index: segments.length - 1,
+      startDistance,
+      endDistance: totalLength
+    })
   }
 
   return {
     segments,
     closed,
     totalLength,
-    sampledPoints
+    sampledPoints,
+    segmentDistanceRanges,
+    sampledSegmentPoints: segments.map((segment) => [
+      segment.start,
+      segment.end
+    ]),
+    sampledSegmentDistances: segments.map((segment) => [0, segment.length])
   }
 }

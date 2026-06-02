@@ -86,26 +86,79 @@ const getModelBounds = (model: GeometryModel) => {
   }
 }
 
-const distance = (a: GeometryPoint, b: GeometryPoint) =>
-  Math.hypot(a.x - b.x, a.y - b.y)
+const DEDUPE_DISTANCE_EPSILON_SQUARED = 1e-12
+
+const distanceSquared = (a: GeometryPoint, b: GeometryPoint) => {
+  const dx = a.x - b.x
+  const dy = a.y - b.y
+  return dx * dx + dy * dy
+}
 
 const normalizePolygon = (polygon: GeometryPoint[]) => {
   const deduped: GeometryPoint[] = []
   polygon.forEach((point) => {
     const previous = deduped[deduped.length - 1]
-    if (!previous || distance(previous, point) > 1e-6) {
+    if (
+      !previous ||
+      distanceSquared(previous, point) > DEDUPE_DISTANCE_EPSILON_SQUARED
+    ) {
       deduped.push(point)
     }
   })
 
   if (
     deduped.length > 2 &&
-    distance(deduped[0], deduped[deduped.length - 1]) <= 1e-6
+    distanceSquared(deduped[0], deduped[deduped.length - 1]) <=
+      DEDUPE_DISTANCE_EPSILON_SQUARED
   ) {
     deduped.pop()
   }
 
   return deduped
+}
+
+const getCrossProduct = (
+  a: GeometryPoint,
+  b: GeometryPoint,
+  c: GeometryPoint
+) => (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x)
+
+const isConvexPolygon = (polygon: GeometryPoint[]) => {
+  if (polygon.length < 3) {
+    return false
+  }
+
+  let sign = 0
+  for (let index = 0; index < polygon.length; index += 1) {
+    const cross = getCrossProduct(
+      polygon[index],
+      polygon[(index + 1) % polygon.length],
+      polygon[(index + 2) % polygon.length]
+    )
+    if (Math.abs(cross) <= 1e-8) {
+      continue
+    }
+    const currentSign = Math.sign(cross)
+    if (sign === 0) {
+      sign = currentSign
+      continue
+    }
+    if (sign !== currentSign) {
+      return false
+    }
+  }
+
+  return sign !== 0
+}
+
+const appendConvexFanTriangulation = (
+  polygon: GeometryPoint[],
+  vertexOffset: number,
+  indices: number[]
+) => {
+  for (let index = 1; index < polygon.length - 1; index += 1) {
+    indices.push(vertexOffset, vertexOffset + index, vertexOffset + index + 1)
+  }
 }
 
 const triangulatePolygon = (
@@ -116,6 +169,14 @@ const triangulatePolygon = (
 ) => {
   const normalizedPolygon = normalizePolygon(polygon)
   if (normalizedPolygon.length < 3) {
+    return
+  }
+
+  if (isConvexPolygon(normalizedPolygon)) {
+    normalizedPolygon.forEach((point) => {
+      vertices.push(point.x, point.y)
+    })
+    appendConvexFanTriangulation(normalizedPolygon, vertexOffset, indices)
     return
   }
 
@@ -181,6 +242,24 @@ const createGeometry = (model: GeometryModel) => {
   })
 }
 
+const updateGeometry = (
+  geometry: MeshGeometry,
+  model: GeometryModel
+) => {
+  const meshData = buildProjectionMeshData(model)
+  if (!meshData) {
+    return false
+  }
+
+  geometry.positions = meshData.vertices
+  geometry.uvs = meshData.uvs
+  geometry.indices = meshData.indices
+  geometry.getBuffer('aPosition').update()
+  geometry.getBuffer('aUV').update()
+  geometry.getIndex().update()
+  return true
+}
+
 export const createMeshProjection = (
   options: CreateMeshProjectionOptions
 ): MeshProjection => {
@@ -205,22 +284,14 @@ export const createMeshProjection = (
   }
 
   const update = (next: CreateMeshProjectionOptions) => {
-    const nextGeometry = createGeometry(next.model)
-    const previousGeometry = mesh.geometry
-
-    if (!nextGeometry) {
+    if (!updateGeometry(mesh.geometry, next.model)) {
       root.visible = false
       applyPaint(next.paint)
       return
     }
 
-    mesh.geometry = nextGeometry
     root.visible = true
     applyPaint(next.paint)
-
-    if (previousGeometry !== nextGeometry) {
-      previousGeometry.destroy()
-    }
   }
 
   applyPaint(options.paint)

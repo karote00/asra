@@ -91,7 +91,17 @@ export interface ConstrainedDashedStrokeOptions {
   }
   topology?: PathTopologyModel
   sourcePath?: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'> &
-    Partial<Pick<PathGeometry, 'sampledPoints'>>
+    Partial<
+      Pick<
+        PathGeometry,
+        | 'sampledPoints'
+        | 'segmentDistanceRanges'
+        | 'sampledSegmentPoints'
+        | 'sampledSegmentDistances'
+        | 'traceSampleTolerance'
+        | 'traceSampleOptions'
+      >
+    >
   implicitFillRegions?: PolygonRegion[]
   sharedSourceSplitRanges?: ResolvedVectorSourceSplitRange[]
   sharedStrokeBoundaryDomains?: ResolvedVectorStrokeBoundaryDomain[]
@@ -546,7 +556,17 @@ export const getConstrainedDashedVisibleIntervals = (
   >,
   sourcePath?:
     | (Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'> &
-        Partial<Pick<PathGeometry, 'sampledPoints'>>)
+        Partial<
+          Pick<
+            PathGeometry,
+            | 'sampledPoints'
+            | 'segmentDistanceRanges'
+            | 'sampledSegmentPoints'
+            | 'sampledSegmentDistances'
+            | 'traceSampleTolerance'
+            | 'traceSampleOptions'
+          >
+        >)
     | undefined,
   strokeDomainPlan?: Pick<
     StrokeDomainPlan,
@@ -1643,7 +1663,14 @@ interface SourceSegmentBoundaryClipData {
   tailReference: Vec2 | undefined
 }
 
-const getSourcePathSegmentRanges = (path: Pick<PathGeometry, 'segments'>) => {
+const getSourcePathSegmentRanges = (
+  path: Pick<PathGeometry, 'segments'> &
+    Partial<Pick<PathGeometry, 'segmentDistanceRanges'>>
+) => {
+  if (path.segmentDistanceRanges?.length === path.segments.length) {
+    return path.segmentDistanceRanges
+  }
+
   let cursor = 0
   return path.segments.map((segment, index) => {
     const range = {
@@ -1677,35 +1704,71 @@ const buildSourcePathSliceCacheKey = (
   )}:${formatSourcePathRangeKeyDistance(range.endDistance)}`
 
 const buildSourcePathSegmentSample = (
-  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  path: Pick<
+    PathGeometry,
+    | 'segments'
+    | 'closed'
+    | 'totalLength'
+    | 'sampledSegmentPoints'
+    | 'sampledSegmentDistances'
+    | 'traceSampleTolerance'
+    | 'traceSampleOptions'
+  >,
   range: SourcePathSegmentRange,
   samplingTolerance: number,
   samplingOptions: PathSliceSamplingOptions
 ): SourcePathSegmentSample => {
   const segment = path.segments[range.index]
-  const points = segment
-    ? slicePathGeometryPoints(
-        {
-          segments: [segment],
-          closed: false,
-          totalLength: segment.length
-        },
-        0,
-        segment.length,
-        false,
-        samplingTolerance,
-        samplingOptions
-      )
-    : []
+  const canUsePathSegmentSamples =
+    path.traceSampleTolerance === samplingTolerance &&
+    path.traceSampleOptions?.minCubicSamples ===
+      samplingOptions.minCubicSamples &&
+    path.traceSampleOptions?.maxCubicSamples ===
+      samplingOptions.maxCubicSamples &&
+    path.traceSampleOptions?.useRangeLengthForSampleCount ===
+      samplingOptions.useRangeLengthForSampleCount
+  const sampledSegmentPoints = canUsePathSegmentSamples
+    ? path.sampledSegmentPoints?.[range.index]
+    : undefined
+  const sampledSegmentDistances = canUsePathSegmentSamples
+    ? path.sampledSegmentDistances?.[range.index]
+    : undefined
+  const points =
+    sampledSegmentPoints && sampledSegmentPoints.length > 0
+      ? sampledSegmentPoints
+      : segment
+        ? slicePathGeometryPoints(
+            {
+              segments: [segment],
+              closed: false,
+              totalLength: segment.length
+            },
+            0,
+            segment.length,
+            false,
+            samplingTolerance,
+            samplingOptions
+          )
+        : []
   const normalizedPoints =
     points.length >= 2 ? points : segment ? [segment.start, segment.end] : []
-  const cumulativeDistances = [0]
-  for (let index = 1; index < normalizedPoints.length; index += 1) {
-    cumulativeDistances.push(
-      cumulativeDistances[cumulativeDistances.length - 1] +
-        distanceBetween(normalizedPoints[index - 1], normalizedPoints[index])
-    )
-  }
+  const cumulativeDistances =
+    sampledSegmentDistances &&
+    sampledSegmentDistances.length === normalizedPoints.length
+      ? sampledSegmentDistances
+      : (() => {
+          const distances = [0]
+          for (let index = 1; index < normalizedPoints.length; index += 1) {
+            distances.push(
+              distances[distances.length - 1] +
+                distanceBetween(
+                  normalizedPoints[index - 1],
+                  normalizedPoints[index]
+                )
+            )
+          }
+          return distances
+        })()
 
   return {
     points: normalizedPoints,
@@ -1717,17 +1780,31 @@ const buildSourcePathSegmentSample = (
 const formatRibbonFrameKeyPoint = (point: Vec2) =>
   `${point.x.toFixed(4)},${point.y.toFixed(4)}`
 
+const ribbonFrameCacheKeysBySegment = new WeakMap<
+  PathGeometry['segments'][number],
+  Map<string, string>
+>()
+
 const buildExactSourcePathRibbonSegmentFrameCacheKey = (
   segment: PathGeometry['segments'][number],
   samplingTolerance: number,
   samplingOptions: PathSliceSamplingOptions
-) =>
-  [
+) => {
+  const samplingKey = [
     samplingTolerance.toFixed(4),
     samplingOptions.minCubicSamples ?? 'default-min',
     samplingOptions.maxCubicSamples ?? 'default-max',
-    samplingOptions.useRangeLengthForSampleCount === true ? 'range' : 'curve',
-    segment.type === 'line'
+    samplingOptions.useRangeLengthForSampleCount === true ? 'range' : 'curve'
+  ].join('|')
+  const cachedBySampling = ribbonFrameCacheKeysBySegment.get(segment)
+  const cached = cachedBySampling?.get(samplingKey)
+  if (cached) {
+    return cached
+  }
+
+  const segmentRevisionKey =
+    segment.revisionKey ??
+    (segment.type === 'line'
       ? [
           'line',
           formatRibbonFrameKeyPoint(segment.start),
@@ -1745,8 +1822,16 @@ const buildExactSourcePathRibbonSegmentFrameCacheKey = (
           segment.length.toFixed(4),
           segment.startAnchorType ?? 'none',
           segment.endAnchorType ?? 'none'
-        ].join(':')
-  ].join('|')
+        ].join(':'))
+
+  const cacheKey = [samplingKey, segmentRevisionKey].join('|')
+  if (cachedBySampling) {
+    cachedBySampling.set(samplingKey, cacheKey)
+  } else {
+    ribbonFrameCacheKeysBySegment.set(segment, new Map([[samplingKey, cacheKey]]))
+  }
+  return cacheKey
+}
 
 const buildSourcePathFinalRangePolygonCacheKey = (
   path: Pick<PathGeometry, 'segments'>,
@@ -1989,7 +2074,16 @@ const createSourcePathSlicingContext = (
 }
 
 const getSourcePathSegmentSample = (
-  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'> &
+    Partial<
+      Pick<
+        PathGeometry,
+        | 'sampledSegmentPoints'
+        | 'sampledSegmentDistances'
+        | 'traceSampleTolerance'
+        | 'traceSampleOptions'
+      >
+    >,
   range: SourcePathSegmentRange,
   slicingContext: SourcePathSlicingContext
 ) => {
@@ -2008,6 +2102,40 @@ const getSourcePathSegmentSample = (
   return sample
 }
 
+const lowerBoundCumulativeDistance = (
+  cumulativeDistances: readonly number[],
+  distance: number
+) => {
+  let low = 0
+  let high = cumulativeDistances.length
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2)
+    if ((cumulativeDistances[middle] ?? 0) < distance) {
+      low = middle + 1
+    } else {
+      high = middle
+    }
+  }
+  return low
+}
+
+const upperBoundCumulativeDistance = (
+  cumulativeDistances: readonly number[],
+  distance: number
+) => {
+  let low = 0
+  let high = cumulativeDistances.length
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2)
+    if ((cumulativeDistances[middle] ?? 0) <= distance) {
+      low = middle + 1
+    } else {
+      high = middle
+    }
+  }
+  return low
+}
+
 const interpolateSourcePathSamplePoint = (
   sample: SourcePathSegmentSample,
   distance: number
@@ -2020,20 +2148,23 @@ const interpolateSourcePathSamplePoint = (
   }
 
   const clampedDistance = Math.max(0, Math.min(sample.polylineLength, distance))
-  for (let index = 1; index < sample.points.length; index += 1) {
-    const previousDistance = sample.cumulativeDistances[index - 1]
-    const nextDistance = sample.cumulativeDistances[index]
-    if (clampedDistance > nextDistance + EPSILON) {
-      continue
-    }
-
-    const segmentLength = nextDistance - previousDistance
-    const t =
-      segmentLength > EPSILON
-        ? (clampedDistance - previousDistance) / segmentLength
-        : 0
-    const previous = sample.points[index - 1]
-    const next = sample.points[index]
+  const nextIndex = Math.max(
+    1,
+    Math.min(
+      sample.points.length - 1,
+      lowerBoundCumulativeDistance(sample.cumulativeDistances, clampedDistance)
+    )
+  )
+  const previousDistance = sample.cumulativeDistances[nextIndex - 1]
+  const nextDistance = sample.cumulativeDistances[nextIndex]
+  const segmentLength = nextDistance - previousDistance
+  const t =
+    segmentLength > EPSILON
+      ? (clampedDistance - previousDistance) / segmentLength
+      : 0
+  const previous = sample.points[nextIndex - 1]
+  const next = sample.points[nextIndex]
+  if (previous && next) {
     return normalizePoint({
       x: previous.x + (next.x - previous.x) * t,
       y: previous.y + (next.y - previous.y) * t
@@ -2082,7 +2213,25 @@ const sliceSourcePathSegmentSamplePoints = (
   }
 
   const points = [startPoint]
-  for (let index = 1; index < sample.points.length - 1; index += 1) {
+  const firstInteriorIndex = Math.max(
+    1,
+    upperBoundCumulativeDistance(
+      sample.cumulativeDistances,
+      startDistance + EPSILON
+    )
+  )
+  const lastInteriorExclusiveIndex = Math.min(
+    sample.points.length - 1,
+    lowerBoundCumulativeDistance(
+      sample.cumulativeDistances,
+      endDistance - EPSILON
+    )
+  )
+  for (
+    let index = firstInteriorIndex;
+    index < lastInteriorExclusiveIndex;
+    index += 1
+  ) {
     const distance = sample.cumulativeDistances[index]
     if (
       distance > startDistance + EPSILON &&
@@ -2491,7 +2640,7 @@ const isSourcePathRangeAtVisibleIntervalEnd = (
 ) => areLoopDistancesEqual(range.endDistance, interval.endDistance, totalLength)
 
 const getSourcePathRangeRoundCapOwnership = (
-  path: Pick<PathGeometry, 'segments' | 'totalLength'>,
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   range: SourceSegmentIntervalRange,
   interval: Pick<
     VisibleDashedTopologyInterval,
@@ -2511,6 +2660,7 @@ const getSourcePathRangeRoundCapOwnership = (
     RenderableStroke,
     'style' | 'position' | 'width' | 'join' | 'miterLimit' | 'cap'
   >,
+  terminalCapStyle: RenderableStroke['cap'],
   segmentRanges: SourcePathSegmentRange[]
 ) => {
   if (stroke.cap !== 'round') {
@@ -2531,6 +2681,16 @@ const getSourcePathRangeRoundCapOwnership = (
     interval,
     path.totalLength
   )
+  const ownsOpenPathStartTerminalCap =
+    !path.closed &&
+    rangeOwnsStartCap &&
+    interval.startDistance <= EPSILON &&
+    (terminalCapStyle === 'square' || terminalCapStyle === 'round')
+  const ownsOpenPathEndTerminalCap =
+    !path.closed &&
+    rangeOwnsEndCap &&
+    interval.endDistance >= path.totalLength - EPSILON &&
+    (terminalCapStyle === 'square' || terminalCapStyle === 'round')
   const roundCapStart = rangeOwnsStartCap
   const roundCapEnd = rangeOwnsEndCap
 
@@ -2543,7 +2703,10 @@ const getSourcePathRangeRoundCapOwnership = (
             cap: 'butt' as const
           },
     roundCapStart,
-    roundCapEnd
+    roundCapEnd,
+    openPathTerminalCapStart: ownsOpenPathStartTerminalCap,
+    openPathTerminalCapEnd: ownsOpenPathEndTerminalCap,
+    openPathTerminalCapStyle: terminalCapStyle
   }
 }
 
@@ -2602,6 +2765,7 @@ const buildDashedSourcePathIntervalSweep = (
           range,
           interval,
           squareCapPhysicalStroke,
+          stroke.cap,
           segmentRanges
         )
       })
@@ -3756,6 +3920,183 @@ const buildMergedExactSourcePathRibbonPolygonsFromOffsetFrames = (
   return polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPSILON
     ? [polygon]
     : []
+}
+
+const buildSquareTerminalCapOverhangPolygon = (
+  endpoint: Vec2,
+  offsetEndpoint: Vec2,
+  tangent: Vec2,
+  isStart: boolean,
+  strokeWidth: number
+) => {
+  const direction = normalizeVector(tangent)
+  const side = normalizeVector({
+    x: offsetEndpoint.x - endpoint.x,
+    y: offsetEndpoint.y - endpoint.y
+  })
+  if (!direction || !side || strokeWidth <= EPSILON) {
+    return []
+  }
+
+  const capDistance = strokeWidth / 2
+  const extension = isStart ? -capDistance : capDistance
+  const oppositeEndpoint = normalizePoint({
+    x: endpoint.x - side.x * strokeWidth,
+    y: endpoint.y - side.y * strokeWidth
+  })
+  const translate = (point: Vec2) =>
+    normalizePoint({
+      x: point.x + direction.x * extension,
+      y: point.y + direction.y * extension
+    })
+
+  return cleanMergedRibbonPolygon([
+    offsetEndpoint,
+    translate(offsetEndpoint),
+    translate(oppositeEndpoint),
+    oppositeEndpoint
+  ])
+}
+
+const buildRoundTerminalCapSourceLipPolygon = (
+  endpoint: Vec2,
+  tangent: Vec2,
+  isStart: boolean,
+  strokeWidth: number
+) => {
+  const direction = normalizeVector(tangent)
+  if (!direction || strokeWidth <= EPSILON) {
+    return []
+  }
+
+  const extension = (isStart ? -1 : 1) * (strokeWidth / 2)
+  const lipHalfThickness = Math.min(0.25, Math.max(0.02, strokeWidth * 0.02))
+  const normal = {
+    x: -direction.y,
+    y: direction.x
+  }
+  const extendedCenter = normalizePoint({
+    x: endpoint.x + direction.x * extension,
+    y: endpoint.y + direction.y * extension
+  })
+  const offsetNormal = (point: Vec2, amount: number) =>
+    normalizePoint({
+      x: point.x + normal.x * amount,
+      y: point.y + normal.y * amount
+    })
+
+  return cleanMergedRibbonPolygon([
+    offsetNormal(endpoint, lipHalfThickness),
+    offsetNormal(extendedCenter, lipHalfThickness),
+    offsetNormal(extendedCenter, -lipHalfThickness),
+    offsetNormal(endpoint, -lipHalfThickness)
+  ])
+}
+
+const buildOpenPathTerminalCapOverhangPolygons = (
+  frames: OffsetPathSampleFrame[],
+  capOwnership: ReturnType<typeof getSourcePathRangeRoundCapOwnership>
+) => {
+  const style = capOwnership.openPathTerminalCapStyle
+  if (
+    frames.length < 2 ||
+    (style !== 'square' && style !== 'round') ||
+    (capOwnership.openPathTerminalCapStart !== true &&
+      capOwnership.openPathTerminalCapEnd !== true)
+  ) {
+    return []
+  }
+
+  const build = (frame: OffsetPathSampleFrame, isStart: boolean) =>
+    style === 'square'
+      ? buildSquareTerminalCapOverhangPolygon(
+          normalizePoint(frame.point),
+          normalizePoint(frame.offsetPoint),
+          frame.tangent,
+          isStart,
+          capOwnership.stroke.width
+        )
+      : buildRoundTerminalCapSourceLipPolygon(
+          normalizePoint(frame.point),
+          frame.tangent,
+          isStart,
+          capOwnership.stroke.width
+        )
+
+  return [
+    ...(capOwnership.openPathTerminalCapStart === true
+      ? [build(frames[0], true)]
+      : []),
+    ...(capOwnership.openPathTerminalCapEnd === true
+      ? [build(frames[frames.length - 1], false)]
+      : [])
+  ].filter(
+    (polygon) => polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPSILON
+  )
+}
+
+const buildOpenPointTerminalCapOverhangPolygons = (
+  source: Vec2[],
+  stroke: Pick<RenderableStroke, 'position' | 'width' | 'cap'>,
+  ownsStart: boolean,
+  ownsEnd: boolean
+) => {
+  if (
+    source.length < 2 ||
+    (stroke.cap !== 'square' && stroke.cap !== 'round') ||
+    (ownsStart !== true && ownsEnd !== true)
+  ) {
+    return []
+  }
+
+  const offset = getConstrainedRibbonOffsetDistance(stroke)
+  const buildFrame = (index: number, neighborIndex: number, isStart: boolean) => {
+    const point = normalizePoint(source[index])
+    const neighbor = source[neighborIndex]
+    const tangent = normalizeVector({
+      x: isStart ? neighbor.x - point.x : point.x - neighbor.x,
+      y: isStart ? neighbor.y - point.y : point.y - neighbor.y
+    })
+    if (!tangent) {
+      return null
+    }
+    return {
+      point,
+      tangent,
+      offsetPoint: normalizePoint({
+        x: point.x - tangent.y * offset,
+        y: point.y + tangent.x * offset
+      })
+    }
+  }
+
+  const build = (frame: OffsetPathSampleFrame, isStart: boolean) =>
+    stroke.cap === 'square'
+      ? buildSquareTerminalCapOverhangPolygon(
+          frame.point,
+          frame.offsetPoint,
+          frame.tangent,
+          isStart,
+          stroke.width
+        )
+      : buildRoundTerminalCapSourceLipPolygon(
+          frame.point,
+          frame.tangent,
+          isStart,
+          stroke.width
+        )
+
+  const startFrame = ownsStart ? buildFrame(0, 1, true) : null
+  const endFrame = ownsEnd
+    ? buildFrame(source.length - 1, source.length - 2, false)
+    : null
+
+  return [
+    ...(startFrame ? [build(startFrame, true)] : []),
+    ...(endFrame ? [build(endFrame, false)] : [])
+  ].filter(
+    (polygon) => polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPSILON
+  )
 }
 
 const buildSourcePathRibbonPolygonFast = (
@@ -5524,18 +5865,23 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
       const rangePolygons = measureStrokePipelinePhase(
         'constrained dashed final coverage: polygon build',
         () => {
+          const terminalCapOverhangPolygons =
+            buildOpenPathTerminalCapOverhangPolygons(exactFrames, capOwnership)
           if (
             resolvedCapStroke.cap === 'round' &&
             (capOwnership.roundCapStart === true ||
               capOwnership.roundCapEnd === true)
           ) {
-            return buildMergedExactSourcePathRibbonPolygonsFromOffsetFrames(
-              exactFrames,
-              resolvedCapStroke,
-              capOwnership.roundCapStart,
-              capOwnership.roundCapEnd,
-              slicingContext.roundCapVisualMaxLength
-            )
+            return [
+              ...buildMergedExactSourcePathRibbonPolygonsFromOffsetFrames(
+                exactFrames,
+                resolvedCapStroke,
+                capOwnership.roundCapStart,
+                capOwnership.roundCapEnd,
+                slicingContext.roundCapVisualMaxLength
+              ),
+              ...terminalCapOverhangPolygons
+            ]
           }
           const { bodyPolygons, capPolygons } =
             buildExactSourcePathRibbonGeometryFromOffsetFrames(
@@ -5545,7 +5891,11 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
               capOwnership.roundCapEnd,
               slicingContext.roundCapVisualMaxLength
             )
-          return [...bodyPolygons, ...capPolygons]
+          return [
+            ...bodyPolygons,
+            ...capPolygons,
+            ...terminalCapOverhangPolygons
+          ]
         }
       )
 
@@ -6562,7 +6912,17 @@ type SourcePathWithOptionalSamples = Pick<
   PathGeometry,
   'segments' | 'closed' | 'totalLength'
 > &
-  Partial<Pick<PathGeometry, 'sampledPoints'>>
+  Partial<
+    Pick<
+      PathGeometry,
+        | 'sampledPoints'
+        | 'segmentDistanceRanges'
+        | 'sampledSegmentPoints'
+      | 'sampledSegmentDistances'
+      | 'traceSampleTolerance'
+      | 'traceSampleOptions'
+    >
+  >
 
 const hasPolygonGeometry = (polygon: Vec2[]) =>
   polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPSILON
@@ -7657,6 +8017,16 @@ const normalizeConstrainedDashedProductVisualPolygons = (
   polygons: Vec2[][],
   options: { cleanClipResidue?: boolean } = {}
 ) => {
+  if (
+    options.cleanClipResidue !== true &&
+    polygons.length > 0 &&
+    polygons.every(hasPolygonGeometry) &&
+    !polygonsHaveOverlappingBounds(polygons)
+  ) {
+    emitStrokePipelineCounter('product-visual-normalize-clean-input-skipped')
+    return polygons
+  }
+
   const normalizePolygons = options.cleanClipResidue
     ? cleanClippedProductPolygons
     : (inputPolygons: Vec2[][]) =>
@@ -9604,35 +9974,62 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 return rangePolygons
               })()
             : (() => {
-                const spanPolygons = physicalSpans.flatMap((span) =>
-                  buildConstrainedDashedLocalSideStrokePolygons(
-                    (
-                      intervalPointSlicer ??
-                      createStrokeIntervalPointSlicer(
-                        topologyPoints,
-                        topology.closed
-                      )
-                    ).slice(
-                      span.startDistance,
-                      span.endDistance,
-                      span.wrapsSeam
-                    ),
-                    false,
-                    squareCapPhysicalStroke,
-                    {
-                      assumeSimpleOpen:
-                        !topology.closed ||
-                        topology.isSimpleClosed ||
-                        topology.topologyFamily === 'self-intersecting'
-                          ? true
-                          : undefined,
-                      assumeSimpleClosed: topology.closed
-                        ? topology.isSimpleClosed
-                        : undefined,
-                      assumeNormalizedOpen: true
-                    }
+                const slicer =
+                  intervalPointSlicer ??
+                  createStrokeIntervalPointSlicer(
+                    topologyPoints,
+                    topology.closed
                   )
-                )
+                const spanPolygons = physicalSpans.flatMap((span) => {
+                  const spanPoints = slicer.slice(
+                    span.startDistance,
+                    span.endDistance,
+                    span.wrapsSeam
+                  )
+                  const ownsOpenPathStartTerminalCap =
+                    !topology.closed &&
+                    interval.startDistance <= EPSILON &&
+                    span.startDistance <= EPSILON
+                  const ownsOpenPathEndTerminalCap =
+                    !topology.closed &&
+                    interval.endDistance >= totalLength - EPSILON &&
+                    span.endDistance >= totalLength - EPSILON
+                  return [
+                    ...buildConstrainedDashedLocalSideStrokePolygons(
+                      spanPoints,
+                      false,
+                      squareCapPhysicalStroke,
+                      {
+                        assumeSimpleOpen:
+                          !topology.closed ||
+                          topology.isSimpleClosed ||
+                          topology.topologyFamily === 'self-intersecting'
+                            ? true
+                            : undefined,
+                        assumeSimpleClosed: topology.closed
+                          ? topology.isSimpleClosed
+                          : undefined,
+                        assumeNormalizedOpen: true,
+                        roundCapStart:
+                          stroke.cap === 'round' &&
+                          ownsOpenPathStartTerminalCap
+                            ? false
+                            : undefined,
+                        roundCapEnd:
+                          stroke.cap === 'round' &&
+                          ownsOpenPathEndTerminalCap
+                            ? false
+                            : undefined
+                      }
+                    ),
+                    ...buildOpenPointTerminalCapOverhangPolygons(
+                      spanPoints,
+                      intervalStroke,
+                      ownsOpenPathStartTerminalCap,
+                      ownsOpenPathEndTerminalCap
+                    )
+                  ]
+                })
                 if (
                   stroke.cap !== 'square' ||
                   !topology.closed ||

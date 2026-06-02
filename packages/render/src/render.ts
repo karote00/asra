@@ -43,9 +43,7 @@ interface InstrumentableRenderTarget {
   __asyraPixiRenderInstrumented?: boolean
 }
 
-interface InstrumentablePixiApplication extends Application {
-  render?: RenderCallable
-  renderer?: InstrumentableRenderTarget
+type InstrumentablePixiApplication = Application & {
   __asyraPixiRenderInstrumented?: boolean
 }
 
@@ -60,6 +58,7 @@ class Render {
   private renderDirty = true
   private nextFrameRenderDirty = false
   private flushingFrame = false
+  private updatingLayers = false
   private renderFrameId = 0
 
   constructor() {
@@ -103,22 +102,31 @@ class Render {
   updateLayers() {
     return measureBrowserDragPhase('render:update-layers', () => {
       let didChange = false
-      renderLayerRegistry.getAll().forEach((registration) => {
-        if (registration.shouldUpdate && !registration.shouldUpdate()) {
-          return
-        }
-        const updateResult = measureBrowserDragPhase(
-          `render:update-layer:${registration.name}`,
-          () => registration.update?.()
-        )
-        didChange = didChange || updateResult === true
-      })
+      this.updatingLayers = true
+      try {
+        renderLayerRegistry.getAll().forEach((registration) => {
+          if (registration.shouldUpdate && !registration.shouldUpdate()) {
+            return
+          }
+          const updateResult = measureBrowserDragPhase(
+            `render:update-layer:${registration.name}`,
+            () => registration.update?.()
+          )
+          didChange = didChange || updateResult === true
+        })
+      } finally {
+        this.updatingLayers = false
+      }
       return didChange
     })
   }
 
   requestRender() {
     if (this.flushingFrame) {
+      if (this.updatingLayers) {
+        this.renderDirty = true
+        return
+      }
       this.nextFrameRenderDirty = true
       return
     }
@@ -140,7 +148,7 @@ class Render {
           value: number
         ) => void
       }
-    ).__asyraStrokePipelineCounterSink?.('render-frame-count')
+    ).__asyraStrokePipelineCounterSink?.('render-frame-count', 1)
     ;(
       globalThis as typeof globalThis & {
         __asyraStrokePipelineCounterSink?: (
@@ -249,8 +257,14 @@ class Render {
       }
     }
 
-    wrapRender(instrumentedApp, 'render:pixi-app-render')
-    wrapRender(instrumentedApp.renderer, 'render:pixi-renderer-render')
+    wrapRender(
+      instrumentedApp as unknown as InstrumentableRenderTarget,
+      'render:pixi-app-render'
+    )
+    wrapRender(
+      instrumentedApp.renderer as unknown as InstrumentableRenderTarget,
+      'render:pixi-renderer-render'
+    )
     instrumentedApp.__asyraPixiRenderInstrumented = true
   }
 

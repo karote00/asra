@@ -60,6 +60,7 @@ export interface CandidateRegion {
   strokeSpecKey?: string
   sourceSpanIds: string[]
   sourceContourIds?: string[]
+  requiresBoundaryPreservingArrangement?: boolean
 }
 
 export interface ArrangementFace {

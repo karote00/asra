@@ -1,7 +1,7 @@
 import type { RenderableStroke } from './renderable-stroke'
 import {
   ROUND_STROKE_CAP_ARC_SAMPLING,
-  buildOffsetSegments,
+  buildPairedOffsetSegmentsFromNormalized,
   buildRoundStrokeArcPointsBetween,
   distance,
   add,
@@ -123,8 +123,8 @@ export const buildSolidCenterStrokePolygons = (
   const roundCapPolygons = buildRoundCapPolygons(source, stroke, closed)
 
   if (!closed && stroke.join === 'bevel') {
-    const leftSegments = buildOffsetSegments(source, false, halfWidth)
-    const rightSegments = buildOffsetSegments(source, false, -halfWidth)
+    const { positive: leftSegments, negative: rightSegments } =
+      buildPairedOffsetSegmentsFromNormalized(source, false, halfWidth)
     if (leftSegments.length === 0 || rightSegments.length === 0) {
       return []
     }
@@ -162,8 +162,8 @@ export const buildSolidCenterStrokePolygons = (
   }
 
   if (!closed && stroke.join === 'miter') {
-    const leftSegments = buildOffsetSegments(source, false, halfWidth)
-    const rightSegments = buildOffsetSegments(source, false, -halfWidth)
+    const { positive: leftSegments, negative: rightSegments } =
+      buildPairedOffsetSegmentsFromNormalized(source, false, halfWidth)
     const leftPath = offsetPath(source, false, halfWidth, stroke)
     const rightPath = offsetPath(source, false, -halfWidth, stroke)
     if (
@@ -230,8 +230,8 @@ export const buildSolidCenterStrokePolygons = (
   }
 
   if (!closed && stroke.join === 'round') {
-    const leftSegments = buildOffsetSegments(source, false, halfWidth)
-    const rightSegments = buildOffsetSegments(source, false, -halfWidth)
+    const { positive: leftSegments, negative: rightSegments } =
+      buildPairedOffsetSegmentsFromNormalized(source, false, halfWidth)
     if (leftSegments.length === 0 || rightSegments.length === 0) {
       return []
     }
@@ -333,8 +333,8 @@ export const buildSolidCenterStrokePolygons = (
 
   if (closed) {
     if (stroke.join === 'bevel') {
-      const leftSegments = buildOffsetSegments(source, true, halfWidth)
-      const rightSegments = buildOffsetSegments(source, true, -halfWidth)
+      const { positive: leftSegments, negative: rightSegments } =
+        buildPairedOffsetSegmentsFromNormalized(source, true, halfWidth)
       if (leftSegments.length === 0 || rightSegments.length === 0) {
         return []
       }
@@ -381,8 +381,8 @@ export const buildSolidCenterStrokePolygons = (
     }
 
     if (stroke.join === 'round') {
-      const leftSegments = buildOffsetSegments(source, true, halfWidth)
-      const rightSegments = buildOffsetSegments(source, true, -halfWidth)
+      const { positive: leftSegments, negative: rightSegments } =
+        buildPairedOffsetSegmentsFromNormalized(source, true, halfWidth)
       if (leftSegments.length === 0 || rightSegments.length === 0) {
         return []
       }
@@ -438,8 +438,8 @@ export const buildSolidCenterStrokePolygons = (
       return polygons
     }
 
-    const leftSegments = buildOffsetSegments(source, true, halfWidth)
-    const rightSegments = buildOffsetSegments(source, true, -halfWidth)
+    const { positive: leftSegments, negative: rightSegments } =
+      buildPairedOffsetSegmentsFromNormalized(source, true, halfWidth)
     const left = offsetPath(source, true, halfWidth, stroke)
     const right = offsetPath(source, true, -halfWidth, stroke)
     if (

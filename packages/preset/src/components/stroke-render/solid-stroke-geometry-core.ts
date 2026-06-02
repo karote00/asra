@@ -393,22 +393,111 @@ export interface OffsetSegment {
   end: Vec2
 }
 
+export interface PairedOffsetSegments {
+  positive: (OffsetSegment | null)[]
+  negative: (OffsetSegment | null)[]
+}
+
 export const createOffsetSegment = (
   from: Vec2,
   to: Vec2,
   offset: number
 ): OffsetSegment | null => {
-  const normal = perpendicularLeft(from, to)
-  if (!normal) {
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  const length = Math.hypot(dx, dy)
+  if (length <= EPS) {
     return null
   }
 
-  const delta = scale(normal, offset)
+  const offsetX = (-dy / length) * offset
+  const offsetY = (dx / length) * offset
 
   return {
-    start: add(from, delta),
-    end: add(to, delta)
+    start: {
+      x: from.x + offsetX,
+      y: from.y + offsetY
+    },
+    end: {
+      x: to.x + offsetX,
+      y: to.y + offsetY
+    }
   }
+}
+
+export const buildOffsetSegmentsFromNormalized = (
+  points: Vec2[],
+  closed: boolean,
+  offset: number
+) => {
+  if (points.length < 2) {
+    return []
+  }
+
+  const segmentCount = closed ? points.length : points.length - 1
+  const segments: (OffsetSegment | null)[] = new Array(segmentCount)
+  for (let index = 0; index < segmentCount; index += 1) {
+    segments[index] = createOffsetSegment(
+      points[index],
+      points[(index + 1) % points.length],
+      offset
+    )
+  }
+  return segments
+}
+
+export const buildPairedOffsetSegmentsFromNormalized = (
+  points: Vec2[],
+  closed: boolean,
+  offset: number
+): PairedOffsetSegments => {
+  if (points.length < 2) {
+    return {
+      positive: [],
+      negative: []
+    }
+  }
+
+  const segmentCount = closed ? points.length : points.length - 1
+  const positive: (OffsetSegment | null)[] = new Array(segmentCount)
+  const negative: (OffsetSegment | null)[] = new Array(segmentCount)
+  for (let index = 0; index < segmentCount; index += 1) {
+    const from = points[index]
+    const to = points[(index + 1) % points.length]
+    const dx = to.x - from.x
+    const dy = to.y - from.y
+    const length = Math.hypot(dx, dy)
+    if (length <= EPS) {
+      positive[index] = null
+      negative[index] = null
+      continue
+    }
+
+    const offsetX = (-dy / length) * offset
+    const offsetY = (dx / length) * offset
+    positive[index] = {
+      start: {
+        x: from.x + offsetX,
+        y: from.y + offsetY
+      },
+      end: {
+        x: to.x + offsetX,
+        y: to.y + offsetY
+      }
+    }
+    negative[index] = {
+      start: {
+        x: from.x - offsetX,
+        y: from.y - offsetY
+      },
+      end: {
+        x: to.x - offsetX,
+        y: to.y - offsetY
+      }
+    }
+  }
+
+  return { positive, negative }
 }
 
 export const buildOffsetSegments = (
@@ -417,26 +506,7 @@ export const buildOffsetSegments = (
   offset: number
 ) => {
   const normalized = closed ? normalizeClosed(points) : dedupeAdjacent(points)
-  if (normalized.length < 2) {
-    return []
-  }
-
-  return normalized.map((point, index) => {
-    const nextIndex = index + 1
-    if (nextIndex >= normalized.length) {
-      if (!closed) {
-        return null
-      }
-
-      return createOffsetSegment(
-        normalized[index],
-        normalized[(index + 1) % normalized.length],
-        offset
-      )
-    }
-
-    return createOffsetSegment(point, normalized[nextIndex], offset)
-  })
+  return buildOffsetSegmentsFromNormalized(normalized, closed, offset)
 }
 
 const resolveJoin = (

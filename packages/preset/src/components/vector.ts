@@ -2814,23 +2814,22 @@ const renderVectorGraphic = (
         ? []
         : shouldUseNormalizedCompoundDashedBoundaries
           ? (() => {
-              const ownerKeys = [
-                ...new Set(
-                  constrainedDashedCandidatePackets.flatMap((packet) =>
-                    (packet.geometry.debugMeta?.ownerSet ?? []).flatMap(
-                      (owner) => (owner.ownerKey ? [owner.ownerKey] : [])
-                    )
-                  )
+              const ownerKeySet = new Set<string>()
+              const sourceContourIdSet = new Set<string>()
+              constrainedDashedCandidatePackets.forEach((packet) => {
+                packet.geometry.debugMeta?.ownerSet?.forEach((owner) => {
+                  if (owner.ownerKey) {
+                    ownerKeySet.add(owner.ownerKey)
+                  }
+                })
+                packet.geometry.debugMeta?.sourceContourIds?.forEach(
+                  (sourceContourId) => {
+                    sourceContourIdSet.add(sourceContourId)
+                  }
                 )
-              ]
-              const sourceContourIds = [
-                ...new Set(
-                  constrainedDashedCandidatePackets.flatMap(
-                    (packet) =>
-                      packet.geometry.debugMeta?.sourceContourIds ?? []
-                  )
-                )
-              ]
+              })
+              const ownerKeys = Array.from(ownerKeySet)
+              const sourceContourIds = Array.from(sourceContourIdSet)
               constrainedDashedRuntimeDiagnostics.push({
                 sourceId: compoundLegalDomainId ?? `vector:${renderData.id}`,
                 legalDomainIds: compoundLegalDomainId
@@ -3109,16 +3108,7 @@ const renderVectorGraphic = (
     ...buildSolidCenterStrokeFinalFaces(strokePackets),
     ...promotedExactStrokeFinalFaces
   ])
-  const nativeCenterSolidFinalFaces =
-    nativeCenterSolidVisualStrokeGroups.length > 0
-      ? rawStrokeFinalFaces.filter(shouldRenderCenterSolidFaceWithNativeVisual)
-      : []
-  const collapseInputStrokeFinalFaces =
-    nativeCenterSolidFinalFaces.length > 0
-      ? rawStrokeFinalFaces.filter(
-          (face) => !shouldRenderCenterSolidFaceWithNativeVisual(face)
-        )
-      : rawStrokeFinalFaces
+  const collapseInputStrokeFinalFaces = rawStrokeFinalFaces
   const strokeFinalFaces = measureVectorRenderPhase(
     'visual overlap collapse',
     () => {
@@ -3128,9 +3118,7 @@ const renderVectorGraphic = (
       }
 
       const finishCollapse = (faces: typeof collapseInputStrokeFinalFaces) =>
-        nativeCenterSolidFinalFaces.length > 0
-          ? [...faces, ...nativeCenterSolidFinalFaces]
-          : faces
+        faces
 
       if (collapseInputStrokeFinalFaces.length === 0) {
         emitStrokePipelineCounter('visual-overlap-collapse-native-center-only')

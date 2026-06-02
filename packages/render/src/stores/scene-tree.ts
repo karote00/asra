@@ -12,6 +12,7 @@ const SCENE_TREE_PENDING_RENDER_LAYER = 'render-scene-tree-pending-updates'
 interface ComputedDataMirrorEntry {
   rawDataSnapshot: Record<string, unknown>
   computedDataSnapshot: Record<string, DataTypes>
+  renderDataSnapshot: RenderElementData
 }
 
 const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
@@ -80,7 +81,11 @@ class ComputedDataMirror {
     )
     const entry = {
       rawDataSnapshot: { ...rawDataSnapshot },
-      computedDataSnapshot: { ...computedDataSnapshot }
+      computedDataSnapshot: { ...computedDataSnapshot },
+      renderDataSnapshot: {
+        ...rawDataSnapshot,
+        ...computedDataSnapshot
+      } as unknown as RenderElementData
     }
     this.entries.set(elementId, entry)
     emitStrokePipelineCounter('computed-mirror-seed')
@@ -105,10 +110,9 @@ class ComputedDataMirror {
       return false
     }
 
-    entry.computedDataSnapshot = {
-      ...entry.computedDataSnapshot,
-      [key]: after
-    }
+    entry.computedDataSnapshot[key] = after
+    ;(entry.renderDataSnapshot as unknown as Record<string, DataTypes>)[key] =
+      after
     emitStrokePipelineCounter('computed-mirror-staged-change-count')
     return true
   }
@@ -122,11 +126,11 @@ class ComputedDataMirror {
       return false
     }
 
-    const nextComputedDataSnapshot = { ...entry.computedDataSnapshot }
     changes.forEach(({ key, after }) => {
-      nextComputedDataSnapshot[key] = after
+      entry.computedDataSnapshot[key] = after
+      ;(entry.renderDataSnapshot as unknown as Record<string, DataTypes>)[key] =
+        after
     })
-    entry.computedDataSnapshot = nextComputedDataSnapshot
     emitStrokePipelineCounter(
       'computed-mirror-staged-change-count',
       changes.length
@@ -141,14 +145,7 @@ class ComputedDataMirror {
       return null
     }
 
-    return measureBrowserDragPhase(
-      'render-scene-tree:mirror-compose-render-data',
-      () =>
-        ({
-          ...entry.rawDataSnapshot,
-          ...entry.computedDataSnapshot
-        }) as RenderElementData
-    )
+    return entry.renderDataSnapshot
   }
 }
 

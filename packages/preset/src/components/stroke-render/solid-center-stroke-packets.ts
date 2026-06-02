@@ -86,6 +86,7 @@ export interface SolidCenterStrokeRuntimeMeta {
     | 'exact-union'
     | 'exact-arrangement'
     | 'local-side-arrangement'
+    | 'render-projection-merged'
     | 'render-projection-arrangement'
   revisionSet?: StrokeRevisionSet
 }
@@ -308,6 +309,7 @@ export interface SolidCenterStrokeGeometryDebugMeta {
     | 'exact-union'
     | 'exact-arrangement'
     | 'local-side-arrangement'
+    | 'render-projection-merged'
     | 'render-projection-arrangement'
   visualOverlapSourceFaceIds?: string[]
   visualOverlapSourceGeometryIds?: string[]
@@ -546,8 +548,9 @@ export const buildSolidCenterStrokeResolvedPackets = (
 export const attachStrokePacketDebugMeta = (
   packets: SolidCenterStrokeResolvedPacket[],
   debugMeta: Partial<SolidCenterStrokeGeometryDebugMeta>
-): SolidCenterStrokeResolvedPacket[] =>
-  packets.map((packet) => ({
+): SolidCenterStrokeResolvedPacket[] => {
+  const hasRuntimeDebugMeta = Object.keys(debugMeta).length > 0
+  return packets.map((packet) => ({
     geometry: (() => {
       const mergedDebugMeta = {
         ...packet.geometry.debugMeta,
@@ -559,7 +562,7 @@ export const attachStrokePacketDebugMeta = (
         debugMeta: {
           ...mergedDebugMeta,
           revisionSet:
-            Object.keys(debugMeta).length === 0
+            !hasRuntimeDebugMeta
               ? packet.geometry.debugMeta?.revisionSet
               : updateStrokeRuntimeRevisionSetFromMetadata(
                   packet.geometry.debugMeta?.revisionSet,
@@ -570,6 +573,7 @@ export const attachStrokePacketDebugMeta = (
     })(),
     paint: packet.paint
   }))
+}
 
 export const buildSolidCenterStrokeFinalFaces = (
   packets: SolidCenterStrokeResolvedPacket[]
@@ -647,6 +651,11 @@ const measureStrokeRenderEntryPhase = <T>(
 const RENDER_PROJECTION_ARRANGEMENT_CACHE_LIMIT = 2048
 const renderProjectionArrangementCache = new Map<string, Vec2[][]>()
 
+interface RenderProjectionCandidateRegion extends CandidateRegion {
+  geometryBounds: Bounds
+  geometrySignature: string
+}
+
 const buildRenderProjectionPolygonSignature = (polygon: Vec2[]) =>
   polygon
     .map(
@@ -655,16 +664,12 @@ const buildRenderProjectionPolygonSignature = (polygon: Vec2[]) =>
     .join(';')
 
 const buildRenderProjectionArrangementCacheKey = (
-  candidates: CandidateRegion[],
+  candidates: RenderProjectionCandidateRegion[],
   backend: Pick<GeometryBackend, 'capabilities' | 'buildArrangement' | 'union'>
 ) =>
   [
     getGeometryBackendCacheSignature(backend as GeometryBackend),
-    ...candidates.map((candidate) =>
-      candidate.geometry.polygons
-        .map(buildRenderProjectionPolygonSignature)
-        .join('|')
-    )
+    ...candidates.map((candidate) => candidate.geometrySignature)
   ].join('::')
 
 const getCachedRenderProjectionArrangement = (
@@ -751,20 +756,6 @@ const getConstrainedDashedProductRenderGroupKey = (
   if (
     face.geometryFamily !== 'constrained-dashed' ||
     face.debugMeta?.finalCoverageBuilderStatus !== 'product-final'
-  ) {
-    return null
-  }
-
-  const hasFilledFaceBoundaryRole =
-    face.debugMeta?.figmaLikeBoundaryRole === 'filled-face' ||
-    face.debugMeta?.figmaLikeSplitRangeTerminals?.some(
-      (terminal) => terminal.boundaryRole === 'filled-face'
-    ) === true
-  if (
-    !shouldEmitFullStrokeDiagnostics() &&
-    face.paint.kind !== 'gradient' &&
-    (face.paint.alpha ?? 1) >= 1 &&
-    hasFilledFaceBoundaryRole
   ) {
     return null
   }
@@ -870,6 +861,7 @@ type RenderProjectionCollapseStatus =
   | 'exact-union'
   | 'exact-arrangement'
   | 'local-side-arrangement'
+  | 'render-projection-merged'
   | 'render-projection-arrangement'
 
 const buildRenderProjectionArrangementCandidates = (
@@ -877,32 +869,45 @@ const buildRenderProjectionArrangementCandidates = (
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
   >[]
-): CandidateRegion[] =>
+): RenderProjectionCandidateRegion[] =>
   faces.flatMap((face) =>
-    face.polygons.map((polygon, polygonIndex) => ({
-      candidateId: `${face.faceId}:render-polygon:${polygonIndex}`,
-      geometry: {
-        polygons: [normalizeCoveragePolygonWinding(polygon)]
-      },
-      visualPacketKey: face.visualPacketKey,
-      strokePosition:
-        face.debugMeta?.strokePosition === 'inside' ||
-        face.debugMeta?.strokePosition === 'outside'
-          ? face.debugMeta.strokePosition
-          : 'center',
-      sourcePathId: face.debugMeta?.sourcePathId,
-      networkId: face.debugMeta?.networkId,
-      strokeId: face.debugMeta?.strokeId,
-      strokeIndex: face.debugMeta?.strokeIndex,
-      ownerKey: face.debugMeta?.ownerKey,
-      intervalId: face.intervalIds[0] ?? face.debugMeta?.intervalId,
-      contourId: face.sourceContourIds[0],
-      legalDomainId: face.legalDomainIds[0] ?? null,
-      paintKey: face.paintKey,
-      strokeSpecKey: face.strokeSpecKey,
-      sourceSpanIds: face.sourceSpanIds,
-      sourceContourIds: face.sourceContourIds
-    }))
+    face.polygons.map((polygon, polygonIndex) => {
+      const normalizedPolygon = normalizeCoveragePolygonWinding(polygon)
+      const geometryPolygons = [normalizedPolygon]
+      return {
+        candidateId: `${face.faceId}:render-polygon:${polygonIndex}`,
+        geometry: {
+          polygons: geometryPolygons
+        },
+        geometryBounds: getBounds(geometryPolygons),
+        geometrySignature: buildRenderProjectionPolygonSignature(
+          normalizedPolygon
+        ),
+        visualPacketKey: face.visualPacketKey,
+        strokePosition:
+          face.debugMeta?.strokePosition === 'inside' ||
+          face.debugMeta?.strokePosition === 'outside'
+            ? face.debugMeta.strokePosition
+            : 'center',
+        sourcePathId: face.debugMeta?.sourcePathId,
+        networkId: face.debugMeta?.networkId,
+        strokeId: face.debugMeta?.strokeId,
+        strokeIndex: face.debugMeta?.strokeIndex,
+        ownerKey: face.debugMeta?.ownerKey,
+        intervalId: face.intervalIds[0] ?? face.debugMeta?.intervalId,
+        contourId: face.sourceContourIds[0],
+        legalDomainId: face.legalDomainIds[0] ?? null,
+        paintKey: face.paintKey,
+        strokeSpecKey: face.strokeSpecKey,
+        sourceSpanIds: face.sourceSpanIds,
+        sourceContourIds: face.sourceContourIds,
+        requiresBoundaryPreservingArrangement:
+          face.debugMeta?.figmaLikeBoundaryRole === 'filled-face' ||
+          face.debugMeta?.figmaLikeSplitRangeTerminals?.some(
+            (terminal) => terminal.boundaryRole === 'filled-face'
+          ) === true
+      }
+    })
   )
 
 const findRenderProjectionComponentIndexes = (bounds: Bounds[]) => {
@@ -986,7 +991,8 @@ const buildRenderProjectionArrangementPolygons = (
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
   >[],
-  backend: Pick<GeometryBackend, 'capabilities' | 'buildArrangement' | 'union'>
+  backend: Pick<GeometryBackend, 'capabilities' | 'buildArrangement' | 'union'>,
+  options: { allowDirectUnion?: boolean } = {}
 ) => {
   const candidates = measureStrokeRenderEntryPhase(
     'render projection: candidates',
@@ -997,7 +1003,7 @@ const buildRenderProjectionArrangementPolygons = (
     return candidates.flatMap((candidate) => candidate.geometry.polygons)
   }
 
-  if (backend.capabilities.union === true) {
+  if (options.allowDirectUnion !== false && backend.capabilities.union === true) {
     try {
       const polygons = measureStrokeRenderEntryPhase(
         'render projection: direct union',
@@ -1023,7 +1029,7 @@ const buildRenderProjectionArrangementPolygons = (
 
   const bounds = measureStrokeRenderEntryPhase(
     'render projection: bounds',
-    () => candidates.map((candidate) => getBounds(candidate.geometry.polygons))
+    () => candidates.map((candidate) => candidate.geometryBounds)
   )
   const output: Vec2[][] = []
 
@@ -1038,7 +1044,32 @@ const buildRenderProjectionArrangementPolygons = (
       const componentCandidates = componentIndexes.map(
         (index) => candidates[index]
       )
-      if (backend.capabilities.union === true) {
+      const componentBounds = componentIndexes.map((index) => bounds[index])
+      if (
+        !candidateRegionsHaveInteriorOverlap(
+          componentCandidates,
+          componentBounds
+        )
+      ) {
+        emitStrokePipelineCounter('render-projection-component-disjoint')
+        output.push(
+          ...componentCandidates.flatMap(
+            (candidate) => candidate.geometry.polygons
+          )
+        )
+        return
+      }
+
+      const componentRequiresBoundaryPreservingArrangement =
+        componentCandidates.some(
+          (candidate) =>
+            candidate.requiresBoundaryPreservingArrangement === true
+        )
+      if (
+        (options.allowDirectUnion !== false ||
+          !componentRequiresBoundaryPreservingArrangement) &&
+        backend.capabilities.union === true
+      ) {
         try {
           const componentPolygons = measureStrokeRenderEntryPhase(
             'render projection: component direct union',
@@ -1176,13 +1207,79 @@ const buildCollapsedRenderEntry = (
   ]
 }
 
+const buildMergedRenderEntry = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[],
+  cacheKeyPrefix: string
+) => {
+  const [primaryFace] = faces
+  if (!primaryFace || faces.length < 2) {
+    return faces.map(buildRenderEntryFromFinalFace)
+  }
+
+  const sourceGeometryIds = getUniqueStrings(
+    faces.flatMap((face) => face.sourceGeometryIds)
+  )
+  const intervalIds = getUniqueStrings(
+    faces.flatMap((face) => face.intervalIds)
+  )
+  const sourceSpanIds = getUniqueStrings(
+    faces.flatMap((face) => face.sourceSpanIds)
+  )
+  const sourceContourIds = getUniqueStrings(
+    faces.flatMap((face) => face.sourceContourIds)
+  )
+  const legalDomainIds = getUniqueStrings(
+    faces.flatMap((face) => face.legalDomainIds)
+  )
+  const figmaLikeSplitRangeTerminals = faces.flatMap(
+    (face) => face.debugMeta?.figmaLikeSplitRangeTerminals ?? []
+  )
+  const primaryEntry = buildRenderEntryFromFinalFace(primaryFace)
+
+  return [
+    {
+      ...primaryEntry,
+      cacheKey: `render:${cacheKeyPrefix}:${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`,
+      polygons: faces.flatMap((face) => face.polygons),
+      runtimeMeta: {
+        ...primaryEntry.runtimeMeta,
+        intervalIds,
+        sourceSpanIds,
+        sourceContourIds,
+        legalDomainIds,
+        visualOverlapCollapseStatus: 'render-projection-merged' as const
+      },
+      debugMeta: shouldEmitFullStrokeDiagnostics()
+        ? {
+            ...primaryFace.debugMeta,
+            intervalIds,
+            sourceSpanIds,
+            sourceContourIds,
+            legalDomainIds,
+            figmaLikeSplitRangeTerminals:
+              figmaLikeSplitRangeTerminals.length > 0
+                ? figmaLikeSplitRangeTerminals
+                : undefined,
+            visualOverlapCollapseStatus: 'render-projection-merged' as const,
+            visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
+            visualOverlapSourceGeometryIds: sourceGeometryIds
+          }
+        : undefined
+    }
+  ]
+}
+
 const buildRenderProjectionArrangementEntry = (
   faces: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
   >[],
   options: SolidCenterStrokeRenderEntryOptions,
-  cacheKeyPrefix: string
+  cacheKeyPrefix: string,
+  arrangementOptions: { allowDirectUnion?: boolean } = {}
 ) => {
   const [primaryFace] = faces
   if (!primaryFace || faces.length < 2) {
@@ -1199,7 +1296,8 @@ const buildRenderProjectionArrangementEntry = (
     try {
       const arrangedPolygons = buildRenderProjectionArrangementPolygons(
         faces,
-        backend
+        backend,
+        arrangementOptions
       )
       return arrangedPolygons.length > 0 ? arrangedPolygons : fallbackPolygons
     } catch {
@@ -1260,6 +1358,134 @@ const buildRenderProjectionArrangementEntry = (
   ]
 }
 
+function polygonListContainsPoint(polygons: Vec2[][], point: Vec2) {
+  return polygons.some((polygon) => isPointInsidePolygon(point, polygon))
+}
+
+function polygonListsHaveInteriorOverlap(
+  leftPolygons: Vec2[][],
+  rightPolygons: Vec2[][],
+  leftBounds = getBounds(leftPolygons),
+  rightBounds = getBounds(rightPolygons),
+  step = 6
+) {
+  if (!doBoundsOverlap(leftBounds, rightBounds)) {
+    return false
+  }
+
+  if (
+    leftPolygons.some((polygon) =>
+      polygon.some((point) => polygonListContainsPoint(rightPolygons, point))
+    ) ||
+    rightPolygons.some((polygon) =>
+      polygon.some((point) => polygonListContainsPoint(leftPolygons, point))
+    )
+  ) {
+    return true
+  }
+
+  const minX = Math.max(leftBounds.minX, rightBounds.minX)
+  const minY = Math.max(leftBounds.minY, rightBounds.minY)
+  const maxX = Math.min(leftBounds.maxX, rightBounds.maxX)
+  const maxY = Math.min(leftBounds.maxY, rightBounds.maxY)
+  for (let y = minY; y <= maxY; y += step) {
+    for (let x = minX; x <= maxX; x += step) {
+      const point = { x, y }
+      if (
+        polygonListContainsPoint(leftPolygons, point) &&
+        polygonListContainsPoint(rightPolygons, point)
+      ) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+function candidateRegionsHaveInteriorOverlap(
+  candidates: CandidateRegion[],
+  bounds = candidates.map((candidate) => getBounds(candidate.geometry.polygons))
+) {
+  for (let leftIndex = 0; leftIndex < candidates.length; leftIndex += 1) {
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < candidates.length;
+      rightIndex += 1
+    ) {
+      if (
+        polygonListsHaveInteriorOverlap(
+          candidates[leftIndex].geometry.polygons,
+          candidates[rightIndex].geometry.polygons,
+          bounds[leftIndex],
+          bounds[rightIndex]
+        )
+      ) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+const facePolygonsHaveInteriorOverlap = (
+  leftPolygons: Vec2[][],
+  rightPolygons: Vec2[][],
+  leftBounds = getBounds(leftPolygons),
+  rightBounds = getBounds(rightPolygons),
+  step = 6
+) =>
+  polygonListsHaveInteriorOverlap(
+    leftPolygons,
+    rightPolygons,
+    leftBounds,
+    rightBounds,
+    step
+  )
+
+const hasConstrainedDashedProductRenderOverlap = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[]
+) => {
+  const faceBounds = faces.map((face) => getBounds(face.polygons))
+  for (let leftIndex = 0; leftIndex < faces.length; leftIndex += 1) {
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < faces.length;
+      rightIndex += 1
+    ) {
+      if (
+        facePolygonsHaveInteriorOverlap(
+          faces[leftIndex].polygons,
+          faces[rightIndex].polygons,
+          faceBounds[leftIndex],
+          faceBounds[rightIndex]
+        )
+      ) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+const hasFilledFaceBoundaryRole = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[]
+) =>
+  faces.some(
+    (face) =>
+      face.debugMeta?.figmaLikeBoundaryRole === 'filled-face' ||
+      face.debugMeta?.figmaLikeSplitRangeTerminals?.some(
+        (terminal) => terminal.boundaryRole === 'filled-face'
+      ) === true
+  )
+
 const buildDashedCenterCollapsedRenderEntry = (
   faces: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
@@ -1281,10 +1507,18 @@ const buildConstrainedDashedProductRenderEntry = (
   >[],
   options: SolidCenterStrokeRenderEntryOptions
 ): ReturnType<typeof buildRenderEntryFromFinalFace>[] => {
+  if (!hasConstrainedDashedProductRenderOverlap(faces)) {
+    return buildMergedRenderEntry(
+      faces,
+      'constrained-dashed-product-render-merged'
+    )
+  }
+
   return buildRenderProjectionArrangementEntry(
     faces,
     options,
-    'constrained-dashed-product-render-projection'
+    'constrained-dashed-product-render-projection',
+    { allowDirectUnion: !hasFilledFaceBoundaryRole(faces) }
   )
 }
 

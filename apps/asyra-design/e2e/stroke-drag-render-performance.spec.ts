@@ -2347,6 +2347,11 @@ test.describe('stroke drag render performance UX gate', () => {
       'burst drag should observe vector renders'
     ).toBeGreaterThan(0)
     expect(
+      (burstMetrics.counters['product-render-per-render-frame'] ?? 0) /
+        Math.max(1, burstMetrics.counters['render-frame-count'] ?? 0),
+      'burst drag should not perform more than one complete product render per render frame for the selected vector'
+    ).toBeLessThanOrEqual(1)
+    expect(
       burstMetrics.freshnessProbe.sourceMoved,
       'burst drag should move the edited source point'
     ).toBe(true)
