@@ -54,10 +54,19 @@ interface CanonicalStrokeFailureArtifact {
   errorCode:
     | 'STROKE_OVERLAP'
     | 'STROKE_INSIDE_LEAK'
+    | 'STROKE_OUTSIDE_LEAK'
     | 'CAP_EXTENSION_MISSING'
     | 'CAP_SHAPE_MISMATCH'
     | 'SEGMENT_ENVELOPE_MISMATCH'
+    | 'JOIN_MITER_DIRECTION'
+    | 'JOIN_MITER_OVERTRIM_GAP'
+    | 'JOIN_BEVEL_MISSING'
+    | 'JOIN_ROUND_NOT_SMOOTH'
+    | 'JOIN_ROUND_CONTINUITY_GAP'
+    | 'JOIN_ROUND_ARC_SEAM_GAP'
+    | 'JOIN_ROUND_BEVEL_PROTRUSION'
     | 'JOIN_SIGNATURE_MISSING'
+    | 'JOIN_SOURCE_VERTEX_PACKET_MISSING'
     | 'PIPELINE_INCOMPLETE'
   caseKey: string
   summary: string
@@ -104,7 +113,12 @@ interface RenderEntrySourceMaskForTest {
 
 const STROKE_POSITIONS = ['inside', 'center', 'outside'] as const
 const SOLID_JOINS = ['miter', 'bevel', 'round'] as const
+const DASHED_SOURCE_JOINS = ['miter', 'bevel', 'round'] as const
 const DASHED_CAPS = ['butt', 'square', 'round'] as const
+const SOURCE_JOIN_SHAPE_TURN_ANGLE_FOR_TEST = Math.PI / 24
+const SOURCE_JOIN_ROUND_MIN_VISIBLE_ARC_POINTS_FOR_TEST = 8
+const SOURCE_JOIN_MIN_SIGNATURE_DIFFERENCES_FOR_TEST = 5
+const SELF_CHECK_DASH_PATTERN_FOR_TEST = [27, 20] as const
 
 const SOLID_MATRIX_CASES = STROKE_POSITIONS.flatMap((position) =>
   SOLID_JOINS.map((joinType) => ({
@@ -143,10 +157,21 @@ const DASHED_INSIDE_LEGAL_DOMAIN_CASES =
     )
   )
 
-const DASHED_EXACT_OVERLAP_CASES =
-  CANONICAL_SELF_CHECK_SOURCE_FIXTURES.flatMap((sourceFixture) =>
+const DASHED_EXACT_OVERLAP_CASES = CANONICAL_SELF_CHECK_SOURCE_FIXTURES.flatMap(
+  (sourceFixture) =>
     DASHED_MATRIX_CASES.map((caseDef) => ({
       ...caseDef,
+      sourceFixture
+    }))
+)
+
+const DASHED_OUTSIDE_SOURCE_JOIN_CASES =
+  CANONICAL_SELF_CHECK_SOURCE_FIXTURES.flatMap((sourceFixture) =>
+    DASHED_SOURCE_JOINS.map((joinType) => ({
+      key: `dashed:outside:butt:${joinType}`,
+      position: 'outside' as const,
+      capType: 'butt' as const,
+      joinType,
       sourceFixture
     }))
   )
@@ -289,6 +314,13 @@ const SELF_CHECK_STAR_VECTOR_NETWORK: VectorNetwork = {
   segmentIds: ['ts-23', 'ts-24', 'ts-25', 'ts-26', 'ts-27'],
   closed: true
 }
+
+const SELF_CHECK_SOURCE_VERTEX_ID_LIST =
+  SELF_CHECK_STAR_VECTOR_NETWORK.pointIds.filter(
+    (pointId) => SELF_CHECK_STAR_VECTOR_POINTS[pointId]?.kind === 'anchor'
+  )
+
+const SELF_CHECK_SOURCE_VERTEX_IDS = new Set(SELF_CHECK_SOURCE_VERTEX_ID_LIST)
 
 const SELF_CHECK_STAR_SEGMENTS = SELF_CHECK_STAR_POINTS.map((point, index) => ({
   start: point,
@@ -764,6 +796,33 @@ const getStrokeMaskPolygonsForRenderEntry = (
   ...(renderEntry.strokeMaskPolygons ?? [])
 ]
 
+const getVisibleStrokePolygonsForRenderEntry = (
+  entry: ReturnType<
+    typeof toSolidCenterStrokeRenderEntriesFromFinalFaces
+  >[number]
+) => {
+  const renderEntry = entry as RenderEntrySourceMaskForTest
+  let visiblePolygons = getStrokeMaskPolygonsForRenderEntry(renderEntry)
+  if (visiblePolygons.length === 0) {
+    visiblePolygons = entry.polygons
+  }
+  const clipPolygons = renderEntry.clipPolygons ?? entry.polygons
+  visiblePolygons = getExactIntersectionPolygonsForTest(
+    visiblePolygons,
+    clipPolygons
+  )
+  if (
+    renderEntry.fillClipPolygons &&
+    renderEntry.fillClipPolygons.length > 0
+  ) {
+    visiblePolygons = getExactIntersectionPolygonsForTest(
+      visiblePolygons,
+      renderEntry.fillClipPolygons
+    )
+  }
+  return visiblePolygons
+}
+
 const isPointInRenderEntryVisibleStroke = (
   entry: ReturnType<
     typeof toSolidCenterStrokeRenderEntriesFromFinalFaces
@@ -863,12 +922,14 @@ const buildSolidPackets = ({
 const buildDashedPackets = ({
   position,
   capType,
+  joinType = 'round',
   points = SELF_CHECK_STAR_POINTS,
   closed = true,
   useCurvedSelfCheckSource = false
 }: {
   position: StrokePosition
   capType: StrokeCap
+  joinType?: StrokeJoin
   points?: Vec2[]
   closed?: boolean
   useCurvedSelfCheckSource?: boolean
@@ -877,9 +938,9 @@ const buildDashedPackets = ({
     style: 'dashed',
     position,
     width: 10,
-    joinType: 'round',
+    joinType,
     capType,
-    dashPattern: [27, 20],
+    dashPattern: [...SELF_CHECK_DASH_PATTERN_FOR_TEST],
     dashOffset: 0,
     miterAngle: 28.96
   })
@@ -892,7 +953,7 @@ const buildDashedPackets = ({
     )
   }
   return buildConstrainedDashedStrokeResolvedPackets(
-    `canonical:dashed:${position}:${capType}`,
+    `canonical:dashed:${position}:${capType}:${joinType}`,
     points,
     closed,
     [stroke],
@@ -907,15 +968,18 @@ const buildDashedPackets = ({
 const buildDashedPacketsForSelfCheckSourceFixture = ({
   position,
   capType,
+  joinType = 'round',
   sourceFixture
 }: {
   position: StrokePosition
   capType: StrokeCap
+  joinType?: StrokeJoin
   sourceFixture: (typeof CANONICAL_SELF_CHECK_SOURCE_FIXTURES)[number]
 }) =>
   buildDashedPackets({
     position,
     capType,
+    joinType,
     useCurvedSelfCheckSource: sourceFixture.useCurvedSourcePath
   })
 
@@ -1165,7 +1229,8 @@ const flattenRegionPolygonsForTest = (regions: { polygons: Vec2[][] }[]) =>
 
 const getLargestAreaPolygonForTest = (polygons: Vec2[][]) =>
   [...polygons].sort(
-    (first, second) => Math.abs(polygonArea(second)) - Math.abs(polygonArea(first))
+    (first, second) =>
+      Math.abs(polygonArea(second)) - Math.abs(polygonArea(first))
   )[0]
 
 const getPolygonAveragePointForTest = (polygon: Vec2[] | undefined): Vec2 =>
@@ -1193,6 +1258,106 @@ const getExactUnionAreaForTest = (polygons: Vec2[][]) => {
 const getExactOverlapAreaForTest = (polygons: Vec2[][]) =>
   Math.max(0, getTotalAbsArea(polygons) - getExactUnionAreaForTest(polygons))
 
+const getExactDifferenceAreaForTest = (
+  subjectPolygons: Vec2[][],
+  clipPolygons: Vec2[][]
+) => {
+  if (!exactBackend || subjectPolygons.length === 0) {
+    return 0
+  }
+  if (clipPolygons.length === 0) {
+    return getTotalAbsArea(subjectPolygons)
+  }
+  return getTotalAbsArea(
+    flattenRegionPolygonsForTest(
+      exactBackend.difference(
+        toPolygonRegionsForTest(subjectPolygons),
+        toPolygonRegionsForTest(clipPolygons),
+        'nonzero'
+      )
+    )
+  )
+}
+
+const getExactDifferencePolygonsForTest = (
+  subjectPolygons: Vec2[][],
+  clipPolygons: Vec2[][]
+) => {
+  if (!exactBackend || subjectPolygons.length === 0) {
+    return []
+  }
+  if (clipPolygons.length === 0) {
+    return subjectPolygons
+  }
+  return flattenRegionPolygonsForTest(
+    exactBackend.difference(
+      toPolygonRegionsForTest(subjectPolygons),
+      toPolygonRegionsForTest(clipPolygons),
+      'nonzero'
+    )
+  )
+}
+
+const getExactIntersectionPolygonsForTest = (
+  firstPolygons: Vec2[][],
+  secondPolygons: Vec2[][]
+) => {
+  if (
+    !exactBackend ||
+    firstPolygons.length === 0 ||
+    secondPolygons.length === 0
+  ) {
+    return []
+  }
+  return flattenRegionPolygonsForTest(
+    exactBackend.intersection(
+      toPolygonRegionsForTest(firstPolygons),
+      toPolygonRegionsForTest(secondPolygons),
+      'nonzero'
+    )
+  )
+}
+
+const getExactIntersectionAreaForTest = (
+  firstPolygons: Vec2[][],
+  secondPolygons: Vec2[][]
+) => {
+  if (
+    !exactBackend ||
+    firstPolygons.length === 0 ||
+    secondPolygons.length === 0
+  ) {
+    return 0
+  }
+  return getTotalAbsArea(
+    flattenRegionPolygonsForTest(
+      exactBackend.intersection(
+        toPolygonRegionsForTest(firstPolygons),
+        toPolygonRegionsForTest(secondPolygons),
+        'nonzero'
+      )
+    )
+  )
+}
+
+const getPacketIntersectionContributorsForTest = (
+  packets: Array<{
+    geometry: { geometryId: string; polygons: Vec2[][] }
+  }>,
+  clipPolygons: Vec2[][]
+) =>
+  packets
+    .map((packet) => ({
+      geometryId: packet.geometry.geometryId,
+      area: getExactIntersectionAreaForTest(
+        packet.geometry.polygons,
+        clipPolygons
+      )
+    }))
+    .filter((contributor) => contributor.area > 1e-6)
+    .sort((left, right) => right.area - left.area)
+    .slice(0, 5)
+
 const getOutsideLegalResidueForTest = (
   polygons: Vec2[][],
   legalRegions: { polygons: Vec2[][] }[]
@@ -1209,8 +1374,596 @@ const getOutsideLegalResidueForTest = (
   )
 }
 
+const getInsideLegalResidueForOutsideStrokeTest = (
+  polygons: Vec2[][],
+  legalRegions: { polygons: Vec2[][] }[]
+) => {
+  if (!exactBackend || polygons.length === 0 || legalRegions.length === 0) {
+    return []
+  }
+  return flattenRegionPolygonsForTest(
+    exactBackend.intersection(
+      toPolygonRegionsForTest(polygons),
+      legalRegions,
+      'nonzero'
+    )
+  )
+}
+
+const buildPointProbePolygonForTest = (point: Vec2, radius = 0.05) => [
+  { x: point.x - radius, y: point.y - radius },
+  { x: point.x + radius, y: point.y - radius },
+  { x: point.x + radius, y: point.y + radius },
+  { x: point.x - radius, y: point.y + radius }
+]
+
+const isPointInsideExactLegalRegionForTest = (
+  point: Vec2,
+  legalRegions: { polygons: Vec2[][] }[]
+) => {
+  if (!exactBackend || legalRegions.length === 0) {
+    return polygonListContainsPoint(
+      getFillRegionPolygonsForTest(legalRegions),
+      point
+    )
+  }
+  const probe = buildPointProbePolygonForTest(point)
+  const intersectionArea = getTotalAbsArea(
+    flattenRegionPolygonsForTest(
+      exactBackend.intersection(
+        toPolygonRegionsForTest([probe]),
+        legalRegions,
+        'nonzero'
+      )
+    )
+  )
+  return intersectionArea > Math.abs(polygonArea(probe)) * 0.5
+}
+
 const getGeometryAreaToleranceForTest = (totalArea: number) =>
   Math.max(0.5, totalArea * 0.0005)
+
+const subtractPointsForTest = (left: Vec2, right: Vec2): Vec2 => ({
+  x: left.x - right.x,
+  y: left.y - right.y
+})
+
+const addPointsForTest = (left: Vec2, right: Vec2): Vec2 => ({
+  x: left.x + right.x,
+  y: left.y + right.y
+})
+
+const scalePointForTest = (point: Vec2, scale: number): Vec2 => ({
+  x: point.x * scale,
+  y: point.y * scale
+})
+
+const dotPointsForTest = (left: Vec2, right: Vec2) =>
+  left.x * right.x + left.y * right.y
+
+const distanceBetweenPointsForTest = (left: Vec2, right: Vec2) =>
+  Math.hypot(left.x - right.x, left.y - right.y)
+
+const lineIntersectionForTest = (
+  firstStart: Vec2,
+  firstEnd: Vec2,
+  secondStart: Vec2,
+  secondEnd: Vec2
+): Vec2 | null => {
+  const firstDelta = subtractPointsForTest(firstEnd, firstStart)
+  const secondDelta = subtractPointsForTest(secondEnd, secondStart)
+  const denominator =
+    firstDelta.x * secondDelta.y - firstDelta.y * secondDelta.x
+  if (Math.abs(denominator) <= 1e-9) {
+    return null
+  }
+  const startDelta = subtractPointsForTest(secondStart, firstStart)
+  const amount =
+    (startDelta.x * secondDelta.y - startDelta.y * secondDelta.x) / denominator
+  return addPointsForTest(firstStart, scalePointForTest(firstDelta, amount))
+}
+
+const crossPointsForTest = (left: Vec2, right: Vec2) =>
+  left.x * right.y - left.y * right.x
+
+const buildJoinArcPointsForTest = (
+  center: Vec2,
+  start: Vec2,
+  end: Vec2,
+  sweepSign: number
+) => {
+  const startAngle = Math.atan2(start.y - center.y, start.x - center.x)
+  const endAngle = Math.atan2(end.y - center.y, end.x - center.x)
+  let sweep = endAngle - startAngle
+
+  if (sweepSign >= 0) {
+    while (sweep < 0) {
+      sweep += Math.PI * 2
+    }
+  } else {
+    while (sweep > 0) {
+      sweep -= Math.PI * 2
+    }
+  }
+
+  const radius = distanceBetweenPointsForTest(center, start)
+  const maxChordError = Math.max(0.05, Math.min(0.35, radius * 0.025))
+  const maxAngleFromChordError =
+    radius <= 1e-9
+      ? Math.PI / 24
+      : 2 *
+        Math.acos(
+          Math.max(-1, Math.min(1, 1 - maxChordError / Math.max(radius, 1)))
+        )
+  const maxAngleStep = Math.min(Math.PI / 24, maxAngleFromChordError)
+  const segmentCount = Math.max(4, Math.ceil(Math.abs(sweep) / maxAngleStep))
+  return Array.from({ length: segmentCount + 1 }, (_unused, index) => {
+    const angle = startAngle + (sweep * index) / segmentCount
+    return {
+      x: center.x + Math.cos(angle) * radius,
+      y: center.y + Math.sin(angle) * radius
+    }
+  })
+}
+
+const getSegmentEndDirectionForTest = (
+  segment: ReturnType<typeof buildSelfCheckVectorSourcePath>['segments'][number]
+) => {
+  const candidates =
+    segment.type === 'cubic'
+      ? [segment.control2, segment.control1, segment.start]
+      : [segment.start]
+  for (const candidate of candidates) {
+    const direction = normalizeVector(
+      subtractPointsForTest(segment.end, candidate)
+    )
+    if (direction) {
+      return direction
+    }
+  }
+  return null
+}
+
+const getSegmentStartDirectionForTest = (
+  segment: ReturnType<typeof buildSelfCheckVectorSourcePath>['segments'][number]
+) => {
+  const candidates =
+    segment.type === 'cubic'
+      ? [segment.control1, segment.control2, segment.end]
+      : [segment.end]
+  for (const candidate of candidates) {
+    const direction = normalizeVector(
+      subtractPointsForTest(candidate, segment.start)
+    )
+    if (direction) {
+      return direction
+    }
+  }
+  return null
+}
+
+const getSampledSegmentEndDirectionForTest = (
+  path: ReturnType<typeof buildSelfCheckVectorSourcePath>,
+  segmentIndex: number
+) => {
+  const sampledPoints = path.sampledSegmentPoints[segmentIndex] ?? []
+  const end = sampledPoints[sampledPoints.length - 1]
+  if (!end) {
+    return null
+  }
+  for (let index = sampledPoints.length - 2; index >= 0; index -= 1) {
+    const direction = normalizeVector(
+      subtractPointsForTest(end, sampledPoints[index])
+    )
+    if (direction) {
+      return direction
+    }
+  }
+  return null
+}
+
+const getSampledSegmentStartDirectionForTest = (
+  path: ReturnType<typeof buildSelfCheckVectorSourcePath>,
+  segmentIndex: number
+) => {
+  const sampledPoints = path.sampledSegmentPoints[segmentIndex] ?? []
+  const start = sampledPoints[0]
+  if (!start) {
+    return null
+  }
+  for (let index = 1; index < sampledPoints.length; index += 1) {
+    const direction = normalizeVector(
+      subtractPointsForTest(sampledPoints[index], start)
+    )
+    if (direction) {
+      return direction
+    }
+  }
+  return null
+}
+
+const offsetLinePointForTest = (
+  point: Vec2,
+  direction: Vec2,
+  offset: number
+) => ({
+  x: point.x - direction.y * offset,
+  y: point.y + direction.x * offset
+})
+
+const buildJoinCandidateForTest = ({
+  nextSegmentIndex,
+  offset,
+  path,
+  previousSegmentIndex,
+  strokeWidth
+}: {
+  nextSegmentIndex: number
+  offset: number
+  path: ReturnType<typeof buildSelfCheckVectorSourcePath>
+  previousSegmentIndex: number
+  strokeWidth: number
+}) => {
+  const previousSegment = path.segments[previousSegmentIndex]
+  const nextSegment = path.segments[nextSegmentIndex]
+  if (!previousSegment || !nextSegment) {
+    return null
+  }
+  const vertex = previousSegment.end
+  if (distanceBetweenPointsForTest(vertex, nextSegment.start) > 0.5) {
+    return null
+  }
+  const previousDirection =
+    getSampledSegmentEndDirectionForTest(path, previousSegmentIndex) ??
+    getSegmentEndDirectionForTest(previousSegment)
+  const nextDirection =
+    getSampledSegmentStartDirectionForTest(path, nextSegmentIndex) ??
+    getSegmentStartDirectionForTest(nextSegment)
+  if (!previousDirection || !nextDirection) {
+    return null
+  }
+  const previousOffsetEnd = offsetLinePointForTest(
+    vertex,
+    previousDirection,
+    offset
+  )
+  const nextOffsetStart = offsetLinePointForTest(vertex, nextDirection, offset)
+  const previousOffsetStart = offsetLinePointForTest(
+    addPointsForTest(
+      vertex,
+      scalePointForTest(previousDirection, -strokeWidth)
+    ),
+    previousDirection,
+    offset
+  )
+  const nextOffsetEnd = offsetLinePointForTest(
+    addPointsForTest(vertex, scalePointForTest(nextDirection, strokeWidth)),
+    nextDirection,
+    offset
+  )
+  const bevelMidpoint = scalePointForTest(
+    addPointsForTest(previousOffsetEnd, nextOffsetStart),
+    0.5
+  )
+  const miterPoint =
+    lineIntersectionForTest(
+      previousOffsetStart,
+      previousOffsetEnd,
+      nextOffsetStart,
+      nextOffsetEnd
+    ) ?? bevelMidpoint
+  const miterDirection = normalizeVector(
+    subtractPointsForTest(miterPoint, vertex)
+  )
+  const roundSweepSign =
+    crossPointsForTest(previousDirection, nextDirection) * offset >= 0 ? -1 : 1
+  const angleDot = Math.max(
+    -1,
+    Math.min(1, dotPointsForTest(previousDirection, nextDirection))
+  )
+  return {
+    vertex,
+    previousOffsetEnd,
+    nextOffsetStart,
+    previousDirection,
+    nextDirection,
+    offset,
+    miterPoint,
+    miterPolygon: [vertex, previousOffsetEnd, miterPoint, nextOffsetStart],
+    bevelPolygon: [vertex, previousOffsetEnd, nextOffsetStart],
+    roundPolygon: [
+      vertex,
+      ...buildJoinArcPointsForTest(
+        vertex,
+        previousOffsetEnd,
+        nextOffsetStart,
+        roundSweepSign
+      )
+    ],
+    miterProbe: addPointsForTest(
+      vertex,
+      scalePointForTest(
+        subtractPointsForTest(miterPoint, vertex),
+        distanceBetweenPointsForTest(vertex, miterPoint) <= strokeWidth * 1.2
+          ? 0.7
+          : 0.9
+      )
+    ),
+    bevelMidpoint,
+    miterDirection,
+    turnAngle: Math.acos(angleDot)
+  }
+}
+
+const getRoundJoinContinuityProbesForTest = (candidate: {
+  previousDirection: Vec2
+  nextDirection: Vec2
+  previousOffsetEnd: Vec2
+  nextOffsetStart: Vec2
+}) => [
+  addPointsForTest(
+    candidate.previousOffsetEnd,
+    scalePointForTest(candidate.previousDirection, -1.5)
+  ),
+  addPointsForTest(
+    candidate.previousOffsetEnd,
+    scalePointForTest(candidate.previousDirection, -3)
+  ),
+  addPointsForTest(
+    candidate.nextOffsetStart,
+    scalePointForTest(candidate.nextDirection, 1.5)
+  ),
+  addPointsForTest(
+    candidate.nextOffsetStart,
+    scalePointForTest(candidate.nextDirection, 3)
+  )
+]
+
+const buildSourceJoinAdjacentBodyPolygonsForTest = (candidate: {
+  nextDirection: Vec2
+  nextOffsetStart: Vec2
+  previousDirection: Vec2
+  previousOffsetEnd: Vec2
+  vertex: Vec2
+}, options: { continuityLength?: number } = {}) => {
+  const continuityLength = options.continuityLength ?? 14
+  const previousSourcePoint = addPointsForTest(
+    candidate.vertex,
+    scalePointForTest(candidate.previousDirection, -continuityLength)
+  )
+  const previousOuterPoint = addPointsForTest(
+    candidate.previousOffsetEnd,
+    scalePointForTest(candidate.previousDirection, -continuityLength)
+  )
+  const nextSourcePoint = addPointsForTest(
+    candidate.vertex,
+    scalePointForTest(candidate.nextDirection, continuityLength)
+  )
+  const nextOuterPoint = addPointsForTest(
+    candidate.nextOffsetStart,
+    scalePointForTest(candidate.nextDirection, continuityLength)
+  )
+  return [
+    [
+      candidate.vertex,
+      candidate.previousOffsetEnd,
+      previousOuterPoint,
+      previousSourcePoint
+    ],
+    [
+      candidate.vertex,
+      candidate.nextOffsetStart,
+      nextOuterPoint,
+      nextSourcePoint
+    ]
+  ]
+}
+
+const buildSourceJoinLocalExpectedCoverageForTest = (
+  candidate: {
+    miterPolygon: Vec2[]
+    roundPolygon: Vec2[]
+  } & Parameters<typeof buildSourceJoinAdjacentBodyPolygonsForTest>[0],
+  joinType: StrokeJoin,
+  legalRegions: { polygons: Vec2[][] }[]
+) => {
+  const joinPolygon =
+    joinType === 'round' ? candidate.roundPolygon : candidate.miterPolygon
+  return getOutsideLegalResidueForTest(
+    [joinPolygon, ...buildSourceJoinAdjacentBodyPolygonsForTest(candidate)],
+    legalRegions
+  )
+}
+
+const getLocalJoinSeamProbesForTest = (candidate: {
+  miterPolygon: Vec2[]
+  nextDirection: Vec2
+  nextOffsetStart: Vec2
+  previousDirection: Vec2
+  previousOffsetEnd: Vec2
+  roundPolygon: Vec2[]
+  vertex: Vec2
+}) => {
+  const bodyProbes = getRoundJoinContinuityProbesForTest(candidate)
+  const arcProbes = candidate.roundPolygon
+    .slice(1)
+    .filter((_point, index, points) => {
+      if (points.length <= 4) {
+        return true
+      }
+      return index > 0 && index < points.length - 1 && index % 3 === 0
+    })
+    .map((point) =>
+      addPointsForTest(
+        candidate.vertex,
+        scalePointForTest(subtractPointsForTest(point, candidate.vertex), 0.92)
+      )
+    )
+  return [...bodyProbes, ...arcProbes]
+}
+
+const getSelfCheckSourcePathForFixture = (
+  sourceFixture: (typeof CANONICAL_SELF_CHECK_SOURCE_FIXTURES)[number]
+) =>
+  sourceFixture.useCurvedSourcePath
+    ? buildSelfCheckVectorSourcePath()
+    : buildPolylineGeometryModelPath(SELF_CHECK_STAR_POINTS, true)
+
+const isDistanceInsideSelfCheckVisibleDashForTest = (
+  distance: number,
+  totalLength: number
+) => {
+  const [dashLength, gapLength] = SELF_CHECK_DASH_PATTERN_FOR_TEST
+  const cycleLength = dashLength + gapLength
+  if (cycleLength <= 0 || totalLength <= 0) {
+    return false
+  }
+  const normalizedDistance =
+    ((distance % totalLength) + totalLength) % totalLength
+  const phase = normalizedDistance % cycleLength
+  return phase <= dashLength + 1e-6
+}
+
+const doesSelfCheckVisibleDashCrossVertexForTest = (
+  distance: number,
+  totalLength: number
+) => {
+  const probeDistance = 0.5
+  return (
+    isDistanceInsideSelfCheckVisibleDashForTest(
+      distance - probeDistance,
+      totalLength
+    ) &&
+    isDistanceInsideSelfCheckVisibleDashForTest(
+      distance + probeDistance,
+      totalLength
+    )
+  )
+}
+
+const getOutsideSourceJoinExpectations = (
+  sourceFixture: (typeof CANONICAL_SELF_CHECK_SOURCE_FIXTURES)[number]
+) => {
+  const path = getSelfCheckSourcePathForFixture(sourceFixture)
+  const legalRegions = getSelfCheckLegalRegionsForSourceFixture(sourceFixture)
+  return path.segments.flatMap((segment, previousSegmentIndex) => {
+    const nextSegmentIndex = (previousSegmentIndex + 1) % path.segments.length
+    const nextSegment = path.segments[nextSegmentIndex]
+    if (!nextSegment) {
+      return []
+    }
+    const incoming = getSegmentEndDirectionForTest(segment)
+    const outgoing = getSegmentStartDirectionForTest(nextSegment)
+    if (!incoming || !outgoing) {
+      return []
+    }
+    const turnDot = dotPointsForTest(incoming, outgoing)
+    const candidates = [10, -10]
+      .map((offset) =>
+        buildJoinCandidateForTest({
+          nextSegmentIndex,
+          offset,
+          path,
+          previousSegmentIndex,
+          strokeWidth: 10
+        })
+      )
+      .filter(
+        (candidate): candidate is NonNullable<typeof candidate> =>
+          candidate !== null
+      )
+    const candidateOutsideScore = (candidate: (typeof candidates)[number]) =>
+      [
+        candidate.previousOffsetEnd,
+        candidate.nextOffsetStart,
+        candidate.bevelMidpoint,
+        candidate.miterProbe
+      ].filter(
+        (point) => !isPointInsideExactLegalRegionForTest(point, legalRegions)
+      ).length
+    const outsideCandidate = [...candidates].sort(
+      (first, second) =>
+        candidateOutsideScore(second) - candidateOutsideScore(first)
+    )[0]
+    const insideCandidate = candidates.find(
+      (candidate) => candidate !== outsideCandidate
+    )
+    const vertexId = `tp-${12 + nextSegmentIndex}`
+    const sourceVertexDistance =
+      path.segmentDistanceRanges[nextSegmentIndex]?.startDistance ?? 0
+    if (
+      !SELF_CHECK_SOURCE_VERTEX_IDS.has(vertexId) ||
+      !outsideCandidate ||
+      !insideCandidate ||
+      !outsideCandidate.miterDirection
+    ) {
+      return []
+    }
+    return [
+      {
+        sourceFixture,
+        path,
+        previousSegmentIndex,
+        nextSegmentIndex,
+        sourceVertexDistance,
+        hasVisibleDashCoverage: doesSelfCheckVisibleDashCrossVertexForTest(
+          sourceVertexDistance,
+          path.totalLength
+        ),
+        vertexIndex: nextSegmentIndex,
+        vertexId,
+        outside: outsideCandidate,
+        inside: insideCandidate
+      }
+    ]
+  })
+}
+
+const getLocalJoinCoverageSignature = ({
+  polygons,
+  vertex
+}: {
+  polygons: Vec2[][]
+  vertex: Vec2
+}) =>
+  getCoverageSignature({
+    polygons,
+    centers: [vertex],
+    radius: 42,
+    step: 2
+  })
+
+const countRoundArcBoundaryPointsForTest = ({
+  polygons,
+  vertex
+}: {
+  polygons: Vec2[][]
+  vertex: Vec2
+}) =>
+  polygons.flat().filter((point) => {
+    const radius = distanceBetweenPointsForTest(point, vertex)
+    return radius >= 8 && radius <= 13
+  }).length
+
+const getSourceVertexJoinIndexesFromGeometryIds = (geometryIds: string[]) =>
+  new Set(
+    geometryIds.flatMap((geometryId) => {
+      const match = geometryId.match(/source-vertex-join:(\d+)/)
+      return match ? [Number(match[1])] : []
+    })
+  )
+
+const getNearestPolygonPointDistanceForTest = (
+  polygons: Vec2[][],
+  point: Vec2
+) =>
+  polygons
+    .flat()
+    .reduce(
+      (minimum, polygonPoint) =>
+        Math.min(minimum, distanceBetweenPointsForTest(point, polygonPoint)),
+      Number.POSITIVE_INFINITY
+    )
 
 describe('canonical stroke 18-combination matrix', () => {
   it('should run: define exactly 9 solid and 9 dashed canonical matrix cases', () => {
@@ -1278,6 +2031,672 @@ describe('canonical stroke 18-combination matrix', () => {
     }
   )
 
+  it.each(DASHED_OUTSIDE_SOURCE_JOIN_CASES)(
+    'should run: dashed outside source join $joinType preserves authored source-vertex geometry on $sourceFixture.key',
+    ({ key, position, capType, joinType, sourceFixture }) => {
+      const packets = buildDashedPacketsForSelfCheckSourceFixture({
+        position,
+        capType,
+        joinType,
+        sourceFixture
+      })
+      assertPipelineCompleteness({ key, packets })
+      const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
+      const renderEntries =
+        toSolidCenterStrokeRenderEntriesFromFinalFaces(finalFaces)
+      const renderPolygons = renderEntries.flatMap((entry) =>
+        getVisibleStrokePolygonsForRenderEntry(entry)
+      )
+      const packetPolygons = packets.flatMap(
+        (packet) => packet.geometry.polygons
+      )
+      const finalFacePolygons = finalFaces.flatMap((face) => face.polygons)
+      const packetGeometryIds = packets.map(
+        (packet) => packet.geometry.geometryId
+      )
+      const sourceVertexJoinIndexes =
+        getSourceVertexJoinIndexesFromGeometryIds(packetGeometryIds)
+      expect(
+        packetGeometryIds.some((id) => id.includes('source-vertex-join'))
+      ).toBe(true)
+      expect(
+        packetGeometryIds.some((id) => id.includes('boundary-terminal-join'))
+      ).toBe(false)
+
+      const expectations = getOutsideSourceJoinExpectations(sourceFixture)
+      expect(
+        expectations.length,
+        `${key}:${sourceFixture.key}:source-join-expectation-count`
+      ).toBe(SELF_CHECK_SOURCE_VERTEX_ID_LIST.length)
+
+      const sourceJoinShapeExpectations = expectations.filter(
+        (expectation) =>
+          expectation.hasVisibleDashCoverage &&
+          expectation.outside.turnAngle >= SOURCE_JOIN_SHAPE_TURN_ANGLE_FOR_TEST
+      )
+      const missingSourceVertexJoins = sourceJoinShapeExpectations.filter(
+        (expectation) => !sourceVertexJoinIndexes.has(expectation.vertexIndex)
+      )
+      missingSourceVertexJoins.forEach((expectation) => {
+        recordFailureArtifact({
+          errorCode: 'JOIN_SOURCE_VERTEX_PACKET_MISSING',
+          caseKey: key,
+          summary: `${key} is missing source-vertex join packet coverage for an authored source anchor.`,
+          fixtureKind: 'self-check-star',
+          sourceSegmentId: `${SELF_CHECK_STAR_VECTOR_NETWORK.pointIds[expectation.previousSegmentIndex]}->${SELF_CHECK_STAR_VECTOR_NETWORK.pointIds[expectation.nextSegmentIndex]}`,
+          sourcePointId: expectation.vertexId,
+          nearestAnchorId: expectation.vertexId,
+          localPoint: expectation.outside.vertex,
+          side: 'join',
+          expected: {
+            sourceVertexJoinPacket: true
+          },
+          actual: {
+            sourceVertexJoinPacket: false,
+            availableSourceVertexJoinIndexes: Array.from(
+              sourceVertexJoinIndexes
+            )
+          },
+          recommendedViewport: {
+            zoom: 10,
+            center: expectation.outside.vertex
+          }
+        })
+      })
+      expect(
+        missingSourceVertexJoins,
+        `${key}:${sourceFixture.key}:source-vertex-packet-coverage`
+      ).toEqual([])
+
+      expectations.forEach((expectation) => {
+        const sourceSegmentId = `${SELF_CHECK_STAR_VECTOR_NETWORK.pointIds[expectation.previousSegmentIndex]}->${SELF_CHECK_STAR_VECTOR_NETWORK.pointIds[expectation.nextSegmentIndex]}`
+        const legalRegions =
+          getSelfCheckLegalRegionsForSourceFixture(sourceFixture)
+        const outsideMiterStageCoverage = {
+          packet: polygonListContainsPoint(
+            packetPolygons,
+            expectation.outside.miterProbe
+          ),
+          finalFace: polygonListContainsPoint(
+            finalFacePolygons,
+            expectation.outside.miterProbe
+          ),
+          renderEntry: isPointInRenderedStroke(
+            renderEntries,
+            expectation.outside.miterProbe
+          )
+        }
+        const bevelStageCoverage = {
+          packet: polygonListContainsPoint(
+            packetPolygons,
+            expectation.outside.bevelMidpoint
+          ),
+          finalFace: polygonListContainsPoint(
+            finalFacePolygons,
+            expectation.outside.bevelMidpoint
+          ),
+          renderEntry: isPointInRenderedStroke(
+            renderEntries,
+            expectation.outside.bevelMidpoint
+          )
+        }
+        const insideLegalResidueByStage = [
+          {
+            stage: 'packet',
+            polygons: packetPolygons
+          },
+          {
+            stage: 'final-face',
+            polygons: finalFacePolygons
+          },
+          {
+            stage: 'render-entry',
+            polygons: renderPolygons
+          }
+        ].map(({ stage, polygons }) => {
+          const insideResidue = getInsideLegalResidueForOutsideStrokeTest(
+            polygons,
+            legalRegions
+          )
+          const totalArea = getTotalAbsArea(polygons)
+          const insideResidueArea = getTotalAbsArea(insideResidue)
+          return {
+            stage,
+            insideResidue,
+            insideResidueArea,
+            maxAllowedArea: getGeometryAreaToleranceForTest(totalArea),
+            totalArea
+          }
+        })
+        const insideLeakFailure = insideLegalResidueByStage.find(
+          ({ insideResidueArea, maxAllowedArea }) =>
+            insideResidueArea > maxAllowedArea
+        )
+        if (insideLeakFailure) {
+          const localPoint = getPolygonAveragePointForTest(
+            getLargestAreaPolygonForTest(insideLeakFailure.insideResidue)
+          )
+          const sourceLocation = getNearestSelfCheckSourceLocation(localPoint)
+          recordFailureArtifact({
+            errorCode: 'STROKE_OUTSIDE_LEAK',
+            caseKey: key,
+            summary: `${key} ${insideLeakFailure.stage} outside source join leaves coverage inside the legal fill domain.`,
+            fixtureKind: 'self-check-star',
+            sourceSegmentId: sourceLocation.sourceSegmentId,
+            sourcePointId: expectation.vertexId,
+            nearestAnchorId: sourceLocation.nearestAnchorId,
+            localPoint,
+            t: sourceLocation.t,
+            side: 'inside',
+            expected: {
+              maxInsideResidueArea: insideLeakFailure.maxAllowedArea
+            },
+            actual: {
+              insideResidueArea: insideLeakFailure.insideResidueArea,
+              totalArea: insideLeakFailure.totalArea
+            },
+            recommendedViewport: {
+              zoom: 10,
+              center: sourceLocation.projectedPoint
+            }
+          })
+        }
+        expect(
+          insideLeakFailure,
+          `${key}:${sourceFixture.key}:${expectation.vertexId}:outside-legal-domain`
+        ).toBeUndefined()
+        if (
+          !expectation.hasVisibleDashCoverage ||
+          expectation.outside.turnAngle < SOURCE_JOIN_SHAPE_TURN_ANGLE_FOR_TEST
+        ) {
+          return
+        }
+        const outsideMiterCovered = isPointInRenderedStroke(
+          renderEntries,
+          expectation.outside.miterProbe
+        )
+        const insideMiterCovered = isPointInRenderedStroke(
+          renderEntries,
+          expectation.inside.miterProbe
+        )
+        if (joinType === 'miter') {
+          const insideMiterForbiddenArea = getExactIntersectionAreaForTest(
+            renderPolygons,
+            [expectation.inside.miterPolygon]
+          )
+          const insideMiterPacketContributors =
+            getPacketIntersectionContributorsForTest(packets, [
+              expectation.inside.miterPolygon
+            ])
+          const maxInsideMiterForbiddenArea = Math.max(
+            0.25,
+            Math.abs(polygonArea(expectation.inside.miterPolygon)) * 0.05
+          )
+          const expectedMiterLocalCoverage =
+            buildSourceJoinLocalExpectedCoverageForTest(
+              expectation.outside,
+              'miter',
+              legalRegions
+            )
+          const miterLocalMissingPolygons = getExactDifferencePolygonsForTest(
+            expectedMiterLocalCoverage,
+            renderPolygons
+          )
+          const miterLocalMissingArea = getTotalAbsArea(
+            miterLocalMissingPolygons
+          )
+          const expectedMiterLocalArea = getTotalAbsArea(
+            expectedMiterLocalCoverage
+          )
+          const maxMiterLocalMissingArea = Math.max(
+            0.5,
+            expectedMiterLocalArea * 0.08
+          )
+          const outsideMiterNearestPacketPointDistance =
+            getNearestPolygonPointDistanceForTest(
+              packetPolygons,
+              expectation.outside.miterProbe
+            )
+          if (
+            !outsideMiterCovered ||
+            insideMiterCovered
+          ) {
+            recordFailureArtifact({
+              errorCode: 'JOIN_MITER_DIRECTION',
+              caseKey: key,
+              summary: `${key} miter join does not extend along the outside source-vertex direction.`,
+              fixtureKind: 'self-check-star',
+              sourceSegmentId,
+              sourcePointId: expectation.vertexId,
+              nearestAnchorId: expectation.vertexId,
+              localPoint: expectation.outside.miterProbe,
+              side: 'join',
+              expected: {
+                outsideMiterCovered: true,
+                insideMiterCovered: false
+              },
+              actual: {
+                outsideMiterCovered,
+                insideMiterCovered,
+                insideMiterForbiddenArea,
+                maxInsideMiterForbiddenArea,
+                miterLocalMissingArea,
+                maxMiterLocalMissingArea,
+                outsideMiterStageCoverage,
+                outsideMiterNearestPacketPointDistance,
+                insideMiterPacketContributors
+              },
+              recommendedViewport: {
+                zoom: 10,
+                center: expectation.outside.vertex
+              }
+            })
+          }
+          if (miterLocalMissingArea > maxMiterLocalMissingArea) {
+            recordFailureArtifact({
+              errorCode: 'JOIN_MITER_OVERTRIM_GAP',
+              caseKey: key,
+              summary: `${key} miter join trims too much adjacent dash body near an authored source vertex.`,
+              fixtureKind: 'self-check-star',
+              sourceSegmentId,
+              sourcePointId: expectation.vertexId,
+              nearestAnchorId: expectation.vertexId,
+              localPoint: getPolygonAveragePointForTest(
+                getLargestAreaPolygonForTest(miterLocalMissingPolygons)
+              ),
+              side: 'join',
+              expected: {
+                maxMiterLocalMissingArea
+              },
+              actual: {
+                miterLocalMissingArea,
+                expectedMiterLocalArea
+              },
+              recommendedViewport: {
+                zoom: 10,
+                center: expectation.outside.vertex
+              }
+            })
+          }
+          expect(
+            {
+              outsideMiterCovered,
+              insideMiterCovered,
+              miterLocalMissingAreaWithinTolerance:
+                miterLocalMissingArea <= maxMiterLocalMissingArea
+            },
+            `${key}:${sourceFixture.key}:${expectation.vertexId}:miter-direction:${JSON.stringify(
+              {
+                outsideMiterStageCoverage,
+                insideMiterForbiddenArea,
+                maxInsideMiterForbiddenArea,
+                miterLocalMissingArea,
+                maxMiterLocalMissingArea
+              }
+            )}`
+          ).toEqual({
+            outsideMiterCovered: true,
+            insideMiterCovered: false,
+            miterLocalMissingAreaWithinTolerance: true
+          })
+        }
+
+        if (joinType === 'bevel') {
+          const bevelCovered = isPointInRenderedStroke(
+            renderEntries,
+            expectation.outside.bevelMidpoint
+          )
+          const bevelNearestPacketPointDistance =
+            getNearestPolygonPointDistanceForTest(
+              packetPolygons,
+              expectation.outside.bevelMidpoint
+            )
+          if (!bevelCovered || outsideMiterCovered) {
+            recordFailureArtifact({
+              errorCode: 'JOIN_BEVEL_MISSING',
+              caseKey: key,
+              summary: `${key} bevel join is missing its outside chord footprint or still behaves like miter.`,
+              fixtureKind: 'self-check-star',
+              sourceSegmentId,
+              sourcePointId: expectation.vertexId,
+              nearestAnchorId: expectation.vertexId,
+              localPoint: expectation.outside.bevelMidpoint,
+              side: 'join',
+              expected: {
+                bevelCovered: true,
+                outsideMiterCovered: false
+              },
+              actual: {
+                bevelCovered,
+                outsideMiterCovered,
+                bevelStageCoverage,
+                outsideMiterStageCoverage,
+                bevelNearestPacketPointDistance
+              },
+              recommendedViewport: {
+                zoom: 10,
+                center: expectation.outside.vertex
+              }
+            })
+          }
+          expect(
+            { bevelCovered, outsideMiterCovered },
+            `${key}:${sourceFixture.key}:${expectation.vertexId}:bevel-footprint:${JSON.stringify(
+              {
+                bevelStageCoverage,
+                outsideMiterStageCoverage
+              }
+            )}`
+          ).toEqual({
+            bevelCovered: true,
+            outsideMiterCovered: false
+          })
+        }
+
+        if (joinType === 'round') {
+          const expectedRoundSectorPolygons =
+            getOutsideLegalResidueForTest(
+              [expectation.outside.roundPolygon],
+              legalRegions
+            )
+          const expectedRoundSectorArea = getTotalAbsArea(
+            expectedRoundSectorPolygons
+          )
+          const roundSectorMissingPolygons = getExactDifferencePolygonsForTest(
+            expectedRoundSectorPolygons,
+            renderPolygons
+          )
+          const roundSectorMissingArea = getTotalAbsArea(
+            roundSectorMissingPolygons
+          )
+          const maxRoundSectorMissingArea = Math.max(
+            0.35,
+            expectedRoundSectorArea * 0.01
+          )
+          const arcPointCount = countRoundArcBoundaryPointsForTest({
+            polygons: renderPolygons,
+            vertex: expectation.outside.vertex
+          })
+          const continuityProbes = getRoundJoinContinuityProbesForTest(
+            expectation.outside
+          )
+          const uncoveredContinuityProbes = continuityProbes.filter(
+            (point) => !isPointInRenderedStroke(renderEntries, point)
+          )
+          const expectedRoundLocalCoverage =
+            buildSourceJoinLocalExpectedCoverageForTest(
+              expectation.outside,
+              'round',
+              legalRegions
+            )
+          const roundLocalMissingPolygons = getExactDifferencePolygonsForTest(
+            expectedRoundLocalCoverage,
+            renderPolygons
+          )
+          const roundLocalMissingArea = getTotalAbsArea(
+            roundLocalMissingPolygons
+          )
+          const expectedRoundLocalArea = getTotalAbsArea(
+            expectedRoundLocalCoverage
+          )
+          const maxRoundLocalMissingArea = Math.max(
+            1,
+            expectedRoundLocalArea * 0.025
+          )
+          const seamProbes = getLocalJoinSeamProbesForTest(
+            expectation.outside
+          ).filter(
+            (point) => !isPointInsideExactLegalRegionForTest(point, legalRegions)
+          )
+          const uncoveredSeamProbes = seamProbes.filter(
+            (point) => !isPointInRenderedStroke(renderEntries, point)
+          )
+          const wrongSideRoundProbes = [
+            expectation.inside.bevelMidpoint,
+            expectation.inside.miterProbe
+          ].filter(
+            (point) => !isPointInsideExactLegalRegionForTest(point, legalRegions)
+          )
+          const coveredWrongSideRoundProbes = wrongSideRoundProbes.filter(
+            (point) => isPointInRenderedStroke(renderEntries, point)
+          )
+          if (
+            arcPointCount < SOURCE_JOIN_ROUND_MIN_VISIBLE_ARC_POINTS_FOR_TEST
+          ) {
+            recordFailureArtifact({
+              errorCode: 'JOIN_ROUND_NOT_SMOOTH',
+              caseKey: key,
+              summary: `${key} round join does not keep enough local arc boundary samples.`,
+              fixtureKind: 'self-check-star',
+              sourceSegmentId,
+              sourcePointId: expectation.vertexId,
+              nearestAnchorId: expectation.vertexId,
+              localPoint: expectation.outside.vertex,
+              side: 'join',
+              expected: {
+                minArcPointCount:
+                  SOURCE_JOIN_ROUND_MIN_VISIBLE_ARC_POINTS_FOR_TEST
+              },
+              actual: { arcPointCount },
+              recommendedViewport: {
+                zoom: 10,
+                center: expectation.outside.vertex
+              }
+            })
+          }
+          if (
+            uncoveredContinuityProbes.length > 0 ||
+            roundSectorMissingArea > maxRoundSectorMissingArea
+          ) {
+            recordFailureArtifact({
+              errorCode: 'JOIN_ROUND_CONTINUITY_GAP',
+              caseKey: key,
+              summary: `${key} round join does not connect cleanly to the adjacent dash body.`,
+              fixtureKind: 'self-check-star',
+              sourceSegmentId,
+              sourcePointId: expectation.vertexId,
+              nearestAnchorId: expectation.vertexId,
+              localPoint:
+                uncoveredContinuityProbes[0] ??
+                getPolygonAveragePointForTest(
+                  getLargestAreaPolygonForTest(roundSectorMissingPolygons)
+                ),
+              side: 'join',
+              expected: { uncoveredContinuityProbeCount: 0 },
+              actual: {
+                uncoveredContinuityProbeCount:
+                  uncoveredContinuityProbes.length,
+                roundSectorMissingArea,
+                maxRoundSectorMissingArea,
+                expectedRoundSectorArea
+              },
+              recommendedViewport: {
+                zoom: 10,
+                center: expectation.outside.vertex
+              }
+            })
+          }
+          if (uncoveredSeamProbes.length > 0) {
+            recordFailureArtifact({
+              errorCode: 'JOIN_ROUND_ARC_SEAM_GAP',
+              caseKey: key,
+              summary: `${key} round join leaves a local seam gap between arc and adjacent dash body.`,
+              fixtureKind: 'self-check-star',
+              sourceSegmentId,
+              sourcePointId: expectation.vertexId,
+              nearestAnchorId: expectation.vertexId,
+              localPoint:
+                uncoveredSeamProbes[0] ??
+                getPolygonAveragePointForTest(
+                  getLargestAreaPolygonForTest(roundLocalMissingPolygons)
+                ),
+              side: 'join',
+              expected: {
+                uncoveredSeamProbeCount: 0,
+                maxRoundLocalMissingArea
+              },
+              actual: {
+                uncoveredSeamProbeCount: uncoveredSeamProbes.length,
+                roundLocalMissingArea,
+                expectedRoundLocalArea
+              },
+              recommendedViewport: {
+                zoom: 10,
+                center: expectation.outside.vertex
+              }
+            })
+          }
+          if (coveredWrongSideRoundProbes.length > 0) {
+            recordFailureArtifact({
+              errorCode: 'JOIN_ROUND_BEVEL_PROTRUSION',
+              caseKey: key,
+              summary: `${key} round join has bevel-like protruding coverage on the wrong source side.`,
+              fixtureKind: 'self-check-star',
+              sourceSegmentId,
+              sourcePointId: expectation.vertexId,
+              nearestAnchorId: expectation.vertexId,
+              localPoint: coveredWrongSideRoundProbes[0],
+              side: 'join',
+              expected: {
+                coveredWrongSideProbeCount: 0
+              },
+              actual: {
+                coveredWrongSideProbeCount: coveredWrongSideRoundProbes.length,
+                coveredWrongSideRoundProbes
+              },
+              recommendedViewport: {
+                zoom: 10,
+                center: expectation.outside.vertex
+              }
+            })
+          }
+          expect(
+            arcPointCount,
+            `${key}:${sourceFixture.key}:${expectation.vertexId}:round-smoothness`
+          ).toBeGreaterThanOrEqual(
+            SOURCE_JOIN_ROUND_MIN_VISIBLE_ARC_POINTS_FOR_TEST
+          )
+          expect(
+            {
+              uncoveredContinuityProbes,
+              roundSectorMissingAreaWithinTolerance:
+                roundSectorMissingArea <= maxRoundSectorMissingArea,
+              uncoveredSeamProbes,
+              coveredWrongSideRoundProbes
+            },
+            `${key}:${sourceFixture.key}:${expectation.vertexId}:round-continuity:${JSON.stringify(
+              {
+                roundSectorMissingArea,
+                maxRoundSectorMissingArea,
+                expectedRoundSectorArea,
+                roundLocalMissingArea,
+                maxRoundLocalMissingArea,
+                expectedRoundLocalArea,
+                coveredWrongSideProbeCount:
+                  coveredWrongSideRoundProbes.length
+              }
+            )}`
+          ).toEqual({
+            uncoveredContinuityProbes: [],
+            roundSectorMissingAreaWithinTolerance: true,
+            uncoveredSeamProbes: [],
+            coveredWrongSideRoundProbes: []
+          })
+        }
+      })
+    }
+  )
+
+  it.each(CANONICAL_SELF_CHECK_SOURCE_FIXTURES)(
+    'should run: dashed outside source joins keep distinct local signatures on $key',
+    (sourceFixture) => {
+      const signaturesByJoin = new Map<StrokeJoin, string>()
+      const expectations = getOutsideSourceJoinExpectations(sourceFixture)
+      expect(
+        expectations.length,
+        `dashed:outside:butt:${sourceFixture.key}:signature-source-vertex-count`
+      ).toBe(SELF_CHECK_SOURCE_VERTEX_ID_LIST.length)
+      const sourceJoinShapeExpectations = expectations.filter(
+        (expectation) =>
+          expectation.hasVisibleDashCoverage &&
+          expectation.outside.turnAngle >= SOURCE_JOIN_SHAPE_TURN_ANGLE_FOR_TEST
+      )
+      if (sourceJoinShapeExpectations.length === 0) {
+        return
+      }
+      DASHED_SOURCE_JOINS.forEach((joinType) => {
+        const packets = buildDashedPacketsForSelfCheckSourceFixture({
+          position: 'outside',
+          capType: 'butt',
+          joinType,
+          sourceFixture
+        })
+        assertPipelineCompleteness({
+          key: `dashed:outside:butt:${joinType}:${sourceFixture.key}`,
+          packets
+        })
+        const renderPolygons = toSolidCenterStrokeRenderEntriesFromFinalFaces(
+          buildStrokeFinalFacesFromResolvedPackets(packets)
+        ).flatMap((entry) => entry.polygons)
+        signaturesByJoin.set(
+          joinType,
+          sourceJoinShapeExpectations
+            .map((expectation) =>
+              getLocalJoinCoverageSignature({
+                polygons: renderPolygons,
+                vertex: expectation.outside.vertex
+              })
+            )
+            .join('|')
+        )
+      })
+
+      const pairs: [StrokeJoin, StrokeJoin][] = [
+        ['miter', 'bevel'],
+        ['miter', 'round'],
+        ['bevel', 'round']
+      ]
+      pairs.forEach(([first, second]) => {
+        const differences = countSignatureDifferences(
+          signaturesByJoin.get(first) ?? '',
+          signaturesByJoin.get(second) ?? ''
+        )
+        if (differences < SOURCE_JOIN_MIN_SIGNATURE_DIFFERENCES_FOR_TEST) {
+          const expectation = expectations[0]
+          recordFailureArtifact({
+            errorCode: 'JOIN_SIGNATURE_MISSING',
+            caseKey: `dashed:outside:butt:${first}:${second}:${sourceFixture.key}`,
+            summary: `dashed outside ${first}/${second} source joins are not geometrically distinct.`,
+            fixtureKind: 'self-check-star',
+            sourceSegmentId: expectation
+              ? `tp-${12 + expectation.previousSegmentIndex}->tp-${12 + expectation.nextSegmentIndex}`
+              : undefined,
+            sourcePointId: expectation?.vertexId,
+            nearestAnchorId: expectation?.vertexId,
+            localPoint:
+              expectation?.outside.vertex ?? SELF_CHECK_STAR_POINTS[2],
+            side: 'join',
+            expected: {
+              minSignatureDifferences:
+                SOURCE_JOIN_MIN_SIGNATURE_DIFFERENCES_FOR_TEST
+            },
+            actual: { differences },
+            recommendedViewport: {
+              zoom: 10,
+              center: expectation?.outside.vertex ?? SELF_CHECK_STAR_POINTS[2]
+            }
+          })
+        }
+        expect(
+          differences,
+          `dashed:outside:butt:${first}:${second}:${sourceFixture.key}:join-signature`
+        ).toBeGreaterThanOrEqual(
+          SOURCE_JOIN_MIN_SIGNATURE_DIFFERENCES_FOR_TEST
+        )
+      })
+    }
+  )
+
   it.each(SOLID_MATRIX_CASES)(
     'should run: solid canonical matrix case $position $joinType preserves segment envelope side semantics',
     ({ key, position, joinType }) => {
@@ -1310,182 +2729,182 @@ describe('canonical stroke 18-combination matrix', () => {
   it.each(DASHED_INSIDE_LEGAL_DOMAIN_CASES)(
     'should run: dashed canonical matrix case $position $capType stays inside the $sourceFixture.key legal fill domain through render projection',
     ({ key, position, capType, sourceFixture }) => {
-    const caseKey = `${key}:${sourceFixture.key}`
-    const packets = buildDashedPacketsForSelfCheckSourceFixture({
-      position,
-      capType,
-      sourceFixture
-    })
-    const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
-    const renderEntries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
-      finalFaces
-    )
-    const legalRegions = getSelfCheckLegalRegionsForSourceFixture(sourceFixture)
-    const stages = [
-      {
-        stage: 'packet',
-        polygons: packets.flatMap((packet) => packet.geometry.polygons)
-      },
-      {
-        stage: 'final-face',
-        polygons: finalFaces.flatMap((face) => face.polygons)
-      },
-      {
-        stage: 'render-entry',
-        polygons: renderEntries.flatMap((entry) => entry.polygons)
-      }
-    ]
-    const failures = stages
-      .map(({ stage, polygons }) => {
-        const outsideResidue = getOutsideLegalResidueForTest(
-          polygons,
-          legalRegions
-        )
-        const totalArea = getTotalAbsArea(polygons)
-        const outsideResidueArea = getTotalAbsArea(outsideResidue)
-        const maxAllowedArea = getGeometryAreaToleranceForTest(totalArea)
-        return {
-          stage,
-          polygons,
-          outsideResidue,
-          totalArea,
-          outsideResidueArea,
-          maxAllowedArea
-        }
+      const caseKey = `${key}:${sourceFixture.key}`
+      const packets = buildDashedPacketsForSelfCheckSourceFixture({
+        position,
+        capType,
+        sourceFixture
       })
-      .filter(
-        ({ outsideResidueArea, maxAllowedArea }) =>
-          outsideResidueArea > maxAllowedArea
-      )
-
-    failures.slice(0, 6).forEach((failure) => {
-      const localPoint = getPolygonAveragePointForTest(
-        getLargestAreaPolygonForTest(failure.outsideResidue)
-      )
-      const sourceLocation = getNearestSelfCheckSourceLocation(localPoint)
-      recordFailureArtifact({
-        errorCode: 'STROKE_INSIDE_LEAK',
-        caseKey,
-        summary: `${caseKey} ${failure.stage} coverage leaks outside the legal fill domain.`,
-        fixtureKind: 'self-check-star',
-        localPoint,
-        sourceSegmentId: sourceLocation.sourceSegmentId,
-        nearestAnchorId: sourceLocation.nearestAnchorId,
-        t: sourceLocation.t,
-        side: 'outside',
-        expected: {
-          maxOutsideResidueArea: failure.maxAllowedArea
-        },
-        actual: {
-          outsideResidueArea: failure.outsideResidueArea,
-          totalArea: failure.totalArea
-        },
-        recommendedViewport: {
-          zoom: 8,
-          center: sourceLocation.projectedPoint
-        }
-      })
-    })
-
-    expect(
-      failures.map(
-        ({
-          stage,
-          outsideResidueArea,
-          maxAllowedArea,
-          totalArea,
-          outsideResidue
-        }) => ({
-          stage,
-          outsideResidueArea,
-          maxAllowedArea,
-          totalArea,
-          residuePolygonCount: outsideResidue.length
-        })
-      ),
-      JSON.stringify(
+      const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
+      const renderEntries =
+        toSolidCenterStrokeRenderEntriesFromFinalFaces(finalFaces)
+      const legalRegions =
+        getSelfCheckLegalRegionsForSourceFixture(sourceFixture)
+      const stages = [
         {
-          caseKey,
-          stageCount: stages.length
+          stage: 'packet',
+          polygons: packets.flatMap((packet) => packet.geometry.polygons)
         },
-        null,
-        2
-      )
-    ).toEqual([])
+        {
+          stage: 'final-face',
+          polygons: finalFaces.flatMap((face) => face.polygons)
+        },
+        {
+          stage: 'render-entry',
+          polygons: renderEntries.flatMap((entry) => entry.polygons)
+        }
+      ]
+      const failures = stages
+        .map(({ stage, polygons }) => {
+          const outsideResidue = getOutsideLegalResidueForTest(
+            polygons,
+            legalRegions
+          )
+          const totalArea = getTotalAbsArea(polygons)
+          const outsideResidueArea = getTotalAbsArea(outsideResidue)
+          const maxAllowedArea = getGeometryAreaToleranceForTest(totalArea)
+          return {
+            stage,
+            polygons,
+            outsideResidue,
+            totalArea,
+            outsideResidueArea,
+            maxAllowedArea
+          }
+        })
+        .filter(
+          ({ outsideResidueArea, maxAllowedArea }) =>
+            outsideResidueArea > maxAllowedArea
+        )
+
+      failures.slice(0, 6).forEach((failure) => {
+        const localPoint = getPolygonAveragePointForTest(
+          getLargestAreaPolygonForTest(failure.outsideResidue)
+        )
+        const sourceLocation = getNearestSelfCheckSourceLocation(localPoint)
+        recordFailureArtifact({
+          errorCode: 'STROKE_INSIDE_LEAK',
+          caseKey,
+          summary: `${caseKey} ${failure.stage} coverage leaks outside the legal fill domain.`,
+          fixtureKind: 'self-check-star',
+          localPoint,
+          sourceSegmentId: sourceLocation.sourceSegmentId,
+          nearestAnchorId: sourceLocation.nearestAnchorId,
+          t: sourceLocation.t,
+          side: 'outside',
+          expected: {
+            maxOutsideResidueArea: failure.maxAllowedArea
+          },
+          actual: {
+            outsideResidueArea: failure.outsideResidueArea,
+            totalArea: failure.totalArea
+          },
+          recommendedViewport: {
+            zoom: 8,
+            center: sourceLocation.projectedPoint
+          }
+        })
+      })
+
+      expect(
+        failures.map(
+          ({
+            stage,
+            outsideResidueArea,
+            maxAllowedArea,
+            totalArea,
+            outsideResidue
+          }) => ({
+            stage,
+            outsideResidueArea,
+            maxAllowedArea,
+            totalArea,
+            residuePolygonCount: outsideResidue.length
+          })
+        ),
+        JSON.stringify(
+          {
+            caseKey,
+            stageCount: stages.length
+          },
+          null,
+          2
+        )
+      ).toEqual([])
     }
   )
 
   it.each(DASHED_EXACT_OVERLAP_CASES)(
     'should run: dashed canonical matrix case $position $capType has no same-paint final render overlap on $sourceFixture.key',
     ({ key, position, capType, sourceFixture }) => {
-    const caseKey = `${key}:${sourceFixture.key}`
-    const packets = buildDashedPacketsForSelfCheckSourceFixture({
-      position,
-      capType,
-      sourceFixture
-    })
-    const renderEntries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
-      buildStrokeFinalFacesFromResolvedPackets(packets)
-    )
-    const polygons = renderEntries.flatMap((entry) => entry.polygons)
-    const totalArea = getTotalAbsArea(polygons)
-    const overlapArea = getExactOverlapAreaForTest(polygons)
-    const maxAllowedArea = getGeometryAreaToleranceForTest(totalArea)
-
-    if (overlapArea > maxAllowedArea) {
-      const sampledFailure =
-        getSampledRenderEntryOverlapFailures(renderEntries, 2)[0] ?? null
-      const localPoint =
-        sampledFailure?.point ??
-        getPolygonAveragePointForTest(getLargestAreaPolygonForTest(polygons))
-      const sourceLocation = getNearestSelfCheckSourceLocation(localPoint)
-      recordFailureArtifact({
-        errorCode: 'STROKE_OVERLAP',
-        caseKey,
-        summary: `${caseKey} has same-paint overlap after render projection.`,
-        fixtureKind: 'self-check-star',
-        localPoint,
-        sourceSegmentId: sourceLocation.sourceSegmentId,
-        nearestAnchorId: sourceLocation.nearestAnchorId,
-        t: sourceLocation.t,
-        side: 'overlap',
-        expected: {
-          maxOverlapArea: maxAllowedArea
-        },
-        actual: {
-          overlapArea,
-          totalArea
-        },
-        recommendedViewport: {
-          zoom: 8,
-          center: sourceLocation.projectedPoint
-        }
+      const caseKey = `${key}:${sourceFixture.key}`
+      const packets = buildDashedPacketsForSelfCheckSourceFixture({
+        position,
+        capType,
+        sourceFixture
       })
-    }
+      const renderEntries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
+        buildStrokeFinalFacesFromResolvedPackets(packets)
+      )
+      const polygons = renderEntries.flatMap((entry) => entry.polygons)
+      const totalArea = getTotalAbsArea(polygons)
+      const overlapArea = getExactOverlapAreaForTest(polygons)
+      const maxAllowedArea = getGeometryAreaToleranceForTest(totalArea)
 
-    expect(
-      {
-        caseKey,
-        overlapArea,
-        maxAllowedArea,
-        totalArea
-      },
-      JSON.stringify(
+      if (overlapArea > maxAllowedArea) {
+        const sampledFailure =
+          getSampledRenderEntryOverlapFailures(renderEntries, 2)[0] ?? null
+        const localPoint =
+          sampledFailure?.point ??
+          getPolygonAveragePointForTest(getLargestAreaPolygonForTest(polygons))
+        const sourceLocation = getNearestSelfCheckSourceLocation(localPoint)
+        recordFailureArtifact({
+          errorCode: 'STROKE_OVERLAP',
+          caseKey,
+          summary: `${caseKey} has same-paint overlap after render projection.`,
+          fixtureKind: 'self-check-star',
+          localPoint,
+          sourceSegmentId: sourceLocation.sourceSegmentId,
+          nearestAnchorId: sourceLocation.nearestAnchorId,
+          t: sourceLocation.t,
+          side: 'overlap',
+          expected: {
+            maxOverlapArea: maxAllowedArea
+          },
+          actual: {
+            overlapArea,
+            totalArea
+          },
+          recommendedViewport: {
+            zoom: 8,
+            center: sourceLocation.projectedPoint
+          }
+        })
+      }
+
+      expect(
         {
           caseKey,
-          renderEntryCount: renderEntries.length,
-          polygonCount: polygons.length
+          overlapArea,
+          maxAllowedArea,
+          totalArea
         },
-        null,
-        2
-      )
-    ).toEqual({
-      caseKey,
-      overlapArea: expect.any(Number),
-      maxAllowedArea: expect.any(Number),
-      totalArea: expect.any(Number)
-    })
-    expect(overlapArea).toBeLessThanOrEqual(maxAllowedArea)
+        JSON.stringify(
+          {
+            caseKey,
+            renderEntryCount: renderEntries.length,
+            polygonCount: polygons.length
+          },
+          null,
+          2
+        )
+      ).toEqual({
+        caseKey,
+        overlapArea: expect.any(Number),
+        maxAllowedArea: expect.any(Number),
+        totalArea: expect.any(Number)
+      })
+      expect(overlapArea).toBeLessThanOrEqual(maxAllowedArea)
     }
   )
 

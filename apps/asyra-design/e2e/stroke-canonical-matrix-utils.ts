@@ -551,6 +551,54 @@ export const captureCanonicalCrops = async (
   return cropAnalyses
 }
 
+export const captureDashedSourceJoinReviewCrops = async (
+  page: Page,
+  cropDir: string
+) => {
+  fs.mkdirSync(cropDir, { recursive: true })
+  const sourceAnchorProbes = SELF_CHECK_SOURCE_SEGMENTS.map((segment) => ({
+    id: segment.startId,
+    point: SELF_CHECK_SOURCE_POINTS[segment.startId]
+  }))
+  const analyses = []
+  await page.setViewportSize({ width: 1760, height: 1150 })
+  for (const probe of sourceAnchorProbes) {
+    await page.evaluate(
+      ({ focus }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rect = (window as any).__selfCheckVectorRect
+        if (!core || !rect) {
+          throw new Error('Missing E2E core or self-check vector rect')
+        }
+        const zoom = 10
+        core.setSystemProperty('zoom', zoom)
+        core.setSystemProperty('viewportPosition', {
+          x: 710 - (rect.x + focus.x) * zoom,
+          y: 450 - (rect.y + focus.y) * zoom
+        })
+      },
+      { focus: probe.point }
+    )
+    await page.waitForTimeout(80)
+    const closeupPath = path.join(
+      cropDir,
+      `source-join-${probe.id}-closeup.png`
+    )
+    const closeup = await page.screenshot({
+      path: closeupPath,
+      clip: { x: 240, y: 40, width: 1230, height: 1080 }
+    })
+    analyses.push({
+      id: `source-join-${probe.id}-closeup`,
+      path: closeupPath,
+      ...(await analyzeSingleScreenshot(page, closeup))
+    })
+  }
+  return analyses
+}
+
 export const createOpenCurvedPath = async (
   page: Page,
   options: {
@@ -954,8 +1002,11 @@ export const runCanonicalDashedCase = async (
     key: string
     position: SelfCheckStrokePosition
     capType: SelfCheckCapType
+    joinType?: SelfCheckJoinType
+    captureSourceJoinReview?: boolean
   }
 ) => {
+  const joinType = caseDef.joinType ?? 'round'
   const paths = getCanonicalCasePaths('dashed', caseDef.key)
   fs.mkdirSync(paths.cropDir, { recursive: true })
   const { baselineScreenshot, metadata, screenshot } =
@@ -963,7 +1014,7 @@ export const runCanonicalDashedCase = async (
       style: 'dashed',
       position: caseDef.position,
       capType: caseDef.capType,
-      joinType: 'round'
+      joinType
     })
   fs.writeFileSync(paths.baselineScreenshot, baselineScreenshot)
   fs.writeFileSync(paths.screenshot, screenshot)
@@ -997,11 +1048,15 @@ export const runCanonicalDashedCase = async (
     'largest-dark-overdraw',
     legalAnalysis.darkOverdrawComponents?.[0]
   )
+  const sourceJoinReview =
+    caseDef.captureSourceJoinReview === true
+      ? await captureDashedSourceJoinReviewCrops(page, paths.cropDir)
+      : undefined
   await createOpenCurvedPath(page, {
     style: 'dashed',
     position: caseDef.position,
     capType: caseDef.capType,
-    joinType: 'round'
+    joinType
   })
   const openTerminalAnalysis = await captureOpenPathTerminalCrop(
     page,
@@ -1017,6 +1072,7 @@ export const runCanonicalDashedCase = async (
       outsideLeakCrop,
       darkOverdrawCrop
     },
+    ...(sourceJoinReview ? { sourceJoinReview } : {}),
     openTerminalAnalysis
   }
   writeJson(paths.analysis, analysis)
@@ -1030,6 +1086,10 @@ export const runCanonicalDashedCase = async (
     metadata.computedStrokes?.[0]?.capType,
     JSON.stringify(metadata.computedStrokes, null, 2)
   ).toBe(caseDef.capType)
+  expect(
+    metadata.computedStrokes?.[0]?.joinType,
+    JSON.stringify(metadata.computedStrokes, null, 2)
+  ).toBe(joinType)
   expect(diffAnalysis.changedPixelCount, caseDef.key).toBeGreaterThan(800)
   expect(diffAnalysis.redPixelCount, caseDef.key).toBeGreaterThan(300)
   expect(
@@ -1074,5 +1134,61 @@ export const runCanonicalDashedCase = async (
     ).toBe(false)
   }
 
+  return analysis
+}
+
+export const runCanonicalDashedOutsideSourceJoinCase = async (
+  page: Page,
+  caseDef: {
+    key: string
+    joinType: SelfCheckJoinType
+  }
+) => {
+  const analysis = await runCanonicalDashedCase(page, {
+    key: caseDef.key,
+    position: 'outside',
+    capType: 'butt',
+    joinType: caseDef.joinType,
+    captureSourceJoinReview: true
+  })
+  const paths = getCanonicalCasePaths('dashed', caseDef.key)
+  const sourceJoinReview = analysis.sourceJoinReview ?? []
+  writeJson(paths.analysis, analysis)
+  expect(
+    sourceJoinReview,
+    JSON.stringify({ caseDef, sourceJoinReview }, null, 2)
+  ).toHaveLength(SELF_CHECK_SOURCE_SEGMENTS.length)
+  expect(
+    SELF_CHECK_SOURCE_SEGMENTS.every((segment) =>
+      sourceJoinReview.some(
+        (crop) => crop.id === `source-join-${segment.startId}-closeup`
+      )
+    ),
+    JSON.stringify({ caseDef, sourceJoinReview }, null, 2)
+  ).toBe(true)
+  for (const crop of sourceJoinReview) {
+    expect(
+      crop.nonBackgroundPixelCount,
+      JSON.stringify({ caseDef, crop }, null, 2)
+    ).toBeGreaterThan(10_000)
+    expect(
+      crop.redPixelCount,
+      JSON.stringify({ caseDef, crop }, null, 2)
+    ).toBeGreaterThan(1_000)
+  }
+  expect(
+    {
+      key: analysis.case.key,
+      position: analysis.case.position,
+      capType: analysis.case.capType,
+      joinType: analysis.case.joinType
+    },
+    JSON.stringify({ caseDef, case: analysis.case }, null, 2)
+  ).toEqual({
+    key: caseDef.key,
+    position: 'outside',
+    capType: 'butt',
+    joinType: caseDef.joinType
+  })
   return analysis
 }
