@@ -1493,11 +1493,13 @@ export const analyzeSelfCheckScreenshots = async (
           .filter((area) => area >= 4)
           .sort((a, b) => b - a)
           .slice(0, 10),
+        darkOverdrawComponents: relevantComponents(darkOverdrawComponents),
         maxOutsideComponentArea: Math.max(0, ...componentAreas),
         outsideComponentAreas: componentAreas
           .filter((area) => area >= 4)
           .sort((a, b) => b - a)
           .slice(0, 10),
+        outsideComponents: relevantComponents(componentSummaries),
         maxStrictInsideComponentArea: Math.max(
           0,
           ...strictInsideComponentAreas

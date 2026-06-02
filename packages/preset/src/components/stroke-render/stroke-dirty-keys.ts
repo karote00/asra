@@ -83,7 +83,7 @@ export interface StrokeRuntimeRevisionInput {
   intervalTopology?: string
   ownershipStatus?: string
   ownerCount?: number
-  previewMode?: 'exact' | 'preview'
+  previewMode?: 'exact' | 'preview' | 'drag-visual'
 }
 
 export interface StrokeDirtyKeyResult {
@@ -700,7 +700,7 @@ export const updateStrokeRuntimeRevisionSetFromMetadata = (
     strokeDomainSignature?: string
     ownershipStatus?: string
     ownerCount?: number
-    previewMode?: 'exact' | 'preview'
+    previewMode?: 'exact' | 'preview' | 'drag-visual'
   }
 ): StrokeRevisionSet | undefined => {
   if (!revisionSet) {

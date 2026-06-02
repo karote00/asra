@@ -6058,7 +6058,8 @@ const buildDashedSourcePathFinalCoveragePolygons = (
   )
   const shouldClipToImplicitFillDomain =
     clipInsideToFillDomain &&
-    (topology.topologyFamily !== 'self-intersecting' ||
+    (authoredStroke.position === 'inside' ||
+      topology.topologyFamily !== 'self-intersecting' ||
       (strokeDomainPlan?.sideAuthority === 'implicit-fill-hole-domain' &&
         authoredStroke.position === 'outside'))
 
@@ -6073,7 +6074,10 @@ const buildDashedSourcePathFinalCoveragePolygons = (
         normalizedPolygons,
         path,
         authoredStroke,
-        implicitFillRegions
+        implicitFillRegions,
+        {
+          dropEmptyInsideClipResult: authoredStroke.position === 'inside'
+        }
       )
   )
 
@@ -7669,6 +7673,7 @@ const clipSourcePathPolygonsToEvenOddLegalDomain = (
   options: {
     fragmentStitchRadius?: number
     fragmentPruneArea?: number
+    dropEmptyInsideClipResult?: boolean
   } & ClippedProductCleanupOptions = {}
 ) => {
   if (
@@ -7769,9 +7774,10 @@ const clipSourcePathPolygonsToEvenOddLegalDomain = (
         .filter(hasPolygonGeometry)
 
       if (directClippedPolygons.length <= 1) {
-        return directClippedPolygons.length > 0
-          ? directClippedPolygons
-          : subjectPolygons
+        if (directClippedPolygons.length > 0) {
+          return directClippedPolygons
+        }
+        return options.dropEmptyInsideClipResult ? [] : subjectPolygons
       }
 
       const unionedClippedPolygons = getCoveragePolygonsFromRegions(

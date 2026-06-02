@@ -6,6 +6,7 @@ import {
   SELF_CHECK_SOURCE_SEGMENTS,
   SELF_CHECK_SOURCE_POINTS,
   SELF_CHECK_VECTOR_RECT,
+  analyzeSelfCheckScreenshots,
   cubicPoint,
   createSelfCheckStar,
   getSelfCheckSegmentSamplePoint,
@@ -454,6 +455,48 @@ const getClipAround = (page: Page, center: Vec2, size: number) => {
   const x = Math.max(0, Math.min(viewport.width - size, center.x - size / 2))
   const y = Math.max(0, Math.min(viewport.height - size, center.y - size / 2))
   return { x, y, width: size, height: size }
+}
+
+interface DiagnosticPixelComponent {
+  area: number
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+  centerX: number
+  centerY: number
+}
+
+const captureDiagnosticComponentCrop = async (
+  page: Page,
+  cropDir: string,
+  name: string,
+  component: DiagnosticPixelComponent | undefined
+) => {
+  const cropPath = path.join(cropDir, `${name}.png`)
+  if (!component) {
+    if (fs.existsSync(cropPath)) {
+      fs.rmSync(cropPath)
+    }
+    return null
+  }
+  fs.mkdirSync(cropDir, { recursive: true })
+  const width = component.maxX - component.minX + 1
+  const height = component.maxY - component.minY + 1
+  const crop = await page.screenshot({
+    path: cropPath,
+    clip: getClipAround(
+      page,
+      { x: component.centerX, y: component.centerY },
+      Math.max(160, width + 120, height + 120)
+    )
+  })
+  return {
+    id: name,
+    path: cropPath,
+    component,
+    ...(await analyzeSingleScreenshot(page, crop))
+  }
 }
 
 export const captureCanonicalCrops = async (
@@ -931,10 +974,28 @@ export const runCanonicalDashedCase = async (
     baselineScreenshot,
     screenshot
   )
+  const legalAnalysis = await analyzeSelfCheckScreenshots(
+    page,
+    baselineScreenshot,
+    screenshot,
+    metadata
+  )
   const cropAnalysis = await captureCanonicalCrops(
     page,
     metadata,
     paths.cropDir
+  )
+  const outsideLeakCrop = await captureDiagnosticComponentCrop(
+    page,
+    paths.cropDir,
+    'largest-outside-leak',
+    legalAnalysis.outsideComponents?.[0]
+  )
+  const darkOverdrawCrop = await captureDiagnosticComponentCrop(
+    page,
+    paths.cropDir,
+    'largest-dark-overdraw',
+    legalAnalysis.darkOverdrawComponents?.[0]
   )
   await createOpenCurvedPath(page, {
     style: 'dashed',
@@ -950,7 +1011,12 @@ export const runCanonicalDashedCase = async (
   const analysis = {
     case: caseDef,
     diffAnalysis,
+    legalAnalysis,
     cropAnalysis,
+    diagnosticCrops: {
+      outsideLeakCrop,
+      darkOverdrawCrop
+    },
     openTerminalAnalysis
   }
   writeJson(paths.analysis, analysis)
@@ -970,6 +1036,24 @@ export const runCanonicalDashedCase = async (
     diffAnalysis.darkOverdrawPixelCount,
     JSON.stringify({ caseDef, diffAnalysis }, null, 2)
   ).toBeLessThan(160)
+  if (caseDef.position === 'inside') {
+    expect(
+      legalAnalysis.outsideRedPixelCount,
+      JSON.stringify({ caseDef, legalAnalysis }, null, 2)
+    ).toBeLessThanOrEqual(24)
+    expect(
+      legalAnalysis.maxOutsideComponentArea,
+      JSON.stringify({ caseDef, legalAnalysis }, null, 2)
+    ).toBeLessThanOrEqual(8)
+    expect(
+      legalAnalysis.darkOverdrawPixelCount,
+      JSON.stringify({ caseDef, legalAnalysis }, null, 2)
+    ).toBeLessThanOrEqual(24)
+    expect(
+      legalAnalysis.maxDarkOverdrawComponentArea,
+      JSON.stringify({ caseDef, legalAnalysis }, null, 2)
+    ).toBeLessThanOrEqual(8)
+  }
   expectCanonicalCropCoverage(caseDef.key, cropAnalysis)
   expectOpenTerminalCoverage(caseDef.key, openTerminalAnalysis, caseDef.capType)
   if (caseDef.position !== 'center') {

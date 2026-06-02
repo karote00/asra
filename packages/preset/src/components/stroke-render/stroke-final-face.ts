@@ -66,6 +66,7 @@ export interface StrokeFinalFaceDebugMetaBase {
     | 'exact-union'
     | 'exact-arrangement'
     | 'local-side-arrangement'
+    | 'render-projection-merged'
     | 'render-projection-arrangement'
   visualOverlapSourceFaceIds?: string[]
   visualOverlapSourceGeometryIds?: string[]

@@ -9,12 +9,16 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import Clipper2ZFactory from 'clipper2-wasm'
+import type { VectorNetwork, VectorPointNode, VectorSegment } from '@asyra/core'
 import { createDefaultStroke } from '@asyra/utils'
 import { buildConstrainedDashedStrokeResolvedPackets } from '../components/stroke-render/constrained-dashed-stroke-packets'
 import { buildConstrainedSolidStrokeResolvedPackets } from '../components/stroke-render/constrained-solid-stroke-packets'
 import { buildDashedCenterStrokeResolvedPackets } from '../components/stroke-render/dashed-center-stroke-packets'
 import { buildPathTopologyModel } from '../components/stroke-render/path-topology-model'
-import { buildPolylineGeometryModelPath } from '../components/stroke-render/path-geometry'
+import {
+  buildPolylineGeometryModelPath,
+  buildVectorGeometryModelPath
+} from '../components/stroke-render/path-geometry'
 import { buildResolvedVectorGeometryModel } from '../components/stroke-render/resolved-vector-geometry-model'
 import {
   buildSolidCenterStrokeExportPackets,
@@ -49,6 +53,7 @@ interface CanonicalStrokeFailureArtifact {
   markerId: string
   errorCode:
     | 'STROKE_OVERLAP'
+    | 'STROKE_INSIDE_LEAK'
     | 'CAP_EXTENSION_MISSING'
     | 'CAP_SHAPE_MISMATCH'
     | 'SEGMENT_ENVELOPE_MISMATCH'
@@ -117,6 +122,35 @@ const DASHED_MATRIX_CASES = STROKE_POSITIONS.flatMap((position) =>
   }))
 )
 
+const CANONICAL_SELF_CHECK_SOURCE_FIXTURES = [
+  {
+    key: 'polyline-self-check-star',
+    useCurvedSourcePath: false
+  },
+  {
+    key: 'curved-self-check-star',
+    useCurvedSourcePath: true
+  }
+] as const
+
+const DASHED_INSIDE_LEGAL_DOMAIN_CASES =
+  CANONICAL_SELF_CHECK_SOURCE_FIXTURES.flatMap((sourceFixture) =>
+    DASHED_MATRIX_CASES.filter(({ position }) => position === 'inside').map(
+      (caseDef) => ({
+        ...caseDef,
+        sourceFixture
+      })
+    )
+  )
+
+const DASHED_EXACT_OVERLAP_CASES =
+  CANONICAL_SELF_CHECK_SOURCE_FIXTURES.flatMap((sourceFixture) =>
+    DASHED_MATRIX_CASES.map((caseDef) => ({
+      ...caseDef,
+      sourceFixture
+    }))
+  )
+
 const SELF_CHECK_STAR_POINTS: Vec2[] = [
   { x: 188.1928217922337, y: 0 },
   { x: 11.358174406717296, y: 365.76797704068724 },
@@ -124,6 +158,137 @@ const SELF_CHECK_STAR_POINTS: Vec2[] = [
   { x: 0, y: 15.668954151283657 },
   { x: 270.59180204238254, y: 347.0603956649177 }
 ]
+
+const SELF_CHECK_STAR_VECTOR_POINTS: Record<string, VectorPointNode> = {
+  'tp-12': {
+    id: 'tp-12',
+    kind: 'anchor',
+    x: 188.1928217922337,
+    y: 0,
+    anchorType: 'smooth'
+  },
+  'tp-13': {
+    id: 'tp-13',
+    kind: 'anchor',
+    x: 11.358174406717296,
+    y: 365.76797704068724,
+    anchorType: 'smooth'
+  },
+  'tp-12:out': {
+    id: 'tp-12:out',
+    kind: 'control',
+    x: 164.3673966581619,
+    y: 140.91988215887423,
+    controlForId: 'tp-12',
+    controlRole: 'out'
+  },
+  'tp-13:in': {
+    id: 'tp-13:in',
+    kind: 'control',
+    x: -42.09205809548172,
+    y: 344.92238636482955,
+    controlForId: 'tp-13',
+    controlRole: 'in'
+  },
+  'tp-13:out': {
+    id: 'tp-13:out',
+    kind: 'control',
+    x: 78.17096503446606,
+    y: 391.8249653855095,
+    controlForId: 'tp-13',
+    controlRole: 'out'
+  },
+  'tp-14': {
+    id: 'tp-14',
+    kind: 'anchor',
+    x: 360.12094148356584,
+    y: 145.95389587539378,
+    anchorType: 'sharp'
+  },
+  'tp-15': {
+    id: 'tp-15',
+    kind: 'anchor',
+    x: 0,
+    y: 15.668954151283657,
+    anchorType: 'sharp'
+  },
+  'tp-16': {
+    id: 'tp-16',
+    kind: 'anchor',
+    x: 270.59180204238254,
+    y: 347.0603956649177,
+    anchorType: 'smooth'
+  },
+  'tp-15:out': {
+    id: 'tp-15:out',
+    kind: 'control',
+    x: 0,
+    y: 15.668954151283657,
+    controlForId: 'tp-15',
+    controlRole: 'out'
+  },
+  'tp-16:in': {
+    id: 'tp-16:in',
+    kind: 'control',
+    x: 263.9105229796075,
+    y: 364.43172122813246,
+    controlForId: 'tp-16',
+    controlRole: 'in'
+  },
+  'tp-16:out': {
+    id: 'tp-16:out',
+    kind: 'control',
+    x: 277.27308110515736,
+    y: 329.6890701017029,
+    controlForId: 'tp-16',
+    controlRole: 'out'
+  }
+}
+
+const SELF_CHECK_STAR_VECTOR_SEGMENTS: Record<string, VectorSegment> = {
+  'ts-23': {
+    id: 'ts-23',
+    startId: 'tp-12',
+    endId: 'tp-13',
+    outControlId: 'tp-12:out',
+    inControlId: 'tp-13:in'
+  },
+  'ts-24': {
+    id: 'ts-24',
+    startId: 'tp-13',
+    endId: 'tp-14',
+    outControlId: 'tp-13:out',
+    inControlId: null
+  },
+  'ts-25': {
+    id: 'ts-25',
+    startId: 'tp-14',
+    endId: 'tp-15',
+    outControlId: null,
+    inControlId: null
+  },
+  'ts-26': {
+    id: 'ts-26',
+    startId: 'tp-15',
+    endId: 'tp-16',
+    outControlId: 'tp-15:out',
+    inControlId: 'tp-16:in'
+  },
+  'ts-27': {
+    id: 'ts-27',
+    startId: 'tp-16',
+    endId: 'tp-12',
+    outControlId: 'tp-16:out',
+    inControlId: null
+  }
+}
+
+const SELF_CHECK_STAR_VECTOR_NETWORK: VectorNetwork = {
+  id: 'tn-4',
+  pointIds: ['tp-12', 'tp-13', 'tp-14', 'tp-15', 'tp-16'],
+  segmentIds: ['ts-23', 'ts-24', 'ts-25', 'ts-26', 'ts-27'],
+  closed: true
+}
 
 const SELF_CHECK_STAR_SEGMENTS = SELF_CHECK_STAR_POINTS.map((point, index) => ({
   start: point,
@@ -228,8 +393,17 @@ afterAll(() => {
   writeFailureManifest()
 })
 
-const getSelfIntersectingOptions = (points: Vec2[]) => {
-  const sourcePath = buildPolylineGeometryModelPath(points, true)
+const buildSelfCheckVectorSourcePath = () =>
+  buildVectorGeometryModelPath(
+    SELF_CHECK_STAR_VECTOR_NETWORK,
+    SELF_CHECK_STAR_VECTOR_POINTS,
+    SELF_CHECK_STAR_VECTOR_SEGMENTS
+  )
+
+const getSelfIntersectingOptions = (
+  points: Vec2[],
+  sourcePath = buildPolylineGeometryModelPath(points, true)
+) => {
   const topology = buildPathTopologyModel({
     pathId: 'canonical-self-check-star',
     sourceId: 'canonical-self-check-star',
@@ -267,6 +441,12 @@ const getSelfIntersectingOptions = (points: Vec2[]) => {
     constrainedDashedVisualMode: 'product-final' as const
   }
 }
+
+const getCanonicalSelfCheckOptions = () =>
+  getSelfIntersectingOptions(
+    SELF_CHECK_STAR_POINTS,
+    buildSelfCheckVectorSourcePath()
+  )
 
 const getFinitePolygonFailures = (polygons: Vec2[][]) =>
   polygons
@@ -684,12 +864,14 @@ const buildDashedPackets = ({
   position,
   capType,
   points = SELF_CHECK_STAR_POINTS,
-  closed = true
+  closed = true,
+  useCurvedSelfCheckSource = false
 }: {
   position: StrokePosition
   capType: StrokeCap
   points?: Vec2[]
   closed?: boolean
+  useCurvedSelfCheckSource?: boolean
 }) => {
   const stroke = createDefaultStroke({
     style: 'dashed',
@@ -715,10 +897,35 @@ const buildDashedPackets = ({
     closed,
     [stroke],
     closed
-      ? getSelfIntersectingOptions(points)
+      ? useCurvedSelfCheckSource
+        ? getCanonicalSelfCheckOptions()
+        : getSelfIntersectingOptions(points)
       : { constrainedDashedVisualMode: 'product-final' }
   )
 }
+
+const buildDashedPacketsForSelfCheckSourceFixture = ({
+  position,
+  capType,
+  sourceFixture
+}: {
+  position: StrokePosition
+  capType: StrokeCap
+  sourceFixture: (typeof CANONICAL_SELF_CHECK_SOURCE_FIXTURES)[number]
+}) =>
+  buildDashedPackets({
+    position,
+    capType,
+    useCurvedSelfCheckSource: sourceFixture.useCurvedSourcePath
+  })
+
+const getSelfCheckLegalRegionsForSourceFixture = (
+  sourceFixture: (typeof CANONICAL_SELF_CHECK_SOURCE_FIXTURES)[number]
+) =>
+  (sourceFixture.useCurvedSourcePath
+    ? getCanonicalSelfCheckOptions()
+    : getSelfIntersectingOptions(SELF_CHECK_STAR_POINTS)
+  ).implicitFillRegions
 
 const buildSolidPacketsForPoints = ({
   points,
@@ -950,6 +1157,61 @@ const assertSelfCheckSolidRenderedSegmentAdherence = ({
 const getTotalAbsArea = (polygons: Vec2[][]) =>
   polygons.reduce((sum, polygon) => sum + Math.abs(polygonArea(polygon)), 0)
 
+const toPolygonRegionsForTest = (polygons: Vec2[][]) =>
+  polygons.map((polygon) => ({ polygons: [polygon] }))
+
+const flattenRegionPolygonsForTest = (regions: { polygons: Vec2[][] }[]) =>
+  regions.flatMap((region) => region.polygons)
+
+const getLargestAreaPolygonForTest = (polygons: Vec2[][]) =>
+  [...polygons].sort(
+    (first, second) => Math.abs(polygonArea(second)) - Math.abs(polygonArea(first))
+  )[0]
+
+const getPolygonAveragePointForTest = (polygon: Vec2[] | undefined): Vec2 =>
+  polygon && polygon.length > 0
+    ? polygon.reduce(
+        (sum, point) => ({
+          x: sum.x + point.x / polygon.length,
+          y: sum.y + point.y / polygon.length
+        }),
+        { x: 0, y: 0 }
+      )
+    : { x: 0, y: 0 }
+
+const getExactUnionAreaForTest = (polygons: Vec2[][]) => {
+  if (!exactBackend || polygons.length === 0) {
+    return 0
+  }
+  return getTotalAbsArea(
+    flattenRegionPolygonsForTest(
+      exactBackend.union(toPolygonRegionsForTest(polygons), 'nonzero')
+    )
+  )
+}
+
+const getExactOverlapAreaForTest = (polygons: Vec2[][]) =>
+  Math.max(0, getTotalAbsArea(polygons) - getExactUnionAreaForTest(polygons))
+
+const getOutsideLegalResidueForTest = (
+  polygons: Vec2[][],
+  legalRegions: { polygons: Vec2[][] }[]
+) => {
+  if (!exactBackend || polygons.length === 0 || legalRegions.length === 0) {
+    return []
+  }
+  return flattenRegionPolygonsForTest(
+    exactBackend.difference(
+      toPolygonRegionsForTest(polygons),
+      legalRegions,
+      'nonzero'
+    )
+  )
+}
+
+const getGeometryAreaToleranceForTest = (totalArea: number) =>
+  Math.max(0.5, totalArea * 0.0005)
+
 describe('canonical stroke 18-combination matrix', () => {
   it('should run: define exactly 9 solid and 9 dashed canonical matrix cases', () => {
     expect(SOLID_MATRIX_CASES).toHaveLength(9)
@@ -1042,6 +1304,188 @@ describe('canonical stroke 18-combination matrix', () => {
         packets,
         position
       })
+    }
+  )
+
+  it.each(DASHED_INSIDE_LEGAL_DOMAIN_CASES)(
+    'should run: dashed canonical matrix case $position $capType stays inside the $sourceFixture.key legal fill domain through render projection',
+    ({ key, position, capType, sourceFixture }) => {
+    const caseKey = `${key}:${sourceFixture.key}`
+    const packets = buildDashedPacketsForSelfCheckSourceFixture({
+      position,
+      capType,
+      sourceFixture
+    })
+    const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
+    const renderEntries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
+      finalFaces
+    )
+    const legalRegions = getSelfCheckLegalRegionsForSourceFixture(sourceFixture)
+    const stages = [
+      {
+        stage: 'packet',
+        polygons: packets.flatMap((packet) => packet.geometry.polygons)
+      },
+      {
+        stage: 'final-face',
+        polygons: finalFaces.flatMap((face) => face.polygons)
+      },
+      {
+        stage: 'render-entry',
+        polygons: renderEntries.flatMap((entry) => entry.polygons)
+      }
+    ]
+    const failures = stages
+      .map(({ stage, polygons }) => {
+        const outsideResidue = getOutsideLegalResidueForTest(
+          polygons,
+          legalRegions
+        )
+        const totalArea = getTotalAbsArea(polygons)
+        const outsideResidueArea = getTotalAbsArea(outsideResidue)
+        const maxAllowedArea = getGeometryAreaToleranceForTest(totalArea)
+        return {
+          stage,
+          polygons,
+          outsideResidue,
+          totalArea,
+          outsideResidueArea,
+          maxAllowedArea
+        }
+      })
+      .filter(
+        ({ outsideResidueArea, maxAllowedArea }) =>
+          outsideResidueArea > maxAllowedArea
+      )
+
+    failures.slice(0, 6).forEach((failure) => {
+      const localPoint = getPolygonAveragePointForTest(
+        getLargestAreaPolygonForTest(failure.outsideResidue)
+      )
+      const sourceLocation = getNearestSelfCheckSourceLocation(localPoint)
+      recordFailureArtifact({
+        errorCode: 'STROKE_INSIDE_LEAK',
+        caseKey,
+        summary: `${caseKey} ${failure.stage} coverage leaks outside the legal fill domain.`,
+        fixtureKind: 'self-check-star',
+        localPoint,
+        sourceSegmentId: sourceLocation.sourceSegmentId,
+        nearestAnchorId: sourceLocation.nearestAnchorId,
+        t: sourceLocation.t,
+        side: 'outside',
+        expected: {
+          maxOutsideResidueArea: failure.maxAllowedArea
+        },
+        actual: {
+          outsideResidueArea: failure.outsideResidueArea,
+          totalArea: failure.totalArea
+        },
+        recommendedViewport: {
+          zoom: 8,
+          center: sourceLocation.projectedPoint
+        }
+      })
+    })
+
+    expect(
+      failures.map(
+        ({
+          stage,
+          outsideResidueArea,
+          maxAllowedArea,
+          totalArea,
+          outsideResidue
+        }) => ({
+          stage,
+          outsideResidueArea,
+          maxAllowedArea,
+          totalArea,
+          residuePolygonCount: outsideResidue.length
+        })
+      ),
+      JSON.stringify(
+        {
+          caseKey,
+          stageCount: stages.length
+        },
+        null,
+        2
+      )
+    ).toEqual([])
+    }
+  )
+
+  it.each(DASHED_EXACT_OVERLAP_CASES)(
+    'should run: dashed canonical matrix case $position $capType has no same-paint final render overlap on $sourceFixture.key',
+    ({ key, position, capType, sourceFixture }) => {
+    const caseKey = `${key}:${sourceFixture.key}`
+    const packets = buildDashedPacketsForSelfCheckSourceFixture({
+      position,
+      capType,
+      sourceFixture
+    })
+    const renderEntries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
+      buildStrokeFinalFacesFromResolvedPackets(packets)
+    )
+    const polygons = renderEntries.flatMap((entry) => entry.polygons)
+    const totalArea = getTotalAbsArea(polygons)
+    const overlapArea = getExactOverlapAreaForTest(polygons)
+    const maxAllowedArea = getGeometryAreaToleranceForTest(totalArea)
+
+    if (overlapArea > maxAllowedArea) {
+      const sampledFailure =
+        getSampledRenderEntryOverlapFailures(renderEntries, 2)[0] ?? null
+      const localPoint =
+        sampledFailure?.point ??
+        getPolygonAveragePointForTest(getLargestAreaPolygonForTest(polygons))
+      const sourceLocation = getNearestSelfCheckSourceLocation(localPoint)
+      recordFailureArtifact({
+        errorCode: 'STROKE_OVERLAP',
+        caseKey,
+        summary: `${caseKey} has same-paint overlap after render projection.`,
+        fixtureKind: 'self-check-star',
+        localPoint,
+        sourceSegmentId: sourceLocation.sourceSegmentId,
+        nearestAnchorId: sourceLocation.nearestAnchorId,
+        t: sourceLocation.t,
+        side: 'overlap',
+        expected: {
+          maxOverlapArea: maxAllowedArea
+        },
+        actual: {
+          overlapArea,
+          totalArea
+        },
+        recommendedViewport: {
+          zoom: 8,
+          center: sourceLocation.projectedPoint
+        }
+      })
+    }
+
+    expect(
+      {
+        caseKey,
+        overlapArea,
+        maxAllowedArea,
+        totalArea
+      },
+      JSON.stringify(
+        {
+          caseKey,
+          renderEntryCount: renderEntries.length,
+          polygonCount: polygons.length
+        },
+        null,
+        2
+      )
+    ).toEqual({
+      caseKey,
+      overlapArea: expect.any(Number),
+      maxAllowedArea: expect.any(Number),
+      totalArea: expect.any(Number)
+    })
+    expect(overlapArea).toBeLessThanOrEqual(maxAllowedArea)
     }
   )
 
