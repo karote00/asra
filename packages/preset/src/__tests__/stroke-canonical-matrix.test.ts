@@ -186,6 +186,55 @@ const DASHED_OUTSIDE_SOURCE_JOIN_CASES =
     }))
   )
 
+type CanonicalGeometryOracleKind =
+  | 'pipeline-completeness'
+  | 'solid-segment-adherence'
+  | 'solid-center-exact-overlap'
+  | 'dashed-inside-doubled-center-reference-parity'
+  | 'dashed-inside-legal-domain'
+  | 'dashed-source-join'
+  | 'dashed-cap-footprint'
+  | 'dashed-exact-overlap'
+  | 'sampled-final-overlap'
+
+const CANONICAL_GEOMETRY_ORACLE_REGISTRY: {
+  key: string
+  oracle: CanonicalGeometryOracleKind
+}[] = [
+  ...SOLID_MATRIX_CASES.flatMap(({ key }) => [
+    { key, oracle: 'pipeline-completeness' as const },
+    { key, oracle: 'solid-segment-adherence' as const },
+    { key, oracle: 'sampled-final-overlap' as const }
+  ]),
+  ...SOLID_MATRIX_CASES.filter(({ position }) => position === 'center').map(
+    ({ key }) => ({
+      key,
+      oracle: 'solid-center-exact-overlap' as const
+    })
+  ),
+  ...DASHED_MATRIX_CASES.flatMap(({ key }) => [
+    { key, oracle: 'pipeline-completeness' as const },
+    { key, oracle: 'dashed-cap-footprint' as const },
+    { key, oracle: 'dashed-exact-overlap' as const },
+    { key, oracle: 'sampled-final-overlap' as const }
+  ]),
+  ...DASHED_MATRIX_CASES.filter(
+    ({ position }) => position === 'inside'
+  ).flatMap(({ key }) => [
+    {
+      key,
+      oracle: 'dashed-inside-doubled-center-reference-parity' as const
+    },
+    { key, oracle: 'dashed-inside-legal-domain' as const }
+  ]),
+  ...DASHED_MATRIX_CASES.filter(
+    ({ position, capType }) => position === 'outside' && capType === 'butt'
+  ).map(({ key }) => ({
+    key,
+    oracle: 'dashed-source-join' as const
+  }))
+]
+
 const SELF_CHECK_STAR_POINTS: Vec2[] = [
   { x: 188.1928217922337, y: 0 },
   { x: 11.358174406717296, y: 365.76797704068724 },
@@ -1993,6 +2042,48 @@ describe('canonical stroke 18-combination matrix', () => {
     expect(
       new Set(DASHED_MATRIX_CASES.map((caseDef) => caseDef.key)).size
     ).toBe(9)
+  })
+
+  it('should run: every canonical matrix case has explicit hard geometry oracles', () => {
+    const oraclesByCaseKey = new Map<string, Set<CanonicalGeometryOracleKind>>()
+    CANONICAL_GEOMETRY_ORACLE_REGISTRY.forEach(({ key, oracle }) => {
+      oraclesByCaseKey.set(key, new Set(oraclesByCaseKey.get(key) ?? []))
+      oraclesByCaseKey.get(key)?.add(oracle)
+    })
+
+    const missingCases = [...SOLID_MATRIX_CASES, ...DASHED_MATRIX_CASES]
+      .map(({ key }) => ({
+        key,
+        oracles: Array.from(oraclesByCaseKey.get(key) ?? [])
+      }))
+      .filter(({ oracles }) => oracles.length === 0)
+    const underSpecifiedCases = [...SOLID_MATRIX_CASES, ...DASHED_MATRIX_CASES]
+      .map(({ key }) => ({
+        key,
+        oracles: Array.from(oraclesByCaseKey.get(key) ?? [])
+      }))
+      .filter(
+        ({ oracles }) =>
+          !oracles.includes('pipeline-completeness') ||
+          !oracles.includes('sampled-final-overlap') ||
+          oracles.filter((oracle) => oracle !== 'pipeline-completeness')
+            .length < 2
+      )
+
+    expect(missingCases).toEqual([])
+    expect(
+      underSpecifiedCases,
+      JSON.stringify(
+        {
+          required:
+            'Each matrix case needs pipeline completeness, sampled final overlap, and at least two non-pipeline geometry oracles.',
+          matrixCaseCount:
+            SOLID_MATRIX_CASES.length + DASHED_MATRIX_CASES.length
+        },
+        null,
+        2
+      )
+    ).toEqual([])
   })
 
   it.each(SOLID_MATRIX_CASES)(

@@ -28,6 +28,14 @@ export interface CanonicalStrokeFailureArtifact {
   side?: string
   expected?: unknown
   actual?: unknown
+  diagnostics?: {
+    diffPolygons?: {
+      kind: 'actual-minus-reference' | 'reference-minus-actual'
+      area: number
+      point: Vec2
+      polygon: Vec2[]
+    }[]
+  }
   recommendedViewport: {
     zoom: number
     center: Vec2
@@ -72,6 +80,95 @@ const parseCaseKey = (caseKey: string) => {
   }
 }
 
+const forceClearFailureReplayCanvas = async (page: Page) => {
+  await page.goto('/')
+  await waitForAppReady(page)
+  await resetCanvas(page)
+  await page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const elementApis = (window as any).__AsyraE2E__?.elementApis
+    const elements = core?.deps?.sceneTree?.getAllElements?.()
+    if (!core || !elementApis || !(elements instanceof Map)) {
+      throw new Error('Missing replay canvas clearing APIs')
+    }
+
+    const elementIds = Array.from(elements.entries())
+      .filter(([, element]) => element?.get?.('type') !== 'workspace')
+      .map(([elementId]) => elementId)
+    elementIds.forEach((elementId) => {
+      elementApis.deleteElement(elementId, { undoable: false })
+    })
+    core.selectElements?.([], { undoable: false })
+    core.setSystemProperty?.('pathEditingVectorId', null)
+    core.setSystemProperty?.('pathEditingMode', false)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).__selfCheckVectorId = null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).__selfCheckVectorRect = null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).__canonicalReplayVectorRect = null
+  })
+  await page.waitForFunction(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const elements = core?.deps?.sceneTree?.getAllElements?.()
+    if (!(elements instanceof Map)) {
+      return false
+    }
+
+    return Array.from(elements.values()).every(
+      (element) => element?.get?.('type') === 'workspace'
+    )
+  })
+}
+
+const assertFailureReplayFixtureState = async (
+  page: Page,
+  options: {
+    includeFill?: boolean
+  }
+) => {
+  await page.evaluate(({ includeFill }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const elements = core?.deps?.sceneTree?.getAllElements?.()
+    if (!core || !(elements instanceof Map)) {
+      throw new Error('Missing replay fixture assertion APIs')
+    }
+
+    const elementEntries = Array.from(elements.entries()).filter(
+      ([, element]) => element?.get?.('type') !== 'workspace'
+    )
+    if (elementEntries.length !== 1) {
+      throw new Error(
+        `Expected exactly one replay element, received ${elementEntries.length}`
+      )
+    }
+
+    const vectorEntries = elementEntries.filter(
+      ([, element]) => element?.get?.('type') === 'vector'
+    )
+    if (vectorEntries.length !== 1) {
+      throw new Error(
+        `Expected exactly one replay vector, received ${vectorEntries.length}`
+      )
+    }
+
+    const [vectorId, vectorElement] = vectorEntries[0]
+    const fills =
+      vectorElement?.getAllComputedData?.()?.fills ??
+      vectorElement?.get?.('fills') ??
+      []
+    if (includeFill === false && Array.isArray(fills) && fills.length > 0) {
+      throw new Error(
+        `Expected no-fill replay vector, but ${vectorId} has ${fills.length} fill(s)`
+      )
+    }
+  }, options)
+}
+
 const createOpenLineFixture = async (
   page: Page,
   options: {
@@ -81,9 +178,6 @@ const createOpenLineFixture = async (
     joinType: SelfCheckJoinType
   }
 ) => {
-  await page.goto('/')
-  await waitForAppReady(page)
-  await resetCanvas(page)
   await page.setViewportSize({ width: 1400, height: 1100 })
   await page.evaluate(
     ({ options: innerOptions, rect }) => {
@@ -183,8 +277,12 @@ const createOpenLineFixture = async (
 
 export const prepareFailureReplayFixture = async (
   page: Page,
-  failure: CanonicalStrokeFailureArtifact
+  failure: CanonicalStrokeFailureArtifact,
+  options: {
+    includeFill?: boolean
+  } = {}
 ) => {
+  await forceClearFailureReplayCanvas(page)
   const parsed = parseCaseKey(failure.caseKey)
   if (failure.fixtureKind === 'open-line') {
     await createOpenLineFixture(page, {
@@ -193,6 +291,7 @@ export const prepareFailureReplayFixture = async (
       capType: parsed.capType,
       joinType: 'round'
     })
+    await assertFailureReplayFixtureState(page, options)
     return
   }
 
@@ -200,8 +299,10 @@ export const prepareFailureReplayFixture = async (
     style: parsed.style,
     position: parsed.position,
     capType: parsed.style === 'dashed' ? parsed.capType : 'round',
-    joinType: parsed.style === 'solid' ? parsed.joinType : 'round'
+    joinType: parsed.style === 'solid' ? parsed.joinType : 'round',
+    includeFill: options.includeFill
   })
+  await assertFailureReplayFixtureState(page, options)
 }
 
 export const focusFailureReplayViewport = async (
@@ -235,10 +336,13 @@ export const focusFailureReplayViewport = async (
 
 export const addFailureMarkerOverlay = async (
   page: Page,
-  failure: CanonicalStrokeFailureArtifact
+  failure: CanonicalStrokeFailureArtifact,
+  options: {
+    showDiffPolygons?: boolean
+  } = {}
 ) => {
   await page.evaluate(
-    ({ failure: innerFailure }) => {
+    ({ failure: innerFailure, options: innerOptions }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -255,6 +359,55 @@ export const addFailureMarkerOverlay = async (
       const screenPoint = {
         x: (rect.x + innerFailure.localPoint.x) * zoom + viewport.x,
         y: (rect.y + innerFailure.localPoint.y) * zoom + viewport.y
+      }
+      const toScreenPoint = (point: { x: number; y: number }) => ({
+        x: (rect.x + point.x) * zoom + viewport.x,
+        y: (rect.y + point.y) * zoom + viewport.y
+      })
+      const diffPolygons = innerFailure.diagnostics?.diffPolygons ?? []
+      if (innerOptions.showDiffPolygons === true && diffPolygons.length > 0) {
+        const svg = document.createElementNS(
+          'http://www.w3.org/2000/svg',
+          'svg'
+        )
+        svg.setAttribute('data-canonical-failure-diff-overlay', 'true')
+        svg.style.position = 'fixed'
+        svg.style.left = '0'
+        svg.style.top = '0'
+        svg.style.width = '100vw'
+        svg.style.height = '100vh'
+        svg.style.zIndex = '2147483646'
+        svg.style.pointerEvents = 'none'
+        diffPolygons.forEach((diffPolygon) => {
+          const polygon = document.createElementNS(
+            'http://www.w3.org/2000/svg',
+            'polygon'
+          )
+          polygon.setAttribute(
+            'points',
+            diffPolygon.polygon
+              .map((point) => {
+                const screen = toScreenPoint(point)
+                return `${screen.x},${screen.y}`
+              })
+              .join(' ')
+          )
+          polygon.setAttribute(
+            'fill',
+            diffPolygon.kind === 'actual-minus-reference'
+              ? 'rgba(255,0,255,0.42)'
+              : 'rgba(255,214,0,0.48)'
+          )
+          polygon.setAttribute(
+            'stroke',
+            diffPolygon.kind === 'actual-minus-reference'
+              ? '#ff00ff'
+              : '#ffd600'
+          )
+          polygon.setAttribute('stroke-width', '2')
+          svg.appendChild(polygon)
+        })
+        document.body.appendChild(svg)
       }
       const overlay = document.createElement('div')
       overlay.setAttribute(
@@ -283,9 +436,42 @@ export const addFailureMarkerOverlay = async (
       label.style.font = '700 14px sans-serif'
       label.style.borderRadius = '4px'
       overlay.appendChild(label)
+      const detail = document.createElement('div')
+      const actual = innerFailure.actual as
+        | {
+            symmetricDifferenceArea?: number
+            primaryDifferenceKind?: string | null
+            actualMinusReferenceArea?: number
+            referenceMinusActualArea?: number
+          }
+        | undefined
+      detail.textContent = [
+        innerFailure.errorCode,
+        innerFailure.sourceSegmentId ?? innerFailure.sourcePointId ?? '',
+        actual?.primaryDifferenceKind
+          ? `primary: ${actual.primaryDifferenceKind}`
+          : '',
+        typeof actual?.symmetricDifferenceArea === 'number'
+          ? `symDiff: ${actual.symmetricDifferenceArea.toFixed(2)}`
+          : ''
+      ]
+        .filter(Boolean)
+        .join(' | ')
+      detail.style.position = 'absolute'
+      detail.style.left = '38px'
+      detail.style.top = '22px'
+      detail.style.maxWidth = '420px'
+      detail.style.padding = '4px 6px'
+      detail.style.background = 'rgba(0,0,0,0.82)'
+      detail.style.color = '#fff'
+      detail.style.font = '700 12px sans-serif'
+      detail.style.border = '1px solid rgba(0,229,255,0.8)'
+      detail.style.borderRadius = '4px'
+      detail.style.whiteSpace = 'normal'
+      overlay.appendChild(detail)
       document.body.appendChild(overlay)
     },
-    { failure }
+    { failure, options }
   )
 }
 
@@ -302,10 +488,13 @@ export const writeFailureReplayReport = (
     '',
     `Generated failures: ${manifest.failureCount}`,
     '',
-    '| Marker | Error | Case | Source | Summary | Screenshot |',
-    '| --- | --- | --- | --- | --- | --- |',
+    '| Marker | Error | Case | Source | Summary | Fill screenshot | No-fill screenshot |',
+    '| --- | --- | --- | --- | --- | --- | --- |',
     ...manifest.failures.map((failure) => {
       const screenshot = screenshotByMarker.get(failure.markerId)
+      const noFillScreenshot = screenshotByMarker.get(
+        `${failure.markerId}-no-fill`
+      )
       return [
         failure.markerId,
         failure.errorCode,
@@ -314,6 +503,9 @@ export const writeFailureReplayReport = (
         failure.summary.replaceAll('|', '\\|'),
         screenshot
           ? `[png](${path.relative(FAILURE_REPLAY_DIR, screenshot)})`
+          : '',
+        noFillScreenshot
+          ? `[png](${path.relative(FAILURE_REPLAY_DIR, noFillScreenshot)})`
           : ''
       ].join(' | ')
     })
