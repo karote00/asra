@@ -136,7 +136,7 @@ export interface SolidCenterStrokeResolvedPacket {
 interface SolidCenterStrokeRenderEntryOptions {
   collapseDashedCenterVisualOverlaps?: boolean
   exactBackend?: Pick<GeometryBackend, 'capabilities' | 'union'> &
-    Partial<Pick<GeometryBackend, 'buildArrangement'>>
+    Partial<Pick<GeometryBackend, 'buildArrangement' | 'intersection'>>
 }
 
 export type StrokeGeometryFamily =
@@ -586,7 +586,11 @@ export const buildSolidCenterStrokeResolvedPackets = (
             topology.closed,
             stroke
           )
-        : buildSolidCenterStrokePolygons(topologyPoints, topology.closed, stroke)
+        : buildSolidCenterStrokePolygons(
+            topologyPoints,
+            topology.closed,
+            stroke
+          )
     const polygons =
       sourceTopology === 'self-intersecting'
         ? unionCoveragePolygons(rawPolygons)
@@ -680,13 +684,12 @@ export const attachStrokePacketDebugMeta = (
         ...packet.geometry,
         debugMeta: {
           ...mergedDebugMeta,
-          revisionSet:
-            !hasRuntimeDebugMeta
-              ? packet.geometry.debugMeta?.revisionSet
-              : updateStrokeRuntimeRevisionSetFromMetadata(
-                  packet.geometry.debugMeta?.revisionSet,
-                  mergedDebugMeta
-                )
+          revisionSet: !hasRuntimeDebugMeta
+            ? packet.geometry.debugMeta?.revisionSet
+            : updateStrokeRuntimeRevisionSetFromMetadata(
+                packet.geometry.debugMeta?.revisionSet,
+                mergedDebugMeta
+              )
         }
       }
     })(),
@@ -833,6 +836,12 @@ const getSignedPolygonArea = (polygon: Vec2[]) => {
   return area / 2
 }
 
+const getPolygonCoverageArea = (polygon: Vec2[]) =>
+  Math.abs(getSignedPolygonArea(polygon))
+
+const getPolygonListCoverageArea = (polygons: Vec2[][]) =>
+  polygons.reduce((area, polygon) => area + getPolygonCoverageArea(polygon), 0)
+
 const normalizeCoveragePolygonWinding = (polygon: Vec2[]) =>
   getSignedPolygonArea(polygon) < 0 ? [...polygon].reverse() : polygon
 
@@ -924,6 +933,28 @@ const getRenderArrangementBackend = (
   }
 }
 
+const getRenderIntersectionBackend = (
+  options: SolidCenterStrokeRenderEntryOptions
+) => {
+  const providedBackend = options.exactBackend
+  if (
+    providedBackend?.capabilities.intersection === true &&
+    typeof providedBackend.intersection === 'function'
+  ) {
+    return providedBackend as Pick<
+      GeometryBackend,
+      'capabilities' | 'intersection'
+    >
+  }
+
+  try {
+    const backend = getGeometryBackend()
+    return backend.capabilities.intersection === true ? backend : null
+  } catch {
+    return null
+  }
+}
+
 const buildRenderEntryFromFinalFace = (
   face: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
@@ -970,9 +1001,9 @@ const buildRenderEntryFromFinalFace = (
     revisionSet: runtimeMeta.revisionSet,
     preferSolidGraphics:
       face.geometryFamily === 'constrained-dashed' &&
-        (face.debugMeta?.finalCoverageBuilderStatus === 'product-final' ||
-          (face.debugMeta?.intervalTopology === 'full-loop' &&
-            face.debugMeta?.strokePosition === 'inside'))
+      (face.debugMeta?.finalCoverageBuilderStatus === 'product-final' ||
+        (face.debugMeta?.intervalTopology === 'full-loop' &&
+          face.debugMeta?.strokePosition === 'inside'))
   }
 }
 
@@ -999,9 +1030,8 @@ const buildRenderProjectionArrangementCandidates = (
           polygons: geometryPolygons
         },
         geometryBounds: getBounds(geometryPolygons),
-        geometrySignature: buildRenderProjectionPolygonSignature(
-          normalizedPolygon
-        ),
+        geometrySignature:
+          buildRenderProjectionPolygonSignature(normalizedPolygon),
         visualPacketKey: face.visualPacketKey,
         strokePosition:
           face.debugMeta?.strokePosition === 'inside' ||
@@ -1110,8 +1140,12 @@ const buildRenderProjectionArrangementPolygons = (
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
   >[],
-  backend: Pick<GeometryBackend, 'capabilities' | 'buildArrangement' | 'union'>,
-  options: { allowDirectUnion?: boolean } = {}
+  backend: Pick<
+    GeometryBackend,
+    'capabilities' | 'buildArrangement' | 'union'
+  > &
+    Partial<Pick<GeometryBackend, 'intersection'>>,
+  options: { allowDirectUnion?: boolean; allowComponentUnion?: boolean } = {}
 ) => {
   const candidates = measureStrokeRenderEntryPhase(
     'render projection: candidates',
@@ -1122,7 +1156,10 @@ const buildRenderProjectionArrangementPolygons = (
     return candidates.flatMap((candidate) => candidate.geometry.polygons)
   }
 
-  if (options.allowDirectUnion !== false && backend.capabilities.union === true) {
+  if (
+    options.allowDirectUnion !== false &&
+    backend.capabilities.union === true
+  ) {
     try {
       const polygons = measureStrokeRenderEntryPhase(
         'render projection: direct union',
@@ -1167,7 +1204,14 @@ const buildRenderProjectionArrangementPolygons = (
       if (
         !candidateRegionsHaveInteriorOverlap(
           componentCandidates,
-          componentBounds
+          componentBounds,
+          backend.capabilities.intersection === true &&
+            typeof backend.intersection === 'function'
+            ? (backend as Pick<
+                GeometryBackend,
+                'capabilities' | 'intersection'
+              >)
+            : null
         )
       ) {
         emitStrokePipelineCounter('render-projection-component-disjoint')
@@ -1185,6 +1229,7 @@ const buildRenderProjectionArrangementPolygons = (
             candidate.requiresBoundaryPreservingArrangement === true
         )
       if (
+        options.allowComponentUnion !== false &&
         (options.allowDirectUnion !== false ||
           !componentRequiresBoundaryPreservingArrangement) &&
         backend.capabilities.union === true
@@ -1357,12 +1402,20 @@ const buildMergedRenderEntry = (
     (face) => face.debugMeta?.figmaLikeSplitRangeTerminals ?? []
   )
   const primaryEntry = buildRenderEntryFromFinalFace(primaryFace)
+  const polygons = faces.flatMap((face) => face.polygons)
+  const shouldRenderAsSingleMask = faces.some(
+    (face) =>
+      face.geometryFamily === 'constrained-dashed' &&
+      face.debugMeta?.strokePosition === 'inside' &&
+      face.debugMeta?.finalCoverageBuilderStatus === 'product-final'
+  )
 
   return [
     {
       ...primaryEntry,
       cacheKey: `render:${cacheKeyPrefix}:${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`,
-      polygons: faces.flatMap((face) => face.polygons),
+      polygons,
+      ...(shouldRenderAsSingleMask ? { strokeMaskPolygons: polygons } : {}),
       runtimeMeta: {
         ...primaryEntry.runtimeMeta,
         intervalIds,
@@ -1398,7 +1451,10 @@ const buildRenderProjectionArrangementEntry = (
   >[],
   options: SolidCenterStrokeRenderEntryOptions,
   cacheKeyPrefix: string,
-  arrangementOptions: { allowDirectUnion?: boolean } = {}
+  arrangementOptions: {
+    allowDirectUnion?: boolean
+    allowComponentUnion?: boolean
+  } = {}
 ) => {
   const [primaryFace] = faces
   if (!primaryFace || faces.length < 2) {
@@ -1442,12 +1498,19 @@ const buildRenderProjectionArrangementEntry = (
     (face) => face.debugMeta?.figmaLikeSplitRangeTerminals ?? []
   )
   const primaryEntry = buildRenderEntryFromFinalFace(primaryFace)
+  const shouldRenderAsSingleMask = faces.some(
+    (face) =>
+      face.geometryFamily === 'constrained-dashed' &&
+      face.debugMeta?.strokePosition === 'inside' &&
+      face.debugMeta?.finalCoverageBuilderStatus === 'product-final'
+  )
 
   return [
     {
       ...primaryEntry,
       cacheKey: `render:${cacheKeyPrefix}:${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`,
       polygons,
+      ...(shouldRenderAsSingleMask ? { strokeMaskPolygons: polygons } : {}),
       runtimeMeta: {
         ...primaryEntry.runtimeMeta,
         intervalIds,
@@ -1522,9 +1585,47 @@ function polygonListsHaveInteriorOverlap(
   return false
 }
 
+const EXACT_RENDER_OVERLAP_AREA_EPSILON = 1e-7
+
+const getExactPolygonListsOverlapArea = (
+  leftPolygons: Vec2[][],
+  rightPolygons: Vec2[][],
+  backend: Pick<GeometryBackend, 'capabilities' | 'intersection'>
+) => {
+  if (backend.capabilities.intersection !== true) {
+    return null
+  }
+
+  try {
+    const intersections = backend.intersection(
+      [
+        {
+          polygons: leftPolygons.map(normalizeCoveragePolygonWinding)
+        }
+      ],
+      [
+        {
+          polygons: rightPolygons.map(normalizeCoveragePolygonWinding)
+        }
+      ],
+      'nonzero'
+    )
+
+    return intersections.reduce(
+      (area, region) => area + getPolygonListCoverageArea(region.polygons),
+      0
+    )
+  } catch {
+    return null
+  }
+}
+
 function candidateRegionsHaveInteriorOverlap(
   candidates: CandidateRegion[],
-  bounds = candidates.map((candidate) => getBounds(candidate.geometry.polygons))
+  bounds = candidates.map((candidate) =>
+    getBounds(candidate.geometry.polygons)
+  ),
+  backend?: Pick<GeometryBackend, 'capabilities' | 'intersection'> | null
 ) {
   for (let leftIndex = 0; leftIndex < candidates.length; leftIndex += 1) {
     for (
@@ -1532,6 +1633,24 @@ function candidateRegionsHaveInteriorOverlap(
       rightIndex < candidates.length;
       rightIndex += 1
     ) {
+      if (!doBoundsOverlap(bounds[leftIndex], bounds[rightIndex])) {
+        continue
+      }
+
+      const exactOverlapArea = backend
+        ? getExactPolygonListsOverlapArea(
+            candidates[leftIndex].geometry.polygons,
+            candidates[rightIndex].geometry.polygons,
+            backend
+          )
+        : null
+      if (exactOverlapArea !== null) {
+        if (exactOverlapArea > EXACT_RENDER_OVERLAP_AREA_EPSILON) {
+          return true
+        }
+        continue
+      }
+
       if (
         polygonListsHaveInteriorOverlap(
           candidates[leftIndex].geometry.polygons,
@@ -1567,8 +1686,10 @@ const hasConstrainedDashedProductRenderOverlap = (
   faces: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
-  >[]
+  >[],
+  options: SolidCenterStrokeRenderEntryOptions
 ) => {
+  const exactBackend = getRenderIntersectionBackend(options)
   const faceBounds = faces.map((face) => getBounds(face.polygons))
   for (let leftIndex = 0; leftIndex < faces.length; leftIndex += 1) {
     for (
@@ -1576,6 +1697,24 @@ const hasConstrainedDashedProductRenderOverlap = (
       rightIndex < faces.length;
       rightIndex += 1
     ) {
+      if (!doBoundsOverlap(faceBounds[leftIndex], faceBounds[rightIndex])) {
+        continue
+      }
+
+      const exactOverlapArea = exactBackend
+        ? getExactPolygonListsOverlapArea(
+            faces[leftIndex].polygons,
+            faces[rightIndex].polygons,
+            exactBackend
+          )
+        : null
+      if (exactOverlapArea !== null) {
+        if (exactOverlapArea > EXACT_RENDER_OVERLAP_AREA_EPSILON) {
+          return true
+        }
+        continue
+      }
+
       if (
         facePolygonsHaveInteriorOverlap(
           faces[leftIndex].polygons,
@@ -1626,7 +1765,7 @@ const buildConstrainedDashedProductRenderEntry = (
   >[],
   options: SolidCenterStrokeRenderEntryOptions
 ): ReturnType<typeof buildRenderEntryFromFinalFace>[] => {
-  if (!hasConstrainedDashedProductRenderOverlap(faces)) {
+  if (!hasConstrainedDashedProductRenderOverlap(faces, options)) {
     return buildMergedRenderEntry(
       faces,
       'constrained-dashed-product-render-merged'
@@ -1637,7 +1776,18 @@ const buildConstrainedDashedProductRenderEntry = (
     faces,
     options,
     'constrained-dashed-product-render-projection',
-    { allowDirectUnion: !hasFilledFaceBoundaryRole(faces) }
+    {
+      allowDirectUnion: faces.some(
+        (face) => face.debugMeta?.strokePosition === 'inside'
+      )
+        ? false
+        : !hasFilledFaceBoundaryRole(faces),
+      allowComponentUnion: faces.some(
+        (face) => face.debugMeta?.strokePosition === 'inside'
+      )
+        ? false
+        : undefined
+    }
   )
 }
 

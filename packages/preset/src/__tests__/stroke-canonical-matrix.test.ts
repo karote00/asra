@@ -821,10 +821,7 @@ const getVisibleStrokePolygonsForRenderEntry = (
     visiblePolygons,
     clipPolygons
   )
-  if (
-    renderEntry.fillClipPolygons &&
-    renderEntry.fillClipPolygons.length > 0
-  ) {
+  if (renderEntry.fillClipPolygons && renderEntry.fillClipPolygons.length > 0) {
     visiblePolygons = getExactIntersectionPolygonsForTest(
       visiblePolygons,
       renderEntry.fillClipPolygons
@@ -1298,27 +1295,6 @@ const getExactUnionAreaForTest = (polygons: Vec2[][]) => {
 const getExactOverlapAreaForTest = (polygons: Vec2[][]) =>
   Math.max(0, getTotalAbsArea(polygons) - getExactUnionAreaForTest(polygons))
 
-const getExactDifferenceAreaForTest = (
-  subjectPolygons: Vec2[][],
-  clipPolygons: Vec2[][]
-) => {
-  if (!exactBackend || subjectPolygons.length === 0) {
-    return 0
-  }
-  if (clipPolygons.length === 0) {
-    return getTotalAbsArea(subjectPolygons)
-  }
-  return getTotalAbsArea(
-    flattenRegionPolygonsForTest(
-      exactBackend.difference(
-        toPolygonRegionsForTest(subjectPolygons),
-        toPolygonRegionsForTest(clipPolygons),
-        'nonzero'
-      )
-    )
-  )
-}
-
 const getExactDifferencePolygonsForTest = (
   subjectPolygons: Vec2[][],
   clipPolygons: Vec2[][]
@@ -1381,9 +1357,9 @@ const getExactIntersectionAreaForTest = (
 }
 
 const getPacketIntersectionContributorsForTest = (
-  packets: Array<{
+  packets: {
     geometry: { geometryId: string; polygons: Vec2[][] }
-  }>,
+  }[],
   clipPolygons: Vec2[][]
 ) =>
   packets
@@ -1759,13 +1735,16 @@ const getRoundJoinContinuityProbesForTest = (candidate: {
   )
 ]
 
-const buildSourceJoinAdjacentBodyPolygonsForTest = (candidate: {
-  nextDirection: Vec2
-  nextOffsetStart: Vec2
-  previousDirection: Vec2
-  previousOffsetEnd: Vec2
-  vertex: Vec2
-}, options: { continuityLength?: number } = {}) => {
+const buildSourceJoinAdjacentBodyPolygonsForTest = (
+  candidate: {
+    nextDirection: Vec2
+    nextOffsetStart: Vec2
+    previousDirection: Vec2
+    previousOffsetEnd: Vec2
+    vertex: Vec2
+  },
+  options: { continuityLength?: number } = {}
+) => {
   const continuityLength = options.continuityLength ?? 14
   const previousSourcePoint = addPointsForTest(
     candidate.vertex,
@@ -1897,7 +1876,6 @@ const getOutsideSourceJoinExpectations = (
     if (!incoming || !outgoing) {
       return []
     }
-    const turnDot = dotPointsForTest(incoming, outgoing)
     const candidates = [10, -10]
       .map((offset) =>
         buildJoinCandidateForTest({
@@ -2297,10 +2275,7 @@ describe('canonical stroke 18-combination matrix', () => {
               packetPolygons,
               expectation.outside.miterProbe
             )
-          if (
-            !outsideMiterCovered ||
-            insideMiterCovered
-          ) {
+          if (!outsideMiterCovered || insideMiterCovered) {
             recordFailureArtifact({
               errorCode: 'JOIN_MITER_DIRECTION',
               caseKey: key,
@@ -2434,11 +2409,10 @@ describe('canonical stroke 18-combination matrix', () => {
         }
 
         if (joinType === 'round') {
-          const expectedRoundSectorPolygons =
-            getOutsideLegalResidueForTest(
-              [expectation.outside.roundPolygon],
-              legalRegions
-            )
+          const expectedRoundSectorPolygons = getOutsideLegalResidueForTest(
+            [expectation.outside.roundPolygon],
+            legalRegions
+          )
           const expectedRoundSectorArea = getTotalAbsArea(
             expectedRoundSectorPolygons
           )
@@ -2486,7 +2460,8 @@ describe('canonical stroke 18-combination matrix', () => {
           const seamProbes = getLocalJoinSeamProbesForTest(
             expectation.outside
           ).filter(
-            (point) => !isPointInsideExactLegalRegionForTest(point, legalRegions)
+            (point) =>
+              !isPointInsideExactLegalRegionForTest(point, legalRegions)
           )
           const uncoveredSeamProbes = seamProbes.filter(
             (point) => !isPointInRenderedStroke(renderEntries, point)
@@ -2495,7 +2470,8 @@ describe('canonical stroke 18-combination matrix', () => {
             expectation.inside.bevelMidpoint,
             expectation.inside.miterProbe
           ].filter(
-            (point) => !isPointInsideExactLegalRegionForTest(point, legalRegions)
+            (point) =>
+              !isPointInsideExactLegalRegionForTest(point, legalRegions)
           )
           const coveredWrongSideRoundProbes = wrongSideRoundProbes.filter(
             (point) => isPointInRenderedStroke(renderEntries, point)
@@ -2544,8 +2520,7 @@ describe('canonical stroke 18-combination matrix', () => {
               side: 'join',
               expected: { uncoveredContinuityProbeCount: 0 },
               actual: {
-                uncoveredContinuityProbeCount:
-                  uncoveredContinuityProbes.length,
+                uncoveredContinuityProbeCount: uncoveredContinuityProbes.length,
                 roundSectorMissingArea,
                 maxRoundSectorMissingArea,
                 expectedRoundSectorArea
@@ -2632,8 +2607,7 @@ describe('canonical stroke 18-combination matrix', () => {
                 roundLocalMissingArea,
                 maxRoundLocalMissingArea,
                 expectedRoundLocalArea,
-                coveredWrongSideProbeCount:
-                  coveredWrongSideRoundProbes.length
+                coveredWrongSideProbeCount: coveredWrongSideRoundProbes.length
               }
             )}`
           ).toEqual({
@@ -2730,9 +2704,7 @@ describe('canonical stroke 18-combination matrix', () => {
         expect(
           differences,
           `dashed:outside:butt:${first}:${second}:${sourceFixture.key}:join-signature`
-        ).toBeGreaterThanOrEqual(
-          SOURCE_JOIN_MIN_SIGNATURE_DIFFERENCES_FOR_TEST
-        )
+        ).toBeGreaterThanOrEqual(SOURCE_JOIN_MIN_SIGNATURE_DIFFERENCES_FOR_TEST)
       })
     }
   )
@@ -3228,7 +3200,7 @@ describe('canonical stroke 18-combination matrix', () => {
             polygons: signaturePolygons,
             centers: [SELF_CHECK_STAR_POINTS[2], SELF_CHECK_STAR_POINTS[3]],
             radius: 34,
-            step: 2
+            step: 1
           })
         )
       })
@@ -3255,7 +3227,12 @@ describe('canonical stroke 18-combination matrix', () => {
     (position) => {
       const signatures = new Map<StrokeCap, string>()
       DASHED_CAPS.forEach((capType) => {
-        const packets = buildDashedPackets({ position, capType })
+        const packets = buildDashedPackets({
+          position,
+          capType,
+          points: OPEN_CURVE_POINTS,
+          closed: false
+        })
         assertPipelineCompleteness({
           key: `dashed:${position}:${capType}:cap-signature`,
           packets
@@ -3265,12 +3242,13 @@ describe('canonical stroke 18-combination matrix', () => {
           getCoverageSignature({
             polygons: packets.flatMap((packet) => packet.geometry.polygons),
             centers: [
-              ...SELF_CHECK_STAR_POINTS,
-              { x: 96, y: 190 },
-              { x: 210, y: 190 }
+              OPEN_CURVE_POINTS[0],
+              OPEN_CURVE_POINTS[OPEN_CURVE_POINTS.length - 1],
+              { x: -18, y: 94 },
+              { x: 238, y: 94 }
             ],
-            radius: 30,
-            step: 2
+            radius: 48,
+            step: 1
           })
         )
       })

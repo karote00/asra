@@ -6317,3 +6317,31 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     screenshots prove Figma parity.
   - Decision history can contain obsolete decisions, but active docs cannot use
     them as rule sources.
+
+## 2026-06-03 - Inside dashed constrained strokes use doubled center-dashed mask geometry
+
+- Context:
+  - App screenshots for self-intersecting inside dashed strokes showed dash
+    silhouettes that differed from the Figma reference even when split-range
+    interval allocation, inside residue, and overdraw checks passed.
+  - Historical dashed entries still described one-sided constrained dashed
+    visible geometry. Those entries conflicted with the current Figma parity
+    target.
+- Decision:
+  - Constrained `inside` dashed visible product geometry is the authored center
+    dashed stroke built at `stroke.width * 2`, preserving authored dash
+    allocation, cap, join, and miter limit, clipped by the inside filled-region
+    mask.
+  - Split source ranges still own dash allocation: each cut range keeps half-dash
+    terminals at both ends with evenly distributed middle gaps.
+  - Direct one-sided ribbons, local-side fallback strips, and diagnostic
+    derivation fragments are not product-visible geometry for inside dashed
+    strokes.
+- Consequences:
+  - Unit tests must compare actual inside dashed product polygons against a
+    doubled center-dashed clipped reference, not only inside residue or gap
+    visibility.
+  - Empty inside clips are illegal fragments and must be dropped, not replaced
+    by fallback geometry.
+  - Older one-sided dashed decision-history entries are superseded for current
+    active rules.

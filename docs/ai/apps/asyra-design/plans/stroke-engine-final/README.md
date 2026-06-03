@@ -86,14 +86,28 @@ Dashed constrained strokes are a separate interval-domain model:
 - dashed provenance must not be copied into solid product records;
 - solid visible render must not borrow dashed boundary interval geometry.
 
+For constrained `inside` dashed strokes, interval-domain ownership stops at
+dash allocation. Visible product geometry must be built as Figma-style doubled
+center dashed stroke geometry: each split source range keeps half-dash
+terminals at both cut ends and evenly distributed middle gaps, then each visible
+interval is stroked on the authored centerline at `stroke.width * 2` with the
+authored cap, join, and miter limit, and finally clipped by the inside
+filled-region mask. Direct one-sided ribbons, local-side fallback strips, and
+diagnostic derivation fragments are not product-visible geometry for inside
+dashed strokes.
+
 ## Inspector Step Contracts
 
 - Step 17, `build-stroke-candidates`: build model-specific candidates. Solid
   emits doubled authored center-stroke candidates plus mask provenance. Dashed
-  emits interval candidates.
+  emits interval candidates for allocation; constrained `inside` dashed also
+  emits doubled center-dashed product candidates for visible geometry.
 - Step 20, `apply-legality`: clip solid candidates with the inside filled-region
   mask or outside exterior mask. Diagnostic derivation geometry may be recorded
   only as bounded evidence.
+- Step 20 also clips constrained `inside` dashed doubled center-dashed product
+  candidates with the inside filled-region mask. Empty clip results are dropped;
+  they must not fall back to one-sided geometry.
 - Step 24, `build-final-faces`: preserve model-separated provenance. Solid
   final records may carry coverage evidence for hit/export, but visible render
   must reference the masked authored stroke descriptor.

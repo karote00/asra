@@ -39,6 +39,7 @@ import {
 import {
   buildPolylineGeometryModelPath,
   samplePathSegmentFramesByLengthStep,
+  slicePathGeometryFrames,
   slicePathSegmentPoints,
   slicePathGeometryPoints,
   type PathSegment,
@@ -46,6 +47,8 @@ import {
   type PathSampleFrame,
   type PathSliceSamplingOptions
 } from './path-geometry'
+import { buildDashedCenterRibbonGeometry } from './dashed-center-ribbon-geometry'
+import { buildSolidCenterStrokePolygons } from './solid-center-stroke-geometry'
 import { resolveSourceFamily } from './resolved-source-family'
 import {
   buildSourceSpanGraph,
@@ -4497,7 +4500,9 @@ const buildSourceVertexJoinContinuityPolygonsForOffset = (
 
   const previousStart = previousBoundary[previousBoundary.length - 2]
   const nextEnd = nextBoundary[1]
-  const previousDirection = normalizeVector(subtractPoint(vertex, previousStart))
+  const previousDirection = normalizeVector(
+    subtractPoint(vertex, previousStart)
+  )
   const nextDirection = normalizeVector(subtractPoint(nextEnd, vertex))
   const previousOffsetEnd = getOffsetPointOnLine(
     vertex,
@@ -4505,12 +4510,7 @@ const buildSourceVertexJoinContinuityPolygonsForOffset = (
     vertex,
     offset
   )
-  const nextOffsetStart = getOffsetPointOnLine(
-    vertex,
-    vertex,
-    nextEnd,
-    offset
-  )
+  const nextOffsetStart = getOffsetPointOnLine(vertex, vertex, nextEnd, offset)
   if (
     !previousDirection ||
     !nextDirection ||
@@ -4875,7 +4875,9 @@ const buildOutsideLegalSideSourceVertexJoinPolygon = (
         nextSegmentIndex,
         selected.offset,
         stroke.join === 'round'
-          ? { continuityLength: Math.max(0.5, Math.abs(selected.offset) * 0.12) }
+          ? {
+              continuityLength: Math.max(0.5, Math.abs(selected.offset) * 0.12)
+            }
           : undefined
       )
     : []
@@ -4891,50 +4893,6 @@ const buildOutsideLegalSideSourceVertexJoinPolygon = (
     oppositePolygons: oppositeTrimPolygons
   }
 }
-
-const buildOutsideLegalSideSourceVertexJoinPolygons = (
-  path: Pick<PathGeometry, 'segments' | 'closed'>,
-  previousSegmentIndex: number,
-  nextSegmentIndex: number,
-  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join' | 'miterLimit'>,
-  options: {
-    implicitFillRegions?: PolygonRegion[]
-    referencePoints?: Vec2[]
-  } = {}
-) =>
-  buildOutsideLegalSideSourceVertexJoinPolygon(
-    path,
-    previousSegmentIndex,
-    nextSegmentIndex,
-    stroke,
-    options
-  ).polygons
-
-const buildSourceVertexJoinPolygonWithOutsideLegalSide = (
-  path: Pick<PathGeometry, 'segments' | 'closed'>,
-  previousSegmentIndex: number,
-  nextSegmentIndex: number,
-  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join' | 'miterLimit'>,
-  options: {
-    implicitFillRegions?: PolygonRegion[]
-    referencePoints?: Vec2[]
-  } = {}
-) =>
-  stroke.position === 'outside'
-    ? buildOutsideLegalSideSourceVertexJoinPolygons(
-        path,
-        previousSegmentIndex,
-        nextSegmentIndex,
-        stroke,
-        options
-      )
-    : buildSourceVertexJoinPolygon(
-        path,
-        previousSegmentIndex,
-        nextSegmentIndex,
-        stroke,
-        { referencePoints: options.referencePoints }
-      )
 
 const doPhysicalSpansCrossSourceVertex = (
   physicalSpans: ConstrainedDashedPhysicalSpan[],
@@ -6451,6 +6409,107 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
   )
 }
 
+const buildInsideDoubledCenterDashedIntervalProductPolygons = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  interval: VisibleDashedTopologyInterval,
+  authoredStroke: Pick<
+    RenderableStroke,
+    | 'style'
+    | 'position'
+    | 'width'
+    | 'join'
+    | 'miterLimit'
+    | 'cap'
+    | 'dashPattern'
+  >,
+  slicingContext: SourcePathSlicingContext,
+  implicitFillRegions: PolygonRegion[]
+) => {
+  if (
+    authoredStroke.position !== 'inside' ||
+    authoredStroke.width <= EPSILON ||
+    path.segments.length === 0
+  ) {
+    return []
+  }
+
+  const frames = slicePathGeometryFrames(
+    path,
+    interval.startDistance,
+    interval.endDistance,
+    interval.wrapsSeam,
+    slicingContext.samplingTolerance,
+    slicingContext.samplingOptions
+  )
+  if (frames.length < 2) {
+    return []
+  }
+
+  const doubledCenterStroke = {
+    style: 'solid' as const,
+    position: 'center' as const,
+    width: authoredStroke.width * 2,
+    join: authoredStroke.join,
+    miterLimit: authoredStroke.miterLimit,
+    cap: authoredStroke.cap
+  }
+  const ribbonGeometry = buildDashedCenterRibbonGeometry(
+    frames.map((frame) => ({
+      point: frame.point,
+      tangent: frame.tangent,
+      sharpJoin: frame.sharpJoin
+    })),
+    doubledCenterStroke,
+    {
+      allowRoundCapBackendOffset: true
+    }
+  )
+  const doubledCenterPolygons =
+    ribbonGeometry.polygons.length > 0
+      ? ribbonGeometry.polygons
+      : buildSolidCenterStrokePolygons(
+          frames.map((frame) => frame.point),
+          false,
+          doubledCenterStroke
+        )
+
+  if (doubledCenterPolygons.length === 0) {
+    return []
+  }
+
+  const subjectPolygons = doubledCenterPolygons
+    .map(cleanPolygon)
+    .filter(hasPolygonGeometry)
+  if (subjectPolygons.length === 0 || implicitFillRegions.length === 0) {
+    return []
+  }
+
+  try {
+    const backend = getGeometryBackend()
+    if (!backend.capabilities.intersection) {
+      return []
+    }
+    const normalizedFillRegions = backend.capabilities.union
+      ? backend.union(implicitFillRegions, 'nonzero')
+      : implicitFillRegions
+    const fillRegions =
+      normalizedFillRegions.length > 0
+        ? normalizedFillRegions
+        : implicitFillRegions
+    return getCoveragePolygonsFromRegions(
+      backend.intersection(
+        toCoveragePolygonRegions(subjectPolygons),
+        fillRegions,
+        'nonzero'
+      )
+    )
+      .map(cleanPolygon)
+      .filter(hasPolygonGeometry)
+  } catch {
+    return []
+  }
+}
+
 const buildDashedSourcePathFinalCoveragePolygons = (
   path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   topology: Pick<
@@ -6482,6 +6541,24 @@ const buildDashedSourcePathFinalCoveragePolygons = (
   normalizePerInterval = true
 ) => {
   emitStrokePipelineCounter('final-coverage-builder-hit')
+  if (
+    authoredStroke.position === 'inside' &&
+    clipInsideToFillDomain &&
+    implicitFillRegions.length > 0
+  ) {
+    return measureStrokePipelinePhase(
+      'constrained dashed final coverage: doubled center inside clip',
+      () =>
+        buildInsideDoubledCenterDashedIntervalProductPolygons(
+          path,
+          interval,
+          authoredStroke,
+          slicingContext,
+          implicitFillRegions
+        )
+    )
+  }
+
   const polygons: Vec2[][] = []
 
   measureStrokePipelinePhase(
@@ -10265,23 +10342,40 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                   finalCoverageBuilderStatus = 'product-final'
                   const productFinalPolygons = measureStrokePipelinePhase(
                     'constrained dashed interval: product final',
-                    () =>
-                      buildDashedSourcePathFinalCoveragePolygons(
-                        resolvedEffectiveSourcePath,
-                        effectiveTopologyForInterval,
+                    () => {
+                      const productFinalSourcePath =
+                        stroke.position === 'inside'
+                          ? sourcePath
+                          : resolvedEffectiveSourcePath
+                      const productFinalTopology =
+                        stroke.position === 'inside'
+                          ? topology
+                          : effectiveTopologyForInterval
+                      const productFinalSlicingContext =
+                        stroke.position === 'inside'
+                          ? sourcePathSlicingContext
+                          : resolvedEffectiveSourcePathSlicingContext
+                      if (!productFinalSlicingContext) {
+                        return []
+                      }
+                      return buildDashedSourcePathFinalCoveragePolygons(
+                        productFinalSourcePath,
+                        productFinalTopology,
                         intervalSweep,
                         interval,
                         stroke,
                         intervalStroke,
                         sharpGuardVertices,
-                        resolvedEffectiveSourcePathSlicingContext,
+                        productFinalSlicingContext,
                         strokeDomainPlan,
                         options.clipInsideToFillDomain === true,
                         options.implicitFillRegions ?? []
                       )
+                    }
                   )
                   if (
                     productFinalPolygons.length > 0 ||
+                    stroke.position === 'inside' ||
                     !boundaryDomainPath ||
                     interval.figmaLikeSideResolutionStatus !== 'resolved' ||
                     interval.figmaLikeSelectedSide === undefined
@@ -10614,7 +10708,11 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                       closedIntervalLegalityContext
                     )
                   : selectedSidePolygons
-              if (sourcePath && stroke.position === 'inside') {
+              if (
+                sourcePath &&
+                stroke.position === 'inside' &&
+                finalCoverageBuilderStatus !== 'product-final'
+              ) {
                 const sourceJoinPolygons = measureStrokePipelinePhase(
                   'constrained dashed interval: source joins',
                   () =>
@@ -10937,8 +11035,8 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
       productFinalIntervalClassification !== null &&
       sourcePath
         ? sourceVertexBoundaryJoinRecords.flatMap((joinRecord, joinIndex) => {
-          const [previousInterval, nextInterval] = joinRecord.intervals
-          const clippedPolygons =
+            const [previousInterval, nextInterval] = joinRecord.intervals
+            const clippedPolygons =
               options.clipInsideToFillDomain === true &&
               options.implicitFillRegions &&
               options.implicitFillRegions.length > 0

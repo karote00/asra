@@ -443,6 +443,15 @@ const buildSharedSplitRangeDashDomains = ({
       return []
     }
 
+    const dashDomainStartDistance =
+      stroke.position === 'inside'
+        ? range.sourceStartDistance
+        : range.boundaryStartDistance
+    const dashDomainEndDistance =
+      stroke.position === 'inside'
+        ? range.sourceEndDistance
+        : range.boundaryEndDistance
+
     return [
       {
         domainId: range.rangeId,
@@ -451,8 +460,8 @@ const buildSharedSplitRangeDashDomains = ({
         boundaryStartDistance: range.boundaryStartDistance,
         boundaryEndDistance: range.boundaryEndDistance,
         boundaryTotalLength: range.boundaryTotalLength,
-        startDistance: range.boundaryStartDistance,
-        endDistance: range.boundaryEndDistance,
+        startDistance: dashDomainStartDistance,
+        endDistance: dashDomainEndDistance,
         sourceSegmentIndex: range.sourceSegmentIndex,
         sideAuthority: 'implicit-fill-hole-domain',
         selectedSide,

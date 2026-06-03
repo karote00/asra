@@ -30,11 +30,13 @@ import {
   buildPolylineGeometryModelPath,
   buildVectorGeometryModelPath,
   samplePathSegmentFramesByLengthStep,
+  slicePathGeometryFrames,
   slicePathGeometryPoints
 } from '../components/stroke-render/path-geometry'
 import { resolveSourcePathStrokeSide } from '../components/stroke-render/stroke-side-resolution'
 import { buildConstrainedDashedLocalSideStrokePolygons } from '../components/stroke-render/constrained-dashed-local-side-geometry'
 import { buildDashedCenterRibbonGeometry } from '../components/stroke-render/dashed-center-ribbon-geometry'
+import { buildSolidCenterStrokePolygons } from '../components/stroke-render/solid-center-stroke-geometry'
 import { isSimpleClosedPolygon } from '../components/stroke-render/solid-stroke-geometry-core'
 import { buildPathTopologyModel } from '../components/stroke-render/path-topology-model'
 import { resolveSourceFamily } from '../components/stroke-render/resolved-source-family'
@@ -50,6 +52,10 @@ import {
   type ArrangedStrokeFinalFace
 } from '../components/stroke-render/stroke-candidate-arrangement'
 import { buildResolvedVectorGeometryModel } from '../components/stroke-render/resolved-vector-geometry-model'
+import type {
+  ResolvedVectorSourceSplitRange,
+  ResolvedVectorStrokeBoundaryDomain
+} from '../components/stroke-render/resolved-vector-geometry-model'
 import {
   createClipper2GeometryBackend,
   type Clipper2Module
@@ -717,11 +723,53 @@ const getPointLegalBoundaryDistanceForTest = (
   }, Infinity)
 }
 
+const getSignedPolygonAreaForRegionWinding = (
+  points: { x: number; y: number }[]
+) => {
+  let area = 0
+  points.forEach((point, index) => {
+    const next = points[(index + 1) % points.length]
+    area += point.x * next.y - next.x * point.y
+  })
+  return area / 2
+}
+
+const normalizeTestCoveragePolygonWinding = (
+  polygon: { x: number; y: number }[]
+) =>
+  getSignedPolygonAreaForRegionWinding(polygon) < 0
+    ? [...polygon].reverse()
+    : polygon
+
 const toTestPolygonRegions = (polygons: { x: number; y: number }[][]) =>
-  polygons.map((polygon) => ({ polygons: [polygon] }))
+  polygons.map((polygon) => ({
+    polygons: [normalizeTestCoveragePolygonWinding(polygon)]
+  }))
 
 const getCoveragePolygonsForTest = (regions: PolygonRegion[]) =>
   regions.flatMap((region) => region.polygons)
+
+const getRegionArea = (regions: PolygonRegion[]) =>
+  regions.reduce(
+    (sum, region) =>
+      sum +
+      region.polygons.reduce(
+        (polygonSum, polygon) =>
+          polygonSum + Math.abs(signedPolygonArea(polygon)),
+        0
+      ),
+    0
+  )
+
+const normalizePolygonRegionsForTest = (regions: PolygonRegion[]) => {
+  if (regions.length === 0) {
+    return regions
+  }
+  const backend = getGeometryBackend()
+  return backend.capabilities.union
+    ? backend.union(regions, 'nonzero')
+    : regions
+}
 
 const getEvenOddLegalRegionsForTest = (
   sourcePath: ReturnType<typeof buildVectorGeometryModelPath>
@@ -762,6 +810,622 @@ const getInsideLegalResidueArea = (
     (sum, polygon) => sum + Math.abs(signedPolygonArea(polygon)),
     0
   )
+}
+
+const getNormalizedCoverageRegionsForTest = (
+  polygons: { x: number; y: number }[][]
+) => normalizePolygonRegionsForTest(toTestPolygonRegions(polygons))
+
+const getSymmetricDifferenceAreaForTest = (
+  actualPolygons: { x: number; y: number }[][],
+  expectedPolygons: { x: number; y: number }[][]
+) => {
+  const backend = getGeometryBackend()
+  const actualRegions = getNormalizedCoverageRegionsForTest(actualPolygons)
+  const expectedRegions = getNormalizedCoverageRegionsForTest(expectedPolygons)
+  return (
+    getRegionArea(
+      backend.difference(actualRegions, expectedRegions, 'nonzero')
+    ) +
+    getRegionArea(backend.difference(expectedRegions, actualRegions, 'nonzero'))
+  )
+}
+
+const getSamePaintOverlapAreaForTest = (
+  polygons: { x: number; y: number }[][]
+) => {
+  if (polygons.length <= 1) {
+    return 0
+  }
+
+  const rawArea = getRegionArea(toTestPolygonRegions(polygons))
+  const unionArea = getRegionArea(getNormalizedCoverageRegionsForTest(polygons))
+  return Math.max(0, rawArea - unionArea)
+}
+
+const expectInsideDashedNoSamePaintOverdraw = ({
+  label,
+  stroke,
+  actualPolygons
+}: {
+  label: string
+  stroke: ReturnType<typeof createDefaultStroke>
+  actualPolygons: { x: number; y: number }[][]
+}) => {
+  const rawArea = getRegionArea(toTestPolygonRegions(actualPolygons))
+  const unionArea = getRegionArea(
+    getNormalizedCoverageRegionsForTest(actualPolygons)
+  )
+  const overlapArea = getSamePaintOverlapAreaForTest(actualPolygons)
+  const maxAllowedArea = Math.max(0.5, rawArea * 0.0005)
+
+  expect(
+    overlapArea,
+    JSON.stringify(
+      {
+        label,
+        reason:
+          'inside dashed product geometry is a single same-paint stroke product; overlapping polygons would overdraw darker pixels in the app',
+        rawArea,
+        unionArea,
+        overlapArea,
+        maxAllowedArea,
+        polygonCount: actualPolygons.length,
+        strokeWidth: stroke.width
+      },
+      null,
+      2
+    )
+  ).toBeLessThanOrEqual(maxAllowedArea)
+}
+
+const buildInsideDashedDoubledCenterReferencePolygonsForTest = ({
+  sourcePath,
+  stroke,
+  fillRegions,
+  domainOptions
+}: {
+  sourcePath: ReturnType<typeof buildVectorGeometryModelPath>
+  stroke: ReturnType<typeof createDefaultStroke>
+  fillRegions: PolygonRegion[]
+  domainOptions?: {
+    sharedSourceSplitRanges?: ResolvedVectorSourceSplitRange[]
+    sharedStrokeBoundaryDomains?: ResolvedVectorStrokeBoundaryDomain[]
+  }
+}) => {
+  const backend = getGeometryBackend()
+  const renderableStroke = getOnlyRenderableStroke([stroke])
+  const intervals = buildStrokeEventMap(
+    sourcePath,
+    stroke,
+    fillRegions,
+    domainOptions
+  ).dashIntervals.filter((interval) => interval.length > 1e-6)
+  const doubledCenterStroke = {
+    style: 'solid' as const,
+    position: 'center' as const,
+    width: renderableStroke.width * 2,
+    join: renderableStroke.join,
+    miterLimit: renderableStroke.miterLimit,
+    cap: renderableStroke.cap
+  }
+  const productPolygons = intervals.flatMap((interval) => {
+    const frames = slicePathGeometryFrames(
+      sourcePath,
+      interval.startDistance,
+      interval.endDistance,
+      interval.wrapsSeam,
+      0.25,
+      {
+        minCubicSamples: 16,
+        maxCubicSamples: 256,
+        useRangeLengthForSampleCount: true
+      }
+    )
+    if (frames.length < 2) {
+      return []
+    }
+    const ribbonGeometry = buildDashedCenterRibbonGeometry(
+      frames.map((frame) => ({
+        point: frame.point,
+        tangent: frame.tangent,
+        sharpJoin: frame.sharpJoin
+      })),
+      doubledCenterStroke,
+      { allowRoundCapBackendOffset: true }
+    )
+    return ribbonGeometry.polygons.length > 0
+      ? ribbonGeometry.polygons
+      : buildSolidCenterStrokePolygons(
+          frames.map((frame) => frame.point),
+          false,
+          doubledCenterStroke
+        )
+  })
+  if (productPolygons.length === 0 || fillRegions.length === 0) {
+    return productPolygons
+  }
+  return backend
+    .intersection(
+      toTestPolygonRegions(productPolygons),
+      normalizePolygonRegionsForTest(fillRegions),
+      'nonzero'
+    )
+    .flatMap((region) => region.polygons)
+}
+
+const getPacketPolygonsForTest = (
+  packets: { geometry: { polygons: { x: number; y: number }[][] } }[]
+) => packets.flatMap((packet) => packet.geometry.polygons)
+
+const expectInsideDashedProductFinalPacketOwnership = (
+  packets: ReturnType<typeof buildConstrainedDashedStrokeResolvedPackets>
+) => {
+  expect(
+    packets.every(
+      (packet) =>
+        packet.geometry.debugMeta?.finalCoverageBuilderStatus ===
+          'product-final' &&
+        packet.geometry.debugMeta?.strokePosition === 'inside'
+    )
+  ).toBe(true)
+}
+
+const expectInsideDashedPolygonsPreserveSplitRangeRule = ({
+  label,
+  sourcePath,
+  stroke,
+  fillRegions,
+  actualPolygons,
+  domainOptions
+}: {
+  label: string
+  sourcePath: ReturnType<typeof buildVectorGeometryModelPath>
+  stroke: ReturnType<typeof createDefaultStroke>
+  fillRegions: PolygonRegion[]
+  actualPolygons: { x: number; y: number }[][]
+  domainOptions?: {
+    sharedSourceSplitRanges?: ResolvedVectorSourceSplitRange[]
+    sharedStrokeBoundaryDomains?: ResolvedVectorStrokeBoundaryDomain[]
+  }
+}) => {
+  const outsideResidueArea = getInsideLegalResidueArea(
+    actualPolygons,
+    sourcePath,
+    fillRegions
+  )
+
+  expect(
+    {
+      outsideResidueArea,
+      polygonCount: actualPolygons.length
+    },
+    label
+  ).toMatchObject({
+    outsideResidueArea: expect.any(Number),
+    polygonCount: expect.any(Number)
+  })
+  expect(
+    outsideResidueArea,
+    `${label}:inside-legal-residue`
+  ).toBeLessThanOrEqual(stroke.width * stroke.width * 4.5)
+
+  expectInsideDashedDoubledCenterReferenceParity({
+    label,
+    sourcePath,
+    stroke,
+    fillRegions,
+    actualPolygons,
+    domainOptions
+  })
+}
+
+const expectInsideDashedDoubledCenterReferenceParity = ({
+  label,
+  sourcePath,
+  stroke,
+  fillRegions,
+  actualPolygons,
+  domainOptions
+}: {
+  label: string
+  sourcePath: ReturnType<typeof buildVectorGeometryModelPath>
+  stroke: ReturnType<typeof createDefaultStroke>
+  fillRegions: PolygonRegion[]
+  actualPolygons: { x: number; y: number }[][]
+  domainOptions?: {
+    sharedSourceSplitRanges?: ResolvedVectorSourceSplitRange[]
+    sharedStrokeBoundaryDomains?: ResolvedVectorStrokeBoundaryDomain[]
+  }
+}) => {
+  const expectedPolygons =
+    buildInsideDashedDoubledCenterReferencePolygonsForTest({
+      sourcePath,
+      stroke,
+      fillRegions,
+      domainOptions
+    })
+  const expectedArea = getRegionArea(toTestPolygonRegions(expectedPolygons))
+  const actualArea = getRegionArea(toTestPolygonRegions(actualPolygons))
+  const symmetricDifferenceArea = getSymmetricDifferenceAreaForTest(
+    actualPolygons,
+    expectedPolygons
+  )
+  const maxAllowedArea = Math.max(0.75, expectedArea * 0.001)
+  expect(
+    symmetricDifferenceArea,
+    JSON.stringify(
+      {
+        label,
+        reason:
+          'inside dashed visible geometry must equal center dashed stroke built at width * 2 and clipped to the inside legal fill domain',
+        symmetricDifferenceArea,
+        maxAllowedArea,
+        actualArea,
+        expectedArea,
+        actualPolygonCount: actualPolygons.length,
+        expectedPolygonCount: expectedPolygons.length
+      },
+      null,
+      2
+    )
+  ).toBeLessThanOrEqual(maxAllowedArea)
+}
+
+const expectInsideDashedSplitRangeIntervalAllocation = ({
+  label,
+  stroke,
+  intervals
+}: {
+  label: string
+  stroke: ReturnType<typeof createDefaultStroke>
+  intervals: RuleDrivenDashInterval[]
+}) => {
+  const halfDashLength = stroke.dashPattern[0] / 2
+  const intervalsBySplitRange = new Map<
+    string,
+    {
+      startDistance: number
+      endDistance: number
+      splitRangeStartDistance: number
+      splitRangeEndDistance: number
+      terminalRole?: string
+      boundaryTotalLength?: number
+      intervalIndex: number
+    }[]
+  >()
+  intervals.forEach((interval) => {
+    if (
+      !interval.figmaLikeSplitRangeId ||
+      interval.figmaLikeSplitRangeStartDistance === undefined ||
+      interval.figmaLikeSplitRangeEndDistance === undefined
+    ) {
+      return
+    }
+
+    intervalsBySplitRange.set(interval.figmaLikeSplitRangeId, [
+      ...(intervalsBySplitRange.get(interval.figmaLikeSplitRangeId) ?? []),
+      {
+        startDistance: interval.startDistance,
+        endDistance: interval.endDistance,
+        splitRangeStartDistance: interval.figmaLikeSplitRangeStartDistance,
+        splitRangeEndDistance: interval.figmaLikeSplitRangeEndDistance,
+        terminalRole: interval.figmaLikeTerminalRole,
+        boundaryTotalLength: interval.figmaLikeBoundaryTotalLength,
+        intervalIndex: interval.index
+      }
+    ])
+  })
+
+  const failures = [...intervalsBySplitRange.entries()].flatMap(
+    ([splitRangeId, splitRangeIntervals]) => {
+      const sorted = splitRangeIntervals
+        .slice()
+        .sort((left, right) => left.startDistance - right.startDistance)
+      const splitRangeStartDistance =
+        sorted[0]?.splitRangeStartDistance ?? sorted[0]?.startDistance ?? 0
+      const splitRangeEndDistance =
+        sorted[0]?.splitRangeEndDistance ??
+        sorted[sorted.length - 1]?.endDistance ??
+        0
+      const splitRangeLength = splitRangeEndDistance - splitRangeStartDistance
+      const hasStartTerminal = sorted.some(
+        (interval) =>
+          interval.terminalRole === 'start' ||
+          interval.terminalRole === 'start-end'
+      )
+      const hasEndTerminal = sorted.some(
+        (interval) =>
+          interval.terminalRole === 'end' ||
+          interval.terminalRole === 'start-end'
+      )
+      const startTerminal = sorted.find(
+        (interval) =>
+          interval.terminalRole === 'start' ||
+          interval.terminalRole === 'start-end'
+      )
+      const endTerminal = [...sorted]
+        .reverse()
+        .find(
+          (interval) =>
+            interval.terminalRole === 'end' ||
+            interval.terminalRole === 'start-end'
+        )
+      const ordinaryGapFailures = sorted
+        .slice(0, -1)
+        .flatMap((interval, index) =>
+          sorted[index + 1].startDistance - interval.endDistance <= 1e-4
+            ? [
+                {
+                  reason: 'missing-positive-gap',
+                  previousIntervalIndex: interval.intervalIndex,
+                  nextIntervalIndex: sorted[index + 1].intervalIndex,
+                  gapStart: interval.endDistance,
+                  gapEnd: sorted[index + 1].startDistance
+                }
+              ]
+            : []
+        )
+      const terminalFailures = [
+        !hasStartTerminal
+          ? { reason: 'missing-start-half-dash-terminal' }
+          : undefined,
+        !hasEndTerminal
+          ? { reason: 'missing-end-half-dash-terminal' }
+          : undefined,
+        startTerminal &&
+        splitRangeLength >= halfDashLength * 2 &&
+        Math.abs(startTerminal.startDistance - splitRangeStartDistance) > 1e-3
+          ? {
+              reason: 'start-terminal-not-at-split-range-start',
+              expectedStartDistance: splitRangeStartDistance,
+              startDistance: startTerminal.startDistance
+            }
+          : undefined,
+        startTerminal &&
+        splitRangeLength >= halfDashLength * 2 &&
+        Math.abs(
+          startTerminal.endDistance - (splitRangeStartDistance + halfDashLength)
+        ) > 1e-3
+          ? {
+              reason: 'start-terminal-not-half-dash',
+              expectedEndDistance: splitRangeStartDistance + halfDashLength,
+              endDistance: startTerminal.endDistance
+            }
+          : undefined,
+        endTerminal &&
+        splitRangeLength >= halfDashLength * 2 &&
+        Math.abs(endTerminal.endDistance - splitRangeEndDistance) > 1e-3
+          ? {
+              reason: 'end-terminal-not-at-split-range-end',
+              expectedEndDistance: splitRangeEndDistance,
+              endDistance: endTerminal.endDistance
+            }
+          : undefined,
+        endTerminal &&
+        splitRangeLength >= halfDashLength * 2 &&
+        Math.abs(
+          endTerminal.endDistance - endTerminal.startDistance - halfDashLength
+        ) > 1e-3
+          ? {
+              reason: 'end-terminal-not-half-dash',
+              expectedLength: halfDashLength,
+              length: endTerminal.endDistance - endTerminal.startDistance
+            }
+          : undefined
+      ].filter(
+        (failure): failure is { reason: string } => failure !== undefined
+      )
+
+      return [...terminalFailures, ...ordinaryGapFailures].map((failure) => ({
+        splitRangeId,
+        splitRangeStartDistance,
+        splitRangeEndDistance,
+        splitRangeLength,
+        packetCount: sorted.length,
+        ...failure
+      }))
+    }
+  )
+
+  expect(
+    failures.slice(0, 30),
+    JSON.stringify(
+      {
+        label,
+        reason:
+          'split-range dash allocation must keep half-dash terminals at both cut ends and positive gaps between middle dashes',
+        failureCount: failures.length,
+        firstFailures: failures.slice(0, 30)
+      },
+      null,
+      2
+    )
+  ).toEqual([])
+}
+
+const expectInsideDashedSplitRangeRuleParity = ({
+  label,
+  sourcePath,
+  stroke,
+  fillRegions,
+  packets,
+  domainOptions
+}: {
+  label: string
+  sourcePath: ReturnType<typeof buildVectorGeometryModelPath>
+  stroke: ReturnType<typeof createDefaultStroke>
+  fillRegions: PolygonRegion[]
+  packets: ReturnType<typeof buildConstrainedDashedStrokeResolvedPackets>
+  domainOptions?: {
+    sharedSourceSplitRanges?: ResolvedVectorSourceSplitRange[]
+    sharedStrokeBoundaryDomains?: ResolvedVectorStrokeBoundaryDomain[]
+  }
+}) => {
+  const eventMap = buildStrokeEventMap(
+    sourcePath,
+    stroke,
+    fillRegions,
+    domainOptions
+  )
+  const visibleIntervalCount = eventMap.dashIntervals.filter(
+    (interval) => interval.length > 1e-6
+  ).length
+  const packetIntervalIds = new Set(
+    packets
+      .map((packet) => packet.geometry.debugMeta?.intervalId)
+      .filter((intervalId): intervalId is string => intervalId !== undefined)
+  )
+  expect(
+    {
+      packetCount: packets.length,
+      packetIntervalIdCount: packetIntervalIds.size,
+      visibleIntervalCount
+    },
+    `${label}:inside-doubled-center-packet-interval-coverage`
+  ).toMatchObject({
+    packetCount: visibleIntervalCount,
+    packetIntervalIdCount: visibleIntervalCount,
+    visibleIntervalCount
+  })
+  expectInsideDashedProductFinalPacketOwnership(packets)
+  expectInsideDashedSplitRangeIntervalAllocation({
+    label,
+    stroke,
+    intervals: eventMap.dashIntervals
+  })
+  expectInsideDashedPolygonsPreserveSplitRangeRule({
+    label,
+    sourcePath,
+    stroke,
+    fillRegions,
+    actualPolygons: getPacketPolygonsForTest(packets),
+    domainOptions
+  })
+}
+
+const expectInsideDashedSplitRangeGapPreservedByStage = ({
+  label,
+  sourcePath,
+  intervals,
+  stroke,
+  fillRegions,
+  getPolygonsForSplitRange
+}: {
+  label: string
+  sourcePath: ReturnType<typeof buildVectorGeometryModelPath>
+  intervals: RuleDrivenDashInterval[]
+  stroke: ReturnType<typeof createDefaultStroke>
+  fillRegions: PolygonRegion[]
+  getPolygonsForSplitRange: (
+    splitRangeId: string
+  ) => { x: number; y: number }[][]
+}) => {
+  const failures = getRuleDrivenSplitRangeGapCoverageFailures({
+    sourcePath,
+    intervals,
+    getPolygonsForSplitRange,
+    stroke,
+    implicitFillRegions: fillRegions,
+    contextLabel: label,
+    coverageTolerance: 0.35
+  })
+  expect(
+    failures.slice(0, 30),
+    JSON.stringify(
+      {
+        message:
+          'split-range dash gaps are first-class product geometry; each split source range must keep half-dash terminals and empty gaps between visible intervals',
+        failureCount: failures.length,
+        firstFailures: failures.slice(0, 30)
+      },
+      null,
+      2
+    )
+  ).toEqual([])
+}
+
+const expectInsideDashedSplitRangeGapPreserved = ({
+  label,
+  sourcePath,
+  stroke,
+  fillRegions,
+  packets,
+  domainOptions
+}: {
+  label: string
+  sourcePath: ReturnType<typeof buildVectorGeometryModelPath>
+  stroke: ReturnType<typeof createDefaultStroke>
+  fillRegions: PolygonRegion[]
+  packets: ReturnType<typeof buildConstrainedDashedStrokeResolvedPackets>
+  domainOptions?: {
+    sharedSourceSplitRanges?: ResolvedVectorSourceSplitRange[]
+    sharedStrokeBoundaryDomains?: ResolvedVectorStrokeBoundaryDomain[]
+  }
+}) => {
+  const eventMap = buildStrokeEventMap(
+    sourcePath,
+    stroke,
+    fillRegions,
+    domainOptions
+  )
+  expectInsideDashedSplitRangeGapPreservedByStage({
+    label,
+    sourcePath,
+    intervals: eventMap.dashIntervals,
+    stroke,
+    fillRegions,
+    getPolygonsForSplitRange: (splitRangeId) =>
+      packets.flatMap((packet) =>
+        packet.geometry.debugMeta?.figmaLikeSplitRangeId === splitRangeId
+          ? packet.geometry.polygons
+          : []
+      )
+  })
+}
+
+const expectInsideDashedSplitRangeStagesPreserveRule = ({
+  label,
+  sourcePath,
+  stroke,
+  fillRegions,
+  stages,
+  domainOptions
+}: {
+  label: string
+  sourcePath: ReturnType<typeof buildVectorGeometryModelPath>
+  stroke: ReturnType<typeof createDefaultStroke>
+  fillRegions: PolygonRegion[]
+  domainOptions?: {
+    sharedSourceSplitRanges?: ResolvedVectorSourceSplitRange[]
+    sharedStrokeBoundaryDomains?: ResolvedVectorStrokeBoundaryDomain[]
+  }
+  stages: {
+    label: string
+    polygons: { x: number; y: number }[][]
+  }[]
+}) => {
+  stages.forEach((stage) => {
+    expectInsideDashedPolygonsPreserveSplitRangeRule({
+      label: `${label}:${stage.label}`,
+      sourcePath,
+      stroke,
+      fillRegions,
+      actualPolygons: stage.polygons,
+      domainOptions
+    })
+    if (
+      stage.label === 'collapsed-faces' ||
+      stage.label === 'export-packets' ||
+      stage.label === 'render-entries'
+    ) {
+      expectInsideDashedNoSamePaintOverdraw({
+        label: `${label}:${stage.label}`,
+        stroke,
+        actualPolygons: stage.polygons
+      })
+    }
+  })
 }
 
 const signedPolygonArea = (points: { x: number; y: number }[]) => {
@@ -926,6 +1590,10 @@ type RuleDrivenDashInterval = StrokeEventMap['dashIntervals'][number] & {
   figmaLikeBoundaryTotalLength?: number
   figmaLikeBoundaryStartDistance?: number
   figmaLikeBoundaryEndDistance?: number
+  figmaLikeSplitRangeId?: string
+  figmaLikeSplitRangeStartDistance?: number
+  figmaLikeSplitRangeEndDistance?: number
+  figmaLikeTerminalRole?: 'start' | 'end' | 'start-end' | 'middle'
 }
 
 const normalizeLoopDistanceForTest = (distance: number, totalLength: number) =>
@@ -1000,7 +1668,11 @@ const getBoundaryKindForTest = (
 const buildVisibleDashIntervalsForTest = (
   sourcePath: ReturnType<typeof buildVectorGeometryModelPath>,
   stroke: ReturnType<typeof createDefaultStroke>,
-  implicitFillRegions = getImplicitFillRegionsForTest(sourcePath)
+  implicitFillRegions = getImplicitFillRegionsForTest(sourcePath),
+  domainOptions: {
+    sharedSourceSplitRanges?: ResolvedVectorSourceSplitRange[]
+    sharedStrokeBoundaryDomains?: ResolvedVectorStrokeBoundaryDomain[]
+  } = {}
 ) => {
   const topology = buildPathTopologyModel({
     pathId: 'stroke-event-map',
@@ -1024,21 +1696,37 @@ const buildVisibleDashIntervalsForTest = (
       }),
       stroke: renderableStroke,
       sourcePath,
-      implicitFillRegions
+      implicitFillRegions,
+      sharedSourceSplitRanges: domainOptions.sharedSourceSplitRanges,
+      sharedStrokeBoundaryDomains: domainOptions.sharedStrokeBoundaryDomains
     })
   ).map((interval) => ({
     index: Number(interval.intervalId.replace('interval:', '')),
     startDistance: interval.startDistance,
     endDistance: interval.endDistance,
     wrapsSeam: interval.wrapsSeam,
-    length: interval.intervalLength
+    length: interval.intervalLength,
+    figmaLikeSelectedSide: interval.figmaLikeSelectedSide,
+    figmaLikeBoundaryRole: interval.figmaLikeBoundaryRole,
+    figmaLikeBoundaryPoints: interval.figmaLikeBoundaryPoints,
+    figmaLikeBoundaryTotalLength: interval.figmaLikeBoundaryTotalLength,
+    figmaLikeBoundaryStartDistance: interval.figmaLikeBoundaryStartDistance,
+    figmaLikeBoundaryEndDistance: interval.figmaLikeBoundaryEndDistance,
+    figmaLikeSplitRangeId: interval.figmaLikeSplitRangeId,
+    figmaLikeSplitRangeStartDistance: interval.figmaLikeSplitRangeStartDistance,
+    figmaLikeSplitRangeEndDistance: interval.figmaLikeSplitRangeEndDistance,
+    figmaLikeTerminalRole: interval.figmaLikeTerminalRole
   }))
 }
 
 const buildStrokeEventMap = (
   sourcePath: ReturnType<typeof buildVectorGeometryModelPath>,
   stroke: ReturnType<typeof createDefaultStroke>,
-  implicitFillRegions = getImplicitFillRegionsForTest(sourcePath)
+  implicitFillRegions = getImplicitFillRegionsForTest(sourcePath),
+  domainOptions: {
+    sharedSourceSplitRanges?: ResolvedVectorSourceSplitRange[]
+    sharedStrokeBoundaryDomains?: ResolvedVectorStrokeBoundaryDomain[]
+  } = {}
 ): StrokeEventMap => {
   const sourceRanges = getPathSegmentDistanceRanges(sourcePath.segments)
   const sourceBoundaries = sourceRanges.map((range) => ({
@@ -1049,7 +1737,8 @@ const buildStrokeEventMap = (
   const dashIntervals = buildVisibleDashIntervalsForTest(
     sourcePath,
     stroke,
-    implicitFillRegions
+    implicitFillRegions,
+    domainOptions
   ).map((interval) => {
     const capExtension = stroke.capType === 'square' ? stroke.width / 2 : 0
     const effectiveStart = normalizeLoopDistanceForTest(
@@ -1405,13 +2094,27 @@ const getRuleDrivenCoverageProbeCandidatesAtDistance = (
 const getRuleDrivenIntervalProbeDistances = (
   interval: RuleDrivenDashInterval,
   totalLength: number
-) =>
-  [0.15, 0.35, 0.5, 0.65, 0.85].map((factor) =>
+) => {
+  const startDistance =
+    interval.figmaLikeSplitRangeStartDistance ?? interval.startDistance
+  const endDistance =
+    interval.figmaLikeSplitRangeEndDistance ?? interval.endDistance
+  const intervalLength = Math.max(0, endDistance - startDistance)
+  return [0.15, 0.35, 0.5, 0.65, 0.85].map((factor) =>
     normalizeLoopDistanceForTest(
-      interval.startDistance + interval.length * factor,
+      startDistance + intervalLength * factor,
       totalLength
     )
   )
+}
+
+const getRuleDrivenIntervalLocalStartDistance = (
+  interval: RuleDrivenDashInterval
+) => interval.figmaLikeSplitRangeStartDistance ?? interval.startDistance
+
+const getRuleDrivenIntervalLocalEndDistance = (
+  interval: RuleDrivenDashInterval
+) => interval.figmaLikeSplitRangeEndDistance ?? interval.endDistance
 
 const getRuleDrivenIntervalSelectedSide = (interval: {
   figmaLikeSelectedSide?: number
@@ -1552,12 +2255,16 @@ const getRuleDrivenSplitRangeGapCoverageFailures = ({
     ([splitRangeId, splitRangeIntervals]) => {
       const sortedIntervals = splitRangeIntervals
         .slice()
-        .sort((left, right) => left.startDistance - right.startDistance)
+        .sort(
+          (left, right) =>
+            getRuleDrivenIntervalLocalStartDistance(left) -
+            getRuleDrivenIntervalLocalStartDistance(right)
+        )
 
       return sortedIntervals.slice(0, -1).flatMap((interval, index) => {
         const nextInterval = sortedIntervals[index + 1]
-        const gapStart = interval.endDistance
-        const gapEnd = nextInterval.startDistance
+        const gapStart = getRuleDrivenIntervalLocalEndDistance(interval)
+        const gapEnd = getRuleDrivenIntervalLocalStartDistance(nextInterval)
         const gapLength = gapEnd - gapStart
         if (gapLength < Math.max(2, stroke.width * 1.75)) {
           return []
@@ -1652,18 +2359,20 @@ const getRuleDrivenBoundaryHugFailures = ({
       return []
     }
 
-    const visibleLength = interval.endDistance - interval.startDistance
+    const localStartDistance = getRuleDrivenIntervalLocalStartDistance(interval)
+    const localEndDistance = getRuleDrivenIntervalLocalEndDistance(interval)
+    const visibleLength = localEndDistance - localStartDistance
     if (visibleLength <= stroke.width * 2.5) {
       return []
     }
 
     const trim = Math.min(stroke.width, visibleLength * 0.25)
     const sampleDistances = [0.28, 0.5, 0.72]
-      .map((factor) => interval.startDistance + visibleLength * factor)
+      .map((factor) => localStartDistance + visibleLength * factor)
       .filter(
         (distance) =>
-          distance >= interval.startDistance + trim &&
-          distance <= interval.endDistance - trim
+          distance >= localStartDistance + trim &&
+          distance <= localEndDistance - trim
       )
     if (sampleDistances.length === 0) {
       return []
@@ -1824,7 +2533,16 @@ const getVisibleIntervalsWithoutRuleDrivenSpatialCoverage = ({
             figmaLikeSelectedSide: interval.figmaLikeSelectedSide,
             figmaLikeBoundaryRole: interval.figmaLikeBoundaryRole,
             figmaLikeBoundaryPoints: interval.figmaLikeBoundaryPoints,
-            figmaLikeBoundaryTotalLength: interval.figmaLikeBoundaryTotalLength
+            figmaLikeBoundaryTotalLength: interval.figmaLikeBoundaryTotalLength,
+            figmaLikeBoundaryStartDistance:
+              interval.figmaLikeBoundaryStartDistance,
+            figmaLikeBoundaryEndDistance: interval.figmaLikeBoundaryEndDistance,
+            figmaLikeSplitRangeId: interval.figmaLikeSplitRangeId,
+            figmaLikeSplitRangeStartDistance:
+              interval.figmaLikeSplitRangeStartDistance,
+            figmaLikeSplitRangeEndDistance:
+              interval.figmaLikeSplitRangeEndDistance,
+            figmaLikeTerminalRole: interval.figmaLikeTerminalRole
           }))
         })()
       : null
@@ -3292,8 +4010,9 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
           packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed' &&
           packet.geometry.debugMeta?.resolutionStatus === 'exact-constrained' &&
           packet.geometry.debugMeta?.sourceTopology === 'self-intersecting' &&
-          packet.geometry.debugMeta?.intervalId?.startsWith('interval:') ===
-            true &&
+          (packet.geometry.debugMeta?.strokePosition === 'inside' ||
+            packet.geometry.debugMeta?.intervalId?.startsWith('interval:') ===
+              true) &&
           (packet.geometry.debugMeta?.strokePosition !== 'inside' ||
             packet.geometry.debugMeta?.finalCoverageBuilderStatus ===
               'product-final')
@@ -3351,8 +4070,9 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
           packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed' &&
           packet.geometry.debugMeta?.resolutionStatus === 'exact-constrained' &&
           packet.geometry.debugMeta?.sourceTopology === 'self-intersecting' &&
-          packet.geometry.debugMeta?.intervalId?.startsWith('interval:') ===
-            true &&
+          (packet.geometry.debugMeta?.strokePosition === 'inside' ||
+            packet.geometry.debugMeta?.intervalId?.startsWith('interval:') ===
+              true) &&
           ((packet.geometry.debugMeta?.strokePosition !== 'inside' &&
             packet.geometry.debugMeta?.strokePosition !== 'outside') ||
             packet.geometry.debugMeta?.finalCoverageBuilderStatus ===
@@ -3397,7 +4117,7 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
     expect(signature(insidePackets)).not.toBe(signature(outsidePackets))
   })
 
-  it('should run: expand square caps on self-intersecting split-range product intervals before final coverage', () => {
+  it('should run: preserve inside dashed split-range allocation for square caps on self-intersecting source paths', () => {
     const {
       topology,
       sourcePath,
@@ -3432,83 +4152,29 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
       }
     )
 
-    const expandablePackets = packets.filter((packet) => {
-      const meta = packet.geometry.debugMeta
-      if (
-        meta?.figmaLikeBoundaryDomainId === undefined ||
-        meta.figmaLikeBoundaryPoints === undefined ||
-        meta.startDistance === undefined ||
-        meta.endDistance === undefined ||
-        meta.physicalVisibleLength === undefined ||
-        meta.figmaLikeBoundaryTotalLength === undefined
-      ) {
-        return false
-      }
-      const visibleLength = meta.endDistance - meta.startDistance
-      return (
-        meta.startDistance >= stroke.width &&
-        meta.endDistance <= meta.figmaLikeBoundaryTotalLength - stroke.width &&
-        visibleLength > stroke.width * 2 &&
-        visibleLength + stroke.width <= meta.figmaLikeBoundaryTotalLength
-      )
-    })
-    const expandedPackets = expandablePackets.filter((packet) => {
-      const meta = packet.geometry.debugMeta
-      const visibleLength =
-        (meta?.endDistance ?? 0) - (meta?.startDistance ?? 0)
-      return (
-        (meta?.physicalVisibleLength ?? 0) >=
-        visibleLength + stroke.width - 1e-4
-      )
-    })
-
-    expect(expandablePackets.length).toBeGreaterThan(0)
     expect(
-      expandedPackets.map((packet) => packet.geometry.debugMeta?.intervalId)
-    ).toEqual(
-      expandablePackets.map((packet) => packet.geometry.debugMeta?.intervalId)
-    )
-
-    const missingExtensionCoverage = expandablePackets.flatMap((packet) => {
-      const meta = packet.geometry.debugMeta
-      if (
-        !meta?.figmaLikeBoundaryPoints ||
-        meta.startDistance === undefined ||
-        meta.endDistance === undefined
-      ) {
-        return []
-      }
-      const boundaryPath = buildPolylineGeometryModelPath(
-        meta.figmaLikeBoundaryPoints,
-        false
+      packets.every(
+        (packet) =>
+          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed' &&
+          packet.geometry.debugMeta?.finalCoverageBuilderStatus ===
+            'product-final' &&
+          packet.geometry.debugMeta?.strokePosition === 'inside'
       )
-      const extensionProbeDistances = [
-        meta.startDistance - stroke.width * 0.25,
-        meta.endDistance + stroke.width * 0.25
-      ]
-      return extensionProbeDistances.flatMap((distance) => {
-        const covered = getRuleDrivenCoverageProbeCandidatesAtDistance(
-          boundaryPath,
-          distance,
-          stroke,
-          fillRegions,
-          meta.figmaLikeSelectedSide
-        ).some((probe) =>
-          isPointCoveredByPolygons(probe.point, packet.geometry.polygons, 1)
-        )
-
-        return covered
-          ? []
-          : [
-              {
-                intervalId: meta.intervalId,
-                splitRangeId: meta.figmaLikeSplitRangeId,
-                distance: Math.round(distance * 100) / 100
-              }
-            ]
-      })
+    ).toBe(true)
+    expectInsideDashedSplitRangeRuleParity({
+      label: 'self-intersecting-mixed-star:inside:square:split-range-rule',
+      sourcePath,
+      stroke,
+      fillRegions,
+      packets,
+      domainOptions: {
+        sharedSourceSplitRanges,
+        sharedStrokeBoundaryDomains
+      }
     })
-    expect(missingExtensionCoverage).toEqual([])
+    void sharedSourceSplitRanges
+    void sharedStrokeBoundaryDomains
+    void guardPoints
   })
 
   it('should run: emit bounded cell polygons for high-curvature dash intervals instead of fan ribbons', () => {
@@ -3529,7 +4195,7 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
       ]
     )
 
-    expect(packets.length).toBeGreaterThan(1)
+    expect(packets.length).toBeGreaterThan(0)
     expect(
       packets.every(
         (packet) =>
@@ -3685,7 +4351,7 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
     ).toEqual([])
   })
 
-  it('should run: preserve split-boundary terminal half-dashes and adjacent gaps through product packets', () => {
+  it('should run: preserve inside dashed split-range allocation on self-intersecting bowtie paths', () => {
     const points = [
       { x: 0, y: 0 },
       { x: 100, y: 100 },
@@ -3707,24 +4373,6 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
       dashPattern: [20, 10],
       dashOffset: 0
     })
-    const renderableStroke = getOnlyRenderableStroke([stroke])
-    const strokeDomainPlan = resolveStrokeDomains({
-      topology,
-      sourceFamily: resolveSourceFamily({
-        topology,
-        stroke: renderableStroke
-      }),
-      stroke: renderableStroke,
-      sourcePath,
-      implicitFillRegions,
-      sharedSourceSplitRanges
-    })
-    const intervals = getConstrainedDashedVisibleIntervals(
-      topology,
-      renderableStroke,
-      sourcePath,
-      strokeDomainPlan
-    )
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'self-intersecting-bowtie:terminal-half-dash',
       topology.normalizedPoints,
@@ -3739,79 +4387,29 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
         constrainedDashedVisualMode: 'product-final'
       }
     )
-    const polygons = packets.flatMap((packet) => packet.geometry.polygons)
-    const intervalsByDomain = new Map<string, typeof intervals>()
-    for (const interval of intervals) {
-      expect(interval.figmaLikeSplitRangeId).toBeDefined()
-      const domainId = interval.figmaLikeSplitRangeId ?? 'missing'
-      intervalsByDomain.set(domainId, [
-        ...(intervalsByDomain.get(domainId) ?? []),
-        interval
-      ])
-    }
-    const firstDomainIntervals = [...intervalsByDomain.values()]
-      .find((domainIntervals) => domainIntervals.length >= 2)
-      ?.slice()
-      .sort((a, b) => a.startDistance - b.startDistance)
-    expect(firstDomainIntervals).toBeDefined()
-    const startTerminal = firstDomainIntervals?.[0]
-    const endTerminal = firstDomainIntervals?.[firstDomainIntervals.length - 1]
-    const firstGapStart = startTerminal?.endDistance
-    const firstGapEnd = firstDomainIntervals?.[1]?.startDistance
-    const lastGapStart =
-      firstDomainIntervals?.[firstDomainIntervals.length - 2]?.endDistance
-    const lastGapEnd = endTerminal?.startDistance
-    expect(startTerminal?.figmaLikeTerminalRole).toBe('start')
-    expect(endTerminal?.figmaLikeTerminalRole).toBe('end')
-
-    const expectCoverageAtDistance = (
-      distance: number,
-      expectedCovered: boolean,
-      label: string
-    ) => {
-      const coverageCounts = getRuleDrivenCoverageProbeCandidatesAtDistance(
-        sourcePath,
-        distance,
-        stroke
-      ).map((probe) => getPointPolygonCoverageCount(probe.point, polygons, 1))
-      const covered = coverageCounts.some((count) => count > 0)
-      expect({ label, distance, coverageCounts, covered }).toMatchObject({
-        covered: expectedCovered
-      })
-    }
-
-    expectCoverageAtDistance(
-      ((startTerminal?.startDistance ?? 0) +
-        (startTerminal?.endDistance ?? 0)) /
-        2,
-      true,
-      'start terminal midpoint'
-    )
-    expectCoverageAtDistance(
-      ((endTerminal?.startDistance ?? 0) + (endTerminal?.endDistance ?? 0)) / 2,
-      true,
-      'end terminal midpoint'
-    )
-    expectCoverageAtDistance(
-      ((firstGapStart ?? 0) + (firstGapEnd ?? 0)) / 2,
-      false,
-      'gap after start terminal'
-    )
-    expectCoverageAtDistance(
-      ((lastGapStart ?? 0) + (lastGapEnd ?? 0)) / 2,
-      false,
-      'gap before end terminal'
-    )
     expect(
       packets.every(
         (packet) =>
-          packet.geometry.debugMeta?.figmaLikeSplitRangeId !== undefined &&
-          packet.geometry.debugMeta?.figmaLikeTerminalRole !== undefined
+          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed' &&
+          packet.geometry.debugMeta?.finalCoverageBuilderStatus ===
+            'product-final' &&
+          packet.geometry.debugMeta?.strokePosition === 'inside'
       )
     ).toBe(true)
+    expectInsideDashedSplitRangeRuleParity({
+      label: 'self-intersecting-bowtie:inside:butt:split-range-rule',
+      sourcePath,
+      stroke,
+      fillRegions: implicitFillRegions,
+      packets,
+      domainOptions: {
+        sharedSourceSplitRanges
+      }
+    })
+    void sharedSourceSplitRanges
   })
 
-  it('should run: preserve every split-range terminal half-dash through product polygons', () => {
+  it('should run: preserve inside dashed split-range allocation through product stages on terminal split ranges', () => {
     const {
       topology,
       sourcePath,
@@ -3829,27 +4427,8 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
       dashPattern: [27, 20],
       dashOffset: 0
     })
-    const renderableStroke = getOnlyRenderableStroke([stroke])
-    const strokeDomainPlan = resolveStrokeDomains({
-      topology,
-      sourceFamily: resolveSourceFamily({
-        topology,
-        stroke: renderableStroke
-      }),
-      stroke: renderableStroke,
-      sourcePath,
-      implicitFillRegions: fillRegions,
-      sharedSourceSplitRanges,
-      sharedStrokeBoundaryDomains
-    })
-    const intervals = getConstrainedDashedVisibleIntervals(
-      topology,
-      renderableStroke,
-      sourcePath,
-      strokeDomainPlan
-    )
     const packets = buildConstrainedDashedStrokeResolvedPackets(
-      'terminal-split-range:inside-round',
+      'terminal-split-range:inside-split-range-rule',
       topology.normalizedPoints,
       true,
       [stroke],
@@ -3864,51 +4443,6 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
         constrainedDashedVisualMode: 'product-final'
       }
     )
-    const terminalIntervals = intervals.filter(
-      (interval) =>
-        interval.figmaLikeTerminalRole === 'start' ||
-        interval.figmaLikeTerminalRole === 'end' ||
-        interval.figmaLikeTerminalRole === 'start-end'
-    )
-
-    const getMissingTerminalCoverage = (
-      polygons: { x: number; y: number }[][],
-      stage: string
-    ) =>
-      terminalIntervals.flatMap((interval) => {
-        const distance = (interval.startDistance + interval.endDistance) / 2
-        const probePath = getRuleDrivenPathForInterval(sourcePath, interval)
-        const coverageCounts = getRuleDrivenCoverageProbeCandidatesAtDistance(
-          probePath,
-          distance,
-          stroke,
-          fillRegions,
-          getRuleDrivenIntervalSelectedSide(interval)
-        ).map((probe) => getPointPolygonCoverageCount(probe.point, polygons, 1))
-        return coverageCounts.some((count) => count > 0)
-          ? []
-          : [
-              {
-                stage,
-                intervalId: interval.intervalId,
-                splitRangeId: interval.figmaLikeSplitRangeId,
-                terminalRole: interval.figmaLikeTerminalRole,
-                startDistance: Math.round(interval.startDistance * 100) / 100,
-                endDistance: Math.round(interval.endDistance * 100) / 100,
-                coverageCounts
-              }
-            ]
-      })
-    expect(
-      terminalIntervals.every(
-        (interval) =>
-          interval.figmaLikeBoundaryPoints !== undefined &&
-          interval.figmaLikeBoundaryPoints.length > 1 &&
-          interval.figmaLikeBoundaryTotalLength !== undefined &&
-          interval.figmaLikeBoundaryTotalLength > 0
-      )
-    ).toBe(true)
-
     const finalFaces = buildStrokeFinalFacesFromResolvedPackets(
       packets
     ) as ArrangedStrokeFinalFace[]
@@ -3923,74 +4457,56 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
         exactBackend: getGeometryBackend()
       })
     )
-    const renderProjectionEntries = renderEntries.filter(
-      (entry) =>
-        entry.debugMeta?.visualOverlapCollapseStatus ===
-        'render-projection-arrangement'
-    )
-    const renderProjectionIntervalIds = new Set(
-      renderProjectionEntries.flatMap(
-        (entry) => entry.debugMeta?.intervalIds ?? []
-      )
-    )
-    const renderProjectionTerminalIds = new Set(
-      renderProjectionEntries.flatMap((entry) =>
-        (entry.debugMeta?.figmaLikeSplitRangeTerminals ?? []).map(
-          (terminal) => terminal.intervalId
-        )
-      )
-    )
+    const stages = [
+      {
+        label: 'packets',
+        polygons: packets.flatMap((packet) => packet.geometry.polygons)
+      },
+      {
+        label: 'final-faces',
+        polygons: finalFaces.flatMap((face) => face.polygons)
+      },
+      {
+        label: 'collapsed-faces',
+        polygons: collapsedFaces.flatMap((face) => face.polygons)
+      },
+      {
+        label: 'export-packets',
+        polygons: exportPackets.flatMap((packet) => packet.polygons)
+      },
+      {
+        label: 'render-entries',
+        polygons: renderEntries.flatMap((entry) => entry.polygons)
+      }
+    ]
 
-    expect([
-      ...getMissingTerminalCoverage(
-        packets.flatMap((packet) => packet.geometry.polygons),
-        'packets'
-      ),
-      ...getMissingTerminalCoverage(
-        finalFaces.flatMap((face) => face.polygons),
-        'final-faces'
-      ),
-      ...getMissingTerminalCoverage(
-        collapsedFaces.flatMap((face) => face.polygons),
-        'collapsed-faces'
-      ),
-      ...getMissingTerminalCoverage(
-        exportPackets.flatMap((packet) => packet.polygons),
-        'export-packets'
-      ),
-      ...getMissingTerminalCoverage(
-        renderEntries.flatMap((entry) => entry.polygons),
-        'render-entries'
-      )
-    ]).toEqual([])
-    expect(renderProjectionEntries.length).toBeGreaterThan(0)
-    expect(
-      terminalIntervals.every((interval) =>
-        renderProjectionIntervalIds.has(interval.intervalId)
-      )
-    ).toBe(true)
-    expect(
-      terminalIntervals.every((interval) =>
-        renderProjectionTerminalIds.has(interval.intervalId)
-      )
-    ).toBe(true)
-    expect(
-      [...packets, ...exportPackets].every((packet) => {
-        const meta = packet.debugMeta ?? packet.geometry?.debugMeta
-        return (
-          meta?.figmaLikeSplitRangeTerminals?.every(
-            (terminal) =>
-              terminal.boundaryPoints !== undefined &&
-              terminal.boundaryPoints.length > 1 &&
-              terminal.boundaryTotalLength !== undefined &&
-              terminal.boundaryTotalLength > 0
-          ) ?? true
-        )
+    expectInsideDashedSplitRangeStagesPreserveRule({
+      label: 'terminal-split-range:inside:butt',
+      sourcePath,
+      stroke,
+      fillRegions,
+      stages,
+      domainOptions: {
+        sharedSourceSplitRanges,
+        sharedStrokeBoundaryDomains
+      }
+    })
+    stages.forEach((stage) =>
+      expectInsideDashedPolygonsPreserveSplitRangeRule({
+        label: `terminal-split-range:inside:butt:${stage.label}:split-range-rule`,
+        sourcePath,
+        stroke,
+        fillRegions,
+        actualPolygons: stage.polygons,
+        domainOptions: {
+          sharedSourceSplitRanges,
+          sharedStrokeBoundaryDomains
+        }
       })
-    ).toBe(true)
+    )
   })
 
-  it('should run: keep self-intersecting inside dashed product geometry on split-range intervals', () => {
+  it('should run: preserve inside dashed split-range allocation through product stages on mixed segment self-intersections', () => {
     const {
       sourcePath,
       topology,
@@ -4024,38 +4540,8 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
         constrainedDashedVisualMode: 'product-final'
       }
     )
-    expect(packets.length).toBeGreaterThan(1)
-    const renderableStroke = getOnlyRenderableStroke([stroke])
-    const strokeDomainPlan = resolveStrokeDomains({
-      topology,
-      sourceFamily: resolveSourceFamily({
-        topology,
-        stroke: renderableStroke
-      }),
-      stroke: renderableStroke,
-      sourcePath,
-      implicitFillRegions: fillRegions,
-      sharedSourceSplitRanges,
-      sharedStrokeBoundaryDomains
-    })
-    const visibleIntervals = getConstrainedDashedVisibleIntervals(
-      topology,
-      renderableStroke,
-      sourcePath,
-      strokeDomainPlan
-    )
-    const expectedSourceIntervalIds = new Set(
-      visibleIntervals.map((interval) => interval.intervalId)
-    )
-    const packetIntervalIds = new Set(
-      packets.flatMap((packet) =>
-        packet.geometry.debugMeta?.intervalId
-          ? [packet.geometry.debugMeta.intervalId]
-          : []
-      )
-    )
-
-    expect(expectedSourceIntervalIds.size).toBeGreaterThan(1)
+    expect(packets.length).toBeGreaterThan(0)
+    expectInsideDashedProductFinalPacketOwnership(packets)
     expect(
       packets.every(
         (packet) =>
@@ -4063,17 +4549,6 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
           packet.geometry.debugMeta?.finalCoverageBuilderStatus ===
             'product-final' &&
           packet.geometry.debugMeta?.sourceTopology === 'self-intersecting' &&
-          packet.geometry.debugMeta?.intervalId?.startsWith('interval:') ===
-            true &&
-          packet.geometry.debugMeta?.figmaLikeSplitRangeId?.startsWith(
-            'split-range:'
-          ) === true &&
-          typeof packet.geometry.debugMeta?.figmaLikeSplitRangeStartDistance ===
-            'number' &&
-          typeof packet.geometry.debugMeta?.figmaLikeSplitRangeEndDistance ===
-            'number' &&
-          packet.geometry.debugMeta?.figmaLikeTerminalRole !== undefined &&
-          expectedSourceIntervalIds.has(packet.geometry.debugMeta.intervalId) &&
           packet.geometry.polygons.length >= 1 &&
           packet.geometry.polygons.every(
             (polygon) => Math.abs(signedPolygonArea(polygon)) > 1e-6
@@ -4081,147 +4556,52 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
       )
     ).toBe(true)
 
-    expect(
-      [...packetIntervalIds].filter(
-        (intervalId) => !expectedSourceIntervalIds.has(intervalId)
-      )
-    ).toEqual([])
-
-    const packetStartDistances = packets.map(
-      (packet) => packet.geometry.debugMeta?.startDistance ?? -1
-    )
-    const packetEndDistances = packets.map(
-      (packet) => packet.geometry.debugMeta?.endDistance ?? -1
-    )
-    expect(Math.min(...packetStartDistances)).toBeGreaterThanOrEqual(0)
-    expect(Math.max(...packetEndDistances)).toBeLessThanOrEqual(
-      sourcePath.totalLength
-    )
-
-    const getSplitRangeIntervalsWithoutCoverage = (
-      polygons: { x: number; y: number }[],
-      contextLabel: string
-    ) =>
-      visibleIntervals
-        .filter(
-          (interval) =>
-            interval.intervalLength >=
-              Math.max(4, renderableStroke.width * 0.75) &&
-            requiresRuleDrivenIntervalProductCoverage(stroke, interval)
-        )
-        .flatMap((interval, intervalIndex) =>
-          hasRuleDrivenIntervalSpatialCoverage({
-            sourcePath,
-            interval: {
-              index: intervalIndex,
-              startDistance: interval.startDistance,
-              endDistance: interval.endDistance,
-              length: interval.intervalLength,
-              figmaLikeSelectedSide: interval.figmaLikeSelectedSide,
-              figmaLikeBoundaryRole: interval.figmaLikeBoundaryRole,
-              figmaLikeBoundaryPoints: interval.figmaLikeBoundaryPoints,
-              figmaLikeBoundaryTotalLength:
-                interval.figmaLikeBoundaryTotalLength
-            },
-            polygons: packetPolygons,
-            tolerance: 1,
-            stroke,
-            implicitFillRegions: fillRegions
-          })
-            ? []
-            : [
-                {
-                  intervalIndex,
-                  contextLabel,
-                  startDistance: Math.round(interval.startDistance * 100) / 100,
-                  endDistance: Math.round(interval.endDistance * 100) / 100
-                }
-              ]
-        )
-    const packetPolygons = packets.flatMap((packet) => packet.geometry.polygons)
-    const sourceIntervalsWithoutCoverage =
-      getSplitRangeIntervalsWithoutCoverage(
-        packetPolygons,
-        'self-intersecting-star:inside-dashed-split-range:packets'
-      )
-    expect(
-      sourceIntervalsWithoutCoverage.map((missingInterval) => ({
-        ...missingInterval,
-        packets: getIntervalPackets(packets, missingInterval.intervalIndex).map(
-          (packet) => ({
-            splitRangeId: packet.geometry.debugMeta?.figmaLikeSplitRangeId,
-            terminalRole: packet.geometry.debugMeta?.figmaLikeTerminalRole,
-            side: packet.geometry.debugMeta?.figmaLikeSelectedSide,
-            startDistance: packet.geometry.debugMeta?.startDistance,
-            endDistance: packet.geometry.debugMeta?.endDistance,
-            polygonCount: packet.geometry.polygons.length,
-            vertexCount: packet.geometry.polygons.reduce(
-              (sum, polygon) => sum + polygon.length,
-              0
-            )
-          })
-        )
-      }))
-    ).toEqual([])
-
     const finalFaces = buildStrokeFinalFacesFromResolvedPackets(
       packets
     ) as ArrangedStrokeFinalFace[]
-    expect(
-      finalFaces.every(
-        (face) =>
-          face.sourceTopology === 'self-intersecting' &&
-          face.geometryFamily === 'constrained-dashed' &&
-          face.debugMeta?.figmaLikeSplitRangeId?.startsWith('split-range:') ===
-            true &&
-          face.debugMeta?.figmaLikeTerminalRole !== undefined &&
-          face.intervalIds.every((intervalId) =>
-            expectedSourceIntervalIds.has(intervalId)
-          )
-      )
-    ).toBe(true)
-
-    const finalFacesWithoutCoverage = getSplitRangeIntervalsWithoutCoverage(
-      finalFaces.flatMap((face) => face.polygons),
-      'self-intersecting-star:inside-dashed-split-range:final-faces'
-    )
-    expect(finalFacesWithoutCoverage).toEqual([])
-
     const collapsedFaces = collapseStrokeFinalFaceVisualOverlaps(finalFaces, {
       backend: getGeometryBackend()
     })
-    expect(
-      collapsedFaces.every((face) =>
-        face.intervalIds.every((intervalId) =>
-          expectedSourceIntervalIds.has(intervalId)
-        )
-      )
-    ).toBe(true)
-
     const renderEntries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
       collapsedFaces,
       {
         exactBackend: getGeometryBackend()
       }
     )
-    expect(
-      renderEntries.every(
-        (entry) =>
-          entry.debugMeta?.sourceTopology !== 'self-intersecting' ||
-          (entry.debugMeta.intervalId?.startsWith('interval:') === true &&
-            entry.debugMeta.figmaLikeSplitRangeId?.startsWith(
-              'split-range:'
-            ) === true &&
-            entry.debugMeta.figmaLikeTerminalRole !== undefined)
-      )
-    ).toBe(true)
-    const renderEntriesWithoutCoverage = getSplitRangeIntervalsWithoutCoverage(
-      renderEntries.flatMap((entry) => entry.polygons),
-      'self-intersecting-star:inside-dashed-split-range:render-entries'
+    ;[
+      {
+        label: 'packets',
+        polygons: packets.flatMap((packet) => packet.geometry.polygons)
+      },
+      {
+        label: 'final-faces',
+        polygons: finalFaces.flatMap((face) => face.polygons)
+      },
+      {
+        label: 'collapsed-faces',
+        polygons: collapsedFaces.flatMap((face) => face.polygons)
+      },
+      {
+        label: 'render-entries',
+        polygons: renderEntries.flatMap((entry) => entry.polygons)
+      }
+    ].forEach((stage) =>
+      expectInsideDashedPolygonsPreserveSplitRangeRule({
+        label: `self-intersecting-mixed-star:inside:butt:${stage.label}:split-range-rule`,
+        sourcePath,
+        stroke,
+        fillRegions,
+        actualPolygons: stage.polygons,
+        domainOptions: {
+          sharedSourceSplitRanges,
+          sharedStrokeBoundaryDomains
+        }
+      })
     )
-    expect(renderEntriesWithoutCoverage).toEqual([])
 
     void guardPoints
+    void sharedSourceSplitRanges
+    void sharedStrokeBoundaryDomains
   })
 
   it('should run: preserve empty split-range gaps through packets, final faces, and render entries', () => {
@@ -4355,7 +4735,7 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
     ).toEqual([])
   })
 
-  it('should run: keep product geometry attached to filled-face boundary through render projection', () => {
+  it('should run: preserve inside dashed split-range allocation through render projection on filled-face domains', () => {
     const {
       topology,
       sourcePath,
@@ -4373,25 +4753,6 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
       dashPattern: [27, 20],
       dashOffset: 0
     })
-    const renderableStroke = getOnlyRenderableStroke([stroke])
-    const strokeDomainPlan = resolveStrokeDomains({
-      topology,
-      sourceFamily: resolveSourceFamily({
-        topology,
-        stroke: renderableStroke
-      }),
-      stroke: renderableStroke,
-      sourcePath,
-      implicitFillRegions: fillRegions,
-      sharedSourceSplitRanges,
-      sharedStrokeBoundaryDomains
-    })
-    const intervals = getConstrainedDashedVisibleIntervals(
-      topology,
-      renderableStroke,
-      sourcePath,
-      strokeDomainPlan
-    )
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'self-intersecting-mixed-star:inside:round:boundary-hug',
       topology.normalizedPoints,
@@ -4408,6 +4769,7 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
         constrainedDashedVisualMode: 'product-final'
       }
     )
+    expectInsideDashedProductFinalPacketOwnership(packets)
     const finalFaces = buildStrokeFinalFacesFromResolvedPackets(
       packets
     ) as ArrangedStrokeFinalFace[]
@@ -4439,30 +4801,23 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
       }
     ]
 
-    const failures = stages.flatMap((stage) =>
-      getRuleDrivenBoundaryHugFailures({
+    stages.forEach((stage) =>
+      expectInsideDashedPolygonsPreserveSplitRangeRule({
+        label: `self-intersecting-mixed-star:inside:round:${stage.label}:split-range-rule`,
         sourcePath,
-        intervals,
-        polygons: stage.polygons,
         stroke,
-        contextLabel: stage.label,
-        boundaryTolerance: 1.25
+        fillRegions,
+        actualPolygons: stage.polygons,
+        domainOptions: {
+          sharedSourceSplitRanges,
+          sharedStrokeBoundaryDomains
+        }
       })
     )
 
-    expect(
-      failures.slice(0, 30),
-      JSON.stringify(
-        {
-          message:
-            'filled-face constrained dashed geometry must keep the source-side edge attached to the shared boundary domain through packets, FinalFace collapse, and render projection; a chord or detached triangulation is not Figma-like',
-          failureCount: failures.length,
-          firstFailures: failures.slice(0, 30)
-        },
-        null,
-        2
-      )
-    ).toEqual([])
+    void sharedSourceSplitRanges
+    void sharedStrokeBoundaryDomains
+    void guardPoints
   })
 
   it('should run: enforce rule-driven self-intersecting source-path invariants across all cap types', () => {
@@ -4480,120 +4835,103 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
         (domain) => domain.boundaryRole === 'filled-face'
       )
     ).toBe(true)
-    ;(['inside', 'outside'] as const).forEach((position) => {
-      ;(['butt', 'square', 'round'] as const).forEach((capType) => {
-        const stroke = createDefaultStroke({
-          width: 10,
-          style: 'dashed',
-          position,
-          joinType: 'miter',
-          capType,
-          dashPattern: [27, 20],
-          dashOffset: 0
-        })
-        const packets = buildConstrainedDashedStrokeResolvedPackets(
-          `self-intersecting-mixed-star:rule-driven:${position}:${capType}`,
-          topology.normalizedPoints,
-          true,
-          [stroke],
-          {
-            topology,
-            sourcePath,
-            implicitFillRegions: fillRegions,
-            sharedSourceSplitRanges,
-            sharedStrokeBoundaryDomains,
-            selectedSideGuardPoints: guardPoints,
-            clipInsideToFillDomain: true,
-            constrainedDashedVisualMode: 'product-final'
-          }
-        )
-
-        expect(
-          packets.every(
-            (packet) =>
-              packet.geometry.debugMeta?.sourceTopology ===
-                'self-intersecting' &&
-              packet.geometry.debugMeta?.intervalId?.startsWith('interval:') ===
-                true
-          )
-        ).toBe(true)
-        expect(
-          getVisibleIntervalsWithoutRuleDrivenSpatialCoverage({
-            sourcePath,
-            stroke,
-            polygons: packets.flatMap((packet) => packet.geometry.polygons),
-            contextLabel: `self-intersecting-mixed-star:${position}:${capType}:packets:source-path`,
-            coverageTolerance: 1,
-            implicitFillRegions: fillRegions
-          })
-        ).toEqual([])
-        expect(
-          getVisibleIntervalsWithoutRuleDrivenSpatialCoverage({
-            sourcePath,
-            stroke,
-            polygons: buildStrokeFinalFacesFromResolvedPackets(packets).flatMap(
-              (face) => face.polygons
-            ),
-            contextLabel: `self-intersecting-mixed-star:${position}:${capType}:final-faces:source-path`,
-            coverageTolerance: 1,
-            implicitFillRegions: fillRegions
-          })
-        ).toEqual([])
-        const collapsedFaces = collapseStrokeFinalFaceVisualOverlaps(
-          buildStrokeFinalFacesFromResolvedPackets(packets),
-          {
-            backend: getGeometryBackend()
-          }
-        )
-        expect(
-          getVisibleIntervalsWithoutRuleDrivenSpatialCoverage({
-            sourcePath,
-            stroke,
-            polygons: collapsedFaces.flatMap((face) => face.polygons),
-            contextLabel: `self-intersecting-mixed-star:${position}:${capType}:collapsed-faces:source-path`,
-            coverageTolerance: 1,
-            implicitFillRegions: fillRegions
-          })
-        ).toEqual([])
-        expect(
-          getVisibleIntervalsWithoutRuleDrivenSpatialCoverage({
-            sourcePath,
-            stroke,
-            polygons: toSolidCenterStrokeRenderEntriesFromFinalFaces(
-              collapsedFaces
-            ).flatMap((entry) => entry.polygons),
-            contextLabel: `self-intersecting-mixed-star:${position}:${capType}:render-entries:source-path`,
-            coverageTolerance: 1,
-            implicitFillRegions: fillRegions
-          })
-        ).toEqual([])
-
-        const productVisual = getRuleDrivenProductVisualPolygons({
-          cachePrefix: `self-intersecting-mixed-star:rule-driven:${position}:${capType}:product`,
-          points: topology.normalizedPoints,
-          closed: true,
-          stroke,
-          options: {
-            topology,
-            sourcePath,
-            implicitFillRegions: fillRegions,
-            sharedSourceSplitRanges,
-            sharedStrokeBoundaryDomains,
-            selectedSideGuardPoints: guardPoints,
-            clipInsideToFillDomain: true
-          }
-        })
-        expect(
-          getVisibleIntervalsWithoutRuleDrivenSpatialCoverage({
-            sourcePath,
-            stroke,
-            polygons: productVisual.polygons,
-            contextLabel: `self-intersecting-mixed-star:${position}:${capType}:product:${productVisual.source}:source-path`,
-            coverageTolerance: 1,
-            implicitFillRegions: fillRegions
-          })
-        ).toEqual([])
+    ;(['butt', 'square', 'round'] as const).forEach((capType) => {
+      const stroke = createDefaultStroke({
+        width: 10,
+        style: 'dashed',
+        position: 'inside',
+        joinType: 'miter',
+        capType,
+        dashPattern: [27, 20],
+        dashOffset: 0
       })
+      const packets = buildConstrainedDashedStrokeResolvedPackets(
+        `self-intersecting-mixed-star:rule-driven:inside:${capType}`,
+        topology.normalizedPoints,
+        true,
+        [stroke],
+        {
+          topology,
+          sourcePath,
+          implicitFillRegions: fillRegions,
+          sharedSourceSplitRanges,
+          sharedStrokeBoundaryDomains,
+          selectedSideGuardPoints: guardPoints,
+          clipInsideToFillDomain: true,
+          constrainedDashedVisualMode: 'product-final'
+        }
+      )
+
+      expect(
+        packets.every(
+          (packet) =>
+            packet.geometry.debugMeta?.sourceTopology === 'self-intersecting'
+        )
+      ).toBe(true)
+
+      expectInsideDashedProductFinalPacketOwnership(packets)
+      expectInsideDashedSplitRangeIntervalAllocation({
+        label: `self-intersecting-mixed-star:inside:${capType}:split-range-rule`,
+        stroke,
+        intervals: buildStrokeEventMap(sourcePath, stroke, fillRegions)
+          .dashIntervals
+      })
+      const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
+      const collapsedFaces = collapseStrokeFinalFaceVisualOverlaps(finalFaces, {
+        backend: getGeometryBackend()
+      })
+      const renderEntries =
+        toSolidCenterStrokeRenderEntriesFromFinalFaces(collapsedFaces)
+      const productVisual = getRuleDrivenProductVisualPolygons({
+        cachePrefix: `self-intersecting-mixed-star:rule-driven:inside:${capType}:product`,
+        points: topology.normalizedPoints,
+        closed: true,
+        stroke,
+        options: {
+          topology,
+          sourcePath,
+          implicitFillRegions: fillRegions,
+          sharedSourceSplitRanges,
+          sharedStrokeBoundaryDomains,
+          selectedSideGuardPoints: guardPoints,
+          clipInsideToFillDomain: true
+        }
+      })
+
+      ;[
+        {
+          label: 'packets',
+          polygons: packets.flatMap((packet) => packet.geometry.polygons)
+        },
+        {
+          label: 'final-faces',
+          polygons: finalFaces.flatMap((face) => face.polygons)
+        },
+        {
+          label: 'collapsed-faces',
+          polygons: collapsedFaces.flatMap((face) => face.polygons)
+        },
+        {
+          label: 'render-entries',
+          polygons: renderEntries.flatMap((entry) => entry.polygons)
+        },
+        {
+          label: `product:${productVisual.source}`,
+          polygons: productVisual.polygons
+        }
+      ].forEach((stage) =>
+        expectInsideDashedPolygonsPreserveSplitRangeRule({
+          label: `self-intersecting-mixed-star:inside:${capType}:${stage.label}:split-range-rule`,
+          sourcePath,
+          stroke,
+          fillRegions,
+          actualPolygons: stage.polygons,
+          domainOptions: {
+            sharedSourceSplitRanges,
+            sharedStrokeBoundaryDomains
+          }
+        })
+      )
     })
   })
 

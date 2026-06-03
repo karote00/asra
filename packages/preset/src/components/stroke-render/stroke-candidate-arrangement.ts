@@ -981,6 +981,10 @@ const getSelfIntersectingConstrainedDashedCoverageUnitKey = (
     return null
   }
 
+  if (face.debugMeta?.strokePosition === 'inside') {
+    return null
+  }
+
   const intervalIds =
     face.intervalIds.length > 0
       ? face.intervalIds

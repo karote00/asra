@@ -66,17 +66,31 @@ For self-intersecting inside solid shapes in grid/vector-network state:
   and coverage probes are evidence only and must not become product-visible
   stroke geometry.
 
-Dashed constrained strokes remain a separate interval-domain model. Dashed
-split-segment intervals, terminal half-dashes, caps, and provenance must not be
-used to define solid visible geometry.
+Dashed constrained strokes remain a separate interval-domain model for dash
+allocation, but constrained `inside` dashed visible geometry follows the same
+Figma-style mask rule as constrained solid geometry. For each split source
+range, allocate visible intervals with half-dash terminals at both cut ends and
+evenly distributed middle gaps; then build the authored center dashed stroke at
+twice the requested stroke width, preserving `strokeCap`, `strokeJoin`, and
+`strokeMiterLimit`, and clip that doubled center-stroke product with the
+filled-region mask for `inside`. The clipped result is the visible product
+geometry. Direct selected-side ribbons, local-side fallback strips, and
+derivation helpers are evidence only and must not define product-visible inside
+dashed pixels.
 
 ### Inspector Flow Requirements
 
 - Step 17 builds stroke candidates by model: solid uses the doubled authored
-  center-stroke candidate plus mask provenance; dashed uses interval candidates.
+  center-stroke candidate plus mask provenance; dashed uses interval candidates
+  for allocation and, for constrained `inside`, a doubled authored center-dashed
+  product candidate for visible geometry.
 - Step 20 applies solid legality by clipping the doubled authored center-stroke
   candidate with the correct mask. It may keep diagnostic derivation evidence,
   but visible solid render must not be built from that evidence.
+- Step 20 applies dashed `inside` legality by clipping each doubled
+  center-dashed product interval with the filled-region mask. Empty clip results
+  are illegal fragments and must be dropped, not replaced by selected-side
+  fallback geometry.
 - Step 24 and Step 25 must carry model-separated render, hit, and export
   descriptors. Solid visible render must consume the masked authored stroke
   descriptor; hit/export may use coverage evidence only when it cannot affect

@@ -79,12 +79,13 @@
       row: 'self-intersecting-solid-outside',
       requiredEvidence:
         'Doubled authored center stroke clipped by exterior mask with no visible bridge or cut seams.',
-      status: 'guarded: keep revalidation requirement before whole-matrix closure'
+      status:
+        'guarded: keep revalidation requirement before whole-matrix closure'
     },
     {
       row: 'dashed-constrained-strokes',
       requiredEvidence:
-        'Interval-domain dash allocation, terminal half-dashes, cap behavior, and provenance remain separate from solid visible geometry.',
+        'Interval-domain dash allocation, terminal half-dashes, cap behavior, and provenance remain separate from solid visible geometry; constrained inside dashed visible product geometry is doubled authored center-dashed stroke clipped by the inside filled-region mask, not one-sided ribbon fallback.',
       status: 'guarded: keep regression evidence separate from solid rules'
     },
     {
@@ -237,7 +238,7 @@
       'Stroke Pipeline',
       3,
       'Build stroke candidates',
-      'Build model-specific candidates: doubled authored center-stroke candidates for solid, interval candidates for dashed.'
+      'Build model-specific candidates: doubled authored center-stroke candidates for solid, interval candidates for dashed allocation, and doubled center-dashed product candidates for constrained inside dashed visible geometry.'
     ],
     [
       'partition-arrangement-faces',
