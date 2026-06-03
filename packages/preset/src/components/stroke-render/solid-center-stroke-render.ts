@@ -47,12 +47,12 @@ export interface SolidCenterStrokeRenderEntry {
     strokePathStyle?: Pick<
       RenderableStroke,
       'width' | 'cap' | 'join' | 'miterLimit'
-    >
+    > & { closed?: boolean }
   }[]
   strokePathStyle?: Pick<
     RenderableStroke,
     'width' | 'cap' | 'join' | 'miterLimit'
-  >
+  > & { closed?: boolean }
   paintBounds?: Bounds
   debugMeta?: SolidCenterStrokeGeometryDebugMeta
   runtimeMeta?: SolidCenterStrokeRuntimeMeta
@@ -173,7 +173,8 @@ const getStrokePathStyleSignature = (
         style.width.toFixed(3),
         style.cap,
         style.join,
-        style.miterLimit.toFixed(3)
+        style.miterLimit.toFixed(3),
+        style.closed === undefined ? 'auto' : style.closed ? 'closed' : 'open'
       ].join(':')
     : ''
 
@@ -384,7 +385,9 @@ const drawPolygon = (graphics: Graphics, polygon: Vec2[]) => {
 const drawStrokePaths = (
   graphics: Graphics,
   paths: Vec2[][],
-  style: Pick<RenderableStroke, 'width' | 'cap' | 'join' | 'miterLimit'>,
+  style: Pick<RenderableStroke, 'width' | 'cap' | 'join' | 'miterLimit'> & {
+    closed?: boolean
+  },
   color: number,
   alpha: number
 ) => {
@@ -396,10 +399,11 @@ const drawStrokePaths = (
     }
     const first = path[0]
     const last = path[path.length - 1]
-    const closed =
+    const autoClosed =
       path.length > 2 &&
       Math.abs(first.x - last.x) < 1e-6 &&
       Math.abs(first.y - last.y) < 1e-6
+    const closed = style.closed ?? autoClosed
     const drawablePath = closed ? path.slice(0, -1) : path
 
     graphics.moveTo(first.x, first.y)
@@ -684,12 +688,6 @@ const hasPaintDirtyKey = (dirtyKeys: StrokeDirtyKey[] | null) =>
   dirtyKeys === null || dirtyKeys.includes('paint-payload')
 
 const shouldRenderSolidWithMask = (entry: SolidCenterStrokeRenderEntry) =>
-  ((entry.runtimeMeta?.geometryFamily ?? entry.debugMeta?.geometryFamily) ===
-    'solid-center' &&
-    (entry.runtimeMeta?.sourceTopology ?? entry.debugMeta?.sourceTopology) ===
-      'self-intersecting' &&
-    (entry.runtimeMeta?.visualOverlapCollapseStatus ??
-      entry.debugMeta?.visualOverlapCollapseStatus) === 'exact-union') ||
   (entry.clipPolygons !== undefined && entry.clipPolygons.length > 0) ||
   (entry.fillPolygons !== undefined && entry.fillPolygons.length > 0) ||
   (entry.strokeMaskPolygons !== undefined &&

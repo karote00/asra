@@ -62,6 +62,7 @@ export interface SolidCenterStrokeRenderDescriptor {
       cap: 'butt' | 'square' | 'round' | 'none'
       join: 'miter' | 'bevel' | 'round'
       miterLimit: number
+      closed?: boolean
     }
   }[]
   strokePathStyle?: {
@@ -69,6 +70,7 @@ export interface SolidCenterStrokeRenderDescriptor {
     cap: 'butt' | 'square' | 'round' | 'none'
     join: 'miter' | 'bevel' | 'round'
     miterLimit: number
+    closed?: boolean
   }
 }
 
@@ -365,6 +367,99 @@ const getBounds = (polygons: Vec2[][]): Bounds => {
   return { minX, minY, maxX, maxY }
 }
 
+const getSignedArea = (polygon: Vec2[]) => {
+  let area = 0
+  for (let index = 0; index < polygon.length; index += 1) {
+    const current = polygon[index]
+    const next = polygon[(index + 1) % polygon.length]
+    area += current.x * next.y - next.x * current.y
+  }
+  return area / 2
+}
+
+const normalizeCoverageWinding = (polygon: Vec2[]) =>
+  getSignedArea(polygon) < 0 ? [...polygon].reverse() : polygon
+
+const unionCoveragePolygons = (polygons: Vec2[][]) => {
+  if (polygons.length <= 1) {
+    return polygons
+  }
+  try {
+    const backend = getGeometryBackend()
+    if (!backend.capabilities.union) {
+      return polygons
+    }
+    const unioned = backend
+      .union(
+        polygons.map((polygon) => ({
+          polygons: [normalizeCoverageWinding(polygon)]
+        })),
+        'nonzero'
+      )
+      .flatMap((region) => region.polygons)
+    return unioned.length > 0 ? unioned : polygons
+  } catch {
+    return polygons
+  }
+}
+
+const buildSelfIntersectingSolidCenterStrokePolygons = (
+  points: Vec2[],
+  closed: boolean,
+  stroke: Parameters<typeof buildSolidCenterStrokePolygons>[2]
+) => {
+  if (!closed || points.length < 2) {
+    return buildSolidCenterStrokePolygons(points, closed, stroke)
+  }
+
+  const [firstPoint] = points
+  const lastPoint = points[points.length - 1]
+  const openStrokePath =
+    Math.abs(firstPoint.x - lastPoint.x) < 1e-6 &&
+    Math.abs(firstPoint.y - lastPoint.y) < 1e-6
+      ? points
+      : [...points, firstPoint]
+
+  try {
+    const backend = getGeometryBackend()
+    if (backend.capabilities.offset) {
+      const backendPolygons = backend
+        .offset(openStrokePath, stroke.width / 2, {
+          width: stroke.width,
+          join: stroke.join,
+          cap: 'butt',
+          closed: false,
+          miterLimit: stroke.miterLimit,
+          fillRule: 'nonzero'
+        })
+        .flatMap((region) => region.polygons)
+      if (backendPolygons.length > 0) {
+        return backendPolygons
+      }
+    }
+  } catch {
+    // Fall back to the local polygon builder below.
+  }
+
+  return buildSolidCenterStrokePolygons(openStrokePath, false, {
+    ...stroke,
+    cap: 'butt'
+  })
+}
+
+const buildClosedStrokePath = (points: Vec2[], closed: boolean) => {
+  if (!closed || points.length < 2) {
+    return points
+  }
+
+  const [firstPoint] = points
+  const lastPoint = points[points.length - 1]
+  return Math.abs(firstPoint.x - lastPoint.x) < 1e-6 &&
+    Math.abs(firstPoint.y - lastPoint.y) < 1e-6
+    ? points
+    : [...points, firstPoint]
+}
+
 const doBoundsOverlap = (left: Bounds, right: Bounds) =>
   left.minX < right.maxX &&
   right.minX < left.maxX &&
@@ -484,11 +579,18 @@ export const buildSolidCenterStrokeResolvedPackets = (
       return []
     }
 
-    const polygons = buildSolidCenterStrokePolygons(
-      topologyPoints,
-      topology.closed,
-      stroke
-    )
+    const rawPolygons =
+      sourceTopology === 'self-intersecting'
+        ? buildSelfIntersectingSolidCenterStrokePolygons(
+            topologyPoints,
+            topology.closed,
+            stroke
+          )
+        : buildSolidCenterStrokePolygons(topologyPoints, topology.closed, stroke)
+    const polygons =
+      sourceTopology === 'self-intersecting'
+        ? unionCoveragePolygons(rawPolygons)
+        : rawPolygons
     if (polygons.length === 0) {
       return []
     }
@@ -500,6 +602,19 @@ export const buildSolidCenterStrokeResolvedPackets = (
           geometryId,
           polygons,
           bounds: getBounds(polygons),
+          renderDescriptor:
+            sourceTopology === 'self-intersecting'
+              ? {
+                  strokePaths: [buildClosedStrokePath(topologyPoints, closed)],
+                  strokePathStyle: {
+                    width: stroke.width,
+                    cap: 'butt',
+                    join: stroke.join,
+                    miterLimit: stroke.miterLimit,
+                    closed: false
+                  }
+                }
+              : undefined,
           debugMeta: {
             sourcePathId: cachePrefix,
             ownerKey: options.metadata?.ownerKeyPrefix
@@ -513,6 +628,10 @@ export const buildSolidCenterStrokeResolvedPackets = (
             resolutionStatus: 'native-center',
             runtimeStatus: 'not-applicable',
             runtimeReason: 'center-stroke',
+            visualOverlapCollapseStatus:
+              sourceTopology === 'self-intersecting'
+                ? 'exact-union'
+                : undefined,
             sourceTopology,
             topologyFamily: topology.topologyFamily,
             revisionSet: buildStrokeRuntimeRevisionSet({
@@ -851,9 +970,9 @@ const buildRenderEntryFromFinalFace = (
     revisionSet: runtimeMeta.revisionSet,
     preferSolidGraphics:
       face.geometryFamily === 'constrained-dashed' &&
-      (face.debugMeta?.finalCoverageBuilderStatus === 'product-final' ||
-        (face.debugMeta?.intervalTopology === 'full-loop' &&
-          face.debugMeta?.strokePosition === 'inside'))
+        (face.debugMeta?.finalCoverageBuilderStatus === 'product-final' ||
+          (face.debugMeta?.intervalTopology === 'full-loop' &&
+            face.debugMeta?.strokePosition === 'inside'))
   }
 }
 

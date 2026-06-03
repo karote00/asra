@@ -165,6 +165,16 @@ const DASHED_EXACT_OVERLAP_CASES = CANONICAL_SELF_CHECK_SOURCE_FIXTURES.flatMap(
     }))
 )
 
+const SOLID_CENTER_EXACT_OVERLAP_CASES =
+  CANONICAL_SELF_CHECK_SOURCE_FIXTURES.flatMap((sourceFixture) =>
+    SOLID_JOINS.map((joinType) => ({
+      key: `solid:center:${joinType}`,
+      position: 'center' as const,
+      joinType,
+      sourceFixture
+    }))
+  )
+
 const DASHED_OUTSIDE_SOURCE_JOIN_CASES =
   CANONICAL_SELF_CHECK_SOURCE_FIXTURES.flatMap((sourceFixture) =>
     DASHED_SOURCE_JOINS.map((joinType) => ({
@@ -990,6 +1000,36 @@ const getSelfCheckLegalRegionsForSourceFixture = (
     ? getCanonicalSelfCheckOptions()
     : getSelfIntersectingOptions(SELF_CHECK_STAR_POINTS)
   ).implicitFillRegions
+
+const getSelfCheckSourcePointsForFixture = (
+  sourceFixture: (typeof CANONICAL_SELF_CHECK_SOURCE_FIXTURES)[number]
+) =>
+  sourceFixture.useCurvedSourcePath
+    ? buildSelfCheckVectorSourcePath().sampledPoints
+    : SELF_CHECK_STAR_POINTS
+
+const buildSolidCenterPacketsForSelfCheckSourceFixture = ({
+  joinType,
+  sourceFixture
+}: {
+  joinType: StrokeJoin
+  sourceFixture: (typeof CANONICAL_SELF_CHECK_SOURCE_FIXTURES)[number]
+}) => {
+  const stroke = createDefaultStroke({
+    style: 'solid',
+    position: 'center',
+    width: 10,
+    joinType,
+    capType: 'round',
+    miterAngle: 28.96
+  })
+  return buildSolidCenterStrokeResolvedPackets(
+    `canonical:solid:center:${joinType}:${sourceFixture.key}`,
+    getSelfCheckSourcePointsForFixture(sourceFixture),
+    true,
+    [stroke]
+  )
+}
 
 const buildSolidPacketsForPoints = ({
   points,
@@ -2905,6 +2945,97 @@ describe('canonical stroke 18-combination matrix', () => {
         totalArea: expect.any(Number)
       })
       expect(overlapArea).toBeLessThanOrEqual(maxAllowedArea)
+    }
+  )
+
+  it.each(SOLID_CENTER_EXACT_OVERLAP_CASES)(
+    'should run: solid center $joinType has no exact same-paint overlap on $sourceFixture.key',
+    ({ key, joinType, sourceFixture }) => {
+      const packets = buildSolidCenterPacketsForSelfCheckSourceFixture({
+        joinType,
+        sourceFixture
+      })
+      assertPipelineCompleteness({
+        key: `${key}:${sourceFixture.key}:exact-overlap`,
+        packets
+      })
+      const renderEntries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
+        buildStrokeFinalFacesFromResolvedPackets(packets)
+      )
+      expect(
+        renderEntries.every(
+          (entry) =>
+            entry.runtimeMeta?.sourceTopology !== 'self-intersecting' ||
+            entry.runtimeMeta?.visualOverlapCollapseStatus === 'exact-union'
+        ),
+        `${key}:${sourceFixture.key}:solid-center-exact-union-render-contract`
+      ).toBe(true)
+      const stagePolygons = [
+        {
+          stage: 'packet',
+          polygons: packets.flatMap((packet) => packet.geometry.polygons)
+        },
+        {
+          stage: 'render-entry',
+          polygons: renderEntries.flatMap((entry) =>
+            getVisibleStrokePolygonsForRenderEntry(entry)
+          )
+        }
+      ]
+      const failures = stagePolygons
+        .map(({ stage, polygons }) => {
+          const totalArea = getTotalAbsArea(polygons)
+          const overlapArea = getExactOverlapAreaForTest(polygons)
+          return {
+            stage,
+            polygons,
+            totalArea,
+            overlapArea,
+            maxAllowedArea: getGeometryAreaToleranceForTest(totalArea)
+          }
+        })
+        .filter(
+          ({ overlapArea, maxAllowedArea }) => overlapArea > maxAllowedArea
+        )
+
+      failures.forEach((failure) => {
+        const localPoint = getPolygonAveragePointForTest(
+          getLargestAreaPolygonForTest(failure.polygons)
+        )
+        const sourceLocation = getNearestSelfCheckSourceLocation(localPoint)
+        recordFailureArtifact({
+          errorCode: 'STROKE_OVERLAP',
+          caseKey: `${key}:${sourceFixture.key}`,
+          summary: `${key}:${sourceFixture.key} ${failure.stage} has exact same-paint overlap.`,
+          fixtureKind: 'self-check-star',
+          localPoint,
+          sourceSegmentId: sourceLocation.sourceSegmentId,
+          nearestAnchorId: sourceLocation.nearestAnchorId,
+          t: sourceLocation.t,
+          side: 'overlap',
+          expected: {
+            maxOverlapArea: failure.maxAllowedArea
+          },
+          actual: {
+            overlapArea: failure.overlapArea,
+            totalArea: failure.totalArea
+          },
+          recommendedViewport: {
+            zoom: 8,
+            center: sourceLocation.projectedPoint
+          }
+        })
+      })
+
+      expect(
+        failures.map(({ stage, overlapArea, maxAllowedArea, totalArea }) => ({
+          stage,
+          overlapArea,
+          maxAllowedArea,
+          totalArea
+        })),
+        `${key}:${sourceFixture.key}:exact-overlap`
+      ).toEqual([])
     }
   )
 

@@ -2948,6 +2948,15 @@ const renderVectorGraphic = (
     shouldDisableVisualOverlapCollapse
       ? []
       : networkPaths.flatMap(({ network, topology }) => {
+          const resolvedSelfIntersectingGeometry =
+            resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
+          if (
+            topology.topologyFamily === 'self-intersecting' ||
+            (resolvedSelfIntersectingGeometry?.sourceSplitRanges.length ?? 0) >
+              0
+          ) {
+            return []
+          }
           const renderStrokesForNetwork = topology.closed
             ? renderData.strokes
             : mapOpenPathStrokePositionToCenter(renderData.strokes)
