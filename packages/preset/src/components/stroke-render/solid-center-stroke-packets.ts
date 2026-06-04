@@ -332,6 +332,7 @@ interface SolidCenterStrokePacketOptions {
     networkId?: string
   }
   topology?: PathTopologyModel
+  preferStrokePathRenderDescriptor?: boolean
 }
 
 const mapCenterTopologyToSourceTopology = (
@@ -460,6 +461,39 @@ const buildClosedStrokePath = (points: Vec2[], closed: boolean) => {
     : [...points, firstPoint]
 }
 
+const buildInflatedBoundsPolygon = (points: Vec2[], padding: number) => {
+  if (points.length === 0) {
+    return []
+  }
+
+  let minX = Number.POSITIVE_INFINITY
+  let minY = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+  points.forEach((point) => {
+    minX = Math.min(minX, point.x)
+    minY = Math.min(minY, point.y)
+    maxX = Math.max(maxX, point.x)
+    maxY = Math.max(maxY, point.y)
+  })
+
+  if (
+    !Number.isFinite(minX) ||
+    !Number.isFinite(minY) ||
+    !Number.isFinite(maxX) ||
+    !Number.isFinite(maxY)
+  ) {
+    return []
+  }
+
+  return [
+    { x: minX - padding, y: minY - padding },
+    { x: maxX + padding, y: minY - padding },
+    { x: maxX + padding, y: maxY + padding },
+    { x: minX - padding, y: maxY + padding }
+  ]
+}
+
 const doBoundsOverlap = (left: Bounds, right: Bounds) =>
   left.minX < right.maxX &&
   right.minX < left.maxX &&
@@ -579,8 +613,18 @@ export const buildSolidCenterStrokeResolvedPackets = (
       return []
     }
 
-    const rawPolygons =
-      sourceTopology === 'self-intersecting'
+    const shouldUseStrokePathDescriptor =
+      options.preferStrokePathRenderDescriptor === true &&
+      sourceTopology === 'self-intersecting' &&
+      stroke.kind === 'solid'
+    const rawPolygons = shouldUseStrokePathDescriptor
+      ? [
+          buildInflatedBoundsPolygon(
+            topologyPoints,
+            stroke.width * Math.max(2, Math.min(8, stroke.miterLimit || 4))
+          )
+        ].filter((polygon) => polygon.length >= 3)
+      : sourceTopology === 'self-intersecting'
         ? buildSelfIntersectingSolidCenterStrokePolygons(
             topologyPoints,
             topology.closed,
@@ -592,7 +636,7 @@ export const buildSolidCenterStrokeResolvedPackets = (
             stroke
           )
     const polygons =
-      sourceTopology === 'self-intersecting'
+      sourceTopology === 'self-intersecting' && !shouldUseStrokePathDescriptor
         ? unionCoveragePolygons(rawPolygons)
         : rawPolygons
     if (polygons.length === 0) {

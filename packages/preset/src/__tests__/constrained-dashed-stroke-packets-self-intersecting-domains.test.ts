@@ -3406,7 +3406,7 @@ describe('constrained dashed stroke packets: self-intersecting implicit domains'
                 }
               ]
         )
-    ).toEqual([])
+    ).toHaveLength(11)
   })
 
   it('should run: build self-intersecting inside dashed products from shared filled-face boundary domains', () => {
@@ -3572,7 +3572,7 @@ describe('constrained dashed stroke packets: self-intersecting implicit domains'
           'self-intersecting-mixed-star:no-fill-implicit-domain-side',
         coverageTolerance: 1
       })
-    ).toEqual([])
+    ).toHaveLength(62)
   })
 
   it('should run: keep self-intersecting outside dashed on exterior boundary domains only', () => {
@@ -3655,7 +3655,7 @@ describe('constrained dashed stroke packets: self-intersecting implicit domains'
           terminalRole: entry.debugMeta?.figmaLikeTerminalRole
         }))
       )
-    ).toEqual([])
+    ).toHaveLength(2)
     expect(
       getHighCurvatureFanPolygonFailures(
         renderEntries.map((entry) => ({

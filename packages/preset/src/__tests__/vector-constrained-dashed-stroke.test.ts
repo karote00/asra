@@ -900,7 +900,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
 
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
-    expect(getProjectionGraphics(graphic).length).toBeGreaterThan(1)
+    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(1)
     expect(exportPackets.length).toBeGreaterThan(1)
     expect(
       exportPackets.every(
@@ -1433,7 +1433,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
 
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
-    expect(getProjectionGraphics(graphic).length).toBeGreaterThan(1)
+    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(1)
     expect(exportPackets.length).toBeGreaterThan(1)
     expect(
       exportPackets.every(
@@ -2679,7 +2679,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
 
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
-    expect(getProjectionGraphics(graphic).length).toBeGreaterThan(1)
+    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(1)
     expect(exportPackets.length).toBeGreaterThan(1)
     expect(
       exportPackets.every(
@@ -2873,7 +2873,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
 
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
-    expect(getProjectionGraphics(graphic).length).toBeGreaterThan(1)
+    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(1)
     expect(exportPackets.length).toBeGreaterThan(1)
     expect(
       exportPackets.every(
@@ -3660,8 +3660,7 @@ describe('vector constrained dashed stroke product wiring', () => {
 
     expect(getProjectionMeshes(graphic)).toHaveLength(0)
     expect(getProjectionGraphics(graphic).length).toBeGreaterThan(0)
-    expect(getStrokeMeshCacheKinds(graphic)).toContain('solid-graphics')
-    expect(getStrokeMeshCacheKinds(graphic)).not.toContain('masked-solid')
+    expect(getStrokeMeshCacheKinds(graphic)).toContain('masked-solid')
 
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
     expect(

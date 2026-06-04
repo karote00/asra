@@ -267,7 +267,7 @@ describe('primitive shape constrained dashed stroke wiring', () => {
 
     const packets = expectConstrainedDashedFragments(graphic, {
       minPacketCount: 4,
-      expectedProjectionKind: 'graphics'
+      expectedProjectionKind: 'mesh'
     })
     expect(getAggregatePacketBounds(packets)).toEqual({
       minX: 0,
@@ -1011,7 +1011,7 @@ describe('primitive shape constrained dashed stroke wiring', () => {
 
     const packets = expectConstrainedDashedFragments(graphic, {
       minPacketCount: 4,
-      expectedProjectionKind: 'graphics'
+      expectedProjectionKind: 'mesh'
     })
     expect(getAggregatePacketBounds(packets)).toEqual({
       minX: 0,
@@ -1161,7 +1161,7 @@ describe('primitive shape constrained dashed stroke wiring', () => {
 
     const packets = expectConstrainedDashedFragments(graphic, {
       minPacketCount: 16,
-      expectedProjectionKind: 'graphics'
+      expectedProjectionKind: 'mesh'
     })
     expect(getAggregatePacketBounds(packets)).toEqual({
       minX: 0,
@@ -1227,7 +1227,7 @@ describe('primitive shape constrained dashed stroke wiring', () => {
 
     const packets = expectConstrainedDashedFragments(graphic, {
       minPacketCount: 16,
-      expectedProjectionKind: 'graphics'
+      expectedProjectionKind: 'mesh'
     })
     expect(getAggregatePacketBounds(packets)).toEqual({
       minX: 0,

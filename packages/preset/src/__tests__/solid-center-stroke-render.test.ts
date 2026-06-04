@@ -156,7 +156,7 @@ const buildOutsideConstrainedDashedFace = (
 })
 
 describe('solid center stroke render', () => {
-  it('should run: render canonical solid-center polygons into a mesh projection', () => {
+  it('should run: render canonical solid-center polygons into a graphics projection', () => {
     const host = new MeshTestHost()
 
     renderSolidCenterStrokeEntries(host, [
@@ -177,10 +177,17 @@ describe('solid center stroke render', () => {
       }
     ])
 
-    expect(getProjectionMeshes(host)).toHaveLength(1)
+    expect(getProjectionMeshes(host)).toHaveLength(0)
+    expect(getProjectionGraphics(host)).toHaveLength(1)
+    const cacheEntry = (
+      host as typeof host & {
+        __asyraStrokeMeshCache?: Map<string, { kind?: string }>
+      }
+    ).__asyraStrokeMeshCache?.get('solid_center_0')
+    expect(cacheEntry?.kind).toBe('solid-graphics')
   })
 
-  it('should run: render self-intersecting exact-union center strokes through a masked solid fill', () => {
+  it('should run: render self-intersecting exact-union center strokes through graphics when no mask descriptor is present', () => {
     const host = new MeshTestHost()
 
     renderSolidCenterStrokeEntries(host, [
@@ -207,13 +214,73 @@ describe('solid center stroke render', () => {
     ])
 
     expect(getProjectionMeshes(host)).toHaveLength(0)
-    expect(getProjectionGraphics(host)).toHaveLength(2)
+    expect(getProjectionGraphics(host)).toHaveLength(1)
     const cacheEntry = (
       host as typeof host & {
         __asyraStrokeMeshCache?: Map<string, { kind?: string }>
       }
     ).__asyraStrokeMeshCache?.get('solid_center_self_intersecting')
-    expect(cacheEntry?.kind).toBe('masked-solid')
+    expect(cacheEntry?.kind).toBe('solid-graphics')
+  })
+
+  it('should run: render path-only exact-union center strokes without rebuilding polygon masks', () => {
+    const host = new MeshTestHost()
+    const polySpy = vi.spyOn(Graphics.prototype, 'poly')
+    const strokeSpy = vi.spyOn(Graphics.prototype, 'stroke')
+
+    try {
+      renderSolidCenterStrokeEntries(host, [
+        {
+          cacheKey: 'solid_center_self_intersecting_path_mask',
+          stroke: {
+            color: 0x3366ff,
+            alpha: 0.75
+          },
+          polygons: [
+            [
+              { x: -4, y: -4 },
+              { x: 24, y: -4 },
+              { x: 24, y: 24 },
+              { x: -4, y: 24 }
+            ]
+          ],
+          strokePaths: [
+            [
+              { x: 0, y: 20 },
+              { x: 10, y: 0 },
+              { x: 20, y: 20 },
+              { x: 0, y: 20 }
+            ]
+          ],
+          strokePathStyle: {
+            width: 8,
+            cap: 'butt',
+            join: 'round',
+            miterLimit: 4,
+            closed: false
+          },
+          debugMeta: {
+            geometryFamily: 'solid-center',
+            sourceTopology: 'self-intersecting',
+            visualOverlapCollapseStatus: 'exact-union'
+          }
+        }
+      ])
+
+      expect(getProjectionMeshes(host)).toHaveLength(0)
+      expect(getProjectionGraphics(host)).toHaveLength(2)
+      expect(strokeSpy).toHaveBeenCalled()
+      expect(polySpy).not.toHaveBeenCalled()
+      const cacheEntry = (
+        host as typeof host & {
+          __asyraStrokeMeshCache?: Map<string, { kind?: string }>
+        }
+      ).__asyraStrokeMeshCache?.get('solid_center_self_intersecting_path_mask')
+      expect(cacheEntry?.kind).toBe('masked-solid')
+    } finally {
+      polySpy.mockRestore()
+      strokeSpy.mockRestore()
+    }
   })
 
   it('should run: render constrained dashed product visuals as dashed fill clipped by legal mask', () => {
@@ -267,7 +334,7 @@ describe('solid center stroke render', () => {
     expect(cacheEntry?.kind).toBe('masked-solid')
   })
 
-  it('should run: render constrained dashed product-final polygon coverage directly as mesh projection', () => {
+  it('should run: render constrained dashed product-final polygon coverage with the exact mesh projection', () => {
     const host = new MeshTestHost()
 
     renderSolidCenterStrokeEntries(host, [
@@ -311,7 +378,7 @@ describe('solid center stroke render', () => {
     expect(cacheEntry?.kind).toBe('solid')
   })
 
-  it('should run: render self-intersecting constrained dashed source-path polygons through the product mesh cache', () => {
+  it('should run: render self-intersecting constrained dashed source-path polygons through the exact mesh projection', () => {
     const host = new MeshTestHost()
 
     renderSolidCenterStrokeEntries(host, [
@@ -638,7 +705,7 @@ describe('solid center stroke render', () => {
     expect(getProjectionMeshes(host)).toHaveLength(0)
   })
 
-  it('should run: reuse the same mesh projection when only paint changes', () => {
+  it('should run: reuse the same graphics projection when only paint changes', () => {
     const host = new MeshTestHost()
     const entry = {
       cacheKey: 'solid_center_0',
@@ -657,7 +724,7 @@ describe('solid center stroke render', () => {
     }
 
     renderSolidCenterStrokeEntries(host, [entry])
-    const mesh = getProjectionMeshes(host)[0]
+    const graphics = getProjectionGraphics(host)[0]
 
     renderSolidCenterStrokeEntries(host, [
       {
@@ -669,8 +736,8 @@ describe('solid center stroke render', () => {
       }
     ])
 
-    expect(getProjectionMeshes(host)).toHaveLength(1)
-    expect(getProjectionMeshes(host)[0]).toBe(mesh)
+    expect(getProjectionGraphics(host)).toHaveLength(1)
+    expect(getProjectionGraphics(host)[0]).toBe(graphics)
   })
 
   it('should run: record runtime dirty keys from packet revisions', () => {
@@ -745,7 +812,7 @@ describe('solid center stroke render', () => {
         revisionSet: baseRevisionSet
       }
     ])
-    const mesh = getProjectionMeshes(host)[0]
+    const graphics = getProjectionGraphics(host)[0]
 
     renderSolidCenterStrokeEntries(host, [
       {
@@ -765,7 +832,7 @@ describe('solid center stroke render', () => {
       }
     ).__asyraStrokeMeshCache?.get('solid_center_0')
 
-    expect(getProjectionMeshes(host)[0]).toBe(mesh)
+    expect(getProjectionGraphics(host)[0]).toBe(graphics)
     expect(cacheEntry?.lastDirtyKeys).toEqual([
       'paint-payload',
       'render-hit-export'
@@ -868,6 +935,7 @@ describe('solid center stroke render', () => {
       }
     ])
 
-    expect(getProjectionMeshes(host)).toHaveLength(1)
+    expect(getProjectionMeshes(host)).toHaveLength(0)
+    expect(getProjectionGraphics(host)).toHaveLength(1)
   })
 })

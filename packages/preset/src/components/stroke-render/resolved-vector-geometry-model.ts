@@ -33,6 +33,7 @@ export interface ResolvedVectorGeometryFrameCache {
 
 export interface IncrementalResolvedGeometryOptions {
   previousCache?: ResolvedVectorGeometryFrameCache
+  detailMode?: 'full' | 'fill-only'
 }
 
 export interface ResolvedVectorSelfIntersectingGeometry {
@@ -1091,7 +1092,8 @@ export const buildResolvedVectorSourcePathTracedSegments = (
 const buildSelfIntersectingGeometry = (
   path: PathGeometry,
   topology: PathTopologyModel,
-  previousCache?: ResolvedVectorGeometryNetworkFrameCache
+  previousCache?: ResolvedVectorGeometryNetworkFrameCache,
+  detailMode: IncrementalResolvedGeometryOptions['detailMode'] = 'full'
 ): {
   geometry: ResolvedVectorSelfIntersectingGeometry | null
   cache: ResolvedVectorGeometryNetworkFrameCache
@@ -1149,6 +1151,41 @@ const buildSelfIntersectingGeometry = (
           topology.fillRule
         )
       : null
+  const fillRegions =
+    resolvedGeometry.fillRegions.length > 0
+      ? resolvedGeometry.fillRegions
+      : (fallbackResolvedGeometry?.fillRegions ?? [])
+  const outputCache = {
+    tracedSegmentSignatures,
+    selfIntersectionCache:
+      resolvedGeometry.cache ??
+      splitResult?.cache ??
+      previousCache?.selfIntersectionCache
+  }
+  if (detailMode === 'fill-only') {
+    if (
+      previousCache?.selfIntersectionCache &&
+      outputCache.selfIntersectionCache
+    ) {
+      emitStrokePipelineCounter('resolved-geometry-frame-cache-reused')
+    } else {
+      emitStrokePipelineCounter('resolved-geometry-frame-cache-primed')
+    }
+
+    return {
+      geometry: {
+        tracedSegments,
+        fillRegions,
+        legalFaceBoundaries: [],
+        unfilledFaceBoundaries: [],
+        legalBoundaryContours: [],
+        sourceSplitRanges: [],
+        strokeBoundaryDomains: []
+      },
+      cache: outputCache
+    }
+  }
+
   const fallbackLegalBoundaryContours =
     resolvedGeometry.legalBoundaryContours.length > 0
       ? resolvedGeometry.legalBoundaryContours
@@ -1180,13 +1217,6 @@ const buildSelfIntersectingGeometry = (
       )
   )
 
-  const outputCache = {
-    tracedSegmentSignatures,
-    selfIntersectionCache:
-      resolvedGeometry.cache ??
-      splitResult?.cache ??
-      previousCache?.selfIntersectionCache
-  }
   if (
     previousCache?.selfIntersectionCache &&
     outputCache.selfIntersectionCache
@@ -1199,10 +1229,7 @@ const buildSelfIntersectingGeometry = (
   return {
     geometry: {
       tracedSegments,
-      fillRegions:
-        resolvedGeometry.fillRegions.length > 0
-          ? resolvedGeometry.fillRegions
-          : (fallbackResolvedGeometry?.fillRegions ?? []),
+      fillRegions,
       legalFaceBoundaries: legalFaceBoundaries,
       unfilledFaceBoundaries,
       legalBoundaryContours,
@@ -1221,7 +1248,8 @@ export const buildResolvedVectorGeometryModel = ({
   modelId,
   networks,
   resolveSelfIntersecting = true,
-  previousCache
+  previousCache,
+  detailMode = 'full'
 }: {
   fillRule: PathTopologyModel['fillRule']
   modelId: string
@@ -1243,7 +1271,8 @@ export const buildResolvedVectorGeometryModel = ({
       const result = buildSelfIntersectingGeometry(
         network.path,
         network.topology,
-        previousCache?.networks.get(network.networkId)
+        previousCache?.networks.get(network.networkId),
+        detailMode
       )
       nextCache.networks.set(network.networkId, result.cache)
       return {

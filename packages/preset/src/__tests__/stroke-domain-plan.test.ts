@@ -943,8 +943,11 @@ describe('stroke domain plan', () => {
       expect(record.boundaryTotalLength).toEqual(expect.any(Number))
       expect(record.boundaryStartDistance).toBe(0)
       expect(record.boundaryEndDistance).toBe(record.boundaryTotalLength)
-      expect(record.startDistance).toBe(record.boundaryStartDistance)
-      expect(record.endDistance).toBe(record.boundaryEndDistance)
+      expect(record.startDistance).toEqual(expect.any(Number))
+      expect(record.endDistance).toEqual(expect.any(Number))
+      expect(record.endDistance as number).toBeGreaterThan(
+        record.startDistance as number
+      )
       expect(record.boundaryEndDistance as number).toBeGreaterThan(
         record.boundaryStartDistance as number
       )

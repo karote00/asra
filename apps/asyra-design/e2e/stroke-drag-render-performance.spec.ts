@@ -136,6 +136,8 @@ const VECTOR_POINT_DRAG_RESOLVED_GEOMETRY_P95_BUDGET_MS = Number(
     FRAME_BUDGET_120FPS_MS
 )
 const DRAG_STEP_COUNT = Number(process.env.ASYRA_STROKE_DRAG_E2E_STEPS ?? 24)
+const DEBUG_SCENARIO_FILTER =
+  process.env.ASYRA_STROKE_DRAG_E2E_SCENARIO_FILTER ?? ''
 const SHOULD_ENFORCE_120FPS =
   process.env.ASYRA_STROKE_DRAG_E2E_ENFORCE_120FPS === '1'
 const STROKE_OPACITY_PERCENT = '50'
@@ -1229,14 +1231,15 @@ const getDistance = (first: ClientPoint, second: ClientPoint) =>
 
 const buildRuleDrivenStrokeProbes = async (
   page: Page,
-  strokeCase: StrokeCase
+  strokeCase: StrokeCase,
+  preferExportPackets = false
 ): Promise<RuleDrivenStrokeProbes> => {
   if (strokeCase.style !== 'dashed' || strokeCase.position !== 'inside') {
     return { body: [], gap: [], rejected: [] }
   }
 
   return page.evaluate(
-    ({ strokeWidth }) => {
+    ({ strokeWidth, preferExportPackets }) => {
       interface Point {
         id: string
         kind: 'anchor' | 'control'
@@ -1368,6 +1371,18 @@ const buildRuleDrivenStrokeProbes = async (
           y: centroidY / (3 * signedArea)
         }
       }
+      const getPolygonAbsArea = (polygon: ClientPoint[]) => {
+        let signedArea = 0
+        for (let index = 0; index < polygon.length; index += 1) {
+          const current = polygon[index]
+          const next = polygon[(index + 1) % polygon.length]
+          if (!current || !next) {
+            continue
+          }
+          signedArea += current.x * next.y - next.x * current.y
+        }
+        return Math.abs(signedArea / 2)
+      }
       const findInteriorProbePoint = (polygon: ClientPoint[]) => {
         const bounds = getPolygonBounds(polygon)
         const centroid = getPolygonCentroid(polygon)
@@ -1386,11 +1401,13 @@ const buildRuleDrivenStrokeProbes = async (
         }
         return candidates.find((point) => pointInPolygon(point, polygon))
       }
-      const projectedBodyProbes = exportPackets
+      const projectedBodyProbes = (preferExportPackets ? exportPackets : [])
         .filter(
           (packet) =>
-            packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
-            packet.debugMeta?.strokePosition === 'inside'
+            (packet.debugMeta === undefined ||
+              (packet.debugMeta.geometryFamily === 'constrained-dashed' &&
+                packet.debugMeta.strokePosition === 'inside')) &&
+            (packet.polygons?.length ?? 0) > 0
         )
         .flatMap((packet, packetIndex) =>
           (packet.polygons ?? [])
@@ -1402,6 +1419,11 @@ const buildRuleDrivenStrokeProbes = async (
             }))
             .filter(({ polygon }) => polygon.length >= 3)
         )
+        .map((entry) => ({
+          ...entry,
+          area: getPolygonAbsArea(entry.polygon)
+        }))
+        .sort((left, right) => right.area - left.area)
         .map(({ polygon, packet, packetIndex, polygonIndex }) => {
           const point = findInteriorProbePoint(polygon)
           if (!point) {
@@ -1630,7 +1652,7 @@ const buildRuleDrivenStrokeProbes = async (
 
       return { body, gap, rejected }
     },
-    { strokeWidth: STROKE_WIDTH }
+    { strokeWidth: STROKE_WIDTH, preferExportPackets }
   )
 }
 
@@ -1639,7 +1661,12 @@ const assertRuleDrivenStrokeProbes = async (
   label: string,
   strokeCase: StrokeCase
 ) => {
-  const probes = await buildRuleDrivenStrokeProbes(page, strokeCase)
+  const isDuringDragProbe = label.includes(':during-drag')
+  const probes = await buildRuleDrivenStrokeProbes(
+    page,
+    strokeCase,
+    !isDuringDragProbe
+  )
   if (probes.body.length === 0) {
     return
   }
@@ -1659,7 +1686,6 @@ const assertRuleDrivenStrokeProbes = async (
   ])
 
   const minBodyCoverage = 0.015
-  const isDuringDragProbe = label.includes(':during-drag')
   const maxRejectedCoverage = 0.75
   if (isDuringDragProbe) {
     expect(
@@ -1803,6 +1829,122 @@ const captureSelectedElementStrokeStats = async (page: Page) => {
   const raster = await captureSelectedElementRaster(page, 48)
   return analyzeGreenRaster(page, raster.base64)
 }
+
+const captureSelectedElementStrokeDiagnostics = async (page: Page) => {
+  const rect = await getSelectedElementRect(page)
+  const viewportState = await page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId =
+      core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+    const element = selectedId
+      ? core?.deps?.sceneTree?.getElementById?.(selectedId)
+      : undefined
+    const computed = element?.getAllComputedData?.() ?? {}
+    const renderLayer =
+      core?.deps?.render?.viewport?.renderLayer ??
+      core?.deps?.render?.viewportLayer?.renderLayer
+    const graphic = selectedId
+      ? renderLayer?.getAllElements?.()?.get?.(selectedId)
+      : undefined
+    const cacheEntries = Array.from(
+      graphic?.__asyraStrokeMeshCache?.entries?.() ?? []
+    ).map(([key, entry]: [string, Record<string, any>]) => ({
+      key,
+      kind: entry?.kind,
+      visible:
+        entry?.container?.visible ??
+        entry?.graphics?.visible ??
+        entry?.projection?.mesh?.visible ??
+        null,
+      childCount: entry?.container?.children?.length ?? null
+    }))
+    return {
+      selectedId,
+      pathEditingVectorId: core?.getSystemProperty?.('pathEditingVectorId'),
+      pathEditingMode: core?.getSystemProperty?.('pathEditingMode'),
+      mouseDragging: core?.getSystemProperty?.('mouseDragging'),
+      mouseDown: core?.getSystemProperty?.('mouseDown'),
+      selectedVectorPoint: core?.getSystemProperty?.('selectedVectorPoint'),
+      vectorPointSelection: Array.from(
+        core?.getUIProperty?.('vectorPointSelection') ?? []
+      ),
+      zoom: core?.getSystemProperty?.('zoom') ?? 1,
+      viewport: core?.getSystemProperty?.('viewportPosition') ?? {
+        x: 0,
+        y: 0
+      },
+      computed: {
+        x: computed.x,
+        y: computed.y,
+        width: computed.width,
+        height: computed.height,
+        closed: computed.closed,
+        visible: computed.visible,
+        strokes: computed.strokes,
+        fills: computed.fills,
+        pointCount: Object.keys(computed.points ?? {}).length,
+        segmentCount: Object.keys(computed.segments ?? {}).length,
+        networkCount: Object.keys(computed.networks ?? {}).length,
+        points: computed.points,
+        segments: computed.segments,
+        networks: computed.networks,
+        point: computed.points?.['tp-56']
+      },
+      graphic: graphic
+        ? {
+            visible: graphic.visible,
+            childCount: graphic.children?.length ?? null,
+            exportPacketCount:
+              graphic.__asyraSolidCenterStrokeExportPackets?.length ?? null,
+            nativeCenterSolidStrokeRenderCount:
+              graphic.__asyraNativeCenterSolidStrokeRenderCount ?? null,
+            cacheEntries
+          }
+        : null,
+      renderKeys: Object.keys(core?.deps?.render ?? {}),
+      renderLayerKeys: Object.keys(renderLayer ?? {})
+    }
+  })
+  return { rect, viewportState }
+}
+
+const startRenderPipelineDiagnostics = async (page: Page) => {
+  await page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const target = window as any
+    target.__asyraE2EStrokePipelineDiagnostics = {
+      phases: {},
+      counters: {}
+    }
+    target.__asyraVectorRenderPhaseSink = (
+      phaseName: string,
+      durationMs: number
+    ) => {
+      const diagnostics = target.__asyraE2EStrokePipelineDiagnostics
+      diagnostics.phases[phaseName] =
+        (diagnostics.phases[phaseName] ?? 0) + durationMs
+    }
+    target.__asyraStrokePipelineCounterSink = (
+      counterName: string,
+      value: number
+    ) => {
+      const diagnostics = target.__asyraE2EStrokePipelineDiagnostics
+      diagnostics.counters[counterName] =
+        (diagnostics.counters[counterName] ?? 0) + value
+    }
+  })
+}
+
+const readRenderPipelineDiagnostics = async (page: Page) =>
+  page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const target = window as any
+    const diagnostics = target.__asyraE2EStrokePipelineDiagnostics ?? null
+    target.__asyraVectorRenderPhaseSink = undefined
+    target.__asyraStrokePipelineCounterSink = undefined
+    return diagnostics
+  })
 
 const getLocalProbeRegion = (
   raster: StrokeRasterCapture,
@@ -2177,12 +2319,22 @@ const measureDrag = async (
       }
     }
   }
+  await startRenderPipelineDiagnostics(page)
   await page.mouse.up()
   await waitForPaintFrame(page)
+  const finalPipelineDiagnostics = await readRenderPipelineDiagnostics(page)
   const finalStats = await captureSelectedElementStrokeStats(page)
+  const finalDiagnostics =
+    finalStats.strokeCoverage <= 0.0005
+      ? await captureSelectedElementStrokeDiagnostics(page)
+      : null
   expect(
     finalStats.strokeCoverage,
-    `${label}:${target} should keep stroke coverage after mouseup`
+    `${label}:${target} should keep stroke coverage after mouseup ${JSON.stringify(
+      { finalStats, finalPipelineDiagnostics, finalDiagnostics },
+      null,
+      2
+    )}`
   ).toBeGreaterThan(0.0005)
   expect(
     finalStats.doubleAlphaCoverage,
@@ -2315,6 +2467,13 @@ test.describe('stroke drag render performance UX gate', () => {
 
     for (const strokeCase of STROKE_CASES) {
       for (const target of DRAG_TARGETS) {
+        const scenarioLabel = `${strokeCase.label}:${target}`
+        if (
+          DEBUG_SCENARIO_FILTER &&
+          !scenarioLabel.includes(DEBUG_SCENARIO_FILTER)
+        ) {
+          continue
+        }
         await setupReportedStar(page, strokeCase)
         metrics.push(
           await measureDrag(
@@ -2327,38 +2486,42 @@ test.describe('stroke drag render performance UX gate', () => {
         )
       }
     }
-    await setupReportedStarForMove(page)
-    metrics.push(await measureMoveVectorElement(page, schedulingBaseline))
-    await setupReportedStar(page, {
-      label: 'inside-dashed-round',
-      style: 'dashed',
-      position: 'inside',
-      cap: 'round'
-    })
-    const burstMetrics = await measureBurstDrag(
-      page,
-      'inside-dashed-round',
-      'out-control'
-    )
+    if (!DEBUG_SCENARIO_FILTER) {
+      await setupReportedStarForMove(page)
+      metrics.push(await measureMoveVectorElement(page, schedulingBaseline))
+    }
+    const burstMetrics = !DEBUG_SCENARIO_FILTER
+      ? await (async () => {
+          await setupReportedStar(page, {
+            label: 'inside-dashed-round',
+            style: 'dashed',
+            position: 'inside',
+            cap: 'round'
+          })
+          return measureBurstDrag(page, 'inside-dashed-round', 'out-control')
+        })()
+      : null
     metrics.forEach(assertRequiredPhaseCoverage)
     assertVectorPointDragPerformanceBudget(metrics)
-    expect(
-      burstMetrics.productRenderPhaseCount,
-      'burst drag should observe vector renders'
-    ).toBeGreaterThan(0)
-    expect(
-      (burstMetrics.counters['product-render-per-render-frame'] ?? 0) /
-        Math.max(1, burstMetrics.counters['render-frame-count'] ?? 0),
-      'burst drag should not perform more than one complete product render per render frame for the selected vector'
-    ).toBeLessThanOrEqual(1)
-    expect(
-      burstMetrics.freshnessProbe.sourceMoved,
-      'burst drag should move the edited source point'
-    ).toBe(true)
-    expect(
-      burstMetrics.freshnessProbe.visualChanged,
-      'burst drag should visibly update the product stroke'
-    ).toBe(true)
+    if (burstMetrics) {
+      expect(
+        burstMetrics.productRenderPhaseCount,
+        'burst drag should observe vector renders'
+      ).toBeGreaterThan(0)
+      expect(
+        (burstMetrics.counters['product-render-per-render-frame'] ?? 0) /
+          Math.max(1, burstMetrics.counters['render-frame-count'] ?? 0),
+        'burst drag should not perform more than one complete product render per render frame for the selected vector'
+      ).toBeLessThanOrEqual(1)
+      expect(
+        burstMetrics.freshnessProbe.sourceMoved,
+        'burst drag should move the edited source point'
+      ).toBe(true)
+      expect(
+        burstMetrics.freshnessProbe.visualChanged,
+        'burst drag should visibly update the product stroke'
+      ).toBe(true)
+    }
     const visualReviewRaster = await captureSelectedElementRaster(page, 72)
     const visualReviewRasterBuffer = Buffer.from(
       visualReviewRaster.base64,
@@ -2391,54 +2554,62 @@ test.describe('stroke drag render performance UX gate', () => {
       (total, metric) => total + metric.droppedFrameCount,
       0
     )
-    console.log(
-      `STROKE_DRAG_E2E_BURST_METRICS ${JSON.stringify({
-        measurementScope: 'browser-ux',
-        rendererCoverage: 'real',
-        paintObservationWindow: 3,
-        burstMetrics: {
-          label: burstMetrics.label,
-          moveEventCount: burstMetrics.moveEventCount,
-          paintFrameCount: burstMetrics.paintFrameCount,
-          elapsedToFirstPaintMs: burstMetrics.elapsedToFirstPaintMs,
-          elapsedToLastObservedPaintMs:
-            burstMetrics.elapsedToLastObservedPaintMs,
-          productRenderPhaseCount: burstMetrics.productRenderPhaseCount,
-          pixiRenderPhaseCount: burstMetrics.pixiRenderPhaseCount,
-          renderFlushPhaseCount: burstMetrics.renderFlushPhaseCount,
-          vectorCommitCount: burstMetrics.vectorCommitCount,
-          computedPatchCount: burstMetrics.computedPatchCount,
-          computedMirrorCommitCount: burstMetrics.computedMirrorCommitCount,
-          productRenderPerObservedPaint:
-            burstMetrics.productRenderPerObservedPaint,
-          pixiRenderPerObservedPaint: burstMetrics.pixiRenderPerObservedPaint,
-          frameCoordinatorCounters: {
-            renderFrameCount: burstMetrics.counters['render-frame-count'] ?? 0,
-            renderFrameIdCount: burstMetrics.counters['render-frame-id'] ?? 0,
-            dirtyChangeCount: burstMetrics.counters['dirty-change-count'] ?? 0,
-            dirtyElementCount:
-              burstMetrics.counters['dirty-element-count'] ?? 0,
-            dirtyChangeCoalescedCount:
-              burstMetrics.counters['dirty-change-coalesced-count'] ?? 0,
-            productRenderPerRenderFrame:
-              burstMetrics.counters['product-render-per-render-frame'] ?? 0
-          },
-          freshnessProbe: burstMetrics.freshnessProbe,
-          selectedPhaseTotals: {
-            'feature:event:input.drag.update':
-              burstMetrics.phaseTotalMs['feature:event:input.drag.update'] ?? 0,
-            'render-scene-tree:flush':
-              burstMetrics.phaseTotalMs['render-scene-tree:flush'] ?? 0,
-            'render-layer:strategy:vector':
-              burstMetrics.phaseTotalMs['render-layer:strategy:vector'] ?? 0,
-            'render:pixi-app-render':
-              burstMetrics.phaseTotalMs['render:pixi-app-render'] ?? 0,
-            'browser:paint-wait':
-              burstMetrics.phaseTotalMs['browser:paint-wait'] ?? 0
+    if (burstMetrics) {
+      console.log(
+        `STROKE_DRAG_E2E_BURST_METRICS ${JSON.stringify({
+          measurementScope: 'browser-ux',
+          rendererCoverage: 'real',
+          paintObservationWindow: 3,
+          burstMetrics: {
+            label: burstMetrics.label,
+            moveEventCount: burstMetrics.moveEventCount,
+            paintFrameCount: burstMetrics.paintFrameCount,
+            elapsedToFirstPaintMs: burstMetrics.elapsedToFirstPaintMs,
+            elapsedToLastObservedPaintMs:
+              burstMetrics.elapsedToLastObservedPaintMs,
+            productRenderPhaseCount: burstMetrics.productRenderPhaseCount,
+            pixiRenderPhaseCount: burstMetrics.pixiRenderPhaseCount,
+            renderFlushPhaseCount: burstMetrics.renderFlushPhaseCount,
+            vectorCommitCount: burstMetrics.vectorCommitCount,
+            computedPatchCount: burstMetrics.computedPatchCount,
+            computedMirrorCommitCount: burstMetrics.computedMirrorCommitCount,
+            productRenderPerObservedPaint:
+              burstMetrics.productRenderPerObservedPaint,
+            pixiRenderPerObservedPaint:
+              burstMetrics.pixiRenderPerObservedPaint,
+            frameCoordinatorCounters: {
+              renderFrameCount:
+                burstMetrics.counters['render-frame-count'] ?? 0,
+              renderFrameIdCount:
+                burstMetrics.counters['render-frame-id'] ?? 0,
+              dirtyChangeCount:
+                burstMetrics.counters['dirty-change-count'] ?? 0,
+              dirtyElementCount:
+                burstMetrics.counters['dirty-element-count'] ?? 0,
+              dirtyChangeCoalescedCount:
+                burstMetrics.counters['dirty-change-coalesced-count'] ?? 0,
+              productRenderPerRenderFrame:
+                burstMetrics.counters['product-render-per-render-frame'] ?? 0
+            },
+            freshnessProbe: burstMetrics.freshnessProbe,
+            selectedPhaseTotals: {
+              'feature:event:input.drag.update':
+                burstMetrics.phaseTotalMs[
+                  'feature:event:input.drag.update'
+                ] ?? 0,
+              'render-scene-tree:flush':
+                burstMetrics.phaseTotalMs['render-scene-tree:flush'] ?? 0,
+              'render-layer:strategy:vector':
+                burstMetrics.phaseTotalMs['render-layer:strategy:vector'] ?? 0,
+              'render:pixi-app-render':
+                burstMetrics.phaseTotalMs['render:pixi-app-render'] ?? 0,
+              'browser:paint-wait':
+                burstMetrics.phaseTotalMs['browser:paint-wait'] ?? 0
+            }
           }
-        }
-      })}`
-    )
+        })}`
+      )
+    }
     console.log(
       `STROKE_DRAG_E2E_METRICS ${JSON.stringify({
         measurementScope: 'browser-ux',

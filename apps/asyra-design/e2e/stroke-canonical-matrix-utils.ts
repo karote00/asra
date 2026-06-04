@@ -816,6 +816,14 @@ export const writeJson = (filePath: string, value: unknown) => {
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`)
 }
 
+const readJson = <T>(filePath: string): T | undefined => {
+  if (!fs.existsSync(filePath)) {
+    return undefined
+  }
+
+  return JSON.parse(fs.readFileSync(filePath, 'utf8')) as T
+}
+
 const expectCanonicalCropCoverage = (
   caseKey: string,
   cropAnalysis: {
@@ -1190,5 +1198,100 @@ export const runCanonicalDashedOutsideSourceJoinCase = async (
     capType: 'butt',
     joinType: caseDef.joinType
   })
+  return analysis
+}
+
+export const runCanonicalDashedOutsideSourceJoinMatrixCase = async (
+  page: Page,
+  caseDef: {
+    key: string
+    joinType: SelfCheckJoinType
+  }
+) => {
+  const analysis = await runCanonicalDashedCase(page, {
+    key: caseDef.key,
+    position: 'outside',
+    capType: 'butt',
+    joinType: caseDef.joinType,
+    captureSourceJoinReview: false
+  })
+  expect(
+    {
+      key: analysis.case.key,
+      position: analysis.case.position,
+      capType: analysis.case.capType,
+      joinType: analysis.case.joinType
+    },
+    JSON.stringify({ caseDef, case: analysis.case }, null, 2)
+  ).toEqual({
+    key: caseDef.key,
+    position: 'outside',
+    capType: 'butt',
+    joinType: caseDef.joinType
+  })
+  return analysis
+}
+
+export const runCanonicalDashedOutsideSourceJoinReviewCase = async (
+  page: Page,
+  caseDef: {
+    key: string
+    joinType: SelfCheckJoinType
+  }
+) => {
+  const paths = getCanonicalCasePaths('dashed', caseDef.key)
+  fs.mkdirSync(paths.cropDir, { recursive: true })
+  const { baselineScreenshot, metadata, screenshot } =
+    await prepareSelfCheckCase(page, {
+      style: 'dashed',
+      position: 'outside',
+      capType: 'butt',
+      joinType: caseDef.joinType
+    })
+  fs.writeFileSync(paths.baselineScreenshot, baselineScreenshot)
+  fs.writeFileSync(paths.screenshot, screenshot)
+  writeJson(paths.metadata, metadata)
+
+  const sourceJoinReview = await captureDashedSourceJoinReviewCrops(
+    page,
+    paths.cropDir
+  )
+  const existingAnalysis =
+    readJson<Record<string, unknown>>(paths.analysis) ?? {}
+  const analysis = {
+    ...existingAnalysis,
+    case: {
+      key: caseDef.key,
+      position: 'outside',
+      capType: 'butt',
+      joinType: caseDef.joinType
+    },
+    sourceJoinReview
+  }
+  writeJson(paths.analysis, analysis)
+
+  expect(
+    sourceJoinReview,
+    JSON.stringify({ caseDef, sourceJoinReview }, null, 2)
+  ).toHaveLength(SELF_CHECK_SOURCE_SEGMENTS.length)
+  expect(
+    SELF_CHECK_SOURCE_SEGMENTS.every((segment) =>
+      sourceJoinReview.some(
+        (crop) => crop.id === `source-join-${segment.startId}-closeup`
+      )
+    ),
+    JSON.stringify({ caseDef, sourceJoinReview }, null, 2)
+  ).toBe(true)
+  for (const crop of sourceJoinReview) {
+    expect(
+      crop.nonBackgroundPixelCount,
+      JSON.stringify({ caseDef, crop }, null, 2)
+    ).toBeGreaterThan(10_000)
+    expect(
+      crop.redPixelCount,
+      JSON.stringify({ caseDef, crop }, null, 2)
+    ).toBeGreaterThan(1_000)
+  }
+
   return analysis
 }

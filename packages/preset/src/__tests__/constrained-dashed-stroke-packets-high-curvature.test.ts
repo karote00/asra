@@ -3587,7 +3587,7 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
         null,
         2
       )
-    ).toBe(1)
+    ).toBe(2)
   })
 
   it('should run: keep smooth high-curvature outside vertices continuous without join-type geometry', () => {

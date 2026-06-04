@@ -2316,6 +2316,25 @@ const renderVectorGraphic = (
     ({ topology }) =>
       topology.closed && hasConstrainedSolidStrokeIntent(renderData.strokes)
   )
+  const shouldAttachFullStrokeDiagnostics = shouldEmitFullStrokeDiagnostics()
+  const renderableStrokes = getRenderableStrokes(renderData.strokes)
+  const canUseFillOnlyForConstrainedDashed =
+    hasConstrainedDashedIntent &&
+    renderableStrokes.length > 0 &&
+    renderableStrokes.every(
+      (stroke) =>
+        stroke.style === 'dashed' &&
+        stroke.position === 'inside' &&
+        stroke.width > 0
+    )
+  const canUseFillOnlyForUnconstrainedFill =
+    !hasConstrainedDashedIntent && !hasConstrainedSolidIntent
+  const canUseFillOnlyResolvedGeometry =
+    isMouseDragging &&
+    hasRenderableFill &&
+    !hasConstrainedSolidIntent &&
+    !shouldAttachFullStrokeDiagnostics &&
+    (canUseFillOnlyForConstrainedDashed || canUseFillOnlyForUnconstrainedFill)
   const needsResolvedGeometryModel =
     hasRenderableFill || hasConstrainedDashedIntent || hasConstrainedSolidIntent
   const resolvedGeometryModel = measureVectorRenderPhase(
@@ -2330,7 +2349,8 @@ const renderVectorGraphic = (
           topology
         })),
         resolveSelfIntersecting: needsResolvedGeometryModel,
-        previousCache: graphicCache.__asyraResolvedVectorGeometryCache
+        previousCache: graphicCache.__asyraResolvedVectorGeometryCache,
+        detailMode: canUseFillOnlyResolvedGeometry ? 'fill-only' : 'full'
       })
   )
   graphicCache.__asyraResolvedVectorGeometryCache = resolvedGeometryModel.cache
@@ -2454,7 +2474,6 @@ const renderVectorGraphic = (
     hasSourceBoundsOverlap && !hasCompoundLegalDomain
   const shouldEmitConstrainedDashedRuntimeDiagnostics =
     hasConstrainedDashedIntent
-  const shouldAttachFullStrokeDiagnostics = shouldEmitFullStrokeDiagnostics()
   const shouldUseNormalizedCompoundDashedBoundaries =
     !hasSharedSelfIntersectingLegalContours &&
     shouldEmitConstrainedDashedRuntimeDiagnostics &&
@@ -2530,7 +2549,8 @@ const renderVectorGraphic = (
                 ),
                 omitDiagnosticMetadata: !shouldAttachFullStrokeDiagnostics,
                 clipInsideToFillDomain: clipInsideToFillDomain,
-                constrainedDashedVisualMode
+                constrainedDashedVisualMode,
+                preferRenderMaskProductFinal: isMouseDragging
               }
               return buildConstrainedDashedStrokeResolvedPackets(
                 `vector:${renderData.id}:${network.id}:constrained-dashed`,
@@ -3052,7 +3072,8 @@ const renderVectorGraphic = (
                   ownerKeyPrefix: `vector:${renderData.id}:${network.id}`,
                   networkId: network.id
                 },
-                topology
+                topology,
+                preferStrokePathRenderDescriptor: isMouseDragging
               }
             )
           : []),
@@ -3432,7 +3453,7 @@ const renderVectorGraphic = (
         )
       )
     })
-  } else {
+  } else if (strokeRenderFaces.length === 0) {
     drawVectorPath(graphic, orderedNetworks, points, segments)
   }
   ;(

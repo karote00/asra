@@ -2607,6 +2607,7 @@ const getRenderEntrySourceStrokePolygonsForTest = ({
     | {
         strokeMaskPolygons?: Vec2[][]
         strokePaths?: Vec2[][]
+        strokePathGroups?: { strokePaths: Vec2[][] }[]
       }
     | undefined
   sourcePath: Pick<PathGeometry, 'sampledPoints' | 'closed'>
@@ -2615,7 +2616,8 @@ const getRenderEntrySourceStrokePolygonsForTest = ({
 }) => {
   const strokeMaskPolygons = entry?.strokeMaskPolygons ?? []
   const strokePathPolygons =
-    entry?.strokePaths && entry.strokePaths.length > 0
+    (entry?.strokePaths && entry.strokePaths.length > 0) ||
+    (entry?.strokePathGroups && entry.strokePathGroups.length > 0)
       ? buildOffsetSourceStrokePolygonsForTest(
           backend,
           sourcePath,
@@ -2635,15 +2637,19 @@ const expectRenderEntryHasSourceStrokeMaskForTest = (
     | {
         strokeMaskPolygons?: Vec2[][]
         strokePaths?: Vec2[][]
+        strokePathGroups?: { strokePaths: Vec2[][] }[]
         strokePathStyle?: unknown
       }
     | undefined
 ) => {
   const strokeMaskPolygonCount = entry?.strokeMaskPolygons?.length ?? 0
   const strokePathCount = entry?.strokePaths?.length ?? 0
+  const strokePathGroupCount = entry?.strokePathGroups?.length ?? 0
 
-  expect(strokeMaskPolygonCount + strokePathCount).toBeGreaterThan(0)
-  if (strokePathCount > 0) {
+  expect(
+    strokeMaskPolygonCount + strokePathCount + strokePathGroupCount
+  ).toBeGreaterThan(0)
+  if (strokePathCount > 0 || strokePathGroupCount > 0) {
     expect(entry?.strokePathStyle).toBeDefined()
   }
 }
@@ -2661,6 +2667,7 @@ const getRenderEntryVisiblePolygonsForTest = ({
         clipPolygons?: Vec2[][]
         strokeMaskPolygons?: Vec2[][]
         strokePaths?: Vec2[][]
+        strokePathGroups?: { strokePaths: Vec2[][] }[]
       }
     | undefined
   sourcePath: Pick<PathGeometry, 'sampledPoints' | 'closed'>

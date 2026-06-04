@@ -1,12 +1,28 @@
 import { test } from '@playwright/test'
-import { runCanonicalDashedOutsideSourceJoinCase } from './stroke-canonical-matrix-utils'
+import {
+  runCanonicalDashedOutsideSourceJoinMatrixCase,
+  runCanonicalDashedOutsideSourceJoinReviewCase
+} from './stroke-canonical-matrix-utils'
 
-test('canonical stroke matrix: dashed outside source vertex round join', async ({
-  page
-}, testInfo) => {
+test.describe.configure({ mode: 'serial' })
+
+const caseDef = {
+  key: 'dashed-outside-butt-round-join',
+  joinType: 'round' as const
+}
+
+test('canonical stroke matrix: dashed outside source vertex round join', async (
+  { page },
+  testInfo
+) => {
   testInfo.setTimeout(90_000)
-  await runCanonicalDashedOutsideSourceJoinCase(page, {
-    key: 'dashed-outside-butt-round-join',
-    joinType: 'round'
-  })
+  await runCanonicalDashedOutsideSourceJoinMatrixCase(page, caseDef)
+})
+
+test('canonical stroke matrix: dashed outside source vertex round join closeups', async (
+  { page },
+  testInfo
+) => {
+  testInfo.setTimeout(90_000)
+  await runCanonicalDashedOutsideSourceJoinReviewCase(page, caseDef)
 })

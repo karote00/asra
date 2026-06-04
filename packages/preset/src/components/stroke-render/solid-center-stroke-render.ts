@@ -550,12 +550,21 @@ const applyMaskedSolidPaint = (
   }
 
   const hasFillPolygons = fillPolygons && fillPolygons.length > 0
+  const hasClipPolygons = clipPolygons && clipPolygons.length > 0
+  const hasFillClipPolygons =
+    fillClipPolygons && fillClipPolygons.length > 0
   const hasStrokeMaskPolygons =
     strokeMaskPolygons && strokeMaskPolygons.length > 0
   const hasStrokePaths =
     strokePaths && strokePaths.length > 0 && strokePathStyle
   const hasStrokePathGroups =
     strokePathGroups !== undefined && strokePathGroups.length > 0
+  const canUseStrokePathAsExactMask =
+    (hasStrokePaths || hasStrokePathGroups) &&
+    !hasClipPolygons &&
+    !hasFillClipPolygons &&
+    !hasFillPolygons &&
+    !hasStrokeMaskPolygons
 
   content.mask = null
   clipContent.mask = null
@@ -594,13 +603,15 @@ const applyMaskedSolidPaint = (
   }
   if (hasStrokePaths || hasStrokePathGroups || hasStrokeMaskPolygons) {
     fill.mask = strokeMask
-    clipContent.mask = mask
+    clipContent.mask = canUseStrokePathAsExactMask ? null : mask
   } else {
     fill.mask = mask
   }
 
-  drawPolygonsWithCutouts(mask, maskPolygons, { color: 0xffffff, alpha: 1 })
-  if (fillClipPolygons && fillClipPolygons.length > 0) {
+  if (!canUseStrokePathAsExactMask) {
+    drawPolygonsWithCutouts(mask, maskPolygons, { color: 0xffffff, alpha: 1 })
+  }
+  if (hasFillClipPolygons) {
     drawPolygonsWithCutouts(fillMask, fillClipPolygons, {
       color: 0xffffff,
       alpha: 1
@@ -707,6 +718,23 @@ const shouldRenderDragVisualWithGraphics = (
     entry.debugMeta?.revisionSet
   )?.previewModeRevision === 'drag-visual'
 
+const shouldRenderPlainSolidWithGraphics = (
+  entry: SolidCenterStrokeRenderEntry,
+  shouldUseMaskedSolid: boolean
+) => {
+  const geometryFamily =
+    entry.debugMeta?.geometryFamily ?? entry.runtimeMeta?.geometryFamily
+  const hasKnownNonSolidCenterFamily =
+    geometryFamily !== undefined && geometryFamily !== 'solid-center'
+
+  return (
+    entry.stroke.kind !== 'gradient' &&
+    !shouldUseMaskedSolid &&
+    entry.preferSolidGraphics !== false &&
+    (geometryFamily === 'solid-center' || !hasKnownNonSolidCenterFamily)
+  )
+}
+
 const emitStrokePipelineCounter = (counterName: string, value = 1) => {
   ;(
     globalThis as typeof globalThis & {
@@ -755,7 +783,7 @@ export const renderSolidCenterStrokeEntries = (
       ? 'masked-solid'
       : shouldRenderDragVisualWithGraphics(entry)
         ? 'drag-solid-graphics'
-        : entry.preferSolidGraphics === true && strokeKind === 'solid'
+        : shouldRenderPlainSolidWithGraphics(entry, shouldUseMaskedSolid)
           ? 'solid-graphics'
           : strokeKind
     const paintKey =

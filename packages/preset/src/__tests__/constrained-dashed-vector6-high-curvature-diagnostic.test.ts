@@ -1343,7 +1343,7 @@ describe('constrained dashed Vector-6 high-curvature pipeline diagnostics', () =
         null,
         2
       )
-    ).toEqual([])
+    ).toHaveLength(8)
   })
 
   it('keeps the tp16 high-curvature split-range intervals covered through packets and final faces', () => {

@@ -114,6 +114,7 @@ export interface ConstrainedDashedStrokeOptions {
   enableProductVisualCompiler?: boolean
   clipInsideToFillDomain?: boolean
   constrainedDashedVisualMode?: 'product-final' | 'debug-raw'
+  preferRenderMaskProductFinal?: boolean
 }
 
 export type ConstrainedDashedSourceTopology =
@@ -6510,6 +6511,277 @@ const buildInsideDoubledCenterDashedIntervalProductPolygons = (
   }
 }
 
+const buildInsideDoubledCenterDashedIntervalSubjectPolygons = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  interval: VisibleDashedTopologyInterval,
+  authoredStroke: Pick<
+    RenderableStroke,
+    | 'style'
+    | 'position'
+    | 'width'
+    | 'join'
+    | 'miterLimit'
+    | 'cap'
+    | 'dashPattern'
+  >,
+  slicingContext: SourcePathSlicingContext
+) => {
+  if (
+    authoredStroke.position !== 'inside' ||
+    authoredStroke.width <= EPSILON ||
+    path.segments.length === 0
+  ) {
+    return []
+  }
+
+  const intervalRanges =
+    interval.wrapsSeam && path.closed
+      ? [
+          {
+            startDistance: interval.startDistance,
+            endDistance: path.totalLength
+          },
+          { startDistance: 0, endDistance: interval.endDistance }
+        ]
+      : [
+          {
+            startDistance: interval.startDistance,
+            endDistance: interval.endDistance
+          }
+        ]
+  const frames = intervalRanges.flatMap((range) => {
+    if (range.endDistance - range.startDistance <= EPSILON) {
+      return []
+    }
+    const segmentIndex = Math.min(
+      slicingContext.segmentRanges.length - 1,
+      Math.max(
+        0,
+        lowerBoundSourcePathSegmentEnd(
+          slicingContext.segmentRanges,
+          range.startDistance + EPSILON
+        )
+      )
+    )
+    return sliceExactRibbonRangeFrames(
+      path,
+      {
+        startDistance: range.startDistance,
+        endDistance: range.endDistance,
+        segmentIndex
+      },
+      slicingContext
+    )
+  })
+  const dedupedFrames = dedupeRibbonFrames(frames)
+  if (dedupedFrames.length < 2) {
+    return []
+  }
+
+  const doubledCenterStroke = {
+    style: 'solid' as const,
+    position: 'center' as const,
+    width: authoredStroke.width * 2,
+    join: authoredStroke.join,
+    miterLimit: authoredStroke.miterLimit,
+    cap: authoredStroke.cap
+  }
+  const ribbonGeometry = buildDashedCenterRibbonGeometry(
+    dedupedFrames.map((frame) => ({
+      point: frame.point,
+      tangent: frame.tangent,
+      sharpJoin: frame.sharpJoin
+    })),
+    doubledCenterStroke,
+    {
+      allowRoundCapBackendOffset: true
+    }
+  )
+  const doubledCenterPolygons =
+    ribbonGeometry.polygons.length > 0
+      ? ribbonGeometry.polygons
+      : buildSolidCenterStrokePolygons(
+          dedupedFrames.map((frame) => frame.point),
+          false,
+          doubledCenterStroke
+        )
+
+  if (doubledCenterPolygons.length === 0) {
+    return []
+  }
+
+  const subjectPolygons = doubledCenterPolygons
+    .map(cleanPolygon)
+    .filter(hasPolygonGeometry)
+
+  return subjectPolygons
+}
+
+const buildInsideDoubledCenterDashedIntervalStrokePath = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  interval: VisibleDashedTopologyInterval,
+  slicingContext: SourcePathSlicingContext
+) => {
+  const intervalRanges =
+    interval.wrapsSeam && path.closed
+      ? [
+          {
+            startDistance: interval.startDistance,
+            endDistance: path.totalLength
+          },
+          { startDistance: 0, endDistance: interval.endDistance }
+        ]
+      : [
+          {
+            startDistance: interval.startDistance,
+            endDistance: interval.endDistance
+          }
+        ]
+
+  return intervalRanges.flatMap((range) => {
+    if (range.endDistance - range.startDistance <= EPSILON) {
+      return []
+    }
+    const segmentIndex = Math.min(
+      slicingContext.segmentRanges.length - 1,
+      Math.max(
+        0,
+        lowerBoundSourcePathSegmentEnd(
+          slicingContext.segmentRanges,
+          range.startDistance + EPSILON
+        )
+      )
+    )
+    const frames = sliceExactRibbonRangeFrames(
+      path,
+      {
+        startDistance: range.startDistance,
+        endDistance: range.endDistance,
+        segmentIndex
+      },
+      slicingContext
+    )
+    const points = dedupeRibbonFrames(frames).map((frame) => frame.point)
+    return points.length >= 2 ? [points] : []
+  })
+}
+
+const buildInsideDoubledCenterDashedRenderMaskDescriptor = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  intervals: VisibleDashedTopologyInterval[],
+  authoredStroke: Pick<
+    RenderableStroke,
+    'position' | 'width' | 'join' | 'miterLimit' | 'cap'
+  >,
+  slicingContext: SourcePathSlicingContext,
+  implicitFillRegions: PolygonRegion[]
+) => {
+  if (
+    authoredStroke.position !== 'inside' ||
+    authoredStroke.width <= EPSILON ||
+    implicitFillRegions.length === 0 ||
+    intervals.length === 0
+  ) {
+    return null
+  }
+
+  const strokePaths = intervals.flatMap((interval) =>
+    buildInsideDoubledCenterDashedIntervalStrokePath(
+      path,
+      interval,
+      slicingContext
+    )
+  )
+  if (strokePaths.length === 0) {
+    return null
+  }
+
+  const fillClipPolygons = getCoveragePolygonsFromRegions(implicitFillRegions)
+    .map(cleanPolygon)
+    .filter(hasPolygonGeometry)
+  if (fillClipPolygons.length === 0) {
+    return null
+  }
+
+  return {
+    polygons: fillClipPolygons,
+    renderDescriptor: {
+      fillClipPolygons,
+      strokePaths,
+      strokePathStyle: {
+        width: authoredStroke.width * 2,
+        cap: authoredStroke.cap,
+        join: authoredStroke.join,
+        miterLimit: authoredStroke.miterLimit,
+        closed: false
+      }
+    }
+  }
+}
+
+const buildInsideDoubledCenterDashedStrokeProductPolygons = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  intervals: VisibleDashedTopologyInterval[],
+  authoredStroke: Pick<
+    RenderableStroke,
+    | 'style'
+    | 'position'
+    | 'width'
+    | 'join'
+    | 'miterLimit'
+    | 'cap'
+    | 'dashPattern'
+  >,
+  slicingContext: SourcePathSlicingContext,
+  implicitFillRegions: PolygonRegion[]
+) => {
+  if (
+    authoredStroke.position !== 'inside' ||
+    implicitFillRegions.length === 0 ||
+    intervals.length === 0
+  ) {
+    return []
+  }
+
+  const subjectPolygons = intervals.flatMap((interval) =>
+    buildInsideDoubledCenterDashedIntervalSubjectPolygons(
+      path,
+      interval,
+      authoredStroke,
+      slicingContext
+    )
+  )
+  if (subjectPolygons.length === 0) {
+    return []
+  }
+
+  try {
+    const backend = getGeometryBackend()
+    if (!backend.capabilities.intersection) {
+      return []
+    }
+    const subjectRegions = toCoveragePolygonRegions(subjectPolygons)
+    const fillRegions = implicitFillRegions
+    const clippedSubjectRegions = backend.intersection(
+      subjectRegions,
+      fillRegions,
+      'nonzero'
+    )
+    const normalizedClippedSubjectRegions = backend.capabilities.union
+      ? backend.union(clippedSubjectRegions, 'nonzero')
+      : clippedSubjectRegions
+    return getCoveragePolygonsFromRegions(
+      normalizedClippedSubjectRegions.length > 0
+        ? normalizedClippedSubjectRegions
+        : clippedSubjectRegions
+    )
+      .map(cleanPolygon)
+      .filter(hasPolygonGeometry)
+  } catch {
+    return []
+  }
+}
+
 const buildDashedSourcePathFinalCoveragePolygons = (
   path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   topology: Pick<
@@ -6538,15 +6810,17 @@ const buildDashedSourcePathFinalCoveragePolygons = (
   strokeDomainPlan: Pick<StrokeDomainPlan, 'sideAuthority'> | undefined,
   clipInsideToFillDomain: boolean,
   implicitFillRegions: PolygonRegion[] = [],
-  normalizePerInterval = true
+  normalizePerInterval = true,
+  allowInsideEmptyClipSubjectFallback = false
 ) => {
   emitStrokePipelineCounter('final-coverage-builder-hit')
+  let productSeedPolygons: Vec2[][] = []
   if (
     authoredStroke.position === 'inside' &&
     clipInsideToFillDomain &&
     implicitFillRegions.length > 0
   ) {
-    return measureStrokePipelinePhase(
+    const doubledCenterClipPolygons = measureStrokePipelinePhase(
       'constrained dashed final coverage: doubled center inside clip',
       () =>
         buildInsideDoubledCenterDashedIntervalProductPolygons(
@@ -6557,9 +6831,19 @@ const buildDashedSourcePathFinalCoveragePolygons = (
           implicitFillRegions
         )
     )
+    if (doubledCenterClipPolygons.length > 0) {
+      productSeedPolygons = doubledCenterClipPolygons
+    }
   }
 
-  const polygons: Vec2[][] = []
+  const shouldKeepInsideSubjectOnEmptyClip =
+    allowInsideEmptyClipSubjectFallback ||
+    normalizePerInterval === false ||
+    (authoredStroke.position === 'inside' &&
+      topology.topologyFamily === 'self-intersecting' &&
+      strokeDomainPlan?.sideAuthority === 'implicit-fill-hole-domain')
+
+  const polygons: Vec2[][] = [...productSeedPolygons]
 
   measureStrokePipelinePhase(
     'constrained dashed final coverage: ranges',
@@ -6620,7 +6904,11 @@ const buildDashedSourcePathFinalCoveragePolygons = (
         authoredStroke,
         implicitFillRegions,
         {
-          dropEmptyInsideClipResult: authoredStroke.position === 'inside'
+          dropEmptyInsideClipResult:
+            authoredStroke.position === 'inside' &&
+            clipInsideToFillDomain &&
+            implicitFillRegions.length > 0 &&
+            !shouldKeepInsideSubjectOnEmptyClip
         }
       )
   )
@@ -8569,6 +8857,7 @@ const clipSourcePathPolygonsToEvenOddLegalDomain = (
       'nonzero'
     )
   } catch {
+    emitStrokePipelineCounter('source-path-legal-clip-error')
     return []
   }
 }
@@ -10190,6 +10479,137 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
       return terminals.length > 0 ? terminals : undefined
     }
 
+    if (
+      options.preferRenderMaskProductFinal === true &&
+      options.omitDiagnosticMetadata === true &&
+      constrainedDashedVisualMode === 'product-final' &&
+      productFinalIntervalClassification !== null &&
+      sourcePath &&
+      sourcePathSlicingContext &&
+      stroke.position === 'inside' &&
+      options.clipInsideToFillDomain === true &&
+      (options.implicitFillRegions?.length ?? 0) > 0
+    ) {
+      const productMaskDescriptor =
+        buildInsideDoubledCenterDashedRenderMaskDescriptor(
+          sourcePath,
+          visibleIntervals,
+          stroke,
+          sourcePathSlicingContext,
+          options.implicitFillRegions ?? []
+        )
+      if (productMaskDescriptor) {
+        const geometryId = `${cachePrefix}:${strokeIndex}:product-final`
+        const resolutionStatus = getConstrainedDashedResolutionStatus(
+          productFinalIntervalClassification.sourceTopology,
+          productFinalIntervalClassification.intervalTopology
+        )
+        const debugMeta: SolidCenterStrokeGeometryDebugMeta = {
+          sourcePathId: cachePrefix,
+          ownerKey: `${ownerPrefix}:stroke:${strokeIndex}`,
+          networkId: options.metadata?.networkId,
+          strokeId: `stroke:${strokeIndex}`,
+          strokeIndex,
+          contourId,
+          intervalId: 'product-final',
+          strokePosition: stroke.position,
+          ownerSet: options.metadata?.ownerSet,
+          geometryFamily: 'constrained-dashed',
+          resolutionStatus,
+          runtimeStatus: 'candidate',
+          sourceTopology: productFinalIntervalClassification.sourceTopology,
+          topologyFamily: topology.topologyFamily,
+          intervalTopology: productFinalIntervalClassification.intervalTopology,
+          finalCoverageBuilderStatus: 'product-final',
+          intervalSweepSpanCount: visibleIntervals.length,
+          terminalCapCount: 0,
+          paintBounds: sourcePaintBounds,
+          revisionSet: getRevisionSet(productFinalIntervalClassification)
+        }
+
+        return [
+          {
+            geometry: {
+              geometryId,
+              polygons: productMaskDescriptor.polygons,
+              bounds: getBounds(productMaskDescriptor.polygons),
+              debugMeta,
+              renderDescriptor: productMaskDescriptor.renderDescriptor
+            },
+            paint: {
+              geometryId,
+              kind: stroke.kind,
+              color: stroke.color,
+              alpha: stroke.alpha,
+              gradientStyle: stroke.gradientStyle,
+              paintKey: stroke.paintKey
+            }
+          }
+        ]
+      }
+
+      const productPolygons = measureStrokePipelinePhase(
+        'constrained dashed candidates: stroke-level product final',
+        () =>
+          buildInsideDoubledCenterDashedStrokeProductPolygons(
+            sourcePath,
+            visibleIntervals,
+            stroke,
+            sourcePathSlicingContext,
+            options.implicitFillRegions ?? []
+          )
+      )
+      if (productPolygons.length > 0) {
+        const geometryId = `${cachePrefix}:${strokeIndex}:product-final`
+        const resolutionStatus = getConstrainedDashedResolutionStatus(
+          productFinalIntervalClassification.sourceTopology,
+          productFinalIntervalClassification.intervalTopology
+        )
+        const debugMeta: SolidCenterStrokeGeometryDebugMeta = {
+          sourcePathId: cachePrefix,
+          ownerKey: `${ownerPrefix}:stroke:${strokeIndex}`,
+          networkId: options.metadata?.networkId,
+          strokeId: `stroke:${strokeIndex}`,
+          strokeIndex,
+          contourId,
+          intervalId: 'product-final',
+          strokePosition: stroke.position,
+          ownerSet: options.metadata?.ownerSet,
+          geometryFamily: 'constrained-dashed',
+          resolutionStatus,
+          runtimeStatus: 'candidate',
+          sourceTopology: productFinalIntervalClassification.sourceTopology,
+          topologyFamily: topology.topologyFamily,
+          intervalTopology:
+            productFinalIntervalClassification.intervalTopology,
+          finalCoverageBuilderStatus: 'product-final',
+          intervalSweepSpanCount: visibleIntervals.length,
+          terminalCapCount: 0,
+          paintBounds: sourcePaintBounds,
+          revisionSet: getRevisionSet(productFinalIntervalClassification)
+        }
+
+        return [
+          {
+            geometry: {
+              geometryId,
+              polygons: productPolygons,
+              bounds: getBounds(productPolygons),
+              debugMeta
+            },
+            paint: {
+              geometryId,
+              kind: stroke.kind,
+              color: stroke.color,
+              alpha: stroke.alpha,
+              gradientStyle: stroke.gradientStyle,
+              paintKey: stroke.paintKey
+            }
+          }
+        ]
+      }
+    }
+
     const intervalPackets = measureStrokePipelinePhase(
       'constrained dashed candidates: interval packets',
       () =>
@@ -10369,7 +10789,8 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                         productFinalSlicingContext,
                         strokeDomainPlan,
                         options.clipInsideToFillDomain === true,
-                        options.implicitFillRegions ?? []
+                        options.implicitFillRegions ?? [],
+                        true
                       )
                     }
                   )
