@@ -334,7 +334,7 @@ describe('solid center stroke render', () => {
     expect(cacheEntry?.kind).toBe('masked-solid')
   })
 
-  it('should run: render constrained dashed product-final polygon coverage with the exact mesh projection', () => {
+  it('should run: render constrained dashed product-final polygon coverage with the exact graphics projection', () => {
     const host = new MeshTestHost()
 
     renderSolidCenterStrokeEntries(host, [
@@ -366,8 +366,8 @@ describe('solid center stroke render', () => {
       }
     ])
 
-    expect(getProjectionMeshes(host)).toHaveLength(1)
-    expect(getProjectionGraphics(host)).toHaveLength(0)
+    expect(getProjectionMeshes(host)).toHaveLength(0)
+    expect(getProjectionGraphics(host)).toHaveLength(1)
     const cacheEntry = (
       host as typeof host & {
         __asyraStrokeMeshCache?: Map<string, { kind?: string }>
@@ -375,10 +375,10 @@ describe('solid center stroke render', () => {
     ).__asyraStrokeMeshCache?.get(
       'constrained_dashed_product_final_polygons_only'
     )
-    expect(cacheEntry?.kind).toBe('solid')
+    expect(cacheEntry?.kind).toBe('solid-graphics')
   })
 
-  it('should run: render self-intersecting constrained dashed source-path polygons through the exact mesh projection', () => {
+  it('should run: render self-intersecting constrained dashed source-path polygons through the exact graphics projection', () => {
     const host = new MeshTestHost()
 
     renderSolidCenterStrokeEntries(host, [
@@ -411,8 +411,8 @@ describe('solid center stroke render', () => {
       }
     ])
 
-    expect(getProjectionMeshes(host)).toHaveLength(1)
-    expect(getProjectionGraphics(host)).toHaveLength(0)
+    expect(getProjectionMeshes(host)).toHaveLength(0)
+    expect(getProjectionGraphics(host)).toHaveLength(1)
     const cacheEntry = (
       host as typeof host & {
         __asyraStrokeMeshCache?: Map<string, { kind?: string }>
@@ -420,7 +420,7 @@ describe('solid center stroke render', () => {
     ).__asyraStrokeMeshCache?.get(
       'self_intersecting_constrained_dashed_source_path'
     )
-    expect(cacheEntry?.kind).toBe('solid')
+    expect(cacheEntry?.kind).toBe('solid-graphics')
   })
 
   it('should run: keep outside constrained dashed projection seam bridges on the selected side before render/export', () => {

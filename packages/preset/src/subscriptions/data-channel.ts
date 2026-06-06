@@ -22,6 +22,7 @@ import {
   type SelectionChange,
   type UpdateElementBatchChange,
   type UpdateElementChange,
+  type UpdateElementPatchChange,
   type WorkspaceRawData
 } from '@asyra/utils'
 import type { PresetCoreAPIs, PresetDependencies } from '../types'
@@ -79,8 +80,34 @@ const shouldUpdateElementDataMapForComputedKey = (key: string): boolean =>
 const getMatchingPropertiesForSceneTreeChange = (
   change: SceneTreeChange
 ): string[] => {
-  if (change.action !== SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH) {
+  if (
+    change.action !== SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH &&
+    change.action !== SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH
+  ) {
     return propertyRegistry.getMatchingProperties(change)
+  }
+
+  if (change.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH) {
+    const patchChange = change as UpdateElementPatchChange
+    const changedKeys = [
+      ...Object.keys(patchChange.patch.values ?? {}),
+      ...Object.keys(patchChange.patch.records ?? {})
+    ]
+    return Array.from(
+      new Set(
+        changedKeys.flatMap((key) =>
+          propertyRegistry.getMatchingProperties({
+            action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+            eventName: patchChange.eventName,
+            id: patchChange.id,
+            key,
+            before: null,
+            after: null,
+            options: patchChange.options
+          })
+        )
+      )
+    )
   }
 
   const batchChange = change as UpdateElementBatchChange
@@ -123,6 +150,11 @@ const updateRenderSceneTree = (change: SceneTreeChange) => {
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH: {
       const { id, changes, options } = change as UpdateElementBatchChange
       renderSceneTreeStore.updateElementBatch(id, changes, options)
+      break
+    }
+    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH: {
+      const { id, patch, options } = change as UpdateElementPatchChange
+      renderSceneTreeStore.updateElementPatch(id, patch, options)
       break
     }
   }
@@ -479,6 +511,18 @@ const handleUIContextSceneTreeChange = (
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH: {
       const { id, changes } = change as UpdateElementBatchChange
       changes.forEach(({ key }) => {
+        if (shouldUpdateElementDataMapForComputedKey(key)) {
+          pendingUIContextSync.dirtyElementDataMapIds.add(id)
+        }
+        if (key === 'children') {
+          pendingUIContextSync.flattenedElementIds = true
+        }
+      })
+      break
+    }
+    case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH: {
+      const { id, patch } = change as UpdateElementPatchChange
+      Object.keys(patch.values ?? {}).forEach((key) => {
         if (shouldUpdateElementDataMapForComputedKey(key)) {
           pendingUIContextSync.dirtyElementDataMapIds.add(id)
         }

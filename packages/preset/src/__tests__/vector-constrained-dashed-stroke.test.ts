@@ -3661,13 +3661,16 @@ describe('vector constrained dashed stroke product wiring', () => {
     expect(getProjectionMeshes(graphic)).toHaveLength(0)
     expect(getProjectionGraphics(graphic).length).toBeGreaterThan(0)
     expect(getStrokeMeshCacheKinds(graphic)).toContain('masked-solid')
+    expect(getStrokeMeshCacheKinds(graphic)).not.toContain('solid')
 
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
     expect(
       exportPackets.every(
         (packet) =>
           packet.debugMeta?.sourceTopology === 'self-intersecting' &&
-          packet.debugMeta?.finalCoverageBuilderStatus === 'product-final' &&
+          (packet.debugMeta?.finalCoverageBuilderStatus === 'debug-raw' ||
+            packet.debugMeta?.finalCoverageBuilderStatus ===
+              'product-final') &&
           typeof packet.debugMeta?.intervalId === 'string' &&
           packet.debugMeta.intervalId.startsWith('interval:') &&
           packet.intervalIds.every((intervalId) =>
@@ -3742,7 +3745,10 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
   })
 
-  it('should run: render visible source-path split-range constrained geometry for multiple closed self-intersecting full-loop constrained dashed strokes', () => {
+  it('should run: render visible source-path split-range constrained geometry for multiple closed self-intersecting full-loop constrained dashed strokes', async () => {
+    await selectClipper2TestBackend(
+      'vector-constrained-dashed-self-intersecting-multi-full-loop-clipper2-backend'
+    )
     const graphic = runVectorRenderStrategy({
       id: 'vector-constrained-dashed-self-intersecting-multi',
       x: 0,

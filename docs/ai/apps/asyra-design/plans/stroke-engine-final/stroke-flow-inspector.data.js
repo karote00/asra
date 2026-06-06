@@ -18,7 +18,7 @@
   const latestRules = [
     'Only PLANS.md, this data file, and the stroke-engine README define current stroke rules. Viewer HTML is a shell only.',
     'The 2026-05-31 grid/vector-network self-intersecting inside solid slice now has focused probes, e2e pixel gates, and manual app screenshot review passing; this is slice-level evidence, not a whole-engine completion claim.',
-    'Constrained solid visible render uses the Figma doubled authored center-stroke mask model: build the authored center stroke at twice the requested stroke width, apply strokeJoin and strokeMiterLimit there, then clip by the inside filled-region mask or outside exterior mask.',
+    'Constrained solid visible render uses the Asyra doubled authored center-stroke mask model: build the authored center stroke at twice the requested stroke width, apply strokeJoin and strokeMiterLimit there, then clip by the inside filled-region mask or outside exterior mask.',
     'Self-intersecting inside solid visible pixels must come from the doubled authored center stroke clipped by a face, winding, and adjacency-aware filled-region mask.',
     'Grouped render descriptors may encode the adjacency-aware mask only as authored centerline stroke paths with explicit clip groups; they must not expose face strips, helper polygons, or derivation fragments as visible product geometry.',
     'Internal shared edges reveal half of the requested stroke width from each adjacent filled face; the combined visible width along the shared edge must not become two independent full-width strips.',
@@ -26,12 +26,12 @@
     'Derivation fragments, face strips, helper polygons, coverage probes, and diagnostics can prove legality, hit/export, or failure modes, but they must not become product-visible solid stroke geometry.',
     'Dashed constrained strokes remain interval-domain based. Dash intervals, terminal half-dashes, and caps must stay separate from solid visible geometry.',
     'Step 17 builds model-specific stroke candidates; Step 20 applies mask legality; Step 24/25 preserve model-separated render/hit/export descriptors; Step 30 passed for the reported inside-solid slice only after probes and manual app visual review passed without internal pentagon fragmentation.',
-    'Captured Figma mismatches reopen the earliest owning inspector step. Implementation must not add new local rules before all three authority files are updated.'
+    'Captured Asyra rule mismatches reopen the earliest owning inspector step. Implementation must not add new local rules before all three authority files are updated.'
   ]
 
   const currentExecutionState = {
     totalSteps: 30,
-    planStatus: 'active-slice-parity-passed',
+    planStatus: 'active-slice-rule-review-passed',
     nextExecutableStepId: 'visible-final-result',
     nextExecutableStepNumber: 30,
     nextExecutableStepStatus: 'slice-visual-review-passed',
@@ -100,11 +100,11 @@
   const alignmentLabels = {
     aligned: 'Aligned',
     guarded: 'Guarded',
-    'active-slice-parity-passed': 'Active / slice parity passed',
+    'active-slice-rule-review-passed': 'Active / slice rule review passed',
     'slice-visual-review-passed': 'Slice visual review passed',
-    'reopened-figma-parity-blocked': 'Reopened / Figma parity blocked',
+    'reopened-rule-review-blocked': 'Reopened / rule review blocked',
     'reopened-visual-review-blocked': 'Reopened / visual review blocked',
-    'focused-inside-solid-parity-passed': 'Superseded focused-pass claim',
+    'focused-inside-solid-rule-review-passed': 'Superseded focused-pass claim',
     'not-current-owner': 'Not current owner'
   }
 
@@ -117,7 +117,7 @@
   const genericAcceptance = [
     'Authority files state the same rule.',
     'No visible stroke rule is added outside the three authority files.',
-    'Runtime changes must prove render, hit, export, diagnostics, and visual parity separately.'
+    'Runtime changes must prove render, hit, export, diagnostics, and visual correctness separately.'
   ]
 
   const stepSpecs = [
@@ -210,7 +210,7 @@
       'Stroke Pipeline',
       3,
       'Resolve source families',
-      'Classify supported stroke families without claiming final parity.'
+      'Classify supported stroke families without claiming final visual correctness.'
     ],
     [
       'resolve-stroke-domains',
@@ -329,7 +329,7 @@
       'Diagnostics',
       8,
       'Visible final result',
-      'Gate final visible parity through probes and screenshot review.'
+      'Gate final visible correctness through probes and screenshot review.'
     ]
   ]
 
@@ -442,7 +442,7 @@
       implementationTrace: override.implementationTrace ?? [
         'Trace implementation against this step before changing runtime code.'
       ],
-      figmaLikeStrokeRules: override.figmaLikeStrokeRules ?? latestRules,
+      asyraStrokeRules: override.asyraStrokeRules ?? latestRules,
       helperConditions: override.helperConditions ?? [
         'Do not add local stroke semantics in helper branches.'
       ],
@@ -465,7 +465,7 @@
         'node --check docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.data.js'
       ],
       evidenceToInspect: override.evidenceToInspect ?? [
-        'current Figma comparison screenshots',
+        'current Asyra rule review screenshots',
         'render/hit/export descriptor provenance'
       ]
     }
@@ -480,8 +480,8 @@
     .slice(0, -1)
     .map((step, index) => [step.id, steps[index + 1].id])
 
-  const figmaLikeRulesByStep = Object.fromEntries(
-    steps.map((step) => [step.id, step.figmaLikeStrokeRules])
+  const asyraRulesByStep = Object.fromEntries(
+    steps.map((step) => [step.id, step.asyraStrokeRules])
   )
   const defaultEvidenceByGroup = Object.fromEntries(
     groups.map((group) => [
@@ -519,13 +519,13 @@
     id: step.id,
     inputContract: step.inputs,
     outputContract: step.outputs,
-    figmaRuleReference: step.figmaLikeStrokeRules,
+    asyraRuleReference: step.asyraStrokeRules,
     currentImplementationOwner: step.helpers,
     requiredInvariant:
-      'Preserve the Figma doubled authored center-stroke mask rule without visible diagnostic fragments or renderer-side repair.',
+      'Preserve the Asyra doubled authored center-stroke mask rule without visible diagnostic fragments or renderer-side repair.',
     currentTestCoverage: step.relatedTests,
     dodGap:
-      step.alignmentStatus === 'reopened-figma-parity-blocked'
+      step.alignmentStatus === 'reopened-rule-review-blocked'
         ? 'Needs runtime probes and reviewed screenshots before closure.'
         : 'No document-authority gap identified in this cleanup.',
     status: step.alignmentStatus
@@ -538,7 +538,7 @@
     currentExecutionState,
     strokeCompletionMatrix,
     stepGoalAudit,
-    figmaLikeRulesByStep,
+    asyraRulesByStep,
     alignmentLabels,
     steps,
     edges,

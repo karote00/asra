@@ -3622,7 +3622,29 @@ describe('constrained dashed stroke packets: self-intersecting implicit domains'
     )
 
     expect(implicitSidePackets.length).toBeGreaterThan(0)
-    expect(filledFacePackets).toEqual([])
+    expect(
+      filledFacePackets,
+      JSON.stringify(
+        {
+          message:
+            'outside dashed implicit-fill-domain packets must stay on exterior outer boundary domains; filled-face packets would draw inside the legal fill face',
+          filledFacePackets: filledFacePackets.map((packet) => ({
+            geometryId: packet.geometry.geometryId,
+            intervalId: packet.geometry.debugMeta?.intervalId,
+            boundaryRole: packet.geometry.debugMeta?.figmaLikeBoundaryRole,
+            selectedSide: packet.geometry.debugMeta?.figmaLikeSelectedSide,
+            filledSide: packet.geometry.debugMeta?.figmaLikeFilledSide,
+            unfilledSide: packet.geometry.debugMeta?.figmaLikeUnfilledSide,
+            sideResolutionStatus:
+              packet.geometry.debugMeta?.figmaLikeSideResolutionStatus,
+            finalCoverageBuilderStatus:
+              packet.geometry.debugMeta?.finalCoverageBuilderStatus
+          }))
+        },
+        null,
+        2
+      )
+    ).toEqual([])
     expect(
       implicitSidePackets.every((packet) => {
         const meta = packet.geometry.debugMeta
@@ -3655,7 +3677,7 @@ describe('constrained dashed stroke packets: self-intersecting implicit domains'
           terminalRole: entry.debugMeta?.figmaLikeTerminalRole
         }))
       )
-    ).toHaveLength(2)
+    ).toEqual([])
     expect(
       getHighCurvatureFanPolygonFailures(
         renderEntries.map((entry) => ({

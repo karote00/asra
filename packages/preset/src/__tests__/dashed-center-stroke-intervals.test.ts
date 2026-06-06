@@ -295,7 +295,7 @@ describe('dashed center stroke interval allocation', () => {
     ])
   })
 
-  it('should run: allocate Figma-like split ranges with half dashes at both ends and balanced interior gaps', () => {
+  it('should run: allocate Asyra canonical split ranges with half dashes at both ends and balanced interior gaps', () => {
     const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
       domains: [
         {
@@ -365,7 +365,7 @@ describe('dashed center stroke interval allocation', () => {
     })
   })
 
-  it('should run: distribute every middle dash and gap evenly inside one long Figma-like split range', () => {
+  it('should run: distribute every middle dash and gap evenly inside one long Asyra canonical split range', () => {
     const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
       domains: [
         {
@@ -584,7 +584,7 @@ describe('dashed center stroke interval allocation', () => {
     expect(shortVisible[1]?.startDistance).toBeCloseTo(296.5, 6)
   })
 
-  it('should run: allocate adjacent Figma-like split ranges independently instead of carrying a cumulative schedule across the boundary', () => {
+  it('should run: allocate adjacent Asyra canonical split ranges independently instead of carrying a cumulative schedule across the boundary', () => {
     const allocations = allocateFigmaLikeSplitRangeDashedIntervals({
       domains: [
         {
@@ -666,7 +666,7 @@ describe('dashed center stroke interval allocation', () => {
     ).toBe(true)
   })
 
-  it('should run: collapse a Figma-like split range shorter than one dash into one visible range', () => {
+  it('should run: collapse an Asyra canonical split range shorter than one dash into one visible range', () => {
     const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
       domains: [
         {

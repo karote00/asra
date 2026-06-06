@@ -679,7 +679,22 @@ const assertRequiredPhaseCoverage = (metric: DragMetrics) => {
   ).toBeGreaterThan(0)
   expect(
     metric.productRenderObserved,
-    `${metric.label} should observe product vector render during path editing drag`
+    `${metric.label} should observe product vector render during path editing drag ${JSON.stringify(
+      {
+        sceneTreeVectorRenderFrameCount: metric.sceneTreeVectorRenderFrameCount,
+        computedPatchFrameCount: metric.computedPatchFrameCount,
+        renderFlushFrameCount: metric.renderFlushFrameCount,
+        overlayRenderFrameCount: metric.overlayRenderFrameCount,
+        overlayOnlyFrameCount: metric.overlayOnlyFrameCount,
+        productVectorRenderFrameCount: metric.productVectorRenderFrameCount,
+        phaseNames,
+        counters: metric.counters,
+        instrumentationGaps: metric.instrumentationGaps,
+        instrumentationErrors: metric.instrumentationErrors
+      },
+      null,
+      2
+    )}`
   ).toBe(true)
   expect(
     metric.freshnessProbe?.sourceMoved,
@@ -839,7 +854,17 @@ const patchSelectedVectorToReportedClosedStar = async (page: Page) => {
       throw new Error('Missing vector topology')
     }
 
-    const nextPoints = {
+    const offsetX = typeof computed.x === 'number' ? computed.x : 0
+    const offsetY = typeof computed.y === 'number' ? computed.y : 0
+    const toWorkspacePoint = <T extends { x: number; y: number }>(
+      point: T
+    ): T => ({
+      ...point,
+      x: point.x + offsetX,
+      y: point.y + offsetY
+    })
+
+    const nextLocalPoints = {
       'tp-56': {
         id: 'tp-56',
         kind: 'anchor',
@@ -932,6 +957,12 @@ const patchSelectedVectorToReportedClosedStar = async (page: Page) => {
         y: 358.2744342558792
       }
     }
+    const nextPoints = Object.fromEntries(
+      Object.entries(nextLocalPoints).map(([pointId, point]) => [
+        pointId,
+        toWorkspacePoint(point)
+      ])
+    )
 
     const nextSegments = {
       'seg-56-57': {
@@ -993,6 +1024,7 @@ const patchSelectedVectorToReportedClosedStar = async (page: Page) => {
           }
         },
         closed: true,
+        pointCoordinateSpace: 'workspace',
         width: 423.6353107755326,
         height: 457.5261356375752
       },
@@ -1145,10 +1177,11 @@ const getPointClientPosition = async (
     }
     const offsetX = typeof computed.x === 'number' ? computed.x : 0
     const offsetY = typeof computed.y === 'number' ? computed.y : 0
+    const usesWorkspacePoints = computed.pointCoordinateSpace === 'workspace'
 
     return {
-      x: (offsetX + point.x) * zoom + viewport.x,
-      y: (offsetY + point.y) * zoom + viewport.y
+      x: ((usesWorkspacePoints ? 0 : offsetX) + point.x) * zoom + viewport.x,
+      y: ((usesWorkspacePoints ? 0 : offsetY) + point.y) * zoom + viewport.y
     }
   }, pointId)
 
@@ -1453,7 +1486,22 @@ const buildRuleDrivenStrokeProbes = async (
       const network = Object.values(computed.networks ?? {})[0] as
         | Network
         | undefined
-      const points = computed.points ?? {}
+      const rawPoints = computed.points ?? {}
+      const offsetX = typeof computed.x === 'number' ? computed.x : 0
+      const offsetY = typeof computed.y === 'number' ? computed.y : 0
+      const usesWorkspacePoints = computed.pointCoordinateSpace === 'workspace'
+      const points = usesWorkspacePoints
+        ? Object.fromEntries(
+            Object.entries(rawPoints).map(([pointId, point]) => [
+              pointId,
+              {
+                ...(point as Point),
+                x: (point as Point).x - offsetX,
+                y: (point as Point).y - offsetY
+              }
+            ])
+          )
+        : rawPoints
       const segments = computed.segments ?? {}
 
       if (!network) {
@@ -1700,7 +1748,18 @@ const assertRuleDrivenStrokeProbes = async (
   ).length
   expect(
     visibleBodyProbeCount,
-    `${label} should keep most rule-driven body probes visible`
+    `${label} should keep most rule-driven body probes visible ${JSON.stringify(
+      {
+        bodyCoverages,
+        gapCoverages,
+        rejectedCoverages,
+        bodyProbes: probes.body,
+        gapProbes: probes.gap,
+        rejectedProbes: probes.rejected
+      },
+      null,
+      2
+    )}`
   ).toBeGreaterThanOrEqual(Math.max(1, Math.ceil(bodyCoverages.length * 0.5)))
   for (const [index, coverage] of rejectedCoverages.entries()) {
     expect(

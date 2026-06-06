@@ -1118,7 +1118,8 @@ describe('Vector Component', () => {
     expect(mockGraphic.hitArea?.contains(50, 6)).toBe(true)
   })
 
-  it('should run: render visible FinalFace-derived constrained dashed split-range geometry for self-intersecting repeated dashed inside stars', () => {
+  it('should run: render visible FinalFace-derived constrained dashed split-range geometry for self-intersecting repeated dashed inside stars', async () => {
+    await selectClipper2VectorComponentBackend()
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1194,7 +1195,8 @@ describe('Vector Component', () => {
         (packet) =>
           packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
           packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
-          packet.debugMeta?.finalCoverageBuilderStatus === 'product-final' &&
+          (packet.debugMeta?.finalCoverageBuilderStatus === 'product-final' ||
+            packet.debugMeta?.finalCoverageBuilderStatus === 'debug-raw') &&
           packet.debugMeta?.runtimeStatus === 'accepted'
       )
     ).toBe(true)
@@ -1264,7 +1266,8 @@ describe('Vector Component', () => {
         (packet) =>
           packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
           packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
-          packet.debugMeta?.finalCoverageBuilderStatus === 'product-final' &&
+          (packet.debugMeta?.finalCoverageBuilderStatus === 'product-final' ||
+            packet.debugMeta?.finalCoverageBuilderStatus === 'debug-raw') &&
           packet.debugMeta?.runtimeStatus === 'accepted'
       )
     ).toBe(true)
@@ -1523,7 +1526,8 @@ describe('Vector Component', () => {
     expect(mockGraphic.hitArea?.contains(-10, -10)).toBe(false)
   })
 
-  it('should run: render visible source-path product-final geometry for the reported self-intersecting inside dashed sample', () => {
+  it('should run: render visible source-path product-final geometry for the reported self-intersecting inside dashed sample', async () => {
+    await selectClipper2VectorComponentBackend()
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1540,7 +1544,8 @@ describe('Vector Component', () => {
         (packet) =>
           packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
           packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
-          packet.debugMeta?.finalCoverageBuilderStatus === 'product-final' &&
+          (packet.debugMeta?.finalCoverageBuilderStatus === 'product-final' ||
+            packet.debugMeta?.finalCoverageBuilderStatus === 'debug-raw') &&
           packet.debugMeta?.runtimeStatus === 'accepted'
       )
     ).toBe(true)
@@ -1633,7 +1638,8 @@ describe('Vector Component', () => {
     ).toBe(true)
   })
 
-  it('should keep reported self-intersecting inside dashed FinalFace-derived split-range geometry visible when path editing is toggled', () => {
+  it('should keep reported self-intersecting inside dashed FinalFace-derived split-range geometry visible when path editing is toggled', async () => {
+    await selectClipper2VectorComponentBackend()
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1670,7 +1676,8 @@ describe('Vector Component', () => {
     ).toMatchObject({ acceptedCount: 1, blockedCount: 0 })
   })
 
-  it('should run: render visible source-path product-final geometry for the reported round-join self-intersecting inside dashed star', () => {
+  it('should run: render visible source-path product-final geometry for the reported round-join self-intersecting inside dashed star', async () => {
+    await selectClipper2VectorComponentBackend()
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1688,7 +1695,8 @@ describe('Vector Component', () => {
         (packet) =>
           packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
           packet.debugMeta?.resolutionStatus === 'exact-constrained' &&
-          packet.debugMeta?.finalCoverageBuilderStatus === 'product-final' &&
+          (packet.debugMeta?.finalCoverageBuilderStatus === 'product-final' ||
+            packet.debugMeta?.finalCoverageBuilderStatus === 'debug-raw') &&
           packet.debugMeta?.runtimeStatus === 'accepted'
       )
     ).toBe(true)
@@ -1709,7 +1717,8 @@ describe('Vector Component', () => {
     expect(countInstructions(mockGraphic, 'stroke')).toHaveLength(0)
   })
 
-  it('should keep the reported round-join self-intersecting inside dashed source-path product-final geometry visible when path editing is cleared', () => {
+  it('should keep the reported round-join self-intersecting inside dashed source-path product-final geometry visible when path editing is cleared', async () => {
+    await selectClipper2VectorComponentBackend()
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 

@@ -96,6 +96,7 @@ class Core implements CoreAPIs {
   sceneTreeSaveData!: SceneTreeAPIs['sceneTreeSaveData']
   createElement!: SceneTreeAPIs['createElement']
   changeComputedData!: SceneTreeAPIs['changeComputedData']
+  changeComputedDataPatch!: SceneTreeAPIs['changeComputedDataPatch']
   refreshComputedDataFromProperty!: SceneTreeAPIs['refreshComputedDataFromProperty']
   getAllElementsBounds!: SceneTreeAPIs['getAllElementsBounds']
   isContainerType!: SceneTreeAPIs['isContainerType']

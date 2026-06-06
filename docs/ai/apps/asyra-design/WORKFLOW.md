@@ -65,7 +65,7 @@ Run what matches scope:
 - `yarn workspace @asyra/asyra-design react:build`
 - `yarn workspace @asyra/asyra-design test:e2e` for UI/interaction behavior changes
 - focused manual checks for interactions not fully covered by E2E
-- for canvas/vector/rendering/geometry/Figma-parity claims, use `docs/ai/skills/app-visual-review-sync/SKILL.md`
+- for canvas/vector/rendering/geometry visual-correctness claims, use `docs/ai/skills/app-visual-review-sync/SKILL.md`
   - use `ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL` as the app-specific review URL
   - if Playwright needs `PLAYWRIGHT_TEST_BASE_URL`, set it from the same value
   - assert runtime computed data before screenshots when the review is tied to supplied computed data

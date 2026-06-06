@@ -25,10 +25,12 @@ fragmented internal pentagon output. Any previous whole-matrix completion
 statement is superseded; this is slice-level evidence only, not a whole-engine
 completion claim.
 
-## Figma Solid Rule
+## Asyra Solid Rule
 
-Constrained solid strokes follow Figma's doubled authored center-stroke mask
-model:
+Constrained solid strokes follow Asyra's doubled authored center-stroke mask
+model. This is the Asyra rule contract; it may be informed by a subset of
+external design-tool behavior, but external tools are not the authority for this
+spec:
 
 1. Build the authored center stroke at twice the requested stroke width.
 2. Apply authored join behavior to that center stroke. `strokeJoin` and
@@ -87,8 +89,8 @@ Dashed constrained strokes are a separate interval-domain model:
 - solid visible render must not borrow dashed boundary interval geometry.
 
 For constrained `inside` dashed strokes, interval-domain ownership stops at
-dash allocation. Visible product geometry must be built as Figma-style doubled
-center dashed stroke geometry: each split source range keeps half-dash
+dash allocation. Visible product geometry must be built as Asyra doubled center
+dashed stroke geometry: each split source range keeps half-dash
 terminals at both cut ends and evenly distributed middle gaps, then each visible
 interval is stroked on the authored centerline at `stroke.width * 2` with the
 authored cap, join, and miter limit, and finally clipped by the inside
@@ -114,7 +116,7 @@ dashed strokes.
 - Step 25, `emit-render-hit-export-packets`: emit render, hit, and export
   projections without changing stroke semantics.
 - Step 30, `visible-final-result`: passed for the 2026-05-31 reported
-  inside-solid slice only after current Figma-parity probes and manual app
+  inside-solid slice only after current Asyra rule probes and manual app
   screenshot review covered internal shared-edge width, the five internal
   pentagon join variants, miter limits, fill preservation, absence of visible
   derivation fragments, and absence of fragmented internal pentagon output.
@@ -159,9 +161,9 @@ Completion requires:
 - the three authority files state the same solid rule;
 - old stroke specification files are removed from the docs tree;
 - the inspector data labels Step 17 as model-neutral stroke candidate building;
-- no active status claims completion until current Figma-parity probes and
+- no active status claims completion until current Asyra rule probes and
   reviewed screenshots pass;
 - visual gates fail when the internal pentagon breaks into helper-like fragments
   even if shared-edge width and join-difference numeric probes pass;
 - implementation evidence separately proves render, hit, export, diagnostics,
-  reload, performance behavior, and visible screenshot parity.
+  reload, performance behavior, and visible screenshot consistency.

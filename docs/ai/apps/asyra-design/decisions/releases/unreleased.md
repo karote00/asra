@@ -33,14 +33,14 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 - Related Commit(s):
   - `2eafe38` (`feat(asyra-design): stabilize pen bezier flow and sync planning docs`)
 
-## 2026-03-01 - Pen second-point drag switched to figma-style `P1/P2` coefficients
+## 2026-03-01 - Pen second-point drag switched to reference-style `P1/P2` coefficients
 
 - Context:
   - The initial second-point auto-update formula for connected `P1` produced unstable bezier results during drag.
   - Pen drag must keep default behavior stable (no connected-handle auto update for normal appends) while fixing the first-segment case.
 - Decision:
   - Keep the existing gate: only auto-update connected `P1` when dragging the second point of a subpath and the first point has no user-defined handle.
-  - Replace the old mirrored `p1 = p0 - (p2 - p3)` calculation with figma-style coefficients:
+  - Replace the old mirrored `p1 = p0 - (p2 - p3)` calculation with reference-style coefficients:
     - `p2 = B - 0.8 * (M - B)` for new point `inHandle`
     - `p1.x = A.x - 0.334 * (M.x - B.x)`
     - `p1.y = A.y + 0.327 * (B.y - A.y)`
@@ -680,7 +680,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 - Context:
   - Gradient fills in the properties panel only exposed type selection and stop/handle counts, which was insufficient for real gradient authoring.
 - Decision:
-  - Add a panel gradient editor with Figma-style stop strip, stop selection, stop add/remove, stop position editing, and stop color editing through the shared custom color picker.
+  - Add a panel gradient editor with a professional-style stop strip, stop selection, stop add/remove, stop position editing, and stop color editing through the shared custom color picker.
   - Keep fill-level opacity separate from gradient-stop opacity, matching the existing fill data contract.
 - Consequences:
   - Gradient fill authoring is now possible directly in the properties panel instead of being metadata-only.
@@ -2233,16 +2233,16 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
   - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
 
-## 2026-04-26 - Stroke engine plan targets formal Figma-like uniform-width completion
+## 2026-04-26 - Stroke engine plan targets formal Asyra canonical uniform-width completion
 
 - Context:
   - The product expectation for the current stroke-engine plan is not a
     representative-only demo matrix.
   - Variable width and broader paint/color rollout are intentionally excluded
     from the current execution target, but uniform-width stroke behavior should
-    converge toward the baseline users expect from tools such as Figma.
+    converge toward the baseline users expect from professional vector tools.
 - Decision:
-  - Treat the current formal target as Figma-like uniform-width stroke
+  - Treat the current formal target as Asyra canonical uniform-width stroke
     completion for supported Asyra Design shape/vector paths.
   - Keep the plan focused on:
     - `inside` / `outside` / `center`
@@ -2430,7 +2430,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Keep the already-recorded Phase 6 / Phase 7 notes as historical evidence
     and backlog, but do not let them outrank unfinished user-facing
     uniform-width round / dashed work.
-  - Use Figma-like uniform-width stroke behavior as the formal
+  - Use Asyra canonical uniform-width stroke behavior as the formal
     slice-selection target:
     - `inside` / `outside` / `center`
     - `solid` / `dashed`
@@ -5092,7 +5092,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 ## 2026-04-26 - Phase 5 promotes shared center round geometry for uniform-width solid and dashed strokes
 
 - Context:
-  - The formal stroke-engine target is now Figma-like uniform-width behavior
+  - The formal stroke-engine target is now Asyra canonical uniform-width behavior
     before returning to paint/color or variable-width work.
   - Center dashed round join/cap support depends on the canonical
     `solid-center` polygon builder because dashed intervals reuse the same
@@ -5234,7 +5234,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - `oval` constrained dashed `inside/outside + full-loop + round join` now
     renders through the real app path.
   - This is not arbitrary-vector round-join promotion.
-  - The next Figma-like geometry work should still treat sharp joins as their
+  - The next Asyra canonical geometry work should still treat sharp joins as their
     own bounded family.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
@@ -5347,7 +5347,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Keep self-intersecting exact constrained dashed semantics blocked until fill-rule topology is promoted.
 - Consequences:
   - Unsupported star-like repeated dashed `inside` / `outside` vectors remain visible without doubling the stroke width.
-  - This is not exact Figma-like inside/outside placement for arbitrary sampled paths; that remains a future promoted topology.
+  - This is not exact Asyra canonical inside/outside placement for arbitrary sampled paths; that remains a future promoted topology.
   - The guard prevents a false-success constrained rendering path from masking missing topology coverage during manual QA.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
@@ -5753,7 +5753,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 - Consequences:
   - Reported repeated dashed self-intersecting vectors no longer disappear when
     switched to constrained `inside` / `outside`.
-  - This is not a center fallback and does not claim full Figma-like
+  - This is not a center fallback and does not claim full Asyra canonical
     self-intersection arrangement support.
   - Full-loop self-intersecting support and overlapping multi-network ownership
     remain separate exactness gates.
@@ -5784,7 +5784,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 ## 2026-04-28 - Promoted basic compound-hole constrained solid slice
 
 - Context:
-  - The Figma reference fixture for compound closed paths shows inside stroke behavior is defined against the legal filled region, not raw contour orientation.
+  - The external reference fixture for compound closed paths shows inside stroke behavior is defined against the legal filled region, not raw contour orientation.
   - The outer shell must inset for inside stroke, while the hole contour must invert the selected side so stroke geometry expands into the filled region around the hole.
   - The previous runtime had containment-depth classification but still blocked all overlapping multi-network constrained solid packets.
 - Decision:
@@ -5793,7 +5793,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Emit one shared compound legal-domain id through render, hit-test, and export packets for the promoted solid slice.
   - Invert authored inside/outside position for the hole contour before building one-sided geometry.
 - Consequences:
-  - The Q6 donut-like Figma reference behavior now has a product-path implementation and regression coverage.
+  - The Q6 donut-like external reference behavior now has a product-path implementation and regression coverage.
   - Q5 nested ownership remains blocked by an explicit regression so the basic compound slice cannot accidentally promote nested chains.
   - Compound dashed remains blocked by overlapping-network diagnostics until a dashed legal-domain implementation is explicitly added.
 - Related Plan:
@@ -5801,10 +5801,10 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - `docs/ai/apps/asyra-design/plans/stroke-engine-final/topology-and-product-semantics.md`
   - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
 
-## 2026-04-28 - Promoted Q4/Q5/Q8 Figma SVG fixture slices
+## 2026-04-28 - Promoted Q4/Q5/Q8 external SVG fixture slices
 
 - Context:
-  - User-supplied Figma SVG exports for Q4, Q5, and Q8 were available after
+  - User-supplied external SVG exports for Q4, Q5, and Q8 were available after
     MCP quota was exhausted.
   - Q4 outlined SVG showed overlapping solid strokes resolve into compound
     filled geometry and overlapping dashed strokes resolve into filled dash
@@ -5828,7 +5828,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     overlap.
   - Compound dashed and nested containment chains now have product-path
     render/hit/export regression coverage.
-  - The supported performance benchmark now covers a denser Figma-derived
+  - The supported performance benchmark now covers a denser reference-derived
     source family.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
@@ -5924,7 +5924,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     red packets; it is blocked consistently with typed diagnostics.
   - Simple and non-self-intersecting constrained dashed strokes continue using
     the supported one-sided geometry path.
-  - Exact Figma-like self-intersecting constrained dashed rendering now has a
+  - Exact Asyra canonical self-intersecting constrained dashed rendering now has a
     clear prerequisite instead of relying on local-side heuristic packets.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
@@ -6064,7 +6064,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 - Consequences:
   - Closed bow-tie constrained dashed strokes with round joins no longer
     disappear.
-  - Full Figma-like face ownership, duplicate collapse, and overlap removal for
+  - Full Asyra canonical face ownership, duplicate collapse, and overlap removal for
     self-intersections remain future arrangement work.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/stroke-engine-final/active-support-scope.md`
@@ -6097,7 +6097,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Closed bow-tie constrained solid and non-round full-loop dashed strokes no
     longer disappear on the product render path.
   - The promoted slice is deterministic and test-covered, but it is explicitly
-    not the final Figma-like self-intersection face arrangement.
+    not the final Asyra canonical self-intersection face arrangement.
   - Future arrangement work must replace or refine these local-side candidates
     only after reference-backed face ownership rules are available.
 - Related Plan:
@@ -6169,7 +6169,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - The active product rule is that authored `style`, `position`, `join`, `cap`,
     `dashPattern`, and `dashOffset` must be rendered on their own semantic path.
   - Miter-limit exceedance remains the one accepted join fallback, because the
-    user-facing behavior matches Figma's bevel-like limit handling.
+    user-facing behavior matches the canonical bevel-like limit handling.
 - Decision:
   - Keep sharp sampled full-loop constrained dashed round joins visible through
     selected-side constrained geometry instead of blocking them.
@@ -6221,23 +6221,23 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - `docs/ai/apps/asyra-design/plans/stroke-engine-final/topology-and-product-semantics.md`
   - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
 
-## 2026-04-29 - Applied official Figma stroke reference findings to active contracts
+## 2026-04-29 - Applied external stroke reference findings to active contracts
 
 - Context:
-  - Figma official documentation defines `strokeAlign` containment semantics,
+  - External reference documentation defines `strokeAlign` containment semantics,
     documents line-default center behavior, and states SVG export only supports
     center strokes while preserving inside/outside appearance through
     simplification.
-  - Figma node APIs expose `strokeGeometry` as center-based regardless of
+  - External reference node APIs expose `strokeGeometry` as center-based regardless of
     `strokeAlign`; outline-style geometry is the appropriate visual reference
     for constrained appearance.
-  - Figma REST exposes `strokeMiterAngle` with default `28.96` degrees, which
+  - External reference REST exposes `strokeMiterAngle` with default `28.96` degrees, which
     maps to SVG miter limit `4`.
 - Decision:
   - Keep Asyra's active open-path product contract center-equivalent for
     authored `inside` / `outside`; this is an explicit product simplification,
     not a fallback.
-  - Treat center stroke packets as analogous to Figma's center-based
+  - Treat center stroke packets as analogous to the external reference's center-based
     `strokeGeometry` view, not as proof of closed constrained appearance.
   - Normalize authored `miterAngle` into SVG-style `miterLimit` with
     `miterLimit = 1 / sin(miterAngle / 2)`.
@@ -6289,11 +6289,11 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - `docs/ai/apps/asyra-design/plans/stroke-engine-final/target-architecture.md`
   - `docs/ai/apps/asyra-design/plans/stroke-engine-final/testing-and-benchmark-spec.md`
 
-## 2026-05-31 - Stroke rule authority narrowed after inside solid Figma mismatch
+## 2026-05-31 - Stroke rule authority narrowed after inside solid reference mismatch
 
 - Context:
   - Current app screenshots show grid/vector-network self-intersecting inside
-    solid rendering does not match Figma: internal shared edges render as
+    solid rendering does not match the external reference: internal shared edges render as
     independent full-width strips and internal pentagon corners do not follow
     `strokeJoin` / `strokeMiterLimit`.
   - Prior stroke docs and reports preserved mutually conflicting rules,
@@ -6310,11 +6310,11 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     specification files as tombstones, completed copies, reports, or BDD
     features.
 - Consequences:
-  - Solid inside/outside rule authority is Figma-style doubled authored center
+  - Solid inside/outside rule authority is Asyra canonical doubled authored center
     stroke plus filled-region or exterior mask, not direct one-sided solid
     visible geometry.
   - The stroke engine remains reopened until implementation probes and reviewed
-    screenshots prove Figma parity.
+    screenshots prove Asyra canonical parity.
   - Decision history can contain obsolete decisions, but active docs cannot use
     them as rule sources.
 
@@ -6322,10 +6322,10 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 
 - Context:
   - App screenshots for self-intersecting inside dashed strokes showed dash
-    silhouettes that differed from the Figma reference even when split-range
+    silhouettes that differed from the external reference even when split-range
     interval allocation, inside residue, and overdraw checks passed.
   - Historical dashed entries still described one-sided constrained dashed
-    visible geometry. Those entries conflicted with the current Figma parity
+    visible geometry. Those entries conflicted with the current Asyra canonical
     target.
 - Decision:
   - Constrained `inside` dashed visible product geometry is the authored center

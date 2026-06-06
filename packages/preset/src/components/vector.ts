@@ -107,6 +107,7 @@ interface VectorComputedData {
   segments: Record<string, VectorSegment>
   networks: Record<string, VectorNetwork>
   closed: boolean
+  pointCoordinateSpace?: 'workspace'
   fillRule: PathTopologyFillRule
   fills: FillAttrs[]
   strokes?: StrokeAttrs[]
@@ -401,6 +402,36 @@ const isNormalizedVectorNetworkMap = (
   })
 }
 
+const toWorkspacePointNodeMap = (
+  points: Record<string, VectorPointNode>,
+  offset: { x: number; y: number }
+): Record<string, VectorPointNode> =>
+  Object.fromEntries(
+    Object.entries(points).map(([pointId, point]) => [
+      pointId,
+      {
+        ...point,
+        x: point.x + offset.x,
+        y: point.y + offset.y
+      }
+    ])
+  )
+
+const toLocalPointNodeMap = (
+  points: Record<string, VectorPointNode>,
+  offset: { x: number; y: number }
+): Record<string, VectorPointNode> =>
+  Object.fromEntries(
+    Object.entries(points).map(([pointId, point]) => [
+      pointId,
+      {
+        ...point,
+        x: point.x - offset.x,
+        y: point.y - offset.y
+      }
+    ])
+  )
+
 interface NormalizedVectorRenderDataInput {
   id: string
   x: number
@@ -411,6 +442,7 @@ interface NormalizedVectorRenderDataInput {
   segments: Record<string, VectorSegment>
   networks: Record<string, VectorNetwork>
   closed: boolean
+  pointCoordinateSpace?: unknown
   fillRule?: unknown
   fills?: unknown
   strokes?: unknown
@@ -467,9 +499,15 @@ const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
     const rawStrokeDebugOptions = isRecord(data.strokeDebugOptions)
       ? data.strokeDebugOptions
       : {}
+    const points =
+      data.pointCoordinateSpace === 'workspace'
+        ? data.points
+        : toWorkspacePointNodeMap(data.points, { x: data.x, y: data.y })
     emitStrokePipelineCounter('vector-render-normalize-fast-path-hit')
     return {
       ...data,
+      points,
+      pointCoordinateSpace: 'workspace',
       fillRule: normalizeRawPathTopologyFillRule(data.fillRule),
       fills: Array.isArray(data.fills) ? data.fills : [],
       strokes: Array.isArray(data.strokes) ? data.strokes : [],
@@ -482,7 +520,13 @@ const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
   emitStrokePipelineCounter('vector-render-normalize-full-path-count')
 
   const rawData = isRecord(data) ? data : {}
-  const points = normalizeVectorPointNodeMap(rawData.points)
+  const rawX = toFiniteNumber(rawData.x)
+  const rawY = toFiniteNumber(rawData.y)
+  const rawPoints = normalizeVectorPointNodeMap(rawData.points)
+  const points =
+    rawData.pointCoordinateSpace === 'workspace'
+      ? rawPoints
+      : toWorkspacePointNodeMap(rawPoints, { x: rawX, y: rawY })
   const segments = normalizeVectorSegmentMap(rawData.segments)
   const rawStrokeDebugOptions = isRecord(rawData.strokeDebugOptions)
     ? rawData.strokeDebugOptions
@@ -490,11 +534,12 @@ const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
 
   return {
     id: typeof rawData.id === 'string' ? rawData.id : 'vector:invalid',
-    x: toFiniteNumber(rawData.x),
-    y: toFiniteNumber(rawData.y),
+    x: rawX,
+    y: rawY,
     width: Math.max(0, toFiniteNumber(rawData.width)),
     height: Math.max(0, toFiniteNumber(rawData.height)),
     points,
+    pointCoordinateSpace: 'workspace',
     segments,
     networks: normalizeVectorNetworkMap(rawData.networks, points, segments),
     closed: rawData.closed === true,
@@ -653,6 +698,13 @@ const shouldKeepConstrainedDashedPacketLocal = (
   if (
     debugMeta?.sourceTopology === 'self-intersecting' &&
     debugMeta.finalCoverageBuilderStatus === 'product-final'
+  ) {
+    return true
+  }
+
+  if (
+    debugMeta?.sourceTopology === 'self-intersecting' &&
+    debugMeta.finalCoverageBuilderStatus === 'debug-raw'
   ) {
     return true
   }
@@ -2170,7 +2222,15 @@ const renderVectorGraphic = (
   renderStateGraphic.batched = false
   renderStateGraphic._transform?.updateLocalTransform?.()
 
-  const { fills, x, y, points, segments, networks } = renderData
+  const {
+    fills,
+    x,
+    y,
+    points: workspacePoints,
+    segments,
+    networks
+  } = renderData
+  const points = toLocalPointNodeMap(workspacePoints, { x, y })
 
   const orderedNetworks = sortByStableId(Object.values(networks))
   if (orderedNetworks.length === 0) {
@@ -2317,24 +2377,6 @@ const renderVectorGraphic = (
       topology.closed && hasConstrainedSolidStrokeIntent(renderData.strokes)
   )
   const shouldAttachFullStrokeDiagnostics = shouldEmitFullStrokeDiagnostics()
-  const renderableStrokes = getRenderableStrokes(renderData.strokes)
-  const canUseFillOnlyForConstrainedDashed =
-    hasConstrainedDashedIntent &&
-    renderableStrokes.length > 0 &&
-    renderableStrokes.every(
-      (stroke) =>
-        stroke.style === 'dashed' &&
-        stroke.position === 'inside' &&
-        stroke.width > 0
-    )
-  const canUseFillOnlyForUnconstrainedFill =
-    !hasConstrainedDashedIntent && !hasConstrainedSolidIntent
-  const canUseFillOnlyResolvedGeometry =
-    isMouseDragging &&
-    hasRenderableFill &&
-    !hasConstrainedSolidIntent &&
-    !shouldAttachFullStrokeDiagnostics &&
-    (canUseFillOnlyForConstrainedDashed || canUseFillOnlyForUnconstrainedFill)
   const needsResolvedGeometryModel =
     hasRenderableFill || hasConstrainedDashedIntent || hasConstrainedSolidIntent
   const resolvedGeometryModel = measureVectorRenderPhase(
@@ -2350,7 +2392,7 @@ const renderVectorGraphic = (
         })),
         resolveSelfIntersecting: needsResolvedGeometryModel,
         previousCache: graphicCache.__asyraResolvedVectorGeometryCache,
-        detailMode: canUseFillOnlyResolvedGeometry ? 'fill-only' : 'full'
+        detailMode: 'full'
       })
   )
   graphicCache.__asyraResolvedVectorGeometryCache = resolvedGeometryModel.cache
@@ -2515,9 +2557,8 @@ const renderVectorGraphic = (
                 path.segments.some((segment) => segment.type === 'cubic')
                   ? path
                   : undefined
-              const clipInsideToFillDomain = isSelfIntersectingSourcePath
-                ? hasRenderableFill
-                : path.closed === true || hasRenderableFill
+              const clipInsideToFillDomain =
+                path.closed === true || hasRenderableFill
               const constrainedDashedVisualMode =
                 shouldDisableVisualOverlapCollapse ||
                 !isSelfIntersectingSourcePath
@@ -2550,7 +2591,7 @@ const renderVectorGraphic = (
                 omitDiagnosticMetadata: !shouldAttachFullStrokeDiagnostics,
                 clipInsideToFillDomain: clipInsideToFillDomain,
                 constrainedDashedVisualMode,
-                preferRenderMaskProductFinal: isMouseDragging
+                preferRenderMaskProductFinal: false
               }
               return buildConstrainedDashedStrokeResolvedPackets(
                 `vector:${renderData.id}:${network.id}:constrained-dashed`,
@@ -3073,7 +3114,7 @@ const renderVectorGraphic = (
                   networkId: network.id
                 },
                 topology,
-                preferStrokePathRenderDescriptor: isMouseDragging
+                preferStrokePathRenderDescriptor: false
               }
             )
           : []),
@@ -3521,6 +3562,11 @@ defineComponent({
       name: 'closed',
       type: PropertyTypes.CUSTOM,
       defaultValue: false
+    },
+    {
+      name: 'pointCoordinateSpace',
+      type: PropertyTypes.CUSTOM,
+      defaultValue: 'workspace'
     },
     {
       name: 'fillRule',

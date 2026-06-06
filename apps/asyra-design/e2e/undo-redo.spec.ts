@@ -4,6 +4,7 @@ import {
   resetCanvas,
   clickCanvas,
   createRectangle,
+  createVectorPath,
   getElementCount,
   dragOnCanvas,
   dragSelectedElementBy,
@@ -18,10 +19,33 @@ import {
  */
 
 test.describe('Undo/Redo Actions', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page }, testInfo) => {
+    const browserErrors: string[] = []
+    ;(testInfo as typeof testInfo & { browserErrors: string[] }).browserErrors =
+      browserErrors
+    page.on('pageerror', (error) => {
+      browserErrors.push(error.message)
+    })
+    page.on('console', (message) => {
+      if (message.type() === 'error') {
+        browserErrors.push(message.text())
+      }
+    })
+
     await page.goto('/')
     await waitForAppReady(page)
     await resetCanvas(page)
+  })
+
+  test.afterEach(async ({}, testInfo) => {
+    const browserErrors =
+      (testInfo as typeof testInfo & { browserErrors?: string[] })
+        .browserErrors ?? []
+    expect(
+      browserErrors.filter((message) =>
+        message.includes('Not allow to get value which is not in entity data.')
+      )
+    ).toEqual([])
   })
 
   test('should undo element creation', async ({ page }) => {
@@ -215,6 +239,537 @@ test.describe('Undo/Redo Actions', () => {
     expect(commitSummary.noOpSelectionCount).toBe(0)
     expect(commitSummary.updateComputedDataCount).toBeLessThanOrEqual(8)
     expect(commitSummary.changeCount).toBeLessThanOrEqual(20)
+  })
+
+  test('vector point final drag records undo without replaying the final render write', async ({
+    page
+  }) => {
+    const summary = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!core || !elementApis) {
+        throw new Error('Asyra E2E APIs are not available')
+      }
+
+      const points = {
+        A: { id: 'A', kind: 'anchor', anchorType: 'smooth', x: 100, y: 100 },
+        'A:in': {
+          id: 'A:in',
+          kind: 'control',
+          controlForId: 'A',
+          controlRole: 'in',
+          x: 90,
+          y: 100
+        },
+        'A:out': {
+          id: 'A:out',
+          kind: 'control',
+          controlForId: 'A',
+          controlRole: 'out',
+          x: 110,
+          y: 100
+        },
+        B: { id: 'B', kind: 'anchor', anchorType: 'smooth', x: 200, y: 110 },
+        'B:in': {
+          id: 'B:in',
+          kind: 'control',
+          controlForId: 'B',
+          controlRole: 'in',
+          x: 190,
+          y: 110
+        },
+        C: { id: 'C', kind: 'anchor', anchorType: 'sharp', x: 240, y: 170 }
+      }
+      const elementId = elementApis.createElement(
+        {
+          type: 'vector',
+          points,
+          segments: {
+            AB: {
+              id: 'AB',
+              startId: 'A',
+              endId: 'B',
+              outControlId: 'A:out',
+              inControlId: 'B:in'
+            },
+            BC: {
+              id: 'BC',
+              startId: 'B',
+              endId: 'C',
+              outControlId: null,
+              inControlId: null
+            }
+          },
+          networks: {
+            main: {
+              id: 'main',
+              pointIds: ['A', 'B', 'C'],
+              segmentIds: ['AB', 'BC'],
+              closed: false
+            }
+          },
+          closed: false
+        },
+        { undoable: false }
+      )
+      if (!elementId) {
+        throw new Error('Failed to create vector fixture')
+      }
+
+      const beforePointRaw =
+        elementApis.getVectorAnchorPointById(elementId, 'A')?.point
+      const beforePoint = beforePointRaw
+        ? JSON.parse(JSON.stringify(beforePointRaw))
+        : null
+      const stackBefore = core.deps.factory.transact.undoStack.length
+      elementApis.updateVectorAnchorPointPosition(
+        elementId,
+        'A',
+        { x: 80, y: 110 },
+        { undoable: false, skipResult: true }
+      )
+      elementApis.updateVectorAnchorPointPosition(
+        elementId,
+        'A',
+        beforePoint,
+        { undoable: false, skipResult: true }
+      )
+      elementApis.updateVectorAnchorPointPosition(
+        elementId,
+        'A',
+        { x: 80, y: 110 },
+        { undoable: true, skipResult: true }
+      )
+      const afterPointRaw =
+        elementApis.getVectorAnchorPointById(elementId, 'A')?.point
+      const afterPoint = afterPointRaw
+        ? JSON.parse(JSON.stringify(afterPointRaw))
+        : null
+
+      const stack = core.deps.factory.transact.undoStack
+      const last = stack[stack.length - 1] ?? []
+      const point = elementApis.getVectorAnchorPointById(elementId, 'A')?.point
+
+      return {
+        elementId,
+        stackBefore,
+        stackAfter: stack.length,
+        changeCount: last.length,
+        changeTypes: last.map(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (event: any) => event?.type
+        ),
+        patchValues:
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ((last[0] as any)?.payload?.patch?.values ?? {}),
+        pointPatchIds: Object.keys(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ((last[0] as any)?.payload?.patch?.records?.points?.set ?? {})
+        ),
+        beforePoint,
+        afterPoint,
+        point
+      }
+    })
+
+    expect(summary.stackAfter).toBe(summary.stackBefore + 1)
+    expect(
+      summary.changeTypes.every((type) => type === 'updateComputedDataPatch')
+    )
+      .toBe(true)
+    expect(summary.changeCount).toBe(1)
+    expect(summary.patchValues).not.toHaveProperty('pointCoordinateSpace')
+    expect(summary.pointPatchIds.sort()).toEqual(['A', 'A:in', 'A:out'])
+    expect(summary.point).toMatchObject({ x: 80, y: 110 })
+
+    await undo(page)
+    await expect
+      .poll(async () =>
+        page.evaluate((elementId) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const elementApis = (window as any).__AsyraE2E__?.elementApis
+          return elementApis?.getVectorAnchorPointById?.(elementId, 'A')?.point
+        }, summary.elementId)
+      )
+      .toMatchObject(summary.beforePoint)
+
+    await redo(page)
+    await expect
+      .poll(async () =>
+        page.evaluate((elementId) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const elementApis = (window as any).__AsyraE2E__?.elementApis
+          return elementApis?.getVectorAnchorPointById?.(elementId, 'A')?.point
+        }, summary.elementId)
+      )
+      .toMatchObject(summary.afterPoint)
+  })
+
+  test('legacy-local vector point drag migrates coordinates without shifting other points', async ({
+    page
+  }) => {
+    const summary = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!core || !elementApis) {
+        throw new Error('Asyra E2E APIs are not available')
+      }
+
+      const workspacePoints = {
+        A: { id: 'A', kind: 'anchor', anchorType: 'smooth', x: 100, y: 100 },
+        'A:in': {
+          id: 'A:in',
+          kind: 'control',
+          controlForId: 'A',
+          controlRole: 'in',
+          x: 90,
+          y: 100
+        },
+        'A:out': {
+          id: 'A:out',
+          kind: 'control',
+          controlForId: 'A',
+          controlRole: 'out',
+          x: 110,
+          y: 100
+        },
+        B: { id: 'B', kind: 'anchor', anchorType: 'smooth', x: 200, y: 110 },
+        'B:in': {
+          id: 'B:in',
+          kind: 'control',
+          controlForId: 'B',
+          controlRole: 'in',
+          x: 190,
+          y: 110
+        },
+        C: { id: 'C', kind: 'anchor', anchorType: 'sharp', x: 240, y: 170 }
+      }
+      const elementId = elementApis.createElement(
+        {
+          type: 'vector',
+          points: workspacePoints,
+          segments: {
+            AB: {
+              id: 'AB',
+              startId: 'A',
+              endId: 'B',
+              outControlId: 'A:out',
+              inControlId: 'B:in'
+            },
+            BC: {
+              id: 'BC',
+              startId: 'B',
+              endId: 'C',
+              outControlId: null,
+              inControlId: null
+            }
+          },
+          networks: {
+            main: {
+              id: 'main',
+              pointIds: ['A', 'B', 'C'],
+              segmentIds: ['AB', 'BC'],
+              closed: false
+            }
+          },
+          closed: false
+        },
+        { undoable: false }
+      )
+      if (!elementId) {
+        throw new Error('Failed to create vector fixture')
+      }
+
+      const element = core.deps.sceneTree.getElementById(elementId)
+      const initialComputed = element?.getAllComputedData?.() ?? {}
+      const offset = {
+        x: initialComputed.x ?? 0,
+        y: initialComputed.y ?? 0
+      }
+      const localPoints = Object.fromEntries(
+        Object.entries(workspacePoints).map(([pointId, point]) => [
+          pointId,
+          {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ...(point as any),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            x: (point as any).x - offset.x,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            y: (point as any).y - offset.y
+          }
+        ])
+      )
+      elementApis.changeComputedData(
+        [elementId],
+        {
+          points: localPoints,
+          pointCoordinateSpace: 'legacy-local'
+        },
+        { undoable: false }
+      )
+
+      const before = {
+        A: elementApis.getVectorAnchorPointById(elementId, 'A')?.point,
+        B: elementApis.getVectorAnchorPointById(elementId, 'B')?.point,
+        C: elementApis.getVectorAnchorPointById(elementId, 'C')?.point
+      }
+      const stackBefore = core.deps.factory.transact.undoStack.length
+
+      elementApis.updateVectorAnchorPointPosition(
+        elementId,
+        'A',
+        { x: 130, y: 125 },
+        { undoable: true, skipResult: true }
+      )
+
+      const after = {
+        A: elementApis.getVectorAnchorPointById(elementId, 'A')?.point,
+        B: elementApis.getVectorAnchorPointById(elementId, 'B')?.point,
+        C: elementApis.getVectorAnchorPointById(elementId, 'C')?.point
+      }
+      const finalComputed =
+        core.deps.sceneTree.getElementById(elementId)?.getAllComputedData?.() ??
+        {}
+      const stack = core.deps.factory.transact.undoStack
+      const last = stack[stack.length - 1] ?? []
+
+      return {
+        elementId,
+        before,
+        after,
+        pointCoordinateSpace: finalComputed.pointCoordinateSpace,
+        stackBefore,
+        stackAfter: stack.length,
+        changeCount: last.length,
+        patchValues:
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ((last[0] as any)?.payload?.patch?.values ?? {}),
+        pointPatchIds: Object.keys(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ((last[0] as any)?.payload?.patch?.records?.points?.set ?? {})
+        )
+      }
+    })
+
+    expect(summary.stackAfter).toBe(summary.stackBefore + 1)
+    expect(summary.changeCount).toBe(1)
+    expect(summary.patchValues).toMatchObject({
+      pointCoordinateSpace: {
+        before: 'legacy-local',
+        after: 'workspace'
+      }
+    })
+    expect(summary.pointCoordinateSpace).toBe('workspace')
+    expect(summary.pointPatchIds.sort()).toEqual([
+      'A',
+      'A:in',
+      'A:out',
+      'B',
+      'B:in',
+      'C'
+    ])
+    expect(summary.after.A).toMatchObject({ x: 130, y: 125 })
+    expect(summary.after.B).toMatchObject(summary.before.B)
+    expect(summary.after.C).toMatchObject(summary.before.C)
+
+    await undo(page)
+    await expect
+      .poll(async () =>
+        page.evaluate((elementId) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const elementApis = (window as any).__AsyraE2E__?.elementApis
+          return {
+            A: elementApis?.getVectorAnchorPointById?.(elementId, 'A')?.point,
+            B: elementApis?.getVectorAnchorPointById?.(elementId, 'B')?.point,
+            C: elementApis?.getVectorAnchorPointById?.(elementId, 'C')?.point
+          }
+        }, summary.elementId)
+      )
+      .toMatchObject(summary.before)
+  })
+
+  test('vector point mouse drag releases on mouseup without moving vector frame and Escape exits path editing', async ({
+    page
+  }) => {
+    await createVectorPath(page, 0.32, 0.3, 0.18, 0.16)
+    await page.keyboard.press('Enter')
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          return core?.getSystemProperty?.('pathEditingMode') ?? false
+        })
+      )
+      .toBe(true)
+
+    const before = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const vectorId = core?.getSystemProperty?.('pathEditingVectorId')
+      const element = vectorId
+        ? core?.deps?.sceneTree?.getElementById?.(vectorId)
+        : null
+      const computed = element?.getAllComputedData?.() ?? {}
+      const anchor = Object.values(computed.points ?? {}).find(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (point: any) => point?.kind === 'anchor'
+      ) as { id: string; x: number; y: number } | undefined
+      const anchors = Object.fromEntries(
+        Object.values(computed.points ?? {})
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .filter((point: any) => point?.kind === 'anchor')
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((point: any) => [
+            point.id,
+            {
+              x: point.x,
+              y: point.y
+            }
+          ])
+      )
+      if (!vectorId || !anchor) {
+        throw new Error('Missing editable vector anchor')
+      }
+
+      const zoom = core?.getSystemProperty?.('zoom') ?? 1
+      const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
+        x: 0,
+        y: 0
+      }
+      const usesWorkspacePoints =
+        computed.pointCoordinateSpace === 'workspace'
+      const offsetX = usesWorkspacePoints ? 0 : (computed.x ?? 0)
+      const offsetY = usesWorkspacePoints ? 0 : (computed.y ?? 0)
+
+      return {
+        vectorId,
+        pointId: anchor.id,
+        point: { x: anchor.x, y: anchor.y },
+        anchors,
+        rect: {
+          x: computed.x,
+          y: computed.y,
+          width: computed.width,
+          height: computed.height
+        },
+        client: {
+          x: (offsetX + anchor.x) * zoom + viewport.x,
+          y: (offsetY + anchor.y) * zoom + viewport.y
+        }
+      }
+    })
+
+    await page.mouse.move(before.client.x, before.client.y)
+    await page.mouse.down()
+    await page.mouse.move(before.client.x + 52, before.client.y + 24, {
+      steps: 12
+    })
+    await page.mouse.up()
+    await page.waitForTimeout(80)
+
+    const afterMouseup = await page.evaluate(({ vectorId, pointId }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const element = core?.deps?.sceneTree?.getElementById?.(vectorId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      const point = computed.points?.[pointId]
+      const anchors = Object.fromEntries(
+        Object.values(computed.points ?? {})
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .filter((entry: any) => entry?.kind === 'anchor')
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((entry: any) => [
+            entry.id,
+            {
+              x: entry.x,
+              y: entry.y
+            }
+          ])
+      )
+      return {
+        point: point ? { x: point.x, y: point.y } : null,
+        anchors,
+        rect: {
+          x: computed.x,
+          y: computed.y,
+          width: computed.width,
+          height: computed.height
+        }
+      }
+    }, before)
+
+    expect(afterMouseup.point?.x).toBeGreaterThan(before.point.x + 20)
+    Object.entries(before.anchors)
+      .filter(([pointId]) => pointId !== before.pointId)
+      .forEach(([pointId, point]) => {
+        expect(afterMouseup.anchors[pointId]).toEqual(point)
+      })
+
+    await page.mouse.move(before.client.x + 160, before.client.y + 120, {
+      steps: 8
+    })
+    await page.waitForTimeout(120)
+
+    const afterReleasedMove = await page.evaluate(({ vectorId, pointId }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const element = core?.deps?.sceneTree?.getElementById?.(vectorId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      const point = computed.points?.[pointId]
+      const anchors = Object.fromEntries(
+        Object.values(computed.points ?? {})
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .filter((entry: any) => entry?.kind === 'anchor')
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((entry: any) => [
+            entry.id,
+            {
+              x: entry.x,
+              y: entry.y
+            }
+          ])
+      )
+      return {
+        point: point ? { x: point.x, y: point.y } : null,
+        anchors,
+        rect: {
+          x: computed.x,
+          y: computed.y,
+          width: computed.width,
+          height: computed.height
+        }
+      }
+    }, before)
+
+    expect(afterReleasedMove.point).toEqual(afterMouseup.point)
+    expect(afterReleasedMove.anchors).toEqual(afterMouseup.anchors)
+    expect(afterReleasedMove.rect).toEqual(afterMouseup.rect)
+
+    await page.keyboard.press('Escape')
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          return {
+            pathEditingMode:
+              core?.getSystemProperty?.('pathEditingMode') ?? false,
+            pathEditingVectorId:
+              core?.getSystemProperty?.('pathEditingVectorId') ?? null,
+            primaryTool: core?.getSystemProperty?.('primaryTool') ?? null
+          }
+        })
+      )
+      .toEqual({
+        pathEditingMode: false,
+        pathEditingVectorId: null,
+        primaryTool: 'select'
+      })
   })
 
   test('undo drag on unselected target restores both moved position and previous selection', async ({

@@ -516,6 +516,117 @@ const normalizePacketPolygons = (polygons: Vec2[][]) => {
   return normalized.length === polygons.length ? polygons : normalized
 }
 
+const RENDER_PROJECTION_MICRO_EDGE_TOLERANCE = 0.03
+const RENDER_PROJECTION_COLLINEAR_TOLERANCE = 0.0075
+const RENDER_PROJECTION_AREA_DELTA_TOLERANCE = 0.001
+
+const getPointDistance = (from: Vec2, to: Vec2) =>
+  Math.hypot(to.x - from.x, to.y - from.y)
+
+const getRenderProjectionSignedPolygonArea = (polygon: Vec2[]) =>
+  polygon.reduce((total, point, index) => {
+    const next = polygon[(index + 1) % polygon.length]
+    return total + point.x * next.y - next.x * point.y
+  }, 0) / 2
+
+const isNearRenderProjectionCollinearPoint = (
+  previous: Vec2,
+  point: Vec2,
+  next: Vec2
+) => {
+  const ax = point.x - previous.x
+  const ay = point.y - previous.y
+  const bx = next.x - point.x
+  const by = next.y - point.y
+  const scale = Math.max(Math.hypot(ax, ay) + Math.hypot(bx, by), 1)
+  return (
+    Math.abs(ax * by - ay * bx) / scale <=
+    RENDER_PROJECTION_COLLINEAR_TOLERANCE
+  )
+}
+
+const shouldCleanRenderProjectionPolygon = (polygon: Vec2[]) => {
+  if (polygon.length < 40) {
+    return false
+  }
+
+  let microEdgeCount = 0
+  for (let index = 0; index < polygon.length; index += 1) {
+    const next = polygon[(index + 1) % polygon.length]
+    if (getPointDistance(polygon[index], next) < 0.03) {
+      microEdgeCount += 1
+    }
+  }
+  return microEdgeCount >= 5
+}
+
+const cleanRenderProjectionPolygon = (polygon: Vec2[]) => {
+  if (!shouldCleanRenderProjectionPolygon(polygon)) {
+    return polygon
+  }
+
+  const originalArea = Math.abs(getRenderProjectionSignedPolygonArea(polygon))
+  let cleaned = polygon
+  for (let pass = 0; pass < 4; pass += 1) {
+    const compacted: Vec2[] = []
+    for (const point of cleaned) {
+      const previous = compacted[compacted.length - 1]
+      if (
+        !previous ||
+        getPointDistance(previous, point) >
+          RENDER_PROJECTION_MICRO_EDGE_TOLERANCE
+      ) {
+        compacted.push(point)
+      }
+    }
+
+    if (
+      compacted.length > 2 &&
+      getPointDistance(compacted[0], compacted[compacted.length - 1]) <=
+        RENDER_PROJECTION_MICRO_EDGE_TOLERANCE
+    ) {
+      compacted.pop()
+    }
+    if (compacted.length < 3) {
+      break
+    }
+
+    const simplified = compacted.filter((point, index) => {
+      const previous = compacted[(index - 1 + compacted.length) % compacted.length]
+      const next = compacted[(index + 1) % compacted.length]
+      return (
+        getPointDistance(previous, point) >
+          RENDER_PROJECTION_MICRO_EDGE_TOLERANCE &&
+        getPointDistance(point, next) >
+          RENDER_PROJECTION_MICRO_EDGE_TOLERANCE &&
+        !isNearRenderProjectionCollinearPoint(previous, point, next)
+      )
+    })
+    if (simplified.length < 3 || simplified.length === cleaned.length) {
+      cleaned = simplified.length >= 3 ? simplified : cleaned
+      break
+    }
+    cleaned = simplified
+  }
+
+  const cleanedArea = Math.abs(getRenderProjectionSignedPolygonArea(cleaned))
+  if (
+    cleaned.length < 3 ||
+    originalArea <= 0 ||
+    Math.abs(cleanedArea - originalArea) / originalArea >
+      RENDER_PROJECTION_AREA_DELTA_TOLERANCE
+  ) {
+    return polygon
+  }
+
+  return cleaned
+}
+
+const cleanRenderProjectionPolygons = (polygons: Vec2[][]) =>
+  polygons
+    .map(cleanRenderProjectionPolygon)
+    .filter((polygon) => polygon.length >= 3)
+
 const normalizedResolvedPacketCache = new WeakMap<
   SolidCenterStrokeResolvedPacket[],
   SolidCenterStrokeResolvedPacket[]
@@ -776,7 +887,9 @@ const flattenFacePolygons = (
   fallbackPolygons: Vec2[][]
 ) => {
   const polygons = regions.flatMap((region) => region.polygons)
-  return polygons.length > 0 ? polygons : fallbackPolygons
+  return cleanRenderProjectionPolygons(
+    polygons.length > 0 ? polygons : fallbackPolygons
+  )
 }
 
 const emitStrokePipelineCounter = (counterName: string, value = 1) => {
@@ -1032,7 +1145,10 @@ const buildRenderEntryFromFinalFace = (
       paintKey:
         face.paint.paintKey ?? `solid:${face.paint.color}:${face.paint.alpha}`
     },
-    polygons: face.polygons,
+    polygons: filterOutsideSquareSplitTerminalRenderProjectionResidue(
+      face.polygons,
+      [face]
+    ),
     fillPolygons: renderDescriptor?.fillPolygons,
     clipPolygons: renderDescriptor?.clipPolygons,
     fillClipPolygons: renderDescriptor?.fillClipPolygons,
@@ -1102,6 +1218,127 @@ const buildRenderProjectionArrangementCandidates = (
       }
     })
   )
+
+const getTerminalEndpoint = (
+  boundaryPoints: Vec2[] | undefined,
+  terminal: 'start' | 'end'
+) => {
+  if (!boundaryPoints || boundaryPoints.length < 2) {
+    return null
+  }
+
+  return terminal === 'start'
+    ? boundaryPoints[0]
+    : boundaryPoints[boundaryPoints.length - 1]
+}
+
+const collectOutsideSquareSplitTerminalResidueContexts = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[]
+) =>
+  faces.flatMap((face) => {
+    const debugMeta = face.debugMeta
+    if (
+      face.geometryFamily !== 'constrained-dashed' ||
+      debugMeta?.finalCoverageBuilderStatus !== 'product-final' ||
+      debugMeta.strokePosition !== 'outside' ||
+      typeof debugMeta.strokeWidth !== 'number' ||
+      debugMeta.strokeWidth <= 0
+    ) {
+      return []
+    }
+
+    const strokeWidth = debugMeta.strokeWidth
+    const terminalRecords =
+      debugMeta.figmaLikeSplitRangeTerminals?.length
+        ? debugMeta.figmaLikeSplitRangeTerminals
+        : debugMeta.figmaLikeSplitRangeId &&
+            debugMeta.figmaLikeTerminalRole &&
+            debugMeta.figmaLikeTerminalRole !== 'middle'
+          ? [
+              {
+                intervalId: debugMeta.intervalId ?? face.faceId,
+                splitRangeId: debugMeta.figmaLikeSplitRangeId,
+                splitRangeStartDistance:
+                  debugMeta.figmaLikeSplitRangeStartDistance ?? 0,
+                splitRangeEndDistance:
+                  debugMeta.figmaLikeSplitRangeEndDistance ?? 0,
+                terminalRole: debugMeta.figmaLikeTerminalRole,
+                startDistance: debugMeta.startDistance ?? 0,
+                endDistance: debugMeta.endDistance ?? 0,
+                boundaryPoints: debugMeta.figmaLikeBoundaryPoints
+              }
+            ]
+          : []
+
+    return terminalRecords.flatMap((terminal) => {
+      const boundaryPoints =
+        terminal.boundaryPoints ?? debugMeta.figmaLikeBoundaryPoints
+      return [
+        ...(terminal.terminalRole === 'start' ||
+	        terminal.terminalRole === 'start-end'
+	          ? [
+	              {
+	                point: getTerminalEndpoint(boundaryPoints, 'start'),
+	                strokeWidth
+	              }
+	            ]
+          : []),
+        ...(terminal.terminalRole === 'end' ||
+	        terminal.terminalRole === 'start-end'
+	          ? [
+	              {
+	                point: getTerminalEndpoint(boundaryPoints, 'end'),
+	                strokeWidth
+	              }
+	            ]
+          : [])
+      ].flatMap((context) =>
+        context.point ? [{ point: context.point, strokeWidth: context.strokeWidth }] : []
+      )
+    })
+  })
+
+const filterOutsideSquareSplitTerminalRenderProjectionResidue = (
+  polygons: Vec2[][],
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[]
+) => {
+  const contexts = collectOutsideSquareSplitTerminalResidueContexts(faces)
+  if (polygons.length === 0 || contexts.length === 0) {
+    return polygons
+  }
+
+  const polygonAreas = polygons.map(getPolygonCoverageArea)
+  const touchesEndpoint = (polygon: Vec2[], point: Vec2, tolerance: number) =>
+    polygon.some((polygonPoint) => getPointDistance(polygonPoint, point) <= tolerance)
+
+  return polygons.filter((polygon, polygonIndex) => {
+    const area = polygonAreas[polygonIndex] ?? 0
+    return !contexts.some(({ point, strokeWidth }) => {
+      const endpointTolerance = Math.max(0.75, strokeWidth * 0.12)
+      if (!touchesEndpoint(polygon, point, endpointTolerance)) {
+        return false
+      }
+
+      const maxEndpointArea = polygons.reduce((maxArea, candidate, candidateIndex) => {
+        return touchesEndpoint(candidate, point, endpointTolerance)
+          ? Math.max(maxArea, polygonAreas[candidateIndex] ?? 0)
+          : maxArea
+      }, 0)
+      const fragmentAreaLimit = strokeWidth * strokeWidth * 0.75
+      return (
+        area <= fragmentAreaLimit &&
+        maxEndpointArea > 0 &&
+        area < maxEndpointArea * 0.65
+      )
+    })
+  })
+}
 
 const findRenderProjectionComponentIndexes = (bounds: Bounds[]) => {
   const parents = bounds.map((_, index) => index)
@@ -1197,7 +1434,10 @@ const buildRenderProjectionArrangementPolygons = (
   )
 
   if (candidates.length <= 1) {
-    return candidates.flatMap((candidate) => candidate.geometry.polygons)
+    return filterOutsideSquareSplitTerminalRenderProjectionResidue(
+      candidates.flatMap((candidate) => candidate.geometry.polygons),
+      faces
+    )
   }
 
   if (
@@ -1220,7 +1460,10 @@ const buildRenderProjectionArrangementPolygons = (
       )
 
       if (polygons.length > 0) {
-        return polygons
+        return filterOutsideSquareSplitTerminalRenderProjectionResidue(
+          polygons,
+          faces
+        )
       }
     } catch {
       // Fall through to the arrangement path below.
@@ -1237,7 +1480,12 @@ const buildRenderProjectionArrangementPolygons = (
     findRenderProjectionComponentIndexes(bounds).forEach((componentIndexes) => {
       if (componentIndexes.length === 1) {
         const [componentIndex] = componentIndexes
-        output.push(...candidates[componentIndex].geometry.polygons)
+        output.push(
+          ...filterOutsideSquareSplitTerminalRenderProjectionResidue(
+            candidates[componentIndex].geometry.polygons,
+            faces
+          )
+        )
         return
       }
 
@@ -1260,8 +1508,11 @@ const buildRenderProjectionArrangementPolygons = (
       ) {
         emitStrokePipelineCounter('render-projection-component-disjoint')
         output.push(
-          ...componentCandidates.flatMap(
-            (candidate) => candidate.geometry.polygons
+          ...filterOutsideSquareSplitTerminalRenderProjectionResidue(
+            componentCandidates.flatMap(
+              (candidate) => candidate.geometry.polygons
+            ),
+            faces
           )
         )
         return
@@ -1297,7 +1548,12 @@ const buildRenderProjectionArrangementPolygons = (
             emitStrokePipelineCounter(
               'render-projection-component-direct-union'
             )
-            output.push(...componentPolygons)
+            output.push(
+              ...filterOutsideSquareSplitTerminalRenderProjectionResidue(
+                componentPolygons,
+                faces
+              )
+            )
             return
           }
         } catch {
@@ -1327,15 +1583,21 @@ const buildRenderProjectionArrangementPolygons = (
           ))()
 
       output.push(
-        ...(arrangedPolygons.length > 0
-          ? arrangedPolygons
-          : componentCandidates.flatMap((entry) => entry.geometry.polygons))
+        ...filterOutsideSquareSplitTerminalRenderProjectionResidue(
+          arrangedPolygons.length > 0
+            ? arrangedPolygons
+            : componentCandidates.flatMap((entry) => entry.geometry.polygons),
+          faces
+        )
       )
     })
   })
 
   emitStrokePipelineCounter('render-projection-final-union-skipped')
-  return output
+  return filterOutsideSquareSplitTerminalRenderProjectionResidue(
+    cleanRenderProjectionPolygons(output),
+    faces
+  )
 }
 
 const buildCollapsedRenderEntry = (
@@ -1361,7 +1623,10 @@ const buildCollapsedRenderEntry = (
       return []
     }
   })()
-  const polygons = flattenFacePolygons(unionRegions, fallbackPolygons)
+  const polygons = filterOutsideSquareSplitTerminalRenderProjectionResidue(
+    flattenFacePolygons(unionRegions, fallbackPolygons),
+    faces
+  )
   const sourceGeometryIds = getUniqueStrings(
     faces.flatMap((face) => face.sourceGeometryIds)
   )
@@ -1446,7 +1711,10 @@ const buildMergedRenderEntry = (
     (face) => face.debugMeta?.figmaLikeSplitRangeTerminals ?? []
   )
   const primaryEntry = buildRenderEntryFromFinalFace(primaryFace)
-  const polygons = faces.flatMap((face) => face.polygons)
+  const polygons = filterOutsideSquareSplitTerminalRenderProjectionResidue(
+    faces.flatMap((face) => face.polygons),
+    faces
+  )
   const shouldRenderAsSingleMask = faces.some(
     (face) =>
       face.geometryFamily === 'constrained-dashed' &&

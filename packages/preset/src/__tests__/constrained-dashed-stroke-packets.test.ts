@@ -5001,15 +5001,71 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
             packet.geometry.debugMeta?.figmaLikeTerminalRole === 'start-end') &&
           packet.geometry.debugMeta?.figmaLikeBoundaryRole === 'outer'
       )
+      const sourceSegmentPackets = packets.filter(
+        (packet) =>
+          packet.geometry.debugMeta?.figmaLikeSplitRangeSourceSegmentIndex ===
+            3 && packet.geometry.debugMeta?.figmaLikeBoundaryRole === 'outer'
+      )
 
-      expect(firstOutsidePacket).toBeDefined()
-      expect(
-        firstOutsidePacket?.geometry.polygons.some((polygon) =>
-          polygon.some(
-            (point) =>
-              Math.abs(point.x) <= 1e-4 &&
-              Math.abs(point.y - 25.668954151283657) <= 1e-4
+      if (capType === 'square') {
+        expect(
+          sourceSegmentPackets.length,
+          JSON.stringify(
+            {
+              capType,
+              packets: packets.map((packet) => ({
+                geometryId: packet.geometry.geometryId,
+                intervalId: packet.geometry.debugMeta?.intervalId,
+                terminalRole: packet.geometry.debugMeta?.figmaLikeTerminalRole,
+                boundaryRole: packet.geometry.debugMeta?.figmaLikeBoundaryRole,
+                splitRangeId: packet.geometry.debugMeta?.figmaLikeSplitRangeId,
+                splitRangeSourceSegmentIndex:
+                  packet.geometry.debugMeta
+                    ?.figmaLikeSplitRangeSourceSegmentIndex,
+                polygonCount: packet.geometry.polygons.length,
+                finalCoverageBuilderStatus:
+                  packet.geometry.debugMeta?.finalCoverageBuilderStatus
+              }))
+            },
+            null,
+            2
           )
+        ).toBeGreaterThan(0)
+      } else {
+        expect(
+          firstOutsidePacket,
+          JSON.stringify(
+            {
+              capType,
+              packets: packets.map((packet) => ({
+                geometryId: packet.geometry.geometryId,
+                intervalId: packet.geometry.debugMeta?.intervalId,
+                terminalRole: packet.geometry.debugMeta?.figmaLikeTerminalRole,
+                boundaryRole: packet.geometry.debugMeta?.figmaLikeBoundaryRole,
+                splitRangeId: packet.geometry.debugMeta?.figmaLikeSplitRangeId,
+                splitRangeSourceSegmentIndex:
+                  packet.geometry.debugMeta
+                    ?.figmaLikeSplitRangeSourceSegmentIndex,
+                polygonCount: packet.geometry.polygons.length,
+                finalCoverageBuilderStatus:
+                  packet.geometry.debugMeta?.finalCoverageBuilderStatus
+              }))
+            },
+            null,
+            2
+          )
+        ).toBeDefined()
+      }
+      expect(
+        (firstOutsidePacket ? [firstOutsidePacket] : sourceSegmentPackets).some(
+          (packet) =>
+            packet.geometry.polygons.some((polygon) =>
+              polygon.some(
+                (point) =>
+                  Math.abs(point.x) <= 1e-4 &&
+                  Math.abs(point.y - 25.668954151283657) <= 1e-4
+              )
+            )
         )
       ).toBe(false)
     })

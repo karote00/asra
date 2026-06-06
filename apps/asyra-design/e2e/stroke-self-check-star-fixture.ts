@@ -361,9 +361,11 @@ export const createSelfCheckStar = async (
     position?: SelfCheckStrokePosition
     style?: SelfCheckStrokeStyle
     diagnosticsMode?: 'full' | 'off'
+    sourceKind?: 'curved' | 'polyline'
   } = {}
 ) => {
   const diagnosticsMode = options.diagnosticsMode ?? 'full'
+  const sourceKind = options.sourceKind ?? 'curved'
 
   const hasAppApis = await page
     .evaluate(() => {
@@ -411,6 +413,7 @@ export const createSelfCheckStar = async (
       joinType,
       position,
       rect,
+      sourceKind,
       style
     }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -422,7 +425,7 @@ export const createSelfCheckStar = async (
         throw new Error('Missing E2E core or element APIs')
       }
 
-      const points = {
+      const curvedLocalPoints = {
         'tp-12': {
           id: 'tp-12',
           kind: 'anchor',
@@ -507,19 +510,43 @@ export const createSelfCheckStar = async (
           controlRole: 'out'
         }
       }
+      const localPoints =
+        sourceKind === 'polyline'
+          ? Object.fromEntries(
+              Object.entries(curvedLocalPoints)
+                .filter(([, point]) => point.kind === 'anchor')
+                .map(([pointId, point]) => [
+                  pointId,
+                  {
+                    ...point,
+                    anchorType: 'sharp'
+                  }
+                ])
+            )
+          : curvedLocalPoints
+      const points = Object.fromEntries(
+        Object.entries(localPoints).map(([pointId, point]) => [
+          pointId,
+          {
+            ...point,
+            x: point.x + rect.x,
+            y: point.y + rect.y
+          }
+        ])
+      )
       const segments = {
         'ts-23': {
           id: 'ts-23',
           startId: 'tp-12',
           endId: 'tp-13',
-          outControlId: 'tp-12:out',
-          inControlId: 'tp-13:in'
+          outControlId: sourceKind === 'polyline' ? null : 'tp-12:out',
+          inControlId: sourceKind === 'polyline' ? null : 'tp-13:in'
         },
         'ts-24': {
           id: 'ts-24',
           startId: 'tp-13',
           endId: 'tp-14',
-          outControlId: 'tp-13:out',
+          outControlId: sourceKind === 'polyline' ? null : 'tp-13:out',
           inControlId: null
         },
         'ts-25': {
@@ -533,14 +560,14 @@ export const createSelfCheckStar = async (
           id: 'ts-26',
           startId: 'tp-15',
           endId: 'tp-16',
-          outControlId: 'tp-15:out',
-          inControlId: 'tp-16:in'
+          outControlId: sourceKind === 'polyline' ? null : 'tp-15:out',
+          inControlId: sourceKind === 'polyline' ? null : 'tp-16:in'
         },
         'ts-27': {
           id: 'ts-27',
           startId: 'tp-16',
           endId: 'tp-12',
-          outControlId: 'tp-16:out',
+          outControlId: sourceKind === 'polyline' ? null : 'tp-16:out',
           inControlId: null
         }
       }
@@ -553,7 +580,14 @@ export const createSelfCheckStar = async (
         }
       }
       const createdId = elementApis.createElement(
-        { type: 'vector', points, segments, networks, closed: true },
+        {
+          type: 'vector',
+          points,
+          segments,
+          networks,
+          closed: true,
+          pointCoordinateSpace: 'workspace'
+        },
         { undoable: false }
       )
 
@@ -572,6 +606,7 @@ export const createSelfCheckStar = async (
           segments,
           networks,
           closed: true,
+          pointCoordinateSpace: 'workspace',
           fills:
             includeFill === false
               ? []
@@ -631,6 +666,7 @@ export const createSelfCheckStar = async (
       joinType: options.joinType ?? 'miter',
       position: options.position ?? 'inside',
       rect: SELF_CHECK_VECTOR_RECT,
+      sourceKind,
       style: options.style ?? 'dashed'
     }
   )
@@ -3333,10 +3369,21 @@ export const analyzeInsideSolidSourcePathContinuity = async (
   page: Page,
   baseline: Buffer,
   actual: Buffer,
-  metadata: Awaited<ReturnType<typeof getSelfCheckMetadata>>
+  metadata: Awaited<ReturnType<typeof getSelfCheckMetadata>>,
+  options: {
+    minCoverageRatio?: number
+    requireFillEligibility?: boolean
+  } = {}
 ) =>
   page.evaluate(
-    async ({ actualDataUrl, baselineDataUrl, metadata, sourceSegments }) => {
+    async ({
+      actualDataUrl,
+      baselineDataUrl,
+      metadata,
+      minCoverageRatio,
+      sourceSegments,
+      requireFillEligibility
+    }) => {
       const loadImage = (src: string) =>
         new Promise<HTMLImageElement>((resolve, reject) => {
           const image = new Image()
@@ -3466,9 +3513,11 @@ export const analyzeInsideSolidSourcePathContinuity = async (
               y: point.y + normal.y * strokeWidth * offsetScalar
             })
           )
-          const eligible = screenPoints.some((screenPoint) =>
-            hasFillNear(screenPoint.x, screenPoint.y, pixelRadius)
-          )
+          const eligible =
+            !requireFillEligibility ||
+            screenPoints.some((screenPoint) =>
+              hasFillNear(screenPoint.x, screenPoint.y, pixelRadius)
+            )
           if (!eligible) {
             return
           }
@@ -3513,7 +3562,7 @@ export const analyzeInsideSolidSourcePathContinuity = async (
         coverageRatio: sampleCount > 0 ? coveredCount / sampleCount : 1,
         segmentSummaries,
         failedSegmentSummaries: segmentSummaries.filter(
-          (summary) => summary.coverageRatio < 0.88
+          (summary) => summary.coverageRatio < minCoverageRatio
         )
       }
     },
@@ -3521,6 +3570,8 @@ export const analyzeInsideSolidSourcePathContinuity = async (
       actualDataUrl: `data:image/png;base64,${actual.toString('base64')}`,
       baselineDataUrl: `data:image/png;base64,${baseline.toString('base64')}`,
       metadata,
+      minCoverageRatio: options.minCoverageRatio ?? 0.88,
+      requireFillEligibility: options.requireFillEligibility ?? true,
       sourceSegments: SELF_CHECK_SOURCE_SEGMENTS.map(
         (segment, segmentIndex) => ({
           id: `segment-${segmentIndex}:${segment.startId}->${segment.endId}`,
@@ -3747,6 +3798,23 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
         }
         return ids
       }
+      const getPrimaryCoveringSplitRangeIds = (point: {
+        x: number
+        y: number
+      }) => {
+        const ids = new Set<string>()
+        for (const packet of metadata.boundaryDomainPackets) {
+          const isCovered = packet.polygons.some(
+            (polygon) =>
+              insidePolygon(point, polygon) || onPolygonBoundary(point, polygon)
+          )
+          if (!isCovered) continue
+          if (typeof packet.figmaLikeSplitRangeId === 'string') {
+            ids.add(packet.figmaLikeSplitRangeId)
+          }
+        }
+        return ids
+      }
       const toScreenPoint = (point: { x: number; y: number }) => ({
         x: Math.round(
           (selectedRect.x + point.x) * metadata.zoom + metadata.viewport.x
@@ -3755,6 +3823,21 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           (selectedRect.y + point.y) * metadata.zoom + metadata.viewport.y
         )
       })
+      const fromScreenPoint = (point: { x: number; y: number }) => ({
+        x: (point.x - metadata.viewport.x) / metadata.zoom - selectedRect.x,
+        y: (point.y - metadata.viewport.y) / metadata.zoom - selectedRect.y
+      })
+      const canvasBounds = {
+        left: 240,
+        top: 40,
+        right: Math.min(width, 1160),
+        bottom: Math.min(height, 1065)
+      }
+      const isInCanvas = (x: number, y: number) =>
+        x >= canvasBounds.left &&
+        x < canvasBounds.right &&
+        y >= canvasBounds.top &&
+        y < canvasBounds.bottom
       const isRedStrokePixel = (x: number, y: number) => {
         if (x < 0 || x >= width || y < 0 || y >= height) return false
         const index = (y * width + x) * 4
@@ -3792,6 +3875,81 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           }
         }
         return redCount
+      }
+      const getMaskComponents = (mask: Uint8Array) => {
+        const visited = new Uint8Array(width * height)
+        const components: {
+          area: number
+          minX: number
+          minY: number
+          maxX: number
+          maxY: number
+          centerX: number
+          centerY: number
+        }[] = []
+        const queue: number[] = []
+        for (let y = canvasBounds.top; y < canvasBounds.bottom; y += 1) {
+          for (let x = canvasBounds.left; x < canvasBounds.right; x += 1) {
+            const start = y * width + x
+            if (mask[start] !== 1 || visited[start] === 1) continue
+            visited[start] = 1
+            queue.length = 0
+            queue.push(start)
+            let area = 0
+            let minX = x
+            let minY = y
+            let maxX = x
+            let maxY = y
+            let sumX = 0
+            let sumY = 0
+            for (const current of queue) {
+              area += 1
+              const currentX = current % width
+              const currentY = Math.floor(current / width)
+              minX = Math.min(minX, currentX)
+              minY = Math.min(minY, currentY)
+              maxX = Math.max(maxX, currentX)
+              maxY = Math.max(maxY, currentY)
+              sumX += currentX
+              sumY += currentY
+              for (let dy = -1; dy <= 1; dy += 1) {
+                for (let dx = -1; dx <= 1; dx += 1) {
+                  if (dx === 0 && dy === 0) continue
+                  const nextX = currentX + dx
+                  const nextY = currentY + dy
+                  if (!isInCanvas(nextX, nextY)) continue
+                  const next = nextY * width + nextX
+                  if (mask[next] === 1 && visited[next] !== 1) {
+                    visited[next] = 1
+                    queue.push(next)
+                  }
+                }
+              }
+            }
+            components.push({
+              area,
+              minX,
+              minY,
+              maxX,
+              maxY,
+              centerX: sumX / area,
+              centerY: sumY / area
+            })
+          }
+        }
+        return components
+      }
+      const sourceBoundaryDistance = (point: { x: number; y: number }) => {
+        if (sourcePath.length < 2) return 0
+        let minDistance = Number.POSITIVE_INFINITY
+        sourcePath.forEach((sourcePoint, index) => {
+          const next = sourcePath[(index + 1) % sourcePath.length]
+          minDistance = Math.min(
+            minDistance,
+            pointSegmentDistance(point, sourcePoint, next)
+          )
+        })
+        return minDistance
       }
       const getLengthTable = (points: { x: number; y: number }[]) => {
         const cumulative = [0]
@@ -3846,12 +4004,52 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           : []
         return boundaryPoints.length >= 2 ? boundaryPoints : sourcePath
       }
+      const getBoundaryLocalSampleDistance = (
+        record: {
+          boundaryPoints?: { x: number; y: number }[]
+          boundaryStartDistance?: number
+          splitRangeStartDistance?: number
+          splitRangeEndDistance?: number
+        },
+        distance: number
+      ) => {
+        if (!Array.isArray(record.boundaryPoints)) {
+          return distance
+        }
+
+        if (
+          typeof record.splitRangeStartDistance === 'number' &&
+          typeof record.splitRangeEndDistance === 'number' &&
+          distance >= record.splitRangeStartDistance - 1e-6 &&
+          distance <= record.splitRangeEndDistance + 1e-6
+        ) {
+          return distance - record.splitRangeStartDistance
+        }
+
+        if (
+          typeof record.boundaryStartDistance === 'number' &&
+          Math.abs(record.boundaryStartDistance) > 1e-6
+        ) {
+          return distance - record.boundaryStartDistance
+        }
+
+        return distance
+      }
       const getRecordSample = (
-        record: { boundaryPoints?: { x: number; y: number }[] },
+        record: {
+          boundaryPoints?: { x: number; y: number }[]
+          boundaryStartDistance?: number
+          splitRangeStartDistance?: number
+          splitRangeEndDistance?: number
+        },
         distance: number
       ) => {
         const points = getRecordPath(record)
-        return getPathSample(points, getLengthTable(points), distance)
+        return getPathSample(
+          points,
+          getLengthTable(points),
+          getBoundaryLocalSampleDistance(record, distance)
+        )
       }
       const countRedNearRecordDistance = (
         record: { boundaryPoints?: { x: number; y: number }[] },
@@ -3981,6 +4179,10 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
         ]
         return sides.length <= 1 ? [] : [{ splitRangeId, sides }]
       })
+      const primaryStrokeWidth = Math.max(
+        1,
+        Number(metadata.computedStrokes?.[0]?.width) || 10
+      )
       const getTerminalBoundaryPoint = (
         record: (typeof uniqueTerminalRecords)[number],
         edge: 'start' | 'end'
@@ -4019,6 +4221,116 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           })
         )
       }
+      const isAuthoredSourceVertexTerminal = (
+        record: (typeof uniqueTerminalRecords)[number],
+        edge: 'start' | 'end'
+      ) => {
+        const point = getTerminalBoundaryPoint(record, edge)
+        if (!point) return false
+        const samePointTolerance = 1.5
+        return sourceAnchorPoints.some(
+          (anchor) =>
+            Math.hypot(anchor.x - point.x, anchor.y - point.y) <=
+            samePointTolerance
+        )
+      }
+      const isAuthoredSourceVertexTerminalResult = (
+        result: (typeof uniqueTerminalRecords)[number]
+      ) => {
+        if (result.terminalRole === 'start') {
+          return isAuthoredSourceVertexTerminal(result, 'start')
+        }
+        if (result.terminalRole === 'end') {
+          return isAuthoredSourceVertexTerminal(result, 'end')
+        }
+        if (result.terminalRole === 'start-end') {
+          return (
+            isAuthoredSourceVertexTerminal(result, 'start') ||
+            isAuthoredSourceVertexTerminal(result, 'end')
+          )
+        }
+        return false
+      }
+      const getNearestRecordProjection = (
+        record: (typeof uniqueTerminalRecords)[number],
+        point: { x: number; y: number }
+      ) => {
+        const points = getRecordPath(record)
+        if (points.length < 2) return null
+        let best:
+          | {
+              point: { x: number; y: number }
+              tangent: { x: number; y: number }
+              distanceAlong: number
+              distance: number
+            }
+          | null = null
+        let cumulativeDistance = 0
+        for (let index = 1; index < points.length; index += 1) {
+          const start = points[index - 1]
+          const end = points[index]
+          const dx = end.x - start.x
+          const dy = end.y - start.y
+          const length = Math.hypot(dx, dy)
+          if (length <= 1e-6) continue
+          const t = Math.max(
+            0,
+            Math.min(
+              1,
+              ((point.x - start.x) * dx + (point.y - start.y) * dy) /
+                (length * length)
+            )
+          )
+          const projected = {
+            x: start.x + dx * t,
+            y: start.y + dy * t
+          }
+          const distance = Math.hypot(point.x - projected.x, point.y - projected.y)
+          if (!best || distance < best.distance) {
+            best = {
+              point: projected,
+              tangent: { x: dx / length, y: dy / length },
+              distanceAlong: cumulativeDistance + length * t,
+              distance
+            }
+          }
+          cumulativeDistance += length
+        }
+        return best
+      }
+      const isExpectedOnAnySelectedSide = (point: { x: number; y: number }) =>
+        uniqueTerminalRecords.some((record) => {
+          const selectedSide = record.selectedSide
+          if (selectedSide !== 1 && selectedSide !== -1) return false
+          const projection = getNearestRecordProjection(record, point)
+          if (!projection) return false
+          const normal = {
+            x: -projection.tangent.y * selectedSide,
+            y: projection.tangent.x * selectedSide
+          }
+          const signedNormalDistance =
+            (point.x - projection.point.x) * normal.x +
+            (point.y - projection.point.y) * normal.y
+          const localStart = getBoundaryLocalSampleDistance(
+            record,
+            record.startDistance
+          )
+          const localEnd = getBoundaryLocalSampleDistance(
+            record,
+            record.endDistance
+          )
+          const squareCapAllowance =
+            capType === 'square' ? primaryStrokeWidth / 2 : 1
+          return (
+            signedNormalDistance >= -0.75 &&
+            signedNormalDistance <= primaryStrokeWidth + 1.5 &&
+            projection.distance <= primaryStrokeWidth + 1.5 &&
+            projection.distanceAlong >=
+              Math.min(localStart, localEnd) - squareCapAllowance &&
+            projection.distanceAlong <=
+              Math.max(localStart, localEnd) + squareCapAllowance
+          )
+        })
       const isSmoothContinuityBoundaryPoint = (point: {
         x: number
         y: number
@@ -4039,6 +4351,54 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           ? getRecordSample(sampleRecord, rangeDistance)
           : null
         return sample ? isSmoothContinuityBoundaryPoint(sample.point) : false
+      }
+      const isSelfIntersectionBoundaryPoint = (point: { x: number; y: number }) => {
+        const samePointTolerance = 1.5
+        const isAuthoredAnchor = sourceAnchorPoints.some(
+          (anchor) =>
+            Math.hypot(anchor.x - point.x, anchor.y - point.y) <=
+            samePointTolerance
+        )
+        if (isAuthoredAnchor || sourcePath.length < 2) {
+          return false
+        }
+
+        const nearSegmentIndexes: number[] = []
+        for (let index = 0; index < sourcePath.length; index += 1) {
+          const start = sourcePath[index]
+          const end = sourcePath[(index + 1) % sourcePath.length]
+          if (pointSegmentDistance(point, start, end) <= samePointTolerance) {
+            nearSegmentIndexes.push(index)
+          }
+        }
+        if (nearSegmentIndexes.length < 2) {
+          return false
+        }
+
+        let separatedGroupCount = 0
+        let previousIndex = -10
+        nearSegmentIndexes.forEach((index) => {
+          if (index - previousIndex > 2) {
+            separatedGroupCount += 1
+          }
+          previousIndex = index
+        })
+        const wrapsSeam =
+          nearSegmentIndexes.includes(0) &&
+          nearSegmentIndexes.includes(sourcePath.length - 1)
+        return wrapsSeam
+          ? separatedGroupCount > 2
+          : separatedGroupCount > 1
+      }
+      const isSelfIntersectionSplitRangeEdge = (
+        records: typeof uniqueTerminalRecords,
+        rangeDistance: number
+      ) => {
+        const sampleRecord = records[0]
+        const sample = sampleRecord
+          ? getRecordSample(sampleRecord, rangeDistance)
+          : null
+        return sample ? isSelfIntersectionBoundaryPoint(sample.point) : false
       }
       const dashPattern = [27, 20]
       const expectedHalfDash = dashPattern[0] / 2
@@ -4073,7 +4433,15 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
               sorted,
               rangeEnd
             )
-            if (!start && !startIsSmoothContinuity) {
+            const startIsSelfIntersectionClipBoundary =
+              isSelfIntersectionSplitRangeEdge(sorted, rangeStart)
+            const endIsSelfIntersectionClipBoundary =
+              isSelfIntersectionSplitRangeEdge(sorted, rangeEnd)
+            if (
+              !start &&
+              !startIsSmoothContinuity &&
+              !startIsSelfIntersectionClipBoundary
+            ) {
               failures.push('missing-start-terminal')
             } else if (
               start &&
@@ -4084,7 +4452,11 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
             ) {
               failures.push('start-terminal-not-half-dash')
             }
-            if (!end && !endIsSmoothContinuity) {
+            if (
+              !end &&
+              !endIsSmoothContinuity &&
+              !endIsSelfIntersectionClipBoundary
+            ) {
               failures.push('missing-end-terminal')
             } else if (
               end &&
@@ -4178,6 +4550,365 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
               }
             })
           : []
+      const selfIntersectionTerminalOppositeSideProbeHits =
+        oppositeSideProbeResults.filter((result) => {
+          if (!(result.sameSplitRangeCovered && result.maxRedPixels >= 8)) {
+            return false
+          }
+          if (result.terminalRole === 'start') {
+            return isIntersectionSplitBoundaryTerminal(result, 'start')
+          }
+          if (result.terminalRole === 'end') {
+            return isIntersectionSplitBoundaryTerminal(result, 'end')
+          }
+          if (result.terminalRole === 'start-end') {
+            return (
+              isIntersectionSplitBoundaryTerminal(result, 'start') ||
+              isIntersectionSplitBoundaryTerminal(result, 'end')
+            )
+          }
+          return false
+        })
+      const countSameSplitRangeTangentAwayCoverageNearTerminal = (
+        record: (typeof uniqueTerminalRecords)[number],
+        edge: 'start' | 'end'
+      ) => {
+        const points = getRecordPath(record)
+        if (points.length < 2) {
+          return null
+        }
+        const selectedSide = record.selectedSide
+        if (selectedSide !== 1 && selectedSide !== -1) {
+          return null
+        }
+        const endpoint = edge === 'start' ? points[0] : points[points.length - 1]
+        const adjacent = edge === 'start' ? points[1] : points[points.length - 2]
+        if (!endpoint || !adjacent) {
+          return null
+        }
+        const dx =
+          edge === 'start' ? adjacent.x - endpoint.x : endpoint.x - adjacent.x
+        const dy =
+          edge === 'start' ? adjacent.y - endpoint.y : endpoint.y - adjacent.y
+        const length = Math.hypot(dx, dy)
+        if (length <= 1e-6) {
+          return null
+        }
+        const tangent = { x: dx / length, y: dy / length }
+        const normal = {
+          x: -tangent.y * selectedSide,
+          y: tangent.x * selectedSide
+        }
+        const alongOffsets =
+          edge === 'start' ? [-2.5, -5, -7.5] : [2.5, 5, 7.5]
+        const normalOffsets = [2.5, 5, 7.5]
+        const probes = alongOffsets.flatMap((alongOffset) =>
+          normalOffsets.map((normalOffset) => {
+            const point = {
+              x:
+                endpoint.x +
+                tangent.x * alongOffset +
+                normal.x * normalOffset,
+              y:
+                endpoint.y +
+                tangent.y * alongOffset +
+                normal.y * normalOffset
+            }
+            const coveringSplitRangeIds = getPrimaryCoveringSplitRangeIds(point)
+            const redPixelCount = countRedPixelsNearLocalPoint(point, 3)
+            return {
+              point,
+              alongOffset,
+              normalOffset,
+              redPixelCount,
+              sameSplitRangeCovered: coveringSplitRangeIds.has(
+                record.splitRangeId
+              ),
+              otherSplitRangeCovered: [...coveringSplitRangeIds].some(
+                (id) => id !== record.splitRangeId
+              )
+            }
+          })
+        )
+        return {
+          ...record,
+          terminalBoundaryEdge: edge,
+          intersectionSplitBoundary: isIntersectionSplitBoundaryTerminal(
+            record,
+            edge
+          ),
+          maxRedPixels: Math.max(
+            0,
+            ...probes.map((probe) => probe.redPixelCount)
+          ),
+          sameSplitRangeCovered: probes.some(
+            (probe) => probe.sameSplitRangeCovered
+          ),
+          otherSplitRangeCovered: probes.some(
+            (probe) => probe.otherSplitRangeCovered
+          ),
+          probes
+        }
+      }
+      const countWrongSideSquareTerminalFootprintNearTerminal = (
+        record: (typeof uniqueTerminalRecords)[number],
+        edge: 'start' | 'end'
+      ) => {
+        const points = getRecordPath(record)
+        if (points.length < 2) {
+          return null
+        }
+        const selectedSide = record.selectedSide
+        if (selectedSide !== 1 && selectedSide !== -1) {
+          return null
+        }
+        const endpoint = edge === 'start' ? points[0] : points[points.length - 1]
+        const adjacent = edge === 'start' ? points[1] : points[points.length - 2]
+        if (!endpoint || !adjacent) {
+          return null
+        }
+        const dx =
+          edge === 'start' ? adjacent.x - endpoint.x : endpoint.x - adjacent.x
+        const dy =
+          edge === 'start' ? adjacent.y - endpoint.y : endpoint.y - adjacent.y
+        const length = Math.hypot(dx, dy)
+        if (length <= 1e-6) {
+          return null
+        }
+        const tangent = { x: dx / length, y: dy / length }
+        const selectedNormal = {
+          x: -tangent.y * selectedSide,
+          y: tangent.x * selectedSide
+        }
+        const oppositeNormal = {
+          x: -selectedNormal.x,
+          y: -selectedNormal.y
+        }
+        const awaySign = edge === 'start' ? -1 : 1
+        const alongOffsets = [
+          awaySign * 2.5,
+          awaySign * 5,
+          awaySign * 7.5,
+          0,
+          -awaySign * 2.5,
+          -awaySign * 5
+        ]
+        const normalOffsets = [2.5, 5, 7.5, 10]
+        const probes = alongOffsets.flatMap((alongOffset) =>
+          normalOffsets.map((normalOffset) => {
+            const point = {
+              x:
+                endpoint.x +
+                tangent.x * alongOffset +
+                oppositeNormal.x * normalOffset,
+              y:
+                endpoint.y +
+                tangent.y * alongOffset +
+                oppositeNormal.y * normalOffset
+            }
+            const redPixelCount = countRedPixelsNearLocalPoint(point, 3)
+            return {
+              point,
+              alongOffset,
+              normalOffset,
+              redPixelCount,
+              expectedOnAnySelectedSide: isExpectedOnAnySelectedSide(point)
+            }
+          })
+        )
+        const wrongSideProbeCount = probes.filter(
+          (probe) =>
+            probe.redPixelCount >= 4 && !probe.expectedOnAnySelectedSide
+        ).length
+        return {
+          ...record,
+          terminalBoundaryEdge: edge,
+          intersectionSplitBoundary: isIntersectionSplitBoundaryTerminal(
+            record,
+            edge
+          ),
+          maxRedPixels: Math.max(
+            0,
+            ...probes.map((probe) =>
+              probe.expectedOnAnySelectedSide ? 0 : probe.redPixelCount
+            )
+          ),
+          wrongSideProbeCount,
+          probes
+        }
+      }
+      const countShortBodyCollarSquareTerminalNearTerminal = (
+        record: (typeof uniqueTerminalRecords)[number],
+        edge: 'start' | 'end'
+      ) => {
+        const points = getRecordPath(record)
+        if (points.length < 2) {
+          return null
+        }
+        const selectedSide = record.selectedSide
+        if (selectedSide !== 1 && selectedSide !== -1) {
+          return null
+        }
+        const endpoint = edge === 'start' ? points[0] : points[points.length - 1]
+        const adjacent = edge === 'start' ? points[1] : points[points.length - 2]
+        if (!endpoint || !adjacent) {
+          return null
+        }
+        const dx =
+          edge === 'start' ? adjacent.x - endpoint.x : endpoint.x - adjacent.x
+        const dy =
+          edge === 'start' ? adjacent.y - endpoint.y : endpoint.y - adjacent.y
+        const length = Math.hypot(dx, dy)
+        if (length <= 1e-6) {
+          return null
+        }
+        const tangent = { x: dx / length, y: dy / length }
+        const selectedNormal = {
+          x: -tangent.y * selectedSide,
+          y: tangent.x * selectedSide
+        }
+        const bodySign = edge === 'start' ? 1 : -1
+        const buildProbe = (alongOffset: number, normalOffset: number) => {
+          const point = {
+            x:
+              endpoint.x +
+              tangent.x * alongOffset +
+              selectedNormal.x * normalOffset,
+            y:
+              endpoint.y +
+              tangent.y * alongOffset +
+              selectedNormal.y * normalOffset
+          }
+          return {
+            point,
+            alongOffset,
+            normalOffset,
+            redPixelCount: countRedPixelsNearLocalPoint(point, 3)
+          }
+        }
+        const normalOffsets = [2.5, 5, 7.5]
+        const nearProbes = [2.5, 5].flatMap((amount) =>
+          normalOffsets.map((normalOffset) =>
+            buildProbe(bodySign * amount, normalOffset)
+          )
+        )
+        const farProbes = [9, 12].flatMap((amount) =>
+          normalOffsets.map((normalOffset) =>
+            buildProbe(bodySign * amount, normalOffset)
+          )
+        )
+        const nearCoveredCount = nearProbes.filter(
+          (probe) => probe.redPixelCount >= 4
+        ).length
+        const farCoveredCount = farProbes.filter(
+          (probe) => probe.redPixelCount >= 4
+        ).length
+
+        return {
+          ...record,
+          terminalBoundaryEdge: edge,
+          intersectionSplitBoundary: isIntersectionSplitBoundaryTerminal(
+            record,
+            edge
+          ),
+          nearCoveredCount,
+          farCoveredCount,
+          nearProbes,
+          farProbes
+        }
+      }
+      const selfIntersectionSquareTerminalTangentOverhangProbeResults =
+        expectedPosition === 'outside' && capType === 'square'
+          ? uniqueTerminalRecords.flatMap((record) => [
+              ...(record.terminalRole === 'start' ||
+              record.terminalRole === 'start-end'
+                ? [
+                    countSameSplitRangeTangentAwayCoverageNearTerminal(
+                      record,
+                      'start'
+                    )
+                  ]
+                : []),
+              ...(record.terminalRole === 'end' ||
+              record.terminalRole === 'start-end'
+                ? [
+                    countSameSplitRangeTangentAwayCoverageNearTerminal(
+                      record,
+                      'end'
+                    )
+                  ]
+                : [])
+            ])
+          : []
+      const selfIntersectionSquareTerminalTangentOverhangHits =
+        selfIntersectionSquareTerminalTangentOverhangProbeResults.filter(
+          (result) =>
+            result !== null &&
+            result.intersectionSplitBoundary &&
+            (result.sameSplitRangeCovered || result.otherSplitRangeCovered) &&
+            result.maxRedPixels >= 4
+        )
+      const selfIntersectionSquareTerminalWrongSideProbeResults =
+        expectedPosition === 'outside' && capType === 'square'
+          ? uniqueTerminalRecords.flatMap((record) => [
+              ...(record.terminalRole === 'start' ||
+              record.terminalRole === 'start-end'
+                ? [
+                    countWrongSideSquareTerminalFootprintNearTerminal(
+                      record,
+                      'start'
+                    )
+                  ]
+                : []),
+              ...(record.terminalRole === 'end' ||
+              record.terminalRole === 'start-end'
+                ? [
+                    countWrongSideSquareTerminalFootprintNearTerminal(
+                      record,
+                      'end'
+                    )
+                  ]
+                : [])
+            ])
+          : []
+      const selfIntersectionSquareTerminalWrongSideHits =
+        selfIntersectionSquareTerminalWrongSideProbeResults.filter(
+          (result) =>
+            result !== null &&
+            result.intersectionSplitBoundary &&
+            result.wrongSideProbeCount > 0
+        )
+      const selfIntersectionSquareTerminalShortBodyCollarProbeResults =
+        expectedPosition === 'outside' && capType === 'square'
+          ? uniqueTerminalRecords.flatMap((record) => [
+              ...(record.terminalRole === 'start' ||
+              record.terminalRole === 'start-end'
+                ? [
+                    countShortBodyCollarSquareTerminalNearTerminal(
+                      record,
+                      'start'
+                    )
+                  ]
+                : []),
+              ...(record.terminalRole === 'end' ||
+              record.terminalRole === 'start-end'
+                ? [
+                    countShortBodyCollarSquareTerminalNearTerminal(
+                      record,
+                      'end'
+                    )
+                  ]
+                : [])
+            ])
+          : []
+      const selfIntersectionSquareTerminalShortBodyCollarHits =
+        selfIntersectionSquareTerminalShortBodyCollarProbeResults.filter(
+          (result) =>
+            result !== null &&
+            result.intersectionSplitBoundary &&
+            result.nearCoveredCount > 0 &&
+            result.farCoveredCount === 0
+        )
       const terminalBoundaryProbeResults = uniqueTerminalRecords
         .filter((record) =>
           ['start', 'end', 'start-end'].includes(record.terminalRole)
@@ -4252,6 +4983,40 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           }
         }
       )
+      const hasProbeablePacketBounds = (packet: {
+        bounds?: {
+          minX: number
+          minY: number
+          maxX: number
+          maxY: number
+        } | null
+      }) => {
+        const bounds = packet.bounds
+        if (!bounds) {
+          return true
+        }
+        return (
+          Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) >= 2
+        )
+      }
+      const debugRawPacketProbeResults = metadata.boundaryDomainPackets
+        .filter(
+          (packet) =>
+            packet.finalCoverageBuilderStatus === 'debug-raw' &&
+            typeof packet.startDistance === 'number' &&
+            typeof packet.endDistance === 'number' &&
+            hasProbeablePacketBounds(packet)
+        )
+        .map((packet) => {
+          const distance = (packet.startDistance + packet.endDistance) / 2
+          return {
+            geometryId: packet.geometryId,
+            intervalIds: packet.intervalIds,
+            debugIntervalId: packet.debugIntervalId,
+            distance,
+            ...countRedNearRecordDistance(packet, distance, null)
+          }
+        })
       const intervalContinuityProbeResults = pixelProbeTerminalRecords.map(
         (record) => {
           const intervalLength = record.endDistance - record.startDistance
@@ -4465,12 +5230,37 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
         (packet) =>
           packet.polygonCount === 0 ||
           packet.sourceTopology !== 'self-intersecting' ||
-          packet.finalCoverageBuilderStatus !== 'product-final' ||
+          (packet.finalCoverageBuilderStatus !== 'product-final' &&
+            packet.finalCoverageBuilderStatus !== 'debug-raw') ||
           packet.debugIntervalId?.startsWith('interval:') !== true ||
           packet.intervalIds.some(
             (intervalId) => !intervalId.startsWith('interval:')
           )
       )
+      const sourceFillDomainLeak = new Uint8Array(width * height)
+      let sourceFillDomainLeakPixelCount = 0
+      if (expectedPosition === 'outside' && sourcePath.length >= 3) {
+        const strictInsideDistance = Math.max(2.5, primaryStrokeWidth * 0.35)
+        for (let y = canvasBounds.top; y < canvasBounds.bottom; y += 1) {
+          for (let x = canvasBounds.left; x < canvasBounds.right; x += 1) {
+            if (!isRedStrokePixel(x, y)) continue
+            const localPoint = fromScreenPoint({ x, y })
+            if (
+              insidePolygon(localPoint, sourcePath) &&
+              sourceBoundaryDistance(localPoint) > strictInsideDistance
+            ) {
+              sourceFillDomainLeak[y * width + x] = 1
+              sourceFillDomainLeakPixelCount += 1
+            }
+          }
+        }
+      }
+      const sourceFillDomainLeakComponents = getMaskComponents(
+        sourceFillDomainLeak
+      )
+        .filter((component) => component.area >= 4)
+        .sort((left, right) => right.area - left.area)
+        .slice(0, 10)
       return {
         width,
         height,
@@ -4493,6 +5283,10 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
               result.maxRedPixels < 2)
         ),
         visibleDashProbeFailures: visibleDashProbeResults.filter(
+          (result) => result.maxRedPixels < 8
+        ),
+        debugRawPacketProbeResults,
+        debugRawPacketProbeFailures: debugRawPacketProbeResults.filter(
           (result) => result.maxRedPixels < 8
         ),
         splitRangeSideConsistencyFailures,
@@ -4519,8 +5313,30 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
         ),
         oppositeSideProbeResults,
         oppositeSideProbeHits: oppositeSideProbeResults.filter(
-          (result) => result.sameSplitRangeCovered && result.maxRedPixels >= 8
+          (result) =>
+            result.sameSplitRangeCovered &&
+            result.maxRedPixels >= 8 &&
+            !isAuthoredSourceVertexTerminalResult(result)
         ),
+        sourceVertexOppositeSideProbeResults: oppositeSideProbeResults.filter(
+          (result) =>
+            result.sameSplitRangeCovered &&
+            result.maxRedPixels >= 8 &&
+            isAuthoredSourceVertexTerminalResult(result)
+        ),
+        selfIntersectionTerminalOppositeSideProbeHits,
+        selfIntersectionSquareTerminalTangentOverhangProbeResults,
+        selfIntersectionSquareTerminalTangentOverhangHits,
+        selfIntersectionSquareTerminalWrongSideProbeResults,
+        selfIntersectionSquareTerminalWrongSideHits,
+        selfIntersectionSquareTerminalShortBodyCollarProbeResults,
+        selfIntersectionSquareTerminalShortBodyCollarHits,
+        sourceFillDomainLeakPixelCount,
+        maxSourceFillDomainLeakComponentArea: Math.max(
+          0,
+          ...sourceFillDomainLeakComponents.map((component) => component.area)
+        ),
+        sourceFillDomainLeakComponents,
         terminalBoundaryProbeResults,
         visibleDashProbeResults,
         intervalContinuityProbeResults,
@@ -4621,6 +5437,15 @@ export const compareRightBottomHighCurvatureSmoothTerminalPixels = async (
       let secondRedCount = 0
       let fullImageChangedPixelCount = 0
       let fullImageRgbaChangedPixelCount = 0
+      const localChangedSamples: {
+        x: number
+        y: number
+        first: number[]
+        second: number[]
+        firstRed: boolean
+        secondRed: boolean
+        rgbaDifference: number
+      }[] = []
       const changedBounds = {
         minX: Number.POSITIVE_INFINITY,
         minY: Number.POSITIVE_INFINITY,
@@ -4694,6 +5519,30 @@ export const compareRightBottomHighCurvatureSmoothTerminalPixels = async (
             changedRgbaPixelCount += 1
             totalRgbaDifference += rgbaDifference
           }
+          if (
+            localChangedSamples.length < 24 &&
+            (firstRed !== secondRed || rgbaDifference > 8)
+          ) {
+            localChangedSamples.push({
+              x,
+              y,
+              first: [
+                firstPixels[index],
+                firstPixels[index + 1],
+                firstPixels[index + 2],
+                firstPixels[index + 3]
+              ],
+              second: [
+                secondPixels[index],
+                secondPixels[index + 1],
+                secondPixels[index + 2],
+                secondPixels[index + 3]
+              ],
+              firstRed,
+              secondRed,
+              rgbaDifference
+            })
+          }
         }
       }
 
@@ -4709,7 +5558,8 @@ export const compareRightBottomHighCurvatureSmoothTerminalPixels = async (
           fullImageRgbaChangedPixelCount > 0 ? rgbaChangedBounds : null,
         firstRedCount,
         secondRedCount,
-        screenAnchor
+        screenAnchor,
+        localChangedSamples
       }
     },
     {

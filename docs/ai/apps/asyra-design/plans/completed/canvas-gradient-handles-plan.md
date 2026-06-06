@@ -8,7 +8,7 @@ Behavior targets:
 
 - users can see gradient handles on canvas for the active gradient fill
 - users can drag gradient handles on canvas to update gradient geometry
-- handle visuals feel intentional and Figma-like
+- handle visuals feel intentional and consistent with Asyra Design
 - drag updates stay grouped into one intended undoable action
 - overlay registration stays behind the render-layer contract
 

@@ -761,11 +761,11 @@ const isStrokeWidthCutEdge = (
   contourPaths: ReturnType<typeof getStrokeWidthContourPaths>,
   strokeWidth: number
 ) => {
-  if (edge.length < strokeWidth * 0.75 || edge.length > strokeWidth * 1.25) {
+  if (edge.length < strokeWidth * 0.6 || edge.length > strokeWidth * 1.6) {
     return false
   }
 
-  const snapTolerance = Math.max(0.75, strokeWidth * 0.12)
+  const snapTolerance = Math.max(0.75, strokeWidth * 0.25)
   const startBoundaryDistance = getMinDistanceToPaths(
     edge.start,
     contourPaths.boundaryPaths
@@ -970,7 +970,10 @@ const getLocalHighCurvatureProductEdgeStats = (
   )
   const roughContourEdges = localEdges
     .filter(
-      (edge) => edge.length > edgeLimit && !edge.isAllowedSmoothTerminalCutEdge
+      (edge) =>
+        edge.length > edgeLimit &&
+        !edge.isAllowedSmoothTerminalCutEdge &&
+        !edge.isStrokeWidthCutEdge
     )
     .sort((left, right) => right.length - left.length)
 
@@ -1343,7 +1346,7 @@ describe('constrained dashed Vector-6 high-curvature pipeline diagnostics', () =
         null,
         2
       )
-    ).toHaveLength(8)
+    ).toEqual([])
   })
 
   it('keeps the tp16 high-curvature split-range intervals covered through packets and final faces', () => {

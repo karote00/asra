@@ -63,7 +63,7 @@ const withCompoundLegalDomains = (
 })
 
 describe('resolved source family', () => {
-  it('should run: classify open inside and outside strokes as center-equivalent runtime support with verified Figma slice evidence', () => {
+  it('should run: classify open inside and outside strokes as center-equivalent runtime support with verified Asyra canonical slice evidence', () => {
     const openTopology = topology(
       [
         { x: 0, y: 0 },
@@ -244,7 +244,7 @@ describe('resolved source family', () => {
     ).toBe('supported')
   })
 
-  it('should run: expose full Figma stroke-family matrix instead of hiding parity gaps as complete support', () => {
+  it('should run: expose full Asyra stroke-family matrix instead of hiding parity gaps as complete support', () => {
     const matrix = getFigmaStrokeFamilyMatrix()
 
     expect(matrix).toHaveLength(24)

@@ -98,6 +98,7 @@ interface OverlayDrawState {
 interface VectorComputedData {
   x?: number
   y?: number
+  pointCoordinateSpace?: 'workspace'
   points?: Record<string, VectorPointNode>
   segments?: Record<string, VectorSegment>
   networks?: Record<string, VectorNetwork>
@@ -372,11 +373,16 @@ const buildOverlayVectorDataSignature = (
   computed: Required<
     Pick<VectorComputedData, 'points' | 'segments' | 'networks'>
   > &
-    Pick<VectorComputedData, 'x' | 'y'>,
+    Pick<VectorComputedData, 'x' | 'y' | 'pointCoordinateSpace'>,
   offsetX: number,
   offsetY: number
 ) => {
-  const parts = ['o', String(offsetX), String(offsetY)]
+  const parts = [
+    'o',
+    computed.pointCoordinateSpace ?? 'legacy-local',
+    String(offsetX),
+    String(offsetY)
+  ]
   appendSortedVectorPointSignature(parts, computed.points)
   appendSortedVectorSegmentSignature(parts, computed.segments)
   appendSortedVectorNetworkSignature(parts, computed.networks)
@@ -431,8 +437,11 @@ const getPathEditingVectorDataWithDeps = (
   const computedPoints = computed.points
   const computedSegments = computed.segments
   const computedNetworks = computed.networks
-  const offsetX = typeof computed.x === 'number' ? computed.x : 0
-  const offsetY = typeof computed.y === 'number' ? computed.y : 0
+  const usesWorkspacePoints = computed.pointCoordinateSpace === 'workspace'
+  const offsetX =
+    usesWorkspacePoints || typeof computed.x !== 'number' ? 0 : computed.x
+  const offsetY =
+    usesWorkspacePoints || typeof computed.y !== 'number' ? 0 : computed.y
   const signature = measureVectorEditingOverlayPhase(
     'editing-overlay:model-signature',
     () =>
@@ -442,7 +451,8 @@ const getPathEditingVectorDataWithDeps = (
           segments: computedSegments,
           networks: computedNetworks,
           x: computed.x,
-          y: computed.y
+          y: computed.y,
+          pointCoordinateSpace: computed.pointCoordinateSpace
         },
         offsetX,
         offsetY

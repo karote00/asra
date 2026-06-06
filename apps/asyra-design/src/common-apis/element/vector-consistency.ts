@@ -454,17 +454,21 @@ export const buildVectorComputedPatch = (
     y: bounds.y,
     width: bounds.width,
     height: bounds.height,
-    points: normalizedTopology.points,
+    points: topologyInWorkspace.points,
     segments: normalizedTopology.segments,
     networks: normalizedTopology.networks,
-    closed: nextClosed
+    closed: nextClosed,
+    pointCoordinateSpace: 'workspace'
   } satisfies Record<string, DataTypes>
 }
 
 export interface VectorComputedData {
   x?: number
   y?: number
+  width?: number
+  height?: number
   closed?: boolean
+  pointCoordinateSpace?: 'workspace'
   points: Record<string, VectorPointNode>
   segments: Record<string, VectorSegment>
   networks: Record<string, VectorNetwork>

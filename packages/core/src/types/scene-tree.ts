@@ -1,5 +1,6 @@
 import {
   Bounds,
+  ComputedDataPatch,
   CreateElementData,
   GroupInstanceTypes,
   SceneTreeRawData,
@@ -20,6 +21,11 @@ export interface SceneTreeRawAPIs {
   changeComputedData: (
     elementIds: string[],
     data: Record<string, DataTypes>,
+    options?: EVENT_OPTIONS
+  ) => void
+  changeComputedDataPatch: (
+    elementIds: string[],
+    patch: ComputedDataPatch,
     options?: EVENT_OPTIONS
   ) => void
   refreshComputedDataFromProperty: (

@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { BehaviorSubject, Subscription } from 'rxjs'
 import { Container } from 'pixi.js'
+import Clipper2ZFactory from 'clipper2-wasm'
 import core, { renderStrategyRegistry } from '@asyra/core'
 import {
   StrokeCapTypes,
@@ -11,6 +14,14 @@ import {
 import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
 import { createReportedRoundInsideDashedStarVectorData } from './inside-dashed-fixtures'
+import {
+  registerGeometryBackend,
+  selectGeometryBackend
+} from '../components/stroke-render/geometry-backend'
+import {
+  createClipper2GeometryBackend,
+  type Clipper2Module
+} from '../components/stroke-render/clipper2-geometry-backend'
 
 const FRAME_COUNT = Number(process.env.ASYRA_STROKE_DRAG_FRAMES ?? 120)
 const WARMUP_FRAMES = Math.min(20, Math.max(0, Math.floor(FRAME_COUNT / 10)))
@@ -24,8 +35,20 @@ const describeProfile =
 const PERFORMANCE_MEASUREMENT_SCOPE = 'cpu-only'
 const RENDERER_COVERAGE = 'fake'
 const DOES_NOT_MEASURE_RENDERER = true
+const require = createRequire(import.meta.url)
+const clipperWasmPath = require.resolve('clipper2-wasm/dist/umd/clipper2z.wasm')
+const CLIPPER_STROKE_DRAG_TEST_BACKEND_ID = 'stroke-drag-clipper2-test'
 
-beforeAll(() => {
+const loadClipperModule = async () =>
+  (await (
+    Clipper2ZFactory as (options: {
+      wasmBinary: Uint8Array
+    }) => Promise<Clipper2Module>
+  )({
+    wasmBinary: readFileSync(clipperWasmPath)
+  })) as Clipper2Module
+
+beforeAll(async () => {
   HTMLCanvasElement.prototype.getContext =
     HTMLCanvasElement.prototype.getContext ?? (() => null)
 
@@ -89,6 +112,15 @@ beforeAll(() => {
     'strokeDebugDisableVisualOverlapCollapse',
     false
   )
+  const backend = createClipper2GeometryBackend(await loadClipperModule(), {
+    backendId: CLIPPER_STROKE_DRAG_TEST_BACKEND_ID,
+    backendVersion: `${CLIPPER_STROKE_DRAG_TEST_BACKEND_ID}@test`
+  })
+  registerGeometryBackend({
+    backendId: CLIPPER_STROKE_DRAG_TEST_BACKEND_ID,
+    load: () => backend
+  })
+  selectGeometryBackend(CLIPPER_STROKE_DRAG_TEST_BACKEND_ID)
 })
 
 class RecordingVectorGraphic extends Container {

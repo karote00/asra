@@ -114,7 +114,7 @@ const resolveFigmaParity = ({
       status: 'verified-slice',
       requiredForCompletion: true,
       evidence: [
-        'Figma strokeAlign supports LineNode and VectorNode, and current app gates cover open constrained solid and dashed visibility after inside/outside selection.'
+        'Asyra open-path stroke alignment is center-equivalent, and current app gates cover open constrained solid and dashed visibility after inside/outside selection.'
       ],
       gaps: []
     }

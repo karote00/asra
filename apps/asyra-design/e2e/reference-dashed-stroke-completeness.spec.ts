@@ -374,6 +374,11 @@ const getPathEditingDiagnostics = async (page: Page) => {
     ({ snapshotPointCount, uiActiveToolState }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!elementApis) {
+        throw new Error('Missing element APIs for reference geometry apply')
+      }
 
       return {
         uiActiveToolState,
@@ -717,6 +722,11 @@ const applyReferenceVectorGeometry = async (
     ({ elementId, bindings, referencePoints }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!elementApis) {
+        throw new Error('Missing element APIs for reference geometry apply')
+      }
       const element = core?.deps?.sceneTree?.getElementById?.(elementId)
       const computed = element?.getAllComputedData?.()
       const primaryNetwork = Object.values(computed?.networks ?? {})[0] as
@@ -815,7 +825,7 @@ const applyReferenceVectorGeometry = async (
         }
       })
 
-      core?.changeComputedData?.(
+      elementApis.changeComputedData(
         [elementId],
         {
           points: nextPoints,
@@ -1156,6 +1166,11 @@ const sampleRenderMeshAtWorkspacePoints = async (
     ({ targetElementId, workspacePoints, probeRadius }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!elementApis) {
+        throw new Error('Missing element APIs for reference geometry materialize')
+      }
       const renderElement =
         core?.deps?.render?.getElementById?.(targetElementId)
       if (!renderElement?.parent) {
@@ -4313,7 +4328,7 @@ const _materializeReferenceVectorGeometry = async (
         }
       })
 
-      core?.changeComputedData?.(
+      elementApis.changeComputedData(
         [elementId],
         {
           points: nextPoints,
@@ -4343,6 +4358,11 @@ const setVectorPositionFromReference = async (page: Page) => {
   await page.evaluate((position) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const core = (window as any).__Core__
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const elementApis = (window as any).__AsyraE2E__?.elementApis
+    if (!elementApis) {
+      throw new Error('Missing element APIs for reference position update')
+    }
     const elementId =
       core?.getSystemProperty?.('pathEditingVectorId') ??
       core?.deps?.selection?.getElementSelectionIds?.()?.[0] ??
@@ -4358,22 +4378,32 @@ const setVectorPositionFromReference = async (page: Page) => {
       throw new Error('Missing vector geometry for position update')
     }
 
-    const deltaX = position.x - computed.x
-    const deltaY = position.y - computed.y
+    const usesWorkspacePoints =
+      computed.pointCoordinateSpace === 'workspace'
     const nextPoints = Object.fromEntries(
       Object.entries(computed.points).map(([pointId, point]) => {
-        const currentPoint = point as { x?: number; y?: number }
+        const currentPoint = point as {
+          x?: number
+          y?: number
+          kind?: string
+        }
 
         if (
           typeof currentPoint.x === 'number' &&
           typeof currentPoint.y === 'number'
         ) {
+          const localX = usesWorkspacePoints
+            ? currentPoint.x - computed.x
+            : currentPoint.x
+          const localY = usesWorkspacePoints
+            ? currentPoint.y - computed.y
+            : currentPoint.y
           return [
             pointId,
             {
               ...point,
-              x: currentPoint.x + deltaX,
-              y: currentPoint.y + deltaY
+              x: position.x + localX,
+              y: position.y + localY
             }
           ]
         }
@@ -4382,9 +4412,41 @@ const setVectorPositionFromReference = async (page: Page) => {
       })
     )
 
-    core?.changeComputedData?.(
+    const anchorPoints = Object.values(nextPoints).filter(
+      (
+        point
+      ): point is {
+        x: number
+        y: number
+        kind?: string
+      } =>
+        (point as { kind?: string }).kind === 'anchor' &&
+        typeof (point as { x?: number }).x === 'number' &&
+        typeof (point as { y?: number }).y === 'number'
+    )
+    const bounds = anchorPoints.reduce(
+      (current, point) => ({
+        minX: Math.min(current.minX, point.x),
+        minY: Math.min(current.minY, point.y),
+        maxX: Math.max(current.maxX, point.x),
+        maxY: Math.max(current.maxY, point.y)
+      }),
+      {
+        minX: Number.POSITIVE_INFINITY,
+        minY: Number.POSITIVE_INFINITY,
+        maxX: Number.NEGATIVE_INFINITY,
+        maxY: Number.NEGATIVE_INFINITY
+      }
+    )
+
+    elementApis.changeComputedData(
       [elementId],
       {
+        x: bounds.minX,
+        y: bounds.minY,
+        width: Math.max(0.1, bounds.maxX - bounds.minX),
+        height: Math.max(0.1, bounds.maxY - bounds.minY),
+        pointCoordinateSpace: 'workspace',
         points: nextPoints
       },
       { undoable: false }
@@ -5247,40 +5309,32 @@ const runCompletenessScenario = async (
     {
       label: 'inside_dash_recall',
       actual: formatRatio(insideRecall),
-      expected: `diagnostic only (authored source-path recall; previous threshold >= ${config.insideRecallMin.toFixed(3)})`,
-      passed: true
+      expected: `>= ${config.insideRecallMin.toFixed(3)}`,
+      passed: insideRecall >= config.insideRecallMin
     },
     {
       label: 'inside_gap_leak_rate',
       actual: formatRatio(gapLeakRate),
-      expected: config.enforceLeakMetrics
-        ? `<= ${config.gapLeakRateMax.toFixed(3)}`
-        : 'diagnostic only (Phase 3 containment / ownership)',
-      passed: config.enforceLeakMetrics
-        ? gapLeakRate <= config.gapLeakRateMax
-        : true
+      expected: `<= ${config.gapLeakRateMax.toFixed(3)}`,
+      passed: gapLeakRate <= config.gapLeakRateMax
     },
     {
       label: 'outside_leak_rate',
       actual: formatRatio(outsideLeakRate),
-      expected: config.enforceLeakMetrics
-        ? `<= ${config.outsideLeakRateMax.toFixed(3)}`
-        : 'diagnostic only (Phase 3 containment / ownership)',
-      passed: config.enforceLeakMetrics
-        ? outsideLeakRate <= config.outsideLeakRateMax
-        : true
+      expected: `<= ${config.outsideLeakRateMax.toFixed(3)}`,
+      passed: outsideLeakRate <= config.outsideLeakRateMax
     },
     {
       label: 'worst_segment_dash_recall',
       actual: formatRatio(worstSegmentDashRecall),
-      expected: `diagnostic only (authored segment recall; previous threshold >= ${config.worstSegmentRecallMin.toFixed(3)})`,
-      passed: true
+      expected: `>= ${config.worstSegmentRecallMin.toFixed(3)}`,
+      passed: worstSegmentDashRecall >= config.worstSegmentRecallMin
     },
     {
       label: 'longest_expected_miss_span',
       actual: longestExpectedMissSpan,
-      expected: `diagnostic only (authored source-path miss span; previous threshold <= ${config.longestMissSpanMax})`,
-      passed: true
+      expected: `<= ${config.longestMissSpanMax}`,
+      passed: longestExpectedMissSpan <= config.longestMissSpanMax
     },
     {
       label: 'dash_body_length_span',
@@ -5435,8 +5489,8 @@ const runCompletenessScenario = async (
     benchmarkMetrics.push({
       label: `segment_${segment.segmentIndex}_dash_recall`,
       actual: formatRatio(segment.recall),
-      expected: `diagnostic only (authored source-path segment recall; previous threshold >= ${config.worstSegmentRecallMin.toFixed(3)})`,
-      passed: true
+      expected: `>= ${config.worstSegmentRecallMin.toFixed(3)}`,
+      passed: segment.recall >= config.worstSegmentRecallMin
     })
   }
 
@@ -5551,10 +5605,15 @@ const runCompletenessScenario = async (
   expect(exportPacketProbeSummary.polygonCount).toBeGreaterThan(0)
   expect(exportPacketProbeSummary.probePoints.length).toBeGreaterThan(0)
   expect(exportPacketRasterRecall).toBeGreaterThanOrEqual(0.95)
-  if (config.enforceLeakMetrics) {
-    expect(gapLeakRate).toBeLessThanOrEqual(config.gapLeakRateMax)
-    expect(outsideLeakRate).toBeLessThanOrEqual(config.outsideLeakRateMax)
-  }
+  expect(insideRecall).toBeGreaterThanOrEqual(config.insideRecallMin)
+  expect(gapLeakRate).toBeLessThanOrEqual(config.gapLeakRateMax)
+  expect(outsideLeakRate).toBeLessThanOrEqual(config.outsideLeakRateMax)
+  expect(worstSegmentDashRecall).toBeGreaterThanOrEqual(
+    config.worstSegmentRecallMin
+  )
+  expect(longestExpectedMissSpan).toBeLessThanOrEqual(
+    config.longestMissSpanMax
+  )
 }
 
 test.describe('Reference Dashed Stroke Completeness', () => {

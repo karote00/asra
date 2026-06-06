@@ -11,7 +11,7 @@ Use this skill when requests include:
 - "app visual review"
 - "final visual check"
 - "screenshot passed"
-- "Figma parity"
+- "product visual parity"
 - "looks correct in the app"
 - canvas/vector/rendering/geometry/stroke visual completion claims
 - user-provided computed data that must be visually reviewed in an app

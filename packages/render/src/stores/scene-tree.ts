@@ -1,4 +1,9 @@
-import type { DataTypes, ElementRawData, WorkspaceRawData } from '@asyra/utils'
+import type {
+  ComputedDataPatchChange,
+  DataTypes,
+  ElementRawData,
+  WorkspaceRawData
+} from '@asyra/utils'
 import { EntityTypes } from '@asyra/utils'
 import sceneTree from '@asyra/scene-tree'
 import { RenderElementData } from '../types'
@@ -136,6 +141,52 @@ class ComputedDataMirror {
       changes.length
     )
     emitStrokePipelineCounter('computed-mirror-batch-apply-count')
+    return true
+  }
+
+  applyComputedPatch(elementId: string, patch: ComputedDataPatchChange) {
+    const entry = this.ensure(elementId)
+    if (!entry) {
+      return false
+    }
+
+    let changeCount = 0
+    Object.entries(patch.values ?? {}).forEach(([key, change]) => {
+      entry.computedDataSnapshot[key] = change.after
+      ;(entry.renderDataSnapshot as unknown as Record<string, DataTypes>)[key] =
+        change.after
+      changeCount += 1
+    })
+
+    Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
+      const currentRecord = entry.computedDataSnapshot[key]
+      const nextRecord =
+        currentRecord &&
+        typeof currentRecord === 'object' &&
+        !Array.isArray(currentRecord)
+          ? ({ ...(currentRecord as Record<string, DataTypes>) } as Record<
+              string,
+              DataTypes
+            >)
+          : {}
+
+      Object.entries(recordPatch.set ?? {}).forEach(([recordId, change]) => {
+        nextRecord[recordId] = change.after
+        changeCount += 1
+      })
+
+      Object.keys(recordPatch.remove ?? {}).forEach((recordId) => {
+        delete nextRecord[recordId]
+        changeCount += 1
+      })
+
+      entry.computedDataSnapshot[key] = nextRecord
+      ;(entry.renderDataSnapshot as unknown as Record<string, DataTypes>)[key] =
+        nextRecord
+    })
+
+    emitStrokePipelineCounter('computed-mirror-staged-change-count', changeCount)
+    emitStrokePipelineCounter('computed-mirror-patch-apply-count')
     return true
   }
 
@@ -296,6 +347,68 @@ class RenderSceneTree {
         measureBrowserDragPhase(
           'render-scene-tree:update-direct-property',
           () => render.updateElement(elementId, key, before, after)
+        )
+        this.pendingFrameFlush = true
+      }
+    })
+
+    if (hasComputedFullUpdate) {
+      this.pendingElementUpdates.add(elementId)
+    }
+    this.scheduleFlush()
+  }
+
+  updateElementPatch(
+    elementId: string,
+    patch: ComputedDataPatchChange,
+    options?: { undoable?: boolean }
+  ) {
+    if (options?.undoable !== false) {
+      Object.keys(patch.values ?? {}).forEach((key) => {
+        emitStrokePipelineCounter(`computed-mirror-undoable-refresh-key-${key}`)
+      })
+    }
+
+    const didStage = this.computedDataMirror.applyComputedPatch(
+      elementId,
+      patch
+    )
+    if (!didStage) {
+      return
+    }
+
+    const directValueChanges = Object.entries(patch.values ?? {}).filter(
+      ([key]) => key === 'visible' || DIRECT_RENDER_PROPERTY_KEYS.has(key)
+    )
+    const hasComputedFullUpdate =
+      Object.keys(patch.records ?? {}).length > 0 ||
+      Object.keys(patch.values ?? {}).some(
+        (key) => key !== 'visible' && !DIRECT_RENDER_PROPERTY_KEYS.has(key)
+      )
+
+    const changeCount =
+      Object.keys(patch.values ?? {}).length +
+      Object.values(patch.records ?? {}).reduce(
+        (sum, recordPatch) =>
+          sum +
+          Object.keys(recordPatch.set ?? {}).length +
+          Object.keys(recordPatch.remove ?? {}).length,
+        0
+      )
+
+    this.recordDirtyChange(
+      elementId,
+      changeCount,
+      hasComputedFullUpdate
+        ? this.pendingElementUpdates.has(elementId)
+        : this.pendingFrameFlush
+    )
+
+    directValueChanges.forEach(([key, change]) => {
+      if (!hasComputedFullUpdate) {
+        measureBrowserDragPhase(
+          'render-scene-tree:update-direct-property',
+          () => render.updateElement(elementId, key, change.before, change.after)
         )
         this.pendingFrameFlush = true
       }

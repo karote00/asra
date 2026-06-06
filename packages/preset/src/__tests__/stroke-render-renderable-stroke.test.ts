@@ -166,7 +166,7 @@ describe('stroke renderable normalization', () => {
     expect(result.strokes[0]?.paintKey).toBe('solid:0:1')
   })
 
-  it('should run: normalize Figma-style miter angle thresholds into SVG miter limits', () => {
+  it('should run: normalize Asyra canonical miter angle thresholds into SVG miter limits', () => {
     const [defaultAngleStroke] = getRenderableStrokes([
       createDefaultStroke({
         joinType: StrokeJoinTypes.MITER,

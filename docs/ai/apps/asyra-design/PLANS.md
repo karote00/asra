@@ -24,7 +24,7 @@ specification files must not remain in the docs tree.
 ### Status
 
 - Reopened on 2026-05-31 for grid/vector-network self-intersecting inside
-  solid parity.
+  solid rule correctness.
 - No whole-engine completion claim is active.
 - The 2026-05-31 reported self-intersecting inside solid slice now has focused
   unit probes, e2e pixel gates, and manual app screenshot review passing for
@@ -36,8 +36,9 @@ specification files must not remain in the docs tree.
 
 ### Required Stroke Rule
 
-Figma-style constrained solid strokes are not authored as direct selected-side
-solid geometry.
+Asyra constrained solid strokes are not authored as direct selected-side solid
+geometry. This rule is an Asyra rule; it may be informed by external design-tool
+behavior, but external tools are not the authority for the current contract.
 
 For solid `inside` and `outside`, the visible result must be produced by:
 
@@ -68,7 +69,7 @@ For self-intersecting inside solid shapes in grid/vector-network state:
 
 Dashed constrained strokes remain a separate interval-domain model for dash
 allocation, but constrained `inside` dashed visible geometry follows the same
-Figma-style mask rule as constrained solid geometry. For each split source
+Asyra doubled center-stroke mask rule as constrained solid geometry. For each split source
 range, allocate visible intervals with half-dash terminals at both cut ends and
 evenly distributed middle gaps; then build the authored center dashed stroke at
 twice the requested stroke width, preserving `strokeCap`, `strokeJoin`, and
@@ -96,7 +97,7 @@ dashed pixels.
   descriptor; hit/export may use coverage evidence only when it cannot affect
   visible pixels.
 - Step 30 is the only final visual gate. For the 2026-05-31 reported
-  inside-solid slice it passed only after current Figma-parity probes and manual
+  inside-solid slice it passed only after current Asyra rule probes and manual
   app screenshot review covered internal shared-edge width, all five internal
   corner join variants, miter-limit behavior, fill preservation, no visible
   derivation fragments, and no fragmented internal pentagon. Future slices must

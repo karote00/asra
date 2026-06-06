@@ -41,8 +41,11 @@ interface RenderElementShape {
 }
 
 interface VectorComputedData {
+  x?: number
+  y?: number
   width?: number
   height?: number
+  pointCoordinateSpace?: 'workspace'
   points?: Record<string, VectorPointNode>
   segments?: Record<string, VectorSegment>
   networks?: Record<string, VectorNetwork>
@@ -80,6 +83,20 @@ const transformPoint = (
   x: matrix.a * point.x + matrix.c * point.y + matrix.tx,
   y: matrix.b * point.x + matrix.d * point.y + matrix.ty
 })
+
+const getVectorPointLocalPosition = (
+  computed: VectorComputedData,
+  point: PositionData
+): PositionData => {
+  if (computed.pointCoordinateSpace !== 'workspace') {
+    return { x: point.x, y: point.y }
+  }
+
+  return {
+    x: point.x - (computed.x ?? 0),
+    y: point.y - (computed.y ?? 0)
+  }
+}
 
 const getBoundsCorners = (
   element: RenderElementShape
@@ -258,8 +275,14 @@ const drawVectorHoverOutline = (
           ? points[segment.inControlId]
           : null
 
-      const startPoint = transformPoint(matrix, { x: start.x, y: start.y })
-      const endPoint = transformPoint(matrix, { x: end.x, y: end.y })
+      const startPoint = transformPoint(
+        matrix,
+        getVectorPointLocalPosition(computed, start)
+      )
+      const endPoint = transformPoint(
+        matrix,
+        getVectorPointLocalPosition(computed, end)
+      )
 
       if (!outControl && !inControl) {
         canvas.line(startPoint, endPoint, {
@@ -270,14 +293,14 @@ const drawVectorHoverOutline = (
         return
       }
 
-      const control1 = transformPoint(matrix, {
-        x: outControl?.x ?? start.x,
-        y: outControl?.y ?? start.y
-      })
-      const control2 = transformPoint(matrix, {
-        x: inControl?.x ?? end.x,
-        y: inControl?.y ?? end.y
-      })
+      const control1 = transformPoint(
+        matrix,
+        getVectorPointLocalPosition(computed, outControl ?? start)
+      )
+      const control2 = transformPoint(
+        matrix,
+        getVectorPointLocalPosition(computed, inControl ?? end)
+      )
 
       canvas.bezierCurve(startPoint, control1, control2, endPoint, {
         width: VECTOR_HOVER_STROKE_WIDTH,
@@ -422,6 +445,63 @@ const appendElementTransformSignature = (
   )
 }
 
+const appendVectorComputedSignature = (
+  parts: string[],
+  deps: Pick<PresetDependencies, 'sceneTree'>,
+  elementId: string
+) => {
+  const sceneElement = deps.sceneTree.getElementById(elementId)
+  if (!sceneElement || sceneElement.get('type') !== 'vector') {
+    return
+  }
+
+  const computed = sceneElement.getAllComputedData() as VectorComputedData
+  parts.push(
+    computed.pointCoordinateSpace ?? 'local',
+    String(computed.x ?? ''),
+    String(computed.y ?? ''),
+    String(computed.width ?? ''),
+    String(computed.height ?? '')
+  )
+
+  Object.values(computed.points ?? {})
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .forEach((point) => {
+      parts.push(
+        point.id,
+        point.kind,
+        String(point.x),
+        String(point.y),
+        'anchorType' in point ? String(point.anchorType ?? '') : '',
+        'handleMode' in point ? String(point.handleMode ?? '') : '',
+        'parentId' in point ? String(point.parentId ?? '') : ''
+      )
+    })
+
+  Object.values(computed.segments ?? {})
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .forEach((segment) => {
+      parts.push(
+        segment.id,
+        segment.startId,
+        segment.endId,
+        segment.outControlId ?? '',
+        segment.inControlId ?? ''
+      )
+    })
+
+  Object.values(computed.networks ?? {})
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .forEach((network) => {
+      parts.push(
+        network.id,
+        network.closed ? 'closed' : 'open',
+        network.pointIds.join(','),
+        network.segmentIds.join(',')
+      )
+    })
+}
+
 export const registerSelectionOverlayRenderLayer = (
   registerRenderLayer: RegisterRenderLayer,
   deps: Pick<PresetDependencies, 'render' | 'sceneTree' | 'systemContext'>
@@ -462,6 +542,7 @@ export const registerSelectionOverlayRenderLayer = (
             hoveredElementId
           ) as RenderElementShape | null
         )
+        appendVectorComputedSignature(drawSignatureParts, deps, hoveredElementId)
       }
       const drawSignature = drawSignatureParts.join('|')
       if (drawSignature === lastDrawSignature) {

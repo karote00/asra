@@ -726,12 +726,16 @@ const shouldRenderPlainSolidWithGraphics = (
     entry.debugMeta?.geometryFamily ?? entry.runtimeMeta?.geometryFamily
   const hasKnownNonSolidCenterFamily =
     geometryFamily !== undefined && geometryFamily !== 'solid-center'
+  const canProjectExactPolygonsWithGraphics =
+    geometryFamily === 'solid-center' ||
+    (geometryFamily === 'constrained-dashed' &&
+      entry.debugMeta?.finalCoverageBuilderStatus === 'product-final')
 
   return (
     entry.stroke.kind !== 'gradient' &&
     !shouldUseMaskedSolid &&
     entry.preferSolidGraphics !== false &&
-    (geometryFamily === 'solid-center' || !hasKnownNonSolidCenterFamily)
+    (canProjectExactPolygonsWithGraphics || !hasKnownNonSolidCenterFamily)
   )
 }
 

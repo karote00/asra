@@ -195,6 +195,71 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(renderMock.flushFrame).not.toHaveBeenCalled()
   })
 
+  it('should run: apply a computed patch as one pending render update', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      {
+        type: 'vector',
+        visible: true,
+        name: 'Vector'
+      },
+      {
+        x: 0,
+        points: {
+          A: { id: 'A', x: 0, y: 0 },
+          B: { id: 'B', x: 20, y: 20 }
+        },
+        segments: {},
+        networks: {}
+      }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+
+    store.updateElementPatch(
+      'vector-1',
+      {
+        values: {
+          x: { before: 0, after: 10 }
+        },
+        records: {
+          points: {
+            set: {
+              A: {
+                before: { id: 'A', x: 0, y: 0 },
+                after: { id: 'A', x: 10, y: 10 }
+              }
+            }
+          }
+        }
+      },
+      { undoable: true }
+    )
+
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(1)
+    expect(renderMock.updateElement).not.toHaveBeenCalled()
+    await flushScheduledFrame()
+
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(1)
+    expect(renderMock.updateElement).toHaveBeenCalledTimes(1)
+    expect(renderMock.updateElement).toHaveBeenCalledWith(
+      'vector-1',
+      'computed',
+      undefined,
+      undefined,
+      expect.objectContaining({
+        id: 'vector-1',
+        type: 'vector',
+        x: 10,
+        points: {
+          A: { id: 'A', x: 10, y: 10 },
+          B: { id: 'B', x: 20, y: 20 }
+        }
+      })
+    )
+  })
+
   it('should run: keep changes staged during a frame flush for the next frame', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()

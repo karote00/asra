@@ -26,7 +26,7 @@ Generated evidence must be classified before it is staged.
 
 Commit artifacts only when they are part of the durable project record:
 
-- curated reference evidence that documents a product or Figma rule
+- curated reference evidence that documents a product rule
 - small, intentionally named fixture data used by automated tests
 - concise diagnostic summaries that are referenced by an active plan, inspector, decision record, or release note
 - active-plan artifacts placed under an explicit `artifacts/committed/` folder, or legacy tracked artifacts that already exist as decision evidence

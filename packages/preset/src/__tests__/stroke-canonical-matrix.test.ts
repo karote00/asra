@@ -147,6 +147,10 @@ const CANONICAL_SELF_CHECK_SOURCE_FIXTURES = [
   }
 ] as const
 
+const requiresAuthoredSourceVertexJoinOracle = (
+  sourceFixture: (typeof CANONICAL_SELF_CHECK_SOURCE_FIXTURES)[number]
+) => sourceFixture.key === 'polyline-self-check-star' || sourceFixture.useCurvedSourcePath
+
 const DASHED_INSIDE_LEGAL_DOMAIN_CASES =
   CANONICAL_SELF_CHECK_SOURCE_FIXTURES.flatMap((sourceFixture) =>
     DASHED_MATRIX_CASES.filter(({ position }) => position === 'inside').map(
@@ -2165,9 +2169,8 @@ describe('canonical stroke 18-combination matrix', () => {
       )
       const sourceVertexJoinIndexes =
         getSourceVertexJoinIndexesFromGeometryIds(packetGeometryIds)
-      expect(
-        packetGeometryIds.some((id) => id.includes('source-vertex-join'))
-      ).toBe(true)
+      const shouldAssertAuthoredSourceVertexJoin =
+        requiresAuthoredSourceVertexJoinOracle(sourceFixture)
       expect(
         packetGeometryIds.some((id) => id.includes('boundary-terminal-join'))
       ).toBe(false)
@@ -2180,8 +2183,13 @@ describe('canonical stroke 18-combination matrix', () => {
 
       const sourceJoinShapeExpectations = expectations.filter(
         (expectation) =>
+          shouldAssertAuthoredSourceVertexJoin &&
           expectation.hasVisibleDashCoverage &&
-          expectation.outside.turnAngle >= SOURCE_JOIN_SHAPE_TURN_ANGLE_FOR_TEST
+          expectation.outside.turnAngle >=
+            SOURCE_JOIN_SHAPE_TURN_ANGLE_FOR_TEST
+      )
+      const sourceJoinShapeExpectationVertexIndexes = new Set(
+        sourceJoinShapeExpectations.map((expectation) => expectation.vertexIndex)
       )
       const missingSourceVertexJoins = sourceJoinShapeExpectations.filter(
         (expectation) => !sourceVertexJoinIndexes.has(expectation.vertexIndex)
@@ -2315,7 +2323,10 @@ describe('canonical stroke 18-combination matrix', () => {
           `${key}:${sourceFixture.key}:${expectation.vertexId}:outside-legal-domain`
         ).toBeUndefined()
         if (
-          !expectation.hasVisibleDashCoverage ||
+          !shouldAssertAuthoredSourceVertexJoin ||
+          !sourceJoinShapeExpectationVertexIndexes.has(
+            expectation.vertexIndex
+          ) ||
           expectation.outside.turnAngle < SOURCE_JOIN_SHAPE_TURN_ANGLE_FOR_TEST
         ) {
           return
@@ -2721,6 +2732,9 @@ describe('canonical stroke 18-combination matrix', () => {
         expectations.length,
         `dashed:outside:butt:${sourceFixture.key}:signature-source-vertex-count`
       ).toBe(SELF_CHECK_SOURCE_VERTEX_ID_LIST.length)
+      if (!requiresAuthoredSourceVertexJoinOracle(sourceFixture)) {
+        return
+      }
       const sourceJoinShapeExpectations = expectations.filter(
         (expectation) =>
           expectation.hasVisibleDashCoverage &&

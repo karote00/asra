@@ -1,11 +1,17 @@
 import type {
+  ComputedDataPatchChange,
   PropsChange,
   SceneTreeChange,
-  ElementSelectionChange
+  ElementSelectionChange,
+  UpdateElementPatchChange
 } from '@asyra/utils'
 import { UNDO } from '@asyra/utils'
 
 type TransactionPayload = PropsChange | SceneTreeChange | ElementSelectionChange
+interface PendingSharedChannelChange {
+  name: string
+  change: TransactionPayload
+}
 import type { AllEvent, UpdateTransactionEvent } from '@asyra/reactive-events'
 import {
   endTransaction,
@@ -39,6 +45,59 @@ const toSharedChannelPayload = (
   } as TransactionPayload
 }
 
+const invertComputedDataPatchChange = (
+  patch: ComputedDataPatchChange
+): ComputedDataPatchChange => {
+  const inverted: ComputedDataPatchChange = {}
+
+  Object.entries(patch.values ?? {}).forEach(([key, change]) => {
+    inverted.values ??= {}
+    inverted.values[key] = {
+      before: change.after,
+      after: change.before
+    }
+  })
+
+  Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
+    const nextRecordPatch: NonNullable<
+      ComputedDataPatchChange['records']
+    >[string] = {}
+
+    Object.entries(recordPatch.set ?? {}).forEach(([recordId, change]) => {
+      if (change.before === undefined) {
+        nextRecordPatch.remove ??= {}
+        nextRecordPatch.remove[recordId] = {
+          before: change.after
+        }
+        return
+      }
+
+      nextRecordPatch.set ??= {}
+      nextRecordPatch.set[recordId] = {
+        before: change.after,
+        after: change.before
+      }
+    })
+
+    Object.entries(recordPatch.remove ?? {}).forEach(([recordId, change]) => {
+      nextRecordPatch.set ??= {}
+      nextRecordPatch.set[recordId] = {
+        after: change.before
+      }
+    })
+
+    if (
+      Object.keys(nextRecordPatch.set ?? {}).length > 0 ||
+      Object.keys(nextRecordPatch.remove ?? {}).length > 0
+    ) {
+      inverted.records ??= {}
+      inverted.records[key] = nextRecordPatch
+    }
+  })
+
+  return inverted
+}
+
 class DataTransact {
   private changes: AllEvent[] = []
   private undoStack: AllEvent[][] = []
@@ -47,6 +106,7 @@ class DataTransact {
   private inUndo = false
   private inRedo = false
   private actionId = 0
+  private pendingSharedChannelChanges: PendingSharedChannelChange[] = []
   private readonly sharedDataChannelRegistry: Pick<
     SharedDataChannelRegistry,
     'pushToSharedChannel'
@@ -70,6 +130,7 @@ class DataTransact {
     }
 
     this.changes = []
+    this.pendingSharedChannelChanges = []
   }
 
   update(event: UpdateTransactionEvent) {
@@ -91,10 +152,19 @@ class DataTransact {
 
     const sharedChannelName = event.options?.shared
     if (sharedChannelName) {
-      this.sharedDataChannelRegistry.pushToSharedChannel(
-        sharedChannelName,
-        toSharedChannelPayload(payload, event.options)
-      )
+      const sharedChange = toSharedChannelPayload(payload, event.options)
+      if (event.options?.undoable === false) {
+        this.sharedDataChannelRegistry.pushToSharedChannel(
+          sharedChannelName,
+          sharedChange
+        )
+        return
+      }
+
+      this.pendingSharedChannelChanges.push({
+        name: sharedChannelName,
+        change: sharedChange
+      })
     }
   }
 
@@ -107,8 +177,18 @@ class DataTransact {
 
     if (this.isTransacting === 0) {
       this.commitUndo()
+      this.flushPendingSharedChannelChanges()
       this.changes = []
     }
+  }
+
+  flushPendingSharedChannelChanges() {
+    const pendingChanges = this.pendingSharedChannelChanges
+    this.pendingSharedChannelChanges = []
+
+    pendingChanges.forEach(({ name, change }) => {
+      this.sharedDataChannelRegistry.pushToSharedChannel(name, change)
+    })
   }
 
   commitUndo() {
@@ -152,6 +232,16 @@ class DataTransact {
       }
       if (undoEvent.payload.after !== undefined) {
         undoEvent.payload.after = undoEvent.payload.before
+      }
+      if (
+        typeof undoEvent.payload === 'object' &&
+        undoEvent.payload !== null &&
+        'patch' in undoEvent.payload
+      ) {
+        ;(undoEvent.payload as UpdateElementPatchChange).patch =
+          invertComputedDataPatchChange(
+            (undoEvent.payload as UpdateElementPatchChange).patch
+          )
       }
 
       publishEvent(undoEvent)
@@ -208,6 +298,7 @@ class DataTransact {
     this.inUndo = false
     this.inRedo = false
     this.actionId = 0
+    this.pendingSharedChannelChanges = []
   }
 
   reset() {

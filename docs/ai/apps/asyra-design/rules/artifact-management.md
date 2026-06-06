@@ -6,7 +6,7 @@ Asyra Design artifacts must be classified before staging.
 
 Only commit artifacts that are durable evidence:
 
-- curated product/Figma reference evidence used to define behavior
+- curated product reference evidence used to define behavior
 - small fixtures consumed by tests
 - concise diagnostic summaries linked from a plan, inspector, rule, or release decision
 - final evidence intentionally stored in an `artifacts/committed/` folder

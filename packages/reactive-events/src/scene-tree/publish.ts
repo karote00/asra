@@ -1,5 +1,7 @@
 import type {
   CreateElementData,
+  ComputedDataPatch,
+  ComputedDataPatchChange,
   DataTypes,
   EVENT_OPTIONS,
   ElementRawData,
@@ -79,6 +81,19 @@ export const updateComputedData = (
   })
 }
 
+export const updateComputedDataPatch = (
+  id: string,
+  patch: ComputedDataPatchChange
+) => {
+  publishEvent({
+    type: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+    payload: {
+      id,
+      patch
+    }
+  })
+}
+
 export const changeComputedData = (
   elementIds: string[],
   key: string,
@@ -90,6 +105,21 @@ export const changeComputedData = (
     payload: {
       key,
       data,
+      elementIds
+    },
+    options
+  })
+}
+
+export const changeComputedDataPatch = (
+  elementIds: string[],
+  patch: ComputedDataPatch,
+  options: EVENT_OPTIONS = { undoable: true }
+) => {
+  publishEvent({
+    type: EventTypes.CHANGE_COMPUTED_DATA_PATCH,
+    payload: {
+      patch,
       elementIds
     },
     options

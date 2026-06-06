@@ -817,7 +817,9 @@ export const selectVectorPointFeature = defineFeature<
 
       return {
         dragTarget:
-          dragStartWorkspacePos && selectedPoint && initialTargetPos
+          dragStartWorkspacePos &&
+          selectedPoint &&
+          initialTargetPos
             ? {
                 elementId: activeHoveredPoint.elementId,
                 pointId: activeHoveredPoint.pointId,
@@ -884,43 +886,73 @@ export const selectVectorPointFeature = defineFeature<
         return
       }
 
-      if (
-        !dragTarget.hasMoved &&
-        !hasMovedBeyondVectorPointDragThreshold(snapshot)
-      ) {
-        return
-      }
+      try {
+        if (
+          !dragTarget.hasMoved &&
+          !hasMovedBeyondVectorPointDragThreshold(snapshot)
+        ) {
+          return
+        }
 
-      const currentWorkspacePos = elementApis.getMousePosInWorkspace(
-        snapshot.mousePosition
-      )
-      if (!currentWorkspacePos) {
-        return
-      }
+        const currentWorkspacePos = elementApis.getMousePosInWorkspace(
+          snapshot.mousePosition
+        )
+        if (!currentWorkspacePos) {
+          return
+        }
 
-      const dx = currentWorkspacePos.x - dragTarget.dragStartWorkspacePos.x
-      const dy = currentWorkspacePos.y - dragTarget.dragStartWorkspacePos.y
-      const targetPos = {
-        x: dragTarget.initialTargetPos.x + dx,
-        y: dragTarget.initialTargetPos.y + dy
-      }
+        const dx = currentWorkspacePos.x - dragTarget.dragStartWorkspacePos.x
+        const dy = currentWorkspacePos.y - dragTarget.dragStartWorkspacePos.y
+        const targetPos = {
+          x: dragTarget.initialTargetPos.x + dx,
+          y: dragTarget.initialTargetPos.y + dy
+        }
 
-      updateVectorPointTargetPosition(dragTarget, dragTarget.initialTargetPos, {
-        undoable: false
-      })
-      const committedPoint = updateVectorPointTargetPosition(
-        dragTarget,
-        targetPos
-      )
-      if (!committedPoint || committedPoint === true) {
-        return
-      }
+        const currentPoint = elementApis.getVectorAnchorPointById(
+          dragTarget.elementId,
+          dragTarget.pointId
+        )
+        const currentTargetPos =
+          currentPoint &&
+          getPointTargetPosition(currentPoint.point, dragTarget.target)
+        if (
+          !currentTargetPos ||
+          currentTargetPos.x !== targetPos.x ||
+          currentTargetPos.y !== targetPos.y
+        ) {
+          updateVectorPointTargetPosition(dragTarget, targetPos, {
+            undoable: false,
+            skipResult: true
+          })
+        }
 
-      syncSelectedVectorPointMirror(
-        dragTarget.elementId,
-        committedPoint,
-        dragTarget.target
-      )
+        updateVectorPointTargetPosition(
+          dragTarget,
+          dragTarget.initialTargetPos,
+          {
+            undoable: false,
+            skipResult: true
+          }
+        )
+        updateVectorPointTargetPosition(dragTarget, targetPos, {
+          undoable: true,
+          skipResult: true
+        })
+        const committedPoint = elementApis.getVectorAnchorPointById(
+          dragTarget.elementId,
+          dragTarget.pointId
+        )
+        if (!committedPoint) {
+          return
+        }
+        syncSelectedVectorPointMirror(
+          dragTarget.elementId,
+          committedPoint,
+          dragTarget.target
+        )
+      } finally {
+        state.dragTarget = null
+      }
       return
     }
   }
@@ -1032,24 +1064,6 @@ export const cancelPenEditingFeature = defineFeature(
       const editingVectorId = systemContextApis.getPathEditingVectorId()
 
       if (pathEditingMode) {
-        const hasVectorPointSelection =
-          selectionApis.getVectorPointSelectionIds().length > 0
-        const hasVectorSegmentSelection =
-          selectionApis.getVectorSegmentSelectionIds().length > 0
-
-        if (hasVectorPointSelection || hasVectorSegmentSelection) {
-          selectionApis.clearVectorPointSelection({ undoable: false })
-          selectionApis.clearVectorSegmentSelection({ undoable: false })
-          systemContextApis.clearVectorPointState()
-          systemContextApis.setPathEditingStartNewSubpath(true)
-          cursorApis.resetCanvasCursor()
-          return {
-            cancelled: true,
-            selection: 'vector',
-            elementId: editingVectorId
-          }
-        }
-
         systemContextApis.exitPathEditingMode()
         systemContextApis.switchPrimaryTool(PrimaryToolType.SELECT)
         cursorApis.resetCanvasCursor()

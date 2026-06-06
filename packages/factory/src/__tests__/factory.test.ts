@@ -2,10 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Factory } from '../factory'
 import type _DataTransact from '../data-transact' // Keep this import for type inference
 import {
+  EventTypes,
+  subscribeToEvents,
   UpdateTransactionEvent,
   TransactionEventTypes
 } from '@asyra/reactive-events'
-import { SharedDataChannelNames } from '@asyra/utils'
+import { SCENE_TREE_ACTIONS, SharedDataChannelNames } from '@asyra/utils'
 
 describe('Factory', () => {
   let factory: Factory
@@ -92,5 +94,157 @@ describe('Factory', () => {
     )
 
     dispose()
+  })
+
+  it('notifies non-undoable shared channel observers during the active transaction', () => {
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      factory.getYjsDataChannel(SharedDataChannelNames.SCENE_TREE)
+    )
+
+    const handler = vi.fn()
+    const dispose = factory.observeSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      handler
+    )
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: 'test-event',
+      payload: { id: 'non-undoable-test-event' },
+      options: {
+        undoable: false,
+        shared: SharedDataChannelNames.SCENE_TREE
+      }
+    })
+
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'non-undoable-test-event' })
+    )
+
+    factory.endTransaction()
+
+    dispose()
+  })
+
+  it('commits undo before notifying shared channel observers', () => {
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      factory.getYjsDataChannel(SharedDataChannelNames.SCENE_TREE)
+    )
+
+    const undoStackLengths: number[] = []
+    const dispose = factory.observeSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      () => {
+        undoStackLengths.push(
+          (
+            factory.transact as unknown as {
+              undoStack: unknown[]
+            }
+          ).undoStack.length
+        )
+      }
+    )
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: 'test-event',
+      payload: { id: 'test-event' },
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
+    expect(undoStackLengths).toEqual([])
+
+    factory.endTransaction()
+
+    expect(undoStackLengths).toEqual([1])
+
+    dispose()
+  })
+
+  it('inverts computed patch payloads during undo and replays original patch during redo', () => {
+    const observedPatches: unknown[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (
+        event.type === EventTypes.UPDATE_COMPUTED_DATA_PATCH &&
+        'payload' in event
+      ) {
+        observedPatches.push(
+          (event.payload as { patch: unknown }).patch
+        )
+      }
+    })
+    observedPatches.length = 0
+
+    const payload = {
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+      id: 'vector-1',
+      patch: {
+        values: {
+          x: { before: 0, after: 10 }
+        },
+        records: {
+          points: {
+            set: {
+              A: {
+                before: { id: 'A', x: 0, y: 0 },
+                after: { id: 'A', x: 10, y: 10 }
+              },
+              B: {
+                after: { id: 'B', x: 20, y: 20 }
+              }
+            },
+            remove: {
+              C: {
+                before: { id: 'C', x: 30, y: 30 }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+      payload
+    })
+    factory.endTransaction()
+
+    factory.undo()
+    factory.redo()
+
+    expect(observedPatches).toEqual([
+      {
+        values: {
+          x: { before: 10, after: 0 }
+        },
+        records: {
+          points: {
+            set: {
+              A: {
+                before: { id: 'A', x: 10, y: 10 },
+                after: { id: 'A', x: 0, y: 0 }
+              },
+              C: {
+                after: { id: 'C', x: 30, y: 30 }
+              }
+            },
+            remove: {
+              B: {
+                before: { id: 'B', x: 20, y: 20 }
+              }
+            }
+          }
+        }
+      },
+      payload.patch
+    ])
+
+    subscription.unsubscribe()
   })
 })

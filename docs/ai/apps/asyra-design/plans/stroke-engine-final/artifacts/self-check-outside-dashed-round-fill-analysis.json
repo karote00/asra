@@ -2,44 +2,137 @@
   "legalAnalysis": {
     "width": 1400,
     "height": 1100,
-    "redPixelCount": 25423,
-    "legalRedPixelCount": 3920,
-    "outsideRedPixelCount": 21503,
+    "redPixelCount": 26206,
+    "legalRedPixelCount": 3922,
+    "outsideRedPixelCount": 22284,
     "strictLegalRedPixelCount": 0,
-    "strictOutsideRedPixelCount": 25423,
+    "strictOutsideRedPixelCount": 26206,
     "darkOverdrawPixelCount": 0,
     "maxDarkOverdrawComponentArea": 0,
     "darkOverdrawComponentAreas": [],
-    "maxOutsideComponentArea": 904,
+    "darkOverdrawComponents": [],
+    "maxOutsideComponentArea": 1365,
     "outsideComponentAreas": [
+      1365,
+      984,
       904,
       805,
-      755,
-      717,
-      709,
-      704,
       701,
       699,
       699,
+      699,
+      697,
       697
     ],
+    "outsideComponents": [
+      {
+        "area": 1365,
+        "minX": 377,
+        "minY": 256,
+        "maxX": 449,
+        "maxY": 316,
+        "centerX": 415.2776556776557,
+        "centerY": 284.0908424908425
+      },
+      {
+        "area": 984,
+        "minX": 954,
+        "minY": 468,
+        "maxX": 1007,
+        "maxY": 516,
+        "centerX": 977.9583333333334,
+        "centerY": 489.5497967479675
+      },
+      {
+        "area": 904,
+        "minX": 810,
+        "minY": 772,
+        "maxX": 855,
+        "maxY": 817,
+        "centerX": 837.1073008849557,
+        "centerY": 798.0508849557522
+      },
+      {
+        "area": 805,
+        "minX": 410,
+        "minY": 810,
+        "maxX": 465,
+        "maxY": 848,
+        "centerX": 434.32670807453417,
+        "centerY": 833.5826086956522
+      },
+      {
+        "area": 701,
+        "minX": 585,
+        "minY": 335,
+        "maxX": 639,
+        "maxY": 362,
+        "centerX": 612.5035663338089,
+        "centerY": 347.8716119828816
+      },
+      {
+        "area": 699,
+        "minX": 459,
+        "minY": 289,
+        "maxX": 513,
+        "maxY": 316,
+        "centerX": 486.10729613733906,
+        "centerY": 302.1301859799714
+      },
+      {
+        "area": 699,
+        "minX": 522,
+        "minY": 312,
+        "maxX": 576,
+        "maxY": 339,
+        "centerX": 549.3233190271817,
+        "centerY": 325.0128755364807
+      },
+      {
+        "area": 699,
+        "minX": 823,
+        "minY": 686,
+        "maxX": 845,
+        "maxY": 741,
+        "centerX": 834.3633762517883,
+        "centerY": 713.3934191702432
+      },
+      {
+        "area": 697,
+        "minX": 802,
+        "minY": 413,
+        "maxX": 855,
+        "maxY": 440,
+        "centerX": 828.883787661406,
+        "centerY": 426.14490674318506
+      },
+      {
+        "area": 697,
+        "minX": 478,
+        "minY": 817,
+        "maxX": 532,
+        "maxY": 844,
+        "centerX": 505.2137733142037,
+        "centerY": 831.19368723099
+      }
+    ],
     "maxStrictInsideComponentArea": 0,
-    "maxStrictOutsideComponentArea": 1025,
+    "maxStrictOutsideComponentArea": 1501,
     "strictInsideComponentAreas": [],
     "strictInsideComponents": [],
     "strictOutsideComponentAreas": [
+      1501,
+      1115,
       1025,
       911,
-      886,
-      830,
-      829,
-      820,
-      820,
-      819,
-      818,
-      818
+      817,
+      817,
+      814,
+      814,
+      814,
+      813
     ],
-    "boundaryDomainPacketCount": 43
+    "boundaryDomainPacketCount": 42
   },
   "boundaryDomainAnalysis": {
     "width": 1400,
@@ -60,6 +153,8 @@
     "terminalProbeFailures": [],
     "terminalBoundaryProbeFailures": [],
     "visibleDashProbeFailures": [],
+    "debugRawPacketProbeResults": [],
+    "debugRawPacketProbeFailures": [],
     "splitRangeSideConsistencyFailures": [],
     "intervalContinuityFailures": [],
     "distributionFailures": [],
@@ -532,7 +627,7 @@
         "boundaryStartDistance": 0,
         "boundaryEndDistance": 79.01036474117609,
         "boundaryTotalLength": 79.01036474117609,
-        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:0:2",
+        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:39",
         "distance": 72.26036474117609,
         "maxRedPixels": 113,
         "probes": [
@@ -555,7 +650,7 @@
               "x": 179.59517538171076,
               "y": 5.152170507800537
             },
-            "redPixelCount": 106
+            "redPixelCount": 108
           }
         ]
       },
@@ -941,7 +1036,7 @@
         "boundaryStartDistance": 0,
         "boundaryEndDistance": 95.83405257550845,
         "boundaryTotalLength": 95.83405257550845,
-        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:0:2",
+        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:39",
         "distance": 6.75,
         "maxRedPixels": 113,
         "probes": [
@@ -3585,7 +3680,7 @@
               "x": 359.9000898634015,
               "y": 156.05480156301311
             },
-            "redPixelCount": 91
+            "redPixelCount": 92
           }
         ]
       },
@@ -6345,7 +6440,7 @@
         "boundaryStartDistance": 0,
         "boundaryEndDistance": 79.01036474117609,
         "boundaryTotalLength": 79.01036474117609,
-        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:0:2",
+        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:39",
         "distance": 72.26036474117609,
         "maxRedPixels": 29,
         "probes": [
@@ -6782,7 +6877,7 @@
         "boundaryStartDistance": 0,
         "boundaryEndDistance": 95.83405257550845,
         "boundaryTotalLength": 95.83405257550845,
-        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:0:2",
+        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:39",
         "distance": 6.75,
         "maxRedPixels": 29,
         "probes": [
@@ -21331,7 +21426,8 @@
         ]
       }
     ],
-    "oppositeSideProbeHits": [
+    "oppositeSideProbeHits": [],
+    "sourceVertexOppositeSideProbeResults": [
       {
         "intervalId": "interval:2",
         "splitRangeId": "split-range:0",
@@ -21526,7 +21622,7 @@
         "boundaryStartDistance": 0,
         "boundaryEndDistance": 79.01036474117609,
         "boundaryTotalLength": 79.01036474117609,
-        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:0:2",
+        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:39",
         "distance": 72.26036474117609,
         "maxRedPixels": 29,
         "probes": [
@@ -21963,7 +22059,7 @@
         "boundaryStartDistance": 0,
         "boundaryEndDistance": 95.83405257550845,
         "boundaryTotalLength": 95.83405257550845,
-        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:0:2",
+        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:39",
         "distance": 6.75,
         "maxRedPixels": 29,
         "probes": [
@@ -22641,6 +22737,16 @@
         ]
       }
     ],
+    "selfIntersectionTerminalOppositeSideProbeHits": [],
+    "selfIntersectionSquareTerminalTangentOverhangProbeResults": [],
+    "selfIntersectionSquareTerminalTangentOverhangHits": [],
+    "selfIntersectionSquareTerminalWrongSideProbeResults": [],
+    "selfIntersectionSquareTerminalWrongSideHits": [],
+    "selfIntersectionSquareTerminalShortBodyCollarProbeResults": [],
+    "selfIntersectionSquareTerminalShortBodyCollarHits": [],
+    "sourceFillDomainLeakPixelCount": 0,
+    "maxSourceFillDomainLeakComponentArea": 0,
+    "sourceFillDomainLeakComponents": [],
     "terminalBoundaryProbeResults": [
       {
         "intervalId": "interval:0",
@@ -23170,7 +23276,7 @@
         "boundaryStartDistance": 0,
         "boundaryEndDistance": 79.01036474117609,
         "boundaryTotalLength": 79.01036474117609,
-        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:0:2",
+        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:39",
         "terminalBoundaryEdge": "end",
         "terminalBoundaryDistance": 77.01036474117609,
         "intersectionSplitBoundary": false,
@@ -23609,7 +23715,7 @@
         "boundaryStartDistance": 0,
         "boundaryEndDistance": 95.83405257550845,
         "boundaryTotalLength": 95.83405257550845,
-        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:0:2",
+        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:39",
         "terminalBoundaryEdge": "start",
         "terminalBoundaryDistance": 2,
         "intersectionSplitBoundary": false,
@@ -29119,7 +29225,7 @@
               "x": 171.00595285905462,
               "y": 35.666114710609534
             },
-            "redPixelCount": 108
+            "redPixelCount": 110
           }
         ]
       },
@@ -29317,7 +29423,7 @@
         "boundaryStartDistance": 0,
         "boundaryEndDistance": 79.01036474117609,
         "boundaryTotalLength": 79.01036474117609,
-        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:0:2",
+        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:39",
         "distance": 72.26036474117609,
         "maxRedPixels": 113,
         "probes": [
@@ -29340,7 +29446,7 @@
               "x": 179.59517538171076,
               "y": 5.152170507800537
             },
-            "redPixelCount": 106
+            "redPixelCount": 108
           }
         ]
       },
@@ -29726,7 +29832,7 @@
         "boundaryStartDistance": 0,
         "boundaryEndDistance": 95.83405257550845,
         "boundaryTotalLength": 95.83405257550845,
-        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:0:2",
+        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:39",
         "distance": 6.75,
         "maxRedPixels": 113,
         "probes": [
@@ -30458,7 +30564,7 @@
               "x": 4.439285290299224,
               "y": 320.2433131762433
             },
-            "redPixelCount": 102
+            "redPixelCount": 93
           }
         ]
       },
@@ -31167,7 +31273,7 @@
               "x": 28.52532199497357,
               "y": 278.21757771471215
             },
-            "redPixelCount": 106
+            "redPixelCount": 105
           }
         ]
       },
@@ -35270,7 +35376,7 @@
               "x": 169.88402816786683,
               "y": 304.01939006824324
             },
-            "redPixelCount": 90
+            "redPixelCount": 89
           }
         ]
       },
@@ -35811,7 +35917,7 @@
               "x": 133.64602523752367,
               "y": 327.8517752396332
             },
-            "redPixelCount": 89
+            "redPixelCount": 86
           }
         ]
       },
@@ -36352,7 +36458,7 @@
               "x": 96.04441190872699,
               "y": 349.8532491810403
             },
-            "redPixelCount": 95
+            "redPixelCount": 90
           }
         ]
       },
@@ -36893,7 +36999,7 @@
               "x": 55.894630029008184,
               "y": 368.2723167420086
             },
-            "redPixelCount": 89
+            "redPixelCount": 83
           }
         ]
       },
@@ -37370,7 +37476,7 @@
               "x": 359.9000898634015,
               "y": 156.05480156301311
             },
-            "redPixelCount": 91
+            "redPixelCount": 92
           }
         ]
       },
@@ -42107,7 +42213,7 @@
               "x": 22.211090609075722,
               "y": 57.232439353796366
             },
-            "redPixelCount": 98
+            "redPixelCount": 97
           }
         ]
       },
@@ -42488,7 +42594,7 @@
               "x": 228.3180555943859,
               "y": 317.42985825195
             },
-            "redPixelCount": 95
+            "redPixelCount": 94
           }
         ]
       },
@@ -44196,7 +44302,7 @@
         "boundaryStartDistance": 0,
         "boundaryEndDistance": 79.01036474117609,
         "boundaryTotalLength": 79.01036474117609,
-        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:0:2",
+        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:39",
         "shouldCheckContinuity": true,
         "probeResults": [
           {
@@ -44666,7 +44772,7 @@
         "boundaryStartDistance": 0,
         "boundaryEndDistance": 95.83405257550845,
         "boundaryTotalLength": 95.83405257550845,
-        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:0:2",
+        "packetGeometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:39",
         "shouldCheckContinuity": false,
         "probeResults": [
           {
@@ -60341,6 +60447,6 @@
     "terminalAdjacentGapHits": [],
     "rhythmProbeResults": [],
     "rhythmProbeFailures": [],
-    "packetCount": 43
+    "packetCount": 42
   }
 }

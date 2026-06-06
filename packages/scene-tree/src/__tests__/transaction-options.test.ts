@@ -119,6 +119,70 @@ describe('SceneTree transaction options', () => {
     subscription.unsubscribe()
   })
 
+  it('routes computed patch changes as one shared transaction payload', () => {
+    const { events, subscription } = captureUpdateTransactionEvents()
+    sceneTree.addChange({
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
+      eventName: ReactiveEventsModule.EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+      id: 'element-1',
+      patch: {
+        values: {
+          x: {
+            before: 0,
+            after: 10
+          }
+        },
+        records: {
+          points: {
+            set: {
+              A: {
+                before: { id: 'A', x: 0, y: 0 },
+                after: { id: 'A', x: 10, y: 10 }
+              }
+            }
+          }
+        }
+      }
+    } as SceneTreeChange)
+
+    sceneTree.commitSceneTreeTransaction({ undoable: true })
+
+    expect(events).toEqual([
+      expect.objectContaining({
+        type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
+        eventName: ReactiveEventsModule.EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+        payload: {
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
+          eventName: ReactiveEventsModule.EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+          id: 'element-1',
+          patch: {
+            values: {
+              x: {
+                before: 0,
+                after: 10
+              }
+            },
+            records: {
+              points: {
+                set: {
+                  A: {
+                    before: { id: 'A', x: 0, y: 0 },
+                    after: { id: 'A', x: 10, y: 10 }
+                  }
+                }
+              }
+            }
+          }
+        },
+        options: {
+          undoable: true,
+          shared: SharedDataChannelNames.SCENE_TREE
+        }
+      })
+    ])
+    subscription.unsubscribe()
+  })
+
   it('calls updateTransaction without options when neither path provides options', () => {
     const { events, subscription } = captureUpdateTransactionEvents()
     const change = createUpdateChange()
@@ -151,5 +215,50 @@ describe('SceneTree transaction options', () => {
     expect(element.updateComputedData).toHaveBeenCalledWith('x', 10, {
       undoable: false
     })
+  })
+
+  it('patches computed keys from snapshot without reading missing setter keys', () => {
+    const element = {
+      get: vi.fn(() => 'element-1'),
+      getAllComputedData: vi.fn(() => ({
+        id: 'element-1',
+        points: {}
+      })),
+      computed: {
+        get: vi.fn(() => {
+          throw new Error('Not allow to get value which is not in entity data.')
+        })
+      },
+      updateComputedData: vi.fn()
+    } as unknown as ElementInstanceTypes
+    sceneTree.addToMap(element)
+
+    expect(() =>
+      sceneTree.patchComputedData('element-1', {
+        values: {
+          pointCoordinateSpace: 'workspace'
+        }
+      })
+    ).not.toThrow()
+
+    expect(element.computed.get).not.toHaveBeenCalled()
+    expect(element.updateComputedData).toHaveBeenCalledWith(
+      'pointCoordinateSpace',
+      'workspace',
+      undefined
+    )
+    expect(sceneTree.changes).toEqual([
+      expect.objectContaining({
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
+        patch: {
+          values: {
+            pointCoordinateSpace: {
+              before: undefined,
+              after: 'workspace'
+            }
+          }
+        }
+      })
+    ])
   })
 })

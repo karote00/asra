@@ -2,7 +2,9 @@ import {
   subscribeToRemoveElement,
   subscribeToChangeComputedData,
   subscribeToChangeComputedDataBatch,
+  subscribeToChangeComputedDataPatch,
   subscribeToUpdateComputedData,
+  subscribeToUpdateComputedDataPatch,
   subscribeToSceneTreeInit,
   subscribeToSceneTreeLoadData,
   subscribeToAddElement,
@@ -14,10 +16,48 @@ import propsManager from '@asyra/props-manager'
 import {
   PROPS_ACTIONS,
   UNDO,
+  type ComputedDataPatch,
+  type ComputedDataPatchChange,
   type ComputedAttrs,
   DataTypes
 } from '@asyra/utils'
 import sceneTree from './sceneTree'
+
+const toAppliedComputedDataPatch = (
+  patch: ComputedDataPatchChange
+): ComputedDataPatch => {
+  const applied: ComputedDataPatch = {}
+
+  Object.entries(patch.values ?? {}).forEach(([key, change]) => {
+    applied.values ??= {}
+    applied.values[key] = change.after
+  })
+
+  Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
+    const nextRecordPatch: NonNullable<ComputedDataPatch['records']>[string] =
+      {}
+
+    Object.entries(recordPatch.set ?? {}).forEach(([recordId, change]) => {
+      nextRecordPatch.set ??= {}
+      nextRecordPatch.set[recordId] = change.after
+    })
+
+    const removeIds = Object.keys(recordPatch.remove ?? {})
+    if (removeIds.length > 0) {
+      nextRecordPatch.remove = removeIds
+    }
+
+    if (
+      Object.keys(nextRecordPatch.set ?? {}).length > 0 ||
+      (nextRecordPatch.remove?.length ?? 0) > 0
+    ) {
+      applied.records ??= {}
+      applied.records[key] = nextRecordPatch
+    }
+  })
+
+  return applied
+}
 
 const isUpdatePropertyChange = (
   payload: unknown
@@ -100,6 +140,16 @@ export const initSceneTreeSubscribes = () => {
     sceneTree.commitSceneTreeTransaction(options)
   })
 
+  subscribeToChangeComputedDataPatch(async ({ payload, options }) => {
+    const { elementIds, patch } = payload
+
+    elementIds.forEach((elementId) => {
+      sceneTree.patchComputedData(elementId, patch, options)
+    })
+    propsManager.cleanChanges()
+    sceneTree.commitSceneTreeTransaction(options)
+  })
+
   subscribeToUpdateComputedData(({ payload }) => {
     const { id, key, after } = payload
     const options = undefined
@@ -111,6 +161,15 @@ export const initSceneTreeSubscribes = () => {
       options
     )
     propsManager.commitChanges(options)
+    sceneTree.commitSceneTreeTransaction(options)
+  })
+
+  subscribeToUpdateComputedDataPatch(({ payload }) => {
+    const { id, patch } = payload
+    const options = undefined
+
+    sceneTree.patchComputedData(id, toAppliedComputedDataPatch(patch), options)
+    propsManager.cleanChanges()
     sceneTree.commitSceneTreeTransaction(options)
   })
 

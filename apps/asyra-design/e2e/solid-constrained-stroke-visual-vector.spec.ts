@@ -800,7 +800,7 @@ const reportedVector6SegmentBodyVisualTargets: ReportedVector6LocalVisualTarget[
       label: 'segment-ts-24-line-mid',
       center: { x: 210.79, y: 263.99 },
       minCoverage: 0.08,
-      // Figma-like filled-face solid domains legitimately cover this crop a bit
+      // Asyra canonical filled-face solid domains legitimately cover this crop a bit
       // more than the retired source-path local-side approximation.
       maxCoverage: 0.88
     },

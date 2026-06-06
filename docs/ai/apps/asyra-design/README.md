@@ -11,17 +11,18 @@ This folder is the app-level implementation context for **Asyra Design**.
 5. `WORKFLOW.md`
 6. `REQUEST_ROUTING.md`
 7. `CONSTRAINTS.md`
-8. `rules/*`
-9. `modules/*`
-10. `features/*`
-11. `bdd-features/*`
-12. `prd/*`
-13. `epics/*`
-14. `golden-paths/*`
-15. `task-breakdowns/*`
-16. `BEST_PRACTICES.md`
-17. `PLANS.md`
-18. `decisions/releases/*` (app decision history by release timeline)
+8. `STROKE_CANONICAL_VISUAL_REVIEW.md` (for stroke visual correctness work)
+9. `rules/*`
+10. `modules/*`
+11. `features/*`
+12. `bdd-features/*`
+13. `prd/*`
+14. `epics/*`
+15. `golden-paths/*`
+16. `task-breakdowns/*`
+17. `BEST_PRACTICES.md`
+18. `PLANS.md`
+19. `decisions/releases/*` (app decision history by release timeline)
 
 ## Interpretation Priority
 

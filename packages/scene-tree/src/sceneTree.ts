@@ -1,5 +1,7 @@
 import type {
   ComputedAttrs,
+  ComputedDataPatch,
+  ComputedDataPatchChange,
   SceneTreeRawData,
   ElementRawData,
   GroupRawData,
@@ -8,11 +10,13 @@ import type {
   SceneTreeChange,
   UpdateElementBatchChange,
   UpdateElementChange,
+  UpdateElementPatchChange,
   EVENT_OPTIONS,
   EvnetOptions,
   CreateElementData
 } from '@asyra/utils'
 import {
+  DataTypes,
   EntityTypes,
   SCENE_TREE_ACTIONS,
   SharedDataChannelNames,
@@ -31,6 +35,28 @@ import {
 import type Workspace from './components/workspace'
 
 type SceneTreeDataType = SceneTreeRawData
+
+const hasPatchChanges = (patch: ComputedDataPatchChange): boolean => {
+  if (Object.keys(patch.values ?? {}).length > 0) {
+    return true
+  }
+
+  return Object.values(patch.records ?? {}).some(
+    (recordPatch) =>
+      Object.keys(recordPatch.set ?? {}).length > 0 ||
+      Object.keys(recordPatch.remove ?? {}).length > 0
+  )
+}
+
+const cloneRecord = (value: unknown): Record<string, DataTypes> =>
+  isRecord(value) ? ({ ...value } as Record<string, DataTypes>) : {}
+
+const getComputedSnapshot = (
+  element: ElementInstanceTypes
+): Record<string, DataTypes> => {
+  const snapshot = element.getAllComputedData()
+  return isRecord(snapshot) ? (snapshot as Record<string, DataTypes>) : {}
+}
 
 export interface SceneTreeLoadDiagnostic {
   path: string
@@ -483,6 +509,97 @@ class SceneTree {
     }
 
     element.updateComputedData(key, data)
+  }
+
+  patchComputedData(
+    elementId: string,
+    patch: ComputedDataPatch,
+    options?: EvnetOptions
+  ) {
+    const element = this.getElementById(elementId)
+    if (!element) {
+      return
+    }
+
+    const patchChange: ComputedDataPatchChange = {}
+    const previousChangeCount = this.changes.length
+    const computedSnapshot = getComputedSnapshot(element)
+
+    Object.entries(patch.values ?? {}).forEach(([key, after]) => {
+      const computedKey = key as keyof ComputedAttrs
+      const before = computedSnapshot[key]
+      if (isEqual(before, after)) {
+        return
+      }
+
+      element.updateComputedData(
+        computedKey,
+        after as ComputedAttrs[keyof ComputedAttrs],
+        options
+      )
+      patchChange.values ??= {}
+      patchChange.values[key] = { before, after }
+    })
+
+    Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
+      const computedKey = key as keyof ComputedAttrs
+      const currentRecord = cloneRecord(computedSnapshot[key])
+      const nextRecord = { ...currentRecord }
+      const nextRecordPatch: NonNullable<
+        ComputedDataPatchChange['records']
+      >[string] = {}
+
+      Object.entries(recordPatch.set ?? {}).forEach(([recordId, after]) => {
+        const before = currentRecord[recordId]
+        if (isEqual(before, after)) {
+          return
+        }
+
+        nextRecord[recordId] = after
+        nextRecordPatch.set ??= {}
+        nextRecordPatch.set[recordId] =
+          before === undefined ? { after } : { before, after }
+      })
+
+      ;(recordPatch.remove ?? []).forEach((recordId) => {
+        if (!(recordId in currentRecord)) {
+          return
+        }
+
+        nextRecordPatch.remove ??= {}
+        nextRecordPatch.remove[recordId] = {
+          before: currentRecord[recordId]
+        }
+        delete nextRecord[recordId]
+      })
+
+      if (
+        Object.keys(nextRecordPatch.set ?? {}).length === 0 &&
+        Object.keys(nextRecordPatch.remove ?? {}).length === 0
+      ) {
+        return
+      }
+
+      element.updateComputedData(
+        computedKey,
+        nextRecord as unknown as ComputedAttrs[keyof ComputedAttrs],
+        options
+      )
+      patchChange.records ??= {}
+      patchChange.records[key] = nextRecordPatch
+    })
+
+    if (!hasPatchChanges(patchChange)) {
+      return
+    }
+
+    this.changes.splice(previousChangeCount)
+    this.addChange({
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+      id: elementId,
+      patch: patchChange
+    } as UpdateElementPatchChange)
   }
 
   refreshComputedDataFromProperty(

@@ -98,7 +98,7 @@ const createSelfIntersectingClosedTopology = (): VectorTopology => {
 }
 
 describe('vector topology validation', () => {
-  it('accepts coherent topology and builds a complete normalized computed-data patch', () => {
+  it('accepts coherent topology and builds a complete workspace computed-data patch', () => {
     const topology = createOpenTopology()
 
     expect(() =>
@@ -113,12 +113,13 @@ describe('vector topology validation', () => {
       width: 30,
       height: 0.1,
       closed: false,
+      pointCoordinateSpace: 'workspace',
       segments: topology.segments,
       networks: topology.networks
     })
     expect(patch.points).toMatchObject({
-      a: { x: 0, y: 0 },
-      b: { x: 30, y: 0 }
+      a: { x: 10, y: 20 },
+      b: { x: 40, y: 20 }
     })
     expect(patch).not.toHaveProperty('anchorPoints')
   })

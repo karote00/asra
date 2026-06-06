@@ -636,7 +636,7 @@ const resolvePlanForMatrixEntry = (entry: FigmaStrokeFamilyMatrixEntry) => {
 }
 
 describe('stroke domain plan', () => {
-  it('should run: resolve every Figma family matrix entry to an explicit Step14 domain classification', () => {
+  it('should run: resolve every Asyra canonical family matrix entry to an explicit Step14 domain classification', () => {
     getFigmaStrokeFamilyMatrix().forEach((entry) => {
       const plan = resolvePlanForMatrixEntry(entry)
 

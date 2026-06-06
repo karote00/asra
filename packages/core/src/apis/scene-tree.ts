@@ -2,11 +2,13 @@ import {
   addElement,
   changeComputedData,
   changeComputedDataBatch,
+  changeComputedDataPatch,
   sceneTreeInit,
   sceneTreeLoadData
 } from '@asyra/reactive-events'
 import {
   Bounds,
+  ComputedDataPatch,
   CreateElementData,
   DataTypes,
   EVENT_OPTIONS,
@@ -85,6 +87,23 @@ export const createSceneTreeAPIs = (
       entries.forEach(([key, value]) => {
         changeComputedData(elementIds, key, value, options)
       })
+    },
+    changeComputedDataPatch(
+      elementIds: string[],
+      patch: ComputedDataPatch,
+      options?: EVENT_OPTIONS
+    ) {
+      const hasValues = Object.keys(patch.values ?? {}).length > 0
+      const hasRecords = Object.values(patch.records ?? {}).some(
+        (recordPatch) =>
+          Object.keys(recordPatch.set ?? {}).length > 0 ||
+          (recordPatch.remove?.length ?? 0) > 0
+      )
+      if (!hasValues && !hasRecords) {
+        return
+      }
+
+      changeComputedDataPatch(elementIds, patch, options)
     },
     refreshComputedDataFromProperty(
       elementId: string,

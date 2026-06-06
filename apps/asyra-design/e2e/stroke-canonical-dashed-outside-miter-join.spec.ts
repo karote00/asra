@@ -1,5 +1,6 @@
 import { test } from '@playwright/test'
 import {
+  runCanonicalDashedOutsideNoFillSourceJoinMatrixCase,
   runCanonicalDashedOutsideSourceJoinMatrixCase,
   runCanonicalDashedOutsideSourceJoinReviewCase
 } from './stroke-canonical-matrix-utils'
@@ -25,4 +26,23 @@ test('canonical stroke matrix: dashed outside source vertex miter join closeups'
 ) => {
   testInfo.setTimeout(90_000)
   await runCanonicalDashedOutsideSourceJoinReviewCase(page, caseDef)
+})
+
+test('canonical stroke matrix: dashed outside source vertex miter join no-fill rule overlay', async (
+  { page },
+  testInfo
+) => {
+  testInfo.setTimeout(90_000)
+  await runCanonicalDashedOutsideNoFillSourceJoinMatrixCase(page, caseDef)
+})
+
+test('canonical stroke matrix: dashed outside source vertex miter join no-fill polyline rule overlay', async (
+  { page },
+  testInfo
+) => {
+  testInfo.setTimeout(90_000)
+  await runCanonicalDashedOutsideNoFillSourceJoinMatrixCase(page, {
+    ...caseDef,
+    sourceKind: 'polyline'
+  })
 })

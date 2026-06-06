@@ -16,6 +16,7 @@ This folder defines command entrypoints. These files should stay lightweight and
 - `/golden-path-enforcement <scope>`
 - `/docs-reality-check <scope>`
 - `/plan-done-closeout <plan>`
+- App visual review rule overlays: `app-visual-review-rule-overlay.md`
 
 ## Authoring Rule
 
@@ -59,3 +60,8 @@ All workflows should return:
 4. Validation run and outcomes
 5. Docs updated
 6. Open risks/follow-ups
+
+## Visual Review Contract
+
+Any workflow that claims app visual correctness must follow `app-visual-review-rule-overlay.md`.
+Passing E2E output alone is not enough for a visual completion claim.

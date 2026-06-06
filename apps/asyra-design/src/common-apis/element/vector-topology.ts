@@ -1011,19 +1011,12 @@ export const removeAnchorPointFromTopology = (
       return
     }
 
-    const leftPointIds = network.pointIds.slice(0, pointIndex)
-    const rightPointIds = network.pointIds.slice(pointIndex + 1)
+    const remainingPointIds = network.pointIds.filter((id) => id !== pointId)
+    if (remainingPointIds.length === 0) {
+      return
+    }
 
-    if (leftPointIds.length > 0) {
-      addRebuiltNetwork(network.id, leftPointIds, false)
-    }
-    if (rightPointIds.length > 0) {
-      addRebuiltNetwork(
-        id(VECTOR_TOPOLOGY_NETWORK_ID_TYPE),
-        rightPointIds,
-        false
-      )
-    }
+    addRebuiltNetwork(network.id, remainingPointIds, false)
   })
 
   nextPoints = pruneUnusedControls(nextPoints, nextSegments)

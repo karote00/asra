@@ -106,10 +106,11 @@ describe('vector topology mutation intent', () => {
     expect(source).toContain('y: bounds.y')
     expect(source).toContain('width: bounds.width')
     expect(source).toContain('height: bounds.height')
-    expect(source).toContain('points: normalizedTopology.points')
+    expect(source).toContain('points: topologyInWorkspace.points')
     expect(source).toContain('segments: normalizedTopology.segments')
     expect(source).toContain('networks: normalizedTopology.networks')
     expect(source).toContain('closed: nextClosed')
+    expect(source).toContain("pointCoordinateSpace: 'workspace'")
     expect(source).toContain('satisfies Record<string, DataTypes>')
 
     expect(source).not.toMatch(/\banchorPoints\s*:/)
@@ -154,7 +155,7 @@ describe('vector path editing feature entry boundary', () => {
 })
 
 describe('vector path editing transaction boundary', () => {
-  it('keeps drag previews non-undoable and commits the final drag position as the only undoable write', () => {
+  it('keeps drag previews non-undoable and records final drag through the framework model flow', () => {
     const source = penToolFeatureSource()
 
     expect(source).toContain('pen-tool:drag-point-update')
@@ -163,11 +164,26 @@ describe('vector path editing transaction boundary', () => {
     )
     expect(source).toContain('undoable: false')
     expect(source).toContain('skipResult: true')
-    expect(source).toContain(
-      'updateVectorPointTargetPosition(dragTarget, dragTarget.initialTargetPos,'
-    )
     expect(source).toMatch(
-      /updateVectorPointTargetPosition\(dragTarget, dragTarget\.initialTargetPos,[\s\S]*?undoable: false[\s\S]*?\)\s+const committedPoint = updateVectorPointTargetPosition\(\s*dragTarget,\s*targetPos\s*\)/
+      /updateVectorPointTargetPosition\(\s*dragTarget,\s*dragTarget\.initialTargetPos,/
+    )
+    expect(source).toContain('undoable: true')
+    expect(source).not.toContain('getVectorComputedSnapshot(')
+    expect(source).not.toContain('commitVectorComputedUndoSnapshot(')
+    expect(source).not.toContain('syncVectorComputedRenderSnapshot(')
+    expect(source).not.toContain('renderSceneTreeStore')
+  })
+
+  it('uses framework computed patch events for point drag mutations', () => {
+    const source = vectorApisSource()
+
+    expect(source).toContain('core.changeComputedDataPatch(')
+    expect(source).toContain('commitVectorPointMutation(')
+    expect(source).not.toContain('commitVectorComputedUndoSnapshot')
+    expect(source).not.toContain('syncVectorComputedRenderSnapshot')
+    expect(source).not.toContain('renderSceneTreeStore')
+    expect(source).toMatch(
+      /const \{\s*skipResult: _skipResult,[\s\S]*?closed: _closed,[\s\S]*?\.\.\.eventOptions[\s\S]*?\} = options/
     )
   })
 
