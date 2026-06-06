@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Stroke Flow Inspector</title>
+    <title>Stroke / Vector System Inspector Flow</title>
     <style>
       :root {
         --bg: #101418;
@@ -195,6 +195,11 @@
         border-color: rgba(249, 115, 115, 0.72);
       }
 
+      .legend-swatch.critical {
+        border-color: rgba(89, 183, 255, 0.82);
+        background: rgba(89, 183, 255, 0.1);
+      }
+
       .legend-swatch.truth {
         border-color: rgba(123, 216, 143, 0.72);
       }
@@ -305,7 +310,11 @@
         border-color: rgba(246, 200, 95, 0.48);
       }
 
-      .step-card.is-critical-risk {
+      .step-card.is-critical {
+        border-color: rgba(89, 183, 255, 0.48);
+      }
+
+      .step-card.is-blocker {
         border-color: rgba(249, 115, 115, 0.62);
       }
 
@@ -386,6 +395,11 @@
       .badge.blocker {
         color: var(--accent-2);
         background: rgba(249, 115, 115, 0.13);
+      }
+
+      .badge.critical {
+        color: var(--accent);
+        background: rgba(89, 183, 255, 0.13);
       }
 
       .badge.partial,
@@ -529,11 +543,11 @@
       <main class="main">
         <div class="header">
           <div>
-            <h1>Stroke Flow Inspector</h1>
+            <h1>Stroke / Vector System Inspector Flow</h1>
             <p class="subtitle">
-              Interactive diagnostic map for the current vector fill/stroke
-              render flow. Each node on the left represents a real pipeline
-              step; click any step to inspect helper functions, input/output,
+              Interactive diagnostic map for the current stroke/vector system
+              flow. Each node on the left represents a real pipeline step;
+              click any step to inspect helper functions, input/output,
               decision points, and risks in the detail panel.
             </p>
           </div>
@@ -578,8 +592,12 @@
                   before editing nearby code.
                 </div>
                 <div class="legend-item">
-                  <span class="legend-swatch blocker"></span>Critical failure
-                  point or active blocker.
+                  <span class="legend-swatch blocker"></span>Active blocker or
+                  currently failing gate.
+                </div>
+                <div class="legend-item">
+                  <span class="legend-swatch critical"></span>Critical
+                  invariant: important to inspect, not a failure by itself.
                 </div>
                 <div class="legend-item">
                   <span class="legend-swatch truth"></span>Intended source of
@@ -668,7 +686,9 @@
         const groupEvidence = defaultEvidenceByGroup[step.group] ?? {}
         const overrideEvidence = stepEvidenceOverrides[step.id] ?? {}
         const groupAlignment =
-          defaultAlignmentByGroup[step.group] ?? defaultAlignmentByGroup.Input
+          defaultAlignmentByGroup[step.group] ??
+          defaultAlignmentByGroup[lanes[0]] ??
+          {}
         const overrideAlignment = stepAlignmentOverrides[step.id] ?? {}
         step.alignmentStatus = overrideAlignment.status ?? groupAlignment.status
         step.latestRule =
@@ -720,9 +740,14 @@
       const isVisible = (step) =>
         activeGroup === 'All' || step.group === activeGroup
 
+      const getStepLane = (step) =>
+        Number.isFinite(step.lane) ? step.lane : lanes.indexOf(step.group)
+
+      const getStepRow = (step) => (Number.isFinite(step.row) ? step.row : 0)
+
       const stepPosition = (step) => ({
-        x: layout.left + step.lane * (layout.cardW + layout.gapX),
-        y: layout.top + step.row * (layout.cardH + layout.gapY)
+        x: layout.left + getStepLane(step) * (layout.cardW + layout.gapX),
+        y: layout.top + getStepRow(step) * (layout.cardH + layout.gapY)
       })
 
       const toSvgPoint = (svg, x, y) => {
@@ -780,8 +805,8 @@
 
       const getFlowBounds = () => {
         const visibleSteps = steps.filter(isVisible)
-        const visibleLanes = visibleSteps.map((step) => step.lane)
-        const visibleRows = visibleSteps.map((step) => step.row)
+        const visibleLanes = visibleSteps.map(getStepLane)
+        const visibleRows = visibleSteps.map(getStepRow)
         const maxLane = visibleLanes.length ? Math.max(...visibleLanes) : 0
         const maxRow = visibleRows.length ? Math.max(...visibleRows) : 0
         return {
@@ -965,10 +990,11 @@
             'step-card',
             step.id === selectedId ? 'is-selected' : '',
             step.tags.includes('risk') ? 'is-risk' : '',
+            step.tags.includes('critical') ? 'is-critical' : '',
             step.tags.includes('blocker') ||
-            step.tags.includes('critical') ||
-            step.alignmentStatus === 'blocker'
-              ? 'is-critical-risk'
+            step.alignmentStatus === 'blocker' ||
+            step.alignmentStatus?.includes('blocked')
+              ? 'is-blocker'
               : '',
             step.alignmentStatus === 'out-of-scope' ? 'is-out-of-scope' : '',
             step.alignmentStatus === 'future' ? 'is-future' : ''
@@ -989,7 +1015,8 @@
               <span class="badge ${
                 step.alignmentStatus === 'aligned'
                   ? 'truth'
-                  : step.alignmentStatus === 'blocker'
+                  : step.alignmentStatus === 'blocker' ||
+                      step.alignmentStatus?.includes('blocked')
                     ? 'blocker'
                     : step.alignmentStatus === 'future'
                       ? 'future'
@@ -1005,8 +1032,10 @@
                       ? ' truth'
                       : tag === 'risk'
                         ? ' risk'
-                        : tag === 'blocker' || tag === 'critical'
+                        : tag === 'blocker'
                           ? ' blocker'
+                          : tag === 'critical'
+                            ? ' critical'
                           : ''
                   return `<span class="badge${kind}">${tag}</span>`
                 })
@@ -1036,12 +1065,17 @@
           ([from, to]) => !stepIds.has(from) || !stepIds.has(to)
         )
         const requiredBranches = [
-          'input-event',
+          'feature-session-intent',
+          'common-api-domain-adapter',
+          'computed-patch-builder',
+          'transaction-undo-boundary',
+          'render-mirror-patch-apply',
+          'render-data-derivation',
           'dirty-revision-graph',
           'shared-geometry-model',
           'build-stroke-candidates',
           'build-final-faces',
-          'mesh-render',
+          'renderer-projection',
           'visible-final-result'
         ]
         const missingRequiredBranches = requiredBranches.filter(
@@ -1093,6 +1127,15 @@
         const invalidAlignmentStatuses = steps
           .filter((step) => !alignmentLabels[step.alignmentStatus])
           .map((step) => `${step.id}:${step.alignmentStatus}`)
+        const invalidLayoutSteps = steps
+          .filter(
+            (step) =>
+              !Number.isFinite(step.lane) ||
+              !Number.isFinite(step.row) ||
+              step.lane < 0 ||
+              step.row < 0
+          )
+          .map((step) => `${step.id}:lane=${step.lane},row=${step.row}`)
         const mismatchOrBlockerWithoutAdjustment = steps
           .filter((step) =>
             ['mismatch', 'blocker'].includes(step.alignmentStatus)
@@ -1133,6 +1176,7 @@
           missingGuideSections.length ||
           missingEvidenceFields.length ||
           invalidAlignmentStatuses.length ||
+          invalidLayoutSteps.length ||
           mismatchOrBlockerWithoutAdjustment.length ||
           sharedModelMissingFutureConsumer ||
           criticalStepsWithoutEvidence.length ||
@@ -1146,6 +1190,7 @@
             missingGuideSections,
             missingEvidenceFields,
             invalidAlignmentStatuses,
+            invalidLayoutSteps,
             mismatchOrBlockerWithoutAdjustment,
             sharedModelMissingFutureConsumer,
             criticalStepsWithoutEvidence,
@@ -1161,11 +1206,53 @@
         }
       }
 
+      const runLayoutChecks = () => {
+        const cards = [...flow.querySelectorAll('.step-card')].map((card) => {
+          const rect = card.getBoundingClientRect()
+          return {
+            id: card.dataset.stepId,
+            left: rect.left,
+            top: rect.top,
+            right: rect.right,
+            bottom: rect.bottom
+          }
+        })
+        const overlaps = []
+        cards.forEach((card, index) => {
+          cards.slice(index + 1).forEach((other) => {
+            const overlapX =
+              Math.min(card.right, other.right) -
+              Math.max(card.left, other.left)
+            const overlapY =
+              Math.min(card.bottom, other.bottom) -
+              Math.max(card.top, other.top)
+            if (overlapX > 8 && overlapY > 8) {
+              overlaps.push({
+                from: card.id,
+                to: other.id,
+                overlapX: Math.round(overlapX),
+                overlapY: Math.round(overlapY)
+              })
+            }
+          })
+        })
+        if (overlaps.length) {
+          console.error('Stroke flow inspector layout check failed', {
+            overlaps
+          })
+        } else {
+          console.info('Stroke flow inspector layout check passed', {
+            cardCount: cards.length
+          })
+        }
+      }
+
       const render = () => {
         renderFilters()
         renderExecutionState()
         renderFlow()
         renderDetail()
+        runLayoutChecks()
       }
 
       runStaticChecks()

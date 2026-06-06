@@ -23,7 +23,8 @@ const createStarTopology = () => {
   const orderedPointIds = Array.from({ length: 10 }, (_, index) => `p${index}`)
   const points = Object.fromEntries(
     orderedPointIds.map((id, index) => {
-      const angle = -Math.PI / 2 + (Math.PI * 2 * index) / orderedPointIds.length
+      const angle =
+        -Math.PI / 2 + (Math.PI * 2 * index) / orderedPointIds.length
       const radius = index % 2 === 0 ? outerRadius : innerRadius
       return [
         id,
@@ -79,7 +80,9 @@ const createPentagramTopology = () => {
   })
   const order = [0, 2, 4, 1, 3]
   const pointIds = order.map((index) => basePoints[index].id)
-  const points = Object.fromEntries(basePoints.map((point) => [point.id, point]))
+  const points = Object.fromEntries(
+    basePoints.map((point) => [point.id, point])
+  )
   const segments = Object.fromEntries(
     pointIds.map((pointId, index) => {
       const nextPointId = pointIds[(index + 1) % pointIds.length]
@@ -368,8 +371,7 @@ const analyzeBlueHoverOutlineRaster = async (
         const green = image[index + 1] ?? 0
         const blue = image[index + 2] ?? 0
         const alpha = image[index + 3] ?? 0
-        const isHoverBlue =
-          alpha > 128 && blue > 150 && green > 70 && red < 80
+        const isHoverBlue = alpha > 128 && blue > 150 && green > 70 && red < 80
         if (!isHoverBlue) {
           continue
         }
@@ -396,17 +398,16 @@ const analyzeBlueHoverOutlineRaster = async (
     }
   }, screenshotBase64)
 
-const captureSelectedVectorFullRaster = async (
-  page: Page,
-  padding = 56
-) => {
+const captureSelectedVectorFullRaster = async (page: Page, padding = 56) => {
   const target = await page.evaluate(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const core = (window as any).__Core__
     const selectedId =
       core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
     const computed = selectedId
-      ? core?.deps?.sceneTree?.getElementById?.(selectedId)?.getAllComputedData?.()
+      ? core?.deps?.sceneTree
+          ?.getElementById?.(selectedId)
+          ?.getAllComputedData?.()
       : null
     const points = computed?.points ?? {}
     const segments = computed?.segments ?? {}
@@ -473,11 +474,15 @@ const captureSelectedVectorFullRaster = async (
   const viewportSize = page.viewportSize() ?? { width: 1280, height: 900 }
   const clipX = Math.max(
     0,
-    Math.floor(target.x * viewportState.zoom + viewportState.viewport.x - padding)
+    Math.floor(
+      target.x * viewportState.zoom + viewportState.viewport.x - padding
+    )
   )
   const clipY = Math.max(
     0,
-    Math.floor(target.y * viewportState.zoom + viewportState.viewport.y - padding)
+    Math.floor(
+      target.y * viewportState.zoom + viewportState.viewport.y - padding
+    )
   )
   const width = Math.max(
     1,
@@ -622,10 +627,7 @@ const analyzePentagramDashSegmentCoverage = async (
         let covered = false
         for (let offset = -strokeWidth; offset <= strokeWidth; offset += 2) {
           if (
-            isRedPixel(
-              base.x + normal.x * offset,
-              base.y + normal.y * offset
-            )
+            isRedPixel(base.x + normal.x * offset, base.y + normal.y * offset)
           ) {
             covered = true
             break
@@ -676,16 +678,15 @@ const analyzePentagramDashSegmentCoverage = async (
     }
   }, raster)
 
-const captureHoveredVectorOutlineRaster = async (
-  page: Page,
-  padding = 72
-) => {
+const captureHoveredVectorOutlineRaster = async (page: Page, padding = 72) => {
   const target = await page.evaluate(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const core = (window as any).__Core__
     const hoveredId = core?.getSystemProperty?.('hoveredElementId') ?? null
     const computed = hoveredId
-      ? core?.deps?.sceneTree?.getElementById?.(hoveredId)?.getAllComputedData?.()
+      ? core?.deps?.sceneTree
+          ?.getElementById?.(hoveredId)
+          ?.getAllComputedData?.()
       : null
     const points = computed?.points ?? {}
     const anchorPoints = Object.values(points).filter(
@@ -737,11 +738,15 @@ const captureHoveredVectorOutlineRaster = async (
   const viewportSize = page.viewportSize() ?? { width: 1280, height: 900 }
   const clipX = Math.max(
     0,
-    Math.floor(target.x * viewportState.zoom + viewportState.viewport.x - padding)
+    Math.floor(
+      target.x * viewportState.zoom + viewportState.viewport.x - padding
+    )
   )
   const clipY = Math.max(
     0,
-    Math.floor(target.y * viewportState.zoom + viewportState.viewport.y - padding)
+    Math.floor(
+      target.y * viewportState.zoom + viewportState.viewport.y - padding
+    )
   )
   const width = Math.max(
     1,
@@ -829,7 +834,9 @@ const readSelectedVectorDiagnostics = async (page: Page) =>
     const selectedId =
       core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
     const computed = selectedId
-      ? core?.deps?.sceneTree?.getElementById?.(selectedId)?.getAllComputedData?.()
+      ? core?.deps?.sceneTree
+          ?.getElementById?.(selectedId)
+          ?.getAllComputedData?.()
       : null
     const renderElement = selectedId
       ? core?.deps?.render?.getElementById?.(selectedId)
@@ -872,7 +879,10 @@ const readSelectedVectorDiagnostics = async (page: Page) =>
     }
   })
 
-const expectVisibleRedStroke = async (page: Page, label = 'selected vector') => {
+const expectVisibleRedStroke = async (
+  page: Page,
+  label = 'selected vector'
+) => {
   const raster = await captureSelectedElementRaster(page)
   const stats = await analyzeRedStrokeRaster(page, raster.base64)
   const diagnostics = await readSelectedVectorDiagnostics(page)
@@ -922,6 +932,100 @@ const vectorInvariantProbe = async (page: Page) => {
         maxY: Number.NEGATIVE_INFINITY
       }
     )
+    const includeGeometryPoint = (
+      bounds: {
+        minX: number
+        minY: number
+        maxX: number
+        maxY: number
+      },
+      point: { x: number; y: number }
+    ) => {
+      bounds.minX = Math.min(bounds.minX, point.x)
+      bounds.minY = Math.min(bounds.minY, point.y)
+      bounds.maxX = Math.max(bounds.maxX, point.x)
+      bounds.maxY = Math.max(bounds.maxY, point.y)
+    }
+    const cubicAt = (
+      p0: number,
+      p1: number,
+      p2: number,
+      p3: number,
+      t: number
+    ) => {
+      const mt = 1 - t
+      return (
+        mt * mt * mt * p0 +
+        3 * mt * mt * t * p1 +
+        3 * mt * t * t * p2 +
+        t * t * t * p3
+      )
+    }
+    const cubicExtrema = (p0: number, p1: number, p2: number, p3: number) => {
+      const a = -p0 + 3 * p1 - 3 * p2 + p3
+      const b = 2 * (p0 - 2 * p1 + p2)
+      const c = -p0 + p1
+      const values: number[] = []
+      if (Math.abs(a) < 1e-9) {
+        if (Math.abs(b) > 1e-9) {
+          values.push(-c / b)
+        }
+      } else {
+        const discriminant = b * b - 4 * a * c
+        if (discriminant >= 0) {
+          const root = Math.sqrt(discriminant)
+          values.push((-b + root) / (2 * a), (-b - root) / (2 * a))
+        }
+      }
+      return values.filter((t) => t > 0 && t < 1)
+    }
+    const geometryBounds = anchorPoints.reduce(
+      (bounds, point) => {
+        includeGeometryPoint(bounds, point)
+        return bounds
+      },
+      {
+        minX: Number.POSITIVE_INFINITY,
+        minY: Number.POSITIVE_INFINITY,
+        maxX: Number.NEGATIVE_INFINITY,
+        maxY: Number.NEGATIVE_INFINITY
+      }
+    )
+    Object.values(computed.segments ?? {}).forEach(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (segment: any) => {
+        const start = points[segment?.startId]
+        const end = points[segment?.endId]
+        if (
+          start?.kind !== 'anchor' ||
+          end?.kind !== 'anchor' ||
+          (!segment?.outControlId && !segment?.inControlId)
+        ) {
+          return
+        }
+
+        const outControl = points[segment.outControlId]
+        const inControl = points[segment.inControlId]
+        const p1 =
+          outControl?.kind === 'control'
+            ? outControl
+            : { x: start.x, y: start.y }
+        const p2 =
+          inControl?.kind === 'control' ? inControl : { x: end.x, y: end.y }
+        cubicExtrema(start.x, p1.x, p2.x, end.x).forEach((t) => {
+          includeGeometryPoint(geometryBounds, {
+            x: cubicAt(start.x, p1.x, p2.x, end.x, t),
+            y: cubicAt(start.y, p1.y, p2.y, end.y, t)
+          })
+        })
+        cubicExtrema(start.y, p1.y, p2.y, end.y).forEach((t) => {
+          includeGeometryPoint(geometryBounds, {
+            x: cubicAt(start.x, p1.x, p2.x, end.x, t),
+            y: cubicAt(start.y, p1.y, p2.y, end.y, t)
+          })
+        })
+      }
+    )
     const usesWorkspacePoints = computed.pointCoordinateSpace === 'workspace'
     const overlayBounds = anchorPoints.reduce(
       (bounds, point) => {
@@ -961,6 +1065,12 @@ const vectorInvariantProbe = async (page: Page) => {
         y: anchorBounds.minY,
         width: anchorBounds.maxX - anchorBounds.minX,
         height: anchorBounds.maxY - anchorBounds.minY
+      },
+      geometryBounds: {
+        x: geometryBounds.minX,
+        y: geometryBounds.minY,
+        width: geometryBounds.maxX - geometryBounds.minX,
+        height: geometryBounds.maxY - geometryBounds.minY
       },
       overlayBounds: {
         x: overlayBounds.minX,
@@ -1006,10 +1116,10 @@ const expectWorkspaceVectorInvariants = async (
 ) => {
   const summary = await vectorInvariantProbe(page)
   expect(summary.computed.pointCoordinateSpace).toBe('workspace')
-  expect(summary.computed.x).toBeCloseTo(summary.anchorBounds.x, 4)
-  expect(summary.computed.y).toBeCloseTo(summary.anchorBounds.y, 4)
-  expect(summary.computed.width).toBeCloseTo(summary.anchorBounds.width, 4)
-  expect(summary.computed.height).toBeCloseTo(summary.anchorBounds.height, 4)
+  expect(summary.computed.x).toBeCloseTo(summary.geometryBounds.x, 4)
+  expect(summary.computed.y).toBeCloseTo(summary.geometryBounds.y, 4)
+  expect(summary.computed.width).toBeCloseTo(summary.geometryBounds.width, 4)
+  expect(summary.computed.height).toBeCloseTo(summary.geometryBounds.height, 4)
   expect(summary.overlayBounds).toEqual(summary.anchorBounds)
   expect(summary.render.exists).toBe(true)
   expect(summary.render.visible).toBe(true)
@@ -1046,9 +1156,7 @@ const getLastUndoPatchSummary = async (page: Page) =>
     }
   })
 
-const expectOnlyComputedPatchUndo = (summary: {
-  changeTypes: string[]
-}) => {
+const expectOnlyComputedPatchUndo = (summary: { changeTypes: string[] }) => {
   expect(summary.changeTypes).toEqual(['updateComputedDataPatch'])
 }
 
@@ -1071,7 +1179,7 @@ test.describe('Vector render invariants', () => {
     await resetCanvas(page)
   })
 
-  test.afterEach(async ({}, testInfo) => {
+  test.afterEach(async ({ page: _page }, testInfo) => {
     const browserErrors =
       (testInfo as typeof testInfo & BrowserTestInfo).browserErrors ?? []
     expect(browserErrors).toEqual([])
@@ -1152,10 +1260,13 @@ test.describe('Vector render invariants', () => {
     expect(created.computed.pointCount).toBe(10)
     expect(created.computed.segmentCount).toBe(10)
     expect(created.computed.networkCount).toBe(1)
-    expect(created.computed.x).toBeCloseTo(created.anchorBounds.x, 4)
-    expect(created.computed.y).toBeCloseTo(created.anchorBounds.y, 4)
-    expect(created.computed.width).toBeCloseTo(created.anchorBounds.width, 4)
-    expect(created.computed.height).toBeCloseTo(created.anchorBounds.height, 4)
+    expect(created.computed.x).toBeCloseTo(created.geometryBounds.x, 4)
+    expect(created.computed.y).toBeCloseTo(created.geometryBounds.y, 4)
+    expect(created.computed.width).toBeCloseTo(created.geometryBounds.width, 4)
+    expect(created.computed.height).toBeCloseTo(
+      created.geometryBounds.height,
+      4
+    )
     expect(created.overlayBounds).toEqual(created.anchorBounds)
     expect(created.render.exists).toBe(true)
     expect(created.render.visible).toBe(true)
@@ -1172,8 +1283,8 @@ test.describe('Vector render invariants', () => {
       const elementApis = (window as any).__AsyraE2E__?.elementApis
       const selectedId =
         core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
-      const point = core
-        ?.deps?.sceneTree?.getElementById?.(selectedId)
+      const point = core?.deps?.sceneTree
+        ?.getElementById?.(selectedId)
         ?.getAllComputedData?.()?.points?.p0
       if (!selectedId || !point) {
         throw new Error('Missing selected vector point for update')
@@ -1191,10 +1302,13 @@ test.describe('Vector render invariants', () => {
 
     const updated = await vectorInvariantProbe(page)
     expect(updated.computed.pointCoordinateSpace).toBe('workspace')
-    expect(updated.computed.x).toBeCloseTo(updated.anchorBounds.x, 4)
-    expect(updated.computed.y).toBeCloseTo(updated.anchorBounds.y, 4)
-    expect(updated.computed.width).toBeCloseTo(updated.anchorBounds.width, 4)
-    expect(updated.computed.height).toBeCloseTo(updated.anchorBounds.height, 4)
+    expect(updated.computed.x).toBeCloseTo(updated.geometryBounds.x, 4)
+    expect(updated.computed.y).toBeCloseTo(updated.geometryBounds.y, 4)
+    expect(updated.computed.width).toBeCloseTo(updated.geometryBounds.width, 4)
+    expect(updated.computed.height).toBeCloseTo(
+      updated.geometryBounds.height,
+      4
+    )
     expect(updated.overlayBounds).toEqual(updated.anchorBounds)
     expect(updated.render.exists).toBe(true)
     expect(updated.render.visible).toBe(true)
@@ -1402,10 +1516,13 @@ test.describe('Vector render invariants', () => {
     expect(created.computed.pointCount).toBe(10)
     expect(created.computed.segmentCount).toBe(10)
     expect(created.computed.networkCount).toBe(1)
-    expect(created.computed.x).toBeCloseTo(created.anchorBounds.x, 4)
-    expect(created.computed.y).toBeCloseTo(created.anchorBounds.y, 4)
-    expect(created.computed.width).toBeCloseTo(created.anchorBounds.width, 4)
-    expect(created.computed.height).toBeCloseTo(created.anchorBounds.height, 4)
+    expect(created.computed.x).toBeCloseTo(created.geometryBounds.x, 4)
+    expect(created.computed.y).toBeCloseTo(created.geometryBounds.y, 4)
+    expect(created.computed.width).toBeCloseTo(created.geometryBounds.width, 4)
+    expect(created.computed.height).toBeCloseTo(
+      created.geometryBounds.height,
+      4
+    )
     expect(created.overlayBounds).toEqual(created.anchorBounds)
     expect(created.render.exists).toBe(true)
     expect(created.render.visible).toBe(true)
@@ -1431,10 +1548,13 @@ test.describe('Vector render invariants', () => {
 
     const dragged = await vectorInvariantProbe(page)
     expect(dragged.computed.pointCoordinateSpace).toBe('workspace')
-    expect(dragged.computed.x).toBeCloseTo(dragged.anchorBounds.x, 4)
-    expect(dragged.computed.y).toBeCloseTo(dragged.anchorBounds.y, 4)
-    expect(dragged.computed.width).toBeCloseTo(dragged.anchorBounds.width, 4)
-    expect(dragged.computed.height).toBeCloseTo(dragged.anchorBounds.height, 4)
+    expect(dragged.computed.x).toBeCloseTo(dragged.geometryBounds.x, 4)
+    expect(dragged.computed.y).toBeCloseTo(dragged.geometryBounds.y, 4)
+    expect(dragged.computed.width).toBeCloseTo(dragged.geometryBounds.width, 4)
+    expect(dragged.computed.height).toBeCloseTo(
+      dragged.geometryBounds.height,
+      4
+    )
     expect(dragged.overlayBounds).toEqual(dragged.anchorBounds)
     expect(dragged.render.exists).toBe(true)
     expect(dragged.render.visible).toBe(true)
@@ -1448,96 +1568,101 @@ test.describe('Vector render invariants', () => {
   test('migrates legacy local vector data during first point drag without render or overlay drift', async ({
     page
   }) => {
-    await page.evaluate(async ({ topology, legacyData }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
-      if (!core || !elementApis) {
-        throw new Error('Missing E2E core or element APIs')
-      }
-
-      const createdId = elementApis.createElement(
-        {
-          type: 'vector',
-          points: topology.points,
-          segments: topology.segments,
-          networks: topology.networks,
-          closed: true
-        },
-        { undoable: false }
-      )
-      if (!createdId) {
-        throw new Error('Failed to create vector before legacy load fixture')
-      }
-      elementApis.changeComputedData(
-        [createdId],
-        {
-          strokes: [
-            {
-              id: 'legacy-vector-invariant-stroke',
-              kind: 'solid',
-              style: 'solid',
-              position: 'center',
-              width: 12,
-              dashPattern: [],
-              dashOffset: 0,
-              fill: null,
-              defaultColorFormat: 'hex',
-              colorFormat: 'hex',
-              color: '#df0606',
-              opacity: 0.75,
-              visible: true,
-              gradient: null,
-              joinType: 'miter',
-              capType: 'butt',
-              miterAngle: 28.96
-            }
-          ]
-        },
-        { undoable: false }
-      )
-
-      const saved = await core.save()
-      const elementRaw = saved.sceneTree.elements?.[createdId]
-      const props = elementRaw?.props ?? {}
-      const savedProps = saved.props ?? {}
-      const positionProp = props.position ? savedProps[props.position] : null
-      const dimensionProp = props.dimension ? savedProps[props.dimension] : null
-      const pointsProp = props.points ? savedProps[props.points] : null
-      const pointCoordinateSpaceProp = props.pointCoordinateSpace
-        ? savedProps[props.pointCoordinateSpace]
-        : null
-
-      if (!positionProp || !dimensionProp || !pointsProp) {
-        throw new Error('Missing vector persisted property components')
-      }
-
-      positionProp.x = legacyData.x
-      positionProp.y = legacyData.y
-      dimensionProp.width = legacyData.width
-      dimensionProp.height = legacyData.height
-      Object.entries(legacyData.points).forEach(([pointId, localPoint]) => {
-        const pointComponent = savedProps[pointId]
-        if (!pointComponent) {
-          throw new Error(`Missing point property component ${pointId}`)
+    await page.evaluate(
+      async ({ topology, legacyData }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const elementApis = (window as any).__AsyraE2E__?.elementApis
+        if (!core || !elementApis) {
+          throw new Error('Missing E2E core or element APIs')
         }
-        pointComponent.x = localPoint.x
-        pointComponent.y = localPoint.y
-      })
-      if (pointCoordinateSpaceProp) {
-        delete pointCoordinateSpaceProp.pointCoordinateSpace
+
+        const createdId = elementApis.createElement(
+          {
+            type: 'vector',
+            points: topology.points,
+            segments: topology.segments,
+            networks: topology.networks,
+            closed: true
+          },
+          { undoable: false }
+        )
+        if (!createdId) {
+          throw new Error('Failed to create vector before legacy load fixture')
+        }
+        elementApis.changeComputedData(
+          [createdId],
+          {
+            strokes: [
+              {
+                id: 'legacy-vector-invariant-stroke',
+                kind: 'solid',
+                style: 'solid',
+                position: 'center',
+                width: 12,
+                dashPattern: [],
+                dashOffset: 0,
+                fill: null,
+                defaultColorFormat: 'hex',
+                colorFormat: 'hex',
+                color: '#df0606',
+                opacity: 0.75,
+                visible: true,
+                gradient: null,
+                joinType: 'miter',
+                capType: 'butt',
+                miterAngle: 28.96
+              }
+            ]
+          },
+          { undoable: false }
+        )
+
+        const saved = await core.save()
+        const elementRaw = saved.sceneTree.elements?.[createdId]
+        const props = elementRaw?.props ?? {}
+        const savedProps = saved.props ?? {}
+        const positionProp = props.position ? savedProps[props.position] : null
+        const dimensionProp = props.dimension
+          ? savedProps[props.dimension]
+          : null
+        const pointsProp = props.points ? savedProps[props.points] : null
+        const pointCoordinateSpaceProp = props.pointCoordinateSpace
+          ? savedProps[props.pointCoordinateSpace]
+          : null
+
+        if (!positionProp || !dimensionProp || !pointsProp) {
+          throw new Error('Missing vector persisted property components')
+        }
+
+        positionProp.x = legacyData.x
+        positionProp.y = legacyData.y
+        dimensionProp.width = legacyData.width
+        dimensionProp.height = legacyData.height
+        Object.entries(legacyData.points).forEach(([pointId, localPoint]) => {
+          const pointComponent = savedProps[pointId]
+          if (!pointComponent) {
+            throw new Error(`Missing point property component ${pointId}`)
+          }
+          pointComponent.x = localPoint.x
+          pointComponent.y = localPoint.y
+        })
+        if (pointCoordinateSpaceProp) {
+          delete pointCoordinateSpaceProp.pointCoordinateSpace
+        }
+        core.load({
+          ...saved
+        })
+        core.selectElements?.([createdId], { undoable: false })
+        core.setSystemProperty?.('pathEditingVectorId', createdId)
+        core.setSystemProperty?.('pathEditingMode', true)
+      },
+      {
+        topology: createStarTopology(),
+        legacyData: createLegacyLocalStarData()
       }
-      core.load({
-        ...saved
-      })
-      core.selectElements?.([createdId], { undoable: false })
-      core.setSystemProperty?.('pathEditingVectorId', createdId)
-      core.setSystemProperty?.('pathEditingMode', true)
-    }, {
-      topology: createStarTopology(),
-      legacyData: createLegacyLocalStarData()
-    })
+    )
 
     await page.waitForTimeout(350)
 
@@ -1569,10 +1694,13 @@ test.describe('Vector render invariants', () => {
 
     const dragged = await vectorInvariantProbe(page)
     expect(dragged.computed.pointCoordinateSpace).toBe('workspace')
-    expect(dragged.computed.x).toBeCloseTo(dragged.anchorBounds.x, 4)
-    expect(dragged.computed.y).toBeCloseTo(dragged.anchorBounds.y, 4)
-    expect(dragged.computed.width).toBeCloseTo(dragged.anchorBounds.width, 4)
-    expect(dragged.computed.height).toBeCloseTo(dragged.anchorBounds.height, 4)
+    expect(dragged.computed.x).toBeCloseTo(dragged.geometryBounds.x, 4)
+    expect(dragged.computed.y).toBeCloseTo(dragged.geometryBounds.y, 4)
+    expect(dragged.computed.width).toBeCloseTo(dragged.geometryBounds.width, 4)
+    expect(dragged.computed.height).toBeCloseTo(
+      dragged.geometryBounds.height,
+      4
+    )
     expect(dragged.overlayBounds).toEqual(dragged.anchorBounds)
     expect(dragged.render.exists).toBe(true)
     expect(dragged.render.visible).toBe(true)
@@ -1696,7 +1824,9 @@ test.describe('Vector render invariants', () => {
       const elementId =
         core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
       const computed = elementId
-        ? core?.deps?.sceneTree?.getElementById?.(elementId)?.getAllComputedData?.()
+        ? core?.deps?.sceneTree
+            ?.getElementById?.(elementId)
+            ?.getAllComputedData?.()
         : null
       if (!elementId || !computed) {
         throw new Error('Missing selected vector for split')
@@ -1784,5 +1914,137 @@ test.describe('Vector render invariants', () => {
     expect(closeUndo.pointRemoveIds).toEqual([])
     expect(closeUndo.valueKeys).toContain('closed')
     expect(closeUndo.networkSetIds).toEqual(['main'])
+
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      const elementId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      if (!elementId) {
+        throw new Error('Missing selected vector for set anchor type')
+      }
+      const updated = elementApis.updateVectorAnchorPointType(
+        elementId,
+        'B',
+        'smooth'
+      )
+      if (!updated?.point?.id) {
+        throw new Error('Failed to set vector anchor type')
+      }
+    })
+    await page.waitForTimeout(250)
+    await expectWorkspaceVectorInvariants(page, 'full-topology:set-type')
+    const setTypeUndo = await getLastUndoPatchSummary(page)
+    expectOnlyComputedPatchUndo(setTypeUndo)
+    expect(setTypeUndo.pointSetIds).toEqual(['B'])
+    expect(setTypeUndo.pointRemoveIds).toEqual([])
+    expect(setTypeUndo.segmentSetIds).toEqual([])
+    expect(setTypeUndo.networkSetIds).toEqual([])
+
+    const handleSegmentIds = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      const elementId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      const computed = elementId
+        ? core?.deps?.sceneTree
+            ?.getElementById?.(elementId)
+            ?.getAllComputedData?.()
+        : null
+      const point = computed?.points?.B
+      if (!elementId || !point) {
+        throw new Error('Missing selected vector for set handles')
+      }
+      interface SegmentLike {
+        id: string
+        startId: string
+        endId: string
+      }
+      const adjacentSegmentIds = (
+        Object.values(computed.segments ?? {}) as SegmentLike[]
+      )
+        .filter((segment) => segment.startId === 'B' || segment.endId === 'B')
+        .map((segment) => segment.id)
+      elementApis.updateVectorAnchorPointHandles(elementId, [
+        {
+          pointId: 'B',
+          target: 'inHandle',
+          position: { x: point.x - 42, y: point.y + 18 },
+          forceSmooth: true
+        },
+        {
+          pointId: 'B',
+          target: 'outHandle',
+          position: { x: point.x + 48, y: point.y - 22 },
+          forceSmooth: true
+        }
+      ])
+      return adjacentSegmentIds
+    })
+    await page.waitForTimeout(250)
+    await expectWorkspaceVectorInvariants(page, 'full-topology:set-handles')
+    const setHandlesUndo = await getLastUndoPatchSummary(page)
+    expectOnlyComputedPatchUndo(setHandlesUndo)
+    expect([...setHandlesUndo.pointSetIds].sort()).toEqual(['B:in', 'B:out'])
+    expect(setHandlesUndo.pointRemoveIds).toEqual([])
+    expect([...setHandlesUndo.segmentSetIds].sort()).toEqual(
+      handleSegmentIds.sort()
+    )
+    expect(setHandlesUndo.networkSetIds).toEqual([])
+
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      const elementId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      if (!elementId) {
+        throw new Error('Missing selected vector for set handle mode')
+      }
+      const updated = elementApis.setVectorAnchorPointHandleMode(
+        elementId,
+        'B',
+        'mirror-angle-length'
+      )
+      if (!updated?.point?.id) {
+        throw new Error('Failed to set vector handle mode')
+      }
+    })
+    await page.waitForTimeout(250)
+    await expectWorkspaceVectorInvariants(page, 'full-topology:set-handle-mode')
+    const setHandleModeUndo = await getLastUndoPatchSummary(page)
+    expectOnlyComputedPatchUndo(setHandleModeUndo)
+    expect(
+      setHandleModeUndo.pointSetIds.every((pointId) =>
+        ['B', 'B:in', 'B:out'].includes(pointId)
+      )
+    ).toBe(true)
+    expect(setHandleModeUndo.pointRemoveIds).toEqual([])
+
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      const elementId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      if (!elementId) {
+        throw new Error('Missing selected vector for set closed')
+      }
+      elementApis.setVectorClosed(elementId, false)
+    })
+    await page.waitForTimeout(250)
+    await expectWorkspaceVectorInvariants(page, 'full-topology:set-open')
+    const setOpenUndo = await getLastUndoPatchSummary(page)
+    expectOnlyComputedPatchUndo(setOpenUndo)
+    expect(setOpenUndo.pointSetIds).toEqual([])
+    expect(setOpenUndo.pointRemoveIds).toEqual([])
+    expect(setOpenUndo.valueKeys).toContain('closed')
+    expect(setOpenUndo.networkSetIds).toEqual(['main'])
   })
 })

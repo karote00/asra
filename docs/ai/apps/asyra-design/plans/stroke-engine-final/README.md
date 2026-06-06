@@ -25,6 +25,40 @@ fragmented internal pentagon output. Any previous whole-matrix completion
 statement is superseded; this is slice-level evidence only, not a whole-engine
 completion claim.
 
+The inspector flow is now the Stroke / Vector System Inspector Flow. It covers
+the complete stroke-related data path from feature intent through common API
+vector operations, canonical computed patches, transaction/data-channel
+publication, render mirror updates, stroke geometry, product packets, and final
+visual review. The framework-native vector operation flow is the baseline:
+point/handle drag and structural operations commit canonical workspace/world
+vector data through computed patches, while render remains a downstream
+consumer.
+
+The outside dashed square visual gate remains open. That failure is owned by
+the Product Output / visual review step until rule-driven probes and reviewed
+screenshots pass; it is not a whole-system completion claim.
+
+## Stroke / Vector System Flow
+
+Stroke-related behavior is inspected as one deterministic system flow:
+
+1. Feature/session code converts input into explicit vector or stroke intent
+   and never writes render store state directly.
+2. App common API/domain adapters own vector mutations and emit canonical
+   workspace/world computed patches for drag and structural operations.
+3. Each intended user action is wrapped in one transaction boundary and one
+   intended undo unit. Drag preview remains non-undoable.
+4. Scene-tree and data-channel publish changed scalar values and record ids as
+   computed patch updates after commit.
+5. Render mirror/cache applies each committed patch exactly once and derives
+   renderer-ready vector/stroke data from committed state.
+6. Stroke geometry stages consume normalized render data and own shared
+   geometry, stroke domains, dash intervals, legality, and final semantic
+   records.
+7. Product output emits render, hit, export, and diagnostics descriptors
+   without changing stroke semantics. Visible render must not use diagnostic or
+   helper geometry as product output.
+
 ## Asyra Solid Rule
 
 Constrained solid strokes follow Asyra's doubled authored center-stroke mask
@@ -75,9 +109,10 @@ reported five-point star:
 
 If a render shows independent full-width strips on both sides of an internal
 edge, fixed corner patches that ignore join style, or visible derivation
-fragments, Step 20/24/25 are wrong and Step 30 must fail. If a numeric probe
-passes while the app screenshot still shows fragmentation, the test is
-insufficient and must be tightened before any completion claim.
+fragments, the Stroke Geometry / Product Output path is wrong and the final
+Diagnostics review must fail. If a numeric probe passes while the app
+screenshot still shows fragmentation, the test is insufficient and must be
+tightened before any completion claim.
 
 ## Dashed Separation
 
@@ -100,27 +135,27 @@ dashed strokes.
 
 ## Inspector Step Contracts
 
-- Step 17, `build-stroke-candidates`: build model-specific candidates. Solid
-  emits doubled authored center-stroke candidates plus mask provenance. Dashed
-  emits interval candidates for allocation; constrained `inside` dashed also
-  emits doubled center-dashed product candidates for visible geometry.
-- Step 20, `apply-legality`: clip solid candidates with the inside filled-region
-  mask or outside exterior mask. Diagnostic derivation geometry may be recorded
-  only as bounded evidence.
-- Step 20 also clips constrained `inside` dashed doubled center-dashed product
-  candidates with the inside filled-region mask. Empty clip results are dropped;
-  they must not fall back to one-sided geometry.
-- Step 24, `build-final-faces`: preserve model-separated provenance. Solid
-  final records may carry coverage evidence for hit/export, but visible render
-  must reference the masked authored stroke descriptor.
-- Step 25, `emit-render-hit-export-packets`: emit render, hit, and export
-  projections without changing stroke semantics.
-- Step 30, `visible-final-result`: passed for the 2026-05-31 reported
-  inside-solid slice only after current Asyra rule probes and manual app
-  screenshot review covered internal shared-edge width, the five internal
-  pentagon join variants, miter limits, fill preservation, absence of visible
-  derivation fragments, and absence of fragmented internal pentagon output.
-  Broader matrix closure still requires the same evidence standard.
+- `Interaction`: feature/session steps own explicit user intent only. They must
+  not commit model data directly or synchronize render state.
+- `Model Commit`: common API/domain adapter steps own canonical workspace vector
+  data, computed patch construction, structural operation adapters, and
+  transaction/undo boundaries.
+- `Data Channel`: scene-tree and reactive event steps publish computed patch
+  updates after commit.
+- `Render Mirror`: render mirror/cache steps consume committed patch data once
+  and derive renderer-ready data without repairing model state.
+- `Stroke Geometry`: geometry steps own normalized render inputs, shared
+  geometry, source families, stroke domains, dash allocation, legality, paint,
+  and final semantic stroke records. Solid still uses doubled authored
+  center-stroke candidates plus mask provenance; constrained `inside` dashed
+  still clips doubled center-dashed product intervals with the inside
+  filled-region mask.
+- `Product Output`: render, hit, export, and renderer projection steps consume
+  semantic descriptors without changing stroke rules.
+- `Diagnostics`: diagnostics and visible review steps are the completion gates.
+  The 2026-05-31 inside-solid slice passed only after current Asyra rule probes
+  and manual app screenshot review. Current outside dashed square failures stay
+  blocked here until the same evidence standard passes.
 
 ## Diagnostic Evidence Limits
 
@@ -160,7 +195,10 @@ Completion requires:
 
 - the three authority files state the same solid rule;
 - old stroke specification files are removed from the docs tree;
-- the inspector data labels Step 17 as model-neutral stroke candidate building;
+- the inspector data labels Stroke Geometry candidate building as
+  model-neutral;
+- the inspector data covers the Stroke / Vector System flow from feature intent
+  through Product Output and Diagnostics;
 - no active status claims completion until current Asyra rule probes and
   reviewed screenshots pass;
 - visual gates fail when the internal pentagon breaks into helper-like fragments

@@ -73,6 +73,53 @@ type VectorPointMutationOptions = EVENT_OPTIONS & {
   skipResult?: boolean
 }
 
+interface VectorHandleUpdate {
+  pointId: string
+  target: Exclude<VectorPointTarget, typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR>
+  position: PositionData | null
+  forceSmooth?: boolean
+}
+
+type VectorTopologyOperation =
+  | {
+      type: 'appendAnchor'
+      pointId: string
+    }
+  | {
+      type: 'removeAnchor'
+      pointId: string
+    }
+  | {
+      type: 'splitSegment'
+      segmentId: string
+      pointId: string
+    }
+  | {
+      type: 'connectEndpoints'
+      sourcePointId: string
+      targetPointId: string
+    }
+  | {
+      type: 'setClosed'
+      closed: boolean
+    }
+  | {
+      type: 'setAnchorType'
+      pointId: string
+    }
+  | {
+      type: 'setHandleMode'
+      pointId: string
+      mode: VectorHandleMode
+    }
+  | {
+      type: 'setHandles'
+      updates: VectorHandleUpdate[]
+    }
+  | {
+      type: 'removeLastSinglePointSubpath'
+    }
+
 const toVectorEventOptions = (
   options?: VectorPointMutationOptions & { closed?: boolean }
 ): EVENT_OPTIONS | undefined => {
@@ -80,11 +127,7 @@ const toVectorEventOptions = (
     return undefined
   }
 
-  const {
-    skipResult: _skipResult,
-    closed: _closed,
-    ...eventOptions
-  } = options
+  const { skipResult: _skipResult, closed: _closed, ...eventOptions } = options
   return eventOptions
 }
 
@@ -303,43 +346,9 @@ const getVectorComputed = (elementId: string) => {
   return computedRaw
 }
 
-const getCachedTransientVectorComputed = (elementId: string) => {
-  if (!canReadTransientWorkspaceTopologyCache()) {
-    return null
-  }
-
-  const cached = transientComputedSnapshotCache.get(elementId)
-  if (cached) {
-    emitStrokePipelineCounter('vector-api-computed-cache-hit')
-    return cached
-  }
-
-  emitStrokePipelineCounter('vector-api-computed-cache-miss')
-  const computed = getVectorComputed(elementId)
-  if (computed) {
-    transientComputedSnapshotCache.set(elementId, computed)
-  }
-  return computed
-}
-
 const clearTransientVectorCaches = (elementId: string) => {
   transientWorkspaceTopologyCache.delete(elementId)
   transientComputedSnapshotCache.delete(elementId)
-}
-
-const updateTransientComputedSnapshot = (
-  elementId: string,
-  patch: Record<string, DataTypes>
-) => {
-  const cached = transientComputedSnapshotCache.get(elementId)
-  if (!cached) {
-    return
-  }
-
-  transientComputedSnapshotCache.set(elementId, {
-    ...cached,
-    ...patch
-  } as VectorComputedData)
 }
 
 const updateTransientComputedSnapshotFromPatch = (
@@ -368,11 +377,14 @@ const updateTransientComputedSnapshotFromPatch = (
     Object.entries(recordPatch.set ?? {}).forEach(([recordId, value]) => {
       nextRecord[recordId] = value
     })
-    ;(recordPatch.remove ?? []).forEach((recordId) => {
-      delete nextRecord[recordId]
-    })
-
-    ;(nextSnapshot as unknown as Record<string, DataTypes>)[key] = nextRecord
+    const removeIds = new Set(recordPatch.remove ?? [])
+    const retainedRecord = Object.fromEntries(
+      Object.entries(nextRecord).filter(
+        ([recordId]) => !removeIds.has(recordId)
+      )
+    )
+    ;(nextSnapshot as unknown as Record<string, DataTypes>)[key] =
+      retainedRecord
   })
 
   transientComputedSnapshotCache.set(elementId, nextSnapshot)
@@ -635,6 +647,7 @@ const commitVectorTopology = (
       return
     }
 
+    startTransaction()
     if (!transientVectorPointDrag) {
       reconcileVectorSelectionAfterTopologyChange(
         elementId,
@@ -642,7 +655,6 @@ const commitVectorTopology = (
         topologyInWorkspace
       )
     }
-    startTransaction()
     core.changeComputedDataPatch(
       [elementId],
       patch,
@@ -767,6 +779,181 @@ const createVectorTopologyMutationPatch = (
   return patch
 }
 
+const getRecordSetIds = (patch: ComputedDataPatch, recordKey: string) =>
+  Object.keys(patch.records?.[recordKey]?.set ?? {})
+
+const getAddedRecordIds = <T extends Record<string, unknown>>(
+  previous: T,
+  next: T
+) => Object.keys(next).filter((recordId) => !(recordId in previous))
+
+const getControlPointIds = (pointId: string) => [
+  getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN),
+  getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.OUT)
+]
+
+const getAnchorAndControlPointIds = (pointId: string) => [
+  pointId,
+  ...getControlPointIds(pointId)
+]
+
+const getOperationAllowedPointSetIds = (
+  operation: VectorTopologyOperation,
+  previousTopology: VectorTopology,
+  nextTopology: VectorTopology
+) => {
+  if (operation.type === 'appendAnchor' || operation.type === 'splitSegment') {
+    return new Set(
+      getAddedRecordIds(previousTopology.points, nextTopology.points)
+    )
+  }
+
+  if (operation.type === 'setAnchorType') {
+    return new Set(getAnchorAndControlPointIds(operation.pointId))
+  }
+
+  if (operation.type === 'setHandleMode') {
+    return new Set(getAnchorAndControlPointIds(operation.pointId))
+  }
+
+  if (operation.type === 'setHandles') {
+    return new Set(
+      operation.updates.flatMap((update) =>
+        getAnchorAndControlPointIds(update.pointId)
+      )
+    )
+  }
+
+  return new Set<string>()
+}
+
+const assertVectorTopologyOperationPatchScope = (
+  operation: VectorTopologyOperation,
+  patch: ComputedDataPatch,
+  previousTopology: VectorTopology,
+  nextTopology: VectorTopology
+) => {
+  const pointSetIds = getRecordSetIds(patch, 'points')
+  if (pointSetIds.length === 0) {
+    return
+  }
+
+  const allowedPointSetIds = getOperationAllowedPointSetIds(
+    operation,
+    previousTopology,
+    nextTopology
+  )
+  const unexpectedPointSetIds = pointSetIds.filter(
+    (pointId) => !allowedPointSetIds.has(pointId)
+  )
+  if (unexpectedPointSetIds.length === 0) {
+    return
+  }
+
+  throw new Error(
+    `Vector topology operation ${operation.type} tried to patch unrelated point records: ${unexpectedPointSetIds.join(
+      ', '
+    )}`
+  )
+}
+
+const createVectorTopologyOperationPatch = (
+  elementId: string,
+  operation: VectorTopologyOperation,
+  previousTopology: VectorTopology,
+  nextTopology: VectorTopology,
+  closed?: boolean
+): ComputedDataPatch => {
+  const patch = createVectorTopologyMutationPatch(
+    elementId,
+    previousTopology,
+    nextTopology,
+    closed
+  )
+
+  assertVectorTopologyOperationPatchScope(
+    operation,
+    patch,
+    previousTopology,
+    nextTopology
+  )
+
+  return patch
+}
+
+const shouldUseVectorTopologyFallback = (elementId: string) => {
+  const computed = getVectorComputed(elementId)
+  return !computed || !usesWorkspacePointCoordinates(computed)
+}
+
+const commitVectorTopologyOperation = (
+  elementId: string,
+  operation: VectorTopologyOperation,
+  previousTopology: VectorTopology,
+  nextTopology: VectorTopology,
+  options?: EVENT_OPTIONS & {
+    closed?: boolean
+  }
+) => {
+  measureBrowserDragPhase(`vector-api:operation:${operation.type}`, () => {
+    if (shouldUseVectorTopologyFallback(elementId)) {
+      emitStrokePipelineCounter('vector-api-operation-fallback-count')
+      commitVectorTopology(elementId, nextTopology, options)
+      return
+    }
+
+    emitStrokePipelineCounter('vector-api-operation-commit-count')
+    let patch: ComputedDataPatch
+    try {
+      patch = measureBrowserDragPhase(
+        'vector-api:operation:build-patch',
+        () => {
+          vectorGeometry.validate(
+            nextTopology,
+            `commitVectorTopologyOperation:${operation.type}`
+          )
+          return createVectorTopologyOperationPatch(
+            elementId,
+            operation,
+            previousTopology,
+            nextTopology,
+            options?.closed
+          )
+        }
+      )
+    } catch (error) {
+      emitStrokePipelineCounter('vector-api-operation-build-patch-error-count')
+      recordVectorCommitError(error)
+      throw error
+    }
+
+    const patchKeyCount = getComputedDataPatchOperationCount(patch)
+    emitStrokePipelineCounter(
+      'vector-api-operation-patch-key-count',
+      patchKeyCount
+    )
+    if (!hasComputedDataPatchOperations(patch)) {
+      emitStrokePipelineCounter('vector-api-operation-empty-patch-count')
+      clearTransientVectorCaches(elementId)
+      return
+    }
+
+    clearTransientVectorCaches(elementId)
+    startTransaction()
+    reconcileVectorSelectionAfterTopologyChange(
+      elementId,
+      previousTopology,
+      nextTopology
+    )
+    core.changeComputedDataPatch(
+      [elementId],
+      patch,
+      toVectorEventOptions(options)
+    )
+    endTransaction()
+  })
+}
+
 const commitVectorPointMutation = (
   elementId: string,
   previousTopology: VectorTopology,
@@ -784,21 +971,17 @@ const commitVectorPointMutation = (
         : 'vector-api-commit-non-transient-count'
     )
 
-    const patch = measureBrowserDragPhase(
-      'vector-api:commit:build-patch',
-      () =>
-        createVectorPointMutationPatch(
-          elementId,
-          previousTopology,
-          nextTopology,
-          options?.closed
-        )
+    const patch = measureBrowserDragPhase('vector-api:commit:build-patch', () =>
+      createVectorPointMutationPatch(
+        elementId,
+        previousTopology,
+        nextTopology,
+        options?.closed
+      )
     )
     emitStrokePipelineCounter('vector-api-commit-build-patch-observed')
 
-    const pointPatchCount = Object.keys(
-      patch.records?.points?.set ?? {}
-    ).length
+    const pointPatchCount = Object.keys(patch.records?.points?.set ?? {}).length
     const patchKeyCount =
       Object.keys(patch.values ?? {}).length +
       Object.values(patch.records ?? {}).reduce(
@@ -1279,7 +1462,15 @@ export const vectorApis = {
       }
     )
 
-    commitVectorTopology(elementId, nextTopology)
+    commitVectorTopologyOperation(
+      elementId,
+      {
+        type: 'appendAnchor',
+        pointId: point.id
+      },
+      topology,
+      nextTopology
+    )
     return vectorApis.getVectorAnchorPointById(elementId, point.id)
   },
 
@@ -1310,9 +1501,19 @@ export const vectorApis = {
       return null
     }
 
-    commitVectorTopology(elementId, connected.topology, {
-      closed: isClosedVectorTopology(connected.topology)
-    })
+    commitVectorTopologyOperation(
+      elementId,
+      {
+        type: 'connectEndpoints',
+        sourcePointId,
+        targetPointId
+      },
+      topology,
+      connected.topology,
+      {
+        closed: isClosedVectorTopology(connected.topology)
+      }
+    )
     return {
       closed: connected.closed
     }
@@ -1325,7 +1526,14 @@ export const vectorApis = {
       return false
     }
 
-    commitVectorTopology(elementId, nextTopology)
+    commitVectorTopologyOperation(
+      elementId,
+      {
+        type: 'removeLastSinglePointSubpath'
+      },
+      topology,
+      nextTopology
+    )
     return true
   },
 
@@ -1336,9 +1544,18 @@ export const vectorApis = {
       return false
     }
 
-    commitVectorTopology(elementId, nextTopology, {
-      closed: isClosedVectorTopology(nextTopology)
-    })
+    commitVectorTopologyOperation(
+      elementId,
+      {
+        type: 'removeAnchor',
+        pointId
+      },
+      topology,
+      nextTopology,
+      {
+        closed: isClosedVectorTopology(nextTopology)
+      }
+    )
     return true
   },
 
@@ -1364,14 +1581,32 @@ export const vectorApis = {
       return null
     }
 
-    commitVectorTopology(elementId, splitResult.topology)
+    commitVectorTopologyOperation(
+      elementId,
+      {
+        type: 'splitSegment',
+        segmentId,
+        pointId: splitResult.pointId
+      },
+      topology,
+      splitResult.topology
+    )
     return vectorApis.getVectorAnchorPointById(elementId, splitResult.pointId)
   },
 
   setVectorClosed: (elementId: string, closed: boolean) => {
     const topology = getVectorTopologyWorkspace(elementId)
     const nextTopology = setTopologyClosed(topology, closed)
-    commitVectorTopology(elementId, nextTopology, { closed })
+    commitVectorTopologyOperation(
+      elementId,
+      {
+        type: 'setClosed',
+        closed
+      },
+      topology,
+      nextTopology,
+      { closed }
+    )
   },
 
   updateVectorAnchorPointPosition: (
@@ -1401,7 +1636,15 @@ export const vectorApis = {
   ): { point: VectorAnchorPoint; index: number } | null => {
     const topology = getVectorTopologyWorkspace(elementId)
     const nextTopology = setAnchorTypeInTopology(topology, pointId, type)
-    commitVectorTopology(elementId, nextTopology)
+    commitVectorTopologyOperation(
+      elementId,
+      {
+        type: 'setAnchorType',
+        pointId
+      },
+      topology,
+      nextTopology
+    )
     return vectorApis.getVectorAnchorPointById(elementId, pointId)
   },
 
@@ -1422,7 +1665,16 @@ export const vectorApis = {
     }
 
     setVectorHandleMode(elementId, pointId, mode)
-    commitVectorTopology(elementId, nextTopology)
+    commitVectorTopologyOperation(
+      elementId,
+      {
+        type: 'setHandleMode',
+        pointId,
+        mode
+      },
+      topology,
+      nextTopology
+    )
     return vectorApis.getVectorAnchorPointById(elementId, pointId)
   },
 
@@ -1460,21 +1712,14 @@ export const vectorApis = {
 
   updateVectorAnchorPointHandles: (
     elementId: string,
-    updates: {
-      pointId: string
-      target: Exclude<
-        VectorPointTarget,
-        typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR
-      >
-      position: PositionData | null
-      forceSmooth?: boolean
-    }[]
+    updates: VectorHandleUpdate[]
   ) => {
     if (updates.length === 0) {
       return
     }
 
-    let topology = getVectorTopologyWorkspace(elementId)
+    const previousTopology = getVectorTopologyWorkspace(elementId)
+    let topology = previousTopology
     updates.forEach((update) => {
       if (update.forceSmooth) {
         topology = setAnchorTypeInTopology(topology, update.pointId, 'smooth')
@@ -1490,7 +1735,15 @@ export const vectorApis = {
       )
     })
 
-    commitVectorTopology(elementId, topology)
+    commitVectorTopologyOperation(
+      elementId,
+      {
+        type: 'setHandles',
+        updates
+      },
+      previousTopology,
+      topology
+    )
   },
 
   createVectorElement: (

@@ -37,7 +37,7 @@ test.describe('Undo/Redo Actions', () => {
     await resetCanvas(page)
   })
 
-  test.afterEach(async ({}, testInfo) => {
+  test.afterEach(async ({ page: _page }, testInfo) => {
     const browserErrors =
       (testInfo as typeof testInfo & { browserErrors?: string[] })
         .browserErrors ?? []
@@ -318,8 +318,10 @@ test.describe('Undo/Redo Actions', () => {
         throw new Error('Failed to create vector fixture')
       }
 
-      const beforePointRaw =
-        elementApis.getVectorAnchorPointById(elementId, 'A')?.point
+      const beforePointRaw = elementApis.getVectorAnchorPointById(
+        elementId,
+        'A'
+      )?.point
       const beforePoint = beforePointRaw
         ? JSON.parse(JSON.stringify(beforePointRaw))
         : null
@@ -330,20 +332,20 @@ test.describe('Undo/Redo Actions', () => {
         { x: 80, y: 110 },
         { undoable: false, skipResult: true }
       )
-      elementApis.updateVectorAnchorPointPosition(
-        elementId,
-        'A',
-        beforePoint,
-        { undoable: false, skipResult: true }
-      )
+      elementApis.updateVectorAnchorPointPosition(elementId, 'A', beforePoint, {
+        undoable: false,
+        skipResult: true
+      })
       elementApis.updateVectorAnchorPointPosition(
         elementId,
         'A',
         { x: 80, y: 110 },
         { undoable: true, skipResult: true }
       )
-      const afterPointRaw =
-        elementApis.getVectorAnchorPointById(elementId, 'A')?.point
+      const afterPointRaw = elementApis.getVectorAnchorPointById(
+        elementId,
+        'A'
+      )?.point
       const afterPoint = afterPointRaw
         ? JSON.parse(JSON.stringify(afterPointRaw))
         : null
@@ -363,10 +365,10 @@ test.describe('Undo/Redo Actions', () => {
         ),
         patchValues:
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ((last[0] as any)?.payload?.patch?.values ?? {}),
+          (last[0] as any)?.payload?.patch?.values ?? {},
         pointPatchIds: Object.keys(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ((last[0] as any)?.payload?.patch?.records?.points?.set ?? {})
+          (last[0] as any)?.payload?.patch?.records?.points?.set ?? {}
         ),
         beforePoint,
         afterPoint,
@@ -377,8 +379,7 @@ test.describe('Undo/Redo Actions', () => {
     expect(summary.stackAfter).toBe(summary.stackBefore + 1)
     expect(
       summary.changeTypes.every((type) => type === 'updateComputedDataPatch')
-    )
-      .toBe(true)
+    ).toBe(true)
     expect(summary.changeCount).toBe(1)
     expect(summary.patchValues).not.toHaveProperty('pointCoordinateSpace')
     expect(summary.pointPatchIds.sort()).toEqual(['A', 'A:in', 'A:out'])
@@ -547,10 +548,10 @@ test.describe('Undo/Redo Actions', () => {
         changeCount: last.length,
         patchValues:
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ((last[0] as any)?.payload?.patch?.values ?? {}),
+          (last[0] as any)?.payload?.patch?.values ?? {},
         pointPatchIds: Object.keys(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ((last[0] as any)?.payload?.patch?.records?.points?.set ?? {})
+          (last[0] as any)?.payload?.patch?.records?.points?.set ?? {}
         )
       }
     })
@@ -590,6 +591,284 @@ test.describe('Undo/Redo Actions', () => {
         }, summary.elementId)
       )
       .toMatchObject(summary.before)
+  })
+
+  test('vector structural operations undo and redo through single computed patch commits', async ({
+    page
+  }) => {
+    const setup = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!core || !elementApis) {
+        throw new Error('Asyra E2E APIs are not available')
+      }
+
+      const elementId = elementApis.createElement(
+        {
+          type: 'vector',
+          points: {
+            A: {
+              id: 'A',
+              kind: 'anchor',
+              anchorType: 'sharp',
+              x: 180,
+              y: 180
+            },
+            B: {
+              id: 'B',
+              kind: 'anchor',
+              anchorType: 'sharp',
+              x: 280,
+              y: 170
+            },
+            C: {
+              id: 'C',
+              kind: 'anchor',
+              anchorType: 'sharp',
+              x: 360,
+              y: 240
+            }
+          },
+          segments: {
+            AB: {
+              id: 'AB',
+              startId: 'A',
+              endId: 'B',
+              outControlId: null,
+              inControlId: null
+            },
+            BC: {
+              id: 'BC',
+              startId: 'B',
+              endId: 'C',
+              outControlId: null,
+              inControlId: null
+            }
+          },
+          networks: {
+            main: {
+              id: 'main',
+              pointIds: ['A', 'B', 'C'],
+              segmentIds: ['AB', 'BC'],
+              closed: false
+            }
+          },
+          closed: false
+        },
+        { undoable: false }
+      )
+      if (!elementId) {
+        throw new Error('Failed to create vector fixture')
+      }
+      core.selectElements?.([elementId], { undoable: false })
+      return { elementId }
+    })
+
+    const readTopology = async () =>
+      page.evaluate((elementId) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        const computed =
+          core?.deps?.sceneTree
+            ?.getElementById?.(elementId)
+            ?.getAllComputedData?.() ?? {}
+        return {
+          pointIds: Object.keys(computed.points ?? {}).sort(),
+          segmentIds: Object.keys(computed.segments ?? {}).sort(),
+          closed: computed.closed,
+          bType: computed.points?.B?.anchorType,
+          hasBIn: !!computed.points?.['B:in'],
+          hasBOut: !!computed.points?.['B:out']
+        }
+      }, setup.elementId)
+
+    const readLastUndo = async () =>
+      page.evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        const stack = core?.deps?.factory?.transact?.undoStack ?? []
+        const last = stack[stack.length - 1] ?? []
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const patch = ((last[0] as any)?.payload?.patch ?? {}) as Record<
+          string,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          any
+        >
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const removeIds = (value: any) =>
+          Array.isArray(value) ? value : Object.keys(value ?? {})
+        return {
+          changeTypes: last.map(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (event: any) => event?.type
+          ),
+          pointSetIds: Object.keys(patch.records?.points?.set ?? {}).sort(),
+          pointRemoveIds: removeIds(patch.records?.points?.remove).sort(),
+          segmentRemoveIds: removeIds(patch.records?.segments?.remove).sort(),
+          valueKeys: Object.keys(patch.values ?? {}).sort()
+        }
+      })
+
+    const expectSinglePatchUndo = async () => {
+      const summary = await readLastUndo()
+      expect(summary.changeTypes).toEqual(['updateComputedDataPatch'])
+      return summary
+    }
+    const undoStructuralOperation = async () => {
+      await page.evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(window as any).__Core__?.deps?.factory?.transact?.undo?.()
+      })
+      await page.waitForTimeout(120)
+    }
+    const redoStructuralOperation = async () => {
+      await page.evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(window as any).__Core__?.deps?.factory?.transact?.redo?.()
+      })
+      await page.waitForTimeout(120)
+    }
+
+    await page.evaluate((elementId) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      elementApis.appendVectorAnchorPoint(elementId, {
+        id: 'D',
+        type: 'sharp',
+        x: 390,
+        y: 320,
+        isMove: undefined,
+        inHandle: null,
+        outHandle: null
+      })
+    }, setup.elementId)
+    const appendUndo = await expectSinglePatchUndo()
+    expect(appendUndo.pointSetIds).toEqual(['D'])
+    await undoStructuralOperation()
+    await expect.poll(readTopology).not.toMatchObject({
+      pointIds: expect.arrayContaining(['D'])
+    })
+    await redoStructuralOperation()
+    await expect.poll(readTopology).toMatchObject({
+      pointIds: expect.arrayContaining(['D'])
+    })
+
+    const splitPointId = await page.evaluate((elementId) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      const computed =
+        core?.deps?.sceneTree
+          ?.getElementById?.(elementId)
+          ?.getAllComputedData?.() ?? {}
+      const segment = computed.segments?.AB
+      const start = computed.points?.[segment?.startId]
+      const end = computed.points?.[segment?.endId]
+      const result = elementApis.splitVectorSegmentAtWorkspacePos(
+        elementId,
+        'AB',
+        {
+          x: (start.x + end.x) / 2,
+          y: (start.y + end.y) / 2
+        }
+      )
+      return result?.point?.id
+    }, setup.elementId)
+    expect(splitPointId).toBeTruthy()
+    const splitUndo = await expectSinglePatchUndo()
+    expect(splitUndo.pointSetIds).toEqual([splitPointId])
+    expect(splitUndo.segmentRemoveIds).toContain('AB')
+    await undoStructuralOperation()
+    await expect.poll(readTopology).not.toMatchObject({
+      pointIds: expect.arrayContaining([splitPointId])
+    })
+    await redoStructuralOperation()
+    await expect.poll(readTopology).toMatchObject({
+      pointIds: expect.arrayContaining([splitPointId])
+    })
+
+    await page.evaluate(
+      ({ elementId, pointId }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const elementApis = (window as any).__AsyraE2E__?.elementApis
+        elementApis.removeVectorAnchorPoint(elementId, pointId)
+      },
+      { elementId: setup.elementId, pointId: splitPointId }
+    )
+    const removeUndo = await expectSinglePatchUndo()
+    expect(removeUndo.pointRemoveIds).toEqual([splitPointId])
+    await undoStructuralOperation()
+    await expect.poll(readTopology).toMatchObject({
+      pointIds: expect.arrayContaining([splitPointId])
+    })
+    await redoStructuralOperation()
+    await expect.poll(readTopology).not.toMatchObject({
+      pointIds: expect.arrayContaining([splitPointId])
+    })
+
+    await page.evaluate((elementId) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      elementApis.updateVectorAnchorPointType(elementId, 'B', 'smooth')
+    }, setup.elementId)
+    const typeUndo = await expectSinglePatchUndo()
+    expect(typeUndo.pointSetIds).toEqual(['B'])
+    await undoStructuralOperation()
+    await expect.poll(readTopology).toMatchObject({ bType: 'sharp' })
+    await redoStructuralOperation()
+    await expect.poll(readTopology).toMatchObject({ bType: 'smooth' })
+
+    await page.evaluate((elementId) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      const point =
+        core?.deps?.sceneTree
+          ?.getElementById?.(elementId)
+          ?.getAllComputedData?.()?.points?.B ?? {}
+      elementApis.updateVectorAnchorPointHandles(elementId, [
+        {
+          pointId: 'B',
+          target: 'inHandle',
+          position: { x: point.x - 30, y: point.y + 12 },
+          forceSmooth: true
+        },
+        {
+          pointId: 'B',
+          target: 'outHandle',
+          position: { x: point.x + 36, y: point.y - 18 },
+          forceSmooth: true
+        }
+      ])
+    }, setup.elementId)
+    const handlesUndo = await expectSinglePatchUndo()
+    expect(handlesUndo.pointSetIds).toEqual(['B:in', 'B:out'])
+    await undoStructuralOperation()
+    await expect.poll(readTopology).toMatchObject({
+      hasBIn: false,
+      hasBOut: false
+    })
+    await redoStructuralOperation()
+    await expect.poll(readTopology).toMatchObject({
+      hasBIn: true,
+      hasBOut: true
+    })
+
+    await page.evaluate((elementId) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      elementApis.connectVectorAnchorEndpoints(elementId, 'D', 'A')
+    }, setup.elementId)
+    const closeUndo = await expectSinglePatchUndo()
+    expect(closeUndo.valueKeys).toContain('closed')
+    await undoStructuralOperation()
+    await expect.poll(readTopology).toMatchObject({ closed: false })
+    await redoStructuralOperation()
+    await expect.poll(readTopology).toMatchObject({ closed: true })
   })
 
   test('vector point mouse drag releases on mouseup without moving vector frame and Escape exits path editing', async ({
@@ -641,8 +920,7 @@ test.describe('Undo/Redo Actions', () => {
         x: 0,
         y: 0
       }
-      const usesWorkspacePoints =
-        computed.pointCoordinateSpace === 'workspace'
+      const usesWorkspacePoints = computed.pointCoordinateSpace === 'workspace'
       const offsetX = usesWorkspacePoints ? 0 : (computed.x ?? 0)
       const offsetY = usesWorkspacePoints ? 0 : (computed.y ?? 0)
 

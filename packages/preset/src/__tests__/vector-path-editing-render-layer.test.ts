@@ -64,7 +64,7 @@ describe('vector path editing handle visibility', () => {
 })
 
 describe('vector topology mutation intent', () => {
-  it('routes vector mutation APIs through topology-native geometry helpers', () => {
+  it('routes vector mutation APIs through topology-native operation adapters', () => {
     const source = vectorApisSource()
 
     expect(source).toContain('appendVectorAnchorPoint:')
@@ -81,9 +81,24 @@ describe('vector topology mutation intent', () => {
     expect(source).toContain('vectorGeometry.movePoint(')
     expect(source).toContain('updateVectorAnchorPointHandlePosition:')
     expect(source).toContain('vectorGeometry.updateHandle(')
-    expect(source).toContain('commitVectorTopology(elementId, nextTopology')
+    expect(source).toContain('const commitVectorTopologyOperation = (')
+    expect(source).toContain("type: 'appendAnchor'")
+    expect(source).toContain("type: 'removeAnchor'")
+    expect(source).toContain("type: 'splitSegment'")
+    expect(source).toContain("type: 'connectEndpoints'")
+    expect(source).toContain("type: 'setClosed'")
+    expect(source).toContain("type: 'setAnchorType'")
+    expect(source).toContain("type: 'setHandleMode'")
+    expect(source).toContain("type: 'setHandles'")
+    expect(source).toContain("type: 'removeLastSinglePointSubpath'")
     expect(source).toContain(
+      'commitVectorTopology(elementId, nextTopology, options)'
+    )
+    expect(source).not.toContain(
       'commitVectorTopology(elementId, splitResult.topology)'
+    )
+    expect(source).not.toContain(
+      'commitVectorTopology(elementId, nextTopology)'
     )
 
     expect(source).not.toMatch(/\banchorPoints\s*:/)

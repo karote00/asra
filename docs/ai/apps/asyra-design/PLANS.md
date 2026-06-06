@@ -25,14 +25,26 @@ specification files must not remain in the docs tree.
 
 - Reopened on 2026-05-31 for grid/vector-network self-intersecting inside
   solid rule correctness.
+- The inspector flow is now scoped as the Stroke / Vector System Inspector
+  Flow. It must cover the full upstream-to-output path: feature intent, vector
+  common API/domain adapter, canonical computed patch, transaction/data
+  channel, render mirror, stroke geometry, product packets, and final visual
+  review.
+- The framework-native vector operation flow is the current baseline: point and
+  handle drag plus structural vector operations must express explicit
+  operations, write canonical workspace/world vector data through computed
+  patches, and let render consume committed downstream state.
+- The outside dashed square visual gate remains open. This is tracked at the
+  Product Output / visual review step, not as a whole-system completion claim.
 - No whole-engine completion claim is active.
 - The 2026-05-31 reported self-intersecting inside solid slice now has focused
   unit probes, e2e pixel gates, and manual app screenshot review passing for
   shared-edge half-width, fill clipping, join-matrix differences, and absence of
   fragmented internal pentagon output.
-- Step 30 may be treated as passed only for this reported inside-solid slice.
-  No whole-matrix or whole-engine completion claim is active until the broader
-  matrix is revalidated with the same screenshot-review standard.
+- The final Diagnostics / visual review step may be treated as passed only for
+  the reported inside-solid slice. No whole-matrix or whole-engine completion
+  claim is active until the broader matrix is revalidated with the same
+  screenshot-review standard.
 
 ### Required Stroke Rule
 
@@ -79,29 +91,50 @@ geometry. Direct selected-side ribbons, local-side fallback strips, and
 derivation helpers are evidence only and must not define product-visible inside
 dashed pixels.
 
+### Required Stroke / Vector System Flow
+
+Stroke-related behavior must be observed as one deterministic system flow:
+
+1. Feature/session code converts user input into explicit vector or stroke
+   intent. It must not directly synchronize render state.
+2. App common API/domain adapters own vector mutations. They produce canonical
+   workspace/world computed data patches for point/handle drag and structural
+   vector operations.
+3. Each intended user action is committed through one transaction boundary and
+   one intended undo unit. Drag preview remains non-undoable; mouseup/final
+   edits are undoable.
+4. Scene-tree and data-channel publish computed patch updates. Payloads must
+   identify changed scalar values and record ids instead of forcing unrelated
+   full-topology rewrites.
+5. Render is a downstream consumer. Render mirror/cache applies committed data
+   exactly once and derives renderer-ready vector/stroke data from that mirror.
+6. Stroke geometry stages consume normalized render data only. They must not
+   depend on feature-local state, undo payload cleanup, or direct app-to-render
+   synchronization.
+7. Product output stages may emit render, hit, export, and diagnostics
+   descriptors, but visible render must not use diagnostic/helper geometry as
+   product output.
+
 ### Inspector Flow Requirements
 
-- Step 17 builds stroke candidates by model: solid uses the doubled authored
-  center-stroke candidate plus mask provenance; dashed uses interval candidates
-  for allocation and, for constrained `inside`, a doubled authored center-dashed
-  product candidate for visible geometry.
-- Step 20 applies solid legality by clipping the doubled authored center-stroke
-  candidate with the correct mask. It may keep diagnostic derivation evidence,
-  but visible solid render must not be built from that evidence.
-- Step 20 applies dashed `inside` legality by clipping each doubled
-  center-dashed product interval with the filled-region mask. Empty clip results
-  are illegal fragments and must be dropped, not replaced by selected-side
-  fallback geometry.
-- Step 24 and Step 25 must carry model-separated render, hit, and export
-  descriptors. Solid visible render must consume the masked authored stroke
-  descriptor; hit/export may use coverage evidence only when it cannot affect
-  visible pixels.
-- Step 30 is the only final visual gate. For the 2026-05-31 reported
-  inside-solid slice it passed only after current Asyra rule probes and manual
-  app screenshot review covered internal shared-edge width, all five internal
-  corner join variants, miter-limit behavior, fill preservation, no visible
-  derivation fragments, and no fragmented internal pentagon. Future slices must
-  pass the same standard before any broader completion claim.
+- Lanes must read as Interaction, Model Commit, Data Channel, Render Mirror,
+  Stroke Geometry, Product Output, and Diagnostics.
+- Interaction steps own feature/session intent only. They must not commit
+  model data directly or write render store state.
+- Model Commit steps own common API/domain adapter behavior, canonical
+  workspace vector data, computed patch construction, and transaction/undo
+  boundaries.
+- Data Channel steps own scene-tree patch publication and reactive event
+  propagation after commit.
+- Render Mirror steps own downstream mirror/cache updates and render data
+  derivation. They must apply each patch once and must not repair model data.
+- Stroke Geometry steps own normalized render inputs, shared geometry, stroke
+  domains, dash intervals, legality, and final semantic stroke records.
+- Product Output steps own render/hit/export packet projection and renderer
+  draw entries without changing stroke semantics.
+- Diagnostics and final visual review are the only completion gates. Current
+  outside dashed square failures remain blocked here until reviewed screenshots
+  and rule-driven probes pass.
 
 ### Validation Gates
 
@@ -114,6 +147,6 @@ Before claiming this plan is complete:
 - search must show no old rule references outside decision history and ignored
   artifacts;
 - runtime implementation evidence must include focused probes and reviewed
-  screenshots before Step 30 can close;
+  screenshots before the final Diagnostics / visual review gate can close;
 - tests that only prove numeric half-width or join-difference pixels while
   allowing visible pentagon fragmentation are insufficient and must fail.
