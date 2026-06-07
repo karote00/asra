@@ -22,7 +22,11 @@
     'Scene-tree and data-channel publish computed patch updates with changed scalar values and record ids. They must not force unrelated full-topology rewrites.',
     'Render is a downstream consumer. Render mirror/cache applies committed patches exactly once and derives render data from committed state.',
     'Stroke geometry stages consume normalized render data only; they must not depend on feature-local state, undo payload cleanup, or direct app-to-render synchronization.',
+    'Stroke invalidation is stage-based. Source path/topology, stroke family, stroke domain, dash schedule, terminal cap, join/miter shape, paint, and render output use separate internal revisions.',
+    'Static stroke parameter changes dirty only the stages they affect; vector drag dirties source path data without mutating static stroke parameter or paint revisions.',
+    'Stroke performance diagnostics must expose stage dirty counters such as paint-only update and drag source-path-with-static-stroke.',
     'Center solid visible render is the authored center stroke. Self-intersecting center solid vectors may use authored stroke path descriptors while preserving strokeJoin, strokeCap, and strokeMiterLimit; native projection is allowed only when alpha-safe, while translucent self-intersections require single-composite descriptor output.',
+    'Diagnostics for translucent self-intersecting center solid strokes must include same-paint alpha-overlap probes at self-crossings; global red coverage alone is insufficient.',
     'Constrained solid visible render uses the Asyra doubled authored center-stroke mask model: build the authored center stroke at twice the requested stroke width, apply strokeJoin and strokeMiterLimit there, then clip by the inside filled-region mask or outside exterior mask.',
     'Self-intersecting inside solid visible pixels must come from the doubled authored center stroke clipped by a face, winding, and adjacency-aware filled-region mask.',
     'Grouped render descriptors may encode the adjacency-aware mask only as authored centerline stroke paths with explicit clip groups; they must not expose face strips, helper polygons, or derivation fragments as visible product geometry.',
@@ -154,7 +158,8 @@
   const genericAcceptance = [
     'Authority files state the same rule.',
     'No visible stroke rule is added outside the three authority files.',
-    'Runtime changes must prove render, hit, export, diagnostics, and visual correctness separately.'
+    'Runtime changes must prove render, hit, export, diagnostics, and visual correctness separately.',
+    'Translucent center solid self-intersection review must compare crossing paint strength against adjacent body stroke samples, not only global red-pixel coverage.'
   ]
 
   const stepSpecs = [
@@ -261,7 +266,7 @@
       'Render Mirror',
       3,
       'Dirty revision graph',
-      'Classify which stroke stages must rerun.'
+      'Classify stroke parameter and drag changes into stage-specific dirty revisions.'
     ],
     [
       'render-strategy-entry',
@@ -495,8 +500,7 @@
       tags: ['framework-native', 'critical']
     },
     'transaction-undo-boundary': {
-      latestRule:
-        'One intended user action maps to one intended undo unit.',
+      latestRule: 'One intended user action maps to one intended undo unit.',
       inputs: ['computed patch request', 'selection/hover cleanup intent'],
       outputs: ['one transaction', 'one undoable final commit when requested'],
       currentImplementation:
@@ -560,6 +564,29 @@
         'Vector render invariant tests compare model, render graphic, hover outline, and editing overlay.',
       relatedTests: ['apps/asyra-design/e2e/vector-render-invariants.spec.ts'],
       tags: ['framework-native', 'truth']
+    },
+    'dirty-revision-graph': {
+      latestRule:
+        'Stroke stage dirty classification is parameter-specific: source path/topology, stroke family, stroke domain, dash schedule, terminal cap, join/miter shape, paint, and render output are separate internal revisions.',
+      inputs: [
+        'previous stroke runtime revision set',
+        'next stroke runtime revision set',
+        'changed vector source points or stroke parameter patch'
+      ],
+      outputs: [
+        'changed revision keys',
+        'ordered dirty stage keys',
+        'stroke pipeline cache counters'
+      ],
+      currentImplementation:
+        'stroke-dirty-keys maps paint-only, visibility, cap, join, width, dash, position/style, and drag source-path changes to scoped dirty stages and emits cache observability counters when a sink is installed.',
+      requiredAdjustment:
+        'Do not collapse all stroke parameters back into one broad strokeSpec helper; each parameter must retain its own reuse boundary.',
+      relatedTests: [
+        'packages/preset/src/__tests__/stroke-dirty-keys.test.ts',
+        'apps/asyra-design/e2e/stroke-drag-render-performance.spec.ts'
+      ],
+      tags: ['performance', 'truth', 'critical']
     },
     'shared-geometry-model': {
       latestRule:
@@ -758,8 +785,7 @@
       lane,
       {
         status: 'aligned',
-        latestRule:
-          'Preserve the Stroke / Vector System flow for this lane.',
+        latestRule: 'Preserve the Stroke / Vector System flow for this lane.',
         currentImplementation:
           'No current mismatch is assigned to this lane during this inspector-flow sync.',
         requiredAdjustment:

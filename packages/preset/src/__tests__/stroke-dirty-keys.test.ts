@@ -19,6 +19,47 @@ const baseRevisionSet: StrokeRevisionSet = {
   previewModeRevision: 1
 }
 
+const buildParameterRevisionSet = (
+  strokeOverrides: Partial<
+    Parameters<typeof buildStrokeRuntimeRevisionSet>[0]['stroke']
+  >,
+  options: Partial<Parameters<typeof buildStrokeRuntimeRevisionSet>[0]> = {}
+) =>
+  buildStrokeRuntimeRevisionSet({
+    points: options.points ?? [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 10 }
+    ],
+    closed: options.closed ?? true,
+    stroke: {
+      style: 'dashed',
+      position: 'inside',
+      width: 4,
+      join: 'miter',
+      miterLimit: 4,
+      cap: 'butt',
+      dashPattern: [10, 5],
+      dashOffset: 0,
+      color: 0x3366ff,
+      alpha: 1,
+      ...strokeOverrides
+    },
+    geometryFamily: options.geometryFamily ?? 'constrained-dashed',
+    resolutionStatus: options.resolutionStatus ?? 'exact-constrained',
+    runtimeStatus: options.runtimeStatus ?? 'accepted',
+    runtimeReason: options.runtimeReason ?? 'single-owner',
+    ownerKey: options.ownerKey ?? 'network-a:stroke:0',
+    networkId: options.networkId ?? 'network-a',
+    strokeId: options.strokeId ?? 'stroke:0',
+    intervalSignature: options.intervalSignature ?? 'interval:0',
+    sourceTopology: options.sourceTopology ?? 'broader-simple-closed',
+    intervalTopology: options.intervalTopology ?? 'single-edge',
+    ownershipStatus: options.ownershipStatus ?? 'accepted',
+    ownerCount: options.ownerCount ?? 1,
+    previewMode: options.previewMode ?? 'exact'
+  })
+
 describe('stroke dirty keys', () => {
   it('should run: keep paint-only changes out of geometry stages', () => {
     expect(
@@ -397,7 +438,7 @@ describe('stroke dirty keys', () => {
     })
   })
 
-  it('should run: invalidate interval and one-sided geometry when miter limits change', () => {
+  it('should run: keep miter limit changes scoped to join geometry and later stages', () => {
     const base = buildStrokeRuntimeRevisionSet({
       points: [
         { x: 0, y: 0 },
@@ -456,9 +497,126 @@ describe('stroke dirty keys', () => {
     })
 
     expect(computeStrokeDirtyKeys(base, miterChanged)).toEqual({
-      changedRevisionKeys: ['strokeSpecRevision'],
+      changedRevisionKeys: ['joinShapeRevision', 'renderOutputRevision'],
       dirtyKeys: [
-        'source-family',
+        'one-sided-candidates',
+        'arrangement-faces',
+        'ownership',
+        'legality',
+        'resolved-regions',
+        'paint-payload',
+        'render-hit-export'
+      ]
+    })
+  })
+
+  it('should run: keep cap changes out of source, domain, and dash schedule stages for closed paths', () => {
+    const base = buildParameterRevisionSet({ cap: 'butt' })
+    const capChanged = buildParameterRevisionSet({ cap: 'round' })
+
+    expect(computeStrokeDirtyKeys(base, capChanged)).toEqual({
+      changedRevisionKeys: ['terminalCapRevision', 'renderOutputRevision'],
+      dirtyKeys: [
+        'one-sided-candidates',
+        'arrangement-faces',
+        'ownership',
+        'legality',
+        'resolved-regions',
+        'paint-payload',
+        'render-hit-export'
+      ]
+    })
+  })
+
+  it('should run: conservatively invalidate dash schedule for open path cap changes', () => {
+    const base = buildParameterRevisionSet({ cap: 'butt' }, { closed: false })
+    const capChanged = buildParameterRevisionSet(
+      { cap: 'square' },
+      { closed: false }
+    )
+
+    expect(computeStrokeDirtyKeys(base, capChanged)).toEqual({
+      changedRevisionKeys: [
+        'intervalAllocationRevision',
+        'dashScheduleRevision',
+        'terminalCapRevision',
+        'renderOutputRevision'
+      ],
+      dirtyKeys: [
+        'interval-allocation',
+        'one-sided-candidates',
+        'arrangement-faces',
+        'ownership',
+        'legality',
+        'resolved-regions',
+        'paint-payload',
+        'render-hit-export'
+      ]
+    })
+  })
+
+  it('should run: keep dash pattern and offset changes out of source and join stages', () => {
+    const base = buildParameterRevisionSet({
+      dashPattern: [10, 5],
+      dashOffset: 0
+    })
+    const dashChanged = buildParameterRevisionSet({
+      dashPattern: [14, 6],
+      dashOffset: 2
+    })
+
+    expect(computeStrokeDirtyKeys(base, dashChanged)).toEqual({
+      changedRevisionKeys: [
+        'intervalAllocationRevision',
+        'dashScheduleRevision',
+        'renderOutputRevision'
+      ],
+      dirtyKeys: [
+        'interval-allocation',
+        'one-sided-candidates',
+        'arrangement-faces',
+        'ownership',
+        'legality',
+        'resolved-regions',
+        'paint-payload',
+        'render-hit-export'
+      ]
+    })
+  })
+
+  it('should run: keep join changes scoped to join geometry and later stages', () => {
+    const base = buildParameterRevisionSet({ join: 'miter', miterLimit: 4 })
+    const joinChanged = buildParameterRevisionSet({
+      join: 'round',
+      miterLimit: 4
+    })
+
+    expect(computeStrokeDirtyKeys(base, joinChanged)).toEqual({
+      changedRevisionKeys: ['joinShapeRevision', 'renderOutputRevision'],
+      dirtyKeys: [
+        'one-sided-candidates',
+        'arrangement-faces',
+        'ownership',
+        'legality',
+        'resolved-regions',
+        'paint-payload',
+        'render-hit-export'
+      ]
+    })
+  })
+
+  it('should run: keep width changes out of source topology and dash schedule', () => {
+    const base = buildParameterRevisionSet({ width: 4 })
+    const widthChanged = buildParameterRevisionSet({ width: 8 })
+
+    expect(computeStrokeDirtyKeys(base, widthChanged)).toEqual({
+      changedRevisionKeys: [
+        'strokeDomainRevision',
+        'terminalCapRevision',
+        'joinShapeRevision',
+        'renderOutputRevision'
+      ],
+      dirtyKeys: [
         'stroke-domain',
         'interval-allocation',
         'one-sided-candidates',
@@ -470,5 +628,93 @@ describe('stroke dirty keys', () => {
         'render-hit-export'
       ]
     })
+  })
+
+  it('should run: keep paint changes out of every geometry stage', () => {
+    const base = buildParameterRevisionSet({ color: 0x3366ff, alpha: 1 })
+    const paintChanged = buildParameterRevisionSet({
+      color: 0xff3366,
+      alpha: 0.5
+    })
+
+    expect(computeStrokeDirtyKeys(base, paintChanged)).toEqual({
+      changedRevisionKeys: ['paintRevision'],
+      dirtyKeys: ['paint-payload', 'render-hit-export']
+    })
+  })
+
+  it('should run: keep visibility changes scoped to render output', () => {
+    const base = buildParameterRevisionSet({ visible: true })
+    const hidden = buildParameterRevisionSet({ visible: false })
+
+    expect(computeStrokeDirtyKeys(base, hidden)).toEqual({
+      changedRevisionKeys: ['renderOutputRevision'],
+      dirtyKeys: ['render-hit-export']
+    })
+  })
+
+  it('should run: keep drag path changes from mutating stroke parameter revisions', () => {
+    const base = buildParameterRevisionSet({})
+    const dragged = buildParameterRevisionSet(
+      {},
+      {
+        points: [
+          { x: 0, y: 0 },
+          { x: 14, y: 2 },
+          { x: 10, y: 10 }
+        ]
+      }
+    )
+    const result = computeStrokeDirtyKeys(base, dragged)
+
+    expect(result.changedRevisionKeys).toContain('sourcePathRevision')
+    expect(result.changedRevisionKeys).toContain('dashScheduleRevision')
+    expect(result.changedRevisionKeys).not.toContain('strokeSpecRevision')
+    expect(result.changedRevisionKeys).not.toContain('paintRevision')
+  })
+
+  it('should run: emit counters for cache observability when a sink is installed', () => {
+    const counters: Record<string, number> = {}
+    ;(
+      globalThis as typeof globalThis & {
+        __asyraStrokePipelineCounterSink?: (
+          counterName: string,
+          value: number
+        ) => void
+      }
+    ).__asyraStrokePipelineCounterSink = (counterName, value) => {
+      counters[counterName] = (counters[counterName] ?? 0) + value
+    }
+
+    try {
+      computeStrokeDirtyKeys(
+        buildParameterRevisionSet({ color: 0x3366ff }),
+        buildParameterRevisionSet({ color: 0xff3366 })
+      )
+      computeStrokeDirtyKeys(
+        buildParameterRevisionSet({}),
+        buildParameterRevisionSet(
+          {},
+          {
+            points: [
+              { x: 0, y: 0 },
+              { x: 14, y: 2 },
+              { x: 10, y: 10 }
+            ]
+          }
+        )
+      )
+    } finally {
+      ;(
+        globalThis as typeof globalThis & {
+          __asyraStrokePipelineCounterSink?: unknown
+        }
+      ).__asyraStrokePipelineCounterSink = undefined
+    }
+
+    expect(counters['stroke-cache:paint-only-update']).toBe(1)
+    expect(counters['stroke-cache:drag-source-path-with-static-stroke']).toBe(1)
+    expect(counters['stroke-dirty-key:paint-payload']).toBeGreaterThan(0)
+    expect(counters['stroke-revision-change:sourcePathRevision']).toBe(1)
   })
 })

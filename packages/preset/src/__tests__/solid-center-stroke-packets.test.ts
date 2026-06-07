@@ -538,7 +538,7 @@ describe('solid center stroke packets', () => {
       }
     ])
     expect(face?.paintKey).toBe('solid:0:1')
-    expect(face?.strokeSpecKey).toMatch(/^stroke-spec:/)
+    expect(face?.strokeSpecKey).toMatch(/^render-output:/)
     expect(face?.visualPacketKey).toContain(face?.strokeSpecKey)
   })
 

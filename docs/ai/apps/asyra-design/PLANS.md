@@ -130,6 +130,11 @@ Stroke-related behavior must be observed as one deterministic system flow:
 6. Stroke geometry stages consume normalized render data only. They must not
    depend on feature-local state, undo payload cleanup, or direct app-to-render
    synchronization.
+   Stroke geometry invalidation is stage-based: source path/topology, stroke
+   family, stroke domain, dash schedule, terminal cap, join/miter shape, paint,
+   and render output use separate revisions. Static stroke parameter changes
+   must dirty only the stages they actually affect; drag changes dirty source
+   path data without mutating static stroke parameter revisions.
 7. Product output stages may emit render, hit, export, and diagnostics
    descriptors, but visible render must not use diagnostic/helper geometry as
    product output.
@@ -149,11 +154,19 @@ Stroke-related behavior must be observed as one deterministic system flow:
   derivation. They must apply each patch once and must not repair model data.
 - Stroke Geometry steps own normalized render inputs, shared geometry, stroke
   domains, dash intervals, legality, and final semantic stroke records.
+- Stroke Geometry and Render Mirror steps must expose stage dirty/counter
+  evidence for source-path reuse, topology/domain reuse, dash schedule reuse,
+  terminal cap rebuild, join rebuild, paint-only update, and drag source-path
+  updates with static stroke parameters.
 - Product Output steps own render/hit/export packet projection and renderer
   draw entries without changing stroke semantics.
 - Diagnostics and final visual review are the only completion gates. Current
   outside dashed square failures remain blocked here until reviewed screenshots
   and rule-driven probes pass.
+- Diagnostics for translucent self-intersecting center solid strokes must include
+  same-paint alpha-overlap probes. A screenshot passes only when self-crossings
+  have the same paint strength as adjacent body stroke samples and do not become
+  darker through multiple visible composites.
 
 ### Validation Gates
 
@@ -167,5 +180,7 @@ Before claiming this plan is complete:
   artifacts;
 - runtime implementation evidence must include focused probes and reviewed
   screenshots before the final Diagnostics / visual review gate can close;
+- translucent center solid visual evidence must include same-paint alpha-overlap
+  probes at self-intersections, not just global red-pixel or dark-pixel scans;
 - tests that only prove numeric half-width or join-difference pixels while
   allowing visible pentagon fragmentation are insufficient and must fail.

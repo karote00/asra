@@ -92,6 +92,13 @@ export interface StrokeFinalFaceDebugMetaBase {
   visualContext?: Partial<StrokeVisualContext>
   revisionSet?: {
     strokeSpecRevision?: string | number
+    strokeFamilyRevision?: string | number
+    strokeDomainRevision?: string | number
+    dashScheduleRevision?: string | number
+    intervalAllocationRevision?: string | number
+    terminalCapRevision?: string | number
+    joinShapeRevision?: string | number
+    renderOutputRevision?: string | number
     paintRevision?: string | number
     legalityRevision?: string | number
   }
@@ -350,15 +357,40 @@ const buildStrokeSpecKey = <
   TPaint extends StrokeFinalFacePaint
 >(
   packet: StrokeResolvedPacketLike<TDebugMeta, TPaint>
-) =>
-  String(
-    packet.geometry.debugMeta?.revisionSet?.strokeSpecRevision ??
+) => {
+  const revisionSet = packet.geometry.debugMeta?.revisionSet
+  const hasFineGrainedStrokeRevisions =
+    revisionSet?.strokeFamilyRevision !== undefined ||
+    revisionSet?.strokeDomainRevision !== undefined ||
+    revisionSet?.dashScheduleRevision !== undefined ||
+    revisionSet?.terminalCapRevision !== undefined ||
+    revisionSet?.joinShapeRevision !== undefined ||
+    revisionSet?.renderOutputRevision !== undefined
+  const revisionKey =
+    revisionSet && hasFineGrainedStrokeRevisions
+      ? String(
+          revisionSet.renderOutputRevision ??
+            [
+              revisionSet.strokeFamilyRevision ??
+                revisionSet.strokeSpecRevision,
+              revisionSet.terminalCapRevision,
+              revisionSet.joinShapeRevision
+            ]
+              .filter((value) => value !== undefined)
+              .join('|')
+        )
+      : ''
+
+  return String(
+    revisionKey ||
+      revisionSet?.strokeSpecRevision ||
       [
         packet.geometry.debugMeta?.geometryFamily ?? 'unknown-family',
         packet.geometry.debugMeta?.strokeId ?? 'unknown-stroke',
         packet.geometry.debugMeta?.resolutionStatus ?? 'unknown-resolution'
       ].join(':')
   )
+}
 
 const buildVisualPacketKey = <
   TDebugMeta extends StrokeFinalFaceDebugMetaBase,

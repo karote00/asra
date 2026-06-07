@@ -1040,10 +1040,17 @@ const buildStrokeFinalFaceSignature = (
       bounds.maxY,
       revisionSet.sourcePathRevision,
       revisionSet.strokeSpecRevision,
+      revisionSet.strokeFamilyRevision ?? '',
+      revisionSet.strokeDomainRevision,
       revisionSet.intervalAllocationRevision,
+      revisionSet.dashScheduleRevision ?? '',
+      revisionSet.terminalCapRevision ?? '',
+      revisionSet.joinShapeRevision ?? '',
       revisionSet.topologyClassificationRevision,
       revisionSet.ownershipRevision,
       revisionSet.legalityRevision,
+      revisionSet.resolvedRegionRevision ?? '',
+      revisionSet.renderOutputRevision ?? '',
       revisionSet.previewModeRevision
     ].join(',')
   }

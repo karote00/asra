@@ -266,13 +266,18 @@ const getRevisionGeometrySignature = (
     ? [
         revisionSet.sourcePathRevision,
         revisionSet.strokeSpecRevision,
+        revisionSet.strokeFamilyRevision ?? '',
         revisionSet.intervalAllocationRevision,
+        revisionSet.dashScheduleRevision ?? '',
+        revisionSet.terminalCapRevision ?? '',
+        revisionSet.joinShapeRevision ?? '',
         revisionSet.topologyClassificationRevision,
         revisionSet.candidateRevision ?? '',
         revisionSet.arrangementRevision ?? '',
         revisionSet.ownershipRevision,
         revisionSet.legalityRevision,
         revisionSet.resolvedRegionRevision ?? '',
+        revisionSet.renderOutputRevision ?? '',
         revisionSet.previewModeRevision
       ].join('|')
     : null

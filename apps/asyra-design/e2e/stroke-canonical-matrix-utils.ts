@@ -571,7 +571,9 @@ export const captureCanonicalCrops = async (
   cropDir: string
 ) => {
   fs.mkdirSync(cropDir, { recursive: true })
-  const getBoundaryDomainDashProbe = (id: string): { id: string; point: Vec2; size: number } | null => {
+  const getBoundaryDomainDashProbe = (
+    id: string
+  ): { id: string; point: Vec2; size: number } | null => {
     const packets = metadata.boundaryDomainPackets
       ?.filter(
         (packet) =>
@@ -592,13 +594,15 @@ export const captureCanonicalCrops = async (
                 { x: 0, y: 0 }
               )
             : {
-                x: ((packet.bounds?.minX ?? 0) + (packet.bounds?.maxX ?? 0)) / 2,
+                x:
+                  ((packet.bounds?.minX ?? 0) + (packet.bounds?.maxX ?? 0)) / 2,
                 y: ((packet.bounds?.minY ?? 0) + (packet.bounds?.maxY ?? 0)) / 2
               }
         const bounds = packet.bounds as NonNullable<typeof packet.bounds>
         return {
           point: centroid,
-          area: Math.max(0, bounds.maxX - bounds.minX) *
+          area:
+            Math.max(0, bounds.maxX - bounds.minX) *
             Math.max(0, bounds.maxY - bounds.minY)
         }
       })
@@ -972,6 +976,7 @@ interface CanonicalRuntimeSnapshot {
     style: SelfCheckStrokeStyle
     position: SelfCheckStrokePosition
     width: number
+    opacity: number
     dashPattern: number[]
     dashOffset: number
     capType: SelfCheckCapType
@@ -1038,6 +1043,9 @@ export interface CanonicalRuleOverlayMetrics {
   gapLeakRate: number
   redPixelCount: number
   doubleAlphaRate: number
+  alphaOverlapProbeCount: number
+  alphaOverlapSampleCount: number
+  alphaOverlapRate: number
   terminalRecordCount: number
   splitTerminalRecordCount: number
   productFinalPacketCount: number
@@ -1096,8 +1104,7 @@ const captureCanonicalRuntimeSnapshot = async (
               [
                 segmentId,
                 {
-                  id:
-                    typeof segment.id === 'string' ? segment.id : segmentId,
+                  id: typeof segment.id === 'string' ? segment.id : segmentId,
                   startId: segment.startId,
                   endId: segment.endId,
                   outControlId:
@@ -1145,6 +1152,7 @@ const captureCanonicalRuntimeSnapshot = async (
             ? stroke.position
             : 'inside',
         width: typeof stroke.width === 'number' ? stroke.width : 10,
+        opacity: typeof stroke.opacity === 'number' ? stroke.opacity : 1,
         dashPattern: Array.isArray(stroke.dashPattern)
           ? stroke.dashPattern.filter(
               (entry): entry is number => typeof entry === 'number'
@@ -1164,10 +1172,7 @@ const captureCanonicalRuntimeSnapshot = async (
     }
   })
 
-const pointToWorkspace = (
-  runtime: CanonicalRuntimeSnapshot,
-  point: Vec2
-) =>
+const pointToWorkspace = (runtime: CanonicalRuntimeSnapshot, point: Vec2) =>
   runtime.pointCoordinateSpace === 'workspace'
     ? point
     : {
@@ -1255,7 +1260,8 @@ const buildCanonicalRuleSamples = (
         continue
       }
       const sourceDistance =
-        segmentStartDistance + estimateRuntimeSegmentArcLength(runtime, segment, t)
+        segmentStartDistance +
+        estimateRuntimeSegmentArcLength(runtime, segment, t)
       const sourceSegmentDistance = sourceDistance - segmentStartDistance
       const previous = pointToScreen(
         runtime,
@@ -1576,7 +1582,13 @@ const buildCanonicalSelfIntersectionRuleSamples = (
             pushAtT(exactT + deltaT, 'after')
           }
           pushIntersectionSamplesForOwner(left, leftA, leftB, leftAmount, right)
-          pushIntersectionSamplesForOwner(right, rightA, rightB, rightAmount, left)
+          pushIntersectionSamplesForOwner(
+            right,
+            rightA,
+            rightB,
+            rightAmount,
+            left
+          )
         }
       }
     })
@@ -1721,9 +1733,15 @@ export const captureCanonicalRuleOverlay = async (
       ) => {
         let count = 0
         const minX = Math.max(0, Math.floor(sample.screenPoint.x - radius))
-        const maxX = Math.min(width - 1, Math.ceil(sample.screenPoint.x + radius))
+        const maxX = Math.min(
+          width - 1,
+          Math.ceil(sample.screenPoint.x + radius)
+        )
         const minY = Math.max(0, Math.floor(sample.screenPoint.y - radius))
-        const maxY = Math.min(height - 1, Math.ceil(sample.screenPoint.y + radius))
+        const maxY = Math.min(
+          height - 1,
+          Math.ceil(sample.screenPoint.y + radius)
+        )
         const radiusSquared = radius * radius
         for (let y = minY; y <= maxY; y += 1) {
           for (let x = minX; x <= maxX; x += 1) {
@@ -1738,6 +1756,64 @@ export const captureCanonicalRuleOverlay = async (
           }
         }
         return count
+      }
+      const getRedPaintStats = (
+        sample: CanonicalRuleSample,
+        radius: number
+      ) => {
+        let redPixelCount = 0
+        let totalStrength = 0
+        let maxStrength = 0
+        let totalRed = 0
+        const minX = Math.max(0, Math.floor(sample.screenPoint.x - radius))
+        const maxX = Math.min(
+          width - 1,
+          Math.ceil(sample.screenPoint.x + radius)
+        )
+        const minY = Math.max(0, Math.floor(sample.screenPoint.y - radius))
+        const maxY = Math.min(
+          height - 1,
+          Math.ceil(sample.screenPoint.y + radius)
+        )
+        const radiusSquared = radius * radius
+        for (let y = minY; y <= maxY; y += 1) {
+          for (let x = minX; x <= maxX; x += 1) {
+            const dx = x - sample.screenPoint.x
+            const dy = y - sample.screenPoint.y
+            if (dx * dx + dy * dy > radiusSquared) {
+              continue
+            }
+            const pixel = read(actualData, x, y)
+            if (!pixel || !isRed(pixel)) {
+              continue
+            }
+            const strength = pixel.r - Math.max(pixel.g, pixel.b)
+            redPixelCount += 1
+            totalStrength += strength
+            maxStrength = Math.max(maxStrength, strength)
+            totalRed += pixel.r
+          }
+        }
+        return {
+          redPixelCount,
+          averageStrength:
+            redPixelCount > 0 ? totalStrength / redPixelCount : 0,
+          maxStrength,
+          averageRed: redPixelCount > 0 ? totalRed / redPixelCount : 0
+        }
+      }
+      const splitSelfIntersectionSampleId = (sampleId: string) => {
+        const suffixes = ['center', 'before', 'after'] as const
+        for (const suffix of suffixes) {
+          const marker = `:${suffix}`
+          if (sampleId.endsWith(marker)) {
+            return {
+              key: sampleId.slice(0, -marker.length),
+              role: suffix
+            }
+          }
+        }
+        return null
       }
 
       const dashPattern =
@@ -1793,8 +1869,7 @@ export const captureCanonicalRuleOverlay = async (
                       ? packet.figmaLikeSelectedSide
                       : null,
                   splitRangeStartDistance:
-                    typeof packet.figmaLikeSplitRangeStartDistance ===
-                    'number'
+                    typeof packet.figmaLikeSplitRangeStartDistance === 'number'
                       ? packet.figmaLikeSplitRangeStartDistance
                       : null,
                   splitRangeEndDistance:
@@ -1872,8 +1947,11 @@ export const captureCanonicalRuleOverlay = async (
             : []
       )
       const localPointToScreen = (point: Vec2) => ({
-        x: (runtime.selectedRect.x + point.x) * runtime.zoom + runtime.viewport.x,
-        y: (runtime.selectedRect.y + point.y) * runtime.zoom + runtime.viewport.y
+        x:
+          (runtime.selectedRect.x + point.x) * runtime.zoom +
+          runtime.viewport.x,
+        y:
+          (runtime.selectedRect.y + point.y) * runtime.zoom + runtime.viewport.y
       })
       const getBoundaryLengthTable = (points: Vec2[]) => {
         const cumulative = [0]
@@ -1925,14 +2003,12 @@ export const captureCanonicalRuleOverlay = async (
           return null
         }
         const cumulative = getBoundaryLengthTable(points)
-        let best:
-          | {
-              distance: number
-              distanceAlong: number
-              point: Vec2
-              tangent: Vec2
-            }
-          | null = null
+        let best: {
+          distance: number
+          distanceAlong: number
+          point: Vec2
+          tangent: Vec2
+        } | null = null
         for (let index = 1; index < points.length; index += 1) {
           const start = points[index - 1]
           const end = points[index]
@@ -2090,22 +2166,20 @@ export const captureCanonicalRuleOverlay = async (
           { x: 0, y: 0 }
         )
         let screenPoint = localPointToScreen(point)
-        const screenBounds = polygon
-          .map(localPointToScreen)
-          .reduce(
-            (state, vertex) => ({
-              minX: Math.min(state.minX, vertex.x),
-              minY: Math.min(state.minY, vertex.y),
-              maxX: Math.max(state.maxX, vertex.x),
-              maxY: Math.max(state.maxY, vertex.y)
-            }),
-            {
-              minX: Number.POSITIVE_INFINITY,
-              minY: Number.POSITIVE_INFINITY,
-              maxX: Number.NEGATIVE_INFINITY,
-              maxY: Number.NEGATIVE_INFINITY
-            }
-          )
+        const screenBounds = polygon.map(localPointToScreen).reduce(
+          (state, vertex) => ({
+            minX: Math.min(state.minX, vertex.x),
+            minY: Math.min(state.minY, vertex.y),
+            maxX: Math.max(state.maxX, vertex.x),
+            maxY: Math.max(state.maxY, vertex.y)
+          }),
+          {
+            minX: Number.POSITIVE_INFINITY,
+            minY: Number.POSITIVE_INFINITY,
+            maxX: Number.NEGATIVE_INFINITY,
+            maxY: Number.NEGATIVE_INFINITY
+          }
+        )
         let foundRedPixel: Vec2 | null = null
         const minPixelX = Math.max(0, Math.floor(screenBounds.minX) - 2)
         const minPixelY = Math.max(0, Math.floor(screenBounds.minY) - 2)
@@ -2164,11 +2238,15 @@ export const captureCanonicalRuleOverlay = async (
             })
           : []
       const constrainedPacketGapSamples =
-        runtime.stroke.style === 'dashed' && runtime.stroke.position !== 'center'
+        runtime.stroke.style === 'dashed' &&
+        runtime.stroke.position !== 'center'
           ? [
               ...visibleIntervals
                 .reduce((groups, interval) => {
-                  if (!isConstrainedRenderPacket(interval) || !interval.splitRangeId) {
+                  if (
+                    !isConstrainedRenderPacket(interval) ||
+                    !interval.splitRangeId
+                  ) {
                     return groups
                   }
                   groups.set(interval.splitRangeId, [
@@ -2249,9 +2327,9 @@ export const captureCanonicalRuleOverlay = async (
       const findContainingVisibleInterval = (sample: CanonicalRuleSample) => {
         const epsilon = Math.max(0.75, runtime.stroke.width * 0.03)
         let best:
-          | (typeof visibleIntervals)[number] & {
+          | ((typeof visibleIntervals)[number] & {
               distanceToCenter: number
-            }
+            })
           | null = null
         for (const interval of visibleIntervals) {
           if (
@@ -2349,9 +2427,7 @@ export const captureCanonicalRuleOverlay = async (
         const distanceToSplitStart =
           interval.splitRangeStartDistance === null
             ? Number.POSITIVE_INFINITY
-            : Math.abs(
-                sample.sourceDistance - interval.splitRangeStartDistance
-              )
+            : Math.abs(sample.sourceDistance - interval.splitRangeStartDistance)
         const distanceToSplitEnd =
           interval.splitRangeEndDistance === null
             ? Number.POSITIVE_INFINITY
@@ -2368,11 +2444,11 @@ export const captureCanonicalRuleOverlay = async (
       }
       const findNearestVisibleInterval = (sample: CanonicalRuleSample) => {
         let nearest:
-          | (typeof visibleIntervals)[number] & {
+          | ((typeof visibleIntervals)[number] & {
               distanceToStart: number
               distanceToEnd: number
               distanceToInterval: number
-            }
+            })
           | null = null
         for (const interval of visibleIntervals) {
           const comparisonDistance = getIntervalComparisonDistance(
@@ -2474,7 +2550,10 @@ export const captureCanonicalRuleOverlay = async (
         ) {
           return false
         }
-        if (runtime.stroke.position !== 'center' && visibleIntervals.length > 0) {
+        if (
+          runtime.stroke.position !== 'center' &&
+          visibleIntervals.length > 0
+        ) {
           if (findContainingVisibleInterval(sample)) {
             return false
           }
@@ -2506,20 +2585,19 @@ export const captureCanonicalRuleOverlay = async (
         ) {
           return false
         }
-        const rasterReach = capPathReach + Math.max(1, runtime.stroke.width * 0.3)
+        const rasterReach =
+          capPathReach + Math.max(1, runtime.stroke.width * 0.3)
         return nearest.distanceToInterval <= rasterReach
       }
       const findLegalOverlappingDashSample = (sample: CanonicalRuleSample) => {
         const threshold = Math.max(24, runtime.stroke.width * runtime.zoom * 4)
-        let nearest:
-          | {
-              segmentId: string
-              segmentIndex: number
-              t: number
-              distance: number
-              phase: number
-            }
-          | null = null
+        let nearest: {
+          segmentId: string
+          segmentIndex: number
+          t: number
+          distance: number
+          phase: number
+        } | null = null
         for (const candidate of [...overlapSamples, ...sourceDerivedSamples]) {
           if (
             candidate.segmentId === sample.segmentId ||
@@ -2575,6 +2653,8 @@ export const captureCanonicalRuleOverlay = async (
       let allowedCrossSourceOverlapSampleCount = 0
       let allowedSideFootprintSampleCount = 0
       let unclassifiedDomainSampleCount = 0
+      let alphaOverlapProbeCount = 0
+      let alphaOverlapSampleCount = 0
       const pushFailure = (
         category: string,
         sample: CanonicalRuleSample,
@@ -2800,7 +2880,7 @@ export const captureCanonicalRuleOverlay = async (
           metadataVisibleInterval?.selectedSide
             ? boundaryProjectedSample
               ? metadataVisibleInterval.selectedSide
-              : ((-metadataVisibleInterval.selectedSide) as 1 | -1)
+              : (-metadataVisibleInterval.selectedSide as 1 | -1)
             : null
 
         if (!fillSign && !metadataExpectedSign) {
@@ -2813,12 +2893,11 @@ export const captureCanonicalRuleOverlay = async (
           continue
         }
 
-        const expectedSign: 1 | -1 =
-          fillSign
-            ? runtime.stroke.position === 'inside'
-              ? fillSign
-              : ((-fillSign) as 1 | -1)
-            : metadataExpectedSign ?? 1
+        const expectedSign: 1 | -1 = fillSign
+          ? runtime.stroke.position === 'inside'
+            ? fillSign
+            : (-fillSign as 1 | -1)
+          : (metadataExpectedSign ?? 1)
         const expectedRed = expectedSign === 1 ? plusRed : minusRed
         const forbiddenRed = expectedSign === 1 ? minusRed : plusRed
         if (expectedRed >= 1) {
@@ -2832,8 +2911,8 @@ export const captureCanonicalRuleOverlay = async (
               !sample.segmentId.startsWith('boundary:')
               ? 'source_derived_probe_missing'
               : runtime.stroke.style === 'dashed'
-              ? 'missing_dash'
-              : 'missing_expected_output',
+                ? 'missing_dash'
+                : 'missing_expected_output',
             measurementSample,
             { plusRed, minusRed, expectedSign, plusFill, minusFill }
           )
@@ -2869,6 +2948,82 @@ export const captureCanonicalRuleOverlay = async (
         }
       }
 
+      if (
+        runtime.stroke.style === 'solid' &&
+        runtime.stroke.position === 'center' &&
+        runtime.stroke.opacity < 0.999
+      ) {
+        const selfIntersectionSampleGroups = new Map<
+          string,
+          Partial<Record<'center' | 'before' | 'after', CanonicalRuleSample>>
+        >()
+        for (const sample of sourceDerivedSamples) {
+          const parsed = splitSelfIntersectionSampleId(sample.segmentId)
+          if (!parsed) {
+            continue
+          }
+          const existing = selfIntersectionSampleGroups.get(parsed.key) ?? {}
+          existing[parsed.role] = sample
+          selfIntersectionSampleGroups.set(parsed.key, existing)
+        }
+        const alphaProbeRadius = Math.max(
+          3,
+          Math.round(runtime.stroke.width * runtime.zoom * 0.18)
+        )
+        const minimumRedPixelCount = Math.max(
+          4,
+          Math.round(alphaProbeRadius * 1.5)
+        )
+        for (const [groupKey, group] of selfIntersectionSampleGroups) {
+          if (!group.center || !group.before || !group.after) {
+            continue
+          }
+          const centerStats = getRedPaintStats(group.center, alphaProbeRadius)
+          const beforeStats = getRedPaintStats(group.before, alphaProbeRadius)
+          const afterStats = getRedPaintStats(group.after, alphaProbeRadius)
+          const bodyStats =
+            beforeStats.averageStrength >= afterStats.averageStrength
+              ? beforeStats
+              : afterStats
+          if (
+            centerStats.redPixelCount < minimumRedPixelCount ||
+            bodyStats.redPixelCount < minimumRedPixelCount
+          ) {
+            continue
+          }
+          alphaOverlapProbeCount += 1
+          const centerExcess =
+            centerStats.averageStrength - bodyStats.averageStrength
+          const centerRatio =
+            centerStats.averageStrength / Math.max(1, bodyStats.averageStrength)
+          if (centerExcess > 18 && centerRatio > 1.18) {
+            alphaOverlapSampleCount += 1
+            pushFailure('same_paint_alpha_overlap', group.center, {
+              groupKey,
+              probeRadius: alphaProbeRadius,
+              minimumRedPixelCount,
+              centerExcess: roundMetric(centerExcess),
+              centerRatio: roundMetric(centerRatio),
+              centerStats: {
+                ...centerStats,
+                averageStrength: roundMetric(centerStats.averageStrength),
+                averageRed: roundMetric(centerStats.averageRed)
+              },
+              beforeStats: {
+                ...beforeStats,
+                averageStrength: roundMetric(beforeStats.averageStrength),
+                averageRed: roundMetric(beforeStats.averageRed)
+              },
+              afterStats: {
+                ...afterStats,
+                averageStrength: roundMetric(afterStats.averageStrength),
+                averageRed: roundMetric(afterStats.averageRed)
+              }
+            })
+          }
+        }
+      }
+
       let redPixelCount = 0
       let darkRedPixelCount = 0
       for (let index = 0; index < actualData.length; index += 4) {
@@ -2895,7 +3050,10 @@ export const captureCanonicalRuleOverlay = async (
         (packet: { finalCoverageBuilderStatus?: unknown }) =>
           packet.finalCoverageBuilderStatus === 'product-final'
       ).length
-      if (runtime.stroke.style === 'dashed' && runtime.stroke.position !== 'center') {
+      if (
+        runtime.stroke.style === 'dashed' &&
+        runtime.stroke.position !== 'center'
+      ) {
         if (productFinalPacketCount <= 0) {
           failureMarkers.push({
             category: 'lost_interval_provenance',
@@ -2950,6 +3108,10 @@ export const captureCanonicalRuleOverlay = async (
           : 0
       const doubleAlphaRate =
         redPixelCount > 0 ? darkRedPixelCount / redPixelCount : 0
+      const alphaOverlapRate =
+        alphaOverlapProbeCount > 0
+          ? alphaOverlapSampleCount / alphaOverlapProbeCount
+          : 0
 
       context.clearRect(0, 0, width, height)
       context.drawImage(actualImage, 0, 0)
@@ -3004,9 +3166,11 @@ export const captureCanonicalRuleOverlay = async (
           marker.category === 'wrong_side_dash' ||
           marker.category === 'wrong_side_output'
             ? 'rgba(255,0,190,0.96)'
-            : marker.category.includes('gap')
-              ? 'rgba(255,150,0,0.96)'
-              : 'rgba(255,230,0,0.96)'
+            : marker.category.includes('alpha')
+              ? 'rgba(255,60,60,0.96)'
+              : marker.category.includes('gap')
+                ? 'rgba(255,150,0,0.96)'
+                : 'rgba(255,230,0,0.96)'
         context.lineWidth = 2
         context.beginPath()
         context.moveTo(marker.x - 6, marker.y - 6)
@@ -3016,14 +3180,15 @@ export const captureCanonicalRuleOverlay = async (
         context.stroke()
       }
       context.fillStyle = 'rgba(0,0,0,0.72)'
-      context.fillRect(12, 12, 520, 128)
+      context.fillRect(12, 12, 560, 150)
       context.fillStyle = 'white'
       context.font = '13px monospace'
       const legend = [
         `${caseInfo.key} | ${runtime.stroke.style}/${runtime.stroke.position}`,
-        `green=expected side  magenta=forbidden side  yellow/orange=fail`,
+        `green=expected side  magenta=forbidden  red=alpha overlap`,
         `expected recall=${expectedRecall.toFixed(3)} worst segment=${worstSegmentExpectedRecall.toFixed(3)}`,
         `wrong-side=${wrongSideDominanceSampleCount} gap-leak=${gapLeakSampleCount} missing=${missingExpectedSampleCount}`,
+        `alpha-overlap=${alphaOverlapSampleCount}/${alphaOverlapProbeCount} rate=${alphaOverlapRate.toFixed(3)}`,
         `failures=${failureMarkers.length} terminals=${terminalRecordCount} product-final=${productFinalPacketCount}`
       ]
       legend.forEach((line, index) => {
@@ -3057,6 +3222,9 @@ export const captureCanonicalRuleOverlay = async (
         gapLeakRate,
         redPixelCount,
         doubleAlphaRate,
+        alphaOverlapProbeCount,
+        alphaOverlapSampleCount,
+        alphaOverlapRate,
         terminalRecordCount,
         splitTerminalRecordCount,
         productFinalPacketCount,
@@ -3090,7 +3258,10 @@ export const captureCanonicalRuleOverlay = async (
   fs.mkdirSync(path.dirname(options.overlayPath), { recursive: true })
   fs.writeFileSync(
     options.overlayPath,
-    Buffer.from(result.overlayDataUrl.replace(/^data:image\/png;base64,/, ''), 'base64')
+    Buffer.from(
+      result.overlayDataUrl.replace(/^data:image\/png;base64,/, ''),
+      'base64'
+    )
   )
   writeJson(options.metricsPath, result.metrics)
   return result.metrics
@@ -3108,6 +3279,10 @@ export const expectCanonicalRuleOverlayPass = (
         worstSegmentExpectedRecall: metrics.worstSegmentExpectedRecall,
         wrongSideDominanceRate: metrics.wrongSideDominanceRate,
         gapLeakRate: metrics.gapLeakRate,
+        doubleAlphaRate: metrics.doubleAlphaRate,
+        alphaOverlapRate: metrics.alphaOverlapRate,
+        alphaOverlapSampleCount: metrics.alphaOverlapSampleCount,
+        alphaOverlapProbeCount: metrics.alphaOverlapProbeCount,
         failureMarkers: metrics.failureMarkers.slice(0, 24)
       },
       null,

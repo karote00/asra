@@ -55,6 +55,11 @@ Stroke-related behavior is inspected as one deterministic system flow:
 6. Stroke geometry stages consume normalized render data and own shared
    geometry, stroke domains, dash intervals, legality, and final semantic
    records.
+   Invalidation is stage-based: source path/topology, stroke family, stroke
+   domain, dash schedule, terminal cap, join/miter shape, paint, and render
+   output have separate internal revisions. A stroke parameter change must
+   dirty only the stages that parameter affects; vector drag dirties source
+   path data while keeping static stroke parameter revisions stable.
 7. Product output emits render, hit, export, and diagnostics descriptors
    without changing stroke semantics. Visible render must not use diagnostic or
    helper geometry as product output.
@@ -175,6 +180,9 @@ dashed strokes.
   The 2026-05-31 inside-solid slice passed only after current Asyra rule probes
   and manual app screenshot review. Current outside dashed square failures stay
   blocked here until the same evidence standard passes.
+  Translucent self-intersecting center solid strokes also require same-paint
+  alpha-overlap probes: self-crossings must match adjacent body stroke paint
+  strength and must not darken through multiple visible composites.
 
 ## Diagnostic Evidence Limits
 
@@ -192,6 +200,32 @@ Diagnostics must not become visible render inputs, normal render cache
 signatures, export geometry, or hit geometry unless that path is explicitly
 defined as non-visible evidence. Product-visible render must stay the masked
 doubled authored center stroke.
+
+## Stroke Parameter Stage Cache Rule
+
+Stroke parameter changes must not share one coarse geometry invalidation helper.
+The renderer classifies changes through the stage dirty matrix:
+
+- paint-only fields (`color`, `opacity`, solid fill, gradient paint) dirty paint
+  payload and render output only;
+- display-format fields that do not change actual paint must not dirty render;
+- `visible` dirtys render output only;
+- `style` and `position` select stroke family/domain but reuse source
+  path/topology;
+- `width` reuses source path/topology and dash schedule, then rebuilds domain,
+  terminal cap, join/miter, and downstream output;
+- `dashPattern` and `dashOffset` rebuild dash schedule and downstream output
+  without dirtying source topology or join shape;
+- `capType` rebuilds terminal cap and downstream output; closed paths must not
+  dirty dash schedule, while open path square-cap transitions may do so
+  conservatively;
+- `joinType` and `miterAngle` rebuild join/miter shape and downstream output
+  without dirtying source path, stroke domain, dash schedule, or paint.
+
+Drag uses the same matrix. Point/handle movement dirties source path and any
+derived source geometry required by the changed topology, but it must not mark
+static stroke parameter revisions or paint as changed. If topology/domain
+signatures cannot prove safe reuse, exact rebuild is required for correctness.
 
 ## Invalid Current-Rule Sources
 
@@ -222,5 +256,8 @@ Completion requires:
   reviewed screenshots pass;
 - visual gates fail when the internal pentagon breaks into helper-like fragments
   even if shared-edge width and join-difference numeric probes pass;
+- visual gates fail when translucent center solid self-intersections accumulate
+  same-paint alpha overlap, even if global red coverage and route assertions
+  pass;
 - implementation evidence separately proves render, hit, export, diagnostics,
   reload, performance behavior, and visible screenshot consistency.
