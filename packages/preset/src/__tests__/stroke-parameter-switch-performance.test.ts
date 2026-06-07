@@ -9,6 +9,8 @@ import core, {
   type VectorSegment
 } from '@asyra/core'
 import {
+  StrokeCapTypes,
+  StrokeJoinTypes,
   StrokePositions,
   StrokeStyles,
   createDefaultStroke
@@ -37,6 +39,11 @@ const describeProfile =
 const PERFORMANCE_MEASUREMENT_SCOPE = 'cpu-only'
 const RENDERER_COVERAGE = 'fake'
 const DOES_NOT_MEASURE_RENDERER = true
+const SHOULD_ENFORCE_PARAMETER_P95 =
+  process.env.ASYRA_STROKE_PARAMETER_SWITCH_ENFORCE_P95 === '1'
+const PARAMETER_SWITCH_P95_BUDGET_MS = Number(
+  process.env.ASYRA_STROKE_PARAMETER_SWITCH_P95_BUDGET_MS ?? 11.11
+)
 
 beforeAll(() => {
   HTMLCanvasElement.prototype.getContext =
@@ -105,6 +112,9 @@ beforeAll(() => {
 
 class RecordingVectorGraphic extends Container {
   __asyraSolidCenterStrokeExportPackets?: unknown[]
+  __asyraStrokeMeshCache?: Map<string, unknown>
+  __asyraNativeCenterSolidStrokeRenderCount?: number
+  __asyraCenterSolidPathMaskRenderCount?: number
   hitArea?: { contains: (x: number, y: number) => boolean } | null
 
   clear() {
@@ -135,6 +145,29 @@ class RecordingVectorGraphic extends Container {
     return this
   }
 }
+
+const hasProductOutput = (graphic: RecordingVectorGraphic) =>
+  (graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0) > 0 ||
+  (graphic.__asyraStrokeMeshCache?.size ?? 0) > 0 ||
+  (graphic.__asyraNativeCenterSolidStrokeRenderCount ?? 0) > 0 ||
+  (graphic.__asyraCenterSolidPathMaskRenderCount ?? 0) > 0
+
+const hasProductPipelineCounterChange = (
+  counters: Record<string, number>,
+  before: Record<string, number>
+) =>
+  [
+    'interval-sweep-count',
+    'final-coverage-builder-hit',
+    'native-center-solid-stroke-render-count',
+    'path-mask-center-solid-stroke-render-count',
+    'stroke-stage-cache:product-geometry-hit',
+    'stroke-stage-cache:product-geometry-store',
+    'stroke-stage-cache:render-output-hidden',
+    'visual-overlap-collapse-exact-direct',
+    'visual-overlap-collapse-inside-dashed-mask-direct',
+    'visual-overlap-collapse-no-union-backend'
+  ].some((counterName) => (counters[counterName] ?? 0) > (before[counterName] ?? 0))
 
 const getPercentile = (values: number[], percentile: number) => {
   const sorted = [...values].sort((left, right) => left - right)
@@ -291,26 +324,62 @@ const measureScenario = (
     fills: []
   }
   const frameTimes: number[] = []
+  const counters: Record<string, number> = {}
   let invalidFrameCount = 0
-
-  for (let frame = 0; frame < FRAME_COUNT; frame += 1) {
-    const start = performance.now()
-    ;(
-      strategy as unknown as (
-        target: RecordingVectorGraphic,
-        data: Record<string, unknown>
+  const previousCounterSink = (
+    globalThis as typeof globalThis & {
+      __asyraStrokePipelineCounterSink?: (
+        counterName: string,
+        value: number
       ) => void
-    )(graphic, {
-      ...baseData,
-      strokes: [getStroke(frame)]
-    })
-    const end = performance.now()
-    if (frame >= WARMUP_FRAMES) {
-      frameTimes.push(end - start)
     }
-    if ((graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0) === 0) {
-      invalidFrameCount += 1
+  ).__asyraStrokePipelineCounterSink
+  ;(
+    globalThis as typeof globalThis & {
+      __asyraStrokePipelineCounterSink?: (
+        counterName: string,
+        value: number
+      ) => void
     }
+  ).__asyraStrokePipelineCounterSink = (counterName, value) => {
+    counters[counterName] = (counters[counterName] ?? 0) + value
+  }
+
+  try {
+    for (let frame = 0; frame < FRAME_COUNT; frame += 1) {
+      const counterSnapshot = { ...counters }
+      const start = performance.now()
+      const stroke = getStroke(frame)
+      ;(
+        strategy as unknown as (
+          target: RecordingVectorGraphic,
+          data: Record<string, unknown>
+        ) => void
+      )(graphic, {
+        ...baseData,
+        strokes: [stroke]
+      })
+      const end = performance.now()
+      if (frame >= WARMUP_FRAMES) {
+        frameTimes.push(end - start)
+      }
+      if (
+        stroke.visible !== false &&
+        !hasProductOutput(graphic) &&
+        !hasProductPipelineCounterChange(counters, counterSnapshot)
+      ) {
+        invalidFrameCount += 1
+      }
+    }
+  } finally {
+    ;(
+      globalThis as typeof globalThis & {
+        __asyraStrokePipelineCounterSink?: (
+          counterName: string,
+          value: number
+        ) => void
+      }
+    ).__asyraStrokePipelineCounterSink = previousCounterSink
   }
 
   return {
@@ -322,7 +391,8 @@ const measureScenario = (
       frameTimes.reduce((total, value) => total + value, 0) / frameTimes.length,
     p95Ms: getPercentile(frameTimes, 0.95),
     maxMs: Math.max(...frameTimes),
-    invalidFrameCount
+    invalidFrameCount,
+    counters
   }
 }
 
@@ -512,6 +582,91 @@ describeProfile('stroke parameter switch performance profile', () => {
           dashOffset: 0,
           color: '#d51a1a'
         })
+      ),
+      measureScenario('inside dashed cap cycle', (frame) =>
+        createDefaultStroke({
+          id: 'pp-312',
+          width: 10,
+          style: StrokeStyles.DASHED,
+          position: StrokePositions.INSIDE,
+          dashPattern: [20, 20],
+          dashOffset: 0,
+          capType: [
+            StrokeCapTypes.BUTT,
+            StrokeCapTypes.SQUARE,
+            StrokeCapTypes.ROUND
+          ][frame % 3],
+          color: '#d51a1a'
+        })
+      ),
+      measureScenario('outside dashed cap cycle', (frame) =>
+        createDefaultStroke({
+          id: 'pp-312',
+          width: 10,
+          style: StrokeStyles.DASHED,
+          position: StrokePositions.OUTSIDE,
+          dashPattern: [20, 20],
+          dashOffset: 0,
+          capType: [
+            StrokeCapTypes.BUTT,
+            StrokeCapTypes.SQUARE,
+            StrokeCapTypes.ROUND
+          ][frame % 3],
+          color: '#d51a1a'
+        })
+      ),
+      measureScenario('outside dashed join cycle', (frame) =>
+        createDefaultStroke({
+          id: 'pp-312',
+          width: 10,
+          style: StrokeStyles.DASHED,
+          position: StrokePositions.OUTSIDE,
+          dashPattern: [20, 20],
+          dashOffset: 0,
+          joinType: [
+            StrokeJoinTypes.MITER,
+            StrokeJoinTypes.BEVEL,
+            StrokeJoinTypes.ROUND
+          ][frame % 3],
+          color: '#d51a1a'
+        })
+      ),
+      measureScenario('inside dashed miter slider', (frame) =>
+        createDefaultStroke({
+          id: 'pp-312',
+          width: 10,
+          style: StrokeStyles.DASHED,
+          position: StrokePositions.INSIDE,
+          dashPattern: [20, 20],
+          dashOffset: 0,
+          joinType: StrokeJoinTypes.MITER,
+          miterAngle: 8 + (frame % 80),
+          color: '#d51a1a'
+        })
+      ),
+      measureScenario('inside dashed paint opacity slider', (frame) =>
+        createDefaultStroke({
+          id: 'pp-312',
+          width: 10,
+          style: StrokeStyles.DASHED,
+          position: StrokePositions.INSIDE,
+          dashPattern: [20, 20],
+          dashOffset: 0,
+          color: frame % 2 === 0 ? '#d51a1a' : '#1ad57d',
+          opacity: 30 + (frame % 70)
+        })
+      ),
+      measureScenario('inside dashed visible toggle', (frame) =>
+        createDefaultStroke({
+          id: 'pp-312',
+          width: 10,
+          style: StrokeStyles.DASHED,
+          position: StrokePositions.INSIDE,
+          dashPattern: [20, 20],
+          dashOffset: 0,
+          visible: frame % 2 === 0,
+          color: '#d51a1a'
+        })
       )
     ]
 
@@ -524,6 +679,53 @@ describeProfile('stroke parameter switch performance profile', () => {
       })}\n`
     )
     expect(metrics.every((metric) => metric.invalidFrameCount === 0)).toBe(true)
+    const getMetric = (label: string) => {
+      const metric = metrics.find((entry) => entry.label === label)
+      if (!metric) {
+        throw new Error(`Missing stroke parameter switch metric: ${label}`)
+      }
+      return metric
+    }
+
+    expect(
+      getMetric('inside dashed cap cycle').counters[
+        'stroke-stage-cache:product-geometry-hit'
+      ] ?? 0
+    ).toBeGreaterThanOrEqual(FRAME_COUNT - 3)
+    expect(
+      getMetric('outside dashed cap cycle').counters[
+        'resolved-geometry-frame-cache-reused'
+      ] ?? 0
+    ).toBeGreaterThan(0)
+    expect(
+      getMetric('outside dashed cap cycle').counters[
+        'terminal-cap-build-count'
+      ] ?? 0
+    ).toBeGreaterThan(0)
+    expect(
+      getMetric('outside dashed join cycle').counters[
+        'resolved-geometry-frame-cache-reused'
+      ] ?? 0
+    ).toBeGreaterThan(0)
+    expect(
+      getMetric('outside dashed join cycle').counters[
+        'final-coverage-builder-hit'
+      ] ?? 0
+    ).toBeGreaterThan(0)
+    expect(
+      getMetric('inside dashed paint opacity slider').counters[
+        'stroke-stage-cache:product-geometry-hit'
+      ] ?? 0
+    ).toBeGreaterThanOrEqual(FRAME_COUNT - 1)
+    expect(
+      getMetric('inside dashed visible toggle').counters[
+        'stroke-stage-cache:render-output-hidden'
+      ] ?? 0
+    ).toBeGreaterThanOrEqual(Math.floor(FRAME_COUNT / 2))
+    if (SHOULD_ENFORCE_PARAMETER_P95) {
+      const maxP95Ms = Math.max(...metrics.map((metric) => metric.p95Ms))
+      expect(maxP95Ms).toBeLessThanOrEqual(PARAMETER_SWITCH_P95_BUDGET_MS)
+    }
   })
 
   it('should profile: break down reported closed star constrained dashed phases', () => {

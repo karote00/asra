@@ -2,19 +2,19 @@
   "legalAnalysis": {
     "width": 1400,
     "height": 1100,
-    "redPixelCount": 26206,
+    "redPixelCount": 26205,
     "legalRedPixelCount": 3922,
-    "outsideRedPixelCount": 22284,
+    "outsideRedPixelCount": 22283,
     "strictLegalRedPixelCount": 0,
-    "strictOutsideRedPixelCount": 26206,
+    "strictOutsideRedPixelCount": 26205,
     "darkOverdrawPixelCount": 0,
     "maxDarkOverdrawComponentArea": 0,
     "darkOverdrawComponentAreas": [],
     "darkOverdrawComponents": [],
-    "maxOutsideComponentArea": 1365,
+    "maxOutsideComponentArea": 1366,
     "outsideComponentAreas": [
-      1365,
-      984,
+      1366,
+      982,
       904,
       805,
       701,
@@ -26,22 +26,22 @@
     ],
     "outsideComponents": [
       {
-        "area": 1365,
+        "area": 1366,
         "minX": 377,
         "minY": 256,
         "maxX": 449,
         "maxY": 316,
-        "centerX": 415.2776556776557,
-        "centerY": 284.0908424908425
+        "centerX": 415.26720351390924,
+        "centerY": 284.09370424597364
       },
       {
-        "area": 984,
+        "area": 982,
         "minX": 954,
         "minY": 468,
         "maxX": 1007,
         "maxY": 516,
-        "centerX": 977.9583333333334,
-        "centerY": 489.5497967479675
+        "centerX": 977.9429735234216,
+        "centerY": 489.5213849287169
       },
       {
         "area": 904,
@@ -117,12 +117,12 @@
       }
     ],
     "maxStrictInsideComponentArea": 0,
-    "maxStrictOutsideComponentArea": 1501,
+    "maxStrictOutsideComponentArea": 1502,
     "strictInsideComponentAreas": [],
     "strictInsideComponents": [],
     "strictOutsideComponentAreas": [
-      1501,
-      1115,
+      1502,
+      1113,
       1025,
       911,
       817,
@@ -3680,7 +3680,7 @@
               "x": 359.9000898634015,
               "y": 156.05480156301311
             },
-            "redPixelCount": 92
+            "redPixelCount": 91
           }
         ]
       },
@@ -37476,7 +37476,7 @@
               "x": 359.9000898634015,
               "y": 156.05480156301311
             },
-            "redPixelCount": 92
+            "redPixelCount": 91
           }
         ]
       },

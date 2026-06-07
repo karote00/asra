@@ -2,19 +2,19 @@
   "legalAnalysis": {
     "width": 1400,
     "height": 1100,
-    "redPixelCount": 20399,
-    "legalRedPixelCount": 3239,
-    "outsideRedPixelCount": 17160,
+    "redPixelCount": 20352,
+    "legalRedPixelCount": 3231,
+    "outsideRedPixelCount": 17121,
     "strictLegalRedPixelCount": 0,
-    "strictOutsideRedPixelCount": 20399,
+    "strictOutsideRedPixelCount": 20352,
     "darkOverdrawPixelCount": 0,
     "maxDarkOverdrawComponentArea": 0,
     "darkOverdrawComponentAreas": [],
     "darkOverdrawComponents": [],
-    "maxOutsideComponentArea": 1222,
+    "maxOutsideComponentArea": 1203,
     "outsideComponentAreas": [
-      1222,
-      839,
+      1203,
+      819,
       735,
       636,
       536,
@@ -26,22 +26,22 @@
     ],
     "outsideComponents": [
       {
-        "area": 1222,
+        "area": 1203,
         "minX": 377,
         "minY": 256,
-        "maxX": 445,
+        "maxX": 444,
         "maxY": 313,
-        "centerX": 412.7454991816694,
-        "centerY": 282.17921440261864
+        "centerX": 412.378221113882,
+        "centerY": 281.9168744804655
       },
       {
-        "area": 839,
-        "minX": 959,
+        "area": 819,
+        "minX": 960,
         "minY": 469,
         "maxX": 1007,
-        "maxY": 515,
-        "centerX": 980.8164481525625,
-        "centerY": 489.0274135876043
+        "maxY": 514,
+        "centerX": 981.1611721611722,
+        "centerY": 488.92429792429795
       },
       {
         "area": 735,
@@ -117,12 +117,12 @@
       }
     ],
     "maxStrictInsideComponentArea": 0,
-    "maxStrictOutsideComponentArea": 1339,
+    "maxStrictOutsideComponentArea": 1316,
     "strictInsideComponentAreas": [],
     "strictInsideComponents": [],
     "strictOutsideComponentAreas": [
-      1339,
-      950,
+      1316,
+      926,
       837,
       731,
       628,
@@ -3680,7 +3680,7 @@
               "x": 359.9000898634015,
               "y": 156.05480156301311
             },
-            "redPixelCount": 92
+            "redPixelCount": 91
           }
         ]
       },
@@ -37476,7 +37476,7 @@
               "x": 359.9000898634015,
               "y": 156.05480156301311
             },
-            "redPixelCount": 92
+            "redPixelCount": 91
           }
         ]
       },

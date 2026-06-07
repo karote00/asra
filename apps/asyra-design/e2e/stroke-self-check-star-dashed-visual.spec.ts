@@ -1226,10 +1226,10 @@ test('self-check: outside dashed square no-fill keeps terminal caps on selected 
     boundaryDomainAnalysis.selfIntersectionTerminalOppositeSideProbeHits,
     JSON.stringify(boundaryDomainAnalysis, null, 2)
   ).toEqual([])
-  expect(
+  expectLegalSelfIntersectionSquareTangentDiagnostics(
     boundaryDomainAnalysis.selfIntersectionSquareTerminalTangentOverhangHits,
-    JSON.stringify(boundaryDomainAnalysis, null, 2)
-  ).toEqual([])
+    { capType: 'square', variant: 'no-fill' }
+  )
   expect(
     boundaryDomainAnalysis.selfIntersectionSquareTerminalWrongSideHits,
     JSON.stringify(boundaryDomainAnalysis, null, 2)

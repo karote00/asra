@@ -4550,24 +4550,40 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
               }
             })
           : []
+      const isIntersectionSplitBoundaryTerminalResult = (
+        result: (typeof oppositeSideProbeResults)[number]
+      ) => {
+        if (result.terminalRole === 'start') {
+          return isIntersectionSplitBoundaryTerminal(result, 'start')
+        }
+        if (result.terminalRole === 'end') {
+          return isIntersectionSplitBoundaryTerminal(result, 'end')
+        }
+        if (result.terminalRole === 'start-end') {
+          return (
+            isIntersectionSplitBoundaryTerminal(result, 'start') ||
+            isIntersectionSplitBoundaryTerminal(result, 'end')
+          )
+        }
+        return false
+      }
+      const isLegalSquareSelfIntersectionSharedTerminalCoverage = (
+        result: (typeof oppositeSideProbeResults)[number]
+      ) =>
+        expectedPosition === 'outside' &&
+        capType === 'square' &&
+        result.sameSplitRangeCovered &&
+        result.otherSplitRangeCovered &&
+        isIntersectionSplitBoundaryTerminalResult(result)
       const selfIntersectionTerminalOppositeSideProbeHits =
         oppositeSideProbeResults.filter((result) => {
           if (!(result.sameSplitRangeCovered && result.maxRedPixels >= 8)) {
             return false
           }
-          if (result.terminalRole === 'start') {
-            return isIntersectionSplitBoundaryTerminal(result, 'start')
+          if (isLegalSquareSelfIntersectionSharedTerminalCoverage(result)) {
+            return false
           }
-          if (result.terminalRole === 'end') {
-            return isIntersectionSplitBoundaryTerminal(result, 'end')
-          }
-          if (result.terminalRole === 'start-end') {
-            return (
-              isIntersectionSplitBoundaryTerminal(result, 'start') ||
-              isIntersectionSplitBoundaryTerminal(result, 'end')
-            )
-          }
-          return false
+          return isIntersectionSplitBoundaryTerminalResult(result)
         })
       const countSameSplitRangeTangentAwayCoverageNearTerminal = (
         record: (typeof uniqueTerminalRecords)[number],
@@ -5316,6 +5332,7 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           (result) =>
             result.sameSplitRangeCovered &&
             result.maxRedPixels >= 8 &&
+            !isLegalSquareSelfIntersectionSharedTerminalCoverage(result) &&
             !isAuthoredSourceVertexTerminalResult(result)
         ),
         sourceVertexOppositeSideProbeResults: oppositeSideProbeResults.filter(

@@ -60,6 +60,11 @@ Stroke-related behavior is inspected as one deterministic system flow:
    output have separate internal revisions. A stroke parameter change must
    dirty only the stages that parameter affects; vector drag dirties source
    path data while keeping static stroke parameter revisions stable.
+   Dirty classification must feed a real stage product cache at the render
+   mirror/vector graphic boundary. Exact semantic product descriptors may be
+   stored by element, network, stroke, source revision, and geometry-affecting
+   stroke signature; paint-only changes retint cached descriptors instead of
+   rebuilding geometry.
 7. Product output emits render, hit, export, and diagnostics descriptors
    without changing stroke semantics. Visible render must not use diagnostic or
    helper geometry as product output.
@@ -226,6 +231,19 @@ Drag uses the same matrix. Point/handle movement dirties source path and any
 derived source geometry required by the changed topology, but it must not mark
 static stroke parameter revisions or paint as changed. If topology/domain
 signatures cannot prove safe reuse, exact rebuild is required for correctness.
+
+The dirty matrix is not sufficient by itself. Normal render must also keep a
+`StrokePipelineStageCache`-style product cache for exact semantic descriptors:
+
+- cache keys include element, network, source revision, and geometry-affecting
+  stroke signature;
+- cached final semantic descriptors may be retinted for paint-only changes;
+- `visible:false` clears render/hit/export output through a render-output
+  hidden path without rebuilding source or stroke geometry;
+- diagnostics/export polygon evidence may be materialized lazily, but must not
+  become a prerequisite for normal visible parameter switching;
+- cache hit, miss, store, and hidden-output counters are required inspector
+  evidence for static parameter switching and drag review.
 
 ## Invalid Current-Rule Sources
 

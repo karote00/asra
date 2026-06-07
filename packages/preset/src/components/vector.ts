@@ -1227,6 +1227,7 @@ interface VectorNetworkPathModel {
   network: VectorNetwork
   path: VectorPathGeometryModel
   topology: PathTopologyModel
+  sourceRevision: VectorSourceRevision
 }
 
 interface VectorSourceRevision {
@@ -1243,6 +1244,18 @@ interface VectorPathModelCache {
     { revision: VectorSourceRevision; model: VectorNetworkPathModel }
   >
   segmentFrames: Map<string, VectorSegmentGeometryFrameCache>
+}
+
+type SolidStrokeFinalFaceList = ReturnType<typeof buildSolidCenterStrokeFinalFaces>
+
+interface StrokePipelineStageProductCache {
+  geometrySignature: string | null
+  finalFaces: SolidStrokeFinalFaceList
+  renderEntries: SolidCenterStrokeRenderEntry[]
+}
+
+interface StrokePipelineStageCache {
+  products: Map<string, StrokePipelineStageProductCache>
 }
 
 const isAnchorNode = (
@@ -2312,6 +2325,80 @@ const buildCenterSolidPathMaskRenderEntry = (
   }
 }
 
+const getSingleSolidRenderableStroke = (strokes: StrokeAttrs[] | undefined) => {
+  const renderableStrokes = getRenderableStrokes(strokes)
+  if (renderableStrokes.length !== 1) {
+    return null
+  }
+
+  const [stroke] = renderableStrokes
+  return stroke.kind === 'solid' ? stroke : null
+}
+
+const buildStrokeProductGeometrySignature = (
+  vectorId: string,
+  networkPaths: VectorNetworkPathModel[],
+  stroke: RenderableStroke | null
+) => {
+  if (!stroke) {
+    return null
+  }
+
+  return [
+    'stroke-product-geometry',
+    vectorId,
+    networkPaths
+      .map(({ network, sourceRevision }) =>
+        [network.id, sourceRevision.key].join('=')
+      )
+      .join('|'),
+    stroke.kind,
+    stroke.style,
+    stroke.position,
+    stroke.width.toFixed(4),
+    stroke.cap,
+    stroke.join,
+    stroke.miterLimit.toFixed(4),
+    stroke.dashPattern.map((value) => value.toFixed(4)).join(','),
+    stroke.dashOffset.toFixed(4)
+  ].join('||')
+}
+
+const getStrokePaintKey = (stroke: RenderableStroke) =>
+  stroke.paintKey ?? `solid:${stroke.color}:${stroke.alpha}`
+
+const retintStrokeFinalFaces = (
+  faces: SolidStrokeFinalFaceList,
+  stroke: RenderableStroke
+): SolidStrokeFinalFaceList =>
+  faces.map((face) => ({
+    ...face,
+    paintKey: getStrokePaintKey(stroke),
+    paint: {
+      ...face.paint,
+      kind: stroke.kind,
+      color: stroke.color,
+      alpha: stroke.alpha,
+      gradientStyle: stroke.gradientStyle,
+      paintKey: getStrokePaintKey(stroke)
+    }
+  }))
+
+const retintStrokeRenderEntries = (
+  entries: SolidCenterStrokeRenderEntry[],
+  stroke: RenderableStroke
+): SolidCenterStrokeRenderEntry[] =>
+  entries.map((entry) => ({
+    ...entry,
+    stroke: {
+      kind: stroke.kind,
+      color: stroke.color,
+      alpha: stroke.alpha,
+      gradientStyle: stroke.gradientStyle,
+      paintKey: getStrokePaintKey(stroke)
+    }
+  }))
+
 const shouldRenderCenterSolidFaceWithNativeVisual = (
   face: SolidStrokeFinalFaceList[number]
 ) =>
@@ -2352,6 +2439,7 @@ const renderVectorGraphic = (
     __asyraVectorHitCache?: VectorHitCache
     __asyraVectorPathModelCache?: VectorPathModelCache
     __asyraResolvedVectorGeometryCache?: ResolvedVectorGeometryFrameCache
+    __asyraStrokePipelineStageCache?: StrokePipelineStageCache
   }
   const systemDebugDisableVisualOverlapCollapse =
     core.getSystemProperty<boolean>(
@@ -2427,6 +2515,42 @@ const renderVectorGraphic = (
 
   const fillPayload = getFillPayload(fills)
   const hasRenderableFill = getRenderableFills(fillPayload).length > 0
+  const renderableStrokesForVisibility = getRenderableStrokes(renderData.strokes)
+  const shouldAttachFullStrokeDiagnostics = shouldEmitFullStrokeDiagnostics()
+  if (!hasRenderableFill && renderableStrokesForVisibility.length === 0) {
+    emitStrokePipelineCounter('stroke-stage-cache:render-output-hidden')
+    ;(
+      graphic as typeof graphic & {
+        __asyraVectorPathGeometryModelCount?: number
+        __asyraVectorPathTopologyModelCount?: number
+      }
+    ).__asyraVectorPathGeometryModelCount = 0
+    ;(
+      graphic as typeof graphic & {
+        __asyraVectorPathTopologyModelCount?: number
+      }
+    ).__asyraVectorPathTopologyModelCount = 0
+    clearCenterDashedOverlapDiagnostics(graphic)
+    clearConstrainedDashedRuntimeDiagnostics(graphic)
+    clearConstrainedSolidRuntimeDiagnostics(graphic)
+    clearConstrainedSolidLegalityDiagnostics(graphic)
+    clearConstrainedSolidOwnershipDiagnostics(graphic)
+    ;(
+      graphic as typeof graphic & {
+        __asyraNativeCenterSolidStrokeRenderCount?: number
+      }
+    ).__asyraNativeCenterSolidStrokeRenderCount = 0
+    emitStrokePipelineCounter('native-center-solid-stroke-render-count', 0)
+    ;(
+      graphic as typeof graphic & {
+        __asyraCenterSolidPathMaskRenderCount?: number
+      }
+    ).__asyraCenterSolidPathMaskRenderCount = 0
+    emitStrokePipelineCounter('path-mask-center-solid-stroke-render-count', 0)
+    applySolidCenterStrokeExportPacketsFromFinalFaces(graphic, [])
+    renderSolidCenterStrokeEntries(graphic, [])
+    return
+  }
   let previewFill = false
 
   const hasClosedNetwork =
@@ -2503,7 +2627,8 @@ const renderVectorGraphic = (
       const model = {
         network,
         path,
-        topology
+        topology,
+        sourceRevision
       }
       pathModelCache.entries.set(network.id, {
         revision: sourceRevision,
@@ -2539,7 +2664,76 @@ const renderVectorGraphic = (
     ({ topology }) =>
       topology.closed && hasConstrainedSolidStrokeIntent(renderData.strokes)
   )
-  const shouldAttachFullStrokeDiagnostics = shouldEmitFullStrokeDiagnostics()
+  const singleSolidRenderableStroke = getSingleSolidRenderableStroke(
+    renderData.strokes
+  )
+  const strokeProductGeometrySignature = buildStrokeProductGeometrySignature(
+    renderData.id,
+    networkPaths,
+    singleSolidRenderableStroke
+  )
+  const stageCache = graphicCache.__asyraStrokePipelineStageCache ?? {
+    products: new Map<string, StrokePipelineStageProductCache>()
+  }
+  const cachedProduct =
+    strokeProductGeometrySignature !== null
+      ? stageCache.products.get(strokeProductGeometrySignature)
+      : undefined
+  const hasReplayableCachedProduct =
+    cachedProduct &&
+    (cachedProduct.finalFaces.length > 0 ||
+      cachedProduct.renderEntries.length > 0)
+
+  if (
+    !shouldAttachFullStrokeDiagnostics &&
+    fillPayload.length === 0 &&
+    singleSolidRenderableStroke &&
+    cachedProduct &&
+    hasReplayableCachedProduct
+  ) {
+    emitStrokePipelineCounter('stroke-stage-cache:product-geometry-hit')
+    const cachedFaces = retintStrokeFinalFaces(
+      cachedProduct.finalFaces,
+      singleSolidRenderableStroke
+    )
+    const cachedRenderEntries = retintStrokeRenderEntries(
+      cachedProduct.renderEntries,
+      singleSolidRenderableStroke
+    )
+    ;(
+      graphic as {
+        hitArea: { contains: (x: number, y: number) => boolean } | null
+      }
+    ).hitArea = createSolidCenterStrokeHitAreaFromFinalFaces(cachedFaces) ?? null
+    applySolidCenterStrokeExportPacketsFromFinalFaces(graphic, cachedFaces)
+    clearCenterDashedOverlapDiagnostics(graphic)
+    clearConstrainedDashedRuntimeDiagnostics(graphic)
+    clearConstrainedSolidRuntimeDiagnostics(graphic)
+    clearConstrainedSolidLegalityDiagnostics(graphic)
+    clearConstrainedSolidOwnershipDiagnostics(graphic)
+    ;(
+      graphic as typeof graphic & {
+        __asyraNativeCenterSolidStrokeRenderCount?: number
+      }
+    ).__asyraNativeCenterSolidStrokeRenderCount = 0
+    emitStrokePipelineCounter('native-center-solid-stroke-render-count', 0)
+    ;(
+      graphic as typeof graphic & {
+        __asyraCenterSolidPathMaskRenderCount?: number
+      }
+    ).__asyraCenterSolidPathMaskRenderCount = 0
+    emitStrokePipelineCounter('path-mask-center-solid-stroke-render-count', 0)
+    measureVectorRenderPhase('mesh render', () =>
+      renderSolidCenterStrokeEntries(graphic, cachedRenderEntries)
+    )
+    graphicCache.__asyraStrokePipelineStageCache = stageCache
+    return
+  }
+  emitStrokePipelineCounter(
+    stageCache.products.size > 0
+      ? 'stroke-stage-cache:product-geometry-miss'
+      : 'stroke-stage-cache:product-geometry-primed'
+  )
   const needsResolvedGeometryModel =
     hasRenderableFill || hasConstrainedDashedIntent || hasConstrainedSolidIntent
   const resolvedGeometryModel = measureVectorRenderPhase(
@@ -2755,7 +2949,7 @@ const renderVectorGraphic = (
                 clipInsideToFillDomain: clipInsideToFillDomain,
                 constrainedDashedVisualMode,
                 preferRenderMaskProductFinal:
-                  isMouseDragging && !shouldAttachFullStrokeDiagnostics
+                  !shouldAttachFullStrokeDiagnostics
               }
               return buildConstrainedDashedStrokeResolvedPackets(
                 `vector:${renderData.id}:${network.id}:constrained-dashed`,
@@ -3763,6 +3957,24 @@ const renderVectorGraphic = (
       })
     ]
   })
+
+  if (
+    !shouldAttachFullStrokeDiagnostics &&
+    fillPayload.length === 0 &&
+    singleSolidRenderableStroke &&
+    strokeProductGeometrySignature &&
+    (strokeFinalFaces.length > 0 || strokeRenderEntries.length > 0)
+  ) {
+    stageCache.products.set(strokeProductGeometrySignature, {
+      geometrySignature: strokeProductGeometrySignature,
+      finalFaces: strokeFinalFaces,
+      renderEntries: strokeRenderEntries
+    })
+    graphicCache.__asyraStrokePipelineStageCache = stageCache
+    emitStrokePipelineCounter('stroke-stage-cache:product-geometry-store')
+  } else {
+    graphicCache.__asyraStrokePipelineStageCache = stageCache
+  }
 
   measureVectorRenderPhase('mesh render', () =>
     renderSolidCenterStrokeEntries(graphic, strokeRenderEntries)

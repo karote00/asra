@@ -9,8 +9,10 @@
   "darkOverdrawPixelCount": 0,
   "maxDarkOverdrawComponentArea": 0,
   "darkOverdrawComponentAreas": [],
+  "darkOverdrawComponents": [],
   "maxOutsideComponentArea": 0,
   "outsideComponentAreas": [],
+  "outsideComponents": [],
   "maxStrictInsideComponentArea": 11264,
   "maxStrictOutsideComponentArea": 5508,
   "strictInsideComponentAreas": [

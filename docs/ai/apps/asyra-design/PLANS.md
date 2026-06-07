@@ -135,6 +135,10 @@ Stroke-related behavior must be observed as one deterministic system flow:
    and render output use separate revisions. Static stroke parameter changes
    must dirty only the stages they actually affect; drag changes dirty source
    path data without mutating static stroke parameter revisions.
+   Dirty classification must feed a real stage product cache at the render
+   mirror/vector graphic boundary. Exact semantic descriptors can be reused
+   when source revision and geometry-affecting stroke signature match; paint
+   changes retint cached descriptors instead of rebuilding geometry.
 7. Product output stages may emit render, hit, export, and diagnostics
    descriptors, but visible render must not use diagnostic/helper geometry as
    product output.
@@ -158,6 +162,10 @@ Stroke-related behavior must be observed as one deterministic system flow:
   evidence for source-path reuse, topology/domain reuse, dash schedule reuse,
   terminal cap rebuild, join rebuild, paint-only update, and drag source-path
   updates with static stroke parameters.
+- Render Mirror / Stroke Geometry must expose stage product cache evidence:
+  product-geometry hit, miss, store, and render-output hidden counters. Cached
+  descriptors are exact product descriptors; diagnostics/export polygons remain
+  lazy evidence and must not become normal visible-render prerequisites.
 - Product Output steps own render/hit/export packet projection and renderer
   draw entries without changing stroke semantics.
 - Diagnostics and final visual review are the only completion gates. Current

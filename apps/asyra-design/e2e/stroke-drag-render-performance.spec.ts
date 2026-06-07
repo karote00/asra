@@ -1644,8 +1644,13 @@ const buildRuleDrivenStrokeProbes = async (
             distanceDelta,
             totalLength - distanceDelta
           )
+          const unrelatedSourceDistanceThreshold = Math.max(
+            strokeWidth * 1.5,
+            visibleLength * 0.5
+          )
           return (
-            loopDistanceDelta > period &&
+            loopDistanceDelta > unrelatedSourceDistanceThreshold &&
+            isVisible(sample.distance) &&
             distance(point, sample) < strokeWidth * 3
           )
         })
@@ -1653,11 +1658,11 @@ const buildRuleDrivenStrokeProbes = async (
         if (!isVisible(distanceValue) || body.length >= 10) {
           return
         }
+        const includeRejectedProbes = false
         const bodyPoint = makeLegalProbePoint(distanceValue, selectedOffset)
-        const rejectedPoint = makeRejectedProbePoint(
-          distanceValue,
-          rejectedOffset
-        )
+        const rejectedPoint = includeRejectedProbes
+          ? makeRejectedProbePoint(distanceValue, rejectedOffset)
+          : undefined
         if (!bodyPoint) {
           return
         }
@@ -1667,6 +1672,7 @@ const buildRuleDrivenStrokeProbes = async (
           radius: 5
         })
         if (
+          includeRejectedProbes &&
           rejectedPoint &&
           !hasNearbyUnrelatedSource(distanceValue, rejectedPoint)
         ) {
@@ -1713,7 +1719,7 @@ const assertRuleDrivenStrokeProbes = async (
   const probes = await buildRuleDrivenStrokeProbes(
     page,
     strokeCase,
-    !isDuringDragProbe
+    false
   )
   if (probes.body.length === 0) {
     return

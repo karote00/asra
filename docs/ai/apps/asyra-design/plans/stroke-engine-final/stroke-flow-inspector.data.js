@@ -25,6 +25,8 @@
     'Stroke invalidation is stage-based. Source path/topology, stroke family, stroke domain, dash schedule, terminal cap, join/miter shape, paint, and render output use separate internal revisions.',
     'Static stroke parameter changes dirty only the stages they affect; vector drag dirties source path data without mutating static stroke parameter or paint revisions.',
     'Stroke performance diagnostics must expose stage dirty counters such as paint-only update and drag source-path-with-static-stroke.',
+    'Dirty classification must feed a real stroke stage product cache. Reusable semantic product descriptors may be stored by element, network, stroke, source revision, and geometry-affecting stroke signature, then retinted for paint-only changes.',
+    'Static stroke parameter switches must report stage cache hit, miss, store, and hidden-output counters so inspector review can distinguish geometry rebuilds from product descriptor reuse.',
     'Center solid visible render is the authored center stroke. Self-intersecting center solid vectors may use authored stroke path descriptors while preserving strokeJoin, strokeCap, and strokeMiterLimit; native projection is allowed only when alpha-safe, while translucent self-intersections require single-composite descriptor output.',
     'Diagnostics for translucent self-intersecting center solid strokes must include same-paint alpha-overlap probes at self-crossings; global red coverage alone is insufficient.',
     'Constrained solid visible render uses the Asyra doubled authored center-stroke mask model: build the authored center stroke at twice the requested stroke width, apply strokeJoin and strokeMiterLimit there, then clip by the inside filled-region mask or outside exterior mask.',
@@ -42,13 +44,13 @@
   ]
 
   const currentExecutionState = {
-    totalSteps: 33,
-    planStatus: 'active-system-flow-visual-review-blocked',
-    nextExecutableStepId: 'visible-final-result',
-    nextExecutableStepNumber: 33,
-    nextExecutableStepStatus: 'outside-dashed-square-visual-review-blocked',
-    stopRule:
-      'The framework-native vector operation flow is the baseline, but outside dashed square visual review remains open. Do not claim whole-system or whole-matrix completion until Product Output / Diagnostics pass.',
+      totalSteps: 34,
+      planStatus: 'active-stage-cache-performance-validation',
+      nextExecutableStepId: 'stage-product-cache',
+      nextExecutableStepNumber: 16,
+      nextExecutableStepStatus: 'stage-cache-validation-active',
+      stopRule:
+      'The framework-native vector operation flow is the baseline. Do not claim stage-cache performance completion until static parameter CPU profile, app parameter E2E, canonical correctness, and visual review evidence pass.',
     requiredImplementationSequence: [
       'Keep the three authority files synchronized before runtime implementation changes are claimed.',
       'Interaction must express intent only and never synchronize render state directly.',
@@ -56,6 +58,7 @@
       'Data Channel must publish changed values and record ids without unrelated full-topology rewrites.',
       'Render Mirror must apply each committed patch once and derive render data downstream.',
       'Stroke Geometry must consume normalized render data and preserve model-separated stroke semantics.',
+      'Stage product cache must preserve exact semantic descriptors and must not make diagnostic/export polygon evidence a normal visible-render prerequisite.',
       'Product Output and Diagnostics must pass rule-driven probes and reviewed screenshots before completion claims.'
     ],
     currentCompletionEvidence: [
@@ -63,7 +66,7 @@
       '2026-05-31: focused numeric probes alone were proven insufficient and the e2e fragment gate was tightened.',
       '2026-05-31: reported inside-solid slice passed focused probes, full e2e file, build, lint, and manual screenshot review.',
       '2026-06-06: point/handle drag and structural vector operations were refactored to framework-native computed patch flow with model/render/undo invariants passing.',
-      '2026-06-06: outside dashed square visual review still reports opposite-side probe failures and remains blocked.'
+      '2026-06-07: stroke dirty matrix gained parameter-specific revision counters; stage cache validation is active for static parameter switches and drag.'
     ],
     currentSolidMaskModelSliceEvidence: [
       {
@@ -124,7 +127,7 @@
       requiredEvidence:
         'Interval-domain dash allocation, terminal half-dashes, cap behavior, and provenance remain separate from solid visible geometry; constrained inside dashed visible product geometry is doubled authored center-dashed stroke clipped by the inside filled-region mask, encoded either as exact final faces or one exact grouped mask descriptor, not one-sided ribbon fallback.',
       status:
-        'inside dashed drag performance slice: exact mask descriptor path is the visible product encoding; outside dashed square remains governed by Product Output / Diagnostics before broader closure'
+        'inside dashed drag performance slice: exact mask descriptor path is the visible product encoding; outside dashed/outside miter regressions stay governed by Product Output / Diagnostics before broader closure'
     },
     {
       row: 'cross-cutting-render-hit-export-diagnostics',
@@ -143,6 +146,7 @@
     'slice-visual-review-passed': 'Slice visual review passed',
     'outside-dashed-square-visual-review-blocked':
       'Outside dashed square visual review blocked',
+    'stage-cache-validation-active': 'Stage cache validation active',
     'reopened-rule-review-blocked': 'Reopened / rule review blocked',
     'reopened-visual-review-blocked': 'Reopened / visual review blocked',
     'focused-inside-solid-rule-review-passed': 'Superseded focused-pass claim',
@@ -267,6 +271,13 @@
       3,
       'Dirty revision graph',
       'Classify stroke parameter and drag changes into stage-specific dirty revisions.'
+    ],
+    [
+      'stage-product-cache',
+      'Render Mirror',
+      3,
+      'Stage product cache',
+      'Reuse exact semantic stroke product descriptors across static parameter switches when geometry-affecting signatures match.'
     ],
     [
       'render-strategy-entry',
@@ -587,6 +598,30 @@
         'apps/asyra-design/e2e/stroke-drag-render-performance.spec.ts'
       ],
       tags: ['performance', 'truth', 'critical']
+    },
+    'stage-product-cache': {
+      latestRule:
+        'Stage product cache stores exact semantic product descriptors by source and geometry-affecting stroke signature, retints cached product for paint-only changes, and emits hit/miss/store/hidden-output counters.',
+      inputs: [
+        'stage dirty keys',
+        'normalized vector source revision',
+        'geometry-affecting stroke signature',
+        'paint payload'
+      ],
+      outputs: [
+        'cached or rebuilt semantic product descriptors',
+        'stage cache hit/miss/store counters',
+        'hidden-output early return for invisible product'
+      ],
+      currentImplementation:
+        'Vector render keeps a per-graphic StrokePipelineStageCache with product descriptors keyed by element, network, source revision, and stroke geometry signature. Paint-only changes retint cached final faces/render entries; visible=false clears render/hit/export output without rebuilding geometry.',
+      requiredAdjustment:
+        'Do not use stale cached descriptors when source revision or geometry-affecting stroke signature changes; diagnostics/export polygon materialization must remain lazy and separate from normal visible render.',
+      relatedTests: [
+        'packages/preset/src/__tests__/stroke-parameter-switch-performance.test.ts',
+        'apps/asyra-design/e2e/stroke-parameter-switch-performance.spec.ts'
+      ],
+      tags: ['performance', 'cache', 'critical']
     },
     'shared-geometry-model': {
       latestRule:
