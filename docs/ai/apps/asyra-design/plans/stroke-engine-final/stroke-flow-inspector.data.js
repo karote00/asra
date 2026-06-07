@@ -36,10 +36,12 @@
     'All five internal pentagon corners are join-sensitive and must vary with strokeJoin and strokeMiterLimit.',
     'Derivation fragments, face strips, helper polygons, coverage probes, and diagnostics can prove legality, hit/export, or failure modes, but they must not become product-visible solid stroke geometry.',
     'Dashed constrained strokes remain interval-domain based. Dash intervals, terminal half-dashes, and caps must stay separate from solid visible geometry.',
+    'Center dashed visible render is the authored center dashed stroke. Drag frames may use exact authored centerline strokePath descriptors for visible dash intervals and must not require center dashed polygon packets or resolved self-intersection geometry unless diagnostics, hit/export, or another exact rule needs that evidence.',
     'Constrained inside dashed product-visible render may use one exact grouped mask descriptor: fillClipPolygons plus authored dashed strokePaths and strokePathStyle. That descriptor is the product path, not preview or helper geometry.',
     'A single exact constrained inside dashed mask descriptor for one fill domain and one stroke style may bypass same-visual overlap collapse; per-interval polygons may remain diagnostics/export evidence but must not be required for visible drag frames.',
+    'Constrained outside dashed product-visible drag render may use one exact grouped exterior-mask descriptor: authored doubled center-dashed strokePaths plus authored cap, join, and miter style clipped to the outside legal domain. Square and round caps keep full terminal/cap metadata; butt-cap outside dashed drag may use fill-only resolved geometry only when terminal rules do not require full stroke-boundary metadata.',
     'Product output may emit render, hit, export, and diagnostic descriptors, but visible render must not use diagnostic/helper geometry as product output.',
-    'The outside dashed square visual gate remains open at Product Output / Diagnostics until rule-driven probes and reviewed screenshots pass.',
+    'The outside dashed square visual gate has current self-intersecting star rule probes and reviewed screenshots passing; this is slice evidence, not a whole-engine completion claim.',
     'Captured Asyra rule mismatches reopen the earliest owning inspector step. Implementation must not add new local rules before all three authority files are updated.'
   ]
 
@@ -66,7 +68,8 @@
       '2026-05-31: focused numeric probes alone were proven insufficient and the e2e fragment gate was tightened.',
       '2026-05-31: reported inside-solid slice passed focused probes, full e2e file, build, lint, and manual screenshot review.',
       '2026-06-06: point/handle drag and structural vector operations were refactored to framework-native computed patch flow with model/render/undo invariants passing.',
-      '2026-06-07: stroke dirty matrix gained parameter-specific revision counters; stage cache validation is active for static parameter switches and drag.'
+      '2026-06-07: stroke dirty matrix gained parameter-specific revision counters; stage cache validation is active for static parameter switches and drag.',
+      '2026-06-08: center, inside, and outside dashed drag frames use exact visible descriptors with canonical/e2e/visual review passing and the full drag 120fps gate passing.'
     ],
     currentSolidMaskModelSliceEvidence: [
       {
@@ -125,9 +128,9 @@
     {
       row: 'dashed-constrained-strokes',
       requiredEvidence:
-        'Interval-domain dash allocation, terminal half-dashes, cap behavior, and provenance remain separate from solid visible geometry; constrained inside dashed visible product geometry is doubled authored center-dashed stroke clipped by the inside filled-region mask, encoded either as exact final faces or one exact grouped mask descriptor, not one-sided ribbon fallback.',
+        'Interval-domain dash allocation, terminal half-dashes, cap behavior, and provenance remain separate from solid visible geometry; constrained inside/outside dashed visible product geometry is doubled authored center-dashed stroke clipped by the selected legal-domain mask, encoded either as exact final faces or one exact grouped mask descriptor, not one-sided ribbon fallback.',
       status:
-        'inside dashed drag performance slice: exact mask descriptor path is the visible product encoding; outside dashed/outside miter regressions stay governed by Product Output / Diagnostics before broader closure'
+        'center/inside/outside dashed drag performance slice passed: exact descriptor paths are visible product encodings, with outside dashed square reviewed screenshots passing for the self-intersecting star slice'
     },
     {
       row: 'cross-cutting-render-hit-export-diagnostics',
@@ -333,7 +336,7 @@
       'Stroke Geometry',
       4,
       'Build stroke candidates',
-      'Build model-specific candidates: doubled authored center-stroke candidates for solid, interval candidates for dashed allocation, and doubled center-dashed product candidates for constrained inside dashed visible geometry.'
+      'Build model-specific candidates: authored center stroke descriptors for center strokes, interval candidates for dashed allocation, and doubled center-dashed product candidates for constrained inside/outside dashed visible geometry.'
     ],
     [
       'apply-legality',
@@ -361,7 +364,7 @@
       'Stroke Geometry',
       4,
       'Build final faces',
-      'Preserve model-separated provenance and visible/non-visible separation; constrained inside dashed may carry one exact mask render descriptor instead of requiring per-interval visible faces.'
+      'Preserve model-separated provenance and visible/non-visible separation; center dashed and constrained inside/outside dashed may carry exact render descriptors instead of requiring drag-time visible polygon faces.'
     ],
     [
       'emit-render-hit-export-packets',
@@ -375,7 +378,7 @@
       'Product Output',
       5,
       'Render entries',
-      'Prepare renderer-ready visible descriptors; exact center solid alpha-safe native strokes, translucent center solid single-composite descriptors, and single inside dashed mask descriptors may bypass visible polygon projection because each descriptor already represents product-visible geometry.'
+      'Prepare renderer-ready visible descriptors; exact center solid alpha-safe native strokes, translucent center solid single-composite descriptors, center dashed strokePath descriptors, and constrained dashed mask descriptors may bypass visible polygon projection because each descriptor already represents product-visible geometry.'
     ],
     [
       'renderer-projection',
@@ -636,9 +639,9 @@
     'build-stroke-candidates': {
       alignmentStatus: 'guarded',
       latestRule:
-        'Center solid visible candidates may be authored stroke path descriptors; constrained solid candidates remain doubled authored center-stroke candidates with join and miter semantics before masking; dashed candidates keep interval ownership and constrained inside dashed product candidates.',
+        'Center solid and center dashed visible candidates may be authored stroke path descriptors; constrained solid candidates remain doubled authored center-stroke candidates with join and miter semantics before masking; constrained dashed candidates keep interval ownership and inside/outside product descriptors.',
       currentImplementation:
-        'Center solid drag frames may use native authored stroke projection; inside-solid constrained slices still provide authored centerline candidates that downstream grouped render descriptors preserve.',
+        'Center solid drag frames may use native authored stroke projection when alpha-safe; center dashed drag frames use exact authored centerline strokePath descriptors; constrained dashed drag frames use exact inside/outside mask descriptors while preserving terminal-sensitive square/round rules.',
       requiredAdjustment:
         'Keep center, constrained solid, and dashed candidate models separate; do not turn face strips or helper polygons into visible solid geometry.',
       tags: ['canonical', 'guarded']
@@ -656,9 +659,9 @@
     'build-final-faces': {
       alignmentStatus: 'guarded',
       latestRule:
-        'Final records preserve visible descriptors separately from non-visible coverage evidence; constrained inside dashed may carry one exact grouped mask descriptor for product-visible render.',
+        'Final records preserve visible descriptors separately from non-visible coverage evidence; center dashed and constrained inside/outside dashed may carry exact descriptors for product-visible drag render.',
       currentImplementation:
-        'Inside solid uses grouped authored stroke paths; inside dashed drag frames may use one exact mask descriptor with fillClipPolygons, authored dashed strokePaths, and strokePathStyle.',
+        'Inside solid uses grouped authored stroke paths; center dashed drag frames use authored dashed strokePaths; constrained inside/outside dashed drag frames may use one exact mask descriptor with legal-domain clip polygons, authored dashed strokePaths, and strokePathStyle.',
       requiredAdjustment:
         'Keep diagnostics and coverage fragments out of visible product descriptors; do not require per-interval visible polygons when the exact mask descriptor is present.',
       tags: ['canonical', 'guarded']
@@ -676,9 +679,9 @@
     'render-entries': {
       alignmentStatus: 'guarded',
       latestRule:
-        'Render entries are projection-only and must not create constrained stroke semantics; center solid alpha-safe native descriptors, translucent center solid single-composite descriptors, and single exact inside dashed mask descriptors may skip visible polygon projection/collapse.',
+        'Render entries are projection-only and must not create constrained stroke semantics; center solid alpha-safe native descriptors, translucent center solid single-composite descriptors, exact center dashed descriptors, and exact constrained dashed inside/outside mask descriptors may skip visible polygon projection/collapse.',
       currentImplementation:
-        'Center solid drag render uses native projection only for alpha-safe cases and uses single-composite descriptor output for translucent self-intersections; inside dashed drag render consumes the exact descriptor directly so visible frames avoid per-interval product intersection while preserving the doubled center-dashed mask rule.',
+        'Center solid drag render uses native projection only for alpha-safe cases and single-composite descriptor output for translucent self-intersections. Center dashed drag render skips visible packet/geometry rebuilds through exact authored strokePath descriptors; constrained dashed drag render consumes exact inside/outside mask descriptors so visible frames avoid per-interval product intersection while preserving the doubled center-dashed legal-domain rule.',
       tags: ['risk']
     },
     'renderer-projection': {
@@ -688,13 +691,13 @@
       tags: ['risk']
     },
     'visible-final-result': {
-      alignmentStatus: 'outside-dashed-square-visual-review-blocked',
+      alignmentStatus: 'slice-visual-review-passed',
       latestRule:
-        'Final visual review passes only when rule-driven probes and reviewed screenshots cover the current slice; outside dashed square remains blocked.',
+        'Final visual review passes only when rule-driven probes and reviewed screenshots cover the current slice; outside dashed square has current self-intersecting star evidence passing.',
       currentImplementation:
-        'Manual app screenshot review passed for the reported inside-solid slice, but outside dashed square still reports opposite-side probe failures.',
+        'Manual app screenshot review passed for the affected dashed star slice; outside dashed square global and zoom artifacts no longer show missing terminals, thin fragments, or inside-side residuals under the current probes.',
       requiredAdjustment:
-        'Clear outside dashed square Product Output / Diagnostics failures before any broader completion claim.',
+        'Keep whole-engine completion guarded until broader matrix/performance evidence remains current; new screenshot mismatches must reopen the earliest owning inspector step.',
       tags: ['guarded']
     }
   }

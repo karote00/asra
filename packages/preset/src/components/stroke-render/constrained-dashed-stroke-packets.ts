@@ -8588,6 +8588,147 @@ const buildInsideDoubledCenterDashedRenderMaskDescriptor = (
   }
 }
 
+const orientPolygonAsOuter = (polygon: Vec2[]) =>
+  polygonArea(polygon) < 0 ? [...polygon].reverse() : polygon
+
+const orientPolygonAsHole = (polygon: Vec2[]) =>
+  polygonArea(polygon) < 0 ? polygon : [...polygon].reverse()
+
+const getPolygonsBounds = (polygons: Vec2[][]) => {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  polygons.forEach((polygon) => {
+    polygon.forEach((point) => {
+      minX = Math.min(minX, point.x)
+      minY = Math.min(minY, point.y)
+      maxX = Math.max(maxX, point.x)
+      maxY = Math.max(maxY, point.y)
+    })
+  })
+
+  return { minX, minY, maxX, maxY }
+}
+
+const buildBoundsPolygonFromPoints = (points: Vec2[], padding: number) => {
+  const bounds = getPolygonsBounds([points])
+  if (
+    !Number.isFinite(bounds.minX) ||
+    !Number.isFinite(bounds.minY) ||
+    !Number.isFinite(bounds.maxX) ||
+    !Number.isFinite(bounds.maxY)
+  ) {
+    return null
+  }
+
+  return [
+    { x: bounds.minX - padding, y: bounds.minY - padding },
+    { x: bounds.maxX + padding, y: bounds.minY - padding },
+    { x: bounds.maxX + padding, y: bounds.maxY + padding },
+    { x: bounds.minX - padding, y: bounds.maxY + padding }
+  ]
+}
+
+const buildConstrainedDashedIntervalStrokePaths = (
+  sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  intervals: VisibleDashedTopologyInterval[],
+  sourcePathSlicingContext: SourcePathSlicingContext,
+  preferBoundaryDomainPath: boolean
+) =>
+  intervals.flatMap((interval) => {
+    const boundaryPath = preferBoundaryDomainPath
+      ? buildBoundaryDomainPathForInterval(interval)
+      : null
+    const effectivePath = boundaryPath ?? sourcePath
+    const effectiveSlicingContext = boundaryPath
+      ? createSourcePathSlicingContext(
+          boundaryPath,
+          DRAG_SOURCE_PATH_DASH_SLICE_TOLERANCE,
+          DRAG_SOURCE_PATH_DASH_SLICE_SAMPLING,
+          DRAG_ROUND_CAP_VISUAL_MAX_LENGTH
+        )
+      : sourcePathSlicingContext
+
+    return buildInsideDoubledCenterDashedIntervalStrokePath(
+      effectivePath,
+      interval,
+      effectiveSlicingContext
+    )
+  })
+
+const buildOutsideDoubledCenterDashedRenderMaskDescriptor = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  intervals: VisibleDashedTopologyInterval[],
+  authoredStroke: Pick<
+    RenderableStroke,
+    'position' | 'width' | 'join' | 'miterLimit' | 'cap'
+  >,
+  slicingContext: SourcePathSlicingContext,
+  implicitFillRegions: PolygonRegion[],
+  fallbackFillPolygons: Vec2[][]
+) => {
+  if (
+    authoredStroke.position !== 'outside' ||
+    authoredStroke.width <= EPSILON ||
+    intervals.length === 0
+  ) {
+    return null
+  }
+
+  const strokePaths = buildConstrainedDashedIntervalStrokePaths(
+    path,
+    intervals,
+    slicingContext,
+    true
+  )
+  if (strokePaths.length === 0) {
+    return null
+  }
+
+  const fillPolygons = (
+    implicitFillRegions.length > 0
+      ? getCoveragePolygonsFromRegions(implicitFillRegions)
+      : fallbackFillPolygons
+  )
+    .map(cleanPolygon)
+    .filter(hasPolygonGeometry)
+  if (fillPolygons.length === 0) {
+    return null
+  }
+
+  const allClipPoints = [...strokePaths.flat(), ...fillPolygons.flat()]
+  const padding = Math.max(
+    4,
+    authoredStroke.width * Math.max(4, authoredStroke.miterLimit * 2)
+  )
+  const boundsPolygon = buildBoundsPolygonFromPoints(allClipPoints, padding)
+  if (!boundsPolygon) {
+    return null
+  }
+
+  const clipPolygons = [
+    orientPolygonAsOuter(boundsPolygon),
+    ...fillPolygons.map(orientPolygonAsHole)
+  ]
+
+  return {
+    polygons: clipPolygons,
+    renderDescriptor: {
+      clipPolygons,
+      strokePaths,
+      strokePathStyle: {
+        width: authoredStroke.width * 2,
+        cap: authoredStroke.cap,
+        join: authoredStroke.join,
+        miterLimit: authoredStroke.miterLimit,
+        closed: false
+      }
+    }
+  }
+}
+
 const buildInsideDoubledCenterDashedStrokeProductPolygons = (
   path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   intervals: VisibleDashedTopologyInterval[],
@@ -8902,6 +9043,110 @@ export const buildConstrainedDashedStrokeProductVisualEntries = (
       )
     if (visibleIntervals.length === 0) {
       continue
+    }
+
+    if (options.visualOnly === true) {
+      const visualSlicingContext = createSourcePathSlicingContext(
+        sourcePath,
+        DRAG_SOURCE_PATH_DASH_SLICE_TOLERANCE,
+        DRAG_SOURCE_PATH_DASH_SLICE_SAMPLING,
+        DRAG_ROUND_CAP_VISUAL_MAX_LENGTH
+      )
+      const descriptor =
+        stroke.position === 'inside'
+          ? buildInsideDoubledCenterDashedRenderMaskDescriptor(
+              sourcePath,
+              visibleIntervals,
+              stroke,
+              visualSlicingContext,
+              options.implicitFillRegions ?? []
+            )
+          : buildOutsideDoubledCenterDashedRenderMaskDescriptor(
+              sourcePath,
+              visibleIntervals,
+              stroke,
+              visualSlicingContext,
+              options.implicitFillRegions ?? [],
+              [topologyPoints]
+            )
+
+      if (descriptor) {
+        const geometryId = `${cachePrefix}:${strokeIndex}:product-visual-mask`
+        const classification = {
+          sourceTopology,
+          intervalTopology: 'other',
+          acceptsFullLoopRoundJoin: true,
+          acceptsSingleEdgeRoundCap: true,
+          acceptsCornerSpanningJoin: true
+        } satisfies ConstrainedDashedIntervalClassification
+        const revisionSet = buildStrokeRuntimeRevisionSet({
+          points: topologyPoints,
+          closed: topology.closed,
+          stroke,
+          geometryFamily: 'constrained-dashed',
+          resolutionStatus: getConstrainedDashedResolutionStatus(
+            classification.sourceTopology,
+            classification.intervalTopology,
+            !topology.closed && !topology.isSimpleOpen
+          ),
+          runtimeStatus: 'accepted',
+          ownerKey: `${ownerPrefix}:stroke:${strokeIndex}`,
+          networkId: options.metadata?.networkId,
+          strokeId: `stroke:${strokeIndex}`,
+          intervalSignature: buildVisibleIntervalSignature(visibleIntervals),
+          sourceTopology: classification.sourceTopology,
+          intervalTopology: classification.intervalTopology,
+          previewMode: 'drag-visual'
+        })
+        const debugMeta: SolidCenterStrokeGeometryDebugMeta = {
+          sourcePathId: cachePrefix,
+          ownerKey: `${ownerPrefix}:stroke:${strokeIndex}`,
+          networkId: options.metadata?.networkId,
+          strokeId: `stroke:${strokeIndex}`,
+          strokeIndex,
+          contourId,
+          intervalId: 'product-visual-mask',
+          strokePosition: stroke.position,
+          ownerSet: options.metadata?.ownerSet,
+          geometryFamily: 'constrained-dashed',
+          resolutionStatus: getConstrainedDashedResolutionStatus(
+            classification.sourceTopology,
+            classification.intervalTopology,
+            !topology.closed && !topology.isSimpleOpen
+          ),
+          runtimeStatus: 'accepted',
+          sourceTopology: classification.sourceTopology,
+          topologyFamily: topology.topologyFamily,
+          intervalTopology: classification.intervalTopology,
+          finalCoverageBuilderStatus: 'product-final',
+          intervalSweepSpanCount: visibleIntervals.length,
+          terminalCapCount:
+            stroke.cap === 'round' ? visibleIntervals.length * 2 : undefined,
+          revisionSet
+        }
+
+        entries.push({
+          cacheKey: geometryId,
+          stroke: {
+            kind: stroke.kind,
+            color: stroke.color,
+            alpha: stroke.alpha,
+            gradientStyle: stroke.gradientStyle,
+            paintKey: stroke.paintKey
+          },
+          polygons: descriptor.polygons,
+          fillClipPolygons: descriptor.renderDescriptor.fillClipPolygons,
+          clipPolygons: descriptor.renderDescriptor.clipPolygons,
+          strokePaths: descriptor.renderDescriptor.strokePaths,
+          strokePathStyle: descriptor.renderDescriptor.strokePathStyle,
+          debugMeta,
+          revisionSet
+        })
+        emitStrokePipelineCounter(
+          `constrained-dashed-${stroke.position}-mask-visual-entry`
+        )
+        continue
+      }
     }
 
     const intervalStroke = getIntervalStrokeForSourceDirection(

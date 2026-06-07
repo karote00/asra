@@ -467,10 +467,7 @@ describe('stroke drag complete render contract', () => {
     expect(phases.has('constrained dashed acceptance')).toBe(true)
     expect(phases.has('constrained dashed promotion')).toBe(true)
     expectFullStrokeRenderCache(graphic)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0
-    ).toBeGreaterThan(0)
-    expect(graphic.hitArea ?? null).not.toBeNull()
+    expect(hasCurrentStrokeProductOutput(graphic)).toBe(true)
     clearInteractionState()
   })
 
@@ -499,9 +496,7 @@ describe('stroke drag complete render contract', () => {
     expect(dragCounters['vector-hit-area-drag-cache-hit']).toBe(1)
     expect(dragCounters['vector-hit-area-rebuild'] ?? 0).toBe(0)
     expectFullStrokeRenderCache(graphic)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0
-    ).toBeGreaterThan(0)
+    expect(hasCurrentStrokeProductOutput(graphic)).toBe(true)
 
     setPathEditingState({
       vectorId: 'drag-profile:anchor',
@@ -513,6 +508,9 @@ describe('stroke drag complete render contract', () => {
     })
 
     expect(graphic.hitArea ?? null).not.toBeNull()
+    expect(
+      graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0
+    ).toBeGreaterThan(0)
     expect(finalCounters['vector-hit-area-rebuild']).toBe(1)
     clearInteractionState()
   })

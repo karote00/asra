@@ -19,7 +19,7 @@ type StrokeCase =
   | {
       label: string
       style: 'dashed'
-      position: 'inside'
+      position: 'center' | 'inside' | 'outside'
       cap: 'butt' | 'square' | 'round'
     }
 
@@ -147,6 +147,24 @@ const PERFORMANCE_FILL_COLOR = '#cccccc'
 
 const STROKE_CASES: StrokeCase[] = [
   {
+    label: 'center-dashed-butt',
+    style: 'dashed',
+    position: 'center',
+    cap: 'butt'
+  },
+  {
+    label: 'center-dashed-square',
+    style: 'dashed',
+    position: 'center',
+    cap: 'square'
+  },
+  {
+    label: 'center-dashed-round',
+    style: 'dashed',
+    position: 'center',
+    cap: 'round'
+  },
+  {
     label: 'inside-dashed-butt',
     style: 'dashed',
     position: 'inside',
@@ -162,6 +180,24 @@ const STROKE_CASES: StrokeCase[] = [
     label: 'inside-dashed-round',
     style: 'dashed',
     position: 'inside',
+    cap: 'round'
+  },
+  {
+    label: 'outside-dashed-butt',
+    style: 'dashed',
+    position: 'outside',
+    cap: 'butt'
+  },
+  {
+    label: 'outside-dashed-square',
+    style: 'dashed',
+    position: 'outside',
+    cap: 'square'
+  },
+  {
+    label: 'outside-dashed-round',
+    style: 'dashed',
+    position: 'outside',
     cap: 'round'
   },
   {

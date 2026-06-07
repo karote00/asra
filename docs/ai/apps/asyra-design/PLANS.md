@@ -34,8 +34,9 @@ specification files must not remain in the docs tree.
   handle drag plus structural vector operations must express explicit
   operations, write canonical workspace/world vector data through computed
   patches, and let render consume committed downstream state.
-- The outside dashed square visual gate remains open. This is tracked at the
-  Product Output / visual review step, not as a whole-system completion claim.
+- The outside dashed square visual gate has current rule-driven probes and
+  reviewed screenshots passing for the self-intersecting star slice. This is
+  slice evidence, not a whole-engine completion claim.
 - No whole-engine completion claim is active.
 - The 2026-05-31 reported self-intersecting inside solid slice now has focused
   unit probes, e2e pixel gates, and manual app screenshot review passing for
@@ -89,6 +90,15 @@ alpha. Polygon packets may still exist for hit/export/diagnostics, but
 drag-time visible render must not require rebuilding unioned center-stroke
 polygons when the authored stroke descriptor is the exact product.
 
+For `center` dashed strokes, the product-visible geometry is the authored
+center dashed stroke itself. Drag-time visible render may encode visible dash
+intervals as authored centerline `strokePaths` with the authored `strokeCap`,
+`strokeJoin`, `strokeMiterLimit`, and dash allocation already resolved. This
+path descriptor is the exact center dashed product for visible render; it is
+not a preview. Normal drag frames must not require rebuilding center dashed
+polygon packets or resolved self-intersection geometry when no diagnostics,
+hit/export materialization, or constrained-domain rule needs those polygons.
+
 Dashed constrained strokes remain a separate interval-domain model for dash
 allocation, but constrained `inside` dashed visible geometry follows the same
 Asyra doubled center-stroke mask rule as constrained solid geometry. For each split source
@@ -109,6 +119,15 @@ or approximation. When a frame has one exact inside dashed mask descriptor for
 one fill domain and one stroke style, same-visual overlap collapse is not
 required; diagnostics/export may still keep per-interval evidence, but visible
 render must consume the exact descriptor.
+
+For product-visible constrained `outside` dashed render, drag-time visible
+render may use the same exact descriptor model with an exterior clip mask:
+authored doubled center-dashed `strokePaths`, authored cap/join/miter style,
+and clip polygons representing the outside legal domain. Square and round caps
+remain terminal-sensitive; their domain/cap rules must stay exact and must not
+be replaced by a simplified side ribbon. Butt-cap outside dashed drag may use a
+fill-only resolved geometry model only when no terminal/cap rule depends on
+full self-intersection stroke-boundary metadata.
 
 ### Required Stroke / Vector System Flow
 
@@ -169,8 +188,9 @@ Stroke-related behavior must be observed as one deterministic system flow:
 - Product Output steps own render/hit/export packet projection and renderer
   draw entries without changing stroke semantics.
 - Diagnostics and final visual review are the only completion gates. Current
-  outside dashed square failures remain blocked here until reviewed screenshots
-  and rule-driven probes pass.
+  outside dashed square slice evidence is passed for the current reviewed
+  screenshots and rule-driven probes, but whole-engine completion remains
+  guarded until the broader matrix and performance gates are validated.
 - Diagnostics for translucent self-intersecting center solid strokes must include
   same-paint alpha-overlap probes. A screenshot passes only when self-crossings
   have the same paint strength as adjacent body stroke samples and do not become
