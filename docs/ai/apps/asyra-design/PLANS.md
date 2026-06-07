@@ -79,6 +79,16 @@ For self-intersecting inside solid shapes in grid/vector-network state:
   and coverage probes are evidence only and must not become product-visible
   stroke geometry.
 
+For `center` solid strokes, the product-visible geometry is the authored
+center stroke itself. Self-intersecting center solid vectors may render that
+product as an authored stroke path descriptor with `strokeJoin`, `strokeCap`,
+and `strokeMiterLimit` preserved. Native stroke projection is allowed only when
+it is alpha-safe for the visible product; translucent self-intersecting center
+strokes must use a single-composite descriptor so crossings do not accumulate
+alpha. Polygon packets may still exist for hit/export/diagnostics, but
+drag-time visible render must not require rebuilding unioned center-stroke
+polygons when the authored stroke descriptor is the exact product.
+
 Dashed constrained strokes remain a separate interval-domain model for dash
 allocation, but constrained `inside` dashed visible geometry follows the same
 Asyra doubled center-stroke mask rule as constrained solid geometry. For each split source

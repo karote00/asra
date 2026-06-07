@@ -76,6 +76,16 @@ The solid product must not be represented as direct constrained-side visible
 geometry. Region faces, strip fragments, helper polygons, and topology evidence
 can justify legality, but they are not the visible solid stroke.
 
+For `center` solid strokes, the product-visible encoding is the authored center
+stroke. A self-intersecting center solid vector may use an authored stroke path
+descriptor for visible render, preserving `strokeJoin`, `strokeCap`, and
+`strokeMiterLimit`. Native stroke projection is valid only when it is
+alpha-safe for the visible product; translucent self-intersecting center strokes
+must render through a single-composite descriptor so crossings do not accumulate
+alpha. Exact polygon packets remain valid for hit/export/diagnostics, but they
+are not required before each drag-time visible frame when the authored center
+stroke path is the product.
+
 For adjacency-aware self-intersecting masks, a grouped render descriptor may
 carry authored centerline stroke paths with explicit clip groups. Those groups
 are an encoding of the masked authored stroke source: they must preserve

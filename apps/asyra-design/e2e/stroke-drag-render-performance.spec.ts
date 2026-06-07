@@ -1958,6 +1958,8 @@ const captureSelectedElementStrokeDiagnostics = async (page: Page) => {
               graphic.__asyraSolidCenterStrokeExportPackets?.length ?? null,
             nativeCenterSolidStrokeRenderCount:
               graphic.__asyraNativeCenterSolidStrokeRenderCount ?? null,
+            centerSolidPathMaskRenderCount:
+              graphic.__asyraCenterSolidPathMaskRenderCount ?? null,
             cacheEntries
           }
         : null,
@@ -1967,6 +1969,27 @@ const captureSelectedElementStrokeDiagnostics = async (page: Page) => {
   })
   return { rect, viewportState }
 }
+
+const getSelectedElementCenterSolidRenderRoute = async (page: Page) =>
+  page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId =
+      core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+    const renderLayer =
+      core?.deps?.render?.viewport?.renderLayer ??
+      core?.deps?.render?.viewportLayer?.renderLayer
+    const graphic = selectedId
+      ? renderLayer?.getAllElements?.()?.get?.(selectedId)
+      : undefined
+    return {
+      selectedId,
+      nativeCenterSolidStrokeRenderCount:
+        graphic?.__asyraNativeCenterSolidStrokeRenderCount ?? 0,
+      centerSolidPathMaskRenderCount:
+        graphic?.__asyraCenterSolidPathMaskRenderCount ?? 0
+    }
+  })
 
 const startRenderPipelineDiagnostics = async (page: Page) => {
   await page.evaluate(() => {
@@ -2276,6 +2299,15 @@ const measureMoveVectorElement = async (
       const stats = await captureSelectedElementStrokeStats(page)
       expect(stats.strokeCoverage).toBeGreaterThan(0.0005)
       expect(stats.doubleAlphaCoverage).toBeLessThan(0.08)
+      const route = await getSelectedElementCenterSolidRenderRoute(page)
+      expect(
+        route.nativeCenterSolidStrokeRenderCount,
+        'translucent self-intersecting center solid drag must not use native self-composited stroke output'
+      ).toBe(0)
+      expect(
+        route.centerSolidPathMaskRenderCount,
+        'translucent self-intersecting center solid drag must use single-composite path-mask output'
+      ).toBeGreaterThan(0)
     }
   }
   await page.mouse.up()
@@ -2289,6 +2321,15 @@ const measureMoveVectorElement = async (
     finalStats.doubleAlphaCoverage,
     'move-vector should not show product double-alpha overlap after mouseup'
   ).toBeLessThan(0.08)
+  const finalRoute = await getSelectedElementCenterSolidRenderRoute(page)
+  expect(
+    finalRoute.nativeCenterSolidStrokeRenderCount,
+    'translucent self-intersecting center solid after mouseup must not use native self-composited stroke output'
+  ).toBe(0)
+  expect(
+    finalRoute.centerSolidPathMaskRenderCount,
+    'translucent self-intersecting center solid after mouseup must use single-composite path-mask output'
+  ).toBeGreaterThan(0)
   const phaseSummary = summarizeFrameProfiles(
     frameProfiles,
     frameTimes.length,

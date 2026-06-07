@@ -125,6 +125,8 @@ beforeAll(async () => {
 
 class RecordingVectorGraphic extends Container {
   __asyraSolidCenterStrokeExportPackets?: unknown[]
+  __asyraNativeCenterSolidStrokeRenderCount?: number
+  __asyraCenterSolidPathMaskRenderCount?: number
   __asyraStrokeMeshCache?: Map<string, { kind?: string }>
   __asyraVectorPathModelCache?: {
     entries: Map<
@@ -210,6 +212,8 @@ const getStrokeCacheEntries = (graphic: RecordingVectorGraphic) =>
   Array.from(graphic.__asyraStrokeMeshCache?.entries() ?? [])
 
 const hasCurrentStrokeProductOutput = (graphic: RecordingVectorGraphic) =>
+  (graphic.__asyraNativeCenterSolidStrokeRenderCount ?? 0) > 0 ||
+  (graphic.__asyraCenterSolidPathMaskRenderCount ?? 0) > 0 ||
   (graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0) > 0 ||
   getStrokeCacheEntries(graphic).some(
     ([, entry]) =>
@@ -317,13 +321,14 @@ const createStroke = (capType: 'butt' | 'square' | 'round') =>
     color: '#d51a1a'
   })
 
-const createCenterSolidStroke = () =>
+const createCenterSolidStroke = (opacity = 1) =>
   createDefaultStroke({
     id: 'drag-center-solid',
     width: 10,
     style: StrokeStyles.SOLID,
     position: StrokePositions.CENTER,
     capType: StrokeCapTypes.ROUND,
+    opacity,
     color: '#d51a1a'
   })
 
@@ -576,6 +581,71 @@ describe('stroke drag complete render contract', () => {
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0
     ).toBeGreaterThan(0)
+    clearInteractionState()
+  })
+
+  it('should use native center solid visible render during drag without visible polygon packets', () => {
+    const graphic = new RecordingVectorGraphic()
+    const stroke = createCenterSolidStroke()
+    const data = mutateDragFrame(8, 'anchor')
+
+    setPathEditingState({
+      vectorId: 'drag-profile:center-solid-anchor',
+      mouseDragging: true,
+      mouseDown: true
+    })
+    const dragCounters = collectStrokePipelineCounters(() => {
+      renderVectorFrame(graphic, data, stroke)
+    })
+
+    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(1)
+    expect(
+      dragCounters['native-center-solid-visible-packet-skip']
+    ).toBeGreaterThan(0)
+    expect(graphic.__asyraSolidCenterStrokeExportPackets ?? []).toHaveLength(0)
+    expect(hasCurrentStrokeProductOutput(graphic)).toBe(true)
+
+    setPathEditingState({
+      vectorId: 'drag-profile:center-solid-anchor',
+      mouseDragging: false,
+      mouseDown: false
+    })
+    renderVectorFrame(graphic, data, stroke)
+
+    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(1)
+    expect(
+      graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0
+    ).toBeGreaterThan(0)
+    clearInteractionState()
+  })
+
+  it('should use a single-composite path mask for translucent self-intersecting center solid drag', () => {
+    const graphic = new RecordingVectorGraphic()
+    const stroke = createCenterSolidStroke(0.5)
+    const data = mutateDragFrame(8, 'anchor')
+
+    setPathEditingState({
+      vectorId: 'drag-profile:center-solid-anchor',
+      mouseDragging: true,
+      mouseDown: true
+    })
+    const dragCounters = collectStrokePipelineCounters(() => {
+      renderVectorFrame(graphic, data, stroke)
+    })
+
+    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(graphic.__asyraCenterSolidPathMaskRenderCount).toBe(1)
+    expect(
+      dragCounters['path-mask-center-solid-visible-packet-skip']
+    ).toBeGreaterThan(0)
+    expect(graphic.__asyraSolidCenterStrokeExportPackets ?? []).toHaveLength(0)
+    expect(
+      getStrokeCacheEntries(graphic).some(
+        ([, entry]) => entry.kind === 'masked-solid'
+      )
+    ).toBe(true)
+    expect(hasCurrentStrokeProductOutput(graphic)).toBe(true)
+
     clearInteractionState()
   })
 

@@ -22,6 +22,7 @@
     'Scene-tree and data-channel publish computed patch updates with changed scalar values and record ids. They must not force unrelated full-topology rewrites.',
     'Render is a downstream consumer. Render mirror/cache applies committed patches exactly once and derives render data from committed state.',
     'Stroke geometry stages consume normalized render data only; they must not depend on feature-local state, undo payload cleanup, or direct app-to-render synchronization.',
+    'Center solid visible render is the authored center stroke. Self-intersecting center solid vectors may use authored stroke path descriptors while preserving strokeJoin, strokeCap, and strokeMiterLimit; native projection is allowed only when alpha-safe, while translucent self-intersections require single-composite descriptor output.',
     'Constrained solid visible render uses the Asyra doubled authored center-stroke mask model: build the authored center stroke at twice the requested stroke width, apply strokeJoin and strokeMiterLimit there, then clip by the inside filled-region mask or outside exterior mask.',
     'Self-intersecting inside solid visible pixels must come from the doubled authored center stroke clipped by a face, winding, and adjacency-aware filled-region mask.',
     'Grouped render descriptors may encode the adjacency-aware mask only as authored centerline stroke paths with explicit clip groups; they must not expose face strips, helper polygons, or derivation fragments as visible product geometry.',
@@ -99,6 +100,13 @@
         'Doubled authored center stroke clipped by a face, winding, and adjacency-aware inside filled-region mask; internal shared edges reveal half width from each adjacent filled face; all five internal pentagon corners vary with strokeJoin and strokeMiterLimit; visible render contains no derivation fragments.',
       status:
         'slice passed: reported 2026-05-31 inside solid case passed probes, e2e pixel gates, and manual screenshot review'
+    },
+    {
+      row: 'self-intersecting-solid-center',
+      requiredEvidence:
+        'Authored center stroke path is the visible product; descriptor/native projection preserves cap, join, and miter semantics, translucent crossings do not accumulate alpha, and polygon packets stay available for hit/export/diagnostics when needed.',
+      status:
+        'center solid drag performance slice: opaque alpha-safe frames may use native projection; translucent self-intersecting frames use single-composite descriptor output'
     },
     {
       row: 'self-intersecting-solid-outside',
@@ -351,7 +359,7 @@
       'Product Output',
       5,
       'Render entries',
-      'Prepare renderer-ready visible descriptors; exact single inside dashed mask descriptors may bypass same-visual overlap collapse because the descriptor already represents one product-visible masked stroke.'
+      'Prepare renderer-ready visible descriptors; exact center solid alpha-safe native strokes, translucent center solid single-composite descriptors, and single inside dashed mask descriptors may bypass visible polygon projection because each descriptor already represents product-visible geometry.'
     ],
     [
       'renderer-projection',
@@ -566,11 +574,11 @@
     'build-stroke-candidates': {
       alignmentStatus: 'guarded',
       latestRule:
-        'Solid candidates are doubled authored center-stroke candidates with join and miter semantics before masking; dashed candidates keep interval ownership and constrained inside dashed product candidates.',
+        'Center solid visible candidates may be authored stroke path descriptors; constrained solid candidates remain doubled authored center-stroke candidates with join and miter semantics before masking; dashed candidates keep interval ownership and constrained inside dashed product candidates.',
       currentImplementation:
-        'For the reported inside-solid slice, Stroke Geometry candidate building provides authored centerline candidates that downstream grouped render descriptors preserve.',
+        'Center solid drag frames may use native authored stroke projection; inside-solid constrained slices still provide authored centerline candidates that downstream grouped render descriptors preserve.',
       requiredAdjustment:
-        'Keep solid and dashed candidate models separate; do not turn face strips or helper polygons into visible solid geometry.',
+        'Keep center, constrained solid, and dashed candidate models separate; do not turn face strips or helper polygons into visible solid geometry.',
       tags: ['canonical', 'guarded']
     },
     'apply-legality': {
@@ -606,9 +614,9 @@
     'render-entries': {
       alignmentStatus: 'guarded',
       latestRule:
-        'Render entries are projection-only and must not create constrained stroke semantics; a single exact inside dashed mask descriptor may skip same-visual overlap collapse.',
+        'Render entries are projection-only and must not create constrained stroke semantics; center solid alpha-safe native descriptors, translucent center solid single-composite descriptors, and single exact inside dashed mask descriptors may skip visible polygon projection/collapse.',
       currentImplementation:
-        'Inside dashed drag render consumes the exact descriptor directly so visible frames avoid per-interval product intersection while preserving the doubled center-dashed mask rule.',
+        'Center solid drag render uses native projection only for alpha-safe cases and uses single-composite descriptor output for translucent self-intersections; inside dashed drag render consumes the exact descriptor directly so visible frames avoid per-interval product intersection while preserving the doubled center-dashed mask rule.',
       tags: ['risk']
     },
     'renderer-projection': {

@@ -73,8 +73,12 @@ import {
   buildCompoundLegalDomainNormalization,
   type NormalizedLegalDomain
 } from './stroke-render/legal-domain-normalization'
-import { renderSolidCenterStrokeEntries } from './stroke-render/solid-center-stroke-render'
+import {
+  renderSolidCenterStrokeEntries,
+  type SolidCenterStrokeRenderEntry
+} from './stroke-render/solid-center-stroke-render'
 import { shouldEmitFullStrokeDiagnostics } from './stroke-render/stroke-diagnostics-mode'
+import { buildStrokeRuntimeRevisionSet } from './stroke-render/stroke-dirty-keys'
 import {
   attachStrokePacketDebugMeta,
   applySolidCenterStrokeExportPacketsFromFinalFaces,
@@ -120,6 +124,13 @@ interface VectorStrokeDebugOptions {
 
 interface NativeCenterSolidVisualStrokeGroup {
   network: VectorNetwork
+  strokes: RenderableStroke[]
+}
+
+interface CenterSolidPathMaskVisualStrokeGroup {
+  network: VectorNetwork
+  path: VectorPathGeometryModel
+  topology: PathTopologyModel
   strokes: RenderableStroke[]
 }
 
@@ -2176,11 +2187,123 @@ const drawNativeCenterSolidStrokePath = (
   })
 }
 
-const isNativeCenterSolidVisualStroke = (stroke: RenderableStroke) =>
+const isCenterSolidVisualStroke = (stroke: RenderableStroke) =>
   stroke.style === 'solid' &&
   stroke.position === 'center' &&
   stroke.kind === 'solid' &&
   stroke.width > 0
+
+const isSelfIntersectingCenterSolidTopology = (topology: PathTopologyModel) =>
+  topology.topologyFamily === 'self-intersecting' ||
+  (topology.sourceSplitRanges?.length ?? 0) > 0
+
+const isAlphaSafeNativeCenterSolidStroke = (
+  stroke: RenderableStroke,
+  topology: PathTopologyModel
+) =>
+  stroke.alpha >= 0.999 ||
+  (topology.topologyFamily !== 'self-intersecting' &&
+    topology.sourceSplitRanges.length === 0)
+
+const isNativeCenterSolidVisualStroke = (
+  stroke: RenderableStroke,
+  topology: PathTopologyModel
+) =>
+  isSelfIntersectingCenterSolidTopology(topology) &&
+  isCenterSolidVisualStroke(stroke) &&
+  isAlphaSafeNativeCenterSolidStroke(stroke, topology)
+
+const shouldRenderCenterSolidWithPathMask = (
+  stroke: RenderableStroke,
+  topology: PathTopologyModel
+) =>
+  isSelfIntersectingCenterSolidTopology(topology) &&
+  isCenterSolidVisualStroke(stroke) &&
+  !isAlphaSafeNativeCenterSolidStroke(stroke, topology)
+
+const buildBoundsPolygon = (
+  bounds: ReturnType<typeof getPointBounds>,
+  padding: number
+) => [
+  { x: bounds.minX - padding, y: bounds.minY - padding },
+  { x: bounds.maxX + padding, y: bounds.minY - padding },
+  { x: bounds.maxX + padding, y: bounds.maxY + padding },
+  { x: bounds.minX - padding, y: bounds.maxY + padding }
+]
+
+const buildCenterSolidPathMaskRenderEntry = (
+  vectorId: string,
+  group: CenterSolidPathMaskVisualStrokeGroup,
+  stroke: RenderableStroke,
+  isDragVisual: boolean
+): SolidCenterStrokeRenderEntry | null => {
+  const strokePath = group.path.sampledPoints
+  if (strokePath.length < 2) {
+    return null
+  }
+
+  const bounds = getPointBounds(strokePath)
+  if (
+    !Number.isFinite(bounds.minX) ||
+    !Number.isFinite(bounds.minY) ||
+    !Number.isFinite(bounds.maxX) ||
+    !Number.isFinite(bounds.maxY)
+  ) {
+    return null
+  }
+
+  const padding = Math.max(1, stroke.width * Math.max(2, stroke.miterLimit))
+  const sourceTopology =
+    group.topology.topologyFamily === 'self-intersecting'
+      ? 'self-intersecting'
+      : group.topology.topologyFamily === 'sampled-simple-closed'
+        ? 'sampled-simple-closed'
+        : group.topology.closed
+          ? 'broader-simple-closed'
+          : 'open'
+
+  return {
+    cacheKey: `vector:${vectorId}:${group.network.id}:center:path-mask:${stroke.paintKey ?? 'solid'}`,
+    stroke: {
+      kind: stroke.kind,
+      color: stroke.color,
+      alpha: stroke.alpha,
+      gradientStyle: stroke.gradientStyle,
+      paintKey: stroke.paintKey
+    },
+    polygons: [buildBoundsPolygon(bounds, padding)],
+    strokePaths: [strokePath],
+    strokePathStyle: {
+      width: stroke.width,
+      cap: stroke.cap,
+      join: stroke.join,
+      miterLimit: stroke.miterLimit,
+      closed: group.network.closed
+    },
+    debugMeta: {
+      geometryFamily: 'solid-center',
+      resolutionStatus: 'native-center',
+      runtimeStatus: 'accepted',
+      runtimeReason: 'center-stroke',
+      sourceTopology,
+      topologyFamily: group.topology.topologyFamily,
+      strokePosition: 'center',
+      visualOverlapCollapseStatus: 'exact-union'
+    },
+    revisionSet: buildStrokeRuntimeRevisionSet({
+      points: strokePath,
+      closed: group.network.closed,
+      stroke,
+      geometryFamily: 'solid-center',
+      resolutionStatus: 'native-center',
+      runtimeStatus: 'accepted',
+      runtimeReason: 'center-stroke',
+      networkId: group.network.id,
+      sourceTopology,
+      previewMode: isDragVisual ? 'drag-visual' : 'exact'
+    })
+  }
+}
 
 const shouldRenderCenterSolidFaceWithNativeVisual = (
   face: SolidStrokeFinalFaceList[number]
@@ -2278,6 +2401,11 @@ const renderVectorGraphic = (
         __asyraNativeCenterSolidStrokeRenderCount?: number
       }
     ).__asyraNativeCenterSolidStrokeRenderCount = 0
+    ;(
+      graphic as typeof graphic & {
+        __asyraCenterSolidPathMaskRenderCount?: number
+      }
+    ).__asyraCenterSolidPathMaskRenderCount = 0
     applySolidCenterStrokeExportPacketsFromFinalFaces(graphic, [])
     renderSolidCenterStrokeEntries(graphic, [])
     return
@@ -3038,23 +3166,42 @@ const renderVectorGraphic = (
     shouldDisableVisualOverlapCollapse
       ? []
       : networkPaths.flatMap(({ network, topology }) => {
-          const resolvedSelfIntersectingGeometry =
-            resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
-          if (
-            topology.topologyFamily === 'self-intersecting' ||
-            (resolvedSelfIntersectingGeometry?.sourceSplitRanges.length ?? 0) >
-              0
-          ) {
-            return []
-          }
           const renderStrokesForNetwork = topology.closed
             ? renderData.strokes
             : mapOpenPathStrokePositionToCenter(renderData.strokes)
           const strokes = getRenderableStrokes(renderStrokesForNetwork).filter(
-            isNativeCenterSolidVisualStroke
+            (stroke) => isNativeCenterSolidVisualStroke(stroke, topology)
           )
           return strokes.length > 0 ? [{ network, strokes }] : []
         })
+  const nativeCenterSolidVisualStrokeGroupByNetworkId = new Map(
+    nativeCenterSolidVisualStrokeGroups.map((group) => [
+      group.network.id,
+      group
+    ])
+  )
+  const centerSolidPathMaskVisualStrokeGroups: CenterSolidPathMaskVisualStrokeGroup[] =
+    shouldDisableVisualOverlapCollapse
+      ? []
+      : networkPaths.flatMap(({ network, path, topology }) => {
+          const renderStrokesForNetwork = topology.closed
+            ? renderData.strokes
+            : mapOpenPathStrokePositionToCenter(renderData.strokes)
+          const strokes = getRenderableStrokes(renderStrokesForNetwork).filter(
+            (stroke) => shouldRenderCenterSolidWithPathMask(stroke, topology)
+          )
+          return strokes.length > 0 ? [{ network, path, topology, strokes }] : []
+        })
+  const centerSolidPathMaskVisualStrokeGroupByNetworkId = new Map(
+    centerSolidPathMaskVisualStrokeGroups.map((group) => [
+      group.network.id,
+      group
+    ])
+  )
+  const directCenterSolidVisualNetworkIds = new Set([
+    ...nativeCenterSolidVisualStrokeGroups.map((group) => group.network.id),
+    ...centerSolidPathMaskVisualStrokeGroups.map((group) => group.network.id)
+  ])
   const renderedDashedCenterPackets: ReturnType<
     typeof buildDashedCenterStrokeResolvedPackets
   > = []
@@ -3069,6 +3216,13 @@ const renderVectorGraphic = (
       const hasNetworkCenterSolidIntent = hasSolidCenterStrokeIntent(
         renderStrokesForNetwork
       )
+      const shouldSkipCenterSolidVisiblePackets =
+        isMouseDragging &&
+        !shouldAttachFullStrokeDiagnostics &&
+        ((nativeCenterSolidVisualStrokeGroupByNetworkId.get(network.id)
+          ?.strokes.length ?? 0) > 0 ||
+          (centerSolidPathMaskVisualStrokeGroupByNetworkId.get(network.id)
+            ?.strokes.length ?? 0) > 0)
       const constrainedNetworkDiagnostics = constrainedSolidDiagnostics.find(
         (entry) => entry.networkId === network.id
       )
@@ -3130,8 +3284,8 @@ const renderVectorGraphic = (
           )
         : []
       renderedDashedCenterPackets.push(...networkDashedCenterPackets)
-      return [
-        ...(hasNetworkCenterSolidIntent
+      const networkCenterSolidPackets =
+        hasNetworkCenterSolidIntent && !shouldSkipCenterSolidVisiblePackets
           ? buildSolidCenterStrokeResolvedPackets(
               `vector:${renderData.id}:${network.id}:center`,
               topology.normalizedPoints,
@@ -3146,7 +3300,18 @@ const renderVectorGraphic = (
                 preferStrokePathRenderDescriptor: false
               }
             )
-          : []),
+          : []
+      if (hasNetworkCenterSolidIntent && shouldSkipCenterSolidVisiblePackets) {
+        emitStrokePipelineCounter('native-center-solid-visible-packet-skip')
+        if (
+          (centerSolidPathMaskVisualStrokeGroupByNetworkId.get(network.id)
+            ?.strokes.length ?? 0) > 0
+        ) {
+          emitStrokePipelineCounter('path-mask-center-solid-visible-packet-skip')
+        }
+      }
+      return [
+        ...networkCenterSolidPackets,
         ...networkDashedCenterPackets,
         ...(topology.closed
           ? (constrainedNetworkDiagnostics?.packets.filter(
@@ -3263,11 +3428,28 @@ const renderVectorGraphic = (
     }
   )
   const strokeRenderFaces =
-    nativeCenterSolidVisualStrokeGroups.length > 0
+    directCenterSolidVisualNetworkIds.size > 0
       ? strokeFinalFaces.filter(
-          (face) => !shouldRenderCenterSolidFaceWithNativeVisual(face)
+          (face) =>
+            !(
+              shouldRenderCenterSolidFaceWithNativeVisual(face) &&
+              typeof face.debugMeta?.networkId === 'string' &&
+              directCenterSolidVisualNetworkIds.has(face.debugMeta.networkId)
+            )
         )
       : strokeFinalFaces
+  const centerSolidPathMaskRenderEntries =
+    centerSolidPathMaskVisualStrokeGroups.flatMap((group) =>
+      group.strokes.flatMap((stroke) => {
+        const entry = buildCenterSolidPathMaskRenderEntry(
+          renderData.id,
+          group,
+          stroke,
+          isMouseDragging
+        )
+        return entry ? [entry] : []
+      })
+    )
 
   const applyVectorHoverHitArea = () => {
     const hitCache: VectorHitCache = graphicCache.__asyraVectorHitCache ?? {}
@@ -3534,7 +3716,10 @@ const renderVectorGraphic = (
         )
       )
     })
-  } else if (strokeRenderFaces.length === 0) {
+  } else if (
+    strokeRenderFaces.length === 0 &&
+    centerSolidPathMaskRenderEntries.length === 0
+  ) {
     drawVectorPath(graphic, orderedNetworks, points, segments)
   }
   ;(
@@ -3553,10 +3738,23 @@ const renderVectorGraphic = (
       0
     )
   )
+  ;(
+    graphic as typeof graphic & {
+      __asyraCenterSolidPathMaskRenderCount?: number
+    }
+  ).__asyraCenterSolidPathMaskRenderCount =
+    centerSolidPathMaskRenderEntries.length
+  emitStrokePipelineCounter(
+    'path-mask-center-solid-stroke-render-count',
+    centerSolidPathMaskRenderEntries.length
+  )
   const strokeRenderEntries = measureVectorRenderPhase('render entries', () => {
-    return toSolidCenterStrokeRenderEntriesFromFinalFaces(strokeRenderFaces, {
-      collapseDashedCenterVisualOverlaps: !shouldDisableVisualOverlapCollapse
-    })
+    return [
+      ...centerSolidPathMaskRenderEntries,
+      ...toSolidCenterStrokeRenderEntriesFromFinalFaces(strokeRenderFaces, {
+        collapseDashedCenterVisualOverlaps: !shouldDisableVisualOverlapCollapse
+      })
+    ]
   })
 
   measureVectorRenderPhase('mesh render', () =>

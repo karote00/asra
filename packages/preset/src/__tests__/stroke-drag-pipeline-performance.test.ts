@@ -165,6 +165,8 @@ beforeAll(() => {
 
 class RecordingVectorGraphic extends Container {
   __asyraSolidCenterStrokeExportPackets?: unknown[]
+  __asyraNativeCenterSolidStrokeRenderCount?: number
+  __asyraCenterSolidPathMaskRenderCount?: number
   __asyraStrokeMeshCache?: Map<string, { kind?: string }>
 
   clear() {
@@ -200,6 +202,8 @@ const getStrokeCacheEntries = (graphic: RecordingVectorGraphic) =>
   Array.from(graphic.__asyraStrokeMeshCache?.entries() ?? [])
 
 const hasCurrentStrokeProductOutput = (graphic: RecordingVectorGraphic) =>
+  (graphic.__asyraNativeCenterSolidStrokeRenderCount ?? 0) > 0 ||
+  (graphic.__asyraCenterSolidPathMaskRenderCount ?? 0) > 0 ||
   (graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0) > 0 ||
   getStrokeCacheEntries(graphic).some(
     ([, entry]) =>
@@ -592,6 +596,21 @@ describeProfile('stroke drag full pipeline performance profile', () => {
     const dashedMetrics = metrics.filter((metric) =>
       metric.label.includes('pipeline-inside-dashed')
     )
+    const centerSolidMetrics = metrics.filter((metric) =>
+      metric.label.includes('pipeline-center-solid')
+    )
+    expect(
+      centerSolidMetrics.every(
+        (metric) =>
+          (metric.counters['native-center-solid-stroke-render-count'] ?? 0) > 0
+      )
+    ).toBe(true)
+    expect(
+      centerSolidMetrics.every(
+        (metric) =>
+          (metric.counters['native-center-solid-visible-packet-skip'] ?? 0) > 0
+      )
+    ).toBe(true)
     expect(
       dashedMetrics.every((metric) =>
         Object.prototype.hasOwnProperty.call(

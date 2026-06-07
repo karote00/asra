@@ -817,7 +817,7 @@ describe('vector constrained solid stroke product wiring', () => {
     { label: 'inside', position: StrokePositions.INSIDE },
     { label: 'outside', position: StrokePositions.OUTSIDE }
   ].forEach(({ label, position }) => {
-    it(`should run: render open-path solid ${label} vectors as center geometry on the main render path`, () => {
+    it(`should run: render open-path solid ${label} vectors as center-equivalent final-face geometry`, () => {
       const graphic = runVectorRenderStrategy({
         id: `vector-open-${label}`,
         x: 0,
@@ -842,8 +842,8 @@ describe('vector constrained solid stroke product wiring', () => {
         ]
       })
 
-      expect(getProjectionMeshes(graphic)).toHaveLength(0)
-      expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(1)
+      expect(getProjectionMeshes(graphic)).toHaveLength(1)
+      expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
       expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
       expect(
         graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
@@ -963,7 +963,7 @@ describe('vector constrained solid stroke product wiring', () => {
     })
   })
 
-  it('should run: render open self-intersecting constrained solid vectors as center geometry on the main render path', () => {
+  it('should run: render open self-intersecting constrained solid vectors as center-equivalent final-face geometry', () => {
     const graphic = runVectorRenderStrategy({
       id: 'vector-open-self-intersecting-constrained-solid',
       x: 0,
@@ -990,8 +990,8 @@ describe('vector constrained solid stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(0)
-    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(1)
+    expect(getProjectionMeshes(graphic)).toHaveLength(1)
+    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
     expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta

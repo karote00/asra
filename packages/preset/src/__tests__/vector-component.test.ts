@@ -473,7 +473,7 @@ describe('Vector Component', () => {
     expect(typeof renderStrategy).toBe('function')
   })
 
-  it('should render straight lines for sharp anchor points', () => {
+  it('should render sharp open paths through final-face projection', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -494,7 +494,7 @@ describe('Vector Component', () => {
         false
       ),
       closed: false,
-      fills: [],
+      fills: [createSolidFill('#ffffff')],
       strokes: [
         createDefaultStroke({ color: '#000000', width: 2, joinType: 'round' })
       ]
@@ -503,22 +503,11 @@ describe('Vector Component', () => {
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
     expect(countInstructions(mockGraphic, 'clear')).toHaveLength(1)
-    expect(mockGraphic.instructions).toContainEqual({
-      action: 'moveTo',
-      args: [0, 0]
-    })
-    expect(mockGraphic.instructions).toContainEqual({
-      action: 'lineTo',
-      args: [100, 0]
-    })
-    expect(mockGraphic.instructions).toContainEqual({
-      action: 'lineTo',
-      args: [100, 100]
-    })
     expect(countInstructions(mockGraphic, 'bezierCurveTo')).toHaveLength(0)
-    expect(getProjectionMeshes(mockGraphic)).toHaveLength(0)
-    expect(countInstructions(mockGraphic, 'stroke')).toHaveLength(1)
-    expect(mockGraphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(1)
+    expect(getProjectionMeshes(mockGraphic)).toHaveLength(1)
+    expect(countInstructions(mockGraphic, 'stroke')).toHaveLength(0)
+    expect(mockGraphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(mockGraphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
   })
 
   it('should publish geometry bounds without stroke expansion', () => {
@@ -590,22 +579,13 @@ describe('Vector Component', () => {
     })
   })
 
-  it('should render bezier curves for smooth anchor points', () => {
+  it('should render smooth open paths through final-face projection', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
     if (!renderStrategy) return
 
-    const mockGraphic = {
-      clear: vi.fn(),
-      moveTo: vi.fn(),
-      lineTo: vi.fn(),
-      bezierCurveTo: vi.fn(),
-      closePath: vi.fn(),
-      cut: vi.fn(),
-      fill: vi.fn(),
-      stroke: vi.fn()
-    }
+    const mockGraphic = createMeshMockGraphic()
 
     const mockData = {
       x: 0,
@@ -620,38 +600,24 @@ describe('Vector Component', () => {
         false
       ),
       closed: false,
-      fills: [],
+      fills: [createSolidFill('#ffffff')],
       strokes: [createDefaultStroke({ color: '#000000', width: 2 })]
     }
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
-    expect(mockGraphic.bezierCurveTo).toHaveBeenCalledWith(
-      25,
-      0,
-      75,
-      100,
-      100,
-      100
-    )
+    expect(getProjectionMeshes(mockGraphic)).toHaveLength(1)
+    expect(mockGraphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(mockGraphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
   })
 
-  it('should render bezier curves when either handle exists', () => {
+  it('should render one-handle open paths through final-face projection', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
     if (!renderStrategy) return
 
-    const mockGraphic = {
-      clear: vi.fn(),
-      moveTo: vi.fn(),
-      lineTo: vi.fn(),
-      bezierCurveTo: vi.fn(),
-      closePath: vi.fn(),
-      cut: vi.fn(),
-      fill: vi.fn(),
-      stroke: vi.fn()
-    }
+    const mockGraphic = createMeshMockGraphic()
 
     const mockData = {
       x: 0,
@@ -666,21 +632,15 @@ describe('Vector Component', () => {
         false
       ),
       closed: false,
-      fills: [],
+      fills: [createSolidFill('#ffffff')],
       strokes: [createDefaultStroke({ color: '#000000', width: 2 })]
     }
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
-    expect(mockGraphic.bezierCurveTo).toHaveBeenCalledWith(
-      50,
-      0,
-      100,
-      100,
-      100,
-      100
-    )
-    expect(mockGraphic.lineTo).not.toHaveBeenCalledWith(100, 100)
+    expect(getProjectionMeshes(mockGraphic)).toHaveLength(1)
+    expect(mockGraphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(mockGraphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
   })
 
   it('should close path and fill when closed is true', () => {
@@ -1437,7 +1397,7 @@ describe('Vector Component', () => {
     expect(mockGraphic.y).toBe(0)
   })
 
-  it('should run: render native solid-center visual stroke for supported vector strokes', () => {
+  it('should run: render simple solid-center vectors through final-face projection when native fast path is not needed', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1476,9 +1436,9 @@ describe('Vector Component', () => {
 
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
-    expect(getProjectionMeshes(mockGraphic)).toHaveLength(0)
-    expect(countInstructions(mockGraphic, 'stroke')).toHaveLength(1)
-    expect(mockGraphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(1)
+    expect(getProjectionMeshes(mockGraphic)).toHaveLength(1)
+    expect(countInstructions(mockGraphic, 'stroke')).toHaveLength(0)
+    expect(mockGraphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
     expect(mockGraphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
   })
 
@@ -1564,7 +1524,7 @@ describe('Vector Component', () => {
     expect(countInstructions(mockGraphic, 'stroke')).toHaveLength(0)
   })
 
-  it('should run: replace solid-center vector mesh when rerendered with supported constrained round strokes', () => {
+  it('should run: replace simple solid-center final-face mesh when rerendered with supported constrained round strokes', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1602,9 +1562,9 @@ describe('Vector Component', () => {
 
     runRenderStrategy(renderStrategy, mockGraphic, supportedData)
     const initialProjectionMeshes = getProjectionMeshes(mockGraphic)
-    expect(initialProjectionMeshes).toHaveLength(0)
-    expect(countInstructions(mockGraphic, 'stroke')).toHaveLength(1)
-    expect(mockGraphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(1)
+    expect(initialProjectionMeshes).toHaveLength(1)
+    expect(countInstructions(mockGraphic, 'stroke')).toHaveLength(0)
+    expect(mockGraphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
 
     runRenderStrategy(renderStrategy, mockGraphic, {
       ...supportedData,

@@ -326,7 +326,7 @@ describe('vector solid-center stroke product wiring', () => {
     { label: 'inside', position: StrokePositions.INSIDE },
     { label: 'outside', position: StrokePositions.OUTSIDE }
   ].forEach(({ label, position }) => {
-    it(`should run: render open-vector solid ${label} placement as center-equivalent geometry on the main render path`, () => {
+    it(`should run: render open-vector solid ${label} placement as center-equivalent final-face geometry`, () => {
       const graphic = runVectorRenderStrategy({
         id: `vector-solid-open-${label}`,
         x: 0,
@@ -353,8 +353,8 @@ describe('vector solid-center stroke product wiring', () => {
         ]
       })
 
-      expect(getProjectionMeshes(graphic)).toHaveLength(0)
-      expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(1)
+      expect(getProjectionMeshes(graphic)).toHaveLength(1)
+      expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
       expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
       expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual(
         {
@@ -377,7 +377,7 @@ describe('vector solid-center stroke product wiring', () => {
     })
   })
 
-  it('should run: apply square cap to open-vector export and hit packets on the main render path', () => {
+  it('should run: apply square cap to open-vector final-face export and hit packets', () => {
     const graphic = runVectorRenderStrategy({
       id: 'vector-square-cap',
       x: 0,
@@ -404,8 +404,8 @@ describe('vector solid-center stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(0)
-    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(1)
+    expect(getProjectionMeshes(graphic)).toHaveLength(1)
+    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
     expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
     expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual({
       minX: -3,
@@ -418,7 +418,7 @@ describe('vector solid-center stroke product wiring', () => {
     expect(graphic.hitArea?.contains(20, 18)).toBe(false)
   })
 
-  it('should run: apply round cap to open-vector export and hit packets on the main render path', () => {
+  it('should run: apply round cap to open-vector final-face export and hit packets', () => {
     const graphic = runVectorRenderStrategy({
       id: 'vector-round-cap',
       x: 0,
@@ -445,8 +445,8 @@ describe('vector solid-center stroke product wiring', () => {
       ]
     })
 
-    expect(getProjectionMeshes(graphic)).toHaveLength(0)
-    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(1)
+    expect(getProjectionMeshes(graphic)).toHaveLength(1)
+    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
     expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
     expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual({
       minX: -3,
