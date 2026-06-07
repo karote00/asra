@@ -29,6 +29,8 @@
     'All five internal pentagon corners are join-sensitive and must vary with strokeJoin and strokeMiterLimit.',
     'Derivation fragments, face strips, helper polygons, coverage probes, and diagnostics can prove legality, hit/export, or failure modes, but they must not become product-visible solid stroke geometry.',
     'Dashed constrained strokes remain interval-domain based. Dash intervals, terminal half-dashes, and caps must stay separate from solid visible geometry.',
+    'Constrained inside dashed product-visible render may use one exact grouped mask descriptor: fillClipPolygons plus authored dashed strokePaths and strokePathStyle. That descriptor is the product path, not preview or helper geometry.',
+    'A single exact constrained inside dashed mask descriptor for one fill domain and one stroke style may bypass same-visual overlap collapse; per-interval polygons may remain diagnostics/export evidence but must not be required for visible drag frames.',
     'Product output may emit render, hit, export, and diagnostic descriptors, but visible render must not use diagnostic/helper geometry as product output.',
     'The outside dashed square visual gate remains open at Product Output / Diagnostics until rule-driven probes and reviewed screenshots pass.',
     'Captured Asyra rule mismatches reopen the earliest owning inspector step. Implementation must not add new local rules before all three authority files are updated.'
@@ -108,9 +110,9 @@
     {
       row: 'dashed-constrained-strokes',
       requiredEvidence:
-        'Interval-domain dash allocation, terminal half-dashes, cap behavior, and provenance remain separate from solid visible geometry; constrained inside dashed visible product geometry is doubled authored center-dashed stroke clipped by the inside filled-region mask, not one-sided ribbon fallback.',
+        'Interval-domain dash allocation, terminal half-dashes, cap behavior, and provenance remain separate from solid visible geometry; constrained inside dashed visible product geometry is doubled authored center-dashed stroke clipped by the inside filled-region mask, encoded either as exact final faces or one exact grouped mask descriptor, not one-sided ribbon fallback.',
       status:
-        'blocked for outside dashed square: Product Output / Diagnostics must clear opposite-side probe failures before broader closure'
+        'inside dashed drag performance slice: exact mask descriptor path is the visible product encoding; outside dashed square remains governed by Product Output / Diagnostics before broader closure'
     },
     {
       row: 'cross-cutting-render-hit-export-diagnostics',
@@ -335,7 +337,7 @@
       'Stroke Geometry',
       4,
       'Build final faces',
-      'Preserve model-separated provenance and visible/non-visible separation.'
+      'Preserve model-separated provenance and visible/non-visible separation; constrained inside dashed may carry one exact mask render descriptor instead of requiring per-interval visible faces.'
     ],
     [
       'emit-render-hit-export-packets',
@@ -349,7 +351,7 @@
       'Product Output',
       5,
       'Render entries',
-      'Prepare renderer-ready visible descriptors.'
+      'Prepare renderer-ready visible descriptors; exact single inside dashed mask descriptors may bypass same-visual overlap collapse because the descriptor already represents one product-visible masked stroke.'
     ],
     [
       'renderer-projection',
@@ -584,11 +586,11 @@
     'build-final-faces': {
       alignmentStatus: 'guarded',
       latestRule:
-        'Final records preserve visible solid descriptors separately from non-visible coverage evidence.',
+        'Final records preserve visible descriptors separately from non-visible coverage evidence; constrained inside dashed may carry one exact grouped mask descriptor for product-visible render.',
       currentImplementation:
-        'For the reported inside-solid slice, visible descriptors now use grouped authored stroke paths and keep coverage evidence non-visible.',
+        'Inside solid uses grouped authored stroke paths; inside dashed drag frames may use one exact mask descriptor with fillClipPolygons, authored dashed strokePaths, and strokePathStyle.',
       requiredAdjustment:
-        'Keep diagnostics and coverage fragments out of visible product descriptors for every future slice.',
+        'Keep diagnostics and coverage fragments out of visible product descriptors; do not require per-interval visible polygons when the exact mask descriptor is present.',
       tags: ['canonical', 'guarded']
     },
     'emit-render-hit-export-packets': {
@@ -604,7 +606,9 @@
     'render-entries': {
       alignmentStatus: 'guarded',
       latestRule:
-        'Render entries are projection-only and must not create constrained stroke semantics.',
+        'Render entries are projection-only and must not create constrained stroke semantics; a single exact inside dashed mask descriptor may skip same-visual overlap collapse.',
+      currentImplementation:
+        'Inside dashed drag render consumes the exact descriptor directly so visible frames avoid per-interval product intersection while preserving the doubled center-dashed mask rule.',
       tags: ['risk']
     },
     'renderer-projection': {

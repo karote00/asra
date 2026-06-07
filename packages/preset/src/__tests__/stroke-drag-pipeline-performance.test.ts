@@ -196,6 +196,20 @@ class RecordingVectorGraphic extends Container {
   }
 }
 
+const getStrokeCacheEntries = (graphic: RecordingVectorGraphic) =>
+  Array.from(graphic.__asyraStrokeMeshCache?.entries() ?? [])
+
+const hasCurrentStrokeProductOutput = (graphic: RecordingVectorGraphic) =>
+  (graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0) > 0 ||
+  getStrokeCacheEntries(graphic).some(
+    ([, entry]) =>
+      entry.kind === 'solid' ||
+      entry.kind === 'gradient' ||
+      entry.kind === 'masked-solid' ||
+      entry.kind === 'solid-graphics' ||
+      entry.kind === 'drag-solid-graphics'
+  )
+
 const getPercentile = (values: number[], percentile: number) => {
   const sorted = [...values].sort((left, right) => left - right)
   const index = Math.min(
@@ -457,7 +471,7 @@ const measurePipelineScenario = (
       if (frame >= WARMUP_FRAMES) {
         frameTimes.push(end - start)
       }
-      if ((graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0) === 0) {
+      if (!hasCurrentStrokeProductOutput(graphic)) {
         incompleteFrameCount += 1
       }
     }
@@ -624,12 +638,19 @@ describeProfile('stroke drag full pipeline performance profile', () => {
     }
     expect(
       dashedMetrics.every(
-        (metric) => (metric.counters['interval-sweep-count'] ?? 0) > 0
+        (metric) =>
+          (metric.counters[
+            'visual-overlap-collapse-inside-dashed-mask-direct'
+          ] ?? 0) > 0
       )
     ).toBe(true)
     expect(
       dashedMetrics.every(
-        (metric) => (metric.counters['final-coverage-builder-hit'] ?? 0) > 0
+        (metric) =>
+          !Object.prototype.hasOwnProperty.call(
+            metric.phases,
+            'constrained dashed final coverage: doubled center inside clip'
+          )
       )
     ).toBe(true)
     if (SHOULD_ENFORCE_CPU_PROFILE_BUDGET) {

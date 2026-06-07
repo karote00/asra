@@ -91,6 +91,15 @@ geometry. Direct selected-side ribbons, local-side fallback strips, and
 derivation helpers are evidence only and must not define product-visible inside
 dashed pixels.
 
+For product-visible constrained `inside` dashed render, the same exact product
+may be encoded as a grouped render descriptor containing the inside
+`fillClipPolygons`, the authored dashed `strokePaths`, and the
+`strokePathStyle`. This descriptor is the visible product path, not a preview
+or approximation. When a frame has one exact inside dashed mask descriptor for
+one fill domain and one stroke style, same-visual overlap collapse is not
+required; diagnostics/export may still keep per-interval evidence, but visible
+render must consume the exact descriptor.
+
 ### Required Stroke / Vector System Flow
 
 Stroke-related behavior must be observed as one deterministic system flow:

@@ -643,6 +643,34 @@ const canUseExactSingleNetworkConstrainedSolidFacesDirectly = (
   })
 }
 
+const canUseExactSingleNetworkInsideDashedMaskFacesDirectly = (
+  faces: SolidStrokeFinalFaceList
+) => {
+  if (faces.length === 0) {
+    return false
+  }
+
+  const networkIds = new Set<string>()
+  return faces.every((face) => {
+    if (
+      face.geometryFamily !== 'constrained-dashed' ||
+      face.debugMeta?.strokePosition !== 'inside' ||
+      face.debugMeta?.finalCoverageBuilderStatus !== 'product-final' ||
+      face.debugMeta?.runtimeStatus !== 'accepted' ||
+      face.renderDescriptor === undefined
+    ) {
+      return false
+    }
+
+    const networkId = face.debugMeta.networkId
+    if (networkId) {
+      networkIds.add(networkId)
+    }
+
+    return networkIds.size <= 1
+  })
+}
+
 const promoteConstrainedSolidPacketsToExactArrangement = (
   packets: SolidCenterStrokeResolvedPacket[],
   legalDomains: ArrangementLegalDomain[] = []
@@ -2591,7 +2619,8 @@ const renderVectorGraphic = (
                 omitDiagnosticMetadata: !shouldAttachFullStrokeDiagnostics,
                 clipInsideToFillDomain: clipInsideToFillDomain,
                 constrainedDashedVisualMode,
-                preferRenderMaskProductFinal: false
+                preferRenderMaskProductFinal:
+                  isMouseDragging && !shouldAttachFullStrokeDiagnostics
               }
               return buildConstrainedDashedStrokeResolvedPackets(
                 `vector:${renderData.id}:${network.id}:constrained-dashed`,
@@ -3202,6 +3231,17 @@ const renderVectorGraphic = (
         )
       ) {
         emitStrokePipelineCounter('visual-overlap-collapse-exact-direct')
+        return finishCollapse(collapseInputStrokeFinalFaces)
+      }
+
+      if (
+        canUseExactSingleNetworkInsideDashedMaskFacesDirectly(
+          collapseInputStrokeFinalFaces
+        )
+      ) {
+        emitStrokePipelineCounter(
+          'visual-overlap-collapse-inside-dashed-mask-direct'
+        )
         return finishCollapse(collapseInputStrokeFinalFaces)
       }
 

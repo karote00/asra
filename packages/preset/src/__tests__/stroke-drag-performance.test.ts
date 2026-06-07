@@ -209,6 +209,17 @@ const clearInteractionState = () => {
 const getStrokeCacheEntries = (graphic: RecordingVectorGraphic) =>
   Array.from(graphic.__asyraStrokeMeshCache?.entries() ?? [])
 
+const hasCurrentStrokeProductOutput = (graphic: RecordingVectorGraphic) =>
+  (graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0) > 0 ||
+  getStrokeCacheEntries(graphic).some(
+    ([, entry]) =>
+      entry.kind === 'solid' ||
+      entry.kind === 'gradient' ||
+      entry.kind === 'masked-solid' ||
+      entry.kind === 'solid-graphics' ||
+      entry.kind === 'drag-solid-graphics'
+  )
+
 const getPathModelSampleCount = (graphic: RecordingVectorGraphic) =>
   Array.from(
     graphic.__asyraVectorPathModelCache?.entries.values() ?? []
@@ -382,7 +393,7 @@ const measureDragScenario = (
     if (frame >= WARMUP_FRAMES) {
       frameTimes.push(end - start)
     }
-    if ((graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0) === 0) {
+    if (!hasCurrentStrokeProductOutput(graphic)) {
       incompleteFrameCount += 1
     }
   }

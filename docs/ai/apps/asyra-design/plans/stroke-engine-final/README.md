@@ -83,6 +83,15 @@ are an encoding of the masked authored stroke source: they must preserve
 turn face strips, helper polygons, or derivation fragments into visible product
 geometry.
 
+For constrained `inside` dashed render, the product-visible encoding may be one
+exact grouped descriptor with `fillClipPolygons`, authored dashed `strokePaths`,
+and `strokePathStyle`. That descriptor represents the same doubled authored
+center-dashed stroke clipped by the inside filled-region mask. It is not a drag
+preview, a helper overlay, or an approximation. If the descriptor covers one
+fill domain and one stroke style, product output may bypass same-visual overlap
+collapse for that frame; per-interval polygons remain diagnostics/export
+evidence unless explicitly routed as non-visible projection data.
+
 ## Self-Intersecting Inside Solid
 
 For grid/vector-network self-intersecting inside solid shapes, including the
