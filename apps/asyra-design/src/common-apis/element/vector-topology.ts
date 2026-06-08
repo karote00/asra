@@ -26,6 +26,12 @@ export interface VectorTopologyEndpoint {
   side: VectorTopologyEndpointSide
 }
 
+export interface VectorTopologyContinuation {
+  networkId: string
+  pointId: string
+  side: VectorTopologyEndpointSide
+}
+
 interface VectorAnchorViewOptions {
   includeSyntheticHandles?: boolean
 }
@@ -136,10 +142,7 @@ const createSyntheticHandlePosition = (
   const mirroredLength = isVisibleHandlePosition(anchor, mirroredHandle)
     ? getDistance(anchor, mirroredHandle)
     : segmentLength / 3
-  const handleLength = clampSyntheticHandleLength(
-    mirroredLength,
-    segmentLength
-  )
+  const handleLength = clampSyntheticHandleLength(mirroredLength, segmentLength)
   if (handleLength <= SYNTHETIC_HANDLE_POINT_EPSILON) {
     return null
   }
@@ -248,6 +251,34 @@ export const getAnchorEndpointInTopology = (
   }
 
   return null
+}
+
+export const getAnchorContinuationInTopology = (
+  topology: VectorTopologyLike,
+  pointId: string
+): VectorTopologyContinuation | null => {
+  const endpoint = getAnchorEndpointInTopology(topology, pointId)
+  if (endpoint) {
+    return endpoint
+  }
+
+  const point = topology.points[pointId]
+  if (!isAnchorNode(point)) {
+    return null
+  }
+
+  const network = getOrderedNetworks(topology).find((candidate) =>
+    candidate.pointIds.includes(pointId)
+  )
+  if (!network) {
+    return null
+  }
+
+  return {
+    networkId: network.id,
+    pointId,
+    side: VECTOR_TOKENS.ENDPOINT.SIDE.END
+  }
 }
 
 interface AnchorHandleRefs {
@@ -570,6 +601,41 @@ export const appendAnchorPointToTopology = (
     : networks[networks.length - 1]
   const continuationSide: VectorTopologyEndpointSide =
     resolvedContinuation?.side ?? VECTOR_TOKENS.ENDPOINT.SIDE.END
+  const continuationPointId = resolvedContinuation?.pointId
+  const targetFirstPointId = targetNetwork.pointIds[0]
+  const targetLastPointId =
+    targetNetwork.pointIds[targetNetwork.pointIds.length - 1]
+  const canExtendTargetNetwork =
+    !targetNetwork.closed &&
+    (!continuationPointId ||
+      (continuationSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
+        ? continuationPointId === targetFirstPointId
+        : continuationPointId === targetLastPointId))
+
+  if (!canExtendTargetNetwork && continuationPointId) {
+    const segmentId = id(VECTOR_TOPOLOGY_SEGMENT_ID_TYPE)
+    const networkId = id(VECTOR_TOPOLOGY_NETWORK_ID_TYPE)
+    nextSegments[segmentId] = {
+      id: segmentId,
+      startId: continuationPointId,
+      endId: pointId,
+      outControlId: null,
+      inControlId: null
+    }
+    nextNetworks[networkId] = {
+      id: networkId,
+      pointIds: [continuationPointId, pointId],
+      segmentIds: [segmentId],
+      closed: false
+    }
+
+    return {
+      points: nextPoints,
+      segments: nextSegments,
+      networks: nextNetworks
+    }
+  }
+
   const connectedPointId =
     continuationSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
       ? targetNetwork.pointIds[0]
@@ -1506,6 +1572,84 @@ export const connectAnchorEndpointsInTopology = (
       points: prunedPoints,
       segments: nextSegments,
       networks: nextNetworks
+    },
+    closed: false
+  }
+}
+
+export const connectAnchorPointsInTopology = (
+  topology: VectorTopologyLike,
+  sourcePointId: string,
+  targetPointId: string
+): { topology: VectorTopology; closed: boolean } | null => {
+  if (sourcePointId === targetPointId) {
+    return null
+  }
+
+  const sourcePoint = topology.points[sourcePointId]
+  const targetPoint = topology.points[targetPointId]
+  if (!isAnchorNode(sourcePoint) || !isAnchorNode(targetPoint)) {
+    return null
+  }
+
+  const sourceEndpoint = getAnchorEndpointInTopology(topology, sourcePointId)
+  const targetEndpoint = getAnchorEndpointInTopology(topology, targetPointId)
+  if (sourceEndpoint && targetEndpoint) {
+    const sourceNetwork = topology.networks[sourceEndpoint.networkId]
+    const targetNetwork = topology.networks[targetEndpoint.networkId]
+    const networksShareAnchor =
+      sourceNetwork &&
+      targetNetwork &&
+      sourceNetwork.id !== targetNetwork.id &&
+      sourceNetwork.pointIds.some((pointId) =>
+        targetNetwork.pointIds.includes(pointId)
+      )
+
+    if (!networksShareAnchor) {
+      const endpointResult = connectAnchorEndpointsInTopology(
+        topology,
+        sourceEndpoint,
+        targetEndpoint
+      )
+      if (endpointResult) {
+        return endpointResult
+      }
+    }
+  }
+
+  const hasExistingConnection = Object.values(topology.segments).some(
+    (segment) =>
+      (segment.startId === sourcePointId && segment.endId === targetPointId) ||
+      (segment.startId === targetPointId && segment.endId === sourcePointId)
+  )
+  if (hasExistingConnection) {
+    return null
+  }
+
+  const segmentId = id(VECTOR_TOPOLOGY_SEGMENT_ID_TYPE)
+  const networkId = id(VECTOR_TOPOLOGY_NETWORK_ID_TYPE)
+  return {
+    topology: {
+      points: { ...topology.points },
+      segments: {
+        ...topology.segments,
+        [segmentId]: {
+          id: segmentId,
+          startId: sourcePointId,
+          endId: targetPointId,
+          outControlId: null,
+          inControlId: null
+        }
+      },
+      networks: {
+        ...topology.networks,
+        [networkId]: {
+          id: networkId,
+          pointIds: [sourcePointId, targetPointId],
+          segmentIds: [segmentId],
+          closed: false
+        }
+      }
     },
     closed: false
   }

@@ -23,6 +23,7 @@ import {
 import {
   createEmptyVectorTopology,
   createVectorTopologyFromSinglePoint,
+  getAnchorContinuationInTopology,
   getAnchorEndpointInTopology,
   getControlId,
   getOrderedNetworks,
@@ -96,6 +97,11 @@ type VectorTopologyOperation =
     }
   | {
       type: 'connectEndpoints'
+      sourcePointId: string
+      targetPointId: string
+    }
+  | {
+      type: 'connectAnchors'
       sourcePointId: string
       targetPointId: string
     }
@@ -1500,6 +1506,18 @@ export const vectorApis = {
     return getAnchorEndpointInTopology(topology, pointId)
   },
 
+  getVectorAnchorContinuation: (
+    elementId: string,
+    pointId: string
+  ): {
+    networkId: string
+    pointId: string
+    side: VectorEndpointSide
+  } | null => {
+    const topology = getVectorTopologyWorkspace(elementId)
+    return getAnchorContinuationInTopology(topology, pointId)
+  },
+
   connectVectorAnchorEndpoints: (
     elementId: string,
     sourcePointId: string,
@@ -1519,6 +1537,39 @@ export const vectorApis = {
       elementId,
       {
         type: 'connectEndpoints',
+        sourcePointId,
+        targetPointId
+      },
+      topology,
+      connected.topology,
+      {
+        closed: isClosedVectorTopology(connected.topology)
+      }
+    )
+    return {
+      closed: connected.closed
+    }
+  },
+
+  connectVectorAnchorPoints: (
+    elementId: string,
+    sourcePointId: string,
+    targetPointId: string
+  ): { closed: boolean } | null => {
+    const topology = getVectorTopologyWorkspace(elementId)
+    const connected = vectorGeometry.connectAnchors(
+      topology,
+      sourcePointId,
+      targetPointId
+    )
+    if (!connected) {
+      return null
+    }
+
+    commitVectorTopologyOperation(
+      elementId,
+      {
+        type: 'connectAnchors',
         sourcePointId,
         targetPointId
       },

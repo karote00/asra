@@ -224,9 +224,12 @@ describe('vector topology mutation intent', () => {
     expect(source).toContain('appendVectorAnchorPoint:')
     expect(source).toContain('const nextTopology = vectorGeometry.addPoint(')
     expect(source).toContain('connectVectorAnchorEndpoints:')
+    expect(source).toContain('connectVectorAnchorPoints:')
+    expect(source).toContain('getVectorAnchorContinuation:')
     expect(source).toContain(
       'const connected = vectorGeometry.connectEndpoints('
     )
+    expect(source).toContain('const connected = vectorGeometry.connectAnchors(')
     expect(source).toContain('splitVectorSegmentAtWorkspacePos:')
     expect(source).toContain('const splitResult = vectorGeometry.splitSegment(')
     expect(source).toContain('setVectorClosed:')
@@ -240,6 +243,7 @@ describe('vector topology mutation intent', () => {
     expect(source).toContain("type: 'removeAnchor'")
     expect(source).toContain("type: 'splitSegment'")
     expect(source).toContain("type: 'connectEndpoints'")
+    expect(source).toContain("type: 'connectAnchors'")
     expect(source).toContain("type: 'setClosed'")
     expect(source).toContain("type: 'setAnchorType'")
     expect(source).toContain("type: 'setHandleMode'")
@@ -299,7 +303,7 @@ describe('vector path editing feature entry boundary', () => {
       'elementApis.updateVectorAnchorPointHandlePosition'
     )
     expect(source).toContain('elementApis.appendVectorAnchorPoint')
-    expect(source).toContain('elementApis.connectVectorAnchorEndpoints')
+    expect(source).toContain('elementApis.connectVectorAnchorPoints')
     expect(source).toContain('elementApis.splitVectorSegmentAtWorkspacePos')
     expect(source).toContain('elementApis.createVectorElementFromSinglePoint')
 

@@ -6345,3 +6345,32 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     by fallback geometry.
   - Older one-sided dashed decision-history entries are superseded for current
     active rules.
+
+## 2026-06-08 - Pen continuation supports arbitrary anchor sources and targets
+
+- Context:
+  - Path editing with the pen tool previously constrained continuation and
+    connect actions to open endpoints only.
+  - The app now supports selecting any anchor as the continuation source, then
+    drawing forward from it or clicking another anchor to connect.
+- Decision:
+  - Switching into pen tool while already in path editing enters source-select
+    mode (`pathEditingStartNewSubpath = true`), so the next anchor click selects
+    the continuation source without mutating topology.
+  - Pen mode exposes anchor hover for all anchors in both source-select and
+    connected-preview modes; curve handles remain non-hoverable while pen is
+    active.
+  - Once connected-preview is active, appending from a non-endpoint or closed-path
+    anchor creates a branch network that starts at that anchor.
+  - Clicking another anchor in connected-preview calls the anchor-connect common
+    API:
+    - endpoint-to-endpoint still uses the existing merge/close topology path
+    - non-endpoint or shared-network cases create an explicit branch segment
+  - Feature code owns only input/session intent; topology mutation remains in
+    app common APIs and computed patch commit flow.
+- Consequences:
+  - The old endpoint-only hover/click restrictions are superseded.
+  - Pen editing can resume from any existing anchor without rewriting the
+    original network's ordered point list.
+  - Branch networks may share anchor records with existing networks; each network
+    remains independently ordered and validator-safe.

@@ -44,6 +44,10 @@ This file defines app-level state keys, owners, and primary consumers.
   - owner: system-context
   - writers: pen append/connect flow and enter/exit path editing helpers
   - readers: pen feature subpath/preview logic
+  - pen source-select contract: `true` means the next anchor click chooses a
+    continuation source without connecting; after that click, it becomes
+    `false` and connected-preview can append or connect from the selected
+    anchor
 
 - `selectedVectorPoint`
   - owner: system-context
@@ -57,7 +61,9 @@ This file defines app-level state keys, owners, and primary consumers.
   - writers: hover-vector-point flow
   - readers: vector-point selection and cursor behavior
   - state shape includes target type: `anchor` | `inHandle` | `outHandle`
-  - pen-mode contract: only endpoint anchors are hoverable in connected-preview mode; split-preview mode suppresses point hover
+  - pen-mode contract: all anchors on the edited vector are hoverable in both
+    source-select and connected-preview modes; handle hover remains disabled
+    while pen is active
 
 - `selectedVectorSegment`
   - owner: system-context

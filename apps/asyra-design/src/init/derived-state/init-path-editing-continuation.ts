@@ -31,25 +31,14 @@ const calculateContinuation = (
 
   let targetPointId: string | null = null
 
-  // 1. Try currently selected point if it's an endpoint
+  // 1. Try currently selected point. Pen continuation can branch from any
+  // anchor; endpoint-only merge/close remains a topology adapter detail.
   if (
     selectedPoint &&
     selectedPoint.elementId === vectorId &&
     selectedPoint.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
   ) {
-    const pointId = selectedPoint.pointId
-    const isEndpoint = subpaths.some((subpath) => {
-      if (subpath.length === 0) return false
-      const first = subpath[0]
-      const last = subpath[subpath.length - 1]
-      // In a closed subpath, first === last, but both are considered endpoints for continuation?
-      // Actually usually closed subpaths don't have endpoints.
-      return first.id === pointId || last.id === pointId
-    })
-
-    if (isEndpoint) {
-      targetPointId = pointId
-    }
+    targetPointId = selectedPoint.pointId
   }
 
   // 2. Fallback to last point of last subpath
@@ -64,7 +53,7 @@ const calculateContinuation = (
     return null
   }
 
-  const continuation = elementApis.getVectorAnchorEndpoint(
+  const continuation = elementApis.getVectorAnchorContinuation(
     vectorId,
     targetPointId
   )
@@ -98,6 +87,7 @@ const syncContinuation = () => {
   if (
     nextContinuation?.pointId !== currentContinuation?.pointId ||
     nextContinuation?.side !== currentContinuation?.side ||
+    nextContinuation?.networkId !== currentContinuation?.networkId ||
     nextContinuation?.elementId !== currentContinuation?.elementId
   ) {
     core.setSystemProperty('pathEditingContinuation', nextContinuation)

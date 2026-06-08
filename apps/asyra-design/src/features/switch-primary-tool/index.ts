@@ -27,8 +27,10 @@ const api: SwitchPrimaryToolAPI = {
       return
     }
 
-    // Switching to Pen keeps current path-editing context.
+    // Switching to Pen keeps path editing active, but starts from source-select
+    // mode so the next anchor click chooses the continuation source.
     if (tool === PrimaryToolType.PEN) {
+      systemContextApis.setPathEditingStartNewSubpath(true)
       return
     }
 

@@ -37,8 +37,10 @@ Import boundary:
 - `isPointNearVectorPathAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): boolean`
 - `isPointNearVectorPathAtClientPos(elementId: string, clientPos: PositionData, hitRadius?: number): boolean`
 - `getVectorAnchorPointById(elementId: string, pointId: string): { point: VectorAnchorPoint; index: number } | null`
-- `appendVectorAnchorPoint(elementId: string, point: VectorAnchorPoint, options?: { startNewSubpath?: boolean }): { point: VectorAnchorPoint; index: number } | null`
+- `appendVectorAnchorPoint(elementId: string, point: VectorAnchorPoint, options?: { startNewSubpath?: boolean; continuation?: { networkId: string; pointId: string; side: VectorEndpointSide } | null }): { point: VectorAnchorPoint; index: number } | null`
+- `getVectorAnchorContinuation(elementId: string, pointId: string): { networkId: string; pointId: string; side: VectorEndpointSide } | null`
 - `connectVectorAnchorEndpoints(elementId: string, sourcePointId: string, targetPointId: string): { closed: boolean } | null`
+- `connectVectorAnchorPoints(elementId: string, sourcePointId: string, targetPointId: string): { closed: boolean } | null`
 - `removeLastSinglePointSubpath(elementId: string): boolean`
 - `removeVectorAnchorPoint(elementId: string, pointId: string): boolean`
 - `splitVectorSegmentAtWorkspacePos(elementId: string, segmentId: string, workspacePos: PositionData): { point: VectorAnchorPoint; index: number } | null`
@@ -60,7 +62,7 @@ Import boundary:
 - `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: { undoable: boolean }): void`
   - `vectorGeometry` helper (exported from `src/common-apis/element`):
     - `validate(topology, label?)`
-    - `addPoint(...)`, `movePoint(...)`, `splitSegment(...)`, `updatePoint(...)`, `removePoint(...)`, `connectEndpoints(...)`
+    - `addPoint(...)`, `movePoint(...)`, `splitSegment(...)`, `updatePoint(...)`, `removePoint(...)`, `connectEndpoints(...)`, `connectAnchors(...)`
     - `setHandleMode(...)`, `updateHandle(...)`, `buildPatch(topology, options?)`
 
 `selectionApis` (`src/common-apis/selection.ts`)

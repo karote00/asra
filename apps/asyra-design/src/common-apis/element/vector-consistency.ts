@@ -13,6 +13,7 @@ import type { VectorPointTarget } from './types'
 import {
   appendAnchorPointToTopology,
   connectAnchorEndpointsInTopology,
+  connectAnchorPointsInTopology,
   getAnchorEndpointInTopology,
   getControlId,
   isClosedVectorTopology,
@@ -368,6 +369,13 @@ export const connectEndpointsAndRepair = (
   )
 }
 
+export const connectAnchorPointsAndRepair = (
+  topology: VectorTopology,
+  sourcePointId: string,
+  targetPointId: string
+): { topology: VectorTopology; closed: boolean } | null =>
+  connectAnchorPointsInTopology(topology, sourcePointId, targetPointId)
+
 export interface VectorPointUpdate {
   position?: PositionData
   type?: VectorAnchorType
@@ -494,6 +502,7 @@ export const vectorGeometry = {
   updatePoint,
   removePoint: removePointAndRepairTopology,
   connectEndpoints: connectEndpointsAndRepair,
+  connectAnchors: connectAnchorPointsAndRepair,
   setHandleMode: setHandleModeAndRepair,
   updateHandle: updateHandleWithMode,
   buildPatch: buildVectorComputedPatch

@@ -97,75 +97,80 @@ test.describe('Pen Tool - Editing Flow', () => {
     }
 
     const readFirstSegmentState = async (secondPointId?: string) =>
-      page.evaluate(({ vectorId, firstPointId, secondPointId }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const core = (window as any).__Core__
-        const element = core?.deps?.sceneTree?.getElementById?.(vectorId)
-        const computed = element?.getAllComputedData?.() ?? {}
-        const points = computed.points ?? {}
-        const segments = computed.segments ?? {}
-        const networks = Object.values(computed.networks ?? {}) as {
-          pointIds?: string[]
-          segmentIds?: string[]
-        }[]
-        const network = networks.find((item) =>
-          item.pointIds?.includes(firstPointId)
-        )
-        const segment = (network?.segmentIds ?? [])
-          .map((segmentId) => segments[segmentId])
-          .find((candidate) => candidate?.startId === firstPointId)
-        const firstAnchor = points[firstPointId]
-        const firstOut =
-          segment?.outControlId && points[segment.outControlId]
-            ? points[segment.outControlId]
-            : null
-        const selected = core?.getSystemProperty?.('selectedVectorPoint')
-        const selectedPoint = selected?.pointId ? points[selected.pointId] : null
-        const selectedOut =
-          selectedPoint?.kind === 'anchor'
-            ? points[`${selected.pointId}:out`]
-            : null
-        const secondOut = secondPointId
-          ? points[`${secondPointId}:out`]
-          : null
-
-        return {
-          selectedPointId: selected?.pointId ?? null,
-          selectedTarget: selected?.target ?? null,
-          bounds: {
-            x: computed.x,
-            y: computed.y,
-            width: computed.width,
-            height: computed.height
-          },
-          networkPointCount: network?.pointIds?.length ?? 0,
-          segmentStartId: segment?.startId ?? null,
-          segmentEndId: segment?.endId ?? null,
-          outControlId: segment?.outControlId ?? null,
-          firstAnchor:
-            firstAnchor?.kind === 'anchor'
-              ? { x: firstAnchor.x, y: firstAnchor.y }
-              : null,
-          firstOut:
-            firstOut?.kind === 'control'
-              ? {
-                  id: firstOut.id,
-                  controlForId: firstOut.controlForId,
-                  controlRole: firstOut.controlRole,
-                  x: firstOut.x,
-                  y: firstOut.y
-                }
-              : null,
-          selectedOut:
-            selectedOut?.kind === 'control'
-              ? { x: selectedOut.x, y: selectedOut.y }
-              : null,
-          secondOut:
-            secondOut?.kind === 'control'
-              ? { x: secondOut.x, y: secondOut.y }
+      page.evaluate(
+        ({ vectorId, firstPointId, secondPointId }) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const element = core?.deps?.sceneTree?.getElementById?.(vectorId)
+          const computed = element?.getAllComputedData?.() ?? {}
+          const points = computed.points ?? {}
+          const segments = computed.segments ?? {}
+          const networks = Object.values(computed.networks ?? {}) as {
+            pointIds?: string[]
+            segmentIds?: string[]
+          }[]
+          const network = networks.find((item) =>
+            item.pointIds?.includes(firstPointId)
+          )
+          const segment = (network?.segmentIds ?? [])
+            .map((segmentId) => segments[segmentId])
+            .find((candidate) => candidate?.startId === firstPointId)
+          const firstAnchor = points[firstPointId]
+          const firstOut =
+            segment?.outControlId && points[segment.outControlId]
+              ? points[segment.outControlId]
               : null
-        }
-      }, { ...firstPointRuntime, secondPointId: secondPointId ?? null })
+          const selected = core?.getSystemProperty?.('selectedVectorPoint')
+          const selectedPoint = selected?.pointId
+            ? points[selected.pointId]
+            : null
+          const selectedOut =
+            selectedPoint?.kind === 'anchor'
+              ? points[`${selected.pointId}:out`]
+              : null
+          const secondOut = secondPointId
+            ? points[`${secondPointId}:out`]
+            : null
+
+          return {
+            selectedPointId: selected?.pointId ?? null,
+            selectedTarget: selected?.target ?? null,
+            bounds: {
+              x: computed.x,
+              y: computed.y,
+              width: computed.width,
+              height: computed.height
+            },
+            networkPointCount: network?.pointIds?.length ?? 0,
+            segmentStartId: segment?.startId ?? null,
+            segmentEndId: segment?.endId ?? null,
+            outControlId: segment?.outControlId ?? null,
+            firstAnchor:
+              firstAnchor?.kind === 'anchor'
+                ? { x: firstAnchor.x, y: firstAnchor.y }
+                : null,
+            firstOut:
+              firstOut?.kind === 'control'
+                ? {
+                    id: firstOut.id,
+                    controlForId: firstOut.controlForId,
+                    controlRole: firstOut.controlRole,
+                    x: firstOut.x,
+                    y: firstOut.y
+                  }
+                : null,
+            selectedOut:
+              selectedOut?.kind === 'control'
+                ? { x: selectedOut.x, y: selectedOut.y }
+                : null,
+            secondOut:
+              secondOut?.kind === 'control'
+                ? { x: secondOut.x, y: secondOut.y }
+                : null
+          }
+        },
+        { ...firstPointRuntime, secondPointId: secondPointId ?? null }
+      )
 
     await page.mouse.move(secondClientPos.x, secondClientPos.y)
     await page.mouse.down()
@@ -256,7 +261,9 @@ test.describe('Pen Tool - Editing Flow', () => {
       )
       .toBeNull()
 
-    const exitedEditingState = await readFirstSegmentState(runtime.secondPointId)
+    const exitedEditingState = await readFirstSegmentState(
+      runtime.secondPointId
+    )
     expect(exitedEditingState).toMatchObject({
       segmentStartId: firstPointRuntime.firstPointId,
       segmentEndId: runtime.secondPointId,
@@ -952,9 +959,9 @@ test.describe('Pen Tool - Editing Flow', () => {
       })
   })
 
-  test('pen add mode ignores non-endpoint anchor hover and keeps endpoint hover', async ({
+  test('pen source-select can continue from an arbitrary anchor and connect to another anchor', async ({
     page
-  }) => {
+  }, testInfo) => {
     const initialCount = await getElementCount(page)
 
     await page.keyboard.press('p')
@@ -964,6 +971,43 @@ test.describe('Pen Tool - Editing Flow', () => {
     await clickCanvas(page, 0.58, 0.48)
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
 
+    await page.keyboard.press('v')
+    await expect.poll(() => getActiveTool(page)).toBe('select')
+    await page.keyboard.press('p')
+    await expect.poll(() => getActiveTool(page)).toBe('pen')
+
+    const before = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const vectorId = core?.getSystemProperty?.('pathEditingVectorId') ?? null
+      const element =
+        vectorId && core?.deps?.sceneTree?.getElementById?.(vectorId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      const networks = Object.values(computed.networks ?? {}) as {
+        pointIds?: string[]
+        segmentIds?: string[]
+      }[]
+      const primaryNetwork = networks[0]
+      return {
+        vectorId,
+        pointIds: primaryNetwork?.pointIds ?? [],
+        networkCount: networks.length,
+        segmentCount: networks.reduce(
+          (sum, network) => sum + (network.segmentIds?.length ?? 0),
+          0
+        ),
+        startNewSubpath:
+          core?.getSystemProperty?.('pathEditingStartNewSubpath') ?? null
+      }
+    })
+    expect(before.vectorId).not.toBeNull()
+    expect(before.pointIds.length).toBe(3)
+    expect(before).toMatchObject({
+      networkCount: 1,
+      segmentCount: 2,
+      startNewSubpath: true
+    })
+
     const middleAnchorPos = await getCanvasPosition(page, 0.45, 0.4)
     await page.mouse.move(middleAnchorPos.x, middleAnchorPos.y)
     await expect
@@ -972,23 +1016,159 @@ test.describe('Pen Tool - Editing Flow', () => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const core = (window as any).__Core__
           const hovered = core?.getSystemProperty?.('hoveredVectorPoint')
-          return hovered?.pointId ?? null
+          return {
+            pointId: hovered?.pointId ?? null,
+            target: hovered?.target ?? null
+          }
         })
       })
-      .toBeNull()
+      .toMatchObject({
+        pointId: before.pointIds[1],
+        target: 'anchor'
+      })
 
-    const firstEndpointPos = await getCanvasPosition(page, 0.3, 0.3)
-    await page.mouse.move(firstEndpointPos.x, firstEndpointPos.y)
+    await page.mouse.click(middleAnchorPos.x, middleAnchorPos.y)
     await expect
       .poll(async () => {
         return page.evaluate(() => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const core = (window as any).__Core__
-          const hovered = core?.getSystemProperty?.('hoveredVectorPoint')
-          return hovered?.target ?? null
+          const selected = core?.getSystemProperty?.('selectedVectorPoint')
+          const vectorId = core?.getSystemProperty?.('pathEditingVectorId')
+          const element =
+            vectorId && core?.deps?.sceneTree?.getElementById?.(vectorId)
+          const computed = element?.getAllComputedData?.() ?? {}
+          const networks = Object.values(computed.networks ?? {}) as {
+            pointIds?: string[]
+            segmentIds?: string[]
+          }[]
+          return {
+            selectedPointId: selected?.pointId ?? null,
+            selectedTarget: selected?.target ?? null,
+            startNewSubpath:
+              core?.getSystemProperty?.('pathEditingStartNewSubpath') ?? null,
+            networkCount: networks.length,
+            segmentCount: networks.reduce(
+              (sum, network) => sum + (network.segmentIds?.length ?? 0),
+              0
+            )
+          }
         })
       })
-      .toBe('anchor')
+      .toMatchObject({
+        selectedPointId: before.pointIds[1],
+        selectedTarget: 'anchor',
+        startNewSubpath: false,
+        networkCount: 1,
+        segmentCount: 2
+      })
+
+    await clickCanvas(page, 0.66, 0.34)
+
+    const afterAppend = await page.evaluate(
+      ({ sourcePointId }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        const vectorId =
+          core?.getSystemProperty?.('pathEditingVectorId') ?? null
+        const selected = core?.getSystemProperty?.('selectedVectorPoint')
+        const element =
+          vectorId && core?.deps?.sceneTree?.getElementById?.(vectorId)
+        const computed = element?.getAllComputedData?.() ?? {}
+        const networks = Object.values(computed.networks ?? {}) as {
+          id?: string
+          pointIds?: string[]
+          segmentIds?: string[]
+        }[]
+        const segments = computed.segments ?? {}
+        const branchNetwork = networks.find(
+          (network) =>
+            network.pointIds?.length === 2 &&
+            network.pointIds?.[0] === sourcePointId &&
+            network.pointIds?.[1] === selected?.pointId
+        )
+        const branchSegment =
+          branchNetwork?.segmentIds?.[0] &&
+          segments[branchNetwork.segmentIds[0]]
+
+        return {
+          selectedPointId: selected?.pointId ?? null,
+          selectedTarget: selected?.target ?? null,
+          networkCount: networks.length,
+          segmentCount: networks.reduce(
+            (sum, network) => sum + (network.segmentIds?.length ?? 0),
+            0
+          ),
+          branchStartId: branchSegment?.startId ?? null,
+          branchEndId: branchSegment?.endId ?? null
+        }
+      },
+      { sourcePointId: before.pointIds[1] }
+    )
+
+    expect(afterAppend.selectedPointId).not.toBeNull()
+    expect(afterAppend).toMatchObject({
+      selectedTarget: 'anchor',
+      networkCount: 2,
+      segmentCount: 3,
+      branchStartId: before.pointIds[1],
+      branchEndId: afterAppend.selectedPointId
+    })
+
+    const firstEndpointPos = await getCanvasPosition(page, 0.3, 0.3)
+    await page.mouse.click(firstEndpointPos.x, firstEndpointPos.y)
+
+    await expect
+      .poll(async () => {
+        return page.evaluate(
+          ({ sourcePointId, targetPointId }) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const core = (window as any).__Core__
+            const vectorId = core?.getSystemProperty?.('pathEditingVectorId')
+            const element =
+              vectorId && core?.deps?.sceneTree?.getElementById?.(vectorId)
+            const computed = element?.getAllComputedData?.() ?? {}
+            const networks = Object.values(computed.networks ?? {}) as {
+              pointIds?: string[]
+              segmentIds?: string[]
+            }[]
+            const segments = Object.values(computed.segments ?? {}) as {
+              startId?: string
+              endId?: string
+            }[]
+            const selected = core?.getSystemProperty?.('selectedVectorPoint')
+
+            return {
+              selectedPointId: selected?.pointId ?? null,
+              hasTargetConnection: segments.some(
+                (segment) =>
+                  segment.startId === sourcePointId &&
+                  segment.endId === targetPointId
+              ),
+              networkCount: networks.length,
+              segmentCount: networks.reduce(
+                (sum, network) => sum + (network.segmentIds?.length ?? 0),
+                0
+              )
+            }
+          },
+          {
+            sourcePointId: afterAppend.selectedPointId,
+            targetPointId: before.pointIds[0]
+          }
+        )
+      })
+      .toMatchObject({
+        selectedPointId: before.pointIds[0],
+        hasTargetConnection: true,
+        networkCount: 3,
+        segmentCount: 4
+      })
+
+    await page.screenshot({
+      path: testInfo.outputPath('arbitrary-anchor-connect.png'),
+      fullPage: true
+    })
   })
 
   test('split mode enables ghost insert point while connected preview mode keeps it hidden', async ({
@@ -1421,7 +1601,7 @@ test.describe('Pen Tool - Editing Flow', () => {
         totalPointCount: 4,
         totalSegmentCount: 3,
         closedCount: 0,
-        startNewSubpath: true,
+        startNewSubpath: false,
         selectedTarget: 'anchor'
       })
   })
@@ -1505,7 +1685,7 @@ test.describe('Pen Tool - Editing Flow', () => {
         totalSegmentCount: 3,
         closedCount: 1,
         computedClosed: true,
-        startNewSubpath: true,
+        startNewSubpath: false,
         selectedTarget: 'anchor'
       })
   })
