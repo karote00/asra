@@ -331,6 +331,12 @@ describe('vector path editing transaction boundary', () => {
     expect(source).toContain(
       'updateVectorPointTargetPosition(dragTarget, targetPos, {'
     )
+    expect(source).toContain(
+      'applyBezierDragForNewPoint(state, mouseWorkspacePos, {'
+    )
+    expect(source).toContain('updateVectorAnchorPointHandles(')
+    expect(source).toContain('autoUpdateConnectedHandleTarget')
+    expect(source).toContain('resolveAutoUpdateConnectedHandleTarget')
     expect(source).toContain('undoable: false')
     expect(source).toContain('skipResult: true')
     expect(source).toMatch(

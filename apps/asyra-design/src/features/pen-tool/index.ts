@@ -14,6 +14,7 @@ import {
   systemContextApis
 } from '../../common-apis'
 import type {
+  PathEditingContinuationState,
   SelectedVectorPointState,
   SelectedVectorSegmentState
 } from '../../common-apis/system-context'
@@ -29,7 +30,8 @@ interface PenState extends Record<string, unknown> {
   pointId: string
   connectedPointId: string | null
   connectionSide: VectorEndpointSide
-  autoUpdateConnectedHandle: boolean
+  autoUpdateConnectedHandleTarget: VectorHandleTarget | null
+  initialHandlePositions: VectorHandleInitialPosition[]
 }
 
 interface VectorPointDragTargetState extends Record<string, unknown> {
@@ -50,6 +52,17 @@ interface SelectVectorPointState extends Record<string, unknown> {
 interface SubpathEndpoint {
   point: VectorAnchorPoint
   side: VectorEndpointSide
+}
+
+type VectorHandleTarget = Exclude<
+  VectorPointTarget,
+  typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR
+>
+
+interface VectorHandleInitialPosition {
+  pointId: string
+  target: VectorHandleTarget
+  position: Vec2 | null
 }
 
 const PenHoverPreviewMode = {
@@ -124,6 +137,60 @@ const computeConnectedOutHandle = (connectedPoint: VectorAnchorPoint): Vec2 => {
 
 const computeConnectedInHandle = (connectedPoint: VectorAnchorPoint): Vec2 => {
   return connectedPoint.inHandle ?? connectedPoint
+}
+
+const getConnectedHandleTargetForSide = (
+  side: VectorEndpointSide
+): VectorHandleTarget =>
+  side === VECTOR_TOKENS.ENDPOINT.SIDE.START
+    ? VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
+    : VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE
+
+const getControlRoleForHandleTarget = (target: VectorHandleTarget) =>
+  target === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
+    ? VECTOR_TOKENS.CONTROL.ROLE.IN
+    : VECTOR_TOKENS.CONTROL.ROLE.OUT
+
+const hasActualControlRecord = (
+  elementId: string,
+  pointId: string,
+  target: VectorHandleTarget
+): boolean => {
+  const topology = elementApis.getVectorTopology(elementId)
+  const role = getControlRoleForHandleTarget(target)
+
+  return Object.values(topology.points).some(
+    (point) =>
+      point.kind === VECTOR_TOKENS.POINT.KIND.CONTROL &&
+      point.controlForId === pointId &&
+      point.controlRole === role
+  )
+}
+
+const resolveAutoUpdateConnectedHandleTarget = (
+  elementId: string,
+  continuation: PathEditingContinuationState | null
+): VectorHandleTarget | null => {
+  if (!continuation) {
+    return null
+  }
+
+  const topology = elementApis.getVectorTopology(elementId)
+  const network = topology.networks[continuation.networkId]
+  if (
+    !network ||
+    network.closed ||
+    network.pointIds.length !== 1 ||
+    network.segmentIds.length !== 0 ||
+    network.pointIds[0] !== continuation.pointId
+  ) {
+    return null
+  }
+
+  const target = getConnectedHandleTargetForSide(continuation.side)
+  return hasActualControlRecord(elementId, continuation.pointId, target)
+    ? null
+    : target
 }
 
 const flushSelectedVectorPointMirror = (
@@ -243,6 +310,101 @@ const getPointTargetPosition = (
   return point.outHandle
 }
 
+const getHandleTargetPosition = (
+  point: VectorAnchorPoint | null | undefined,
+  target: VectorHandleTarget
+): Vec2 | null => {
+  if (!point) {
+    return null
+  }
+
+  return target === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
+    ? point.inHandle
+    : point.outHandle
+}
+
+const getNewPointSegmentHandleTarget = (
+  connectionSide: VectorEndpointSide
+): VectorHandleTarget =>
+  connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
+    ? VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE
+    : VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
+
+const getNewPointOppositeHandleTarget = (
+  connectionSide: VectorEndpointSide
+): VectorHandleTarget =>
+  connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
+    ? VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
+    : VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE
+
+const getAutoUpdatedConnectedHandleTarget = (
+  connectionSide: VectorEndpointSide,
+  autoUpdateConnectedHandleTarget: VectorHandleTarget | null
+): VectorHandleTarget =>
+  autoUpdateConnectedHandleTarget ??
+  getConnectedHandleTargetForSide(connectionSide)
+
+const getBezierDragInitialHandlePositions = (
+  elementId: string,
+  pointId: string,
+  connectedPointId: string | null,
+  connectionSide: VectorEndpointSide,
+  autoUpdateConnectedHandleTarget: VectorHandleTarget | null
+): VectorHandleInitialPosition[] => {
+  const newPoint = elementApis.getVectorAnchorPointById(elementId, pointId)
+  const connectedPoint = connectedPointId
+    ? elementApis.getVectorAnchorPointById(elementId, connectedPointId)
+    : null
+  const positions: VectorHandleInitialPosition[] = []
+
+  if (connectedPointId) {
+    const target = getAutoUpdatedConnectedHandleTarget(
+      connectionSide,
+      autoUpdateConnectedHandleTarget
+    )
+    positions.push({
+      pointId: connectedPointId,
+      target,
+      position: getHandleTargetPosition(connectedPoint?.point, target)
+    })
+  }
+
+  const segmentTarget = getNewPointSegmentHandleTarget(connectionSide)
+  positions.push({
+    pointId,
+    target: segmentTarget,
+    position: getHandleTargetPosition(newPoint?.point, segmentTarget)
+  })
+
+  const oppositeTarget = getNewPointOppositeHandleTarget(connectionSide)
+  positions.push({
+    pointId,
+    target: oppositeTarget,
+    position: getHandleTargetPosition(newPoint?.point, oppositeTarget)
+  })
+
+  return positions
+}
+
+const resetBezierDragHandlesToInitial = (state: PenState) => {
+  if (state.initialHandlePositions.length === 0) {
+    return
+  }
+
+  elementApis.updateVectorAnchorPointHandles(
+    state.elementId,
+    state.initialHandlePositions.map((handle) => ({
+      pointId: handle.pointId,
+      target: handle.target,
+      position: handle.position
+    })),
+    {
+      undoable: false,
+      skipResult: true
+    }
+  )
+}
+
 const syncSelectedVectorPointMirror = (
   elementId: string,
   selectedPoint: { point: VectorAnchorPoint; index: number } | null,
@@ -299,7 +461,8 @@ const updateVectorPointTargetPosition = (
 
 const applyBezierDragForNewPoint = (
   state: PenState,
-  mouseWorkspacePos: { x: number; y: number }
+  mouseWorkspacePos: { x: number; y: number },
+  options?: { undoable: boolean; skipResult?: boolean }
 ) => {
   if (!state.connectedPointId) {
     return false
@@ -315,30 +478,20 @@ const applyBezierDragForNewPoint = (
   }
 
   const symmetric = computeSymmetricHandles(newPoint, mouseWorkspacePos)
-  const connectedTarget: Exclude<
-    VectorPointTarget,
-    typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR
-  > =
-    state.connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
-      ? VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
-      : VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE
-  const currentSegmentTarget: Exclude<
-    VectorPointTarget,
-    typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR
-  > =
-    state.connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
-      ? VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE
-      : VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
-  const currentOppositeTarget: Exclude<
-    VectorPointTarget,
-    typeof VECTOR_TOKENS.POINT.TARGET.ANCHOR
-  > =
-    state.connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
-      ? VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
-      : VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE
+  const connectedTarget = getAutoUpdatedConnectedHandleTarget(
+    state.connectionSide,
+    state.autoUpdateConnectedHandleTarget
+  )
+  const currentSegmentTarget = getNewPointSegmentHandleTarget(
+    state.connectionSide
+  )
+  const currentOppositeTarget = getNewPointOppositeHandleTarget(
+    state.connectionSide
+  )
 
   const figmaHandles =
-    state.autoUpdateConnectedHandle &&
+    state.autoUpdateConnectedHandleTarget ===
+      VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE &&
     state.connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.END
       ? computeFigmaStyleHandles(connectedPoint, newPoint, mouseWorkspacePos)
       : null
@@ -355,34 +508,38 @@ const applyBezierDragForNewPoint = (
     ? figmaHandles.currentOutHandle
     : symmetric.outHandle
 
-  elementApis.updateVectorAnchorPointHandles(state.elementId, [
-    {
-      pointId: state.connectedPointId,
-      target: connectedTarget,
-      position: {
-        x: connectedHandle.x,
-        y: connectedHandle.y
+  elementApis.updateVectorAnchorPointHandles(
+    state.elementId,
+    [
+      {
+        pointId: state.connectedPointId,
+        target: connectedTarget,
+        position: {
+          x: connectedHandle.x,
+          y: connectedHandle.y
+        }
+      },
+      {
+        pointId: state.pointId,
+        target: currentSegmentTarget,
+        position: {
+          x: currentSegmentHandle.x,
+          y: currentSegmentHandle.y
+        },
+        forceSmooth: true
+      },
+      {
+        pointId: state.pointId,
+        target: currentOppositeTarget,
+        position: {
+          x: currentOppositeHandle.x,
+          y: currentOppositeHandle.y
+        },
+        forceSmooth: true
       }
-    },
-    {
-      pointId: state.pointId,
-      target: currentSegmentTarget,
-      position: {
-        x: currentSegmentHandle.x,
-        y: currentSegmentHandle.y
-      },
-      forceSmooth: true
-    },
-    {
-      pointId: state.pointId,
-      target: currentOppositeTarget,
-      position: {
-        x: currentOppositeHandle.x,
-        y: currentOppositeHandle.y
-      },
-      forceSmooth: true
-    }
-  ])
+    ],
+    options
+  )
 
   return true
 }
@@ -598,21 +755,13 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
 
           const continuation = systemContextApis.getPathEditingContinuation()
           const connectedPointId = continuation?.pointId ?? null
-          const anchorPoints =
-            elementApis.getVectorAnchorPoints(pathEditingVectorId)
-          const connectedPoint = connectedPointId
-            ? anchorPoints.find((p) => p.id === connectedPointId)
-            : null
-
-          const currentSubpath = subpaths[subpaths.length - 1]
           const connectionSide =
             continuation?.side ?? VECTOR_TOKENS.ENDPOINT.SIDE.END
-          const autoUpdateConnectedHandle =
-            !!connectedPoint &&
-            connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.END &&
-            !!currentSubpath &&
-            currentSubpath.length === 1 &&
-            connectedPoint.outHandle === null
+          const autoUpdateConnectedHandleTarget =
+            resolveAutoUpdateConnectedHandleTarget(
+              pathEditingVectorId,
+              continuation ?? null
+            )
           const newPoint = createAnchorPoint(dragStartWorkspace)
           const newSelectedPoint = elementApis.appendVectorAnchorPoint(
             pathEditingVectorId,
@@ -634,7 +783,14 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
             pointId: newPoint.id,
             connectedPointId,
             connectionSide,
-            autoUpdateConnectedHandle
+            autoUpdateConnectedHandleTarget,
+            initialHandlePositions: getBezierDragInitialHandlePositions(
+              pathEditingVectorId,
+              newPoint.id,
+              connectedPointId,
+              connectionSide,
+              autoUpdateConnectedHandleTarget
+            )
           } as PenState
         }
 
@@ -663,7 +819,8 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
           pointId: firstPoint.id,
           connectedPointId: null,
           connectionSide: VECTOR_TOKENS.ENDPOINT.SIDE.END,
-          autoUpdateConnectedHandle: false
+          autoUpdateConnectedHandleTarget: null,
+          initialHandlePositions: []
         }
       },
 
@@ -677,7 +834,10 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
           return
         }
 
-        applyBezierDragForNewPoint(state, mouseWorkspacePos)
+        applyBezierDragForNewPoint(state, mouseWorkspacePos, {
+          undoable: false,
+          skipResult: true
+        })
 
         return
       },
@@ -693,7 +853,11 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
 
         const mouseWorkspacePos = getCurrentMouseWorkspacePos()
         if (mouseWorkspacePos) {
-          applyBezierDragForNewPoint(state, mouseWorkspacePos)
+          resetBezierDragHandlesToInitial(state)
+          applyBezierDragForNewPoint(state, mouseWorkspacePos, {
+            undoable: true,
+            skipResult: true
+          })
         }
 
         const selectedPoint = elementApis.getVectorAnchorPointById(

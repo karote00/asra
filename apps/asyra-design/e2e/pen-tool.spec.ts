@@ -80,9 +80,129 @@ test.describe('Pen Tool - Editing Flow', () => {
     await page.mouse.click(firstClientPos.x, firstClientPos.y)
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
 
+    const firstPointRuntime = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selected = core?.getSystemProperty?.('selectedVectorPoint')
+      const vectorId = core?.getSystemProperty?.('pathEditingVectorId') ?? null
+      return {
+        vectorId,
+        firstPointId: selected?.pointId ?? null
+      }
+    })
+    expect(firstPointRuntime.vectorId).not.toBeNull()
+    expect(firstPointRuntime.firstPointId).not.toBeNull()
+    if (!firstPointRuntime.vectorId || !firstPointRuntime.firstPointId) {
+      return
+    }
+
+    const readFirstSegmentState = async (secondPointId?: string) =>
+      page.evaluate(({ vectorId, firstPointId, secondPointId }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        const element = core?.deps?.sceneTree?.getElementById?.(vectorId)
+        const computed = element?.getAllComputedData?.() ?? {}
+        const points = computed.points ?? {}
+        const segments = computed.segments ?? {}
+        const networks = Object.values(computed.networks ?? {}) as {
+          pointIds?: string[]
+          segmentIds?: string[]
+        }[]
+        const network = networks.find((item) =>
+          item.pointIds?.includes(firstPointId)
+        )
+        const segment = (network?.segmentIds ?? [])
+          .map((segmentId) => segments[segmentId])
+          .find((candidate) => candidate?.startId === firstPointId)
+        const firstAnchor = points[firstPointId]
+        const firstOut =
+          segment?.outControlId && points[segment.outControlId]
+            ? points[segment.outControlId]
+            : null
+        const selected = core?.getSystemProperty?.('selectedVectorPoint')
+        const selectedPoint = selected?.pointId ? points[selected.pointId] : null
+        const selectedOut =
+          selectedPoint?.kind === 'anchor'
+            ? points[`${selected.pointId}:out`]
+            : null
+        const secondOut = secondPointId
+          ? points[`${secondPointId}:out`]
+          : null
+
+        return {
+          selectedPointId: selected?.pointId ?? null,
+          selectedTarget: selected?.target ?? null,
+          bounds: {
+            x: computed.x,
+            y: computed.y,
+            width: computed.width,
+            height: computed.height
+          },
+          networkPointCount: network?.pointIds?.length ?? 0,
+          segmentStartId: segment?.startId ?? null,
+          segmentEndId: segment?.endId ?? null,
+          outControlId: segment?.outControlId ?? null,
+          firstAnchor:
+            firstAnchor?.kind === 'anchor'
+              ? { x: firstAnchor.x, y: firstAnchor.y }
+              : null,
+          firstOut:
+            firstOut?.kind === 'control'
+              ? {
+                  id: firstOut.id,
+                  controlForId: firstOut.controlForId,
+                  controlRole: firstOut.controlRole,
+                  x: firstOut.x,
+                  y: firstOut.y
+                }
+              : null,
+          selectedOut:
+            selectedOut?.kind === 'control'
+              ? { x: selectedOut.x, y: selectedOut.y }
+              : null,
+          secondOut:
+            secondOut?.kind === 'control'
+              ? { x: secondOut.x, y: secondOut.y }
+              : null
+        }
+      }, { ...firstPointRuntime, secondPointId: secondPointId ?? null })
+
     await page.mouse.move(secondClientPos.x, secondClientPos.y)
     await page.mouse.down()
-    await page.mouse.move(dragClientPos.x, dragClientPos.y, { steps: 12 })
+    await page.mouse.move(
+      secondClientPos.x + (dragClientPos.x - secondClientPos.x) * 0.5,
+      secondClientPos.y + (dragClientPos.y - secondClientPos.y) * 0.5,
+      { steps: 6 }
+    )
+    const midDragState = await readFirstSegmentState()
+    expect(midDragState).toMatchObject({
+      networkPointCount: 2,
+      segmentStartId: firstPointRuntime.firstPointId,
+      outControlId: `${firstPointRuntime.firstPointId}:out`
+    })
+    expect(midDragState.firstOut).toMatchObject({
+      controlForId: firstPointRuntime.firstPointId,
+      controlRole: 'out'
+    })
+    expect(midDragState.firstAnchor).not.toBeNull()
+    expect(midDragState.firstOut).not.toBeNull()
+    if (!midDragState.firstAnchor || !midDragState.firstOut) {
+      return
+    }
+    expect(
+      Math.abs(midDragState.firstOut.x - midDragState.firstAnchor.x)
+    ).toBeGreaterThan(1)
+
+    await page.mouse.move(dragClientPos.x, dragClientPos.y, { steps: 6 })
+    const lateDragState = await readFirstSegmentState()
+    expect(lateDragState.firstOut).not.toBeNull()
+    if (!lateDragState.firstOut) {
+      return
+    }
+    expect(
+      Math.abs(lateDragState.firstOut.x - midDragState.firstOut.x)
+    ).toBeGreaterThan(1)
+
     await page.mouse.up()
 
     const runtime = await page.evaluate(() => {
@@ -99,6 +219,21 @@ test.describe('Pen Tool - Editing Flow', () => {
       return
     }
 
+    const finalState = await readFirstSegmentState(runtime.secondPointId)
+    expect(finalState).toMatchObject({
+      selectedTarget: 'anchor',
+      segmentStartId: firstPointRuntime.firstPointId,
+      segmentEndId: runtime.secondPointId,
+      outControlId: `${firstPointRuntime.firstPointId}:out`
+    })
+    expect(finalState.firstOut).toMatchObject({
+      controlForId: firstPointRuntime.firstPointId,
+      controlRole: 'out'
+    })
+    expect(finalState.secondOut).not.toBeNull()
+    expect(finalState.bounds.width).toBeGreaterThan(1)
+    expect(finalState.bounds.height).toBeGreaterThan(1)
+
     await expect
       .poll(async () => {
         return page.evaluate(() => {
@@ -109,6 +244,26 @@ test.describe('Pen Tool - Editing Flow', () => {
         })
       })
       .toBe('anchor')
+
+    await page.keyboard.press('Escape')
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          return core?.getSystemProperty?.('pathEditingVectorId') ?? null
+        })
+      )
+      .toBeNull()
+
+    const exitedEditingState = await readFirstSegmentState(runtime.secondPointId)
+    expect(exitedEditingState).toMatchObject({
+      segmentStartId: firstPointRuntime.firstPointId,
+      segmentEndId: runtime.secondPointId,
+      outControlId: `${firstPointRuntime.firstPointId}:out`
+    })
+    expect(exitedEditingState.secondOut).not.toBeNull()
+    expect(exitedEditingState.bounds).toEqual(finalState.bounds)
   })
 
   test('second-point micro drag below threshold keeps first segment straight', async ({

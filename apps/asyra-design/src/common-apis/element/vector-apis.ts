@@ -896,6 +896,7 @@ const commitVectorTopologyOperation = (
   }
 ) => {
   measureBrowserDragPhase(`vector-api:operation:${operation.type}`, () => {
+    const transientVectorPointDrag = isTransientVectorPointDragUpdate(options)
     if (shouldUseVectorTopologyFallback(elementId)) {
       emitStrokePipelineCounter('vector-api-operation-fallback-count')
       commitVectorTopology(elementId, nextTopology, options)
@@ -934,23 +935,33 @@ const commitVectorTopologyOperation = (
     )
     if (!hasComputedDataPatchOperations(patch)) {
       emitStrokePipelineCounter('vector-api-operation-empty-patch-count')
-      clearTransientVectorCaches(elementId)
+      if (!transientVectorPointDrag) {
+        clearTransientVectorCaches(elementId)
+      }
       return
     }
 
-    clearTransientVectorCaches(elementId)
+    if (!transientVectorPointDrag) {
+      clearTransientVectorCaches(elementId)
+    }
     startTransaction()
-    reconcileVectorSelectionAfterTopologyChange(
-      elementId,
-      previousTopology,
-      nextTopology
-    )
+    if (!transientVectorPointDrag) {
+      reconcileVectorSelectionAfterTopologyChange(
+        elementId,
+        previousTopology,
+        nextTopology
+      )
+    }
     core.changeComputedDataPatch(
       [elementId],
       patch,
       toVectorEventOptions(options)
     )
     endTransaction()
+    if (transientVectorPointDrag) {
+      transientWorkspaceTopologyCache.set(elementId, nextTopology)
+      updateTransientComputedSnapshotFromPatch(elementId, patch)
+    }
   })
 }
 
@@ -1715,7 +1726,8 @@ export const vectorApis = {
 
   updateVectorAnchorPointHandles: (
     elementId: string,
-    updates: VectorHandleUpdate[]
+    updates: VectorHandleUpdate[],
+    options?: VectorPointMutationOptions
   ) => {
     if (updates.length === 0) {
       return
@@ -1745,7 +1757,8 @@ export const vectorApis = {
         updates
       },
       previousTopology,
-      topology
+      topology,
+      options
     )
   },
 
