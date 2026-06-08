@@ -1750,6 +1750,122 @@ test.describe('Pen Tool - Editing Flow', () => {
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 2)
   })
 
+  test('escape removes a single-point subpath created after disconnecting pen continuation', async ({
+    page
+  }, testInfo) => {
+    const initialCount = await getElementCount(page)
+
+    await page.keyboard.press('p')
+    await expect.poll(() => getActiveTool(page)).toBe('pen')
+
+    await clickCanvas(page, 0.3, 0.72)
+    await clickCanvas(page, 0.47, 0.35)
+    await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
+
+    await page.keyboard.press('Escape')
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          return {
+            pathEditingVectorId:
+              core?.getSystemProperty?.('pathEditingVectorId') ?? null,
+            startNewSubpath:
+              core?.getSystemProperty?.('pathEditingStartNewSubpath') ?? null
+          }
+        })
+      })
+      .toMatchObject({
+        pathEditingVectorId: expect.any(String),
+        startNewSubpath: true
+      })
+
+    await clickCanvas(page, 0.73, 0.28)
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const pathEditingVectorId =
+            core?.getSystemProperty?.('pathEditingVectorId') ?? null
+          const element =
+            pathEditingVectorId &&
+            core?.deps?.sceneTree?.getElementById?.(pathEditingVectorId)
+          const computed = element?.getAllComputedData?.() ?? {}
+          const networks = Object.values(computed.networks ?? {}) as {
+            pointIds?: string[]
+          }[]
+
+          return {
+            networkCount: networks.length,
+            totalPointCount: networks.reduce(
+              (sum, network) => sum + (network.pointIds?.length ?? 0),
+              0
+            ),
+            singlePointSubpathCount: networks.filter(
+              (network) => (network.pointIds?.length ?? 0) === 1
+            ).length,
+            startNewSubpath:
+              core?.getSystemProperty?.('pathEditingStartNewSubpath') ?? null
+          }
+        })
+      })
+      .toMatchObject({
+        networkCount: 2,
+        totalPointCount: 3,
+        singlePointSubpathCount: 1,
+        startNewSubpath: false
+      })
+
+    await page.keyboard.press('Escape')
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const pathEditingVectorId =
+            core?.getSystemProperty?.('pathEditingVectorId') ?? null
+          const element =
+            pathEditingVectorId &&
+            core?.deps?.sceneTree?.getElementById?.(pathEditingVectorId)
+          const computed = element?.getAllComputedData?.() ?? {}
+          const networks = Object.values(computed.networks ?? {}) as {
+            pointIds?: string[]
+          }[]
+          const selectedVectorPoint =
+            core?.getSystemProperty?.('selectedVectorPoint') ?? null
+
+          return {
+            pathEditingVectorId,
+            networkCount: networks.length,
+            totalPointCount: networks.reduce(
+              (sum, network) => sum + (network.pointIds?.length ?? 0),
+              0
+            ),
+            singlePointSubpathCount: networks.filter(
+              (network) => (network.pointIds?.length ?? 0) === 1
+            ).length,
+            startNewSubpath:
+              core?.getSystemProperty?.('pathEditingStartNewSubpath') ?? null,
+            selectedVectorPoint
+          }
+        })
+      })
+      .toMatchObject({
+        pathEditingVectorId: expect.any(String),
+        networkCount: 1,
+        totalPointCount: 2,
+        singlePointSubpathCount: 0,
+        startNewSubpath: true,
+        selectedVectorPoint: null
+      })
+
+    await page.screenshot({
+      path: testInfo.outputPath('pen-escape-removes-single-point-subpath.png')
+    })
+  })
+
   test('refresh keeps one render object per vector element id', async ({
     page
   }) => {

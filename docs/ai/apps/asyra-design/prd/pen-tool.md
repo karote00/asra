@@ -50,6 +50,8 @@ Users need a vector path workflow that supports creating vectors, appending poin
 
 - if pen tool is in path editing connected-continuation mode, Escape disconnects
   the continuation preview and keeps path editing active
+- if that continuation is a newly created subpath with only one point, Escape
+  removes the single-point subpath instead of preserving an independent point
 - if pen tool is already disconnected/new-subpath in path editing mode, Escape
   exits path editing while keeping pen active
 - if a non-pen tool is in path editing mode, Escape exits path editing

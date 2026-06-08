@@ -133,6 +133,9 @@ Handled by `cancelPenEditing`:
 - disconnect the continuation preview by setting `pathEditingStartNewSubpath=true`
 - keep path editing mode active
 - keep the pen tool active
+- if the continuation source is the last subpath and that subpath contains only
+  one point, remove that single-point subpath instead of preserving an
+  independent point
 
 2. pen tool + path editing mode + disconnected/new-subpath state
 

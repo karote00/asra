@@ -72,6 +72,14 @@ Feature: Pen Tool and Path Editing
     Then path editing mode should remain active
     And pen should be disconnected from the current continuation
 
+  Scenario: Escape removes a newly created single-point subpath
+    Given path editing mode is active
+    And the primary tool is pen
+    And pen has created a new subpath with only one point
+    When I press Escape
+    Then that single-point subpath should be removed
+    And path editing mode should remain active
+
   Scenario: Escape exits path editing after pen continuation is disconnected
     Given path editing mode is active
     And the primary tool is pen

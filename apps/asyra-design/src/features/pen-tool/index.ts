@@ -569,6 +569,47 @@ const resolvePenHoverPreviewMode = (
   return PenHoverPreviewMode.CONNECTED_SEGMENT_PREVIEW
 }
 
+const removeSelectedSinglePointSubpathOnCancel = (
+  elementId: string | null
+): boolean => {
+  if (!elementId) {
+    return false
+  }
+
+  const subpaths = elementApis.getVectorAnchorSubpaths(elementId)
+  const lastSubpath = subpaths[subpaths.length - 1]
+  if (!lastSubpath || lastSubpath.length !== 1) {
+    return false
+  }
+
+  const singlePointId = lastSubpath[0].id
+  const selectedPoint = systemContextApis.getSelectedVectorPoint()
+  const continuation = systemContextApis.getPathEditingContinuation()
+  const activePointId =
+    selectedPoint?.elementId === elementId &&
+    selectedPoint.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
+      ? selectedPoint.pointId
+      : continuation?.elementId === elementId
+        ? continuation.pointId
+        : null
+
+  if (activePointId !== singlePointId) {
+    return false
+  }
+
+  const removed = elementApis.removeLastSinglePointSubpath(elementId)
+  if (!removed) {
+    return false
+  }
+
+  systemContextApis.setPathEditingStartNewSubpath(true)
+  systemContextApis.setPathEditingContinuation(null)
+  systemContextApis.setHoveredVectorSegment(null)
+  systemContextApis.setHoveredVectorSegmentInsertPoint(null)
+  cursorApis.resetCanvasCursor()
+  return true
+}
+
 export const penFeature = defineFeature<Record<string, unknown>, PenState>(
   FeatureNames.PEN,
   InputSystemEvents.INPUT_DRAG,
@@ -1190,6 +1231,14 @@ export const cancelPenEditingFeature = defineFeature(
             systemContextApis.getPathEditingStartNewSubpath()
 
           if (!startNewSubpath) {
+            if (removeSelectedSinglePointSubpathOnCancel(editingVectorId)) {
+              return {
+                cancelled: true,
+                elementId: editingVectorId,
+                mode: 'remove-single-point-subpath'
+              }
+            }
+
             systemContextApis.setPathEditingStartNewSubpath(true)
             systemContextApis.setPathEditingContinuation(null)
             systemContextApis.setHoveredVectorSegment(null)
