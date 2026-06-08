@@ -812,8 +812,13 @@ export const selectVectorPointFeature = defineFeature<
         activeHoveredPoint.pointId
       )
       const initialTargetPos =
-        selectedPoint &&
-        getPointTargetPosition(selectedPoint.point, activeHoveredPoint.target)
+        activeHoveredPoint.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
+          ? selectedPoint &&
+            getPointTargetPosition(selectedPoint.point, activeHoveredPoint.target)
+          : {
+              x: activeHoveredPoint.x,
+              y: activeHoveredPoint.y
+            }
 
       return {
         dragTarget:

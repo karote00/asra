@@ -1,7 +1,11 @@
 import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
-import { getVisibleHandleAnchorIds } from '../render-layers/vector-path-editing-render-layer'
+import {
+  getNetworkAnchorHandleRefs,
+  getVisibleHandleAnchorIds,
+  resolveOverlayHandlePosition
+} from '../render-layers/vector-path-editing-render-layer'
 
 const penToolFeatureSource = () =>
   readFileSync('../../apps/asyra-design/src/features/pen-tool/index.ts', 'utf8')
@@ -28,6 +32,103 @@ const changeComputedDataSource = () =>
   )
 
 describe('vector path editing handle visibility', () => {
+  it('creates a visible display handle for straight segment endpoints', () => {
+    const handle = resolveOverlayHandlePosition(
+      { x: 0, y: 0 },
+      null,
+      { x: 120, y: 0 },
+      null
+    )
+
+    expect(handle).toEqual({ x: 40, y: 0 })
+  })
+
+  it('treats zero-distance handles as straight handles and mirrors the opposite handle length', () => {
+    const handle = resolveOverlayHandlePosition(
+      { x: 0, y: 0 },
+      { x: 0, y: 0 },
+      { x: -120, y: 0 },
+      { x: 30, y: 0 }
+    )
+
+    expect(handle).toEqual({ x: -30, y: 0 })
+  })
+
+  it('keeps actual visible handles instead of replacing them with display handles', () => {
+    const handle = resolveOverlayHandlePosition(
+      { x: 0, y: 0 },
+      { x: 12, y: 6 },
+      { x: 120, y: 0 },
+      null
+    )
+
+    expect(handle).toEqual({ x: 12, y: 6 })
+  })
+
+  it('resolves closed first-anchor handles from segment references instead of control id naming', () => {
+    const refs = getNetworkAnchorHandleRefs(
+      {
+        pointIds: ['first', 'middle', 'last'],
+        segmentIds: ['s0', 's1', 's2']
+      },
+      {
+        s0: {
+          id: 's0',
+          startId: 'first',
+          endId: 'middle',
+          outControlId: 'custom-first-out',
+          inControlId: 'custom-middle-in'
+        },
+        s1: {
+          id: 's1',
+          startId: 'middle',
+          endId: 'last',
+          outControlId: null,
+          inControlId: null
+        },
+        s2: {
+          id: 's2',
+          startId: 'last',
+          endId: 'first',
+          outControlId: 'custom-last-out',
+          inControlId: 'custom-first-in'
+        }
+      }
+    )
+
+    expect(refs.get('first')).toEqual({
+      inControlId: 'custom-first-in',
+      outControlId: 'custom-first-out'
+    })
+  })
+
+  it('does not wrap open endpoint handle ownership across subpath ends', () => {
+    const refs = getNetworkAnchorHandleRefs(
+      {
+        pointIds: ['first', 'last'],
+        segmentIds: ['s0']
+      },
+      {
+        s0: {
+          id: 's0',
+          startId: 'first',
+          endId: 'last',
+          outControlId: 'custom-first-out',
+          inControlId: 'custom-last-in'
+        }
+      }
+    )
+
+    expect(refs.get('first')).toEqual({
+      inControlId: null,
+      outControlId: 'custom-first-out'
+    })
+    expect(refs.get('last')).toEqual({
+      inControlId: 'custom-last-in',
+      outControlId: null
+    })
+  })
+
   it('shows n-1/n/n+1 for open subpath without wrapping', () => {
     const subpaths = [
       {
@@ -41,11 +142,13 @@ describe('vector path editing handle visibility', () => {
       }
     ]
 
-    const visible = getVisibleHandleAnchorIds(subpaths, 'a')
+    const visible = getVisibleHandleAnchorIds(subpaths, [
+      { pointId: 'a', index: 0 }
+    ])
     expect(visible).toEqual(new Set(['a', 'b']))
   })
 
-  it('wraps neighbors for closed subpath so endpoint selection shows both sides', () => {
+  it('uses selected point index to wrap neighbors for closed subpaths', () => {
     const subpaths = [
       {
         closed: true,
@@ -58,8 +161,59 @@ describe('vector path editing handle visibility', () => {
       }
     ]
 
-    const visible = getVisibleHandleAnchorIds(subpaths, 'a')
+    const visible = getVisibleHandleAnchorIds(subpaths, [
+      { pointId: 'a', index: 0 }
+    ])
     expect(visible).toEqual(new Set(['a', 'b', 'c']))
+  })
+
+  it('maps selected flat index into the owning subpath before wrapping neighbors', () => {
+    const subpaths = [
+      {
+        closed: false,
+        segmentIds: [],
+        points: [
+          { id: 'a', x: 0, y: 0, inHandle: null, outHandle: null },
+          { id: 'b', x: 1, y: 0, inHandle: null, outHandle: null }
+        ]
+      },
+      {
+        closed: true,
+        segmentIds: [],
+        points: [
+          { id: 'c', x: 2, y: 0, inHandle: null, outHandle: null },
+          { id: 'd', x: 3, y: 0, inHandle: null, outHandle: null },
+          { id: 'e', x: 4, y: 0, inHandle: null, outHandle: null }
+        ]
+      }
+    ]
+
+    const visible = getVisibleHandleAnchorIds(subpaths, [
+      { pointId: 'c', index: 2 }
+    ])
+    expect(visible).toEqual(new Set(['c', 'd', 'e']))
+  })
+
+  it('unions selected points and their neighbors for multi-select', () => {
+    const subpaths = [
+      {
+        closed: false,
+        segmentIds: [],
+        points: [
+          { id: 'a', x: 0, y: 0, inHandle: null, outHandle: null },
+          { id: 'b', x: 1, y: 0, inHandle: null, outHandle: null },
+          { id: 'c', x: 2, y: 0, inHandle: null, outHandle: null },
+          { id: 'd', x: 3, y: 0, inHandle: null, outHandle: null },
+          { id: 'e', x: 4, y: 0, inHandle: null, outHandle: null }
+        ]
+      }
+    ]
+
+    const visible = getVisibleHandleAnchorIds(subpaths, [
+      { pointId: 'b', index: 1 },
+      { pointId: 'd', index: 3 }
+    ])
+    expect(visible).toEqual(new Set(['a', 'b', 'c', 'd', 'e']))
   })
 })
 

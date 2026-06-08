@@ -26,6 +26,10 @@ export interface VectorTopologyEndpoint {
   side: VectorTopologyEndpointSide
 }
 
+interface VectorAnchorViewOptions {
+  includeSyntheticHandles?: boolean
+}
+
 export const VECTOR_TOPOLOGY_DATA_KEYS = [
   'points',
   'segments',
@@ -38,6 +42,9 @@ export type VectorTopologyData = Pick<
 >
 
 type VectorTopologyLike = VectorTopologyData
+const SYNTHETIC_HANDLE_MIN_LENGTH = 14
+const SYNTHETIC_HANDLE_MAX_LENGTH = 56
+const SYNTHETIC_HANDLE_POINT_EPSILON = 0.5
 
 const hasObjectValue = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
@@ -85,6 +92,82 @@ const isControlNode = (
 ): node is VectorPointNode & {
   kind: typeof VECTOR_TOKENS.POINT.KIND.CONTROL
 } => !!node && node.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
+
+const getDistance = (from: PositionData, to: PositionData): number =>
+  Math.hypot(to.x - from.x, to.y - from.y)
+
+const isVisibleHandlePosition = (
+  anchor: PositionData,
+  handle: PositionData | null | undefined
+): handle is PositionData =>
+  !!handle && getDistance(anchor, handle) > SYNTHETIC_HANDLE_POINT_EPSILON
+
+const clampSyntheticHandleLength = (
+  desiredLength: number,
+  segmentLength: number
+): number => {
+  if (segmentLength <= SYNTHETIC_HANDLE_POINT_EPSILON) {
+    return 0
+  }
+
+  return Math.min(
+    SYNTHETIC_HANDLE_MAX_LENGTH,
+    segmentLength * 0.45,
+    Math.max(SYNTHETIC_HANDLE_MIN_LENGTH, desiredLength)
+  )
+}
+
+const createSyntheticHandlePosition = (
+  anchor: PositionData,
+  neighbor: PositionData | null,
+  mirroredHandle: PositionData | null
+): PositionData | null => {
+  if (!neighbor) {
+    return null
+  }
+
+  const dx = neighbor.x - anchor.x
+  const dy = neighbor.y - anchor.y
+  const segmentLength = Math.hypot(dx, dy)
+  if (segmentLength <= SYNTHETIC_HANDLE_POINT_EPSILON) {
+    return null
+  }
+
+  const mirroredLength = isVisibleHandlePosition(anchor, mirroredHandle)
+    ? getDistance(anchor, mirroredHandle)
+    : segmentLength / 3
+  const handleLength = clampSyntheticHandleLength(
+    mirroredLength,
+    segmentLength
+  )
+  if (handleLength <= SYNTHETIC_HANDLE_POINT_EPSILON) {
+    return null
+  }
+
+  const scale = handleLength / segmentLength
+  return {
+    x: anchor.x + dx * scale,
+    y: anchor.y + dy * scale
+  }
+}
+
+const resolveAnchorViewHandlePosition = (
+  anchor: PositionData,
+  actualHandle: PositionData | null,
+  neighbor: PositionData | null,
+  mirroredHandle: PositionData | null,
+  options?: VectorAnchorViewOptions
+): PositionData | null => {
+  if (isVisibleHandlePosition(anchor, actualHandle)) {
+    return { x: actualHandle.x, y: actualHandle.y }
+  }
+
+  if (!options?.includeSyntheticHandles) {
+    return actualHandle
+  }
+
+  return createSyntheticHandlePosition(anchor, neighbor, mirroredHandle)
+}
 
 export const getControlId = (anchorId: string, role: VectorControlRole) =>
   `${anchorId}:${role}`
@@ -167,10 +250,52 @@ export const getAnchorEndpointInTopology = (
   return null
 }
 
+interface AnchorHandleRefs {
+  inControlId: string | null
+  outControlId: string | null
+}
+
+const getNetworkAnchorHandleRefs = (
+  network: Pick<VectorNetwork, 'pointIds' | 'segmentIds'>,
+  segments: Record<string, VectorSegment>
+): Map<string, AnchorHandleRefs> => {
+  const refs = new Map<string, AnchorHandleRefs>()
+  network.pointIds.forEach((pointId) => {
+    refs.set(pointId, {
+      inControlId: null,
+      outControlId: null
+    })
+  })
+
+  network.segmentIds.forEach((segmentId) => {
+    const segment = segments[segmentId]
+    if (!segment) {
+      return
+    }
+
+    const startRefs = refs.get(segment.startId)
+    if (startRefs && segment.outControlId) {
+      startRefs.outControlId = segment.outControlId
+    }
+
+    const endRefs = refs.get(segment.endId)
+    if (endRefs && segment.inControlId) {
+      endRefs.inControlId = segment.inControlId
+    }
+  })
+
+  return refs
+}
+
 const getAnchorViewFromTopology = (
   topology: VectorTopologyLike,
   pointId: string,
-  isMove: boolean
+  isMove: boolean,
+  handleRefs?: AnchorHandleRefs,
+  options?: VectorAnchorViewOptions & {
+    previousAnchor?: PositionData | null
+    nextAnchor?: PositionData | null
+  }
 ): VectorAnchorPoint | null => {
   const anchor = topology.points[pointId]
   if (!isAnchorNode(anchor)) {
@@ -178,9 +303,22 @@ const getAnchorViewFromTopology = (
   }
 
   const inHandleNode =
-    topology.points[getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN)]
+    handleRefs?.inControlId &&
+    isControlNode(topology.points[handleRefs.inControlId])
+      ? topology.points[handleRefs.inControlId]
+      : topology.points[getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN)]
   const outHandleNode =
-    topology.points[getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.OUT)]
+    handleRefs?.outControlId &&
+    isControlNode(topology.points[handleRefs.outControlId])
+      ? topology.points[handleRefs.outControlId]
+      : topology.points[getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.OUT)]
+  const anchorPosition = { x: anchor.x, y: anchor.y }
+  const actualInHandle = isControlNode(inHandleNode)
+    ? { x: inHandleNode.x, y: inHandleNode.y }
+    : null
+  const actualOutHandle = isControlNode(outHandleNode)
+    ? { x: outHandleNode.x, y: outHandleNode.y }
+    : null
 
   return {
     id: pointId,
@@ -188,27 +326,68 @@ const getAnchorViewFromTopology = (
     y: anchor.y,
     type: anchor.anchorType ?? 'sharp',
     isMove: isMove ? true : undefined,
-    inHandle:
-      inHandleNode && inHandleNode.kind === 'control'
-        ? { x: inHandleNode.x, y: inHandleNode.y }
-        : null,
-    outHandle:
-      outHandleNode && outHandleNode.kind === 'control'
-        ? { x: outHandleNode.x, y: outHandleNode.y }
-        : null
+    inHandle: resolveAnchorViewHandlePosition(
+      anchorPosition,
+      actualInHandle,
+      options?.previousAnchor ?? null,
+      actualOutHandle,
+      options
+    ),
+    outHandle: resolveAnchorViewHandlePosition(
+      anchorPosition,
+      actualOutHandle,
+      options?.nextAnchor ?? null,
+      actualInHandle,
+      options
+    )
   }
 }
 
 export const vectorTopologyToAnchorSubpaths = (
-  topology: VectorTopologyLike
+  topology: VectorTopologyLike,
+  options?: VectorAnchorViewOptions
 ): VectorAnchorSubpaths => {
   const networks = getOrderedNetworks(topology)
   const subpaths: VectorAnchorSubpaths = []
 
   networks.forEach((network) => {
     const subpath: VectorAnchorPoint[] = []
-    network.pointIds.forEach((pointId) => {
-      const view = getAnchorViewFromTopology(topology, pointId, false)
+    const anchorHandleRefs = getNetworkAnchorHandleRefs(
+      network,
+      topology.segments
+    )
+    network.pointIds.forEach((pointId, pointIndex) => {
+      const previousPointId =
+        pointIndex > 0
+          ? network.pointIds[pointIndex - 1]
+          : network.closed
+            ? network.pointIds[network.pointIds.length - 1]
+            : null
+      const nextPointId =
+        pointIndex < network.pointIds.length - 1
+          ? network.pointIds[pointIndex + 1]
+          : network.closed
+            ? network.pointIds[0]
+            : null
+      const previousAnchor = previousPointId
+        ? topology.points[previousPointId]
+        : null
+      const nextAnchor = nextPointId ? topology.points[nextPointId] : null
+      const view = getAnchorViewFromTopology(
+        topology,
+        pointId,
+        false,
+        anchorHandleRefs.get(pointId),
+        {
+          ...options,
+          previousAnchor: isAnchorNode(previousAnchor)
+            ? { x: previousAnchor.x, y: previousAnchor.y }
+            : null,
+          nextAnchor: isAnchorNode(nextAnchor)
+            ? { x: nextAnchor.x, y: nextAnchor.y }
+            : null
+        }
+      )
       if (view) {
         subpath.push(view)
       }
@@ -223,17 +402,48 @@ export const vectorTopologyToAnchorSubpaths = (
 }
 
 export const vectorTopologyToAnchorPoints = (
-  topology: VectorTopologyLike
+  topology: VectorTopologyLike,
+  options?: VectorAnchorViewOptions
 ): VectorAnchorPoint[] => {
   const networks = getOrderedNetworks(topology)
   const points: VectorAnchorPoint[] = []
 
   networks.forEach((network, networkIndex) => {
+    const anchorHandleRefs = getNetworkAnchorHandleRefs(
+      network,
+      topology.segments
+    )
     network.pointIds.forEach((pointId, pointIndex) => {
+      const previousPointId =
+        pointIndex > 0
+          ? network.pointIds[pointIndex - 1]
+          : network.closed
+            ? network.pointIds[network.pointIds.length - 1]
+            : null
+      const nextPointId =
+        pointIndex < network.pointIds.length - 1
+          ? network.pointIds[pointIndex + 1]
+          : network.closed
+            ? network.pointIds[0]
+            : null
+      const previousAnchor = previousPointId
+        ? topology.points[previousPointId]
+        : null
+      const nextAnchor = nextPointId ? topology.points[nextPointId] : null
       const view = getAnchorViewFromTopology(
         topology,
         pointId,
-        networkIndex > 0 && pointIndex === 0
+        networkIndex > 0 && pointIndex === 0,
+        anchorHandleRefs.get(pointId),
+        {
+          ...options,
+          previousAnchor: isAnchorNode(previousAnchor)
+            ? { x: previousAnchor.x, y: previousAnchor.y }
+            : null,
+          nextAnchor: isAnchorNode(nextAnchor)
+            ? { x: nextAnchor.x, y: nextAnchor.y }
+            : null
+        }
       )
       if (view) {
         points.push(view)

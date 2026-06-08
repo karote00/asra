@@ -64,6 +64,7 @@ export const applyPreset = (
   registerVectorPathEditingRenderLayer(
     (registration, options) => core.registerRenderLayer(registration, options),
     {
+      getSelection: (type) => core.getSelection(type),
       render: resolvedDeps.render,
       sceneTree: resolvedDeps.sceneTree,
       systemContext: resolvedDeps.systemContext

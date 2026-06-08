@@ -14,6 +14,7 @@ import type {
   VectorSegment
 } from '@asyra/core'
 import type { PositionData } from '@asyra/utils'
+import { SelectionChannels } from '../selection/channels'
 import type { PresetDependencies } from '../types'
 
 const VECTOR_EDITING_LAYER_NAME = 'vector-editing-layer'
@@ -44,6 +45,9 @@ const SELECTED_SEGMENT_STROKE: OverlayStrokeStyle = {
   width: 3,
   color: SELECTED_POINT_OUTLINE_COLOR
 }
+const SYNTHETIC_HANDLE_MIN_LENGTH = 14
+const SYNTHETIC_HANDLE_MAX_LENGTH = 56
+const SYNTHETIC_HANDLE_POINT_EPSILON = 0.5
 
 export interface OverlayAnchorPoint extends PositionData {
   id: string
@@ -125,6 +129,17 @@ interface HoveredVectorSegmentInsertPointState {
   y: number
 }
 
+interface VectorPointSelectionRef {
+  elementId: string
+  pointId: string
+  target: VectorPointTarget
+}
+
+interface SelectedHandleAnchorRef {
+  pointId: string
+  index?: number | null
+}
+
 const PenPreviewMode = {
   NONE: 'none',
   CONNECTED_SEGMENT_PREVIEW: 'connected-segment-preview',
@@ -137,6 +152,15 @@ type RegisterRenderLayer = (
   registration: RenderLayerRegistration,
   options?: RegisterRenderLayerOptions
 ) => void
+
+interface VectorPointSelectionReader {
+  getSelectedIds(): Set<string>
+}
+
+interface VectorPathEditingRenderLayerDeps
+  extends Pick<PresetDependencies, 'render' | 'sceneTree' | 'systemContext'> {
+  getSelection: (type: string) => VectorPointSelectionReader | undefined
+}
 
 const measureVectorEditingOverlayPhase = <T>(
   phaseName: string,
@@ -217,6 +241,14 @@ const appendSelectedPointSignature = (
   )
 }
 
+const appendStringListSignature = (
+  parts: string[],
+  prefix: string,
+  values: string[]
+) => {
+  parts.push(prefix, values.join(','))
+}
+
 const appendSelectedSegmentSignature = (
   parts: string[],
   prefix: string,
@@ -253,6 +285,7 @@ const buildOverlayDrawSignature = (input: {
   primaryTool: string | null | undefined
   pathEditingVectorId: string | null
   selectedVectorPoint: SelectedVectorPointState | null
+  selectedVectorPointSelectionIds: string[]
   hoveredVectorPoint: SelectedVectorPointState | null
   selectedVectorSegment: SelectedVectorSegmentState | null
   hoveredVectorSegment: SelectedVectorSegmentState | null
@@ -274,6 +307,11 @@ const buildOverlayDrawSignature = (input: {
     parts,
     'selected-point',
     input.selectedVectorPoint
+  )
+  appendStringListSignature(
+    parts,
+    'selected-point-ids',
+    input.selectedVectorPointSelectionIds
   )
   appendSelectedPointSignature(parts, 'hovered-point', input.hoveredVectorPoint)
   appendSelectedSegmentSignature(
@@ -396,6 +434,79 @@ const getControlId = (
     | typeof VECTOR_TOKENS.CONTROL.ROLE.OUT
 ) => `${anchorId}:${role}`
 
+const decodeSelectionToken = (value: string) => {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
+const decodeVectorPointSelectionId = (
+  value: string
+): VectorPointSelectionRef | null => {
+  const parts = value.split(':')
+  if (parts.length !== 3) {
+    return null
+  }
+
+  const elementId = decodeSelectionToken(parts[0])
+  const pointId = decodeSelectionToken(parts[1])
+  const target = decodeSelectionToken(parts[2])
+  if (
+    !elementId ||
+    !pointId ||
+    (target !== VECTOR_TOKENS.POINT.TARGET.ANCHOR &&
+      target !== VECTOR_TOKENS.POINT.TARGET.IN_HANDLE &&
+      target !== VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE)
+  ) {
+    return null
+  }
+
+  return {
+    elementId,
+    pointId,
+    target
+  }
+}
+
+interface AnchorHandleRefs {
+  inControlId: string | null
+  outControlId: string | null
+}
+
+export const getNetworkAnchorHandleRefs = (
+  network: Pick<VectorNetwork, 'pointIds' | 'segmentIds'>,
+  segments: Record<string, VectorSegment>
+): Map<string, AnchorHandleRefs> => {
+  const refs = new Map<string, AnchorHandleRefs>()
+  network.pointIds.forEach((pointId) => {
+    refs.set(pointId, {
+      inControlId: null,
+      outControlId: null
+    })
+  })
+
+  network.segmentIds.forEach((segmentId) => {
+    const segment = segments[segmentId]
+    if (!segment) {
+      return
+    }
+
+    const startRefs = refs.get(segment.startId)
+    if (startRefs && segment.outControlId) {
+      startRefs.outControlId = segment.outControlId
+    }
+
+    const endRefs = refs.get(segment.endId)
+    if (endRefs && segment.inControlId) {
+      endRefs.inControlId = segment.inControlId
+    }
+  })
+
+  return refs
+}
+
 const toScreenPosition = (
   point: PositionData,
   viewportPosition: PositionData,
@@ -404,6 +515,77 @@ const toScreenPosition = (
   x: point.x * viewportScale + viewportPosition.x,
   y: point.y * viewportScale + viewportPosition.y
 })
+
+const getDistance = (from: PositionData, to: PositionData): number =>
+  Math.hypot(to.x - from.x, to.y - from.y)
+
+const isVisibleHandlePosition = (
+  anchor: PositionData,
+  handle: PositionData | null | undefined
+): handle is PositionData =>
+  !!handle && getDistance(anchor, handle) > SYNTHETIC_HANDLE_POINT_EPSILON
+
+const clampSyntheticHandleLength = (
+  desiredLength: number,
+  segmentLength: number
+): number => {
+  if (segmentLength <= SYNTHETIC_HANDLE_POINT_EPSILON) {
+    return 0
+  }
+
+  return Math.min(
+    SYNTHETIC_HANDLE_MAX_LENGTH,
+    segmentLength * 0.45,
+    Math.max(SYNTHETIC_HANDLE_MIN_LENGTH, desiredLength)
+  )
+}
+
+const createSyntheticHandlePosition = (
+  anchor: PositionData,
+  neighbor: PositionData | null,
+  mirroredHandle: PositionData | null
+): PositionData | null => {
+  if (!neighbor) {
+    return null
+  }
+
+  const dx = neighbor.x - anchor.x
+  const dy = neighbor.y - anchor.y
+  const segmentLength = Math.hypot(dx, dy)
+  if (segmentLength <= SYNTHETIC_HANDLE_POINT_EPSILON) {
+    return null
+  }
+
+  const mirroredLength = isVisibleHandlePosition(anchor, mirroredHandle)
+    ? getDistance(anchor, mirroredHandle)
+    : segmentLength / 3
+  const handleLength = clampSyntheticHandleLength(
+    mirroredLength,
+    segmentLength
+  )
+  if (handleLength <= SYNTHETIC_HANDLE_POINT_EPSILON) {
+    return null
+  }
+
+  const scale = handleLength / segmentLength
+  return {
+    x: anchor.x + dx * scale,
+    y: anchor.y + dy * scale
+  }
+}
+
+export const resolveOverlayHandlePosition = (
+  anchor: PositionData,
+  actualHandle: PositionData | null | undefined,
+  neighbor: PositionData | null,
+  mirroredHandle: PositionData | null
+): PositionData | null => {
+  if (isVisibleHandlePosition(anchor, actualHandle)) {
+    return { x: actualHandle.x, y: actualHandle.y }
+  }
+
+  return createSyntheticHandlePosition(anchor, neighbor, mirroredHandle)
+}
 
 const getPathEditingVectorDataWithDeps = (
   deps: Pick<PresetDependencies, 'sceneTree' | 'systemContext'>,
@@ -489,30 +671,83 @@ const getPathEditingVectorDataWithDeps = (
 
   orderedNetworks.forEach((network) => {
     const points: OverlayAnchorPoint[] = []
+    const anchorHandleRefs = getNetworkAnchorHandleRefs(
+      network,
+      computedSegments
+    )
 
-    network.pointIds.forEach((pointId) => {
+    network.pointIds.forEach((pointId, pointIndex) => {
       const anchor = computedPoints[pointId]
       if (!anchor || anchor.kind !== VECTOR_TOKENS.POINT.KIND.ANCHOR) {
         return
       }
 
+      const handleRefs = anchorHandleRefs.get(pointId)
       const inHandle =
-        computedPoints[getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN)]
+        handleRefs?.inControlId &&
+        computedPoints[handleRefs.inControlId]?.kind ===
+          VECTOR_TOKENS.POINT.KIND.CONTROL
+          ? computedPoints[handleRefs.inControlId]
+          : computedPoints[
+              getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN)
+            ]
       const outHandle =
-        computedPoints[getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.OUT)]
+        handleRefs?.outControlId &&
+        computedPoints[handleRefs.outControlId]?.kind ===
+          VECTOR_TOKENS.POINT.KIND.CONTROL
+          ? computedPoints[handleRefs.outControlId]
+          : computedPoints[
+              getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.OUT)
+            ]
+      const previousPointId =
+        pointIndex > 0
+          ? network.pointIds[pointIndex - 1]
+          : network.closed
+            ? network.pointIds[network.pointIds.length - 1]
+            : null
+      const nextPointId =
+        pointIndex < network.pointIds.length - 1
+          ? network.pointIds[pointIndex + 1]
+          : network.closed
+            ? network.pointIds[0]
+            : null
+      const previousAnchor = previousPointId
+        ? computedPoints[previousPointId]
+        : null
+      const nextAnchor = nextPointId ? computedPoints[nextPointId] : null
+      const anchorPosition = {
+        x: anchor.x + offsetX,
+        y: anchor.y + offsetY
+      }
+      const actualInHandle =
+        inHandle && inHandle.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
+          ? { x: inHandle.x + offsetX, y: inHandle.y + offsetY }
+          : null
+      const actualOutHandle =
+        outHandle && outHandle.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
+          ? { x: outHandle.x + offsetX, y: outHandle.y + offsetY }
+          : null
 
       points.push({
         id: pointId,
-        x: anchor.x + offsetX,
-        y: anchor.y + offsetY,
-        inHandle:
-          inHandle && inHandle.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
-            ? { x: inHandle.x + offsetX, y: inHandle.y + offsetY }
+        ...anchorPosition,
+        inHandle: resolveOverlayHandlePosition(
+          anchorPosition,
+          actualInHandle,
+          previousAnchor &&
+            previousAnchor.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
+            ? { x: previousAnchor.x + offsetX, y: previousAnchor.y + offsetY }
             : null,
-        outHandle:
-          outHandle && outHandle.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
-            ? { x: outHandle.x + offsetX, y: outHandle.y + offsetY }
-            : null
+          actualOutHandle
+        ),
+        outHandle: resolveOverlayHandlePosition(
+          anchorPosition,
+          actualOutHandle,
+          nextAnchor && nextAnchor.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
+            ? { x: nextAnchor.x + offsetX, y: nextAnchor.y + offsetY }
+            : null,
+          actualInHandle
+        )
       })
     })
 
@@ -906,12 +1141,59 @@ const drawHandlePoints = (
   })
 }
 
-export const getVisibleHandleAnchorIds = (
+const appendVisibleHandleAnchorIdsForSubpathIndex = (
+  visibleIds: Set<string>,
+  subpath: OverlaySubpath,
+  index: number
+) => {
+  const pointCount = subpath.points.length
+  const offsets = [-1, 0, 1]
+  offsets.forEach((offset) => {
+    const rawIndex = index + offset
+    if (!subpath.closed) {
+      if (rawIndex < 0 || rawIndex >= pointCount) {
+        return
+      }
+
+      visibleIds.add(subpath.points[rawIndex].id)
+      return
+    }
+
+    const wrappedIndex = ((rawIndex % pointCount) + pointCount) % pointCount
+    visibleIds.add(subpath.points[wrappedIndex].id)
+  })
+}
+
+const appendVisibleHandleAnchorIdsForSelection = (
+  visibleIds: Set<string>,
   subpaths: OverlaySubpath[],
-  selectedAnchorId: string | null
-): Set<string> => {
-  if (!selectedAnchorId) {
-    return new Set()
+  selection: SelectedHandleAnchorRef
+) => {
+  const selectedAnchorId = selection.pointId
+
+  if (typeof selection.index === 'number' && selection.index >= 0) {
+    let flatStartIndex = 0
+    for (const subpath of subpaths) {
+      const pointCount = subpath.points.length
+      const flatEndIndex = flatStartIndex + pointCount
+      if (
+        selection.index >= flatStartIndex &&
+        selection.index < flatEndIndex
+      ) {
+        const index = selection.index - flatStartIndex
+        const selectedPoint = subpath.points[index]
+        if (selectedPoint?.id === selectedAnchorId) {
+          appendVisibleHandleAnchorIdsForSubpathIndex(
+            visibleIds,
+            subpath,
+            index
+          )
+          return
+        }
+      }
+
+      flatStartIndex = flatEndIndex
+    }
   }
 
   for (const subpath of subpaths) {
@@ -922,28 +1204,20 @@ export const getVisibleHandleAnchorIds = (
       continue
     }
 
-    const visibleIds = new Set<string>()
-    const pointCount = subpath.points.length
-    const offsets = [-1, 0, 1]
-    offsets.forEach((offset) => {
-      const rawIndex = index + offset
-      if (!subpath.closed) {
-        if (rawIndex < 0 || rawIndex >= pointCount) {
-          return
-        }
-
-        visibleIds.add(subpath.points[rawIndex].id)
-        return
-      }
-
-      const wrappedIndex = ((rawIndex % pointCount) + pointCount) % pointCount
-      visibleIds.add(subpath.points[wrappedIndex].id)
-    })
-
-    return visibleIds
+    appendVisibleHandleAnchorIdsForSubpathIndex(visibleIds, subpath, index)
+    return
   }
+}
 
-  return new Set()
+export const getVisibleHandleAnchorIds = (
+  subpaths: OverlaySubpath[],
+  selections: SelectedHandleAnchorRef[]
+): Set<string> => {
+  const visibleIds = new Set<string>()
+  selections.forEach((selection) =>
+    appendVisibleHandleAnchorIdsForSelection(visibleIds, subpaths, selection)
+  )
+  return visibleIds
 }
 
 const isSubpathEndpoint = (
@@ -1009,7 +1283,7 @@ const drawGhostInsertPoint = (
 
 export const registerVectorPathEditingRenderLayer = (
   registerRenderLayer: RegisterRenderLayer,
-  deps: Pick<PresetDependencies, 'render' | 'sceneTree' | 'systemContext'>
+  deps: VectorPathEditingRenderLayerDeps
 ) => {
   const vectorDataCache: { current: OverlayVectorDataCache | null } = {
     current: null
@@ -1053,6 +1327,11 @@ export const registerVectorPathEditingRenderLayer = (
         deps.systemContext.getManagedProperty<SelectedVectorPointState | null>(
           'selectedVectorPoint'
         ) ?? null
+      const selectedVectorPointSelectionIds = Array.from(
+        deps
+          .getSelection(SelectionChannels.VECTOR_POINT)
+          ?.getSelectedIds() ?? []
+      ).sort()
       const hoveredVectorPoint =
         deps.systemContext.getManagedProperty<SelectedVectorPointState | null>(
           'hoveredVectorPoint'
@@ -1081,6 +1360,7 @@ export const registerVectorPathEditingRenderLayer = (
         primaryTool: snapshot.primaryTool,
         pathEditingVectorId,
         selectedVectorPoint,
+        selectedVectorPointSelectionIds,
         hoveredVectorPoint,
         selectedVectorSegment,
         hoveredVectorSegment,
@@ -1101,6 +1381,29 @@ export const registerVectorPathEditingRenderLayer = (
         selectedVectorPoint?.pointId
           ? selectedVectorPoint
           : null
+      const selectedPointRefs = selectedVectorPointSelectionIds
+        .map((id) => decodeVectorPointSelectionId(id))
+        .filter(
+          (selection): selection is VectorPointSelectionRef =>
+            selection !== null && selection.elementId === pathEditingVectorId
+        )
+      const selectedHandleAnchorRefs: SelectedHandleAnchorRef[] =
+        selectedPointRefs.length > 0
+          ? selectedPointRefs.map((selection) => ({
+              pointId: selection.pointId,
+              index:
+                activeSelectedPoint?.pointId === selection.pointId
+                  ? activeSelectedPoint.index
+                  : null
+            }))
+          : activeSelectedPoint
+            ? [
+                {
+                  pointId: activeSelectedPoint.pointId,
+                  index: activeSelectedPoint.index
+                }
+              ]
+            : []
       const activeHoveredPoint =
         pathEditingVectorId &&
         hoveredVectorPoint?.elementId === pathEditingVectorId &&
@@ -1214,7 +1517,7 @@ export const registerVectorPathEditingRenderLayer = (
             )
       const visibleHandleAnchorIds = getVisibleHandleAnchorIds(
         screenSubpaths,
-        activeSelectedPoint?.pointId ?? null
+        selectedHandleAnchorRefs
       )
 
       measureVectorEditingOverlayPhase('editing-overlay:draw', () => {

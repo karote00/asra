@@ -1211,7 +1211,10 @@ export const vectorApis = {
     workspacePos: PositionData,
     hitRadius?: number
   ): VectorEditablePointHit | null => {
-    const anchorPoints = vectorApis.getVectorAnchorPoints(elementId)
+    const topology = getVectorTopologyWorkspace(elementId)
+    const anchorPoints = vectorTopologyToAnchorPoints(topology, {
+      includeSyntheticHandles: true
+    })
     if (anchorPoints.length === 0) {
       return null
     }
