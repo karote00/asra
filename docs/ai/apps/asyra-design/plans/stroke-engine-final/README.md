@@ -180,6 +180,17 @@ filled-region mask. Direct one-sided ribbons, local-side fallback strips, and
 diagnostic derivation fragments are not product-visible geometry for inside
 dashed strokes.
 
+Split-range dash allocation is cap-aware. Round and square caps extend the
+painted footprint beyond the centerline interval, so visual review must measure
+the actual gap after cap footprint. Allocation should avoid producing many dash
+groups when their visual gaps become much smaller than the configured gap. If a
+short split range cannot keep terminal half-dashes and a legible visual gap, the
+range may collapse into one `start-end` visible dash. This is a tunable Asyra
+readability heuristic; the current floor is `configuredGap * 0.6` after cap
+footprint, so a configured gap of `20` must not redistribute into visual gaps
+below roughly `12`. Changes must be covered by rule-driven tests and visual
+review.
+
 ## Inspector Step Contracts
 
 - `Interaction`: feature/session steps own explicit user intent only. They must

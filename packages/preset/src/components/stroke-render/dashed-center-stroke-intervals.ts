@@ -59,6 +59,12 @@ export interface StrokeIntervalAllocation {
   intervals: DashedCenterStrokeIntervalRecord[]
 }
 
+export interface FigmaLikeSplitRangeVisualGapOptions {
+  capExtension: number
+  minimumGapRatio?: number
+  tolerance?: number
+}
+
 export interface FigmaLikeSplitRangeDashDomain {
   domainId: string
   boundaryDomainId?: string
@@ -88,6 +94,35 @@ export interface FigmaLikeSplitRangeDashDomain {
 const isValidPattern = (pattern: number[]) =>
   pattern.length > 0 &&
   pattern.every((entry) => Number.isFinite(entry) && entry > 0)
+
+const DEFAULT_FIGMA_LIKE_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO = 0.6
+const DEFAULT_FIGMA_LIKE_SPLIT_RANGE_VISUAL_GAP_TOLERANCE = 0
+const FIGMA_LIKE_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO_TEST_OVERRIDE =
+  '__ASYRA_STROKE_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO__'
+
+const getFigmaLikeSplitRangeMinimumVisualGapRatio = (
+  options?: FigmaLikeSplitRangeVisualGapOptions
+) => {
+  if (
+    typeof options?.minimumGapRatio === 'number' &&
+    Number.isFinite(options.minimumGapRatio) &&
+    options.minimumGapRatio >= 0
+  ) {
+    return options.minimumGapRatio
+  }
+
+  const override =
+    typeof globalThis === 'object' && globalThis
+      ? (globalThis as Record<string, unknown>)[
+          FIGMA_LIKE_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO_TEST_OVERRIDE
+        ]
+      : undefined
+  return typeof override === 'number' &&
+    Number.isFinite(override) &&
+    override >= 0
+    ? override
+    : DEFAULT_FIGMA_LIKE_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO
+}
 
 type RawDashedCenterStrokeInterval = Omit<
   DashedCenterStrokeIntervalRecord,
@@ -236,14 +271,28 @@ export const allocateDashedCenterStrokeIntervals = (
 const getBestFigmaLikeSplitRangeDashUnitCount = (
   rangeLength: number,
   dashLength: number,
-  referenceGapLength: number
+  referenceGapLength: number,
+  minimumCenterlineGapLength = 0
 ) => {
   const epsilon = 1e-6
   if (rangeLength <= dashLength) {
     return 1
   }
 
-  const maxDashUnitCount = Math.max(1, Math.floor(rangeLength / dashLength))
+  const maxDashUnitCountByDash = Math.max(1, Math.floor(rangeLength / dashLength))
+  const maxDashUnitCountByGap =
+    minimumCenterlineGapLength > 0
+      ? Math.max(
+          1,
+          Math.floor(
+            rangeLength / (dashLength + minimumCenterlineGapLength) + epsilon
+          )
+        )
+      : maxDashUnitCountByDash
+  const maxDashUnitCount = Math.min(
+    maxDashUnitCountByDash,
+    maxDashUnitCountByGap
+  )
   if (!Number.isFinite(referenceGapLength) || referenceGapLength <= 0) {
     return maxDashUnitCount
   }
@@ -301,7 +350,8 @@ const getFigmaLikeSplitRangeReferenceGapLength = (
 const allocateFigmaLikeSplitRangeRawIntervals = (
   rangeLength: number,
   dashPattern: number[],
-  referenceGapLength?: number
+  referenceGapLength?: number,
+  minimumCenterlineGapLength = 0
 ): RawDashedCenterStrokeInterval[] => {
   if (!Number.isFinite(rangeLength) || rangeLength <= 0) {
     return []
@@ -313,7 +363,11 @@ const allocateFigmaLikeSplitRangeRawIntervals = (
 
   const dashLength = dashPattern[0]
   const targetGapLength = dashPattern[1] ?? dashLength
-  if (rangeLength <= dashLength) {
+  if (
+    rangeLength <= dashLength ||
+    (minimumCenterlineGapLength > 0 &&
+      rangeLength <= dashLength + minimumCenterlineGapLength)
+  ) {
     return [
       {
         kind: 'visible',
@@ -330,7 +384,8 @@ const allocateFigmaLikeSplitRangeRawIntervals = (
   const dashUnitCount = getBestFigmaLikeSplitRangeDashUnitCount(
     rangeLength,
     dashLength,
-    referenceGapLength ?? targetGapLength
+    referenceGapLength ?? targetGapLength,
+    minimumCenterlineGapLength
   )
   const middleDashCount = Math.max(0, dashUnitCount - 1)
   const averageGapLength =
@@ -388,13 +443,31 @@ const allocateFigmaLikeSplitRangeRawIntervals = (
 
 export const allocateFigmaLikeSplitRangeDashedIntervals = ({
   domains,
-  dashPattern
+  dashPattern,
+  visualGap
 }: {
   domains: FigmaLikeSplitRangeDashDomain[]
   dashPattern: number[]
+  visualGap?: FigmaLikeSplitRangeVisualGapOptions
 }): StrokeIntervalAllocation[] => {
   const dashLength = dashPattern[0] ?? 0
   const targetGapLength = dashPattern[1] ?? dashLength
+  const capExtension =
+    visualGap && Number.isFinite(visualGap.capExtension)
+      ? Math.max(0, visualGap.capExtension)
+      : 0
+  const minimumVisualGapLength =
+    capExtension > 0
+      ? Math.max(
+          0,
+          targetGapLength *
+            getFigmaLikeSplitRangeMinimumVisualGapRatio(visualGap) -
+            (visualGap?.tolerance ??
+              DEFAULT_FIGMA_LIKE_SPLIT_RANGE_VISUAL_GAP_TOLERANCE)
+        )
+      : 0
+  const minimumCenterlineGapLength =
+    capExtension > 0 ? minimumVisualGapLength + capExtension * 2 : 0
   const referenceGapLength =
     isValidPattern(dashPattern) && dashLength > 0
       ? getFigmaLikeSplitRangeReferenceGapLength(
@@ -418,7 +491,10 @@ export const allocateFigmaLikeSplitRangeDashedIntervals = ({
       if (interval.kind !== 'visible') {
         return undefined
       }
-      if (rangeLength <= dashLength) {
+      if (
+        interval.startDistance <= startDistance + 1e-6 &&
+        interval.endDistance >= endDistance - 1e-6
+      ) {
         return 'start-end'
       }
       const isStartTerminal =
@@ -443,7 +519,8 @@ export const allocateFigmaLikeSplitRangeDashedIntervals = ({
     const rawIntervals = allocateFigmaLikeSplitRangeRawIntervals(
       rangeLength,
       dashPattern,
-      referenceGapLength
+      referenceGapLength,
+      minimumCenterlineGapLength
     ).map((interval) => ({
       ...interval,
       startDistance: interval.startDistance + startDistance,
@@ -531,11 +608,13 @@ export const allocateStrokeIntervals = ({
 export const allocateStrokeIntervalsForDomainPlan = ({
   domainPlan,
   dashPattern,
-  dashOffset
+  dashOffset,
+  visualGap
 }: {
   domainPlan: StrokeIntervalDomainPlanInput
   dashPattern: number[]
   dashOffset: number
+  visualGap?: FigmaLikeSplitRangeVisualGapOptions
 }): StrokeIntervalAllocation[] => {
   if (domainPlan.intervalDomainKind === 'none') {
     return []
@@ -544,7 +623,8 @@ export const allocateStrokeIntervalsForDomainPlan = ({
   if (domainPlan.intervalDomainKind === 'figma-like-split-range') {
     return allocateFigmaLikeSplitRangeDashedIntervals({
       domains: domainPlan.splitRangeDomains,
-      dashPattern
+      dashPattern,
+      visualGap
     })
   }
 

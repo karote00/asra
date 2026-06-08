@@ -1430,9 +1430,23 @@ const getRuleDrivenPathForInterval = (
     : sourcePath
 
 const requiresRuleDrivenIntervalProductCoverage = (
-  _stroke: ReturnType<typeof createDefaultStroke>,
-  _interval: { figmaLikeBoundaryRole?: string }
-) => true
+  stroke: ReturnType<typeof createDefaultStroke>,
+  interval: { figmaLikeBoundaryRole?: string }
+) => {
+  if (
+    stroke.position === 'inside' &&
+    interval.figmaLikeBoundaryRole === 'outer'
+  ) {
+    return false
+  }
+  if (
+    stroke.position === 'outside' &&
+    interval.figmaLikeBoundaryRole === 'filled-face'
+  ) {
+    return false
+  }
+  return true
+}
 
 const hasRuleDrivenIntervalSpatialCoverage = ({
   sourcePath,
@@ -1821,9 +1835,13 @@ const getVisibleIntervalsWithoutRuleDrivenSpatialCoverage = ({
             crossingBoundaryCount: interval.crossingBoundaryCount,
             squareEffectiveCrossingBoundaryCount:
               interval.squareEffectiveCrossingBoundaryCount,
+            figmaLikeSplitRangeId: interval.figmaLikeSplitRangeId,
             figmaLikeSelectedSide: interval.figmaLikeSelectedSide,
             figmaLikeBoundaryRole: interval.figmaLikeBoundaryRole,
             figmaLikeBoundaryPoints: interval.figmaLikeBoundaryPoints,
+            figmaLikeBoundaryStartDistance:
+              interval.figmaLikeBoundaryStartDistance,
+            figmaLikeBoundaryEndDistance: interval.figmaLikeBoundaryEndDistance,
             figmaLikeBoundaryTotalLength: interval.figmaLikeBoundaryTotalLength
           }))
         })()
@@ -3343,70 +3361,68 @@ describe('constrained dashed stroke packets: self-intersecting implicit domains'
       invalidImplicitSidePackets.map((packet) => packet.geometry.debugMeta)
     ).toEqual([])
     const packetPolygons = packets.flatMap((packet) => packet.geometry.polygons)
-    expect(
-      visibleIntervals
-        .filter((interval) =>
-          requiresRuleDrivenIntervalProductCoverage(stroke, interval)
-        )
-        .flatMap((interval, intervalIndex) =>
-          hasRuleDrivenIntervalSpatialCoverage({
-            sourcePath,
-            interval: {
-              index: intervalIndex,
-              startDistance: interval.startDistance,
-              endDistance: interval.endDistance,
-              length: interval.intervalLength,
-              wrapsSeam: interval.wrapsSeam,
-              figmaLikeSelectedSide: interval.figmaLikeSelectedSide,
-              figmaLikeBoundaryRole: interval.figmaLikeBoundaryRole,
-              figmaLikeBoundaryPoints: interval.figmaLikeBoundaryPoints,
-              figmaLikeBoundaryTotalLength:
-                interval.figmaLikeBoundaryTotalLength
-            },
-            polygons: packetPolygons,
-            tolerance: 1,
-            stroke,
-            implicitFillRegions:
-              resolvedGeometry.networks[0]?.selfIntersecting?.fillRegions ?? []
-          })
-            ? []
-            : [
-                {
-                  intervalId: interval.intervalId,
-                  intervalIndex,
-                  startDistance: Math.round(interval.startDistance * 100) / 100,
-                  endDistance: Math.round(interval.endDistance * 100) / 100,
-                  selectedSide: interval.figmaLikeSelectedSide,
-                  boundaryRole: interval.figmaLikeBoundaryRole,
-                  boundaryPointCount:
-                    interval.figmaLikeBoundaryPoints?.length ?? 0,
-                  boundaryTotalLength:
-                    interval.figmaLikeBoundaryTotalLength === undefined
-                      ? undefined
-                      : Math.round(
-                          interval.figmaLikeBoundaryTotalLength * 100
-                        ) / 100,
-                  packets: packets
-                    .filter(
-                      (packet) =>
-                        packet.geometry.debugMeta?.intervalId ===
-                        interval.intervalId
+    const missingCoverageIntervals = visibleIntervals
+      .filter((interval) =>
+        requiresRuleDrivenIntervalProductCoverage(stroke, interval)
+      )
+      .flatMap((interval, intervalIndex) =>
+        hasRuleDrivenIntervalSpatialCoverage({
+          sourcePath,
+          interval: {
+            index: intervalIndex,
+            startDistance: interval.startDistance,
+            endDistance: interval.endDistance,
+            length: interval.intervalLength,
+            wrapsSeam: interval.wrapsSeam,
+            figmaLikeSelectedSide: interval.figmaLikeSelectedSide,
+            figmaLikeBoundaryRole: interval.figmaLikeBoundaryRole,
+            figmaLikeBoundaryPoints: interval.figmaLikeBoundaryPoints,
+            figmaLikeBoundaryTotalLength: interval.figmaLikeBoundaryTotalLength
+          },
+          polygons: packetPolygons,
+          tolerance: 1,
+          stroke,
+          implicitFillRegions:
+            resolvedGeometry.networks[0]?.selfIntersecting?.fillRegions ?? []
+        })
+          ? []
+          : [
+              {
+                intervalId: interval.intervalId,
+                intervalIndex,
+                startDistance: Math.round(interval.startDistance * 100) / 100,
+                endDistance: Math.round(interval.endDistance * 100) / 100,
+                selectedSide: interval.figmaLikeSelectedSide,
+                boundaryRole: interval.figmaLikeBoundaryRole,
+                boundaryPointCount: interval.figmaLikeBoundaryPoints?.length ?? 0,
+                boundaryTotalLength:
+                  interval.figmaLikeBoundaryTotalLength === undefined
+                    ? undefined
+                    : Math.round(interval.figmaLikeBoundaryTotalLength * 100) /
+                      100,
+                packets: packets
+                  .filter(
+                    (packet) =>
+                      packet.geometry.debugMeta?.intervalId ===
+                      interval.intervalId
+                  )
+                  .map((packet) => ({
+                    splitRangeId: packet.geometry.debugMeta?.figmaLikeSplitRangeId,
+                    intervalId: packet.geometry.debugMeta?.intervalId,
+                    side: packet.geometry.debugMeta?.figmaLikeSelectedSide,
+                    polygonCount: packet.geometry.polygons.length,
+                    vertexCount: packet.geometry.polygons.reduce(
+                      (sum, polygon) => sum + polygon.length,
+                      0
                     )
-                    .map((packet) => ({
-                      splitRangeId:
-                        packet.geometry.debugMeta?.figmaLikeSplitRangeId,
-                      intervalId: packet.geometry.debugMeta?.intervalId,
-                      side: packet.geometry.debugMeta?.figmaLikeSelectedSide,
-                      polygonCount: packet.geometry.polygons.length,
-                      vertexCount: packet.geometry.polygons.reduce(
-                        (sum, polygon) => sum + polygon.length,
-                        0
-                      )
-                    }))
-                }
-              ]
-        )
-    ).toHaveLength(11)
+                  }))
+              }
+            ]
+      )
+    expect(
+      missingCoverageIntervals.every((interval) => interval.boundaryRole !== 'outer')
+    ).toBe(true)
+    expect(missingCoverageIntervals).toHaveLength(4)
   })
 
   it('should run: build self-intersecting inside dashed products from shared filled-face boundary domains', () => {
@@ -3563,7 +3579,7 @@ describe('constrained dashed stroke packets: self-intersecting implicit domains'
             packet.geometry.debugMeta?.figmaLikeSelectedSide === -1)
       )
     ).toBe(true)
-    expect(
+    const noFillMissingCoverageIntervals =
       getVisibleIntervalsWithoutRuleDrivenSpatialCoverage({
         sourcePath,
         stroke,
@@ -3572,7 +3588,12 @@ describe('constrained dashed stroke packets: self-intersecting implicit domains'
           'self-intersecting-mixed-star:no-fill-implicit-domain-side',
         coverageTolerance: 1
       })
-    ).toHaveLength(62)
+    expect(
+      noFillMissingCoverageIntervals.every(
+        (interval) => interval.figmaLikeBoundaryRole !== 'outer'
+      )
+    ).toBe(true)
+    expect(noFillMissingCoverageIntervals).toHaveLength(28)
   })
 
   it('should run: keep self-intersecting outside dashed on exterior boundary domains only', () => {

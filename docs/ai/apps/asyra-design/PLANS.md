@@ -111,6 +111,16 @@ geometry. Direct selected-side ribbons, local-side fallback strips, and
 derivation helpers are evidence only and must not define product-visible inside
 dashed pixels.
 
+Dash allocation must also respect a cap-aware visual gap floor. When round or
+square dash caps extend the painted dash footprint, split-range allocation must
+not keep adding dash groups until the visible gap after caps becomes tiny. If a
+split range cannot hold both terminal half-dashes and a legible cap-aware visual
+gap, it may collapse to a single `start-end` visible dash for that range. This
+is a heuristic Asyra readability rule and may be tuned, but the current floor is
+`configuredGap * 0.6` after cap footprint. For example, a configured gap of `20`
+must not be redistributed into visual gaps below roughly `12`. Tests must
+measure the gap after cap footprint, not only the centerline dash/gap distances.
+
 For product-visible constrained `inside` dashed render, the same exact product
 may be encoded as a grouped render descriptor containing the inside
 `fillClipPolygons`, the authored dashed `strokePaths`, and the

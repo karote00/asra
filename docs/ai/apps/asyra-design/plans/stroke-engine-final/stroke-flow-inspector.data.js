@@ -36,6 +36,7 @@
     'All five internal pentagon corners are join-sensitive and must vary with strokeJoin and strokeMiterLimit.',
     'Derivation fragments, face strips, helper polygons, coverage probes, and diagnostics can prove legality, hit/export, or failure modes, but they must not become product-visible solid stroke geometry.',
     'Dashed constrained strokes remain interval-domain based. Dash intervals, terminal half-dashes, and caps must stay separate from solid visible geometry.',
+    'Split-range dash allocation is cap-aware: round and square caps extend the painted footprint, so the allocator must avoid producing many dash groups whose visual gaps after caps are much smaller than the configured gap. The current floor is configuredGap * 0.6 after cap footprint; short cap-aware ranges may collapse into one start-end dash.',
     'Center dashed visible render is the authored center dashed stroke. Drag frames may use exact authored centerline strokePath descriptors for visible dash intervals and must not require center dashed polygon packets or resolved self-intersection geometry unless diagnostics, hit/export, or another exact rule needs that evidence.',
     'Constrained inside dashed product-visible render may use one exact grouped mask descriptor: fillClipPolygons plus authored dashed strokePaths and strokePathStyle. That descriptor is the product path, not preview or helper geometry.',
     'A single exact constrained inside dashed mask descriptor for one fill domain and one stroke style may bypass same-visual overlap collapse; per-interval polygons may remain diagnostics/export evidence but must not be required for visible drag frames.',
@@ -128,7 +129,7 @@
     {
       row: 'dashed-constrained-strokes',
       requiredEvidence:
-        'Interval-domain dash allocation, terminal half-dashes, cap behavior, and provenance remain separate from solid visible geometry; constrained inside/outside dashed visible product geometry is doubled authored center-dashed stroke clipped by the selected legal-domain mask, encoded either as exact final faces or one exact grouped mask descriptor, not one-sided ribbon fallback.',
+        'Interval-domain dash allocation, terminal half-dashes, cap behavior, and provenance remain separate from solid visible geometry; constrained inside/outside dashed visible product geometry is doubled authored center-dashed stroke clipped by the selected legal-domain mask, encoded either as exact final faces or one exact grouped mask descriptor, not one-sided ribbon fallback. Cap-aware allocation must keep visual gaps legible after round/square cap footprint or collapse short ranges into one start-end dash.',
       status:
         'center/inside/outside dashed drag performance slice passed: exact descriptor paths are visible product encodings, with outside dashed square reviewed screenshots passing for the self-intersecting star slice'
     },
@@ -329,7 +330,7 @@
       'Stroke Geometry',
       4,
       'Allocate dash intervals',
-      'Allocate dashed intervals only where the dash model owns placement.'
+      'Allocate dashed intervals only where the dash model owns placement; for split ranges, preserve terminal semantics while avoiding cap-compressed visual gaps.'
     ],
     [
       'build-stroke-candidates',

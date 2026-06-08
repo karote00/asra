@@ -544,6 +544,142 @@ describe('dashed center stroke interval allocation', () => {
     )
   })
 
+  it('should run: keep split-range visual gaps from being over-compressed by cap footprint', () => {
+    const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+      domains: [
+        {
+          domainId: 'split:cap-visual-gap',
+          startDistance: 0,
+          endDistance: 100,
+          sourceSegmentIndex: 0
+        }
+      ],
+      dashPattern: [20, 10],
+      visualGap: {
+        capExtension: 10
+      }
+    })
+
+    const visible =
+      allocation?.intervals.filter((interval) => interval.kind === 'visible') ??
+      []
+    expect(visible.map((interval) => interval.figmaLikeTerminalRole)).toEqual([
+      'start',
+      'middle',
+      'end'
+    ])
+
+    const centerlineGaps = visible.slice(0, -1).flatMap((interval, index) => {
+      const next = visible[index + 1]
+      return next ? [next.startDistance - interval.endDistance] : []
+    })
+    expect(centerlineGaps).toEqual([
+      expect.closeTo(30, 6),
+      expect.closeTo(30, 6)
+    ])
+
+    const visualGaps = centerlineGaps.map((gap) => gap - 20)
+    for (const visualGap of visualGaps) {
+      expect(visualGap).toBeGreaterThanOrEqual(6)
+    }
+  })
+
+  it('should run: keep configured gap 20 from shrinking below 12 after cap footprint', () => {
+    const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+      domains: [
+        {
+          domainId: 'split:cap-gap-20',
+          startDistance: 0,
+          endDistance: 140,
+          sourceSegmentIndex: 0
+        }
+      ],
+      dashPattern: [20, 20],
+      visualGap: {
+        capExtension: 10
+      }
+    })
+
+    const visible =
+      allocation?.intervals.filter((interval) => interval.kind === 'visible') ??
+      []
+    const centerlineGaps = visible.slice(0, -1).flatMap((interval, index) => {
+      const next = visible[index + 1]
+      return next ? [next.startDistance - interval.endDistance] : []
+    })
+    const visualGaps = centerlineGaps.map((gap) => gap - 20)
+    expect(visualGaps.length).toBeGreaterThan(0)
+    for (const visualGap of visualGaps) {
+      expect(visualGap).toBeGreaterThanOrEqual(12)
+    }
+  })
+
+  it('should run: allow tests to compare split-range visual gap ratios without changing product API', () => {
+    const overrideKey = '__ASYRA_STROKE_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO__'
+    const target = globalThis as Record<string, unknown>
+    const previousOverride = target[overrideKey]
+    try {
+      target[overrideKey] = 2
+      const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+        domains: [
+          {
+            domainId: 'split:cap-gap-override',
+            startDistance: 0,
+            endDistance: 140,
+            sourceSegmentIndex: 0
+          }
+        ],
+        dashPattern: [20, 20],
+        visualGap: {
+          capExtension: 10
+        }
+      })
+
+      const visible =
+        allocation?.intervals.filter((interval) => interval.kind === 'visible') ??
+        []
+      const centerlineGaps = visible.slice(0, -1).flatMap((interval, index) => {
+        const next = visible[index + 1]
+        return next ? [next.startDistance - interval.endDistance] : []
+      })
+      const visualGaps = centerlineGaps.map((gap) => gap - 20)
+      expect(visualGaps).toEqual([expect.closeTo(100, 6)])
+    } finally {
+      if (previousOverride === undefined) {
+        delete target[overrideKey]
+      } else {
+        target[overrideKey] = previousOverride
+      }
+    }
+  })
+
+  it('should run: collapse very short cap-aware split ranges instead of squeezing terminal gaps', () => {
+    const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+      domains: [
+        {
+          domainId: 'split:cap-short',
+          startDistance: 12,
+          endDistance: 52,
+          sourceSegmentIndex: 0
+        }
+      ],
+      dashPattern: [20, 10],
+      visualGap: {
+        capExtension: 10
+      }
+    })
+
+    const visible =
+      allocation?.intervals.filter((interval) => interval.kind === 'visible') ??
+      []
+    expect(visible).toHaveLength(1)
+    expect(visible[0]).toMatchObject({
+      startDistance: 12,
+      endDistance: 52,
+      figmaLikeTerminalRole: 'start-end'
+    })
+  })
+
   it('should run: use normal split ranges as the reference gap for shorter split ranges', () => {
     const allocations = allocateFigmaLikeSplitRangeDashedIntervals({
       domains: [

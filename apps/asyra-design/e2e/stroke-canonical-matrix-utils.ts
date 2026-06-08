@@ -1824,7 +1824,11 @@ export const captureCanonicalRuleOverlay = async (
       const gapLength = dashPattern[1] ?? 0
       const cycleLength = dashLength + gapLength
       const capPathReach =
-        runtime.stroke.capType === 'butt' ? 0 : runtime.stroke.width / 2
+        runtime.stroke.capType === 'butt'
+          ? 0
+          : runtime.stroke.position === 'center'
+            ? runtime.stroke.width / 2
+            : runtime.stroke.width
       const roundMetric = (value: number) => Math.round(value * 1000) / 1000
       const getPhase = (sample: CanonicalRuleSample) =>
         cycleLength > 0

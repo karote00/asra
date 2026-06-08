@@ -1430,9 +1430,23 @@ const getRuleDrivenPathForInterval = (
     : sourcePath
 
 const requiresRuleDrivenIntervalProductCoverage = (
-  _stroke: ReturnType<typeof createDefaultStroke>,
-  _interval: { figmaLikeBoundaryRole?: string }
-) => true
+  stroke: ReturnType<typeof createDefaultStroke>,
+  interval: { figmaLikeBoundaryRole?: string }
+) => {
+  if (
+    stroke.position === 'inside' &&
+    interval.figmaLikeBoundaryRole === 'outer'
+  ) {
+    return false
+  }
+  if (
+    stroke.position === 'outside' &&
+    interval.figmaLikeBoundaryRole === 'filled-face'
+  ) {
+    return false
+  }
+  return true
+}
 
 const hasRuleDrivenIntervalSpatialCoverage = ({
   sourcePath,
@@ -1821,9 +1835,13 @@ const getVisibleIntervalsWithoutRuleDrivenSpatialCoverage = ({
             crossingBoundaryCount: interval.crossingBoundaryCount,
             squareEffectiveCrossingBoundaryCount:
               interval.squareEffectiveCrossingBoundaryCount,
+            figmaLikeSplitRangeId: interval.figmaLikeSplitRangeId,
             figmaLikeSelectedSide: interval.figmaLikeSelectedSide,
             figmaLikeBoundaryRole: interval.figmaLikeBoundaryRole,
             figmaLikeBoundaryPoints: interval.figmaLikeBoundaryPoints,
+            figmaLikeBoundaryStartDistance:
+              interval.figmaLikeBoundaryStartDistance,
+            figmaLikeBoundaryEndDistance: interval.figmaLikeBoundaryEndDistance,
             figmaLikeBoundaryTotalLength: interval.figmaLikeBoundaryTotalLength
           }))
         })()

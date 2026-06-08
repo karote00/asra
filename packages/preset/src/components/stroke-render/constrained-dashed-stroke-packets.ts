@@ -592,7 +592,13 @@ export const getConstrainedDashedVisibleIntervals = (
     return allocateStrokeIntervalsForDomainPlan({
       domainPlan: strokeDomainPlan,
       dashPattern: stroke.dashPattern,
-      dashOffset: stroke.dashOffset
+      dashOffset: stroke.dashOffset,
+      visualGap:
+        stroke.cap === 'butt'
+          ? undefined
+          : {
+              capExtension: stroke.width
+            }
     }).flatMap((allocation) => {
       const visibleIntervals = allocation.intervals.filter(
         (interval): interval is VisibleDashedTopologyInterval =>

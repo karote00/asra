@@ -134,6 +134,9 @@ All dashed groups must verify:
 - split-range start/end terminals must be half-dash records when the split range is long enough;
 - split-range middle dash records must keep the authored dash length;
 - split-range gaps must remain positive and evenly distributed within the split range;
+- round and square caps must be included when measuring visual gap readability; after cap footprint, redistributed split-range gaps must not be much smaller than the configured gap;
+- the current Asyra readability floor is `configuredGap * 0.6` after cap footprint, so a configured gap of `20` must not collapse into visual gaps below roughly `12`;
+- if a split range cannot keep terminal half-dashes plus a legible cap-aware gap, it may collapse to a single `start-end` visible dash instead of squeezing multiple dash groups together;
 - every source segment has dash recall and gap leak metrics;
 - expected dash samples are painted;
 - expected gap samples are unpainted;

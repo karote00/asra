@@ -1129,6 +1129,20 @@ const expectInsideDashedSplitRangeIntervalAllocation = ({
         sorted[sorted.length - 1]?.endDistance ??
         0
       const splitRangeLength = splitRangeEndDistance - splitRangeStartDistance
+      const dashLength = stroke.dashPattern[0]
+      const targetGapLength = stroke.dashPattern[1] ?? dashLength
+      const capExtension = stroke.capType === 'butt' ? 0 : stroke.width
+      const minimumVisualGapLength =
+        capExtension > 0 ? Math.max(0, targetGapLength * 0.6) : 0
+      const minimumCenterlineGapLength =
+        capExtension > 0
+          ? minimumVisualGapLength + capExtension * 2
+          : 0
+      const allowsCollapsedCapAwareRange =
+        capExtension > 0 &&
+        sorted.length === 1 &&
+        sorted[0]?.terminalRole === 'start-end' &&
+        splitRangeLength <= dashLength + minimumCenterlineGapLength + 1e-3
       const hasStartTerminal = sorted.some(
         (interval) =>
           interval.terminalRole === 'start' ||
@@ -1154,8 +1168,12 @@ const expectInsideDashedSplitRangeIntervalAllocation = ({
       const ordinaryGapFailures = sorted
         .slice(0, -1)
         .flatMap((interval, index) =>
-          sorted[index + 1].startDistance - interval.endDistance <= 1e-4
-            ? [
+          (() => {
+            const centerlineGap =
+              sorted[index + 1].startDistance - interval.endDistance
+            const visualGap = centerlineGap - capExtension * 2
+            if (centerlineGap <= 1e-4) {
+              return [
                 {
                   reason: 'missing-positive-gap',
                   previousIntervalIndex: interval.intervalIndex,
@@ -1164,55 +1182,84 @@ const expectInsideDashedSplitRangeIntervalAllocation = ({
                   gapEnd: sorted[index + 1].startDistance
                 }
               ]
-            : []
+            }
+            if (
+              capExtension > 0 &&
+              visualGap < minimumVisualGapLength - 1e-4
+            ) {
+              return [
+                {
+                  reason: 'visual-gap-over-compressed-by-cap',
+                  previousIntervalIndex: interval.intervalIndex,
+                  nextIntervalIndex: sorted[index + 1].intervalIndex,
+                  centerlineGap,
+                  visualGap,
+                  minimumVisualGapLength
+                }
+              ]
+            }
+            return []
+          })()
         )
       const terminalFailures = [
-        !hasStartTerminal
+        !allowsCollapsedCapAwareRange && !hasStartTerminal
           ? { reason: 'missing-start-half-dash-terminal' }
           : undefined,
-        !hasEndTerminal
+        !allowsCollapsedCapAwareRange && !hasEndTerminal
           ? { reason: 'missing-end-half-dash-terminal' }
           : undefined,
-        startTerminal &&
-        splitRangeLength >= halfDashLength * 2 &&
-        Math.abs(startTerminal.startDistance - splitRangeStartDistance) > 1e-3
-          ? {
-              reason: 'start-terminal-not-at-split-range-start',
-              expectedStartDistance: splitRangeStartDistance,
-              startDistance: startTerminal.startDistance
-            }
-          : undefined,
-        startTerminal &&
-        splitRangeLength >= halfDashLength * 2 &&
-        Math.abs(
-          startTerminal.endDistance - (splitRangeStartDistance + halfDashLength)
-        ) > 1e-3
-          ? {
-              reason: 'start-terminal-not-half-dash',
-              expectedEndDistance: splitRangeStartDistance + halfDashLength,
-              endDistance: startTerminal.endDistance
-            }
-          : undefined,
-        endTerminal &&
-        splitRangeLength >= halfDashLength * 2 &&
-        Math.abs(endTerminal.endDistance - splitRangeEndDistance) > 1e-3
-          ? {
-              reason: 'end-terminal-not-at-split-range-end',
-              expectedEndDistance: splitRangeEndDistance,
-              endDistance: endTerminal.endDistance
-            }
-          : undefined,
-        endTerminal &&
-        splitRangeLength >= halfDashLength * 2 &&
-        Math.abs(
-          endTerminal.endDistance - endTerminal.startDistance - halfDashLength
-        ) > 1e-3
-          ? {
-              reason: 'end-terminal-not-half-dash',
-              expectedLength: halfDashLength,
-              length: endTerminal.endDistance - endTerminal.startDistance
-            }
-          : undefined
+        allowsCollapsedCapAwareRange
+          ? undefined
+          : startTerminal &&
+              splitRangeLength >= halfDashLength * 2 &&
+              Math.abs(startTerminal.startDistance - splitRangeStartDistance) >
+                1e-3
+            ? {
+                reason: 'start-terminal-not-at-split-range-start',
+                expectedStartDistance: splitRangeStartDistance,
+                startDistance: startTerminal.startDistance
+              }
+            : undefined,
+        allowsCollapsedCapAwareRange
+          ? undefined
+          : startTerminal &&
+              splitRangeLength >= halfDashLength * 2 &&
+              Math.abs(
+                startTerminal.endDistance -
+                  (splitRangeStartDistance + halfDashLength)
+              ) > 1e-3
+            ? {
+                reason: 'start-terminal-not-half-dash',
+                expectedEndDistance: splitRangeStartDistance + halfDashLength,
+                endDistance: startTerminal.endDistance
+              }
+            : undefined,
+        allowsCollapsedCapAwareRange
+          ? undefined
+          : endTerminal &&
+              splitRangeLength >= halfDashLength * 2 &&
+              Math.abs(endTerminal.endDistance - splitRangeEndDistance) > 1e-3
+            ? {
+                reason: 'end-terminal-not-at-split-range-end',
+                expectedEndDistance: splitRangeEndDistance,
+                endDistance: endTerminal.endDistance
+              }
+            : undefined,
+        allowsCollapsedCapAwareRange
+          ? undefined
+          : endTerminal &&
+              splitRangeLength >= halfDashLength * 2 &&
+              Math.abs(
+                endTerminal.endDistance -
+                  endTerminal.startDistance -
+                  halfDashLength
+              ) > 1e-3
+            ? {
+                reason: 'end-terminal-not-half-dash',
+                expectedLength: halfDashLength,
+                length: endTerminal.endDistance - endTerminal.startDistance
+              }
+            : undefined
       ].filter(
         (failure): failure is { reason: string } => failure !== undefined
       )
@@ -1234,7 +1281,7 @@ const expectInsideDashedSplitRangeIntervalAllocation = ({
       {
         label,
         reason:
-          'split-range dash allocation must keep half-dash terminals at both cut ends and positive gaps between middle dashes',
+          'split-range dash allocation must keep half-dash terminals when visual gaps can remain legible, collapse short cap-aware ranges, and avoid cap-compressed gaps between dash groups',
         failureCount: failures.length,
         firstFailures: failures.slice(0, 30)
       },

@@ -32,6 +32,104 @@ type SelfIntersectionSquareTerminalTangentHit = {
   otherSplitRangeCovered?: boolean
 }
 
+const SPLIT_RANGE_VISUAL_GAP_RATIO_OVERRIDE =
+  '__ASYRA_STROKE_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO__'
+
+type SelfCheckMetadata = Awaited<ReturnType<typeof getSelfCheckMetadata>>
+type SplitRangeVisualGapRecord = {
+  splitRangeId: string
+  terminalRole: string
+  startDistance: number
+  endDistance: number
+}
+
+const getSplitRangeVisualGapMetrics = (
+  metadata: SelfCheckMetadata,
+  capType: 'butt' | 'square' | 'round',
+  minimumGapRatio: number
+) => {
+  const dashGap = 20
+  const strokeWidth =
+    metadata.boundaryDomainPackets.find(
+      (packet) => typeof packet.strokeWidth === 'number' && packet.strokeWidth > 0
+    )?.strokeWidth ?? 10
+  const capExtension = capType === 'butt' ? 0 : strokeWidth
+  const minimumVisualGap = dashGap * minimumGapRatio
+  const recordsByKey = new Map<string, SplitRangeVisualGapRecord>()
+
+  metadata.boundaryDomainPackets.forEach((packet) => {
+    packet.figmaLikeSplitRangeTerminals.forEach((record) => {
+      const key = [
+        record.splitRangeId,
+        record.terminalRole,
+        record.startDistance.toFixed(4),
+        record.endDistance.toFixed(4)
+      ].join(':')
+      recordsByKey.set(key, {
+        splitRangeId: record.splitRangeId,
+        terminalRole: record.terminalRole,
+        startDistance: record.startDistance,
+        endDistance: record.endDistance
+      })
+    })
+  })
+
+  const recordsBySplitRange = new Map<string, SplitRangeVisualGapRecord[]>()
+  for (const record of recordsByKey.values()) {
+    recordsBySplitRange.set(record.splitRangeId, [
+      ...(recordsBySplitRange.get(record.splitRangeId) ?? []),
+      record
+    ])
+  }
+
+  const visualGaps: number[] = []
+  let collapsedStartEndCount = 0
+  recordsBySplitRange.forEach((records) => {
+    const sorted = records
+      .slice()
+      .sort((left, right) => left.startDistance - right.startDistance)
+    if (
+      sorted.length === 1 &&
+      sorted[0]?.terminalRole === 'start-end'
+    ) {
+      collapsedStartEndCount += 1
+      return
+    }
+    sorted.slice(0, -1).forEach((record, index) => {
+      const next = sorted[index + 1]
+      if (!next) {
+        return
+      }
+      const centerlineGap = next.startDistance - record.endDistance
+      if (centerlineGap <= 1e-4) {
+        return
+      }
+      visualGaps.push(centerlineGap - capExtension * 2)
+    })
+  })
+
+  const overCompressedVisualGaps = visualGaps.filter(
+    (visualGap) => visualGap < minimumVisualGap - 1e-4
+  )
+  const averageVisualGap =
+    visualGaps.length > 0
+      ? visualGaps.reduce((sum, gap) => sum + gap, 0) / visualGaps.length
+      : null
+
+  return {
+    capExtension,
+    minimumGapRatio,
+    minimumVisualGap,
+    splitRangeCount: recordsBySplitRange.size,
+    gapCount: visualGaps.length,
+    collapsedStartEndCount,
+    minVisualGap: visualGaps.length > 0 ? Math.min(...visualGaps) : null,
+    averageVisualGap,
+    maxVisualGap: visualGaps.length > 0 ? Math.max(...visualGaps) : null,
+    overCompressedVisualGaps
+  }
+}
+
 const expectLegalSelfIntersectionSquareTangentDiagnostics = (
   hits: SelfIntersectionSquareTerminalTangentHit[],
   context: unknown
@@ -396,6 +494,103 @@ const expectLegalSelfIntersectionSquareTangentDiagnostics = (
         JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
       ).toEqual([])
     }
+  })
+})
+
+test('self-check: split-range visual gap ratio sweep keeps capped dash groups legible', async ({
+  page
+}, testInfo) => {
+  fs.mkdirSync(ARTIFACT_DIR, { recursive: true })
+  const ratios = [0.5, 0.55, 0.6, 0.65, 0.7]
+  const positions = ['inside', 'outside'] as const
+  const summaries: {
+    position: (typeof positions)[number]
+    ratio: number
+    screenshotPath: string
+    metrics: ReturnType<typeof getSplitRangeVisualGapMetrics>
+  }[] = []
+
+  for (const position of positions) {
+    for (const ratio of ratios) {
+      await resetCanvas(page)
+      await page.evaluate(
+        ({ key, value }) => {
+          ;(window as unknown as Record<string, unknown>)[key] = value
+        },
+        {
+          key: SPLIT_RANGE_VISUAL_GAP_RATIO_OVERRIDE,
+          value: ratio
+        }
+      )
+      await createSelfCheckStar(page, {
+        capType: 'square',
+        position
+      })
+      await page.waitForFunction(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        const selectedId =
+          core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+        const element = selectedId
+          ? core?.deps?.sceneTree?.getElementById?.(selectedId)
+          : null
+        const computed = element?.getAllComputedData?.()
+        return Boolean(computed?.strokes?.length && computed?.fills?.length)
+      })
+      await page.waitForTimeout(500)
+
+      const metadata = await getSelfCheckMetadata(page)
+      const metrics = getSplitRangeVisualGapMetrics(metadata, 'square', ratio)
+      const ratioLabel = ratio.toFixed(2).replace('.', '-')
+      const screenshotPath = path.join(
+        ARTIFACT_DIR,
+        `self-check-split-range-gap-ratio-${position}-${ratioLabel}.png`
+      )
+      await page.screenshot({
+        path: screenshotPath,
+        fullPage: false
+      })
+      summaries.push({
+        position,
+        ratio,
+        screenshotPath,
+        metrics
+      })
+      await page.evaluate((key) => {
+        delete (window as unknown as Record<string, unknown>)[key]
+      }, SPLIT_RANGE_VISUAL_GAP_RATIO_OVERRIDE)
+      await testInfo.attach(`split-range-gap-ratio-${position}-${ratioLabel}`, {
+        path: screenshotPath,
+        contentType: 'image/png'
+      })
+
+      expect(
+        metrics.splitRangeCount,
+        JSON.stringify({ position, ratio, metrics }, null, 2)
+      ).toBeGreaterThan(0)
+      expect(
+        metrics.gapCount + metrics.collapsedStartEndCount,
+        JSON.stringify({ position, ratio, metrics }, null, 2)
+      ).toBeGreaterThan(0)
+      expect(
+        metrics.overCompressedVisualGaps,
+        JSON.stringify({ position, ratio, metrics }, null, 2)
+      ).toEqual([])
+    }
+  }
+
+  await page.evaluate((key) => {
+    delete (window as unknown as Record<string, unknown>)[key]
+  }, SPLIT_RANGE_VISUAL_GAP_RATIO_OVERRIDE)
+
+  const summaryPath = path.join(
+    ARTIFACT_DIR,
+    'self-check-split-range-gap-ratio-sweep.json'
+  )
+  fs.writeFileSync(summaryPath, `${JSON.stringify(summaries, null, 2)}\n`)
+  await testInfo.attach('split-range-gap-ratio-sweep-summary', {
+    path: summaryPath,
+    contentType: 'application/json'
   })
 })
 

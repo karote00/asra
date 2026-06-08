@@ -4402,6 +4402,13 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
       }
       const dashPattern = [27, 20]
       const expectedHalfDash = dashPattern[0] / 2
+      const splitRangeCapExtension = capType === 'butt' ? 0 : primaryStrokeWidth
+      const minimumVisualGapLength =
+        splitRangeCapExtension > 0 ? dashPattern[1] * 0.6 : 0
+      const minimumCenterlineGapLength =
+        splitRangeCapExtension > 0
+          ? minimumVisualGapLength + splitRangeCapExtension * 2
+          : 0
       const distributionFailures = [...recordsBySplitRange.entries()].flatMap(
         ([splitRangeId, records]) => {
           const sorted = records
@@ -4415,7 +4422,7 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           )
           const rangeLength = rangeEnd - rangeStart
           const failures: string[] = []
-          if (rangeLength <= dashPattern[0] + 1e-4) {
+          if (rangeLength <= dashPattern[0] + minimumCenterlineGapLength + 1e-4) {
             const startEnd = sorted.find(
               (record) => record.terminalRole === 'start-end'
             )
@@ -4488,6 +4495,13 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
               positiveGaps.forEach((gap) => {
                 if (Math.abs(gap - firstGap) > 1e-4) {
                   failures.push('split-range-gaps-not-evenly-distributed')
+                }
+                const visualGap = gap - splitRangeCapExtension * 2
+                if (
+                  minimumVisualGapLength > 0 &&
+                  visualGap < minimumVisualGapLength - 1e-4
+                ) {
+                  failures.push('split-range-visual-gap-over-compressed')
                 }
               })
             }
