@@ -1692,7 +1692,7 @@ test.describe('Pen Tool - Editing Flow', () => {
 
   test('escape uses split-then-exit semantics before creating a new vector', async ({
     page
-  }) => {
+  }, testInfo) => {
     const initialCount = await getElementCount(page)
 
     await page.keyboard.press('p')
@@ -1706,7 +1706,31 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     // First escape: keep pen editing mode but start a new subpath in same vector.
     await page.keyboard.press('Escape')
-    await page.waitForTimeout(150)
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          return {
+            activeTool: core?.getSystemProperty?.('primaryTool') ?? null,
+            pathEditingVectorId:
+              core?.getSystemProperty?.('pathEditingVectorId') ?? null,
+            startNewSubpath:
+              core?.getSystemProperty?.('pathEditingStartNewSubpath') ?? null,
+            continuation:
+              core?.getSystemProperty?.('pathEditingContinuation') ?? null
+          }
+        })
+      })
+      .toMatchObject({
+        activeTool: 'pen',
+        pathEditingVectorId: expect.any(String),
+        startNewSubpath: true,
+        continuation: null
+      })
+    await page.screenshot({
+      path: testInfo.outputPath('pen-escape-disconnect.png')
+    })
 
     // Second consecutive escape: exit path editing mode while staying in pen tool.
     await page.keyboard.press('Escape')

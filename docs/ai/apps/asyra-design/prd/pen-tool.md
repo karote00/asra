@@ -48,8 +48,11 @@ Users need a vector path workflow that supports creating vectors, appending poin
 13. Double click enters path editing only when selected vector is hit.
 14. Escape cancel behavior:
 
-- if path editing mode has vector point/segment selection, Escape clears that selection
-- if path editing mode has no vector point/segment selection, Escape exits path editing
+- if pen tool is in path editing connected-continuation mode, Escape disconnects
+  the continuation preview and keeps path editing active
+- if pen tool is already disconnected/new-subpath in path editing mode, Escape
+  exits path editing while keeping pen active
+- if a non-pen tool is in path editing mode, Escape exits path editing
 - if not in path editing mode and elements are selected, Escape clears element selection
 
 15. Point/handle hover changes cursor to pointer and updates hovered point state.

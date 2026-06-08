@@ -128,16 +128,22 @@
 
 Handled by `cancelPenEditing`:
 
-1. path editing mode + vector point/segment selection
+1. pen tool + path editing mode + connected continuation preview
 
-- clear vector point/segment selection
-- clear compatibility vector point/segment state
+- disconnect the continuation preview by setting `pathEditingStartNewSubpath=true`
+- keep path editing mode active
+- keep the pen tool active
 
-2. path editing mode + no vector point/segment selection
+2. pen tool + path editing mode + disconnected/new-subpath state
+
+- exit path editing mode
+- keep the pen tool active
+
+3. path editing mode in non-pen tools
 
 - exit path editing mode
 
-3. not in path editing mode + element selection
+4. not in path editing mode + element selection
 
 - clear element selection
 

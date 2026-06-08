@@ -64,16 +64,18 @@ Feature: Pen Tool and Path Editing
     When I double click within that vector bounds
     Then path editing mode should start for that vector
 
-  Scenario: Escape clears vector selection in path editing
+  Scenario: Escape disconnects pen continuation before exiting path editing
     Given path editing mode is active
-    And a vector point or segment is selected
+    And the primary tool is pen
+    And pen has a connected continuation preview
     When I press Escape
-    Then vector point and segment selection should be cleared
-    And path editing mode should remain active
+    Then path editing mode should remain active
+    And pen should be disconnected from the current continuation
 
-  Scenario: Escape exits path editing when no vector selection exists
+  Scenario: Escape exits path editing after pen continuation is disconnected
     Given path editing mode is active
-    And no vector point or segment is selected
+    And the primary tool is pen
+    And pen is disconnected from the current continuation
     When I press Escape
     Then path editing mode should exit
 

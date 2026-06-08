@@ -1185,6 +1185,32 @@ export const cancelPenEditingFeature = defineFeature(
       const editingVectorId = systemContextApis.getPathEditingVectorId()
 
       if (pathEditingMode) {
+        if (snapshot.primaryTool === PrimaryToolType.PEN) {
+          const startNewSubpath =
+            systemContextApis.getPathEditingStartNewSubpath()
+
+          if (!startNewSubpath) {
+            systemContextApis.setPathEditingStartNewSubpath(true)
+            systemContextApis.setPathEditingContinuation(null)
+            systemContextApis.setHoveredVectorSegment(null)
+            systemContextApis.setHoveredVectorSegmentInsertPoint(null)
+            cursorApis.resetCanvasCursor()
+            return {
+              cancelled: true,
+              elementId: editingVectorId,
+              mode: 'disconnect-pen-continuation'
+            }
+          }
+
+          systemContextApis.exitPathEditingMode()
+          cursorApis.resetCanvasCursor()
+          return {
+            cancelled: true,
+            elementId: editingVectorId,
+            mode: 'exit-path-editing'
+          }
+        }
+
         systemContextApis.exitPathEditingMode()
         systemContextApis.switchPrimaryTool(PrimaryToolType.SELECT)
         cursorApis.resetCanvasCursor()
