@@ -133,6 +133,22 @@ describe('createElementSelectionAPIs.selectElements', () => {
     subscription.unsubscribe()
   })
 
+  it('does not publish a transaction when selection ids are unchanged', () => {
+    const deps = createSelectionDeps()
+    const apis = createElementSelectionAPIs(deps)
+    const subscriber = vi.fn()
+    const subscription = subscribeToUpdateTransaction(subscriber)
+
+    deps.get(channels.vectorPoint)?.select(['vector-1:point-1:anchor'])
+    subscriber.mockClear()
+
+    apis.selectVectorPoints(['vector-1:point-1:anchor'])
+
+    expect(subscriber).not.toHaveBeenCalled()
+
+    subscription.unsubscribe()
+  })
+
   it('throws when wrapper action channel is not registered', () => {
     const apis = createElementSelectionAPIs({
       get: () => undefined,

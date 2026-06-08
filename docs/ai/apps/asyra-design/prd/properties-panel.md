@@ -17,7 +17,7 @@ Users need precise property editing that reflects current selection/mode state w
 1. Selected element -> show layout section (`X/Y/W/H/R`).
 2. No selection -> hide layout fields.
 3. Selected vector point in active path editing -> show point fields (`X/Y`) instead of layout section.
-4. Selected vector anchor point exposes handle mode selection (`none`, `mirror-angle`, `mirror-angle-length`) and handle coordinate edits respect the selected mode.
+4. Selected vector anchor point exposes handle mode selection (`none`, `mirror-angle`, `mirror-angle-length`) and handle coordinate edits respect the selected mode. The mode is stored on the anchor's canonical vector data; switching to `none` preserves existing handles and only releases mirroring constraints.
 5. Numeric input accepts finite values and rejects invalid values.
 6. Selected element in element-properties mode -> show fills section with repeatable fill rows.
 7. Selected vector element still shows fills in element-properties mode; only vector point editing routes to the point panel instead.

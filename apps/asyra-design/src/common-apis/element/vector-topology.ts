@@ -3,12 +3,14 @@ import type {
   VectorAnchorType,
   VectorControlRole,
   VectorEndpointSide,
+  VectorHandleMode,
   VectorNetwork,
   VectorPointNode,
   VectorSegment,
   VectorTopology
 } from '@asyra/core'
 import {
+  VECTOR_HANDLE_MODES,
   VECTOR_TOKENS,
   VECTOR_TOPOLOGY_NETWORK_ID_TYPE,
   VECTOR_TOPOLOGY_POINT_ID_TYPE,
@@ -537,6 +539,7 @@ export const createVectorTopologyFromSinglePoint = (
         id: pointId,
         kind: VECTOR_TOKENS.POINT.KIND.ANCHOR,
         anchorType,
+        handleMode: VECTOR_HANDLE_MODES.NONE,
         x: position.x,
         y: position.y
       }
@@ -569,6 +572,7 @@ export const appendAnchorPointToTopology = (
       id: pointId,
       kind: VECTOR_TOKENS.POINT.KIND.ANCHOR,
       anchorType: options?.anchorType ?? 'sharp',
+      handleMode: VECTOR_HANDLE_MODES.NONE,
       x: position.x,
       y: position.y
     }
@@ -787,6 +791,41 @@ export const setAnchorTypeInTopology = (
   }
 
   return nextTopology
+}
+
+export const setAnchorHandleModeInTopology = (
+  topology: VectorTopologyLike,
+  pointId: string,
+  mode: VectorHandleMode
+): VectorTopology => {
+  const point = topology.points[pointId]
+  if (!isAnchorNode(point)) {
+    return {
+      points: { ...topology.points },
+      segments: topology.segments,
+      networks: topology.networks
+    }
+  }
+
+  if (point.handleMode === mode) {
+    return {
+      points: topology.points,
+      segments: topology.segments,
+      networks: topology.networks
+    }
+  }
+
+  return {
+    points: {
+      ...topology.points,
+      [pointId]: {
+        ...point,
+        handleMode: mode
+      }
+    },
+    segments: topology.segments,
+    networks: topology.networks
+  }
 }
 
 export const setAnchorHandleInTopology = (
@@ -1088,6 +1127,7 @@ export const splitSegmentInTopology = (
       id: splitPointId,
       kind: VECTOR_TOKENS.POINT.KIND.ANCHOR,
       anchorType: hasCurve ? 'smooth' : 'sharp',
+      handleMode: VECTOR_HANDLE_MODES.NONE,
       x: splitPointPosition.x,
       y: splitPointPosition.y
     }

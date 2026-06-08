@@ -18,6 +18,7 @@ import {
   getControlId,
   isClosedVectorTopology,
   removeAnchorPointFromTopology,
+  setAnchorHandleModeInTopology,
   setAnchorHandleInTopology,
   setAnchorTypeInTopology,
   splitSegmentInTopology,
@@ -278,20 +279,9 @@ export const setHandleModeAndRepair = (
     return null
   }
 
+  let nextTopology = setAnchorHandleModeInTopology(topology, pointId, mode)
+
   if (mode === VectorHandleModes.NONE) {
-    let nextTopology = topology
-    nextTopology = setAnchorHandleInTopology(
-      nextTopology,
-      pointId,
-      VECTOR_TOKENS.CONTROL.ROLE.IN,
-      null
-    )
-    nextTopology = setAnchorHandleInTopology(
-      nextTopology,
-      pointId,
-      VECTOR_TOKENS.CONTROL.ROLE.OUT,
-      null
-    )
     return nextTopology
   }
 
@@ -303,10 +293,10 @@ export const setHandleModeAndRepair = (
   })
 
   if (!nextHandles) {
-    return topology
+    return nextTopology
   }
 
-  let nextTopology = setAnchorTypeInTopology(topology, pointId, 'smooth')
+  nextTopology = setAnchorTypeInTopology(nextTopology, pointId, 'smooth')
   nextTopology = setAnchorHandleInTopology(
     nextTopology,
     pointId,

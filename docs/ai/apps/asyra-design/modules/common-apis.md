@@ -58,6 +58,6 @@
 - Canvas hit-testing uses renderer geometry (`getElementIdAtClientPos`) so
   hover targeting follows visible element fill or stroke geometry.
 - Bounds utilities remain in use for area selection and intersection queries.
-- Vector handle mode helpers track per-point handle constraints (`none`, `mirror-angle`, `mirror-angle-length`) for drag and panel edits.
+- Vector handle mode helpers read/write anchor-level canonical computed data (`none`, `mirror-angle`, `mirror-angle-length`) for drag and panel edits; they do not use a transient app-only map.
 - Vector topology commits validate segment/network consistency and fail fast on invalid references.
 - Vector geometry helper (`vectorGeometry.*`) centralizes topology repairs for add/move/split/update flows and builds computed-data patches.

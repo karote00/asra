@@ -1,13 +1,10 @@
 import type { PositionData } from '@asyra/utils'
 import { VectorHandleModes, type VectorHandleMode } from '../../constants'
 import { VECTOR_TOKENS } from '@asyra/core'
+import type { VectorPointNode } from '@asyra/core'
 import type { VectorPointTarget } from './types'
 
 const HANDLE_MODE_EPSILON = 1e-6
-const handleModeByPointId = new Map<string, VectorHandleMode>()
-
-const getHandleModeKey = (elementId: string, pointId: string) =>
-  `${elementId}:${pointId}`
 
 const toVector = (anchor: PositionData, handle: PositionData | null) => {
   if (!handle) {
@@ -72,20 +69,15 @@ const subtractVector = (anchor: PositionData, vector: PositionData) => ({
   y: anchor.y - vector.y
 })
 
-export const getVectorHandleMode = (
-  elementId: string,
-  pointId: string
+export const getVectorAnchorHandleMode = (
+  point: VectorPointNode | undefined
 ): VectorHandleMode =>
-  handleModeByPointId.get(getHandleModeKey(elementId, pointId)) ??
-  VectorHandleModes.NONE
-
-export const setVectorHandleMode = (
-  elementId: string,
-  pointId: string,
-  mode: VectorHandleMode
-) => {
-  handleModeByPointId.set(getHandleModeKey(elementId, pointId), mode)
-}
+  point?.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR &&
+  (point.handleMode === VectorHandleModes.NONE ||
+    point.handleMode === VectorHandleModes.MIRROR_ANGLE ||
+    point.handleMode === VectorHandleModes.MIRROR_ANGLE_LENGTH)
+    ? point.handleMode
+    : VectorHandleModes.NONE
 
 export const resolveHandleModeDragUpdate = (params: {
   anchor: PositionData

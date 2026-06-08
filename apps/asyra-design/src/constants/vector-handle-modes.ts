@@ -1,11 +1,7 @@
-export const VectorHandleModes = {
-  NONE: 'none',
-  MIRROR_ANGLE: 'mirror-angle',
-  MIRROR_ANGLE_LENGTH: 'mirror-angle-length'
-} as const
+import { VECTOR_HANDLE_MODES, type VectorHandleMode } from '@asyra/core'
 
-export type VectorHandleMode =
-  (typeof VectorHandleModes)[keyof typeof VectorHandleModes]
+export const VectorHandleModes = VECTOR_HANDLE_MODES
+export type { VectorHandleMode }
 
 export const isVectorHandleMode = (value: unknown): value is VectorHandleMode =>
   value === VectorHandleModes.NONE ||

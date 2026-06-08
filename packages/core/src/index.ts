@@ -110,6 +110,7 @@ export type { DataChannelObserverRegistration } from './data-channel-observer'
 export { uiContext, UIContext, propertyRegistry }
 export {
   VECTOR_TOKENS,
+  VECTOR_HANDLE_MODES,
   VECTOR_ANCHOR_ID_PREFIX,
   VECTOR_ANCHOR_ID_TYPE,
   VECTOR_TOPOLOGY_NETWORK_ID_TYPE,
@@ -120,6 +121,7 @@ export type {
   VectorAnchorPoint,
   VectorAnchorType,
   VectorPathStyle,
+  VectorHandleMode,
   VectorPointNode,
   VectorPointTarget,
   VectorEndpointSide,

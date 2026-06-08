@@ -43,6 +43,13 @@ const buildSelectionChange = (
   options?: EVENT_OPTIONS
 ): SelectionChange | undefined => {
   const before = Array.from(selectionState.getSelectedIds())
+  const beforeSet = new Set(before)
+  if (
+    before.length === after.length &&
+    after.every((selectionId) => beforeSet.has(selectionId))
+  ) {
+    return undefined
+  }
   const action = selectionState.getSelectAction()
   return {
     selectionType: selectionState.getSelectionType(),

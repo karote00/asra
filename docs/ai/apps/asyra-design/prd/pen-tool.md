@@ -61,7 +61,7 @@ Users need a vector path workflow that supports creating vectors, appending poin
 16. Micro drag below handle-creation threshold on second-point creation should keep the first segment straight (no unintended connected-point bezier handle creation).
 17. Moving a selected anchor point in path-editing mode must translate its connected curve handles with the anchor.
 18. In non-pen path-editing mode, dragging a selected `inHandle`/`outHandle` must update that handle position while keeping the same handle target selected.
-19. Handle drag must respect handle mode constraints (`none`, `mirror-angle`, `mirror-angle-length`) and update the opposite handle accordingly.
+19. Handle drag must respect canonical anchor handle mode constraints (`none`, `mirror-angle`, `mirror-angle-length`) and update the opposite handle accordingly; `none` releases constraints without deleting existing handles.
 20. Non-pen point-target drag should keep click-only selection semantics for micro movement below the point-drag threshold.
 21. Pen session continuity:
 

@@ -366,6 +366,18 @@ describe('vector path editing transaction boundary', () => {
     )
   })
 
+  it('stores vector handle mode through canonical computed topology records', () => {
+    const vectorApis = vectorApisSource()
+    const vectorConsistency = vectorConsistencySource()
+
+    expect(vectorApis).toContain('getVectorAnchorHandleMode(')
+    expect(vectorApis).toContain('vectorGeometry.setHandleMode(')
+    expect(vectorConsistency).toContain('setAnchorHandleModeInTopology(')
+    expect(vectorApis).not.toContain('setVectorHandleMode(')
+    expect(vectorApis).not.toContain('handleModeByPointId')
+    expect(vectorConsistency).not.toContain('handleModeByPointId')
+  })
+
   it('wraps computed-data writes in one explicit transaction boundary', () => {
     const source = changeComputedDataSource()
 

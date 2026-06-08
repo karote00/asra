@@ -207,6 +207,109 @@ const createClosedStraightVector = () => {
   }
 }
 
+const createHandleModeVector = () => ({
+  points: {
+    A: {
+      id: 'A',
+      kind: 'anchor',
+      anchorType: 'sharp',
+      x: 160,
+      y: 340
+    },
+    B: {
+      id: 'B',
+      kind: 'anchor',
+      anchorType: 'smooth',
+      x: 340,
+      y: 260
+    },
+    C: {
+      id: 'C',
+      kind: 'anchor',
+      anchorType: 'sharp',
+      x: 540,
+      y: 330
+    },
+    'B:in': {
+      id: 'B:in',
+      kind: 'control',
+      controlForId: 'B',
+      controlRole: 'in',
+      x: 268,
+      y: 228
+    },
+    'B:out': {
+      id: 'B:out',
+      kind: 'control',
+      controlForId: 'B',
+      controlRole: 'out',
+      x: 388,
+      y: 342
+    }
+  },
+  segments: {
+    AB: {
+      id: 'AB',
+      startId: 'A',
+      endId: 'B',
+      outControlId: null,
+      inControlId: 'B:in'
+    },
+    BC: {
+      id: 'BC',
+      startId: 'B',
+      endId: 'C',
+      outControlId: 'B:out',
+      inControlId: null
+    }
+  },
+  networks: {
+    main: {
+      id: 'main',
+      pointIds: ['A', 'B', 'C'],
+      segmentIds: ['AB', 'BC'],
+      closed: false
+    }
+  }
+})
+
+const createSingleHandleModeVector = () => {
+  const topology = createHandleModeVector()
+  const { ['B:in']: _removed, ...points } = topology.points
+  return {
+    ...topology,
+    points,
+    segments: {
+      ...topology.segments,
+      AB: {
+        ...topology.segments.AB,
+        inControlId: null
+      }
+    }
+  }
+}
+
+const vectorLength = (
+  anchor: { x: number; y: number },
+  handle: { x: number; y: number } | undefined
+) => (handle ? Math.hypot(handle.x - anchor.x, handle.y - anchor.y) : 0)
+
+const dotAroundAnchor = (
+  anchor: { x: number; y: number },
+  first: { x: number; y: number },
+  second: { x: number; y: number }
+) =>
+  (first.x - anchor.x) * (second.x - anchor.x) +
+  (first.y - anchor.y) * (second.y - anchor.y)
+
+const crossAroundAnchor = (
+  anchor: { x: number; y: number },
+  first: { x: number; y: number },
+  second: { x: number; y: number }
+) =>
+  (first.x - anchor.x) * (second.y - anchor.y) -
+  (first.y - anchor.y) * (second.x - anchor.x)
+
 const getSyntheticHandle = (
   anchor: ScreenPoint,
   neighbor: ScreenPoint
@@ -568,18 +671,30 @@ test.describe('Vector path editing controls', () => {
     })
 
     const expectedHandles = {
-      'p0:in': getSyntheticHandle(state.screenAnchors.p0, state.screenAnchors.p3),
+      'p0:in': getSyntheticHandle(
+        state.screenAnchors.p0,
+        state.screenAnchors.p3
+      ),
       'p0:out': getSyntheticHandle(
         state.screenAnchors.p0,
         state.screenAnchors.p1
       ),
-      'p1:in': getSyntheticHandle(state.screenAnchors.p1, state.screenAnchors.p0),
+      'p1:in': getSyntheticHandle(
+        state.screenAnchors.p1,
+        state.screenAnchors.p0
+      ),
       'p1:out': getSyntheticHandle(
         state.screenAnchors.p1,
         state.screenAnchors.p2
       ),
-      'p3:in': getSyntheticHandle(state.screenAnchors.p3, state.screenAnchors.p2),
-      'p3:out': getSyntheticHandle(state.screenAnchors.p3, state.screenAnchors.p0)
+      'p3:in': getSyntheticHandle(
+        state.screenAnchors.p3,
+        state.screenAnchors.p2
+      ),
+      'p3:out': getSyntheticHandle(
+        state.screenAnchors.p3,
+        state.screenAnchors.p0
+      )
     }
 
     for (const [label, point] of Object.entries(expectedHandles)) {
@@ -590,5 +705,249 @@ test.describe('Vector path editing controls', () => {
       )
       expect(pixelCount, label).toBeGreaterThan(6)
     }
+  })
+
+  test('handle mirroring buttons write canonical mode and repair handle geometry', async ({
+    page
+  }, testInfo) => {
+    const setup = await page.evaluate((topology) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!core || !elementApis) {
+        throw new Error('Missing E2E core or element APIs')
+      }
+
+      const createdId = elementApis.createElement(
+        {
+          type: 'vector',
+          points: topology.points,
+          segments: topology.segments,
+          networks: topology.networks,
+          closed: false,
+          pointCoordinateSpace: 'workspace'
+        },
+        { undoable: false }
+      )
+      if (!createdId) {
+        throw new Error('Failed to create handle-mode vector')
+      }
+
+      core.selectElements?.([createdId], { undoable: false })
+      core.setSystemProperty?.('pathEditingVectorId', createdId)
+      core.setSystemProperty?.('pathEditingMode', true)
+      core.selectVectorPoints?.([`${createdId}:B:anchor`], {
+        undoable: false
+      })
+      core.setSystemProperty?.('selectedVectorPoint', {
+        elementId: createdId,
+        pointId: 'B',
+        index: 1,
+        target: 'anchor',
+        x: topology.points.B.x,
+        y: topology.points.B.y,
+        handleMode: 'none'
+      })
+      core.setSystemProperty?.('zoom', 1)
+      core.setSystemProperty?.('viewportPosition', { x: 160, y: 80 })
+      return { createdId }
+    }, createHandleModeVector())
+
+    const readPointState = async () =>
+      page.evaluate((elementId) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        const computed =
+          core?.deps?.sceneTree
+            ?.getElementById?.(elementId)
+            ?.getAllComputedData?.() ?? {}
+        return {
+          B: computed.points?.B,
+          inHandle: computed.points?.['B:in'],
+          outHandle: computed.points?.['B:out']
+        }
+      }, setup.createdId)
+
+    const before = await readPointState()
+    const beforeInLength = vectorLength(before.B, before.inHandle)
+    const beforeOutLength = vectorLength(before.B, before.outHandle)
+    expect(beforeInLength).not.toBeCloseTo(beforeOutLength, 2)
+
+    const readUndoStackSummary = async () =>
+      page.evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const stack = (window as any).__Core__?.deps?.factory?.transact
+          ?.undoStack
+        const undoStack = Array.isArray(stack) ? stack : []
+        const last = undoStack[undoStack.length - 1] ?? []
+        return {
+          length: undoStack.length,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          lastTypes: last.map((event: any) => event?.type)
+        }
+      })
+
+    let undoStackLength = (await readUndoStackSummary()).length
+    const expectSingleModeUndoCommit = async () => {
+      const summary = await readUndoStackSummary()
+      expect(summary.length).toBe(undoStackLength + 1)
+      expect(summary.lastTypes).toEqual(['updateComputedDataPatch'])
+      undoStackLength = summary.length
+    }
+
+    await page.getByTestId('prop-handle-mode-mirror-angle').click()
+    await page.waitForTimeout(160)
+    await expectSingleModeUndoCommit()
+    const mirrorAngle = await readPointState()
+    expect(mirrorAngle.B.handleMode).toBe('mirror-angle')
+    expect(
+      Math.abs(
+        crossAroundAnchor(
+          mirrorAngle.B,
+          mirrorAngle.inHandle,
+          mirrorAngle.outHandle
+        )
+      )
+    ).toBeLessThan(1e-6)
+    expect(
+      dotAroundAnchor(
+        mirrorAngle.B,
+        mirrorAngle.inHandle,
+        mirrorAngle.outHandle
+      )
+    ).toBeLessThan(0)
+    expect(vectorLength(mirrorAngle.B, mirrorAngle.inHandle)).toBeCloseTo(
+      beforeInLength,
+      4
+    )
+    expect(vectorLength(mirrorAngle.B, mirrorAngle.outHandle)).toBeCloseTo(
+      beforeOutLength,
+      4
+    )
+
+    await page.getByTestId('prop-handle-mode-mirror-angle-length').click()
+    await page.waitForTimeout(160)
+    await expectSingleModeUndoCommit()
+    const mirrorLength = await readPointState()
+    expect(mirrorLength.B.handleMode).toBe('mirror-angle-length')
+    expect(
+      Math.abs(
+        crossAroundAnchor(
+          mirrorLength.B,
+          mirrorLength.inHandle,
+          mirrorLength.outHandle
+        )
+      )
+    ).toBeLessThan(1e-6)
+    expect(
+      dotAroundAnchor(
+        mirrorLength.B,
+        mirrorLength.inHandle,
+        mirrorLength.outHandle
+      )
+    ).toBeLessThan(0)
+    expect(vectorLength(mirrorLength.B, mirrorLength.inHandle)).toBeCloseTo(
+      vectorLength(mirrorLength.B, mirrorLength.outHandle),
+      4
+    )
+
+    await page.getByTestId('prop-handle-mode-none').click()
+    await page.waitForTimeout(160)
+    await expectSingleModeUndoCommit()
+    const none = await readPointState()
+    expect(none.B.handleMode).toBe('none')
+    expect(none.inHandle).toBeTruthy()
+    expect(none.outHandle).toBeTruthy()
+
+    const screenshot = await page.screenshot()
+    await testInfo.attach('handle-mode-none-preserves-handles', {
+      body: screenshot,
+      contentType: 'image/png'
+    })
+  })
+
+  test('mirror mode creates the missing counterpart handle from a single handle', async ({
+    page
+  }, testInfo) => {
+    const setup = await page.evaluate((topology) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!core || !elementApis) {
+        throw new Error('Missing E2E core or element APIs')
+      }
+
+      const createdId = elementApis.createElement(
+        {
+          type: 'vector',
+          points: topology.points,
+          segments: topology.segments,
+          networks: topology.networks,
+          closed: false,
+          pointCoordinateSpace: 'workspace'
+        },
+        { undoable: false }
+      )
+      if (!createdId) {
+        throw new Error('Failed to create single-handle vector')
+      }
+
+      core.selectElements?.([createdId], { undoable: false })
+      core.setSystemProperty?.('pathEditingVectorId', createdId)
+      core.setSystemProperty?.('pathEditingMode', true)
+      core.selectVectorPoints?.([`${createdId}:B:anchor`], {
+        undoable: false
+      })
+      core.setSystemProperty?.('selectedVectorPoint', {
+        elementId: createdId,
+        pointId: 'B',
+        index: 1,
+        target: 'anchor',
+        x: topology.points.B.x,
+        y: topology.points.B.y,
+        handleMode: 'none'
+      })
+      core.setSystemProperty?.('zoom', 1)
+      core.setSystemProperty?.('viewportPosition', { x: 160, y: 80 })
+      return { createdId }
+    }, createSingleHandleModeVector())
+
+    await page.getByTestId('prop-handle-mode-mirror-angle-length').click()
+    await page.waitForTimeout(160)
+    const state = await page.evaluate((elementId) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const computed =
+        core?.deps?.sceneTree
+          ?.getElementById?.(elementId)
+          ?.getAllComputedData?.() ?? {}
+      return {
+        B: computed.points?.B,
+        inHandle: computed.points?.['B:in'],
+        outHandle: computed.points?.['B:out']
+      }
+    }, setup.createdId)
+
+    expect(state.B.handleMode).toBe('mirror-angle-length')
+    expect(state.inHandle).toBeTruthy()
+    expect(state.outHandle).toBeTruthy()
+    expect(
+      Math.abs(crossAroundAnchor(state.B, state.inHandle, state.outHandle))
+    ).toBeLessThan(1e-6)
+    expect(
+      dotAroundAnchor(state.B, state.inHandle, state.outHandle)
+    ).toBeLessThan(0)
+    expect(vectorLength(state.B, state.inHandle)).toBeCloseTo(
+      vectorLength(state.B, state.outHandle),
+      4
+    )
+
+    const screenshot = await page.screenshot()
+    await testInfo.attach('handle-mode-created-counterpart', {
+      body: screenshot,
+      contentType: 'image/png'
+    })
   })
 })

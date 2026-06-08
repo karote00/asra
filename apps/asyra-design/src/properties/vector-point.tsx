@@ -7,7 +7,12 @@ import {
   type VectorHandleMode,
   ROW_HEIGHT
 } from '../constants'
-import { elementApis, selectionApis, systemContextApis } from '../common-apis'
+import {
+  elementApis,
+  selectionApis,
+  systemContextApis,
+  transactionApis
+} from '../common-apis'
 import { useSelectedVectorPoint } from '../providers'
 import { formatInputNumber, parseFiniteInputNumber } from './number-input'
 
@@ -355,6 +360,18 @@ const VectorPoint = () => {
     [elementId, pointId]
   )
 
+  const runDiscreteVectorPointInteraction = useCallback(
+    <T,>(action: () => T) => {
+      transactionApis.startTransaction()
+      try {
+        return action()
+      } finally {
+        transactionApis.endTransaction()
+      }
+    },
+    []
+  )
+
   const handleChangeX = useCallback(
     (newValue: string) => {
       if (!elementId || !pointId || x === null || y === null) {
@@ -366,26 +383,36 @@ const VectorPoint = () => {
         return false
       }
 
-      const updatedPoint =
-        target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
-          ? elementApis.updateVectorAnchorPointPosition(elementId, pointId, {
-              x: nextX,
-              y
-            })
-          : elementApis.updateVectorAnchorPointHandlePosition(
-              elementId,
-              pointId,
-              target,
-              {
+      return runDiscreteVectorPointInteraction(() => {
+        const updatedPoint =
+          target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
+            ? elementApis.updateVectorAnchorPointPosition(elementId, pointId, {
                 x: nextX,
                 y
-              }
-            )
-      return updatedPoint === true
-        ? false
-        : applyTargetSelection(updatedPoint, target)
+              })
+            : elementApis.updateVectorAnchorPointHandlePosition(
+                elementId,
+                pointId,
+                target,
+                {
+                  x: nextX,
+                  y
+                }
+              )
+        return updatedPoint === true
+          ? false
+          : applyTargetSelection(updatedPoint, target)
+      })
     },
-    [elementId, pointId, x, y, target, applyTargetSelection]
+    [
+      elementId,
+      pointId,
+      x,
+      y,
+      target,
+      applyTargetSelection,
+      runDiscreteVectorPointInteraction
+    ]
   )
 
   const handleChangeY = useCallback(
@@ -399,26 +426,36 @@ const VectorPoint = () => {
         return false
       }
 
-      const updatedPoint =
-        target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
-          ? elementApis.updateVectorAnchorPointPosition(elementId, pointId, {
-              x,
-              y: nextY
-            })
-          : elementApis.updateVectorAnchorPointHandlePosition(
-              elementId,
-              pointId,
-              target,
-              {
+      return runDiscreteVectorPointInteraction(() => {
+        const updatedPoint =
+          target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
+            ? elementApis.updateVectorAnchorPointPosition(elementId, pointId, {
                 x,
                 y: nextY
-              }
-            )
-      return updatedPoint === true
-        ? false
-        : applyTargetSelection(updatedPoint, target)
+              })
+            : elementApis.updateVectorAnchorPointHandlePosition(
+                elementId,
+                pointId,
+                target,
+                {
+                  x,
+                  y: nextY
+                }
+              )
+        return updatedPoint === true
+          ? false
+          : applyTargetSelection(updatedPoint, target)
+      })
     },
-    [elementId, pointId, x, y, target, applyTargetSelection]
+    [
+      elementId,
+      pointId,
+      x,
+      y,
+      target,
+      applyTargetSelection,
+      runDiscreteVectorPointInteraction
+    ]
   )
 
   const handleChangePointType = useCallback(
@@ -427,14 +464,21 @@ const VectorPoint = () => {
         return
       }
 
-      const updatedPoint = elementApis.updateVectorAnchorPointType(
-        elementId,
-        pointId,
-        newType
-      )
-      applyTargetSelection(updatedPoint, VECTOR_TOKENS.POINT.TARGET.ANCHOR)
+      runDiscreteVectorPointInteraction(() => {
+        const updatedPoint = elementApis.updateVectorAnchorPointType(
+          elementId,
+          pointId,
+          newType
+        )
+        applyTargetSelection(updatedPoint, VECTOR_TOKENS.POINT.TARGET.ANCHOR)
+      })
     },
-    [elementId, pointId, applyTargetSelection]
+    [
+      elementId,
+      pointId,
+      applyTargetSelection,
+      runDiscreteVectorPointInteraction
+    ]
   )
 
   const handleChangeHandleMode = useCallback(
@@ -443,18 +487,26 @@ const VectorPoint = () => {
         return
       }
 
-      const updatedPoint = elementApis.setVectorAnchorPointHandleMode(
-        elementId,
-        pointId,
-        newMode
-      )
-      if (!updatedPoint) {
-        return
-      }
+      runDiscreteVectorPointInteraction(() => {
+        const updatedPoint = elementApis.setVectorAnchorPointHandleMode(
+          elementId,
+          pointId,
+          newMode
+        )
+        if (!updatedPoint) {
+          return
+        }
 
-      applyTargetSelection(updatedPoint, target)
+        applyTargetSelection(updatedPoint, target)
+      })
     },
-    [elementId, pointId, applyTargetSelection, target]
+    [
+      elementId,
+      pointId,
+      applyTargetSelection,
+      target,
+      runDiscreteVectorPointInteraction
+    ]
   )
 
   if (!elementId || !pointId || x === null || y === null || !anchorPoint) {

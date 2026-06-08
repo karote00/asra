@@ -1,4 +1,8 @@
-import { VECTOR_TOKENS, VECTOR_TOPOLOGY_POINT_ID_TYPE } from '@asyra/core'
+import {
+  VECTOR_HANDLE_MODES,
+  VECTOR_TOKENS,
+  VECTOR_TOPOLOGY_POINT_ID_TYPE
+} from '@asyra/core'
 import type { VectorControlRole, VectorPointNode } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
 import { defineChildrenMapPropertyComponent } from './children-map-property-component'
@@ -10,6 +14,13 @@ const toNumber = (value: unknown, fallback = 0) =>
 
 const toAnchorType = (value: unknown): 'smooth' | 'sharp' =>
   value === 'smooth' ? 'smooth' : 'sharp'
+
+const toHandleMode = (value: unknown) =>
+  value === VECTOR_HANDLE_MODES.NONE ||
+  value === VECTOR_HANDLE_MODES.MIRROR_ANGLE ||
+  value === VECTOR_HANDLE_MODES.MIRROR_ANGLE_LENGTH
+    ? value
+    : VECTOR_HANDLE_MODES.NONE
 
 const toPointKind = (value: unknown): VectorPointKind =>
   value === VECTOR_TOKENS.POINT.KIND.CONTROL
@@ -52,7 +63,8 @@ defineChildrenMapPropertyComponent({
       kind,
       x: toNumber(item.x),
       y: toNumber(item.y),
-      anchorType: toAnchorType(item.anchorType)
+      anchorType: toAnchorType(item.anchorType),
+      handleMode: toHandleMode(item.handleMode)
     }
   },
   toValue: (child, childId) => {
@@ -76,7 +88,8 @@ defineChildrenMapPropertyComponent({
       kind,
       x,
       y,
-      anchorType: toAnchorType(child.get('anchorType'))
+      anchorType: toAnchorType(child.get('anchorType')),
+      handleMode: toHandleMode(child.get('handleMode'))
     }
   }
 })

@@ -47,7 +47,7 @@ import {
   type VectorComputedData,
   type VectorPointUpdate
 } from './vector-consistency'
-import { getVectorHandleMode, setVectorHandleMode } from './handle-mode'
+import { getVectorAnchorHandleMode } from './handle-mode'
 import { projectPointToCubicBezier } from './bezier-adapter'
 import type {
   CreateElementOptions,
@@ -1716,7 +1716,10 @@ export const vectorApis = {
   getVectorAnchorPointHandleMode: (
     elementId: string,
     pointId: string
-  ): VectorHandleMode => getVectorHandleMode(elementId, pointId),
+  ): VectorHandleMode => {
+    const topology = getVectorTopologyWorkspace(elementId)
+    return getVectorAnchorHandleMode(topology.points[pointId])
+  },
 
   setVectorAnchorPointHandleMode: (
     elementId: string,
@@ -1729,7 +1732,6 @@ export const vectorApis = {
       return null
     }
 
-    setVectorHandleMode(elementId, pointId, mode)
     commitVectorTopologyOperation(
       elementId,
       {
@@ -1754,7 +1756,7 @@ export const vectorApis = {
     options?: VectorPointMutationOptions
   ): { point: VectorAnchorPoint; index: number } | true | null => {
     const topology = getVectorTopologyWorkspace(elementId)
-    const handleMode = getVectorHandleMode(elementId, pointId)
+    const handleMode = getVectorAnchorHandleMode(topology.points[pointId])
     const nextTopology = measureVectorTopologyUpdate('update-handle', () =>
       vectorGeometry.updateHandle(
         topology,

@@ -1,4 +1,4 @@
-import { VECTOR_TOKENS } from '@asyra/core'
+import { VECTOR_HANDLE_MODES, VECTOR_TOKENS } from '@asyra/core'
 import {
   AnchorPointTypes,
   FillColorFormats,
@@ -20,6 +20,10 @@ const isFiniteNumber = (value: unknown) =>
   typeof value === 'number' && Number.isFinite(value)
 const isStringArray = (value: unknown) =>
   Array.isArray(value) && value.every((item) => typeof item === 'string')
+const isVectorHandleMode = (value: unknown) =>
+  value === VECTOR_HANDLE_MODES.NONE ||
+  value === VECTOR_HANDLE_MODES.MIRROR_ANGLE ||
+  value === VECTOR_HANDLE_MODES.MIRROR_ANGLE_LENGTH
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 const isOpacity = (value: unknown) =>
@@ -446,6 +450,12 @@ const vectorPointSchema: PropertySchema = {
       validate: (value) =>
         value === AnchorPointTypes.SHARP || value === AnchorPointTypes.SMOOTH,
       defaultValue: AnchorPointTypes.SHARP
+    },
+    {
+      key: 'handleMode',
+      kind: 'string',
+      validate: isVectorHandleMode,
+      defaultValue: VECTOR_HANDLE_MODES.NONE
     },
     {
       key: 'controlForId',

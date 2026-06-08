@@ -679,6 +679,19 @@ test.describe('Undo/Redo Actions', () => {
           segmentIds: Object.keys(computed.segments ?? {}).sort(),
           closed: computed.closed,
           bType: computed.points?.B?.anchorType,
+          bHandleMode: computed.points?.B?.handleMode ?? 'none',
+          bIn: computed.points?.['B:in']
+            ? {
+                x: computed.points['B:in'].x,
+                y: computed.points['B:in'].y
+              }
+            : null,
+          bOut: computed.points?.['B:out']
+            ? {
+                x: computed.points['B:out'].x,
+                y: computed.points['B:out'].y
+              }
+            : null,
           hasBIn: !!computed.points?.['B:in'],
           hasBOut: !!computed.points?.['B:out']
         }
@@ -854,6 +867,39 @@ test.describe('Undo/Redo Actions', () => {
     })
     await redoStructuralOperation()
     await expect.poll(readTopology).toMatchObject({
+      hasBIn: true,
+      hasBOut: true
+    })
+
+    await page.evaluate((elementId) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      elementApis.setVectorAnchorPointHandleMode(
+        elementId,
+        'B',
+        'mirror-angle-length'
+      )
+    }, setup.elementId)
+    const handleModeUndo = await expectSinglePatchUndo()
+    expect(handleModeUndo.pointSetIds).toContain('B')
+    expect(handleModeUndo.pointSetIds).toContain('B:in')
+    expect(
+      handleModeUndo.pointSetIds.every((pointId) =>
+        ['B', 'B:in', 'B:out'].includes(pointId)
+      )
+    ).toBe(true)
+    await expect.poll(readTopology).toMatchObject({
+      bHandleMode: 'mirror-angle-length'
+    })
+    await undoStructuralOperation()
+    await expect.poll(readTopology).toMatchObject({
+      bHandleMode: 'none',
+      hasBIn: true,
+      hasBOut: true
+    })
+    await redoStructuralOperation()
+    await expect.poll(readTopology).toMatchObject({
+      bHandleMode: 'mirror-angle-length',
       hasBIn: true,
       hasBOut: true
     })

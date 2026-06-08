@@ -362,6 +362,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     geometry-derived path instead of mixing correctness between `Graphics`
     stroke commands and post-hoc repair.
 - Consequences:
+
   - Dashed vector geometry is now future-compatible with gradient stroke fill
     and other stroke-derived mesh features.
   - The reported sample is guarded by executable algorithm and projection
@@ -821,6 +822,21 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/vector-handle-mode-plan.md`
 
+## 2026-06-08 - Vector handle mode stored as canonical anchor data
+
+- Context:
+  - Handle mirroring was previously tracked by an app-level transient map, so UI state, undo/redo, load/save, and render overlays could diverge from the computed vector topology.
+  - The `none` mode also incorrectly removed handle nodes instead of only releasing mirroring constraints.
+- Decision:
+  - Store `handleMode` on anchor `VectorPointNode` records as canonical computed data.
+  - Keep control points free of `handleMode`.
+  - Make `none` preserve existing handles and path geometry.
+  - Make `mirror-angle` / `mirror-angle-length` immediately repair missing or misaligned counterpart handles through the common vector topology operation path.
+- Consequences:
+  - One handle-mode UI action records one computed patch transaction containing the anchor mode and any repaired handles.
+  - Undo/redo restores mode and handle geometry together.
+  - Selection overlays and properties panel read committed topology data instead of a transient app map.
+
 ## 2026-03-11 - Vector handle mode plan closeout
 
 - Context:
@@ -958,6 +974,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - Data flow is more deterministic and follows the framework's reactive principles.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/refactor-path-editing-continuation-state.md`
+
 ## 2026-03-15 - Hover detection switched from bounds to render item
 
 - Context:
@@ -2341,7 +2358,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 
 - Context:
   - Phase 5 had already promoted the bounded `single-edge + outside + round
-    cap` constrained dashed product path across:
+cap` constrained dashed product path across:
     - shape-generated `rect`
     - closed single-network rectangle-equivalent `vector`
     - closed single-network non-rectangle-equivalent quadrilateral `vector`
@@ -2495,7 +2512,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     `single-edge + outside + round cap` representatives were already
     promoted.
   - The next honest downstream move was not to widen into `outside + round
-    join`, but to carry the same outside round-cap slice onto the first
+join`, but to carry the same outside round-cap slice onto the first
     broader non-rectangle-equivalent vector source frontier.
 - Decision:
   - Promote the next broader Phase 5 representative with helper-level,
@@ -2836,7 +2853,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     single-edge gradient slice on:
     - shape-generated `rect`
     - constrained dashed `single-edge + inside + local-bounds linear gradient
-      paint`
+paint`
   - The next honest move was to advance to the next source frontier instead of
     staying on the same shape-generated single-edge slice.
 - Decision:
@@ -2844,7 +2861,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     contracts for:
     - closed single-network rectangle-equivalent `vector`
     - constrained dashed `single-edge + inside + local-bounds linear gradient
-      paint`
+paint`
   - Keep this promotion narrow:
     - rectangle-equivalent `vector` only
     - single-edge only
@@ -2887,7 +2904,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     app-path contracts for:
     - closed single-network non-rectangle-equivalent quadrilateral `vector`
     - constrained dashed `single-edge + inside + local-bounds linear gradient
-      paint`
+paint`
   - Keep this promotion narrow:
     - broader non-rectangle-equivalent quadrilateral `vector` only
     - single-edge only
@@ -2966,7 +2983,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     contracts for:
     - closed single-network rectangle-equivalent `vector`
     - constrained dashed `single-edge + outside + local-bounds linear gradient
-      paint`
+paint`
   - Keep this promotion narrow:
     - rectangle-equivalent `vector` only
     - single-edge only
@@ -3007,7 +3024,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     app-path contracts for:
     - closed single-network non-rectangle-equivalent quadrilateral `vector`
     - constrained dashed `single-edge + outside + local-bounds linear gradient
-      paint`
+paint`
   - Keep this promotion narrow:
     - broader non-rectangle-equivalent quadrilateral `vector` only
     - single-edge only
@@ -3888,7 +3905,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
   - The stroke engine has now moved beyond Phase 4C-only blocked coverage and
     into the first concrete Phase 5 round-join slice.
   - Bounded expansion remains intact: only `rect + full-loop + inside + round
-    join` is promoted here; broader round joins and all round caps remain
+join` is promoted here; broader round joins and all round caps remain
     future work.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
@@ -4971,6 +4988,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/dashed-constrained-scenario-matrix.md`
   - `docs/ai/apps/asyra-design/plans/professional-stroke-engine-execution-plan.md`
+
 ## 2026-04-26 - Professional stroke engine execution now has a dedicated handoff file for new conversations and agent transfer
 
 - Context:
@@ -5014,7 +5032,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 
 - Context:
   - Phase 5 had already promoted the bounded `full-loop + outside + round
-    join` constrained dashed product path across:
+join` constrained dashed product path across:
     - shape-generated `rect`
     - closed single-network rectangle-equivalent `vector`
     - closed single-network non-rectangle-equivalent quadrilateral `vector`
@@ -5056,7 +5074,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     representative explicitly.
   - A later manual computed-data sample showed the missing case was a closed
     star-like self-intersecting single-network vector with `dashPattern:
-    [20,20]`.
+[20,20]`.
 - Decision:
   - Add product-path and app-path guards for:
     - real-created open single-network vector

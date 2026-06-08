@@ -115,9 +115,10 @@
 - curve handles are selectable targets and feed point target data to the property panel
 - moving an anchor point translates that anchor's `inHandle` and `outHandle` by the same delta (handle geometry follows anchor translation)
 - dragging a selected `inHandle`/`outHandle` updates only that handle position and keeps the handle target selected
-- switching handle mode to `none` removes existing handle nodes deterministically
+- switching handle mode to `none` removes mirroring constraints but keeps existing handle nodes and path geometry
 - when handle mode is `mirror-angle`, dragging a handle mirrors the opposite handle angle while preserving its original length
 - when handle mode is `mirror-angle-length`, dragging a handle mirrors both angle and length of the opposite handle
+- handle mode is canonical anchor computed data; UI state and overlays read from committed vector topology, not a transient app-only map
 
 ## Enter Path Editing
 

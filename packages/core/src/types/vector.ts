@@ -41,6 +41,13 @@ export type VectorEndpointSide =
   (typeof VECTOR_TOKENS.ENDPOINT.SIDE)[keyof typeof VECTOR_TOKENS.ENDPOINT.SIDE]
 export type VectorPointTarget =
   (typeof VECTOR_TOKENS.POINT.TARGET)[keyof typeof VECTOR_TOKENS.POINT.TARGET]
+export const VECTOR_HANDLE_MODES = {
+  NONE: 'none',
+  MIRROR_ANGLE: 'mirror-angle',
+  MIRROR_ANGLE_LENGTH: 'mirror-angle-length'
+} as const
+export type VectorHandleMode =
+  (typeof VECTOR_HANDLE_MODES)[keyof typeof VECTOR_HANDLE_MODES]
 
 export interface VectorAnchorPoint extends PositionData {
   id: string
@@ -54,6 +61,7 @@ export interface VectorPointNode extends PositionData {
   id: string
   kind: VectorPointKind
   anchorType?: VectorAnchorType
+  handleMode?: VectorHandleMode
   controlForId?: string
   controlRole?: VectorControlRole
 }
@@ -105,7 +113,7 @@ export interface SelectedVectorPointState extends Record<string, unknown> {
   target: VectorPointTarget
   x: number
   y: number
-  handleMode?: string
+  handleMode?: VectorHandleMode
 }
 
 export interface SelectedVectorSegmentState extends Record<string, unknown> {
