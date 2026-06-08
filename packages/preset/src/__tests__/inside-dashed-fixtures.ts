@@ -2,6 +2,7 @@ import type { VectorNetwork, VectorPointNode, VectorSegment } from '@asyra/core'
 import { createDefaultStroke } from '@asyra/utils'
 
 export const REPORTED_ROUND_INSIDE_DASHED_STAR_NETWORK_ID = 'tn-12'
+export const REPORTED_VECTOR_10_INSIDE_DASHED_NETWORK_ID = 'tn-7'
 
 export const createReportedRoundInsideDashedStarVectorData = () => ({
   id: 'vector-13',
@@ -153,6 +154,168 @@ export const createReportedRoundInsideDashedStarVectorData = () => ({
       opacity: 0.5,
       visible: true,
       joinType: 'round',
+      miterAngle: 28.96
+    })
+  ]
+})
+
+export const createReportedVector10InsideDashedDragData = () => ({
+  id: 'vector-10',
+  x: -149.15769844220563,
+  y: -102.47523386043028,
+  width: 806.0277134173791,
+  height: 507.298249032066,
+  points: {
+    'tp-26': {
+      id: 'tp-26',
+      kind: 'anchor',
+      x: 656.8700149751735,
+      y: 234.1103641995735,
+      anchorType: 'sharp'
+    },
+    'tp-27': {
+      id: 'tp-27',
+      kind: 'anchor',
+      x: -73.6612860221885,
+      y: 400.29874672393936,
+      anchorType: 'smooth'
+    },
+    'tp-26:out': {
+      id: 'tp-26:out',
+      kind: 'control',
+      x: 627.8986682856537,
+      y: 423.73004498565365,
+      controlForId: 'tp-26',
+      controlRole: 'out'
+    },
+    'tp-27:in': {
+      id: 'tp-27:in',
+      kind: 'control',
+      x: -143.05373318271495,
+      y: 409.2940639484521,
+      controlForId: 'tp-27',
+      controlRole: 'in'
+    },
+    'tp-27:out': {
+      id: 'tp-27:out',
+      kind: 'control',
+      x: 13.07927292846955,
+      y: 389.0546001932984,
+      controlForId: 'tp-27',
+      controlRole: 'out'
+    },
+    'tp-28': {
+      id: 'tp-28',
+      kind: 'anchor',
+      x: 406.62440150089947,
+      y: 64.58065745194813,
+      anchorType: 'sharp'
+    },
+    'tp-29': {
+      id: 'tp-29',
+      kind: 'anchor',
+      x: -149.15769844220563,
+      y: -102.47523386043028,
+      anchorType: 'sharp'
+    },
+    'tp-30': {
+      id: 'tp-30',
+      kind: 'anchor',
+      x: 263.6631098970371,
+      y: 360.1410805430791,
+      anchorType: 'smooth'
+    },
+    'tp-29:out': {
+      id: 'tp-29:out',
+      kind: 'control',
+      x: -149.15769844220563,
+      y: -102.47523386043028,
+      controlForId: 'tp-29',
+      controlRole: 'out'
+    },
+    'tp-30:in': {
+      id: 'tp-30:in',
+      kind: 'control',
+      x: 249.20635007192732,
+      y: 393.8735201350017,
+      controlForId: 'tp-30',
+      controlRole: 'in'
+    },
+    'tp-30:out': {
+      id: 'tp-30:out',
+      kind: 'control',
+      x: 278.11986972214686,
+      y: 326.40864095115654,
+      controlForId: 'tp-30',
+      controlRole: 'out'
+    }
+  } satisfies Record<string, VectorPointNode>,
+  segments: {
+    'ts-39': {
+      id: 'ts-39',
+      startId: 'tp-26',
+      endId: 'tp-27',
+      outControlId: 'tp-26:out',
+      inControlId: 'tp-27:in'
+    },
+    'ts-40': {
+      id: 'ts-40',
+      startId: 'tp-27',
+      endId: 'tp-28',
+      outControlId: 'tp-27:out',
+      inControlId: null
+    },
+    'ts-41': {
+      id: 'ts-41',
+      startId: 'tp-28',
+      endId: 'tp-29',
+      outControlId: null,
+      inControlId: null
+    },
+    'ts-42': {
+      id: 'ts-42',
+      startId: 'tp-29',
+      endId: 'tp-30',
+      outControlId: 'tp-29:out',
+      inControlId: 'tp-30:in'
+    },
+    'ts-43': {
+      id: 'ts-43',
+      startId: 'tp-30',
+      endId: 'tp-26',
+      outControlId: 'tp-30:out',
+      inControlId: null
+    }
+  } satisfies Record<string, VectorSegment>,
+  networks: {
+    [REPORTED_VECTOR_10_INSIDE_DASHED_NETWORK_ID]: {
+      id: REPORTED_VECTOR_10_INSIDE_DASHED_NETWORK_ID,
+      pointIds: ['tp-26', 'tp-27', 'tp-28', 'tp-29', 'tp-30'],
+      segmentIds: ['ts-39', 'ts-40', 'ts-41', 'ts-42', 'ts-43'],
+      closed: true
+    }
+  } satisfies Record<string, VectorNetwork>,
+  closed: true,
+  pointCoordinateSpace: 'workspace',
+  fills: [],
+  strokes: [
+    createDefaultStroke({
+      id: 'pp-104',
+      kind: 'solid',
+      style: 'dashed',
+      position: 'inside',
+      width: 10,
+      dashPattern: [27, 20],
+      dashOffset: 0,
+      fill: null,
+      defaultColorFormat: 'hex',
+      colorFormat: 'hex',
+      color: '#f40606',
+      opacity: 0.5,
+      visible: true,
+      gradient: null,
+      joinType: 'round',
+      capType: 'round',
       miterAngle: 28.96
     })
   ]

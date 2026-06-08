@@ -13,7 +13,12 @@ import {
 } from '@asyra/utils'
 import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
-import { createReportedRoundInsideDashedStarVectorData } from './inside-dashed-fixtures'
+import {
+  REPORTED_ROUND_INSIDE_DASHED_STAR_NETWORK_ID,
+  REPORTED_VECTOR_10_INSIDE_DASHED_NETWORK_ID,
+  createReportedRoundInsideDashedStarVectorData,
+  createReportedVector10InsideDashedDragData
+} from './inside-dashed-fixtures'
 import {
   registerGeometryBackend,
   selectGeometryBackend
@@ -127,6 +132,7 @@ class RecordingVectorGraphic extends Container {
   __asyraSolidCenterStrokeExportPackets?: unknown[]
   __asyraNativeCenterSolidStrokeRenderCount?: number
   __asyraCenterSolidPathMaskRenderCount?: number
+  __asyraConstrainedDashedProductNetworkIds?: string[]
   __asyraStrokeMeshCache?: Map<string, { kind?: string }>
   __asyraVectorPathModelCache?: {
     entries: Map<
@@ -186,6 +192,20 @@ const renderVectorFrame = (
   })
 }
 
+const renderVectorFrameWithDataStrokes = (
+  graphic: RecordingVectorGraphic,
+  data: Record<string, unknown>
+) => {
+  const strategy = renderStrategyRegistry.get('vector')
+  expect(strategy).toBeTypeOf('function')
+  ;(
+    strategy as unknown as (
+      target: RecordingVectorGraphic,
+      data: Record<string, unknown>
+    ) => void
+  )(graphic, data)
+}
+
 const setPathEditingState = ({
   vectorId,
   mouseDragging,
@@ -211,9 +231,54 @@ const clearInteractionState = () => {
 const getStrokeCacheEntries = (graphic: RecordingVectorGraphic) =>
   Array.from(graphic.__asyraStrokeMeshCache?.entries() ?? [])
 
+const getConstrainedDashedProductNetworkIds = (
+  graphic: RecordingVectorGraphic
+) => new Set(graphic.__asyraConstrainedDashedProductNetworkIds ?? [])
+
+const expectConstrainedDashedProductNetworks = (
+  graphic: RecordingVectorGraphic,
+  expectedNetworkIds: string[]
+) => {
+  const actualNetworkIds = getConstrainedDashedProductNetworkIds(graphic)
+  expectedNetworkIds.forEach((networkId) => {
+    expect(Array.from(actualNetworkIds)).toContain(networkId)
+  })
+}
+
+const isConstrainedDashedStroke = (
+  stroke: ReturnType<typeof createDefaultStroke>
+) =>
+  stroke.style === StrokeStyles.DASHED &&
+  (stroke.position === StrokePositions.INSIDE ||
+    stroke.position === StrokePositions.OUTSIDE) &&
+  stroke.width > 0
+
+const getClosedNetworkIds = (data: Record<string, unknown>) =>
+  Object.values(
+    (data.networks ?? {}) as Record<string, { id: string; closed?: boolean }>
+  )
+    .filter((network) => network.closed === true)
+    .map((network) => network.id)
+
+const hasRequiredConstrainedDashedNetworkOutput = (
+  graphic: RecordingVectorGraphic,
+  data: Record<string, unknown>,
+  stroke: ReturnType<typeof createDefaultStroke>
+) => {
+  if (!isConstrainedDashedStroke(stroke)) {
+    return true
+  }
+
+  const actualNetworkIds = getConstrainedDashedProductNetworkIds(graphic)
+  return getClosedNetworkIds(data).every((networkId) =>
+    actualNetworkIds.has(networkId)
+  )
+}
+
 const hasCurrentStrokeProductOutput = (graphic: RecordingVectorGraphic) =>
   (graphic.__asyraNativeCenterSolidStrokeRenderCount ?? 0) > 0 ||
   (graphic.__asyraCenterSolidPathMaskRenderCount ?? 0) > 0 ||
+  (graphic.__asyraConstrainedDashedProductNetworkIds?.length ?? 0) > 0 ||
   (graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0) > 0 ||
   getStrokeCacheEntries(graphic).some(
     ([, entry]) =>
@@ -332,6 +397,111 @@ const createCenterSolidStroke = (opacity = 1) =>
     color: '#d51a1a'
   })
 
+const createMixedDescriptorAndFallbackInsideDashedData = () => {
+  const base = createReportedRoundInsideDashedStarVectorData()
+  return {
+    ...base,
+    id: 'multi-network-inside-dashed-drag',
+    width: 760,
+    height: 640,
+    points: {
+      ...base.points,
+      'fallback-rect-a': {
+        id: 'fallback-rect-a',
+        kind: 'anchor',
+        x: 540,
+        y: 80,
+        anchorType: 'sharp'
+      },
+      'fallback-rect-b': {
+        id: 'fallback-rect-b',
+        kind: 'anchor',
+        x: 720,
+        y: 80,
+        anchorType: 'sharp'
+      },
+      'fallback-rect-c': {
+        id: 'fallback-rect-c',
+        kind: 'anchor',
+        x: 720,
+        y: 240,
+        anchorType: 'sharp'
+      },
+      'fallback-rect-d': {
+        id: 'fallback-rect-d',
+        kind: 'anchor',
+        x: 540,
+        y: 240,
+        anchorType: 'sharp'
+      }
+    },
+    segments: {
+      ...base.segments,
+      'fallback-rect-ab': {
+        id: 'fallback-rect-ab',
+        startId: 'fallback-rect-a',
+        endId: 'fallback-rect-b',
+        outControlId: null,
+        inControlId: null
+      },
+      'fallback-rect-bc': {
+        id: 'fallback-rect-bc',
+        startId: 'fallback-rect-b',
+        endId: 'fallback-rect-c',
+        outControlId: null,
+        inControlId: null
+      },
+      'fallback-rect-cd': {
+        id: 'fallback-rect-cd',
+        startId: 'fallback-rect-c',
+        endId: 'fallback-rect-d',
+        outControlId: null,
+        inControlId: null
+      },
+      'fallback-rect-da': {
+        id: 'fallback-rect-da',
+        startId: 'fallback-rect-d',
+        endId: 'fallback-rect-a',
+        outControlId: null,
+        inControlId: null
+      }
+    },
+    networks: {
+      ...base.networks,
+      'fallback-rect-network': {
+        id: 'fallback-rect-network',
+        pointIds: [
+          'fallback-rect-a',
+          'fallback-rect-b',
+          'fallback-rect-c',
+          'fallback-rect-d'
+        ],
+        segmentIds: [
+          'fallback-rect-ab',
+          'fallback-rect-bc',
+          'fallback-rect-cd',
+          'fallback-rect-da'
+        ],
+        closed: true
+      }
+    },
+    strokes: [
+      createDefaultStroke({
+        id: 'multi-network-inside-dashed-stroke',
+        width: 10,
+        style: StrokeStyles.DASHED,
+        position: StrokePositions.INSIDE,
+        capType: StrokeCapTypes.ROUND,
+        dashPattern: [20, 20],
+        dashOffset: 0,
+        color: '#d51a1a',
+        opacity: 0.5,
+        joinType: 'round'
+      })
+    ]
+  }
+}
+
 const mutateDragFrame = (
   frame: number,
   kind: 'anchor' | 'in-control' | 'out-control'
@@ -401,6 +571,9 @@ const measureDragScenario = (
     if (!hasCurrentStrokeProductOutput(graphic)) {
       incompleteFrameCount += 1
     }
+    if (!hasRequiredConstrainedDashedNetworkOutput(graphic, data, stroke)) {
+      incompleteFrameCount += 1
+    }
   }
 
   const phaseFrameCount = Math.min(24, FRAME_COUNT)
@@ -449,6 +622,46 @@ const measureDragScenario = (
 }
 
 describe('stroke drag complete render contract', () => {
+  it('should keep the reported vector-10 inside dashed network visible during drag', () => {
+    const graphic = new RecordingVectorGraphic()
+    const data = createReportedVector10InsideDashedDragData()
+    setPathEditingState({
+      vectorId: data.id,
+      mouseDragging: true,
+      mouseDown: true
+    })
+
+    const counters = collectStrokePipelineCounters(() => {
+      renderVectorFrameWithDataStrokes(graphic, data)
+    })
+
+    expectConstrainedDashedProductNetworks(graphic, [
+      REPORTED_VECTOR_10_INSIDE_DASHED_NETWORK_ID
+    ])
+    expect(counters['constrained-dashed-inside-mask-visual-entry'] ?? 0).toBe(0)
+    expect(hasCurrentStrokeProductOutput(graphic)).toBe(true)
+    clearInteractionState()
+  })
+
+  it('should fallback per network when only one constrained dashed descriptor succeeds', () => {
+    const graphic = new RecordingVectorGraphic()
+    const data = createMixedDescriptorAndFallbackInsideDashedData()
+    setPathEditingState({
+      vectorId: data.id,
+      mouseDragging: true,
+      mouseDown: true
+    })
+
+    renderVectorFrameWithDataStrokes(graphic, data)
+
+    expectConstrainedDashedProductNetworks(graphic, [
+      REPORTED_ROUND_INSIDE_DASHED_STAR_NETWORK_ID,
+      'fallback-rect-network'
+    ])
+    expect(hasCurrentStrokeProductOutput(graphic)).toBe(true)
+    clearInteractionState()
+  })
+
   it('should render the full constrained dashed stroke pipeline during path editing drag', () => {
     const graphic = new RecordingVectorGraphic()
     const data = mutateDragFrame(4, 'anchor')

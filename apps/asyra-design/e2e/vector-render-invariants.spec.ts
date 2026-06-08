@@ -110,6 +110,139 @@ const createPentagramTopology = () => {
   return { points, segments, networks }
 }
 
+const createReportedVector10InsideDashedDragData = () => ({
+  points: {
+    'tp-26': {
+      id: 'tp-26',
+      kind: 'anchor',
+      x: 656.8700149751735,
+      y: 234.1103641995735,
+      anchorType: 'sharp'
+    },
+    'tp-27': {
+      id: 'tp-27',
+      kind: 'anchor',
+      x: -73.6612860221885,
+      y: 400.29874672393936,
+      anchorType: 'smooth'
+    },
+    'tp-26:out': {
+      id: 'tp-26:out',
+      kind: 'control',
+      x: 627.8986682856537,
+      y: 423.73004498565365,
+      controlForId: 'tp-26',
+      controlRole: 'out'
+    },
+    'tp-27:in': {
+      id: 'tp-27:in',
+      kind: 'control',
+      x: -143.05373318271495,
+      y: 409.2940639484521,
+      controlForId: 'tp-27',
+      controlRole: 'in'
+    },
+    'tp-27:out': {
+      id: 'tp-27:out',
+      kind: 'control',
+      x: 13.07927292846955,
+      y: 389.0546001932984,
+      controlForId: 'tp-27',
+      controlRole: 'out'
+    },
+    'tp-28': {
+      id: 'tp-28',
+      kind: 'anchor',
+      x: 406.62440150089947,
+      y: 64.58065745194813,
+      anchorType: 'sharp'
+    },
+    'tp-29': {
+      id: 'tp-29',
+      kind: 'anchor',
+      x: -149.15769844220563,
+      y: -102.47523386043028,
+      anchorType: 'sharp'
+    },
+    'tp-30': {
+      id: 'tp-30',
+      kind: 'anchor',
+      x: 263.6631098970371,
+      y: 360.1410805430791,
+      anchorType: 'smooth'
+    },
+    'tp-29:out': {
+      id: 'tp-29:out',
+      kind: 'control',
+      x: -149.15769844220563,
+      y: -102.47523386043028,
+      controlForId: 'tp-29',
+      controlRole: 'out'
+    },
+    'tp-30:in': {
+      id: 'tp-30:in',
+      kind: 'control',
+      x: 249.20635007192732,
+      y: 393.8735201350017,
+      controlForId: 'tp-30',
+      controlRole: 'in'
+    },
+    'tp-30:out': {
+      id: 'tp-30:out',
+      kind: 'control',
+      x: 278.11986972214686,
+      y: 326.40864095115654,
+      controlForId: 'tp-30',
+      controlRole: 'out'
+    }
+  },
+  segments: {
+    'ts-39': {
+      id: 'ts-39',
+      startId: 'tp-26',
+      endId: 'tp-27',
+      outControlId: 'tp-26:out',
+      inControlId: 'tp-27:in'
+    },
+    'ts-40': {
+      id: 'ts-40',
+      startId: 'tp-27',
+      endId: 'tp-28',
+      outControlId: 'tp-27:out',
+      inControlId: null
+    },
+    'ts-41': {
+      id: 'ts-41',
+      startId: 'tp-28',
+      endId: 'tp-29',
+      outControlId: null,
+      inControlId: null
+    },
+    'ts-42': {
+      id: 'ts-42',
+      startId: 'tp-29',
+      endId: 'tp-30',
+      outControlId: 'tp-29:out',
+      inControlId: 'tp-30:in'
+    },
+    'ts-43': {
+      id: 'ts-43',
+      startId: 'tp-30',
+      endId: 'tp-26',
+      outControlId: 'tp-30:out',
+      inControlId: null
+    }
+  },
+  networks: {
+    'tn-7': {
+      id: 'tn-7',
+      pointIds: ['tp-26', 'tp-27', 'tp-28', 'tp-29', 'tp-30'],
+      segmentIds: ['ts-39', 'ts-40', 'ts-41', 'ts-42', 'ts-43'],
+      closed: true
+    }
+  }
+})
+
 const getStarWorkspacePoints = () =>
   Object.values(createStarTopology().points) as { x: number; y: number }[]
 
@@ -451,10 +584,22 @@ const captureSelectedVectorFullRaster = async (page: Page, padding = 56) => {
         const start = segment ? (points as any)[segment.startId] : null
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const end = segment ? (points as any)[segment.endId] : null
+        const outControl = segment?.outControlId
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (points as any)[segment.outControlId]
+          : null
+        const inControl = segment?.inControlId
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (points as any)[segment.inControlId]
+          : null
         return {
           id: segmentId,
           start: start ? { x: start.x, y: start.y } : null,
-          end: end ? { x: end.x, y: end.y } : null
+          end: end ? { x: end.x, y: end.y } : null,
+          outControl: outControl
+            ? { x: outControl.x, y: outControl.y }
+            : null,
+          inControl: inControl ? { x: inControl.x, y: inControl.y } : null
         }
       })
     }
@@ -529,6 +674,7 @@ const analyzePentagramDashSegmentCoverage = async (
     const strokeWidth = 16
     const sampleStep = 2
     const transitionMargin = 3
+    const minimumVisualGapRatio = 0.6
     const response = await fetch(`data:image/png;base64,${base64}`)
     const blob = await response.blob()
     const bitmap = await createImageBitmap(blob)
@@ -558,6 +704,144 @@ const analyzePentagramDashSegmentCoverage = async (
       x: point.x * zoom + viewport.x - clipX,
       y: point.y * zoom + viewport.y - clipY
     })
+    const lineIntersection = (
+      a: { x: number; y: number },
+      b: { x: number; y: number },
+      c: { x: number; y: number },
+      d: { x: number; y: number }
+    ) => {
+      const denominator =
+        (b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x)
+      if (Math.abs(denominator) <= 1e-6) {
+        return null
+      }
+      const t =
+        ((c.x - a.x) * (d.y - c.y) - (c.y - a.y) * (d.x - c.x)) /
+        denominator
+      const u =
+        ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x)) /
+        denominator
+      if (t <= 1e-5 || t >= 1 - 1e-5 || u <= 1e-5 || u >= 1 - 1e-5) {
+        return null
+      }
+      return { t, u }
+    }
+    const isAdjacentClosedSegment = (
+      leftIndex: number,
+      rightIndex: number,
+      segmentCount: number
+    ) => {
+      const distance = Math.abs(leftIndex - rightIndex)
+      return distance === 1 || distance === segmentCount - 1
+    }
+    const uniqueSortedDistances = (distances: number[], totalLength: number) =>
+      distances
+        .filter(
+          (distance) =>
+            Number.isFinite(distance) &&
+            distance >= -1e-5 &&
+            distance <= totalLength + 1e-5
+        )
+        .map((distance) => Math.min(totalLength, Math.max(0, distance)))
+        .sort((left, right) => left - right)
+        .filter(
+          (distance, index, sorted) =>
+            index === 0 || Math.abs(distance - (sorted[index - 1] ?? 0)) > 1e-4
+        )
+    const getBestSplitRangeDashUnitCount = (
+      rangeLength: number,
+      referenceGapLength: number,
+      minimumCenterlineGapLength = 0
+    ) => {
+      const epsilon = 1e-6
+      if (rangeLength <= dashLength) {
+        return 1
+      }
+      const maxDashUnitCountByDash = Math.max(
+        1,
+        Math.floor(rangeLength / dashLength)
+      )
+      const maxDashUnitCountByGap =
+        minimumCenterlineGapLength > 0
+          ? Math.max(
+              1,
+              Math.floor(
+                rangeLength / (dashLength + minimumCenterlineGapLength) +
+                  epsilon
+              )
+            )
+          : maxDashUnitCountByDash
+      const maxDashUnitCount = Math.min(
+        maxDashUnitCountByDash,
+        maxDashUnitCountByGap
+      )
+      if (!Number.isFinite(referenceGapLength) || referenceGapLength <= 0) {
+        return maxDashUnitCount
+      }
+      const idealCount = rangeLength / (dashLength + referenceGapLength)
+      return Math.max(
+        1,
+        Math.min(maxDashUnitCount, Math.floor(idealCount + 0.5 - epsilon))
+      )
+    }
+    const getSplitRangeGapLength = (
+      rangeLength: number,
+      dashUnitCount: number
+    ) =>
+      dashUnitCount <= 0
+        ? Number.POSITIVE_INFINITY
+        : (rangeLength - dashUnitCount * dashLength) / dashUnitCount
+    const getReferenceGapLength = (rangeLengths: number[]) => {
+      const normalRangeMinLength = 2 * (dashLength + gapLength)
+      const referenceGaps = rangeLengths
+        .filter((rangeLength) => rangeLength >= normalRangeMinLength)
+        .map((rangeLength) =>
+          getSplitRangeGapLength(
+            rangeLength,
+            getBestSplitRangeDashUnitCount(rangeLength, gapLength)
+          )
+        )
+        .filter((gap) => Number.isFinite(gap) && gap > 0)
+        .sort((left, right) => left - right)
+      return referenceGaps[Math.floor(referenceGaps.length / 2)] ?? gapLength
+    }
+    const allocateSplitRangeVisibleRanges = (
+      rangeLength: number,
+      referenceGapLength: number
+    ) => {
+      if (!Number.isFinite(rangeLength) || rangeLength <= 0) {
+        return []
+      }
+      const minimumCenterlineGapLength =
+        gapLength * minimumVisualGapRatio + strokeWidth * 2
+      if (
+        rangeLength <= dashLength ||
+        rangeLength <= dashLength + minimumCenterlineGapLength
+      ) {
+        return [{ start: 0, end: rangeLength }]
+      }
+      const halfDashLength = dashLength / 2
+      const dashUnitCount = getBestSplitRangeDashUnitCount(
+        rangeLength,
+        referenceGapLength,
+        minimumCenterlineGapLength
+      )
+      const middleDashCount = Math.max(0, dashUnitCount - 1)
+      const averageGapLength =
+        (rangeLength - dashLength - middleDashCount * dashLength) /
+        (middleDashCount + 1)
+      return [
+        { start: 0, end: halfDashLength },
+        ...Array.from({ length: middleDashCount }, (_, middleIndex) => {
+          const start =
+            halfDashLength +
+            averageGapLength * (middleIndex + 1) +
+            dashLength * middleIndex
+          return { start, end: start + dashLength }
+        }),
+        { start: rangeLength - halfDashLength, end: rangeLength }
+      ]
+    }
     let totalRedPixels = 0
     for (let index = 0; index < image.length; index += 4) {
       const red = image[index] ?? 0
@@ -569,15 +853,19 @@ const analyzePentagramDashSegmentCoverage = async (
       }
     }
 
-    let pathCursor = 0
-    const segmentCoverages = target.segments.map((segment) => {
+    const segmentModels = target.segments.map((segment) => {
       if (!segment.start || !segment.end) {
         return {
           id: segment.id,
-          coveredSamples: 0,
-          expectedDashSamples: 0,
-          sampleCount: 0,
-          recall: 1
+          start: null,
+          end: null,
+          workspaceLength: 0,
+          imageStart: { x: 0, y: 0 },
+          imageDx: 0,
+          imageDy: 0,
+          imageLength: 0,
+          normal: { x: 0, y: 0 },
+          breakpoints: [0]
         }
       }
       const workspaceDx = segment.end.x - segment.start.x
@@ -592,54 +880,135 @@ const analyzePentagramDashSegmentCoverage = async (
         imageLength > 0
           ? { x: -imageDy / imageLength, y: imageDx / imageLength }
           : { x: 0, y: 0 }
-      let coveredSamples = 0
-      let expectedDashSamples = 0
-      let sampleCount = 0
+      return {
+        id: segment.id,
+        start: segment.start,
+        end: segment.end,
+        workspaceLength,
+        imageStart: start,
+        imageDx,
+        imageDy,
+        imageLength,
+        normal,
+        breakpoints: [0, workspaceLength]
+      }
+    })
+
+    for (let leftIndex = 0; leftIndex < segmentModels.length; leftIndex += 1) {
+      const left = segmentModels[leftIndex]
+      if (!left?.start || !left.end || left.workspaceLength <= 0) {
+        continue
+      }
       for (
-        let distance = 0;
-        distance <= workspaceLength;
-        distance += sampleStep
+        let rightIndex = leftIndex + 1;
+        rightIndex < segmentModels.length;
+        rightIndex += 1
       ) {
-        const pathDistance = pathCursor + distance
-        const phase = pathDistance % (dashLength + gapLength)
-        const distanceToDashStart = Math.min(
-          phase,
-          dashLength + gapLength - phase
-        )
-        const distanceToDashEnd = Math.abs(phase - dashLength)
-        const distanceToSegmentBoundary = Math.min(
-          distance,
-          workspaceLength - distance
-        )
+        const right = segmentModels[rightIndex]
         if (
-          phase >= dashLength ||
-          distanceToDashStart <= transitionMargin ||
-          distanceToDashEnd <= transitionMargin ||
-          distanceToSegmentBoundary <= transitionMargin
+          !right?.start ||
+          !right.end ||
+          right.workspaceLength <= 0 ||
+          isAdjacentClosedSegment(leftIndex, rightIndex, segmentModels.length)
         ) {
           continue
         }
-        const t = workspaceLength <= 0 ? 0 : distance / workspaceLength
-        const base = {
-          x: start.x + imageDx * t,
-          y: start.y + imageDy * t
+        const intersection = lineIntersection(
+          left.start,
+          left.end,
+          right.start,
+          right.end
+        )
+        if (!intersection) {
+          continue
         }
-        let covered = false
-        for (let offset = -strokeWidth; offset <= strokeWidth; offset += 2) {
-          if (
-            isRedPixel(base.x + normal.x * offset, base.y + normal.y * offset)
-          ) {
-            covered = true
-            break
-          }
-        }
-        sampleCount += 1
-        expectedDashSamples += 1
-        if (covered) {
-          coveredSamples += 1
-        }
+        left.breakpoints.push(intersection.t * left.workspaceLength)
+        right.breakpoints.push(intersection.u * right.workspaceLength)
       }
-      pathCursor += workspaceLength
+    }
+
+    const splitRanges = segmentModels.flatMap((segment, segmentIndex) => {
+      const breakpoints = uniqueSortedDistances(
+        segment.breakpoints,
+        segment.workspaceLength
+      )
+      return breakpoints.slice(0, -1).flatMap((startDistance, index) => {
+        const endDistance = breakpoints[index + 1] ?? startDistance
+        const length = endDistance - startDistance
+        if (length <= 1e-4) {
+          return []
+        }
+        return [
+          {
+            segmentIndex,
+            startDistance,
+            endDistance,
+            length
+          }
+        ]
+      })
+    })
+    const referenceGapLength = getReferenceGapLength(
+      splitRanges.map((range) => range.length)
+    )
+
+    const segmentCoverages = segmentModels.map((segment, segmentIndex) => {
+      let coveredSamples = 0
+      let expectedDashSamples = 0
+      let sampleCount = 0
+      const rangesForSegment = splitRanges.filter(
+        (range) => range.segmentIndex === segmentIndex
+      )
+      rangesForSegment.forEach((range) => {
+        const visibleRanges = allocateSplitRangeVisibleRanges(
+          range.length,
+          referenceGapLength
+        )
+        visibleRanges.forEach((visibleRange) => {
+          const intervalStart = range.startDistance + visibleRange.start
+          const intervalEnd = range.startDistance + visibleRange.end
+          const intervalLength = intervalEnd - intervalStart
+          const localTransitionMargin = Math.min(
+            transitionMargin,
+            Math.max(0, intervalLength / 4)
+          )
+          for (
+            let distance = intervalStart + localTransitionMargin;
+            distance <= intervalEnd - localTransitionMargin;
+            distance += sampleStep
+          ) {
+            if (!segment.start || !segment.end || segment.workspaceLength <= 0) {
+              continue
+            }
+            const t = distance / segment.workspaceLength
+            const base = {
+              x: segment.imageStart.x + segment.imageDx * t,
+              y: segment.imageStart.y + segment.imageDy * t
+            }
+            let covered = false
+            for (
+              let offset = -strokeWidth;
+              offset <= strokeWidth;
+              offset += 2
+            ) {
+              if (
+                isRedPixel(
+                  base.x + segment.normal.x * offset,
+                  base.y + segment.normal.y * offset
+                )
+              ) {
+                covered = true
+                break
+              }
+            }
+            sampleCount += 1
+            expectedDashSamples += 1
+            if (covered) {
+              coveredSamples += 1
+            }
+          }
+        })
+      })
       return {
         id: segment.id,
         coveredSamples,
@@ -671,10 +1040,149 @@ const analyzePentagramDashSegmentCoverage = async (
           ? 1
           : totalCoveredDashSamples / totalExpectedDashSamples,
       worstSegmentRecall,
+      referenceGapLength,
+      splitRangeCount: splitRanges.length,
       segmentCoverages,
       coveredSegmentCount: segmentCoverages.filter(
         (segment) => segment.coveredSamples > 0
       ).length
+    }
+  }, raster)
+
+const analyzeReportedInsideDashedSegmentCoverage = async (
+  page: Page,
+  raster: Awaited<ReturnType<typeof captureSelectedVectorFullRaster>>
+) =>
+  page.evaluate(async ({ base64, target, clipX, clipY, zoom, viewport }) => {
+    const response = await fetch(`data:image/png;base64,${base64}`)
+    const blob = await response.blob()
+    const bitmap = await createImageBitmap(blob)
+    const canvas = document.createElement('canvas')
+    canvas.width = bitmap.width
+    canvas.height = bitmap.height
+    const context = canvas.getContext('2d')
+    if (!context) {
+      throw new Error('Canvas 2D context unavailable')
+    }
+    context.drawImage(bitmap, 0, 0)
+    const image = context.getImageData(0, 0, canvas.width, canvas.height).data
+    const isRedPixel = (x: number, y: number) => {
+      const ix = Math.round(x)
+      const iy = Math.round(y)
+      if (ix < 0 || iy < 0 || ix >= canvas.width || iy >= canvas.height) {
+        return false
+      }
+      const index = (iy * canvas.width + ix) * 4
+      const red = image[index] ?? 0
+      const green = image[index + 1] ?? 0
+      const blue = image[index + 2] ?? 0
+      const alpha = image[index + 3] ?? 0
+      return alpha > 96 && red > 80 && red > green + 35 && red > blue + 35
+    }
+    const toImagePoint = (point: { x: number; y: number }) => ({
+      x: point.x * zoom + viewport.x - clipX,
+      y: point.y * zoom + viewport.y - clipY
+    })
+    const cubicPoint = (
+      start: { x: number; y: number },
+      outControl: { x: number; y: number },
+      inControl: { x: number; y: number },
+      end: { x: number; y: number },
+      t: number
+    ) => {
+      const mt = 1 - t
+      return {
+        x:
+          mt * mt * mt * start.x +
+          3 * mt * mt * t * outControl.x +
+          3 * mt * t * t * inControl.x +
+          t * t * t * end.x,
+        y:
+          mt * mt * mt * start.y +
+          3 * mt * mt * t * outControl.y +
+          3 * mt * t * t * inControl.y +
+          t * t * t * end.y
+      }
+    }
+    const samplePathPoint = (segment: (typeof target.segments)[number], t: number) => {
+      if (!segment.start || !segment.end) {
+        return null
+      }
+      if (segment.outControl && segment.inControl) {
+        return cubicPoint(
+          segment.start,
+          segment.outControl,
+          segment.inControl,
+          segment.end,
+          t
+        )
+      }
+      return {
+        x: segment.start.x + (segment.end.x - segment.start.x) * t,
+        y: segment.start.y + (segment.end.y - segment.start.y) * t
+      }
+    }
+    const hasRedNearPoint = (point: { x: number; y: number }) => {
+      const imagePoint = toImagePoint(point)
+      const searchRadius = Math.max(8, 13 * zoom)
+      for (let y = -searchRadius; y <= searchRadius; y += 2) {
+        for (let x = -searchRadius; x <= searchRadius; x += 2) {
+          if (isRedPixel(imagePoint.x + x, imagePoint.y + y)) {
+            return true
+          }
+        }
+      }
+      return false
+    }
+
+    let totalRedPixels = 0
+    for (let index = 0; index < image.length; index += 4) {
+      const red = image[index] ?? 0
+      const green = image[index + 1] ?? 0
+      const blue = image[index + 2] ?? 0
+      const alpha = image[index + 3] ?? 0
+      if (alpha > 96 && red > 80 && red > green + 35 && red > blue + 35) {
+        totalRedPixels += 1
+      }
+    }
+
+    const segmentCoverages = target.segments.map((segment) => {
+      let coveredSamples = 0
+      let sampleCount = 0
+      for (let index = 0; index <= 30; index += 1) {
+        const t = index / 30
+        if (t < 0.04 || t > 0.96) {
+          continue
+        }
+        const point = samplePathPoint(segment, t)
+        if (!point) {
+          continue
+        }
+        sampleCount += 1
+        if (hasRedNearPoint(point)) {
+          coveredSamples += 1
+        }
+      }
+      return {
+        id: segment.id,
+        coveredSamples,
+        sampleCount,
+        recall: sampleCount === 0 ? 0 : coveredSamples / sampleCount
+      }
+    })
+
+    return {
+      totalRedPixels,
+      segmentCoverages,
+      coveredSegmentCount: segmentCoverages.filter(
+        (segment) => segment.coveredSamples > 0
+      ).length,
+      worstSegmentRecall: Math.min(
+        ...segmentCoverages.map((segment) => segment.recall)
+      ),
+      averageSegmentRecall:
+        segmentCoverages.reduce((sum, segment) => sum + segment.recall, 0) /
+        Math.max(1, segmentCoverages.length)
     }
   }, raster)
 
@@ -870,6 +1378,10 @@ const readSelectedVectorDiagnostics = async (page: Page) =>
               null,
             nativeCenterSolidStrokeRenderCount:
               renderElement.__asyraNativeCenterSolidStrokeRenderCount ?? null,
+            constrainedDashedProductNetworkIds:
+              renderElement.__asyraConstrainedDashedProductNetworkIds ?? null,
+            constrainedDashedRuntimeDiagnostics:
+              renderElement.__asyraConstrainedDashedRuntimeDiagnostics ?? null,
             vectorGeometryModelCount:
               renderElement.__asyraVectorPathGeometryModelCount ?? null,
             vectorTopologyModelCount:
@@ -1490,6 +2002,121 @@ test.describe('Vector render invariants', () => {
         2
       )
     ).toBeGreaterThanOrEqual(0.6)
+  })
+
+  test('keeps reported inside dashed drag network visible across every segment', async ({
+    page
+  }, testInfo) => {
+    await page.evaluate((data) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!core || !elementApis) {
+        throw new Error('Missing E2E core or element APIs')
+      }
+
+      const createdId = elementApis.createElement(
+        {
+          type: 'vector',
+          x: -149.15769844220563,
+          y: -102.47523386043028,
+          width: 806.0277134173791,
+          height: 507.298249032066,
+          points: data.points,
+          segments: data.segments,
+          networks: data.networks,
+          closed: true,
+          pointCoordinateSpace: 'workspace',
+          fills: []
+        },
+        { undoable: false }
+      )
+      if (!createdId) {
+        throw new Error('Failed to create reported inside dashed vector')
+      }
+
+      elementApis.changeComputedData(
+        [createdId],
+        {
+          fills: [],
+          strokes: [
+            {
+              id: 'reported-vector-10-inside-dashed-stroke',
+              kind: 'solid',
+              style: 'dashed',
+              position: 'inside',
+              width: 10,
+              dashPattern: [27, 20],
+              dashOffset: 0,
+              fill: null,
+              defaultColorFormat: 'hex',
+              colorFormat: 'hex',
+              color: '#f40606',
+              opacity: 0.5,
+              visible: true,
+              gradient: null,
+              joinType: 'round',
+              capType: 'round',
+              miterAngle: 28.96
+            }
+          ]
+        },
+        { undoable: false }
+      )
+      core.selectElements?.([createdId], { undoable: false })
+      core.setSystemProperty?.('pathEditingVectorId', createdId)
+      core.setSystemProperty?.('pathEditingMode', true)
+      core.setSystemProperty?.('mouseDown', true)
+      core.setSystemProperty?.('mouseDragging', true)
+      core.setSystemProperty?.('zoom', 0.9)
+      core.setSystemProperty?.('viewportPosition', { x: 220, y: 170 })
+    }, createReportedVector10InsideDashedDragData())
+
+    await page.waitForTimeout(500)
+
+    const raster = await captureSelectedVectorFullRaster(page)
+    await testInfo.attach('reported-vector-10-inside-dashed-drag', {
+      body: Buffer.from(raster.base64, 'base64'),
+      contentType: 'image/png'
+    })
+    const coverage = await analyzeReportedInsideDashedSegmentCoverage(
+      page,
+      raster
+    )
+    const diagnostics = await readSelectedVectorDiagnostics(page)
+    expect(
+      coverage.totalRedPixels,
+      JSON.stringify(
+        { coverage, diagnostics, raster: { ...raster, base64: '<omitted>' } },
+        null,
+        2
+      )
+    ).toBeGreaterThan(500)
+    expect(
+      coverage.coveredSegmentCount,
+      JSON.stringify(
+        { coverage, diagnostics, raster: { ...raster, base64: '<omitted>' } },
+        null,
+        2
+      )
+    ).toBe(5)
+    expect(
+      coverage.worstSegmentRecall,
+      JSON.stringify(
+        { coverage, diagnostics, raster: { ...raster, base64: '<omitted>' } },
+        null,
+        2
+      )
+    ).toBeGreaterThanOrEqual(0.12)
+    expect(
+      coverage.averageSegmentRecall,
+      JSON.stringify(
+        { coverage, diagnostics, raster: { ...raster, base64: '<omitted>' } },
+        null,
+        2
+      )
+    ).toBeGreaterThanOrEqual(0.25)
   })
 
   test('keeps scene-tree, render graphic, and path-editing overlay aligned after pen-created star', async ({

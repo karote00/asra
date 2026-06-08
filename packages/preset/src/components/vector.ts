@@ -1256,8 +1256,6 @@ interface VectorPathModelCache {
   segmentFrames: Map<string, VectorSegmentGeometryFrameCache>
 }
 
-type SolidStrokeFinalFaceList = ReturnType<typeof buildSolidCenterStrokeFinalFaces>
-
 interface StrokePipelineStageProductCache {
   geometrySignature: string | null
   finalFaces: SolidStrokeFinalFaceList
@@ -2224,16 +2222,14 @@ const isCenterSolidVisualStroke = (stroke: RenderableStroke) =>
   stroke.width > 0
 
 const isSelfIntersectingCenterSolidTopology = (topology: PathTopologyModel) =>
-  topology.topologyFamily === 'self-intersecting' ||
-  (topology.sourceSplitRanges?.length ?? 0) > 0
+  topology.topologyFamily === 'self-intersecting'
 
 const isAlphaSafeNativeCenterSolidStroke = (
   stroke: RenderableStroke,
   topology: PathTopologyModel
 ) =>
   stroke.alpha >= 0.999 ||
-  (topology.topologyFamily !== 'self-intersecting' &&
-    topology.sourceSplitRanges.length === 0)
+  topology.topologyFamily !== 'self-intersecting'
 
 const isNativeCenterSolidVisualStroke = (
   stroke: RenderableStroke,
@@ -3003,6 +2999,20 @@ const renderVectorGraphic = (
   const compoundLegalDomainId = hasCompoundLegalDomain
     ? compoundLegalDomainNormalization.legalDomain.legalDomainId
     : null
+  const getStrokesForNetwork = (network: VectorNetwork) => {
+    const compoundRole = compoundRoleByNetworkId.get(network.id)
+    return invertConstrainedStrokePositionForHole(
+      renderData.strokes,
+      compoundRole?.role
+    )
+  }
+  const hasConstrainedDashedStrokeForNetwork = (network: VectorNetwork) =>
+    getRenderableStrokes(getStrokesForNetwork(network)).some(
+      (stroke) =>
+        stroke.style === 'dashed' &&
+        (stroke.position === 'inside' || stroke.position === 'outside') &&
+        stroke.width > 0
+    )
   const hasSharedSelfIntersectingLegalContours =
     resolvedGeometryModel.networks.some(
       (networkGeometry) =>
@@ -3061,20 +3071,8 @@ const renderVectorGraphic = (
               return []
             }
             const compoundRole = compoundRoleByNetworkId.get(network.id)
-            const strokesForNetwork = invertConstrainedStrokePositionForHole(
-              renderData.strokes,
-              compoundRole?.role
-            )
-            const hasOutsideDashedStroke = getRenderableStrokes(
-              strokesForNetwork
-            ).some(
-              (stroke) =>
-                stroke.style === 'dashed' &&
-                (stroke.position === 'inside' ||
-                  stroke.position === 'outside') &&
-                stroke.width > 0
-            )
-            if (!hasOutsideDashedStroke) {
+            const strokesForNetwork = getStrokesForNetwork(network)
+            if (!hasConstrainedDashedStrokeForNetwork(network)) {
               return []
             }
             const resolvedSelfIntersectingGeometry =
@@ -3096,7 +3094,20 @@ const renderVectorGraphic = (
             if (!sourcePathForNetwork) {
               return []
             }
-
+            const hasCubicSourceSegment = path.segments.some(
+              (segment) => segment.type === 'cubic'
+            )
+            const shouldUseInsideDashedDescriptor =
+              !hasCubicSourceSegment ||
+              !getRenderableStrokes(strokesForNetwork).some(
+                (stroke) =>
+                  stroke.style === 'dashed' &&
+                  stroke.position === 'inside' &&
+                  stroke.width > 0
+              )
+            if (!shouldUseInsideDashedDescriptor) {
+              return []
+            }
             return (
               buildConstrainedDashedStrokeProductVisualEntries(
                 `vector:${renderData.id}:${network.id}:constrained-dashed-visual`,
@@ -3135,13 +3146,27 @@ const renderVectorGraphic = (
           })
         : []
   )
-  const shouldUseConstrainedDashedProductVisualEntries =
-    constrainedDashedProductVisualEntries.length > 0
+  const constrainedDashedProductVisualNetworkIds = new Set(
+    constrainedDashedProductVisualEntries.flatMap((entry) => {
+      const networkId = entry.debugMeta?.networkId
+      return typeof networkId === 'string' ? [networkId] : []
+    })
+  )
+  const constrainedDashedFallbackNetworkPaths = networkPaths.filter(
+    ({ network, topology }) =>
+      topology.closed &&
+      hasConstrainedDashedStrokeForNetwork(network) &&
+      !constrainedDashedProductVisualNetworkIds.has(network.id)
+  )
+  const constrainedDashedFallbackNetworkIdSet = new Set(
+    constrainedDashedFallbackNetworkPaths.map(({ network }) => network.id)
+  )
   const shouldEmitConstrainedDashedRuntimeDiagnostics =
-    hasConstrainedDashedIntent && !shouldUseConstrainedDashedProductVisualEntries
+    constrainedDashedFallbackNetworkPaths.length > 0
   const shouldUseNormalizedCompoundDashedBoundaries =
     !hasSharedSelfIntersectingLegalContours &&
     shouldEmitConstrainedDashedRuntimeDiagnostics &&
+    constrainedDashedProductVisualNetworkIds.size === 0 &&
     compoundLegalDomainNormalization?.status === 'normalized' &&
     compoundLegalDomainNormalization.legalDomain.mode === 'backend-boolean'
   const constrainedDashedCandidatePackets = measureVectorRenderPhase(
@@ -3156,14 +3181,14 @@ const renderVectorGraphic = (
               renderData.strokes
             )
           : networkPaths.flatMap(({ network, path, topology }) => {
+              if (!constrainedDashedFallbackNetworkIdSet.has(network.id)) {
+                return []
+              }
               if (!topology.closed) {
                 return []
               }
               const compoundRole = compoundRoleByNetworkId.get(network.id)
-              const strokesForNetwork = invertConstrainedStrokePositionForHole(
-                renderData.strokes,
-                compoundRole?.role
-              )
+              const strokesForNetwork = getStrokesForNetwork(network)
               const resolvedSelfIntersectingGeometry =
                 resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
               const isSelfIntersectingSourcePath =
@@ -3562,54 +3587,57 @@ const renderVectorGraphic = (
                   )
                 : []
             })()
-          : networkPaths.flatMap(({ network, topology }) => {
-              const networkConstrainedDashedCandidatePackets =
-                constrainedDashedCandidatePackets.filter(
-                  (packet) =>
-                    packet.geometry.debugMeta?.networkId === network.id
-                )
-              const constrainedDashedRuntimeStatus = topology.closed
-                ? classifyConstrainedDashedRuntimeStatus({
-                    points: topology.normalizedPoints,
-                    closed: topology.closed,
-                    topology,
-                    candidatePackets: networkConstrainedDashedCandidatePackets
-                  })
-                : null
-
-              if (constrainedDashedRuntimeStatus) {
-                constrainedDashedRuntimeDiagnostics.push({
-                  sourceId: `vector:${renderData.id}:${network.id}`,
-                  networkId: network.id,
-                  candidatePacketCount:
-                    networkConstrainedDashedCandidatePackets.length,
-                  legalDomainIds: topology.legalDomains.map(
-                    (domain) => domain.legalDomainId
-                  ),
-                  sourceContourIds: topology.contours.map(
-                    (contour) => contour.contourId
-                  ),
-                  ...constrainedDashedRuntimeStatus
-                })
-              }
-
-              return constrainedDashedRuntimeStatus?.status === 'accepted'
-                ? attachStrokePacketDebugMeta(
-                    networkConstrainedDashedCandidatePackets,
-                    {
-                      runtimeStatus: constrainedDashedRuntimeStatus.status,
-                      runtimeReason: constrainedDashedRuntimeStatus.reason,
-                      sourceTopology:
-                        constrainedDashedRuntimeStatus.sourceTopology,
-                      ownershipStatus:
-                        constrainedDashedRuntimeStatus.ownership.status,
-                      ownerCount:
-                        constrainedDashedRuntimeStatus.ownership.ownerKeys
-                          .length
-                    }
+          : constrainedDashedFallbackNetworkPaths.flatMap(
+              ({ network, topology }) => {
+                const networkConstrainedDashedCandidatePackets =
+                  constrainedDashedCandidatePackets.filter(
+                    (packet) =>
+                      packet.geometry.debugMeta?.networkId === network.id
                   )
-                : []
-            })
+                const constrainedDashedRuntimeStatus = topology.closed
+                  ? classifyConstrainedDashedRuntimeStatus({
+                      points: topology.normalizedPoints,
+                      closed: topology.closed,
+                      topology,
+                      candidatePackets:
+                        networkConstrainedDashedCandidatePackets
+                    })
+                  : null
+
+                if (constrainedDashedRuntimeStatus) {
+                  constrainedDashedRuntimeDiagnostics.push({
+                    sourceId: `vector:${renderData.id}:${network.id}`,
+                    networkId: network.id,
+                    candidatePacketCount:
+                      networkConstrainedDashedCandidatePackets.length,
+                    legalDomainIds: topology.legalDomains.map(
+                      (domain) => domain.legalDomainId
+                    ),
+                    sourceContourIds: topology.contours.map(
+                      (contour) => contour.contourId
+                    ),
+                    ...constrainedDashedRuntimeStatus
+                  })
+                }
+
+                return constrainedDashedRuntimeStatus?.status === 'accepted'
+                  ? attachStrokePacketDebugMeta(
+                      networkConstrainedDashedCandidatePackets,
+                      {
+                        runtimeStatus: constrainedDashedRuntimeStatus.status,
+                        runtimeReason: constrainedDashedRuntimeStatus.reason,
+                        sourceTopology:
+                          constrainedDashedRuntimeStatus.sourceTopology,
+                        ownershipStatus:
+                          constrainedDashedRuntimeStatus.ownership.status,
+                        ownerCount:
+                          constrainedDashedRuntimeStatus.ownership.ownerKeys
+                            .length
+                      }
+                    )
+                  : []
+              }
+            )
   )
   const constrainedDashedPromotion = measureVectorRenderPhase(
     'constrained dashed promotion',
@@ -4266,6 +4294,30 @@ const renderVectorGraphic = (
       })
     ]
   })
+  ;(
+    graphic as typeof graphic & {
+      __asyraConstrainedDashedProductNetworkIds?: string[]
+    }
+  ).__asyraConstrainedDashedProductNetworkIds = Array.from(
+    new Set(
+      [
+        ...constrainedDashedProductVisualEntries.flatMap((entry) => {
+          const networkId = entry.debugMeta?.networkId
+          return entry.debugMeta?.geometryFamily === 'constrained-dashed' &&
+            typeof networkId === 'string'
+            ? [networkId]
+            : []
+        }),
+        ...strokeRenderFaces.flatMap((face) => {
+          const networkId = face.debugMeta?.networkId
+          return face.debugMeta?.geometryFamily === 'constrained-dashed' &&
+            typeof networkId === 'string'
+            ? [networkId]
+            : []
+        })
+      ]
+    )
+  )
 
   if (
     !shouldAttachFullStrokeDiagnostics &&

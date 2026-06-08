@@ -239,6 +239,15 @@ export type VisibleDashedTopologyInterval = DashedTopologyInterval & {
   figmaLikeSideResolutionReason?: string
 }
 
+const isSourceSpanFallbackVisibleInterval = (
+  interval: Pick<
+    VisibleDashedTopologyInterval,
+    'figmaLikeSplitRangeId' | 'figmaLikeSideResolutionReason'
+  >
+) =>
+  interval.figmaLikeSideResolutionReason === 'source-span-fallback' ||
+  interval.figmaLikeSplitRangeId?.startsWith('source-span-fallback:') === true
+
 const buildBoundaryDomainPathForIntervalUncached = (
   interval: Pick<
     VisibleDashedTopologyInterval,
@@ -8555,7 +8564,8 @@ const buildInsideDoubledCenterDashedRenderMaskDescriptor = (
     authoredStroke.position !== 'inside' ||
     authoredStroke.width <= EPSILON ||
     implicitFillRegions.length === 0 ||
-    intervals.length === 0
+    intervals.length === 0 ||
+    intervals.some(isSourceSpanFallbackVisibleInterval)
   ) {
     return null
   }
@@ -8754,7 +8764,8 @@ const buildInsideDoubledCenterDashedStrokeProductPolygons = (
   if (
     authoredStroke.position !== 'inside' ||
     implicitFillRegions.length === 0 ||
-    intervals.length === 0
+    intervals.length === 0 ||
+    intervals.some(isSourceSpanFallbackVisibleInterval)
   ) {
     return []
   }
@@ -8833,7 +8844,8 @@ const buildDashedSourcePathFinalCoveragePolygons = (
   if (
     authoredStroke.position === 'inside' &&
     clipInsideToFillDomain &&
-    implicitFillRegions.length > 0
+    implicitFillRegions.length > 0 &&
+    !isSourceSpanFallbackVisibleInterval(interval)
   ) {
     return measureStrokePipelinePhase(
       'constrained dashed final coverage: doubled center inside clip',
@@ -8892,6 +8904,7 @@ const buildDashedSourcePathFinalCoveragePolygons = (
   )
   const shouldClipToImplicitFillDomain =
     clipInsideToFillDomain &&
+    !isSourceSpanFallbackVisibleInterval(interval) &&
     !(
       authoredStroke.position === 'outside' &&
       interval.intervalId.includes(':smooth-source-continuity:')
@@ -9141,8 +9154,14 @@ export const buildConstrainedDashedStrokeProductVisualEntries = (
             paintKey: stroke.paintKey
           },
           polygons: descriptor.polygons,
-          fillClipPolygons: descriptor.renderDescriptor.fillClipPolygons,
-          clipPolygons: descriptor.renderDescriptor.clipPolygons,
+          fillClipPolygons:
+            'fillClipPolygons' in descriptor.renderDescriptor
+              ? descriptor.renderDescriptor.fillClipPolygons
+              : undefined,
+          clipPolygons:
+            'clipPolygons' in descriptor.renderDescriptor
+              ? descriptor.renderDescriptor.clipPolygons
+              : undefined,
           strokePaths: descriptor.renderDescriptor.strokePaths,
           strokePathStyle: descriptor.renderDescriptor.strokePathStyle,
           debugMeta,

@@ -487,6 +487,94 @@ const buildSharedSplitRangeDashDomains = ({
     ]
   })
 
+const SOURCE_SPAN_FALLBACK_MIN_LENGTH = SOURCE_PATH_DASH_SLICE_TOLERANCE
+
+const getDomainRange = (domain: FigmaLikeSplitRangeDashDomain) => ({
+  startDistance: Math.min(domain.startDistance, domain.endDistance),
+  endDistance: Math.max(domain.startDistance, domain.endDistance)
+})
+
+const subtractCoveredSourceRanges = ({
+  sourceDomain,
+  coveredDomains
+}: {
+  sourceDomain: FigmaLikeSplitRangeDashDomain
+  coveredDomains: FigmaLikeSplitRangeDashDomain[]
+}) => {
+  const sourceRange = getDomainRange(sourceDomain)
+  const coveredRanges = coveredDomains
+    .filter(
+      (domain) => domain.sourceSegmentIndex === sourceDomain.sourceSegmentIndex
+    )
+    .map(getDomainRange)
+    .map((range) => ({
+      startDistance: Math.max(sourceRange.startDistance, range.startDistance),
+      endDistance: Math.min(sourceRange.endDistance, range.endDistance)
+    }))
+    .filter(
+      (range) =>
+        range.endDistance - range.startDistance > SOURCE_SPAN_FALLBACK_MIN_LENGTH
+    )
+    .sort((left, right) => left.startDistance - right.startDistance)
+
+  const uncoveredRanges: { startDistance: number; endDistance: number }[] = []
+  let cursor = sourceRange.startDistance
+  coveredRanges.forEach((range) => {
+    if (range.startDistance - cursor > SOURCE_SPAN_FALLBACK_MIN_LENGTH) {
+      uncoveredRanges.push({
+        startDistance: cursor,
+        endDistance: range.startDistance
+      })
+    }
+    cursor = Math.max(cursor, range.endDistance)
+  })
+
+  if (sourceRange.endDistance - cursor > SOURCE_SPAN_FALLBACK_MIN_LENGTH) {
+    uncoveredRanges.push({
+      startDistance: cursor,
+      endDistance: sourceRange.endDistance
+    })
+  }
+
+  return uncoveredRanges
+}
+
+const supplementInsideDashedSourceSpanDomains = ({
+  sourcePath,
+  splitRangeDomains
+}: {
+  sourcePath: Pick<PathGeometry, 'segments'> & Partial<Pick<PathGeometry, 'closed'>>
+  splitRangeDomains: FigmaLikeSplitRangeDashDomain[]
+}): FigmaLikeSplitRangeDashDomain[] => {
+  const sourceDomains = buildFigmaLikeSplitRangeDashDomains(sourcePath)
+  let fallbackDomainIndex = 0
+  const fallbackDomains = sourceDomains.flatMap((sourceDomain) =>
+    subtractCoveredSourceRanges({
+      sourceDomain,
+      coveredDomains: splitRangeDomains
+    }).map((range) => {
+      const domain: FigmaLikeSplitRangeDashDomain = {
+        domainId: `source-span-fallback:${sourceDomain.domainId}:${fallbackDomainIndex}`,
+        startDistance: range.startDistance,
+        endDistance: range.endDistance,
+        sourceSegmentIndex: sourceDomain.sourceSegmentIndex,
+        selectedSide: 1,
+        filledSide: 1,
+        unfilledSide: -1,
+        boundaryRole: 'ambiguous',
+        sideResolutionStatus: 'resolved',
+        sideResolutionReason: 'source-span-fallback'
+      }
+      fallbackDomainIndex += 1
+      return domain
+    })
+  )
+
+  return fallbackDomains.length > 0
+    ? [...splitRangeDomains, ...fallbackDomains]
+    : splitRangeDomains
+}
+
 export const resolveStrokeDomains = ({
   topology,
   sourceFamily,
@@ -647,6 +735,13 @@ export const resolveStrokeDomains = ({
       sourceFamily,
       stroke
     })
+    const supplementedSplitRangeDomains =
+      stroke.position === 'inside'
+        ? supplementInsideDashedSourceSpanDomains({
+            sourcePath,
+            splitRangeDomains
+          })
+        : splitRangeDomains
     const sideResolutionContext: StrokeDomainSideResolutionContext = {
       sourcePath,
       topologyPoints: topology.normalizedPoints,
@@ -655,7 +750,7 @@ export const resolveStrokeDomains = ({
       strokeWidth: stroke.width,
       implicitFillRegions
     }
-    const blockedSideDomain = splitRangeDomains.find(
+    const blockedSideDomain = supplementedSplitRangeDomains.find(
       (domain) => domain.sideResolutionStatus !== 'resolved'
     )
     if (blockedSideDomain) {
@@ -666,7 +761,7 @@ export const resolveStrokeDomains = ({
         intervalDomainKind: 'none',
         sideAuthority: 'implicit-fill-hole-domain',
         requiresImplicitFillHoleSideResolution: true,
-        splitRangeDomains,
+        splitRangeDomains: supplementedSplitRangeDomains,
         legalBoundaryDomains: [],
         sideResolutionContext,
         diagnostics: [
@@ -688,12 +783,15 @@ export const resolveStrokeDomains = ({
           : 'source-path',
       sideAuthority: 'implicit-fill-hole-domain',
       requiresImplicitFillHoleSideResolution: true,
-      splitRangeDomains,
+      splitRangeDomains: supplementedSplitRangeDomains,
       legalBoundaryDomains: [],
       sideResolutionContext,
       diagnostics: [
         'dash-domains-follow-boundary-domains',
-        'side-authority-is-implicit-fill-hole-domain'
+        'side-authority-is-implicit-fill-hole-domain',
+        ...(supplementedSplitRangeDomains.length > splitRangeDomains.length
+          ? ['inside-source-span-fallback-domains-added']
+          : [])
       ]
     }
   }

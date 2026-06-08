@@ -32,6 +32,10 @@ import {
   createDefaultStroke
 } from '@asyra/utils'
 import type { VectorNetwork, VectorPointNode, VectorSegment } from '@asyra/core'
+import {
+  REPORTED_VECTOR_10_INSIDE_DASHED_NETWORK_ID,
+  createReportedVector10InsideDashedDragData
+} from './inside-dashed-fixtures'
 
 const stroke = (
   style: 'solid' | 'dashed',
@@ -817,6 +821,79 @@ describe('stroke domain plan', () => {
       'side-authority-is-implicit-fill-hole-domain'
     )
     expect('intervals' in plan).toBe(false)
+  })
+
+  it('should run: supplement reported inside dashed drag split ranges so every source segment has product domain coverage', () => {
+    const data = createReportedVector10InsideDashedDragData()
+    const network =
+      data.networks[REPORTED_VECTOR_10_INSIDE_DASHED_NETWORK_ID]
+    const renderableStroke = normalizeStrokeSpec(data.strokes).strokes[0]
+
+    expect(network).toBeDefined()
+    expect(renderableStroke).toBeDefined()
+
+    const sourcePath = buildVectorGeometryModelPath(
+      network,
+      data.points,
+      data.segments
+    )
+    const pathTopology = buildPathTopologyModel({
+      pathId: data.id,
+      sourceId: data.id,
+      networkId: network.id,
+      sourceRevision: 'source-revision:reported-vector-10',
+      sourceFamily: 'vector',
+      points: sourcePath.sampledPoints,
+      closed: network.closed
+    })
+    const resolvedGeometry = buildResolvedVectorGeometryModel({
+      modelId: 'stroke-domain:reported-vector-10:resolved-geometry',
+      fillRule: pathTopology.fillRule,
+      networks: [
+        {
+          networkId: pathTopology.networkId,
+          path: sourcePath,
+          topology: pathTopology
+        }
+      ]
+    })
+    const selfIntersecting = resolvedGeometry.networks[0]?.selfIntersecting
+    const plan = resolveStrokeDomains({
+      topology: pathTopology,
+      sourceFamily: resolveSourceFamily({
+        topology: pathTopology,
+        stroke: renderableStroke
+      }),
+      stroke: renderableStroke,
+      sourcePath,
+      implicitFillRegions: selfIntersecting?.fillRegions ?? [],
+      sharedSourceSplitRanges: selfIntersecting?.sourceSplitRanges ?? [],
+      sharedStrokeBoundaryDomains: selfIntersecting?.strokeBoundaryDomains ?? []
+    })
+
+    const coveredSegmentIndexes = new Set(
+      plan.splitRangeDomains.map((domain) => domain.sourceSegmentIndex)
+    )
+    const fallbackDomains = plan.splitRangeDomains.filter((domain) =>
+      domain.domainId.startsWith('source-span-fallback:')
+    )
+
+    expect(pathTopology.topologyFamily).toBe('self-intersecting')
+    expect(plan.intervalDomainKind).toBe('figma-like-split-range')
+    expect(plan.diagnostics).toContain(
+      'inside-source-span-fallback-domains-added'
+    )
+    expect(coveredSegmentIndexes).toEqual(new Set([0, 1, 2, 3, 4]))
+    expect(fallbackDomains.length).toBeGreaterThan(0)
+    expect(
+      fallbackDomains.every(
+        (domain) =>
+          domain.sideResolutionStatus === 'resolved' &&
+          domain.selectedSide === domain.filledSide &&
+          domain.filledSide !== domain.unfilledSide &&
+          domain.boundaryRole === 'ambiguous'
+      )
+    ).toBe(true)
   })
 
   it('should run: resolve self-intersecting outside dashed from exterior boundary domains only', () => {
