@@ -122,6 +122,119 @@ describe('dashed center stroke interval allocation', () => {
     ])
   })
 
+  it('should run: allocate open network product dashes with endpoint half terminals and balanced gaps', () => {
+    const intervals = allocateDashedCenterStrokeIntervals(
+      90,
+      [20, 10],
+      0,
+      false,
+      { openPathPolicy: 'network-balanced-terminals' }
+    )
+
+    expect(
+      intervals.map((interval) => ({
+        kind: interval.kind,
+        startDistance: interval.startDistance,
+        endDistance: interval.endDistance,
+        openPathTerminalRole: interval.openPathTerminalRole
+      }))
+    ).toEqual([
+      {
+        kind: 'visible',
+        startDistance: 0,
+        endDistance: 10,
+        openPathTerminalRole: 'path-start'
+      },
+      {
+        kind: 'gap',
+        startDistance: 10,
+        endDistance: 20,
+        openPathTerminalRole: undefined
+      },
+      {
+        kind: 'visible',
+        startDistance: 20,
+        endDistance: 40,
+        openPathTerminalRole: 'middle'
+      },
+      {
+        kind: 'gap',
+        startDistance: 40,
+        endDistance: 50,
+        openPathTerminalRole: undefined
+      },
+      {
+        kind: 'visible',
+        startDistance: 50,
+        endDistance: 70,
+        openPathTerminalRole: 'middle'
+      },
+      {
+        kind: 'gap',
+        startDistance: 70,
+        endDistance: 80,
+        openPathTerminalRole: undefined
+      },
+      {
+        kind: 'visible',
+        startDistance: 80,
+        endDistance: 90,
+        openPathTerminalRole: 'path-end'
+      }
+    ])
+  })
+
+  it('should run: keep round and square cap open network gaps above the visual floor', () => {
+    const intervals = allocateDashedCenterStrokeIntervals(
+      80,
+      [20, 20],
+      0,
+      false,
+      {
+        openPathPolicy: 'network-balanced-terminals',
+        strokeWidth: 10,
+        cap: 'round'
+      }
+    )
+    const visible = intervals.filter((interval) => interval.kind === 'visible')
+
+    expect(visible).toHaveLength(2)
+    expect(
+      visible.slice(0, -1).map((interval, index) => {
+        const next = visible[index + 1]
+        return next
+          ? next.startDistance - interval.endDistance - 10
+          : Number.NaN
+      })
+    ).toEqual([50])
+  })
+
+  it('should run: collapse very short open network dashes instead of squeezing unreadable gaps', () => {
+    const intervals = allocateDashedCenterStrokeIntervals(
+      25,
+      [20, 10],
+      0,
+      false,
+      { openPathPolicy: 'network-balanced-terminals' }
+    )
+
+    expect(
+      intervals.map((interval) => ({
+        kind: interval.kind,
+        startDistance: interval.startDistance,
+        endDistance: interval.endDistance,
+        openPathTerminalRole: interval.openPathTerminalRole
+      }))
+    ).toEqual([
+      {
+        kind: 'visible',
+        startDistance: 0,
+        endDistance: 25,
+        openPathTerminalRole: 'start-end'
+      }
+    ])
+  })
+
   it('should run: merge seam-wrap visible intervals deterministically on closed paths', () => {
     const intervals = allocateDashedCenterStrokeIntervals(
       90,

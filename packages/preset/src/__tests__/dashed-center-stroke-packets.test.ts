@@ -35,28 +35,39 @@ describe('dashed center stroke packets', () => {
       ]
     )
 
-    expect(packets).toHaveLength(3)
+    expect(packets).toHaveLength(4)
     expect(
       packets.map((packet) => ({
         minX: packet.geometry.bounds.minX,
         maxX: packet.geometry.bounds.maxX,
-        dashPlacementMode: packet.geometry.debugMeta?.dashPlacementMode
+        dashPlacementMode: packet.geometry.debugMeta?.dashPlacementMode,
+        intervalTerminalRole:
+          packet.geometry.debugMeta?.intervalTerminalRole
       }))
     ).toEqual([
       {
         minX: 0,
-        maxX: 20,
-        dashPlacementMode: 'arc-length-pattern'
+        maxX: 10,
+        dashPlacementMode: 'arc-length-pattern',
+        intervalTerminalRole: 'path-start'
       },
       {
-        minX: 30,
-        maxX: 50,
-        dashPlacementMode: 'arc-length-pattern'
+        minX: 20,
+        maxX: 40,
+        dashPlacementMode: 'arc-length-pattern',
+        intervalTerminalRole: 'none'
       },
       {
-        minX: 60,
-        maxX: 80,
-        dashPlacementMode: 'arc-length-pattern'
+        minX: 50,
+        maxX: 70,
+        dashPlacementMode: 'arc-length-pattern',
+        intervalTerminalRole: 'none'
+      },
+      {
+        minX: 80,
+        maxX: 90,
+        dashPlacementMode: 'arc-length-pattern',
+        intervalTerminalRole: 'path-end'
       }
     ])
   })
@@ -99,6 +110,57 @@ describe('dashed center stroke packets', () => {
     })
   })
 
+  it('should run: allocate open dashed packets across segment boundaries at network level', () => {
+    const packets = buildDashedCenterStrokeResolvedPackets(
+      'open-polyline-network-dashed-center',
+      [
+        { x: 0, y: 0 },
+        { x: 45, y: 0 },
+        { x: 45, y: 45 }
+      ],
+      false,
+      [
+        createDefaultStroke({
+          style: 'dashed',
+          position: 'center',
+          width: 4,
+          dashPattern: [20, 10],
+          dashOffset: 0
+        })
+      ]
+    )
+
+    expect(
+      packets.map((packet) => ({
+        startDistance: packet.geometry.debugMeta?.startDistance,
+        endDistance: packet.geometry.debugMeta?.endDistance,
+        intervalTerminalRole:
+          packet.geometry.debugMeta?.intervalTerminalRole
+      }))
+    ).toEqual([
+      {
+        startDistance: 0,
+        endDistance: 10,
+        intervalTerminalRole: 'path-start'
+      },
+      {
+        startDistance: 20,
+        endDistance: 40,
+        intervalTerminalRole: 'none'
+      },
+      {
+        startDistance: 50,
+        endDistance: 70,
+        intervalTerminalRole: 'none'
+      },
+      {
+        startDistance: 80,
+        endDistance: 90,
+        intervalTerminalRole: 'path-end'
+      }
+    ])
+  })
+
   it('should run: mark center dashed terminal eligibility without treating non-terminal overlap as stroke cutting', () => {
     const packets = buildDashedCenterStrokeResolvedPackets(
       'center-dashed-terminal-metadata',
@@ -114,8 +176,8 @@ describe('dashed center stroke packets', () => {
           position: 'center',
           width: 12,
           joinType: StrokeJoinTypes.MITER,
-          dashPattern: [120, 20],
-          dashOffset: 80
+          dashPattern: [60, 20],
+          dashOffset: 0
         })
       ]
     )
@@ -298,8 +360,87 @@ describe('dashed center stroke packets', () => {
     expect(
       Math.max(
         ...packets.map((packet) => packet.geometry.polygons[0]?.length ?? 0)
-      )
-    ).toBeLessThan(800)
+    )
+    ).toBeLessThan(900)
+  })
+
+  it('should run: allocate source-path dashed intervals on the same arc-length domain used for slicing', () => {
+    const sourcePath = buildVectorGeometryModelPath(
+      {
+        id: 'network-a',
+        pointIds: ['a', 'b'],
+        segmentIds: ['ab'],
+        closed: false
+      },
+      {
+        a: { id: 'a', kind: 'anchor', x: 0, y: 0, anchorType: 'smooth' },
+        aOut: {
+          id: 'aOut',
+          kind: 'control',
+          x: 30,
+          y: 210,
+          controlRole: 'out'
+        },
+        b: { id: 'b', kind: 'anchor', x: 180, y: 120, anchorType: 'smooth' },
+        bIn: {
+          id: 'bIn',
+          kind: 'control',
+          x: 150,
+          y: -120,
+          controlRole: 'in'
+        }
+      },
+      {
+        ab: {
+          id: 'ab',
+          startId: 'a',
+          endId: 'b',
+          outControlId: 'aOut',
+          inControlId: 'bIn'
+        }
+      }
+    )
+    const sampledTopology = buildPathTopologyModel({
+      pathId: 'source-path-domain-dashed',
+      points: sourcePath.sampledPoints,
+      closed: sourcePath.closed
+    })
+    const mismatchedTopology = {
+      ...sampledTopology,
+      totalLength: sourcePath.totalLength / 2
+    }
+
+    const packets = buildDashedCenterStrokeResolvedPackets(
+      'source-path-domain-dashed',
+      sourcePath.sampledPoints,
+      sourcePath.closed,
+      [
+        createDefaultStroke({
+          style: 'dashed',
+          position: 'center',
+          width: 12,
+          joinType: StrokeJoinTypes.MITER,
+          dashPattern: [48, 24],
+          dashOffset: 0
+        })
+      ],
+      {
+        topology: mismatchedTopology,
+        sourcePath
+      }
+    )
+    const pathEndPacket = packets.find(
+      (packet) =>
+        packet.geometry.debugMeta?.intervalTerminalRole === 'path-end'
+    )
+
+    expect(sourcePath.totalLength).toBeGreaterThan(
+      mismatchedTopology.totalLength + 1
+    )
+    expect(pathEndPacket?.geometry.debugMeta?.endDistance).toBeCloseTo(
+      sourcePath.totalLength,
+      4
+    )
   })
 
   it('should run: build round-cap source-path dashed center curves through backend offset', async () => {

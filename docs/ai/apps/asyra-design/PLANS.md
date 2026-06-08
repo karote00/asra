@@ -99,6 +99,17 @@ not a preview. Normal drag frames must not require rebuilding center dashed
 polygon packets or resolved self-intersection geometry when no diagnostics,
 hit/export materialization, or constrained-domain rule needs those polygons.
 
+For open `center` dashed strokes, dash allocation is owned by the continuous
+open network/subpath, not by individual segment boundaries. The two true open
+network endpoints use half-dash terminal intervals when the path is long
+enough, middle visible intervals keep the authored dash length, and middle
+gaps are distributed across the full network. Round and square dash caps count
+toward the painted footprint when measuring readability: the current Asyra
+floor is `configuredGap * 0.6` after cap footprint. If the open network cannot
+hold endpoint half-dashes plus a legible cap-aware visual gap, it may collapse
+to one `start-end` visible dash instead of squeezing multiple dash groups
+together.
+
 Dashed constrained strokes remain a separate interval-domain model for dash
 allocation, but constrained `inside` dashed visible geometry follows the same
 Asyra doubled center-stroke mask rule as constrained solid geometry. For each split source

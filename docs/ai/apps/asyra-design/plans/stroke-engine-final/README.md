@@ -106,6 +106,17 @@ center dashed polygon packets or resolved self-intersection geometry unless
 diagnostics, hit/export materialization, or another exact rule explicitly needs
 that evidence.
 
+For open `center` dashed strokes, resolved dash allocation is network-level.
+A continuous open network/subpath owns one dash schedule across its full
+arc-length; individual segment boundaries must not restart the phase. The two
+true network endpoints use half-dash terminal intervals when the path is long
+enough, middle intervals keep the authored dash length, and middle gaps are
+distributed across the network. Round and square cap footprint is included when
+measuring readability: the current Asyra floor is `configuredGap * 0.6` after
+cap footprint. If the open network cannot hold endpoint half-dashes plus a
+legible cap-aware visual gap, it may collapse into one `start-end` visible dash
+instead of producing crowded dash groups.
+
 For adjacency-aware self-intersecting masks, a grouped render descriptor may
 carry authored centerline stroke paths with explicit clip groups. Those groups
 are an encoding of the masked authored stroke source: they must preserve
@@ -190,6 +201,9 @@ readability heuristic; the current floor is `configuredGap * 0.6` after cap
 footprint, so a configured gap of `20` must not redistribute into visual gaps
 below roughly `12`. Changes must be covered by rule-driven tests and visual
 review.
+
+Open path dashed allocation uses the same cap-aware readability floor, but its
+domain is the continuous open network rather than a constrained split range.
 
 ## Inspector Step Contracts
 

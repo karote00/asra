@@ -37,6 +37,7 @@
     'Derivation fragments, face strips, helper polygons, coverage probes, and diagnostics can prove legality, hit/export, or failure modes, but they must not become product-visible solid stroke geometry.',
     'Dashed constrained strokes remain interval-domain based. Dash intervals, terminal half-dashes, and caps must stay separate from solid visible geometry.',
     'Split-range dash allocation is cap-aware: round and square caps extend the painted footprint, so the allocator must avoid producing many dash groups whose visual gaps after caps are much smaller than the configured gap. The current floor is configuredGap * 0.6 after cap footprint; short cap-aware ranges may collapse into one start-end dash.',
+    'Open center dashed allocation is continuous-network based: the two true open network endpoints own half-dash terminals, middle dashes keep authored length, segment boundaries do not reset phase, and cap-aware visual gaps use the same configuredGap * 0.6 readability floor.',
     'Center dashed visible render is the authored center dashed stroke. Drag frames may use exact authored centerline strokePath descriptors for visible dash intervals and must not require center dashed polygon packets or resolved self-intersection geometry unless diagnostics, hit/export, or another exact rule needs that evidence.',
     'Constrained inside dashed product-visible render may use one exact grouped mask descriptor: fillClipPolygons plus authored dashed strokePaths and strokePathStyle. That descriptor is the product path, not preview or helper geometry.',
     'A single exact constrained inside dashed mask descriptor for one fill domain and one stroke style may bypass same-visual overlap collapse; per-interval polygons may remain diagnostics/export evidence but must not be required for visible drag frames.',
@@ -70,7 +71,8 @@
       '2026-05-31: reported inside-solid slice passed focused probes, full e2e file, build, lint, and manual screenshot review.',
       '2026-06-06: point/handle drag and structural vector operations were refactored to framework-native computed patch flow with model/render/undo invariants passing.',
       '2026-06-07: stroke dirty matrix gained parameter-specific revision counters; stage cache validation is active for static parameter switches and drag.',
-      '2026-06-08: center, inside, and outside dashed drag frames use exact visible descriptors with canonical/e2e/visual review passing and the full drag 120fps gate passing.'
+      '2026-06-08: center, inside, and outside dashed drag frames use exact visible descriptors with canonical/e2e/visual review passing and the full drag 120fps gate passing.',
+      '2026-06-09: open center dashed allocation moved to continuous-network half-terminal rules with cap-aware gap floor; focused unit and visual gates must cover open line, polyline, curve, and multi-network cases.'
     ],
     currentSolidMaskModelSliceEvidence: [
       {
@@ -330,7 +332,7 @@
       'Stroke Geometry',
       4,
       'Allocate dash intervals',
-      'Allocate dashed intervals only where the dash model owns placement; for split ranges, preserve terminal semantics while avoiding cap-compressed visual gaps.'
+      'Allocate dashed intervals only where the dash model owns placement; open center dashed allocates at continuous-network level with endpoint half terminals, while constrained split ranges preserve terminal semantics and avoid cap-compressed visual gaps.'
     ],
     [
       'build-stroke-candidates',

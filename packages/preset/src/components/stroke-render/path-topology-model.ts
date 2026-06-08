@@ -1,4 +1,7 @@
-import { allocateDashedCenterStrokeIntervals } from './dashed-center-stroke-intervals'
+import {
+  allocateDashedCenterStrokeIntervals,
+  type DashedCenterStrokeIntervalAllocationOptions
+} from './dashed-center-stroke-intervals'
 import {
   EPS,
   dedupeAdjacent,
@@ -308,13 +311,15 @@ export const buildPathTopologyModel = ({
 export const allocateDashedIntervalsForTopology = (
   topology: Pick<PathTopologyModel, 'totalLength' | 'closed'>,
   pattern: number[],
-  offset: number
+  offset: number,
+  options?: DashedCenterStrokeIntervalAllocationOptions
 ) =>
   allocateDashedCenterStrokeIntervals(
     topology.totalLength,
     pattern,
     offset,
-    topology.closed
+    topology.closed,
+    options
   )
 
 export const isPointInsideTopologyPolygon = (point: Vec2, polygon: Vec2[]) => {

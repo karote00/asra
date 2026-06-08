@@ -178,6 +178,7 @@ const buildVisibleIntervalSignature = (
         interval.startDistance.toFixed(6),
         interval.endDistance.toFixed(6),
         interval.wrapsSeam ? 'wrap' : 'nowrap',
+        interval.openPathTerminalRole ?? 'none',
         interval.previousVisibleIntervalId ?? 'none',
         interval.nextVisibleIntervalId ?? 'none'
       ].join(':')
@@ -266,7 +267,14 @@ export const buildDashedCenterStrokeResolvedPackets = (
       closed
     })
   const topologyPoints = topology.normalizedPoints
-  const totalLength = topology.totalLength
+  const intervalDomain =
+    options.sourcePath && Number.isFinite(options.sourcePath.totalLength)
+      ? {
+          totalLength: options.sourcePath.totalLength,
+          closed: options.sourcePath.closed
+        }
+      : topology
+  const totalLength = intervalDomain.totalLength
   const sourceTopology = mapCenterTopologyToSourceTopology(topology)
   return getRenderableStrokes(strokes).flatMap((stroke, strokeIndex) => {
     if (!supportsDashedCenterStroke(stroke)) {
@@ -287,9 +295,16 @@ export const buildDashedCenterStrokeResolvedPackets = (
       topology.closed
     )
     const intervals = allocateDashedIntervalsForTopology(
-      topology,
+      intervalDomain,
       stroke.dashPattern,
-      stroke.dashOffset
+      stroke.dashOffset,
+      intervalDomain.closed
+        ? undefined
+        : {
+            openPathPolicy: 'network-balanced-terminals',
+            strokeWidth: stroke.width,
+            cap: stroke.cap
+          }
     ).filter((interval) => interval.kind === 'visible')
     const dashPlacementMode = 'arc-length-pattern'
     const sourceSpanGraph = buildSourceSpanGraph(topology, intervals)

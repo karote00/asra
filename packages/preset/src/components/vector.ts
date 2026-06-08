@@ -2301,7 +2301,8 @@ const buildVisibleDashIntervalSignature = (
         interval.authoredIndex,
         interval.startDistance.toFixed(6),
         interval.endDistance.toFixed(6),
-        interval.wrapsSeam ? 'wrap' : 'nowrap'
+        interval.wrapsSeam ? 'wrap' : 'nowrap',
+        interval.openPathTerminalRole ?? 'none'
       ].join(':')
     )
     .join('|')
@@ -2315,7 +2316,14 @@ const buildCenterDashedPathMaskRenderEntry = (
   const intervals = allocateDashedIntervalsForTopology(
     group.topology,
     stroke.dashPattern,
-    stroke.dashOffset
+    stroke.dashOffset,
+    group.topology.closed
+      ? undefined
+      : {
+          openPathPolicy: 'network-balanced-terminals',
+          strokeWidth: stroke.width,
+          cap: stroke.cap
+        }
   ).filter((interval) => interval.kind === 'visible')
   if (intervals.length === 0) {
     return null

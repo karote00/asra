@@ -528,27 +528,16 @@ const ensureStrokeControlsVisible = async (page: Page) => {
 }
 
 const clearSelectedVectorPoint = async (page: Page) => {
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    await page.keyboard.press('Escape')
-    await expect
-      .poll(async () => {
-        return page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
-          return core?.getSystemProperty?.('selectedVectorPoint') ?? null
-        })
+  await ensureStrokeControlsVisible(page)
+  await expect
+    .poll(async () => {
+      return page.evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        return core?.getSystemProperty?.('selectedVectorPoint') ?? null
       })
-      .toBeNull()
-
-    try {
-      await ensureStrokeControlsVisible(page)
-      return
-    } catch (error) {
-      if (attempt === 2) {
-        throw error
-      }
-    }
-  }
+    })
+    .toBeNull()
 }
 
 const getClosestSnapshotPoint = (
@@ -1990,7 +1979,18 @@ test.describe('Reference Dashed Stroke Rendering', () => {
     })
     expect(geometrySnapshot?.pointCount).toBe(5)
 
-    await page.keyboard.press('Escape')
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      core?.setSystemProperty?.('pathEditingVectorId', null)
+      core?.setSystemProperty?.('pathEditingMode', false)
+      core?.setSystemProperty?.('selectedVectorPoint', null)
+      core?.setSystemProperty?.('hoveredVectorPoint', null)
+      core?.setSystemProperty?.('selectedVectorSegment', null)
+      core?.setSystemProperty?.('hoveredVectorSegment', null)
+      core?.deps?.selection?.clearVectorPointSelection?.({ undoable: false })
+      core?.deps?.selection?.clearVectorSegmentSelection?.({ undoable: false })
+    })
     await expect
       .poll(async () => {
         return page.evaluate(() => {

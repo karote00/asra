@@ -175,8 +175,8 @@ describe('dashed center stroke scenarios', () => {
     expect(packets).toHaveLength(2)
     expect(isPointInPolygons({ x: -4, y: 0 }, polygons)).toBe(true)
     expect(isPointInPolygons({ x: -4, y: -4 }, polygons)).toBe(false)
-    expect(isPointInPolygons({ x: 24, y: 0 }, polygons)).toBe(true)
-    expect(isPointInPolygons({ x: 24, y: 4 }, polygons)).toBe(false)
+    expect(isPointInPolygons({ x: 14, y: 0 }, polygons)).toBe(true)
+    expect(isPointInPolygons({ x: 14, y: 4 }, polygons)).toBe(false)
   })
 
   it('should run: right-angle turn on a vector-generated rectangle matches the shape-generated bevel corner topology', () => {
@@ -334,48 +334,55 @@ describe('dashed center stroke scenarios', () => {
     expect(isPointInPolygons({ x: 350, y: 275 }, polygons)).toBe(true)
   })
 
-  it('should run: acute-angle open path with [20,10] uses true arc-length intervals through the corner', () => {
+  it('should run: acute-angle open path with [20,10] uses endpoint half dashes without resetting at the corner', () => {
     const intervals = allocateDashedCenterStrokeIntervals(
       60,
       [20, 10],
       0,
-      false
+      false,
+      { openPathPolicy: 'network-balanced-terminals' }
     )
     const visible = intervals.filter((interval) => interval.kind === 'visible')
     const cornerDistance = 40
 
-    expect(visible).toHaveLength(2)
+    expect(visible).toHaveLength(3)
     expect(visible[0]?.startDistance).toBe(0)
-    expect(visible[0]?.endDistance).toBe(20)
-    expect(visible[1]?.startDistance).toBe(30)
-    expect(visible[1]?.endDistance).toBe(50)
+    expect(visible[0]?.endDistance).toBe(10)
+    expect(visible[0]?.openPathTerminalRole).toBe('path-start')
+    expect(visible[1]?.startDistance).toBe(20)
+    expect(visible[1]?.endDistance).toBe(40)
+    expect(visible[1]?.openPathTerminalRole).toBe('middle')
+    expect(visible[2]?.startDistance).toBe(50)
+    expect(visible[2]?.endDistance).toBe(60)
+    expect(visible[2]?.openPathTerminalRole).toBe('path-end')
     expect(visible[1]?.startDistance).toBeLessThan(cornerDistance)
-    expect(visible[1]?.endDistance).toBeGreaterThan(cornerDistance)
+    expect(visible[1]?.endDistance).toBeGreaterThanOrEqual(cornerDistance)
   })
 
-  it('should run: acute-angle open path with [27,13] and explicit offset lets the gap span the corner before the next visible dash', () => {
+  it('should run: acute-angle open path with [27,13] keeps the balanced gap spanning the corner across the whole network', () => {
     const intervals = allocateDashedCenterStrokeIntervals(
       60,
       [27, 13],
       1,
-      false
+      false,
+      { openPathPolicy: 'network-balanced-terminals' }
     )
     const visible = intervals.filter((interval) => interval.kind === 'visible')
     const gap = intervals.find(
       (interval) =>
         interval.kind === 'gap' &&
-        interval.startDistance === 26 &&
-        interval.endDistance === 39
+        interval.startDistance === 13.5 &&
+        interval.endDistance === 46.5
     )
 
     expect(visible).toHaveLength(2)
     expect(gap).toBeTruthy()
     expect(gap?.startDistance).toBeLessThan(30)
     expect(gap?.endDistance).toBeGreaterThan(30)
-    expect(visible[1]?.startDistance).toBe(39)
+    expect(visible[1]?.startDistance).toBe(46.5)
   })
 
-  it('should run: acute-angle open path with [40,10] keeps a miter dash continuous through the turn', () => {
+  it('should run: acute-angle open path with [40,10] keeps miter endpoint dashes separated by the network-level gap', () => {
     const packets = buildDashedCenterStrokeResolvedPackets(
       'scenario:acute:miter',
       [
@@ -397,10 +404,11 @@ describe('dashed center stroke scenarios', () => {
     )
 
     const polygons = packets[0]?.geometry.polygons ?? []
-    expect(isPointInPolygons({ x: 29, y: 1 }, polygons)).toBe(true)
+    expect(packets).toHaveLength(2)
+    expect(isPointInPolygons({ x: 29, y: 1 }, polygons)).toBe(false)
   })
 
-  it('should run: acute-angle open path with [40,10] keeps a bevel dash continuous through the turn with its own silhouette', () => {
+  it('should run: acute-angle open path with [40,10] keeps bevel endpoint dashes separated by the network-level gap', () => {
     const packets = buildDashedCenterStrokeResolvedPackets(
       'scenario:acute:bevel',
       [
@@ -422,7 +430,8 @@ describe('dashed center stroke scenarios', () => {
     )
 
     const polygons = packets[0]?.geometry.polygons ?? []
-    expect(isPointInPolygons({ x: 31, y: 2 }, polygons)).toBe(true)
+    expect(packets).toHaveLength(2)
+    expect(isPointInPolygons({ x: 31, y: 2 }, polygons)).toBe(false)
   })
 
   it('should run: acute-angle open path with [27,13] and explicit offset keeps the corner absent when the gap spans the turn', () => {

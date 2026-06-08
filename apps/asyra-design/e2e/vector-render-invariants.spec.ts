@@ -243,6 +243,142 @@ const createReportedVector10InsideDashedDragData = () => ({
   }
 })
 
+const createReportedVector12OpenDashedSwitchData = () => ({
+  id: 'vector-12',
+  x: 480.4300533891224,
+  y: -129.75417750724597,
+  width: 366.8877565773893,
+  height: 409.16630018489184,
+  points: {
+    'tp-36': {
+      id: 'tp-36',
+      kind: 'anchor',
+      x: 672.1796903067977,
+      y: -25.577192537243718,
+      anchorType: 'sharp',
+      handleMode: 'none'
+    },
+    'tp-39': {
+      id: 'tp-39',
+      kind: 'anchor',
+      x: 494.0219478943302,
+      y: 383.5816904608811,
+      anchorType: 'smooth',
+      handleMode: 'none'
+    },
+    'tp-36:in': {
+      id: 'tp-36:in',
+      kind: 'control',
+      x: 672.1796903067977,
+      y: -25.577192537243718,
+      controlForId: 'tp-36',
+      controlRole: 'in'
+    },
+    'tp-39:out': {
+      id: 'tp-39:out',
+      kind: 'control',
+      x: 420.04119045186485,
+      y: 382.0718790845042,
+      controlForId: 'tp-39',
+      controlRole: 'out'
+    },
+    'tp-39:in': {
+      id: 'tp-39:in',
+      kind: 'control',
+      x: 568.0027053367955,
+      y: 385.09150183725797,
+      controlForId: 'tp-39',
+      controlRole: 'in'
+    },
+    'tp-40': {
+      id: 'tp-40',
+      kind: 'anchor',
+      x: 847.3178099665117,
+      y: 155.6001726279776,
+      anchorType: 'sharp',
+      handleMode: 'none'
+    },
+    'tp-41': {
+      id: 'tp-41',
+      kind: 'anchor',
+      x: 486.47289101244587,
+      y: 158.61979538073132,
+      anchorType: 'sharp',
+      handleMode: 'none'
+    },
+    'tp-42': {
+      id: 'tp-42',
+      kind: 'anchor',
+      x: 823.1608279444822,
+      y: 344.32659467508313,
+      anchorType: 'sharp',
+      handleMode: 'none'
+    }
+  },
+  segments: {
+    'ts-55': {
+      id: 'ts-55',
+      startId: 'tp-39',
+      endId: 'tp-36',
+      outControlId: 'tp-39:out',
+      inControlId: 'tp-36:in'
+    },
+    'ts-56': {
+      id: 'ts-56',
+      startId: 'tp-40',
+      endId: 'tp-39',
+      outControlId: null,
+      inControlId: 'tp-39:in'
+    },
+    'ts-57': {
+      id: 'ts-57',
+      startId: 'tp-41',
+      endId: 'tp-40',
+      outControlId: null,
+      inControlId: null
+    },
+    'ts-58': {
+      id: 'ts-58',
+      startId: 'tp-42',
+      endId: 'tp-41',
+      outControlId: null,
+      inControlId: null
+    }
+  },
+  networks: {
+    'tn-9': {
+      id: 'tn-9',
+      pointIds: ['tp-42', 'tp-41', 'tp-40', 'tp-39', 'tp-36'],
+      segmentIds: ['ts-58', 'ts-57', 'ts-56', 'ts-55'],
+      closed: false
+    }
+  },
+  closed: false,
+  pointCoordinateSpace: 'workspace',
+  fills: [],
+  strokes: [
+    {
+      id: 'pp-261',
+      kind: 'solid',
+      style: 'solid',
+      position: 'center',
+      width: 10,
+      dashPattern: [20, 20],
+      dashOffset: 0,
+      fill: null,
+      defaultColorFormat: 'hex',
+      colorFormat: 'hex',
+      color: '#cccccc',
+      opacity: 1,
+      visible: true,
+      gradient: null,
+      joinType: 'miter',
+      capType: 'butt',
+      miterAngle: 28.96
+    }
+  ]
+})
+
 const getStarWorkspacePoints = () =>
   Object.values(createStarTopology().points) as { x: number; y: number }[]
 
@@ -452,6 +588,12 @@ const analyzeRedStrokeRaster = async (page: Page, screenshotBase64: string) =>
     let strokePixels = 0
     let visualSignal = 0
     const totalPixels = canvas.width * canvas.height
+    const bounds = {
+      minX: Number.POSITIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY
+    }
 
     for (let index = 0; index < image.length; index += 4) {
       const red = image[index] ?? 0
@@ -461,16 +603,190 @@ const analyzeRedStrokeRaster = async (page: Page, screenshotBase64: string) =>
       const isRedStrokePixel =
         alpha > 128 && red > 90 && red > green + 45 && red > blue + 45
       if (isRedStrokePixel) {
+        const pixelIndex = index / 4
+        const x = pixelIndex % canvas.width
+        const y = Math.floor(pixelIndex / canvas.width)
         strokePixels += 1
         visualSignal += red
+        bounds.minX = Math.min(bounds.minX, x)
+        bounds.minY = Math.min(bounds.minY, y)
+        bounds.maxX = Math.max(bounds.maxX, x)
+        bounds.maxY = Math.max(bounds.maxY, y)
       }
     }
 
     return {
       strokeCoverage: strokePixels / totalPixels,
-      visualSignal: visualSignal / totalPixels
+      visualSignal: visualSignal / totalPixels,
+      bounds:
+        strokePixels > 0
+          ? {
+              x: bounds.minX,
+              y: bounds.minY,
+              width: bounds.maxX - bounds.minX,
+              height: bounds.maxY - bounds.minY
+            }
+          : null
     }
   }, screenshotBase64)
+
+const analyzeSelectedBrightStrokeAlignmentRaster = async (
+  page: Page,
+  screenshotBase64: string
+) =>
+  page.evaluate(async (base64) => {
+    const response = await fetch(`data:image/png;base64,${base64}`)
+    const blob = await response.blob()
+    const bitmap = await createImageBitmap(blob)
+    const canvas = document.createElement('canvas')
+    canvas.width = bitmap.width
+    canvas.height = bitmap.height
+    const context = canvas.getContext('2d')
+    if (!context) {
+      throw new Error('Canvas 2D context unavailable')
+    }
+    context.drawImage(bitmap, 0, 0)
+    const image = context.getImageData(0, 0, canvas.width, canvas.height).data
+    const blueBounds = {
+      minX: Number.POSITIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY
+    }
+
+    for (let index = 0; index < image.length; index += 4) {
+      const red = image[index] ?? 0
+      const green = image[index + 1] ?? 0
+      const blue = image[index + 2] ?? 0
+      const alpha = image[index + 3] ?? 0
+      const isSelectionBlue =
+        alpha > 160 && blue > 150 && green > 80 && red < 80
+      if (!isSelectionBlue) {
+        continue
+      }
+      const pixelIndex = index / 4
+      const x = pixelIndex % canvas.width
+      const y = Math.floor(pixelIndex / canvas.width)
+      blueBounds.minX = Math.min(blueBounds.minX, x)
+      blueBounds.minY = Math.min(blueBounds.minY, y)
+      blueBounds.maxX = Math.max(blueBounds.maxX, x)
+      blueBounds.maxY = Math.max(blueBounds.maxY, y)
+    }
+
+    const hasBlueBounds =
+      Number.isFinite(blueBounds.minX) && Number.isFinite(blueBounds.minY)
+    const brightBounds = {
+      minX: Number.POSITIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY
+    }
+    let strokePixels = 0
+    const reviewPadding = 96
+    const reviewRegion = hasBlueBounds
+      ? {
+          minX: Math.max(0, blueBounds.minX - reviewPadding),
+          minY: Math.max(0, blueBounds.minY - reviewPadding),
+          maxX: Math.min(canvas.width - 1, blueBounds.maxX + reviewPadding),
+          maxY: Math.min(canvas.height - 1, blueBounds.maxY + reviewPadding)
+        }
+      : null
+
+    for (let index = 0; index < image.length; index += 4) {
+      const pixelIndex = index / 4
+      const x = pixelIndex % canvas.width
+      const y = Math.floor(pixelIndex / canvas.width)
+      if (
+        !reviewRegion ||
+        x < reviewRegion.minX ||
+        x > reviewRegion.maxX ||
+        y < reviewRegion.minY ||
+        y > reviewRegion.maxY
+      ) {
+        continue
+      }
+      const red = image[index] ?? 0
+      const green = image[index + 1] ?? 0
+      const blue = image[index + 2] ?? 0
+      const alpha = image[index + 3] ?? 0
+      const isBrightStrokePixel =
+        alpha > 128 &&
+        red > 150 &&
+        green > 150 &&
+        blue > 150 &&
+        Math.abs(red - green) < 48 &&
+        Math.abs(red - blue) < 48
+      if (!isBrightStrokePixel) {
+        continue
+      }
+      strokePixels += 1
+      brightBounds.minX = Math.min(brightBounds.minX, x)
+      brightBounds.minY = Math.min(brightBounds.minY, y)
+      brightBounds.maxX = Math.max(brightBounds.maxX, x)
+      brightBounds.maxY = Math.max(brightBounds.maxY, y)
+    }
+
+    const toBounds = (bounds: typeof blueBounds) =>
+      Number.isFinite(bounds.minX) && Number.isFinite(bounds.minY)
+        ? {
+            x: bounds.minX,
+            y: bounds.minY,
+            width: bounds.maxX - bounds.minX,
+            height: bounds.maxY - bounds.minY
+          }
+        : null
+
+    return {
+      blueBounds: toBounds(blueBounds),
+      strokeBounds: toBounds(brightBounds),
+      strokePixels
+    }
+  }, screenshotBase64)
+
+const sampleRedStrokeAtWorkspacePoints = async (
+  page: Page,
+  raster: StrokeRasterCapture,
+  points: { x: number; y: number }[]
+) =>
+  page.evaluate(
+    async ({ points: samplePoints, raster: capture }) => {
+      const response = await fetch(`data:image/png;base64,${capture.base64}`)
+      const blob = await response.blob()
+      const bitmap = await createImageBitmap(blob)
+      const canvas = document.createElement('canvas')
+      canvas.width = bitmap.width
+      canvas.height = bitmap.height
+      const context = canvas.getContext('2d')
+      if (!context) {
+        throw new Error('Canvas 2D context unavailable')
+      }
+      context.drawImage(bitmap, 0, 0)
+      const image = context.getImageData(0, 0, canvas.width, canvas.height).data
+      const isRedPixel = (x: number, y: number) => {
+        const ix = Math.round(x)
+        const iy = Math.round(y)
+        if (ix < 0 || iy < 0 || ix >= canvas.width || iy >= canvas.height) {
+          return false
+        }
+        const index = (iy * canvas.width + ix) * 4
+        const red = image[index] ?? 0
+        const green = image[index + 1] ?? 0
+        const blue = image[index + 2] ?? 0
+        const alpha = image[index + 3] ?? 0
+        return alpha > 128 && red > 90 && red > green + 45 && red > blue + 45
+      }
+
+      return samplePoints.map((point) => {
+        const x = point.x * capture.zoom + capture.viewport.x - capture.clipX
+        const y = point.y * capture.zoom + capture.viewport.y - capture.clipY
+        return {
+          point,
+          covered: isRedPixel(x, y)
+        }
+      })
+    },
+    { points, raster }
+  )
 
 const analyzeBlueHoverOutlineRaster = async (
   page: Page,
@@ -2002,6 +2318,770 @@ test.describe('Vector render invariants', () => {
         2
       )
     ).toBeGreaterThanOrEqual(0.6)
+  })
+
+  test('renders open center dashed networks with endpoint half dashes and cap-aware gaps', async ({
+    page
+  }, testInfo) => {
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!core || !elementApis) {
+        throw new Error('Missing E2E core or element APIs')
+      }
+
+      const points = {
+        lineA: {
+          id: 'lineA',
+          kind: 'anchor',
+          anchorType: 'sharp',
+          x: 180,
+          y: 140
+        },
+        lineB: {
+          id: 'lineB',
+          kind: 'anchor',
+          anchorType: 'sharp',
+          x: 270,
+          y: 140
+        },
+        polyA: {
+          id: 'polyA',
+          kind: 'anchor',
+          anchorType: 'sharp',
+          x: 320,
+          y: 140
+        },
+        polyB: {
+          id: 'polyB',
+          kind: 'anchor',
+          anchorType: 'sharp',
+          x: 365,
+          y: 140
+        },
+        polyC: {
+          id: 'polyC',
+          kind: 'anchor',
+          anchorType: 'sharp',
+          x: 365,
+          y: 185
+        },
+        curveA: {
+          id: 'curveA',
+          kind: 'anchor',
+          anchorType: 'smooth',
+          x: 420,
+          y: 140
+        },
+        'curveA:out': {
+          id: 'curveA:out',
+          kind: 'control',
+          controlForId: 'curveA',
+          controlRole: 'out',
+          x: 450,
+          y: 90
+        },
+        curveB: {
+          id: 'curveB',
+          kind: 'anchor',
+          anchorType: 'smooth',
+          x: 510,
+          y: 185
+        },
+        'curveB:in': {
+          id: 'curveB:in',
+          kind: 'control',
+          controlForId: 'curveB',
+          controlRole: 'in',
+          x: 480,
+          y: 235
+        },
+        shortA: {
+          id: 'shortA',
+          kind: 'anchor',
+          anchorType: 'sharp',
+          x: 180,
+          y: 260
+        },
+        shortB: {
+          id: 'shortB',
+          kind: 'anchor',
+          anchorType: 'sharp',
+          x: 205,
+          y: 260
+        }
+      }
+      const segments = {
+        lineS: {
+          id: 'lineS',
+          startId: 'lineA',
+          endId: 'lineB',
+          outControlId: null,
+          inControlId: null
+        },
+        polyS0: {
+          id: 'polyS0',
+          startId: 'polyA',
+          endId: 'polyB',
+          outControlId: null,
+          inControlId: null
+        },
+        polyS1: {
+          id: 'polyS1',
+          startId: 'polyB',
+          endId: 'polyC',
+          outControlId: null,
+          inControlId: null
+        },
+        curveS: {
+          id: 'curveS',
+          startId: 'curveA',
+          endId: 'curveB',
+          outControlId: 'curveA:out',
+          inControlId: 'curveB:in'
+        },
+        shortS: {
+          id: 'shortS',
+          startId: 'shortA',
+          endId: 'shortB',
+          outControlId: null,
+          inControlId: null
+        }
+      }
+      const networks = {
+        lineN: {
+          id: 'lineN',
+          pointIds: ['lineA', 'lineB'],
+          segmentIds: ['lineS'],
+          closed: false
+        },
+        polyN: {
+          id: 'polyN',
+          pointIds: ['polyA', 'polyB', 'polyC'],
+          segmentIds: ['polyS0', 'polyS1'],
+          closed: false
+        },
+        curveN: {
+          id: 'curveN',
+          pointIds: ['curveA', 'curveB'],
+          segmentIds: ['curveS'],
+          closed: false
+        },
+        shortN: {
+          id: 'shortN',
+          pointIds: ['shortA', 'shortB'],
+          segmentIds: ['shortS'],
+          closed: false
+        }
+      }
+      const createdId = elementApis.createElement(
+        {
+          type: 'vector',
+          points,
+          segments,
+          networks,
+          closed: false,
+          pointCoordinateSpace: 'workspace',
+          fills: []
+        },
+        { undoable: false }
+      )
+      if (!createdId) {
+        throw new Error('Failed to create open dashed vector')
+      }
+      elementApis.changeComputedData(
+        [createdId],
+        {
+          fills: [],
+          strokes: [
+            {
+              id: 'open-center-dashed-network-stroke',
+              kind: 'solid',
+              style: 'dashed',
+              position: 'center',
+              width: 8,
+              dashPattern: [20, 10],
+              dashOffset: 0,
+              fill: null,
+              defaultColorFormat: 'hex',
+              colorFormat: 'hex',
+              color: '#df0606',
+              opacity: 0.95,
+              visible: true,
+              gradient: null,
+              joinType: 'round',
+              capType: 'round',
+              miterAngle: 28.96
+            }
+          ]
+        },
+        { undoable: false }
+      )
+      core.selectElements?.([createdId], { undoable: false })
+      core.setSystemProperty?.('pathEditingVectorId', createdId)
+      core.setSystemProperty?.('pathEditingMode', true)
+      core.setSystemProperty?.('zoom', 1)
+      core.setSystemProperty?.('viewportPosition', { x: 90, y: 90 })
+    })
+
+    await page.waitForTimeout(400)
+    const diagnostics = await readSelectedVectorDiagnostics(page)
+    expect(diagnostics.computed?.networkCount).toBe(4)
+
+    const raster = await captureSelectedElementRaster(page, 80)
+    const stats = await analyzeRedStrokeRaster(page, raster.base64)
+    expect(
+      stats.strokeCoverage,
+      `open center dashed multi-network red stroke coverage\n${JSON.stringify(
+        { stats, raster: { ...raster, base64: '<omitted>' }, diagnostics },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(0.008)
+    expect(
+      stats.visualSignal,
+      `open center dashed multi-network red stroke signal\n${JSON.stringify(
+        { stats, diagnostics },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(1.5)
+    const samples = await sampleRedStrokeAtWorkspacePoints(page, raster, [
+      { x: 192, y: 140 },
+      { x: 202, y: 140 },
+      { x: 225, y: 140 },
+      { x: 262, y: 140 }
+    ])
+    await testInfo.attach('open-center-dashed-network-half-terminal-review', {
+      body: Buffer.from(raster.base64, 'base64'),
+      contentType: 'image/png'
+    })
+    expect(samples.map((sample) => sample.covered)).toEqual([
+      true,
+      false,
+      true,
+      true
+    ])
+  })
+
+  test('keeps open pentagram dashed stroke aligned after switching from solid', async ({
+    page
+  }, testInfo) => {
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!core || !elementApis) {
+        throw new Error('Missing E2E core or element APIs')
+      }
+
+      const center = { x: 360, y: 300 }
+      const radius = 220
+      const basePoints = Array.from({ length: 5 }, (_, index) => {
+        const angle = -Math.PI / 2 + (Math.PI * 2 * index) / 5
+        return {
+          id: `open-p${index}`,
+          kind: 'anchor',
+          anchorType: 'smooth',
+          x: center.x + Math.cos(angle) * radius,
+          y: center.y + Math.sin(angle) * radius
+        }
+      })
+      const order = [0, 2, 4, 1, 3]
+      const pointIds = order.map((index) => basePoints[index]?.id ?? '')
+      const points = Object.fromEntries(
+        basePoints.map((point) => [point.id, point])
+      )
+      const segments = Object.fromEntries(
+        pointIds.slice(0, -1).map((pointId, index) => {
+          const nextPointId = pointIds[index + 1] ?? ''
+          const start = points[pointId]
+          const end = points[nextPointId]
+          if (!start || !end) {
+            throw new Error('Missing open pentagram endpoint')
+          }
+          const dx = end.x - start.x
+          const dy = end.y - start.y
+          const length = Math.hypot(dx, dy) || 1
+          const normal = {
+            x: -dy / length,
+            y: dx / length
+          }
+          const bend = index % 2 === 0 ? 58 : -46
+          const outControlId = `${pointId}:out:${index}`
+          const inControlId = `${nextPointId}:in:${index}`
+          points[outControlId] = {
+            id: outControlId,
+            kind: 'control',
+            controlForId: pointId,
+            controlRole: 'out',
+            x: start.x + dx * 0.34 + normal.x * bend,
+            y: start.y + dy * 0.34 + normal.y * bend
+          }
+          points[inControlId] = {
+            id: inControlId,
+            kind: 'control',
+            controlForId: nextPointId,
+            controlRole: 'in',
+            x: end.x - dx * 0.34 + normal.x * bend,
+            y: end.y - dy * 0.34 + normal.y * bend
+          }
+          return [
+            `open-s${index}`,
+            {
+              id: `open-s${index}`,
+              startId: pointId,
+              endId: nextPointId,
+              outControlId,
+              inControlId
+            }
+          ]
+        })
+      )
+      const networks = {
+        openStar: {
+          id: 'openStar',
+          pointIds,
+          segmentIds: pointIds.slice(0, -1).map((_, index) => `open-s${index}`),
+          closed: false
+        }
+      }
+      const createdId = elementApis.createElement(
+        {
+          type: 'vector',
+          points,
+          segments,
+          networks,
+          closed: false,
+          pointCoordinateSpace: 'workspace',
+          fills: []
+        },
+        { undoable: false }
+      )
+      if (!createdId) {
+        throw new Error('Failed to create open pentagram vector')
+      }
+      core.selectElements?.([createdId], { undoable: false })
+      core.setSystemProperty?.('pathEditingMode', false)
+      core.setSystemProperty?.('pathEditingVectorId', null)
+      core.setSystemProperty?.('zoom', 1)
+      core.setSystemProperty?.('viewportPosition', { x: 110, y: 80 })
+    })
+
+    await expect(page.getByTestId('prop-stroke-width-0')).toBeVisible()
+    await page.getByTestId('prop-stroke-width-0').fill('10')
+    await page.getByTestId('prop-stroke-width-0').press('Enter')
+    await expect(page.getByTestId('prop-stroke-width-0')).toHaveValue('10')
+    await page.getByTestId('prop-stroke-style-0').selectOption('dashed')
+    await page.getByTestId('prop-stroke-dash-0').fill('27')
+    await page.getByTestId('prop-stroke-dash-0').press('Enter')
+    await page.getByTestId('prop-stroke-gap-0').fill('20')
+    await page.getByTestId('prop-stroke-gap-0').press('Enter')
+    await page.waitForTimeout(400)
+    const pageScreenshot = await page.screenshot({
+      path: testInfo.outputPath('open-pentagram-dashed-switch-page.png'),
+      fullPage: true
+    })
+    await testInfo.attach('open-pentagram-dashed-switch-page', {
+      body: pageScreenshot,
+      contentType: 'image/png'
+    })
+    const alignmentStats = await analyzeSelectedBrightStrokeAlignmentRaster(
+      page,
+      pageScreenshot.toString('base64')
+    )
+    const raster = await captureSelectedElementRaster(page, 96)
+    await testInfo.attach('open-pentagram-dashed-switch-crop', {
+      body: Buffer.from(raster.base64, 'base64'),
+      contentType: 'image/png'
+    })
+    const runtimeSnapshot = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      const computed = selectedId
+        ? core?.deps?.sceneTree
+            ?.getElementById?.(selectedId)
+            ?.getAllComputedData?.()
+        : null
+      const renderElement = selectedId
+        ? core?.deps?.render?.getElementById?.(selectedId)
+        : null
+      const exportPackets = Array.isArray(
+        renderElement?.__asyraSolidCenterStrokeExportPackets
+      )
+        ? renderElement.__asyraSolidCenterStrokeExportPackets
+        : []
+      const exportPacketSummary = exportPackets.slice(0, 8).map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (packet: any) => ({
+          bounds: packet.bounds ?? null,
+          geometryFamily: packet.debugMeta?.geometryFamily ?? null,
+          networkId: packet.debugMeta?.networkId ?? null,
+          sourceTopology: packet.debugMeta?.sourceTopology ?? null,
+          strokePosition: packet.debugMeta?.strokePosition ?? null
+        })
+      )
+      const exportPacketBounds = exportPackets.reduce(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (bounds: any, packet: any) => {
+          const packetBounds = packet.bounds
+          if (!packetBounds) {
+            return bounds
+          }
+          return {
+            minX: Math.min(bounds.minX, packetBounds.minX),
+            minY: Math.min(bounds.minY, packetBounds.minY),
+            maxX: Math.max(bounds.maxX, packetBounds.maxX),
+            maxY: Math.max(bounds.maxY, packetBounds.maxY)
+          }
+        },
+        {
+          minX: Number.POSITIVE_INFINITY,
+          minY: Number.POSITIVE_INFINITY,
+          maxX: Number.NEGATIVE_INFINITY,
+          maxY: Number.NEGATIVE_INFINITY
+        }
+      )
+      const extremeExportPackets = exportPackets
+        .filter(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (packet: any) =>
+            packet.bounds?.minX < -4 ||
+            packet.bounds?.minY < -4 ||
+            packet.bounds?.maxX > (computed?.width ?? 0) + 4 ||
+            packet.bounds?.maxY > (computed?.height ?? 0) + 4
+        )
+        .slice(0, 8)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((packet: any) => ({
+          bounds: packet.bounds ?? null,
+          geometryId: packet.geometryId ?? null,
+          debugMeta: packet.debugMeta ?? null
+        }))
+      const meshCacheEntries = Array.from(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (renderElement?.__asyraStrokeMeshCache as Map<string, any> | undefined)
+          ?.entries?.() ?? []
+      ).map(([key, entry]) => ({
+        key,
+        kind: entry?.kind ?? null,
+        signature: entry?.signature ?? null,
+        paintKey: entry?.paintKey ?? null,
+        lastDirtyKeys: entry?.lastDirtyKeys ?? null
+      }))
+      const anchors = Object.values(computed?.points ?? {}).filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (point: any) => point?.kind === 'anchor'
+      ) as { id: string; x: number; y: number }[]
+      const anchorBounds = anchors.reduce(
+        (bounds, point) => ({
+          minX: Math.min(bounds.minX, point.x),
+          minY: Math.min(bounds.minY, point.y),
+          maxX: Math.max(bounds.maxX, point.x),
+          maxY: Math.max(bounds.maxY, point.y)
+        }),
+        {
+          minX: Number.POSITIVE_INFINITY,
+          minY: Number.POSITIVE_INFINITY,
+          maxX: Number.NEGATIVE_INFINITY,
+          maxY: Number.NEGATIVE_INFINITY
+        }
+      )
+      return {
+        selectedId,
+        computed: computed
+          ? {
+              x: computed.x,
+              y: computed.y,
+              width: computed.width,
+              height: computed.height,
+              pointCoordinateSpace: computed.pointCoordinateSpace,
+              anchorBounds,
+              anchors,
+              strokes: computed.strokes
+            }
+          : null,
+        render: {
+          x: renderElement?.x ?? null,
+          y: renderElement?.y ?? null,
+          exportPacketCount: exportPackets.length,
+          exportPacketBounds,
+          exportPacketSummary,
+          extremeExportPackets,
+          meshCacheEntries
+        }
+      }
+    })
+    await testInfo.attach('open-pentagram-dashed-switch-alignment-review', {
+      body: Buffer.from(raster.base64, 'base64'),
+      contentType: 'image/png'
+    })
+    expect(
+      alignmentStats.blueBounds,
+      `open pentagram dashed switch missing selected bounds\n${JSON.stringify(
+        { alignmentStats, runtimeSnapshot },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+    expect(
+      alignmentStats.strokeBounds,
+      `open pentagram dashed stroke missing after solid-to-dashed switch\n${JSON.stringify(
+        {
+          alignmentStats,
+          raster: { ...raster, base64: '<omitted>' },
+          runtimeSnapshot
+        },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+    if (!alignmentStats.blueBounds || !alignmentStats.strokeBounds) {
+      return
+    }
+    const tolerance = 48
+    expect(
+      alignmentStats.strokeBounds.x,
+      `open pentagram dashed stroke shifted left\n${JSON.stringify(
+        { alignmentStats, runtimeSnapshot },
+        null,
+        2
+      )}`
+    ).toBeGreaterThanOrEqual(alignmentStats.blueBounds.x - tolerance)
+    expect(
+      alignmentStats.strokeBounds.y,
+      `open pentagram dashed stroke shifted above\n${JSON.stringify(
+        { alignmentStats, runtimeSnapshot },
+        null,
+        2
+      )}`
+    ).toBeGreaterThanOrEqual(alignmentStats.blueBounds.y - tolerance)
+    expect(
+      alignmentStats.strokeBounds.x + alignmentStats.strokeBounds.width,
+      `open pentagram dashed stroke shifted right\n${JSON.stringify(
+        { alignmentStats, runtimeSnapshot },
+        null,
+        2
+      )}`
+    ).toBeLessThanOrEqual(
+      alignmentStats.blueBounds.x + alignmentStats.blueBounds.width + tolerance
+    )
+    expect(
+      alignmentStats.strokeBounds.y + alignmentStats.strokeBounds.height,
+      `open pentagram dashed stroke shifted below\n${JSON.stringify(
+        { alignmentStats, runtimeSnapshot },
+        null,
+        2
+      )}`
+    ).toBeLessThanOrEqual(
+      alignmentStats.blueBounds.y + alignmentStats.blueBounds.height + tolerance
+    )
+  })
+
+  test('repairs reported open dashed vector bounds when switching stroke style', async ({
+    page
+  }, testInfo) => {
+    await page.evaluate((data) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!core || !elementApis) {
+        throw new Error('Missing E2E core or element APIs')
+      }
+
+      const createdId = elementApis.createElement(
+        {
+          type: 'vector',
+          points: data.points,
+          segments: data.segments,
+          networks: data.networks,
+          closed: false,
+          pointCoordinateSpace: 'workspace',
+          fills: []
+        },
+        { undoable: false }
+      )
+      if (!createdId) {
+        throw new Error('Failed to create reported open dashed vector')
+      }
+
+      elementApis.changeComputedData(
+        [createdId],
+        {
+          x: data.x,
+          y: data.y,
+          width: data.width,
+          height: data.height,
+          points: data.points,
+          segments: data.segments,
+          networks: data.networks,
+          closed: data.closed,
+          pointCoordinateSpace: data.pointCoordinateSpace,
+          fills: data.fills,
+          strokes: data.strokes
+        },
+        { undoable: false }
+      )
+      core.selectElements?.([createdId], { undoable: false })
+      core.setSystemProperty?.('pathEditingMode', false)
+      core.setSystemProperty?.('pathEditingVectorId', null)
+      core.setSystemProperty?.('zoom', 0.9)
+      core.setSystemProperty?.('viewportPosition', { x: 30, y: 180 })
+    }, createReportedVector12OpenDashedSwitchData())
+
+    await expect(page.getByTestId('prop-stroke-style-0')).toBeVisible()
+    await page.getByTestId('prop-stroke-style-0').selectOption('dashed')
+    await page.waitForTimeout(400)
+
+    const pageScreenshot = await page.screenshot({
+      path: testInfo.outputPath('reported-open-dashed-switch-page.png'),
+      fullPage: true
+    })
+    await testInfo.attach('reported-open-dashed-switch-page', {
+      body: pageScreenshot,
+      contentType: 'image/png'
+    })
+    const alignmentStats = await analyzeSelectedBrightStrokeAlignmentRaster(
+      page,
+      pageScreenshot.toString('base64')
+    )
+    const runtimeSnapshot = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      const computed = selectedId
+        ? core?.deps?.sceneTree
+            ?.getElementById?.(selectedId)
+            ?.getAllComputedData?.()
+        : null
+      const anchors = Object.values(computed?.points ?? {}).filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (point: any) => point?.kind === 'anchor'
+      ) as { id: string; x: number; y: number }[]
+      const anchorBounds = anchors.reduce(
+        (bounds, point) => ({
+          minX: Math.min(bounds.minX, point.x),
+          minY: Math.min(bounds.minY, point.y),
+          maxX: Math.max(bounds.maxX, point.x),
+          maxY: Math.max(bounds.maxY, point.y)
+        }),
+        {
+          minX: Number.POSITIVE_INFINITY,
+          minY: Number.POSITIVE_INFINITY,
+          maxX: Number.NEGATIVE_INFINITY,
+          maxY: Number.NEGATIVE_INFINITY
+        }
+      )
+      return {
+        selectedId,
+        computed: computed
+          ? {
+              x: computed.x,
+              y: computed.y,
+              width: computed.width,
+              height: computed.height,
+              pointCoordinateSpace: computed.pointCoordinateSpace,
+              anchorBounds,
+              strokes: computed.strokes
+            }
+          : null
+      }
+    })
+
+    expect(
+      runtimeSnapshot.computed,
+      `reported open dashed vector missing computed data\n${JSON.stringify(
+        { runtimeSnapshot, alignmentStats },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+    if (!runtimeSnapshot.computed) {
+      return
+    }
+
+    const computedBottom =
+      runtimeSnapshot.computed.y + runtimeSnapshot.computed.height
+    expect(
+      runtimeSnapshot.computed.y,
+      `reported open dashed vector bounds top does not cover anchors\n${JSON.stringify(
+        { runtimeSnapshot, alignmentStats },
+        null,
+        2
+      )}`
+    ).toBeLessThanOrEqual(runtimeSnapshot.computed.anchorBounds.minY + 1)
+    expect(
+      computedBottom,
+      `reported open dashed vector bounds bottom does not cover anchors\n${JSON.stringify(
+        { runtimeSnapshot, alignmentStats },
+        null,
+        2
+      )}`
+    ).toBeGreaterThanOrEqual(runtimeSnapshot.computed.anchorBounds.maxY - 1)
+
+    expect(
+      alignmentStats.blueBounds,
+      `reported open dashed switch missing selected bounds\n${JSON.stringify(
+        { runtimeSnapshot, alignmentStats },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+    expect(
+      alignmentStats.strokeBounds,
+      `reported open dashed switch missing bright stroke\n${JSON.stringify(
+        { runtimeSnapshot, alignmentStats },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+    if (!alignmentStats.blueBounds || !alignmentStats.strokeBounds) {
+      return
+    }
+    const tolerance = 48
+    expect(
+      alignmentStats.strokeBounds.x,
+      `reported open dashed stroke shifted left\n${JSON.stringify(
+        { runtimeSnapshot, alignmentStats },
+        null,
+        2
+      )}`
+    ).toBeGreaterThanOrEqual(alignmentStats.blueBounds.x - tolerance)
+    expect(
+      alignmentStats.strokeBounds.y,
+      `reported open dashed stroke shifted above\n${JSON.stringify(
+        { runtimeSnapshot, alignmentStats },
+        null,
+        2
+      )}`
+    ).toBeGreaterThanOrEqual(alignmentStats.blueBounds.y - tolerance)
+    expect(
+      alignmentStats.strokeBounds.x + alignmentStats.strokeBounds.width,
+      `reported open dashed stroke shifted right\n${JSON.stringify(
+        { runtimeSnapshot, alignmentStats },
+        null,
+        2
+      )}`
+    ).toBeLessThanOrEqual(
+      alignmentStats.blueBounds.x + alignmentStats.blueBounds.width + tolerance
+    )
+    expect(
+      alignmentStats.strokeBounds.y + alignmentStats.strokeBounds.height,
+      `reported open dashed stroke shifted below\n${JSON.stringify(
+        { runtimeSnapshot, alignmentStats },
+        null,
+        2
+      )}`
+    ).toBeLessThanOrEqual(
+      alignmentStats.blueBounds.y + alignmentStats.blueBounds.height + tolerance
+    )
   })
 
   test('keeps reported inside dashed drag network visible across every segment', async ({

@@ -130,6 +130,12 @@ Dashed cases use Asyra dash interval ownership.
 All dashed groups must verify:
 
 - center dashed cases allocate dash/gap phase along the authored source path;
+- open center dashed cases allocate dash/gap records at continuous open
+  network/subpath level, not per segment boundary;
+- open center dashed cases keep half-dash terminal records at the two true
+  network endpoints when the path is long enough, keep authored-length middle
+  dashes, and may collapse to one `start-end` dash instead of squeezing tiny
+  gaps;
 - constrained inside/outside self-intersection cases allocate visible dash/gap records per source split range;
 - split-range start/end terminals must be half-dash records when the split range is long enough;
 - split-range middle dash records must keep the authored dash length;
@@ -198,6 +204,16 @@ No-fill inside dashed remains inside dashed. Lack of visible fill must not remov
 For `dashed center *`:
 
 - Dash/gap intervals are allocated along the authored source path.
+- For open paths, the allocation unit is the continuous open network/subpath.
+  Segment boundaries must not reset dash phase.
+- Open path endpoints use half-dash terminal intervals when the network is long
+  enough; middle visible intervals keep the authored dash length.
+- Open path middle gaps are distributed across the full network, and round or
+  square cap footprint must be included when enforcing the current Asyra visual
+  gap floor of `configuredGap * 0.6`.
+- If an open path cannot keep endpoint half-dashes plus a legible cap-aware
+  visual gap, it may collapse to one `start-end` visible dash rather than
+  producing crowded dash groups.
 - The visible region straddles the centerline.
 - Inside and outside samples should both have expected dash coverage.
 - Gap samples on both sides must remain empty.

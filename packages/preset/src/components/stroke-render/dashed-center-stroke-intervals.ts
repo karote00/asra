@@ -27,6 +27,7 @@ export interface DashedCenterStrokeIntervalRecord {
   figmaLikeBoundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
   figmaLikeSideResolutionStatus?: 'resolved' | 'blocked'
   figmaLikeSideResolutionReason?: string
+  openPathTerminalRole?: 'path-start' | 'path-end' | 'start-end' | 'middle'
 }
 
 export interface StrokeIntervalAllocationDomain {
@@ -99,6 +100,16 @@ const DEFAULT_FIGMA_LIKE_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO = 0.6
 const DEFAULT_FIGMA_LIKE_SPLIT_RANGE_VISUAL_GAP_TOLERANCE = 0
 const FIGMA_LIKE_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO_TEST_OVERRIDE =
   '__ASYRA_STROKE_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO__'
+const DEFAULT_OPEN_PATH_MIN_VISUAL_GAP_RATIO = 0.6
+const OPEN_PATH_MIN_VISUAL_GAP_RATIO_TEST_OVERRIDE =
+  '__ASYRA_STROKE_OPEN_PATH_MIN_VISUAL_GAP_RATIO__'
+
+export interface DashedCenterStrokeIntervalAllocationOptions {
+  openPathPolicy?: 'legacy-pattern' | 'network-balanced-terminals'
+  strokeWidth?: number
+  cap?: 'butt' | 'round' | 'square' | 'none'
+  minimumVisualGapRatio?: number
+}
 
 const getFigmaLikeSplitRangeMinimumVisualGapRatio = (
   options?: FigmaLikeSplitRangeVisualGapOptions
@@ -122,6 +133,30 @@ const getFigmaLikeSplitRangeMinimumVisualGapRatio = (
     override >= 0
     ? override
     : DEFAULT_FIGMA_LIKE_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO
+}
+
+const getOpenPathMinimumVisualGapRatio = (
+  options?: DashedCenterStrokeIntervalAllocationOptions
+) => {
+  if (
+    typeof options?.minimumVisualGapRatio === 'number' &&
+    Number.isFinite(options.minimumVisualGapRatio) &&
+    options.minimumVisualGapRatio >= 0
+  ) {
+    return options.minimumVisualGapRatio
+  }
+
+  const override =
+    typeof globalThis === 'object' && globalThis
+      ? (globalThis as Record<string, unknown>)[
+          OPEN_PATH_MIN_VISUAL_GAP_RATIO_TEST_OVERRIDE
+        ]
+      : undefined
+  return typeof override === 'number' &&
+    Number.isFinite(override) &&
+    override >= 0
+    ? override
+    : DEFAULT_OPEN_PATH_MIN_VISUAL_GAP_RATIO
 }
 
 type RawDashedCenterStrokeInterval = Omit<
@@ -188,11 +223,260 @@ const _pushRawInterval = (
   intervals.push(interval)
 }
 
+const getNormalizedDashOffset = (offset: number, cycleLength: number) => {
+  if (!Number.isFinite(offset) || cycleLength <= 0) {
+    return 0
+  }
+
+  const nextOffset = offset % cycleLength
+  return nextOffset >= 0 ? nextOffset : nextOffset + cycleLength
+}
+
+const getOpenPathCapExtension = (
+  options?: DashedCenterStrokeIntervalAllocationOptions
+) =>
+  options?.cap === 'round' || options?.cap === 'square'
+    ? Math.max(0, (options.strokeWidth ?? 0) / 2)
+    : 0
+
+const getBestOpenPathMiddleDashCandidate = ({
+  capExtension,
+  dashLength,
+  gapLength,
+  minimumVisualGapRatio,
+  totalLength
+}: {
+  capExtension: number
+  dashLength: number
+  gapLength: number
+  minimumVisualGapRatio: number
+  totalLength: number
+}) => {
+  const minimumVisualGapLength = gapLength * minimumVisualGapRatio
+  const minimumCenterlineGapLength =
+    minimumVisualGapLength + capExtension * 2
+  const remainingLengthAfterTerminals = totalLength - dashLength
+  const maxMiddleDashCount = Math.max(
+    0,
+    Math.floor(remainingLengthAfterTerminals / dashLength)
+  )
+  let bestCandidate:
+    | {
+        middleDashCount: number
+        centerlineGapLength: number
+        visualGapLength: number
+      }
+    | undefined
+
+  for (
+    let middleDashCount = 0;
+    middleDashCount <= maxMiddleDashCount;
+    middleDashCount += 1
+  ) {
+    const gapCount = middleDashCount + 1
+    const remainingGapLength =
+      totalLength - dashLength - middleDashCount * dashLength
+    if (remainingGapLength < 0) {
+      continue
+    }
+
+    const centerlineGapLength = remainingGapLength / gapCount
+    const visualGapLength = centerlineGapLength - capExtension * 2
+    if (visualGapLength + 1e-6 < minimumVisualGapLength) {
+      continue
+    }
+
+    const candidate = {
+      middleDashCount,
+      centerlineGapLength,
+      visualGapLength
+    }
+    if (!bestCandidate) {
+      bestCandidate = candidate
+      continue
+    }
+
+    const candidateGapDelta = Math.abs(visualGapLength - gapLength)
+    const bestGapDelta = Math.abs(bestCandidate.visualGapLength - gapLength)
+    if (
+      candidateGapDelta < bestGapDelta - 1e-6 ||
+      (Math.abs(candidateGapDelta - bestGapDelta) <= 1e-6 &&
+        middleDashCount > bestCandidate.middleDashCount)
+    ) {
+      bestCandidate = candidate
+    }
+  }
+
+  return bestCandidate
+}
+
+const getOpenPathMiddleDashPhaseShift = ({
+  candidate,
+  capExtension,
+  cycleLength,
+  gapLength,
+  minimumVisualGapRatio,
+  offset
+}: {
+  candidate: {
+    centerlineGapLength: number
+    middleDashCount: number
+  }
+  capExtension: number
+  cycleLength: number
+  gapLength: number
+  minimumVisualGapRatio: number
+  offset: number
+}) => {
+  if (candidate.middleDashCount <= 0 || cycleLength <= 0) {
+    return 0
+  }
+
+  const minimumCenterlineGapLength =
+    gapLength * minimumVisualGapRatio + capExtension * 2
+  const maxShift = Math.max(
+    0,
+    candidate.centerlineGapLength - minimumCenterlineGapLength
+  )
+  if (maxShift <= 0) {
+    return 0
+  }
+
+  const normalizedOffset = getNormalizedDashOffset(offset, cycleLength)
+  const signedOffset =
+    normalizedOffset > cycleLength / 2
+      ? cycleLength - normalizedOffset
+      : -normalizedOffset
+  return Math.max(-maxShift, Math.min(maxShift, signedOffset))
+}
+
+const allocateOpenPathBalancedTerminalRawIntervals = (
+  totalLength: number,
+  pattern: number[],
+  offset: number,
+  options?: DashedCenterStrokeIntervalAllocationOptions
+): RawDashedCenterStrokeInterval[] => {
+  const dashLength = pattern[0] ?? 0
+  const gapLength = pattern[1] ?? dashLength
+  if (dashLength <= 0 || gapLength <= 0) {
+    return []
+  }
+
+  if (totalLength <= dashLength + 1e-6) {
+    return [
+      {
+        kind: 'visible',
+        authoredIndex: 0,
+        startDistance: 0,
+        endDistance: totalLength,
+        intervalLength: totalLength,
+        wrapsSeam: false,
+        openPathTerminalRole: 'start-end'
+      }
+    ]
+  }
+
+  const capExtension = getOpenPathCapExtension(options)
+  const minimumVisualGapRatio = getOpenPathMinimumVisualGapRatio(options)
+  const candidate = getBestOpenPathMiddleDashCandidate({
+    capExtension,
+    dashLength,
+    gapLength,
+    minimumVisualGapRatio,
+    totalLength
+  })
+  if (!candidate) {
+    return [
+      {
+        kind: 'visible',
+        authoredIndex: 0,
+        startDistance: 0,
+        endDistance: totalLength,
+        intervalLength: totalLength,
+        wrapsSeam: false,
+        openPathTerminalRole: 'start-end'
+      }
+    ]
+  }
+
+  const halfDashLength = dashLength / 2
+  const phaseShift = getOpenPathMiddleDashPhaseShift({
+    candidate,
+    capExtension,
+    cycleLength: pattern.reduce((sum, entry) => sum + entry, 0),
+    gapLength,
+    minimumVisualGapRatio,
+    offset
+  })
+  const visibleRanges: Array<{
+    startDistance: number
+    endDistance: number
+    role: NonNullable<
+      DashedCenterStrokeIntervalRecord['openPathTerminalRole']
+    >
+  }> = [
+    {
+      startDistance: 0,
+      endDistance: halfDashLength,
+      role: 'path-start'
+    }
+  ]
+
+  let cursor = halfDashLength + candidate.centerlineGapLength + phaseShift
+  for (
+    let middleIndex = 0;
+    middleIndex < candidate.middleDashCount;
+    middleIndex += 1
+  ) {
+    visibleRanges.push({
+      startDistance: cursor,
+      endDistance: cursor + dashLength,
+      role: 'middle'
+    })
+    cursor += dashLength + candidate.centerlineGapLength
+  }
+
+  visibleRanges.push({
+    startDistance: totalLength - halfDashLength,
+    endDistance: totalLength,
+    role: 'path-end'
+  })
+
+  const rawIntervals: RawDashedCenterStrokeInterval[] = []
+  visibleRanges.forEach((visibleRange, visibleIndex) => {
+    if (visibleIndex > 0) {
+      const previousVisibleRange = visibleRanges[visibleIndex - 1]
+      _pushRawInterval(rawIntervals, {
+        kind: 'gap',
+        authoredIndex: visibleIndex * 2 - 1,
+        startDistance: previousVisibleRange?.endDistance ?? 0,
+        endDistance: visibleRange.startDistance,
+        intervalLength:
+          visibleRange.startDistance - (previousVisibleRange?.endDistance ?? 0),
+        wrapsSeam: false
+      })
+    }
+
+    _pushRawInterval(rawIntervals, {
+      kind: 'visible',
+      authoredIndex: visibleIndex * 2,
+      startDistance: visibleRange.startDistance,
+      endDistance: visibleRange.endDistance,
+      intervalLength: visibleRange.endDistance - visibleRange.startDistance,
+      wrapsSeam: false,
+      openPathTerminalRole: visibleRange.role
+    })
+  })
+
+  return rawIntervals
+}
+
 export const allocateDashedCenterStrokeIntervals = (
   totalLength: number,
   pattern: number[],
   offset: number,
-  closed: boolean
+  closed: boolean,
+  options: DashedCenterStrokeIntervalAllocationOptions = {}
 ): DashedCenterStrokeIntervalRecord[] => {
   if (
     !Number.isFinite(totalLength) ||
@@ -207,14 +491,21 @@ export const allocateDashedCenterStrokeIntervals = (
     return []
   }
 
-  const normalizedOffset = (() => {
-    if (!Number.isFinite(offset)) {
-      return 0
-    }
+  if (
+    !closed &&
+    options.openPathPolicy === 'network-balanced-terminals'
+  ) {
+    return withVisibleIntervalLinks(
+      allocateOpenPathBalancedTerminalRawIntervals(
+        totalLength,
+        pattern,
+        offset,
+        options
+      )
+    )
+  }
 
-    const nextOffset = offset % cycleLength
-    return nextOffset >= 0 ? nextOffset : nextOffset + cycleLength
-  })()
+  const normalizedOffset = getNormalizedDashOffset(offset, cycleLength)
 
   const rawIntervals: RawDashedCenterStrokeInterval[] = []
 
