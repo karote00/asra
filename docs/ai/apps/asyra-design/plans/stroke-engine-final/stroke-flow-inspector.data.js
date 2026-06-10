@@ -38,9 +38,11 @@
     'Dashed constrained strokes remain interval-domain based. Dash intervals, terminal half-dashes, and caps must stay separate from solid visible geometry.',
     'Split-range dash allocation is cap-aware: round and square caps extend the painted footprint, so the allocator must avoid producing many dash groups whose visual gaps after caps are much smaller than the configured gap. The current floor is configuredGap * 0.6 after cap footprint; short cap-aware ranges may collapse into one start-end dash.',
     'Open center dashed allocation is continuous-network based: the two true open network endpoints own half-dash terminals, middle dashes keep authored length, segment boundaries do not reset phase, and cap-aware visual gaps use the same configuredGap * 0.6 readability floor.',
+    'Open authored dashed inside/outside strokes are center-equivalent only when no bounded filled-region domain exists. Open self-intersecting networks with bounded filled regions formed by real authored source segments use constrained dashed products with position-specific ownership: inside paints only filled-contour source spans and excludes dangling open branches, while outside paints exterior contour spans and renders dangling open-branch spans on both sides of the source path with a visible normal span near stroke.width * 2. Each independent constrained source span owns its own half-terminal dash allocation; continuous open-network dash phase must not carry across those spans. No invisible closing edge may be added for domain, dash, hit-test, export, or product output.',
     'Center dashed visible render is the authored center dashed stroke. Drag frames may use exact authored centerline strokePath descriptors for visible dash intervals and must not require center dashed polygon packets or resolved self-intersection geometry unless diagnostics, hit/export, or another exact rule needs that evidence.',
     'Constrained inside dashed product-visible render may use one exact grouped mask descriptor: fillClipPolygons plus authored dashed strokePaths and strokePathStyle. That descriptor is the product path, not preview or helper geometry.',
     'A single exact constrained inside dashed mask descriptor for one fill domain and one stroke style may bypass same-visual overlap collapse; per-interval polygons may remain diagnostics/export evidence but must not be required for visible drag frames.',
+    'Constrained dashed descriptor routing must reuse resolved self-intersection split/domain metadata. Source-span fallback may cover uncovered source segment spans, but visible product output must not retrace the source path or recompute source intersections during drag.',
     'Constrained outside dashed product-visible drag render may use one exact grouped exterior-mask descriptor: authored doubled center-dashed strokePaths plus authored cap, join, and miter style clipped to the outside legal domain. Square and round caps keep full terminal/cap metadata; butt-cap outside dashed drag may use fill-only resolved geometry only when terminal rules do not require full stroke-boundary metadata.',
     'Product output may emit render, hit, export, and diagnostic descriptors, but visible render must not use diagnostic/helper geometry as product output.',
     'The outside dashed square visual gate has current self-intersecting star rule probes and reviewed screenshots passing; this is slice evidence, not a whole-engine completion claim.',
@@ -131,7 +133,7 @@
     {
       row: 'dashed-constrained-strokes',
       requiredEvidence:
-        'Interval-domain dash allocation, terminal half-dashes, cap behavior, and provenance remain separate from solid visible geometry; constrained inside/outside dashed visible product geometry is doubled authored center-dashed stroke clipped by the selected legal-domain mask, encoded either as exact final faces or one exact grouped mask descriptor, not one-sided ribbon fallback. Cap-aware allocation must keep visual gaps legible after round/square cap footprint or collapse short ranges into one start-end dash.',
+        'Interval-domain dash allocation, terminal half-dashes, cap behavior, and provenance remain separate from solid visible geometry; closed constrained inside/outside dashed visible product geometry is doubled authored center-dashed stroke clipped by the selected legal-domain mask, encoded either as exact final faces or one exact grouped mask descriptor. Open self-intersecting networks with bounded filled regions from real authored source segments are constrained dashed products, not center fallback: inside keeps only filled-contour source spans, outside keeps exterior contour spans plus dangling open-branch spans materialized on both sides of the source path, each independent constrained span owns its own half-terminal dash allocation, and no synthesized closing edge may become domain evidence or product stroke output. Cap-aware allocation must keep visual gaps legible after round/square cap footprint or collapse short ranges into one start-end dash.',
       status:
         'center/inside/outside dashed drag performance slice passed: exact descriptor paths are visible product encodings, with outside dashed square reviewed screenshots passing for the self-intersecting star slice'
     },
@@ -620,9 +622,9 @@
         'hidden-output early return for invisible product'
       ],
       currentImplementation:
-        'Vector render keeps a per-graphic StrokePipelineStageCache with product descriptors keyed by element, network, source revision, and stroke geometry signature. Paint-only changes retint cached final faces/render entries; visible=false clears render/hit/export output without rebuilding geometry.',
+        'Vector render keeps a per-graphic StrokePipelineStageCache with product descriptors keyed by element, network, source revision, and stroke geometry signature. Paint-only changes retint cached final faces/render entries; style-replayable stroke-path descriptors restyle current cap/join/miter values without rebuilding descriptor geometry; visible=false clears render/hit/export output without rebuilding geometry.',
       requiredAdjustment:
-        'Do not use stale cached descriptors when source revision or geometry-affecting stroke signature changes; diagnostics/export polygon materialization must remain lazy and separate from normal visible render.',
+        'Do not use stale cached descriptors when source revision or geometry-affecting stroke signature changes. Descriptor replay must update strokePathStyle; polygon product geometry that embeds miter shape must not use style-only replay. Diagnostics/export polygon materialization must remain lazy and separate from normal visible render.',
       relatedTests: [
         'packages/preset/src/__tests__/stroke-parameter-switch-performance.test.ts',
         'apps/asyra-design/e2e/stroke-parameter-switch-performance.spec.ts'
@@ -642,11 +644,11 @@
     'build-stroke-candidates': {
       alignmentStatus: 'guarded',
       latestRule:
-        'Center solid and center dashed visible candidates may be authored stroke path descriptors; constrained solid candidates remain doubled authored center-stroke candidates with join and miter semantics before masking; constrained dashed candidates keep interval ownership and inside/outside product descriptors.',
+        'Center solid and center dashed visible candidates may be authored stroke path descriptors; constrained solid candidates remain doubled authored center-stroke candidates with join and miter semantics before masking; constrained dashed candidates keep interval ownership, side-domain evidence, and inside/outside product descriptors.',
       currentImplementation:
-        'Center solid drag frames may use native authored stroke projection when alpha-safe; center dashed drag frames use exact authored centerline strokePath descriptors; constrained dashed drag frames use exact inside/outside mask descriptors while preserving terminal-sensitive square/round rules.',
+        'Center solid drag frames may use native authored stroke projection when alpha-safe; center dashed drag frames use exact authored centerline strokePath descriptors; closed constrained dashed drag frames may use exact inside/outside mask descriptors and reuse resolved split/domain metadata instead of rerunning source-intersection tracing. Open self-intersecting constrained dashed must use contour-ownership routing: inside excludes dangling branches, outside renders dangling branches as true both-side spans rather than center fallback.',
       requiredAdjustment:
-        'Keep center, constrained solid, and dashed candidate models separate; do not turn face strips or helper polygons into visible solid geometry.',
+        'Keep center, constrained solid, and dashed candidate models separate; do not turn face strips or helper polygons into visible solid geometry, and do not recompute source intersections in visible product output when resolved metadata already owns them.',
       tags: ['canonical', 'guarded']
     },
     'apply-legality': {

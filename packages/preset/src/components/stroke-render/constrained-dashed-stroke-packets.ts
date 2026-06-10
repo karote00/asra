@@ -213,6 +213,7 @@ const SOURCE_PATH_DASH_SEGMENT_OVERLAP_FACTOR = 0.04
 const SOURCE_PATH_DASH_SEGMENT_OVERLAP_MAX = 0.6
 const SOURCE_PATH_RIBBON_FRAME_CACHE_LIMIT = 32
 const SOURCE_PATH_FINAL_RANGE_POLYGON_CACHE_LIMIT = 4096
+const SOURCE_PATH_INTERVAL_STROKE_PATH_CACHE_LIMIT = 4096
 
 type DashedTopologyInterval = ReturnType<
   typeof allocateDashedIntervalsForTopology
@@ -239,6 +240,10 @@ export type VisibleDashedTopologyInterval = DashedTopologyInterval & {
   figmaLikeSideResolutionReason?: string
 }
 
+interface ConstrainedDashedVisibleIntervalsOptions {
+  preferOpenPathNetworkIntervals?: boolean
+}
+
 const isSourceSpanFallbackVisibleInterval = (
   interval: Pick<
     VisibleDashedTopologyInterval,
@@ -246,7 +251,12 @@ const isSourceSpanFallbackVisibleInterval = (
   >
 ) =>
   interval.figmaLikeSideResolutionReason === 'source-span-fallback' ||
+  interval.figmaLikeSideResolutionReason === 'open-source-span-both-sides' ||
   interval.figmaLikeSplitRangeId?.startsWith('source-span-fallback:') === true
+
+const isOpenSourceSpanBothSidesVisibleInterval = (
+  interval: Pick<VisibleDashedTopologyInterval, 'figmaLikeSideResolutionReason'>
+) => interval.figmaLikeSideResolutionReason === 'open-source-span-both-sides'
 
 const buildBoundaryDomainPathForIntervalUncached = (
   interval: Pick<
@@ -591,8 +601,25 @@ export const getConstrainedDashedVisibleIntervals = (
     | 'splitRangeDomains'
     | 'legalBoundaryDomains'
     | 'sideResolutionContext'
-  >
+  >,
+  options: ConstrainedDashedVisibleIntervalsOptions = {}
 ): VisibleDashedTopologyInterval[] => {
+  if (!topology.closed && options.preferOpenPathNetworkIntervals === true) {
+    return allocateDashedIntervalsForTopology(
+      topology,
+      stroke.dashPattern,
+      stroke.dashOffset,
+      {
+        openPathPolicy: 'network-balanced-terminals',
+        strokeWidth: stroke.width,
+        cap: stroke.cap
+      }
+    ).filter(
+      (interval): interval is VisibleDashedTopologyInterval =>
+        interval.kind === 'visible'
+    )
+  }
+
   if (
     strokeDomainPlan?.intervalDomainKind === 'figma-like-split-range' &&
     strokeDomainPlan.splitRangeDomains.length > 0
@@ -994,6 +1021,9 @@ export const classifyConstrainedDashedSource = (
   topology?: PathTopologyModel
 ): ConstrainedDashedSourceTopology => {
   if (topology) {
+    if (!topology.closed && !topology.isSimpleOpen) {
+      return 'self-intersecting'
+    }
     return mapPathTopologyFamilyToConstrainedDashedSource(
       topology.topologyFamily
     )
@@ -1621,6 +1651,7 @@ interface ExactSourcePathOffsetRibbonSegmentFrame {
 }
 
 const sourcePathFinalRangePolygonCache = new Map<string, Vec2[][]>()
+const sourcePathIntervalStrokePathCache = new Map<string, Vec2[][]>()
 const exactSourcePathRibbonSegmentFrameCache = new Map<
   string,
   ExactSourcePathRibbonSegmentFrame
@@ -1900,6 +1931,66 @@ const buildSourcePathFinalRangePolygonCacheKey = (
   ].join('|')
 }
 
+const buildSourcePathIntervalStrokePathCacheKey = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  interval: VisibleDashedTopologyInterval,
+  intervalRanges: { startDistance: number; endDistance: number }[],
+  slicingContext: SourcePathSlicingContext
+) => {
+  const rangeKeys = intervalRanges.map((range) => {
+    const splitRanges = splitSourcePathRangeBySegmentBoundaries(
+      path,
+      range.startDistance,
+      range.endDistance,
+      slicingContext
+    )
+    const segmentsKey = splitRanges
+      .map((splitRange) => {
+        const segmentRange = slicingContext.segmentRanges[splitRange.segmentIndex]
+        const segment = path.segments[splitRange.segmentIndex]
+        if (!segmentRange || !segment) {
+          return null
+        }
+        const localStartDistance =
+          splitRange.startDistance - segmentRange.startDistance
+        const localEndDistance =
+          splitRange.endDistance - segmentRange.startDistance
+        return [
+          splitRange.segmentIndex,
+          buildExactSourcePathRibbonSegmentFrameCacheKey(
+            segment,
+            slicingContext.samplingTolerance,
+            slicingContext.samplingOptions
+          ),
+          formatSourcePathRangeKeyDistance(localStartDistance),
+          formatSourcePathRangeKeyDistance(localEndDistance)
+        ].join(':')
+      })
+      .filter((entry): entry is string => !!entry)
+      .join(',')
+    return [
+      formatSourcePathRangeKeyDistance(range.startDistance),
+      formatSourcePathRangeKeyDistance(range.endDistance),
+      segmentsKey
+    ].join('@')
+  })
+
+  return [
+    'interval-stroke-path:v1',
+    path.closed ? 'closed' : 'open',
+    interval.wrapsSeam ? 'wrap' : 'range',
+    slicingContext.samplingTolerance.toFixed(4),
+    slicingContext.samplingOptions.minCubicSamples ?? 'default-min',
+    slicingContext.samplingOptions.maxCubicSamples ?? 'default-max',
+    slicingContext.samplingOptions.useRangeLengthForSampleCount === true
+      ? 'range'
+      : 'curve',
+    formatSourcePathRangeKeyDistance(interval.startDistance),
+    formatSourcePathRangeKeyDistance(interval.endDistance),
+    rangeKeys.join('|')
+  ].join('|')
+}
+
 const getCachedSourcePathFinalRangePolygons = (cacheKey: string) => {
   const cached = sourcePathFinalRangePolygonCache.get(cacheKey)
   if (!cached) {
@@ -1925,6 +2016,35 @@ const setCachedSourcePathFinalRangePolygons = (
     const [oldestKey] = sourcePathFinalRangePolygonCache.keys()
     if (oldestKey) {
       sourcePathFinalRangePolygonCache.delete(oldestKey)
+    }
+  }
+}
+
+const getCachedSourcePathIntervalStrokePaths = (cacheKey: string) => {
+  const cached = sourcePathIntervalStrokePathCache.get(cacheKey)
+  if (!cached) {
+    return null
+  }
+
+  sourcePathIntervalStrokePathCache.delete(cacheKey)
+  sourcePathIntervalStrokePathCache.set(cacheKey, cached)
+  emitStrokePipelineCounter('source-path-interval-stroke-path-cache-hit')
+  return cached
+}
+
+const setCachedSourcePathIntervalStrokePaths = (
+  cacheKey: string,
+  strokePaths: Vec2[][]
+) => {
+  emitStrokePipelineCounter('source-path-interval-stroke-path-cache-miss')
+  sourcePathIntervalStrokePathCache.set(cacheKey, strokePaths)
+  if (
+    sourcePathIntervalStrokePathCache.size >
+    SOURCE_PATH_INTERVAL_STROKE_PATH_CACHE_LIMIT
+  ) {
+    const [oldestKey] = sourcePathIntervalStrokePathCache.keys()
+    if (oldestKey) {
+      sourcePathIntervalStrokePathCache.delete(oldestKey)
     }
   }
 }
@@ -2703,6 +2823,7 @@ const getSourcePathRangeRoundCapOwnership = (
     | 'figmaLikeSelectedSide'
     | 'figmaLikeBoundaryRole'
     | 'figmaLikeSideResolutionStatus'
+    | 'figmaLikeSideResolutionReason'
     | 'figmaLikeBoundaryPoints'
   >,
   stroke: Pick<
@@ -2778,6 +2899,7 @@ const buildDashedSourcePathIntervalSweep = (
     | 'figmaLikeSelectedSide'
     | 'figmaLikeBoundaryRole'
     | 'figmaLikeSideResolutionStatus'
+    | 'figmaLikeSideResolutionReason'
     | 'figmaLikeBoundaryPoints'
   >,
   stroke: Pick<
@@ -7902,6 +8024,53 @@ const shouldClipSourceSegmentBoundaryForInsideRange = (
   )
 }
 
+const buildOpenSourceSpanBothSidesPolygons = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  range: SourceSegmentIntervalRange,
+  authoredStroke: Pick<
+    RenderableStroke,
+    'style' | 'width' | 'join' | 'miterLimit' | 'cap'
+  >,
+  slicingContext: SourcePathSlicingContext
+) => {
+  const points = sliceSourcePathRangePoints(
+    path,
+    range,
+    'core',
+    slicingContext
+  )
+  if (points.length < 2 || authoredStroke.width <= EPSILON) {
+    return []
+  }
+
+  const baseStroke = {
+    style: 'solid' as const,
+    width: authoredStroke.width,
+    join: authoredStroke.join,
+    miterLimit: authoredStroke.miterLimit,
+    cap: authoredStroke.cap
+  }
+
+  return (['inside', 'outside'] as const)
+    .flatMap((position) =>
+      buildConstrainedDashedLocalSideStrokePolygons(
+        points,
+        false,
+        {
+          ...baseStroke,
+          position
+        },
+        {
+          assumeSimpleOpen: true,
+          assumeSimpleClosed: undefined,
+          assumeNormalizedOpen: true
+        }
+      )
+    )
+    .map(cleanPolygon)
+    .filter(hasPolygonGeometry)
+}
+
 const appendDashedSourcePathFinalCoverageRangePolygons = (
   output: Vec2[][],
   path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
@@ -7925,6 +8094,7 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
     | 'figmaLikeSelectedSide'
     | 'figmaLikeBoundaryRole'
     | 'figmaLikeSideResolutionStatus'
+    | 'figmaLikeSideResolutionReason'
     | 'figmaLikeBoundaryPoints'
   >,
   authoredStroke: Pick<
@@ -7954,8 +8124,26 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
   const shouldResolveSelfIntersectingLegalSide =
     strokeDomainPlan?.sideAuthority === 'implicit-fill-hole-domain' &&
     authoredConstrainedPosition !== null
+  const shouldRenderOpenSourceSpanAsBothSides =
+    isOpenSourceSpanBothSidesVisibleInterval(interval)
+  if (shouldRenderOpenSourceSpanAsBothSides) {
+    output.push(
+      ...buildOpenSourceSpanBothSidesPolygons(
+        path,
+        renderRange,
+        authoredStroke,
+        slicingContext
+      )
+    )
+    return
+  }
   const resolvedIntervalStroke = shouldResolveSelfIntersectingLegalSide
-    ? interval.figmaLikeSideResolutionStatus === 'resolved' &&
+    ? shouldRenderOpenSourceSpanAsBothSides
+      ? {
+          position: 'center' as const,
+          width: intervalStroke.width
+        }
+      : interval.figmaLikeSideResolutionStatus === 'resolved' &&
       interval.figmaLikeSelectedSide !== undefined
       ? {
           position:
@@ -8175,6 +8363,7 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
     let appendedSquareSplitTerminalFootprints = false
     if (
       shouldResolveSelfIntersectingLegalSide &&
+      !shouldRenderOpenSourceSpanAsBothSides &&
       authoredStroke.position === 'outside' &&
       clipInsideToFillDomain &&
       interval.figmaLikeBoundaryRole !== 'hole' &&
@@ -8247,10 +8436,11 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
         .map((polygon) => cleanClippedProductPolygon(polygon))
         .filter(hasPolygonGeometry)
     }
-    if (
-      shouldResolveSelfIntersectingLegalSide &&
-      authoredStroke.position === 'outside' &&
-      authoredStroke.cap === 'square' &&
+  if (
+    shouldResolveSelfIntersectingLegalSide &&
+    !shouldRenderOpenSourceSpanAsBothSides &&
+    authoredStroke.position === 'outside' &&
+    authoredStroke.cap === 'square' &&
       interval.figmaLikeBoundaryRole !== 'hole' &&
       (interval.figmaLikeTerminalRole === 'start' ||
         interval.figmaLikeTerminalRole === 'end' ||
@@ -8266,10 +8456,11 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
         finalRangePolygons = [...finalRangePolygons, ...terminalFootprints]
       }
     }
-    if (
-      shouldResolveSelfIntersectingLegalSide &&
-      authoredStroke.position === 'outside' &&
-      authoredStroke.cap === 'square' &&
+  if (
+    shouldResolveSelfIntersectingLegalSide &&
+    !shouldRenderOpenSourceSpanAsBothSides &&
+    authoredStroke.position === 'outside' &&
+    authoredStroke.cap === 'square' &&
       interval.figmaLikeSplitRangeId !== undefined
     ) {
       finalRangePolygons =
@@ -8519,10 +8710,21 @@ const buildInsideDoubledCenterDashedIntervalStrokePath = (
           {
             startDistance: interval.startDistance,
             endDistance: interval.endDistance
-          }
-        ]
+        }
+      ]
 
-  return intervalRanges.flatMap((range) => {
+  const cacheKey = buildSourcePathIntervalStrokePathCacheKey(
+    path,
+    interval,
+    intervalRanges,
+    slicingContext
+  )
+  const cached = getCachedSourcePathIntervalStrokePaths(cacheKey)
+  if (cached) {
+    return cached
+  }
+
+  const strokePaths = intervalRanges.flatMap((range) => {
     if (range.endDistance - range.startDistance <= EPSILON) {
       return []
     }
@@ -8548,6 +8750,8 @@ const buildInsideDoubledCenterDashedIntervalStrokePath = (
     const points = dedupeRibbonFrames(frames).map((frame) => frame.point)
     return points.length >= 2 ? [points] : []
   })
+  setCachedSourcePathIntervalStrokePaths(cacheKey, strokePaths)
+  return strokePaths
 }
 
 const buildInsideDoubledCenterDashedRenderMaskDescriptor = (
@@ -8570,20 +8774,28 @@ const buildInsideDoubledCenterDashedRenderMaskDescriptor = (
     return null
   }
 
-  const strokePaths = intervals.flatMap((interval) =>
-    buildInsideDoubledCenterDashedIntervalStrokePath(
-      path,
-      interval,
-      slicingContext
-    )
+  const strokePaths = measureStrokePipelinePhase(
+    'constrained dashed product visual entries: inside mask stroke paths',
+    () =>
+      intervals.flatMap((interval) =>
+        buildInsideDoubledCenterDashedIntervalStrokePath(
+          path,
+          interval,
+          slicingContext
+        )
+      )
   )
   if (strokePaths.length === 0) {
     return null
   }
 
-  const fillClipPolygons = getCoveragePolygonsFromRegions(implicitFillRegions)
-    .map(cleanPolygon)
-    .filter(hasPolygonGeometry)
+  const fillClipPolygons = measureStrokePipelinePhase(
+    'constrained dashed product visual entries: inside mask clip polygons',
+    () =>
+      getCoveragePolygonsFromRegions(implicitFillRegions)
+        .map(cleanPolygon)
+        .filter(hasPolygonGeometry)
+  )
   if (fillClipPolygons.length === 0) {
     return null
   }
@@ -8683,7 +8895,8 @@ const buildOutsideDoubledCenterDashedRenderMaskDescriptor = (
   >,
   slicingContext: SourcePathSlicingContext,
   implicitFillRegions: PolygonRegion[],
-  fallbackFillPolygons: Vec2[][]
+  fallbackFillPolygons: Vec2[][],
+  preferBoundaryDomainPath = true
 ) => {
   if (
     authoredStroke.position !== 'outside' ||
@@ -8697,7 +8910,7 @@ const buildOutsideDoubledCenterDashedRenderMaskDescriptor = (
     path,
     intervals,
     slicingContext,
-    true
+    preferBoundaryDomainPath
   )
   if (strokePaths.length === 0) {
     return null
@@ -8843,6 +9056,7 @@ const buildDashedSourcePathFinalCoveragePolygons = (
   emitStrokePipelineCounter('final-coverage-builder-hit')
   if (
     authoredStroke.position === 'inside' &&
+    path.closed &&
     clipInsideToFillDomain &&
     implicitFillRegions.length > 0 &&
     !isSourceSpanFallbackVisibleInterval(interval)
@@ -8975,7 +9189,11 @@ export const buildConstrainedDashedStrokeProductVisualEntries = (
   }
 
   const sourcePath = options.sourcePath
-  if (!sourcePath?.closed || !closed) {
+  const hasImplicitFillDomain = (options.implicitFillRegions?.length ?? 0) > 0
+  if (
+    !sourcePath ||
+    ((!sourcePath.closed || !closed) && !hasImplicitFillDomain)
+  ) {
     return null
   }
 
@@ -8988,34 +9206,51 @@ export const buildConstrainedDashedStrokeProductVisualEntries = (
       closed
     })
   const topologyPoints = topology.normalizedPoints
-  const sourceTopology = classifyConstrainedDashedSource(
-    topologyPoints,
-    topology.closed,
-    topology
-  )
+  const sourceTopology =
+    !topology.closed &&
+    (hasImplicitFillDomain ||
+      (options.sharedSourceSplitRanges?.length ?? 0) > 0 ||
+      (options.sharedStrokeBoundaryDomains?.length ?? 0) > 0)
+      ? 'self-intersecting'
+      : classifyConstrainedDashedSource(topologyPoints, topology.closed, topology)
+  const usesOpenSelfIntersectingImplicitDomain =
+    !topology.closed && !topology.isSimpleOpen && hasImplicitFillDomain
+  const usesOpenImplicitFillDomain = !topology.closed && hasImplicitFillDomain
   const segmentRanges = getClosedSegmentRanges(topologyPoints, topology.closed)
-  const sharpGuardVertices =
-    topology.closed && sourceTopology !== 'degenerate'
-      ? buildSharpGuardVertices(
-          topologyPoints,
-          segmentRanges,
-          options.selectedSideGuardPoints,
-          sourcePath,
-          false
-        )
-      : []
-  const slicingContext = createSourcePathSlicingContext(
-    sourcePath,
-    options.visualOnly === true
-      ? DRAG_SOURCE_PATH_DASH_SLICE_TOLERANCE
-      : SOURCE_PATH_DASH_SLICE_TOLERANCE,
-    options.visualOnly === true
-      ? DRAG_SOURCE_PATH_DASH_SLICE_SAMPLING
-      : SOURCE_PATH_DASH_SLICE_SAMPLING,
-    options.visualOnly === true
-      ? DRAG_ROUND_CAP_VISUAL_MAX_LENGTH
-      : ROUND_CAP_VISUAL_MAX_LENGTH
-  )
+  let sharpGuardVerticesCache: SharpGuardVertex[] | null = null
+  const getSharpGuardVertices = () => {
+    if (!sharpGuardVerticesCache) {
+      sharpGuardVerticesCache =
+        topology.closed && sourceTopology !== 'degenerate'
+          ? buildSharpGuardVertices(
+              topologyPoints,
+              segmentRanges,
+              options.selectedSideGuardPoints,
+              sourcePath,
+              false
+            )
+          : []
+    }
+    return sharpGuardVerticesCache
+  }
+  let slicingContextCache: SourcePathSlicingContext | null = null
+  const getSlicingContext = () => {
+    if (!slicingContextCache) {
+      slicingContextCache = createSourcePathSlicingContext(
+        sourcePath,
+        options.visualOnly === true
+          ? DRAG_SOURCE_PATH_DASH_SLICE_TOLERANCE
+          : SOURCE_PATH_DASH_SLICE_TOLERANCE,
+        options.visualOnly === true
+          ? DRAG_SOURCE_PATH_DASH_SLICE_SAMPLING
+          : SOURCE_PATH_DASH_SLICE_SAMPLING,
+        options.visualOnly === true
+          ? DRAG_ROUND_CAP_VISUAL_MAX_LENGTH
+          : ROUND_CAP_VISUAL_MAX_LENGTH
+      )
+    }
+    return slicingContextCache
+  }
   const ownerPrefix =
     options.metadata?.ownerKeyPrefix ?? 'anonymous-constrained-dashed-source'
   const primaryContour = topology.contours[0]
@@ -9036,58 +9271,83 @@ export const buildConstrainedDashedStrokeProductVisualEntries = (
       return null
     }
 
-    const strokeDomainPlan = resolveStrokeDomains({
-      topology,
-      sourceFamily: resolveSourceFamily({ topology, stroke }),
-      stroke,
-      sourcePath,
-      implicitFillRegions: options.implicitFillRegions,
-      sharedSourceSplitRanges: options.sharedSourceSplitRanges,
-      sharedStrokeBoundaryDomains: options.sharedStrokeBoundaryDomains
-    })
-    const allocatedVisibleIntervals = getConstrainedDashedVisibleIntervals(
-      topology,
-      stroke,
-      sourcePath,
-      strokeDomainPlan
+    const strokeDomainPlan = measureStrokePipelinePhase(
+      'constrained dashed product visual entries: resolve domains',
+      () =>
+        resolveStrokeDomains({
+          topology,
+          sourceFamily: resolveSourceFamily({ topology, stroke }),
+          stroke,
+          sourcePath,
+          implicitFillRegions: options.implicitFillRegions,
+          sharedSourceSplitRanges: options.sharedSourceSplitRanges,
+          sharedStrokeBoundaryDomains: options.sharedStrokeBoundaryDomains
+        })
     )
-    const visibleIntervals =
-      replaceOutsideSmoothSourceVertexContinuityIntervals(
-        allocatedVisibleIntervals,
-        sourcePath,
-        {
-          position: stroke.position,
-          width: stroke.width
-        }
-      )
+    const allocatedVisibleIntervals = measureStrokePipelinePhase(
+      'constrained dashed product visual entries: visible intervals',
+      () =>
+        getConstrainedDashedVisibleIntervals(
+          topology,
+          stroke,
+          sourcePath,
+          strokeDomainPlan,
+          {}
+        )
+    )
+    const visibleIntervals = measureStrokePipelinePhase(
+      'constrained dashed product visual entries: interval continuity',
+      () =>
+        replaceOutsideSmoothSourceVertexContinuityIntervals(
+          allocatedVisibleIntervals,
+          sourcePath,
+          {
+            position: stroke.position,
+            width: stroke.width
+          }
+        )
+    )
     if (visibleIntervals.length === 0) {
       continue
     }
 
+    const hasSourceSpanFallbackDomains =
+      stroke.position === 'inside' &&
+      strokeDomainPlan.diagnostics.includes('source-span-fallback-domains-added')
+    if (options.visualOnly === true && hasSourceSpanFallbackDomains) {
+      continue
+    }
+
     if (options.visualOnly === true) {
-      const visualSlicingContext = createSourcePathSlicingContext(
-        sourcePath,
-        DRAG_SOURCE_PATH_DASH_SLICE_TOLERANCE,
-        DRAG_SOURCE_PATH_DASH_SLICE_SAMPLING,
-        DRAG_ROUND_CAP_VISUAL_MAX_LENGTH
-      )
+      if (usesOpenImplicitFillDomain) {
+        continue
+      }
+      const hasSourceSpanFallbackIntervals =
+        stroke.position === 'inside' &&
+        visibleIntervals.some(isSourceSpanFallbackVisibleInterval)
+      const visualSlicingContext = hasSourceSpanFallbackIntervals
+        ? null
+        : getSlicingContext()
       const descriptor =
-        stroke.position === 'inside'
-          ? buildInsideDoubledCenterDashedRenderMaskDescriptor(
-              sourcePath,
-              visibleIntervals,
-              stroke,
-              visualSlicingContext,
-              options.implicitFillRegions ?? []
-            )
-          : buildOutsideDoubledCenterDashedRenderMaskDescriptor(
-              sourcePath,
-              visibleIntervals,
-              stroke,
-              visualSlicingContext,
-              options.implicitFillRegions ?? [],
-              [topologyPoints]
-            )
+        visualSlicingContext === null
+          ? null
+          : stroke.position === 'inside'
+            ? buildInsideDoubledCenterDashedRenderMaskDescriptor(
+                sourcePath,
+                visibleIntervals,
+                stroke,
+                visualSlicingContext,
+                options.implicitFillRegions ?? []
+              )
+            : buildOutsideDoubledCenterDashedRenderMaskDescriptor(
+                sourcePath,
+                visibleIntervals,
+                stroke,
+                visualSlicingContext,
+                options.implicitFillRegions ?? [],
+                [topologyPoints],
+                !usesOpenSelfIntersectingImplicitDomain
+              )
 
       if (descriptor) {
         const geometryId = `${cachePrefix}:${strokeIndex}:product-visual-mask`
@@ -9180,6 +9440,7 @@ export const buildConstrainedDashedStrokeProductVisualEntries = (
       stroke,
       topology.topologyFamily
     )
+    const slicingContext = getSlicingContext()
     const squareCapPhysicalStroke =
       stroke.cap === 'square'
         ? {
@@ -9251,7 +9512,7 @@ export const buildConstrainedDashedStrokeProductVisualEntries = (
         interval,
         intervalAuthoredStroke,
         intervalStroke,
-        sharpGuardVertices,
+        getSharpGuardVertices(),
         slicingContext,
         strokeDomainPlan,
         options.clipInsideToFillDomain === true,
@@ -12155,11 +12416,17 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
   const contourId = options.metadata?.contourId ?? primaryContour?.contourId
   const legalDomainId =
     options.metadata?.legalDomainId ?? primaryContour?.legalDomainId
-  const sourceTopology = classifyConstrainedDashedSource(
-    topologyPoints,
-    topology.closed,
-    topology
-  )
+  const hasImplicitFillDomain = (options.implicitFillRegions?.length ?? 0) > 0
+  const sourceTopology =
+    !topology.closed &&
+    (hasImplicitFillDomain ||
+      (options.sharedSourceSplitRanges?.length ?? 0) > 0 ||
+      (options.sharedStrokeBoundaryDomains?.length ?? 0) > 0)
+      ? 'self-intersecting'
+      : classifyConstrainedDashedSource(topologyPoints, topology.closed, topology)
+  const usesOpenSelfIntersectingImplicitDomain =
+    !topology.closed && !topology.isSimpleOpen && hasImplicitFillDomain
+  const usesOpenImplicitFillDomain = !topology.closed && hasImplicitFillDomain
   const constrainedDashedVisualMode =
     options.constrainedDashedVisualMode ??
     (options.visualOnly ? 'product-final' : 'debug-raw')
@@ -12206,7 +12473,8 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
           topology,
           stroke,
           sourcePath,
-          strokeDomainPlan
+          strokeDomainPlan,
+          {}
         )
     )
     const visibleIntervals = measureStrokePipelinePhase(
@@ -12527,6 +12795,10 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
         : []
     const hasSourceVertexBoundaryJoinRecords =
       sourceVertexBoundaryJoinRecords.length > 0
+
+    // Open implicit fill domains must keep per-interval product output:
+    // a single inside mask descriptor can collapse visible dash gaps and hide
+    // separate contour ownership.
     const visibleIntervalById = new Map(
       visibleIntervals.map((interval) => [interval.intervalId, interval])
     )
@@ -12707,6 +12979,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
       sourcePath &&
       sourcePathSlicingContext &&
       stroke.position === 'inside' &&
+      !usesOpenImplicitFillDomain &&
       options.clipInsideToFillDomain === true &&
       (options.implicitFillRegions?.length ?? 0) > 0
     ) {
@@ -12844,7 +13117,9 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
             'constrained dashed interval: setup',
             () => {
               const resolvedBoundaryDomainPath =
-                getBoundaryDomainPathForVisibleInterval(interval)
+                !isOpenSourceSpanBothSidesVisibleInterval(interval)
+                  ? getBoundaryDomainPathForVisibleInterval(interval)
+                  : null
               const boundaryDomainClassification: ConstrainedDashedIntervalClassification | null =
                 resolvedBoundaryDomainPath
                   ? {
@@ -13004,16 +13279,18 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                   const productFinalPolygons = measureStrokePipelinePhase(
                     'constrained dashed interval: product final',
                     () => {
+                      const shouldUseAuthoredInsideSourcePath =
+                        stroke.position === 'inside' && sourcePath.closed === true
                       const productFinalSourcePath =
-                        stroke.position === 'inside'
+                        shouldUseAuthoredInsideSourcePath
                           ? sourcePath
                           : resolvedEffectiveSourcePath
                       const productFinalTopology =
-                        stroke.position === 'inside'
+                        shouldUseAuthoredInsideSourcePath
                           ? topology
                           : effectiveTopologyForInterval
                       const productFinalSlicingContext =
-                        stroke.position === 'inside'
+                        shouldUseAuthoredInsideSourcePath
                           ? sourcePathSlicingContext
                           : resolvedEffectiveSourcePathSlicingContext
                       if (!productFinalSlicingContext) {
@@ -13211,12 +13488,34 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
 
                       return exactPolygons
                     }
+                    if (!sourcePathSlicingContext) {
+                      return []
+                    }
+                    const rangeImplicitDomainStroke =
+                      usesOpenSelfIntersectingImplicitDomain &&
+                      isOpenSourceSpanBothSidesVisibleInterval(interval)
+                        ? {
+                            ...capOwnership.stroke,
+                            position: 'center' as const
+                          }
+                        : usesOpenSelfIntersectingImplicitDomain &&
+                            isSourceSpanFallbackVisibleInterval(interval)
+                        ? {
+                            ...capOwnership.stroke,
+                            position:
+                              interval.figmaLikeSelectedSide === 1
+                                ? ('inside' as const)
+                                : interval.figmaLikeSelectedSide === -1
+                                  ? ('outside' as const)
+                                  : capOwnership.stroke.position
+                          }
+                        : capOwnership.stroke
                     const sourcePathRibbonPolygons =
                       buildSourcePathRibbonPolygons(
                         sourcePath,
                         renderRange,
                         span,
-                        capOwnership.stroke,
+                        rangeImplicitDomainStroke,
                         capOwnership.roundCapStart,
                         capOwnership.roundCapEnd,
                         sourcePathSlicingContext
@@ -13235,7 +13534,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                             sourcePathSlicingContext
                           ),
                           false,
-                          capOwnership.stroke,
+                          rangeImplicitDomainStroke,
                           {
                             assumeSimpleOpen: true,
                             assumeSimpleClosed: undefined,
@@ -13444,7 +13743,8 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 const sourceVertexJoinPath = boundaryDomainPath ?? sourcePath
                 const intervalSourceVertexJoinPolygons =
                   hasSourceVertexBoundaryJoinRecords ||
-                  interval.intervalId.includes(':smooth-source-continuity:')
+                  interval.intervalId.includes(':smooth-source-continuity:') ||
+                  isOpenSourceSpanBothSidesVisibleInterval(interval)
                     ? []
                     : measureStrokePipelinePhase(
                         'constrained dashed interval: source joins',
@@ -13468,6 +13768,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
               if (
                 sourcePath &&
                 stroke.position === 'outside' &&
+                !isOpenSourceSpanBothSidesVisibleInterval(interval) &&
                 options.clipInsideToFillDomain === true &&
                 processedPolygons.length > 0 &&
                 ((options.implicitFillRegions?.length ?? 0) > 0 ||
@@ -13526,6 +13827,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
               if (
                 sourcePath &&
                 stroke.position === 'outside' &&
+                !isOpenSourceSpanBothSidesVisibleInterval(interval) &&
                 stroke.cap === 'square' &&
                 interval.figmaLikeSplitRangeId !== undefined &&
                 interval.figmaLikeBoundaryRole !== 'hole' &&
@@ -13547,6 +13849,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
               if (
                 sourcePath &&
                 stroke.position === 'outside' &&
+                !isOpenSourceSpanBothSidesVisibleInterval(interval) &&
                 stroke.cap === 'square' &&
                 interval.figmaLikeSplitRangeId !== undefined
               ) {

@@ -1045,6 +1045,13 @@ const getConstrainedDashedProductRenderGroupKey = (
     return null
   }
 
+  if (
+    face.debugMeta?.sourceTopology === 'self-intersecting' &&
+    face.debugMeta?.topologyFamily === 'open'
+  ) {
+    return null
+  }
+
   const ownerKey = [
     face.debugMeta?.sourcePathId,
     face.debugMeta?.ownerKey,

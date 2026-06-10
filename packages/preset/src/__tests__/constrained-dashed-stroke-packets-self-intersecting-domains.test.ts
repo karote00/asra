@@ -2952,6 +2952,291 @@ const buildSelfIntersectingMixedSegmentStarFixture = () => {
   }
 }
 
+const buildOpenSelfIntersectingPentagramFixture = () => {
+  const points = [
+    { x: 30, y: 80 },
+    { x: 420, y: 190 },
+    { x: 80, y: 340 },
+    { x: 250, y: 0 },
+    { x: 360, y: 370 }
+  ]
+  const sourcePath = buildPolylineGeometryModelPath(points, false)
+  const topology = buildPathTopologyModel({
+    pathId: 'open-self-intersecting-pentagram',
+    networkId: 'open-self-intersecting-pentagram',
+    points: sourcePath.sampledPoints,
+    closed: false
+  })
+  const resolvedGeometry = buildResolvedVectorGeometryModel({
+    modelId: 'open-self-intersecting-pentagram:resolved-geometry',
+    fillRule: topology.fillRule,
+    networks: [
+      {
+        networkId: topology.networkId,
+        path: sourcePath,
+        topology
+      }
+    ]
+  })
+
+  return {
+    sourcePath,
+    topology,
+    fillRegions:
+      resolvedGeometry.networks[0]?.selfIntersecting?.fillRegions ?? [],
+    sharedSourceSplitRanges:
+      resolvedGeometry.networks[0]?.selfIntersecting?.sourceSplitRanges ?? [],
+    sharedStrokeBoundaryDomains:
+      resolvedGeometry.networks[0]?.selfIntersecting?.strokeBoundaryDomains ??
+      [],
+    guardPoints: points.map((point) => ({ ...point, sharp: true }))
+  }
+}
+
+const buildOpenSelfIntersectingCurvedPentagramFixture = () => {
+  const points = {
+    'tp-36': {
+      id: 'tp-36',
+      kind: 'anchor',
+      x: 672.1796903067977,
+      y: -25.577192537243718,
+      anchorType: 'sharp'
+    },
+    'tp-39': {
+      id: 'tp-39',
+      kind: 'anchor',
+      x: 494.0219478943302,
+      y: 383.5816904608811,
+      anchorType: 'smooth'
+    },
+    'tp-36:in': {
+      id: 'tp-36:in',
+      kind: 'control',
+      x: 672.1796903067977,
+      y: -25.577192537243718,
+      controlForId: 'tp-36',
+      controlRole: 'in'
+    },
+    'tp-39:out': {
+      id: 'tp-39:out',
+      kind: 'control',
+      x: 420.04119045186485,
+      y: 382.0718790845042,
+      controlForId: 'tp-39',
+      controlRole: 'out'
+    },
+    'tp-39:in': {
+      id: 'tp-39:in',
+      kind: 'control',
+      x: 568.0027053367955,
+      y: 385.09150183725797,
+      controlForId: 'tp-39',
+      controlRole: 'in'
+    },
+    'tp-40': {
+      id: 'tp-40',
+      kind: 'anchor',
+      x: 847.3178099665117,
+      y: 155.6001726279776,
+      anchorType: 'sharp'
+    },
+    'tp-41': {
+      id: 'tp-41',
+      kind: 'anchor',
+      x: 486.47289101244587,
+      y: 158.61979538073132,
+      anchorType: 'sharp'
+    },
+    'tp-42': {
+      id: 'tp-42',
+      kind: 'anchor',
+      x: 823.1608279444822,
+      y: 344.32659467508313,
+      anchorType: 'sharp'
+    }
+  } as const
+  const segments = {
+    'ts-55': {
+      id: 'ts-55',
+      startId: 'tp-39',
+      endId: 'tp-36',
+      outControlId: 'tp-39:out',
+      inControlId: 'tp-36:in'
+    },
+    'ts-56': {
+      id: 'ts-56',
+      startId: 'tp-40',
+      endId: 'tp-39',
+      outControlId: null,
+      inControlId: 'tp-39:in'
+    },
+    'ts-57': {
+      id: 'ts-57',
+      startId: 'tp-41',
+      endId: 'tp-40',
+      outControlId: null,
+      inControlId: null
+    },
+    'ts-58': {
+      id: 'ts-58',
+      startId: 'tp-42',
+      endId: 'tp-41',
+      outControlId: null,
+      inControlId: null
+    }
+  } as const
+  const network = {
+    id: 'open-self-intersecting-curved-pentagram',
+    pointIds: ['tp-42', 'tp-41', 'tp-40', 'tp-39', 'tp-36'],
+    segmentIds: ['ts-58', 'ts-57', 'ts-56', 'ts-55'],
+    closed: false
+  } as const
+  const sourcePath = buildVectorGeometryModelPath(network, points, segments)
+  const topology = buildPathTopologyModel({
+    pathId: network.id,
+    networkId: network.id,
+    points: sourcePath.sampledPoints,
+    closed: false
+  })
+  const resolvedGeometry = buildResolvedVectorGeometryModel({
+    modelId: `${network.id}:resolved-geometry`,
+    fillRule: topology.fillRule,
+    networks: [
+      {
+        networkId: topology.networkId,
+        path: sourcePath,
+        topology
+      }
+    ]
+  })
+
+  return {
+    sourcePath,
+    topology,
+    fillRegions:
+      resolvedGeometry.networks[0]?.selfIntersecting?.fillRegions ?? [],
+    sharedSourceSplitRanges:
+      resolvedGeometry.networks[0]?.selfIntersecting?.sourceSplitRanges ?? [],
+    sharedStrokeBoundaryDomains:
+      resolvedGeometry.networks[0]?.selfIntersecting?.strokeBoundaryDomains ??
+      [],
+    guardPoints: network.pointIds.map((pointId) => {
+      const point = points[pointId]
+      return { x: point.x, y: point.y, sharp: point.anchorType === 'sharp' }
+    })
+  }
+}
+
+const expectOpenSelfIntersectingContourDashIntervals = (
+  topology: ReturnType<typeof buildPathTopologyModel>,
+  sourcePath: ReturnType<typeof buildPolylineGeometryModelPath>,
+  stroke: ReturnType<typeof createDefaultStroke>,
+  options: {
+    fillRegions: PolygonRegion[]
+    sharedSourceSplitRanges: ReturnType<
+      typeof buildOpenSelfIntersectingPentagramFixture
+    >['sharedSourceSplitRanges']
+    sharedStrokeBoundaryDomains: ReturnType<
+      typeof buildOpenSelfIntersectingPentagramFixture
+    >['sharedStrokeBoundaryDomains']
+  }
+) => {
+  const renderableStroke = getOnlyRenderableStroke([stroke])
+  const strokeDomainPlan = resolveStrokeDomains({
+    topology,
+    sourceFamily: resolveSourceFamily({ topology, stroke: renderableStroke }),
+    stroke: renderableStroke,
+    sourcePath,
+    implicitFillRegions: options.fillRegions,
+    sharedSourceSplitRanges: options.sharedSourceSplitRanges,
+    sharedStrokeBoundaryDomains: options.sharedStrokeBoundaryDomains
+  })
+  const intervals = getConstrainedDashedVisibleIntervals(
+    topology,
+    renderableStroke,
+    sourcePath,
+    strokeDomainPlan
+  )
+
+  expect(intervals.length).toBeGreaterThan(2)
+  expect(strokeDomainPlan.intervalDomainKind).toBe('figma-like-split-range')
+  expect(
+    intervals.every((interval) => interval.figmaLikeSplitRangeId !== undefined)
+  ).toBe(true)
+  expect(
+    intervals.every((interval) => interval.openPathTerminalRole === undefined)
+  ).toBe(true)
+  const visibleRolesBySplitRange = intervals.reduce<
+    Map<string, Set<string>>
+  >((rolesByRange, interval) => {
+    if (!interval.figmaLikeSplitRangeId) {
+      return rolesByRange
+    }
+    const roles = rolesByRange.get(interval.figmaLikeSplitRangeId) ?? new Set()
+    if (interval.figmaLikeTerminalRole) {
+      roles.add(interval.figmaLikeTerminalRole)
+    }
+    rolesByRange.set(interval.figmaLikeSplitRangeId, roles)
+    return rolesByRange
+  }, new Map())
+  const rangesWithTerminals = [...visibleRolesBySplitRange.values()].filter(
+    (roles) =>
+      roles.has('start-end') || (roles.has('start') && roles.has('end'))
+  )
+  expect(rangesWithTerminals.length).toBeGreaterThan(0)
+
+  if (stroke.position === 'inside') {
+    expect(
+      strokeDomainPlan.diagnostics.includes(
+        'source-span-fallback-domains-added'
+      )
+    ).toBe(false)
+    expect(
+      intervals.some((interval) =>
+        interval.figmaLikeSplitRangeId?.startsWith('source-span-fallback:')
+      )
+    ).toBe(false)
+    expect(
+      intervals.every(
+        (interval) =>
+          interval.figmaLikeSelectedSide === interval.figmaLikeFilledSide &&
+          interval.figmaLikeSelectedSide !== interval.figmaLikeUnfilledSide
+      )
+    ).toBe(true)
+    return
+  }
+
+  const sourceSpanFallbackIntervals = intervals.filter((interval) =>
+    interval.figmaLikeSplitRangeId?.startsWith('source-span-fallback:')
+  )
+  expect(sourceSpanFallbackIntervals.length).toBeGreaterThan(0)
+  const fallbackSourceSegmentIndexes = new Set(
+    sourceSpanFallbackIntervals.map(
+      (interval) => interval.figmaLikeSplitRangeSourceSegmentIndex
+    )
+  )
+  expect(fallbackSourceSegmentIndexes.has(0)).toBe(true)
+  expect(fallbackSourceSegmentIndexes.has(sourcePath.segments.length - 1)).toBe(
+    true
+  )
+  expect(
+    sourceSpanFallbackIntervals.every(
+      (interval) =>
+        interval.figmaLikeBoundaryRole === 'ambiguous' &&
+        interval.figmaLikeSelectedSide === undefined &&
+        interval.figmaLikeSideResolutionReason === 'open-source-span-both-sides'
+    )
+  ).toBe(true)
+  expect(
+    intervals.some(
+      (interval) =>
+        interval.figmaLikeBoundaryRole === 'outer' &&
+        interval.figmaLikeSelectedSide === interval.figmaLikeUnfilledSide &&
+        interval.figmaLikeSelectedSide !== interval.figmaLikeFilledSide
+    )
+  ).toBe(true)
+}
+
 const buildShortSegmentLoopFixture = (segmentCount: number) => {
   const points: Record<
     string,
@@ -3175,7 +3460,7 @@ const buildTerminalSplitRangeFixture = () => {
   }
 }
 
-describe('constrained dashed stroke packets: self-intersecting implicit domains', () => {
+describe('constrained dashed stroke packets: self-intersecting bounded source domains', () => {
   it('should run: resolve split ranges from source intersections even when topology family is not preclassified', () => {
     const point = (id: string, x: number, y: number) => ({
       id,
@@ -3526,7 +3811,7 @@ describe('constrained dashed stroke packets: self-intersecting implicit domains'
     ).toEqual([])
   })
 
-  it('should run: resolve self-intersecting no-fill inside dashed side from implicit fill domains', () => {
+  it('should run: resolve self-intersecting no-fill inside dashed side from bounded fill domains', () => {
     const {
       sourcePath,
       topology,
@@ -3735,5 +4020,361 @@ describe('constrained dashed stroke packets: self-intersecting implicit domains'
         }))
       )
     ).toEqual([])
+  })
+
+  it('should run: render open self-intersecting inside dashed through bounded source filled-region domain', () => {
+    const {
+      sourcePath,
+      topology,
+      fillRegions,
+      sharedSourceSplitRanges,
+      sharedStrokeBoundaryDomains,
+      guardPoints
+    } = buildOpenSelfIntersectingPentagramFixture()
+
+    expect(topology.closed).toBe(false)
+    expect(topology.isSimpleOpen).toBe(false)
+    expect(fillRegions.length).toBeGreaterThanOrEqual(3)
+    expect(
+      new Set(sharedSourceSplitRanges.flatMap((range) => range.contourIds)).size
+    ).toBeGreaterThanOrEqual(3)
+
+    const stroke = createDefaultStroke({
+      width: 12,
+      style: 'dashed',
+      position: 'inside',
+      joinType: 'miter',
+      capType: 'square',
+      dashPattern: [28, 20],
+      dashOffset: 0
+    })
+    const options = {
+      topology,
+      sourcePath,
+      implicitFillRegions: fillRegions,
+      sharedSourceSplitRanges,
+      sharedStrokeBoundaryDomains,
+      selectedSideGuardPoints: guardPoints,
+      clipInsideToFillDomain: true,
+      constrainedDashedVisualMode: 'product-final' as const
+    }
+    expectOpenSelfIntersectingContourDashIntervals(
+      topology,
+      sourcePath,
+      stroke,
+      {
+        fillRegions,
+        sharedSourceSplitRanges,
+        sharedStrokeBoundaryDomains
+      }
+    )
+    const visualEntries = buildConstrainedDashedStrokeProductVisualEntries(
+      'open-self-intersecting-pentagram:inside:visual',
+      topology.normalizedPoints,
+      false,
+      [stroke],
+      {
+        ...options,
+        enableProductVisualCompiler: true,
+        visualOnly: true
+      }
+    )
+    const packets = buildConstrainedDashedStrokeResolvedPackets(
+      'open-self-intersecting-pentagram:inside',
+      topology.normalizedPoints,
+      false,
+      [stroke],
+      options
+    )
+
+    expect(visualEntries?.length ?? 0).toBe(0)
+    expect(packets.length).toBeGreaterThan(0)
+    expect(
+      packets.every(
+        (packet) => packet.geometry.debugMeta?.strokePosition === 'inside'
+      )
+    ).toBe(true)
+    expect(
+      packets.some(
+        (packet) =>
+          packet.geometry.debugMeta?.sourceTopology === 'self-intersecting'
+      )
+    ).toBe(true)
+    expect(
+      packets.every(
+        (packet) =>
+          packet.geometry.debugMeta?.finalCoverageBuilderStatus ===
+          'product-final'
+      )
+    ).toBe(true)
+  })
+
+  it('should run: render open self-intersecting outside dashed through bounded source exterior domain', () => {
+    const {
+      sourcePath,
+      topology,
+      fillRegions,
+      sharedSourceSplitRanges,
+      sharedStrokeBoundaryDomains,
+      guardPoints
+    } = buildOpenSelfIntersectingPentagramFixture()
+
+    expect(topology.closed).toBe(false)
+    expect(topology.isSimpleOpen).toBe(false)
+    expect(fillRegions.length).toBeGreaterThanOrEqual(3)
+    expect(
+      new Set(sharedSourceSplitRanges.flatMap((range) => range.contourIds)).size
+    ).toBeGreaterThanOrEqual(3)
+
+    const stroke = createDefaultStroke({
+      width: 12,
+      style: 'dashed',
+      position: 'outside',
+      joinType: 'miter',
+      capType: 'square',
+      dashPattern: [28, 20],
+      dashOffset: 0
+    })
+    const options = {
+      topology,
+      sourcePath,
+      implicitFillRegions: fillRegions,
+      sharedSourceSplitRanges,
+      sharedStrokeBoundaryDomains,
+      selectedSideGuardPoints: guardPoints,
+      clipInsideToFillDomain: true,
+      constrainedDashedVisualMode: 'product-final' as const
+    }
+    expectOpenSelfIntersectingContourDashIntervals(
+      topology,
+      sourcePath,
+      stroke,
+      {
+        fillRegions,
+        sharedSourceSplitRanges,
+        sharedStrokeBoundaryDomains
+      }
+    )
+    const visualEntries = buildConstrainedDashedStrokeProductVisualEntries(
+      'open-self-intersecting-pentagram:outside:visual',
+      topology.normalizedPoints,
+      false,
+      [stroke],
+      {
+        ...options,
+        enableProductVisualCompiler: true,
+        visualOnly: true
+      }
+    )
+    const packets = buildConstrainedDashedStrokeResolvedPackets(
+      'open-self-intersecting-pentagram:outside',
+      topology.normalizedPoints,
+      false,
+      [stroke],
+      options
+    )
+
+    expect(visualEntries?.length ?? 0).toBe(0)
+    expect(packets.length).toBeGreaterThan(0)
+    expect(
+      packets.every(
+        (packet) => packet.geometry.debugMeta?.strokePosition === 'outside'
+      )
+    ).toBe(true)
+    expect(
+      packets.some(
+        (packet) =>
+          packet.geometry.debugMeta?.sourceTopology === 'self-intersecting'
+      )
+    ).toBe(true)
+    expect(
+      packets.every(
+        (packet) =>
+          packet.geometry.debugMeta?.finalCoverageBuilderStatus ===
+          'product-final'
+      )
+    ).toBe(true)
+  })
+
+  ;(['inside', 'outside'] as const).forEach((position) => {
+    it(`should run: render curved open self-intersecting ${position} dashed through bounded source domain`, () => {
+      const {
+        sourcePath,
+        topology,
+        fillRegions,
+        sharedSourceSplitRanges,
+        sharedStrokeBoundaryDomains,
+        guardPoints
+      } = buildOpenSelfIntersectingCurvedPentagramFixture()
+
+      expect(topology.closed).toBe(false)
+      expect(topology.isSimpleOpen).toBe(false)
+      expect(fillRegions.length).toBeGreaterThanOrEqual(3)
+
+      const stroke = createDefaultStroke({
+        width: 10,
+        style: 'dashed',
+        position,
+        joinType: 'miter',
+        capType: 'square',
+        dashPattern: [27, 20],
+        dashOffset: 0
+      })
+      const options = {
+        topology,
+        sourcePath,
+        implicitFillRegions: fillRegions,
+        sharedSourceSplitRanges,
+        sharedStrokeBoundaryDomains,
+        selectedSideGuardPoints: guardPoints,
+        clipInsideToFillDomain: true,
+        constrainedDashedVisualMode: 'product-final' as const
+      }
+
+      const packets = buildConstrainedDashedStrokeResolvedPackets(
+        `open-self-intersecting-curved-pentagram:${position}`,
+        topology.normalizedPoints,
+        false,
+        [stroke],
+        options
+      )
+
+      expect(packets.length).toBeGreaterThan(0)
+      expect(
+        packets.every(
+          (packet) =>
+            packet.geometry.debugMeta?.strokePosition === position &&
+            packet.geometry.debugMeta?.sourceTopology === 'self-intersecting' &&
+            packet.geometry.debugMeta?.topologyFamily === 'open' &&
+            packet.geometry.debugMeta?.finalCoverageBuilderStatus ===
+              'product-final'
+        )
+      ).toBe(true)
+      if (position === 'inside') {
+        expect(
+          packets.some(
+            (packet) =>
+              packet.geometry.debugMeta?.figmaLikeSplitRangeId?.startsWith(
+                'source-span-fallback:'
+              ) === true
+          )
+        ).toBe(false)
+      } else {
+        const fallbackPackets = packets.filter(
+          (packet) =>
+            packet.geometry.debugMeta?.figmaLikeSideResolutionReason ===
+            'open-source-span-both-sides'
+        )
+        expect(
+          fallbackPackets.length
+        ).toBeGreaterThan(0)
+        const fallbackSourceSegmentIndexes = new Set(
+          fallbackPackets.map(
+            (packet) =>
+              packet.geometry.debugMeta?.figmaLikeSplitRangeSourceSegmentIndex
+          )
+        )
+        expect(fallbackSourceSegmentIndexes.has(0)).toBe(true)
+        expect(
+          fallbackSourceSegmentIndexes.has(sourcePath.segments.length - 1)
+        ).toBe(true)
+        const contourOverlapFailures = fallbackPackets.flatMap((packet) => {
+          const meta = packet.geometry.debugMeta
+          if (
+            meta?.figmaLikeSplitRangeSourceSegmentIndex === undefined ||
+            meta.figmaLikeSplitRangeStartDistance === undefined ||
+            meta.figmaLikeSplitRangeEndDistance === undefined
+          ) {
+            return [`${packet.id}:missing-source-range-metadata`]
+          }
+          const fallbackStart = Math.min(
+            meta.figmaLikeSplitRangeStartDistance,
+            meta.figmaLikeSplitRangeEndDistance
+          )
+          const fallbackEnd = Math.max(
+            meta.figmaLikeSplitRangeStartDistance,
+            meta.figmaLikeSplitRangeEndDistance
+          )
+          return sharedSourceSplitRanges
+            .filter((range) => {
+              const start = Math.min(
+                range.sourceStartDistance,
+                range.sourceEndDistance
+              )
+              const end = Math.max(
+                range.sourceStartDistance,
+                range.sourceEndDistance
+              )
+              const isStartTail =
+                range.sourceSegmentIndex === 0 && start <= 0.25
+              const isEndTail =
+                range.sourceSegmentIndex === sourcePath.segments.length - 1 &&
+                end >= sourcePath.totalLength - 0.25
+              return !isStartTail && !isEndTail
+            })
+            .filter(
+              (range) =>
+                range.sourceSegmentIndex ===
+                meta.figmaLikeSplitRangeSourceSegmentIndex
+            )
+            .filter((range) => {
+              const contourStart = Math.min(
+                range.sourceStartDistance,
+                range.sourceEndDistance
+              )
+              const contourEnd = Math.max(
+                range.sourceStartDistance,
+                range.sourceEndDistance
+              )
+              const overlap =
+                Math.min(fallbackEnd, contourEnd) -
+                Math.max(fallbackStart, contourStart)
+              return overlap > 0.25
+            })
+            .map(
+              (range) =>
+                `${packet.id}:${meta.figmaLikeSplitRangeSourceSegmentIndex}:${fallbackStart.toFixed(
+                  2
+                )}-${fallbackEnd.toFixed(2)} overlaps ${range.rangeId}`
+            )
+        })
+
+        expect(contourOverlapFailures).toEqual([])
+
+        const sourceSegmentNormalSpan = (
+          packet: (typeof packets)[number]
+        ) => {
+          const meta = packet.geometry.debugMeta
+          const segmentIndex = meta?.figmaLikeSplitRangeSourceSegmentIndex
+          const segment =
+            segmentIndex === undefined
+              ? undefined
+              : sourcePath.segments[segmentIndex]
+          if (!segment) {
+            return 0
+          }
+          const tangent = {
+            x: segment.end.x - segment.start.x,
+            y: segment.end.y - segment.start.y
+          }
+          const length = Math.hypot(tangent.x, tangent.y)
+          if (length <= 0.000001) {
+            return 0
+          }
+          const normal = {
+            x: -tangent.y / length,
+            y: tangent.x / length
+          }
+          const projections = packet.geometry.polygons
+            .flat()
+            .map((point) => point.x * normal.x + point.y * normal.y)
+          return Math.max(...projections) - Math.min(...projections)
+        }
+        const maxFallbackNormalSpan = Math.max(
+          ...fallbackPackets.map(sourceSegmentNormalSpan)
+        )
+        expect(maxFallbackNormalSpan).toBeGreaterThan(stroke.width * 1.45)
+      }
+    })
   })
 })

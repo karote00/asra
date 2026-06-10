@@ -65,6 +65,7 @@ export interface ResolvedVectorSourceSplitRange {
   legalFaceIds: string[]
   oppositeFaceIds: string[]
   edgeIds: string[]
+  usesImplicitClosingEdge?: boolean
 }
 
 export interface ResolvedVectorStrokeBoundaryDomain
@@ -677,6 +678,9 @@ const buildResolvedVectorSourceSplitRanges = (
                 : (getContourRoleByEdgeKey(edge) ?? 'ambiguous')
             })()
 
+    const faceUsesImplicitClosingEdge = face.edges.some(
+      (edge) => edge.isImplicitClosingEdge === true
+    )
     const edgeRecords: {
       edge: EvenOddLegalFaceBoundaryEdge
       boundaryRole: ResolvedVectorSourceSplitRange['boundaryRole']
@@ -851,7 +855,8 @@ const buildResolvedVectorSourceSplitRanges = (
         contourIds: [face.faceId],
         legalFaceIds: [face.faceId],
         oppositeFaceIds: Array.from(oppositeFaceIds),
-        edgeIds
+        edgeIds,
+        usesImplicitClosingEdge: faceUsesImplicitClosingEdge
       })
     })
   })
@@ -939,6 +944,9 @@ const buildResolvedVectorSourceSplitRanges = (
             existing.boundaryRole = 'ambiguous'
             existing.sideResolutionStatus = 'conflict'
           }
+          existing.usesImplicitClosingEdge =
+            existing.usesImplicitClosingEdge === true ||
+            domain.edges.some((edge) => edge.isImplicitClosingEdge === true)
           return
         }
 
@@ -964,7 +972,10 @@ const buildResolvedVectorSourceSplitRanges = (
           oppositeFaceIds: Array.from(
             new Set(domain.edges.map((edge) => edge.oppositeFaceId))
           ),
-          edgeIds: domain.edges.map((edge) => edge.edgeId)
+          edgeIds: domain.edges.map((edge) => edge.edgeId),
+          usesImplicitClosingEdge: domain.edges.some(
+            (edge) => edge.isImplicitClosingEdge === true
+          )
         })
       })
     })
@@ -1101,7 +1112,7 @@ const buildSelfIntersectingGeometry = (
   const emptyCache: ResolvedVectorGeometryNetworkFrameCache = {
     tracedSegmentSignatures: []
   }
-  if (!path.closed || path.segments.length < 2) {
+  if ((!path.closed && topology.isSimpleOpen) || path.segments.length < 2) {
     return { geometry: null, cache: emptyCache }
   }
 
@@ -1109,18 +1120,22 @@ const buildSelfIntersectingGeometry = (
   if (tracedSegments.length === 0) {
     return { geometry: null, cache: emptyCache }
   }
-  const tracedSegmentSignatures = tracedSegments.map(getTracedSegmentSignature)
+  const domainTracedSegments = tracedSegments
+  const tracedSegmentSignatures = domainTracedSegments.map(
+    getTracedSegmentSignature
+  )
   const splitResult =
     topology.topologyFamily === 'self-intersecting'
       ? null
-      : splitTracedSegmentsByIntersections(tracedSegments, {
+      : splitTracedSegmentsByIntersections(domainTracedSegments, {
           previousCache: previousCache?.selfIntersectionCache,
           segmentSignatures: tracedSegmentSignatures,
+          legalFacePolicy: path.closed ? 'fill-rule' : 'bounded-faces',
           returnCache: true
         })
-  const sourceSplitSegments = splitResult?.splitSegments ?? tracedSegments
+  const sourceSplitSegments = splitResult?.splitSegments ?? domainTracedSegments
   const hasSourceIntersections =
-    sourceSplitSegments.length > tracedSegments.length
+    sourceSplitSegments.length > domainTracedSegments.length
   if (
     topology.topologyFamily !== 'self-intersecting' &&
     !hasSourceIntersections
@@ -1136,16 +1151,17 @@ const buildSelfIntersectingGeometry = (
   }
 
   const resolvedGeometry = buildSelfIntersectingResolvedGeometry(
-    tracedSegments,
+    domainTracedSegments,
     topology.fillRule,
     {
-      previousCache: splitResult?.cache ?? previousCache?.selfIntersectionCache,
-      segmentSignatures: tracedSegmentSignatures,
-      preSplitResult: splitResult ?? undefined
-    }
-  )
+          previousCache: splitResult?.cache ?? previousCache?.selfIntersectionCache,
+          segmentSignatures: tracedSegmentSignatures,
+          legalFacePolicy: path.closed ? 'fill-rule' : 'bounded-faces',
+          preSplitResult: splitResult ?? undefined
+        }
+      )
   const fallbackResolvedGeometry =
-    resolvedGeometry.legalBoundaryContours.length === 0
+    path.closed && resolvedGeometry.legalBoundaryContours.length === 0
       ? buildSelfIntersectingResolvedGeometry(
           buildClosedTopologyPointTracedSegments(topology.normalizedPoints),
           topology.fillRule
@@ -1193,7 +1209,9 @@ const buildSelfIntersectingGeometry = (
   const legalBoundaryContours =
     fallbackLegalBoundaryContours.length > 0
       ? fallbackLegalBoundaryContours
-      : buildFallbackBoundaryContourFromTracedSegments(tracedSegments)
+      : path.closed
+        ? buildFallbackBoundaryContourFromTracedSegments(tracedSegments)
+        : []
 
   const legalFaceBoundaries =
     resolvedGeometry.legalFaceBoundaries.length > 0

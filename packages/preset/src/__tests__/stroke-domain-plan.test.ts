@@ -881,7 +881,7 @@ describe('stroke domain plan', () => {
     expect(pathTopology.topologyFamily).toBe('self-intersecting')
     expect(plan.intervalDomainKind).toBe('figma-like-split-range')
     expect(plan.diagnostics).toContain(
-      'inside-source-span-fallback-domains-added'
+      'source-span-fallback-domains-added'
     )
     expect(coveredSegmentIndexes).toEqual(new Set([0, 1, 2, 3, 4]))
     expect(fallbackDomains.length).toBeGreaterThan(0)

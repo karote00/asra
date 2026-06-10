@@ -110,6 +110,34 @@ hold endpoint half-dashes plus a legible cap-aware visual gap, it may collapse
 to one `start-end` visible dash instead of squeezing multiple dash groups
 together.
 
+Open dashed stroke position is domain-dependent. A simple open network with no
+bounded filled-region domain remains center-equivalent for authored dashed
+`inside` and `outside` positions: render, hit-test, export, and diagnostics
+must consume the authored center stroke product while preserving the authored UI
+value. An open self-intersecting network that resolves one or more bounded
+filled regions from its real authored source segments is not center-equivalent
+for dashed `inside` / `outside`. For that network, the filled-region domain is
+the planar arrangement of the real open source segments only; the renderer must
+not add an invisible closing edge for domain, dash, hit-test, export, or product
+output.
+
+Open self-intersecting `inside` dashed output follows the closed contour rule:
+only source spans that participate in a resolved filled contour may produce
+inside dash pixels. Dangling open branches and source spans that do not form a
+filled contour must not produce inside dash output, even if they are part of the
+authored open network. Open self-intersecting `outside` dashed output follows
+the outside contour rule for contour-owned spans and additionally preserves
+dangling open-branch endpoint/cap/dash semantics by rendering those dangling
+spans on both sides of the authored source path. Their visible normal span is
+therefore approximately `stroke.width * 2`; they are not center-equivalent
+stroke ribbons. Unlike simple open `center` strokes, each independent
+contour-owned or dangling constrained source span is its own dash allocation
+domain: both cut ends use terminal half-dashes when the span is long enough,
+middle dash/gap records are redistributed inside that span, and no continuous
+open-network dash phase may be inherited across independent constrained spans.
+The product must not synthesize a closing edge and must not route through center
+fallback merely because `network.closed` is false.
+
 Dashed constrained strokes remain a separate interval-domain model for dash
 allocation, but constrained `inside` dashed visible geometry follows the same
 Asyra doubled center-stroke mask rule as constrained solid geometry. For each split source
@@ -139,7 +167,11 @@ may be encoded as a grouped render descriptor containing the inside
 or approximation. When a frame has one exact inside dashed mask descriptor for
 one fill domain and one stroke style, same-visual overlap collapse is not
 required; diagnostics/export may still keep per-interval evidence, but visible
-render must consume the exact descriptor.
+render must consume the exact descriptor. When resolved self-intersection
+metadata already provides boundary-domain split ranges, product-visible
+descriptor routing must reuse that metadata. Source-span fallback domains may
+fill uncovered source segment spans, but they must not retrace the whole source
+path or recompute source intersections inside the drag/render product stage.
 
 For product-visible constrained `outside` dashed render, drag-time visible
 render may use the same exact descriptor model with an exterior clip mask:
@@ -178,7 +210,13 @@ Stroke-related behavior must be observed as one deterministic system flow:
    Dirty classification must feed a real stage product cache at the render
    mirror/vector graphic boundary. Exact semantic descriptors can be reused
    when source revision and geometry-affecting stroke signature match; paint
-   changes retint cached descriptors instead of rebuilding geometry.
+   changes retint cached descriptors instead of rebuilding geometry. For exact
+   stroke-path descriptors, miter-angle changes may replay cached geometry only
+   when the descriptor can be restyled with the current cap/join/miter style;
+   polygon product evidence that depends on miter geometry must keep miter in
+   its geometry signature. Drag-time constrained dashed descriptors must also
+   reuse resolved split/domain metadata; recomputing source intersections in
+   product output violates the stage-cache contract.
 7. Product output stages may emit render, hit, export, and diagnostics
    descriptors, but visible render must not use diagnostic/helper geometry as
    product output.

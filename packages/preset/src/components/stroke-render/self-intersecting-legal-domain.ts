@@ -21,6 +21,7 @@ export interface TracedLineSegment extends LineSegment {
   sourceSegmentIndex?: number
   sourceStartDistance?: number
   sourceEndDistance?: number
+  isImplicitClosingEdge?: boolean
 }
 
 export interface SelfIntersectionPairCacheEntry {
@@ -42,6 +43,7 @@ export interface IncrementalSelfIntersectionOptions {
   segmentSignatures?: string[]
   returnCache?: boolean
   preSplitResult?: SplitTracedSegmentsResult
+  legalFacePolicy?: 'fill-rule' | 'bounded-faces'
 }
 
 export interface SplitTracedSegmentsResult {
@@ -464,7 +466,8 @@ const splitTracedSegmentsByIntersectionsInternal = <
           end,
           sourceSegmentIndex: segment.sourceSegmentIndex,
           sourceStartDistance: interpolateTracedDistance(segment, t0),
-          sourceEndDistance: interpolateTracedDistance(segment, t1)
+          sourceEndDistance: interpolateTracedDistance(segment, t1),
+          isImplicitClosingEdge: segment.isImplicitClosingEdge
         })
       }
     }
@@ -558,6 +561,7 @@ export interface EvenOddLegalFaceBoundaryEdge {
   sourceSegmentIndex?: number
   sourceStartDistance?: number
   sourceEndDistance?: number
+  isImplicitClosingEdge?: boolean
   reversed: boolean
   legalSide: 'left' | 'right'
 }
@@ -582,6 +586,7 @@ export interface EvenOddBoundaryContourEdge {
   sourceSegmentIndex?: number
   sourceStartDistance?: number
   sourceEndDistance?: number
+  isImplicitClosingEdge?: boolean
   reversed: boolean
   legalSide: 'left' | 'right'
 }
@@ -775,7 +780,9 @@ const buildPlanarGraph = (
       legal:
         faceIndex === outerFaceIndex
           ? false
-          : containsByFillRule(centroid, segments, fillRule)
+          : options.legalFacePolicy === 'bounded-faces'
+            ? true
+            : containsByFillRule(centroid, segments, fillRule)
     }
   })
 
@@ -827,6 +834,7 @@ const toLegalFaceBoundaryEdge = (
     sourceSegmentIndex: segment.sourceSegmentIndex,
     sourceStartDistance,
     sourceEndDistance,
+    isImplicitClosingEdge: segment.isImplicitClosingEdge,
     reversed: edge.reversed,
     legalSide
   }
@@ -1205,6 +1213,7 @@ const buildBoundaryContoursFromGraph = (
         sourceSegmentIndex: segment.sourceSegmentIndex,
         sourceStartDistance,
         sourceEndDistance,
+        isImplicitClosingEdge: segment.isImplicitClosingEdge,
         reversed: edge.reversed,
         legalSide
       })
@@ -1332,7 +1341,8 @@ export const buildSelfIntersectingResolvedGeometry = (
     'resolved self-intersecting geometry: planar graph',
     () =>
       buildPlanarGraph(splitResult.splitSegments, fillRule, {
-        inputAlreadySplit: true
+        inputAlreadySplit: true,
+        legalFacePolicy: options.legalFacePolicy
       })
   )
   if (!graph) {

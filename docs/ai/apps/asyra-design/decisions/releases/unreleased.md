@@ -6392,3 +6392,44 @@ join` constrained dashed product path across:
     original network's ordered point list.
   - Branch networks may share anchor records with existing networks; each network
     remains independently ordered and validator-safe.
+
+## 2026-06-09 - Open self-intersecting constrained dashed strokes use bounded source-segment domains
+
+- Context:
+  - The 2026-04-29 open-path center-equivalence decision correctly covered
+    simple open paths with no usable filled-region domain.
+  - New reference screenshots showed that an open self-intersecting network can
+    still produce bounded filled regions from real authored source segments, and
+    authored `inside` / `outside` dashed strokes then visibly differ from
+    center-equivalent output.
+  - Current runtime routing normalized all open networks to center before
+    constrained dashed product construction, so these networks could not express
+    the requested domain.
+- Decision:
+  - Keep simple open networks center-equivalent when no bounded filled-region
+    domain is resolved.
+  - Treat open self-intersecting networks with bounded filled regions formed by
+    real authored source segments as constrained-domain stroke products for
+    authored `inside` and `outside` dashed strokes.
+  - Preserve independent constrained source-span dash allocation: each
+    contour-owned or dangling open span owns terminal half-dashes and
+    redistributed middle dash/gap records before product geometry is clipped or
+    materialized.
+  - Resolve that bounded filled-region domain from the planar arrangement of
+    real authored source segments only; do not add an invisible closing edge for
+    domain, dash, hit-test, export, or product output.
+  - Do not inherit continuous open-network dash phase across independent
+    constrained spans, do not drop dangling open spans that participate in the
+    outside product, and do not route the network to center solely because
+    `network.closed` is false. Outside dangling open spans are product geometry
+    on both sides of the source path with visible normal span near
+    `stroke.width * 2`, not center-equivalent ribbons.
+- Consequences:
+  - Authority docs and inspector flow must distinguish simple open
+    center-equivalent networks from open self-intersecting constrained-domain
+    networks.
+  - Runtime constrained dashed routing must decide per network after resolved
+    geometry is available.
+  - Visual review must include open self-intersecting `inside` / `outside`
+    dashed probes for domain side, per-span half-dash terminals, redistributed
+    span-local gaps, missing output, and wrong-side output.

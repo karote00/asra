@@ -136,7 +136,7 @@ All dashed groups must verify:
   network endpoints when the path is long enough, keep authored-length middle
   dashes, and may collapse to one `start-end` dash instead of squeezing tiny
   gaps;
-- constrained inside/outside self-intersection cases allocate visible dash/gap records per source split range;
+- constrained inside/outside self-intersection cases allocate visible dash/gap records per independent source split range, not from a continuous open-network phase;
 - split-range start/end terminals must be half-dash records when the split range is long enough;
 - split-range middle dash records must keep the authored dash length;
 - split-range gaps must remain positive and evenly distributed within the split range;
@@ -219,6 +219,18 @@ For `dashed center *`:
 - Gap samples on both sides must remain empty.
 - Cap footprints must match `butt`, `square`, or `round`.
 - There must be no inside-only or outside-only collapse unless the geometry is clipped by a documented path/open-domain rule.
+- Open authored dashed `inside` / `outside` strokes are center-equivalent only
+  when the open network has no bounded filled-region domain. Open
+  self-intersecting networks with bounded filled regions formed by real authored
+  source segments must be reviewed as constrained-domain dashed strokes.
+  `inside` must follow the resolved filled contour rule: only contour-owned
+  source spans may receive inside dash pixels, and dangling open branches must
+  remain unpainted. `outside` must follow the resolved exterior contour rule
+  while rendering dangling open-branch endpoint/cap/dash spans on both sides of
+  the authored source path. Those dangling outside spans must have an actual
+  visible normal span near `stroke.width * 2`, not a single center-equivalent
+  ribbon. No invisible closing edge may be added for domain, dash pixels, hit
+  coverage, export packets, or endpoint terminal ownership.
 
 ## Dashed Outside Rules
 
@@ -251,6 +263,12 @@ For the pentagram fixture, each overlay must classify all self-intersection spli
 - `center` cases must verify the stroke straddles the authored path at every source segment, source vertex, and self-intersection split.
 - `inside` cases must verify only the inside legal domain is painted at every source segment, source vertex, and self-intersection split.
 - `outside` cases must verify only the exterior legal domain is painted at every source segment, source vertex, and self-intersection split.
+- open self-intersecting dashed `inside` / `outside` cases must additionally
+  verify contour ownership. For `inside`, all dangling open branch spans must be
+  absent and all filled-contour spans must have expected dash recall. For
+  `outside`, exterior contour spans and dangling open endpoint/cap spans must
+  have expected dash recall. Segment boundaries must not reset dash phase, and
+  no synthesized closing edge may appear in the expected or rendered product.
 - `solid` cases must verify continuous expected coverage and the authored join footprint at the source-derived join locations.
 - `dashed` cases must verify Asyra split-range dash/gap allocation, split-range terminals, cap footprints, and join behavior at the same source-derived locations.
 

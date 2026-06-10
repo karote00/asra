@@ -110,6 +110,143 @@ const createPentagramTopology = () => {
   return { points, segments, networks }
 }
 
+const createOpenSelfIntersectingPentagramTopology = () => {
+  const points = {
+    'tp-36': {
+      id: 'tp-36',
+      kind: 'anchor',
+      x: 672.1796903067977,
+      y: -25.577192537243718,
+      anchorType: 'sharp',
+      handleMode: 'none'
+    },
+    'tp-39': {
+      id: 'tp-39',
+      kind: 'anchor',
+      x: 494.0219478943302,
+      y: 383.5816904608811,
+      anchorType: 'smooth',
+      handleMode: 'none'
+    },
+    'tp-36:in': {
+      id: 'tp-36:in',
+      kind: 'control',
+      x: 672.1796903067977,
+      y: -25.577192537243718,
+      controlForId: 'tp-36',
+      controlRole: 'in'
+    },
+    'tp-39:out': {
+      id: 'tp-39:out',
+      kind: 'control',
+      x: 420.04119045186485,
+      y: 382.0718790845042,
+      controlForId: 'tp-39',
+      controlRole: 'out'
+    },
+    'tp-39:in': {
+      id: 'tp-39:in',
+      kind: 'control',
+      x: 568.0027053367955,
+      y: 385.09150183725797,
+      controlForId: 'tp-39',
+      controlRole: 'in'
+    },
+    'tp-40': {
+      id: 'tp-40',
+      kind: 'anchor',
+      x: 847.3178099665117,
+      y: 155.6001726279776,
+      anchorType: 'sharp',
+      handleMode: 'none'
+    },
+    'tp-41': {
+      id: 'tp-41',
+      kind: 'anchor',
+      x: 486.47289101244587,
+      y: 158.61979538073132,
+      anchorType: 'sharp',
+      handleMode: 'none'
+    },
+    'tp-42': {
+      id: 'tp-42',
+      kind: 'anchor',
+      x: 823.1608279444822,
+      y: 344.32659467508313,
+      anchorType: 'sharp',
+      handleMode: 'none'
+    }
+  }
+  const segments = {
+    'ts-55': {
+      id: 'ts-55',
+      startId: 'tp-39',
+      endId: 'tp-36',
+      outControlId: 'tp-39:out',
+      inControlId: 'tp-36:in'
+    },
+    'ts-56': {
+      id: 'ts-56',
+      startId: 'tp-40',
+      endId: 'tp-39',
+      outControlId: null,
+      inControlId: 'tp-39:in'
+    },
+    'ts-57': {
+      id: 'ts-57',
+      startId: 'tp-41',
+      endId: 'tp-40',
+      outControlId: null,
+      inControlId: null
+    },
+    'ts-58': {
+      id: 'ts-58',
+      startId: 'tp-42',
+      endId: 'tp-41',
+      outControlId: null,
+      inControlId: null
+    }
+  }
+  const openPointIds = ['tp-42', 'tp-41', 'tp-40', 'tp-39', 'tp-36']
+  const segmentIds = ['ts-58', 'ts-57', 'ts-56', 'ts-55']
+  const anchors = openPointIds.map((pointId) => points[pointId])
+  const bounds = anchors.reduce(
+    (current, point) => ({
+      minX: Math.min(current.minX, point.x),
+      minY: Math.min(current.minY, point.y),
+      maxX: Math.max(current.maxX, point.x),
+      maxY: Math.max(current.maxY, point.y)
+    }),
+    {
+      minX: Number.POSITIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY
+    }
+  )
+  const networks = {
+    opn0: {
+      id: 'opn0',
+      pointIds: openPointIds,
+      segmentIds,
+      closed: false
+    }
+  }
+
+  return {
+    x: bounds.minX,
+    y: bounds.minY,
+    width: bounds.maxX - bounds.minX,
+    height: bounds.maxY - bounds.minY,
+    points,
+    segments,
+    networks,
+    closed: false,
+    pointCoordinateSpace: 'workspace',
+    fills: []
+  }
+}
+
 const createReportedVector10InsideDashedDragData = () => ({
   points: {
     'tp-26': {
@@ -588,6 +725,7 @@ const analyzeRedStrokeRaster = async (page: Page, screenshotBase64: string) =>
     let strokePixels = 0
     let visualSignal = 0
     const totalPixels = canvas.width * canvas.height
+    const redMask = new Uint8Array(totalPixels)
     const bounds = {
       minX: Number.POSITIVE_INFINITY,
       minY: Number.POSITIVE_INFINITY,
@@ -606,6 +744,7 @@ const analyzeRedStrokeRaster = async (page: Page, screenshotBase64: string) =>
         const pixelIndex = index / 4
         const x = pixelIndex % canvas.width
         const y = Math.floor(pixelIndex / canvas.width)
+        redMask[pixelIndex] = 1
         strokePixels += 1
         visualSignal += red
         bounds.minX = Math.min(bounds.minX, x)
@@ -615,9 +754,50 @@ const analyzeRedStrokeRaster = async (page: Page, screenshotBase64: string) =>
       }
     }
 
+    const visited = new Uint8Array(totalPixels)
+    let connectedComponentCount = 0
+    let largestComponentPixels = 0
+    const queue: number[] = []
+    for (let pixelIndex = 0; pixelIndex < totalPixels; pixelIndex += 1) {
+      if (redMask[pixelIndex] !== 1 || visited[pixelIndex] === 1) {
+        continue
+      }
+      connectedComponentCount += 1
+      visited[pixelIndex] = 1
+      queue.length = 0
+      queue.push(pixelIndex)
+      let componentPixels = 0
+      for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
+        const current = queue[queueIndex]
+        componentPixels += 1
+        const x = current % canvas.width
+        const y = Math.floor(current / canvas.width)
+        const neighbors = [
+          x > 0 ? current - 1 : -1,
+          x < canvas.width - 1 ? current + 1 : -1,
+          y > 0 ? current - canvas.width : -1,
+          y < canvas.height - 1 ? current + canvas.width : -1
+        ]
+        neighbors.forEach((neighbor) => {
+          if (
+            neighbor >= 0 &&
+            redMask[neighbor] === 1 &&
+            visited[neighbor] !== 1
+          ) {
+            visited[neighbor] = 1
+            queue.push(neighbor)
+          }
+        })
+      }
+      largestComponentPixels = Math.max(largestComponentPixels, componentPixels)
+    }
+
     return {
       strokeCoverage: strokePixels / totalPixels,
       visualSignal: visualSignal / totalPixels,
+      connectedComponentCount,
+      largestComponentPixelRatio:
+        strokePixels > 0 ? largestComponentPixels / strokePixels : 0,
       bounds:
         strokePixels > 0
           ? {
@@ -629,6 +809,131 @@ const analyzeRedStrokeRaster = async (page: Page, screenshotBase64: string) =>
           : null
     }
   }, screenshotBase64)
+
+const analyzeBrightStrokeOutsideCurrentVectorBounds = async (
+  page: Page,
+  screenshotBase64: string,
+  padding = 120
+) =>
+  page.evaluate(
+    async ({ base64, padding }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      const computed = selectedId
+        ? core?.deps?.sceneTree?.getElementById?.(selectedId)?.getAllComputedData?.()
+        : null
+      const points = Object.values(computed?.points ?? {}) as {
+        x?: number
+        y?: number
+      }[]
+      const numericPoints = points.filter(
+        (point): point is { x: number; y: number } =>
+          typeof point.x === 'number' && typeof point.y === 'number'
+      )
+      if (!computed || numericPoints.length === 0) {
+        throw new Error('No selected vector bounds available')
+      }
+
+      const zoom = core?.getSystemProperty?.('zoom') ?? 1
+      const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
+        x: 0,
+        y: 0
+      }
+      const bounds = numericPoints.reduce(
+        (current, point) => ({
+          minX: Math.min(current.minX, point.x * zoom + viewport.x),
+          minY: Math.min(current.minY, point.y * zoom + viewport.y),
+          maxX: Math.max(current.maxX, point.x * zoom + viewport.x),
+          maxY: Math.max(current.maxY, point.y * zoom + viewport.y)
+        }),
+        {
+          minX: Number.POSITIVE_INFINITY,
+          minY: Number.POSITIVE_INFINITY,
+          maxX: Number.NEGATIVE_INFINITY,
+          maxY: Number.NEGATIVE_INFINITY
+        }
+      )
+      const reviewBounds = {
+        minX: bounds.minX - padding,
+        minY: bounds.minY - padding,
+        maxX: bounds.maxX + padding,
+        maxY: bounds.maxY + padding
+      }
+
+      const response = await fetch(`data:image/png;base64,${base64}`)
+      const blob = await response.blob()
+      const bitmap = await createImageBitmap(blob)
+      const canvas = document.createElement('canvas')
+      canvas.width = bitmap.width
+      canvas.height = bitmap.height
+      const context = canvas.getContext('2d')
+      if (!context) {
+        throw new Error('Canvas 2D context unavailable')
+      }
+      context.drawImage(bitmap, 0, 0)
+      const image = context.getImageData(0, 0, canvas.width, canvas.height).data
+      let strokePixels = 0
+      let outsideStrokePixels = 0
+      const canvasReviewRegion = {
+        minX: Math.min(240, Math.floor(canvas.width * 0.2)),
+        minY: 40,
+        maxX: Math.max(0, canvas.width - Math.min(240, Math.floor(canvas.width * 0.2))),
+        maxY: canvas.height
+      }
+
+      for (let index = 0; index < image.length; index += 4) {
+        const pixelIndex = index / 4
+        const x = pixelIndex % canvas.width
+        const y = Math.floor(pixelIndex / canvas.width)
+        if (
+          x < canvasReviewRegion.minX ||
+          x > canvasReviewRegion.maxX ||
+          y < canvasReviewRegion.minY ||
+          y > canvasReviewRegion.maxY
+        ) {
+          continue
+        }
+
+        const red = image[index] ?? 0
+        const green = image[index + 1] ?? 0
+        const blue = image[index + 2] ?? 0
+        const alpha = image[index + 3] ?? 0
+        const isBrightStrokePixel =
+          alpha > 128 &&
+          red > 150 &&
+          green > 150 &&
+          blue > 150 &&
+          Math.abs(red - green) < 48 &&
+          Math.abs(red - blue) < 48
+        if (!isBrightStrokePixel) {
+          continue
+        }
+
+        strokePixels += 1
+        if (
+          x < reviewBounds.minX ||
+          x > reviewBounds.maxX ||
+          y < reviewBounds.minY ||
+          y > reviewBounds.maxY
+        ) {
+          outsideStrokePixels += 1
+        }
+      }
+
+      return {
+        selectedId,
+        strokePixels,
+        outsideStrokePixels,
+        outsideRatio:
+          strokePixels > 0 ? outsideStrokePixels / strokePixels : 0,
+        reviewBounds,
+        canvasReviewRegion
+      }
+    },
+    { base64: screenshotBase64, padding }
+  )
 
 const analyzeSelectedBrightStrokeAlignmentRaster = async (
   page: Page,
@@ -979,6 +1284,291 @@ const captureSelectedVectorFullRaster = async (page: Page, padding = 56) => {
     target
   }
 }
+
+const analyzeOpenPathSegmentDashRecall = async (
+  page: Page,
+  raster: Awaited<ReturnType<typeof captureSelectedVectorFullRaster>>
+) =>
+  page.evaluate(async ({ base64, target, clipX, clipY, zoom, viewport }) => {
+    const response = await fetch(`data:image/png;base64,${base64}`)
+    const blob = await response.blob()
+    const bitmap = await createImageBitmap(blob)
+    const canvas = document.createElement('canvas')
+    canvas.width = bitmap.width
+    canvas.height = bitmap.height
+    const context = canvas.getContext('2d')
+    if (!context) {
+      throw new Error('Canvas 2D context unavailable')
+    }
+    context.drawImage(bitmap, 0, 0)
+    const image = context.getImageData(0, 0, canvas.width, canvas.height).data
+    const isRedPixel = (x: number, y: number) => {
+      const ix = Math.round(x)
+      const iy = Math.round(y)
+      if (ix < 0 || iy < 0 || ix >= canvas.width || iy >= canvas.height) {
+        return false
+      }
+      const index = (iy * canvas.width + ix) * 4
+      const red = image[index] ?? 0
+      const green = image[index + 1] ?? 0
+      const blue = image[index + 2] ?? 0
+      const alpha = image[index + 3] ?? 0
+      return alpha > 128 && red > 90 && red > green + 45 && red > blue + 45
+    }
+    const toImagePoint = (point: { x: number; y: number }) => ({
+      x: point.x * zoom + viewport.x - clipX,
+      y: point.y * zoom + viewport.y - clipY
+    })
+    const lerp = (
+      start: { x: number; y: number },
+      end: { x: number; y: number },
+      t: number
+    ) => ({
+      x: start.x + (end.x - start.x) * t,
+      y: start.y + (end.y - start.y) * t
+    })
+    const sampleCubic = (
+      p0: { x: number; y: number },
+      p1: { x: number; y: number },
+      p2: { x: number; y: number },
+      p3: { x: number; y: number },
+      t: number
+    ) => {
+      const a = lerp(p0, p1, t)
+      const b = lerp(p1, p2, t)
+      const c = lerp(p2, p3, t)
+      const d = lerp(a, b, t)
+      const e = lerp(b, c, t)
+      return lerp(d, e, t)
+    }
+    const sampleCubicTangent = (
+      p0: { x: number; y: number },
+      p1: { x: number; y: number },
+      p2: { x: number; y: number },
+      p3: { x: number; y: number },
+      t: number
+    ) => {
+      const mt = 1 - t
+      return {
+        x:
+          3 * mt * mt * (p1.x - p0.x) +
+          6 * mt * t * (p2.x - p1.x) +
+          3 * t * t * (p3.x - p2.x),
+        y:
+          3 * mt * mt * (p1.y - p0.y) +
+          6 * mt * t * (p2.y - p1.y) +
+          3 * t * t * (p3.y - p2.y)
+      }
+    }
+    const hasRedNearSample = (
+      point: { x: number; y: number },
+      tangent: { x: number; y: number }
+    ) => {
+      const length = Math.hypot(tangent.x, tangent.y)
+      if (length <= 1e-6) {
+        return false
+      }
+      const normal = {
+        x: -tangent.y / length,
+        y: tangent.x / length
+      }
+      const tangentUnit = {
+        x: tangent.x / length,
+        y: tangent.y / length
+      }
+      for (let side = -1; side <= 1; side += 2) {
+        for (let normalOffset = 2; normalOffset <= 18; normalOffset += 2) {
+          for (let tangentOffset = -2; tangentOffset <= 2; tangentOffset += 2) {
+            if (
+              isRedPixel(
+                point.x + normal.x * normalOffset * side + tangentUnit.x * tangentOffset,
+                point.y + normal.y * normalOffset * side + tangentUnit.y * tangentOffset
+              )
+            ) {
+              return true
+            }
+          }
+        }
+      }
+      return false
+    }
+    const hasRedNearSampleOnSide = (
+      point: { x: number; y: number },
+      tangent: { x: number; y: number },
+      side: -1 | 1
+    ) => {
+      const length = Math.hypot(tangent.x, tangent.y)
+      if (length <= 1e-6) {
+        return false
+      }
+      const normal = {
+        x: -tangent.y / length,
+        y: tangent.x / length
+      }
+      const tangentUnit = {
+        x: tangent.x / length,
+        y: tangent.y / length
+      }
+      for (let normalOffset = 2; normalOffset <= 18; normalOffset += 2) {
+        for (let tangentOffset = -2; tangentOffset <= 2; tangentOffset += 2) {
+          if (
+            isRedPixel(
+              point.x + normal.x * normalOffset * side + tangentUnit.x * tangentOffset,
+              point.y + normal.y * normalOffset * side + tangentUnit.y * tangentOffset
+            )
+          ) {
+            return true
+          }
+        }
+      }
+      return false
+    }
+    const distanceToLineSegment = (
+      point: { x: number; y: number },
+      start: { x: number; y: number },
+      end: { x: number; y: number }
+    ) => {
+      const dx = end.x - start.x
+      const dy = end.y - start.y
+      const lengthSquared = dx * dx + dy * dy
+      if (lengthSquared <= 1e-6) {
+        return Math.hypot(point.x - start.x, point.y - start.y)
+      }
+      const t = Math.max(
+        0,
+        Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared)
+      )
+      return Math.hypot(point.x - (start.x + dx * t), point.y - (start.y + dy * t))
+    }
+    const segments = target.segments
+      .filter((segment) => segment.start && segment.end)
+      .map((segment) => {
+        const start = toImagePoint(segment.start)
+        const end = toImagePoint(segment.end)
+        const outControl = segment.outControl
+          ? toImagePoint(segment.outControl)
+          : null
+        const inControl = segment.inControl ? toImagePoint(segment.inControl) : null
+        const control1 = outControl ?? start
+        const control2 = inControl ?? end
+        const roughLength = Math.hypot(end.x - start.x, end.y - start.y)
+        const sampleCount = Math.max(18, Math.ceil(roughLength / 10))
+        let hitCount = 0
+        let leftHitCount = 0
+        let rightHitCount = 0
+        let currentRun = 0
+        let maxRun = 0
+        for (let index = 0; index < sampleCount; index += 1) {
+          const t = (index + 0.5) / sampleCount
+          const point =
+            outControl || inControl
+              ? sampleCubic(start, control1, control2, end, t)
+              : lerp(start, end, t)
+          const tangent =
+            outControl || inControl
+              ? sampleCubicTangent(start, control1, control2, end, t)
+              : { x: end.x - start.x, y: end.y - start.y }
+          const hasLeft = hasRedNearSampleOnSide(point, tangent, 1)
+          const hasRight = hasRedNearSampleOnSide(point, tangent, -1)
+          if (hasLeft) {
+            leftHitCount += 1
+          }
+          if (hasRight) {
+            rightHitCount += 1
+          }
+          if (hasLeft || hasRight) {
+            hitCount += 1
+            currentRun += 1
+            maxRun = Math.max(maxRun, currentRun)
+          } else {
+            currentRun = 0
+          }
+        }
+        return {
+          id: segment.id,
+          hitCount,
+          leftHitCount,
+          rightHitCount,
+          sampleCount,
+          recall: sampleCount > 0 ? hitCount / sampleCount : 0,
+          leftRecall: sampleCount > 0 ? leftHitCount / sampleCount : 0,
+          rightRecall: sampleCount > 0 ? rightHitCount / sampleCount : 0,
+          bothSideRecall:
+            sampleCount > 0
+              ? Math.min(leftHitCount, rightHitCount) / sampleCount
+              : 0,
+          maxConsecutiveHitRatio: sampleCount > 0 ? maxRun / sampleCount : 0
+        }
+      })
+    const firstSegment = target.segments.find(
+      (segment) => segment.start && segment.end
+    )
+    const lastSegment = [...target.segments]
+      .reverse()
+      .find((segment) => segment.start && segment.end)
+    const implicitClosingEdge =
+      firstSegment?.start && lastSegment?.end
+        ? (() => {
+            const authoredImageSegments = target.segments
+              .filter((segment) => segment.start && segment.end)
+              .map((segment) => ({
+                start: toImagePoint(segment.start),
+                end: toImagePoint(segment.end)
+              }))
+            const start = toImagePoint(lastSegment.end)
+            const end = toImagePoint(firstSegment.start)
+            const length = Math.hypot(end.x - start.x, end.y - start.y)
+            const sampleCount = Math.max(18, Math.ceil(length / 10))
+            let hitCount = 0
+            let consideredCount = 0
+            for (let index = 0; index < sampleCount; index += 1) {
+              const t = (index + 0.5) / sampleCount
+              const point = lerp(start, end, t)
+              if (
+                authoredImageSegments.some(
+                  (segment) =>
+                    distanceToLineSegment(point, segment.start, segment.end) < 24
+                )
+              ) {
+                continue
+              }
+              consideredCount += 1
+              const tangent = { x: end.x - start.x, y: end.y - start.y }
+              if (hasRedNearSample(point, tangent)) {
+                hitCount += 1
+              }
+            }
+            return {
+              hitCount,
+              sampleCount: consideredCount,
+              recall: consideredCount > 0 ? hitCount / consideredCount : 0
+            }
+          })()
+        : null
+
+    return {
+      segments,
+      minRecall:
+        segments.length > 0
+          ? Math.min(...segments.map((segment) => segment.recall))
+          : 0,
+      maxRecall:
+        segments.length > 0
+          ? Math.max(...segments.map((segment) => segment.recall))
+          : 0,
+      maxConsecutiveHitRatio:
+        segments.length > 0
+          ? Math.max(
+              ...segments.map((segment) => segment.maxConsecutiveHitRatio)
+            )
+          : 0,
+      maxBothSideRecall:
+        segments.length > 0
+          ? Math.max(...segments.map((segment) => segment.bothSideRecall))
+          : 0,
+      implicitClosingEdge
+    }
+  }, raster)
 
 const analyzePentagramDashSegmentCoverage = async (
   page: Page,
@@ -3082,6 +3672,584 @@ test.describe('Vector render invariants', () => {
     ).toBeLessThanOrEqual(
       alignmentStats.blueBounds.y + alignmentStats.blueBounds.height + tolerance
     )
+  })
+
+  ;(['inside', 'outside'] as const).forEach((strokePosition) => {
+    test(`renders open self-intersecting ${strokePosition} dashed stroke through constrained domain`, async ({
+      page
+    }, testInfo) => {
+      await page.evaluate(
+        ({ topology, strokePosition }) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const elementApis = (window as any).__AsyraE2E__?.elementApis
+          if (!core || !elementApis) {
+            throw new Error('Missing E2E core or element APIs')
+          }
+
+          const stroke = {
+            id: `open-self-intersecting-${strokePosition}-stroke`,
+            kind: 'solid',
+            style: 'dashed',
+            position: strokePosition,
+            width: 10,
+            dashPattern: [27, 20],
+            dashOffset: 0,
+            fill: null,
+            defaultColorFormat: 'hex',
+            colorFormat: 'hex',
+            color: '#f40606',
+            opacity: 1,
+            visible: true,
+            gradient: null,
+            joinType: 'miter',
+            capType: 'square',
+            miterAngle: 28.96
+          }
+          const createdId = elementApis.createElement(
+            {
+              type: 'vector',
+              points: topology.points,
+              segments: topology.segments,
+              networks: topology.networks,
+              closed: false,
+              pointCoordinateSpace: 'workspace',
+              fills: [],
+              strokes: [stroke]
+            },
+            { undoable: false }
+          )
+          if (!createdId) {
+            throw new Error('Failed to create open self-intersecting vector')
+          }
+
+          elementApis.changeComputedData(
+            [createdId],
+            {
+              x: topology.x,
+              y: topology.y,
+              width: topology.width,
+              height: topology.height,
+              points: topology.points,
+              segments: topology.segments,
+              networks: topology.networks,
+              closed: false,
+              pointCoordinateSpace: 'workspace',
+              fills: [],
+              strokes: [stroke]
+            },
+            { undoable: false }
+          )
+          core.selectElements?.([createdId], { undoable: false })
+          core.setSystemProperty?.('pathEditingMode', true)
+          core.setSystemProperty?.('pathEditingVectorId', createdId)
+          core.setSystemProperty?.('zoom', 1)
+          core.setSystemProperty?.('viewportPosition', { x: -120, y: 140 })
+        },
+        {
+          topology: createOpenSelfIntersectingPentagramTopology(),
+          strokePosition
+        }
+      )
+      await page.waitForTimeout(300)
+
+      const pageScreenshot = await page.screenshot({
+        path: testInfo.outputPath(
+          `open-self-intersecting-${strokePosition}-dashed-page.png`
+        ),
+        fullPage: true
+      })
+      await testInfo.attach(
+        `open-self-intersecting-${strokePosition}-dashed-page`,
+        {
+          body: pageScreenshot,
+          contentType: 'image/png'
+        }
+      )
+      const raster = await captureSelectedVectorFullRaster(page, 96)
+      await testInfo.attach(
+        `open-self-intersecting-${strokePosition}-dashed`,
+        {
+          body: Buffer.from(raster.base64, 'base64'),
+          contentType: 'image/png'
+        }
+      )
+      const stats = await analyzeRedStrokeRaster(page, raster.base64)
+      const segmentRecall = await analyzeOpenPathSegmentDashRecall(page, raster)
+      const runtimeSnapshot = await page.evaluate((strokePosition) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        const selectedId =
+          core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+        const renderElement = selectedId
+          ? core?.deps?.render?.getElementById?.(selectedId)
+          : null
+        const exportPackets =
+          renderElement?.__asyraSolidCenterStrokeExportPackets ?? []
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const metas = exportPackets.map((packet: any) => packet.debugMeta)
+        const renderFaceMetas =
+          renderElement?.__asyraStrokeRenderFaceDebugMetas ?? []
+        const allMetas = [...metas, ...renderFaceMetas]
+        return {
+          selectedId,
+          constrainedDashedProductNetworkIds:
+            renderElement?.__asyraConstrainedDashedProductNetworkIds ?? null,
+          constrainedDashedRuntimeDiagnostics:
+            renderElement?.__asyraConstrainedDashedRuntimeDiagnostics ?? null,
+          renderFaceMetaCount: renderFaceMetas.length,
+          matchingConstrainedPacketCount: allMetas.filter(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (meta: any) =>
+              meta?.geometryFamily === 'constrained-dashed' &&
+              meta?.strokePosition === strokePosition &&
+              meta?.sourceTopology === 'self-intersecting'
+          ).length,
+          splitRangePacketCount: allMetas.filter(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (meta: any) => meta?.figmaLikeSplitRangeId !== undefined
+          ).length,
+          sourceSpanFallbackPacketCount: allMetas.filter(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (meta: any) =>
+              typeof meta?.figmaLikeSplitRangeId === 'string' &&
+              meta.figmaLikeSplitRangeId.startsWith('source-span-fallback:')
+          ).length,
+          sourceSpanFallbackMetas: allMetas
+            .filter(
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (meta: any) =>
+                typeof meta?.figmaLikeSplitRangeId === 'string' &&
+                meta.figmaLikeSplitRangeId.startsWith('source-span-fallback:')
+            )
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((meta: any) => ({
+              splitRangeId: meta.figmaLikeSplitRangeId,
+              sourceSegmentIndex: meta.figmaLikeSplitRangeSourceSegmentIndex,
+              selectedSide: meta.figmaLikeSelectedSide,
+              boundaryRole: meta.figmaLikeBoundaryRole,
+              sideResolutionReason: meta.figmaLikeSideResolutionReason
+            })),
+          splitRangeTerminalRoles: allMetas
+            .filter(
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (meta: any) =>
+                meta?.geometryFamily === 'constrained-dashed' &&
+                meta?.figmaLikeSplitRangeId !== undefined
+            )
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((meta: any) => ({
+              splitRangeId: meta.figmaLikeSplitRangeId,
+              terminalRole: meta.figmaLikeTerminalRole
+            })),
+          sampleMetas: allMetas
+            .filter(
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (meta: any) => meta?.geometryFamily === 'constrained-dashed'
+            )
+            .slice(0, 8)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((meta: any) => ({
+              keys: Object.keys(meta ?? {}).slice(0, 16),
+              geometryFamily: meta?.geometryFamily,
+              strokePosition: meta?.strokePosition,
+              sourceTopology: meta?.sourceTopology,
+              topologyFamily: meta?.topologyFamily,
+              intervalId: meta?.intervalId,
+              finalCoverageBuilderStatus: meta?.finalCoverageBuilderStatus,
+              resolutionStatus: meta?.resolutionStatus,
+              runtimeStatus: meta?.runtimeStatus,
+              splitRangeId: meta?.figmaLikeSplitRangeId,
+              sideReason: meta?.figmaLikeSideResolutionReason
+            })),
+          centerPacketCount: allMetas.filter(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (meta: any) => meta?.geometryFamily === 'dashed-center'
+          ).length
+        }
+      }, strokePosition)
+
+      expect(
+        stats.strokeCoverage,
+        `open self-intersecting ${strokePosition} dashed stroke missing raster output\n${JSON.stringify(
+          { stats, runtimeSnapshot },
+          null,
+          2
+        )}`
+      ).toBeGreaterThan(0.015)
+      expect(
+        stats.connectedComponentCount,
+        `open self-intersecting ${strokePosition} dashed stroke collapsed into too few visible dash components\n${JSON.stringify(
+          { stats, runtimeSnapshot },
+          null,
+          2
+        )}`
+      ).toBeGreaterThan(6)
+      expect(
+        stats.largestComponentPixelRatio,
+        `open self-intersecting ${strokePosition} dashed stroke has an oversized continuous component\n${JSON.stringify(
+          { stats, segmentRecall, runtimeSnapshot },
+          null,
+          2
+        )}`
+      ).toBeLessThan(0.35)
+      expect(
+        segmentRecall.maxConsecutiveHitRatio,
+        `open self-intersecting ${strokePosition} dashed stroke visually collapsed into a solid-like run\n${JSON.stringify(
+          { stats, segmentRecall, runtimeSnapshot },
+          null,
+          2
+        )}`
+      ).toBeLessThan(0.72)
+      expect(
+        segmentRecall.implicitClosingEdge?.recall ?? 1,
+        `open self-intersecting ${strokePosition} dashed stroke painted the invisible closing edge\n${JSON.stringify(
+          { stats, segmentRecall, runtimeSnapshot },
+          null,
+          2
+        )}`
+      ).toBeLessThan(0.22)
+      if (strokePosition === 'outside') {
+        expect(
+          segmentRecall.minRecall,
+          `open self-intersecting outside dashed stroke is missing open branch or contour segment coverage\n${JSON.stringify(
+            { stats, segmentRecall, runtimeSnapshot },
+            null,
+            2
+          )}`
+        ).toBeGreaterThan(0.18)
+        expect(
+          segmentRecall.maxBothSideRecall,
+          `open self-intersecting outside dashed stroke never paints both sides of an open source branch\n${JSON.stringify(
+            { stats, segmentRecall, runtimeSnapshot },
+            null,
+            2
+          )}`
+        ).toBeGreaterThan(0.18)
+        expect(
+          runtimeSnapshot.sourceSpanFallbackPacketCount,
+          `open self-intersecting outside dashed stroke did not keep open source-span fallback metadata\n${JSON.stringify(
+            { stats, segmentRecall, runtimeSnapshot },
+            null,
+            2
+          )}`
+        ).toBeGreaterThan(0)
+        expect(
+          runtimeSnapshot.sourceSpanFallbackMetas.every(
+            (meta: {
+              sourceSegmentIndex?: number
+              selectedSide?: number
+              boundaryRole?: string
+              sideResolutionReason?: string
+            }) =>
+              meta.selectedSide === undefined &&
+              meta.boundaryRole === 'ambiguous' &&
+              meta.sideResolutionReason === 'open-source-span-both-sides'
+          ),
+          `open self-intersecting outside dashed source-span fallback must be both-side, not selected-side\n${JSON.stringify(
+            { stats, segmentRecall, runtimeSnapshot },
+            null,
+            2
+          )}`
+        ).toBe(true)
+        const fallbackSourceSegmentIndexes = new Set(
+          runtimeSnapshot.sourceSpanFallbackMetas.map(
+            (meta: { sourceSegmentIndex?: number }) => meta.sourceSegmentIndex
+          )
+        )
+        expect(
+          fallbackSourceSegmentIndexes.has(0),
+          `open self-intersecting outside dashed stroke did not paint the first dangling open branch\n${JSON.stringify(
+            { stats, segmentRecall, runtimeSnapshot },
+            null,
+            2
+          )}`
+        ).toBe(true)
+        expect(
+          fallbackSourceSegmentIndexes.has(3),
+          `open self-intersecting outside dashed stroke did not paint the last dangling open branch\n${JSON.stringify(
+            { stats, segmentRecall, runtimeSnapshot },
+            null,
+            2
+          )}`
+        ).toBe(true)
+      } else {
+        expect(
+          segmentRecall.maxRecall,
+          `open self-intersecting inside dashed stroke is missing contour-owned dash output\n${JSON.stringify(
+            { stats, segmentRecall, runtimeSnapshot },
+            null,
+            2
+          )}`
+        ).toBeGreaterThan(0.18)
+      }
+      const hasConstrainedDescriptor =
+        Array.isArray(runtimeSnapshot.constrainedDashedProductNetworkIds) &&
+        runtimeSnapshot.constrainedDashedProductNetworkIds.includes('opn0')
+      expect(
+        hasConstrainedDescriptor ||
+          runtimeSnapshot.matchingConstrainedPacketCount > 0,
+        `open self-intersecting ${strokePosition} dashed stroke did not route through constrained dashed product output\n${JSON.stringify(
+          { stats, segmentRecall, runtimeSnapshot },
+          null,
+          2
+        )}`
+      ).toBe(true)
+      if (!hasConstrainedDescriptor) {
+        expect(
+          runtimeSnapshot.splitRangePacketCount,
+          `open self-intersecting ${strokePosition} dashed stroke did not preserve split-range packet metadata\n${JSON.stringify(
+            { stats, segmentRecall, runtimeSnapshot },
+            null,
+            2
+          )}`
+        ).toBeGreaterThan(0)
+      }
+      expect(
+        runtimeSnapshot.splitRangeTerminalRoles.some(
+          (record: { terminalRole?: string }) =>
+            record.terminalRole === 'start' ||
+            record.terminalRole === 'end' ||
+            record.terminalRole === 'start-end'
+        ),
+        `open self-intersecting ${strokePosition} dashed stroke did not preserve per-range terminal half-dash metadata\n${JSON.stringify(
+          { stats, segmentRecall, runtimeSnapshot },
+          null,
+          2
+        )}`
+      ).toBe(true)
+      expect(
+        runtimeSnapshot.centerPacketCount,
+        `open self-intersecting ${strokePosition} dashed stroke should not emit center dashed packets\n${JSON.stringify(
+          { stats, segmentRecall, runtimeSnapshot },
+          null,
+          2
+        )}`
+      ).toBe(0)
+    })
+  })
+
+  test('clears stale inside dashed open-path cap render entries after cap switch and viewport pan', async ({
+    page
+  }, testInfo) => {
+    await page.evaluate(({ topology }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!core || !elementApis) {
+        throw new Error('Missing E2E core or element APIs')
+      }
+
+      const stroke = {
+        id: 'open-self-intersecting-inside-cap-switch-stroke',
+        kind: 'solid',
+        style: 'dashed',
+        position: 'inside',
+        width: 10,
+        dashPattern: [27, 20],
+        dashOffset: 0,
+        fill: null,
+        defaultColorFormat: 'hex',
+        colorFormat: 'hex',
+        color: '#cccccc',
+        opacity: 1,
+        visible: true,
+        gradient: null,
+        joinType: 'round',
+        capType: 'square',
+        miterAngle: 28.96
+      }
+      const createdId = elementApis.createElement(
+        {
+          type: 'vector',
+          x: topology.x,
+          y: topology.y,
+          width: topology.width,
+          height: topology.height,
+          points: topology.points,
+          segments: topology.segments,
+          networks: topology.networks,
+          closed: false,
+          pointCoordinateSpace: 'workspace',
+          fills: [],
+          strokes: [stroke]
+        },
+        { undoable: false }
+      )
+      if (!createdId) {
+        throw new Error('Failed to create open cap-switch vector')
+      }
+
+      elementApis.changeComputedData(
+        [createdId],
+        {
+          x: topology.x,
+          y: topology.y,
+          width: topology.width,
+          height: topology.height,
+          points: topology.points,
+          segments: topology.segments,
+          networks: topology.networks,
+          closed: false,
+          pointCoordinateSpace: 'workspace',
+          fills: [],
+          strokes: [stroke]
+        },
+        { undoable: false }
+      )
+      core.selectElements?.([createdId], { undoable: false })
+      core.setSystemProperty?.('pathEditingMode', true)
+      core.setSystemProperty?.('pathEditingVectorId', createdId)
+      core.setSystemProperty?.('zoom', 1)
+      core.setSystemProperty?.('viewportPosition', { x: -80, y: 130 })
+    }, { topology: createOpenSelfIntersectingPentagramTopology() })
+    await page.waitForTimeout(250)
+
+    const transitions = [
+      {
+        capType: 'round',
+        viewportPosition: { x: 210, y: 80 },
+        artifact: 'inside-open-cap-square-to-round-pan.png',
+        expectCurrentStrokeVisible: true
+      },
+      {
+        capType: 'square',
+        viewportPosition: { x: -1100, y: 130 },
+        artifact: 'inside-open-cap-round-to-square-pan.png',
+        expectCurrentStrokeVisible: false
+      }
+    ] as const
+
+    for (const transition of transitions) {
+      await page.getByTestId('prop-stroke-cap-0').selectOption(transition.capType)
+      const canvasBox = await page
+        .locator('#viewport-anchor')
+        .boundingBox()
+      if (!canvasBox) {
+        throw new Error('Missing viewport anchor for wheel pan regression')
+      }
+      await page.mouse.move(
+        canvasBox.x + canvasBox.width / 2,
+        canvasBox.y + canvasBox.height / 2
+      )
+      const startViewport = await page.evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        return core?.getSystemProperty?.('viewportPosition') ?? { x: 0, y: 0 }
+      })
+      const targetDelta = {
+        x: transition.viewportPosition.x - startViewport.x,
+        y: transition.viewportPosition.y - startViewport.y
+      }
+      for (let frameIndex = 0; frameIndex < 12; frameIndex += 1) {
+        await page.mouse.wheel(
+          -targetDelta.x / 12,
+          -targetDelta.y / 12
+        )
+        await page.waitForTimeout(16)
+      }
+      await page.waitForFunction(
+        ({ expectedX, expectedY }) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
+            x: 0,
+            y: 0
+          }
+          return (
+            Math.abs(viewport.x - expectedX) < 2 &&
+            Math.abs(viewport.y - expectedY) < 2
+          )
+        },
+        {
+          expectedX: transition.viewportPosition.x,
+          expectedY: transition.viewportPosition.y
+        }
+      )
+      await page.waitForTimeout(250)
+
+      const screenshot = await page.screenshot({
+        path: testInfo.outputPath(transition.artifact),
+        fullPage: true
+      })
+      await testInfo.attach(transition.artifact, {
+        body: screenshot,
+        contentType: 'image/png'
+      })
+      const staleStats = await analyzeBrightStrokeOutsideCurrentVectorBounds(
+        page,
+        screenshot.toString('base64')
+      )
+      const runtimeSnapshot = await page.evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        const selectedId =
+          core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+        const computed = selectedId
+          ? core?.deps?.sceneTree
+              ?.getElementById?.(selectedId)
+              ?.getAllComputedData?.()
+          : null
+        const renderElement = selectedId
+          ? core?.deps?.render?.getElementById?.(selectedId)
+          : null
+        const meshCache = renderElement?.__asyraStrokeMeshCache
+        const childCount = Array.isArray(renderElement?.children)
+          ? renderElement.children.length
+          : null
+        return {
+          selectedId,
+          capType: computed?.strokes?.[0]?.capType ?? null,
+          productNetworkIds:
+            renderElement?.__asyraConstrainedDashedProductNetworkIds ?? null,
+          renderFaceMetaCount:
+            renderElement?.__asyraStrokeRenderFaceDebugMetas?.length ?? 0,
+          exportPacketCount:
+            renderElement?.__asyraSolidCenterStrokeExportPackets?.length ?? 0,
+          strokeRenderCacheSize:
+            meshCache instanceof Map ? meshCache.size : null,
+          renderChildCount: childCount
+        }
+      })
+
+      expect(runtimeSnapshot.capType).toBe(transition.capType)
+      expect(
+        runtimeSnapshot.strokeRenderCacheSize,
+        `cap switch leaked stale stroke render cache entries\n${JSON.stringify(
+          { transition, runtimeSnapshot },
+          null,
+          2
+        )}`
+      ).toBe(runtimeSnapshot.exportPacketCount)
+      expect(
+        runtimeSnapshot.renderChildCount,
+        `cap switch leaked stale Pixi render children\n${JSON.stringify(
+          { transition, runtimeSnapshot },
+          null,
+          2
+        )}`
+      ).toBe(runtimeSnapshot.strokeRenderCacheSize)
+      if (transition.expectCurrentStrokeVisible) {
+        expect(
+          staleStats.strokePixels,
+          `cap switch produced no current inside dashed stroke\n${JSON.stringify(
+            { transition, staleStats, runtimeSnapshot },
+            null,
+            2
+          )}`
+        ).toBeGreaterThan(150)
+      }
+      expect(
+        staleStats.outsideRatio,
+        `cap switch left stale red stroke outside the current vector bounds after pan\n${JSON.stringify(
+          { transition, staleStats, runtimeSnapshot },
+          null,
+          2
+        )}`
+      ).toBeLessThan(0.01)
+    }
   })
 
   test('keeps reported inside dashed drag network visible across every segment', async ({

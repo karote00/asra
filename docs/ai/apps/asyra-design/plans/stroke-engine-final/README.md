@@ -117,6 +117,28 @@ cap footprint. If the open network cannot hold endpoint half-dashes plus a
 legible cap-aware visual gap, it may collapse into one `start-end` visible dash
 instead of producing crowded dash groups.
 
+Open authored dashed `inside` / `outside` strokes are center-equivalent only
+when the open network has no bounded filled-region domain. If an open
+self-intersecting network resolves bounded filled regions from its real authored
+source segments, dashed `inside` and `outside` for that network own a
+constrained domain even though its true endpoints remain open. The filled-region
+domain is the planar arrangement of the real open source segments only; no
+invisible closing edge may be added for domain, dash, hit-test, export, or
+product output.
+
+Open self-intersecting `inside` dashed output follows the resolved closed
+contour rule: only source spans that participate in a filled contour may produce
+inside dash pixels. Dangling open branches and non-contour spans stay unpainted
+for `inside`. Open self-intersecting `outside` dashed output follows the
+resolved exterior contour rule for contour-owned spans and additionally keeps
+dangling open-branch endpoint/cap/dash semantics by rendering those dangling
+spans on both sides of the source path. Their visible normal span is
+approximately `stroke.width * 2`; they are not center-equivalent ribbons. This
+rule is a product contract, not a diagnostic fallback: product output must not
+normalize these networks to center, must not inherit continuous open-network
+dash phase across independent constrained spans, must not synthesize a closing
+edge, and must not paint dangling branches for `inside`.
+
 For adjacency-aware self-intersecting masks, a grouped render descriptor may
 carry authored centerline stroke paths with explicit clip groups. Those groups
 are an encoding of the masked authored stroke source: they must preserve
@@ -131,7 +153,12 @@ center-dashed stroke clipped by the inside filled-region mask. It is not a drag
 preview, a helper overlay, or an approximation. If the descriptor covers one
 fill domain and one stroke style, product output may bypass same-visual overlap
 collapse for that frame; per-interval polygons remain diagnostics/export
-evidence unless explicitly routed as non-visible projection data.
+evidence unless explicitly routed as non-visible projection data. The
+descriptor builder must consume resolved self-intersection split/domain
+metadata from the resolved geometry model. Source-span fallback domains are
+allowed only to cover source segment spans that the resolved boundary domains
+did not cover; they must not retrace the full path or rediscover source
+intersections during drag-time product rendering.
 
 For constrained `outside` dashed render, drag-time visible render may use an
 exact grouped descriptor with authored doubled center-dashed `strokePaths`,
@@ -203,7 +230,18 @@ below roughly `12`. Changes must be covered by rule-driven tests and visual
 review.
 
 Open path dashed allocation uses the same cap-aware readability floor, but its
-domain is the continuous open network rather than a constrained split range.
+center-equivalent domain is the continuous open network rather than a
+constrained split range. Open self-intersecting networks with bounded filled
+regions formed by real authored source segments are constrained-domain products
+for dashed `inside` / `outside`, so their visible output is contour-ownership
+driven: `inside` excludes dangling open branches, while `outside` preserves
+open endpoint/cap semantics for those branches.
+For those constrained products, dash allocation is not the continuous
+open-network allocation used by simple open `center` strokes. Each independent
+contour-owned span or dangling open source span owns its own split-range
+allocation: both cut ends use half-dash terminals when possible, middle
+dashes/gaps are redistributed inside that span, and dash phase must not carry
+across unrelated constrained spans.
 
 ## Inspector Step Contracts
 
@@ -269,7 +307,11 @@ The renderer classifies changes through the stage dirty matrix:
   dirty dash schedule, while open path square-cap transitions may do so
   conservatively;
 - `joinType` and `miterAngle` rebuild join/miter shape and downstream output
-  without dirtying source path, stroke domain, dash schedule, or paint.
+  without dirtying source path, stroke domain, dash schedule, or paint. Exact
+  semantic stroke-path descriptors may treat `miterAngle` as a style replay
+  when cached geometry is restyled with the current cap/join/miter values.
+  Polygon product geometry that embeds miter shape must keep `miterAngle` in
+  its geometry signature and rebuild.
 
 Drag uses the same matrix. Point/handle movement dirties source path and any
 derived source geometry required by the changed topology, but it must not mark
@@ -281,7 +323,11 @@ The dirty matrix is not sufficient by itself. Normal render must also keep a
 
 - cache keys include element, network, source revision, and geometry-affecting
   stroke signature;
-- cached final semantic descriptors may be retinted for paint-only changes;
+- cached final semantic descriptors may be retinted for paint-only changes and
+  restyled for style-only descriptor changes; replaying an old `miterLimit`,
+  cap, or join value is invalid;
+- constrained dashed drag descriptors reuse resolved split/domain metadata and
+  must not run source-intersection tracing as part of visible product output;
 - `visible:false` clears render/hit/export output through a render-output
   hidden path without rebuilding source or stroke geometry;
 - diagnostics/export polygon evidence may be materialized lazily, but must not

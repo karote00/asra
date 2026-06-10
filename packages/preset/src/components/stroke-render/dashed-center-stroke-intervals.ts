@@ -75,6 +75,8 @@ export interface FigmaLikeSplitRangeDashDomain {
   boundaryTotalLength?: number
   startDistance: number
   endDistance: number
+  sourceStartDistance?: number
+  sourceEndDistance?: number
   sourceSegmentIndex: number
   sideAuthority?: 'implicit-fill-hole-domain'
   selectedSide?: 1 | -1

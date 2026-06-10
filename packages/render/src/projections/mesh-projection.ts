@@ -296,6 +296,24 @@ export const createMeshProjection = (
 
   applyPaint(options.paint)
   root.visible = !!initialGeometry
+  const scheduleDestroy = () => {
+    const destroyRoot = () => {
+      if ((root as { destroyed?: boolean }).destroyed) {
+        return
+      }
+      root.destroy({
+        texture: false,
+        textureSource: false
+      })
+    }
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => requestAnimationFrame(destroyRoot))
+      return
+    }
+
+    setTimeout(destroyRoot, 0)
+  }
 
   return {
     attach: (host: unknown) => {
@@ -318,10 +336,8 @@ export const createMeshProjection = (
       if (root.parent) {
         root.parent.removeChild(root)
       }
-      root.destroy({
-        texture: false,
-        textureSource: false
-      })
+      root.visible = false
+      scheduleDestroy()
     }
   }
 }

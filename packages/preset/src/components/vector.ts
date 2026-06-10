@@ -713,6 +713,23 @@ const canUseExactSingleNetworkInsideDashedMaskFacesDirectly = (
   })
 }
 
+const hasOpenImplicitConstrainedDashedFaces = (
+  faces: SolidStrokeFinalFaceList
+) =>
+  faces.some((face) => {
+    const debugMeta = face.debugMeta
+    return (
+      debugMeta?.geometryFamily === 'constrained-dashed' &&
+      debugMeta.sourceTopology === 'self-intersecting' &&
+      (debugMeta.topologyFamily === 'open' ||
+        debugMeta.figmaLikeSideResolutionReason ===
+          'open-source-span-both-sides' ||
+        debugMeta.figmaLikeSplitRangeId?.startsWith(
+          'source-span-fallback:'
+        ) === true)
+    )
+  })
+
 const promoteConstrainedSolidPacketsToExactArrangement = (
   packets: SolidCenterStrokeResolvedPacket[],
   legalDomains: ArrangementLegalDomain[] = []
@@ -1281,6 +1298,7 @@ interface StrokePipelineStageProductCache {
   geometrySignature: string | null
   finalFaces: SolidStrokeFinalFaceList
   renderEntries: SolidCenterStrokeRenderEntry[]
+  styleReplayable?: boolean
 }
 
 interface StrokePipelineStageCache {
@@ -2500,7 +2518,8 @@ const getSingleSolidRenderableStroke = (strokes: StrokeAttrs[] | undefined) => {
 const buildStrokeProductGeometrySignature = (
   vectorId: string,
   networkPaths: VectorNetworkPathModel[],
-  stroke: RenderableStroke | null
+  stroke: RenderableStroke | null,
+  options: { ignoreMiterLimit?: boolean } = {}
 ) => {
   if (!stroke) {
     return null
@@ -2520,7 +2539,9 @@ const buildStrokeProductGeometrySignature = (
     stroke.width.toFixed(4),
     stroke.cap,
     stroke.join,
-    stroke.miterLimit.toFixed(4),
+    options.ignoreMiterLimit
+      ? 'miter-style-replay'
+      : stroke.miterLimit.toFixed(4),
     stroke.dashPattern.map((value) => value.toFixed(4)).join(','),
     stroke.dashOffset.toFixed(4)
   ].join('||')
@@ -2529,6 +2550,53 @@ const buildStrokeProductGeometrySignature = (
 const getStrokePaintKey = (stroke: RenderableStroke) =>
   stroke.paintKey ?? `solid:${stroke.color}:${stroke.alpha}`
 
+const restyleStrokePathStyle = (
+  style:
+    | (Pick<RenderableStroke, 'width' | 'cap' | 'join' | 'miterLimit'> & {
+        closed?: boolean
+      })
+    | undefined,
+  stroke: RenderableStroke
+) =>
+  style
+    ? {
+        ...style,
+        width: stroke.width,
+        cap: stroke.cap,
+        join: stroke.join,
+        miterLimit: stroke.miterLimit
+      }
+    : style
+
+const restyleStrokeRenderDescriptor = (
+  descriptor: unknown,
+  stroke: RenderableStroke
+) => {
+  if (!descriptor || typeof descriptor !== 'object') {
+    return descriptor
+  }
+
+  const typedDescriptor = descriptor as {
+    strokePathStyle?: Parameters<typeof restyleStrokePathStyle>[0]
+    strokePathGroups?: {
+      strokePaths: Vec2[][]
+      strokePathStyle?: Parameters<typeof restyleStrokePathStyle>[0]
+    }[]
+  }
+
+  return {
+    ...typedDescriptor,
+    strokePathStyle: restyleStrokePathStyle(
+      typedDescriptor.strokePathStyle,
+      stroke
+    ),
+    strokePathGroups: typedDescriptor.strokePathGroups?.map((group) => ({
+      ...group,
+      strokePathStyle: restyleStrokePathStyle(group.strokePathStyle, stroke)
+    }))
+  }
+}
+
 const retintStrokeFinalFaces = (
   faces: SolidStrokeFinalFaceList,
   stroke: RenderableStroke
@@ -2536,6 +2604,10 @@ const retintStrokeFinalFaces = (
   faces.map((face) => ({
     ...face,
     paintKey: getStrokePaintKey(stroke),
+    renderDescriptor: restyleStrokeRenderDescriptor(
+      face.renderDescriptor,
+      stroke
+    ),
     paint: {
       ...face.paint,
       kind: stroke.kind,
@@ -2558,8 +2630,50 @@ const retintStrokeRenderEntries = (
       alpha: stroke.alpha,
       gradientStyle: stroke.gradientStyle,
       paintKey: getStrokePaintKey(stroke)
-    }
+    },
+    strokePathStyle: restyleStrokePathStyle(entry.strokePathStyle, stroke),
+    strokePathGroups: entry.strokePathGroups?.map((group) => ({
+      ...group,
+      strokePathStyle: restyleStrokePathStyle(group.strokePathStyle, stroke)
+    }))
   }))
+
+const isStyleReplayableStrokeRenderEntry = (
+  entry: SolidCenterStrokeRenderEntry
+) => {
+  if (entry.strokePaths && entry.strokePaths.length > 0) {
+    return entry.strokePathStyle !== undefined
+  }
+
+  if (entry.strokePathGroups && entry.strokePathGroups.length > 0) {
+    return entry.strokePathGroups.every(
+      (group) =>
+        group.strokePaths.length > 0 && group.strokePathStyle !== undefined
+    )
+  }
+
+  return false
+}
+
+const isMiterStyleReplayableStrokeProduct = (
+  faces: SolidStrokeFinalFaceList,
+  entries: SolidCenterStrokeRenderEntry[]
+) => {
+  if (entries.length === 0) {
+    return false
+  }
+
+  const entriesReplayable = entries.every(isStyleReplayableStrokeRenderEntry)
+  const facesReplayable = faces.every((face) => {
+    if (face.renderDescriptor === undefined) {
+      return false
+    }
+    const [entry] = toSolidCenterStrokeRenderEntriesFromFinalFaces([face])
+    return entry ? isStyleReplayableStrokeRenderEntry(entry) : false
+  })
+
+  return entriesReplayable && facesReplayable
+}
 
 const shouldRenderCenterSolidFaceWithNativeVisual = (
   face: SolidStrokeFinalFaceList[number]
@@ -2820,9 +2934,17 @@ const renderVectorGraphic = (
       __asyraVectorPathTopologyModelCount?: number
     }
   ).__asyraVectorPathTopologyModelCount = networkPaths.length
+  const hasPotentialOpenSelfIntersectingConstrainedDashedIntent =
+    networkPaths.some(
+      ({ topology }) =>
+        !topology.closed &&
+        !topology.isSimpleOpen &&
+        hasConstrainedDashedStrokeIntent(renderData.strokes)
+    )
   const hasConstrainedDashedIntent = networkPaths.some(
     ({ topology }) =>
-      topology.closed && hasConstrainedDashedStrokeIntent(renderData.strokes)
+      (topology.closed || !topology.isSimpleOpen) &&
+      hasConstrainedDashedStrokeIntent(renderData.strokes)
   )
   const hasConstrainedSolidIntent = networkPaths.some(
     ({ topology }) =>
@@ -2831,6 +2953,7 @@ const renderVectorGraphic = (
   const hasOnlyCenterDashedPathMaskDragStrokes =
     isMouseDragging &&
     !shouldAttachFullStrokeDiagnostics &&
+    !hasPotentialOpenSelfIntersectingConstrainedDashedIntent &&
     networkPaths.length > 0 &&
     networkPaths.every(({ topology }) => {
       const renderStrokesForNetwork = topology.closed
@@ -2844,10 +2967,18 @@ const renderVectorGraphic = (
   const singleSolidRenderableStroke = getSingleSolidRenderableStroke(
     renderData.strokes
   )
+  const canUseMiterStyleReplayableProductGeometrySignature =
+    !shouldAttachFullStrokeDiagnostics &&
+    fillPayload.length === 0 &&
+    singleSolidRenderableStroke?.style === 'dashed' &&
+    singleSolidRenderableStroke.position === 'inside'
   const strokeProductGeometrySignature = buildStrokeProductGeometrySignature(
     renderData.id,
     networkPaths,
-    singleSolidRenderableStroke
+    singleSolidRenderableStroke,
+    {
+      ignoreMiterLimit: canUseMiterStyleReplayableProductGeometrySignature
+    }
   )
   const stageCache = graphicCache.__asyraStrokePipelineStageCache ?? {
     products: new Map<string, StrokePipelineStageProductCache>()
@@ -2859,7 +2990,9 @@ const renderVectorGraphic = (
   const hasReplayableCachedProduct =
     cachedProduct &&
     (cachedProduct.finalFaces.length > 0 ||
-      cachedProduct.renderEntries.length > 0)
+      cachedProduct.renderEntries.length > 0) &&
+    (!canUseMiterStyleReplayableProductGeometrySignature ||
+      cachedProduct.styleReplayable === true)
 
   if (
     !shouldAttachFullStrokeDiagnostics &&
@@ -3040,8 +3173,35 @@ const renderVectorGraphic = (
       compoundRole?.role
     )
   }
-  const hasConstrainedDashedStrokeForNetwork = (network: VectorNetwork) =>
-    getRenderableStrokes(getStrokesForNetwork(network)).some(
+  const hasOpenSelfIntersectingImplicitFillDomain = (
+    network: VectorNetwork,
+    topology: PathTopologyModel
+  ) =>
+    !topology.closed &&
+    (resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting?.fillRegions
+      .length ?? 0) > 0
+  const shouldUseConstrainedStrokePositionForNetwork = (
+    network: VectorNetwork,
+    topology: PathTopologyModel
+  ) =>
+    topology.closed || hasOpenSelfIntersectingImplicitFillDomain(network, topology)
+  const getRenderableStrokesForConstrainedNetwork = (
+    network: VectorNetwork,
+    topology: PathTopologyModel
+  ) => {
+    const strokesForNetwork = getStrokesForNetwork(network)
+    return shouldUseConstrainedStrokePositionForNetwork(network, topology)
+      ? strokesForNetwork
+      : mapOpenPathStrokePositionToCenter(strokesForNetwork)
+  }
+  const hasConstrainedDashedStrokeForNetwork = (
+    network: VectorNetwork,
+    topology: PathTopologyModel
+  ) =>
+    shouldUseConstrainedStrokePositionForNetwork(network, topology) &&
+    getRenderableStrokes(
+      getRenderableStrokesForConstrainedNetwork(network, topology)
+    ).some(
       (stroke) =>
         stroke.style === 'dashed' &&
         (stroke.position === 'inside' || stroke.position === 'outside') &&
@@ -3101,12 +3261,18 @@ const renderVectorGraphic = (
     () =>
       isMouseDragging && !shouldAttachFullStrokeDiagnostics
         ? networkPaths.flatMap(({ network, path, topology }) => {
-            if (!topology.closed) {
+            if (!shouldUseConstrainedStrokePositionForNetwork(network, topology)) {
               return []
             }
             const compoundRole = compoundRoleByNetworkId.get(network.id)
-            const strokesForNetwork = getStrokesForNetwork(network)
-            if (!hasConstrainedDashedStrokeForNetwork(network)) {
+            const strokesForNetwork = getRenderableStrokesForConstrainedNetwork(
+              network,
+              topology
+            )
+            if (!hasConstrainedDashedStrokeForNetwork(network, topology)) {
+              return []
+            }
+            if (hasOpenSelfIntersectingImplicitFillDomain(network, topology)) {
               return []
             }
             const resolvedSelfIntersectingGeometry =
@@ -3126,20 +3292,6 @@ const renderVectorGraphic = (
                 ? path
                 : undefined
             if (!sourcePathForNetwork) {
-              return []
-            }
-            const hasCubicSourceSegment = path.segments.some(
-              (segment) => segment.type === 'cubic'
-            )
-            const shouldUseInsideDashedDescriptor =
-              !hasCubicSourceSegment ||
-              !getRenderableStrokes(strokesForNetwork).some(
-                (stroke) =>
-                  stroke.style === 'dashed' &&
-                  stroke.position === 'inside' &&
-                  stroke.width > 0
-              )
-            if (!shouldUseInsideDashedDescriptor) {
               return []
             }
             return (
@@ -3174,7 +3326,9 @@ const renderVectorGraphic = (
                     points
                   ),
                   clipInsideToFillDomain:
-                    path.closed === true || hasRenderableFill
+                    path.closed === true ||
+                    hasRenderableFill ||
+                    hasOpenSelfIntersectingImplicitFillDomain(network, topology)
                 }
               ) ?? []
             )
@@ -3189,8 +3343,7 @@ const renderVectorGraphic = (
   )
   const constrainedDashedFallbackNetworkPaths = networkPaths.filter(
     ({ network, topology }) =>
-      topology.closed &&
-      hasConstrainedDashedStrokeForNetwork(network) &&
+      hasConstrainedDashedStrokeForNetwork(network, topology) &&
       !constrainedDashedProductVisualNetworkIds.has(network.id)
   )
   const constrainedDashedFallbackNetworkIdSet = new Set(
@@ -3219,11 +3372,14 @@ const renderVectorGraphic = (
               if (!constrainedDashedFallbackNetworkIdSet.has(network.id)) {
                 return []
               }
-              if (!topology.closed) {
+              if (!shouldUseConstrainedStrokePositionForNetwork(network, topology)) {
                 return []
               }
               const compoundRole = compoundRoleByNetworkId.get(network.id)
-              const strokesForNetwork = getStrokesForNetwork(network)
+              const strokesForNetwork = getRenderableStrokesForConstrainedNetwork(
+                network,
+                topology
+              )
               const resolvedSelfIntersectingGeometry =
                 resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
               const isSelfIntersectingSourcePath =
@@ -3241,7 +3397,9 @@ const renderVectorGraphic = (
                   ? path
                   : undefined
               const clipInsideToFillDomain =
-                path.closed === true || hasRenderableFill
+                path.closed === true ||
+                hasRenderableFill ||
+                hasOpenSelfIntersectingImplicitFillDomain(network, topology)
               const constrainedDashedVisualMode =
                 shouldDisableVisualOverlapCollapse ||
                 !isSelfIntersectingSourcePath
@@ -3628,14 +3786,16 @@ const renderVectorGraphic = (
                     (packet) =>
                       packet.geometry.debugMeta?.networkId === network.id
                   )
-                const constrainedDashedRuntimeStatus = topology.closed
-                  ? classifyConstrainedDashedRuntimeStatus({
-                      points: topology.normalizedPoints,
-                      closed: topology.closed,
-                      topology,
-                      candidatePackets: networkConstrainedDashedCandidatePackets
-                    })
-                  : null
+                const constrainedDashedRuntimeStatus =
+                  shouldUseConstrainedStrokePositionForNetwork(network, topology)
+                    ? classifyConstrainedDashedRuntimeStatus({
+                        points: topology.normalizedPoints,
+                        closed: topology.closed,
+                        topology,
+                        candidatePackets:
+                          networkConstrainedDashedCandidatePackets
+                      })
+                    : null
 
                 if (constrainedDashedRuntimeStatus) {
                   constrainedDashedRuntimeDiagnostics.push({
@@ -3690,13 +3850,21 @@ const renderVectorGraphic = (
       )
     }
   )
+  const getCenterFamilyStrokesForNetwork = (
+    network: VectorNetwork,
+    topology: PathTopologyModel
+  ) =>
+    !topology.closed && !hasConstrainedDashedStrokeForNetwork(network, topology)
+      ? mapOpenPathStrokePositionToCenter(renderData.strokes)
+      : renderData.strokes
   const nativeCenterSolidVisualStrokeGroups: NativeCenterSolidVisualStrokeGroup[] =
     shouldDisableVisualOverlapCollapse
       ? []
       : networkPaths.flatMap(({ network, topology }) => {
-          const renderStrokesForNetwork = topology.closed
-            ? renderData.strokes
-            : mapOpenPathStrokePositionToCenter(renderData.strokes)
+          const renderStrokesForNetwork = getCenterFamilyStrokesForNetwork(
+            network,
+            topology
+          )
           const strokes = getRenderableStrokes(renderStrokesForNetwork).filter(
             (stroke) => isNativeCenterSolidVisualStroke(stroke, topology)
           )
@@ -3712,9 +3880,10 @@ const renderVectorGraphic = (
     shouldDisableVisualOverlapCollapse
       ? []
       : networkPaths.flatMap(({ network, path, topology }) => {
-          const renderStrokesForNetwork = topology.closed
-            ? renderData.strokes
-            : mapOpenPathStrokePositionToCenter(renderData.strokes)
+          const renderStrokesForNetwork = getCenterFamilyStrokesForNetwork(
+            network,
+            topology
+          )
           const strokes = getRenderableStrokes(renderStrokesForNetwork).filter(
             (stroke) => shouldRenderCenterSolidWithPathMask(stroke, topology)
           )
@@ -3731,9 +3900,10 @@ const renderVectorGraphic = (
   const centerDashedPathMaskVisualStrokeGroups: CenterDashedPathMaskVisualStrokeGroup[] =
     isMouseDragging && !shouldAttachFullStrokeDiagnostics
       ? networkPaths.flatMap(({ network, path, topology }) => {
-          const renderStrokesForNetwork = topology.closed
-            ? renderData.strokes
-            : mapOpenPathStrokePositionToCenter(renderData.strokes)
+          const renderStrokesForNetwork = getCenterFamilyStrokesForNetwork(
+            network,
+            topology
+          )
           const strokes = getRenderableStrokes(renderStrokesForNetwork).filter(
             isCenterDashedPathMaskVisualStroke
           )
@@ -3757,9 +3927,10 @@ const renderVectorGraphic = (
   > = []
   const strokePackets = measureVectorRenderPhase('stroke packets', () => [
     ...networkPaths.flatMap(({ network, path, topology }) => {
-      const renderStrokesForNetwork = topology.closed
-        ? renderData.strokes
-        : mapOpenPathStrokePositionToCenter(renderData.strokes)
+      const renderStrokesForNetwork = getCenterFamilyStrokesForNetwork(
+        network,
+        topology
+      )
       const hasNetworkCenterDashedIntent = hasDashedCenterStrokeIntent(
         renderStrokesForNetwork
       )
@@ -3952,6 +4123,13 @@ const renderVectorGraphic = (
       if (collapseInputStrokeFinalFaces.length === 0) {
         emitStrokePipelineCounter('visual-overlap-collapse-native-center-only')
         return finishCollapse([])
+      }
+
+      if (hasOpenImplicitConstrainedDashedFaces(collapseInputStrokeFinalFaces)) {
+        emitStrokePipelineCounter(
+          'visual-overlap-collapse-open-implicit-dashed-direct'
+        )
+        return finishCollapse(collapseInputStrokeFinalFaces)
       }
 
       if (
@@ -4358,6 +4536,16 @@ const renderVectorGraphic = (
       })
     ])
   )
+  ;(
+    graphic as typeof graphic & {
+      __asyraStrokeRenderFaceDebugMetas?: Array<
+        SolidCenterStrokeRenderEntry['debugMeta']
+      >
+    }
+  ).__asyraStrokeRenderFaceDebugMetas = [
+    ...constrainedDashedProductVisualEntries.map((entry) => entry.debugMeta),
+    ...strokeRenderFaces.map((face) => face.debugMeta)
+  ].filter((debugMeta) => debugMeta !== undefined)
 
   if (
     !shouldAttachFullStrokeDiagnostics &&
@@ -4366,13 +4554,24 @@ const renderVectorGraphic = (
     strokeProductGeometrySignature &&
     (strokeFinalFaces.length > 0 || strokeRenderEntries.length > 0)
   ) {
-    stageCache.products.set(strokeProductGeometrySignature, {
-      geometrySignature: strokeProductGeometrySignature,
-      finalFaces: strokeFinalFaces,
-      renderEntries: strokeRenderEntries
-    })
-    graphicCache.__asyraStrokePipelineStageCache = stageCache
-    emitStrokePipelineCounter('stroke-stage-cache:product-geometry-store')
+    const styleReplayable = canUseMiterStyleReplayableProductGeometrySignature
+      ? isMiterStyleReplayableStrokeProduct(strokeFinalFaces, strokeRenderEntries)
+      : false
+    if (
+      !canUseMiterStyleReplayableProductGeometrySignature ||
+      styleReplayable
+    ) {
+      stageCache.products.set(strokeProductGeometrySignature, {
+        geometrySignature: strokeProductGeometrySignature,
+        finalFaces: strokeFinalFaces,
+        renderEntries: strokeRenderEntries,
+        styleReplayable
+      })
+      graphicCache.__asyraStrokePipelineStageCache = stageCache
+      emitStrokePipelineCounter('stroke-stage-cache:product-geometry-store')
+    } else {
+      graphicCache.__asyraStrokePipelineStageCache = stageCache
+    }
   } else {
     graphicCache.__asyraStrokePipelineStageCache = stageCache
   }
@@ -4383,7 +4582,12 @@ const renderVectorGraphic = (
 }
 
 const vectorRenderStrategy: RenderStrategy = (graphic, data) => {
-  renderVectorGraphic(graphic, data as unknown as VectorComputedData)
+  try {
+    renderVectorGraphic(graphic, data as unknown as VectorComputedData)
+  } catch (error) {
+    renderSolidCenterStrokeEntries(graphic, [])
+    throw error
+  }
 }
 
 defineComponent({

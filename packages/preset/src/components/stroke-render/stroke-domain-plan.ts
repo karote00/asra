@@ -125,7 +125,6 @@ const isSelfIntersectingConstrainedDashed = ({
   stroke
 }: Pick<ResolveStrokeDomainsInput, 'topology' | 'stroke'>) =>
   topology.topologyFamily === 'self-intersecting' &&
-  topology.closed &&
   stroke.style === 'dashed' &&
   isConstrainedPosition(stroke.position)
 
@@ -134,7 +133,6 @@ const isSelfIntersectingConstrained = ({
   stroke
 }: Pick<ResolveStrokeDomainsInput, 'topology' | 'stroke'>) =>
   topology.topologyFamily === 'self-intersecting' &&
-  topology.closed &&
   isConstrainedPosition(stroke.position)
 
 const invertConstrainedStrokePosition = (
@@ -444,13 +442,17 @@ const buildSharedSplitRangeDashDomains = ({
     }
 
     const dashDomainStartDistance =
-      stroke.position === 'inside'
-        ? range.sourceStartDistance
-        : range.boundaryStartDistance
+      sourceFamily.legalDomainHints.closed === false
+        ? range.boundaryStartDistance
+        : stroke.position === 'inside'
+          ? range.sourceStartDistance
+          : range.boundaryStartDistance
     const dashDomainEndDistance =
-      stroke.position === 'inside'
-        ? range.sourceEndDistance
-        : range.boundaryEndDistance
+      sourceFamily.legalDomainHints.closed === false
+        ? range.boundaryEndDistance
+        : stroke.position === 'inside'
+          ? range.sourceEndDistance
+          : range.boundaryEndDistance
 
     return [
       {
@@ -462,6 +464,14 @@ const buildSharedSplitRangeDashDomains = ({
         boundaryTotalLength: range.boundaryTotalLength,
         startDistance: dashDomainStartDistance,
         endDistance: dashDomainEndDistance,
+        sourceStartDistance: Math.min(
+          range.sourceStartDistance,
+          range.sourceEndDistance
+        ),
+        sourceEndDistance: Math.max(
+          range.sourceStartDistance,
+          range.sourceEndDistance
+        ),
         sourceSegmentIndex: range.sourceSegmentIndex,
         sideAuthority: 'implicit-fill-hole-domain',
         selectedSide,
@@ -493,6 +503,77 @@ const getDomainRange = (domain: FigmaLikeSplitRangeDashDomain) => ({
   startDistance: Math.min(domain.startDistance, domain.endDistance),
   endDistance: Math.max(domain.startDistance, domain.endDistance)
 })
+
+const getSourceRange = (
+  domain: Pick<
+    FigmaLikeSplitRangeDashDomain,
+    'startDistance' | 'endDistance' | 'sourceStartDistance' | 'sourceEndDistance'
+  >
+) => {
+  const startDistance = domain.sourceStartDistance ?? domain.startDistance
+  const endDistance = domain.sourceEndDistance ?? domain.endDistance
+  return {
+    startDistance: Math.min(startDistance, endDistance),
+    endDistance: Math.max(startDistance, endDistance)
+  }
+}
+
+const getSourcePathTotalLength = (sourcePath: Pick<PathGeometry, 'segments'>) =>
+  sourcePath.segments.reduce((sum, segment) => sum + segment.length, 0)
+
+const isOpenEndpointTerminalSourceRange = ({
+  sourcePath,
+  sourceSegmentIndex,
+  startDistance,
+  endDistance
+}: {
+  sourcePath: Pick<PathGeometry, 'segments'>
+  sourceSegmentIndex: number
+  startDistance: number
+  endDistance: number
+}) => {
+  if (sourcePath.segments.length === 0) {
+    return false
+  }
+  const totalLength = getSourcePathTotalLength(sourcePath)
+  return (
+    (sourceSegmentIndex === 0 &&
+      startDistance <= SOURCE_SPAN_FALLBACK_MIN_LENGTH) ||
+    (sourceSegmentIndex === sourcePath.segments.length - 1 &&
+      endDistance >= totalLength - SOURCE_SPAN_FALLBACK_MIN_LENGTH)
+  )
+}
+
+const toSourceCoverageDomain = (
+  domain: FigmaLikeSplitRangeDashDomain
+): FigmaLikeSplitRangeDashDomain => {
+  const sourceRange = getSourceRange(domain)
+  return {
+    ...domain,
+    startDistance: sourceRange.startDistance,
+    endDistance: sourceRange.endDistance
+  }
+}
+
+const buildSourcePathSegmentSpanDomains = (
+  sourcePath: Pick<PathGeometry, 'segments'>
+) => {
+  let cursor = 0
+  return sourcePath.segments.flatMap((segment, sourceSegmentIndex) => {
+    const startDistance = cursor
+    cursor += segment.length
+    return cursor - startDistance > EPSILON
+      ? [
+          {
+            domainId: `source-segment-span:${sourceSegmentIndex}`,
+            startDistance,
+            endDistance: cursor,
+            sourceSegmentIndex
+          }
+        ]
+      : []
+  })
+}
 
 const subtractCoveredSourceRanges = ({
   sourceDomain,
@@ -539,6 +620,94 @@ const subtractCoveredSourceRanges = ({
   return uncoveredRanges
 }
 
+const isContourOwnedSourceRange = ({
+  sourcePath,
+  sourceSegmentIndex,
+  startDistance,
+  endDistance,
+  boundaryRole,
+  contourIds,
+  legalFaceIds
+}: {
+  sourcePath: Pick<PathGeometry, 'segments'>
+  sourceSegmentIndex: number
+  startDistance: number
+  endDistance: number
+  boundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
+  contourIds?: string[]
+  legalFaceIds?: string[]
+}) =>
+  boundaryRole !== 'ambiguous' &&
+  ((contourIds?.length ?? 0) > 0 || (legalFaceIds?.length ?? 0) > 0) &&
+  !isOpenEndpointTerminalSourceRange({
+    sourcePath,
+    sourceSegmentIndex,
+    startDistance,
+    endDistance
+  })
+
+const buildContourOwnedSourceCoverages = (
+  sourcePath: Pick<PathGeometry, 'segments'>,
+  sharedSourceSplitRanges: ResolvedVectorSourceSplitRange[] | undefined
+) =>
+  (sharedSourceSplitRanges ?? [])
+    .filter((range) => {
+      const sourceRange = {
+        startDistance: Math.min(
+          range.sourceStartDistance,
+          range.sourceEndDistance
+        ),
+        endDistance: Math.max(
+          range.sourceStartDistance,
+          range.sourceEndDistance
+        )
+      }
+      return isContourOwnedSourceRange({
+        sourcePath,
+        sourceSegmentIndex: range.sourceSegmentIndex,
+        startDistance: sourceRange.startDistance,
+        endDistance: sourceRange.endDistance,
+        boundaryRole: range.boundaryRole,
+        contourIds: range.contourIds,
+        legalFaceIds: range.legalFaceIds
+      })
+    })
+    .map((range) => ({
+      domainId: `contour-owned-source-range:${range.rangeId}`,
+      sourceSegmentIndex: range.sourceSegmentIndex,
+      startDistance: Math.min(
+        range.sourceStartDistance,
+        range.sourceEndDistance
+      ),
+      endDistance: Math.max(
+        range.sourceStartDistance,
+        range.sourceEndDistance
+      )
+    }))
+    .filter(
+      (range) =>
+        range.endDistance - range.startDistance >
+        SOURCE_SPAN_FALLBACK_MIN_LENGTH
+    )
+
+const subtractContourOwnedSourceRanges = ({
+  sourceDomain,
+  candidateRange,
+  contourOwnedRanges
+}: {
+  sourceDomain: FigmaLikeSplitRangeDashDomain
+  candidateRange: { startDistance: number; endDistance: number }
+  contourOwnedRanges: FigmaLikeSplitRangeDashDomain[]
+}) =>
+  subtractCoveredSourceRanges({
+    sourceDomain: {
+      ...sourceDomain,
+      startDistance: candidateRange.startDistance,
+      endDistance: candidateRange.endDistance
+    },
+    coveredDomains: contourOwnedRanges
+  })
+
 const supplementInsideDashedSourceSpanDomains = ({
   sourcePath,
   splitRangeDomains
@@ -546,7 +715,7 @@ const supplementInsideDashedSourceSpanDomains = ({
   sourcePath: Pick<PathGeometry, 'segments'> & Partial<Pick<PathGeometry, 'closed'>>
   splitRangeDomains: FigmaLikeSplitRangeDashDomain[]
 }): FigmaLikeSplitRangeDashDomain[] => {
-  const sourceDomains = buildFigmaLikeSplitRangeDashDomains(sourcePath)
+  const sourceDomains = buildSourcePathSegmentSpanDomains(sourcePath)
   let fallbackDomainIndex = 0
   const fallbackDomains = sourceDomains.flatMap((sourceDomain) =>
     subtractCoveredSourceRanges({
@@ -573,6 +742,70 @@ const supplementInsideDashedSourceSpanDomains = ({
   return fallbackDomains.length > 0
     ? [...splitRangeDomains, ...fallbackDomains]
     : splitRangeDomains
+}
+
+const supplementOutsideDashedOpenSourceSpanDomains = ({
+  sourcePath,
+  splitRangeDomains,
+  sharedSourceSplitRanges
+}: {
+  sourcePath: Pick<PathGeometry, 'segments'> & Partial<Pick<PathGeometry, 'closed'>>
+  splitRangeDomains: FigmaLikeSplitRangeDashDomain[]
+  sharedSourceSplitRanges?: ResolvedVectorSourceSplitRange[]
+}): FigmaLikeSplitRangeDashDomain[] => {
+  const sourceDomains = buildFigmaLikeSplitRangeDashDomains(sourcePath)
+  const contourSplitRangeDomains = splitRangeDomains.filter((domain) => {
+    const sourceRange = getSourceRange(domain)
+    return isContourOwnedSourceRange({
+      sourcePath,
+      sourceSegmentIndex: domain.sourceSegmentIndex,
+      startDistance: sourceRange.startDistance,
+      endDistance: sourceRange.endDistance,
+      boundaryRole: domain.boundaryRole,
+      contourIds: domain.contourIds,
+      legalFaceIds: domain.legalDomainIds
+    })
+  })
+  const contourSplitRangeSourceCoverages = contourSplitRangeDomains.map(
+    toSourceCoverageDomain
+  )
+  const contourOwnedRanges = buildContourOwnedSourceCoverages(
+    sourcePath,
+    sharedSourceSplitRanges
+  )
+  let fallbackDomainIndex = 0
+  const fallbackDomains = sourceDomains.flatMap((sourceDomain) =>
+    subtractCoveredSourceRanges({
+      sourceDomain,
+      coveredDomains: contourSplitRangeSourceCoverages
+    })
+      .flatMap((range) =>
+        subtractContourOwnedSourceRanges({
+          sourceDomain,
+          candidateRange: range,
+          contourOwnedRanges
+        })
+      )
+      .map((range) => {
+        const domain: FigmaLikeSplitRangeDashDomain = {
+          domainId: `source-span-fallback:${sourceDomain.domainId}:${fallbackDomainIndex}`,
+          startDistance: range.startDistance,
+          endDistance: range.endDistance,
+          sourceStartDistance: range.startDistance,
+          sourceEndDistance: range.endDistance,
+          sourceSegmentIndex: sourceDomain.sourceSegmentIndex,
+          boundaryRole: 'ambiguous',
+          sideResolutionStatus: 'resolved',
+          sideResolutionReason: 'open-source-span-both-sides'
+        }
+        fallbackDomainIndex += 1
+        return domain
+      })
+  )
+
+  return fallbackDomains.length > 0
+    ? [...contourSplitRangeDomains, ...fallbackDomains]
+    : contourSplitRangeDomains
 }
 
 export const resolveStrokeDomains = ({
@@ -613,7 +846,17 @@ export const resolveStrokeDomains = ({
     }
   }
 
-  if (sourceFamily.supportState === 'center-equivalent') {
+  const hasOpenSelfIntersectingImplicitSplitRanges =
+    !topology.closed &&
+    isConstrainedPosition(stroke.position) &&
+    (implicitFillRegions?.length ?? 0) > 0 &&
+    ((sharedStrokeBoundaryDomains?.length ?? 0) > 0 ||
+      (sharedSourceSplitRanges?.length ?? 0) > 0)
+
+  if (
+    sourceFamily.supportState === 'center-equivalent' &&
+    !hasOpenSelfIntersectingImplicitSplitRanges
+  ) {
     return {
       ...basePlan,
       blockedReason: sourceFamily.blockedReason,
@@ -662,7 +905,6 @@ export const resolveStrokeDomains = ({
   }
 
   const hasSharedSelfIntersectingSplitRanges =
-    topology.closed &&
     isConstrainedPosition(stroke.position) &&
     ((sharedStrokeBoundaryDomains?.length ?? 0) > 0 ||
       (sharedSourceSplitRanges?.length ?? 0) > 0)
@@ -736,12 +978,18 @@ export const resolveStrokeDomains = ({
       stroke
     })
     const supplementedSplitRangeDomains =
-      stroke.position === 'inside'
+      stroke.position === 'inside' && topology.closed
         ? supplementInsideDashedSourceSpanDomains({
             sourcePath,
             splitRangeDomains
           })
-        : splitRangeDomains
+        : stroke.position === 'outside' && !topology.closed
+          ? supplementOutsideDashedOpenSourceSpanDomains({
+              sourcePath,
+              splitRangeDomains,
+              sharedSourceSplitRanges
+            })
+          : splitRangeDomains
     const sideResolutionContext: StrokeDomainSideResolutionContext = {
       sourcePath,
       topologyPoints: topology.normalizedPoints,
@@ -790,7 +1038,7 @@ export const resolveStrokeDomains = ({
         'dash-domains-follow-boundary-domains',
         'side-authority-is-implicit-fill-hole-domain',
         ...(supplementedSplitRangeDomains.length > splitRangeDomains.length
-          ? ['inside-source-span-fallback-domains-added']
+          ? ['source-span-fallback-domains-added']
           : [])
       ]
     }

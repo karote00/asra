@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Container, Mesh } from 'pixi.js'
 import {
   buildProjectionMeshData,
@@ -6,6 +6,11 @@ import {
 } from '../projections/mesh-projection'
 
 describe('mesh projection', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
   it('triangulates polygon geometry into indexed mesh data', () => {
     const meshData = buildProjectionMeshData({
       polygons: [
@@ -135,5 +140,41 @@ describe('mesh projection', () => {
 
     projection.dispose()
     expect(host.children).toHaveLength(0)
+  })
+
+  it('detaches disposed projections before deferring mesh destruction', () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('requestAnimationFrame', undefined)
+    const host = new Container()
+    const projection = createMeshProjection({
+      model: {
+        polygons: [
+          [
+            { x: 0, y: 0 },
+            { x: 10, y: 0 },
+            { x: 10, y: 10 },
+            { x: 0, y: 10 }
+          ]
+        ]
+      },
+      paint: {
+        kind: 'solid',
+        color: 0x00ff00,
+        alpha: 1
+      }
+    })
+
+    expect(projection.attach(host)).toBe(true)
+    const root = host.children[0] as Container
+
+    projection.dispose()
+
+    expect(host.children).toHaveLength(0)
+    expect(root.visible).toBe(false)
+    expect((root as { destroyed?: boolean }).destroyed).not.toBe(true)
+
+    vi.runAllTimers()
+
+    expect((root as { destroyed?: boolean }).destroyed).toBe(true)
   })
 })
